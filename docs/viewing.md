@@ -1,6 +1,6 @@
 # neumoDVB #
 
-## Viewing TV ##
+## Viewing and recording TV ##
 
 To view channels, one of the dark-mode screens:
 

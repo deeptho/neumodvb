@@ -1,4 +1,5 @@
-### Configuring LNBs ###
+# neumoDVB #
+## Configuring LNBs ##
 
 The LNB configurations informs neumoDVB about your satellite equipment setup. neumoDVB allows for complicated
 setups involving multiple LNBs on multiple dishes, various combinations of DiSEqC switches, rotors etc.
@@ -9,7 +10,7 @@ All of this can get quite complicated (with many potential bugs) and is mostly h
 configuration, which is a bit of a misnomer as such a configuration describes not only the LNB but also
 how it is connected to your adapters.
 
-#### Simple LNB setup ####
+### Simple LNB setup ###
 
 In simple satellite setups, adding an LNB entry is easy:
 
@@ -46,7 +47,7 @@ if tuning fails.
 
 
 
-#### Advanced LNB setup ####
+### Advanced LNB setup ###
 
 You may need to edit the following fields for more complex setups
 

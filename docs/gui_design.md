@@ -1,4 +1,5 @@
-## GUI design in neumoDVB##
+# neumoDVB #
+## GUI design in neumoDVB ##
 neumodDVB comes with two types of screens: the list screens are meant for service scanning, channel editing
 and so forth. They are meant for use as other programs and roughly follow the same UI themes.
 On the other hand, some other screens are meant for viewing in "set-top box mode".
@@ -79,7 +80,7 @@ can take:
   with the following content:
 
   ```
-# Will set your DPI to 141x141 if the screen is 1080p
+\# Will set your DPI to 141x141 if the screen is 1080p
 Section "Monitor"
     Identifier   "<default monitor>"
     DisplaySize  310 170    # In millimeters

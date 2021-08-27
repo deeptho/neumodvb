@@ -1,4 +1,6 @@
-##Viewing TV##
+# neumoDVB #
+
+## Viewing TV ##
 
 To view channels, one of the dark-mode screens:
 
@@ -10,7 +12,7 @@ performed.
 Usually all of these screens are shows in a window, but for real TV viewing, it is better to enter full screen
 mode by `Ctrl-F`. This will make the window fill the screen.
 
-###Channel screen###
+### Channel screen ###
 
 
 This screen can actually display  services or channels and allows easy switching between channels
@@ -69,7 +71,7 @@ In the channel list screen region,
 * Several commands from `View mode` are also available. E.g., Press `Ctrl-O` for onscreen display
 
 
-###Grid EPG screen###
+### Grid EPG screen ###
 
 
 neumoDVB performs EPG scanning only when tuned to a service or when tuned to a mux. Services
@@ -124,7 +126,7 @@ screen:
 * `Shift-Ctrl-Return` will start a new live service
 * `Ctrl-X` will stop the active live service
 
-###View Mode###
+### View Mode ###
 
 As it's name suggests this mode is for watching TV.
 The most useful commands are
@@ -168,7 +170,7 @@ them.
 
 
 
-###Recording programs###
+### Recording programs ###
 
 
 Recordings of specific programs can be scheduled or unscheduled on the grid EPG screen.
@@ -189,7 +191,7 @@ Recordings can also be started from the services screen. In this case, the recor
 be proposed for the currently running program.
 
 
-###Playing records###
+### Playing recordings ###
 
 To playback recordings, press `R` to activate the recordings screen. An example is shown below.
 Press `Ctrl-Return` on any of the recordings to start playback. Press `Ctrl-X` to stop it.

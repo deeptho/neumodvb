@@ -1,4 +1,6 @@
-##Spectrum scan##
+# neumoDVB #
+
+## Spectrum scan ##
 
 
 Spectra are always scanned using a specific LNB. Make sure tat this LNB is not in use
@@ -17,7 +19,7 @@ blind scan and provides some details on the related parts of the screen
 ![Spectrum scan](images/spectrum.png)
 
 
-###Starting a spectrum scan###
+### Starting a spectrum scan ###
 Proceed as follows
 
 * At the very bottom left on the screen, first select the bands and polarizations you want to scan.
@@ -69,7 +71,7 @@ by shifting text up as needed. Sometimes this may lead to to the text being abov
 Use the panning facilities in this case.
 
 
-###Blind scanning muxes###
+### Blind scanning muxes ###
 
 After a spectrum has been acquired, press the `Blindscan All` button at the bottom to start a "spectrum blindscan".
 neumoDVB will attempt to tune each of the found spectral peaks one after the other and try to lock a signal.

@@ -15,7 +15,7 @@ Some of the features include
 Currently this software is fully functional, but is of alpha quality. It has seen
 very little testing.
 
-## [Installation](docs/INSTALL.md)
+## [Installation](docs/INSTALL.md) ##
 
 ## Running neumoDVB and initial configuration ##
 
@@ -84,19 +84,19 @@ window will appear and no errors should appear on the console. Some debug messag
 See the sections below to learn how to perform initial configuration of neumoDVB
 
 
-## [Frontend configuration](docs/frontends.md)
+## [Frontend configuration](docs/frontends.md) ##
 
-## [LNB configuration](docs/lnbs.md)
+## [LNB configuration](docs/lnbs.md) ##
 
-## [Scanning muxes](docs/muxes.md)
+## [Scanning muxes](docs/muxes.md) ##
 
-## [Managing channels](docs/channel_management.md)
+## [Managing channels](docs/channel_management.md) ##
 
-## [Viewing TV](docs/viewing.md)
+## [Viewing TV](docs/viewing.md) ##
 
-## [Spectrum analysis](docs/spectrum.md)
+## [Spectrum analysis](docs/spectrum.md) ##
 
-## [Positioner control](docs/positioner.md)
+## [Positioner control](docs/positioner.md) ##
 
 
-## [GUI Design in neumoDVB](docs/gui_design.md)
+## [GUI Design in neumoDVB](docs/gui_design.md) ##

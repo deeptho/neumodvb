@@ -1,4 +1,5 @@
-##Identifying and reporting bugs##
+# neumoDVB #
+## Identifying and reporting bugs ##
 
 neumoDVB uses wxWidgets for its gui code. In turn this is layered on top of Gtk3. Unfortunately,
 GTK3 often is the cause of bugs. While we try to work around them as much as possible, some rmin.

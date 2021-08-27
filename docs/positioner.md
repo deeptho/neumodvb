@@ -1,4 +1,6 @@
-##Positioner control##
+# neumoDVB #
+
+## Positioner control ##
 
 neumo DVB can operator DiSEqC positioners, also called "rotors". DiSEqC positioners are controlled
 using one of two protocols:

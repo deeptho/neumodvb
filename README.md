@@ -92,7 +92,7 @@ See the sections below to learn how to perform initial configuration of neumoDVB
 
 ## [Managing channels](docs/channel_management.md) ##
 
-## [Viewing TV](docs/viewing.md) ##
+## [Viewing and recording TV](docs/viewing.md) ##
 
 ## [Spectrum analysis](docs/spectrum.md) ##
 

@@ -1,4 +1,4 @@
-# neumoDV #
+# neumoDVB #
 
 ## Configuring the frontends ##
 

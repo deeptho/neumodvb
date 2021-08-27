@@ -1,4 +1,4 @@
-##Configuring the frontends ##
+## Configuring the frontends ##
 
 The first test you should now perform is to check whether neumoDVB can access your DVB devices.
 From the `lists` menu, choose `Frontends` (Ctrl-Shift-F). For each frontend in `/dev/dvb/adapter/...`

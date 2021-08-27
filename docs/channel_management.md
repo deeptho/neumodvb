@@ -1,4 +1,6 @@
-##Channel lists and channel numbering##
+# neumoDVB #
+
+## Channel lists and channel numbering##
 
 neumoDVB distinguishes between `services` and `channels`. A service is a TV or radio
 service being broadcast via satellite. On the other hand, a channel is a service which has been
@@ -48,7 +50,7 @@ In general there are two practical ways to prepare your channel list for viewing
   mode.
 
 
-###Assigning service numbers ###
+### Assigning service numbers ###
 
 Service numbers will be used to order services in lists, when "numeric" sorting is active.
 
@@ -88,7 +90,7 @@ channel orders in different bouquets/favorite lists.
 ![Bouquets](images/favorite_list.png)
 
 
-###Bouquets defined in Service Information###
+### Bouquets defined in Service Information###
 
 Instead of creating a favorite list, you can also stick to predefined bouquets and service provider
 define channel numbers. The following shows an example.
@@ -97,7 +99,7 @@ define channel numbers. The following shows an example.
 
 
 
-###Creating favorite lists ###
+### Creating favorite lists ###
 To create a favorite list, proceed as follows:
 
 * First create a new favorite list: `Lists - Bouquets`, `Edit- New`. Only enter a new name e.g., `MyList`.

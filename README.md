@@ -88,7 +88,7 @@ See the sections below to learn how to perform initial configuration of neumoDVB
 
 ## [LNB configuration](docs/lnbs.md)
 
-## [Scanning muxes](docs/lnbs.md)
+## [Scanning muxes](docs/muxes.md)
 
 ## [Managing channels](docs/channel_management.md)
 

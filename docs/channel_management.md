@@ -1,6 +1,6 @@
 # neumoDVB #
 
-## Channel lists and channel numbering##
+## Channel lists and channel numbering ##
 
 neumoDVB distinguishes between `services` and `channels`. A service is a TV or radio
 service being broadcast via satellite. On the other hand, a channel is a service which has been
@@ -66,7 +66,7 @@ In the examples below we assume that "BBC One HD" has been assigned
 channel number 101 and "BBC Two HD" number 102. The numbers you enter are assigned to `services`.
 
 
-###Bouquets and channels ###
+### Bouquets and channels ###
 
 As an alternative, it is also possible to group services into bouquets, either bouquets defined
 by the Service Information in the stream, or by defining a bouquet yourself.
@@ -90,7 +90,7 @@ channel orders in different bouquets/favorite lists.
 ![Bouquets](images/favorite_list.png)
 
 
-### Bouquets defined in Service Information###
+### Bouquets defined in Service Information ###
 
 Instead of creating a favorite list, you can also stick to predefined bouquets and service provider
 define channel numbers. The following shows an example.

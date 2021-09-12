@@ -1,0 +1,6 @@
+TODO: wrtite this file.
+
+Mingw:
+	./autogen.sh
+	CC="gcc -mno-cygwin -mwindows" CXX="g++ -mno-cygwin -mwindows" LDFLAGS="-mno-cygwin -mwindows" ./configure
+

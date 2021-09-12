@@ -1,0 +1,5 @@
+TAGS
+.gdb_history
+valgrind.log
+.gdbinit
+c

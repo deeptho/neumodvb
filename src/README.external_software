@@ -1,0 +1,49 @@
+sudo dnf install -y python3-devel
+sudo dnf install -y wxWidgets wxWidgets-devel
+sudo dnf install -y librsvg2-devel librsvg2
+sudo dnf install -y python3-jinja2
+sudo dnf install -y pybind11-devel
+sudo dnf install -y  libdvbcsa libdvbcsa-devel
+sudo dnf install -y python3-sip python3-sip-devel
+sudo dnf install -y mpv mpv-libs mpv-libs-devel
+sudo dnf install -y freeglut-devel
+sudo dnf install -y python3-ipdb
+sudo pip3 install setproctitle
+sudo dnf install -y boost-devel # execution_context
+sudo dnf install -y libconfig-devel
+
+sudo pip3 install regex
+
+=======================================================
+cd /mnt/devel/cairo
+./autogen.sh --prefix=/opt/neumo --enable-svg --enable-gl pixman_CFLAGS='-I /opt/neumo/include/pixman-1' pixman_LIBS='-L/opt/neumo/lib -lpixman-1'
+
+make -j8
+sudo make install
+
+
+#boost: /mnt/scratch/boost
+
+
+wxpython (+wxwidgets)
+cd /mnt/devel/Phoenix/ext
+./configure --prefix=/usr
+make
+sudo make install
+cd /mnt/devel/Phoenix
+python3 build.py  build
+sudo python3 build.py  install
+
+pixmap /mnt/devel/pixman => /opt/neu mo/pixman
+
+
+################
+not used
+################
+cd /mnt/devel/pixman
+./autogen.sh --prefix=/opt/neumo
+make -j 8
+sudo make install
+
+
+sudo dnf install -y librsvg2-devel

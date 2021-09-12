@@ -1,0 +1,93 @@
+tooltip {
+    background-color: yellow;
+}
+
+#gridepg scrollbar slider { background-color: yellow}
+#gridepg scrollbar trough { background-color: gray}
+
+#gridepg scrollbar {
+    border-image: none;
+    border-radius: 3px;
+    border-width: 1px 1px 2px 1px;
+    border-style: solid;
+    border-color: transparent;
+    background: black; /*needed to void a flash of white when entry is drawn*/
+}
+
+#gridepg entry  {
+    border-image: none;
+    border-radius: 3px;
+    border-width: 1px 1px 2px 1px;
+    border-style: solid;
+    border-color: transparent;
+    background: black; /*needed to void a flash of white when entry is drawn*/
+}
+
+ entryOFF  {
+    border-image: none;
+    border-radius: 3px;
+    border-width: 1px 1px 2px 2px;
+    border-style: solid;
+    }
+
+scrolledwindow {
+    border-style: none;
+}
+
+#gridepg .active entry:focus {
+    border-image: none;
+    border-radius: 3px;
+    border-width: 4px 4px 4px 4px;
+    border-style: solid;
+    border-color: yellow;
+    /*border-color: blue;*/
+    box-shadow: inset  0px  4px @button_default_box_shadow_color,
+                inset  4px  0px @button_default_box_shadow_color,
+                inset -4px  0px @button_default_box_shadow_color,
+                inset  0px -4px @button_default_box_shadow_color;
+}
+
+#gridepg .inactive entry:focus {
+    border-image: none;
+    border-radius: 3px;
+    border-width: 4px 4px 4px 4px;
+    border-style: solid;
+    border-color: green;
+    /*border-color: blue;*/
+    box-shadow: inset  0px  4px @button_default_box_shadow_color,
+                inset  4px  0px @button_default_box_shadow_color,
+                inset -4px  0px @button_default_box_shadow_color,
+                inset  0px -4px @button_default_box_shadow_color;
+}
+
+#gridepg entryOFF:focus {
+    border-image: none;
+    border-radius: 3px;
+    border-width: 4px 4px 4px 4px;
+    border-style: solid;
+    border-color: yellow;
+    /*border-color: blue;*/
+    box-shadow: inset  0px  4px @button_default_box_shadow_color,
+                inset  4px  0px @button_default_box_shadow_color,
+                inset -4px  0px @button_default_box_shadow_color,
+                inset  0px -4px @button_default_box_shadow_color;
+}
+
+
+#gridepg widget .mosaic_background {
+    background: black;
+}
+
+
+#gridepg  {
+    background: black;
+}
+
+*:disabled {
+    color: gray;
+}
+
+
+*:not(focus) {
+    color: black;
+}

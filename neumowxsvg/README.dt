@@ -1,0 +1,4 @@
+./configure -disable-libav --prefix=/usr && sudo make install
+
+#OR
+sudo dnf install ffmpeg-devel &&  ./configure --prefix=/usr

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE log4j:configuration>
+
+<log4j:configuration debug="false" xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+  <appender name="CONSOLE" class="org.apache.log4j.rolling.ConsoleAppender">
+    <priority value ="debug" />
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="%d %p: [%X{thread_name} %x] %m %.20F:%L%n"/>
+    </layout>
+  </appender>
+
+  <appender name="ROLL" class="org.apache.log4j.rolling.RollingFileAppender">
+    <priority value ="info" />
+    <rollingPolicy class="org.apache.log4j.rolling.TimeBasedRollingPolicy">
+      --<param name="FileNamePattern" value="/tmp/neumo.%d{yyyy-MM-dd HH:00}.gz"/>
+    </rollingPolicy>
+
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="%d %p: [%X{thread_name} %x] %m %.20F:%L%n"/>
+    </layout>
+  </appender>
+
+  <appender name="FILE" class="org.apache.log4j.rolling.FileAppender">
+    <param name="File" value="/tmp/neumo.log" />
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="%d %p: [%X{thread_name} %x] %m %.20F:%L%n"/>
+    </layout>
+  </appender>
+
+
+  <root>
+    <priority value ="debug" />
+    <!--<appender-ref ref="FILE"/>-->
+    <!--<appender-ref ref="ROLL"/>-->
+    <!--<appender-ref ref="CONSOLE"/>-->
+  </root>
+
+
+  <logger name="main">
+    <priority value ="debug" />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="tuner">
+    <priority value ="debug" />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="service">
+    <priority value ="error" />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="receiver">
+    <priority value ="debug" />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="indexer" additivity="false" >
+    <priority value ="error"  />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="pat" additivity="false" >
+    <priority value ="error"  />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="sdt" additivity="false" >
+    <priority value ="error"  />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="eit-sky" additivity="true" >
+    <priority value ="error"  />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <!--<appender-ref ref="FILE"/>-->
+  </logger>
+
+  <logger name="eit" additivity="true" >
+    <priority value ="error"  />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="nit" additivity="false" >
+    <priority value ="error"  />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+  <logger name="scam" additivity="false" >
+    <priority value ="error"  />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
+
+</log4j:configuration>

@@ -7,13 +7,14 @@ This software depends on several other software packages. If you wish to compile
 also a number of development packages are needed. The names of the packages depend on your linux
 distribution.
 
-On Fedora 33, install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
+On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
 
 * clang  #used for compiling
 * boost-program-options curl-devel
-* wxGTK3 gtk3-devel freeglut-devel librsvg2-devel
+* wxGTK3 gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif
 * python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-configobj
-* wxWidgets-devel mpv-libs-devel
+* python3-regex
+* wxWidgets-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs
 * libdvbcsa-devel
 * tsduck #used for t2mi streams
 * espeak #used to read out load the SNR level
@@ -26,6 +27,20 @@ at least the following packages are needed:
 
 The above software list may be incomplete or may contain no longer needed packages.
 Please open a ticket if you discover mistakes
+
+If you encounter errors like
+```
+fatal error: PCH file '.../cmake_pch.hxx.gch' is out of date and needs to be rebuilt: module file out of date
+```
+after installing missing files halfway during compilation, then this may be due to a bug in cmake:
+cmake version 3.19 should work, but cmake 3.20 will not (probably a bug).
+As a workaround, you can also just remove the precompiled headers. The easiest is:
+```
+cd ~/neumodvb/build
+rm -fr *
+cmake ..
+make -j8
+```
 
 ### Install blindscan drivers ###
 
@@ -55,6 +70,7 @@ Next, build NeumoDVB as follows:
 ```
     cd ~/neumodvb
     mkdir build
+    mkdir build_ext
     cd ~/neumodvb/build
     cmake ..
     make -j8

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#first_cmp=$(diff --unchanged-line-format= --old-line-format= --new-line-format='%L' "$1" "$2" | wc -l)
+second_cmp=$(diff --unchanged-line-format= --old-line-format= --new-line-format='%L' "$2" "$1" | wc -l)
+
+if [ "$second_cmp" -eq "0" ]
+then
+    #echo "Subset"
+    exit 0
+else
+    #echo "Not subset"
+    exit 1
+fi

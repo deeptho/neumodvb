@@ -1,0 +1,12 @@
+TODO
+  * SVGUseElement -> fix GetBBox, GetResultBBox if no width/height specified
+  * SVGLocatable::GetChildrenBBox -> don't use defs-tag by calculation
+  * Render: don't delete shadow tree aftre drawing of SVGUseElement
+  * SVG*Elements -> extend only from one abstract class and
+    multiply interfaces; set methods -> set status of element
+    to 'changed': render -> canvas items must be recreated only
+    for elments with status 'changed'.
+  * rewrite parse_dtd.py using xmlto library to parse svg11.dtd
+  * implement animated style attributes
+  * fix SVGAnimatedPathData and SVGAnimatedPoints
+  * libart backend: optimize DrawCanvasImage -> too slow

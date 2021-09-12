@@ -1,0 +1,449 @@
+Install prerequisite software - the following list may be incomplete
+
+On fedora 31:
+sudo dnf install -y boost-devel curl-devel wxGTK3  python3-wxpython4  python3-jinja2  wxWidgets-devel  librsvg2-devel  clang libdvbcsa-devel python3-sip-devel mpv-libs-devel freeglut-devel boost-program-options gtk3-devel python3-matplotlib-wx tsduck python3-configobj
+
+sudo pip3 install regex
+sudo pip3 install setproctitle
+sudo dnf install python3-matplotlib-wx
+
+#sudo dnf install -y wxsvg-devel
+#sudo pip3 install adjusttext
+sudo pip3 install mpl_scatter_density
+
+===================
+
+cd ~/neumodvb
+mkdir build
+cd build
+cmake ..
+
+
+https://en.opensuse.org/Portal:Build_Service
+==============
+https://www.benjack.io/2018/02/02/python-cpp-revisited.html
+
+
+https://www.benjack.io/2018/02/02/python-cpp-revisited.html
+I'm also using CMake to install both C++ and Python parts. It is rather straightforward to teach CMake how to install your python files in correct places using ${PYTHON_SITE_PACKAGES}. I'm not working with Windows but on Linux it works very well.
+
+I was able to package an extension to PYPI using CMake+setuptools (link). pip triggers module compilation and installs all .so into lib/<python>/site-packages. Works smoothly for virtualenv and --user installation. The only trick is -DCMAKE_INSTALL_RPATH=$ORIGIN option. Without it python module will be not able to find other .so files.
+
+
+
+https://stackoverflow.com/questions/1242904/finding-python-site-packages-directory-with-cmake
+
+
+Since CMake 3.12 you can use FindPython module which populates Python_SITELIB and Python_SITEARCH variables for architecture independent and specific libraries, respectively.
+
+Example:
+
+find_package(Python ${PYTHON_VERSION} REQUIRED COMPONENTS Development)
+Python_add_library(foo MODULE
+    src/foo.cc src/python_interface.cc
+)
+install(TARGETS foo DESTINATION ${Python_SITEARCH}/foo)
+
+
+
+I suggest to use get_python_lib(True) if you are making this extension as a dynamic library. This first parameter should be true if you need the platform specific location (in 64bit linux machines, this could be /usr/lib64 instead of /usr/lib)
+
+
+
+https://stackoverflow.com/questions/29232614/build-a-python-package-with-setup-py-in-cmake
+
+https://bloerg.net/2012/11/10/cmake-and-distutils.html suggests setting package_dir to ${CMAKE_CURRENT_SOURCE_DIR} in setup.py.
+
+
+pwd
+/home/philips/cmake/test/build/python
+python3 setup.py install --prefix=/usr --root /tmp/qqq
+
+
+==========
+
+
+Database principes
+-old values can be upgraded, but some data loss may result
+-primary and secondary index values cannot be upgraded
+-upgrade code simply reads all records in order, ignoring any keys. Converts
+ old records to new ones and reinserts them in empty database. This relies on
+ no serialized keys being stored in records!
+
+
+=====================
+subtree for neumowxsvg
+#see https://medium.com/@porteneuve/mastering-git-subtrees-943d29a798ec
+#Add a remote for the external repo
+git remote add neumowxsvg /mnt/devel/neumowxsvg/
+#fetch the history
+git fetch neumowxsvg
+#place the result in the proper subdirectory
+git read-tree --prefix=neumowxsvg -u neumowxsvg/deepthought
+
+
+
+TODO:
+=======================
+
+
+index 1
+              <----start1
+index 2
+              <----start2
+              <----end1
+index 3
+              <----end2
+
+
+hardlinked as follows
+
+dir1                          dir2
+UUID -> 12AB...FE             UUID -> 98CB...ED
+index 1                       index 2
+              <----start1                   <----start2
+index 2         (12AB...)     index 3          (98CB...)
+              <----start2                   <----end2
+
+
+playback looks at first index for presence of start1 marker
+start1 marker is some magic key that can be found in directory. E.g. UUI
+
+ringbuffer file would also be possible:
+instead of start1 ... end1 we have markers:
+
+marker(UUID, fragment_no, start_time, end_time)
+
+fragment_no is a logical fragment. There can be multiple in each file:
+playback:
+ for idx in indexes:
+   for marker in idx:
+      play from marker.start_time to marker.end_time
+
+ringbuffer is implemented by byte_address modulo file size
+
+pipe()
+for(;;) {
+  epoll (or use blocking splice and interrupt to unblock if needed
+ splice(dvbfd -> pipe1)
+ splice(pipe1 -> file)
+ read in mmaped memory
+ }
+
+
+
+
+======
+http://duganchen.ca/mvp-for-qt-pyqt-and-pyside/
+
+
+================
+valgrind in python
+
+PYTHONMALLOC=malloc valgrind --tool=memcheck viewer.py
+PYTHONMALLOC=malloc valgrind --tool=memcheck --vgdb=full --vgdb-error=0 viewer.py
+
+
+This will disable pymalloc and just use the libc malloc directly, making it valgrind-friendly. This is equivalent to --without-pymalloc (and it is just as slow)
+
+
+=========================
+
+how to manage live buffers?
+
+One buffer per subscription is not possible because subscriptions share the same
+live buffer when tuned to the same channel
+
+One buffer per service => when should these be cleaned up? Immediately after stopping the service?
+If so, then it is not possible to revisit earlier tuned services. If not, then we will
+end up with (too) many live buffers.
+
+
+When can a live buffer be reused? E.g., when retuning to a service, should we still append to the last
+live buffer? (yes?).
+
+Problem: after retuning, service may be on the same or on a different adapter, resulting in a different or the same
+live buffer
+
+Problem: possible race when multiple threads would start opening same live buffer (only possible
+if live buffer for a service is not attached to specific adapter
+
+
+===============
+blindscan
+ /mnt/devel/updatelee/v4l-updatelee/drivers/media/dvb-core/dvb_frontend.c
+ dtv_tune activates blind search
+ FE_CAN_BANDWIDTH_AUTOLINDSEARCH
+/mnt/devel/updatelee/v4l-updatelee/drivers/media/dvb-frontends/stv090x.c
+
+/include/uapi/linux/dvb/frontend.h
+We can add properties here
+
+ DTV_MAX_COMMAND
+
+->
+
+Add a newwer higher range, e.g. starting at 128 for extended commands
+add a blindscan parameter
+
+0x 80 00 00 00
+
+
+   	enum fe_extended_caps extended_caps; is needed because all bit flags are in use
+
+
+extra ioctls defined in  /mnt/devel/updatelee/v4l-updatelee/drivers/media/dvb-core/dvb_frontend.c
+spectrum_scan and constellation samples
+also used for extended caps (extended caps could be gotten via extended property
+
+blindscan seems to be always enabled.
+
+==============
+problem with oscam: same channel from different clients on dvbapi -> second client does not
+decode. See module-dvbapi.c
+usedidx = is_ca_used(i, demux[demux_id].STREAMpids[j]);
+	if(idx != usedidx)....
+
+Probably there multiple entries for the same pid.
+
+
+
+==============================
+Concurrency issues
+
+maps  like all_adapaters and other containers will have entries added/deleted from time to time and therefore can only
+be accessed from one thread without locking => maps are private members of thread manager classes. Exceptions need to
+be protected with a mutex.
+
+Container entries which need to be used concurrenly must be entered into the containers as  shared_ptr to prevent
+problems due to deletion
+
+data structures like active_tuners, active_service ... can contain fields which can be accessed only by specific threads,
+even threads which are not the main user of the data structure. Such data structures are included as thread_private_t
+structures.
+
+Some data structures can be accessed concurrently in different ways:
+-some fields are protected by mutexes and can be read/set immediately after locking the mutex. This meachanism is
+meant for data structures which are not accessed heavily by any thread
+-other methods are meant to be only called from a task executed by the owning thread (e.g., adding or removing
+ a mux to the tuner thread: this needs to be done at the right time in the tuner processs, and we don't want to
+ lock data that is accessed frequently)
+
+
+This is implemented as follows
+
+class tuner: {
+      private: internal methods, not meant to be used ON BEHALF of other threads, so not
+               accessible, even from callback functions
+      protected:
+
+      public:
+      all methods which are accessible by other threads because they lock a mutex internally
+      constructor
+
+      operator(): returns a pointer to tuner_thread, but only when called from the tuner
+                  thread. This then allow access to callbacks
+
+};
+
+
+class tuner_thread : public tuner_thread {
+
+      public:
+      all methods which are accessible  from callbacks
+
+}
+
+
+publicly available data structure :
+
+thread_private_t<tuner_threa_thread_t> tuner
+
+cb() provides access to tuner_thread after checking that this is called from tuner_thread itself.
+This is for callbacks
+
+() returns a tuner reference and so provides access to operations to be used from other threads
+
+
+The maps reserved_services and reserved_muxes are protected using a mutex. This mutex does NOT
+protect their elements, but most threads will be stopped (and thus prevented from accessing
+the data in the maps) when important changes are made to the entries in the maps
+
+===================
+pat pid=0x00
+table_id: 0; 0x00
+ts_id: 3,4
+version_number: 5
+section_number: 6
+last_section_number: 7
+0x0,
+service_id, pmt_pid
+
+----------------
+
+pmt pid=XXX
+table_id: 0
+service_id: 3,4
+version_number: 5
+section_number: 6
+last_section_number: 7
+
+----------------
+
+generic psi
+table_id !=0xff (stuffing)
+table_id_extension: bytes 3,4 (when section syntax_indicator==1)
+version_number: 5
+section_number: 6
+current_next=1 for current (vs next)
+
+sections ca start in the middle of a ts packet
+start at pointer_field (there can only be one)
+witin a phd, sections are completely transmitted before the next section
+stuffing can appear after a section
+
+within (pid, table_id, table_id_extension), never more than 25ms between sections (measured end->start)
+
+
+sub_table: identified by (table_id, service_id)
+except for eit where it is (table_id, service_id, ts_id, network_id, version_number)
+
+
+table: identfied by sub_table_id
+
+----------------
+
+
+sdt pid=0x11
+table_id: 0;
+tsid: 3,4
+version_number: 5
+section_number: 6
+last_section_number: 7
+network_id: 8,9
+
+
+sub_table: identified by (table_id, ts_id, version_number)
+
+actual TS = TS containing the SDT
+table_id = 0x42 (actual), 0x46 (other)
+
+
+-----------------
+nit: pid=0x10
+table_id: 0
+network_id: 3,4
+version_number: 5
+section_number: 6
+last_section_number: 7
+
+sub_table: identified by (table_id, network_id, version_number)
+
+(network_id, ts_id) uniquely identifies multiplex
+nit actual, other for different networks, trasmitted with different table_id
+actual network = the network of which the TS containing the NIT is a part; all have table_id 0x40
+other network: table_id=0x40
+
+-----------------
+
+
+bat: pid=0x11
+table_id: 0; 0x4a
+bouquet_id: 3,4;
+version_number: 5
+section_number: 6
+last_section_number: 7
+
+sub_table: identified by (table_id, boutquet_id, version_number)
+
+----------------
+
+st
+
+
+----------------
+eit pid=0x12
+table_id: 0;
+service_id: 3,4
+version_number: 5 applies per sub_table((table_id, service_id, ts_id, network_id, version_number)
+section_number: 6 applies to sub_table
+last_section_number: 7; applies to sub_table
+ts_id: 8.9
+network_id: 10,11
+segment_last_section_number: 12; applies to segment
+last_table_id: 13
+
+sub_table: identified by (table_id, service_id, ts_id, network_id, version_number)
+
+sub_table can be split in segmentsl within each segment section_number increases by 1.
+
+
+
+table_id 0x4e (actual ts, pf), 0x4f  (other ts, pf), 0x50-0x5f (actual TS, schedule), 0x60-0x6f (other ts schedule)
+all subtables for actual ts have same ts_id, network_id
+
+rst:
+event_id
+
+
+Check if we are on correct transponder
+------------------
+pat, pmt: 100ms or lower repetition time
+
+
+-if database is empty:
+stable pat.ts_id in pat
+stable nit_actual.network_id
+sat_position stable
+
+if database is not empty
+pat.ts_id agrees with database
+nit_actual.network_id agrees with database
+nit confirms sat_position
+
+disagreement could mean diseqc error or dish poisitoning error:
+sat_pos error => restart diseqc
+sat_os correct => could be lnb error => ignore
+
+Processing order:
+
+sdt_actual processing after nit_actual is received (or if nit info is available in db: risk: it may be stale)
+
+eit: sat must have been cnfired
+
+
+repetition rate
+---
+nit,bat at least every 10 seconds (including nit other(
+sdt_actual: every 2 seconds
+sdt_other: every 10 seconds
+eit_pf actual: 2 seconds
+eit_pf other: 10 seconds
+
+
+
+=======================
+sticky state on all the "viewing" related screens
+
+service /channel list
+sat to filter (if the list is a service list) or None
+bouquet to filter  (if the list is a channel list) or None
+sort_order: ch_order (different for channels and services), alphabetic, mtime, freqpol
+
+Furthermore:
+live_channel (last tuned if multiple exist)
+selected_channel (where cursor is)
+
+State is preserved when switching from one channel to epg screen.
+epg shows data for selected service instead of active
+When returning to a channel screen from an epg screen, currently tuned service
+is selected unless no channel is tuned
+
+"no viewing" lists have theor own separate filter/sort state
+When swicthing fromv "viewing" to "no viewing" selected cannel is re-selected
+in the no viewing list, except when it cannot be shown. In that case earlier
+selected record is show
+
+
+===========
+https://github.com/LraiZer/AutoBouquetsWiki/blob/master/autobouquetswiki.cpp

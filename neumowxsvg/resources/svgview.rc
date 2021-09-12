@@ -1,0 +1,27 @@
+#include <wx/msw/wx.rc>
+
+svgview				ICON                    "wxsvg.ico"
+
+VS_VERSION_INFO VERSIONINFO
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904E4"
+        BEGIN
+            VALUE "CompanyName",        "Thüring IT-Consulting\0"
+            VALUE "ProductName",        "svgview\0"
+            VALUE "ProductVersion",     "1.0\0"
+            VALUE "FileDescription",    "SVG view application\0"
+            VALUE "FileVersion",        "1.0\0"
+            VALUE "InternalName",       "svgview\0"
+            VALUE "OriginalFilename",   "svgview.exe\0"
+            VALUE "LegalCopyright",     "Copyright © 2016 Alex Thüring\0"
+            VALUE "LegalTrademarks1",   "All Rights Reserved\0"
+        END
+    END
+
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1252
+    END
+END

@@ -1,0 +1,45 @@
+#!/usr/bin/python3
+from setuptools import setup, Extension
+import sys
+import os
+
+def prep(modules, path):
+    #return [ Extension( name=f'neumodvb/{path}/{d}', sources=[] ) for d in modules]
+    return [ Extension( name=f'neumodvb/py{d}', sources=[] ) for d in modules]
+
+def read(fname):
+    return open(os.path.join('${CMAKE_CURRENT_SOURCE_DIR}', fname)).read()
+
+
+destdir=os.environ['DESTDIR'] if 'DESTDIR' in os.environ else '/'
+
+site_packages=os.path.join(destdir, '${Python_SITEARCH}'.strip('/'))
+
+#hack: we make python create fake so files and then we override them with the real ones
+if destdir != '':
+    sys.argv.append(f"--root={destdir}")
+
+
+#print(f"XXXX={site_packages} yy={destdir}")
+#print(f"XXXX={sys.argv}")
+
+db_modules = [ 'statdb', 'chdb', 'recdb','epgdb',  'schema' ]
+receiver_modules = [ 'receiver', 'spectrum', 'neumompv']
+
+#print(f'QQQQ=${CMAKE_CURRENT_SOURCE_DIR}')
+setup(name='neumodvb',
+      description='${PROJECT_DESCRIPTION}',
+      long_description = read('README.txt'),
+      version='${CMAKE_PROJECT_VERSION}',
+      author='${PROJECT_AUTHOR}',
+      author_email='${PROJECT_AUTHOR_EMAIL}',
+      url='${PROJECT_URL}',
+      license='GPL V2',
+      keywords='${PROJECT_KEYWORDS}',
+      platforms=['${CMAKE_CXX_PLATFORM_ID}'],
+      package_dir={ '': '${CMAKE_CURRENT_SOURCE_DIR}' },
+      ext_modules = prep(db_modules, 'db') + prep(receiver_modules, 'receiver'),
+      packages=['neumodvb'])
+
+#hack to remove absolute path names from SOURCES.txt
+os.system(f'find {site_packages} -name SOURCES.txt -exec sed -i s%^${CMAKE_CURRENT_SOURCE_DIR}/%%g {{}} \\; ')

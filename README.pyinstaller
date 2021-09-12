@@ -1,0 +1,1 @@
+pyinstaller --paths=x86_64/target/lib64/ src/viewer/viewer.py

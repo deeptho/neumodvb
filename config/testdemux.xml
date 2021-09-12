@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE log4j:configuration>
+
+<log4j:configuration debug="false" xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+  <appender name="CONSOLE" class="org.apache.log4j.rolling.ConsoleAppender">
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="%x: %m %.8F:%L%n"/>
+    </layout>
+  </appender>
+
+  <root>
+    <!--<appender-ref ref="FILE"/>-->
+    <appender-ref ref="CONSOLE"/>
+  </root>
+
+</log4j:configuration>
+

@@ -11,7 +11,7 @@ Some of the features include
  * epg scanning, including SkyUk, Freesat, Movistar, Viasat Nordic
  * watching encrypted streams using oscam
  * tuning to multi-stream and T2MI streams
-
+ * controlling positioners
 Currently this software is fully functional, but is of alpha quality. It has seen
 very little testing.
 

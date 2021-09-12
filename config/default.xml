@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE log4j:configuration>
+
+<log4j:configuration debug="true" xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+  <appender name="CONSOLE" class="org.apache.log4j.rolling.ConsoleAppender">
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="   %.8F:%L: %x: %m %n"/>
+    </layout>
+  </appender>
+
+  <appender name="ROLL" class="org.apache.log4j.rolling.RollingFileAppender">
+    <rollingPolicy class="org.apache.log4j.rolling.TimeBasedRollingPolicy">
+      --<param name="FileNamePattern" value="/tmp/dvbserver.%d{yyyy-MM-dd HH:00}.gz"/>
+    </rollingPolicy>
+
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="   %.8F:%L%n%d: %x: %m"/>
+    </layout>
+  </appender>
+
+  <appender name="FILE" class="org.apache.log4j.rolling.FileAppender">
+    <param name="File" value="/tmp/dvbserver.log" />
+    <layout class="org.apache.log4j.PatternLayout">
+      <param name="ConversionPattern" value="   %.8F:%L%n%d: %x: %m"/>
+    </layout>
+  </appender>
+
+  <root>
+   <!-- <appender-ref ref="FILE"/>-->
+    <appender-ref ref="CONSOLE"/>
+  </root>
+
+</log4j:configuration>
+

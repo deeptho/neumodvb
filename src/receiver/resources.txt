@@ -1,0 +1,160 @@
+Resources to reserve
+
+We need to shield callers from the complexity of multi-tuner reservation.
+
+devmanager opens and closes device privately: when the caller requests a close,
+sometimes an lnb and tuner need to be kept active because of some other slave reservation.
+
+
+From the caller's point  of view, reservations mean the following:
+-reserve lnb
+ 1. exclusive means: we awant to have full freedom to tune the lnb to any band/pol
+ an lnb is connected to a specific tuner and demod, so reservation of those is implied
+
+ on tbs: possible on all
+
+ slave adapters can be modelled in different ways: tbs cards could be handled by explicitly
+  adding an rf_frontend device which should be reserved. Other cards could be handled by making
+  an internal "keep adapter open" reservation
+
+-reserve a bandpol means: reserve lnb, others will also be allowed to reserv bandpol and then we cannot
+ change it later
+
+-reserve a mux means: reserve lnb, but others will also be allowed to reserve the mux, and then we
+ will not be able to chnage it later
+
+
+internally, we can define the following resources
+
+-rf_frontend: connected to physical cable. allows control of lnb selection and bandpol selection
+ for tbs: corresponds to physical rf frontend/diseqc controller.
+ Reserving can be done only if a reservation to one of the connected
+ frontends can be made, because the frontend cannot be used otherwise
+
+ for legacy cards (non tbs): an rf_fronend can be reserved after
+ the corresponding master demod has been reserved. We only do this
+ if some other user has already reserved this master demod in a compatible way
+ and then must place an additional reservation on the master demod
+
+
+-demod: allows selection of a mux on a specifically set rf_frontend
+
+
+
+
+
+end user reservations
+==================
+1. exclusive use of lnb for tuning to any sat and performing any action, including rotating dish
+
+to reserve:
+tbs:     dish, rf_frontend (1 possibility), demod (multiple possibilities);
+non-tbs: dish, rf_frontend (1 possibility), demod (1 possibility: master adapter)
+
+
+2. exclusive use of lnb for tuning to any sat and performing any action, excluding rotating dish
+
+to reserve:
+tbs:     dish+sat rf_frontend (1 possibility), demod (multiple possibilities);
+non-tbs: dish+sat rf_frontend (1 possibility), demod (1 possibility: master adapter)
+
+
+
+3. specific lnb switched to specific sat and polband---
+
+to reserve:
+tbs:     dish+sat, rf_frontend+polband (1 possibility), demod (multiple possibilities);
+
+non-tbs: dish+sat, rf_frontend+polband (1 possibility), demod (2 possibilities: master/slave adapter)
+=================
+
+
+internal resources:
+
+dish: reserve for "any" or for specific sat_pos
+
+rf_frontend:  reserve for "any" or for specific bandpol
+              requires a demod reservation
+                tbs: any demod reservation suffices
+             nontbs (e.g. loopthru): master demod must be reserved.
+
+demod: and open connection to a demod needed to access an rf_frontend
+       a demod is exclusive to one user
+
+demod_: and open connection to a demod needed to access an rf_frontend
+       a demod is exclusive to one user
+
+
+---------------------------
+task division regarding resources
+
+1. receiver finds out how to best run a subscription
+   by calling find_lnb_for_tuning_to_mux, which is in adaptermgr_t but still in receiver thread
+   The spec indicates a mux to subscribe to and possibly an obligatory lnb (the code
+   for this case cold be separated)
+
+   currently this step involves checking if an lnb when used woudl be compatible with
+   the current tuners in use, specifically for master/slave pairs if the lnb+bandpol settings
+   are compatible and for lnbs on rotors, if the rotor points to the right sat
+
+2. if the found nb is on a different frontend, receiver thread asks tuner thread to release this
+   frontend and its resources (dish, lnb) and the tune; if it is for the same frontend, it asks tuner thread to
+   retune. The difference is that the frontend will not be closed (closing and reopening can be slow as tuner
+   can go into sleep mode)
+
+3. Tuner thread actually reserves the resources it needs and performs the tuning. This can involve switching to a new lnb, moving the dish etc.
+
+Missing so far is that some resources may need to be reserved in a more flexible way.
+We distinghuish:
+ -reserving an lnb with full freedom to tune it to a diffent mux LATER and/or to move a dish LATER
+  this exclusive reservation must be checked in find_lnb, whether or not the new lnb is the same as
+  the lnb currenly used by the subscription, in case an unpgrade from non-exclusive to exclusive reservation is needed
+
+  note that a frontend is also reserved with the lnb (each lnb connects to exactly 1 frontend. In the tbs model, this would have
+  to be changed to "reserve frontend-lnb" combination, or "reserve lnb with any suitable frontend"
+
+  This prevents other frontends from using any lnbs on the dish
+
+  In the current code, this is tied to reserve_fe(lnb, may_move_dish=true)
+
+ -reserving an lnb with full freedom to tune it to a diffent mux LATER but with the promise to NOT MOVE the dish
+  this exclusive reservation must be checked in find_lnb, whether or not the new lnb is the same as
+  the lnb currenly used by the subscription, in case an unpgrade from non-exclusive to exclusive reservation is needed
+
+  This allows other frontends to use lnbs on the same dish (as they will not move) provided the dish is not moved
+
+  In the current code, this is tied to reserve_fe(lnb, may_move_dish=false   )
+
+  -reserve an lnb with the promise NOT TO CHANGE BAND_POL and not to move the dish
+
+  In the current code this is tied to reserve_fe(lnb, mux)
+
+The reservation options, may_move_dish and may_change_bandpol should be separated from the calls, so that they can be made
+"sticky" (e.g., subscribe to lnb exclusively, then subscribe to specific mux, but still exclusively because later we
+may still need to subscribe the mux exclusively)
+
+The Initial reservation, in case of a specific lnb could have the options
+    -dish_position = all /specific value. Specific value means dish will not be moved
+    -bandpol = all /specific value. Specific value means polarisation will not be changed
+
+The internal reservation state (on top of what it is now) should have tje option t keep a master file descriptor
+open as long as it is needed by a slave
+
+=================
+Idea
+
+Make something like a generic reservation request whcih keeps all info in one place
+eg std::optional<chdb::mux_t> or std::optional<fe_band_pol_t> when set means that the request is for a specific band
+It also contains a "force" flag.
+
+Force means: reservation can work now, but moving dish can create problems and earlier reservations may be disturbed later
+
+
+reservation code keeps list of all requests and returns a status which contains
+-reserved=true or false (success)
+-forced: if true and reservation only succeed due to force
+By trying first without forced and later with we can show a message, e.g., in positioner dialog
+-degraded: if true a new reservation has been placed for normal viewing, but some oter thread
+may move positioner.
+
+new normal reservations can still be allowed

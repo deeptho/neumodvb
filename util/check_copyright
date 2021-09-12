@@ -1,0 +1,7 @@
+#!/usr/bin/bash
+(find ~/neumodvb/src -name '*.cc' ! -exec ~/neumodvb/util/contains ~/neumodvb/src/copyright.txt {} \; -print;
+ find ~/neumodvb/src -name '*.h' ! -exec ~/neumodvb/util/contains ~/neumodvb/src/copyright.txt {} \; -print) |
+ grep -v '\(function_view.h\|wxpy_api.h\|/safe/\|lmdb++.h\|/unused/\|opentv_huffman\|opentv_string_decoder\|freesat\|neumofrontend.h\)'
+
+
+(find ~/neumodvb/gui -name '*.py' ! -exec ~/neumodvb/util/contains ~/neumodvb/gui/copyright.txt {} \; -print;) | grep -v '\(_gui.py\|/mini/\)'

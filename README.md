@@ -8,7 +8,7 @@ Some of the features include
  * blindscan
  * scanning muxes
  * viewing and recording programs
- * epg scanning, including SkeyUk, Freesat, Movistar, Viasat Nordic
+ * epg scanning, including SkyUk, Freesat, Movistar, Viasat Nordic
  * watching encrypted streams using oscam
  * tuning to multi-stream and T2MI streams
 

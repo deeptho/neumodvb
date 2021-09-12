@@ -447,3 +447,9 @@ selected record is show
 
 ===========
 https://github.com/LraiZer/AutoBouquetsWiki/blob/master/autobouquetswiki.cpp
+
+
+=========
+
+git pull --squash deeptho deeptho --allow-unrelated-histories
+git push --tags github master

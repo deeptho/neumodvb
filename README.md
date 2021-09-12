@@ -17,6 +17,8 @@ very little testing.
 
 ## [Installation](docs/INSTALL.md) ##
 
+## [Reporting bugs](docs/bugs.md) ##
+
 ## Running neumoDVB and initial configuration ##
 
 ### Read this first ###
@@ -35,14 +37,14 @@ In case of problems, the following information may help to understand the proble
   are searched in a the build directory. Specifically the buld location is computed in `gui/util.py`.
 
   Typical problems include: libraries do not exist or are in the wrong place, confusion between
-  multiple incompatible versions of these libraries (e.g., left over from an outdated install)
+  multiple incompatible versions of these libraries (e.g., left over from an outdated install).
 
 * NeumoDVB needs several configuration files to actually start. These configuration files are searched for in
   various places:
 
   * `~/.config/neumodvb`; this directory can be created by the user to override default settings.
   * `/etc/neumodvb`; `make install` places default configuration files there.
-  * `neumodvb/config`;  if neumoDVB is run fro the build tree, config files are loaded from the
+  * `neumodvb/config`;  if neumoDVB is run from the build tree, config files are loaded from the
   source code tree (if it still exists and can be found).
 
   Note that each config file is always loaded from exactly one of the above locations. If you copy
@@ -53,18 +55,20 @@ In case of problems, the following information may help to understand the proble
   the configuration files, and default are sub directories in `~/neumo/`.
   Obviously, problems will occur if any of the locations is not writable or has insufficient disk space.
 
-  * The directory storing the channel, EPG, recordings and stat databases, by default : `~/neumo/db/...`.
+  * The directory storing the channel, EPG, recordings and stat databases, by default : `~/neumo/db/`.
   These directories needs to be on a fast  file system, e.g., an SSD. If the file system is too slow,
   problems may occur with high-volume EPG streams: channel switching may become slow and EPG data may be
   incomplete. However, neumoDVB should not crash (that would be a bug).
 
   * The directory storing recordings, by default: `~/neumo/recordings`. Obviously, this needs to
-  be on a filesystem with plenty of room as a single recording can be several Gigabytes in size,
+  be on a filesystem with plenty of room as a single recording can be several Gigabytes in size.
 
   * The locations where live buffers will be stored, by default: `~/neumo/live`. Live buffers store the audio and
   video of the currently viewed service(s) to allow pausing and timeshift. The *cannot* be turned off.
   This too needs to  be on a file system with plenty of room.
 
+ It may not be a good idea to keep the live and recording folder in your home directory. Instead you may want
+ to store them in a separate filesystem. This way, you can backup them separately from your regular files.
 
 * NeumoDVB logs a log of debug and error messages to its log file. The log file location can be configured
   by editing `neumo.xml`, which contains the path of the actual logfile, and also allows turning on or off

@@ -20,4 +20,9 @@ TAGS
 cscope.out
 pybind11/tests/
 /build/*
+<<<<<<< HEAD
 /unused/*
+=======
+/unused/*
+.idea
+>>>>>>> 990b2b0604a5e1a9d38cf757a9c5ce6ef111e02b

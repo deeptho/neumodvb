@@ -2372,16 +2372,9 @@ void eit_parser_t::parse_payload_unit() {
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
-#if 0
-	bool is_bat = (hdr.table_id == 0x4A);
 	bool is_stuffing = (hdr.table_id == 0x72);
 	if(is_stuffing)
 		return;
-	if(!is_sdt && ! is_bat)  { //not a sdt/bat section
-		error = true;
-		RETURN_ON_ERROR;
-	}
-#endif
 
 	auto [timedout, newversion, section_type] = parser_status.check(hdr, cc_error_counter);
 	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);

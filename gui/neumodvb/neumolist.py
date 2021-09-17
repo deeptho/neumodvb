@@ -538,16 +538,21 @@ class NeumoTable(wx.grid.GridTableBase):
         else:
             dtdebug(f"SAVE MODIFIED: {op}: {old} {new}")
             self.__delete_record__(txn, old)
-        self.__save_record__(txn, new)
-        changed = self.screen.update(txn)
-        txn.commit()
-        del txn
-        #self.data[rowno] = new
-        idx =0
-        if changed:
+        saved = self.__save_record__(txn, new)
+        error = saved is None
+        if error:
+            self.record_being_edited = new
+            self.row_being_edited = rowno
+            wx.CallAfter(self.parent.SelectRow, rowno)
+        else:
+            changed = self.screen.update(txn)
+            txn.commit()
+            del txn
+            idx =0
             self.GetRow.cache_clear()
-            self.parent.SelectRecord(new)
-            self.parent.ForceRefresh()
+            if changed:
+                self.parent.SelectRecord(new)
+        self.parent.ForceRefresh()
 
     def DeleteRows(self, rows):
         txn = None
@@ -960,7 +965,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 self.table.SaveModified()
         else:
             pass
-        self.SelectRow,evt.GetRow()
         wx.CallAfter(self.SelectRow,evt.GetRow())
 
     def OnCreateWindow(self, evt):

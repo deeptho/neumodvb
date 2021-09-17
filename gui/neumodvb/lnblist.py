@@ -117,9 +117,7 @@ class LnbTable(NeumoTable):
     def __save_record__(self, txn, lnb):
         if lnb.k.adapter_no <0:
             ShowMessage("Bad data", "Enter a valid adapter number before saving")
-            return
-            dtdebug("Will not save invalid lnb!")
-            return
+            return None
         if lnb.usals_pos !=  pychdb.sat.sat_pos_none and len(lnb.networks)==0:
             #shortcut: a single network can be created by entering sat_pos
             network = pychdb.lnb_network.lnb_network()

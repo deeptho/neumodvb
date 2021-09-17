@@ -9,8 +9,8 @@ distribution.
 
 On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
 
-* clang  #used for compiling
-* boost-program-options curl-devel
+* clang clang-tools-extra libtool #used for compiling and building
+* boost-program-options boost-regex curl-devel
 * wxGTK3 gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif
 * python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-configobj
 * python3-regex

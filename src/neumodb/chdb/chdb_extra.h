@@ -125,7 +125,7 @@ namespace chdb {
 	template<typename mux_t>
 	uint16_t make_unique_id(db_txn& txn, mux_key_t key);
 
-	uint16_t make_unique_id(db_txn& txn, chdb::lnb_key_t key);
+	int16_t make_unique_id(db_txn& txn, chdb::lnb_key_t key);
 
 	int32_t make_unique_id(db_txn& txn, chdb::chg_key_t key);
 	int32_t make_unique_id(db_txn& txn, chdb::chgm_key_t key);

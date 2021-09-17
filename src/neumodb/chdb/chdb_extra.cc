@@ -296,7 +296,7 @@ template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, lnb_key
 	return 0xffff; // highest possible value
 }
 
-uint16_t chdb::make_unique_id(db_txn& txn, lnb_key_t key) {
+int16_t chdb::make_unique_id(db_txn& txn, lnb_key_t key) {
 	key.lnb_id = 0;
 	auto c = chdb::lnb_t::find_by_k(txn, key, find_geq);
 	return ::make_unique_id(txn, key, c);

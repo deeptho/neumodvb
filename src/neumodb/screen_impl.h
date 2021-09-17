@@ -548,11 +548,17 @@ int screen_t<record_t>::set_reference(int row_number)
 	if(count>=0) {
 		assert(count == row_number);
 		assert(count < monitor.state.list_size);
-		assert(c.is_valid());
-		reference->row_number =row_number;
-		reference->primary_key = c.current_serialized_primary_key();
-		reference->secondary_key = c.current_serialized_secondary_key();
-		c.get_value(current_record);
+		if(c.is_valid()) {
+			reference->row_number =row_number;
+			reference->primary_key = c.current_serialized_primary_key();
+			reference->secondary_key = c.current_serialized_secondary_key();
+		} else {
+			reference->row_number = 0;
+			c = first_cursor(rtxn);
+			count = 0;
+		}
+		if(c.is_valid())
+			 c.get_value(current_record);
 	}
 	return count;
 }

@@ -75,6 +75,7 @@ class RecTable(NeumoTable):
 
     def __save_record__(self, txn, record):
         pyrecdb.put_record(txn, record)
+        return record
 
     def __new_record__(self):
         return self.record_t()

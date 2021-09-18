@@ -1044,6 +1044,19 @@ std::ostream& chdb::operator<<(std::ostream& os, const chgm_t& chgm) {
 	return os;
 }
 
+std::ostream& chdb::operator<<(std::ostream& os, const fe_key_t& fe_key) {
+	stdex::printf(os, "A%d F%d", (int)fe_key.adapter_no, (int)fe_key.frontend_no);
+	return os;
+}
+
+std::ostream& chdb::operator<<(std::ostream& os, const fe_t& fe) {
+	using namespace chdb;
+	os << fe.k;
+	stdex::printf(os, " %s;%s;%s", fe.card_name, fe.adapter_name, fe.card_address);
+	stdex::printf(os, " master=%d enabled=%d available=%d", fe.master_adapter, fe.enabled, fe.can_be_used);
+	return os;
+}
+
 void chdb::to_str(ss::string_& ret, const sat_t& sat) {
 	ret.clear();
 	sat_pos_str(ret, sat.sat_pos);
@@ -1112,6 +1125,16 @@ void chdb::to_str(ss::string_& ret, const lnb_network_t& lnb_network) {
 void chdb::to_str(ss::string_& ret, const fe_band_pol_t& band_pol) {
 	ret.clear();
 	ret << band_pol;
+}
+
+void chdb::to_str(ss::string_& ret, const fe_key_t& fe_key) {
+	ret.clear();
+	ret << fe_key;
+}
+
+void chdb::to_str(ss::string_& ret, const fe_t& fe) {
+	ret.clear();
+	ret << fe;
 }
 
 namespace chdb {

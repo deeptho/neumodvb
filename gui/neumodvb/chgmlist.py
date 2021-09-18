@@ -126,6 +126,7 @@ class ChgmTable(NeumoTable):
 
     def __save_record__(self, txn, record):
         pychdb.put_record(txn, record)
+        return record
 
     def screen_getter_xxx(self, txn, sort_order):
         if  self.parent.restrict_to_chg:

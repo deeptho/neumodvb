@@ -97,7 +97,7 @@ class DvbsMuxTable(NeumoTable):
                          initial_sorted_column = initial_sorted_column, **kwds)
 
     def __save_record__(self, txn, record):
-        return
+        return record
 
     def screen_getter_xxx(self, txn, sort_order):
         mux = self.parent.controller.parent.mux

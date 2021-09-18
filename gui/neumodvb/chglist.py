@@ -54,9 +54,6 @@ class ChgTable(NeumoTable):
                          record_t=pychdb.chg.chg, initial_sorted_column = initial_sorted_column,
                          **kwds)
 
-    def __save_record__(self, txn, record):
-        pychdb.put_record(txn, record)
-
     def __new_record__(self):
         ret=self.record_t()
         return ret
@@ -64,6 +61,7 @@ class ChgTable(NeumoTable):
     def __save_record__(self, txn, record):
         pychdb.chg.make_unique_if_template(txn, record)
         pychdb.put_record(txn, record) #this will overwrite any mux with given ts_id even if frequency is very wrong
+        return record
 
 class ChgGridBase(NeumoGridBase):
     def OnKeyDown(self, evt):

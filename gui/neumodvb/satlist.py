@@ -76,6 +76,7 @@ class SatTable(NeumoTable):
 
     def __save_record__(self, txn, record):
         pychdb.put_record(txn, record)
+        return record
 
     def __new_record__(self):
         ret=self.record_t()

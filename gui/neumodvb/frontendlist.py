@@ -61,7 +61,9 @@ class FrontendTable(NeumoTable):
                          **kwds)
 
     def __save_record__(self, txn, record):
+        print(f'saving {record.master_adapter}')
         pychdb.put_record(txn, record)
+        return record
 
     def __new_record__(self):
         ret=self.record_t()

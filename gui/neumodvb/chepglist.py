@@ -103,6 +103,7 @@ class ChEpgTable(NeumoTable):
 
     def __save_record__(self, txn, record):
         pyepgdb.put_record(txn, record)
+        return record
 
     def screen_getter_xxx(self, txn, sort_order):
         service = self.parent.CurrentService()

@@ -183,6 +183,8 @@ namespace chdb {
 	void to_str(ss::string_& ret, const fe_band_pol_t& band_pol);
 	void to_str(ss::string_& ret, const chg_t& chg);
 	void to_str(ss::string_& ret, const chgm_t& channel);
+	void to_str(ss::string_& ret, const fe_t& fe);
+	void to_str(ss::string_& ret, const fe_key_t& fe_key);
 
 
 	inline void to_str(ss::string_& ret, const mux_common_t& t) {
@@ -202,13 +204,7 @@ namespace chdb {
 		ret.sprintf("%p", &t);
 	}
 #endif
-	inline void to_str(ss::string_& ret, const fe_key_t& t) {
-		ret.sprintf("%p", &t);
-	}
 	inline void to_str(ss::string_& ret, const fe_supports_t& t) {
-		ret.sprintf("%p", &t);
-	}
-	inline void to_str(ss::string_& ret, const fe_t& t) {
 		ret.sprintf("%p", &t);
 	}
 	inline void to_str(ss::string_& ret, const chg_key_t& t) {
@@ -262,6 +258,8 @@ namespace chdb {
 	std::ostream& operator<<(std::ostream& os, const fe_band_pol_t& band_pol);
 	std::ostream& operator<<(std::ostream& os, const chg_t& chg);
 	std::ostream& operator<<(std::ostream& os, const chgm_t& channel);
+	std::ostream& operator<<(std::ostream& os, const fe_key_t& fe_key);
+	std::ostream& operator<<(std::ostream& os, const fe_t& fe);
 
 #if 0
 	inline bool is_same(const service_t &a, const service_t &b) {

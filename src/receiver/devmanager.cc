@@ -77,6 +77,15 @@ class dvbdev_monitor_t : public adaptermgr_t {
 	void on_delete_dir(struct inotify_event* event);
 
 	void mark_all_adapters_not_present();
+	std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t, int, int>
+	find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
+															const dvb_adapter_t* adapter_to_release, bool blindscan,
+															int required_adapter_no) const;
+	std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
+	find_slave_tuner_for_tuning_to_mux(db_txn& txn,
+																		 const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
+																		 const dvb_adapter_t* adapter_to_release, bool blindscan) const;
+
 
 public:
 	int reserve_dish_exclusive(dvb_frontend_t* fe, int dish_id);
@@ -112,7 +121,6 @@ public:
 	std::shared_ptr<dvb_frontend_t> find_adapter_for_tuning_to_mux(db_txn& txn, const mux_t& mux,
 																																 const dvb_adapter_t* adapter_to_release,
 																																 bool blindscan) const;
-
 	std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
 	find_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
 														 const dvb_adapter_t* adapter_to_release, bool blindscan) const;
@@ -1136,14 +1144,16 @@ dvbdev_monitor_t::find_adapter_for_tuning_to_mux(db_txn& txn, const mux_t& mux, 
 	return best_fe;
 }
 
-std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
-dvbdev_monitor_t::find_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
-																						 const dvb_adapter_t* adapter_to_release, bool blindscan) const {
+
+std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t, int, int>
+dvbdev_monitor_t::find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
+																						 const dvb_adapter_t* adapter_to_release, bool blindscan,
+																						 int required_adapter_no) const {
 	using namespace chdb;
 	auto c = find_first<chdb::lnb_t>(txn);
 	int best_lnb_prio = std::numeric_limits<int>::min();
 	int best_fe_prio = std::numeric_limits<int>::min();
-	// best lnb sofasr, and the corresponding connected frontend
+	// best lnb sofar, and the corresponding connected frontend
 	chdb::lnb_t best_lnb;
 	std::shared_ptr<dvb_frontend_t> best_fe;
 	auto found = false;
@@ -1185,7 +1195,7 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t
 			penalty += 1000;
 		}
 
-		auto it_adapter = adapters.find(adapter_no_t(plnb->k.adapter_no));
+		auto it_adapter = adapters.find(adapter_no_t(required_adapter_no <0 ? plnb->k.adapter_no : required_adapter_no));
 		if (it_adapter == adapters.end()) {
 			dtdebug("LNB " << *plnb << " not connected to any adapter");
 			continue;
@@ -1196,6 +1206,8 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t
 			dtdebug("LNB " << *plnb << " cannot be used because adapter cannot be used");
 			continue;
 		}
+
+
 		bool adapter_will_be_released = adapter_to_release == &adapter;
 		if (!adapter_will_be_released && adapter.reservation.readAccess()->exclusive) {
 			dtdebug("LNB " << *plnb << " is reserved exclusively by some other user");
@@ -1208,6 +1220,10 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t
 			dtdebug("LNB " << *plnb << " cannot be used");
 			continue;
 		}
+
+		if (required_adapter_no > 0 && lnb.k.adapter_no != fe->ts.readAccess()->dbfe.master_adapter)
+			continue;
+
 		{
 			auto fe_prio = fe->ts.readAccess()->dbfe.priority;
 
@@ -1228,8 +1244,63 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t
 		if (required_lnb)
 			break;
 	}
+	return std::make_tuple(best_fe, best_lnb, best_fe_prio, best_lnb_prio);
+}
+
+std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
+dvbdev_monitor_t::find_slave_tuner_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
+																										 const dvb_adapter_t* adapter_to_release, bool blindscan) const {
+	using namespace chdb;
+	auto ca = find_first<chdb::fe_t>(txn);
+	int best_lnb_prio = std::numeric_limits<int>::min();
+	int best_fe_prio = std::numeric_limits<int>::min();
+	// best lnb sofar, and the corresponding connected frontend
+	chdb::lnb_t best_lnb;
+	std::shared_ptr<dvb_frontend_t> best_fe;
+	auto found = false;
+
+	for (auto const& dbfe : ca.range()) {
+		if(dbfe.master_adapter <0 || ! dbfe.can_be_used || ! dbfe.present)
+			continue;
+		int required_adapter_no = dbfe.master_adapter;
+		auto [ fe, lnb, fe_prio, lnb_prio] =
+			find_lnb_for_tuning_to_mux_(txn, mux, required_lnb, adapter_to_release, blindscan,
+																										required_adapter_no);
+		if (!fe)
+			continue;
+		if (lnb_prio < best_lnb_prio)
+			continue;
+		fe_prio = dbfe.priority;
+		if (lnb_prio  == best_lnb_prio && fe_prio <= best_fe_prio)
+			continue;
+
+		best_fe_prio = fe_prio;
+		best_lnb_prio = lnb_prio;
+		best_lnb = lnb;
+		best_fe = fe;
+		found = true;
+		if (required_lnb)
+			break;
+	}
 	return std::make_tuple(best_fe, best_lnb);
 }
+
+std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
+dvbdev_monitor_t::find_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
+																						 const dvb_adapter_t* adapter_to_release, bool blindscan) const {
+	auto [fe, lnb] =
+		find_slave_tuner_for_tuning_to_mux(txn, mux, required_lnb, adapter_to_release,blindscan);
+	if (fe)
+		return std::make_tuple(fe, lnb);
+	{
+		int required_adapter_no = -1;
+		auto [fe, lnb, fe_prio, lnb_prio] =
+			find_lnb_for_tuning_to_mux_(txn, mux, required_lnb, adapter_to_release, blindscan, required_adapter_no);
+		return std::make_tuple(fe, lnb);
+	}
+
+}
+
 
 template <typename mux_t>
 std::shared_ptr<dvb_frontend_t> adaptermgr_t::find_adapter_for_tuning_to_mux(db_txn& txn, const mux_t& mux,

@@ -71,7 +71,7 @@ class LnbTable(NeumoTable):
         [CD(key='k.adapter_no',  label='adapter', basic=True),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
          CD(key='k.lnb_id',  label='ID', basic=False, readonly=True),
-         CD(key='usals_pos',  label='usals_pos', basic=True, no_combo = True, #allow entering sat_pos
+         CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='enabled',   label='enabled', basic=False),
          CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x), example='ROTOR TYPE USALS'),
@@ -82,7 +82,7 @@ class LnbTable(NeumoTable):
          CD(key='k.lnb_type',  label='LNB type', dfn=lambda x: lastdot(x)),
          CD(key='priority',  label='priority'),
          CD(key='lof_offsets',  label='lof_offset', dfn=lof_offset_fn, example='-2000kHz; -20000kHz'),
-         CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*16),
+         CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
          CD(key='freq_low',   label='low', basic=False),
          CD(key='freq_high',   label='high', basic=False),
         ]
@@ -243,7 +243,8 @@ class LnbGridBase(NeumoGridBase):
 
     def CurrentLnb(self):
         assert self.selected_row is not None
-        assert self.selected_row < self.table.GetNumberRows()
+        if self.selected_row >= self.table.GetNumberRows():
+            self.selected_row = max(self.table.GetNumberRows() -1, 0)
         lnb = self.table.GetRow(self.selected_row)
         dtdebug(f'CURRENT LNB: sel={self.selected_row} {lnb}  {len(lnb.networks)}')
         return lnb

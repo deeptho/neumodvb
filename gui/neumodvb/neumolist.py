@@ -417,7 +417,7 @@ class NeumoTable(wx.grid.GridTableBase):
             else:
                 newval = int(val)
         if newval is None:
-            print("ILLEGAL new value")
+            dtdebug("ILLEGAL new value")
             return
         oldrecord = rec.copy()
         neumodbutils.enum_set_subfield(rec, key, newval)
@@ -680,6 +680,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.app = wx.GetApp()
         if basic:
             self.ShowScrollbars(wx.SHOW_SB_NEVER,wx.SHOW_SB_ALWAYS)
+        else:
+            self.ShowScrollbars(wx.SHOW_SB_NEVER,wx.SHOW_SB_DEFAULT)
         # Then we call CreateGrid to set the dimensions of the grid
         # (100 rows and 10 columns in this example)
         #grid.CreateGrid(100, 10)
@@ -1065,7 +1067,7 @@ class GridPopup(wx.ComboPopup):
         self.popup_panel = None
 
     def OnMotion(self, evt):
-        print("MOTION..................")
+        pass
 
     def OnLeftDown(self, evt):
         dtdebug('LEFTDOWN')

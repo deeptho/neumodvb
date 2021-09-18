@@ -266,7 +266,7 @@ inline static auto find_fuzzy_(db_txn& txn, const chdb::dvbs_mux_t& mux) {
 	return chdb::find_by_sat_freq_pol_fuzzy(txn, mux.k.sat_pos, mux.frequency, mux.pol, mux.k.t2mi_pid, mux.stream_id);
 }
 
-template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, lnb_key_t key, cursor_t& c) {
+template <typename cursor_t> static int16_t make_unique_id(db_txn& txn, lnb_key_t key, cursor_t& c) {
 	key.lnb_id = 0;
 	int gap_start = 1; // start of a potential gap of unused extra_ids
 	for (const auto& lnb : c.range()) {
@@ -284,7 +284,7 @@ template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, lnb_key
 		}
 	}
 
-	if (gap_start == 0xffff) {
+	if (gap_start >= std::numeric_limits<decltype(key.lnb_id)>::max()) {
 		// all ids exhausted
 		// The following is very unlikely. We prefer to cause a result on a
 		// single mux rather than throwing an error
@@ -293,7 +293,7 @@ template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, lnb_key
 	}
 
 	// we reach here if this is the very first mux with this key
-	return 0xffff; // highest possible value
+	return std::numeric_limits<decltype(key.lnb_id)>::max(); // highest possible value
 }
 
 int16_t chdb::make_unique_id(db_txn& txn, lnb_key_t key) {
@@ -328,7 +328,7 @@ template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, mux_key
 		}
 	}
 
-	if (gap_start == 0xffff) {
+	if (gap_start >= std::numeric_limits<decltype(key.extra_id)>::max()) {
 		// all ids exhausted
 		// The following is very unlikely. We prefer to cause a result on a
 		// single mux rather than throwing an error
@@ -337,7 +337,7 @@ template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, mux_key
 	}
 
 	// we reach here if this is the very first mux with this key
-	return 0xffff; // highest possible value
+	return std::numeric_limits<decltype(key.extra_id)>::max(); // highest possible value
 }
 
 template <typename mux_t> uint16_t chdb::make_unique_id(db_txn& txn, mux_key_t key) {
@@ -359,7 +359,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chg_key_t key) {
 		}
 	}
 
-	if (gap_start == 0xffff) {
+	if (gap_start >= std::numeric_limits<decltype(key.bouquet_id)>::max()) {
 		// all ids exhausted
 		// The following is very unlikely. We prefer to cause a result on a
 		// single mux rather than throwing an error
@@ -367,7 +367,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chg_key_t key) {
 		assert(0);
 	}
 	// we reach here if this is the very first mux with this key
-	return 0xffff; // highest possible value
+	return std::numeric_limits<decltype(key.bouquet_id)>::max(); // highest possible value
 }
 
 int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
@@ -383,7 +383,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
 		}
 	}
 
-	if (gap_start == 0xffff) {
+	if (gap_start >= std::numeric_limits<decltype(key.channel_id)>::max()) {
 		// all ids exhausted
 		// The following is very unlikely. We prefer to cause a result on a
 		// single mux rather than throwing an error
@@ -391,7 +391,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
 		assert(0);
 	}
 	// we reach here if this is the very first mux with this key
-	return 0xffff; // highest possible value
+	return std::numeric_limits<decltype(key.channel_id)>::max(); // highest possible value
 }
 
 /*! Check for duplicate sat_pos, but matching freq/pol/ts_id/network_id

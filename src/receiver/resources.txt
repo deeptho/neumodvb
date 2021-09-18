@@ -158,3 +158,74 @@ By trying first without forced and later with we can show a message, e.g., in po
 may move positioner.
 
 new normal reservations can still be allowed
+
+===========================
+
+ALlow multiple configs within same db
+ frontend => add "config name"  (only frontends with config_name considered)
+ lnb => add "config name" (only lnbs with config_name considered)
+
+device_descriptor
+afe: (analogue frontend): to select lnb, band, pol, dish
+  -reservation type:
+    -reserved unique -> reserver can later select a different lnb using diseqc;
+                        only 1 reserver allowed
+    -shared  -> reserver may later not allowed to change lnb, or band or polarisation
+  -list of reservers; used to check if reserver is the only one or not, reserving this resource
+
+demod: (demodulator): select afe, select mux
+  -reservation type:
+    -reserved unique -> reserver can later attach to a different afe, reserver can retune mux
+    -shared  -> reserver may later not allowed to change lnb, or band or polarisation
+  -list of reservers; used to check if reserver is the only one or not, reserving this resource
+
+
+dish:
+  -reservation type:
+    -reserved unique -> dish can later be moved
+    -reserved  -> reserver may later not allowed to move dish
+  -list of reservers; used to check if reserver is the only one or not, reserving this resource
+
+
+reserve lnb for scanning:
+ -requires mux changing, band changing
+ -does not require lnb reselecion, dish repointing
+1. find dish on which lnb is placed, consider only shared-reserved or non-reserved dishes
+   if no dish exists -> failure
+2. find a non-reserved afe connected to this lnb. non-uniquely reserved is not enough, because
+   we may want to change band/pol
+3. find demod that can connect to found afe
+
+4. shared-reserve dish; unique-reserve AFE, unique-reserve demod
+
+
+reserve lnb and dish for positioner control:
+ -requires mux changing, band changing, dish repointing
+ -does not require lnb reselecion
+1. find dish on which lnb is placed, consider only non-reserved dishes
+   if no dish exists -> failure
+2. find a non-reserved afe connected to this lnb. non-uniquely reserved is not enough, because
+   we may want to change band/pol
+3. find demod that can connect to found afe
+
+4. unique-reserve dish; unique-reserve AFE, unique-reserve demod
+
+
+reserve mux and lnb  for tuning:
+ -requires: nothing
+ -does not require mux changing, band_changing, lnb reselecion, dish repointing
+1. find dish on which lnb is placed, consider only non-reserved or shared-reserved dishes
+   if no dish exists -> failure
+2. find a non-reserved or shared-reserved afe connected to this lnb. shared-reserved is ok, because
+   we do not need to switch to different lnb or mux
+3. find demod that can connect to found afe
+
+4. shared-reserve dish; shared-reserve AFE, unique-reserve demod
+
+
+
+
+
+
+
+reservation: abstract class which contains a list of reserved or to reserve resources

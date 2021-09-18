@@ -1029,8 +1029,8 @@ lnb = db_struct(name='lnb',
                           (21, 'int16_t', 'offset_pos', '0'), #only for master usals positioner: in 1/100 degre: offset w.r.t. t center of dish
 
                           (10, 'uint8_t' , 'diseqc_mini'),
-                          (11, 'int8_t' , 'diseqc_10'),
-                          (12, 'int8_t' , 'diseqc_11'),
+                          (11, 'int8_t' , 'diseqc_10', '-1'),
+                          (12, 'int8_t' , 'diseqc_11', '-1'),
                           # disec12 is not included here as this is part of the dish
 
                           (14,  'time_t', 'mtime'),

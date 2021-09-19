@@ -965,8 +965,11 @@ class MosaicPanel(wx.Panel):
                 self.controller.app.frame.CmdJumpForward()
             return True
         if key in (wx.WXK_LEFT, wx.WXK_RIGHT):
-            self.focus_idx += -1 if key == wx.WXK_LEFT else 1
-            self.focus_idx = max( min(self.focus_idx, len(self.glcanvases) -1), 0)
+            focus_idx = self.focus_idx
+            focus_idx += -1 if key == wx.WXK_LEFT else 1
+            if focus_idx < 0 or focus_idx >= len(self.glcanvases):
+                return False
+            self.focus_idx = max( min(focus_idx, len(self.glcanvases) -1), 0)
             assert self.focus_idx < len(self.glcanvases)
             self.HighlightMpvPlayer(self.focus_idx)
             return True

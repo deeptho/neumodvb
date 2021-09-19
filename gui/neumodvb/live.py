@@ -2432,7 +2432,7 @@ class LivePanel(wx.Panel):
             self.grid_panel.Hide()
             self.hidden = True
             self.mosaic_panel.set_noborder()
-            cursor = wx.StockCursor(wx.CURSOR_BLANK)
+            cursor = wx.Cursor(wx.CURSOR_BLANK)
             self.SetCursor(cursor)
         self.Layout()
 

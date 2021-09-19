@@ -78,7 +78,7 @@ class LanguageTable(NeumoTable):
     bool_fn = NeumoTable.bool_fn
     all_columns = \
         [CD(key='lang1',  label='Language', dfn= lambda x: str(x[0]),
-            noresize=True)
+            noresize=False, example='Languagexxxx')
         ]
 
     def InitialRecord(self):

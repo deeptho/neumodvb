@@ -235,7 +235,6 @@ void MpvGLCanvas::OnMpvRedrawEvent(wxThreadEvent&) // MPV_CALLBACK
 
 void MpvGLCanvas::DoRender() // MPV_CALLBACK
 {
-
 	SetCurrent();
 	if (!playing_ok)
 		SwapBuffers();
@@ -670,7 +669,7 @@ int MpvPlayer_::set_subtitle_language(int id) {
 	arg.sprintf("%d", id + 1);
 	dtdebugx("setting subtitle language to %d", id);
 	if (subscription.set_subtitle_language(id) >= 0) {
-		if (mpv_set_property_string(mpv, "aid", arg.c_str()) < 0)
+		if (mpv_set_property_string(mpv, "sid", arg.c_str()) < 0)
 			dterrorx("Failed setting subtitle language %d", id);
 	} else {
 		dterrorx("Failed setting subtitle language %d", id);

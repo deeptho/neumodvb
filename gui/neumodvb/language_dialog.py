@@ -78,6 +78,8 @@ def show_language_dialog(caller, servicegrid, for_subtitles):
     optional servicegrid could be used later if language data is stored in service record
     """
     dlg = LanguageDialog(caller, title= "Subtitle Language" if for_subtitles else "Audio language", basic=False, readonly=True)
+    title= _("Select Subtitle Language") if for_subtitles else _("Select Audio Language")
+    dlg.title.SetLabel(title)
     dlg.Prepare(caller)
     val = dlg.ShowModal()
     row = -1

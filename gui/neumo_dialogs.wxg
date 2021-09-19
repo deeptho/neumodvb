@@ -195,11 +195,37 @@
         </object>
     </object>
     <object class="LanguageDialog_" name="dialog_4" base="EditDialog">
-        <size>200, 400</size>
-        <title>Networks</title>
+        <size>600, 400</size>
+        <title>Select Language</title>
         <style>wxDEFAULT_DIALOG_STYLE|wxMAXIMIZE_BOX|wxMINIMIZE_BOX|wxRESIZE_BORDER|wxSTAY_ON_TOP</style>
         <object class="wxBoxSizer" name="sizer_1" base="EditBoxSizer">
             <orient>wxVERTICAL</orient>
+            <object class="sizeritem">
+                <option>0</option>
+                <border>10</border>
+                <flag>wxALL|wxALIGN_CENTER_HORIZONTAL</flag>
+                <object class="wxStaticText" name="title" base="EditStaticText">
+                    <font>
+                        <size>14</size>
+                        <family>default</family>
+                        <style>normal</style>
+                        <weight>bold</weight>
+                        <underlined>0</underlined>
+                        <face />
+                    </font>
+                    <style>wxALIGN_CENTER_HORIZONTAL</style>
+                    <label>The title</label>
+                    <attribute>1</attribute>
+                </object>
+            </object>
+            <object class="sizeritem">
+                <option>0</option>
+                <border>0</border>
+                <flag>wxEXPAND</flag>
+                <object class="wxStaticLine" name="static_line_1" base="EditStaticLine">
+                    <style>wxLI_HORIZONTAL</style>
+                </object>
+            </object>
             <object class="sizeritem">
                 <option>1</option>
                 <border>0</border>

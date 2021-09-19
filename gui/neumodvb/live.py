@@ -2419,12 +2419,15 @@ class LivePanel(wx.Panel):
             self.grid_panel.Show()
             self.hidden = False
             self.mosaic_panel.set_inactive()
+            self.SetCursor(wx.NullCursor)
         else:
             self.top_panel.Hide()
             self.bottom_panel.Hide()
             self.grid_panel.Hide()
             self.hidden = True
             self.mosaic_panel.set_noborder()
+            cursor = wx.StockCursor(wx.CURSOR_BLANK)
+            self.SetCursor(cursor)
         self.Layout()
 
     def CmdLiveChannels(self, evt):

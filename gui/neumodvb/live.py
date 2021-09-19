@@ -2391,7 +2391,8 @@ class LivePanel(wx.Panel):
         if not (is_ctrl or is_shift) and IsNumericKey(key):
             chno = ask_channel_number(self, key- ord('0'))
             dtdebug(f'need to move to {chno}')
-            self.grid_panel.MoveToChOrder(w, chno)
+            if chno is not None:
+                self.grid_panel.MoveToChOrder(w, chno)
             return
         evt.Skip(True)
 

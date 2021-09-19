@@ -1873,7 +1873,7 @@ class ServiceChannelPanel(RecordPanel):
         e = lambda x: enum_to_str(x)
         f = self.GetFont()
         large = infow.GetFont()
-        large.SetPointSize(int(f.GetPointSize()*2))
+        large.SetPointSize(int(f.GetPointSize()+2))
         infow.Freeze()
         infow.BeginSuppressUndo()
         infow.Clear()

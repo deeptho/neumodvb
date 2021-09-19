@@ -16,7 +16,8 @@ On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -
 * python3-regex
 * wxWidgets-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs
 * libdvbcsa-devel
-* tsduck #used for t2mi streams
+* tsduck #used for t2mi streams; install as: sudo dnf install https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
+
 * espeak #used to read out load the SNR level
 
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";

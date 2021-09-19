@@ -75,7 +75,9 @@ control_menu = (
     MI("Positioner",  _("&Positioner\tCtrl-P"), ""),
     SEP,
     MI("ToggleRecord", _("&Record\tCtrl-R"), ""),
-    #MI("Refresh",  _("&Refresh list\tCtrl-L"), "")
+    SEP,
+    MI("VolumeUp", _("&Volume Up\t="), ""),
+    MI("VolumeDown", _("&Volume Down\t-"), "")
 )
 
 edit_menu = (

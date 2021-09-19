@@ -72,6 +72,7 @@ PYBIND11_MODULE(pyneumompv, m) {
 		.def("audio_languages", &MpvPlayer::audio_languages)
 		.def("set_audio_language", &MpvPlayer::set_audio_language)
 		.def("subtitle_languages", &MpvPlayer::subtitle_languages)
+		.def("change_audio_volume", &MpvPlayer::change_audio_volume)
 		.def("set_subtitle_language", &MpvPlayer::set_subtitle_language)
 		.def("get_current_audio_language", &MpvPlayer::get_current_audio_language)
 		;

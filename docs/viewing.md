@@ -9,8 +9,15 @@ To view channels, one of the dark-mode screens:
 performed.
 * **View mode.** `View Show/Hide GUI` toggles between this mode and the previously selected dark mode screen.
 
-Usually all of these screens are shows in a window, but for real TV viewing, it is better to enter full screen
-mode by `Ctrl-F`. This will make the window fill the screen.
+Usually all of these screens are shown in a window, but for real TV viewing, it is better to enter full screen
+mode.
+
+The following commands are available on these screens:
+*  `Control - Full Scfeen` (`Ctrl-F`). This will toggle between full-screen and windowed mode.
+*  `Control - Volume Up` (`=`). This will increase the audio volume for the currently selected live channel.
+*  `Control - Volume Down` (`-`). This will decrease the audio volume for the currently selected live channel.
+
+
 
 ### Channel screen ###
 

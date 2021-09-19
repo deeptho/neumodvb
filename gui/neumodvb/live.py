@@ -898,6 +898,9 @@ class MosaicPanel(wx.Panel):
     def current_mpv_player(self):
         return self.mpv_players[0 if self.focus_idx < 0 else self.focus_idx]
 
+    def ChangeVolume(self, step):
+        self.current_mpv_player.change_audio_volume(step)
+
     def OnFocus(self, evt):
         self.controller.update_active(self)
         w = evt.GetWindow()
@@ -2474,3 +2477,11 @@ class LivePanel(wx.Panel):
     def CmdStop(self, event):
         dtdebug('CmdStop')
         return self.mosaic_panel.OnStop(event)
+
+    def CmdVolumeUp(self, evt):
+        dtdebug('CmdVolumeUp')
+        self.mosaic_panel.ChangeVolume(+1)
+
+    def CmdVolumeDown(self, evt):
+        dtdebug('CmdVolumeDown')
+        self.mosaic_panel.ChangeVolume(-1)

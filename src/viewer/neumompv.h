@@ -147,10 +147,9 @@ public:
 	int play_file(const char* name);
 	int stop_play();
 	int jump(int seconds);
-	//int subtitles();
 	int set_audio_language(int idx);
 	int set_subtitle_language(int id);
-
+	int change_audio_volume(int step);
 
 	void close();
 	void signal();

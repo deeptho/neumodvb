@@ -75,6 +75,7 @@ public:
 	int play_recording(const recdb::rec_t& rec_, milliseconds_t start_play_time);
 	int set_audio_language(int id);
 	int set_subtitle_language(int id);
+	int change_audio_volume(int step);
 
 	int play_service(const chdb::service_t& service, milliseconds_t start_play_time);
 
@@ -646,6 +647,15 @@ void MpvPlayer::mpv_command(const char* cmd_, const char* arg2, const char* arg3
 	return self->mpv_command(cmd_, arg2, arg3);
 }
 
+int MpvPlayer_::change_audio_volume(int step) {
+	ss::string<16> arg;
+	arg.sprintf("%d", step);
+	dtdebugx("adjusting audio volume by %d", step);
+	const char* cmd[] = {"add", "volume", arg.c_str(), nullptr};
+	::mpv_command(mpv, cmd);
+	return 0;
+}
+
 int MpvPlayer_::set_audio_language(int id) {
 	ss::string<16> arg;
 	arg.sprintf("%d", id + 1);
@@ -662,6 +672,11 @@ int MpvPlayer_::set_audio_language(int id) {
 int MpvPlayer::set_audio_language(int id) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->set_audio_language(id);
+}
+
+int MpvPlayer::change_audio_volume(int step) {
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->change_audio_volume(step);
 }
 
 int MpvPlayer_::set_subtitle_language(int id) {

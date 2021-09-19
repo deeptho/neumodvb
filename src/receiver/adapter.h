@@ -155,7 +155,7 @@ struct spectrum_scan_options_t {
 	dtv_fe_spectrum_method spectrum_method{SPECTRUM_METHOD_FFT};
 	int start_freq{0}; //in kHz
 	int end_freq{std::numeric_limits<int>::max()}; //in kHz
-	int resolution{100}; //in kHz for spectrum and for blindscan
+	int resolution{0}; //in kHz for spectrum and for blindscan, 0 means: use driver default
 	int fft_size{256}; //power of 2; 	int end_freq = -1; //in kHz
 	spectrum_scan_options_t() {
 		start_time = system_clock::to_time_t(now);

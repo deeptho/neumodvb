@@ -36,6 +36,7 @@
 #include "util/dtassert.h"
 #include "util/logger.h"
 #include "util/neumovariant.h"
+#include "spectrum_algo.h"
 
 static inline constexpr int make_code(int pls_mode, int pls_code, int timeout = 0) {
 	return (timeout & 0xff) | ((pls_code & 0x3FFFF) << 8) | (((pls_mode)&0x3) << 26);
@@ -926,6 +927,9 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		return {};
 	}
 	scan.resize(spectrum.num_freq, spectrum.num_candidates);
+	if(spectrum.num_candidates == 0) {
+		find_tps(scan.peaks, scan.rf_level, scan.freq);
+	}
 
 	bool append_now = false;
 	bool incomplete = false;

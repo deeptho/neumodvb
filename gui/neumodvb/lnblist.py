@@ -67,6 +67,7 @@ class LnbTable(NeumoTable):
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
+    freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
     all_columns = \
         [CD(key='k.adapter_no',  label='adapter', basic=True),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
@@ -83,8 +84,8 @@ class LnbTable(NeumoTable):
          CD(key='priority',  label='priority'),
          CD(key='lof_offsets',  label='lof_offset', dfn=lof_offset_fn, example='-2000kHz; -20000kHz'),
          CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
-         CD(key='freq_low',   label='low', basic=False),
-         CD(key='freq_high',   label='high', basic=False),
+         CD(key='freq_low',   label='low freq', basic=False, dfn=freq_fn, example="10700.000"),
+         CD(key='freq_high',   label='high freq', basic=False, dfn=freq_fn, example="10700.000"),
         ]
 
     dvbt_columns =  \

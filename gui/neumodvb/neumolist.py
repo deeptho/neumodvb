@@ -409,6 +409,8 @@ class NeumoTable(wx.grid.GridTableBase):
         elif issubclass(coltype, numbers.Integral):
             if key.endswith('frequency'):
                 newval = int (1000*float(val))
+            elif key.startswith('freq_'):
+                newval = int (1000*float(val)) if float(val)>=0 else -1
             elif key.endswith('symbol_rate'):
                 newval = int (1000*int(val))
             elif key.endswith("sat_pos") or key.endswith("lnb_pos") or key.endswith("usals_pos") :
@@ -821,7 +823,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             elif issubclass(coltype, numbers.Integral):
                 if col.key.endswith('time'):
                     readonly = True
-                elif col.key.endswith('frequency'):
+                elif col.key.endswith('frequency') or col.key.startswith('freq_'):
                     editor = NeumoFloatEditor(col, precision=3)
                 elif col.key.endswith('sat_pos') or col.key.endswith('lnb_pos') or col.key.endswith('usals_pos'):
                     #Note that the following code line depends on satlist_panel being the first

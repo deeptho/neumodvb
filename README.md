@@ -1,11 +1,12 @@
 # NeumoDVB #
 
 NeumoDVB is a DVB Settop box and dx-program for linux.
-Its supports advanced muti-tuner cards such as the TBS-6909x and TBS-6903x.
+Its supports advanced muti-tuner cards such as the TBS-6909x, TBS-6903x and simpler cards
+like tbs5927.
 Some of the features include
 
  * spectral analysis of satellite bands
- * blindscan
+ * blindscan (TBS-6909x, TBS-6903x, tbs5927)
  * scanning muxes
  * viewing and recording programs
  * epg scanning, including SkyUk, Freesat, Movistar, Viasat Nordic

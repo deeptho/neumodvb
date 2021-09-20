@@ -151,7 +151,9 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 	int i;
 	spectrum_peak_internal_t* cand = &si->last_peak;
 	if (cand->snr < ss->threshold2) {
+#if 0
 		dprintk("Rejecting too weak candidate\n");
+#endif
 		return -1;
 	}
 	for (i = 0; i < si->num_peaks; ++i) {
@@ -418,9 +420,10 @@ static int next_candidate_this_level(struct spectrum_scan_state_t* ss, struct sc
 					si->last_peak_snr = si->last_peak.level - right;
 					si->last_peak.snr = si->last_peak_snr;
 				}
+#if 0
 				dprintk("CANDIDATE: %d %dkHz BW=%dkHz snr=%ddB\n", si->last_peak.idx, si->last_peak.freq, si->last_peak.bw,
 								si->last_peak.snr);
-
+#endif
 				si->last_peak.rise_idx = si->last_rise_idx;
 				si->last_peak.fall_idx = si->current_idx;
 				if (si->peak_marks[si->current_idx] & RISING)
@@ -451,8 +454,10 @@ static int next_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inter
 		ret = next_candidate_this_level(ss, si);
 		if (ret < 0)
 			continue;
+#if 0
 		dprintk("CANDIDATE: %d %dkHz BW=%dkHz snr=%ddB\n", si->last_peak.idx, si->last_peak.freq, si->last_peak.bw,
 						si->last_peak_snr);
+#endif
 		return ret;
 	}
 	return -1;
@@ -469,14 +474,18 @@ static int stid135_spectral_scan_next(struct spectrum_scan_state_t* ss, struct s
 		ret = next_candidate_tp(ss, si);
 		if (ret >= 0) {
 			if (check_candidate_tp(ss, si) >= 0) {
+#if 0
 				dprintk("Next frequency to scan: [%d] %dkHz SNR=%d BW=%d\n", ret, si->last_peak.freq, si->last_peak_snr,
 								si->last_peak.bw);
+#endif
 				*frequency_ret = si->last_peak.freq;
 				*snr_ret = si->last_peak_snr;
 				return si->last_peak.idx;
 			}
 		} else {
+#if 0
 			dprintk("Current subband fully scanned: current_idx=%d end_idx=%d\n", si->current_idx, si->end_idx);
+#endif
 		}
 	}
 	return -1;
@@ -507,7 +516,10 @@ void find_tps(ss::vector_<spectral_peak_t>& res,	ss::vector_<int32_t>& sig, ss::
 		//printf("FREQ=%d BW=%d SNR=%ddB\n", frequency, bw, snr);
 		if (ret >= 0) {
 			si.peaks[si.num_peaks++] = si.last_peak;
+#if 0
 			dprintk("NP=%d\n", si.num_peaks);
+#endif
+
 		}
 	}
 	qsort(&si.peaks[0], si.num_peaks, sizeof(si.peaks[0]), cmp_fn);

@@ -108,12 +108,9 @@ class SpectrumDialog(SpectrumDialog_):
 
         self.SetTitle(f'Spectrum - {self.lnb}')
 
-        if False:
-            self.start_freq = 10700000 #means: pick auto
-            self.end_freq = 10700000+250000 #means: pick auto
-        else:
-            self.start_freq = 10700000
-            self.end_freq = 12750000
+        self.start_freq = -1 # -1 means auto 10700000
+        self.end_freq = -1 # -1 means auto 12750000
+
         self.gettting_spectrum_ = False
 
         bp_t = pychdb.fe_band_pol.fe_band_pol

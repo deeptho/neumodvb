@@ -22,9 +22,14 @@ blind scan and provides some details on the related parts of the screen
 ### Starting a spectrum scan ###
 Proceed as follows
 
-* At the very bottom left on the screen, first select the bands and polarizations you want to scan.
- The default is to scan all, which will take about a minute
+* At the very bottom left on the screen, first select the polarizations you want to scan. Also select the frequency
+  range to scan. The default is to scan all, which will take about a minute
 * Then press the `spectrum scan` button.
+
+Note that some cards, such as tbs5927 allow tuning outside of the normal frequency ranges. If the driver
+supports it, you can therefore also enter a low frequency limit the scan below 10.7Ghz or a high frequency
+above 12.75Ghz. However, this only works if the LNB frequency limits have been properly adjusted on the
+`lnb list` screen.
 
 Spectrum scan is performed one band/polarization at a time. The result will be displayed as a graph
 on the top half of the screen. To prevent a complete mess, the graph - which, for a universal LNB, covers the

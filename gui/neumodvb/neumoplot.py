@@ -446,8 +446,6 @@ class ConstellationPlotBase(wx.Panel):
         self.xlimits = None
         self.ylimits = None
         self.parent = parent
-        #self.constellation = pystatdb.spectrum.spectrum()
-        #self.scrollbar.Bind(wx.EVT_COMMAND_SCROLL, self.OnScroll)
 
         self.figure = mpl.figure.Figure(figsize=figsize)
         self.axes = self.figure.add_subplot(111, projection='scatter_density')
@@ -600,7 +598,7 @@ class SpectrumPlot(wx.Panel):
 
     def OnCreateWindow(self,event):
         if event.GetWindow() == self:
-            self.start_freq, self.end_freq = self.parent.start_freq, self.parent.end_freq
+            #self.start_freq, self.end_freq = self.parent.start_freq, self.parent.end_freq
             self.draw()
         else:
             pass
@@ -627,7 +625,7 @@ class SpectrumPlot(wx.Panel):
         self.axes.spines['top'].set_visible(False)
         self.axes.set_ylabel('dB')
         self.axes.set_xlabel('Frequency (Mhz)')
-        self.axes.set_xlim((self.start_freq/1000., self.end_freq/1000.))
+        self.axes.set_xlim((self.parent.start_freq/1000., self.parent.end_freq/1000.))
         self.canvas.draw()
 
     def add_detrend_button(self) :
@@ -708,8 +706,8 @@ class SpectrumPlot(wx.Panel):
         wx.CallAfter(self.parent.Refresh)
 
     def pan_spectrum(self, offset):
-        xmin, ymin = (10700.+offset, -50)
-        xmax, ymax = (10700+self.zoom_bandwidth +offset, -45)
+        xmin, ymin = (self.parent.start_freq/1000.+offset, -50)
+        xmax, ymax = (self.parent.start_freq/1000.+self.zoom_bandwidth +offset, -45)
         self.axes.set_xbound((xmin, xmax))
         self.canvas.draw()
         self.parent.Refresh()

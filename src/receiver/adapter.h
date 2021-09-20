@@ -151,7 +151,7 @@ struct spectrum_scan_options_t {
 	bool append{false}; //append to existing file
 	int16_t sat_pos{sat_pos_none};
 	chdb::fe_band_pol_t band_pol; //currently scanning band
-	bool scan_both_bands{false}; //
+	bool scan_both_polarisations{false}; //
 	dtv_fe_spectrum_method spectrum_method{SPECTRUM_METHOD_FFT};
 	int start_freq{0}; //in kHz
 	int end_freq{std::numeric_limits<int>::max()}; //in kHz

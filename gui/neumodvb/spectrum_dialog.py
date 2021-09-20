@@ -36,7 +36,7 @@ class SpectrumButtons(SpectrumButtons_):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
-        wx.CallAfter(self.select_all_band_pols)
+        wx.CallAfter(self.select_range_and_pols)
 
     def OnAcquireSpectrum(self, event):
         return self.Parent.OnAcquireSpectrum(event)
@@ -44,59 +44,35 @@ class SpectrumButtons(SpectrumButtons_):
     def OnBlindScan(self, event):
         return self.parent.OnBlindScan(event)
 
-    def select_all_band_pols(self):
-        self.spectrum_horizontal_low.SetValue(1)
-        self.spectrum_horizontal_high.SetValue(1)
-        self.spectrum_vertical_low.SetValue(1)
-        self.spectrum_vertical_high.SetValue(1)
+    def select_range_and_pols(self):
+        self.spectrum_horizontal.SetValue(1)
+        self.spectrum_vertical.SetValue(1)
+        self.start_freq_text.SetValue(str(self.parent.start_freq//1000))
+        self.end_freq_text.SetValue(str(self.parent.end_freq//1000))
 
-    def selected_band_pols(self):
-        bp_t = pychdb.fe_band_pol.fe_band_pol
-        b_t = pychdb.fe_band_t
+    def get_range_and_pols(self):
         p_t = pychdb.fe_polarisation_t
         ret = []
-
-        hl, hh, vl, vh = self.spectrum_horizontal_low.GetValue(), \
-            self.spectrum_horizontal_high.GetValue(), \
-            self.spectrum_vertical_low.GetValue(), \
-            self.spectrum_vertical_high.GetValue()
-        if hl and hh and vl and vh:
-            return [ bp_t(b_t.UNKNOWN, p_t.UNKNOWN)]
-
-        if hl and hh:
-            ret.append(bp_t(b_t.UNKNOWN, p_t.H))
-        elif hl:
-            ret.append(bp_t(b_t.LOW, p_t.H))
-        elif hh:
-            ret.append(bp_t(b_t.HIGH, p_t.H))
-
-        if vl and vh:
-            ret.append(bp_t(b_t.UNKNOWN, p_t.V))
-        elif vl:
-            ret.append(bp_t(b_t.LOW, p_t.V))
-        elif vh:
-            ret.append(bp_t(b_t.HIGH, p_t.V))
-        return ret
+        self.parent.start_freq = int(self.start_freq_text.GetValue())*1000
+        self.parent.end_freq = int(self.end_freq_text.GetValue())*1000
+        h, v, = self.spectrum_horizontal.GetValue(), \
+            self.spectrum_vertical.GetValue()
+        if v and h:
+            self.parent.pols_to_scan = [ p_t.H, p_t.V ]
+        elif h:
+            self.parent.pols_to_scan = [ p_t.H ]
+        elif v:
+            self.parent.pols_to_scan = [ p_t.V ]
 
 class SpectrumListPanel(SpectrumListPanel_):
     def __init__(self, parent, *args, **kwds):
         super().__init__(parent, *args, **kwds)
         self.parent = parent
 
-    def initOFF(self, parent, sat, lnb,  mux):
-        self.lnb, self.sat, self.mux = self.SelectInitialData(lnb, sat, mux)
-        assert (mux is None and sat is None) or (sat is None and lnb is None) or (lnb is None and mux is None)
-        self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
-        self.spectrumselect_grid.Bind ( wx.grid.EVT_GRID_SELECT_CELL, self.OnGridRowSelect)
 
     def OnRowSelect(self, evt):
         dtdebug(f"ROW SELECT {evt.GetRow()}")
 
-    def SelectInitialDataOFF(self, lnb, sat, mux):
-        """
-        select an inital choice for lnb mux and sat
-        """
-        breakpoint()
 
 
 class SpectrumDialog(SpectrumDialog_):
@@ -108,8 +84,8 @@ class SpectrumDialog(SpectrumDialog_):
 
         self.SetTitle(f'Spectrum - {self.lnb}')
 
-        self.start_freq = -1 # -1 means auto 10700000
-        self.end_freq = -1 # -1 means auto 12750000
+        self.start_freq = 10700000
+        self.end_freq = 12750000
 
         self.gettting_spectrum_ = False
 
@@ -118,7 +94,7 @@ class SpectrumDialog(SpectrumDialog_):
         p_t = pychdb.fe_polarisation_t
 
         self.is_blindscanning = False
-        self.band_pols_to_scan = []
+        self.pols_to_scan = []
         self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose) #ony if a nonmodal dialog is used
@@ -194,13 +170,16 @@ class SpectrumDialog(SpectrumDialog_):
             self.EndBlindScan()
         else:
             dtdebug("starting spectrum acquisition")
-            self.band_pols_to_scan = self.spectrum_buttons_panel.selected_band_pols()
-            if len(self.band_pols_to_scan) == 0:
-                ShowMessage("Select bands", "No bands selected for spectrum")
+            self.spectrum_buttons_panel.get_range_and_pols()
+            if (self.end_freq < self.start_freq):
+                ShowMessage("Select range", "Invalid range for spectrum")
+                self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
+            elif len(self.pols_to_scan) == 0:
+                ShowMessage("Select bands", "No Polarisations selected for spectrum")
                 self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
             else:
-                band_pol = self.band_pols_to_scan.pop(0)
-                self.mux_subscriber.subscribe_spectrum(self.lnb, band_pol,
+                pol = self.pols_to_scan.pop(0)
+                self.mux_subscriber.subscribe_spectrum(self.lnb, pol,
                                                        self.start_freq, self.end_freq,
                                                        self.sat.sat_pos)
         event.Skip()
@@ -330,9 +309,9 @@ class SpectrumDialog(SpectrumDialog_):
         if type(data) ==type(self.spectrum_plot.spectrum):
             self.spectrum_plot.show_spectrum(data)
             if data.is_complete:
-                if len(self.band_pols_to_scan) != 0:
-                    band_pol = self.band_pols_to_scan.pop(0)
-                    self.mux_subscriber.subscribe_spectrum(self.lnb, band_pol,
+                if len(self.pols_to_scan) != 0:
+                    pol = self.pols_to_scan.pop(0)
+                    self.mux_subscriber.subscribe_spectrum(self.lnb, pol,
                                                            self.start_freq, self.end_freq,
                                                            self.sat.sat_pos)
                 else:

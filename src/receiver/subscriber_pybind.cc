@@ -179,7 +179,7 @@ void export_mux_subscriber(py::module& m) {
 				 , &mux_subscriber_t::subscribe_spectrum
 				 , "acquire a spectrum for this lnb"
 				 , py::arg("lnb")
-				 , py::arg("band_pol to scan")
+				 , py::arg("pol to scan")
 				 , py::arg("start_freq")
 				 , py::arg("end_freq")
 				 , py::arg("sat_pos") = sat_pos_none

@@ -88,11 +88,11 @@ int mux_subscriber_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
 	return ret;
 }
 
-int mux_subscriber_t::subscribe_spectrum(chdb::lnb_t& lnb, chdb::fe_band_pol_t band_pol, int32_t low_freq,
+int mux_subscriber_t::subscribe_spectrum(chdb::lnb_t& lnb, chdb::fe_polarisation_t pol, int32_t low_freq,
 																				 int32_t high_freq, int sat_pos) {
 	active_adapter.reset();
 
-	subscription_id = receiver->subscribe_lnb_spectrum(lnb, band_pol, low_freq, high_freq, sat_pos, subscription_id);
+	subscription_id = receiver->subscribe_lnb_spectrum(lnb, pol, low_freq, high_freq, sat_pos, subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return subscription_id;
 }

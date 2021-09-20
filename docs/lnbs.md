@@ -71,6 +71,10 @@ In this case, you also need define the list of networks (satellites), that the p
 LNBs local oscillator (the two numbers are for the low and high band, respectively)
 * `Networks`. Clicking on this field will popup a window, which lists all the networks that an LNB
 can tune to
+* `start freq`. This sets the lowest possible frequency the LNB can tune to. The special value -1 means that this
+  is set to the default value for this lnb type, e.g., 10.7 Ghz for a universal LNB.
+* `end freq`. This sets the highest possible frequency the LNB can tune to. The special value -1 means that this
+  is set to the default value for this lnb type, e.g., 12.75 Ghz for a universal LNB.
 
 The screenshot below shows the networks for a movable dish which is allowed to move to 6 different satellite
 positions. In this table, you can add new lines (`Edit - New`) or edit existing Lines (activate `Edit mode`

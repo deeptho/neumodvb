@@ -954,10 +954,10 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		scan.lof_offsets = lnb.lof_offsets;
 		assert(!network || network->sat_pos == scan.sat_pos);
 		append_now = options.append;
-		// we will need to call start_lnb_spectrum again later to retriev (part of) the high band)
+		// we will need to call start_lnb_spectrum again later to retrieve (part of) the high band)
 		incomplete =
 			(options.band_pol.band == chdb::fe_band_t::LOW && scan.end_freq > mid_freq && mid_freq < options.end_freq) ||
-			(options.scan_both_bands && options.band_pol.pol == chdb::fe_polarisation_t::H);
+			(options.scan_both_polarisations && options.band_pol.pol == chdb::fe_polarisation_t::H);
 	}
 	if (incomplete) {
 		auto options = this->ts.readAccess()->spectrum_scan_options; // make a copy

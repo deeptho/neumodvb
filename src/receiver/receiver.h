@@ -628,7 +628,7 @@ public:
 
 	int subscribe_lnb_blindscan(chdb::lnb_t& lnb,  const chdb::fe_band_pol_t& band_pol, int subscription_id);
 
-	int subscribe_lnb_spectrum(chdb::lnb_t& lnb, const chdb::fe_band_pol_t& band_pol,
+	int subscribe_lnb_spectrum(chdb::lnb_t& lnb, const chdb::fe_polarisation_t& pol,
 														 int32_t low_freq, int32_t high_freq,
 														 int sat_pos, int subscription_id);
 

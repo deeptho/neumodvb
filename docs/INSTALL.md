@@ -16,6 +16,7 @@ On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -
 * python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-configobj
 * python3-regex
 * wxWidgets-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs
+* libX11-devel libglvnd-devel
 * libdvbcsa-devel
 * tsduck #used for t2mi streams; install as: sudo dnf install https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
 

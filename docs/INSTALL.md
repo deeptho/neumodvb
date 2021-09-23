@@ -15,7 +15,7 @@ On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -
 * wxGTK3 gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif
 * python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-configobj
 * python3-regex
-* wxWidgets-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs
+* wxWidgets-devel wxBase3 wxBase3-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs
 * libX11-devel libglvnd-devel
 * libdvbcsa-devel
 * tsduck #used for t2mi streams; install as: sudo dnf install https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
@@ -43,6 +43,13 @@ cd ~/neumodvb/build
 rm -fr *
 cmake ..
 make -j8
+```
+
+As an alternative, lock cmake to the properversion
+```
+sudo dnf downgrade cmake #repeat as needed until version 3.19 is installed
+sudo dnf install 'dnf-command(versionlock)'
+sudo dnf versionlock cmake
 ```
 
 ### Install blindscan drivers ###

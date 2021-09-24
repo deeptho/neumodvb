@@ -24,7 +24,7 @@ namespace dtdemux {
 void ts_substream_t::parse(ts_packet_t* p) {
 	int pid = p->get_pid();
 	current_ts_packet = p;
-
+	process_packet_header(current_ts_packet);
 	dtdebugx("parser[%d] start", pid);
 	for(;;) {
 		if(!p) //end of file before parser can even start

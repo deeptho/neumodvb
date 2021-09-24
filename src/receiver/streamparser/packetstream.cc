@@ -31,7 +31,6 @@ using namespace dtdemux;
 
 using namespace boost;
 
-
 /*
 	compare dts of 2 succsive i-frames
 	40 ms in case of failyre
@@ -48,7 +47,9 @@ static bool get_pcr(data_range_t& range, pcr_t& pcr) {
 	return true;
 }
 
-template <> uint8_t data_range_t::get_<uint8_t>(uint8_t* cursor) { return *(uint8_t*)cursor; }
+template <> uint8_t data_range_t::get_<uint8_t>(uint8_t* cursor) {
+	return *(uint8_t*)cursor;
+}
 
 void ts_packet_t::parse_adaptation(data_range_t& range) {
 	if (this->has_adaptation()) {
@@ -267,82 +268,87 @@ void ts_substream_t::skip_to_unit_start() {
 
 	returns -1 on error 1 on success
 */
-static int count = 0;
+
 int ts_substream_t::get_next_packet(ts_packet_t* start) {
 	for (int n = 0;; ++n) {
-		count++;
 		ts_packet_t* p = (n == 0 && start) ? start : parent.get_packet_for_this_parser();
 		if (!p->valid)
 			throw_bad_data();
-		if (p->get_payload_unit_start()) {
-			if (has_encrypted()) {
-				parent.num_encrypted_packets++;
-				num_encrypted_packets++;
-			} else
-				unit_completed_cb();
-		}
-		current_unit_end_bytepos = current_ts_packet->range.start_bytepos(); // not an error
-
-		current_ts_packet = p;
-		if (this->continuity_counter != 0xff) { // if not first time ever
-			uint8_t expected_cc =
-				current_ts_packet->has_payload() ? (this->continuity_counter + 1) & 0x0f : this->continuity_counter;
-			/*@todo handle case where packet is repeat (same cont counter, identical content)
-				See https://superuser.com/questions/777855/transport-stream-duplicate-packet:
-				a packet can be repeated if it has a payload. It should be repeated exactly as is,
-				except for the pcr if it contains one
-			*/
-			if (expected_cc != current_ts_packet->get_continuity_counter()) {
-				if (!current_ts_packet->get_is_discontinuity()) {
-					this->wait_for_unit_start = true; // p. 39 iso13818-1: pes packets cannot be interruped by discontinuity
-					this->continuity_errors++;				// discontinuities are not errors if they are signalled
-					dterrorx("[%d] stream error count=%ld: expected_cc=%d cc=%d payload=%d", current_ts_packet->get_pid(),
-									 this->continuity_errors, expected_cc, current_ts_packet->get_continuity_counter(),
-									 current_ts_packet->has_payload());
-					throw_bad_data();
-				} else {
-					cc_error_counter++;
-				}
-			}
-		}
-		if (current_ts_packet->get_payload_unit_start())
-			this->wait_for_unit_start = false;
-
-		this->continuity_counter = current_ts_packet->get_continuity_counter();
-		if (current_ts_packet->has_pcr()) {
-
-			parent.event_handler.pcr_update(current_ts_packet->get_pid(), current_ts_packet->pcr,
-																			current_ts_packet->get_is_discontinuity());
-
-		} else {
-			if (current_ts_packet->get_is_discontinuity())
-				LOG4CXX_ERROR(logger, "Discontinuity without PCR");
-		}
-
-		if (current_ts_packet->get_is_discontinuity()) {
-			if (!current_ts_packet->has_pcr())
-				LOG4CXX_ERROR(logger, "Discontinuity without PCR");
-		}
-		if (current_ts_packet->is_encrypted())
-			throw_encrypted_data();
-
-		if (is_psi && current_ts_packet->get_payload_unit_start()) {
-			pointer_field = current_ts_packet->range.get<uint8_t>();
-			if (pointer_field < current_ts_packet->range.available()) {
-				pointer_pos = current_ts_packet->range.processed() + pointer_field;
-				assert(pointer_pos >= 0);
-			} else {
-				pointer_pos = -1;
-				pointer_field = 0;
-				throw_bad_data();
-			}
-		} else
-			pointer_field = 0;
-
+		process_packet_header(p);
 		if (!this->wait_for_unit_start)
 			return 1;
 	}
 	return -1; // never reached
+}
+
+void ts_substream_t::process_packet_header(ts_packet_t* p) {
+	if (!p->valid)
+		throw_bad_data();
+	if (p->get_payload_unit_start()) {
+		if (has_encrypted()) {
+			parent.num_encrypted_packets++;
+			num_encrypted_packets++;
+		} else
+			unit_completed_cb();
+	}
+	current_unit_end_bytepos = current_ts_packet->range.start_bytepos(); // not an error
+
+	current_ts_packet = p;
+	if (this->continuity_counter != 0xff) { // if not first time ever
+		uint8_t expected_cc =
+				current_ts_packet->has_payload() ? (this->continuity_counter + 1) & 0x0f : this->continuity_counter;
+		/*@todo handle case where packet is repeat (same cont counter, identical content)
+			See https://superuser.com/questions/777855/transport-stream-duplicate-packet:
+			a packet can be repeated if it has a payload. It should be repeated exactly as is,
+			except for the pcr if it contains one
+		*/
+		if (expected_cc != current_ts_packet->get_continuity_counter()) {
+			if (!current_ts_packet->get_is_discontinuity()) {
+				this->wait_for_unit_start = true; // p. 39 iso13818-1: pes packets cannot be interruped by discontinuity
+				this->continuity_errors++;				// discontinuities are not errors if they are signalled
+				dterrorx("[%d] stream error count=%ld: expected_cc=%d cc=%d payload=%d", current_ts_packet->get_pid(),
+								 this->continuity_errors, expected_cc, current_ts_packet->get_continuity_counter(),
+								 current_ts_packet->has_payload());
+				throw_bad_data();
+			} else {
+				cc_error_counter++;
+			}
+		}
+	}
+	if (current_ts_packet->get_payload_unit_start())
+		this->wait_for_unit_start = false;
+
+	this->continuity_counter = current_ts_packet->get_continuity_counter();
+	if (current_ts_packet->has_pcr()) {
+
+		parent.event_handler.pcr_update(current_ts_packet->get_pid(), current_ts_packet->pcr,
+																		current_ts_packet->get_is_discontinuity());
+
+	} else {
+		if (current_ts_packet->get_is_discontinuity())
+			LOG4CXX_ERROR(logger, "Discontinuity without PCR");
+	}
+
+	if (current_ts_packet->get_is_discontinuity()) {
+		if (!current_ts_packet->has_pcr())
+			LOG4CXX_ERROR(logger, "Discontinuity without PCR");
+	}
+	if (current_ts_packet->is_encrypted()) {
+		throw_encrypted_data();
+	}
+	if (is_psi && current_ts_packet->get_payload_unit_start()) {
+		pointer_field = current_ts_packet->range.get<uint8_t>();
+		if (pointer_field < current_ts_packet->range.available()) {
+			pointer_pos = current_ts_packet->range.processed() + pointer_field;
+			assert(pointer_field >= 0);
+			assert(pointer_pos >= 0);
+		} else {
+			pointer_pos = -1;
+			pointer_field = 0;
+			throw_bad_data();
+		}
+	} else
+		pointer_field = 0;
 }
 
 void ts_stream_t::register_audio_pids(int service_id, int audio_pid, int pcr_pid,

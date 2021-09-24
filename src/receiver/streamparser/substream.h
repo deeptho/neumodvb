@@ -120,6 +120,8 @@ namespace dtdemux {
 	protected:
 		milliseconds_t first_play_time; //in milliseconds
 		milliseconds_t last_play_time; //in milliseconds
+	private:
+		void process_packet_header(ts_packet_t* p);
 	public:
 		virtual void unit_completed_cb() = 0;
 
@@ -155,7 +157,6 @@ namespace dtdemux {
 		void clear_encrypted() {
 			encrypted = false;
 		}
-
 
 		int get_next_packet(ts_packet_t* start=nullptr);
 

@@ -296,6 +296,7 @@ class SpectrumDialog(SpectrumDialog_):
                         tp.isis_scanned = set((data.dvbs_mux.stream_id,))
                     else:
                         tp.isis_present = set.union(set(data.isi_list), tp.isis_present)
+                        tp.isis_scanned.add(data.dvbs_mux.stream_id)
                     tp.isis_to_scan =  tp.isis_present -  tp.isis_scanned
                     if len(tp.isis_to_scan)>0:
                         stream_id = min(tp.isis_to_scan)

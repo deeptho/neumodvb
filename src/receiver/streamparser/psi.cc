@@ -2211,7 +2211,7 @@ void pat_parser_t::parse_payload_unit() {
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
-	if (hdr.table_id != 0x0) { // not a pat section
+	if (hdr.table_id != 0x0 || ! hdr.section_syntax_indicator) { // not a pat section
 		error = true;
 		RETURN_ON_ERROR;
 	}

@@ -14,7 +14,7 @@ On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -
 * log4cxx log4cxx-devel libconfig libconfig-devel
 * wxGTK3 gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif
 * python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-configobj
-* python3-regex
+* python3-regex python3-matplotlib-wx
 * wxWidgets-devel wxBase3 wxBase3-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs
 * libX11-devel libglvnd-devel
 * libdvbcsa-devel
@@ -26,7 +26,7 @@ In addition, some python code needs to be installed using "sudo pip3 install &lt
 at least the following packages are needed:
 
 * regex setproctitle
-* python3-matplotlib-wx mpl_scatter_density
+* mpl_scatter_density
 
 The above software list may be incomplete or may contain no longer needed packages.
 Please open a ticket if you discover mistakes

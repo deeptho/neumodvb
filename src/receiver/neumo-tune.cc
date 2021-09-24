@@ -408,7 +408,7 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 		{.cmd = DTV_STREAM_ID},
 		{.cmd = DTV_SCRAMBLING_SEQUENCE_INDEX},
 		{.cmd = DTV_ISI_LIST},
-		{.cmd = DTV_MATYPE_LIST},
+		{.cmd = DTV_MATYPE},
 	};
 	struct dtv_properties cmdseq = {
 		.num = sizeof(p)/sizeof(p[0]),

@@ -274,8 +274,7 @@ enum fe_sec_mini_cmd {
  * @FE_TIMEDOUT:	Fo lock within the last about 2 seconds.
  * @FE_REINIT:		Frontend was reinitialized, application is recommended
  *			to reset DiSEqC, tone and parameters.
- *
- * @FE_IDLE:		Frontend has gone to idle
+ * @FE_IDLE:		Frontend has gone idle
  *
  */
 enum fe_status {
@@ -618,8 +617,7 @@ enum fe_interleaving {
 #define DTV_MAX_SYMBOL_RATE	85 //for blindscan
 #define DTV_CONSTELLATION 86
 #define DTV_HEARTBEAT 87
-#define DTV_MATYPE_LIST		88 //retrieve list of matype codes
-#define DTV_MAX_COMMAND	 DTV_MATYPE_LIST
+#define DTV_MAX_COMMAND	 DTV_HEARTBEAT
 
 //commands for controlling long running algorithms via FE_ALGO_CTRL ioctl
 #define DTV_STOP 1

@@ -750,7 +750,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 																												 const subtable_info_t& info) {
 	auto cidx = scan_state_t::PAT;
 	tune_confirmation.unstable_sat = false;
-	if (info.timedout && pat_data.stable_pat()) {
+	if (info.timedout /*&& pat_data.stable_pat()*/) {
 		scan_state.set_timedout(cidx);
 		return dtdemux::reset_type_t::NO_RESET;
 	} else

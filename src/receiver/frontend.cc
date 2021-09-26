@@ -112,9 +112,15 @@ int cmdseq_t::spectrum(int fefd, dtv_fe_spectrum_method method) {
 }
 
 int dvb_frontend_t::open_device(thread_safe_t& t, bool rw, bool allow_failure) {
-	api_type = get_api_type();
 	if (t.fefd >= 0)
 		return 0; // already open
+
+	try {
+		api_type = get_api_type();
+
+	} catch(...) {
+		return -1;
+	}
 
 	ss::string<PATH_MAX> frontend_fname;
 	frontend_fname.sprintf("/dev/dvb/adapter%d/frontend%d", adapter->adapter_no, frontend_no);
@@ -214,7 +220,7 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no) 
 	t.dbfe.supports.multistream = fe_info.caps & FE_CAN_MULTISTREAM;
 	t.dbfe.supports.blindscan = fe_info.extended_caps & FE_CAN_BLINDSEARCH;
 	t.dbfe.supports.spectrum = fe_info.extended_caps & FE_CAN_SPECTRUMSCAN;
-	t.dbfe.supports.iq = fe_info.extended_caps & FE_CAN_SPECTRUMSCAN;
+	t.dbfe.supports.iq = fe_info.extended_caps & FE_CAN_IQ;
 	return 0;
 }
 

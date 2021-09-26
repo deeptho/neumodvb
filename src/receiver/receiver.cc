@@ -1566,6 +1566,7 @@ receiver_t::receiver_t(const neumo_options_t* options)
 	: receiver_thread(*this)
 	, scam_thread(receiver_thread)
 	, tuner_thread(*this)
+	, statdb(false/*readonly*/, false /*is_temp*/, true /*autoconvert*/)
 	, browse_history(chdb)
 	, rec_browse_history(recdb)
 {

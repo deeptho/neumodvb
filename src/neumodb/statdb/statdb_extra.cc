@@ -84,7 +84,7 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 		(uint32_t)scan.end_freq,
 		scan.resolution,
 		scan.usals_pos,
-		false,
+		false,/*is_complete*/
 		{},
 		scan.lof_offsets};
 	make_spectrum_scan_filename(spectrum.filename, spectrum);

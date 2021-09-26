@@ -49,12 +49,17 @@
 #include <unistd.h>
 #include <values.h>
 
+
+uint32_t freq[65536 * 4];
+int32_t rf_level[65536 * 4];
+int32_t candidate_frequencies[65536 * 4];
+dtv_fe_constellation_sample samples[65536];
+
+
 int tune_it(int fefd, int frequency_, bool pol_is_v);
 int do_lnb_and_diseqc(int fefd, int frequency, bool pol_is_v);
 int tune(int fefd, int frequency, bool pol_is_v);
 
-int driver_start_constellation(int fefd, int num_samples, int constel_select,
-															 dtv_fe_constellation_method method = CONSTELLATION_METHOD_DEFAULT);
 
 static constexpr int make_code(int pls_mode, int pls_code, int timeout = 0) {
 	return (timeout & 0xff) | ((pls_code & 0x3FFFF) << 8) | (((pls_mode)&0x3) << 26);
@@ -100,7 +105,7 @@ struct options_t {
 	fe_delivery_system delivery_system{SYS_DVBS2};
 	int pol = 3;
 
-	std::string filename_pattern{"/tmp/%s_a%d_%c.dat"};
+	std::string filename_pattern{"/tmp/%s_a%d_%.3f%c.dat"};
 	std::string pls;
 	std::vector<uint32_t> pls_codes = {
 		//In use on 5.0W
@@ -391,7 +396,14 @@ static inline void msleep(uint32_t msec) {
 
 #define CBAND_LOF 5150
 
-std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_freq_min, int lo_frequency) {
+void save_constellation_samples(bool pol_is_v, struct dtv_fe_constellation& cs);
+
+std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_freq_min,
+														 int lo_frequency) {
+
+	bool get_constellation = options.command == command_t::IQ;
+	auto num_constellation_samples = options.num_samples;
+
 	struct dtv_property p[] = {
 		{.cmd = DTV_DELIVERY_SYSTEM}, // 0 DVB-S, 9 DVB-S2
 		{.cmd = DTV_FREQUENCY},
@@ -409,11 +421,25 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 		{.cmd = DTV_SCRAMBLING_SEQUENCE_INDEX},
 		{.cmd = DTV_ISI_LIST},
 		{.cmd = DTV_MATYPE},
+		{.cmd = DTV_CONSTELLATION},
 	};
 	struct dtv_properties cmdseq = {
 		.num = sizeof(p)/sizeof(p[0]),
 		.props = p
 	};
+	if(!get_constellation)
+		cmdseq.num -= 1;
+	else {
+		if (num_constellation_samples > sizeof(samples) / sizeof(samples[0]))
+			num_constellation_samples = sizeof(samples) / sizeof(samples[0]);
+
+		auto& cs = cmdseq.props[cmdseq.num - 1].u.constellation;
+
+		cs.num_samples = num_constellation_samples;
+		cs.samples = &samples[0];
+
+	}
+
 	if(ioctl(fefd, FE_GET_PROPERTY, &cmdseq)<0) {
 		printf("ioctl failed: %s\n", strerror(errno));
 		assert(0); // todo: handle EINTR
@@ -442,9 +468,15 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 	uint32_t* isi_bitset = (uint32_t*)cmdseq.props[i++].u.buffer.data; // TODO: we can only return 32 out of 256
 																																		 // entries...
 
-	assert(cmdseq.props[i].u.buffer.len == 32);
-	uint32_t* matype_bitset =
-		(uint32_t*)cmdseq.props[i++].u.buffer.data; // TODO: we can only return 32 out of 256 entries...
+	int matype = cmdseq.props[i++].u.data;
+
+	if(get_constellation) {
+
+	 	auto& cs = cmdseq.props[i++].u.constellation;
+		assert(cs.num_samples >= 0);
+		assert((int)cs.num_samples <= sizeof(samples) / sizeof(samples[0]));
+		save_constellation_samples(pol_is_v, cs);
+	}
 
 	assert(i == cmdseq.num);
 	// int dtv_bandwidth_hz_prop = cmdseq.props[12].u.data;
@@ -494,20 +526,7 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 		printf("\n");
 	}
 
-	int num_matype = 0;
-	for (int i = 0; i < 256; ++i) {
-		int j = i / 32;
-		auto mask = ((uint32_t)1) << (i % 32);
-		if (matype_bitset[j] & mask) {
-			if (num_matype == 0)
-				printf("MATYPE list:");
-			printf(" %d", i);
-			num_matype++;
-		}
-	}
-	if (num_matype > 0) {
-		printf("\n");
-	}
+	printf("MATYPE: 0x%x\n", matype);
 
 	for (int i = 0; i < dtv_stat_signal_strength_prop.len; ++i) {
 		if (dtv_stat_signal_strength_prop.stat[i].scale == FE_SCALE_DECIBEL)
@@ -666,86 +685,22 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 	return std::make_tuple(currentfreq, (135 * (currentsr / FREQ_MULT)) / (2 * 100));
 }
 
-uint32_t freq[65536 * 4];
-int32_t rf_level[65536 * 4];
-int32_t candidate_frequencies[65536 * 4];
 
-dtv_fe_constellation_sample samples[65536];
-void get_constellation_samples(int fefd, int efd, bool pol_is_v, int num_samples = 1024 * 4, int constel_select = 1) {
-	int ret = 0;
-	if (num_samples > sizeof(samples) / sizeof(samples[0]))
-		num_samples = sizeof(samples) / sizeof(samples[0]);
-	printf("==========================\n");
-	printf("Getting IQ samples\n");
-	assert(options.pol == 2 || options.pol == 1);
-	while (1) {
-		struct dvb_frontend_event event {};
-		if (ioctl(fefd, FE_GET_EVENT, &event) < 0)
-			break;
-	}
+void save_constellation_samples(bool pol_is_v, struct dtv_fe_constellation& cs) {
 
-	ret = driver_start_constellation(fefd, num_samples, constel_select);
-	if (ret != 0) {
-		printf("constellation FAILED\n");
-		exit(1);
-	}
-
-	struct dvb_frontend_event event {};
-	bool timedout = false;
-	bool locked = false;
-	int count = 0;
-	while (count < 3 && !timedout && !locked) {
-		struct epoll_event events[1]{{}};
-		auto s = epoll_wait(efd, events, 1, epoll_timeout);
-		if (s < 0)
-			printf("\tEPOLL failed: err=%s\n", strerror(errno));
-		if (s == 0) {
-			printf("\tTIMEOUT\n");
-			timedout = true;
-			break;
-		}
-		int r = ioctl(fefd, FE_GET_EVENT, &event);
-		if (r < 0)
-			printf("\tFE_GET_EVENT stat=%d err=%s\n", event.status, strerror(errno));
-		else {
-			timedout = event.status & FE_TIMEDOUT;
-			locked = event.status & FE_HAS_VITERBI;
-			if (count >= 1)
-				printf("\tFE_GET_EVENT: stat=%d, timedout=%d locked=%d\n", event.status, timedout, locked);
-			count++;
-		}
-	}
-
-	if (check_lock_status(fefd)) {
-		struct dtv_property p[] = {
-			{ .cmd = DTV_CONSTELLATION},  // 0 DVB-S, 9 DVB-S2
-		};
-		struct dtv_properties cmdseq = {
-			.num = sizeof(p)/sizeof(p[0]),
-			.props = p
-		};
-		char fname[512];
-		sprintf(fname, options.filename_pattern.c_str(), "iq", pol_is_v ? 'V' : 'H');
-
-		decltype(cmdseq.props[0].u.constellation) cs{};
-		cs.num_samples = sizeof(samples) / sizeof(samples[0]);
-		cs.samples = samples;
-		cmdseq.props[0].u.constellation = cs;
-		if (ioctl(fefd, FE_GET_PROPERTY, &cmdseq) < 0) {
-			printf("ioctl failed: %s\n", strerror(errno));
-			assert(0); // todo: handle EINTR
-			return;
-		}
-		printf("Constellation has %d samples\n", cs.num_samples);
-		if (cs.num_samples > 0) {
+	char fname[512];
+	sprintf(fname, options.filename_pattern.c_str(),  "iq", options.adapter_no,
+					options.freq/1000.,
+					pol_is_v? 'V':'H');
+	printf("Constellation has %d samples\n", cs.num_samples);
+	if (cs.num_samples > 0) {
 			FILE* fpout = fopen(fname, "w");
 			assert(fpout);
 			for (int i = 0; i < cs.num_samples; ++i)
 				fprintf(fpout, "%d %d\n", cs.samples[i].real, cs.samples[i].imag);
 			fclose(fpout);
-		}
-	} else
-		printf("\tnot locked => NO SAMPLES\n");
+		}  else
+		printf("\tNO SAMPLES\n");
 }
 
 void close_frontend(int fefd);
@@ -919,14 +874,6 @@ int tune(int fefd, int frequency, bool pol_is_v) {
 	return tune_it(fefd, frequency, pol_is_v);
 }
 
-int driver_start_constellation(int fefd, int num_samples, int constel_select, dtv_fe_constellation_method method) {
-	cmdseq_t cmdseq;
-	if (clear(fefd) < 0)
-		return -1;
-	cmdseq.constellation_samples(fefd, num_samples, constel_select, method);
-	return 0;
-}
-
 /*
 	pls_mode>=0 means that only this pls will be scanned (no unscrambled transponders)
 	Usually it is better to use pls_modes; these will be used in addition to unscrambled
@@ -979,6 +926,16 @@ int tune_it(int fefd, int frequency_, bool pol_is_v) {
 		cmdseq.add(DTV_STREAM_ID, stream_id);
 	}
 
+	bool get_constellation = options.command == command_t::IQ;
+	auto num_constellation_samples = options.num_samples;
+	if (get_constellation) {
+		dtv_fe_constellation constellation;
+		constellation.num_samples = num_constellation_samples;
+		constellation.samples = nullptr;
+		constellation.method = CONSTELLATION_METHOD_DEFAULT;
+		constellation.constel_select = 1;
+		cmdseq.add(DTV_CONSTELLATION, constellation);
+	}
 	return cmdseq.tune(fefd);
 }
 
@@ -1275,7 +1232,6 @@ int main_constellation(int fefd) {
 	assert(s == 0);
 
 	scan_freq(fefd, efd, options.freq, pol_is_v);
-	get_constellation_samples(fefd, efd, pol_is_v, options.num_samples);
 	return 0;
 }
 

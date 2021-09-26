@@ -321,7 +321,7 @@ class neumoMainFrame(mainFrame):
 
     def OnExit(self, event=None):
         dtdebug("Asking receiver to exit")
-        self.receiver.stop()
+        self.app.receiver.stop()
         dtdebug("OnExit done")
         return 0
 

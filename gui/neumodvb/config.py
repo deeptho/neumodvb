@@ -47,10 +47,22 @@ def parse_time(time_str):
     return timedelta(**time_params)
 
 
+def get_themes_dir():
+    maindir_ = maindir()
+    src_configdir =  pathlib.Path(maindir_, '../../config')
+    dirs = ['~/.config/neumodvb', '/etc/neumodvb',  f'{src_configdir}']
+    filenames = [ os.path.realpath(os.path.expanduser(f'{d}')) for d in dirs]
+    for f in filenames:
+        p =Path(f, 'share/themes')
+        if p.is_dir():
+            return str(Path(os.path.expanduser(f)))
+    return None
+
 def get_configfile(file):
-    src_dir='/home/philips/neumodvb'
-    dirs = ['~/.config/neumodvb', '/etc/neumodvb',  f'{src_dir}/config', f'{src_dir}/config']
-    filenames = [ os.path.expanduser(f'{d}/{file}') for d in dirs]
+    maindir_ = maindir()
+    src_configdir =  pathlib.Path(maindir_, '../../config')
+    dirs = ['~/.config/neumodvb', '/etc/neumodvb',  f'{src_configdir}']
+    filenames = [ os.path.realpath(os.path.expanduser(f'{d}/{file}')) for d in dirs]
     for f in filenames:
         if Path(f).exists():
             return str(Path(os.path.expanduser(f)))
@@ -58,9 +70,10 @@ def get_configfile(file):
 
 
 def get_config():
-    src_dir='/home/philips/neumodvb'
-    dirs = ['~/.config/neumodvb', '/etc/neumodvb',  f'{src_dir}/config', f'{src_dir}/config']
-    filenames = [ os.path.expanduser(f'{d}/neumodvb.cfg') for d in dirs]
+    maindir_ = maindir()
+    src_configdir =  pathlib.Path(maindir_, '../../config')
+    dirs = ['~/.config/neumodvb', '/etc/neumodvb',  f'{src_configdir}']
+    filenames = [ os.path.realpath(os.path.expanduser(f'{d}/neumodvb.cfg')) for d in dirs]
     for f in filenames:
         if Path(f).exists():
             print(f'loading options from {f}')

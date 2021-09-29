@@ -19,9 +19,8 @@
 
 import sys
 import os
-from inspect import currentframe, getframeinfo
 import pathlib
-
+from inspect import currentframe, getframeinfo
 
 def is_installed():
     return 'lib64' in Path(__file__).parts or 'lib' in Path(__file__).parts
@@ -30,6 +29,7 @@ def maindir():
     dir=pathlib.Path(os.path.realpath(__file__)).parent
     return str(dir.resolve())
 
+configdir = None
 setup_done = False
 
 def setup():
@@ -42,6 +42,7 @@ def setup():
     setup_done = True
     maindir_ = maindir()
     builddir = pathlib.Path(maindir_, '../../' , 'build/src')
+    configdir =  pathlib.Path(maindir_, 'config')
     if builddir.is_dir():
         srcdir = builddir.resolve()
         sys.path.insert(0, str(srcdir / 'viewer/'))
@@ -56,6 +57,15 @@ def setup():
     else:
         sys.path.insert(0, str(pathlib.Path(maindir_)))
     os.environ['PATH'] +=  os.pathsep + str(builddir / 'neumodb') # for neumoupgrade
+    #to suppress some more annoying warnings
+    os.environ['XDG_CURRENT_DESKTOP'] = 'none'
+    os.environ['NO_AT_BRIDGE'] = '1'
+    from neumodvb.config import get_themes_dir
+    themes_dir = get_themes_dir()
+    if themes_dir is not None:
+        os.environ['GTK_THEME'] = 'Neumo'
+        os.environ['GTK_DATA_PREFIX'] = themes_dir
+
     setup_done = True
 
 

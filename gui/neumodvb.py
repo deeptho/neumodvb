@@ -51,10 +51,6 @@ wx.Log.EnableLogging(False)
 # to surpress a warning
 wx._core.WindowIDRef.__index__ = wx._core.WindowIDRef.__int__
 
-#to suppress some more annoying warnings
-os.environ['XDG_CURRENT_DESKTOP'] = 'none'
-os.environ['NO_AT_BRIDGE'] = '1'
-
 def debug_signal_handler(signal, frame):
     import pdb
     pdb.set_trace()

@@ -55,11 +55,6 @@ https://stackoverflow.com/questions/29232614/build-a-python-package-with-setup-p
 https://bloerg.net/2012/11/10/cmake-and-distutils.html suggests setting package_dir to ${CMAKE_CURRENT_SOURCE_DIR} in setup.py.
 
 
-pwd
-/home/philips/cmake/test/build/python
-python3 setup.py install --prefix=/usr --root /tmp/qqq
-
-
 ==========
 
 

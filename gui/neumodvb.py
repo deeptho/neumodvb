@@ -526,10 +526,15 @@ class NeumoBitmaps(object):
 
 class NeumoGui(wx.App):
     def get_sats(self):
-        txn = self.chdb.rtxn()
-        self.sats = pychdb.sat.list_all_by_key(txn)
-        del txn
-        return self.sats
+        for retry in False, True:
+            txn = self.chdb.rtxn()
+            self.sats = pychdb.sat.list_all_by_key(txn)
+            del txn
+            if len(self.sats) == 0 and not retry:
+                from neumodvb.init_db import init_db
+                init_db()
+            else:
+                return self.sats
 
     def __init__(self, *args, **kwds):
         self.chdb=pychdb.chdb()

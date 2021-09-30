@@ -245,7 +245,7 @@ class SpectrumDialog_(wx.Frame):
         self.main_menubar = wx.MenuBar()
         self.menubar = wx.Menu()
         item = self.menubar.Append(wx.ID_ANY, _("&Quit\tCtrl-Q"), "")
-        self.Bind(wx.EVT_MENU, self.OnExit, item)
+        self.Bind(wx.EVT_MENU, self.CmdExit, item)
         self.main_menubar.Append(self.menubar, _("&View"))
         self.menubar = wx.Menu()
         item = self.menubar.Append(wx.ID_ANY, _("Inspect"), "")
@@ -328,8 +328,8 @@ class SpectrumDialog_(wx.Frame):
 
         # end wxGlade
 
-    def OnExit(self, event):  # wxGlade: SpectrumDialog_.<event_handler>
-        print("Event handler 'OnExit' not implemented!")
+    def CmdExit(self, event):  # wxGlade: SpectrumDialog_.<event_handler>
+        print("Event handler 'CmdExit' not implemented!")
         event.Skip()
 
     def OnInspect(self, event):  # wxGlade: SpectrumDialog_.<event_handler>

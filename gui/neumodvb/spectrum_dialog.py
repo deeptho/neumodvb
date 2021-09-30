@@ -149,8 +149,8 @@ class SpectrumDialog(SpectrumDialog_):
         dtdebug(f"OnToggleSpeak={self.signal_panel.speak_signal}")
         evt.Skip()
 
-    def OnExit(self, evt):
-        return wx.GetApp().frame.OnExit(evt);
+    def CmdExit(self, evt):
+        return wx.GetApp().frame.CmdExit(evt);
 
     def OnSpectrumSelect(self, evt):
         rowno = self.grid.GetGridCursorRow()

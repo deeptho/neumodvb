@@ -12,7 +12,7 @@
                 <menu label="&amp;View" name="menubar">
                     <item>
                         <label>&amp;Quit	Ctrl-Q</label>
-                        <handler>OnExit</handler>
+                        <handler>CmdExit</handler>
                     </item>
                 </menu>
                 <menu label="&amp;Control" name="menubar">

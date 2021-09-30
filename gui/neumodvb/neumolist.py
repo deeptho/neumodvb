@@ -106,7 +106,12 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
         if self.col.key.endswith('_pos'):
             sats = wx.GetApp().get_sats()
             choices= [str(x) for x in sats]
-            self.SetParameters(','.join(choices))
+            if False: #not working. wxPython bug?
+                self.SetParameters(','.join(choices))
+            else:
+                #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
+                self.combobox.Clear()
+                self.combobox.Append(choices)
         size = self.Control.GetParent().GetParent().GetFont().GetPointSize()
         f = self.Control.GetFont()
         f.SetPointSize(size)
@@ -723,12 +728,12 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
         self.Bind ( wx.grid.EVT_GRID_SELECT_CELL, self.OnGridCellSelect)
         self.Bind ( wx.grid.EVT_GRID_EDITOR_HIDDEN, self.OnGridEditorHidden)
+        self.Bind ( wx.grid.EVT_GRID_EDITOR_CREATED, self.OnGridEditorCreated)
         self.Bind ( wx.grid.EVT_GRID_EDITOR_SHOWN, self.OnGridEditorShown)
         self.__make_columns__()
         self.Bind(wx.grid.EVT_GRID_LABEL_RIGHT_CLICK, self.OnRightClicked)
 
         self.Bind(wx.grid.EVT_GRID_LABEL_LEFT_CLICK, self.OnToggleSort)
-        #self.Parent.Bind ( wx.EVT_SHOW, self.OnShow)
 
     def OnShowHide(self, event):
         dtdebug(f'SHOW/HIDE {self} {event.IsShown()}')
@@ -740,6 +745,23 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
     def OnGridEditorHidden(self, event):
         dtdebug("OnGridEditorHidden")
         wx.GetApp().frame.set_accelerators(True)
+
+    def OnGridEditorCreated(self, event):
+        dtdebug("OnGridEditorCreated")
+        control = event.GetControl()
+        if type(control) == wx._core.ComboBox:
+            grid = control.GetParent().GetParent()
+            col = event.GetCol()
+            row = event.GetRow()
+            editor = grid.GetCellEditor(row, col)
+            #horrible hack https://github.com/wxWidgets/Phoenix/issues/627
+            #to prevent wx._core.wxAssertionError: C++ assertion "GetEventHandler() == this" failed at
+            #../src/common/wincmn.cpp(477) in ~wxWindowBase(): any pushed event handlers must have been removed
+
+            editor.DecRef()
+
+            #add comboxbox to editor so that our gridcelleditor code can repopulate the list when needed
+            editor.combobox = control
 
     def OnGridEditorShown(self, event):
         dtdebug("OnGridEditorShown")

@@ -568,6 +568,7 @@ void dvbdev_monitor_t::mark_all_adapters_not_present() {
 	auto c = find_first<chdb::fe_t>(txn);
 	for (auto fe : c.range()) {
 		fe.present = false;
+		fe.can_be_used = false;
 		put_record(txn, fe, 0);
 	}
 	txn.commit();

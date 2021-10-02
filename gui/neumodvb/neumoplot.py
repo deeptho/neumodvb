@@ -542,6 +542,7 @@ class ConstellationPlotBase(wx.Panel):
         self.canvas.draw()
         wx.CallAfter(self.parent.Refresh)
 
+
 class SmallConstellationPlot(ConstellationPlotBase):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, (1.5,1.5), *args, **kwargs)
@@ -580,7 +581,6 @@ class SpectrumPlot(wx.Panel):
         self.sizer.Add(self.scrollbar, proportion=0,
                         flag=wx.LEFT | wx.TOP | wx.EXPAND)
         self.SetSizer(self.sizer)
-        self.Fit()
         self.Bind ( wx.EVT_WINDOW_CREATE, self.OnCreateWindow )
         self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
         self.count =0
@@ -592,6 +592,7 @@ class SpectrumPlot(wx.Panel):
         self.current_annot = None #currently selected annot
         self.do_detrend = True
         self.add_detrend_button()
+        self.add_status_box()
 
     def on_motion(self, event):
         pass
@@ -642,6 +643,21 @@ class SpectrumPlot(wx.Panel):
         sizer.Add(button, 1, wx.ALIGN_CENTER_VERTICAL, border=0)
         panel.SetSizer(sizer)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleDetrend, button)
+
+    def add_status_box(self) :
+        self.status_box = wx.StaticText(self, -1)
+        self.toolbar_sizer.Add(self.status_box, 0, wx.LEFT|wx.RIGHT|wx.ALIGN_CENTER|wx.EXPAND, 10)
+        self.canvas.mpl_connect(
+            'motion_notify_event', self.UpdateStatusBar)
+        self.canvas.Bind(wx.EVT_ENTER_WINDOW, self.ChangeCursor)
+
+    def ChangeCursor(self, event):
+        self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
+
+    def UpdateStatusBar(self, event):
+        if event.inaxes:
+            self.status_box.SetLabel(
+                f"{event.xdata:3.3f}Mhz\n{event.ydata:2.1f}dB")
 
     def add_legend_button(self, spectrum, color) :
         panel = wx.Panel(self, wx.ID_ANY, style=wx.BORDER_SUNKEN)

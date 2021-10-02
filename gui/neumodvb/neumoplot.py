@@ -24,7 +24,6 @@ import sys
 import time
 import regex as re
 from dateutil import tz
-
 import matplotlib as mpl
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar
@@ -32,6 +31,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize, LogNorm
 from scipy.interpolate import interpn
+
 
 import mpl_scatter_density # adds projection='scatter_density'
 from matplotlib.colors import LinearSegmentedColormap
@@ -51,6 +51,10 @@ import datetime
 
 
 
+#horrible hack: matplotlib (in neumplot.py) uses the presence of this module to decide what backend to
+#use and then refuses to use wx
+del sys.modules['gi.repository.Gtk']
+mpl.use('WX')
 
 white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
     (0, '#ffffff00'),

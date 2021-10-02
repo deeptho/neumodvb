@@ -263,8 +263,9 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK
 
 	int width = s.x;
 	int height = s.y;
-	if (mpv_player->subscription.show_overlay)
+	if (mpv_player->subscription.show_overlay) {
 		overlay.render(width, height);
+	}
 
 	SwapBuffers();
 }
@@ -1062,9 +1063,11 @@ int MpvPlayer_::run() {
 
 	run_id = std::this_thread::get_id();
 	for (;;) {
+		bool timedout;
 		{
 			std::unique_lock<std::mutex> lk(m);
-			cv.wait(lk, [this] { return mustexit || (frames_to_play > (inited ? 0 : 1)); });
+			timedout = !cv.wait_for(lk, 500ms,
+									[this] { return mustexit || (frames_to_play > (inited ? 0 : 1)); });
 			if (mustexit)
 				break;
 		}
@@ -1073,7 +1076,8 @@ int MpvPlayer_::run() {
 			gl_canvas->Render();
 			wxMutexGuiLeave();
 		}
-		frames_to_play--;
+		if(! timedout)
+			frames_to_play--;
 	}
 	return 0;
 }

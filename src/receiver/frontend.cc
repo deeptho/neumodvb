@@ -1070,7 +1070,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 	auto& t = *ts.writeAccess();
 	auto fefd = t.fefd;
 	t.tune_mode = blindscan ? tune_mode_t::MUX_BLIND : tune_mode_t::NORMAL;
-	int heartbeat_interval = (api_type == api_type_t::NEUMO && num_constellation_samples > 0) ? 1000 : 0;
+	int heartbeat_interval = (api_type == api_type_t::NEUMO) ? 1000 : 0;
 	auto ret = cmdseq.tune(fefd, heartbeat_interval);
 	dtdebugx("tune_it returning ret=%d", ret);
 	return ret;

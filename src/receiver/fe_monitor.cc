@@ -190,7 +190,7 @@ int fe_monitor_thread_t::run() {
 	auto save = shared_from_this(); // prevent ourself from being deleted until thread exits;
 
 	if (fe->api_type != api_type_t::NEUMO)
-		timer_start(1); // NEUMO api activiates heartbeat mode
+		timer_start(1); // NEUMO api activates heartbeat mode
 	for (;;) {
 		auto n = epoll_wait(2000);
 		if (n < 0) {

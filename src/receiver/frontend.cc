@@ -311,7 +311,7 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdse
 	mux.pilot = (chdb::fe_pilot_t)cmdseq.props[i++].u.data;
 
 	auto stream_id_prop = cmdseq.props[i++].u.data;
-	mux.stream_id = stream_id_prop & 0xff;
+	mux.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
 	mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
 	mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
 

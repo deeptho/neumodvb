@@ -356,7 +356,8 @@ class TuneMuxPanel(TuneMuxPanel_):
 
         cn = '' if signal_info.network_id_confirmed  else "???"
         ct = '' if signal_info.ts_id_confirmed  else "???"
-        self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct} stream={mux.stream_id}' if locked else '')
+        stream = f' stream={mux.stream_id}' if mux.stream_id>=0 else ''
+        self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
 
         sat_confirmed = signal_info.sat_pos_confirmed
         c = '' if sat_confirmed  else "???"

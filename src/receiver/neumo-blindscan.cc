@@ -464,7 +464,9 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 
 	printf("Symrate=%-5d ", currentsr / FREQ_MULT);
 
-	printf("Stream=%-5d pls_mode=%2d:%5d ", dtv_stream_id_prop & 0xff, (dtv_stream_id_prop >> 26) & 0x3,
+	printf("Stream=%-5d pls_mode=%2d:%5d ",
+				 (dtv_stream_id_prop & 0xff) == 0xff ? -1 : (dtv_stream_id_prop & 0xff),
+				 (dtv_stream_id_prop >> 26) & 0x3,
 				 (dtv_stream_id_prop >> 8) & 0x3FFFF);
 	int num_isi = 0;
 	for (int i = 0; i < 256; ++i) {

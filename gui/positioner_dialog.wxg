@@ -21,7 +21,7 @@
                         <size>10</size>
                         <family>default</family>
                         <style>normal</style>
-                        <weight>normal</weight>
+                        <weight>bold</weight>
                         <underlined>0</underlined>
                         <face />
                     </font>
@@ -49,6 +49,14 @@
                                     <border>3</border>
                                     <flag>wxBOTTOM</flag>
                                     <object class="wxStaticText" name="label_24" base="EditStaticText">
+                                      <font>
+                                        <size>8</size>
+                                        <family>default</family>
+                                        <style>normal</style>
+                                        <weight>bold</weight>
+                                        <underlined>0</underlined>
+                                        <face />
+                                      </font>
                                         <label>Motor control</label>
                                     </object>
                                 </object>
@@ -86,6 +94,14 @@
                                     <border>3</border>
                                     <flag>wxBOTTOM</flag>
                                     <object class="wxStaticText" name="label_18" base="EditStaticText">
+                                      <font>
+                                        <size>8</size>
+                                        <family>default</family>
+                                        <style>normal</style>
+                                        <weight>bold</weight>
+                                        <underlined>0</underlined>
+                                        <face />
+                                      </font>
                                         <label>Drive USALS motor</label>
                                     </object>
                                 </object>
@@ -151,7 +167,7 @@
                                             <border>0</border>
                                             <flag>wxALIGN_CENTER_VERTICAL|wxFIXED_MINSIZE</flag>
                                             <object class="positioner_dialog.UsalsPosSpinCtrl" name="rotor_step_spin_ctrl" base="EditSpinCtrlDouble">
-                                                <extracode>import positioner_dialog</extracode>
+                                                <extracode>from neumodvb import positioner_dialog</extracode>
                                                 <tooltip>Amount to step by</tooltip>
                                                 <style>wxSP_ARROW_KEYS|wxALIGN_CENTRE_HORIZONTAL</style>
                                                 <range>0.0, 5.0</range>
@@ -216,6 +232,14 @@
                                     <option>0</option>
                                     <border>0</border>
                                     <object class="wxStaticText" name="label_12" base="EditStaticText">
+                                      <font>
+                                        <size>8</size>
+                                        <family>default</family>
+                                        <style>normal</style>
+                                        <weight>bold</weight>
+                                        <underlined>0</underlined>
+                                        <face />
+                                      </font>
                                         <label>USALS Location</label>
                                     </object>
                                 </object>
@@ -325,11 +349,19 @@
                                     <object class="wxBoxSizer" name="sizer_9" base="EditBoxSizer">
                                         <orient>wxVERTICAL</orient>
                                         <object class="sizeritem">
-                                            <option>0</option>
-                                            <border>3</border>
-                                            <flag>wxBOTTOM</flag>
-                                            <object class="wxStaticText" name="label_19" base="EditStaticText">
-                                                <label>Diseqc1.2</label>
+                                          <option>0</option>
+                                          <border>3</border>
+                                          <flag>wxBOTTOM</flag>
+                                          <object class="wxStaticText" name="label_19" base="EditStaticText">
+                                            <font>
+                                              <size>8</size>
+                                              <family>default</family>
+                                              <style>normal</style>
+                                              <weight>bold</weight>
+                                              <underlined>0</underlined>
+                                              <face />
+                                            </font>
+                                            <label>Diseqc1.2</label>
                                             </object>
                                         </object>
                                         <object class="sizeritem">
@@ -368,7 +400,7 @@
                                                     <border>0</border>
                                                     <flag>wxALIGN_CENTER_VERTICAL</flag>
                                                     <object class="positioner_dialog.Diseqc12SpinCtrl" name="diseqc_position_spin_ctrl" base="EditSpinButton">
-                                                        <extracode>import positioner_dialog</extracode>
+                                                        <extracode>from neumodvb import positioner_dialog</extracode>
                                                         <tooltip>Diseqc1.2 index for current position</tooltip>
                                                         <style>wxSP_VERTICAL|wxSP_ARROW_KEYS</style>
                                                         <range>0, 99</range>
@@ -534,7 +566,15 @@
                                     <border>2</border>
                                     <flag>wxBOTTOM</flag>
                                     <object class="wxStaticText" name="label_1" base="EditStaticText">
-                                        <label>Signal</label>
+                                      <font>
+                                        <size>8</size>
+                                        <family>default</family>
+                                        <style>normal</style>
+                                        <weight>bold</weight>
+                                        <underlined>0</underlined>
+                                        <face />
+                                      </font>
+                                      <label>Signal</label>
                                     </object>
                                 </object>
                                 <object class="sizeritem">
@@ -542,7 +582,7 @@
                                     <border>8</border>
                                     <flag>wxEXPAND</flag>
                                     <object class="SignalPanel_" name="signal_panel" base="EditPanel" instance_class="positioner_dialog.SignalPanel">
-                                        <extracode>import positioner_dialog</extracode>
+                                        <extracode>from neumodvb import positioner_dialog</extracode>
                                         <object class="wxFlexGridSizer" name="sizer_12" base="EditFlexGridSizer">
                                             <rows>4</rows>
                                             <cols>3</cols>
@@ -745,7 +785,15 @@
                                     <option>0</option>
                                     <border>0</border>
                                     <object class="wxStaticText" name="label_2345" base="EditStaticText">
-                                        <label>Constellation</label>
+                                      <font>
+                                        <size>8</size>
+                                        <family>default</family>
+                                        <style>normal</style>
+                                        <weight>bold</weight>
+                                        <underlined>0</underlined>
+                                        <face />
+                                      </font>
+                                      <label>Constellation</label>
                                     </object>
                                 </object>
                                 <object class="sizeritem">
@@ -764,7 +812,7 @@
                         <border>0</border>
                         <flag>wxEXPAND</flag>
                         <object class="TuneMuxPanel_" name="tune_mux_panel" base="EditPanel" instance_class="positioner_dialog.TuneMuxPanel">
-                            <extracode>import positioner_dialog</extracode>
+                            <extracode>from neumodvb import positioner_dialog</extracode>
                             <object class="wxFlexGridSizer" name="sizer_19" base="EditFlexGridSizer">
                                 <rows>2</rows>
                                 <cols>1</cols>
@@ -796,7 +844,15 @@
                                                         <border>5</border>
                                                         <flag>wxBOTTOM</flag>
                                                         <object class="wxStaticText" name="label_22" base="EditStaticText">
-                                                            <label>LNB and Sat</label>
+                                                          <font>
+                                                            <size>8</size>
+                                                            <family>default</family>
+                                                            <style>normal</style>
+                                                            <weight>bold</weight>
+                                                            <underlined>0</underlined>
+                                                            <face />
+                                                          </font>
+                                                          <label>LNB and Sat</label>
                                                         </object>
                                                     </object>
                                                     <object class="sizeritem">
@@ -1110,7 +1166,15 @@
                                                 <border>3</border>
                                                 <flag>wxBOTTOM</flag>
                                                 <object class="wxStaticText" name="label_21" base="EditStaticText">
-                                                    <label>Tune mux</label>
+                                                  <font>
+                                                    <size>8</size>
+                                                    <family>default</family>
+                                                    <style>normal</style>
+                                                    <weight>bold</weight>
+                                                    <underlined>0</underlined>
+                                                    <face />
+                                                  </font>
+                                                  <label>Tune mux</label>
                                                 </object>
                                             </object>
                                             <object class="sizeritem">

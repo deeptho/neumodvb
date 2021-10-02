@@ -222,7 +222,7 @@ private:
 
 	tune_state_t tune_state{TUNE_INIT};
 	system_time_t tune_start_time;  //when last tune started
-	constexpr static std::chrono::duration tune_timeout{5000ms}; //in ms
+	constexpr static std::chrono::duration tune_timeout{50000ms}; //in ms
 
 	struct pol_band_diseqc_status_t pol_band_diseqc_status;
 	//tune_mode_t tune_mode{tune_mode_t::NORMAL};

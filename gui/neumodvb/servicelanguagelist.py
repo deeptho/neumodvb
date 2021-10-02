@@ -32,7 +32,7 @@ from neumodvb.util import dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer,  GridPopup, screen_if_t
 from neumodvb.neumo_dialogs import ShowMessage
-
+from pyreceiver import set_gtk_window_name, gtk_add_window_style, gtk_remove_window_style
 import pychdb
 
 class service_language_screen_t(object):
@@ -108,18 +108,29 @@ class LanguageTable(NeumoTable):
         self.screen = screen_if_t(service_language_screen_t(self))
 
 class LanguageGrid(NeumoGridBase):
-    def __init__(self, dialog, parent, basic, readonly, *args, **kwds):
+    def __init__(self, dialog, parent, basic, readonly, *args, dark_mode=False, **kwds):
+        self.dark_mode = True
         self.parent = parent
         self.dialog = dialog
+        self.dark_mode = dark_mode
         mpv = wx.GetApp().current_mpv_player
         table = LanguageTable(self, mpv)
         assert readonly
         assert basic
-        super().__init__(basic, readonly, table, *args, **kwds)
+        super().__init__(basic, readonly, table, *args, dark_mode=dark_mode, **kwds)
         self.sort_order = 0
         self.sort_column = None
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
+        if self.dark_mode:
+            font = self.GetDefaultCellFont()
+            font.SetPointSize(int(font.GetPointSize()*1.5))
+            self.SetDefaultCellFont(font)
+            font = self.GetLabelFont()
+            font.SetPointSize(int(font.GetPointSize()*1.5))
+            self.SetLabelFont(font)
+        gtk_add_window_style(self, 'language_grid')
+        set_gtk_window_name(self, 'language_grid')
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()

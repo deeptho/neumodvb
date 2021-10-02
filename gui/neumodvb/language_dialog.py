@@ -25,15 +25,19 @@ import copy
 from neumodvb.util import setup, lastdot
 from neumodvb.neumo_dialogs_gui import  LanguageDialog_
 from neumodvb.servicelanguagelist import LanguageGrid, LanguageTable
+from pyreceiver import set_gtk_window_name, gtk_add_window_style, gtk_remove_window_style
 
 class LanguageDialog(LanguageDialog_):
-    def __init__(self, parent, basic, readonly, *args, **kwds):
+    def __init__(self, parent, for_subtitles, basic, readonly, *args, **kwds):
         self.parent= parent
         self.basic = True
         self.readonly = True
+        kwds['title'] = "Subtitle Language" if for_subtitles else "Audio language"
         super().__init__(parent, *args, **kwds)
         self.languagegrid = None
         #self.languagegrid_sizer.Remove(0) #remove empty slot
+        gtk_add_window_style(self, 'language_dialog')
+        set_gtk_window_name(self, 'language_dialog')
     def Prepare(self, lnbgrid):
         self.languagegrid = LanguageGrid(self, self.parent, self.basic, self.readonly, self.languagelist_panel, \
                                              wx.ID_ANY, size=(-1, -1))
@@ -77,7 +81,7 @@ def show_language_dialog(caller, servicegrid, for_subtitles):
     show dialog as child of main frame.
     optional servicegrid could be used later if language data is stored in service record
     """
-    dlg = LanguageDialog(caller, title= "Subtitle Language" if for_subtitles else "Audio language", basic=False, readonly=True)
+    dlg = LanguageDialog(caller, for_subtitles, basic=False, readonly=True)
     title= _("Select Subtitle Language") if for_subtitles else _("Select Audio Language")
     dlg.title.SetLabel(title)
     dlg.Prepare(caller)

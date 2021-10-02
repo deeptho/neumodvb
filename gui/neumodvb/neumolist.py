@@ -230,9 +230,10 @@ class MyRenderer(wx.grid.GridCellRenderer):
 
 class MyColLabelRenderer(glr.GridLabelRenderer):
     sort_icons = None
-    def __init__(self, bgcolour):
+    def __init__(self, bgcolour, fgcolour):
         #super().__init__()
         self.bgcolour_ = bgcolour
+        self.fgcolour_ = fgcolour
         if MyColLabelRenderer.sort_icons is None:
              MyColLabelRenderer.sort_icons = [
                  None,
@@ -247,6 +248,16 @@ class MyColLabelRenderer(glr.GridLabelRenderer):
         dc.DrawRectangle(rect)
         hAlign, vAlign = grid.GetColLabelAlignment()
         text = grid.GetColLabelValue(col)
+
+        self.DrawBorder(grid, dc, rect)
+        self.DrawText(grid, dc, rect, text, hAlign, vAlign)
+        if col == grid.table.sort_colno:
+            bitmap = self.sort_icons[ grid.table.sort_order]
+            if bitmap is not None:
+                x = rect.x + rect.Width - bitmap.Width
+                y = (rect.Height - bitmap.Height)//2
+                dc.DrawBitmap(bitmap, x, y)
+
         self.DrawBorder(grid, dc, rect)
         self.DrawText(grid, dc, rect, text, hAlign, vAlign)
         if col == grid.table.sort_colno:
@@ -678,10 +689,15 @@ class NeumoTable(wx.grid.GridTableBase):
         self.__get_data__()
 
 class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
-    def __init__(self, basic, readonly, table, *args, **kwds):
+    def __init__(self, basic, readonly, table, *args, dark_mode=False, **kwds):
         super().__init__(*args, **kwds)
         panel = args[0]
         panel.grid = self
+        self.dark_mode = dark_mode
+        if self.dark_mode:
+            self.SetBackgroundColour(wx.Colour('black'))
+            self.SetDefaultCellBackgroundColour(wx.Colour('black'))
+            self.SetDefaultCellTextColour(wx.Colour('white'))
         self.grid_specific_menu_items=[]
         self.infow = None
         self.coloured_rows= set()
@@ -715,7 +731,12 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.dc.SetFont(self.font) # for estimating label sizes
         self.header_dc.SetFont(self.header_font) # for estimating label sizes
         self.combobox_extra_width , _ = self.header_dc.GetTextExtent(f"XXX")
-        self.my_col_label_renderer = MyColLabelRenderer('#e0ffe0')
+        fg = self.GetLabelTextColour()
+        bg = self.GetBackgroundColour()
+        if self.dark_mode:
+            self.SetLabelTextColour(wx.Colour('white'))
+            self.SetLabelBackgroundColour(bg)
+        self.my_col_label_renderer = MyColLabelRenderer(bg, fg)
         # We can set the sizes of individual rows and columns
         # in pixels
         #self.SetRowSize(0, 60)

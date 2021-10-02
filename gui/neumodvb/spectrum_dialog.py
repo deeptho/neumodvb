@@ -338,7 +338,7 @@ class SpectrumDialog(SpectrumDialog_):
         self.constellation_plot.clear_data()
 
     def OnInspect(self, event):
-        wx.GetApp().OnInspect()
+        wx.GetApp().CmdInspect()
         event.Skip()
 
 

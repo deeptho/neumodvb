@@ -405,24 +405,28 @@ class NeumoTable(wx.grid.GridTableBase):
         coltype = type(neumodbutils.get_subfield(self.record_t(), key))
         newval = None
         dtdebug(f'Setting value: COLTYPE={coltype} key={key} val={val}')
-        if neumodbutils.is_enum(coltype):
-            newval = neumodbutils.enum_value_for_label(before, val)
-        elif coltype == str:
-            newval = val
-        elif coltype == bool:
-            newval = True if val =='1' else False
-        elif issubclass(coltype, numbers.Integral):
-            if key.endswith('frequency'):
-                newval = int (1000*float(val))
-            elif key.startswith('freq_'):
-                newval = int (1000*float(val)) if float(val)>=0 else -1
-            elif key.endswith('symbol_rate'):
-                newval = int (1000*int(val))
-            elif key.endswith("sat_pos") or key.endswith("lnb_pos") or key.endswith("usals_pos") :
-                from neumodvb.util import parse_longitude
-                newval = parse_longitude(val)
-            else:
-                newval = int(val)
+        try:
+            if neumodbutils.is_enum(coltype):
+                newval = neumodbutils.enum_value_for_label(before, val)
+            elif coltype == str:
+                newval = val
+            elif coltype == bool:
+                newval = True if val =='1' else False
+            elif issubclass(coltype, numbers.Integral):
+                if key.endswith('frequency'):
+                    newval = int (1000*float(val))
+                elif key.startswith('freq_'):
+                    newval = int (1000*float(val)) if float(val)>=0 else -1
+                elif key.endswith('symbol_rate'):
+                    newval = int (1000*int(val))
+                elif key.endswith("sat_pos") or key.endswith("lnb_pos") or key.endswith("usals_pos") :
+                    from neumodvb.util import parse_longitude
+                    newval = parse_longitude(val)
+                else:
+                    newval = int(val)
+        except:
+            dtdebug(f'ILLEGAL VALUE val={val}')
+            newval = None
         if newval is None:
             dtdebug("ILLEGAL new value")
             return

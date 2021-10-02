@@ -20,7 +20,7 @@ import re
 import wx
 import math
 
-from neumodvb.mini import  minispinctrl, minifloatspin
+from neumodvb import  minispinctrl, minifloatspin
 from  neumodvb.positioner_dialog_gui import  PositionerDialog_, SignalPanel_ , TuneMuxPanel_
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb import neumodbutils

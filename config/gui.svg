@@ -1241,16 +1241,16 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.21960784"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.2603969"
-     inkscape:cx="1588.9054"
-     inkscape:cy="953.34291"
+     inkscape:zoom="0.38950583"
+     inkscape:cx="1297.0342"
+     inkscape:cy="413.11565"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
      inkscape:window-width="1885"
      inkscape:window-height="964"
-     inkscape:window-x="27"
-     inkscape:window-y="86"
+     inkscape:window-x="787"
+     inkscape:window-y="501"
      inkscape:window-maximized="0"
      showguides="true"
      inkscape:guide-bbox="true"
@@ -1943,7 +1943,7 @@
              d="m 672.59062,666.11218 -358.70273,1.93905 177.6721,-311.61521 z" />
           <path
              id="livebuffer-indicator-ref"
-             d="m 1850.0415,1051.7021 -0.6165,28.032 v -0.2297"
+             d="m 1830.9419,1051.7021 -0.6165,28.032 v -0.2297"
              style="fill:none;stroke:#000000;stroke-width:0.610422px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:0" />
         </g>
       </g>

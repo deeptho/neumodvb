@@ -28,12 +28,12 @@ namespace chdb {
 	struct signal_info_t {
 		int tune_attempt{0};
 		any_mux_t mux;
+		std::optional<any_mux_t> si_mux; //as retrieved from stream
 
 		statdb::signal_stat_t stat;
 
 		tune_confirmation_t tune_confirmation;
-
-		std::optional<int32_t> lnb_lof_offset;
+		std::optional<int32_t> lnb_lof_offset; //most uptodate version
 		//extra
 		uint8_t matype{0};
 		ss::vector<int16_t, 8> isi_list;

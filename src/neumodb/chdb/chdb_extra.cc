@@ -1496,8 +1496,7 @@ int chdb::lnb::driver_freq_for_freq(const chdb::lnb_t& lnb, int frequency) {
 	default:
 		assert(0);
 	}
-
-	if (lnb.lof_offsets.size() > band + 1) {
+	if (band < lnb.lof_offsets.size()) {
 		if (std::abs(lnb.lof_offsets[band]) < 5000)
 			frequency += lnb.lof_offsets[band];
 	}

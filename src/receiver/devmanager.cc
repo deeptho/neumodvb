@@ -693,7 +693,6 @@ int dvb_adapter_t::reserve_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, bool w
 
 			w->reserved_mux = {};
 			w->reserved_lnb = lnb;
-			w->lnb_lof_offset_set = false;
 			adaptermgr->start_frontend_monitor(w->reserved_fe);
 		} else {
 			assert(w->reserved_fe == fe);
@@ -723,7 +722,6 @@ int dvb_adapter_t::reserve_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, const 
 
 			w->reserved_mux = mux;
 			w->reserved_lnb = lnb;
-			w->lnb_lof_offset_set = false;
 			adaptermgr->start_frontend_monitor(w->reserved_fe);
 		} else {
 			assert(w->reserved_fe == fe);
@@ -752,7 +750,6 @@ int dvb_adapter_t::reserve_fe(dvb_frontend_t* fe, const chdb::dvbc_mux_t& mux) {
 
 		w->reserved_mux = mux;
 		w->reserved_lnb = chdb::lnb_t();
-		w->lnb_lof_offset_set = false;
 		adaptermgr->start_frontend_monitor(w->reserved_fe);
 	} else {
 		assert(w->reserved_fe == fe);
@@ -770,7 +767,6 @@ int dvb_adapter_t::reserve_fe(dvb_frontend_t* fe, const chdb::dvbt_mux_t& mux) {
 
 		w->reserved_mux = mux;
 		w->reserved_lnb = chdb::lnb_t();
-		w->lnb_lof_offset_set = false;
 		adaptermgr->start_frontend_monitor(w->reserved_fe);
 	} else {
 		assert(w->reserved_fe == fe);
@@ -786,7 +782,6 @@ int dvb_adapter_t::change_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, int sat
 	assert(w->reserved_fe->ts.readAccess()->fefd >= 0);
 	w->reserved_mux = {};
 	w->reserved_lnb = lnb;
-	w->lnb_lof_offset_set = false;
 	if (adaptermgr->dish_needs_to_be_moved(lnb, sat_pos)) {
 		/*upgrade our dish reservation from nonexlcusive to exclusive ;
 			can cause problems on other subscriptions
@@ -804,7 +799,6 @@ int dvb_adapter_t::change_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, const c
 	assert(w->reserved_fe->ts.readAccess()->fefd >= 0);
 	w->reserved_mux = mux;
 	w->reserved_lnb = lnb;
-	w->lnb_lof_offset_set = false;
 	if (adaptermgr->dish_needs_to_be_moved(lnb, mux.k.sat_pos)) {
 		adaptermgr->change_sat_reservation_sat_pos(lnb.k.dish_id, mux.k.sat_pos);
 	};
@@ -816,7 +810,6 @@ int dvb_adapter_t::change_fe(dvb_frontend_t* fe, const chdb::dvbt_mux_t& mux) {
 	auto w = reservation.writeAccess();
 	w->reserved_mux = mux;
 	w->reserved_lnb = chdb::lnb_t();
-	w->lnb_lof_offset_set = false;
 	assert(w->reserved_fe == fe);
 	assert(w->reserved_fe->ts.readAccess()->fefd >= 0);
 	return 0;
@@ -826,7 +819,6 @@ int dvb_adapter_t::change_fe(dvb_frontend_t* fe, const chdb::dvbc_mux_t& mux) {
 	auto w = reservation.writeAccess();
 	w->reserved_mux = mux;
 	w->reserved_lnb = chdb::lnb_t();
-	w->lnb_lof_offset_set = false;
 	assert(w->reserved_fe == fe);
 	assert(w->reserved_fe->ts.readAccess()->fefd >= 0);
 	return 0;
@@ -857,7 +849,6 @@ int dvb_adapter_t::release_fe() {
 			}
 		}
 		w->exclusive = false;
-		w->lnb_lof_offset_set = false;
 	}
 	if (ret == 0) {
 		adaptermgr->stop_frontend_monitor(fe);

@@ -279,6 +279,7 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(dvb_adapter_t* adapter, fro
 	return fe;
 }
 
+//returns the tuned frequency, compensated for lnb offset
 static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdseq, const chdb::lnb_t& lnb, int& i,
 														 int band, chdb::fe_polarisation_t pol) {
 
@@ -312,15 +313,21 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdse
 
 	auto stream_id_prop = cmdseq.props[i++].u.data;
 	mux.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
+	if (mux.stream_id == -1) {
+		mux.pls_mode = chdb::fe_pls_mode_t::ROOT;
+		mux.pls_code = 1;
+	} else {
+
 	mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
 	mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
-
+	}
 	// int dtv_scrambling_sequence_index_prop = cmdseq.props[i++].u.data;
 
 	i += 6; // skip dvbt
 	return mux.frequency;
 }
 
+//returns the tuned frequency
 static int get_dvbc_mux_info(chdb::dvbc_mux_t& mux, dtv_properties& cmdseq, int& i) {
 
 	mux.delivery_system = (chdb::fe_delsys_dvbc_t)cmdseq.props[i++].u.data;
@@ -347,6 +354,7 @@ static int get_dvbc_mux_info(chdb::dvbc_mux_t& mux, dtv_properties& cmdseq, int&
 	return mux.frequency;
 }
 
+//returns the tuned frequency
 static int get_dvbt_mux_info(chdb::dvbt_mux_t& mux, dtv_properties& cmdseq, int& i) {
 
 	mux.delivery_system = (chdb::fe_delsys_dvbt_t)cmdseq.props[i++].u.data;
@@ -379,20 +387,21 @@ static int get_dvbt_mux_info(chdb::dvbt_mux_t& mux, dtv_properties& cmdseq, int&
 	return mux.frequency;
 }
 
-bool dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_properties& cmdseq, api_type_t api, int& i) {
+void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_properties& cmdseq, api_type_t api, int& i) {
 	using namespace chdb;
 	const auto& r = this->adapter->reservation.readAccess();
 	const auto* dvbs_mux = std::get_if<dvbs_mux_t>(&r->reserved_mux);
+	ret.tune_confirmation = r->tune_confirmation;
+	ret.si_mux = r->reserved_mux;
+
 	ret.mux = r->reserved_mux; //ensures that we return proper any_mux_t type for dvbc and dvbt
 	ret.stat.mux_key = *mux_key_ptr(r->reserved_mux);
-	ret.tune_confirmation = r->tune_confirmation;
 	if (ret.tune_confirmation.si_done) {
 		dtdebugx("reporting si_done=true");
 	}
 	*mux_key_ptr(ret.mux) = ret.stat.mux_key;
 	const auto& lnb = r->reserved_lnb;
 	int band = 0;
-	bool lnb_lof_update_needed{false};
 	chdb::fe_polarisation_t pol{chdb::fe_polarisation_t::UNKNOWN};
 	if (dvbs_mux) {
 		ret.stat.lnb_key = lnb.k;
@@ -400,6 +409,10 @@ bool dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 		auto [band_, pol_, freq] = chdb::lnb::band_pol_freq_for_mux(lnb, *dvbs_mux);
 		band = band_;
 		pol = dvbs_mux->pol;
+		if(band < r->reserved_lnb.lof_offsets.size())
+			ret.lnb_lof_offset = r->reserved_lnb.lof_offsets[band];
+		else
+			ret.lnb_lof_offset.reset();
 	}
 
 	if (ret.lock_status & FE_HAS_LOCK) {
@@ -408,23 +421,16 @@ bool dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 			[&cmdseq, &i, &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
 				ret.stat.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, i, band, pol);
 			},
-			[&cmdseq, &i, &ret](chdb::dvbc_mux_t& mux) { ret.stat.frequency = get_dvbc_mux_info(mux, cmdseq, i); },
-			[&cmdseq, &i, &ret](chdb::dvbt_mux_t& mux) { ret.stat.frequency = get_dvbt_mux_info(mux, cmdseq, i); });
-		if (dvbs_mux) {
-			auto offset = (int)ret.stat.frequency - (int)dvbs_mux->frequency;
-			if (!dvbs_mux->c.freq_from_si) {
-				// dtdebugx("Not reporting LOF offset (mux frequency not from si)");
-			} else if (offset > 5000 || offset < -5000) {
-				dterrorx("VERY LARGE LOF OFFSET: %d", offset);
-				ret.lnb_lof_offset = 0;
-				lnb_lof_update_needed = !r->lnb_lof_offset_set;
-			} else {
-				ret.lnb_lof_offset = offset;
-				// dtdebugx("report LOF offset %d", offset);
-				lnb_lof_update_needed = !r->lnb_lof_offset_set;
-			}
-		}
+			[&cmdseq, &i, &ret](chdb::dvbc_mux_t& mux) {
+				ret.stat.frequency = get_dvbc_mux_info(mux, cmdseq, i); },
+			[&cmdseq, &i, &ret](chdb::dvbt_mux_t& mux) {
+				ret.stat.frequency = get_dvbt_mux_info(mux, cmdseq, i); });
+			/*at this point ret.mux and ret.stat.frequency contain the frequency as reported from the tuner itself,
+				but after compensation for the currently known lnb offset
 
+				dvbs_mux->frequency is the frequency which we were asked to tune
+			*/
+		tuned_frequency = ret.stat.frequency;
 		if (api == api_type_t::NEUMO) {
 			ret.matype = cmdseq.props[i++].u.data;
 			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.mux);
@@ -450,14 +456,13 @@ bool dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 		ret.stat.ber = 0;
 		ret.stat.snr = 0;
 	}
-	return lnb_lof_update_needed;
 }
 
 /*
 	lnb is needed to identify dish on which signal is captured
 	mux_ is needed to translate tuner frequency to real frequency
 */
-int dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constellation) {
+void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constellation) {
 	ret.lock_status = ts.readAccess()->lock_status.fe_status;
 	using namespace chdb;
 	// bool is_sat = true;
@@ -517,7 +522,7 @@ int dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constella
 	if (ioctl(fefd, FE_GET_PROPERTY, &cmdseq) < 0) {
 		dterrorx("ioctl failed: %s\n", strerror(errno));
 		// @todo: handle EINTR
-		return -1;
+		return;
 	}
 	if (get_constellation && api_type == api_type_t::NEUMO) {
 		auto& cs = cmdseq.props[cmdseq.num - 1].u.constellation;
@@ -555,8 +560,7 @@ int dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constella
 	}
 
 	ret.stat.ber = cmdseq.props[i++].u.st.stat[0].uvalue;
-
-	auto lnb_lof_update_needed = get_mux_info(ret, cmdseq, api_type, i);
+		get_mux_info(ret, cmdseq, api_type, i);
 	if (get_constellation) {
 		if (ret.lock_status & FE_HAS_LOCK) {
 			i++; // for constellation samples
@@ -565,7 +569,6 @@ int dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constella
 			ret.constellation_samples.resize(0);
 		}
 	}
-	return lnb_lof_update_needed;
 }
 
 int dvb_frontend_t::clear() {
@@ -796,7 +799,8 @@ int dvb_frontend_t::send_positioner_message(chdb::positioner_cmd_t command, int3
 	return 0;
 }
 
-void dvb_frontend_t::set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, chdb::lnb_t& lnb, int32_t lnb_lof_offset) {
+
+void dvb_frontend_t::set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, chdb::lnb_t& lnb) {
 
 	auto [band, pol_, freq_] = chdb::lnb::band_pol_freq_for_mux(lnb, dvbs_mux);
 	/*
@@ -811,7 +815,8 @@ void dvb_frontend_t::set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, chdb::
 	}
 	auto old = lnb.lof_offsets[band];
 	float learning_rate = 0.2;
-	lnb.lof_offsets[band] += learning_rate * lnb_lof_offset;
+	int delta = (int)tuned_frequency - (int)dvbs_mux.frequency; //additional correction  needed
+	lnb.lof_offsets[band] += learning_rate * delta;
 
 	dtdebugx("Updated LOF: %d => %d", old, lnb.lof_offsets[band]);
 	if (std::abs(lnb.lof_offsets[band]) > 5000)
@@ -825,6 +830,25 @@ void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 
 void dvb_frontend_t::update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation) {
 	auto w = adapter->reservation.writeAccess();
+	if(!w->tune_confirmation.nit_actual_ok && tune_confirmation.nit_actual_ok) {
+		const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
+		if(dvbs_mux) {
+			using namespace chdb;
+			//ss::vector<int32_t, 2> lof_offsets;
+			auto& lnb = w->reserved_lnb;
+			set_lnb_lof_offset(*dvbs_mux, lnb);
+			auto lof_offsets = lnb.lof_offsets;
+			auto m = get_monitor_thread();
+			if(m) {
+				auto& tuner_thread = m->receiver.tuner_thread;
+				int fefd = ts.readAccess()->fefd;
+				tuner_thread.push_task([&tuner_thread, fefd, lof_offsets = std::move(lof_offsets)]() {
+					cb(tuner_thread).on_lnb_lof_offset_update(fefd, lof_offsets);
+				return 0;
+				});
+			}
+		}
+	}
 	w->tune_confirmation = tune_confirmation;
 }
 
@@ -1010,6 +1034,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 	auto blindscan = tune_options.is_blind() || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO
 		|| mux.symbol_rate < 1000000;
 	int num_constellation_samples = tune_options.constellation_options.num_samples;
+		tuned_frequency = mux.frequency;
 
 	cmdseq_t cmdseq;
 	this->num_constellation_samples = num_constellation_samples;
@@ -1080,6 +1105,8 @@ int dvb_frontend_t::tune(const chdb::dvbc_mux_t& mux, bool blindscan) {
 	this->num_constellation_samples = 0;
 	cmdseq_t cmdseq;
 	// any system
+	tuned_frequency = mux.frequency;
+
 	cmdseq.add(DTV_FREQUENCY, mux.frequency * 1000); // For DVB-C, it is measured in Hz.
 	cmdseq.add(DTV_INVERSION, mux.inversion);
 	cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
@@ -1124,6 +1151,8 @@ int dvb_frontend_t::tune(const chdb::dvbt_mux_t& mux, bool blindscan) {
 		return -1;
 	}
 	cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
+	tuned_frequency = mux.frequency;
+
 	cmdseq.add(DTV_FREQUENCY, mux.frequency * 1000); // For DVB-T, it is measured in Hz.
 	cmdseq.add(DTV_BANDWIDTH_HZ, dvbt_bandwidth);
 	cmdseq.add(DTV_CODE_RATE_HP, mux.HP_code_rate);

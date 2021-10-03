@@ -61,27 +61,7 @@ void fe_monitor_thread_t::monitor_signal() {
 	bool get_constellation{true};
 
 	chdb::signal_info_t info;
-	bool lnb_lof_update_needed = fe->get_signal_info(info, get_constellation);
-	if (lnb_lof_update_needed) {
-		using namespace chdb;
-		ss::vector<int32_t, 2> lof_offsets;
-		{
-			auto w = fe->adapter->reservation.writeAccess();
-			const auto* dvbs_mux = std::get_if<dvbs_mux_t>(&w->reserved_mux);
-			assert(dvbs_mux);
-			auto& lnb = w->reserved_lnb;
-			fe->set_lnb_lof_offset(*dvbs_mux, lnb, *info.lnb_lof_offset);
-			w->lnb_lof_offset_set = true;
-			lof_offsets = lnb.lof_offsets;
-		}
-		auto& tuner_thread = receiver.tuner_thread;
-		int fefd = fe->ts.readAccess()->fefd;
-		tuner_thread.push_task([&tuner_thread, fefd, lof_offsets = std::move(lof_offsets)]() {
-			cb(tuner_thread).on_lnb_lof_offset_update(fefd, lof_offsets);
-			return 0;
-		});
-	}
-
+		fe->get_signal_info(info, get_constellation);
 	bool verbose = false;
 	if (verbose) {
 		dtdebug("------------------------------------------------------");

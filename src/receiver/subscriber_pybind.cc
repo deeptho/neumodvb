@@ -258,8 +258,11 @@ void export_signal_info(py::module& m) {
 		.def_property_readonly("constellation_samples", [](const signal_info_t& i) {
 			return constellation_helper(i.constellation_samples);
 		})
-		.def_property_readonly("dvbs_mux", [](const signal_info_t& i) {
+		.def_property_readonly("dvbs_mux", [](const signal_info_t& i) { //tuned mux
 			return &i.mux;
+		})
+		.def_property_readonly("si_mux", [](const signal_info_t& i) { //tuned mux
+			return &i.si_mux;
 		})
 		.def_property_readonly("min_snr", [](const signal_info_t& i) {
 			return (int)(chdb::min_snr(i.mux)*1000);

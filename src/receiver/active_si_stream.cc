@@ -988,7 +988,8 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		}
 	} else { //! done: more nit_actual or nit_other data is coming
 		if (network.is_actual)
-			tune_confirmation.nit_actual_ok = true;
+			tune_confirmation.nit_actual_seen = true;
+		//tune_confirmation.nit_actual_ok = true;
 	}
 	txn.commit();
 	if (done && network.is_actual) { // for nit other, there may be multiple entries

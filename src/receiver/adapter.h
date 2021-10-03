@@ -114,8 +114,11 @@ struct pls_search_range_t {
 		confirmed_by_t sat_by{confirmed_by_t::NONE};
 		confirmed_by_t ts_id_by{confirmed_by_t::NONE};
 		confirmed_by_t network_id_by{confirmed_by_t::NONE};
+		bool nit_actual_seen{false};
 		bool nit_actual_ok{false};
+		bool sdt_actual_seen{false};
 		bool sdt_actual_ok{false};
+		bool pat_seen{false};
 		bool pat_ok{false};
 		bool si_done{false};
 		void clear(bool preserve_wrong_sat) {
@@ -236,6 +239,7 @@ class dvb_frontend_t
 {
 	friend class fe_monitor_thread_t;
 	api_type_t api_type { api_type_t::UNDEFINED};
+	int tuned_frequency{0}; // as reported by driver, compensated for lnb offset
 public:
 	static  api_type_t get_api_type() ;
 
@@ -300,10 +304,10 @@ public:
 	void update_tuned_mux_nit(const chdb::any_mux_t& mux);
 	void  update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
 private:
-	void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, chdb::lnb_t& lnb, int32_t offset);
 
-	int get_signal_info(chdb::signal_info_t& signal_info, bool get_constellation);
-	bool get_mux_info(chdb::signal_info_t& ret, struct dtv_properties& cmdseq, api_type_t api, int& i);
+	void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, chdb::lnb_t& lnb);
+	void get_signal_info(chdb::signal_info_t& signal_info, bool get_constellation);
+	void get_mux_info(chdb::signal_info_t& ret, struct dtv_properties& cmdseq, api_type_t api, int& i);
 	std::optional<statdb::spectrum_t> get_spectrum(const ss::string_& spectrum_path);
 
 public:
@@ -395,7 +399,6 @@ public:
 	tune_confirmation_t tune_confirmation; //have ts_id,network_id, sat_id been confirmed by SI data?
 	chdb::any_mux_t reserved_mux;   //mux as it is currently reserved. Will be updated with si data
 	chdb::lnb_t reserved_lnb; //lnb currently in use
-	bool lnb_lof_offset_set{false};
 
 	dvb_frontend_t* reserved_fe{nullptr};
 	bool is_reserved_fe(dvb_frontend_t* fe) const {
@@ -507,8 +510,11 @@ public:
 	in some cases*/
 
 class fe_monitor_thread_t : public task_queue_t, public std::enable_shared_from_this<fe_monitor_thread_t> {
+
+public:
+		receiver_t& receiver;
+
 private:
-	receiver_t& receiver;
 
 	dvb_frontend_t* fe{nullptr};
 

@@ -330,7 +330,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         mux = signal_info.dvbs_mux
         locked = signal_info.has_lock
         self.frequency_text.SetLabel(f'{mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') if locked else '')
-        self.symbolrate_text.SetLabel(f'{mux.symbol_rate/1e3:.3f} kS/s' if locked else '')
+        self.symbolrate_text.SetLabel(f'{mux.symbol_rate/1e3:.0f} kS/s' if locked else '')
         fec=lastdot(mux.fec).replace(' ', '/') if locked else ''
 
         delsys=lastdot(mux.delivery_system)
@@ -529,6 +529,9 @@ class SignalPanel(SignalPanel_):
                 w.SetLabel('')
             else:
                 w.SetForegroundColour(wx.Colour('blue' if val else 'red'))
+        self.si_freq_text.SetLabel('')
+        self.si_symbolrate_text.SetLabel('')
+        self.lnb_lof_offset_text.SetLabel('')
         return True
 
     def OnSignalInfoUpdate(self, signal_info, is_tuned):
@@ -571,6 +574,12 @@ class SignalPanel(SignalPanel_):
         self.snr_text.SetLabel(f'{snr:6.2f}dB')
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
         self.ber_text.SetLabel(f'{ber:8.2E}')
+        si_mux = self.signal_info.si_mux
+        self.si_freq_text.SetLabel(f'{si_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
+                                if self.signal_info.has_nit else '')
+        self.si_symbolrate_text.SetLabel(f'{si_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
+                                if self.signal_info.has_nit else '')
+        self.lnb_lof_offset_text.SetLabel(f'{self.signal_info.lnb_lof_offset:,d} kHz'.replace(',', ' '))
         return True
 
 class PositionerDialog(PositionerDialog_):

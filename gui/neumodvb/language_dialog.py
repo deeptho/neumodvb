@@ -28,11 +28,13 @@ from neumodvb.servicelanguagelist import LanguageGrid, LanguageTable
 from pyreceiver import set_gtk_window_name, gtk_add_window_style, gtk_remove_window_style
 
 class LanguageDialog(LanguageDialog_):
-    def __init__(self, parent, for_subtitles, basic, readonly, *args, **kwds):
+    def __init__(self, parent, for_subtitles, basic, readonly, *args, dark_mode=True, **kwds):
         self.parent= parent
         self.basic = True
         self.readonly = True
+        self.dark_mode = dark_mode
         kwds['title'] = "Subtitle Language" if for_subtitles else "Audio language"
+        kwds['style'] = wx.BORDER_NONE
         super().__init__(parent, *args, **kwds)
         self.languagegrid = None
         #self.languagegrid_sizer.Remove(0) #remove empty slot
@@ -40,7 +42,7 @@ class LanguageDialog(LanguageDialog_):
         set_gtk_window_name(self, 'language_dialog')
     def Prepare(self, lnbgrid):
         self.languagegrid = LanguageGrid(self, self.parent, self.basic, self.readonly, self.languagelist_panel, \
-                                             wx.ID_ANY, size=(-1, -1))
+                                             wx.ID_ANY, size=(-1, -1), dark_mode = self.dark_mode)
         self.languagegrid_sizer.Add(self.languagegrid, 1, wx.ALL | wx.EXPAND | wx.FIXED_MINSIZE, 1)
         self.languagegrid.SetFocus()
         #num_cols = self.languagegrid.table.GetNumberCols()
@@ -76,12 +78,12 @@ class LanguageDialog(LanguageDialog_):
         return w, 200
 
 
-def show_language_dialog(caller, servicegrid, for_subtitles):
+def show_language_dialog(caller, servicegrid, for_subtitles, dark_mode):
     """
     show dialog as child of main frame.
     optional servicegrid could be used later if language data is stored in service record
     """
-    dlg = LanguageDialog(caller, for_subtitles, basic=False, readonly=True)
+    dlg = LanguageDialog(caller, for_subtitles, basic=False, readonly=True, dark_mode=dark_mode)
     title= _("Select Subtitle Language") if for_subtitles else _("Select Audio Language")
     dlg.title.SetLabel(title)
     dlg.Prepare(caller)
@@ -99,16 +101,14 @@ def show_language_dialog(caller, servicegrid, for_subtitles):
     return row
 
 
-def show_audio_language_dialog(caller, servicegrid=None):
+def show_audio_language_dialog(caller, dark_mode, servicegrid=None):
     """
     show dialog as child of main frame.
-    optional servicegrid could be used later if language data is stored in service record
     """
-    return show_language_dialog(caller=caller, servicegrid=servicegrid, for_subtitles=False)
+    return show_language_dialog(caller=caller, servicegrid=servicegrid, for_subtitles=False, dark_mode=dark_mode)
 
-def show_subtitle_language_dialog(caller, servicegrid=None):
+def show_subtitle_language_dialog(caller, dark_mode, servicegrid=None):
     """
     show dialog as child of main frame.
-    optional servicegrid could be used later if language data is stored in service record
     """
-    return show_language_dialog(caller=caller, servicegrid=servicegrid, for_subtitles=True)
+    return show_language_dialog(caller=caller, servicegrid=servicegrid, for_subtitles=True, dark_mode=dark_mode)

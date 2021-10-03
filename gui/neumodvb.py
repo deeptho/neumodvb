@@ -473,11 +473,13 @@ class neumoMainFrame(mainFrame):
 
     def CmdAudioLang(self, event):
         dtdebug('CmdAudioLang')
-        return wx.GetApp().AudioLang()
+        dark_mode = self.current_panel() == self.live_panel
+        return wx.GetApp().AudioLang(dark_mode)
 
     def CmdSubtitleLang(self, event):
         dtdebug('CmdSubtitleLang')
-        return wx.GetApp().SubtitleLang()
+        dark_mode = self.current_panel() == self.live_panel
+        return wx.GetApp().SubtitleLang(dark_mode)
 
     def CmdExit(self, event):
         dtdebug("CmdExit")
@@ -598,15 +600,15 @@ class NeumoGui(wx.App):
     def Jump(self, seconds):
         self.current_mpv_player.jump(seconds)
 
-    def AudioLang(self):
+    def AudioLang(self, dark_mode):
         langs = self.current_mpv_player.audio_languages()
         from neumodvb.language_dialog import show_audio_language_dialog
-        show_audio_language_dialog(self.frame)
+        show_audio_language_dialog(self.frame, dark_mode)
 
-    def SubtitleLang(self):
+    def SubtitleLang(self, dark_mode):
         langs = self.current_mpv_player.subtitle_languages()
         from neumodvb.language_dialog import show_subtitle_language_dialog
-        show_subtitle_language_dialog(self.frame)
+        show_subtitle_language_dialog(self.frame, dark_mode)
 
     def CmdInspect(self):
         dtdebug("CmdInspect")

@@ -579,7 +579,8 @@ class SignalPanel(SignalPanel_):
                                 if self.signal_info.has_nit else '')
         self.si_symbolrate_text.SetLabel(f'{si_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
                                 if self.signal_info.has_nit else '')
-        self.lnb_lof_offset_text.SetLabel(f'{self.signal_info.lnb_lof_offset:,d} kHz'.replace(',', ' '))
+        self.lnb_lof_offset_text.SetLabel(f'{self.signal_info.lnb_lof_offset:,d} kHz'.replace(',', ' ')) \
+            if self.signal_info.lnb_lof_offset is not None else None
         return True
 
 class PositionerDialog(PositionerDialog_):

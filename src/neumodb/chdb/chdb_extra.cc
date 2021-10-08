@@ -1500,7 +1500,7 @@ int chdb::lnb::driver_freq_for_freq(const chdb::lnb_t& lnb, int frequency) {
 		if (std::abs(lnb.lof_offsets[band]) < 5000)
 			frequency += lnb.lof_offsets[band];
 	}
-	return frequency;
+	return std::abs(frequency);
 }
 
 std::tuple<int32_t, int32_t, int32_t> chdb::lnb::band_frequencies(const chdb::lnb_t& lnb, chdb::fe_band_t band) {
@@ -1528,7 +1528,7 @@ int chdb::lnb::freq_for_driver_freq(const chdb::lnb_t& lnb, int frequency, bool 
 	switch (lnb.k.lnb_type) {
 	case lnb_type_t::C: {
 		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
-		return correct(0, frequency + lof_low);
+		return correct(0, -frequency + lof_low); // - to cope with inversion
 	} break;
 	case lnb_type_t::UNIV: {
 		auto lof_low = lnb.lof_low < 0 ? 9750000 : lnb.lof_low;

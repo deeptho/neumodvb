@@ -261,7 +261,7 @@ class TuneMuxPanel(TuneMuxPanel_):
     def OnToggleConstellation(self, evt):
         self.parent.OnToggleConstellation(evt)
 
-    def Tune(self, mux, retune_mode, pls_search_range=None):
+    def Tune(self, mux, retune_mode, pls_search_range=None, silent=False):
         self.retune_mode = retune_mode
         self.pls_search_range = pyreceiver.pls_search_range_t() if pls_search_range is None else pls_search_range
         dtdebug(f'Tuning - {"BLIND" if self.use_blindscan else "REGULAR"} scan: {mux} pls_search_range={pls_search_range}')
@@ -270,11 +270,14 @@ class TuneMuxPanel(TuneMuxPanel_):
                                                         self.retune_mode)
         self.last_tuned_mux = mux.copy()
         if ret < 0:
-            ShowMessage("Tuning failed", self.mux_subscriber.error_message) #todo: record error message
+            if not silent:
+                ShowMessage("Tuning failed", self.mux_subscriber.error_message) #todo: record error message
+            dtdebug(f"Tuning failed {self.mux_subscriber.error_message}")
             self.tuned_ = False
         else:
             self.tuned_ = True
             self.tune_attempt = ret
+        return self.tuned_
 
     def OnTune(self, event=None, pls_search_range=None):  # wxGlade: PositionerDialog_.<event_handler>
         self.muxedit_grid.table.FinalizeUnsavedEdits()

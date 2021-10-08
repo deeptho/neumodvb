@@ -239,7 +239,12 @@ class SpectrumDialog(SpectrumDialog_):
         mux = self.OnSelectMux(tp)
         self.ClearSignalInfo()
         assert self.tune_mux_panel.mux.frequency == mux.frequency
-        self.tune_mux_panel.Tune(mux, retune_mode=pyreceiver.retune_mode_t.NEVER)
+        if not self.tune_mux_panel.Tune(mux, retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
+            #attempt one more tune
+            if not self.tune_mux_panel.Tune(mux, retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
+                dtdebug("Moving on after tuning failed")
+                self.OnSubscriberCallback(self.signal_info)
+
 
     def next_stream(self, stream_id):
         tp = self.tp_being_scanned
@@ -251,8 +256,10 @@ class SpectrumDialog(SpectrumDialog_):
         self.tune_mux_panel.muxedit_grid.Reset()
         self.spectrum_plot.reset_current_annot_status(mux)
         self.ClearSignalInfo()
-        self.tune_mux_panel.Tune(mux,  retune_mode=pyreceiver.retune_mode_t.NEVER)
-
+        if not self.tune_mux_panel.Tune(mux,  retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
+            #attempt retune once
+            if not self.tune_mux_panel.Tune(mux,  retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
+                self.OnSubscriberCallback(self.signal_info)
     def OnSelectMux(self, tp):
         spectrum = tp.spectrum.spectrum
         if spectrum.k.sat_pos != self.sat.sat_pos or \

@@ -325,10 +325,13 @@ class SpectrumDialog(SpectrumDialog_):
                     tp = self.tp_being_scanned
                     if not hasattr(tp, 'isis_present'):
                         tp.isis_present = set(data.isi_list)
-                        tp.isis_scanned = set((data.dvbs_mux.stream_id,))
+                        #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
+                        tp.isis_scanned = set((data.si_mux.stream_id,data.dvbs_mux.stream_id))
                     else:
                         tp.isis_present = set.union(set(data.isi_list), tp.isis_present)
+                        #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
                         tp.isis_scanned.add(data.dvbs_mux.stream_id)
+                        tp.isis_scanned.add(data.si_mux.stream_id)
                     tp.isis_to_scan =  tp.isis_present -  tp.isis_scanned
                     if len(tp.isis_to_scan)>0:
                         stream_id = min(tp.isis_to_scan)

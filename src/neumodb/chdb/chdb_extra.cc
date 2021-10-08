@@ -853,7 +853,7 @@ void chdb::sat_pos_str(ss::string_& s, int position) {
 }
 
 void chdb::matype_str(ss::string_& s, uint8_t matype) {
-	// Sea en 302 307 v1.1.2; stud135 manual seems wrong in places
+	// Sea en 302 307 v1.1.2; stid135 manual seems wrong in places
 	switch (matype >> 6) {
 	case 0:
 		s.sprintf("GP ");
@@ -862,7 +862,7 @@ void chdb::matype_str(ss::string_& s, uint8_t matype) {
 		s.sprintf("GC ");
 		break;
 	case 2:
-		s.sprintf("?? ");
+		s.sprintf("XX ");
 		break;
 	case 3:
 		s.sprintf("TS ");

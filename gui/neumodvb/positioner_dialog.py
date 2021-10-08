@@ -345,7 +345,7 @@ class TuneMuxPanel(TuneMuxPanel_):
                          for i in signal_info.isi_list]) if locked else ''
         self.isi_list_text.SetLabelMarkup(isi)
         #we need the int cast, because mux.delivery_sysstem can be of dvbs, ddvbt or dvbc type
-        if int(mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2):
+        if int(mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and locked:
             matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
         else:
             matype=""
@@ -357,13 +357,15 @@ class TuneMuxPanel(TuneMuxPanel_):
             pls =''
         self.pls_text.SetLabel(pls)
 
-        cn = '' if signal_info.network_id_confirmed  else "???"
-        ct = '' if signal_info.ts_id_confirmed  else "???"
+        cn = '' if signal_info.network_id_confirmed  else "?"
+        ct = '' if signal_info.ts_id_confirmed  else "?"
         stream = f' stream={mux.stream_id}' if mux.stream_id>=0 else ''
-        self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
-
+        if signal_info.network_id_confirmed or signal_info.ts_id_confirmed or mux.stream_id>=0:
+            self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
+        else:
+            self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
         sat_confirmed = signal_info.sat_pos_confirmed
-        c = '' if sat_confirmed  else "???"
+        c = '' if sat_confirmed  else "?"
         self.sat_pos_text.SetForegroundColour(wx.Colour('blue' if sat_confirmed else 'red'))
         self.sat_pos_text.SetLabel(f'{pychdb.sat_pos_str(mux.k.sat_pos)}{c}' if locked else '')
         if not locked:

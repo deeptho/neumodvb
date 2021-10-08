@@ -100,38 +100,6 @@ enum slope_t
 	RISING = 2
 };
 
-#if 0
-static s32 max_(s32* a, int n) {
-	int i;
-	s32 ret = a[0];
-	for (i = 0; i < n; ++i)
-		if (a[i] > ret)
-			ret = a[i];
-	return ret;
-}
-#endif
-
-#if 0
-static void clean_(s32* psig, s32* pres, int n) {
-	int i;
-	s32 mean;
-	s32 last = psig[0];
-	int j;
-	for (i = 0; i < n; ++i) {
-		if (pres[i] == pres[last]) {
-			mean += psig[i];
-		} else {
-
-			if (i > last)
-				mean /= (i - last);
-			for (j = last; j < i; ++j)
-				psig[i] = mean;
-			mean = psig[i];
-			last = i;
-		}
-	}
-}
-#endif
 
 static void running_sum(s32* pout, s32* psig, int n) {
 	int i;

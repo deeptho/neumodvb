@@ -17,6 +17,9 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 import wx
+import datetime
+from dateutil import tz
+
 import pychdb
 
 from neumodvb.util import dtdebug, dterror
@@ -103,6 +106,10 @@ class SpectrumDialog(SpectrumDialog_):
         self.update_handler = \
             self.app_main_frame.Bind(wx.EVT_TIMER, self.OnTimer) #used to refresh list on screen
         self.tp_being_scanned = None
+        self.blindscan_num_muxes = 0
+        self.blindscan_num_locked_muxes = 0
+        self.blindscan_num_nonlocked_muxes = 0
+        self.blindscan_num_si_muxes =0
 
     def OnTimer(self, evt):
         self.grid.OnTimer(evt)
@@ -189,6 +196,10 @@ class SpectrumDialog(SpectrumDialog_):
         self.spectrum_buttons_panel.blindscan_button.SetValue(0)
         self.ClearSignalInfo()
         self.is_blindscanning = False
+        self.blindscan_num_muxes = 0
+        self.blindscan_num_locked_muxes = 0
+        self.blindscan_num_nonlocked_muxes = 0
+        self.blindscan_num_si_muxes =0
 
     def OnAbortTune(self, event):
         dtdebug(f"positioner: unsubscribing")
@@ -197,6 +208,7 @@ class SpectrumDialog(SpectrumDialog_):
 
     def OnBlindScan(self, event=None):
         dtdebug("Blindscan start")
+
         obj = event.GetEventObject()
         isPressed = obj.GetValue()
         if not isPressed:
@@ -204,6 +216,7 @@ class SpectrumDialog(SpectrumDialog_):
             self.EndBlindScan()
         else:
             dtdebug("starting blindscan all")
+            self.blindscan_start = datetime.datetime.now(tz=tz.tzlocal())
             self.tps_to_scan = []
             self.tune_mux_panel.use_blindscan = True
             for key, spectrum in self.spectrum_plot.spectra.items():
@@ -216,8 +229,9 @@ class SpectrumDialog(SpectrumDialog_):
                     self.tps_to_scan = self.tps_to_scan[idx:]
                     break
             if len(self.tps_to_scan) == 0:
-                ShowMessage("Nothing to scan",
-                            "No muxes left to scan: only bands displayed on screen will be "
+                self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
+                m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)
+                ShowMessage("No spectral peaks available scan: only bands displayed on screen will be "
                             "scanned and already scanned muxes will be skipped" )
                 self.spectrum_buttons_panel.blindscan_button.SetValue(0)
                 self.is_blindscanning = False
@@ -229,7 +243,15 @@ class SpectrumDialog(SpectrumDialog_):
     def blindscan_next(self):
         if len(self.tps_to_scan) == 0:
             self.is_blindscanning = False
-            ShowMessage("Scan done ", "No muxes left to scan" )
+            self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
+            m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)
+            title = "Blindscan spectrum finished"
+            msg = f"Scanned {self.blindscan_num_muxes} (Locked: {self.blindscan_num_locked_muxes}; " \
+                f"DVB: {self.blindscan_num_si_muxes}) muxes in {m}min {s}seconds"
+            dtdebug(msg)
+            ShowMessage(title, msg)
+            self.spectrum_buttons_panel.blindscan_button.SetValue(0)
+            self.is_blindscanning = False
             self.EndBlindScan()
             return
         tp = self.tps_to_scan.pop(0)
@@ -293,8 +315,11 @@ class SpectrumDialog(SpectrumDialog_):
             self.signal_info = data
             if self.signal_info.has_fail or (self.signal_info.has_si_done if need_si else self.signal_info.has_lock):
                 mux = self.tune_mux_panel.last_tuned_mux
-
-                dtdebug(f"!!!!!!! TUNE DONE!!!!! mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done}")
+                self.blindscan_num_muxes += 1
+                self.blindscan_num_locked_muxes += self.signal_info.has_lock
+                self.blindscan_num_nonlocked_muxes += not self.signal_info.has_lock
+                self.blindscan_num_si_muxes += self.signal_info.has_nit
+                dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done}")
                 self.spectrum_plot.set_current_annot_status(mux, self.signal_info.has_lock)
                 if self.is_blindscanning:
                     tp = self.tp_being_scanned

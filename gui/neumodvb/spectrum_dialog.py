@@ -271,7 +271,7 @@ class SpectrumDialog(SpectrumDialog_):
     def next_stream(self, stream_id):
         tp = self.tp_being_scanned
         dtdebug(f"scanning {tp}; {len(self.tps_to_scan)} tps left to scan")
-        mux = self.signal_info.dvbs_mux.copy()
+        mux = self.mux.copy()
         mux.stream_id = stream_id
         mux.c.is_template = True
         self.tune_mux_panel.mux = mux

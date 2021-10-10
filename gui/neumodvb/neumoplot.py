@@ -54,7 +54,7 @@ import datetime
 #horrible hack: matplotlib (in neumplot.py) uses the presence of this module to decide what backend to
 #use and then refuses to use wx
 del sys.modules['gi.repository.Gtk']
-mpl.use('WX')
+mpl.use('WXAgg')
 
 white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
     (0, '#ffffff00'),

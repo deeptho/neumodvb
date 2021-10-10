@@ -143,7 +143,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.muxedit_grid.controller = self.mux_controller
         self.mux_controller.last_selected_mux = self.mux.copy()
         self.lnb_changed = False
-        self.mux_changed = False
         self.mux_subscriber_ = None
         self.tuned_ = False
         self.use_blindscan_ = False
@@ -251,7 +250,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             pychdb.put_record(txn, self.lnb)
             txn.commit()
         self.lnb_changed = False
-        self.mux_changed = False
         if event:
             event.Skip()
 
@@ -393,25 +391,18 @@ class TuneMuxPanel(TuneMuxPanel_):
             network=get_network(self.lnb, self.sat.sat_pos)
             self.parent.SetDiseqc12Position(network.diseqc12)
             return
+        #we need to also select a different satellite
         txn = wx.GetApp().chdb.rtxn()
         mux = pychdb.lnb.select_reference_mux(txn, self.lnb, None)
         sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos)
         if mux.k.sat_pos == pychdb.sat.sat_pos_none:
             mux.k.sat_pos = sat.sat_pos
         del txn
-        self.mux_changed = False
         self.lnb_changed = False
         assert mux.k.sat_pos == sat.sat_pos
-        self.sat = sat
-        self.mux = mux
-        network=get_network(self.lnb, sat.sat_pos)
-        if network is None:
-            dterror(f"No network for lnb={self.lnb} sat={sat}")
-        else:
-            self.parent.SetDiseqc12Position(network.diseqc12)
-        self.positioner_sat_sel.UpdateText()
-        self.positioner_mux_sel.UpdateText()
-        self.parent.ChangeLnb(lnb)
+        self.ChangeSat(sat)
+        self.parent.ChangeLnb(lnb) #update window title
+
 
     def ChangeSat(self, sat):
         if sat.sat_pos == self.sat.sat_pos:
@@ -437,7 +428,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             return
         txn = wx.GetApp().chdb.rtxn()
         self.sat = sat
-        self.mux_changed = False
         if on_rotor(self.lnb):
             self.lnb.usals_pos = sat.sat_pos
         self.mux = pychdb.lnb.select_reference_mux(txn, self.lnb, None)
@@ -451,6 +441,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.positioner_sat_sel.UpdateText()
         self.positioner_mux_sel.UpdateText()
         self.positioner_mux_sel.SelectSat(sat)
+        self.mux_controller.SelectMux(self.mux)
         self.muxedit_grid.Reset()
         sat_pos = self.sat.sat_pos if network is None else network.usals_pos
         self.parent.ChangeSatPos(sat_pos)
@@ -464,7 +455,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             rec.k.sat_pos = self.sat.sat_pos
         self.mux = rec
         self.positioner_mux_sel.UpdateText()
-        self.mux_changed = True
         self.muxedit_grid.Reset()
         for n in self.lnb.networks:
             if n.sat_pos == self.mux.k.sat_pos:

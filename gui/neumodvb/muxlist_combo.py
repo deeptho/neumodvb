@@ -80,13 +80,12 @@ class DvbsMuxListComboCtrl(wx.ComboCtrl):
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(DvbsMuxGridPopup)
-        self.popup_args={}
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
 
     def SelectSat(self, sat):
-        self.popup_args["sat"] = sat
-
+        if self.popup.popup_grid is not None:
+            self.popup.popup_grid.SelectSat(sat)
     def UpdateText(self):
         self.SetText(self.controller.CurrentGroupText())
 

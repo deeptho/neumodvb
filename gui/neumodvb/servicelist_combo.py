@@ -77,7 +77,6 @@ class ServiceListComboCtrl(wx.ComboCtrl):
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(ServiceGridPopup)
-        self.popup_args={}
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
 

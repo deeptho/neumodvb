@@ -352,7 +352,7 @@ class TuneMuxPanel_(wx.Panel):
         self.Bind(wx.EVT_BUTTON, self.OnTune, self.tune_button)
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleBlindscan, self.blind_toggle)
         self.Bind(wx.EVT_BUTTON, self.OnAbortTune, self.tune_abort_button)
-        self.Bind(wx.EVT_TOGGLEBUTTON, self.OnSearchPls, self.pls_search_button)
+        self.Bind(wx.EVT_BUTTON, self.OnSearchPls, self.pls_search_button)
         # end wxGlade
 
     def OnSave(self, event):  # wxGlade: TuneMuxPanel_.<event_handler>

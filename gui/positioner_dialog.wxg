@@ -1319,7 +1319,7 @@
                                                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                                                 <object class="wxButton" name="pls_search_button" base="EditButton">
                                                                     <events>
-                                                                        <handler event="EVT_TOGGLEBUTTON">OnSearchPls</handler>
+                                                                        <handler event="EVT_BUTTON">OnSearchPls</handler>
                                                                     </events>
                                                                     <tooltip>Search pls codes (can take long time)</tooltip>
                                                                     <style>wxBU_EXACTFIT</style>

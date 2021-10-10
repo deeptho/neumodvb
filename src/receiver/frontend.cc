@@ -317,11 +317,9 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdse
 		mux.pls_mode = chdb::fe_pls_mode_t::ROOT;
 		mux.pls_code = 1;
 	} else {
-
-	mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
-	mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
+		mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
+		mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
 	}
-	// int dtv_scrambling_sequence_index_prop = cmdseq.props[i++].u.data;
 
 	i += 6; // skip dvbt
 	return mux.frequency;
@@ -1083,7 +1081,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 	}
 	dtv_fe_constellation constellation;
 	if (tune_options.pls_search_range.start < tune_options.pls_search_range.end) {
-		cmdseq.add_pls_range(DTV_PLS_SEARCH_LIST, tune_options.pls_search_range);
+		cmdseq.add_pls_range(DTV_PLS_SEARCH_RANGE, tune_options.pls_search_range);
 	}
 	if (num_constellation_samples > 0) {
 		constellation.num_samples = num_constellation_samples;

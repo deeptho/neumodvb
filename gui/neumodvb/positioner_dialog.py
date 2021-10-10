@@ -296,7 +296,9 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def OnSearchPls(self, event=None):  # wxGlade: PositionerDialog_.<event_handler>
         pls_search_range = pyreceiver.pls_search_range_t()
-
+        pls_search_range.start = 0
+        pls_search_range.end = 262142
+        print(f'RANGE={pls_search_range}')
         self.OnTune(event, pls_search_range=pls_search_range)
 
     def AbortTune(self):

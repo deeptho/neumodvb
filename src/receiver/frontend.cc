@@ -566,7 +566,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 			i++; // for constellation samples
 			assert(i == (int)cmdseq.num);
 		} else {
-			ret.constellation_samples.resize(0);
+			//ret.constellation_samples.resize(0);
 		}
 	}
 }

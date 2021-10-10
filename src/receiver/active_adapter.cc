@@ -389,6 +389,7 @@ int active_adapter_t::lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t t
 int active_adapter_t::tune_it(const tune_options_t tune_options, chdb::delsys_type_t delsys_type) {
 	if (!current_fe)
 		return -1;
+	tune_state = WAITING_FOR_LOCK;
 	// make sure that signal_info messages will contain correct status
 	current_fe->update_tuned_mux_tune_confirmation({});
 
@@ -461,7 +462,6 @@ int active_adapter_t::tune_it(const tune_options_t tune_options, chdb::delsys_ty
 	if (ret < 0)
 		return ret;
 
-	tune_state = WAITING_FOR_LOCK;
 	tune_start_time = system_clock_t::now();
 	si.deactivate();
 	return 0;

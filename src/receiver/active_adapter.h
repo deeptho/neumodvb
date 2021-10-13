@@ -132,11 +132,12 @@ struct pol_band_diseqc_status_t {
 	bool tuned{false};
 	int voltage = -1; // means unknown
 	int tone = -1; // means unknown
-	bool diseqc_sent{false};
+
+	//returns true if voltage must be set
 	bool set_voltage(fe_sec_voltage v) {
 		bool ret = (v != voltage);
 		voltage =v;
-		return ret || !tuned;
+		return ret; // || !tuned;
 	}
 
 
@@ -147,7 +148,7 @@ struct pol_band_diseqc_status_t {
 	bool set_tone(fe_sec_tone_mode m) {
 		bool ret = (m != tone);
 		tone = m;
-		return ret || !tuned;
+		return ret; // || !tuned;
 	}
 
 	/*
@@ -158,6 +159,8 @@ struct pol_band_diseqc_status_t {
 
 	void set_tune_status(bool tuned_) {
 		tuned = tuned_;
+		if(!tuned_)
+			voltage = tone = -1;
 	}
 };
 

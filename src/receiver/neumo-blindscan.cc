@@ -1269,6 +1269,8 @@ int diseqc(int fefd, bool pol_is_v, bool band_is_high) {
 				return ret;
 		}
 	}
+	if( must_pause)
+		msleep(100);
 #ifndef SET_VOLTAGE_TONE_DURING_TUNE
 	return tone_off_called ? 1 : 0;
 #else

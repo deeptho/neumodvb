@@ -268,9 +268,10 @@ void active_si_stream_t::process_si_data() {
 			must_abort = true;
 			reader->discard(num_bytes_to_process); // skip all remaining data
 			stream_parser.clear_data();
+		} else {
+			dttime(500);
+			reader->discard(num_bytes_to_process - delta);
 		}
-		dttime(500);
-		reader->discard(num_bytes_to_process - delta);
 		break;
 	}
 	if (epgdb_txn_) {

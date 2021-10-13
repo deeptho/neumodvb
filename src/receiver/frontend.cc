@@ -561,7 +561,8 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 		get_mux_info(ret, cmdseq, api_type, i);
 	if (get_constellation) {
 		if (ret.lock_status & FE_HAS_LOCK) {
-			i++; // for constellation samples
+			if (api_type == api_type_t::NEUMO)
+				i++; // for constellation samples
 			assert(i == (int)cmdseq.num);
 		} else {
 			//ret.constellation_samples.resize(0);

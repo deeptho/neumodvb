@@ -188,6 +188,8 @@ class LiveServiceScreen(object):
         return self.set_service_screen_(txn, service, sat)
 
     def entry_for_ch_order(self, chno):
+        if chno >= 65535:
+            return None #must fit  in uint16_t
         h = self.app.receiver.browse_history
         t = pychdb.list_filter_type_t
         txn = self.chdb.rtxn()

@@ -1043,6 +1043,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 	assert(1 - pol_is_v == pol);
 	cmdseq.add_clear();
 	if (blindscan) {
+		assert (api_type == api_type_t::NEUMO);
 		cmdseq.add(DTV_ALGORITHM, ALGORITHM_BLIND);
 		cmdseq.add(DTV_DELIVERY_SYSTEM, (int)SYS_AUTO);
 		if (mux.symbol_rate > 0)

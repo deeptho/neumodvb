@@ -632,6 +632,8 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 		if (ret < 0)
 			return ret;
 	}
+	if( must_pause)
+		msleep(100);
 	return 1;
 }
 

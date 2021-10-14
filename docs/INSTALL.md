@@ -9,24 +9,19 @@ distribution.
 
 On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
 
-* clang clang-tools-extra libtool #used for compiling and building
-* boost-program-options boost-regex curl-devel
-* log4cxx log4cxx-devel libconfig libconfig-devel
-* wxGTK3 gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif
-* python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-configobj
-* python3-regex python3-matplotlib-wx python3-scipy
-* wxWidgets-devel wxBase3 wxBase3-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs
-* libX11-devel libglvnd-devel
-* libdvbcsa-devel
-* tsduck #used for t2mi streams; install as: sudo dnf install https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
+sudo install -y clang clang-tools-extra libtool #used for compiling and building boost-program-options boost-regex curl-devel \
+    log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif \
+    gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-configobj \
+    python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs \
+    libX11-devel libglvnd-devel libdvbcsa-devel espeak
 
-* espeak #used to read out load the SNR level
+sudo https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
+
 
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
 at least the following packages are needed:
 
-* regex setproctitle
-* mpl_scatter_density
+sudo pip3 install regex setproctitle mpl_scatter_density
 
 The above software list may be incomplete or may contain no longer needed packages.
 Please open a ticket if you discover mistakes

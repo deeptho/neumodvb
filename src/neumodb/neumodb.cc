@@ -85,10 +85,11 @@ int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags) {
 			auto type_id = decode_ascending(encoded_type_id);
 			auto* desc = current.schema_for_type(type_id);
 			if (desc == nullptr) {
-				if (type_id == data_types::data_type<schema::neumo_schema_t>())
+				if (type_id == data_types::data_type<schema::neumo_schema_t>()) {
 					dtdebug("schema record found");
-				else
+				} else {
 					dtdebugx("unrecognized type=0x%x", type_id);
+				}
 				continue;
 			}
 			to_db.convert_record(from_cursor, to_txn, type_id);
@@ -270,7 +271,6 @@ int neumodb_t::load_schema_(db_txn& txn) {
 	// TODO: find a way to upgrade a readonly txn to a write txn
 	auto c = neumo_schema_t::find_by_key(txn, s.k, find_eq);
 	if (c.is_valid()) {
-		// dtdebug("schema found in database");
 		auto rec = c.current();
 		db_type = rec.db_type;
 #if 0

@@ -38,6 +38,7 @@ void export_chdb_vectors(py::module& m) {
 	export_ss_vector(m, sat_t);
 	export_ss_vector(m, lnb_t);
 	export_ss_vector(m, lnb_network_t);
+	export_ss_vector(m, fe_delsys_t);
 	export_ss_vector(m, epg_type_t);
 	export_ss_vector(m, fe_t);
 }

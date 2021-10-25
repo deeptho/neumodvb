@@ -31,8 +31,15 @@ import regex as re
 from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer
+from neumodvb.util import setup, lastdot, dtdebug, dterror
+from neumodvb.neumodbutils import enum_to_str
 
 import pychdb
+
+def delsys_fn(x):
+    vals= set([enum_to_str(xx).split('_')[0] for xx in x[1]])
+    vals = vals.difference(set(['AUTO']))
+    return "/".join(vals)
 
 class FrontendTable(NeumoTable):
     CD = NeumoTable.CD
@@ -41,7 +48,9 @@ class FrontendTable(NeumoTable):
     all_columns = \
         [CD(key='k.adapter_no',  label='adapter', basic=True, readonly=True),
          CD(key='k.frontend_no',  label='frontend', basic=True, readonly=True),
-         CD(key='adapter_name',  label='Name', basic=True, example=" TurboSight TBS 6504 DVB-S/S2/S2X/T/T2/C/C2/ISDB-T  #0 "),
+         CD(key='adapter_name',  label='Name', basic=True, example=" TurboSight TBS 6504 #0 "),
+         #CD(key='card_name',  label='Card', basic=True, example=" TurboSight TBS 6504 DVB-S/S2/S2X/T/T2/C/C2/ISDB-T  #0 "),
+         CD(key='delsys',  label='delsys', basic=True, dfn=delsys_fn, readonly=True, example='DVBT/'*4),
          CD(key='card_address',  label='Card#', basic=True, example=" Turbosight 6909x "),
          CD(key='adapter_address',  label='Adapter#', basic=True, example=" Turbosight 6909x "),
          CD(key='present',  label='present', basic=True, dfn=bool_fn, readonly=True),
@@ -61,7 +70,7 @@ class FrontendTable(NeumoTable):
                          **kwds)
 
     def __save_record__(self, txn, record):
-        print(f'saving {record.master_adapter}')
+        dtdebug(f'saving {record.k.adapter_no}')
         pychdb.put_record(txn, record)
         return record
 

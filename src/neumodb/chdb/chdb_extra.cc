@@ -853,20 +853,25 @@ void chdb::sat_pos_str(ss::string_& s, int position) {
 }
 
 void chdb::matype_str(ss::string_& s, uint8_t matype) {
-	// Sea en 302 307 v1.1.2; stid135 manual seems wrong in places
+	// See en 302 307 v1.1.2; stid135 manual seems wrong in places
 	switch (matype >> 6) {
 	case 0:
-		s.sprintf("GP ");
+		s.sprintf("GFP "); ///generic packetised stream
 		break;
 	case 1:
-		s.sprintf("GC ");
+		s.sprintf("GCS "); //generic continuous stream
 		break;
 	case 2:
-		s.sprintf("XX ");
+		s.sprintf("GSE "); //eneric encapsulated stream
 		break;
 	case 3:
-		s.sprintf("TS ");
+		s.sprintf("TS "); //transport stream
 		break;
+#if 0
+	case 4:
+		s.sprintf("GSEL "); //GSE Lite
+		break;
+#endif
 	}
 
 	if ((matype >> 5) & 1)
@@ -875,10 +880,9 @@ void chdb::matype_str(ss::string_& s, uint8_t matype) {
 		s.sprintf("MIS ");
 
 	if ((matype >> 4) & 1)
-		s.sprintf("CCM ");
-	else
 		s.sprintf("ACM/VCM ");
-
+	else
+		s.sprintf("CCM ");
 	if ((matype >> 3) & 1)
 		s.sprintf("ISSYI ");
 

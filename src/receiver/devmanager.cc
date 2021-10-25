@@ -342,6 +342,7 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 		t.dbfe.k = k;
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
 		t.dbfe.present = true;
+		t.dbfe.enabled = dbfe_old.enabled;
 		t.dbfe.can_be_used = t.can_be_used;
 		auto txn = receiver.chdb.wtxn();
 		put_record(txn, t.dbfe, 0);

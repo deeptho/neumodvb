@@ -13,6 +13,20 @@ sudo install -y clang clang-tools-extra libtool boost-program-options boost-rege
 sudo https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
 
 
+To install neumodvb in a Debian distro (Ubuntu, Linux Mint), first ensure that you are running a
+recent version:
+```
+sudo apt update
+sudo apt upgrade
+sudo apt install build-essential
+```
+
+Then  install pre-requisite software:
+```
+sudo  apt install -y Clang Clang-tools libtool libboost-program-options libboost libboost-regex libboost-context curl libcurl4 libcurl4-opensst-dev liblog4cxx-dev liblog4cxx libconfig-libconfig-dev libwxgtk3.0-gtk3 libgtk-dev freeglut3 freeglut3-dev librsvg2-dev libexif-dev libegobject-introspection libexpat1-dev python3-wxgtk2.4 python3-configobj  python3-sip-dev python3--matplot-lib python3-jinja2 python3-regex python3-scipy wxbase3-dev-wxbase3 wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak
+```
+
+
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
 at least the following packages are needed:
 

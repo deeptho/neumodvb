@@ -13,6 +13,10 @@ sudo install -y clang clang-tools-extra libtool boost-program-options boost-rege
 sudo https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
 ```
 
+Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
+<https://rpmfusion.org/Configuration>
+
+
 To install neumodvb in a Debian distro (Ubuntu, Linux Mint), first ensure that you are running a
 recent version:
 ```

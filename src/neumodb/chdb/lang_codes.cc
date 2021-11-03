@@ -707,7 +707,7 @@ EXPORT const char* lang_name(const char* code) {
 	return it->name;
 }
 
-EXPORT const char* lang_name(int8_t lang1, int8_t lang2, int8_t lang3) {
+EXPORT const char* lang_name(char lang1, char lang2, char lang3) {
 	char code[4] = {lang1, lang2, lang3, 0};
 	return lang_name(&code[0]);
 }

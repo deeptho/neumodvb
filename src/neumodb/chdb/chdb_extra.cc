@@ -30,7 +30,7 @@
 
 using namespace chdb;
 
-extern const char* lang_name(int8_t lang1, int8_t lang2, int8_t lang3);
+extern const char* lang_name(char lang1, char lang2, char lang3);
 const char* chdb::lang_name(const chdb::language_code_t& code) {
 	return ::lang_name(code.lang1, code.lang2, code.lang3);
 }

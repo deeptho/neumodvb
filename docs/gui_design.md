@@ -61,7 +61,7 @@ as the norm...
   of color is less critical, red and green may still be used.
 
 Unfortunately, this gradual degradation in modern GUI design is reflected in toolkits
-(e.g., lots of dropped essential functionality in GTK3 compared to GTK2, eve more to come in GTK4) and working
+(e.g., lots of dropped essential functionality in GTK3 compared to GTK2, more will be dropped in GTK4) and working
 around it is not easy. Some poor design choices in various toolkits also mean that it is very difficult or
 even impossible to ensure that font sizes and colours are consistent on different screens.  For instance,
 even discovering the current screen resolution is a nightmare, with some software deliberately reporting wrong

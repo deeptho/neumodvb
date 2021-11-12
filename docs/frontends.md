@@ -9,8 +9,7 @@ one entry should be listed.
 ![Frontends](images/frontends.png)
 
 There is not much to configure here, but the following cmay be useful. Note that you need
-first enable `Edit mode' (Alt-E). Also note that due to some bugs in Gtk, toggling checkboxes is a bit
-cumbersome.
+first enable `Edit mode' (Alt-E).
 
 *`enabled`. Disable a frontend by unchecking this option.
 

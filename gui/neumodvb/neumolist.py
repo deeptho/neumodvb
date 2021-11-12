@@ -539,7 +539,7 @@ class NeumoTable(wx.grid.GridTableBase):
 
     def OnModified(self):
         """
-        called when a chg screen changes and therefore colours of rows may change
+        called when a screen changes and therefore colours of rows may change
         """
         self.GetRow.cache_clear()
         self.parent.ForceRefresh()
@@ -860,7 +860,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 choices= neumodbutils.enum_labels(coltype)
                 editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=False)
             elif coltype== bool:
-                editor = wx.grid.GridCellEnumEditor(choices="off,on")
+                #editor = wx.grid.GridCellEnumEditor(choices="off,on")
+                editor = wx.grid.GridCellBoolEditor()
                 pass
             elif col.key in ('networks',):
                 editor = None #LnbNetworkEditor(col)

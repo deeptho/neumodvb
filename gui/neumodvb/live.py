@@ -2174,15 +2174,7 @@ class LivePanel(wx.Panel):
     def OnShowWindow(self, evt):
         if not evt.IsShown():
             return #happens also at window creation
-        if not self.created:
-            if False:
-                self.created=True
-                dtdebug('CREATING')
-                self.create()
-                wx.CallAfter(self.populate_grid_panel)
-                self.Bind(wx.EVT_SIZE, self.OnResize)
-                self.make_accels()
-        else:
+        if self.created:
             self.grid_panel.reset()
             self.Refresh()
         evt.Skip()

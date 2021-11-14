@@ -94,6 +94,7 @@ def ask_channel_number(caller, initial_chno=None):
     return chno
 
 
+
 class ServiceTable(NeumoTable):
     CD = NeumoTable.CD
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")

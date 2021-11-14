@@ -58,8 +58,8 @@ control_menu = (
     #MI("PlayFile",  _("PlayFile"), ""),
     MI("Pause",  _("&Pause\tCtrl-Space"), ""),
     MI("Stop",  _("&Stop\tCtrl-X"), ""),
-    #MI("JumpBack",  _("&Back\tLeft"), ""),
-    #MI("JumpForward",  _("&Forward\tRight"), ""),
+    MI("JumpBack",  _("&Back\tLeft"), ""),
+    MI("JumpForward",  _("&Forward\tRight"), ""),
     SEP,
     MI("AudioLang",  _("&Audio language\tCtrl-Shift-3"), ""), #ctrl-#
     MI("SubtitleLang",  _("&Subtitle language\tCtrl-T"), ""),
@@ -258,6 +258,8 @@ class NeumoMenuBar(wx.MenuBar):
                 key_id = wx.NewIdRef()
                 self.accels.append((a.GetFlags(),  a.GetKeyCode(), key_id))
                 x=f'Cmd{item[0].name}'
+                if item[0].name in ['JumpBack', 'JumpForward']:
+                    continue
                 #Note "x=x" below. This serves to copy x into a local variable; otherwise all
                 #bindings will use the same value of x
                 accel_key = a.ToRawString()

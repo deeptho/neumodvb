@@ -133,6 +133,15 @@ main_menubar = (
 
 
 class NeumoMenuBar(wx.MenuBar):
+    def __init__(self, parent, *args, **kwds):
+        super().__init__(*args, **kwds)
+        self.parent = parent
+        self.items = OrderedDict()
+        self.menus = OrderedDict()
+        self.accels = []
+        self.make_menubar()
+        parent.SetMenuBar(self)
+
     def get_panel_method_and_prio(self, method_name):
         w = wx.Window.FindFocus()
         while w is not None:
@@ -154,15 +163,6 @@ class NeumoMenuBar(wx.MenuBar):
     def get_panel_method(self, method_name):
         ret, _  = self.get_panel_method_and_prio(method_name)
         return ret
-
-    def __init__(self, parent, *args, **kwds):
-        super().__init__(*args, **kwds)
-        self.parent = parent
-        self.items = OrderedDict()
-        self.menus = OrderedDict()
-        self.accels = []
-        self.make_menubar()
-        parent.SetMenuBar(self)
 
     def item_is_enabled(self, it, check_for_duplicates=False):
         """

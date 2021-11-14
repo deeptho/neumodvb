@@ -151,13 +151,14 @@ class NeumoMenuBar(wx.MenuBar):
         ret = self.parent.get_panel_method(method_name)
         if ret is not None:
             return ret, 2
-        #The following is needed in case no window is focused
-        ret = getattr(self.parent.live_panel, method_name, None)
-        if ret:
-            return ret, 1
-        ret = getattr(self.parent, method_name, None)
-        if ret:
-            return ret, 0
+        if False:
+            #The following is needed in case no window is focused
+            ret = getattr(self.parent.live_panel, method_name, None)
+            if ret:
+                return ret, 1
+            ret = getattr(self.parent, method_name, None)
+            if ret:
+                return ret, 0
         return None, -1
 
     def get_panel_method(self, method_name):

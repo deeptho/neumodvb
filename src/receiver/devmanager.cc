@@ -874,7 +874,7 @@ bool adapter_reservation_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const chdb:
 		return false;
 	if (tuned_mux->stream_id >= 0 && !(tuned_mux->pls_code == mux.pls_code && tuned_mux->pls_mode == mux.pls_mode))
 		return false;
-	// note that we do not chec t2mi_pid because that does not change mux
+	// note that we do not check t2mi_pid because that does not change mux
 	int tolerance = std::max(mux.symbol_rate, tuned_mux->symbol_rate) / 3000;
 	int delta = std::abs((int)tuned_mux->frequency - (int)mux.frequency);
 	return delta <= tolerance;
@@ -883,6 +883,8 @@ bool adapter_reservation_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const chdb:
 bool adapter_reservation_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const chdb::lnb_t* required_lnb) const {
 	assert(!required_lnb);
 	const auto* tuned_mux = std::get_if<chdb::dvbt_mux_t>(&reserved_mux);
+	if (!use_count_mux())
+		return false;
 	if (!tuned_mux)
 		return false;
 	if (tuned_mux->k.sat_pos != mux.k.sat_pos)
@@ -895,6 +897,8 @@ bool adapter_reservation_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const chdb:
 bool adapter_reservation_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const chdb::lnb_t* required_lnb) const {
 	assert(!required_lnb);
 	const auto* tuned_mux = std::get_if<chdb::dvbc_mux_t>(&reserved_mux);
+	if (!use_count_mux())
+		return false;
 	if (!tuned_mux)
 		return false;
 	if (tuned_mux->k.sat_pos != mux.k.sat_pos)

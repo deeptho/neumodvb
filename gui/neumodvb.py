@@ -463,14 +463,6 @@ class neumoMainFrame(mainFrame):
         dtdebug('CmdStop')
         return wx.GetApp().Stop()
 
-    def CmdJumpForward(self, event=None):
-        dtdebug('CmdJumpForward')
-        return wx.GetApp().Jump(60)
-
-    def CmdJumpBack(self, event=None):
-        dtdebug('CmdJumpBack')
-        return wx.GetApp().Jump(-60)
-
     def CmdAudioLang(self, event):
         dtdebug('CmdAudioLang')
         dark_mode = self.current_panel() == self.live_panel

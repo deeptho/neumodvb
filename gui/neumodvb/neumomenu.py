@@ -58,8 +58,8 @@ control_menu = (
     #MI("PlayFile",  _("PlayFile"), ""),
     MI("Pause",  _("&Pause\tCtrl-Space"), ""),
     MI("Stop",  _("&Stop\tCtrl-X"), ""),
-    MI("JumpBack",  _("&Back\tLeft"), ""),
-    MI("JumpForward",  _("&Forward\tRight"), ""),
+    #MI("JumpBack",  _("&Back\tLeft"), ""),
+    #MI("JumpForward",  _("&Forward\tRight"), ""),
     SEP,
     MI("AudioLang",  _("&Audio language\tCtrl-Shift-3"), ""), #ctrl-#
     MI("SubtitleLang",  _("&Subtitle language\tCtrl-T"), ""),

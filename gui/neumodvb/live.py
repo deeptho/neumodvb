@@ -963,9 +963,9 @@ class MosaicPanel(wx.Panel):
                 return False
         if not is_ctrl:
             if key == wx.WXK_LEFT:
-                self.controller.app.frame.CmdJumpBack()
+                self.controller.CmdJumpBack()
             elif key == wx.WXK_RIGHT:
-                self.controller.app.frame.CmdJumpForward()
+                self.controller.CmdJumpForward()
             return True
         if key in (wx.WXK_LEFT, wx.WXK_RIGHT):
             focus_idx = self.focus_idx
@@ -2477,6 +2477,15 @@ class LivePanel(wx.Panel):
     def CmdStop(self, event):
         dtdebug('CmdStop')
         return self.mosaic_panel.OnStop(event)
+
+    def CmdJumpForward(self, event=None):
+        dtdebug('CmdJumpForward')
+        return wx.GetApp().Jump(60)
+
+    def CmdJumpBack(self, event=None):
+        dtdebug('CmdJumpBack')
+        return wx.GetApp().Jump(-60)
+
 
     def CmdVolumeUp(self, evt):
         dtdebug('CmdVolumeUp')

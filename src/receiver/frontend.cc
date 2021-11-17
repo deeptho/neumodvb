@@ -1211,7 +1211,8 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_sca
 
 	start_freq = chdb::lnb::driver_freq_for_freq(lnb, start_freq);
 	end_freq = chdb::lnb::driver_freq_for_freq(lnb, end_freq - 1) + 1;
-
+	if (start_freq > end_freq)
+		std::swap(start_freq, end_freq); //e.g., this occurs for C-band (spectrum inversion)
 	cmdseq.add(DTV_SCAN_START_FREQUENCY, start_freq);
 	cmdseq.add(DTV_SCAN_END_FREQUENCY, end_freq);
 

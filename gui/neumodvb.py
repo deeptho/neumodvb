@@ -230,7 +230,7 @@ class neumoMainFrame(mainFrame):
     def Stop(self):
         self.app.current_mpv_player.stop_play()
 
-    def colPopup(self, col, evt):
+    def colPopupOFF(self, col, evt):
         """(col, evt) -> display a popup menu when a column label is
         right clicked"""
         x = self.GetColSize(col)/2
@@ -343,7 +343,7 @@ class neumoMainFrame(mainFrame):
         self.live_panel.CmdLiveRecordings(event)
         event.Skip()
 
-    def CmdFullScreen(self, event):
+    def FullScreen(self):
         dtdebug("CmdFullScreen")
         if not self.IsFullScreen():
             if self.current_panel() == self.live_panel:

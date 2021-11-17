@@ -1413,7 +1413,8 @@ class RecordPanel(wx.Panel):
         returns False if command is not handled here
         """
         is_ctrl = (modifier & wx.ACCEL_CTRL)
-
+        if not hasattr(w, 'data'):
+            return False
         row = w.data.row
         if key == wx.WXK_RIGHT:
             if is_ctrl:
@@ -1496,6 +1497,7 @@ class RecordPanel(wx.Panel):
             self.update_rows(old_top_idx)
             self.focus_row(None, 0)
             self.data.OnSelectRow(record)
+
 
 
     def OnTune(self, event, replace_running):
@@ -2172,10 +2174,12 @@ class LivePanel(wx.Panel):
         self.Layout()
 
     def OnShowWindow(self, evt):
-        if not evt.IsShown():
+        if False or not evt.IsShown():
             return #happens also at window creation
         if self.created:
             self.grid_panel.reset()
+            self.grid_panel.set_active()
+            self.grid_panel.SetFocus()
             self.Refresh()
         evt.Skip()
 
@@ -2478,7 +2482,6 @@ class LivePanel(wx.Panel):
         dtdebug('CmdJumpBack')
         return wx.GetApp().Jump(-60)
 
-
     def CmdVolumeUp(self, evt):
         dtdebug('CmdVolumeUp')
         self.mosaic_panel.ChangeVolume(+1)
@@ -2486,3 +2489,18 @@ class LivePanel(wx.Panel):
     def CmdVolumeDown(self, evt):
         dtdebug('CmdVolumeDown')
         self.mosaic_panel.ChangeVolume(-1)
+
+    def CmdFullScreen(self, evt):
+        #focused = wx.Window.FindFocus()
+        #print (f'BEFORE focused={focused}')
+        wx.GetApp().frame.FullScreen()
+        #self.grid_panel.reset()
+        #self.grid_panel.set_active()
+        after = wx.Window.FindFocus()
+        #print (f'AFTER focused={after}')
+        #wx.CallAfter( lambda: print (f'AFTER focused={wx.Window.FindFocus()}'))
+        #focused.SetFocus()
+        #wx.CallAfter(self.SetFocus
+        #self.grid_panel.SetFocus()
+        #wx.CallAfter(self.Refresh)
+        #wx.CallAfter(focused.SetFocus)

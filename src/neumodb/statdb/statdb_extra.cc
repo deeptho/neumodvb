@@ -78,13 +78,16 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 
 std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& spectrum_path,
 																														 const spectrum_scan_t& scan, bool append) {
-
+	int num_freq = scan.freq.size();
+	if(num_freq<=0)
+		return {};
 	statdb::spectrum_t spectrum{statdb::spectrum_key_t{scan.lnb_key, scan.sat_pos, scan.band_pol.pol, scan.start_time},
 		(uint32_t)scan.start_freq,
 		(uint32_t)scan.end_freq,
 		scan.resolution,
 		scan.usals_pos,
 		false,/*is_complete*/
+		scan.spectrum_is_highres,
 		{},
 		scan.lof_offsets};
 	make_spectrum_scan_filename(spectrum.filename, spectrum);
@@ -104,24 +107,32 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 		FILE* fpout = fopen(fdata.c_str(), append ? "a" : "w");
 		if (!fpout)
 			return {};
-		int num_freq = scan.freq.size();
+
+		bool inverted_spectrum = (scan.freq[0] > scan.freq[num_freq-1]);
+		auto el = [inverted_spectrum, num_freq] (int i) {
+			return inverted_spectrum ? ( num_freq-i-1) : i;
+		};
+		auto pel = [inverted_spectrum, &scan] (int i) {
+			return inverted_spectrum ? ( scan.peaks.size()-i-1) : i;
+		};
+
 		int next_idx = 0;
-		uint32_t candidate_freq = (next_idx < scan.peaks.size()) ? scan.peaks[next_idx].freq : -1;
-		auto candidate_symbol_rate = (next_idx < scan.peaks.size()) ? scan.peaks[next_idx].symbol_rate : 0;
+		uint32_t candidate_freq = (next_idx < scan.peaks.size()) ? scan.peaks[pel(next_idx)].freq : -1;
+		auto candidate_symbol_rate = (next_idx < scan.peaks.size()) ? scan.peaks[pel(next_idx)].symbol_rate : 0;
 
 		for (int i = 0; i < num_freq; ++i) {
-			auto candidate = (scan.freq[i] == candidate_freq);
+			auto candidate = (scan.freq[el(i)] == candidate_freq);
 			if (candidate) {
 				if (++next_idx >= scan.peaks.size())
 					candidate_freq = -1;
 				else {
-					candidate_freq = scan.peaks[next_idx].freq;
-					candidate_symbol_rate = scan.peaks[next_idx].symbol_rate;
+					candidate_freq = scan.peaks[pel(next_idx)].freq;
+					candidate_symbol_rate = scan.peaks[pel(next_idx)].symbol_rate;
 				}
 			}
 
-			auto f = scan.freq[i]; // in kHz
-			fprintf(fpout, "%.6f %d %d\n", f * 1e-3, scan.rf_level[i], candidate ? candidate_symbol_rate : 0);
+			auto f = scan.freq[el(i)]; // in kHz
+			fprintf(fpout, "%.6f %d %d\n", f * 1e-3, scan.rf_level[el(i)], candidate ? candidate_symbol_rate : 0);
 		}
 		if (fclose(fpout))
 			return {};
@@ -129,7 +140,8 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 		fpout = fopen(fpeaks.c_str(), append ? "a" : "w");
 		if (!fpout)
 			return {};
-		for (auto& p : scan.peaks) {
+		for (int j=0; j < scan.peaks.size(); ++j) {
+			auto& p = scan.peaks[pel(j)];
 			fprintf(fpout, "%.6f %.6d\n", p.freq * 1e-3, p.symbol_rate);
 		}
 		if (fclose(fpout))

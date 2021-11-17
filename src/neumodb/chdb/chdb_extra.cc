@@ -880,9 +880,9 @@ void chdb::matype_str(ss::string_& s, uint8_t matype) {
 		s.sprintf("MIS ");
 
 	if ((matype >> 4) & 1)
-		s.sprintf("ACM/VCM ");
-	else
 		s.sprintf("CCM ");
+	else
+		s.sprintf("ACM/VCM ");
 	if ((matype >> 3) & 1)
 		s.sprintf("ISSYI ");
 
@@ -1500,11 +1500,12 @@ int chdb::lnb::driver_freq_for_freq(const chdb::lnb_t& lnb, int frequency) {
 	default:
 		assert(0);
 	}
+	frequency = std::abs(frequency);
 	if (band < lnb.lof_offsets.size()) {
 		if (std::abs(lnb.lof_offsets[band]) < 5000)
 			frequency += lnb.lof_offsets[band];
 	}
-	return std::abs(frequency);
+	return frequency;
 }
 
 std::tuple<int32_t, int32_t, int32_t> chdb::lnb::band_frequencies(const chdb::lnb_t& lnb, chdb::fe_band_t band) {

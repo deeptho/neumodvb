@@ -525,7 +525,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 	if (get_constellation && api_type == api_type_t::NEUMO) {
 		auto& cs = cmdseq.props[cmdseq.num - 1].u.constellation;
 		assert(cs.num_samples >= 0);
-		assert((int)cs.num_samples < ret.constellation_samples.size());
+		assert((int)cs.num_samples <= ret.constellation_samples.size());
 		assert(cs.num_samples <= 4096);
 		ret.constellation_samples.resize_no_init(cs.num_samples); // we may have retrieved fewer samples than we asked
 	}

@@ -254,6 +254,7 @@ public:
 		bool can_be_used{false}; // true if device can be opened in write mode
 		bool info_valid{false}; // true if we could retrieve device info; "false" indicates an error
 		int fefd{-1}; //file handle if open
+		int last_saved_freq{0}; //for spectrum scan: last frequency written to spectrum file
 		tune_mode_t tune_mode{tune_mode_t::IDLE};
 		spectrum_scan_options_t spectrum_scan_options;
 		lock_status_t lock_status;

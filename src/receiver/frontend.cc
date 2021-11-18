@@ -962,6 +962,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 
 	bool append_now = false;
 	bool incomplete = false;
+	int min_freq_to_save{0};
 
 	{
 		const auto& r = this->adapter->reservation.readAccess();
@@ -988,6 +989,14 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 			(options.band_pol.band == chdb::fe_band_t::LOW && scan.end_freq > mid_freq && mid_freq < options.end_freq) ||
 			(options.scan_both_polarisations && options.band_pol.pol == chdb::fe_polarisation_t::H);
 	}
+	{
+		auto ts = this->ts.writeAccess();
+		//frequency at which scan should resume (avoid frequency jumping down when starting high band)
+		min_freq_to_save = ts->last_saved_freq;
+		ts->last_saved_freq = scan.freq.size() ==0 ? 0 : scan.freq[scan.freq.size()-1];
+	}
+
+
 	if (incomplete) {
 		auto options = this->ts.readAccess()->spectrum_scan_options; // make a copy
 		auto lnb = this->adapter->reservation.readAccess()->reserved_lnb;
@@ -1007,7 +1016,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		}
 		start_lnb_spectrum_scan(lnb, options);
 	}
-	auto result = statdb::save_spectrum_scan(spectrum_path, scan, append_now);
+	auto result = statdb::save_spectrum_scan(spectrum_path, scan, append_now, min_freq_to_save);
 	result->is_complete = !incomplete;
 	return result;
 }

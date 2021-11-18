@@ -76,8 +76,14 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 		 << pol_ << "_dish" << (int)spectrum.k.lnb_key.dish_id;
 }
 
+
+/*
+	append = True: append spectrum to already existing file
+	min_freq: highest frequency present in already present file
+ */
 std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& spectrum_path,
-																														 const spectrum_scan_t& scan, bool append) {
+																														 const spectrum_scan_t& scan,
+																														 bool append, int min_freq) {
 	int num_freq = scan.freq.size();
 	if(num_freq<=0)
 		return {};
@@ -120,7 +126,12 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 		uint32_t candidate_freq = (next_idx < scan.peaks.size()) ? scan.peaks[pel(next_idx)].freq : -1;
 		auto candidate_symbol_rate = (next_idx < scan.peaks.size()) ? scan.peaks[pel(next_idx)].symbol_rate : 0;
 
+		if(!append)
+			min_freq = 0;
+
 		for (int i = 0; i < num_freq; ++i) {
+			if((int)scan.freq[el(i)] <= min_freq)
+				continue; //skip possible overlapping part between low and high band due to lnb lof offset
 			auto candidate = (scan.freq[el(i)] == candidate_freq);
 			if (candidate) {
 				if (++next_idx >= scan.peaks.size())

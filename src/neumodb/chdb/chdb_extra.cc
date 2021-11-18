@@ -1488,7 +1488,7 @@ int chdb::lnb::driver_freq_for_freq(const chdb::lnb_t& lnb, int frequency) {
 		auto lof_high = (lnb.lof_high < 0) ? 10600000 : lnb.lof_high;
 
 		auto freq_mid = (lnb.freq_mid < 0) ? 11700000 : lnb.freq_mid;
-		auto band = (signed)frequency >= freq_mid;
+		band = (signed)frequency >= freq_mid;
 
 		frequency = band ? frequency - lof_high : frequency - lof_low;
 	} break;

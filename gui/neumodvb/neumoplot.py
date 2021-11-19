@@ -352,16 +352,42 @@ class Spectrum(object):
         dtdebug(f"Box: {bb.width} x {bb.height}")
         return bb
 
+    def detrend_band(self, spec, lowidx, highidx):
+        """
+        Fit a linear curve to the minima of spectral intervals of the spectrum in spec
+        The parameters of the polynomial are fit betwen lowidx and highidx indices. This allow excluding
+        part of the spectrum near 11700Ghz in a KU spectrum. Near that frequency it is difficult to know
+        for sure if the spectrum is from the low or high lnb band (which may have an offset in its local
+        oscillator)
+        """
+        num_parts = (highidx-lowidx)//16 #we split the range between lowidx and highidx in 16 parts
+        if num_parts == 0:
+            return
+        l = num_parts*16
+        #t is a list of local minima
+        t=  self.spec[lowidx:lowidx+l, 1].reshape([-1,num_parts]).min(axis=1)
+        #f: corresponding frequenies
+        f = self.spec[lowidx:lowidx+l, 0].reshape([-1,num_parts])[:,0]
+
+        #compute polynomial fit
+        p = np.polyfit(f, t, 1)
+
+        #detrend the spectrum
+        spec[:,1] -= p[0]*spec[:, 0]+p[1]
+
     def detrend(self):
-        for idx in np.where(self.spec[:,0]<11700), np.where(self.spec[:,0]>=11700):
-            parts = len(idx[0])//16
-            if parts == 0:
-                continue
-            l = parts*16
-            t=  self.spec[idx, 1][0,:l].reshape([-1,parts]).min(axis=1)
-            f = self.spec[idx, 0][0,:l].reshape([-1,parts])[:,0]
-            p = np.polyfit(f, t, 1)
-            self.spec[idx,1] -= p[0]*self.spec[idx,0]+p[1]
+        lowest_freq, highest_freq = self.spec[0, 0] , self.spec[-1,0]
+
+        # the +8 is a heuristic, in case the highest frequencies of the Ku_low band would exceed 11700 due to lnb lof offset
+        has_two_bands = (highest_freq > 11700+8) and (lowest_freq < 11700-8)
+        if has_two_bands:
+            mid_idx1 = np.searchsorted(self.spec[:,0], 11700-8, side='left')
+            mid_idx = np.searchsorted(self.spec[mid_idx1:,0], 11700-8, side='left') + mid_idx1
+            mid_idx2 = np.searchsorted(self.spec[mid_idx:,0], 11700+8, side='left') + mid_idx
+            self.detrend_band(self.spec[:mid_idx, :], 0, mid_idx1)
+            self.detrend_band(self.spec[mid_idx:, :], mid_idx2, self.spec.shape[0])
+        else:
+            self.detrend_band(self.spec, 0, self.spec.shape[0])
 
     def ann_tps(self, tpsk, spec, offset=-64, xoffset=0, yoffset=3):
         self.annots =[]
@@ -419,6 +445,7 @@ class Spectrum(object):
 
         xlimits =(self.parent.zoom_start_freq, self.parent.zoom_start_freq+self.parent.zoom_bandwidth)
         ylimits = [np.min(self.spec[:,1]),  np.max(self.spec[:,1])]
+        print(f'YLIM: {ylimits}')
         if ylimits[1] != ylimits[0]:
             self.axes.set_ylim(ylimits)
         self.axes.set_xlim(xlimits)

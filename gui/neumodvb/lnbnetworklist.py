@@ -92,7 +92,6 @@ class LnbNetworkTable(NeumoTable):
             lnbgrid = self.parent.GetParent().GetParent().lnbgrid
             self.lnb = lnbgrid.CurrentLnb().copy()
             assert self.lnb is not None
-        #print (f"GET subfield={subfield} lnb={self.lnb}")
         self.screen = screen_if_t(lnbnetwork_screen_t(self))
 
     def __save_record__(self, txn, record):
@@ -162,6 +161,7 @@ class LnbNetworkGrid(NeumoGridBase):
             (wx.ACCEL_CTRL,  ord('N'), self.OnNew),
             (wx.ACCEL_ALT,  ord('E'), self.OnEditMode)
         ])
+        self.EnableEditing(self.app.frame.edit_mode)
 
     def OnDone(self, evt):
         #@todo(). When a new record has been inserted and network has been changed, and then user clicks "done"
@@ -203,3 +203,11 @@ class LnbNetworkGrid(NeumoGridBase):
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
         self.table.SaveModified()
         self.app.MuxTune(mux)
+
+    def OnNew(self, evt):
+        wx.CallAfter(wx.GetApp().frame.SetEditMode, True)
+        return super().OnNew(evt)
+
+    def OnEditMode(self, evt):
+        self.app.frame.ToggleEditMode()
+        self.EnableEditing(self.app.frame.edit_mode)

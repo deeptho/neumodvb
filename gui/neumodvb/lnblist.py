@@ -160,7 +160,7 @@ class LnbGridBase(NeumoGridBase):
         if self.table.columns[colno].key == 'networks' and \
                     self.GetGridCursorRow() == rowno:
             if not hasattr(self, 'dlg'):
-                readonly = not  self.GetParent().GetParent().edit_mode
+                readonly = False
                 basic = False
                 self.dlg = LnbNetworkDialog(self.GetParent(), title="Networks", basic=basic, readonly=readonly)
             else:

@@ -156,8 +156,6 @@ class NeumoBoolEditor(wx.grid.GridCellBoolEditor):
 
 
 class IconRenderer(wx.grid.GridCellRenderer):
-    #/tmp/korla/panel/24/test.png')
-
     def __init__(self, table,  *args, **kwds):
         super().__init__(*args, **kwds)
         #import images

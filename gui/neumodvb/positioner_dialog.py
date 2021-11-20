@@ -884,8 +884,11 @@ class PositionerDialog(PositionerDialog_):
         dtdebug("Goto sat")
         self.tune_mux_panel.muxedit_grid.table.FinalizeUnsavedEdits()
         self.tune_mux_panel.UpdateRefMux(self.mux)
-        network = get_network(self.lnb, self.sat.sat_pos)
-        pos = network.sat_pos
+        txn = wx.GetApp().chdb.rtxn()
+        lnb = pychdb.lnb.find_by_key(txn, self.lnb.k) #reread the networks
+        txn.abort()
+        network = get_network(lnb, self.sat.sat_pos)
+        pos = network.usals_pos
         if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_USALS:
             self.usals_command(pychdb.positioner_cmd_t.GOTO_XX, pos)
             self.UpdateUsalsPosition(pos)

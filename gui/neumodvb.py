@@ -208,6 +208,9 @@ class neumoMainFrame(mainFrame):
         self.Layout()
         self.Layout()
 
+    def ToggleEditMode(self):
+        self.SetEditMode(not self.edit_mode)
+
     def SetEditMode(self, edit_mode):
         self.edit_mode = edit_mode
         menu_item= self.main_menubar.items['EditMode'][1]

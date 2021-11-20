@@ -1067,6 +1067,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         dtdebug(f"delete record row={self.GetGridCursorRow()} col={self.GetGridCursorCol()}; " \
                 "SELECTED ROWS={self.GetSelectedRows()}")
         wx.CallAfter(self.table.DeleteRows, self.GetSelectedRows())
+    def OnEditMode(self, evt):
+        self.app.frame.ToggleEditMode()
 
     def OnUndo(self, evt):
         num_rows_added = self.table.Undo()

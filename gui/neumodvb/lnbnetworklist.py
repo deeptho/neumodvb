@@ -156,9 +156,11 @@ class LnbNetworkGrid(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
+        #todo: these accellerators should be copied from neumomenu
         self._add_accels([
-            (wx.ACCEL_CTRL,  ord('D'), self.OnDelete ),
-            (wx.ACCEL_CTRL,  ord('N'), self.OnNew )
+            (wx.ACCEL_CTRL,  ord('D'), self.OnDelete),
+            (wx.ACCEL_CTRL,  ord('N'), self.OnNew),
+            (wx.ACCEL_ALT,  ord('E'), self.OnEditMode)
         ])
 
     def OnDone(self, evt):

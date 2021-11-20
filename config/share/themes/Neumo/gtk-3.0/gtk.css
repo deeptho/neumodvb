@@ -73,7 +73,7 @@
 @define-color button_gradient_d shade(@core_color_b, 0.98);
 
 @define-color button_default_border_color #6699CC;
-@define-color button_default_box_shadow_color #336699;
+@define-color button_default_box_shadow_color transparent; /*#336699;*/
 
 /* hover */
 

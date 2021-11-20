@@ -710,6 +710,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         # Then we call CreateGrid to set the dimensions of the grid
         # (100 rows and 10 columns in this example)
         #grid.CreateGrid(100, 10)
+        self.created = False
         self.table = table
         self.icon_renderer = IconRenderer(self.table)
         #self.cell_renderer = MyRenderer(self.table)
@@ -1018,10 +1019,11 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         wx.CallAfter(self.SelectRow,evt.GetRow())
 
     def OnCreateWindow(self, evt):
-        if self.table.screen is not None:
+        if self.created:
             #prevent multiple calls of this function (bug in wxPython?)
             evt.Skip()
             return
+        self.created = True
         self.Parent.Bind(wx.EVT_SHOW, self.OnShow)
         rec = self.table.InitialRecord()
         self.SetSelectionMode(wx.grid.Grid.SelectRows)

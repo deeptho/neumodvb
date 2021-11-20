@@ -17,7 +17,8 @@ tooltip {
 #gridepg entry  {
     border-image: none;
     border-radius: 3px;
-    border-width: 1px 1px 2px 1px;
+    border-width: 4px 4px 4px 4px;
+    padding: 0px;
     border-style: solid;
     border-color: transparent;
     background: black; /*needed to void a flash of white when entry is drawn*/
@@ -72,6 +73,7 @@ scrolledwindow {
                 inset -4px  0px @button_default_box_shadow_color,
                 inset  0px -4px @button_default_box_shadow_color;
 }
+
 
 
 #gridepg widget .mosaic_background {

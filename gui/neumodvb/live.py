@@ -757,8 +757,8 @@ class GroupSelectPanel(wx.Panel):
         sorttype_text.SetForegroundColour('yellow')
         sorttype_text.SetFont(self.header_font)
 
-        self.top_sizer.Add(grouptype_text, 0, wx.EXPAND, 0)
-        self.top_sizer.Add((10,10), 1, 0, 0)
+        self.top_sizer.Add(grouptype_text, proportion=0, flag=wx.EXPAND, border=0)
+        self.top_sizer.Add((10,10), 1, 0, border=0)
         self.top_sizer.Add(sorttype_text, 0, wx.EXPAND, 0)
         self.top_sizer.Add((10,10), 1, 0, 0)
         self.grouptype_text = grouptype_text

@@ -56,8 +56,8 @@ namespace {{dbname}} {
 	public:
 		 {{dbname}}_t();
 
-		 void open(const char* dbpath, bool allow_degraded_mode = false,
-							 const char* table_name = NULL, bool use_log =true, size_t mapsize = 256*1024u*1024u);
+		 virtual void open(const char* dbpath, bool allow_degraded_mode = false,
+											 const char* table_name = NULL, bool use_log =true, size_t mapsize = 256*1024u*1024u) final;
 
 		 {{dbname}}_t(bool readonly, bool is_temp=false, bool autoconvert=false);
 

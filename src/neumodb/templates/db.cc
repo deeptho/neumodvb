@@ -53,7 +53,8 @@ ss::vector<schema_entry_t, {{1 + external_dbs|length}}> all_sw_schemas {
 {%endfor%}
 };
 
-	{{dbname}}_t::{{dbname}}_t () : neumodb_t() {
+	{{dbname}}_t::{{dbname}}_t () :
+	neumodb_t(false /*readonly*/, false /*is_temp*/, true /*autoconvert*/) {
 		init(all_sw_schemas);
 	}
 
@@ -86,7 +87,7 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 																		size_t mapsize)
 {
 	try {
-		neumodb_t::open(dbpath, allow_degraded_mode, table_name, use_log, mapsize);
+		neumodb_t::open_(dbpath, allow_degraded_mode, table_name, use_log, mapsize);
 	} catch(const db_needs_upgrade_exception& e) {
 		{% if dbname != "schema" %}
 

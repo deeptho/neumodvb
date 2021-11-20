@@ -44,8 +44,8 @@ using all_schemas_t = ss::vector_<schema_entry_t>;
 
 class neumodb_t {
 private:
-	int load_schema_(db_txn& txn);
 	bool is_open_{false};
+	int load_schema_(db_txn& txn);
 protected:
 	bool autoconvert {false};
 
@@ -54,6 +54,8 @@ protected:
 	};
 
 
+	void open_(const char* dbpath, bool allow_degraded_mode = false,
+						 const char* table_name = NULL, bool use_log =true, size_t mapsize = 256*1024u*1024u);
 	neumodb_t(bool readonly=false, bool is_temp=false, bool autoconvert=false);
 public:
 	int extra_flags{0};
@@ -144,8 +146,8 @@ public:
 		Note: A parent transaction and its cursors may not issue any other operations than mdb_txn_commit and mdb_txn_abort while it has active child transactions.
 => Perhaps we store a singleton transaction in an  environment specific structure and handle everything with child transactions?
 	 */
-	void open(const char* dbpath, bool allow_degraded_mode = false,
-						const char* table_name = NULL, bool use_log =true, size_t mapsize = 256*1024u*1024u);
+	virtual void open(const char* dbpath, bool allow_degraded_mode = false,
+										const char* table_name = NULL, bool use_log =true, size_t mapsize = 256*1024u*1024u);
 
 	void open_without_log(const char* dbpath, bool allow_degraded_mode = false,
 												const char* table_name = NULL, size_t mapsize = 256*1024u*1024u)

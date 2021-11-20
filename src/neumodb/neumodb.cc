@@ -113,6 +113,11 @@ int neumodb_t::wait_for_activity(int old_txn_id) {
 
 void neumodb_t::open(const char* dbpath, bool allow_degraded_mode, const char* table_name, bool use_log,
 										 size_t mapsize) {
+	this->open_(dbpath, allow_degraded_mode, table_name, use_log, mapsize);
+}
+
+void neumodb_t::open_(const char* dbpath, bool allow_degraded_mode, const char* table_name, bool use_log,
+										 size_t mapsize) {
 	bool was_open = is_open_;
 	is_open_ = true;
 	try {

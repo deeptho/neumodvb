@@ -1019,6 +1019,7 @@ lnb = db_struct(name='lnb',
 
                           (2, 'uint8_t',  'polarisations', '0xff'), #bit flag indicating which polarisations can be used
                           (3, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
+                          (22, 'bool',  'swapped_polarisation', 'false'), #bit flag indicating if HL and RV are swapped
                           (4, 'int16_t',  'priority', -1), #
                           (5, 'int32_t', 'lof_low', -1), # local oscillator, -1 means default
                           (6, 'int32_t', 'lof_high', -1), # local oscillator, -1 means default

@@ -86,6 +86,7 @@ class LnbTable(NeumoTable):
          CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
          CD(key='freq_low',   label='low freq', basic=False, dfn=freq_fn, example="10700.000"),
          CD(key='freq_high',   label='high freq', basic=False, dfn=freq_fn, example="10700.000"),
+         CD(key='swapped_polarisation',   label='swap\npol', basic=False),
         ]
 
     dvbt_columns =  \

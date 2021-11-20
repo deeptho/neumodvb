@@ -1839,3 +1839,9 @@ bool chdb::toggle_channel_in_bouquet(db_txn& wtxn, const chg_t& chg, const chgm_
 	put_record(wtxn, newchgm);
 	return true;
 }
+
+int chdb::lnb::voltage_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
+	return
+		((mux.pol == fe_polarisation_t::V || mux.pol == fe_polarisation_t::R) ^ lnb.swapped_polarisation)
+		? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+}

@@ -194,7 +194,7 @@ int active_adapter_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 		do_lnb_and_diseqc(band, cmux->pol);
 		dtdebug("tune: do_lnb_and_diseqc done");
 	} else {
-		do_lnb(band, cmux->pol);
+		do_lnb(band, (fe_sec_voltage_t)chdb::lnb::voltage_for_mux(lnb, *cmux));
 		dtdebug("tune: do_lnb done");
 	}
 
@@ -637,7 +637,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 	return 1;
 }
 
-int active_adapter_t::do_lnb(chdb::fe_band_t band, chdb::fe_polarisation_t pol) {
+int active_adapter_t::do_lnb(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) {
 	if (!current_fe)
 		return -1;
 	int ret;
@@ -650,8 +650,6 @@ int active_adapter_t::do_lnb(chdb::fe_band_t band, chdb::fe_polarisation_t pol) 
 
 	auto fefd = current_fe->ts.readAccess()->fefd;
 
-	fe_sec_voltage_t lnb_voltage =
-		(pol == fe_polarisation_t::V || pol == fe_polarisation_t::R) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
 	if (pol_band_diseqc_status.set_voltage(lnb_voltage)) {
 		if ((ret = ioctl(fefd, FE_SET_VOLTAGE, lnb_voltage))) {
 			dterror("problem Setting the Voltage\n");

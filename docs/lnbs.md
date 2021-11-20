@@ -75,6 +75,8 @@ can tune to
   is set to the default value for this lnb type, e.g., 10.7 Ghz for a universal LNB.
 * `end freq`. This sets the highest possible frequency the LNB can tune to. The special value -1 means that this
   is set to the default value for this lnb type, e.g., 12.75 Ghz for a universal LNB.
+* `swapped pol`. If this flag is set then the voltages set on the LNB are reversed: low becomes high and vice versa.
+  This is useful if your LNB is rotated, or if a dielectric plate has been inserted at a 90 degree angle.
 
 The screenshot below shows the networks for a movable dish which is allowed to move to 6 different satellite
 positions. In this table, you can add new lines (`Edit - New`) or edit existing Lines (activate `Edit mode`

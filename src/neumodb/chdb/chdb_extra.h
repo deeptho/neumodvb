@@ -591,7 +591,7 @@ namespace  chdb::lnb {
 		return band_for_freq(lnb, mux.frequency);
 }
 
-
+	int voltage_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
 
   /*
 		translate driver frequency to real frequency

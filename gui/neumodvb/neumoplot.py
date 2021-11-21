@@ -576,7 +576,7 @@ class SmallConstellationPlot(ConstellationPlotBase):
 
 class ConstellationPlot(ConstellationPlotBase):
     def __init__(self, parent, *args, **kwargs):
-        super().__init__(parent, (2.5,2.5), *args, **kwargs)
+        super().__init__(parent, (1.5, 1.5), *args, **kwargs)
 
 class SpectrumPlot(wx.Panel):
     def __init__(self, parent, *args, **kwargs):

@@ -458,7 +458,7 @@ int screen_t<record_t>::set_reference(const record_t& record)
 				monitor.reference.primary_key = p;
 				monitor.reference.row_number = rowno;
 				//monitor.reference.secondary_key = secondary_key; already set above
-				c.get_value(current_record);
+				c.get_value(primary_current_record);
 				return rowno;
 			}
 	}
@@ -496,6 +496,7 @@ int screen_t<record_t>::set_reference(int row_number)
 	};
 
 	auto * reference = &monitor.reference;
+
 	auto startc = [this, &rtxn, &reference, &cursor_type]() {
 		auto ct = cursor_type(*reference, true);
 		if(ct == 0) {
@@ -506,6 +507,7 @@ int screen_t<record_t>::set_reference(int row_number)
 			reference->row_number = 0;
 			return first_cursor(rtxn);
 		}
+
 		reference = &monitor.auxiliary_reference;
 		ct = cursor_type(*reference, false);
 		if(ct==0) {
@@ -558,7 +560,7 @@ int screen_t<record_t>::set_reference(int row_number)
 			count = 0;
 		}
 		if(c.is_valid())
-			 c.get_value(current_record);
+			c.get_value((reference == &monitor.auxiliary_reference) ? auxiliary_current_record : primary_current_record);
 	}
 	return count;
 }
@@ -626,9 +628,15 @@ screen_t<record_t>::screen_t
 template <typename record_t>
 record_t screen_t<record_t>::record_at_row(int row_number)
 {
-	if(row_number != monitor.reference.row_number)
+	if(row_number != monitor.reference.row_number &&
+		 row_number != monitor.auxiliary_reference.row_number)
 		set_reference(row_number);
-	return current_record;
+	if(row_number == monitor.reference.row_number)
+		return primary_current_record;
+	else if(row_number == monitor.auxiliary_reference.row_number)
+		return primary_current_record;
+	assert(0);
+	return primary_current_record;
 }
 
 

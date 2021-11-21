@@ -147,7 +147,8 @@ public:
 	limits_t limits;
 	dynamic_key_t sort_order;
 	typename record_t::keys_t index_for_sorting;
-	record_t current_record;
+	record_t primary_current_record;
+	record_t auxiliary_current_record;
   int idxref = 0;  /*records[idxref] is the current reference record which will
 										 be kept on screen when list changes
 									 */

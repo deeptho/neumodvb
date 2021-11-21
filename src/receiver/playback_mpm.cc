@@ -240,8 +240,8 @@ void playback_mpm_t::on_pmt_change(const recdb::stream_descriptor_t& desc) {
 	bool pending_stream_change = (ls->next_streams.stream_packetno_end != std::numeric_limits<int64_t>::max());
 	// call_language_callbacks(ls, desc);
 	if (pending_stream_change) {
-		dtdebug("older stream change not yet processed");
-		assert(ls->next_streams.stream_packetno_end < desc.stream_packetno_end);
+		dtdebug("older stream change not yet processed - skipping (viewing may fail)");
+		assert(ls->next_streams.stream_packetno_end <= desc.stream_packetno_end);
 		return;
 	} else {
 		dtdebug("setting next_streams");

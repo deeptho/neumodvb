@@ -652,7 +652,16 @@ bool active_service_t::need_decryption() {
 							 (current_pmt.is_encrypted() || (mpm.stream_parser.num_encrypted_packets > 0));
 		if (ret && !registered_scam) {
 			// pmt claimed stream is not encrypted, but data tells us otherwise
+#if 1
+			/*On rossia 1 to fail on 40E: 3992V sid=2020 causes errors like
+				"older stream change not yet processed - skipping (viewing may fail)".
+				The call below is needed ERT1 which reports in the pmt that its streams are no encrypted.
+				whereas they are biss encrypted
+			 */
+			static int count=0;
+			printf("UPDATE pmt=%d\n", count++);
 			update_pmt(current_pmt, false);
+#endif
 		}
 		return ret;
 	}

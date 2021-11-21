@@ -17,6 +17,7 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 
+from functools import cache
 import wx
 import warnings
 import os
@@ -260,8 +261,8 @@ class Spectrum(object):
         self.vlines = None
         self.hlines = None
         self.annot_box = ((0,0))
-        self.xlimits = (10700., 12750.)
-        self.ylimits = (-60.0, -40.0)
+        self.xlimits = None # minimal and maximal frequency in this plot (initially unknown)
+        self.ylimits = None # minimal and maximal signal in this plot (initially unknown)
 
     def __str__(self):
         sat = pychdb.sat_pos_str(self.spectrum.k.sat_pos)
@@ -440,12 +441,10 @@ class Spectrum(object):
 
         #set xlimits prior to annotation to ensure the computation
         #which ensures annotations are not overlapping has the proper coordinate system
-        if self.parent.zoom_start_freq is None:
-            self.parent.zoom_start_freq = self.spectrum.start_freq/1000.
+        self.xlimits = int(self.spec[0,0]), int(self.spec[-1,0])
+        self.ylimits = [np.min(self.spec[:,1]),  np.max(self.spec[:,1])]
+        xlimits, ylimits = self.parent.get_limits() #takes into account all spectra
 
-        xlimits =(self.parent.zoom_start_freq, self.parent.zoom_start_freq+self.parent.zoom_bandwidth)
-        ylimits = [np.min(self.spec[:,1]),  np.max(self.spec[:,1])]
-        print(f'YLIM: {ylimits}')
         if ylimits[1] != ylimits[0]:
             self.axes.set_ylim(ylimits)
         self.axes.set_xlim(xlimits)
@@ -453,10 +452,11 @@ class Spectrum(object):
         self.ann_tps(self.peak_data, self.spec)
 
         #set final limits
-        self.xlimits = (self.spec[0,0]-100, self.spec[-1,0]+100)
+        self.xlimits = (int(self.spec[0,0]), int(self.spec[-1,0] ))
         self.ylimits = (ylimits[0]/1000, ylimits[1]/1000 +self.annot_box[1])
-
+        self.parent.get_limits.cache_clear() #needs update!
         xlimits, ylimits = self.parent.get_limits()
+
         self.axes.set_ylim(ylimits)
         self.axes.set_xlim(xlimits)
 
@@ -583,7 +583,6 @@ class SpectrumPlot(wx.Panel):
         super().__init__(parent, *args, **kwargs)
         self.xlimits = None
         self.ylimits = None
-        self.zoom_start_freq = None
         self.zoom_bandwidth=500 #zoom all graphs to this amount of spectrum, to avpid overlapping annotations
         self.parent = parent
         self.spectrum = pystatdb.spectrum.spectrum()
@@ -618,6 +617,7 @@ class SpectrumPlot(wx.Panel):
         self.cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         self.current_annot = None #currently selected annot
         self.do_detrend = True
+        self.pan_start_freq = None
         self.add_detrend_button()
         self.add_status_box()
 
@@ -634,11 +634,6 @@ class SpectrumPlot(wx.Panel):
             self.draw()
         else:
             pass
-
-    def OnSlider(self, event):
-        self.offset += 300
-        self.pan_spectrum(self.offset)
-        self.canvas.draw()
 
     def OnScroll(self, event):
         pos = event.GetPosition()
@@ -657,7 +652,8 @@ class SpectrumPlot(wx.Panel):
         self.axes.spines['top'].set_visible(False)
         self.axes.set_ylabel('dB')
         self.axes.set_xlabel('Frequency (Mhz)')
-        self.axes.set_xlim((self.parent.start_freq/1000., self.parent.end_freq/1000.))
+        xlimits, ylimits = self.get_limits()
+        self.axes.set_xlim(xlimits)
         self.canvas.draw()
 
     def add_detrend_button(self) :
@@ -741,6 +737,7 @@ class SpectrumPlot(wx.Panel):
             is_first = False
         else:
             is_first = len(self.spectra)==0
+        self.get_limits.cache_clear()
         s = Spectrum(self, spectrum, color=self.cycle_colors[len(self.spectra)])
         self.spectra[key] = s
         self.add_legend_button(s, s.color)
@@ -749,12 +746,18 @@ class SpectrumPlot(wx.Panel):
             self.legend.remove()
         #self.pan_spectrum(0)
         self.pan_band(s.spec[0,0])
+        xlimits, ylimits = self.get_limits()
+        offset = 0 if self.pan_start_freq is None else self.pan_start_freq - xlimits[0]
+
+        self.scrollbar.SetScrollbar(offset, self.zoom_bandwidth, xlimits[1] - xlimits[0], 200)
         self.canvas.draw()
         wx.CallAfter(self.parent.Refresh)
 
     def pan_spectrum(self, offset):
-        xmin, ymin = (self.parent.start_freq/1000.+offset, -50)
-        xmax, ymax = (self.parent.start_freq/1000.+self.zoom_bandwidth +offset, -45)
+        xlimits, _ = self.get_limits()
+        xmin = xlimits[0]+offset
+        xmax = xmin +self.zoom_bandwidth
+        self.pan_start_freq = xmin
         self.axes.set_xbound((xmin, xmax))
         self.canvas.draw()
         self.parent.Refresh()
@@ -778,14 +781,16 @@ class SpectrumPlot(wx.Panel):
         if self.legend is not None:
             self.legend.remove()
 
+    @cache
     def get_limits(self):
         if self.spectra is None or len(self.spectra)==0:
-            return ((10700., 12750.), (-60.0, -40.0))
+            return ((self.parent.start_freq, self.parent.end_freq), (-60.0, -40.0))
         xlimits, ylimits = None, None
         for spectrum in self.spectra.values():
             xlimits = combine_ranges(xlimits, spectrum.xlimits)
             ylimits = combine_ranges(ylimits, spectrum.ylimits)
-        return xlimits, ylimits
+        #-100 and +100 to allow offscreen annotations to be seen
+        return (xlimits[0] - 100 , xlimits[1] +100), ylimits
 
     def update_matplotlib_legend(self, spectrum):
         self.legend = self.figure.legend(ncol=len(self.spectra))

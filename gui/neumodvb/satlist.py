@@ -43,7 +43,11 @@ class SatTable(NeumoTable):
         ]
 
     def InitialRecord(self):
-        service = wx.GetApp().live_service_screen.selected_service
+        ls = wx.GetApp().live_service_screen
+        if ls.filter_sat is not None:
+            self.sat = ls.filter_sat
+            return self.sat
+        service = ls.selected_service
         if service is not None:
             txn = wx.GetApp().chdb.rtxn()
             self.sat=pychdb.sat.find_by_key(txn, service.k.mux.sat_pos)
@@ -86,7 +90,7 @@ class SatGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):
         table = SatTable(self, basic)
         super().__init__(basic, readonly, table, *args, **kwds)
-        self.sort_order = 0
+        self.sort_order = int(pychdb.sat.column.sat_pos) << 24
         self.sort_column = None
 
     def OnKeyDown(self, evt):

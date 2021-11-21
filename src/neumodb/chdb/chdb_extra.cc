@@ -38,22 +38,22 @@ const char* chdb::lang_name(const chdb::language_code_t& code) {
 bool chdb::tuning_parameters_match(const chdb::dvbs_mux_t& a, const chdb::dvbs_mux_t& b) {
 	if (a.pol != b.pol || a.stream_id != b.stream_id)
 		return false;
-	auto tolerance = ((int)std::min(a.symbol_rate, a.symbol_rate)) / (2 * 1350);
-	return std::abs((int)a.frequency - (int)a.frequency) < tolerance;
+	auto tolerance = ((int)std::min(a.symbol_rate, b.symbol_rate)) / (2 * 1350);
+	return std::abs((int)a.frequency - (int)b.frequency) < tolerance;
 }
 
 bool chdb::tuning_parameters_match(const chdb::dvbc_mux_t& a, const chdb::dvbc_mux_t& b) {
 	if (a.stream_id != b.stream_id)
 		return false;
 	auto tolerance = 2500; // kHz
-	return std::abs((int)a.frequency - (int)a.frequency) < tolerance;
+	return std::abs((int)a.frequency - (int)b.frequency) < tolerance;
 }
 
 bool chdb::tuning_parameters_match(const chdb::dvbt_mux_t& a, const chdb::dvbt_mux_t& b) {
 	if (a.stream_id != b.stream_id)
 		return false;
 	auto tolerance = 2500; // kHz
-	return std::abs((int)a.frequency - (int)a.frequency) < tolerance;
+	return std::abs((int)a.frequency - (int)b.frequency) < tolerance;
 }
 
 bool chdb::tuning_parameters_match(const chdb::any_mux_t& a, const chdb::any_mux_t& b) {

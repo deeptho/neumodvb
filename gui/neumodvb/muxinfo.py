@@ -35,14 +35,15 @@ import pychdb
 class MuxInfoTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        self.ChangeValue("test ")
-        self.SetDefaultStyle(wx.TextAttr(wx.RED))
-        self.AppendText("Red text\n")
-        f = self.GetFont()
-        self.SetDefaultStyle(wx.TextAttr(wx.NullColour, font=f.Bold()))
-        self.AppendText("Red on grey text\n")
-        self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=f))
-        self.AppendText("Blue on grey text\n")
+        if False:
+            self.ChangeValue("test ")
+            self.SetDefaultStyle(wx.TextAttr(wx.RED))
+            self.AppendText("Red text\n")
+            f = self.GetFont()
+            self.SetDefaultStyle(wx.TextAttr(wx.NullColour, font=f.Bold()))
+            self.AppendText("Red on grey text\n")
+            self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=f))
+            self.AppendText("Blue on grey text\n")
         self.last_scan_text = ""
 
     def ShowRecord(self, rec):

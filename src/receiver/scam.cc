@@ -991,7 +991,12 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const uint8_t* data, in
 }
 
 void active_scam_t::process_ca_data() {
+	auto start = steady_clock_t::now();
 	for (;;) {
+		if (steady_clock_t::now() - start > 500ms) {
+			return;
+		}
+
 		auto [buffer, ret] = reader->read();
 
 		if (ret < 0) {

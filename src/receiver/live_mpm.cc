@@ -850,7 +850,13 @@ int active_mpm_t::decrypt_channel_data(bool low_data_rate) {
 void active_mpm_t::process_channel_data() {
 	size_t numtransferred = 0;
 	now = system_clock_t::now();
+	auto start = steady_clock_t::now();
 	for (;;) {
+		if (steady_clock_t::now() - start > 500ms) {
+			dtdebug("SKIPPING EARLY\n");
+			break;
+		}
+
 		bool may_start_new_file = false;
 		uint8_t* buffer = NULL;
 		ssize_t remaining_space = filemap.get_write_buffer(buffer);

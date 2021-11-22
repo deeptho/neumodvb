@@ -43,14 +43,14 @@ def get_object(evt):
     return get_object_(s)
 
 class Diseqc12SpinCtrl(minispinctrl.MiniSpinCtrl):
-    def __init__(self, parent, *args, **kwds):
-        super().__init__(parent, *args, **kwds, example="12")
+    def __init__(self, parent, *args, size=(35,30), **kwds):
+        super().__init__(parent, *args, size=size, **kwds, example="12")
         self.parent = parent
         self.Bind(minispinctrl.EVT_MINISPIN, self.parent.GetParent().OnDiseqc12PositionChanged)
 
 class UsalsPosSpinCtrl(minifloatspin.MiniFloatSpin):
-    def __init__(self, parent, *args, **kwds):
-        super().__init__(parent, *args, **kwds, example="0.20")
+    def __init__(self, parent, *args, size=(35,30), **kwds):
+        super().__init__(parent, *args, size=size, **kwds, example="0.20")
         self.parent = parent
         self.Bind(minifloatspin.EVT_MINISPIN, self.parent.GetParent().OnStepChanged)
 

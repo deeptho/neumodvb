@@ -634,7 +634,7 @@ record_t screen_t<record_t>::record_at_row(int row_number)
 	if(row_number == monitor.reference.row_number)
 		return primary_current_record;
 	else if(row_number == monitor.auxiliary_reference.row_number)
-		return primary_current_record;
+		return auxiliary_current_record;
 	assert(0);
 	return primary_current_record;
 }

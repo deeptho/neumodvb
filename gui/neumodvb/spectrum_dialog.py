@@ -318,7 +318,7 @@ class SpectrumDialog(SpectrumDialog_):
                 self.blindscan_num_muxes += 1
                 self.blindscan_num_locked_muxes += self.signal_info.has_lock
                 self.blindscan_num_nonlocked_muxes += not self.signal_info.has_lock
-                self.blindscan_num_si_muxes += self.signal_info.has_nit
+                self.blindscan_num_si_muxes += (self.signal_info.has_nit or self.signal_info.has_sdt or self.signal_info.has_pat)
                 dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done}")
                 self.spectrum_plot.set_current_annot_status(mux, self.signal_info.has_lock)
                 if self.is_blindscanning:

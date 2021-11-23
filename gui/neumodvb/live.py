@@ -149,7 +149,7 @@ class GridEpgData(GridData):
         """
         epg_screen = self.GetEpgScreenAtRow(ch_idx)
         if epg_screen is None:
-            dtdebug(f'here ch_idx={ch_idx}')
+            dtdebug(f'ch_idx={ch_idx}')
             return -1
         start_time = start_time
         for epg_idx in range(0, epg_screen.list_size):
@@ -830,7 +830,7 @@ class SatBouquetGroupSelectPanel(GroupSelectPanel):
         idx = self.grouptype_idx
         self.last_rowtype = self.controller.grid_panel.rowtype
         if not self.group_select_in_progress and self.last_rowtype not in (RowType.GRIDEPG, RowType.SERVICE_OR_CHANNEL):
-            dtdebug(f'here {self.last_rowtype} {self.controller.grid_panel}')
+            dtdebug(f'{self.last_rowtype} {self.controller.grid_panel}')
         assert self.group_select_in_progress or self.last_rowtype in (RowType.GRIDEPG, RowType.SERVICE_OR_CHANNEL)
         txt, rowtype, record_type = self.grouptypes[self.grouptype_idx]
         t = pychdb.list_filter_type_t
@@ -963,9 +963,11 @@ class MosaicPanel(wx.Panel):
                 return False
         if not is_ctrl:
             if key == wx.WXK_LEFT:
-                self.controller.CmdJumpBack()
+                if self.controller.hidden:
+                    self.controller.CmdJumpBack()
             elif key == wx.WXK_RIGHT:
-                self.controller.CmdJumpForward()
+                if self.controller.hidden:
+                    self.controller.CmdJumpForward()
             return True
         if key in (wx.WXK_LEFT, wx.WXK_RIGHT):
             focus_idx = self.focus_idx

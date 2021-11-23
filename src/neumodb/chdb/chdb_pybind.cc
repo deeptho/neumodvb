@@ -118,6 +118,15 @@ static void export_lang_extra(py::module& m) {
 		;
 }
 
+static std::tuple<bool, std::optional<std::string>>
+lnb_can_tune_to_mux_helper(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks) {
+	ss::string<128> error;
+	bool ret= chdb::lnb_can_tune_to_mux(lnb, mux, disregard_networks, &error);
+	if (ret)
+		return {ret, {}};
+	return {ret, error};
+}
+
 PYBIND11_MODULE(pychdb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 channel database
@@ -160,7 +169,8 @@ PYBIND11_MODULE(pychdb, m) {
 				return std::string(x);
 			},
 			"make human readable representation", py::arg("mux"))
-		.def("lnb_can_tune_to_mux", &lnb_can_tune_to_mux, "check if lnb can tune to mux", py::arg("lnb"), py::arg("mux"),
+		.def("lnb_can_tune_to_mux", &lnb_can_tune_to_mux_helper,
+				 "check if lnb can tune to mux; returns true/false and optional error string", py::arg("lnb"), py::arg("mux"),
 				 py::arg("disregard_networks") = false)
 		;
 	export_neumodb(m);

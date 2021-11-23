@@ -285,8 +285,9 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.muxedit_grid.table.FinalizeUnsavedEdits()
         self.UpdateRefMux(self.mux)
         dtdebug(f"positioner: subscribing to lnb={self.lnb} mux={self.mux}")
-        if not pychdb.lnb_can_tune_to_mux(self.lnb, self.mux):
-            ShowMessage(f"Cannot tune to {self.mux}")
+        can_tune, error = pychdb.lnb_can_tune_to_mux(self.lnb, self.mux)
+        if not can_tune:
+            ShowMessage(f"Cannot tune to {self.mux}: {error}")
             if event is not None:
                 event.Skip()
             return

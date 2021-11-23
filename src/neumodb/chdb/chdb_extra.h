@@ -256,6 +256,7 @@ namespace chdb {
 	std::ostream& operator<<(std::ostream& os, const lnb_t& lnb);
 	std::ostream& operator<<(std::ostream& os, const lnb_network_t& lnb_network);
 	std::ostream& operator<<(std::ostream& os, const fe_band_pol_t& band_pol);
+	std::ostream& operator<<(std::ostream& os, const fe_polarisation_t& pol);
 	std::ostream& operator<<(std::ostream& os, const chg_t& chg);
 	std::ostream& operator<<(std::ostream& os, const chgm_t& channel);
 	std::ostream& operator<<(std::ostream& os, const fe_key_t& fe_key);
@@ -550,7 +551,7 @@ namespace chdb {
 
 	delsys_type_t delsys_to_type (chdb::fe_delsys_t delsys);
 
-	bool lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks);
+	bool lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_ *error=nullptr);
 
 	bool bouquet_contains_service(db_txn& rtxn, const chdb::chg_t& chg, const chdb::service_key_t& service_key);
 

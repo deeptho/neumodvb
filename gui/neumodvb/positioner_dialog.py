@@ -18,10 +18,12 @@
 #
 import re
 import wx
+import wx.lib.newevent
 import math
 
+
 from neumodvb import  minispinctrl, minifloatspin
-from  neumodvb.positioner_dialog_gui import  PositionerDialog_, SignalPanel_ , TuneMuxPanel_
+from neumodvb.positioner_dialog_gui import  PositionerDialog_, SignalPanel_ , TuneMuxPanel_
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb import neumodbutils
 from neumodvb.lnblist import has_network, get_network
@@ -32,6 +34,8 @@ import pyreceiver
 import pychdb
 import pystatdb
 from pyreceiver import get_object as get_object_
+
+LnbChangeEvent, EVT_LNB_CHANGE = wx.lib.newevent.NewEvent()
 
 
 def same_mux_key(a, b):
@@ -404,6 +408,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         assert mux.k.sat_pos == sat.sat_pos
         self.ChangeSat(sat)
         self.parent.ChangeLnb(lnb) #update window title
+        evt = LnbChangeEvent(lnb=lnb)
+        wx.PostEvent(self, evt)
 
 
     def ChangeSat(self, sat):

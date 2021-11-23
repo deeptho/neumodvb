@@ -46,6 +46,16 @@ class SpectrumButtons(SpectrumButtons_):
 
     def OnBlindScan(self, event):
         return self.parent.OnBlindScan(event)
+    def OnChangeLnb(self, evt):
+        rng = pychdb.lnb.lnb_frequency_range(evt.lnb)
+        start_freq, end_freq = rng
+        if start_freq <= self.parent.start_freq <= end_freq and \
+           start_freq <= self.parent.end_freq <= end_freq:
+            return
+        dtdebug(f'changing spectral scan range: {evt.lnb} {rng}')
+        self.parent.start_freq, self.parent.end_freq = rng
+        self.start_freq_text.SetValue(str(self.parent.start_freq//1000))
+        self.end_freq_text.SetValue(str(self.parent.end_freq//1000))
 
     def select_range_and_pols(self):
         self.spectrum_horizontal.SetValue(1)
@@ -83,6 +93,10 @@ class SpectrumDialog(SpectrumDialog_):
     def __init__(self, parent, mux=None, sat=None, lnb=None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.tune_mux_panel.init(self, sat, lnb, mux)
+
+        from neumodvb.positioner_dialog import EVT_LNB_CHANGE
+        self.tune_mux_panel.Bind(EVT_LNB_CHANGE, self.spectrum_buttons_panel.OnChangeLnb)
+
         self.parent = parent
 
         self.SetTitle(f'Spectrum - {self.lnb}')
@@ -114,6 +128,7 @@ class SpectrumDialog(SpectrumDialog_):
     def OnTimer(self, evt):
         self.grid.OnTimer(evt)
         evt.Skip(True) #ensures tat other windows also get the event
+
 
     @property
     def lnb(self):

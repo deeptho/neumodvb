@@ -73,7 +73,7 @@ class ServiceListComboCtrl(wx.ComboCtrl):
         self.example = 'BBC One London'+' '*2
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
-        self.font.SetPointSize(self.font.GetPointSize()+8)
+        self.font.SetPointSize(self.font.GetPointSize()+6)
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(ServiceGridPopup)

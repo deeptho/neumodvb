@@ -1411,6 +1411,13 @@ static std::tuple<uint32_t, uint32_t, uint32_t> lnb_band_helper(const chdb::lnb_
 	return {freq_low, freq_mid, freq_high};
 }
 
+
+std::tuple<uint32_t, uint32_t> chdb::lnb::lnb_frequency_range(const chdb::lnb_t& lnb)
+{
+	auto [low, mid, high] = lnb_band_helper(lnb);
+	return {low, high};
+}
+
 bool chdb::lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks) {
 	auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
 	if (mux.frequency < freq_low || mux.frequency >= freq_high)

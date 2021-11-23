@@ -107,6 +107,8 @@ static void export_lnb_extra(py::module& m) {
 		.def("add_network", &chdb::lnb::add_network,
 				 "Add a network to an lnb if it does not yet exist; returns true if network was added", py::arg("lnb"),
 				 py::arg("lnb_network"))
+		.def("lnb_frequency_range", &chdb::lnb::lnb_frequency_range,
+				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"));
 		;
 }
 

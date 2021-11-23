@@ -289,6 +289,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             ShowMessage(f"Cannot tune to {self.mux}")
             if event is not None:
                 event.Skip()
+            return
         mux =self.mux.copy()
         mux.c.is_template = True
         mux.c.freq_from_si = False

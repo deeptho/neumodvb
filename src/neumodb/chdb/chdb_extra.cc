@@ -994,26 +994,28 @@ std::ostream& chdb::operator<<(std::ostream& os, const service_key_t& k) {
 }
 
 std::ostream& chdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
-	stdex::printf(os, "D%d T%d %d", (int)lnb_key.dish_id, (int)lnb_key.adapter_no, (int)lnb_key.lnb_id);
+	const char* t = (lnb_key.lnb_type == lnb_type_t::C) ? "C" :
+		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" : "Ku" ;
+	stdex::printf(os, "D%dA%d%s %d", (int)lnb_key.dish_id, (int)lnb_key.adapter_no, t, (int)lnb_key.lnb_id);
 	return os;
 }
 
 std::ostream& chdb::operator<<(std::ostream& os, const lnb_t& lnb) {
 	using namespace chdb;
+	const char* t = (lnb.k.lnb_type == lnb_type_t::C) ? "C" :
+		(lnb.k.lnb_type == lnb_type_t::KU) ? "Ku" : "Ku" ;
 	switch (lnb.rotor_control) {
 	case rotor_control_t::FIXED_DISH: {
 		auto sat = sat_pos_str(lnb.usals_pos); // in this case usals pos equals one of the network sat_pos
-		stdex::printf(os, sat.c_str());
+		stdex::printf(os, "D%dA%d%s %s %d", (int)lnb.k.dish_id, (int)lnb.k.adapter_no, t, sat.c_str(),(int)lnb.k.lnb_id);
 	} break;
 	case rotor_control_t::ROTOR_MASTER_USALS:
 	case rotor_control_t::ROTOR_MASTER_DISEQC12:
-		stdex::printf(os, "rotor");
+		stdex::printf(os, "D%dA%d%s rotor %d", (int)lnb.k.dish_id, (int)lnb.k.adapter_no, t, (int)lnb.k.lnb_id);
 		break;
 	case rotor_control_t::ROTOR_SLAVE:
-		stdex::printf(os, "slave");
+		stdex::printf(os, "D%dA%d%s slave% d", (int)lnb.k.dish_id, (int)lnb.k.adapter_no, t, (int)lnb.k.lnb_id);
 	}
-
-	stdex::printf(os, " dish%d T%d", (int)lnb.k.dish_id, (int)lnb.k.adapter_no);
 	return os;
 }
 

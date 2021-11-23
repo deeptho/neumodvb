@@ -266,80 +266,28 @@ class MyColLabelRenderer(glr.GridLabelRenderer):
                 dc.DrawBitmap(bitmap, x, y)
 
 
-class NeumoTable(wx.grid.GridTableBase):
-    #label: to show in header
-    #dfn: display function
-    CD = namedtuple('ColumnDescriptor', 'key label dfn basic example no_combo readonly allow_others noresize')
-    CD.__new__.__defaults__=(None, None, None, False, None, False, False, False, False)
-    BCK = namedtuple('BackupRecord', 'operation oldrow oldrecord newrecord')
-    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
-    bool_fn =  lambda x: 0 if False else 1
-    all_columns = []
-
-    def InitialRecord(self):
-        return None
-
-    def __init__(self, parent, basic=False, db_t=None, record_t=None,
-                 data_table = None, screen_getter = None,
-                 initial_sorted_column = None,
-                 sort_order = 1,
-                 *args, **kwds):
-        """
-        """
+class NeumoTableBase(wx.grid.GridTableBase):
+    def __init__(self, parent, *args, **kwds):
         super().__init__(*args, **kwds)
-        self.parent = parent
-        self.record_t = record_t
-        self.db_t = db_t
-        self.columns = [col for col in self.all_columns if col.basic ] if basic else self.all_columns
-        self.data_table = data_table
-        self.sort_column = initial_sorted_column
-        self.old_sort_columns = []
-        self.sort_colno  = None
-        self.sort_order = sort_order
-        self.cache = dict()
-        self.screen = None
-        s = self.record_t()
-        f = lambda x: None if x == 'icons' else type(neumodbutils.get_subfield(s, x))
-        self.coltypes = [ f(col.key) for col in self.columns]
-        if db_t == pyepgdb:
-            self.db = wx.GetApp().epgdb
-        elif db_t == pychdb:
-            self.db = wx.GetApp().chdb
-        elif db_t == pyrecdb:
-            self.db = wx.GetApp().recdb
-        elif db_t == pystatdb:
-            self.db = wx.GetApp().statdb
-        else:
-            assert(0)
-        #self.data = None #start off with an empty table. Table will be populated in OnCreateWindow
         self.record_being_edited = None
         self.row_being_edited = None
-        self.screen_getter = screen_getter
-        #self.__get_data__()
         self.new_rows = set()
         self.undo_list = []
         self.unsaved_edit_undo_list = []
-        self.red_bg =wx.grid.GridCellAttr()
-        self.red_bg.SetBackgroundColour('red')
+        self.parent = parent
 
     def needs_highlight(self, record):
-        """
-        to be overridden in derived tables
-        Should return True or False or None
-        None means; leave current colour alone, wich is mainly useful to speed things up
-        when no the table does not use highlights
-        """
-        return None
-
+         return False
+    def SetReference(self, record):
+        assert 0
     def AppendRows(self, numRows=1, updateLabels=True):
-        return True
+        return False
 
     def DeleteRows(self, pos=0, numRows=1, updateLabels=True):
-        return True
+        return false
 
     def GetNumberRows(self):
-        ret = 0 if self.screen is None else self.screen.list_size
-        return ret
+        assert 0
 
     def GetNumberCols(self):
         return len(self.columns)
@@ -355,23 +303,8 @@ class NeumoTable(wx.grid.GridTableBase):
         else:
             return wx.grid.GRID_VALUE_STRING
 
-    @lru_cache(maxsize=30) #cache the last row, because multiple columns will lookup same row
     def GetRow(self, rowno):
-        if self.record_being_edited is None  or self.row_being_edited != rowno:
-            if rowno >= self.screen.list_size:
-                return None
-            import time
-            ret = self.screen.record_at_row(rowno)
-        else:
-            ret = self.record_being_edited
-            assert self.row_being_edited == rowno
-        hl =self.needs_highlight(ret)
-        if hl is not None:
-            if hl:
-                self.parent.ColourRow(rowno)
-            else:
-                self.parent.UnColourRow(rowno)
-        return ret
+        assert 0
 
     def CurrentlySelectedRecord(self):
         rowno = self.parent.GetGridCursorRow()
@@ -453,6 +386,142 @@ class NeumoTable(wx.grid.GridTableBase):
 
     def GetColLabelValue(self, colno):
         return self.columns[colno].label
+
+    def Backup(self, operation, rowno, oldrecord, newrecord):
+        pass
+
+    def FinalizeUnsavedEdits(self):
+        assert false
+
+    def Undo(self):
+        """ Undo's the last operation
+        """
+        pass
+
+    def OnModified(self):
+        """
+        """
+        pass
+
+    def SaveModified(self):
+        pass
+
+    def DeleteRows(self, rows):
+        assert false
+
+    def new_row(self):
+        return None
+
+    def __save_record__(self, txn, record):
+        pass
+
+    def __delete_record__(self, txn, record):
+        pass
+
+    def set_sort_column(self, colno):
+        pass
+
+    def __get_data__(self, use_cache=False):
+        """
+        retrieve the list
+        """
+        return self.filter_record
+
+    def reload(self):
+        pass
+
+class NeumoTable(NeumoTableBase):
+    #label: to show in header
+    #dfn: display function
+    CD = namedtuple('ColumnDescriptor', 'key label dfn basic example no_combo readonly allow_others noresize sort')
+    CD.__new__.__defaults__=(None, None, None, False, None, False, False, False, False, None)
+    BCK = namedtuple('BackupRecord', 'operation oldrow oldrecord newrecord')
+    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+    bool_fn =  lambda x: 0 if False else 1
+    all_columns = []
+
+    def InitialRecord(self):
+        return None
+
+    def __init__(self, parent, basic=False, db_t=None, record_t=None,
+                 data_table = None, screen_getter = None,
+                 initial_sorted_column = None,
+                 sort_order = 1,
+                 *args, **kwds):
+        """
+        """
+        super().__init__(parent, *args, **kwds)
+        self.record_t = record_t
+        self.db_t = db_t
+        self.columns = [col for col in self.all_columns if col.basic ] if basic else self.all_columns
+        self.data_table = data_table
+        self.sort_columns =  [initial_sorted_column] if type(initial_sorted_column) == str \
+            else list(initial_sorted_column)
+        self.old_sort_columns = []
+        self.sort_colno  = None
+        self.sort_order = sort_order
+        self.cache = dict()
+        self.screen = None
+        s = self.record_t()
+        f = lambda x: None if x == 'icons' else type(neumodbutils.get_subfield(s, x))
+        self.coltypes = [ f(col.key) for col in self.columns]
+        if db_t == pyepgdb:
+            self.db = wx.GetApp().epgdb
+        elif db_t == pychdb:
+            self.db = wx.GetApp().chdb
+        elif db_t == pyrecdb:
+            self.db = wx.GetApp().recdb
+        elif db_t == pystatdb:
+            self.db = wx.GetApp().statdb
+        else:
+            assert(0)
+        #self.data = None #start off with an empty table. Table will be populated in OnCreateWindow
+        self.red_bg =wx.grid.GridCellAttr()
+        self.red_bg.SetBackgroundColour('red')
+        self.screen_getter = screen_getter
+        self.parent = parent
+
+    def needs_highlight(self, record):
+        """
+        to be overridden in derived tables
+        Should return True or False or None
+        None means; leave current colour alone, wich is mainly useful to speed things up
+        when no the table does not use highlights
+        """
+        return None
+
+    def SetReference(self, record):
+        return self.screen.set_reference(record)
+
+    def AppendRows(self, numRows=1, updateLabels=True):
+        return True
+
+    def DeleteRows(self, pos=0, numRows=1, updateLabels=True):
+        return True
+
+    def GetNumberRows(self):
+        ret = 0 if self.screen is None else self.screen.list_size
+        return ret
+
+
+    @lru_cache(maxsize=30) #cache the last row, because multiple columns will lookup same row
+    def GetRow(self, rowno):
+        if self.record_being_edited is None  or self.row_being_edited != rowno:
+            if rowno >= self.screen.list_size:
+                return None
+            #import time
+            ret = self.screen.record_at_row(rowno)
+        else:
+            ret = self.record_being_edited
+            assert self.row_being_edited == rowno
+        hl =self.needs_highlight(ret)
+        if hl is not None:
+            if hl:
+                self.parent.ColourRow(rowno)
+            else:
+                self.parent.UnColourRow(rowno)
+        return ret
+
 
     def Backup(self, operation, rowno, oldrecord, newrecord):
         if operation == 'edit':
@@ -635,20 +704,26 @@ class NeumoTable(wx.grid.GridTableBase):
         self.db_t.delete_record(txn, record)
 
     def set_sort_column(self, colno):
-        old_sort_column = self.sort_column
         need_refresh = False
+        need_new_data = False
         if 0 <= colno <= len(self.columns):
-            self.sort_column = self.columns[colno].key
+            if self.columns[colno].sort is not None:
+                sort_columns = list(self.columns[colno].sort)
+            else:
+                sort_columns = [ self.columns[colno].key ]
+
             self.sort_colno = colno
-            if old_sort_column == self.sort_column:
+            if self.sort_columns[0: len(sort_columns)] == sort_columns:
                 self.sort_order = 1 if self.sort_order ==2 else 2
                 need_refresh = (self.sort_order !=2)
             else:
-                self.old_sort_columns.append(old_sort_column)
-                if len(self.old_sort_columns) >3:
-                    self.old_sort_columns= self.old_sort_columns[0:4]
+                need_new_data = True
+                self.sort_columns = sort_columns + self.sort_columns
+                if len(self.sort_columns) > 4:
+                    #keep newest 4 items; very newest is at the end
+                    self.sort_columns= self.sort_columns[-4:]
                 self.sort_order = 1
-        if old_sort_column != self.sort_column:
+        if need_new_data:
             self.__get_data__()
         self.screen.invert_rows = self.sort_order == 2
         self.GetRow.cache_clear()
@@ -661,19 +736,21 @@ class NeumoTable(wx.grid.GridTableBase):
         if use_cache and self.screen is not None:
             return self.screen
         txn = self.db.rtxn()
-        if self.sort_column == 'icons':
-            col = self.get_icon_sort_key()
-            subfield = self.data_table.subfield_from_name(col) << 24
-        else:
-            subfield = self.data_table.subfield_from_name(self.sort_column) << 24
         #The following code ensures that sorting is performed according to the selected order,
         #but then also - for duplicates - according to previously seected order
-        shift= 16
-        for c in reversed(self.old_sort_columns):
-            v = self.data_table.subfield_from_name(c)
+        subfield=0
+        shift = 24
+        for c in reversed(self.sort_columns):
+            if c == 'icons':
+                col = self.get_icon_sort_key()
+                v = self.data_table.subfield_from_name(col)
+            else:
+                v = self.data_table.subfield_from_name(c)
+            assert v != 0
             subfield |= (v<<shift)
             shift -= 8
-            if shift < 0 : break
+            if shift < 0 :
+                break
         assert subfield !=0
         if self.screen_getter is None:
             self.screen = screen_if_t(self.data_table.screen(txn, sort_order=subfield))
@@ -758,6 +835,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.Bind(wx.grid.EVT_GRID_LABEL_RIGHT_CLICK, self.OnRightClicked)
 
         self.Bind(wx.grid.EVT_GRID_LABEL_LEFT_CLICK, self.OnToggleSort)
+    def OnDone(self, event):
+        pass
 
     def OnShowHide(self, event):
         dtdebug(f'SHOW/HIDE {self} {event.IsShown()}')
@@ -826,9 +905,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
         pass
 
-    def OnShow(self, evt):
-        self.SetGridCursor(0,0)
-        self.SetFocus()
 
     def OnToggleSort(self, evt):
         sort_column = evt.GetCol()
@@ -976,22 +1052,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         menu.Append(id1, "Filter Column")
         menu.Append(sortID, "Sort Column")
 
-        def showFilterOFF(event, self=self, col=col):
-            cols = self.GetSelectedCols()
-            dlg = ChannelNoDialog(self, -1, "Channel Number")
-            #dlg.Bind(wx.EVT_TEXT_ENTER, enterText, id=id1)
-            val = dlg.ShowModal()
-            try:
-                chno = int(dlg.chno.GetValue())
-            except:
-                chno = None
-            if val == wx.ID_OK:
-                dtdebug(f"You pressed OK: {chno}\n")
-            else:
-                dtdebug("You pressed Cancel\n")
-
-            dlg.Destroy()
-
         def sort(event, self=self, col=col):
             self.table.SortColumn(col.key)
             self.Refresh()
@@ -1012,8 +1072,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
     def OnGridCellSelect(self, evt):
         if evt.GetRow() != self.GetGridCursorRow():
             self.OnRowSelect(evt.GetRow())
-            if len(self.table.unsaved_edit_undo_list) > 0:
-                self.table.SaveModified()
+            #if len(self.table.unsaved_edit_undo_list) > 0:
+            self.table.SaveModified()
         else:
             pass
         wx.CallAfter(self.SelectRow,evt.GetRow())
@@ -1030,16 +1090,18 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         dtdebug(f'OnCreateWindow rec_to_select={rec}')
         self.OnRefresh(None, rec_to_select=rec)
         #self.SelectRecord(rec)
-        evt.Skip()
+        #evt.Skip()
 
     def SelectRecord(self, rec):
         if rec is not None:
             dtdebug(f"SelectRecord {rec}")
-            rowno = self.table.screen.set_reference(rec)
+            rowno = self.table.SetReference(rec)
             if rowno >=0:
                 colno = self.GetGridCursorCol()
+                if colno <0 :
+                    colno = 0
                 self.GoToCell(rowno, colno)
-                self.SetGridCursor(rowno, self.GetGridCursorCol())
+                self.SetGridCursor(rowno, colno)
                 wx.CallAfter(self.MakeCellVisible, rowno, colno)
 
     def OnShow(self, evt):
@@ -1094,7 +1156,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.table.__get_data__()
         if oldlen >0 and rec_to_select is None:
             rec_to_select = self.table.CurrentlySelectedRecord()
-        newlen = self.table.screen.list_size if self.table.screen is not None else 0
+        newlen = self.table.GetNumberRows()
         if newlen != oldlen: #test to see if code below can be removed
             pass
         if newlen>oldlen:
@@ -1106,7 +1168,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.ProcessTableMessage(msg)
         self.ForceRefresh()
         if rec_to_select is None:
-            rec_to_select = self.table.screen.record_at_row(0)
+            rec_to_select = self.table.GetRow(0)
         if rec_to_select is not None:
             self.SelectRecord(rec_to_select)
 

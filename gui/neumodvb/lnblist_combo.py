@@ -70,7 +70,7 @@ class LnbGridPopup(BasicLnbGrid):
 class LnbListComboCtrl(wx.ComboCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        self.example = 'rotor dish 0 T2'+' '*5
+        self.example = 'D1T2 28.2E 2812***'
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
         self.font.SetPointSize(self.font.GetPointSize()+6)

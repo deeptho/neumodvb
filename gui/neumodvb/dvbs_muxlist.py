@@ -30,12 +30,13 @@ from dateutil import tz
 from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror
 from neumodvb import neumodbutils
-from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
+from neumodvb.neumolist import NeumoTable, NeumoGridBase, screen_if_t
 from neumodvb.satlist import BasicSatGrid
 
 import pychdb
 
 class DvbsMuxTable(NeumoTable):
+    record_t =  pychdb.dvbs_mux.dvbs_mux
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
@@ -81,9 +82,9 @@ class DvbsMuxTable(NeumoTable):
         data_table= pychdb.dvbs_mux
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
-        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table= data_table,
+        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, record_t=self.record_t,
+                         data_table= data_table,
                          screen_getter = screen_getter,
-                         record_t =  pychdb.dvbs_mux.dvbs_mux,
                          initial_sorted_column = initial_sorted_column, **kwds)
 
     def InitialRecord(self):
@@ -127,7 +128,7 @@ class DvbsMuxGridBase(NeumoGridBase):
 
     def __init__(self, basic, readonly, *args, **kwds):
         self.allow_all = True
-        table = DvbsMuxTable(self, basic)
+        table = kwds.get('table', DvbsMuxTable(self, basic))
         super().__init__(basic, readonly, table, *args, **kwds)
         self.sort_order = 0
         self.sort_column = None
@@ -252,6 +253,7 @@ class BasicDvbsMuxGrid(DvbsMuxGridBase):
             self.SetSelectionMode(wx.grid.Grid.GridSelectionModes.GridSelectRows)
         else:
             self.SetSelectionMode(wx.grid.Grid.SelectRows)
+
 
 class DvbsMuxGrid(DvbsMuxGridBase):
     def __init__(self, *args, **kwds):

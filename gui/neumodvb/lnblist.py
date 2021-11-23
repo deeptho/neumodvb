@@ -62,15 +62,36 @@ def get_current_network(lnb):
             return n
     return None
 
+def lnb_label(lnb):
+    x = neumodbutils.enum_to_str(lnb.rotor_control)
+    if x.startswith('ROTOR_SLAVE'):
+        sat_pos='slave'
+    elif x.startswith('ROTOR'):
+        sat_pos='rotor'
+    else:
+        sat_pos=pychdb.sat_pos_str(lnb.usals_pos)
+    t= lastdot(lnb.k.lnb_type)
+    if t != 'C':
+        t='Ku'
+    return f'D{lnb.k.dish_id}A{lnb.k.adapter_no}{t} {sat_pos:>5} {lnb.k.lnb_id}'
+
 class LnbTable(NeumoTable):
     CD = NeumoTable.CD
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
+    lnb_key_fn = lambda x: lnb_label(x[0])
+
+    basic_columns=[CD(key='k',
+                      sort=('k.dish_id', 'k.adapter_no','k.lnb_id', 'k.lnb_id', 'usals_pos'),
+                      example='D1T2 28.2E 2812***',
+                      dfn = lnb_key_fn,
+                      label='LNB', basic=True, readonly=True)
+                              ]
     all_columns = \
-        [CD(key='k.adapter_no',  label='adapter', basic=True),
-         CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
+        [CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
+         CD(key='k.adapter_no',  label='adapter', basic=True),
          CD(key='k.lnb_id',  label='ID', basic=False, readonly=True),
          CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
@@ -100,6 +121,9 @@ class LnbTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'k.adapter_no'
         data_table= pychdb.lnb
+        if basic:
+            CD = NeumoTable.CD
+            self.all_columns= self.basic_columns
         super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
                          record_t=pychdb.lnb.lnb,
                          initial_sorted_column = initial_sorted_column,

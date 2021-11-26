@@ -211,7 +211,7 @@ class IconRenderer(wx.grid.GridCellRenderer):
                     dc.DrawRectangle(x,y, icon['w'], icon['h'])
                     dc.DrawBitmap(icon['icon'], x, y, True)
 
-class MyRenderer(wx.grid.GridCellRenderer):
+class MyRendererOFF(wx.grid.GridCellRenderer):
 
     def __init__(self, table,  *args, **kwds):
         super().__init__(*args, **kwds)

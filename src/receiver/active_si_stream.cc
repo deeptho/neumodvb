@@ -738,6 +738,8 @@ bool active_si_stream_t::check_tuned_mux_key(db_txn& txn, const chdb::mux_key_t&
 }
 
 void active_si_stream_t::add_sat(db_txn& txn, uint16_t sat_pos) {
+	if(sat_pos == sat_pos_dvbc || sat_pos == sat_pos_dvbt)
+		return;
 	auto c = chdb::sat_t::find_by_key(txn, sat_pos);
 	if (!c.is_valid()) {
 		chdb::sat_t sat;

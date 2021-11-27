@@ -230,6 +230,9 @@ class LnbGridBase(NeumoGridBase):
         txn = self.table.db.wtxn()
         mux = pychdb.dvbs_mux.find_by_key(txn, network.ref_mux)
         txn.abort()
+        if mux is None:
+            ShowMessage("No ref mux", f"Cannot find a ref mux for network {network.ref_mux}")
+            return
         mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
         self.table.SaveModified()

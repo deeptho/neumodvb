@@ -43,6 +43,18 @@ class SatTable(NeumoTable):
         ]
 
     def InitialRecord(self):
+
+        if self.parent.sat is not None:
+            #Todo: improve this ugliness
+            #If we are part of positioner or spectrum dialig, use the sat selected there
+            self.sat = self.parent.sat
+            return self.sat
+        fn = getattr(self.parent.controller, "CurrentSatAndMux", None)
+        if fn is not None:
+            #Todo: improve this ugliness
+            #If we are part of positioner or spectrum dialig, use the sat selected there
+            self.sat, _  = fn()
+            return self.sat
         ls = wx.GetApp().live_service_screen
         if ls.filter_sat is not None:
             self.sat = ls.filter_sat

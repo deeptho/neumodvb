@@ -1257,7 +1257,8 @@ class GridPopup(wx.ComboPopup):
     # maxHeight = max height for window, as limited by screen size
     #   and should only be rounded down, if necessary.
     def GetAdjustedSize(self, minWidth, prefHeight, maxHeight):
-        extra =wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
+        extra = wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
+        extra *= 10 #wx.SYS_VSCROLL_X seems to much too small (only 2 pixels; gnome3 craziness?)
         w = self.ComboCtrl.popup.popup_grid.gridwidth + extra
         return w, self.popup_size[1] #wx.ComboPopup.GetAdjustedSize(self, minWidth, prefHeight, maxHeight)
 

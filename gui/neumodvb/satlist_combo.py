@@ -44,7 +44,9 @@ class SatGridPopup(BasicSatGrid):
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
         self.controller = self.Parent.Parent.Parent.controller
-
+        x = getattr(self.Parent.GrandParent.GrandParent, 'lnb_controller', None)
+        x = getattr(x, 'parent', None)
+        self.sat = getattr(x, 'sat', None)
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():

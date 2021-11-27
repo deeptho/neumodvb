@@ -182,6 +182,12 @@ class TuneMuxPanel(TuneMuxPanel_):
         return self.mux_subscriber_
 
     @property
+    def lnb_subscriber(self):
+        if not self.tuned_:
+            self.SubscribeLnb(retune_mode=pyreceiver.retune_mode_t.NEVER)
+        return self.mux_subscriber
+
+    @property
     def tuned_mux_subscriber(self):
         if not self.tuned_:
             self.OnTune()
@@ -262,6 +268,23 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def OnToggleConstellation(self, evt):
         self.parent.OnToggleConstellation(evt)
+
+    def SubscribeLnb(self, retune_mode, silent=False):
+        """
+        used when we want change a positioner without tuning
+        """
+        if self.tuned_:
+            return self.tuned_ # no need to subscribe
+        self.retune_mode = retune_mode
+        dtdebug(f'Subscribe LNB')
+        ret = self.mux_subscriber.subscribe_lnb(self.lnb,  self.retune_mode)
+        if ret < 0:
+            if not silent:
+                ShowMessage("SubsribeLnb failed", self.mux_subscriber.error_message) #todo: record error message
+            dtdebug(f"Tuning failed {self.mux_subscriber.error_message}")
+
+        self.tuned_ = False
+        return self.tuned_
 
     def Tune(self, mux, retune_mode, pls_search_range=None, silent=False):
         self.retune_mode = retune_mode
@@ -632,6 +655,10 @@ class PositionerDialog(PositionerDialog_):
     def tuned_mux_subscriber(self):
         return self.tune_mux_panel.tuned_mux_subscriber
 
+    @property
+    def lnb_subscriber(self):
+        return self.tune_mux_panel.lnb_subscriber
+
     def Prepare(self, lnbgrid):
         pass
         self.Layout()
@@ -705,7 +732,7 @@ class PositionerDialog(PositionerDialog_):
 
     def usals_command(self, *args):
         if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_USALS:
-            self.tuned_mux_subscriber.positioner_cmd(*args)
+            self.lnb_subscriber.positioner_cmd(*args)
             return True
         else:
             ShowMessage("Cannot control rotor",
@@ -726,7 +753,7 @@ class PositionerDialog(PositionerDialog_):
     def positioner_command(self, *args):
         if self.lnb.rotor_control in (pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12,
                                       pychdb.rotor_control_t.ROTOR_MASTER_USALS):
-            self.tuned_mux_subscriber.positioner_cmd(*args)
+            self.mux_subscriber.positioner_cmd(*args)
             return True
         else:
             ShowMessage("Cannot control rotor",

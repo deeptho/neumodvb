@@ -157,7 +157,9 @@ int active_adapter_t::lnb_scan(const chdb::lnb_t& lnb, tune_options_t tune_optio
 	case tune_mode_t::SCAN_BLIND:
 		return lnb_blind_scan(lnb, tune_options);
 	default:
-		dterrorx("Illegal tune_mode %d", tune_options.tune_mode);
+		set_current_lnb(lnb);
+		return 0;
+		break;
 	}
 	assert(0);
 	return 0;

@@ -63,6 +63,7 @@ public:
 
 	int unsubscribe();
 	void update_current_lnb(const chdb::lnb_t & lnb);
+	int subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode);
 	int subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 														const pls_search_range_t& pls_search_range, retune_mode_t retune_mode);
 	int subscribe_spectrum(chdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,

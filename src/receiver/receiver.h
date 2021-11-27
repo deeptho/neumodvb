@@ -632,6 +632,8 @@ public:
 														 int32_t low_freq, int32_t high_freq,
 														 int sat_pos, int subscription_id);
 
+	int subscribe_lnb(chdb::lnb_t& lnb,  retune_mode_t retune_mode, int subscription_id);
+
 	int subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 														const pls_search_range_t& pls_search_range,
 														retune_mode_t retune_mode, int subscription_id);

@@ -40,6 +40,13 @@ mux_subscriber_t::~mux_subscriber_t() {
 		unsubscribe();
 }
 
+int mux_subscriber_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode) {
+	subscription_id =
+		receiver->subscribe_lnb(lnb, retune_mode, subscription_id);
+	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
+	return subscription_id < 0 ? -1 : ++tune_attempt;
+}
+
 int mux_subscriber_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 																						const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
 	subscription_id =

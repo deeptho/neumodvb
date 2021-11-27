@@ -152,6 +152,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	case tune_mode_t::NORMAL:
 	case tune_mode_t::MUX_BLIND:
 	case tune_mode_t::SCAN_BLIND:
+	case tune_mode_t::POSITIONER_CONTROL:
 	case tune_mode_t::UNCHANGED:
 		fe->set_lock_status(event.status);
 		if (fe->api_type == api_type_t::NEUMO)

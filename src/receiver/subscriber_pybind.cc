@@ -162,6 +162,11 @@ void export_mux_subscriber(py::module& m) {
 				 , &mux_subscriber_t::update_current_lnb
 				 , "Update and save the current lnb"
 				 , py::arg("lnb"))
+		.def("subscribe_lnb"
+				 , &mux_subscriber_t::subscribe_lnb
+				 , "Subscribe to a specific lnb without (re)tuning"
+				 , py::arg("lnb")
+				 , py::arg("retune_mode"))
 		.def("subscribe_lnb_and_mux"
 				 , &mux_subscriber_t::subscribe_lnb_and_mux
 				 , "Subscribe to a specific mux usign a specific lnb"

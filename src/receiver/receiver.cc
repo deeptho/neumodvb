@@ -982,7 +982,6 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 			(*w)[subscription_id] = active_adapter;
 		}
 		assert(active_adapter->is_open());
-
 		futures.push_back(active_adapter->tuner_thread.push_task([this, active_adapter, lnb, tune_options]() {
 			auto ret = cb(receiver.tuner_thread).lnb_scan(active_adapter, lnb, tune_options);
 			if (ret < 0)
@@ -1418,7 +1417,6 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 
 /*!
 	for use by a blindscan which scans all muxes in a band. Exclusively reserves lnb
-	Reserving is only possible if no other subscriptions have currently reserved.
 */
 int receiver_t::subscribe_lnb_blindscan(chdb::lnb_t& lnb_, const chdb::fe_band_pol_t& band_pol, int subscription_id) {
 	auto lnb = reread_lnb(lnb_);
@@ -1430,6 +1428,33 @@ int receiver_t::subscribe_lnb_blindscan(chdb::lnb_t& lnb_, const chdb::fe_band_p
 	tune_options.subscription_type = subscription_type_t::LNB_EXCLUSIVE;
 	tune_options.tune_mode = tune_mode_t::SCAN_BLIND;
 	futures.push_back(receiver_thread.push_task([this, &lnb, tune_options, &subscription_id]() {
+		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
+		return 0;
+	}));
+	error |= wait_for_all(futures);
+	return subscription_id;
+}
+
+int receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
+																			int subscription_id) {
+
+	{
+		auto txn = chdb.rtxn();
+		auto c = chdb::lnb_t::find_by_key(txn, lnb.k);
+		if (c.is_valid()) {
+			auto db_lnb = c.current();
+			lnb.lof_offsets = db_lnb.lof_offsets;
+			txn.abort();
+		}
+	}
+
+	int error = 0;
+	std::vector<task_queue_t::future_t> futures;
+	tune_options_t tune_options;
+	tune_options.subscription_type = subscription_type_t::DISH_EXCLUSIVE;
+	tune_options.tune_mode = tune_mode_t::POSITIONER_CONTROL;
+	tune_options.retune_mode = retune_mode;
+	futures.push_back(receiver_thread.push_task([this, &lnb, &tune_options, &subscription_id]() {
 		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
 		return 0;
 	}));

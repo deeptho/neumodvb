@@ -72,6 +72,7 @@ enum class tune_mode_t {
 	MUX_BLIND,
 	SPECTRUM,
 	SCAN_BLIND,
+	POSITIONER_CONTROL,
 	UNCHANGED
 	};
 

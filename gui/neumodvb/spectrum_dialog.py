@@ -46,13 +46,17 @@ class SpectrumButtons(SpectrumButtons_):
 
     def OnBlindScan(self, event):
         return self.parent.OnBlindScan(event)
+
     def OnChangeLnb(self, evt):
-        rng = pychdb.lnb.lnb_frequency_range(evt.lnb)
+        return self.select_start_end(evt.lnb)
+
+    def select_start_end(self, lnb):
+        rng = pychdb.lnb.lnb_frequency_range(lnb)
         start_freq, end_freq = rng
         if start_freq <= self.parent.start_freq <= end_freq and \
            start_freq <= self.parent.end_freq <= end_freq:
             return
-        dtdebug(f'changing spectral scan range: {evt.lnb} {rng}')
+        dtdebug(f'changing spectral scan range: {lnb} {rng}')
         self.parent.start_freq, self.parent.end_freq = rng
         self.start_freq_text.SetValue(str(self.parent.start_freq//1000))
         self.end_freq_text.SetValue(str(self.parent.end_freq//1000))
@@ -103,7 +107,7 @@ class SpectrumDialog(SpectrumDialog_):
 
         self.start_freq = 10700000
         self.end_freq = 12750000
-
+        self.spectrum_buttons_panel.select_start_end(self.lnb)
         self.gettting_spectrum_ = False
 
         bp_t = pychdb.fe_band_pol.fe_band_pol

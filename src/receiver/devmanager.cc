@@ -192,7 +192,8 @@ int dvbdev_monitor_t::reserve_dish_exclusive(dvb_frontend_t* fe, int dish_id) {
 
 int dvbdev_monitor_t::release_dish_exclusive(dvb_frontend_t* fe, int dish_id) {
 	auto& res = dish_reservation_map[dish_id];
-	assert(res.exclusive_fe == fe);
+	if(!res.exclusive_fe)
+		return 0;
 	res.exclusive_fe = nullptr;
 	return res.use_count.unregister_subscription();
 }
@@ -841,7 +842,9 @@ int dvb_adapter_t::release_fe() {
 		}
 
 		dtdebugx("releasing frontend_monitor %p: fefd=%d\n", w->reserved_fe, w->reserved_fe->ts.readAccess()->fefd);
-		if (!w->exclusive) { // implies that we did not reserve mux
+		if (w->exclusive) {
+			adaptermgr->release_dish_exclusive(fe, w->reserved_lnb.k.dish_id);
+		} else { // implies that we did not reserve mux
 			ret = w->use_count_mux.unregister_subscription();
 			const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
 			if (dvbs_mux) {

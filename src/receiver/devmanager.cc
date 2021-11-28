@@ -987,8 +987,8 @@ std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(const chdb::l
 		// master adapter is in use; check it is tuned to the correct sat/polarisation/band
 		if (master_mux->k.sat_pos != mux.k.sat_pos || master_mux->pol != mux.pol)
 			return nullptr; // wrong polarisation
-		auto [master_band, master_voltage, master_freq] = chdb::lnb::band_pol_freq_for_mux(mr->reserved_lnb, *master_mux);
-		auto [slave_band, slave_voltage, slave_freq] = chdb::lnb::band_pol_freq_for_mux(lnb, mux);
+		auto [master_band, master_voltage, master_freq] = chdb::lnb::band_voltage_freq_for_mux(mr->reserved_lnb, *master_mux);
+		auto [slave_band, slave_voltage, slave_freq] = chdb::lnb::band_voltage_freq_for_mux(lnb, mux);
 		assert(slave_voltage == master_voltage);
 		return (slave_band == master_band) ? fe : nullptr;
 	}
@@ -1005,8 +1005,8 @@ std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(const chdb::l
 		*/
 		assert(reserved_mux_);
 		auto [master_band, master_voltage, master_freq] =
-			chdb::lnb::band_pol_freq_for_mux(this->reserved_lnb, *reserved_mux_);
-		auto [slave_band, slave_voltage, slave_freq] = chdb::lnb::band_pol_freq_for_mux(lnb, mux);
+			chdb::lnb::band_voltage_freq_for_mux(this->reserved_lnb, *reserved_mux_);
+		auto [slave_band, slave_voltage, slave_freq] = chdb::lnb::band_voltage_freq_for_mux(lnb, mux);
 		if (mux.k.sat_pos != reserved_mux_->k.sat_pos || master_band != slave_band || master_voltage != slave_voltage)
 			return nullptr; // this cannot switch to proper band
 	}

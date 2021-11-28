@@ -1026,6 +1026,15 @@ std::ostream& chdb::operator<<(std::ostream& os, const lnb_network_t& lnb_networ
 	return os;
 }
 
+std::ostream& chdb::operator<<(std::ostream& os, const fe_polarisation_t& pol) {
+		stdex::printf(os, "%s",
+									pol == fe_polarisation_t::H	 ? "H"
+									: pol == fe_polarisation_t::V ? "V"
+									: pol == fe_polarisation_t::L ? "L"
+									: "R");
+		return os;
+}
+
 std::ostream& chdb::operator<<(std::ostream& os, const fe_band_pol_t& band_pol) {
 	// the int casts are needed (bug in std::printf?
 	stdex::printf(os, "%s-%s",
@@ -1324,7 +1333,7 @@ chdb::lnb_t chdb::lnb::new_lnb(int adapter_no, int16_t sat_pos, int dish_id, chd
 	c.k.lnb_id = on_rotor ? 0 : sat_pos;
 	c.k.lnb_type = chdb::lnb_type_t::UNIV;
 
-	c.polarisations = (1 << (int)chdb::fe_polarisation_t::H) | (1 << (int)chdb::fe_polarisation_t::V);
+	c.pol_type = chdb::lnb_pol_type_t::HV;
 	c.enabled = true;
 	c.mtime = system_clock_t::to_time_t(now);
 
@@ -1418,17 +1427,29 @@ std::tuple<uint32_t, uint32_t> chdb::lnb::lnb_frequency_range(const chdb::lnb_t&
 	return {low, high};
 }
 
-bool chdb::lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks) {
+bool chdb::lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_* error) {
 	auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
-	if (mux.frequency < freq_low || mux.frequency >= freq_high)
+	if (mux.frequency < freq_low || mux.frequency >= freq_high) {
+		if(error) {
+		error->sprintf("Frequency %.3fMhz out for range; must be between %.3fMhz and %.3fMhz",
+							 mux.frequency/(float)1000, freq_low/float(1000), freq_high/(float)1000);
+		}
 		return false;
-	if (!((1 << (uint8_t)mux.pol) & lnb.polarisations))
+	}
+	if (!chdb::lnb::can_pol(lnb, mux.pol)) {
+		if(error) {
+			*error << "Polarisation " << mux.pol << " not supported";
+		}
 		return false;
+	}
 	if (disregard_networks)
 		return true;
 	for (auto& network : lnb.networks) {
 		if (network.sat_pos == mux.k.sat_pos)
 			return true;
+	}
+	if(error) {
+		*error << "No network for  " << sat_pos_str(mux.k.sat_pos);
 	}
 	return false;
 }
@@ -1440,7 +1461,7 @@ bool chdb::lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& m
 
 	Reasons why lnb cannot tune mux: c_band lnb cannot tune ku-band mux; lnb has wrong polarisation
 */
-std::tuple<int, int, int> chdb::lnb::band_pol_freq_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
+std::tuple<int, int, int> chdb::lnb::band_voltage_freq_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
 	using namespace chdb;
 	int band = -1;
 	int voltage = -1;
@@ -1453,21 +1474,18 @@ std::tuple<int, int, int> chdb::lnb::band_pol_freq_for_mux(const chdb::lnb_t& ln
 	switch (lnb.k.lnb_type) {
 	case lnb_type_t::C: {
 		band = 0;
-		voltage = (mux.pol == fe_polarisation_t::H || mux.pol == fe_polarisation_t::L);
 	} break;
 	case lnb_type_t::UNIV: {
 		auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
 		band = (mux.frequency >= freq_mid);
-		voltage = (mux.pol == fe_polarisation_t::H || mux.pol == fe_polarisation_t::L);
 	} break;
 	case lnb_type_t::KU: {
 		band = 0;
-		voltage = (mux.pol == fe_polarisation_t::V || mux.pol == fe_polarisation_t::R);
 	} break;
 	default:
 		assert(0);
 	}
-
+	voltage = voltage_for_pol(lnb, mux.pol);
 	return std::make_tuple(band, voltage, frequency);
 }
 
@@ -1590,15 +1608,24 @@ db_tcursor<chdb::dvbs_mux_t> chdb::find_mux_by_key_or_frequency(db_txn& txn, chd
 
 chdb::dvbs_mux_t chdb::lnb::select_reference_mux(db_txn& rtxn, const chdb::lnb_t& lnb,
 																								 const chdb::dvbs_mux_t* proposed_mux) {
-	auto return_mux = [&rtxn](const chdb::lnb_network_t& network) {
+	auto return_mux = [&rtxn, &lnb](const chdb::lnb_network_t& network) {
 		auto c = dvbs_mux_t::find_by_key(rtxn, network.ref_mux);
-		if (c.is_valid())
-			return c.current();
-		c = dvbs_mux_t::find_by_key(rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
-																dvbs_mux_t::partial_keys_t::sat_pos);
-		if (c.is_valid())
-			return c.current();
-		return dvbs_mux_t();
+		if (c.is_valid()) {
+			auto mux = c.current();
+			if (chdb::lnb::can_pol(lnb, mux.pol))
+				return mux;
+		}
+			c = dvbs_mux_t::find_by_key(rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
+																	dvbs_mux_t::partial_keys_t::sat_pos);
+		if (c.is_valid()) {
+			auto mux = c.current();
+			if (chdb::lnb::can_pol(lnb, mux.pol))
+				return mux;
+		}
+		auto mux = dvbs_mux_t();
+		mux.k.sat_pos = network.sat_pos; //handle case where reference mux is absent
+		mux.pol = chdb::lnb::pol_for_voltage(lnb, 0); //select default
+		return mux;
 	};
 
 	using namespace chdb;
@@ -1628,7 +1655,7 @@ chdb::dvbs_mux_t chdb::lnb::select_reference_mux(db_txn& rtxn, const chdb::lnb_t
 		if (bestp && usals_is_close(bestp->usals_pos, lnb.usals_pos)) {
 			return return_mux(*bestp);
 		}
-		return dvbs_mux_t();
+		return dvbs_mux_t(); //  has sat_pos == sat_pos_none; no network present
 	}
 	return dvbs_mux_t(); // has sat_pos == sat_pos_none;
 }
@@ -1849,8 +1876,68 @@ bool chdb::toggle_channel_in_bouquet(db_txn& wtxn, const chg_t& chg, const chgm_
 	return true;
 }
 
-int chdb::lnb::voltage_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
-	return
-		((mux.pol == fe_polarisation_t::V || mux.pol == fe_polarisation_t::R) ^ lnb.swapped_polarisation)
-		? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+int chdb::lnb::voltage_for_pol(const chdb::lnb_t& lnb, const chdb::fe_polarisation_t pol) {
+	if(lnb::swapped_pol(lnb))
+		return
+		(pol == fe_polarisation_t::V || pol == fe_polarisation_t::R)
+			? SEC_VOLTAGE_18 : SEC_VOLTAGE_13;
+	else
+		return
+			(pol == fe_polarisation_t::V || pol == fe_polarisation_t::R)
+			? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+}
+
+chdb::fe_polarisation_t chdb::lnb::pol_for_voltage(const chdb::lnb_t& lnb, int voltage_) {
+	auto voltage = (fe_sec_voltage_t) voltage_;
+	if(voltage != SEC_VOLTAGE_18 && voltage != SEC_VOLTAGE_13)
+		return  chdb::fe_polarisation_t::UNKNOWN;
+	bool high_voltage = (voltage == SEC_VOLTAGE_18);
+	switch(lnb.pol_type) {
+	case chdb::lnb_pol_type_t::HV:
+		return high_voltage 	? chdb::fe_polarisation_t::H : chdb::fe_polarisation_t::V;
+	case chdb::lnb_pol_type_t::VH:
+		return (!high_voltage) 	? chdb::fe_polarisation_t::H : chdb::fe_polarisation_t::V;
+	case chdb::lnb_pol_type_t::LR:
+		return high_voltage 	? chdb::fe_polarisation_t::L : chdb::fe_polarisation_t::R;
+	case chdb::lnb_pol_type_t::RL:
+		return (!high_voltage) 	? chdb::fe_polarisation_t::L : chdb::fe_polarisation_t::R;
+	case chdb::lnb_pol_type_t::H:
+		return chdb::fe_polarisation_t::H;
+	case chdb::lnb_pol_type_t::V:
+		return chdb::fe_polarisation_t::V;
+	case chdb::lnb_pol_type_t::L:
+		return chdb::fe_polarisation_t::L;
+	case chdb::lnb_pol_type_t::R:
+		return chdb::fe_polarisation_t::R;
+	default:
+		return chdb::fe_polarisation_t::H;
+	}
+}
+
+bool chdb::lnb::can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol)
+{
+	switch(lnb.pol_type) {
+	case chdb::lnb_pol_type_t::HV:
+	case chdb::lnb_pol_type_t::VH:
+		return pol == chdb::fe_polarisation_t::H || pol == chdb::fe_polarisation_t::V;
+		break;
+	case chdb::lnb_pol_type_t::H:
+		return pol == chdb::fe_polarisation_t::H;
+		break;
+	case chdb::lnb_pol_type_t::V:
+		return pol == chdb::fe_polarisation_t::V;
+		break;
+	case chdb::lnb_pol_type_t::LR:
+	case chdb::lnb_pol_type_t::RL:
+		return pol == chdb::fe_polarisation_t::L || pol == chdb::fe_polarisation_t::R;
+		break;
+	case chdb::lnb_pol_type_t::L:
+		return pol == chdb::fe_polarisation_t::L;
+		break;
+	case chdb::lnb_pol_type_t::R:
+		return pol == chdb::fe_polarisation_t::R;
+		break;
+	default:
+		return false;
+	}
 }

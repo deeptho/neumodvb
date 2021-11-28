@@ -417,21 +417,23 @@ class TuneMuxPanel(TuneMuxPanel_):
     def ChangeLnb(self, lnb):
         add = False
         self.lnb = lnb
-        if has_network(lnb, self.sat.sat_pos):
+        if not on_rotor(lnb) and has_network(lnb, self.sat.sat_pos):
             # no change needed
             network=get_network(self.lnb, self.sat.sat_pos)
             self.parent.SetDiseqc12Position(network.diseqc12)
-            return
-        #we need to also select a different satellite
-        txn = wx.GetApp().chdb.rtxn()
-        mux = pychdb.lnb.select_reference_mux(txn, self.lnb, None)
-        sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos)
-        if mux.k.sat_pos == pychdb.sat.sat_pos_none:
-            mux.k.sat_pos = sat.sat_pos
-        del txn
+        else:
+            #we need to also select a different satellite
+            txn = wx.GetApp().chdb.rtxn()
+            mux = pychdb.lnb.select_reference_mux(txn, self.lnb, None)
+            sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos)
+            if sat is None:
+                mux.k.sat_pos = network.sat_pos
+            elif mux.k.sat_pos == pychdb.sat.sat_pos_none:
+                mux.k.sat_pos = sat.sat_pos
+            del txn
+            assert mux.k.sat_pos == sat.sat_pos
+            self.ChangeSat(sat)
         self.lnb_changed = False
-        assert mux.k.sat_pos == sat.sat_pos
-        self.ChangeSat(sat)
         self.parent.ChangeLnb(lnb) #update window title
         evt = LnbChangeEvent(lnb=lnb)
         wx.PostEvent(self, evt)

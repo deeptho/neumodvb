@@ -585,14 +585,14 @@ namespace  chdb::lnb {
 		voltage = 0 (V,R, 13V) or 1 (H, L, 18V) or 2 (off)
 		freq: frequency after LNB local oscilllator compensation
 	*/
-	std::tuple<int, int, int> band_pol_freq_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
+	std::tuple<int, int, int> band_voltage_freq_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
 	chdb::fe_band_t band_for_freq(const chdb::lnb_t& lnb, uint32_t frequency);
 
 	inline chdb::fe_band_t band_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
 		return band_for_freq(lnb, mux.frequency);
 }
 
-	int voltage_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
+	int voltage_for_pol(const chdb::lnb_t& lnb, const chdb::fe_polarisation_t pol);
 
   /*
 		translate driver frequency to real frequency
@@ -608,10 +608,12 @@ namespace  chdb::lnb {
 	bool add_network(chdb::lnb_t& lnb, chdb::lnb_network_t& network);
 
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const chdb::lnb_t& lnb);
+
+	bool can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol);
+	chdb::fe_polarisation_t pol_for_voltage(const chdb::lnb_t& lnb, int voltage);
+	inline bool swapped_pol(const chdb::lnb_t &  lnb) {
+		return lnb.pol_type == chdb::lnb_pol_type_t::VH || lnb.pol_type == chdb::lnb_pol_type_t::RL;
+	}
 }
 
-namespace  chdb::fe {
-
-
-}
 #pragma GCC visibility pop

@@ -100,14 +100,14 @@ class LnbTable(NeumoTable):
          CD(key='diseqc_10',  label='diseqc 10'),
          CD(key='diseqc_11',  label='diseqc 11'),
          CD(key='diseqc_mini',  label='diseqc mini'),
-         CD(key='tune_string',  label='tune_string'),
+         CD(key='tune_string',  label='tune\nstring'),
          CD(key='k.lnb_type',  label='LNB type', dfn=lambda x: lastdot(x)),
+         CD(key='pol_type',  label='POL\ntype', dfn=lambda x: lastdot(x), basic=False),
          CD(key='priority',  label='priority'),
-         CD(key='lof_offsets',  label='lof_offset', dfn=lof_offset_fn, example='-2000kHz; -20000kHz'),
+         CD(key='lof_offsets',  label='lof\noffset', dfn=lof_offset_fn, example='-2000kHz; -20000kHz'),
          CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
          CD(key='freq_low',   label='low freq', basic=False, dfn=freq_fn, example="10700.000"),
          CD(key='freq_high',   label='high freq', basic=False, dfn=freq_fn, example="10700.000"),
-         CD(key='swapped_polarisation',   label='swap\npol', basic=False),
         ]
 
     dvbt_columns =  \

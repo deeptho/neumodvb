@@ -60,7 +60,13 @@ class SpectrumButtons(SpectrumButtons_):
         self.parent.start_freq, self.parent.end_freq = rng
         self.start_freq_text.SetValue(str(self.parent.start_freq//1000))
         self.end_freq_text.SetValue(str(self.parent.end_freq//1000))
-
+        is_circ = lnb.pol_type in (pychdb.lnb_pol_type_t.LR, pychdb.lnb_pol_type_t.RL)
+        if is_circ:
+            self.spectrum_horizontal.SetLabel('L')
+            self.spectrum_vertical.SetLabel('R')
+        else:
+            self.spectrum_horizontal.SetLabel('H')
+            self.spectrum_vertical.SetLabel('V')
     def select_range_and_pols(self):
         self.spectrum_horizontal.SetValue(1)
         self.spectrum_vertical.SetValue(1)
@@ -72,14 +78,15 @@ class SpectrumButtons(SpectrumButtons_):
         ret = []
         self.parent.start_freq = int(self.start_freq_text.GetValue())*1000
         self.parent.end_freq = int(self.end_freq_text.GetValue())*1000
+        is_circ = self.parent.lnb.pol_type in (pychdb.lnb_pol_type_t.LR, pychdb.lnb_pol_type_t.RL)
         h, v, = self.spectrum_horizontal.GetValue(), \
             self.spectrum_vertical.GetValue()
         if v and h:
-            self.parent.pols_to_scan = [ p_t.H, p_t.V ]
+            self.parent.pols_to_scan = [ p_t.L, p_t.R ] if is_circ else [ p_t.H, p_t.V ]
         elif h:
-            self.parent.pols_to_scan = [ p_t.H ]
+            self.parent.pols_to_scan = [ p_t.L ] if is_circ else [ p_t.H ]
         elif v:
-            self.parent.pols_to_scan = [ p_t.V ]
+            self.parent.pols_to_scan = [ p_t.R ] if is_circ else [ p_t.V ]
 
 class SpectrumListPanel(SpectrumListPanel_):
     def __init__(self, parent, *args, **kwds):

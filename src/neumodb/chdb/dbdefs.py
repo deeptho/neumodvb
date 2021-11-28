@@ -111,6 +111,22 @@ lnb_type = db_enum(name='lnb_type_t',
                            'UNIV'
                            ))
 
+lnb_pol_type = db_enum(name='lnb_pol_type_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=(('UNKNOWN', -1),
+                           'HV',
+                           'LR',
+                           'VH', #inverted polarisation
+                           'RL',
+                           'H',
+                           'V',
+                           'L',
+                           'R'
+                           ))
+
 scan_status = db_enum(name='scan_status_t',
                    db = db,
                    storage = 'int8_t',
@@ -1017,9 +1033,8 @@ lnb = db_struct(name='lnb',
                           #i.e., the main satellite
                           (20, 'int16_t', 'usals_pos', 'sat_pos_none'),
 
-                          (2, 'uint8_t',  'polarisations', '0xff'), #bit flag indicating which polarisations can be used
+                          (2, 'lnb_pol_type_t',  'pol_type', 'lnb_pol_type_t::HV'), #bit flag indicating which polarisations can be used
                           (3, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
-                          (22, 'bool',  'swapped_polarisation', 'false'), #bit flag indicating if HL and RV are swapped
                           (4, 'int16_t',  'priority', -1), #
                           (5, 'int32_t', 'lof_low', -1), # local oscillator, -1 means default
                           (6, 'int32_t', 'lof_high', -1), # local oscillator, -1 means default

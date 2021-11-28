@@ -293,11 +293,9 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdse
 	int freq = cmdseq.props[i++].u.data;
 
 	mux.frequency = chdb::lnb::freq_for_driver_freq(lnb, freq, tone_on); // always in kHz
+	mux.pol =  chdb::lnb::pol_for_voltage(lnb, voltage);
 
-	//@todo: we cannot distinguish between L and H (and R and V)
-	mux.pol = voltage == SEC_VOLTAGE_13		? chdb::fe_polarisation_t::V
-		: voltage == SEC_VOLTAGE_18 ? chdb::fe_polarisation_t::H
-		: chdb::fe_polarisation_t::UNKNOWN;
+
 	if (mux.pol != pol) {
 		// dtdebugx("driver does not return proper voltage setting");
 		mux.pol = pol;
@@ -404,7 +402,7 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 	if (dvbs_mux) {
 		ret.stat.lnb_key = lnb.k;
 		ret.stat.pol = dvbs_mux->pol;
-		auto [band_, pol_, freq] = chdb::lnb::band_pol_freq_for_mux(lnb, *dvbs_mux);
+		auto [band_, pol_, freq] = chdb::lnb::band_voltage_freq_for_mux(lnb, *dvbs_mux);
 		band = band_;
 		pol = dvbs_mux->pol;
 		if(band < r->reserved_lnb.lof_offsets.size())
@@ -801,7 +799,7 @@ int dvb_frontend_t::send_positioner_message(chdb::positioner_cmd_t command, int3
 
 void dvb_frontend_t::set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, chdb::lnb_t& lnb) {
 
-	auto [band, pol_, freq_] = chdb::lnb::band_pol_freq_for_mux(lnb, dvbs_mux);
+	auto [band, voltage_, freq_] = chdb::lnb::band_voltage_freq_for_mux(lnb, dvbs_mux);
 	/*
 		extra_lof_offset is the currently observed offset, after having corrected LOF by
 		the last known value of lnb.lof_offsets[band]
@@ -987,7 +985,9 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		// we will need to call start_lnb_spectrum again later to retrieve (part of) the high band)
 		incomplete =
 			(options.band_pol.band == chdb::fe_band_t::LOW && scan.end_freq > mid_freq && mid_freq < options.end_freq) ||
-			(options.scan_both_polarisations && options.band_pol.pol == chdb::fe_polarisation_t::H);
+			(options.scan_both_polarisations &&
+			 (options.band_pol.pol == chdb::fe_polarisation_t::H ||
+				options.band_pol.pol == chdb::fe_polarisation_t::L));
 	}
 	{
 		auto ts = this->ts.writeAccess();
@@ -1002,9 +1002,11 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		auto lnb = this->adapter->reservation.readAccess()->reserved_lnb;
 		if (options.band_pol.band == chdb::fe_band_t::HIGH) {
 			// switch to the next polarisation
-			assert(options.band_pol.pol == chdb::fe_polarisation_t::H);
+			assert(options.band_pol.pol == chdb::fe_polarisation_t::H ||
+						 options.band_pol.pol == chdb::fe_polarisation_t::L);
 			options.band_pol.band = chdb::fe_band_t::LOW;
-			options.band_pol.pol = chdb::fe_polarisation_t::V;
+			options.band_pol.pol = options.band_pol.pol == chdb::fe_polarisation_t::H ?
+				chdb::fe_polarisation_t::V : chdb::fe_polarisation_t::R;
 			options.append = false;
 			dtdebugx("Continuing spectrum scan with pol=V band=low");
 		} else {
@@ -1012,7 +1014,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 			options.band_pol.band = chdb::fe_band_t::HIGH;
 			options.append = true;
 			dtdebugx("Continuing spectrum scan with pol=%s band=high",
-							 (options.band_pol.pol == chdb::fe_polarisation_t::H) ? "H" : "V");
+							 enum_to_str(options.band_pol.pol));
 		}
 		start_lnb_spectrum_scan(lnb, options);
 	}
@@ -1047,9 +1049,8 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 	cmdseq_t cmdseq;
 	this->num_constellation_samples = num_constellation_samples;
 	// auto lo_frequency = get_lo_frequency(mux.frequency);
-	auto [band, pol, frequency] = chdb::lnb::band_pol_freq_for_mux(lnb, mux);
-	int pol_is_v = ((int)mux.pol & 1);
-	assert(1 - pol_is_v == pol);
+	auto [band, voltage, frequency] = chdb::lnb::band_voltage_freq_for_mux(lnb, mux);
+	int pol_is_v = 1 - voltage;
 	cmdseq.add_clear();
 	if (blindscan) {
 		assert (api_type == api_type_t::NEUMO);
@@ -1185,9 +1186,8 @@ int dvb_frontend_t::tune(const chdb::dvbt_mux_t& mux, bool blindscan) {
 int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_scan_options_t options) {
 	this->num_constellation_samples = 0;
 	using namespace chdb;
-	fe_sec_voltage_t lnb_voltage =
-		(options.band_pol.pol == fe_polarisation_t::V || options.band_pol.pol == fe_polarisation_t::R) ? SEC_VOLTAGE_13
-		: SEC_VOLTAGE_18;
+	auto lnb_voltage = (fe_sec_voltage_t) chdb::lnb::voltage_for_pol(lnb, options.band_pol.pol);
+
 	fe_sec_tone_mode_t tone = (options.band_pol.band == fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 
 	dttime_init();

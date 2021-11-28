@@ -16,7 +16,7 @@ In simple satellite setups, adding an LNB entry is easy:
 
 First activate the LNB screen by selecting `LNBs` in the list menu. This screen will still be empty.
 Selecting `New` from the `Edit` menu will add one line to the table, which you will then need to edit.
-![screenshot](images/add_first_lnb.png)
+![screenshot](images/lnb_List.png)
 
 Two fields are crucial (`edit mode` needs to be on to change them):
 
@@ -65,6 +65,9 @@ In this case, you also need define the list of networks (satellites), that the p
 
 
 * `lnb type`. Change this in case of a C-band lnb. Currently it is not possible to change local oscillator frequencies.
+* `pol type`. HV for a regular linear LNB, LR for a regular circular one. The other options indicate LNBs with
+  swapped polarisations. E.g., a linar LNB rotated by 90 degrees or a circular one in which the depolarising plate
+  is rotated by 90 degrees.
 * `priority`. Change this to give preference to some LNBs when multiple ones can tune to the same satellite. LNBs
   with higher values are used preferentially
 * `lof_offset`. This is a read-only field. Afte rusing an LNB for a while, it will indicate any offset in the
@@ -75,8 +78,6 @@ can tune to
   is set to the default value for this lnb type, e.g., 10.7 Ghz for a universal LNB.
 * `end freq`. This sets the highest possible frequency the LNB can tune to. The special value -1 means that this
   is set to the default value for this lnb type, e.g., 12.75 Ghz for a universal LNB.
-* `swapped pol`. If this flag is set then the voltages set on the LNB are reversed: low becomes high and vice versa.
-  This is useful if your LNB is rotated, or if a dielectric plate has been inserted at a 90 degree angle.
 
 The screenshot below shows the networks for a movable dish which is allowed to move to 6 different satellite
 positions. In this table, you can add new lines (`Edit - New`) or edit existing Lines (activate `Edit mode`

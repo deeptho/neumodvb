@@ -295,7 +295,7 @@ public: //this data is safe to access from other threads
 
 	void update_lof(const ss::vector<int32_t,2>& lof_offsets);
 private:
-	int do_lnb_and_diseqc(chdb::fe_band_t band, chdb::fe_polarisation_t pol);
+	int do_lnb_and_diseqc(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage);
 	int do_lnb(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage);
 	int diseqc(const std::string& diseqc_command);
 	int clear();

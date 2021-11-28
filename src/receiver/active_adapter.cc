@@ -193,10 +193,10 @@ int active_adapter_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 	assert(cmux);
 	auto band = chdb::lnb::band_for_mux(lnb, *cmux);
 	if (need_diseqc) {
-		do_lnb_and_diseqc(band, cmux->pol);
+		do_lnb_and_diseqc(band, (fe_sec_voltage_t)chdb::lnb::voltage_for_pol(lnb, cmux->pol));
 		dtdebug("tune: do_lnb_and_diseqc done");
 	} else {
-		do_lnb(band, (fe_sec_voltage_t)chdb::lnb::voltage_for_mux(lnb, *cmux));
+		do_lnb(band, (fe_sec_voltage_t)chdb::lnb::voltage_for_pol(lnb, cmux->pol));
 		dtdebug("tune: do_lnb done");
 	}
 
@@ -370,18 +370,22 @@ int active_adapter_t::lnb_blind_scan(const chdb::lnb_t& lnb, tune_options_t tune
 int active_adapter_t::lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t tune_options) {
 	dttime_init();
 	// needs to be at very start!
+#if 0
 	bool need_diseqc = true;
-
+#endif
 	set_current_tp({});
 
 	set_current_lnb(lnb);
-
+#if 0
 	if (need_diseqc) {
 		auto band = tune_options.spectrum_scan_options.band_pol.band;
 		auto pol = tune_options.spectrum_scan_options.band_pol.pol;
-		do_lnb_and_diseqc(band, pol);
+		auto voltage = ((pol == fe_polarisation_t::V || pol == fe_polarisation_t::R) ^ lnb.swapped_polarisation)
+		? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+		do_lnb_and_diseqc(band, voltage);
 	}
 	dtdebug("tune: diseqc done");
+#endif
 	int ret = current_fe->start_lnb_spectrum_scan(lnb, tune_options.spectrum_scan_options);
 	dttime(100);
 	return ret;
@@ -691,7 +695,7 @@ int active_adapter_t::do_lnb(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage)
  * @param hi_lo : the band for a dual band lnb
  * @param lnb_voltage_off : if one, force the 13/18V voltage to be 0 independantly of polarisation
  */
-int active_adapter_t::do_lnb_and_diseqc(chdb::fe_band_t band, chdb::fe_polarisation_t pol) {
+int active_adapter_t::do_lnb_and_diseqc(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) {
 	if (!current_fe)
 		return -1;
 	/*TODO: compute a new diseqc_command string based on
@@ -717,8 +721,6 @@ int active_adapter_t::do_lnb_and_diseqc(chdb::fe_band_t band, chdb::fe_polarisat
 
 	auto fefd = current_fe->ts.readAccess()->fefd;
 
-	fe_sec_voltage_t lnb_voltage =
-		(pol == fe_polarisation_t::V || pol == fe_polarisation_t::R) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
 	if (pol_band_diseqc_status.set_voltage(lnb_voltage)) {
 		if ((ret = ioctl(fefd, FE_SET_VOLTAGE, lnb_voltage))) {
 			dterror("problem Setting the Voltage\n");

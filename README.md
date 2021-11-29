@@ -103,5 +103,7 @@ See the sections below to learn how to perform initial configuration of neumoDVB
 
 ## [Positioner control](docs/positioner.md) ##
 
+## [Filtering lists](docs/lists.md) ##
+
 
 ## [GUI Design in neumoDVB](docs/gui_design.md) ##

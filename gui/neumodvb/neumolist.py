@@ -391,7 +391,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         pass
 
     def FinalizeUnsavedEdits(self):
-        assert false
+        assert False
 
     def Undo(self):
         """ Undo's the last operation
@@ -836,6 +836,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
         self.Bind(wx.grid.EVT_GRID_LABEL_LEFT_CLICK, self.OnToggleSort)
     def OnDone(self, event):
+        self.EnableCellEditControl(enable=False)
         pass
 
     def OnShowHide(self, event):

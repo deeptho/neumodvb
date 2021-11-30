@@ -29,7 +29,7 @@ import numbers
 
 from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
-from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer
+from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 
 
@@ -50,18 +50,31 @@ class ChgTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'name'
         data_table= pychdb.chg
+
+        screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
+
         super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
+                          screen_getter = screen_getter,
                          record_t=pychdb.chg.chg, initial_sorted_column = initial_sorted_column,
                          **kwds)
 
-    def __new_record__(self):
-        ret=self.record_t()
-        return ret
+    def screen_getter_xxx(self, txn, sort_order):
+        match_data, matchers = self.get_filter_()
+        screen = pychdb.chg.screen(txn, sort_order=sort_order,
+                                   field_matchers=matchers, match_data = match_data)
+        self.screen = screen_if_t(screen)
 
     def __save_record__(self, txn, record):
         pychdb.chg.make_unique_if_template(txn, record)
         pychdb.put_record(txn, record) #this will overwrite any mux with given ts_id even if frequency is very wrong
         return record
+
+    def __new_record__(self):
+        ret=self.record_t()
+        return ret
+
+
+
 
 class ChgGridBase(NeumoGridBase):
     def OnKeyDown(self, evt):

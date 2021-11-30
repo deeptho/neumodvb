@@ -44,12 +44,13 @@ class SatTable(NeumoTable):
 
     def InitialRecord(self):
 
-        if self.parent.sat is not None:
-            #Todo: improve this ugliness
-            #If we are part of positioner or spectrum dialig, use the sat selected there
+        self.sat = getattr(self.parent, "sat", None)
+        #Todo: improve this ugliness
+        #If we are part of positioner or spectrum dialig, use the sat selected there
+        if self.sat:
             self.sat = self.parent.sat
             return self.sat
-        fn = getattr(self.parent.controller, "CurrentSatAndMux", None)
+        fn = getattr(getattr(self.parent, "controller", None), "CurrentSatAndMux", None)
         if fn is not None:
             #Todo: improve this ugliness
             #If we are part of positioner or spectrum dialig, use the sat selected there
@@ -79,15 +80,17 @@ class SatTable(NeumoTable):
                          **kwds)
 
     def screen_getter_xxx(self, txn, sort_order):
-        sort_order = pychdb.sat.subfield_from_name('sat_pos')<<24
-        screen = pychdb.sat.screen(txn, sort_order=sort_order)
+        match_data, matchers = self.get_filter_()
+        screen = pychdb.sat.screen(txn, sort_order=sort_order,
+                                   field_matchers=matchers, match_data = match_data)
         if screen.list_size==0:
             from neumodvb.init_db import init_db
             dtdebug("Empty database; adding sats")
             txn.abort()
             init_db()
             txn = self.db.rtxn()
-            screen = pychdb.sat.screen(txn, sort_order=sort_order)
+            screen = pychdb.sat.screen(txn, sort_order=sort_order,
+                                       field_matchers=matchers, match_data = match_data)
         self.screen = screen_if_t(screen)
 
     def __save_record__(self, txn, record):

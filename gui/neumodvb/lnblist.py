@@ -29,7 +29,7 @@ import regex as re
 
 from neumodvb import neumodbutils
 from neumodvb.util import setup, lastdot
-from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer, lnb_network_str
+from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import dtdebug, dterror
 from neumodvb.lnbnetwork_dialog import  LnbNetworkDialog
@@ -121,13 +121,22 @@ class LnbTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'k.adapter_no'
         data_table= pychdb.lnb
+
+        screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
+
         if basic:
             CD = NeumoTable.CD
             self.all_columns= self.basic_columns
         super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
-                         record_t=pychdb.lnb.lnb,
-                         initial_sorted_column = initial_sorted_column,
+                         screen_getter = screen_getter,
+                         record_t=pychdb.lnb.lnb, initial_sorted_column = initial_sorted_column,
                          **kwds)
+
+    def screen_getter_xxx(self, txn, sort_order):
+        match_data, matchers = self.get_filter_()
+        screen = pychdb.lnb.screen(txn, sort_order=sort_order,
+                                   field_matchers=matchers, match_data = match_data)
+        self.screen = screen_if_t(screen)
 
     def matching_sat(self, txn, sat_pos):
         sats = wx.GetApp().get_sats()

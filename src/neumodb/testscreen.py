@@ -3,6 +3,7 @@ import sys
 import os
 sys.path.insert(0, '../../x86_64/target/lib64/')
 sys.path.insert(0, '../../build/src/neumodb/chdb')
+sys.path.insert(0, '../../build/src/neumodb/epgdb')
 sys.path.insert(0, '../../build/src/neumodb/statdb')
 sys.path.insert(0, '../../build/src/stackstring/')
 import pychdb
@@ -101,7 +102,7 @@ if False: #works
     v=pychdb.service.list_all_by_name(txn)
 
 
-if False:
+if True:
     db = pychdb.chdb()
     db.open("/mnt/neumo/db/chdb.mdb/")
     subfield = pychdb.service.subfield_from_name('ch_order')<<24
@@ -126,34 +127,34 @@ if False:
         print(f"{str(ll.media_mode).removeprefix('media_mode_t.')}: {ll.name}")
 
 
+if False:
+    db = pychdb.chdb()
+    db.open("/mnt/neumo/db/chdb.mdb/")
+    txn=db.rtxn()
 
-db = pychdb.chdb()
-db.open("/mnt/neumo/db/chdb.mdb/")
-txn=db.rtxn()
+    chg = None
+    chgm = None
+    sort_order = pychdb.chgm.subfield_from_name('oldchannel_id')<<24
+    screen = pychdb.chgm.screen(txn, sort_order=sort_order)
 
-chg = None
-chgm = None
-sort_order = pychdb.chgm.subfield_from_name('oldchannel_id')<<24
-screen = pychdb.chgm.screen(txn, sort_order=sort_order)
+    r=screen.record_at_row(10)
+    data=[ screen.record_at_row(rowno) for rowno in range(screen.list_size)]
+    txn.abort()
+    txn = db.wtxn()
+    for idx, d  in enumerate(data):
+        d.service = d.k.oldservice
+        d.k.channel_id = d.oldchannel_id
+        data[idx] =d
+        #pychdb.put_record(txn, d)
+        if d.oldchannel_id != d.k.channel_id:
+            print('BAD')
+        if d.service.service_id != d.k.oldservice.service_id:
+            print('BAD')
 
-r=screen.record_at_row(10)
-data=[ screen.record_at_row(rowno) for rowno in range(screen.list_size)]
-txn.abort()
-txn = db.wtxn()
-for idx, d  in enumerate(data):
-    d.service = d.k.oldservice
-    d.k.channel_id = d.oldchannel_id
-    data[idx] =d
-    #pychdb.put_record(txn, d)
-    if d.oldchannel_id != d.k.channel_id:
-        print('BAD')
-    if d.service.service_id != d.k.oldservice.service_id:
-        print('BAD')
-
-    #print(f'{d.oldchannel_id} {d.k.channel_id}')
-    #print(f'{d.k.service.service_id} {d.oldservice.service_id}')
-    #print(f'{d.k.oldservice} {d.service}')
-txn.commit()
+        #print(f'{d.oldchannel_id} {d.k.channel_id}')
+        #print(f'{d.k.service.service_id} {d.oldservice.service_id}')
+        #print(f'{d.k.oldservice} {d.service}')
+    txn.commit()
 
 """
 1. init(self: pychdb.service.service_screen, db_txn: pychdb.db_txn, ref: pychdb.service.service = None, num_record: int = -1, offset: int = 0) -> None

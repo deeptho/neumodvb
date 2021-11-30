@@ -30,7 +30,7 @@ import regex as re
 
 from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
-from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer, lnb_network_str
+from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 
 import pystatdb
@@ -64,12 +64,22 @@ class SpectrumTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'k.start_time'
         data_table= pystatdb.spectrum
+
+        screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
+
         super().__init__(*args, parent=parent, basic=basic, db_t=pystatdb, data_table = data_table,
-                         record_t=pystatdb.spectrum.spectrum,
-                         initial_sorted_column = initial_sorted_column,
+                         screen_getter = screen_getter,
+                         record_t=pystatdb.spectrum.spectrum, initial_sorted_column = initial_sorted_column,
                          sort_order=2, #most recent on top
                          **kwds)
         self.app = wx.GetApp()
+
+    def screen_getter_xxx(self, txn, sort_order):
+        match_data, matchers = self.get_filter_()
+        screen = pystatdb.spectrum.screen(txn, sort_order=sort_order,
+                                   field_matchers=matchers, match_data = match_data)
+        self.screen = screen_if_t(screen)
+
 
     def __save_record__(self, txn, record):
         pystatdb.put_record(txn, record)

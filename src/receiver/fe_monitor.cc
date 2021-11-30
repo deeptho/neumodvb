@@ -61,7 +61,7 @@ void fe_monitor_thread_t::monitor_signal() {
 	bool get_constellation{true};
 
 	chdb::signal_info_t info;
-		fe->get_signal_info(info, get_constellation);
+	fe->get_signal_info(info, get_constellation);
 	bool verbose = false;
 	if (verbose) {
 		dtdebug("------------------------------------------------------");

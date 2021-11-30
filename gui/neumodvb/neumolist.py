@@ -231,6 +231,7 @@ class MyColLabelRenderer(glr.GridLabelRenderer):
     def __init__(self, bgcolour, fgcolour):
         #super().__init__()
         self.bgcolour_ = bgcolour
+        self.highlight_color = wx.Colour('#e0ffe0')
         self.fgcolour_ = fgcolour
         if MyColLabelRenderer.sort_icons is None:
              MyColLabelRenderer.sort_icons = [
@@ -241,9 +242,14 @@ class MyColLabelRenderer(glr.GridLabelRenderer):
         self.sort_bitmap_width = self.sort_icons[1].Width
 
     def Draw(self, grid, dc, rect, col):
-        dc.SetBrush(wx.Brush(self.bgcolour_))
-        dc.SetPen(wx.TRANSPARENT_PEN)
-        dc.DrawRectangle(rect)
+        if (grid.col_select_mode and col == grid.table.sort_colno) or col in grid.table.filtered_colnos:
+            dc.SetBrush(wx.Brush(self.highlight_color ))
+            #dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(rect)
+        else:
+            dc.SetBrush(wx.Brush(self.bgcolour_ ))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(rect)
         hAlign, vAlign = grid.GetColLabelAlignment()
         text = grid.GetColLabelValue(col)
 
@@ -274,6 +280,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         self.new_rows = set()
         self.undo_list = []
         self.unsaved_edit_undo_list = []
+        self.filtered_colnos = set()
         self.parent = parent
 
     def needs_highlight(self, record):
@@ -315,11 +322,11 @@ class NeumoTableBase(wx.grid.GridTableBase):
 
     def GetValue(self, rowno, colno):
         try:
-            return self.GetValue_(rowno, colno)
+            return self.GetValue_text(rowno, colno)
         except:
             return colno if colno is None else '?????'
 
-    def GetValue_(self, rowno, colno):
+    def GetValue_text(self, rowno, colno):
         if rowno <0 or rowno > self.GetNumberRows():
             dtdebug(f"ILLEGAL rowno: rowno={rowno} len={len(data)}")
         rec = self.GetRow(rowno)
@@ -334,12 +341,24 @@ class NeumoTableBase(wx.grid.GridTableBase):
         txt = str(field) if col.dfn is None else str(col.dfn((rec, field)) )
         return txt
 
+    def GetValue_raw(self, rowno, colno):
+        if rowno <0 or rowno > self.GetNumberRows():
+            dtdebug(f"ILLEGAL rowno: rowno={rowno} len={len(data)}")
+        rec = self.GetRow(rowno)
+        if colno is None:
+            return rec
+        col = self.columns[colno]
+        if col.key == 'icons':
+            return ''
+        field = neumodbutils.get_subfield(rec, col.key)
+        return field
+
     def SetValue(self, rowno, colno, val):
         try:
             if rowno == self.row_being_edited:
                 rec = self.record_being_edited
             else:
-                rec =  self.screen.record_at_row(rowno)
+                rec =  self.GetRow(rowno)
         except:
             dterror(f"row {rowno} out of range {self.GetNumberRows()}")
         key = self.columns[colno].key
@@ -425,7 +444,8 @@ class NeumoTableBase(wx.grid.GridTableBase):
         """
         retrieve the list
         """
-        return self.filter_record
+        assert 0
+        return None
 
     def reload(self):
         pass
@@ -453,6 +473,7 @@ class NeumoTable(NeumoTableBase):
         super().__init__(parent, *args, **kwds)
         self.record_t = record_t
         self.db_t = db_t
+        self.filter_record = self.record_t()
         self.columns = [col for col in self.all_columns if col.basic ] if basic else self.all_columns
         self.data_table = data_table
         self.sort_columns =  [initial_sorted_column] if type(initial_sorted_column) == str \
@@ -521,6 +542,23 @@ class NeumoTable(NeumoTableBase):
             else:
                 self.parent.UnColourRow(rowno)
         return ret
+
+    def get_filter_(self):
+        if len(self.filtered_colnos) == 0:
+            return None, None
+        match_data = self.filter_record
+        matchers = pychdb.field_matcher_t_vector()
+        for colno in self.filtered_colnos:
+            col = self.columns[colno]
+            coltype = type(neumodbutils.get_subfield(self.record_t(), col.key))
+            matchtype = pychdb.field_matcher.match_type.EQ
+            if coltype == str:
+                matchtype = pychdb.field_matcher.match_type.STARTSWITH
+            m = pychdb.field_matcher.field_matcher(self.data_table.subfield_from_name(col.key),
+                                                       matchtype)
+
+            matchers.push_back(m)
+        return match_data, matchers
 
 
     def Backup(self, operation, rowno, oldrecord, newrecord):
@@ -773,6 +811,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.SetBackgroundColour(wx.Colour('black'))
             self.SetDefaultCellBackgroundColour(wx.Colour('black'))
             self.SetDefaultCellTextColour(wx.Colour('white'))
+        self.col_select_mode = False
         self.grid_specific_menu_items=[]
         self.infow = None
         self.coloured_rows= set()
@@ -813,15 +852,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.SetLabelTextColour(wx.Colour('white'))
             self.SetLabelBackgroundColour(bg)
         self.my_col_label_renderer = MyColLabelRenderer(bg, fg)
-        # We can set the sizes of individual rows and columns
-        # in pixels
-        #self.SetRowSize(0, 60)
-        #self.SetColSize(0, 120)
 
-        # We can specify the some cells will store numeric
-        # values rather than strings. Here we set grid column 5
-        # to hold floating point values displayed with width of 6
-        # and precision of 2
         self.HideRowLabels()
         #self.SetDefaultCellBackgroundColour('yellow')
         #self.Bind ( wx.EVT_WINDOW_DESTROY, self.OnDestroyWindow )
@@ -832,7 +863,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.Bind ( wx.grid.EVT_GRID_EDITOR_CREATED, self.OnGridEditorCreated)
         self.Bind ( wx.grid.EVT_GRID_EDITOR_SHOWN, self.OnGridEditorShown)
         self.__make_columns__()
-        self.Bind(wx.grid.EVT_GRID_LABEL_RIGHT_CLICK, self.OnRightClicked)
+        self.Bind(wx.grid.EVT_GRID_LABEL_RIGHT_CLICK, self.OnColumnMenu)
+        self.Bind(wx.grid.EVT_GRID_CELL_RIGHT_CLICK, self.OnColumnMenu)
 
         self.Bind(wx.grid.EVT_GRID_LABEL_LEFT_CLICK, self.OnToggleSort)
     def OnDone(self, event):
@@ -964,7 +996,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 editor = None
         if readonly:
             attr.SetReadOnly(True)
-            #attr.SetBackgroundColour('red')
         if renderer is not None:
             attr.SetRenderer(renderer)
         else:
@@ -1031,38 +1062,46 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 attr.SetEditor(None)
                 self.SetColAttr(idx, attr)
 
-    def OnRightClicked(self, evt):
-        # Did we click on a row or a column?
-        row, col = evt.GetRow(), evt.GetCol()
-        if row == -1:
-            self.colPopup(col, evt)
-        #elif col == -1: self.rowPopup(row, evt)
-
-    def colPopup(self, col, evt):
+    def OnColumnMenu(self, evt):
         """(col, evt) -> display a popup menu when a column label is
         right clicked"""
+        row, col = evt.GetRow(), evt.GetCol()
         x = self.GetColSize(col)/2
         menu = wx.Menu()
-        id1 = wx.NewIdRef()
-        sortID = wx.NewIdRef()
-
-        xo, yo = evt.GetPosition()
-        self.SelectCol(col)
-        cols = self.GetSelectedCols()
         self.Refresh()
-        menu.Append(id1, "Filter Column")
-        menu.Append(sortID, "Sort Column")
+        it = wx.MenuItem(None, text="Filter Column", id=col)
+        it.rowno=row
+        menu.Append(it)
 
-        def sort(event, self=self, col=col):
-            self.table.SortColumn(col.key)
-            self.Refresh()
+        it = wx.MenuItem(None, text="Remove Filter", id=col+100)
+        it.rowno=row
+        menu.Append(it)
 
-        self.Bind(wx.EVT_MENU, lambda evt: self.MoveToChno(ask_channel_number(self, None)), id=id1)
-        self.Bind(wx.EVT_MENU, sort, id=sortID)
+
+        self.Bind(wx.EVT_MENU, self.ShowFilter)
 
         self.PopupMenu(menu)
         menu.Destroy()
         return
+
+    def ShowFilter(self, event):
+        from neumodvb.filter_dialog import FilterDialog
+        menu = event.GetEventObject()
+        rowno=menu.FindItemById(event.Id).rowno
+        remove = event.Id >= 100
+        colno = event.Id if event.Id < 100 else (event.Id - 100)
+        filter_value = self.table.GetValue_raw(rowno, colno) if not remove and rowno>=0 else None
+        if remove:
+            self.table.filtered_colnos.remove(colno)
+        else:
+            dlg = FilterDialog(self, title="Filter Column",
+                               basic=True, readonly=False)
+
+            dlg.Prepare(new_filter_colno = colno, filter_value=filter_value)
+            dlg.ShowModal()
+            dlg.Destroy()
+            del dlg
+        self.OnRefresh(evt=None)
 
     def OnRowSelect(self, rowno):
         self.selected_row = rowno

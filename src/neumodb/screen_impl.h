@@ -565,26 +565,6 @@ int screen_t<record_t>::set_reference(int row_number)
 	return count;
 }
 
-//used by chepg_screen, but also service_screen (when listing only services on one sat)
-template <typename record_t>
-screen_t<record_t>::screen_t
-(db_txn& txn, uint32_t sort_order_,
- typename record_t::partial_keys_t key_prefix_type_,
- const record_t *key_prefix_data_, const record_t* lower_limit_
- #ifdef USE_END_TIME
- , const record_t* upper_limit_
-#endif
-	)
-	: screen_t(dynamic_key_t(sort_order_), key_prefix_type_, key_prefix_data_,
-						 lower_limit_
-#ifdef USE_END_TIME
-						 , upper_limit_
-#endif
-		) {
-
-	this->init(txn,  -1, 0);
-}
-
 //used by gridepg_screen and by channel epg screen
 template <typename record_t>
 screen_t<record_t>::screen_t
@@ -608,10 +588,20 @@ screen_t<record_t>::screen_t
 template <typename record_t>
 screen_t<record_t>::screen_t
 (db_txn& txn, uint32_t sort_order_,
-				 const ss::vector_<field_matcher_t>* field_matchers_,
-				 const record_t* match_data_
+ typename record_t::partial_keys_t key_prefix_type_,
+ const record_t *key_prefix_data_, const record_t* lower_limit_,
+#ifdef USE_END_TIME
+ , const record_t* upper_limit_
+#endif
+ const ss::vector_<field_matcher_t>* field_matchers_,
+ const record_t* match_data_
+	)
+	: screen_t(dynamic_key_t(sort_order_), key_prefix_type_, key_prefix_data_,
+						 lower_limit_
+#ifdef USE_END_TIME
+						 , upper_limit_
+#endif
 		)
-	: screen_t(dynamic_key_t(sort_order_))
 {
 	if(field_matchers_) {
 		field_matchers = *field_matchers_;

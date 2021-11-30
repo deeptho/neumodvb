@@ -144,18 +144,22 @@ class ServiceTable(NeumoTable):
         return record
 
     def screen_getter_xxx(self, txn, sort_order):
+        match_data, matchers = self.get_filter_()
         if self.parent.restrict_to_sat:
             sat, service = self.parent.CurrentSatAndService()
             ref = pychdb.service.service()
             ref.k.mux.sat_pos = sat.sat_pos
             txn = self.db.rtxn()
             screen = pychdb.service.screen(txn, sort_order=sort_order,
-                                           key_prefix_type=pychdb.service.service_prefix.sat_pos, key_prefix_data=ref)
+                                           key_prefix_type=pychdb.service.service_prefix.sat_pos,
+                                           key_prefix_data=ref,
+                                           field_matchers=matchers, match_data = match_data)
             txn.abort()
         else:
             sat = None
             service = None
-            screen = pychdb.service.screen(txn, sort_order=sort_order)
+            screen = pychdb.service.screen(txn, sort_order=sort_order,
+                                           field_matchers=matchers, match_data = match_data)
         self.screen = screen_if_t(screen)
 
     def __new_record__(self):

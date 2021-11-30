@@ -31,7 +31,7 @@ import regex as re
 
 from neumodvb.util import lastdot
 from neumodvb import neumodbutils
-from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer, lnb_network_str
+from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 
 import pyrecdb
@@ -69,9 +69,19 @@ class RecTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'real_time_start'
         data_table= pyrecdb.rec
+
+        screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
+
         super().__init__(*args, parent=parent, basic=basic, db_t=pyrecdb, data_table= data_table,
+                         screen_getter = screen_getter,
                          record_t = pyrecdb.rec.rec, initial_sorted_column = initial_sorted_column, **kwds)
         self.app = wx.GetApp()
+
+    def screen_getter_xxx(self, txn, sort_order):
+        match_data, matchers = self.get_filter_()
+        screen = pyrecdb.rec.screen(txn, sort_order=sort_order,
+                                   field_matchers=matchers, match_data = match_data)
+        self.screen = screen_if_t(screen)
 
     def __save_record__(self, txn, record):
         pyrecdb.put_record(txn, record)

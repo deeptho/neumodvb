@@ -239,16 +239,6 @@ private:
 		{
   }
 public:
-
-	//used by chepg_screen, but also service_screen (when listing only services on one sat)
-	screen_t(db_txn& txn, uint32_t sort_order_,
-					 typename record_t::partial_keys_t key_prefix_type_ = record_t::partial_keys_t::none,
-					 const record_t *key_prefix_data_ = nullptr, const record_t* lower_limit_ = nullptr
-#ifdef USE_END_TIME
-					 , const record_t* upper_limit_ = nullptr
-#endif
-		);
-
 	//used by gridepg_screen
 	screen_t(db_txn& txn, std::shared_ptr<neumodb_t>& tmpdb, uint32_t sort_order_,
 					 typename record_t::partial_keys_t key_prefix_type_ = record_t::partial_keys_t::none,
@@ -259,6 +249,11 @@ public:
 		);
 
 	screen_t(db_txn& txn, uint32_t sort_order_,
+					 typename record_t::partial_keys_t key_prefix_type_ = record_t::partial_keys_t::none,
+					 const record_t *key_prefix_data_ = nullptr, const record_t* lower_limit_ = nullptr,
+#ifdef USE_END_TIME
+					 , const record_t* upper_limit_ = nullptr
+#endif
 					 const ss::vector_<field_matcher_t>* field_matchers_ =nullptr,
 					 const record_t* match_data_ = nullptr
 		);

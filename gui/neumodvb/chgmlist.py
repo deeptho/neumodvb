@@ -129,18 +129,21 @@ class ChgmTable(NeumoTable):
         return record
 
     def screen_getter_xxx(self, txn, sort_order):
+        match_data, matchers = self.get_filter_()
         if  self.parent.restrict_to_chg:
             chg, chgm = self.parent.CurrentChgAndChgm()
             ref = pychdb.chgm.chgm()
             ref.k.chg = chg.k
             txn = self.db.rtxn()
             screen = pychdb.chgm.screen(txn, sort_order=sort_order,
-                                           key_prefix_type=pychdb.chgm.chgm_prefix.chg, key_prefix_data=ref)
+                                           key_prefix_type=pychdb.chgm.chgm_prefix.chg, key_prefix_data=ref,
+                                        field_matchers=matchers, match_data = match_data)
             txn.abort()
         else:
             chg = None
             chgm = None
-            screen = pychdb.chgm.screen(txn, sort_order=sort_order)
+            screen = pychdb.chgm.screen(txn, sort_order=sort_order,
+                                        field_matchers=matchers, match_data = match_data)
         self.screen=screen_if_t(screen)
 
     def __new_record__(self):

@@ -30,7 +30,7 @@ import regex as re
 
 from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
-from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer
+from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer
 from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb.neumodbutils import enum_to_str
 
@@ -65,9 +65,19 @@ class FrontendTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'k.adapter_no'
         data_table= pychdb.fe
+
+        screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
+
         super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
+                         screen_getter = screen_getter,
                          record_t=pychdb.fe.fe, initial_sorted_column = initial_sorted_column,
                          **kwds)
+
+    def screen_getter_xxx(self, txn, sort_order):
+        match_data, matchers = self.get_filter_()
+        screen = pychdb.fe.screen(txn, sort_order=sort_order,
+                                   field_matchers=matchers, match_data = match_data)
+        self.screen = screen_if_t(screen)
 
     def __save_record__(self, txn, record):
         dtdebug(f'saving {record.k.adapter_no}')

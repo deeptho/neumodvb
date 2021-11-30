@@ -46,8 +46,11 @@ class MuxInfoTextCtrl(wx.TextCtrl):
             self.AppendText("Blue on grey text\n")
         self.last_scan_text = ""
 
-    def ShowRecord(self, rec):
-        if rec is None:
+    def ShowRecord(self, mux):
+        if mux is None:
+            h = wx.GetApp().receiver.browse_history
+            sat = h.h.dvbs_muxlist_filter_sat
+            self.ChangeValue(f"{str(sat)}: No muxes")
             return
         dt =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
         e = lambda x: enum_to_str(x)
@@ -55,7 +58,7 @@ class MuxInfoTextCtrl(wx.TextCtrl):
         large = self.GetFont()
         large.SetPointSize(int(f.GetPointSize()*1.5))
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
-        self.ChangeValue(f"{str(rec)}: {rec.c.num_services} services.")
+        self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")
         app = wx.GetApp()
         if app.scan_subscription_id>=0:
             self.SetDefaultStyle(wx.TextAttr(wx.RED, font=large.Bold()))
@@ -65,14 +68,3 @@ class MuxInfoTextCtrl(wx.TextCtrl):
                 ok = st.finished_muxes - st.failed_muxes
                 self.last_scan_text = f" {ok} ok /{st.failed_muxes} failed / {pending} pending"
                 self.AppendText(self.last_scan_text)
-        if False:
-            self.SetDefaultStyle(wx.TextAttr(wx.RED, font=f))
-            self.AppendText(f"{rec.mux_desc} nid={rec.k.mux.network_id} tid={rec.k.mux.ts_id} ")
-            self.AppendText(f"sid={rec.k.service_id} pmt={rec.pmt_pid}\n\n")
-            self.SetDefaultStyle(wx.TextAttr(wx.BLACK, font=f))
-
-            self.AppendText(f"Provider: {rec.provider}\n")
-            self.AppendText(f"Modified: {dt(rec.mtime)}\n")
-            exp = "Yes" if rec.expired else "No"
-            enc = "Yes" if rec.encrypted else "No"
-            self.AppendText(f"Encrypted: {enc} Expired: {exp}\n")

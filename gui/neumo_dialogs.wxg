@@ -336,7 +336,7 @@
                                     <flag>wxEXPAND</flag>
                                     <object class="wxTextCtrl" name="service_name_text" base="EditTextCtrl">
                                         <style>wxTE_READONLY</style>
-                                        <value>test</value>
+                                        <value></value>
                                     </object>
                                 </object>
                                 <object class="sizeritem">

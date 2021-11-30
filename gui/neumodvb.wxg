@@ -297,7 +297,7 @@
                                     <object class="MuxInfoTextCtrl" name="dvbs_muxinfo_text" base="EditTextCtrl">
                                         <extracode>from neumodvb.muxinfo import MuxInfoTextCtrl</extracode>
                                         <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_NO_VSCROLL</style>
-                                        <value>test</value>
+                                        <value></value>
                                     </object>
                                 </object>
                             </object>

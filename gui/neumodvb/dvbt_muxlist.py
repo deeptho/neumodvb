@@ -18,6 +18,7 @@
 #
 import wx
 import wx.grid
+
 import sys
 import os
 import copy
@@ -25,7 +26,6 @@ from collections import namedtuple, OrderedDict
 import numbers
 import datetime
 from dateutil import tz
-import regex as re
 
 from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror

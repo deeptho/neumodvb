@@ -602,8 +602,8 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 			auto* lnb_network = chdb::lnb::get_network(current_lnb(), mux->k.sat_pos);
 			if (!lnb_network) {
 				dterror("No network found");
-			} else {
-				lnb_update_usals_pos(lnb_network->sat_pos); // this is not usals!
+			} else {// this is not usals!
+				lnb_update_usals_pos(lnb_network->sat_pos);
 				ret = current_fe->send_diseqc_message('X', lnb_network->diseqc12, 0, repeated);
 				if (ret < 0) {
 					dterror("Sending Committed DiseqC message failed");
@@ -834,15 +834,30 @@ int active_adapter_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
 }
 
 void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
+	int dish_id = tuned_lnb.readAccess()->k.dish_id;
+	auto wtxn = receiver.chdb.wtxn();
+	auto c = chdb::find_first<chdb::lnb_t>(wtxn);
+	int num_rotors = 0; //for sanity check
+	for(auto lnb : c.range()) {
+		if(lnb.k.dish_id != dish_id || !chdb::on_rotor(lnb))
+			continue;
+		num_rotors++;
+		lnb.usals_pos = usals_pos;
+		put_record(wtxn, lnb);
+	}
+	if (num_rotors == 0) {
+		dterrorx("None of the LNBs for dish %d seems to be on a rotor", dish_id);
+		wtxn.abort();
+		return;
+	}
+	wtxn.commit();
+
 	auto w = tuned_lnb.writeAccess();
 	auto& lnb = *w;
 	if (usals_pos != lnb.usals_pos) {
 		// measure how long it takes to move positioner
 		usals_timer.start(lnb.usals_pos, usals_pos);
 		lnb.usals_pos = usals_pos;
-		auto wtxn = receiver.chdb.wtxn();
-		chdb::lnb_update_usals_pos(wtxn, lnb);
-		wtxn.commit();
 	}
 }
 

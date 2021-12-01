@@ -425,6 +425,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             #we need to also select a different satellite
             txn = wx.GetApp().chdb.rtxn()
             mux = pychdb.lnb.select_reference_mux(txn, self.lnb, None)
+            assert mux.k.sat_pos != pychdb.sat.sat_pos_none
             sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos)
             if sat is None:
                 mux.k.sat_pos = network.sat_pos
@@ -464,7 +465,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         txn = wx.GetApp().chdb.rtxn()
         self.sat = sat
         if on_rotor(self.lnb):
-            self.lnb.usals_pos = sat.sat_pos
+            self.lnb.usals_pos = network.usals_pos
         self.mux = pychdb.lnb.select_reference_mux(txn, self.lnb, None)
         if self.mux.k.sat_pos == pychdb.sat.sat_pos_none:
             self.mux.k.sat_pos = self.sat.sat_pos

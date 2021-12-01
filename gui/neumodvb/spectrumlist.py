@@ -53,7 +53,7 @@ class SpectrumTable(NeumoTable):
          CD(key='lof_offsets',  label='lof_offset', dfn=lof_offset_fn, example='-2000kHz; -20000kHz'),
          CD(key='start_freq',  label='start', basic=False, dfn= lambda x: f'{x[1]/1000.:9.3f}', example="10725.114"),
          CD(key='end_freq',  label='end', basic=False, dfn= lambda x: f'{x[1]/1000.:9.3f}', example="10725.114"),
-         CD(key='is_highres',  label='highres', basic=False),
+         #CD(key='is_highres',  label='highres', basic=False),
          CD(key='resolution',  label='step', basic=False),
          CD(key='filename',  label='file', basic=False, example="282.E/0/H_dish0_2021-05-31_13:12:03")
         ]

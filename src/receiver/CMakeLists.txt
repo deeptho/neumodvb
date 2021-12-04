@@ -27,8 +27,8 @@ target_link_libraries(neumoreceiver PUBLIC chdb statdb epgdb recdb neumoutil neu
 target_compile_options(neumoreceiver PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 install (TARGETS neumoreceiver  DESTINATION lib64)
 
-add_executable(neumo-blindscan neumo-blindscan.cc)
-add_executable(neumo-tune neumo-tune.cc)
+add_executable(neumo-blindscan neumo-blindscan.cc dvb_strings.cc)
+add_executable(neumo-tune neumo-tune.cc dvb_strings.cc)
 
 target_link_libraries(neumo-blindscan PRIVATE neumoutil stdc++fs)
 target_link_libraries(neumo-tune PRIVATE neumoutil  stdc++fs)

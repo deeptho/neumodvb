@@ -574,47 +574,8 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 		break;
 	}
 
-	switch (dtv_inner_fec_prop) {
-	case 0:
-		printf("FEC_NONE ");
-		break;
-	case 1:
-		printf("FEC_1_2  ");
-		break;
-	case 2:
-		printf("FEC_2_3  ");
-		break;
-	case 3:
-		printf("FEC_3_4  ");
-		break;
-	case 4:
-		printf("FEC_4_5  ");
-		break;
-	case 5:
-		printf("FEC_5_6  ");
-		break;
-	case 6:
-		printf("FEC_6_7  ");
-		break;
-	case 7:
-		printf("FEC_7_8  ");
-		break;
-	case 8:
-		printf("FEC_8_9  ");
-		break;
-	case 9:
-		printf("FEC_AUTO ");
-		break;
-	case 10:
-		printf("FEC_3_5  ");
-		break;
-	case 11:
-		printf("FEC_9_10 ");
-		break;
-	default:
-		printf("FEC (%d)  ", dtv_inner_fec_prop);
-		break;
-	}
+	extern const char* fe_code_rates;
+	printf("%s ", fe_code_rates[dtv_inner_fec_prop]);
 
 	switch (dtv_inversion_prop) {
 	case 0:

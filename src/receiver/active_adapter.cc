@@ -286,7 +286,7 @@ int active_adapter_t::tune(const chdb::dvbt_mux_t& mux, tune_options_t tune_opti
 int active_adapter_t::remove_all_services(rec_manager_t& recmgr) {
 	// special type of loop because monitors map will be erased and iterators are invalidated
 	for (auto it = active_services.begin(); it != active_services.end();) {
-		auto& [pmt_pid, active_servicep] = (it++)->second; // it is incremened because it will be invalidated
+		auto& [pmt_pid, active_servicep] = (it++)->second; // it is incremented because it will be invalidated
 		recmgr.remove_live_buffer(*active_servicep);
 		remove_service(*active_servicep);
 	}

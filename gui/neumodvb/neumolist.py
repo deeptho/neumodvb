@@ -758,8 +758,8 @@ class NeumoTable(NeumoTableBase):
                 need_new_data = True
                 self.sort_columns = sort_columns + self.sort_columns
                 if len(self.sort_columns) > 4:
-                    #keep newest 4 items; very newest is at the end
-                    self.sort_columns= self.sort_columns[-4:]
+                    #keep newest 4 items; very newest is in front
+                    self.sort_columns= self.sort_columns[:4]
                 self.sort_order = 1
         if need_new_data:
             self.__get_data__()
@@ -775,10 +775,10 @@ class NeumoTable(NeumoTableBase):
             return self.screen
         txn = self.db.rtxn()
         #The following code ensures that sorting is performed according to the selected order,
-        #but then also - for duplicates - according to previously seected order
+        #but then also - for duplicates - according to previously selected order
         subfield=0
         shift = 24
-        for c in reversed(self.sort_columns):
+        for c in self.sort_columns:
             if c == 'icons':
                 col = self.get_icon_sort_key()
                 v = self.data_table.subfield_from_name(col)

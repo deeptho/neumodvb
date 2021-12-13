@@ -105,6 +105,20 @@ if False: #works
 if True:
     db = pychdb.chdb()
     db.open("/mnt/neumo/db/chdb.mdb/")
+    sort_order = pychdb.sat.subfield_from_name('name')<<24
+    print(sort_order)
+    use_index = False
+    txn=db.rtxn()
+    screen=pychdb.sat.screen(txn, sort_order=sort_order)
+    #screen=pychdb.service.screen(txn, subfield)
+    for idx in range(screen.list_size):
+        ll = screen.record_at_row(idx)
+        print(f"{str(ll.sat_pos)}: {ll.name}")
+
+
+if False:
+    db = pychdb.chdb()
+    db.open("/mnt/neumo/db/chdb.mdb/")
     subfield = pychdb.service.subfield_from_name('ch_order')<<24
     print(subfield)
     use_index = False

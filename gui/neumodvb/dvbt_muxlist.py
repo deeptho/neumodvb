@@ -82,15 +82,15 @@ class DvbtMuxTable(NeumoTable):
         pychdb.put_record(txn, record)
         return record
 
-    def screen_getter_xxx(self, txn, sort_order):
+    def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()
         ref = pychdb.dvbt_mux.dvbt_mux()
         ref.k.sat_pos = pychdb.sat.sat_pos_dvbt
         txn = self.db.rtxn()
-        screen=pychdb.dvbt_mux.screen(txn, sort_order=sort_order,
+        screen=pychdb.dvbt_mux.screen(txn, sort_order=sort_field,
                                       key_prefix_type=pychdb.dvbt_mux.dvbt_mux_prefix.none, key_prefix_data=ref,
                                       field_matchers=matchers, match_data = match_data)
-        self.screen=screen_if_t(screen)
+        self.screen=screen_if_t(screen, self.sort_order==2)
 
     def __new_record__(self):
         ret=self.record_t()

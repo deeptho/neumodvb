@@ -132,11 +132,11 @@ class LnbTable(NeumoTable):
                          record_t=pychdb.lnb.lnb, initial_sorted_column = initial_sorted_column,
                          **kwds)
 
-    def screen_getter_xxx(self, txn, sort_order):
+    def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()
-        screen = pychdb.lnb.screen(txn, sort_order=sort_order,
+        screen = pychdb.lnb.screen(txn, sort_order=sort_field,
                                    field_matchers=matchers, match_data = match_data)
-        self.screen = screen_if_t(screen)
+        self.screen = screen_if_t(screen, self.sort_order==2)
 
     def matching_sat(self, txn, sat_pos):
         sats = wx.GetApp().get_sats()

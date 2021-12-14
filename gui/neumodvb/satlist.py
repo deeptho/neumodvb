@@ -91,7 +91,7 @@ class SatTable(NeumoTable):
             txn = self.db.rtxn()
             screen = pychdb.sat.screen(txn, sort_order=sort_order,
                                        field_matchers=matchers, match_data = match_data)
-        self.screen = screen_if_t(screen)
+        self.screen = screen_if_t(screen, self.sort_order==2)
 
     def __save_record__(self, txn, record):
         pychdb.put_record(txn, record)

@@ -105,7 +105,7 @@ class LanguageTable(NeumoTable):
         """
         txn is not used; instead we use self.service
         """
-        self.screen = screen_if_t(service_language_screen_t(self))
+        self.screen = screen_if_t(service_language_screen_t(self), self.sort_order==2)
 
 class LanguageGrid(NeumoGridBase):
     def __init__(self, dialog, parent, basic, readonly, *args, dark_mode=False, **kwds):

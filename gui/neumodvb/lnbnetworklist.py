@@ -84,7 +84,7 @@ class LnbNetworkTable(NeumoTable):
                          initial_sorted_column = initial_sorted_column,
                          **kwds)
 
-    def screen_getter(self, txn, subfield):
+    def screen_getter(self, txn, sort_field):
         """
         txn is not used; instead we use self.lnb
         """
@@ -92,7 +92,7 @@ class LnbNetworkTable(NeumoTable):
             lnbgrid = self.parent.GetParent().GetParent().lnbgrid
             self.lnb = lnbgrid.CurrentLnb().copy()
             assert self.lnb is not None
-        self.screen = screen_if_t(lnbnetwork_screen_t(self))
+        self.screen = screen_if_t(lnbnetwork_screen_t(self), self.sort_order==2)
 
     def __save_record__(self, txn, record):
         dtdebug(f'NETWORKS: {len(self.lnb.networks)}')

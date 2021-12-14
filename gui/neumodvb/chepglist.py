@@ -105,11 +105,11 @@ class ChEpgTable(NeumoTable):
         pyepgdb.put_record(txn, record)
         return record
 
-    def screen_getter_xxx(self, txn, sort_order):
+    def screen_getter_xxx(self, txn, sort_field):
         service = self.parent.CurrentService()
         now = int(time.time())
-        screen = pyepgdb.chepg_screen(txn, service_key=service.k, start_time=now, sort_order=sort_order)
-        self.screen = screen_if_t(screen)
+        screen = pyepgdb.chepg_screen(txn, service_key=service.k, start_time=now, sort_order=sort_field)
+        self.screen = screen_if_t(screen, self.sort_order==2)
 
     def __new_record__(self):
         return self.record_t()

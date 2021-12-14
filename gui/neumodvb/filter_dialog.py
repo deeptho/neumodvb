@@ -27,7 +27,7 @@ from functools import lru_cache
 import neumodvb.neumodbutils as neumodbutils
 from collections import namedtuple
 from neumodvb.util import setup, lastdot
-from neumodvb.neumolist import NeumoTableBase, NeumoTable,NeumoGridBase, screen_if_t
+from neumodvb.neumolist import NeumoTableBase, NeumoTable,NeumoGridBase
 from neumodvb.neumo_dialogs_gui import  FilterDialog_
 from neumodvb.dvbs_muxlist import DvbsMuxTable
 import pychdb

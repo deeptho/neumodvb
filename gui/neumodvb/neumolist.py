@@ -44,10 +44,10 @@ def lnb_network_str(lnb_networks):
 
 
 class screen_if_t(object):
-    def __init__(self, screen):
+    def __init__(self, screen, invert_rows):
         self.screen = screen
         #if True: translate all incoming/outgoing row_numbers to turn screen upside down
-        self.invert_rows = False
+        self.invert_rows = invert_rows
         self.has_editing_record = False
         self.editing_record = None
 

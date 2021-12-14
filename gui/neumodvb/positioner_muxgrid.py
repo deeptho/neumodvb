@@ -103,7 +103,7 @@ class DvbsMuxTable(NeumoTable):
         mux = self.parent.controller.parent.mux
         if mux is None:
             mux = self.InitialRecord()
-        self.screen=screen_if_t(positioner_mux_screen_t(self))
+        self.screen=screen_if_t(positioner_mux_screen_t(self), self.sort_order==2)
 
     def __new_record__(self):
         ret=self.record_t()

@@ -97,23 +97,23 @@ class DvbsMuxTable(NeumoTable):
         return record
 
 
-    def screen_getter_xxx(self, txn, sort_order):
+    def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()
         if self.parent.allow_all and self.parent.sat:
             sat, mux= self.parent.CurrentSatAndMux()
             ref = pychdb.dvbs_mux.dvbs_mux()
             ref.k.sat_pos = sat.sat_pos
             txn = self.db.rtxn()
-            screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,
+            screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_field,
                                             key_prefix_type=pychdb.dvbs_mux.dvbs_mux_prefix.sat_pos,
                                             key_prefix_data=ref,
                                             field_matchers=matchers, match_data = match_data)
         else:
             sat = None
             mux = None
-            screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,
+            screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_field,
                                             field_matchers=matchers, match_data = match_data)
-        self.screen=screen_if_t(screen)
+        self.screen=screen_if_t(screen, self.sort_order==2)
 
     def screen_getter_transposed(self, txn, sort_order):
         if self.mux is None:

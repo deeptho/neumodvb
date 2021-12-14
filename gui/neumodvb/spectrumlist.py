@@ -74,11 +74,11 @@ class SpectrumTable(NeumoTable):
                          **kwds)
         self.app = wx.GetApp()
 
-    def screen_getter_xxx(self, txn, sort_order):
+    def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()
-        screen = pystatdb.spectrum.screen(txn, sort_order=sort_order,
+        screen = pystatdb.spectrum.screen(txn, sort_order=sort_field,
                                    field_matchers=matchers, match_data = match_data)
-        self.screen = screen_if_t(screen)
+        self.screen = screen_if_t(screen, self.sort_order==2)
 
 
     def __save_record__(self, txn, record):

@@ -142,9 +142,9 @@ class ChgmTable(NeumoTable):
         else:
             chg = None
             chgm = None
-            screen = pychdb.chgm.screen(txn, sort_order=sort_order,
+            screen = pychdb.chgm.screen(txn, sort_order=sort_field,
                                         field_matchers=matchers, match_data = match_data)
-        self.screen=screen_if_t(screen)
+        self.screen=screen_if_t(screen, self.sort_order==2)
 
     def __new_record__(self):
         return self.record_t()

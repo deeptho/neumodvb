@@ -367,7 +367,7 @@ class Spectrum(object):
         l = num_parts*16
         #t is a list of local minima
         t=  self.spec[lowidx:lowidx+l, 1].reshape([-1,num_parts]).min(axis=1)
-        #f: corresponding frequenies
+        #f: corresponding frequencies
         f = self.spec[lowidx:lowidx+l, 0].reshape([-1,num_parts])[:,0]
 
         #compute polynomial fit
@@ -378,12 +378,11 @@ class Spectrum(object):
 
     def detrend(self):
         lowest_freq, highest_freq = self.spec[0, 0] , self.spec[-1,0]
-
         # the +8 is a heuristic, in case the highest frequencies of the Ku_low band would exceed 11700 due to lnb lof offset
         has_two_bands = (highest_freq > 11700+8) and (lowest_freq < 11700-8)
         if has_two_bands:
             mid_idx1 = np.searchsorted(self.spec[:,0], 11700-8, side='left')
-            mid_idx = np.searchsorted(self.spec[mid_idx1:,0], 11700-8, side='left') + mid_idx1
+            mid_idx = np.searchsorted(self.spec[mid_idx1:,0], 11700, side='left') + mid_idx1
             mid_idx2 = np.searchsorted(self.spec[mid_idx:,0], 11700+8, side='left') + mid_idx
             self.detrend_band(self.spec[:mid_idx, :], 0, mid_idx1)
             self.detrend_band(self.spec[mid_idx:, :], mid_idx2, self.spec.shape[0])

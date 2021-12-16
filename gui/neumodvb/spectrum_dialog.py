@@ -135,6 +135,8 @@ class SpectrumDialog(SpectrumDialog_):
         self.blindscan_num_locked_muxes = 0
         self.blindscan_num_nonlocked_muxes = 0
         self.blindscan_num_si_muxes =0
+        self.update_constellation = True
+        self.tune_mux_panel.constellation_toggle.SetValue(self.update_constellation)
 
     def OnTimer(self, evt):
         self.grid.OnTimer(evt)
@@ -180,6 +182,11 @@ class SpectrumDialog(SpectrumDialog_):
     def OnToggleSpeak(self, evt):
         self.signal_panel.speak_signal = evt.IsChecked()
         dtdebug(f"OnToggleSpeak={self.signal_panel.speak_signal}")
+        evt.Skip()
+
+    def OnToggleConstellation(self, evt):
+        self.update_constellation = evt.IsChecked()
+        dtdebug(f"OnToggleConstellation={self.update_constellation}")
         evt.Skip()
 
     def CmdExit(self, evt):
@@ -391,12 +398,12 @@ class SpectrumDialog(SpectrumDialog_):
     def UpdateSignalInfo(self, signal_info, is_tuned):
         self.signal_panel.OnSignalInfoUpdate(signal_info, is_tuned);
         if signal_info.constellation_samples is not None:
-            self.constellation_plot.show_constellation(signal_info.constellation_samples)
+            self.tune_mux_panel.constellation_plot.show_constellation(signal_info.constellation_samples)
 
     def ClearSignalInfo(self):
         self.signal_panel.ClearSignalInfo()
-        self.constellation_plot.clear_constellation()
-        self.constellation_plot.clear_data()
+        self.tune_mux_panel.constellation_plot.clear_constellation()
+        self.tune_mux_panel.constellation_plot.clear_data()
 
     def OnInspect(self, event):
         wx.GetApp().CmdInspect()

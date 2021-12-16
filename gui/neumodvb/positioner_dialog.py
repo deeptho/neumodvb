@@ -386,10 +386,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         cn = '' if signal_info.network_id_confirmed  else "?"
         ct = '' if signal_info.ts_id_confirmed  else "?"
         stream = f' stream={mux.stream_id}' if mux.stream_id>=0 else ''
-        if signal_info.network_id_confirmed or signal_info.ts_id_confirmed or mux.stream_id>=0:
-            self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
-        else:
-            self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
+        if False:
+            if signal_info.network_id_confirmed or signal_info.ts_id_confirmed or mux.stream_id>=0:
+                self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
+            else:
+                self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
         sat_confirmed = signal_info.sat_pos_confirmed
         c = '' if sat_confirmed  else "?"
         self.sat_pos_text.SetForegroundColour(wx.Colour('blue' if sat_confirmed else 'red'))
@@ -406,7 +407,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.isi_list_text.SetLabel('')
         self.matype_text.SetLabel('')
         self.pls_text.SetLabel('')
-        self.dvb_ids_text.SetLabel('')
+        if False:
+            self.dvb_ids_text.SetLabel('')
         self.sat_pos_text.SetForegroundColour(wx.Colour('red'))
         self.sat_pos_text.SetLabel('')
         self.parent.ClearSignalInfo()
@@ -557,6 +559,9 @@ class SignalPanel(SignalPanel_):
                 w.SetLabel('')
             else:
                 w.SetForegroundColour(wx.Colour('blue' if val else 'red'))
+        self.si_nid_text.SetLabel('')
+        self.si_tid_text.SetLabel('')
+        self.si_sat_text.SetLabel('')
         self.si_freq_text.SetLabel('')
         self.si_symbolrate_text.SetLabel('')
         self.lnb_lof_offset_text.SetLabel('')
@@ -603,6 +608,12 @@ class SignalPanel(SignalPanel_):
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
         self.ber_text.SetLabel(f'{ber:8.2E}')
         si_mux = self.signal_info.si_mux
+        self.si_nid_text.SetLabel(f'{si_mux.k.network_id}' \
+                                if self.signal_info.has_nit else '')
+        self.si_tid_text.SetLabel(f'{si_mux.k.ts_id}' \
+                                if self.signal_info.has_nit else '')
+        self.si_sat_text.SetLabel(f'{pychdb.sat_pos_str(si_mux.k.sat_pos)}' \
+                                if self.signal_info.has_nit else '')
         self.si_freq_text.SetLabel(f'{si_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
                                 if self.signal_info.has_nit else '')
         self.si_symbolrate_text.SetLabel(f'{si_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
@@ -682,12 +693,12 @@ class PositionerDialog(PositionerDialog_):
     def UpdateSignalInfo(self, signal_info, tuned):
         self.signal_panel.OnSignalInfoUpdate(signal_info, tuned);
         if signal_info.constellation_samples is not None and self.update_constellation:
-            self.constellation_plot.show_constellation(signal_info.constellation_samples)
+            self.tune_mux_panel.constellation_plot.show_constellation(signal_info.constellation_samples)
 
     def ClearSignalInfo(self):
         self.signal_panel.ClearSignalInfo()
-        self.constellation_plot.clear_constellation()
-        self.constellation_plot.clear_data()
+        self.tune_mux_panel.constellation_plot.clear_constellation()
+        self.tune_mux_panel.constellation_plot.clear_data()
 
     def SetPosition(self, pos):
         self.position = pos

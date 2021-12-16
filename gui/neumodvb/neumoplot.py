@@ -425,7 +425,6 @@ class Spectrum(object):
         sig = (spec[idxs,1])/1000. +yoffset
         self.vlines = self.axes.vlines(f, sig, annoty/1000 +yoffset, color='black')
         self.vlines.set_picker(True)  # Enable picking on the legend line.
-
         bw =  tpsk[:,1]/2000000
         self.hlines = self.axes.hlines(sig, f-bw, f+bw, color=self.color)
         self.hlines.set_picker(True)  # Enable picking on the legend line.
@@ -613,12 +612,29 @@ class SpectrumPlot(wx.Panel):
         self.spectra = OrderedDict()
         self.legend  = None
         self.figure.canvas.mpl_connect('pick_event', self.on_pick)
+        self.figure.canvas.mpl_connect('button_press_event', self.on_button_press)
+        self.shift_is_held = False
+        self.ctrl_is_held = False
+        self.figure.canvas.mpl_connect('key_press_event', self.set_modifiers)
+        self.figure.canvas.mpl_connect('key_release_event', self.unset_modifiers)
         self.cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         self.current_annot = None #currently selected annot
+        self.current_annot_vline = None
         self.do_detrend = True
         self.pan_start_freq = None
         self.add_detrend_button()
         self.add_status_box()
+    def set_modifiers(self, event):
+        print(event.key)
+        if 'shift' in event.key:
+            self.shift_is_held = True
+        if 'control' in event.key:
+            self.ctrl_is_held = True
+    def unset_modifiers(self, event):
+        if 'shift' in event.key:
+            self.shift_is_held = False
+        if 'control' in event.key:
+            self.ctrl_is_held = False
 
     def on_motion(self, event):
         pass
@@ -869,7 +885,8 @@ class SpectrumPlot(wx.Panel):
                 dtdebug(f'set current_tp: spec={tp.spectrum} tp={annot.tp}')
                 self.set_current_annot(annot)
                 return
-
+    def on_button_press(self, event):
+        print(f'CLICK SHIFT={self.shift_is_held} CTRL={self.ctrl_is_held}')
     def on_pick(self, event):
         """
         show/hide graph by clicking on legend line

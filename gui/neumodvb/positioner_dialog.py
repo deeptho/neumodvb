@@ -263,9 +263,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         if event:
             event.Skip()
 
-    def OnToggleSpeak(self, evt):
-        self.parent.OnToggleSpeak(evt)
-
     def OnToggleConstellation(self, evt):
         self.parent.OnToggleConstellation(evt)
 
@@ -613,6 +610,10 @@ class SignalPanel(SignalPanel_):
         self.lnb_lof_offset_text.SetLabel(f'{self.signal_info.lnb_lof_offset:,d} kHz'.replace(',', ' ')) \
             if self.signal_info.lnb_lof_offset is not None else None
         return True
+
+    def OnToggleSpeak(self, evt):
+        self.GetParent().GetParent().OnToggleSpeak(evt)
+
 
 class PositionerDialog(PositionerDialog_):
     def __init__(self, parent, sat, lnb, mux, *args, **kwds):

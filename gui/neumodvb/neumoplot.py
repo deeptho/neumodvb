@@ -828,6 +828,9 @@ class SpectrumPlot(wx.Panel):
             self.current_annot.set_color(color)
         color = 'blue'
         annot.set_color(color)
+        if self.current_annot_vline is not None:
+            self.current_annot_vline.remove()
+        self.current_annot_vline = self.axes.axvline(x=annot.tp.freq, color='blue')
         self.current_annot = annot
         self.canvas.draw()
 
@@ -895,6 +898,7 @@ class SpectrumPlot(wx.Panel):
                 if delta  < best_delta:
                     best_delta = delta
                     best_annot = annot
+
         if best_annot is not None:
             dtdebug(f'Spectrum: pick line spectrum={spectrum} tp={best_annot.tp}')
             self.set_current_annot(best_annot)

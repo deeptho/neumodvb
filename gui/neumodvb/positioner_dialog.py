@@ -133,6 +133,8 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def init(self, parent, sat, lnb,  mux):
         self.lnb, self.sat, self.mux = self.SelectInitialData(lnb, sat, mux)
+        self.status_keys= ('fail', 'pat', 'nit', 'sdt', 'si_done')
+
         self.ref_mux = None
         self.diseqc12 = 0
         self.last_tuned_mux = None # needed because user can change self.mux while tuning is in progress
@@ -356,32 +358,16 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def OnSignalInfoUpdate(self, signal_info):
         locked = self.parent.UpdateSignalInfo(signal_info, self.tuned_)
+        si_mux = signal_info.dvbs_mux
+
+        self.si_freq_text.SetLabel(f'{si_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
+                                if self.signal_info.has_nit else '')
+        self.si_symbolrate_text.SetLabel(f'{si_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
+                                if self.signal_info.has_nit else '')
+
         mux = signal_info.dvbs_mux
         locked = signal_info.has_lock
-        self.frequency_text.SetLabel(f'{mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') if locked else '')
-        self.symbolrate_text.SetLabel(f'{mux.symbol_rate/1e3:.0f} kS/s' if locked else '')
-        fec=lastdot(mux.fec).replace(' ', '/') if locked else ''
 
-        delsys=lastdot(mux.delivery_system)
-        modulation=lastdot(mux.modulation)
-        fec = f'{fec}' if signal_info.has_fec else ''
-        self.modulation_text.SetLabel(f'{delsys} - {modulation} {fec}' if locked else '')
-        stream_id = mux.stream_id
-        isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) \
-                         for i in signal_info.isi_list]) if locked else ''
-        self.isi_list_text.SetLabelMarkup(isi)
-        #we need the int cast, because mux.delivery_sysstem can be of dvbs, ddvbt or dvbc type
-        if int(mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and locked:
-            matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
-        else:
-            matype=""
-        self.matype_text.SetLabelMarkup(matype)
-        if locked:
-            pls_mode = lastdot(str(mux.pls_mode))
-            pls = f'{pls_mode} {mux.pls_code}'
-        else:
-            pls =''
-        self.pls_text.SetLabel(pls)
 
         cn = '' if signal_info.network_id_confirmed  else "?"
         ct = '' if signal_info.ts_id_confirmed  else "?"
@@ -391,26 +377,41 @@ class TuneMuxPanel(TuneMuxPanel_):
                 self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
             else:
                 self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
-        sat_confirmed = signal_info.sat_pos_confirmed
-        c = '' if sat_confirmed  else "?"
-        self.sat_pos_text.SetForegroundColour(wx.Colour('blue' if sat_confirmed else 'red'))
-        self.sat_pos_text.SetLabel(f'{pychdb.sat_pos_str(mux.k.sat_pos)}{c}' if locked else '')
         if not locked:
             return
         else:
             pass
+        si_mux = self.signal_info.si_mux
+        sat_text = f'{pychdb.sat_pos_str(si_mux.k.sat_pos)}' if self.signal_info.has_nit else ''
+        nid_text = f'{si_mux.k.network_id}' if self.signal_info.has_nit else ''
+        tid_text = f'{si_mux.k.ts_id}' if self.signal_info.has_nit else ''
+
+        self.si_nit_ids_text.SetLabel(f'{sat_text} nid={nid_text} tid={tid_text}'
+                                if self.signal_info.has_nit else '')
+        for key in self.status_keys:
+            val = getattr(self.signal_info, f'has_{key}')
+            w = getattr(self, f'has_{key}')
+            if key == 'fail':
+                w.SetLabel('' if val == 0 else 'fail')
+            elif key == 'si_done':
+                w.SetLabel('' if val == 0 else 'fin')
+            else:
+                w.SetForegroundColour(wx.Colour('blue' if val else 'red'))
 
     def ClearSignalInfo(self):
-        self.frequency_text.SetLabel("")
-        self.symbolrate_text.SetLabel("")
-        self.modulation_text.SetLabel('')
-        self.isi_list_text.SetLabel('')
-        self.matype_text.SetLabel('')
-        self.pls_text.SetLabel('')
+        self.si_freq_text.SetLabel('')
+        self.si_symbolrate_text.SetLabel('')
+        self.si_nit_ids_text.SetLabel('')
+
+        for key in self.status_keys:
+            val = 0
+            w = getattr(self, f'has_{key}')
+            if key in ('fail', 'si_done'):
+                w.SetLabel('')
+            else:
+                w.SetForegroundColour(wx.Colour('blue' if val else 'red'))
         if False:
             self.dvb_ids_text.SetLabel('')
-        self.sat_pos_text.SetForegroundColour(wx.Colour('red'))
-        self.sat_pos_text.SetLabel('')
         self.parent.ClearSignalInfo()
 
     def ChangeLnb(self, lnb):
@@ -504,7 +505,7 @@ class SignalPanel(SignalPanel_):
         super().__init__(parent, *args, **kwds)
         self.signal_info = pyreceiver.signal_info_t()
         self.SetDefaultLevels()
-        self.status_keys= ('signal', 'carrier', 'fec', 'lock', 'sync', 'fail', 'pat', 'nit', 'sdt', 'si_done')
+        self.status_keys = ('signal', 'carrier', 'fec', 'lock', 'sync')
         from neumodvb.speak import Speaker
         self.speak_signal = False
         self.speaker = Speaker()
@@ -550,8 +551,14 @@ class SignalPanel(SignalPanel_):
         self.snr_text.SetLabel('')
         self.rf_level_text.SetLabel('')
         self.ber_text.SetLabel('')
+        self.isi_list_text.SetLabel('')
         rf_level = self.signal_info.stat.signal_strength/1000
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
+        self.sat_pos_text.SetForegroundColour(wx.Colour('red'))
+        self.sat_pos_text.SetLabel('')
+        self.freq_sr_modulation_text.SetLabel("")
+        self.matype_pls_text.SetLabel('')
+
         for key in self.status_keys:
             val = 0
             w = getattr(self, f'has_{key}')
@@ -559,18 +566,23 @@ class SignalPanel(SignalPanel_):
                 w.SetLabel('')
             else:
                 w.SetForegroundColour(wx.Colour('blue' if val else 'red'))
-        self.si_nid_text.SetLabel('')
-        self.si_tid_text.SetLabel('')
-        self.si_sat_text.SetLabel('')
-        self.si_freq_text.SetLabel('')
-        self.si_symbolrate_text.SetLabel('')
         self.lnb_lof_offset_text.SetLabel('')
         return True
 
     def OnSignalInfoUpdate(self, signal_info, is_tuned):
         self.Speak()
-        self.signal_info = signal_info
         locked = self.signal_info.has_lock
+        mux = signal_info.dvbs_mux
+        frequency_text = f'{mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') if locked else ''
+        symbolrate_text = f'{mux.symbol_rate/1e3:.0f} kS/s' if locked else ''
+        fec=lastdot(mux.fec).replace(' ', '/') if locked else ''
+        delsys=lastdot(mux.delivery_system)
+        modulation=lastdot(mux.modulation)
+        fec = f'{fec}' if signal_info.has_fec else ''
+
+        self.freq_sr_modulation_text.SetLabel(f'{frequency_text}  {symbolrate_text} '
+                                              f'{delsys} - {modulation}  {fec}' if locked else '')
+        self.signal_info = signal_info
         if is_tuned:
             rf_level = self.signal_info.stat.signal_strength/1000
         for key in self.status_keys:
@@ -607,19 +619,31 @@ class SignalPanel(SignalPanel_):
         self.snr_text.SetLabel(f'{snr:6.2f}dB')
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
         self.ber_text.SetLabel(f'{ber:8.2E}')
-        si_mux = self.signal_info.si_mux
-        self.si_nid_text.SetLabel(f'{si_mux.k.network_id}' \
-                                if self.signal_info.has_nit else '')
-        self.si_tid_text.SetLabel(f'{si_mux.k.ts_id}' \
-                                if self.signal_info.has_nit else '')
-        self.si_sat_text.SetLabel(f'{pychdb.sat_pos_str(si_mux.k.sat_pos)}' \
-                                if self.signal_info.has_nit else '')
-        self.si_freq_text.SetLabel(f'{si_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
-                                if self.signal_info.has_nit else '')
-        self.si_symbolrate_text.SetLabel(f'{si_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
-                                if self.signal_info.has_nit else '')
+
+        stream_id = mux.stream_id
+        isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) \
+                         for i in signal_info.isi_list]) if locked else ''
+        self.isi_list_text.SetLabelMarkup(isi)
+        #we need the int cast, because mux.delivery_sysstem can be of dvbs, ddvbt or dvbc type
+        if int(mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and locked:
+            matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
+        else:
+            matype=""
+        if locked:
+            pls_mode = lastdot(str(mux.pls_mode))
+            pls = f'PLS: {pls_mode} {mux.pls_code}'
+        else:
+            pls =''
+        self.matype_pls_text.SetLabelMarkup(f'{matype} {pls}')
+
+        sat_confirmed = signal_info.sat_pos_confirmed
+        c = '' if sat_confirmed  else "?"
+        self.sat_pos_text.SetForegroundColour(wx.Colour('blue' if sat_confirmed else 'red'))
+        self.sat_pos_text.SetLabel(f'{pychdb.sat_pos_str(mux.k.sat_pos)}{c}' if locked else '')
         self.lnb_lof_offset_text.SetLabel(f'{self.signal_info.lnb_lof_offset:,d} kHz'.replace(',', ' ')) \
             if self.signal_info.lnb_lof_offset is not None else None
+
+        self.freq_sr_sizer.Layout()
         return True
 
     def OnToggleSpeak(self, evt):

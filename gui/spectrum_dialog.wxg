@@ -90,9 +90,16 @@
                                                 <growable_cols>0</growable_cols>
                                                 <object class="sizeritem">
                                                     <option>0</option>
-                                                    <border>2</border>
-                                                    <flag>wxBOTTOM</flag>
+                                                    <border>0</border>
                                                     <object class="wxStaticText" name="label_3" base="EditStaticText">
+                                                      <font>
+                                                        <size>8</size>
+                                                        <family>default</family>
+                                                        <style>normal</style>
+                                                        <weight>bold</weight>
+                                                        <underlined>0</underlined>
+                                                        <face />
+                                                      </font>
                                                         <label>Signal</label>
                                                     </object>
                                                 </object>
@@ -410,10 +417,18 @@
                                 <growable_cols>0</growable_cols>
                                 <object class="sizeritem">
                                     <option>0</option>
-                                    <border>3</border>
-                                    <flag>wxBOTTOM</flag>
+                                    <border>0</border>
                                     <object class="wxStaticText" name="label_22" base="EditStaticText">
-                                        <label>Show/Hide spectra</label>
+                                    <font>
+                                      <size>8</size>
+                                      <family>default</family>
+                                      <style>normal</style>
+                                      <weight>bold</weight>
+                                      <underlined>0</underlined>
+                                      <face />
+                                    </font>
+                                      <label>Spectra</label>
+                                      <tooltip>Display  previously captured spectra</tooltip>
                                     </object>
                                 </object>
                                 <object class="sizeritem">

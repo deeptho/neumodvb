@@ -387,7 +387,7 @@ class SpectrumDialog(SpectrumDialog_):
                     self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
 
     def ChangeLnb(self, lnb):
-        self.SetTitle(f'Tuner Control - {lnb}')
+        self.SetTitle(f'Spectrum analysis - {lnb}')
 
     def ChangeSatPos(self, sat_pos):
         pass

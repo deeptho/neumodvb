@@ -854,6 +854,8 @@ void chdb::sat_pos_str(ss::string_& s, int position) {
 
 void chdb::matype_str(ss::string_& s, uint8_t matype) {
 	// See en 302 307 v1.1.2; stid135 manual seems wrong in places
+	// en_302307v010201p_DVBS2.pdf
+	//s.sprintf("0x%x ", matype);
 	switch (matype >> 6) {
 	case 0:
 		s.sprintf("GFP "); ///generic packetised stream

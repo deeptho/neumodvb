@@ -308,7 +308,6 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdse
 	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.props[i++].u.data;
 	mux.rolloff = (chdb::fe_rolloff_t)cmdseq.props[i++].u.data;
 	mux.pilot = (chdb::fe_pilot_t)cmdseq.props[i++].u.data;
-
 	auto stream_id_prop = cmdseq.props[i++].u.data;
 	mux.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
 	if (mux.stream_id == -1) {

@@ -128,28 +128,33 @@ struct tune_options_t {
 
 };
 
-struct pol_band_diseqc_status_t {
+class pol_band_status_t {
 	bool tuned{false};
 	int voltage = -1; // means unknown
 	int tone = -1; // means unknown
 
-	//returns true if voltage must be set
-	bool set_voltage(fe_sec_voltage v) {
-		bool ret = (v != voltage);
-		voltage =v;
-		return ret; // || !tuned;
+public:
+	bool is_tuned() const {
+		return tuned;
 	}
 
+	/*
+		returns -1 : error
+		0: tone was already correct
+		1: tone was set as wanted
+	 */
+	int set_voltage(int fefd, fe_sec_voltage v);
 
 	fe_sec_tone_mode get_tone() const {
 		return (fe_sec_tone_mode) tone;
 	}
 
-	bool set_tone(fe_sec_tone_mode m) {
-		bool ret = (m != tone);
-		tone = m;
-		return ret; // || !tuned;
-	}
+	/*
+		returns -1 : error
+		0: tone was already correct
+		1: tone was set as wanted
+	 */
+	int set_tone(int fefd, fe_sec_tone_mode mode);
 
 	/*
 		TODO: (bad?) idea is to check the current state of the diseqc switch
@@ -159,8 +164,6 @@ struct pol_band_diseqc_status_t {
 
 	void set_tune_status(bool tuned_) {
 		tuned = tuned_;
-		if(!tuned_)
-			voltage = tone = -1;
 	}
 };
 
@@ -227,7 +230,7 @@ private:
 	system_time_t tune_start_time;  //when last tune started
 	constexpr static std::chrono::duration tune_timeout{50000ms}; //in ms
 
-	struct pol_band_diseqc_status_t pol_band_diseqc_status;
+	struct pol_band_status_t pol_band_status;
 	//tune_mode_t tune_mode{tune_mode_t::NORMAL};
 	chdb::fe_delsys_t current_delsys = chdb::fe_delsys_t::SYS_UNDEFINED;
 	safe::thread_public_t<false, chdb::any_mux_t> tuned_mux{"tuner", thread_group_t::tuner, {}};

@@ -76,9 +76,9 @@ std::tuple<bool, bool> active_adapter_t::check_status() {
 
 	si.scan_state.locked = is_locked;
 	if (!is_locked) {
-		pol_band_diseqc_status.set_tune_status(false); // ensures that diseqc will be sent again
+		pol_band_status.set_tune_status(false); // ensures that diseqc will be sent again
 	} else
-		pol_band_diseqc_status.set_tune_status(true); // ensures that diseqc will be sent again
+		pol_band_status.set_tune_status(true); // ensures that diseqc will be sent again
 
 	switch (tune_state) {
 	case TUNE_INIT: {
@@ -110,7 +110,7 @@ std::tuple<bool, bool> active_adapter_t::check_status() {
 				must_reinit_si = true;
 			} else {
 				dtdebug("tuner no longer locked; retuning");
-				must_tune = false; // true;
+				must_tune = true;
 			}
 		} else {
 		}
@@ -131,7 +131,7 @@ int active_adapter_t::change_delivery_system(chdb::fe_delsys_t delsys) {
 	always send diseqc if tuning has failed
 */
 bool active_adapter_t::need_diseqc(const chdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux) {
-	if (!pol_band_diseqc_status.tuned)
+	if (!pol_band_status.is_tuned())
 		return true; // always send diseqc if we were not tuned
 	bool is_dvbs =
 		((int)new_mux.delivery_system == SYS_DVBS || new_mux.delivery_system == (chdb::fe_delsys_dvbs_t)SYS_DVBS2);
@@ -517,16 +517,6 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 		turn off tone to not interfere with diseqc
 	*/
 	auto fefd = current_fe->ts.readAccess()->fefd;
-	auto tone_off = [this, fefd]() {
-		if (!pol_band_diseqc_status.set_tone(SEC_TONE_OFF))
-			return 1; // tone already off
-		int err;
-		if ((err = ioctl(fefd, FE_SET_TONE, SEC_TONE_OFF))) {
-			dterror("problem Setting the Tone OFF");
-			return -1;
-		}
-		return 1;
-	};
 
 	auto can_move_dish_ = can_move_dish(current_lnb());
 
@@ -545,7 +535,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 		switch (command) {
 		case 'M': {
 
-			if (tone_off() < 0)
+			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 			msleep(must_pause ? 100 : 30);
 			/*
@@ -567,7 +557,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 			auto diseqc_10 = current_lnb().diseqc_10;
 			if (diseqc_10 < 0)
 				break; // can be used to signal that it is off
-			if (tone_off() < 0)
+			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 			msleep(must_pause ? 100 : 30);
 			int pol_v_r = ((int)mux->pol & 1);
@@ -583,7 +573,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 			if (diseqc_11 < 0)
 				break; // can be used to signal that it is off
 			// uncommitted
-			if (tone_off() < 0)
+			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 
 			msleep(must_pause ? 100 : 30);
@@ -596,7 +586,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 		case 'X': {
 			if (!can_move_dish_)
 				break;
-			if (tone_off() < 0)
+			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 			msleep(must_pause ? 100 : 30);
 			auto* lnb_network = chdb::lnb::get_network(current_lnb(), mux->k.sat_pos);
@@ -614,7 +604,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 		case 'P': {
 			if (!can_move_dish_)
 				break;
-			if (tone_off() < 0)
+			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 			msleep(must_pause ? 100 : 30);
 			auto* lnb_network = chdb::lnb::get_network(current_lnb(), mux->k.sat_pos);
@@ -646,7 +636,6 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 int active_adapter_t::do_lnb(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) {
 	if (!current_fe)
 		return -1;
-	int ret;
 	/*
 
 		22KHz: off = low band; on = high band
@@ -656,28 +645,16 @@ int active_adapter_t::do_lnb(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage)
 
 	auto fefd = current_fe->ts.readAccess()->fefd;
 
-	if (pol_band_diseqc_status.set_voltage(lnb_voltage)) {
-		if ((ret = ioctl(fefd, FE_SET_VOLTAGE, lnb_voltage))) {
-			dterror("problem Setting the Voltage\n");
-			return -1;
-		}
-	} else {
-		dtdebugx("No voltage change needed: v=%d", lnb_voltage);
-	}
+	pol_band_status.set_voltage(fefd, lnb_voltage);
 
 	/*select the proper lnb band
 		22KHz: off = low band; on = high band
 	*/
 
 	fe_sec_tone_mode_t tone = (band == fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
-	if (pol_band_diseqc_status.set_tone(tone)) {
-		ret = ioctl(fefd, FE_SET_TONE, tone);
-		if (ret < 0) {
+	if (pol_band_status.set_tone(fefd, tone)<0) {
 			dterror("problem Setting the Tone back\n");
 			return -1;
-		}
-	} else {
-		dtdebugx("no tone change needed: %d", tone);
 	}
 	return 0;
 }
@@ -721,14 +698,7 @@ int active_adapter_t::do_lnb_and_diseqc(chdb::fe_band_t band, fe_sec_voltage_t l
 
 	auto fefd = current_fe->ts.readAccess()->fefd;
 
-	if (pol_band_diseqc_status.set_voltage(lnb_voltage)) {
-		if ((ret = ioctl(fefd, FE_SET_VOLTAGE, lnb_voltage))) {
-			dterror("problem Setting the Voltage\n");
-			return -1;
-		}
-	} else {
-		dtdebugx("No voltage change needed: v=%d", lnb_voltage);
-	}
+	pol_band_status.set_voltage(fefd, lnb_voltage);
 
 	// Note: the following is a NOOP in case no diseqc needs to be sent
 	ret = diseqc(current_lnb().tune_string);
@@ -740,14 +710,8 @@ int active_adapter_t::do_lnb_and_diseqc(chdb::fe_band_t band, fe_sec_voltage_t l
 	*/
 
 	fe_sec_tone_mode_t tone = (band == fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
-	if (pol_band_diseqc_status.set_tone(tone)) {
-		ret = ioctl(fefd, FE_SET_TONE, tone);
-		if (ret < 0) {
-			dterror("problem Setting the Tone back\n");
-			return -1;
-		}
-	} else {
-		dtdebugx("no tone change needed: %d", tone);
+	if (pol_band_status.set_tone(fefd, tone)<0) {
+		return -1;
 	}
 	return 0;
 }
@@ -811,24 +775,13 @@ int active_adapter_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
 		turn off tone to not interfere with diseqc
 	*/
 	auto fefd = current_fe->ts.readAccess()->fefd;
-	auto set_tone = [this, fefd](fe_sec_tone_mode_t mode) {
-		if ((int)mode < 0)
-			return 0;
-		if (!pol_band_diseqc_status.set_tone(mode))
-			return 1; // tone already off
-		int err;
-		if ((err = ioctl(fefd, FE_SET_TONE, mode))) {
-			dterror("problem Setting the Tone OFF");
-			return -1;
-		}
-		return 1;
-	};
-	auto old = pol_band_diseqc_status.get_tone();
-	if (set_tone(SEC_TONE_OFF) < 0)
+	auto old = pol_band_status.get_tone();
+	if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 		return -1;
 	msleep(15);
 	auto ret = current_fe->send_positioner_message(cmd, par);
-	if (set_tone(old) < 0)
+	if (old >=0 && /* avoid the case where old mode was "unknown" */
+			pol_band_status.set_tone(fefd, old) < 0)
 		return -1;
 	return ret;
 }
@@ -970,4 +923,42 @@ void active_adapter_t::end_si() {
 	si.deactivate();
 	embedded_si_streams.clear();
 	stream_filters.clear();
+}
+
+
+
+int pol_band_status_t::set_tone(int fefd, fe_sec_tone_mode mode) {
+	if ((int)mode < 0) {
+		assert(0);
+		return -1;
+	}
+	if (mode == tone) {
+		dtdebugx("No tine change needed: v=%d", mode);
+		return 0;
+	}
+	tone = mode;
+
+	if (ioctl(fefd, FE_SET_TONE, mode) < 0 ) {
+		dterrorx("problem setting tone=%d", mode);
+		return -1;
+	}
+	return 1;
+}
+
+int pol_band_status_t::set_voltage(int fefd, fe_sec_voltage v) {
+	if ((int)v < 0) {
+		assert(0);
+		return -1;
+	}
+	if (v == voltage) {
+		dtdebugx("No voltage change needed: v=%d", v);
+		return 0;
+	}
+	voltage = v;
+
+	if (ioctl(fefd, FE_SET_VOLTAGE, voltage) < 0) {
+		dterrorx("problem setting voltage %d", voltage);
+		return -1;
+	}
+	return 1;
 }

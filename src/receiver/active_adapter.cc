@@ -933,7 +933,7 @@ int pol_band_status_t::set_tone(int fefd, fe_sec_tone_mode mode) {
 		return -1;
 	}
 	if (mode == tone) {
-		dtdebugx("No tine change needed: v=%d", mode);
+		dtdebugx("No tone change needed: v=%d", mode);
 		return 0;
 	}
 	tone = mode;

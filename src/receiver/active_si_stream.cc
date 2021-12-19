@@ -886,7 +886,6 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	if (network.network_name.size())
 		network_name_matches = save_network(
 			txn, network, tuned_mux_key->sat_pos); // TODO: sat_pos is meaningless; network can be on multiple sats
-
 	using namespace chdb;
 	dtdemux::reset_type_t ret = dtdemux::reset_type_t::NO_RESET;
 
@@ -899,13 +898,21 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		}
 		// update_mux_ret_t r;
 		bool is_tuned_mux{false};
+		bool can_be_tuned{true};
 		if (network.is_actual) {
 			p_network_data->num_muxes++;
 			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 			const bool disregard_networks{true};
+			if (dvbs_mux->frequency == 0) {
+				//happens on 7.3W 11411H
+				auto* tuned_dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&tuned_mux);
+				dvbs_mux->frequency = tuned_dvbs_mux->frequency;
+			}
 			if (dvbs_mux && !chdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), *dvbs_mux, disregard_networks)) {
 				dtdebug("Refusing to insert a mux which cannot be tuned: " << mux);
-			} else {
+				can_be_tuned = false;
+			}
+			if (can_be_tuned) {
 				// update_mux_ret_t r;
 				std::tie(ret, is_tuned_mux) = nit_actual_save_and_check_confirmation(txn, mux);
 				if (ret != dtdemux::reset_type_t::NO_RESET) {
@@ -919,13 +926,14 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			// r=
 			chdb::update_mux(txn, mux, now, m::flags{m::MUX_COMMON | m::MUX_KEY});
 		}
-		add_sat(txn, mux_key->sat_pos);
-
-		auto sat_pos_changed =
-			nit_data.add_mux_from_nit(mux, is_tuned_mux); // save for later looking up sat_id and for counting services.
-		if (sat_pos_changed) {
-			chdb::update_mux_sat_pos(txn, mux);
-			chdb::update_mux(txn, mux, now, m::flags{m::MUX_COMMON | m::MUX_KEY});
+		if(can_be_tuned) {
+			add_sat(txn, mux_key->sat_pos);
+			auto sat_pos_changed =
+				nit_data.add_mux_from_nit(mux, is_tuned_mux); // save for later looking up sat_id and for counting services.
+			if (sat_pos_changed) {
+				chdb::update_mux_sat_pos(txn, mux);
+				chdb::update_mux(txn, mux, now, m::flags{m::MUX_COMMON | m::MUX_KEY});
+			}
 		}
 	}
 	bool done = nit_data.update_nit_completion(scan_state, info, network_data);

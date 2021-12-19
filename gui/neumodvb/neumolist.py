@@ -1206,6 +1206,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         elif newlen < oldlen:
             msg = wx.grid.GridTableMessage(self.table, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, newlen, oldlen-newlen)
             self.ProcessTableMessage(msg)
+        if self.infow is not None:
+            self.infow.ShowRecord(self.table.CurrentlySelectedRecord())
         self.ForceRefresh()
         if rec_to_select is None:
             rec_to_select = self.table.GetRow(0)

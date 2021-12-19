@@ -462,11 +462,14 @@ class TuneMuxPanel(TuneMuxPanel_):
             ShowMessage("Network unavailable",
                          f"Network {sat} not defined for lnb {self.lnb} on fixed this. Add it in lnb list first")
             return
+        assert network is not None
         txn = wx.GetApp().chdb.rtxn()
         self.sat = sat
         if on_rotor(self.lnb):
             self.lnb.usals_pos = network.usals_pos
-        self.mux = pychdb.lnb.select_reference_mux(txn, self.lnb, None)
+        self.mux = pychdb.dvbs_mux.find_by_key(txn,network.ref_mux)
+        if self.mux is None or self.mux.k.sat_pos != self.sat.sat_pos: #The latter can happen when sat_pos of ref_mux was updated
+            self.mux = pychdb.dvbs_mux.dvbs_mux()
         if self.mux.k.sat_pos == pychdb.sat.sat_pos_none:
             self.mux.k.sat_pos = self.sat.sat_pos
         del txn

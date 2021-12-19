@@ -432,6 +432,7 @@ int active_adapter_reservation_t::release() {
 	auto ret = use_count.unregister_subscription();
 	if (ret == 0) {
 		auto* fe = active_adapter->current_fe.get();
+		dtdebugx("Release fe =%p", fe);
 		fe->adapter->release_fe();
 	}
 	return ret;

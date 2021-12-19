@@ -41,10 +41,10 @@
 #include <unistd.h>
 
 std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& receiver, dvb_frontend_t* fe) {
-	auto p = std::make_shared<fe_monitor_thread_t>(receiver, fe);
-	fe->set_monitor_thread(p);
 	auto t = fe->ts.writeAccess();
 	assert(t->fefd < 0);
+	auto p = std::make_shared<fe_monitor_thread_t>(receiver, fe);
+	fe->set_monitor_thread(p);
 	fe->open_device(*t);
 	dtdebugx("starting frontend_monitor %p: fefd=%d\n", fe, t->fefd);
 	p->epoll_add_fd(t->fefd,

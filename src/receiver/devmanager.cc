@@ -314,7 +314,12 @@ void adaptermgr_t::stop_frontend_monitor(dvb_frontend_t* fe) {
 	assert(it != monitors.end());
 	auto* monitor = it->second.get();
 	assert(monitor);
-	monitor->stop_running(false);
+	/*We need to wait, otherwise a race can occur, opening the frontend which still is being closed.
+		The alternative is to maintain a record (list of futures) of frontends in the process of
+		being closed
+	*/
+	bool wait = true;
+	monitor->stop_running(true);
 	auto& reservation = fe->adapter->reservation;
 	reservation.writeAccess()->reserved_fe = nullptr;
 	monitors.erase(it);
@@ -545,7 +550,7 @@ int dvbdev_monitor_t::start() {
 }
 
 int dvbdev_monitor_t::stop() {
-	// special type of loop because monitors map will be erased and iterators are invalidated
+	// special type of for loop because monitors map will be erased and iterators are invalidated
 	for (auto it = monitors.begin(); it != monitors.end();) {
 		auto& [fe, mon] = *it++; // it is incremened because it will be invalidated
 		stop_frontend_monitor(fe);

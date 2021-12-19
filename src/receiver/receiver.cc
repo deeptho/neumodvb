@@ -112,7 +112,7 @@ void receiver_thread_t::unsubscribe_mux_(std::vector<task_queue_t::future_t>& fu
 		/*This subscription will use  a different active_adapter than before,
 			and the old active_adapter is no longer in use; so release it.
 
-			Asynchronously request active_adapter f to detune for this subscription, which is the only one
+			Asynchronously request active_adapter to detune for this subscription, which is the only one
 		*/
 		futures.push_back(active_adapter.tuner_thread.push_task([&active_adapter]() {
 			auto ret = cb(active_adapter.tuner_thread).remove_active_adapter(active_adapter);

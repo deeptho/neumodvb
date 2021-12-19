@@ -401,7 +401,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
 	and other fields (num_services, tuning parameters...) could also have changed
 
 	The reasoning is that our caller (active_si_stream.cc) will probably only call us if a changed sat_pos was detected.
-	IN this case the caller will have already inserted a record with the correct position; in that case,
+	In this case the caller will have already inserted a record with the correct position; in that case,
 	the code below will delete other records wit closely matching frequency (possibly leaving
 	orphaned services! @todo: implement some cleaning strategy, perhaps as housekeeping)
 
@@ -435,8 +435,9 @@ bool chdb::update_mux_sat_pos(db_txn& txn, chdb::dvbs_mux_t& mux) {
 				continue;
 			if (m.k.sat_pos == best_match) {
 				if (mux.k.sat_pos != m.k.sat_pos) {
+					delete_record(txn, m);
 					m.k.sat_pos = mux.k.sat_pos;
-					put_record(txn, mux);
+					put_record(txn, m);
 					updated = true;
 				}
 			} else {
@@ -504,7 +505,11 @@ update_mux_ret_t chdb::update_mux(db_txn& txn, mux_t& mux, time_t now, update_mu
 			The database contains a mux with similar frequency, correct pol and stream_id and the same ts_id, network_id
 		*/
 		db_mux = c.current();
-		mux.k.extra_id = db_mux.k.extra_id; // preserve existing extra_id in the database
+		if(db_mux.k.extra_id == 0 ) {
+			dterror("Database mux " << db_mux << " has zero extra_id; fixing it");
+			mux.k.extra_id = make_unique_id<mux_t>(txn, mux.k);
+		} else
+			mux.k.extra_id = db_mux.k.extra_id; // preserve existing extra_id in the database
 		mux.c.is_template = false;
 		assert(mux.k.network_id == db_mux.k.network_id);
 		assert(mux.k.ts_id == db_mux.k.ts_id);

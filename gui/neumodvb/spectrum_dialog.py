@@ -385,6 +385,7 @@ class SpectrumDialog(SpectrumDialog_):
                                                            self.sat.sat_pos)
                 else:
                     self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
+                    self.tune_mux_panel.AbortTune()
 
     def ChangeLnb(self, lnb):
         self.SetTitle(f'Spectrum analysis - {lnb}')

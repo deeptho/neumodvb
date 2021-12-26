@@ -266,7 +266,7 @@ void export_signal_info(py::module& m) {
 		.def_property_readonly("dvbs_mux", [](const signal_info_t& i) { //tuned mux
 			return &i.mux;
 		})
-		.def_property_readonly("si_mux", [](const signal_info_t& i) { //tuned mux
+		.def_property_readonly("si_mux", [](const signal_info_t& i) { //si mux data
 			return &i.si_mux;
 		})
 		.def_property_readonly("min_snr", [](const signal_info_t& i) {

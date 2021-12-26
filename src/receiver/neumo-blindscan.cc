@@ -999,7 +999,7 @@ int driver_start_spectrum(int fefd, int start_freq_, int end_freq_, bool pol_is_
 		So the benefit may be  small.
 
 		Unfortunately, the older drivers also don't set the  dtv_property_cache when setting tone and voltage
-		througg FE_SET_VOLTAGE and FE_SET_TONE ioctl\
+		through FE_SET_VOLTAGE and FE_SET_TONE ioctl\
 	*/
 	bool band_is_low = start_freq_ < lnb_universal_slof ? true : false;
 	cmdseq.add(DTV_VOLTAGE, 1 - pol_is_v);

@@ -208,6 +208,9 @@ class BarGauge(PM.PeakMeterCtrl):
         assert l>0
         self.scale = 100/l
         r = [int((x - ranges[0])*self.scale) for x in ranges[1:] ]
+        r[0] = max(0.001, r[0])
+        r[1] = max(r[0]+0.001, r[1])
+        r[2] = max(r[1]+0.001, r[2])
         self.SetRangeValue(r[0], r[1], r[2])
 
 class BarGaugeOFF(PG.PyGauge):

@@ -610,11 +610,10 @@ class SignalPanel(SignalPanel_):
         lber =math.log10(max(1e-9,ber))
         #self.snr_gauge.SetRange(20.0)
         #self.ref_level_gauge.SetRange(-20.0)
-        if min_snr>0:
-            snr_ranges = [0, min_snr, min_snr+2, self.snr_ranges[3]]
-            if snr_ranges != self.snr_ranges:
-                self.snr_ranges = snr_ranges
-                self.snr_gauge.SetRange(snr_ranges)
+        snr_ranges = [0, max(min_snr, 0), max(min_snr+2, 0), self.snr_ranges[3]]
+        if snr_ranges != self.snr_ranges:
+            self.snr_ranges = snr_ranges
+            self.snr_gauge.SetRange(snr_ranges)
 
         self.rf_level_gauge.SetValue(rf_level)
         self.snr_gauge.SetValue(snr)

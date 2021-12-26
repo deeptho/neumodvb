@@ -885,7 +885,7 @@ bool active_adapter_t::read_and_process_data_for_fd(int fd) {
 }
 
 void active_adapter_t::init_si(scan_target_t scan_target) {
-	/*@When we are called on a t2mi mux, there will be confusion between the twmi mux (with t2mi_pid set)
+	/*@When we are called on a t2mi mux, there could be confusion between the t2mi mux (with t2mi_pid set)
 		and the one without. To avoid this, we find the non-t2mi_pid version first
 	*/
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&current_tp());

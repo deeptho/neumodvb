@@ -175,7 +175,7 @@ class SpectrumDialog(SpectrumDialog_):
     def OnClose(self, evt):
         dtdebug("CLOSE DIALOG")
         self.Close()
-
+        self.tune_mux_panel.AbortTune()
         wx.CallAfter(self.Destroy)
         evt.Skip()
 

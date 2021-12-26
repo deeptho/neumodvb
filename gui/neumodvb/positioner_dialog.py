@@ -668,7 +668,7 @@ class PositionerDialog(PositionerDialog_):
         self.SetDiseqc12Position(0 if network is None else network.diseqc12)
         self.SetUsalsLocation()
         if network is not None:
-            dtdebug(f'DISEQC={network.diseqc12}')
+            dtdebug(f'DISEQC12={network.diseqc12}')
             self.SetDiseqc12(network.diseqc12)
         self.SetStep(10)
         self.Bind(wx.EVT_CLOSE, self.OnClose) #ony if a nonmodal dialog is used

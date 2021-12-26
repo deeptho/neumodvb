@@ -350,7 +350,7 @@ class Spectrum(object):
         t = self.axes.text(-50, 11000, '10841.660V/H \n10841.660V/H ', fontsize=8)
         bb = t.get_window_extent(renderer=r).transformed(self.axes.transData.inverted())
         t.remove()
-        dtdebug(f"Box: {bb.width} x {bb.height}")
+        #dtdebug(f"Box: {bb.width} x {bb.height}")
         return bb
 
     def detrend_band(self, spec, lowidx, highidx):

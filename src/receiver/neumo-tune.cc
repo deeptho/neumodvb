@@ -574,7 +574,7 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 		break;
 	}
 
-	extern const char* fe_code_rates;
+	extern const char* fe_code_rates[];
 	printf("%s ", fe_code_rates[dtv_inner_fec_prop]);
 
 	switch (dtv_inversion_prop) {

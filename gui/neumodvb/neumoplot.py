@@ -17,7 +17,7 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 
-from functools import cache
+from functools import lru_cache
 import wx
 import warnings
 import os
@@ -796,7 +796,7 @@ class SpectrumPlot(wx.Panel):
         if self.legend is not None:
             self.legend.remove()
 
-    @cache
+    @lru_cache(maxsize=None)
     def get_limits(self):
         if self.spectra is None or len(self.spectra)==0:
             return ((self.parent.start_freq, self.parent.end_freq), (-60.0, -40.0))

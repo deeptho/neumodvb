@@ -716,9 +716,10 @@ class NeumoTable(NeumoTableBase):
         self.parent.EndBatch()
         if changed:
             self.GetRow.cache_clear()
-            rowno = max(min(rows) - 1,0)
+            rowno = max(min(rows) - 1, 0)
             colno = self.parent.GetGridCursorCol()
-            if self.GetNumberRows() >0:
+            if self.GetNumberRows() > 0:
+                dtdebug(f'GotoCell {rowno}/{self.GetNumberRows()} {colno}/{self.GetNumberCols()}')
                 self.parent.GoToCell(rowno, colno)
                 self.parent.SetGridCursor(rowno, colno)
                 wx.CallAfter(self.parent.MakeCellVisible, rowno, colno)

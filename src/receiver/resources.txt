@@ -1,3 +1,18 @@
+
+resource
+-needs to have an active/inactive/deactivation in progress state.
+This is needed for frontends: clsoing a frontend may take a while because
+stid135 driver may respond slowly (?) or for other reasons. So there can
+be races between closing and reopening.
+
+If a resource is in the deactivation in progress state, it means that devmanager
+must wait for deactivation to end and then restart the thread. This could be done
+by queeing tasks for "still to start threads" and adding tasks later?
+
+
+
+
+
 Resources to reserve
 
 We need to shield callers from the complexity of multi-tuner reservation.

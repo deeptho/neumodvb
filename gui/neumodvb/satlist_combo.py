@@ -47,11 +47,13 @@ class SatGridPopup(BasicSatGrid):
         x = getattr(self.Parent.GrandParent.GrandParent, 'lnb_controller', None)
         x = getattr(x, 'parent', None)
         self.sat = getattr(x, 'sat', None)
+
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
                 rec= self.table.GetValue(self.selected_row, None)
+                self.sat = rec
                 self.controller.SelectSat(rec)
                 wx.CallAfter(self.controller.SetFocus)
             self.Parent.Parent.Parent.GetPopupControl().Dismiss()

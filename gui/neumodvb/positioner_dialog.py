@@ -317,6 +317,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         mux.c.is_template = True
         mux.c.freq_from_si = False
         self.ClearSignalInfo()
+        self.parent.ClearSignalInfo()
         wx.CallAfter(self.Tune,  mux, retune_mode=pyreceiver.retune_mode_t.IF_NOT_LOCKED,
                      pls_search_range=pls_search_range)
         if event is not None:
@@ -334,7 +335,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.mux_subscriber_ = None
         self.tuned_ = False
         self.ClearSignalInfo()
-
+        self.parent.ClearSignalInfo()
     def OnAbortTune(self, event):
         dtdebug(f"positioner: unsubscribing")
         self.last_tuned_mux = None
@@ -343,6 +344,7 @@ class TuneMuxPanel(TuneMuxPanel_):
     def OnResetTune(self, event):
         dtdebug("OnResetTune")
         self.ClearSignalInfo()
+        self.parent.ClearSignalInfo()
         self.parent.ClearSignalInfo()
         self.mux = self.mux_controller.last_selected_mux.copy()
         self.muxedit_grid.Reset()
@@ -378,6 +380,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             else:
                 self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
         if not locked:
+            self.ClearSignalInfo()
             return
         else:
             pass
@@ -412,7 +415,7 @@ class TuneMuxPanel(TuneMuxPanel_):
                 w.SetForegroundColour(wx.Colour('blue' if val else 'red'))
         if False:
             self.dvb_ids_text.SetLabel('')
-        self.parent.ClearSignalInfo()
+        #self.parent.ClearSignalInfo()
 
     def ChangeLnb(self, lnb):
         add = False

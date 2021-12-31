@@ -1309,15 +1309,24 @@ chdb::delsys_type_t chdb::delsys_to_type(chdb::fe_delsys_t delsys_) {
 
 
 /*
-	returns true, priority if network exists, otherwise false
+	returns
+	  network_exists
+		priority (if network_exists else -1)
+		usals_amount: how much does the dish need to be rotated for this network
 */
-std::tuple<bool, int> chdb::lnb::has_network(const lnb_t& lnb, int16_t sat_pos) {
+std::tuple<bool, int, int> chdb::lnb::has_network(const lnb_t& lnb, int16_t sat_pos) {
+	int usals_amount{0};
 	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
 												 [&sat_pos](const chdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
-	if (it != lnb.networks.end())
-		return std::make_tuple(true, it->priority);
+	if (it != lnb.networks.end()) {
+		if (chdb::on_rotor(lnb)) {
+			auto usals_pos = lnb.usals_pos - lnb.offset_pos;
+			usals_amount = std::abs(usals_pos - it->usals_pos);
+		}
+		return std::make_tuple(true, it->priority, usals_amount);
+	}
 	else
-		return std::make_tuple(false, -1);
+		return std::make_tuple(false, -1, 0);
 }
 
 /*
@@ -1686,7 +1695,7 @@ chdb::lnb_t chdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const c
 	*/
 	auto c = find_first<chdb::lnb_t>(rtxn);
 	for (auto const& lnb : c.range()) {
-		auto [has_network, network_priority] = chdb::lnb::has_network(lnb, sat.sat_pos);
+		auto [has_network, network_priority, usals_move_amount] = chdb::lnb::has_network(lnb, sat.sat_pos);
 		/*priority==-1 indicates:
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
@@ -1706,7 +1715,8 @@ chdb::lnb_t chdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const c
 	*/
 	c = find_first<chdb::lnb_t>(rtxn);
 	for (auto const& lnb : c.range()) {
-		auto [has_network, network_priority] = chdb::lnb::has_network(lnb, sat.sat_pos);
+		auto [has_network, network_priority, usals_move_amount] = chdb::lnb::has_network(lnb, sat.sat_pos);
+		assert (usals_move_amount == 0);
 		/*priority==-1 indicates:
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
@@ -1813,23 +1823,53 @@ bool chdb::remove_epg_type(chdb::any_mux_t& mux, chdb::epg_type_t tnew) {
 	return true;
 }
 
-void chdb::lnb_update_usals_pos(db_txn& wtxn, const chdb::lnb_t& lnb) {
-	switch (lnb.rotor_control) {
-	case chdb::rotor_control_t::ROTOR_MASTER_USALS:
-	case chdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
-		break;
-	default:
-		return;
+int chdb::dish::update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos)
+{
+	auto c = chdb::find_first<chdb::lnb_t>(wtxn);
+	int num_rotors = 0; //for sanity check
+	for(auto lnb : c.range()) {
+		if(lnb.k.dish_id != dish_id || !chdb::on_rotor(lnb))
+			continue;
+		num_rotors++;
+		lnb.usals_pos = usals_pos;
+		put_record(wtxn, lnb);
 	}
-	auto c = chdb::lnb_t::find_by_key(wtxn, lnb.k, find_type_t::find_eq, lnb_t::partial_keys_t::all);
-	if (c.is_valid()) {
-		auto db_lnb = c.current();
-		if (db_lnb.usals_pos != lnb.usals_pos) {
-			db_lnb.usals_pos = lnb.usals_pos;
-			put_record(wtxn, db_lnb);
+	if (num_rotors == 0) {
+		dterrorx("None of the LNBs for dish %d seems to be on a rotor", dish_id);
+		return -1 ;
+	}
+	return 0;
+}
+
+
+
+/*
+	Find the current usals_posi for the desired sat_pos and compare it with the
+	current usals_pos of the dish.
+
+	As all lnbs on the same dish agree on usals_pos, we can stop when we find the first one
+ */
+bool chdb::dish::dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos)
+{
+	auto c = chdb::find_first<chdb::lnb_t>(rtxn);
+	int num_rotors = 0; //for sanity check
+
+	for(auto lnb : c.range()) {
+		if(lnb.k.dish_id != dish_id || !chdb::on_rotor(lnb))
+			continue;
+		num_rotors++;
+		auto [h, priority, usals_amount] =  chdb::lnb::has_network(lnb, sat_pos);
+		if(h) {
+			return usals_amount != 0;
 		}
 	}
+	if (num_rotors == 0) {
+		dterrorx("None of the LNBs for dish %d seems to be on a rotor", dish_id);
+	}
+	return false;
 }
+
+
 
 static inline auto bouquet_find_service(db_txn& rtxn, const chdb::chg_t& chg, const chdb::service_key_t& service_key) {
 	using namespace chdb;

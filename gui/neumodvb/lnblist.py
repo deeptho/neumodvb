@@ -95,6 +95,8 @@ class LnbTable(NeumoTable):
          CD(key='k.lnb_id',  label='ID', basic=False, readonly=True),
          CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         #CD(key='offset_pos',  label='usals\noffset', basic=True, no_combo = True, #allow entering sat_pos
+         #   dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='enabled',   label='enabled', basic=False),
          CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x), example='ROTOR TYPE USALS'),
          CD(key='diseqc_10',  label='diseqc 10'),

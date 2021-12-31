@@ -789,21 +789,11 @@ int active_adapter_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
 void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
 	int dish_id = tuned_lnb.readAccess()->k.dish_id;
 	auto wtxn = receiver.chdb.wtxn();
-	auto c = chdb::find_first<chdb::lnb_t>(wtxn);
-	int num_rotors = 0; //for sanity check
-	for(auto lnb : c.range()) {
-		if(lnb.k.dish_id != dish_id || !chdb::on_rotor(lnb))
-			continue;
-		num_rotors++;
-		lnb.usals_pos = usals_pos;
-		put_record(wtxn, lnb);
-	}
-	if (num_rotors == 0) {
-		dterrorx("None of the LNBs for dish %d seems to be on a rotor", dish_id);
+	int ret = chdb::dish::update_usals_pos(wtxn, dish_id, usals_pos);
+	if( ret<0 )
 		wtxn.abort();
-		return;
-	}
-	wtxn.commit();
+	else
+		wtxn.commit();
 
 	auto w = tuned_lnb.writeAccess();
 	auto& lnb = *w;

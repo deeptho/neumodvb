@@ -115,7 +115,6 @@ public:
 	}
 
 	void dump(FILE* fp) const;
-	bool dish_needs_to_be_moved(const chdb::lnb_t& lnb, int sat_pos) const;
 
 	template <typename mux_t>
 	std::shared_ptr<dvb_frontend_t> find_adapter_for_tuning_to_mux(db_txn& txn, const mux_t& mux,
@@ -318,7 +317,7 @@ void adaptermgr_t::stop_frontend_monitor(dvb_frontend_t* fe) {
 		The alternative is to maintain a record (list of futures) of frontends in the process of
 		being closed
 	*/
-	bool wait = true;
+	//bool wait = true;
 	monitor->stop_running(true);
 	auto& reservation = fe->adapter->reservation;
 	reservation.writeAccess()->reserved_fe = nullptr;
@@ -789,8 +788,9 @@ int dvb_adapter_t::change_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, int sat
 	assert(w->reserved_fe->ts.readAccess()->fefd >= 0);
 	w->reserved_mux = {};
 	w->reserved_lnb = lnb;
-	if (adaptermgr->dish_needs_to_be_moved(lnb, sat_pos)) {
-		/*upgrade our dish reservation from nonexlcusive to exclusive ;
+
+	if (chdb::lnb::dish_needs_to_be_moved(lnb, sat_pos)) {
+		/*upgrade our dish reservation from nonexclusive to exclusive ;
 			can cause problems on other subscriptions
 		*/
 		adaptermgr->reserve_dish_exclusive(fe, lnb.k.dish_id);
@@ -806,7 +806,7 @@ int dvb_adapter_t::change_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, const c
 	assert(w->reserved_fe->ts.readAccess()->fefd >= 0);
 	w->reserved_mux = mux;
 	w->reserved_lnb = lnb;
-	if (adaptermgr->dish_needs_to_be_moved(lnb, mux.k.sat_pos)) {
+	if (chdb::lnb::dish_needs_to_be_moved(lnb, mux.k.sat_pos)) {
 		adaptermgr->change_sat_reservation_sat_pos(lnb.k.dish_id, mux.k.sat_pos);
 	};
 
@@ -925,18 +925,6 @@ bool adapter_reservation_t::is_tuned_to(const chdb::any_mux_t& mux, const chdb::
 	return ret;
 }
 
-bool dvbdev_monitor_t::dish_needs_to_be_moved(const chdb::lnb_t& lnb, int usals_pos) const {
-
-	/*todo: only set lnb.sat_pos after we are sure the dish has turned to there
-		and/or always send diseqc first time
-	*/
-	if (!chdb::on_rotor(lnb))
-		return false;
-
-	usals_pos -= lnb.offset_pos;
-	auto& r = sat_reservation(lnb.k.dish_id);
-	return r.sat_pos != usals_pos;
-}
 
 /*
 	adapter_will_be_released indicates an the adapter is currently reserved but that
@@ -1178,13 +1166,14 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_
 			required_lnb may not have been saved in the database and may contain additional networks or
 			edited settings when called from positioner_dialog
 		*/
-		auto [has_network, network_priority] = chdb::lnb::has_network(*plnb, mux.k.sat_pos);
+		auto [has_network, network_priority, usals_move_amount] = chdb::lnb::has_network(*plnb, mux.k.sat_pos);
 		/*priority==-1 indicates:
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
 		*/
+		auto dish_needs_to_be_moved_ = usals_move_amount != 0;
 		auto lnb_priority = network_priority >= 0 ? network_priority : plnb->priority;
-		auto penalty = dish_needs_to_be_moved(*plnb, mux.k.sat_pos) ? get_dish_move_penalty() : 0;
+		auto penalty = dish_needs_to_be_moved_ ? get_dish_move_penalty() : 0;
 		if (!has_network ||
 				(lnb_priority >= 0 && lnb_priority - penalty < best_lnb_prio) // priority of frontend is ignored in this case
 			)

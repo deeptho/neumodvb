@@ -370,10 +370,6 @@ namespace chdb {
 		return std::abs(sat_pos_a-sat_pos_b) <= 100;
 	}
 
-
-	void lnb_update_usals_pos(db_txn& wtxn, const chdb::lnb_t& lnb);
-
-
 	/*!
 		find a mux which the correct network_id and ts_id and closely matching frequency
 		we adopt a tolerance of 1000kHz
@@ -406,6 +402,12 @@ namespace chdb {
 
 	//tuning parameters (sat_pos, polarisation, frequency) indicate "equal channels"
 	bool matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos=true);
+};
+
+namespace chdb::dish {
+	//dish objects do not really exist in the database, but curent state (usals_pos) is stored in all relevant lnbs
+	int update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos);
+	bool dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos);
 };
 
 namespace chdb::dvbs_mux {
@@ -569,7 +571,14 @@ namespace  chdb::service {
 namespace  chdb::lnb {
 
 	//std::optional<chdb::lnb_network_t> diseqc12(const chdb::lnb_t& lnb, int16_t sat_pos);
-	std::tuple<bool, int>  has_network(const lnb_t& lnb, int16_t sat_pos);
+	std::tuple<bool, int, int>  has_network(const lnb_t& lnb, int16_t sat_pos);
+
+	inline bool dish_needs_to_be_moved(const lnb_t& lnb, int16_t sat_pos) {
+		auto [has_network_, priority, usals_move_amount] = has_network(lnb, sat_pos);
+		assert(has_network_);
+		return usals_move_amount != 0 ;
+	}
+
 	const chdb::lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);
 	chdb::lnb_t new_lnb(int tuner_id, int16_t sat_pos, int dish_id=0,
 											chdb::lnb_type_t type = chdb::lnb_type_t::UNIV);

@@ -18,7 +18,6 @@
 #
 import wx
 import wx.grid
-
 import sys
 import os
 import copy
@@ -29,12 +28,12 @@ from dateutil import tz
 import regex as re
 
 from neumodvb.util import setup, lastdot
-import neumodvb.neumodbutils
+from neumodvb import neumodbutils
 from neumodvb.neumolist import GridPopup
 from neumodvb.chglist import BasicChgGrid
+from neumodvb.util import dtdebug, dterror
 
 import pychdb
-
 
 class ChgGridPopup(BasicChgGrid):
     """

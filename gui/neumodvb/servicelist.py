@@ -330,10 +330,7 @@ def IsNumericKey(keycode):
 class BasicServiceGrid(ServiceGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
-        if False:
-            self.SetSelectionMode(wx.grid.Grid.GridSelectionModes.GridSelectRows)
-        else:
-            self.SetSelectionMode(wx.grid.Grid.SelectRows)
+        self.SetSelectionMode(wx.grid.Grid.SelectRows)
         self.SetTabBehaviour(wx.grid.Grid.Tab_Leave)#
 
     def OnKeyDownOFF(self, evt):

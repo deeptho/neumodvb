@@ -149,10 +149,7 @@ class SatGridBase(NeumoGridBase):
 class BasicSatGrid(SatGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
-        if False:
-            self.SetSelectionMode(wx.grid.Grid.GridSelectionModes.GridSelectRows)
-        else:
-            self.SetSelectionMode(wx.grid.Grid.SelectRows)
+        self.SetSelectionMode(wx.grid.Grid.SelectRows)
 
 
 class SatGrid(SatGridBase):

@@ -38,7 +38,7 @@ const char* chdb::lang_name(const chdb::language_code_t& code) {
 bool chdb::tuning_parameters_match(const chdb::dvbs_mux_t& a, const chdb::dvbs_mux_t& b) {
 	if (a.pol != b.pol || a.stream_id != b.stream_id)
 		return false;
-	auto tolerance = ((int)std::min(a.symbol_rate, b.symbol_rate)) / (2 * 1350);
+	auto tolerance = (((int)std::min(a.symbol_rate, b.symbol_rate)) *1.35) / 2000;
 	return std::abs((int)a.frequency - (int)b.frequency) < tolerance;
 }
 
@@ -699,7 +699,7 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_sat_freq_pol_fuzzy(db_txn& txn,
 		*/
 		const auto& mux = c.current();
 		assert(mux.k.sat_pos == sat_pos);
-		auto tolerance = ((int)mux.symbol_rate) / (2 * 1350);
+		auto tolerance = (((int)mux.symbol_rate)*1.350) / 2000;
 		if (frequency >= mux.frequency + tolerance) {
 			c.next();
 			break;
@@ -734,7 +734,7 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_sat_freq_pol_fuzzy(db_txn& txn,
 				mux.k.t2mi_pid == t2mi_pid) {
 			return c;
 		}
-		auto tolerance = ((int)mux.symbol_rate) / (2 * 1350);
+		auto tolerance = (1.35*(int)mux.symbol_rate) / 2000;
 		if ((int)frequency - (int)mux.frequency > tolerance)
 			continue;
 		if ((int)mux.frequency - (int)frequency > tolerance)
@@ -817,7 +817,7 @@ bool chdb::matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool c
 				return false;
 			if (check_sat_pos && (std::abs(pa->k.sat_pos - pb->k.sat_pos) > 30)) // 0.3 degree
 				return false;
-			auto tolerance = ((int)std::min(pa->symbol_rate, pb->symbol_rate)) / (2 * 1350);
+			auto tolerance = (((int)std::min(pa->symbol_rate, pb->symbol_rate))*1.35) / 2000;
 			return (std::abs((int)pa->frequency - (int)pb->frequency) < tolerance);
 		}
 	}

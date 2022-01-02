@@ -653,8 +653,8 @@ void active_si_stream_t::scan_report() {
 			dterror("mux is still a template mux (removing template status):" << mux);
 			auto* key = mux_key_ptr(mux);
 			add_fake_nit(txn, 0, 0, key->sat_pos);
-			assert(tune_confirmation.sat_by == confirmed_by_t::NONE);
-			tune_confirmation.sat_by = confirmed_by_t::FAKE;
+			if (tune_confirmation.sat_by == confirmed_by_t::NONE)
+				tune_confirmation.sat_by = confirmed_by_t::FAKE;
 		} else {
 			namespace m = chdb::update_mux_preserve_t;
 			chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::SCAN_DATA});
@@ -909,11 +909,35 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 				dvbs_mux->frequency = tuned_dvbs_mux->frequency;
 			}
 			if (dvbs_mux && !chdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), *dvbs_mux, disregard_networks)) {
-				dtdebug("Refusing to insert a mux which cannot be tuned: " << mux);
-				can_be_tuned = false;
+				auto tmp = *dvbs_mux;
+				if (tmp.pol == chdb::fe_polarisation_t::H)
+					tmp.pol = chdb::fe_polarisation_t::L;
+				else if (tmp.pol == chdb::fe_polarisation_t::V)
+					tmp.pol = chdb::fe_polarisation_t::R;
+				else if (tmp.pol == chdb::fe_polarisation_t::L)
+					tmp.pol = chdb::fe_polarisation_t::H;
+				else if (tmp.pol == chdb::fe_polarisation_t::R)
+					tmp.pol = chdb::fe_polarisation_t::V;
+				bool can_be_tuned_with_pol_change =
+					chdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), tmp, disregard_networks);
+				if(can_be_tuned_with_pol_change) {//happens on 20E:  4.18150L which claims "H"
+					dtdebug("Found a mux which differs in circular/linear polarisationy: " << mux);
+					*dvbs_mux = tmp;
+					can_be_tuned = true;
+				}
+				else {
+					dtdebug("Refusing to insert a mux which cannot be tuned: " << mux);
+					can_be_tuned = false;
+				}
 			}
 			if (can_be_tuned) {
 				// update_mux_ret_t r;
+				if(mux_key->network_id==65 && mux_key->ts_id == 65 && dvbs_mux->pol ==  chdb::fe_polarisation_t::L
+					 && dvbs_mux->k.sat_pos == -2200 ) {
+					//reuters on 22W 4026R reports the wrong polarisation
+					dvbs_mux->pol =  chdb::fe_polarisation_t::R;
+				}
+
 				std::tie(ret, is_tuned_mux) = nit_actual_save_and_check_confirmation(txn, mux);
 				if (ret != dtdemux::reset_type_t::NO_RESET) {
 					txn.abort();

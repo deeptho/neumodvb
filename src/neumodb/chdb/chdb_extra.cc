@@ -813,7 +813,7 @@ bool chdb::matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool c
 		auto* pa = std::get_if<chdb::dvbs_mux_t>(&a);
 		auto* pb = std::get_if<chdb::dvbs_mux_t>(&b);
 		if (pa && pb) {
-			if (pa->pol != pb->pol)
+			if (((int)pa->pol& ~0x2) != ((int)pb->pol & ~0x2)) //we allow switch between L/H and R/V
 				return false;
 			if (check_sat_pos && (std::abs(pa->k.sat_pos - pb->k.sat_pos) > 30)) // 0.3 degree
 				return false;

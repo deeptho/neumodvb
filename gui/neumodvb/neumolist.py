@@ -1024,7 +1024,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         if example is not None:
             if True:
                 #in the first line below we really should have self.cellfont, but that seems to produce the wrong result
-                w,h = get_text_extent(f"{example}", self.labelfont, extra="**")
+                w,h = get_text_extent(f"{example}", self.labelfont, extra="")
                 w1,h1 = get_text_extent(f"{col.label}", self.labelfont, extra="")
             else:
                 w,h = self.header_dc.GetTextExtent(f"{example}")

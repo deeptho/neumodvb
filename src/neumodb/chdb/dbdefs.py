@@ -604,7 +604,7 @@ dvbs_mux = db_struct(name='dvbs_mux',
                           (11, 'chdb::fe_pilot_t', 'pilot'),
 	                        (12, 'int16_t', 'stream_id',  -1),
 	                        (13, 'chdb::fe_pls_mode_t', 'pls_mode', 'fe_pls_mode_t::ROOT'),
-                          (16, 'uint8_t', 'matype', '0'),
+                          (16, 'int16_t', 'matype', '-1'),
 	                        (14, 'uint32_t', 'pls_code',  1),
                           (15, 'mux_common_t', 'c')
                 ))

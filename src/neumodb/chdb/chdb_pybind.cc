@@ -145,6 +145,8 @@ PYBIND11_MODULE(pychdb, m) {
 	m.def(
 		"sat_pos_str", [](int sat_pos) { return std::string(sat_pos_str(sat_pos).c_str()); },
 		"make human readable representation", py::arg("sat_pos"))
+		.def("matype_str", [](int matype) { return std::string(matype_str(matype).c_str()); },
+				 "make human readable representation", py::arg("matype"))
 		.def(
 			"to_str", [](const sat_t& sat) { return to_str(sat).c_str(); }, "make human readable representation",
 			py::arg("sat"))

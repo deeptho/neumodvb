@@ -39,6 +39,7 @@ class DvbsMuxTable(NeumoTable):
     record_t =  pychdb.dvbs_mux.dvbs_mux
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
+    matype_fn =  lambda x:  pychdb.matype_str(x[1])
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     time_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%M:%S")
     epg_types_fn =  lambda x: '; '.join([ lastdot(t) for t in x[1]])
@@ -65,6 +66,7 @@ class DvbsMuxTable(NeumoTable):
          CD(key='c.scan_status', label='Scan\nstatus', dfn=lambda x: lastdot(x).replace('FEC','')),
          CD(key='c.scan_result', label='Scan\nresult', dfn=lambda x: lastdot(x).replace('FEC','')) ,
          CD(key='c.scan_duration', label='Scan time', dfn=time_fn),
+         CD(key='matype', label='matype', example='GFP MIS ACM/VCM 35', dfn=matype_fn),
          CD(key='c.epg_scan', label='Epg\nscan', dfn=bool_fn),
          CD(key='c.epg_types', label='Epg\ntypes', dfn=epg_types_fn, example='FST'*2, readonly=True)
          ]

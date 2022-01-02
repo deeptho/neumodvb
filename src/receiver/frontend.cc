@@ -1189,7 +1189,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_sca
 
 	fe_sec_tone_mode_t tone = (options.band_pol.band == fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 
-	dttime_init();
+	//dttime_init();
 	if (this->clear() < 0) /*this call takes 500ms for the tas2101, probably because the driver's tuning loop \
 													 is slow to react*/
 		return -1;

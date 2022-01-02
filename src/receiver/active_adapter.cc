@@ -368,7 +368,7 @@ int active_adapter_t::lnb_blind_scan(const chdb::lnb_t& lnb, tune_options_t tune
 }
 
 int active_adapter_t::lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t tune_options) {
-	dttime_init();
+	//dttime_init();
 	// needs to be at very start!
 #if 0
 	bool need_diseqc = true;

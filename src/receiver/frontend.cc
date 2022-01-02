@@ -1252,7 +1252,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_sca
 	t.tune_mode = tune_mode_t::SPECTRUM;
 	t.spectrum_scan_options = options;
 	dtdebugx("tune: spectrum acquisition started ret=%d", ret);
-	dttime(100);
+	//dttime(100);
 	return ret;
 }
 

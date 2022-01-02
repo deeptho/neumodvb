@@ -387,7 +387,7 @@ int active_adapter_t::lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t t
 	dtdebug("tune: diseqc done");
 #endif
 	int ret = current_fe->start_lnb_spectrum_scan(lnb, tune_options.spectrum_scan_options);
-	dttime(100);
+	//dttime(100);
 	return ret;
 }
 

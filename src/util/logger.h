@@ -152,7 +152,7 @@ inline int dttime_(steady_time_t& dt_timer,int timeout,const char*func,int line)
 	int ret =  std::chrono::duration_cast<std::chrono::milliseconds>(now -dt_timer).count();
 	dt_timer = now;
 	if(timeout>=0&&ret>=timeout) {
-		dterrorx("%s_%d TIME: %d",func,line,ret);
+		dtdebugx("%s_%d TIME: %d",func,line,ret);
 	}
 	return ret;
 }

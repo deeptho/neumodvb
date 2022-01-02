@@ -270,7 +270,7 @@ public:
 	level_indicator snr{"snr", "snr", 0.0, 20.0};
 	level_indicator min_snr{"min-snr", "snr", 0.0, 20.0};
 	level_indicator margin_snr{"margin-snr", "snr", 0.0, 20.0};
-	level_indicator strength{"strength", "strength", -60.0, -20.0};
+	level_indicator strength{"strength", "strength", -80.0, -20.0};
 	livebuffer_t livebuffer{"livebuffer", "livebuffer", -7200, -20.0};
 	text_box chno{"service-chno"};
 	text_box service{"service"};

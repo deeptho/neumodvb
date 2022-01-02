@@ -575,8 +575,7 @@ namespace  chdb::lnb {
 
 	inline bool dish_needs_to_be_moved(const lnb_t& lnb, int16_t sat_pos) {
 		auto [has_network_, priority, usals_move_amount] = has_network(lnb, sat_pos);
-		assert(has_network_);
-		return usals_move_amount != 0 ;
+		return !has_network_ || usals_move_amount != 0 ;
 	}
 
 	const chdb::lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);

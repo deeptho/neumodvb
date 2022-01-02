@@ -1563,18 +1563,24 @@ std::tuple<int32_t, int32_t, int32_t> chdb::lnb::band_frequencies(const chdb::ln
 */
 int chdb::lnb::freq_for_driver_freq(const chdb::lnb_t& lnb, int frequency, bool high_band) {
 	using namespace chdb;
-	auto correct = [&lnb](int band, int frequency) {
+	bool invert{false};
+	auto correct = [&lnb, invert](int band, int frequency) {
 		if (band >= lnb.lof_offsets.size()) {
 			dterror("lnb_loffsets too small for lnb: " << lnb);
 			return frequency;
 		}
-		if (std::abs(lnb.lof_offsets[band]) < 5000)
-			frequency -= lnb.lof_offsets[band];
+		if (std::abs(lnb.lof_offsets[band]) < 5000) {
+			if(invert)
+				frequency += lnb.lof_offsets[band];
+			else
+				frequency -= lnb.lof_offsets[band];
+		}
 		return frequency;
 	};
 
 	switch (lnb.k.lnb_type) {
 	case lnb_type_t::C: {
+		invert = true;
 		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
 		return correct(0, -frequency + lof_low); // - to cope with inversion
 	} break;

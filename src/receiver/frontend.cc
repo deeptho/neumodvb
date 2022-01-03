@@ -429,6 +429,7 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 		if (api == api_type_t::NEUMO) {
 			ret.matype = cmdseq.props[i++].u.data;
 			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.mux);
+
 			if (dvbs_mux) {
 				dvbs_mux->matype = ret.matype;
 				bool is_mis = !(ret.matype & (1 << 5));

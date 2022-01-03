@@ -122,6 +122,7 @@ class SpectrumDialog(SpectrumDialog_):
         p_t = pychdb.fe_polarisation_t
 
         self.is_blindscanning = False
+        self.done_count = 0
         self.pols_to_scan = []
         self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
 
@@ -274,6 +275,7 @@ class SpectrumDialog(SpectrumDialog_):
         event.Skip()
 
     def blindscan_next(self):
+        self.done_count = 0
         if len(self.tps_to_scan) == 0:
             self.is_blindscanning = False
             self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
@@ -346,32 +348,36 @@ class SpectrumDialog(SpectrumDialog_):
         need_si = True
         if type(data) == pyreceiver.signal_info_t:
             self.signal_info = data
-            if self.signal_info.has_fail or (self.signal_info.has_si_done if need_si else self.signal_info.has_lock):
-                mux = self.tune_mux_panel.last_tuned_mux
-                self.blindscan_num_muxes += 1
-                self.blindscan_num_locked_muxes += self.signal_info.has_lock
-                self.blindscan_num_nonlocked_muxes += not self.signal_info.has_lock
-                self.blindscan_num_si_muxes += (self.signal_info.has_nit or self.signal_info.has_sdt or self.signal_info.has_pat)
-                dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done}")
-                self.spectrum_plot.set_current_annot_status(mux, self.signal_info.has_lock)
-                if self.is_blindscanning:
-                    tp = self.tp_being_scanned
-                    if not hasattr(tp, 'isis_present'):
-                        tp.isis_present = set(data.isi_list)
-                        #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
-                        tp.isis_scanned = set((data.si_mux.stream_id,data.dvbs_mux.stream_id))
-                    else:
-                        tp.isis_present = set.union(set(data.isi_list), tp.isis_present)
-                        #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
-                        tp.isis_scanned.add(data.dvbs_mux.stream_id)
-                        tp.isis_scanned.add(data.si_mux.stream_id)
-                    tp.isis_to_scan =  tp.isis_present -  tp.isis_scanned
-                    if len(tp.isis_to_scan)>0:
-                        stream_id = min(tp.isis_to_scan)
-                        tp.isis_to_scan.discard(stream_id)
-                        self.next_stream(stream_id)
-                    else:
-                        self.blindscan_next()
+            need_si = not self.signal_info.has_no_dvb
+            si_done = self.signal_info.has_si_done if need_si else self.signal_info.has_lock
+            self.done_count +=1
+            if self.done_count >= 3:
+                if self.signal_info.has_fail or si_done:
+                    mux = self.tune_mux_panel.last_tuned_mux
+                    self.blindscan_num_muxes += 1
+                    self.blindscan_num_locked_muxes += self.signal_info.has_lock
+                    self.blindscan_num_nonlocked_muxes += not self.signal_info.has_lock
+                    self.blindscan_num_si_muxes += (self.signal_info.has_nit or self.signal_info.has_sdt or self.signal_info.has_pat)
+                    dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done}")
+                    self.spectrum_plot.set_current_annot_status(mux, self.signal_info.has_lock)
+                    if self.is_blindscanning:
+                        tp = self.tp_being_scanned
+                        if not hasattr(tp, 'isis_present'):
+                            tp.isis_present = set(data.isi_list)
+                            #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
+                            tp.isis_scanned = set((data.si_mux.stream_id,data.dvbs_mux.stream_id))
+                        else:
+                            tp.isis_present = set.union(set(data.isi_list), tp.isis_present)
+                            #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
+                            tp.isis_scanned.add(data.dvbs_mux.stream_id)
+                            tp.isis_scanned.add(data.si_mux.stream_id)
+                        tp.isis_to_scan =  tp.isis_present -  tp.isis_scanned
+                        if len(tp.isis_to_scan)>0:
+                            stream_id = min(tp.isis_to_scan)
+                            tp.isis_to_scan.discard(stream_id)
+                            self.next_stream(stream_id)
+                        else:
+                            self.blindscan_next()
             else:
                 mux = self.tune_mux_panel.last_tuned_mux
 

@@ -874,7 +874,7 @@ void chdb::matype_str(ss::string_& s, int16_t matype) {
 		s.sprintf("GCS "); //generic continuous stream
 		break;
 	case 2:
-		s.sprintf("GSE "); //eneric encapsulated stream
+		s.sprintf("GSE "); //generic encapsulated stream
 		break;
 	case 3:
 		s.sprintf("TS "); //transport stream

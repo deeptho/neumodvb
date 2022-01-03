@@ -90,8 +90,8 @@ def get_text_extent(text, font=None, extra='**'):
         dc.SetFont(font)
     w0,h0 = dc.GetTextExtent(text+extra)
     res = Gdk.Screen.get_default().get_resolution()
-    w0 = int((w0+0.5)*res/96)
-    h0 = int((h0+0.5)*res/96)
+    w0 = int(w0*res/96+0.5)
+    h0 = int(h0*res/96+0.5)
     return (w0,h0)
 
 def load_gtk3_stylesheet(fname):

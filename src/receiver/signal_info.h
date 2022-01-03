@@ -38,7 +38,6 @@ namespace chdb {
 		uint8_t matype{0};
 		ss::vector<int16_t, 8> isi_list;
 		fe_status_t lock_status;
-
 		ss::vector_<dtv_fe_constellation_sample> constellation_samples;
 		~signal_info_t() {
 			//printf("signal_info destroyed %p\n");

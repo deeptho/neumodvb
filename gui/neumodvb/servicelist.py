@@ -174,6 +174,8 @@ class ServiceTable(NeumoTable):
     def get_icon_state(self, rowno, colno):
         #col = self.columns[colno]
         service = self.GetRow(rowno)
+        if service is None:
+            return (False, False)
         return ( service.encrypted, service.expired)
 
     def get_icon_sort_key(self):

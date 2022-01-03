@@ -891,6 +891,10 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 
 	for (auto& mux : network.muxes) {
 		auto* mux_key = mux_key_ptr(mux);
+		if(mux_key->sat_pos == -4200 && tuned_mux_key->sat_pos == 4200) {
+			//hack for 42.0W on which 42E is reported as 42W
+			mux_key->sat_pos = 4200;
+		}
 		if (dvb_type(mux_key->sat_pos) != dvb_type(tuned_mux_key->sat_pos)) {
 			bool is_tuned_mux = false;
 			nit_data.add_mux_from_nit(mux, is_tuned_mux); // save for later looking up sat_id and for counting services.

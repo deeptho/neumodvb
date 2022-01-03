@@ -1469,9 +1469,12 @@ namespace dtdemux {
 				section.skip(desc.len);
 				break;
 			case SI::PrivateDataSpecifierDescriptorTag: {
-				auto data = section.get<uint32_t>();
-				if (data == 0x02)
-					bouquet.is_sky = true; // 0x2= BskyB 1
+				if(desc. len== 4) {
+					auto data = section.get<uint32_t>();
+					if (data == 0x02)
+						bouquet.is_sky = true; // 0x2= BskyB 1
+				} else if(desc.len>0) //desc.len==0 happens on 45.0E 12520V
+					section.skip(desc.len);
 			} break;
 			case SI::FSTRegionListDescriptorTag: {
 				fst_region_list_t region_list{fst_preferred_region_id, bouquet.name};
@@ -1505,9 +1508,14 @@ namespace dtdemux {
 			if (has_error())
 				return false;
 			tst -= (desc.len + 2);
-			assert(tst == section.available());
+			if(tst != section.available()) {
+				dterrorx("Error while parsing bat section: %d != %d", tst, section.available());
+				return false;
+			}
 		}
-		assert(end == section.available());
+	 assert(end <= section.available());
+	 if (section.available() > end)
+		 section.skip(section.available() - end);
 
 		auto ts_loop_len = section.get<uint16_t>() & 0xfff;
 		if (section.available() < ts_loop_len)

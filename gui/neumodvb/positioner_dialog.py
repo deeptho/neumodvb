@@ -627,8 +627,32 @@ class SignalPanel(SignalPanel_):
         self.ber_text.SetLabel(f'{ber:8.2E}')
 
         stream_id = mux.stream_id
-        isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) \
-                         for i in signal_info.isi_list]) if locked else ''
+        isi = ''
+        if locked:
+            lst = [ x for x in signal_info.isi_list ]
+            if stream_id not in lst:
+                lst.append(stream_id)
+            lst.sort()
+            prefix = ''
+            suffix = ''
+            if len(lst) > 8:
+                try:
+                    if False and stream_id < 0:
+                        suffix ='...'
+                        lst = lst [:8]
+                    else:
+                        idx=lst.index(stream_id)
+                        start, end = max(idx-4, 0), min(idx+4, len(lst))
+                        if start > 0:
+                            prefix = '...'
+                        if end < len(lst):
+                            suffix = '...'
+                        lst = lst [start:end]
+                except ValueError:
+                    pass
+            assert stream_id in lst
+            isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) for i in lst])
+            isi = f'{prefix}{isi}{suffix}'
         self.isi_list_text.SetLabelMarkup(isi)
         #we need the int cast, because mux.delivery_sysstem can be of dvbs, ddvbt or dvbc type
         if int(mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and locked:

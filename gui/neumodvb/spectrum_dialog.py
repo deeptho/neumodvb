@@ -312,7 +312,7 @@ class SpectrumDialog(SpectrumDialog_):
         self.tune_mux_panel.mux = mux
         self.tune_mux_panel.muxedit_grid.Reset()
         self.spectrum_plot.reset_current_annot_status(mux)
-        self.ClearSignalInfo()
+        #self.ClearSignalInfo()
         if not self.tune_mux_panel.Tune(mux,  retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
             #attempt retune once
             if not self.tune_mux_panel.Tune(mux,  retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):

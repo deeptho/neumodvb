@@ -359,7 +359,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         return self.parent.OnClose(evt);
 
     def OnSignalInfoUpdate(self, signal_info):
-        locked = self.parent.UpdateSignalInfo(signal_info, self.tuned_)
+        self.parent.UpdateSignalInfo(signal_info, self.tuned_)
         si_mux = signal_info.dvbs_mux
 
         self.si_freq_text.SetLabel(f'{si_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
@@ -577,7 +577,7 @@ class SignalPanel(SignalPanel_):
 
     def OnSignalInfoUpdate(self, signal_info, is_tuned):
         self.Speak()
-        locked = self.signal_info.has_lock
+        locked = signal_info.has_lock
         mux = signal_info.dvbs_mux
         frequency_text = f'{mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') if locked else ''
         symbolrate_text = f'{mux.symbol_rate/1e3:.0f} kS/s' if locked else ''

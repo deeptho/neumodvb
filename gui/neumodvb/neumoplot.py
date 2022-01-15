@@ -303,6 +303,8 @@ class Spectrum(object):
     def annot_for_mux(self, mux):
         found = None
         best = 20000000
+        if mux is None:
+            return None
         for annot in self.annots:
             delta= abs(annot.tp.freq*1000 - mux.frequency)
             if delta < best and annot.tp.spectrum.spectrum.k.pol == mux.pol:

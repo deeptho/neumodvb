@@ -651,7 +651,7 @@ static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
 
 	g20 = fabs(g17 - g18);
 	g21 = g20 > 180. ? -(360. - g20) : g20;
-	if (fabs(g21) > 65.) {
+	if (fabs(g21) > 80.) {
 		g22 = 0;
 		f_angle_error = -1;
 	} else
@@ -668,7 +668,7 @@ static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
 	g31 = sqrt(3555639523. - 3555639523. * cos(M_PI * g22 / 180.));
 	g32 = acos((g29 * g29 + g30 * g30 - g31 * g31) / (2 * g29 * g30));
 	g33 = g32 * 180. / M_PI;
-	if (fabs(g33) > 65.) {
+	if (fabs(g33) > 80.) {
 		g34 = 0.;
 		f_angle_error = -1;
 	} else
@@ -689,12 +689,7 @@ static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
 
 	posi_angle |= (tmp / 10) << 4;
 	posi_angle |= z_conversion[tmp % 10]; // computes decimal fraction of angle in 1/16 of a degree
-
 	return posi_angle;
-	/*
-		(posi_angle >> 8) & 0xff,
-		posi_angle & 0xff );
-	*/
 }
 
 /** @brief generate and diseqc message for a committed or uncommitted switch

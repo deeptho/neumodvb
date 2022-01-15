@@ -655,7 +655,6 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	}
 
 	bool 	update_template_mux_parameters_from_frontend(db_txn& wtxn, chdb::any_mux_t& mux);
-	bool 	update_mux_parameters_from_frontend(chdb::any_mux_t& mux);
 public:
 	void reset ();
 

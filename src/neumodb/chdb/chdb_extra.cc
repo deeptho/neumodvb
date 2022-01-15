@@ -448,6 +448,17 @@ bool chdb::update_mux_sat_pos(db_txn& txn, chdb::dvbs_mux_t& mux) {
 	return updated;
 }
 
+static inline void update_matype_helper(chdb::dvbs_mux_t& mux, chdb::dvbs_mux_t& db_mux, update_mux_preserve_t::flags preserve)
+{
+	if ((preserve & update_mux_preserve_t::SCAN_DATA) || (mux.matype <0 && db_mux.matype>=0) )
+		mux.matype = db_mux.matype;
+}
+
+template<typename mux_t>
+static inline void update_matype_helper(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserve)
+{}
+
+
 /*! Put a mux record, taking into account that its key may have changed
 	returns: true if this is a new mux (first time scanned); false otherwise
 	Also, updates the mux, specifically k.extra_id
@@ -489,6 +500,8 @@ update_mux_ret_t chdb::update_mux(db_txn& txn, mux_t& mux, time_t now, update_mu
 			mux.c.epg_scan = db_mux.c.epg_scan;
 			// mux.c.is_template = false;
 		}
+		update_matype_helper(mux, db_mux, preserve);
+
 		if (preserve & m::NUM_SERVICES)
 			mux.c.num_services = db_mux.c.num_services;
 		if (preserve & m::EPG_TYPES)
@@ -861,8 +874,13 @@ void chdb::matype_str(ss::string_& s, int16_t matype) {
 	// See en 302 307 v1.1.2; stid135 manual seems wrong in places
 	// en_302307v010201p_DVBS2.pdf
 	//s.sprintf("0x%x ", matype);
-	if( matype<0 ) {
-		s.sprintf("%d", matype);
+	if( matype == 256 ) { //dvbs
+		s.sprintf("DVBS");
+		return;
+	}
+
+	if( matype <0 ) { //dvbs
+		s.sprintf("");
 		return;
 	}
 
@@ -1223,6 +1241,8 @@ bool chdb::is_same(const dvbs_mux_t& a, const dvbs_mux_t& b) {
 	if (!(a.pls_mode == b.pls_mode))
 		return false;
 	if (!(a.pls_code == b.pls_code))
+		return false;
+	if (!(a.matype == b.matype))
 		return false;
 
 	if (!(a.c == b.c))

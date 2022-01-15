@@ -260,6 +260,9 @@ void export_signal_info(py::module& m) {
 			auto ret = chdb::matype_str(i.matype);
 			return  std::string(ret.c_str());
 		})
+		.def_property_readonly("has_matype", [](const signal_info_t& i) {
+			return i.matype >=0;
+		})
 		.def_property_readonly("mis_mode", [](const signal_info_t& i) {
 			return !((i.matype >>5)&1);
 		})

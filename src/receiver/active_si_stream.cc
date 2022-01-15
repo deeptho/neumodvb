@@ -907,7 +907,6 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			p_network_data->num_muxes++;
 			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 			const bool disregard_networks{true};
-			update_mux_parameters_from_frontend(mux);
 			if (dvbs_mux && !chdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), *dvbs_mux, disregard_networks)) {
 				auto tmp = *dvbs_mux;
 				if (tmp.pol == chdb::fe_polarisation_t::H)
@@ -1147,6 +1146,8 @@ active_si_stream_t::nit_actual_save_and_check_confirmation(db_txn& txn, chdb::an
 			sdt_data.network_id = mux_key->network_id;
 			sdt_data.ts_id = mux_key->ts_id;
 		}
+		update_template_mux_parameters_from_frontend(txn, mux);
+
 		namespace m = chdb::update_mux_preserve_t;
 		{
 			//happens on 22.0E 4181V
@@ -2058,62 +2059,6 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(db_txn& wt
 	}
 	return false;
 }
-
-/*
-	update some parameters which come from the fronted, such as matype (todo)
-	Also: fix some errors
- */
-bool active_si_stream_t::update_mux_parameters_from_frontend(chdb::any_mux_t& mux) {
-	auto& c = *mux_common_ptr(mux);
-	auto monitor = active_adapter().current_fe->get_monitor_thread();
-	chdb::signal_info_t signal_info;
-	if (monitor) {
-		/*refresh signal info; we need to be sure that frequency is up to date. Using older data
-			from a cache in dvb_frontend_t would not be a good idea because it may be outdated (data race),
-			so there is no cache
-		*/
-		monitor
-			->push_task([&signal_info, &monitor]() {
-				signal_info = cb(*monitor).get_signal_info();
-				return 0;
-			})
-			.wait();
-
-		if (signal_info.lock_status & FE_HAS_LOCK) {
-			c.is_template = false;
-
-			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
-			if(dvbs_mux) {
-				auto *p = std::get_if<chdb::dvbs_mux_t>(&signal_info.mux);
-				assert(p);
-				if(dvbs_mux->modulation == chdb::fe_modulation_t::QAM_AUTO) {//happens on 22.0E 4181V
-					dvbs_mux->modulation = p->modulation;
-				}
-				dvbs_mux->matype = p->matype;
-				return true;
-			}
-
-			auto* dvbc_mux = std::get_if<chdb::dvbc_mux_t>(&mux);
-			if(dvbc_mux) {
-				auto *p = std::get_if<chdb::dvbc_mux_t>(&signal_info.mux);
-				assert(p);
-				dvbs_mux->modulation = p->modulation;
-				return true;
-			}
-
-			auto* dvbt_mux = std::get_if<chdb::dvbt_mux_t>(&mux);
-			if(dvbt_mux) {
-				auto *p = std::get_if<chdb::dvbt_mux_t>(&signal_info.mux);
-				assert(p);
-				dvbs_mux->modulation = p->modulation;
-				return true;
-			}
-			return true;
-		}
-	}
-	return false;
-}
-
 
 
 void active_si_stream_t::load_movistar_bouquet() {

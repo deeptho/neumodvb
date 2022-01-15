@@ -35,7 +35,7 @@ namespace chdb {
 		tune_confirmation_t tune_confirmation;
 		std::optional<int32_t> lnb_lof_offset; //most uptodate version
 		//extra
-		uint8_t matype{0};
+		int16_t matype{-1};
 		ss::vector<int16_t, 8> isi_list;
 		fe_status_t lock_status;
 		ss::vector_<dtv_fe_constellation_sample> constellation_samples;

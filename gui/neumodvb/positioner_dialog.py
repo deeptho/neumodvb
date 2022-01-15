@@ -316,6 +316,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         mux =self.mux.copy()
         mux.c.is_template = True
         mux.c.freq_from_si = False
+        mux.matype = -1
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()
         wx.CallAfter(self.Tune,  mux, retune_mode=pyreceiver.retune_mode_t.IF_NOT_LOCKED,
@@ -327,7 +328,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         pls_search_range = pyreceiver.pls_search_range_t()
         pls_search_range.start = 0
         pls_search_range.end = 262142
-        print(f'RANGE={pls_search_range}')
+        dtdebug(f'RANGE={pls_search_range}')
         self.OnTune(event, pls_search_range=pls_search_range)
 
     def AbortTune(self):
@@ -634,7 +635,7 @@ class SignalPanel(SignalPanel_):
             matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
         else:
             matype=""
-        if locked:
+        if locked and signal_info.has_matype:
             pls_mode = lastdot(str(mux.pls_mode))
             pls = f'PLS: {pls_mode} {mux.pls_code}'
         else:

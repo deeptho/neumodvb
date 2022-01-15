@@ -236,7 +236,7 @@ namespace chdb {
 	}
 
 	void matype_str(ss::string_& s, int16_t matype);
-	inline auto matype_str(uint8_t matype) {
+	inline auto matype_str(int16_t matype) {
 		ss::string<32> s;
 		matype_str(s, matype);
 		return s;

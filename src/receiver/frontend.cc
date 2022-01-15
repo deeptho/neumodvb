@@ -431,10 +431,16 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.mux);
 
 			if (dvbs_mux) {
-				dvbs_mux->matype = ret.matype;
-				bool is_mis = !(ret.matype & (1 << 5));
-				if (!is_mis)
+				if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
+					dvbs_mux->matype = 256;
+					ret.matype =  256; //means dvbs
 					dvbs_mux->stream_id = -1;
+				} else {
+					dvbs_mux->matype = ret.matype;
+					bool is_mis = !(ret.matype & (1 << 5));
+					if (!is_mis)
+						dvbs_mux->stream_id = -1;
+				}
 			}
 
 			assert(cmdseq.props[i].u.buffer.len == 32);

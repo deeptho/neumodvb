@@ -22,6 +22,7 @@
 #include "active_adapter.h"
 #include "scan.h"
 #include "util/logger.h"
+#include "../util/neumovariant.h"
 
 #ifndef UNUSED
 #define UNUSED __attribute__((unused))
@@ -1149,13 +1150,6 @@ active_si_stream_t::nit_actual_save_and_check_confirmation(db_txn& txn, chdb::an
 		update_template_mux_parameters_from_frontend(txn, mux);
 
 		namespace m = chdb::update_mux_preserve_t;
-		{
-			//happens on 22.0E 4181V
-			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
-			if(dvbs_mux->modulation == chdb::fe_modulation_t::QAM_AUTO) {
-				update_template_mux_parameters_from_frontend(txn, mux);
-			}
-		}
 		chdb::update_mux(txn, mux, now, m::flags{m::MUX_COMMON});
 		if (!abort_on_wrong_sat()) {
 			reader->set_current_tp(mux);
@@ -2048,6 +2042,33 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(db_txn& wt
 			c.is_template = false;
 			*mux_key_ptr(signal_info.mux) = *mux_key_ptr(mux);			 // overwrite key
 			*mux_common_ptr(signal_info.mux) = *mux_common_ptr(mux); // overwrite common
+			auto& si_mux = mux;
+			visit_variant(signal_info.mux,
+										[&](chdb::dvbs_mux_t& mux) {
+											auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
+											assert(p);
+											if(p->modulation == chdb::fe_modulation_t::QAM_AUTO) {//happens on 22.0E 4181V
+											} else {
+												mux.modulation = p->modulation;
+											}
+											//mux->matype = p->matype;
+										},
+										[&](chdb::dvbc_mux_t& mux) {
+											auto* p = std::get_if<chdb::dvbc_mux_t>(&si_mux);
+											assert(p);
+											if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
+												mux.modulation = p->modulation;
+											}
+
+										},
+										[&](chdb::dvbt_mux_t& mux) {
+											auto* p = std::get_if<chdb::dvbt_mux_t>(&si_mux);
+											assert(p);
+											if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
+												mux.modulation = p->modulation;
+											}
+										});
+
 			namespace m = chdb::update_mux_preserve_t;
 			assert(mux_key_ptr(signal_info.mux)->sat_pos != sat_pos_none);
 			chdb::update_mux(wtxn, signal_info.mux, now, m::flags{m::NONE});

@@ -75,9 +75,18 @@ def lastdot(x):
 
 def get_ppi():
     import gi
-    gi.require_version('Gtk', '3.0')
+    gi.require_version('Gdk', '3.0')
     from gi.repository import Gdk
     return Gdk.Screen.get_default().get_resolution()
+
+def get_screen_size():
+    #    s=mng.window.screen().availableSize()
+    import gi
+    gi.require_version('Gdk', '3.0')
+    from gi.repository import Gdk
+    display = Gdk.Display.get_default()
+    g = display.get_monitor(0).get_geometry()
+    return g.width, g.height
 
 def get_text_extent(text, font=None, extra='**'):
     import gi

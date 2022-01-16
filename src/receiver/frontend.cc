@@ -438,8 +438,10 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 				} else {
 					dvbs_mux->matype = ret.matype;
 					bool is_mis = !(ret.matype & (1 << 5));
+#if 0 //seems to go wrong on 25.5W 11174V: multistream
 					if (!is_mis)
 						dvbs_mux->stream_id = -1;
+#endif
 				}
 			}
 

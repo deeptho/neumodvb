@@ -883,7 +883,6 @@ void chdb::matype_str(ss::string_& s, int16_t matype) {
 		s.sprintf("");
 		return;
 	}
-
 	switch (matype >> 6) {
 	case 0:
 		s.sprintf("GFP "); ///generic packetised stream

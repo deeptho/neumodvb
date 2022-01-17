@@ -436,15 +436,17 @@ class neumoMainFrame(mainFrame):
             return panel.grid.OnNew(event)
         assert 0
 
-    def CmdPositioner(self, event):
+    def CmdPositionerOFF(self, event):
         dtdebug('CmdPositioner')
         panel = self.current_panel()
         if panel is not None and panel in \
            [self.servicelist_panel, self.dvbs_muxlist_panel,  self.lnblist_panel, self.satlist_panel,
-            self.servicelist_panel]:
+            ]:
             panel.grid.OnPositioner(event)
+        elif panel in [self.live_panel]:
+            panel.OnPositioner(event)
         else:
-            assert 0
+            return
 
     def CmdScan(self, event):
         dtdebug('CmdScan')

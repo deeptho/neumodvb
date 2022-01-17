@@ -292,6 +292,10 @@ class ServiceGridBase(NeumoGridBase):
         self.table.SaveModified()
         self.app.ServiceTune(service)
 
+    def CmdPositioner(self, event):
+        dtdebug('CmdPositioner')
+        self.OnPositioner(event)
+
     def OnPositioner(self, evt):
         row = self.GetGridCursorRow()
         service = self.table.screen.record_at_row(row)

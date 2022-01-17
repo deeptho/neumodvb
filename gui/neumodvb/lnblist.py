@@ -249,6 +249,10 @@ class LnbGridBase(NeumoGridBase):
         self.table.SaveModified()
         self.app.MuxTune(mux)
 
+    def CmdPositioner(self, event):
+        dtdebug('CmdPositioner')
+        self.OnPositioner(event)
+
     def OnPositioner(self, evt):
         """
         todo: mux,sat can be incompatible with lnb, in case lnb has no diseqc enabled

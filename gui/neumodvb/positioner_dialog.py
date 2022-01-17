@@ -525,7 +525,7 @@ class SignalPanel(SignalPanel_):
         sat_confirmed = self.signal_info.sat_pos_confirmed
         mux = self.signal_info.dvbs_mux
         sat_pos = mux.k.sat_pos # if sat_confirmed else None
-        snr = self.signal_info.stat.snr/1000 if locked else None
+        snr = self.signal_info.snr/1000 if locked else None
         self.speaker.speak(sat_pos, snr, sat_confirmed)
 
     def SetDefaultLevels(self):
@@ -559,7 +559,7 @@ class SignalPanel(SignalPanel_):
         self.rf_level_text.SetLabel('')
         self.ber_text.SetLabel('')
         self.isi_list_text.SetLabel('')
-        rf_level = self.signal_info.stat.signal_strength/1000
+        rf_level = self.signal_info.signal_strength/1000
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
         self.sat_pos_text.SetForegroundColour(wx.Colour('red'))
         self.sat_pos_text.SetLabel('')
@@ -591,7 +591,7 @@ class SignalPanel(SignalPanel_):
                                               f'{delsys} - {modulation}  {fec}' if locked else '')
         self.signal_info = signal_info
         if is_tuned:
-            rf_level = self.signal_info.stat.signal_strength/1000
+            rf_level = self.signal_info.signal_strength/1000
         for key in self.status_keys:
             val = getattr(self.signal_info, f'has_{key}')
             w = getattr(self, f'has_{key}')
@@ -607,10 +607,10 @@ class SignalPanel(SignalPanel_):
             self.rf_level_gauge.SetValue(rf_level)
             self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
             return False
-        snr = self.signal_info.stat.snr/1000
+        snr = self.signal_info.snr/1000
         min_snr = self.signal_info.min_snr/1000
-        self.ber_accu = 0.9*self.ber_accu + 0.1*  self.signal_info.stat.ber
-        ber = self.ber_accu if self.signal_info.stat.ber> self.ber_accu else self.signal_info.stat.ber
+        self.ber_accu = 0.9*self.ber_accu + 0.1*  self.signal_info.ber
+        ber = self.ber_accu if self.signal_info.ber> self.ber_accu else self.signal_info.ber
         lber =math.log10(max(1e-9,ber))
         #self.snr_gauge.SetRange(20.0)
         #self.ref_level_gauge.SetRange(-20.0)

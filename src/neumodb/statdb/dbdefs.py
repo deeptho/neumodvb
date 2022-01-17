@@ -23,6 +23,16 @@ def lord(x):
 
 db_include(fname='stats', db=db, include='neumodb/chdb/chdb_db.h')
 
+signal_stat_entry = db_struct(name='signal_stat_entry',
+                              fname = 'stats',
+                              db = db,
+                              type_id= lord('Ie'),
+                              version = 1,
+                              fields = ((1, 'float32_t',  'signal_strength'),
+                                        (2, 'float32_t',  'snr'),
+                                        (3, 'float32_t',  'ber')
+                                        ))
+
 #todo: this record could also be archived, but in that case
 #it would be useful to have statistics per lnb, whereas for
 #displaying signal stats, it is better to have a single record per adapter
@@ -33,15 +43,14 @@ signal_stat = db_struct(name='signal_stat',
                 db = db,
                 type_id= ord('I'),
                 version = 1,
-                primary_key = ('key', ('lnb_key','mux_key')), #unique
+                primary_key = ('key', ('lnb_key','mux_key', 'time')), #unique
                 fields = ((1, 'chdb::mux_key_t', 'mux_key'),
                           (2, 'chdb::lnb_key_t', 'lnb_key'),
                           (3, 'int32_t', 'frequency'),
                           (4, 'chdb::fe_polarisation_t', 'pol'),
-                          (5, 'time_t', 'time'), #when was measurement taken?
-                          (6, 'float32_t',  'signal_strength'),
-                          (7, 'float32_t',  'snr'),
-                          (8, 'float32_t',  'ber')
+                          (5, 'time_t', 'time'), #when was first measurement taken?
+                          (6, 'bool', 'live', 'true'), #measurement live or not
+                          (9, 'ss::vector<signal_stat_entry_t, 24>',  'stats')
                 )) #substream id dvb-s2 only
 
 

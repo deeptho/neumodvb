@@ -22,6 +22,7 @@
 #include "adapter.h"
 #include "reservation.h"
 #include "active_si_stream.h"
+#include "adapter.h"
 
 using namespace dtdemux;
 

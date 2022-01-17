@@ -453,5 +453,5 @@ void svg_overlay_t::set_signal_info(const chdb::signal_info_t& signal_info, cons
 	set_playback_info(playback_info);
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
 	float min_snr = chdb::min_snr(signal_info.mux);
-	self->update_snr(signal_info.stat.snr, signal_info.stat.signal_strength, min_snr);
+	self->update_snr(signal_info.last_stat().snr, signal_info.last_stat().signal_strength, min_snr);
 }

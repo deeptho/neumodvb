@@ -34,9 +34,14 @@ struct spectrum_scan_t;
 namespace statdb {
 	using namespace statdb;
 
+	std::ostream& operator<<(std::ostream& os, const signal_stat_entry_t& entry);
 	std::ostream& operator<<(std::ostream& os, const signal_stat_t& stat);
 	std::ostream& operator<<(std::ostream& os, const spectrum_key_t& spectrum_key);
 	std::ostream& operator<<(std::ostream& os, const spectrum_t& spectrum);
+
+	inline void to_str(ss::string_& ret, const signal_stat_entry_t& entry) {
+		ret << entry;
+	}
 
 	inline void to_str(ss::string_& ret, const signal_stat_t& stat) {
 		ret << stat;

@@ -437,8 +437,8 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 					dvbs_mux->stream_id = -1;
 				} else {
 					dvbs_mux->matype = ret.matype;
-					bool is_mis = !(ret.matype & (1 << 5));
 #if 0 //seems to go wrong on 25.5W 11174V: multistream
+					bool is_mis = !(ret.matype & (1 << 5));
 					if (!is_mis)
 						dvbs_mux->stream_id = -1;
 #endif
@@ -457,8 +457,10 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 			}
 		}
 	} else {
+#if 0
 		ret.stat.ber = 0;
 		ret.stat.snr = 0;
+#endif
 	}
 }
 
@@ -537,6 +539,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 	}
 
 	int i = 0;
+	statdb::signal_stat_entry_t& last_stat = ret.last_stat();
 	auto& signal_strength_stats = cmdseq.props[i++].u.st;
 	for (int i = 0; i < signal_strength_stats.len; ++i) {
 		auto& signal_strength = signal_strength_stats.stat[i];
@@ -544,7 +547,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 			dterrorx("Unexpected: stats[%d] is not in dB", i); // this actually happens sometimes =>driver bug
 			continue;
 		}
-		ret.stat.signal_strength =
+		last_stat.signal_strength =
 			signal_strength.scale == FE_SCALE_DECIBEL
 			? signal_strength.svalue
 			: (signed)(1000 * (signal_strength.uvalue - 1000)); // make an attempt at scaling to dB (aribitrary)
@@ -554,17 +557,19 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 	}
 
 	auto& snr_stats = cmdseq.props[i++].u.st;
+
 	if (snr_stats.len > 0) {
 		auto& snr = snr_stats.stat[0];
-		ret.stat.snr = (snr.scale == FE_SCALE_DECIBEL)
+		last_stat.snr = (snr.scale == FE_SCALE_DECIBEL)
 			? snr.svalue
 			: (int32_t)(1000 * (snr.uvalue - 1000)); // make an attempt at scaling to dB (aribitrary)
 		if (false && snr_stats.len > 1)
 			dtdebugx("Extra statistics ignored (%d available)", snr_stats.len);
 	}
 
-	ret.stat.ber = cmdseq.props[i++].u.st.stat[0].uvalue;
-		get_mux_info(ret, cmdseq, api_type, i);
+	last_stat.ber = cmdseq.props[i++].u.st.stat[0].uvalue;
+
+	get_mux_info(ret, cmdseq, api_type, i);
 	if (get_constellation) {
 		if (ret.lock_status & FE_HAS_LOCK) {
 			if (api_type == api_type_t::NEUMO)
@@ -1047,7 +1052,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 	auto blindscan = tune_options.is_blind() || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO
 		|| mux.symbol_rate < 1000000;
 	int num_constellation_samples = tune_options.constellation_options.num_samples;
-		tuned_frequency = mux.frequency;
+	tuned_frequency = mux.frequency;
 
 	cmdseq_t cmdseq;
 	this->num_constellation_samples = num_constellation_samples;
@@ -1259,6 +1264,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_sca
 	//dttime(100);
 	return ret;
 }
+
 
 template bool dvb_frontend_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb) const;
 template bool dvb_frontend_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const chdb::lnb_t* required_lnb) const;

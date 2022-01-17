@@ -252,6 +252,24 @@ void export_signal_info(py::module& m) {
 			return  i.matype >= 0 && (i.matype >>6) != 3;
 		})
 		.def_readonly("stat", &signal_info_t::stat)
+		.def_property_readonly("signal_strength", [](const signal_info_t& i) {
+			if(i.stat.stats.size()==0)
+				return (float)-60000; //should not happen
+			auto& e = i.stat.stats[i.stat.stats.size()-1];
+			return e.signal_strength;
+		})
+		.def_property_readonly("snr", [](const signal_info_t& i) {
+			if(i.stat.stats.size()==0)
+				return (float)0; //should not happen
+			auto& e = i.stat.stats[i.stat.stats.size()-1];
+			return e.snr;
+		})
+		.def_property_readonly("ber", [](const signal_info_t& i) {
+			if(i.stat.stats.size()==0)
+				return (float)0; //should not happen
+			auto& e = i.stat.stats[i.stat.stats.size()-1];
+			return e.ber;
+		})
 		.def_readonly("lnb_lof_offset",&signal_info_t::lnb_lof_offset)
  		.def_property_readonly("isi_list", [](const signal_info_t& i) {
 			return  &(ss::vector_<int16_t>&)i.isi_list;

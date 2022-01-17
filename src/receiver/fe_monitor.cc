@@ -67,32 +67,22 @@ void fe_monitor_thread_t::monitor_signal() {
 		dtdebug("------------------------------------------------------");
 	}
 
-	if (verbose)
-		dtdebug("Signal strength: " << std::fixed << std::setprecision(1) << (info.stat.signal_strength * 1e-3) << "dB"
-						<< " CNR: " << (info.stat.snr * 1e-3) << "dB");
+	if (verbose) {
+		auto &e = info.last_stat();
+		dtdebug("Signal strength: " << std::fixed << std::setprecision(1) << (e.signal_strength * 1e-3) << "dB"
+						<< " CNR: " << (e.snr * 1e-3) << "dB");
+	}
 	dttime_init();
 	receiver.notify_signal_info(info);
 	dttime(200);
 	{
-		auto txn = receiver.statdb.wtxn();
-		put_record(txn, info.stat);
-		txn.commit();
-#if 0
-		ss::string<32> fname;
-		fname.sprintf("/tmp/strength%d", info.stat.lnb_key.adapter_no);
-		FILE * fp = fopen(fname.c_str(), "w");
-		auto* mux_key = mux_key_ptr(info.mux);
-		assert(mux_key);
-		fprintf(fp, "%s %2.1f\n", chdb::sat_pos_str(mux_key->sat_pos).c_str(),  info.stat.snr*1e-3 );
-		fdatasync(fileno(fp));
-		fsync(fileno(fp));
-		fclose(fp);
-#endif
+		auto ts = fe->signal_monitor.writeAccess();
+		auto &signal_monitor = *ts;
+		signal_monitor.update_stat(receiver, info.stat);
 	}
 }
 
 chdb::signal_info_t fe_monitor_thread_t::cb_t::get_signal_info() {
-	monitor_signal();
 	chdb::signal_info_t signal_info;
 	fe->get_signal_info(signal_info, false);
 	return signal_info;
@@ -186,7 +176,7 @@ int fe_monitor_thread_t::run() {
 				}
 			} else if (fe->is_fefd(evt->data.fd)) {
 				handle_frontend_event();
-			} else if (is_timer_fd(evt)) {
+			} else if (is_timer_fd(evt)) { //only for non-neumo mode
 				monitor_signal();
 			}
 		}
@@ -196,4 +186,43 @@ exit_:
 	fe->close_device(*fe->ts.writeAccess());
 	save.reset();
 	return 0;
+}
+
+void signal_monitor_t::update_stat(receiver_t& receiver, const statdb::signal_stat_t& update) {
+	//it is possible that max_key changes without tuning
+	bool save_old =  stat.stats.size()>0 && (stat.mux_key != update.mux_key || stat.lnb_key != update.lnb_key);
+	if (save_old ) {
+		auto wtxn = receiver.statdb.wtxn();
+		if(stat.stats.size() > 0 ) {
+			assert (stat.live);
+			stat.live = false;
+			printf("Finalizing old stat: %d size=%d a=%d b=%d\n", stat.mux_key.ts_id, stat.stats.size(),
+						 stat.mux_key != update.mux_key, stat.lnb_key != update.lnb_key	);
+			put_record(wtxn, stat);
+		} else {
+			printf("NOT finalizing old stat\n");
+		}
+		stat = update;
+		assert (stat.live);
+		printf("Saving new stat: %d size=%d\n", stat.mux_key.ts_id, stat.stats.size());
+		put_record(wtxn, stat);
+		wtxn.commit();
+		return;
+	}
+
+	auto t = update.time;
+	assert(t > 0);
+	assert(stat.live);
+	assert(update.stats.size()>0);
+
+	int idx = (t - stat.time)/300; //new record every 5 minutes
+	if (idx + 1 > stat.stats.size()) {
+		if (stat.stats.size() ==0)
+			stat = update;
+		auto wtxn = receiver.statdb.wtxn();
+		stat.stats.push_back(update.stats[update.stats.size()-1]);
+		printf("Saving updated stat: %d size=%d\n", stat.mux_key.ts_id, stat.stats.size());
+		put_record(wtxn, stat);
+		wtxn.commit();
+	}
 }

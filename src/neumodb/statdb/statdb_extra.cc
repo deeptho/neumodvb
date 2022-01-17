@@ -38,12 +38,20 @@ using namespace date::clock_cast_detail;
 namespace fs = std::filesystem;
 using namespace statdb;
 
+std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_entry_t& e) {
+	stdex::printf(os, "pow=%3.2fdB snr=%3.2fdB ber=%3.2f",
+								e.signal_strength / 1000., e.snr / 1000., (int)e.ber);
+	return os;
+}
+
 std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_t& stat) {
 	auto sat = chdb::sat_pos_str(stat.mux_key.sat_pos);
-	stdex::printf(os, "[%02d] %5s:%5.3f%s: pow=%3.2fdB snr=%3.2fdB ber=%d", (int)stat.lnb_key.adapter_no, sat,
-								stat.frequency / 1000., enum_to_str(stat.pol), stat.signal_strength / 1000., stat.snr / 1000.,
-								(int)stat.ber);
-
+	if(stat.stats.size() > 0) {
+		auto &e = stat.stats[stat.stats.size()-1];
+		stdex::printf(os, "[%02d] %5s:%5.3f%s: pow=%3.2fdB snr=%3.2fdB ber=%3.2f", (int)stat.lnb_key.adapter_no, sat,
+								stat.frequency / 1000., enum_to_str(stat.pol), e.signal_strength / 1000., e.snr / 1000.,
+									e.ber);
+	}
 	return os;
 }
 

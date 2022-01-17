@@ -27,6 +27,7 @@
 //#include "neumodb/statdb/statdb_extra.h"
 #include "task.h"
 #include "util/safe/safe.h"
+#include "signal_info.h"
 
 struct tune_options_t;
 
@@ -98,51 +99,6 @@ struct pls_search_range_t {
 	chdb::fe_pls_mode_t pls_mode;
 	int timeoutms{25};
 };
-
-	enum class confirmed_by_t {
-		NONE,
-		PAT,
-		SDT,
-		NIT,
-		AUTO,
-		FAKE
-	};
-	struct tune_confirmation_t {
-		constexpr static  std::chrono::duration sat_pos_change_timeout = 15000ms; //in ms
-
-		bool on_wrong_sat{false};
-		bool unstable_sat{false}; //caused by dish motion; return needed
-		confirmed_by_t sat_by{confirmed_by_t::NONE};
-		confirmed_by_t ts_id_by{confirmed_by_t::NONE};
-		confirmed_by_t network_id_by{confirmed_by_t::NONE};
-		bool nit_actual_seen{false};
-		bool nit_actual_ok{false};
-		bool sdt_actual_seen{false};
-		bool sdt_actual_ok{false};
-		bool pat_seen{false};
-		bool pat_ok{false};
-		bool si_done{false};
-		void clear(bool preserve_wrong_sat) {
-			*this = tune_confirmation_t();
-		}
-
-		tune_confirmation_t()
-			{}
-		bool operator== (const tune_confirmation_t& other) {
-			return on_wrong_sat == other.on_wrong_sat &&
-				sat_by == other.sat_by &&
-				ts_id_by == other.ts_id_by &&
-				network_id_by == other.network_id_by &&
-				si_done == other.si_done &&
-				nit_actual_ok == other.nit_actual_ok &&
-				sdt_actual_ok == other.sdt_actual_ok &&
-				pat_ok == other.pat_ok;
-		}
-		bool operator!= (const tune_confirmation_t& other) {
-			return ! operator==(other);
-		}
-
-	};
 
 struct constellation_options_t {
 	//bool get_constellation{false};
@@ -236,6 +192,18 @@ struct spectrum_scan_t {
 
 
 //owned by monitor thread
+class signal_monitor_t {
+	friend class fe_monitor_thread_t;
+	statdb::signal_stat_t stat;
+
+	void update_stat(receiver_t& receiver, const statdb::signal_stat_t& update);
+
+	public:
+	signal_monitor_t()  {
+	}
+};
+
+//owned by monitor thread
 class dvb_frontend_t
 {
 	friend class fe_monitor_thread_t;
@@ -263,6 +231,8 @@ public:
 
 	const frontend_no_t frontend_no;
 	safe::Safe<thread_safe_t>  ts;
+	safe::Safe<signal_monitor_t> signal_monitor;
+
 	dvb_adapter_t* const adapter{nullptr};
 private:
 	std::weak_ptr<fe_monitor_thread_t> monitor_thread_;

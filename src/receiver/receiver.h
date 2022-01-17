@@ -28,7 +28,7 @@
 #include "options.h"
 #include "recmgr.h"
 #include "mpm.h"
-#include "signal_info.h"
+#include "adapter.h"
 #include "streamparser/packetstream.h"
 #include "streamparser/psi.h"
 #include "util/safe/safe.h"

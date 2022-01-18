@@ -221,6 +221,10 @@ class DvbsMuxGridBase(NeumoGridBase):
         self.table.SaveModified()
         self.app.MuxTune(mux)
 
+    def CmdPositioner(self, event):
+        dtdebug('CmdPositioner')
+        self.OnPositioner(event)
+
     def OnPositioner(self, evt):
         row = self.GetGridCursorRow()
         mux = self.table.screen.record_at_row(row)

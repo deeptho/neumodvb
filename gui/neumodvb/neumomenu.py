@@ -104,6 +104,8 @@ edit_menu = (
 )
 
 lists_menu = (
+    MI("StatusList",_("&Status\tShift-Ctrl-O"), _("status")),
+    SEP,
     MI("ServiceList",_("&Services\tShift-Ctrl-S"), _("service list")),
     MI("ChgmList",_("&Channels/Bouqet\tShift-Ctrl-C"), ""),
     SEP,

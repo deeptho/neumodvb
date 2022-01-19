@@ -79,7 +79,7 @@ class neumoMainFrame(mainFrame):
             self.dvbs_muxlist_panel, self.dvbc_muxlist_panel, self.dvbt_muxlist_panel,
             self.lnblist_panel,
             self.chglist_panel,
-            self.satlist_panel, self.frontendlist_panel,
+            self.satlist_panel, self.frontendlist_panel, self.statuslist_panel,
             self.mosaic_panel,
             self.reclist_panel, self.spectrumlist_panel]
         self.grids = [
@@ -87,7 +87,7 @@ class neumoMainFrame(mainFrame):
             self.recgrid, self.spectrumgrid, self.chepggrid,
             self.dvbs_muxgrid, self.dvbc_muxgrid, self.dvbt_muxgrid,
             self.lnbgrid,
-            self.satgrid, self.chggrid, self.frontendgrid
+            self.satgrid, self.chggrid, self.frontendgrid, self.statusgrid
         ]
         for grid in self.grids:
             panel = grid
@@ -284,9 +284,11 @@ class neumoMainFrame(mainFrame):
             panel.OnTimer(evt)
 
     def OnClose(self, event):
-        dtdebug('closing')
-        dtdebug('closing done')
+        dtdebug(f'closing veto={event.CanVeto()}')
+        self.OnExit()
         self.timer.Stop()
+        self.Destroy()
+        dtdebug('closing done')
         event.Skip(True)
 
     def OnGroupShowAll(self, event):
@@ -319,9 +321,11 @@ class neumoMainFrame(mainFrame):
         assert 0
 
     def OnExit(self, event=None):
-        dtdebug("Asking receiver to exit")
-        self.app.receiver.stop()
-        dtdebug("OnExit done")
+        if self.app.receiver is not None:
+            dtdebug(f"Asking receiver to exit receiver={self.app.receiver}")
+            self.app.receiver.stop()
+            self.app.receiver = None
+            dtdebug("OnExit done")
         return 0
 
     def CmdInspect(self, event):
@@ -371,6 +375,11 @@ class neumoMainFrame(mainFrame):
         self.ShowPanel([self.live_panel])
         self.live_panel.CmdLiveEpg(evt)
         evt.Skip()
+
+    def CmdStatusList(self, event):
+        dtdebug("CmdStatusList")
+        self.ShowPanel(self.statuslist_panel)
+        event.Skip()
 
     def CmdServiceList(self, event):
         dtdebug("CmdServiceList")
@@ -479,9 +488,9 @@ class neumoMainFrame(mainFrame):
         return wx.GetApp().SubtitleLang(dark_mode)
 
     def CmdExit(self, event):
-        dtdebug("CmdExit")
+        dtdebug("XXXX CmdExit")
         if self.current_panel() != self.live_panel:
-            dtdebug("CALLING OnClose")
+            dtdebug("XXXX OnClose")
             self.current_panel().grid.OnClose()
         self.live_panel.OnClose(event)
         self.Close()
@@ -628,7 +637,7 @@ if __name__ == "__main__":
     neumodvb = NeumoGui()
     load_gtk3_stylesheet(options.css)
     neumodvb.MainLoop()
-    #neumodvb.OnExit()
+    neumodvb.OnExit()
     if False:
         #show that we can restart (future work: can we detach; stop Xsession and reattach?)
         del neumodvb

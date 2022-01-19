@@ -100,7 +100,7 @@
                 <object class="wxPanel" name="statuslist_panel" base="EditPanel">
                     <hidden>1</hidden>
                     <style>wxCLIP_CHILDREN</style>
-                    <object class="wxBoxSizer" name="sizer_10" base="EditBoxSizer">
+                    <object class="wxBoxSizer" name="sizer_10b" base="EditBoxSizer">
                         <orient>wxHORIZONTAL</orient>
                         <object class="sizeritem">
                             <option>1</option>

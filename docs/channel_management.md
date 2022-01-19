@@ -58,7 +58,7 @@ First check if some services have actually been found during scanning: `Ctrl-Shi
 For quick zapping during live mode, you can assign channel numbers to services: enter edit mode and type
 a number in the left most column (`#`)
 
-Make sure `Edit mode` has been turned off and enter live viewing mode u pressing `C`, or using the menu
+Make sure `Edit mode` has been turned off and enter live viewing mode by pressing `Ctrl-L`, or using the menu
 `View - Channels`. To navigate the list, click on one of the column headers. e.g. `Name`,  to sort the list
 to make it easier to find what you want. You can also restrict the list to services on a specific satellite
 using the combo-popup on top. By default, it shows services from all satellites.

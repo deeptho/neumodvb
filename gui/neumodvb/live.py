@@ -1125,6 +1125,7 @@ class RecordPanel(wx.Panel):
         return self.data.ls.selected_service_or_channel
 
     def OnDestroy(self):
+        dtdebug('OnDestroy (NOOP)')
         pass
 
     def set_active(self):
@@ -2250,6 +2251,7 @@ class LivePanel(wx.Panel):
             if self.grid_panel.rowtype == rowtype  and not recreate:
                 return # panel already on screen
             panel = self.grid_panel
+            dtdebug('CallAfter Destroy')
             wx.CallAfter(panel.Destroy)
             panel.OnDestroy()
             self.grid_panel = None

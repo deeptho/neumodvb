@@ -129,7 +129,7 @@ class neumoMainFrame(mainFrame):
         if mosaic:
             self.createMosaic()
         self.Layout()
-        self.set_accelerators(True)
+        #self.set_accelerators(True)
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTimer) #used to refresh list on screen
@@ -285,9 +285,10 @@ class neumoMainFrame(mainFrame):
 
     def OnClose(self, event):
         dtdebug(f'closing veto={event.CanVeto()}')
-        self.OnExit()
         self.timer.Stop()
-        self.Destroy()
+        self.OnExit()
+        dtdebug('Calling Destroy')
+        #self.Destroy()
         dtdebug('closing done')
         event.Skip(True)
 
@@ -321,11 +322,10 @@ class neumoMainFrame(mainFrame):
         assert 0
 
     def OnExit(self, event=None):
-        if self.app.receiver is not None:
-            dtdebug(f"Asking receiver to exit receiver={self.app.receiver}")
-            self.app.receiver.stop()
-            self.app.receiver = None
-            dtdebug("OnExit done")
+        dtdebug(f"Asking receiver to exit receiver={self.app.receiver}")
+        self.app.receiver.stop()
+        #self.app.receiver = None
+        dtdebug("OnExit done")
         return 0
 
     def CmdInspect(self, event):
@@ -637,6 +637,7 @@ if __name__ == "__main__":
     neumodvb = NeumoGui()
     load_gtk3_stylesheet(options.css)
     neumodvb.MainLoop()
+    dtdebug("Successfully exited wxPython MainLoop")
     neumodvb.OnExit()
     if False:
         #show that we can restart (future work: can we detach; stop Xsession and reattach?)
@@ -645,6 +646,6 @@ if __name__ == "__main__":
         neumodvb.MainLoop()
 
 """
-PYTHONMALLOC=malloc valgrind --tool=memcheck   python3 viewer.py
+PYTHONMALLOC=malloc valgrind --tool=memcheck   python3 neumodvb.py
 
 """

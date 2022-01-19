@@ -56,7 +56,7 @@ class UsalsPosSpinCtrl(minifloatspin.MiniFloatSpin):
     def __init__(self, parent, *args, size=(35,30), **kwds):
         super().__init__(parent, *args, size=size, **kwds, example="0.20")
         self.parent = parent
-        self.Bind(minifloatspin.EVT_MINISPIN, self.parent.GetParent().OnStepChanged)
+        self.Bind(minifloatspin.EVT_MINISPIN, self.parent.GetParent().OnUsalsStepChanged)
 
 class LnbController(object):
     def __init__(self, parent):
@@ -690,6 +690,7 @@ class PositionerDialog(PositionerDialog_):
 
         self.diseqc_type_choice.controller = self.tune_mux_panel.mux_controller
         self.diseqc_type_choice.SetValue(self.lnb)
+        self.enable_disable_diseqc_panels()
         network = get_network(self.lnb, self.sat.sat_pos)
         self.SetPosition(self.sat.sat_pos if network is None else network.usals_pos)
         self.SetDiseqc12Position(0 if network is None else network.diseqc12)
@@ -703,7 +704,6 @@ class PositionerDialog(PositionerDialog_):
         set_gtk_window_name(self, "positioner") #needed to couple to css stylesheet
         self.update_constellation = True
         self.tune_mux_panel.constellation_toggle.SetValue(self.update_constellation)
-
     @property
     def lnb(self):
         return self.tune_mux_panel.lnb
@@ -783,7 +783,7 @@ class PositionerDialog(PositionerDialog_):
         self.step = pos
         self.rotor_step_spin_ctrl.SetValue(self.step/100)
 
-    def SetDiseqcType(self, diseqc_type):
+    def SetDiseqcTypeOFF(self, diseqc_type):
         self.diseqc_type_choice.SetSelection
 
     def CheckCancel(self, event):
@@ -871,7 +871,24 @@ class PositionerDialog(PositionerDialog_):
         self.lnb.rotor_control = self.diseqc_type_choice.GetValue()
         dtdebug(f"diseqc type set to {self.lnb.rotor_control}")
         self.tune_mux_panel.lnb_changed = True
+        t = pychdb.rotor_control_t
+        self.enable_disable_diseqc_panels()
         event.Skip()
+
+    def enable_disable_diseqc_panels(self):
+        t = pychdb.rotor_control_t
+        if self.lnb.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_SLAVE, t.FIXED_DISH):
+            self.diseqc12_panel.Disable()
+        else:
+            self.diseqc12_panel.Enable()
+        if self.lnb.rotor_control in (t.ROTOR_MASTER_DISEQC12, t.ROTOR_SLAVE, t.FIXED_DISH):
+            self.usals_panel.Disable()
+        else:
+            self.usals_panel.Enable()
+        if self.lnb.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_MASTER_DISEQC12):
+            self.usals_panel.Enable()
+        else:
+            self.usals_panel.Disable()
 
     def OnPositionChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         val = event if type(event) == str  else event.GetString()
@@ -888,20 +905,28 @@ class PositionerDialog(PositionerDialog_):
         self.UpdateUsalsPosition(self.position)
 
 
-    def OnStepEast(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+    def OnStepEast(self, event):
+        self.usals_command(pychdb.positioner_cmd_t.DRIVE_EAST, -1)
+        event.Skip()
+
+    def OnStepWest(self, event):
+        self.usals_command(pychdb.positioner_cmd_t.DRIVE_WEST, -1)
+        event.Skip()
+
+    def OnUsalsStepEast(self, event):
         self.position += self.step
         self.SetPosition(self.position)
         self.UpdateUsalsPosition(self.position)
         event.Skip()
 
-    def OnStepWest(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+    def OnUsalsStepWest(self, event):
         self.position -= self.step
         #self.rotor_position_text_ctrl.SetValue(pychdb.sat_pos_str(self.position))
         self.SetPosition(self.position)
         self.UpdateUsalsPosition(self.position)
         event.Skip()
 
-    def OnStepChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+    def OnUsalsStepChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         step = event.GetValue()
         dtdebug(f"USALS step changed to {step}")
         self.step = int(100*step)

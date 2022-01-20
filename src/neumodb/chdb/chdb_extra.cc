@@ -2018,3 +2018,33 @@ bool chdb::lnb::can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol)
 		return false;
 	}
 }
+
+void chdb::lnb::update_lnb(db_txn& wtxn, chdb::lnb_t&  lnb)
+{
+	bool found=false;
+	switch(lnb.rotor_control) {
+	case chdb::rotor_control_t::ROTOR_MASTER_USALS:
+		//replace all diseqc12 commands with USALS commands
+		for(auto& c: lnb.tune_string) {
+			if (c=='X') {
+				c = 'P';
+			} found = true;
+		}
+		if (!found)
+			lnb.tune_string.push_back('P');
+		break;
+	case chdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
+		//replace all usals commands with diseqc12 commands
+		for(auto& c: lnb.tune_string) {
+			if (c=='P') {
+				c = 'X';
+			} found = true;
+		}
+		if (!found)
+			lnb.tune_string.push_back('X');
+		break;
+	default:
+		break;
+	}
+	put_record(wtxn, lnb);
+}

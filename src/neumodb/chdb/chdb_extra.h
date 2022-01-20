@@ -614,7 +614,7 @@ namespace  chdb::lnb {
 	std::tuple<int32_t, int32_t, int32_t> band_frequencies(const chdb::lnb_t& lnb, chdb::fe_band_t band);
 
 	bool add_network(chdb::lnb_t& lnb, chdb::lnb_network_t& network);
-
+	void update_lnb(db_txn& wtxn, chdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const chdb::lnb_t& lnb);
 
 	bool can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol);

@@ -174,7 +174,7 @@ class LnbTable(NeumoTable):
             dtdebug (f"No network defined on this lnb; silently skip saving")
         else:
             pychdb.lnb.make_unique_if_template(txn, lnb)
-            pychdb.put_record(txn, lnb)
+            pychdb.lnb.update_lnb(txn, lnb)
         return lnb
 
     def __new_record__(self):

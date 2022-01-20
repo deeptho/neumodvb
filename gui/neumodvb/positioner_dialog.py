@@ -249,8 +249,9 @@ class TuneMuxPanel(TuneMuxPanel_):
     def OnSave(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("saving")
         for n in self.lnb.networks:
-            if n.sat_pos == self.mux.k.sat_pos:
+            if n.sat_pos == self.sat.sat_pos:
                 self.ref_mux = self.mux if self.signal_info is None else self.signal_info.dvbs_mux
+                self.ref_mux.k.sat_pos = self.sat.sat_pos
                 n.ref_mux = self.ref_mux.k
                 self.lnb_changed |= not same_mux_key(self.ref_mux.k, self.mux.k)
                 break
@@ -259,7 +260,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             txn = wx.GetApp().chdb.wtxn()
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
-            pychdb.put_record(txn, self.lnb)
+            pychdb.lnb.update_lnb(txn, self.lnb)
             txn.commit()
         self.lnb_changed = False
         if event:
@@ -501,6 +502,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.muxedit_grid.Reset()
         for n in self.lnb.networks:
             if n.sat_pos == self.mux.k.sat_pos:
+                assert self.sat.sat_pos == self.mux.k.sat_pos
                 self.lnb_changed |= not same_mux_key(n.ref_mux, self.mux.k)
                 n.ref_mux = self.mux.k
                 dtdebug(f"saving ref_mux={self.mux}")
@@ -845,19 +847,19 @@ class PositionerDialog(PositionerDialog_):
         self.lnb.usals_pos = usals_pos
         self.tune_mux_panel.lnb_changed = True
         for network in self.lnb.networks:
-            if network.sat_pos == self.mux.k.sat_pos:
+            if network.sat_pos == self.sat.sat_pos:
                 network.usals_pos = usals_pos
                 self.tune_mux_panel.lnb_changed = True
                 dtdebug(f"Goto XX {usals_pos}" )
                 ret=self.usals_command(pychdb.positioner_cmd_t.GOTO_XX, usals_pos)
                 assert ret>=0
                 return
-        dtdebug(f"lnb network not found: lnb={self.lnb} sat_pos={self.mux.k.sat_pos}")
+        dtdebug(f"lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
 
     def UpdateDiseqc12(self, diseqc12):
         dtdebug(f"DISEQC12 set to {diseqc12}")
         for n in self.lnb.networks:
-            if n.sat_pos == self.mux.k.sat_pos:
+            if n.sat_pos == self.sat.sat_pos:
                 n.diseqc12 = diseqc12
                 self.tune_mux_panel.lnb_changed = True
                 self.tune_mux_panel.diseqc12 = diseqc12
@@ -865,7 +867,7 @@ class PositionerDialog(PositionerDialog_):
                 #dtdebug(f"Goto NN: {diseqc12}")
                 #self.tune_mux_panel.diseqc12_command(pychdb.positioner_cmd_t.GOTO_NN, diseqc12)
                 return
-        dtdebug("lnb network not found: lnb={self.lnb} sat_pos={self.mux.k.sat_pos}")
+        dtdebug("lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
 
     def OnDiseqcTypeChoice(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         self.lnb.rotor_control = self.diseqc_type_choice.GetValue()
@@ -873,6 +875,7 @@ class PositionerDialog(PositionerDialog_):
         self.tune_mux_panel.lnb_changed = True
         t = pychdb.rotor_control_t
         self.enable_disable_diseqc_panels()
+        self.tune_mux_panel.lnb_changed = True
         event.Skip()
 
     def enable_disable_diseqc_panels(self):

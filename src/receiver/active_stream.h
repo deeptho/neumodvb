@@ -311,9 +311,6 @@ class active_stream_t  {
 	//helper class; public members should be avoided
 public:
 	receiver_t & receiver;
-#if 0
-	tuner_thread_t & tuner_thread;
-#endif
 protected:
 	std::shared_ptr<stream_reader_t> reader;
 

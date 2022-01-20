@@ -96,6 +96,8 @@ static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
 	mm.def("new_lnb", &chdb::lnb::new_lnb, "create a new lnb", py::arg("tuner_id"), py::arg("sat_pos"),
 				 py::arg("dish_id") = 0, py::arg("type") = chdb::lnb_type_t::UNIV)
+		.def("update_lnb", &chdb::lnb::update_lnb, "save chanfed lnb, while checking tune string",
+				 py::arg("wtxn"), py::arg("lnb"))
 		.def("make_unique_if_template", make_unique_if_template<lnb_t>,
 				 "Make the key of this lnb unique, but only if lnb.k.id<0")
 		.def("select_reference_mux", &chdb::lnb::select_reference_mux,

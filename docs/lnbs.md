@@ -39,17 +39,17 @@ operation:
 * `tune_string`: determines what type of DiSEqC commands are sent, and wich order they are sent in.
 `U`: uncommitted swicth; `C`: committed switch; `P`: usals command; `X`: diseqc12 command
 
-The default value 'UCP' means: first send the uncommitted command (diseqc11), then the committed
-command (diseqc10) and finally the command to rotate the dish (if applicable).
+    The default value 'UCP' means: first send the uncommitted command (diseqc11), then the committed
+    command (diseqc10) and finally the command to rotate the dish (if applicable).
 
-Change the order to 'CUP' if your committed switch is connected directly
-to the receiver. If you wish to repeat some commands, just repeat the corresponding codes. For example, 'UCUCP'
-will send both switch commands twice. This is rarely needed, and neumoDVB will resend the commands anyway
-if tuning fails.
+    Change the order to 'CUP' if your committed switch is connected directly
+    to the receiver. If you wish to repeat some commands, just repeat the corresponding codes. For example, 'UCUCP'
+    will send both switch commands twice. This is rarely needed, and neumoDVB will resend the commands anyway
+    if tuning fails.
 
-If you need dieqc12 instead of usals (not recommended: usals is much easier and more versatile), then change this
-to `UCX`. Note that for diseqc12 the usals position will also be set in the GUI, but it will not be sent to
-the positioner. This 'virtual' usals value is used by neumoDVB to remember the current position of the dish.
+    If you need dieqc12 instead of usals (not recommended: usals is much easier and more versatile), then change this
+    to `UCX`. Note that for diseqc12 the usals position will also be set in the GUI, but it will not be sent to
+    the positioner. This 'virtual' usals value is used by neumoDVB to remember the current position of the dish.
 
 
 

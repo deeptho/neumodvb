@@ -210,6 +210,7 @@ class EpgCell(wx.Panel):
         super().SetBackgroundColour(bgcolour)
 
     def SetFocus(self):
+        dtdebug('CALL SetFocus')
         self.label.SetFocus()
 
     @property
@@ -296,6 +297,7 @@ class GridRow(object):
     def SetFocus(self):
         cell = self.ch_cell if self.current_cell is None else self.current_cell
         try:
+            dtdebug('CALL SetFocus')
             cell.SetFocus()
         except:
             dtdebug('exception ignored')
@@ -357,6 +359,7 @@ class GridRow(object):
         set the focus on the cell which is closest in time
         """
         if self.last_focused_cell.data.is_ch: # we are positioned in a channel column
+            dtdebug('CALL SetFocus')
             self.ch_cell.SetFocus()
             return True
         return False
@@ -394,6 +397,7 @@ class ChEpgGridRow(GridRow):
         return cell
 
     def SetFocus(self):
+        dtdebug('CALL SetFocus')
         cell = self.ch_cell if self.current_cell is None else self.current_cell
         dtdebug(f'SET FOCUS ON row={cell.data.row.rowno} {cell.GetParent()}')
         cell.SetFocus()
@@ -553,6 +557,7 @@ class ChEpgGridRow(GridRow):
                 break
         if selected is None:
             selected = self.epg_cells[0]
+        dtdebug('CALL SetFocus')
         selected.SetFocus()
         return True
 
@@ -583,8 +588,10 @@ class GroupSelectPanel(wx.Panel):
         if now == val:
             return
         if val:
+            dtdebug('CALL SetFocus')
             self.sorttype_text.SetFocus()
         else:
+            dtdebug('CALL SetFocus')
             self.grouptype_text.SetFocus()
 
     @property
@@ -605,6 +612,7 @@ class GroupSelectPanel(wx.Panel):
     def Navigate(self, focused_widget, modifier, key):
         if key in (wx.WXK_DOWN, wx.WXK_UP):
             self.controller.grid_panel.set_active()
+            dtdebug('CALL SetFocus')
             self.controller.grid_panel.SetFocus()
             return True
         elif key in (wx.WXK_LEFT, wx.WXK_RIGHT):
@@ -615,6 +623,7 @@ class GroupSelectPanel(wx.Panel):
             if wx.Window.FindFocus() == self.grouptype_text:
                 if is_ctrl:
                     pass
+                    dtdebug('CALL SetFocus')
                     self.sorttype_text.SetFocus()
                 else:
                     self.grouptype_idx = min(max(self.grouptype_idx + delta,0), self.num_grouptypes -1)
@@ -622,6 +631,7 @@ class GroupSelectPanel(wx.Panel):
             else:
                 if is_ctrl:
                     pass
+                    dtdebug('CALL SetFocus')
                     self.grouptype_text.SetFocus()
                 else:
                     self.sorttype_idx = min(max(self.sorttype_idx + delta,0), self.num_sorttypes -1)
@@ -707,6 +717,7 @@ class GroupSelectPanel(wx.Panel):
 
     def OnFocus(self, event):
         if self.group_select_in_progress:
+            dtdebug('CALL SetFocus')
             self.controller.grid_panel.SetFocus()
             return
         self.controller.set_active(self)
@@ -719,6 +730,7 @@ class GroupSelectPanel(wx.Panel):
             if self.group_select_in_progress:
                 self.group_select_in_progress = False
                 wx.CallAfter(self.controller.show_grid_panel, rowtype= self.last_rowtype, focus_it=True, recreate=True)
+                dtdebug('CALL SetFocus')
                 wx.CallAfter(w.SetFocus)
             self.sort_selected = True
             self.grouptype_idx = self.initial_group_idx()
@@ -1153,6 +1165,7 @@ class RecordPanel(wx.Panel):
             if row>= 0:
                 self.focus_row(w, self.data.row_screen.list_size-1-self.top_idx)
             else:
+                dtdebug('CALL SetFocus')
                 self.controller.top_panel.SetFocus()
             return
         self.controller.set_active(self)
@@ -1284,6 +1297,7 @@ class RecordPanel(wx.Panel):
         self.Layout()
         self.Bind(wx.EVT_CHILD_FOCUS, self.OnFocus)
         if self.last_focused_rowno < len(self.rows):
+            dtdebug('CALL SetFocus')
             wx.CallAfter(self.rows[self.last_focused_rowno].SetFocus)
         self.gbs = gbs
         self.update_scrollbar()
@@ -1339,6 +1353,7 @@ class RecordPanel(wx.Panel):
         self.gbs.SetItemSpan(self.scrollbar, (self.num_rows_on_screen,1))
 
     def SetFocus(self):
+        dtdebug('CALL SetFocus')
         self.rows[self.last_focused_rowno].SetFocus()
 
     def update_rows(self, old_top_idx=None):
@@ -1403,6 +1418,7 @@ class RecordPanel(wx.Panel):
         assert rowno is None or rowno>=0 and rowno < self.num_rows_on_screen
         idx = max(min(rowno+self.top_idx, self.data.row_screen.list_size -1), 0)
         rowno = idx - self.top_idx
+        dtdebug('CALL SetFocus')
         self.rows[rowno].SetFocus()
 
     def rightmost_start_time(self):
@@ -1460,7 +1476,6 @@ class RecordPanel(wx.Panel):
         return False
 
     def OnKey(self, evt):
-        return
         w = wx.Window.FindFocus()
         key = evt.GetKeyCode()
         w = wx.Window.FindFocus()
@@ -1700,6 +1715,7 @@ class GridEpgPanel(RecordPanel):
         last_was_ch = True if self.last_focused_cell is not None and \
             self.last_focused_cell.data.is_ch else False
         if last_was_ch:
+            dtdebug('CALL SetFocus')
             self.rows[rowno].SetFocus()
         else:
             self.rows[rowno].focus_current()
@@ -1728,16 +1744,19 @@ class GridEpgPanel(RecordPanel):
                 start_time = max(self.data.start_time_unixepoch +30*60, start_time)
                 self.data.set_start(start_time)
                 self.scroll_leftright()
+                dtdebug('CALL SetFocus')
                 row.epg_cells[-1].SetFocus()
 
                 return True
             else:
                 to_focus = w.data.row.neighboring_cell(w, left_neighbor=False)
                 assert to_focus is not None
+                dtdebug('CALL SetFocus')
                 to_focus.SetFocus()
                 return True
         elif key == wx.WXK_LEFT:
             if is_ctrl:
+                dtdebug('CALL SetFocus')
                 row.ch_cell.SetFocus()
                 return True
             if row.is_leftmost_epg_cell(w):
@@ -1748,6 +1767,7 @@ class GridEpgPanel(RecordPanel):
                     start_time = start_cell.data.epg.k.start_time-1
                 self.data.set_start(start_time)
                 self.scroll_leftright()
+                dtdebug('CALL SetFocus')
                 row.epg_cells[0].SetFocus()
                 return True
             else:
@@ -1755,6 +1775,7 @@ class GridEpgPanel(RecordPanel):
                     return False
                 to_focus = w.data.row.neighboring_cell(w, left_neighbor=True)
                 assert to_focus is not None
+                dtdebug('CALL SetFocus')
                 to_focus.SetFocus()
                 return True
         return False
@@ -2131,7 +2152,6 @@ class LivePanel(wx.Panel):
 
     def OnFocus(self, evt):
         w = evt.GetWindow()
-
     def OnClose(self, evt):
         if self.mosaic_panel is not None:
             self.mosaic_panel.OnClose(evt)
@@ -2150,7 +2170,10 @@ class LivePanel(wx.Panel):
         self.size = None
         self.Bind(wx.EVT_CHAR_HOOK, self.OnKey)
         self.Bind(wx.EVT_CHILD_FOCUS, self.OnFocus)
-
+        dtdebug('CALL SetFocus')
+        self.Bind(wx.EVT_SET_FOCUS, self.OnSetFocus)
+    def OnSetFocus(self, evt):
+        pass
     def OnDestroy(self, evt):
         dtdebug (f'OnDestroy Called {evt.GetWindow()}')
 
@@ -2182,6 +2205,7 @@ class LivePanel(wx.Panel):
         if self.created:
             self.grid_panel.reset()
             self.grid_panel.set_active()
+            dtdebug('CALL SetFocus')
             self.grid_panel.SetFocus()
             self.Refresh()
         evt.Skip()
@@ -2190,7 +2214,7 @@ class LivePanel(wx.Panel):
         if self.hidden:
             return
 
-        self.grid_panel.reset()
+        #self.grid_panel.reset()
 
         self.Layout()
         self.Refresh()
@@ -2300,7 +2324,7 @@ class LivePanel(wx.Panel):
         self.bottom_panel.SetSizer(bottom_sizer)
 
     def overall_layout(self, rowtype):
-        dtdebug ('created to panel')
+        dtdebug ('created top panel')
         self.create_top_panel(rowtype)
         self.middle_panel = wx.Panel(self, wx.ID_ANY)
         self.bottom_panel = wx.Panel(self, wx.ID_ANY)
@@ -2405,11 +2429,12 @@ class LivePanel(wx.Panel):
     def show_gui(self, rowtype):
         if not self.created:
             self.created=True
-            dtdebug('CREATING')
+            dtdebug('creating gui')
             self.create(rowtype)
             self.Bind(wx.EVT_SIZE, self.OnResize)
             self.make_accels()
         else:
+            dtdebug('show_gui')
             self.show_top_panel(rowtype)
             self.show_grid_panel(rowtype)
         if self.hidden:
@@ -2426,6 +2451,7 @@ class LivePanel(wx.Panel):
             self.hidden = False
             self.mosaic_panel.set_inactive()
             self.SetCursor(wx.NullCursor)
+            self.focused_panel.SetFocus()
         else:
             self.top_panel.Hide()
             self.bottom_panel.Hide()
@@ -2435,6 +2461,10 @@ class LivePanel(wx.Panel):
             cursor = wx.Cursor(wx.CURSOR_BLANK)
             self.SetCursor(cursor)
         self.Layout()
+
+    def CmdLiveScreen(self, evt):
+        self.show_gui(self.grid_panel.rowtype if self.grid_panel is not None else RowType.SERVICE_OR_CHANNEL)
+
 
     def CmdLiveChannels(self, evt):
         self.show_gui(RowType.SERVICE_OR_CHANNEL)

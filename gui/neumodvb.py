@@ -24,7 +24,7 @@ import wx.glcanvas #needed for the created mpvglcanvas
 import wx
 import gettext
 import signal
-
+from functools import lru_cache
 
 #the following import also sets up import path
 import neumodvb
@@ -136,6 +136,7 @@ class neumoMainFrame(mainFrame):
         self.timer.Start(2000)
 
     @property
+    #@lru_cache(maxsize=None)
     def accel_tbl(self):
         #Wx.TextCtrl does not seem to respect menu shortcuts
         #which causes Gridepg to not respond to accelerators such as CTRL-R for record
@@ -150,8 +151,10 @@ class neumoMainFrame(mainFrame):
 
     def set_accelerators(self, on):
         if on:
+            dtdebug('ACCEL ON')
             self.SetAcceleratorTable(self.accel_tbl)
         else:
+            dtdebug('ACCEL OFF')
             accel_tbl = wx.AcceleratorTable()
             self.SetAcceleratorTable(accel_tbl)
 
@@ -201,11 +204,13 @@ class neumoMainFrame(mainFrame):
                 self.EnablePanelSpecificMenus(panel, items_to_toggle, True)
                 if hasattr(panel, 'main_grid'):
                     panel.main_grid.SetFocus()
+                else:
+                    wx.CallAfter(panel.SetFocus)
         for item_name, onoff in items_to_toggle.items():
             item = getattr(self.main_menubar, item_name)
             item.Enable(onoff)
-
-        self.Layout()
+        if self.live_panel in panelstoshow:
+            self.set_accelerators(True)
         self.Layout()
 
     def ToggleEditMode(self):
@@ -249,7 +254,7 @@ class neumoMainFrame(mainFrame):
         menu.Append(sortID, "Sort Column")
 
         def filter(event, self=self, col=col):
-            #print("filter called")
+            dtdebug("filter called")
             cols = self.GetSelectedCols()
             dlg = SatFilterDialog(self, -1, "Sat Filter")
             val = dlg.ShowModal()
@@ -331,24 +336,28 @@ class neumoMainFrame(mainFrame):
     def CmdInspect(self, event):
         dtdebug("CmdInspect")
         self.app.CmdInspect()
-        event.Skip()
 
     def CmdDumpSubs(self, event):
         dtdebug("CmdDumpSubs")
+        dtdebug('dumpsubs')
         self.app.receiver.dump_subs()
-        event.Skip()
 
     def CmdLiveChannels(self, event):
         dtdebug("CmdLiveChannels")
         self.ShowPanel([self.live_panel])
         self.live_panel.CmdLiveChannels(event)
-        event.Skip()
+        #event.Skip()
+
+    def CmdLiveScreen(self, event):
+        dtdebug("CmdLiveChannels")
+        self.ShowPanel([self.live_panel])
+        self.live_panel.CmdLiveScreen(event)
+        #event.Skip()
 
     def CmdLiveRecordings(self, event):
         dtdebug("CmdLiveRecordings")
         self.ShowPanel([self.live_panel])
         self.live_panel.CmdLiveRecordings(event)
-        event.Skip()
 
     def FullScreen(self):
         dtdebug("CmdFullScreen")
@@ -368,73 +377,59 @@ class neumoMainFrame(mainFrame):
     def CmdChEpg(self, event):
         dtdebug("CmdChEpg")
         self.ShowPanel([self.chepg_panel, self.mosaic_panel], info_windows=self.chepginfo_text)
-        event.Skip()
 
     def CmdLiveEpg(self, evt):
         dtdebug("CmdLiveEpg")
         self.ShowPanel([self.live_panel])
         self.live_panel.CmdLiveEpg(evt)
-        evt.Skip()
 
     def CmdStatusList(self, event):
         dtdebug("CmdStatusList")
         self.ShowPanel(self.statuslist_panel)
-        event.Skip()
 
     def CmdServiceList(self, event):
         dtdebug("CmdServiceList")
         self.ShowPanel(self.servicelist_panel)
-        event.Skip()
 
     def CmdChgmList(self, event):
         dtdebug("CmdChgmList")
         self.ShowPanel(self.chgmlist_panel)
-        event.Skip()
 
     def CmdSpectrumList(self, event):
         dtdebug("CmdSpectrumList")
         self.ShowPanel(self.spectrumlist_panel)
-        event.Skip()
 
     def CmdDvbsMuxList(self, event):
         dtdebug("CmdDvbsMuxList")
         self.ShowPanel(self.dvbs_muxlist_panel)
-        event.Skip()
 
     def CmdDvbcMuxList(self, event):
         dtdebug("CmdDvbcMuxList")
         self.ShowPanel(self.dvbc_muxlist_panel)
-        event.Skip()
 
     def CmdDvbtMuxList(self, event):
         dtdebug("CmdDvbtMuxList")
         self.ShowPanel(self.dvbt_muxlist_panel)
-        event.Skip()
 
     def CmdLnbList(self, event):
         dtdebug("CmdLnbList")
         self.ShowPanel(self.lnblist_panel)
-        event.Skip()
 
     def CmdSatList(self, event):
         dtdebug("CmdSatList")
         self.ShowPanel(self.satlist_panel)
-        event.Skip()
 
     def CmdChgList(self, event):
         dtdebug("CmdChgList")
         self.ShowPanel(self.chglist_panel)
-        event.Skip()
 
     def CmdFrontendList(self, event):
         dtdebug("CmdFrontendList")
         self.ShowPanel(self.frontendlist_panel)
-        event.Skip()
 
     def CmdRecList(self, event):
         dtdebug("CmdRecList")
         self.ShowPanel(self.reclist_panel)
-        event.Skip()
 
     def CmdNew(self, event):
         dtdebug("CmdNew")
@@ -486,7 +481,6 @@ class neumoMainFrame(mainFrame):
         dtdebug('CmdSubtitleLang')
         dark_mode = self.current_panel() == self.live_panel
         return wx.GetApp().SubtitleLang(dark_mode)
-
     def CmdExit(self, event):
         dtdebug("XXXX CmdExit")
         if self.current_panel() != self.live_panel:

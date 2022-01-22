@@ -9,7 +9,7 @@ one entry should be listed.
 ![Frontends](images/frontends.png)
 
 There is not much to configure here, but the following cmay be useful. Note that you need
-first enable `Edit mode' (Alt-E).
+first enable `Edit mode' (`Ctrl-E`).
 
 *`enabled`. Disable a frontend by unchecking this option.
 

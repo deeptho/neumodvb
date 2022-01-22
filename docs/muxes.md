@@ -91,7 +91,7 @@ over all tuners. Even with this thorough scan, it is still possible that some mu
 This happens when satellites contain multiple unrelated networks. In this case, you add one of the mussing
 muxes, which will probably again cause many others to be found.
 
-A faster way of scanning is to "tune" the mux using `Control Tune` (`Ctrl-ENTER`). This will discover
+A faster way of scanning is to "tune" the mux using `Control Tune` (`Ctrl-Enter`). This will discover
 fewer services and fewer muxes because it will only tune the selected mux and not any of the newly
 discovered ones. If the mux broadcasts standard compliant SDT and NIT tables, it is not really necessary
 to scan the other discovered muxes to find their services. However, services on not yet discovered muxes

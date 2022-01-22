@@ -5,7 +5,7 @@
 
 Spectra are always scanned using a specific LNB. Make sure tat this LNB is not in use
 for any other purpose, switch to the LNB list using `Lists - LNBs`, select one of the LNBs
-and press `Ctrl-E` to show the spectrum scan screen.
+and press `Ctrl-U` to show the spectrum scan screen.
 
 Spectrum scan only works if you have installed the Neumo blindscan drivers, and even then only on supported
 cards. You start by scanning a spectrum, which will then display a graph on the top part of the screen.

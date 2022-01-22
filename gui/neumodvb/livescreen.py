@@ -175,7 +175,7 @@ class LiveServiceScreen(object):
 
     def reportOFF(self, label):
         h = self.app.receiver.browse_history
-        print(f'{label}: list_type{h.h.list_filter_type} filter_chg={h.h.filter_chg}' )
+        dtdebug(f'{label}: list_type{h.h.list_filter_type} filter_chg={h.h.filter_chg}' )
     def set_sat_filter(self, sat):
         """
         """

@@ -33,23 +33,23 @@ view_menu = (
     MI("FullScreen",
        _("&Full Screen\tCtrl-F"),
        _("full screen live viewing")),
-    SEP,
     MI("ToggleGui",
        _("&Show/Hide Gui\tL"),
        _("Show/Hideo Gui ")),
     SEP,
 
-    MI("LiveChannels",
+    MI("LiveScreen",
        _("&Live Screen\tCtrl-L"),
-       _("Show channels")),
-    MI("LiveEpg", _("Grid &EPG\tCtrl-G"),_("Show grid epg")),
+       _("Show Live Screen")),
     SEP,
-    MI("LiveRecordings",
-       _("&Recordings\tR"),
-       _("Show recordings")),
+    MI("LiveChannels", _("&Channels\tC"),_("Show Channels/services")),
+    MI("LiveEpg", _("Grid &EPG\tE"),_("Show grid epg")),
     MI("ChEpg",
        _("&Channel EPG\tShift-E"),
        _("Show channel epg")),
+    MI("LiveRecordings",
+       _("&Recordings\tR"),
+       _("Show recordings")),
     SEP,
     MI("Exit",
        _("&Quit\tCtrl-Q"), "End program")
@@ -74,7 +74,7 @@ control_menu = (
     MI("Play",  _("&Play\tCtrl-Enter"), ""),
     MI("Play Add",  _("&Play- Add\tShift-Ctrl-Enter"), ""),
     MI("Scan",  _("&Scan\tCtrl-S"), ""),
-    MI("Spectrum",  _("&Spectrum\tCtrl-E"), _("Spectrum")),
+    MI("Spectrum",  _("&Spectrum\tCtrl-U"), _("Spectrum")),
     MI("Positioner",  _("&Positioner\tCtrl-P"), ""),
     SEP,
     MI("ToggleRecord", _("&Record\tCtrl-R"), ""),
@@ -85,7 +85,7 @@ control_menu = (
 
 edit_menu = (
     MI("EditMode",
-       _("&Edit Mode\tAlt-E"),
+       _("&Edit Mode\tCtrl-E"),
        "",
        wx.ITEM_CHECK),
     MI("New",
@@ -124,7 +124,7 @@ lists_menu = (
     MI("FrontendList",_("&Frontends\tShift-Ctrl-F"), ""),
     SEP,
     MI("RecList",_("&Recordings\tCtrl-Shift-R"), _("recordings list")),
-    MI("SpectrumList",_("&Spectra\tCtrl-Shift-E"), _("Spectra list"))
+    MI("SpectrumList",_("&Spectra\tCtrl-Shift-U"), _("Spectra list"))
 )
 
 main_menubar = (
@@ -201,7 +201,7 @@ class NeumoMenuBar(wx.MenuBar):
         dtdebug(f'FIND menu command key={key} accel={accel}')
         for name_, item in self.items.items():
             a = item[1].GetAccel()
-            #we allow multiple commands with the same accellator; they are mapped to the
+            #we allow multiple commands with the same accelerator; they are mapped to the
             #same Cmd function but only one is not grayed out. @todo: a better method would change
             #the menu text in this case.
             accel_matches = a is not None and a.ToRawString() == accel

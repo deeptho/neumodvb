@@ -55,15 +55,18 @@ In general there are two practical ways to prepare your channel list for viewing
 Service numbers will be used to order services in lists, when "numeric" sorting is active.
 
 First check if some services have actually been found during scanning: `Ctrl-Shift-S` (`Lists - services`).
-For quick zapping during live mode, you can assign channel numbers to services: enter edit mode and type
-a number in the left most column (`#`)
+Select the desired service and enter edit mode by pressing `Ctrl-E`. Click on the number in the
+left most column (`#`) and then type the desired number.
 
-Make sure `Edit mode` has been turned off and enter live viewing mode by pressing `Ctrl-L`, or using the menu
-`View - Channels`. To navigate the list, click on one of the column headers. e.g. `Name`,  to sort the list
+To store the changes, move the cursor to another service and or turn off edit mode by pressing `Ctrl-E`.
+
+To navigate the service list, click on one of the column headers. e.g. `Name`,  to sort the list
 to make it easier to find what you want. You can also restrict the list to services on a specific satellite
 using the combo-popup on top. By default, it shows services from all satellites.
 In the examples below we assume that "BBC One HD" has been assigned
 channel number 101 and "BBC Two HD" number 102. The numbers you enter are assigned to `services`.
+
+You can also activate a filter by right-clicking on the column header.
 
 
 ### Bouquets and channels ###

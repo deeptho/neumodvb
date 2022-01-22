@@ -2,21 +2,27 @@
 
 ## Viewing and recording TV ##
 
-To view channels, one of the dark-mode screens:
+To actually view channels, you need to swictch to the live mode screen (which is distinghuished by a dark background)
+To do so, press `Ctrl-L` if needed. In the live mode screen several displays can be activated
 
-* **Channel Grid mode.**  `View - Channels` (`C` when not in Edit mode) shows a channel/service list, along with live TV
-* **Grid EPG mode.** `View - Grid EPG` (`E`) shows the grid EPG screen, which may initially be empty until some EPG scanning has been
+* **Channel Grid mode.**  `View - Channels` or pressing `C` shows a channel/service list, along with live TV preview window
+* **Grid EPG mode.** `View - Grid EPG` or pressing `E` shows the grid EPG screen, which may initially be empty until some EPG scanning has been
+performed. Also, the preview window is shown
+* **Channel EPG mode.** `View - Channel EPG` or pressing `Shift-E` shows the channel EPG screen, which shows all the programs
+for the currently selected channel. (This screen still needs to be converted to dark mode.)
 performed.
-* **View mode.** `View Show/Hide GUI` toggles between this mode and the previously selected dark mode screen.
+* **Recordings.** `View - Recordings` or pressing `R` shows the list of earlier recorded programs, along with the preview window
+performed.
+* **View mode.** `View Show/Hide GUI` pr pressing `L` toggles between video only display and the last selectd live mode screen (channels, grid epg...)
 
 Usually all of these screens are shown in a window, but for real TV viewing, it is better to enter full screen
-mode.
+mode by pressing `Ctrl-F`.
 
 The following commands are available on these screens:
 *  `Control - Full Scfeen` (`Ctrl-F`). This will toggle between full-screen and windowed mode.
 *  `Control - Volume Up` (`=`). This will increase the audio volume for the currently selected live channel.
 *  `Control - Volume Down` (`-`). This will decrease the audio volume for the currently selected live channel.
-
+*   For quick zapping during live mode, type a number. This will move the cursor to the matching channel.
 
 
 ### Channel screen ###
@@ -73,8 +79,11 @@ In the channel list screen region,
   will be interpreted) is shown with a yellow border.
   If one is already playing, the new channel
   will replace the old one.
-* Press `L` to hide the channel list
-* Press `F` to enter/leave full screen mode
+
+Remember that other keys are also available to switch between views
+* Press `L` to show only video
+* Press `E` to show the grid epg
+* Press `Ctrl-F` to enter full screen
 * Several commands from `View mode` are also available. E.g., Press `Ctrl-O` for onscreen display
 
 

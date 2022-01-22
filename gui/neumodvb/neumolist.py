@@ -881,7 +881,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
     def OnGridEditorHidden(self, event):
         dtdebug("OnGridEditorHidden")
-        wx.GetApp().frame.set_accelerators(True)
+        #wx.GetApp().frame.set_accelerators(True)
 
     def OnGridEditorCreated(self, event):
         dtdebug("OnGridEditorCreated")
@@ -902,7 +902,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
     def OnGridEditorShown(self, event):
         dtdebug("OnGridEditorShown")
-        wx.GetApp().frame.set_accelerators(False)
+        #wx.GetApp().frame.set_accelerators(False)
 
     def ColourRow(self, row):
         attr = wx.grid.GridCellAttr()

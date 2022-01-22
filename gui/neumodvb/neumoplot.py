@@ -627,7 +627,6 @@ class SpectrumPlot(wx.Panel):
         self.add_detrend_button()
         self.add_status_box()
     def set_modifiers(self, event):
-        print(event.key)
         if 'shift' in event.key:
             self.shift_is_held = True
         if 'control' in event.key:

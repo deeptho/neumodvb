@@ -35,6 +35,7 @@ from neumodvb.util import dtdebug, dterror
 
 
 import pystatdb
+import pychdb
 
 
 def get_snr(x):
@@ -67,8 +68,12 @@ class StatusTable(NeumoTable):
          CD(key='k.lnb.dish_id',  label='dish', basic=True, readonly=True),
          CD(key='k.lnb.adapter_no',  label='adapter', basic=True),
          CD(key='k.lnb.lnb_id',  label='ID', basic=True, readonly=True),
-         CD(key='k.frequency',  label='freq', basic=True, readonly = True,
-            dfn= freq_fn, example="10725.114"),
+         CD(key='k.mux.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         CD(key='k.mux.network_id', label='nid'),
+         CD(key='k.mux.ts_id', label='tsid'),
+         CD(key='k.mux.t2mi_pid', label='t2mi\npid', readonly=False),
+         CD(key='k.mux.extra_id', label='subid', readonly=False),
+         CD(key='k.frequency',  label='freq', basic=True, readonly = True, dfn= freq_fn, example="10725.114"),
          CD(key='k.pol', label='Pol', basic=True, dfn=lambda x: lastdot(x).replace('POL',''), example='V'),
 
          CD(key='k.time', label='Start', basic=True, dfn=datetime_fn, example='2021-06-16 18:30:33'),

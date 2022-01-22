@@ -40,6 +40,8 @@ class ChEpgInfoTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
     def ShowRecord(self, rec):
+        if rec is None:
+            return
         dt =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
         t =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%H:%M:%S")
         e = lambda x: enum_to_str(x)

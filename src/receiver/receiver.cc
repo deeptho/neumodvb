@@ -52,10 +52,8 @@
 #include "receiver.h"
 #include "scan.h"
 #include "spectrum.h"
-#include "subscriber.h"
 #include "util/dtutil.h"
 #include "util/identification.h"
-//#include "simgr/simgr.h"
 
 bool wait_for_all(std::vector<task_queue_t::future_t>& futures) {
 	bool error = false;

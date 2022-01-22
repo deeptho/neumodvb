@@ -49,7 +49,9 @@ class mux_subscriber_t {
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::shared_ptr<active_adapter_t>active_adapter;
 public:
-
+	inline int get_subscription_id() const {
+		return subscription_id;
+	}
 	template<typename T> void notify(const T& data);
 	static pybind11::object handle_to_py_object(int64_t handlle);
 

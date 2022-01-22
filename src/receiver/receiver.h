@@ -602,9 +602,9 @@ public:
 		tuners which are currently subscribed to. These tuners are either active,
 		or they are in the process of becoming active. This data structure can only be accessed in receiver_thread
 		*/
-	using muxes_map = std::map<int, std::shared_ptr<active_adapter_t>>;
-	using safe_muxes_map = safe::thread_public_t<false, muxes_map>;
-	safe_muxes_map reserved_muxes{"receiver", thread_group_t::receiver, {}};; //open muxes, indexed by subscription id
+	using active_adapter_map = std::map<int, std::shared_ptr<active_adapter_t>>;
+	using safe_active_adapter_map = safe::thread_public_t<false, active_adapter_map>;
+	safe_active_adapter_map reserved_muxes{"receiver", thread_group_t::receiver, {}};; //open muxes, indexed by subscription id
 
 	using mux_subscriber_map = safe::Safe<std::map<void*, std::shared_ptr<mux_subscriber_t>>>;
 	mux_subscriber_map mux_subscribers;//indexed by subscription id

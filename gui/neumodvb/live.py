@@ -1065,7 +1065,7 @@ class MosaicPanel(wx.Panel):
 
     def ServiceTune(self, service_or_chgm, replace_running=True):
         ls = self.controller.app.live_service_screen
-        service = ls.Tune(service_or_chgm)
+        service = ls.Tune(service_or_chgm) #save info on the last tuned channel/service
         if service is None:
             ShowMessage(f'Cannot tune to service {service_or_chgm}')
             return

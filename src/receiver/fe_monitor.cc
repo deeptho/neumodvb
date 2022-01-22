@@ -227,6 +227,7 @@ void signal_monitor_t::update_stat(receiver_t& receiver, const statdb::signal_st
 		stat.stats[stat.stats.size()-1] = update.stats[update.stats.size()-1];
 	}
 	auto wtxn = receiver.statdb.wtxn();
+	assert (stat.k.live);
 	put_record(wtxn, stat);
 	wtxn.commit();
 }
@@ -239,6 +240,8 @@ void signal_monitor_t::end_stat(receiver_t& receiver) {
 		delete_record(wtxn, stat); //key will change, so we remove the record at the old key
 		stat.k.live = false;
 		put_record(wtxn, stat);
+		stat.stats.clear();
+		stat.k = {};
 	}
 	wtxn.commit();
 }

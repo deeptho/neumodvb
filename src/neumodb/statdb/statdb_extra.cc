@@ -48,7 +48,8 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_key_t& k) {
 	auto sat = chdb::sat_pos_str(k.mux.sat_pos);
 	stdex::printf(os, "[%02d] %5s:%5.3f%s", (int)k.lnb.adapter_no, sat, k.frequency / 1000., enum_to_str(k.pol));
 	using namespace date;
-	os << date::format(" %F %H:%M", zoned_time(current_zone(), system_clock::from_time_t(k.time)));
+	os << date::format(" %F %H:%M:%S", zoned_time(current_zone(),
+																								floor<std::chrono::seconds>(system_clock::from_time_t(k.time))));
 
 	return os;
 }
@@ -57,7 +58,7 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_t& stat) {
 	os << stat.k;
 	if(stat.stats.size() > 0) {
 		auto &e = stat.stats[stat.stats.size()-1];
-		stdex::printf(os, ": pow=%3.2fdB snr=%3.2fdB ber=%3.2f", e.signal_strength / 1000., e.snr / 1000., e.ber);
+		stdex::printf(os, " pow=%3.2fdB snr=%3.2fdB ber=%3.2f", e.signal_strength / 1000., e.snr / 1000., e.ber);
 	}
 	return os;
 }

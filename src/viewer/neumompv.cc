@@ -77,7 +77,7 @@ public:
 	int set_subtitle_language(int id);
 	int change_audio_volume(int step);
 
-	int play_service(const chdb::service_t& service, milliseconds_t start_play_time);
+	int play_service(const chdb::service_t& service);
 
 	template <typename _mux_t> int play_mux(const _mux_t& mux, bool blindscan);
 	int jump(int seconds);
@@ -698,7 +698,7 @@ int MpvPlayer::set_subtitle_language(int id) {
 	return self->set_subtitle_language(id);
 }
 
-int subscription_t::play_service(const chdb::service_t& service, milliseconds_t start_play_time) {
+int subscription_t::play_service(const chdb::service_t& service) {
 	log4cxx_store_threadname();
 	dtdebugx("PLAY SUBSCRIPTION (service)");
 	if (is_playing()) {
@@ -721,6 +721,7 @@ int subscription_t::play_service(const chdb::service_t& service, milliseconds_t 
 																				 [this](auto lang, auto pos) { this->on_audio_language_change(lang, pos); });
 		// mpm.init(active_service->mpm);
 		dtdebugx("PLAY SUBSCRIPTION (service): mpm init done");
+		milliseconds_t start_play_time{0};
 		if (mpm->move_to_time(start_play_time) < 0) {
 			dtdebug("PLAY SUBSCRIPTION (service): aborting");
 			this->close();
@@ -759,12 +760,12 @@ template <typename _mux_t> int subscription_t::play_mux(const _mux_t& mux, bool 
 	return subscription_id;
 }
 
-int MpvPlayer_::play_service(const chdb::service_t& service, milliseconds_t start_play_time) {
+int MpvPlayer_::play_service(const chdb::service_t& service) {
 	// retune request
 	log4cxx_store_threadname();
-	auto op = [this, service, start_play_time]() {
+	auto op = [this, service]() {
 		// service is captured by copy
-		subscription.play_service(service, start_play_time);
+		subscription.play_service(service);
 	};
 	{
 		// lock must be placed after lambda
@@ -796,9 +797,9 @@ int MpvPlayer_::play_service(const chdb::service_t& service, milliseconds_t star
 	return 0;
 }
 
-int MpvPlayer::play_service(const chdb::service_t& service, milliseconds_t start_play_time) {
+int MpvPlayer::play_service(const chdb::service_t& service) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
-	return self->play_service(service, start_play_time);
+	return self->play_service(service);
 }
 
 template <typename _mux_t> int MpvPlayer_::play_mux(const _mux_t& mux, bool blindscan) {

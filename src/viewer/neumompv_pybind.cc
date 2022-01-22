@@ -56,7 +56,7 @@ PYBIND11_MODULE(pyneumompv, m) {
 		.def("make_canvas", &MpvPlayer::make_canvas)
 		.def("toggle_overlay", &MpvPlayer::toggle_overlay)
 		.def("play_file", &MpvPlayer::play_file)
-		.def("play_service", &MpvPlayer::play_service, py::arg("service"), py::arg("start_play_time") = milliseconds_t(0))
+		.def("play_service", &MpvPlayer::play_service, py::arg("service"))
 		.def("play_mux", &MpvPlayer::play_mux<chdb::dvbs_mux_t>, py::arg("mux"), py::arg("blindscan") = false)
 		.def("play_mux", &MpvPlayer::play_mux<chdb::dvbc_mux_t>, py::arg("mux"), py::arg("blindscan") = false)
 		.def("play_mux", &MpvPlayer::play_mux<chdb::dvbt_mux_t>, py::arg("mux"), py::arg("blindscan") = false)

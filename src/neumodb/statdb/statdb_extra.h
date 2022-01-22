@@ -34,6 +34,7 @@ struct spectrum_scan_t;
 namespace statdb {
 	using namespace statdb;
 
+	std::ostream& operator<<(std::ostream& os, const signal_stat_key_t& k);
 	std::ostream& operator<<(std::ostream& os, const signal_stat_entry_t& entry);
 	std::ostream& operator<<(std::ostream& os, const signal_stat_t& stat);
 	std::ostream& operator<<(std::ostream& os, const spectrum_key_t& spectrum_key);
@@ -41,6 +42,10 @@ namespace statdb {
 
 	inline void to_str(ss::string_& ret, const signal_stat_entry_t& entry) {
 		ret << entry;
+	}
+
+	inline void to_str(ss::string_& ret, const signal_stat_key_t& k) {
+		ret << k;
 	}
 
 	inline void to_str(ss::string_& ret, const signal_stat_t& stat) {
@@ -67,4 +72,7 @@ namespace statdb {
 
 	std::optional<statdb::spectrum_t>
 	save_spectrum_scan(const ss::string_& spectrum_path, const spectrum_scan_t& scan, bool append, int min_freq);
+
+	void clean_live(db_txn& wtxn);
+
 }

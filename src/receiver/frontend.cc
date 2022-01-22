@@ -390,17 +390,19 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 	ret.si_mux = r->reserved_mux;
 
 	ret.mux = r->reserved_mux; //ensures that we return proper any_mux_t type for dvbc and dvbt
-	ret.stat.mux_key = *mux_key_ptr(r->reserved_mux);
+	ret.stat.k.mux = *mux_key_ptr(r->reserved_mux);
 	if (ret.tune_confirmation.si_done) {
 		dtdebugx("reporting si_done=true");
 	}
-	*mux_key_ptr(ret.mux) = ret.stat.mux_key;
+	*mux_key_ptr(ret.mux) = ret.stat.k.mux;
 	const auto& lnb = r->reserved_lnb;
 	int band = 0;
 	chdb::fe_polarisation_t pol{chdb::fe_polarisation_t::UNKNOWN};
 	if (dvbs_mux) {
-		ret.stat.lnb_key = lnb.k;
-		ret.stat.pol = dvbs_mux->pol;
+		ret.stat.k.frequency = dvbs_mux->frequency;
+		ret.stat.k.pol = dvbs_mux->pol;
+		ret.stat.k.lnb = lnb.k;
+		ret.stat.k.pol = dvbs_mux->pol;
 		auto [band_, pol_, freq] = chdb::lnb::band_voltage_freq_for_mux(lnb, *dvbs_mux);
 		band = band_;
 		pol = dvbs_mux->pol;
@@ -414,18 +416,18 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 		visit_variant(
 			ret.mux,
 			[&cmdseq, &i, &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
-				ret.stat.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, i, band, pol);
+				ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, i, band, pol);
 			},
 			[&cmdseq, &i, &ret](chdb::dvbc_mux_t& mux) {
-				ret.stat.frequency = get_dvbc_mux_info(mux, cmdseq, i); },
+				ret.stat.k.frequency = get_dvbc_mux_info(mux, cmdseq, i); },
 			[&cmdseq, &i, &ret](chdb::dvbt_mux_t& mux) {
-				ret.stat.frequency = get_dvbt_mux_info(mux, cmdseq, i); });
+				ret.stat.k.frequency = get_dvbt_mux_info(mux, cmdseq, i); });
 			/*at this point ret.mux and ret.stat.frequency contain the frequency as reported from the tuner itself,
 				but after compensation for the currently known lnb offset
 
 				dvbs_mux->frequency is the frequency which we were asked to tune
 			*/
-		tuned_frequency = ret.stat.frequency;
+		tuned_frequency = ret.stat.k.frequency;
 		if (api == api_type_t::NEUMO) {
 			ret.matype = cmdseq.props[i++].u.data;
 			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.mux);
@@ -472,7 +474,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 	ret.lock_status = ts.readAccess()->lock_status.fe_status;
 	using namespace chdb;
 	// bool is_sat = true;
-	ret.stat.time = system_clock_t::to_time_t(now);
+	ret.stat.k.time = system_clock_t::to_time_t(now);
 	struct dtv_property p[] = {
 		{.cmd = DTV_STAT_SIGNAL_STRENGTH},
 		{.cmd = DTV_STAT_CNR},

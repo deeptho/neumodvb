@@ -185,44 +185,60 @@ exit_:
 	dtdebugx("frontend_monitor end: %p: fefd=%d\n", fe, fe->ts.readAccess()->fefd);
 	fe->close_device(*fe->ts.writeAccess());
 	save.reset();
+	{
+		auto ts = fe->signal_monitor.writeAccess();
+		auto &signal_monitor = *ts;
+		signal_monitor.end_stat(receiver);
+	}
+
 	return 0;
 }
 
 void signal_monitor_t::update_stat(receiver_t& receiver, const statdb::signal_stat_t& update) {
 	//it is possible that max_key changes without tuning
-	bool save_old =  stat.stats.size()>0 && (stat.mux_key != update.mux_key || stat.lnb_key != update.lnb_key);
+	bool save_old =  stat.stats.size()>0 && (stat.k.mux != update.k.mux || stat.k.lnb != update.k.lnb);
 	if (save_old ) {
 		auto wtxn = receiver.statdb.wtxn();
 		if(stat.stats.size() > 0 ) {
-			assert (stat.live);
-			stat.live = false;
-			printf("Finalizing old stat: %d size=%d a=%d b=%d\n", stat.mux_key.ts_id, stat.stats.size(),
-						 stat.mux_key != update.mux_key, stat.lnb_key != update.lnb_key	);
+			assert (stat.k.live);
+			delete_record(wtxn, stat); //key will change, so we remove the record at the old key
+			stat.k.live = false;
 			put_record(wtxn, stat);
 		} else {
-			printf("NOT finalizing old stat\n");
 		}
 		stat = update;
-		assert (stat.live);
-		printf("Saving new stat: %d size=%d\n", stat.mux_key.ts_id, stat.stats.size());
+		assert (stat.k.live);
 		put_record(wtxn, stat);
 		wtxn.commit();
 		return;
 	}
 
-	auto t = update.time;
+	auto t = update.k.time;
 	assert(t > 0);
-	assert(stat.live);
+	assert(stat.k.live);
 	assert(update.stats.size()>0);
 
-	int idx = (t - stat.time)/300; //new record every 5 minutes
-	if (idx + 1 > stat.stats.size()) {
-		if (stat.stats.size() ==0)
-			stat = update;
-		auto wtxn = receiver.statdb.wtxn();
+	int idx = (t - stat.k.time)/300; //new record every 5 minutes
+	if (stat.stats.size() == 0 )
+		stat = update;
+	else  if (idx + 1 > stat.stats.size()) {
 		stat.stats.push_back(update.stats[update.stats.size()-1]);
-		printf("Saving updated stat: %d size=%d\n", stat.mux_key.ts_id, stat.stats.size());
-		put_record(wtxn, stat);
-		wtxn.commit();
+	} else {
+		stat.stats[stat.stats.size()-1] = update.stats[update.stats.size()-1];
 	}
+	auto wtxn = receiver.statdb.wtxn();
+	put_record(wtxn, stat);
+	wtxn.commit();
+}
+
+void signal_monitor_t::end_stat(receiver_t& receiver) {
+	//it is possible that max_key changes without tuning
+	auto wtxn = receiver.statdb.wtxn();
+	if(stat.stats.size() > 0 ) {
+		assert (stat.k.live);
+		delete_record(wtxn, stat); //key will change, so we remove the record at the old key
+		stat.k.live = false;
+		put_record(wtxn, stat);
+	}
+	wtxn.commit();
 }

@@ -44,13 +44,20 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_entry_t& e)
 	return os;
 }
 
+std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_key_t& k) {
+	auto sat = chdb::sat_pos_str(k.mux.sat_pos);
+	stdex::printf(os, "[%02d] %5s:%5.3f%s", (int)k.lnb.adapter_no, sat, k.frequency / 1000., enum_to_str(k.pol));
+	using namespace date;
+	os << date::format(" %F %H:%M", zoned_time(current_zone(), system_clock::from_time_t(k.time)));
+
+	return os;
+}
+
 std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_t& stat) {
-	auto sat = chdb::sat_pos_str(stat.mux_key.sat_pos);
+	os << stat.k;
 	if(stat.stats.size() > 0) {
 		auto &e = stat.stats[stat.stats.size()-1];
-		stdex::printf(os, "[%02d] %5s:%5.3f%s: pow=%3.2fdB snr=%3.2fdB ber=%3.2f", (int)stat.lnb_key.adapter_no, sat,
-								stat.frequency / 1000., enum_to_str(stat.pol), e.signal_strength / 1000., e.snr / 1000.,
-									e.ber);
+		stdex::printf(os, ": pow=%3.2fdB snr=%3.2fdB ber=%3.2f", e.signal_strength / 1000., e.snr / 1000., e.ber);
 	}
 	return os;
 }
@@ -170,4 +177,21 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 	}
 
 	return spectrum;
+}
+
+
+/*
+	update the status of all live stat_info_t records to non-live
+ */
+void statdb::clean_live(db_txn& wtxn) {
+	signal_stat_key_t k;
+	k.live=true;
+	auto c = signal_stat_t::find_by_key(wtxn, k, find_type_t::find_geq, signal_stat_t::partial_keys_t::live);
+	for (; c.is_valid(); c.next()) {
+		auto stat = c.current();
+		assert(stat.k.live);
+		stat.k.live = false;
+		delete_record_at_cursor(c);
+		put_record(wtxn, stat);
+	}
 }

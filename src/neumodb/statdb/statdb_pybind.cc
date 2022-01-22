@@ -59,6 +59,7 @@ PYBIND11_MODULE(pystatdb, m) {
 	export_neumodb(m);
 	export_statdb(m);
 	export_statdb_vectors(m);
+	export_ss_vector(m, signal_stat_entry_t);
 	statdb::export_enums(m);
 	statdb::export_structs(m);
 

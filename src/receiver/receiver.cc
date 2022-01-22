@@ -1655,6 +1655,7 @@ int receiver_thread_t::run() {
 				// run_tasks returns -1 if we must exit
 				if (run_tasks(now) < 0) {
 					// detach();
+					dtdebug("Exiting cleanly");
 					return 0;
 				}
 			} else if (is_timer_fd(evt)) {

@@ -525,6 +525,12 @@ void dvbdev_monitor_t::on_delete_dir(struct inotify_event* event) {
 dvbdev_monitor_t::dvbdev_monitor_t(receiver_t& receiver) : adaptermgr_t(receiver) {}
 
 int dvbdev_monitor_t::start() {
+
+	{ //in case we exited uncleanly: mark all live stat_info_t records as none live
+		auto wtxn = receiver.statdb.wtxn();
+		statdb::clean_live(wtxn);
+		wtxn.commit();
+	}
 	/*creating the INOTIFY instance*/
 	inotfd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
 
@@ -553,6 +559,12 @@ int dvbdev_monitor_t::stop() {
 	for (auto it = monitors.begin(); it != monitors.end();) {
 		auto& [fe, mon] = *it++; // it is incremened because it will be invalidated
 		stop_frontend_monitor(fe);
+	}
+
+	{ //mark all live stat_info_t records as none live
+		auto wtxn = receiver.statdb.wtxn();
+		statdb::clean_live(wtxn);
+		wtxn.commit();
 	}
 
 	if (wd_dev_dvb) {

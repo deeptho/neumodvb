@@ -1158,7 +1158,7 @@ void MpvPlayer_::notify(const chdb::signal_info_t& signal_info) {
 	auto* as = subscription.mpm->active_service();
 	if (!as)
 		return;
-	if (as->get_adapter_no() == signal_info.stat.lnb_key.adapter_no) {
+	if (as->get_adapter_no() == signal_info.stat.k.lnb.adapter_no) {
 		playback_info_t playback_info = subscription.mpm->get_current_program_info();
 		gl_canvas->overlay.set_signal_info(signal_info, playback_info);
 		return;

@@ -197,6 +197,7 @@ class signal_monitor_t {
 	statdb::signal_stat_t stat;
 
 	void update_stat(receiver_t& receiver, const statdb::signal_stat_t& update);
+	void end_stat(receiver_t& receiver);
 
 	public:
 	signal_monitor_t()  {

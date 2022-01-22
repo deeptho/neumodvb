@@ -107,7 +107,7 @@ int mux_subscriber_t::subscribe_spectrum(chdb::lnb_t& lnb, chdb::fe_polarisation
 int mux_subscriber_t::get_adapter_no() const { return active_adapter ? active_adapter->get_adapter_no() : -1; }
 
 void mux_subscriber_t::notify_signal_info(const chdb::signal_info_t& info) {
-	if (active_adapter && active_adapter->get_adapter_no() == info.stat.lnb_key.adapter_no) {
+	if (active_adapter && active_adapter->get_adapter_no() == info.stat.k.lnb.adapter_no) {
 		auto temp = info;
 		temp.tune_attempt = tune_attempt;
 		notify(temp);

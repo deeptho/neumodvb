@@ -33,25 +33,30 @@ signal_stat_entry = db_struct(name='signal_stat_entry',
                                         (3, 'float32_t',  'ber')
                                         ))
 
-#todo: this record could also be archived, but in that case
-#it would be useful to have statistics per lnb, whereas for
-#displaying signal stats, it is better to have a single record per adapter
-#this requires more flexible grouping of records in multiple database
-#and different keys per db
+
+signal_stat_key = db_struct(name='signal_stat_key',
+                              fname = 'stats',
+                              db = db,
+                              type_id= lord('Ik'),
+                              version = 1,
+                              fields = ((1, 'bool',  'live', 'true'),
+                                        (2, 'chdb::mux_key_t', 'mux'),
+                                        (3, 'chdb::lnb_key_t', 'lnb'),
+                                        (4, 'int32_t', 'frequency'),
+                                        (5, 'chdb::fe_polarisation_t', 'pol'),
+                                        (6, 'time_t',  'time'),
+                                        ))
+
+
 signal_stat = db_struct(name='signal_stat',
-                fname = 'stats',
-                db = db,
-                type_id= ord('I'),
-                version = 1,
-                primary_key = ('key', ('lnb_key','mux_key', 'time')), #unique
-                fields = ((1, 'chdb::mux_key_t', 'mux_key'),
-                          (2, 'chdb::lnb_key_t', 'lnb_key'),
-                          (3, 'int32_t', 'frequency'),
-                          (4, 'chdb::fe_polarisation_t', 'pol'),
-                          (5, 'time_t', 'time'), #when was first measurement taken?
-                          (6, 'bool', 'live', 'true'), #measurement live or not
-                          (9, 'ss::vector<signal_stat_entry_t, 24>',  'stats')
-                )) #substream id dvb-s2 only
+                        fname = 'stats',
+                        db = db,
+                        type_id= ord('I'),
+                        version = 1,
+                        primary_key = ('key', ('k',)), #unique
+                        fields = ((9, 'signal_stat_key_t', 'k'),
+                                  (10, 'ss::vector<signal_stat_entry_t, 24>',  'stats')
+                                  )) #substream id dvb-s2 only
 
 
 

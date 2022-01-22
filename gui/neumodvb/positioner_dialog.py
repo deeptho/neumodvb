@@ -594,6 +594,12 @@ class SignalPanel(SignalPanel_):
         self.signal_info = signal_info
         if is_tuned:
             rf_level = self.signal_info.signal_strength/1000
+            snr = self.signal_info.snr/1000
+            min_snr = self.signal_info.min_snr/1000
+            snr_ranges = [0, max(min_snr, 0), max(min_snr+2, 0), self.snr_ranges[3]]
+            if snr_ranges != self.snr_ranges:
+                self.snr_ranges = snr_ranges
+                self.snr_gauge.SetRange(snr_ranges)
         for key in self.status_keys:
             val = getattr(self.signal_info, f'has_{key}')
             w = getattr(self, f'has_{key}')
@@ -608,18 +614,14 @@ class SignalPanel(SignalPanel_):
             #self.ClearSignalInfo()
             self.rf_level_gauge.SetValue(rf_level)
             self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
+            self.snr_gauge.SetValue(snr)
+            self.snr_text.SetLabel(f'{snr:6.2f}dB')
             return False
-        snr = self.signal_info.snr/1000
-        min_snr = self.signal_info.min_snr/1000
         self.ber_accu = 0.9*self.ber_accu + 0.1*  self.signal_info.ber
         ber = self.ber_accu if self.signal_info.ber> self.ber_accu else self.signal_info.ber
         lber =math.log10(max(1e-9,ber))
         #self.snr_gauge.SetRange(20.0)
         #self.ref_level_gauge.SetRange(-20.0)
-        snr_ranges = [0, max(min_snr, 0), max(min_snr+2, 0), self.snr_ranges[3]]
-        if snr_ranges != self.snr_ranges:
-            self.snr_ranges = snr_ranges
-            self.snr_gauge.SetRange(snr_ranges)
 
         self.rf_level_gauge.SetValue(rf_level)
         self.snr_gauge.SetValue(snr)

@@ -12,6 +12,7 @@ import pyepgdb
 import pychdb
 import datetime
 from dateutil import tz
+import time
 
 def pl(lst):
     for x in lst:
@@ -23,11 +24,12 @@ if True:
     statdb.open("/mnt/neumo/db/statdb.mdb/")
     txn=statdb.rtxn()
     zz= pystatdb.signal_stat.list_all(txn, order=pystatdb.signal_stat.signal_stat_order.key, use_index=True)
-    for z in zz:
-        print (z, datetime.datetime.fromtimestamp(z.k.time, tz=tz.tzlocal()).strftime("%Y%m%d %H:%M:%S.%f") )
-    del txn
+    if False:
+        for z in zz:
+            print (z, datetime.datetime.fromtimestamp(z.k.time, tz=tz.tzlocal()).strftime("%Y%m%d %H:%M:%S.%f") )
+        del txn
 
-
+if False:
     print ([(z, z.k.live) for z in zz])
 
 #txn=statdb.rtxn()
@@ -43,6 +45,20 @@ ref=pystatdb.signal_stat.signal_stat()
 ref.k.live = True
 screen=pystatdb.signal_stat.screen(txn, sort_order=sort_order,
                                    key_prefix_type=pystatdb.signal_stat.signal_stat_prefix.live, key_prefix_data=ref)
-for idx in range(screen.list_size):
-    ll = screen.record_at_row(idx)
-    print(f"{ll}")
+if False:
+    for idx in range(screen.list_size):
+        ll = screen.record_at_row(idx)
+        print(f"{ll}")
+z = screen.record_at_row(screen.list_size-1)
+txn.abort()
+num= len(z.stats)
+oldnum = 0
+while True:
+    for idx in range(oldnum, num):
+        t = datetime.datetime.fromtimestamp(z.k.time + idx*300, tz=tz.tzlocal()).strftime("%Y%m%d %H:%M:%S")
+        print(f't={t} snr={z.stats[idx].snr/1000:.1f}dB rf={z.stats[idx].signal_strength/1000:.3f}dB')
+    oldnum = num
+    time.sleep(10000)
+    txn=statdb.rtxn()
+    screen.update(txn)
+    txn.abort()

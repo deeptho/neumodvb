@@ -81,7 +81,9 @@ void export_receiver(py::module& m) {
 		.def(py::init<neumo_options_t*>(), py::arg("neumo_options"), "Start a NeumoDVB receiver")
 		.def("dump_subs", &receiver_t::dump_subs, "Show subscriptions")
 		.def("dump_all_frontends", &receiver_t::dump_all_frontends, "Show all tuners")
+#if 0
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
+#endif
 		.def("scan_mux", py::overload_cast<const chdb::dvbs_mux_t&, int>(&receiver_t::scan_mux<chdb::dvbs_mux_t>),
 				 "Scan a mux", py::arg("mux"), py::arg("subscription_id"))
 		.def("scan_mux", py::overload_cast<const chdb::dvbc_mux_t&, int>(&receiver_t::scan_mux<chdb::dvbc_mux_t>),
@@ -97,6 +99,7 @@ void export_receiver(py::module& m) {
 		.def("subscribe",
 				 py::overload_cast<const chdb::dvbt_mux_t&, bool, int>(&receiver_t::subscribe_mux<chdb::dvbt_mux_t>),
 				 "Subscribe to a mux", py::arg("mux"), py::arg("blindscan"), py::arg("subscription_id"))
+#if 0
 		.def("subscribe", py::overload_cast<const chdb::service_t&, int>(&receiver_t::subscribe_service),
 				 "Subscribe to a service; if subscription_id is specified, then the service replaces "
 				 "the current subscription."
@@ -104,6 +107,7 @@ void export_receiver(py::module& m) {
 				 py::arg("service"), py::arg("subscription_id") = -1)
 
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe", py::arg("subscription_id"))
+#endif
 		.def("toggle_recording",
 				 py::overload_cast<const chdb::service_t&, const epgdb::epg_record_t&>(&receiver_t::toggle_recording),
 				 "Toggle recording of an epg event.", py::arg("service"), py::arg("epgrecord"))

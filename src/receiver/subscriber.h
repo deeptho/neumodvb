@@ -46,7 +46,7 @@ class mux_subscriber_t {
 	//chdb::signal_info_t signal_info;
 
 	receiver_t *receiver;
-	wxWindow* window{nullptr};
+	wxWindow* window{nullptr}; //window which will receive notifications
 	std::shared_ptr<active_adapter_t>active_adapter;
 public:
 

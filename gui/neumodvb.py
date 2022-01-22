@@ -488,7 +488,7 @@ class neumoMainFrame(mainFrame):
             self.current_panel().grid.OnClose()
         self.live_panel.OnClose(event)
         self.Close()
-
+        event.Skip(False) #needed to prevent being executed multiple times
     def CmdEditMode(self, is_checked):
         dtdebug("CmdEditMode")
         self.SetEditMode(is_checked)

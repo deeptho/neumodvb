@@ -2120,6 +2120,17 @@ class RecordingsPanel(RecordPanel):
         infow.EndSuppressUndo()
         infow.Thaw()
 
+    def check_for_new_records(self):
+        txn = self.data.ls.recdb.rtxn()
+        changed = self.data.ls.screen.update(txn)
+        txn.commit()
+        if changed:
+            dtdebug(f"Updating live service screen")
+            old_record = self.selected_row_entry
+            self.data.GetRecordAtRow.cache_clear()
+            self.SelectRow(old_record)
+            #wx.CallAfter(self.Refresh)
+
     def Navigate(self, focused_widget, modifier, key):
         if key != wx.WXK_RETURN:
             return super().Navigate(focused_widget, modifier, key)

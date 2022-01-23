@@ -770,6 +770,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 	bool this_table_done = (++pat_table.num_sections_processed == pat_table.subtable_info.num_sections_present);
 	tune_confirmation.pat_ok = true;
 	if (this_table_done) {
+		active_adapter().on_first_pat();
 		pat_table.entries = pat_services.entries;
 		if (pat_table.last_entries.size() != 0 && pat_table.last_entries != pat_table.entries) {
 			dtdebugx("PAT is unstable; force retune");

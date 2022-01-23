@@ -172,24 +172,34 @@ class usals_timer_t {
 	int16_t usals_pos_start{sat_pos_none};
 	int16_t usals_pos_end{sat_pos_none};
 	bool started{false};
+	bool stamped{false};
 	steady_time_t start_time;
+	steady_time_t first_pat_time;
 public:
-	void end() {
-		if(!started)
-			return;
-		started = false;
-		auto now = steady_clock_t::now();
-		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
-		auto speed = std::abs(usals_pos_end - usals_pos_start)*10. /(double) dur;
-		dtdebugx("positioner moved from %d to %d in %ldms = %lf degree/s",
-						 usals_pos_start, usals_pos_end, dur, speed);
-	}
-	void start(int16_t old_usals_pos, int16_t new_usals_pos) {
+	inline void start(int16_t old_usals_pos, int16_t new_usals_pos) {
 		start_time = steady_clock_t::now();
 		usals_pos_start = old_usals_pos;
 		usals_pos_end = new_usals_pos;
 		started = true;
 
+	}
+	inline void stamp() {
+		if(!started)
+			return;
+		stamped = true;
+		first_pat_time = steady_clock_t::now();
+		dtdebugx("positioner stamp");
+	}
+
+	void end() {
+		if(!started)
+			return;
+		started = false;
+		auto end = stamped ? first_pat_time : steady_clock_t::now();
+		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start_time).count();
+		auto speed = std::abs(usals_pos_end - usals_pos_start)*10. /(double) dur;
+		dtdebugx("positioner moved from %d to %d in %ldms = %lf degree/s",
+						 usals_pos_start, usals_pos_end, dur, speed);
 	}
 };
 
@@ -394,6 +404,7 @@ private:
 	int do_diseqc(bool log_strength, bool retry=false);
 	int deactivate();
 	void on_stable_pat();
+	void on_first_pat();
 	void on_tuned_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& si_mux_key,
 															 bool update_db, bool update_sat_pos);
 

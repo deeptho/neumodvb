@@ -329,6 +329,10 @@ void active_adapter_t::on_stable_pat() {
 	usals_timer.end();
 }
 
+void active_adapter_t::on_first_pat() {
+	usals_timer.stamp();
+}
+
 void active_adapter_t::monitor() {
 	if (tune_options.tune_mode != tune_mode_t::NORMAL && tune_options.tune_mode != tune_mode_t::MUX_BLIND)
 		return;

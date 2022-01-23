@@ -618,8 +618,10 @@ screen_t<record_t>::screen_t
 template <typename record_t>
 record_t screen_t<record_t>::record_at_row(int row_number)
 {
+#if 0
 	if(row_number != monitor.reference.row_number &&
 		 row_number != monitor.auxiliary_reference.row_number)
+#endif
 		set_reference(row_number);
 	if(row_number == monitor.reference.row_number)
 		return primary_current_record;

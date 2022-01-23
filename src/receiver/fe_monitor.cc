@@ -219,12 +219,35 @@ void signal_monitor_t::update_stat(receiver_t& receiver, const statdb::signal_st
 	assert(update.stats.size()>0);
 
 	int idx = (t - stat.k.time)/300; //new record every 5 minutes
-	if (stat.stats.size() == 0 )
-		stat = update;
-	else  if (idx + 1 > stat.stats.size()) {
-		stat.stats.push_back(update.stats[update.stats.size()-1]);
+	auto v = update.stats[update.stats.size()-1];
+	if (stat.stats.size() == 0 ) {
+		stat = update; //copy everything, including key
+		snr_sum = v.snr;
+		signal_strength_sum = v.signal_strength;
+		ber_sum = v.ber;
+		stats_count=1;
+	} else if (idx + 1 > stat.stats.size()) {
+		//replace current slot with statistics
+		auto& w = stat.stats[stat.stats.size()-1];
+		w.snr = snr_sum / stats_count;
+		w.signal_strength = signal_strength_sum / stats_count;
+		w.ber = ber_sum / stats_count;
+
+		//make new slot for the live measurement
+		stat.stats.push_back(v);
+		snr_sum = v.snr;
+		signal_strength_sum = v.signal_strength;
+		ber_sum = v.ber;
+		stats_count=1;
 	} else {
-		stat.stats[stat.stats.size()-1] = update.stats[update.stats.size()-1];
+		snr_sum += v.snr;
+		signal_strength_sum += v.signal_strength;
+		ber_sum += v.ber;
+		stats_count++;
+
+		//update live measurement
+		auto& w = stat.stats[stat.stats.size()-1];
+		w = v;
 	}
 	auto wtxn = receiver.statdb.wtxn();
 	assert (stat.k.live);

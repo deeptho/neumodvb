@@ -20,7 +20,7 @@
 
 #include "receiver/adapter.h"
 #include "receiver/receiver.h"
-#include "receiver/reservation.h"
+//#include "receiver/reservation.h"
 #include "util/logger.h"
 #include <clocale>
 #include <pybind11/pybind11.h>
@@ -33,7 +33,7 @@
 
 #include "neumotime.h"
 
-#include "receiver/active_playback.h"
+//#include "receiver/active_playback.h"
 #include "receiver/active_service.h"
 
 #include "neumoglcanvas.h"

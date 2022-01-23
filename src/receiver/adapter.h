@@ -196,6 +196,12 @@ class signal_monitor_t {
 	friend class fe_monitor_thread_t;
 	statdb::signal_stat_t stat;
 
+	float snr_sum{0.};
+	float signal_strength_sum{0.};
+	float ber_sum{0.};
+	int stats_count{0};
+
+
 	void update_stat(receiver_t& receiver, const statdb::signal_stat_t& update);
 	void end_stat(receiver_t& receiver);
 

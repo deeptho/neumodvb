@@ -40,7 +40,7 @@ k.mux = zz[-1].k.mux
 
 txn=statdb.rtxn()
 x=pystatdb.signal_stat.find_by_key(txn, k, pystatdb.find_type_t.find_geq, pystatdb.signal_stat.signal_stat_prefix.live_mux)
-sort_order = pystatdb.signal_stat.subfield_from_name('k.time')<<24
+sort_order = pystatdb.signal_stat.subfield_from_name('k.lnb.adapter_no')<<24
 ref=pystatdb.signal_stat.signal_stat()
 ref.k.live = True
 screen=pystatdb.signal_stat.screen(txn, sort_order=sort_order,
@@ -51,14 +51,18 @@ if False:
         print(f"{ll}")
 z = screen.record_at_row(screen.list_size-1)
 txn.abort()
-num= len(z.stats)
 oldnum = 0
 while True:
+    z = screen.record_at_row(screen.list_size-1)
+    num= len(z.stats)
     for idx in range(oldnum, num):
         t = datetime.datetime.fromtimestamp(z.k.time + idx*300, tz=tz.tzlocal()).strftime("%Y%m%d %H:%M:%S")
         print(f't={t} snr={z.stats[idx].snr/1000:.1f}dB rf={z.stats[idx].signal_strength/1000:.3f}dB')
     oldnum = num
-    time.sleep(10000)
+    time.sleep(30)
     txn=statdb.rtxn()
-    screen.update(txn)
+    changed=screen.update(txn)
+    if changed:
+        print (f"CHANGED {len(z.stats)}")
+    #screen.set_reference(x)
     txn.abort()

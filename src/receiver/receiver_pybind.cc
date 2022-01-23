@@ -153,7 +153,7 @@ PYBIND11_MODULE(pyreceiver, m) {
         Receiver control functions for neumoDVB
     )pbdoc";	// export_find_type(m);
 	export_receiver(m);
-	export_mux_subscriber(m);
+	export_subscriber(m);
 	export_signal_info(m);
 	export_logger(m);
 	export_live_history(m);

@@ -49,7 +49,7 @@ class MpvPlayer;
 class adaptermgr_t;
 class dvb_frontend_t;
 class dvb_adapter_t;
-class mux_subscriber_t;
+class subscriber_t;
 
 struct tune_options_t;
 struct spectrum_scan_t;
@@ -606,8 +606,8 @@ public:
 	using safe_active_adapter_map = safe::thread_public_t<false, active_adapter_map>;
 	safe_active_adapter_map reserved_muxes{"receiver", thread_group_t::receiver, {}};; //open muxes, indexed by subscription id
 
-	using mux_subscriber_map = safe::Safe<std::map<void*, std::shared_ptr<mux_subscriber_t>>>;
-	mux_subscriber_map mux_subscribers;//indexed by subscription id
+	using subscriber_map = safe::Safe<std::map<void*, std::shared_ptr<subscriber_t>>>;
+	subscriber_map subscribers;//indexed by subscription id
 	//const chdb::signal_info_t&  register_signal_info_cb(wxWindow* w, int subscription_id);
 	//void unregister_signal_info_cb(int subscription_id);
 

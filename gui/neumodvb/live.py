@@ -35,7 +35,11 @@ import pychdb
 import pyepgdb
 import pyrecdb
 from pyreceiver import set_gtk_window_name, gtk_add_window_style, gtk_remove_window_style
+from pyreceiver import get_object as get_object_
 
+def get_object(evt):
+    s = evt.GetExtraLong()
+    return get_object_(s)
 
 class RowType(Enum):
     GRIDEPG = 1
@@ -1005,11 +1009,15 @@ class MosaicPanel(wx.Panel):
             glcanvas = self.glcanvases[-1]
             self.RemoveMpvPlayer(glcanvas, force=True)
         evt.Skip()
-
+    def OnSubscriberCallback(self, evt):
+        data = get_object(evt)
+        if type(data) == str:
+            ShowMessage("Subscribe failed", data)
     def AddMpvPlayer(self):
         import pyneumompv
-        mpv_player = pyneumompv.MpvPlayer(self.controller.app.receiver)
-        glcanvas = mpv_player.make_canvas(self)
+        mpv_player = pyneumompv.MpvPlayer(self.controller.app.receiver, self)
+        glcanvas = mpv_player.glcanvas
+        glcanvas.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
         self.controller.mosaic_sizer.Add(glcanvas, 1, wx.EXPAND|wx.ALL)
         self.mpv_players.append(mpv_player)
         self.glcanvases.append(glcanvas)

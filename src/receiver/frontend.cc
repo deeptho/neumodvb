@@ -127,9 +127,8 @@ int dvb_frontend_t::open_device(thread_safe_t& t, bool rw, bool allow_failure) {
 	int rw_flag = rw ? O_RDWR : O_RDONLY;
 	t.fefd = open(frontend_fname.c_str(), rw_flag | O_NONBLOCK | O_CLOEXEC);
 	if (t.fefd < 0) {
-		error().sprintf("Error opening /dev/dvb/adapter%d/frontend%d in %s mode: %s", (int)adapter->adapter_no,
-										(int)frontend_no, rw ? "read-write" : "readonly", strerror(errno));
-		dterror(get_error());
+		user_errorx("Error opening /dev/dvb/adapter%d/frontend%d in %s mode: %s", (int)adapter->adapter_no,
+								(int)frontend_no, rw ? "read-write" : "readonly", strerror(errno));
 		return -1;
 	}
 

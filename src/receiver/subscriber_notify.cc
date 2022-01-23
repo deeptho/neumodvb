@@ -51,7 +51,7 @@ template <typename T> inline static intptr_t make_py_object(T& obj) {
 	return (intptr_t)x.ptr();
 }
 
-template <typename T> void mux_subscriber_t::notify(const T& data) {
+template <typename T> void subscriber_t::notify(const T& data) {
 	wxCommandEvent event(wxEVT_COMMAND_ENTER);
 	auto p = make_py_object(data);
 	static_assert(sizeof(p) <= sizeof(long));
@@ -60,16 +60,17 @@ template <typename T> void mux_subscriber_t::notify(const T& data) {
 }
 
 #else
-
+typedef std::unique_ptr<std::string> string_ptr_t;
 typedef std::unique_ptr<chdb::signal_info_t> signal_info_ptr_t;
 typedef std::unique_ptr<statdb::spectrum_t> spectrum_ptr_t;
-typedef std::variant<signal_info_ptr_t, spectrum_ptr_t> notification_ptr_t;
+typedef std::variant<signal_info_ptr_t, spectrum_ptr_t, string_ptr_t> notification_ptr_t;
 
-py::object mux_subscriber_t::handle_to_py_object(int64_t handle) {
+py::object subscriber_t::handle_to_py_object(int64_t handle) {
 	auto& ptr = *(notification_ptr_t*)handle;
-	auto x = visit_variant(
-		ptr, [](signal_info_ptr_t& ptr) { return py::cast(std::move(*ptr)); },
-		[](spectrum_ptr_t& ptr) { return py::cast(std::move(*ptr)); });
+	auto x = visit_variant(ptr,
+												 [](signal_info_ptr_t& ptr) { return py::cast(std::move(*ptr)); },
+												 [](spectrum_ptr_t& ptr) { return py::cast(std::move(*ptr)); },
+												 [](string_ptr_t& ptr) { return py::cast(std::move(*ptr)); });
 	// x.inc_ref();
 	delete &ptr;
 	return x;
@@ -80,7 +81,8 @@ template <typename T> inline static intptr_t make_object(const T& obj) {
 	return (intptr_t)x;
 }
 
-template <typename T> void mux_subscriber_t::notify(const T& data) {
+//called from receiver thread
+template <typename T> void subscriber_t::notify(const T& data) {
 	wxCommandEvent event(wxEVT_COMMAND_ENTER);
 	auto p = make_object(data);
 	static_assert(sizeof(p) <= sizeof(long));
@@ -90,5 +92,6 @@ template <typename T> void mux_subscriber_t::notify(const T& data) {
 
 #endif
 
-template void mux_subscriber_t::notify<chdb::signal_info_t>(const chdb::signal_info_t&);
-template void mux_subscriber_t::notify<statdb::spectrum_t>(const statdb::spectrum_t&);
+template void subscriber_t::notify<std::string>(const std::string&);
+template void subscriber_t::notify<chdb::signal_info_t>(const chdb::signal_info_t&);
+template void subscriber_t::notify<statdb::spectrum_t>(const statdb::spectrum_t&);

@@ -507,8 +507,7 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 		adaptermgr->find_lnb_for_tuning_to_mux(txn, mux, required_lnb, adapter_to_release, tune_options.is_blind());
 	bool found = best_fe.get();
 	if (!found) {
-		error() << "Subscribe " << mux << ": no suitable adapter found";
-		dtdebug(get_error());
+		user_error("Subscribe " << mux << ": no suitable adapter found");
 		if (old_active_adapter) {
 			unsubscribe_mux_(futures, subscription_id);
 		}
@@ -618,8 +617,7 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 	auto best_fe = adaptermgr->find_adapter_for_tuning_to_mux(txn, mux, adapter_to_release, tune_options.is_blind());
 
 	if (!best_fe.get()) {
-		error() << "Subscribe " << mux << ": no suitable adapter found";
-		dtdebug(get_error());
+		user_error("Subscribe " << mux << ": no suitable adapter found");
 		if (old_active_adapter) {
 			unsubscribe_mux_(futures, subscription_id);
 		}
@@ -934,7 +932,7 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 
 	auto fe = adaptermgr->find_fe_for_lnb(lnb, adapter_to_release, need_blindscan, need_spectrum);
 	if (!fe) {
-		error() << "Subscribe " << lnb << ": adapter of lnb not suitable";
+		user_error("Subscribe " << lnb << ": adapter of lnb not suitable");
 		dtdebug(get_error());
 		if (old_active_adapter) {
 			unsubscribe_(futures, subscription_id, false);
@@ -1071,7 +1069,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 	auto txn = receiver.chdb.rtxn();
 	auto [mux, error1] = mux_for_service(txn, service);
 	if (error1 < 0) {
-		dterror("Could not find mux for " << service);
+		user_error("Could not find mux for " << service);
 		bool service_only = false;
 		if (subscription_id >= 0)
 			unsubscribe_(futures, subscription_id, service_only);
@@ -1171,8 +1169,7 @@ void receiver_thread_t::cb_t::start_recording(
 	auto txn = receiver.chdb.rtxn();
 	auto [mux, error1] = mux_for_service(txn, rec_in.service);
 	if (error1 < 0) {
-		error() << "Could not find mux for " << rec_in.service;
-		dterror(get_error());
+		user_error("Could not find mux for " << rec_in.service);
 		return;
 	}
 
@@ -1272,7 +1269,7 @@ void receiver_thread_t::cb_t::stop_recording(recdb::rec_t rec) // important that
 */
 int receiver_t::toggle_recording_(const chdb::service_t& service, const epgdb::epg_record_t& epg_record, bool insert,
 																	bool remove) {
-	dterror("here");
+	dterrorx("epg=%s insert=%d remove=%d", to_str(epg_record).c_str(), insert, remove);
 	auto f = tuner_thread.push_task([this, &service, &epg_record, insert, remove]() {
 		cb(tuner_thread).toggle_recording(service, epg_record, insert, remove);
 		return 0;
@@ -1375,7 +1372,7 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 	high_freq = high_freq < 0 ? high_freq_ : high_freq;
 
 	if( high_freq <= low_freq  || low_freq < low_freq_ || high_freq > high_freq_) {
-		dterrorx("Illegal frequency range for scan: %dkHz - %dKhz", low_freq, high_freq);
+		user_errorx("Illegal frequency range for scan: %dkHz - %dKhz", low_freq, high_freq);
 		return -1;
 	}
 	bool has_low = (low_freq_ != mid_freq_);
@@ -1390,7 +1387,7 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 		band_pol.band = chdb::lnb::band_for_freq(lnb, low_freq);
 	} else if (chdb::lnb::band_for_freq(lnb, low_freq) != band_pol.band &&
 						 chdb::lnb::band_for_freq(lnb, high_freq) != band_pol.band) {
-		dterrorx("start and end frequency do not coincide with band");
+		user_errorx("start and end frequency do not coincide with band");
 		return -1;
 	}
 	tune_options.spectrum_scan_options.start_freq = low_freq;
@@ -1678,7 +1675,7 @@ void receiver_t::notify_signal_info(const chdb::signal_info_t& info) {
 		}
 	}
 	{
-		auto mss = mux_subscribers.readAccess();
+		auto mss = subscribers.readAccess();
 		for (auto [ms_, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
@@ -1690,7 +1687,7 @@ void receiver_t::notify_signal_info(const chdb::signal_info_t& info) {
 
 void receiver_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum) {
 	{
-		auto mss = mux_subscribers.readAccess();
+		auto mss = subscribers.readAccess();
 		for (auto [ms_, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
@@ -1719,7 +1716,7 @@ int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futur
 																			ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
 																			bool scan_found_muxes, int max_num_subscriptions, int subscription_id) {
 	if (scanner.get() && subscription_id < 0) {
-		dterror("Scan is already in progress");
+		user_error("Scan is already in progress");
 		return -1;
 	}
 	if (subscription_id < 0)
@@ -1737,7 +1734,7 @@ template <typename mux_t>
 int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
 																			bool scan_found_muxes, int max_num_subscriptions, int subscription_id) {
 	if (scanner.get() && subscription_id < 0) {
-		dterror("Scan is already in progress");
+		user_error("Scan is already in progress");
 		return -1;
 	}
 	if (subscription_id < 0)

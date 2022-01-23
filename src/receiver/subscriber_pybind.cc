@@ -108,13 +108,13 @@ static void gtk_remove_window_style(py::object window, const char* style) {
 	gtk_style_context_remove_class(ctx, style);
 }
 
-static std::shared_ptr<mux_subscriber_t> make_mux_subscriber(receiver_t* receiver, py::object window) {
+static std::shared_ptr<subscriber_t> make_subscriber(receiver_t* receiver, py::object window) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
-	return mux_subscriber_t::make(receiver, w);
+	return subscriber_t::make(receiver, w);
 }
 
 static py::object get_object(long x) {
-	return mux_subscriber_t::handle_to_py_object(x);
+	return subscriber_t::handle_to_py_object(x);
 }
 
 void export_retune_mode(py::module& m) {
@@ -136,7 +136,7 @@ void export_pls_search_range(py::module& m) {
 		;
 }
 
-void export_mux_subscriber(py::module& m) {
+void export_subscriber(py::module& m) {
 	static bool called = false;
 	if (called)
 		return;
@@ -156,32 +156,32 @@ void export_mux_subscriber(py::module& m) {
 				, "Remove a gtk widget style name for a wx window (needed for css styling)"
 				, py::arg("window")
 				, py::arg("name"));
-	py::class_<mux_subscriber_t, std::shared_ptr<mux_subscriber_t>>(m, "mux_subscriber_t")
-		.def(py::init(&make_mux_subscriber))
+	py::class_<subscriber_t, std::shared_ptr<subscriber_t>>(m, "subscriber_t")
+		.def(py::init(&make_subscriber))
 		.def("update_current_lnb"
-				 , &mux_subscriber_t::update_current_lnb
+				 , &subscriber_t::update_current_lnb
 				 , "Update and save the current lnb"
 				 , py::arg("lnb"))
 		.def("subscribe_lnb"
-				 , &mux_subscriber_t::subscribe_lnb
+				 , &subscriber_t::subscribe_lnb
 				 , "Subscribe to a specific lnb without (re)tuning"
 				 , py::arg("lnb")
 				 , py::arg("retune_mode"))
 		.def("subscribe_lnb_and_mux"
-				 , &mux_subscriber_t::subscribe_lnb_and_mux
+				 , &subscriber_t::subscribe_lnb_and_mux
 				 , "Subscribe to a specific mux usign a specific lnb"
 				 , py::arg("lnb")
 				 , py::arg("mux")
 				 , py::arg("blindscan")
 				 , py::arg("pls_search_mode")=false
 				 , py::arg("retune_mode"))
-		.def_property_readonly("error_message", [](mux_subscriber_t* self) {
+		.def_property_readonly("error_message", [](subscriber_t* self) {
 			return get_error().c_str(); })
 		.def("unsubscribe"
-				 , &mux_subscriber_t::unsubscribe
+				 , &subscriber_t::unsubscribe
 				 , "End tuning")
 		.def("subscribe_spectrum"
-				 , &mux_subscriber_t::subscribe_spectrum
+				 , &subscriber_t::subscribe_spectrum
 				 , "acquire a spectrum for this lnb"
 				 , py::arg("lnb")
 				 , py::arg("pol to scan")
@@ -190,7 +190,7 @@ void export_mux_subscriber(py::module& m) {
 				 , py::arg("sat_pos") = sat_pos_none
 			)
 		.def("positioner_cmd"
-				 , &mux_subscriber_t::positioner_cmd
+				 , &subscriber_t::positioner_cmd
 				 , "send positioner_cmd"
 				 , py::arg("cmd")
 				 , py::arg("par")=0

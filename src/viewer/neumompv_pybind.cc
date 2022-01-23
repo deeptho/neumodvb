@@ -52,8 +52,9 @@ PYBIND11_MODULE(pyneumompv, m) {
 	export_ss_vector(m, chdb::language_code_t);
 	m.def("init_threads", &init_threads);
 	py::class_<MpvPlayer, std::shared_ptr<MpvPlayer>>(m, "MpvPlayer")
-		.def(py::init(&MpvPlayer::make))
-		.def("make_canvas", &MpvPlayer::make_canvas)
+		.def(py::init(&MpvPlayer::make), py::arg("receiver"), py::arg("parent_window"))
+		//.def("make_canvas", &MpvPlayer::make_canvas)
+		.def_property_readonly("glcanvas", &MpvPlayer::get_canvas)
 		.def("toggle_overlay", &MpvPlayer::toggle_overlay)
 		.def("play_file", &MpvPlayer::play_file)
 		.def("play_service", &MpvPlayer::play_service, py::arg("service"))

@@ -345,6 +345,9 @@ class SpectrumDialog(SpectrumDialog_):
         return mux
 
     def OnSubscriberCallback(self, data):
+        if type(data) == str:
+            ShowMessage("Error", data)
+            return
         need_si = True
         if type(data) == pyreceiver.signal_info_t:
             self.signal_info = data

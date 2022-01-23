@@ -18,81 +18,29 @@
  *
  */
 
-#include "receiver/adapter.h"
-#include "receiver/receiver.h"
-//#include "receiver/reservation.h"
 #include "util/logger.h"
 #include <clocale>
 #include <pybind11/pybind11.h>
+#include "neumompv_private.h"
 #include "wx/dcsvg.h"
 #include <GL/glut.h>
 #include <string>
 #include <sys/timeb.h>
 #include <wx/dcbuffer.h>
 #include <wx/display.h>
+#include <wx/window.h>
 
 #include "neumotime.h"
-
-//#include "receiver/active_playback.h"
 #include "receiver/active_service.h"
-
 #include "neumoglcanvas.h"
 #include "neumompv.h"
 
 #include <mpv/client.h>
 #include <mpv/stream_cb.h>
-
 #include <mpv/render_gl.h>
 
 namespace py = pybind11;
 
-class MpvPlayer_ : public MpvPlayer {
-	friend class MpvGLCanvas;
-	friend class subscription_t;
-
-public:
-	MpvGLCanvas* gl_canvas;
-	mpv_handle* mpv = nullptr;
-
-	bool has_been_destroyed = false;
-	inline void wait_for_destroy() {
-		std::unique_lock<std::mutex> lk(m);
-		cv.wait(lk, [this] { return has_been_destroyed; });
-		assert(has_been_destroyed);
-	}
-
-	mpv_render_context* mpv_gl = nullptr;
-
-	void on_mpv_wakeup_event();
-
-	void handle_mpv_event(mpv_event& event);
-
-	void mpv_draw(int w, int h);
-	bool create();
-	void destroy();
-	int play_file(const char* name);
-	void mpv_command(const char* cmd_, const char* arg2, const char* arg3);
-	int play_recording(const recdb::rec_t& rec_, milliseconds_t start_play_time);
-	int set_audio_language(int id);
-	int set_subtitle_language(int id);
-	int change_audio_volume(int step);
-
-	int play_service(const chdb::service_t& service);
-
-	template <typename _mux_t> int play_mux(const _mux_t& mux, bool blindscan);
-	int jump(int seconds);
-	int stop_play();
-	int pause();
-	int run();
-	void repaint();
-
-	py::handle make_canvas(py::object frame_);
-	void notify(const chdb::signal_info_t& info);
-	void update_playback_info();
-
-	MpvPlayer_(receiver_t* receiver);
-	virtual ~MpvPlayer_();
-};
 
 extern void test_paint(cairo_t* cr);
 
@@ -298,7 +246,7 @@ static int64_t size_fn(void* cookie) {
  * EOF, although libmpv might retry the read, or seek to a different position.
  */
 static int64_t read_fn(void* cookie, char* buf, uint64_t nbytes) {
-	auto* player = (MpvPlayer*)cookie;
+	auto* player = (MpvPlayer_*)cookie;
 	{
 		auto ret = player->subscription.read_data(buf, nbytes);
 		return ret < 0 ? 0 : ret;
@@ -317,7 +265,7 @@ void subscription_t::close_fn() {
 }
 
 static void close_fn(void* cookie) {
-	auto* player = (MpvPlayer*)cookie;
+	auto* player = (MpvPlayer_*)cookie;
 	dtdebugx("MPV fake close: player=%p", player);
 	player->subscription.close_fn();
 	//deliberately don't do anything
@@ -399,7 +347,7 @@ void subscription_t::on_audio_language_change(const chdb::language_code_t& lang,
 }
 
 static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
-	auto* player = (MpvPlayer*)user_data;
+	auto* player = (MpvPlayer_*)user_data;
 	int seqno;
 	log4cxx_store_threadname();
 	dtdebugx("OPEN_FN");
@@ -419,21 +367,39 @@ static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
 
 MpvPlayer::MpvPlayer(receiver_t * receiver, MpvPlayer_* mpv)
 	: receiver(receiver)
-	, subscription(receiver, mpv)
 	, config_dir(receiver->options.readAccess()->mpvconfig.c_str()) {
 }
 
-std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver) {
+
+template <typename T> T* wxLoad(py::object src, const wxString& inTypeName) {
+	/* Extract PyObject from handle */
+	PyObject* source = src.ptr();
+
+	T* obj = nullptr;
+
+	bool success = wxPyConvertWrappedPtr(source, (void**)&obj, inTypeName);
+	wxASSERT_MSG(success, _T("Returned object was not a ") + inTypeName);
+
+	return obj;
+}
+
+std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver, pybind11::object parent_window) {
 	// make_shared does not work with private constructor
 
 	auto ret = std::shared_ptr<MpvPlayer_>(new MpvPlayer_(receiver));
-
+	ret->make_canvas(parent_window);
+	//auto* w = wxLoad<wxWindow>(parent_window, "wxWindow");
+	auto* w = ret->gl_canvas;
+	ret->subscription.subscriber = subscriber_t::make(receiver, w);
 	receiver->active_mpvs.writeAccess()->insert({ret.get(), ret});
-
 	return ret;
 }
 
-MpvPlayer_::MpvPlayer_(receiver_t* receiver) : MpvPlayer(receiver, dynamic_cast<MpvPlayer_*>(this)) {}
+MpvPlayer_::MpvPlayer_(receiver_t* receiver)
+	: MpvPlayer(receiver, dynamic_cast<MpvPlayer_*>(this))
+	, subscription(receiver, this)
+{
+}
 
 MpvPlayer_::~MpvPlayer_() {
 	if (!has_been_destroyed) {
@@ -603,18 +569,25 @@ template <typename T> T* wxLoad(py::handle src, const wxString& inTypeName) {
 	create an mpvglcanvas and return t as a glcanvas;
 	this requires "import wx.glcanvas" in the python code
 */
-py::handle MpvPlayer_::make_canvas(py::object frame_) {
+void MpvPlayer_::make_canvas(py::object frame_) {
 	thread_id = std::this_thread::get_id();
 	auto* frame = wxLoad<wxWindow>(frame_, "wxWindow");
 	auto ptr = std::static_pointer_cast<MpvPlayer_>(shared_from_this());
 	this->gl_canvas = new MpvGLCanvas(frame, ptr);
-	return wxCast(this->gl_canvas);
 }
 
+
+py::handle MpvPlayer::get_canvas() const {
+	auto* self = dynamic_cast<const MpvPlayer_*>(this);
+	return wxCast(self->gl_canvas);
+}
+
+#if 0
 py::handle MpvPlayer::make_canvas(py::object frame_) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->make_canvas(frame_);
 }
+#endif
 
 int MpvPlayer_::play_file(const char* name) {
 	subscription.filepath = name;
@@ -698,25 +671,23 @@ int MpvPlayer::set_subtitle_language(int id) {
 	return self->set_subtitle_language(id);
 }
 
-int subscription_t::play_service(const chdb::service_t& service) {
+void subscription_t::play_service(const chdb::service_t& service) {
 	log4cxx_store_threadname();
 	dtdebugx("PLAY SUBSCRIPTION (service)");
 	if (is_playing()) {
 		dtdebugx("PLAY SUBSCRIPTION (service) close mpm");
 		this->close();
 	}
-	int ret;
-	mpm = receiver->subscribe_service(service, subscription_id);
-	ret = mpm.get() ? mpm->subscription_id : -1;
-	if (ret >= 0) {
+	int subscription_id;
+	mpm = subscriber->subscribe_service(service);
+	subscription_id = mpm.get() ? mpm->subscription_id : -1;
+	if (subscription_id >= 0) {
 		dtdebugx("PLAY SUBSCRIPTION (service): subscribed=%d", subscription_id);
 	} else {
 		dtdebugx("PLAY SUBSCRIPTION (service): subscription failed");
 	}
 
-	if (ret >= 0) {
-		assert(ret == subscription_id || subscription_id < 0);
-		subscription_id = ret;
+	if (subscription_id >= 0) {
 		mpm->register_audio_changed_callback(subscription_id,
 																				 [this](auto lang, auto pos) { this->on_audio_language_change(lang, pos); });
 		// mpm.init(active_service->mpm);
@@ -725,38 +696,23 @@ int subscription_t::play_service(const chdb::service_t& service) {
 		if (mpm->move_to_time(start_play_time) < 0) {
 			dtdebug("PLAY SUBSCRIPTION (service): aborting");
 			this->close();
-			if (subscription_id >= 0) {
-				receiver->unsubscribe(subscription_id);
-				subscription_id = -1;
-			}
-			return 0;
+			subscriber->unsubscribe();
+			return;
 		}
 		dtdebug("PLAY SUBSCRIPTION (service): mpm move to start_play_time done: " << start_play_time);
-	} else {
-		if (subscription_id >= 0) {
-			// receiver->unsubscribe(subscription_id); already done
-			subscription_id = -1;
-		}
 	}
-	return 0;
+	return;
 }
+
+
 
 template <typename _mux_t> int subscription_t::play_mux(const _mux_t& mux, bool blindscan) {
 	dtdebugx("PLAY SUBSCRIPTION (mux)");
 	if (is_playing()) {
 		this->close();
 	}
-	auto ret = receiver->subscribe_mux(mux, blindscan, subscription_id);
-	if (ret >= 0) {
-		assert(ret == subscription_id || subscription_id < 0);
-		subscription_id = ret;
-	} else {
-		if (subscription_id >= 0) {
-			// receiver->unsubscribe(subscription_id); //already don
-			//@todo: send a message asynchronously to the gui that subscription has failed
-			subscription_id = -1;
-		}
-	}
+	auto subscription_id = subscriber->subscribe_mux(mux, blindscan);
+	assert(subscription_id == subscriber->get_subscription_id());
 	return subscription_id;
 }
 
@@ -796,6 +752,7 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 	dtdebugx("PLAY SUBSCRIPTION %p STARTED", this);
 	return 0;
 }
+
 
 int MpvPlayer::play_service(const chdb::service_t& service) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
@@ -849,19 +806,16 @@ int subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start
 		this->close();
 	}
 
-	int ret;
-	mpm = receiver->subscribe_recording(rec, subscription_id);
-	ret = mpm.get() ? mpm->subscription_id : -1;
-
-	if (ret >= 0) {
-		dtdebugx("PLAY SUBSCRIPTION (rec): subscribed subscription_id=%d", ret);
+	int subscription_id;
+	mpm = subscriber->subscribe_recording(rec);
+	subscription_id = mpm.get() ? mpm->subscription_id : -1;
+	assert(subscription_id == subscriber->get_subscription_id());
+	if (subscription_id >= 0) {
+		dtdebugx("PLAY SUBSCRIPTION (rec): subscribed subscription_id=%d", subscription_id);
 	} else {
 		dtdebugx("PLAY SUBSCRIPTION (rec): subscription failed");
 	}
-	if (ret >= 0) {
-
-		assert(ret == subscription_id || subscription_id < 0);
-		subscription_id = ret;
+	if (subscription_id >= 0) {
 		mpm->register_audio_changed_callback(subscription_id,
 																				 [this](auto x, auto id) { this->on_audio_language_change(x, id); });
 
@@ -870,17 +824,12 @@ int subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start
 			dtdebug("PLAY SUBSCRIPTION (rec): aborting");
 			this->close();
 			if (subscription_id >= 0) {
-				receiver->unsubscribe(subscription_id);
-				subscription_id = -1;
+				subscriber->unsubscribe();
+				assert(subscriber->get_subscription_id() < 0);
 			}
 			return 0;
 		}
 		dtdebug("PLAY SUBSCRIPTION (rec): mpm move to start_play_time done: " << start_play_time);
-	} else {
-		if (subscription_id >= 0) {
-			// receiver->unsubscribe(subscription_id); already done
-			subscription_id = -1;
-		}
 	}
 	return 0;
 }
@@ -965,14 +914,17 @@ void subscription_t::close() {
 	pmt_change_count = 0;
 	if (!mpm)
 		return;
+	auto subscription_id = subscriber->get_subscription_id();
 	if (subscription_id >= 0)
 		mpm->unregister_audio_changed_callback(subscription_id);
 	std::scoped_lock lck(m);
 	mpm->close();
 	mpm.reset();
+	subscriber->unsubscribe();
 }
 
 int subscription_t::stop_play() {
+	auto subscription_id = subscriber->get_subscription_id();
 	dtdebugx("STOP SUBSCRIPTION %d", subscription_id);
 	std::scoped_lock lck(m);
 	if (mpm) {
@@ -981,10 +933,8 @@ int subscription_t::stop_play() {
 			mpm->unregister_audio_changed_callback(subscription_id);
 		}
 	}
-	if (receiver)
-		receiver->unsubscribe(subscription_id);
 
-	subscription_id = -1;
+	subscriber->unsubscribe();
 	if (mpm)
 		mpm.reset();
 	return 0;
@@ -1092,7 +1042,10 @@ void MpvPlayer::signal() {
 }
 
 subscription_t::subscription_t(receiver_t* receiver_, MpvPlayer_* mpv_player_)
-	: m(mpv_player_->m), cv(mpv_player_->cv), receiver(receiver_), mpv_player(mpv_player_) {
+	: m(mpv_player_->m)
+	, cv(mpv_player_->cv)
+	, receiver(receiver_)
+	, mpv_player(mpv_player_) {
 }
 
 subscription_t::~subscription_t() {}
@@ -1103,7 +1056,7 @@ int64_t subscription_t::read_data(char* buffer, uint64_t nbytes) {
 		log4cxx_store_threadname();
 		thread_name_set = true;
 	}
-
+	auto subscription_id = subscriber->get_subscription_id();
 	if (subscription_id < 0)
 		return 0;
 	if (mpm) // regular service
@@ -1119,19 +1072,23 @@ int64_t subscription_t::wait_for_close() {
 }
 
 ss::vector_<chdb::language_code_t> MpvPlayer::audio_languages() {
-	return subscription.mpm ? subscription.mpm->audio_languages() : ss::vector_<chdb::language_code_t>();
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->subscription.mpm ? self->subscription.mpm->audio_languages() : ss::vector_<chdb::language_code_t>();
 }
 
 chdb::language_code_t MpvPlayer::get_current_audio_language() {
-	return subscription.mpm ? subscription.mpm->get_current_audio_language() : chdb::language_code_t();
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->subscription.mpm ? self->subscription.mpm->get_current_audio_language() : chdb::language_code_t();
 }
 
 ss::vector_<chdb::language_code_t> MpvPlayer::subtitle_languages() {
-	return subscription.mpm ? subscription.mpm->subtitle_languages() : ss::vector_<chdb::language_code_t>();
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->subscription.mpm ? self->subscription.mpm->subtitle_languages() : ss::vector_<chdb::language_code_t>();
 }
 
 chdb::language_code_t MpvPlayer::get_current_subtitle_language() {
-	return subscription.mpm ? subscription.mpm->get_current_subtitle_language() : chdb::language_code_t();
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->subscription.mpm ? self->subscription.mpm->get_current_subtitle_language() : chdb::language_code_t();
 }
 
 void MpvPlayer::close() {
@@ -1140,10 +1097,11 @@ void MpvPlayer::close() {
 		mustexit = true;
 	}
 	cv.notify_one();
-	if (!subscription.mpm)
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	if (!self->subscription.mpm)
 		return;
 	stop_play();
-	this->subscription.set_pending_close(true);
+	self->subscription.set_pending_close(true);
 }
 
 void MpvPlayer_::repaint() {
@@ -1269,6 +1227,12 @@ mpv_overlay_t::mpv_overlay_t(std::string filename) {
 
 	InitializeTexture(g_texture);
 }
+
+void MpvPlayer::toggle_overlay(){
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	self->subscription.show_overlay = !self->subscription.show_overlay;
+}
+
 
 /*
 	mpv_terminate_destroy(mpv_handle *ctx); Similar to mpv_destroy(), but brings the player and all clients down

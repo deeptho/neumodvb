@@ -194,10 +194,6 @@ public:																					\
 
 
 extern thread_local std::shared_ptr<ss::string<256>> error_;
-inline ss::string_& error() {
-	error_->clear();
-	return *error_;
-}
 
 inline const ss::string_& get_error() {
 	return *error_;

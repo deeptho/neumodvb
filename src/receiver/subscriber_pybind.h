@@ -27,7 +27,7 @@ namespace py = pybind11;
 void export_scan_stats(py::module& m);
 
 
-void export_mux_subscriber(py::module &m);
+void export_subscriber(py::module &m);
 
 
 void export_signal_info(py::module &m);

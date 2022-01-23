@@ -180,7 +180,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         if self.mux_subscriber_ is None:
             receiver = wx.GetApp().receiver
             import pyreceiver
-            self.mux_subscriber_ = pyreceiver.mux_subscriber_t(receiver, self)
+            self.mux_subscriber_ = pyreceiver.subscriber_t(receiver, self)
         return self.mux_subscriber_
 
     @property
@@ -196,10 +196,12 @@ class TuneMuxPanel(TuneMuxPanel_):
         return self.mux_subscriber
 
     def OnSubscriberCallback(self, evt):
+        data = get_object(evt)
+        if type(data) == str:
+            ShowMessage("Error", data)
+            return
         if self.mux_subscriber_ is None:
             return
-        data = get_object(evt)
-
         if type(data) == pyreceiver.signal_info_t:
             self.signal_info = data
             if self.signal_info.tune_attempt != self.tune_attempt:
@@ -746,7 +748,9 @@ class PositionerDialog(PositionerDialog_):
         evt.Skip()
 
     def OnSubscriberCallback(self, data):
-        pass
+        if type(data) == str:
+            ShowMessage("Error", data)
+
 
     def UpdateSignalInfo(self, signal_info, tuned):
         self.signal_panel.OnSignalInfoUpdate(signal_info, tuned);

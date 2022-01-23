@@ -142,8 +142,21 @@ std::ostream& operator<<(std::ostream& os, fecap_scale_params a);
 		LOG4CXX_ERROR(logger, msg);																					\
 	} while(0)
 
+//error which should be reported to the user
+#define user_errorx(fmt, args...)																				\
+	do {																																	\
+		error_->clear();																										\
+		error_->sprintf(fmt, ##args);																				\
+		LOG4CXX_ERROR(logger, error_->c_str());															\
+	} while(0)
 
-
+//error which should be reported to the user
+#define user_error(text)												\
+	do {																					\
+		error_->clear();														\
+		ss::accu_t(*error_) << text;								\
+		LOG4CXX_ERROR(logger, error_->c_str());			\
+	} while(0)
 
 inline int dttime_(steady_time_t& dt_timer,int timeout,const char*func,int line)
 {

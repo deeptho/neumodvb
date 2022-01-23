@@ -41,14 +41,25 @@ namespace pybind11 {
 
 class subscriber_t
 {
+
+
 	int subscription_id{-1};
 	int tune_attempt{0}; //to detect old status messages which come in after the most recent tune
 	//chdb::signal_info_t signal_info;
-
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::shared_ptr<active_adapter_t>active_adapter;
 public:
+	enum class event_type_t : uint32_t {
+		ERROR_MSG  = (1<<0),
+		SIGNAL_INFO = (1<<1),
+		SPECTRUM_SCAN = (1<<2)
+	};
+
+
+	int event_flag{ int(event_type_t::ERROR_MSG)|
+		int(event_type_t::SIGNAL_INFO) | int(event_type_t::SPECTRUM_SCAN)}; //which events to report
+
 	inline int get_subscription_id() const {
 		return subscription_id;
 	}

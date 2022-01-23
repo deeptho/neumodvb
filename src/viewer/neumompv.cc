@@ -391,6 +391,7 @@ std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver, pybind11::objec
 	//auto* w = wxLoad<wxWindow>(parent_window, "wxWindow");
 	auto* w = ret->gl_canvas;
 	ret->subscription.subscriber = subscriber_t::make(receiver, w);
+	ret->subscription.subscriber->event_flag = int(subscriber_t::event_type_t::ERROR_MSG);
 	receiver->active_mpvs.writeAccess()->insert({ret.get(), ret});
 	return ret;
 }

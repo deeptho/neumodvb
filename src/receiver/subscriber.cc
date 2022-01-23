@@ -142,6 +142,8 @@ int subscriber_t::subscribe_spectrum(chdb::lnb_t& lnb, chdb::fe_polarisation_t p
 int subscriber_t::get_adapter_no() const { return active_adapter ? active_adapter->get_adapter_no() : -1; }
 
 void subscriber_t::notify_signal_info(const chdb::signal_info_t& info) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
+		return;
 	if (active_adapter && active_adapter->get_adapter_no() == info.stat.k.lnb.adapter_no) {
 		auto temp = info;
 		temp.tune_attempt = tune_attempt;
@@ -150,11 +152,15 @@ void subscriber_t::notify_signal_info(const chdb::signal_info_t& info) {
 }
 
 void subscriber_t::notify_error(const ss::string_& errmsg) {
+	if (!(event_flag & int(subscriber_t::event_type_t::ERROR_MSG)))
+		return;
 	auto temp = std::string(errmsg);
 	notify(temp);
 }
 
 void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
+		return;
 	if (active_adapter && active_adapter->get_adapter_no() == spectrum.k.lnb_key.adapter_no) {
 		notify(spectrum);
 	}

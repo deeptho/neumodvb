@@ -43,6 +43,7 @@ void export_scan_stats(py::module& m) {
 		.def_readonly("scheduled_muxes", &scan_stats_t::scheduled_muxes)
 		.def_readonly("finished_muxes", &scan_stats_t::finished_muxes)
 		.def_readonly("failed_muxes", &scan_stats_t::failed_muxes)
+		.def_readonly("last_scanned_mux", &scan_stats_t::last_scanned_mux)
 		;
 }
 

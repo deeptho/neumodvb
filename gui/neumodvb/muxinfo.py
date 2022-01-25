@@ -58,13 +58,18 @@ class MuxInfoTextCtrl(wx.TextCtrl):
         large = self.GetFont()
         large.SetPointSize(int(f.GetPointSize()*1.5))
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
-        self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")
         app = wx.GetApp()
         if app.scan_subscription_id>=0:
-            self.SetDefaultStyle(wx.TextAttr(wx.RED, font=large.Bold()))
             st = app.receiver.get_scan_stats(app.scan_subscription_id)
+            if st.last_scanned_mux.k.sat_pos != pychdb.sat.sat_pos_none:
+                self.ChangeValue(f"Scanning: last={st.last_scanned_mux}")
+            else:
+                self.ChangeValue(f"Scanning: ...")
+            self.SetDefaultStyle(wx.TextAttr(wx.RED, font=large.Bold()))
             if st.scheduled_muxes !=0:
                 pending = st.scheduled_muxes - st.finished_muxes
                 ok = st.finished_muxes - st.failed_muxes
                 self.last_scan_text = f" {ok} ok /{st.failed_muxes} failed / {pending} pending"
                 self.AppendText(self.last_scan_text)
+        else:
+            self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")

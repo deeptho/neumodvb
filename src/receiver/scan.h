@@ -208,6 +208,7 @@ struct scan_stats_t
 	int failed_muxes{0};
 	int scheduled_muxes{0};
 	int finished_muxes{0};
+	chdb::any_mux_t last_scanned_mux{};
 };
 
 

@@ -269,6 +269,7 @@ template <typename mux_t> bool scanner_t::add_mux(db_txn& done_txn, mux_t& mux, 
 			w->updated_muxes += !is_new;
 		}
 		if (as_completed) {
+			w->last_scanned_mux = mux;
 			w->finished_muxes++;
 			w->failed_muxes += failed;
 		} else if (!updated)

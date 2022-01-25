@@ -347,6 +347,11 @@ void active_adapter_t::monitor() {
 		std::tie(must_retune, must_reinit_si) = check_status();
 	}
 
+	/*usually scan_report will be called by process_si_data, but on bad muxes data may not
+		be present. scan_report runs with a max frequency of 1 call per 2 seconds
+	*/
+	si.scan_report(must_retune);
+
 	if (must_retune) {
 		visit_variant(
 			current_tp(),
@@ -361,10 +366,6 @@ void active_adapter_t::monitor() {
 		init_si(tune_options.scan_target);
 	}
 
-	/*usually scan_report will be called by process_si_data, but on bad muxes data may not
-		be present. scan_report runs with a max frequency of 1 call per 2 seconds
-	*/
-	si.scan_report();
 }
 
 int active_adapter_t::lnb_blind_scan(const chdb::lnb_t& lnb, tune_options_t tune_options) {

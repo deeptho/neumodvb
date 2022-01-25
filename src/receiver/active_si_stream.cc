@@ -60,8 +60,8 @@ active_si_stream_t::active_si_stream_t
 	: active_stream_t(receiver, reader)
 	, active_si_data_t(is_embedded_si)
 	, chdb(receiver.chdb)
-	, epgdb(receiver.epgdb)
-{
+	, epgdb(receiver.epgdb) {
+	dtdebug("setting scan_done=false (init)");
 }
 
 void active_si_stream_t::reset() {
@@ -291,7 +291,7 @@ void active_si_stream_t::process_si_data() {
 			chdb_txn_->commit();
 		chdb_txn_.reset();
 	}
-	scan_report();
+	scan_report(false);
 	dttime(200);
 }
 
@@ -371,7 +371,7 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 												EPOLLIN | EPOLLERR | EPOLLHUP);
 	parsers.reserve(32);
 	auto& tuned_mux = reader->tuned_mux();
-
+	dtdebug("scan_done= " << (int) scan_done << " " << tuned_mux);
 	bool is_freesat_main = chdb::has_epg_type(tuned_mux, chdb::epg_type_t::FSTHOME);
 	bool is_skyuk = chdb::has_epg_type(tuned_mux, chdb::epg_type_t::SKYUK);
 	bool has_movistar = chdb::has_epg_type(tuned_mux, chdb::epg_type_t::MOVISTAR);
@@ -585,11 +585,15 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 	}
 }
 
-void active_si_stream_t::scan_report() {
-	if (!is_open())
+
+/*
+	will_retune => scan must be set to the failed state
+ */
+void active_si_stream_t::scan_report(bool will_retune) {
+	if (! will_retune && !is_open())
 		return;
 	auto now_ = steady_clock_t::now();
-	if (now_ - scan_state.last_update_time <= 2s)
+	if (!will_retune && now_ - scan_state.last_update_time <= 2s)
 		return;
 	scan_state.last_update_time = now_;
 
@@ -613,6 +617,7 @@ void active_si_stream_t::scan_report() {
 		tune_confirmation.si_done = true;
 		reader->update_tuned_mux_tune_confirmation(tune_confirmation);
 		// scan_target = scan_target_t::DONE;
+		dtdebug("setting scan_done=true mux="  << reader->tuned_mux());
 		scan_done = true;
 		return;
 	}
@@ -627,6 +632,7 @@ void active_si_stream_t::scan_report() {
 
 	if (done) {
 		dtdebug("SCAN DONE");
+		dtdebug("setting scan_done=true mux=" << reader->tuned_mux());
 		scan_done = true;
 		tune_confirmation.si_done = true;
 		reader->update_tuned_mux_tune_confirmation(tune_confirmation);
@@ -660,6 +666,7 @@ void active_si_stream_t::scan_report() {
 				tune_confirmation.sat_by = confirmed_by_t::FAKE;
 		} else {
 			namespace m = chdb::update_mux_preserve_t;
+			dtdebug("update scan data " << mux);
 			chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::SCAN_DATA});
 		}
 		txn.commit();
@@ -673,8 +680,10 @@ void active_si_stream_t::scan_report() {
 }
 
 int active_si_stream_t::deactivate() {
-	if (!is_open())
+	if (!is_open()) {
+		reset();
 		return 0;
+	}
 	log4cxx::NDC(name());
 	int ret = 0;
 	dtdebugx("deactivate si stream");
@@ -1907,6 +1916,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb(epg_t& epg, const subta
 }
 
 void active_si_stream_t::init_scanning(scan_target_t scan_target_) {
+	dtdebug("setting scan_done=false");
 	scan_done = false;
 	tune_start_time = now;
 	// inited_ = true;

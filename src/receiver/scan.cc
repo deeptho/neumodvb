@@ -45,8 +45,8 @@ static void report(const char* msg, int finished_subscription_id, int subscripti
 	if (finished_subscription_id < 0 && subscription_id < 0)
 		return;
 	ss::string<128> s;
-	to_str(s, mux);
-	s.sprintf("Scan  %s %d,%d: [", msg, s.c_str(), finished_subscription_id, subscription_id);
+	//to_str(s, mux);
+	s.sprintf(" Scan  %s %s end=%d next=%d todo=[", msg, to_str(mux).c_str(), finished_subscription_id, subscription_id);
 	for (auto& id : subscription_ids)
 		s.sprintf("%2d ", id);
 	s.sprintf("] \n");

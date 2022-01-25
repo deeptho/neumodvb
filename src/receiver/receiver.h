@@ -549,7 +549,7 @@ public:
 	int scan_mux(const chdb::dvbs_mux_t& mux, int subscription_id);
 
 	void unsubscribe(int subscription_id);
-
+	void abort_scan();
 	void start_recording(recdb::rec_t rec);
 	void stop_recording(recdb::rec_t rec);
 	int start_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);

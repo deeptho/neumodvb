@@ -236,6 +236,8 @@ class neumoMainFrame(mainFrame):
                items_to_toggle[item_name] = onoff if onoff else items_to_toggle.get(item_name, False)
 
     def Stop(self):
+        if self.app.scan_subscription_id >=0:
+            self.app.MuxScanStop()
         self.app.current_mpv_player.stop_play()
 
     def colPopupOFF(self, col, evt):
@@ -587,6 +589,12 @@ class NeumoGui(wx.App):
         self.scan_subscription_id = self.receiver.scan_mux(mux, self.scan_subscription_id)
         #TODO => what about subscription ids?
         dtdebug(f"Requested subscription to scan mux {mux}")
+
+    def MuxScanStop(self):
+        if self.scan_subscription_id >= 0:
+            self.scan_subscription_id = self.receiver.unsubscribe(self.scan_subscription_id)
+            #TODO => what about subscription ids?
+            dtdebug(f"Requested mux_scanning to stop: scan_subscription_id={self.scan_subscription_id}")
 
     def ToggleOverlay(self):
         self.current_mpv_player.toggle_overlay()

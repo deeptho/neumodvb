@@ -64,7 +64,8 @@ active_si_stream_t::active_si_stream_t
 {
 }
 
-void active_si_stream_t::reset() { ::active_si_data_t::reset(); }
+void active_si_stream_t::reset() {
+	::active_si_data_t::reset(); scan_done = false;}
 
 bool active_si_stream_t::abort_on_wrong_sat() const {
 	return !is_embedded_si && wrong_sat_detected() && reader->tune_options().retune_mode == retune_mode_t::AUTO;
@@ -152,6 +153,7 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& txn, uint16_t network_id, u
 	namespace m = chdb::update_mux_preserve_t;
 	// MUX_KEY should only be updated for the tuned mux
 	auto preserve = no_data ? m::flags{m::MUX_KEY} : m::flags{m::MUX_COMMON};
+	dtdebug("Insert fake mux " << mux);
 	chdb::update_mux(txn, mux, now, preserve);
 	assert(mux_key->ts_id == ts_id);
 	if (!is_embedded_si)

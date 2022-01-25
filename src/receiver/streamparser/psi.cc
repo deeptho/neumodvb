@@ -1559,6 +1559,7 @@ namespace dtdemux {
 
 				default:
 					dtdebug("BAT: unknown descriptor " << (int)desc.tag << "=" << name_of_descriptor_tag(desc.tag)); // 0x5f
+				case SI::EacemStreamIdentifierDescriptorTag:
 				case SI::PrivateDataSpecifierDescriptorTag: // 0x5f value=2 (0x00000002)  [= BskyB 1]
 					section.skip(desc.len);
 					break;

@@ -81,9 +81,8 @@ void export_receiver(py::module& m) {
 		.def(py::init<neumo_options_t*>(), py::arg("neumo_options"), "Start a NeumoDVB receiver")
 		.def("dump_subs", &receiver_t::dump_subs, "Show subscriptions")
 		.def("dump_all_frontends", &receiver_t::dump_all_frontends, "Show all tuners")
-#if 0
+		//unsubscribe is needed to abort mux scan in progress
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
-#endif
 		.def("scan_mux", py::overload_cast<const chdb::dvbs_mux_t&, int>(&receiver_t::scan_mux<chdb::dvbs_mux_t>),
 				 "Scan a mux", py::arg("mux"), py::arg("subscription_id"))
 		.def("scan_mux", py::overload_cast<const chdb::dvbc_mux_t&, int>(&receiver_t::scan_mux<chdb::dvbc_mux_t>),

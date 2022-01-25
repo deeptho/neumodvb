@@ -100,7 +100,7 @@ void receiver_thread_t::unsubscribe_mux_(std::vector<task_queue_t::future_t>& fu
 	// release subscription's service on this mux, if any
 	auto active_adapter_p = active_adapter_for_subscription(subscription_id);
 	if (!active_adapter_p.get()) {
-		dterror("Unexpected");
+		dterrorx("no active_adapter for subscription %d", subscription_id);
 		return;
 	}
 
@@ -401,6 +401,13 @@ receiver_t::~receiver_t() {
 receiver_thread_t::~receiver_thread_t() {
 	dtdebugx("receiver thread terminating");
 	// detach();
+}
+
+void receiver_thread_t::cb_t::abort_scan() {
+	if (scanner) {
+		dtdebug("Aborting scan in progress");
+		scanner.reset();
+	}
 }
 
 void receiver_thread_t::cb_t::dump_subs() const // for debug
@@ -1330,6 +1337,7 @@ template <typename _mux_t> int receiver_t::subscribe_mux(const _mux_t& mux, bool
 	tune_options.set_mux_blindtune(blindscan);
 
 	futures.push_back(receiver_thread.push_task([this, &mux, tune_options, &subscription_id]() {
+		cb(receiver_thread).abort_scan();
 		subscription_id = cb(receiver_thread).subscribe_mux(mux, subscription_id, tune_options, nullptr);
 		return 0;
 	}));
@@ -1403,6 +1411,7 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 	tune_options.sat_pos = sat_pos;
 	tune_options.spectrum_scan_options.sat_pos = sat_pos;
 	futures.push_back(receiver_thread.push_task([this, &lnb, tune_options, &subscription_id]() {
+		cb(receiver_thread).abort_scan();
 		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
 		return 0;
 	}));
@@ -1423,6 +1432,7 @@ int receiver_t::subscribe_lnb_blindscan(chdb::lnb_t& lnb_, const chdb::fe_band_p
 	tune_options.subscription_type = subscription_type_t::LNB_EXCLUSIVE;
 	tune_options.tune_mode = tune_mode_t::SCAN_BLIND;
 	futures.push_back(receiver_thread.push_task([this, &lnb, tune_options, &subscription_id]() {
+		cb(receiver_thread).abort_scan();
 		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
 		return 0;
 	}));
@@ -1450,6 +1460,7 @@ int receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
 	tune_options.tune_mode = tune_mode_t::POSITIONER_CONTROL;
 	tune_options.retune_mode = retune_mode;
 	futures.push_back(receiver_thread.push_task([this, &lnb, &tune_options, &subscription_id]() {
+		cb(receiver_thread).abort_scan();
 		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
 		return 0;
 	}));
@@ -1483,6 +1494,7 @@ int receiver_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& 
 	tune_options.retune_mode = retune_mode;
 	tune_options.pls_search_range = pls_search_range;
 	futures.push_back(receiver_thread.push_task([this, &lnb, &mux, tune_options, &subscription_id]() {
+		cb(receiver_thread).abort_scan();
 		subscription_id = cb(receiver_thread).subscribe_mux(mux, subscription_id, tune_options, &lnb);
 		return 0;
 	}));
@@ -1495,6 +1507,7 @@ std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service(const chdb::servic
 	std::vector<task_queue_t::future_t> futures;
 	std::unique_ptr<playback_mpm_t> ret;
 	futures.push_back(receiver_thread.push_task([this, &subscription_id, &service, &ret]() {
+		cb(receiver_thread).abort_scan();
 		ret = cb(receiver_thread).subscribe_service(service, subscription_id);
 		return 0;
 	}));
@@ -1535,6 +1548,7 @@ void receiver_t::stop_recording(const recdb::rec_t& rec_in) {
 
 int receiver_t::unsubscribe(int subscription_id) {
 	receiver_thread.push_task([this, subscription_id]() {
+		cb(receiver_thread).abort_scan();
 		cb(receiver_thread).unsubscribe(subscription_id);
 		return 0;
 	});

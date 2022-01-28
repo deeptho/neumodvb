@@ -168,9 +168,9 @@ static int get_frontend_names_dvapi(const adapter_no_t adapter_no, dvb_frontend_
 	t.dbfe.symbol_rate_min = fe_info.symbol_rate_min;
 	t.dbfe.symbol_rate_max = fe_info.symbol_rate_max;
 	t.dbfe.supports.multistream = fe_info.caps & FE_CAN_MULTISTREAM;
+	t.dbfe.supports.iq = false;
 	t.dbfe.supports.blindscan = false;
 	t.dbfe.supports.spectrum = false;
-	t.dbfe.supports.iq = false;
 	return 0;
 }
 
@@ -1104,14 +1104,16 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 	if (tune_options.pls_search_range.start < tune_options.pls_search_range.end) {
 		cmdseq.add_pls_range(DTV_PLS_SEARCH_RANGE, tune_options.pls_search_range);
 	}
-	if (num_constellation_samples > 0) {
+	auto& t = *ts.writeAccess();
+	if( t.dbfe.supports.iq && num_constellation_samples > 0) {
 		constellation.num_samples = num_constellation_samples;
 		constellation.samples = nullptr;
 		constellation.method = CONSTELLATION_METHOD_DEFAULT;
 		constellation.constel_select = 1;
 		cmdseq.add(DTV_CONSTELLATION, constellation);
+	} else {
+		constellation.num_samples = 0;
 	}
-	auto& t = *ts.writeAccess();
 	auto fefd = t.fefd;
 	t.tune_mode = blindscan ? tune_mode_t::MUX_BLIND : tune_mode_t::NORMAL;
 	int heartbeat_interval = (api_type == api_type_t::NEUMO) ? 1000 : 0;

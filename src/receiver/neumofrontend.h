@@ -33,7 +33,6 @@ enum fe_extended_caps {
 	FE_CAN_SPECTRUMSCAN        = 0x01,
 	FE_CAN_IQ                  = 0x02,
 	FE_CAN_BLINDSEARCH         = 0x04,
-	FE_CAN_CONSTELLATION       = 0x10,
 	FE_CAN_MODCOD		   = 0x08
 };
 

@@ -235,9 +235,10 @@ class ChgmGridBase(NeumoGridBase):
         self.chgm = None
         self.app.live_service_screen.set_chg_filter(chg)
         self.restrict_to_chg = self.app.live_service_screen.filter_chg
-        wx.CallAfter(self.doit, None, self.chgm)
+        wx.CallAfter(self.handle_chg_change, None, self.chgm)
 
-    def doit(self, evt, chgm):
+    def handle_chg_change(self, evt, chgm):
+        self.table.GetRow.cache_clear()
         self.OnRefresh(evt, chgm)
 
     def CurrentChgAndChgm(self):

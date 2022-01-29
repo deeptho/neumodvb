@@ -263,10 +263,11 @@ class ServiceGridBase(NeumoGridBase):
         self.service = None
         self.app.live_service_screen.set_sat_filter(sat)
         self.restrict_to_sat = self.app.live_service_screen.filter_sat
-        wx.CallAfter(self.doit, None, self.service)
+        wx.CallAfter(self.handle_sat_change, None, self.service)
 
-    def doit(self, evt, service):
+    def handle_sat_change(self, evt, service):
         dtdebug(f'doit rec_to_select={service}')
+        self.table.GetRow.cache_clear()
         self.OnRefresh(evt, service)
 
     def CurrentSatAndService(self):

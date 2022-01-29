@@ -173,9 +173,10 @@ class DvbsMuxGridBase(NeumoGridBase):
         else:
             h.h.dvbs_muxlist_filter_sat = sat
         h.save()
-        wx.CallAfter(self.doit, None, self.mux)
+        wx.CallAfter(self.handle_sat_change, None, self.mux)
 
-    def doit(self, evt, mux):
+    def handle_sat_change(self, evt, mux):
+        self.table.GetRow.cache_clear()
         self.OnRefresh(None, mux)
         if mux is None:
             mux = self.table.screen.record_at_row(0)

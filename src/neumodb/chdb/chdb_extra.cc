@@ -131,7 +131,7 @@ mux_common_t* chdb::mux_common_ptr(chdb::any_mux_t& key) {
 */
 ss::vector_<int16_t> chdb::dvbs_mux::list_distinct_sats(db_txn& txn) {
 	ss::vector_<int16_t> data;
-	auto c = find_first_sorted_by_sat_freq_pol(txn);
+	auto c = find_first_sorted_by_sat_pol_freq(txn);
 	if (c.is_valid()) {
 		auto last_sat_pos = c.current().k.sat_pos;
 		data.push_back(last_sat_pos);
@@ -694,10 +694,13 @@ std::optional<chdb::dvbs_mux_t> chdb::find_by_fuzzy_sat_pos_network_id_ts_id(db_
 	return ret;
 }
 
-//used by find_fuzzy_ (update_mux), find_mux_by_key_or_frequency
-db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
-																																		chdb::fe_polarisation_t polarisation,
-																																		uint16_t t2mi_pid, int stream_id)
+/*
+	Look up da mux in the database with EXACT sat_pos, approximate frequency, correcp polarisation
+*/
+static
+db_tcursor_index<chdb::dvbs_mux_t> find_by_sat_freq_pol_fuzzy_helper(db_txn& txn, int16_t sat_pos, uint32_t frequency,
+																																		 chdb::fe_polarisation_t polarisation,
+																																		 uint16_t t2mi_pid, int stream_id)
 {
 	using namespace chdb;
 
@@ -720,16 +723,18 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_sat_freq_pol_fuzzy(db_txn& txn,
 
 		auto tolerance = (((int)mux.symbol_rate)*1.350) / 2000;
 		if (frequency >= mux.frequency + tolerance) {
-			c.next();
+			//frequency is too low
+			c.next(); //return to last value
 			break;
 		}
 		c.prev();
 	}
 	/* if c.valid(), then c points to the correct frequency
 	 */
-	//restore cursor to its starting value
-	if (!c.is_valid() && temp.is_valid())
+	//restore cursor to its starting value because we have moved beyond the list for current (sat_pos,pol)
+	if (!c.is_valid() && temp.is_valid()) {
 		c = std::move(temp);
+	}
 	temp.close();
 	if (!c.is_valid()) {
 		// no frequencies lower than the wanted one on this sat
@@ -746,6 +751,8 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_sat_freq_pol_fuzzy(db_txn& txn,
 	/*@todo
 		There could be multiple matching muxes with very similar frequencies in the database
 		(although we try to prevent this)
+
+		at this point, c points to the bottom of the range of possibly matching frequencies
 	*/
 	int best = std::numeric_limits<int>::max();
 	auto bestc = c.clone();
@@ -781,6 +788,56 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_sat_freq_pol_fuzzy(db_txn& txn,
 	c.close();
 	return bestc;
 }
+
+
+
+/*
+	Look up a mux in the database with approximate sat_pos and  frequency,
+	but correct polarisation, t2mi_pid and stream_id
+
+	Limitations: in case duplicate matching muxes exist, the code will not always detect this
+	and might return the wrong one. Such cases should be avoided in the first place
+
+	used by find_fuzzy_ (update_mux), find_mux_by_key_or_frequency
+*/
+db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
+																																		chdb::fe_polarisation_t polarisation,
+																																		uint16_t t2mi_pid, int stream_id)
+{
+	//first try with the given sat_pos. In most cases this will give the correct result
+	auto c = find_by_sat_freq_pol_fuzzy_helper(txn, sat_pos, frequency, polarisation, t2mi_pid, stream_id);
+	if (c.is_valid())
+		return c;
+	int sat_tolerance = 30; //0.3 degrees
+	auto cs = sat_t::find_by_sat_pos(txn, sat_pos-sat_tolerance, find_type_t::find_geq);
+	for(const auto& sat:  cs.range()) {
+		if (sat.sat_pos > sat_pos + sat_tolerance)
+			break;
+		if (sat.sat_pos == sat_pos)
+			continue; //already tried
+		printf("found sat_pos: %d\n", sat.sat_pos);
+		auto c = find_by_sat_freq_pol_fuzzy_helper(txn, sat.sat_pos, frequency, polarisation, t2mi_pid, stream_id);
+		if (c.is_valid())
+			return c;
+	}
+	assert(!c.is_valid());
+	return c;
+}
+
+#if 0
+std::optional<chdb::dvbs_mux_t>
+chdb::test_find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
+																			chdb::fe_polarisation_t polarisation,
+																			uint16_t t2mi_pid, int stream_id)
+{
+	auto c = find_by_sat_freq_pol_fuzzy(txn, sat_pos, frequency, polarisation,
+																			t2mi_pid, stream_id);
+	if(c.is_valid())
+		return c.current();
+	return {};
+}
+#endif
+
 
 template <typename mux_t>
 db_tcursor_index<mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance) {

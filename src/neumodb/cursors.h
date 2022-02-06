@@ -838,6 +838,11 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 		{
 		}
 
+	void close() noexcept {
+		maincursor.close();
+		db_tcursor_<data_t> ::close();
+	}
+
 	db_tcursor_index clone() const {
 		return db_tcursor_index(*this, (db_cursor::clone_t*) NULL);
 	}

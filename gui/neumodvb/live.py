@@ -670,9 +670,9 @@ class GroupSelectPanel(wx.Panel):
         self.grouptype_idx = idx
         txt, cmd, record_type = self.grouptypes[self.grouptype_idx]
         self.grouptype_text.SetValue(txt)
-        w,h = get_text_extent(txt, self.header_font)
+        w,h = get_text_extent(txt, self.header_font, extra="**", compensate=False)
         w = max(w, self.grouptype_text_size[0])
-        h = max(h, self.grouptype_text_size[1])
+        h = max(h+10, self.grouptype_text_size[1])
         self.grouptype_text.SetMinSize((w, h))
         wx.CallAfter(self.grouptype_text.Refresh)
 
@@ -683,7 +683,7 @@ class GroupSelectPanel(wx.Panel):
             self.sorttype_idx = 0
         txt, sort_keys = self.sorttypes[self.sorttype_idx]
         self.sorttype_text.SetValue(txt)
-        w,h = get_text_extent(txt, self.header_font)
+        w,h = self.sorttype_text_size
         self.sorttype_text.SetMinSize((w, h))
         wx.CallAfter(self.sorttype_text.Refresh)
 
@@ -813,9 +813,14 @@ class SatBouquetGroupSelectPanel(GroupSelectPanel):
         )
         w, h = 0, 0
         for g in self.grouptypes:
-            w1,h1 = get_text_extent(g[0], self.header_font)
+            w1,h1 = get_text_extent(g[0], self.header_font, compensate=True)
             w, h =max(w, w1), max(h, h1)
         self.grouptype_text_size = (w, h)
+        w, h = 0, 0
+        for g in list(self.sorttypes_service)+ list(self.sorttypes_chgm) :
+            w1,h1 = get_text_extent(g[0], self.header_font, compensate=True)
+            w, h =max(w, w1), max(h, h1)
+        self.sorttype_text_size = (w, h)
 
     @property
     def sorttypes(self):
@@ -836,7 +841,7 @@ class SatBouquetGroupSelectPanel(GroupSelectPanel):
         elif record_type == t.BOUQUET_CHANNELS:
             txt =  txt if self.group_select_in_progress or self.grouptype_text.HasFocus()  else  str(self.ls.filter_chg)
         self.grouptype_text.SetValue(txt)
-        w,h = get_text_extent(txt, self.header_font)
+        w,h = get_text_extent(txt, self.header_font, compensate=True)
         w = max(w, self.grouptype_text_size[0])
         h = max(h, self.grouptype_text_size[1])
         self.grouptype_text.SetMinSize((w, h))
@@ -887,7 +892,7 @@ class RecGroupSelectPanel(GroupSelectPanel):
         )
         w, h = 0, 0
         for g in self.grouptypes:
-            w1,h1 = get_text_extent(g[0], self.header_font)
+            w1,h1 = get_text_extent(g[0], self.header_font, compensate=True)
             w, h =max(w, w1), max(h, h1)
         self.grouptype_text_size = (w, h)
 
@@ -1287,7 +1292,7 @@ class RecordPanel(wx.Panel):
         self.created = True
         gtk_add_window_style(self, "active")
         self.set_initial_top_idx()
-        self.row_gap = 5
+        self.row_gap = 8
         gbs = self.gbs = wx.GridBagSizer(vgap=self.row_gap, hgap=5)
         self.sizer =  wx.FlexGridSizer(1, 2, 0, 0)
         self.sizer.AddGrowableRow(0)
@@ -1299,7 +1304,7 @@ class RecordPanel(wx.Panel):
 
         ##The following is needed to handle a wx(?) bug: when scrolling down and thus adding
         ##cells to the grid, row heights seme to increase leading to the last entry moving off screeen
-        w,h = get_text_extent("Test", self.GetFont())
+        w,h = get_text_extent("Test", self.GetFont(), compensate=True)
         self.row_height= ((h+1)//2)*2 +self.row_gap
         dtdebug(f'ROW HEIGHT: {self.row_height}')
         self.make_rows()

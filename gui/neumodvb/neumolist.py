@@ -835,7 +835,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.SetTable(self.table, takeOwnership=True)
         self.font = self.GetFont()
         self.cellfont = self.GetDefaultCellFont()
-        self.labelfont = self.GetDefaultCellFont()
         self.header_font = self.GetFont()
         self.header_font.SetPointSize(self.header_font.GetPointSize()+2)
         self.dc =  wx.ScreenDC()
@@ -1024,8 +1023,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         if example is not None:
             if True:
                 #in the first line below we really should have self.cellfont, but that seems to produce the wrong result
-                w,h = get_text_extent(f"{example}", self.labelfont, extra="")
-                w1,h1 = get_text_extent(f"{col.label}", self.labelfont, extra="")
+                w,h = get_text_extent(f"{example}", self.cellfont, extra="")
+                w1,h1 = get_text_extent(f"{col.label}", self.header_font, extra="")
             else:
                 w,h = self.header_dc.GetTextExtent(f"{example}")
                 w1,h1 = self.header_dc.GetTextExtent(f"{col.label}")

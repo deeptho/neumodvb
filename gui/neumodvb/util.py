@@ -88,7 +88,10 @@ def get_screen_size():
     g = display.get_monitor(0).get_geometry()
     return g.width, g.height
 
-def get_text_extent(text, font=None, extra='**'):
+def get_text_extent(text, font=None, extra='', compensate=False):
+    """
+    compensate: hack which can probably be removed
+    """
     import gi
     import wx
     gi.require_version('Gdk', '3.0')
@@ -98,10 +101,14 @@ def get_text_extent(text, font=None, extra='**'):
     if font is not None:
         dc.SetFont(font)
     w0,h0 = dc.GetTextExtent(text+extra)
-    res = Gdk.Screen.get_default().get_resolution()
-    w0 = int(w0*res/96+0.5)
-    h0 = int(h0*res/96+0.5)
-    return (w0,h0)
+    if compensate:
+        res = Gdk.Screen.get_default().get_resolution()
+        w = int(w0*res/96+0.5)
+        h = int(h0*res/96+0.5)
+    else:
+        w = w0
+        h = h0
+    return (w, h)
 
 def load_gtk3_stylesheet(fname):
     import gi

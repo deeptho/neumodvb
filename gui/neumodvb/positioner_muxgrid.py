@@ -110,7 +110,7 @@ class DvbsMuxTable(NeumoTable):
         sat = self.parent.controller.parent.sat
         assert sat is not None
         ret.k.sat_pos = sat.sat_pos
-        ret.c.is_template = True
+        ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
         return ret
 
 class PositionerDvbsMuxGrid(NeumoGridBase):

@@ -28,7 +28,7 @@ import datetime
 from dateutil import tz
 
 from neumodvb.util import setup, lastdot
-from neumodvb.util import dtdebug, dterror
+from neumodvb.util import dtdebug, dterror, tune_src_str
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, screen_if_t
 from neumodvb.satlist import BasicSatGrid
@@ -69,6 +69,7 @@ class DvbsMuxTable(NeumoTable):
          CD(key='matype', label='matype', example='GFP MIS ACM/VCM 35', dfn=matype_fn),
          CD(key='c.epg_scan', label='Epg\nscan', dfn=bool_fn),
          CD(key='c.epg_types', label='Epg\ntypes', dfn=epg_types_fn, example='FST'*2, readonly=True)
+         CD(key='c.tune_src', label='tun\nsrc', dfn=lambda x: tune_src_str(x), readonly=True, example="NIT_ACTUAL_NON_TUNED")
          ]
 
     other_columns =  \
@@ -127,7 +128,7 @@ class DvbsMuxTable(NeumoTable):
         ret=self.record_t()
         if self.parent.sat is not None:
             ret.k.sat_pos = self.parent.sat.sat_pos
-        ret.c.is_template = True
+        ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
         return ret
 
 class DvbsMuxGridBase(NeumoGridBase):

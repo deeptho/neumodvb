@@ -28,7 +28,7 @@ import datetime
 from dateutil import tz
 
 from neumodvb.util import setup, lastdot
-from neumodvb.util import dtdebug, dterror
+from neumodvb.util import dtdebug, dterror, tune_src_str
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer, GridPopup, screen_if_t
 
@@ -59,7 +59,8 @@ class DvbtMuxTable(NeumoTable):
          CD(key='c.scan_result', label='Scan result', dfn=lambda x: lastdot(x).replace('FEC','')) ,
          CD(key='c.scan_duration', label='Scan time', dfn=time_fn),
          CD(key='c.epg_scan', label='Epg scan', dfn=bool_fn),
-         CD(key='c.epg_types', label='Epg types', dfn=epg_types_fn, example='FREESAT'*2, readonly=True)
+         CD(key='c.epg_types', label='Epg types', dfn=epg_types_fn, example='FREESAT'*2, readonly=True),
+         CD(key='c.tune_src', label='tun\nsrc', dfn=lambda x: tune_src_str(x), readonly=True, example="NIT_ACTUAL_NON_TUNED")
          ]
 
     other_columns =  \
@@ -96,7 +97,7 @@ class DvbtMuxTable(NeumoTable):
         ret=self.record_t()
         ref.k.sat_pos = pychdb.sat.sat_pos_dvbt
         ret.delivery_system = pychdb.fe_delsys_dvbt_t.DVBT2
-        ret.c.is_template = True
+        ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
         return ret
 
 class DvbtMuxGrid(NeumoGridBase):

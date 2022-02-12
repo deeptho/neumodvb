@@ -185,3 +185,20 @@ def patch_wx():
         #print(f"CALLED {text} {w0} {h0}")
         return (w0,h0)
     wx.ScreenDC.GetTextExtent = GetTextExtent
+
+tune_src_map__ = {'NIT ACTUAL TUNED': 'nit tuned',
+                  'NIT ACTUAL NON TUNED': 'nit',
+                  'NIT OTHER NON TUNED': 'nit',
+                  'DRIVER': 'driver',
+                  'USER': 'override',
+                  'AUTO':  'auto',
+                  'TEMPLATE':  'template',
+                  'UNKNOWN': 'unknown'}
+
+
+def tune_src_str(x):
+    x = lastdot(x)
+    try:
+        return tune_src_map__[x]
+    except:
+        return x

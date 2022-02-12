@@ -138,6 +138,22 @@ scan_status = db_enum(name='scan_status_t',
                        ('ACTIVE', 2), #mux is being scanned
                        ('NONE', 3), #mux has never been scanned
                            ))
+
+#Where does tuning paramter data come from?
+tune_src = db_enum(name='tune_src_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=(
+                       ('TEMPLATE', 0, 'templ'), #temporary values entered by user
+                       ('NIT_ACTUAL_TUNED', 1, 'natu'),  #NIT_ACTUAL after tuning the transponder (most reliable)
+                       ('NIT_ACTUAL_NON_TUNED', 2, 'na'), #NIT_ACTUAL on some other mux
+                       ('NIT_OTHER_NON_TUNED', 3, 'no'), #NIT_OTHER on some other mux (least reliable)
+                       ('DRIVER', 4, 'drv'),  #from driver
+                       ('USER', 5, 'usr'), #user has locked the data from being overwritten
+                       ('AUTO', 6, 'auto'), #temporary state: user has turned of "USER", but source of data is unknown
+                       ('UNKNOWN', -1, 'unk'), #not initialised
                            ))
 
 scan_result = db_enum(name='scan_result_t',
@@ -566,6 +582,7 @@ mux_common = db_struct(name='mux_common',
                               (5, 'bool', 'epg_scan'),
                               #(6, 'bool',  'is_template', 'false'),
                               #(10, 'bool',  'freq_from_si', 'false'), #true if frequency was set from si
+                              (11, 'tune_src_t', 'tune_src', 'tune_src_t::AUTO'),
                               (7, 'time_t', 'mtime'),
                               (9, 'ss::vector<epg_type_t,2>', 'epg_types'),
                               ))

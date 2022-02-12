@@ -317,8 +317,7 @@ class TuneMuxPanel(TuneMuxPanel_):
                 event.Skip()
             return
         mux =self.mux.copy()
-        mux.c.is_template = True
-        mux.c.freq_from_si = False
+        mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
         mux.matype = -1
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()

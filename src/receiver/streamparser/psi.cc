@@ -372,7 +372,6 @@ namespace dtdemux {
 
 		mux.k.sat_pos = orbital_position;
 		mux.frequency = frequency; // in kHz
-		mux.c.freq_from_si = true;
 		mux.pol = (chdb::fe_polarisation_t)pol;
 		mux.symbol_rate = symbol_rate * 100; // in Symbols/s
 		mux.delivery_system = is_dvbs2 ? chdb::fe_delsys_dvbs_t::SYS_DVBS2 : chdb::fe_delsys_dvbs_t::SYS_DVBS;
@@ -405,7 +404,6 @@ namespace dtdemux {
 		mux.delivery_system = fe_delsys_dvbc_t::SYS_DVBC;
 		mux.modulation = (fe_modulation_t)modulation;
 		mux.frequency = frequency; // in kHz
-		mux.c.freq_from_si = true;
 		mux.symbol_rate = symbol_rate * 100; // in Symbols/s
 
 		mux.fec_inner = (fe_code_rate_t)fec_inner;
@@ -454,7 +452,6 @@ namespace dtdemux {
 		mux.delivery_system = fe_delsys_dvbt_t::SYS_DVBT;
 		mux.modulation = (fe_modulation_t)modulation;
 		mux.frequency = frequency; // in Hz
-		mux.c.freq_from_si = true;
 		mux.HP_code_rate = (fe_code_rate_t)code_rate_hp;
 		mux.LP_code_rate = (fe_code_rate_t)code_rate_lp;
 		mux.transmission_mode = (fe_transmit_mode_t)transmission_mode;
@@ -1645,9 +1642,14 @@ namespace dtdemux {
 			bool is_dvbs{false};
 			bool is_dvbt{false};
 			bool is_dvbc{false};
+			auto tune_src = is_actual ? tune_src_t::NIT_ACTUAL_NON_TUNED : tune_src_t::NIT_OTHER_NON_TUNED;
 			dvbs_mux_t dvbs_mux;
 			dvbt_mux_t dvbt_mux;
 			dvbc_mux_t dvbc_mux;
+			dvbs_mux.c.tune_src= tune_src;
+			dvbc_mux.c.tune_src= tune_src;
+			dvbt_mux.c.tune_src= tune_src;
+
 			auto ts_id = section.get<uint16_t>();
 			auto original_network_id = section.get<uint16_t>();
 #if 0

@@ -29,7 +29,7 @@ EXPORT const char* enum_to_str<{{enum.name}}>(const {{enum.name}}& val)
 	switch(({{enum.storage}})val) {
 		{%for f in enum.values %}
 	case {{f.val}}:
-	return "{{ f.name }}";
+	return "{{ f.display_name }}";
 	break;
 	{% endfor %}
 	default:

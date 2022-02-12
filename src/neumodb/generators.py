@@ -89,7 +89,9 @@ class db_enum(object):
         self.db.all_enums_by_file[self.fname]=lst #one entry per file
         for field in fields:
             if type(field) == str:
-                field = (field, None)
+                field = (field, None, None)
+            if len(field) == 2:
+                field =(*field, None)
             self.add(*field)
         prefix = os.path.commonprefix([value['name'] for value in self.values])
         for value in self.values:
@@ -97,8 +99,8 @@ class db_enum(object):
             #short_name = multi_replace(short_name, replace)
             value['short_name'] = short_name
 
-    def add(self, name, val=None):
-        self.values.append(dict(name=name, val=val))
+    def add(self, name, val=None, display_name=None):
+        self.values.append(dict(name=name, val=val, display_name= name if display_name is None else display_name))
 
     def __repr__(self):
         return "enum {}\n{}".format(self.name, pformat(self.values))

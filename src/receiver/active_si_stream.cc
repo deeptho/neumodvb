@@ -182,8 +182,6 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 		mux_key->t2mi_pid = db_mux_key->t2mi_pid; //ensure that t2mi_pid does not affect comparison
 		if(*mux_key != *db_mux_key) {
 			auto tuned_mux = reader->tuned_mux();
-			if(is_tuned_mux)
-				debugstop();
 			dtdebug("key change detected: tuned=" << (int) is_tuned_mux << " db=" << *db_mux_key
 							<< " nit=" << *mux_key);
 			handle_mux_change(wtxn, *pdb_mux, mux, is_tuned_mux);
@@ -1431,13 +1429,6 @@ chdb::update_mux_ret_t active_si_stream_t::update_mux(db_txn& wtxn, chdb::any_mu
 	bool is_active = c.scan_status == scan_status_t::ACTIVE;
 	auto scan_start_time = receiver.scan_start_time();
 
-#ifndef NDEBUG
-	bool sat_pos_changed = std::abs((int) mux_key_ptr(tuned_mux)->sat_pos -
-																	(int)mux_key_ptr(mux)->sat_pos)>=30;
-	if(sat_pos_changed)
-		debugstop();
-#endif
-
 	if(is_tuned_mux) {
 		//fixes things like modulation in case nit provides incorrect data
 		update_template_mux_parameters_from_frontend(mux);
@@ -2503,8 +2494,6 @@ void active_si_stream_t::update_tuned_mux(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	bool is_template = mux_common_ptr(mux)->tune_src == chdb::tune_src_t::TEMPLATE;
 	assert(!is_template);
 	bool sat_pos_changed = db_key->sat_pos != key->sat_pos;
-	if(sat_pos_changed)
-		debugstop();
 	assert(matches_physical_fuzzy(mux, tuned_mux)); //only small changes allowed
 	assert(may_change_sat_pos || db_key->sat_pos == key->sat_pos );
 	assert(may_change_nit_tid || (key->network_id ==db_key->network_id && key->ts_id == db_key->ts_id));

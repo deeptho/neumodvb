@@ -419,13 +419,7 @@ int active_adapter_t::tune_it(const tune_options_t tune_options, chdb::delsys_ty
 	feparams.inversion = INVERSION_AUTO;
 	auto ret = -1;
 
-	{
-		auto c = *mux_common_ptr(current_tp());
-		if (c.is_template && c.freq_from_si) {
-			auto w = tuned_mux.writeAccess();
-			mux_common_ptr(*w)->freq_from_si = false;
-		}
-	}
+
 	switch (delsys_type) {
 	case chdb::delsys_type_t::DVB_T: { // DVB-T
 		const auto* mux = std::get_if<chdb::dvbt_mux_t>(&current_tp());

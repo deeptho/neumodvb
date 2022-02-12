@@ -346,10 +346,6 @@ void active_adapter_t::monitor() {
 		std::tie(must_retune, must_reinit_si) = check_status();
 	}
 
-	/*usually scan_report will be called by process_si_data, but on bad muxes data may not
-		be present. scan_report runs with a max frequency of 1 call per 2 seconds
-	*/
-	si.scan_report(must_retune);
 
 	if (must_retune) {
 		visit_variant(
@@ -363,6 +359,12 @@ void active_adapter_t::monitor() {
 			[this](const dvbt_mux_t& mux) { retune<dvbt_mux_t>(); });
 	} else if (must_reinit_si) {
 		init_si(tune_options.scan_target);
+	} else {
+		/*usually scan_report will be called by process_si_data, but on bad muxes data may not
+			be present. scan_report runs with a max frequency of 1 call per 2 seconds
+		*/
+		si.scan_report();
+
 	}
 
 }

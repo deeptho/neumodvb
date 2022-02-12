@@ -449,13 +449,19 @@ void receiver_thread_t::cb_t::dump_subs() const // for debug
 	called from tuner thread when scanning a mux has ended
 */
 void receiver_thread_t::cb_t::on_scan_mux_end(const active_adapter_t* active_adapter_p,
-																							const chdb::any_mux_t& finished_mux) {
+																							const chdb::any_mux_t& finished_mux)
+{
 	if (!scanner.get()) {
 		return;
 	}
-	auto num_left __attribute__((unused)) = scanner->housekeeping(active_adapter_p, &finished_mux);
-	if (num_left == 0)
+
+	auto num_left = scanner->on_scan_mux_end(active_adapter_p, finished_mux);
+	dterrorx("%d muxes left to scan", num_left);
+
+	if (num_left == 0 ) {
 		scanner.reset();
+		return;
+	}
 }
 
 void receiver_thread_t::cb_t::dump_all_frontends() const // for debug
@@ -1777,5 +1783,10 @@ neumo_options_t receiver_t::get_options() {
 	auto r = options.readAccess();
 	return *r;
 }
+
+time_t receiver_thread_t::scan_start_time() const {
+	return scanner.get() ? scanner->scan_start_time : -1;
+}
+
 
 thread_local thread_group_t thread_group{thread_group_t::unknown};

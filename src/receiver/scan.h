@@ -219,35 +219,29 @@ class scanner_t {
 	int id{0};
 	bool must_end = false;
 	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
-	bool scan_dvbs{false};
-	bool scan_dvbc{false};
-	bool scan_dvbt{false};
 
 	ss::vector<chdb::lnb_t, 16> allowed_lnbs;
-	ss::vector<int, 16> subscriptions;
-	int64_t last_seen_txn_id{-1};
-	chdb::chdb_t done_db; //database used for remember what has been scanned already
+	std::set<int> subscriptions;
 
-	template<typename mux_t>
-	bool add_mux(db_txn& done_txn, mux_t& mux, bool as_completed);
+	void add_completed_mux(const chdb::any_mux_t& mux, int num_pending);
 
 	void set_allowed_lnbs(const ss::vector_<chdb::lnb_t>& lnbs);
 	void set_allowed_lnbs();
 
-	int add_initial_muxes(ss::vector_<chdb::dvbs_mux_t>& muxes);
-	int add_initial_muxes(ss::vector_<chdb::dvbc_mux_t>& muxes);
-	int add_initial_muxes(ss::vector_<chdb::dvbt_mux_t>& muxes);
-	//bool has_been_scanned(db_txn& done_txn, chdb::dvbs_mux_t& mux);
-	int scan_loop(const active_adapter_t* active_adapter_p, const chdb::any_mux_t* finished_mux);
-
-	void start();
-	int housekeeping(const active_adapter_t* active_adapter_p = nullptr, const chdb::any_mux_t* finished_mux = nullptr);
+	template<typename mux_t>
+	int add_initial_muxes(const ss::vector_<mux_t>& muxes);
 
 	template<typename mux_t>
-	int add_new_muxes_(db_txn& done_txn);
+	std::tuple<int, int>  scan_next(db_txn& wtxn, int finished_subscription_id);
 
-	int add_new_muxes(db_txn& done_txn);
+	int scan_loop(const active_adapter_t* active_adapter_p, const chdb::any_mux_t& finished_mux);
 
+	int on_scan_mux_end(const active_adapter_t* active_adapter_p, const chdb::any_mux_t& finished_mux);
+
+		void start();
+	int housekeeping();
+
+	void init();
 
 public:
 	scanner_t(receiver_thread_t& receiver_thread_,

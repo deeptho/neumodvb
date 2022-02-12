@@ -519,6 +519,9 @@ public:
 	scan_stats_t get_scan_stats(int subscription_id);
 
 	class cb_t;
+
+	time_t scan_start_time() const;
+
 };
 
 
@@ -557,7 +560,7 @@ public:
 	int stop_recording(const chdb::service_t& service, system_time_t t);
 	int stop_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 
-	void on_scan_mux_end(const active_adapter_t* active_adapter, const chdb::any_mux_t& mux);
+	void on_scan_mux_end(const active_adapter_t* active_adapter, const chdb::any_mux_t& finished_mux);
 };
 
 struct player_cb_t {
@@ -686,5 +689,9 @@ public:
 
 	void set_options(const neumo_options_t& options);
 	neumo_options_t get_options();
+
+	inline time_t scan_start_time() const {
+		return receiver_thread.scan_start_time();
+	}
 
 };

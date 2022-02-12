@@ -46,7 +46,6 @@ struct pat_service_t {
 
 
 struct pmt_data_t {
-//	std::map<uint16_t, pat_service_t> by_pmt_pid; //services in pat indexed by pmt_pid
 	std::map<uint16_t, pat_service_t> by_service_id; //services in pat indexed by service_id
 	void pmt_section_cb(const pmt_info_t& pmt, bool isnext);
 
@@ -67,6 +66,12 @@ struct pat_data_t {
 
 
 	std::map<uint16_t, pat_table_t> by_ts_id; //indexed by ts_id
+
+	inline bool has_ts_id(uint16_t ts_id) const {
+		assert(by_ts_id.size()>0); //require pat to be received
+		return by_ts_id.find(ts_id) != by_ts_id.end();
+	}
+
 
 	bool stable_pat_{false};
 	constexpr static  std::chrono::duration pat_change_timeout = 5000ms; //in ms
@@ -183,8 +188,15 @@ struct mux_sdt_data_t {
 };
 
 struct mux_data_t  {
+
+	enum source_t {
+		NIT,
+		SDT,
+		NONE, //can only happen for current mux; any other lookup is initiated from sdt or nit
+	};
+
 	//data maintained by nit section code
-	bool from_si{false}; //set to true if from database
+	source_t source {NONE}; //set to true if from database
 	chdb::mux_key_t mux_key{}; //we also need extra_id
 	ss::string<32> mux_desc;
 	bool is_tuned_mux{false};
@@ -198,6 +210,7 @@ struct mux_data_t  {
 
 	ss::vector<uint16_t, 32> service_ids; //service ids seen
 
+
 	mux_data_t(const chdb::mux_key_t& mux_key, const ss::string_&  mux_desc)
 		: mux_key(mux_key)
 		, mux_desc(mux_desc)
@@ -205,14 +218,17 @@ struct mux_data_t  {
 };
 
 struct sdt_data_t {
-	int network_id{-1};
-	int ts_id{-1};
+	int actual_network_id{-1};
+	int actual_ts_id{-1};
 	void reset() {
 		*this = sdt_data_t();
 	}
 };
 
+struct active_si_data_t;
+
 struct nit_data_t {
+
 	std::map <std::pair<uint16_t,uint16_t>, mux_data_t> by_network_id_ts_id;
 	ss::vector<int16_t, 4> nit_actual_sat_positions; //sat_positions encountered in any mux listed in nit_actual
 	//mux_data_t * tuned_mux_data{nullptr};
@@ -223,19 +239,6 @@ struct nit_data_t {
 	 */
 	std::map<uint16_t, onid_data_t> by_onid; //indexed by original_network_id
 	std::map<uint16_t, network_data_t> by_network_id; //indexed by network_id
-
-	std::tuple<mux_data_t*, bool> add_mux_from_si(const chdb::any_mux_t& mux, bool from_sdt);
-
-	inline void add_mux_from_sdt(const chdb::any_mux_t& mux) {
-		add_mux_from_si(mux, true);
-	}
-
-	inline bool add_mux_from_nit(const chdb::any_mux_t& mux, bool is_tuned_mux) {
-		auto [p_mux_data, sat_pos_changed] = add_mux_from_si(mux, false);
-		p_mux_data->is_tuned_mux = is_tuned_mux;
-		return sat_pos_changed;
-	}
-
 
 	inline onid_data_t& get_original_network(uint16_t network_id) {
 		auto [it, inserted] = by_onid.try_emplace(network_id, onid_data_t{network_id});
@@ -265,12 +268,6 @@ struct nit_data_t {
 	bool update_nit_completion(scan_state_t& scan_state, const subtable_info_t&info,
 														 network_data_t& network_data, bool reset=false);
 
-#if 0
-	void reset_nit_completion(scan_state_t& scan_state, bool is_actual, onid_data_t& onid_data) {
-		if(network_data.subtable_info.version_number>=0) //otherwise we have an init
-			update_nit_completion(scan_state, is_actual, network_data, true);
-	}
-#endif
 };
 
 
@@ -358,6 +355,9 @@ struct active_si_data_t {
 	sdt_data_t sdt_data;
 	bat_data_t bat_data;
 	eit_data_t eit_data;
+	//secondary cache for eit and bat
+	std::map <std::pair<uint16_t,uint16_t>, chdb::mux_key_t> mux_key_by_network_id_ts_id;
+
 	bool is_embedded_si{false};
 	system_time_t tune_start_time{};
 
@@ -563,6 +563,8 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	*/
 	std::vector<std::shared_ptr<dtdemux::psi_parser_t>>  parsers;
 
+	void update_tuned_mux(db_txn& wxtn, chdb::any_mux_t& mux, bool may_change_sat_pos,
+												bool may_change_nit_tid, bool from_sdt);
 
 	dtdemux::reset_type_t pat_section_cb(const pat_services_t& pat_services, const subtable_info_t& i);
 	void pmt_section_cb(const pmt_info_t& pmt, bool isnext);
@@ -573,8 +575,15 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	void add_pmt(uint16_t service_id, uint16_t pmt_pid);
 	bool sdt_actual_check_confirmation(bool mux_key_changed, int db_corrrect,mux_data_t* p_mux_data);
 
-	std::tuple<dtdemux::reset_type_t, bool>
-	nit_actual_save_and_check_confirmation(db_txn& txn, chdb::any_mux_t& mux);
+	dtdemux::reset_type_t
+		nit_actual_update_tune_confirmation(db_txn& txn, chdb::any_mux_t& mux, bool is_tuned_mux);
+
+	dtdemux::reset_type_t on_nit_completion(db_txn& wtxn, network_data_t& network_data,
+																					dtdemux::reset_type_t ret, bool is_actual,
+																					bool on_wrong_sat, bool done);
+
+	std::tuple<bool, bool>
+	sdt_process_service(db_txn& wtxn, const chdb::service_t& service, mux_data_t* p_mux_data, bool donotsave);
 
 	dtdemux::reset_type_t sdt_section_cb_(db_txn& txn, const sdt_services_t&services, const subtable_info_t& i,
 														 mux_data_t* p_mux_data);
@@ -586,8 +595,12 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	dtdemux::reset_type_t eit_section_cb(epg_t& epg, const subtable_info_t& i);
 
-	mux_data_t* lookup_nit(db_txn& txn, uint16_t network_id, uint16_t ts_id, int16_t expected_sat_pos);
-	mux_data_t* add_fake_nit(db_txn& txn, uint16_t network_id, uint16_t ts_id, int16_t expected_sat_pos);
+	mux_data_t* lookup_nit_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
+
+	std::optional<chdb::mux_key_t>
+	lookup_nit_key(db_txn& txn, uint16_t network_id, uint16_t ts_id);
+
+	mux_data_t* add_fake_nit(db_txn& txn, uint16_t network_id, uint16_t ts_id, int16_t expected_sat_pos, bool from_sdt	);
 
 	int deactivate();
 	//int open();
@@ -617,11 +630,6 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	bool check_tuned_mux_key(db_txn& txn, const chdb::mux_key_t& si_key);
 
-
-	void on_tuned_mux_key_change(db_txn& txn, const chdb::mux_key_t& si_mux_key, bool update_db,
-															 bool update_sat_pos);
-
-
 	void add_sat(db_txn& txn, uint16_t sat_pos);
 
 	void init_scanning(scan_target_t scan_target_);
@@ -636,6 +644,8 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return parser;
 	}
 
+	void add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_tuned_mux);
+
 
 	void process_removed_services(db_txn& txn, chdb::mux_key_t& mux_key, ss::vector_<uint16_t>& service_ids);
 
@@ -644,7 +654,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	void check_timeouts();
 
-	void scan_report(bool will_retune);
+	void scan_report();
 
 	bool wrong_sat_detected() const {
 		return tune_confirmation.on_wrong_sat;
@@ -654,9 +664,19 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return tune_confirmation.unstable_sat;
 	}
 
-	bool 	update_template_mux_parameters_from_frontend(db_txn& wtxn, chdb::any_mux_t& mux);
+	bool fix_mux(chdb::any_mux_t& mux);
+	bool is_tuned_mux(const chdb::any_mux_t& mux);
+	bool 	update_template_mux_parameters_from_frontend(chdb::any_mux_t& mux);
+	chdb::update_mux_ret_t update_mux(db_txn& txn, chdb::any_mux_t& mux, system_time_t now,
+																		chdb::update_mux_preserve_t::flags preserve,
+																		bool tuned_mux, bool from_sdt);
+
+	chdb::any_mux_t add_new_mux(db_txn& txn, chdb::any_mux_t& mux, system_time_t now);
+	void fix_tune_mux_template();
+	void handle_mux_change(db_txn& wtxn, chdb::any_mux_t& old_mux, chdb::any_mux_t& new_nux, bool is_tuned_mux);
+	void finalize_scan(bool done);
 public:
-	void reset ();
+	void reset(bool is_retune);
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_si_stream_t(receiver_t& receiver,

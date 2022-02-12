@@ -132,17 +132,27 @@ class DvbtMuxGrid(NeumoGridBase):
 
 
     def CmdTune(self, evt):
+        self.table.SaveModified()
         row = self.GetGridCursorRow()
         mux = self.table.sreen.record_at_row(row)
         mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
-        self.table.SaveModified()
         self.app.MuxTune(mux)
 
     def CmdScan(self, evt):
+        self.table.SaveModified()
         row = self.GetGridCursorRow()
         mux = self.table.screen.record_at_row(row)
         mux_name= f"{int(mux.frequency/1000)}"
         dtdebug(f'CmdScan requested for row={row}: PLAY mux={mux_name}')
-        self.table.SaveModified()
         self.app.MuxScan(mux)
+
+    def OnTimer(self, evt):
+        super().OnTimer(evt)
+        if wx.GetApp().scan_subscription_id >= 0:
+            if self.infow is not None:
+                scan_ended = self.infow.ShowScanRecord()
+                if scan_ended:
+                    if self.app.scan_subscription_id >=0:
+                        self.app.MuxScanStop()
+                        self.app.scan_subscription_id <0

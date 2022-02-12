@@ -216,11 +216,11 @@ class DvbsMuxGridBase(NeumoGridBase):
         return str(sat.name if len(sat.name)>0 else str(sat))
 
     def CmdTune(self, evt):
+        self.table.SaveModified()
         row = self.GetGridCursorRow()
         mux = self.table.screen.record_at_row(row)
         mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
-        self.table.SaveModified()
         self.app.MuxTune(mux)
 
     def CmdPositioner(self, event):
@@ -239,6 +239,7 @@ class DvbsMuxGridBase(NeumoGridBase):
         self.table.SaveModified()
 
     def CmdSpectrum(self, evt):
+        self.table.SaveModified()
         row = self.GetGridCursorRow()
         mux = self.table.screen.record_at_row(row)
         if mux is None:
@@ -247,16 +248,24 @@ class DvbsMuxGridBase(NeumoGridBase):
         dtdebug(f'CmdSpectrum requested for mux={mux}')
         from neumodvb.spectrum_dialog import show_spectrum_dialog
         show_spectrum_dialog(self, mux=mux)
-        self.table.SaveModified()
 
     def CmdScan(self, evt):
+        self.table.SaveModified()
         row = self.GetGridCursorRow()
         mux = self.table.screen.record_at_row(row)
         mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
         dtdebug(f'CmdScan requested for row={row}: PLAY mux={mux_name}')
-        self.table.SaveModified()
         self.app.MuxScan(mux)
-
+    def OnTimer(self, evt):
+        super().OnTimer(evt)
+        if wx.GetApp().scan_subscription_id >= 0:
+            if self.infow is not None:
+                scan_ended = self.infow.ShowScanRecord()
+                if scan_ended:
+                    if self.app.scan_subscription_id >=0:
+                        self.app.MuxScanStop()
+                        self.app.scan_subscription_id <0
+                    super().OnTimer(evt) #call 2nd time
 
 class BasicDvbsMuxGrid(DvbsMuxGridBase):
     def __init__(self, *args, **kwds):

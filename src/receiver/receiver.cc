@@ -420,13 +420,14 @@ void receiver_thread_t::cb_t::dump_subs() const // for debug
 		auto& active_adapter = *p.second;
 		auto* amr = active_adapter.reservation();
 		auto fr = active_adapter.current_fe->adapter->reservation.readAccess();
+		auto fefd = active_adapter.current_fe->ts.readAccess()->fefd;
 		auto& ar = *fr;
 		fprintf(fp,
-						"   adapter[%d]=%p: adapter=%d frontend=%d "
+						" subscription_id=%d adapter=%p: adapter=%d frontend=%d fefd=%d "
 						"active_adapter:use_count=%d shared_ptr:use_count=%ld "
 						"adapter:use_count:mux=%d :polband=%d "
 						"mux=%s lnb=%s\n",
-						id, &active_adapter, active_adapter.get_adapter_no(), active_adapter.frontend_no(), amr->use_count(),
+						id, &active_adapter, active_adapter.get_adapter_no(), active_adapter.frontend_no(), fefd, amr->use_count(),
 						p.second.use_count(), ar.use_count_mux(), ar.use_count_polband(), to_str(amr->mux()).c_str(),
 						to_str(amr->lnb()).c_str());
 	}

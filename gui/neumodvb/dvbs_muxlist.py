@@ -40,7 +40,8 @@ class DvbsMuxTable(NeumoTable):
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
     matype_fn =  lambda x:  pychdb.matype_str(x[1])
-    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") \
+        if x[1]>0 else "never"
     time_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%M:%S")
     epg_types_fn =  lambda x: '; '.join([ lastdot(t) for t in x[1]])
     all_columns = \
@@ -53,7 +54,7 @@ class DvbsMuxTable(NeumoTable):
             dfn=lambda x: lastdot(x), example='PSK8'),
          CD(key='symbol_rate', label='Symbol\nRate',  dfn= lambda x: x[1]//1000),
          CD(key='pls_mode', label='Pls\nMode', dfn=lastdot, example='COMBO'),
-         CD(key='pls_code', label='Pls\nCode'),
+         CD(key='pls_code', label='Pls\nCode', example ='174526'),
          CD(key='stream_id', label='Stream', basic=True),
          CD(key='fec', label='FEC', dfn=lambda x: lastdot(x).replace('FEC',''), example='AUTO'),
          CD(key='k.network_id', label='nid'),
@@ -61,14 +62,14 @@ class DvbsMuxTable(NeumoTable):
          CD(key='k.t2mi_pid', label='t2mi\npid', readonly=False),
          CD(key='k.extra_id', label='subid', readonly=True),
          CD(key='c.num_services', label='#srv'),
-         CD(key='c.mtime', label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33'),
-         CD(key='c.scan_time', label='Scanned', dfn=datetime_fn, example='2021-06-16 18:30:33', readonly=True),
+         CD(key='c.mtime', label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33*'),
+         CD(key='c.scan_time', label='Scanned', dfn=datetime_fn, example='2021-06-16 18:30:33*', readonly=True),
          CD(key='c.scan_status', label='Scan\nstatus', dfn=lambda x: lastdot(x).replace('FEC','')),
          CD(key='c.scan_result', label='Scan\nresult', dfn=lambda x: lastdot(x).replace('FEC','')) ,
          CD(key='c.scan_duration', label='Scan time', dfn=time_fn),
          CD(key='matype', label='matype', example='GFP MIS ACM/VCM 35', dfn=matype_fn),
          CD(key='c.epg_scan', label='Epg\nscan', dfn=bool_fn),
-         CD(key='c.epg_types', label='Epg\ntypes', dfn=epg_types_fn, example='FST'*2, readonly=True)
+         CD(key='c.epg_types', label='Epg\ntypes', dfn=epg_types_fn, example='FST'*2, readonly=True),
          CD(key='c.tune_src', label='tun\nsrc', dfn=lambda x: tune_src_str(x), readonly=True, example="NIT_ACTUAL_NON_TUNED")
          ]
 

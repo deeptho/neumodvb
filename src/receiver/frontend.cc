@@ -324,13 +324,8 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdse
 	mux.pilot = (chdb::fe_pilot_t)cmdseq.props[i++].u.data;
 	auto stream_id_prop = cmdseq.props[i++].u.data;
 	mux.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
-	if (mux.stream_id == -1) {
-		mux.pls_mode = chdb::fe_pls_mode_t::ROOT;
-		mux.pls_code = 1;
-	} else {
-		mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
-		mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
-	}
+	mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
+	mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
 
 	i += 6; // skip dvbt
 	return mux.frequency;
@@ -1110,9 +1105,12 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 		cmdseq.add(DTV_INVERSION, INVERSION_AUTO);
 		cmdseq.add(DTV_ROLLOFF, (int)mux.rolloff);
 		cmdseq.add(DTV_PILOT, PILOT_AUTO);
-
+#if 0
 		auto stream_id =
 			(mux.stream_id < 0 ? -1 : (make_code((int)mux.pls_mode, (int)mux.pls_code)) | (mux.stream_id & 0xff));
+#else
+		auto stream_id = make_code((int)mux.pls_mode, (int)mux.pls_code) | (mux.stream_id & 0xff);
+#endif
 		cmdseq.add(DTV_STREAM_ID, stream_id);
 	}
 	dtv_fe_constellation constellation;

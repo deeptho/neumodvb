@@ -83,28 +83,30 @@ ss::string<128> dump_caps(chdb::fe_caps_t caps) {
 	return ret;
 }
 
-void tuner_thread_t::clean_dbs(system_time_t now) {
+void tuner_thread_t::clean_dbs(system_time_t now, bool at_start) {
 
 	{
-		auto txn = receiver.chdb.wtxn();
-		chdb::chdb_t::clean_log(txn);
-		txn.commit();
+		auto wtxn = receiver.chdb.wtxn();
+		chdb::chdb_t::clean_log(wtxn);
+		if(at_start)
+			chdb::clean_scan_status(wtxn);
+		wtxn.commit();
 	}
 	{
-		auto txn = receiver.recdb.wtxn();
-		recdb::recdb_t::clean_log(txn);
-		txn.commit();
+		auto wtxn = receiver.recdb.wtxn();
+		recdb::recdb_t::clean_log(wtxn);
+		wtxn.commit();
 	}
 	{
-		auto txn = receiver.statdb.wtxn();
-		statdb::statdb_t::clean_log(txn);
-		txn.commit();
+		auto wtxn = receiver.statdb.wtxn();
+		statdb::statdb_t::clean_log(wtxn);
+		wtxn.commit();
 	}
 
 	if (now > next_epg_clean_time) {
-		auto txn = receiver.epgdb.wtxn();
-		epgdb::clean(txn, now - 4h); // preserve last 4 hours
-		txn.commit();
+		auto wtxn = receiver.epgdb.wtxn();
+		epgdb::clean(wtxn, now - 4h); // preserve last 4 hours
+		wtxn.commit();
 		next_epg_clean_time = now + 12h;
 	}
 }
@@ -146,9 +148,24 @@ int tuner_thread_t::cb_t::lnb_scan(std::shared_ptr<active_adapter_t> active_adap
 }
 
 int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
-															 const chdb::dvbs_mux_t& mux, tune_options_t tune_options) {
+															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options) {
 	// check_thread();
 	dtdebugx("tune mux action");
+	chdb::dvbs_mux_t mux{mux_};
+	if(mux.c.scan_status == scan_status_t::PENDING || mux.c.scan_status == scan_status_t::ACTIVE) {
+		/*
+			The new scan status must be written to the database now.
+			Otherwise there may be problems on muxes which fail to scan: their status would remain
+			pending, and whne parallel tuners are in use, the second tuner might decide to scan
+			the mux again
+		*/
+		auto wtxn = receiver.chdb.wtxn();
+		namespace m = chdb::update_mux_preserve_t;
+		mux.c.scan_status = scan_status_t::ACTIVE;
+		chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+		wtxn.commit();
+		assert(mux.c.scan_status == scan_status_t::ACTIVE);
+	}
 	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
 	bool user_requested = true;
@@ -156,8 +173,24 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 }
 
 template <typename _mux_t>
-int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const _mux_t& mux,
+int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const _mux_t& mux_,
 															 tune_options_t tune_options) {
+	_mux_t mux{mux_};
+	assert( mux.c.scan_status != scan_status_t::ACTIVE);
+	if(mux.c.scan_status == scan_status_t::PENDING) {
+		/*
+			The new scan status must be written to the database now.
+			Otherwise there may be problems on muxes which fail to scan: their status would remain
+			pending, and whne parallel tuners are in use, the second tuner might decide to scan
+			the mux again
+		*/
+		auto wtxn = receiver.chdb.wtxn();
+		namespace m = chdb::update_mux_preserve_t;
+		mux.c.scan_status = scan_status_t::ACTIVE;
+		chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+		wtxn.commit();
+		assert(mux.c.scan_status == scan_status_t::ACTIVE);
+	}
 	dtdebugx("tune mux action");
 	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
@@ -321,7 +354,7 @@ int tuner_thread_t::run() {
 	double period_sec = 1.0;
 	timer_start(period_sec);
 	now = system_clock_t::now();
-	clean_dbs(now);
+	clean_dbs(now, true);
 	recmgr.startup(now);
 	for (;;) {
 		auto n = epoll_wait(2000);
@@ -361,7 +394,7 @@ int tuner_thread_t::run() {
 						dttime(200);
 					}
 					dttime(150);
-					clean_dbs(now);
+					clean_dbs(now, false);
 					dttime(100);
 					recmgr.housekeeping(now);
 					dttime(100);

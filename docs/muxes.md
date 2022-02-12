@@ -71,10 +71,26 @@ we opted to not include redundant information in them. `stream_id` is currently 
 
 ### Scanning a mux ###
 
-Now, the newly created mux can be scanned using the command `Control - Scan` (`Ctrl-S`). Make sure the mux
-is selected (appears blue) before you select the command from the menu. neumDVB will scan the mux, discover other
-muxes on this satellite and then add those to the scan queue. All discovered muxes will be scanned for
-services as soon as a frontend becomes available (because it has stopped scanning a mux).
+Scanning a mux in this context really means: adding the mux to the scan queue. NeumoDVB
+then tunes the mux, discovering the services on it, but also usually discovering other muxes
+on the same satellite. If such muxes are discovered, they are also added to the scan queue.
+The user can add more than one mux to the scan queue at the start, but also while scanning is going on.
+
+
+At the start of scanning and whenenver a mux scan ends, NeumoDVB checks the scan queue and tries to
+tune as many muxes in the queue as possible using all available adapters. If you have multiple dishes
+capable of tuning the same satellite, or if your DVB card suports Slave tuners, then multiple muxes
+will be scanned in parallel.
+
+**Be careful if you have have a dish on a positioner:**
+In the current code, the scan process will avoid moving any satellite dish (later this could be an
+option). Therefore you first have to move the dish to the proper position, e.g., by tuning to a service
+or mux on it.
+
+After adding a mux in the mux list, the newly created mux can be added to the scan queue using the command
+`Control - Scan` (`Ctrl-S`). Make sure the mux is selected (appears blue) before you select the command from the menu.
+It is also possible to scan existing muxed. Remember that the scan itself can also add muxes to the scan queue
+and that you can add muxes at any stage, even on other satellites. Those muxes will be scanned as soon as possible.
 
 The muxes screen will start filling up as in the screenshot:
 

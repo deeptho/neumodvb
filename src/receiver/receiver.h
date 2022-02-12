@@ -165,7 +165,7 @@ class tuner_thread_t : public task_queue_t {
 
 	system_time_t next_epg_clean_time;
 
-	void clean_dbs(system_time_t now);
+	void clean_dbs(system_time_t now, bool at_start);
 	periodic_t livebuffer_db_update;
 	rec_manager_t recmgr;
 	void livebuffer_db_update_(system_time_t now);

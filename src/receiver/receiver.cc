@@ -831,6 +831,22 @@ int receiver_thread_t::subscribe_mux_in_use(std::vector<task_queue_t::future_t>&
 			}
 			auto& tuner_thread = other_active_adapter->tuner_thread;
 			futures.push_back(tuner_thread.push_task([&tuner_thread, other_active_adapter, tune_options, mux]() {
+				assert( mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
+#if 0
+				if(mux.c.scan_status == chdb::scan_status_t::PENDING) {
+					/*
+						The new scan status must be written to the database now.
+						Otherwise there may be problems on muxes which fail to scan: their status would remain
+						pending, and whne parallel tuners are in use, the second tuner might decide to scan
+						the mux again
+					*/
+					auto wtxn = cb(receiver.chdb.wtxn();
+					namespace m = chdb::update_mux_preserve_t;
+					chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+					wtxn.commit();
+					assert(mux.c.scan_status == chdb::scan_status_t::ACTIVE);
+				}
+#endif
 				return cb(tuner_thread).set_tune_options(*other_active_adapter, tune_options);
 			}));
 

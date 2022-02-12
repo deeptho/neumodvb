@@ -96,6 +96,7 @@ int task_queue_t::run_tasks(system_time_t now_) {
 }
 
 void receiver_thread_t::unsubscribe_mux_(std::vector<task_queue_t::future_t>& futures, int subscription_id) {
+	dtdebugx("Unsubscribe subscription_id=%d", subscription_id);
 	assert(subscription_id >= 0);
 	// release subscription's service on this mux, if any
 	auto active_adapter_p = active_adapter_for_subscription(subscription_id);
@@ -506,9 +507,6 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 																			std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& txn,
 																			const chdb::dvbs_mux_t& mux, int subscription_id, tune_options_t tune_options,
 																			const chdb::lnb_t* required_lnb) {
-	if (subscription_id < 0)
-		subscription_id = this->next_subscription_id++;
-
 	dvb_adapter_t* adapter_to_release = nullptr;
 	if (old_active_adapter.get()) {
 		int num_users = old_active_adapter->reservation()->use_count();
@@ -523,16 +521,19 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 	if (!found) {
 		user_error("Subscribe " << mux << ": no suitable adapter found");
 		if (old_active_adapter) {
+			assert(subscription_id>=0);
 			unsubscribe_mux_(futures, subscription_id);
 		}
 		return -1;
 	}
 	assert(!required_lnb || (best_lnb.k == required_lnb->k)); // we have the right lnb
 #ifndef NDEBUG
-	auto [itch, foundservice] = find_in_map(this->reserved_services, subscription_id);
-	if (foundservice) {
-		dterror("Implementation error: no service should be subscribed at this point\n");
-		assert(0);
+	if(subscription_id>=0) {
+		auto [itch, foundservice] = find_in_map(this->reserved_services, subscription_id);
+		if (foundservice) {
+			dterror("Implementation error: no service should be subscribed at this point\n");
+			assert(0);
+		}
 	}
 #endif
 	assert(best_fe.get());
@@ -572,14 +573,17 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 			}));
 	} else {
 		if (old_active_adapter) {
+			assert(subscription_id>=0);
 			unsubscribe_mux_(futures, subscription_id);
 		}
-		auto active_adapter = std::make_shared<active_adapter_t>(receiver, receiver.tuner_thread, best_fe);
+		active_adapter = std::make_shared<active_adapter_t>(receiver, receiver.tuner_thread, best_fe);
 		auto& reservation = best_fe->adapter->reservation;
 #pragma unused(reservation)
 		auto& lnb = best_lnb;
 		assert(reservation.readAccess()->use_count_mux() == 0);
 		active_adapter->reservation()->reserve(lnb, mux);
+		if (subscription_id < 0)
+			subscription_id = this->next_subscription_id++;
 		{
 			auto w = receiver.reserved_muxes.writeAccess();
 			(*w)[subscription_id] = active_adapter;
@@ -593,7 +597,9 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 			return ret;
 		}));
 	}
-	dtdebug("Subscribed to: " << mux);
+	auto adapter_no =  active_adapter->get_adapter_no();
+	dtdebug("Subscribed: subscription_id=" << subscription_id << " adap=" <<
+					adapter_no << " " << mux);
 	return subscription_id;
 }
 
@@ -616,8 +622,6 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 																			const _mux_t& mux, int subscription_id, tune_options_t tune_options,
 																			const chdb::lnb_t* required_lnb /*unused*/) {
 	assert(!required_lnb);
-	if (subscription_id < 0)
-		subscription_id = this->next_subscription_id++;
 
 	dvb_adapter_t* adapter_to_release = nullptr;
 	if (old_active_adapter.get()) {
@@ -634,15 +638,18 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 	if (!best_fe.get()) {
 		user_error("Subscribe " << mux << ": no suitable adapter found");
 		if (old_active_adapter) {
+			assert (subscription_id>=0);
 			unsubscribe_mux_(futures, subscription_id);
 		}
 		return -1;
 	}
 #ifndef NDEBUG
-	auto [itch, foundservice] = find_in_map(this->reserved_services, subscription_id);
-	if (foundservice) {
-		dterror("Implementation error: no service should be subscribed at this point\n");
-		assert(0);
+	if( subscription_id >=0) {
+		auto [itch, foundservice] = find_in_map(this->reserved_services, subscription_id);
+		if (foundservice) {
+			dterror("Implementation error: no service should be subscribed at this point\n");
+			assert(0);
+		}
 	}
 #endif
 	assert(best_fe.get());
@@ -681,6 +688,7 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 			}));
 	} else {
 		if (old_active_adapter) {
+			assert(subscription_id>=0);
 			unsubscribe_mux_(futures, subscription_id);
 		}
 		auto& reservation = best_fe->adapter->reservation;
@@ -688,6 +696,8 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 		assert(reservation.readAccess()->use_count_mux() == 0);
 		auto active_adapter = std::make_shared<active_adapter_t>(receiver, receiver.tuner_thread, best_fe);
 		active_adapter->reservation()->reserve(mux);
+		if (subscription_id < 0)
+			subscription_id = this->next_subscription_id++;
 		{
 			auto w = receiver.reserved_muxes.writeAccess();
 			(*w)[subscription_id] = active_adapter;
@@ -824,7 +834,7 @@ int receiver_thread_t::subscribe_mux_in_use(std::vector<task_queue_t::future_t>&
 				return cb(tuner_thread).set_tune_options(*other_active_adapter, tune_options);
 			}));
 
-			dtdebug("[" << mux << "] sub =" << subscription_id << ": reusing existing mux");
+			dtdebug("[" << mux << "] subscription_id=" << subscription_id << ": reusing existing mux");
 			return subscription_id;
 		}
 	}
@@ -928,8 +938,6 @@ int receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, int subscription_i
 
 int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, chdb::lnb_t& lnb,
 																		 tune_options_t tune_options, int subscription_id) {
-	if (subscription_id < 0)
-		subscription_id = this->next_subscription_id++;
 	{
 		auto txn = receiver.chdb.rtxn();
 		auto c = chdb::lnb_t::find_by_key(txn, lnb.k);
@@ -950,6 +958,7 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 		user_error("Subscribe " << lnb << ": adapter of lnb not suitable");
 		dtdebug(get_error());
 		if (old_active_adapter) {
+			assert (subscription_id >= 0);
 			unsubscribe_(futures, subscription_id, false);
 		}
 		return -1;
@@ -981,6 +990,7 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 		}));
 	} else {
 		if (old_active_adapter) {
+			assert (subscription_id >= 0);
 			unsubscribe_mux_(futures, subscription_id);
 		}
 		auto active_adapter = std::make_shared<active_adapter_t>(receiver, receiver.tuner_thread, fe);
@@ -988,6 +998,8 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 #pragma unused(reservation)
 		assert(reservation.readAccess()->use_count_mux() == 0);
 		active_adapter->reservation()->reserve(lnb, tune_options.sat_pos);
+		if (subscription_id < 0)
+			subscription_id = this->next_subscription_id++;
 		{
 			auto w = receiver.reserved_muxes.writeAccess();
 			(*w)[subscription_id] = active_adapter;

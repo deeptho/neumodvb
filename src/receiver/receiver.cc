@@ -511,7 +511,7 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 		}
 	}
 	auto [best_fe, best_lnb] =
-		adaptermgr->find_lnb_for_tuning_to_mux(txn, mux, required_lnb, adapter_to_release, tune_options.is_blind());
+		adaptermgr->find_lnb_for_tuning_to_mux(txn, mux, required_lnb, adapter_to_release, tune_options);
 	bool found = best_fe.get();
 	if (!found) {
 		user_error("Subscribe " << mux << ": no suitable adapter found");
@@ -621,7 +621,8 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 		}
 	}
 
-	auto best_fe = adaptermgr->find_adapter_for_tuning_to_mux(txn, mux, adapter_to_release, tune_options.is_blind());
+	auto best_fe = adaptermgr->find_adapter_for_tuning_to_mux(txn, mux, adapter_to_release,
+																														tune_options.use_blind_tune);
 
 	if (!best_fe.get()) {
 		user_error("Subscribe " << mux << ": no suitable adapter found");
@@ -1131,10 +1132,10 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_recording(con
 				return active_playback->make_client_mpm(receiver, subscription_id);
 			}
 		}
-
 		unsubscribe(subscription_id);
 	} else
 		subscription_id = next_subscription_id++;
+
 	return subscribe_recording_(rec, subscription_id);
 }
 
@@ -1334,7 +1335,7 @@ template <typename _mux_t> int receiver_t::subscribe_mux(const _mux_t& mux, bool
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.scan_target = scan_target_t::SCAN_FULL;
-	tune_options.set_mux_blindtune(blindscan);
+	tune_options.use_blind_tune = blindscan;
 
 	futures.push_back(receiver_thread.push_task([this, &mux, tune_options, &subscription_id]() {
 		cb(receiver_thread).abort_scan();
@@ -1490,7 +1491,7 @@ int receiver_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& 
 	tune_options.constellation_options.num_samples = 1024 * 16;
 	tune_options.scan_target = scan_target_t::SCAN_MINIMAL;
 	tune_options.subscription_type = subscription_type_t::DISH_EXCLUSIVE;
-	tune_options.set_mux_blindtune(blindscan);
+	tune_options.use_blind_tune = blindscan;
 	tune_options.retune_mode = retune_mode;
 	tune_options.pls_search_range = pls_search_range;
 	futures.push_back(receiver_thread.push_task([this, &lnb, &mux, tune_options, &subscription_id]() {

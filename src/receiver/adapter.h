@@ -70,9 +70,11 @@ class fe_monitor_thread_t;
 enum class tune_mode_t {
 	IDLE,
 	NORMAL,
-	MUX_BLIND,
 	SPECTRUM,
-	SCAN_BLIND,
+#if 0
+	MUX_BLIND,
+#endif
+	SCAN_BLIND, //ask driver to scan blindly (not implemented)
 	POSITIONER_CONTROL,
 	UNCHANGED
 	};
@@ -232,6 +234,8 @@ public:
 		int fefd{-1}; //file handle if open
 		int last_saved_freq{0}; //for spectrum scan: last frequency written to spectrum file
 		tune_mode_t tune_mode{tune_mode_t::IDLE};
+		bool use_blind_tune{false};
+		bool may_move_dish{true};
 		spectrum_scan_options_t spectrum_scan_options;
 		lock_status_t lock_status;
 	};
@@ -263,8 +267,8 @@ public:
 
 	lock_status_t get_lock_status();
 	int tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& options);
-	int tune(const chdb::dvbt_mux_t& mux, bool blindscan);
-	int tune(const chdb::dvbc_mux_t& mux, bool blindscan);
+	int tune(const chdb::dvbt_mux_t& mux, const tune_options_t& options);
+	int tune(const chdb::dvbc_mux_t& mux, const tune_options_t& options);
 	int start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_scan_options_t spectrum_scan_options);
 	void set_monitor_thread(const std::weak_ptr<fe_monitor_thread_t>& thr) {
 		monitor_thread_ = thr;
@@ -569,7 +573,7 @@ public:
 	std::tuple<std::shared_ptr<dvb_frontend_t>,  chdb::lnb_t>
 	find_lnb_for_tuning_to_mux
 	(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
-	 const dvb_adapter_t* adapter_to_release, bool blindscan) const;
+	 const dvb_adapter_t* adapter_to_release, const tune_options_t& tune_options) const;
 
 	std::shared_ptr<dvb_frontend_t>
 	find_fe_for_lnb

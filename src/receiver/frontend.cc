@@ -1065,7 +1065,7 @@ void cmdseq_t::init_pls_codes() {
 }
 
 int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options) {
-	auto blindscan = tune_options.is_blind() || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO
+	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO
 		|| mux.symbol_rate < 1000000;
 	int num_constellation_samples = tune_options.constellation_options.num_samples;
 	tuned_frequency = mux.frequency;
@@ -1130,14 +1130,15 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 		constellation.num_samples = 0;
 	}
 	auto fefd = t.fefd;
-	t.tune_mode = blindscan ? tune_mode_t::MUX_BLIND : tune_mode_t::NORMAL;
+	t.use_blind_tune = blindscan;
+	t.tune_mode = tune_options.tune_mode;
 	int heartbeat_interval = (api_type == api_type_t::NEUMO) ? 1000 : 0;
 	auto ret = cmdseq.tune(fefd, heartbeat_interval);
 	dtdebugx("tune_it returning ret=%d", ret);
 	return ret;
 }
 
-int dvb_frontend_t::tune(const chdb::dvbc_mux_t& mux, bool blindscan) {
+int dvb_frontend_t::tune(const chdb::dvbc_mux_t& mux, const tune_options_t& tune_options) {
 	this->num_constellation_samples = 0;
 	cmdseq_t cmdseq;
 	// any system
@@ -1155,12 +1156,13 @@ int dvb_frontend_t::tune(const chdb::dvbc_mux_t& mux, bool blindscan) {
 
 	auto& t = *ts.writeAccess();
 	auto fefd = t.fefd;
-	t.tune_mode = blindscan ? tune_mode_t::MUX_BLIND : tune_mode_t::NORMAL;
+	t.tune_mode = tune_options.tune_mode;
+	t.tune_mode = tune_mode_t::NORMAL;
 	int heartbeat_interval = 0;
 	return cmdseq.tune(fefd, heartbeat_interval);
 }
 
-int dvb_frontend_t::tune(const chdb::dvbt_mux_t& mux, bool blindscan) {
+int dvb_frontend_t::tune(const chdb::dvbt_mux_t& mux, const tune_options_t& tune_options) {
 	this->num_constellation_samples = 0;
 	cmdseq_t cmdseq;
 
@@ -1203,8 +1205,8 @@ int dvb_frontend_t::tune(const chdb::dvbt_mux_t& mux, bool blindscan) {
 
 	auto& t = *ts.writeAccess();
 	auto fefd = t.fefd;
-	t.tune_mode = blindscan ? tune_mode_t::MUX_BLIND : tune_mode_t::NORMAL;
-
+	t.use_blind_tune = tune_options.use_blind_tune;
+	t.tune_mode = tune_options.tune_mode;
 	int heartbeat_interval = 0;
 	return cmdseq.tune(fefd, heartbeat_interval);
 }

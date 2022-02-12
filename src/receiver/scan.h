@@ -21,21 +21,15 @@
 #pragma once
 #include <boost/context/continuation_fcontext.hpp>
 #include "neumodb/chdb/chdb_extra.h"
+#include "tune_options.h"
+
+#include <set>
 
 class receiver_thread_t;
 class tuner_thread_t;
 class receiver_t;
 class active_adapter_t;
 
-enum class scan_target_t :	int
-{
-	NONE, //keep current status or use default
-	DEFAULT,      //epg scanning and table scanning
-	SCAN_MUX,
-	SCAN_MINIMAL, //NIT, SDT, PAT
-	SCAN_FULL, //NIT, SDT, PAT, all PMTS
-	DONE,
-};
 
 struct scan_state_t {
 	/*
@@ -221,6 +215,7 @@ class scanner_t {
 	bool scan_found_muxes;
 	int id{0};
 	bool must_end = false;
+	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
 	bool scan_dvbs{false};
 	bool scan_dvbc{false};
 	bool scan_dvbt{false};

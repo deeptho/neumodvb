@@ -167,7 +167,6 @@ int active_adapter_t::lnb_scan(const chdb::lnb_t& lnb, tune_options_t tune_optio
 
 int active_adapter_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_options_t tune_options,
 													 bool user_requested) {
-
 	this->tune_options = tune_options;
 	if (user_requested)
 		retune_count = 0;
@@ -208,21 +207,21 @@ int active_adapter_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 }
 
 int active_adapter_t::retune(const chdb::lnb_t& lnb) {
-	const auto* mux = std::get_if<chdb::dvbs_mux_t>(&current_tp());
-	assert(mux);
+	auto mux = *std::get_if<chdb::dvbs_mux_t>(&current_tp());
 	bool user_requested = false;
 	retune_count++;
-	si.reset();
-	return tune(lnb, *mux, tune_options, user_requested);
+	const bool is_retune{true};
+	si.reset(is_retune);
+	return tune(lnb, mux, tune_options, user_requested);
 }
 
 template <typename mux_t> inline int active_adapter_t::retune() {
-	const auto* mux = std::get_if<mux_t>(&current_tp());
-	assert(mux);
+	auto mux = *std::get_if<mux_t>(&current_tp());
 	bool user_requested = false;
 	retune_count++;
-	si.reset();
-	return tune(*mux, tune_options, user_requested);
+	const bool is_retune{true};
+	si.reset(is_retune);
+	return tune(mux, tune_options, user_requested);
 }
 
 int active_adapter_t::restart_tune() {
@@ -334,7 +333,7 @@ void active_adapter_t::on_first_pat() {
 }
 
 void active_adapter_t::monitor() {
-	if (tune_options.tune_mode != tune_mode_t::NORMAL && tune_options.tune_mode != tune_mode_t::MUX_BLIND)
+	if (tune_options.tune_mode != tune_mode_t::NORMAL)
 		return;
 	bool must_retune{false};
 	bool must_reinit_si{false};
@@ -411,9 +410,10 @@ int active_adapter_t::tune_it(const tune_options_t tune_options, chdb::delsys_ty
 	memset(&feparams, 0, sizeof(struct dvb_frontend_parameters));
 
 	/** @todo here check the capabilities of the card*/
-
-	dtdebug("Using adapter  " << get_adapter_no());
-	bool blindscan = tune_options.is_blind();
+	auto fefd = current_fe->ts.readAccess()->fefd;
+	dtdebugx("adapter =%d fefd=%d",  get_adapter_no(), fefd);
+	assert(fefd>=0);
+	bool blindscan = tune_options.use_blind_tune;
 	feparams.inversion = INVERSION_AUTO;
 	auto ret = -1;
 
@@ -431,7 +431,7 @@ int active_adapter_t::tune_it(const tune_options_t tune_options, chdb::delsys_ty
 			dterror("Attempting to tune non DVB-T mux");
 		} else {
 			dtdebug("Tuning adapter [ " << get_adapter_no() << "] DVB-T to " << mux << (blindscan ? "BLIND" : ""));
-			ret = current_fe->tune(*mux, blindscan);
+			ret = current_fe->tune(*mux, tune_options);
 		}
 	} break;
 	case chdb::delsys_type_t::DVB_S: { // DVB-S
@@ -452,7 +452,7 @@ int active_adapter_t::tune_it(const tune_options_t tune_options, chdb::delsys_ty
 			dterror("Attempting to tune non DVB-C mux");
 		} else {
 			dtdebug("Tuning adapter [ " << get_adapter_no() << "] DVB-C to " << mux << (blindscan ? "BLIND" : ""));
-			ret = current_fe->tune(*mux, blindscan);
+			ret = current_fe->tune(*mux, tune_options);
 		}
 	} break;
 #ifdef ATSC

@@ -197,11 +197,12 @@ struct scan_state_t {
 
 struct scan_stats_t
 {
-	int new_muxes{0};
-	int updated_muxes{0};
+	int scanned_muxes{0};
 	int failed_muxes{0};
 	int scheduled_muxes{0};
 	int finished_muxes{0};
+	int active_muxes{0};
+	chdb::any_mux_t last_subscribed_mux{}; //or one of them
 	chdb::any_mux_t last_scanned_mux{};
 };
 
@@ -211,8 +212,10 @@ class scanner_t {
 	receiver_thread_t& receiver_thread;
 	receiver_t& receiver;
 	int subscription_id{-1};
+	time_t scan_start_time{-1};
 	int max_num_subscriptions{std::numeric_limits<int>::max()};
 	bool scan_found_muxes;
+	chdb::any_mux_t last_subscribed_mux;
 	int id{0};
 	bool must_end = false;
 	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};

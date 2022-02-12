@@ -38,12 +38,12 @@ namespace py = pybind11;
 
 void export_scan_stats(py::module& m) {
 	py::class_<scan_stats_t>(m, "scan_stats")
-		.def_readonly("new_muxes", &scan_stats_t::new_muxes)
-		.def_readonly("updated_muxes", &scan_stats_t::updated_muxes)
 		.def_readonly("scheduled_muxes", &scan_stats_t::scheduled_muxes)
 		.def_readonly("finished_muxes", &scan_stats_t::finished_muxes)
+		.def_readonly("active_muxes", &scan_stats_t::active_muxes)
 		.def_readonly("failed_muxes", &scan_stats_t::failed_muxes)
 		.def_readonly("last_scanned_mux", &scan_stats_t::last_scanned_mux)
+		.def_readonly("last_subscribed_mux", &scan_stats_t::last_subscribed_mux)
 		;
 }
 

@@ -931,12 +931,10 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                     self.OnRefresh(None, None)
                     if self.infow is not None:
                         self.infow.ShowRecord(self.table.CurrentlySelectedRecord())
-                elif wx.GetApp().scan_subscription_id>=0:
-                    if self.infow is not None:
-                        self.infow.ShowRecord(self.table.CurrentlySelectedRecord())
+                return changed
 
 
-        pass
+        return false
 
 
     def OnToggleSort(self, evt):

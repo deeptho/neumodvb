@@ -1304,7 +1304,7 @@ class RecordPanel(wx.Panel):
 
         ##The following is needed to handle a wx(?) bug: when scrolling down and thus adding
         ##cells to the grid, row heights seme to increase leading to the last entry moving off screeen
-        w,h = get_text_extent("Test", self.GetFont(), compensate=True)
+        w,h = get_text_extent("Test", self.GetFont(), compensate=False)
         self.row_height= ((h+1)//2)*2 +self.row_gap
         dtdebug(f'ROW HEIGHT: {self.row_height}')
         self.make_rows()

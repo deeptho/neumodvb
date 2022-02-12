@@ -180,7 +180,7 @@ class IconRenderer(wx.grid.GridCellRenderer):
             xspace -= w
             icons.append(dict(icon=i, w=w, h =h))
         if xspace <0:
-            dtdebug("not enough room for icons")
+            dtdebug(f"not enough room for icons: {xspace}")
             xspace=0
         else:
             xspace = xspace //(len(icons)+1)
@@ -1028,7 +1028,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             else:
                 w,h = self.header_dc.GetTextExtent(f"{example}")
                 w1,h1 = self.header_dc.GetTextExtent(f"{col.label}")
-            extra = self.my_col_label_renderer.sort_bitmap_width
+            extra = self.my_col_label_renderer.sort_bitmap_width + 2 #+2 to compensate for (rounding?) error in wx
             w=max(w, w1+extra)
             return w
 

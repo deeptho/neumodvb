@@ -430,11 +430,14 @@ template <> bool active_adapter_reservation_t::is_tuned_to(const chdb::any_mux_t
 
 int active_adapter_reservation_t::release() {
 	auto ret = use_count.unregister_subscription();
+#if 0 //leads to race condition
 	if (ret == 0) {
 		auto* fe = active_adapter->current_fe.get();
-		dtdebugx("Release fe =%p", fe);
+		auto fefd = fe->ts.readAccess()->fefd;
+		dtdebugx("Release fe_fd=%d", fefd);
 		fe->adapter->release_fe();
 	}
+#endif
 	return ret;
 }
 

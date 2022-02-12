@@ -766,6 +766,11 @@ int active_adapter_t::deactivate() {
 	tune_state = TUNE_INIT;
 	end_si();
 	active_services.clear();
+
+	auto* fe = current_fe.get();
+	auto fefd = fe->ts.readAccess()->fefd;
+	dtdebugx("Release fe_fd=%d", fefd);
+	fe->adapter->release_fe();
 	return 0;
 }
 

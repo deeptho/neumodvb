@@ -691,15 +691,15 @@ namespace dtdemux {
 			break;
 
 		case 0x02: // epg service
-			dtdebugx("LINK to epg service nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			//dtdebugx("LINK to epg service nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
 			break;
 
 		case 0x04: // TS containing complete Network/Bouquet SI
-			dtdebugx("LINK to network/bouquet nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			//dtdebugx("LINK to network/bouquet nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
 			break;
 
 		case 0x05: // service replacement service
-			dtdebugx("LINK to replacement service nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			//dtdebugx("LINK to replacement service nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
 			break;
 		case 0x09: // System Software Update Service (TS 102 006 [11])
 			break;
@@ -1613,8 +1613,8 @@ namespace dtdemux {
 				break;
 
 			case SI::LinkageDescriptorTag: {
-				if (network.bouquet_linkage.size() > 0)
-					dterrorx("Unexpected: more than one bouque linkage: num=%d\n", network.bouquet_linkage.size() + 1);
+				//if (network.bouquet_linkage.size() > 0)
+					//dterrorx("Unexpected: more than one bouque linkage: num=%d\n", network.bouquet_linkage.size() + 1);
 				bouquet_linkage_t bouquet_linkage;
 				section.get_fields<linkage_descriptor_t>(bouquet_linkage, desc);
 				network.bouquet_linkage.push_back(bouquet_linkage);

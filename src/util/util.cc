@@ -209,7 +209,7 @@ int epoll_t::wait(struct epoll_event* events, int maxevents, int timeout) {
 												NULL);
 		if (n < 0) {
 			if (errno == EINTR) {
-				LOG4CXX_DEBUG(logger, "epoll_wait was interrupted");
+				//LOG4CXX_DEBUG(logger, "epoll_wait was interrupted");
 				continue;
 			} else {
 				LOG4CXX_ERROR(logger, "epoll_pwait failed: " << strerror(errno));

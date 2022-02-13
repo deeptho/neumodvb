@@ -990,10 +990,12 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 			this subscription
 		*/
 		futures.push_back(old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, lnb]() {
+#if 0
 			auto ret = cb(receiver.tuner_thread).remove_active_adapter(*old_active_adapter);
 			if (ret < 0)
 				dterrorx("deactivate returned %d", ret);
-			ret = cb(receiver.tuner_thread).lnb_scan(old_active_adapter, lnb, tune_options);
+#endif
+			auto ret = cb(receiver.tuner_thread).lnb_scan(old_active_adapter, lnb, tune_options);
 			if (ret < 0)
 				dterrorx("tune returned %d", ret);
 			return ret;

@@ -61,7 +61,7 @@ class PrimitiveCursorRange
 {
 	bool done_ = false;
 	cursor_t<data_t>& cursor;
-	MDB_cursor_op op_next=MDB_NEXT;
+	MDB_cursor_op op_next = MDB_NEXT;
 
 	void check_done() {
 		if(done_)
@@ -72,7 +72,7 @@ class PrimitiveCursorRange
 	}
 
 public:
-	PrimitiveCursorRange(cursor_t<data_t>& c, 	MDB_cursor_op op_next_=MDB_NEXT)
+	PrimitiveCursorRange(cursor_t<data_t>& c, 	MDB_cursor_op op_next_ = MDB_NEXT)
 		: cursor{c}
 		, op_next(op_next_) {
 		done_ = (c.handle() == nullptr || !c.is_valid());
@@ -662,11 +662,11 @@ struct db_tcursor_ : public db_cursor {
 		A cursor only iterates over records of the same type, as identified by the key_type prefix
 		However, if no iteration is performed, key_type can be left unspecified.
 	 */
-	db_tcursor_(db_txn&txn, lmdb::dbi&dbi, const ss::bytebuffer_& key_prefix, bool is_index_cursor=false) :
+	db_tcursor_(db_txn& txn, lmdb::dbi&dbi, const ss::bytebuffer_& key_prefix, bool is_index_cursor=false) :
 		db_cursor(txn, dbi, key_prefix, is_index_cursor)
 		{}
 
-	db_tcursor_(db_txn&txn, lmdb::dbi&dbi, bool is_index_cursor=false) :
+	db_tcursor_(db_txn& txn, lmdb::dbi&dbi, bool is_index_cursor=false) :
 		db_cursor(txn, dbi, is_index_cursor)
 		{}
 

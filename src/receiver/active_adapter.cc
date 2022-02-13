@@ -814,23 +814,10 @@ void active_adapter_t::set_current_lnb(const chdb::lnb_t& lnb) {
 		*w = lnb;
 };
 
-void active_adapter_t::on_tuned_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& si_mux_key, bool update_db,
-																							 bool update_sat_pos) {
-	{
-		auto w = tuned_mux.writeAccess();
-		auto& tm = *w;
-		auto* mux_key = chdb::mux_key_ptr(tm);
-		auto* common = chdb::mux_common_ptr(tm);
-		assert(!update_db || (mux_key->sat_pos == si_mux_key.sat_pos));
-		assert(mux_key->sat_pos == si_mux_key.sat_pos || update_sat_pos);
-		mux_key->network_id = si_mux_key.network_id;
-		mux_key->ts_id = si_mux_key.ts_id;
-		mux_key->extra_id = si_mux_key.extra_id;
-		if (update_db && !common->is_template) { // templates may have inaccurate tuning data
-			namespace m = chdb::update_mux_preserve_t;
-			chdb::update_mux(wtxn, tm, now, m::flags{m::ALL & ~m::MUX_KEY});
-		}
-	}
+//only called from active_si_stream.h true, true and true, false and false, false,
+void active_adapter_t::on_tuned_mux_change(const chdb::any_mux_t& mux) {
+	auto w = tuned_mux.writeAccess();
+	*w = mux;
 	current_fe->update_tuned_mux_nit(current_tp());
 }
 
@@ -890,7 +877,9 @@ void active_adapter_t::init_si(scan_target_t scan_target) {
 		dtdebug("mux " << *dvbs_mux << " is an embedded stream");
 		mux.k.t2mi_pid = 0;
 		auto rtxn = receiver.chdb.wtxn();
-		auto c = chdb::find_mux_by_key_or_frequency(rtxn, mux);
+		/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
+		handle small differences in sat_pos*/
+		auto c = chdb::find_by_mux_physical(rtxn, mux);
 		if (c.is_valid()) {
 			assert(mux_key_ptr(c.current())->sat_pos != sat_pos_none);
 			set_current_tp(c.current());

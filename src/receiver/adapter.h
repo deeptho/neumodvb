@@ -310,9 +310,8 @@ public:
 		return t->fefd ==fd;
 	}
 
-	~dvb_frontend_t() {
-		//printf("destructor\n");
-	}
+	~dvb_frontend_t();
+
 };
 
 

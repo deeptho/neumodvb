@@ -405,8 +405,7 @@ private:
 	int deactivate();
 	void on_stable_pat();
 	void on_first_pat();
-	void on_tuned_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& si_mux_key,
-															 bool update_db, bool update_sat_pos);
+	void on_tuned_mux_change(const chdb::any_mux_t& si_mux);
 
 
 //	int open_frontend();

@@ -97,6 +97,11 @@ public:
 	virtual void close() {
 	}
 
+	virtual void reset()  {
+		num_read = 0;
+	}
+
+
 	virtual ~stream_reader_t() {
 	}
 
@@ -104,8 +109,7 @@ public:
 
 	const tune_options_t& tune_options() const;
 
-	virtual inline void on_tuned_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& si_mux_key,
-																							bool update_db, bool update_sat_pos) =0;
+	virtual inline void on_tuned_mux_change(const chdb::any_mux_t& mux) =0;
 
 	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const = 0;
 	void  update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
@@ -170,8 +174,7 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 
 	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const;
 	virtual const chdb::any_mux_t& tuned_mux() const;
-	virtual inline void on_tuned_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& si_mux_key,
-																							bool update_db, bool update_sat_pos);
+	virtual inline void on_tuned_mux_change(const chdb::any_mux_t& mux);
 
 	virtual void update_tuned_mux_nit(const chdb::any_mux_t& mux);
 /*
@@ -290,8 +293,7 @@ public:
 	virtual const chdb::any_mux_t& tuned_mux() const;
 	virtual void set_current_tp(const chdb::any_mux_t& mux) const;
 	virtual void update_tuned_mux_nit(const chdb::any_mux_t& mux);
-	virtual inline void on_tuned_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& si_mux_key,
-																							bool update_db, bool update_sat_pos) {
+	virtual inline void on_tuned_mux_change(const chdb::any_mux_t& mux) {
 		assert(0);
 		return; //do nothing
 		}

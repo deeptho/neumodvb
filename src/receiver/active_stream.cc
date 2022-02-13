@@ -148,9 +148,10 @@ int active_stream_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags)
 
 void dvb_stream_reader_t::close() {
 	if(demux_fd<0) {
-		dtdebugx("demux_fd was already closed");
+
 		return;
 	}
+	dtdebugx("closing demux_fd=%d", demux_fd);
 	epoll->remove_fd(demux_fd);
 	if(::close(demux_fd)<0) {
 		dterror("Cannot close demux: " << strerror(errno));
@@ -286,10 +287,9 @@ const tune_options_t& stream_reader_t::tune_options() const
 	return active_adapter.tune_options;
 }
 
-void dvb_stream_reader_t::on_tuned_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& si_mux_key,
-																									bool update_db, bool update_sat_pos)
+void dvb_stream_reader_t::on_tuned_mux_change(const chdb::any_mux_t& mux)
 {
-	active_adapter.on_tuned_mux_key_change(wtxn, si_mux_key, update_db, update_sat_pos);
+	active_adapter.on_tuned_mux_change(mux);
 }
 
 

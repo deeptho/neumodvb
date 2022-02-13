@@ -858,7 +858,7 @@ int dvb_adapter_t::release_fe() {
 			// todo: what if this fails? previois line returns negative
 		}
 
-		dtdebugx("releasing frontend_monitor %p: fefd=%d\n", w->reserved_fe, w->reserved_fe->ts.readAccess()->fefd);
+		dtdebugx("releasing frontend_monitor: fefd=%d\n", w->reserved_fe->ts.readAccess()->fefd);
 		if (w->exclusive) {
 			adaptermgr->release_dish_exclusive(fe, w->reserved_lnb.k.dish_id);
 		} else { // implies that we did not reserve mux

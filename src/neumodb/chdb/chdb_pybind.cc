@@ -46,9 +46,10 @@ static void export_mux_extra(py::module& m) {
 	mm.def("make_unique_if_template", make_unique_if_template<dvbs_mux_t>,
 				 "Make the key of this mux unique, but only if network_id==mux_id==extra_id==0")
 		.def("list_distinct_sats", chdb::dvbs_mux::list_distinct_sats, "List distinct sat_pos of all muxes")
-		.def("find_by_fuzzy_sat_pos_network_id_ts_id", chdb::find_by_fuzzy_sat_pos_network_id_ts_id,
-				 "find a dvbs mux allowing for slamm deviation in sat_pos", py::arg("txn"), py::arg("sat_pos"),
-				 py::arg("network_id"), py::arg("ts_id"))
+		.def("find_by_sat_freq_pol_fuzzy", chdb::test_find_by_sat_freq_pol_fuzzy,
+				 "find a dvbs mux allowing for differences in sat_pos and frequency",
+				 py::arg("txn"), py::arg("sat_pos"), py::arg("frequency"), py::arg("polarisation"),
+				 py::arg("t2mi_pid"), py::arg("stream_id"))
 		;
 
 	py::reinterpret_borrow<py::module>(m.attr("dvbc_mux"))
@@ -66,6 +67,7 @@ static void export_sat_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("sat"));
 	mm.attr("sat_pos_dvbc") = sat_pos_dvbc;
 	mm.attr("sat_pos_dvbt") = sat_pos_dvbt;
+	mm.attr("sat_pos_dvbs") = sat_pos_dvbs;
 	mm.attr("sat_pos_none") = sat_pos_none;
 }
 

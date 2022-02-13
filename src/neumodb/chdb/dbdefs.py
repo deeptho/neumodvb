@@ -132,9 +132,12 @@ scan_status = db_enum(name='scan_status_t',
                    storage = 'int8_t',
                    type_id = 100,
                    version = 1,
-                   fields=(('PENDING', 0),
-                           ('IDLE', 1),
-                           ('ACTIVE', 2)
+                   fields=(
+                       ('PENDING', 0), #mux will be scanned soon
+                       ('IDLE', 1),  #mux has been scanned before
+                       ('ACTIVE', 2), #mux is being scanned
+                       ('NONE', 3), #mux has never been scanned
+                           ))
                            ))
 
 scan_result = db_enum(name='scan_result_t',
@@ -510,7 +513,6 @@ fe_pls_mode = db_enum(name='fe_pls_mode_t',
 
 
 
-
 fe_band_pol = db_struct(name='fe_band_pol',
                     fname = 'mux',
                     db = db,
@@ -557,13 +559,13 @@ mux_common = db_struct(name='mux_common',
                     version = 1,
                     ignore_for_equality_fields = ('mtime',),
                     fields = ((1, 'time_t', 'scan_time'),
-                              (2, 'scan_status_t', 'scan_status'),
+                              (2, 'scan_status_t', 'scan_status', 'scan_status_t::NONE'),
                               (3, 'scan_result_t', 'scan_result'),
                               (8, 'time_t', 'scan_duration'),
                               (4, 'uint16_t', 'num_services'),
                               (5, 'bool', 'epg_scan'),
-                              (6, 'bool',  'is_template', 'false'),
-                              (10, 'bool',  'freq_from_si', 'false'), #true if frequency was set from si
+                              #(6, 'bool',  'is_template', 'false'),
+                              #(10, 'bool',  'freq_from_si', 'false'), #true if frequency was set from si
                               (7, 'time_t', 'mtime'),
                               (9, 'ss::vector<epg_type_t,2>', 'epg_types'),
                               ))
@@ -591,6 +593,7 @@ dvbs_mux = db_struct(name='dvbs_mux',
                 keys =  (
                 (lord('sf'), 'sat_pol_freq', ('k.sat_pos', 'pol', 'frequency')),
                 (lord('sn'), 'network_id_ts_id', ('k.network_id', 'k.ts_id')),
+                (lord('ss'), 'scan_status', ('c.scan_status', 'c.scan_time')),
                 ),
                 fields = ((1, 'mux_key_t', 'k'),
                           (2, 'chdb::fe_delsys_dvbs_t', 'delivery_system', 'chdb::fe_delsys_dvbs_t::SYS_DVBS2'),
@@ -617,7 +620,8 @@ dvbc_mux = db_struct(name='dvbc_mux',
                 version = 1,
                 primary_key = ('key', ('k',)), #unique
                 keys =  (
-                (ord('s')+256*1, 'freq', ('frequency',)),
+                (lord('cf'), 'freq', ('frequency',)),
+                (lord('cs'), 'scan_status', ('c.scan_status', 'c.scan_time')),
                 ),                     #not unique, could be split in unique and non-unique later
                 fields = ((1, 'mux_key_t', 'k'),
                           (2, 'fe_delsys_dvbc_t', 'delivery_system', 'fe_delsys_dvbc_t::SYS_DVBC'),
@@ -639,7 +643,8 @@ dvbt_mux = db_struct(name='dvbt_mux',
                 version = 1,
                 primary_key = ('key', ('k',)), #unique
                 keys =  (
-                (ord('s')+256*2, 'freq', ('frequency',)),
+                (lord('tf'), 'freq', ('frequency',)),
+                (lord('ts'), 'scan_status', ('c.scan_status', 'c.scan_time')),
                 ),                     #not unique, could be split in unique and non-unique later
                 fields = ((1, 'mux_key_t', 'k'),
                           (2, 'chdb::fe_delsys_dvbt_t', 'delivery_system', 'chdb::fe_delsys_dvbt_t::SYS_DVBT2'),

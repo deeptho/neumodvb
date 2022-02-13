@@ -135,6 +135,21 @@ int dvb_frontend_t::open_device(thread_safe_t& t, bool rw, bool allow_failure) {
 	return 0;
 }
 
+dvb_frontend_t::~dvb_frontend_t() {
+	auto t = ts.writeAccess();
+	if(t->fefd>=0) {
+		api_type = api_type_t::UNDEFINED;
+		dtdebugx("closing fefd=%d", t->fefd);
+		while (::close(t->fefd) != 0) {
+			if (errno != EINTR)
+				dterrorx("Error closing /dev/dvb/adapter%d/frontend%d: %s", (int)adapter->adapter_no, (int)frontend_no,
+								 strerror(errno));
+		}
+		t->fefd = -1;
+	}
+	//printf("destructor\n");
+}
+
 void dvb_frontend_t::close_device(thread_safe_t& t) {
 	if (t.fefd < 0)
 		return;

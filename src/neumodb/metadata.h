@@ -27,6 +27,7 @@
 #define sat_pos_none -32767 //important that this is a very low negative value, e.g. when searching with find_type_geq
 #define sat_pos_dvbc 20001
 #define sat_pos_dvbt 20002
+#define sat_pos_dvbs 20003 // dvbs mux with unknown sat
 #define channel_id_template ((int32_t)0x80000001)
 #define bouquet_id_template ((int32_t)0x80000001)
 #define bouquet_id_movistar 0x010001

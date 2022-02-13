@@ -67,44 +67,70 @@ namespace chdb {
 		enum flags : int {
 			NONE = 0x0,
 			SCAN_DATA  = 0x1,
-			NUM_SERVICES  = 0x2,
-			EPG_TYPES   = 0x4,
-			MUX_KEY = 0x10,
-			TUNE_DATA = 0x20,
-			PLS_DATA = 0x40,
-			MTIME = 0x80,
-			ALL = 0xff,
-			MUX_COMMON = SCAN_DATA | NUM_SERVICES | EPG_TYPES,
+			SCAN_STATUS  = 0x2,
+			NUM_SERVICES  = 0x4, //directly used
+			EPG_TYPES   = 0x8, // directly used
+			TUNE_SRC   = 0x10, //indrectly used
+			MUX_KEY = 0x20, //directlt used
+			TUNE_DATA = 0x40, //NOT USED
+			PLS_DATA = 0x80, //NOT USED
+			MTIME = 0x100,
+			ALL = 0xffff,
+			MUX_COMMON = SCAN_DATA | SCAN_STATUS | NUM_SERVICES | EPG_TYPES | TUNE_SRC,
 		};
 	};
 
-	bool update_mux_sat_pos(db_txn&txn, chdb::dvbs_mux_t& dvbs_mux);
+	template<typename mux_t>
+	void on_mux_key_change(db_txn&txn, const mux_t& old_mux,
+													mux_t& new_mux,
+												 system_time_t now_);
 
- inline bool update_mux_sat_pos(db_txn&txn, chdb::any_mux_t& mux) {
-	 using namespace chdb;
-	 auto& dvbs_mux = std::get<chdb::dvbs_mux_t>(mux);
-	 return update_mux_sat_pos(txn, dvbs_mux);
- }
+	void on_mux_key_change(db_txn&txn, const chdb::dvbs_mux_t& old_mux,
+													chdb::dvbs_mux_t& new_mux,
+													system_time_t now_);
+
+	void on_mux_key_change(db_txn&txn, const chdb::any_mux_t& old_mux,
+													chdb::any_mux_t& new_mux,
+													system_time_t now_);
 
 
+	/*
+		if callback returns false; save is aborted
+		if callback receives nullptr, record was not found
+	 */
 	update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
-															time_t now, update_mux_preserve_t::flags preserve);
+															system_time_t now, update_mux_preserve_t::flags preserve,
+															std::function<bool(const chdb::mux_common_t*)> cb);
 
 	inline update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 																		 system_time_t now, update_mux_preserve_t::flags preserve) {
-		return update_mux(txn, mux, system_clock_t::to_time_t(now), preserve);
+		return update_mux(txn, mux, now, preserve, [](const chdb::mux_common_t*) { return true;});
 	}
 
+
 	/*! Put a mux record, taking into account that its key may have changed
-	returns: true if this is a new mux (first time scanned); false otherwise
+		returns: true if this is a new mux (first time scanned); false otherwise
+		if callback returns false; save is aborted
+		if callback receives nullptr, record was not found
+
 	*/
 	template<typename mux_t>
-	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  time_t now, update_mux_preserve_t::flags preserve);
+	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
+															std::function<bool(const chdb::mux_common_t*)> cb);
+
+	template<typename mux_t>
+	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve) {
+		return update_mux(txn, mux, now, preserve, [](const chdb::mux_common_t*) { return true;});
+	}
 
 
 	template<typename mux_t>
 	inline bool is_template(const mux_t& mux) {
-		return mux.c.is_template;
+		return mux.c.tune_src == tune_src_t::TEMPLATE;
+	}
+
+	inline bool is_template(const chdb::any_mux_t& mux) {
+		return mux_common_ptr(mux)->tune_src == tune_src_t::TEMPLATE;
 	}
 
 	inline bool is_template(const chg_t& chg) {
@@ -199,11 +225,6 @@ namespace chdb {
 	inline void to_str(ss::string_& ret, const fe_delsys_dvbs_t& t) {
 		ret.sprintf("%p", &t);
 	}
-#if 0
-	inline void to_str(ss::string_& ret, const dish_state_t& t) {
-		ret.sprintf("%p", &t);
-	}
-#endif
 	inline void to_str(ss::string_& ret, const fe_supports_t& t) {
 		ret.sprintf("%p", &t);
 	}
@@ -262,29 +283,6 @@ namespace chdb {
 	std::ostream& operator<<(std::ostream& os, const fe_key_t& fe_key);
 	std::ostream& operator<<(std::ostream& os, const fe_t& fe);
 
-#if 0
-	inline bool is_same(const service_t &a, const service_t &b) {
-		if (!(a.k == b.k))
-			return false;
-		/*
-		if (!(a.mtime == b.mtime))
-			return false;
-		*/
-		if (!(a.ch_order == b.ch_order))
-			return false;
-		if (!(a.service_type == b.service_type))
-			return false;
-		if (!(a.pmt_pid == b.pmt_pid))
-			return false;
-		if (!(a.name == b.name))
-			return false;
-		if (!(a.provider == b.provider))
-			return false;
-		if (!(a.expired == b.expired))
-			return false;
-		return true;
-}
-#endif
 	inline bool is_same(const chgm_t &a, const chgm_t &b) {
 		if (!(a.k == b.k))
 			return false;
@@ -302,6 +300,9 @@ namespace chdb {
 	bool is_same(const dvbs_mux_t &a, const dvbs_mux_t &b);
 	bool is_same(const dvbc_mux_t &a, const dvbc_mux_t &b);
 	bool is_same(const dvbt_mux_t &a, const dvbt_mux_t &b);
+	bool tuning_is_same(const dvbs_mux_t& a, const dvbs_mux_t& b);
+	bool tuning_is_same(const dvbc_mux_t& a, const dvbc_mux_t& b);
+	bool tuning_is_same(const dvbt_mux_t& a, const dvbt_mux_t& b);
 
 }
 
@@ -343,14 +344,20 @@ namespace chdb::sat {
 
 namespace chdb {
 
-	bool tuning_parameters_match(const chdb::dvbs_mux_t& a, const chdb::dvbs_mux_t& b);
+	//tuning parameters (sat_pos, polarisation, frequency) indicate "equal channels"
+	bool matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos=true);
+	bool matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos=true);
+	bool matches_physical_fuzzy(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos=true);
+	bool matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos=true);
 
-	bool tuning_parameters_match(const chdb::dvbc_mux_t& a, const chdb::dvbc_mux_t& b);
+	inline int dvb_type(const chdb::any_mux_t& mux) {
+		auto sat_pos = chdb::mux_key_ptr(mux)->sat_pos;
+		if (sat_pos == sat_pos_dvbc || sat_pos == sat_pos_dvbt)
+			return sat_pos;
+		else
+			return sat_pos_dvbs;
+	}
 
-	bool tuning_parameters_match(const chdb::dvbt_mux_t& a, const chdb::dvbt_mux_t& b);
-
-
-	bool tuning_parameters_match(const chdb::any_mux_t& a, const chdb::any_mux_t& b);
 
 	inline bool can_move_dish(const chdb::lnb_t& lnb)
 	{
@@ -375,9 +382,9 @@ namespace chdb {
 		we adopt a tolerance of 1000kHz
 	 */
 	template<typename mux_t>
-	db_tcursor<mux_t> find_by_mux_fuzzy(db_txn& txn, const mux_t& mux);
+	db_tcursor<mux_t> find_by_mux(db_txn& txn, const mux_t& mux);
 
-	db_tcursor<chdb::dvbs_mux_t> find_by_mux_fuzzy(db_txn& txn, const dvbs_mux_t& mux);
+	db_tcursor<chdb::dvbs_mux_t> find_by_mux(db_txn& txn, const dvbs_mux_t& mux);
 
 
 /*!
@@ -385,23 +392,28 @@ namespace chdb {
 	This is called by the SDT_other parsing code and will not work if multiple
 	muxes exist on the same sat with the same (network_id, ts_id)
  */
-	struct find_by_mux_key_fuzzy_ret_t {
+	struct get_by_nid_tid_unique_ret_t {
+		enum unique_type_t {
+			UNIQUE,
+			UNIQUE_ON_SAT,
+			NOT_UNIQUE,
+			NOT_FOUND
+		};
 		chdb::any_mux_t mux;
-		int num_matches{0};
+		unique_type_t unique{NOT_FOUND};
 	};
 
-	find_by_mux_key_fuzzy_ret_t find_by_mux_key_fuzzy(db_txn& txn, const mux_key_t& mux);
-	find_by_mux_key_fuzzy_ret_t find_by_network_id_ts_id(db_txn& txn, uint16_t network_id, uint16_t ts_id);
-	std::optional<chdb::dvbs_mux_t> find_by_fuzzy_sat_pos_network_id_ts_id(db_txn& txn, int16_t sat_pos, uint16_t network_id, uint16_t ts_id);
-
-
+	get_by_nid_tid_unique_ret_t get_by_nid_tid_unique(db_txn& txn, int16_t network_id, int16_t ts_id,
+																										int16_t tuned_sat_pos);
+	get_by_nid_tid_unique_ret_t get_by_network_id_ts_id(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 	template<typename mux_t>
-	db_tcursor<mux_t> find_mux_by_key_or_frequency(db_txn& txn, const mux_t& mux);
+	db_tcursor<mux_t> find_by_mux_physical(db_txn& txn, const mux_t& mux);
 
-	db_tcursor<chdb::dvbs_mux_t> find_mux_by_key_or_frequency(db_txn& txn, chdb::dvbs_mux_t& mux);
+	db_tcursor<chdb::dvbs_mux_t> find_by_mux_physical(db_txn& txn, chdb::dvbs_mux_t& mux);
 
-	//tuning parameters (sat_pos, polarisation, frequency) indicate "equal channels"
-	bool matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos=true);
+	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux);
+
+	void clean_scan_status(db_txn& wtxn);
 };
 
 namespace chdb::dish {
@@ -415,11 +427,6 @@ namespace chdb::dvbs_mux {
 		return all sats in use by muxes
 	*/
 	ss::vector_<int16_t> list_distinct_sats(db_txn &txn);
-
-
-	db_tcursor<chdb::dvbs_mux_t>
-	find_by_sat_t2mi_pid_nid_tid(db_txn& txn, int16_t sat_pos, uint16_t t2mi_pid, uint16_t network_id,
-											uint16_t ts_id);
 
 }
 
@@ -436,8 +443,15 @@ namespace chdb {
 	db_tcursor_index<chdb::dvbs_mux_t>
 	find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
 														 chdb::fe_polarisation_t polarisation, uint16_t t2mi_pid, int stream_id);
+	std::optional<chdb::dvbs_mux_t>
+	test_find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
+																				chdb::fe_polarisation_t polarisation,
+																				uint16_t t2mi_pid, int stream_id);
 
-
+	inline bool is_t2mi_mux(const chdb::any_mux_t& mux) {
+		const auto *dvbs_mux =  std::get_if<chdb::dvbs_mux_t>(&mux);
+		return dvbs_mux && (dvbs_mux->k.t2mi_pid > 0);
+	}
 };
 
 namespace chdb::dvbt_mux {
@@ -449,7 +463,7 @@ namespace chdb::dvbt_mux {
 
 	inline bool is_template(const dvbt_mux_t& mux)
 	{
-		return mux.c.is_template;
+		return mux.c.tune_src == tune_src_t::TEMPLATE;
 	}
 	/*
 		If the mux is a template (mux.k.network_id==0 && mux.k.mux.ts_id==and not yet has
@@ -472,7 +486,7 @@ namespace chdb::dvbc_mux {
 
 	inline bool is_template(const dvbc_mux_t& mux)
 	{
-		return mux.c.is_template;
+		return mux.c.tune_src == tune_src_t::TEMPLATE;
 	}
 	/*
 		If the mux is a template (mux.k.network_id==0 && mux.k.mux.ts_id==and not yet has
@@ -517,6 +531,7 @@ namespace chdb {
 	template<typename mux_t> float min_snr(const mux_t& mux);
 
 	float min_snr(const chdb::any_mux_t& mux);
+
 	std::optional<chdb::any_mux_t> find_mux_by_key(db_txn& txn, const chdb::mux_key_t&mux_key);
 
 	const char* lang_name(const language_code_t& code);
@@ -525,7 +540,6 @@ namespace chdb {
 		b.position =0;
 		return a == b;
 	}
-
 
 	class history_mgr_t {
 		bool inited=false;
@@ -579,6 +593,8 @@ namespace  chdb::lnb {
 	}
 
 	const chdb::lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);
+	chdb::lnb_network_t* get_network(lnb_t& lnb, int16_t sat_pos);
+
 	chdb::lnb_t new_lnb(int tuner_id, int16_t sat_pos, int dish_id=0,
 											chdb::lnb_type_t type = chdb::lnb_type_t::UNIV);
 

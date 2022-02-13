@@ -29,6 +29,16 @@
 #endif
 
 /*
+	returns 0, sat_pos_dvbt or sat_pos_dvbc
+*/
+static inline int dvb_type(uint16_t sat_pos) {
+	if (sat_pos == sat_pos_dvbc || sat_pos == sat_pos_dvbt)
+		return sat_pos;
+	else
+		return 0;
+}
+
+/*
 	pat has been the same for stable_pat_timeout seconds
 
 	If no pat is present, this is also considered a stable situation

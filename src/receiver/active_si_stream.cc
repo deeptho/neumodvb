@@ -215,13 +215,34 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 		nit_data.by_network_id_ts_id.try_emplace(std::make_pair(
 																							 mux_key->network_id, mux_key->ts_id), mux_data_t{*mux_key, mux_desc});
 	auto* p_mux_data = & it->second;
-
 	if(!inserted) {
+		if(p_mux_data->source == mux_data_t::SDT) {
+			dtdebugx("Updating data earlier set by SDT: is_tuned_mux=%d is_tuned_freq=%d",
+							 is_tuned_mux, is_tuned_freq);
+			p_mux_data->is_tuned_mux = is_tuned_mux;
+			p_mux_data->is_tuned_freq = is_tuned_freq;
+		}
 		assert (p_mux_data->is_tuned_mux == is_tuned_mux);
 		if(p_mux_data->mux_key != *mux_key) {
-			dtdebug("cached key change detected: tuned= " << (int) p_mux_data->is_tuned_mux << " db=" << *mux_key
-							<< " cache=" << p_mux_data->mux_key);
-			p_mux_data->mux_key = *mux_key;
+			auto tuned_mux = reader->tuned_mux();
+			auto* tuned_mux_key = mux_key_ptr(tuned_mux);
+			if (is_tuned_freq && tuned_mux_key->sat_pos == p_mux_data->mux_key.sat_pos) {
+				/*
+					Example: we tuned from spectrum scan on 52E. Database contains a mux for 52E and SDT
+					has picked that one. Now we discover that mux claims to be on 53E.
+				 */
+				dtdebug("BAD cached key change detected: tuned= " << (int) p_mux_data->is_tuned_mux << " db=" << *mux_key
+								<< " cache=" << p_mux_data->mux_key);
+				p_mux_data->mux_key = *mux_key;
+				handle_mux_change(wtxn, tuned_mux, mux , true);
+				assert(mux_key->extra_id != 0);
+				if (is_tuned_mux)
+					reader->on_tuned_mux_change(mux);
+			} else {
+				dtdebug("cached key change detected: tuned= " << (int) p_mux_data->is_tuned_mux << " db=" << *mux_key
+								<< " cache=" << p_mux_data->mux_key);
+
+			}
 		}
 	} else {
 		p_mux_data->is_tuned_mux = is_tuned_mux;

@@ -240,8 +240,9 @@ int tuner_thread_t::cb_t::remove_active_adapter(active_adapter_t& active_adapter
 	}
 
 	assert(&active_adapter == it->second.get());
+	dtdebug("calling deactivate");
 	active_adapter.deactivate();
-
+	dtdebug("calling deactivate done");
 	active_adapters.erase(it);
 	return 0;
 }

@@ -562,11 +562,8 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 				/*deactivate the adapter (stop si processing) and remove it from
 					active_adapters (the next tune call will readd it)
 				*/
-				auto ret = cb(receiver.tuner_thread).remove_active_adapter(*old_active_adapter);
-				if (ret < 0)
-					dterrorx("deactivate returned %d", ret);
 				fe->adapter->change_fe(fe.get(), lnb, mux);
-				ret = cb(receiver.tuner_thread).tune(old_active_adapter, lnb, mux, tune_options);
+				auto ret = cb(receiver.tuner_thread).tune(old_active_adapter, lnb, mux, tune_options);
 				if (ret < 0)
 					dterrorx("tune returned %d", ret);
 				return ret;
@@ -677,11 +674,8 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 				/*deactivate the adapter (stop si processing) and remove it from
 					active_adapters (the next tune call will readd it)
 				*/
-				auto ret = cb(receiver.tuner_thread).remove_active_adapter(*old_active_adapter);
-				if (ret < 0)
-					dterrorx("deactivate returned %d", ret);
 				fe->adapter->change_fe(fe.get(), mux);
-				ret = cb(receiver.tuner_thread).tune(old_active_adapter, mux, tune_options);
+				auto ret = cb(receiver.tuner_thread).tune(old_active_adapter, mux, tune_options);
 				if (ret < 0)
 					dterrorx("tune returned %d", ret);
 				return ret;

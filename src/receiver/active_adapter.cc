@@ -157,6 +157,7 @@ int active_adapter_t::lnb_scan(const chdb::lnb_t& lnb, tune_options_t tune_optio
 	case tune_mode_t::SCAN_BLIND:
 		return lnb_blind_scan(lnb, tune_options);
 	default:
+		assert(0);
 		set_current_lnb(lnb);
 		return 0;
 		break;
@@ -382,16 +383,12 @@ int active_adapter_t::lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t t
 	set_current_tp({});
 
 	set_current_lnb(lnb);
-#if 0
-	if (need_diseqc) {
-		auto band = tune_options.spectrum_scan_options.band_pol.band;
-		auto pol = tune_options.spectrum_scan_options.band_pol.pol;
-		auto voltage = ((pol == fe_polarisation_t::V || pol == fe_polarisation_t::R) ^ lnb.swapped_polarisation)
-		? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
-		do_lnb_and_diseqc(band, voltage);
-	}
-	dtdebug("tune: diseqc done");
-#endif
+	auto band = tune_options.spectrum_scan_options.band_pol.band;
+	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
+	auto voltage = chdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+	do_lnb_and_diseqc(band, voltage);
+	dtdebug("spectrum: diseqc done");
+
 	int ret = current_fe->start_lnb_spectrum_scan(lnb, tune_options.spectrum_scan_options);
 	//dttime(100);
 	return ret;

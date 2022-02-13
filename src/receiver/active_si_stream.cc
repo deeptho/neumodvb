@@ -1226,7 +1226,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 
 	}
 	bool done = nit_data.update_nit_completion(scan_state, info, network_data);
-	auto sat_pos = nit_data.nit_actual_sat_positions[0];
+	auto sat_pos = nit_data.nit_actual_sat_positions.size()>=1 ? nit_data.nit_actual_sat_positions[0] : sat_pos_none;
 	bool is_wrong_dvb_type = dvb_type(sat_pos) != dvb_type(tuned_mux);
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
 		&& std::abs(sat_pos - tuned_mux_key->sat_pos) >= 30;
@@ -2437,7 +2437,7 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 										});
 
 			namespace m = chdb::update_mux_preserve_t;
-			assert(mux_key_ptr(signal_info.mux)->sat_pos != sat_pos_none);
+			//assert(mux_key_ptr(signal_info.mux)->sat_pos != sat_pos_none);
 
 
 			dtdebug("Update mux " << signal_info.mux << " tuned=" << reader->tuned_mux());

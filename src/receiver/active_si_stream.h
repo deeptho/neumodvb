@@ -200,6 +200,7 @@ struct mux_data_t  {
 	chdb::mux_key_t mux_key{}; //we also need extra_id
 	ss::string<32> mux_desc;
 	bool is_tuned_mux{false};
+	bool is_tuned_freq{false};
 	//data maintained by sdt section code
 	bool has_freesat_home_epg{false};
 	bool has_opentv_epg{false};
@@ -630,7 +631,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	bool check_tuned_mux_key(db_txn& txn, const chdb::mux_key_t& si_key);
 
-	void add_sat(db_txn& txn, uint16_t sat_pos);
+	void add_sat(db_txn& txn, int16_t sat_pos);
 
 	void init_scanning(scan_target_t scan_target_);
 	void init(scan_target_t scan_target_);
@@ -644,8 +645,8 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return parser;
 	}
 
-	void add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_tuned_mux);
-
+	void add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_tuned_mux,
+		bool is_tuned_freq);
 
 	void process_removed_services(db_txn& txn, chdb::mux_key_t& mux_key, ss::vector_<uint16_t>& service_ids);
 
@@ -675,6 +676,8 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	void fix_tune_mux_template();
 	void handle_mux_change(db_txn& wtxn, chdb::any_mux_t& old_mux, chdb::any_mux_t& new_nux, bool is_tuned_mux);
 	void finalize_scan(bool done);
+	mux_data_t* tuned_mux_in_nit();
+
 public:
 	void reset(bool is_retune);
 

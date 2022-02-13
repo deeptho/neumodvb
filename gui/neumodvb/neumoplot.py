@@ -887,7 +887,7 @@ class SpectrumPlot(wx.Panel):
                 self.set_current_annot(annot)
                 return
     def on_button_press(self, event):
-        print(f'CLICK SHIFT={self.shift_is_held} CTRL={self.ctrl_is_held}')
+        pass #print(f'CLICK SHIFT={self.shift_is_held} CTRL={self.ctrl_is_held}')
     def on_pick(self, event):
         """
         show/hide graph by clicking on legend line

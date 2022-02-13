@@ -672,8 +672,10 @@ class SignalPanel(SignalPanel_):
         self.matype_pls_text.SetLabelMarkup(f'{matype} {pls}')
 
         sat_confirmed = signal_info.sat_pos_confirmed
+        on_wrong_sat = sat_confirmed and mux.k.sat_pos != self.signal_info.si_mux.k.sat_pos
         c = '' if sat_confirmed  else "?"
-        self.sat_pos_text.SetForegroundColour(wx.Colour('blue' if sat_confirmed else 'red'))
+        self.sat_pos_text.SetForegroundColour(wx.Colour(
+            'red' if on_wrong_sat else 'blue' if sat_confirmed else 'red'))
         self.sat_pos_text.SetLabel(f'{pychdb.sat_pos_str(mux.k.sat_pos)}{c}' if locked else '')
         self.lnb_lof_offset_text.SetLabel(f'{self.signal_info.lnb_lof_offset:,d} kHz'.replace(',', ' ')) \
             if self.signal_info.lnb_lof_offset is not None else None

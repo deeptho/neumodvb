@@ -264,7 +264,7 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	if (!sat_pos_known)
 		nit_data.nit_actual_sat_positions.push_back(mux_key->sat_pos);
 
-	assert(p_mux_data->mux_key.extra_id!=0);
+	//assert(p_mux_data->mux_key.extra_id!=0);
 
 	auto& n = nit_data.get_original_network(mux_key->network_id);
 	n.add_mux(p_mux_data->mux_key.ts_id, from_sdt);
@@ -1506,6 +1506,7 @@ chdb::any_mux_t active_si_stream_t::add_new_mux(db_txn& txn, chdb::any_mux_t& mu
 	auto tuned_mux = reader->tuned_mux();
 	auto c =  *mux_common_ptr(tuned_mux);
 	bool is_active = c.scan_status == scan_status_t::ACTIVE;
+	bool is_wrong_dvb_type = dvb_type(mux_key_ptr(tuned_mux)->sat_pos) != dvb_type(mux_key_ptr(mux)->sat_pos);
 	auto update_scan_status =[&](const chdb::mux_common_t* pdbc) {
 		if(is_active) {
 			/*ensure that found muxes are scanned, unless they have been scanned already
@@ -1518,7 +1519,8 @@ chdb::any_mux_t active_si_stream_t::add_new_mux(db_txn& txn, chdb::any_mux_t& mu
 	};
 
 	auto preserve = chdb::update_mux_preserve_t::NONE;
-	chdb::update_mux(txn, mux, now, preserve, update_scan_status);
+	if(!is_wrong_dvb_type)
+		chdb::update_mux(txn, mux, now, preserve, update_scan_status);
 	return mux;
 }
 

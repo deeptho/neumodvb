@@ -32,11 +32,13 @@
 /*
 	returns 0, sat_pos_dvbt or sat_pos_dvbc
 */
-static inline int dvb_type(uint16_t sat_pos) {
+static inline int dvb_type(int16_t sat_pos) {
 	if (sat_pos == sat_pos_dvbc || sat_pos == sat_pos_dvbt)
 		return sat_pos;
-	else
+	else if (std::abs(sat_pos) <= 18000)
 		return sat_pos_dvbs;
+	else
+		return sat_pos_none;
 }
 
 /*

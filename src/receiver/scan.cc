@@ -246,7 +246,7 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 		count++;
 	}
 	dtdebugx("Cleaned %d muxes with PENDING status", count);
-	assert(count==0); //should not occur, except at startup but clean_dbs should take care of that
+	//assert(count==0); //should not occur, except at startup but clean_dbs should take care of that
 }
 
 void scanner_t::init()

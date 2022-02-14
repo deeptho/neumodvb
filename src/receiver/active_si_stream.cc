@@ -1109,16 +1109,19 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 			auto tuned_mux = reader->tuned_mux(); //copy!
 			auto* tuned_mux_key = mux_key_ptr(tuned_mux);
 			auto* p_mux_data = tuned_mux_in_nit();
-			if(p_mux_data) {
-				*tuned_mux_key = p_mux_data->mux_key;
-			} else {
-				tuned_mux_key->sat_pos = sat_pos_none;
+			bool is_wrong_dvb_type = dvb_type(sat_pos) != dvb_type(tuned_mux_key->sat_pos);
+			if(! is_wrong_dvb_type) {
+				if(p_mux_data) {
+					*tuned_mux_key = p_mux_data->mux_key;
+				} else {
+					tuned_mux_key->sat_pos = sat_pos_none;
+				}
+				reader->on_tuned_mux_change(tuned_mux);
 			}
-			reader->on_tuned_mux_change(tuned_mux);
 			tune_confirmation.sat_by = confirmed_by_t::NIT;
 			tune_confirmation.nit_actual_ok = true;
 			dtdebugx("Setting nit_actual_ok = true");
-				return dtdemux::reset_type_t::NO_RESET;
+			return dtdemux::reset_type_t::NO_RESET;
 		}
 		// do anything needed after a network has been fully loaded
 		if (is_actual) {

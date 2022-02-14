@@ -388,7 +388,7 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 		copy_tuning(mux, db_mux); //preserve what is in the database
 	}
 
-	dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+	//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 
 	switch(mux.c.tune_src) {
 	case tune_src_t::TEMPLATE:
@@ -445,7 +445,7 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 		assert(0);
 		break;
 	};
-		dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+	//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 
 	if (preserve & m::SCAN_DATA) {
 		mux.c.scan_result = db_mux.c.scan_result;
@@ -529,14 +529,14 @@ update_mux_ret_t chdb::update_mux(db_txn& txn, mux_t& mux, system_time_t now_, u
 				db_mux.k = mux.k;
 		}
 
-		dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		ret = key_matches ? update_mux_ret_t::MATCHING_SI_AND_FREQ: update_mux_ret_t::MATCHING_FREQ;
 
 		is_new = false;
 		cb(&db_mux.c);
-		dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		merge_muxes<mux_t>(mux, db_mux, preserve);
-		dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 
 		dtdebugx("Transponder %s: sat_pos=%d => %d nid=%d => %d ts_id=%d => %d", to_str(mux).c_str(),
 						 db_mux.k.sat_pos, mux.k.sat_pos, db_mux.k.network_id,

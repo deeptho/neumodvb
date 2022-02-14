@@ -59,22 +59,7 @@ class MuxInfoTextCtrl(wx.TextCtrl):
         large.SetPointSize(int(f.GetPointSize()*1.5))
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
         app = wx.GetApp()
-        if False and app.scan_subscription_id >= 0:
-            st = app.receiver.get_scan_stats(app.scan_subscription_id)
-            if st.last_scanned_mux.k.sat_pos != pychdb.sat.sat_pos_none:
-                self.ChangeValue(f"Scanning: last={st.last_scanned_mux}")
-            else:
-                self.ChangeValue(f"Scanning: ...")
-            self.SetDefaultStyle(wx.TextAttr(wx.RED, font=large.Bold()))
-            if st.scheduled_muxes !=0:
-                pending = st.scheduled_muxes
-                ok = st.finished_muxes - st.failed_muxes
-                self.last_scan_text = f" {ok} ok / {st.failed_muxes} failed / {pending} pending"
-                self.AppendText(self.last_scan_text)
-            else:
-                return
-        else:
-            self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")
+        self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")
 
 
     def ShowScanRecord(self):
@@ -86,12 +71,11 @@ class MuxInfoTextCtrl(wx.TextCtrl):
         if app.scan_subscription_id >= 0:
             st = app.receiver.get_scan_stats(app.scan_subscription_id)
             done = st.scheduled_muxes + st.active_muxes == 0
-            if st.last_subscribed_mux.k.sat_pos != pychdb.sat.sat_pos_none:
-                if done:
-                    self.ChangeValue(f"Scanning: DONE")
-                else:
-                    self.ChangeValue(f"Scanning {st.last_subscribed_mux}:")
-            elif st.scheduled_muxes !=0:
+            if done:
+                self.ChangeValue(f"Scanning: DONE")
+            elif st.last_subscribed_mux.k.sat_pos != pychdb.sat.sat_pos_none:
+                self.ChangeValue(f"Scanning {st.last_subscribed_mux}:")
+            else:
                 self.ChangeValue(f"Scanning: ...")
             self.SetDefaultStyle(wx.TextAttr(wx.RED, font=large.Bold()))
             pending = st.scheduled_muxes

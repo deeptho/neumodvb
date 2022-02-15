@@ -110,7 +110,7 @@ class MuxController(object):
 
     def SelectMux(self, rec):
         dtdebug(f"selected mux: {rec}")
-        self.last_selected_mux = rec.copy()
+        self.last_selected_mux = None if rec is None else rec.copy()
         wx.CallAfter(self.parent.UpdateRefMux, rec)
         pass
 

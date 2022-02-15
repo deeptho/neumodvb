@@ -156,13 +156,15 @@ int active_adapter_t::lnb_scan(const chdb::lnb_t& lnb, tune_options_t tune_optio
 		return lnb_spectrum_scan(lnb, tune_options);
 	case tune_mode_t::SCAN_BLIND:
 		return lnb_blind_scan(lnb, tune_options);
+	case tune_mode_t::POSITIONER_CONTROL:
+		set_current_lnb(lnb);
+		break;
 	default:
 		assert(0);
 		set_current_lnb(lnb);
 		return 0;
 		break;
 	}
-	assert(0);
 	return 0;
 }
 

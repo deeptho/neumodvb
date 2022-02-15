@@ -229,7 +229,7 @@ class scanner_t {
 	void set_allowed_lnbs();
 
 	template<typename mux_t>
-	int add_initial_muxes(const ss::vector_<mux_t>& muxes);
+	int add_muxes(const ss::vector_<mux_t>& muxes, bool init);
 
 	template<typename mux_t>
 	std::tuple<int, int>  scan_next(db_txn& wtxn, int finished_subscription_id);

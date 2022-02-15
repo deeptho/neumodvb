@@ -1761,6 +1761,7 @@ void receiver_t::update_playback_info() {
 int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures,
 																			ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
 																			bool scan_found_muxes, int max_num_subscriptions, int subscription_id) {
+	bool init = !scanner.get();
 	if (scanner.get() && subscription_id < 0) {
 		user_error("Scan is already in progress");
 		return -1;
@@ -1769,8 +1770,8 @@ int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futur
 		subscription_id = this->next_subscription_id++;
 	if (!scanner)
 		scanner = std::make_shared<scanner_t>(*this, scan_found_muxes, max_num_subscriptions, subscription_id);
-	scanner->add_initial_muxes(muxes);
-	if (lnbs)
+	scanner->add_muxes(muxes, init);
+	if (lnbs && init)
 		scanner->set_allowed_lnbs(*lnbs);
 	scanner->housekeeping(); // start initial scan
 	return subscription_id;
@@ -1779,6 +1780,7 @@ int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futur
 template <typename mux_t>
 int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
 																			bool scan_found_muxes, int max_num_subscriptions, int subscription_id) {
+	bool init = !scanner.get();
 	if (scanner.get() && subscription_id < 0) {
 		user_error("Scan is already in progress");
 		return -1;
@@ -1787,7 +1789,7 @@ int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futur
 		subscription_id = this->next_subscription_id++;
 	if (!scanner)
 		scanner = std::make_unique<scanner_t>(*this, scan_found_muxes, max_num_subscriptions, subscription_id);
-	scanner->add_initial_muxes(muxes);
+	scanner->add_muxes(muxes, init);
 	scanner->housekeeping(); // start initial scan
 	return subscription_id;
 }

@@ -279,7 +279,7 @@ void scanner_t::add_completed_mux(const chdb::any_mux_t& mux, int num_pending) {
 
 
 template <typename mux_t>
-int scanner_t::add_initial_muxes(const ss::vector_<mux_t>& muxes) {
+int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, bool init) {
 	auto wtxn = receiver.chdb.wtxn();
 	for(const auto& mux_: muxes) {
 		auto mux = mux_;
@@ -290,10 +290,14 @@ int scanner_t::add_initial_muxes(const ss::vector_<mux_t>& muxes) {
 	wtxn.commit();
 	{
 		auto w = scan_stats.writeAccess();
-		w->last_subscribed_mux = last_subscribed_mux;
-		w->scheduled_muxes = muxes.size();;
-		w->failed_muxes = 0;
-		w->finished_muxes = 0;
+		if (init) {
+			w->last_subscribed_mux = last_subscribed_mux;
+			w->failed_muxes = 0;
+			w->finished_muxes = 0;
+			w->scheduled_muxes = muxes.size();
+		} else{
+			w->scheduled_muxes += muxes.size(); //might be wrong when same mux is added, but scan_loop will fix this later
+		}
 		w->active_muxes = subscriptions.size();
 	}
 	return 0;
@@ -330,9 +334,9 @@ int scanner_t::on_scan_mux_end(const active_adapter_t* active_adapter_p,
 }
 
 
-template int scanner_t::add_initial_muxes<chdb::dvbs_mux_t>(const ss::vector_<chdb::dvbs_mux_t>& muxes);
-template int scanner_t::add_initial_muxes<chdb::dvbc_mux_t>(const ss::vector_<chdb::dvbc_mux_t>& muxes);
-template int scanner_t::add_initial_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt_mux_t>& muxes);
+template int scanner_t::add_muxes<chdb::dvbs_mux_t>(const ss::vector_<chdb::dvbs_mux_t>& muxes, bool init);
+template int scanner_t::add_muxes<chdb::dvbc_mux_t>(const ss::vector_<chdb::dvbc_mux_t>& muxes, bool init);
+template int scanner_t::add_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt_mux_t>& muxes, bool init);
 
 
 template std::tuple<int, int>

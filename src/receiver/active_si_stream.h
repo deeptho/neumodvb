@@ -363,7 +363,7 @@ struct active_si_data_t {
 	system_time_t tune_start_time{};
 
 	scan_state_t scan_state;
-
+	bool scan_in_progress{false};
 	active_si_data_t(bool is_embedded_si)
 		: is_embedded_si(is_embedded_si)
 		{}

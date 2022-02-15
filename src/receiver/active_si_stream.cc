@@ -592,12 +592,18 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 	if (is_open())
 		deactivate();
 	init_scanning(scan_target_);
+
 	active_stream_t::open(dtdemux::ts_stream_t::PAT_PID, &active_adapter().tuner_thread.epx,
 												EPOLLIN | EPOLLERR | EPOLLHUP);
 	fix_tune_mux_template();
 
 	parsers.reserve(32);
 	auto& tuned_mux = reader->tuned_mux();
+
+	auto* mux_common = chdb::mux_common_ptr(tuned_mux);
+	scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
+
+
 	dtdebug("scan_done= " << (int) scan_done << " " << tuned_mux);
 	bool is_freesat_main = chdb::has_epg_type(tuned_mux, chdb::epg_type_t::FSTHOME);
 	bool is_skyuk = chdb::has_epg_type(tuned_mux, chdb::epg_type_t::SKYUK);
@@ -876,8 +882,7 @@ void active_si_stream_t::finalize_scan(bool done)
 	auto mux = reader->tuned_mux();
 	to_str(s, mux);
 	auto* mux_common = chdb::mux_common_ptr(mux);
-	auto active_mux = mux_common->scan_status == chdb::scan_status_t::ACTIVE;
-	dtdebug("ACTIVE=" << (active_mux? "ACTIVE" :"NOT ACTIVE"));
+	dtdebugx("finalize_scan scan_in_progress=%d", scan_in_progress);
 	if (scan_state.aborted)
 		mux_common->scan_result = chdb::scan_result_t::ABORTED;
 	else if (scan_state.locked) {
@@ -911,7 +916,7 @@ void active_si_stream_t::finalize_scan(bool done)
 	auto& receiver_thread = receiver.receiver_thread;
 
 	auto scan_start_time = receiver.scan_start_time();
-	if(active_mux && scan_start_time >=0) {
+	if(scan_in_progress && scan_start_time >=0) {
 		receiver_thread.push_task([this, &receiver_thread, finished_mux = std::move(mux)]() {
 			cb(receiver_thread).on_scan_mux_end(&active_adapter(), finished_mux);
 			return 0;
@@ -1464,8 +1469,13 @@ chdb::update_mux_ret_t active_si_stream_t::update_mux(db_txn& wtxn, chdb::any_mu
 {
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
-	bool on_wrong_sat{false};
 	auto tuned_mux = reader->tuned_mux();
+
+	bool is_wrong_dvb_type = dvb_type(mux) != dvb_type(tuned_mux);
+	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
+		&& std::abs(mux_key_ptr(tuned_mux)->sat_pos - mux_key_ptr(mux)->sat_pos) >= 30;
+
+
 	auto& c =  *mux_common_ptr(tuned_mux);
 	//if (is_tuned_mux) //mux.c will be saved in the db
 	//	preserve =  chdb::update_mux_preserve_t::flags((preserve & ~ (int)chdb::update_mux_preserve_t::SCAN_STATUS));
@@ -1495,8 +1505,12 @@ chdb::update_mux_ret_t active_si_stream_t::update_mux(db_txn& wtxn, chdb::any_mu
 
 
 	auto ret = chdb::update_mux(wtxn, mux, now, preserve, update_scan_status);
-	if(is_tuned_mux && ! abort_on_wrong_sat())
+	if(is_tuned_mux && ! abort_on_wrong_sat()) {
+		if(on_wrong_sat) {
+			delete_record(wtxn, tuned_mux);
+		}
 		reader->on_tuned_mux_change(mux);
+	}
 	return ret;
 }
 

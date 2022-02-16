@@ -441,12 +441,7 @@ namespace chdb {
 
 
 	db_tcursor_index<chdb::dvbs_mux_t>
-	find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
-														 chdb::fe_polarisation_t polarisation, uint16_t t2mi_pid, int stream_id);
-	std::optional<chdb::dvbs_mux_t>
-	test_find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
-																				chdb::fe_polarisation_t polarisation,
-																				uint16_t t2mi_pid, int stream_id);
+	find_by_mux_fuzzy(db_txn& txn, chdb::dvbs_mux_t& mux);
 
 	inline bool is_t2mi_mux(const chdb::any_mux_t& mux) {
 		const auto *dvbs_mux =  std::get_if<chdb::dvbs_mux_t>(&mux);

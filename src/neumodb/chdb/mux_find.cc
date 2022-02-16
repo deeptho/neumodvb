@@ -366,9 +366,7 @@ get_by_nid_tid_unique_ret_t chdb::get_by_network_id_ts_id(db_txn& txn, uint16_t 
 	Look up da mux in the database with EXACT sat_pos, approximate frequency, correcp polarisation
 */
 static
-db_tcursor_index<chdb::dvbs_mux_t> find_by_sat_freq_pol_fuzzy_helper(db_txn& txn, int16_t sat_pos, uint32_t frequency,
-																																		 chdb::fe_polarisation_t polarisation,
-																																		 uint16_t t2mi_pid, int stream_id)
+db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const chdb::dvbs_mux_t& mux)
 {
 	using namespace chdb;
 
@@ -376,7 +374,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_sat_freq_pol_fuzzy_helper(db_txn& txn
 		and create a range which iterates over all with the same sat_freq_pol
 		find_leq is essential to find the first frequency below the wanted one if the wanted one does not exist
 	*/
-	auto c = dvbs_mux_t::find_by_sat_pol_freq(txn, sat_pos, polarisation, frequency, find_leq,
+	auto c = dvbs_mux_t::find_by_sat_pol_freq(txn, mux.k.sat_pos, mux.pol, mux.frequency, find_leq,
 																										 dvbs_mux_t::partial_keys_t::sat_pos_pol);
 	auto temp = c.clone();
 	//c points to correct frequency or the next lower one on the sat
@@ -385,13 +383,12 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_sat_freq_pol_fuzzy_helper(db_txn& txn
 			handle the case of muxes with very similar frequency but different stream_id or t2mi_pid
 			The desired mux might have a slightly lower frequency than the found one
 		*/
-		const auto& mux = c.current();
-		assert(mux.k.sat_pos == sat_pos);
-		assert(mux.pol == polarisation);
-
-		auto tolerance = (((int)mux.symbol_rate)*1.350) / 2000;
-		if (frequency >= mux.frequency + tolerance) {
-			//frequency is too low
+		const auto& db_mux = c.current();
+		assert(db_mux.k.sat_pos == mux.k.sat_pos);
+		assert(db_mux.pol == mux.pol);
+		auto tolerance = (((int)std::min(mux.symbol_rate, db_mux.symbol_rate))*1.35) / 2000;
+		if (mux.frequency >= db_mux.frequency + tolerance) {
+			//mux.frequency is too low
 			c.next(); //return to last value
 			break;
 		}
@@ -408,7 +405,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_sat_freq_pol_fuzzy_helper(db_txn& txn
 		// no frequencies lower than the wanted one on this sat
 		c.close();
 		// perhaps there are closeby higher frequencies on this sat
-		c = dvbs_mux_t::find_by_sat_pol_freq(txn, sat_pos, polarisation, frequency, find_geq,
+		c = dvbs_mux_t::find_by_sat_pol_freq(txn, mux.k.sat_pos, mux.pol, mux.frequency, find_geq,
 																									dvbs_mux_t::partial_keys_t::sat_pos_pol);
 		if (!c.is_valid()) {
 			// no frequencies higher than the wanted one on this sat
@@ -424,23 +421,23 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_sat_freq_pol_fuzzy_helper(db_txn& txn
 	*/
 	int best = std::numeric_limits<int>::max();
 	auto bestc = c.clone();
-	for (auto const& mux : c.range()) {
-		assert(mux.k.sat_pos == sat_pos); // see above: iterator would be invalid in this case
-		assert(mux.pol == polarisation);
-		//@todo  double check that searching starts at a closeby cursor position
-		if (mux.frequency == frequency && mux.pol == polarisation && mux.stream_id == stream_id &&
-				mux.k.t2mi_pid == t2mi_pid) {
+	for (auto const& db_mux : c.range()) {
+		assert(db_mux.k.sat_pos == mux.k.sat_pos); // see above: iterator would be invalid in this case
+		assert(db_mux.pol == mux.pol);
+
+		if (db_mux.frequency == mux.frequency && db_mux.pol == mux.pol && db_mux.stream_id == mux.stream_id &&
+				db_mux.k.t2mi_pid == mux.k.t2mi_pid) {
 			return c;
 		}
-		auto tolerance = (1.35*(int)mux.symbol_rate) / 2000;
-		if ((int)frequency - (int)mux.frequency > tolerance)
+		auto tolerance = (((int)std::min(db_mux.symbol_rate, mux.symbol_rate))*1.35) / 2000;
+		if ((int)mux.frequency - (int)db_mux.frequency >= tolerance)
 			continue;
-		if ((int)mux.frequency - (int)frequency > tolerance)
+		if ((int)db_mux.frequency - (int)mux.frequency >= tolerance)
 			break;
-		if (mux.pol != polarisation || mux.stream_id != stream_id || mux.k.t2mi_pid != t2mi_pid)
+		if (db_mux.pol != mux.pol || db_mux.stream_id != mux.stream_id || db_mux.k.t2mi_pid != mux.k.t2mi_pid)
 			continue;
 		// delta will drop in each iteration and will start to rise after the minimum
-		auto delta = std::abs((int)mux.frequency - (int)frequency);
+		auto delta = std::abs((int)db_mux.frequency - (int)mux.frequency);
 		if (delta > best) {
 			c.prev();
 			return c;
@@ -454,7 +451,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_sat_freq_pol_fuzzy_helper(db_txn& txn
 		return c;
 	}
 	if(c.is_valid()) {
-		auto mux = c.current();
+		auto db_mux = c.current();
 	} else {
 	}
 	c.close();
@@ -472,43 +469,27 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_sat_freq_pol_fuzzy_helper(db_txn& txn
 
 	used by find_fuzzy_ (update_mux), find_by_mux_physical (init_si)
 */
-db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
-																																		chdb::fe_polarisation_t polarisation,
-																																		uint16_t t2mi_pid, int stream_id)
+db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, chdb::dvbs_mux_t& mux)
 {
 	//first try with the given sat_pos. In most cases this will give the correct result
-	auto c = find_by_sat_freq_pol_fuzzy_helper(txn, sat_pos, frequency, polarisation, t2mi_pid, stream_id);
+	auto c = find_by_mux_fuzzy_helper(txn, mux);
 	if (c.is_valid())
 		return c;
 	int sat_tolerance = 30; //0.3 degrees
-	auto cs = sat_t::find_by_sat_pos(txn, sat_pos-sat_tolerance, find_type_t::find_geq);
+	auto cs = sat_t::find_by_sat_pos(txn, mux.k.sat_pos-sat_tolerance, find_type_t::find_geq);
 	for(const auto& sat:  cs.range()) {
-		if (sat.sat_pos > sat_pos + sat_tolerance)
+		if (sat.sat_pos > mux.k.sat_pos + sat_tolerance)
 			break;
-		if (sat.sat_pos == sat_pos)
+		if (sat.sat_pos == mux.k.sat_pos)
 			continue; //already tried
 		printf("found sat_pos: %d\n", sat.sat_pos);
-		auto c = find_by_sat_freq_pol_fuzzy_helper(txn, sat.sat_pos, frequency, polarisation, t2mi_pid, stream_id);
+		auto c = find_by_mux_fuzzy_helper(txn, mux);
 		if (c.is_valid())
 			return c;
 	}
 	assert(!c.is_valid());
 	return c;
 }
-
-
-std::optional<chdb::dvbs_mux_t>
-chdb::test_find_by_sat_freq_pol_fuzzy(db_txn& txn, int16_t sat_pos, uint32_t frequency,
-																			chdb::fe_polarisation_t polarisation,
-																			uint16_t t2mi_pid, int stream_id)
-{
-	auto c = find_by_sat_freq_pol_fuzzy(txn, sat_pos, frequency, polarisation,
-																			t2mi_pid, stream_id);
-	if(c.is_valid())
-		return c.current();
-	return {};
-}
-
 
 /*
 	only for dvbc and dvbt muxes
@@ -687,7 +668,7 @@ db_tcursor<chdb::dvbs_mux_t> chdb::find_by_mux_physical(db_txn& txn, chdb::dvbs_
 	else {
 		// approx. match in sat_pis, frequency, exact match in  polarisation, t2mi_pid and stream_id
 		auto c =
-			chdb::find_by_sat_freq_pol_fuzzy(txn, mux.k.sat_pos, mux.frequency, mux.pol, mux.k.t2mi_pid, mux.stream_id);
+			chdb::find_by_mux_fuzzy(txn, mux);
 		return std::move(c.maincursor);
 	}
 }

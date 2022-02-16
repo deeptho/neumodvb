@@ -46,10 +46,6 @@ static void export_mux_extra(py::module& m) {
 	mm.def("make_unique_if_template", make_unique_if_template<dvbs_mux_t>,
 				 "Make the key of this mux unique, but only if network_id==mux_id==extra_id==0")
 		.def("list_distinct_sats", chdb::dvbs_mux::list_distinct_sats, "List distinct sat_pos of all muxes")
-		.def("find_by_sat_freq_pol_fuzzy", chdb::test_find_by_sat_freq_pol_fuzzy,
-				 "find a dvbs mux allowing for differences in sat_pos and frequency",
-				 py::arg("txn"), py::arg("sat_pos"), py::arg("frequency"), py::arg("polarisation"),
-				 py::arg("t2mi_pid"), py::arg("stream_id"))
 		;
 
 	py::reinterpret_borrow<py::module>(m.attr("dvbc_mux"))

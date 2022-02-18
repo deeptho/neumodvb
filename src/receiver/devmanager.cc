@@ -805,7 +805,8 @@ int dvb_adapter_t::change_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, int sat
 		/*upgrade our dish reservation from nonexclusive to exclusive ;
 			can cause problems on other subscriptions
 		*/
-		adaptermgr->reserve_dish_exclusive(fe, lnb.k.dish_id);
+		if(! w->exclusive)
+			adaptermgr->reserve_dish_exclusive(fe, lnb.k.dish_id);
 		adaptermgr->change_sat_reservation_sat_pos(lnb.k.dish_id, sat_pos);
 	};
 

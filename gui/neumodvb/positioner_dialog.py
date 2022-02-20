@@ -915,14 +915,6 @@ class PositionerDialog(PositionerDialog_):
         self.UpdateUsalsPosition(self.position)
 
 
-    def OnStepEast(self, event):
-        self.usals_command(pychdb.positioner_cmd_t.DRIVE_EAST, -1)
-        event.Skip()
-
-    def OnStepWest(self, event):
-        self.usals_command(pychdb.positioner_cmd_t.DRIVE_WEST, -1)
-        event.Skip()
-
     def OnUsalsStepEast(self, event):
         self.position += self.step
         self.SetPosition(self.position)
@@ -1003,16 +995,6 @@ class PositionerDialog(PositionerDialog_):
         dtdebug(f"OnDiseqc12 position changed to {val}")
         event.Skip()
 
-    def OnGotoPosition(self, event):  # wxGlade: PositionerDialog_.<event_handler>
-        dtdebug(f"Goto NN: diseqc12={self.tune_mux_panel.diseqc12}")
-        self.diseqc12_command(pychdb.positioner_cmd_t.GOTO_NN, self.tune_mux_panel.diseqc12)
-        event.Skip()
-
-    def OnGotoEast(self, event):  # wxGlade: PositionerDialog_.<event_handler>
-        dtdebug("Drive east")
-        self.positioner_command(pychdb.positioner_cmd_t.DRIVE_EAST)
-        event.Skip()
-
     def OnGotoRef(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Goto ref")
         self.positioner_command(pychdb.positioner_cmd_t.GOTO_REF)
@@ -1043,9 +1025,43 @@ class PositionerDialog(PositionerDialog_):
         self.SetPosition(pos)
         event.Skip()
 
-    def OnGotoWest(self, event):  # wxGlade: PositionerDialog_.<event_handler>
-        dtdebug("Drive west")
-        self.positioner_command(pychdb.positioner_cmd_t.GOTO_XX)
+    def OnGotoPosition(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        dtdebug(f"Goto NN: diseqc12={self.tune_mux_panel.diseqc12}")
+        self.diseqc12_command(pychdb.positioner_cmd_t.GOTO_NN, self.tune_mux_panel.diseqc12)
+        event.Skip()
+
+    def OnToggleGotoEast(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        if event.IsChecked():
+            dtdebug("Drive east")
+            self.continuous_motion = 1 # going east
+            self.goto_west_toggle.SetValue(0)
+            self.positioner_command(pychdb.positioner_cmd_t.DRIVE_EAST, 0) #0=drive continuous
+        else:
+            dtdebug("End Drive east")
+            self.continuous_motion = 0
+            self.positioner_command(pychdb.positioner_cmd_t.HALT)
+
+        event.Skip()
+
+    def OnToggleGotoWest(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        if event.IsChecked():
+            dtdebug("Drive west")
+            self.continuous_motion = -1 # going west
+            self.goto_east_toggle.SetValue(0)
+            self.positioner_command(pychdb.positioner_cmd_t.DRIVE_WEST, 0) #0=drive continuous
+        else:
+            dtdebug("End Drive west")
+            self.continuous_motion = 0
+            self.positioner_command(pychdb.positioner_cmd_t.HALT)
+
+        event.Skip()
+
+    def OnStepEast(self, event):
+        self.usals_command(pychdb.positioner_cmd_t.DRIVE_EAST, -1)
+        event.Skip()
+
+    def OnStepWest(self, event):
+        self.usals_command(pychdb.positioner_cmd_t.DRIVE_WEST, -1)
         event.Skip()
 
     def OnSetEastLimit(self, event):  # wxGlade: PositionerDialog_.<event_handler>

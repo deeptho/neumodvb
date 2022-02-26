@@ -388,7 +388,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 		assert(db_mux.pol == mux.pol);
 		auto tolerance = (((int)std::min(mux.symbol_rate, db_mux.symbol_rate))*1.35) / 2000;
 		if (mux.frequency >= db_mux.frequency + tolerance) {
-			//mux.frequency is too low
+			//db_mux.frequency is too low
 			c.next(); //return to last value
 			break;
 		}

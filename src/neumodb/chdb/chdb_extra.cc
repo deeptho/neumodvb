@@ -525,6 +525,7 @@ update_mux_ret_t chdb::update_mux(db_txn& txn, mux_t& mux, system_time_t now_, u
 			if (preserve & m::MUX_KEY)
 				return update_mux_ret_t::NO_MATCHING_KEY;
 			delete_record(c, db_mux);
+			mux.k.extra_id =  make_unique_id<mux_t>(txn, mux.k);
 			if(is_template(db_mux))
 				db_mux.k = mux.k;
 		}

@@ -1089,8 +1089,9 @@ class MosaicPanel(wx.Panel):
             dtdebug(f'ADDED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
             wx.CallLater(2000, self.mpv_players[self.focus_idx].play_service, service)
         else:
-            dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
-            self.mpv_players[self.focus_idx].play_service(service)
+            if self.focus_idx is not None:
+                dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
+                self.mpv_players[self.focus_idx].pelay_service(service)
 
 class RecordPanel(wx.Panel):
     black=wx.Colour(128, 128, 0, 0)

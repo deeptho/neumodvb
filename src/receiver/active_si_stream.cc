@@ -1234,10 +1234,10 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			 add sat entry if none present yet
 			 updates reader->current_mux
 		 */
-		add_mux_from_nit(wtxn, mux, network.is_actual, is_tuned_mux, is_tuned_freq);
 		if (!can_be_tuned) {
 			continue;
 		}
+		add_mux_from_nit(wtxn, mux, network.is_actual, is_tuned_mux, is_tuned_freq);
 
 		if (network.is_actual) {
 			p_network_data->num_muxes++;
@@ -1304,6 +1304,15 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 	const bool disregard_networks{true};
 	if (dvbs_mux && !chdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), *dvbs_mux, disregard_networks)) {
 		auto tmp = *dvbs_mux;
+		if(tmp.frequency == 0) {
+			if(pat_data.has_ts_id(tmp.k.ts_id)) {
+					//happens on 26.0E, 12034H
+				tmp.frequency = std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->frequency;
+				can_be_tuned = true;
+				*dvbs_mux = tmp;
+				return can_be_tuned;
+			}
+		}
 		if (tmp.pol == chdb::fe_polarisation_t::H)
 			tmp.pol = chdb::fe_polarisation_t::L;
 		else if (tmp.pol == chdb::fe_polarisation_t::V)

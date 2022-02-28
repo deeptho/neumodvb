@@ -308,7 +308,7 @@ class SpectrumDialog(SpectrumDialog_):
         dtdebug(f"scanning {tp}; {len(self.tps_to_scan)} tps left to scan")
         mux = self.mux.copy()
         mux.stream_id = stream_id
-        ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
+        mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
         self.tune_mux_panel.mux = mux
         self.tune_mux_panel.muxedit_grid.Reset()
         self.spectrum_plot.reset_current_annot_status(mux)

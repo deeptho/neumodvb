@@ -293,11 +293,7 @@ public:
 	virtual const chdb::any_mux_t& tuned_mux() const;
 	virtual void set_current_tp(const chdb::any_mux_t& mux) const;
 	virtual void update_tuned_mux_nit(const chdb::any_mux_t& mux);
-	virtual inline void on_tuned_mux_change(const chdb::any_mux_t& mux) {
-		assert(0);
-		return; //do nothing
-		}
-
+	virtual void on_tuned_mux_change(const chdb::any_mux_t& mux);
 
 };
 

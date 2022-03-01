@@ -310,7 +310,8 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 	auto mux = reader->tuned_mux();
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
-	mux_common->tune_src = tune_src_t::DRIVER;
+	if(!is_embedded_si)
+		mux_common->tune_src = tune_src_t::DRIVER;
 
 	assert(expected_sat_pos == mux_key->sat_pos);
 	mux_key->network_id = network_id;
@@ -326,12 +327,13 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 		mux_common->scan_time = system_clock_t::to_time_t(now);
 	}
 
-	// update the database; this may fail if tuners is not locked
-	bool updated = update_template_mux_parameters_from_frontend(mux);
-	if(!updated)
-		return nullptr;
+	if(!is_embedded_si) {
+		// update the database; this may fail if tuners is not locked
+		bool updated = update_template_mux_parameters_from_frontend(mux);
+		if(!updated)
+			return nullptr;
+	}
 	chdb::update_mux(wtxn, mux, now, m::NONE);
-	reader->on_tuned_mux_change(mux);
 	assert(mux_key->ts_id == ts_id);
 	if (!is_embedded_si)
 		reader->on_tuned_mux_change(mux);
@@ -910,8 +912,10 @@ void active_si_stream_t::finalize_scan(bool done)
 				tune_confirmation.sat_by = confirmed_by_t::FAKE;
 		}
 	}
+
 	const bool from_sdt{false};
-	update_tuned_mux(wtxn, mux, may_change_sat_pos, may_change_nit_tid, from_sdt);
+	if(!is_embedded_si)
+		update_tuned_mux(wtxn, mux, may_change_sat_pos, may_change_nit_tid, from_sdt);
 	wtxn.commit();
 	auto& receiver_thread = receiver.receiver_thread;
 
@@ -982,8 +986,8 @@ int active_si_stream_t::save_network(db_txn& txn, const nit_network_t& network, 
 bool active_si_stream_t::check_tuned_mux_key(db_txn& txn, const chdb::mux_key_t& si_key) {
 	auto& tuned_key = *chdb::mux_key_ptr(reader->tuned_mux());
 	assert(tuned_key.sat_pos == si_key.sat_pos);
-	assert(tuned_key.ts_id == si_key.ts_id);
-	assert(tuned_key.network_id == si_key.network_id);
+	assert(is_embedded_si || tuned_key.ts_id == si_key.ts_id);
+	assert(is_embedded_si || tuned_key.network_id == si_key.network_id);
 #ifdef NEWSCAN
 	if (tuned_key.sat_pos != si_key.sat_pos || tuned_key.ts_id != si_key.ts_id
 			|| tuned_key.network_id != si_key.network_id) {
@@ -1014,7 +1018,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 																												 const subtable_info_t& info) {
 	auto cidx = scan_state_t::PAT;
 	tune_confirmation.unstable_sat = false;
-	if (info.timedout /*&& pat_data.stable_pat()*/) {
+	if (info.timedout) {
 		scan_state.set_timedout(cidx);
 		return dtdemux::reset_type_t::NO_RESET;
 	} else
@@ -1037,7 +1041,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			tune_confirmation.unstable_sat = true;
 			return dtdemux::reset_type_t::ABORT; // unstable PAT; must retune
 		}
-		if (!pat_data.stable_pat(pat_services.ts_id)) {
+		if (!is_embedded_si && !pat_data.stable_pat(pat_services.ts_id)) {
 			dtdebug("PAT not stable yet");
 			pat_table.num_sections_processed = 0;
 			return dtdemux::reset_type_t::RESET; // need to check again for stability
@@ -1073,7 +1077,7 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 	bool on_wrong_sat, bool done)
 {
 	if (done) {
-		if (tune_confirmation.sat_by == confirmed_by_t::NONE && !pat_data.stable_pat()) {
+		if (!is_embedded_si && tune_confirmation.sat_by == confirmed_by_t::NONE && !pat_data.stable_pat()) {
 			/*It is too soon to decide we are on the right/wrong sat;
 				force nit_actual rescanning
 			*/
@@ -1346,7 +1350,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 }
 
 dtdemux::reset_type_t active_si_stream_t::nit_section_cb(nit_network_t& network, const subtable_info_t& info) {
-	if(!pat_data.stable_pat())
+	if(!is_embedded_si && !pat_data.stable_pat())
 		return dtdemux::reset_type_t::RESET;
 	if (network.is_actual)
 		return nit_section_cb_(network, info);
@@ -1416,7 +1420,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(db_txn& wtxn, chdb::any_
 	if (is_wrong_dvb_type)
 		return  dtdemux::reset_type_t::NO_RESET;
 	if (on_wrong_sat) {
-		if (pat_data.stable_pat()) {
+		if (is_embedded_si || pat_data.stable_pat()) {
 			//permanently on wrong sat (dish stopped moving)
 			dtdebug("sat_pos is wrong but pat is stable.");
 				is_tuned_mux = true;
@@ -1693,7 +1697,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 	assert(mux_key.ts_id == services.ts_id);
 	auto tuned_mux = reader->tuned_mux();
 	auto* tuned_mux_key = chdb::mux_key_ptr(tuned_mux);
-	if(services.is_actual && !(mux_key.ts_id == tuned_mux_key->ts_id  &&
+	if(!is_embedded_si && services.is_actual && !(mux_key.ts_id == tuned_mux_key->ts_id  &&
 														 mux_key.network_id == tuned_mux_key->network_id)) {
 		dtdebug("Probably on wrong sat: aborting sdt processing mux=" << mux_key << " tuned=" << *tuned_mux_key);
 		return dtdemux::reset_type_t::RESET;
@@ -1761,7 +1765,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		chdb::any_mux_t mux;
 		auto tuned_mux = reader->tuned_mux();
 		if (is_actual) {
-			assert(mux_key == *mux_key_ptr(tuned_mux));
+			assert(is_embedded_si || mux_key == *mux_key_ptr(tuned_mux));
 			// copy from tune_mux to avoid consulting the db
 			mux = tuned_mux;
 		} else {
@@ -2023,7 +2027,7 @@ void active_si_stream_t::process_removed_channels(db_txn& txn, const chdb::chg_k
 
 dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& services, const subtable_info_t& info)
 {
-	if(!pat_data.stable_pat())
+	if(!is_embedded_si && !pat_data.stable_pat())
 		return dtdemux::reset_type_t::RESET;
 	auto cidx = services.is_actual ? scan_state_t::SDT_ACTUAL : scan_state_t::SDT_OTHER;
 	if (info.timedout) {
@@ -2153,7 +2157,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 }
 
 dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouquet, const subtable_info_t& info) {
-	if(!pat_data.stable_pat())
+	if(!is_embedded_si && !pat_data.stable_pat())
 		return dtdemux::reset_type_t::RESET;
 	auto cidx = scan_state_t::BAT;
 
@@ -2300,7 +2304,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 }
 
 dtdemux::reset_type_t active_si_stream_t::eit_section_cb(epg_t& epg, const subtable_info_t& i) {
-	if(!pat_data.stable_pat())
+	if(!is_embedded_si && !pat_data.stable_pat())
 		return dtdemux::reset_type_t::RESET;
 
 	if (tune_confirmation.sat_by == confirmed_by_t::NONE)

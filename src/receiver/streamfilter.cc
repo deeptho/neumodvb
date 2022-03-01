@@ -157,6 +157,7 @@ inline int stream_filter_t::read_external_data() {
 		return 0;
 	int toread = available_for_write();
 	for (;;) {
+		assert(data_fd>=0);
 		auto size = std::min(toread, buff_size - write_pointer);
 		auto ret = read(data_fd, bufferp.get() + write_pointer, size);
 		if (ret == 0) {
@@ -270,8 +271,9 @@ inline void embedded_stream_reader_t::discard(ssize_t num_bytes) {
 inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size) {
 	auto* ptr = stream_filter->bufferp.get() + read_pointer;
 	auto toread = stream_filter->write_pointer - read_pointer;
-	if (toread < 0) // wrap around
+	if (toread < 0) { // wrap around
 		toread += stream_filter->buff_size;
+	}
 	// never read past end of buffer (called can call again to get next part)
 	toread = std::min(toread, stream_filter->buff_size - read_pointer);
 	if (size > 0)
@@ -279,9 +281,10 @@ inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size
 	if (toread == 0) {
 		// attempt to read some more data
 		stream_filter->read_external_data();
-		toread = stream_filter->write_pointer - read_pointer;
+		toread = (stream_filter->buff_size + stream_filter->write_pointer - read_pointer)%stream_filter->buff_size;
 		toread = std::min(toread, stream_filter->buff_size - read_pointer);
-		toread = std::min((int)size, toread); // never read more than requested
+		if(size >0)
+			toread = std::min((int)size, toread); // never read more than requested
 	}
 
 	if (toread > 0) {
@@ -290,7 +293,6 @@ inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size
 	}
 	if (toread > 0)
 		num_read += toread;
-
 	return {ptr, toread};
 }
 
@@ -389,7 +391,12 @@ void stream_filter_t::notify_other_readers(embedded_stream_reader_t* reader) {
 	}
 }
 
-const chdb::any_mux_t& embedded_stream_reader_t::tuned_mux() const { return stream_filter->tuned_mux; }
+const chdb::any_mux_t& embedded_stream_reader_t::tuned_mux() const {
+	return stream_filter->tuned_mux; }
+
+void embedded_stream_reader_t::on_tuned_mux_change(const chdb::any_mux_t& mux) {
+	stream_filter->tuned_mux = mux;
+}
 
 void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& mux) const {
 	assert(mux_key_ptr(mux)->sat_pos != sat_pos_none);

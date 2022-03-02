@@ -1350,7 +1350,7 @@ int chdb::lnb::freq_for_driver_freq(const chdb::lnb_t& lnb, int frequency, bool 
 	bool invert{false};
 	auto correct = [&lnb, invert](int band, int frequency) {
 		if (band >= lnb.lof_offsets.size()) {
-			dterror("lnb_loffsets too small for lnb: " << lnb);
+			//dterror("lnb_loffsets too small for lnb: " << lnb);
 			return frequency;
 		}
 		if (std::abs(lnb.lof_offsets[band]) < 5000) {

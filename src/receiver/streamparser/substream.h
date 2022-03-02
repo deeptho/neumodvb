@@ -121,7 +121,7 @@ namespace dtdemux {
 		milliseconds_t first_play_time; //in milliseconds
 		milliseconds_t last_play_time; //in milliseconds
 	private:
-		void process_packet_header(ts_packet_t* p);
+		bool process_packet_header(ts_packet_t* p);
 	public:
 		virtual void unit_completed_cb() = 0;
 

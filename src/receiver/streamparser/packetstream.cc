@@ -274,14 +274,17 @@ int ts_substream_t::get_next_packet(ts_packet_t* start) {
 		ts_packet_t* p = (n == 0 && start) ? start : parent.get_packet_for_this_parser();
 		if (!p->valid)
 			throw_bad_data();
-		process_packet_header(p);
+		auto is_duplicate = process_packet_header(p);
+		if(is_duplicate)
+			continue;
 		if (!this->wait_for_unit_start)
 			return 1;
 	}
 	return -1; // never reached
 }
 
-void ts_substream_t::process_packet_header(ts_packet_t* p) {
+bool ts_substream_t::process_packet_header(ts_packet_t* p) {
+	bool is_duplicate{false};
 	if (!p->valid)
 		throw_bad_data();
 	if (p->get_payload_unit_start()) {
@@ -297,13 +300,17 @@ void ts_substream_t::process_packet_header(ts_packet_t* p) {
 	if (this->continuity_counter != 0xff) { // if not first time ever
 		uint8_t expected_cc =
 				current_ts_packet->has_payload() ? (this->continuity_counter + 1) & 0x0f : this->continuity_counter;
-		/*@todo handle case where packet is repeat (same cont counter, identical content)
+		/*handle case where packet is repeat (same cont counter, identical content)
 			See https://superuser.com/questions/777855/transport-stream-duplicate-packet:
 			a packet can be repeated if it has a payload. It should be repeated exactly as is,
 			except for the pcr if it contains one
+
+			The code below does not handle this, but at least omits reporting a continuity error
 		*/
 		if (expected_cc != current_ts_packet->get_continuity_counter()) {
-			if (!current_ts_packet->get_is_discontinuity()) {
+			is_duplicate = current_ts_packet->has_payload() && //duplicates only allowed with payload
+				(current_ts_packet->get_continuity_counter() == this->continuity_counter);
+			if (!current_ts_packet->get_is_discontinuity() &&!is_duplicate) {
 				this->wait_for_unit_start = true; // p. 39 iso13818-1: pes packets cannot be interruped by discontinuity
 				this->continuity_errors++;				// discontinuities are not errors if they are signalled
 				dterrorx("[%d] stream error count=%ld: expected_cc=%d cc=%d payload=%d", current_ts_packet->get_pid(),
@@ -349,6 +356,7 @@ void ts_substream_t::process_packet_header(ts_packet_t* p) {
 		}
 	} else
 		pointer_field = 0;
+	return is_duplicate;
 }
 
 void ts_stream_t::register_audio_pids(int service_id, int audio_pid, int pcr_pid,

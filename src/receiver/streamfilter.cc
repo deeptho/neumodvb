@@ -153,12 +153,14 @@ inline int stream_filter_t::available_for_write() {
 }
 
 inline int stream_filter_t::read_external_data() {
+	auto lck = std::scoped_lock(m);
 	if (!data_ready)
 		return 0;
 	int toread = available_for_write();
 	for (;;) {
 		assert(data_fd>=0);
 		auto size = std::min(toread, buff_size - write_pointer);
+		assert ( write_pointer + size <= buff_size);
 		auto ret = read(data_fd, bufferp.get() + write_pointer, size);
 		if (ret == 0) {
 			dterrorx("end stream closed\n");
@@ -177,12 +179,14 @@ inline int stream_filter_t::read_external_data() {
 		}
 		data_ready = (ret == size);
 		assert(ret > 0);
+		assert(ret <= size);
 		{
 #if 0
 			static FILE* fp = fopen("/tmp/out1.ts", "w");
 			fwrite( bufferp.get() + write_pointer, 1, ret, fp);
 #endif
 		}
+		assert(ret <= toread);
 		toread -= ret;
 		write_pointer += ret;
 		assert(write_pointer <= buff_size);
@@ -269,6 +273,7 @@ inline void embedded_stream_reader_t::discard(ssize_t num_bytes) {
 }
 
 inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size) {
+	assert(size != 0);
 	auto* ptr = stream_filter->bufferp.get() + read_pointer;
 	auto toread = stream_filter->write_pointer - read_pointer;
 	if (toread < 0) { // wrap around
@@ -276,7 +281,7 @@ inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size
 	}
 	// never read past end of buffer (called can call again to get next part)
 	toread = std::min(toread, stream_filter->buff_size - read_pointer);
-	if (size > 0)
+	if (size >= 0)
 		toread = std::min((int)size, toread);
 	if (toread == 0) {
 		// attempt to read some more data

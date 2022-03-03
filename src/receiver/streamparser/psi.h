@@ -180,13 +180,10 @@ namespace dtdemux {
 
 	};
 
-
-
 	struct bouquet_linkage_t {
 		uint16_t network_id{0xffff};
 		uint16_t ts_id{0xffff};
 	};
-
 
 
 	struct nit_network_t {
@@ -240,7 +237,6 @@ namespace dtdemux {
 		ss::vector<pat_entry_t,32> entries;
 	};
 
-
 	struct epg_t {
 		bool is_actual{false};
 		bool is_freesat{false};
@@ -264,8 +260,6 @@ namespace dtdemux {
 
 		ss::vector<epgdb::epg_record_t, 64> epg_records;
 	};
-
-
 
 	class section_parser_t : public ts_substream_t
 	{
@@ -314,8 +308,6 @@ namespace dtdemux {
 
 		virtual void unit_completed_cb() final;
 	};
-
-
 
 	struct psi_parser_t : public section_parser_t
 	{
@@ -514,9 +506,6 @@ namespace dtdemux {
 			current_version_number = -1;
 		}
 	};
-
-
-
 
 
 	bool pmt_ca_changed(const pmt_info_t& a,  const pmt_info_t& b);

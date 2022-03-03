@@ -36,7 +36,7 @@ class stream_filter_t;
 
 
 class stream_filter_t {
-
+	std::mutex m;
 	friend class embedded_stream_reader_t;
 	constexpr static int dmx_buffer_size{32*1024L*1024L};
 	//data for the master stream
@@ -49,15 +49,14 @@ class stream_filter_t {
 	int stream_pid{0x1fff};
 	pid_t command_pid{-1};
 
-	std::mutex m;
 	//struct subscription_t;
 
-	const int buff_size{16*1024*1024};
+	const int buff_size{16777120}; //approx 16*1024*1024, multiple of 188
 	std::unique_ptr<uint8_t[]> bufferp; /*data we received from dvb device and which will send to the external
 																		 command but which has  not been fully tranitted*/
 
 	//needs to be atomic to ensure that threads see the latest value; a weaker form would suffice
-	std::atomic_int write_pointer{0};;
+	std::atomic_int write_pointer{0};
 
 	int data_ready{false}; //external command has returned additional data
 

@@ -808,19 +808,9 @@ class PositionerDialog(PositionerDialog_):
     def ChangeSatPos(self, sat_pos):
         self.SetPosition(sat_pos)
 
-    def usals_command(self, *args):
-        if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_USALS:
-            self.lnb_subscriber.positioner_cmd(*args)
-            return True
-        else:
-            ShowMessage("Cannot control rotor",
-                        f"Rotor control setting {neumodbutils.enum_to_str(self.lnb.rotor_control)} does not "
-                        "allow moving the positioner")
-        return False
-
     def diseqc12_command(self, *args):
         if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
-            self.tuned_mux_subscriber.positioner_cmd(*args)
+            self.lnb_subscriber.positioner_cmd(*args)
             return True
         else:
             ShowMessage("Cannot control rotor",
@@ -831,8 +821,11 @@ class PositionerDialog(PositionerDialog_):
     def positioner_command(self, *args):
         if self.lnb.rotor_control in (pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12,
                                       pychdb.rotor_control_t.ROTOR_MASTER_USALS):
-            self.mux_subscriber.positioner_cmd(*args)
-            return True
+            if self.lnb_subscriber.positioner_cmd(*args) >= 0:
+                return True
+            else:
+                ShowMessage("Cannot control rotor", f"Failed to send positioner command")
+
         else:
             ShowMessage("Cannot control rotor",
                         f"Rotor control setting {neumodbutils.enum_to_str(self.lnb.rotor_control)} does not "
@@ -858,7 +851,7 @@ class PositionerDialog(PositionerDialog_):
                 network.usals_pos = usals_pos
                 self.tune_mux_panel.lnb_changed = True
                 dtdebug(f"Goto XX {usals_pos}" )
-                ret=self.usals_command(pychdb.positioner_cmd_t.GOTO_XX, usals_pos)
+                ret=self.positioner_command(pychdb.positioner_cmd_t.GOTO_XX, usals_pos)
                 assert ret>=0
                 return
         dtdebug(f"lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
@@ -1011,7 +1004,7 @@ class PositionerDialog(PositionerDialog_):
         network = get_network(lnb, self.sat.sat_pos)
         pos = network.usals_pos
         if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_USALS:
-            self.usals_command(pychdb.positioner_cmd_t.GOTO_XX, pos)
+            self.positioner_command(pychdb.positioner_cmd_t.GOTO_XX, pos)
             self.UpdateUsalsPosition(pos)
         elif self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
             self.diseqc12_cmd(pychdb.positioner_cmd_t.GOTO_NN, network.diseqc12)
@@ -1057,11 +1050,11 @@ class PositionerDialog(PositionerDialog_):
         event.Skip()
 
     def OnStepEast(self, event):
-        self.usals_command(pychdb.positioner_cmd_t.DRIVE_EAST, -1)
+        self.positioner_command(pychdb.positioner_cmd_t.DRIVE_EAST, -1)
         event.Skip()
 
     def OnStepWest(self, event):
-        self.usals_command(pychdb.positioner_cmd_t.DRIVE_WEST, -1)
+        self.positioner_command(pychdb.positioner_cmd_t.DRIVE_WEST, -1)
         event.Skip()
 
     def OnSetEastLimit(self, event):  # wxGlade: PositionerDialog_.<event_handler>

@@ -71,8 +71,8 @@ class tuner_thread_t;
 
 class pol_band_status_t {
 	bool tuned{false};
-	int voltage = -1; // means unknown
-	int tone = -1; // means unknown
+	int voltage{-1}; // means unknown
+	int tone{-1}; // means unknown
 
 public:
 	bool is_tuned() const {
@@ -88,6 +88,10 @@ public:
 
 	fe_sec_tone_mode get_tone() const {
 		return (fe_sec_tone_mode) tone;
+	}
+
+	fe_sec_voltage get_voltage() const {
+		return (fe_sec_voltage) voltage;
 	}
 
 	/*
@@ -251,7 +255,7 @@ public: //this data is safe to access from other threads
 private:
 	int do_lnb_and_diseqc(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage);
 	int do_lnb(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage);
-	int diseqc(const std::string& diseqc_command);
+	int diseqc(const std::string& diseqc_command, bool skip_positioner);
 	int clear();
 	int positioner_cmd(chdb::positioner_cmd_t cmd, int par);
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);

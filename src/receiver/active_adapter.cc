@@ -508,11 +508,13 @@ int active_adapter_t::hi_lo(const chdb::lnb_t& lnb, const chdb::any_mux_t& tp) {
 
 		Returns <0 on error, 0 of no diseqc command was sent, 1 if at least 1 diseqc command was sent
 */
-int active_adapter_t::diseqc(const std::string& diseqc_command) {
+int active_adapter_t::diseqc(const std::string& diseqc_command, bool skip_positioner) {
 	if (!current_fe)
 		return -1;
 	const auto* mux = std::get_if<chdb::dvbs_mux_t>(&current_tp());
 	assert(mux);
+	if(mux->k.sat_pos == sat_pos_none)
+		mux = nullptr; //lnb only
 	/*
 		turn off tone to not interfere with diseqc
 	*/
@@ -560,8 +562,11 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 			msleep(must_pause ? 100 : 30);
-			int pol_v_r = ((int)mux->pol & 1);
-			unsigned int extra = ((pol_v_r * 2) | hi_lo(current_lnb(), current_tp()));
+			unsigned int extra{0};
+			if(mux) {
+				int pol_v_r = ((int)mux->pol & 1);
+				extra = ((pol_v_r * 2) | hi_lo(current_lnb(), current_tp()));
+			}
 			ret = current_fe->send_diseqc_message('C', diseqc_10 * 4, extra, repeated);
 			if (ret < 0) {
 				dterror("Sending Committed DiseqC message failed");
@@ -584,16 +589,19 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 			must_pause = !repeated;
 		} break;
 		case 'X': {
-			if (!can_move_dish_)
+			if (skip_positioner || !can_move_dish_)
 				break;
 			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 			msleep(must_pause ? 100 : 30);
-			auto* lnb_network = chdb::lnb::get_network(current_lnb(), mux->k.sat_pos);
-			if (!lnb_network) {
-				dterror("No network found");
-			} else {// this is not usals!
-				lnb_update_usals_pos(lnb_network->sat_pos);
+			if (mux) {
+				auto* lnb_network = mux ? chdb::lnb::get_network(current_lnb(), mux->k.sat_pos) : nullptr;
+				if (!lnb_network) {
+					dterror("No network found");
+				} else {// this is not usals!
+					lnb_update_usals_pos(lnb_network->sat_pos);
+				}
+
 				ret = current_fe->send_diseqc_message('X', lnb_network->diseqc12, 0, repeated);
 				if (ret < 0) {
 					dterror("Sending Committed DiseqC message failed");
@@ -602,21 +610,29 @@ int active_adapter_t::diseqc(const std::string& diseqc_command) {
 			must_pause = !repeated;
 		} break;
 		case 'P': {
-			if (!can_move_dish_)
+			if (skip_positioner || !can_move_dish_)
 				break;
 			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 			msleep(must_pause ? 100 : 30);
-			auto* lnb_network = chdb::lnb::get_network(current_lnb(), mux->k.sat_pos);
-			if (!lnb_network) {
-				dterror("No network found");
-			} else {
-				auto usals_pos = lnb_network->usals_pos;
-				lnb_update_usals_pos(lnb_network->usals_pos);
-				ret = current_fe->send_positioner_message(chdb::positioner_cmd_t::GOTO_XX, usals_pos, repeated);
-				if (ret < 0) {
-					dterror("Sending Committed DiseqC message failed");
+			int16_t usals_pos{sat_pos_none};
+			if( mux) {
+				auto* lnb_network = chdb::lnb::get_network(current_lnb(), mux->k.sat_pos);
+				if (!lnb_network) {
+					dterror("No network found");
+				} else {
+					usals_pos = lnb_network->usals_pos;
+					lnb_update_usals_pos(usals_pos);
 				}
+			} else { //lnb only
+				usals_pos = current_lnb().usals_pos;
+			}
+			if(usals_pos != sat_pos_none) {
+				ret = current_fe->send_positioner_message(chdb::positioner_cmd_t::GOTO_XX, usals_pos, repeated);
+			} else
+				ret = -1;
+			if (ret < 0) {
+				dterror("Sending Committed DiseqC message failed");
 			}
 			must_pause = !repeated;
 		} break;
@@ -701,7 +717,7 @@ int active_adapter_t::do_lnb_and_diseqc(chdb::fe_band_t band, fe_sec_voltage_t l
 	pol_band_status.set_voltage(fefd, lnb_voltage);
 
 	// Note: the following is a NOOP in case no diseqc needs to be sent
-	ret = diseqc(current_lnb().tune_string);
+	ret = diseqc(current_lnb().tune_string, false);
 	if (ret < 0)
 		return ret;
 
@@ -780,13 +796,28 @@ int active_adapter_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
 		turn off tone to not interfere with diseqc
 	*/
 	auto fefd = current_fe->ts.readAccess()->fefd;
-	auto old = pol_band_status.get_tone();
+	auto old_tone = pol_band_status.get_tone();
+	auto old_voltage = pol_band_status.get_voltage();
+
+
+	if(old_voltage<0 /*unknown*/ || old_voltage == SEC_VOLTAGE_OFF)
+		pol_band_status.set_voltage(fefd, SEC_VOLTAGE_18);
+	//turn tone off to send command
 	if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 		return -1;
 	msleep(15);
-	auto ret = current_fe->send_positioner_message(cmd, par);
-	if (old >=0 && /* avoid the case where old mode was "unknown" */
-			pol_band_status.set_tone(fefd, old) < 0)
+
+	auto ret = diseqc(current_lnb().tune_string, true);
+	msleep(15);
+	if(ret<0)
+		return ret;
+
+	ret = current_fe->send_positioner_message(cmd, par);
+	if (old_voltage >=0 && /* avoid the case where old voltage was "unknown" */
+			pol_band_status.set_voltage(fefd, old_voltage) < 0)
+		return -1;
+	if (old_tone >=0 && /* avoid the case where old mode was "unknown" */
+			pol_band_status.set_tone(fefd, old_tone) < 0)
 		return -1;
 	return ret;
 }

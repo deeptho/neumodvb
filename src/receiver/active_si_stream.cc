@@ -889,8 +889,9 @@ void active_si_stream_t::finalize_scan(bool done)
 		mux_common->scan_result = chdb::scan_result_t::ABORTED;
 	else if (scan_state.locked) {
 		mux_common->scan_result = scan_state.scan_completed() ? chdb::scan_result_t::OK : chdb::scan_result_t::PARTIAL;
-		mux_common->tune_src = nit_actual_notpresent() ? chdb::tune_src_t::DRIVER
-			: chdb::tune_src_t::NIT_ACTUAL_TUNED;
+		if(mux_common->tune_src == chdb::tune_src_t::UNKNOWN || mux_common->tune_src == chdb::tune_src_t::AUTO
+			 || mux_common->tune_src == chdb::tune_src_t::TEMPLATE)
+			mux_common->tune_src = chdb::tune_src_t::DRIVER;
 	} else {
 		mux_common->scan_result = chdb::scan_result_t::FAILED;
 		mux_common->tune_src = chdb::tune_src_t::AUTO;
@@ -1221,6 +1222,10 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	dtdemux::reset_type_t ret = dtdemux::reset_type_t::NO_RESET;
 
 	for (auto& mux : network.muxes) {
+		auto* mux_key = mux_key_ptr(mux);
+		bool is_wrong_dvb_type = dvb_type(mux_key->sat_pos) != dvb_type(tuned_mux_key->sat_pos);
+		if(is_wrong_dvb_type)
+			continue;
 		/*
 			can_be_tuned means that the frequency is out of range for the current lnb
 

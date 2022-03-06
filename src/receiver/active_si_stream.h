@@ -68,7 +68,6 @@ struct pat_data_t {
 	std::map<uint16_t, pat_table_t> by_ts_id; //indexed by ts_id
 
 	inline bool has_ts_id(uint16_t ts_id) const {
-		assert(by_ts_id.size()>0); //require pat to be received
 		return by_ts_id.find(ts_id) != by_ts_id.end();
 	}
 

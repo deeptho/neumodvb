@@ -2027,6 +2027,8 @@ void active_si_stream_t::process_removed_channels(db_txn& txn, const chdb::chg_k
 
 dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& services, const subtable_info_t& info)
 {
+	if(! pat_data.has_ts_id(services.ts_id))
+		return dtdemux::reset_type_t::RESET;
 	if(!is_embedded_si && !pat_data.stable_pat())
 		return dtdemux::reset_type_t::RESET;
 	auto cidx = services.is_actual ? scan_state_t::SDT_ACTUAL : scan_state_t::SDT_OTHER;

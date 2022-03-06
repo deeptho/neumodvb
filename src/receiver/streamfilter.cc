@@ -269,27 +269,38 @@ inline void embedded_stream_reader_t::discard(ssize_t num_bytes) {
 	last_range_end_pointer = read_pointer + num_bytes;
 	if (last_range_end_pointer == stream_filter->buff_size)
 		last_range_end_pointer = 0;
+	assert((last_range_end_pointer % dtdemux::ts_packet_t::size)==0);
 	read_pointer = last_range_end_pointer;
 }
 
 inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size) {
 	assert(size != 0);
+	assert((size<0 || (size % dtdemux::ts_packet_t::size) ==0));
 	auto* ptr = stream_filter->bufferp.get() + read_pointer;
 	auto toread = stream_filter->write_pointer - read_pointer;
+	toread -= toread % dtdemux::ts_packet_t::size;
+	assert((toread % dtdemux::ts_packet_t::size) ==0);
 	if (toread < 0) { // wrap around
 		toread += stream_filter->buff_size;
 	}
+	assert((toread % dtdemux::ts_packet_t::size) ==0);
 	// never read past end of buffer (called can call again to get next part)
 	toread = std::min(toread, stream_filter->buff_size - read_pointer);
+	assert((toread % dtdemux::ts_packet_t::size) ==0);
 	if (size >= 0)
 		toread = std::min((int)size, toread);
+	assert((toread % dtdemux::ts_packet_t::size) ==0);
 	if (toread == 0) {
 		// attempt to read some more data
 		stream_filter->read_external_data();
 		toread = (stream_filter->buff_size + stream_filter->write_pointer - read_pointer)%stream_filter->buff_size;
+		toread -= toread % dtdemux::ts_packet_t::size;
+		assert((toread % dtdemux::ts_packet_t::size) ==0);
 		toread = std::min(toread, stream_filter->buff_size - read_pointer);
+		assert((toread % dtdemux::ts_packet_t::size) ==0);
 		if(size >0)
 			toread = std::min((int)size, toread); // never read more than requested
+		assert((toread % dtdemux::ts_packet_t::size) ==0);
 	}
 
 	if (toread > 0) {
@@ -298,18 +309,38 @@ inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size
 	}
 	if (toread > 0)
 		num_read += toread;
+ 	assert((toread % dtdemux::ts_packet_t::size) ==0);
 	return {ptr, toread};
 }
 
-inline ssize_t embedded_stream_reader_t::read_into(uint8_t* p, ssize_t toread) {
-	auto [ptr, ret] = this->read(toread);
-	if (ret < 0)
-		return ret;
-	assert(ret <= toread);
-	memcpy(p, ptr, toread);
-	discard(ret);
-	return ret;
+inline ssize_t embedded_stream_reader_t::read_into(uint8_t* p, ssize_t toread, const std::vector<pid_with_use_count_t>* pids) {
+	ssize_t num_read{0};
+	while (toread >= dtdemux::ts_packet_t::size) {
+		auto [ptr, ret] = this->read(toread);
+		if (ret <= 0)
+			return num_read > 0 ? num_read : ret;
+		assert(ret <= toread);
+		assert((ret % dtdemux::ts_packet_t::size)==0);
+
+		auto *ptr_end = ptr + ret;
+		while (ptr < ptr_end) {
+			int pid = (((uint16_t)(ptr[1] & 0x1f)) << 8) | ptr[2];
+			for(const auto& x : *pids) {
+				if (x.pid == pid) {
+					memcpy(p, ptr, dtdemux::ts_packet_t::size);
+					p += dtdemux::ts_packet_t::size;
+					num_read += dtdemux::ts_packet_t::size;
+					break;
+				}
+			}
+			ptr += dtdemux::ts_packet_t::size;
+		}
+		discard(ret);
+		toread -= ret;
+	}
+	return num_read;
 }
+
 
 inline bool embedded_stream_reader_t::on_epoll_event(int fd) {
 	if (fd == stream_filter->data_fd) {

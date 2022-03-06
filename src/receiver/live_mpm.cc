@@ -881,8 +881,8 @@ void active_mpm_t::process_channel_data() {
 			may be more efficient for filesystem access.
 		*/
 		int toread = std::min(remaining_space, (long)ts_packet_t::size * 100);
-		ssize_t ret = active_service->reader->read_into(buffer, toread - (toread % dtdemux::ts_packet_t::size));
-
+		ssize_t ret = active_service->reader->read_into(buffer, toread - (toread % dtdemux::ts_packet_t::size),
+																										&active_service->open_pids);
 		if (ret < 0) {
 			if (errno == EINTR) {
 				// dtdebug("Interrupt received (ignoring)");

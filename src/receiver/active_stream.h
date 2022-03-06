@@ -120,7 +120,7 @@ public:
 
 	virtual inline std::tuple<uint8_t*, ssize_t> read(ssize_t size=-1)  = 0;
 	virtual inline void discard(ssize_t bytes)  =0;
-	virtual ssize_t read_into(uint8_t* p, ssize_t to_read) = 0;
+	virtual ssize_t read_into(uint8_t* p, ssize_t to_read, const std::vector<pid_with_use_count_t>* pids = nullptr) = 0;
 
 
 	virtual inline int add_pid(int pid) {
@@ -201,7 +201,7 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 		return  {p, ret};
 	}
 
-	virtual inline ssize_t read_into(uint8_t* p, ssize_t toread) {
+	virtual inline ssize_t read_into(uint8_t* p, ssize_t toread, const std::vector<pid_with_use_count_t>* pids = nullptr) {
 		ssize_t ret = ::read(demux_fd, p, toread);
 		return ret;
 	}
@@ -282,7 +282,7 @@ public:
 		obtain a memory address and a size in which data can be read
 	 */
 	virtual std::tuple<uint8_t*, ssize_t> read(ssize_t size=-1);
-	virtual ssize_t read_into(uint8_t* p, ssize_t toread);
+	virtual ssize_t read_into(uint8_t* p, ssize_t toread, const std::vector<pid_with_use_count_t>* pids = nullptr);
 
 	virtual inline void discard(ssize_t num_bytes);
 

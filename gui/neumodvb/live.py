@@ -1069,6 +1069,9 @@ class MosaicPanel(wx.Panel):
 
     def OnStop( self, evt):
         dtdebug(f'OnStop {len(self.mpv_players)}')
+        if self.focus_idx is None or self.focus_idx <0 or self.focus_idx >= len(self.mpv_players):
+            dterror(f'self.focus_idx={self.focus_idx} out of range: max={len(self.mpv_players)}')
+            return
         assert self.focus_idx >=0 and self.focus_idx < len(self.mpv_players)
         player = self.mpv_players[self.focus_idx]
         glcanvas = self.glcanvases[self.focus_idx]
@@ -1091,7 +1094,7 @@ class MosaicPanel(wx.Panel):
         else:
             if self.focus_idx is not None:
                 dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
-                self.mpv_players[self.focus_idx].pelay_service(service)
+                self.mpv_players[self.focus_idx].play_service(service)
 
 class RecordPanel(wx.Panel):
     black=wx.Colour(128, 128, 0, 0)

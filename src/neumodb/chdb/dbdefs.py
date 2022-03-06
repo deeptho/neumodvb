@@ -147,12 +147,13 @@ tune_src = db_enum(name='tune_src_t',
                    version = 1,
                    fields=(
                        ('TEMPLATE', 0, 'templ'), #temporary values entered by user
-                       ('NIT_ACTUAL_TUNED', 1, 'natu'),  #NIT_ACTUAL after tuning the transponder (most reliable)
-                       ('NIT_ACTUAL_NON_TUNED', 2, 'na'), #NIT_ACTUAL on some other mux
+                       ('NIT_ACTUAL_TUNED', 1, 'natu'),  #NIT_ACTUAL after tuning the transponder: freq and sat_pos correct
+                                                         #and verified by comparing to driver data
+                       ('NIT_ACTUAL_NON_TUNED', 2, 'na'), #NIT_ACTUAL on some other mux, but not verified by tunung
                        ('NIT_OTHER_NON_TUNED', 3, 'no'), #NIT_OTHER on some other mux (least reliable)
-                       ('DRIVER', 4, 'drv'),  #from driver
+                       ('DRIVER', 4, 'drv'),  #from driver; frequency approx. correct, sat_pos may be incorrect
                        ('USER', 5, 'usr'), #user has locked the data from being overwritten
-                       ('AUTO', 6, 'auto'), #temporary state: user has turned of "USER", but source of data is unknown
+                       ('AUTO', 6, 'auto'), #temporary state: user has turned off "USER", but source of data is unknown
                        ('UNKNOWN', -1, 'unk'), #not initialised
                            ))
 

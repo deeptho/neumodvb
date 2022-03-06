@@ -808,7 +808,6 @@ int active_adapter_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
 	msleep(15);
 
 	auto ret = diseqc(current_lnb().tune_string, true);
-	msleep(15);
 	if(ret<0)
 		return ret;
 

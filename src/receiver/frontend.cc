@@ -764,14 +764,13 @@ int dvb_frontend_t::send_positioner_message(chdb::positioner_cmd_t command, int3
 	// 0x10: Any LNB, switcher or SMATV
 	// 0x30: any positioner
 	// 0x31: azimuth positioner
-	cmd.msg[1] = 0x30;
+	cmd.msg[1] = 0x31;
 	// set some defaults
 	cmd.msg[2] = (uint8_t)command;
 	cmd.msg_len = 4;
 	switch (command) {
 	case positioner_cmd_t::LIMIT_EAST:
 	case positioner_cmd_t::LIMIT_WEST:
-		cmd.msg[1] = 0x31;
 	case positioner_cmd_t::RESET:
 	case positioner_cmd_t::HALT:
 	case positioner_cmd_t::LIMITS_OFF:

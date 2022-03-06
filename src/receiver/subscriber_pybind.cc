@@ -227,7 +227,8 @@ void export_signal_info(py::module& m) {
 			return (i.lock_status& FE_TIMEDOUT) ? 1 : 0;
 		})
 		.def_property_readonly("sat_pos_confirmed", [](const signal_info_t& i) {
-			return i.tune_confirmation.sat_by != confirmed_by_t::NONE;
+			return i.tune_confirmation.sat_by != confirmed_by_t::NONE
+				&& mux_common_ptr(i.mux)->tune_src ==  tune_src_t::NIT_ACTUAL_TUNED;
 		})
 		.def_property_readonly("network_id_confirmed", [](const signal_info_t& i) {
 			return i.tune_confirmation.sat_by != confirmed_by_t::NONE &&

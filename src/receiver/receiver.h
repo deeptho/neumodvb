@@ -202,7 +202,7 @@ public:
 
 	int update_service(const chdb::service_t& service);
 
-	int lnb_scan(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
+	int lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
 					 tune_options_t tune_options);
 
 	int tune(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,

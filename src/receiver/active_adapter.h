@@ -309,7 +309,7 @@ private:
 
 	int lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t tune_options);
 
-	int lnb_scan(const chdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_activate(const chdb::lnb_t& lnb, tune_options_t tune_options);
 
 	int tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 					 tune_options_t tune_options, bool user_requested); //(re)tune to new transponder

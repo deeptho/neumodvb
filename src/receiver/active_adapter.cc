@@ -148,7 +148,7 @@ bool active_adapter_t::need_diseqc(const chdb::lnb_t& new_lnb, const chdb::dvbs_
 	return chdb::mux_key_ptr(current_tp())->sat_pos != new_mux.k.sat_pos;
 }
 
-int active_adapter_t::lnb_scan(const chdb::lnb_t& lnb, tune_options_t tune_options) {
+int active_adapter_t::lnb_activate(const chdb::lnb_t& lnb, tune_options_t tune_options) {
 	retune_count = 0;
 	this->tune_options = tune_options;
 	switch (tune_options.tune_mode) {
@@ -156,13 +156,16 @@ int active_adapter_t::lnb_scan(const chdb::lnb_t& lnb, tune_options_t tune_optio
 		return lnb_spectrum_scan(lnb, tune_options);
 	case tune_mode_t::SCAN_BLIND:
 		return lnb_blind_scan(lnb, tune_options);
-	case tune_mode_t::POSITIONER_CONTROL:
-		set_current_lnb(lnb);
-		break;
 	default:
 		assert(0);
+		//fall through
+	case tune_mode_t::POSITIONER_CONTROL: {
+		bool need_diseqc = lnb.k != current_lnb().k;
+		auto ret = need_diseqc ? diseqc(current_lnb().tune_string, true) :0;
+		if(ret<0)
+			return ret;
 		set_current_lnb(lnb);
-		return 0;
+	}
 		break;
 	}
 	return 0;
@@ -807,11 +810,7 @@ int active_adapter_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
 		return -1;
 	msleep(15);
 
-	auto ret = diseqc(current_lnb().tune_string, true);
-	if(ret<0)
-		return ret;
-
-	ret = current_fe->send_positioner_message(cmd, par);
+	auto ret = current_fe->send_positioner_message(cmd, par);
 	if (old_voltage >=0 && /* avoid the case where old voltage was "unknown" */
 			pol_band_status.set_voltage(fefd, old_voltage) < 0)
 		return -1;

@@ -995,7 +995,7 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 			if (ret < 0)
 				dterrorx("deactivate returned %d", ret);
 #endif
-			auto ret = cb(receiver.tuner_thread).lnb_scan(old_active_adapter, lnb, tune_options);
+			auto ret = cb(receiver.tuner_thread).lnb_activate(old_active_adapter, lnb, tune_options);
 			if (ret < 0)
 				dterrorx("tune returned %d", ret);
 			return ret;
@@ -1018,7 +1018,7 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 		}
 		assert(active_adapter->is_open());
 		futures.push_back(active_adapter->tuner_thread.push_task([this, active_adapter, lnb, tune_options]() {
-			auto ret = cb(receiver.tuner_thread).lnb_scan(active_adapter, lnb, tune_options);
+			auto ret = cb(receiver.tuner_thread).lnb_activate(active_adapter, lnb, tune_options);
 			if (ret < 0)
 				dterrorx("tune returned %d", ret);
 			return ret;

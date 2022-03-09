@@ -138,13 +138,13 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 	return 0;
 }
 
-int tuner_thread_t::cb_t::lnb_scan(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
+int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
 																	 tune_options_t tune_options) {
 	// check_thread();
-	dtdebugx("lnb scan action");
+	dtdebugx("lnb activate");
 	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
-	return active_adapter->lnb_scan(lnb, tune_options);
+	return active_adapter->lnb_activate(lnb, tune_options);
 }
 
 int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,

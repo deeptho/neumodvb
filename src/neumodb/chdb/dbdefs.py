@@ -87,16 +87,20 @@ positioner_cmd = db_enum(name='positioner_cmd_t',
                    version = 1,
                    fields=(
                        ('RESET', '0x00'),
-                       ('HALT', '0x60'),
-                       ('LIMITS_OFF', '0x63'),
-                       ('LIMIT_EAST', '0x66'),
-                       ('LIMIT_WEST', '0x67'),
-                       ('DRIVE_EAST', '0x68'),
-                       ('DRIVE_WEST', '0x69'),
-                       ('STORE_NN', '0x6A'),
-                       ('GOTO_NN', '0x6B'),
-                       ('GOTO_XX', '0x6E'), #usals in degree
-                       'GOTO_REF',
+                       ('HALT', '0x60'), #e0 30 60
+                       ('LIMITS_OFF', '0x63'), #e0 30 63
+                       ('LIMIT_EAST', '0x66'), #e1 30 66
+                       ('LIMIT_WEST', '0x67'), #e1 30 67
+                       ('DRIVE_EAST', '0x68'), #e1 31 68 40
+                       ('DRIVE_WEST', '0x69'), #e1 31 69 40
+                       ('STORE_NN', '0x6A'), #e0 30 6a xx
+                       ('GOTO_NN', '0x6B'), # e0 30 6b nn
+                       ('GOTO_XX', '0x6E'), #par=usals in degree
+                       ('RECALCULATE_POSITIONS','0x6F') , # e0 30 6f 00 { 00 , 00}
+                       ('GOTO_REF'),  # e0 30 6b 00 same as GOTO_NN with par 0
+                       ('LIMITS_ON'),  # e0 30 6a 00 samen as STORE_NN with par 0
+                       ('NUDGE_WEST'),  #/e1 31 69 xx same as drive west but with different par
+                       ('NUDGE_EAST')  #/e1 31 68 xx same as drive east but with different par
 
                    ))
 

@@ -769,6 +769,9 @@ int dvb_frontend_t::send_positioner_message(chdb::positioner_cmd_t command, int3
 	cmd.msg[2] = (uint8_t)command;
 	cmd.msg_len = 4;
 	switch (command) {
+	case positioner_cmd_t::RECALCULATE_POSITIONS:
+		assert(0);
+		break;
 	case positioner_cmd_t::LIMIT_EAST:
 	case positioner_cmd_t::LIMIT_WEST:
 	case positioner_cmd_t::RESET:
@@ -791,6 +794,12 @@ int dvb_frontend_t::send_positioner_message(chdb::positioner_cmd_t command, int3
 		cmd.msg[2] = (uint8_t)positioner_cmd_t::GOTO_NN;
 		cmd.msg[3] = 0;
 		cmd.msg_len = 4;
+		break;
+	case positioner_cmd_t::LIMITS_ON:
+		cmd.msg[2] = (uint8_t)positioner_cmd_t::STORE_NN;
+		cmd.msg[3] = 0;
+		cmd.msg_len = 4;
+		assert (cmd.msg[3]==0);
 		break;
 	case positioner_cmd_t::GOTO_XX: {
 		auto loc = adapter->get_usals_location();

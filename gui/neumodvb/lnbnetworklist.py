@@ -159,7 +159,7 @@ class LnbNetworkGrid(NeumoGridBase):
         self._add_accels([
             (wx.ACCEL_CTRL,  ord('D'), self.OnDelete),
             (wx.ACCEL_CTRL,  ord('N'), self.OnNew),
-            (wx.ACCEL_ALT,  ord('E'), self.OnEditMode)
+            (wx.ACCEL_CTRL,  ord('E'), self.OnEditMode)
         ])
         self.EnableEditing(self.app.frame.edit_mode)
 
@@ -205,9 +205,11 @@ class LnbNetworkGrid(NeumoGridBase):
         self.app.MuxTune(mux)
 
     def OnNew(self, evt):
-        wx.CallAfter(wx.GetApp().frame.SetEditMode, True)
+        self.app.frame.SetEditMode(True)
+        self.EnableEditing(self.app.frame.edit_mode)
         return super().OnNew(evt)
 
     def OnEditMode(self, evt):
+        dtdebug(f'old_mode={self.app.frame.edit_mode}')
         self.app.frame.ToggleEditMode()
         self.EnableEditing(self.app.frame.edit_mode)

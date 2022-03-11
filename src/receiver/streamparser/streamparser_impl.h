@@ -86,7 +86,7 @@ namespace dtdemux {
 		return l;
 	}
 
-	inline int data_range_t::put_buffer(uint8_t* buffer, int64_t len) {
+	inline int data_range_t::put_buffer(const uint8_t* buffer, int64_t len) {
 		assert(is_writer);
 		int l = std::min(available(), len);
 		memcpy(curpos, buffer, l);

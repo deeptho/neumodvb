@@ -173,7 +173,7 @@ namespace dtdemux {
 			return ret;
 		}
 
-		int put_buffer(uint8_t* buffer, int64_t len);
+		int put_buffer(const uint8_t* buffer, int64_t len);
 
 		template<typename T> T get_(uint8_t* cursor);
 

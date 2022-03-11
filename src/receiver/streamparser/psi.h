@@ -234,6 +234,7 @@ namespace dtdemux {
 
 	struct pat_services_t {
 		uint16_t ts_id{0xffff};
+		uint16_t version_number{0};
 		ss::vector<pat_entry_t,32> entries;
 	};
 
@@ -509,7 +510,7 @@ namespace dtdemux {
 
 
 	bool pmt_ca_changed(const pmt_info_t& a,  const pmt_info_t& b);
-
+	uint32_t crc32(const uint8_t* data, int size);
 
 #if 0
 	struct sdt_bat_parser_t : public section_parser_t

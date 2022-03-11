@@ -779,6 +779,9 @@ int dvb_frontend_t::send_positioner_message(chdb::positioner_cmd_t command, int3
 	case positioner_cmd_t::LIMITS_OFF:
 		cmd.msg_len = 3;
 		break;
+	case positioner_cmd_t::NUDGE_EAST:
+	case positioner_cmd_t::NUDGE_WEST:
+		par = 0; //fall through
 	case positioner_cmd_t::DRIVE_EAST:
 	case positioner_cmd_t::DRIVE_WEST:
 		cmd.msg[1] = 0x31;

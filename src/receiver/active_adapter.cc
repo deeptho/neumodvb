@@ -162,8 +162,10 @@ int active_adapter_t::lnb_activate(const chdb::lnb_t& lnb, tune_options_t tune_o
 	case tune_mode_t::POSITIONER_CONTROL: {
 		bool need_diseqc = lnb.k != current_lnb().k;
 		auto ret = need_diseqc ? diseqc(current_lnb().tune_string, true) :0;
-		if(ret<0)
+		if(ret<0) {
+			dterrorx("diseqc failed: err=%d", ret);
 			return ret;
+		}
 		set_current_lnb(lnb);
 	}
 		break;
@@ -525,7 +527,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command, bool skip_positi
 
 	auto can_move_dish_ = can_move_dish(current_lnb());
 
-	int ret;
+	int ret{0};
 	int i = 0;
 	bool must_pause = false; // do we need a long pause before the next diseqc command?
 	for (const char& command : diseqc_command) {

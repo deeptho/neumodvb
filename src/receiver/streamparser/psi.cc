@@ -106,6 +106,19 @@ namespace dtdemux {
 		0x933eb0bb, 0x97ffad0c, 0xafb010b1, 0xab710d06, 0xa6322bdf, 0xa2f33668,
 		0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4};
 
+	uint32_t crc32(const uint8_t* data, int size) {
+		int i;
+		uint32_t crc = 0xFFFFFFFF;
+		if (size < 4)
+			return false;
+
+		for (i = 0; i < size; i++)
+			crc = (crc << 8) ^ crc_table[((crc >> 24) ^ (uint8_t)data[i])];
+
+		return crc;
+	}
+
+
 	section_header_t* section_parser_t::header() {
 		if (!section_complete)
 			return nullptr;
@@ -1260,6 +1273,7 @@ namespace dtdemux {
 		auto& hdr = *header();
 
 		auto ts_id = hdr.table_id_extension;
+		pat_services.version_number = hdr.version_number;
 		pat_services.ts_id = ts_id;
 		if (hdr.table_id != 0x0) {
 			LOG4CXX_ERROR(logger, "PAT with bad table id " << (int)hdr.table_id);
@@ -1919,7 +1933,6 @@ namespace dtdemux {
 
 	bool pmt_parser_t::parse_pmt_section(stored_section_t& section, pmt_info_t& pmt) {
 		section_header_t& hdr = *header();
-
 		if (service_id != hdr.table_id_extension) {
 			return false; // wrong service_id;
 		}

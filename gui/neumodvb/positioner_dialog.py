@@ -151,6 +151,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.lnb_changed = False
         self.mux_subscriber_ = None
         self.tuned_ = False
+        self.lnb_activated_ = False
         self.use_blindscan_ = False
         self.retune_mode_ =  pyreceiver.retune_mode_t.IF_NOT_LOCKED
         self.tune_attempt = False
@@ -185,7 +186,8 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     @property
     def lnb_subscriber(self):
-        if not self.tuned_:
+        if not self.tuned_ and not self.lnb_activated_:
+            self.lnb_activated_ = True;
             self.SubscribeLnb(retune_mode=pyreceiver.retune_mode_t.NEVER)
         return self.mux_subscriber
 
@@ -224,6 +226,13 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.mux_subscriber.unsubscribe()
             del self.mux_subscriber_
             self.tuned_ = False
+            self.lnb_activated_ = False
+            dtdebug("SUBS deleted\n")
+            self.mux_subscriber_ = None
+        elif self.lnb_activated_:
+            self.lnb_subscriber.unsubscribe()
+            self.tuned_ = False
+            self.lnb_activated_ = False
             dtdebug("SUBS deleted\n")
             self.mux_subscriber_ = None
 
@@ -276,6 +285,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         used when we want change a positioner without tuning
         """
         if self.tuned_:
+            assert self.lnb_activated_
             return self.tuned_ # no need to subscribe
         self.retune_mode = retune_mode
         dtdebug(f'Subscribe LNB')
@@ -286,7 +296,8 @@ class TuneMuxPanel(TuneMuxPanel_):
             dtdebug(f"Tuning failed {self.mux_subscriber.error_message}")
 
         self.tuned_ = False
-        return self.tuned_
+        self.lnb_activated_ = True
+        return self.lnb_activated_
 
     def Tune(self, mux, retune_mode, pls_search_range=None, silent=False):
         self.retune_mode = retune_mode
@@ -301,8 +312,10 @@ class TuneMuxPanel(TuneMuxPanel_):
                 ShowMessage("Tuning failed", self.mux_subscriber.error_message) #todo: record error message
             dtdebug(f"Tuning failed {self.mux_subscriber.error_message}")
             self.tuned_ = False
+            self.lnb_activated_ = False
         else:
             self.tuned_ = True
+            self.lnb_activated_ = True
             self.tune_attempt = ret
         return self.tuned_
 
@@ -337,6 +350,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.mux_subscriber.unsubscribe()
         self.mux_subscriber_ = None
         self.tuned_ = False
+        self.lnb_activated_ = False
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()
     def OnAbortTune(self, event):

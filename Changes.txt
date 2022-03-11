@@ -1,0 +1,133 @@
+Changes in version neumodvb-0.7
+
+-------------------
+Positioner related
+
+-More consistent layout of positioner dialog. Disable some functions when unusable
+
+-Fixes for diseqc12, e.g., new diseqc12 value not stored when user updates it
+
+-Positioner bug fixes: send diseqc switch commands before sending any positioner command;
+ report better error messages in GUI; properly handle continuous motion.
+
+-Send diseqc switch commands before spectrum scan to avoid scanning the wrong lnb
+
+-Prevent dish movement during mux scan
+
+-Satellite is now only shown as "confirmed" (no question mark) if the position was actually
+ found in the NIT table.
+
+-Positioner dialog: show SNR and constellation even when tuner is not locked
+
+-Avoid interference between positioner dialog and mux scan
+
+-Disallow starting positioner dialog from some screens, when context does not allow guessing which
+ lnb the user wants to use
+
+-In positioner dialog allow negative SNRs. Yes, there are muxes which lock with a negative SNR!
+
+-Documentation of positioner commands
+
+-Allow rotors which can rotate by more than 65 degrees. The old code used to cause a goto south
+ in this case.
+
+-------------------
+Scanning related:
+
+-Mux tables now show the source of the mux information. For instance if the frequency
+ was found in the NIT table or rather from the tuner and if sat position was guessed or
+ found in NIT
+
+-Improved handling of bad data while scanning muxes:
+   0 frequency (7.3W 11411H) or other nonsensical values;
+   contradictory information in muxes from 0.8W and 1.0W;
+   invalid satellite positions;
+   on 42.0E, muxes are being reported as from 42.0W;
+   some muxes report AUTO for modulation
+   incorrect polarisation reported in C-band reuters mux on 22W;
+   incorrect polarisation reported on 7.3W 11411H
+   22.0E 4181V and other muxes which claim QAM_AUTO in NIT
+
+-Fixed incorrectly reported roll-offs (may require driver update)
+
+-Correctly handle some cases where mux or blindscan never finish
+
+-Remove "scan-in-progress" data from database at startup to avoid an old scan from
+ restarting when neumoDVB is restarted
+
+-Improved handling of muxes reported on nearby satellites (e.g., 0.8W and 1.0W). Avoid creating
+ duplicates in this case. The downside is that when scanning e.g., 0.8W the found mux may
+ appear in the list for 1.0W and thus confuse the user
+
+-Fixed incorrect display of scan status on mux list when mux scan is in progress
+
+-Fixed bug where incorrect pls_code and pls_mode was retrieved from driver
+
+-Correctly save DVBS2 matype in the database and do not show this value for DVBS
+
+-Fix incorrect lock detection
+
+-When scanning multistreams: retain tuning info when scanning next stream
+
+-Spectrum blindscan now moves faster to the next candidate peak when mux does not contain
+ a DVB stream
+
+
+-------------------
+t2mi related:
+
+
+-Fixed corruption in t2mi streams. This requires a patched tsduck as well.
+
+-Improved handling of non-t2mi DVB-T service information on DVB-S muxes. Avoid entering
+ such muxes as DVB-T
+
+-correctly handle duplicate packets in transport streams; tsduck needs to be patched
+ to also handle t2mi streams correctly
+
+------------
+GUI related
+
+-Handle some corruption in service and mux list
+
+-Various GUI improvements.
+
+-Changed key-binding for activating edit-mode.
+
+-New "status list" screen shows which adapters are active and what they are doing
+
+-Fix some crashes when ending program
+
+-Fix some errors when service list is empty
+
+-Allow user to select a stream_id even when dvb streams reports incorrectly that stream is not multistream
+
+-Correctly update recordings screen when database changes
+
+-Minimum RF level shown on live screen is now lower than before
+
+-Fixed some issues with list filtering
+
+
+------------
+Other
+
+-Fixed some bugs in the code used to look up muxes. For instance, in rare cases a mux with
+the wrong polarization was returned
+
+-Fixed bug: lnb offset correction was applied in wrong direction on C band
+
+-Detection of whether dish needs to be moved was sometimes incorrect; database now contains
+ the ultimate truth on this.
+
+-Fixes to support ubuntu 20.04
+
+-Fixed race between closing and then reopening the same frontend, which caused sporadic assertions.
+
+-correctly release lnb in more cases then before: when user closwes window; when spectrum blindscan
+ finishes
+
+-various other bugs
+
+
+=========================

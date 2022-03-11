@@ -822,7 +822,7 @@ class PositionerDialog(PositionerDialog_):
     def ChangeSatPos(self, sat_pos):
         self.SetPosition(sat_pos)
 
-    def diseqc12_command(self, *args):
+    def diseqc12_commandOFF(self, *args):
         if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
             self.lnb_subscriber.positioner_cmd(*args)
             return True
@@ -1021,7 +1021,7 @@ class PositionerDialog(PositionerDialog_):
             self.positioner_command(pychdb.positioner_cmd_t.GOTO_XX, pos)
             self.UpdateUsalsPosition(pos)
         elif self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
-            self.diseqc12_cmd(pychdb.positioner_cmd_t.GOTO_NN, network.diseqc12)
+            self.positioner_command(pychdb.positioner_cmd_t.GOTO_NN, network.diseqc12)
             self.SetDiseqc12(network.diseqc12)
         else:
             ShowMessage("Cannot goto sat",

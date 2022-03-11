@@ -344,7 +344,7 @@ uint8_t* svg_overlay_t::render(int window_width, int window_height) {
 	}
 
 	self->uptodate = true;
-	surface = self->doc->RenderGetRef(window_width, window_height, NULL, true, true);
+	surface = self->doc->RenderGetRef(window_width, window_height, NULL, true, true); //crash sometimes
 	this->window_width = window_width;
 	this->window_height = window_height;
 	return surface;

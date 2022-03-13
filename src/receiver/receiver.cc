@@ -119,8 +119,8 @@ void receiver_thread_t::unsubscribe_mux_(std::vector<task_queue_t::future_t>& fu
 				dterrorx("deactivate returned %d", ret);
 			return ret;
 		}));
-		receiver.reserved_muxes.writeAccess()->erase(subscription_id);
 	}
+	receiver.reserved_muxes.writeAccess()->erase(subscription_id);
 }
 
 void receiver_thread_t::unsubscribe_active_service(std::vector<task_queue_t::future_t>& futures,

@@ -1117,20 +1117,24 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 				dtdebugx("NIT_ACTUAL only contains sat_pos=%d, which is very unexpected. Asking retune", sat_pos);
 				return dtdemux::reset_type_t::ABORT;
 			}
-			dtdebugx("NIT_ACTUAL only contains sat_pos=%d (no retune allowed). confirming sat_pos", sat_pos);
-			auto tuned_mux = reader->tuned_mux(); //copy!
-			auto* tuned_mux_key = mux_key_ptr(tuned_mux);
-			auto* p_mux_data = tuned_mux_in_nit();
-			bool is_wrong_dvb_type = dvb_type(sat_pos) != dvb_type(tuned_mux_key->sat_pos);
-			if(! is_wrong_dvb_type) {
-				if(p_mux_data) {
-					*tuned_mux_key = p_mux_data->mux_key;
-				} else {
-					tuned_mux_key->sat_pos = sat_pos_none;
+			if(sat_pos ==sat_pos_none) {
+				dtdebugx("NIT_ACTUAL does not contain any sat_pos");
+			} else {
+				dtdebugx("NIT_ACTUAL only contains sat_pos=%d (no retune allowed). confirming sat_pos", sat_pos);
+				auto tuned_mux = reader->tuned_mux(); //copy!
+				auto* tuned_mux_key = mux_key_ptr(tuned_mux);
+				auto* p_mux_data = tuned_mux_in_nit();
+				bool is_wrong_dvb_type = dvb_type(sat_pos) != dvb_type(tuned_mux_key->sat_pos);
+				if(! is_wrong_dvb_type) {
+					if(p_mux_data) {
+						*tuned_mux_key = p_mux_data->mux_key;
+					} else {
+						tuned_mux_key->sat_pos = sat_pos_none;
+					}
+					reader->on_tuned_mux_change(tuned_mux);
 				}
-				reader->on_tuned_mux_change(tuned_mux);
+				tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			}
-			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			tune_confirmation.nit_actual_ok = true;
 			dtdebugx("Setting nit_actual_ok = true");
 			return dtdemux::reset_type_t::NO_RESET;
@@ -1169,7 +1173,7 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 	-reasons: dish is still moving and we picked up a transient signal, reception from  a nearby sat,
 	failed diseqc swicth has brught us to the same sat
 	-action: restart nit_actual_processing and see if the result is stable; if it is not stable, then the dish is
-	probablly moving and the problem will disappear. If the result is stable, then distinghuish betweem
+	probablly moving and the problem will disappear. If the result is stable, then distinghuish between
 	4.a. the difference in sat_pos is small (less than a degree).
 	-action: assume that the data in nit_actual is correct, update tuned_mux and similar data structures in tuner and
 	fe_monitor threads
@@ -1772,9 +1776,18 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		chdb::any_mux_t mux;
 		auto tuned_mux = reader->tuned_mux();
 		if (is_actual) {
-			assert(is_embedded_si || mux_key == *mux_key_ptr(tuned_mux));
-			// copy from tune_mux to avoid consulting the db
-			mux = tuned_mux;
+			if (is_embedded_si && !is_tuned_mux(mux) && pat_data.has_ts_id(services.ts_id)) {
+				//this happens on 40.0E 3992L T2MI. main mux does not have mux. Embedded mux is empty
+				auto saved = mux_key;
+				// copy from tune_mux to avoid consulting the db
+				mux = tuned_mux;
+				*chdb::mux_key_ptr(mux) = saved;
+				update_tuned_mux(wtxn, mux, false /*may_change_sat_pos*/, true /*may_change_nit_tid*/, true /*from_sdt*/);
+			} else {
+				assert(mux_key == *mux_key_ptr(tuned_mux));
+				// copy from tune_mux to avoid consulting the db
+				mux = tuned_mux;
+			}
 		} else {
 			// we need the full mux, so we need to load it from the db
 			// we only update if we found exactly 1 mux; otherwise we better wait for nit_actual/nit_other to tell us the
@@ -2594,9 +2607,15 @@ void active_si_stream_t::update_tuned_mux(db_txn& wtxn, chdb::any_mux_t& mux, bo
 
 bool active_si_stream_t::is_tuned_mux(const chdb::any_mux_t& mux)
 {
-	if (! pat_data.has_ts_id( mux_key_ptr(mux)->ts_id))
+
+	/*
+		t2mi pids start with the nid/tid from their parent mux. So tid may be incorrect
+	*/
+	auto* c = chdb::mux_common_ptr(mux);
+	bool check_pat = !is_embedded_si || !(c->tune_src == chdb::tune_src_t::DRIVER || c->tune_src == chdb::tune_src_t::AUTO);
+	if ( check_pat && ! pat_data.has_ts_id( mux_key_ptr(mux)->ts_id))
 		return false;
-	//sat, freq, pal match what is currently tuned
+	//sat, freq, pol match what is currently tuned
 	return chdb::matches_physical_fuzzy(mux, reader->tuned_mux());
 }
 

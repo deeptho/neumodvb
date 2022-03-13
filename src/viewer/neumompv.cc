@@ -783,6 +783,7 @@ template <typename _mux_t> int MpvPlayer_::play_mux(const _mux_t& mux, bool blin
 		assert(0);
 		return -1;
 	}
+	this->subscription.set_pending_close(true);
 	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
 	dtdebugx("PLAY SUBSCRIPTION %p STARTED", this);

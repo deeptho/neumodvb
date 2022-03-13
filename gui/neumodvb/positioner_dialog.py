@@ -277,6 +277,22 @@ class TuneMuxPanel(TuneMuxPanel_):
         if event:
             event.Skip()
 
+    def OnResetLof(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        dtdebug("Resetting LOF offset")
+        assert self.lnb is not None
+        ok = ShowOkCancel("Reset LOF offset?", f"Do you wish to reset the estimate local oscillator "
+                          "ofset for this LNB?")
+        if ok:
+            pychdb.lnb.reset_lof_offset(self.lnb)
+            txn = wx.GetApp().chdb.wtxn()
+            #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
+            self.mux_subscriber.update_current_lnb(self.lnb)
+            pychdb.lnb.update_lnb(txn, self.lnb)
+            txn.commit()
+            self.lnb_changed = False
+        if event:
+            event.Skip()
+
     def OnToggleConstellation(self, evt):
         self.parent.OnToggleConstellation(evt)
 

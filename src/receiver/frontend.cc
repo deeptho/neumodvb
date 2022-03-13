@@ -871,10 +871,13 @@ void dvb_frontend_t::update_tuned_mux_tune_confirmation(const tune_confirmation_
 			if(m) {
 				auto& tuner_thread = m->receiver.tuner_thread;
 				int fefd = ts.readAccess()->fefd;
-				tuner_thread.push_task([&tuner_thread, fefd, lof_offsets = std::move(lof_offsets)]() {
-					cb(tuner_thread).on_lnb_lof_offset_update(fefd, lof_offsets);
-				return 0;
-				});
+				if(dvbs_mux->c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
+					dtdebug("Updating LNB LOF offset");
+					tuner_thread.push_task([&tuner_thread, fefd, lof_offsets = std::move(lof_offsets)]() {
+						cb(tuner_thread).on_lnb_lof_offset_update(fefd, lof_offsets);
+						return 0;
+					});
+				}
 			}
 		}
 	}

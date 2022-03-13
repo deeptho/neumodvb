@@ -1782,6 +1782,13 @@ void chdb::lnb::update_lnb(db_txn& wtxn, chdb::lnb_t&  lnb)
 	put_record(wtxn, lnb);
 }
 
+void chdb::lnb::reset_lof_offset(chdb::lnb_t&  lnb)
+{
+	lnb.lof_offsets.resize(2);
+	lnb.lof_offsets[0] = 0;
+	lnb.lof_offsets[1] = 0;
+}
+
 
 
 template<typename mux_t> static void clean(db_txn& wtxn)

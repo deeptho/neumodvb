@@ -96,6 +96,9 @@ static void export_lnb_extra(py::module& m) {
 				 py::arg("dish_id") = 0, py::arg("type") = chdb::lnb_type_t::UNIV)
 		.def("update_lnb", &chdb::lnb::update_lnb, "save chanfed lnb, while checking tune string",
 				 py::arg("wtxn"), py::arg("lnb"))
+		.def("reset_lof_offset", &chdb::lnb::reset_lof_offset,
+				 "reset the LOF offset to 0",
+				 py::arg("lnb"))
 		.def("make_unique_if_template", make_unique_if_template<lnb_t>,
 				 "Make the key of this lnb unique, but only if lnb.k.id<0")
 		.def("select_reference_mux", &chdb::lnb::select_reference_mux,

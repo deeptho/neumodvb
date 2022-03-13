@@ -626,6 +626,7 @@ namespace  chdb::lnb {
 
 	bool add_network(chdb::lnb_t& lnb, chdb::lnb_network_t& network);
 	void update_lnb(db_txn& wtxn, chdb::lnb_t&  lnb);
+	void reset_lof_offset(chdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const chdb::lnb_t& lnb);
 
 	bool can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol);

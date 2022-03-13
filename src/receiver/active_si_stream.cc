@@ -2559,6 +2559,12 @@ void active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
 	p.pmt_analysis_finished = true;
 	for (const auto& desc : pmt.pid_descriptors) {
 		bool is_t2mi = desc.t2mi_stream_id >= 0;
+		auto sat_pos = mux_key_ptr(reader->tuned_mux())->sat_pos;
+		if (pmt.pmt_pid == 256 && desc.stream_type ==  stream_type::stream_type_t::PES_PRIV
+				&& desc.stream_pid == 4096 && std::abs(sat_pos - (int)4000)<300) {
+			//40.0 E
+			is_t2mi = true;
+		}
 		if (is_t2mi) {
 			auto& aa = reader->active_adapter;
 			bool start = true;

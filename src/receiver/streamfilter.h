@@ -46,7 +46,6 @@ class stream_filter_t {
 	int epoll_flags = (int) (EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 	ss::vector<std::shared_ptr<embedded_stream_reader_t>, 4> stream_readers;
 	bool error{false};
-	int stream_pid{0x1fff};
 	pid_t command_pid{-1};
 
 	//struct subscription_t;
@@ -65,14 +64,8 @@ class stream_filter_t {
 																					command but which has  not been fully tranitted*/
 	bool read_and_process_data();
 public:
-	stream_filter_t(active_adapter_t& active_adapter, int stream_pid,
-									epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET)
-		: active_adapter(active_adapter)
-		, epoll(epoll)
-		, epoll_flags(epoll_flags)
-		, stream_pid(stream_pid)
-		,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
-	}
+	stream_filter_t(active_adapter_t& active_adapter, const chdb::mux_key_t& key,
+									epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 
 	inline int available_for_write();
 

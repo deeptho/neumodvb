@@ -340,8 +340,9 @@ public:
 	}
 
 	std::shared_ptr<stream_reader_t> make_dvb_stream_reader(ssize_t dmx_buffer_size_ = -1);
-	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(int stream_pid, ssize_t dmx_buffer_size_ = -1);
-	void add_embedded_si_stream(int stream_pid, bool start=false);
+	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(const chdb::mux_key_t& mux_key,
+																															 ssize_t dmx_buffer_size_ = -1);
+	void add_embedded_si_stream(const chdb::mux_key_t& mux, bool start=false);
 
 	bool read_and_process_data_for_fd(int fd);
 private:

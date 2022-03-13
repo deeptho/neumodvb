@@ -253,7 +253,7 @@ receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futur
 	prefix.sprintf("CH[%d:%s]", active_adapter.get_adapter_no(), chdb::to_str(service).c_str());
 	log4cxx::NDC::push(prefix.c_str());
 
-	auto reader = service.k.mux.t2mi_pid > 0 ? active_adapter.make_embedded_stream_reader(service.k.mux.t2mi_pid)
+	auto reader = service.k.mux.t2mi_pid > 0 ? active_adapter.make_embedded_stream_reader(service.k.mux)
 		: active_adapter.make_dvb_stream_reader();
 	auto active_service_p = std::make_shared<active_service_t>(active_adapter, service, std::move(reader));
 

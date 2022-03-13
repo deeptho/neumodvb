@@ -29,6 +29,7 @@ enum class confirmed_by_t {
 		PAT,
 		SDT,
 		NIT,
+		TIMEOUT,
 		AUTO,
 		FAKE
 };

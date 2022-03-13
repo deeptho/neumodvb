@@ -856,31 +856,30 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_dvb_stream_reader(ssize_
 	return std::make_shared<dvb_stream_reader_t>(*this, dmx_buffer_size);
 }
 
-std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(int stream_pid,
-																																							 ssize_t dmx_buffer_size) {
-	auto [it, found] = find_in_map(stream_filters, stream_pid);
+std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(const chdb::mux_key_t& mux_key, ssize_t dmx_buffer_size) {
+	auto [it, found] = find_in_map(stream_filters, mux_key.t2mi_pid);
 	std::shared_ptr<stream_filter_t> substream;
 	if (found) {
 		substream = it->second;
 	} else {
-		substream = std::make_shared<stream_filter_t>(*this, stream_pid, &tuner_thread.epx);
-		stream_filters[stream_pid] = substream;
+		substream = std::make_shared<stream_filter_t>(*this, mux_key, &tuner_thread.epx);
+		stream_filters[mux_key.t2mi_pid] = substream;
 	}
 	return std::make_shared<embedded_stream_reader_t>(*this, substream);
 }
 
-void active_adapter_t::add_embedded_si_stream(int stream_pid, bool start) {
-	auto [it, found] = find_in_map(embedded_si_streams, stream_pid);
+void active_adapter_t::add_embedded_si_stream(const chdb::mux_key_t& mux_key, bool start) {
+	auto [it, found] = find_in_map(embedded_si_streams, mux_key.t2mi_pid);
 	if (found) {
 		dtdebugx("Ignoring requet to add the same si stream twice");
 		return;
 	}
-	auto reader = make_embedded_stream_reader(stream_pid);
+	auto reader = make_embedded_stream_reader(mux_key);
 	const bool is_embedded_si{true};
 #ifndef NDEBUG
 	auto [it1, inserted] =
 #endif
-		embedded_si_streams.try_emplace((uint16_t)stream_pid, receiver, std::move(reader), is_embedded_si);
+		embedded_si_streams.try_emplace((uint16_t)mux_key.t2mi_pid, receiver, std::move(reader), is_embedded_si);
 	assert(inserted);
 	if (start)
 		it1->second.init(tune_options.scan_target);
@@ -903,14 +902,14 @@ void active_adapter_t::init_si(scan_target_t scan_target) {
 	*/
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&current_tp());
 	if (dvbs_mux && dvbs_mux->k.t2mi_pid > 0) {
-		auto stream_pid = dvbs_mux->k.t2mi_pid;
-		auto mux = *dvbs_mux;
+		auto master_mux = *dvbs_mux;
+		auto mux_key = master_mux.k;
 		dtdebug("mux " << *dvbs_mux << " is an embedded stream");
-		mux.k.t2mi_pid = 0;
+		master_mux.k.t2mi_pid = 0;
 		auto rtxn = receiver.chdb.wtxn();
 		/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
 		handle small differences in sat_pos*/
-		auto c = chdb::find_by_mux_physical(rtxn, mux);
+		auto c = chdb::find_by_mux_physical(rtxn, master_mux);
 		if (c.is_valid()) {
 			assert(mux_key_ptr(c.current())->sat_pos != sat_pos_none);
 			set_current_tp(c.current());
@@ -918,12 +917,11 @@ void active_adapter_t::init_si(scan_target_t scan_target) {
 		} else {
 			rtxn.abort();
 			auto wtxn = receiver.chdb.wtxn();
-			auto am = current_tp();
-			update_mux(wtxn, am, now, update_mux_preserve_t::NONE);
-			set_current_tp(am);
+			update_mux(wtxn, master_mux, now, update_mux_preserve_t::NONE);
+			set_current_tp(master_mux);
 			wtxn.commit();
 		}
-		add_embedded_si_stream(stream_pid);
+		add_embedded_si_stream(mux_key, false);
 	}
 	si.init(scan_target);
 	for (auto& [pid, si_] : embedded_si_streams) {

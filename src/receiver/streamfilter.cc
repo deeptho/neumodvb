@@ -57,11 +57,21 @@ bool set_blocking(int fd, bool on) {
 	return (fcntl(fd, F_SETFL, flags) == 0) ? true : false;
 }
 
+stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key,
+																 epoll_t* epoll, int epoll_flags)
+	: active_adapter(active_adapter)
+	, tuned_mux(active_adapter.current_mux())
+	, epoll(epoll)
+	, epoll_flags(epoll_flags)
+	,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
+	auto* k = chdb::mux_key_ptr(this->tuned_mux);
+	*k = mux_key;
+}
+
 int stream_filter_t::open() {
-	this->tuned_mux = active_adapter.current_mux();
+	//this->tuned_mux = active_adapter.current_mux();
 	auto* k = chdb::mux_key_ptr(this->tuned_mux);
 	assert(k->sat_pos != sat_pos_none);
-	k->t2mi_pid = stream_pid;
 	start();
 	return error ? -1 : 0;
 }
@@ -95,6 +105,7 @@ int stream_filter_t::start() {
 	logger = Logger::getLogger("t2mi"); //override default logger for this thread
 #endif
 	ss::string<64> ndc;
+	auto stream_pid = chdb::mux_key_ptr(tuned_mux)->t2mi_pid;
 	ndc.sprintf("PID[%d]", stream_pid);
 	log4cxx::NDC(ndc.c_str());
 	int dmx_buffer_size = 32 * 1024 * 1024;
@@ -366,7 +377,7 @@ embedded_stream_reader_t::embedded_stream_reader_t(active_adapter_t& active_adap
 																									 const std::shared_ptr<stream_filter_t>& stream_filter)
 	: stream_reader_t(active_adapter), stream_filter(stream_filter) {}
 
-int embedded_stream_reader_t::embedded_stream_pid() const { return stream_filter->stream_pid; }
+int embedded_stream_reader_t::embedded_stream_pid() const { return mux_key_ptr(stream_filter->tuned_mux)->t2mi_pid; }
 
 int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags) {
 	this->epoll = epoll;

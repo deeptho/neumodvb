@@ -899,6 +899,7 @@ void active_si_stream_t::finalize_scan(bool done)
 	mux_common->scan_status = chdb::scan_status_t::IDLE;
 	mux_common->scan_duration = scan_state.scan_duration();
 	mux_common->scan_time = system_clock_t::to_time_t(now);
+	reader->on_tuned_mux_change(mux); //needed to ensure that mux_common changes are not overwritten
 	auto wtxn = chdb.wtxn();
 	const bool may_change_sat_pos{false};
 	const bool may_change_nit_tid{false};
@@ -1036,6 +1037,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 	tune_confirmation.pat_ok = true;
 	if (this_table_done) {
 		active_adapter().on_first_pat();
+		pat_table.ts_id = pat_services.ts_id;
 		pat_table.entries = pat_services.entries;
 		if (pat_table.last_entries.size() != 0 && pat_table.last_entries != pat_table.entries) {
 			dtdebugx("PAT is unstable; force retune");
@@ -1043,7 +1045,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			return dtdemux::reset_type_t::ABORT; // unstable PAT; must retune
 		}
 		if (!is_embedded_si && !pat_data.stable_pat(pat_services.ts_id)) {
-			dtdebug("PAT not stable yet");
+			//dtdebug("PAT not stable yet");
 			pat_table.num_sections_processed = 0;
 			return dtdemux::reset_type_t::RESET; // need to check again for stability
 		}
@@ -1090,7 +1092,7 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 		if (network_data.num_muxes == 0 && sdt_actual_done() && tune_confirmation.ts_id_by != confirmed_by_t::NONE) {
 				// we cannot check the sat_pos, so we assume it is ok.
 
-			tune_confirmation.sat_by = confirmed_by_t::NIT;
+			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			if (is_actual) {
 				tune_confirmation.nit_actual_ok = true;
 					dtdebugx("Setting nit_actual_ok = true");
@@ -1128,7 +1130,7 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 				}
 				reader->on_tuned_mux_change(tuned_mux);
 			}
-			tune_confirmation.sat_by = confirmed_by_t::NIT;
+			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			tune_confirmation.nit_actual_ok = true;
 			dtdebugx("Setting nit_actual_ok = true");
 			return dtdemux::reset_type_t::NO_RESET;
@@ -1500,7 +1502,7 @@ chdb::update_mux_ret_t active_si_stream_t::update_mux(db_txn& wtxn, chdb::any_mu
 	bool is_active = c.scan_status == scan_status_t::ACTIVE;
 	auto scan_start_time = receiver.scan_start_time();
 
-	if(is_tuned_mux) {
+	if(is_tuned_mux && ! is_embedded_si) {
 		//fixes things like modulation in case nit provides incorrect data
 		update_template_mux_parameters_from_frontend(mux);
 	}
@@ -2547,7 +2549,9 @@ void active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
 		if (is_t2mi) {
 			auto& aa = reader->active_adapter;
 			bool start = true;
-			aa.add_embedded_si_stream(desc.stream_pid, start);
+			auto mux_key = *mux_key_ptr(reader->tuned_mux());
+			mux_key.t2mi_pid = desc.stream_pid;
+			aa.add_embedded_si_stream(mux_key, start);
 		}
 	}
 }

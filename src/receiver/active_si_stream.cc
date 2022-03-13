@@ -887,7 +887,7 @@ void active_si_stream_t::finalize_scan(bool done)
 	dtdebugx("finalize_scan scan_in_progress=%d", scan_in_progress);
 	if (scan_state.aborted)
 		mux_common->scan_result = chdb::scan_result_t::ABORTED;
-	else if (scan_state.locked) {
+	else if (is_embedded_si ? active_adapter().si.scan_state.locked : scan_state.locked) {
 		mux_common->scan_result = scan_state.scan_completed() ? chdb::scan_result_t::OK : chdb::scan_result_t::PARTIAL;
 		if(mux_common->tune_src == chdb::tune_src_t::UNKNOWN || mux_common->tune_src == chdb::tune_src_t::AUTO
 			 || mux_common->tune_src == chdb::tune_src_t::TEMPLATE)

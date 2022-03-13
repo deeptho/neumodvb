@@ -64,6 +64,40 @@ static void export_recording_history(py::module& m) {
 		;
 }
 
+static int scan_muxes(receiver_t& reseiver, py::list mux_list, int subscription_id) {
+	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
+	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
+	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;
+	for(auto m: mux_list) {
+		bool ok{false};
+		if(!ok)
+			try {
+				auto* dvbs_mux = m.cast<chdb::dvbs_mux_t*>();
+				dvbs_muxes.push_back(*dvbs_mux);
+				ok=true;
+			} catch (py::cast_error& e) {}
+		if(!ok)
+			try {
+				auto* dvbc_mux = m.cast<chdb::dvbc_mux_t*>();
+				dvbc_muxes.push_back(*dvbc_mux);
+				ok=true;
+			} catch (py::cast_error& e) {}
+		if(!ok)
+			try {
+				auto* dvbt_mux = m.cast<chdb::dvbt_mux_t*>();
+				dvbt_muxes.push_back(*dvbt_mux);
+				ok=true;
+			} catch (py::cast_error& e) {}
+	}
+
+	if(dvbs_muxes.size() > 0)
+		subscription_id = reseiver.scan_muxes(dvbs_muxes, subscription_id);
+	if(dvbc_muxes.size() > 0)
+		subscription_id = reseiver.scan_muxes(dvbc_muxes, subscription_id);
+	if(dvbt_muxes.size() > 0)
+		subscription_id = reseiver.scan_muxes(dvbt_muxes, subscription_id);
+	return subscription_id;
+}
 void export_receiver(py::module& m) {
 	static bool called = false;
 	if (called)
@@ -83,12 +117,8 @@ void export_receiver(py::module& m) {
 		.def("dump_all_frontends", &receiver_t::dump_all_frontends, "Show all tuners")
 		//unsubscribe is needed to abort mux scan in progress
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
-		.def("scan_mux", py::overload_cast<const chdb::dvbs_mux_t&, int>(&receiver_t::scan_mux<chdb::dvbs_mux_t>),
-				 "Scan a mux", py::arg("mux"), py::arg("subscription_id"))
-		.def("scan_mux", py::overload_cast<const chdb::dvbc_mux_t&, int>(&receiver_t::scan_mux<chdb::dvbc_mux_t>),
-				 "Scan a mux", py::arg("mux"), py::arg("subscription_id"))
-		.def("scan_mux", py::overload_cast<const chdb::dvbt_mux_t&, int>(&receiver_t::scan_mux<chdb::dvbt_mux_t>),
-				 "Scan a mux", py::arg("mux"), py::arg("subscription_id"))
+		.def("scan_muxes", scan_muxes,
+				 "Scan muxes",  py::arg("muxlist"), py::arg("subscription_id"))
 		.def("subscribe",
 				 py::overload_cast<const chdb::dvbs_mux_t&, bool, int>(&receiver_t::subscribe_mux<chdb::dvbs_mux_t>),
 				 "Subscribe to a mux", py::arg("mux"), py::arg("blindscan"), py::arg("subscription_id"))

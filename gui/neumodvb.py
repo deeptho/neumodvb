@@ -585,10 +585,10 @@ class NeumoGui(wx.App):
         self.current_mpv_player.play_mux(mux)
         dtdebug(f"Requested subscription to mux {mux}")
 
-    def MuxScan(self, mux):
-        self.scan_subscription_id = self.receiver.scan_mux(mux, self.scan_subscription_id)
+    def MuxScan(self, muxlist):
+        self.scan_subscription_id = self.receiver.scan_muxes(muxlist, self.scan_subscription_id)
         #TODO => what about subscription ids?
-        dtdebug(f"Requested subscription to scan mux {mux}")
+        dtdebug(f"Requested subscription to scan mux {muxlist}")
 
     def MuxScanStop(self):
         if self.scan_subscription_id >= 0:

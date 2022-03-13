@@ -64,8 +64,8 @@ class DvbsMuxTable(NeumoTable):
          CD(key='c.num_services', label='#srv'),
          CD(key='c.mtime', label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33*'),
          CD(key='c.scan_time', label='Scanned', dfn=datetime_fn, example='2021-06-16 18:30:33*', readonly=True),
-         CD(key='c.scan_status', label='Scan\nstatus', dfn=lambda x: lastdot(x).replace('FEC','')),
-         CD(key='c.scan_result', label='Scan\nresult', dfn=lambda x: lastdot(x).replace('FEC','')) ,
+         CD(key='c.scan_status', label='Scan\nstatus', dfn=lambda x: lastdot(x)),
+         CD(key='c.scan_result', label='Scan\nresult', dfn=lambda x: lastdot(x)) ,
          CD(key='c.scan_duration', label='Scan time', dfn=time_fn),
          CD(key='matype', label='matype', example='GFP MIS ACM/VCM 35', dfn=matype_fn),
          CD(key='c.epg_scan', label='Epg\nscan', dfn=bool_fn),
@@ -252,11 +252,13 @@ class DvbsMuxGridBase(NeumoGridBase):
 
     def CmdScan(self, evt):
         self.table.SaveModified()
-        row = self.GetGridCursorRow()
-        mux = self.table.screen.record_at_row(row)
-        mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
-        dtdebug(f'CmdScan requested for row={row}: PLAY mux={mux_name}')
-        self.app.MuxScan(mux)
+        rows = self.GetSelectedRows()
+        dtdebug(f'CmdScan requested for {len(rows)} muxes')
+        muxes = []
+        for row in rows:
+            mux = self.table.GetRow(row)
+            muxes.append(mux)
+        self.app.MuxScan(muxes)
     def OnTimer(self, evt):
         super().OnTimer(evt)
         if wx.GetApp().scan_subscription_id >= 0:

@@ -37,7 +37,8 @@ import pychdb
 class DvbcMuxTable(NeumoTable):
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
-    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") \
+        if x[1]>0 else "never"
     time_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%M:%S")
     epg_types_fn =  lambda x: '; '.join([ lastdot(t) for t in x[1]])
     all_columns = \
@@ -52,14 +53,16 @@ class DvbcMuxTable(NeumoTable):
          CD(key='stream_id', label='Stream ID'),
          CD(key='k.network_id', label='nid'),
          CD(key='k.ts_id', label='tsid'),
-         CD(key='k.t2mi_pid', label='t2mi_pid'),
+         CD(key='k.t2mi_pid', label='t2mi\npid', readonly=False),
          CD(key='k.extra_id', label='subid', readonly=True),
-         CD(key='c.mtime', label='Modified', dfn=datetime_fn),
-         CD(key='c.scan_time', label='Scanned', dfn=datetime_fn),
-         CD(key='c.scan_result', label='Scan result', dfn=lambda x: lastdot(x).replace('FEC','')) ,
+         CD(key='c.num_services', label='#srv'),
+         CD(key='c.mtime', label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33*'),
+         CD(key='c.scan_time', label='Scanned', dfn=datetime_fn, example='2021-06-16 18:30:33*', readonly=True),
+         CD(key='c.scan_status', label='Scan\nstatus', dfn=lambda x: lastdot(x)),
+         CD(key='c.scan_result', label='Scan\nresult', dfn=lambda x: lastdot(x)) ,
          CD(key='c.scan_duration', label='Scan time', dfn=time_fn),
-         CD(key='c.epg_scan', label='Epg scan', dfn=bool_fn),
-         CD(key='c.epg_types', label='Epg types', dfn=epg_types_fn, example='FREESAT'*2, readonly=True),
+         CD(key='c.epg_scan', label='Epg\nscan', dfn=bool_fn),
+         CD(key='c.epg_types', label='Epg\ntypes', dfn=epg_types_fn, example='FST'*2, readonly=True),
          CD(key='c.tune_src', label='tun\nsrc', dfn=lambda x: tune_src_str(x), readonly=True, example="NIT_ACTUAL_NON_TUNED")
          ]
 
@@ -141,10 +144,13 @@ class DvbcMuxGrid(NeumoGridBase):
         self.table.SaveModified()
         row = self.GetGridCursorRow()
         mux = self.table.screen.record_at_row(row)
-        mux_name= f"{int(mux.frequency/1000)}"
-        dtdebug(f'MuxTune requested for row={row}: PLAY mux={mux_name}')
-        self.app.MuxScan(mux)
-
+        rows = self.GetSelectedRows()
+        dtdebug(f'CmdScan requested for {len(rows)} muxes')
+        muxes = []
+        for row in rows:
+            mux = self.table.GetRow(row)
+            muxes.append(mux)
+        self.app.MuxScan(muxes)
     def OnTimer(self, evt):
         super().OnTimer(evt)
         if wx.GetApp().scan_subscription_id >= 0:

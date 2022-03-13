@@ -547,9 +547,9 @@ public:
 										 bool scan_found_muxes=true, int max_num_subscriptions=-1, int subscription_id=-1);
 
 	template<typename _mux_t>
-	int scan_mux(const _mux_t& mux, int subscription_id);
+	int scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id);
 
-	int scan_mux(const chdb::dvbs_mux_t& mux, int subscription_id);
+	int scan_muxes(ss::vector_<chdb::dvbs_mux_t>& muxes, int subscription_id);
 
 	void unsubscribe(int subscription_id);
 	void abort_scan();
@@ -647,7 +647,7 @@ public:
 	}
 
 	template<typename _mux_t>
-	int scan_mux(const _mux_t& mux, int subscription_id);
+	int scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(const chdb::service_t& service, int subscription_id=-1);
 

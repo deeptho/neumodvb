@@ -180,7 +180,7 @@ class IconRenderer(wx.grid.GridCellRenderer):
             xspace -= w
             icons.append(dict(icon=i, w=w, h =h))
         if xspace <0:
-            dtdebug(f"not enough room for icons: {xspace}")
+            #dtdebug(f"not enough room for icons: {xspace}")
             xspace=0
         else:
             xspace = xspace //(len(icons)+1)

@@ -231,7 +231,7 @@ class SpectrumDialog_(wx.Frame):
         # begin wxGlade: SpectrumDialog_.__init__
         kwds["style"] = kwds.get("style", 0) | wx.CLOSE_BOX | wx.MAXIMIZE_BOX | wx.MINIMIZE_BOX | wx.RESIZE_BORDER
         wx.Frame.__init__(self, *args, **kwds)
-        self.SetSize((1736, 1045))
+        self.SetSize((1800, 1045))
         self.SetTitle(_("Spectrum"))
 
         # Menu Bar

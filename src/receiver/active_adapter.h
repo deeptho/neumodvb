@@ -177,8 +177,7 @@ private:
     4. " " wait an additional 50 ms
 
 		*/
-
-	std::map <uint16_t, std::shared_ptr<stream_filter_t>> stream_filters; //indexed by stream_pid
+	safe::Safe<std::map <uint16_t, std::shared_ptr<stream_filter_t>>> stream_filters; //indexed by stream_pid
 	std::map <uint16_t, active_si_stream_t> embedded_si_streams; //indexed by stream_pid
 
 	tune_state_t tune_state{TUNE_INIT};
@@ -261,6 +260,7 @@ private:
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	void handle_fe_event();
 	void monitor();
+	void prepare_si(const chdb::any_mux_t mux, bool start);
 	void init_si(scan_target_t scan_target_);
 	void end_si();
 private:
@@ -340,9 +340,9 @@ public:
 	}
 
 	std::shared_ptr<stream_reader_t> make_dvb_stream_reader(ssize_t dmx_buffer_size_ = -1);
-	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(const chdb::mux_key_t& mux_key,
+	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(const chdb::any_mux_t& mux,
 																															 ssize_t dmx_buffer_size_ = -1);
-	void add_embedded_si_stream(const chdb::mux_key_t& mux, bool start=false);
+	void add_embedded_si_stream(const chdb::any_mux_t& mux, bool start=false);
 
 	bool read_and_process_data_for_fd(int fd);
 private:

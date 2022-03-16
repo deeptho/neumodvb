@@ -601,10 +601,8 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 
 	parsers.reserve(32);
 	auto& tuned_mux = reader->tuned_mux();
-
 	auto* mux_common = chdb::mux_common_ptr(tuned_mux);
 	scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
-
 
 	dtdebug("scan_done= " << (int) scan_done << " " << tuned_mux);
 	bool is_freesat_main = chdb::has_epg_type(tuned_mux, chdb::epg_type_t::FSTHOME);
@@ -893,6 +891,10 @@ void active_si_stream_t::finalize_scan(bool done)
 			 || mux_common->tune_src == chdb::tune_src_t::TEMPLATE)
 			mux_common->tune_src = chdb::tune_src_t::DRIVER;
 	} else {
+		/*
+			init_si was never called, so we need to recompute scan_in_progress
+		*/
+		scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
 		mux_common->scan_result = chdb::scan_result_t::FAILED;
 		mux_common->tune_src = chdb::tune_src_t::AUTO;
 	}
@@ -916,8 +918,7 @@ void active_si_stream_t::finalize_scan(bool done)
 	}
 
 	const bool from_sdt{false};
-	if(!is_embedded_si)
-		update_tuned_mux(wtxn, mux, may_change_sat_pos, may_change_nit_tid, from_sdt);
+	update_tuned_mux(wtxn, mux, may_change_sat_pos, may_change_nit_tid, from_sdt);
 	wtxn.commit();
 	auto& receiver_thread = receiver.receiver_thread;
 
@@ -2567,10 +2568,22 @@ void active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
 		}
 		if (is_t2mi) {
 			auto& aa = reader->active_adapter;
-			bool start = true;
-			auto mux_key = *mux_key_ptr(reader->tuned_mux());
-			mux_key.t2mi_pid = desc.stream_pid;
-			aa.add_embedded_si_stream(mux_key, start);
+			chdb::any_mux_t mux = reader->tuned_mux();
+			mux_key_ptr(mux)->t2mi_pid = desc.stream_pid;
+			if(scan_in_progress) {
+				/*
+					It would be dangerous to just activate the si scan om the same subscription
+					as the scanner will terminate the subscription when the master mux has been scanned
+				 */
+				namespace m = chdb::update_mux_preserve_t;
+				auto wtxn = chdb.wtxn();
+				//mux_common_ptr(mux)->scan_status =  chdb::scan_status_t::PENDING;
+				this->update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS},
+												 false /*is_tuned_mux*/, false /*from_sdt*/);
+				wtxn.commit();
+			} else {
+				aa.prepare_si(mux, true);
+			}
 		}
 	}
 }

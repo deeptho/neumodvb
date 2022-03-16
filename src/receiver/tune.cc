@@ -166,6 +166,9 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 		wtxn.commit();
 		assert(mux.c.scan_status == scan_status_t::ACTIVE);
 	}
+	active_adapter->end_si(); //clear left overs from last tune
+	active_adapter->prepare_si(mux, false /*start*/);
+
 	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
 	bool user_requested = true;
@@ -177,20 +180,14 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 															 tune_options_t tune_options) {
 	_mux_t mux{mux_};
 	assert( mux.c.scan_status != scan_status_t::ACTIVE);
-	if(mux.c.scan_status == scan_status_t::PENDING) {
-		/*
-			The new scan status must be written to the database now.
-			Otherwise there may be problems on muxes which fail to scan: their status would remain
-			pending, and whne parallel tuners are in use, the second tuner might decide to scan
-			the mux again
+	/*
+		The new scan status must be written to the database now.
+		Otherwise there may be problems on muxes which fail to scan: their status would remain
+		pending, and whne parallel tuners are in use, the second tuner might decide to scan
+		the mux again
 		*/
-		auto wtxn = receiver.chdb.wtxn();
-		namespace m = chdb::update_mux_preserve_t;
-		mux.c.scan_status = scan_status_t::ACTIVE;
-		chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
-		wtxn.commit();
-		assert(mux.c.scan_status == scan_status_t::ACTIVE);
-	}
+	active_adapter->prepare_si(mux, false /*start*/);
+
 	dtdebugx("tune mux action");
 	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
@@ -522,6 +519,11 @@ int tuner_thread_t::set_tune_options(active_adapter_t& active_adapter, tune_opti
 	return 0;
 }
 
+int tuner_thread_t::prepare_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux, bool start) {
+	active_adapter.prepare_si(mux, start);
+	return 0;
+}
+
 int tuner_thread_t::request_retune(active_adapter_t& active_adapter) {
 	active_adapter.restart_tune();
 	return 0;
@@ -530,6 +532,12 @@ int tuner_thread_t::request_retune(active_adapter_t& active_adapter) {
 int tuner_thread_t::cb_t::set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options) {
 	return this->tuner_thread_t::set_tune_options(active_adapter, tune_options);
 }
+
+int tuner_thread_t::cb_t::prepare_si(active_adapter_t& active_adapter,
+																		 const chdb::any_mux_t& mux, bool start) {
+	return this->tuner_thread_t::prepare_si(active_adapter, mux, start);
+}
+
 
 int tuner_thread_t::cb_t::request_retune(active_adapter_t& active_adapter) {
 	return this->tuner_thread_t::request_retune(active_adapter);

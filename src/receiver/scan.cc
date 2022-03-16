@@ -73,10 +73,8 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, int finished_subscriptio
 	dtdebug("++++++++++++++++++++++++++++++++++");
 	for(auto mux_to_scan: c.range())  {
 		assert(mux_to_scan.c.scan_status == scan_status_t::PENDING);
-		num_pending++;
 		if ((int)subscriptions.size() >= (finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1))
 			continue; // to have accurate num_pending count
-		//mux_to_scan.c.scan_status = scan_status_t::ACTIVE; //will be done by tune code
 		int subscription_id =
 			receiver_thread.subscribe_mux(futures, rtxn, mux_to_scan, finished_subscription_id, tune_options, nullptr);
 		report("SUBSCRIBED", finished_subscription_id, subscription_id, mux_to_scan, subscriptions);
@@ -85,6 +83,7 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, int finished_subscriptio
 
 		if (subscription_id < 0) {
 			// we cannot subscribe the mux right now
+			num_pending++;
 			continue;
 		}
 		last_subscribed_mux = mux_to_scan;
@@ -95,13 +94,16 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, int finished_subscriptio
 			/*all other available subscriptions are still in use, and there is no point
 				in continuing to check
 				*/
+			subscribed_muxes[subscription_id] = mux_to_scan;
 			assert(subscription_id == finished_subscription_id);
 			finished_subscription_id = -1; // we have reused finished_subscription_id, but can only do that once
 			continue;
 		} else {
 			// this is a second or third or ... subscription
 			assert(finished_subscription_id == -1);
+
 			subscriptions.insert(subscription_id);
+			subscribed_muxes[subscription_id] = mux_to_scan;
 		}
 	}
 

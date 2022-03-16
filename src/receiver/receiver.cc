@@ -253,7 +253,7 @@ receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futur
 	prefix.sprintf("CH[%d:%s]", active_adapter.get_adapter_no(), chdb::to_str(service).c_str());
 	log4cxx::NDC::push(prefix.c_str());
 
-	auto reader = service.k.mux.t2mi_pid > 0 ? active_adapter.make_embedded_stream_reader(service.k.mux)
+	auto reader = service.k.mux.t2mi_pid > 0 ? active_adapter.make_embedded_stream_reader(mux)
 		: active_adapter.make_dvb_stream_reader();
 	auto active_service_p = std::make_shared<active_service_t>(active_adapter, service, std::move(reader));
 
@@ -761,8 +761,14 @@ int receiver_thread_t::subscribe_mux(std::vector<task_queue_t::future_t>& future
 	auto old_active_adapter = active_adapter_for_subscription(subscription_id);
 	if (old_active_adapter) {
 		if (lnb_ok(old_active_adapter) && old_active_adapter->is_tuned_to(mux, required_lnb)) {
-			dtdebug("subscribe " << mux << ": already subscribed to mux");
-			if (tune_options.subscription_type != subscription_type_t::NORMAL) {
+			if(tune_options.subscription_type == subscription_type_t::NORMAL) {
+				auto& tuner_thread = old_active_adapter->tuner_thread;
+				futures.push_back(tuner_thread.push_task([&tuner_thread, old_active_adapter,  mux]() {
+				cb(tuner_thread).prepare_si(*old_active_adapter, mux, true /*start*/);
+				return 0;
+				}));
+			} else {
+				dtdebug("subscribe " << mux << ": already subscribed to mux");
 				/// during DX-ing retunes need to be forced
 				request_retune(futures, *old_active_adapter, subscription_id);
 			}
@@ -808,7 +814,6 @@ int receiver_thread_t::subscribe_mux_in_use(std::vector<task_queue_t::future_t>&
 
 		if (other_active_adapter->is_tuned_to(mux, required_lnb)) {
 			/* The mux is already subscribed by another subscription
-
 				 unsubscribe_ our old mux and the service (if any)
 			*/
 
@@ -825,22 +830,10 @@ int receiver_thread_t::subscribe_mux_in_use(std::vector<task_queue_t::future_t>&
 			}
 			auto& tuner_thread = other_active_adapter->tuner_thread;
 			futures.push_back(tuner_thread.push_task([&tuner_thread, other_active_adapter, tune_options, mux]() {
+				using namespace chdb;
+				namespace m = chdb::update_mux_preserve_t;
 				assert( mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
-#if 0
-				if(mux.c.scan_status == chdb::scan_status_t::PENDING) {
-					/*
-						The new scan status must be written to the database now.
-						Otherwise there may be problems on muxes which fail to scan: their status would remain
-						pending, and whne parallel tuners are in use, the second tuner might decide to scan
-						the mux again
-					*/
-					auto wtxn = cb(receiver.chdb.wtxn();
-					namespace m = chdb::update_mux_preserve_t;
-					chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
-					wtxn.commit();
-					assert(mux.c.scan_status == chdb::scan_status_t::ACTIVE);
-				}
-#endif
+				cb(tuner_thread).prepare_si(*other_active_adapter, mux, true /*start*/);
 				return cb(tuner_thread).set_tune_options(*other_active_adapter, tune_options);
 			}));
 

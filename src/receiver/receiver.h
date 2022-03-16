@@ -185,6 +185,7 @@ public:
 	tuner_thread_t(const tuner_thread_t& other) = delete;
 	tuner_thread_t operator=(const tuner_thread_t& other) = delete;
 	inline int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
+	inline int prepare_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux, bool start);
 	inline int request_retune(active_adapter_t& active_adapter);
 public:
 
@@ -211,6 +212,7 @@ public:
 	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux,
 					 tune_options_t tune_options);
 	int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
+	int prepare_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux, bool start);
 	int request_retune(active_adapter_t& active_adapter);
 
 
@@ -570,7 +572,6 @@ struct player_cb_t {
 	player_cb_t() {};
 	virtual ~player_cb_t() {};
 };
-
 
 
 class receiver_t {

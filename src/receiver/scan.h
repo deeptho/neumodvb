@@ -222,7 +222,7 @@ class scanner_t {
 
 	ss::vector<chdb::lnb_t, 16> allowed_lnbs;
 	std::set<int> subscriptions;
-
+	std::map<int, chdb::any_mux_t> subscribed_muxes;
 	void add_completed_mux(const chdb::any_mux_t& mux, int num_pending);
 
 	void set_allowed_lnbs(const ss::vector_<chdb::lnb_t>& lnbs);

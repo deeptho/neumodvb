@@ -57,15 +57,13 @@ bool set_blocking(int fd, bool on) {
 	return (fcntl(fd, F_SETFL, flags) == 0) ? true : false;
 }
 
-stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key,
+stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
 																 epoll_t* epoll, int epoll_flags)
 	: active_adapter(active_adapter)
-	, tuned_mux(active_adapter.current_mux())
+	, tuned_mux(mux)
 	, epoll(epoll)
 	, epoll_flags(epoll_flags)
 	,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
-	auto* k = chdb::mux_key_ptr(this->tuned_mux);
-	*k = mux_key;
 }
 
 int stream_filter_t::open() {

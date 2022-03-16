@@ -184,8 +184,6 @@ int active_adapter_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 	// needs to be at very start!
 	bool need_diseqc = this->need_diseqc(lnb, mux);
 
-	set_current_tp(mux);
-
 	set_current_lnb(lnb);
 	auto delsys = (chdb::fe_delsys_t)mux.delivery_system;
 	if (current_fe->clear() < 0) /*this call takes 500ms for the tas2101, probably because the driver's tuning loop \
@@ -262,7 +260,6 @@ int active_adapter_t::tune(const chdb::dvbc_mux_t& mux, tune_options_t tune_opti
 
 	auto muxname = chdb::to_str(mux);
 	dtdebug("Tuning to DVBC mux " << muxname.c_str());
-	set_current_tp(mux);
 	auto delsys = (chdb::fe_delsys_t)mux.delivery_system;
 	if (change_delivery_system(delsys) < 0)
 		return -1;
@@ -353,7 +350,6 @@ void active_adapter_t::monitor() {
 	} else {
 		std::tie(must_retune, must_reinit_si) = check_status();
 	}
-
 
 	if (must_retune) {
 		visit_variant(
@@ -856,30 +852,33 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_dvb_stream_reader(ssize_
 	return std::make_shared<dvb_stream_reader_t>(*this, dmx_buffer_size);
 }
 
-std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(const chdb::mux_key_t& mux_key, ssize_t dmx_buffer_size) {
-	auto [it, found] = find_in_map(stream_filters, mux_key.t2mi_pid);
+std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(const chdb::any_mux_t& mux, ssize_t dmx_buffer_size) {
+	auto sf = stream_filters.writeAccess();
+	auto* mux_key = chdb::mux_key_ptr(mux);
+	auto [it, found] = find_in_map(*sf, mux_key->t2mi_pid);
 	std::shared_ptr<stream_filter_t> substream;
 	if (found) {
 		substream = it->second;
 	} else {
-		substream = std::make_shared<stream_filter_t>(*this, mux_key, &tuner_thread.epx);
-		stream_filters[mux_key.t2mi_pid] = substream;
+		substream = std::make_shared<stream_filter_t>(*this, mux, &tuner_thread.epx);
+		(*sf)[mux_key->t2mi_pid] = substream;
 	}
 	return std::make_shared<embedded_stream_reader_t>(*this, substream);
 }
 
-void active_adapter_t::add_embedded_si_stream(const chdb::mux_key_t& mux_key, bool start) {
-	auto [it, found] = find_in_map(embedded_si_streams, mux_key.t2mi_pid);
+void active_adapter_t::add_embedded_si_stream(const chdb::any_mux_t& mux, bool start) {
+	auto* mux_key = chdb::mux_key_ptr(mux);
+	auto [it, found] = find_in_map(embedded_si_streams, mux_key->t2mi_pid);
 	if (found) {
-		dtdebugx("Ignoring requet to add the same si stream twice");
+		dtdebugx("Ignoring request to add the same si stream twice");
 		return;
 	}
-	auto reader = make_embedded_stream_reader(mux_key);
+	auto reader = make_embedded_stream_reader(mux);
 	const bool is_embedded_si{true};
 #ifndef NDEBUG
 	auto [it1, inserted] =
 #endif
-		embedded_si_streams.try_emplace((uint16_t)mux_key.t2mi_pid, receiver, std::move(reader), is_embedded_si);
+		embedded_si_streams.try_emplace((uint16_t)mux_key->t2mi_pid, receiver, std::move(reader), is_embedded_si);
 	assert(inserted);
 	if (start)
 		it1->second.init(tune_options.scan_target);
@@ -900,32 +899,45 @@ void active_adapter_t::init_si(scan_target_t scan_target) {
 	/*@When we are called on a t2mi mux, there could be confusion between the t2mi mux (with t2mi_pid set)
 		and the one without. To avoid this, we find the non-t2mi_pid version first
 	*/
-	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&current_tp());
+	si.init(scan_target);
+	for (auto& [pid, si_] : embedded_si_streams) {
+		si_.init(si.scan_target);
+	}
+}
+
+
+void active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
+	namespace m = chdb::update_mux_preserve_t;
+	auto* muxc = mux_common_ptr(mux);
+	bool must_activate{false};
+	if(muxc->scan_status == scan_status_t::PENDING || muxc->scan_status == scan_status_t::ACTIVE)  {
+		muxc->scan_status = scan_status_t::ACTIVE;
+		must_activate = true;
+	}
+	auto txn = must_activate ? receiver.chdb.wtxn() : receiver.chdb.rtxn();
+
+	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 	if (dvbs_mux && dvbs_mux->k.t2mi_pid > 0) {
 		auto master_mux = *dvbs_mux;
 		auto mux_key = master_mux.k;
 		dtdebug("mux " << *dvbs_mux << " is an embedded stream");
 		master_mux.k.t2mi_pid = 0;
-		auto rtxn = receiver.chdb.wtxn();
 		/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
-		handle small differences in sat_pos*/
-		auto c = chdb::find_by_mux_physical(rtxn, master_mux);
+			handle small differences in sat_pos*/
+		auto c = chdb::find_by_mux_physical(txn, master_mux);
 		if (c.is_valid()) {
 			assert(mux_key_ptr(c.current())->sat_pos != sat_pos_none);
-			set_current_tp(c.current());
-			rtxn.abort();
-		} else {
-			rtxn.abort();
-			auto wtxn = receiver.chdb.wtxn();
-			update_mux(wtxn, master_mux, now, update_mux_preserve_t::NONE);
-			set_current_tp(master_mux);
-			wtxn.commit();
+			master_mux = c.current();
 		}
-		add_embedded_si_stream(mux_key, false);
-	}
-	si.init(scan_target);
-	for (auto& [pid, si_] : embedded_si_streams) {
-		si_.init(si.scan_target);
+		if(must_activate)
+			update_mux(txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+		txn.commit();
+		set_current_tp(master_mux);
+		add_embedded_si_stream(mux, start);
+	} else {
+		//update_mux(txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+		txn.commit();
+		set_current_tp(mux);
 	}
 }
 
@@ -935,7 +947,7 @@ void active_adapter_t::end_si() {
 	}
 	si.deactivate();
 	embedded_si_streams.clear();
-	stream_filters.clear();
+	stream_filters.writeAccess()->clear();
 }
 
 

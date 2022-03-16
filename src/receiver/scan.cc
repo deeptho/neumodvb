@@ -118,14 +118,14 @@ int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
 	std::vector<task_queue_t::future_t> futures;
 	int error{};
 	int num_pending{0};
-	auto& rm = receiver.reserved_muxes.owner_read_ref();
 	auto& finished_mux_key = *chdb::mux_key_ptr(finished_mux);
 	try {
 		int finished_subscription_id{-1};
 		if (finished_mux_key.sat_pos != sat_pos_none) {
-			auto [it, found] = find_in_map_if(rm, [active_adapter_p](const auto& x) {
-				auto [fd_, ptr] = x;
-				return ptr.get() == active_adapter_p;
+			auto [it, found] = find_in_map_if(subscribed_muxes, [&finished_mux](const auto& x) {
+				auto& [subscription_id_, rec] = x;
+				bool match = chdb::matches_physical_fuzzy(rec, finished_mux, true /*check_sat_pos*/);
+				return match && (mux_key_ptr(finished_mux)->t2mi_pid == mux_key_ptr(rec)->t2mi_pid);
 			});
 			if (!found) {
 				dterror("Cannot find subscription for active_adapter");
@@ -168,6 +168,7 @@ int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
 			if (subscriptions.erase(finished_subscription_id)>0) {
 				dtdebugx("Abandoning subscription %d", finished_subscription_id);
 				cb(receiver_thread).unsubscribe(finished_subscription_id);
+				subscribed_muxes.erase(finished_subscription_id);
 				report("ERASED", finished_subscription_id, subscription_id, chdb::dvbs_mux_t(), subscriptions);
 			} else {
 				dtdebugx("Unexpected: %d", finished_subscription_id);
@@ -176,6 +177,10 @@ int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
 
 		if (finished_mux_key.sat_pos != sat_pos_none) {
 			add_completed_mux(finished_mux, num_pending);
+		} else {
+			auto w = scan_stats.writeAccess();
+			w->scheduled_muxes = num_pending;
+			w->active_muxes = subscriptions.size();
 		}
 
 		rtxn.commit();
@@ -228,6 +233,7 @@ scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 	,	max_num_subscriptions(max_num_subscriptions_)
 	,	scan_found_muxes(scan_found_muxes_)
 {
+	tune_options.scan_target =  scan_target_t::SCAN_FULL;
 	tune_options.may_move_dish = false; //could become an option
 	tune_options.use_blind_tune = false; //could become an option
 	init();

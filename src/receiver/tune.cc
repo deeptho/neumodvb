@@ -152,20 +152,12 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	// check_thread();
 	dtdebugx("tune mux action");
 	chdb::dvbs_mux_t mux{mux_};
-	if(mux.c.scan_status == scan_status_t::PENDING || mux.c.scan_status == scan_status_t::ACTIVE) {
-		/*
-			The new scan status must be written to the database now.
-			Otherwise there may be problems on muxes which fail to scan: their status would remain
-			pending, and whne parallel tuners are in use, the second tuner might decide to scan
+	/*
+		The new scan status must be written to the database now.
+		Otherwise there may be problems on muxes which fail to scan: their status would remain
+		pending, and when parallel tuners are in use, the second tuner might decide to scan
 			the mux again
-		*/
-		auto wtxn = receiver.chdb.wtxn();
-		namespace m = chdb::update_mux_preserve_t;
-		mux.c.scan_status = scan_status_t::ACTIVE;
-		chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
-		wtxn.commit();
-		assert(mux.c.scan_status == scan_status_t::ACTIVE);
-	}
+	*/
 	active_adapter->end_si(); //clear left overs from last tune
 	active_adapter->prepare_si(mux, false /*start*/);
 

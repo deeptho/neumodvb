@@ -126,7 +126,7 @@ int stream_filter_t::start() {
 	ss::string<32> pid_;
 	pid_.sprintf("%d", stream_pid);
 #if 1
-	data_fd = start_command(stream_fd, "tsp", "-P", "t2mi", "--pid", pid_.c_str(),
+	data_fd = start_command(stream_fd, "tsp", "--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
 													// @todo: "--plp", plp.cstr()
 													(char*)nullptr);
 #else

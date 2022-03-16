@@ -1299,10 +1299,11 @@ namespace dtdemux {
 		auto num_entries = remaining / 4;
 		if (num_entries == 0)
 			dtdebugx("empty pat");
+#if 0
 		LOG4CXX_DEBUG(logger, "PAT=" << (int)hdr.table_id << " len=" << hdr.len << " ts_id=" << ts_id
 									<< " vers=" << (int)hdr.version_number << " current=" << (int)hdr.current_next
 									<< " entries=" << num_entries);
-
+#endif
 		for (int i = 0; i < num_entries; ++i) {
 			uint16_t program_number = section.get<uint16_t>();
 			uint16_t pid = section.get<uint16_t>() & 0x1fff;
@@ -2246,9 +2247,10 @@ void pat_parser_t::parse_payload_unit() {
 	bool completed_now = (section_type == section_type_t::LAST);
 
 	log4cxx::NDC::push(" PAT");
-
+#if 0
 	if (completed_now)
 		dtdebugx("Parser completed");
+#endif
 	pat_services_t pat_services;
 	bool success = false;
 	if (must_process) {
@@ -2342,8 +2344,10 @@ void sdt_bat_parser_t::parse_payload_unit() {
 
 	if (is_sdt) {
 		log4cxx::NDC::push(" SDT");
+#if 0
 		if (completed_now)
 			dtdebugx("Parser completed now");
+#endif
 		sdt_services_t services;
 		bool success{false};
 		if (must_process) {

@@ -92,8 +92,6 @@ namespace chdb {
 	void on_mux_key_change(db_txn&txn, const chdb::any_mux_t& old_mux,
 													chdb::any_mux_t& new_mux,
 													system_time_t now_);
-
-
 	/*
 		if callback returns false; save is aborted
 		if callback receives nullptr, record was not found

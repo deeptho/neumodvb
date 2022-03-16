@@ -318,6 +318,7 @@ class ServiceGridBase(NeumoGridBase):
         service = self.table.screen.record_at_row(row)
         dtdebug(f'request to add service {service} to {self.app.frame.bouquet_being_edited}')
         wtxn =  wx.GetApp().chdb.wtxn()
+        assert self.app.frame.bouquet_being_edited is not None
         pychdb.chg.toggle_service_in_bouquet(wtxn, self.app.frame.bouquet_being_edited, service)
         wtxn.commit()
         self.table.OnModified()

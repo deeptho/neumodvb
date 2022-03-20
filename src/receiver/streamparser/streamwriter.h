@@ -23,36 +23,53 @@
 
 #include "packetstream.h"
 #include "section.h"
-#include "si.h"
-
-struct section_writer_t {
-	uint16_t pid{0x1fff};
-	ss::bytebuffer<1024> data;
-
-	dtdemux::data_range_t section;
-	int output_byte_no{0};
-
-	section_writer_t(uint16_t pid)
-		: pid(pid)
-		, section(data.buffer(), data.capacity())
-		{}
 
 
-	//read data into a buffer
-	int get_buffer(uint8_t* output_buffer, int size);
+namespace dtdemux {
 
-	void write(FILE*fp);
-};
+	struct ts_writer_t {
+		dtdemux::data_range_t& section;
+		int output_byte_no{0};
+		uint16_t pid{0x1fff};
+		//read data into a buffer
+		int get_buffer(uint8_t* output_buffer, int size);
+		ts_writer_t(dtdemux::data_range_t& section, uint16_t pid)
+			: section(section)
+			, pid(pid)
+			{}
 
-struct pat_writer_t : public section_writer_t  {
+		void output(ss::bytebuffer_& out);
+	};
 
-	pat_writer_t(uint16_t service_id = 231, uint16_t pmt_pid = 817, uint16_t ts_id = 48);
-};
+	struct section_writer_t {
+		uint16_t pid{0x1fff};
+		ss::bytebuffer<1024> data;
+		uint8_t * p_section_start{nullptr};
+		uint8_t * p_length{nullptr}; //where section length is stored
+		uint8_t* p_es_info_length{nullptr}; //where started last es_info_descripor_loop starts;
+		dtdemux::data_range_t section;
+
+		section_writer_t();
+		void end_section();
+
+		void save(ss::bytebuffer_& output, uint16_t pid);
+	};
+
+	struct pat_writer_t : public section_writer_t  {
+		pat_writer_t() =default;
+		void start_section(const pat_services_t& pat, uint16_t service_id, uint16_t pmt_pid);
+	};
 
 
 
-struct pmt_writer_t : public section_writer_t  {
+	struct pmt_writer_t : public section_writer_t  {
+		void start_section(const pmt_info_t& pmt_info);
+		void start_es(uint8_t stream_type, uint16_t pid);
+		void add_desc(const descriptor_t& desc, const uint8_t* data);
+		void end_es();
+		pmt_writer_t() = default;
 
-	pmt_writer_t(	uint16_t service_id = 231, uint16_t pmt_pid = 817,
-								uint16_t pcr_pid = 6400);
+	};
+
+
 };

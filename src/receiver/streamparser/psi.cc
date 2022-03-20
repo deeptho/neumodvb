@@ -27,10 +27,8 @@
 #include "packetstream.h"
 #include "section.h"
 #include "si.h"
+#include "streamwriter.h"
 #include "sidebug.h"
-//#include "libsi/section.h"
-//#include "libsi/descriptor.h"
-//#include "libsi/sidebug.h"
 
 #include "dvbtext.h"
 #include "opentv_string_decoder.h"
@@ -888,7 +886,7 @@ namespace dtdemux {
 	in_es_loop indicates if we are parsing descriptors for the overall program
 	or for elementary streams in it
 */
-	void pmt_info_t::parse_descriptors(stored_section_t& s, pid_info_t& info, bool in_es_loop) {
+	void pmt_info_t::parse_descriptors(stored_section_t& s, pid_info_t& info, pmt_writer_t& pmt_writer, bool in_es_loop) {
 		uint16_t program_info_len = s.get<uint16_t>();
 		program_info_len &= 0x0fff;
 
@@ -938,6 +936,7 @@ namespace dtdemux {
 					called = 1;
 				}
 				info.audio_lang.ac3 = true;
+				pmt_writer.add_desc(_desc, s.current_pointer(0));
 				s.skip(_desc.len);
 			} break;
 
@@ -980,9 +979,11 @@ namespace dtdemux {
 					s.throw_bad_data();
 					return;
 				}
+				pmt_writer.add_desc(_desc, s.current_pointer(0));
 			} break;
 			case SI::ISO639LanguageDescriptorTag: {
 				info.audio_lang = s.get<audio_language_info_t>(_desc, info.stream_pid);
+				pmt_writer.add_desc(_desc, s.current_pointer(0));
 			} break;
 			case SI::ExtensionDescriptorTag: {
 				auto end = s.available() - _desc.len;
@@ -1154,14 +1155,7 @@ namespace dtdemux {
 	}
 
 	bool section_parser_t::crc_is_correct() {
-		int i;
-		uint32_t crc = 0xFFFFFFFF;
-		if (payload.size() < 4)
-			return false;
-
-		for (i = 0; i < payload.size(); i++)
-			crc = (crc << 8) ^ crc_table[((crc >> 24) ^ (uint8_t)payload[i])];
-
+		auto crc = crc32(payload.buffer(), payload.size());
 		return crc == 0;
 	}
 
@@ -1932,7 +1926,7 @@ namespace dtdemux {
 		return true;
 	}
 
-	bool pmt_parser_t::parse_pmt_section(stored_section_t& section, pmt_info_t& pmt) {
+	bool pmt_parser_t::parse_pmt_section(stored_section_t& section, pmt_info_t& pmt, pmt_writer_t& pmt_writer) {
 		section_header_t& hdr = *header();
 		if (service_id != hdr.table_id_extension) {
 			return false; // wrong service_id;
@@ -1983,8 +1977,8 @@ namespace dtdemux {
 
 		pid_info_t info;
 		const bool in_es_loop = false;
-
-		pmt.parse_descriptors(section, info, in_es_loop);
+		pmt_writer.start_section(pmt);
+		pmt.parse_descriptors(section, info, pmt_writer, in_es_loop);
 
 		// elementary stream loop
 
@@ -2000,12 +1994,15 @@ namespace dtdemux {
 			stream_pid &= 0x1fff;
 			if (stream_type::is_video(stream_type::stream_type_t(stream_type)))
 				pmt.video_pid = stream_pid;
+			pmt_writer.start_es(stream_type, stream_pid);
 			pid_info_t info(stream_pid, stream_type);
 			const bool in_es_loop = true;
 
-			pmt.parse_descriptors(section, info, in_es_loop);
+			pmt.parse_descriptors(section, info, pmt_writer, in_es_loop);
+			pmt_writer.end_es();
 			pmt.pid_descriptors.push_back(info);
 		}
+		pmt_writer.end_section();
 		uint32_t crc UNUSED = section.get<uint32_t>();
 		if (pmt.num_sky_summary_pids >= 4 && pmt.num_sky_title_pids >= 4)
 			pmt.has_skyuk_epg = true;
@@ -2226,8 +2223,11 @@ void pmt_parser_t::parse_payload_unit() {
 	section.skip(hdr.header_len); // already parsed
 	log4cxx::NDC::push(" PMT");
 	pmt_info_t pmt;
-	if (parse_pmt_section(section, pmt))
+	pmt_writer_t pmt_writer;
+	if (parse_pmt_section(section, pmt, pmt_writer)) {
+		pmt_writer.save(pmt.cleaned_pmt, pmt.pmt_pid);
 		this->section_cb(pmt, !hdr.current_next);
+	}
 	log4cxx::NDC::pop();
 }
 

@@ -179,7 +179,7 @@ void playback_mpm_t::call_language_callbacks(language_state_t& ls) {
 	std::tie(lang_code, pos) = best_language(desc.subtitle_langs, ls.subtitle_pref);
 	if (lang_code.position != ls.current_subtitle_language.position) {
 		for (auto& [subscription_id, cb] : ls.subtitle_language_change_callbacks) {
-			dtdebugx("Calling language_code changed callback");
+			dtdebugx("Calling subtitle language_code changed callback");
 			cb(lang_code, pos);
 		}
 		ls.current_subtitle_language = lang_code;
@@ -209,7 +209,7 @@ void playback_mpm_t::call_language_callbacks() {
 }
 
 /*
-	This is all wrong: the code below should only be run
+	The code below should only be run
 	when we are running live or almost live, which can be detected by having reached the bytepos
 	stored in current_stream_desc.stream_packetno_end
 
@@ -611,7 +611,6 @@ int64_t playback_mpm_t::read_data_live_(char* outbuffer, uint64_t numbytes) {
 		remaining_space = filemap.get_read_buffer(buffer);
 		if (remaining_space > 0)
 			break; // keep streaming data which is known to be available
-
 		/*consult the live streamer, which will either tell us how much we can move the
 			cursor in the current file part, or that a new file part was started;
 			meta_marker will be overwritten.

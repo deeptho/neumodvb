@@ -17,8 +17,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
-
 #pragma once
 #include <cstdlib>
 #include <bitset>
@@ -27,12 +25,15 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/epgdb/epgdb_extra.h"
 #include "si_state.h"
+
 #include "stackstring.h"
 
 namespace dtdemux {
 	struct stored_section_t;
+	struct pmt_info_t;
+	struct pat_services_t;
 
-
+	struct pmt_writer_t;
 	enum class reset_type_t {
 		NO_RESET,
 		RESET,
@@ -131,7 +132,7 @@ namespace dtdemux {
 	*/
 	struct pmt_info_t {
 		ca_info_t get_ca(stored_section_t& s, const descriptor_t& desc, uint16_t stream_pid);
-		void parse_descriptors(stored_section_t& s, pid_info_t& info, bool in_es_loop);
+		void parse_descriptors(stored_section_t& s, pid_info_t& info, pmt_writer_t& pmt_writer, bool in_es_loop);
 		uint16_t service_id = 0x00;
 		uint16_t pcr_pid = null_pid;
 		uint16_t video_pid = null_pid;
@@ -141,10 +142,9 @@ namespace dtdemux {
 		uint8_t num_sky_title_pids{0};
 		uint8_t num_sky_summary_pids{0};
 		uint8_t num_freesat_pids{0};
-#if 1
+		ss::bytebuffer<1024> cleaned_pmt;
 		bool has_freesat_epg = false; //this means a local freesat epg, not the main freesat home transponder
 		bool has_skyuk_epg = false;
-#endif
 		/*!
 			Stores ca descriptors
 			Format:
@@ -155,6 +155,7 @@ namespace dtdemux {
 			desc1 ... descn (stored contiguously); always with descriptor_tag 9
 		*/
 		ss::bytebuffer<1024> capmt_data;
+		ss::bytebuffer<1024> pmt_data; //pmt stream descriptors needed for playback
 		ss::vector<pid_info_t, 16> pid_descriptors;
 		ss::vector<ca_info_t, 16> ca_descriptors;
 		ss::vector<service_move_info_t, 4> service_move_descriptors;
@@ -176,7 +177,6 @@ namespace dtdemux {
 		best_subtitle_language(const ss::vector<chdb::language_code_t>&prefs) const;
 
 		bool is_ecm_pid(uint16_t pid);
-
 
 	};
 
@@ -501,7 +501,7 @@ namespace dtdemux {
 		virtual ~pmt_parser_t() {
 		}
 
-		bool parse_pmt_section(stored_section_t& section, pmt_info_t& pmt);
+		bool parse_pmt_section(stored_section_t& section, pmt_info_t& pmt, pmt_writer_t& pmt_writer);
 		virtual void parse_payload_unit() final;
 		void restart() {
 			current_version_number = -1;
@@ -512,24 +512,6 @@ namespace dtdemux {
 	bool pmt_ca_changed(const pmt_info_t& a,  const pmt_info_t& b);
 	uint32_t crc32(const uint8_t* data, int size);
 
-#if 0
-	struct sdt_bat_parser_t : public section_parser_t
-	{
-		int current_version_number = -1;
-		virtual void parse_payload_unit() override;
-
-		sdt_bat_parser_t(ts_stream_t& parent, int pid) :
-			section_parser_t(parent, pid, "SDT")
-			{
-				this->current_unit_type = stream_type::marker_t::illegal;
-			}
-
-		sdt_bat_parser_t(const sdt_bat_parser_t& other) = delete;
-		virtual ~sdt_bat_parser_t() {
-		}
-
-	};
-#endif
 
 
 	std::ostream& operator<<(std::ostream& os, const pid_info_t& info);

@@ -226,7 +226,8 @@ stream_descriptor = db_struct(name='stream_descriptor',
                                (3, 'time_t', 'real_time_start'), #unix epoch
                                (4, 'milliseconds_t', 'stream_time_start'), #unix epoch
                                (5, 'ss::vector<chdb::language_code_t,4>', 'audio_langs'),
-                               (6, 'ss::vector<chdb::language_code_t,4>', 'subtitle_langs')
+                               (6, 'ss::vector<chdb::language_code_t,4>', 'subtitle_langs'),
+                               (7, 'ss::vector<uint8_t,188>', 'pmt_data')
                      ))
 
 #Singleton listing recordings viewed

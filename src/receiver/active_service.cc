@@ -56,7 +56,6 @@
 #include "active_adapter.h"
 #include "active_service.h"
 #include "neumo.h"
-//#include "simgr/simgr.h"
 #include "filemapper.h"
 #include "streamparser/packetstream.h"
 #include "streamparser/si.h"
@@ -192,12 +191,12 @@ void active_service_t::save_pmt(system_time_t now_, const pmt_info_t& pmt_info) 
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace recdb;
 	const auto& marker = mpm.stream_parser.event_handler.last_saved_marker;
-	// auto & audio_langs = ;
-	// auto & subtitle_langs = pmt_info.subtitle_languages();
-	auto txnrec = mpm.db->mpm_rec.recdb.wtxn();
+
 
 	current_streams = stream_descriptor_t(marker.packetno_start, marker.packetno_end, now, marker.k.time,
-																				pmt_info.audio_languages(), pmt_info.subtitle_languages());
+																				pmt_info.audio_languages(), pmt_info.subtitle_languages(), pmt_info.cleaned_pmt);
+	auto txnrec = mpm.db->mpm_rec.recdb.wtxn();
+	put_record(txnrec, current_streams);
 	txnrec.commit();
 
 	auto mm = mpm.meta_marker.readAccess();
@@ -225,6 +224,10 @@ void service_thread_t::cb_t::on_epg_update(system_time_t now, const epgdb::epg_r
 	active_service.on_epg_update(now, epg_record);
 }
 
+/*
+	called when a pmt has been fully processed in the service's data
+	stream. This function is set as a callback in live_mpm.cc
+ */
 void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext) {
 	using namespace dtdemux;
 	dtdebug(pmt);
@@ -250,8 +253,8 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext) {
 		if (service_changed) {
 			receiver.tuner_thread.push_task([this, &active_adapter, pmt, service = current_service] {
 				auto& cb_ = cb(receiver.tuner_thread);
-				cb_.on_pmt_update(active_adapter, pmt);
-				cb_.update_service(service);
+				cb_.on_pmt_update(active_adapter, pmt); //update epg types in dvbs_mux in database
+				cb_.update_service(service); //update service record in database
 				return 0;
 			});
 		} else {
@@ -651,17 +654,13 @@ bool active_service_t::need_decryption() {
 														 take a lot of time to fill its buffers due to posibly low data rate*/
 							 (current_pmt.is_encrypted() || (mpm.stream_parser.num_encrypted_packets > 0));
 		if (ret && !registered_scam) {
-			// pmt claimed stream is not encrypted, but data tells us otherwise
-#if 1
-			/*On rossia 1 to fail on 40E: 3992V sid=2020 causes errors like
+			/* pmt claimed stream is not encrypted, but data tells us otherwise
+				 On rossia 1 to fail on 40E: 3992V sid=2020 causes errors like
 				"older stream change not yet processed - skipping (viewing may fail)".
 				The call below is needed ERT1 which reports in the pmt that its streams are no encrypted.
 				whereas they are biss encrypted
 			 */
-			static int count=0;
-			printf("UPDATE pmt=%d\n", count++);
 			update_pmt(current_pmt, false);
-#endif
 		}
 		return ret;
 	}

@@ -873,11 +873,10 @@ class RecGroupSelectPanel(GroupSelectPanel):
         super().__init__(parent, *args, **kwds)
 
     def create_entries(self):
-        t = pyrecdb.list_filter_type_t
         h = self.controller.app.receiver.rec_browse_history
+        t = pyrecdb.list_filter_type_t
         self.list_filter_type = h.h.list_filter_type
         self.ls = self.controller.app.live_recording_screen
-
         self.grouptypes = [
             (_("All recordings"), None, t.ALL_RECORDINGS),
             (_("Scheduled recordings"), None, t.SCHEDULED_RECORDINGS),
@@ -895,7 +894,11 @@ class RecGroupSelectPanel(GroupSelectPanel):
             w1,h1 = get_text_extent(g[0], self.header_font, compensate=True)
             w, h =max(w, w1), max(h, h1)
         self.grouptype_text_size = (w, h)
-
+        w, h = 0, 0
+        for g in list(self.sorttypes):
+            w1,h1 = get_text_extent(g[0], self.header_font, compensate=True)
+            w, h =max(w, w1), max(h, h1)
+        self.sorttype_text_size = (w, h)
 
     def OnSelectGroup(self):
         filter_type = self.grouptypes[self.grouptype_idx][2]

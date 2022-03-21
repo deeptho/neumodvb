@@ -117,18 +117,11 @@ class LanguageGrid(NeumoGridBase):
         table = LanguageTable(self, mpv)
         assert readonly
         assert basic
-        super().__init__(basic, readonly, table, *args, dark_mode=dark_mode, **kwds)
+        super().__init__(basic, readonly, table, *args, dark_mode=dark_mode, fontscale=1.5, **kwds)
         self.sort_order = 0
         self.sort_column = None
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        if self.dark_mode:
-            font = self.GetDefaultCellFont()
-            font.SetPointSize(int(font.GetPointSize()*1.5))
-            self.SetDefaultCellFont(font)
-            font = self.GetLabelFont()
-            font.SetPointSize(int(font.GetPointSize()*1.5))
-            self.SetLabelFont(font)
         gtk_add_window_style(self, 'language_grid')
         set_gtk_window_name(self, 'language_grid')
 

@@ -803,7 +803,7 @@ class NeumoTable(NeumoTableBase):
         self.__get_data__()
 
 class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
-    def __init__(self, basic, readonly, table, *args, dark_mode=False, **kwds):
+    def __init__(self, basic, readonly, table, *args, dark_mode=False, fontscale=1, **kwds):
         super().__init__(*args, **kwds)
         panel = args[0]
         panel.grid = self
@@ -834,6 +834,10 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
         self.SetTable(self.table, takeOwnership=True)
         self.font = self.GetFont()
+        if fontscale != 1:
+            font = self.GetDefaultCellFont()
+            font.SetPointSize(int(font.GetPointSize()*fontscale))
+            self.SetDefaultCellFont(font)
         self.cellfont = self.GetDefaultCellFont()
         self.header_font = self.GetFont()
         self.header_font.SetPointSize(self.header_font.GetPointSize()+2)

@@ -218,11 +218,11 @@ stream_descriptor = db_struct(name='stream_descriptor',
                      db = db,
                      type_id= lord('sd'),
                      version = 1,
-                     primary_key = ('key', ('stream_packetno_start',)), #unique
+                     primary_key = ('key', ('packetno_start',)), #unique
                      keys =  (
                      ),                     #not unique
-                     fields = ((1, 'int64_t', 'stream_packetno_start'),
-                               (2, 'int64_t', 'stream_packetno_end', 'std::numeric_limits<int64_t>::max()'),   #redundant
+                     fields = ((1, 'int64_t', 'packetno_start', '-1'), #index of last packet of the pmt in the stream
+                                                                        #so pmt will apply from packet after this one on
                                (3, 'time_t', 'real_time_start'), #unix epoch
                                (4, 'milliseconds_t', 'stream_time_start'), #unix epoch
                                (5, 'ss::vector<chdb::language_code_t,4>', 'audio_langs'),

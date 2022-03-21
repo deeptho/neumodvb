@@ -192,12 +192,11 @@ void active_service_t::save_pmt(system_time_t now_, const pmt_info_t& pmt_info) 
 	using namespace recdb;
 	const auto& marker = mpm.stream_parser.event_handler.last_saved_marker;
 
-
-	current_streams = stream_descriptor_t(marker.packetno_start, marker.packetno_end, now, marker.k.time,
+	current_streams = stream_descriptor_t(pmt_info.stream_packetno_end, now, marker.k.time,
 																				pmt_info.audio_languages(), pmt_info.subtitle_languages(), pmt_info.cleaned_pmt);
-	auto txnrec = mpm.db->mpm_rec.recdb.wtxn();
-	put_record(txnrec, current_streams);
-	txnrec.commit();
+	auto txnidx = mpm.db->mpm_rec.idxdb.wtxn();
+	put_record(txnidx, current_streams);
+	txnidx.commit();
 
 	auto mm = mpm.meta_marker.readAccess();
 	for (auto& playback_mpm : mm->playback_clients) {

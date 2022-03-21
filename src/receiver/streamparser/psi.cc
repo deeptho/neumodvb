@@ -2225,6 +2225,7 @@ void pmt_parser_t::parse_payload_unit() {
 	pmt_info_t pmt;
 	pmt_writer_t pmt_writer;
 	if (parse_pmt_section(section, pmt, pmt_writer)) {
+		pmt.stream_packetno_end = parent.event_handler.last_pmt_end_bytepos/ ts_packet_t::size;
 		pmt_writer.save(pmt.cleaned_pmt, pmt.pmt_pid);
 		this->section_cb(pmt, !hdr.current_next);
 	}

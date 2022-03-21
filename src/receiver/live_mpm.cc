@@ -468,10 +468,12 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 	// in case the recording already existed, append the livebuffer's data instead of overwriting it
 	milliseconds_t stream_time_offset{};
 	int64_t packetno_offset{0};
+	int64_t stream_packetno_start{-1};
 	int fileno_offset{0};
 	using namespace recdb;
 	{
-		// if files already exist, then update numbering so as to append files rather than overwrite
+		/* if files already exist from an earlier recording (e.g., recording has restarted after a crash) ,
+			 then update numbering so as to append files rather than overwrite*/
 		auto c = find_first<recdb::file_t>(idx_txn);
 		if (c.is_valid()) {
 			const auto& last = c.current();
@@ -489,8 +491,9 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 			stream_time_end = f.stream_time_end;
 			auto real_time_end = f.real_time_end;
 			if (overlap_duration(start, end, f.real_time_start, real_time_end) > 0) {
-				if (int64_t(stream_time_start) < 0)
+				if (int64_t(stream_time_start) < 0) {
 					stream_time_start = f.k.stream_time_start;
+				}
 				if (not_finalised) {
 					dterrorx("File in recording was not finalised");
 					auto c = find_last<recdb::marker_t>(txn);
@@ -520,17 +523,38 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 		auto c = recdb::marker_t::find_by_key(txn, k, find_geq);
 		for (auto marker : c.range()) {
 			if (marker.k.time <= stream_time_end) {
+				if(stream_packetno_start<0)
+					stream_packetno_start = marker.packetno_start;
 				// insert the marker record
 				marker.packetno_start += packetno_offset;
 				marker.packetno_end += packetno_offset;
 				marker.k.time += stream_time_offset;
 				put_record(idx_txn, marker);
+
+			} else
+				break;
+		}
+	}
+	{
+// copy the stream_descriptor markers into the recording database
+		auto c = recdb::stream_descriptor_t::find_by_key
+			(txn,
+			 stream_packetno_start, // refers to the livebuffer's value (no offset!)
+			 find_leq);
+		for (auto sd : c.range()) {
+			if (sd.stream_time_start <= stream_time_end) {
+				// insert the marker record
+				sd.packetno_start +=  packetno_offset;
+				sd.stream_time_start += stream_time_offset;
+				put_record(idx_txn, sd);
 			} else
 				break;
 		}
 	}
 
 	idx_txn.commit();
+
+
 #if 1 // perhaps not needed; epg is already in rec record
 	{
 		auto src_txn = db->mpm_rec.recepgdb.rtxn(); // for accessing the livebuffer's database

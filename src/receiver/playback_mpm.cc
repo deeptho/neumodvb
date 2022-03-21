@@ -132,14 +132,15 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 		auto ls = language_state.writeAccess();
 		ls->audio_pref = currently_playing_recording.service.audio_pref;
 		ls->subtitle_pref = currently_playing_recording.service.subtitle_pref;
-		auto c1 = recdb::stream_descriptor_t::find_by_key(txn, ls->next_streams.stream_packetno_start + 1, find_geq);
+		auto txni = db->mpm_rec.idxdb.rtxn();
+		auto c1 = recdb::stream_descriptor_t::find_by_key(txni, ls->next_streams.packetno_start + 1, find_geq);
 		if (c1.is_valid()) {
 			dtdebug("found pending pmt change");
 			ls->current_streams = c1.current();
-			assert(ls->current_streams.stream_packetno_end != std::numeric_limits<int64_t>::max());
 		} else {
 			dterror("no initial pmt");
 		}
+		txni.abort();
 	} else {
 		dterrorx("Cannot find rec in %s", db->idx_dirname.c_str());
 	}
@@ -189,14 +190,14 @@ void playback_mpm_t::call_language_callbacks(language_state_t& ls) {
 void playback_mpm_t::call_language_callbacks() {
 	auto ls = language_state.writeAccess();
 
-	bool apply_now = (ls->next_streams.stream_packetno_end != std::numeric_limits<int64_t>::max() &&
-										(current_byte_pos >= ts_packet_t::size * ls->next_streams.stream_packetno_end));
+	bool apply_now = (ls->next_streams.packetno_start >=0 &&
+										(current_byte_pos > ts_packet_t::size * ls->next_streams.packetno_start));
 	if (apply_now) {
 		ls->current_streams = ls->next_streams;
 		call_language_callbacks(*ls);
 		// now look for the next pmt change (if any)
-		auto txn = db->mpm_rec.recdb.rtxn();
-		auto c = recdb::stream_descriptor_t::find_by_key(txn, ls->next_streams.stream_packetno_start + 1, find_geq);
+		auto txn = db->mpm_rec.idxdb.rtxn();
+		auto c = recdb::stream_descriptor_t::find_by_key(txn, ls->next_streams.packetno_start + 1, find_geq);
 		if (c.is_valid()) {
 			dtdebug("found pending pmt change");
 			ls->next_streams = c.current();
@@ -237,11 +238,10 @@ void playback_mpm_t::call_language_callbacks() {
 */
 void playback_mpm_t::on_pmt_change(const recdb::stream_descriptor_t& desc) {
 	auto ls = language_state.writeAccess();
-	bool pending_stream_change = (ls->next_streams.stream_packetno_end != std::numeric_limits<int64_t>::max());
+	bool pending_stream_change = (ls->next_streams.packetno_start >=0);
 	// call_language_callbacks(ls, desc);
 	if (pending_stream_change) {
 		dtdebug("older stream change not yet processed - skipping (viewing may fail)");
-		assert(ls->next_streams.stream_packetno_end <= desc.stream_packetno_end);
 		return;
 	} else {
 		dtdebug("setting next_streams");

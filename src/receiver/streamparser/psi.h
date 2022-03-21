@@ -142,6 +142,7 @@ namespace dtdemux {
 		uint8_t num_sky_title_pids{0};
 		uint8_t num_sky_summary_pids{0};
 		uint8_t num_freesat_pids{0};
+		uint64_t stream_packetno_end{0};//position of start of last packet of pmt in stream
 		ss::bytebuffer<1024> cleaned_pmt;
 		bool has_freesat_epg = false; //this means a local freesat epg, not the main freesat home transponder
 		bool has_skyuk_epg = false;

@@ -250,13 +250,14 @@ private:
 	int open_file_containing_time(db_txn& txn, milliseconds_t start_time);
 
 	int open_next_file();
+	int64_t wait_for_live_data(uint8_t*& buffer);
 	int64_t read_data_live_(char* buffer, uint64_t numbytes);
 	int64_t read_data_nonlive_(char* buffer, uint64_t numbytes);
 	std::tuple<bool, int64_t> currently_playing_file_status();
 	playback_info_t get_recording_program_info() const;
 
 	void call_language_callbacks(language_state_t& ls);
-	void call_language_callbacks();
+	void check_pmt_change();
 public:
 	void register_audio_changed_callback(int subscription_id, language_state_t::callback_t cb);
 	void unregister_audio_changed_callback(int subscription_id);

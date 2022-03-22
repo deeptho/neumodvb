@@ -135,10 +135,15 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 		auto txni = db->mpm_rec.idxdb.rtxn();
 		auto c1 = recdb::stream_descriptor_t::find_by_key(txni, ls->next_streams.packetno_start + 1, find_geq);
 		if (c1.is_valid()) {
-			dtdebug("found pending pmt change");
+			dtdebug("found initial pmt");
 			ls->current_streams = c1.current();
-		} else {
-			dterror("no initial pmt");
+			c1.next();
+			if (c1.is_valid()) {
+				dtdebug("found pending pmt change");
+				ls->next_streams = c1.current();
+			} else {
+				dterror("no pending pmt");
+			}
 		}
 		txni.abort();
 	} else {
@@ -187,11 +192,10 @@ void playback_mpm_t::call_language_callbacks(language_state_t& ls) {
 	}
 }
 
-void playback_mpm_t::call_language_callbacks() {
+void playback_mpm_t::check_pmt_change() {
 	auto ls = language_state.writeAccess();
-
 	bool apply_now = (ls->next_streams.packetno_start >=0 &&
-										(current_byte_pos > ts_packet_t::size * ls->next_streams.packetno_start));
+										(current_byte_pos >= ts_packet_t::size * ls->next_streams.packetno_start));
 	if (apply_now) {
 		ls->current_streams = ls->next_streams;
 		call_language_callbacks(*ls);
@@ -589,28 +593,32 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t numbytes) {
 		dttime_init();
 		auto ret = read_data_live_(outbuffer, numbytes);
 		if (ret >= 0)
-			call_language_callbacks();
+			check_pmt_change();
 		dttime(300);
 		return ret;
 	} else
 		return read_data_nonlive_(outbuffer, numbytes);
 }
 
-int64_t playback_mpm_t::read_data_live_(char* outbuffer, uint64_t numbytes) {
+/*
+	Wait until live data becomes available.
+	Returns remaining_space>0 if new data was found
+	Returns 0 if no data is found and no more data exists in the current mpm part, or if must_exit
+ */
+int64_t playback_mpm_t::wait_for_live_data(uint8_t*& buffer) {
 
-	if (error || numbytes == 0) {
+	if (error)
 		return 0;
-	}
 
-	int remaining_space = -1;
-	uint8_t* buffer = nullptr;
+	int remaining_space{0};
 	dttime_init();
-
-	for (; !error;) {
-
+	for(; !error; ) {
 		remaining_space = filemap.get_read_buffer(buffer);
-		if (remaining_space > 0)
+		if(!live_mpm)
+			break;
+		if (remaining_space >= ts_packet_t::size) {
 			break; // keep streaming data which is known to be available
+		}
 		/*consult the live streamer, which will either tell us how much we can move the
 			cursor in the current file part, or that a new file part was started;
 			meta_marker will be overwritten.
@@ -620,9 +628,8 @@ int64_t playback_mpm_t::read_data_live_(char* outbuffer, uint64_t numbytes) {
 			current_marker, curret_file_record (last file in the live buffer) and num_bytes_safe_to_read
 		*/
 		live_mpm->wait_for_update(last_seen_live_meta_marker);
-		if (must_exit) {
-			return -1;
-		}
+		if (must_exit)
+			return 0;
 
 		auto last_fileno = last_seen_live_meta_marker.current_file_record.fileno;
 		if (current_fileno() == (int)last_fileno) {
@@ -640,15 +647,39 @@ int64_t playback_mpm_t::read_data_live_(char* outbuffer, uint64_t numbytes) {
 			if (filemap.grow_map(new_end_pos) >= 0) {
 				remaining_space = filemap.get_read_buffer(buffer);
 				dttime(300);
-				if (remaining_space > 0)
+				if (remaining_space >= ts_packet_t::size) {
 					break; // success; we have data
+				}
 			}
 			auto current_file_is_still_live =
 				last_seen_live_meta_marker.current_file_record.stream_packetno_end == std::numeric_limits<int64_t>::max();
 			if (current_file_is_still_live)
 				continue; // We need to wait for data
+			else
+				break;
 		}
+	}
+	if(error)
+		return 0;
+	return remaining_space;
+}
 
+int64_t playback_mpm_t::read_data_live_(char* outbuffer, uint64_t numbytes) {
+
+	if (error || numbytes == 0)
+		return 0;
+
+	int remaining_space = -1;
+	uint8_t* buffer = nullptr;
+	dttime_init();
+
+	for (; !error;) {
+
+		remaining_space = wait_for_live_data(buffer);
+		if (must_exit)
+			return -1;
+		if(remaining_space >= ts_packet_t::size)
+			break;
 		assert(filemap.get_read_buffer(buffer) == 0);
 
 		/*the current file has been fully played because map growing was tried, but remaining_space still 0.
@@ -726,13 +757,15 @@ int64_t playback_mpm_t::read_data_nonlive_(char* outbuffer, uint64_t numbytes) {
 	for (; !error;) {
 
 		remaining_space = filemap.get_read_buffer(buffer);
-		if (remaining_space > 0) {
+		if (remaining_space >= ts_packet_t::size) {
 			assert(buffer);
 			break; // keep streaming data which is known to be available
 		}
+		//load next file if available
 		{
 			recdb::marker_t end_marker;
 			auto stream_time_end = currently_playing_file.readAccess()->stream_time_end;
+			//check if file was properly closed and close it if not
 			if ((int64_t)stream_time_end == std::numeric_limits<int64_t>::max() && !live_mpm) {
 				auto wtxn = db->mpm_rec.idxdb.wtxn();
 				recdb::marker_t current_marker;
@@ -748,6 +781,7 @@ int64_t playback_mpm_t::read_data_nonlive_(char* outbuffer, uint64_t numbytes) {
 			auto ret = ((int64_t)stream_time_end == std::numeric_limits<int64_t>::max()) ? -1 : open_(txn, stream_time_end);
 			if (ret <= 0) {
 				dterror("End of nonlive stream detected");
+				must_exit = true;
 				return 0;
 			} else {
 				continue;
@@ -758,7 +792,7 @@ int64_t playback_mpm_t::read_data_nonlive_(char* outbuffer, uint64_t numbytes) {
 	dttime(200);
 	if (error) {
 		assert(0);
-		return 0;
+		return -1;
 	}
 
 	auto n = std::min(numbytes, (uint64_t)remaining_space);

@@ -1077,7 +1077,7 @@ void cmdseq_t::init_pls_codes() {
 
 int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options) {
 	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO
-		|| mux.symbol_rate < 1000000;
+		|| (mux.symbol_rate < 1000000 &&  ts.readAccess()->dbfe.supports.blindscan);
 	int num_constellation_samples = tune_options.constellation_options.num_samples;
 	tuned_frequency = mux.frequency;
 

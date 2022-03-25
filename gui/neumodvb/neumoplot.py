@@ -327,7 +327,7 @@ class Spectrum(object):
 
     def make_tps(self, tpsname):
         #n = len(spec[:,1])
-        self.peak_data = np.loadtxt(tpsname)
+        self.peak_data = np.atleast_2d(np.loadtxt(tpsname))
         if len(self.peak_data) == 0:
             return
         f = self.peak_data[:,0]
@@ -339,7 +339,7 @@ class Spectrum(object):
 
     def plot_spec(self, fname):
         dtdebug(f"loading spectrum {fname}")
-        self.spec = np.loadtxt(fname)
+        self.spec = np.atleast_2d(np.loadtxt(fname))
         if self.parent.do_detrend:
             self.detrend()
         t = self.spec[:,0]

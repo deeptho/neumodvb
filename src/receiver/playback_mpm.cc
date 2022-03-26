@@ -365,7 +365,7 @@ int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
 
 /*
 	opens part fileno of a recording and close the existing one.
-	returns -1 n error; 0 if the file map was unchanged or 1 if it was changed
+	returns -1 on error; 0 if the file map was unchanged or 1 if it was changed
 	fileno=-1 will be ignored; otherwise fileno is the fileno which should be opened
 */
 
@@ -586,6 +586,50 @@ int playback_mpm_t::open_next_file() {
 	return ret;
 }
 
+#ifdef NEW_PMT_PROCESSING
+int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t numbytes) {
+	if (error || numbytes == 0)
+		return 0;
+	int num_bytes_read{0};
+
+	while(num_bytes_read == 0 && !must_exit && !error) {
+    /*below, read_data_live_ and read_data_nonlive_ can read 0 bytes
+			for two reasons: 1) due to pmt filtering, no real data may be available yet
+			2) or real data may still be available, but the reading code has reached the point
+			where pmt data should be sent.
+
+			The loop is therefore needed, to retry the read.
+		 */
+
+		auto num_pmt  = read_pmt_data(outbuffer, numbytes);
+		if(num_pmt_bytes_to_send == 0)
+			check_pmt_change();
+
+		numbytes -= num_pmt;
+		num_bytes_read += num_pmt;
+		if(numbytes == 0) {
+			/*the pmt might be fully sent, but usually this indicates
+				that not enough space was available for the pmt in the output buffer
+				We return what we have written and will be called later again, at which point
+				read_pmt_data will be called again (and possibly write 0 bytes into output buffer)
+			*/
+			return num_bytes_read;
+		}
+		int ret{-1};
+		if (live_mpm) {
+			dttime_init();
+			ret = read_data_live_(outbuffer, numbytes);
+			dttime(300);
+		} else {
+			ret = read_data_nonlive_(outbuffer, numbytes);
+		}
+		if (ret >= 0) { //if there is no error (including each time data is read)
+				num_bytes_read +=ret;
+		}
+	}
+	return (must_exit || error) ? -1 : num_bytes_read;
+}
+#else
 int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t numbytes) {
 	if (error || numbytes == 0)
 		return 0;
@@ -599,13 +643,14 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t numbytes) {
 	} else
 		return read_data_nonlive_(outbuffer, numbytes);
 }
+#endif
 
 /*
 	Wait until live data becomes available.
 	Returns remaining_space>0 if new data was found
 	Returns 0 if no data is found and no more data exists in the current mpm part, or if must_exit
  */
-int64_t playback_mpm_t::wait_for_live_data(uint8_t*& buffer) {
+int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 
 	if (error)
 		return 0;
@@ -646,6 +691,7 @@ int64_t playback_mpm_t::wait_for_live_data(uint8_t*& buffer) {
 
 			if (filemap.grow_map(new_end_pos) >= 0) {
 				remaining_space = filemap.get_read_buffer(buffer);
+				assert(remaining_space % ts_packet_t::size ==0);
 				dttime(300);
 				if (remaining_space >= ts_packet_t::size) {
 					break; // success; we have data
@@ -675,12 +721,12 @@ int64_t playback_mpm_t::read_data_live_(char* outbuffer, uint64_t numbytes) {
 
 	for (; !error;) {
 
-		remaining_space = wait_for_live_data(buffer);
+		remaining_space = read_data_from_current_file(buffer);
 		if (must_exit)
 			return -1;
 		if(remaining_space >= ts_packet_t::size)
 			break;
-		assert(filemap.get_read_buffer(buffer) == 0);
+		assert(!live_mpm || filemap.get_read_buffer(buffer) == 0);
 
 		/*the current file has been fully played because map growing was tried, but remaining_space still 0.
 			Also, the current file is not the last one because then we would have restarted or exited
@@ -725,8 +771,11 @@ int64_t playback_mpm_t::read_data_live_(char* outbuffer, uint64_t numbytes) {
 
 	auto n = std::min(numbytes, (uint64_t)remaining_space);
 	assert(n > 0);
+#ifdef NEW_PMT_PROCESSING
+	n = copy_filtered_packets(outbuffer, buffer, n);
+#else
 	memcpy(outbuffer, buffer, n);
-	// save_debug(buffer, n);
+#endif
 	dttime(100);
 	filemap.advance_read_pointer(n);
 	dttime(100);
@@ -746,7 +795,6 @@ milliseconds_t playback_mpm_t::get_current_play_time() const {
 }
 
 int64_t playback_mpm_t::read_data_nonlive_(char* outbuffer, uint64_t numbytes) {
-	// @todo: this function is now almost the same as read_data_live_ => merge
 	if (error || numbytes == 0)
 		return 0;
 
@@ -757,10 +805,8 @@ int64_t playback_mpm_t::read_data_nonlive_(char* outbuffer, uint64_t numbytes) {
 	for (; !error;) {
 
 		remaining_space = filemap.get_read_buffer(buffer);
-		if (remaining_space >= ts_packet_t::size) {
-			assert(buffer);
+		if (remaining_space >= ts_packet_t::size)
 			break; // keep streaming data which is known to be available
-		}
 		//load next file if available
 		{
 			recdb::marker_t end_marker;
@@ -797,8 +843,11 @@ int64_t playback_mpm_t::read_data_nonlive_(char* outbuffer, uint64_t numbytes) {
 
 	auto n = std::min(numbytes, (uint64_t)remaining_space);
 	assert(n > 0);
+#ifdef NEW_PMT_PROCESSING
+	n = copy_filtered_packets(outbuffer, buffer, n);
+#else
 	memcpy(outbuffer, buffer, n);
-	// save_debug(buffer, n);
+#endif
 	filemap.advance_read_pointer(n);
 	current_byte_pos += n;
 	return n;
@@ -890,3 +939,53 @@ int playback_mpm_t::get_marker_for_time_from_db(db_txn& txn, recdb::marker_t& cu
 
 	return 0;
 }
+
+
+
+#ifdef NEW_PMT_PROCESSING
+int64_t  playback_mpm_t::read_pmt_data(char* outbuffer, uint64_t numbytes) {
+	auto ls = language_state.readAccess();
+	if(num_pmt_bytes_to_send < 0 ) {
+		//initialisation
+		num_pmt_bytes_to_send =  ls->current_streams.pmt_data.size();
+		current_pmt_pid = ls->current_pmt_pid();
+#if 0
+		assert(num_pmt_bytes_to_send >0);
+		assert(current_pmt_pid != 0x1fff);
+#endif
+	}
+
+	if(num_pmt_bytes_to_send > 0) {
+		auto n = std::min(numbytes, (uint64_t)num_pmt_bytes_to_send);
+		assert(n > 0);
+		memcpy(outbuffer, ls->current_streams.pmt_data.buffer()
+					 + (ls->current_streams.pmt_data.size() - num_pmt_bytes_to_send), n);
+		printf("sent pmt: pid=%d %d/%d bytes\n", current_pmt_pid, n, num_pmt_bytes_to_send);
+		num_pmt_bytes_to_send -= n;
+		return n;
+	}
+	return 0;
+}
+#endif
+
+#ifdef NEW_PMT_PROCESSING
+/*
+	copy full packets to the mpv buffer, discarding pmt packets
+	numbytes = maximum number of bytes to transfer.
+	Returns number of bytes transfered, which can be smaller if last input packet
+	is not ye complete
+ */
+int64_t playback_mpm_t::copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t numbytes)
+{
+	assert (numbytes>0); //our parent should not be called when a new pmt should be sent
+	auto n = numbytes - numbytes % ts_packet_t::size;
+	auto ls = language_state.readAccess();
+	auto bytes_until_pmt_change = ts_packet_t::size * (int64_t) ls->next_streams.packetno_start -
+		(int64_t) current_byte_pos;
+	n = std::min (n, bytes_until_pmt_change);
+	if(n>0)
+		memcpy(outbuffer, inbuffer, n);
+	// save_debug(buffer, n);
+	return n;
+}
+#endif

@@ -22,6 +22,7 @@
 #pragma once
 #include <cstdlib>
 #include <bitset>
+#include "section.h"
 #include "mpeg.h"
 #include "substream.h"
 
@@ -54,45 +55,7 @@ namespace dtdemux {
 		LAST, //last section (and new)
 	};
 
-	struct section_header_t {
-		uint16_t pid{0x1fff};
-		uint16_t len{0};
-		uint16_t header_len{0};
-		uint16_t table_id_extension{0};
-		uint16_t table_id_extension1{0};
-		uint16_t table_id_extension2{0};
-		int16_t segment_last_section_number{0};
-		uint8_t table_id{0};
-		uint8_t last_table_id{0};
-		uint8_t version_number{0};
-		uint8_t section_number{0};
-		uint8_t last_section_number{0};
-		bool current_next = 1;
-		bool section_syntax_indicator{0};
-		bool private_bit{0};
-
-		inline bool is_sdt() const  {
-			return section_syntax_indicator && (table_id == 0x42  || table_id== 0x46);
-		}
-		inline bool is_freesat_eit() const  {
-			return section_syntax_indicator &&
-				(pid==3004 || pid==3003 || pid==3842 || pid==3843);
-		}
-
-		inline bool is_eit() const  {
-			return (section_syntax_indicator && (table_id >= 0x4e  && table_id<= 0x6f))
-				|| is_freesat_eit();
-		}
-		inline bool is_sky_summary() const  {
-			return section_syntax_indicator && (pid >= 0x40 &&  pid < 0x48);
-		}
-		inline bool is_mhw2() const  {
-			return section_syntax_indicator && ((pid >= 561 &&  pid < 567) || pid ==644);
-		}
-		inline bool is_sky_title() const  {
-			return section_syntax_indicator && (pid >= 0x30 &&  pid < 0x38);
-		}
-	};
+	struct section_header_t;
 
 
 

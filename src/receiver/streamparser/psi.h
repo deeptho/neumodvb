@@ -93,7 +93,7 @@ namespace dtdemux {
 
 
 	struct subtitle_info_t  {
-		uint16_t stream_pid; //null_pid or specific pid to which info applies
+		//uint16_t stream_pid; //null_pid or specific pid to which info applies
 		uint8_t subtitle_type;
 		char lang_code[4];
 		uint16_t composition_page_id;
@@ -104,6 +104,7 @@ namespace dtdemux {
 		char lang_code[4]{};
 		uint8_t audio_type{}; //0=undefined, 1=clean effects, 2=hearing impaired,  3=visual impaired commentary, reserved
 		bool ac3{};
+		ss::bytebuffer<8> ac3_descriptor_data;
 	};
 
 	struct pid_info_t {
@@ -113,6 +114,7 @@ namespace dtdemux {
 		int8_t num_t2mi_streams_minus_one{-1};
 		audio_language_info_t audio_lang {};
 		ss::vector<subtitle_info_t, 8> subtitle_descriptors;
+
 		pid_info_t(uint16_t stream_pid, stream_type::stream_type_t stream_type) :
 			stream_pid(stream_pid), stream_type(stream_type) {}
 
@@ -156,7 +158,7 @@ namespace dtdemux {
 			desc1 ... descn (stored contiguously); always with descriptor_tag 9
 		*/
 		ss::bytebuffer<1024> capmt_data;
-		ss::bytebuffer<1024> pmt_data; //pmt stream descriptors needed for playback
+		//ss::bytebuffer<1024> pmt_data; //pmt stream descriptors needed for playback
 		ss::vector<pid_info_t, 16> pid_descriptors;
 		ss::vector<ca_info_t, 16> ca_descriptors;
 		ss::vector<service_move_info_t, 4> service_move_descriptors;
@@ -178,7 +180,6 @@ namespace dtdemux {
 		best_subtitle_language(const ss::vector<chdb::language_code_t>&prefs) const;
 
 		bool is_ecm_pid(uint16_t pid);
-
 	};
 
 	struct bouquet_linkage_t {
@@ -279,7 +280,6 @@ namespace dtdemux {
 		//int table_id = -1;
 		section_header_t* header();
 	private:
-		bool crc_is_correct();
 
 		/*
 			find table_id, length, section_syntax_indicator and private_bit

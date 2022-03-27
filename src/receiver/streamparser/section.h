@@ -25,11 +25,57 @@
 #include "substream.h"
 #include "neumodb/chdb/chdb_extra.h"
 
-
 namespace dtdemux {
+	struct pat_services_t;
+	struct pmt_info_t;
+	struct sdt_services_t;
+	struct bouquet_t;
+	struct pmt_writer_t;
+	struct nit_network_t;
+	struct epg_t;
 
+	struct section_header_t{
+		uint16_t pid{0x1fff};
+		uint16_t len{0};
+		uint16_t header_len{0};
+		uint16_t table_id_extension{0};
+		uint16_t table_id_extension1{0};
+		uint16_t table_id_extension2{0};
+		int16_t segment_last_section_number{0};
+		uint8_t table_id{0};
+		uint8_t last_table_id{0};
+		uint8_t version_number{0};
+		uint8_t section_number{0};
+		uint8_t last_section_number{0};
+		bool current_next = 1;
+		bool section_syntax_indicator{0};
+		bool private_bit{0};
+
+		inline bool is_sdt() const  {
+			return section_syntax_indicator && (table_id == 0x42  || table_id== 0x46);
+		}
+		inline bool is_freesat_eit() const  {
+			return section_syntax_indicator &&
+				(pid==3004 || pid==3003 || pid==3842 || pid==3843);
+		}
+
+		inline bool is_eit() const  {
+			return (section_syntax_indicator && (table_id >= 0x4e  && table_id<= 0x6f))
+				|| is_freesat_eit();
+		}
+		inline bool is_sky_summary() const  {
+			return section_syntax_indicator && (pid >= 0x40 &&  pid < 0x48);
+		}
+		inline bool is_mhw2() const  {
+			return section_syntax_indicator && ((pid >= 561 &&  pid < 567) || pid ==644);
+		}
+		inline bool is_sky_title() const  {
+			return section_syntax_indicator && (pid >= 0x30 &&  pid < 0x38);
+		}
+	};
 
 	struct stored_section_t {
+		uint16_t pid{0x1fff};
 		const ss::bytebuffer<4096>& payload; //4096 = maximum size of any section
 		int bytes_read{0};
 		bool error{false};
@@ -38,14 +84,13 @@ namespace dtdemux {
 			return error;
 		}
 
-
 		void throw_bad_data() {
 			error = true;
 			if (throw_on_error)
 				throw bad_data_exception();
 		}
 
-		stored_section_t(const ss::bytebuffer<4096>& payload_) :
+		stored_section_t(const ss::bytebuffer<4096>& payload_, uint16_t pid) :
 			payload(payload_) {}
 
 		int available() const {
@@ -103,8 +148,31 @@ namespace dtdemux {
 			bytes_read += toskip;
 				return 1;
 		}
-
-
+		void parse_section_header(section_header_t& ret);
+		void parse_table_header(section_header_t& ret);
+		bool parse_pat_section(pat_services_t& pat_services, section_header_t& hdr);
+		bool parse_pat_section(pat_services_t& pat_services);
+		bool parse_pmt_section(pmt_info_t& pmt, pmt_writer_t& pmt_writer, section_header_t& hdr);
+		bool parse_pmt_section(pmt_info_t& pmt, pmt_writer_t& pmt_writer);
+		bool parse_sdt_section(sdt_services_t& ret, section_header_t& hdr);
+		bool parse_sdt_section(sdt_services_t& ret);
+		bool parse_bat_section(bouquet_t& bouquet, section_header_t& hdr, int fst_preferred_region_id);
+		bool parse_bat_section(bouquet_t& bouquet, int fst_preferred_region_id);
+		bool parse_nit_section(nit_network_t& network);
+		bool parse_nit_section(nit_network_t& network, section_header_t& hdr);
+		bool parse_eit_section(epg_t& ret, section_header_t& hdr);
+		bool parse_eit_section(epg_t& ret);
+		bool parse_sky_section(epg_t& ret, section_header_t& hdr);
+		bool parse_sky_section(epg_t& ret);
+		bool parse_mhw2_channel_section(bouquet_t& bouquet, section_header_t& hdr);
+		bool parse_mhw2_channel_section(bouquet_t& bouquet);
+		bool parse_mhw2_title_section(epg_t& epg, section_header_t& hdr);
+		bool parse_mhw2_title_section(epg_t& epg);
+		bool parse_mhw2_short_summary_section(epg_t& epg, section_header_t& hdr);
+		bool parse_mhw2_short_summary_section(epg_t& epg);
+		bool parse_mhw2_long_summary_section(epg_t& epg, section_header_t& hdr);
+		bool parse_mhw2_long_summary_section(epg_t& epg);
 	};
 
+	bool crc_is_correct(const ss::bytebuffer_& payload);
 };

@@ -132,6 +132,7 @@ struct text_box {
 
 	text_box(const char* id) : id(id) {}
 	void init(wxSVGDocument* doc);
+	void set_value(const char* val);
 	void set_value(const ss::string_& val);
 	void set_value(int x, const char* fmt = "%4d");
 	void set_time_value(time_t t, const char* fmt = "%H:%M");
@@ -236,6 +237,13 @@ void text_box::init(wxSVGDocument* doc) {
 void text_box::set_value(const ss::string_& val) {
 	if (text) {
 		auto s = wxString::FromUTF8(val.c_str());
+		text->SetContent(s);
+	}
+}
+
+void text_box::set_value(const char* val) {
+	if (text) {
+		auto s = wxString::FromUTF8(val);
 		text->SetContent(s);
 	}
 }
@@ -416,7 +424,7 @@ void svg_overlay_t::set_livebuffer_info(const playback_info_t& playback_info) {
 	self->livebuffer.set_indicator_value(system_clock_t::to_time_t(playback_info.play_time));
 }
 
-static const char* recording_status_text(epgdb::rec_status_t status, bool is_live) {
+static const char* recording_status_text(epgdb::rec_status_t status, bool is_timeshifted) {
 	using namespace epgdb;
 	switch (status) {
 	case rec_status_t::SCHEDULED: // should not happen
@@ -429,7 +437,7 @@ static const char* recording_status_text(epgdb::rec_status_t status, bool is_liv
 	default:
 		break;
 	};
-	return is_live ? "LIVE" : "TIMESHIFT";
+	return is_timeshifted ? "TIMESHIFT" : "LIVE";
 }
 
 void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
@@ -445,13 +453,13 @@ void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 		self->epg.set_value(epg.event_name.c_str());
 		self->start_time.set_time_value(epg.k.start_time);
 		self->end_time.set_time_value(epg.end_time);
-		self->rec.set_value(!recording_status_text(epg.rec_status, playback_info.is_timeshifted));
+		self->rec.set_value(recording_status_text(epg.rec_status, playback_info.is_timeshifted));
 	} else {
 		self->epg.set_value("");
 		self->start_time.set_time_value(system_clock_t::to_time_t(livebuffer_horizon(playback_info)));
 		self->end_time.set_time_value(system_clock_t::to_time_t(playback_info.end_time + 30s)); // add 30 seconds to round
 																																														// up
-		self->rec.set_value(recording_status_text(epgdb::rec_status_t::NONE, !playback_info.is_timeshifted));
+		self->rec.set_value(recording_status_text(epgdb::rec_status_t::NONE, playback_info.is_timeshifted));
 	}
 	self->play_time.set_time_value(system_clock_t::to_time_t(playback_info.play_time), "%H:%M:%S");
 }

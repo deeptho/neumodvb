@@ -417,13 +417,12 @@ int playback_mpm_t::open_(db_txn& txn, milliseconds_t start_time) {
 	*/
 	recdb::marker_t current_marker;
 	get_end_marker_from_db(txn, end_marker);
-	bool return_to_live = false;
 	if (get_marker_for_time_from_db(txn, current_marker, start_time) < 0) {
 		dtdebugx("Requested start_play_time is beyond last logged packet");
 		if (live_mpm) {
 			auto mm = live_mpm->meta_marker.readAccess();
 			if (start_time >= mm->current_marker.k.time) {
-				return_to_live = true;
+				is_timeshifted = false; //handles the case where a user jumps forward past current time
 				current_marker = mm->current_marker;
 				start_time = mm->current_marker.k.time;
 			}

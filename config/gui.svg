@@ -1,20 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   xmlns:osb="http://www.openswatchbook.org/uri/2009/osb"
-   xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://creativecommons.org/ns#"
-   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:xlink="http://www.w3.org/1999/xlink"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    width="1440pt"
    height="810pt"
    id="svg2"
    version="1.1"
-   inkscape:version="1.0.2 (e86c870879, 2021-01-15)"
-   sodipodi:docname="gui.svg">
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   sodipodi:docname="gui.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
   <defs
      id="defs4">
     <linearGradient
@@ -59,7 +58,7 @@
     </linearGradient>
     <linearGradient
        id="linearGradient3503"
-       osb:paint="solid">
+       inkscape:swatch="solid">
       <stop
          style="stop-color:#effafa;stop-opacity:1;"
          offset="0"
@@ -67,7 +66,7 @@
     </linearGradient>
     <linearGradient
        id="linearGradient3479"
-       osb:paint="solid">
+       inkscape:swatch="solid">
       <stop
          style="stop-color:#effafa;stop-opacity:1;"
          offset="0"
@@ -75,7 +74,7 @@
     </linearGradient>
     <linearGradient
        id="linearGradient3289"
-       osb:paint="gradient">
+       inkscape:swatch="gradient">
       <stop
          style="stop-color:#b3fffe;stop-opacity:1;"
          offset="0"
@@ -187,7 +186,11 @@
     </filter>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter14140-3">
+       id="filter14140-3"
+       x="-0.075366276"
+       y="-0.069724561"
+       width="1.1507326"
+       height="1.1394491">
       <feGaussianBlur
          id="feGaussianBlur14142-5"
          stdDeviation="2.4365744" />
@@ -205,7 +208,11 @@
     </linearGradient>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter14176-5">
+       id="filter14176-5"
+       x="-0.03376605"
+       y="-0.018615808"
+       width="1.0675321"
+       height="1.0372316">
       <feGaussianBlur
          id="feGaussianBlur14178-0"
          stdDeviation="0.3702557" />
@@ -213,7 +220,7 @@
     <filter
        style="color-interpolation-filters:sRGB"
        height="1.0853395"
-       y="-0.042669769"
+       y="-0.042669768"
        width="1.2020705"
        x="-0.10103524"
        id="filter15053-7">
@@ -237,7 +244,7 @@
        height="1.3012044"
        y="-0.15060219"
        width="1.1409113"
-       x="-0.070455663"
+       x="-0.07045566"
        id="filter14812-5">
       <feGaussianBlur
          id="feGaussianBlur14814-2"
@@ -248,7 +255,7 @@
        height="1.3012044"
        y="-0.15060219"
        width="1.1409113"
-       x="-0.070455663"
+       x="-0.07045566"
        id="filter14812-0-9">
       <feGaussianBlur
          id="feGaussianBlur14814-6-7"
@@ -272,9 +279,9 @@
     <filter
        style="color-interpolation-filters:sRGB"
        height="1.4681805"
-       y="-0.23409025"
-       width="1.4010103"
-       x="-0.20050517"
+       y="-0.23409026"
+       width="1.4010101"
+       x="-0.20050507"
        id="filter14897-2">
       <feGaussianBlur
          id="feGaussianBlur14899-5"
@@ -282,10 +289,10 @@
     </filter>
     <filter
        style="color-interpolation-filters:sRGB"
-       height="1.2134444"
+       height="1.2134443"
        y="-0.10672215"
        width="1.1828213"
-       x="-0.091410659"
+       x="-0.091410654"
        id="filter14951-8">
       <feGaussianBlur
          id="feGaussianBlur14953-7"
@@ -293,10 +300,10 @@
     </filter>
     <filter
        style="color-interpolation-filters:sRGB"
-       height="1.5474488"
-       y="-0.27372435"
-       width="1.9386586"
-       x="-0.46932927"
+       height="1.5791335"
+       y="-0.28956677"
+       width="1.8646101"
+       x="-0.43230507"
        id="filter15211-9">
       <feGaussianBlur
          id="feGaussianBlur15213-7"
@@ -304,10 +311,10 @@
     </filter>
     <filter
        style="color-interpolation-filters:sRGB"
-       height="1.9645272"
-       y="-0.48226368"
-       width="2.2077935"
-       x="-0.60389674"
+       height="1.9720908"
+       y="-0.48604541"
+       width="2.1611935"
+       x="-0.58059676"
        id="filter14706-3">
       <feGaussianBlur
          id="feGaussianBlur14708-8"
@@ -326,7 +333,11 @@
     </linearGradient>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter15115-3">
+       id="filter15115-3"
+       x="-0.076234304"
+       y="-0.068211323"
+       width="1.1524686"
+       height="1.1364226">
       <feGaussianBlur
          id="feGaussianBlur15117-8"
          stdDeviation="2.2091576" />
@@ -358,7 +369,7 @@
        height="1.2498901"
        y="-0.12494507"
        width="1.2305853"
-       x="-0.11529266"
+       x="-0.11529265"
        id="filter14432-2">
       <feGaussianBlur
          id="feGaussianBlur14434-2"
@@ -378,7 +389,7 @@
     <filter
        style="color-interpolation-filters:sRGB"
        height="1.2585374"
-       y="-0.12926871"
+       y="-0.1292687"
        width="1.0418237"
        x="-0.020911871"
        id="filter17044">
@@ -390,8 +401,8 @@
        style="color-interpolation-filters:sRGB"
        height="1.3188565"
        y="-0.15942827"
-       width="1.3550917"
-       x="-0.17754583"
+       width="1.3550916"
+       x="-0.17754582"
        id="filter15185-2">
       <feGaussianBlur
          id="feGaussianBlur15187-7"
@@ -400,9 +411,9 @@
     <filter
        style="color-interpolation-filters:sRGB"
        id="filter4592-2"
-       x="-0.81659585"
-       width="2.6331918"
-       y="-0.057823781"
+       x="-0.81659599"
+       width="2.633192"
+       y="-0.057823785"
        height="1.1156476">
       <feGaussianBlur
          stdDeviation="1.4463082"
@@ -421,21 +432,33 @@
     </linearGradient>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter4538-7">
+       id="filter4538-7"
+       x="-0.086907857"
+       y="-0.081280426"
+       width="1.1738157"
+       height="1.1625609">
       <feGaussianBlur
          stdDeviation="0.7854602"
          id="feGaussianBlur4540-9" />
     </filter>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter4427-5-7">
+       id="filter4427-5-7"
+       x="-0.050796615"
+       y="-0.073276278"
+       width="1.1015932"
+       height="1.1465526">
       <feGaussianBlur
          stdDeviation="1.1383167"
          id="feGaussianBlur4429-4-8" />
     </filter>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter4487-6">
+       id="filter4487-6"
+       x="-0.049920514"
+       y="-0.046221782"
+       width="1.099841"
+       height="1.0924436">
       <feGaussianBlur
          stdDeviation="0.6434074"
          id="feGaussianBlur4489-4" />
@@ -443,7 +466,7 @@
     <filter
        style="color-interpolation-filters:sRGB"
        height="1.0800927"
-       y="-0.040046327"
+       y="-0.040046328"
        width="1.2350631"
        x="-0.11753157"
        id="filter14666-9">
@@ -484,17 +507,21 @@
     <filter
        style="color-interpolation-filters:sRGB"
        id="filter28502-8"
-       x="-0.1548306"
-       width="1.3096611"
-       y="-0.21494099"
-       height="1.429882">
+       x="-0.15524045"
+       width="1.3104809"
+       y="-0.22071932"
+       height="1.4414386">
       <feGaussianBlur
          stdDeviation="0.89858666"
          id="feGaussianBlur28504-3" />
     </filter>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter15145-6">
+       id="filter15145-6"
+       x="-0.034399945"
+       y="-0.07938495"
+       width="1.0687999"
+       height="1.1587699">
       <feGaussianBlur
          id="feGaussianBlur15147-1"
          stdDeviation="0.75821369" />
@@ -532,10 +559,10 @@
     </linearGradient>
     <filter
        style="color-interpolation-filters:sRGB"
-       height="1.260552"
-       y="-0.13027605"
-       width="1.3219118"
-       x="-0.16095592"
+       height="1.2605515"
+       y="-0.13027575"
+       width="1.3219119"
+       x="-0.16095593"
        id="filter14963-7">
       <feGaussianBlur
          id="feGaussianBlur14965-0"
@@ -558,7 +585,11 @@
     </linearGradient>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter15177-1">
+       id="filter15177-1"
+       x="-0.046765498"
+       y="-0.089099448"
+       width="1.093531"
+       height="1.1781989">
       <feGaussianBlur
          id="feGaussianBlur15179-3"
          stdDeviation="0.11039302" />
@@ -568,7 +599,7 @@
        height="1.2114592"
        y="-0.10572958"
        width="1.2328929"
-       x="-0.11644644"
+       x="-0.11644643"
        id="filter15173-0">
       <feGaussianBlur
          id="feGaussianBlur15175-4"
@@ -588,9 +619,9 @@
     <filter
        style="color-interpolation-filters:sRGB"
        id="filter28584-4"
-       x="-0.10730159"
-       width="1.2146032"
-       y="-0.13610739"
+       x="-0.12149719"
+       width="1.2429944"
+       y="-0.13610738"
        height="1.2722148">
       <feGaussianBlur
          stdDeviation="0.2640625"
@@ -620,7 +651,7 @@
        id="filter29493-2"
        x="-0.23446631"
        width="1.4689326"
-       y="-0.14606842"
+       y="-0.14606843"
        height="1.2921369">
       <feGaussianBlur
          stdDeviation="0.51262416"
@@ -651,14 +682,22 @@
     </linearGradient>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter29447-1">
+       id="filter29447-1"
+       x="-0.02308774"
+       y="-0.025666747"
+       width="1.0461755"
+       height="1.0513335">
       <feGaussianBlur
          stdDeviation="0.13475369"
          id="feGaussianBlur29449-4" />
     </filter>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter29350-1">
+       id="filter29350-1"
+       x="-0.023071282"
+       y="-0.025006621"
+       width="1.0461426"
+       height="1.0500132">
       <feGaussianBlur
          stdDeviation="0.1475"
          id="feGaussianBlur29352-7" />
@@ -693,7 +732,7 @@
     <filter
        style="color-interpolation-filters:sRGB"
        id="filter28927-8"
-       x="-0.15795375"
+       x="-0.15795376"
        width="1.3159075"
        y="-0.2091987"
        height="1.4183974">
@@ -730,9 +769,9 @@
     <filter
        style="color-interpolation-filters:sRGB"
        height="1.6165009"
-       y="-0.30825046"
+       y="-0.30825045"
        width="1.5843594"
-       x="-0.2921797"
+       x="-0.29217969"
        id="filter15133-1">
       <feGaussianBlur
          id="feGaussianBlur15135-5"
@@ -770,7 +809,11 @@
     </linearGradient>
     <filter
        style="color-interpolation-filters:sRGB"
-       id="filter30475-4">
+       id="filter30475-4"
+       x="-0.036516685"
+       y="-0.074027545"
+       width="1.0730334"
+       height="1.1480551">
       <feGaussianBlur
          stdDeviation="0.93152507"
          id="feGaussianBlur30477-9" />
@@ -778,10 +821,10 @@
     <filter
        style="color-interpolation-filters:sRGB"
        id="filter30479-2"
-       x="-0.07637769"
+       x="-0.076377695"
        width="1.1527554"
-       y="-0.12919053"
-       height="1.2583811">
+       y="-0.1291905"
+       height="1.258381">
       <feGaussianBlur
          stdDeviation="2.0355046"
          id="feGaussianBlur30481-9" />
@@ -1241,16 +1284,16 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.21960784"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.38950583"
-     inkscape:cx="1297.0342"
-     inkscape:cy="413.11565"
+     inkscape:zoom="0.77901166"
+     inkscape:cx="1037.2117"
+     inkscape:cy="422.97185"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
      inkscape:window-width="1885"
      inkscape:window-height="964"
-     inkscape:window-x="787"
-     inkscape:window-y="501"
+     inkscape:window-x="60"
+     inkscape:window-y="28"
      inkscape:window-maximized="0"
      showguides="true"
      inkscape:guide-bbox="true"
@@ -1316,12 +1359,12 @@
          sodipodi:role="line">service info</tspan></text>
     <text
        id="text20"
-       y="243.16142"
+       y="297.05374"
        x="1355.4792"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:40px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.890666"
        xml:space="preserve"
        transform="scale(1.1227553,0.89066603)"><tspan
-         y="243.16142"
+         y="297.05374"
          x="1355.4792"
          id="tspan18"
          sodipodi:role="line"
@@ -1332,11 +1375,11 @@
        width="320"
        height="36"
        x="1569.963"
-       y="185.60703"
+       y="233.60703"
        inkscape:label="#rect3797" />
     <rect
        inkscape:label="#rect3797"
-       y="193.60703"
+       y="241.60703"
        x="1569.963"
        height="20"
        width="188"
@@ -1344,18 +1387,18 @@
        style="fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.11268;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
     <text
        id="snr-text"
-       y="218.51913"
+       y="266.51913"
        x="2064.3916"
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none"
        xml:space="preserve"><tspan
          style="text-align:end;text-anchor:end;fill:#ffff00"
          id="tspan115"
-         y="218.51913"
+         y="266.51913"
          x="2064.3916"
          sodipodi:role="line">15.2dB</tspan></text>
     <rect
        inkscape:label="#rect3797"
-       y="235.60703"
+       y="185.60703"
        x="1569.963"
        height="36"
        width="320"
@@ -1367,39 +1410,39 @@
        width="94"
        height="20"
        x="1569.963"
-       y="243.60703"
+       y="193.60703"
        inkscape:label="#rect3797" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;fill:#000000;fill-opacity:1;stroke:none"
        x="2064.3916"
-       y="268.51913"
+       y="218.51913"
        id="strength-text"><tspan
          sodipodi:role="line"
          id="tspan14-3"
          x="2064.3916"
-         y="268.51913"
+         y="218.51913"
          style="text-align:end;text-anchor:end;fill:#ffff00">-30.dB</tspan></text>
     <text
        transform="scale(1.1227553,0.89066603)"
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:40px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.890666"
        x="1354.1903"
-       y="299.31873"
+       y="243.18088"
        id="text20-1"><tspan
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:40px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:end;text-anchor:end;fill:#ffff00;stroke-width:0.890666"
          sodipodi:role="line"
          id="tspan18-5"
          x="1354.1903"
-         y="299.31873">RF</tspan></text>
+         y="243.18088">RF</tspan></text>
     <text
        xml:space="preserve"
        id="text998"
-       style="fill:black;fill-opacity:1;line-height:1.25;stroke:none;font-family:sans-serif;font-style:normal;font-weight:normal;font-size:40px;white-space:pre;shape-inside:url(#rect1000);" />
+       style="fill:black;fill-opacity:1;line-height:1.25;stroke:none;font-family:sans-serif;font-style:normal;font-weight:normal;font-size:40px;white-space:pre;shape-inside:url(#rect1000)" />
     <text
        xml:space="preserve"
        id="text1031"
-       style="fill:black;fill-opacity:1;line-height:1.25;stroke:none;font-family:sans-serif;font-style:normal;font-weight:normal;font-size:40px;white-space:pre;shape-inside:url(#rect1033);" />
+       style="fill:black;fill-opacity:1;line-height:1.25;stroke:none;font-family:sans-serif;font-style:normal;font-weight:normal;font-size:40px;white-space:pre;shape-inside:url(#rect1033)" />
     <rect
        ry="17.494879"
        rx="0"
@@ -1474,7 +1517,7 @@
     </g>
     <rect
        inkscape:label="#rect3797"
-       y="193.60703"
+       y="241.60703"
        x="1569.963"
        height="20"
        width="123.95518"
@@ -1486,7 +1529,7 @@
        width="94"
        height="20"
        x="1569.963"
-       y="193.60703"
+       y="241.60703"
        inkscape:label="#rect3797" />
     <text
        xml:space="preserve"

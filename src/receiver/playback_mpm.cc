@@ -95,7 +95,6 @@ playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 	: mpm_t(other, true)
 	, receiver(other.active_service->receiver)
 	, live_mpm(&other)
-	, is_live(true)
 	, subscription_id(subscription_id_) {
 	assert(filemap.readonly);
 	auto ls = language_state.writeAccess();
@@ -313,15 +312,17 @@ playback_info_t playback_mpm_t::get_recording_program_info() const {
 	ret.start_time = system_clock_t::from_time_t(currently_playing_recording.real_time_start);
 	ret.end_time = system_clock_t::from_time_t(currently_playing_recording.real_time_end);
 	ret.play_time = ret.start_time;
-
+	ret.is_recording = !live_mpm;
+	ret.is_timeshifted = false;
 	return ret;
 }
 
 playback_info_t playback_mpm_t::get_current_program_info() const {
 	auto ret = live_mpm ? live_mpm->active_service->get_current_program_info() : get_recording_program_info();
-	ret.is_live = is_live;
+	if(live_mpm)
+		ret.is_timeshifted = is_timeshifted;
+
 	{
-		auto ls = language_state.readAccess();
 		ret.audio_language = ls->current_audio_language;
 		ret.subtitle_language = ls->current_subtitle_language;
 	}
@@ -352,7 +353,8 @@ void playback_mpm_t::force_abort() {
 	Open new files and change the mapped part of the file as needed
 */
 int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
-
+	if(live_mpm)
+		is_timeshifted = true;
 	error = false;
 	if (start_play_time < milliseconds_t(0))
 		start_play_time = milliseconds_t(0);
@@ -360,6 +362,14 @@ int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
 	auto txn = db->mpm_rec.idxdb.rtxn();
 	auto ret = open_(txn, start_play_time);
 	txn.abort();
+	return ret;
+}
+
+int playback_mpm_t::move_to_live() {
+	assert(live_mpm);
+	milliseconds_t start_play_time{0};
+	auto ret = move_to_time(start_play_time);
+	is_timeshifted = false;
 	return ret;
 }
 

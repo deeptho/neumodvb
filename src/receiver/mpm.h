@@ -43,8 +43,8 @@ struct playback_info_t {
 	system_time_t start_time{}; //time of first available byte in livebuffer
 	system_time_t end_time{};   //time of end of program (or now if there is no program)
 	system_time_t play_time{};  //current playback time
-	bool is_recording{};
-	bool is_live{};
+	bool is_recording{false}; //Is this a recording or a live channel (possibly in timeshift mode)
+	bool is_timeshifted{false};
 };
 
 
@@ -227,7 +227,7 @@ class playback_mpm_t : public mpm_t {
 																*/
 	meta_marker_t last_seen_live_meta_marker; //only used when playing a live buffer
 
-	bool is_live{false};
+	bool is_timeshifted{false};
 	recdb::rec_t currently_playing_recording{};
 	language_state_rec_t language_state;
 public:
@@ -265,11 +265,6 @@ public:
 	void register_subtitle_changed_callback(int subscription_id, language_state_t::callback_t cb);
 	void unregister_subtitle_changed_callback(int subscription_id);
 
-
-
-	void set_live(bool on) {
-		is_live = on;
-	}
 	void open_recording(const char* dirname);
 	//void init();
 
@@ -282,6 +277,7 @@ public:
 
 	int64_t read_data(char* buffer, uint64_t numbytes);
 	int move_to_time(milliseconds_t start_play_time);
+	int move_to_live();
 	//int open(int fileno=0); //find and open file
 	void close();
 	milliseconds_t get_current_play_time() const;

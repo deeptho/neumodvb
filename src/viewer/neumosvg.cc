@@ -267,6 +267,8 @@ class svg_overlay_impl_t : public svg_overlay_t {
 
 public:
 	bool uptodate{false};
+	wxSVGElement* snr_panel{nullptr};
+	bool snr_shown{true};
 	level_indicator snr{"snr", "snr", 0.0, 20.0};
 	level_indicator min_snr{"min-snr", "snr", 0.0, 20.0};
 	level_indicator margin_snr{"margin-snr", "snr", 0.0, 20.0};
@@ -288,7 +290,22 @@ public:
 	~svg_overlay_impl_t();
 	void traverse_xml(wxSVGElement* parent, int level = 0);
 	int init();
+	void show_snr(bool show);
 };
+
+/*
+	show or hide the snr date (show if data is available, otherwise hide)
+*/
+void svg_overlay_impl_t::show_snr(bool show) {
+	if (show == snr_shown)
+		return;
+	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
+	auto k = wxString::FromUTF8("visibility");
+	wxString val { show ? "visibility" : "hidden"};
+	snr_panel->SetAttribute(k, val);
+	snr_shown = show;
+	self->uptodate = false;
+}
 
 void svg_overlay_impl_t::traverse_xml(wxSVGElement* parent, int level) {
 	wxSVGElement* elem = (wxSVGElement*)parent->GetChildren();
@@ -321,6 +338,8 @@ int svg_overlay_impl_t::init() {
 	}
 	doc = svgctrl.GetSVG();
 	root = doc->wxSvgXmlDocument::GetRoot();
+	snr_panel = doc->GetElementById("snr-panel");
+	show_snr(false);
 	snr.init(doc);
 	margin_snr.init(doc);
 	min_snr.init(doc);
@@ -369,18 +388,6 @@ void svg_overlay_t::update_snr(double snr, double strength, double min_snr) {
 	self->uptodate = false;
 }
 
-/*
-	show or hide the snr date (show if data is available, otherwise hide)
-*/
-void svg_overlay_t::show_snr(bool show) {
-	if (show == snr_shown)
-		return;
-	snr_shown = show;
-	//@todo
-	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
-
-	self->uptodate = false;
-}
 
 static system_time_t livebuffer_horizon(const playback_info_t& playback_info) {
 	if (playback_info.start_time > playback_info.end_time - 5min)
@@ -438,13 +445,13 @@ void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 		self->epg.set_value(epg.event_name.c_str());
 		self->start_time.set_time_value(epg.k.start_time);
 		self->end_time.set_time_value(epg.end_time);
-		self->rec.set_value(recording_status_text(epg.rec_status, playback_info.is_live));
+		self->rec.set_value(!recording_status_text(epg.rec_status, playback_info.is_timeshifted));
 	} else {
 		self->epg.set_value("");
 		self->start_time.set_time_value(system_clock_t::to_time_t(livebuffer_horizon(playback_info)));
 		self->end_time.set_time_value(system_clock_t::to_time_t(playback_info.end_time + 30s)); // add 30 seconds to round
 																																														// up
-		self->rec.set_value(recording_status_text(epgdb::rec_status_t::NONE, playback_info.is_live));
+		self->rec.set_value(recording_status_text(epgdb::rec_status_t::NONE, !playback_info.is_timeshifted));
 	}
 	self->play_time.set_time_value(system_clock_t::to_time_t(playback_info.play_time), "%H:%M:%S");
 }

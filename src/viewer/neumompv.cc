@@ -693,14 +693,13 @@ void subscription_t::play_service(const chdb::service_t& service) {
 																				 [this](auto lang, auto pos) { this->on_audio_language_change(lang, pos); });
 		// mpm.init(active_service->mpm);
 		dtdebugx("PLAY SUBSCRIPTION (service): mpm init done");
-		milliseconds_t start_play_time{0};
-		if (mpm->move_to_time(start_play_time) < 0) {
+		if (mpm->move_to_live() < 0) {
 			dtdebug("PLAY SUBSCRIPTION (service): aborting");
 			this->close();
 			subscriber->unsubscribe();
 			return;
 		}
-		dtdebug("PLAY SUBSCRIPTION (service): mpm move to start_play_time done: " << start_play_time);
+		dtdebug("PLAY SUBSCRIPTION (service): mpm move_to_live done");
 	}
 	return;
 }
@@ -973,7 +972,6 @@ int MpvPlayer_::pause() {
 		dterror("mpv not ready");
 		return -1;
 	}
-	subscription.mpm->set_live(false);
 	static bool onoff = 1;
 	mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &onoff);
 	onoff = !onoff;
@@ -1137,7 +1135,6 @@ void MpvPlayer_::update_playback_info() {
 	if (!subscription.mpm)
 		return;
 	playback_info_t playback_info = subscription.mpm->get_current_program_info();
-	playback_info.is_recording = true;
 	// std::lock_guard<std::mutex> lk(m);
 	gl_canvas->overlay.set_playback_info(playback_info);
 	return;

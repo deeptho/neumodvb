@@ -216,6 +216,7 @@ playback_info_t active_service_t::get_current_program_info() const {
 	ret.start_time = mm->livebuffer_start_time;
 	ret.end_time = mm->livebuffer_end_time;
 	ret.play_time = mm->livebuffer_end_time;
+	ret.is_recording= false;
 	return ret;
 }
 

@@ -1005,9 +1005,13 @@ wxSVGCanvasText::wxSVGCanvasText(wxSVGCanvas* canvas) :
 }
 
 wxSVGCanvasText::~wxSVGCanvasText() {
-	for (unsigned int i = 0; i < m_chunks.Count(); i++)
-		for (unsigned int j = 0; j < m_chunks[i].chars.Count(); j++)
+	for (unsigned int i = 0; i < m_chunks.Count(); i++) {
+		for (unsigned int j = 0; j < m_chunks[i].chars.Count(); j++) {
 			delete m_chunks[i].chars[j].path;
+			if (m_chunks[i].chars[j].decorationPath != NULL)
+				delete m_chunks[i].chars[j].decorationPath;
+		}
+	}
 }
 
 void wxSVGCanvasText::Init(wxSVGTextElement& element, const wxCSSStyleDeclaration& style, wxSVGMatrix* matrix) {
@@ -1106,6 +1110,7 @@ void wxSVGCanvasText::AddChunk(const wxString& text, const wxCSSStyleDeclaration
 void wxSVGCanvasText::BeginChar(wxSVGMatrix* matrix) {
 	m_char = new wxSVGCanvasTextChar;
 	m_char->path = m_canvas->CreateCanvasPath(matrix);
+	m_char->decorationPath = NULL;
 	m_chunks[m_chunks.GetCount() - 1].chars.Add(m_char);
 }
 

@@ -2,7 +2,7 @@
 
 # initialization
 AC_PREREQ(2.59)
-AC_INIT([wxsvg], [1.5.22], [http://wxsvg.sourceforge.net/])
+AC_INIT([wxsvg], [1.5.23], [http://wxsvg.sourceforge.net/])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE(foreign)
 AM_MAINTAINER_MODE
@@ -15,7 +15,7 @@ AM_MAINTAINER_MODE
 # 4. If any interfaces have been added since the last public release, then increment age.
 # 5. If any interfaces have been removed since the last public release then set age to 0.
 
-LIBRARY_VERSION=15:6:12 # current:revision:age -> libwxsvg.so.(C-A).(A).(R)
+LIBRARY_VERSION=15:7:12 # current:revision:age -> libwxsvg.so.(C-A).(A).(R)
 AC_SUBST(LIBRARY_VERSION)
 
 # options

@@ -102,6 +102,7 @@ class wxSVGCanvasPath: public wxSVGCanvasItem
 /** character */
 struct wxSVGCanvasTextChar {
 	wxSVGCanvasPath* path;
+	wxSVGCanvasPath* decorationPath;
 	wxSVGRect bbox;
 };
 WX_DECLARE_OBJARRAY(wxSVGCanvasTextChar, wxSVGCanvasTextCharList);

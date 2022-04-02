@@ -37,7 +37,7 @@ void wxSVGCanvasTextCairo::InitText(const wxString& text, const wxCSSStyleDeclar
 	
 #if defined(__WXMSW__) || defined(__WXMAC__)
 	int size = (int) style.GetFontSize();
-	int fstyle = style.GetFontStyle() == wxCSS_VALUE_ITALIC ? wxFONTSTYLE_ITALIC
+	wxFontStyle fstyle = style.GetFontStyle() == wxCSS_VALUE_ITALIC ? wxFONTSTYLE_ITALIC
 			: (style.GetFontStyle() == wxCSS_VALUE_OBLIQUE ? wxFONTSTYLE_SLANT : wxFONTSTYLE_NORMAL);
 	wxFontWeight weight = style.GetFontWeight() == wxCSS_VALUE_BOLD ? wxFONTWEIGHT_BOLD
 			: style.GetFontWeight() == wxCSS_VALUE_BOLDER ? wxFONTWEIGHT_MAX
@@ -84,6 +84,16 @@ void wxSVGCanvasTextCairo::InitText(const wxString& text, const wxCSSStyleDeclar
 		m_char->path->MoveTo(m_tx + x, m_ty + y);
 		cairo_text_path(cr, (const char*) token.utf8_str());
 		
+		// decoration
+		if (style.GetTextDecoration() == wxCSS_VALUE_UNDERLINE
+				|| style.GetTextDecoration() == wxCSS_VALUE_LINE_THROUGH) {
+			m_char->decorationPath = m_canvas->CreateCanvasPath(matrix);
+			if (style.GetTextDecoration() == wxCSS_VALUE_UNDERLINE)
+				m_char->decorationPath->MoveTo(m_tx + x, m_ty + y + fextents.height/10);
+			else
+				m_char->decorationPath->MoveTo(m_tx + x, m_ty + y - extents.height/2);
+		}
+		
 		if (x_advance < extents.x_advance)
 			x_advance = extents.x_advance;
 		if (width < extents.width)
@@ -91,6 +101,12 @@ void wxSVGCanvasTextCairo::InitText(const wxString& text, const wxCSSStyleDeclar
 		height += fextents.height;
 		if (tokenzr.HasMoreTokens())
 			y += fextents.height;
+		
+		// decoration
+		if (style.GetTextDecoration() == wxCSS_VALUE_UNDERLINE
+				|| style.GetTextDecoration() == wxCSS_VALUE_LINE_THROUGH) {
+			m_char->decorationPath->LineTo(extents.width, 0, true);
+		}
 	}
 	
 	// set bbox
@@ -126,18 +142,31 @@ void wxSVGCanvasTextCairo::InitText(const wxString& text, const wxCSSStyleDeclar
 	m_char->path->MoveTo(m_tx, m_ty - ((double)baseline / PANGO_SCALE));
 	pango_cairo_layout_path(cr, layout);
 	
-	// set bbox and increase current position (m_tx)
+	// get size
 	int lwidth, lheight;
 	pango_layout_get_size(layout, &lwidth, &lheight);
 	double width = ((double)lwidth / PANGO_SCALE);
 	double height = ((double)lheight / PANGO_SCALE);
+	
+	// decoration
+	if (style.GetTextDecoration() == wxCSS_VALUE_UNDERLINE
+			|| style.GetTextDecoration() == wxCSS_VALUE_LINE_THROUGH) {
+		m_char->decorationPath = m_canvas->CreateCanvasPath(matrix);
+		if (style.GetTextDecoration() == wxCSS_VALUE_UNDERLINE)
+			m_char->decorationPath->MoveTo(m_tx, m_ty + height/10);
+		else
+			m_char->decorationPath->MoveTo(m_tx, m_ty - ((double)baseline / PANGO_SCALE / 2) + height/10);
+		m_char->decorationPath->LineTo(width, 0, true);
+	}
+	
+	// set bbox and increase current position (m_tx)
 	m_char->bbox = wxSVGRect(m_tx, m_ty, width, height);
 	if (style.GetTextAnchor() == wxCSS_VALUE_MIDDLE || style.GetTextAnchor() == wxCSS_VALUE_END) {
 		wxSVGRect bbox = m_char->path->GetResultBBox(style);
 		m_tx += width > bbox.GetWidth() ? width : bbox.GetWidth();
 	} else
 		m_tx += width;
-		
+
 	g_object_unref(layout);
 	pango_font_description_free(font);
 #endif

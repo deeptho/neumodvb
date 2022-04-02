@@ -121,8 +121,17 @@ void wxSVGCanvas::DrawCanvasText(wxSVGCanvasText& canvasText,
 	wxSVGCanvasTextChunk& chunk = canvasText.m_chunks[i];
 	chunk.style.SetFillRule(wxCSS_VALUE_EVENODD);
 	wxSVGMatrix pathMatrix = matrix.Multiply(chunk.matrix);
-	for (unsigned int j=0; j<chunk.chars.Count(); j++)
+	for (unsigned int j=0; j<chunk.chars.Count(); j++) {
 		DrawItem(*chunk.chars[j].path, pathMatrix, chunk.style, svgElem);
+		if (chunk.chars[j].decorationPath != NULL) {
+			wxCSSStyleDeclaration decoStyle;
+			decoStyle.SetStroke(chunk.style.GetFill());
+			decoStyle.SetStrokeWidth(chunk.style.GetFontSize() > 0 ? chunk.style.GetFontSize()/15 : 1);
+			if (chunk.style.GetFontWeight() == wxCSS_VALUE_BOLD)
+				decoStyle.SetStrokeWidth(decoStyle.GetStrokeWidth()*1.5);
+			DrawItem(*chunk.chars[j].decorationPath, pathMatrix, decoStyle, svgElem);
+		}
+	}
   }
 }
 

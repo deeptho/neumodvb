@@ -1325,7 +1325,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 																				all live recordings have the same id
 																			*/
 	epg.k.start_time = start_time;
-	epg.end_time = start_time + duration * 60;
+	epg.end_time = start_time + duration;
 	if (event_name)
 		epg.event_name.sprintf("%s", event_name);
 	else {

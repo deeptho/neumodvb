@@ -100,6 +100,10 @@ static void gtk_add_window_style(py::object window, const char* style) {
 
 static void gtk_remove_window_style(py::object window, const char* style) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
+	if (!w) {
+		dterror("Invalid window");
+		return;
+	}
 	auto* x = w->GetHandle();
 	if (!x) {
 		dterror("Invalid window");

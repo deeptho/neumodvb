@@ -112,7 +112,7 @@ public:
 	auto  done() const {
 		return done_;
 	}
-	auto  next() {
+	void next() {
 		done_ = !cursor.next(op_next);
 		check_done();
 	}

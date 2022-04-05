@@ -701,7 +701,7 @@ language_code = db_struct(name='language_code',
                           type_id= lord('la'),
                           version = 1,
                           #position (not relevant for language prefs, but useful to indicate order in pmt)
-                          primary_key = ('key', ('position',)), #a keyis needed for temporary database
+                          primary_key = ('key', ('position',)), #a key is needed for the temporary database
                           fields = ((1, 'int8_t', 'position', -1),   #position in pmt, or for prefs: version in case of duplicate languages;
                                     (2, 'int8_t', 'lang1'),
                                     (3, 'int8_t', 'lang2'),

@@ -617,7 +617,7 @@ int active_mpm_t::stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& cop
 	// filesystem location where recording will be stored
 
 	rec.epg.rec_status =
-		epgdb::rec_status_t::FINISHED; // will be stored in the recording  and in teh global recordings database
+		epgdb::rec_status_t::FINISHED; // will be stored in the recording  and in the global recordings database
 	put_record(rec_txn, rec);					 // store in the live buffer
 	rec_txn.commit();
 

@@ -27,7 +27,7 @@ namespace fs = std::filesystem;
 /*
 	make and insert a new recording into the global recording database
 */
-recdb::rec_t rec_manager_t::new_recording(db_txn& parent_txn, const chdb::service_t& service,
+recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, const chdb::service_t& service,
 																					epgdb::epg_record_t& epgrec, int pre_record_time, int post_record_time) {
 	auto stream_time_start = milliseconds_t(0);
 	auto stream_time_end = stream_time_start;
@@ -49,7 +49,7 @@ recdb::rec_t rec_manager_t::new_recording(db_txn& parent_txn, const chdb::servic
 	epgrec.rec_status = epgdb::rec_status_t::SCHEDULED;
 	auto rec = rec_t(rec_type, subscription_id, stream_time_start, stream_time_end, real_time_start, real_time_end,
 									 pre_record_time, post_record_time, filename, service, epgrec, {});
-	put_record(parent_txn, rec);
+	put_record(rec_wtxn, rec);
 
 	return rec;
 }
@@ -65,6 +65,7 @@ recdb::rec_t rec_manager_t::new_recording(const chdb::service_t& service, epgdb:
 	// update epgdb.mdb so that gui code can see the record
 	auto c = epgdb::epg_record_t::find_by_key(epg_txn, epgrec.k);
 	if (c.is_valid()) {
+		assert(epgrec.k.event_id != TEMPLATE_EVENT_ID);
 		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epgrec);
 	}
 	epg_txn.commit();
@@ -161,6 +162,7 @@ recdb::rec_t update_recording_epg(db_txn& parent_txn, db_txn& epg_txn, const rec
 		if (existing.rec_status != epgrec.rec_status) { // epgrec can come from stream!
 			auto existing = c.current();
 			existing.rec_status = epgrec.rec_status;
+			assert(existing.k.event_id != TEMPLATE_EVENT_ID);
 			epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
 		}
 	}
@@ -179,8 +181,15 @@ void rec_manager_t::update_recording(const recdb::rec_t& rec_in) {
 		const auto& existing = c.current();
 		if (existing.rec_status != epgrec.rec_status) { // epgrec can come from stream!
 			auto existing = c.current();
-			existing.rec_status = epgrec.rec_status;
-			epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
+			if (existing.k.event_id == TEMPLATE_EVENT_ID &&
+					(epgrec.rec_status == epgdb::rec_status_t::FINISHED ||
+					 epgrec.rec_status == epgdb::rec_status_t::FINISHING))
+				delete_record(epg_txn, existing); //anonymous recordings are shown on epg screen until they are finised.
+			else {
+				existing.rec_status = epgrec.rec_status;
+			//assert(existing.k.event_id != TEMPLATE_EVENT_ID);
+				epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
+			}
 		}
 	}
 	epg_txn.commit();
@@ -200,6 +209,7 @@ void rec_manager_t::delete_recording(const recdb::rec_t& rec) {
 	if (c.is_valid()) {
 		auto epg = c.current();
 		epg.rec_status = epgdb::rec_status_t::NONE;
+		assert(epg.k.event_id != TEMPLATE_EVENT_ID);
 		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epg);
 	}
 	epg_txn.commit();
@@ -231,12 +241,12 @@ int rec_manager_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb:
 	}
 
 	/*
-		attempt to create non-anonuymous recordings based on available epg records
+		attempt to create non-anonymous recordings based on available epg records
 	*/
 	time_t anonymous_start_time = sched_epg_record.k.start_time;
-	time_t start_time = sched_epg_record.end_time;	 // start of first newly created recording
-	time_t end_time = sched_epg_record.k.start_time; // latest end of any newly created recording
-	// if no non-anonuymous recording is created, we will have end_time < start_time
+	time_t start_time = sched_epg_record.end_time;	 // start of first newly created recording (if any)
+	time_t end_time = sched_epg_record.k.start_time; // latest end of any newly created recording (if any)
+	// if no non-anonymous recording is created, we will have end_time < start_time
 
 	int gaps = 0;
 	auto txnepg = receiver.epgdb.wtxn();
@@ -250,6 +260,7 @@ int rec_manager_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb:
 			// Mark this matching epg_record for recording
 			{
 				found->rec_status = epgdb::rec_status_t::SCHEDULED;
+				assert(found->k.event_id != TEMPLATE_EVENT_ID);
 				put_record(txnepg, *found);
 				/*also create a recording for this program;
 				 */
@@ -442,6 +453,7 @@ void rec_manager_t::startup(system_time_t now_) {
 			if (c.is_valid()) {
 				auto epg = c.current();
 				epg.rec_status = epgdb::rec_status_t::NONE;
+				assert(epg.k.event_id != TEMPLATE_EVENT_ID);
 				epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epg);
 			}
 			epg_txn.commit();

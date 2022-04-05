@@ -96,7 +96,7 @@ static inline int overlap_duration(int a1, int a2, int b1, int b2) {
 	When called from channel_epg, k will point to an existing epg_record whose event_id will match,
 	but which may have a slightly changed start_time, event_name...
 
-	When called due to manually creating a recording, event_id will be 0xffffff.
+	When called due to manually creating a recording, event_id will be TEMPLATE_EVENT_ID (0xffffff).
 	In this case, we match when epg record is mostly contained within k's duration
 
 	The search range is limited by tolerance to avoid excessive searching
@@ -117,7 +117,8 @@ std::optional<epgdb::epg_record_t> epgdb::best_matching(db_txn& txnepg, const ep
 		return {}; // no suitable records
 	for (const auto& old : c.range()) {
 		assert(old.k.service == k.service);
-		assert(old.k.event_id != TEMPLATE_EVENT_ID);
+		if (old.k.event_id == TEMPLATE_EVENT_ID)
+			continue;
 		if (old.k.event_id == k.event_id) {
 			return old; // exact match; impossible if k.event_id == TEMPLATE_EVENT_ID
 		}
@@ -383,7 +384,11 @@ static bool save_epg_record_if_better_(db_txn& txnepg, const epgdb::epg_record_t
 		);
 	if (c.is_valid())
 		for (const auto& old : c.range()) {
-			assert(old.k.event_id != TEMPLATE_EVENT_ID);
+			if(old.k.event_id == TEMPLATE_EVENT_ID) {
+				dterror("Found invalid epg record");
+				assert(false);
+				delete_record(txnepg, old);
+			}
 			assert(old.k.service == record.k.service); // sanity check
 
 			if (old.k.start_time > record.k.start_time + tolerance) // out of search range

@@ -269,7 +269,7 @@ private:
 	/*
 		key is the service_id
 		first value entry in the map is the current pmt_pid as known by the tuner thread.
-		This may differ from active_service.current_pmt_id when a pmt change has not yet been noticed
+		This may differ from active_service.current_pmt_pid when a pmt change has not yet been noticed
 		by the service thread
 	*/
 

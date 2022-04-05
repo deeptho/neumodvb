@@ -3,6 +3,8 @@ import sys
 import os
 sys.path.insert(0, '../../x86_64/target/lib64/')
 sys.path.insert(0, '../../build/src/neumodb/chdb')
+sys.path.insert(0, '../../build/src/neumodb/epgdb')
+sys.path.insert(0, '../../build/src/neumodb/recdb')
 sys.path.insert(0, '../../build/src/stackstring/')
 import pyrecdb
 import pychdb
@@ -10,8 +12,8 @@ import pyepgdb
 
 if True:
     recdb = pyrecdb.recdb()
-    #recdb.open("/mnt/neumo/db/recdb.mdb/")
-    recdb.open("/tmp/recdb.mdb/")
+    recdb.open("/mnt/neumo/db/recdb.mdb/")
+    #recdb.open("/tmp/recdb.mdb/")
     if False:
         epgdb = pyepgdb.epgdb(recdb)
         epgdb.open_secondary("epg")
@@ -22,7 +24,7 @@ if True:
     #epgtxn=epgdb.rtxn()
     #q2=pyepgdb.epg_record.list_all_by_key(epgtxn)
     for rec in q1:
-        print("=================")
+        print(f"================={rec.epg.k.event_id}")
         print(rec)
         print(f'status={rec.epg.rec_status}')
     print("Files in this recording\n")

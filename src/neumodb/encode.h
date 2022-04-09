@@ -29,6 +29,7 @@
 #include <ieee754.h>
 #include "stackstring.h"
 #include "neumotime.h"
+#include <array>
 
 template<typename T>
 inline auto encode_ascending(T x);

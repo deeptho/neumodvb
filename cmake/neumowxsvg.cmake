@@ -12,7 +12,7 @@ ExternalProject_Add(
     PREFIX ${NEUMOWXSVG_BIN}
     SOURCE_DIR ${NEUMOWXSVG_DIR}
     DOWNLOAD_COMMAND cd ${NEUMOWXSVG_DIR} &&  ${NEUMOWXSVG_DIR}/autogen.sh
-    CONFIGURE_COMMAND ${NEUMOWXSVG_DIR}/configure --srcdir=${NEUMOWXSVG_DIR} --prefix=${NEUMOWXSVG_BIN} --enable-static=yes --disable-shared
+    CONFIGURE_COMMAND ${NEUMOWXSVG_DIR}/configure --srcdir=${NEUMOWXSVG_DIR} --prefix=${NEUMOWXSVG_BIN} --enable-static=yes --disable-shared --disable-libav
     BUILD_COMMAND make CXX=g++\ -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=.\ -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.
     INSTALL_COMMAND make install
     BUILD_BYPRODUCTS ${NEUMOWXSVG_STATIC_LIB}

@@ -124,7 +124,7 @@ class service_thread_t::cb_t : public service_thread_t { //callbacks
 public:
 	//int deactivate(active_service_t& channel);
 	void on_epg_update(system_time_t now, const epgdb::epg_record_t& epg_record);
-	void update_recording(const recdb::rec_t&rec, const chdb::service_t& service, const epgdb::epg_record_t& epgrec);
+	void update_recording(recdb::rec_t&rec, const chdb::service_t& service, const epgdb::epg_record_t& epgrec);
 
 	std::optional<recdb::rec_t> start_recording(int subscription_id, const recdb::rec_t& rec);
 	int stop_recording(const recdb::rec_t& key, mpm_copylist_t& copy_commands);
@@ -216,9 +216,7 @@ public:
 	int request_retune(active_adapter_t& active_adapter);
 
 
-	int toggle_recording(const chdb::service_t& service,
-											 const epgdb::epg_record_t& epg_record,
-											 bool insert, bool remove);
+	void toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 
 	void update_recording(const recdb::rec_t& rec);
 	int positioner_cmd(std::shared_ptr<active_adapter_t> active_adapter, chdb::positioner_cmd_t cmd, int par);
@@ -496,11 +494,7 @@ private:
 	//implemented in two versions: once in pyneumodaivb.cc and once in main.cc
 	void inform_python();
 
-
-
-	int update_recording(const recdb::rec_t&rec,
-		const epgdb::epg_record_t& epgrec);
-
+	int update_recording(recdb::rec_t&rec, const epgdb::epg_record_t& epgrec);
 
 	template<typename mux_t>
 	int subscribe_scan(std::vector<task_queue_t::future_t>& futures,
@@ -577,10 +571,9 @@ struct player_cb_t {
 class receiver_t {
 
 	int toggle_recording_(const chdb::service_t& service,
-										 const epgdb::epg_record_t& epg_record,
-										 bool insert, bool remove);
+										 const epgdb::epg_record_t& epg_record);
 	int toggle_recording_(const chdb::service_t& service, system_time_t start_time,
-											 int duration, const char* event_name, bool start, bool stop);
+											 int duration, const char* event_name);
 
 public:
 	//safe to access from other threads (only tasks can be called)
@@ -664,7 +657,7 @@ public:
 	inline int toggle_recording(const chdb::service_t& service, time_t start_time,
 															 int duration, const char* event_name) {
 		return toggle_recording_(service,  system_clock_t::from_time_t(start_time),
-														 duration, event_name, false, false);
+														 duration, event_name);
 	}
 
 

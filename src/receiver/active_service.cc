@@ -129,7 +129,7 @@ int active_service_t::deactivate() {
 	return ret;
 }
 
-void service_thread_t::cb_t::update_recording(const recdb::rec_t& rec, const chdb::service_t& service,
+void service_thread_t::cb_t::update_recording(recdb::rec_t& rec, const chdb::service_t& service,
 																							const epgdb::epg_record_t& epgrec) {
 	active_service.mpm.update_recording(rec, service, epgrec);
 }

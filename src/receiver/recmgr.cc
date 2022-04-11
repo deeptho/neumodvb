@@ -56,19 +56,17 @@ recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, const chdb::service_
 /*
 	make and insert a new recording into the global recording database
 */
-recdb::rec_t rec_manager_t::new_recording(const chdb::service_t& service, epgdb::epg_record_t& epgrec,
+recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn,
+																					const chdb::service_t& service, epgdb::epg_record_t& epgrec,
 																					int pre_record_time, int post_record_time) {
-	auto parent_txn = receiver.recdb.wtxn();
-	auto ret = new_recording(parent_txn, service, epgrec, pre_record_time, post_record_time);
-	parent_txn.commit();
-	auto epg_txn = receiver.epgdb.wtxn();
+	auto ret = new_recording(rec_wtxn, service, epgrec, pre_record_time, post_record_time);
+
 	// update epgdb.mdb so that gui code can see the record
-	auto c = epgdb::epg_record_t::find_by_key(epg_txn, epgrec.k);
+	auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, epgrec.k);
 	if (c.is_valid()) {
-		assert(epgrec.k.event_id != TEMPLATE_EVENT_ID);
+		assert(epgrec.k.anonymous == (epgrec.k.event_id == TEMPLATE_EVENT_ID));
 		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epgrec);
 	}
-	epg_txn.commit();
 
 	return ret;
 }
@@ -134,40 +132,33 @@ void rec_manager_t::remove_livebuffers() {
 }
 
 /*
-	called when service or epgrec changes (e.g., on_epg_update, so that also rec must change) or
+	called when service or epgrec has changed (e.g., on_epg_update, so that also rec must change) or
 	when status of recording changes
 
 	Note that this is called from the tuner thread, which is the same thread calling epg code.
 	We count on that to avoid races.
 
-
 */
 
-recdb::rec_t update_recording_epg(db_txn& parent_txn, db_txn& epg_txn, const recdb::rec_t& rec,
-																	const epgdb::epg_record_t& epgrec) {
-
+bool update_recording_epg(db_txn& epg_txn, const recdb::rec_t& rec,
+																				 const epgdb::epg_record_t& epgrec) {
 	using namespace recdb;
 	using namespace recdb::rec;
-	bool key_changed = (epgrec.k != rec.epg.k); // can happen when start_time changed
-
-	auto newrec = rec;
-	newrec.epg = epgrec;
-	if (key_changed)
-		delete_record(parent_txn, rec);
-	put_record(parent_txn, newrec);
+	assert( (epgrec.k.event_id == TEMPLATE_EVENT_ID) == epgrec.k.anonymous);
 
 	auto c = epgdb::epg_record_t::find_by_key(epg_txn, epgrec.k);
-	if (c.is_valid()) {
-		const auto& existing = c.current();
-		if (existing.rec_status != epgrec.rec_status) { // epgrec can come from stream!
-			auto existing = c.current();
-			existing.rec_status = epgrec.rec_status;
-			assert(existing.k.event_id != TEMPLATE_EVENT_ID);
-			epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
-		}
+	assert (c.is_valid());
+
+	const auto& existing = c.current();
+	if (existing.rec_status != epgrec.rec_status) { // epgrec can come from stream!
+		auto existing = c.current();
+		existing.rec_status = epgrec.rec_status;
+		assert (!existing.k.anonymous);
+		assert( (existing.k.event_id == TEMPLATE_EVENT_ID) == existing.k.anonymous);
+		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
 	}
 
-	return newrec;
+	return false;
 }
 
 void rec_manager_t::update_recording(const recdb::rec_t& rec_in) {
@@ -181,7 +172,8 @@ void rec_manager_t::update_recording(const recdb::rec_t& rec_in) {
 		const auto& existing = c.current();
 		if (existing.rec_status != epgrec.rec_status) { // epgrec can come from stream!
 			auto existing = c.current();
-			if (existing.k.event_id == TEMPLATE_EVENT_ID &&
+			assert (existing.k.anonymous == (existing.k.event_id == TEMPLATE_EVENT_ID));
+			if (existing.k.anonymous &&
 					(epgrec.rec_status == epgdb::rec_status_t::FINISHED ||
 					 epgrec.rec_status == epgdb::rec_status_t::FINISHING))
 				delete_record(epg_txn, existing); //anonymous recordings are shown on epg screen until they are finised.
@@ -209,30 +201,65 @@ void rec_manager_t::delete_recording(const recdb::rec_t& rec) {
 	if (c.is_valid()) {
 		auto epg = c.current();
 		epg.rec_status = epgdb::rec_status_t::NONE;
-		assert(epg.k.event_id != TEMPLATE_EVENT_ID);
+		assert(epg.k.anonymous == (epg.k.event_id == TEMPLATE_EVENT_ID));
 		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epg);
 	}
 	epg_txn.commit();
 }
 
 /*
-	insert a new anonymous recording into the database.
-	An anonymous recording is one created with a specific start and end time but
-	without a real epg record (the epg record has event_id == TEMPLATE_EVENT_ID and an auto generated
-	or user specifief title.
-
-	We attempt to replace this anonymous recording with non-anonymous recordings, based on epg_records,
-	but only if these epg_records are mostly fully contained in the desired recording interval.
-
-	If the found epg records sufficiently cover the desired recording period, the anonymous recording
-	itself is not created. Otherwise it is. This heuristic offers a reasonable compromise between
-	-allowing the user to specify what to record in case of absent epg
-	-prefering recordings split and named after actual epg recordings.
-
+	schedule recordings for all epg records overlapping with sched_epg_record
 */
+int rec_manager_t::schedule_recordings_for_overlapping_epg(db_txn& rec_wtxn, db_txn& epg_wtxn,
+																													 const chdb::service_t& service,
+																													 epgdb::epg_record_t sched_epg_record) {
+	assert(sched_epg_record.k.anonymous == (sched_epg_record.k.event_id == TEMPLATE_EVENT_ID));
+	int pre_record_time, post_record_time; {
+		auto r = receiver.options.readAccess();
+		pre_record_time = r->pre_record_time.count();
+		post_record_time = r->post_record_time.count();
+	}
+
+	int tolerance = 30 * 60; /* overlapping records cannot start earlier than this*/
+	//select all overlapping recordings for recording
+
+
+	/*find the earliest epg record matching (=sufficiently overlapping) with the anonymous
+		recording*/
+	using namespace epgdb;
+	epg_key_t epg_key = sched_epg_record.k;
+	assert (epg_key.anonymous);
+	epg_key.anonymous = false;
+	epg_key.start_time -= tolerance;
+	auto c = epgdb::epg_record_t::find_by_key(
+		epg_wtxn,
+		epg_key,
+		find_geq,
+			epgdb::epg_record_t::partial_keys_t::service // iterator will return only records on service
+		);
+	for (auto epg: c.range()) {
+		// update the epg record, with the newest version
+		// Mark this matching epg_record for recording
+		if(epg.k.anonymous)
+			continue;
+		if (epg.k.start_time > epg_key.start_time + tolerance) // too large difference in start time
+			break;
+		assert (epg.k.event_id != TEMPLATE_EVENT_ID);
+		if (epg.rec_status ==  epgdb::rec_status_t::SCHEDULED)
+			continue;
+		epg.rec_status = epgdb::rec_status_t::SCHEDULED;
+		put_record(epg_wtxn, epg);
+		/*also create a recording for this program;
+		 */
+		new_recording(rec_wtxn, service, epg, pre_record_time, post_record_time);
+	}
+	return 0;
+}
+
 int rec_manager_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb::epg_record_t sched_epg_record,
 																					int maxgap) {
 	assert(sched_epg_record.k.event_id == TEMPLATE_EVENT_ID);
+	assert (sched_epg_record.k.anonymous);
 	int pre_record_time, post_record_time;
 	{
 		auto r = receiver.options.readAccess();
@@ -240,73 +267,24 @@ int rec_manager_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb:
 		post_record_time = r->post_record_time.count();
 	}
 
-	/*
-		attempt to create non-anonymous recordings based on available epg records
-	*/
-	time_t anonymous_start_time = sched_epg_record.k.start_time;
-	time_t start_time = sched_epg_record.end_time;	 // start of first newly created recording (if any)
-	time_t end_time = sched_epg_record.k.start_time; // latest end of any newly created recording (if any)
 	// if no non-anonymous recording is created, we will have end_time < start_time
 
-	int gaps = 0;
-	auto txnepg = receiver.epgdb.wtxn();
-	auto txnrec = receiver.recdb.wtxn();
-	int tolerance = 30 * 60; /* overlapping records cannot start earlier than this*/
-	for (;;) {
-		/*find the earliest epg record matching (=sufficiently overlapping) with the anonymous
-			recording*/
-		if (auto found = epgdb::best_matching(txnepg, sched_epg_record.k, sched_epg_record.end_time, tolerance)) {
-			// update the epg record, with the newest version
-			// Mark this matching epg_record for recording
-			{
-				found->rec_status = epgdb::rec_status_t::SCHEDULED;
-				assert(found->k.event_id != TEMPLATE_EVENT_ID);
-				put_record(txnepg, *found);
-				/*also create a recording for this program;
-				 */
-				auto rec = new_recording(txnrec, service, *found, pre_record_time, post_record_time);
-				next_recording_event_time = std::min(
-					{next_recording_event_time, found->k.start_time - pre_record_time, found->end_time + post_record_time});
-			}
-			assert(tolerance > 0 || found->k.start_time >= sched_epg_record.k.start_time);
-			time_t gap = found->k.start_time - end_time;
-			if (gap >= maxgap)
-				gaps++;
-			/* note that start_time decreases exactly once in the loop
-				 and then remains constant*/
-			start_time = std::min(found->k.start_time, start_time);
-			end_time = std::max(found->end_time, end_time);
-			/* continue looking more for later epg records which could also match,
-				 by changing sched_epg_record.k.start_time
-			*/
-			sched_epg_record.k.start_time = found->k.start_time + 10 * 60; // handles the case of possibly overlapping records
-			tolerance = 0; // ensure that only records with later start_time will be found
-			if (sched_epg_record.k.start_time >= sched_epg_record.end_time)
-				break; // nothing more todo
+	auto epg_wtxn = receiver.epgdb.wtxn();
+	auto rec_wtxn = receiver.recdb.wtxn();
 
-		} else
-			break; // no records found
-	}
+	schedule_recordings_for_overlapping_epg(rec_wtxn, epg_wtxn, service, sched_epg_record);
 
-	time_t gap = sched_epg_record.end_time - end_time;
-	if (gap >= maxgap)
-		gaps++;
-	sched_epg_record.k.start_time = anonymous_start_time; // restore overwritten value
-	if (gaps > 0) {
-		/*epg records do not cover anonymous recording fully;
-			also insert the anonymous recording itself
-		*/
 
-		auto rec = new_recording(txnrec, service, sched_epg_record, pre_record_time, post_record_time);
+	/*epg records may not cover anonymous recording fully;
+		also insert the anonymous recording itself
+	*/
 
-		put_record(txnepg, sched_epg_record);
+	new_recording(rec_wtxn, service, sched_epg_record, pre_record_time, post_record_time);
 
-		next_recording_event_time = std::min({next_recording_event_time, sched_epg_record.k.start_time - pre_record_time,
-				sched_epg_record.end_time + post_record_time});
-	}
+	put_record(epg_wtxn, sched_epg_record);
 
-	txnrec.commit();
-	txnepg.commit();
+	rec_wtxn.commit();
+	epg_wtxn.commit();
 
 	housekeeping(now);
 	return 0;
@@ -364,8 +342,11 @@ int rec_manager_t::new_schedrec(const chdb::service_t& service, epgdb::epg_recor
 
 	{
 		auto r = receiver.options.readAccess();
-
-		auto rec = new_recording(service, sched_epg_record, r->pre_record_time.count(), r->post_record_time.count());
+		auto rec_wtxn = receiver.recdb.wtxn();
+		auto epg_wtxn = receiver.epgdb.wtxn();
+		auto rec = new_recording(rec_wtxn, epg_wtxn, service, sched_epg_record, r->pre_record_time.count(), r->post_record_time.count());
+		epg_wtxn.commit();
+		rec_wtxn.commit();
 		next_recording_event_time = std::min({next_recording_event_time, rec.epg.k.start_time - r->pre_record_time.count(),
 				rec.epg.end_time + r->post_record_time.count()});
 	}
@@ -453,7 +434,7 @@ void rec_manager_t::startup(system_time_t now_) {
 			if (c.is_valid()) {
 				auto epg = c.current();
 				epg.rec_status = epgdb::rec_status_t::NONE;
-				assert(epg.k.event_id != TEMPLATE_EVENT_ID);
+				assert(epg.k.anonymous == (epg.k.event_id == TEMPLATE_EVENT_ID));
 				epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epg);
 			}
 			epg_txn.commit();
@@ -464,104 +445,175 @@ void rec_manager_t::startup(system_time_t now_) {
 }
 
 /*
+	New approach: allow overlap of multiple recordings
+	Also allow overlap of multiple epg records.
+
+	When a non-anomous recording is scheduled, only enter a recording for that specific epg record
+
+	When an anomous recoding is scheduled and overlaps with some existing epg records, then
+	create non-anonymous new recordings for all sufficiently overlapping epg records and insert one
+	or more anonymous recordings to cover the remainder (imposing a minimal duration)
+
+	When a new epg record comes in, check all overlapping recordings and
+  -for non-anonymus recordings, adjust the event_name and start/end time of the recording
+	-for anonymous recordings, if they overlap sufficiently with the epg record, create a new
+	 non-anonymous epg record for the recording, cut the anonomous recording and and enter a
+	 new anonymous recording for the remainer
+
+ When an existing epg record is update, check all overlapping recordings, and
+  -for non-anonymous recordings,  adjust the event_name and start/end time of the recording
+  -for anonymous recordings, if they overlap with the epg record, then cut
+ */
+
+
+/*
 	For each recording (not live buffer) we store epg data in the
 	global recdb database; when new epg arrives we check if this data
 	needs an update
 */
-void rec_manager_t::on_epg_update(db_txn& txnepg, epgdb::epg_record_t& epg_record) {
+void rec_manager_t::adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn, db_txn& epg_wtxn,
+																														 recdb::rec_t& rec,
+																														 epgdb::epg_record_t& epg_record) {
+
+	/*
+		if the epg record is newer than the recording, and overlaps sufficiently with the recording,
+		then create a non-anonmous new recording matching the epg record. Also cut out that section
+		of the recording. Thus we ensure that recordings are not (much) overlapping
+
+		If on the other hand the epg record has been updated then we only adjust the cutting
+
+	 */
 	const int maxgap = 5 * 60;
 	using namespace recdb;
 	auto txnrec = receiver.recdb.rtxn();
+	if (epg_record.rec_status == epgdb::rec_status_t::NONE) {
+		epg_record.rec_status = epgdb::rec_status_t::SCHEDULED;
+		/*also create a recording for this program;
+		 */
 
-	/*
-		In the epg records stored in recdb, find the one which matches best, and update it
-	*/
-	if (auto rec_ = recdb::rec::best_matching(txnrec, epg_record)) {
+		auto r = receiver.options.readAccess();
+		auto& options = *r;
+		auto rec_wtxn = receiver.recdb.wtxn();
+		auto recnew =
+			new_recording(rec_wtxn, epg_wtxn, rec.service, epg_record, options.pre_record_time.count(), options.post_record_time.count());
+		rec_wtxn.commit();
+		next_recording_event_time =
+			std::min({next_recording_event_time, epg_record.k.start_time - options.pre_record_time.count(),
+					epg_record.end_time + options.post_record_time.count()});
+	}
 
-		auto& rec = *rec_;
-		txnrec.commit();
+	assert( rec.epg.k.anonymous == (rec.epg.k.event_id == TEMPLATE_EVENT_ID));
+	// compute number of gaps to see if anonymous recording should be removed
+	if (rec.epg.k.anonymous) {
+		int tolerance = 30 * 60; /* overlapping records cannot start earlier than this*/
+		time_t anonymous_start_time = rec.epg.k.start_time;
+		time_t start_time = rec.epg.end_time;		// start of first newly created recording
+		time_t end_time = rec.epg.k.start_time; // latest end of any newly created recording
+		// if no non-anonuymous recording is created, we will have end_time < start_time
 
-		// we found a matching record
-		if (epg_record.rec_status == epgdb::rec_status_t::NONE) {
-			epg_record.rec_status = epgdb::rec_status_t::SCHEDULED;
-			if (rec.epg.k.event_id == TEMPLATE_EVENT_ID) {
+		// compute number of gaps to see if
+		int gaps = 0;
+		for (;;) {
+			/*find the earliest epg record matching (=sufficiently overlapping) with the anonymous
+				recording*/
+			if (auto found = epgdb::best_matching(epg_wtxn, rec.epg.k, rec.epg.end_time, tolerance)) {
+				if (found->rec_status == epgdb::rec_status_t::NONE) {
+					found->rec_status = epgdb::rec_status_t::SCHEDULED;
+					dtdebug("unexpected: epg_record should have been marked as recording already");
+				}
+				assert(tolerance > 0 || found->k.start_time >= rec.epg.k.start_time);
+				time_t gap = found->k.start_time - end_time;
+				if (gap >= maxgap)
+					gaps++;
+				/* note that start_time decreases exactly once in the loop
+					 and then remains constant*/
+				start_time = std::min(found->k.start_time, start_time);
+				end_time = std::max(found->end_time, end_time);
 				/*also create a recording for this program;
 				 */
-
-				auto r = receiver.options.readAccess();
-				auto& options = *r;
-
-				auto recnew =
-					new_recording(rec.service, epg_record, options.pre_record_time.count(), options.post_record_time.count());
-				next_recording_event_time =
-					std::min({next_recording_event_time, epg_record.k.start_time - options.pre_record_time.count(),
-							epg_record.end_time + options.post_record_time.count()});
-			}
-		}
-		// perhaps adjust start time of the recording, or event name
-		if (rec.epg.k.event_id != TEMPLATE_EVENT_ID) {
-			auto txnrec = receiver.recdb.wtxn();
-			auto newrec = update_recording_epg(txnrec, txnepg, rec, epg_record);
-			next_recording_event_time = std::min({next_recording_event_time, newrec.epg.k.start_time - newrec.pre_record_time,
-					newrec.epg.end_time + newrec.post_record_time});
-			txnrec.commit();
-		}
-
-		// compute number of gaps to see if anonymous recording should be removed
-		if (rec.epg.k.event_id == TEMPLATE_EVENT_ID) {
-			int tolerance = 30 * 60; /* overlapping records cannot start earlier than this*/
-			time_t anonymous_start_time = rec.epg.k.start_time;
-			time_t start_time = rec.epg.end_time;		// start of first newly created recording
-			time_t end_time = rec.epg.k.start_time; // latest end of any newly created recording
-			// if no non-anonuymous recording is created, we will have end_time < start_time
-
-			// compute number of gaps to see if
-			int gaps = 0;
-			for (;;) {
-				/*find the earliest epg record matching (=sufficiently overlapping) with the anonymous
-					recording*/
-				if (auto found = epgdb::best_matching(txnepg, rec.epg.k, rec.epg.end_time, tolerance)) {
-					if (found->rec_status == epgdb::rec_status_t::NONE) {
-						found->rec_status = epgdb::rec_status_t::SCHEDULED;
-						dtdebug("unexpected: epg_record should have been marked as recording already");
-					}
-					assert(tolerance > 0 || found->k.start_time >= rec.epg.k.start_time);
-					time_t gap = found->k.start_time - end_time;
-					if (gap >= maxgap)
-						gaps++;
-					/* note that start_time decreases exactly once in the loop
-						 and then remains constant*/
-					start_time = std::min(found->k.start_time, start_time);
-					end_time = std::max(found->end_time, end_time);
-					/*also create a recording for this program;
-					 */
-					/* continue looking more for later epg records which could also match,
-						 by changing sched_epg_record.k.start_time
-					*/
-					rec.epg.k.start_time = rec.epg.k.start_time + 10 * 60; // handles the case of possibly overlapping records
-					tolerance = 0; // ensure that only records with later start_time will be found
-					if (rec.epg.k.start_time >= rec.epg.end_time)
-						break; // nothing more todo
-
-				} else
-					break; // no records found
-			}
-
-			time_t gap = rec.epg.end_time - end_time;
-			if (gap >= maxgap)
-				gaps++;
-			rec.epg.k.start_time = anonymous_start_time; // restore overwritten value
-			if (gaps == 0) {
-				/*epg records cover anonymous recording fully;
-					anonymous recording can be deleted
+				/* continue looking more for later epg records which could also match,
+					 by changing sched_epg_record.k.start_time
 				*/
-				delete_recording(rec);
-			}
+				rec.epg.k.start_time = rec.epg.k.start_time + 10 * 60; // handles the case of possibly overlapping records
+				tolerance = 0; // ensure that only records with later start_time will be found
+				if (rec.epg.k.start_time >= rec.epg.end_time)
+					break; // nothing more todo
+
+			} else
+				break; // no records found
 		}
-	} else {
-		txnrec.commit();
+
+		time_t gap = rec.epg.end_time - end_time;
+		if (gap >= maxgap)
+			gaps++;
+		rec.epg.k.start_time = anonymous_start_time; // restore overwritten value
+		if (gaps == 0) {
+			/*epg records cover anonymous recording fully;
+				anonymous recording can be deleted
+			*/
+			delete_recording(rec);
+		}
 	}
 }
+
+void rec_manager_t::on_epg_update(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record) {
+	using namespace recdb;
+	auto rec_rtxn = receiver.recdb.rtxn();
+	db_txn rec_wtxn;
+	/*
+		In recdb, find the recordings which match the new/changed epg record, and update them.
+		Only ongoing or future recordings are returned by recdb::rec::best_matching
+
+		In case of anonymous recordings, we may have an overlapping anonymous and non-anonymous
+		recording. When updating an anonymous recording, we enter a new non-anonymous recording as well,
+		but we should only do this once. Therefore, we first check for non-anonymous matches
+		and if we find one, we do not create a new non-anonymous recording;
+	*/
+
+	for(int anonymous = 0; anonymous < 2; ++anonymous)
+		if (auto rec_ = recdb::rec::best_matching(rec_rtxn, epg_record, anonymous)) {
+
+			auto& rec = *rec_;
+			assert (anonymous == rec.epg.k.anonymous);
+			assert (anonymous == (rec.epg.k.event_id == TEMPLATE_EVENT_ID));
+			bool rec_key_changed = (epg_record.k != rec.epg.k); // can happen when start_time changed
+			if (epg_record.rec_status == epgdb::rec_status_t::NONE) {
+				epg_record.rec_status = epgdb::rec_status_t::SCHEDULED; //tag epg record as being scheduled for recording
+				update_recording_epg(epg_wtxn, rec, epg_record);
+			}
+
+			rec_rtxn.commit();
+			rec_wtxn = receiver.recdb.wtxn();
+
+			if (anonymous) {
+				/* we found a matching anonymous recording and we did not match a non-anonymous recording earlier.
+					 In this case we need to create a new recording for the matching epg record
+				*/
+				auto r = receiver.options.readAccess();
+				auto& options = *r;
+				new_recording(rec_wtxn, rec.service, epg_record, options.pre_record_time.count(),
+											options.post_record_time.count());
+			} else {
+				/* we found a matching non-anonymous recording. In this case we need to update the epg record
+					 for the recording
+				*/
+				if (!rec_wtxn.can_commit()) {
+					rec_rtxn.commit();
+					rec_wtxn = receiver.recdb.wtxn();
+				}
+				if (rec_key_changed)
+					delete_record(rec_wtxn, rec);
+
+				rec.epg = epg_record;
+				put_record(rec_wtxn, rec);
+			}
+			rec_wtxn.commit();
+			break;
+		}
+	if(rec_rtxn.can_commit())
+		rec_rtxn.abort();
+}
+
 
 /*
 	For each recording in progress, check if it should be stopped
@@ -680,40 +732,34 @@ rec_manager_t::rec_manager_t(receiver_t& receiver_)
 	: receiver(receiver_) {
 }
 
-int rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record, bool insert,
-																		bool remove) {
-	// bool update_global_db = true;
-	assert(!insert || !remove);
+void rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
 	auto x = to_str(epg_record);
 	dtdebugx("toggle_recording: %s", x.c_str());
 	int ret = -1;
 
 	auto txn = receiver.recdb.rtxn();
-	// look up the recording
-	if (auto rec = recdb::rec::best_matching(txn, epg_record)) {
-		if (insert) {
-			dtdebug("Toggle: Recording already exists! " << to_str(*rec));
-			txn.abort();
-			return -1;
-		} else {
+
+	//returns true if record was found
+	auto fn = [&](bool anonymous) {
+		// look up the recording
+		bool found{false};
+		if (auto rec = recdb::rec::best_matching(txn, epg_record, anonymous)) {
 			switch (rec->epg.rec_status) {
 			case epgdb::rec_status_t::SCHEDULED: {
-				txn.commit();
 				dtdebug("Toggle: Remove existing (not yet started) recording " << to_str(*rec));
 				// recording has not yet started,
 				ret = delete_schedrec(*rec);
-				return ret;
+					break;
 			}
 
 			case epgdb::rec_status_t::FINISHING:
-				return 0;
+				break;
 			case epgdb::rec_status_t::IN_PROGRESS: {
-				txn.commit();
 				dtdebug("Toggle: Stop running recording " << to_str(*rec));
 				receiver.stop_recording(*rec);
 				rec->epg.rec_status = epgdb::rec_status_t::FINISHED;
 				update_recording(*rec);
-				return 0;
+				break;
 			}
 			case epgdb::rec_status_t::FINISHED: {
 				dtdebug("Recording finished in the past! " << to_str(*rec));
@@ -726,21 +772,26 @@ int rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb:
 			default:
 				assert(0);
 			}
+			found = true;
 		}
-	}
 
-	if (remove) {
-		dtdebug("Toggle: no recording to remove! ");
-		return -1;
-	} else {
+		if (found) {
+			return found;
+		}
 		dtdebug("Toggle: Insert new recording");
-
-		ret = epg_record.k.event_id == TEMPLATE_EVENT_ID ? new_anonymous_schedrec(service, epg_record)
+		assert ((epg_record.k.event_id == TEMPLATE_EVENT_ID) == epg_record.k.anonymous);
+		ret = epg_record.k.anonymous ? new_anonymous_schedrec(service, epg_record)
 			: new_schedrec(service, epg_record);
-		return ret;
+		return true;
+	};
+	bool found{false};
+	if (!epg_record.k.anonymous)
+		found = fn(false);
+	if (!found) {
+		//also try to match anonymous recordings to non-anonymous epg records
+		fn(true);
 	}
 	txn.commit();
-	return 0;
 }
 
 void mpm_recordings_t::open(const char* name) {

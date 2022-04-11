@@ -363,6 +363,7 @@ void epgdb::to_str(ss::string_& ret, const epg_source_t& s) { ret << s; }
 static bool save_epg_record_if_better_(db_txn& txnepg, const epgdb::epg_record_t& record,
 																			 std::function<void(const epgdb::epg_record_t&)> update_input) {
 	assert(record.k.event_id != TEMPLATE_EVENT_ID);
+	assert(!record.k.anonymous);
 	const int tolerance = 60 * 60; /*maximum amount by which start_times may differ for record
 																	 to be considered as a possible update of old record
 																 */
@@ -375,20 +376,20 @@ static bool save_epg_record_if_better_(db_txn& txnepg, const epgdb::epg_record_t
 		2) c.valid() => need to examine in more detail
 
 	*/
+	auto epg_key = record.k;
+	epg_key.start_time -= tolerance;
 	auto c = epgdb::epg_record_t::find_by_key(
 		txnepg,
-		record.k.service,													 // epg service must match
-		record.k.start_time - tolerance, find_geq, // start_time  must be within range
+		epg_key,													 // epg service must match
+		find_geq, // start_time  must be within range
 		// note the absence of event_id => we allow any event_id
 		epgdb::epg_record_t::partial_keys_t::service // iterator will only return records with proper service
 		);
 	if (c.is_valid())
 		for (const auto& old : c.range()) {
-			if(old.k.event_id == TEMPLATE_EVENT_ID) {
-				dterror("Found invalid epg record");
-				assert(false);
-				delete_record(txnepg, old);
-			}
+			assert ( old.k.anonymous == (old.k.event_id == TEMPLATE_EVENT_ID));
+			if(old.k.anonymous)
+				continue;
 			assert(old.k.service == record.k.service); // sanity check
 
 			if (old.k.start_time > record.k.start_time + tolerance) // out of search range

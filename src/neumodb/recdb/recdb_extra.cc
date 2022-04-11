@@ -100,11 +100,13 @@ void recdb::to_str(ss::string_& ret, const rec_t& r) { ret << r; }
 	in start time due to changed epg records; we require there to be overlap!
 
 */
-std::optional<recdb::rec_t> recdb::rec::best_matching(db_txn& txn, const epgdb::epg_record_t& epg_) {
+std::optional<recdb::rec_t> recdb::rec::best_matching(db_txn& txn, const epgdb::epg_record_t& epg_,
+																											bool anonymous) {
 
 	const int tolerance = 60 * 60; // we allow a difference of 60 minutes
 	auto epg = epg_;
 	epg.k.start_time -= tolerance;
+	epg.k.anonymous = anonymous;
 	auto c = recdb::rec_t::find_by_key(txn, epg.k, find_type_t::find_geq,
 																		 /*
 																			 key_prefix: this is set to service and must NOT include start_time
@@ -116,6 +118,11 @@ std::optional<recdb::rec_t> recdb::rec::best_matching(db_txn& txn, const epgdb::
 	rec_t best_match{};
 	auto best_delta = std::numeric_limits<int64_t>::max();
 	for (const auto& rec : c.range()) {
+		if (rec.epg.k.anonymous != anonymous)
+			continue;
+		if (rec.epg.rec_status != epgdb::rec_status_t::SCHEDULED &&
+				rec.epg.rec_status != epgdb::rec_status_t::IN_PROGRESS)
+			continue; //skip cancelled and finished recordings
 		assert(rec.epg.k.service.service_id == epg.k.service.service_id); // sanity check
 
 		if (rec.epg.k.start_time == epg_.k.start_time && rec.epg.k.event_id == epg_.k.event_id) {

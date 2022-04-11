@@ -387,7 +387,7 @@ private:
 	void forget_recording(const recdb::rec_t& r);
 
 	void delete_recording(db_txn& parent_txn, uint32_t event_id, system_time_t now);
-	void update_recording(const recdb::rec_t&rec, const chdb::service_t& service,
+	void update_recording(recdb::rec_t&rec, const chdb::service_t& service,
 											 const epgdb::epg_record_t& epgrec);
 	void update_recordings(db_txn& parent_txn, system_time_t now);
 	void delete_old_data(db_txn& parent_txn,  system_time_t now);

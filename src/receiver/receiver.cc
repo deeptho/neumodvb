@@ -1165,7 +1165,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_recording(con
 /*
 	called by si code when an epg or service change affecting a recording is detected
 */
-int receiver_thread_t::update_recording(const recdb::rec_t& rec, const epgdb::epg_record_t& epgrec) {
+int receiver_thread_t::update_recording(recdb::rec_t& rec, const epgdb::epg_record_t& epgrec) {
 	auto subscription_id = rec.subscription_id;
 	auto [itch, found] = find_in_map(this->reserved_services, subscription_id);
 	if (found) {
@@ -1298,11 +1298,10 @@ void receiver_thread_t::cb_t::stop_recording(recdb::rec_t rec) // important that
 	Returns the new status: 1 = scheduled for recording, 0 = no longer scheduled for recording, -1 error
 
 */
-int receiver_t::toggle_recording_(const chdb::service_t& service, const epgdb::epg_record_t& epg_record, bool insert,
-																	bool remove) {
-	dterrorx("epg=%s insert=%d remove=%d", to_str(epg_record).c_str(), insert, remove);
-	auto f = tuner_thread.push_task([this, &service, &epg_record, insert, remove]() {
-		cb(tuner_thread).toggle_recording(service, epg_record, insert, remove);
+int receiver_t::toggle_recording_(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
+	dtdebugx("epg=%s", to_str(epg_record).c_str());
+	auto f = tuner_thread.push_task([this, &service, &epg_record]() {
+		cb(tuner_thread).toggle_recording(service, epg_record);
 		return 0;
 	});
 	return f.get();
@@ -1312,7 +1311,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, const epgdb::e
 	Returns the new status: 1=recording, 0=stopped recording
 */
 int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t start_time_, int duration,
-																	const char* event_name, bool start, bool stop) {
+																	const char* event_name) {
 	auto start_time = system_clock_t::to_time_t(start_time_);
 	auto x = to_str(service);
 	dtdebugx("toggle_recording: %s", x.c_str());
@@ -1324,6 +1323,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 	epg.k.event_id = TEMPLATE_EVENT_ID; /*prefix 0xffff0000 signifies a non-dvb event_id;
 																				all live recordings have the same id
 																			*/
+	epg.k.anonymous = true;
 	epg.k.start_time = start_time;
 	epg.end_time = start_time + duration;
 	if (event_name)
@@ -1334,7 +1334,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 		epg.event_name.sprintf(" - ");
 		epg.event_name.sprintf(ss::dateTime(epg.end_time, "%F %H:%M"));
 	}
-	return toggle_recording_(service, epg, start, stop);
+	return toggle_recording_(service, epg);
 }
 
 template <typename _mux_t> int receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id) {
@@ -1598,14 +1598,13 @@ void receiver_t::dump_all_frontends() const {
 }
 
 int receiver_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
-	int ret;
 	tuner_thread
-		.push_task([this, &service, &epg_record, &ret]() {
-			ret = cb(tuner_thread).toggle_recording(service, epg_record, false, false);
+		.push_task([this, &service, &epg_record]() {
+			cb(tuner_thread).toggle_recording(service, epg_record);
 			return 0;
 		})
 		.wait();
-	return ret;
+	return 0;
 }
 
 int receiver_t::toggle_recording(const chdb::service_t& service) {
@@ -1617,7 +1616,7 @@ int receiver_t::toggle_recording(const chdb::service_t& service) {
 	}
 
 	// start=false and stop=false means: toggle
-	return toggle_recording_(service, now, options.readAccess()->default_record_time.count(), nullptr, false, false);
+	return toggle_recording_(service, now, options.readAccess()->default_record_time.count(), nullptr);
 }
 
 receiver_t::receiver_t(const neumo_options_t* options)

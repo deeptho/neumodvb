@@ -28,8 +28,8 @@
 class receiver_t;
 class active_service_t;
 
-recdb::rec_t update_recording_epg(db_txn& parent_txn, db_txn& epg_txn, const recdb::rec_t&rec,
-																	const epgdb::epg_record_t& epgrec);
+bool update_recording_epg(db_txn& epg_txn, const recdb::rec_t&rec,
+													const epgdb::epg_record_t& epgrec);
 class mpm_recordings_t {
 
 public:
@@ -55,9 +55,9 @@ class rec_manager_t {
 	friend class tuner_thread_t;
 	receiver_t& receiver;
 
-	recdb::rec_t new_recording(db_txn&txn, const chdb::service_t& service, epgdb::epg_record_t& epg_record,
+	recdb::rec_t new_recording(db_txn& rec_wtxn, const chdb::service_t& service, epgdb::epg_record_t& epg_record,
 														 int pre_record_time, int post_record_time);
-	recdb::rec_t new_recording(const chdb::service_t& service, epgdb::epg_record_t& epg_record,
+	recdb::rec_t new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn, const chdb::service_t& service, epgdb::epg_record_t& epg_record,
 														 int pre_record_time, int post_record_time);
 	void delete_recording(const recdb::rec_t&rec);
 
@@ -65,6 +65,12 @@ class rec_manager_t {
 	void stop_recordings(db_txn& rtxn, system_time_t now);
 	void delete_old_livebuffers(db_txn& rtxn, system_time_t now);
 	time_t next_recording_event_time = std::numeric_limits<time_t>::min();
+	void adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn, db_txn& epg_wtxn,
+																								recdb::rec_t& rec,
+																								epgdb::epg_record_t& epg_record);
+	int schedule_recordings_for_overlapping_epg(db_txn& rec_wtxn, db_txn& epg_wtxn,
+																							const chdb::service_t& service,
+																							epgdb::epg_record_t sched_epg_record);
 
 public:
 	void startup(system_time_t now);
@@ -85,9 +91,8 @@ public:
 	void remove_live_buffer(active_service_t& active_service);
 	rec_manager_t(receiver_t&receiver_);
 
-	int toggle_recording(const chdb::service_t& service,
-											 const epgdb::epg_record_t& epg_record,
-											 bool insert, bool remove) CALLBACK;
+	void toggle_recording(const chdb::service_t& service,
+											 const epgdb::epg_record_t& epg_record) CALLBACK;
 	void remove_livebuffers();
 	void update_recording(const recdb::rec_t& rec_in);
 };

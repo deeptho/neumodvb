@@ -381,6 +381,7 @@ class ChEpgGridRow(GridRow):
 
     def add_epg_cell(self, span, colno, ref_for_tab_order=None, fgcolour=None, bgcolour=None, epg=None,
                      start_time=None):
+        col_offset = self.grid.epg_start_col
         has_icon = True
         content = "" if epg is None  else epg.event_name
         assert not (epg is None and start_time is None)
@@ -394,7 +395,7 @@ class ChEpgGridRow(GridRow):
             cell = EpgCell(self.grid, wx.ID_ANY, content, scheduled=scheduled, size=(-1, self.grid.row_height))
         else:
             cell = wx.TextCtrl(self.grid, wx.ID_ANY, content, style= wx.TE_READONLY, size=(-1, self.grid.row_height))
-        self.grid.add_cell(pos=(self.rowno+self.grid.ch_start_row, colno+1), cell=cell, span=span,
+        self.grid.add_cell(pos=(self.rowno+self.grid.ch_start_row, col_offset+colno), cell=cell, span=span,
                                   fgcolour=fgcolour, bgcolour=bgcolour,
                                   ref_for_tab_order=ref_for_tab_order)
         cell.data = EpgCellData(self, epg, start_time, colno)
@@ -484,6 +485,73 @@ class ChEpgGridRow(GridRow):
         return int(self.data.start_time_unixepoch)
 
     def update_epg(self):
+        """
+        rowno = index of channel in channel list
+        """
+        colour=self.grid.green
+
+        self.epg_cells = []
+        start_time = self.data.start_time_unixepoch
+        ch_idx = self.grid.top_idx+self.rowno
+        epg_idx = self.data.first_epg_record(ch_idx, start_time)
+        if epg_idx <0:
+            pass #can happen when only a few records fit on screen
+        ref = self.ch_cell
+        covered = dict()
+
+        while epg_idx>=0:
+            epg_record = self.data.GetEpgRecord(ch_idx, epg_idx)
+            if epg_record is None:
+                epg_idx = -1
+                break
+            if epg_record.event_name.startswith('Gentle'):
+                print('here')
+            epg_idx +=1
+            start_col = min(max(0, (epg_record.k.start_time - start_time)//self.grid.epg_duration_width),
+                            self.grid.num_cols)
+            end_col = min(max(0, (epg_record.end_time - start_time)//self.grid.epg_duration_width),
+                          self.grid.num_cols)
+            assert end_col >= start_col
+            for idx in range (start_col, end_col+1):
+                oldepg = covered.get(idx, None)
+                if oldepg is None or oldepg.k.anonymous: #prioritize non-anonymous
+                    covered[idx] = epg_record
+        last_idx = 0
+        end_idx = 0
+        ret = []
+        last_epg = None
+        for idx, epg in covered.items():
+            end_idx = idx
+            if epg is last_epg:
+                continue
+            if idx > last_idx:
+                ret.append((last_idx, idx, last_epg))
+            last_idx = idx
+            last_epg  = epg
+        if last_idx < end_idx:
+            ret.append((last_idx, end_idx, last_epg))
+        if end_idx < self.grid.num_cols:
+            ret.append((end_idx, self.grid.num_cols, None))
+
+        last_col , last_time = 0, start_time
+        for start_col, end_col, epg in ret:
+            span = end_col - start_col
+            if epg is None: # we need to draw an empty cell
+                cell = self.add_epg_cell(start_time= last_time, span=(1,span), colno = col_offset + start_col,
+                                         bgcolour=self.grid.gray, ref_for_tab_order=ref)
+                self.epg_cells.append(cell)
+                ref=cell
+            else:
+                span  = end_col - start_col
+                #place an actual epg cell
+                cell=self.add_epg_cell(epg=epg, span=(1,span), colno = col_offset + start_col,
+                                   bgcolour=self.grid.epg_colour, fgcolour = self.grid.white,
+                                   ref_for_tab_order = ref)
+                self.epg_cells.append(cell)
+                ref=cell
+                last_time = epg.end_time
+
+    def update_epgOLD(self):
         """
         rowno = index of channel in channel list
         """
@@ -1317,7 +1385,7 @@ class RecordPanel(wx.Panel):
         self.make_rows()
         self.scrollbar = wx.ScrollBar(self, style=wx.SB_VERTICAL)
 
-        self.gbs.Add(self.scrollbar, (1,0), (self.num_rows_on_screen,1), wx.EXPAND|wx.FIXED_MINSIZE)
+        self.gbs.Add(self.scrollbar, (1,0), (self.num_rows_on_screen,1), wx.EXPAND)
         for i in range(1, gbs.GetCols()):
             gbs.AddGrowableCol(i)
         self.last_focused_cell_ = None
@@ -1329,7 +1397,9 @@ class RecordPanel(wx.Panel):
             wx.CallAfter(self.rows[self.last_focused_rowno].SetFocus)
         self.gbs = gbs
         self.update_scrollbar()
-
+        gbs.SetFlexibleDirection(wx.VERTICAL)
+        gbs.SetNonFlexibleGrowMode(wx.FLEX_GROWMODE_ALL)
+        self.Layout()
     @property
     def last_focused_cell(self):
         return self.last_focused_cell_
@@ -1528,7 +1598,9 @@ class RecordPanel(wx.Panel):
             cell.SetBackgroundColour(bgcolour)
         if fgcolour is not None:
             cell.SetForegroundColour(fgcolour)
-        self.gbs.Add(cell, pos, span, expand|wx.ALIGN_CENTER_VERTICAL)
+        it = self.gbs.Add(cell, pos, span, expand|wx.ALIGN_CENTER_VERTICAL)
+        #set a very small column size; the call gbs.SetNonFlexibleGrowMode... elsewhere will expand the columns
+        it.SetMinSize((4,-1))
         if ref_for_tab_order is not None:
             cell.MoveAfterInTabOrder(ref_for_tab_order)
         cell.data = None
@@ -1686,7 +1758,6 @@ class GridEpgPanel(RecordPanel):
         t1, t2 = times[0], times[-1]
         x1 = self.time_cells[0].GetPosition().Get()[0]
         x2 =self.time_cells[-1].GetPosition().Get()[0]
-        x2 += self.time_cells[-1].GetSize().Get()[0]
         y1 = self.time_cells[0].GetPosition().Get()[1]
         y2 = self.rows[-1].ch_cell.GetPosition().Get()[1]
         y2 += self.rows[-1].ch_cell.GetSize().Get()[1]
@@ -1827,7 +1898,7 @@ class GridEpgPanel(RecordPanel):
         now = self.data.start_time
         self.periods = [now + datetime.timedelta(minutes=minutes) for minutes in range(0, 180, 30)]
         self.time_cells = []
-        chwidth = 9 # in cells
+        chwidth = self.chwidth # in cells
         content=f'{now:%a %b %d}'
         cell = wx.StaticText(self, wx.ID_ANY, content, style= wx.TE_READONLY|wx.BORDER_NONE)
         cell.data = None
@@ -1842,7 +1913,6 @@ class GridEpgPanel(RecordPanel):
             w = self.add_cell(pos=(0, self.epg_start_col+idx*6), span=(1,6), bgcolour = self.black, fgcolour=self.white,
                               cell=cell)
             self.time_cells.append(w)
-            self.numcols = chwidth+idx*6+6
 
     def update_periods(self):
         now = self.data.start_time

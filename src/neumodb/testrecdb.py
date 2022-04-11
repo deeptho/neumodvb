@@ -24,11 +24,13 @@ if True:
     #epgtxn=epgdb.rtxn()
     #q2=pyepgdb.epg_record.list_all_by_key(epgtxn)
     for rec in q1:
-        print(f"================={rec.epg.k.event_id}")
-        print(rec)
-        print(f'status={rec.epg.rec_status}')
-    print("Files in this recording\n")
-    q2=pyrecdb.live_service.list_all_by_key(txn)
-    for qq in q2:
-
-        print (f'     {qq.dirname} {qq.service}')
+        if rec.epg.k.anonymous:
+            print(f"================={rec.epg.k.event_id}")
+            print(rec)
+            print(f'key={rec.epg}')
+            print(f'status={rec.epg.rec_status}')
+    if False:
+        print("Files in this recording\n")
+        q2=pyrecdb.live_service.list_all_by_key(txn)
+        for qq in q2:
+            print (f'     {qq.dirname} {qq.service}')

@@ -81,5 +81,5 @@ public:
 namespace recdb::rec {
 	void make_filename(ss::string_& ret, const chdb::service_t& s, const epgdb::epg_record_t& epg);
 
-	std::optional<rec_t> best_matching(db_txn& txn, const epgdb::epg_record_t& epg);
+	std::optional<rec_t> best_matching(db_txn& txn, const epgdb::epg_record_t& epg, bool anonymous);
 };

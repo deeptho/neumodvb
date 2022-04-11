@@ -422,9 +422,8 @@ int tuner_thread_t::run() {
 	return 0;
 }
 
-int tuner_thread_t::cb_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record,
-																					 bool insert, bool remove) {
-	return recmgr.toggle_recording(service, epg_record, insert, remove);
+void tuner_thread_t::cb_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
+	recmgr.toggle_recording(service, epg_record);
 }
 
 void tuner_thread_t::cb_t::update_recording(const recdb::rec_t& rec) {

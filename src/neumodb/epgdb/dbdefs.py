@@ -94,8 +94,8 @@ epg_key = db_struct(name='epg_key',
                     version = 1,
                     fields = ((1, 'epg_service_t', 'service'),
 	                            (2, 'time_t', 'start_time'),
-                              (3, 'uint32_t', 'event_id') #ids from 0 to 0xffff come from dvb streams
-
+                              (3, 'uint32_t', 'event_id'), #ids from 0 to 0xffff come from dvb streams
+                              (4, 'bool', 'anonymous', 'false')
                     ))
 
 

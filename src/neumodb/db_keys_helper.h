@@ -96,7 +96,7 @@ find_by_serialized_primary_key(db_txn& txn, const ss::bytebuffer_& primary_key,
 															 find_type_t find_type)
 {
 
-	auto idx = txn.db.tcursor<record_t>(txn);
+	auto idx = txn.pdb->tcursor<record_t>(txn);
 	find_by_serialized_primary_key(idx, primary_key, key_prefix, find_type);
 	return idx;
 }
@@ -236,7 +236,7 @@ struct secondary_key_t {
 	db_tcursor_index<record_t>
 	find_by_serialized_key(db_txn& txn, const ss::bytebuffer_& secondary_key,
 																	 const ss::bytebuffer_& key_prefix, find_type_t find_type) {
-		auto idx = txn.db.tcursor_index<record_t>(txn);
+		auto idx = txn.pdb->tcursor_index<record_t>(txn);
 		::find_by_serialized_secondary_key(idx, secondary_key, key_prefix, find_type);
 		return idx;
 
@@ -437,7 +437,7 @@ template<typename record_t> HIDDEN void clean_log(db_txn& txn, int num_keep)
 	//encode_ascending(key_prefix, data_types::data_type<record_t>());
 
 	//initialize an index cursor. It will run over all log records with the correct type_id
-	auto c = txn.db.template tcursor_log<record_t>(txn, key_prefix);
+	auto c = txn.pdb->template tcursor_log<record_t>(txn, key_prefix);
 
 	//position the log cursor at the first log record of interest
 	find_by_serialized_secondary_key(c, start_logkey, key_prefix, find_type_t::find_geq);

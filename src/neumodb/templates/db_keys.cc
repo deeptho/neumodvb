@@ -80,7 +80,7 @@ namespace {{dbname}} {
 		if(!txn.use_log)
 			return;
 		auto txn_id = txn.txn_id();
-		auto idxlog = txn.db.tcursor_log<record_t>(txn);
+		auto idxlog = txn.pdb->tcursor_log<record_t>(txn);
 			auto new_secondary_key =
 				record_t::make_log_key(txn_id);
 			idxlog.put_kv(new_secondary_key, primary_key);

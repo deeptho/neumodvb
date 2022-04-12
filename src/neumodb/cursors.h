@@ -176,19 +176,34 @@ struct db_txn : public lmdb::txn {
 		deleted
 	};
 
-	neumodb_t& db;
+	neumodb_t* pdb{nullptr};
 	int num_cursors = 0;
 	bool use_log{false};
 	::lmdb::dbi dbi_log;
 
 	db_txn(db_txn&& other)
 		: lmdb::txn(std::move(other))
-		, db(other.db)
+		, pdb(other.pdb)
 		, num_cursors(other.num_cursors)
 		, use_log(other.use_log)
 		, dbi_log(other.dbi_log.handle())
 		{
 		}
+
+	db_txn() = default;
+
+	db_txn& operator=(db_txn&& other)
+		{
+			*(lmdb::txn*)this =std::move((lmdb::txn&) other);
+			pdb = other.pdb;
+			other.pdb = nullptr;
+			num_cursors = other.num_cursors;
+			other.num_cursors = 0;
+			use_log = other.use_log;
+			dbi_log = std::move(other.dbi_log);
+			return *this;
+		}
+
 
 
 	db_txn(neumodb_t& db_, unsigned int flags);
@@ -939,14 +954,14 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 
 inline	db_txn::db_txn(neumodb_t& db_, unsigned int flags) :
 	lmdb::txn(lmdb::txn::begin(*db_.envp, nullptr /*parent*/, flags))
-	, db(db_)
-	, use_log (db.use_log)
-	, dbi_log(db.dbi_log.handle()) {
+	, pdb(&db_)
+	, use_log (pdb->use_log)
+	, dbi_log(pdb->dbi_log.handle()) {
 }
 
 inline	db_txn::db_txn(db_txn& parent_txn, neumodb_t& db_, unsigned int flags) :
 	lmdb::txn(lmdb::txn::begin(*db_.envp, parent_txn._handle /*parent*/, flags))
-	, db(db_)
+	, pdb(&db_)
 	, use_log(db_.use_log)
 	, dbi_log(db_.dbi_log.handle()) {
 }
@@ -956,7 +971,7 @@ inline	db_txn db_txn::child_txn(neumodb_t& db) {
 }
 
 inline	db_txn db_txn::child_txn() {
-	return db_txn(*this, this->db, 0);
+	return db_txn(*this, *this->pdb, 0);
 }
 
 template<typename data_t>
@@ -968,13 +983,13 @@ inline bool db_cursor::get_value(data_t& out, const MDB_cursor_op op) {
 	if(!found)
 		return found;
 	auto serialized = ss::bytebuffer_::view((uint8_t*)v.data(), v.size(), v.size());
-	if(this->txn.db.schema_is_current) {
+	if(this->txn.pdb->schema_is_current) {
 		//Note: this could be replaced with out = this->txn.db.dbdesc.get_value_safe(out, serialized)
 		if(deserialize(serialized, out)<0)  {
 			return false;
 		}
 	} else  {
-		if(deserialize_safe(serialized, out, *this->txn.db.dbdesc)<0) {
+		if(deserialize_safe(serialized, out, *this->txn.pdb->dbdesc)<0) {
 			return false;
 		}
 	}
@@ -984,12 +999,12 @@ inline bool db_cursor::get_value(data_t& out, const MDB_cursor_op op) {
 
 template <typename record_t> inline bool put_record(db_txn& txn, const record_t& record,
 																										unsigned int put_flags=0) {
-	auto c = txn.db.template tcursor<record_t>(txn);
+	auto c = txn.pdb->template tcursor<record_t>(txn);
 	return put_record(c, record, put_flags);
 }
 
 template <typename record_t> inline void delete_record(db_txn& txn, const record_t& record) {
-	auto c = txn.db.template tcursor<record_t>(txn);
+	auto c = txn.pdb->template tcursor<record_t>(txn);
 	delete_record(c, record);
 }
 

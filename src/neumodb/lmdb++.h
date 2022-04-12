@@ -1285,6 +1285,7 @@ public:
     return txn{handle};
   }
 
+ txn () = default;
   /**
    * Constructor.
    *
@@ -1416,6 +1417,8 @@ public:
     lmdb::dbi_open(txn, name, flags, &handle);
     return dbi{handle};
   }
+
+	dbi() = default;
 
   /**
    * Constructor.

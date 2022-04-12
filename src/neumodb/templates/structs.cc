@@ -476,9 +476,9 @@ namespace {{dbname}} {
 			bool exists = get_record_at_key(tcursor, primary_key, oldrecord);
 #pragma unused (exists)
 			{%if struct.keys|length %}
-			auto idx = tcursor.txn.db.tcursor_index<{{struct.class_name}}>(tcursor.txn);
+			auto idx = tcursor.txn.pdb->tcursor_index<{{struct.class_name}}>(tcursor.txn);
 			{% endif %}
-			if(!tcursor.txn.db.is_temp) {
+			if(!tcursor.txn.pdb->is_temp) {
 			{% for key in struct.keys %}
 				{%if not key.primary %}
 				{{struct.name}}::update_secondary_key_{{key.index_name}}
@@ -486,8 +486,8 @@ namespace {{dbname}} {
 				{% endif %}
 			{%endfor%}
 			}
-			if(tcursor.txn.db.use_dynamic_keys)
-				for(auto order: tcursor.txn.db.dynamic_keys) {
+			if(tcursor.txn.pdb->use_dynamic_keys)
+				for(auto order: tcursor.txn.pdb->dynamic_keys) {
 					update_secondary_key_dynamic(
 						order, idx, exists, oldrecord, primary_key, newrecord);
 				}
@@ -782,10 +782,10 @@ namespace {{dbname}} {
 		template<>
 			 void delete_secondary_keys<{{struct.class_name}}>
 		(db_tcursor<{{struct.class_name}}>& tcursor, const ss::bytebuffer_& primary_key, const {{struct.class_name}}& record) {
-			auto idx = tcursor.txn.db.tcursor_index<{{struct.class_name}}>(tcursor.txn);
+			auto idx = tcursor.txn.pdb->tcursor_index<{{struct.class_name}}>(tcursor.txn);
 			{%for key in struct.keys%}
 			{%if not key.primary %}
-			if(!tcursor.txn.db.is_temp)
+			if(!tcursor.txn.pdb->is_temp)
 				{
 					auto secondary_key =
 						{{struct.class_name}}::make_key({{struct.class_name}}::keys_t::{{key.index_name}},
@@ -795,8 +795,8 @@ namespace {{dbname}} {
 				}
 				{%endif%}
 			{%endfor%}
-			if(tcursor.txn.db.use_dynamic_keys)
-				for(auto k: tcursor.txn.db.dynamic_keys) {
+			if(tcursor.txn.pdb->use_dynamic_keys)
+				for(auto k: tcursor.txn.pdb->dynamic_keys) {
 					{{struct.name}}::delete_secondary_key_dynamic(
 						k, idx, record, primary_key);
 				}
@@ -823,7 +823,7 @@ namespace {{dbname}} {
 			{{struct.class_name}}::make_key({{struct.class_name}}::keys_t::{{key.index_name}},
 																			{{struct.class_name}}::partial_keys_t::none);
 		assert(key_prefix.size() == (int)sizeof(uint32_t));
-		auto idx = txn.db.tcursor<{{struct.class_name}}>(txn, key_prefix);
+		auto idx = txn.pdb->tcursor<{{struct.class_name}}>(txn, key_prefix);
 		if(!idx.find(key_prefix, MDB_SET_RANGE)) {
 			idx.close();
 			return idx;
@@ -848,11 +848,11 @@ namespace {{dbname}} {
 			{{struct.class_name}}::make_key({{struct.class_name}}::keys_t::{{key.index_name}},
 																			{{struct.class_name}}::partial_keys_t::none, nullptr, next_type);
 		assert(key_prefix_next.size() == (int)sizeof(uint32_t));
-		auto idx = txn.db.tcursor<{{struct.class_name}}>(txn/*, key_prefix*/);
+		auto idx = txn.pdb->tcursor<{{struct.class_name}}>(txn/*, key_prefix*/);
 		if(!idx.find(key_prefix_next, MDB_SET_RANGE)) {
 			//There is no record type stored after the current one, so position cursor at very last record,
 			//which is possibly of the desired type
-			auto idx = txn.db.tcursor<{{struct.class_name}}>(txn, key_prefix);
+			auto idx = txn.pdb->tcursor<{{struct.class_name}}>(txn, key_prefix);
 			if(!idx.find(key_prefix, MDB_LAST)) {
 				//database is empty
 				idx.close();
@@ -898,7 +898,7 @@ namespace {{dbname}} {
 
 		assert(secondary_key_prefix.size() == (int)sizeof(uint32_t));
 
-		auto idx = txn.db.tcursor_index<{{struct.class_name}}>(txn, secondary_key_prefix);
+		auto idx = txn.pdb->tcursor_index<{{struct.class_name}}>(txn, secondary_key_prefix);
 
 		if(!idx.find(secondary_key_prefix, MDB_SET_RANGE)) {
 			idx.close();
@@ -1233,11 +1233,11 @@ static void fill_list_db_(
 		monitor->state.list_size = 0;
 	}
 
-	auto cw = wtxn.db.tcursor<{{struct.class_name}}>(wtxn/*, key_prefix*/);
+	auto cw = wtxn.pdb->tcursor<{{struct.class_name}}>(wtxn/*, key_prefix*/);
 	cw.drop(false);
-	auto cwi = wtxn.db.tcursor_index<{{struct.class_name}}>(wtxn/*, key_prefix*/);
+	auto cwi = wtxn.pdb->tcursor_index<{{struct.class_name}}>(wtxn/*, key_prefix*/);
 	cwi.drop(false);
-	auto cwl = wtxn.db.tcursor_log<{{struct.class_name}}>(wtxn/*, key_prefix*/);
+	auto cwl = wtxn.pdb->tcursor_log<{{struct.class_name}}>(wtxn/*, key_prefix*/);
 	cwl.drop(false);
 
 	for (;c.is_valid(); c.next()) {

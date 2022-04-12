@@ -201,12 +201,12 @@ inline bool screen_t<record_t>::put_screen_record
 {
 	//using namespace {{dbname}};
 	assert(!tcursor.is_index_cursor);
-	assert(tcursor.txn.db.use_dynamic_keys);
-	assert(tcursor.txn.db.dynamic_keys.size()==1);
-	for(auto order: tcursor.txn.db.dynamic_keys) {
+	assert(tcursor.txn.pdb->use_dynamic_keys);
+	assert(tcursor.txn.pdb->dynamic_keys.size()==1);
+	for(auto order: tcursor.txn.pdb->dynamic_keys) {
 		record_t oldrecord;
 		bool exists = get_record_at_key(tcursor, primary_key, oldrecord);
-		auto idx = tcursor.txn.db.template tcursor_index<record_t>(tcursor.txn);
+		auto idx = tcursor.txn.pdb->template tcursor_index<record_t>(tcursor.txn);
 		update_screen_key(order, idx, exists, oldrecord, primary_key, record);
 		break;
 	}
@@ -227,8 +227,8 @@ inline void screen_t<record_t>::delete_screen_record
 		return; //there is no record with the primary key
 #endif
 
-	assert(tcursor.txn.db.use_dynamic_keys);
-	assert(tcursor.txn.db.dynamic_keys.size()==1);
+	assert(tcursor.txn.pdb->use_dynamic_keys);
+	assert(tcursor.txn.pdb->dynamic_keys.size()==1);
 
 	record_t oldrecord;
 	/*note that we must use the actual record, not the one passed as an argument, because that one may
@@ -236,8 +236,8 @@ inline void screen_t<record_t>::delete_screen_record
 	*/
 	bool exists = get_record_at_key(tcursor, primary_key, oldrecord);
 	if(exists) {
-		for(auto order: tcursor.txn.db.dynamic_keys) {
-			auto idx = tcursor.txn.db.template tcursor_index<record_t>(tcursor.txn);
+		for(auto order: tcursor.txn.pdb->dynamic_keys) {
+			auto idx = tcursor.txn.pdb->template tcursor_index<record_t>(tcursor.txn);
 			delete_screen_key(order, idx, exists, oldrecord, primary_key);
 		}
 		tcursor.del_k(primary_key);
@@ -252,7 +252,7 @@ bool screen_t<record_t>::update_if_matches(db_txn& from_txn, 	function_view<bool
 {
 	auto to_txn = this->tmpdb->wtxn();
 	assert(monitor.txn_id>=0);
-	auto& from_db = from_txn.db;
+	auto& from_db = *from_txn.pdb;
 
 	auto to_txnid = monitor.txn_id+1;
 	int count =0;
@@ -275,10 +275,10 @@ bool screen_t<record_t>::update_if_matches(db_txn& from_txn, 	function_view<bool
 	*/
 	auto done = !c.is_valid();
 	//auto old_list_size = monitor.state.list_size;
-	assert(to_txn.db.use_dynamic_keys);
-	assert(to_txn.db.dynamic_keys.size()==1);
-	//auto& order = to_txn.db.dynamic_keys[0];
-	auto to_cursor = to_txn.db.template tcursor<record_t>(to_txn);
+	assert(to_txn.pdb->use_dynamic_keys);
+	assert(to_txn.pdb->dynamic_keys.size()==1);
+	//auto& order = to_txn.pdb->dynamic_keys[0];
+	auto to_cursor = to_txn.pdb->template tcursor<record_t>(to_txn);
 
 	for(; !done; done=!c.next()) {
 		assert(c.is_valid());
@@ -413,7 +413,7 @@ inline db_tcursor_index<record_t> screen_t<record_t>::reference_cursor
 		}
 		return c;
 	}
-	auto c = rtxn.db.template tcursor_index<record_t>(rtxn);
+	auto c = rtxn.pdb->template tcursor_index<record_t>(rtxn);
 	auto ret = c.find_both(reference.secondary_key, reference.primary_key, MDB_GET_BOTH);
 	if(!ret)
 		return c; //not found

@@ -44,7 +44,9 @@ def IsNumericKey(keycode):
 
 class RecTable(NeumoTable):
     CD = NeumoTable.CD
-    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M")
+    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") \
+        if x[1]>0 else "never"
+
     time_fn =  lambda x: datetime.datetime.fromtimestamp(x[1]/1000, tz=tz.tzlocal()).strftime("%H:%M")
     bool_fn = NeumoTable.bool_fn
     all_columns = \

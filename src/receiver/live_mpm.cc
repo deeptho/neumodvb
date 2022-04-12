@@ -116,7 +116,9 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex) {
 
 	cv.wait(lk, [this, &other] {
 		// relock olk
-		auto ret = was_interrupted || num_bytes_safe_to_read > other.num_bytes_safe_to_read;
+		auto ret = was_interrupted ||
+			(num_bytes_safe_to_read > other.num_bytes_safe_to_read && //data is available
+			 last_streams.packetno_start>=0); //pmt was received
 		if (!other.started) {
 			if (ret) {
 				dtdebugx("metamarker WAIT safe_to_read=%ld ret=%d", num_bytes_safe_to_read, ret);
@@ -133,6 +135,7 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex) {
 	other.livebuffer_end_time = livebuffer_end_time;
 	other.num_bytes_safe_to_read = num_bytes_safe_to_read;
 	other.current_file_record = current_file_record;
+	other.last_streams = last_streams;
 	lk.release(); // needed because caller expects both mutexes to remain locked
 }
 
@@ -249,9 +252,11 @@ active_mpm_t::active_mpm_t(active_service_t* parent_, system_time_t now)
 				dtdebugx("PAT START PMT=0x%x", e.pmt_pid);
 				active_service->update_pmt_pid(e.pmt_pid);
 				active_service->pmt_parser = stream_parser.register_pmt_pid(e.pmt_pid, e.service_id);
-				active_service->pmt_parser->section_cb = [this](const pmt_info_t& pmt, bool isnext) {
+				active_service->pmt_parser->section_cb =
+					[this](const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
 					assert(pmt.service_id == active_service->current_service.k.service_id);
-					active_service->update_pmt(pmt, isnext);
+					active_service->update_pmt(pmt, isnext, sec_data);
+					return dtdemux::reset_type_t::NO_RESET;
 				};
 				break;
 			}
@@ -640,13 +645,13 @@ void active_mpm_t::forget_recording(const recdb::rec_t& rec) {
 	rec_txn.commit();
 }
 
-void active_mpm_t::update_recording(const recdb::rec_t& rec, const chdb::service_t& service,
+void active_mpm_t::update_recording(recdb::rec_t& rec, const chdb::service_t& service,
 																		const epgdb::epg_record_t& epgrec) {
-	auto parent_txn = db->mpm_rec.recdb.wtxn();
-	auto recepg_txn = parent_txn.child_txn(db->mpm_rec.recepgdb);
-	update_recording_epg(parent_txn, recepg_txn, rec, epgrec);
+	auto rec_wtxn = db->mpm_rec.recdb.wtxn();
+	auto recepg_txn = rec_wtxn.child_txn(db->mpm_rec.recepgdb);
+	update_recording_epg(recepg_txn, rec, epgrec);
 	recepg_txn.commit();
-	parent_txn.commit();
+	rec_wtxn.commit();
 }
 
 /*!

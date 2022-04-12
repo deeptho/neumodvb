@@ -9,7 +9,7 @@ from dateutil import tz
 
 sys.path.insert(0, '../../x86_64/target/lib64/')
 sys.path.insert(0, '../../build/src/neumodb/neumodb')
-sys.path.insert(0, '../../build/src/neumodb/idxdb')
+sys.path.insert(0, '../../build/src/neumodb/recdb')
 sys.path.insert(0, '../../build/src/neumodb/chdb')
 sys.path.insert(0, '../../build/src/neumodb/epgdb')
 sys.path.insert(0, '../../build/src/stackstring/')
@@ -37,7 +37,7 @@ rec = pyrecdb.rec
 #db.open("/mnt/neumo/live/A00_ts02024_sid05109_20201113_23:53:31/index.mdb/")
 #db.open("/tmp/mpm.mdb/")
 #db.open("/mnt/neumo/recordings/Domenica In - Rai 1 HD - 2020-11-15 14:00/index.mdb/")
-db.open('/mnt/neumo/live/A02_ts04096_sid17540_20210505_19\:58\:18/index.mdb')
+db.open('/tmp/index.mdb')
 #import pyepgdb
 datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") if x<33101382645 else "?"
 millisec_fn =  lambda x: f"{x/1000:.3f}" if x<922337203685477580 else "?"

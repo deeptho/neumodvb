@@ -851,7 +851,7 @@ namespace dtdemux {
 	in_es_loop indicates if we are parsing descriptors for the overall program
 	or for elementary streams in it
 */
-	void pmt_info_t::parse_descriptors(stored_section_t& s, pid_info_t& info, pmt_writer_t& pmt_writer, bool in_es_loop) {
+	void pmt_info_t::parse_descriptors(stored_section_t& s, pid_info_t& info, bool in_es_loop) {
 		uint16_t program_info_len = s.get<uint16_t>();
 		program_info_len &= 0x0fff;
 
@@ -904,7 +904,6 @@ namespace dtdemux {
 				info.audio_lang.ac3_descriptor_data.push_back(_desc.tag);
 				info.audio_lang.ac3_descriptor_data.push_back(_desc.len);
 				info.audio_lang.ac3_descriptor_data.append_raw(s.current_pointer(0), _desc.len);
-				pmt_writer.add_desc(_desc, s.current_pointer(0));
 				s.skip(_desc.len);
 			} break;
 
@@ -947,12 +946,9 @@ namespace dtdemux {
 					s.throw_bad_data();
 					return;
 				}
-
-				pmt_writer.add_desc(_desc, s.current_pointer(0));
 			} break;
 			case SI::ISO639LanguageDescriptorTag: {
 				info.audio_lang = s.get<audio_language_info_t>(_desc, info.stream_pid);
-				pmt_writer.add_desc(_desc, s.current_pointer(0));
 			} break;
 			case SI::ExtensionDescriptorTag: {
 				auto end = s.available() - _desc.len;
@@ -1035,7 +1031,6 @@ namespace dtdemux {
 
 		ret.table_id = this->get<uint8_t>();
 		bytes_read = 1;
-		assert(bytes_read == payload.size());
 		// table length
 		auto len = this->get<uint16_t>();
 		ret.len = len & 0xfff;
@@ -1069,7 +1064,6 @@ namespace dtdemux {
 
 		ret.section_number = this->get<uint8_t>();
 		ret.last_section_number = this->get<uint8_t>();
-		assert(bytes_read == payload.size());
 
 		if (ret.is_sdt()) {
 			ret.table_id_extension1 = this->get<uint16_t>();
@@ -1133,7 +1127,8 @@ namespace dtdemux {
 		return parse_pat_section(pat_services, hdr);
 	}
 
-	bool stored_section_t::parse_pmt_section(pmt_info_t& pmt, pmt_writer_t& pmt_writer, section_header_t& hdr) {
+	bool stored_section_t::parse_pmt_section(pmt_info_t& pmt,
+																					 section_header_t& hdr) {
 		// current_version_number = hdr.version_number;
 		int pid = hdr.pid;
 		if (hdr.table_id != 0x02) {
@@ -1169,8 +1164,8 @@ namespace dtdemux {
 
 		pid_info_t info;
 		const bool in_es_loop = false;
-		pmt_writer.start_section(pmt);
-		pmt.parse_descriptors(*this, info, pmt_writer, in_es_loop);
+		pmt.parse_descriptors(*this, info,
+													in_es_loop);
 
 		// elementary stream loop
 
@@ -1186,16 +1181,11 @@ namespace dtdemux {
 			stream_pid &= 0x1fff;
 			if (stream_type::is_video(stream_type::stream_type_t(stream_type)))
 				pmt.video_pid = stream_pid;
-			pmt_writer.start_es(stream_type, stream_pid);
-
 			pid_info_t info(stream_pid, stream_type);
 			const bool in_es_loop = true;
-			pmt.parse_descriptors(*this, info, pmt_writer, in_es_loop);
-
-			pmt_writer.end_es();
+			pmt.parse_descriptors(*this, info, in_es_loop);
 			pmt.pid_descriptors.push_back(info);
 		}
-		pmt_writer.end_section();
 		uint32_t crc UNUSED = this->get<uint32_t>();
 		if (pmt.num_sky_summary_pids >= 4 && pmt.num_sky_title_pids >= 4)
 			pmt.has_skyuk_epg = true;
@@ -1208,10 +1198,10 @@ namespace dtdemux {
 		return true;
 	}
 
-	bool stored_section_t::parse_pmt_section(pmt_info_t& pmt, pmt_writer_t& pmt_writer) {
+	bool stored_section_t::parse_pmt_section(pmt_info_t& pmt) {
 		section_header_t hdr;
 		parse_table_header(hdr);
-		return parse_pmt_section(pmt, pmt_writer, hdr);
+		return parse_pmt_section(pmt, hdr);
 	}
 
 	bool stored_section_t::parse_nit_section(nit_network_t& network, section_header_t& hdr) {
@@ -2125,46 +2115,39 @@ ss::vector<language_code_t, 8> pmt_info_t::subtitle_languages() const {
 	returns a language code_t containing the index of the pmt language entry corresponding to pref,
 	or an invalid language_code_t if the pmt does not contain pref
 */
-static language_code_t audio_preference_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
+static
+std::tuple<const dtdemux::pid_info_t*, chdb::language_code_t>
+find_audio_pref_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
 	using namespace chdb;
-	int idx = 0;	 // index to one of the audio languages in pmt
 	int order = 0; /* for duplicate entries in pmt, order will be 0,1,2,...*/
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
-		language_code_t lang_code(idx, pid_desc.audio_lang.lang_code[0], pid_desc.audio_lang.lang_code[1],
+		if(!stream_type::is_audio(stream_type::stream_type_t(pid_desc.stream_type)))
+			continue;
+		language_code_t lang_code(order, pid_desc.audio_lang.lang_code[0], pid_desc.audio_lang.lang_code[1],
 															pid_desc.audio_lang.lang_code[2]);
 		if (is_same_language(lang_code, pref)) {
 			// order is the order of preference
-			if (order == pref.position) // in pref, position 1 means the second language of this type
-				return lang_code;
+			if (order == pref.position) { // in pref, position 1 means the second language of this type
+				return {&pid_desc, lang_code};
+			}
 			order++;
 		}
-		idx++;
 	}
 
-	return language_code_t(-1, 0, 0, 0); // not found
+	return {nullptr, language_code_t{}};
 }
 
-/*
-	returns a language code)t containing the index of the pmt language entry corresponding to pref,
-	or an invalid language_code_t if the pmt does not contain pref
-*/
-static language_code_t subtitle_preference_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
+static std::tuple<const dtdemux::pid_info_t*, chdb::language_code_t>
+first_audio(const pmt_info_t& pmtinfo) {
 	using namespace chdb;
-	int idx = 0;	 // index to one of the audio languages in pmt
-	int order = 0; /* for duplicate entries in pmt, order will be 0,1,2,...*/
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
-		for (const auto& desc : pid_desc.subtitle_descriptors) {
-			language_code_t lang_code(idx, desc.lang_code[0], desc.lang_code[1], desc.lang_code[2]);
-			if (is_same_language(lang_code, pref)) {
-				// order is the order of preference
-				if (order == pref.position) // in pref, position 1 means the second language of this type
-					return lang_code;
-				order++;
-			}
-			idx++;
-		}
+		if(!stream_type::is_audio(stream_type::stream_type_t(pid_desc.stream_type)))
+			continue;
+		auto&c  = pid_desc.audio_lang.lang_code;
+		chdb::language_code_t lang_code(0, c[0], c[1], c[2]);
+		return {&pid_desc, lang_code};
 	}
-	return language_code_t(-1, 0, 0, 0); // not found
+	return {nullptr, chdb::language_code_t()};
 }
 
 /*
@@ -2172,55 +2155,121 @@ static language_code_t subtitle_preference_in_pmt(const pmt_info_t& pmtinfo, con
 	Prefs is an array of languages 3 chars indicating the audio
 	languge; the fourth byte is used to distinghuish between duplicates;
 */
-language_code_t pmt_info_t::best_audio_language(const ss::vector<language_code_t>& prefs) const {
+std::tuple<const dtdemux::pid_info_t*, chdb::language_code_t>
+pmt_info_t::best_audio_language(const ss::vector_<language_code_t>& prefs) const {
 	using namespace chdb;
-
+	/* loop over preferences in descending order of preference
+		 and return the first match, which is the one with the highest user priority
+	*/
 	for (const auto& p : prefs) {
-		auto ret = audio_preference_in_pmt(*this, p);
-		if (ret.position >= 0)
-			return ret;
+		auto [ret, lang_code] = find_audio_pref_in_pmt(*this, p);
+		if (ret) {
+			return {ret, lang_code};
+		}
 	}
-
-	if (pid_descriptors.size() > 0) {
-		auto& pid_desc = pid_descriptors[0];
-		// not found; use first entry
-		return language_code_t(0, pid_desc.audio_lang.lang_code[0], pid_desc.audio_lang.lang_code[1],
-													 pid_desc.audio_lang.lang_code[2]);
-	}
-	// not entries in pmt; return dummy
-	return language_code_t(0, 'e', 'n', 'g'); // dummy
+	return  first_audio(*this);
 }
+
+
+/*
+	returns a language code)t containing the index of the pmt language entry corresponding to pref,
+	or an invalid language_code_t if the pmt does not contain pref
+*/
+static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
+	find_subtitle_pref_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
+	using namespace chdb;
+	int order = 0; /* for duplicate entries in pmt, order will be 0,1,2,...*/
+	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
+		if(!stream_type::is_subtitle(stream_type::stream_type_t(pid_desc.stream_type)))
+			continue;
+		for (const auto& desc : pid_desc.subtitle_descriptors) {
+			language_code_t lang_code(order, desc.lang_code[0], desc.lang_code[1], desc.lang_code[2]);
+			if (is_same_language(lang_code, pref)) {
+				// order is the order of preference
+				if (order == pref.position) // in pref, position 1 means the second language of this type
+					return {&pid_desc, &desc, lang_code};
+				order++;
+			}
+		}
+	}
+	return {nullptr, nullptr, language_code_t{}}; // not found
+}
+
+static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
+	first_subtitle(const pmt_info_t& pmtinfo) {
+	using namespace chdb;
+	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
+		if(!stream_type::is_subtitle(stream_type::stream_type_t(pid_desc.stream_type)))
+			continue;
+		for (const auto& desc : pid_desc.subtitle_descriptors) {
+			auto&c  = desc.lang_code;
+			chdb::language_code_t lang_code(0, c[0], c[1], c[2]);
+			return {&pid_desc, &desc, lang_code};
+		}
+	}
+	return {nullptr, nullptr, language_code_t{}}; // not found
+}
+
 
 /*
 	returns the best subtitle language based on user preferences.
 	Prefs is an array of languages 3 chars indicating the subtitle
 	languge; the fourth byte is used to distinghuish between duplicates;
 */
-language_code_t pmt_info_t::best_subtitle_language(const ss::vector<language_code_t>& prefs) const {
+std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
+pmt_info_t::best_subtitle_language(const ss::vector_<language_code_t>& prefs) const {
 	using namespace chdb;
-
+	/* loop over preferences in descending order of preference
+		 and return the first match, which is the one with the highest user priority
+	*/
 	for (const auto& p : prefs) {
-		auto ret = subtitle_preference_in_pmt(*this, p);
-		if (ret.position >= 0)
-			return ret;
+		auto [pid_desc, subtit_desc, subt_lang]  = find_subtitle_pref_in_pmt(*this, p);
+		if (pid_desc)
+			return {pid_desc, subtit_desc, subt_lang};
 	}
-
-	if (pid_descriptors.size() > 0) {
-		auto& pid_desc = pid_descriptors[0];
-		if (pid_desc.subtitle_descriptors.size() > 0) {
-			auto& desc = pid_desc.subtitle_descriptors[0];
-			// not found; use first entry
-			return language_code_t(0, desc.lang_code[0], desc.lang_code[1], desc.lang_code[2]);
-		}
-	}
-	// not entries in pmt; return dummy
-	return language_code_t(0, 'e', 'n', 'g'); // dummy
+	return  first_subtitle(*this);
 }
 
 bool pmt_info_t::is_ecm_pid(uint16_t pid) {
 	return std::find_if(ca_descriptors.begin(), ca_descriptors.end(),
 											[&pid](auto& ca_info) { return ca_info.ca_pid == pid; }) != ca_descriptors.end();
 }
+
+
+
+/*
+	create a pat/pmt with only the preferred audio and subtitle stream
+ */
+std::tuple<chdb::language_code_t, chdb::language_code_t>
+pmt_info_t::make_preferred_pmt_ts(ss::bytebuffer_& output,
+																	const ss::vector_<language_code_t>& audio_prefs,
+																	const ss::vector_<language_code_t>& subtitle_prefs) {
+	pat_writer_t pat_writer;
+	pmt_writer_t pmt_writer;
+	//make a new pmt with only the selected audio/subtitle language
+	pat_writer.start_section(service_id, pmt_pid);
+	pat_writer.end_section();
+
+	auto [selected_audio_lang, selected_subtitle_lang] =
+		pmt_writer.make(*this, audio_prefs, subtitle_prefs);
+	//convert to transport stream
+	ts_writer_t w1(pat_writer.section, 0x0);
+	w1.output(output);
+	ts_writer_t w2(pmt_writer.section, pmt_pid);
+	w2.output(output);
+	return {selected_audio_lang, selected_subtitle_lang};
+}
+
+
+pmt_info_t dtdemux::parse_pmt_section(const ss::bytebuffer_& pmt_section_data, uint16_t pmt_pid) {
+	stored_section_t section(pmt_section_data, pmt_pid); //@todo performs needless copy
+	pmt_info_t pmt;
+	//read the original full pmt
+	section.parse_pmt_section(pmt);
+	pmt.pmt_pid = pmt_pid;
+	return pmt;
+}
+
 
 /*
 

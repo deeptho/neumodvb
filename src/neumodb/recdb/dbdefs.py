@@ -154,7 +154,7 @@ file_key = db_struct(name='file_key',
                     type_id= ord('F'),
                     version = 1,
                          #play_time is linear time from start of playback, taking into account any removed
-                         #parts of teh recording
+                         #parts of the recording
                          #stream_time is linear time from start of tuning to this channel
                     fields = ((1, 'milliseconds_t', 'stream_time_start'),
                               ))
@@ -222,12 +222,13 @@ stream_descriptor = db_struct(name='stream_descriptor',
                      keys =  (
                      ),                     #not unique
                      fields = ((1, 'int64_t', 'packetno_start', '-1'), #index of last packet of the pmt in the stream
-                                                                        #so pmt will apply from packet after this one on
+                                                                       #so pmt will apply from packet after this one on
                                (3, 'time_t', 'real_time_start'), #unix epoch
                                (4, 'milliseconds_t', 'stream_time_start'), #unix epoch
+                               (8, 'uint16_t', 'pmt_pid', '0x1FFF'),
                                (5, 'ss::vector<chdb::language_code_t,4>', 'audio_langs'),
                                (6, 'ss::vector<chdb::language_code_t,4>', 'subtitle_langs'),
-                               (7, 'ss::vector<uint8_t,188>', 'pmt_data')
+                               (7, 'ss::vector<uint8_t,64>', 'pmt_section')
                      ))
 
 #Singleton listing recordings viewed

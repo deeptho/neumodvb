@@ -49,6 +49,7 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 	//the following fields can be modified and should not be accessed/modified without locikng a mutex
 	chdb::service_t current_service; //current channel
 	pmt_info_t current_pmt;
+	ss::bytebuffer<256> pmt_sec_data;
 	std::shared_ptr<dtdemux::pmt_parser_t> pmt_parser; /*we save this in order to be able to control it
 																											 but currently this is unused*/
 	std::shared_ptr<dtdemux::pat_parser_t> pat_parser; /*we save this in order to be able to control it
@@ -72,19 +73,10 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 
   volatile uint16_t current_pmt_pid = null_pid;// the pmt_pid which is currently requested from the stream
 
-	//LoggerPtr logger = Logger::getLogger("service");
-
-
-	inline pmt_info_t get_current_pmt() const {
-		std::scoped_lock lck(mutex);
-		return current_pmt;
-	}
-
 	inline chdb::service_t get_current_service() const  {
 		std::scoped_lock lck(mutex);
 		return current_service;
 	}
-
 
 	playback_info_t get_current_program_info() const;
 
@@ -111,7 +103,7 @@ private:
 
 	int deactivate();
 	//int run();
-	void update_pmt(const pmt_info_t& pmt, bool isnext);
+	void update_pmt(const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data);
 
 	void on_epg_update(system_time_t now, const epgdb::epg_record_t& epg_record);
 	void save_pmt(system_time_t now, const pmt_info_t& pmt_info);
@@ -144,11 +136,6 @@ private:
 
 	recdb::live_service_t get_live_service() const;
 	recdb::live_service_t get_live_service_key() const;
-#if 0
-	void update_rec_stream_time(recdb::rec_t&rec, const system_time_t now) {
-		mpm.update_rec_stream_time(rec, now);
-	}
-#endif
 	std::unique_ptr<playback_mpm_t> make_client_mpm(int subscription_id);
 
 	bool need_decryption();

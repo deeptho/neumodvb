@@ -134,7 +134,7 @@ namespace dtdemux {
 	*/
 	struct pmt_info_t {
 		ca_info_t get_ca(stored_section_t& s, const descriptor_t& desc, uint16_t stream_pid);
-		void parse_descriptors(stored_section_t& s, pid_info_t& info, pmt_writer_t& pmt_writer, bool in_es_loop);
+		void parse_descriptors(stored_section_t& s, pid_info_t& info, bool in_es_loop);
 		uint16_t service_id = 0x00;
 		uint16_t pcr_pid = null_pid;
 		uint16_t video_pid = null_pid;
@@ -145,7 +145,7 @@ namespace dtdemux {
 		uint8_t num_sky_summary_pids{0};
 		uint8_t num_freesat_pids{0};
 		uint64_t stream_packetno_end{0};//position of start of last packet of pmt in stream
-		ss::bytebuffer<1024> cleaned_pmt;
+		ss::bytebuffer<1024> sec_data;
 		bool has_freesat_epg = false; //this means a local freesat epg, not the main freesat home transponder
 		bool has_skyuk_epg = false;
 		/*!
@@ -173,13 +173,18 @@ namespace dtdemux {
 		ss::vector<chdb::language_code_t, 8> audio_languages() const;
 		ss::vector<chdb::language_code_t, 8> subtitle_languages() const;
 
-		chdb::language_code_t
-		best_audio_language(const ss::vector<chdb::language_code_t>&prefs) const;
+		std::tuple<const pid_info_t*,chdb::language_code_t>
+		best_audio_language(const ss::vector_<chdb::language_code_t>&prefs) const;
 
-		chdb::language_code_t
-		best_subtitle_language(const ss::vector<chdb::language_code_t>&prefs) const;
+		std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
+		best_subtitle_language(const ss::vector_<chdb::language_code_t>& prefs) const;
 
 		bool is_ecm_pid(uint16_t pid);
+
+		std::tuple<chdb::language_code_t, chdb::language_code_t>
+		make_preferred_pmt_ts(ss::bytebuffer_& output,
+													const ss::vector_<chdb::language_code_t>& audio_prefs,
+													const ss::vector_<chdb::language_code_t>& subtitle_prefs);
 	};
 
 	struct bouquet_linkage_t {
@@ -459,6 +464,7 @@ namespace dtdemux {
 
 		virtual void parse_payload_unit() final;
 	};
+
 	struct pat_parser_t : public psi_parser_t
 	{
 		parser_status_t  parser_status;
@@ -486,10 +492,14 @@ namespace dtdemux {
 
 	struct pmt_parser_t : public psi_parser_t
 	{
+		parser_status_t  parser_status;
 		int current_version_number{-1};
 		int service_id {-1};
 
-		std::function<void(const pmt_info_t&, bool)>  section_cb = [](const pmt_info_t&, bool isnext) {};
+		std::function<reset_type_t(const pmt_info_t&, bool,
+															 const ss::bytebuffer_& p_sec_data)>  section_cb = [](const pmt_info_t&, bool isnext,
+																																										const ss::bytebuffer_& sec_data)
+																 {return reset_type_t::NO_RESET;};
 
 		pmt_parser_t(ts_stream_t& parent, int pid, int service_id)
 			: psi_parser_t(parent, pid, "PMT")
@@ -502,7 +512,7 @@ namespace dtdemux {
 		virtual ~pmt_parser_t() {
 		}
 
-		bool parse_pmt_section(stored_section_t& section, pmt_info_t& pmt, pmt_writer_t& pmt_writer);
+		bool parse_pmt_section(stored_section_t& section, pmt_info_t& pmt);
 		virtual void parse_payload_unit() final;
 		void restart() {
 			current_version_number = -1;

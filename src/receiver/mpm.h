@@ -120,6 +120,7 @@ public:
 	system_time_t livebuffer_start_time{};
 	system_time_t livebuffer_end_time{};
 	milliseconds_t livebuffer_stream_time_start{};
+	recdb::stream_descriptor_t last_streams; //points to database record containing newest current pmt and such
 
 	std::vector<playback_mpm_t*> playback_clients; /*for an active_mpm_t: filenos currently being played back
 																									by any passive mpms coupled to it
@@ -164,7 +165,7 @@ public:
 };
 
 
-struct language_state_t {
+struct stream_state_t {
 	typedef std::function<void(const chdb::language_code_t& lang, int pos)> callback_t;
 	chdb::language_code_t current_audio_language;
 	chdb::language_code_t current_subtitle_language;
@@ -179,7 +180,7 @@ struct language_state_t {
 
 using mm_t = safe::Safe<meta_marker_t, std::mutex>;
 using file_record_t = safe::Safe<recdb::file_t, std::mutex>;
-using language_state_rec_t = safe::Safe<language_state_t, std::mutex>;
+using ss_t = safe::Safe<stream_state_t, std::mutex>;
 
 
 class mpm_t {
@@ -224,12 +225,28 @@ class playback_mpm_t : public mpm_t {
 																	 i.e., to when the channel was tuned:
 																	 if parts are removed from the file (old live buffer parts), the current_byte_pos
 																	 is relative to the start of a deleted part....
+																	 Also, this refers to input bytes prior to filtering
 																*/
+	int num_pmt_bytes_to_send{-1}; /* If this is non-zero then we do not send data from the stream (and current_byte_pos
+																		will not change), but instead pmt data.
+																		-1 means: need initialisation
+																 */
 	meta_marker_t last_seen_live_meta_marker; //only used when playing a live buffer
 
 	bool is_timeshifted{false};
 	recdb::rec_t currently_playing_recording{};
-	language_state_rec_t language_state;
+	ss_t stream_state;
+	dtdemux::pmt_info_t current_pmt;
+	ss::bytebuffer<128> preferred_streams_pmt_ts;
+	int64_t next_stream_change_{-1}; //cache
+	int next_stream_change(); //byte at which new pmt becomes active (coincides with end of old pmt)
+	inline void clear_stream_state() {
+		next_stream_change_ = -1 ; //clear cache; will force a reload
+		auto w = stream_state.writeAccess();
+		w->current_streams = {};
+		w->next_streams = {};
+	}
+
 public:
 	const int subscription_id;
 
@@ -237,7 +254,7 @@ public:
 
 
 private:
-
+	void find_current_pmts(int64_t bytepos);
 	int get_end_marker_from_db(db_txn& txn, recdb::marker_t& end_marker);
 	int get_marker_for_time_from_db(db_txn& txn, recdb::marker_t& current_marker, milliseconds_t start_play_time);
 
@@ -250,19 +267,19 @@ private:
 	int open_file_containing_time(db_txn& txn, milliseconds_t start_time);
 
 	int open_next_file();
-	int64_t wait_for_live_data(uint8_t*& buffer);
-	int64_t read_data_live_(char* buffer, uint64_t numbytes);
-	int64_t read_data_nonlive_(char* buffer, uint64_t numbytes);
+	int64_t copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t numbytes);
+	std::tuple<int,int> copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int outbytes, int inbytes);
+	int64_t read_pmt_data(char* outbuffer, uint64_t numbytes);
+	int64_t read_data_from_current_file(uint8_t*& buffer);
+	std::tuple<int, int> read_data_(char* outbuffer, int outbytes, int inbytes);
 	std::tuple<bool, int64_t> currently_playing_file_status();
 	playback_info_t get_recording_program_info() const;
-
-	void call_language_callbacks(language_state_t& ls);
-	void check_pmt_change();
+	void update_pmt(stream_state_t& stream_state);
 public:
-	void register_audio_changed_callback(int subscription_id, language_state_t::callback_t cb);
+	void register_audio_changed_callback(int subscription_id, stream_state_t::callback_t cb);
 	void unregister_audio_changed_callback(int subscription_id);
 
-	void register_subtitle_changed_callback(int subscription_id, language_state_t::callback_t cb);
+	void register_subtitle_changed_callback(int subscription_id, stream_state_t::callback_t cb);
 	void unregister_subtitle_changed_callback(int subscription_id);
 
 	void open_recording(const char* dirname);
@@ -286,9 +303,6 @@ public:
 		return currently_playing_file.readAccess()->fileno;
 	}
 	playback_info_t get_current_program_info() const;
-
-	void on_pmt_change(const recdb::stream_descriptor_t& desc);
-
 	int set_language_pref(int idx, bool for_subtitles);
 	inline int set_audio_language(int audio_idx) {
 		return set_language_pref(audio_idx, false);

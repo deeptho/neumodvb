@@ -98,9 +98,6 @@ int active_service_t::open() {
 	auto demux_fd = active_stream_t::open(PAT_PID, &service_thread.epx, EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET);
 	// TOOD: initially we read data as soon as it becomes available to speed up channel tuning
 	// once the channel is up and running we will switch to polling
-#if 0
-	service_thread.epoll_add_fd(demux_fd, EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET); //edge triggered!
-#endif
 	return demux_fd;
 }
 
@@ -192,18 +189,14 @@ void active_service_t::save_pmt(system_time_t now_, const pmt_info_t& pmt_info) 
 	using namespace recdb;
 	const auto& marker = mpm.stream_parser.event_handler.last_saved_marker;
 
-	current_streams = stream_descriptor_t(pmt_info.stream_packetno_end, now, marker.k.time,
-																				pmt_info.audio_languages(), pmt_info.subtitle_languages(), pmt_info.cleaned_pmt);
+	current_streams = stream_descriptor_t(pmt_info.stream_packetno_end, now, marker.k.time, pmt_info.pmt_pid,
+																				pmt_info.audio_languages(), pmt_info.subtitle_languages(), pmt_sec_data);
 	auto txnidx = mpm.db->mpm_rec.idxdb.wtxn();
 	put_record(txnidx, current_streams);
 	txnidx.commit();
-
-	auto mm = mpm.meta_marker.readAccess();
-	for (auto& playback_mpm : mm->playback_clients) {
-		dtdebugx("Calling language_code changed callback mpm=%p: num_audio=%d [0]=%s", playback_mpm,
-						 current_streams.audio_langs.size(),
-						 current_streams.audio_langs.size() > 0 ? chdb::lang_name(current_streams.audio_langs[0]) : "");
-		playback_mpm->on_pmt_change(current_streams); // launch as tasks instead?
+	{
+		auto mm = mpm.meta_marker.writeAccess();
+		mm->last_streams = current_streams;
 	}
 }
 
@@ -228,11 +221,12 @@ void service_thread_t::cb_t::on_epg_update(system_time_t now, const epgdb::epg_r
 	called when a pmt has been fully processed in the service's data
 	stream. This function is set as a callback in live_mpm.cc
  */
-void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext) {
+void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
 	using namespace dtdemux;
 	dtdebug(pmt);
 	have_pmt = true;
 	pmt_is_encrypted = false;
+
 	if (pmt.service_id != current_service.k.service_id) {
 		// This can happen according to the dvb specs
 		dtdebugx("received pmt for wrong service_id: pid=%d service_id=%d!=%d", pmt.pmt_pid, pmt.service_id,
@@ -291,6 +285,7 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext) {
 	{
 		std::scoped_lock lck(mutex);
 		current_pmt = pmt;
+		pmt_sec_data = sec_data;
 	}
 
 	if (isnext) {
@@ -660,7 +655,7 @@ bool active_service_t::need_decryption() {
 				The call below is needed ERT1 which reports in the pmt that its streams are no encrypted.
 				whereas they are biss encrypted
 			 */
-			update_pmt(current_pmt, false);
+			update_pmt(current_pmt, false, pmt_sec_data);
 		}
 		return ret;
 	}

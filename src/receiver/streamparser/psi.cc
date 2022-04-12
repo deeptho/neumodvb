@@ -263,9 +263,9 @@ namespace dtdemux {
 		return section.parse_pat_section(pat_services, hdr);
 	}
 
-	bool pmt_parser_t::parse_pmt_section(stored_section_t& section, pmt_info_t& pmt, pmt_writer_t& pmt_writer) {
+	bool pmt_parser_t::parse_pmt_section(stored_section_t& section, pmt_info_t& pmt) {
 		section_header_t& hdr = *header();
-		return section.parse_pmt_section(pmt, pmt_writer, hdr);
+		return section.parse_pmt_section(pmt, hdr);
 	}
 
 	bool nit_parser_t::parse_nit_section(stored_section_t& section, nit_network_t& network) {
@@ -334,15 +334,29 @@ void pmt_parser_t::parse_payload_unit() {
 		RETURN_ON_ERROR;
 	}
 
-	stored_section_t section(payload, hdr.pid);
-	section.skip(hdr.header_len); // already parsed
+	auto [timedout, newversion, section_type] = parser_status.check(hdr, cc_error_counter);
+	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);
+	bool done = (section_type == section_type_t::LAST || section_type == section_type_t::COMPLETE);
+	bool completed_now = (section_type == section_type_t::LAST);
+
 	log4cxx::NDC::push(" PMT");
 	pmt_info_t pmt;
-	pmt_writer_t pmt_writer;
-	if (parse_pmt_section(section, pmt, pmt_writer)) {
-		pmt.stream_packetno_end = parent.event_handler.last_pmt_end_bytepos / ts_packet_t::size;
-		pmt_writer.save(pmt.cleaned_pmt, pmt.pmt_pid);
-		this->section_cb(pmt, !hdr.current_next);
+	bool success = false;
+
+	if (must_process)  {
+		assert(!timedout);
+		timedout = false;
+		stored_section_t section(payload, hdr.pid);
+		section.skip(hdr.header_len); // already parsed
+		success = parse_pmt_section(section, pmt);
+		if (success) {
+			pmt.stream_packetno_end = parent.event_handler.last_pmt_end_bytepos / ts_packet_t::size;
+			auto must_reset = this->section_cb(pmt, !hdr.current_next, section.payload);
+			if (must_reset == reset_type_t::ABORT)
+				parent.return_early();
+			else if (must_reset == reset_type_t::RESET)
+				parser_status.reset(hdr);
+		}
 	}
 	log4cxx::NDC::pop();
 }

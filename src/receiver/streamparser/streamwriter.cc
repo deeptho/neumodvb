@@ -102,6 +102,62 @@ void section_writer_t::save(ss::bytebuffer_& output, uint16_t pid) {
 	w.output(output);
 }
 
+void pmt_writer_t::add_audio_desc(const pmt_info_t& pmt, const audio_language_info_t& ai) {
+	section.put<uint8_t>(SI::ISO639LanguageDescriptorTag);
+	section.put<uint8_t>(4); //descriptor len
+	section.put_buffer((const uint8_t*) &ai.lang_code[0], 3);
+	section.put<uint8_t>(ai.audio_type);
+	if(ai.ac3)
+		section.put_buffer(ai.ac3_descriptor_data.buffer(), ai.ac3_descriptor_data.size());
+}
+
+void pmt_writer_t::add_subtitle_desc(const pmt_info_t& pmt, const subtitle_info_t& si) {
+	section.put<uint8_t>(SI::SubtitlingDescriptorTag);
+	section.put<uint8_t>(4); //descriptor len
+	section.put_buffer((const uint8_t*) &si.lang_code[0], 3);
+	section.put<uint8_t>(si.subtitle_type);
+	section.put<uint16_t>(si.composition_page_id);
+	section.put<uint16_t>(si.ancillary_page_id);
+}
+
+
+std::tuple<chdb::language_code_t, chdb::language_code_t>
+pmt_writer_t::make(const pmt_info_t& pmt, const ss::vector_<chdb::language_code_t>& audio_prefs,
+									 const ss::vector_<chdb::language_code_t>& subtitle_prefs) {
+	using namespace chdb;
+	language_code_t selected_audio_lang;
+	language_code_t selected_subtitle_lang;
+	start_section(pmt);
+	//first add video
+	for (const auto& pid_desc : pmt.pid_descriptors) {
+		if(stream_type::is_video(stream_type::stream_type_t(pid_desc.stream_type))) {
+			start_es((uint8_t)pid_desc.stream_type, pid_desc.stream_pid);
+			end_es();
+			break;
+		}
+	}
+
+	{
+		auto[pid_desc, alang]  = pmt.best_audio_language(audio_prefs);
+		if (pid_desc) {
+			selected_audio_lang = alang;
+			start_es((uint8_t)pid_desc->stream_type, pid_desc->stream_pid);
+			add_audio_desc(pmt, pid_desc->audio_lang); //also adds ac3 if present
+			end_es();
+		}
+	}
+
+	auto [pid_desc, subtit_desc, slang] =pmt.best_subtitle_language(subtitle_prefs);
+	if (pid_desc) {
+		selected_subtitle_lang = slang;
+		assert(subtit_desc);
+		start_es((uint8_t)pid_desc->stream_type, pid_desc->stream_pid);
+		add_subtitle_desc(pmt, *subtit_desc);
+		end_es();
+	}
+	end_section();
+	return {selected_audio_lang, selected_subtitle_lang};
+}
 
 void pmt_writer_t::start_section(const pmt_info_t& pmt) {
 	section.is_writer = true;
@@ -128,16 +184,11 @@ void pmt_writer_t::start_section(const pmt_info_t& pmt) {
 }
 
 void pmt_writer_t::start_es(uint8_t stream_type, uint16_t pid) {
-	if(stream_type::is_video(stream_type::stream_type_t(stream_type)) ||
-		 stream_type::is_audio(stream_type::stream_type_t(stream_type)) ||
-		 stream_type::is_subtitle(stream_type::stream_type_t(stream_type))) {
 		uint8_t es_info_length{0};
 		section.put<uint8_t>((uint8_t)stream_type);
 		section.put<uint16_t>(pid|0xe000);
 		p_es_info_length = section.current_pointer(0);
 		section.put<uint16_t>(es_info_length | 0xf000);
-	} else
-		p_es_info_length = nullptr;
 }
 
 void pmt_writer_t::add_desc(const descriptor_t& desc, const uint8_t* data) {
@@ -155,14 +206,15 @@ void pmt_writer_t::end_es() {
 }
 
 
-void pat_writer_t::start_section(const pat_services_t& pat, uint16_t service_id, uint16_t pmt_pid) {
+void pat_writer_t::start_section(uint16_t service_id, uint16_t pmt_pid) {
 	section.is_writer = true;
 	uint8_t table_id = TABLE_ID_PAT;
 	uint16_t length{0};
 	uint16_t program_info_length{0};
 	uint8_t section_number{0};
 	uint8_t last_section_number{0};
-
+	uint16_t ts_id{1};
+	uint16_t version_number{1};
 	p_section_start = section.current_pointer(0);
 	section.put<uint8_t>(table_id);
 
@@ -170,8 +222,8 @@ void pat_writer_t::start_section(const pat_services_t& pat, uint16_t service_id,
 	//glength=29 | ((0x80 | 0x30)<<8); //080= section syntax indicator; 0x30 = reserved;
 	section.put<uint16_t>(length);
 
-	section.put<uint16_t>(pat.ts_id); //program number
-	section.put<uint8_t>((0x03<<6) | (pat.version_number<<1) |1);
+	section.put<uint16_t>(ts_id); //program number
+	section.put<uint8_t>((0x03<<6) | (version_number<<1) |1);
 	section.put<uint8_t>(section_number);
 	section.put<uint8_t>(last_section_number);
 	section.put<uint16_t>(service_id);

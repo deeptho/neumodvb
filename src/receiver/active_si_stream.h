@@ -47,7 +47,7 @@ struct pat_service_t {
 
 struct pmt_data_t {
 	std::map<uint16_t, pat_service_t> by_service_id; //services in pat indexed by service_id
-	void pmt_section_cb(const pmt_info_t& pmt, bool isnext);
+	reset_type_t pmt_section_cb(const pmt_info_t& pmt, bool isnext);
 
 };
 
@@ -567,7 +567,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 												bool may_change_nit_tid, bool from_sdt);
 
 	dtdemux::reset_type_t pat_section_cb(const pat_services_t& pat_services, const subtable_info_t& i);
-	void pmt_section_cb(const pmt_info_t& pmt, bool isnext);
+	reset_type_t pmt_section_cb(const pmt_info_t& pmt, bool isnext);
 
 	dtdemux::reset_type_t nit_section_cb_(nit_network_t& network, const subtable_info_t& i);
 	dtdemux::reset_type_t nit_section_cb(nit_network_t& network, const subtable_info_t& i);

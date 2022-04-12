@@ -17,7 +17,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
 #include "active_playback.h"
 #include "active_service.h"
 #include "date/date.h"
@@ -39,47 +38,6 @@
 using namespace date;
 using namespace date::clock_cast_detail;
 
-/*
-	returns a language code_t containing the index of the pmt language entry corresponding to pref,
-	or an invalid language_code_t if the pmt does not contain pref
-*/
-static std::tuple<chdb::language_code_t, int>
-language_preference_in_vector(const ss::vector<chdb::language_code_t, 4> lang_codes,
-															const chdb::language_code_t& pref) {
-	using namespace chdb;
-	int idx = 0;	 // index to one of the audio languages in pmt
-	int order = 0; /* for duplicate entries in pmt, order will be 0,1,2,...*/
-	for (const auto& lang_code : lang_codes) {
-		if (chdb::is_same_language(lang_code, pref)) {
-			// order is the order of preference
-			if (order == pref.position) // in pref, position 1 means the second language of this type
-				return {lang_code, idx};
-			order++;
-		}
-		idx++;
-	}
-	return {language_code_t(-1, 0, 0, 0), 0}; // invalid
-}
-
-/*
-	returns the best subtitle language based on user preferences.
-	Prefs is an array of languages 3 chars indicating the subtitle
-	language; the fourth byte is used to distinghuish between duplicates;
-*/
-static std::tuple<chdb::language_code_t, int> best_language(const ss::vector<chdb::language_code_t> pmt_langs,
-																														const ss::vector<chdb::language_code_t>& prefs) {
-	using namespace chdb;
-	for (const auto& p : prefs) {
-		auto [ret, pos] = language_preference_in_vector(pmt_langs, p);
-		if (ret.position >= 0)
-			return {ret, pos};
-	}
-
-	// return the first language as the default:
-	if (pmt_langs.size() > 0)
-		return {pmt_langs[0], 0};
-	return {language_code_t(0, 'e', 'n', 'g'), 0}; // dummy
-}
 
 playback_mpm_t::playback_mpm_t(receiver_t& receiver_, int subscription_id_)
 	: mpm_t(true)
@@ -97,10 +55,42 @@ playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 	, live_mpm(&other)
 	, subscription_id(subscription_id_) {
 	assert(filemap.readonly);
-	auto ls = language_state.writeAccess();
+	auto ls = stream_state.writeAccess();
 	ls->current_streams = streamdesc;
+	ls->next_streams = {};
 	ls->audio_pref = live_service.audio_pref;
 	ls->subtitle_pref = live_service.subtitle_pref;
+}
+
+/*
+	Find the pmt which is active when processing the byte at address bytepos
+	and the the next one. The next one will have packno_start==-1 if the stream is live
+	and a very large value if there is no pending pmt change
+ */
+void playback_mpm_t::find_current_pmts(int64_t bytepos)
+{
+	constexpr auto never = std::numeric_limits<int>::max();
+	auto curp = bytepos / ts_packet_t::size;
+	auto rtxn = db->mpm_rec.idxdb.rtxn();
+	auto c = recdb::stream_descriptor_t::find_by_key(rtxn, curp, find_leq);
+	auto ls = stream_state.writeAccess();
+	if (!c.is_valid()) {
+		c =  recdb::find_first<recdb::stream_descriptor_t>(rtxn);
+	}
+	if(c.is_valid()) {
+		ls->current_streams = c.current();
+		c.next();
+		ls->next_streams = c.is_valid() ? c.current() : recdb::stream_descriptor_t();
+		if (ls->next_streams.packetno_start >= 0)
+			next_stream_change_ = ls->next_streams.packetno_start * ts_packet_t::size;
+		else if (live_mpm)
+			next_stream_change_ = -1; //live_mpm
+		else
+			next_stream_change_ = never;
+	} else {
+		assert(false);
+	}
+	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_streams
 }
 
 void playback_mpm_t::open_recording(const char* dirname_) {
@@ -128,23 +118,13 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 	auto c = find_first<recdb::rec_t>(txn);
 	if (c.is_valid()) {
 		currently_playing_recording = c.current();
-		auto ls = language_state.writeAccess();
-		ls->audio_pref = currently_playing_recording.service.audio_pref;
-		ls->subtitle_pref = currently_playing_recording.service.subtitle_pref;
-		auto txni = db->mpm_rec.idxdb.rtxn();
-		auto c1 = recdb::stream_descriptor_t::find_by_key(txni, ls->next_streams.packetno_start + 1, find_geq);
-		if (c1.is_valid()) {
-			dtdebug("found initial pmt");
-			ls->current_streams = c1.current();
-			c1.next();
-			if (c1.is_valid()) {
-				dtdebug("found pending pmt change");
-				ls->next_streams = c1.current();
-			} else {
-				dterror("no pending pmt");
-			}
+		{
+			auto ls = stream_state.writeAccess();
+			ls->audio_pref = currently_playing_recording.service.audio_pref;
+			ls->subtitle_pref = currently_playing_recording.service.subtitle_pref;
 		}
-		txni.abort();
+		assert(current_byte_pos == 0);
+		find_current_pmts(current_byte_pos);
 	} else {
 		dterrorx("Cannot find rec in %s", db->idx_dirname.c_str());
 	}
@@ -167,94 +147,87 @@ void playback_mpm_t::close() {
 	db.reset();
 }
 
-/*
-	This function is thread safe
-*/
-void playback_mpm_t::call_language_callbacks(language_state_t& ls) {
-	auto& desc = ls.current_streams;
-	auto [lang_code, pos] = best_language(desc.audio_langs, ls.audio_pref);
-	if (lang_code.position != ls.current_audio_language.position) {
-		for (auto& [subscription_id, cb] : ls.audio_language_change_callbacks) {
-			dtdebugx("Calling language_code changed callback");
-			cb(lang_code, pos);
-		}
-		ls.current_audio_language = lang_code;
-	}
-
-	std::tie(lang_code, pos) = best_language(desc.subtitle_langs, ls.subtitle_pref);
-	if (lang_code.position != ls.current_subtitle_language.position) {
-		for (auto& [subscription_id, cb] : ls.subtitle_language_change_callbacks) {
-			dtdebugx("Calling subtitle language_code changed callback");
-			cb(lang_code, pos);
-		}
-		ls.current_subtitle_language = lang_code;
-	}
-}
-
-void playback_mpm_t::check_pmt_change() {
-	auto ls = language_state.writeAccess();
-	bool apply_now = (ls->next_streams.packetno_start >=0 &&
-										(current_byte_pos >= ts_packet_t::size * ls->next_streams.packetno_start));
-	if (apply_now) {
-		ls->current_streams = ls->next_streams;
-		call_language_callbacks(*ls);
-		// now look for the next pmt change (if any)
-		auto txn = db->mpm_rec.idxdb.rtxn();
-		auto c = recdb::stream_descriptor_t::find_by_key(txn, ls->next_streams.packetno_start + 1, find_geq);
-		if (c.is_valid()) {
-			dtdebug("found pending pmt change");
-			ls->next_streams = c.current();
-		} else {
-			dtdebug("no pending pmt change");
-			ls->next_streams =
-				recdb::stream_descriptor_t(); // clear and mark as not present (stream_packetno_end set to large value)
-		}
-	}
-}
 
 /*
-	The code below should only be run
-	when we are running live or almost live, which can be detected by having reached the bytepos
-	stored in current_stream_desc.stream_packetno_end
+	returns the byte pos at which next pmt change will occur
 
+ */
+int playback_mpm_t::next_stream_change() { //byte at which new pmt becomes active (coincides with end of old pmt)
+	constexpr auto never = std::numeric_limits<int>::max();
+	if (next_stream_change_ >= 0 &&  current_byte_pos < next_stream_change_)
+		return next_stream_change_ - current_byte_pos; /* fast path: return cached version.
+																 */
+	//we should never have read past next_stream_change_
+	assert(next_stream_change_ < 0 || current_byte_pos == next_stream_change_);
 
-	1) when we start streaming, in live mode, we load next_stream_desc
-	which is the last one received (retrieved from active_service) when in live mode
-	or the first one loaded from a recording database
-	We call the callbacks and then
-	in live mode: set next_stream_desc=upper limit to indicate that we have called the callbacks
-	for a recording: set next_stream_desc to the second pmt available (or upper limit if there is none)
+	/* The cache next_stream_change_ can contain:
+		  -some future byte
+			- -1, meaning that the cache is invalid
+			- never, meaning that this is not a live playback and we are sure no more pmt changes will happen
+	*/
 
-	2) when a new pmt comes in via "on_pmt_change" in live mode, we update next_stream_desc,
-	but only if  next_stream_desc == upper limit
+  /*consult live_mpm to see if update is pending. this info is set when calling live_mpm->wait_for_update
+		and only refers to the range last_seen_live_meta_marker.num_bytes_safe_to_read
 
-	3) whenever we output a byte past next_stream_desc
-	we call the callbacks from current_stream_desc, and set it to upper limit
+		The goal is to avoid consulting the database if no update is pending for sure
+   */
+	if(live_mpm) {
+		if (last_seen_live_meta_marker.last_streams.packetno_start <0) {
+			//wait for initial pmt
+			live_mpm->wait_for_update(last_seen_live_meta_marker);
+			assert(must_exit || last_seen_live_meta_marker.last_streams.packetno_start >=0);
+			return never;
+		}
 
-	4) when we jump in timeshift mode, we retrieve the stream_desc before the jump point,
-	call the cbs (if needed) and then load the next stream_desc.
+		auto ls = stream_state.readAccess();
+		assert(last_seen_live_meta_marker.last_streams.packetno_start >= ls->current_streams.packetno_start);
+		if (last_seen_live_meta_marker.last_streams.packetno_start == ls->current_streams.packetno_start) {
+			//no update pending for sure
+			//dtdebug("returning next pmt change never (live)");
+			return never; //no update pending for sure
+		/* otherwise: we cannot rely on last_seen_live_meta_marker.last_stream.packetno_start because
+			 there may have been multiple pmt updates (unlikely); so we need to consult the database
+		*/
 
-*/
-
-/*called when a live mpm detects a pmt change; returns new audio/subtitle descriptors
-	This function is thread safe
-*/
-void playback_mpm_t::on_pmt_change(const recdb::stream_descriptor_t& desc) {
-	auto ls = language_state.writeAccess();
-	bool pending_stream_change = (ls->next_streams.packetno_start >=0);
-	// call_language_callbacks(ls, desc);
-	if (pending_stream_change) {
-		dtdebug("older stream change not yet processed - skipping (viewing may fail)");
-		return;
-	} else {
-		dtdebug("setting next_streams");
+		}
 	}
+	find_current_pmts(current_byte_pos);
+	if (next_stream_change_ == -1)
+		return never;
 
-	ls->next_streams = desc; // this must be the next stream change
+	return next_stream_change_ - current_byte_pos;
 }
+
+/*
+	After a new pmt has been activated, activate it so that it will be sent in the output
+	stream before sending any other stream data.
+ */
+void playback_mpm_t::update_pmt(stream_state_t& ss) {
+	if(num_pmt_bytes_to_send >0)
+		return; /* we cannot handle a pmt change when one is still in progress.
+								 Return 0 indicates that we first need to clear the pmt buffer
+							*/
+	//pmt with all audio streams
+	current_pmt = parse_pmt_section(ss.current_streams.pmt_section, ss.current_streams.pmt_pid);
+	preferred_streams_pmt_ts.clear();
+
+	std::tie(ss.current_audio_language, ss.current_subtitle_language ) =
+		current_pmt.make_preferred_pmt_ts(preferred_streams_pmt_ts, ss.audio_pref, ss.subtitle_pref);
+	assert(current_pmt.pmt_pid ==  ss.current_streams.pmt_pid);
+
+	//activate the pmt for ouput
+	num_pmt_bytes_to_send = preferred_streams_pmt_ts.size();
+	/*
+		todo:  make pat
+	 */
+}
+
+
+
+
 
 int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
-	auto ls = language_state.writeAccess();
+	auto ls = stream_state.writeAccess();
 	auto langs = for_subtitles ? ls->current_streams.subtitle_langs : ls->current_streams.audio_langs;
 	if (idx < 0 || idx >= langs.size()) {
 		dterrorx("set_language: index %d out of range", idx);
@@ -323,6 +296,7 @@ playback_info_t playback_mpm_t::get_current_program_info() const {
 		ret.is_timeshifted = is_timeshifted;
 
 	{
+		auto ls = stream_state.readAccess();
 		ret.audio_language = ls->current_audio_language;
 		ret.subtitle_language = ls->current_subtitle_language;
 	}
@@ -356,6 +330,7 @@ int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
 	if(live_mpm)
 		is_timeshifted = true;
 	error = false;
+	clear_stream_state();
 	if (start_play_time < milliseconds_t(0))
 		start_play_time = milliseconds_t(0);
 	dtdebug("Starting move_to_time");
@@ -413,11 +388,11 @@ int playback_mpm_t::open_(db_txn& txn, milliseconds_t start_time) {
 		We also need to know where the stream (= all files) ends, according to the database.
 		This will be stored in end_marker
 
-		Itn case the opened file is still live, end_marker
+		In case the opened file is still live, end_marker
 	*/
 	recdb::marker_t current_marker;
 	get_end_marker_from_db(txn, end_marker);
-	if (get_marker_for_time_from_db(txn, current_marker, start_time) < 0) {
+	if (start_time >= end_marker.k.time || get_marker_for_time_from_db(txn, current_marker, start_time) < 0) {
 		dtdebugx("Requested start_play_time is beyond last logged packet");
 		if (live_mpm) {
 			auto mm = live_mpm->meta_marker.readAccess();
@@ -428,6 +403,9 @@ int playback_mpm_t::open_(db_txn& txn, milliseconds_t start_time) {
 			}
 		} else {
 			start_time = end_marker.k.time;
+			current_byte_pos = end_marker.packetno_end;
+			must_exit = true;
+			return 0;
 		}
 	}
 
@@ -477,7 +455,7 @@ int playback_mpm_t::open_(db_txn& txn, milliseconds_t start_time) {
 				 start_offset <= current_marker.packetno_end);
 	assert(start_time != milliseconds_t(0) || start_offset == 0);
 	/*
-		The file is alreadt open (fd>=0). We now map data from the current file
+		The file is already open (fd>=0). We now map data from the current file
 		starting at start_packet and ending at the end of the file,
 		filemap.init can actually map a larger range, which can contain invalid data at the end
 		of the map
@@ -595,12 +573,128 @@ int playback_mpm_t::open_next_file() {
 	return ret;
 }
 
-#ifdef NEW_PMT_PROCESSING
-int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t numbytes) {
-	if (error || numbytes == 0)
+
+/*
+	read up to outbytes bytes in outbuffer, while not reading more than inbytes bytes from the input stream
+	The call may return earlier if not enough data is available
+	Returns number of inputs bytes consumed and number of output bytes written
+	Returns -1 on error or if must_exot
+ */
+std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, int inbytes) {
+	if (error || inbytes == 0 || outbytes == 0)
+		return {0, 0};
+
+	int remaining_space = -1;
+	uint8_t* buffer = nullptr;
+	dttime_init();
+
+	for (; !error;) {
+
+		remaining_space = read_data_from_current_file(buffer);
+		/* remaining_space<0 means errors
+			 remaining_space == 0 means: no more data in current file part; for live_mpm this will only happend on exit
+		 */
+		if (must_exit)
+			return {-1, -1};
+		if (remaining_space >= ts_packet_t::size)
+			break; // enough data which is known to be available to continue processing
+		assert(!live_mpm || filemap.get_read_buffer(buffer) == 0);
+
+		/*the current file has been fully played because map growing was tried, but remaining_space still 0.
+			Also, the current file is not the last one because then we would have restarted or exited
+			the loop.
+
+			However our own view of the currently playing file may be out of date: last time we checked
+			it, it may have been still growing
+		*/
+
+		/*check if file was properly closed and close it if not
+			The only file which is perhaps not properly closed should be the very last one.
+
+			This can only happen if we are playing back a recording that was aborted
+			due to a crash; if live_mpm != nullptr, then the writer code must have solve the problem
+			in parallel.
+
+			It can also happen when live_mpm!=nullptr, because then the database will contain the correct
+			information, but the current thread may not have the newest information
+		*/
+
+		auto end_time = currently_playing_file.readAccess()->stream_time_end;
+		if ((int64_t)end_time == std::numeric_limits<int64_t>::max() && !live_mpm) {
+			/*According to our information, this file is still growing, but this is incorrect.
+				File was properly closed when recording ws created.
+				The only file which is perhaps not properly closed should be the very last one
+			*/
+			recdb::marker_t end_marker;
+			recdb::marker_t current_marker;
+			auto wtxn = db->mpm_rec.idxdb.wtxn();
+			get_end_marker_from_db(wtxn, end_marker);
+			auto f = currently_playing_file.writeAccess();
+			dtdebugx("file %s was not properly closed", f->filename.c_str());
+			end_time = end_marker.k.time; //time of the very last info written into the file
+			f->stream_time_end = end_time;
+			f->stream_packetno_end = end_marker.packetno_end;
+			wtxn.commit();
+		}
+
+		auto txn = db->mpm_rec.idxdb.rtxn();
+		if ((int64_t)end_time == std::numeric_limits<int64_t>::max() && live_mpm) {
+				/* We must reread the database to find the correct end_time,  which will have been written
+					 by the service thread performing the writing
+				*/
+				using namespace recdb;
+				auto start_time = currently_playing_file.readAccess()->k.stream_time_start;
+				auto fileno = currently_playing_file.readAccess()->fileno;
+				auto c = file_t::find_by_key(txn, file_key_t(start_time), find_eq);
+				assert(c.is_valid());
+				auto r = c.current();
+				end_time = r.stream_time_end;
+				dtdebug("Reread end_time for current file: " << end_time);
+				assert(fileno == r.fileno); //fails with r.fileno=2, fileno=1, stary_time=33914
+				assert(end_time != std::numeric_limits<milliseconds_t>::max());
+				dtdebugx("currently_playing_file.fileno=%d", r.fileno);
+				currently_playing_file.assign(c.current());
+			}
+
+		bool still_not_open = (int64_t)end_time == std::numeric_limits<int64_t>::max();
+		auto ret = still_not_open ? -1 : open_(txn, end_time);
+		txn.abort();
+		if(ret == 0 && live_mpm)
+			continue;
+		if (ret <= 0) { // end time of current file is start time of new one
+			dtdebug("Cannot open next part");
+			filemap.unmap();
+			filemap.close();
+			return {-1, -1};
+		}
+		continue; // more data should be available; so retry accessing it
+	}
+	dttime(200);
+
+	if (error) {
+		assert(0);
+		return {-1, -1};
+	}
+	inbytes = std::min(inbytes, remaining_space);
+	auto [num_bytes_out, num_bytes_in] = copy_filtered_packets(outbuffer, buffer, outbytes, inbytes);
+	dttime(100);
+	filemap.advance_read_pointer(num_bytes_in);
+	dttime(100);
+	current_byte_pos += num_bytes_in;
+	return {num_bytes_out, num_bytes_in};
+}
+
+
+/*
+	read up to num_bytes data in output buffer.
+	Returns -1 on error
+	Returns 0 only at end of stream
+
+ */
+int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
+	if (error || num_bytes == 0)
 		return 0;
 	int num_bytes_read{0};
-
 	while(num_bytes_read == 0 && !must_exit && !error) {
     /*below, read_data_live_ and read_data_nonlive_ can read 0 bytes
 			for two reasons: 1) due to pmt filtering, no real data may be available yet
@@ -610,59 +704,70 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t numbytes) {
 			The loop is therefore needed, to retry the read.
 		 */
 
-		auto num_pmt  = read_pmt_data(outbuffer, numbytes);
-		if(num_pmt_bytes_to_send == 0)
-			check_pmt_change();
+		auto max_bytes = next_stream_change(); /* max_bytes byte at which is the number of bytes to read before
+																							new pmt becomes active (coincides with end of old pmt);
+																							we may never read past that point without calling next_stream_change
+																							again
+																					 */
+		if(must_exit)
+			return 0;
+		if(num_pmt_bytes_to_send > 0) {
+			auto num_pmt_bytes_sent  = read_pmt_data(outbuffer + num_bytes_read, num_bytes);
+			num_bytes -= num_pmt_bytes_sent;
+			num_bytes_read += num_pmt_bytes_sent;
 
-		numbytes -= num_pmt;
-		num_bytes_read += num_pmt;
-		if(numbytes == 0) {
-			/*the pmt might be fully sent, but usually this indicates
-				that not enough space was available for the pmt in the output buffer
-				We return what we have written and will be called later again, at which point
-				read_pmt_data will be called again (and possibly write 0 bytes into output buffer)
-			*/
-			return num_bytes_read;
+			if(num_bytes == 0) {
+				/*the pmt might be fully sent, but usually this indicates
+					that not enough space was available for the pmt in the output buffer
+					We return what we have written and will be called later again, at which point
+					read_pmt_data will be called again (and possibly write 0 bytes into output buffer)
+				*/
+				return num_bytes_read;
+			}
 		}
-		int ret{-1};
-		if (live_mpm) {
-			dttime_init();
-			ret = read_data_live_(outbuffer, numbytes);
-			dttime(300);
+
+		assert(max_bytes >=0);
+		auto [num_bytes_out, num_bytes_in] = read_data_(outbuffer + num_bytes_read, num_bytes, max_bytes);
+		if (num_bytes_out >= 0) { //if there is no error
+			num_bytes_read += num_bytes_out;
+			num_bytes -= num_bytes_out;
 		} else {
-			ret = read_data_nonlive_(outbuffer, numbytes);
+			break;
 		}
-		if (ret >= 0) { //if there is no error (including each time data is read)
-				num_bytes_read +=ret;
+		/*in rare cases, our caller may ask for less than 188 bytes. We will never be able to provide this,
+			because we always return multiples of 188 bytes. We cannot return 0 bytes, because that will be
+			interpreted as end of stream by mpv code.
+			As a workaround we send pmt bytes, which can be done in terms of a partial packets
+		*/
+		if (num_bytes_read ==0 && num_bytes < ts_packet_t::size) {
+			dtdebugx("Returning pmt data to fill partial packet");
+			auto ls = stream_state.readAccess();
+			num_pmt_bytes_to_send =  preferred_streams_pmt_ts.size();
+			assert(num_pmt_bytes_to_send >= 0);
+			auto ret  = read_pmt_data(outbuffer + num_bytes_read, num_bytes);
+			num_bytes_read += ret;
+			num_bytes -= ret;
 		}
+		assert(live_mpm || num_bytes_read != 0); /*live_mpm will lead to blocking (ok), but otherwise we have a problem;
+																							 num_bytes_read < 0 is ok; indicates and error
+																							 num_bytes_read > 0 is also ok; indicates progress
+																						 */
 	}
 	return (must_exit || error) ? -1 : num_bytes_read;
 }
-#else
-int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t numbytes) {
-	if (error || numbytes == 0)
-		return 0;
-	if (live_mpm) {
-		dttime_init();
-		auto ret = read_data_live_(outbuffer, numbytes);
-		if (ret >= 0)
-			check_pmt_change();
-		dttime(300);
-		return ret;
-	} else
-		return read_data_nonlive_(outbuffer, numbytes);
-}
-#endif
 
 /*
 	Wait until live data becomes available.
 	Returns remaining_space>0 if new data was found
-	Returns 0 if no data is found and no more data exists in the current mpm part, or if must_exit
+	Returns as soon as at least 1 packet is available for reading from the input stream
+	Returns -1 on error or on must_exit
+	Returns 0 if no data is found and no more data exists in the current mpm part; there could be more mpm parts
+
  */
 int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 
 	if (error)
-		return 0;
+		return -1;
 
 	int remaining_space{0};
 	dttime_init();
@@ -683,7 +788,7 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 		*/
 		live_mpm->wait_for_update(last_seen_live_meta_marker);
 		if (must_exit)
-			return 0;
+			return -1;
 
 		auto last_fileno = last_seen_live_meta_marker.current_file_record.fileno;
 		if (current_fileno() == (int)last_fileno) {
@@ -712,85 +817,15 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 				continue; // We need to wait for data
 			else
 				break;
-		}
+		} else
+			return 0;
 	}
 	if(error)
-		return 0;
+		return -1;
 	return remaining_space;
 }
 
-int64_t playback_mpm_t::read_data_live_(char* outbuffer, uint64_t numbytes) {
 
-	if (error || numbytes == 0)
-		return 0;
-
-	int remaining_space = -1;
-	uint8_t* buffer = nullptr;
-	dttime_init();
-
-	for (; !error;) {
-
-		remaining_space = read_data_from_current_file(buffer);
-		if (must_exit)
-			return -1;
-		if(remaining_space >= ts_packet_t::size)
-			break;
-		assert(!live_mpm || filemap.get_read_buffer(buffer) == 0);
-
-		/*the current file has been fully played because map growing was tried, but remaining_space still 0.
-			Also, the current file is not the last one because then we would have restarted or exited
-			the loop.
-
-			However our own view of the currently playing file may be out of date: last time we checked
-			if may have been still growing
-		*/
-
-		auto txn = db->mpm_rec.idxdb.rtxn();
-		auto end_time = currently_playing_file.readAccess()->stream_time_end;
-		if (end_time == std::numeric_limits<milliseconds_t>::max()) {
-			// this must be incorrect: file can no longer be growing, we must reread to find the correct end_time
-			using namespace recdb;
-			auto start_time = currently_playing_file.readAccess()->k.stream_time_start;
-			auto fileno = currently_playing_file.readAccess()->fileno;
-			auto c = file_t::find_by_key(txn, file_key_t(start_time), find_eq);
-			assert(c.is_valid());
-			auto r = c.current();
-			dtdebug("Reread end_time for current file: " << end_time);
-			end_time = r.stream_time_end;
-			assert(fileno == r.fileno);
-			assert(end_time != std::numeric_limits<milliseconds_t>::max());
-			dtdebugx("currently_playing_file.fileno=%d", r.fileno);
-			currently_playing_file.assign(c.current());
-		}
-		if (open_(txn, end_time) < 0) { // end time of current file is start time of new one
-			dtdebug("Cannot open next part");
-			filemap.unmap();
-			filemap.close();
-			return 0;
-		}
-		txn.abort();
-		continue; // more data is available
-	}
-	dttime(200);
-
-	if (error) {
-		assert(0);
-		return 0;
-	}
-
-	auto n = std::min(numbytes, (uint64_t)remaining_space);
-	assert(n > 0);
-#ifdef NEW_PMT_PROCESSING
-	n = copy_filtered_packets(outbuffer, buffer, n);
-#else
-	memcpy(outbuffer, buffer, n);
-#endif
-	dttime(100);
-	filemap.advance_read_pointer(n);
-	dttime(100);
-	current_byte_pos += n;
-	return n;
-}
 
 milliseconds_t playback_mpm_t::get_current_play_time() const {
 	auto txn = db->mpm_rec.idxdb.rtxn();
@@ -803,69 +838,11 @@ milliseconds_t playback_mpm_t::get_current_play_time() const {
 	}
 }
 
-int64_t playback_mpm_t::read_data_nonlive_(char* outbuffer, uint64_t numbytes) {
-	if (error || numbytes == 0)
-		return 0;
 
-	int remaining_space = -1;
-	uint8_t* buffer = nullptr;
-	dttime_init();
-
-	for (; !error;) {
-
-		remaining_space = filemap.get_read_buffer(buffer);
-		if (remaining_space >= ts_packet_t::size)
-			break; // keep streaming data which is known to be available
-		//load next file if available
-		{
-			recdb::marker_t end_marker;
-			auto stream_time_end = currently_playing_file.readAccess()->stream_time_end;
-			//check if file was properly closed and close it if not
-			if ((int64_t)stream_time_end == std::numeric_limits<int64_t>::max() && !live_mpm) {
-				auto wtxn = db->mpm_rec.idxdb.wtxn();
-				recdb::marker_t current_marker;
-				get_end_marker_from_db(wtxn, end_marker);
-				auto f = currently_playing_file.writeAccess();
-				dtdebugx("file %s was not properly closed", f->filename.c_str());
-				stream_time_end = end_marker.k.time;
-				f->stream_time_end = stream_time_end;
-				f->stream_packetno_end = end_marker.packetno_end;
-				wtxn.commit();
-			}
-			auto txn = db->mpm_rec.idxdb.rtxn();
-			auto ret = ((int64_t)stream_time_end == std::numeric_limits<int64_t>::max()) ? -1 : open_(txn, stream_time_end);
-			if (ret <= 0) {
-				dterror("End of nonlive stream detected");
-				must_exit = true;
-				return 0;
-			} else {
-				continue;
-			}
-		}
-	}
-
-	dttime(200);
-	if (error) {
-		assert(0);
-		return -1;
-	}
-
-	auto n = std::min(numbytes, (uint64_t)remaining_space);
-	assert(n > 0);
-#ifdef NEW_PMT_PROCESSING
-	n = copy_filtered_packets(outbuffer, buffer, n);
-#else
-	memcpy(outbuffer, buffer, n);
-#endif
-	filemap.advance_read_pointer(n);
-	current_byte_pos += n;
-	return n;
-}
-
-void playback_mpm_t::register_audio_changed_callback(int subscription_id, language_state_t::callback_t cb) {
+void playback_mpm_t::register_audio_changed_callback(int subscription_id, stream_state_t::callback_t cb) {
 	assert(subscription_id >= 0);
 	assert(cb != nullptr);
-	auto ls = language_state.writeAccess();
+	auto ls = stream_state.writeAccess();
 	dtdebugx("Register audio_changed_cb subscription_id=%d s=%d", subscription_id,
 					 (int)ls->audio_language_change_callbacks.size());
 	ls->audio_language_change_callbacks[subscription_id] = cb;
@@ -873,16 +850,16 @@ void playback_mpm_t::register_audio_changed_callback(int subscription_id, langua
 
 void playback_mpm_t::unregister_audio_changed_callback(int subscription_id) {
 	assert(subscription_id >= 0);
-	auto ls = language_state.writeAccess();
+	auto ls = stream_state.writeAccess();
 	dtdebugx("Unregister audio_changed_cb subscription_id=%d s=%d", subscription_id,
 					 (int)ls->audio_language_change_callbacks.size());
 	ls->audio_language_change_callbacks.erase(subscription_id);
 }
 
-void playback_mpm_t::register_subtitle_changed_callback(int subscription_id, language_state_t::callback_t cb) {
+void playback_mpm_t::register_subtitle_changed_callback(int subscription_id, stream_state_t::callback_t cb) {
 	assert(subscription_id >= 0);
 	assert(cb != nullptr);
-	auto ls = language_state.writeAccess();
+	auto ls = stream_state.writeAccess();
 	dtdebugx("Register subtitle_changed_cb subscription_id=%d s=%d", subscription_id,
 					 (int)ls->subtitle_language_change_callbacks.size());
 
@@ -891,29 +868,29 @@ void playback_mpm_t::register_subtitle_changed_callback(int subscription_id, lan
 
 void playback_mpm_t::unregister_subtitle_changed_callback(int subscription_id) {
 	assert(subscription_id >= 0);
-	auto ls = language_state.writeAccess();
+	auto ls = stream_state.writeAccess();
 	dtdebugx("Unregister subtitle_changed_cb subscription_id=%d s=%d", subscription_id,
 					 (int)ls->subtitle_language_change_callbacks.size());
 	ls->subtitle_language_change_callbacks.erase(subscription_id);
 }
 
 chdb::language_code_t playback_mpm_t::get_current_audio_language() {
-	auto ls = language_state.readAccess();
+	auto ls = stream_state.readAccess();
 	return ls->current_audio_language;
 }
 
 chdb::language_code_t playback_mpm_t::get_current_subtitle_language() {
-	auto ls = language_state.readAccess();
+	auto ls = stream_state.readAccess();
 	return ls->current_subtitle_language;
 }
 
 ss::vector_<chdb::language_code_t> playback_mpm_t::audio_languages() {
-	auto ls = language_state.readAccess();
+	auto ls = stream_state.readAccess();
 	return ls->current_streams.audio_langs;
 }
 
 ss::vector_<chdb::language_code_t> playback_mpm_t::subtitle_languages() {
-	auto ls = language_state.readAccess();
+	auto ls = stream_state.readAccess();
 	return ls->current_streams.subtitle_langs;
 }
 
@@ -949,52 +926,81 @@ int playback_mpm_t::get_marker_for_time_from_db(db_txn& txn, recdb::marker_t& cu
 	return 0;
 }
 
-
-
-#ifdef NEW_PMT_PROCESSING
-int64_t  playback_mpm_t::read_pmt_data(char* outbuffer, uint64_t numbytes) {
-	auto ls = language_state.readAccess();
+int64_t  playback_mpm_t::read_pmt_data(char* outbuffer, uint64_t num_bytes) {
+	auto ls = stream_state.readAccess();
 	if(num_pmt_bytes_to_send < 0 ) {
 		//initialisation
-		num_pmt_bytes_to_send =  ls->current_streams.pmt_data.size();
-		current_pmt_pid = ls->current_pmt_pid();
-#if 0
-		assert(num_pmt_bytes_to_send >0);
-		assert(current_pmt_pid != 0x1fff);
-#endif
+		num_pmt_bytes_to_send = preferred_streams_pmt_ts.size();
 	}
 
 	if(num_pmt_bytes_to_send > 0) {
-		auto n = std::min(numbytes, (uint64_t)num_pmt_bytes_to_send);
+		auto n = std::min(num_bytes, (uint64_t)num_pmt_bytes_to_send);
 		assert(n > 0);
-		memcpy(outbuffer, ls->current_streams.pmt_data.buffer()
-					 + (ls->current_streams.pmt_data.size() - num_pmt_bytes_to_send), n);
-		printf("sent pmt: pid=%d %d/%d bytes\n", current_pmt_pid, n, num_pmt_bytes_to_send);
+		memcpy(outbuffer,
+					 preferred_streams_pmt_ts.buffer()
+					 + (preferred_streams_pmt_ts.size() - num_pmt_bytes_to_send), n);
 		num_pmt_bytes_to_send -= n;
 		return n;
 	}
 	return 0;
 }
-#endif
 
-#ifdef NEW_PMT_PROCESSING
 /*
 	copy full packets to the mpv buffer, discarding pmt packets
-	numbytes = maximum number of bytes to transfer.
-	Returns number of bytes transfered, which can be smaller if last input packet
-	is not ye complete
+	inbytes = number of bytes that are available and allowed to read in inbuffer
+	outbytes = number of bytes available in outbuffer
+	Returns number of bytes placed in outbuffer,  and number of bytes read from inbuffer
+	Both can be smaller than min(inbytes, outbytes) if last input packet
+	is not yet complete and/or because some input packets are discarded
+	The number of packets read/written can also equal zero
  */
-int64_t playback_mpm_t::copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t numbytes)
+std::tuple<int,int> playback_mpm_t::copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int outbytes, int inbytes)
 {
-	assert (numbytes>0); //our parent should not be called when a new pmt should be sent
-	auto n = numbytes - numbytes % ts_packet_t::size;
-	auto ls = language_state.readAccess();
-	auto bytes_until_pmt_change = ts_packet_t::size * (int64_t) ls->next_streams.packetno_start -
-		(int64_t) current_byte_pos;
-	n = std::min (n, bytes_until_pmt_change);
-	if(n>0)
-		memcpy(outbuffer, inbuffer, n);
-	// save_debug(buffer, n);
-	return n;
+	inbytes -= inbytes % ts_packet_t::size;
+	outbytes -= outbytes % ts_packet_t::size;
+	auto ls = stream_state.readAccess();
+
+	if(inbytes<=0)
+		return {0, 0};
+	auto *inptr = inbuffer;
+	auto *inptr_end = inptr + inbytes;
+	auto *outptr = outbuffer;
+	auto *outptr_end = outptr + outbytes;
+	int num_read{0};
+
+	for (; inptr < inptr_end && outptr < outptr_end; inptr +=  dtdemux::ts_packet_t::size) {
+		int pid = (((uint16_t)(inptr[1] & 0x1f)) << 8) | inptr[2];
+		if (pid == current_pmt.pmt_pid || pid == 0 /*pat*/)
+			continue;
+		memcpy(outptr, inptr, dtdemux::ts_packet_t::size);
+		outptr += dtdemux::ts_packet_t::size;
+		num_read += dtdemux::ts_packet_t::size;
+	}
+	return {num_read, inptr - inbuffer};
 }
-#endif
+
+
+
+/*
+	Possible states:
+	1) num_pmt_bytes_to_send>0: then return pmt bytes to reader until  num_pmt_bytes_to_send=0
+	2) num_pmt_bytes_to_send==0 and  packetno < ls->next_streams.packetno_start:
+     then we are sending filtered stream data: pmt packets are removed, other packets
+		 are passed to reader
+	3)) num_pmt_bytes_to_send==0 and  packetno == ls->next_streams.packetno_start:
+     then we must call pmt call backs and we also must also go to state 1, with  num_pmt_bytes_to_send set
+		 to the size of the newly active pmt
+
+
+   Overall play state:
+    current_streams: current pmt_data + byte at which this became active
+    next_streams: next pmt_data + byte at which this becomes active. packetno_start = -1 means: there is no new pmt
+		currently_playing_file: descriptor of mpm file wich is currently mapped
+		current_byte_pos: position of next byte to read from mpm recording (live or non live)
+		num_pmt_bytes_to_send: if larger than 0, number of pmt bytes still to send before reading from actual recorded stream
+		current_pmt_pid: -> part of current_streams: pmt_pid used to send pmt data
+		currently_playing_recording: overall information about recording (like epg data)
+
+
+
+ */

@@ -152,8 +152,8 @@ namespace dtdemux {
 		void parse_table_header(section_header_t& ret);
 		bool parse_pat_section(pat_services_t& pat_services, section_header_t& hdr);
 		bool parse_pat_section(pat_services_t& pat_services);
-		bool parse_pmt_section(pmt_info_t& pmt, pmt_writer_t& pmt_writer, section_header_t& hdr);
-		bool parse_pmt_section(pmt_info_t& pmt, pmt_writer_t& pmt_writer);
+		bool parse_pmt_section(pmt_info_t& pmt, section_header_t& hdr);
+		bool parse_pmt_section(pmt_info_t& pmt);
 		bool parse_sdt_section(sdt_services_t& ret, section_header_t& hdr);
 		bool parse_sdt_section(sdt_services_t& ret);
 		bool parse_bat_section(bouquet_t& bouquet, section_header_t& hdr, int fst_preferred_region_id);
@@ -173,6 +173,6 @@ namespace dtdemux {
 		bool parse_mhw2_long_summary_section(epg_t& epg, section_header_t& hdr);
 		bool parse_mhw2_long_summary_section(epg_t& epg);
 	};
-
+	pmt_info_t parse_pmt_section(const ss::bytebuffer_& pmt_section_data, uint16_t pmt_pid);
 	bool crc_is_correct(const ss::bytebuffer_& payload);
 };

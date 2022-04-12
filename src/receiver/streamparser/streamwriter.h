@@ -57,7 +57,7 @@ namespace dtdemux {
 
 	struct pat_writer_t : public section_writer_t  {
 		pat_writer_t() =default;
-		void start_section(const pat_services_t& pat, uint16_t service_id, uint16_t pmt_pid);
+		void start_section(uint16_t service_id, uint16_t pmt_pid);
 	};
 
 
@@ -66,7 +66,13 @@ namespace dtdemux {
 		void start_section(const pmt_info_t& pmt_info);
 		void start_es(uint8_t stream_type, uint16_t pid);
 		void add_desc(const descriptor_t& desc, const uint8_t* data);
+		void add_audio_desc(const pmt_info_t& pmt, const audio_language_info_t& ai);
+		void add_subtitle_desc(const pmt_info_t& pmt, const subtitle_info_t& si);
+		std::tuple<chdb::language_code_t, chdb::language_code_t>
+		make(const pmt_info_t& pmt, const ss::vector_<chdb::language_code_t>& audio_prefs,
+				 const ss::vector_<chdb::language_code_t>& subtitle_prefs);
 		void end_es();
+
 		pmt_writer_t() = default;
 
 	};

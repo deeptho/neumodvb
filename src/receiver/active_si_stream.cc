@@ -2553,7 +2553,7 @@ void active_si_stream_t::load_skyuk_bouquet() {
 	txn.abort();
 }
 
-void active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
+reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
 	dtdebugx("pmt received for sid=%d: stopping stream", pmt.service_id);
 	auto& p = pmt_data.by_service_id.at(pmt.service_id);
 	p.parser.reset();
@@ -2586,14 +2586,17 @@ void active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
 			}
 		}
 	}
+	return reset_type_t::NO_RESET;
 }
+
 void active_si_stream_t::add_pmt(uint16_t service_id, uint16_t pmt_pid) {
 	auto [it, inserted] = pmt_data.by_service_id.try_emplace(service_id, pat_service_t{service_id, pmt_pid});
 	auto& p = it->second;
 	if (inserted) {
 		dtdebugx("Adding pmt for analysis: service=%d pmt_pid=%d", (int)service_id, (int)pmt_pid);
 
-		auto pmt_section_cb = [this](const pmt_info_t& pmt, bool isnext) { return this->pmt_section_cb(pmt, isnext); };
+		auto pmt_section_cb = [this](const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
+			return this->pmt_section_cb(pmt, isnext); };
 
 		add_parser<dtdemux::pmt_parser_t>(pmt_pid, service_id)->section_cb = pmt_section_cb;
 

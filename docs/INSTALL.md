@@ -9,8 +9,12 @@ distribution.
 
 On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
 ```
-sudo install -y clang clang-tools-extra libtool boost-program-options boost-regex curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs libX11-devel libglvnd-devel libdvbcsa-devel espeak mesa-dri-drivers
-sudo https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
+sudo dnf install -y clang clang-tools-extra libtool boost-program-options boost-regex curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs libX11-devel libglvnd-devel libdvbcsa-devel espeak mesa-dri-drivers  https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
+```
+
+On Fedora 36:  install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
+```
+sudo dnf install -y cmake clang clang-tools-extra libtool boost-program-options boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel ffmpeg-devel mpv-libs-devel https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-3.30-2710.fc35.x86_64.rpm https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm
 ```
 
 Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
@@ -23,13 +27,21 @@ recent version:
 sudo apt update
 sudo apt upgrade
 sudo apt install build-essential
+sudo add-apt-repository universe
+sudo apt update
 ```
 
 Then  install pre-requisite software:
 ```
-sudo  apt install -y Clang Clang-tools libtool libboost-program-options libboost libboost-regex libboost-context curl libcurl4 libcurl4-opensst-dev liblog4cxx-dev liblog4cxx libconfig-libconfig-dev libwxgtk3.0-gtk3 libgtk-dev freeglut3 freeglut3-dev librsvg2-dev libexif-dev libegobject-introspection libexpat1-dev python3-wxgtk2.4 python3-configobj  python3-sip-dev python3--matplot-lib python3-jinja2 python3-regex python3-scipy wxbase3-dev-wxbase3 wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak
+sudo  apt install -y clang clang-tools libtool libboost-program-options libboost libboost-regex libboost-context curl libcurl4 libcurl4-opensst-dev liblog4cxx-dev liblog4cxx libconfig-libconfig-dev libwxgtk3.0-gtk3 libgtk-dev freeglut3 freeglut3-dev librsvg2-dev libexif-dev libegobject-introspection libexpat1-dev python3-wxgtk2.4 python3-configobj  python3-sip-dev python3--matplot-lib python3-jinja2 python3-regex python3-scipy wxbase3-dev-wxbase3 wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak cmake
 ```
+In ubutu 20.04.4 LTS some of these packages seem unavailable and/or have been renamed
+You could try adding --ignore-missing to the above command line
+and then installing the following packages to fix a few missing things.
+```
+sudo  apt install -y  libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev  python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  mpv-libs-dev libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang
 
+```
 
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
 at least the following packages are needed:
@@ -47,6 +59,7 @@ after installing missing files halfway during compilation, then this may be due 
 cmake version 3.19 should work, but cmake 3.20 will not (probably a bug).
 As a workaround, you can also just remove the precompiled headers. The easiest is:
 ```
+mkdir -p  ~/neumodvb/build
 cd ~/neumodvb/build
 rm -fr *
 cmake ..

@@ -20,7 +20,7 @@
  */
 
 #include "neumodb/chdb/chdb_extra.h"
-#include "linux/dvb/frontend.h"
+#include "receiver/neumofrontend.h"
 #include "stackstring/ssaccu.h"
 #include "xformat/ioformat.h"
 #include <iomanip>

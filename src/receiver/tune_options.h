@@ -45,10 +45,9 @@ enum class subscription_type_t {
 enum class scan_target_t :	int
 {
 	NONE, //keep current status or use default
-	DEFAULT,      //epg scanning and table scanning
-	SCAN_MUX,
 	SCAN_MINIMAL, //NIT, SDT, PAT
 	SCAN_FULL, //NIT, SDT, PAT, all PMTS
+	SCAN_FULL_AND_EPG,      //epg scanning and table scanning
 	DONE,
 };
 
@@ -76,7 +75,7 @@ struct tune_options_t {
 	//retune_mode_t retune_mode{retune_mode_t::ALLOWED}; //positioner not allowed when in positioner_dialog
 	subscription_type_t subscription_type{subscription_type_t::NORMAL};
 
-	explicit tune_options_t(scan_target_t scan_target =  scan_target_t::DEFAULT,
+	explicit tune_options_t(scan_target_t scan_target =  scan_target_t::SCAN_FULL,
 													 tune_mode_t tune_mode= tune_mode_t::NORMAL,
 													subscription_type_t subscription_type = subscription_type_t::NORMAL)
 		: scan_target(scan_target)

@@ -619,22 +619,30 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 	bool need_other = true;
 
 	scan_state.reset();
-
-	if (scan_target == scan_target_t::SCAN_FULL) {
-		do_timeout = true;
-		do_bat = true;
-		need_other = true;
-	}
-	if (scan_target == scan_target_t::SCAN_MINIMAL) {
+	switch(scan_target) {
+	case  scan_target_t::SCAN_MINIMAL: { //PAT, SDT_ACTUAL, NIT_ACTUAL during limited time
 		do_timeout = true;
 		need_other = false;
 	}
-	if (scan_target == scan_target_t::SCAN_MUX) {
+		break;
+	case scan_target_t::SCAN_FULL: { //PAT, SDT_ACTUAL, NIT_ACTUAL, BAT, SDT_OTHER, PMT during limited time
+		do_timeout = true;
+		need_other = true;
+		do_bat = true;
 	}
-	if (scan_target == scan_target_t::DEFAULT) {
+		break;
+	case scan_target_t::SCAN_FULL_AND_EPG: { /*
+																						 PAT, SDT_ACTUAL, NIT_ACTUAL, BAT, SDT_OTHER, PMT, EPG for ever
+																						 used during normal viewing
+																					 */
+		do_timeout = false;
+		need_other = true;
 		do_epg = true;
 		do_bat = true;
-		need_other = true;
+	}
+		break;
+	default:
+		break;
 	}
 
 	if (do_epg && is_skyuk) {
@@ -2340,7 +2348,7 @@ void active_si_stream_t::init_scanning(scan_target_t scan_target_) {
 	scan_done = false;
 	tune_start_time = now;
 	// inited_ = true;
-	scan_target = scan_target_ == scan_target_t::NONE ? scan_target_t::DEFAULT : scan_target_;
+	scan_target = scan_target_ == scan_target_t::NONE ? scan_target_t::SCAN_FULL_AND_EPG : scan_target_;
 	scan_state = scan_state_t();
 
 	// add_table should be called in order of importance and urgency.
@@ -2554,6 +2562,8 @@ void active_si_stream_t::load_skyuk_bouquet() {
 }
 
 reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
+	if(isnext)
+		return reset_type_t::NO_RESET;
 	dtdebugx("pmt received for sid=%d: stopping stream", pmt.service_id);
 	auto& p = pmt_data.by_service_id.at(pmt.service_id);
 	p.parser.reset();

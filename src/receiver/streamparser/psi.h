@@ -145,7 +145,6 @@ namespace dtdemux {
 		uint8_t num_sky_summary_pids{0};
 		uint8_t num_freesat_pids{0};
 		uint64_t stream_packetno_end{0};//position of start of last packet of pmt in stream
-		ss::bytebuffer<1024> sec_data;
 		bool has_freesat_epg = false; //this means a local freesat epg, not the main freesat home transponder
 		bool has_skyuk_epg = false;
 		/*!
@@ -158,7 +157,6 @@ namespace dtdemux {
 			desc1 ... descn (stored contiguously); always with descriptor_tag 9
 		*/
 		ss::bytebuffer<1024> capmt_data;
-		//ss::bytebuffer<1024> pmt_data; //pmt stream descriptors needed for playback
 		ss::vector<pid_info_t, 16> pid_descriptors;
 		ss::vector<ca_info_t, 16> ca_descriptors;
 		ss::vector<service_move_info_t, 4> service_move_descriptors;

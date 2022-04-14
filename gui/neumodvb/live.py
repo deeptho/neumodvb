@@ -537,14 +537,14 @@ class ChEpgGridRow(GridRow):
         for start_col, end_col, epg in ret:
             span = end_col - start_col
             if epg is None: # we need to draw an empty cell
-                cell = self.add_epg_cell(start_time= last_time, span=(1,span), colno = col_offset + start_col,
+                cell = self.add_epg_cell(start_time= last_time, span=(1,span), colno = start_col,
                                          bgcolour=self.grid.gray, ref_for_tab_order=ref)
                 self.epg_cells.append(cell)
                 ref=cell
             else:
                 span  = end_col - start_col
                 #place an actual epg cell
-                cell=self.add_epg_cell(epg=epg, span=(1,span), colno = col_offset + start_col,
+                cell=self.add_epg_cell(epg=epg, span=(1,span), colno = start_col,
                                    bgcolour=self.grid.epg_colour, fgcolour = self.grid.white,
                                    ref_for_tab_order = ref)
                 self.epg_cells.append(cell)
@@ -587,7 +587,7 @@ class ChEpgGridRow(GridRow):
                 assert end_col >= start_col
                 span = min(start_col, self.grid.num_cols) - last_col
             if span>0: # we need to draw an empty cell before the next epg record
-                cell = self.add_epg_cell(start_time= last_time, span=(1,span), colno = col_offset + last_col,
+                cell = self.add_epg_cell(start_time= last_time, span=(1,span), colno = last_col,
                                          bgcolour=self.grid.gray, ref_for_tab_order=ref)
                 self.epg_cells.append(cell)
                 ref=cell
@@ -596,7 +596,7 @@ class ChEpgGridRow(GridRow):
             last_col = min(end_col, self.grid.num_cols)
             span  = last_col - start_col
             if span != 0:
-                cell=self.add_epg_cell(epg=epg_record, span=(1,span), colno = col_offset + start_col,
+                cell=self.add_epg_cell(epg=epg_record, span=(1,span), colno = start_col,
                                    bgcolour=self.grid.epg_colour, fgcolour = self.grid.white,
                                    ref_for_tab_order = ref)
                 self.epg_cells.append(cell)

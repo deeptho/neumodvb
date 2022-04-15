@@ -393,7 +393,7 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def OnSignalInfoUpdate(self, signal_info):
         self.parent.UpdateSignalInfo(signal_info, self.tuned_)
-        si_mux = signal_info.dvbs_mux
+        si_mux = signal_info.si_mux
 
         self.si_freq_text.SetLabel(f'{si_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
                                 if self.signal_info.has_nit else '')
@@ -407,17 +407,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         cn = '' if signal_info.network_id_confirmed  else "?"
         ct = '' if signal_info.ts_id_confirmed  else "?"
         stream = f' stream={mux.stream_id}' if mux.stream_id>=0 else ''
-        if False:
-            if signal_info.network_id_confirmed or signal_info.ts_id_confirmed or mux.stream_id>=0:
-                self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
-            else:
-                self.dvb_ids_text.SetLabel(f'nid={mux.k.network_id}{cn}, ts={mux.k.ts_id}{ct}{stream}' if locked else '')
         if not locked:
             self.ClearSignalInfo()
             return
         else:
             pass
-        si_mux = self.signal_info.si_mux
         sat_text = f'{pychdb.sat_pos_str(si_mux.k.sat_pos)}' if self.signal_info.has_nit else ''
         nid_text = f'{si_mux.k.network_id}' if self.signal_info.has_nit else ''
         tid_text = f'{si_mux.k.ts_id}' if self.signal_info.has_nit else ''

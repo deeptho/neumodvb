@@ -851,12 +851,14 @@ class SpectrumPlot(wx.Panel):
         self.current_annot = annot
         self.canvas.draw()
 
-    def set_current_annot_status(self, mux, locked):
+    def set_current_annot_status(self, mux, si_or_driver_mux, locked):
         if self.current_annot is None:
             return
         spectrum = self.current_annot.tp.spectrum
         if spectrum.annot_for_mux(mux) != self.current_annot:
             return
+        freq, symbol_rate = int(si_or_driver_mux.frequency/1000), int(si_or_driver_mux.symbol_rate/1000),
+        self.current_annot.set_text(f"{freq:8.3f}{spectrum.pol} \n{symbol_rate}kS/s ")
         self.current_annot.tp.scan_ok = locked
         self.current_annot.tp.scan_failed = not locked
         color = 'green' if locked  else 'red'

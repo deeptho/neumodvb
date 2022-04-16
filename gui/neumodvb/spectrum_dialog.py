@@ -282,7 +282,7 @@ class SpectrumDialog(SpectrumDialog_):
             m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)
             title = "Blindscan spectrum finished"
             msg = f"Scanned {self.blindscan_num_muxes} (Locked: {self.blindscan_num_locked_muxes}; " \
-                f"DVB: {self.blindscan_num_si_muxes}) muxes in {m}min {s}seconds"
+                f"DVB: {self.blindscan_num_si_muxes}) muxes in {m}min {s}s"
             dtdebug(msg)
             ShowMessage(title, msg)
             self.spectrum_buttons_panel.blindscan_button.SetValue(0)
@@ -362,7 +362,7 @@ class SpectrumDialog(SpectrumDialog_):
                     self.blindscan_num_nonlocked_muxes += not self.signal_info.has_lock
                     self.blindscan_num_si_muxes += (self.signal_info.has_nit or self.signal_info.has_sdt or self.signal_info.has_pat)
                     dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done}")
-                    self.spectrum_plot.set_current_annot_status(mux, self.signal_info.has_lock)
+                    self.spectrum_plot.set_current_annot_status(mux, self.signal_info.si_mux, self.signal_info.has_lock)
                     if self.is_blindscanning:
                         tp = self.tp_being_scanned
                         if not hasattr(tp, 'isis_present'):

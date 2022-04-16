@@ -19,7 +19,7 @@ blind scan and provides some details on the related parts of the screen
 ![Spectrum scan](images/spectrum.png)
 
 
-### Starting a spectrum scan ###
+### Starting a spectrum acquisition ###
 Proceed as follows
 
 * At the very bottom left on the screen, first select the polarizations you want to scan. Also select the frequency
@@ -69,12 +69,24 @@ contains the spectra you captured earlier and will of course initially be empty.
 of the spectra, will add it as an additional graph in the plot, or remove it if it was already there.
 
 So what exactly is in these plots? Internally in the drivers, an algorithm detects peaks in the spectrum,
-and estimates their center frequencies and bandwidths. From the bandwidths, neumoDVB estimates the symbol rate
-of the corresponding mux. This information is shown using vertical and horizontal lines. For narrow band transponders,
+and estimates their center frequencies and bandwidths. From the bandwidths, neumoDVB **estimates** the symbol rate
+of the corresponding mux. This estimate is very rough and is derived from the width of the spectral peaks and
+does not take into account the specific modulation of the mux, which is not known at this stage. In fact, it is
+not even known that a discovered peak is actually a real mux.
+
+This information is shown using vertical and horizontal lines. For narrow band transponders,
 these annotations could quickly become a confusing and overlapping mess. neumoDVB tries to prevent this
 by shifting text up as needed. Sometimes this may lead to to the text being above the visible part of the plot.
 Use the panning facilities in this case.
 
+**new from neumoDVB 0.8:**
+After blindscanning a mux (see below), the frequency and symbolrate of a peak is updated with the information received
+from the demodulator and -- when available -- with the values reported in the DVB service information of the mux. The latter
+always takes precedence. It is usually more accurate, but sometimes it is also completely wrong due to an error by the broadcaster.
+Really large errors are ignored by neumoDVB, but smaller ones cannot be detected and are not corrected.
+
+The color of the text on a peak reflects the scan status: green if a the mux was successfully locked and scanned,
+red if no lock was achieved and black in all other cases. Only the green values are reliable.
 
 ### Blind scanning muxes ###
 

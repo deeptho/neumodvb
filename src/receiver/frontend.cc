@@ -1071,7 +1071,7 @@ void cmdseq_t::init_pls_codes() {
 		make_code(0, 133460),
 		make_code(1, 174526),
 		// In use on 33E
-		make_code(0, 218987) // todo: max is 8 codes
+		make_code(0, 218997)
 	};
 }
 

@@ -56,16 +56,9 @@ static float windowed_max(float* p, int starti, int endi) {
                              x2+w
 
 */
-static bool overlapping_la(int x1, float y1, int x2, float y2, int w, int h) {
-	if (x2 >= x1 + w)
-		return false;
-	assert(x2 >= x1);
-	if (y2 >= y1 + h)
-		return false;
-	return true;
-}
 
 /*
+
 overlapping when left + right aligned
 
 
@@ -89,6 +82,33 @@ overlapping when left + right aligned
                              x2+w
 
  */
+
+
+static bool overlapping(int x1, float y1, int x2, float y2, int w, int h) {
+	if(x2< x1) {
+		std::swap(x1, x2);
+		std::swap(y1, y2);
+	}
+	if (x2 >= x1 + w)
+		return false;
+	assert(x2 >= x1);
+	if (y2 >= y1 + h)
+		return false;
+	if (y2 <= y1 - h)
+		return false;
+	return true;
+}
+
+
+static bool horizontally_overlapping(int x1, int x2, int w, int h) {
+	if(x2< x1) {
+		std::swap(x1, x2);
+	}
+	if (x2 >= x1 + w)
+		return false;
+	return true;
+}
+
 
 
 /*
@@ -126,10 +146,12 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 
 	std::vector<float> lefty;
 	std::vector<float> righty;
-	lefty.resize(na);	 // labels right aligned, vertical position increases from left to right
-	righty.resize(na); // labels left aligned, vertical position increases from right to left
-
-	float scale = 1.0;
+	lefty.resize(na);	 /* labels right aligned, vertical position increases from left to right
+												lefty[i] is the height of the label whose right side has x-coordinate px[i]
+										 */
+	righty.resize(na); /* labels left aligned, vertical position increases from right to left
+												lefty[i] is the height of the label whose left side has x-coordinate px[i]
+										 */
 	float initial_maxy = std::numeric_limits<float>::lowest();
 	float initial_miny = std::numeric_limits<float>::max();
 	for (int i = 0; i < n; ++i) {
@@ -137,68 +159,133 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 		initial_miny = std::min(initial_miny, psig[i]);
 	}
 
-	for (int attempt = 0; attempt < 1; ++attempt) {
-		float max_increase = std::numeric_limits<float>::lowest();
-		float y_at_max_increase = psig[0];
-		for (int i = 0; i < na; ++i) {
-			auto x = px[i];
-			assert(x < n);
-			lefty[i] = windowed_max(psig, std::max(0, x - w), x) + offset * scale;
-			if (i > 0 && overlapping_la(px[i - 1] - w, lefty[i - 1], x - w, lefty[i], w, h * scale))
-				lefty[i] = lefty[i - 1] + h;
-		}
-
-		for (int i = na - 1; i >= 0; --i) {
-			auto x = px[i];
-
-			assert(x < n);
-			righty[i] = windowed_max(psig, x, std::min(n, x + w)) + offset;
-			if (i < na - 1 &&
-					overlapping_la(nx - 1 - px[i + 1] - w, righty[i + 1], nx - 1 - x - w, righty[i], w, h * scale)) {
-				righty[i] = righty[i + 1] + h;
+	auto left_overlapping = [&](int i) ->std::tuple<bool, float> {
+		float worst;
+		bool overlap =false;
+		for (int j=i-1; j>=0 ; --j) {
+			if (px[j] <= px[i] -w) {
+				//no overlap possible
+				return {overlap, worst};
+			}
+			if (horizontally_overlapping(px[j] -w ,  px[i] -w , w, h)) {
+				if(overlap)
+					worst = std::max(worst, lefty[j]);
+				else
+					worst = lefty[j];
+				overlap = true;
 			}
 		}
+			return {overlap, worst};
+	};
 
-		float maxy = std::numeric_limits<float>::lowest();
-		for (int i = 0; i < na; ++i) {
-			auto y1 = lefty[i];
-			auto y2 = righty[i];
-#if 1
-			if (i > 0 && plr[i - 1] == 0 &&		 // this sticks out to the right and is left aligned
-					(px[i - 1] + w > px[i] - w) && // there is horizontal overlap
-					(y1 <= py[i - 1] + h * scale)	 // and the rightmost box is lower
-				) {
-				// sticking out to the left is not allowed
-				plr[i] = 0;
-				py[i] = y2;
+	for (int i = 0; i < na; ++i) {
+		auto x = px[i];
+		assert(x < n);
+		lefty[i] = windowed_max(psig, std::max(0, x +1 - w), x+1) + offset;
+		if (i > 0) {
+			auto [overlap, worst ] = left_overlapping(i);
+			if(overlap)
+				lefty[i] = std::max(lefty[i], worst + h);
+		}
+	}
+
+
+	auto right_overlapping = [&](int i) ->std::tuple<bool, float> {
+		float worst;
+		bool overlap =false;
+		for (int j=i+1; j<na ; ++j) {
+			if (px[j] >= px[i] + w) {
+				//no overlap possible
+				return {overlap, worst};
+			}
+			if (horizontally_overlapping(px[j], px[i], w, h)) {
+				if (overlap)
+					worst = std::max(worst, righty[j]);
+				else
+					worst = righty[j];
+				overlap = true;
+			}
+		}
+			return {overlap, worst};
+	};
+
+
+	for (int i = na - 1; i >= 0; --i) {
+		auto x = px[i];
+
+		assert(x < n);
+		righty[i] = windowed_max(psig, x, std::min(n, x + w)) + offset;
+		if (i < na - 1) {
+			auto [overlap, worst ] = right_overlapping(i);
+			if(overlap)
+				righty[i] = std::max(righty[i], worst + h);
+		}
+	}
+
+	float maxy = std::numeric_limits<float>::lowest();
+	for (int i = 0; i < na; ++i) {
+		auto y1 = lefty[i];
+		auto y2 = righty[i];
+			if ( i==0) {
+				plr[i] = 1; //make i stick out to the left
+				py[i] = y1;
 			} else {
-				plr[i] = (y1 <= y2);
-				py[i] = std::min(y1, y2);
+				if(plr[i - 1] == 0) {
+					/*i-1 sticks out to the right and is left aligned
+						we decide if we continue like that for i (which means we follow the increasing trend),
+						or rather make i stick out to the left.
+						The latter is useful only if y1 < y2 - h
+						It is possible only if there is no overlap between i pointing to the left and
+						any i-j sticking out to the right
+					*/
+					auto left_overlapping = [&]() {
+						for (int j=i-1; j>=0 ; --j) {
+							if (px[j]+w <= px[i] -w) {
+								//no overlap possible
+								return false;
+							}
+							if (plr[j] ==0) {
+								//j sticks out to the right and is left aligned
+								if (overlapping(px[j], py[j], px[i] -w , y1, w, h))
+									return true;
+							} else {
+								//j sticks out to the left and is right aligned
+								if (overlapping(px[j] -w, py[j], px[i] -w , y1, w, h))
+									return true;
+							}
+						}
+						return false;
+					};
+
+					if (y1 < y2 - h && ! left_overlapping()) {
+						plr[i] = 1; //make i stick out to the left
+						py[i] = y1;
+					} else {
+						//continue sticking out to the right
+						plr[i] = 0;
+						py[i] = y2;
+					}
+				} else {
+					/*i-1 sticks out to the left and is right aligned
+						we decide if we continue like that for i, or rather make i stick out to the right.
+						The latter is useful only if y2 < y1 - h
+						This is always possible because there can be no overlap
+					*/
+					if (y2 < y1 - h) {
+						plr[i] = 0; //make i stick out to the right
+						py[i] = y2;
+					} else {
+						//continue sticking out to the left
+						plr[i] = 1;
+						py[i] = y1;
+					}
+				}
 			}
 			maxy = std::max(py[i], maxy);
 			auto increase = py[i] - psig[px[i]];
-			if (increase > max_increase) {
-				y_at_max_increase = psig[px[i]];
-				max_increase = increase;
-			}
-#else
-			plr[i] = false;
-			py[i] = y2;
-
-#endif
-		}
-		// scale = (initial_maxy-initial_miny) / (maxy -initial_miny);
-
-		/*(1/scale)*(y_at_max_increase-initial_miny) + max_increase = (initial_maxy- initial_miny);
-		 */
-		scale = (initial_maxy + h + offset - initial_miny - max_increase) < 0
-			? 2
-			: (y_at_max_increase - initial_miny + h + offset) /
-			(initial_maxy + h + offset - initial_miny - max_increase);
 	}
-	scale = 1.0;
-	return py::make_tuple(annoty, leftrightflag, initial_miny,
-												h + offset + scale * (initial_maxy - initial_miny) + initial_miny);
+
+	return py::make_tuple(annoty, leftrightflag);
 }
 
 

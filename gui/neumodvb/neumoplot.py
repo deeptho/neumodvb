@@ -261,6 +261,7 @@ class Spectrum(object):
         self.vlines = None
         self.hlines = None
         self.annot_box = ((0,0))
+        self.annot_maxy = None
         self.xlimits = None # minimal and maximal frequency in this plot (initially unknown)
         self.ylimits = None # minimal and maximal signal in this plot (initially unknown)
 
@@ -279,9 +280,6 @@ class Spectrum(object):
             for a in self.spectrum_graph:
                 a.remove()
         self.spectrum_graph = None
-        for a in self.annots:
-            a.remove()
-        self.annots = []
         if self.vlines is not None:
             self.vlines.remove()
             self.vlines = None
@@ -391,7 +389,7 @@ class Spectrum(object):
         else:
             self.detrend_band(self.spec, 0, self.spec.shape[0])
 
-    def ann_tps(self, tpsk, spec, offset=-64, xoffset=0, yoffset=3):
+    def ann_tps(self, tpsk, spec, offset=-64, xoffset=0):
         self.annots =[]
         if len(tpsk) == 0:
             return
@@ -402,36 +400,44 @@ class Spectrum(object):
         l = np.min(spec[0,0])
         r = np.max(spec[-1,0])
         bb = self.annot_size()
+        if bb is None:
+            return
         self.annot_box = (bb.width, bb.height*2/1000)
         xscale = (len(spec[:,0])-1)/(r - l)
-        w = xscale*bb.width #in integer units
-        h = bb.height *2 #in units of snr
+        w = bb.width #in integer units of Mhz
+        h = bb.height * 1.5 #in units of snr dB
 
         n = len(spec[:,0])
         w = int(w)
         idxs =  np.searchsorted(spec[:,0], f, side='left')
-        offset = h
+        offset = h*1.5*1000
         self.pol = enum_to_str (self.spectrum.k.pol)
-        annoty, lrflag, a, b = pyspectrum.find_annot_locations(spec[:,1], idxs, w, h, offset)
+        annoty, lrflag = pyspectrum.find_annot_locations(spec[:,1], idxs,
+                                                                     int(w*xscale), int(h*1.5*1000), offset)
+        self.annot_maxy = annoty.max()/1000
+        annoty /= 1000
         hlines = []
-        yoffset =1.
-        for idx, ay, flag, tp in zip(idxs, annoty, lrflag, self.tps):
-            pt=[tp.freq, ay/1000.+yoffset]
+        yoffset1 = h
+        yoffset2 = 2
+        sig = (spec[idxs,1])/1000 + yoffset1
+        vline_top = []
+        bbs =[]
+        for ay, s, flag, tp in zip(annoty, sig, lrflag, self.tps):
+            pt=[tp.freq, s]
+            pttext=[tp.freq + (0 if flag else w/10), ay]
             xoffset = 0
             annot=self.axes.annotate(f"{tp.freq:8.3f}{self.pol} \n{int(tp.symbol_rate)}kS/s ", \
-                                     pt, xytext=(pt[0], pt[1]), \
+                                     pt, xytext=pttext, xycoords='data', \
                                      ha='right' if flag else 'left', fontsize=8)
             annot.tp = tp
             annot.set_picker(True)  # Enable picking on the legend line.
             self.annots.append(annot)
-        sig = (spec[idxs,1])/1000. +yoffset
-        self.vlines = self.axes.vlines(f, sig, annoty/1000 +yoffset, color='black')
+        self.vlines = self.axes.vlines(f, sig,  annoty+h/2, color='black')
         self.vlines.set_picker(True)  # Enable picking on the legend line.
         bw =  tpsk[:,1]/2000000
         self.hlines = self.axes.hlines(sig, f-bw, f+bw, color=self.color)
         self.hlines.set_picker(True)  # Enable picking on the legend line.
 
-        #self.axes.xaxis.zoom((r-l)/1000)
 
     def process(self, specname, tpsname):
         self.plot_spec(specname)
@@ -440,9 +446,9 @@ class Spectrum(object):
         self.make_tps(tpsname)
 
         #set xlimits prior to annotation to ensure the computation
-        #which ensures annotations are not overlapping has the proper coordinate system
+        #which prevents annotations from overlapping has the proper coordinate system
         self.xlimits = int(self.spec[0,0]), int(self.spec[-1,0])
-        self.ylimits = [np.min(self.spec[:,1]),  np.max(self.spec[:,1])]
+        self.ylimits = [np.min(self.spec[:,1])/1000,  np.max(self.spec[:,1])/1000]
         xlimits, ylimits = self.parent.get_limits() #takes into account all spectra
 
         if ylimits[1] != ylimits[0]:
@@ -453,7 +459,7 @@ class Spectrum(object):
 
         #set final limits
         self.xlimits = (int(self.spec[0,0]), int(self.spec[-1,0] ))
-        self.ylimits = (ylimits[0]/1000, ylimits[1]/1000 +self.annot_box[1])
+        self.ylimits = (ylimits[0], ylimits[1] if self.annot_maxy is None else self.annot_maxy )
         self.parent.get_limits.cache_clear() #needs update!
         xlimits, ylimits = self.parent.get_limits()
 
@@ -583,7 +589,7 @@ class SpectrumPlot(wx.Panel):
         super().__init__(parent, *args, **kwargs)
         self.xlimits = None
         self.ylimits = None
-        self.zoom_bandwidth=500 #zoom all graphs to this amount of spectrum, to avpid overlapping annotations
+        self.zoom_bandwidth=500 #zoom all graphs to this amount of spectrum, to avoid overlapping annotations
         self.parent = parent
         self.spectrum = pystatdb.spectrum.spectrum()
         self.scrollbar = wx.ScrollBar(self)

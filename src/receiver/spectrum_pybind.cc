@@ -84,30 +84,44 @@ overlapping when left + right aligned
  */
 
 
-static bool overlapping(int x1, float y1, int x2, float y2, int w, int h) {
+static bool overlapping(int x1, float y1, int x2, float y2, int w1, int h1, int w2, int h2) {
 	if(x2< x1) {
 		std::swap(x1, x2);
-		std::swap(y1, y2);
+		std::swap(w1, w2);
 	}
-	if (x2 >= x1 + w)
+	if(y2< y1) {
+		std::swap(y1, y2);
+		std::swap(h1, h2);
+	}
+	if (x2 >= x1 + w1)
 		return false;
 	assert(x2 >= x1);
-	if (y2 >= y1 + h)
+	if (y2 > y1 + h1)
 		return false;
-	if (y2 <= y1 - h)
+	if (y2 +h2 < y1)
 		return false;
 	return true;
 }
 
 
-static bool horizontally_overlapping(int x1, int x2, int w, int h) {
+static bool horizontally_overlapping(int x1, int x2, int w1, int w2) {
 	if(x2< x1) {
 		std::swap(x1, x2);
+		std::swap(w1, w2);
 	}
-	if (x2 >= x1 + w)
+	if (x2 >= x1 + w1)
 		return false;
 	return true;
 }
+
+enum {
+	STICK_OUT_RIGHT = 0,
+	STICK_OUT_LEFT = 1,
+	STICK_OUT_MASK = 1,
+	DOUBLE_LINE = 0,
+	SINGLE_LINE = 2,
+	LINE_MASK = 2,
+} annot_flags_t;
 
 
 
@@ -123,7 +137,8 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 		throw std::runtime_error("Bad number of dimensions");
 	auto* psig = (float*)infosig.ptr;
 	int stridesig = infosig.strides[0] / sizeof(int);
-
+	int w2 = w*2;
+	int h2 = h/2*1.2;
 	py::buffer_info infoannotx = annotx.request();
 	if (infoannotx.ndim != 1)
 		throw std::runtime_error("Bad number of dimensions");
@@ -140,9 +155,10 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 	py::buffer_info infoleftrightflag = leftrightflag.request();
 	// int strideannoty = infoannoty.strides[0]/sizeof(int);
 	auto* plr = (uint8_t*)infoleftrightflag.ptr;
-
 	int n = infosig.shape[0];
 	int na = infoannotx.shape[0];
+	auto plr_left = std::vector<uint8_t>(na, 0);
+	auto plr_right = std::vector<uint8_t>(na, 0);
 
 	std::vector<float> lefty;
 	std::vector<float> righty;
@@ -163,11 +179,13 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 		float worst;
 		bool overlap =false;
 		for (int j=i-1; j>=0 ; --j) {
-			if (px[j] <= px[i] -w) {
+			if (px[j] <= px[i] - w2) {
 				//no overlap possible
 				return {overlap, worst};
 			}
-			if (horizontally_overlapping(px[j] -w ,  px[i] -w , w, h)) {
+			int wj = (plr_left[j] & SINGLE_LINE) ? w2 : w;
+			int wi = (plr_left[i] & SINGLE_LINE) ? w2 : w;
+			if (horizontally_overlapping(px[j] -wj ,  px[i] -wi , wj, wi)) {
 				if(overlap)
 					worst = std::max(worst, lefty[j]);
 				else
@@ -181,11 +199,19 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 	for (int i = 0; i < na; ++i) {
 		auto x = px[i];
 		assert(x < n);
-		lefty[i] = windowed_max(psig, std::max(0, x +1 - w), x+1) + offset;
 		if (i > 0) {
 			auto [overlap, worst ] = left_overlapping(i);
-			if(overlap)
-				lefty[i] = std::max(lefty[i], worst + h);
+			if(overlap) {
+				lefty[i] = windowed_max(psig, std::max(0, x + 1 - w2), x+1) + offset;
+				lefty[i] = std::max(lefty[i], worst) +
+					((plr_left[i-1] & SINGLE_LINE) ? h : h)*1.5;
+			} else {
+				lefty[i] = windowed_max(psig, std::max(0, x + 1 - w), x+1) + offset;
+			}
+			plr_left[i] = (overlap ? SINGLE_LINE : DOUBLE_LINE) | STICK_OUT_LEFT;
+		} else {
+			lefty[i] = windowed_max(psig, std::max(0, x + 1 - w), x+1) + offset;
+			plr_left[i] = DOUBLE_LINE | STICK_OUT_LEFT;
 		}
 	}
 
@@ -194,11 +220,14 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 		float worst;
 		bool overlap =false;
 		for (int j=i+1; j<na ; ++j) {
-			if (px[j] >= px[i] + w) {
+			if (px[j] >= px[i] + w2) {
 				//no overlap possible
 				return {overlap, worst};
 			}
-			if (horizontally_overlapping(px[j], px[i], w, h)) {
+			int wj = (plr_right[j] & SINGLE_LINE) ? w2 : w;
+			int wi = (plr_right[i] & SINGLE_LINE) ? w2 : w;
+
+			if (horizontally_overlapping(px[j], px[i], wj, wi)) {
 				if (overlap)
 					worst = std::max(worst, righty[j]);
 				else
@@ -214,11 +243,19 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 		auto x = px[i];
 
 		assert(x < n);
-		righty[i] = windowed_max(psig, x, std::min(n, x + w)) + offset;
 		if (i < na - 1) {
 			auto [overlap, worst ] = right_overlapping(i);
-			if(overlap)
-				righty[i] = std::max(righty[i], worst + h);
+			if(overlap) {
+				righty[i] = windowed_max(psig, x, std::min(n, x + w2)) + offset;
+				righty[i] = std::max(righty[i], worst) +
+					((plr_right[i+1] & SINGLE_LINE) ? h2 : h)*1.5;
+			} else {
+				righty[i] = windowed_max(psig, x, std::min(n, x + w)) + offset;
+			}
+			plr_right[i] = (overlap ? SINGLE_LINE : DOUBLE_LINE) | STICK_OUT_RIGHT;
+		} else {
+			righty[i] = windowed_max(psig, x, std::min(n, x + w)) + offset;
+			plr_right[i] = DOUBLE_LINE | STICK_OUT_RIGHT;
 		}
 	}
 
@@ -227,10 +264,46 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 		auto y1 = lefty[i];
 		auto y2 = righty[i];
 			if ( i==0) {
-				plr[i] = 1; //make i stick out to the left
+				plr[i] = plr_left[i]; //make i stick out to the left
 				py[i] = y1;
 			} else {
-				if(plr[i - 1] == 0) {
+				auto left_overlapping = [&]() {
+					for (int j=i-1; j>=0 ; --j) {
+						if (px[j]+w2 <= px[i] -w2) {
+							//no overlap possible
+							return false;
+						}
+						if ((plr[j] & STICK_OUT_MASK) == STICK_OUT_RIGHT) {
+							//j sticks out to the right and is left aligned
+							bool j_is_one_line = (plr_right[j] & LINE_MASK) == SINGLE_LINE;
+							bool i_is_one_line = (plr_left[j] & LINE_MASK) == SINGLE_LINE;
+							int wj = j_is_one_line ? w2: w;
+							int hj = j_is_one_line ? h2: h;
+							hj=h*1.5;
+							int wi = i_is_one_line ? w2: w;
+							wi =w2;
+
+							int hi = i_is_one_line ? h2: h;
+							hi=h*1.5;
+							if (overlapping(px[j], py[j], px[i] -wi, y1, wj, hj, wi, hi))
+								return true;
+						} else {
+							//j sticks out to the left and is right aligned
+							bool j_is_one_line = (plr_left[j] & LINE_MASK) == SINGLE_LINE;
+							bool i_is_one_line = (plr_left[j] & LINE_MASK) == SINGLE_LINE;
+							int wj = j_is_one_line ? w2: w;
+							int hj = j_is_one_line ? h2: h;
+							hj=h;
+							int wi = i_is_one_line ? w2: w;
+							int hi = i_is_one_line ? h2: h;
+							hi=h;
+							if (overlapping(px[j] -wj, py[j], px[i] -wi, y1, wj, hj, wi, hi))
+								return true;
+						}
+					}
+					return false;
+				};
+				if((plr[i - 1] & STICK_OUT_MASK) == STICK_OUT_RIGHT) {
 					/*i-1 sticks out to the right and is left aligned
 						we decide if we continue like that for i (which means we follow the increasing trend),
 						or rather make i stick out to the left.
@@ -238,45 +311,28 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 						It is possible only if there is no overlap between i pointing to the left and
 						any i-j sticking out to the right
 					*/
-					auto left_overlapping = [&]() {
-						for (int j=i-1; j>=0 ; --j) {
-							if (px[j]+w <= px[i] -w) {
-								//no overlap possible
-								return false;
-							}
-							if (plr[j] ==0) {
-								//j sticks out to the right and is left aligned
-								if (overlapping(px[j], py[j], px[i] -w , y1, w, h))
-									return true;
-							} else {
-								//j sticks out to the left and is right aligned
-								if (overlapping(px[j] -w, py[j], px[i] -w , y1, w, h))
-									return true;
-							}
-						}
-						return false;
-					};
 
 					if (y1 < y2 - h && ! left_overlapping()) {
-						plr[i] = 1; //make i stick out to the left
+						plr[i] = plr_left[i]; //make i stick out to the left
 						py[i] = y1;
+						//+ (((plr_left[i] & LINE_MASK) == SINGLE_LINE)? h2:h);
+
 					} else {
 						//continue sticking out to the right
-						plr[i] = 0;
+						plr[i] = plr_right[i];
 						py[i] = y2;
 					}
 				} else {
 					/*i-1 sticks out to the left and is right aligned
 						we decide if we continue like that for i, or rather make i stick out to the right.
 						The latter is useful only if y2 < y1 - h
-						This is always possible because there can be no overlap
 					*/
-					if (y2 < y1 - h) {
-						plr[i] = 0; //make i stick out to the right
+					if (y2 < y1 - h  || left_overlapping()) {
+						plr[i] = plr_right[i]; //make i stick out to the right
 						py[i] = y2;
 					} else {
 						//continue sticking out to the left
-						plr[i] = 1;
+						plr[i] = plr_left[i];
 						py[i] = y1;
 					}
 				}

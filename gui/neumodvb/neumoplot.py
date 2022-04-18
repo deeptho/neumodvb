@@ -50,8 +50,6 @@ import pystatdb
 import pychdb
 import datetime
 
-
-
 #horrible hack: matplotlib (in neumplot.py) uses the presence of this module to decide what backend to
 #use and then refuses to use wx
 del sys.modules['gi.repository.Gtk']
@@ -244,7 +242,6 @@ def combine_ranges(a, b):
     return (min(a[0], b[0]), max(a[1], b[1]))
 
 class Spectrum(object):
-    annot_size_ = None
     def __init__(self, parent, spectrum, color):
         self.spectrum = spectrum
         self.parent = parent
@@ -310,33 +307,6 @@ class Spectrum(object):
                 found = annot
                 best = delta
         return found
-    def show1(self):
-        assert self.drawn
-        if self.drawn:
-            #dtdebug('clearing plot')
-            #self.axes.clear()
-            pass#self.clear()
-        self.ann_tps(self.peak_data, self.spec)
-
-        #set final limits
-        xlimits, ylimits = self.parent.get_limits()
-        self.xlimits = (int(self.spec[0,0]), int(self.spec[-1,0] ))
-        self.ylimits = (ylimits[0], ylimits[1] if self.annot_maxy is None else self.annot_maxy )
-        self.parent.get_limits.cache_clear() #needs update!
-        xlimits, ylimits = self.parent.get_limits()
-        print(f'H4: set_ylim: {ylimits}')
-        self.axes.set_ylim(ylimits)
-        self.axes.set_xlim(xlimits)
-
-
-        #self.pan_spectrum(0)
-        self.parent.pan_band(self.spec[0,0])
-        xlimits, ylimits = self.parent.get_limits()
-        offset = 0 if self.parent.pan_start_freq is None else self.parent.pan_start_freq - xlimits[0]
-
-        self.parent.scrollbar.SetScrollbar(offset, self.parent.zoom_bandwidth, xlimits[1] - xlimits[0], 200)
-        self.parent.canvas.draw()
-        self.parent.Refresh()
     def show(self):
         if self.drawn:
             #dtdebug('clearing plot')
@@ -371,31 +341,12 @@ class Spectrum(object):
         a = self.spec[:,1]
 
         self.spectrum_graph = self.axes.plot(t, a/1000,label=self.label, color=self.color)
-
-    def annot_size(self, prefix=""):
-        cls = type(self)
-        if cls.annot_size_ is None:
-            r = self.figure.canvas.get_renderer()
-            t = self.axes.text(11000, 10, '10841.660V/H \n10841.660V/H ', fontsize=8)
-            bb = t.get_window_extent(renderer=r).transformed(self.axes.transData.inverted())
-            t.remove()
-            print(f'UPDATE ANNOT: {cls.annot_size_} {bb}')
-            cls.annot_size_ = bb
-            cls.annot_size_ = 1
-            wx.CallAfter(self.annot_size)
-            return None
-        if cls.annot_size_ == 1:
-            r = self.figure.canvas.get_renderer()
-            t = self.axes.text(11000, 10, '10841.660V/H \n10841.660V/H ', fontsize=8)
-            bb = t.get_window_extent(renderer=r).transformed(self.axes.transData.inverted())
-            t.remove()
-            print(f'UPDATE ANNOT1: {cls.annot_size_} {bb}')
-            cls.annot_size_ = bb
-            wx.CallAfter(self.show1)
-            return None
-        else:
-            print(f'UPDATE ANNOT2: {cls.annot_size_} {cls.annot_size_}')
-        return cls.annot_size_
+    def annot_size(self):
+        s = self.parent.annot_scale_factors
+        xlimits, ylimits = self.parent.get_limits()
+        sx, sy = s[0] * self.parent.zoom_bandwidth,  s[1] * (ylimits[1] - ylimits[0])
+        dtdebug(f'annot_size: sx={sx} sy={sy} {xlimits} {ylimits}')
+        return sx, sy
 
     def detrend_band(self, spec, lowidx, highidx):
         """
@@ -439,17 +390,10 @@ class Spectrum(object):
             return
         f = tpsk[:,0]
         #setting this is needed to calibrate coordinate system
-        a = np.min(spec[:,1])
-        b = np.max(spec[:,1])
         l = np.min(spec[0,0])
         r = np.max(spec[-1,0])
-        bb = self.annot_size()
-        if bb is None:
-            return
-        self.annot_box = (bb.width, bb.height*2/1000)
+        w, h = self.annot_size() # un units of Mhz and dB
         xscale = (len(spec[:,0])-1)/(r - l)
-        w = bb.width #in integer units of Mhz
-        h = bb.height * 1.5 #in units of snr dB
 
         n = len(spec[:,0])
         w = int(w)
@@ -457,7 +401,7 @@ class Spectrum(object):
         offset = h*1.5*1000
         self.pol = enum_to_str (self.spectrum.k.pol)
         annoty, lrflag = pyspectrum.find_annot_locations(spec[:,1], idxs,
-                                                                     int(w*xscale), int(h*1.5*1000), offset)
+                                                         int(w*xscale), int(h*1.8*1000), offset)
         self.annot_maxy = annoty.max()/1000
         annoty /= 1000
         hlines = []
@@ -470,9 +414,11 @@ class Spectrum(object):
             pt=[tp.freq, s]
             pttext=[tp.freq + (0 if flag else w/10), ay]
             xoffset = 0
-            annot=self.axes.annotate(f"{tp.freq:8.3f}{self.pol} \n{int(tp.symbol_rate)}kS/s ", \
+            txt = f"{tp.freq:8.3f}{self.pol} {int(tp.symbol_rate)}kS/s " if (flag & 2) \
+                else f"{tp.freq:8.3f}{self.pol} \n{int(tp.symbol_rate)}kS/s ";
+            annot=self.axes.annotate(txt, \
                                      pt, xytext=pttext, xycoords='data', \
-                                     ha='right' if flag else 'left', fontsize=8)
+                                     ha='right' if (flag & 1) else 'left', fontsize=8)
             annot.tp = tp
             annot.set_picker(True)  # Enable picking on the legend line.
             self.annots.append(annot)
@@ -676,6 +622,8 @@ class SpectrumPlot(wx.Panel):
         self.pan_start_freq = None
         self.add_detrend_button()
         self.add_status_box()
+        wx.CallAfter(self.compute_annot_scale_factors)
+
     def set_modifiers(self, event):
         if 'shift' in event.key:
             self.shift_is_held = True
@@ -794,6 +742,23 @@ class SpectrumPlot(wx.Panel):
         wx.CallAfter(self.parent.Refresh)
 
         return False
+
+    def compute_annot_scale_factors(self):
+        """
+        computes self.annot_scale_factors
+        when these are multiplied by the x and y limits of the the graph
+        we will get the correct bounding box of double line annotions
+        """
+        r = self.figure.canvas.get_renderer()
+        x = self.zoom_bandwidth
+        y = 80*2
+        self.axes.set_xlim([0, x ])
+        self.axes.set_ylim([0, y ])
+        t = self.axes.text(100, 10, '10841.660V/H \n10841.660V/H ', fontsize=8)
+        bb = t.get_window_extent(r).transformed(self.axes.transData.inverted())
+        self.annot_scale_factors = [(bb.x1-bb.x0)/x, (bb.y1-bb.y0)/y]
+        self.annot_bbox = bb
+        t.remove()
 
     def show_spectrum(self, spectrum):
         key = self.make_key(spectrum)

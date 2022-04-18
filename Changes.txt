@@ -5,12 +5,12 @@ Installation related:
 
 -Improved installation instructions for fedora 36 and Ubuntu 20.04 LTS.
 
--Added Export command, which can export service, mux, ... lists.
 
 Spectrum acquisition and blindscan related:
 
--Allow selecting multiple muxes for scanning, instead of selecting them one at a time and pressing `Ctrl-S` multiple
- each time
+-Added Export command, which can export service, mux, ... lists.
+
+-Allow selecting multiple muxes for scanning, instead of selecting them one at a time and pressing `Ctrl-S` each time
 
 -Allow blind scanning non detected peaks by selecting a region of spectrum graph.
 
@@ -19,7 +19,7 @@ Spectrum acquisition and blindscan related:
 
 -Added predefined pls code for 33.0E (BulgariaSat).
 
--avoid python exception when spectrum scan results in zero detected peaks
+-Avoid python exception when spectrum scan results in zero detected peaks
 
 -Avoid confusion between embedded and non-embedded streams on same frequency leading to missing or overwritten
  muxes in the database

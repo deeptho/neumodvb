@@ -244,6 +244,7 @@ def combine_ranges(a, b):
     return (min(a[0], b[0]), max(a[1], b[1]))
 
 class Spectrum(object):
+    annot_size_ = None
     def __init__(self, parent, spectrum, color):
         self.spectrum = spectrum
         self.parent = parent
@@ -309,7 +310,33 @@ class Spectrum(object):
                 found = annot
                 best = delta
         return found
+    def show1(self):
+        assert self.drawn
+        if self.drawn:
+            #dtdebug('clearing plot')
+            #self.axes.clear()
+            pass#self.clear()
+        self.ann_tps(self.peak_data, self.spec)
 
+        #set final limits
+        xlimits, ylimits = self.parent.get_limits()
+        self.xlimits = (int(self.spec[0,0]), int(self.spec[-1,0] ))
+        self.ylimits = (ylimits[0], ylimits[1] if self.annot_maxy is None else self.annot_maxy )
+        self.parent.get_limits.cache_clear() #needs update!
+        xlimits, ylimits = self.parent.get_limits()
+        print(f'H4: set_ylim: {ylimits}')
+        self.axes.set_ylim(ylimits)
+        self.axes.set_xlim(xlimits)
+
+
+        #self.pan_spectrum(0)
+        self.parent.pan_band(self.spec[0,0])
+        xlimits, ylimits = self.parent.get_limits()
+        offset = 0 if self.parent.pan_start_freq is None else self.parent.pan_start_freq - xlimits[0]
+
+        self.parent.scrollbar.SetScrollbar(offset, self.parent.zoom_bandwidth, xlimits[1] - xlimits[0], 200)
+        self.parent.canvas.draw()
+        self.parent.Refresh()
     def show(self):
         if self.drawn:
             #dtdebug('clearing plot')
@@ -345,13 +372,30 @@ class Spectrum(object):
 
         self.spectrum_graph = self.axes.plot(t, a/1000,label=self.label, color=self.color)
 
-    def annot_size(self):
-        r = self.figure.canvas.get_renderer()
-        t = self.axes.text(-50, 11000, '10841.660V/H \n10841.660V/H ', fontsize=8)
-        bb = t.get_window_extent(renderer=r).transformed(self.axes.transData.inverted())
-        t.remove()
-        #dtdebug(f"Box: {bb.width} x {bb.height}")
-        return bb
+    def annot_size(self, prefix=""):
+        cls = type(self)
+        if cls.annot_size_ is None:
+            r = self.figure.canvas.get_renderer()
+            t = self.axes.text(11000, 10, '10841.660V/H \n10841.660V/H ', fontsize=8)
+            bb = t.get_window_extent(renderer=r).transformed(self.axes.transData.inverted())
+            t.remove()
+            print(f'UPDATE ANNOT: {cls.annot_size_} {bb}')
+            cls.annot_size_ = bb
+            cls.annot_size_ = 1
+            wx.CallAfter(self.annot_size)
+            return None
+        if cls.annot_size_ == 1:
+            r = self.figure.canvas.get_renderer()
+            t = self.axes.text(11000, 10, '10841.660V/H \n10841.660V/H ', fontsize=8)
+            bb = t.get_window_extent(renderer=r).transformed(self.axes.transData.inverted())
+            t.remove()
+            print(f'UPDATE ANNOT1: {cls.annot_size_} {bb}')
+            cls.annot_size_ = bb
+            wx.CallAfter(self.show1)
+            return None
+        else:
+            print(f'UPDATE ANNOT2: {cls.annot_size_} {cls.annot_size_}')
+        return cls.annot_size_
 
     def detrend_band(self, spec, lowidx, highidx):
         """

@@ -450,6 +450,20 @@ class NeumoTableBase(wx.grid.GridTableBase):
     def reload(self):
         pass
 
+    def export(self, csvfile):
+        num_rows, num_cols = self.GetNumberRows(), self.GetNumberCols()
+        import csv
+        writer = csv.writer(csvfile, dialect='excel', delimiter='\t')
+        row = []
+        for colno in range(num_cols):
+            row.append(self.GetColLabelValue(colno).replace('-', '').replace('\n',''))
+        writer.writerow(row)
+        for rowno in range(num_rows):
+            row = []
+            for colno in range(num_cols):
+                row.append(self.GetValue_text(rowno, colno))
+            writer.writerow(row)
+
 class NeumoTable(NeumoTableBase):
     #label: to show in header
     #dfn: display function
@@ -1215,7 +1229,19 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             rec_to_select = self.table.GetRow(0)
         if rec_to_select is not None:
             self.SelectRecord(rec_to_select)
+    def CmdExport(self, evt):
+        with wx.FileDialog(self, "Open XYZ file", wildcard="CSV files (*.csv)|*.csv",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return     # the user changed their mind
 
+            # Proceed loading the file chosen by the user
+            pathname = fileDialog.GetPath()
+            try:
+                with open(pathname, 'w') as file:
+                    self.table.export(file)
+            except IOError:
+                wx.LogError("Cannot open file '%s'." % pathname)
 
 class GridPopup(wx.ComboPopup):
     def __init__(self, grid_class, *args, **kwds):

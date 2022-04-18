@@ -93,3 +93,20 @@ scrolledwindow {
 *:not(focus) {
     color: black;
 }
+
+
+dialog filechooser placessidebar.sidebar.frame  {
+    font-size: 100%;
+}
+
+
+dialog filechooser treeview  {
+    font-size: 100%;
+}
+
+/*
+dialog filechooser placessidebar.sidebar.frame viewport.frame list,
+dialog filechooser placessidebar.sidebar.frame viewport.frame list row.activatable.sidebar-row {
+    font-size: 120%;
+}
+*/

@@ -103,6 +103,10 @@ edit_menu = (
        ""),
     MI("Undo",
        _("&Undo\tCtrl-Z"),
+       ""),
+    SEP,
+    MI("Export",
+       _("&Export"),
        "")
 )
 

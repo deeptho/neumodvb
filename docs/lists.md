@@ -31,3 +31,9 @@ the mouse cursor from the filter.
 * Using the right mouse popup menu, by selecting `Filter Filter Colum`. This will bring up the filter dialog,
 which allows removing individual columns: select one of the cells, and then press `Remove Column` or `Remove All`.
 Then press `OK`.
+
+
+## Exporting lists in neumoDVB ##
+Use `Edit - Export` to export one of the lists in CSV format. A file chooser will appear allowing
+you to select the filename and location. Note that the list will be saved in the order currently
+displayed. Also, if the list is filtered, only the non-filtered items will be saved.

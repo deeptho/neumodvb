@@ -176,8 +176,8 @@ The following panels will "light up", so as to speak:
     updates). Turning off the constellation plot, greatly reduces the problem, as only audio needs to flow
     over the network.
   * The `Tune mux` selector allows you to pick an already known (earlier scanned) mux from a list. This
-   is very handy if your drivers do not support blind scan, because it will copy the proper tuning parameters,
-   such as SymbolRate, PLS codes and such. You can still use blind scan if you want.
+    is very handy if your drivers do not support blind scan, because it will copy the proper tuning parameters,
+    such as SymbolRate, PLS codes and such. You can still use blind scan if you want.
   * At the very bottom, you can enter tuning parameters directly. This allows you to also tune frequencies
     not detected during spectrum scan. It is however very unlikely that such frequencies will tune. A more
     practical use case is when tuning to low SymbolRate muxes. If blind scan fails, you may wish to retry

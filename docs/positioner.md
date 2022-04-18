@@ -71,6 +71,16 @@ The top panel, from left to right, has the following sub-panels:
    `Save` button on the `LNB and sat` panel to save the preset position into the database. In case you forget,
    neumoDVB will remind you when you try to close the positioner control.
 
-  `Location` allows you to enter your dish's location. Changes to the values will be taken into
+   `Location` allows you to enter your dish's location. Changes to the values will be taken into
    account the next time any USALS operation is performed. Unfortunately changes are not yet written
    to neumoDVB's config file, so you will need to edit that file to make permanent changes.
+
+ * `LNB and Sat` allows you to select the desired LNB and the network (sat) on this LNB. The `Save` button
+   saves all kinds of lnb related changes, including usals settings, default mux ...
+   The `Reset LOF` button resets the local oscillator offset of the LNB to zero. The latter is automatically
+   updated by comparing information from the driver with service information from the mux
+
+ * `Tune Mux` allows you to select a mux from the list of known muxes, and then adjusting the main tuning parameters
+   as needed. If the `Blind` button is gray, nlindscan will be performed. The `Tune` button starts tuning.
+   The `ABort button` ends tuning. `PLS srch.` is an experimental feature to cycle through all possile PLS codes
+   until the mux locks (this can take several hours)

@@ -614,7 +614,7 @@ void chdb::matype_str(ss::string_& s, int16_t matype) {
 	}
 
 	if( matype <0 ) { //dvbs
-		s.sprintf("");
+		s.sprintf("35%%");
 		return;
 	}
 	switch (matype >> 6) {
@@ -654,16 +654,16 @@ void chdb::matype_str(ss::string_& s, int16_t matype) {
 
 	switch (matype & 3) {
 	case 0:
-		s.sprintf("35%");
+		s.sprintf("35%%");
 		break;
 	case 1:
-		s.sprintf("25%");
+		s.sprintf("25%%");
 		break;
 	case 2:
-		s.sprintf("20%");
+		s.sprintf("20%%");
 		break;
 	case 3:
-		s.sprintf("??%");
+		s.sprintf("??%%");
 		break;
 	}
 }

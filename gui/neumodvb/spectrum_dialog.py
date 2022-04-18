@@ -198,6 +198,9 @@ class SpectrumDialog(SpectrumDialog_):
         spectrum = self.grid.table.GetRow(rowno)
         self.spectrum_plot.toggle_spectrum(spectrum)
 
+    def OnDrawMux(self, evt):
+        self.spectrum_plot.start_draw_mux()
+
     def OnToggleBlindscan(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         self.use_blindscan = event.IsChecked()
         dtdebug(f"OnToggleBlindscan={self.use_blindscan}")
@@ -341,6 +344,23 @@ class SpectrumDialog(SpectrumDialog_):
         mux.pol = tp.spectrum.spectrum.k.pol
         #to test
         mux.k.sat_pos = sat.sat_pos
+        self.tune_mux_panel.muxedit_grid.Reset()
+        return mux
+
+    def OnUpdateMux(self, freq, pol, symbol_rate):
+        lnb = self.lnb
+        sat = self.sat
+        mux = pychdb.dvbs_mux.dvbs_mux()
+        mux.frequency = int(freq*1000)
+        mux.symbol_rate=  int(symbol_rate*1000)
+        mux.stream_id = -1
+        mux.pls_mode = pychdb.fe_pls_mode_t.ROOT
+        mux.pls_code = 1
+        p_t = pychdb.fe_polarisation_t
+        mux.pol = getattr(p_t, pol)
+        mux.k.sat_pos = sat.sat_pos
+        mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
+        self.tune_mux_panel.mux = mux
         self.tune_mux_panel.muxedit_grid.Reset()
         return mux
 

@@ -24,6 +24,10 @@
                         <label>&amp;Toggle Spectrum	Ctrl-Enter</label>
                         <handler>OnSpectrumSelect</handler>
                     </item>
+                    <item>
+                        <label>&amp;Draw Mux	Ctrl-A</label>
+                        <handler>OnDrawMux</handler>
+                    </item>
                 </menu>
                 <menu label="&amp;Edit" name="edit_menu">
                 </menu>

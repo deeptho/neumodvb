@@ -329,7 +329,7 @@ class Spectrum(object):
         snr = None
         bw =  self.peak_data[:,1]/2000000
         for row in self.peak_data:
-            tp = Tp(spectrum=self, freq=row[0], symbol_rate=row[1]*1.6/2000.)
+            tp = Tp(spectrum=self, freq=row[0], symbol_rate=row[1]/1000)
             self.tps.append(tp)
 
     def plot_spec(self, fname):
@@ -613,8 +613,8 @@ class SpectrumPlot(wx.Panel):
         self.figure.canvas.mpl_connect('button_press_event', self.on_button_press)
         self.shift_is_held = False
         self.ctrl_is_held = False
-        self.figure.canvas.mpl_connect('key_press_event', self.set_modifiers)
-        self.figure.canvas.mpl_connect('key_release_event', self.unset_modifiers)
+        #self.figure.canvas.mpl_connect('key_press_event', self.set_modifiers)
+        #self.figure.canvas.mpl_connect('key_release_event', self.unset_modifiers)
         self.cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         self.current_annot = None #currently selected annot
         self.current_annot_vline = None
@@ -622,7 +622,22 @@ class SpectrumPlot(wx.Panel):
         self.pan_start_freq = None
         self.add_detrend_button()
         self.add_status_box()
+        self.mux_creator = None
         wx.CallAfter(self.compute_annot_scale_factors)
+    def add_drawn_mux(self, freq, pol, symbol_rate):
+        txt = f"{freq:8.3f}{pol} {int(symbol_rate)}kS/s "
+        dtdebug(f'Add drawn mux {txt}')
+        from neumodvb.positioner_dialog import MuxUpdateEvent
+        #evt = MuxUpdateEvent(freq=freq, pol=pol, symbol_rate=symbol_rate)
+        #wx.PostEvent(self.parent.tune_mux_panel, evt)
+        wx.CallAfter(self.parent.OnUpdateMux, freq, pol, symbol_rate)
+
+    def start_draw_mux(self):
+        if self.mux_creator is not None:
+            self.mux_creator.show()
+            return
+        from neumodvb.draw_mux import MuxSelector
+        self.mux_creator = MuxSelector(self)
 
     def set_modifiers(self, event):
         if 'shift' in event.key:

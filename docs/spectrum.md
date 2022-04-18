@@ -104,6 +104,14 @@ Scanning in manual mode works as follows:
   lines. The selected peak will turn blue (that is to say: its text will turn blue). It is *not* possible
   to select peaks which were not detected by the drivers, but you can still scan such peaks using text entry
   (see below).
+*  **new from neumoDVB 0.8:**
+   If, for some reason, the desired mux was not detected during peak scanning press
+   `Ctrl-A` to enable `mux drawing`: first make sure that none of the matplotlib zoom/pan/scroll functions are
+   active. Now click and drag anywhere on the spectrum plot and adjust the rectangle to cover the bandwidth of
+   the desired mux. You can also press the `H`, `V`, `L`, `R` keys to indicate the desired polarisation. Once
+   satisfied, press `Enter`. This will copy the selected values to the mux tune panel, where you can then tune
+   the mux, possibly after changing some other values. During mux drawing, you can also press the `Escape`
+   key to abort mux editing
 
 * Enable blindscan by depressing the  `Blind` button which tells neumo
   that it should ask the drivers for a blindscan, i.e., it should take the tuning parameters as a starting

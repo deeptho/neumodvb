@@ -1,5 +1,88 @@
-Changes in version neumodvb-0.7
+Changes in version neumodvb-0.8
+-------------------
 
+Installation related:
+
+-Improved installation instructions for fedora 36 and Ubuntu 20.04 LTS.
+
+-Added Export command, which can export service, mux, ... lists.
+
+Spectrum acquisition and blindscan related:
+
+-Allow selecting multiple muxes for scanning, instead of selecting them one at a time and pressing `Ctrl-S` multiple
+ each time
+
+-Allow blind scanning non detected peaks by selecting a region of spectrum graph.
+
+-Improved positioning of frequency/symbol rate annotations on the spectrum graph. The labels are better
+ readable and use less vertical space, preventing the need for vertical resizing in many cases.
+
+-Added predefined pls code for 33.0E (BulgariaSat).
+
+-avoid python exception when spectrum scan results in zero detected peaks
+
+-Avoid confusion between embedded and non-embedded streams on same frequency leading to missing or overwritten
+ muxes in the database
+
+-Bug when multiple subscriptions use the same mux, but one of them uses a t2mi substream;
+
+-Prevent scan hanging for ever on some muxes
+
+-Ensure that scan status is properly handled with embedded streams to prevent scans that never finish;
+
+-Data race when starting embedded_stream_reader, causing tsp sub-process to be launched multiple times.
+
+-Incorrect scan result reported on t2mi stream because of incorrect lock detection
+
+-Autodiscover t2mi streams on 40.0E (workaround for detecting incompliant t2is)
+
+-Handle empty NIT_ACTUAL in embedded stream on 40.0E 3992L T2MI. This
+ causes the ts_id and original_network_id from the embedded t2mi SDT
+ not to be taken into account.
+
+-When tuning to t2mi mux from database record, preserve original_network_id
+ and ts_id in the embedded si
+
+-Allow resetting LNB LOF offset
+
+
+EPG and recording related:
+
+-Fixed layout bugs in grid epg.
+
+-Improved handling of 'anonymous' recordings. These are recordings created by the user by entering start
+ and end time instead of recording an epg record. In the new code, these anonymous recordings will be kept
+ as instructed by the user, but also secondary recordings will be created for each epg record matching the
+ time window. This is convenient for services with only now/next epg, which may arrive after scheduling the
+ anonymous recording. Anonymous recordings will be shown on the EPG screen, but will be overlayed with
+ epg records, should these exist. Canceling a secondary epg recording also cancels the anonymous recording.
+
+
+Playback and viewing:
+
+-During live viewing and recordings playback, replace the original pmt with a minimal pmt containing only
+ the video stream, and current audio and subtitle stream. This should prevent playback problems of services
+ on 30.0W which share the same pmt. mpv tends to get confused about the audio stream selection in this case.
+ This should also fix the missing sound on Sport Italia HD (5.0W).
+
+-Incorrect indication of live/timeshift/rec status in live overlay
+
+-Hide snr and strength when playing back a recording.
+
+-Reduce buffering in tsp sub process to avoid delay when live viewing t2mi services
+
+
+Various bugs fixed:
+
+-anonymous recordings 60 times too long.
+
+-Cannot activate edit mode in lnb network list
+
+
+
+
+
+Changes in version neumodvb-0.7
 -------------------
 Positioner related
 
@@ -120,7 +203,7 @@ the wrong polarization was returned
 -Detection of whether dish needs to be moved was sometimes incorrect; database now contains
  the ultimate truth on this.
 
--Fixes to support ubuntu 20.04
+-Fixes to support Ubuntu 20.04
 
 -Fixed race between closing and then reopening the same frontend, which caused sporadic assertions.
 

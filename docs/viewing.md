@@ -206,6 +206,16 @@ the recording. Note that NeumoDVB offers only limited options to alter parameter
 Recordings can also be started from the services screen. In this case, the recording will
 be proposed for the currently running program.
 
+### Anonymous recordings ###
+
+'anonymous` recordings` are recordings created without an epg record. Simply select an empty area
+in the grid epg and press record, or press record on the services screen when no EPG is present.
+Then enter start and end time and a title. Should EPG records overlapping with the recording appear later,
+then secondary recordings will be created automatically for each overlapping epg record. This is convenient
+for services with only now/next epg, which may arrive after scheduling the
+anonymous recording. Anonymous recordings will be shown on the EPG screen, but will be overlayed with
+epg records, should these exist. Canceling a secondary epg recording also cancels the anonymous recording.
+
 
 ### Playing recordings ###
 

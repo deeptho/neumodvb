@@ -7,11 +7,26 @@ This software depends on several other software packages. If you wish to compile
 also a number of development packages are needed. The names of the packages depend on your linux
 distribution.
 
+The below software list may be incomplete or may contain no longer needed packages.
+Please open a ticket if you discover mistakes
+
+
+
+#### Fedora 33 or 34 ####
+
 On Fedora 33 or 34, install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
 ```
 sudo dnf install -y clang clang-tools-extra libtool boost-program-options boost-regex curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel mpv-libs-devel ffmpeg-devel ffmpeg-libs libX11-devel libglvnd-devel libdvbcsa-devel espeak mesa-dri-drivers  https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
 ```
 
+In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
+at least the following packages are needed:
+
+```
+sudo pip3 install regex setproctitle mpl_scatter_density
+```
+
+#### Fedora 36 ####
 On Fedora 36:  install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
 ```
 sudo dnf install -y cmake clang clang-tools-extra libtool boost-program-options boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel ffmpeg-devel mpv-libs-devel https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-3.30-2710.fc35.x86_64.rpm https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm
@@ -20,6 +35,15 @@ sudo dnf install -y cmake clang clang-tools-extra libtool boost-program-options 
 Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
 <https://rpmfusion.org/Configuration>
 
+
+In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
+at least the following packages are needed:
+
+```
+sudo pip3 install regex setproctitle mpl_scatter_density
+```
+
+#### Debian ####
 
 To install neumodvb in a Debian distro (Ubuntu, Linux Mint), first ensure that you are running a
 recent version:
@@ -35,56 +59,28 @@ Then  install pre-requisite software:
 ```
 sudo  apt install -y clang clang-tools libtool libboost-program-options libboost libboost-regex libboost-context curl libcurl4 libcurl4-opensst-dev liblog4cxx-dev liblog4cxx libconfig-libconfig-dev libwxgtk3.0-gtk3 libgtk-dev freeglut3 freeglut3-dev librsvg2-dev libexif-dev libegobject-introspection libexpat1-dev python3-wxgtk2.4 python3-configobj  python3-sip-dev python3--matplot-lib python3-jinja2 python3-regex python3-scipy wxbase3-dev-wxbase3 wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak cmake
 ```
+
+In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
+at least the following packages are needed:
+
+```
+sudo pip3 install regex setproctitle mpl_scatter_density
+```
+
+#### Ubutu 20.04.4 LTS ####
+
 In ubutu 20.04.4 LTS some of these packages seem unavailable and/or have been renamed
 You could try adding --ignore-missing to the above command line
 and then installing the following packages to fix a few missing things.
 ```
 sudo  apt install -y  libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev  python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  mpv-libs-dev libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang
-
 ```
-
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
 at least the following packages are needed:
 
+```
 sudo pip3 install regex setproctitle mpl_scatter_density
-
-The above software list may be incomplete or may contain no longer needed packages.
-Please open a ticket if you discover mistakes
-
-If you encounter errors like
 ```
-fatal error: PCH file '.../cmake_pch.hxx.gch' is out of date and needs to be rebuilt: module file out of date
-```
-after installing missing files halfway during compilation, then this may be due to a bug in cmake:
-cmake version 3.19 should work, but cmake 3.20 will not (probably a bug).
-As a workaround, you can also just remove the precompiled headers. The easiest is:
-```
-mkdir -p  ~/neumodvb/build
-cd ~/neumodvb/build
-rm -fr *
-cmake ..
-make -j8
-```
-
-As an alternative, lock cmake to the properversion
-```
-sudo dnf downgrade cmake #repeat as needed until version 3.19 is installed
-sudo dnf install 'dnf-command(versionlock)'
-sudo dnf versionlock cmake
-```
-
-### Install blindscan drivers ###
-
-neumoDVB can work with the regular linuxDVB drivers and supports all cards supported by these drivers.
-
-If you own a supported card, it is best to install the neumo blindscan kerel drivers.
-These drivers are available at
-[https://github.com/deeptho/blindscan](https://github.com/deeptho/blindscan).
-
-Without these drivers, features like blindscan and spectral analysis will not work.
-neumoDVB has not been tested with the regular kernel drivers. Crashes may occur if you try
-to use unsupported features. These are bugs. Report them on the issue tracker.
-
 
 
 ### Download and compile neumodvb ###
@@ -108,6 +104,33 @@ Next, build NeumoDVB as follows:
 ```
 In case of problems, first check for missing pre-requisite software. For some of the pre-requisite
 software, fairly recent versions are needed.
+
+
+If you encounter errors like
+```
+fatal error: PCH file '.../cmake_pch.hxx.gch' is out of date and needs to be rebuilt: module file out of date
+```
+after installing missing files halfway during compilation, then this may be due to a bug in cmake:
+cmake version 3.19 should work, but cmake 3.20 will not (probably a bug).
+As a workaround, you can also just remove the precompiled headers. The easiest is:
+```
+mkdir -p  ~/neumodvb/build
+cd ~/neumodvb/build
+rm -fr *
+cmake ..
+make -j8
+```
+
+As an alternative, lock cmake to the properversion
+```
+sudo dnf downgrade cmake #repeat as needed until version 3.19 is installed
+sudo dnf install 'dnf-command(versionlock)'
+sudo dnf versionlock cmake
+```
+
+Recent versions of clan have a bug in the detection of uninitialized variables. During
+compilation lots of warnings will appear about uninitialized variables, but these can be safely ignored
+
 
 For troubleshooting, the following information may be useful:
 
@@ -147,3 +170,16 @@ you also run the software directly from the build tree. This makes it easier to 
     sudo make install
 ```
 For packaging purposes, commands like ' make install DESTDIR=/tmp/temporary_location` also work fine.
+
+
+### Install blindscan drivers ###
+
+neumoDVB can work with the regular linuxDVB drivers and supports all cards supported by these drivers.
+
+If you own a supported card, it is best to install the neumo blindscan kerel drivers.
+These drivers are available at
+[https://github.com/deeptho/blindscan](https://github.com/deeptho/blindscan).
+
+Without these drivers, features like blindscan and spectral analysis will not work.
+neumoDVB has not been tested with the regular kernel drivers. Crashes may occur if you try
+to use unsupported features. These are bugs. Report them on the issue tracker.

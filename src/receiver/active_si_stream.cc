@@ -1061,11 +1061,13 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 		dtdebugx("PAT is stable");
 
 		if (scan_target == scan_target_t::SCAN_FULL)
+#if 0
+		if (scan_target == scan_target_t::SCAN_FULL || scan_target == scan_target_t::SCAN_FULL_AND_EPG)
 			for (auto& s : pat_table.entries) {
-				if (!is_embedded_si)
+				if (!is_embedded_si && s.service_id != 0x0 /*skip pat*/)
 					add_pmt(s.service_id, s.pmt_pid);
 			}
-
+#endif
 		bool all_done = true;
 		for (auto& [ts_id, table] : pat_data.by_ts_id) {
 			if (table.num_sections_processed != table.subtable_info.num_sections_present) {
@@ -1289,7 +1291,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	ret = on_nit_completion(wtxn, network_data, ret, network.is_actual, on_wrong_sat, done);
 	if (done && network.is_actual) { // for nit other, there may be multiple entries
 		dtdebugx("NIT_ACTUAL completed");
-		scan_state.set_completed(cidx);
+		scan_state.set_completed(cidx); //signal that nit_actual has been stored
 		tune_confirmation.nit_actual_ok = true;
 	}
 	return ret;

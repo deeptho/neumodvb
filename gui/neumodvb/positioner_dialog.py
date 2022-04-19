@@ -394,11 +394,13 @@ class TuneMuxPanel(TuneMuxPanel_):
     def OnSignalInfoUpdate(self, signal_info):
         self.parent.UpdateSignalInfo(signal_info, self.tuned_)
         si_mux = signal_info.si_mux
+        si_received = si_mux.c.tune_src == pychdb.tune_src_t.NIT_ACTUAL_TUNED
 
-        self.si_freq_text.SetLabel(f'{si_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
-                                if self.signal_info.has_nit else '')
-        self.si_symbolrate_text.SetLabel(f'{si_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
-                                if self.signal_info.has_nit else '')
+        if self.signal_info.has_nit:
+            self.si_freq_text.SetLabel(f'{si_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
+                                    if si_received else 'INVALID')
+            self.si_symbolrate_text.SetLabel(f'{si_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
+                                    if si_received else '')
 
         mux = signal_info.dvbs_mux
         locked = signal_info.has_lock

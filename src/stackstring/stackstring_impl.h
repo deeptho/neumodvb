@@ -113,7 +113,7 @@ inline int next_power_of_two(int n) {
 		for(int i=0; i< old_length; ++i) {
 			new(p->data()+i) data_t(old_data[i]);
 		}
-		if(!std::is_pod<data_t>::value) {
+		if(!std::is_trivial<data_t>::value) {
 			for(int i=0; i< old_length; ++i)
 				old_data[i].~data_t();
 		}
@@ -140,7 +140,7 @@ inline int next_power_of_two(int n) {
 		if(is_allocated()) {
 			assert(!is_view());
 			auto *p = buffer();
-			if(!std::is_pod<data_t>::value) {
+			if(!std::is_trivial<data_t>::value) {
 				for(int i=0; i< size(); ++i)
 					p[i].~data_t();
 			}

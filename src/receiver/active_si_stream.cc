@@ -525,7 +525,6 @@ void active_si_stream_t::check_timeouts() {
 	thread_local bool delayed_print{false};
 	auto now = steady_clock_t::now();
 	bool timedout = (now - last_time) >= 2000ms;
-	bool done_now{false};
 	ss::string<256> out;
 
 	if (!scan_state.completed(scan_state_t::SDT_NETWORK)) {
@@ -534,7 +533,6 @@ void active_si_stream_t::check_timeouts() {
 								 (network_done(sdt_data.actual_network_id) || (sdt_actual_done() && sdt_other_done())));
 		if (done) {
 			scan_state.set_completed(scan_state_t::SDT_NETWORK);
-			done_now = true;
 		}
 	}
 
@@ -613,7 +611,6 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 	bool has_freesat = chdb::has_epg_type(tuned_mux, chdb::epg_type_t::FREESAT);
 
 	bool do_standard = true;
-	bool do_timeout = false;
 	bool do_bat = false;
 	bool do_epg = false;
 	bool need_other = true;
@@ -621,12 +618,10 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 	scan_state.reset();
 	switch(scan_target) {
 	case  scan_target_t::SCAN_MINIMAL: { //PAT, SDT_ACTUAL, NIT_ACTUAL during limited time
-		do_timeout = true;
 		need_other = false;
 	}
 		break;
 	case scan_target_t::SCAN_FULL: { //PAT, SDT_ACTUAL, NIT_ACTUAL, BAT, SDT_OTHER, PMT during limited time
-		do_timeout = true;
 		need_other = true;
 		do_bat = true;
 	}
@@ -635,7 +630,6 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 																						 PAT, SDT_ACTUAL, NIT_ACTUAL, BAT, SDT_OTHER, PMT, EPG for ever
 																						 used during normal viewing
 																					 */
-		do_timeout = false;
 		need_other = true;
 		do_epg = true;
 		do_bat = true;
@@ -1229,10 +1223,8 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	auto* tuned_mux_key = mux_key_ptr(tuned_mux);
 
 	auto wtxn = chdb_txn();
-	int network_name_matches = 0; // matches data in db? 1=yes, -1=0, 0=not in db or could not be looked up
 	if (network.network_name.size())
-		network_name_matches = save_network(
-			wtxn, network, tuned_mux_key->sat_pos); // TODO: sat_pos is meaningless; network can be on multiple sats
+		save_network(wtxn, network, tuned_mux_key->sat_pos); // TODO: sat_pos is meaningless; network can be on multiple sats
 	using namespace chdb;
 	dtdemux::reset_type_t ret = dtdemux::reset_type_t::NO_RESET;
 
@@ -1741,7 +1733,6 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 	}
 	int db_found{0};
 	int db_changed{0};
-	int db_notfound{0};
 
 	for (auto& service : services.services) {
 		assert(mux_key.network_id == service.k.mux.network_id);
@@ -1756,7 +1747,6 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		auto [db_found_, changed] =
 			sdt_process_service(wtxn, service, p_mux_data, donotsave);
 		db_found += db_found_;
-		db_notfound += !db_found_;
 		db_changed += changed;
 
 	}

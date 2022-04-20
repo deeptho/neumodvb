@@ -56,7 +56,7 @@ struct tune_confirmation_t {
 
 	tune_confirmation_t()
 		{}
-	bool operator== (const tune_confirmation_t& other) {
+	bool operator== (const tune_confirmation_t& other)  const {
 		return on_wrong_sat == other.on_wrong_sat &&
 			sat_by == other.sat_by &&
 			ts_id_by == other.ts_id_by &&
@@ -66,7 +66,7 @@ struct tune_confirmation_t {
 			sdt_actual_ok == other.sdt_actual_ok &&
 			pat_ok == other.pat_ok;
 		}
-	bool operator!= (const tune_confirmation_t& other) {
+	bool operator!= (const tune_confirmation_t& other)  const {
 		return ! operator==(other);
 	}
 };

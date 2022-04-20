@@ -1155,8 +1155,6 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_
 	// best lnb sofar, and the corresponding connected frontend
 	chdb::lnb_t best_lnb;
 	std::shared_ptr<dvb_frontend_t> best_fe;
-	auto found = false;
-
 	/*
 		Loop over all lnbs to find a suitable one. If one is found, check if the connected adapter is suitable and
 		not in use, or already tuned to the desired mux. Among all possibilities, pick the one with the best priority
@@ -1242,7 +1240,6 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_
 			best_lnb = *plnb;
 			best_fe = fe;
 		}
-		found = true;
 		if (required_lnb)
 			break;
 	}
@@ -1260,7 +1257,6 @@ dvbdev_monitor_t::find_slave_tuner_for_tuning_to_mux(
 	// best lnb sofar, and the corresponding connected frontend
 	chdb::lnb_t best_lnb;
 	std::shared_ptr<dvb_frontend_t> best_fe;
-	auto found = false;
 
 	for (auto const& dbfe : ca.range()) {
 		if(dbfe.master_adapter <0 || ! dbfe.can_be_used || ! dbfe.present)
@@ -1281,7 +1277,6 @@ dvbdev_monitor_t::find_slave_tuner_for_tuning_to_mux(
 		best_lnb_prio = lnb_prio;
 		best_lnb = lnb;
 		best_fe = fe;
-		found = true;
 		if (required_lnb)
 			break;
 	}

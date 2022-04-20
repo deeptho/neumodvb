@@ -1074,7 +1074,7 @@ public:
 };
 
 #if !(defined(__COVERITY__) || defined(_MSC_VER))
-static_assert(std::is_pod<lmdb::val>::value, "lmdb::val must be a POD type");
+static_assert(std::is_trivial<lmdb::val>::value, "lmdb::val must be a POD type");
 static_assert(sizeof(lmdb::val) == sizeof(MDB_val), "sizeof(lmdb::val) != sizeof(MDB_val)");
 #endif
 

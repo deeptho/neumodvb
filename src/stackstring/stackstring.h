@@ -275,7 +275,7 @@ namespace ss {
 		inline bool operator==(const databuffer_& other) const {
 			if (other.size() != size())
 				return false;
-			if (std::is_pod<data_t>::value) {
+			if (std::is_trivial<data_t>::value) {
 				return memcmp(buffer(), other.buffer(), size()) == 0;
 			} else {
 				for (int i = 0; i < other.size(); ++i) {
@@ -832,11 +832,11 @@ namespace ss {
 	public:
 		using parent = string_;
 		using parent::item_size;
-
+#if 0
 		using string_::copy;
 		using string_::operator==;
 		using string_::operator!=;
-
+#endif
 		void clear(bool release = false) {
 			clear_helper(release, false, buffer_size);
 			set_size(1);

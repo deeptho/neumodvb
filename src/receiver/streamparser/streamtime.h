@@ -94,6 +94,8 @@ namespace dtdemux {
 
 		pts_dts_t() = default;
 
+		pts_dts_t(const pts_dts_t&) = default;
+
 		/*
 			initializer is in ticks of 1/90 ms.
 		*/
@@ -255,7 +257,7 @@ namespace dtdemux {
 			return time != 1;
 		}
 
-
+		pcr_t(const pcr_t & other) = default;
 		pcr_t() = default;
 
 		//pts_ticks_t is correct!

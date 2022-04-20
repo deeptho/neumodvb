@@ -1059,8 +1059,6 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			return dtdemux::reset_type_t::RESET; // need to check again for stability
 		}
 		dtdebugx("PAT is stable");
-
-		if (scan_target == scan_target_t::SCAN_FULL)
 #if 0
 		if (scan_target == scan_target_t::SCAN_FULL || scan_target == scan_target_t::SCAN_FULL_AND_EPG)
 			for (auto& s : pat_table.entries) {

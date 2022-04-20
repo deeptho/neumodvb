@@ -176,7 +176,6 @@ int dvbcsa_t::skip_non_decryptable(uint8_t* buffer, int buffer_size) {
 		switch (scrambling_control_packet) {
 		case 2:		// scrambled with even key
 		case 3: { // scrambled with odd key
-			int* idx = &cache.batch_idx[odd];
 			// we look for the next transition to the NEXT parity (hence == instead of !=)
 			if (context->scrambling_control_packet == scrambling_control_packet) {
 				auto parity_check = confirm_parity_change(buffer + packet_start, buffer_size - packet_start, pid,
@@ -193,7 +192,6 @@ int dvbcsa_t::skip_non_decryptable(uint8_t* buffer, int buffer_size) {
 					*/
 					odd = !odd;
 					scrambling_control_packet ^= 0x1; // we look for the next transition to the NEXT parity (hence ^0x1)
-					idx = &cache.batch_idx[odd];
 				} else {
 					/*parity change occurs for this pid at packet_start.
 					 */

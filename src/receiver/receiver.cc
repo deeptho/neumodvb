@@ -1338,14 +1338,13 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 }
 
 template <typename _mux_t> int receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id) {
-	int error = 0;
 	std::vector<task_queue_t::future_t> futures;
 
 	futures.push_back(receiver_thread.push_task([this, &muxes, &subscription_id]() {
 		subscription_id = cb(receiver_thread).scan_muxes(muxes, subscription_id);
 		return 0;
 	}));
-	error |= wait_for_all(futures); //essential because muxes passed by reference
+	wait_for_all(futures); //essential because muxes passed by reference
 	return subscription_id;
 }
 
@@ -1354,7 +1353,6 @@ template int receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux
 template int receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes, int subscription_id);
 
 template <typename _mux_t> int receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id) {
-	int error = 0;
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.scan_target = scan_target_t::SCAN_FULL;
@@ -1365,7 +1363,7 @@ template <typename _mux_t> int receiver_t::subscribe_mux(const _mux_t& mux, bool
 		subscription_id = cb(receiver_thread).subscribe_mux(mux, subscription_id, tune_options, nullptr);
 		return 0;
 	}));
-	error |= wait_for_all(futures);
+	wait_for_all(futures);
 	return subscription_id;
 }
 template int receiver_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan,
@@ -1386,7 +1384,6 @@ template int receiver_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t&
 int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polarisation_t& pol_, int32_t low_freq,
 																			 int32_t high_freq, int sat_pos, int subscription_id) {
 	auto lnb = reread_lnb(lnb_);
-	int error = 0;
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.spectrum_scan_options.start_time = time(NULL);
@@ -1439,7 +1436,7 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
 		return 0;
 	}));
-	error |= wait_for_all(futures);
+	wait_for_all(futures);
 	return subscription_id;
 }
 
@@ -1448,7 +1445,6 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 */
 int receiver_t::subscribe_lnb_blindscan(chdb::lnb_t& lnb_, const chdb::fe_band_pol_t& band_pol, int subscription_id) {
 	auto lnb = reread_lnb(lnb_);
-	int error = 0;
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	// tune_options.start_time = now;
@@ -1460,7 +1456,7 @@ int receiver_t::subscribe_lnb_blindscan(chdb::lnb_t& lnb_, const chdb::fe_band_p
 		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
 		return 0;
 	}));
-	error |= wait_for_all(futures);
+	wait_for_all(futures);
 	return subscription_id;
 }
 
@@ -1477,7 +1473,6 @@ int receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
 		}
 	}
 
-	int error = 0;
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.subscription_type = subscription_type_t::DISH_EXCLUSIVE;
@@ -1488,7 +1483,7 @@ int receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
 		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
 		return 0;
 	}));
-	error |= wait_for_all(futures);
+	wait_for_all(futures);
 	return subscription_id;
 }
 
@@ -1507,8 +1502,6 @@ int receiver_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& 
 			txn.abort();
 		}
 	}
-
-	int error = 0;
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.constellation_options.num_samples = 1024 * 16;
@@ -1522,12 +1515,11 @@ int receiver_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& 
 		subscription_id = cb(receiver_thread).subscribe_mux(mux, subscription_id, tune_options, &lnb);
 		return 0;
 	}));
-	error |= wait_for_all(futures);
+	wait_for_all(futures);
 	return subscription_id;
 }
 
 std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service(const chdb::service_t& service, int subscription_id) {
-	int error = 0;
 	std::vector<task_queue_t::future_t> futures;
 	std::unique_ptr<playback_mpm_t> ret;
 	futures.push_back(receiver_thread.push_task([this, &subscription_id, &service, &ret]() {
@@ -1535,20 +1527,19 @@ std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service(const chdb::servic
 		ret = cb(receiver_thread).subscribe_service(service, subscription_id);
 		return 0;
 	}));
-	error |= wait_for_all(futures);
+	wait_for_all(futures);
 	// browse_history.save(service);
 	return ret;
 }
 
 std::unique_ptr<playback_mpm_t> receiver_t::subscribe_recording(const recdb::rec_t& rec, int subscription_id) {
-	int error = 0;
 	std::vector<task_queue_t::future_t> futures;
 	std::unique_ptr<playback_mpm_t> ret;
 	futures.push_back(receiver_thread.push_task([this, &subscription_id, &rec, &ret]() {
 		ret = cb(receiver_thread).subscribe_recording(rec, subscription_id);
 		return 0;
 	}));
-	error |= wait_for_all(futures);
+	wait_for_all(futures);
 	return ret;
 }
 

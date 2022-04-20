@@ -352,7 +352,6 @@ monitor_t::state_t list
 		state.pos_top = -1; //position of top entry on screen, or -1 if screen is empty
 	if(estimate_list_size)
 		state.list_size = 0;
-	int idxref = 0;
 
 	if(offset<0) {
 		int cur_idx = num_records-1;  //start at the end of the screen (records will be moved afterwards)
@@ -389,7 +388,6 @@ monitor_t::state_t list
 		*/
 		if(n>0) { //if no records were found, there is no need to rotate
 			rotate(data, cur_idx);
-			idxref = n;
 		}
 	}
 	/*all retrieved records are now at start of screen, which means that "ref"

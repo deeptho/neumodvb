@@ -1520,7 +1520,6 @@ bool chdb::has_epg_type(const chdb::any_mux_t& mux, chdb::epg_type_t epg_type) {
 }
 
 chdb::media_mode_t chdb::media_mode_for_service_type(uint8_t service_type) {
-	bool is_hd = false;
 	switch (service_type) {
 	case 0x01: // digital television service; encoding not specified
 	case 0x04: // NVOD reference service
@@ -1542,7 +1541,6 @@ chdb::media_mode_t chdb::media_mode_for_service_type(uint8_t service_type) {
 	case 0x1A: // advanced codec  HD NVOD time-shifted service
 	case 0x1B: // advanced codec HD NVOD reference service
 	case 0x82: // used for bbci and such
-		is_hd = true;
 		return chdb::media_mode_t::TV;
 		break;
 	case 0x02: // digital radio sound service

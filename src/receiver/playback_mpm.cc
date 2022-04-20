@@ -563,11 +563,6 @@ int playback_mpm_t::open_next_file() {
 	// WRONG: assert(currently_playing_file.stream_time_end!= std::numeric_limits<milliseconds_t>::max());
 	// WRONG, e.g., if paused for a long time:
 	// assert(meta_marker.currently_playing_file.fileno == 1 + currently_playing_file.fileno);
-	int fileno = 0;
-	{
-		auto f = currently_playing_file.readAccess();
-		fileno = f->fileno;
-	}
 
 	auto ret = open_(txn, milliseconds_t(currently_playing_file.readAccess()->k.stream_time_start));
 	return ret;

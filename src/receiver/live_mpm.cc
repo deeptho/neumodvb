@@ -879,7 +879,6 @@ int active_mpm_t::decrypt_channel_data(bool low_data_rate) {
 }
 
 void active_mpm_t::process_channel_data() {
-	size_t numtransferred = 0;
 	now = system_clock_t::now();
 	auto start = steady_clock_t::now();
 	for (;;) {
@@ -1014,7 +1013,6 @@ void active_mpm_t::process_channel_data() {
 		} else {
 		}
 
-		numtransferred += ret;
 		num_bytes_read += ret;
 #if 0
 		dtdebug_nicex("MPM STATUS: read=%ld parsed=%d decrypted=%ld", num_bytes_read,

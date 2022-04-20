@@ -1113,9 +1113,7 @@ int scam_t::register_active_service_if_needed(active_service_t* active_service, 
 
 int active_scam_t::register_active_service(active_service_t* active_service) {
 	std::shared_ptr<active_service_t>* freeslot = nullptr;
-	int num_active_services = 0;
 	for (auto& active_service_p : registered_active_services) {
-		num_active_services += !!active_service_p.get();
 		if (!active_service_p.get() && !freeslot)
 			freeslot = &active_service_p;
 		else if (active_service == active_service_p.get()) {

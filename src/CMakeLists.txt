@@ -58,7 +58,7 @@ SET(CMAKE_BUILD_RPATH "$ORIGIN/.")
 
 
 option(USE_CLANG "build application with clang" ON) # ON is the default
-set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD 20)
 if(USE_CLANG)
     SET (CMAKE_CXX_COMPILER clang++)
 endif(USE_CLANG)

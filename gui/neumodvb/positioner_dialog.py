@@ -414,12 +414,16 @@ class TuneMuxPanel(TuneMuxPanel_):
             return
         else:
             pass
-        sat_text = f'{pychdb.sat_pos_str(si_mux.k.sat_pos)}' if self.signal_info.has_nit else ''
-        nid_text = f'{si_mux.k.network_id}' if self.signal_info.has_nit else ''
-        tid_text = f'{si_mux.k.ts_id}' if self.signal_info.has_nit else ''
 
-        self.si_nit_ids_text.SetLabel(f'{sat_text} nid={nid_text} tid={tid_text}'
-                                if self.signal_info.has_nit else '')
+        sat_text = f'{pychdb.sat_pos_str(si_mux.k.sat_pos)}' if si_received else ''
+        nid_text = f'{si_mux.k.network_id}' if si_received else ''
+        tid_text = f'{si_mux.k.ts_id}' if si_received else ''
+
+        if self.signal_info.has_nit:
+            self.si_nit_ids_text.SetLabel(f'{sat_text} nid={nid_text} tid={tid_text}'
+                                          if si_received else '')
+        else:
+            self.si_nit_ids_text.SetLabel(f'')
         for key in self.status_keys:
             val = getattr(self.signal_info, f'has_{key}')
             w = getattr(self, f'has_{key}')

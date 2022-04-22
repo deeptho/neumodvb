@@ -16,7 +16,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-
 import wx
 from wx.richtext import RichTextCtrl
 from enum import Enum
@@ -2634,16 +2633,5 @@ class LivePanel(wx.Panel):
         self.mosaic_panel.ChangeVolume(-1)
 
     def CmdFullScreen(self, evt):
-        #focused = wx.Window.FindFocus()
-        #print (f'BEFORE focused={focused}')
         wx.GetApp().frame.FullScreen()
-        #self.grid_panel.reset()
-        #self.grid_panel.set_active()
         after = wx.Window.FindFocus()
-        #print (f'AFTER focused={after}')
-        #wx.CallAfter( lambda: print (f'AFTER focused={wx.Window.FindFocus()}'))
-        #focused.SetFocus()
-        #wx.CallAfter(self.SetFocus
-        #self.grid_panel.SetFocus()
-        #wx.CallAfter(self.Refresh)
-        #wx.CallAfter(focused.SetFocus)

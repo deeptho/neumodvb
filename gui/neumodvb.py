@@ -484,9 +484,9 @@ class neumoMainFrame(mainFrame):
         dark_mode = self.current_panel() == self.live_panel
         return wx.GetApp().SubtitleLang(dark_mode)
     def CmdExit(self, event):
-        dtdebug("XXXX CmdExit")
+        dtdebug("CmdExit")
         if self.current_panel() != self.live_panel:
-            dtdebug("XXXX OnClose")
+            dtdebug("OnClose")
             self.current_panel().grid.OnClose()
         self.live_panel.OnClose(event)
         self.Close()
@@ -499,9 +499,9 @@ class neumoMainFrame(mainFrame):
     def CmdDelete(self, event):
         dtdebug("CmdDelete")
         panel = self.current_panel()
-        if panel is not None:
+        if panel is not None and hasattr(panel, 'grid'):
             return panel.grid.OnDelete(event)
-        assert 0
+        return False
 
     def CmdUndo(self, event):
         dtdebug("CmdUndo")

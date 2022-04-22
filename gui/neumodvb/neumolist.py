@@ -362,7 +362,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         except:
             dterror(f"row {rowno} out of range {self.GetNumberRows()}")
         key = self.columns[colno].key
-        before = copy.copy(neumodbutils.get_subfield(rec, key))
+        before = None if rec is None else copy.copy(neumodbutils.get_subfield(rec, key))
         coltype = type(neumodbutils.get_subfield(self.record_t(), key))
         newval = None
         dtdebug(f'Setting value: COLTYPE={coltype} key={key} val={val}')
@@ -391,14 +391,13 @@ class NeumoTableBase(wx.grid.GridTableBase):
         if newval is None:
             dtdebug("ILLEGAL new value")
             return
-        oldrecord = rec.copy()
+        oldrecord = None if rec is None else rec.copy()
         neumodbutils.enum_set_subfield(rec, key, newval)
         # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]
         # we cannot use return value policy reference for vectors (data moves in memory on resize)
         #self.data[rowno] =rec
         self.record_being_edited = rec
         self.row_being_edited = rowno
-        after = neumodbutils.get_subfield(rec, key)
         self.Backup("edit", rowno, oldrecord, rec)
         self.GetRow.cache_clear()
 

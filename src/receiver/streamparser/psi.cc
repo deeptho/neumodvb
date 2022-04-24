@@ -334,21 +334,21 @@ void pmt_parser_t::parse_payload_unit() {
 		RETURN_ON_ERROR;
 	}
 
-	auto [timedout, newversion, section_type] = parser_status.check(hdr, cc_error_counter);
+	auto [timedout, badversion, section_type] = parser_status.check(hdr, cc_error_counter);
 	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);
 	bool done = (section_type == section_type_t::LAST || section_type == section_type_t::COMPLETE);
 	bool completed_now = (section_type == section_type_t::LAST);
+	assert(!(must_process && badversion));
 
 	log4cxx::NDC::push(" PMT");
 	pmt_info_t pmt;
 	bool success = false;
 
-	if (must_process)  {
-		assert(!timedout);
+	if (must_process || timedout)  {
 		timedout = false;
 		stored_section_t section(payload, hdr.pid);
 		section.skip(hdr.header_len); // already parsed
-		success = parse_pmt_section(section, pmt);
+		success = timedout ? true : parse_pmt_section(section, pmt);
 		if (success) {
 			pmt.stream_packetno_end = parent.event_handler.last_pmt_end_bytepos / ts_packet_t::size;
 			auto must_reset = this->section_cb(pmt, !hdr.current_next, section.payload);
@@ -371,7 +371,7 @@ void pat_parser_t::parse_payload_unit() {
 		RETURN_ON_ERROR;
 	}
 
-	auto [timedout, newversion, section_type] = parser_status.check(hdr, cc_error_counter);
+	auto [timedout, badversion, section_type] = parser_status.check(hdr, cc_error_counter);
 	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);
 	bool done = (section_type == section_type_t::LAST || section_type == section_type_t::COMPLETE);
 	bool completed_now = (section_type == section_type_t::LAST);
@@ -397,7 +397,7 @@ void pat_parser_t::parse_payload_unit() {
 			parse_pat_section(section, pat_services);
 		}
 	}
-	if (success && (must_process || timedout)) {
+	if (success || timedout) {
 		subtable_info_t info{pid, true, hdr.table_id, hdr.version_number, hdr.last_section_number + 1, done, timedout};
 		auto must_reset = section_cb(pat_services, info);
 		if (must_reset == reset_type_t::ABORT)
@@ -421,10 +421,11 @@ void nit_parser_t::parse_payload_unit() {
 		error = true;
 		RETURN_ON_ERROR;
 	}
-	auto [timedout, newversion, section_type] = parser_status.check(hdr, cc_error_counter);
+	auto [timedout, badversion, section_type] = parser_status.check(hdr, cc_error_counter);
 	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);
 	bool done = (section_type == section_type_t::LAST || section_type == section_type_t::COMPLETE);
 	bool completed_now = (section_type == section_type_t::LAST);
+	assert(!(must_process && badversion));
 	log4cxx::NDC::push(" NIT");
 	if (completed_now)
 		dtdebugx("Parser completed");
@@ -439,7 +440,7 @@ void nit_parser_t::parse_payload_unit() {
 	} else
 		network.is_actual = (hdr.table_id == 0x40);
 
-	if (success && (must_process || timedout)) {
+	if (success || timedout) {
 		subtable_info_t info{pid,	 network.is_actual, hdr.table_id, hdr.version_number, hdr.last_section_number + 1,
 			done, timedout};
 		auto must_reset = section_cb(network, info);
@@ -467,11 +468,11 @@ void sdt_bat_parser_t::parse_payload_unit() {
 		RETURN_ON_ERROR;
 	}
 
-	auto [timedout, newversion, section_type] = parser_status.check(hdr, cc_error_counter);
+	auto [timedout, badversion, section_type] = parser_status.check(hdr, cc_error_counter);
 	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);
 	bool done = (section_type == section_type_t::LAST || section_type == section_type_t::COMPLETE);
 	bool completed_now = (section_type == section_type_t::LAST);
-
+	assert(!(must_process && badversion));
 	if (is_sdt) {
 		log4cxx::NDC::push(" SDT");
 #if 0
@@ -488,7 +489,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 			success = parse_sdt_section(section, services);
 		} else
 			services.is_actual = (hdr.table_id == 0x42);
-		if (success && (must_process || timedout)) {
+		if (success || timedout) {
 			subtable_info_t info{
 				pid, services.is_actual, hdr.table_id, hdr.version_number, hdr.last_section_number + 1, done, timedout};
 			auto must_reset = sdt_section_cb(services, info);
@@ -510,7 +511,9 @@ void sdt_bat_parser_t::parse_payload_unit() {
 			section.skip(hdr.header_len); // already parsed
 			success = parse_bat_section(section, bouquet);
 		}
-		if (success && (must_process || timedout)) {
+		if (success || timedout) {
+			dtdebugx("bat_cb bouquet=%d vers=%d sec=%d/%d done=%d timedout=%d\n", bouquet.bouquet_id,
+						 hdr.version_number, hdr.section_number, hdr.last_section_number + 1, done, timedout);
 			subtable_info_t info{pid, true, hdr.table_id, hdr.version_number, hdr.last_section_number + 1, done, timedout};
 			auto must_reset = bat_section_cb(bouquet, info);
 			if (must_reset == reset_type_t::ABORT)
@@ -534,11 +537,11 @@ void eit_parser_t::parse_payload_unit() {
 	if (is_stuffing)
 		return;
 
-	auto [timedout, newversion, section_type] = parser_status.check(hdr, cc_error_counter);
+	auto [timedout, badversion, section_type] = parser_status.check(hdr, cc_error_counter);
 	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);
 	bool done = (section_type == section_type_t::LAST || section_type == section_type_t::COMPLETE);
 	bool completed_now = (section_type == section_type_t::LAST);
-
+	assert(!(must_process && badversion));
 	if (completed_now)
 		dtdebugx("Parser completed");
 	epg_t epg;
@@ -568,7 +571,7 @@ void eit_parser_t::parse_payload_unit() {
 			epg.is_actual = false;
 		}
 	}
-	if (success && (must_process || timedout)) {
+	if (success  || timedout) {
 		subtable_info_t info{pid,	 epg.is_actual, hdr.table_id, hdr.version_number, hdr.last_section_number + 1,
 			done, timedout};
 		auto must_reset = section_cb(epg, info);
@@ -623,11 +626,11 @@ void mhw2_parser_t::parse_payload_unit() {
 	if (!is_summary && !is_short_summary && !is_title && !is_channel)
 		return;
 
-	auto [timedout, newversion, section_type] = parser_status.check(hdr, cc_error_counter);
+	auto [timedout, badversion, section_type] = parser_status.check(hdr, cc_error_counter);
 	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);
 	bool done = (section_type == section_type_t::LAST || section_type == section_type_t::COMPLETE);
 	bool completed_now = (section_type == section_type_t::LAST);
-
+	assert(!(must_process && badversion));
 	log4cxx::NDC::push(" MHW2C");
 	if (completed_now)
 		dtdebugx("Parser completed now");
@@ -677,7 +680,7 @@ void mhw2_parser_t::parse_payload_unit() {
 		}
 	}
 
-	if (success && (must_process || timedout)) {
+	if (success || timedout) {
 		if (must_reset == reset_type_t::ABORT)
 			parent.return_early();
 		else if (must_reset == reset_type_t::RESET) {

@@ -202,8 +202,11 @@ enum DescriptorTag {
                EnhancedAC3DescriptorTag = 0x7A,
                DTSDescriptorTag = 0x7B,
                AACDescriptorTag = 0x7C,
+							 Reserved7eTag = 0x7e,
                ExtensionDescriptorTag = 0x7F,
  // defined by EICTA/EACEM/DIGITALEUROPE
+							 UserDefined81Tag = 0x81,
+							 UserDefined82Tag = 0x82,
                LogicalChannelDescriptorTag = 0x83,
                PreferredNameListDescriptorTag = 0x84,
                PreferredNameIdentifierDescriptorTag = 0x85,
@@ -253,10 +256,9 @@ enum DescriptorTag {
                MHP_SimpleApplicationBoundaryDescriptorTag = 0x17,
   // Premiere private Descriptor Tags
                PremiereContentTransmissionDescriptorTag = 0xF2,
-
                //a descriptor currently unimplemented in this library
                //the actual value 0xFF is "forbidden" according to the spec.
-               UnimplementedDescriptorTag = 0xFF,
+               ForbiddenDescriptorTag = 0xFF,
 							 //freesat
 							 FSTServiceListDescriptorTag = 0xD3,
 							 FSTRegionListDescriptorTag = 0xD4,

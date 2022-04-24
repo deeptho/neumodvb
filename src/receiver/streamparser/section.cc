@@ -455,7 +455,7 @@ namespace dtdemux {
 	template <> int stored_section_t::get_fields<service_list_descriptor_t>(service_list_t& ret, const descriptor_t& desc) {
 
 		auto end = available() - desc.len;
-		while (available() > end) {
+		while (available() >= 3 + end) {
 			chdb::service_key_t service;
 			service.service_id = get<uint16_t>();
 			service.mux.network_id = ret.network_id;
@@ -465,6 +465,8 @@ namespace dtdemux {
 			auto channel_id = service.service_id;
 			ret.bouquet.channels[channel_id] = {service, (uint16_t)lcn, (uint8_t)service_type};
 		}
+		if(available() > end)
+			skip(available() - end);
 		assert(available() == end);
 		return has_error();
 	}
@@ -1336,6 +1338,11 @@ namespace dtdemux {
 				case SI::ServiceListDescriptorTag: {
 					bouquet_t bouquet; // todo
 					service_list_t service_list{network_id, ts_id, bouquet};
+					if (this->available() - desc1.len < end1) {
+						dterrorx("Incorrect section available=%d desc.len=%d end=%d",
+										 this->available(), desc1.len, end1);
+						return false;
+					}
 					this->get_fields<service_list_descriptor_t>(service_list, desc1);
 				} break;
 				case SI::LinkageDescriptorTag: {
@@ -1584,6 +1591,11 @@ namespace dtdemux {
 				this->skip(desc.len);
 #endif
 			} break;
+			case SI::LocalTimeOffsetDescriptorTag:
+
+				dtdebug("BAT: unknown descriptor " << (int)desc.tag << "=" << name_of_descriptor_tag(desc.tag)); // 129 (0x81 User defined/ATSC reserved)
+				this->skip(desc.len);
+				break;
 			default:
 				if (desc.tag >= 0x80 && desc.tag <= 0xfe) {
 					// user defined descriptor
@@ -1601,7 +1613,12 @@ namespace dtdemux {
 				return false;
 			}
 		}
-		assert(end <= this->available());
+		if(end > this->available()) {
+			dterrorx("Read more bytes than we were supposed to: end=%d available=%d", end, this->available());
+			//happens on 7.0E 10804V
+			return false;
+		}
+
 		if (this->available() > end)
 			this->skip(this->available() - end);
 
@@ -1646,7 +1663,12 @@ namespace dtdemux {
 					break;
 
 				default:
-					dtdebug("BAT: unknown descriptor " << (int)desc.tag << "=" << name_of_descriptor_tag(desc.tag)); // 0x5f
+					dtdebug("BAT: unknown descriptor " << (int)desc.tag << "=" << name_of_descriptor_tag(desc.tag)); // 129 (0x81 User defined/ATSC reserved)
+				case 0x80 ... 0x82: //user defined
+				case 0x84 ... 0x85: //user defined
+				case 0x87 ... 0xb0: //user defined
+				case 0xb2 ... 0xd2: //user defined
+				case 0xd4 ... 0xfe: //user defined
 				case SI::EacemStreamIdentifierDescriptorTag:
 				case SI::PrivateDataSpecifierDescriptorTag: // 0x5f value=2 (0x00000002)  [= BskyB 1]
 					this->skip(desc.len);
@@ -1657,7 +1679,8 @@ namespace dtdemux {
 				tst1 -= (desc.len + 2);
 				assert(tst1 == this->available());
 			}
-			assert(end1 == this->available());
+			if(end1 > this->available())
+				return false;
 		}
 		assert(end == this->available());
 		uint32_t crc UNUSED = this->get<uint32_t>(); // avoid compiler warning

@@ -53,6 +53,7 @@ namespace dtdemux {
 		COMPLETE, //and duplicate
 		NEW,
 		LAST, //last section (and new)
+		BAD_VERSION //next or chnaged version number
 	};
 
 	struct section_header_t;

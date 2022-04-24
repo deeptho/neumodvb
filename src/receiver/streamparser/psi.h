@@ -160,6 +160,9 @@ namespace dtdemux {
 		ss::vector<pid_info_t, 16> pid_descriptors;
 		ss::vector<ca_info_t, 16> ca_descriptors;
 		ss::vector<service_move_info_t, 4> service_move_descriptors;
+
+		chdb::media_mode_t estimated_media_mode;
+
 		pmt_info_t& operator=(const pmt_info_t& other) = default;
 
 		bool has_ca_pid(uint16_t ca_pid) const;

@@ -217,7 +217,7 @@ inline completion_status_t& parser_status_t::completion_status_for_section(const
 */
 std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_header_t& hdr, int cc_error_count) {
 	bool timedout_now = false;
-	bool newversion = false;
+	bool badversion = false;
 	last_section = steady_clock_t::now();
 	if (cc_error_count > last_cc_error_count) {
 		last_cc_error_count = cc_error_count;
@@ -229,40 +229,46 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 
 	auto& cstate = completion_status_for_section(hdr);
 	assert(count_completed <= (int)cstates.size());
-	if (cstate.version_number != hdr.version_number) {
-		newversion = true;
+	if (!hdr.current_next || cstate.version_number != hdr.version_number) {
+		/*
+			The original code forced a reset when a version number changes. The implicit asummption is that
+			version changes are very are and tha the new version should take precedence.
+
+			A first problem  is that this might causes a reset cycle between versions with current_next=1 and 0.
+			A second problem occurs with invalid data (7.0E, 10804V - several versions of same bouquet
+			subtable, all with current_next=1)
+
+			Both cases will usually cause the caller in active_si_stream.cc to reset their internal state,
+			but on 7.0E, 10804V another problem arises: a change in version occurs, but after parsing the section
+			is found to be invalid. Then the version changes to the old version. The net result is that check()
+			causes a reset twice, but the caller fails to see these resets, and reeact to them. Specifically, the
+			code counts more received sections than the expected total number.
+
+			The new code ignores current_next==0 tables and also rejetcs any sections with a version_number different
+			from the first received one. This may lead to missing data
+
+		 */
+		badversion = true;
 		timedout_now = false;
-#if 0
-		dtdebugx("table[0x%x-%d] subtable version changed from %d to %d",
-						 hdr.table_id,  hdr.table_id_extension,cstate.version_number, hdr.version_number);
-#endif
-		if (cstate.completed) {
-			assert(count_completed > 0);
-			count_completed -= 1;
-		}
-		cstate.reset(hdr);
-		completed = false;
-		assert(!cstate.completed);
-		t.reset();
+		return {timedout_now, badversion, section_type_t::BAD_VERSION};
 	}
 	if (cstate.completed) {
 		timedout_now = t.timedout_now();
-		return {timedout_now, newversion, section_type_t::DUPLICATE};
+		return {timedout_now, badversion, section_type_t::DUPLICATE};
 	}
 
 	auto cstate_status = cstate.set_flag(hdr);
 	assert(cstate_status != section_type_t::COMPLETE);
-
 	if (cstate_status == section_type_t::NEW) {
 		last_section = steady_clock_t::now();
 		last_new_section = last_section;
-		return {false, newversion, cstate_status};
+		return {false, badversion, cstate_status};
 	}
 
 	if (cstate_status == section_type_t::DUPLICATE) {
 		last_section = steady_clock_t::now();
 		//assert(!completed); It is possible that new incomplete subtables have been discovered
-		return {false, newversion, cstate_status};
+		return {false, badversion, cstate_status};
 	}
 
 	assert(cstate_status == section_type_t::LAST);
@@ -273,9 +279,9 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 	last_section = steady_clock_t::now();
 	last_new_section = steady_clock_t::now();
 	if (completed)
-		return {false, newversion, section_type_t::LAST};
+		return {false, badversion, section_type_t::LAST};
 	else
-		return {false, newversion, section_type_t::NEW};
+		return {false, badversion, section_type_t::NEW};
 }
 
 void parser_status_t::reset(const section_header_t& hdr) {

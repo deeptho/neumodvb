@@ -2185,10 +2185,10 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	if(!is_embedded_si && !pat_data.stable_pat())
 		return dtdemux::reset_type_t::RESET;
 	auto cidx = scan_state_t::BAT;
-
-	if (tune_confirmation.sat_by == confirmed_by_t::NONE)
+	if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
+		dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
 		return dtdemux::reset_type_t::RESET; // delay processing until sat_confirmed.
-
+	}
 	if (info.timedout) {
 		scan_state.set_timedout(cidx);
 
@@ -2236,6 +2236,9 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 			bat_data.reset_bouquet(bouquet.bouquet_id);
 			txn.abort();
 			// if not done: will reparse later; we could also store these records (would be faster)
+			if (!done) {
+				dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
+			}
 			return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 		}
 		chgm.k.chg = chg.k;
@@ -2262,6 +2265,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 				continue;
 			bat_data.reset_bouquet(bouquet.bouquet_id);
 			txn.abort();
+			dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
 			return dtdemux::reset_type_t::RESET;
 		}
 		chdb::service_t service{c1.current()};
@@ -2297,7 +2301,9 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	auto& bouquet_data = bat_data.get_bouquet(chg);
 	if (bouquet_data.subtable_info.version_number != info.version_number) {
 		// record which services have been found
-		dtdebugx("BAT: subtable version changed from %d to %d\n", bouquet_data.subtable_info.version_number,
+		dtdebugx("BAT: bouquet=%d subtable version changed from %d to %d\n",
+						 bouquet.bouquet_id,
+						 bouquet_data.subtable_info.version_number,
 						 info.version_number);
 		bouquet_data.channel_ids.clear();
 		bouquet_data.num_sections_processed = 0;
@@ -2307,7 +2313,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	for (const auto& [channel_id, channel] : bouquet.channels) {
 		bouquet_data.channel_ids.push_back(channel_id);
 	}
-	assert(bouquet_data.num_sections_processed <= bouquet_data.subtable_info.num_sections_present);
+	assert(bouquet_data.num_sections_processed < bouquet_data.subtable_info.num_sections_present);
 
 	if (++bouquet_data.num_sections_processed == bouquet_data.subtable_info.num_sections_present) {
 		dtdebug("BAT subtable completed for bouquet=" << (int)bouquet.bouquet_id << " " << bouquet_data.channel_ids.size()

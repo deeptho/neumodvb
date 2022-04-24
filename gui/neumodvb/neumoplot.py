@@ -627,9 +627,6 @@ class SpectrumPlot(wx.Panel):
     def add_drawn_mux(self, freq, pol, symbol_rate):
         txt = f"{freq:8.3f}{pol} {int(symbol_rate)}kS/s "
         dtdebug(f'Add drawn mux {txt}')
-        from neumodvb.positioner_dialog import MuxUpdateEvent
-        #evt = MuxUpdateEvent(freq=freq, pol=pol, symbol_rate=symbol_rate)
-        #wx.PostEvent(self.parent.tune_mux_panel, evt)
         wx.CallAfter(self.parent.OnUpdateMux, freq, pol, symbol_rate)
 
     def start_draw_mux(self):

@@ -145,7 +145,6 @@ class NeumoMenuBar(wx.MenuBar):
         self.parent = parent
         self.items = OrderedDict()
         self.menus = OrderedDict()
-        self.accels = []
         self.make_menubar()
         parent.SetMenuBar(self)
 
@@ -221,13 +220,6 @@ class NeumoMenuBar(wx.MenuBar):
         prio = bestprio
         return m, found_item
 
-    def genericOFF(self, method_name, accel, evt):
-        key = method_name[3:]
-        m, item  = self.find_command(method_name, accel)
-        if m is not None:
-            return m(evt)
-        return
-
     def run_command(self, method_name, accel, evt):
         key = method_name[3:]
         #accellerator does not toggle the menu
@@ -259,11 +251,12 @@ class NeumoMenuBar(wx.MenuBar):
         return
 
     def make_accels(self):
+        accels=[]
         for name, item in self.items.items():
             a = item[1].GetAccel()
-            if False and a is not None:
+            if a is not None:
                 key_id = wx.NewIdRef()
-                self.accels.append((a.GetFlags(),  a.GetKeyCode(), key_id))
+                accels.append((a.GetFlags(),  a.GetKeyCode(), key_id))
                 x=f'Cmd{item[0].name}'
                 if item[0].name in ['JumpBack', 'JumpForward']:
                     continue
@@ -272,7 +265,7 @@ class NeumoMenuBar(wx.MenuBar):
                 accel_key = a.ToRawString()
                 self.parent.Bind(wx.EVT_MENU, lambda evt, x=x,
                                  accel=accel_key: self.run_command(x, accel, evt), id=key_id)
-        accel_tbl = wx.AcceleratorTable(self.accels)
+        accel_tbl = wx.AcceleratorTable(accels)
         return accel_tbl
 
     def make_menu(self, name, menudesc):
@@ -314,6 +307,7 @@ class NeumoMenuBar(wx.MenuBar):
         dtdebug(f'editmode set to {onoff}')
         for name in [ 'Delete', 'Undo']:
             self.items[name][1].Enable(onoff)
+
 """
 Principle of menu/accel handling:
 The menubar registers accelerators and menu items.

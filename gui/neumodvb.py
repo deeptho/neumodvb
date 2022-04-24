@@ -136,7 +136,7 @@ class neumoMainFrame(mainFrame):
         self.timer.Start(2000)
 
     @property
-    #@lru_cache(maxsize=None)
+    @lru_cache(maxsize=None)
     def accel_tbl(self):
         #Wx.TextCtrl does not seem to respect menu shortcuts
         #which causes Gridepg to not respond to accelerators such as CTRL-R for record
@@ -211,6 +211,8 @@ class neumoMainFrame(mainFrame):
             item.Enable(onoff)
         if self.live_panel in panelstoshow:
             self.set_accelerators(True)
+        else:
+            self.set_accelerators(False)
         self.Layout()
 
     def ToggleEditMode(self):

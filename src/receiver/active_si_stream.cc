@@ -61,6 +61,8 @@ bool pat_data_t::stable_pat(uint16_t ts_id) {
 	bool changed = (e.entries != e.last_entries);
 	if (changed) {
 		last_pat_change_time = steady_clock_t::now();
+		if(e.last_entries.size() !=0)
+			dtdebugx("pat changed %d -> %d\n", e.last_entries.size(), e.entries.size());
 		e.last_entries = e.entries;
 	}
 	stable_pat_ = !changed && ((steady_clock_t::now() - last_pat_change_time) >= pat_change_timeout);
@@ -1051,8 +1053,10 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			//dtdebug("PAT not stable yet");
 			pat_table.num_sections_processed = 0;
 			return dtdemux::reset_type_t::RESET; // need to check again for stability
-		}
-		dtdebugx("PAT is stable");
+		} else
+			pat_data.stable_pat(pat_services.ts_id); //cause timer to be updated
+		dtdebugx("PAT found");
+
 #if 0
 		if (scan_target == scan_target_t::SCAN_FULL || scan_target == scan_target_t::SCAN_FULL_AND_EPG)
 			for (auto& s : pat_table.entries) {

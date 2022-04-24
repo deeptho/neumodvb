@@ -89,11 +89,27 @@ scrolledwindow {
     color: gray;
 }
 
-
+/*
 *:not(focus) {
     color: black;
 }
+*/
 
+menuitem *:disabled  {
+    color: grey;
+}
+
+menuitem *:not(disabled)  {
+    color: black;
+}
+
+menuitem *:disabled  accelerator {
+    color: grey;
+}
+
+menuitem *:not(disabled)  accelerator {
+    color: black;
+}
 
 dialog filechooser placessidebar.sidebar.frame  {
     font-size: 100%;

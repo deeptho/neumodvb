@@ -261,7 +261,7 @@ class NeumoMenuBar(wx.MenuBar):
     def make_accels(self):
         for name, item in self.items.items():
             a = item[1].GetAccel()
-            if a is not None:
+            if False and a is not None:
                 key_id = wx.NewIdRef()
                 self.accels.append((a.GetFlags(),  a.GetKeyCode(), key_id))
                 x=f'Cmd{item[0].name}'

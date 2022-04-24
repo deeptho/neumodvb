@@ -56,9 +56,20 @@ endif (BUILD_DOCS)
 SET(CMAKE_INSTALL_RPATH "$ORIGIN/.")
 SET(CMAKE_BUILD_RPATH "$ORIGIN/.")
 
+#cmake_host_system_information(RESULT RELEASE QUERY OS_RELEASE)
 
+execute_process(COMMAND  lsb_release  -c -s OUTPUT_VARIABLE RELEASE)
+string(STRIP ${RELEASE} RELEASE)
+message(STATUS "xxx=/${RELEASE}/")
+if ("${RELEASE}" STREQUAL "focal")
+  message(STATUS "Ancient Unbuntu detected - using clang 17")
+  set (CMAKE_CXX_STANDARD 17)
+else()
+  set (CMAKE_CXX_STANDARD 20)
+  message(STATUS "Modern OS detected - using clang 20")
+endif()
 option(USE_CLANG "build application with clang" ON) # ON is the default
-set (CMAKE_CXX_STANDARD 17)
+
 if(USE_CLANG)
     SET (CMAKE_CXX_COMPILER clang++)
 endif(USE_CLANG)

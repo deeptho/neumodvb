@@ -1599,7 +1599,7 @@ class RecordPanel(wx.Panel):
             cell.SetForegroundColour(fgcolour)
         it = self.gbs.Add(cell, pos, span, expand|wx.ALIGN_CENTER_VERTICAL)
         #set a very small column size; the call gbs.SetNonFlexibleGrowMode... elsewhere will expand the columns
-        it.SetMinSize((4,-1))
+        it.SetMinSize((4,self.row_height))
         if ref_for_tab_order is not None:
             cell.MoveAfterInTabOrder(ref_for_tab_order)
         cell.data = None

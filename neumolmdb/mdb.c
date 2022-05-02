@@ -2915,7 +2915,7 @@ mdb_cursors_close(MDB_txn *txn, unsigned merge)
 				mc = bk;
 			}
 			/* Only malloced cursors are permanently tracked. */
-			//free(mc); //Deepthought: avoid double freee when cursors are later destroyed
+			free(mc);
 		}
 		cursors[i] = NULL;
 	}

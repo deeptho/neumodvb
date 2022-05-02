@@ -1284,7 +1284,9 @@ public:
 #endif
     return txn{handle};
   }
-
+	bool is_valid() const {
+		return _handle;
+	}
  txn () = default;
   /**
    * Constructor.

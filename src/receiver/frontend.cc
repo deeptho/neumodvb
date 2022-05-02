@@ -646,7 +646,6 @@ static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
 	int posi_angle = 0;
 	int tmp;
 	char z_conversion[10] = {0x00, 0x02, 0x03, 0x05, 0x06, 0x08, 0x0a, 0x0b, 0x0d, 0x0e};
-	int f_angle_error = 0;
 
 	g8 = ((double)angle) / 10.;
 	g9 = ((double)my_longitude) / 10.;
@@ -660,7 +659,6 @@ static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
 		g17 = 0.;
 		g18 = 0.;
 		g19 = 0.;
-		f_angle_error = -1;
 	} else {
 		g17 = g14;
 		g18 = g15;
@@ -671,7 +669,6 @@ static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
 	g21 = g20 > 180. ? -(360. - g20) : g20;
 	if (fabs(g21) > 80.) {
 		g22 = 0;
-		f_angle_error = -1;
 	} else
 		g22 = g21;
 
@@ -688,7 +685,6 @@ static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
 	g33 = g32 * 180. / M_PI;
 	if (fabs(g33) > 80.) {
 		g34 = 0.;
-		f_angle_error = -1;
 	} else
 		g34 = g33;
 

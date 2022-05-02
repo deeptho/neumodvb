@@ -105,9 +105,9 @@ void rec_manager_t::remove_livebuffers() {
 		mpm_index_t mpm_index(dbpath.c_str());
 		mpm_index.open_index();
 		auto rec_txn = mpm_index.mpm_rec.recdb.wtxn();
-		auto rec_idx = find_first<recdb::rec_t>(rec_txn);
-		if (rec_idx.is_valid()) {
-			auto rec = rec_idx.current();
+		auto rec_c = find_first<recdb::rec_t>(rec_txn);
+		if (rec_c.is_valid()) {
+			auto rec = rec_c.current();
 			dterror("Found recording in livebuffer - finalizing: " << rec);
 			auto destdir = fs::path(options.recordings_path.c_str()) / rec.filename.c_str();
 			mpm_copylist_t copy_command(path, destdir, rec);

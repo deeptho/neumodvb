@@ -207,7 +207,7 @@ class IconRenderer(wx.grid.GridCellRenderer):
                     #dc.SetBrush(wx.Brush('red', wx.SOLID))
                     #dc.SetTextForeground('white')
                     x = rect.x + icon['x']
-                    y = rect.top + (rect.height - icon['h']) / 2
+                    y = rect.top + (rect.height - icon['h']) // 2
                     dc.DrawRectangle(x,y, icon['w'], icon['h'])
                     dc.DrawBitmap(icon['icon'], x, y, True)
 

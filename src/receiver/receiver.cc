@@ -312,7 +312,8 @@ receiver_thread_t::subscribe_service_<chdb::any_mux_t>(std::vector<task_queue_t:
 		tuned to the desired mux
 	*/
 
-	int ret = subscribe_mux(futures, txn, mux, subscription_id, tune_options_t(), (const chdb::lnb_t*)nullptr);
+	int ret = subscribe_mux(futures, txn, mux, subscription_id,
+													tune_options_t(scan_target_t::SCAN_FULL_AND_EPG), (const chdb::lnb_t*)nullptr);
 	if (ret < 0)
 		return nullptr; // we could not reserve a mux
 	assert(ret == subscription_id || subscription_id < 0);

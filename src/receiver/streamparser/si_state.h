@@ -160,5 +160,7 @@ namespace dtdemux {
 		std::tuple<int, int> get_counts() const {
 			return std::make_tuple(count_completed, cstates.size());
 		}
+
+		void dump_cstates();
 	};
 }

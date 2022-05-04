@@ -29,6 +29,8 @@ using namespace chdb;
 using namespace dtdemux;
 namespace dtypes { //dummy (empty) structures
 	struct service_descriptor_t;
+	struct data_broadcast_descriptor_t;
+	struct multiprotocol_encapsulation_info_structure_t;
 	struct service_list_descriptor_t;
 	struct otv_service_descriptor_t;
 	struct fst_service_descriptor_t;

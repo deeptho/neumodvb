@@ -33,13 +33,10 @@ using namespace dtdemux;
 
 
 struct pat_service_t {
-	int service_id{-1};
-	uint16_t pmt_pid{0x1fff};
 	bool pmt_analysis_started{false};
 	bool pmt_analysis_finished{false};
-	pat_service_t(int service_id, int pmt_pid):
-		service_id(service_id), pmt_pid(pmt_pid) {
-	}
+	bool encrypted{false};
+	pmt_info_t pmt;
 	std::shared_ptr<pmt_parser_t> parser;
 
 };
@@ -48,7 +45,11 @@ struct pat_service_t {
 struct pmt_data_t {
 	std::map<uint16_t, pat_service_t> by_service_id; //services in pat indexed by service_id
 	reset_type_t pmt_section_cb(const pmt_info_t& pmt, bool isnext);
-
+	bool saved{false};  //pmts saved to db?
+	int num_pmts_received{0};
+	bool all_received() const {
+		return num_pmts_received == by_service_id.size();
+	}
 };
 
 struct pat_data_t {
@@ -206,7 +207,6 @@ struct mux_data_t  {
 
 	mux_sdt_data_t sdt[2]{{}}; //indexed by nit_actual
 	subtable_info_t sdt_actual_subtable_info;
-	//int sdt_actual_num_sections_processed{0};
 
 	ss::vector<uint16_t, 32> service_ids; //service ids seen
 
@@ -344,9 +344,6 @@ struct bat_data_t {
 
 
 struct active_si_data_t {
-
-////////data
-	//int read_pointer{0};
 	tune_confirmation_t tune_confirmation;
 
 	pat_data_t pat_data;
@@ -363,6 +360,15 @@ struct active_si_data_t {
 
 	scan_state_t scan_state;
 	bool scan_in_progress{false};
+
+
+	bool pmts_can_be_saved() const {
+		return ! pmt_data.saved &&
+			nit_actual_completed() &&
+			pmt_data.all_received();
+	}
+
+
 	active_si_data_t(bool is_embedded_si)
 		: is_embedded_si(is_embedded_si)
 		{}
@@ -400,11 +406,11 @@ struct active_si_data_t {
 		return scan_state.done(scan_state_t::completion_index_t::BAT);
 	}
 
-	bool pat_completed() const {
+	bool pat_completed() const { //PAT as been correctly received
 		return scan_state.completed(scan_state_t::completion_index_t::PAT);
 	}
 
-	bool nit_actual_completed() const {
+	bool nit_actual_completed() const { //NIT_ACTUAL as been correctly received
 		return scan_state.completed(scan_state_t::completion_index_t::NIT_ACTUAL);
 	}
 
@@ -613,14 +619,6 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	void load_skyuk_bouquet();
 
 	void on_wrong_sat();
-#if 0
-/*
-	confirm that the current mux is indeed on the right sat, to detect
-	errors temporary errors due to dish rotationm and permanent errors due to diseqs
-*/
-	bool confirm_tuned_dvbs_mux(db_txn& wtxn,
-															const chdb::dvbs_mux_t& si_mux, confirmed_by_t confirmer);
-#endif
 
 /*
 	returns 1 if network  name matches database, 0 if no record was present and -1 if no match
@@ -676,7 +674,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	void handle_mux_change(db_txn& wtxn, chdb::any_mux_t& old_mux, chdb::any_mux_t& new_nux, bool is_tuned_mux);
 	void finalize_scan(bool done);
 	mux_data_t* tuned_mux_in_nit();
-
+	void save_pmts(db_txn& wtxn);
 public:
 	void reset(bool is_retune);
 

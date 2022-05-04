@@ -188,6 +188,21 @@ void parser_status_t::reset() {
 	*this = parser_status_t();
 }
 
+void parser_status_t::dump_cstates() {
+	for(auto& [k, cstate]: cstates) {
+		if(k.table_id == 0x4a) {
+			ss::string<16> xxx;
+			for(auto f: cstate.section_flags)
+				xxx.sprintf("%02x ", f);
+			dtdebugx("key=[%d %d %d] "
+						 "vers=%d last_sn=%d count=%d maxcount=%d completed=%d flags=%s\n",
+							 k.table_id_extension, k.table_id_extension1, k.table_id_extension2,
+							 cstate.version_number, cstate.last_section_number, cstate.count,
+							 cstate.maxcount, cstate.completed, xxx.c_str());
+		}
+	}
+}
+
 inline completion_status_t& parser_status_t::completion_status_for_section(const section_header_t& hdr) {
 	subtable_key_t k(hdr);
 	auto [it, inserted] = cstates.try_emplace(k, hdr);

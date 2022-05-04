@@ -438,6 +438,16 @@ namespace dtdemux {
 		return ret;
 	}
 
+	template <> int stored_section_t::get_fields<multiprotocol_encapsulation_info_structure_t>(service_t& ret) {
+		auto num_mac_bytes = get<uint8_t>();
+		auto mac_ip_mapping_flag UNUSED =  (num_mac_bytes>>3)&1;
+		num_mac_bytes &= 0x7;
+		auto max_sections_per_datagram UNUSED =  get<uint8_t>();
+		return 0;
+	}
+
+
+
 	template <> int stored_section_t::get_fields<service_descriptor_t>(service_t& ret) {
 		if (available() < 2) {
 			throw_bad_data();
@@ -449,6 +459,58 @@ namespace dtdemux {
 			return -1;
 		if (get_fields<dvb_text_t>(ret.name))
 			return -1;
+		return 0;
+	}
+
+	template <> int stored_section_t::get_fields<data_broadcast_descriptor_t>(service_t& ret) {
+		if (available() < 7) {
+			throw_bad_data();
+			return -1;
+		}
+		auto data_broadcast_id UNUSED = get<uint16_t>();
+		auto component_tag UNUSED = get<uint8_t>();
+		auto selector_len = get<uint8_t>();
+		if(available() < 5) {
+			throw_bad_data();
+			return -1;
+		}
+		switch (data_broadcast_id) {
+
+		case 0x3: //
+			if (selector_len != 0) {
+				throw_bad_data();
+				return -1;
+			}
+			ret.service_type = 0x0c; //data service
+			ret.media_mode = chdb::media_mode_for_service_type(ret.service_type);
+			break;
+		case 0x5: //Multi protocol encapsulation
+			if (selector_len != 2) {
+				throw_bad_data();
+				return -1;
+			}
+			get_fields<multiprotocol_encapsulation_info_structure_t>(ret);
+			ret.service_type = 0x0c; //data service
+			ret.media_mode = chdb::media_mode_for_service_type(ret.service_type);
+			break;
+		default:
+			skip(selector_len);
+			break;
+		}
+
+		if(available() < 4) {
+			throw_bad_data();
+			return -1;
+		}
+		auto* p = current_pointer(3);
+		auto langcode UNUSED = lang_iso639(p[0], p[1], p[2]);
+		auto text_len = get<uint8_t>();
+
+		if(available() < text_len) {
+			throw_bad_data();
+			return -1;
+		}
+		skip(text_len);
 		return 0;
 	}
 
@@ -1181,8 +1243,14 @@ namespace dtdemux {
 			auto stream_pid = this->get<uint16_t>();
 			pmt.capmt_data.append_raw((uint16_t)native_to_net(stream_pid));
 			stream_pid &= 0x1fff;
-			if (stream_type::is_video(stream_type::stream_type_t(stream_type)))
+			if (stream_type::is_video(stream_type::stream_type_t(stream_type))) {
 				pmt.video_pid = stream_pid;
+				pmt.estimated_media_mode = media_mode_t::TV;
+			} else if (is_audio(stream_type::stream_type_t(stream_type))) {
+				if(pmt.estimated_media_mode != media_mode_t::TV)
+					pmt.estimated_media_mode = media_mode_t::RADIO;
+			}
+
 			pid_info_t info(stream_pid, stream_type);
 			const bool in_es_loop = true;
 			pmt.parse_descriptors(*this, info, in_es_loop);
@@ -1460,6 +1528,9 @@ namespace dtdemux {
 #endif
 
 				} break;
+				case SI::DataBroadcastDescriptorTag: {
+					this->get_fields<data_broadcast_descriptor_t>(service);
+				} break;
 				case SI::CaIdentifierDescriptorTag: {
 					// Using the CaIdentifierDescriptor is no good, because some tv stations
 					// just don't use it. pmt contains perhaps better data
@@ -1497,6 +1568,9 @@ namespace dtdemux {
 			}
 			if (service.service_type == 12 && strcmp(service.name.c_str(), "FreesatHome") == 0)
 				ret.has_freesat_home_epg = true;
+			if (service.name.size() == 0) {
+				service.name.sprintf("Service %d", service.k.service_id);
+			}
 		}
 		if (this->available() < 4) {
 			dterrorx("Too few bytes left at end of sdt");

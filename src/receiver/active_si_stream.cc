@@ -1057,13 +1057,12 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			pat_data.stable_pat(pat_services.ts_id); //cause timer to be updated
 		dtdebugx("PAT found");
 
-#if 0
 		if (scan_target == scan_target_t::SCAN_FULL || scan_target == scan_target_t::SCAN_FULL_AND_EPG)
 			for (auto& s : pat_table.entries) {
 				if (!is_embedded_si && s.service_id != 0x0 /*skip pat*/)
 					add_pmt(s.service_id, s.pmt_pid);
 			}
-#endif
+
 		bool all_done = true;
 		for (auto& [ts_id, table] : pat_data.by_ts_id) {
 			if (table.num_sections_processed != table.subtable_info.num_sections_present) {
@@ -1091,7 +1090,6 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 			/*It is too soon to decide we are on the right/wrong sat;
 				force nit_actual rescanning
 			*/
-			wtxn.abort();
 			network_data.reset();
 			return dtdemux::reset_type_t::RESET;
 		}
@@ -1156,7 +1154,6 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 			tune_confirmation.nit_actual_seen = true;
 		//tune_confirmation.nit_actual_ok = true;
 	}
-	wtxn.commit();
 	return ret;
 }
 
@@ -1283,11 +1280,21 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		&& std::abs(sat_pos - tuned_mux_key->sat_pos) >= 30;
 
 	ret = on_nit_completion(wtxn, network_data, ret, network.is_actual, on_wrong_sat, done);
+	if(ret== dtdemux::reset_type_t::RESET ||
+		 ret == dtdemux::reset_type_t::ABORT
+		) {
+		wtxn.abort();
+		return ret;
+	}
+
 	if (done && network.is_actual) { // for nit other, there may be multiple entries
 		dtdebugx("NIT_ACTUAL completed");
 		scan_state.set_completed(cidx); //signal that nit_actual has been stored
 		tune_confirmation.nit_actual_ok = true;
+		if(pmts_can_be_saved())
+			save_pmts(wtxn);
 	}
+	wtxn.commit();
 	return ret;
 }
 
@@ -2194,7 +2201,6 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 
 		if (bat_all_bouquets_completed())
 			scan_state.set_completed(cidx);
-
 		return dtdemux::reset_type_t::NO_RESET;
 	} else
 		scan_state.set_active(cidx);
@@ -2567,7 +2573,12 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 	dtdebugx("pmt received for sid=%d: stopping stream", pmt.service_id);
 	auto& p = pmt_data.by_service_id.at(pmt.service_id);
 	p.parser.reset();
+	if (!p.pmt_analysis_finished)
+		pmt_data.num_pmts_received++;
 	p.pmt_analysis_finished = true;
+	p.pmt = pmt;
+	pmt_data.saved =false; //we need to save again (new or updated pmt)
+
 	for (const auto& desc : pmt.pid_descriptors) {
 		bool is_t2mi = desc.t2mi_stream_id >= 0;
 		auto sat_pos = mux_key_ptr(reader->tuned_mux())->sat_pos;
@@ -2596,11 +2607,16 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 			}
 		}
 	}
+
+	if(pmts_can_be_saved()) {
+		auto wtxn = chdb_txn();
+		save_pmts(wtxn);
+	}
 	return reset_type_t::NO_RESET;
 }
 
 void active_si_stream_t::add_pmt(uint16_t service_id, uint16_t pmt_pid) {
-	auto [it, inserted] = pmt_data.by_service_id.try_emplace(service_id, pat_service_t{service_id, pmt_pid});
+	auto [it, inserted] = pmt_data.by_service_id.try_emplace(service_id, pat_service_t{});
 	auto& p = it->second;
 	if (inserted) {
 		dtdebugx("Adding pmt for analysis: service=%d pmt_pid=%d", (int)service_id, (int)pmt_pid);
@@ -2651,6 +2667,40 @@ bool active_si_stream_t::is_tuned_mux(const chdb::any_mux_t& mux)
 	return chdb::matches_physical_fuzzy(mux, reader->tuned_mux());
 }
 
+void active_si_stream_t::save_pmts(db_txn& wtxn)
+{
+	using namespace chdb;
+	auto tuned_mux = reader->tuned_mux();
+	auto* tuned_mux_key = mux_key_ptr(tuned_mux);
+	ss::string<32> mux_desc;
+	assert (tuned_mux_key->sat_pos != sat_pos_none);
+	chdb::to_str(mux_desc, tuned_mux);
+	int count{0};
+	for (auto& [service_id, pat_service]: pmt_data.by_service_id) {
+		service_key_t service_key(*tuned_mux_key,  pat_service.pmt.service_id);
+		auto c = service_t::find_by_key(wtxn, service_key);
+		auto service = c.is_valid() ? c.current() :
+			service_t{};
+		auto new_service = service;
+		if(! c.is_valid()) {
+			service.k = service_key;
+			service.name.sprintf("Service %s:%d", mux_desc.c_str(), pat_service.pmt.service_id);
+		}
+		new_service.pmt_pid = pat_service.pmt.pmt_pid;
+		//new_service.pr_pid = pat_service.pmt.pcr_pid;
+		new_service.video_pid = pat_service.pmt.video_pid;
+		if (pat_service.pmt.estimated_media_mode != media_mode_t::UNKNOWN)
+			new_service.media_mode = pat_service.pmt.estimated_media_mode;
+		new_service.encrypted = pat_service.pmt.is_encrypted();
+		if(new_service != service) {
+			new_service.mtime = system_clock_t::to_time_t(now);
+			dtdebug("Updating/saving service from pmt: " << service);
+			count++;
+			put_record(wtxn, new_service);
+		}
+	}
+	dtdebugx("SAVED %d pmts\n", count);
+}
 
 /*
 	for tuned_mux:  first lookup network_id,ts_id,extra_id in the database ig it is not exist

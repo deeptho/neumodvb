@@ -443,7 +443,7 @@ class ChEpgGridRow(GridRow):
         """
         check if window w is the left most epg cell
         """
-        return w.data.colno == self.grid.chwidth
+        return w.data.colno == 0
 
     def neighboring_cell(self, w, left_neighbor):
         """
@@ -550,60 +550,6 @@ class ChEpgGridRow(GridRow):
                 ref=cell
                 last_time = epg.end_time
 
-    def update_epgOLD(self):
-        """
-        rowno = index of channel in channel list
-        """
-        col_offset = self.grid.chwidth
-        colour=self.grid.green
-
-        self.epg_cells = []
-        start_time = self.data.start_time_unixepoch
-        ch_idx = self.grid.top_idx+self.rowno
-        epg_idx = self.data.first_epg_record(ch_idx, start_time)
-        if epg_idx <0:
-            pass #can happen when only a few records fit on screen
-        ref = self.ch_cell
-        last_col = 0
-        last_time = start_time
-        while True:
-            #add empty placeholder
-            if epg_idx < 0:
-                span = self.grid.num_cols - last_col
-            else:
-                epg_record = self.data.GetEpgRecord(ch_idx, epg_idx)
-                if epg_record is None:
-                    epg_idx = -1
-                    continue
-                start_col = max(0, (epg_record.k.start_time - start_time)//self.grid.epg_duration_width)
-                if start_col < last_col:
-                    pass
-                if start_col < last_col:
-                    epg_idx +=1
-                    continue
-                assert start_col >= last_col
-                end_col = max(0, (epg_record.end_time - start_time)//self.grid.epg_duration_width)
-                assert end_col >= start_col
-                span = min(start_col, self.grid.num_cols) - last_col
-            if span>0: # we need to draw an empty cell before the next epg record
-                cell = self.add_epg_cell(start_time= last_time, span=(1,span), colno = last_col,
-                                         bgcolour=self.grid.gray, ref_for_tab_order=ref)
-                self.epg_cells.append(cell)
-                ref=cell
-            if epg_idx<0 or start_col >= self.grid.num_cols:
-                break #all done for this row
-            last_col = min(end_col, self.grid.num_cols)
-            span  = last_col - start_col
-            if span != 0:
-                cell=self.add_epg_cell(epg=epg_record, span=(1,span), colno = start_col,
-                                   bgcolour=self.grid.epg_colour, fgcolour = self.grid.white,
-                                   ref_for_tab_order = ref)
-                self.epg_cells.append(cell)
-                ref=cell
-                last_time = epg_record.end_time
-            if last_col >=self.grid.num_cols:
-                break  #all done for this row
-            epg_idx +=1
 
     def focus_current(self):
         """
@@ -1882,7 +1828,7 @@ class GridEpgPanel(RecordPanel):
         if cell.data is None:
             return False # could be another text cell which cannot be focused
         colno = cell.data.colno
-        if colno >= self.chwidth:
+        if colno >= 0:
             if on:
                 cell.SetForegroundColour(self.epg_highlight_colour)
             else:

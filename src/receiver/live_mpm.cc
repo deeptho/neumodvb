@@ -253,7 +253,7 @@ active_mpm_t::active_mpm_t(active_service_t* parent_, system_time_t now)
 				active_service->update_pmt_pid(e.pmt_pid);
 				active_service->pmt_parser = stream_parser.register_pmt_pid(e.pmt_pid, e.service_id);
 				active_service->pmt_parser->section_cb =
-					[this](const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
+					[this](pmt_parser_t* parser, const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
 						if(pmt.service_id == active_service->current_service.k.service_id) {
 							//on 30.0W 12398, multiple services share the same pmt_pid. We need the correct one
 							active_service->update_pmt(pmt, isnext, sec_data);

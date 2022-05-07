@@ -308,7 +308,9 @@ namespace dtdemux {
 			: ts_substream_t(parent, true, name)
 			, pid(pid)
 			{}
-
+		int get_pid() const {
+			return pid;
+		}
 		section_parser_t(const section_parser_t& other) = delete;
 
 		virtual ~section_parser_t() {
@@ -497,10 +499,11 @@ namespace dtdemux {
 		int current_version_number{-1};
 		int service_id {-1};
 
-		std::function<reset_type_t(const pmt_info_t&, bool,
-															 const ss::bytebuffer_& p_sec_data)>  section_cb = [](const pmt_info_t&, bool isnext,
-																																										const ss::bytebuffer_& sec_data)
-																 {return reset_type_t::NO_RESET;};
+		std::function<reset_type_t(pmt_parser_t*, const pmt_info_t&, bool,
+															 const ss::bytebuffer_& p_sec_data)>
+		section_cb = [](pmt_parser_t* parser, const pmt_info_t&, bool isnext,
+										const ss::bytebuffer_& sec_data)
+			{return reset_type_t::NO_RESET;};
 
 		pmt_parser_t(ts_stream_t& parent, int pid, int service_id)
 			: psi_parser_t(parent, pid, "PMT")

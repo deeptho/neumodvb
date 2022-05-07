@@ -131,7 +131,9 @@ namespace dtdemux {
 			current_range = data_range_t(buffer, len);
 			current_range.set_start_bytepos(new_start_bytepos);
 		}
-
+		inline void unregister_psi_pid(uint16_t pid) {
+			unregister_parser(pid);
+		}
 		void register_psi_pid(uint16_t pid, const char*label="psi") {
 			auto parser=std::make_shared<section_parser_t>(*this, pid, label);
 			register_parser(pid, [parser](ts_packet_t* p){

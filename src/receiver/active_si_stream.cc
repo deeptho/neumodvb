@@ -599,7 +599,6 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 												EPOLLIN | EPOLLERR | EPOLLHUP);
 	fix_tune_mux_template();
 
-	parsers.reserve(32);
 	auto& tuned_mux = reader->tuned_mux();
 	auto* mux_common = chdb::mux_common_ptr(tuned_mux);
 	scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
@@ -2571,7 +2570,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 	if(isnext)
 		return reset_type_t::NO_RESET;
 	dtdebugx("pmt received for sid=%d: stopping stream", pmt.service_id);
-	auto& p = pmt_data.by_service_id.at(pmt.service_id);
+	auto& p = pmt_data.by_service_id[pmt.service_id];
 	p.parser.reset();
 	if (!p.pmt_analysis_finished)
 		pmt_data.num_pmts_received++;
@@ -2621,11 +2620,13 @@ void active_si_stream_t::add_pmt(uint16_t service_id, uint16_t pmt_pid) {
 	if (inserted) {
 		dtdebugx("Adding pmt for analysis: service=%d pmt_pid=%d", (int)service_id, (int)pmt_pid);
 
-		auto pmt_section_cb = [this](const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
-			return this->pmt_section_cb(pmt, isnext); };
+		auto pmt_section_cb = [this](dtdemux::pmt_parser_t*parser,
+																 const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
+			remove_parser(parser);
+			return this->pmt_section_cb(pmt, isnext);
 
+		};
 		add_parser<dtdemux::pmt_parser_t>(pmt_pid, service_id)->section_cb = pmt_section_cb;
-
 		p.pmt_analysis_started = true;
 	}
 }

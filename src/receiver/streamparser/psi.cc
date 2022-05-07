@@ -351,7 +351,7 @@ void pmt_parser_t::parse_payload_unit() {
 		success = timedout ? true : parse_pmt_section(section, pmt);
 		if (success) {
 			pmt.stream_packetno_end = parent.event_handler.last_pmt_end_bytepos / ts_packet_t::size;
-			auto must_reset = this->section_cb(pmt, !hdr.current_next, section.payload);
+			auto must_reset = this->section_cb(this, pmt, !hdr.current_next, section.payload);
 			if (must_reset == reset_type_t::ABORT)
 				parent.return_early();
 			else if (must_reset == reset_type_t::RESET)

@@ -223,8 +223,21 @@ namespace dtdemux {
 	}
 
 	template <class implementation_t>
+	inline void stream_parser_base_t<implementation_t>::unregister_parser(int parser_pid) {
+		fibers.erase(dvb_pid_t(parser_pid));
+	}
+
+	template <class implementation_t>
 	template<typename fn_t>
 	inline void stream_parser_base_t<implementation_t>::register_parser(int parser_pid,   fn_t&& fn) {
+#ifndef NDEBUG
+		auto it = fibers.find(dvb_pid_t(parser_pid));
+		if (it != fibers.end()) {
+			dterrorx("Cannot add multiple parsers for pid %d", parser_pid);
+			assert(0);
+			return;
+		}
+#endif
 		auto &self = fibers[dvb_pid_t(parser_pid)];
 		auto f = [this, &self, fn, parser_pid](continuation_t&& invoker) -> continuation_t {
 			//return to root at startup and do nothing

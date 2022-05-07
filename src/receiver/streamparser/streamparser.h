@@ -365,6 +365,11 @@ namespace dtdemux {
 		void parse();
 
 		/*!
+			unregister parser function for a specific pid
+		*/
+		void unregister_parser(int pid);
+
+		/*!
 			register parser function for a specific pid
 		*/
 		template<typename fn_t>

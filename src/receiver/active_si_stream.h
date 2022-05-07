@@ -567,7 +567,12 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		"""Within TS packets of any single PID value, one section is finished before the next one is allowed to be started,
 		"""
 	*/
-	std::vector<std::shared_ptr<dtdemux::psi_parser_t>>  parsers;
+	struct parser_slot_t {
+		std::shared_ptr<dtdemux::psi_parser_t> p;
+		int use_count{0};
+	};
+
+	std::map<dvb_pid_t, parser_slot_t>  parsers;
 
 	void update_tuned_mux(db_txn& wxtn, chdb::any_mux_t& mux, bool may_change_sat_pos,
 												bool may_change_nit_tid, bool from_sdt);
@@ -635,11 +640,26 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	template<typename parser_t, typename... Args>
 	auto add_parser(int pid, Args... args) {
-		auto parser = stream_parser.register_pid<parser_t>(pid, args...);
-		parsers.push_back(parser);
-		if(pid!=dtdemux::ts_stream_t::PAT_PID)
-			add_pid(pid);
-		return parser;
+		auto & slot = parsers[dvb_pid_t(pid)];
+		if (slot.use_count == 0) {
+			slot.p = stream_parser.register_pid<parser_t>(pid, args...);
+			if(pid!=dtdemux::ts_stream_t::PAT_PID)
+				add_pid(pid);
+		}
+		slot.use_count++;
+		return static_cast<parser_t*>(slot.p.get());
+	}
+
+	void remove_parser(dtdemux::psi_parser_t* parser) {
+		dvb_pid_t pid{parser->get_pid()};
+		auto & slot = parsers[pid];
+		if(--slot.use_count == 0) {
+			printf("removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
+			remove_pid(parser->get_pid());
+			parsers.erase(pid);
+		} else {
+			printf("not removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
+		}
 	}
 
 	void add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_tuned_mux,

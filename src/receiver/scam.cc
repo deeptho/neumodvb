@@ -781,6 +781,7 @@ void active_scam_t::ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, u
 		assert(demux_no_t(filter.demux_no) == demux_no);
 		remove_pid(ecm_pid);
 		filters.erase(filter_no);
+		stream_parser.unregister_psi_pid(ecm_pid);
 		restart_decryption(ecm_pid, system_clock_t::now());
 	}
 }

@@ -321,8 +321,8 @@ struct db_cursor : private lmdb::cursor {
 	}
 
 	void close() noexcept {
-		txn.num_cursors--;
-		lmdb::cursor::close();
+		if(is_valid())
+			lmdb::cursor::close();
 	}
 
 	MDB_cursor* handle() const noexcept {
@@ -380,6 +380,7 @@ struct db_cursor : private lmdb::cursor {
 		, valid_(other.valid_)
 		, key_prefix(other.key_prefix) {
 			assert(txn.handle() != nullptr);
+			txn.num_cursors++;
 		}
 
 	db_cursor(const db_cursor& other, clone_t*)
@@ -393,6 +394,7 @@ struct db_cursor : private lmdb::cursor {
 		{
 			assert(txn.handle() != nullptr);
 			lmdb::val k{}, v{};
+			txn.num_cursors++;
 			if(!valid_)
 				return;
 			bool found = ((lmdb::cursor&)other).get(k, v, (MDB_cursor_op) MDB_GET_CURRENT);
@@ -403,13 +405,12 @@ struct db_cursor : private lmdb::cursor {
 			}
 		}
 	~db_cursor() {
-		if(handle()) {
-			if (txn.is_valid())
-				close(); /* !txn.is_valid() means that transaction was aborted/committed in which case low level
-										lmdb cursors have been freed*/
-			else
-				txn.num_cursors--;
+		if (txn.is_valid() && is_valid()) {
+			close(); /* !txn.is_valid() means that transaction was aborted/committed in which case low level
+								 		lmdb cursors have been freed*/
 		}
+		assert (txn.num_cursors >= 1);
+		txn.num_cursors--;
 	}
 
 	db_cursor clone() const {

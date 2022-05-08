@@ -49,9 +49,6 @@ include_directories(
 add_subdirectory(streamparser)
 
 
-unset(CMAKE_CXX_STANDARD)
-set(PYBIND11_CPP_STANDARD -std=c++17) # Experimental C++17 support
-
 pybind11_add_module(pyreceiver receiver_pybind.cc options_pybind.cc subscriber_pybind.cc logger_pybind.cc)
 pybind11_add_module(pyspectrum spectrum_pybind.cc)
 

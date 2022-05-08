@@ -15,6 +15,16 @@ SET(CMAKE_BUILD_RPATH "$ORIGIN/.")
 # libneumowxsvg
 include(cmake/neumowxsvg.cmake)
 
+execute_process(COMMAND  lsb_release  -c -s OUTPUT_VARIABLE RELEASE)
+string(STRIP ${RELEASE} RELEASE)
+message(STATUS "xxx=/${RELEASE}/")
+if ("${RELEASE}" STREQUAL "focal")
+  message(STATUS "Ancient Unbuntu detected - using clang 17")
+  set (CMAKE_CXX_STANDARD 17)
+else()
+  set (CMAKE_CXX_STANDARD 20)
+  message(STATUS "Modern OS detected - using clang 20")
+endif()
 
 #add_compile_options (-fsanitize=address -fPIC -fsized-deallocation)
 # -DHAS_UNCAUGHT_EXCEPTIONS=1 for date module

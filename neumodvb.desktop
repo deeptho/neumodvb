@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=neumodvb
+Comment=DVB viewer and blindscan program for linux
+Exec=./usr/bin/neumodvb
+Icon=icon
+GenericName=MyProgram
+Categories=Utility
+Terminal=false

@@ -52,8 +52,6 @@ add_dependencies(recdb rec_generated_files ch_generated_files epg_generated_file
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(recdb PUBLIC -fPIC -fsized-deallocation)
 
-unset(CMAKE_CXX_STANDARD)
-set(PYBIND11_CPP_STANDARD -std=c++17) # Experimental C++17 support
 pybind11_add_module(pyrecdb recdb_pybind.cc ${pybind_srcs})
 
 target_compile_options(pyrecdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error

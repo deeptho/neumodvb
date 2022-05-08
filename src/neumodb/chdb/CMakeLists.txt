@@ -53,8 +53,6 @@ add_dependencies(chdb ch_generated_files stat_generated_files epg_generated_file
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(chdb PUBLIC -fPIC  -fsized-deallocation PRIVATE -fvisibility=hidden -fbracket-depth=1024)
 
-unset(CMAKE_CXX_STANDARD)
-set(PYBIND11_CPP_STANDARD -std=c++17) # Experimental C++17 support
 pybind11_add_module(pychdb chdb_pybind.cc chdb_vector_pybind.cc ${pybind_srcs})
 
 target_compile_options(pychdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error

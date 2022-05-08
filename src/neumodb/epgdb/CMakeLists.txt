@@ -52,8 +52,6 @@ add_dependencies(epgdb epg_generated_files ch_generated_files stat_generated_fil
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(epgdb PUBLIC -fPIC -fsized-deallocation)
 
-unset(CMAKE_CXX_STANDARD)
-set(PYBIND11_CPP_STANDARD -std=c++17) # Experimental C++17 support
 pybind11_add_module(pyepgdb epgdb_pybind.cc ${pybind_srcs})
 
 target_compile_options(pyepgdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error

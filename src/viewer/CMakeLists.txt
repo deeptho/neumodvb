@@ -1,8 +1,6 @@
 find_package(wxWidgets REQUIRED net gl core base)
 include(${wxWidgets_USE_FILE})
 
-unset(CMAKE_CXX_STANDARD)
-set(PYBIND11_CPP_STANDARD -std=c++17  ${wxWidgets_CXX_FLAGS}) # Experimental C++17 support
 pybind11_add_module(pyneumompv neumompv.cc neumosvg.cc neumompv_pybind.cc)
 
 include_directories(

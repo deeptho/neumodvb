@@ -1,0 +1,2 @@
+sudo perf record -o perf.data --call-graph dwarf --event cycles:P -m 10M -c 3000000 --pid `pidof -s neumodvb`
+sudo perf record -o perf.data --call-graph dwarf --pid `pidof -s neumodvb`

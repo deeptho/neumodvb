@@ -1,5 +1,3 @@
-set (CMAKE_CXX_STANDARD 17)
-
 add_library(streamparser STATIC  events.cc pes.cc  packetstream.cc psi.cc section.cc streamtime.cc streamwriter.cc
   dvbtext.cc freesat_decode.cc opentv_string_decoder.cc si_state.cc sidebug.cc)
 add_dependencies(streamparser recdb rec_generated_files xformat)

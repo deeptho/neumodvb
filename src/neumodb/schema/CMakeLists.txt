@@ -53,9 +53,6 @@ add_dependencies(schema schema_generated_files ch_generated_files)
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(schema PUBLIC -fPIC -fsized-deallocation)
 
-unset(CMAKE_CXX_STANDARD)
-set(PYBIND11_CPP_STANDARD -std=c++17) # Experimental C++17 support
-
 target_link_libraries(schema PUBLIC stackstring neumolmdb neumoutil neumodb)
 
 

@@ -52,8 +52,6 @@ add_dependencies(statdb stat_generated_files ch_generated_files epg_generated_fi
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(statdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 
-unset(CMAKE_CXX_STANDARD)
-set(PYBIND11_CPP_STANDARD -std=c++17) # Experimental C++17 support
 pybind11_add_module(pystatdb statdb_pybind.cc statdb_vector_pybind.cc ${pybind_srcs})
 
 target_compile_options(pystatdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error

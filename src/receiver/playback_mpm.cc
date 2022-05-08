@@ -639,7 +639,9 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 				*/
 				using namespace recdb;
 				auto start_time = currently_playing_file.readAccess()->k.stream_time_start;
+#ifndef NDEBUG
 				auto fileno = currently_playing_file.readAccess()->fileno;
+#endif
 				auto c = file_t::find_by_key(txn, file_key_t(start_time), find_eq);
 				assert(c.is_valid());
 				auto r = c.current();

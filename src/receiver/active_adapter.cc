@@ -875,9 +875,7 @@ void active_adapter_t::add_embedded_si_stream(const chdb::any_mux_t& mux, bool s
 	}
 	auto reader = make_embedded_stream_reader(mux);
 	const bool is_embedded_si{true};
-#ifndef NDEBUG
 	auto [it1, inserted] =
-#endif
 		embedded_si_streams.try_emplace((uint16_t)mux_key->t2mi_pid, receiver, std::move(reader), is_embedded_si);
 	assert(inserted);
 	if (start)

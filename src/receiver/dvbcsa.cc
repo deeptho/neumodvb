@@ -201,7 +201,7 @@ int dvbcsa_t::skip_non_decryptable(uint8_t* buffer, int buffer_size) {
 						/*It is impossible to decrypt the packets up to packet_start (a phase transition) as
 							scam was restarted after the end of the next phase. So
 							we can skip the whole next parity phase.*/
-						dtdebugx("packets[0-%d] UNDECRTYPTABLE pid=%d scrambling_control_packet=%d", packet_start, pid,
+						dtdebugx("packets[0-%d] UNDECRYPTABLE pid=%d scrambling_control_packet=%d", packet_start, pid,
 										 scrambling_control_packet);
 						descrambling_contexts.clear();
 						waiting_for_keys = false; // needed
@@ -225,7 +225,7 @@ int dvbcsa_t::skip_non_decryptable(uint8_t* buffer, int buffer_size) {
 	TODO: what happens when the batch size is too large? We have to avoid using more than
 	2 keys of the same parity (odd or even)
 	TODO: we must be able to mark the position at which keys become known in the recorded transport
-	stream. Perhaps we should record all or some ecm and emm packets in the steam. The keys
+	stream. Perhaps we should record all or some ecm and emm packets in the stream. The keys
 	could be recorded in the database; invalid keys (not found) could be recorded as well. They roughly
 	indicate where non-decrypted packets are present in the recorded stream. The alternative is to record
 	this at a finergrained level.

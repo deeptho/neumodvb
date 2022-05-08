@@ -80,8 +80,6 @@ namespace dtdemux {
 			}
 			assert (ret>= last_pcr_play_time);
 		}
-		//typedef std::function<void(int pid, uint8_t* payload, int payload_size)> psi_cb_t;
-		//psi_cb_t psi_cb;
 
 		int64_t last_pos = -1;
 		//end data for writer

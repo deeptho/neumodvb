@@ -68,7 +68,9 @@ stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::a
 
 int stream_filter_t::open() {
 	//this->tuned_mux = active_adapter.current_mux();
+#ifndef NDEBUG
 	auto* k = chdb::mux_key_ptr(this->tuned_mux);
+#endif
 	assert(k->sat_pos != sat_pos_none);
 	start();
 	return error ? -1 : 0;

@@ -18,7 +18,6 @@
  *
  */
 
-
 #pragma once
 
 #define LMDBXX_TXN_ID

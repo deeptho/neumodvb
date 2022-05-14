@@ -59,7 +59,6 @@ wxBEGIN_EVENT_TABLE(MpvGLCanvas, wxGLCanvas)
 //EVT_SIZE(MpvGLCanvas::OnSize)
 EVT_WINDOW_CREATE(MpvGLCanvas::OnWindowCreate)
 EVT_PAINT(MpvGLCanvas::OnPaint)
-EVT_TIMER(wxID_ANY, MpvGLCanvas::OnTimer)
 EVT_ERASE_BACKGROUND(MpvGLCanvas::OnErase)
 wxEND_EVENT_TABLE()
 
@@ -165,10 +164,7 @@ void MpvGLCanvas::OnPaint(wxPaintEvent& evt) {
 	mpv_player->signal();
 }
 
-void MpvGLCanvas::OnTimer(wxTimerEvent& evt) {
-	std::lock_guard<std::mutex> lk(mpv_player->m);
-	evt.Skip();
-}
+
 
 void MpvGLCanvas::OnMpvWakeupEvent(wxThreadEvent&) {
 	std::lock_guard<std::mutex> lk(mpv_player->m);
@@ -1183,7 +1179,6 @@ void mpv_overlay_t::render(int window_width, int window_height) {
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		dterrorx("OPENGL error %d\n", err);
 	}
-
 	glEnable(GL_BLEND);
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		dterrorx("OPENGL error %d\n", err);
@@ -1192,7 +1187,7 @@ void mpv_overlay_t::render(int window_width, int window_height) {
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		dterrorx("OPENGL error %d\n", err);
 	}
-
+	glViewport(0,0, window_width, window_height);
 	glBegin(GL_QUADS);
 	glTexCoord2f(0, 0);
 	glVertex2f(-1.0, 1.0);

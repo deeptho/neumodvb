@@ -23,7 +23,7 @@ from functools import cached_property, lru_cache
 import datetime
 from dateutil import tz
 
-from neumodvb.util import setup, patch_wx, get_text_extent
+from neumodvb.util import setup, get_text_extent
 from neumodvb.neumo_dialogs import ShowMessage
 from neumodvb.chepglist import content_types
 from neumodvb.util import dtdebug, dterror

@@ -166,25 +166,7 @@ def parse_longitude(val):
     else:
         return 0
 
-global old_GetTextExtent
-old_GetTextExtent =None
 
-def patch_wx():
-    import gi
-    import wx
-    gi.require_version('Gdk', '3.0')
-    from gi.repository import Gdk
-    global old_GetTextExtent
-    if old_GetTextExtent is None:
-        old_GetTextExtent =wx.ScreenDC.GetTextExtent
-    def GetTextExtent(dc, text):
-        w0,h0 = old_GetTextExtent(dc, text)
-        res = Gdk.Screen.get_default().get_resolution()
-        w0 = int((w0+0.5)*res/96)
-        h0 = int((h0+0.5)*res/96)
-        #print(f"CALLED {text} {w0} {h0}")
-        return (w0,h0)
-    wx.ScreenDC.GetTextExtent = GetTextExtent
 
 tune_src_map__ = {'NIT ACTUAL TUNED': 'nit tuned',
                   'NIT ACTUAL NON TUNED': 'nit',

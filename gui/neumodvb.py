@@ -29,7 +29,7 @@ from functools import lru_cache
 #the following import also sets up import path
 import neumodvb
 
-from neumodvb.util import patch_wx, load_gtk3_stylesheet, dtdebug, dterror, maindir
+from neumodvb.util import load_gtk3_stylesheet, dtdebug, dterror, maindir
 from neumodvb.config import options, get_configfile
 
 import pychdb

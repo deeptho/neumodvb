@@ -44,6 +44,5 @@ static void logger_log(bool is_error, const char* file, const char* func, int li
 }
 
 void export_logger(py::module& m) {
-	m.def("set_process_name", &set_process_name);
 	m.def("log", &logger_log);
 }

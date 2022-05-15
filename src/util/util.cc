@@ -26,7 +26,6 @@
 #include <string>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/timerfd.h>
@@ -327,17 +326,6 @@ int _slowdown(time_t* last, int* count, time_t now, int maxcount) {
 		*count = 0;
 	}
 	return 0;
-}
-
-void set_process_name(const char* name) {
-	if (strlen(name) > 16) {
-		dterrorx("String too long: %s\n", name);
-	}
-	if (prctl(PR_SET_NAME, (unsigned long)name, 0, 0, 0) < 0) {
-		dterrorx("prctl failed: %s", strerror(errno));
-	}
-
-	pthread_setname_np(pthread_self(), name);
 }
 
 void assert_fail_log(const char *assertion, const char *file, unsigned line, const char *function) throw() {

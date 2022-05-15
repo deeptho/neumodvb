@@ -19,7 +19,6 @@
 import os
 import sys
 import os
-import setproctitle
 import wx.glcanvas #needed for the created mpvglcanvas
 import wx
 import gettext
@@ -636,7 +635,7 @@ class NeumoGui(wx.App):
 
 
 if __name__ == "__main__":
-    setproctitle.setproctitle("neumodvb")
+    pyreceiver.set_process_name("neumodvb")
     gettext.install("neumodvb") # replace with the appropriate catalog name
     neumodvb = NeumoGui()
     load_gtk3_stylesheet(options.css)
@@ -651,5 +650,5 @@ if __name__ == "__main__":
 
 """
 PYTHONMALLOC=malloc valgrind --tool=memcheck   python3 neumodvb.py
-
+PYTHONMALLOC=malloc valgrind --tool=memcheck  --error-limit=no --track-origins=yes --log-file=/tmp/valgrind.log  python3 neumodvb.py
 """

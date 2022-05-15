@@ -216,7 +216,6 @@ extern int _slowdown(time_t*last,int *count, time_t now, int maxcount);
 		}																																		\
 }
 
-void set_process_name(const char* name);
 
 
 void assert_fail_stop(const char *assertion, const char *file, unsigned line, const char *function) throw();

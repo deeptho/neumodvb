@@ -18,6 +18,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+#include "setproctitle.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> //for std::optional
 #include <wx/window.h>
@@ -28,6 +29,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "subscriber_pybind.h"
 #include "util/identification.h"
+#include <sys/prctl.h>
 
 namespace py = pybind11;
 
@@ -98,6 +100,35 @@ static int scan_muxes(receiver_t& reseiver, py::list mux_list, int subscription_
 		subscription_id = reseiver.scan_muxes(dvbt_muxes, subscription_id);
 	return subscription_id;
 }
+
+
+static void set_process_name(const char* name)
+{
+	setproctitlex(name);
+#if 0
+	char **argv=nullptr;
+	int argc =0;
+	int i=0;
+	get_argc_argv(&argc, &argv);
+	printf("argc=%d\n", argc);
+	auto l = strlen(argv[0]);
+	if (strlen(name) > l) {
+		dterrorx("String too long: %s\n", name);
+	}
+	strncpy(argv[0], name, l+1);
+	for(i=1; i <argc; ++i)
+		argv[i]=0;
+	if (prctl(PR_SET_NAME, (unsigned long)argv[0], 0, 0, 0) < 0) {
+		dterrorx("prctl failed: %s", strerror(errno));
+	}
+	pthread_setname_np(pthread_self(), argv[0]);
+#else
+	pthread_setname_np(pthread_self(), name);
+#endif
+}
+
+
+
 void export_receiver(py::module& m) {
 	static bool called = false;
 	if (called)
@@ -110,7 +141,10 @@ void export_receiver(py::module& m) {
 #if 0
 	set_logconfig(log_path.c_str());
 #endif
-	m.def("set_logconfig", &set_logconfig, py::arg("name of logfile config"));
+	m.def("set_logconfig", &set_logconfig, py::arg("name of logfile config"))
+		.def("set_process_name", &set_process_name, "Set process name",
+				 py::arg("name"))
+		;
 	py::class_<receiver_t>(m, "receiver_t")
 		.def(py::init<neumo_options_t*>(), py::arg("neumo_options"), "Start a NeumoDVB receiver")
 		.def("dump_subs", &receiver_t::dump_subs, "Show subscriptions")

@@ -138,6 +138,7 @@ class SpectrumDialog(SpectrumDialog_):
         self.blindscan_num_si_muxes =0
         self.update_constellation = True
         self.tune_mux_panel.constellation_toggle.SetValue(self.update_constellation)
+        self.signal_info = None
 
     def OnTimer(self, evt):
         self.grid.OnTimer(evt)
@@ -300,8 +301,12 @@ class SpectrumDialog(SpectrumDialog_):
         self.ClearSignalInfo()
         assert self.tune_mux_panel.mux.frequency == mux.frequency
         if not self.tune_mux_panel.Tune(mux, retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
-            #attempt one more tune
-            if not self.tune_mux_panel.Tune(mux, retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
+            if self.signal_info is None:
+                title = "Blindscan failed"
+                msg = f"Blindscan failed: {self.tune_mux_panel.mux_subscriber.error_message}"
+                ShowMessage(title, msg)
+                self.EndBlindScan()
+            else:
                 dtdebug("Moving on after tuning failed")
                 self.OnSubscriberCallback(self.signal_info)
 

@@ -58,12 +58,6 @@ SET(CMAKE_BUILD_RPATH "$ORIGIN/.")
 
 #cmake_host_system_information(RESULT RELEASE QUERY OS_RELEASE)
 
-option(USE_CLANG "build application with clang" ON) # ON is the default
-
-if(USE_CLANG)
-    SET (CMAKE_CXX_COMPILER clang++)
-endif(USE_CLANG)
-
 include_directories(
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>/stackstring
   )

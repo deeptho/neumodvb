@@ -40,8 +40,14 @@ In addition, some python code needs to be installed using "sudo pip3 install &lt
 at least the following packages are needed:
 
 ```
-sudo pip3 install regex setproctitle mpl_scatter_density
+sudo pip3 install setproctitle mpl_scatter_density
 ```
+
+And some bugs need to be fixed by upgrading python3-matplotlib-wx to at least version 3.5.2:
+```
+sudo dnf update --enablerepo=updates-testing python3-matplotlib-wx
+```
+
 
 #### Debian ####
 
@@ -73,7 +79,7 @@ In ubutu 20.04.4 LTS some of these packages seem unavailable and/or have been re
 You could try adding --ignore-missing to the above command line
 and then installing the following packages to fix a few missing things.
 ```
-sudo  apt install -y  libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev  python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  mpv-libs-dev libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang
+sudo  apt install -y  libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev  python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  mpv-libs-dev libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang lsb-core lsb-release
 ```
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
 at least the following packages are needed:
@@ -105,28 +111,6 @@ Next, build NeumoDVB as follows:
 In case of problems, first check for missing pre-requisite software. For some of the pre-requisite
 software, fairly recent versions are needed.
 
-
-If you encounter errors like
-```
-fatal error: PCH file '.../cmake_pch.hxx.gch' is out of date and needs to be rebuilt: module file out of date
-```
-after installing missing files halfway during compilation, then this may be due to a bug in cmake:
-cmake version 3.19 should work, but cmake 3.20 will not (probably a bug).
-As a workaround, you can also just remove the precompiled headers. The easiest is:
-```
-mkdir -p  ~/neumodvb/build
-cd ~/neumodvb/build
-rm -fr *
-cmake ..
-make -j8
-```
-
-As an alternative, lock cmake to the properversion
-```
-sudo dnf downgrade cmake #repeat as needed until version 3.19 is installed
-sudo dnf install 'dnf-command(versionlock)'
-sudo dnf versionlock cmake
-```
 
 For troubleshooting, the following information may be useful:
 

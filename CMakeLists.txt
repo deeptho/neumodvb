@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.12.1)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,defs -Wl,--no-undefined -fuse-ld=gold")
-
+option(USE_CLANG "build application with clang" ON) # ON is the default
+SET (CMAKE_CXX_COMPILER clang++)
 project(neumo VERSION 0.6.1)
 set(PROJECT_AUTHOR "Deep Thought")
 set(PROJECT_AUTHOR_EMAIL "deeptho@gmail.com")

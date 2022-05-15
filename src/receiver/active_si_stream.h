@@ -654,11 +654,11 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		dvb_pid_t pid{parser->get_pid()};
 		auto & slot = parsers[pid];
 		if(--slot.use_count == 0) {
-			printf("removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
+			dtdebugx("removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
 			remove_pid(parser->get_pid());
 			parsers.erase(pid);
 		} else {
-			printf("not removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
+			dtdebugx("not removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
 		}
 	}
 

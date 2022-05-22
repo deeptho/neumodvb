@@ -45,9 +45,10 @@ void meta_marker_t::update_epg(const epgdb::epg_record_t& epg) {
 	last_epg_update_time = now;
 }
 
-bool meta_marker_t::need_epg_update(time_t play_time) const {
+bool meta_marker_t::need_epg_update(system_time_t play_time_) const {
+	auto play_time = system_clock_t::to_time_t(play_time_);
 	if (play_time >= livebuffer_desc.epg.end_time || play_time < livebuffer_desc.epg.k.start_time) {
-		auto t = now - last_epg_update_time;
+		auto t = now - last_epg_update_time; //last time epg was written
 		if (t <= 2h) {
 			// dtdebug("Will not update epg now");
 			/*avoid to frequent checks for non-existing
@@ -825,7 +826,7 @@ int active_mpm_t::next_data_file(system_time_t now, int64_t new_num_bytes_safe_t
 	mm->current_file_record.stream_packetno_start = new_file_stream_packetno_start;
 	mm->current_file_record.stream_packetno_end = std::numeric_limits<int64_t>::max(); // signifies infinite
 	mm->current_file_record.filename = relfilename;
-	if (mm->need_epg_update(system_clock_t::to_time_t(now))) {
+	if (mm->need_epg_update(now)) {
 		dtdebugx("Updating epg for live service");
 		active_service->update_epg_(idx_txn, now, &*mm);
 	}
@@ -1112,8 +1113,10 @@ void active_mpm_t::delete_old_data(db_txn& parent_txn, system_time_t now) {
 }
 
 void active_mpm_t::update_epg_if_needed(meta_marker_t* mm) {
-	if (mm->need_epg_update((system_clock_t::to_time_t(now)))) {
-		dtdebugx("Updating epg for live service");
+	if (now > last_epg_check_time +10s &&  mm->need_epg_update(now)) {
+		//dtdebugx("Updating epg for live service");
 		active_service->update_epg(now, mm);
+		last_epg_check_time = now;
+
 	}
 }

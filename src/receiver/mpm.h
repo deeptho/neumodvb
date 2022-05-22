@@ -136,7 +136,7 @@ public:
 	meta_marker_t(meta_marker_t&& other) = delete;
 	void init(system_time_t now);
 	void update_epg(const epgdb::epg_record_t& epg);
-	bool need_epg_update(time_t play_time) const;
+	bool need_epg_update(system_time_t play_time) const;
 	epgdb::epg_record_t get_current_epg() const;
 
 	void register_playback_client(playback_mpm_t* client);
@@ -324,7 +324,7 @@ class active_mpm_t : public mpm_t
 	static constexpr  size_t  default_file_size = 127827968; //length of a single part, multiple of 4096 and 188 ; approx 121 MByte
 	int next_recid = -1;
 	int current_fileno = -1;
-
+	system_time_t last_epg_check_time{};
 public:
 	active_service_t* active_service = nullptr; //if non null, then this is a live mpm
 	mm_t meta_marker;

@@ -398,8 +398,10 @@ void active_service_t::update_epg_(db_txn& parent_txn, const system_time_t now, 
 		count++;
 		start = system_clock_t::from_time_t(rec->end_time + 1); // so that we can find the next record
 	}
+#if 0
 	if (count == 0)
 		dtdebug("no epg found");
+#endif
 	dst_epg_txn.commit();
 }
 

@@ -1072,8 +1072,8 @@ void cmdseq_t::init_pls_codes() {
 }
 
 int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options) {
-	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO
-		|| (mux.symbol_rate < 1000000 &&  ts.readAccess()->dbfe.supports.blindscan);
+	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO;
+	//||(mux.symbol_rate < 1000000 &&  ts.readAccess()->dbfe.supports.blindscan);
 	int num_constellation_samples = tune_options.constellation_options.num_samples;
 	tuned_frequency = mux.frequency;
 
@@ -1098,14 +1098,14 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 			cmdseq.pls_codes.push_back(make_code((int)mux.pls_mode, (int)mux.pls_code));
 		cmdseq.add_pls_codes(DTV_PLS_SEARCH_LIST);
 		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
-
+		cmdseq.add(DTV_SEARCH_RANGE, std::min(mux.symbol_rate*2, (unsigned int)4000000));
 	} else {
 		if (((int)mux.delivery_system != SYS_DVBS) && ((int)mux.delivery_system != SYS_DVBS2)) {
 			dterror("illegal delivery system: " << chdb::to_str(mux.delivery_system));
 			return -1;
 		}
 
-		cmdseq.add(DTV_ALGORITHM, ALGORITHM_WARM);
+		cmdseq.add(DTV_ALGORITHM, ALGORITHM_COLD);
 
 		cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
 		cmdseq.add(DTV_MODULATION, (int)mux.modulation);
@@ -1116,6 +1116,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 		cmdseq.add(DTV_INNER_FEC, (int)mux.fec);
 		cmdseq.add(DTV_INVERSION, INVERSION_AUTO);
 		cmdseq.add(DTV_ROLLOFF, (int)mux.rolloff);
+
 		cmdseq.add(DTV_PILOT, PILOT_AUTO);
 #if 0
 		auto stream_id =
@@ -1124,6 +1125,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 		auto stream_id = make_code((int)mux.pls_mode, (int)mux.pls_code) | (mux.stream_id & 0xff);
 #endif
 		cmdseq.add(DTV_STREAM_ID, stream_id);
+		cmdseq.add(DTV_SEARCH_RANGE, mux.symbol_rate);
 	}
 	dtv_fe_constellation constellation;
 	if (tune_options.pls_search_range.start < tune_options.pls_search_range.end) {

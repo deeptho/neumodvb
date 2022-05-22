@@ -592,6 +592,7 @@ namespace ss {
 			this->copy(x);
 			return *this;
 		}
+
 	};
 
 	template <typename data_t> using vector_ = databuffer_<data_t>;
@@ -983,6 +984,7 @@ namespace ss {
 
 namespace std { // needed ot log4cxx creates errors
 	std::ostream& operator<<(std::ostream& os, const ss::string_& a);
+	std::ostream& operator<<(std::ostream& os, const ss::bytebuffer_& a);
 #if 0
 	inline std::ostream& operator<<(std::ostream& os, const ss::string_& a) {
 		return os << a.c_str();

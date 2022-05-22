@@ -33,6 +33,8 @@
 #include <boost/locale.hpp>
 // using namespace boost::locale;
 #endif
+#include "xformat/ioformat.h"
+#include <iomanip>
 
 namespace ss {
 
@@ -507,6 +509,14 @@ namespace ss {
 
 namespace std {
 	std::ostream& operator<<(std::ostream& os, const ss::string_& a) { return os << a.c_str(); }
+	std::ostream& operator<<(std::ostream& os, const ss::bytebuffer_& a) {
+		stdex::printf(os, "buffer[%d]={", a.size());
+		for(auto &c : a) {
+			os << std::setw(2) << std::setfill('0') << std::hex << +c;
+		}
+		stdex::printf(os, "}");
+		return os;
+	}
 
 }; // namespace std
 

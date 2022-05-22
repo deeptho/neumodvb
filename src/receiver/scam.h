@@ -138,7 +138,7 @@ public:
   //add or update a filter
 	void ca_set_filter(const ca_filter_t& filter, filter_no_t filter_no);
 	void ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, uint16_t pid);
-	int scam_send_filtered_data(uint16_t pid, const uint8_t* buffer, int size);
+	int scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& buffer);
 	void ca_set_pid(const ca_pid_t& ca_pid);
 	void ca_set_descr(const ca_descr_t& ca_descr, uint32_t msgid);
 	void ca_set_descr_aes(const ca_descr_aes_t& ca_descr_aes, uint32_t msgid);
@@ -226,7 +226,7 @@ class scam_t final : public std::enable_shared_from_this<scam_t> {
 	scam_thread_t& scam_thread; //There is only one tuner thread for the whole process
 
 	int scam_send_filtered_data(uint8_t filter_no, uint8_t demux_no,
-															const uint8_t* buffer, int size, uint32_t msgid);
+															const ss::bytebuffer_& buffer, uint32_t msgid);
 	int scam_send_stop_decoding(uint8_t demux_no, uint32_t msgid);
 private:
 	int connect();
@@ -258,7 +258,7 @@ private:
 
 
 	 */
-	int write_to_scam(uint8_t* buffer, int size);
+	int write_to_scam(ss::bytebuffer_& msg);
 public:
 	scam_t(receiver_thread_t& _receiver, scam_thread_t& scam_thread_);
 

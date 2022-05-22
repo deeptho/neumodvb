@@ -216,7 +216,7 @@ namespace dtdemux {
 		bool parse_only_section_header = true;
 		parse_payload_unit_(parse_only_section_header);
 		if (!has_error())
-			parent.psi_cb(pid, (uint8_t*)payload.buffer(), payload.size());
+			parent.psi_cb(pid, payload);
 		return;
 	}
 

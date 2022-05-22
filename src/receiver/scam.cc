@@ -68,8 +68,8 @@ active_scam_t::active_scam_t(scam_t* parent_, receiver_t& receiver, tuner_thread
 	, parent (parent_)
 	, adapter_no(active_service.get_adapter_no())
 {
-	stream_parser.psi_cb = [this](uint16_t pid, const uint8_t* buffer, int size) {
-		this->scam_send_filtered_data(pid, buffer, size);
+	stream_parser.psi_cb = [this](uint16_t pid, const ss::bytebuffer_& buffer) {
+		this->scam_send_filtered_data(pid, buffer);
 	};
 }
 
@@ -211,7 +211,7 @@ int scam_t::greet_scam() {
 	out_msg.append_raw(native_to_net((uint16_t)scam_protocol_version));
 	out_msg.append_raw(native_to_net((uint8_t)(strlen(client_name) + 1)));
 	out_msg.append_raw(client_name, strlen(client_name) + 1);
-	return write_to_scam(out_msg.buffer(), out_msg.size());
+	return write_to_scam(out_msg);
 }
 
 int scam_t::scam_send_capmt(const pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no, int demux_device) {
@@ -225,7 +225,7 @@ int scam_t::scam_send_capmt(const pmt_info_t& pmt_info, capmt_list_management_t 
 	// creating this object will prepare data and store it in out_msg
 	ca_pmt_t capmt(out_msg, lm, pmt_info, adapter_no, demux_device);
 	//write the data
-	auto ret = write_to_scam(out_msg.buffer(), out_msg.size());
+	auto ret = write_to_scam(out_msg);
 	if (ret < 0) {
 		must_reconnect = true;
 		return -1;
@@ -318,11 +318,11 @@ int scam_t::scam_flush_write() {
 /*! write data to the scam tcp connection, but if wrting blocks, then write the data
 	to abuffer instead.
  */
-int scam_t::write_to_scam(uint8_t* buffer, int size) {
+int scam_t::write_to_scam(ss::bytebuffer_& msg) {
 	if (scam_fd < 0)
 		return -1;
 	if (write_in_progress) {
-		pending_write_buffer.append_raw(buffer, size);
+		pending_write_buffer.append_raw(msg.buffer(), msg.size());
 		return 0;
 	}
 	// process any pending write
@@ -331,8 +331,8 @@ int scam_t::write_to_scam(uint8_t* buffer, int size) {
 	if (ret1 < 0)
 		return ret1;
 
-	auto ret = write_to_scam_(buffer, size);
-	assert(ret < 0 || ret == size);
+	auto ret = write_to_scam_(msg.buffer(), msg.size());
+	assert(ret < 0 || ret == msg.size());
 	pending_write_buffer.clear();
 	write_in_progress = false;
 	if (ret < 0) {
@@ -914,7 +914,6 @@ static bool filter_match(const dmx_filter_t& filter, const uint8_t* data, int le
 
 int scam_t::scam_send_stop_decoding(uint8_t demux_no, uint32_t msgid) {
 	ss::bytebuffer<32> out_msg; // current message, perhaps not fully written
-
 	if (scam_protocol_version >= 3) {
 		out_msg.append_raw(native_to_net((uint8_t)0xa5));
 		out_msg.append_raw(native_to_net((uint32_t)msgid));
@@ -924,10 +923,10 @@ int scam_t::scam_send_stop_decoding(uint8_t demux_no, uint32_t msgid) {
 	out_msg.append_raw(native_to_net((uint8_t)0x02));
 	out_msg.append_raw(native_to_net((uint8_t)0x00));
 	out_msg.append_raw(native_to_net((uint8_t)demux_no));
-	return write_to_scam(out_msg.buffer(), out_msg.size());
+	return write_to_scam(out_msg);
 }
 
-int scam_t::scam_send_filtered_data(uint8_t filter_no, uint8_t demux_no, const uint8_t* buffer, int size,
+int scam_t::scam_send_filtered_data(uint8_t filter_no, uint8_t demux_no, const ss::bytebuffer_& buffer,
 																		uint32_t msgid) {
 	ss::bytebuffer<4096 + 100> out_msg; // current message, perhaps not fully written
 	slowdown(20, "");
@@ -938,8 +937,8 @@ int scam_t::scam_send_filtered_data(uint8_t filter_no, uint8_t demux_no, const u
 	out_msg.append_raw(native_to_net((uint32_t)DVBAPI_FILTER_DATA));
 	out_msg.append_raw(native_to_net((uint8_t)demux_no));
 	out_msg.append_raw(native_to_net((uint8_t)filter_no));
-	out_msg.append_raw(buffer, size);
-	return write_to_scam(out_msg.buffer(), out_msg.size());
+	out_msg.append_raw(buffer.buffer(), buffer.size());
+	return write_to_scam(out_msg);
 }
 
 /*!
@@ -960,7 +959,7 @@ void active_scam_t::mark_ecm_sent(bool odd, uint16_t ecm_pid, system_time_t t) {
 	0 if no data was written
 	-1 on error
 */
-int active_scam_t::scam_send_filtered_data(uint16_t pid, const uint8_t* data, int len) {
+int active_scam_t::scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& data) {
 	log4cxx::NDC(name());
 	ss::bytebuffer<4096 + 100> out_msg; // current message, perhaps not fully written
 	int matchcount = 0;
@@ -970,7 +969,7 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const uint8_t* data, in
 		if (filter.pid != pid)
 			continue;
 
-		if (!filter_match(filter.dmx_filter, data, len))
+		if (!filter_match(filter.dmx_filter, data.buffer(), data.size()))
 			continue; // this filter does not match
 		dtdebugx("ecm_request_time set for %s filter[%p]=%d pid=%d time=%ld", (data[0] == 0x80) ? "even" : "odd", &filter,
 						 uint8_t(filter_no), filter.pid, system_clock_t::to_time_t(t));
@@ -979,7 +978,7 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const uint8_t* data, in
 
 		mark_ecm_sent(data[0] == 0x81, pid, t);
 
-		ret = parent->scam_send_filtered_data(uint8_t(filter_no), uint8_t(filter.demux_no), data, len, filter.msgid);
+		ret = parent->scam_send_filtered_data(uint8_t(filter_no), uint8_t(filter.demux_no), data, filter.msgid);
 		if (ret < 0) {
 			dterrorx("scam_send_filtered_data failed: ret=%d", ret);
 			return ret;

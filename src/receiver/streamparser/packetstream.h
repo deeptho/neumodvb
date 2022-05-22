@@ -67,7 +67,8 @@ namespace dtdemux {
 		data_range_t current_range; //range in data input buffer
 		event_handler_t event_handler;
 
-		std::function<void(uint16_t, const uint8_t*, int)>  psi_cb = [](uint16_t pid, const uint8_t* buffer, int size) {};
+		std::function<void(uint16_t, const ss::bytebuffer_&)>  psi_cb =
+			[](uint16_t pid, const ss::bytebuffer_& payload) {};
 		uint32_t num_encrypted_packets{0};
 
 		void set_eof() {

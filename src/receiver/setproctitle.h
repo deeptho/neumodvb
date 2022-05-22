@@ -25,5 +25,5 @@
  */
 #pragma once
 extern "C" {
-void setproctitlex(const char *fmt, ...);
+void setproctitle(const char *fmt, ...);
 };

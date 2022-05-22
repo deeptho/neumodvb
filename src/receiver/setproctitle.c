@@ -2,6 +2,7 @@
  * setproctitle.c - Linux/Darwin setproctitle.
  * --------------------------------------------------------------------------
  * Copyright (C) 2010  William Ahern
+ * Adaptation (C) 2022  Deep Thought <deeptho@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
@@ -37,15 +38,6 @@
 #include <errno.h>	/* errno program_invocation_name program_invocation_short_name */
 
 
-#if !defined(HAVE_SETPROCTITLE)
-#if (defined __NetBSD__ || defined __FreeBSD__ || defined __OpenBSD__)
-#define HAVE_SETPROCTITLE
-#endif
-#endif
-
-
-#if !HAVE_SETPROCTITLE
-#if (defined __linux || defined __APPLE__) && defined __GNUC__
 
 
 static struct {
@@ -72,52 +64,22 @@ static inline size_t spt_min(size_t a, size_t b) {
 } /* spt_min() */
 
 
-#if 0
-/*
- * For discussion on the portability of the various methods, see
- * http://lists.freebsd.org/pipermail/freebsd-stable/2008-June/043136.html
- */
-static int spt_clearenv(void) {
-#if __GLIBC__
-	clearenv();
 
-	return 0;
-#else
-	extern char **environ;
-	char **tmp;
-
-	if (!(tmp = malloc(sizeof *tmp)))
-		return errno;
-
-	tmp[0]  = NULL;
-	environ = tmp;
-
-	return 0;
-#endif
-} /* spt_clearenv() */
-#endif
-
-static int spt_copyenv(char *oldenv[]) {
+static int spt_copyenv(char **oldenv) {
 	extern char **environ;
 	char *eq;
 	int i, error;
-
-	if (environ != oldenv)
-		return 0;
-#if 0
-	if ((error = spt_clearenv()))
-		goto error;
-#endif
+	oldenv = environ;
 	for (i = 0; oldenv[i]; i++) {
 		if (!(eq = strchr(oldenv[i], '=')))
-			continue;
-
-		*eq = '\0';
-		error = (0 != setenv(oldenv[i], eq + 1, 1))? errno : 0;
-		*eq = '=';
-
-		if (error)
-			goto error;
+			setenv(oldenv[i], "", 1);
+		else {
+			*eq = '\0';
+			error = (0 != setenv(oldenv[i], eq + 1, 1))? errno : 0;
+			*eq = '=';
+			if (error)
+				goto error;
+		}
 	}
 
 	return 0;
@@ -145,83 +107,90 @@ static int spt_copyargs(int argc, char *argv[]) {
 	return 0;
 } /* spt_copyargs() */
 
+#if 1
+void spt_init(int argc, char *argv[]) __attribute__((constructor));
+#endif
+extern char** environ;
+static char* get_start() {
+	int len = strlen(program_invocation_name);
+	char *pstart = environ[0] - 4096 + len;
+	char *pend = environ[0];
+	char *p;
+	for(p = pend -1 ; p >= pstart; --p) {
+		if(*p ==0) {
+			if(strncmp(p -len, program_invocation_name, len)==0) {
+				return p-len;
+			}
+		}
+	}
+	return NULL;
+}
+
+static char* get_end() {
+	char *pstart = environ[0];
+	char *pend = pstart + 16*4096;
+	char *p;
+	for(p = pstart; p[0] != 0 && p <pend ; p+=strlen(p) +1) {
+		/* do nothing*/ ;
+	}
+	return p-1;
+}
 
 
-void spt_init(int argc, char *argv[], char *envp[]) __attribute__((constructor));
-
-
-void spt_init(int argc, char *argv[], char *envp[]) {
-	char *base, *end, *nul, *tmp;
-	int i, error;
-
-	if (!(base = argv[0]))
+void spt_init(int argc, char *argv[]) {
+	char* tmp;
+	int error;
+	char* start = get_start();
+	char* end = get_end();
+	if (!start || ! end)
 		return;
 
-	nul = &base[strlen(base)];
-	end = nul + 1;
-
-	for (i = 0; i < argc || (i >= argc && argv[i]); i++) {
-		if (!argv[i] || argv[i] < end)
-			continue;
-
-		end = argv[i] + strlen(argv[i]) + 1;
+	if (!(SPT.arg0 = strdup(start))) {
+		SPT.error = errno;
+		return;
 	}
 
-	for (i = 0; envp[i]; i++) {
-		if (envp[i] < end)
-			continue;
-
-		end = envp[i] + strlen(envp[i]) + 1;
+	if (!(tmp = strdup(program_invocation_name))) {
+		SPT.error = errno;
+		return;
 	}
-
-	if (!(SPT.arg0 = strdup(argv[0])))
-		goto syerr;
-
-#if __GLIBC__
-	if (!(tmp = strdup(program_invocation_name)))
-		goto syerr;
 
 	program_invocation_name = tmp;
 
-	if (!(tmp = strdup(program_invocation_short_name)))
-		goto syerr;
+	if (!(tmp = strdup(program_invocation_short_name))) {
+		SPT.error = errno;
+		return;
+	}
+
 
 	program_invocation_short_name = tmp;
-#elif __APPLE__
-	if (!(tmp = strdup(getprogname())))
-		goto syerr;
-
-	setprogname(tmp);
-#endif
 
 
-	if ((error = spt_copyenv(envp)))
-		goto error;
+	if ((error = spt_copyenv(environ))) {
+		SPT.error = error;
+		return;
+	}
+	if ((error = spt_copyargs(argc, argv))) {
+		SPT.error = error;
+		return;
+	}
 
-	if ((error = spt_copyargs(argc, argv)))
-		goto error;
-
-	SPT.nul  = nul;
-	SPT.base = base;
+	SPT.nul  = start + strlen(start);
+	SPT.base = start;
 	SPT.end  = end;
 
 	return;
-syerr:
-	error = errno;
-error:
-	SPT.error = error;
-} /* spt_init() */
+}
 
 
 #ifndef SPT_MAXTITLE
 #define SPT_MAXTITLE 255
 #endif
 
-void setproctitlex(const char *fmt, ...) {
+void setproctitle(const char *fmt, ...) {
 	char buf[SPT_MAXTITLE + 1]; /* use buffer in case argv[0] is passed */
 	va_list ap;
-	char *nul;
-	int len, error;
+	int len;
 
 	if (!SPT.base)
 		return;
@@ -234,8 +203,10 @@ void setproctitlex(const char *fmt, ...) {
 		len = snprintf(buf, sizeof buf, "%s", SPT.arg0);
 	}
 
-	if (len <= 0)
-		{ error = errno; goto error; }
+	if (len <= 0) {
+		SPT.error = errno;
+		return;
+	}
 
 	if (!SPT.reset) {
 		memset(SPT.base, 0, SPT.end - SPT.base);
@@ -246,20 +217,5 @@ void setproctitlex(const char *fmt, ...) {
 
 	len = spt_min(len, spt_min(sizeof buf, SPT.end - SPT.base) - 1);
 	memcpy(SPT.base, buf, len);
-	nul = &SPT.base[len];
-
-	if (nul < SPT.nul) {
-		*SPT.nul = '.';
-	} else if (nul == SPT.nul && &nul[1] < SPT.end) {
-		*SPT.nul = ' ';
-		*++nul = '\0';
-	}
-
 	return;
-error:
-	SPT.error = error;
-} /* setproctitle() */
-
-
-#endif /* __linux || __APPLE__ */
-#endif /* !HAVE_SETPROCTITLE */
+}

@@ -104,7 +104,7 @@ static int scan_muxes(receiver_t& reseiver, py::list mux_list, int subscription_
 
 static void set_process_name(const char* name)
 {
-	setproctitlex(name);
+	setproctitle(name);
 #if 0
 	char **argv=nullptr;
 	int argc =0;

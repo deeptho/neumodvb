@@ -1,8 +1,8 @@
 set breakpoint pending on
 #break dvbdev_monitor_t::find_lnb_for_tuning_to_mux
 #break  active_mux_t::tune
-set index-cache directory /tmp/index
-set index-cache on
+#set index-cache directory /tmp/index
+#set index-cache on
 exec-file /usr/bin/python3
 set args neumodvb.py
 #set environment LD_PRELOAD /usr/lib64/libasan.so.6
@@ -12,8 +12,10 @@ set args neumodvb.py
 #break cursors.h:383
 #break __sanitizer::Die
 dir $cdir:../
-
-
+set logging file /tmp/x.log
+set logging enabled on
+#set debuginfod enabled off
+set pagination off
 source prettyprint.py
 set print pretty
 #break  active_si_stream_t::eit_section_cb
@@ -62,4 +64,4 @@ end
     eval "print $arg%d", $n
     set $n = $n + 1
   end
-end
+ end

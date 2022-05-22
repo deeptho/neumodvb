@@ -23,7 +23,7 @@ In addition, some python code needs to be installed using "sudo pip3 install &lt
 at least the following packages are needed:
 
 ```
-sudo pip3 install regex setproctitle mpl_scatter_density
+sudo pip3 install mpl_scatter_density
 ```
 
 #### Fedora 36 ####
@@ -40,7 +40,7 @@ In addition, some python code needs to be installed using "sudo pip3 install &lt
 at least the following packages are needed:
 
 ```
-sudo pip3 install setproctitle mpl_scatter_density
+sudo pip3 install mpl_scatter_density
 ```
 
 And some bugs need to be fixed by upgrading python3-matplotlib-wx to at least version 3.5.2:
@@ -70,7 +70,7 @@ In addition, some python code needs to be installed using "sudo pip3 install &lt
 at least the following packages are needed:
 
 ```
-sudo pip3 install regex setproctitle mpl_scatter_density
+sudo pip3 regex mpl_scatter_density
 ```
 
 #### Ubutu 20.04.4 LTS ####
@@ -79,13 +79,13 @@ In ubutu 20.04.4 LTS some of these packages seem unavailable and/or have been re
 You could try adding --ignore-missing to the above command line
 and then installing the following packages to fix a few missing things.
 ```
-sudo  apt install -y  libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev  python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  mpv-libs-dev libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang lsb-core lsb-release
+sudo  apt install -y  libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev  python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  mpv-libs-dev libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang lsb-core lsb-release python3-regex
 ```
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
 at least the following packages are needed:
 
 ```
-sudo pip3 install regex setproctitle mpl_scatter_density
+sudo pip3 install mpl_scatter_density
 ```
 
 

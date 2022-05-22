@@ -540,7 +540,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command, bool skip_positi
 
 			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
-			msleep(must_pause ? 100 : 30);
+			msleep(must_pause ? 200 : 30);
 			/*
 				tone burst commands deal with simpler equipment.
 				They use a 12.5 ms duration 22kHz burst for transmitting a 1
@@ -562,7 +562,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command, bool skip_positi
 				break; // can be used to signal that it is off
 			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
-			msleep(must_pause ? 100 : 30);
+			msleep(must_pause ? 200 : 30);
 			unsigned int extra{0};
 			if(mux) {
 				int pol_v_r = ((int)mux->pol & 1);
@@ -582,7 +582,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command, bool skip_positi
 			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
 
-			msleep(must_pause ? 100 : 30);
+			msleep(must_pause ? 200 : 30);
 			ret = current_fe->send_diseqc_message('U', diseqc_11, 0, repeated);
 			if (ret < 0) {
 				dterror("Sending Uncommitted DiseqC message failed");
@@ -594,7 +594,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command, bool skip_positi
 				break;
 			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
-			msleep(must_pause ? 100 : 30);
+			msleep(must_pause ? 200 : 30);
 			if (mux) {
 				auto* lnb_network = mux ? chdb::lnb::get_network(current_lnb(), mux->k.sat_pos) : nullptr;
 				if (!lnb_network) {
@@ -615,7 +615,7 @@ int active_adapter_t::diseqc(const std::string& diseqc_command, bool skip_positi
 				break;
 			if (pol_band_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return -1;
-			msleep(must_pause ? 100 : 30);
+			msleep(must_pause ? 200 : 30);
 			int16_t usals_pos{sat_pos_none};
 			if( mux) {
 				auto* lnb_network = chdb::lnb::get_network(current_lnb(), mux->k.sat_pos);
@@ -960,7 +960,7 @@ int pol_band_status_t::set_tone(int fefd, fe_sec_tone_mode mode) {
 		return 0;
 	}
 	tone = mode;
-
+	dtdebugx("Setting tone: v=%d", mode);
 	if (ioctl(fefd, FE_SET_TONE, mode) < 0 ) {
 		dterrorx("problem setting tone=%d", mode);
 		return -1;

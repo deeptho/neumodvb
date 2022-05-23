@@ -65,17 +65,23 @@ static inline size_t spt_min(size_t a, size_t b) {
 
 
 
-static int spt_copyenv(char **oldenv) {
+static int spt_copyenv() {
 	extern char **environ;
 	char *eq;
 	int i, error;
-	oldenv = environ;
-	for (i = 0; oldenv[i]; i++) {
-		if (!(eq = strchr(oldenv[i], '=')))
-			setenv(oldenv[i], "", 1);
+
+	char * saved = malloc(SPT.end - SPT.base);
+	char *pstart = (environ[0] - SPT.base) + saved;
+	char *pend = (SPT.end -SPT.base) + saved;
+	char* p;
+
+	memcpy(saved, SPT.base, SPT.end - SPT.base);
+	for(p = pstart; p[0] != 0 && p <pend ; p+=strlen(p) +1) {
+		if (!(eq = strchr(p, '=')))
+			setenv(p, "", 1);
 		else {
 			*eq = '\0';
-			error = (0 != setenv(oldenv[i], eq + 1, 1))? errno : 0;
+			error = (0 != setenv(p, eq + 1, 1))? errno : 0;
 			*eq = '=';
 			if (error)
 				goto error;
@@ -84,10 +90,8 @@ static int spt_copyenv(char **oldenv) {
 
 	return 0;
 error:
-	environ = oldenv;
-
 	return error;
-} /* spt_copyenv() */
+}
 
 
 static int spt_copyargs(int argc, char *argv[]) {
@@ -144,12 +148,14 @@ void spt_init(int argc, char *argv[]) {
 	char* end = get_end();
 	if (!start || ! end)
 		return;
-
 	if (!(SPT.arg0 = strdup(start))) {
 		SPT.error = errno;
 		return;
 	}
 
+	SPT.nul  = start + strlen(start);
+	SPT.base = start;
+	SPT.end  = end;
 	if (!(tmp = strdup(program_invocation_name))) {
 		SPT.error = errno;
 		return;
@@ -166,7 +172,7 @@ void spt_init(int argc, char *argv[]) {
 	program_invocation_short_name = tmp;
 
 
-	if ((error = spt_copyenv(environ))) {
+	if ((error = spt_copyenv())) {
 		SPT.error = error;
 		return;
 	}
@@ -175,9 +181,6 @@ void spt_init(int argc, char *argv[]) {
 		return;
 	}
 
-	SPT.nul  = start + strlen(start);
-	SPT.base = start;
-	SPT.end  = end;
 
 	return;
 }

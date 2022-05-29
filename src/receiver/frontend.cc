@@ -572,8 +572,10 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 	if (snr_stats.len > 0) {
 		auto& snr = snr_stats.stat[0];
 		last_stat.snr = (snr.scale == FE_SCALE_DECIBEL)
-			? snr.svalue
-			: (int32_t)(1000 * (snr.uvalue - 1000)); // make an attempt at scaling to dB (aribitrary)
+			? snr.svalue :
+			last_stat.snr = (snr.scale == FE_SCALE_RELATIVE)
+			? (int32_t)(1000 * (snr.uvalue - 1000)) // make an attempt at scaling to dB (aribitrary)
+			: -1e6;
 		if (false && snr_stats.len > 1)
 			dtdebugx("Extra statistics ignored (%d available)", snr_stats.len);
 	}

@@ -558,6 +558,8 @@ class SignalPanel(SignalPanel_):
         mux = self.signal_info.dvbs_mux
         sat_pos = mux.k.sat_pos # if sat_confirmed else None
         snr = self.signal_info.snr/1000 if locked else None
+        if snr <= -1000.:
+            snr = None
         self.speaker.speak(sat_pos, snr, sat_confirmed)
 
     def SetDefaultLevels(self):
@@ -579,7 +581,7 @@ class SignalPanel(SignalPanel_):
         snr =0
         ber = 0
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
-        self.snr_text.SetLabel(f'{snr:6.2f}dB')
+        self.snr_text.SetLabel('N.A.' if snr is None else f'{snr:6.2f}dB' )
         self.ber_text.SetLabel(f'{ber:8.2E}')
 
     def ClearSignalInfo(self):
@@ -622,9 +624,11 @@ class SignalPanel(SignalPanel_):
         self.freq_sr_modulation_text.SetLabel(f'{frequency_text}  {symbolrate_text} '
                                               f'{delsys} - {modulation}  {fec}' if locked else '')
         self.signal_info = signal_info
+        snr = self.signal_info.snr/1000
         if is_tuned:
+            if snr <= -1000:
+                snr = None
             rf_level = self.signal_info.signal_strength/1000
-            snr = self.signal_info.snr/1000
             min_snr = self.signal_info.min_snr/1000
             snr_ranges = [0, max(min_snr, 0), max(min_snr+2, 0), self.snr_ranges[3]]
             if snr_ranges != self.snr_ranges:
@@ -644,8 +648,8 @@ class SignalPanel(SignalPanel_):
             #self.ClearSignalInfo()
             self.rf_level_gauge.SetValue(rf_level)
             self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
-            self.snr_gauge.SetValue(snr)
-            self.snr_text.SetLabel(f'{snr:6.2f}dB')
+            self.snr_gauge.SetValue(self.snr_ranges[0] if snr is None else snr)
+            self.snr_text.SetLabel('N.A.' if snr is None else f'{snr:6.2f}dB' )
             return False
         self.ber_accu = 0.9*self.ber_accu + 0.1*  self.signal_info.ber
         ber = self.ber_accu if self.signal_info.ber> self.ber_accu else self.signal_info.ber
@@ -654,9 +658,9 @@ class SignalPanel(SignalPanel_):
         #self.ref_level_gauge.SetRange(-20.0)
 
         self.rf_level_gauge.SetValue(rf_level)
-        self.snr_gauge.SetValue(snr)
+        self.snr_gauge.SetValue(self.snr_ranges[0] if snr is None else snr)
         self.ber_gauge.SetValue(lber)
-        self.snr_text.SetLabel(f'{snr:6.2f}dB')
+        self.snr_text.SetLabel('N.A.' if snr is None else f'{snr:6.2f}dB' )
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
         self.ber_text.SetLabel(f'{ber:8.2E}')
 

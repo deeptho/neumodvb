@@ -228,7 +228,7 @@ public:
 
 
 	struct thread_safe_t {
-		chdb::fe_t dbfe;
+		mutable chdb::fe_t dbfe;
 		bool can_be_used{false}; // true if device can be opened in write mode
 		bool info_valid{false}; // true if we could retrieve device info; "false" indicates an error
 		int fefd{-1}; //file handle if open
@@ -371,6 +371,7 @@ class adapter_reservation_t {
 
 	dvbdev_monitor_t* adaptermgr;
 	dvb_adapter_t * adapter;
+	void update_dbfe_from_db(db_txn& rtxn,  dvb_frontend_t::thread_safe_t& t) const;
 
 public:
 	use_count_t use_count_mux; /* if >0 it is not allowed to change the mux; this implies
@@ -417,12 +418,12 @@ public:
 	bool is_tuned_to(const chdb::dvbt_mux_t& mux, const chdb::lnb_t* required_lnb) const;
 
 	std::shared_ptr<dvb_frontend_t>
-	can_tune_to(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+	can_tune_to(db_txn& rtxn, const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 							bool adapter_will_be_released, bool blindscan) const;
 
 	template<typename mux_t>
 	std::shared_ptr<dvb_frontend_t>
-	can_tune_to(const mux_t& mux, bool adapter_will_be_released, bool blindscan) const;
+	can_tune_to(db_txn& txn, const mux_t& mux, bool adapter_will_be_released, bool blindscan) const;
 
 };
 

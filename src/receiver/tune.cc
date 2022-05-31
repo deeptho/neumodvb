@@ -67,8 +67,8 @@ void print_tuner_status(fe_status_t festatus) {
 		dtdebug("     FE_HAS_LOCK : everything's working...");
 	if (festatus & FE_TIMEDOUT)
 		dtdebug("     FE_TIMEDOUT : no lock within the last about 2 seconds");
-	if (festatus & FE_REINIT)
-		dtdebug("     FE_REINIT : frontend was reinitialized");
+	if (festatus & FE_HAS_TIMING_LOCK)
+		dtdebug("     FE_REINIT : frontend has timing loop locked");
 	dtdebug("---");
 }
 

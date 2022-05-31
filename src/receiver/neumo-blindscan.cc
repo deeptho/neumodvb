@@ -323,8 +323,8 @@ void print_tuner_status(fe_status_t festatus) {
 		printf("     FE_HAS_LOCK : everything's working...");
 	if (festatus & FE_TIMEDOUT)
 		printf("     FE_TIMEDOUT : no lock within the last about 2 seconds");
-	if (festatus & FE_REINIT)
-		printf("     FE_REINIT : frontend was reinitialized");
+	if (festatus & FE_HAS_TIMING_LOCK)
+		printf("     FE_REINIT : frontend has timing loop locked");
 	printf("---");
 	/*
 		fe_status & FE_HAS_LOCK : GOOD

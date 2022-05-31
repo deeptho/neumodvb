@@ -212,11 +212,11 @@ void export_signal_info(py::module& m) {
 	py::class_<signal_info_t>(m, "signal_info_t")
 		.def(py::init())
 		.def_readonly("tune_attempt", &signal_info_t::tune_attempt)
-		.def_property_readonly("has_signal", [](const signal_info_t& i) {
-			return (i.lock_status& FE_HAS_SIGNAL) ? 1 : 0;
-		})
 		.def_property_readonly("has_carrier", [](const signal_info_t& i) {
 			return (i.lock_status& FE_HAS_CARRIER) ? 1 : 0;
+		})
+		.def_property_readonly("has_timing_lock", [](const signal_info_t& i) {
+			return (i.lock_status& FE_HAS_TIMING_LOCK) ? 1 : 0;
 		})
 		.def_property_readonly("has_fec", [](const signal_info_t& i) {
 			return (i.lock_status& FE_HAS_VITERBI) ? 1 : 0;

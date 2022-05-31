@@ -31,6 +31,7 @@
 enum fe_extended_caps {
 	FE_EXTENDED_CAPS_IS_STUPID = 0x00,
 	FE_CAN_SPECTRUMSCAN        = 0x01,
+	FE_CAN_HR_SPECTRUMSCAN     = 0x08,
 	FE_CAN_IQ                  = 0x02,
 	FE_CAN_BLINDSEARCH         = 0x04,
 	FE_CAN_CONSTELLATION       = 0x10,
@@ -279,13 +280,13 @@ enum fe_sec_mini_cmd {
  */
 enum fe_status {
 	FE_NONE			= 0x00,
-	FE_HAS_SIGNAL		= 0x01,
+	FE_HAS_SIGNAL		= 0x01, //not useful
 	FE_HAS_CARRIER		= 0x02,
 	FE_HAS_VITERBI		= 0x04,
 	FE_HAS_SYNC		= 0x08,
 	FE_HAS_LOCK		= 0x10,
 	FE_TIMEDOUT		= 0x20,
-	FE_REINIT		= 0x40,
+	FE_HAS_TIMING_LOCK		= 0x40, //was FE_REINIT; not used anyway
 	FE_IDLE		= 0x80,
 };
 

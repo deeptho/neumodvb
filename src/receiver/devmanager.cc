@@ -879,6 +879,28 @@ int dvb_adapter_t::release_fe() {
 	return ret;
 }
 
+void adapter_reservation_t::update_dbfe_from_db(db_txn& rtxn, dvb_frontend_t::thread_safe_t& t) const {
+	auto k = chdb::fe_key_t(int(t.dbfe.k.adapter_no), int(t.dbfe.k.frontend_no));
+	auto c = chdb::fe_t::find_by_key(rtxn, k);
+	auto dbfe_db = c.is_valid() ? c.current() : chdb::fe_t();
+
+	bool changed = (dbfe_db.card_name != t.dbfe.card_name) || (dbfe_db.adapter_name != t.dbfe.adapter_name) ||
+		(dbfe_db.card_address != t.dbfe.card_address) ||
+		(dbfe_db.adapter_address != t.dbfe.adapter_address) || c.is_valid() || t.dbfe.present != true ||
+		t.dbfe.can_be_used != t.can_be_used;
+
+	//	auto tst =dump_caps((chdb::fe_caps_t)fe_info.caps);
+	//	dterror("CAPS: " << tst);
+	changed |= dbfe_db.delsys != t.dbfe.delsys;
+	if (changed) {
+		t.dbfe.k = k;
+		t.dbfe.mtime = system_clock_t::to_time_t(now);
+		t.dbfe.enabled = dbfe_db.enabled;
+		t.dbfe.can_be_used = t.can_be_used;
+	}
+}
+
+
 bool adapter_reservation_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb) const {
 	if (!use_count_mux())
 		return false;
@@ -938,7 +960,8 @@ bool adapter_reservation_t::is_tuned_to(const chdb::any_mux_t& mux, const chdb::
 
 	Return the frontend which can be used or a nullptr
 */
-std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(db_txn& rtxn,
+																																	 const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 																																	 bool adapter_will_be_released,
 																																	 bool blindscan) const {
 	if ((!adapter_will_be_released ? use_count_mux() : use_count_mux() - 1) > 0)
@@ -953,10 +976,12 @@ std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(const chdb::l
 	auto fe = adapter->fe_for_delsys(is_auto ? chdb::fe_delsys_t::SYS_DVBS2 : (chdb::fe_delsys_t)mux.delivery_system);
 	if (!fe)
 		return nullptr; // this adapter has no suitable frontend
-
-	auto t = fe->ts.readAccess();
+	auto t = fe->ts.writeAccess();
 	if ((blindscan || is_auto) && !t->dbfe.supports.blindscan)
 		return nullptr;
+
+	update_dbfe_from_db(rtxn, *t);
+
 	if (!t->can_be_used			// adapter is in use by an external program
 			|| !t->dbfe.enabled // adapter is disabled by user configuration
 			/*@todo: DVB-S2X: drivers support this if one passes DVB-S2 in stead
@@ -1087,17 +1112,19 @@ std::shared_ptr<dvb_frontend_t> dvbdev_monitor_t::find_fe_for_lnb(const chdb::ln
 	Return the frontend which can be used or a nullptr
 */
 template <typename mux_t>
-std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(const mux_t& mux, bool adapter_will_be_released,
-																																	 bool blindscan) const {
+std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to
+(db_txn& rtxn, const mux_t& mux, bool adapter_will_be_released,
+ bool blindscan) const {
 	if ((!adapter_will_be_released ? use_count_mux() : use_count_mux() - 1) > 0)
 		return nullptr; // this adapter is reserved by another subscription and will remain reserved; we cannot use it
 	auto fe = adapter->fe_for_delsys((chdb::fe_delsys_t)mux.delivery_system);
 	if (!fe)
 		return nullptr; // this adapter has no suitable frontend
 
-	auto t = fe->ts.readAccess();
+	auto t = fe->ts.writeAccess();
 	if (blindscan && !t->dbfe.supports.blindscan)
 		return nullptr;
+	update_dbfe_from_db(rtxn, *t);
 	if (!t->can_be_used			// adapter is in use by an external program
 			|| !t->dbfe.enabled // adapter is disabled by user configuration
 			/*@todo: DVB-S2X: drivers support this if one passes DVB-S2 in stead
@@ -1115,10 +1142,12 @@ std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(const mux_t& 
 }
 
 template std::shared_ptr<dvb_frontend_t>
-adapter_reservation_t::can_tune_to(const chdb::dvbt_mux_t& mux, bool adapter_will_be_released, bool blindscan) const;
+adapter_reservation_t::can_tune_to(db_txn& rtxn, const chdb::dvbt_mux_t& mux,
+																	 bool adapter_will_be_released, bool blindscan) const;
 
 template std::shared_ptr<dvb_frontend_t>
-adapter_reservation_t::can_tune_to(const chdb::dvbc_mux_t& mux, bool adapter_will_be_released, bool blindscan) const;
+adapter_reservation_t::can_tune_to(db_txn& rtxn, const chdb::dvbc_mux_t& mux,
+																	 bool adapter_will_be_released, bool blindscan) const;
 
 template <typename mux_t>
 std::shared_ptr<dvb_frontend_t>
@@ -1130,7 +1159,7 @@ dvbdev_monitor_t::find_adapter_for_tuning_to_mux(db_txn& txn, const mux_t& mux, 
 	for (auto& [adapter_no, adapter] : adapters) {
 		auto adapter_reservation = adapter.reservation.readAccess();
 		bool adapter_will_be_released = adapter_to_release == &adapter;
-		auto fe = adapter_reservation->can_tune_to(mux, adapter_will_be_released, blindscan);
+		auto fe = adapter_reservation->can_tune_to(txn, mux, adapter_will_be_released, blindscan);
 		if (!fe.get() || fe->ts.readAccess()->dbfe.priority <= best_fe_prio)
 			continue;
 		auto fe_prio = fe->ts.readAccess()->dbfe.priority;
@@ -1215,7 +1244,7 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_
 		}
 
 		auto adapter_reservation = adapter.reservation.readAccess();
-		auto fe = adapter_reservation->can_tune_to(*plnb, mux, adapter_will_be_released, tune_options.use_blind_tune);
+		auto fe = adapter_reservation->can_tune_to(txn, *plnb, mux, adapter_will_be_released, tune_options.use_blind_tune);
 		if (!fe.get()) {
 			dtdebug("LNB " << *plnb << " cannot be used");
 			continue;

@@ -67,6 +67,7 @@ control_menu = (
     MI("AudioLang",  _("&Audio language\tCtrl-Shift-3"), ""), #ctrl-#
     MI("SubtitleLang",  _("&Subtitle language\tCtrl-T"), ""),
     MI("DumpSubs",  _("&DumpSubs\tCtrl-G"), ""),
+    MI("ChannelScreenshot",  _("&ChannelScreenhot\tCtrl-J"), ""),
     MI("ToggleOverlay",  _("&Toggle overlay\tCtrl-O"), ""),
     SEP,
     MI("Tune",  _("&Tune\tCtrl-Enter"), ""),

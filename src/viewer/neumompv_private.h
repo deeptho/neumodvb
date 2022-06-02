@@ -121,7 +121,7 @@ public:
 	void mpv_draw(int w, int h);
 	bool create();
 	void destroy();
-	int play_file(const char* name);
+	int screenshot();
 	void mpv_command(const char* cmd_, const char* arg2, const char* arg3);
 	int play_recording(const recdb::rec_t& rec_, milliseconds_t start_play_time);
 	int set_audio_language(int id);

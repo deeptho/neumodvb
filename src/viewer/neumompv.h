@@ -86,7 +86,7 @@ public:
 
 	template<typename _mux_t> int play_mux(const _mux_t& mux, bool blindscan);
 	int play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time);
-	int play_file(const char* name);
+	int screenshot();
 	int stop_play();
 	int jump(int seconds);
 	int set_audio_language(int idx);

@@ -586,21 +586,20 @@ py::handle MpvPlayer::make_canvas(py::object frame_) {
 }
 #endif
 
-int MpvPlayer_::play_file(const char* name) {
-	subscription.filepath = name;
+int MpvPlayer_::screenshot() {
 	if (!mpv) {
 		dterror("mpv not ready");
 		assert(0);
 		return -1;
 	}
-	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
+	const char* cmd[] = {"screenshot", nullptr};
 	::mpv_command(mpv, cmd);
 	return 0;
 }
 
-int MpvPlayer::play_file(const char* name) {
+int MpvPlayer::screenshot() {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
-	return self->play_file(name);
+	return self->screenshot();
 }
 
 void MpvPlayer_::mpv_command(const char* cmd_, const char* arg2, const char* arg3) {

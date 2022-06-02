@@ -14,6 +14,9 @@ performed.
 * **Recordings.** `View - Recordings` or pressing `R` shows the list of earlier recorded programs, along with the preview window
 performed.
 * **View mode.** `View Show/Hide GUI` pr pressing `L` toggles between video only display and the last selectd live mode screen (channels, grid epg...)
+* **Channel Screenshot.** `Control Channel Screenshot` pr pressing `Ctrl-J` screenshots the currently playing service
+-- without any overlays -- and saves it to /tmp/screenshots. If you don't like the location, change it to something
+different in the mpv.conf configuration file.
 
 Usually all of these screens are shown in a window, but for real TV viewing, it is better to enter full screen
 mode by pressing `Ctrl-F`.

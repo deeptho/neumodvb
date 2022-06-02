@@ -549,7 +549,8 @@ bool chdb::matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool
 		return false;
 	if (check_sat_pos && (std::abs(a.k.sat_pos - b.k.sat_pos) > 30)) // 0.3 degree
 		return false;
-
+	if (a.stream_id != b.stream_id)
+		return false;
 	auto tolerance = (((int)std::min(a.symbol_rate, b.symbol_rate))*1.35) / 2000;
 
 	return (std::abs((int)a.frequency - (int)b.frequency) < tolerance);

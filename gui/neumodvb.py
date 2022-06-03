@@ -345,8 +345,8 @@ class neumoMainFrame(mainFrame):
         dtdebug('dumpsubs')
         self.app.receiver.dump_subs()
 
-    def CmdScreenShot(self, event):
-        dtdebug("CmdScreenShot")
+    def CmdChannelScreenshot(self, event):
+        dtdebug("CmdChannelScreenshot")
         self.app.current_mpv_player.screenshot()
 
     def CmdLiveChannels(self, event):

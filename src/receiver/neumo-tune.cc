@@ -68,7 +68,8 @@ static constexpr int make_code(int pls_mode, int pls_code, int timeout = 0) {
 static constexpr int lnb_universal_slof = 11700 * 1000UL;
 static constexpr int lnb_universal_lof_low = 9750 * 1000UL;
 static constexpr int lnb_universal_lof_high = 10600 * 1000UL;
-
+static constexpr int lnb_wideband_lof = 10400 * 1000UL;
+static constexpr int lnb_wideband_uk_lof = 10410 * 1000UL;
 static constexpr int lnb_c_lof = 5150 * 1000UL;
 
 enum blindscan_method_t {
@@ -78,6 +79,8 @@ enum blindscan_method_t {
 
 enum lnb_type_t {
 	UNIVERSAL_LNB = 1,
+	WIDEBAND_LNB,
+	WIDEBAND_UK_LNB,
 	C_LNB,
 };
 
@@ -141,6 +144,14 @@ uint32_t get_lo_frequency(uint32_t frequency) {
 		} else {
 			return lnb_universal_lof_high;
 		}
+		break;
+
+	case WIDEBAND_LNB:
+		return lnb_wideband_lof;
+		break;
+
+	case WIDEBAND_UK_LNB:
+		return lnb_wideband_uk_lof;
 		break;
 
 	case C_LNB:

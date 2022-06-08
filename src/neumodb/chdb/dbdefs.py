@@ -112,6 +112,8 @@ lnb_type = db_enum(name='lnb_type_t',
                    fields=(('UNKNOWN', -1),
                            'C',
                            'KU',
+			   'WDB',
+			   'WDBUK',
                            'UNIV'
                            ))
 

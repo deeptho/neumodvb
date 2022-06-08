@@ -1204,6 +1204,16 @@ static std::tuple<uint32_t, uint32_t, uint32_t> lnb_band_helper(const chdb::lnb_
 		freq_high = lnb.freq_high < 0 ? 4200000 : lnb.freq_high;
 		freq_mid = freq_low;
 	} break;
+	case lnb_type_t::WDB: {
+		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
+		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
+		freq_mid = freq_low;
+	} break;
+	case lnb_type_t::WDBUK: {
+		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
+		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
+		freq_mid = freq_low;
+	} break;
 	case lnb_type_t::UNIV: {
 		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
@@ -1275,6 +1285,12 @@ std::tuple<int, int, int> chdb::lnb::band_voltage_freq_for_mux(const chdb::lnb_t
 	case lnb_type_t::C: {
 		band = 0;
 	} break;
+	case lnb_type_t::WDB: {
+		band = 0;
+	} break;
+	case lnb_type_t::WDBUK: {
+		band = 0;
+	} break;
 	case lnb_type_t::UNIV: {
 		auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
 		band = (mux.frequency >= freq_mid);
@@ -1307,6 +1323,18 @@ int chdb::lnb::driver_freq_for_freq(const chdb::lnb_t& lnb, int frequency) {
 	case lnb_type_t::C: {
 		band = 0;
 		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
+		frequency = frequency - lof_low;
+		break;
+	}
+	case lnb_type_t::WDB: {
+		band = 0;
+		auto lof_low = lnb.lof_low < 0 ? 10400000 : lnb.lof_low;
+		frequency = frequency - lof_low;
+		break;
+	}
+	case lnb_type_t::WDBUK: {
+		band = 0;
+		auto lof_low = lnb.lof_low < 0 ? 10410000 : lnb.lof_low;
 		frequency = frequency - lof_low;
 		break;
 	}
@@ -1367,6 +1395,14 @@ int chdb::lnb::freq_for_driver_freq(const chdb::lnb_t& lnb, int frequency, bool 
 		invert = true;
 		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
 		return correct(0, -frequency + lof_low); // - to cope with inversion
+	} break;
+	case lnb_type_t::WDB: {
+		auto lof_low = lnb.lof_low < 0 ? 10400000 : lnb.lof_low;
+		return correct(0, frequency + lof_low);
+	} break;
+	case lnb_type_t::WDBUK: {
+		auto lof_low = lnb.lof_low < 0 ? 10410000 : lnb.lof_low;
+		return correct(0, frequency + lof_low);
 	} break;
 	case lnb_type_t::UNIV: {
 		auto lof_low = lnb.lof_low < 0 ? 9750000 : lnb.lof_low;

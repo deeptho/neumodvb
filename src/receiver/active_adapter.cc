@@ -483,6 +483,12 @@ int active_adapter_t::hi_lo(const chdb::lnb_t& lnb, const chdb::any_mux_t& tp) {
 	} else if (lnb.k.lnb_type == lnb_type_t::KU) {
 		// LNB_STANDARD one band and one local oscillator
 		return 0;
+	} else if (lnb.k.lnb_type == lnb_type_t::WDB) {
+		// one band and one local oscillator
+		return 0;
+	} else if (lnb.k.lnb_type == lnb_type_t::WDBUK) {
+		// one band and one local oscillator
+		return 0;
 	} else if (lnb.k.lnb_type == lnb_type_t::C) {
 		// one band and one local oscillator
 		return 0;

@@ -30,6 +30,10 @@ from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 import pyreceiver
 from pyreceiver import get_object as get_object_
 
+def lnb_matches_spectrum(lnb,  spectrum):
+     start_freq, end_freq = pychdb.lnb.lnb_frequency_range(lnb)
+     return (start_freq <= spectrum.start_freq <= end_freq) and \
+         (start_freq <= spectrum.end_freq <= end_freq)
 
 def get_object(evt):
     s = evt.GetExtraLong()
@@ -327,10 +331,13 @@ class SpectrumDialog(SpectrumDialog_):
                 self.OnSubscriberCallback(self.signal_info)
     def OnSelectMux(self, tp):
         spectrum = tp.spectrum.spectrum
+        #if spectrum.k.sat_pos != self.sat.sat_pos or \
+        #   spectrum.k.lnb_key.adapter_no != self.lnb.k.adapter_no or \
+        #       spectrum.k.lnb_key.dish_id != self.lnb.k.dish_id or \
+        #           spectrum.k.lnb_key.lnb_id != self.lnb.k.lnb_id:
+
         if spectrum.k.sat_pos != self.sat.sat_pos or \
-           spectrum.k.lnb_key.adapter_no != self.lnb.k.adapter_no or \
-               spectrum.k.lnb_key.dish_id != self.lnb.k.dish_id or \
-                   spectrum.k.lnb_key.lnb_id != self.lnb.k.lnb_id:
+           not lnb_matches_spectrum(self.lnb, spectrum):
             txn = wx.GetApp().chdb.rtxn()
             sat = pychdb.sat.find_by_key(txn, spectrum.k.sat_pos)
             lnb = pychdb.lnb.find_by_key(txn, spectrum.k.lnb_key)

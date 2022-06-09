@@ -88,7 +88,10 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 	auto sat = chdb::sat_pos_str(spectrum.k.sat_pos);
 	ss::accu_t ss(ret);
 	auto* pol_ = enum_to_str(spectrum.k.pol);
-	ss << sat << date::format("/%F_%H:%M_", zoned_time(current_zone(), system_clock::from_time_t(spectrum.k.start_time)))
+	ss << sat << date::format("/%F_%H:%M:%S_",
+														zoned_time(current_zone(),
+																			 floor<std::chrono::seconds>(system_clock::from_time_t(spectrum.k.start_time)))
+		)
 		 << pol_ << "_dish" << (int)spectrum.k.lnb_key.dish_id;
 }
 

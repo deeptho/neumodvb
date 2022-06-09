@@ -67,6 +67,7 @@ class LnbController(object):
         return (width//2, height//2)
 
     def SelectLnb(self, rec):
+        #called when user selects lnb from list, so the GUI already shows the correct lnb
         dtdebug(f"selected lnb: {rec}")
         self.parent.lnb = rec
         wx.CallAfter(self.parent.ChangeLnb, rec)
@@ -452,6 +453,7 @@ class TuneMuxPanel(TuneMuxPanel_):
     def ChangeLnb(self, lnb):
         add = False
         self.lnb = lnb
+
         if not on_rotor(lnb) and has_network(lnb, self.sat.sat_pos):
             # no change needed
             network=get_network(self.lnb, self.sat.sat_pos)

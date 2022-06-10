@@ -338,14 +338,14 @@ namespace dtdemux {
 		if (!is_east)
 			orbital_position = -orbital_position;
 		uint8_t pol = (flags >> 5) & 0x3; // 00=horizontal 01=vertical 10=left 11=right
-		bool is_dvbs2 = flags & 0x2;
+		uint8_t roll_off = (flags >> 3) & 0x3;// 00=0.35 01=0.25 10=0.2 11=reserved
+		bool is_dvbs2 = (flags>>2) & 0x1;
 		auto modulation = dvbs_modulation_from_stream(flags & 0x1f); // auto, qpsk, 8psk, 16-qam
 		auto symbol_rate = get<uint32_t>();
 		uint8_t fec_inner = symbol_rate & 0xf;
 		symbol_rate = BCD2INT(symbol_rate >> 4); // in symbols/s
 		if (has_error())
 			return -1;
-
 		mux.k.sat_pos = orbital_position;
 		mux.frequency = frequency; // in kHz
 		mux.pol = (chdb::fe_polarisation_t)pol;

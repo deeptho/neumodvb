@@ -675,11 +675,11 @@ class SignalPanel(SignalPanel_):
             lst.sort()
             prefix = ''
             suffix = ''
-            if len(lst) > 8:
+            if len(lst) > 16:
                 try:
                     if False and stream_id < 0:
                         suffix ='...'
-                        lst = lst [:8]
+                        lst = lst [:16]
                     else:
                         idx=lst.index(stream_id)
                         start, end = max(idx-4, 0), min(idx+4, len(lst))
@@ -692,7 +692,7 @@ class SignalPanel(SignalPanel_):
                     pass
             assert stream_id in lst
             isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) for i in lst])
-            isi = f'{prefix}{isi}{suffix}'
+            isi = f'[{len(signal_info.isi_list)}]: {prefix}{isi}{suffix}'
         self.isi_list_text.SetLabelMarkup(isi)
         #we need the int cast, because mux.delivery_sysstem can be of dvbs, ddvbt or dvbc type
         if int(mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and locked:

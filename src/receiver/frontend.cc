@@ -488,9 +488,9 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 		{.cmd = DTV_STAT_SIGNAL_STRENGTH},
 		{.cmd = DTV_STAT_CNR},
 
-		{.cmd = DTV_STAT_POST_ERROR_BIT_COUNT},
+		{.cmd = DTV_STAT_PRE_ERROR_BIT_COUNT},
+		{.cmd = DTV_STAT_PRE_TOTAL_BIT_COUNT},
 #if 0
-		{.cmd = DTV_STAT_PRE_TOTAL_BIT_COUNT	},
 		{.cmd = DTV_STAT_PRE_ERROR_BIT_COUNT	},
 		{.cmd = DTV_STAT_POST_TOTAL_BIT_COUNT	},
 		{.cmd = DTV_STAT_ERROR_BLOCK_COUNT	},
@@ -580,7 +580,14 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 			dtdebugx("Extra statistics ignored (%d available)", snr_stats.len);
 	}
 
-	last_stat.ber = cmdseq.props[i++].u.st.stat[0].uvalue;
+	uint64_t ber_enum = cmdseq.props[i++].u.st.stat[0].uvalue;
+	uint64_t ber_denom = cmdseq.props[i++].u.st.stat[0].uvalue;
+	if(ber_denom >0) {
+		last_stat.ber = ber_enum / (double)ber_denom;
+		printf("ber = %lld/%lld = %lf\n",  ber_enum, ber_denom, last_stat.ber);
+	} else {
+		last_stat.ber = ber_enum; //hack
+	}
 
 	get_mux_info(ret, cmdseq, api_type, i);
 	if (get_constellation) {

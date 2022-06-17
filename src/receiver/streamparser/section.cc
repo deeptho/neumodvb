@@ -351,6 +351,10 @@ namespace dtdemux {
 		mux.pol = (chdb::fe_polarisation_t)pol;
 		mux.symbol_rate = symbol_rate * 100; // in Symbols/s
 		mux.delivery_system = is_dvbs2 ? chdb::fe_delsys_dvbs_t::SYS_DVBS2 : chdb::fe_delsys_dvbs_t::SYS_DVBS;
+		mux.rolloff = (roll_off == 0) ? chdb::fe_rolloff_t::ROLLOFF_35 :
+			(roll_off == 1) ? chdb::fe_rolloff_t::ROLLOFF_20 :
+			(roll_off == 2) ? chdb::fe_rolloff_t::ROLLOFF_25 :
+			chdb::fe_rolloff_t::ROLLOFF_AUTO;
 		mux.modulation = (chdb::fe_modulation_t)modulation;
 		mux.fec = (chdb::fe_code_rate_t)fec_inner;
 		return 0;

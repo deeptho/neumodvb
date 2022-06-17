@@ -2505,6 +2505,8 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 										[&](chdb::dvbs_mux_t& mux) {
 											auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
 											assert(p);
+											if(mux.rolloff == chdb::fe_rolloff_t::ROLLOFF_AUTO)
+												mux.rolloff = p->rolloff;
 											if(p->modulation == chdb::fe_modulation_t::QAM_AUTO) {//happens on 22.0E 4181V
 											} else {
 												mux.modulation = p->modulation;

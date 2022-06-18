@@ -1,3 +1,67 @@
+Changes in version neumodvb-0.9
+-------------------
+SI-processing related
+-Incorrect activation of PMT parsers
+-Avoid showing incorrect SI data in tuned mux panel
+-Faster detection of stable pat, resulting in faster SI scanning
+-Better handle invalid SI information on 7.0E
+-Handle SI-sections with different version numbers
+-Also parse PMTs during regular SI scanning
+-Avoid needless frequent epg scanning on services without epg
+
+Spectrum and blind scanning
+-When adapter is not available, show error message and gracefully end blindscan
+-Properly handle multi-stream with the streams having the same network and ts id.
+ These muxes would overwrite each other while scanning. Happens, e.g., on 14W.
+-Avoid python back-traces when no peaks found in spectrum
+-Fixed bug: when LNB changes due to clicking on a mux in the spectrum panel,
+ the LNB select combobox does not show the newly selected LNB, which will be used for tuning
+ but uses it anyway. This causes blind tunes to happen on unexpected LNBs
+-Improvement: when the user loads a spectrum from file in spectrum scan, then selects a
+ mux and blindscans, use the current LNB whenever possible, except if this one cannot
+ tune the mux (wrong sat or wrong type of LNB). Only in that case, switch to the LNB originally used
+ to capture the spectrum.
+-Include not only hours and minutes but also seconds in names of files storing spectrum data. This
+ solves the problem that spectrum acquisitions started within one minute would overwrite each other.
+-The code now asks for a 50kHz resolution spectrum, leading to slightly slower scans in stid135.
+ This detects more low symbol rate muxes.
+-Fixed bug: DVBS2-QPSK streams incorrectly entered as DVBS1 streams in database
+-Fixed bug: incorrect detection of roll-off parameters.
+-More useful packet or bit error rate estimation. The new code measures errors before FEC/Viterbi/LDPC
+ correction. This requires blindscan drivers with version > release.0.9.
+
+
+Installation
+-Prevent some files from installing
+
+GUI
+-Show disabled menu items as grayed out
+-No longer use the single letters 'E' and 'C' as shortcuts, except in live mode
+-Fixed bug that causes channels to scroll offscreen
+-Fix bug that prevented proper navigation with arrow keys on EPG screen
+_Fixed bug: onscreen display of SNR not working in radio mode
+-Properly handle cases with unavailable SNR
+-Fixed some layout bugs
+-add timing lock indicator (replaces pretty useless signal indicator)
+-Immediately activate changes entered by user on "frontend list" screen. This is important
+ when user enables/disables a frontend
+-Add channel screenshot command
+-Show more stream numbers in the positioner dialog and in the spectrum dialog on muxes with
+ large number of streams
+
+Compilation and internals
+-Switch to clang20 by default except on "ancient Ubuntu" aka "Ubuntu LTS"
+-Fix double close of cursors and incorrect freeing, leading to assertion failures
+-Add command for building fedora rpms. Main problem to start really using this is a dependency
+ on mpl-scatter-plot, which cannot be installed as an rpm
+-Fix incorrect recompiling of pre-compiled headers with cmake > 3.19
+-Removed dependency on setproctitle and made it less error-prone
+-Add script for testing peak finding algorithm
+
+Diseqc
+-Add more time between sending commands to cascaded swicthes, solving some erroneous switching
+
+
 Changes in version neumodvb-0.8
 -------------------
 
@@ -60,9 +124,9 @@ EPG and recording related:
 
 Playback and viewing:
 
--During live viewing and recordings playback, replace the original pmt with a minimal pmt containing only
+-During live viewing and recordings playback, replace the original PMT with a minimal PMT containing only
  the video stream, and current audio and subtitle stream. This should prevent playback problems of services
- on 30.0W which share the same pmt. mpv tends to get confused about the audio stream selection in this case.
+ on 30.0W which share the same PMT. mpv tends to get confused about the audio stream selection in this case.
  This should also fix the missing sound on Sport Italia HD (5.0W).
 
 -Incorrect indication of live/timeshift/rec status in live overlay

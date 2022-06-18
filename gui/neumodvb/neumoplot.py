@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize, LogNorm
 from scipy.interpolate import interpn
-
+import warnings
 
 import mpl_scatter_density # adds projection='scatter_density'
 from matplotlib.colors import LinearSegmentedColormap
@@ -322,7 +322,9 @@ class Spectrum(object):
 
     def make_tps(self, tpsname):
         #n = len(spec[:,1])
-        self.peak_data = np.atleast_2d(np.loadtxt(tpsname))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.peak_data = np.loadtxt(tpsname, ndmin=2)
         if len(self.peak_data) == 0:
             return
         f = self.peak_data[:,0]
@@ -351,15 +353,16 @@ class Spectrum(object):
     def detrend_band(self, spec, lowidx, highidx):
         """
         Fit a linear curve to the minima of spectral intervals of the spectrum in spec
-        The parameters of the polynomial are fit betwen lowidx and highidx indices. This allow excluding
+        The parameters of the polynomial are fit between lowidx and highidx indices. This allow excluding
         part of the spectrum near 11700Ghz in a KU spectrum. Near that frequency it is difficult to know
         for sure if the spectrum is from the low or high lnb band (which may have an offset in its local
         oscillator)
         """
-        num_parts = (highidx-lowidx)//16 #we split the range between lowidx and highidx in 16 parts
+        N = 16
+        num_parts = (highidx-lowidx)//N #we split the range between lowidx and highidx in 16 parts
         if num_parts == 0:
             return
-        l = num_parts*16
+        l = num_parts*N
         #t is a list of local minima
         t=  self.spec[lowidx:lowidx+l, 1].reshape([-1,num_parts]).min(axis=1)
         #f: corresponding frequencies
@@ -827,7 +830,7 @@ class SpectrumPlot(wx.Panel):
     @lru_cache(maxsize=None)
     def get_limits(self):
         if self.spectra is None or len(self.spectra)==0:
-            return ((self.parent.start_freq, self.parent.end_freq), (-60.0, -40.0))
+            return ((self.parent.start_freq/1000, self.parent.end_freq/1000), (-60.0, -40.0))
         xlimits, ylimits = None, None
         for spectrum in self.spectra.values():
             xlimits = combine_ranges(xlimits, spectrum.xlimits)

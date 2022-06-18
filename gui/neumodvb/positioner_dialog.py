@@ -67,6 +67,7 @@ class LnbController(object):
         return (width//2, height//2)
 
     def SelectLnb(self, rec):
+        #called when user selects lnb from list, so the GUI already shows the correct lnb
         dtdebug(f"selected lnb: {rec}")
         self.parent.lnb = rec
         wx.CallAfter(self.parent.ChangeLnb, rec)
@@ -452,6 +453,7 @@ class TuneMuxPanel(TuneMuxPanel_):
     def ChangeLnb(self, lnb):
         add = False
         self.lnb = lnb
+
         if not on_rotor(lnb) and has_network(lnb, self.sat.sat_pos):
             # no change needed
             network=get_network(self.lnb, self.sat.sat_pos)
@@ -673,11 +675,11 @@ class SignalPanel(SignalPanel_):
             lst.sort()
             prefix = ''
             suffix = ''
-            if len(lst) > 8:
+            if len(lst) > 16:
                 try:
                     if False and stream_id < 0:
                         suffix ='...'
-                        lst = lst [:8]
+                        lst = lst [:16]
                     else:
                         idx=lst.index(stream_id)
                         start, end = max(idx-4, 0), min(idx+4, len(lst))
@@ -690,7 +692,7 @@ class SignalPanel(SignalPanel_):
                     pass
             assert stream_id in lst
             isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) for i in lst])
-            isi = f'{prefix}{isi}{suffix}'
+            isi = f'[{len(signal_info.isi_list)}]: {prefix}{isi}{suffix}'
         self.isi_list_text.SetLabelMarkup(isi)
         #we need the int cast, because mux.delivery_sysstem can be of dvbs, ddvbt or dvbc type
         if int(mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and locked:

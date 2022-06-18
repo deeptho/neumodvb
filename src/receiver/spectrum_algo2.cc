@@ -113,9 +113,11 @@ static void running_sum(s32* pout, s32* psig, int n) {
 
 static s32 windows[] = {2,	 4,		6,	 8,		10,	 12,	14,	 16,	20,	 24,	28,	 32,	40,	 48,	 56,	64,
 	72,	 80,	88,	 96,	112, 128, 144, 160, 176, 192, 208, 224, 240, 256,	 288, 230,
-	352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 832, 896, 960, 1024, 2048};
+	352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 832, 896, 960, 1024,
+	1152, 1280, 1408, 1536, 1664, 1792, 1920, 2048};
 
-static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_internal_t* si) {
+static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_internal_t* si)
+{
 	int i;
 	spectrum_peak_internal_t* cand = &si->last_peak;
 	if (cand->snr < ss->threshold2) {

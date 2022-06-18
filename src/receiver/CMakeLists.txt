@@ -50,7 +50,7 @@ add_subdirectory(streamparser)
 
 
 pybind11_add_module(pyreceiver receiver_pybind.cc setproctitle.c options_pybind.cc subscriber_pybind.cc logger_pybind.cc)
-pybind11_add_module(pyspectrum spectrum_pybind.cc)
+pybind11_add_module(pyspectrum spectrum_pybind.cc spectrum_algo2.cc)
 
 
 target_compile_options(pyreceiver PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error

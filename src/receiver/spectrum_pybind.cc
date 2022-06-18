@@ -18,12 +18,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+#include "spectrum_algo.h"
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> //for std::optional
 #include <pybind11/stl_bind.h>
-#include "spectrum_algo.h"
-
 namespace py = pybind11;
 
 
@@ -346,6 +345,63 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 
 
 
+/*
+	estimate peaks
+	input: spec: spectrum and freq: corresponding frequencies
+	output: frequencies of peaks and symbolrates
+	(euqally sized)
+
+ */
+static py::object find_spectral_peaks(py::array_t<float> freq, py::array_t<float> spectrum) {
+
+	py::buffer_info infospec = spectrum.request();
+	if (infospec.ndim != 1)
+		throw std::runtime_error("Bad number of dimensions");
+	auto* pspec = (float*)infospec.ptr;
+	int stridespec = infospec.strides[0] / sizeof(float);
+
+	py::buffer_info infofreq = freq.request();
+	if (infofreq.ndim != 1)
+		throw std::runtime_error("Bad number of dimensions");
+	auto* pfreq = (float*)infofreq.ptr;
+	int stridefreq = infofreq.strides[0] / sizeof(float);
+
+	int n = infofreq.shape[0];
+	if (n!= infospec.shape[0])
+		throw std::runtime_error("Bad Spectrum and freq need to have same size");
+
+	ss::vector_<int32_t> spectrum_;
+	ss::vector_<uint32_t> freq_;
+	spectrum_.reserve(n);
+	freq_.reserve(n);
+
+	for(int i =0 ; i< n; ++i) {
+		freq_.push_back(pfreq[i*stridefreq]*1e3);
+		spectrum_.push_back(pspec[i*stridespec]);
+	}
+
+	ss::vector_<spectral_peak_t> res;
+	find_tps(res,	spectrum_, freq_);
+
+	py::array_t<float, py::array::c_style> peak_freq(res.size());
+	py::buffer_info peak_freq_info = peak_freq.request();
+	int peak_freq_stride = peak_freq_info.strides[0] / sizeof(float);
+	auto* p_peak_freq = (float*)peak_freq_info.ptr;
+
+	py::array_t<float, py::array::c_style> peak_sr(res.size());
+	py::buffer_info peak_sr_info = peak_sr.request();
+	int peak_sr_stride = peak_sr_info.strides[0] / sizeof(float);
+	auto* p_peak_sr = (float*)peak_sr_info.ptr;
+
+	int i=0;
+	for(const auto& peak: res) {
+		p_peak_freq[i* peak_freq_stride] = peak.freq * 1e-3;
+		p_peak_sr[i* peak_sr_stride] = peak.symbol_rate;
+		++i;
+	}
+	return py::make_tuple(peak_freq, peak_sr);
+}
+
 PYBIND11_MODULE(pyspectrum, m) {
 	m.doc() = R"pbdoc(
 
@@ -353,5 +409,9 @@ PYBIND11_MODULE(pyspectrum, m) {
 	;
 	m
 		.def("find_annot_locations", &find_annot_locations)
+		.def("find_spectral_peaks", &find_spectral_peaks,
+				 "detect peaks in the spectrum and return their center frequencies and symbol rate",
+				 py::arg("freq"), py::arg("spectrum")
+			)
 		;
 }

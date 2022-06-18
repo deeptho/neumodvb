@@ -638,7 +638,8 @@ enum fe_interleaving {
 #define DTV_MAX_SYMBOL_RATE	85 //for blindscan
 #define DTV_CONSTELLATION 86
 #define DTV_HEARTBEAT 87
-#define DTV_MAX_COMMAND	 DTV_HEARTBEAT
+#define DTV_BITRATE 88
+#define DTV_MAX_COMMAND	 DTV_BITRATE
 
 //commands for controlling long running algorithms via FE_ALGO_CTRL ioctl
 #define DTV_STOP 1

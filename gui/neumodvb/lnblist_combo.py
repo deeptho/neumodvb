@@ -80,6 +80,9 @@ class LnbListComboCtrl(wx.ComboCtrl):
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
 
+    def UpdateText(self):
+        self.SetText(self.controller.CurrentGroupText())
+
     def show_all(self):
         """
         Instead of lnbs on a single satellite show all of them

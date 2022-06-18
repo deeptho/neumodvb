@@ -68,7 +68,7 @@ static inline size_t spt_min(size_t a, size_t b) {
 static int spt_copyenv() {
 	extern char **environ;
 	char *eq;
-	int i, error;
+	int error;
 
 	char * saved = malloc(SPT.end - SPT.base);
 	char *pstart = (environ[0] - SPT.base) + saved;

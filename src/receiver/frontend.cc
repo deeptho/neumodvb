@@ -147,7 +147,6 @@ dvb_frontend_t::~dvb_frontend_t() {
 		}
 		t->fefd = -1;
 	}
-	//printf("destructor\n");
 }
 
 void dvb_frontend_t::close_device(thread_safe_t& t) {
@@ -584,7 +583,6 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 	uint64_t ber_denom = cmdseq.props[i++].u.st.stat[0].uvalue;
 	if(ber_denom >0) {
 		last_stat.ber = ber_enum / (double)ber_denom;
-		printf("ber = %lld/%lld = %lf\n",  ber_enum, ber_denom, last_stat.ber);
 	} else {
 		last_stat.ber = ber_enum; //hack
 	}

@@ -39,10 +39,10 @@ GUI
 -No longer use the single letters 'E' and 'C' as shortcuts, except in live mode
 -Fixed bug that causes channels to scroll offscreen
 -Fix bug that prevented proper navigation with arrow keys on EPG screen
-_Fixed bug: onscreen display of SNR not working in radio mode
+-Fixed bug: onscreen display of SNR not working in radio mode
 -Properly handle cases with unavailable SNR
 -Fixed some layout bugs
--add timing lock indicator (replaces pretty useless signal indicator)
+-Add timing lock indicator (replaces pretty useless signal indicator)
 -Immediately activate changes entered by user on "frontend list" screen. This is important
  when user enables/disables a frontend
 -Add channel screenshot command

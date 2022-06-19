@@ -129,7 +129,7 @@ For troubleshooting, the following information may be useful:
 
 ````
     cd ~/neumodvb/build;
-    make -j8
+    make -j`nproc`
 ````
 
 * In any case, if your distribution uses `ccache`, compilation will be much faster the second time around,

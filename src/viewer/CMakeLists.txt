@@ -1,7 +1,7 @@
 find_package(wxWidgets REQUIRED net gl core base)
 include(${wxWidgets_USE_FILE})
 
-pybind11_add_module(pyneumompv neumompv.cc neumosvg.cc neumompv_pybind.cc)
+pybind11_add_module(pyneumompv neumompv.cc neumosvg.cc neumompv_pybind.cc neumoradiobg.cc)
 
 include_directories(
     # The location of the headers before installation

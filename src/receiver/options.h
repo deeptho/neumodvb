@@ -45,7 +45,8 @@ struct neumo_options_t {
 	std::string epgdb{"/mnt/neumo/db/epgdb.mdb"};
 	std::string recdb{"/mnt/neumo/db/recdb.mdb"};
 	std::string logconfig{"neumo.xml"};
-	std::string gui{"gui.svg"};
+	std::string osd_svg{"osd.svg"};
+	std::string radiobg_svg{"radiobg.svg"};
 	std::string mpvconfig{"mpv"};
 
 	chdb::usals_location_t usals_location;

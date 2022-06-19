@@ -59,12 +59,21 @@ class mpv_overlay_t {
 	ss::string<64> signal_info;
 	ss::string<64> service_info;
 	std::unique_ptr<svg_overlay_t> svg_overlay;
+	std::unique_ptr<svg_radiobg_t> svg_radiobg;
+	void render(svg_t* svgptr, int window_width, int window_height);
 public:
 	void set_signal_info(const chdb::signal_info_t& signal_info, const playback_info_t& info);
 	void set_playback_info(const playback_info_t& info);
 
-	void render(int window_width, int window_height);
-	mpv_overlay_t(std::string filename);
+	void render_osd(int window_width, int window_height) {
+		return render(svg_overlay.get(), window_width, window_height);
+	}
+
+	void render_radiobg(int window_width, int window_height) {
+		return render(svg_radiobg.get(), window_width, window_height);
+	}
+
+	mpv_overlay_t(MpvPlayer_* player);
 };
 
 class MpvGLCanvas : public wxGLCanvas

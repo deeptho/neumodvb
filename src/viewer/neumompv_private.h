@@ -47,7 +47,8 @@ class subscription_t {
 	int pmt_change_count{0};
 	std::shared_ptr<subscriber_t> subscriber;
 public:
-	std::atomic<bool> show_overlay{false};
+	std::atomic<bool> show_osd{false};
+	std::atomic<bool> show_radiobg{false};
 	int seqno =0;
 	bool is_playing() const {
 		return subscriber->get_subscription_id() >=0;

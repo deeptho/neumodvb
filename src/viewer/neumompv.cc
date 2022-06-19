@@ -66,7 +66,7 @@ MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 : wxGLCanvas(parent, wxID_ANY,  NULL, wxDefaultPosition, wxDefaultSize
 						 , 0, wxString("GLCanvas"), wxNullPalette)
 	, to_prevent_destruction(player), mpv_player(player.get())
-	, overlay(config_path / player->receiver->options.readAccess()->gui)
+	, overlay(player.get())
 {
 	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
 	glContext = new wxGLContext(this);
@@ -207,8 +207,12 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK
 
 	int width = s.x;
 	int height = s.y;
-	if (mpv_player->subscription.show_overlay) {
-		overlay.render(width, height);
+	if (mpv_player->subscription.show_radiobg) {
+		overlay.render_radiobg(width, height);
+	}
+
+	if (mpv_player->subscription.show_osd) {
+		overlay.render_osd(width, height);
 	}
 
 	SwapBuffers();
@@ -1115,6 +1119,7 @@ void MpvPlayer_::notify(const chdb::signal_info_t& signal_info) {
 	if (as->get_adapter_no() == signal_info.stat.k.lnb.adapter_no) {
 		playback_info_t playback_info = subscription.mpm->get_current_program_info();
 		gl_canvas->overlay.set_signal_info(signal_info, playback_info);
+		subscription.show_radiobg = (playback_info.service.media_mode == chdb::media_mode_t::RADIO);
 		return;
 	}
 	return;
@@ -1140,14 +1145,15 @@ void MpvPlayer::update_playback_info() {
 	self->update_playback_info();
 }
 
-void mpv_overlay_t::render(int window_width, int window_height) {
+void mpv_overlay_t::render(svg_t* svg, int window_width, int window_height) {
 	GLenum err;
 	static int called = 0;
+	if(!svg)
+		return;
 	if (!called) {
 		called = 1;
 	}
-
-	uint8_t* data = svg_overlay->render(window_width, window_height);
+	uint8_t* data = svg->render(window_width, window_height);
 
 	assert(data);
 	glBindTexture(GL_TEXTURE_2D, g_texture); // make the texture 2d
@@ -1168,8 +1174,8 @@ void mpv_overlay_t::render(int window_width, int window_height) {
 								1); // set texture parameter
 										// The following copies the data
 										// https://gamedev.stackexchange.com/questions/168045/avoid-useless-copies-of-buffers
-	auto width = svg_overlay->get_width();
-	auto height = svg_overlay->get_height();
+	auto width = svg->get_width();
+	auto height = svg->get_height();
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, data);
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		dterrorx("OPENGL error %d\n", err);
@@ -1214,16 +1220,20 @@ void mpv_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 	}
 }
 
-mpv_overlay_t::mpv_overlay_t(std::string filename) {
-
-	svg_overlay = svg_overlay_t::make(filename.c_str());
-
+mpv_overlay_t::mpv_overlay_t(MpvPlayer_* player) {
+	{
+		auto o = player->receiver->options.readAccess();
+		auto osd_path = config_path / o->osd_svg;
+		svg_overlay = svg_overlay_t::make(osd_path.c_str());
+		auto radiobg_path = config_path / o->radiobg_svg;
+		svg_radiobg = svg_radiobg_t::make(radiobg_path.c_str());
+	}
 	InitializeTexture(g_texture);
 }
 
 void MpvPlayer::toggle_overlay(){
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
-	self->subscription.show_overlay = !self->subscription.show_overlay;
+	self->subscription.show_osd = !self->subscription.show_osd;
 }
 
 

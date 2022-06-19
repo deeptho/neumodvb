@@ -70,7 +70,7 @@ void setfloatattr(wxSVGElement* elem, const char* key, float v) {
 	wxString val;
 	val << v;
 	auto k = wxString::FromUTF8(key);
-	/*auto ret=*/elem->SetAttribute(k, val);
+	elem->SetAttribute(k, val);
 }
 
 #if 0 //not used

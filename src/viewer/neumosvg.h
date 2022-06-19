@@ -33,26 +33,47 @@ namespace chdb {
 
 struct playback_info_t;
 
-class svg_overlay_t {
+class svg_t {
 protected:
-	ss::string<128> svg_filename;
-	svg_overlay_t(const char* filename);
+	svg_t() {};
 	uint8_t* surface{nullptr};
 	int window_width{-1};
 	int window_height{-1};
-	double max_snr {18.0};
-	double min_snr {2.0};
-	bool snr_shown = true;
-	void update_snr(double snr, double strength, double min_snr);
-	void show_snr(bool show);
+
 public:
 	inline int get_width() { return window_width;}
 	inline int get_height() { return window_height;}
+	virtual ~svg_t() {};
+	virtual uint8_t* render(int window_width, int window_height) = 0;
+};
+
+class svg_overlay_t : public svg_t {
+protected:
+	ss::string<128> svg_filename;
+	svg_overlay_t(const char* filename);
+	double max_snr {18.0};
+	double min_snr {2.0};
+	void update_snr(double snr, double strength, double min_snr);
+
+public:
 	virtual ~svg_overlay_t() = 0;
 	void set_signal_info(const chdb::signal_info_t& signal_info,
 											 const playback_info_t& playback_info);
 	void set_playback_info(const playback_info_t& playback_info);
 	void set_livebuffer_info(const playback_info_t& playback_info);
-	uint8_t* render(int window_width, int window_height);
+	virtual uint8_t* render(int window_width, int window_height);
 	static std::unique_ptr<svg_overlay_t> make(const char* filename);
+};
+
+
+class svg_radiobg_t : public svg_t {
+protected:
+	ss::string<128> svg_filename;
+	svg_radiobg_t(const char* filename);
+	bool updatedate{false};
+
+public:
+	virtual ~svg_radiobg_t() {};
+	virtual uint8_t* render(int window_width, int window_height);
+	static std::unique_ptr<svg_radiobg_t> make(const char* filename);
 };

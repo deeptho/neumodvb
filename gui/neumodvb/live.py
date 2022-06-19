@@ -1488,32 +1488,45 @@ class RecordPanel(wx.Panel):
             if is_ctrl:
                 return False
             return True
-        elif key in (wx.WXK_DOWN, wx.WXK_PAGEDOWN):
+        elif key in (wx.WXK_DOWN, wx.WXK_NUMPAD_DOWN):
+            if is_ctrl:
+                return False
+            if row.rowno < self.num_rows_on_screen-1:
+                self.focus_row(w, row.rowno+1)
+                return True
+            else:
+                self.scroll_down(1)
+                self.focus_row(w, self.num_rows_on_screen-1)
+                return True
+        elif key in (wx.WXK_PAGEDOWN, wx.WXK_NUMPAD_PAGEDOWN):
             if is_ctrl:
                 return False
             rows_to_scroll = 1 if key == wx.WXK_DOWN else self.num_rows_on_screen-1
             if row.rowno < self.num_rows_on_screen-1:
-                if key == wx.WXK_PAGEDOWN:
-                    self.focus_row(w, self.num_rows_on_screen-1)
-                else:
-                    self.focus_row(w, row.rowno+1)
-                return True
-            else:
-                self.scroll_down(rows_to_scroll)
                 self.focus_row(w, self.num_rows_on_screen-1)
                 return True
-        elif key in (wx.WXK_UP, wx.WXK_PAGEUP):
+            else:
+                self.scroll_down(self.num_rows_on_screen-1)
+                self.focus_row(w, self.num_rows_on_screen-1)
+                return True
+        elif key in (wx.WXK_UP, wx.WXK_NUMPAD_UP):
             if is_ctrl:
                 return False
-            rows_to_scroll = 1 if key == wx.WXK_UP else self.num_rows_on_screen-1
             if row.rowno > 0:
-                if key == wx.WXK_PAGEUP:
-                    self.focus_row(w, 0)
-                else:
-                    self.focus_row(w, row.rowno-1)
+                self.focus_row(w, row.rowno-1)
                 return True
             else:
-                self.scroll_down(-rows_to_scroll)
+                self.scroll_down(-1)
+                self.focus_row(w, 0)
+                return True
+        elif key in (wx.WXK_PAGEUP, wx.WXK_NUMPAD_PAGEUP):
+            if is_ctrl:
+                return False
+            if row.rowno > 0:
+                self.focus_row(w, 0)
+                return True
+            else:
+                self.scroll_down(-(self.num_rows_on_screen-1))
                 self.focus_row(w, 0)
                 return True
         return False
@@ -2407,8 +2420,11 @@ class LivePanel(wx.Panel):
         entries=[]
         self.keys={}
         for mod in (wx.ACCEL_NORMAL, wx.ACCEL_CTRL):
-            for key in (wx.WXK_RIGHT, wx.WXK_LEFT, wx.WXK_UP, wx.WXK_DOWN, wx.WXK_PAGEDOWN,
-                        wx.WXK_PAGEUP):
+            for key in (wx.WXK_RIGHT, wx.WXK_LEFT,
+                        wx.WXK_UP, wx.WXK_NUMPAD_UP,
+                        wx.WXK_DOWN, wx.WXK_NUMPAD_DOWN,
+                        wx.WXK_PAGEDOWN, wx.WXK_NUMPAD_PAGEDOWN,
+                        wx.WXK_PAGEUP, wx.WXK_NUMPAD_PAGEUP):
                 key_id = wx.NewIdRef()
                 entries.append((mod, key, key_id))
                 self.keys[key_id] = (mod, key)

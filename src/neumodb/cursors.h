@@ -398,7 +398,7 @@ struct db_cursor : private lmdb::cursor {
 				return;
 			bool found = ((lmdb::cursor&)other).get(k, v, (MDB_cursor_op) MDB_GET_CURRENT);
 			if(found) {
-				found = get(k,v, MDB_SET);
+				found = get(k,v, is_index_cursor ? MDB_GET_BOTH : MDB_SET);
 				//if(found)
 				//	printf("duplicated cursor\n");
 			}

@@ -416,15 +416,18 @@ struct db_cursor : private lmdb::cursor {
 		return db_cursor(*this, (db_cursor::clone_t*) NULL);
 	}
 
-	db_cursor& operator=(db_cursor&& other)
-		{
-			(lmdb::cursor&) (*this) = std::move((lmdb::cursor&)other);
+	db_cursor& operator=(db_cursor&& other) {
+		if(this != &other) {
+			lmdb::cursor::operator=(std::move((lmdb::cursor&)other));
 			assert( &txn == &other.txn); //cursors can be moved only if they relate to the same transaction
 			is_index_cursor = other.is_index_cursor;
 			valid_ = other.valid_;
-			key_prefix =other.key_prefix;
-			return *this;
+			other.valid_ = false;
+			key_prefix = other.key_prefix;
+			other.key_prefix.clear();
 		}
+			return *this;
+	}
 
 	template<class key_t>
 	bool get_key(key_t& key_out, const MDB_cursor_op op=MDB_GET_CURRENT) {

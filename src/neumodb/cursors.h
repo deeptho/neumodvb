@@ -302,8 +302,8 @@ struct db_cursor : private lmdb::cursor {
 	}
 
 
-		void drop(const bool del=false) {
-			::mdb_drop(txn.handle(), dbi(), del ? 1 : 0);
+	void drop(const bool del=false) {
+		::mdb_drop(txn.handle(), dbi(), del ? 1 : 0);
 	}
 
 

@@ -1233,7 +1233,7 @@ class RecordPanel(wx.Panel):
             dtdebug(f'set_initial_top_idx={top_idx}')
         else:
             # put selected row at top of screen
-            top_idx = entry_idx
+            top_idx = entry_idx if entry_idx>=0 else 0
             dtdebug(f'set_initial_top_idx={top_idx}')
             self.last_focused_rowno = 0
         self.top_idx = top_idx

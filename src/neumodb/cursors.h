@@ -416,6 +416,12 @@ struct db_cursor : private lmdb::cursor {
 		return db_cursor(*this, (db_cursor::clone_t*) NULL);
 	}
 
+	db_cursor& operator=(const db_cursor& other) {
+		if(this != &other)
+			*this = other.clone();
+		return *this;
+		}
+
 	db_cursor& operator=(db_cursor&& other) {
 		if(this != &other) {
 			lmdb::cursor::operator=(std::move((lmdb::cursor&)other));
@@ -696,10 +702,25 @@ struct db_tcursor_ : public db_cursor {
 		db_cursor(other, x)
 		{}
 
+	db_tcursor_(const db_tcursor_& other) :
+		db_tcursor_(other, (clone_t*)nullptr)
+		{}
+
 	db_tcursor_ clone() const {
 		return db_tcursor_(*this, (db_cursor::clone_t*) NULL);
 	}
 
+	db_tcursor_& operator=(db_tcursor_& other) {
+		if( this != &other )
+			db_cursor::operator=((db_cursor&) other);
+		return *this;
+	}
+
+	db_tcursor_& operator=(db_tcursor_&& other) {
+		if( this != &other )
+			db_cursor::operator=(std::move((db_cursor&) other));
+		return *this;
+	}
 
 	data_t current() {
 		if(!is_valid()) {

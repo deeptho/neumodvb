@@ -443,7 +443,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 			return c;
 		}
 		best = delta;
-		bestc = std::move(c);
+		bestc = c;
 	}
 	if (best == std::numeric_limits<int>::max()) {
 		bestc.close();

@@ -425,7 +425,7 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 		ret.mux,
 		[&cmdseq, &i, &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
 			ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, i, band, pol);
-				ret.stat.symbol_rate = mux.symbol_rate;
+			//ret.stat.symbol_rate = mux.symbol_rate;
 		},
 		[&cmdseq, &i, &ret](chdb::dvbc_mux_t& mux) {
 			ret.stat.k.frequency = get_dvbc_mux_info(mux, cmdseq, i); },

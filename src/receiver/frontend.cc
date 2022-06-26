@@ -420,50 +420,50 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 			ret.lnb_lof_offset.reset();
 	}
 
-	if (ret.lock_status & FE_HAS_LOCK) {
-		visit_variant(
-			ret.mux,
-			[&cmdseq, &i, &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
-				ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, i, band, pol);
-			},
-			[&cmdseq, &i, &ret](chdb::dvbc_mux_t& mux) {
-				ret.stat.k.frequency = get_dvbc_mux_info(mux, cmdseq, i); },
-			[&cmdseq, &i, &ret](chdb::dvbt_mux_t& mux) {
-				ret.stat.k.frequency = get_dvbt_mux_info(mux, cmdseq, i); });
-			/*at this point ret.mux and ret.stat.frequency contain the frequency as reported from the tuner itself,
-				but after compensation for the currently known lnb offset
+	//the following must be called even when not lockes, to consume the results of all DTV_... commands
+	visit_variant(
+		ret.mux,
+		[&cmdseq, &i, &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
+			ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, i, band, pol);
+				ret.stat.symbol_rate = mux.symbol_rate;
+		},
+		[&cmdseq, &i, &ret](chdb::dvbc_mux_t& mux) {
+			ret.stat.k.frequency = get_dvbc_mux_info(mux, cmdseq, i); },
+		[&cmdseq, &i, &ret](chdb::dvbt_mux_t& mux) {
+			ret.stat.k.frequency = get_dvbt_mux_info(mux, cmdseq, i); });
 
-				dvbs_mux->frequency is the frequency which we were asked to tune
+	/*at this point ret.mux and ret.stat.frequency contain the frequency as reported from the tuner itself,
+		but after compensation for the currently known lnb offset
+
+		dvbs_mux->frequency is the frequency which we were asked to tune
 			*/
-		tuned_frequency = ret.stat.k.frequency;
-		if (api == api_type_t::NEUMO) {
-			ret.matype = cmdseq.props[i++].u.data;
-			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.mux);
+	tuned_frequency = ret.stat.k.frequency;
+	if (api == api_type_t::NEUMO) {
+		ret.matype = cmdseq.props[i++].u.data;
+		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.mux);
 
-			if (dvbs_mux) {
-				if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
-					dvbs_mux->matype = 256;
-					ret.matype =  256; //means dvbs
-					dvbs_mux->stream_id = -1;
-				} else {
-					dvbs_mux->matype = ret.matype;
+		if (dvbs_mux) {
+			if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
+				dvbs_mux->matype = 256;
+				ret.matype =  256; //means dvbs
+				dvbs_mux->stream_id = -1;
+			} else {
+				dvbs_mux->matype = ret.matype;
 #if 0 //seems to go wrong on 25.5W 11174V: multistream
-					bool is_mis = !(ret.matype & (1 << 5));
-					if (!is_mis)
-						dvbs_mux->stream_id = -1;
+				bool is_mis = !(ret.matype & (1 << 5));
+				if (!is_mis)
+					dvbs_mux->stream_id = -1;
 #endif
-				}
 			}
-
-			assert(cmdseq.props[i].u.buffer.len == 32);
-			uint32_t* isi_bitset =
-				(uint32_t*)cmdseq.props[i++].u.buffer.data; // TODO: we can only return 32 out of 256 entries...
-			for (int i = 0; i < 256; ++i) {
-				int j = i / 32;
-				uint32_t mask = ((uint32_t)1) << (i % 32);
-				if (isi_bitset[j] & mask) {
-					ret.isi_list.push_back(i);
-				}
+		}
+		assert(cmdseq.props[i].u.buffer.len == 32);
+		uint32_t* isi_bitset =
+			(uint32_t*)cmdseq.props[i++].u.buffer.data; // TODO: we can only return 32 out of 256 entries...
+		for (int i = 0; i < 256; ++i) {
+			int j = i / 32;
+			uint32_t mask = ((uint32_t)1) << (i % 32);
+			if (isi_bitset[j] & mask) {
+				ret.isi_list.push_back(i);
 			}
 		}
 	} else {
@@ -490,7 +490,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 		{.cmd = DTV_STAT_PRE_ERROR_BIT_COUNT},
 		{.cmd = DTV_STAT_PRE_TOTAL_BIT_COUNT},
 #if 0
-		{.cmd = DTV_STAT_PRE_ERROR_BIT_COUNT	},
+		{.cmd = DTV_STAT_POST_ERROR_BIT_COUNT	},
 		{.cmd = DTV_STAT_POST_TOTAL_BIT_COUNT	},
 		{.cmd = DTV_STAT_ERROR_BLOCK_COUNT	},
 		{.cmd = DTV_STAT_TOTAL_BLOCK_COUNT	},
@@ -1122,7 +1122,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 		cmdseq.add(DTV_SYMBOL_RATE, mux.symbol_rate); // Must be in Symbols/second
 		cmdseq.add(DTV_INNER_FEC, (int)mux.fec);
 		cmdseq.add(DTV_INVERSION, INVERSION_AUTO);
-		cmdseq.add(DTV_ROLLOFF, (int)mux.rolloff);
+		cmdseq.add(DTV_ROLLOFF, (int) mux.rolloff);
 
 		cmdseq.add(DTV_PILOT, PILOT_AUTO);
 #if 0
@@ -1138,6 +1138,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 	if (tune_options.pls_search_range.start < tune_options.pls_search_range.end) {
 		cmdseq.add_pls_range(DTV_PLS_SEARCH_RANGE, tune_options.pls_search_range);
 	}
+
 	auto& t = *ts.writeAccess();
 	if( t.dbfe.supports.iq && num_constellation_samples > 0) {
 		constellation.num_samples = num_constellation_samples;

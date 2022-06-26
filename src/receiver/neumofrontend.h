@@ -639,7 +639,8 @@ enum fe_interleaving {
 #define DTV_CONSTELLATION 86
 #define DTV_HEARTBEAT 87
 #define DTV_BITRATE 88
-#define DTV_MAX_COMMAND	 DTV_BITRATE
+#define DTV_LOCKTIME 89
+#define DTV_MAX_COMMAND	 DTV_LOCKTIME
 
 //commands for controlling long running algorithms via FE_ALGO_CTRL ioctl
 #define DTV_STOP 1

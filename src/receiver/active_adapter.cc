@@ -977,11 +977,14 @@ int pol_band_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		dtdebugx("No voltage change needed: v=%d", v);
 		return 0;
 	}
+	bool must_sleep = voltage == SEC_VOLTAGE_OFF;
 	voltage = v;
 
 	if (ioctl(fefd, FE_SET_VOLTAGE, voltage) < 0) {
 		dterrorx("problem setting voltage %d", voltage);
 		return -1;
 	}
+	if(must_sleep)
+		msleep(200);
 	return 1;
 }

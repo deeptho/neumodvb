@@ -138,7 +138,7 @@ namespace {{dbname}} {
 				{{struct.class_name}}::partial_keys_t::all, &record);
 		if(!tcursor.find(primary_key))
 			return; //there is no record with the primary key
-		/*note that we myust use the actual record, not the one passed as an argument, because that one may
+		/*note that we must use the actual record, not the one passed as an argument, because that one may
 			may differ in all fields which are not part of the primary key
 		*/
 		delete_secondary_keys<{{struct.class_name}}>(tcursor, primary_key, tcursor.current());

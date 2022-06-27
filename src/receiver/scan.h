@@ -78,13 +78,20 @@ struct scan_state_t {
 			this->required_for_scan = required_for_scan;
 		}
 
+		//never received data
 		inline bool notpresent() const {
 			const std::chrono::seconds timeout{20}; //seconds
 			return (last_active == steady_time_t()) && (steady_clock_t::now() - start_time) > timeout;
 		}
 
+		//last received data too old
+		inline bool notactive() const {
+			const std::chrono::seconds timeout{50}; //seconds, e.g., can happen if continuously receiving sections with CRC errors
+			return (steady_clock_t::now() - last_active) > timeout;
+		}
+
 		inline bool done() const {
-			return !required_for_scan || completed || timedout || notpresent();
+			return !required_for_scan || completed || timedout || notpresent() || notactive();
 		}
 
 		const char* str() const {

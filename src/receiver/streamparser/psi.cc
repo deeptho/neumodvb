@@ -80,7 +80,14 @@ namespace dtdemux {
 
 		if (ret.table_id == 0xff) {
 			// rest of packet is stuffing.
+#if 0
 			skip(current_ts_packet->range.available());
+#else
+			if(pointer_field)
+				skip_to_pointer();
+			else
+				skip(current_ts_packet->range.available());
+#endif
 			ret.table_id = this->get<uint8_t>();
 			if (ret.table_id == 0xff)
 				THROW_BAD_DATA;

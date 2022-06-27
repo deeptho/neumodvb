@@ -112,8 +112,7 @@ public:
 		return done_;
 	}
 	void next() {
-		assert(cursor.is_valid());
-		done_ = !cursor.next(op_next);
+		done_ = !cursor.is_valid() || !cursor.next(op_next);
 		check_done();
 	}
 };

@@ -1253,6 +1253,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		if (!can_be_tuned) {
 			continue;
 		}
+
 		add_mux_from_nit(wtxn, mux, network.is_actual, is_tuned_mux, is_tuned_freq);
 
 		if (network.is_actual) {
@@ -2505,12 +2506,15 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 										[&](chdb::dvbs_mux_t& mux) {
 											auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
 											assert(p);
+											/*override user enetred "auto" data in signal_info.mux modulation data with si_data in case
+												si_mux is later overwritten with signal_info.mux*/
 											if(mux.rolloff == chdb::fe_rolloff_t::ROLLOFF_AUTO)
 												mux.rolloff = p->rolloff;
 											if(p->modulation == chdb::fe_modulation_t::QAM_AUTO) {//happens on 22.0E 4181V
 											} else {
 												mux.modulation = p->modulation;
 											}
+											p->matype = mux.matype; /* set si_mux.matype from driver info (which is the only source for it)*/
 											//mux->matype = p->matype;
 										},
 										[&](chdb::dvbc_mux_t& mux) {

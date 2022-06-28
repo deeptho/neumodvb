@@ -582,7 +582,9 @@ update_mux_ret_t chdb::update_mux(db_txn& txn, chdb::any_mux_t& mux, system_time
 	using namespace chdb;
 	update_mux_ret_t ret;
 	visit_variant(
-		mux, [&](chdb::dvbs_mux_t& mux) { ret = chdb::update_mux(txn, mux, now, preserve, cb); },
+		mux, [&](chdb::dvbs_mux_t& mux) {
+			assert(mux.delivery_system != chdb::fe_delsys_dvbs_t::SYS_DVBS || mux.matype==256 ||mux.matype==-1);
+			ret = chdb::update_mux(txn, mux, now, preserve, cb); },
 		[&](chdb::dvbc_mux_t& mux) { ret = chdb::update_mux(txn, mux, now, preserve, cb); },
 		[&](chdb::dvbt_mux_t& mux) { ret = chdb::update_mux(txn, mux, now, preserve, cb); });
 	return ret;
@@ -613,8 +615,8 @@ void chdb::matype_str(ss::string_& s, int16_t matype) {
 		return;
 	}
 
-	if( matype <0 ) { //dvbs
-		s.sprintf("35%%");
+	if( matype <0 ) { //not tuned yet; matype unknown
+		s.sprintf("");
 		return;
 	}
 	switch (matype >> 6) {

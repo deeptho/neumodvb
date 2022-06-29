@@ -885,7 +885,7 @@ lmdb::cursor_get(MDB_cursor* const cursor,
 		data_ = &dummy;
 	const int rc = ::mdb_cursor_get(cursor, key, data_, op);
 
-  if (rc != MDB_SUCCESS && rc != MDB_NOTFOUND) {
+  if (rc != MDB_SUCCESS && rc != MDB_NOTFOUND && rc != EINVAL) {
     error::raise("mdb_cursor_get", rc);
   }
   return (rc == MDB_SUCCESS);

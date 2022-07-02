@@ -116,8 +116,7 @@ int dvb_frontend_t::open_device(thread_safe_t& t, bool rw, bool allow_failure) {
 		return 0; // already open
 
 	try {
-		api_type = get_api_type();
-
+		std::tie(api_type, api_version) = get_api_type();
 	} catch(...) {
 		return -1;
 	}
@@ -516,36 +515,45 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 		{.cmd = DTV_CODE_RATE_LP},			// DVB-T
 		{.cmd = DTV_HIERARCHY},					// DVB-T
 		{.cmd = DTV_GUARD_INTERVAL},		// DVB-T
-		// The following are only supported by neumo version of dvbapi
+		// The following are only supported by neumo version 1.1 and later of dvbapi
 		{.cmd = DTV_MATYPE},
 		{.cmd = DTV_ISI_LIST},
 		{.cmd = DTV_CONSTELLATION},
+		// The following are only supported by neumo version 1.2 and later of dvbapi
+		{.cmd = DTV_LOCKTIME},
+		{.cmd = DTV_BITRATE}
 	};
 
 	struct dtv_properties cmdseq = {.num = sizeof(p) / sizeof(p[0]), .props = p};
 	if (api_type != api_type_t::NEUMO)
-		cmdseq.num -= 3;
-	else if (!get_constellation) {
-		cmdseq.num -= 1;
-	} else {
-		auto& cs = cmdseq.props[cmdseq.num - 1].u.constellation;
-		ret.constellation_samples.resize(num_constellation_samples);
-		cs.num_samples = num_constellation_samples;
-		cs.samples = &ret.constellation_samples[0];
+		cmdseq.num -= 5;
+	else {
+		if(api_version < 1200) {
+			cmdseq.num -= 2;
+			if (!get_constellation) {
+				cmdseq.num -= 1;
+			} else {
+				auto& cs = cmdseq.props[cmdseq.num - 1].u.constellation;
+				ret.constellation_samples.resize(num_constellation_samples);
+				cs.num_samples = num_constellation_samples;
+				cs.samples = &ret.constellation_samples[0];
+			}
+		} else { //if(api_version >= 1200)
+			if (!get_constellation) {
+				cmdseq.num -= 1;
+			} else {
+				auto& cs = cmdseq.props[cmdseq.num - 3].u.constellation;
+				ret.constellation_samples.resize(num_constellation_samples);
+				cs.num_samples = num_constellation_samples;
+				cs.samples = &ret.constellation_samples[0];
+			}
+		}
 	}
-
 	auto fefd = ts.readAccess()->fefd;
 	if (ioctl(fefd, FE_GET_PROPERTY, &cmdseq) < 0) {
 		dterrorx("ioctl failed: %s\n", strerror(errno));
 		// @todo: handle EINTR
 		return;
-	}
-	if (get_constellation && api_type == api_type_t::NEUMO) {
-		auto& cs = cmdseq.props[cmdseq.num - 1].u.constellation;
-		assert(cs.num_samples >= 0);
-		assert((int)cs.num_samples <= ret.constellation_samples.size());
-		assert(cs.num_samples <= 4096);
-		ret.constellation_samples.resize_no_init(cs.num_samples); // we may have retrieved fewer samples than we asked
 	}
 
 	int i = 0;
@@ -589,14 +597,21 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 
 	get_mux_info(ret, cmdseq, api_type, i);
 	if (get_constellation) {
-		if (ret.lock_status & FE_HAS_LOCK) {
-			if (api_type == api_type_t::NEUMO)
-				i++; // for constellation samples
-			assert(i == (int)cmdseq.num);
-		} else {
-			//ret.constellation_samples.resize(0);
-		}
+		auto& cs = cmdseq.props[i++].u.constellation;
+		assert(cs.num_samples >= 0);
+		assert((int)cs.num_samples <= ret.constellation_samples.size());
+		assert(cs.num_samples <= 4096);
+		ret.constellation_samples.resize_no_init(cs.num_samples); // we may have retrieved fewer samples than we asked
 	}
+
+	if (api_type == api_type_t::NEUMO && api_version >= 1200) {
+		uint64_t lock_time = cmdseq.props[i++].u.data;
+		uint64_t bitrate = cmdseq.props[i++].u.data;
+		ret.stat.locktime_ms = (ret.lock_status & FE_HAS_LOCK) ? lock_time : 0;
+		ret.bitrate = bitrate;
+	}
+
+	assert(i == (int)cmdseq.num);
 }
 
 int dvb_frontend_t::clear() {
@@ -893,16 +908,17 @@ template <typename mux_t> bool dvb_frontend_t::is_tuned_to(const mux_t& mux, con
 	return adapter->reservation.readAccess()->is_tuned_to(mux, required_lnb);
 }
 
-api_type_t dvb_frontend_t::get_api_type() {
+
+std::tuple<api_type_t, int>  dvb_frontend_t::get_api_type() {
 	static std::mutex m;
-	static api_type_t cached = api_type_t::UNDEFINED;
+	static std::tuple<api_type_t, int> cached = {api_type_t::UNDEFINED, -1};
 	/*
 		Note: multiple threads could simultaneously TRY to initialize the value, but only
 		one will succeed.
 	*/
-	if (cached == api_type_t::UNDEFINED) {
+	if (std::get<0>(cached) == api_type_t::UNDEFINED) {
 		std::scoped_lock lck(m);
-		if (cached != api_type_t::UNDEFINED) {
+		if (std::get<0>(cached) != api_type_t::UNDEFINED) {
 			// this could happen  if another thread beat us to it
 			return cached;
 		}
@@ -911,32 +927,31 @@ api_type_t dvb_frontend_t::get_api_type() {
 		try {
 			cfg.readFile("/sys/module/dvb_core/info/version");
 		} catch (const FileIOException& fioex) {
-			cached = api_type_t::DVBAPI; // default
+			cached = {api_type_t::DVBAPI, 5000};
 			return cached;
 		} catch (const ParseException& pex) {
-			cached = api_type_t::DVBAPI; // default
-			return cached;
+			return {api_type_t::DVBAPI, 5000};
 		}
 
 		try {
 			std::string type = cfg.lookup("type");
 			if (strcmp(type.c_str(), "neumo") != 0) {
-				cached = api_type_t::DVBAPI; // default
+				cached = {api_type_t::DVBAPI, 5000};
 				return cached;
 			}
 		} catch (const SettingNotFoundException& nfex) {
-			cached = api_type_t::DVBAPI; // default
+			cached = {api_type_t::DVBAPI, 5000};
 			return cached;
 		}
 
 		try {
 			std::string version = cfg.lookup("version");
 			dtdebugx("Neumo dvbapi detected; version=%s", version.c_str());
-			cached = api_type_t::NEUMO; // default
+			cached = { api_type_t::NEUMO, 1000*std::stof(version)};
 			return cached;
 
 		} catch (const SettingNotFoundException& nfex) {
-			cached = api_type_t::DVBAPI; // default
+			cached = { api_type_t::DVBAPI, 5000};
 			return cached;
 		}
 	}

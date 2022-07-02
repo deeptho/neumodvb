@@ -77,7 +77,7 @@ namespace chdb {
 		int tune_attempt{0};
 		any_mux_t mux;
 		std::optional<any_mux_t> si_mux; //as retrieved from stream
-
+		int32_t bitrate{0};
 		statdb::signal_stat_t stat;
 
 		inline statdb::signal_stat_entry_t& last_stat() {

@@ -217,9 +217,11 @@ class dvb_frontend_t
 {
 	friend class fe_monitor_thread_t;
 	api_type_t api_type { api_type_t::UNDEFINED};
+	int api_version{-1}; //1000 times the floating point value of version
 	int tuned_frequency{0}; // as reported by driver, compensated for lnb offset
 public:
-	static  api_type_t get_api_type() ;
+	static
+	std::tuple<api_type_t, int> get_api_type(); //returns api_type and version
 
 	struct lock_status_t {
 		bool lock_lost{false}; //

@@ -255,7 +255,7 @@ void export_signal_info(py::module& m) {
 			return i.tune_confirmation.si_done;
 		})
 		.def_property_readonly("has_no_dvb", [](const signal_info_t& i) {
-			return  i.matype >= 0 && (i.matype >>6) != 3;
+			return  (i.matype >= 0 && i.matype<256) && (i.matype >>6) != 3;
 		})
 		.def_readonly("stat", &signal_info_t::stat)
 		.def_property_readonly("signal_strength", [](const signal_info_t& i) {

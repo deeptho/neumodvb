@@ -328,8 +328,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             if not silent:
                 ShowMessage("Tuning failed", self.mux_subscriber.error_message) #todo: record error message
             dtdebug(f"Tuning failed {self.mux_subscriber.error_message}")
-            self.tuned_ = False
-            self.lnb_activated_ = False
+            self.AbortTune()
         else:
             self.tuned_ = True
             self.lnb_activated_ = True

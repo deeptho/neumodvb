@@ -305,14 +305,14 @@ class SpectrumDialog(SpectrumDialog_):
         self.ClearSignalInfo()
         assert self.tune_mux_panel.mux.frequency == mux.frequency
         if not self.tune_mux_panel.Tune(mux, retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
-            if self.signal_info is None:
+            if self.tp_being_scanned is None:
                 title = "Blindscan failed"
                 msg = f"Blindscan failed: {self.tune_mux_panel.mux_subscriber.error_message}"
                 ShowMessage(title, msg)
                 self.EndBlindScan()
             else:
                 dtdebug("Moving on after tuning failed")
-                self.OnSubscriberCallback(self.signal_info)
+                self.OnSubscriberCallback(False)
 
 
     def next_stream(self, stream_id):
@@ -381,7 +381,16 @@ class SpectrumDialog(SpectrumDialog_):
             ShowMessage("Error", data)
             return
         need_si = True
-        if type(data) == pyreceiver.signal_info_t:
+        if data == False:
+            mux = self.tune_mux_panel.last_tuned_mux
+            self.blindscan_num_muxes += 1
+            self.blindscan_num_nonlocked_muxes += 1
+            dtdebug(f"TUNE DONE mux={mux} ERROR")
+            self.spectrum_plot.set_current_annot_status(mux, mux, False)
+            if self.is_blindscanning:
+                 tp = self.tp_being_scanned
+                 self.blindscan_next()
+        elif type(data) == pyreceiver.signal_info_t:
             self.signal_info = data
             need_si = not self.signal_info.has_no_dvb
             si_done = self.signal_info.has_si_done if need_si else self.signal_info.has_lock

@@ -87,7 +87,7 @@ int cmdseq_t::tune(int fefd, int heartbeat_interval) {
 	if (heartbeat_interval > 0)
 		add(DTV_HEARTBEAT, heartbeat_interval);
 	if ((ioctl(fefd, FE_SET_PROPERTY, &cmdseq)) == -1) {
-		dterror("FE_SET_PROPERTY failed: " << strerror(errno));
+		user_error("Error setting frontend property: " << strerror(errno));
 		return -1;
 	}
 	return 0;

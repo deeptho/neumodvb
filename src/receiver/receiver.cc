@@ -934,7 +934,14 @@ int receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, int subscription_i
 	txn.abort();
 	error = wait_for_all(futures);
 	if (error) {
-		dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
+		ss::string<256> saved_error{get_error()};
+		dterror(get_error());
+		if(subscription_id>=0) {
+			unsubscribe_(futures, subscription_id, false /*service_only*/);
+			wait_for_all(futures);
+		}
+		user_error(saved_error); //TODO: look into better way of preserving error messages
+		return -1;
 	}
 	return subscription_id;
 }
@@ -1800,3 +1807,10 @@ time_t receiver_thread_t::scan_start_time() const {
 
 
 thread_local thread_group_t thread_group{thread_group_t::unknown};
+
+/*
+	subscription_id = -1 is returned from functions when resource allocation fails
+	If an error occurs after resource allocation, subscription_id should not be set to -1
+	(unless after releasing resources)
+
+ */

@@ -57,8 +57,12 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service(const chdb::serv
 template <typename _mux_t>
 int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 {
-	subscription_id =
-		receiver->subscribe_mux(mux, blindscan, subscription_id);
+	int ret = receiver->subscribe_mux(mux, blindscan, subscription_id);
+	if(ret<0) {
+		assert(subscription_id<0);
+		return ret;
+	}
+	subscription_id = ret;
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return subscription_id;
 }
@@ -72,8 +76,12 @@ int subscriber_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode) {
 
 int subscriber_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 																						const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
-	subscription_id =
-		receiver->subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range, retune_mode, subscription_id);
+	int ret = receiver->subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range, retune_mode, subscription_id);
+	if(ret <0) {
+		assert (subscription_id == -1);
+		return -1;
+	}
+	subscription_id = ret;
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return subscription_id < 0 ? -1 : ++tune_attempt;
 }

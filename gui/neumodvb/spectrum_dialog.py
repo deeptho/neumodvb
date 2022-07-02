@@ -123,7 +123,7 @@ class SpectrumDialog(SpectrumDialog_):
         p_t = pychdb.fe_polarisation_t
 
         self.is_blindscanning = False
-        self.done_count = 0
+        self.done_time = None
         self.pols_to_scan = []
         self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
 
@@ -210,7 +210,6 @@ class SpectrumDialog(SpectrumDialog_):
         self.use_blindscan = event.IsChecked()
         dtdebug(f"OnToggleBlindscan={self.use_blindscan}")
         event.Skip()
-
     def OnAcquireSpectrum(self, event=None):
         obj = event.GetEventObject()
         isPressed = obj.GetValue()
@@ -285,7 +284,7 @@ class SpectrumDialog(SpectrumDialog_):
         event.Skip()
 
     def blindscan_next(self):
-        self.done_count = 0
+        self.done_time = None
         if len(self.tps_to_scan) == 0:
             self.is_blindscanning = False
             self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
@@ -396,15 +395,16 @@ class SpectrumDialog(SpectrumDialog_):
             self.signal_info = data
             need_si = not self.signal_info.has_no_dvb
             si_done = self.signal_info.has_si_done if need_si else self.signal_info.has_lock
-            self.done_count +=1
-            if self.done_count >= 3:
-                if self.signal_info.has_fail or si_done:
+            if self.signal_info.has_fail or si_done:
+               if self.done_time is None:
+                    self.done_time = datetime.datetime.now(tz=tz.tzlocal())
+               elif datetime.datetime.now(tz=tz.tzlocal()) - self.done_time >= datetime.timedelta(seconds=1): # show result for at least 1 second
                     mux = self.tune_mux_panel.last_tuned_mux
                     self.blindscan_num_muxes += 1
                     self.blindscan_num_locked_muxes += self.signal_info.has_lock
                     self.blindscan_num_nonlocked_muxes += not self.signal_info.has_lock
                     self.blindscan_num_si_muxes += (self.signal_info.has_nit or self.signal_info.has_sdt or self.signal_info.has_pat)
-                    dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done}")
+                    dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done} no_dvb={self.signal_info.has_no_dvb}")
                     self.spectrum_plot.set_current_annot_status(mux, self.signal_info.si_mux, self.signal_info.has_lock)
                     if self.is_blindscanning:
                         tp = self.tp_being_scanned

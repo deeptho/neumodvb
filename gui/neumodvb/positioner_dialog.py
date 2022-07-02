@@ -698,7 +698,7 @@ class SignalPanel(SignalPanel_):
         if int(mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and locked:
             matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
         else:
-            matype=""
+            matype="DVBS"
         if locked and signal_info.has_matype:
             pls_mode = lastdot(str(mux.pls_mode))
             pls = f'PLS: {pls_mode} {mux.pls_code}'

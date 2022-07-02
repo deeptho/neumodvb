@@ -107,7 +107,7 @@ class SpectrumDialog(SpectrumDialog_):
 
         from neumodvb.positioner_dialog import EVT_LNB_CHANGE, EVT_ABORT_TUNE
         self.tune_mux_panel.Bind(EVT_LNB_CHANGE, self.OnChangeLnb)
-        self.Bind(EVT_ABORT_TUNE, self.OnAbortTune)
+        self.tune_mux_panel.Bind(EVT_ABORT_TUNE, self.OnAbortTune)
 
         self.parent = parent
 

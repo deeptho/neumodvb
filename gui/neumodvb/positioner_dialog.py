@@ -374,7 +374,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         dtdebug(f"positioner: unsubscribing")
         self.last_tuned_mux = None
         evt = AbortTuneEvent()
-        wx.PostEvent(self.parent, evt)
+        wx.PostEvent(self, evt)
 
         wx.CallAfter(self.AbortTune)
 

@@ -87,7 +87,7 @@ struct scan_state_t {
 		//last received data too old
 		inline bool notactive() const {
 			const std::chrono::seconds timeout{50}; //seconds, e.g., can happen if continuously receiving sections with CRC errors
-			return (steady_clock_t::now() - last_active) > timeout;
+			return (last_active != steady_time_t()) && ((steady_clock_t::now() - last_active) > timeout);
 		}
 
 		inline bool done() const {

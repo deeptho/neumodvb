@@ -26,14 +26,13 @@ from neumodvb.util import dtdebug, dterror
 from neumodvb.spectrum_dialog_gui import SpectrumDialog_, SpectrumButtons_, SpectrumListPanel_
 from neumodvb.positioner_dialog import LnbController, SatController, MuxController
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
-
 import pyreceiver
 from pyreceiver import get_object as get_object_
 
 def lnb_matches_spectrum(lnb,  spectrum):
-     start_freq, end_freq = pychdb.lnb.lnb_frequency_range(lnb)
-     return (start_freq <= spectrum.start_freq <= end_freq) and \
-         (start_freq <= spectrum.end_freq <= end_freq)
+    start_freq, end_freq = pychdb.lnb.lnb_frequency_range(lnb)
+    return (start_freq <= spectrum.start_freq <= end_freq) and \
+        (start_freq <= spectrum.end_freq <= end_freq)
 
 def get_object(evt):
     s = evt.GetExtraLong()
@@ -106,8 +105,9 @@ class SpectrumDialog(SpectrumDialog_):
         super().__init__(parent, *args, **kwargs)
         self.tune_mux_panel.init(self, sat, lnb, mux)
 
-        from neumodvb.positioner_dialog import EVT_LNB_CHANGE
+        from neumodvb.positioner_dialog import EVT_LNB_CHANGE, EVT_ABORT_TUNE
         self.tune_mux_panel.Bind(EVT_LNB_CHANGE, self.OnChangeLnb)
+        self.Bind(EVT_ABORT_TUNE, self.OnAbortTune)
 
         self.parent = parent
 
@@ -246,7 +246,9 @@ class SpectrumDialog(SpectrumDialog_):
     def OnAbortTune(self, event):
         dtdebug(f"positioner: unsubscribing")
         self.last_tuned_mux = None
-        wx.CallAfter(self.AbortTune)
+        if self.is_blindscanning:
+            self.EndBlindScan()
+            self.spectrum_buttons_panel.blindscan_button.SetValue(0)
 
     def OnBlindScan(self, event=None):
         dtdebug("Blindscan start")

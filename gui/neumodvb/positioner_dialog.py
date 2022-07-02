@@ -36,6 +36,7 @@ import pystatdb
 from pyreceiver import get_object as get_object_
 
 LnbChangeEvent, EVT_LNB_CHANGE = wx.lib.newevent.NewEvent()
+AbortTuneEvent, EVT_ABORT_TUNE = wx.lib.newevent.NewEvent()
 
 
 def same_mux_key(a, b):
@@ -372,6 +373,9 @@ class TuneMuxPanel(TuneMuxPanel_):
     def OnAbortTune(self, event):
         dtdebug(f"positioner: unsubscribing")
         self.last_tuned_mux = None
+        evt = AbortTuneEvent()
+        wx.PostEvent(self.parent, evt)
+
         wx.CallAfter(self.AbortTune)
 
     def OnResetTune(self, event):

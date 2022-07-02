@@ -466,7 +466,6 @@ void active_si_stream_t::process_si_data() {
 			}
 		}
 		auto num_bytes_to_process = ret;
-
 		// save read_pointer for next time, in case a partial packet has been read at the end
 		auto delta = num_bytes_to_process % dtdemux::ts_packet_t::size;
 		stream_parser.set_buffer(buffer, num_bytes_to_process - delta);
@@ -2515,7 +2514,6 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 												mux.modulation = p->modulation;
 											}
 											p->matype = mux.matype; /* set si_mux.matype from driver info (which is the only source for it)*/
-											//mux->matype = p->matype;
 										},
 										[&](chdb::dvbc_mux_t& mux) {
 											auto* p = std::get_if<chdb::dvbc_mux_t>(&si_mux);

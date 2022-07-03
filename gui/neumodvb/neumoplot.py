@@ -705,8 +705,7 @@ class SpectrumPlot(wx.Panel):
     def add_status_box(self) :
         self.status_box = wx.StaticText(self, -1)
         self.toolbar_sizer.Add(self.status_box, 0, wx.LEFT|wx.RIGHT|wx.ALIGN_CENTER|wx.EXPAND, 10)
-        self.canvas.mpl_connect(
-            'motion_notify_event', self.UpdateStatusBar)
+        self.canvas.mpl_connect('motion_notify_event', self.UpdateStatusBar)
         self.canvas.Bind(wx.EVT_ENTER_WINDOW, self.ChangeCursor)
 
     def ChangeCursor(self, event):
@@ -926,6 +925,7 @@ class SpectrumPlot(wx.Panel):
                 return
     def on_button_press(self, event):
         pass #print(f'CLICK SHIFT={self.shift_is_held} CTRL={self.ctrl_is_held}')
+
     def on_pick(self, event):
         """
         show/hide graph by clicking on legend line

@@ -322,9 +322,15 @@ class Spectrum(object):
 
     def make_tps(self, tpsname):
         #n = len(spec[:,1])
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            self.peak_data = np.loadtxt(tpsname, ndmin=2)
+        recompute = True
+        if recompute:
+            from pyspectrum import  find_spectral_peaks
+            peak_freq, peak_sr = find_spectral_peaks(self.spec[:,0], self.spec[:,1])
+            self.peak_data = np.vstack([peak_freq, peak_sr]).T
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.peak_data = np.loadtxt(tpsname, ndmin=2)
         if len(self.peak_data) == 0:
             return
         f = self.peak_data[:,0]

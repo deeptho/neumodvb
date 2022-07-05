@@ -1334,8 +1334,12 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 		auto tmp = *dvbs_mux;
 		if(tmp.frequency == 0) {
 			if(pat_data.has_ts_id(tmp.k.ts_id)) {
-					//happens on 26.0E, 12034H
+					//happens on 26.0E: 12034H and 14.0W: 11623V
+				dtdebug("Fixing zero frequency: " << mux);
 				tmp.frequency = std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->frequency;
+				tmp.pol = std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->pol;
+				tmp.k.sat_pos = std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->k.sat_pos;
+				tmp.delivery_system =  std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->delivery_system;
 				can_be_tuned = true;
 				*dvbs_mux = tmp;
 				return can_be_tuned;

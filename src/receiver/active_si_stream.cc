@@ -2602,6 +2602,11 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 			//40.0 E
 			is_t2mi = true;
 		}
+		if (pmt.pmt_pid == 50 && desc.stream_type ==  stream_type::stream_type_t::PES_PRIV
+				&& desc.stream_pid == 4096 && std::abs(sat_pos - (int)-1400)<300) {
+			//14.0W
+			is_t2mi = true;
+		}
 		if (is_t2mi) {
 			auto& aa = reader->active_adapter;
 			chdb::any_mux_t mux = reader->tuned_mux();

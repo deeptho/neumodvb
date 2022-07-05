@@ -884,6 +884,7 @@ void active_si_stream_t::finalize_scan(bool done)
 	auto mux = reader->tuned_mux();
 	to_str(s, mux);
 	auto* mux_common = chdb::mux_common_ptr(mux);
+
 	dtdebugx("finalize_scan scan_in_progress=%d", scan_in_progress);
 	if (scan_state.aborted)
 		mux_common->scan_result = chdb::scan_result_t::ABORTED;
@@ -2705,13 +2706,12 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 	for (auto& [service_id, pat_service]: pmt_data.by_service_id) {
 		service_key_t service_key(*tuned_mux_key,  pat_service.pmt.service_id);
 		auto c = service_t::find_by_key(wtxn, service_key);
-		auto service = c.is_valid() ? c.current() :
-			service_t{};
-		auto new_service = service;
+		auto service = c.is_valid() ? c.current() : service_t{};
 		if(! c.is_valid()) {
 			service.k = service_key;
 			service.name.sprintf("Service %s:%d", mux_desc.c_str(), pat_service.pmt.service_id);
 		}
+		auto new_service = service;
 		new_service.pmt_pid = pat_service.pmt.pmt_pid;
 		//new_service.pr_pid = pat_service.pmt.pcr_pid;
 		new_service.video_pid = pat_service.pmt.video_pid;

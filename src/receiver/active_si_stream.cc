@@ -908,6 +908,8 @@ void active_si_stream_t::finalize_scan(bool done)
 	const bool may_change_sat_pos{false};
 	const bool may_change_nit_tid{false};
 	if (nit_actual_done() || nit_actual_notpresent() || done) {
+		if(pmts_can_be_saved())
+			save_pmts(wtxn);
 		if (mux_common->tune_src == chdb::tune_src_t::TEMPLATE) {
 			assert(false);
 			dterror("mux is still a template mux (removing template status):" << mux);

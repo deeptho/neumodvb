@@ -1723,8 +1723,18 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 	auto* tuned_mux_key = chdb::mux_key_ptr(tuned_mux);
 	if(!is_embedded_si && services.is_actual && !(mux_key.ts_id == tuned_mux_key->ts_id  &&
 														 mux_key.network_id == tuned_mux_key->network_id)) {
-		dtdebug("Probably on wrong sat: aborting sdt processing mux=" << mux_key << " tuned=" << *tuned_mux_key);
-		return dtdemux::reset_type_t::RESET;
+		if (nit_actual_done()) {
+			//happens on 14.0W 11623V (invalid nit data, but valid ts_id and network_id)
+			auto new_tuned_mux = tuned_mux;
+			mux_key.sat_pos = tuned_mux_key->sat_pos;
+			mux_key.t2mi_pid = tuned_mux_key->t2mi_pid;
+			*mux_key_ptr(new_tuned_mux) = mux_key;
+			dtdebug("key change detected: tuned=" << *tuned_mux_key << " sdt: =" << mux_key);
+			handle_mux_change(wtxn, tuned_mux, new_tuned_mux, true /*is_tuned_mux*/);
+		} else {
+			dtdebug("Probably on wrong sat: aborting sdt processing mux=" << mux_key << " tuned=" << *tuned_mux_key);
+			return dtdemux::reset_type_t::RESET;
+		}
 	}
 	auto& service_ids = p_mux_data->service_ids;
 	if (p_mux_data->sdt[is_actual].subtable_info.version_number != info.version_number) {

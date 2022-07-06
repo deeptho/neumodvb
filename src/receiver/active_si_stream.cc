@@ -2530,6 +2530,9 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 											} else {
 												mux.modulation = p->modulation;
 											}
+											if(p->delivery_system != mux.delivery_system) { //happens on 14.0W 11024H
+												p->delivery_system = mux.delivery_system;
+											}
 											p->matype = mux.matype; /* set si_mux.matype from driver info (which is the only source for it)*/
 										},
 										[&](chdb::dvbc_mux_t& mux) {

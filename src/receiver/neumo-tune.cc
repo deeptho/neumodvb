@@ -678,14 +678,14 @@ void save_constellation_samples(bool pol_is_v, struct dtv_fe_constellation& cs) 
 
 void close_frontend(int fefd);
 
-int get_frontend_info(int fefd) {
+int get_extended_frontend_info(int fefd) {
 	struct dvb_frontend_extended_info fe_info {}; // front_end_info
 	// auto now =time(NULL);
 	// This does not produce anything useful. Driver would have to be adapted
 
 	int res;
 	if ((res = ioctl(fefd, FE_GET_EXTENDED_INFO, &fe_info) < 0)) {
-		printf("FE_GET_EXTENDED_INFO failed: %s\n", strerror(errno));
+		printf("FE_GET_EXTENDED_INFO failed: blindscan drivers probably not installed\n");
 		close_frontend(fefd);
 		return -1;
 	}
@@ -712,6 +712,79 @@ int get_frontend_info(int fefd) {
 		return -1;
 	}
 
+	//auto current_fe_type = chdb::linuxdvb_fe_delsys_to_type (fe_info.type);
+	//auto& supported_delsys = properties[0].u.buffer.data;
+//	int num_delsys =  properties[0].u.buffer.len;
+#if 0
+	auto tst =dump_caps((chdb::fe_caps_t)fe_info.caps);
+	printf("CAPS: %s", tst);
+	fe.delsys.resize(num_delsys);
+	for(int i=0 ; i<num_delsys; ++i) {
+		auto delsys = (chdb::fe_delsys_t) supported_delsys[i];
+		//auto fe_type = chdb::delsys_to_type (delsys);
+		auto* s = enum_to_str(delsys);
+		printf("delsys[" << i << "]=" << s);
+		changed |= (i >= fe.delsys.size() || fe.delsys[i].fe_type!= delsys);
+		fe.delsys[i].fe_type = delsys;
+	}
+#endif
+	return 0;
+}
+
+int get_frontend_info(int fefd)
+{
+	struct dvb_frontend_info fe_info{}; //front_end_info
+	//auto now =time(NULL);
+	//This does not produce anything useful. Driver would have to be adapted
+
+	int res;
+	if ( (res = ioctl(fefd, FE_GET_INFO, &fe_info) < 0)){
+		printf("FE_GET_INFO failed: %s\n", strerror(errno));
+		close_frontend(fefd);
+		return -1;
+	}
+	printf("Name of card: %s\n", fe_info.name);
+	/*fe_info.frequency_min
+		fe_info.frequency_max
+		fe_info.symbolrate_min
+		fe_info.symbolrate_max
+		fe_info.caps:
+	*/
+
+
+	struct dtv_property properties[16];
+	memset(properties, 0, sizeof(properties));
+	unsigned int i=0;
+	properties[i++].cmd      = DTV_ENUM_DELSYS;
+	properties[i++].cmd      = DTV_DELIVERY_SYSTEM;
+	struct dtv_properties props ={
+		.num=i,
+		.props = properties
+	};
+
+	if ((ioctl(fefd, FE_GET_PROPERTY, &props)) == -1) {
+		printf("FE_GET_PROPERTY failed: %s", strerror(errno));
+		//set_interrupted(ERROR_TUNE<<8);
+		close_frontend(fefd);
+		return -1;
+	}
+
+	//auto current_fe_type = chdb::linuxdvb_fe_delsys_to_type (fe_info.type);
+	//auto& supported_delsys = properties[0].u.buffer.data;
+//	int num_delsys =  properties[0].u.buffer.len;
+#if 0
+	auto tst =dump_caps((chdb::fe_caps_t)fe_info.caps);
+	printf("CAPS: %s", tst);
+	fe.delsys.resize(num_delsys);
+	for(int i=0 ; i<num_delsys; ++i) {
+		auto delsys = (chdb::fe_delsys_t) supported_delsys[i];
+		//auto fe_type = chdb::delsys_to_type (delsys);
+		auto* s = enum_to_str(delsys);
+		printf("delsys[" << i << "]=" << s);
+		changed |= (i >= fe.delsys.size() || fe.delsys[i].fe_type!= delsys);
+		fe.delsys[i].fe_type = delsys;
+	}
+#endif
 	return 0;
 }
 
@@ -1211,8 +1284,16 @@ int main_constellation(int fefd) {
 }
 
 int main(int argc, char** argv) {
+	bool has_blindscan{false};
 	if (options.parse_options(argc, argv) < 0)
 		return -1;
+	if(std::filesystem::exists("/sys/module/dvb_core/info/version")) {
+		printf("Blindscan drivers found\n");
+			has_blindscan = true;
+	} else {
+		printf("!!!!Blindscan drivers not installed  - only regular tuning will work!!!!\n");
+		options.algo = algo_t::WARM;
+	}
 
 	char dev[512];
 	sprintf(dev, "/dev/dvb/adapter%d/frontend%d", options.adapter_no, options.frontend_no);
@@ -1220,7 +1301,9 @@ int main(int argc, char** argv) {
 	if (fefd < 0) {
 		exit(1);
 	}
-	get_frontend_info(fefd);
+	if(has_blindscan ? get_extended_frontend_info(fefd) : get_frontend_info(fefd)) {
+		exit(1);
+	}
 	int ret = 0;
 	switch (options.command) {
 	case command_t::TUNE:

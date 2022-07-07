@@ -174,6 +174,12 @@ int32_t driver_freq_for_freq(int32_t frequency)		{
 	case C_LNB:
 		return lnb_c_lof - frequency;
 		break;
+	case WIDEBAND_LNB:
+		return frequency - lnb_wideband_lof;
+		break;
+	case WIDEBAND_UK_LNB:
+		return frequency - lnb_wideband_uk_lof;
+		break;
 	}
 	return frequency;
 }
@@ -187,7 +193,12 @@ uint32_t freq_for_driver_freq(int32_t frequency, int band)		{
 			return frequency + lnb_universal_lof_high;
 		}
 		break;
-
+	case WIDEBAND_LNB:
+		return frequency + lnb_wideband_lof;
+		break;
+	case WIDEBAND_UK_LNB:
+		return frequency + lnb_wideband_uk_lof;
+		break;
 	case C_LNB:
 		return lnb_c_lof - frequency;
 		break;
@@ -323,7 +334,7 @@ int options_t::parse_options(int argc, char** argv) {
 	app.add_option("-S,--symbol-rate", symbol_rate, "Symbolrate (kHz)", true);
 	app.add_option("-m,--modulation", modulation, "modulation", true)
 		->transform(CLI::CheckedTransformer(modulation_map, CLI::ignore_case));
-	app.add_option("--delsys", delivery_system, "Delivery syste,", true)
+	app.add_option("--delsys", delivery_system, "Delivery system", true)
 		->transform(CLI::CheckedTransformer(delsys_map, CLI::ignore_case));
 
 	app.add_option("-R,--search-range", search_range, "Search range (kHz)", true);
@@ -398,7 +409,7 @@ void print_tuner_status(fe_status_t festatus) {
 	if (festatus & FE_TIMEDOUT)
 		printf("     FE_TIMEDOUT : no lock within the last about 2 seconds");
 	if (festatus & FE_HAS_TIMING_LOCK)
-		printf("     FE_HAS_TIMING_LOCK : frontend was htimiong loop lock");
+		printf("     FE_REINIT : frontend has timing lock");
 	printf("---");
 }
 

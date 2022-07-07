@@ -1058,7 +1058,7 @@ class PositionerDialog(PositionerDialog_):
 
     def OnGotoPosition(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug(f"Goto NN: diseqc12={self.tune_mux_panel.diseqc12}")
-        self.diseqc12_command(pychdb.positioner_cmd_t.GOTO_NN, self.tune_mux_panel.diseqc12)
+        self.positioner_command(pychdb.positioner_cmd_t.GOTO_NN, self.tune_mux_panel.diseqc12)
         event.Skip()
 
     def OnToggleGotoEast(self, event):  # wxGlade: PositionerDialog_.<event_handler>

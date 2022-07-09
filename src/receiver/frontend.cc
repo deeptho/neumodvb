@@ -30,7 +30,6 @@
 #include <functional>
 #include <map>
 
-#include "active_adapter.h"
 #include "adapter.h"
 #include "signal_info.h"
 #include "util/dtassert.h"
@@ -460,8 +459,24 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 			ret.locktime_ms = cmdseq.get(DTV_LOCKTIME)->u.data;
 			ret.bitrate = cmdseq.get(DTV_BITRATE)->u.data;
 			auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
+			for (int i = 0; i < 256; ++i) {
+				int j = i / 32;
+				uint32_t mask = ((uint32_t)1) << (i % 32);
+				if (isi_bitset[j] & mask) {
+					ret.isi_list.push_back(i);
+				}
+			}
 			auto& matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
 			ret.matype_list.resize_no_init(matype_list.num_entries);
+		} else {
+			auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
+			for (int i = 0; i < 256; ++i) {
+				int j = i / 32;
+				uint32_t mask = ((uint32_t)1) << (i % 32);
+				if (isi_bitset[j] & mask) {
+					ret.isi_list.push_back(i);
+				}
+			}
 		}
 	}
 }
@@ -606,11 +621,6 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 		ret.stat.locktime_ms = (ret.lock_status & FE_HAS_LOCK) ? lock_time : 0;
 		ret.bitrate = bitrate;
 		auto matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
-		printf("matype list [%d]: ", matype_list.num_entries);
-		for(int i=0; i < (int) matype_list.num_entries; ++i) {
-			printf(" %d", matype_list.matypes[i]);
-		}
-		printf("\n");
 	}
 }
 

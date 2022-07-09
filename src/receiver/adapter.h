@@ -124,11 +124,12 @@ struct spectrum_scan_options_t {
 	}
 };
 
-struct cmdseq_t {
+class cmdseq_t {
 	std::vector<uint32_t> pls_codes;
 	struct dtv_properties cmdseq{};
-	std::array<struct dtv_property, 16> props;
-
+	std::array<struct dtv_property, 32> props;
+	mutable int cursor = 0;
+public:
 	cmdseq_t() {
 		cmdseq.props = & props[0];
 	}
@@ -144,11 +145,40 @@ struct cmdseq_t {
 		cmdseq.num++;
 	};
 
+	inline void add (int cmd) {
+		assert(cmdseq.num < props.size()-1);
+		memset(&cmdseq.props[cmdseq.num], 0, sizeof(cmdseq.props[cmdseq.num]));
+		cmdseq.props[cmdseq.num].cmd = cmd;
+		cmdseq.num++;
+	};
+
+	/*
+		used to iterate over properties by command instead of index, in an
+		efficient manner if properties are accessed in teh same order they were requested
+		from driver
+		Requesting the same property multiple times is also fast
+	 */
+	inline const struct dtv_property* get(int cmd) const {
+		for(int i=0; i < (int)cmdseq.num; ++i) {
+			auto* ret = &cmdseq.props[cursor];
+			if (ret->cmd == (uint32_t)cmd)
+				return ret;
+			cursor = (++cursor) % cmdseq.num;
+		}
+		return nullptr;
+	}
+
 	void add (int cmd, const dtv_fe_constellation& constellation);
+	void add (int cmd, const dtv_matype_list& matype_list);
 	void add_clear();
 	void add_pls_codes(int cmd);
+	void add_pls_code(int code) {
+		pls_codes.push_back(code);
+	}
+
 	void add_pls_range(int cmd, const pls_search_range_t& pls_search_range);
 	int tune(int fefd, int heartbeat_interval);
+	int get_properties(int fefd);
 	int scan(int fefd, bool init);
 	int spectrum(int fefd, dtv_fe_spectrum_method method);
 };
@@ -216,7 +246,8 @@ class signal_monitor_t {
 class dvb_frontend_t
 {
 	friend class fe_monitor_thread_t;
-	api_type_t api_type { api_type_t::UNDEFINED};
+	api_type_t api_type { api_type_t::UNDEFINED };
+	chdb::delsys_type_t current_delsys_type { chdb::delsys_type_t::NONE };
 	int api_version{-1}; //1000 times the floating point value of version
 	int tuned_frequency{0}; // as reported by driver, compensated for lnb offset
 public:
@@ -292,7 +323,8 @@ private:
 
 	void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, chdb::lnb_t& lnb);
 	void get_signal_info(chdb::signal_info_t& signal_info, bool get_constellation);
-	void get_mux_info(chdb::signal_info_t& ret, struct dtv_properties& cmdseq, api_type_t api, int& i);
+	int request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& ret, bool get_constellation);
+	void get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
 	std::optional<statdb::spectrum_t> get_spectrum(const ss::string_& spectrum_path);
 
 public:

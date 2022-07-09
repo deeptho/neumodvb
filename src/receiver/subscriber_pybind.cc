@@ -280,9 +280,18 @@ void export_signal_info(py::module& m) {
  		.def_property_readonly("isi_list", [](const signal_info_t& i) {
 			return  &(ss::vector_<int16_t>&)i.isi_list;
 		})
+ 		.def_property_readonly("matype_list", [](const signal_info_t& i) {
+			return  &(ss::vector_<int16_t>&)i.matype_list;
+		})
 		.def_property_readonly("matype", [](const signal_info_t& i) {
 			auto ret = chdb::matype_str(i.matype);
 			return  std::string(ret.c_str());
+		})
+		.def_property_readonly("locktime", [](const signal_info_t& i) {
+			return i.locktime_ms;
+		})
+		.def_property_readonly("bitrate", [](const signal_info_t& i) {
+			return i.bitrate;
 		})
 		.def_property_readonly("has_matype", [](const signal_info_t& i) {
 			return i.matype >=0;

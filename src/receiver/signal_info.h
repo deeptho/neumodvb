@@ -78,8 +78,8 @@ namespace chdb {
 		any_mux_t mux;
 		std::optional<any_mux_t> si_mux; //as retrieved from stream
 		int32_t bitrate{0};
+		int32_t locktime_ms{0};
 		statdb::signal_stat_t stat;
-
 		inline statdb::signal_stat_entry_t& last_stat() {
 			return stat.stats[stat.stats.size()-1];
 		}
@@ -93,6 +93,7 @@ namespace chdb {
 		//extra
 		int16_t matype{-1};
 		ss::vector<int16_t, 8> isi_list;
+		ss::vector<uint16_t, 256> matype_list; //size needs to be 256 in current implementation
 		fe_status_t lock_status;
 		ss::vector_<dtv_fe_constellation_sample> constellation_samples;
 

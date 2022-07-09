@@ -34,7 +34,6 @@ enum fe_extended_caps {
 	FE_CAN_HR_SPECTRUMSCAN     = 0x08,
 	FE_CAN_IQ                  = 0x02,
 	FE_CAN_BLINDSEARCH         = 0x04,
-	FE_CAN_CONSTELLATION       = 0x10,
 	FE_CAN_MODCOD		   = 0x08
 };
 
@@ -273,8 +272,7 @@ enum fe_sec_mini_cmd {
  * @FE_HAS_SYNC:	Synchronization bytes was found.
  * @FE_HAS_LOCK:	Digital TV were locked and everything is working.
  * @FE_TIMEDOUT:	Fo lock within the last about 2 seconds.
- * @FE_REINIT:		Frontend was reinitialized, application is recommended
- *			to reset DiSEqC, tone and parameters.
+ * @FE_HAS_TIMING_LOCK:		TIming loop has locked
  * @FE_IDLE:		Frontend has gone idle
  *
  */
@@ -640,7 +638,8 @@ enum fe_interleaving {
 #define DTV_HEARTBEAT 87
 #define DTV_BITRATE 88
 #define DTV_LOCKTIME 89
-#define DTV_MAX_COMMAND	 DTV_LOCKTIME
+#define DTV_MATYPE_LIST		90 //retrieve list of present matypesand stream_ids
+#define DTV_MAX_COMMAND	 DTV_MATYPE_LIST
 
 //commands for controlling long running algorithms via FE_ALGO_CTRL ioctl
 #define DTV_STOP 1
@@ -966,7 +965,6 @@ struct spectral_peak_t {
 	__s32 level;
 };
 
-
 /**
  * struct dtv_pls_search_codes
  * This is passed as an input to FE_GET_PROPERTY
@@ -979,7 +977,6 @@ struct dtv_pls_search_list {
 	int num_codes;
 	__u32 *codes;
 };
-
 
 /**
  * struct dtv_fe_spectrum - decriptor for a spectrum scan buffer
@@ -1035,6 +1032,11 @@ struct dtv_fe_constellation {
 	__u8 constel_select;
 };
 
+struct dtv_matype_list {
+	__u32 num_entries;
+	__u16* matypes; //needs to point to array with 256 elements
+};
+
 
 /**
  * struct dtv_property - store one of frontend command and its value
@@ -1061,6 +1063,7 @@ struct dtv_property {
 		struct dtv_fe_stats st;
 		struct dtv_fe_spectrum spectrum;
 		struct dtv_fe_constellation constellation;
+		struct dtv_matype_list matype_list;
 		struct dtv_pls_search_list pls_search_codes;
 		struct {
 			__u8 data[32];

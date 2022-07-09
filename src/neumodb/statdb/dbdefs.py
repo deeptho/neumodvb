@@ -55,6 +55,8 @@ signal_stat = db_struct(name='signal_stat',
                         version = 1,
                         primary_key = ('key', ('k',)), #unique
                         fields = ((9, 'signal_stat_key_t', 'k'),
+                                  (12, 'int32_t', 'symbol_rate'),
+                                  (11, 'int32_t', 'locktime_ms'),
                                   (10, 'ss::vector<signal_stat_entry_t, 24>',  'stats')
                                   )) #substream id dvb-s2 only
 

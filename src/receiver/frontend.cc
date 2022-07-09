@@ -58,6 +58,14 @@ void cmdseq_t::add(int cmd, const dtv_fe_constellation& constellation) {
 	cmdseq.num++;
 };
 
+void cmdseq_t::add(int cmd, const dtv_matype_list& matype_list) {
+	assert(cmdseq.num < props.size() - 1);
+	memset(&cmdseq.props[cmdseq.num], 0, sizeof(cmdseq.props[cmdseq.num]));
+	cmdseq.props[cmdseq.num].cmd = cmd;
+	cmdseq.props[cmdseq.num].u.matype_list = matype_list;
+	cmdseq.num++;
+};
+
 void cmdseq_t::add_pls_codes(int cmd) {
 	assert(cmdseq.num < props.size() - 1);
 	auto* tvp = &cmdseq.props[cmdseq.num];
@@ -81,6 +89,14 @@ void cmdseq_t::add_pls_range(int cmd, const pls_search_range_t& pls_search_range
 	tvp->u.buffer.len = 2 * sizeof(uint32_t);
 	cmdseq.num++;
 };
+
+int cmdseq_t::get_properties(int fefd) {
+	if ((ioctl(fefd, FE_GET_PROPERTY, &cmdseq)) == -1) {
+		user_error("Error setting frontend property: " << strerror(errno));
+		return -1;
+	}
+	return 0;
+}
 
 int cmdseq_t::tune(int fefd, int heartbeat_interval) {
 	add(DTV_TUNE, 0);
@@ -292,17 +308,17 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(dvb_adapter_t* adapter, fro
 }
 
 //returns the tuned frequency, compensated for lnb offset
-static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdseq, const chdb::lnb_t& lnb, int& i,
+static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, const cmdseq_t& cmdseq, const chdb::lnb_t& lnb,
 														 int band, chdb::fe_polarisation_t pol) {
 
-	mux.delivery_system = (chdb::fe_delsys_dvbs_t)cmdseq.props[i++].u.data;
-	int voltage = cmdseq.props[i++].u.data;
-	bool tone_on = cmdseq.props[i++].u.data == SEC_TONE_ON;
+	mux.delivery_system = (chdb::fe_delsys_dvbs_t)cmdseq.get(DTV_DELIVERY_SYSTEM)->u.data;
+	int voltage = cmdseq.get(DTV_VOLTAGE)->u.data;
+	bool tone_on = cmdseq.get(DTV_TONE)->u.data == SEC_TONE_ON;
 	if (tone_on != (band == 1)) {
 		// dtdebugx("driver does not return proper tone setting");
 		tone_on = band;
 	}
-	int freq = cmdseq.props[i++].u.data;
+	int freq = cmdseq.get(DTV_FREQUENCY)->u.data;
 
 	mux.frequency = chdb::lnb::freq_for_driver_freq(lnb, freq, tone_on); // always in kHz
 	mux.pol =  chdb::lnb::pol_for_voltage(lnb, voltage);
@@ -313,83 +329,61 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, struct dtv_properties& cmdse
 		mux.pol = pol;
 	}
 
-	mux.symbol_rate = cmdseq.props[i++].u.data; // in Hz
+	mux.symbol_rate = cmdseq.get(DTV_SYMBOL_RATE)->u.data; // in Hz
 
-	mux.modulation = (chdb::fe_modulation_t)cmdseq.props[i++].u.data;
-	mux.fec = (chdb::fe_code_rate_t)cmdseq.props[i++].u.data;
-	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.props[i++].u.data;
-	mux.rolloff = (chdb::fe_rolloff_t)cmdseq.props[i++].u.data;
-	mux.pilot = (chdb::fe_pilot_t)cmdseq.props[i++].u.data;
-	auto stream_id_prop = cmdseq.props[i++].u.data;
+	mux.modulation = (chdb::fe_modulation_t)cmdseq.get(DTV_MODULATION)->u.data;
+	mux.fec = (chdb::fe_code_rate_t)cmdseq.get(DTV_INNER_FEC)->u.data;
+	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.get(DTV_INVERSION)->u.data;
+	mux.rolloff = (chdb::fe_rolloff_t)cmdseq.get(DTV_ROLLOFF)->u.data;
+	mux.pilot = (chdb::fe_pilot_t)cmdseq.get(DTV_PILOT)->u.data;
+	auto stream_id_prop = cmdseq.get(DTV_STREAM_ID)->u.data;
 	mux.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
 	mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
 	mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
-
-	i += 6; // skip dvbt
 	return mux.frequency;
 }
 
 //returns the tuned frequency
-static int get_dvbc_mux_info(chdb::dvbc_mux_t& mux, dtv_properties& cmdseq, int& i) {
+static int get_dvbc_mux_info(chdb::dvbc_mux_t& mux, const cmdseq_t& cmdseq) {
 
-	mux.delivery_system = (chdb::fe_delsys_dvbc_t)cmdseq.props[i++].u.data;
-	i++; // int voltage
-	i++; // int tone
+	mux.delivery_system = (chdb::fe_delsys_dvbc_t)cmdseq.get(DTV_DELIVERY_SYSTEM)->u.data;
 
-	int freq = cmdseq.props[i++].u.data;
-
+	int freq = cmdseq.get(DTV_FREQUENCY)->u.data;
 	mux.frequency = freq / 1000; // freq in Hz; mux.frequency in kHz
 
-	mux.symbol_rate = cmdseq.props[i++].u.data; // in Hz
+	mux.symbol_rate = cmdseq.get(DTV_SYMBOL_RATE)->u.data; // in Hz
 
-	mux.modulation = (chdb::fe_modulation_t)cmdseq.props[i++].u.data;
-	mux.fec_inner = (chdb::fe_code_rate_t)cmdseq.props[i++].u.data;
+	mux.modulation = (chdb::fe_modulation_t)cmdseq.get(DTV_MODULATION)->u.data;
+	mux.fec_inner = (chdb::fe_code_rate_t)cmdseq.get(DTV_INNER_FEC)->u.data;
 	mux.fec_outer = chdb::fe_code_rate_t::FEC_AUTO;
-	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.props[i++].u.data;
-	i++; // mux.rolloff
-	i++; // mux.pilot
+	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.get(DTV_INVERSION)->u.data;
+	mux.stream_id = cmdseq.get(DTV_STREAM_ID)->u.data;
+	// int dtv_scrambling_sequence_index_prop = cmdseq.get()->u.data;
 
-	mux.stream_id = cmdseq.props[i++].u.data;
-	// int dtv_scrambling_sequence_index_prop = cmdseq.props[i++].u.data;
-
-	i += 6; // skip dvbt
 	return mux.frequency;
 }
 
 //returns the tuned frequency
-static int get_dvbt_mux_info(chdb::dvbt_mux_t& mux, dtv_properties& cmdseq, int& i) {
+static int get_dvbt_mux_info(chdb::dvbt_mux_t& mux, const cmdseq_t& cmdseq) {
 
-	mux.delivery_system = (chdb::fe_delsys_dvbt_t)cmdseq.props[i++].u.data;
-	i++; // int voltage
-	i++; // int tone
+	mux.delivery_system = (chdb::fe_delsys_dvbt_t)cmdseq.get(DTV_DELIVERY_SYSTEM)->u.data;
 
-	int freq = cmdseq.props[i++].u.data;
-
+	int freq = cmdseq.get(DTV_FREQUENCY)->u.data;
 	mux.frequency = freq; // in Hz
 
-	i++; // mux.symbol_rate
-
-	mux.modulation = (chdb::fe_modulation_t)cmdseq.props[i++].u.data;
-	i++; // mux.fec_inner;
-	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.props[i++].u.data;
-	i++; // mux.rolloff
-	i++; // mux.pilot
-
-	mux.stream_id = cmdseq.props[i++].u.data;
-	// int dtv_scrambling_sequence_index_prop = cmdseq.props[i++].u.data;
-
-	i++; // mux.fec_outer
-
-	mux.bandwidth = (chdb::fe_bandwidth_t)cmdseq.props[i++].u.data;
-	mux.transmission_mode = (chdb::fe_transmit_mode_t)cmdseq.props[i++].u.data;
-	mux.HP_code_rate = (chdb::fe_code_rate_t)cmdseq.props[i++].u.data;
-	mux.LP_code_rate = (chdb::fe_code_rate_t)cmdseq.props[i++].u.data;
-	mux.hierarchy = (chdb::fe_hierarchy_t)cmdseq.props[i++].u.data;
-	mux.guard_interval = (chdb::fe_guard_interval_t)cmdseq.props[i++].u.data;
+	mux.modulation = (chdb::fe_modulation_t)cmdseq.get(DTV_MODULATION)->u.data;
+	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.get(DTV_INVERSION)->u.data;
+	mux.stream_id = cmdseq.get(DTV_STREAM_ID)->u.data;
+	mux.bandwidth = (chdb::fe_bandwidth_t)cmdseq.get(DTV_BANDWIDTH_HZ)->u.data;
+	mux.transmission_mode = (chdb::fe_transmit_mode_t)cmdseq.get(DTV_TRANSMISSION_MODE)->u.data;
+	mux.HP_code_rate = (chdb::fe_code_rate_t)cmdseq.get(DTV_CODE_RATE_HP)->u.data;
+	mux.LP_code_rate = (chdb::fe_code_rate_t)cmdseq.get(DTV_CODE_RATE_LP)->u.data;
+	mux.hierarchy = (chdb::fe_hierarchy_t)cmdseq.get(DTV_HIERARCHY)->u.data;
+	mux.guard_interval = (chdb::fe_guard_interval_t)cmdseq.get(DTV_GUARD_INTERVAL)->u.data;
 	return mux.frequency;
 }
 
-void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_properties& cmdseq, api_type_t api, int& i) {
+void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api) {
 	using namespace chdb;
 	const auto& r = this->adapter->reservation.readAccess();
 	const auto* dvbs_mux = std::get_if<dvbs_mux_t>(&r->reserved_mux);
@@ -422,14 +416,14 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 	//the following must be called even when not lockes, to consume the results of all DTV_... commands
 	visit_variant(
 		ret.mux,
-		[&cmdseq, &i, &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
-			ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, i, band, pol);
+		[&cmdseq,  &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
+			ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, band, pol);
 			ret.stat.symbol_rate = mux.symbol_rate;
 		},
-		[&cmdseq, &i, &ret](chdb::dvbc_mux_t& mux) {
-			ret.stat.k.frequency = get_dvbc_mux_info(mux, cmdseq, i); },
-		[&cmdseq, &i, &ret](chdb::dvbt_mux_t& mux) {
-			ret.stat.k.frequency = get_dvbt_mux_info(mux, cmdseq, i); });
+		[&cmdseq, &ret](chdb::dvbc_mux_t& mux) {
+			ret.stat.k.frequency = get_dvbc_mux_info(mux, cmdseq); },
+		[&cmdseq, &ret](chdb::dvbt_mux_t& mux) {
+			ret.stat.k.frequency = get_dvbt_mux_info(mux, cmdseq); });
 
 	/*at this point ret.mux and ret.stat.frequency contain the frequency as reported from the tuner itself,
 		but after compensation for the currently known lnb offset
@@ -438,9 +432,8 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 			*/
 	tuned_frequency = ret.stat.k.frequency;
 	if (api == api_type_t::NEUMO) {
-		ret.matype = cmdseq.props[i++].u.data;
+		ret.matype = cmdseq.get(DTV_MATYPE)->u.data;
 		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.mux);
-
 		if (dvbs_mux) {
 			if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
 				dvbs_mux->matype = 256;
@@ -455,21 +448,21 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 #endif
 			}
 		}
-		assert(cmdseq.props[i].u.buffer.len == 32);
-		uint32_t* isi_bitset =
-			(uint32_t*)cmdseq.props[i++].u.buffer.data; // TODO: we can only return 32 out of 256 entries...
-		for (int i = 0; i < 256; ++i) {
-			int j = i / 32;
-			uint32_t mask = ((uint32_t)1) << (i % 32);
-			if (isi_bitset[j] & mask) {
-				ret.isi_list.push_back(i);
-			}
+		auto* p = cmdseq.get(DTV_CONSTELLATION);
+		if(p) {
+			auto& cs = p->u.constellation;
+			assert(cs.num_samples >= 0);
+			assert((int)cs.num_samples <= ret.constellation_samples.size());
+			assert(cs.num_samples <= 4096);
+			ret.constellation_samples.resize_no_init(cs.num_samples); // we may have retrieved fewer samples than we asked
 		}
-	} else {
-#if 0
-		ret.stat.ber = 0;
-		ret.stat.snr = 0;
-#endif
+		if(api_version >= 1200) {
+			ret.locktime_ms = cmdseq.get(DTV_LOCKTIME)->u.data;
+			ret.bitrate = cmdseq.get(DTV_BITRATE)->u.data;
+			auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
+			auto& matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
+			ret.matype_list.resize_no_init(matype_list.num_entries);
+		}
 	}
 }
 
@@ -477,88 +470,90 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, struct dtv_propertie
 	lnb is needed to identify dish on which signal is captured
 	mux_ is needed to translate tuner frequency to real frequency
 */
+int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& ret, bool get_constellation) {
+	cmdseq.add(DTV_STAT_SIGNAL_STRENGTH);
+	cmdseq.add(DTV_STAT_CNR);
+
+	cmdseq.add(DTV_STAT_PRE_ERROR_BIT_COUNT);
+	cmdseq.add(DTV_STAT_PRE_TOTAL_BIT_COUNT);
+#if 0
+	cmdseq.add(DTV_STAT_POST_ERROR_BIT_COUNT	);
+	cmdseq.add(DTV_STAT_POST_TOTAL_BIT_COUNT	);
+	cmdseq.add(DTV_STAT_ERROR_BLOCK_COUNT	);
+	cmdseq.add(DTV_STAT_TOTAL_BLOCK_COUNT	);
+#endif
+
+	cmdseq.add(DTV_DELIVERY_SYSTEM); // 0 DVB-S, 9 DVB-S2
+	cmdseq.add(DTV_VOLTAGE);					// 0 - 13V Vertical, 1 - 18V Horizontal, 2 - Voltage OFF
+	cmdseq.add(DTV_TONE);
+	cmdseq.add(DTV_FREQUENCY);
+	if(current_delsys_type != chdb::delsys_type_t::DVB_T)
+		cmdseq.add(DTV_SYMBOL_RATE);
+
+	cmdseq.add(DTV_MODULATION); // 5 - QPSK, 6 - 8PSK
+	cmdseq.add(DTV_INNER_FEC);
+	cmdseq.add(DTV_INVERSION);
+	cmdseq.add(DTV_ROLLOFF);
+	cmdseq.add(DTV_PILOT); // 0 - ON, 1 - OFF
+	cmdseq.add(DTV_STREAM_ID);
+	if(current_delsys_type == chdb::delsys_type_t::DVB_T) {
+		//	{ .cmd = DTV_SCRAMBLING_SEQUENCE_INDEX },
+		cmdseq.add(DTV_BANDWIDTH_HZ);			// DVB-T
+		cmdseq.add(DTV_TRANSMISSION_MODE); // DVB-
+		cmdseq.add(DTV_CODE_RATE_HP);			// DVB-T
+		cmdseq.add(DTV_CODE_RATE_LP);			// DVB-T
+		cmdseq.add(DTV_HIERARCHY);					// DVB-T
+		cmdseq.add(DTV_GUARD_INTERVAL);		// DVB-T
+	}
+
+	if (api_type == api_type_t::NEUMO) {
+		// The following are only supported by neumo version 1.1 and later of dvbapi
+		cmdseq.add(DTV_MATYPE);
+		if (get_constellation) {
+				auto& t = *ts.readAccess();
+				if( t.dbfe.supports.iq && num_constellation_samples > 0) {
+					ret.constellation_samples.resize(num_constellation_samples);
+					dtv_fe_constellation cs;
+					cs.num_samples = num_constellation_samples;
+					cs.samples = &ret.constellation_samples[0];
+					cs.method = CONSTELLATION_METHOD_DEFAULT;
+					cs.constel_select = 1;
+					cmdseq.add(DTV_CONSTELLATION, cs);
+				} else {
+					ret.constellation_samples.clear();
+				}
+		}
+		if(api_version >= 1200) {
+			// The following are only supported by neumo version 1.2 and later of dvbapi
+			cmdseq.add(DTV_LOCKTIME);
+			cmdseq.add(DTV_BITRATE);
+			cmdseq.add(DTV_ISI_LIST); //TODO: phase out
+			dtv_matype_list matype_list;
+			matype_list.num_entries = ret.matype_list.capacity();
+			assert(matype_list.num_entries==256);
+			matype_list.matypes = ret.matype_list.buffer();
+			cmdseq.add(DTV_MATYPE_LIST, matype_list);
+		} else {
+			cmdseq.add(DTV_ISI_LIST);
+		}
+	}
+	auto fefd = ts.readAccess()->fefd;
+	return cmdseq.get_properties(fefd);
+}
+
 void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constellation) {
 	ret.lock_status = ts.readAccess()->lock_status.fe_status;
 	using namespace chdb;
 	// bool is_sat = true;
 	ret.stat.k.time = system_clock_t::to_time_t(now);
-	struct dtv_property p[] = {
-		{.cmd = DTV_STAT_SIGNAL_STRENGTH},
-		{.cmd = DTV_STAT_CNR},
 
-		{.cmd = DTV_STAT_PRE_ERROR_BIT_COUNT},
-		{.cmd = DTV_STAT_PRE_TOTAL_BIT_COUNT},
-#if 0
-		{.cmd = DTV_STAT_POST_ERROR_BIT_COUNT	},
-		{.cmd = DTV_STAT_POST_TOTAL_BIT_COUNT	},
-		{.cmd = DTV_STAT_ERROR_BLOCK_COUNT	},
-		{.cmd = DTV_STAT_TOTAL_BLOCK_COUNT	},
-#endif
-
-		{.cmd = DTV_DELIVERY_SYSTEM}, // 0 DVB-S, 9 DVB-S2
-		{.cmd = DTV_VOLTAGE},					// 0 - 13V Vertical, 1 - 18V Horizontal, 2 - Voltage OFF
-		{.cmd = DTV_TONE},
-		{.cmd = DTV_FREQUENCY},
-		{.cmd = DTV_SYMBOL_RATE},
-
-		{.cmd = DTV_MODULATION}, // 5 - QPSK, 6 - 8PSK
-		{.cmd = DTV_INNER_FEC},
-		{.cmd = DTV_INVERSION},
-		{.cmd = DTV_ROLLOFF},
-		{.cmd = DTV_PILOT}, // 0 - ON, 1 - OFF
-		{.cmd = DTV_STREAM_ID},
-
-		//	{ .cmd = DTV_SCRAMBLING_SEQUENCE_INDEX },
-		{.cmd = DTV_BANDWIDTH_HZ},			// DVB-T
-		{.cmd = DTV_TRANSMISSION_MODE}, // DVB-
-		{.cmd = DTV_CODE_RATE_HP},			// DVB-T
-		{.cmd = DTV_CODE_RATE_LP},			// DVB-T
-		{.cmd = DTV_HIERARCHY},					// DVB-T
-		{.cmd = DTV_GUARD_INTERVAL},		// DVB-T
-		// The following are only supported by neumo version 1.1 and later of dvbapi
-		{.cmd = DTV_MATYPE},
-		{.cmd = DTV_ISI_LIST},
-		{.cmd = DTV_CONSTELLATION},
-		// The following are only supported by neumo version 1.2 and later of dvbapi
-		{.cmd = DTV_LOCKTIME},
-		{.cmd = DTV_BITRATE}
-	};
-
-	struct dtv_properties cmdseq = {.num = sizeof(p) / sizeof(p[0]), .props = p};
-	if (api_type != api_type_t::NEUMO)
-		cmdseq.num -= 5;
-	else {
-		if(api_version < 1200) {
-			cmdseq.num -= 2;
-			if (!get_constellation) {
-				cmdseq.num -= 1;
-			} else {
-				auto& cs = cmdseq.props[cmdseq.num - 1].u.constellation;
-				ret.constellation_samples.resize(num_constellation_samples);
-				cs.num_samples = num_constellation_samples;
-				cs.samples = &ret.constellation_samples[0];
-			}
-		} else { //if(api_version >= 1200)
-			if (!get_constellation) {
-				cmdseq.num -= 1;
-			} else {
-				auto& cs = cmdseq.props[cmdseq.num - 3].u.constellation;
-				ret.constellation_samples.resize(num_constellation_samples);
-				cs.num_samples = num_constellation_samples;
-				cs.samples = &ret.constellation_samples[0];
-			}
-		}
-	}
-	auto fefd = ts.readAccess()->fefd;
-	if (ioctl(fefd, FE_GET_PROPERTY, &cmdseq) < 0) {
-		dterrorx("ioctl failed: %s\n", strerror(errno));
-		// @todo: handle EINTR
+	cmdseq_t cmdseq;
+	if(request_signal_info(cmdseq, ret, get_constellation)<0)
 		return;
-	}
 
-	int i = 0;
 	statdb::signal_stat_entry_t& last_stat = ret.last_stat();
-	auto& signal_strength_stats = cmdseq.props[i++].u.st;
+	auto& signal_strength_stats = cmdseq.get(DTV_STAT_SIGNAL_STRENGTH)->u.st;
+
 	for (int i = 0; i < signal_strength_stats.len; ++i) {
 		auto& signal_strength = signal_strength_stats.stat[i];
 		if (signal_strength.scale != FE_SCALE_DECIBEL) {
@@ -574,7 +569,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 		break;
 	}
 
-	auto& snr_stats = cmdseq.props[i++].u.st;
+	auto& snr_stats = cmdseq.get(DTV_STAT_CNR)->u.st;
 
 	if (snr_stats.len > 0) {
 		auto& snr = snr_stats.stat[0];
@@ -587,17 +582,18 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 			dtdebugx("Extra statistics ignored (%d available)", snr_stats.len);
 	}
 
-	uint64_t ber_enum = cmdseq.props[i++].u.st.stat[0].uvalue;
-	uint64_t ber_denom = cmdseq.props[i++].u.st.stat[0].uvalue;
+	uint64_t ber_enum = cmdseq.get(DTV_STAT_PRE_ERROR_BIT_COUNT)->u.st.stat[0].uvalue;
+	uint64_t ber_denom = cmdseq.get(DTV_STAT_PRE_TOTAL_BIT_COUNT)->u.st.stat[0].uvalue;
 	if(ber_denom >0) {
 		last_stat.ber = ber_enum / (double)ber_denom;
 	} else {
 		last_stat.ber = ber_enum; //hack
 	}
 
-	get_mux_info(ret, cmdseq, api_type, i);
-	if (get_constellation) {
-		auto& cs = cmdseq.props[i++].u.constellation;
+	get_mux_info(ret, cmdseq, api_type);
+	auto* p = cmdseq.get(DTV_CONSTELLATION);
+	if (p) {
+		auto& cs = p->u.constellation;
 		assert(cs.num_samples >= 0);
 		assert((int)cs.num_samples <= ret.constellation_samples.size());
 		assert(cs.num_samples <= 4096);
@@ -605,13 +601,17 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 	}
 
 	if (api_type == api_type_t::NEUMO && api_version >= 1200) {
-		uint64_t lock_time = cmdseq.props[i++].u.data;
-		uint64_t bitrate = cmdseq.props[i++].u.data;
+		uint64_t lock_time = cmdseq.get(DTV_LOCKTIME)->u.data;
+		uint64_t bitrate = cmdseq.get(DTV_BITRATE)->u.data;
 		ret.stat.locktime_ms = (ret.lock_status & FE_HAS_LOCK) ? lock_time : 0;
 		ret.bitrate = bitrate;
+		auto matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
+		printf("matype list [%d]: ", matype_list.num_entries);
+		for(int i=0; i < (int) matype_list.num_entries; ++i) {
+			printf(" %d", matype_list.matypes[i]);
+		}
+		printf("\n");
 	}
-
-	assert(i == (int)cmdseq.num);
 }
 
 int dvb_frontend_t::clear() {
@@ -1094,6 +1094,7 @@ void cmdseq_t::init_pls_codes() {
 }
 
 int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options) {
+	current_delsys_type = chdb::delsys_type_t::DVB_S;
 	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO;
 	//||(mux.symbol_rate < 1000000 &&  ts.readAccess()->dbfe.supports.blindscan);
 	int num_constellation_samples = tune_options.constellation_options.num_samples;
@@ -1117,7 +1118,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 		cmdseq.add(DTV_VOLTAGE, 1 - pol_is_v);
 		cmdseq.init_pls_codes();
 		if (mux.stream_id >= 0)
-			cmdseq.pls_codes.push_back(make_code((int)mux.pls_mode, (int)mux.pls_code));
+			cmdseq.add_pls_code(make_code((int)mux.pls_mode, (int)mux.pls_code));
 		cmdseq.add_pls_codes(DTV_PLS_SEARCH_LIST);
 		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
 		cmdseq.add(DTV_SEARCH_RANGE, std::min(mux.symbol_rate*2, (unsigned int)4000000));
@@ -1174,6 +1175,7 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 }
 
 int dvb_frontend_t::tune(const chdb::dvbc_mux_t& mux, const tune_options_t& tune_options) {
+	current_delsys_type = chdb::delsys_type_t::DVB_C;
 	this->num_constellation_samples = 0;
 	cmdseq_t cmdseq;
 	// any system
@@ -1198,6 +1200,7 @@ int dvb_frontend_t::tune(const chdb::dvbc_mux_t& mux, const tune_options_t& tune
 }
 
 int dvb_frontend_t::tune(const chdb::dvbt_mux_t& mux, const tune_options_t& tune_options) {
+	current_delsys_type = chdb::delsys_type_t::DVB_T;
 	this->num_constellation_samples = 0;
 	cmdseq_t cmdseq;
 

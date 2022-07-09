@@ -112,9 +112,9 @@ lnb_type = db_enum(name='lnb_type_t',
                    fields=(('UNKNOWN', -1),
                            'C',
                            'KU',
-			   'WDB',
-			   'WDBUK',
-                           'UNIV'
+                           'UNIV',
+                           'WDB',
+			                     'WDBUK'
                            ))
 
 lnb_pol_type = db_enum(name='lnb_pol_type_t',
@@ -1160,8 +1160,8 @@ usals_location = db_struct(name ='usals_location',
                     type_id = lord('ou'),
                     version = 1,
                     fields = (
-                        (0, 'int16_t', 'usals_lattitude', '5090'), #in 1/100 degree
-                        (1, 'int16_t', 'usals_longitude', '410'), #in 1/100 degree
+                        (0, 'int16_t', 'usals_lattitude', '5100'), #in 1/100 degree
+                        (1, 'int16_t', 'usals_longitude', '4100'), #in 1/100 degree
                         (2, 'int16_t', 'usals_altitude', '0') #in m (?)
                               )
                     )

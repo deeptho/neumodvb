@@ -24,6 +24,7 @@
 #include "active_si_stream.h"
 #include "adapter.h"
 #include "tune_options.h"
+#include <bitset>
 
 using namespace dtdemux;
 
@@ -177,6 +178,7 @@ private:
     4. " " wait an additional 50 ms
 
 		*/
+	std::bitset<256> processed_isis;
 	safe::Safe<std::map <uint16_t, std::shared_ptr<stream_filter_t>>> stream_filters; //indexed by stream_pid
 	std::map <uint16_t, active_si_stream_t> embedded_si_streams; //indexed by stream_pid
 

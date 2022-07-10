@@ -160,6 +160,7 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	*/
 	active_adapter->end_si(); //clear left overs from last tune
 	active_adapter->prepare_si(mux, false /*start*/);
+	active_adapter->processed_isis.reset();
 
 	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
@@ -547,6 +548,13 @@ int tuner_thread_t::cb_t::update_current_lnb(active_adapter_t& active_adapter, c
 
 void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 {
+	std::optional<db_txn> txn;
+	auto get_txn = 	[this, &txn] () -> db_txn& {
+		if(!txn)
+			txn.emplace(receiver.chdb.wtxn());
+		return *txn;
+	};
+
 	for (auto& it : active_adapters) {
 		auto& aa = *it.second;
 		if (aa.get_adapter_no() != signal_info.stat.k.lnb.adapter_no)
@@ -554,9 +562,12 @@ void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 		auto* mux = std::get_if<chdb::dvbs_mux_t>(&signal_info.mux);
 		if(!mux)
 			continue;
-		auto wtxn = receiver.chdb.wtxn();
+
 		for(auto ma: signal_info.matype_list) {
 			auto stream_id = ma & 0xff;
+			if(aa.processed_isis.test(stream_id))
+				continue;
+			aa.processed_isis.set(stream_id);
 			auto matype = ma >> 8;
 			mux->c = chdb::mux_common_t{};
 			mux->k.network_id = 0; //unknown
@@ -570,9 +581,11 @@ void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 			mux->c.tune_src = tune_src_t::DRIVER;
 			namespace m = chdb::update_mux_preserve_t;
 			//The following inserts a mux for each discovered multistream, but only if none exists yet
+			auto& wtxn = get_txn();
 			chdb::update_mux(wtxn, *mux, now, m::ALL);
 		}
-		wtxn.commit();
+		if(txn)
+			txn->commit();
 		break; //only one adapter can match
 	}
 	return;

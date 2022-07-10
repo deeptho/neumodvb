@@ -19,7 +19,6 @@
  */
 #pragma once
 #include <cstdlib>
-#include <bitset>
 #include "mpeg.h"
 #include "substream.h"
 #include "neumodb/chdb/chdb_extra.h"

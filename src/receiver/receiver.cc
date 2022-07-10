@@ -1700,14 +1700,21 @@ int receiver_thread_t::run() {
 	return 0;
 }
 
-void receiver_t::notify_signal_info(const chdb::signal_info_t& info) {
+void receiver_t::notify_signal_info(const chdb::signal_info_t& signal_info) {
+
+	tuner_thread.push_task([this, &signal_info]() {
+		auto i = signal_info; //deliberately pass by value!
+		cb(tuner_thread).on_notify_signal_info(i);
+		return 0;
+	});
+
 	{
 		auto mpv_map = active_mpvs.readAccess();
 		for (auto [mpv_, mpv_shared_ptr] : *mpv_map) {
 			auto* mpv = mpv_shared_ptr.get();
 			if (!mpv)
 				continue;
-			mpv->notify(info);
+			mpv->notify(signal_info);
 		}
 	}
 	{
@@ -1716,7 +1723,7 @@ void receiver_t::notify_signal_info(const chdb::signal_info_t& info) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
-			ms->notify_signal_info(info);
+			ms->notify_signal_info(signal_info);
 		}
 	}
 }

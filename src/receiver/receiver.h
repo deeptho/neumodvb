@@ -175,6 +175,7 @@ class tuner_thread_t : public task_queue_t {
 	void on_epg_update(db_txn& txnepg, system_time_t now,
 										 epgdb::epg_record_t& epg_record/*may be updated by setting epg_record.record
 																											to true or false*/);
+	void on_notify_signal_info(chdb::signal_info_t& info);
 	virtual int exit();
 public:
 	tuner_thread_t(receiver_t& receiver_);
@@ -200,6 +201,7 @@ public:
 	int remove_service(active_adapter_t& tuner, active_service_t& channel);
 	int add_service(active_adapter_t& tuner, active_service_t& channel);//tune to channel on transponder
 	int on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt);
+	void on_notify_signal_info(chdb::signal_info_t& info);
 
 	int update_service(const chdb::service_t& service);
 

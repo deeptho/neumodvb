@@ -619,15 +619,16 @@ class SignalPanel(SignalPanel_):
         self.Speak()
         locked = signal_info.has_lock
         mux = signal_info.dvbs_mux
-        frequency_text = f'{mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') if locked else ''
-        symbolrate_text = f'{mux.symbol_rate/1e3:.0f} kS/s' if locked else ''
+        frequency_text = f'{mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') if signal_info.has_timing_lock else ''
+        symbolrate_text = f'{mux.symbol_rate/1e3:.0f} kS/s' if signal_info.has_timing_lock else ''
         fec=lastdot(mux.fec).replace(' ', '/') if locked else ''
         delsys=lastdot(mux.delivery_system)
         modulation=lastdot(mux.modulation)
+        modulation_text = f'{delsys} - {modulation}  {fec}' if locked else ''
         fec = f'{fec}' if signal_info.has_fec else ''
 
         self.freq_sr_modulation_text.SetLabel(f'{frequency_text}  {symbolrate_text} '
-                                              f'{delsys} - {modulation}  {fec}' if locked else '')
+                                              f'{delsys} - {modulation}  {fec}' if signal_info.has_timing_lock else '')
         self.signal_info = signal_info
         snr = self.signal_info.snr/1000
         if is_tuned:

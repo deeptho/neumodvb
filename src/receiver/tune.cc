@@ -543,3 +543,41 @@ int tuner_thread_t::cb_t::update_current_lnb(active_adapter_t& active_adapter, c
 	active_adapter.set_current_lnb(lnb);
 	return 0;
 }
+
+
+void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
+{
+	for (auto& it : active_adapters) {
+		auto& aa = *it.second;
+		if (aa.get_adapter_no() != signal_info.stat.k.lnb.adapter_no)
+			continue;
+		auto* mux = std::get_if<chdb::dvbs_mux_t>(&signal_info.mux);
+		if(!mux)
+			continue;
+		auto wtxn = receiver.chdb.wtxn();
+		for(auto ma: signal_info.matype_list) {
+			auto stream_id = ma & 0xff;
+			auto matype = ma >> 8;
+			mux->c = chdb::mux_common_t{};
+			mux->k.network_id = 0; //unknown
+			mux->k.ts_id = 0; //unknown
+			mux->k.extra_id = 0; //unknown
+
+			/* note: s m->modulation, m->fec cannot be found from matype. Assume they are the same;
+			 m->rolloff could be found*/
+			mux->stream_id = stream_id;
+			mux->matype = matype;
+			mux->c.tune_src = tune_src_t::DRIVER;
+			namespace m = chdb::update_mux_preserve_t;
+			//The following inserts a mux for each discovered multistream, but only if none exists yet
+			chdb::update_mux(wtxn, *mux, now, m::ALL);
+		}
+		wtxn.commit();
+		break; //only one adapter can match
+	}
+	return;
+}
+
+void tuner_thread_t::cb_t::on_notify_signal_info(chdb::signal_info_t& info) {
+	this->tuner_thread_t::on_notify_signal_info(info);
+}

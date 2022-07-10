@@ -47,6 +47,32 @@ def get_object(evt):
     s = evt.GetExtraLong()
     return get_object_(s)
 
+def get_isi_list(stream_id, signal_info):
+    if len(signal_info.matype_list)==0:
+        print ('using old')
+        lst = [ x for x in signal_info.isi_list ]
+    else:
+        lst = [ x & 0xff for x in signal_info.matype_list ]
+    if stream_id not in lst:
+        lst.append(stream_id)
+    lst.sort()
+    prefix = ''
+    suffix = ''
+    if len(lst) > 16:
+        try:
+            idx=lst.index(stream_id)
+            start = max(idx-4, 0)
+            end = min(idx + 4 + start - (idx - 4), len(lst))
+            if start > 0:
+                prefix = '...'
+            if end < len(lst):
+                suffix = '...'
+            lst = lst [start:end]
+        except ValueError:
+            pass
+    assert stream_id in lst
+    return lst, prefix, suffix
+
 class Diseqc12SpinCtrl(minispinctrl.MiniSpinCtrl):
     def __init__(self, parent, *args, size=(35,30), **kwds):
         super().__init__(parent, *args, size=size, **kwds, example="12")
@@ -673,30 +699,7 @@ class SignalPanel(SignalPanel_):
         stream_id = mux.stream_id
         isi = ''
         if locked:
-            lst = [ x for x in signal_info.isi_list ]
-            if stream_id not in lst:
-                lst.append(stream_id)
-            lst.sort()
-            prefix = ''
-            suffix = ''
-            if len(lst) > 16:
-                try:
-                    if False and stream_id < 0:
-                        suffix ='...'
-                        lst = lst [:16]
-                    else:
-                        idx=lst.index(stream_id)
-                        start = max(idx-4, 0)
-                        end = min(idx + 4 + start - (idx - 4), len(lst))
-                        print(f'start={start} end={end}')
-                        if start > 0:
-                            prefix = '...'
-                        if end < len(lst):
-                            suffix = '...'
-                        lst = lst [start:end]
-                except ValueError:
-                    pass
-            assert stream_id in lst
+            lst, prefix, suffix = get_isi_list(stream_id, signal_info)
             isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) for i in lst])
             isi = f'[{len(signal_info.isi_list)}]: {prefix}{isi}{suffix}'
         self.isi_list_text.SetLabelMarkup(isi)

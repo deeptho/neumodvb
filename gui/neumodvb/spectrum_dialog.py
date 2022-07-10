@@ -398,6 +398,7 @@ class SpectrumDialog(SpectrumDialog_):
             if self.signal_info.has_fail or si_done:
                if self.done_time is None:
                     self.done_time = datetime.datetime.now(tz=tz.tzlocal())
+                    self.mis_scan_time = 20 #minimum time to scan multistreams
                elif datetime.datetime.now(tz=tz.tzlocal()) - self.done_time >= datetime.timedelta(seconds=1): # show result for at least 1 second
                     mux = self.tune_mux_panel.last_tuned_mux
                     self.blindscan_num_muxes += 1
@@ -408,22 +409,37 @@ class SpectrumDialog(SpectrumDialog_):
                     self.spectrum_plot.set_current_annot_status(mux, self.signal_info.si_mux, self.signal_info.has_lock)
                     if self.is_blindscanning:
                         tp = self.tp_being_scanned
+                        scan_time = datetime.datetime.now(tz=tz.tzlocal()) - self.done_time
+                        dvb_stream_ids = [ x & 0xff for x in data.matype_list if (x>>14)& 0x3 == 0x3]
+                        all_stream_ids = [ x & 0xff for x in data.matype_list]
                         if not hasattr(tp, 'isis_present'):
-                            tp.isis_present = set(data.isi_list)
+                            tp.isis_present = set(all_stream_ids)
+                            tp.dvb_isis_present = set(dvb_stream_ids)
                             #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
-                            tp.isis_scanned = set((data.si_mux.stream_id,data.dvbs_mux.stream_id))
+                            tp.isis_scanned = set((data.si_mux.stream_id, data.dvbs_mux.stream_id))
                         else:
-                            tp.isis_present = set.union(set(data.isi_list), tp.isis_present)
+                            old_num_isi = len(tp.isis_present)
+                            tp.isis_present = set.union(set(all_stream_ids), tp.isis_present)
+                            tp.dvb_isis_present = set.union(set(dvb_stream_ids), tp.dvb_isis_present)
+                            print(f'num isis: {old_num_isi} {len(tp.isis_present)}')
+                            if len(tp.isis_present) > old_num_isi and len(tp.isis_present) <256:
+                                if scan_time >= datetime.timedelta(seconds=self.mis_scan_time-10):
+                                    self.mis_scan_time += 10
+                                print(f'new isis found; wait longer: {self.mis_scan_time}')
                             #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
                             tp.isis_scanned.add(data.dvbs_mux.stream_id)
                             tp.isis_scanned.add(data.si_mux.stream_id)
-                        tp.isis_to_scan =  tp.isis_present -  tp.isis_scanned
+                        tp.isis_to_scan =  tp.dvb_isis_present -  tp.isis_scanned
                         if len(tp.isis_to_scan)>0:
                             stream_id = min(tp.isis_to_scan)
                             tp.isis_to_scan.discard(stream_id)
                             self.next_stream(stream_id)
-                        else:
+                        elif len(tp.isis_present)==0 or len(tp.isis_present) == 256 or \
+                             scan_time >= datetime.timedelta(seconds=self.mis_scan_time):
+                            # Scan at least 20 seconds to detect all/many streams
                             self.blindscan_next()
+                        elif len(tp.isis_present):
+                            print('waiting some more')
             else:
                 mux = self.tune_mux_panel.last_tuned_mux
 

@@ -686,7 +686,9 @@ class SignalPanel(SignalPanel_):
                         lst = lst [:16]
                     else:
                         idx=lst.index(stream_id)
-                        start, end = max(idx-4, 0), min(idx+4, len(lst))
+                        start = max(idx-4, 0)
+                        end = min(idx + 4 + start - (idx - 4), len(lst))
+                        print(f'start={start} end={end}')
                         if start > 0:
                             prefix = '...'
                         if end < len(lst):

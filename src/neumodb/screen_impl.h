@@ -132,12 +132,22 @@ template<typename record_t>
 			auto old_secondary_key =
 				record_t::make_key(order, record_t::partial_keys_t::all, &oldrecord);
 			//bool different = old_secondary_key !=new_secondary_key;
-			monitor.reference.update(old_secondary_key, primary_key, true);
-			monitor.reference.update(new_secondary_key, primary_key, false);
-			monitor.auxiliary_reference.update(old_secondary_key, primary_key, true);
-			monitor.auxiliary_reference.update(new_secondary_key, primary_key, false);
 			bool different = old_secondary_key !=new_secondary_key;
 			if (different) {
+				if(!cmp(primary_key, monitor.reference.primary_key)
+					 &&!cmp(old_secondary_key, monitor.reference.secondary_key))
+					monitor.reference.reset(); //reference moves to different location
+				else {
+					monitor.reference.update(old_secondary_key, primary_key, true);
+					monitor.reference.update(new_secondary_key, primary_key, false);
+				}
+				if(!cmp(primary_key, monitor.auxiliary_reference.primary_key)
+					 &&!cmp(old_secondary_key, monitor.auxiliary_reference.secondary_key))
+					monitor.auxiliary_reference.reset(); //reference moves to different location
+				else {
+					monitor.auxiliary_reference.update(old_secondary_key, primary_key, true);
+					monitor.auxiliary_reference.update(new_secondary_key, primary_key, false);
+				}
 				bool was_present = idx.del_kv(old_secondary_key, primary_key);
 #pragma unused (was_present)
 				bool new_record = idx.put_kv(new_secondary_key, primary_key);
@@ -163,6 +173,7 @@ template<typename record_t>
 /*
 	update the secondary index of a temp database and adjust the reference
 	records' row index if needed.
+	idx = unitialised index cursor (uses secondary key) into destination database
 
  */
 template<typename record_t>
@@ -177,9 +188,20 @@ template<typename record_t>
 		auto old_secondary_key =
 			record_t::make_key(order, record_t::partial_keys_t::all, &oldrecord);
 			//bool different = old_secondary_key !=new_secondary_key;
-		monitor.reference.update(old_secondary_key, primary_key, true);
-		monitor.auxiliary_reference.update(old_secondary_key, primary_key, true);
+		if(!cmp(primary_key, monitor.reference.primary_key)) {
+			//reference itself is being deleted
+			monitor.reference.reset();
+		} else {
+			monitor.reference.update(old_secondary_key, primary_key, true);
+		}
+		if(!cmp(primary_key, monitor.auxiliary_reference.primary_key)) {
+			//reference itself is being deleted
+			monitor.auxiliary_reference.reset();
+		} else {
+			monitor.auxiliary_reference.update(old_secondary_key, primary_key, true);
+		}
 		bool was_present = idx.del_kv(old_secondary_key, primary_key);
+		assert( was_present);
 		if(was_present)
 			monitor.state.list_size--;
 		assert(monitor.state.list_size>=0);
@@ -217,7 +239,9 @@ inline bool screen_t<record_t>::put_screen_record
 }
 
 
-
+/*
+	tcursor points to the destination datebase and uses the primary key
+ */
 template<typename record_t>
 inline void screen_t<record_t>::delete_screen_record
 	(db_tcursor<record_t>& tcursor, const ss::bytebuffer_& primary_key) {
@@ -231,8 +255,7 @@ inline void screen_t<record_t>::delete_screen_record
 	assert(tcursor.txn.pdb->dynamic_keys.size()==1);
 
 	record_t oldrecord;
-	/*note that we must use the actual record, not the one passed as an argument, because that one may
-		may differ in all fields which are not part of the primary key
+	/*find the record in the destination database
 	*/
 	bool exists = get_record_at_key(tcursor, primary_key, oldrecord);
 	if(exists) {
@@ -462,7 +485,7 @@ int screen_t<record_t>::set_reference(const record_t& record)
 				return rowno;
 			}
 	}
-	dterror("Asked for row number of non-existant record");
+	dterror("Asked for row number of non-existent record");
 	return -1;
 }
 
@@ -475,9 +498,6 @@ int screen_t<record_t>::set_reference(int row_number)
 	const int large_jump_threshold{50};
 	auto rtxn = tmpdb->rtxn();
 
-	//make_secondary_key(monitor.reference.secondary_key, sort_order, record);
-	//auto secondary_key = record_t::key_for_sort_order(sort_order);
-
 	/*
 		wxGrid seems to request rows at the beginning of the table to
 		perform useless repaints. This happens after calling set_reference(record_t&)
@@ -485,6 +505,10 @@ int screen_t<record_t>::set_reference(int row_number)
 		Therefore, we use two reference cursors: the main one which is initialised by
 		set_reference(record_t&) and can only move up/down by a very limited amount
 		and a secondary one, which is used in other cases, and can move by any amount
+
+		cursor_type returns 0 if the current "reference" is valid and close enough to
+		attempt moving it to a desired row.
+		All other values indicate that it should not be used: -1: not initialised; +1:
 	 */
 	auto cursor_type = [this, row_number, large_jump_threshold](auto& reference, bool limit_jump) {
 		if (reference.row_number>=0 && (!limit_jump ||

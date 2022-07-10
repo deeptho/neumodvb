@@ -73,6 +73,11 @@ public:
 					row_number += inc;
 			}
 		}
+		inline void reset() {
+			row_number = -1;
+			primary_key.clear();
+			secondary_key.clear();
+		}
 	};
 
 	reference_t reference;

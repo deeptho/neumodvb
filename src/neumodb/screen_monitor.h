@@ -63,8 +63,14 @@ public:
 				row_number += inc;
 			else if(ret==0) {
 				ret = cmp(primary_key, this->primary_key);
+				/*
+					The following assertion tests if the reference itself is being removed
+					from the database. Then it would become invalid. The caller must prevent this
+					situation by either invalidating the reference or moving it to another record
+				 */
+				assert(ret !=0 || ! is_removal);
 				if(ret<0)
-					ret += inc;
+					row_number += inc;
 			}
 		}
 	};

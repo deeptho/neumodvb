@@ -48,11 +48,7 @@ def get_object(evt):
     return get_object_(s)
 
 def get_isi_list(stream_id, signal_info):
-    if len(signal_info.matype_list)==0:
-        print ('using old')
-        lst = [ x for x in signal_info.isi_list ]
-    else:
-        lst = [ x & 0xff for x in signal_info.matype_list ]
+    lst = [ x & 0xff for x in signal_info.matype_list ]
     if stream_id not in lst:
         lst.append(stream_id)
     lst.sort()

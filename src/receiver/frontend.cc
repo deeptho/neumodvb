@@ -621,6 +621,8 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 		ret.stat.locktime_ms = (ret.lock_status & FE_HAS_LOCK) ? lock_time : 0;
 		ret.bitrate = bitrate;
 		auto matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
+		for(int i = 0; i <matype_list.num_entries; ++i)
+			ret.matype_list.push_back(matype_list.matypes[i]);
 	}
 }
 

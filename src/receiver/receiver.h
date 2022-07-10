@@ -201,7 +201,7 @@ public:
 	int remove_service(active_adapter_t& tuner, active_service_t& channel);
 	int add_service(active_adapter_t& tuner, active_service_t& channel);//tune to channel on transponder
 	int on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt);
-	void on_notify_signal_info(chdb::signal_info_t& info);
+	void on_notify_signal_info(chdb::signal_info_t& signal_info);
 
 	int update_service(const chdb::service_t& service);
 

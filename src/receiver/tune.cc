@@ -591,6 +591,7 @@ void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 	return;
 }
 
+
 void tuner_thread_t::cb_t::on_notify_signal_info(chdb::signal_info_t& info) {
 	this->tuner_thread_t::on_notify_signal_info(info);
 }

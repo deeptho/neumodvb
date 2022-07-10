@@ -1702,9 +1702,8 @@ int receiver_thread_t::run() {
 
 void receiver_t::notify_signal_info(const chdb::signal_info_t& signal_info) {
 
-	tuner_thread.push_task([this, &signal_info]() {
-		auto i = signal_info; //deliberately pass by value!
-		cb(tuner_thread).on_notify_signal_info(i);
+	tuner_thread.push_task([this, signal_info =const_cast<chdb::signal_info_t&>(signal_info)] () mutable  {
+		cb(tuner_thread).on_notify_signal_info(signal_info);
 		return 0;
 	});
 

@@ -340,6 +340,9 @@ namespace ss {
 			operator[](size()) = val;
 		}
 
+		void check() const {
+			assert(header.h.inited);
+		}
 		// code for iterations
 		data_t const* begin() const {
 			assert(header.h.inited);

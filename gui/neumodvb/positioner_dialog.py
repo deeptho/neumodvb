@@ -852,16 +852,6 @@ class PositionerDialog(PositionerDialog_):
     def ChangeSatPos(self, sat_pos):
         self.SetPosition(sat_pos)
 
-    def diseqc12_commandOFF(self, *args):
-        if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
-            self.lnb_subscriber.positioner_cmd(*args)
-            return True
-        else:
-            ShowMessage("Cannot control rotor",
-                        f"Rotor control setting {neumodbutils.enum_to_str(self.lnb.rotor_control)} does not "
-                        "allow moving the positioner")
-        return False
-
     def positioner_command(self, *args):
         if self.lnb.rotor_control in (pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12,
                                       pychdb.rotor_control_t.ROTOR_MASTER_USALS):

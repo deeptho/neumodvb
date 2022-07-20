@@ -195,14 +195,14 @@ namespace ss {
 		}
 
 		void shrink_to_fit();
-		void grow(unsigned int extra);
+		void grow(int extra);
 
-		void resize_no_init(unsigned int new_size) {
+		void resize_no_init(int new_size) {
 			reserve(new_size);
 			set_size(new_size);
 		}
 
-		void resize(unsigned int new_size) {
+		void resize(int new_size) {
 			int old_size = size();
 			if (old_size == (int)new_size)
 				return;
@@ -658,7 +658,7 @@ namespace ss {
 	};
 
 	class string_ : public databuffer_<char> {
-		int _append_as_utf8(const char* input, unsigned int input_len, const char* enc);
+		int _append_as_utf8(const char* input, int input_len, const char* enc);
 		int translate_dvb_control_characters(int oldn, bool clean);
 
 		using parent = databuffer_<char>;
@@ -668,6 +668,11 @@ namespace ss {
 			parent::reserve(size + 1);
 		}
 
+		inline void resize_no_init(int new_size) {
+			if(new_size < size())
+				this->buffer()[new_size] =0;
+			databuffer_<char>::resize_no_init(new_size+1);
+		}
 		void clear(bool release = false) {
 			clear_helper(release, false, 0);
 			set_size(1);
@@ -786,10 +791,10 @@ namespace ss {
 			return std::string(buffer());
 		}
 
-		int append_as_utf8(const char* input, unsigned int input_len, const char* enc, bool clean = true);
+		int append_as_utf8(const char* input, int input_len, const char* enc, bool clean = true);
 
 		int strftime(const char* fmt, const struct tm* tm);
-		void trim(unsigned int start = 0);
+		void trim(int start = 0);
 
 		const char& operator[](int pos) const {
 			assert(header.h.inited);

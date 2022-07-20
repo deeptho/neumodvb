@@ -131,7 +131,7 @@ inline int next_power_of_two(int n) {
 	}
 
 	template<typename data_t>
-	void databuffer_<data_t>::grow(unsigned int extra) {
+	void databuffer_<data_t>::grow(int extra) {
 		reserve(capacity() + extra);
 	}
 

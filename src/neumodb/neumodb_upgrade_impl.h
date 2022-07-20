@@ -47,7 +47,12 @@ int neumodb_upgrade(const char* from_dbname, const char* to_dbname,
 	db_t to_db;
 	ss::string<128> backup_name;
 	if (!to_dbname) {
-		backup_name << from_dbname;
+		backup_name << 	from_dbname;
+		for(; backup_name.size()>0 && backup_name[backup_name.size()-1]=='/'; ) {
+			backup_name.resize_no_init(backup_name.size()-1);
+		}
+		if(backup_name.size()==0)
+			return -1;
 		backup_name.sprintf(".");
 		backup_name.sprintf(ss::dateTime(time(NULL), "%Y%m%d_%H:%M:%S"));
 		to_dbname = backup_name.c_str();

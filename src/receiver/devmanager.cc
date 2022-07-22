@@ -28,6 +28,7 @@
 #include <functional>
 #include <iomanip>
 #include <map>
+#include <libconfig.h++>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +52,57 @@ struct sat_reservation_t {
 																					 the positioner and strange things can happen*/
 	use_count_t use_count;
 };
+
+
+static std::tuple<api_type_t, int>  get_dvb_api_type() {
+	static std::mutex m;
+	static std::tuple<api_type_t, int> cached = {api_type_t::UNDEFINED, -1};
+	/*
+		Note: multiple threads could simultaneously TRY to initialize the value, but only
+		one will succeed.
+	*/
+	if (std::get<0>(cached) == api_type_t::UNDEFINED) {
+		std::scoped_lock lck(m);
+		if (std::get<0>(cached) != api_type_t::UNDEFINED) {
+			// this could happen  if another thread beat us to it
+			return cached;
+		}
+		using namespace libconfig;
+		Config cfg;
+		try {
+			cfg.readFile("/sys/module/dvb_core/info/version");
+		} catch (const FileIOException& fioex) {
+			cached = {api_type_t::DVBAPI, 5000};
+			return cached;
+		} catch (const ParseException& pex) {
+			return {api_type_t::DVBAPI, 5000};
+		}
+
+		try {
+			std::string type = cfg.lookup("type");
+			if (strcmp(type.c_str(), "neumo") != 0) {
+				cached = {api_type_t::DVBAPI, 5000};
+				return cached;
+			}
+		} catch (const SettingNotFoundException& nfex) {
+			cached = {api_type_t::DVBAPI, 5000};
+			return cached;
+		}
+
+		try {
+			std::string version = cfg.lookup("version");
+			dtdebugx("Neumo dvbapi detected; version=%s", version.c_str());
+			cached = { api_type_t::NEUMO, 1000*std::stof(version)};
+			return cached;
+
+		} catch (const SettingNotFoundException& nfex) {
+			cached = { api_type_t::DVBAPI, 5000};
+			return cached;
+		}
+	}
+	return cached;
+}
+
 
 class dvbdev_monitor_t : public adaptermgr_t {
 	mutable std::map<int, sat_reservation_t> dish_reservation_map; // indexed by dish_id
@@ -80,7 +132,7 @@ class dvbdev_monitor_t : public adaptermgr_t {
 	std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t, int, int>
 	find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
 															const dvb_adapter_t* adapter_to_release, const tune_options_t& tune_options,
-															int required_adapter_no) const;
+															adapter_mac_address_t required_adapter_mac_address) const;
 	std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
 	find_slave_tuner_for_tuning_to_mux(
 		db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
@@ -93,8 +145,8 @@ public:
 	int reserve_sat(int dish_id, int sat_pos);
 	void change_sat_reservation_sat_pos(int dish_id, int sat_pos);
 	int release_sat(dvb_frontend_t* fe, int dish_id, int sat_pos);
-	int reserve_master(adapter_no_t adapter_no, const chdb::dvbs_mux_t& mux);
-	int release_master(adapter_no_t adapter_no);
+	int reserve_master(adapter_mac_address_t adapter_mac_address, const chdb::dvbs_mux_t& mux);
+	int release_master(adapter_mac_address_t adapter_mac_address);
 	const sat_reservation_t& sat_reservation(int dish_id) const;
 	sat_reservation_t& sat_reservation(int dish_id);
 
@@ -158,26 +210,24 @@ public:
  after thr previous one has been made.
 
 */
-int dvbdev_monitor_t::reserve_master(adapter_no_t adapter_no, const chdb::dvbs_mux_t& mux) {
-	auto it_adapter = adapters.find(adapter_no);
-	if (it_adapter == adapters.end()) {
+int dvbdev_monitor_t::reserve_master(adapter_mac_address_t adapter_mac_address, const chdb::dvbs_mux_t& mux) {
+	auto* master_adapter = find_adapter(adapter_mac_address);
+	if (!master_adapter) {
 		dtdebug("Master adapter is not available");
 		return -1;
 	}
-	auto& [adapter_no_, master_adapter] = *it_adapter;
-	auto w = master_adapter.reservation.writeAccess();
+	auto w = master_adapter->reservation.writeAccess();
 	assert(!w->exclusive);
 	return w->use_count_polband.register_subscription();
 }
 
-int dvbdev_monitor_t::release_master(adapter_no_t adapter_no) {
-	auto it_adapter = adapters.find(adapter_no);
-	if (it_adapter == adapters.end()) {
+int dvbdev_monitor_t::release_master(adapter_mac_address_t adapter_mac_address) {
+	auto* master_adapter = find_adapter(adapter_mac_address);
+	if (!master_adapter) {
 		dtdebug("Master adapter is not available");
 		return -1;
 	}
-	auto& [adapter_no_, adapter] = *it_adapter;
-	auto w = adapter.reservation.writeAccess();
+	auto w = master_adapter->reservation.writeAccess();
 	w->exclusive = false;
 	return w->use_count_polband.unregister_subscription();
 }
@@ -310,7 +360,8 @@ void adaptermgr_t::start_frontend_monitor(dvb_frontend_t* fe) {
 
 void adaptermgr_t::stop_frontend_monitor(dvb_frontend_t* fe) {
 	auto it = monitors.find(fe);
-	assert(it != monitors.end());
+	if(it == monitors.end())
+		return; //can happen if adapter was removed (e.g., kernel module unloading)
 	auto* monitor = it->second.get();
 	assert(monitor);
 	/*We need to wait, otherwise a race can occur, opening the frontend which still is being closed.
@@ -330,13 +381,16 @@ void adaptermgr_t::stop_frontend_monitor(dvb_frontend_t* fe) {
 void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
 																	 dvb_frontend_t::thread_safe_t& t) {
 	auto txn = receiver.chdb.rtxn();
-	auto k = chdb::fe_key_t(int(adapter_no), int(frontend_no));
-	auto c = chdb::fe_t::find_by_key(txn, k);
+
+	auto c = chdb::fe_t::find_by_key(txn, t.dbfe.k.adapter_mac_address);
 	auto dbfe_old = c.is_valid() ? c.current() : chdb::fe_t();
 
-	bool changed = (dbfe_old.card_name != t.dbfe.card_name) || (dbfe_old.adapter_name != t.dbfe.adapter_name) ||
+	bool changed = !c.is_valid() || (dbfe_old.k.adapter_mac_address != t.dbfe.k.adapter_mac_address) ||
+		(dbfe_old.card_mac_address != t.dbfe.card_mac_address) ||
+		(dbfe_old.card_name != t.dbfe.card_name) || (dbfe_old.adapter_name != t.dbfe.adapter_name) ||
 		(dbfe_old.card_address != t.dbfe.card_address) ||
-		(dbfe_old.adapter_address != t.dbfe.adapter_address) || c.is_valid() || t.dbfe.present != true ||
+		(dbfe_old.adapter_address != t.dbfe.adapter_address) ||  t.dbfe.present != true ||
+		(dbfe_old.master_adapter_mac_address != t.dbfe.master_adapter_mac_address) ||
 		t.dbfe.can_be_used != t.can_be_used;
 
 	//	auto tst =dump_caps((chdb::fe_caps_t)fe_info.caps);
@@ -344,11 +398,13 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 	changed |= dbfe_old.delsys != t.dbfe.delsys;
 	txn.abort();
 	if (changed) {
-		t.dbfe.k = k;
+		t.dbfe.adapter_no = int(adapter_no);
+		t.dbfe.frontend_no = int(frontend_no);
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
 		t.dbfe.present = true;
 		t.dbfe.enabled = dbfe_old.enabled;
 		t.dbfe.can_be_used = t.can_be_used;
+		t.dbfe.master_adapter_mac_address = dbfe_old.master_adapter_mac_address;
 		auto txn = receiver.chdb.wtxn();
 		put_record(txn, t.dbfe, 0);
 		txn.commit();
@@ -374,7 +430,7 @@ void dvbdev_monitor_t::on_new_frontend(dvb_adapter_t* adapter, frontend_no_t fro
 		dtdebugx("ERROR: %s\n", strerror(errno));
 		assert(0);
 	}
-	auto fe = dvb_frontend_t::make(adapter, frontend_no);
+	auto fe = dvb_frontend_t::make(adapter, frontend_no, api_type, api_version);
 	auto t = fe->ts.writeAccess();
 	update_dbfe(adapter->adapter_no, frontend_no, *t);
 
@@ -439,7 +495,7 @@ void dvbdev_monitor_t::on_new_adapter(int adapter_no) {
 	}
 	sprintf(fname, "/dev/dvb/adapter%d", adapter_no);
 	auto wd = inotify_add_watch(inotfd, fname, IN_CREATE | IN_DELETE_SELF);
-	auto [it, inserted] = adapters.try_emplace(adapter_no_t(adapter_no), this, adapter_no);
+	auto [it, inserted] = adapters.try_emplace(adapter_no_t(adapter_no), this, adapter_no_t(adapter_no));
 	adapter_map.emplace(wd, &it->second);
 	dtdebugx("new adapter %d wd=%d\n", adapter_no, wd);
 	discover_frontends(&it->second);
@@ -522,7 +578,12 @@ void dvbdev_monitor_t::on_delete_dir(struct inotify_event* event) {
 	}
 }
 
-dvbdev_monitor_t::dvbdev_monitor_t(receiver_t& receiver) : adaptermgr_t(receiver) {}
+dvbdev_monitor_t::dvbdev_monitor_t(receiver_t& receiver) : adaptermgr_t(receiver) {
+		try {
+		std::tie(api_type, api_version) = get_dvb_api_type();
+	} catch(...) {
+	}
+}
 
 int dvbdev_monitor_t::start() {
 
@@ -720,8 +781,8 @@ int dvb_adapter_t::reserve_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, bool w
 			adaptermgr->reserve_dish_exclusive(fe, lnb.k.dish_id);
 		}
 	}
-	auto master_adapter = fe->ts.readAccess()->dbfe.master_adapter;
-	bool is_slave = (master_adapter >= 0);
+	auto master_adapter_mac_address = fe->ts.readAccess()->dbfe.master_adapter_mac_address;
+	bool is_slave = (master_adapter_mac_address >= 0);
 	assert(!is_slave);
 
 	return ret;
@@ -749,10 +810,10 @@ int dvb_adapter_t::reserve_fe(dvb_frontend_t* fe, const chdb::lnb_t& lnb, const 
 			adaptermgr->reserve_sat(lnb.k.dish_id, mux.k.sat_pos);
 		ret = w->use_count_mux.register_subscription();
 	}
-	auto master_adapter = fe->ts.readAccess()->dbfe.master_adapter;
-	bool is_slave = (master_adapter >= 0);
+	auto master_adapter_mac_address = fe->ts.readAccess()->dbfe.master_adapter_mac_address;
+	bool is_slave = (master_adapter_mac_address >= 0);
 	if (is_slave) {
-		adaptermgr->reserve_master(adapter_no_t(master_adapter), mux);
+		adaptermgr->reserve_master(adapter_mac_address_t(master_adapter_mac_address), mux);
 		// todo: what if this fails? previous line returns negative
 	}
 
@@ -852,10 +913,10 @@ int dvb_adapter_t::release_fe() {
 		auto w = reservation.writeAccess();
 
 		fe = w->reserved_fe;
-		auto master_adapter = fe->ts.readAccess()->dbfe.master_adapter;
-		bool is_slave = (master_adapter >= 0);
+		auto master_adapter_mac_address = fe->ts.readAccess()->dbfe.master_adapter_mac_address;
+		bool is_slave = (master_adapter_mac_address >= 0);
 		if (is_slave) {
-			adaptermgr->release_master(adapter_no_t(master_adapter));
+			adaptermgr->release_master(adapter_mac_address_t(master_adapter_mac_address));
 			// todo: what if this fails? previois line returns negative
 		}
 
@@ -880,20 +941,19 @@ int dvb_adapter_t::release_fe() {
 }
 
 void adapter_reservation_t::update_dbfe_from_db(db_txn& rtxn, dvb_frontend_t::thread_safe_t& t) const {
-	auto k = chdb::fe_key_t(int(t.dbfe.k.adapter_no), int(t.dbfe.k.frontend_no));
-	auto c = chdb::fe_t::find_by_key(rtxn, k);
+	auto c = chdb::fe_t::find_by_key(rtxn, t.dbfe.k.adapter_mac_address);
 	auto dbfe_db = c.is_valid() ? c.current() : chdb::fe_t();
 
-	bool changed = (dbfe_db.card_name != t.dbfe.card_name) || (dbfe_db.adapter_name != t.dbfe.adapter_name) ||
+	bool changed = !c.is_valid() || (dbfe_db.k.adapter_mac_address != t.dbfe.k.adapter_mac_address) ||
+		(dbfe_db.card_mac_address != t.dbfe.card_mac_address) ||
+		(dbfe_db.card_name != t.dbfe.card_name) || (dbfe_db.adapter_name != t.dbfe.adapter_name) ||
 		(dbfe_db.card_address != t.dbfe.card_address) ||
-		(dbfe_db.adapter_address != t.dbfe.adapter_address) || c.is_valid() || t.dbfe.present != true ||
+		(dbfe_db.adapter_address != t.dbfe.adapter_address) ||  t.dbfe.present != true ||
+		(dbfe_db.master_adapter_mac_address != t.dbfe.master_adapter_mac_address) ||
 		t.dbfe.can_be_used != t.can_be_used;
 
-	//	auto tst =dump_caps((chdb::fe_caps_t)fe_info.caps);
-	//	dterror("CAPS: " << tst);
 	changed |= dbfe_db.delsys != t.dbfe.delsys;
 	if (changed) {
-		t.dbfe.k = k;
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
 		t.dbfe.enabled = dbfe_db.enabled;
 		t.dbfe.can_be_used = t.can_be_used;
@@ -989,17 +1049,17 @@ std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(db_txn& rtxn,
 				requires DVB-S2X and if we should reject tuners which do not support DVB-S2X
 			*/
 			|| (mux.stream_id >= 0 && !t->dbfe.supports.multistream) // multistream is needed but not supported
-			|| lnb.k.adapter_no != t->dbfe.k.adapter_no							 // lnb is not connected to this adapter
+			|| lnb.k.adapter_mac_address != t->dbfe.k.adapter_mac_address	// lnb is not connected to this adapter
 		)
 		return nullptr;
 
 	assert(!is_tuned_to(mux, nullptr)); // caller should not call us in this case
-	bool is_slave = (t->dbfe.master_adapter >= 0);
+	bool is_slave = (t->dbfe.master_adapter_mac_address >= 0);
 	if (is_slave) {
 		// slave adapters can only be used if their master adapter is already tuned t the proper band and polarisation
-		auto* master_adapter = adaptermgr->find_adapter(t->dbfe.master_adapter);
+		auto* master_adapter = adaptermgr->find_adapter(adapter_mac_address_t(t->dbfe.master_adapter_mac_address));
 		if (!master_adapter) {
-			dterrorx("Could not find master adapter %d", t->dbfe.master_adapter);
+			dterrorx("Could not find master adapter [0x%06lx]", t->dbfe.master_adapter_mac_address);
 			return nullptr;
 		}
 
@@ -1084,24 +1144,23 @@ std::shared_ptr<dvb_frontend_t> dvbdev_monitor_t::find_fe_for_lnb(const chdb::ln
 		}
 	}
 
-	auto it_adapter = adapters.find(adapter_no_t(lnb.k.adapter_no));
-	if (it_adapter == adapters.end()) {
+	auto* adapter = find_adapter(adapter_mac_address_t(lnb.k.adapter_mac_address));
+	if (!adapter) {
 		dtdebug("LNB " << lnb << " not connected to any adapter");
 		return nullptr;
 	}
 
-	auto& [adapter_no, adapter] = *it_adapter;
-	if (!adapter.can_be_used) {
+	if (!adapter->can_be_used) {
 		dtdebug("LNB " << lnb << " cannot be used because adapter cannot be used");
 		return nullptr;
 	}
-	bool adapter_will_be_released = adapter_to_release == &adapter;
-	if (!adapter_will_be_released && adapter.reservation.readAccess()->exclusive) {
+	bool adapter_will_be_released = adapter_to_release == adapter;
+	if (!adapter_will_be_released && adapter->reservation.readAccess()->exclusive) {
 		dtdebug("LNB " << lnb << " is reserved exclusively by some other user");
 		return nullptr;
 	}
 
-	return adapter.fe_for_delsys(chdb::fe_delsys_t::SYS_DVBS2);
+	return adapter->fe_for_delsys(chdb::fe_delsys_t::SYS_DVBS2);
 }
 
 /*
@@ -1176,7 +1235,7 @@ std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t, int, int>
 dvbdev_monitor_t::find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
 																						 const dvb_adapter_t* adapter_to_release,
 																							const tune_options_t& tune_options,
-																						 int required_adapter_no) const {
+																							adapter_mac_address_t required_adapter_mac_address) const {
 	using namespace chdb;
 	auto c = find_first<chdb::lnb_t>(txn);
 	int best_lnb_prio = std::numeric_limits<int>::min();
@@ -1224,33 +1283,35 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_
 			penalty += 1000;
 		}
 
-		auto it_adapter = adapters.find(adapter_no_t(required_adapter_no <0 ? plnb->k.adapter_no : required_adapter_no));
-		if (it_adapter == adapters.end()) {
+		auto* adapter = find_adapter(int64_t(required_adapter_mac_address) < 0 ?
+																 adapter_mac_address_t(plnb->k.adapter_mac_address) :
+																 required_adapter_mac_address);
+		if (!adapter) {
 			dtdebug("LNB " << *plnb << " not connected to any adapter");
 			continue;
 		}
 
-		auto& [adapter_no, adapter] = *it_adapter;
-		if (!adapter.can_be_used) {
+		if (!adapter->can_be_used) {
 			dtdebug("LNB " << *plnb << " cannot be used because adapter cannot be used");
 			continue;
 		}
 
 
-		bool adapter_will_be_released = adapter_to_release == &adapter;
-		if (!adapter_will_be_released && adapter.reservation.readAccess()->exclusive) {
+		bool adapter_will_be_released = adapter_to_release == adapter;
+		if (!adapter_will_be_released && adapter->reservation.readAccess()->exclusive) {
 			dtdebug("LNB " << *plnb << " is reserved exclusively by some other user");
 			continue;
 		}
 
-		auto adapter_reservation = adapter.reservation.readAccess();
+		auto adapter_reservation = adapter->reservation.readAccess();
 		auto fe = adapter_reservation->can_tune_to(txn, *plnb, mux, adapter_will_be_released, tune_options.use_blind_tune);
 		if (!fe.get()) {
 			dtdebug("LNB " << *plnb << " cannot be used");
 			continue;
 		}
 
-		if (required_adapter_no > 0 && lnb.k.adapter_no != fe->ts.readAccess()->dbfe.master_adapter)
+		if (int64_t(required_adapter_mac_address) > 0 && lnb.k.adapter_mac_address !=
+				fe->ts.readAccess()->dbfe.master_adapter_mac_address)
 			continue;
 
 		{
@@ -1288,12 +1349,12 @@ dvbdev_monitor_t::find_slave_tuner_for_tuning_to_mux(
 	std::shared_ptr<dvb_frontend_t> best_fe;
 
 	for (auto const& dbfe : ca.range()) {
-		if(dbfe.master_adapter <0 || ! dbfe.can_be_used || ! dbfe.present)
+		if(dbfe.master_adapter_mac_address <0 || ! dbfe.can_be_used || ! dbfe.present)
 			continue;
-		int required_adapter_no = dbfe.master_adapter;
+		auto required_adapter_mac_address = adapter_mac_address_t(dbfe.master_adapter_mac_address);
 		auto [ fe, lnb, fe_prio, lnb_prio] =
 			find_lnb_for_tuning_to_mux_(txn, mux, required_lnb, adapter_to_release, tune_options,
-																	required_adapter_no);
+																	required_adapter_mac_address);
 		if (!fe)
 			continue;
 		if (lnb_prio < best_lnb_prio)
@@ -1321,9 +1382,10 @@ dvbdev_monitor_t::find_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t
 	if (fe)
 		return std::make_tuple(fe, lnb);
 	{
-		int required_adapter_no = -1;
+		auto required_adapter_mac_address = adapter_mac_address_t(-1);
 		auto [fe, lnb, fe_prio, lnb_prio] =
-			find_lnb_for_tuning_to_mux_(txn, mux, required_lnb, adapter_to_release, tune_options, required_adapter_no);
+			find_lnb_for_tuning_to_mux_(txn, mux, required_lnb, adapter_to_release, tune_options,
+																	required_adapter_mac_address);
 		return std::make_tuple(fe, lnb);
 	}
 
@@ -1360,6 +1422,8 @@ std::shared_ptr<dvb_frontend_t> adaptermgr_t::find_fe_for_lnb(const chdb::lnb_t&
 	return (static_cast<const dvbdev_monitor_t*>(this))
 		->find_fe_for_lnb(lnb, adapter_to_release, need_blindscan, need_spectrum);
 }
+
+
 
 #ifdef TODO
 struct new_reservation_t {

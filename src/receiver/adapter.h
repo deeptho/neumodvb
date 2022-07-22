@@ -28,6 +28,7 @@
 #include "task.h"
 #include "util/safe/safe.h"
 #include "signal_info.h"
+#include "util/access.h"
 
 struct tune_options_t;
 
@@ -57,6 +58,7 @@ enum class dish_pos_t : int {};
 
 
 
+unconvertable_int(int64_t, adapter_mac_address_t);
 unconvertable_int(int, adapter_no_t);
 unconvertable_int(int, frontend_no_t);
 
@@ -246,9 +248,9 @@ class signal_monitor_t {
 class dvb_frontend_t
 {
 	friend class fe_monitor_thread_t;
-	api_type_t api_type { api_type_t::UNDEFINED };
+	const api_type_t api_type { api_type_t::UNDEFINED };
+	const int api_version{-1}; //1000 times the floating point value of version
 	chdb::delsys_type_t current_delsys_type { chdb::delsys_type_t::NONE };
-	int api_version{-1}; //1000 times the floating point value of version
 	int tuned_frequency{0}; // as reported by driver, compensated for lnb offset
 public:
 	static
@@ -289,9 +291,6 @@ public:
 	static constexpr uint32_t  lnb_slof = DEFAULT_SLOF;
 	static constexpr uint32_t lnb_lof_low = DEFAULT_LOF1_UNIVERSAL;
 	static constexpr uint32_t lnb_lof_high = DEFAULT_LOF2_UNIVERSAL;
-private:
-	static int get_frontend_info(const adapter_no_t adapter_no,
-															 const frontend_no_t  frontend_no, thread_safe_t& t);
 public:
 	std::shared_ptr<fe_monitor_thread_t> get_monitor_thread() {
 		return monitor_thread_.lock(); //convert to shared_ptr
@@ -328,13 +327,15 @@ private:
 	std::optional<statdb::spectrum_t> get_spectrum(const ss::string_& spectrum_path);
 
 public:
-	dvb_frontend_t(dvb_adapter_t* adapter_, frontend_no_t
-								 frontend_no_)
-		: frontend_no(frontend_no_)
+	dvb_frontend_t(dvb_adapter_t* adapter_, frontend_no_t frontend_no_,  api_type_t api_type_,  int api_version_)
+		: api_type(api_type_)
+		, api_version(api_version_)
+		, frontend_no(frontend_no_)
 		, adapter(adapter_)
 		{}
 
-	static std::shared_ptr<dvb_frontend_t> make (dvb_adapter_t* adapter, frontend_no_t frontend_no);
+	static std::shared_ptr<dvb_frontend_t> make (dvb_adapter_t* adapter, frontend_no_t frontend_no,
+																							 api_type_t api_type,  int api_version);
 
 	template<typename mux_t>
 	bool is_tuned_to(const mux_t& mux, const chdb::lnb_t* required_lnb) const;
@@ -471,16 +472,16 @@ class dvb_adapter_t
 	void update_adapter_can_be_used();
 	std::map<frontend_no_t, std::shared_ptr<dvb_frontend_t>>  frontends;
 public:
-
-	const adapter_no_t adapter_no;
-
+	adapter_mac_address_t adapter_mac_address;
+	adapter_no_t adapter_no;
 	safe::thread_public_t<true, adapter_reservation_t> reservation;
 
 	bool can_be_used{false}; // true if all frontends can opened for write
 
 	std::shared_ptr<dvb_frontend_t> fe_for_delsys(chdb::fe_delsys_t delsys) const;
-	dvb_adapter_t(dvbdev_monitor_t* adaptermgr_, int adapter_no_)
+	dvb_adapter_t(dvbdev_monitor_t* adaptermgr_, adapter_no_t adapter_no_)
 		: adaptermgr(adaptermgr_)
+		, adapter_mac_address(-1)
 		, adapter_no(adapter_no_)
 		, reservation("receiver", thread_group_t::receiver, {}, adaptermgr_, this)
 		{}
@@ -578,6 +579,9 @@ class adaptermgr_t {
 	friend class dvb_adapter_t;
 	friend class adapter_reservation_t;
 private:
+	api_type_t api_type { api_type_t::UNDEFINED };
+	int api_version{-1}; //1000 times the floating point value of version
+
 	std::map<adapter_no_t, dvb_adapter_t> adapters;
 	int inotfd{-1};
 	std::map<dvb_frontend_t*, std::shared_ptr<fe_monitor_thread_t>> monitors;
@@ -587,9 +591,25 @@ private:
 		: receiver(receiver_)
 		{}
 
-	dvb_adapter_t*	find_adapter(int adapter_no) {
-		auto it_adapter = adapters.find(adapter_no_t(adapter_no));
+	dvb_adapter_t*	find_adapter(adapter_no_t adapter_no) {
+		auto it_adapter = adapters.find(adapter_no);
 		return (it_adapter == adapters.end()) ?  nullptr: &it_adapter->second;
+	}
+
+	inline const dvb_adapter_t*	find_adapter(adapter_mac_address_t adapter_mac_address) const {
+		auto [it, found] = find_in_map_if(adapters, [adapter_mac_address](const auto& x) {
+			auto& [mac_address_, rec] = x;
+			return rec.adapter_mac_address == adapter_mac_address;
+			});
+		return found ?  &it->second : nullptr;
+	}
+
+	inline dvb_adapter_t*	find_adapter(adapter_mac_address_t adapter_mac_address) {
+		auto [it, found] = find_in_map_if(adapters, [adapter_mac_address](const auto& x) {
+			auto& [mac_address_, rec] = x;
+			return rec.adapter_mac_address == adapter_mac_address;
+			});
+		return found ?  &it->second : nullptr;
 	}
 
 	int num_adapters() const {

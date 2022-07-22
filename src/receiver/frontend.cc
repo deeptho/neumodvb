@@ -19,7 +19,6 @@
  */
 
 #include <errno.h>
-#include <libconfig.h++>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/fcntl.h>
@@ -130,12 +129,6 @@ int dvb_frontend_t::open_device(thread_safe_t& t, bool rw, bool allow_failure) {
 	if (t.fefd >= 0)
 		return 0; // already open
 
-	try {
-		std::tie(api_type, api_version) = get_api_type();
-	} catch(...) {
-		return -1;
-	}
-
 	ss::string<PATH_MAX> frontend_fname;
 	frontend_fname.sprintf("/dev/dvb/adapter%d/frontend%d", adapter->adapter_no, frontend_no);
 	int rw_flag = rw ? O_RDWR : O_RDONLY;
@@ -152,7 +145,6 @@ int dvb_frontend_t::open_device(thread_safe_t& t, bool rw, bool allow_failure) {
 dvb_frontend_t::~dvb_frontend_t() {
 	auto t = ts.writeAccess();
 	if(t->fefd>=0) {
-		api_type = api_type_t::UNDEFINED;
 		dtdebugx("closing fefd=%d", t->fefd);
 		while (::close(t->fefd) != 0) {
 			if (errno != EINTR)
@@ -166,7 +158,6 @@ dvb_frontend_t::~dvb_frontend_t() {
 void dvb_frontend_t::close_device(thread_safe_t& t) {
 	if (t.fefd < 0)
 		return;
-	api_type = api_type_t::UNDEFINED;
 	dtdebugx("closing fefd=%d", t.fefd);
 	while (::close(t.fefd) != 0) {
 		if (errno != EINTR)
@@ -185,6 +176,8 @@ static int get_frontend_names_dvapi(const adapter_no_t adapter_no, dvb_frontend_
 		dterrorx("FE_GET_FRONTEND_INFO FAILED: %s", strerror(errno));
 		return -1;
 	}
+	t.dbfe.k.adapter_mac_address = -1;
+	t.dbfe.card_mac_address = -1;
 	t.dbfe.adapter_name.clear();
 	t.dbfe.card_name.clear();
 	t.dbfe.card_name.sprintf(fe_info.name, strlen(fe_info.name));
@@ -203,24 +196,32 @@ static int get_frontend_names_dvapi(const adapter_no_t adapter_no, dvb_frontend_
 }
 
 //	return -1 on error, 1 on change, 0 on no change
-static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no) {
+static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no, int api_version) {
 	struct dvb_frontend_extended_info fe_info {}; // front_end_info
 
 	if (ioctl(t.fefd, FE_GET_EXTENDED_INFO, &fe_info) < 0) {
 		dterrorx("FE_GET_FRONTEND_INFO FAILED: %s", strerror(errno));
 		return -1;
 	}
-
 	t.dbfe.adapter_name.clear();
 	t.dbfe.card_name.clear();
-	auto* card_name = fe_info.card_name[0] == 0 ? fe_info.name : fe_info.card_name;
+	auto* card_name = fe_info.card_name;
+	if(api_version < 1.3) { //hack
+		fe_info.supports_neumo = false; /*in older api, several fields were not present in  dvb_frontend_extended_info
+																			but were part of an fields "name" instead; this hack is a temporary
+																			solution until the API stabilizes
+																		*/
+	}
+	t.dbfe.supports_neumo = 	fe_info.supports_neumo;
+	t.dbfe.rf_in = (fe_info.supports_neumo && fe_info.rf_in >= 0) ? fe_info.rf_in : adapter_no;
+
 
 	t.dbfe.card_name.sprintf(card_name, strlen(card_name));
 
 	if (fe_info.adapter_name[0] == 0) {
-		// old style
+		// old style, for cards not supported by neumoDVB
 		ss::string<256> adapter_name;
-		adapter_name.sprintf("%s #%d", fe_info.name, adapter_no);
+		adapter_name.sprintf("%s #%d", fe_info.card_name, adapter_no);
 		t.dbfe.adapter_name.sprintf(adapter_name.c_str(), strlen(fe_info.adapter_name));
 
 		// fake but unique. Each adapter is consdered to be on a separate card
@@ -240,6 +241,8 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no) 
 	}
 
 	// todo: add caps
+	t.dbfe.card_mac_address = fe_info.card_mac_address;
+	t.dbfe.k.adapter_mac_address = fe_info.adapter_mac_address;
 	t.dbfe.frequency_min = fe_info.frequency_min;
 	t.dbfe.frequency_max = fe_info.frequency_max;
 	t.dbfe.symbol_rate_min = fe_info.symbol_rate_min;
@@ -251,15 +254,24 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no) 
 	return 0;
 }
 
-int dvb_frontend_t::get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
-																			dvb_frontend_t::thread_safe_t& t) {
+static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t frontend_no, int api_version,
+														 dvb_frontend_t::thread_safe_t& t) {
 
-	int ret = get_frontend_names(t, (int)adapter_no);
+	int ret = get_frontend_names(t, (int)adapter_no, api_version);
 	if (ret < 0)
 		ret = get_frontend_names_dvapi(adapter_no, t);
 	if (ret < 0)
 		return ret;
+	if(t.dbfe.card_mac_address <0 || 	t.dbfe.card_mac_address == 0xffffffffffff) {
+		t.dbfe.card_mac_address = 0x2L | ((uint64_t)(int(frontend_no) | (int(adapter_no) << 8)) <<32);
+		dtdebugx("No mac address; faking one: 0x%lx\n", t.dbfe.card_mac_address);
+	}
+	if(t.dbfe.k.adapter_mac_address <0 || t.dbfe.k.adapter_mac_address == 0xffffffffffff) {
+		t.dbfe.k.adapter_mac_address = 0x2L | ((uint64_t)(int(frontend_no) | (int(adapter_no) << 8)) <<32);
+		dtdebugx("No mac address; faking one: 0x%lx\n", t.dbfe.k.adapter_mac_address);
+	}
 	struct dtv_property properties[16];
+
 	memset(properties, 0, sizeof(properties));
 	unsigned int i = 0;
 	properties[i++].cmd = DTV_ENUM_DELSYS;
@@ -286,8 +298,9 @@ int dvb_frontend_t::get_frontend_info(const adapter_no_t adapter_no, const front
 	return 0;
 }
 
-std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(dvb_adapter_t* adapter, frontend_no_t frontend_no) {
-	auto fe = std::make_shared<dvb_frontend_t>(adapter, frontend_no);
+std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(dvb_adapter_t* adapter, frontend_no_t frontend_no,
+																										 api_type_t api_type, int api_version) {
+	auto fe = std::make_shared<dvb_frontend_t>(adapter, frontend_no, api_type, api_version);
 
 	auto t = fe->ts.writeAccess();
 	// first try writeable access, then readonly
@@ -300,7 +313,10 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(dvb_adapter_t* adapter, fro
 		t->info_valid = true;
 		t->can_be_used = true;
 		adapter->can_be_used = true;
-		fe->get_frontend_info(adapter->adapter_no, frontend_no, *t);
+		get_frontend_info(adapter->adapter_no, frontend_no, api_version, *t);
+
+		if(int64_t(adapter->adapter_mac_address) <=0)
+			adapter->adapter_mac_address = adapter_mac_address_t(t->dbfe.k.adapter_mac_address);
 		fe->close_device(*t);
 	}
 	return fe;
@@ -470,11 +486,14 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 			ret.matype_list.resize_no_init(matype_list.num_entries);
 		} else {
 			auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
+			ret.matype_list.clear();
 			for (int i = 0; i < 256; ++i) {
 				int j = i / 32;
 				uint32_t mask = ((uint32_t)1) << (i % 32);
 				if (isi_bitset[j] & mask) {
 					ret.isi_list.push_back(i);
+					//fake matype for earlier versions of neumo dvbapi
+					ret.matype_list.push_back(i | (ret.matype <<8));
 				}
 			}
 		}
@@ -620,9 +639,12 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 		uint64_t bitrate = cmdseq.get(DTV_BITRATE)->u.data;
 		ret.stat.locktime_ms = (ret.lock_status & FE_HAS_LOCK) ? lock_time : 0;
 		ret.bitrate = bitrate;
+#if 0
 		auto matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
+		ret.matype_list.clear();
 		for(int i = 0; i < (int) matype_list.num_entries; ++i)
 			ret.matype_list.push_back(matype_list.matypes[i]);
+#endif
 	}
 }
 
@@ -921,54 +943,6 @@ template <typename mux_t> bool dvb_frontend_t::is_tuned_to(const mux_t& mux, con
 }
 
 
-std::tuple<api_type_t, int>  dvb_frontend_t::get_api_type() {
-	static std::mutex m;
-	static std::tuple<api_type_t, int> cached = {api_type_t::UNDEFINED, -1};
-	/*
-		Note: multiple threads could simultaneously TRY to initialize the value, but only
-		one will succeed.
-	*/
-	if (std::get<0>(cached) == api_type_t::UNDEFINED) {
-		std::scoped_lock lck(m);
-		if (std::get<0>(cached) != api_type_t::UNDEFINED) {
-			// this could happen  if another thread beat us to it
-			return cached;
-		}
-		using namespace libconfig;
-		Config cfg;
-		try {
-			cfg.readFile("/sys/module/dvb_core/info/version");
-		} catch (const FileIOException& fioex) {
-			cached = {api_type_t::DVBAPI, 5000};
-			return cached;
-		} catch (const ParseException& pex) {
-			return {api_type_t::DVBAPI, 5000};
-		}
-
-		try {
-			std::string type = cfg.lookup("type");
-			if (strcmp(type.c_str(), "neumo") != 0) {
-				cached = {api_type_t::DVBAPI, 5000};
-				return cached;
-			}
-		} catch (const SettingNotFoundException& nfex) {
-			cached = {api_type_t::DVBAPI, 5000};
-			return cached;
-		}
-
-		try {
-			std::string version = cfg.lookup("version");
-			dtdebugx("Neumo dvbapi detected; version=%s", version.c_str());
-			cached = { api_type_t::NEUMO, 1000*std::stof(version)};
-			return cached;
-
-		} catch (const SettingNotFoundException& nfex) {
-			cached = { api_type_t::DVBAPI, 5000};
-			return cached;
-		}
-	}
-	return cached;
-}
 
 inline void spectrum_scan_t::resize(int num_freq, int num_peaks) {
 	assert(num_freq <= max_num_freq);
@@ -1267,7 +1241,6 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_sca
 	auto lnb_voltage = (fe_sec_voltage_t) chdb::lnb::voltage_for_pol(lnb, options.band_pol.pol);
 
 	fe_sec_tone_mode_t tone = (options.band_pol.band == fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
-
 	//dttime_init();
 	if (this->clear() < 0) /*this call takes 500ms for the tas2101, probably because the driver's tuning loop \
 													 is slow to react*/
@@ -1278,7 +1251,6 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_sca
 	cmdseq_t cmdseq;
 	cmdseq.add(DTV_DELIVERY_SYSTEM, (int)SYS_DVBS);
 	auto [start_freq, mid_freq, end_freq] = chdb::lnb::band_frequencies(lnb, options.band_pol.band);
-
 	start_freq = std::max(options.start_freq, start_freq);
 	end_freq = std::min(options.end_freq, end_freq);
 	switch (options.band_pol.band) {
@@ -1295,7 +1267,6 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_sca
 
 	dtdebug("Spectrum acquisition on lnb  " << lnb << " diseqc: lnb_id=" << lnb << " " << lnb.tune_string << " range=["
 					<< start_freq << ", " << end_freq << "]");
-
 	start_freq = chdb::lnb::driver_freq_for_freq(lnb, start_freq);
 	end_freq = chdb::lnb::driver_freq_for_freq(lnb, end_freq - 1) + 1;
 	if (start_freq > end_freq)
@@ -1314,18 +1285,15 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const chdb::lnb_t& lnb, spectrum_sca
 		dterror("problem Setting the Voltage\n");
 		return -1;
 	}
-
 	if (ioctl(fefd, FE_SET_TONE, tone) < 0) {
 		dterror("problem Setting the Tone back\n");
 		return -1;
 	}
-
 	while (1) {
 		struct dvb_frontend_event event {};
 		if (ioctl(fefd, FE_GET_EVENT, &event) < 0)
 			break;
 	}
-
 	auto ret = cmdseq.spectrum(fefd, options.spectrum_method);
 
 	t.tune_mode = tune_mode_t::SPECTRUM;

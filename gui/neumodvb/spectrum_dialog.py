@@ -332,11 +332,6 @@ class SpectrumDialog(SpectrumDialog_):
                 self.OnSubscriberCallback(self.signal_info)
     def OnSelectMux(self, tp):
         spectrum = tp.spectrum.spectrum
-        #if spectrum.k.sat_pos != self.sat.sat_pos or \
-        #   spectrum.k.lnb_key.adapter_no != self.lnb.k.adapter_no or \
-        #       spectrum.k.lnb_key.dish_id != self.lnb.k.dish_id or \
-        #           spectrum.k.lnb_key.lnb_id != self.lnb.k.lnb_id:
-
         if spectrum.k.sat_pos != self.sat.sat_pos or \
            not lnb_matches_spectrum(self.lnb, spectrum):
             txn = wx.GetApp().chdb.rtxn()

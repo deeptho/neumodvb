@@ -54,7 +54,7 @@ class StatusTable(NeumoTable):
     snr_fn = lambda x: f'{get_snr(x[1]):6.2f}dB'
     rf_fn = lambda x: f'{get_rf(x[1]):6.2f}dB'
     ber_fn = lambda x: f'{get_ber(x[1]):8.2e}'
-
+    mac_fn = lambda x: x[2].mac_fn(x[1])
     lnb_key_fn = lambda x: lnb_label(x[0])
     if False:
         basic_columns=[CD(key='k',
@@ -66,7 +66,8 @@ class StatusTable(NeumoTable):
     all_columns = \
         [CD(key='k.live',  label='live', basic=True, readonly=True),
          CD(key='k.lnb.dish_id',  label='dish', basic=True, readonly=True),
-         CD(key='k.lnb.adapter_no',  label='adapter', basic=True),
+         CD(key='k.lnb.adapter_mac_address',  label='adapter', basic=True, readonly=True,
+            dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
          CD(key='k.lnb.lnb_id',  label='ID', basic=True, readonly=True),
          CD(key='k.mux.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.mux.network_id', label='nid'),
@@ -84,7 +85,7 @@ class StatusTable(NeumoTable):
 
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'k.lnb.adapter_no'
+        initial_sorted_column = 'k.lnb.adapter_mac_address'
         data_table= pystatdb.signal_stat
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)

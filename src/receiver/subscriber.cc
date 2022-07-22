@@ -147,7 +147,7 @@ int subscriber_t::get_adapter_no() const { return active_adapter ? active_adapte
 void subscriber_t::notify_signal_info(const chdb::signal_info_t& info) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
-	if (active_adapter && active_adapter->get_adapter_no() == info.stat.k.lnb.adapter_no) {
+	if (active_adapter && active_adapter->get_adapter_mac_address() == info.stat.k.lnb.adapter_mac_address) {
 		auto temp = info;
 		temp.tune_attempt = tune_attempt;
 		notify(temp);
@@ -164,7 +164,7 @@ void subscriber_t::notify_error(const ss::string_& errmsg) {
 void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
 		return;
-	if (active_adapter && active_adapter->get_adapter_no() == spectrum.k.lnb_key.adapter_no) {
+	if (active_adapter && active_adapter->get_adapter_mac_address() == spectrum.k.lnb_key.adapter_mac_address) {
 		notify(spectrum);
 	}
 }

@@ -44,19 +44,27 @@ class SpectrumTable(NeumoTable):
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     all_columns = \
-        [CD(key='k.lnb_key',  label='lnb', basic=True, example="D0T2-1291",
-            sort=('k.lnb_key.dish_id', 'k.lnb_key.adapter_no', 'k.lnb_key.lnb_id')),
+        [CD(key='k.lnb_key',  label='lnb', basic=True, example="D0A0 Ku 28.2E 32766  ",
+            dfn = lambda x: x[2].lnb_label(x[1], x[0].k.sat_pos),
+            sort=('k.lnb_key.dish_id', 'k.lnb_key.adapter_mac_address', 'k.lnb_key.lnb_id')),
          CD(key='k.sat_pos',  label='sat\npos', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
-         CD(key='k.pol',  label='pol', basic=True, dfn=lambda x: lastdot(x).replace('POL',''), example='V'),
+         CD(key='k.pol',  label='pol', basic=True, dfn=lambda x: lastdot(x[1]).replace('POL',''), example='V'),
          CD(key='k.start_time',  label='date', basic=True, dfn= datetime_fn),
          CD(key='usals_pos',  label='usals_pos', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='lof_offsets',  label='lof_offset', dfn=lof_offset_fn, example='-2000kHz; -20000kHz'),
          CD(key='start_freq',  label='start', basic=False, dfn= lambda x: f'{x[1]/1000.:9.3f}', example="10725.114"),
          CD(key='end_freq',  label='end', basic=False, dfn= lambda x: f'{x[1]/1000.:9.3f}', example="10725.114"),
          #CD(key='is_highres',  label='highres', basic=False),
-         CD(key='resolution',  label='step', basic=False),
-         CD(key='filename',  label='file', basic=False, example="282.E/0/H_dish0_2021-05-31_13:12:03")
+         #CD(key='resolution',  label='step', basic=False),
+         CD(key='filename',  label='file', basic=False, example="28.2E/0/2022-07-20_00:19:48_H_dish0_adapter2")
         ]
+    def lnb_label(self, lnb_key, sat_pos):
+        sat_pos=pychdb.sat_pos_str(sat_pos)
+        t= lastdot(lnb_key.lnb_type)
+        if t != 'C':
+            t='Ku'
+        adap=self.adapter_short_name(lnb_key.adapter_mac_address)
+        return f'D{lnb_key.dish_id}{adap} {t} {sat_pos:>5} {lnb_key.lnb_id}'
 
     def InitialRecord(self):
         return self.app.currently_selected_spectrum
@@ -96,6 +104,11 @@ class SpectrumTable(NeumoTable):
     def get_icon_sort_keyOFF(self):
         return 'encrypted'
 
+    def mac_fn(self, mac):
+        txn = self.chdb.rtxn()
+        ret = pychdb.fe.find_by_key(txn, mac)
+        return str(ret)
+        return mac.to_bytes(6, byteorder='little').hex(":")
 
 
 class SpectrumGridBase(NeumoGridBase):

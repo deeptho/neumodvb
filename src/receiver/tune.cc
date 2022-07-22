@@ -144,7 +144,8 @@ int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_
 	dtdebugx("lnb activate");
 	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
-	return active_adapter->lnb_activate(lnb, tune_options);
+	auto ret=active_adapter->lnb_activate(lnb, tune_options);
+	return ret;
 }
 
 int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
@@ -557,7 +558,7 @@ void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 
 	for (auto& it : active_adapters) {
 		auto& aa = *it.second;
-		if (aa.get_adapter_no() != signal_info.stat.k.lnb.adapter_no)
+		if (aa.get_adapter_mac_address() != signal_info.stat.k.lnb.adapter_mac_address)
 			continue;
 		auto* mux = std::get_if<chdb::dvbs_mux_t>(&signal_info.mux);
 		if(!mux)

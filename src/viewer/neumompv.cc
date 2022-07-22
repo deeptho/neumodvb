@@ -249,6 +249,13 @@ static int64_t read_fn(void* cookie, char* buf, uint64_t nbytes) {
 	auto* player = (MpvPlayer_*)cookie;
 	{
 		auto ret = player->subscription.read_data(buf, nbytes);
+#if 0
+		{
+			static FILE* fp=fopen("/tmp/test.ts", "w");
+			fwrite(buf, nbytes, 1, fp);
+			fflush(fp);
+		}
+#endif
 		return ret < 0 ? 0 : ret;
 	}
 }
@@ -1116,7 +1123,7 @@ void MpvPlayer_::notify(const chdb::signal_info_t& signal_info) {
 	auto* as = subscription.mpm->active_service();
 	if (!as)
 		return;
-	if (as->get_adapter_no() == signal_info.stat.k.lnb.adapter_no) {
+	if (as->get_adapter_mac_address() == signal_info.stat.k.lnb.adapter_mac_address) {
 		playback_info_t playback_info = subscription.mpm->get_current_program_info();
 		gl_canvas->overlay.set_signal_info(signal_info, playback_info);
 		subscription.show_radiobg = (playback_info.service.media_mode == chdb::media_mode_t::RADIO);

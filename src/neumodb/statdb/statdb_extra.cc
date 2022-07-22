@@ -46,7 +46,7 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_entry_t& e)
 
 std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_key_t& k) {
 	auto sat = chdb::sat_pos_str(k.mux.sat_pos);
-	stdex::printf(os, "[%02d] %5s:%5.3f%s", (int)k.lnb.adapter_no, sat, k.frequency / 1000., enum_to_str(k.pol));
+	stdex::printf(os, "[%02d] %5s:%5.3f%s", (int)k.lnb.adapter_mac_address, sat, k.frequency / 1000., enum_to_str(k.pol));
 	using namespace date;
 	os << date::format(" %F %H:%M:%S", zoned_time(current_zone(),
 																								floor<std::chrono::seconds>(system_clock::from_time_t(k.time))));
@@ -92,7 +92,7 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 								 zoned_time(current_zone(),
 														floor<std::chrono::seconds>(system_clock::from_time_t(spectrum.k.start_time)))
 		)
-		 << pol_ << "_dish" << (int)spectrum.k.lnb_key.dish_id<< "_adapter" <<  (int)spectrum.k.lnb_key.adapter_no;
+		 << pol_ << "_dish" << (int)spectrum.k.lnb_key.dish_id<< "_adapter" <<  (int)spectrum.k.lnb_key.adapter_mac_address;
 }
 
 

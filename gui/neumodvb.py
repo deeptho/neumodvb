@@ -55,6 +55,7 @@ def debug_signal_handler(signal, frame):
     pdb.set_trace()
     signal.signal(signal.SIGINT, lambda sig, frame: pdb.Pdb().set_trace(frame))
 
+
 class neumoMainFrame(mainFrame):
     def __init__(self, parent, *args, **kwds):
         super().__init__(*args, **kwds)
@@ -283,6 +284,7 @@ class neumoMainFrame(mainFrame):
         return
 
     def OnTimer(self, evt):
+        self.parent.OnTimer(evt)
         panel =self.current_panel()
         if panel is None:
             return
@@ -544,6 +546,29 @@ class NeumoGui(wx.App):
                 init_db()
             else:
                 return self.sats
+    def OnTimer(self, evt):
+        self.update_adapter_dict()
+
+    def update_adapter_dict(self):
+        txn = self.chdb.rtxn()
+        if self.adapter_screen_ is None:
+            sort_order = pychdb.fe.subfield_from_name('k.adapter_mac_address')<<24
+            self.adapter_screen_ = pychdb.fe.screen(txn, sort_order=sort_order)
+            changed = True
+        else:
+            changed = self.adapter_screen_ is None or self.adapter_screen_.update(txn)
+        del txn
+        if not changed:
+            return
+        ret={-1: "None"}
+        reti={"None": -1}
+        for idx in range(self.adapter_screen_.list_size):
+            adapter = self.adapter_screen_.record_at_row(idx)
+            mac = adapter.k.adapter_mac_address
+            name = f'A{adapter.adapter_no}: {adapter.k.adapter_mac_address.to_bytes(6,"little").hex(":")}'
+            ret[mac] = name
+            reti[name] = mac
+        self.adapter_dict, self.inverse_adapter_dict  = ret, reti
 
     def __init__(self, *args, **kwds):
         self.chdb=pychdb.chdb()
@@ -555,6 +580,11 @@ class NeumoGui(wx.App):
         self.recdb.open(options.recdb)
         self.statdb.open(options.statdb)
         self.scan_subscription_id = -1
+        self.adapter_dict = None
+        self.inverse_adapter_dict = None
+        self.adapter_screen_ = None
+        self.update_adapter_dict()
+        self.adapter_screen_ = None
         self.receiver = pyreceiver.receiver_t(options.receiver)
         self.currently_selected_rec = None
         self.currently_selected_spectrum = None

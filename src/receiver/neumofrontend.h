@@ -34,7 +34,7 @@ enum fe_extended_caps {
 	FE_CAN_HR_SPECTRUMSCAN     = 0x08,
 	FE_CAN_IQ                  = 0x02,
 	FE_CAN_BLINDSEARCH         = 0x04,
-	FE_CAN_MODCOD		   = 0x08
+	FE_CAN_MODCOD		           = 0x10
 };
 
 /**
@@ -171,7 +171,21 @@ struct dvb_frontend_extended_info {
 	char       adapter_name[64]; //human readable name of adapter
 	char       card_address[64]; //name of the linux bus to which the device is attached (e.g. pci-express slot)
 	char       adapter_address[64]; //unique name of adapter depending on pci-express address and physical input
-	char       name[64];
+	__u8       supports_neumo; /*historically we relied on FE_CAN... to indicate supported features,
+														 but in future we will rely on data returned by FE_GET_EXTENDED_INFO
+														 Note that FE_GET_EXTENDED_INFO works on all drivers, even non neumo ones:
+														 it is available as soon as neumo suppoprt is activated in dvb_api. Legacy
+														 drivers will initialize fields thet don;t know to zero, but in some case
+														 (e.g., rf_in) 0 is a valid value. The fe_info.supports_neumo flag, when
+														 set - indicates that such fields have been properly initialized anyway
+													 */
+	__u8       reserved1;
+	__u8       reserved2;
+	__u8       reserved3;
+	__s32      rf_in; //default rf_in value
+	__s64      card_mac_address; //unique identifier for card
+	__s64      adapter_mac_address; //unique identifier for adapter
+	char       unused[64-24];
 	__u32      frequency_min;
 	__u32      frequency_max;
 	__u32      frequency_stepsize;

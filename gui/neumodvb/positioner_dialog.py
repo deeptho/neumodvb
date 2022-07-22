@@ -101,7 +101,7 @@ class LnbController(object):
     def CurrentGroupText(self):
         if self.parent.lnb is None:
             return ""
-        return str(self.parent.lnb)
+        return  self.parent.muxedit_grid.table.lnb_label(self.parent.lnb)
 
 class SatController(object):
     def __init__(self, parent):
@@ -580,14 +580,15 @@ class SignalPanel(SignalPanel_):
     def Speak(self):
         if not self.speak_signal:
             return
-        locked = self.signal_info.has_lock
+        locked = self.signal_info.has_timing_lock
         sat_confirmed = self.signal_info.sat_pos_confirmed
         mux = self.signal_info.dvbs_mux
         sat_pos = mux.k.sat_pos # if sat_confirmed else None
-        snr = self.signal_info.snr/1000 if locked else None
-        if snr <= -1000.:
-            snr = None
-        self.speaker.speak(sat_pos, snr, sat_confirmed)
+        snr = self.signal_info.snr/1000
+        if snr is not None:
+            if snr <= -1000.:
+                snr = None
+            self.speaker.speak(sat_pos, snr, sat_confirmed)
 
     def SetDefaultLevels(self):
         self.snr_ranges=[0, 10, 12,  20]

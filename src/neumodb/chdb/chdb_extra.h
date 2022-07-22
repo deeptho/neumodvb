@@ -588,9 +588,10 @@ namespace  chdb::lnb {
 	const chdb::lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);
 	chdb::lnb_network_t* get_network(lnb_t& lnb, int16_t sat_pos);
 
+#if 0
 	chdb::lnb_t new_lnb(int tuner_id, int16_t sat_pos, int dish_id=0,
 											chdb::lnb_type_t type = chdb::lnb_type_t::UNIV);
-
+#endif
 	chdb::dvbs_mux_t
 	select_reference_mux(db_txn& rtxn, const chdb::lnb_t& lnb, const chdb::dvbs_mux_t* proposed_mux);
 

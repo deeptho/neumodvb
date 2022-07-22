@@ -62,43 +62,32 @@ def get_current_network(lnb):
             return n
     return None
 
-def lnb_label(lnb):
-    x = neumodbutils.enum_to_str(lnb.rotor_control)
-    if x.startswith('ROTOR_SLAVE'):
-        sat_pos='slave'
-    elif x.startswith('ROTOR'):
-        sat_pos='rotor'
-    else:
-        sat_pos=pychdb.sat_pos_str(lnb.usals_pos)
-    t= lastdot(lnb.k.lnb_type)
-    if t != 'C':
-        t='Ku'
-    return f'D{lnb.k.dish_id}A{lnb.k.adapter_no}{t} {sat_pos:>5} {lnb.k.lnb_id}'
 
 class LnbTable(NeumoTable):
     CD = NeumoTable.CD
+    mac_fn = lambda x: x[2].mac_fn(x[1])
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
-    lnb_key_fn = lambda x: lnb_label(x[0])
-
+    lnb_key_fn = lambda x: x[2].lnb_label(x[0])
     basic_columns=[CD(key='k',
-                      sort=('k.dish_id', 'k.adapter_no','k.lnb_id', 'k.lnb_id', 'usals_pos'),
+                      sort=('k.dish_id', 'adapter_mac_address','k.lnb_id', 'usals_pos'),
                       example='D1T2 28.2E 2812***',
                       dfn = lnb_key_fn,
                       label='LNB', basic=True, readonly=True)
                               ]
     all_columns = \
-        [CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
-         CD(key='k.adapter_no',  label='adapter', basic=True),
-         CD(key='k.lnb_id',  label='ID', basic=False, readonly=True),
+        [ CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
+         CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=True, readonly=True,
+            dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
+         CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
          CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
          #CD(key='offset_pos',  label='usals\noffset', basic=True, no_combo = True, #allow entering sat_pos
          #   dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='enabled',   label='enabled', basic=False),
-         CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x), example='ROTOR TYPE USALS'),
+         CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),
          CD(key='diseqc_10',  label='diseqc 10'),
          CD(key='diseqc_11',  label='diseqc 11'),
          CD(key='diseqc_mini',  label='diseqc mini'),
@@ -122,7 +111,7 @@ class LnbTable(NeumoTable):
          CD(key='transmission_mode', label='transmission_mode')]
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'k.adapter_no'
+        initial_sorted_column = 'k.adapter_mac_address'
         data_table= pychdb.lnb
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
@@ -141,6 +130,12 @@ class LnbTable(NeumoTable):
                                    field_matchers=matchers, match_data = match_data)
         self.screen = screen_if_t(screen, self.sort_order==2)
 
+        if False:
+            sort_order = pychdb.fe.subfield_from_name('adapter_mac_address')<<24
+            self.fe_screen =pychdb.fe.screen(txn, sort_order=sort_order)
+            self.aux_screens = [ self.fe_screen]
+
+
     def matching_sat(self, txn, sat_pos):
         sats = wx.GetApp().get_sats()
         if len(sats) == 0:
@@ -153,7 +148,7 @@ class LnbTable(NeumoTable):
         return pychdb.sat.sat_pos_none
 
     def __save_record__(self, txn, lnb):
-        if lnb.k.adapter_no <0:
+        if lnb.k.adapter_mac_address <=0:
             ShowMessage("Bad data", "Enter a valid adapter number before saving")
             return None
         if lnb.usals_pos !=  pychdb.sat.sat_pos_none and len(lnb.networks)==0:
@@ -181,6 +176,12 @@ class LnbTable(NeumoTable):
     def __new_record__(self):
         ret=self.record_t()
         return ret
+
+    def mac_fn(self, mac):
+        txn = self.db.rtxn()
+        ret = pychdb.fe.find_by_key(txn, mac)
+        return ret.adapter_name
+        return mac.to_bytes(6, byteorder='little').hex(":")
 
 class LnbGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):

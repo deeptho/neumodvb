@@ -757,25 +757,27 @@ std::ostream& chdb::operator<<(std::ostream& os, const service_key_t& k) {
 std::ostream& chdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 	const char* t = (lnb_key.lnb_type == lnb_type_t::C) ? "C" :
 		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" : "Ku" ;
-	stdex::printf(os, "D%dA%d%s %d", (int)lnb_key.dish_id, (int)lnb_key.adapter_no, t, (int)lnb_key.lnb_id);
+	stdex::printf(os, "D%dA[0x%06x]%s %d", (int)lnb_key.dish_id, (int)lnb_key.adapter_mac_address,
+								t, (int)lnb_key.lnb_id);
 	return os;
 }
 
 std::ostream& chdb::operator<<(std::ostream& os, const lnb_t& lnb) {
 	using namespace chdb;
+	os << lnb.k;
 	const char* t = (lnb.k.lnb_type == lnb_type_t::C) ? "C" :
 		(lnb.k.lnb_type == lnb_type_t::KU) ? "Ku" : "Ku" ;
 	switch (lnb.rotor_control) {
 	case rotor_control_t::FIXED_DISH: {
 		auto sat = sat_pos_str(lnb.usals_pos); // in this case usals pos equals one of the network sat_pos
-		stdex::printf(os, "D%dA%d%s %s %d", (int)lnb.k.dish_id, (int)lnb.k.adapter_no, t, sat.c_str(),(int)lnb.k.lnb_id);
+		stdex::printf(os, "%s %s %d", sat.c_str(), t, (int)lnb.k.lnb_id);
 	} break;
 	case rotor_control_t::ROTOR_MASTER_USALS:
 	case rotor_control_t::ROTOR_MASTER_DISEQC12:
-		stdex::printf(os, "D%dA%d%s rotor %d", (int)lnb.k.dish_id, (int)lnb.k.adapter_no, t, (int)lnb.k.lnb_id);
+		stdex::printf(os, "%s rotor %d", t, (int)lnb.k.lnb_id);
 		break;
 	case rotor_control_t::ROTOR_SLAVE:
-		stdex::printf(os, "D%dA%d%s slave% d", (int)lnb.k.dish_id, (int)lnb.k.adapter_no, t, (int)lnb.k.lnb_id);
+		stdex::printf(os, "%s slave %d", t, (int)lnb.k.lnb_id);
 	}
 	return os;
 }
@@ -820,16 +822,19 @@ std::ostream& chdb::operator<<(std::ostream& os, const chgm_t& chgm) {
 	return os;
 }
 
+
 std::ostream& chdb::operator<<(std::ostream& os, const fe_key_t& fe_key) {
-	stdex::printf(os, "A%d F%d", (int)fe_key.adapter_no, (int)fe_key.frontend_no);
+	stdex::printf(os, "A[0x%06x]", (int)fe_key.adapter_mac_address);
 	return os;
 }
 
+
 std::ostream& chdb::operator<<(std::ostream& os, const fe_t& fe) {
 	using namespace chdb;
-	os << fe.k;
+	stdex::printf(os, "A%d F%d", (int)fe.adapter_no, (int)fe.frontend_no);
 	stdex::printf(os, " %s;%s;%s", fe.card_name, fe.adapter_name, fe.card_address);
-	stdex::printf(os, " master=%d enabled=%d available=%d", fe.master_adapter, fe.enabled, fe.can_be_used);
+	stdex::printf(os, " master=[0x^06x] enabled=%d available=%d", fe.master_adapter_mac_address,
+								fe.enabled, fe.can_be_used);
 	return os;
 }
 
@@ -1126,6 +1131,7 @@ chdb::lnb_network_t* chdb::lnb::get_network(lnb_t& lnb, int16_t sat_pos) {
 		return nullptr;
 }
 
+#if 0
 chdb::lnb_t chdb::lnb::new_lnb(int adapter_no, int16_t sat_pos, int dish_id, chdb::lnb_type_t type) {
 	auto c = chdb::lnb_t();
 	bool on_rotor = false;
@@ -1147,6 +1153,7 @@ chdb::lnb_t chdb::lnb::new_lnb(int adapter_no, int16_t sat_pos, int dish_id, chd
 
 	return c;
 }
+#endif
 
 void chdb::service::update_audio_pref(db_txn& txn, const chdb::service_t& from_service) {
 	auto c = chdb::service_t::find_by_key(txn, from_service.k);
@@ -1208,12 +1215,12 @@ static std::tuple<uint32_t, uint32_t, uint32_t> lnb_band_helper(const chdb::lnb_
 	case lnb_type_t::WDB: {
 		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
-		freq_mid = freq_low;
+		freq_mid = freq_high;
 	} break;
 	case lnb_type_t::WDBUK: {
 		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
-		freq_mid = freq_low;
+		freq_mid = freq_high;
 	} break;
 	case lnb_type_t::UNIV: {
 		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;

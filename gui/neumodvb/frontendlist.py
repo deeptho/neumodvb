@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Neumo dvb (C) 2019-2021 deeptho@gmail.com
+# Neumo dvb (C) 2019-2022 deeptho@gmail.com
 # Copyright notice:
 #
 # This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@ import numbers
 import datetime
 from dateutil import tz
 import regex as re
+from functools import cached_property
 
 from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
@@ -44,14 +45,19 @@ def delsys_fn(x):
 class FrontendTable(NeumoTable):
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
+    #frontend_fn = lambda x: f'{x[0].adapter_no}.{x[0].frontend_no}'
+    frontend_fn = lambda x: f'{x[0].adapter_no}.{x[0].frontend_no}'
+    mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":")
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     all_columns = \
-        [CD(key='k.adapter_no',  label='adapter', basic=True, readonly=True),
-         CD(key='k.frontend_no',  label='frontend', basic=True, readonly=True),
-         CD(key='adapter_name',  label='Name', basic=True, example=" TurboSight TBS 6504 #0 "),
-         #CD(key='card_name',  label='Card', basic=True, example=" TurboSight TBS 6504 DVB-S/S2/S2X/T/T2/C/C2/ISDB-T  #0 "),
-         CD(key='delsys',  label='delsys', basic=True, dfn=delsys_fn, readonly=True, example='DVBT/'*4),
-         CD(key='card_address',  label='Card#', basic=True, example=" Turbosight 6909x "),
+        [
+         CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=True, readonly=True,
+            dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
+         CD(key='card_name',  label='Card', basic=True, example=" TurboSight TBS 6916 (Octa DVB-S/S2/S2X)"),
+         CD(key='rf_in',  label='RF#', basic=True, readonly=True),
+         #CD(key='card_mac_address',  label='card MAC#', basic=True, no_combo=True, readonly=True,
+         #   dfn=mac_fn, example=" 00:00:ab:00:00:00 "),
+         #CD(key='card_address',  label='Card#', basic=True, example=" Turbosight 6909x "),
          CD(key='adapter_address',  label='Adapter#', basic=True, example=" Turbosight 6909x "),
          CD(key='present',  label='present', basic=True, dfn=bool_fn, readonly=True),
          CD(key='can_be_used',  label='available', basic=True, dfn=bool_fn, readonly=True),
@@ -59,13 +65,15 @@ class FrontendTable(NeumoTable):
          CD(key='supports.multistream',  label='MIS', basic=True, dfn=bool_fn, readonly=True),
          CD(key='supports.blindscan',  label='blindscan', basic=True, dfn=bool_fn, readonly=True),
          CD(key='priority',  label='priority', basic=True),
-         CD(key='master_adapter',  label='master', basic=True),
+         CD(key='master_adapter_mac_address',  label='master', basic=True, no_combo=False,
+            dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
+         CD(key='delsys',  label='delsys', basic=True, dfn=delsys_fn, readonly=True, example='DVBT/'*6)
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'k.adapter_no'
+        self.adapter_dict = {}
+        initial_sorted_column = 'adapter_no'
         data_table= pychdb.fe
-
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
         super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
@@ -80,7 +88,7 @@ class FrontendTable(NeumoTable):
         self.screen = screen_if_t(screen, self.sort_order==2)
 
     def __save_record__(self, txn, record):
-        dtdebug(f'saving {record.k.adapter_no}')
+        dtdebug(f'saving {record.k.badapter_mac_address}')
         pychdb.put_record(txn, record)
         return record
 

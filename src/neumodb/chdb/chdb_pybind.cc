@@ -89,11 +89,17 @@ static void export_chgm_extra(py::module& m) {
 		;
 }
 
+
 static void export_lnb_extra(py::module& m) {
+#if 0
 	chdb::lnb_t new_lnb(int tuner_id, int16_t sat_pos, int dish_id = 0, chdb::lnb_type_t type = chdb::lnb_type_t::UNIV);
+#endif
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
-	mm.def("new_lnb", &chdb::lnb::new_lnb, "create a new lnb", py::arg("tuner_id"), py::arg("sat_pos"),
+	mm
+#if 0
+		.def("new_lnb", &chdb::lnb::new_lnb, "create a new lnb", py::arg("tuner_id"), py::arg("sat_pos"),
 				 py::arg("dish_id") = 0, py::arg("type") = chdb::lnb_type_t::UNIV)
+#endif
 		.def("update_lnb", &chdb::lnb::update_lnb, "save chanfed lnb, while checking tune string",
 				 py::arg("wtxn"), py::arg("lnb"))
 		.def("reset_lof_offset", &chdb::lnb::reset_lof_offset,

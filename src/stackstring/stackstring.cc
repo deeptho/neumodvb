@@ -249,7 +249,7 @@ namespace ss {
 		return size_ - oldn;
 	}
 
-	void string_::trim(unsigned int start) {
+	void string_::trim(int start) {
 		if (start >= size())
 			return;
 		int newlen = _strtrim(buffer() + start, size() - start);
@@ -267,7 +267,7 @@ namespace ss {
 	output_len and *output_size can be modified
 	clean: remove characters such as \0x86 and \x0x87 (emphasis)
 */
-	int string_::append_as_utf8(const char* input, unsigned int input_len, const char* enc, bool clean) {
+	int string_::append_as_utf8(const char* input, int input_len, const char* enc, bool clean) {
 		int oldn = size();
 		int ret1 = _append_as_utf8(input, input_len, enc);
 		if (ret1 < 0)
@@ -276,7 +276,7 @@ namespace ss {
 		return ret;
 	}
 
-	int string_::_append_as_utf8(const char* input, unsigned int input_len, const char* enc) {
+	int string_::_append_as_utf8(const char* input, int input_len, const char* enc) {
 		if (!input || !*input)
 			return 0;
 		auto size_ = size();

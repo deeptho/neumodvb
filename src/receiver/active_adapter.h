@@ -337,6 +337,10 @@ public:
 		return current_fe ? int(current_fe->adapter->adapter_no) : -1;
 	}
 
+	int64_t get_adapter_mac_address() const {
+		return current_fe ? int64_t(current_fe->adapter->adapter_mac_address) : -1;
+	}
+
 	bool is_open() const {
 		return current_fe.get() && current_fe->is_open();
 	}

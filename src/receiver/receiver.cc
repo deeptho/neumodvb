@@ -973,7 +973,6 @@ int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& future
 		}
 		return -1;
 	}
-
 	auto active_adapter = active_adapter_with_fe(fe.get());
 	bool is_same_frontend = old_active_adapter.get() && (old_active_adapter.get() == active_adapter.get());
 	/*
@@ -1480,7 +1479,6 @@ int receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
 			txn.abort();
 		}
 	}
-
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.subscription_type = subscription_type_t::DISH_EXCLUSIVE;

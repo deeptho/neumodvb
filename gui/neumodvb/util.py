@@ -70,7 +70,7 @@ def setup():
 
 def lastdot(x):
     if type(x) in (list, tuple):
-        x=x[-1]
+        x=x[-2]
     return str(x).split('.')[-1].replace('_',' ')
 
 def get_ppi():

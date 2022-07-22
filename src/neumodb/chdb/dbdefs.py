@@ -940,8 +940,7 @@ fe_key = db_struct(name='fe_key',
                           type_id= ord('U'),
                           version = 1,
                           fields = (
-                              (1, 'int16_t', 'adapter_no'),
-                              (2, 'int16_t', 'frontend_no')
+                              (3, 'int64_t', 'adapter_mac_address'),
                           ))
 
 fe_supports = db_struct(name='fe_supports',
@@ -963,12 +962,16 @@ fe = db_struct(name='fe',
                db = db,
                type_id= ord('u'),
                version = 1,
-               primary_key = ('key', ('k',)),
+               primary_key = ('key', ('k.adapter_mac_address',)),
                keys =  (
-                   (ord('f'), 'adapter_no', ('k.adapter_no',)),
+                   (ord('f'), 'adapter_no', ('adapter_no',)),
                ),
                fields = (
                    (1, 'fe_key_t', 'k'),
+                   (25, 'int16_t', 'rf_in'),
+                   (21, 'int16_t', 'adapter_no'),
+                   (22, 'int16_t', 'frontend_no'),
+                   (24, 'bool', 'supports_neumo'),
                    (2, 'bool', 'present'),
                    (3, 'bool', 'can_be_used', 'true'),
                    (4, 'bool', 'enabled', 'true'),
@@ -979,7 +982,7 @@ fe = db_struct(name='fe',
 
                    #master_tuner_id: -1 means not linked
 	                 (7, 'int8_t', 'tuner_group', -1),   #index of group of linked tuner which share some restrictions
-                   (8, 'int16_t', 'master_adapter', -1),
+                   (23, 'int64_t', 'master_adapter_mac_address', -1),
 
 
                    (9, 'time_t', 'mtime'),
@@ -987,6 +990,7 @@ fe = db_struct(name='fe',
                    (11, 'uint32_t', 'frequency_max'),
                    (12, 'uint32_t', 'symbol_rate_min'),
                    (13, 'uint32_t', 'symbol_rate_max'),
+                   (20, 'int64_t', 'card_mac_address'),
                    (14, 'fe_supports_t', 'supports'),
                    (15, 'ss::string<64>', 'card_name'),
                    (16, 'ss::string<64>', 'adapter_name'),
@@ -1040,14 +1044,29 @@ lnb_key = db_struct(name='lnb_key',
                           type_id= ord('T'),
                           version = 1,
                           fields = (
-                              (1, 'int8_t', 'adapter_no', -1), #should become: card address
-                              #(4, 'int16_t', 'rf_input', '-1'), #replaces adapter_no
+                              (4, 'int64_t', 'adapter_mac_address', -1), #Unique for each adapter and card type
+                              #For the time being, we use the mac_address of the adapter, because
+                              #we need this info to connect to the LNB, but later we replace it
+                              #with the mac_address for equivantly a mac address for the RF input
+                              #The code can then look up compatible demods, i.e., demods which can
+                              #reach the lnb
 
-                              #dish_id=0 is also the "default dish"
-                              (3, 'int8_t', 'dish_id', 0),
+                              #(5, 'int16_t', 'rf_input', '-1'),  #rf input number
+                              #Together with the mac_address this uniquely identigfies and output connection (cable)
+                              #on the pc. Only needed if we do not introduce rf input mac addresses
+
+                              (3, 'int8_t', 'dish_id', 0), #dish_id=0 is also the "default dish"
+                              #because of switches, the same cable could be attached to multiple dishes
+
+                              (2, 'int16_t', 'lnb_id', '-1'), #unique identifier for lnb
+                              #Because of swicthes the same cable may lead to multiple lnbs
+                              #Usually the  orbital position (fixed dish) or the offset position on dish
+                              #uniquely identifies the lnb, but not always: multiple dishes can point to
+                              #the same orbital position and combined lnbs or lnbs on a revolver could
+                              #have the same orbital position. That is why we have lnb_type and dish_id as extra keys
+
                               #lnb_pos: for fixed dish:  used to distinghuish lnbs (like a key)
                               #         for a rotor dish: 0, or a different value if an offset lnb is installed
-                              (2, 'int16_t', 'lnb_id', '-1'), #unique identifier for lnb
                               #needed incase a C and Ku band are on the same dish
                               (5, 'lnb_type_t',  'lnb_type', 'lnb_type_t::UNIV'),
                           )
@@ -1072,7 +1091,6 @@ lnb = db_struct(name='lnb',
                     #(ord('a'), 'adapter_sat', ('k.adapter_id', 'k.sat_pos')),
                 ),
                 fields = ((1, 'lnb_key_t', 'k'),  #contains adapter and absolute/relative dish pos
-
                           #for a positioner: last uals position to which usals roto was set
                           #This is the actual usals coordinate (may differ from exact sat_pos)
                           #For an offset lnb, this is not the actual usals_position, bu the

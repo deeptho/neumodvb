@@ -67,7 +67,7 @@ inline int deserialize(const ss::bytebuffer_ &ser, T& val, int offset)  {
 }
 
 
-//deserialization of a simple primitive type with different word lebgth
+//deserialization of a simple primitive type with different word length
 template<typename T>
 inline
 std::enable_if_t<std::is_integral_v<T>, int>
@@ -237,15 +237,6 @@ inline int deserialize(const ss::bytebuffer_ & ser, ss::string<buffer_size>& str
 {
 	return deserialize(ser, (ss::string_&) str, offset);
 }
-
-#if 0
-template<typename T>
-inline void deserialize(ss::databuffer_<char, false> &ser, const T&t) {
-	deserialize((ss::bytebuffer_&) ser, t);
-}
-#endif
-
-
 
 
 template<>

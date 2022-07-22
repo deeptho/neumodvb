@@ -737,7 +737,6 @@ int get_extended_frontend_info(int fefd) {
 	}
 	printf("Name of card: %s\n", fe_info.card_name);
 	printf("Name of adapter: %s\n", fe_info.adapter_name);
-	printf("Name of frontend: %s\n", fe_info.name);
 	/*fe_info.frequency_min
 		fe_info.frequency_max
 		fe_info.symbolrate_min

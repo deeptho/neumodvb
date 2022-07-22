@@ -350,6 +350,7 @@ public:
 	}
 
 	int get_adapter_no() const; //thread safe because it only accesses constant members
+	int64_t get_adapter_mac_address() const; //thread safe because it only accesses constant members
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_stream_t(receiver_t& receiver, const std::shared_ptr<stream_reader_t>& reader)

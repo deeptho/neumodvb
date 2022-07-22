@@ -31,7 +31,7 @@ from dateutil import tz
 import regex as re
 from inspect import currentframe
 
-from neumodvb.util import dtdebug, dterror, get_text_extent
+from neumodvb.util import dtdebug, dterror, get_text_extent, setup, lastdot
 from neumodvb import neumodbutils
 
 import pyepgdb
@@ -103,7 +103,7 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
         self.Control.SetSize(rect.x, rect.y, rect.width+extra, rect.height, wx.SIZE_ALLOW_MINUS_ONE)
 
     def Show(self, *args):
-        if self.col.key.endswith('_pos'):
+        if False and self.col.key.endswith('_pos'):
             sats = wx.GetApp().get_sats()
             choices= [str(x) for x in sats]
             if False: #not working. wxPython bug?
@@ -118,6 +118,7 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
         ret = super().Show(*args)
         self.Control.SetFont(f)
         return ret
+
 
 class NeumoNumberEditor(wx.grid.GridCellNumberEditor):
     def __init__(self, col, *args, **kwds):
@@ -321,6 +322,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         return rec
 
     def GetValue(self, rowno, colno):
+        return self.GetValue_text(rowno, colno)
         try:
             return self.GetValue_text(rowno, colno)
         except:
@@ -338,7 +340,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         field = neumodbutils.get_subfield(rec, col.key)
         if self.coltypes[colno] == bool:
             return "1" if field else ""
-        txt = str(field) if col.dfn is None else str(col.dfn((rec, field)) )
+        txt = str(field) if col.dfn is None else str(col.dfn((rec, field, self)) )
         return txt
 
     def GetValue_raw(self, rowno, colno):
@@ -380,9 +382,11 @@ class NeumoTableBase(wx.grid.GridTableBase):
                     newval = int (1000*float(val)) if float(val)>=0 else -1
                 elif key.endswith('symbol_rate'):
                     newval = int (1000*int(val))
-                elif key.endswith("sat_pos") or key.endswith("lnb_pos") or key.endswith("usals_pos") :
+                elif key.endswith("sat_pos") or key.endswith("lnb_pos") or key.endswith("usals_pos"):
                     from neumodvb.util import parse_longitude
                     newval = parse_longitude(val)
+                elif key.endswith("adapter_mac_address"):
+                    newval = wx.GetApp().inverse_adapter_dict.get(val, -1)
                 else:
                     newval = int(val)
         except:
@@ -471,6 +475,7 @@ class NeumoTable(NeumoTableBase):
     BCK = namedtuple('BackupRecord', 'operation oldrow oldrecord newrecord')
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     bool_fn =  lambda x: 0 if False else 1
+
     all_columns = []
 
     def InitialRecord(self):
@@ -661,7 +666,10 @@ class NeumoTable(NeumoTableBase):
         """
         self.GetRow.cache_clear()
         self.parent.ForceRefresh()
-
+    def on_screen_changed(self):
+        """
+        Called when a screen for this table has changed
+        """
 
     def SaveModified(self):
         """
@@ -815,6 +823,26 @@ class NeumoTable(NeumoTableBase):
         dtdebug('reload')
         self.__get_data__()
 
+    def adapter_name(self, mac_address):
+        return wx.GetApp().adapter_dict.get(mac_address, '????')
+
+    def adapter_short_name(self, mac_address):
+        return wx.GetApp().adapter_dict[mac_address].split(":")[0]
+
+    def lnb_label(self, lnb):
+        x = neumodbutils.enum_to_str(lnb.rotor_control)
+        if x.startswith('ROTOR_SLAVE'):
+            sat_pos='slave'
+        elif x.startswith('ROTOR'):
+            sat_pos='rotor'
+        else:
+            sat_pos=pychdb.sat_pos_str(lnb.usals_pos)
+        t= lastdot(lnb.k.lnb_type)
+        if t != 'C':
+            t='Ku'
+        adap=self.adapter_short_name(lnb.k.adapter_mac_address)
+        return f'D{lnb.k.dish_id}{adap} {t} {sat_pos:>5} {lnb.k.lnb_id}'
+
 class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, basic, readonly, table, *args, dark_mode=False, fontscale=1, **kwds):
         super().__init__(*args, **kwds)
@@ -937,22 +965,28 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         for row in list(self.coloured_rows):
             self.UnColourRow(row)
 
+    def check_screen_update(self, screen):
+        if screen is not None:
+            txn=self.table.db.rtxn()
+            changed = self.table.screen.update(txn)
+            txn.abort()
+            return changed
+        return False
+
     def OnTimer(self, evt):
-        if self.table.screen is not None:
-            if True:
-                txn=self.table.db.rtxn()
-                changed = self.table.screen.update(txn)
-                txn.abort()
-                if changed:
-                    self.table.GetRow.cache_clear()
-                    self.OnRefresh(None, None)
-                    if self.infow is not None:
-                        self.infow.ShowRecord(self.table.CurrentlySelectedRecord())
-                return changed
-
-
-        return false
-
+        changed = False
+        if False:
+            for screen in self.table.aux_screens:
+                changed |= self.check_screen_update(screen)
+        changed |= self.check_screen_update(self.table.screen)
+        if changed:
+            self.table.on_screen_changed()
+            self.table.GetRow.cache_clear()
+            self.OnRefresh(None, None)
+            if self.infow is not None:
+                self.infow.ShowRecord(self.table.CurrentlySelectedRecord())
+            return changed
+        return False
 
     def OnToggleSort(self, evt):
         sort_column = evt.GetCol()
@@ -1005,6 +1039,16 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                         editor = None
                     else:
                         editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=col.key.endswith('lnb_pos') or col.allow_others)
+                elif col.key.endswith('adapter_mac_address'):
+                    #Note that the following code line depends on satlist_panel being the first
+                    #panel to be initialised (so: on the order of panels in neumoviewer.wxg)
+                    #choices = adapters
+                    if col.no_combo:
+                        editor = None
+                    else:
+                        d = wx.GetApp().adapter_dict
+                        choices= list(d.values())
+                        editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=False)
                 else:
                     editor = NeumoNumberEditor(col)
             else:

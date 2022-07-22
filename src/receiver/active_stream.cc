@@ -71,7 +71,11 @@ using std::placeholders::_3;
 
 int active_stream_t::get_adapter_no() const {
 	return active_adapter().get_adapter_no();
-	}
+}
+
+int64_t active_stream_t::get_adapter_mac_address() const {
+	return active_adapter().get_adapter_mac_address();
+}
 
 
 ss::string<32> active_stream_t::name() const

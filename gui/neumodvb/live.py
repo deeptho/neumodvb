@@ -503,8 +503,6 @@ class ChEpgGridRow(GridRow):
             if epg_record is None:
                 epg_idx = -1
                 break
-            if epg_record.event_name.startswith('Gentle'):
-                print('here')
             epg_idx +=1
             start_col = min(max(0, (epg_record.k.start_time - start_time)//self.grid.epg_duration_width),
                             self.grid.num_cols)

@@ -21,7 +21,6 @@
 
 #pragma once
 #include <cstdlib>
-#include <bitset>
 #include "section.h"
 #include "mpeg.h"
 #include "substream.h"

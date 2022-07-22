@@ -194,7 +194,6 @@ static void falling_kernel(spectrum_scan_state_t* ss, struct scan_internal_t* si
 	int count = 0;
 	bool peak_found = false;
 	s32 delta = (si->w * 16) / 200;
-	s32 w2 = si->w / 2;
 	s32 w = si->w;
 	int n = ss->spectrum_len;
 	int i;
@@ -233,7 +232,6 @@ static void rising_kernel(spectrum_scan_state_t* ss, struct scan_internal_t* si)
 	int count = 0;
 	bool peak_found = false;
 	s32 delta = (si->w * 16) / 200; // rise interval
-	s32 w2 = si->w / 2;							// plateau interval
 	s32 w = si->w;							// plateau interval
 	int n = ss->spectrum_len;
 	int i;
@@ -389,12 +387,12 @@ static int next_candidate_this_level(struct spectrum_scan_state_t* ss, struct sc
 					(si->rs[si->last_fall_idx] - si->rs[si->last_rise_idx]) / (si->last_fall_idx - si->last_rise_idx);
 				{
 					s32 delta = std::max(2, (si->w * 35) / 100);
-					s32 left = si->last_rise_idx - delta;
-					s32 right = si->last_fall_idx + delta;
+					s32 left = std::max(0, si->last_rise_idx - delta);
+					s32 right = std::min(ss->spectrum_len, si->last_fall_idx + delta);
 					s32 lowest_left = ss->spectrum[left];
 					s32 lowest_right = ss->spectrum[right];
 					assert(left >= 0);
-					assert(right < ss->spectrum_len);
+					assert(right <= ss->spectrum_len);
 
 					for(int i=left ; i < si->last_rise_idx ; ++i) {
 						lowest_left = std::min(lowest_left,  ss->spectrum[i]);

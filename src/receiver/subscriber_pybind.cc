@@ -281,7 +281,7 @@ void export_signal_info(py::module& m) {
 			return  &(ss::vector_<int16_t>&)i.isi_list;
 		})
  		.def_property_readonly("matype_list", [](const signal_info_t& i) {
-			return  &(ss::vector_<int16_t>&)i.matype_list;
+			return  &(ss::vector_<uint16_t>&)i.matype_list;
 		})
 		.def_property_readonly("matype", [](const signal_info_t& i) {
 			auto ret = chdb::matype_str(i.matype);

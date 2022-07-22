@@ -123,6 +123,15 @@ enum {
 } annot_flags_t;
 
 
+#ifdef DEBUG
+inline bool debug_matches(float f)
+{
+	bool ret = std::abs( f- 11608.099) < 0.01;
+	if(ret)
+		printf("match\n");
+	return ret;
+}
+#endif
 
 /*
 	sig: spectrum signal
@@ -130,11 +139,18 @@ enum {
 	w/h=width/height of annotation box
 	offset = vertical offset of annotation box
 */
-static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> annotx, int w, float h, float offset) {
+static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> annotx,
+																			 py::array_t<float> freq,
+																			 int w, float h, float offset) {
 	py::buffer_info infosig = sig.request();
 	if (infosig.ndim != 1)
 		throw std::runtime_error("Bad number of dimensions");
 	auto* psig = (float*)infosig.ptr;
+	int stridef = infosig.strides[0] / sizeof(int);
+	py::buffer_info infofreq = freq.request();
+	if (infofreq.ndim != 1)
+		throw std::runtime_error("Bad number of dimensions");
+	auto* pf = (float*)infofreq.ptr;
 	int stridesig = infosig.strides[0] / sizeof(int);
 	int w2 = w*2;
 	int h2 = h/2*1.2;
@@ -197,6 +213,9 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 
 	for (int i = 0; i < na; ++i) {
 		auto x = px[i];
+#ifdef DEBUG
+		debug_matches(pf[i]);
+#endif
 		assert(x < n);
 		if (i > 0) {
 			auto [overlap, worst ] = left_overlapping(i);
@@ -240,7 +259,9 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 
 	for (int i = na - 1; i >= 0; --i) {
 		auto x = px[i];
-
+#ifdef DEBUG
+		debug_matches(pf[i]);
+#endif
 		assert(x < n);
 		if (i < na - 1) {
 			auto [overlap, worst ] = right_overlapping(i);

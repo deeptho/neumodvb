@@ -409,8 +409,9 @@ class Spectrum(object):
         idxs =  np.searchsorted(spec[:,0], f, side='left')
         offset = h*1.5*1000
         self.pol = enum_to_str (self.spectrum.k.pol)
-        annoty, lrflag = pyspectrum.find_annot_locations(spec[:,1], idxs,
-                                                         int(w*xscale), int(h*1.8*1000), offset)
+        annoty, lrflag = pyspectrum.find_annot_locations(spec[:,1], idxs, f, #f only used for debugging
+                                                         int(w*xscale), int(h*1.8*1000),
+                                                         offset)
         self.annot_maxy = annoty.max()/1000
         annoty /= 1000
         hlines = []

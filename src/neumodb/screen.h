@@ -64,10 +64,11 @@ struct dynamic_key_t {
 		{}
 
 
-	bool is_predefined() const {
+	inline bool is_predefined() const {
 		assert(fields.size()>=1);
 		return fields.size()==4 && fields[0]==0 && fields[1] == 0 && fields[2]==0;
 	}
+
 	explicit operator uint32_t() const {
 		uint32_t ret =0;
 		for (auto f: fields) {
@@ -76,7 +77,6 @@ struct dynamic_key_t {
 		auto extra = 4-fields.size();
 		if(extra<=3)
 			ret <<= (extra*8);
-		assert(ret);
 		return ret;
 	}
 };

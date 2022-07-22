@@ -627,6 +627,9 @@ screen_t<record_t>::screen_t
 #endif
 		)
 {
+	if ((uint32_t)sort_order ==0) {
+		std::runtime_error("illegal sort order");
+	}
 	if(field_matchers_) {
 		field_matchers = *field_matchers_;
 		assert(match_data_);

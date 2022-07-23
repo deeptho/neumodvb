@@ -6,7 +6,7 @@ add_library(neumoreceiver SHARED  receiver.cc subscriber.cc subscriber_notify.cc
   active_adapter.cc devmanager.cc fe_monitor.cc
   active_si_stream.cc recmgr.cc frontend.cc scam.cc
   active_stream.cc active_service.cc filemapper.cc live_mpm.cc active_playback.cc playback_mpm.cc
-  dvbcsa.cc capmt.cc streamfilter.cc spectrum_algo2.cc)
+  dvbcsa.cc capmt.cc streamfilter.cc spectrum_algo4.cc)
 
 
 target_precompile_headers(neumoreceiver PRIVATE
@@ -50,7 +50,7 @@ add_subdirectory(streamparser)
 
 
 pybind11_add_module(pyreceiver receiver_pybind.cc setproctitle.c options_pybind.cc subscriber_pybind.cc logger_pybind.cc)
-pybind11_add_module(pyspectrum spectrum_pybind.cc spectrum_algo2.cc)
+pybind11_add_module(pyspectrum spectrum_pybind.cc spectrum_algo4.cc)
 
 
 target_compile_options(pyreceiver PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error

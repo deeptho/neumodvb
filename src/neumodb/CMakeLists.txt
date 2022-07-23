@@ -2,7 +2,7 @@ find_package(Python 3.7 REQUIRED) #3.5 is minimum version
 find_package(PythonLibs 3.7 REQUIRED)
 include_directories("${PYTHON_INCLUDE_DIR}")
 
-add_library(neumodb SHARED neumodb.cc dbdesc.cc neumodb_pybind.cc)
+add_library(neumodb SHARED neumodb.cc dbdesc.cc neumodb_pybind.cc deserialize_pybind.cc)
 add_dependencies(neumodb stackstring neumolmdb schema_generated_files)
 
 target_link_libraries(neumodb PUBLIC stackstring ${PYTHON_LIBRARIES} stdc++fs)
@@ -29,6 +29,12 @@ target_link_libraries(testserialize stackstring chdb neumodb pthread)
 add_executable(testtempdb testtempdb.cc)
 add_dependencies(testtempdb chdb neumodb schema ch_generated_files)
 target_link_libraries(testtempdb stackstring chdb schema neumodb )
+
+pybind11_add_module(pydeser deserialize_pybind.cc)
+target_compile_options(pydeser PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
+target_link_libraries(pydeser PRIVATE neumoutil stackstring schema)
+
+
 
 add_subdirectory(chdb)
 add_subdirectory(statdb)

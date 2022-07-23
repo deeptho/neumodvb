@@ -82,7 +82,7 @@ namespace data_types {
 	}
 
 	inline bool is_int_type(int type_id){ //built in scalar type; hardwired
-		switch(type_id) {
+		switch(type_id & ~data_types::enumeration & ~data_types::vector) {
 		case uint8:
 		case int8:
 		case uint16:
@@ -95,6 +95,14 @@ namespace data_types {
 		default:
 			return false;
 		}
+	}
+
+	inline bool is_boolean_type(int type_id){ //built in scalar type; hardwired
+		return  (type_id & ~ data_types::enumeration) == boolean;
+	}
+
+	inline bool is_string_type(int type_id){ //built in scalar type; hardwired
+		return  (type_id & ~ data_types::enumeration) == string;
 	}
 
 

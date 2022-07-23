@@ -74,14 +74,15 @@ std::enable_if_t<std::is_integral_v<T>, int>
 deserialize_int(const ss::bytebuffer_ &ser, T& val, int foreign_type_id, int offset)  {
 	int ret = -1;
 	using namespace data_types;
-	switch(foreign_type_id) {
+	switch(foreign_type_id & ~data_types::enumeration & ~data_types::vector) {
 	case uint8: {
 		uint8_t val_;
 		ret = decode_ascending(val_, ser, offset);
 		val = val_;
 		return ret;
 	}
-	case int8: {
+	case int8:
+	case boolean: {
 		int8_t val_;
 		ret = decode_ascending(val_, ser, offset);
 		val = val_;
@@ -146,33 +147,12 @@ inline int deserialize(const ss::bytebuffer_ &ser, ss::databuffer_<data_t>& data
 	offset = deserialize(ser, size, offset);
 	if(offset< 0)
 		return -1;
-#if 0
-	if(size > 32*1024) {
-		printf("Record to deserialize would be too large\n");
-		return -1;
+	auto limit = offset + (signed) size;
+	for (int i=0; offset<limit; ++i) {
+		offset = deserialize(ser, data[i], offset);
+		if(offset< 0)
+			return -1;
 	}
-
-	if constexpr (std::is_fundamental<data_t>::value || std::is_enum<data_t>::value) {
-			size = (size/sizeof(data_t));
-			if(offset + (signed)size > ser.size()) {
-				printf("Insufficient data to deserialise\n");
-				return -1;
-			}
-			data.append_raw((data_t*)(ser.buffer() + offset), size);
-			int data_len = (array_item_size<data_t>() * size + data.item_size-1)/data.item_size;
-			offset +=  data_len * data.item_size;
-			assert(data.size() == (signed) size);
-		} else {
-#endif
-		auto limit = offset + (signed) size;
-		for (int i=0; offset<limit; ++i) {
-			offset = deserialize(ser, data[i], offset);
-			if(offset< 0)
-				return -1;
-		}
-#if 0
-	}
-#endif
 #ifndef NDEBUG
 	auto test_size = serialized_size(data);
 	assert(offset - oldsize == test_size);

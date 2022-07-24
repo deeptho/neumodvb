@@ -89,7 +89,7 @@ void export_milli_seconds_t(py::module& m) {
 		;
 }
 
-void export_neumodb(py::module& m) {
+EXPORT void export_neumodb(py::module& m) {
 	static bool called = false;
 	if (called)
 		return;

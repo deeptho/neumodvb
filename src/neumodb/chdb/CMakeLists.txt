@@ -58,7 +58,7 @@ pybind11_add_module(pychdb chdb_pybind.cc chdb_vector_pybind.cc ${pybind_srcs})
 target_compile_options(pychdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(chdb PUBLIC stackstring neumolmdb neumoutil neumodb schema)
 
-target_link_libraries(pychdb PRIVATE chdb neumodb)
+target_link_libraries(pychdb PRIVATE chdb pyneumodb pyschemadb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
 target_precompile_headers(chdb PRIVATE [[<stdint.h>]] chdb_extra.h  ${precomp})

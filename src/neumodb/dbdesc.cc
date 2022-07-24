@@ -63,6 +63,7 @@ static void convert(const schema::neumo_schema_record_t& in, record_desc_t& out)
 	// both records are basically the same!
 
 	out.type_id = in.type_id;
+	out.name = in.name;
 	out.record_version = in.record_version;
 	for (auto& field : in.fields) {
 		field_desc_t f;
@@ -130,8 +131,7 @@ void dbdesc_t::init(const ss::vector_<record_desc_t>& sw_schema) {
 	schema_map.clear();
 	for (const auto& sw_record_schema : sw_schema) {
 		// store a default, current schema
-		auto [it, inserted] = schema_map.try_emplace(sw_record_schema.type_id, sw_record_schema);
-		// auto& test = schema_map.find(current_record_schema.type_id)->second;
+		schema_map.try_emplace(sw_record_schema.type_id, sw_record_schema);
 	}
 }
 
@@ -168,7 +168,7 @@ void dbdesc_t::init(const all_schemas_t& all_sw_schemas, const ss::vector_<recor
 		// look up the slot for stored_record_schema.type_id for the currently processed struct
 		auto* metadata = metadata_for_type(stored_record_schema.type_id);
 		if (metadata != nullptr) {
-			const auto& current_record_schema = metadata->schema;
+			const auto& current_record_schema = metadata->record_desc;
 			// store the schema info about this struct, and also compute offsets
 			schema_map.at(stored_record_schema.type_id) = record_data_t(stored_record_schema, current_record_schema);
 		}
@@ -219,7 +219,7 @@ bool check_schema(const dbdesc_t& stored, const dbdesc_t& current) {
 			dtdebugx("No descriptor for type %ld in database\n", type_id);
 			ret = false;
 		} else {
-			if (*stored_desc != current_desc.schema) {
+			if (*stored_desc != current_desc.record_desc) {
 				ret = false;
 				dtdebugx("type %ld has changed\n", type_id);
 			}

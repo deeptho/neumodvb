@@ -1,5 +1,5 @@
 /*
- * Neumo dvb (C) 2019-2021 deeptho@gmail.com
+ * Neumo dvb (C) 2019-2022 deeptho@gmail.com
  *
  * Copyright notice:
  *
@@ -24,7 +24,6 @@
 #include "util/identification.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <stdio.h>
 
 namespace py = pybind11;
 using namespace chdb;

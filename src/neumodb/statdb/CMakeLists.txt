@@ -56,7 +56,7 @@ pybind11_add_module(pystatdb statdb_pybind.cc statdb_vector_pybind.cc ${pybind_s
 
 target_compile_options(pystatdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil chdb neumodb schema date::date-tz)
-target_link_libraries(pystatdb PRIVATE statdb neumodb)
+target_link_libraries(pystatdb PRIVATE statdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
 target_precompile_headers(statdb PRIVATE [[<stdint.h>]] statdb_extra.h ${precomp})

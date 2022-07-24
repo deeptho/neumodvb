@@ -9,7 +9,7 @@ include_directories(
     # The location of the headers after installation
     $<INSTALL_INTERFACE:include>
 )
-set(GEN schema) #basename of generated files
+set(GEN schema enums schema_db) #basename of generated files
 
 list(TRANSFORM GEN APPEND .cc OUTPUT_VARIABLE gensrc)
 
@@ -24,7 +24,6 @@ list(TRANSFORM TEMPLATE APPEND .h OUTPUT_VARIABLE genhtemplate)
 list(TRANSFORM TEMPLATE APPEND .cc OUTPUT_VARIABLE gencctemplate)
 list(TRANSFORM TEMPLATE APPEND _pybind.cc OUTPUT_VARIABLE genpybindtemplate)
 
-list(APPEND gensrc schema_db.cc)
 list(APPEND gensrc schema_keys.cc)
 list(APPEND genhdr schema_keys.h)
 list(APPEND genhtemplate ${PROJECT_SOURCE_DIR}/neumodb/templates/db_keys.h)
@@ -48,13 +47,14 @@ add_custom_command(
 add_custom_target(schema_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(schema SHARED ${gensrc})
-add_dependencies(schema schema_generated_files ch_generated_files)
+add_dependencies(schema schema_generated_files)
 
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(schema PUBLIC -fPIC -fsized-deallocation)
-
 target_link_libraries(schema PUBLIC stackstring neumolmdb neumoutil neumodb)
 
+pybind11_add_module(pyschemadb SHARED schemadb_pybind.cc ${pybind_srcs})
+target_link_libraries(pyschemadb PUBLIC pyneumodb schema)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
 target_precompile_headers(schema PRIVATE [[<stdint.h>]] schema_extra.h ${precomp})

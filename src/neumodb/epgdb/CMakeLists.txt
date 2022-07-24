@@ -57,7 +57,7 @@ pybind11_add_module(pyepgdb epgdb_pybind.cc ${pybind_srcs})
 target_compile_options(pyepgdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(epgdb PUBLIC stackstring neumolmdb neumoutil neumodb schema date::date-tz)
 
-target_link_libraries(pyepgdb PRIVATE epgdb chdb neumodb)
+target_link_libraries(pyepgdb PRIVATE epgdb chdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
 target_precompile_headers(epgdb PRIVATE [[<stdint.h>]] epgdb_extra.h ${precomp})

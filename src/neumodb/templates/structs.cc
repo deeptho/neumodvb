@@ -631,7 +631,7 @@ template<>
 	auto type_id = {{dbname}}::{{struct.class_name}}::type_id_;
 	auto it = dbdesc.schema_map.find(type_id);
 	if(it != dbdesc.schema_map.end()) {
-		return deserialize_safe(ser, it->second.schema, rec, dbdesc);
+		return deserialize_safe(ser, it->second.record_desc, rec, dbdesc);
 	}
 	return -1;
 }
@@ -778,7 +778,9 @@ namespace {{dbname}} {
 
 
 {%if struct.is_table %}
+
 namespace {{dbname}} {
+
 		template<>
 			 void delete_secondary_keys<{{struct.class_name}}>
 		(db_tcursor<{{struct.class_name}}>& tcursor, const ss::bytebuffer_& primary_key, const {{struct.class_name}}& record) {
@@ -1371,6 +1373,7 @@ void screen_t<{{dbname}}::{{struct.class_name}}>::fill_list_db
 
 		}
 }
+
 {% endif %}
 
 
@@ -1399,11 +1402,10 @@ void screen_t<{{dbname}}::{{struct.class_name}}>::fill_list_db
 
 
 {%if struct.is_table %}
-{%if dbname != 'schema' %}
-
 
 template struct screen_t<{{dbname}}::{{struct.class_name}}>;
 
+{%if dbname != 'schema' %}
 
 {% endif %}
 {% endif %}

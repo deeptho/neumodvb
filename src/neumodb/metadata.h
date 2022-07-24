@@ -104,8 +104,9 @@ namespace data_types {
 	inline bool is_string_type(int type_id){ //built in scalar type; hardwired
 		return  (type_id & ~ data_types::enumeration) == string;
 	}
-
-
+#ifdef PURE_PYTHON
+	EXPORT  ss::string<32>  typename_for_type_id(int32_t type_id);
+#endif
 	template<typename T> inline constexpr bool is_vector_type(){ //
 		return (data_type<T>()& vector);
 	}

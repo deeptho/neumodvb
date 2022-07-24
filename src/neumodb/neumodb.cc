@@ -29,7 +29,7 @@ void neumodb_t::init(const all_schemas_t& all_sw_schemas) {
 }
 
 neumodb_t::neumodb_t(bool readonly_, bool is_temp_, bool autoconvert_)
-	:  is_temp(is_temp_), readonly(readonly_), autoconvert(autoconvert_)
+	:  autoconvert(autoconvert_), is_temp(is_temp_), readonly(readonly_)
 	, envp(std::make_shared<lmdb::env>(lmdb::env::create())) {
 }
 
@@ -40,7 +40,7 @@ neumodb_t& neumodb_t::operator=(const neumodb_t& other) {
 }
 
 neumodb_t::neumodb_t(const neumodb_t& main)
-	: is_temp(main.is_temp), readonly(main.readonly), autoconvert(main.autoconvert), envp(main.envp)
+	: autoconvert(main.autoconvert), is_temp(main.is_temp), readonly(main.readonly), envp(main.envp)
 //, dbdesc(main.dbdesc) deliberately not copied, as the copy of the neumodb_t needs to be initialised
 {}
 
@@ -118,7 +118,7 @@ void neumodb_t::open(const char* dbpath, bool allow_degraded_mode, const char* t
 
 void neumodb_t::open_(const char* dbpath, bool allow_degraded_mode, const char* table_name, bool use_log,
 										 size_t mapsize) {
-	bool was_open = is_open_;
+	//bool was_open = is_open_;
 	is_open_ = true;
 	try {
 		if (!readonly) {
@@ -366,3 +366,70 @@ std::ostream& operator<<(std::ostream& os, const field_matcher_t& matcher) {
 	os << matcher.match_type << "(" << ((int)matcher.field_id) << ")";
 	return os;
 }
+
+
+#ifdef PURE_PYTHON
+ss::string<32>  data_types::typename_for_type_id(int32_t type_id)
+{
+	ss::string<32> ret;
+	using namespace data_types;
+	if(is_vector_type(type_id))
+		ret.sprintf("vect<");
+	if(type_id & enumeration)
+		ret.sprintf("enum(");
+	switch(type_id & ~enumeration & ~data_types::vector) {
+	case data_types::uint8:
+		ret.sprintf("uint8");
+		break;
+	case data_types::int8:
+		ret.sprintf("int8");
+		break;
+	case data_types::uint16:
+		ret.sprintf("uint16");
+		break;
+	case data_types::int16:
+		ret.sprintf("int16");
+		break;
+	case data_types::uint32:
+		ret.sprintf("uint32");
+		break;
+	case data_types::int32:
+		ret.sprintf("int32");
+		break;
+	case data_types::uint64:
+		ret.sprintf("uint64");
+		break;
+	case data_types::int64:
+		ret.sprintf("int64");
+		break;
+	case data_types::boolean:
+		ret.sprintf("boolean");
+		break;
+	case data_types::string:
+		ret.sprintf("string");
+		break;
+	case data_types::float32:
+		ret.sprintf("float32");
+		break;
+	case data_types::variant:
+		ret.sprintf("variant");
+		break;
+	case data_types::field_desc:
+		ret.sprintf("field");
+		break;
+	case data_types::record_desc:
+		ret.sprintf("record");
+		break;
+	case data_types::schema:
+		ret.sprintf("schema");
+		break;
+	default:
+		ret.sprintf("user defined");
+	}
+	if(type_id & data_types::enumeration)
+		ret.sprintf(")");
+	if(is_vector_type(type_id))
+		ret.sprintf(">");
+	return ret;
+}
+#endif

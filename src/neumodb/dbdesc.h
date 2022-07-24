@@ -120,7 +120,7 @@ class record_data_t
 	friend class dbdesc_t;
 public:
 	static constexpr int32_t NOTFOUND{std::numeric_limits<int32_t>::max()};
-	record_desc_t schema;
+	record_desc_t record_desc;
 	/*
 		Fixed size fields are stored at start of serialized data; for each of them, field_offsets[i] is the offset in the
 		serialialized record where the i-th fixed size field can be found, or NOTFOUND
@@ -144,12 +144,12 @@ public:
 	void init(const record_desc_t& schema_map, const record_desc_t& current_schema);
 
 	record_data_t(const record_desc_t& schema_map, const record_desc_t& current_schema) {
-		schema = schema_map;
+		record_desc = schema_map;
 		init(schema_map, current_schema);
 	}
 
 	record_data_t(const record_desc_t& schema_map) {
-		schema = schema_map;
+		record_desc = schema_map;
 		init(schema_map, schema_map);
 	}
 
@@ -212,7 +212,7 @@ public:
 
 	const record_desc_t* schema_for_type(int type_id) const {
 		auto* p = metadata_for_type(type_id);
-		return p ? &(p->schema): NULL;
+		return p ? &(p->record_desc): NULL;
 	}
 
 

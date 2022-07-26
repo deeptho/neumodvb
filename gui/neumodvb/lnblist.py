@@ -79,7 +79,7 @@ class LnbTable(NeumoTable):
                               ]
     all_columns = \
         [ CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
-         CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=True, readonly=True,
+         CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=False, readonly=False,
             dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
          CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
          CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos

@@ -831,7 +831,7 @@ std::ostream& chdb::operator<<(std::ostream& os, const fe_key_t& fe_key) {
 
 std::ostream& chdb::operator<<(std::ostream& os, const fe_t& fe) {
 	using namespace chdb;
-	stdex::printf(os, "A%d F%d", (int)fe.adapter_no, (int)fe.frontend_no);
+	stdex::printf(os, "A%d F%d", (int)fe.adapter_no, (int)fe.k.frontend_no);
 	stdex::printf(os, " %s;%s;%s", fe.card_name, fe.adapter_name, fe.card_address);
 	stdex::printf(os, " master=[0x^06x] enabled=%d available=%d", fe.master_adapter_mac_address,
 								fe.enabled, fe.can_be_used);

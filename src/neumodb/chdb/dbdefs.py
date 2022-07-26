@@ -941,6 +941,7 @@ fe_key = db_struct(name='fe_key',
                           version = 1,
                           fields = (
                               (3, 'int64_t', 'adapter_mac_address'),
+                              (5, 'uint8_t', 'frontend_no'),
                           ))
 
 fe_supports = db_struct(name='fe_supports',
@@ -962,7 +963,7 @@ fe = db_struct(name='fe',
                db = db,
                type_id= ord('u'),
                version = 1,
-               primary_key = ('key', ('k.adapter_mac_address',)),
+               primary_key = ('key', ('k',)),
                keys =  (
                    (ord('f'), 'adapter_no', ('adapter_no',)),
                ),
@@ -970,7 +971,6 @@ fe = db_struct(name='fe',
                    (1, 'fe_key_t', 'k'),
                    (25, 'int16_t', 'rf_in'),
                    (21, 'int16_t', 'adapter_no'),
-                   (22, 'int16_t', 'frontend_no'),
                    (24, 'bool', 'supports_neumo'),
                    (2, 'bool', 'present'),
                    (3, 'bool', 'can_be_used', 'true'),
@@ -1050,8 +1050,7 @@ lnb_key = db_struct(name='lnb_key',
                               #with the mac_address for equivantly a mac address for the RF input
                               #The code can then look up compatible demods, i.e., demods which can
                               #reach the lnb
-
-                              #(5, 'int16_t', 'rf_input', '-1'),  #rf input number
+                              #(7, 'int16_t', 'rf_input', '-1'),  #rf input number
                               #Together with the mac_address this uniquely identigfies and output connection (cable)
                               #on the pc. Only needed if we do not introduce rf input mac addresses
 

@@ -53,6 +53,7 @@ class FrontendTable(NeumoTable):
         [
          CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=True, readonly=True,
             dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
+         CD(key='k.frontend_no',  label='FE#', basic=True, readonly=True),
          CD(key='card_name',  label='Card', basic=True, example=" TurboSight TBS 6916 (Octa DVB-S/S2/S2X)"),
          CD(key='rf_in',  label='RF#', basic=True, readonly=True),
          #CD(key='card_mac_address',  label='card MAC#', basic=True, no_combo=True, readonly=True,

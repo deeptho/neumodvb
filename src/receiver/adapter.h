@@ -590,12 +590,12 @@ private:
 	adaptermgr_t(receiver_t& receiver_)
 		: receiver(receiver_)
 		{}
-
+#if 0
 	dvb_adapter_t*	find_adapter(adapter_no_t adapter_no) {
 		auto it_adapter = adapters.find(adapter_no);
 		return (it_adapter == adapters.end()) ?  nullptr: &it_adapter->second;
 	}
-
+#endif
 	inline const dvb_adapter_t*	find_adapter(adapter_mac_address_t adapter_mac_address) const {
 		auto [it, found] = find_in_map_if(adapters, [adapter_mac_address](const auto& x) {
 			auto& [mac_address_, rec] = x;

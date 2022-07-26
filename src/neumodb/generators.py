@@ -217,13 +217,12 @@ class db_struct(object):
                                 scalar_type=scalar_type, has_variable_size=has_variable_size))
 
     def add_key_helper(self, index_id, index_name,
-                       fields, primary, full, expanded):
+                       fields, primary, full):
         """
         index_def is a tuple of field names; each field_name can be prepended by a conversion function
         We have the following types of keys
-        full=True, expanded=False: original key as specified in dbdefs.py
-        full=True, expanded=True:  original single-field key, with its field replaced by subfields
-        full=False: shortened version of an original (expanded or not) key key with some of its final
+        full=True: original key as specified in dbdefs.py
+        full=False: shortened version of an original key key with some of its final
                         fields removed
 
         """
@@ -244,7 +243,7 @@ class db_struct(object):
             key_fields.append(dict(fun=fun, name = field_name, scalar_type=scalar_type, namespace=namespace))
 
         key = dict(index_id=index_id, index_name=index_name,
-                   fields=key_fields, primary=primary, full=full, expanded=expanded)
+                   fields=key_fields, primary=primary, full=full)
         return key
 
     def expand_key(self, fields):
@@ -306,8 +305,9 @@ class db_struct(object):
         n = len(fields)
         prefixes = []
         prefix_name =  '_'.join([f['short_name'] for f in fields])
-        newprefix={ 'prefix_name': prefix_name,
-                    'fields' : fields }
+        newprefix = { 'prefix_name': prefix_name,
+                      'is_full_key' : True,
+                      'fields' : fields}
         if len(fields) ==0:
             return prefixes
         prefixes.append(newprefix)
@@ -348,8 +348,9 @@ class db_struct(object):
             fields = fields[:-1]
             prefix_name =  '_'.join([f['short_name'] for f in fields])
             newprefix={ 'prefix_name': prefix_name,
+                        'is_full_key' : False,
                         #'equivalents' : equivalents,
-                        'fields' : fields }
+                        'fields' : fields}
             prefixes.append(newprefix)
         return prefixes
 
@@ -359,8 +360,7 @@ class db_struct(object):
         """
         key_fields = []
 
-        key = self.add_key_helper(index_id, index_name, fields, primary=primary,
-                                  full=True, expanded = False)
+        key = self.add_key_helper(index_id, index_name, fields, primary=primary, full=True)
         self.keys.append(key)
         return key
 

@@ -382,7 +382,7 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 																	 dvb_frontend_t::thread_safe_t& t) {
 	auto txn = receiver.chdb.rtxn();
 
-	auto c = chdb::fe_t::find_by_key(txn, t.dbfe.k.adapter_mac_address);
+	auto c = chdb::fe_t::find_by_key(txn, chdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
 	auto dbfe_old = c.is_valid() ? c.current() : chdb::fe_t();
 
 	bool changed = !c.is_valid() || (dbfe_old.k.adapter_mac_address != t.dbfe.k.adapter_mac_address) ||
@@ -399,7 +399,7 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 	txn.abort();
 	if (changed) {
 		t.dbfe.adapter_no = int(adapter_no);
-		t.dbfe.frontend_no = int(frontend_no);
+		t.dbfe.k.frontend_no = int(frontend_no);
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
 		t.dbfe.present = true;
 		t.dbfe.enabled = dbfe_old.enabled;
@@ -941,7 +941,7 @@ int dvb_adapter_t::release_fe() {
 }
 
 void adapter_reservation_t::update_dbfe_from_db(db_txn& rtxn, dvb_frontend_t::thread_safe_t& t) const {
-	auto c = chdb::fe_t::find_by_key(rtxn, t.dbfe.k.adapter_mac_address);
+	auto c = chdb::fe_t::find_by_key(rtxn, t.dbfe.k);
 	auto dbfe_db = c.is_valid() ? c.current() : chdb::fe_t();
 
 	bool changed = !c.is_valid() || (dbfe_db.k.adapter_mac_address != t.dbfe.k.adapter_mac_address) ||

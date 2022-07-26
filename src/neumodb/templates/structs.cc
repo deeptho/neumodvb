@@ -965,6 +965,14 @@ namespace {{dbname}} {
 	 {%for field in prefix.fields %}
 	temp.{{field.name}} = {{field.short_name}};
 	{%endfor%}
+	{% if not prefix.is_full_key %}
+	/*This is is a partial key. There is no point in searching for equality.
+		This is a code error. The caller should use find_geq instead.
+	*/
+	assert(find_type!= find_type_t::find_eq || ("Incorrect code" == nullptr));
+	{% else %}
+	//This is is a full key
+	{% endif %}
 	auto key_prefix_ =
 		{{struct.class_name}}::make_key({{struct.class_name}}::keys_t::{{key.index_name}},
 																		key_prefix,  &temp);

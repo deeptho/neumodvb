@@ -1279,7 +1279,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	auto sat_pos = nit_data.nit_actual_sat_positions.size()>=1 ? nit_data.nit_actual_sat_positions[0] : sat_pos_none;
 	bool is_wrong_dvb_type = dvb_type(sat_pos) != dvb_type(tuned_mux);
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
-		&& std::abs(sat_pos - tuned_mux_key->sat_pos) >= 30;
+		&& sat_pos != sat_pos_none && std::abs(sat_pos - tuned_mux_key->sat_pos) >= 30;
 
 	ret = on_nit_completion(wtxn, network_data, ret, network.is_actual, on_wrong_sat, done);
 	if(ret== dtdemux::reset_type_t::RESET ||
@@ -1460,7 +1460,9 @@ active_si_stream_t::nit_actual_update_tune_confirmation(db_txn& wtxn, chdb::any_
 					ret = dtdemux::reset_type_t::NO_RESET;
 			} else {
 			//temporarily on wrong sat (dish still moving)
+#if 0
 				reader->update_tuned_mux_nit(mux);
+#endif
 				ret = dtdemux::reset_type_t::RESET;
 		}
 		if(ret != dtdemux::reset_type_t::NO_RESET)

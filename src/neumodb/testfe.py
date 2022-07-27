@@ -32,7 +32,8 @@ screen=pychdb.fe.screen(txn, sort_order=sort_order)
 for idx in range(screen.list_size):
     ll = screen.record_at_row(idx)
     if ll.present:
-        print(f"{mac_fn(ll.k.adapter_mac_address)}: {ll.adapter_name}: {ll.adapter_no}.{ll.k.frontend_no}: {ll.master_adapter_mac_address}")
+        print(f"{mac_fn(ll.k.adapter_mac_address)}: {ll.adapter_name}: {ll.adapter_no}.{ll.k.frontend_no}: {ll.master_adapter_mac_address}"
+              f' present={ll.present}')
 
 print("===================================")
 sort_order = pychdb.fe.subfield_from_name('card_mac_address')<<24

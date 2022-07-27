@@ -380,28 +380,19 @@ void adaptermgr_t::stop_frontend_monitor(dvb_frontend_t* fe) {
 */
 void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
 																	 dvb_frontend_t::thread_safe_t& t) {
+	t.dbfe.adapter_no = int(adapter_no);
+
 	auto txn = receiver.chdb.rtxn();
 
 	auto c = chdb::fe_t::find_by_key(txn, chdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
 	auto dbfe_old = c.is_valid() ? c.current() : chdb::fe_t();
-
-	bool changed = !c.is_valid() || (dbfe_old.k.adapter_mac_address != t.dbfe.k.adapter_mac_address) ||
-		(dbfe_old.card_mac_address != t.dbfe.card_mac_address) ||
-		(dbfe_old.card_name != t.dbfe.card_name) || (dbfe_old.adapter_name != t.dbfe.adapter_name) ||
-		(dbfe_old.card_address != t.dbfe.card_address) ||
-		(dbfe_old.adapter_address != t.dbfe.adapter_address) ||  t.dbfe.present != true ||
-		(dbfe_old.master_adapter_mac_address != t.dbfe.master_adapter_mac_address) ||
-		t.dbfe.can_be_used != t.can_be_used;
-
-	//	auto tst =dump_caps((chdb::fe_caps_t)fe_info.caps);
-	//	dterror("CAPS: " << tst);
-	changed |= dbfe_old.delsys != t.dbfe.delsys;
+	dbfe_old.mtime = t.dbfe.mtime; //prevent this from being a change
+	bool changed = !c.is_valid() || (dbfe_old != t.dbfe);
 	txn.abort();
+
 	if (changed) {
-		t.dbfe.adapter_no = int(adapter_no);
-		t.dbfe.k.frontend_no = int(frontend_no);
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
-		t.dbfe.present = true;
+		t.dbfe.k.frontend_no = int(frontend_no);
 		t.dbfe.enabled = dbfe_old.enabled;
 		t.dbfe.can_be_used = t.can_be_used;
 		t.dbfe.master_adapter_mac_address = dbfe_old.master_adapter_mac_address;
@@ -431,9 +422,13 @@ void dvbdev_monitor_t::on_new_frontend(dvb_adapter_t* adapter, frontend_no_t fro
 		assert(0);
 	}
 	auto fe = dvb_frontend_t::make(adapter, frontend_no, api_type, api_version);
-	auto t = fe->ts.writeAccess();
-	update_dbfe(adapter->adapter_no, frontend_no, *t);
-
+	{
+		auto t = fe->ts.writeAccess();
+		t->dbfe.present = true;
+		t->can_be_used = t->dbfe.enabled;;
+		t->dbfe.can_be_used = t->can_be_used;
+		update_dbfe(adapter->adapter_no, frontend_no, *t);
+	}
 	adapter->frontends.try_emplace(frontend_no, fe);
 
 	// adapter->update_adapter_can_be_used();
@@ -461,15 +456,21 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) { // shou
 		// This should not happen in regular operation
 		dterrorx("Unexpected\n");
 	}
-	auto t = fe->ts.writeAccess();
-	t->can_be_used = false;
-	t->dbfe.can_be_used = false;
 	{
-		auto txn = receiver.chdb.wtxn();
-		put_record(txn, t->dbfe, 0);
-		txn.commit();
+		auto t = fe->ts.writeAccess();
+		t->can_be_used = false;
+		t->dbfe.present = false;
+		t->dbfe.can_be_used = false;
+#if 1
+		update_dbfe(adapter->adapter_no, fe->frontend_no, *t);
+#else
+		{
+			auto txn = receiver.chdb.wtxn();
+			put_record(txn, t->dbfe, 0);
+			txn.commit();
+		}
+#endif
 	}
-
 	adapter->frontends.erase(fe->frontend_no);
 	if (adapter->frontends.size() == 0) {
 		adapters.erase(adapter->adapter_no);
@@ -943,16 +944,9 @@ int dvb_adapter_t::release_fe() {
 void adapter_reservation_t::update_dbfe_from_db(db_txn& rtxn, dvb_frontend_t::thread_safe_t& t) const {
 	auto c = chdb::fe_t::find_by_key(rtxn, t.dbfe.k);
 	auto dbfe_db = c.is_valid() ? c.current() : chdb::fe_t();
+	dbfe_db.mtime = t.dbfe.mtime; //prevent this from being a change
+	bool changed = !c.is_valid() || (t.dbfe != dbfe_db);
 
-	bool changed = !c.is_valid() || (dbfe_db.k.adapter_mac_address != t.dbfe.k.adapter_mac_address) ||
-		(dbfe_db.card_mac_address != t.dbfe.card_mac_address) ||
-		(dbfe_db.card_name != t.dbfe.card_name) || (dbfe_db.adapter_name != t.dbfe.adapter_name) ||
-		(dbfe_db.card_address != t.dbfe.card_address) ||
-		(dbfe_db.adapter_address != t.dbfe.adapter_address) ||  t.dbfe.present != true ||
-		(dbfe_db.master_adapter_mac_address != t.dbfe.master_adapter_mac_address) ||
-		t.dbfe.can_be_used != t.can_be_used;
-
-	changed |= dbfe_db.delsys != t.dbfe.delsys;
 	if (changed) {
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
 		t.dbfe.enabled = dbfe_db.enabled;

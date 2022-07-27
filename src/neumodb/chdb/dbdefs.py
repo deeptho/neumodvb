@@ -993,9 +993,9 @@ fe = db_struct(name='fe',
                    (20, 'int64_t', 'card_mac_address'),
                    (14, 'fe_supports_t', 'supports'),
                    (15, 'ss::string<64>', 'card_name'),
+                   (26, 'ss::string<64>', 'card_short_name'),
                    (16, 'ss::string<64>', 'adapter_name'),
                    (17, 'ss::string<64>', 'card_address'),
-                   (18, 'ss::string<64>', 'adapter_address'),
                    (19, 'ss::vector<chdb::fe_delsys_t>', 'delsys'),
                ))
 

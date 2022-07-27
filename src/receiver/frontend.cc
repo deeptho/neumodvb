@@ -178,9 +178,14 @@ static int get_frontend_names_dvapi(const adapter_no_t adapter_no, dvb_frontend_
 	}
 	t.dbfe.k.adapter_mac_address = -1;
 	t.dbfe.card_mac_address = -1;
-	t.dbfe.adapter_name.clear();
+
 	t.dbfe.card_name.clear();
+	t.dbfe.card_short_name.clear();
+	t.dbfe.adapter_name.clear();
+	t.dbfe.card_address.clear();
+
 	t.dbfe.card_name.sprintf(fe_info.name, strlen(fe_info.name));
+	t.dbfe.card_short_name.sprintf(fe_info.name, strlen(fe_info.name));
 	t.dbfe.adapter_name.sprintf("adapter%d", (int)adapter_no);
 	// todo: res should also take into account changes below
 	// todo: add caps
@@ -203,9 +208,15 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no, 
 		dterrorx("FE_GET_FRONTEND_INFO FAILED: %s", strerror(errno));
 		return -1;
 	}
-	t.dbfe.adapter_name.clear();
 	t.dbfe.card_name.clear();
+	t.dbfe.card_short_name.clear();
+	t.dbfe.adapter_name.clear();
+	t.dbfe.card_address.clear();
+
 	auto* card_name = fe_info.card_name;
+	auto* card_short_name = fe_info.card_short_name;
+	if(strlen(card_short_name)==0)
+		card_short_name = card_name;
 	if(api_version < 1.3) { //hack
 		fe_info.supports_neumo = false; /*in older api, several fields were not present in  dvb_frontend_extended_info
 																			but were part of an fields "name" instead; this hack is a temporary
@@ -217,27 +228,22 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no, 
 
 
 	t.dbfe.card_name.sprintf(card_name, strlen(card_name));
+	t.dbfe.card_short_name.sprintf(card_short_name, strlen(card_short_name));
 
 	if (fe_info.adapter_name[0] == 0) {
 		// old style, for cards not supported by neumoDVB
 		ss::string<256> adapter_name;
-		adapter_name.sprintf("%s #%d", fe_info.card_name, adapter_no);
+		adapter_name.sprintf("%s #%d", fe_info.card_short_name, adapter_no);
 		t.dbfe.adapter_name.sprintf(adapter_name.c_str(), strlen(fe_info.adapter_name));
+	}
 
+	if (fe_info.card_address[0] == 0) {
 		// fake but unique. Each adapter is consdered to be on a separate card
 		ss::string<256> card_address;
-		ss::string_& adapter_address = card_address;
 		card_address.sprintf("adapter%d", adapter_no);
-
-		t.dbfe.card_address.sprintf(card_address.c_str(), strlen(card_address.c_str()));
-
-		t.dbfe.adapter_address.sprintf(adapter_address.c_str(), strlen(adapter_address.c_str()));
-
 	} else {
 		t.dbfe.adapter_name.sprintf(fe_info.adapter_name, strlen(fe_info.adapter_name));
 		t.dbfe.card_address.sprintf(fe_info.card_address, strlen(fe_info.card_address));
-
-		t.dbfe.adapter_address.sprintf(fe_info.adapter_address, strlen(fe_info.adapter_address));
 	}
 
 	// todo: add caps

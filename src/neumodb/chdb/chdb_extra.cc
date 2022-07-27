@@ -1797,6 +1797,14 @@ bool chdb::lnb::can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol)
 void chdb::lnb::update_lnb(db_txn& wtxn, chdb::lnb_t&  lnb)
 {
 	bool found=false;
+	auto c = fe_t::find_by_key(wtxn, lnb.k.adapter_mac_address, find_type_t::find_geq,
+														 fe_t::partial_keys_t::adapter_mac_address);
+	if(c.is_valid()) {
+		const auto& fe = c.current();
+		lnb.adapter_name = fe.adapter_name;
+		lnb.adapter_no = fe.adapter_no;
+		lnb.can_be_used = fe.can_be_used;
+	}
 	switch(lnb.rotor_control) {
 	case chdb::rotor_control_t::ROTOR_MASTER_USALS:
 		//replace all diseqc12 commands with USALS commands
@@ -1864,4 +1872,23 @@ void chdb::clean_scan_status(db_txn& wtxn)
 	clean<chdb::dvbs_mux_t>(wtxn);
 	clean<chdb::dvbc_mux_t>(wtxn);
 	clean<chdb::dvbt_mux_t>(wtxn);
+}
+
+
+/*
+	When an adapter changes name, update fields "name" and "adapter_no" in all related lnb's
+ */
+void chdb::lnb::update_lnb_adapter_fields(db_txn& wtxn, const chdb::fe_t& fe) {
+	auto c = lnb_t::find_by_key(wtxn, fe.k.adapter_mac_address, find_type_t::find_geq, lnb_t::partial_keys_t::adapter_mac_address);
+	for(auto lnb : c.range()) {
+		assert (lnb.k.adapter_mac_address == fe.k.adapter_mac_address);
+		bool changed = (lnb.adapter_name != fe.adapter_name) || (lnb.adapter_no != fe.adapter_no)
+			|| (lnb.can_be_used != fe.can_be_used);
+		if (!changed)
+			continue;
+		lnb.adapter_name = fe.adapter_name;
+		lnb.adapter_no = fe.adapter_no;
+		lnb.can_be_used = fe.can_be_used;
+		put_record(wtxn, lnb);
+	}
 }

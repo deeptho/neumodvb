@@ -225,8 +225,6 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no, 
 	}
 	t.dbfe.supports_neumo = 	fe_info.supports_neumo;
 	t.dbfe.rf_in = (fe_info.supports_neumo && fe_info.rf_in >= 0) ? fe_info.rf_in : adapter_no;
-
-
 	t.dbfe.card_name.sprintf(card_name, strlen(card_name));
 	t.dbfe.card_short_name.sprintf(card_short_name, strlen(card_short_name));
 

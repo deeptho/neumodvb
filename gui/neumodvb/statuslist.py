@@ -26,13 +26,14 @@ import numbers
 import datetime
 from dateutil import tz
 import regex as re
+from cachetools.func import ttl_cache
 
 from neumodvb import neumodbutils
 from neumodvb.util import setup, lastdot
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import dtdebug, dterror
-
+from neumodvb.lnblist import lnb_label
 
 import pystatdb
 import pychdb
@@ -66,8 +67,8 @@ class StatusTable(NeumoTable):
     all_columns = \
         [CD(key='k.live',  label='live', basic=True, readonly=True),
          CD(key='k.lnb.dish_id',  label='dish', basic=True, readonly=True),
-         CD(key='k.lnb.adapter_mac_address',  label='adapter', basic=True, readonly=True,
-            dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
+         CD(key='k.lnb.adapter_mac_address',  label='adapter', basic=True, readonly=True, no_combo = True,
+            dfn=lambda x: x[2].adapter_name(x[0]), example=" TBS6909X #12 "),
          CD(key='k.lnb.lnb_id',  label='ID', basic=True, readonly=True),
          CD(key='k.mux.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.mux.network_id', label='nid'),
@@ -116,6 +117,18 @@ class StatusTable(NeumoTable):
     def __new_record__(self):
         ret=self.record_t()
         return ret
+    @property
+    @ttl_cache(maxsize=128, ttl=10) #refresh every 10 seconds
+    def adapter_names(self):
+        txn = wx.GetApp().chdb.rtxn()
+        ret={}
+        for a in  pychdb.fe.list_all_by_adapter_no(txn):
+            ret[a.k.adapter_mac_address] = a.adapter_name
+        txn.abort()
+        return ret
+
+    def adapter_name(self, status):
+        return self.adapter_names.get(status.k.lnb.adapter_mac_address, status.k.lnb.adapter_mac_address)
 
 class StatusGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):

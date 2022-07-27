@@ -50,12 +50,12 @@ class FrontendTable(NeumoTable):
     mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":")
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     all_columns = \
-        [
-         CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=True, readonly=True,
-            dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
+        [CD(key='adapter_name',  label='adapter', basic=True, no_combo=True, readonly=True, example=" TBS 6916X #12 "),
          CD(key='k.frontend_no',  label='FE#', basic=True, readonly=True),
+          CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
+             dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
          CD(key='card_name',  label='Card', basic=True, example=" TurboSight TBS 6916 (Octa DVB-S/S2/S2X)"),
-            CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916"),
+         CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916X "),
          CD(key='rf_in',  label='RF#', basic=True, readonly=True),
          #CD(key='card_mac_address',  label='card MAC#', basic=True, no_combo=True, readonly=True,
          #   dfn=mac_fn, example=" 00:00:ab:00:00:00 "),
@@ -67,12 +67,11 @@ class FrontendTable(NeumoTable):
          CD(key='supports.blindscan',  label='blindscan', basic=True, dfn=bool_fn, readonly=True),
          CD(key='priority',  label='priority', basic=True),
          CD(key='master_adapter_mac_address',  label='master', basic=True, no_combo=False,
-            dfn=lambda x: x[2].adapter_name(x[1]), example=" adapter 2: aa:bb:cc:dd:ee:ee"),
+            dfn=lambda x: x[0].adapter_name, example=" TBS 6909X #12 "),
          CD(key='delsys',  label='delsys', basic=True, dfn=delsys_fn, readonly=True, example='DVBT/'*6)
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        self.adapter_dict = {}
         initial_sorted_column = 'adapter_no'
         data_table= pychdb.fe
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)

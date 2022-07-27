@@ -24,7 +24,6 @@ import wx
 import gettext
 import signal
 from functools import lru_cache
-
 #the following import also sets up import path
 import neumodvb
 
@@ -284,7 +283,7 @@ class neumoMainFrame(mainFrame):
         return
 
     def OnTimer(self, evt):
-        self.parent.OnTimer(evt)
+        #self.parent.OnTimer(evt)
         panel =self.current_panel()
         if panel is None:
             return
@@ -449,18 +448,6 @@ class neumoMainFrame(mainFrame):
             return panel.grid.OnNew(event)
         assert 0
 
-    def CmdPositionerOFF(self, event):
-        dtdebug('CmdPositioner')
-        panel = self.current_panel()
-        if panel is not None and panel in \
-           [self.servicelist_panel, self.dvbs_muxlist_panel,  self.lnblist_panel, self.satlist_panel,
-            ]:
-            panel.grid.OnPositioner(event)
-        elif panel in [self.live_panel]:
-            panel.OnPositioner(event)
-        else:
-            return
-
     def CmdScan(self, event):
         dtdebug('CmdScan')
         panel = self.current_panel()
@@ -546,29 +533,14 @@ class NeumoGui(wx.App):
                 init_db()
             else:
                 return self.sats
-    def OnTimer(self, evt):
-        self.update_adapter_dict()
 
-    def update_adapter_dict(self):
-        txn = self.chdb.rtxn()
-        if self.adapter_screen_ is None:
-            sort_order = pychdb.fe.subfield_from_name('k.adapter_mac_address')<<24
-            self.adapter_screen_ = pychdb.fe.screen(txn, sort_order=sort_order)
-            changed = True
-        else:
-            changed = self.adapter_screen_ is None or self.adapter_screen_.update(txn)
-        del txn
-        if not changed:
-            return
-        ret={-1: "None"}
-        reti={"None": -1}
-        for idx in range(self.adapter_screen_.list_size):
-            adapter = self.adapter_screen_.record_at_row(idx)
-            mac = adapter.k.adapter_mac_address
-            name = f'A{adapter.adapter_no}: {adapter.k.adapter_mac_address.to_bytes(6,"little").hex(":")}'
-            ret[mac] = name
-            reti[name] = mac
-        self.adapter_dict, self.inverse_adapter_dict  = ret, reti
+    def get_adapters(self):
+        txn = wx.GetApp().chdb.rtxn()
+        ret={}
+        for a in  pychdb.fe.list_all_by_adapter_no(txn):
+            ret[a.adapter_name ] = a.k.adapter_mac_address
+        txn.abort()
+        return ret
 
     def __init__(self, *args, **kwds):
         self.chdb=pychdb.chdb()
@@ -580,11 +552,6 @@ class NeumoGui(wx.App):
         self.recdb.open(options.recdb)
         self.statdb.open(options.statdb)
         self.scan_subscription_id = -1
-        self.adapter_dict = None
-        self.inverse_adapter_dict = None
-        self.adapter_screen_ = None
-        self.update_adapter_dict()
-        self.adapter_screen_ = None
         self.receiver = pyreceiver.receiver_t(options.receiver)
         self.currently_selected_rec = None
         self.currently_selected_spectrum = None

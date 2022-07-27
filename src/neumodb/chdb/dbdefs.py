@@ -1119,7 +1119,8 @@ lnb = db_struct(name='lnb',
                           #Sometimes more than one network can be received on the same lnb
                           #for an lnb
 
-
+                          (23, 'uint8_t',  'adapter_no'), #updated as adapters are discovered
+                          (24, 'bool', 'can_be_used', 'true'), #updated as adapters are discovered
                           # list of commands separted by ";"
                           #can contain
                           #  P send positioner commands
@@ -1129,6 +1130,7 @@ lnb = db_struct(name='lnb',
                           (13, 'ss::vector<lnb_network_t,1>' , 'networks'),
                           (16,  'ss::string<16>', 'name'), #optional name
                           (17, 'ss::vector<int32_t,2>' , 'lof_offsets'), #ofset of the local oscillator (one per band)
+                          (22, 'ss::string<32>', 'adapter_name'), #updated as adapters are discovered
                 ))
 
 

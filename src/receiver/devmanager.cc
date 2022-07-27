@@ -117,18 +117,18 @@ class dvbdev_monitor_t : public adaptermgr_t {
 	bool frontend_exists(dvb_adapter_t* adapter, frontend_no_t frontend_no);
 
 	bool adapter_exists(int adapter_no);
-	void on_new_frontend(dvb_adapter_t* adapter, frontend_no_t frontend_no);
-	void on_delete_frontend(struct inotify_event* event);
-	void discover_frontends(dvb_adapter_t* adapter);
-	void on_new_adapter(int adapter_no);
+	void on_new_frontend(db_txn& wtxn, dvb_adapter_t* adapter, frontend_no_t frontend_no);
+	void on_delete_frontend(db_txn& wtxn, struct inotify_event* event);
+	void discover_frontends(db_txn& wtxn, dvb_adapter_t* adapter);
+	void on_new_adapter(db_txn& wtxn, int adapter_no);
 
-	void on_delete_adapter(struct inotify_event* event);
-	void discover_adapters();
-	void on_new_dir(struct inotify_event* event);
-	void on_new_file(struct inotify_event* event);
-	void on_delete_dir(struct inotify_event* event);
+	void on_delete_adapter(db_txn& wtxn, struct inotify_event* event);
+	void discover_adapters(db_txn& wtxn);
+	void on_new_dir(db_txn& wtxn, struct inotify_event* event);
+	void on_new_file(db_txn& wtxn, struct inotify_event* event);
+	void on_delete_dir(db_txn& wtxn, struct inotify_event* event);
 
-	void mark_all_adapters_not_present();
+	void disable_missing_adapters(db_txn& wtxn);
 	std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t, int, int>
 	find_lnb_for_tuning_to_mux_(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
 															const dvb_adapter_t* adapter_to_release, const tune_options_t& tune_options,
@@ -179,7 +179,8 @@ public:
 	std::shared_ptr<dvb_frontend_t> find_fe_for_lnb(const chdb::lnb_t& lnb, const dvb_adapter_t* adapter_to_release,
 																									bool need_blindscan, bool need_spectrum) const;
 
-	void update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no, dvb_frontend_t::thread_safe_t& t);
+	void update_dbfe(db_txn& wtxn, const adapter_no_t adapter_no, const frontend_no_t frontend_no,
+									 dvb_frontend_t::thread_safe_t& t);
 };
 
 /*
@@ -378,17 +379,15 @@ void adaptermgr_t::stop_frontend_monitor(dvb_frontend_t* fe) {
 /*
 	update database
 */
-void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
+void dvbdev_monitor_t::update_dbfe(db_txn& wtxn, const adapter_no_t adapter_no, const frontend_no_t frontend_no,
 																	 dvb_frontend_t::thread_safe_t& t) {
 	t.dbfe.adapter_no = int(adapter_no);
 
-	auto txn = receiver.chdb.rtxn();
 
-	auto c = chdb::fe_t::find_by_key(txn, chdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
+	auto c = chdb::fe_t::find_by_key(wtxn, chdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
 	auto dbfe_old = c.is_valid() ? c.current() : chdb::fe_t();
 	dbfe_old.mtime = t.dbfe.mtime; //prevent this from being a change
 	bool changed = !c.is_valid() || (dbfe_old != t.dbfe);
-	txn.abort();
 
 	if (changed) {
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
@@ -396,13 +395,12 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 		t.dbfe.enabled = dbfe_old.enabled;
 		t.dbfe.can_be_used = t.can_be_used;
 		t.dbfe.master_adapter_mac_address = dbfe_old.master_adapter_mac_address;
-		auto txn = receiver.chdb.wtxn();
-		put_record(txn, t.dbfe, 0);
-		txn.commit();
+		put_record(wtxn, t.dbfe, 0);
+		chdb::lnb::update_lnb_adapter_fields(wtxn, t.dbfe);
 	}
 }
 
-void dvbdev_monitor_t::on_new_frontend(dvb_adapter_t* adapter, frontend_no_t frontend_no) {
+void dvbdev_monitor_t::on_new_frontend(db_txn& wtxn, dvb_adapter_t* adapter, frontend_no_t frontend_no) {
 	if (frontend_exists(adapter, frontend_no)) {
 		dtdebugx("Frontend already exists!\n");
 		return;
@@ -427,7 +425,7 @@ void dvbdev_monitor_t::on_new_frontend(dvb_adapter_t* adapter, frontend_no_t fro
 		t->dbfe.present = true;
 		t->can_be_used = t->dbfe.enabled;;
 		t->dbfe.can_be_used = t->can_be_used;
-		update_dbfe(adapter->adapter_no, frontend_no, *t);
+		update_dbfe(wtxn, adapter->adapter_no, frontend_no, *t);
 	}
 	adapter->frontends.try_emplace(frontend_no, fe);
 
@@ -436,7 +434,8 @@ void dvbdev_monitor_t::on_new_frontend(dvb_adapter_t* adapter, frontend_no_t fro
 	dtdebugx("new frontend adap=%d fe=%d wd=%d\n", (int)adapter->adapter_no, (int)frontend_no, wd);
 }
 
-void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) { // should be a frontend or demux is removed
+void dvbdev_monitor_t::on_delete_frontend(db_txn& wtxn, struct inotify_event* event) {
+// should be a frontend or demux is removed
 	auto it = frontend_map.find(event->wd);
 	if (it == frontend_map.end()) {
 		dtdebugx("Could not find frontend wd=%d\n", event->wd);
@@ -461,15 +460,7 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) { // shou
 		t->can_be_used = false;
 		t->dbfe.present = false;
 		t->dbfe.can_be_used = false;
-#if 1
-		update_dbfe(adapter->adapter_no, fe->frontend_no, *t);
-#else
-		{
-			auto txn = receiver.chdb.wtxn();
-			put_record(txn, t->dbfe, 0);
-			txn.commit();
-		}
-#endif
+		update_dbfe(wtxn, adapter->adapter_no, fe->frontend_no, *t);
 	}
 	adapter->frontends.erase(fe->frontend_no);
 	if (adapter->frontends.size() == 0) {
@@ -479,16 +470,17 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) { // shou
 	// adapter->update_adapter_can_be_used();
 }
 
-void dvbdev_monitor_t::discover_frontends(dvb_adapter_t* adapter) {
+void dvbdev_monitor_t::discover_frontends(db_txn& wtxn, dvb_adapter_t* adapter) {
 	char fname[256];
 	sprintf(fname, "/dev/dvb/adapter%d", (int)adapter->adapter_no);
-	auto frontend_cb = [this, adapter](int frontend_no) { on_new_frontend(adapter, frontend_no_t(frontend_no)); };
+	auto frontend_cb = [this, adapter, &wtxn](int frontend_no) {
+		on_new_frontend(wtxn, adapter, frontend_no_t(frontend_no)); };
 
 	// scan /dev/dvb/adapterX for all frontends
 	discover_helper(fname, "frontend%d", 32, frontend_cb);
 }
 
-void dvbdev_monitor_t::on_new_adapter(int adapter_no) {
+void dvbdev_monitor_t::on_new_adapter(db_txn& wtxn, int adapter_no) {
 	char fname[256];
 	if (adapter_exists(adapter_no)) {
 		dtdebugx("Adapter already exists\n");
@@ -499,10 +491,10 @@ void dvbdev_monitor_t::on_new_adapter(int adapter_no) {
 	auto [it, inserted] = adapters.try_emplace(adapter_no_t(adapter_no), this, adapter_no_t(adapter_no));
 	adapter_map.emplace(wd, &it->second);
 	dtdebugx("new adapter %d wd=%d\n", adapter_no, wd);
-	discover_frontends(&it->second);
+	discover_frontends(wtxn, &it->second);
 }
 
-void dvbdev_monitor_t::on_delete_adapter(struct inotify_event* event) {
+void dvbdev_monitor_t::on_delete_adapter(db_txn& wtxn, struct inotify_event* event) {
 	auto it = adapter_map.find(event->wd);
 	if (it == adapter_map.end()) {
 		dtdebugx("Could not find adapter\n");
@@ -516,15 +508,15 @@ void dvbdev_monitor_t::on_delete_adapter(struct inotify_event* event) {
 		This could happen later!
 	*/
 }
-void dvbdev_monitor_t::discover_adapters() {
+void dvbdev_monitor_t::discover_adapters(db_txn& wtxn) {
 
-	auto adapter_cb = [this](int adapter_no) { on_new_adapter(adapter_no); };
+	auto adapter_cb = [this, &wtxn](int adapter_no) { on_new_adapter(wtxn, adapter_no); };
 
 	// scan /dev/dvb for all adapters
 	discover_helper("/dev/dvb", "adapter%d", 64, adapter_cb);
 }
 
-void dvbdev_monitor_t::on_new_dir(struct inotify_event* event) {
+void dvbdev_monitor_t::on_new_dir(db_txn& wtxn, struct inotify_event* event) {
 	if (event->wd == wd_dev) { // new subdir of /dev/
 		if (strcmp(event->name, "dvb") == 0) {
 			dtdebugx("first adapter....\n");
@@ -540,18 +532,19 @@ void dvbdev_monitor_t::on_new_dir(struct inotify_event* event) {
 			dtdebugx("Removing watch to /dev because /dev/dvb now exist\n");
 			inotify_rm_watch(inotfd, wd_dev);
 			wd_dev = -1;
-			discover_adapters(); // needed because some adapters may already exist
+			discover_adapters(wtxn); // needed because some adapters may already exist
 		}
 	} else if (event->wd == wd_dev_dvb) { // new subdir in /dev/dvb/
 		int adapter_no;
 		if (sscanf(event->name, "adapter%d", &adapter_no) == 1) {
-			on_new_adapter(adapter_no);
+			on_new_adapter(wtxn, adapter_no);
 		}
 	} else
 		dtdebugx("should not happen\n");
 }
 
-void dvbdev_monitor_t::on_new_file(struct inotify_event* event) { // must be a file, so a frontend or a demux
+void dvbdev_monitor_t::on_new_file(db_txn& wtxn, struct inotify_event* event) {
+// must be a file, so a frontend or a demux
 	int frontend_no;
 	if (sscanf(event->name, "frontend%d", &frontend_no) == 1) {
 		auto it = adapter_map.find(event->wd);
@@ -559,11 +552,11 @@ void dvbdev_monitor_t::on_new_file(struct inotify_event* event) { // must be a f
 			dtdebugx("Adapter not found");
 			assert(0);
 		}
-		on_new_frontend(it->second, frontend_no_t(frontend_no));
+		on_new_frontend(wtxn, it->second, frontend_no_t(frontend_no));
 	}
 }
 
-void dvbdev_monitor_t::on_delete_dir(struct inotify_event* event) {
+void dvbdev_monitor_t::on_delete_dir(db_txn& wtxn, struct inotify_event* event) {
 	if (event->wd == wd_dev_dvb) { // subdir of /dev/
 		inotify_rm_watch(inotfd, wd_dev_dvb);
 		wd_dev_dvb = -1;
@@ -575,7 +568,7 @@ void dvbdev_monitor_t::on_delete_dir(struct inotify_event* event) {
 	} else if (event->wd == wd_dev) {
 		assert(0);
 	} else {
-		on_delete_adapter(event);
+		on_delete_adapter(wtxn, event);
 	}
 }
 
@@ -609,8 +602,10 @@ int dvbdev_monitor_t::start() {
 		dtdebugx("Adding watch to /dev because /dev/dvb does not exist\n");
 		wd_dev = inotify_add_watch(inotfd, "/dev", IN_CREATE);
 	}
-	mark_all_adapters_not_present();
-	discover_adapters();
+	auto wtxn = receiver.chdb.wtxn();
+	discover_adapters(wtxn);
+	disable_missing_adapters(wtxn);
+	wtxn.commit();
 	/*read to determine the event change happens on “/tmp” directory. Actually this read blocks until the change event
 	 * occurs*/
 	return 0;
@@ -642,16 +637,32 @@ int dvbdev_monitor_t::stop() {
 	return 0;
 }
 
-void dvbdev_monitor_t::mark_all_adapters_not_present() {
-	auto txn = receiver.chdb.wtxn();
+
+
+void dvbdev_monitor_t::disable_missing_adapters(db_txn& wtxn) {
 	using namespace chdb;
-	auto c = find_first<chdb::fe_t>(txn);
+	auto c = find_first<chdb::fe_t>(wtxn);
 	for (auto fe : c.range()) {
-		fe.present = false;
-		fe.can_be_used = false;
-		put_record(txn, fe, 0);
+		auto [it,found] = find_in_map_if(adapter_map, [&fe](const auto&x){
+			auto& [adapter_no_, adapter] = x;
+			auto [itfe, foundfe] = find_in_map_if(adapter->frontends, [&fe](const auto&x){
+				auto& [frontend_no_, fe_] = x;
+				return fe.k == fe_->ts.readAccess()->dbfe.k;
+			});
+			return foundfe;
+		});
+
+		if(!found) {
+			if(fe.present || fe.can_be_used) {
+					fe.can_be_used = false;
+					fe.present = false;
+					put_record(wtxn, fe);
+			}
+			chdb::lnb::update_lnb_adapter_fields(wtxn, fe);
+		} else {
+		}
+
 	}
-	txn.commit();
 }
 
 /*
@@ -676,6 +687,7 @@ int dvbdev_monitor_t::run() {
 		if (length < 0)
 			perror("read");
 
+		auto wtxn = receiver.chdb.wtxn();
 		/*actually read return the list of change events happens. Here, read the change event one by one and process it
 		 * accordingly.*/
 		for (int i = 0; i < length;) {
@@ -683,16 +695,16 @@ int dvbdev_monitor_t::run() {
 			num++;
 			if (event->mask & IN_CREATE) {
 				if (event->mask & IN_ISDIR)
-					on_new_dir(event);
+					on_new_dir(wtxn, event);
 				else
-					on_new_file(event);
+					on_new_file(wtxn, event);
 			} else if (event->mask & IN_DELETE) {
 				assert(0);
 			} else if (event->mask & IN_DELETE_SELF) {
 				if (frontend_map.find(event->wd) != frontend_map.end())
-					on_delete_frontend(event);
+					on_delete_frontend(wtxn, event);
 				else
-					on_delete_dir(event);
+					on_delete_dir(wtxn, event);
 			} else if (event->mask & IN_OPEN) {
 				// TODO: 1) check if we opened ourself. If not, then disable can_be_used for adapter and frontend
 			} else if (event->mask & IN_CLOSE) {
@@ -703,6 +715,7 @@ int dvbdev_monitor_t::run() {
 			i += EVENT_SIZE + event->len;
 			// dtdebugx("new read\n");
 		}
+		wtxn.commit();
 	}
 }
 

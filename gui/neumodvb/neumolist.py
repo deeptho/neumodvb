@@ -103,9 +103,20 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
         self.Control.SetSize(rect.x, rect.y, rect.width+extra, rect.height, wx.SIZE_ALLOW_MINUS_ONE)
 
     def Show(self, *args):
-        if False and self.col.key.endswith('_pos'):
+        if self.col.key.endswith('_pos'):
+            #recompute each time, because data may have changed
             sats = wx.GetApp().get_sats()
             choices= [str(x) for x in sats]
+            if False: #not working. wxPython bug?
+                self.SetParameters(','.join(choices))
+            else:
+                #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
+                self.combobox.Clear()
+                self.combobox.Append(choices)
+        elif self.col.key.endswith('adapter_mac_address'):
+            #recompute each time, because data may have changed
+            d = wx.GetApp().get_adapters()
+            choices= list(d.keys())
             if False: #not working. wxPython bug?
                 self.SetParameters(','.join(choices))
             else:
@@ -386,7 +397,8 @@ class NeumoTableBase(wx.grid.GridTableBase):
                     from neumodvb.util import parse_longitude
                     newval = parse_longitude(val)
                 elif key.endswith("adapter_mac_address"):
-                    newval = wx.GetApp().inverse_adapter_dict.get(val, -1)
+                    d = wx.GetApp().get_adapters()
+                    newval = d.get(val, None)
                 else:
                     newval = int(val)
         except:
@@ -515,7 +527,7 @@ class NeumoTable(NeumoTableBase):
         else:
             assert(0)
         #self.data = None #start off with an empty table. Table will be populated in OnCreateWindow
-        self.red_bg =wx.grid.GridCellAttr()
+        self.red_bg = wx.grid.GridCellAttr()
         self.red_bg.SetBackgroundColour('red')
         self.screen_getter = screen_getter
         self.parent = parent
@@ -823,26 +835,6 @@ class NeumoTable(NeumoTableBase):
         dtdebug('reload')
         self.__get_data__()
 
-    def adapter_name(self, mac_address):
-        return wx.GetApp().adapter_dict.get(mac_address, '????')
-
-    def adapter_short_name(self, mac_address):
-        return wx.GetApp().adapter_dict[mac_address].split(":")[0]
-
-    def lnb_label(self, lnb):
-        x = neumodbutils.enum_to_str(lnb.rotor_control)
-        if x.startswith('ROTOR_SLAVE'):
-            sat_pos='slave'
-        elif x.startswith('ROTOR'):
-            sat_pos='rotor'
-        else:
-            sat_pos=pychdb.sat_pos_str(lnb.usals_pos)
-        t= lastdot(lnb.k.lnb_type)
-        if t != 'C':
-            t='Ku'
-        adap=self.adapter_short_name(lnb.k.adapter_mac_address)
-        return f'D{lnb.k.dish_id}{adap} {t} {sat_pos:>5} {lnb.k.lnb_id}'
-
 class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
     def __init__(self, basic, readonly, table, *args, dark_mode=False, fontscale=1, **kwds):
         super().__init__(*args, **kwds)
@@ -950,7 +942,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
     def ColourRow(self, row):
         attr = wx.grid.GridCellAttr()
-        attr.SetBackgroundColour('red')
+        attr.SetBackgroundColour('#ffcfd4') #light red
         self.SetRowAttr(row, attr)
         self.coloured_rows.add(row)
 
@@ -1033,8 +1025,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 elif col.key.endswith('sat_pos') or col.key.endswith('lnb_pos') or col.key.endswith('usals_pos'):
                     #Note that the following code line depends on satlist_panel being the first
                     #panel to be initialised (so: on the order of panels in neumoviewer.wxg)
-                    sats = wx.GetApp().get_sats()
-                    choices= [str(x) for x in sats]
+                    choices=[] # will be computed in NeumoChoiceEditor.Show()
                     if col.no_combo:
                         editor = None
                     else:
@@ -1042,12 +1033,10 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 elif col.key.endswith('adapter_mac_address'):
                     #Note that the following code line depends on satlist_panel being the first
                     #panel to be initialised (so: on the order of panels in neumoviewer.wxg)
-                    #choices = adapters
                     if col.no_combo:
                         editor = None
                     else:
-                        d = wx.GetApp().adapter_dict
-                        choices= list(d.values())
+                        choices = [] # will be computed in NeumoChoiceEditor.Show()
                         editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=False)
                 else:
                     editor = NeumoNumberEditor(col)

@@ -608,7 +608,7 @@ namespace  chdb::lnb {
 
 	inline chdb::fe_band_t band_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
 		return band_for_freq(lnb, mux.frequency);
-}
+	}
 
 	int voltage_for_pol(const chdb::lnb_t& lnb, const chdb::fe_polarisation_t pol);
 
@@ -633,6 +633,9 @@ namespace  chdb::lnb {
 	inline bool swapped_pol(const chdb::lnb_t &  lnb) {
 		return lnb.pol_type == chdb::lnb_pol_type_t::VH || lnb.pol_type == chdb::lnb_pol_type_t::RL;
 	}
+
+	void update_lnb_adapter_fields(db_txn& wtxn, const chdb::fe_t& fe);
+
 }
 
 #pragma GCC visibility pop

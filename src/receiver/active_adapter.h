@@ -357,6 +357,7 @@ private:
 	void on_stable_pat();
 	void on_first_pat();
 	void on_tuned_mux_change(const chdb::any_mux_t& si_mux);
+	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
 
 
 //	int open_frontend();

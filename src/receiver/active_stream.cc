@@ -296,6 +296,11 @@ void dvb_stream_reader_t::on_tuned_mux_change(const chdb::any_mux_t& mux)
 	active_adapter.on_tuned_mux_change(mux);
 }
 
+void dvb_stream_reader_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux)
+{
+	active_adapter.update_bad_received_si_mux(mux);
+}
+
 
 
 void  stream_reader_t::update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation)

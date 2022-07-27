@@ -44,11 +44,11 @@ struct tune_confirmation_t {
 	confirmed_by_t ts_id_by{confirmed_by_t::NONE};
 	confirmed_by_t network_id_by{confirmed_by_t::NONE};
 	bool nit_actual_seen{false};
-	bool nit_actual_ok{false};
+	bool nit_actual_received{false};
 	bool sdt_actual_seen{false};
-	bool sdt_actual_ok{false};
+	bool sdt_actual_received{false};
 	bool pat_seen{false};
-	bool pat_ok{false};
+	bool pat_received{false};
 	bool si_done{false};
 	void clear(bool preserve_wrong_sat) {
 		*this = tune_confirmation_t();
@@ -58,13 +58,17 @@ struct tune_confirmation_t {
 		{}
 	bool operator== (const tune_confirmation_t& other)  const {
 		return on_wrong_sat == other.on_wrong_sat &&
+			//unstable_sat
 			sat_by == other.sat_by &&
 			ts_id_by == other.ts_id_by &&
 			network_id_by == other.network_id_by &&
-			si_done == other.si_done &&
-			nit_actual_ok == other.nit_actual_ok &&
-			sdt_actual_ok == other.sdt_actual_ok &&
-			pat_ok == other.pat_ok;
+			nit_actual_seen == other.nit_actual_seen &&
+			sdt_actual_seen == other.sdt_actual_seen &&
+			pat_seen == other.pat_seen &&
+			nit_actual_received == other.nit_actual_received &&
+			sdt_actual_received == other.sdt_actual_received &&
+			pat_received == other.pat_received &&
+			si_done == other.si_done;
 		}
 	bool operator!= (const tune_confirmation_t& other)  const {
 		return ! operator==(other);
@@ -75,8 +79,14 @@ namespace chdb {
 
 	struct signal_info_t {
 		int tune_attempt{0};
-		any_mux_t mux;
-		std::optional<any_mux_t> si_mux; //as retrieved from stream
+		any_mux_t driver_mux; /*contains only confirmed information, with information from driver
+														overriding that from si stream. Missing information is filled in with
+														confirmed information*/
+		any_mux_t consolidated_mux; /*contains the most uuptodate information about the currently
+																					tuned mux, including possible corrections received from the si
+																					stream
+																				*/
+		std::optional<any_mux_t> bad_received_si_mux;
 		int32_t bitrate{0};
 		int32_t locktime_ms{0};
 		statdb::signal_stat_t stat;

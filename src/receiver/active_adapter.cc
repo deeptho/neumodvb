@@ -854,6 +854,11 @@ void active_adapter_t::on_tuned_mux_change(const chdb::any_mux_t& mux) {
 	current_fe->update_tuned_mux_nit(current_tp());
 }
 
+void active_adapter_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) {
+	auto w = tuned_mux.writeAccess();
+	current_fe->update_bad_received_si_mux(mux);
+}
+
 std::shared_ptr<stream_reader_t> active_adapter_t::make_dvb_stream_reader(ssize_t dmx_buffer_size) {
 	return std::make_shared<dvb_stream_reader_t>(*this, dmx_buffer_size);
 }

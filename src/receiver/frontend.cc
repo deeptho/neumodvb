@@ -403,14 +403,14 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 	const auto& r = this->adapter->reservation.readAccess();
 	const auto* dvbs_mux = std::get_if<dvbs_mux_t>(&r->reserved_mux);
 	ret.tune_confirmation = r->tune_confirmation;
-	ret.si_mux = r->reserved_mux;
-
-	ret.mux = r->reserved_mux; //ensures that we return proper any_mux_t type for dvbc and dvbt
+	ret.consolidated_mux = r->reserved_mux;
+	ret.bad_received_si_mux = r->bad_received_si_mux;
+	ret.driver_mux = r->reserved_mux; //ensures that we return proper any_mux_t type for dvbc and dvbt
 	ret.stat.k.mux = *mux_key_ptr(r->reserved_mux);
 	if (ret.tune_confirmation.si_done) {
 		dtdebugx("reporting si_done=true");
 	}
-	*mux_key_ptr(ret.mux) = ret.stat.k.mux;
+	*mux_key_ptr(ret.driver_mux) = ret.stat.k.mux;
 	const auto& lnb = r->reserved_lnb;
 	int band = 0;
 	chdb::fe_polarisation_t pol{chdb::fe_polarisation_t::UNKNOWN};
@@ -430,7 +430,7 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 
 	//the following must be called even when not lockes, to consume the results of all DTV_... commands
 	visit_variant(
-		ret.mux,
+		ret.driver_mux,
 		[&cmdseq,  &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
 			ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, band, pol);
 			ret.stat.symbol_rate = mux.symbol_rate;
@@ -448,7 +448,7 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 	tuned_frequency = ret.stat.k.frequency;
 	if (api == api_type_t::NEUMO) {
 		ret.matype = cmdseq.get(DTV_MATYPE)->u.data;
-		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.mux);
+		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.driver_mux);
 		if (dvbs_mux) {
 			if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
 				dvbs_mux->matype = 256;
@@ -909,9 +909,14 @@ void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 	w->reserved_mux = mux;
 }
 
+void dvb_frontend_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) {
+	auto w = adapter->reservation.writeAccess();
+	w->bad_received_si_mux = mux;
+}
+
 void dvb_frontend_t::update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation) {
 	auto w = adapter->reservation.writeAccess();
-	if(!w->tune_confirmation.nit_actual_ok && tune_confirmation.nit_actual_ok) {
+	if(!w->tune_confirmation.nit_actual_received && tune_confirmation.nit_actual_received) {
 		const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
 		if(dvbs_mux) {
 			using namespace chdb;

@@ -589,7 +589,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	dtdemux::reset_type_t
 		nit_actual_update_tune_confirmation(db_txn& txn, chdb::any_mux_t& mux, bool is_tuned_mux);
 
-	dtdemux::reset_type_t on_nit_completion(db_txn& wtxn, network_data_t& network_data,
+	dtdemux::reset_type_t on_nit_section_completion(db_txn& wtxn, network_data_t& network_data,
 																					dtdemux::reset_type_t ret, bool is_actual,
 																					bool on_wrong_sat, bool done);
 

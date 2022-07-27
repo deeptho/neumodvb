@@ -560,7 +560,7 @@ void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 		auto& aa = *it.second;
 		if (aa.get_adapter_mac_address() != signal_info.stat.k.lnb.adapter_mac_address)
 			continue;
-		auto* mux = std::get_if<chdb::dvbs_mux_t>(&signal_info.mux);
+		auto* mux = std::get_if<chdb::dvbs_mux_t>(&signal_info.driver_mux);
 		if(!mux)
 			continue;
 

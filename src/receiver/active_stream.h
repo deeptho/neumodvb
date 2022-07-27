@@ -22,6 +22,7 @@
 #include <vector>
 #include <variant>
 #include <atomic>
+#include <optional>
 #include <unistd.h>
 #include <sys/epoll.h>
 
@@ -110,6 +111,7 @@ public:
 	const tune_options_t& tune_options() const;
 
 	virtual inline void on_tuned_mux_change(const chdb::any_mux_t& mux) =0;
+	virtual inline void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) =0;
 
 	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const = 0;
 	void  update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
@@ -175,6 +177,7 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const;
 	virtual const chdb::any_mux_t& tuned_mux() const;
 	virtual inline void on_tuned_mux_change(const chdb::any_mux_t& mux);
+	virtual inline void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
 
 	virtual void update_tuned_mux_nit(const chdb::any_mux_t& mux);
 /*
@@ -294,6 +297,7 @@ public:
 	virtual void set_current_tp(const chdb::any_mux_t& mux) const;
 	virtual void update_tuned_mux_nit(const chdb::any_mux_t& mux);
 	virtual void on_tuned_mux_change(const chdb::any_mux_t& mux);
+	virtual void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
 
 };
 

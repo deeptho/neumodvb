@@ -136,7 +136,7 @@ class SpectrumDialog(SpectrumDialog_):
         self.blindscan_num_muxes = 0
         self.blindscan_num_locked_muxes = 0
         self.blindscan_num_nonlocked_muxes = 0
-        self.blindscan_num_si_muxes =0
+        self.blindscan_num_si_muxes = 0
         self.update_constellation = True
         self.tune_mux_panel.constellation_toggle.SetValue(self.update_constellation)
         self.signal_info = None
@@ -240,7 +240,7 @@ class SpectrumDialog(SpectrumDialog_):
         self.blindscan_num_muxes = 0
         self.blindscan_num_locked_muxes = 0
         self.blindscan_num_nonlocked_muxes = 0
-        self.blindscan_num_si_muxes =0
+        self.blindscan_num_si_muxes = 0
 
     def OnAbortTune(self, event):
         dtdebug(f"positioner: unsubscribing")
@@ -401,7 +401,8 @@ class SpectrumDialog(SpectrumDialog_):
                     self.blindscan_num_nonlocked_muxes += not self.signal_info.has_lock
                     self.blindscan_num_si_muxes += (self.signal_info.has_nit or self.signal_info.has_sdt or self.signal_info.has_pat)
                     dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done} no_dvb={self.signal_info.has_no_dvb}")
-                    self.spectrum_plot.set_current_annot_status(mux, self.signal_info.si_mux, self.signal_info.has_lock)
+                    self.spectrum_plot.set_current_annot_status(mux, self.signal_info.consolidated_mux,
+                                                                self.signal_info.has_lock)
                     if self.is_blindscanning:
                         tp = self.tp_being_scanned
                         scan_time = datetime.datetime.now(tz=tz.tzlocal()) - self.done_time
@@ -410,8 +411,8 @@ class SpectrumDialog(SpectrumDialog_):
                         if not hasattr(tp, 'isis_present'):
                             tp.isis_present = set(all_stream_ids)
                             tp.dvb_isis_present = set(dvb_stream_ids)
-                            #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
-                            tp.isis_scanned = set((data.si_mux.stream_id, data.dvbs_mux.stream_id))
+                            #add both consolidated_mux.stream_id driver_mux.stream_id in case drivers change stream_id (which is bug)
+                            tp.isis_scanned = set((data.consolidated_mux.stream_id, data.driver_mux.stream_id))
                         else:
                             old_num_isi = len(tp.isis_present)
                             tp.isis_present = set.union(set(all_stream_ids), tp.isis_present)
@@ -421,9 +422,9 @@ class SpectrumDialog(SpectrumDialog_):
                                 if scan_time >= datetime.timedelta(seconds=self.mis_scan_time-10):
                                     self.mis_scan_time += 10
                                 print(f'new isis found; wait longer: {self.mis_scan_time}')
-                            #add both si_mux.stream_id dvbs_mux.stream_id in case drivers change stream_id (which is bug)
-                            tp.isis_scanned.add(data.dvbs_mux.stream_id)
-                            tp.isis_scanned.add(data.si_mux.stream_id)
+                            #add both si_mux.stream_id driver_mux.stream_id in case drivers change stream_id (which is bug)
+                            tp.isis_scanned.add(data.driver_mux.stream_id)
+                            tp.isis_scanned.add(data.consolidated_mux.stream_id)
                         tp.isis_to_scan =  tp.dvb_isis_present -  tp.isis_scanned
                         if len(tp.isis_to_scan)>0:
                             stream_id = min(tp.isis_to_scan)

@@ -445,6 +445,10 @@ void embedded_stream_reader_t::on_tuned_mux_change(const chdb::any_mux_t& mux) {
 	stream_filter->tuned_mux = mux;
 }
 
+void embedded_stream_reader_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) {
+//noop
+}
+
 void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& mux) const {
 	assert(mux_key_ptr(mux)->sat_pos != sat_pos_none);
 	stream_filter->tuned_mux = mux;

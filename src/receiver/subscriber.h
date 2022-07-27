@@ -45,7 +45,6 @@ class subscriber_t
 
 	int subscription_id{-1};
 	int tune_attempt{0}; //to detect old status messages which come in after the most recent tune
-	//chdb::signal_info_t signal_info;
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::shared_ptr<active_adapter_t>active_adapter;

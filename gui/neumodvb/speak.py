@@ -25,7 +25,7 @@ class Speaker(object):
         self.count = 0
         self.sat_pos = None
         self.sat = "no sat"
-        self.sat_confirmed = False
+        self.nit_received = False
         from shutil import which
         self.cmd = which('espeak')
         self.p = None
@@ -47,8 +47,8 @@ class Speaker(object):
             c = [self.cmd,  '-ven-us+f4', '-k5', '-s170', x]
             self.execute_unix(c)
 
-    def update_sat(self, sat_pos, sat_confirmed):
-        self.sat_confirmed = sat_confirmed
+    def update_sat(self, sat_pos, nit_received):
+        self.nit_received = nit_received
         if self.sat_pos == sat_pos:
             return
         self.count = 0
@@ -60,8 +60,8 @@ class Speaker(object):
             sat = pychdb.sat_pos_str(sat_pos)
             self.sat = sat.replace('E', ' east').replace('W', 'west')
 
-    def speak(self, sat_pos, snr, sat_confirmed):
-        self.update_sat(sat_pos, sat_confirmed)
+    def speak(self, sat_pos, snr, nit_received):
+        self.update_sat(sat_pos, nit_received)
         if self.count >= 5:
             self.count =0
         text = []
@@ -70,5 +70,5 @@ class Speaker(object):
         self.count += 1
         snr = "not locked" if snr is None else str(snr)
         text.append(snr)
-        text = ('. ' if self.sat_confirmed else '? ').join(text)
+        text = ('. ' if self.nit_received else '? ').join(text)
         self.speak_string(text)

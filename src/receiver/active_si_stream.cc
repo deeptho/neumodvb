@@ -202,6 +202,8 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	}
 	//at this point database is consistent with received mux
 	assert(pdb_mux);
+	bool bad_sid_mux = is_tuned_freq && ! is_tuned_mux;
+	reader->update_bad_received_si_mux( bad_sid_mux ? mux: std::optional<chdb::any_mux_t>{});
 
 	//auto* db_mux_key = mux_key_ptr(*pdb_mux);
 	//assert(*db_mux_key == *mux_key);
@@ -1040,7 +1042,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 	}
 
 	bool this_table_done = (++pat_table.num_sections_processed == pat_table.subtable_info.num_sections_present);
-	tune_confirmation.pat_ok = true;
+	tune_confirmation.pat_received = true;
 	if (this_table_done) {
 		active_adapter().on_first_pat();
 		pat_table.ts_id = pat_services.ts_id;
@@ -1082,7 +1084,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 	return dtdemux::reset_type_t::NO_RESET;
 }
 
-dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
+dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
 	db_txn& wtxn, network_data_t& network_data, dtdemux::reset_type_t ret, bool is_actual,
 	bool on_wrong_sat, bool done)
 {
@@ -1100,7 +1102,7 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 
 			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			if (is_actual) {
-				tune_confirmation.nit_actual_ok = true;
+				tune_confirmation.nit_actual_received = true;
 					dtdebugx("Setting nit_actual_ok = true");
 			}
 		} else if (tune_confirmation.sat_by == confirmed_by_t::NONE && is_actual) {
@@ -1141,13 +1143,13 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_completion(
 				}
 				tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			}
-			tune_confirmation.nit_actual_ok = true;
+			tune_confirmation.nit_actual_received = true;
 			dtdebugx("Setting nit_actual_ok = true");
 			return dtdemux::reset_type_t::NO_RESET;
 		}
 		// do anything needed after a network has been fully loaded
 		if (is_actual) {
-			tune_confirmation.nit_actual_ok = true;
+			tune_confirmation.nit_actual_received = true;
 			dtdebugx("Setting nit_actual_ok = true");
 		}
 	} else { //! done: more nit_actual or nit_other data is coming
@@ -1281,7 +1283,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
 		&& sat_pos != sat_pos_none && std::abs(sat_pos - tuned_mux_key->sat_pos) >= 30;
 
-	ret = on_nit_completion(wtxn, network_data, ret, network.is_actual, on_wrong_sat, done);
+	ret = on_nit_section_completion(wtxn, network_data, ret, network.is_actual, on_wrong_sat, done);
 	if(ret== dtdemux::reset_type_t::RESET ||
 		 ret == dtdemux::reset_type_t::ABORT
 		) {
@@ -1292,7 +1294,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	if (done && network.is_actual) { // for nit other, there may be multiple entries
 		dtdebugx("NIT_ACTUAL completed");
 		scan_state.set_completed(cidx); //signal that nit_actual has been stored
-		tune_confirmation.nit_actual_ok = true;
+		tune_confirmation.nit_actual_received = true;
 		if(pmts_can_be_saved())
 			save_pmts(wtxn);
 	}
@@ -1797,7 +1799,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 	}
 
 	bool done_now = nit_data.update_sdt_completion(scan_state, info, *p_mux_data);
-	tune_confirmation.sdt_actual_ok = done_now;
+	tune_confirmation.sdt_actual_received = done_now;
 	if (done_now) {
 		if (!donotsave)
 			process_removed_services(wtxn, mux_key, service_ids);
@@ -2506,8 +2508,8 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 
 		if (signal_info.lock_status & FE_HAS_LOCK) {
 			//c.tune_src = chdb::tune_src_t::DRIVER;
-			*mux_key_ptr(signal_info.mux) = *mux_key_ptr(mux);			 // overwrite key
-			mux_common_ptr(signal_info.mux)->tune_src = 	mux_common_ptr(mux)->tune_src;
+			*mux_key_ptr(signal_info.driver_mux) = *mux_key_ptr(mux);			 // overwrite key
+			mux_common_ptr(signal_info.driver_mux)->tune_src = 	mux_common_ptr(mux)->tune_src;
 			/* We DO NOT overwrite common, because this function is only
 				 ever called in two cases: 1) to add a fake nit, in which mux == tuned_mux
 				 and it does not matter 2) to correct some tuning parameters from si, in which
@@ -2520,7 +2522,7 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 			auto& si_mux = mux;
 
 
-			visit_variant(signal_info.mux,
+			visit_variant(signal_info.driver_mux,
 										[&](chdb::dvbs_mux_t& mux) {
 											auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
 											assert(p);
@@ -2557,10 +2559,10 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 			//assert(mux_key_ptr(signal_info.mux)->sat_pos != sat_pos_none);
 
 
-			dtdebug("Update mux " << signal_info.mux << " tuned=" << reader->tuned_mux());
+			dtdebug("Update mux " << signal_info.driver_mux << " tuned=" << reader->tuned_mux());
 			if (mux_common_ptr(mux)->tune_src == chdb::tune_src_t::TEMPLATE ||
 					mux_common_ptr(mux)->tune_src == chdb::tune_src_t::DRIVER)
-				mux = signal_info.mux;
+				mux = signal_info.driver_mux;
 			return true;
 		}
 	}

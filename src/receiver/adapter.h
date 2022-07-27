@@ -317,6 +317,7 @@ private:
 	void close_device(thread_safe_t& t); //callable from main thread
 public:
 	void update_tuned_mux_nit(const chdb::any_mux_t& mux);
+	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
 	void  update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
 private:
 
@@ -415,7 +416,11 @@ public:
 	use_count_t use_count_polband; //if >0 it is not allowed to change polarisation and band
 
 	tune_confirmation_t tune_confirmation; //have ts_id,network_id, sat_id been confirmed by SI data?
-	chdb::any_mux_t reserved_mux;   //mux as it is currently reserved. Will be updated with si data
+	chdb::any_mux_t reserved_mux;   /*mux as it is currently reserved. Will be updated with si data
+																		and will always contain the best confirmed-to-be-correct information
+																	*/
+	std::optional<chdb::any_mux_t> bad_received_si_mux; /* mux as received from the SI stream, but
+																												 only if it conflicts with reserved_mux */
 	chdb::lnb_t reserved_lnb; //lnb currently in use
 
 	dvb_frontend_t* reserved_fe{nullptr};

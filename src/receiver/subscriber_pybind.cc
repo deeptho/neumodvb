@@ -232,7 +232,10 @@ void export_signal_info(py::module& m) {
 		})
 		.def_property_readonly("sat_pos_confirmed", [](const signal_info_t& i) {
 			return i.tune_confirmation.sat_by != confirmed_by_t::NONE
-				&& mux_common_ptr(i.mux)->tune_src ==  tune_src_t::NIT_ACTUAL_TUNED;
+				&& mux_common_ptr(i.driver_mux)->tune_src ==  tune_src_t::NIT_ACTUAL_TUNED;
+		})
+		.def_property_readonly("on_wrong_sat", [](const signal_info_t& i) {
+			return i.tune_confirmation.on_wrong_sat;
 		})
 		.def_property_readonly("network_id_confirmed", [](const signal_info_t& i) {
 			return i.tune_confirmation.sat_by != confirmed_by_t::NONE &&
@@ -242,14 +245,23 @@ void export_signal_info(py::module& m) {
 			return i.tune_confirmation.sat_by != confirmed_by_t::NONE &&
 				i.tune_confirmation.ts_id_by != confirmed_by_t::NONE;
 		})
+		.def_property_readonly("nit_received", [](const signal_info_t& i) {
+			return i.tune_confirmation.nit_actual_received;
+		})
+		.def_property_readonly("sdt_received", [](const signal_info_t& i) {
+			return i.tune_confirmation.sdt_actual_received;
+		})
+		.def_property_readonly("pat_received", [](const signal_info_t& i) {
+			return i.tune_confirmation.pat_received;
+		})
 		.def_property_readonly("has_nit", [](const signal_info_t& i) {
-			return i.tune_confirmation.nit_actual_ok;
+			return i.tune_confirmation.nit_actual_seen;
 		})
 		.def_property_readonly("has_sdt", [](const signal_info_t& i) {
-			return i.tune_confirmation.sdt_actual_ok;
+			return i.tune_confirmation.sdt_actual_seen;
 		})
 		.def_property_readonly("has_pat", [](const signal_info_t& i) {
-			return i.tune_confirmation.pat_ok;
+			return i.tune_confirmation.pat_seen;
 		})
 		.def_property_readonly("has_si_done", [](const signal_info_t& i) {
 			return i.tune_confirmation.si_done;
@@ -302,14 +314,24 @@ void export_signal_info(py::module& m) {
 		.def_property_readonly("constellation_samples", [](const signal_info_t& i) {
 			return constellation_helper(i.constellation_samples);
 		})
-		.def_property_readonly("dvbs_mux", [](const signal_info_t& i) { //tuned mux
-			return &i.mux;
-		})
-		.def_property_readonly("si_mux", [](const signal_info_t& i) { //si mux data
-			return &i.si_mux;
-		})
+		.def_property_readonly("driver_mux", [](const signal_info_t& i) { //tuned mux
+			return &i.driver_mux;
+		}
+			, "Information received from driver, with missing info filled in from consolidated_mux"
+		)
+		.def_property_readonly("consolidated_mux", [](const signal_info_t& i) { //si mux data
+			return &i.consolidated_mux;
+		}
+			, "NIT info after combining all available information, taking into account database, driver and received info"
+			)
+		.def_property_readonly("bad_received_si_mux", [](const signal_info_t& i) {
+
+			return &i.bad_received_si_mux;
+		}
+			, "NIT info as received from the current stream, but only iof it conflicts with consolidated_mux"
+			)
 		.def_property_readonly("min_snr", [](const signal_info_t& i) {
-			return (int)(chdb::min_snr(i.mux)*1000);
+			return (int)(chdb::min_snr(i.driver_mux)*1000);
 		})
 		;
 }

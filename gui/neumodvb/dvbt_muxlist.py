@@ -137,8 +137,8 @@ class DvbtMuxGrid(NeumoGridBase):
     def CmdTune(self, evt):
         self.table.SaveModified()
         row = self.GetGridCursorRow()
-        mux = self.table.sreen.record_at_row(row)
-        mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
+        mux = self.table.screen.record_at_row(row)
+        mux_name= f"{int(mux.frequency/1000)}"
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
         self.app.MuxTune(mux)
 

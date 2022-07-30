@@ -1217,7 +1217,7 @@ int dvb_frontend_t::tune(const chdb::dvbt_mux_t& mux, const tune_options_t& tune
 		break;
 	}
 
-	if (((int)mux.delivery_system != SYS_DVBT) || ((int)mux.delivery_system != SYS_DVBT2)) {
+	if (((int)mux.delivery_system != SYS_DVBT) && ((int)mux.delivery_system != SYS_DVBT2)) {
 		dterror("Unsupported delivery system");
 		return -1;
 	}

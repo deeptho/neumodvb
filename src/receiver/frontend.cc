@@ -388,7 +388,7 @@ static int get_dvbt_mux_info(chdb::dvbt_mux_t& mux, const cmdseq_t& cmdseq) {
 	mux.delivery_system = (chdb::fe_delsys_dvbt_t)cmdseq.get(DTV_DELIVERY_SYSTEM)->u.data;
 
 	int freq = cmdseq.get(DTV_FREQUENCY)->u.data;
-	mux.frequency = freq; // in Hz
+	mux.frequency = freq /1000; //freq in Hz; mux.frequency in kHz
 
 	mux.modulation = (chdb::fe_modulation_t)cmdseq.get(DTV_MODULATION)->u.data;
 	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.get(DTV_INVERSION)->u.data;

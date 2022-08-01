@@ -1,5 +1,5 @@
 /*
- * Neumo dvb (C) 2019-2021 deeptho@gmail.com
+ * (c) deeptho@gmail.com 2019-2022
  *
  * Copyright notice:
  *
@@ -191,10 +191,11 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 					printf("here\n");
 					debug_found= true;
 				}
-				if(cand->freq >=  debug_freq-10 && cand->freq <=  debug_freq+10)
+				assert(i>=0 && i < si->num_peaks);
+				if(i+1 >= si->max_num_peaks)
 					printf("here\n");
-
-				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * si->num_peaks - i - 1);
+				assert(i+1 < si->max_num_peaks);
+					memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * (si->num_peaks - i - 1));
 				--i;
 				si->num_peaks--;
 #ifdef DEBUGXXX
@@ -218,7 +219,7 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 					debug_found= true;
 					printf("here\n");
 				}
-				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * si->num_peaks - i - 1);
+				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * (si->num_peaks - i - 1));
 				si->num_peaks--;
 				--i;
 #ifdef DEBUGXXX

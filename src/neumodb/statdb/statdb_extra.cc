@@ -92,7 +92,8 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 								 zoned_time(current_zone(),
 														floor<std::chrono::seconds>(system_clock::from_time_t(spectrum.k.start_time)))
 		)
-		 << pol_ << "_dish" << (int)spectrum.k.lnb_key.dish_id<< "_adapter" <<  (int)spectrum.k.lnb_key.adapter_mac_address;
+		 << pol_ << "_dish" << (int)spectrum.k.lnb_key.dish_id<< "_A";
+	ret.sprintf("%06x" , (int)spectrum.k.lnb_key.adapter_mac_address);
 }
 
 

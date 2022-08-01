@@ -1026,6 +1026,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		scan.spectrum_method = options.spectrum_method;
 		scan.adjust_frequencies(lnb, scan.band_pol.band == chdb::fe_band_t::HIGH);
 		scan.usals_pos = lnb.usals_pos;
+		scan.adapter_no = r->reserved_lnb.adapter_no;
 		auto* network = chdb::lnb::get_network(lnb, scan.sat_pos);
 		scan.lof_offsets = lnb.lof_offsets;
 		assert(!network || network->sat_pos == scan.sat_pos);

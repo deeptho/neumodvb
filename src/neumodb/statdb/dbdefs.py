@@ -85,6 +85,7 @@ spectrum = db_struct(name='spectrum',
                                (3, 'uint32_t', 'end_freq'),
                                (4, 'uint32_t', 'resolution'),
                                (7, 'int16_t', 'usals_pos', 'sat_pos_none'), #exact usals pos
+                               (9, 'int16_t', 'adapter_no', -1),
                                (6, 'bool', 'is_complete', 'true'),
                                (5, 'ss::string<256>', 'filename'), #relative path where spectrum stored
                                (8, 'ss::vector<int32_t, 2>', 'lof_offsets') #offset of the local oscillator (one per band)

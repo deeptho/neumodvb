@@ -111,6 +111,7 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 		(uint32_t)scan.end_freq,
 		scan.resolution,
 		scan.usals_pos,
+		scan.adapter_no,
 		false,/*is_complete*/
 #if 0
 		scan.spectrum_is_highres,

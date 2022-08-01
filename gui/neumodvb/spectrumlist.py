@@ -45,7 +45,7 @@ class SpectrumTable(NeumoTable):
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     all_columns = \
         [CD(key='k.lnb_key',  label='lnb', basic=True, example="D0A0 Ku 28.2E 32766  ",
-            dfn = lambda x: lnb_label(x[1], x[0].k.sat_pos),
+            dfn = lambda x: x[2].lnb_label(x[1], x[0].k.sat_pos, x[0].adapter_no),
             sort=('k.lnb_key.dish_id', 'k.lnb_key.adapter_mac_address', 'k.lnb_key.lnb_id')),
          CD(key='k.sat_pos',  label='sat\npos', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.pol',  label='pol', basic=True, dfn=lambda x: lastdot(x[1]).replace('POL',''), example='V'),
@@ -58,13 +58,12 @@ class SpectrumTable(NeumoTable):
          #CD(key='resolution',  label='step', basic=False),
          CD(key='filename',  label='file', basic=False, example="28.2E/0/2022-07-20_00:19:48_H_dish0_adapter2")
         ]
-    def lnb_label(self, lnb_key, sat_pos):
+    def lnb_label(self, lnb_key, sat_pos, adapter_no):
         sat_pos=pychdb.sat_pos_str(sat_pos)
         t= lastdot(lnb_key.lnb_type)
         if t != 'C':
             t='Ku'
-        adap=self.adapter_short_name(lnb_key.adapter_mac_address)
-        return f'D{lnb_key.dish_id}{adap} {t} {sat_pos:>5} {lnb_key.lnb_id}'
+        return f'D{lnb_key.dish_id}A{"??" if adapter_no< 0 else adapter_no} {sat_pos:>5}{t} {lnb_key.lnb_id}'
 
     def InitialRecord(self):
         return self.app.currently_selected_spectrum

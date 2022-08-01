@@ -1106,7 +1106,7 @@ lnb = db_struct(name='lnb',
                           (6, 'int32_t', 'lof_high', -1), # local oscillator, -1 means default
                           (7, 'int32_t', 'freq_low', -1), # lowest frequency which can be tuned
                           (18, 'int32_t', 'freq_mid', -1), # frequency to switch between low/high band
-                          (19, 'int32_t', 'freq_high', -1), # highest frequncy wich can be tuned
+                          (19, 'int32_t', 'freq_high', -1), # highest frequency wich can be tuned
                           (8, 'rotor_control_t', 'rotor_control', 'rotor_control_t::FIXED_DISH'), #
                           (21, 'int16_t', 'offset_pos', '0'), #only for master usals positioner: in 1/100 degre: offset w.r.t. t center of dish
 

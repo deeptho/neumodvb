@@ -201,6 +201,7 @@ struct spectrum_scan_t {
 	chdb::lnb_key_t lnb_key;
 	int16_t usals_pos{sat_pos_none};
 	int16_t sat_pos{sat_pos_none};
+	int16_t adapter_no{-1};
 	ss::vector<int32_t,2> lof_offsets;
 	chdb::fe_band_pol_t band_pol;
 	dtv_fe_spectrum_method spectrum_method{SPECTRUM_METHOD_FFT};

@@ -390,7 +390,6 @@ void rec_manager_t::startup(system_time_t now_) {
 	using namespace recdb;
 	using namespace epgdb;
 	auto parent_txn = receiver.recdb.wtxn();
-	// auto cr = recdb::rec::find_first(parent_txn);
 	auto cr = rec_t::find_by_status_start_time(parent_txn, rec_status_t::IN_PROGRESS, find_type_t::find_geq,
 																						 rec_t::partial_keys_t::rec_status);
 	for (auto rec : cr.range()) {

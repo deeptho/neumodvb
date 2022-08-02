@@ -404,6 +404,9 @@ struct db_cursor : private lmdb::cursor {
 			}
 		}
 	~db_cursor() {
+		if(!txn.is_valid()) {
+			_handle = nullptr;
+			}
 		if (txn.is_valid() && is_valid()) {
 			close(); /* !txn.is_valid() means that transaction was aborted/committed in which case low level
 								 		lmdb cursors have been freed*/

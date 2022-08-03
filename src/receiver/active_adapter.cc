@@ -987,15 +987,19 @@ int pol_band_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 	if (v == voltage) {
 		dtdebugx("No voltage change needed: v=%d", v);
 		return 0;
+	} else {
+		dtdebugx("Changing voltage from : v=%d to v=%d", voltage, v);
 	}
-	bool must_sleep = voltage == SEC_VOLTAGE_OFF;
+	bool must_sleep = (voltage == SEC_VOLTAGE_OFF || voltage  <0);
 	voltage = v;
 
 	if (ioctl(fefd, FE_SET_VOLTAGE, voltage) < 0) {
 		dterrorx("problem setting voltage %d", voltage);
 		return -1;
 	}
-	if(must_sleep)
+	if(must_sleep) {
+		dtdebug("Sleeping after turning on voltage\n");
 		msleep(200);
+	}
 	return 1;
 }

@@ -202,8 +202,6 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	}
 	//at this point database is consistent with received mux
 	assert(pdb_mux);
-	bool bad_sid_mux = is_tuned_freq && ! is_tuned_mux;
-	reader->update_bad_received_si_mux( bad_sid_mux ? mux: std::optional<chdb::any_mux_t>{});
 
 	//auto* db_mux_key = mux_key_ptr(*pdb_mux);
 	//assert(*db_mux_key == *mux_key);
@@ -1210,6 +1208,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		bool was_active = scan_state.set_active(cidx);
 		if (!was_active && network.is_actual) {
 			dtdebugx("First NIT_ACTUAL data");
+			reader->update_bad_received_si_mux(std::optional<chdb::any_mux_t>{});
 		}
 	}
 	auto* p_network_data = &nit_data.get_network(network.network_id);
@@ -1254,6 +1253,11 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			 add sat entry if none present yet
 			 updates reader->current_mux
 		 */
+
+		bool bad_sid_mux = is_tuned_freq && ! is_tuned_mux;
+		if(bad_sid_mux)
+			reader->update_bad_received_si_mux(mux);
+
 		if (!can_be_tuned) {
 			continue;
 		}

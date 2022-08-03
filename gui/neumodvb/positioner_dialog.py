@@ -444,14 +444,14 @@ class TuneMuxPanel(TuneMuxPanel_):
             pass
         bad_nit = signal_info.bad_received_si_mux
         sat_text = f'{pychdb.sat_pos_str(consolidated_mux.k.sat_pos)}' if sat_pos_confirmed else \
-            f'{pychdb.sat_pos_str(bad_nit.sat_pos)}' if  bad_nit is not None else '??'
+            f'{pychdb.sat_pos_str(bad_nit.k.sat_pos)}' if bad_nit is not None else '??'
 
         nid_text = f'{consolidated_mux.k.network_id}' if bad_nit is None else f'{bad_nit.k.network_id}'
         tid_text = f'{consolidated_mux.k.ts_id}' if bad_nit is None else f'{bad_nit.k.ts_id}'
 
         if self.signal_info.nit_received:
+            self.si_nit_ids_text.SetForegroundColour(wx.Colour('black' if bad_nit is None else 'red'))
             self.si_nit_ids_text.SetLabel(f'{sat_text} nid={nid_text} tid={tid_text}')
-            self.si_nit_ids_text.SetForegroundColour(wx.Colour('red' if bad_nit is None else 'black'))
         else:
             self.si_nit_ids_text.SetLabel(f'')
         si_done = self.signal_info.has_si_done
@@ -594,9 +594,10 @@ class SignalPanel(SignalPanel_):
         if not self.speak_signal:
             return
         locked = self.signal_info.has_timing_lock
-        nit_received = self.signal_info.received_mux is not None
-        mux = self.signal_info.driver_mux
-        sat_pos = mux.k.sat_pos
+        bad_nit = self.signal_info.bad_received_si_mux
+        consolidated_mux = self.signal_info.consolidated_mux
+        nit_received = self.signal_info.nit_received
+        sat_pos = bad_nit.k.sat_pos if bad_nit else consolidated_mux.k.sat_pos
         snr = self.signal_info.snr/1000
         if snr is not None:
             if snr <= -1000.:

@@ -144,7 +144,7 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 								cand->freq, cand->bw
 					);
 #endif
-				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * si->num_peaks - i - 1);
+				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * (si->num_peaks - i - 1));
 				--i;
 				si->num_peaks--;
 				continue;
@@ -158,7 +158,7 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 #if 0
 				dprintk("Removing older peak because it contains other peaks %dkHz BW=%dkHz\n", old->freq, old->bw);
 #endif
-				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * si->num_peaks - i - 1);
+				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * (si->num_peaks - i - 1));
 				si->num_peaks--;
 				--i;
 				continue;

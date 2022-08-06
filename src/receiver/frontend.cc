@@ -196,7 +196,8 @@ static int get_frontend_names_dvapi(const adapter_no_t adapter_no, dvb_frontend_
 	t.dbfe.supports.multistream = fe_info.caps & FE_CAN_MULTISTREAM;
 	t.dbfe.supports.iq = false;
 	t.dbfe.supports.blindscan = false;
-	t.dbfe.supports.spectrum = false;
+	t.dbfe.supports.spectrum_sweep = false;
+	t.dbfe.supports.spectrum_fft = false;
 	return 0;
 }
 
@@ -224,10 +225,12 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no, 
 																		*/
 	}
 	t.dbfe.supports_neumo = 	fe_info.supports_neumo;
-	t.dbfe.rf_in = (fe_info.supports_neumo && fe_info.rf_in >= 0) ? fe_info.rf_in : adapter_no;
+	t.dbfe.rf_in = (fe_info.supports_neumo && fe_info.default_rf_input >= 0) ?
+		fe_info.default_rf_input : adapter_no;
 	t.dbfe.card_name.sprintf(card_name, strlen(card_name));
 	t.dbfe.card_short_name.sprintf(card_short_name, strlen(card_short_name));
-
+	for(int i=0; i < fe_info.num_rf_inputs; ++i)
+		t.dbfe.rf_inputs.push_back(fe_info.rf_inputs[i]);
 	if (fe_info.adapter_name[0] == 0) {
 		// old style, for cards not supported by neumoDVB
 		ss::string<256> adapter_name;
@@ -253,7 +256,8 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no, 
 	t.dbfe.symbol_rate_max = fe_info.symbol_rate_max;
 	t.dbfe.supports.multistream = fe_info.caps & FE_CAN_MULTISTREAM;
 	t.dbfe.supports.blindscan = fe_info.extended_caps & FE_CAN_BLINDSEARCH;
-	t.dbfe.supports.spectrum = fe_info.extended_caps & FE_CAN_SPECTRUMSCAN;
+	t.dbfe.supports.spectrum_sweep = fe_info.extended_caps & FE_CAN_SPECTRUM_SWEEP;
+	t.dbfe.supports.spectrum_fft = fe_info.extended_caps & FE_CAN_SPECTRUM_FFT;
 	t.dbfe.supports.iq = fe_info.extended_caps & FE_CAN_IQ;
 	return 0;
 }
@@ -654,8 +658,10 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 
 int dvb_frontend_t::clear() {
 	auto fefd = ts.readAccess()->fefd;
-	if ((ioctl(fefd, DTV_STOP)) == -1) {
-		dtdebug("DTV STOP failed: " << strerror(errno));
+	struct dtv_algo_ctrl algo_ctrl;
+	algo_ctrl.cmd = DTV_STOP;
+	if ((ioctl(fefd, FE_ALGO_CTRL, &algo_ctrl)) == -1) {
+		dtdebug("ALGO_CTRL: DTV STOP failed: " << strerror(errno));
 
 		struct dtv_property pclear[] = {
 			{

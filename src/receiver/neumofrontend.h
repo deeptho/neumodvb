@@ -30,11 +30,11 @@
 
 enum fe_extended_caps {
 	FE_EXTENDED_CAPS_IS_STUPID = 0x00,
-	FE_CAN_SPECTRUMSCAN        = 0x01,
-	FE_CAN_HR_SPECTRUMSCAN     = 0x08,
+	FE_CAN_SPECTRUM_SWEEP      = 0x01,
 	FE_CAN_IQ                  = 0x02,
 	FE_CAN_BLINDSEARCH         = 0x04,
-	FE_CAN_MODCOD		           = 0x10
+	FE_CAN_SPECTRUM_FFT        = 0x08,
+	FE_CAN_MODCOD		           = 0x10,
 };
 
 /**
@@ -179,13 +179,16 @@ struct dvb_frontend_extended_info {
 														 (e.g., rf_in) 0 is a valid value. The fe_info.supports_neumo flag, when
 														 set - indicates that such fields have been properly initialized anyway
 													 */
-	__u8       reserved1;
-	__u8       reserved2;
+	__u8       num_rf_inputs;
+	__s8       default_rf_input;
 	__u8       reserved3;
-	__s32      rf_in; //default rf_in value
+	__s32      reserved4; //default rf_in value; used if user expresses no preference
 	__s64      card_mac_address; //unique identifier for card
 	__s64      adapter_mac_address; //unique identifier for adapter
-	char       unused[64-24];
+	char       unused[64 - 24 - 16];
+	__s8       rf_inputs[16]; /*rf inputs to which thios tuner can connect If num_rf_inputs==0,
+															then the adapter can connect to a single rf_input, which equals
+															adapter_no*/
 	__u32      frequency_min;
 	__u32      frequency_max;
 	__u32      frequency_stepsize;
@@ -653,7 +656,8 @@ enum fe_interleaving {
 #define DTV_BITRATE 88
 #define DTV_LOCKTIME 89
 #define DTV_MATYPE_LIST		90 //retrieve list of present matypesand stream_ids
-#define DTV_MAX_COMMAND	 DTV_MATYPE_LIST
+#define DTV_RF_INPUT 91
+#define DTV_MAX_COMMAND	 DTV_RF_INPUT
 
 //commands for controlling long running algorithms via FE_ALGO_CTRL ioctl
 #define DTV_STOP 1
@@ -789,9 +793,9 @@ enum fe_algorithm {
 	ALGORITHM_COLD_BEST_GUESS,
 	ALGORITHM_BLIND,
 	ALGORITHM_BLIND_BEST_GUESS,
-	ALGORITHM_SEARCH,
-	ALGORITHM_SEARCH_NEXT,
-	ALGORITHM_BANDWIDTH,
+	//ALGORITHM_SEARCH,
+	//ALGORITHM_SEARCH_NEXT,
+	//ALGORITHM_BANDWIDTH,
 };
 
 /* backward compatibility definitions for delivery systems */
@@ -1156,7 +1160,8 @@ struct dtv_algo_ctrl {
 
 #define FE_SET_PROPERTY		   _IOW('o', 82, struct dtv_properties)
 #define FE_GET_PROPERTY		   _IOR('o', 83, struct dtv_properties)
-#define FE_ALGO_CTRL		     _IOW('o', 84) struct dtv_algo_ctrl)
+#define FE_ALGO_CTRL		     _IOW('o', 84, struct dtv_algo_ctrl)
+#define FE_SET_RF_INPUT		   _IO('o', 85)
 
 
 #define FE_GET_EXTENDED_INFO		_IOR('o', 86, struct dvb_frontend_extended_info)

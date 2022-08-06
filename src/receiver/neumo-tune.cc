@@ -1029,6 +1029,7 @@ int tune_it(int fefd, int frequency_, bool pol_is_v) {
 	return cmdseq.tune(fefd);
 }
 
+#if 0
 int tune_next(int fefd) {
 	cmdseq_t cmdseq;
 
@@ -1037,6 +1038,8 @@ int tune_next(int fefd) {
 	// cmdseq.add(DTV_DELIVERY_SYSTEM,  SYS_DVBS);
 	return cmdseq.tune(fefd);
 }
+#endif
+
 
 /** @brief generate and diseqc message for a committed or uncommitted switch
  * specification is available from http://www.eutelsat.com/

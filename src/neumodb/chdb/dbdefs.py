@@ -951,7 +951,8 @@ fe_supports = db_struct(name='fe_supports',
                         version = 1,
                         fields = ((1, 'bool', 'multistream', 'false'),
                                   (2, 'bool', 'blindscan', 'false'),
-                                  (3, 'bool', 'spectrum', 'false'),
+                                  (3, 'bool', 'spectrum_sweep', 'false'),
+                                  (5, 'bool', 'spectrum_fft', 'false'),
                                   (4, 'bool', 'iq', 'false')
                 ))
 
@@ -997,6 +998,7 @@ fe = db_struct(name='fe',
                    (16, 'ss::string<64>', 'adapter_name'),
                    (17, 'ss::string<64>', 'card_address'),
                    (19, 'ss::vector<chdb::fe_delsys_t>', 'delsys'),
+                   (27, 'ss::vector<int8_t>', 'rf_inputs'),
                ))
 
 """

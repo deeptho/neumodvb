@@ -383,7 +383,8 @@ class Spectrum(object):
     def detrend(self):
         lowest_freq, highest_freq = self.spec[0, 0] , self.spec[-1,0]
         # the +8 is a heuristic, in case the highest frequencies of the Ku_low band would exceed 11700 due to lnb lof offset
-        has_two_bands = (highest_freq > 11700+8) and (lowest_freq < 11700-8)
+        has_two_bands = (highest_freq > 11700+8) and (lowest_freq < 11700-8) and \
+            self.spectrum.k.lnb_key.lnb_type == pychdb.lnb_type_t.UNIV
         if has_two_bands:
             mid_idx1 = np.searchsorted(self.spec[:,0], 11700-8, side='left')
             mid_idx = np.searchsorted(self.spec[mid_idx1:,0], 11700, side='left') + mid_idx1

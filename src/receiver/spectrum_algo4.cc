@@ -195,7 +195,7 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 				if(i+1 >= si->max_num_peaks)
 					printf("here\n");
 				assert(i+1 < si->max_num_peaks);
-					memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * (si->num_peaks - i - 1));
+				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * (si->num_peaks - i - 1));
 				--i;
 				si->num_peaks--;
 #ifdef DEBUGXXX

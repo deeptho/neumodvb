@@ -98,7 +98,7 @@ class DvbtMuxTable(NeumoTable):
 
     def __new_record__(self):
         ret=self.record_t()
-        ref.k.sat_pos = pychdb.sat.sat_pos_dvbt
+        ret.k.sat_pos = pychdb.sat.sat_pos_dvbt
         ret.delivery_system = pychdb.fe_delsys_dvbt_t.DVBT2
         ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
         return ret

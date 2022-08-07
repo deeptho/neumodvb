@@ -107,7 +107,7 @@ class SpectrumTable(NeumoTable):
         txn = self.chdb.rtxn()
         ret = pychdb.fe.find_by_key(txn, mac)
         return str(ret)
-        return mac.to_bytes(6, byteorder='little').hex(":")
+        return mac.to_bytes(6, byteorder='little').hex(":") if x[1]>=0 else '???'
 
 
 class SpectrumGridBase(NeumoGridBase):

@@ -79,7 +79,7 @@ def lnb_label(lnb):
 class LnbTable(NeumoTable):
     CD = NeumoTable.CD
     adapter_fn = lambda x: x[0].adapter_name
-    mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":")
+    mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":") if x[1]>=0 else '???'
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''

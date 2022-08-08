@@ -50,7 +50,8 @@ class FrontendTable(NeumoTable):
     mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":")
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     all_columns = \
-        [CD(key='adapter_name',  label='adapter', basic=True, no_combo=True, readonly=True, example=" TBS 6916X #12 "),
+        [CD(key='adapter_name',  label='adapter', basic=True, no_combo=True, readonly=True,
+            example="TurboSight TBS 6916X #12 "),
          CD(key='k.frontend_no',  label='FE#', basic=True, readonly=True),
           CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
              dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),

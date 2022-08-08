@@ -423,7 +423,7 @@ void dvbdev_monitor_t::on_new_frontend(db_txn& wtxn, dvb_adapter_t* adapter, fro
 	{
 		auto t = fe->ts.writeAccess();
 		t->dbfe.present = true;
-		t->can_be_used = t->dbfe.enabled;;
+		t->can_be_used = t->dbfe.enabled;
 		t->dbfe.can_be_used = t->can_be_used;
 		update_dbfe(wtxn, adapter->adapter_no, frontend_no, *t);
 	}
@@ -647,6 +647,7 @@ void dvbdev_monitor_t::disable_missing_adapters(db_txn& wtxn) {
 			auto& [adapter_no_, adapter] = x;
 			auto [itfe, foundfe] = find_in_map_if(adapter->frontends, [&fe](const auto&x){
 				auto& [frontend_no_, fe_] = x;
+				auto live_fe = fe_->ts.readAccess()->dbfe;
 				return fe.k == fe_->ts.readAccess()->dbfe.k;
 			});
 			return foundfe;

@@ -97,7 +97,7 @@ class LnbTable(NeumoTable):
              example=" 12"),
           #We use mac_address as the key, to support combobox editing
           CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=False, readonly=False,
-             dfn=adapter_fn, example=" TBS 6909X #12 "),
+             dfn=adapter_fn, example="TurboSight TBS 6916X #12 "),
           CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
              dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
           CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),

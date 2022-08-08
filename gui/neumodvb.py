@@ -538,7 +538,7 @@ class NeumoGui(wx.App):
         txn = wx.GetApp().chdb.rtxn()
         ret={}
         for a in  pychdb.fe.list_all_by_adapter_no(txn):
-            ret[a.adapter_name ] = a.k.adapter_mac_address
+            ret[f'{a.adapter_no}: {a.adapter_name}' ] = a.k.adapter_mac_address
         txn.abort()
         return ret
 

@@ -41,6 +41,9 @@ def delsys_fn(x):
     vals= set([enum_to_str(xx).split('_')[0] for xx in x[1]])
     vals = vals.difference(set(['AUTO']))
     return "/".join(vals)
+def rf_inputs_fn(x):
+
+    return " ".join(str(v) for v in x[1])
 
 class FrontendTable(NeumoTable):
     CD = NeumoTable.CD
@@ -76,6 +79,7 @@ class FrontendTable(NeumoTable):
          CD(key='priority',  label='priority', basic=True),
          CD(key='master_adapter_mac_address',  label='master', basic=True, no_combo=False,
             dfn=lambda x: x[0].adapter_name, example=" TBS 6909X #12 "),
+         CD(key='rf_inputs',  label='rf\ninputs', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          CD(key='delsys',  label='delsys', basic=True, dfn=delsys_fn, readonly=True, example='DVBT/'*6)
         ]
 

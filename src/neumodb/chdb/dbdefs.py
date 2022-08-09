@@ -1152,7 +1152,7 @@ fe = db_struct(name='fe',
                    (16, 'ss::string<64>', 'adapter_name'),
                    (17, 'ss::string<64>', 'card_address'),
                    (19, 'ss::vector<chdb::fe_delsys_t>', 'delsys'),
-                   (27, 'ss::vector<uint8_t>', 'rf_inputs'),
+                   (27, 'ss::vector<int8_t>', 'rf_inputs'),
                ))
 
 

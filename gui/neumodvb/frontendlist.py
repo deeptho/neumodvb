@@ -52,6 +52,7 @@ class FrontendTable(NeumoTable):
     all_columns = \
         [CD(key='adapter_name',  label='adapter', basic=True, no_combo=True, readonly=True,
             example="TurboSight TBS 6916X #12 "),
+         CD(key='adapter_no',  label='AD#', basic=True, readonly=True),
          CD(key='k.frontend_no',  label='FE#', basic=True, readonly=True),
           CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
              dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
@@ -60,7 +61,7 @@ class FrontendTable(NeumoTable):
          CD(key='rf_in',  label='RF#', basic=True, readonly=True),
          #CD(key='card_mac_address',  label='card MAC#', basic=True, no_combo=True, readonly=True,
          #   dfn=mac_fn, example=" 00:00:ab:00:00:00 "),
-         #CD(key='card_address',  label='Card#', basic=True, example=" Turbosight 6909x "),
+         CD(key='card_address',  label='Bus', basic=True, example=" Turbosight 6909x "),
          CD(key='present',  label='present', basic=True, dfn=bool_fn, readonly=True),
          CD(key='can_be_used',  label='available', basic=True, dfn=bool_fn, readonly=True),
          CD(key='enabled',  label='enabled', basic=True, dfn=bool_fn),

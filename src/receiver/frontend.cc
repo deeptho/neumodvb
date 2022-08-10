@@ -234,7 +234,7 @@ static int get_frontend_names(dvb_frontend_t::thread_safe_t& t, int adapter_no, 
 	if (fe_info.adapter_name[0] == 0) {
 		// old style, for cards not supported by neumoDVB
 		ss::string<256> adapter_name;
-		adapter_name.sprintf("%s #%d", fe_info.card_short_name, adapter_no);
+		adapter_name.sprintf("A%d %s", adapter_no, fe_info.card_short_name);
 		t.dbfe.adapter_name.sprintf(adapter_name.c_str(), strlen(fe_info.adapter_name));
 	}
 

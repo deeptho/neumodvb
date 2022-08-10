@@ -92,8 +92,9 @@ class LnbTable(NeumoTable):
                       label='LNB', basic=True, readonly=True)
                               ]
     all_columns = \
-        [ CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
-          CD(key='adapter_no',  label='adap', basic=True, readonly=True,
+        [#CD(key='name',  label='name', basic=True, readonly=True, example=" TBS 6904se #12 "),
+         CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
+         CD(key='adapter_no',  label='adap', basic=True, readonly=True,
              example=" 12"),
           #We use mac_address as the key, to support combobox editing
           CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=False, readonly=False,

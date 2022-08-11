@@ -8253,7 +8253,6 @@ update:
 		ndata = NODEDATA(node);
 		if (ofp == NULL) {
 #pragma GCC  diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-overflow"
 			if (F_ISSET(flags, F_BIGDATA))
 				memcpy(ndata, data->mv_data, sizeof(pgno_t));
 			else if (F_ISSET(flags, MDB_RESERVE))
@@ -8263,7 +8262,6 @@ update:
 #pragma GCC  diagnostic pop
 		} else {
 #pragma GCC  diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-overflow"
 			memcpy(ndata, &ofp->mp_pgno, sizeof(pgno_t));
 			ndata = METADATA(ofp);
 			if (F_ISSET(flags, MDB_RESERVE))
@@ -10124,7 +10122,6 @@ mdb_env_cwalk(mdb_copy *my, pgno_t *pg, int flags)
 
 						memcpy(&pg, NODEDATA(ni), sizeof(pg));
 #pragma GCC  diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-overflow"
 						memcpy(NODEDATA(ni), &my->mc_next_pgno, sizeof(pgno_t));
 #pragma GCC diagnostic pop
 						rc = mdb_page_get(&mc, pg, &omp, NULL);

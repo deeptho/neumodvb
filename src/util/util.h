@@ -217,6 +217,7 @@ extern int _slowdown(time_t*last,int *count, time_t now, int maxcount);
 }
 
 
+unconvertable_int(int, subscription_id_t);
 
 void assert_fail_stop(const char *assertion, const char *file, unsigned line, const char *function) throw();
 
@@ -224,3 +225,11 @@ void assert_fail_stop(const char *assertion, const char *file, unsigned line, co
 #endif
 
 int file_swap(const char* file1, const char* file2);
+
+/** @brief Wait msec miliseconds
+ */
+inline void msleep(uint32_t msec) {
+	struct timespec req = {msec / 1000, 1000000 * (msec % 1000)};
+	while (nanosleep(&req, &req))
+		;
+}

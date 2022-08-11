@@ -32,11 +32,11 @@ class spectrum_t {
 	friend class receiver_thread_t;
 	receiver_thread_t& receiver_thread;
 	receiver_t& receiver;
-	int subscription_id{-1};
+	subscription_id_t subscription_id{-1};
 	bool must_end = false;
 
 public:
 	spectrum_t(receiver_thread_t& receiver_thread_,
-						int subscription_id);
+						subscription_id_t subscription_id);
 	~spectrum_t();
 };

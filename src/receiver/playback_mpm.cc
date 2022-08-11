@@ -39,7 +39,7 @@ using namespace date;
 using namespace date::clock_cast_detail;
 
 
-playback_mpm_t::playback_mpm_t(receiver_t& receiver_, int subscription_id_)
+playback_mpm_t::playback_mpm_t(receiver_t& receiver_, subscription_id_t subscription_id_)
 	: mpm_t(true)
 	, receiver(receiver_)
 	, subscription_id(subscription_id_) {
@@ -49,7 +49,7 @@ playback_mpm_t::playback_mpm_t(receiver_t& receiver_, int subscription_id_)
 playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 															 const chdb::service_t& live_service,
 															 const recdb::stream_descriptor_t& streamdesc,
-															 int subscription_id_)
+															 subscription_id_t subscription_id_)
 	: mpm_t(other, true)
 	, receiver(other.active_service->receiver)
 	, live_mpm(&other)
@@ -836,37 +836,37 @@ milliseconds_t playback_mpm_t::get_current_play_time() const {
 }
 
 
-void playback_mpm_t::register_audio_changed_callback(int subscription_id, stream_state_t::callback_t cb) {
-	assert(subscription_id >= 0);
+void playback_mpm_t::register_audio_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb) {
+	assert((int) subscription_id >= 0);
 	assert(cb != nullptr);
 	auto ls = stream_state.writeAccess();
-	dtdebugx("Register audio_changed_cb subscription_id=%d s=%d", subscription_id,
+	dtdebugx("Register audio_changed_cb subscription_id=%d s=%d", (int) subscription_id,
 					 (int)ls->audio_language_change_callbacks.size());
 	ls->audio_language_change_callbacks[subscription_id] = cb;
 }
 
-void playback_mpm_t::unregister_audio_changed_callback(int subscription_id) {
-	assert(subscription_id >= 0);
+void playback_mpm_t::unregister_audio_changed_callback(subscription_id_t subscription_id) {
+	assert((int) subscription_id >= 0);
 	auto ls = stream_state.writeAccess();
-	dtdebugx("Unregister audio_changed_cb subscription_id=%d s=%d", subscription_id,
+	dtdebugx("Unregister audio_changed_cb subscription_id=%d s=%d", (int) subscription_id,
 					 (int)ls->audio_language_change_callbacks.size());
 	ls->audio_language_change_callbacks.erase(subscription_id);
 }
 
-void playback_mpm_t::register_subtitle_changed_callback(int subscription_id, stream_state_t::callback_t cb) {
-	assert(subscription_id >= 0);
+void playback_mpm_t::register_subtitle_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb) {
+	assert((int) subscription_id >= 0);
 	assert(cb != nullptr);
 	auto ls = stream_state.writeAccess();
-	dtdebugx("Register subtitle_changed_cb subscription_id=%d s=%d", subscription_id,
+	dtdebugx("Register subtitle_changed_cb subscription_id=%d s=%d", (int) subscription_id,
 					 (int)ls->subtitle_language_change_callbacks.size());
 
 	ls->subtitle_language_change_callbacks[subscription_id] = cb;
 }
 
-void playback_mpm_t::unregister_subtitle_changed_callback(int subscription_id) {
-	assert(subscription_id >= 0);
+void playback_mpm_t::unregister_subtitle_changed_callback(subscription_id_t subscription_id) {
+	assert((int) subscription_id >= 0);
 	auto ls = stream_state.writeAccess();
-	dtdebugx("Unregister subtitle_changed_cb subscription_id=%d s=%d", subscription_id,
+	dtdebugx("Unregister subtitle_changed_cb subscription_id=%d s=%d", (int) subscription_id,
 					 (int)ls->subtitle_language_change_callbacks.size());
 	ls->subtitle_language_change_callbacks.erase(subscription_id);
 }

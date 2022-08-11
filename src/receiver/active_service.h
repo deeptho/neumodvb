@@ -136,7 +136,7 @@ private:
 
 	recdb::live_service_t get_live_service() const;
 	recdb::live_service_t get_live_service_key() const;
-	std::unique_ptr<playback_mpm_t> make_client_mpm(int subscription_id);
+	std::unique_ptr<playback_mpm_t> make_client_mpm(subscription_id_t subscription_id);
 
 	bool need_decryption();
 

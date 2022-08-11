@@ -24,7 +24,7 @@
 #include "task.h"
 //#include "simgr/simgr.h"
 #include "util/access.h"
-#include "adapter.h"
+#include "devmanager.h"
 #include "options.h"
 #include "recmgr.h"
 #include "mpm.h"
@@ -42,8 +42,8 @@ namespace pybind11 {
 class subscriber_t
 {
 
-
-	int subscription_id{-1};
+	pid_t owner;
+	subscription_id_t subscription_id{-1};
 	int tune_attempt{0}; //to detect old status messages which come in after the most recent tune
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
@@ -59,7 +59,7 @@ public:
 	int event_flag{ int(event_type_t::ERROR_MSG)|
 		int(event_type_t::SIGNAL_INFO) | int(event_type_t::SPECTRUM_SCAN)}; //which events to report
 
-	inline int get_subscription_id() const {
+	inline subscription_id_t get_subscription_id() const {
 		return subscription_id;
 	}
 	template<typename T> void notify(const T& data);

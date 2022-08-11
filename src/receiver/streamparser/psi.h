@@ -338,9 +338,6 @@ namespace dtdemux {
 	struct nit_parser_t : public psi_parser_t
 	{
 		parser_status_t  parser_status;
-#ifdef TODO2
-		int current_version_number{-1};
-#endif
 		std::function<reset_type_t(nit_network_t&, const subtable_info_t&)>
 		section_cb = [](const nit_network_t& network, const subtable_info_t& subtable_info)
 			{return reset_type_t::NO_RESET;};
@@ -366,9 +363,6 @@ namespace dtdemux {
 	{
 
 		parser_status_t  parser_status;
-#ifdef TODO2
-		int current_version_number{-1};
-#endif
 		int fst_preferred_region_id{-1}; //needed to select bouquets
 
 
@@ -401,9 +395,6 @@ namespace dtdemux {
 	{
 
 		parser_status_t  parser_status;
-#ifdef TODO2
-		int current_version_number{-1};
-#endif
 		int fst_preferred_region_id{-1}; //needed to select bouquets
 
 		chdb::epg_type_t epg_type{chdb::epg_type_t::MOVISTAR};
@@ -439,9 +430,6 @@ namespace dtdemux {
 	struct eit_parser_t : public psi_parser_t
 	{
 		parser_status_t  parser_status;
-#ifdef TODO2
-		int current_version_number{-1};
-#endif
 		chdb::epg_type_t epg_type{chdb::epg_type_t::UNKNOWN};
 		std::function<reset_type_t(epg_t&, const subtable_info_t&)>
 		section_cb = [](epg_t& epg, const subtable_info_t& subtable_info)
@@ -470,9 +458,6 @@ namespace dtdemux {
 	struct pat_parser_t : public psi_parser_t
 	{
 		parser_status_t  parser_status;
-#ifdef TODO2
-		int current_version_number{-1};
-#endif
 		std::function<reset_type_t(const pat_services_t&, const subtable_info_t&)>
 		section_cb = [](const pat_services_t& services, const subtable_info_t& subtable_info)
 			{return reset_type_t::NO_RESET;};

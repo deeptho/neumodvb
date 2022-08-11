@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
 #endif
 	ss::string<32> s;
 
-	int subscription_id = -1;
+	subscription_id_t subscription_id = -1;
 	s << "SUB[" << subscription_id << "] ";
 
 	ss::string<0> zorro1{"adsa"}; // 1 1 0, ////0,0,0

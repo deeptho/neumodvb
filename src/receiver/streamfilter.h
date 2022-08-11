@@ -17,6 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+#include "active_adapter.h"
 #include <memory>
 #include <atomic>
 #include <unistd.h>
@@ -41,7 +42,7 @@ class stream_filter_t {
 	constexpr static int dmx_buffer_size{32*1024L*1024L};
 	//data for the master stream
 	active_adapter_t& active_adapter;
-	chdb::any_mux_t tuned_mux;
+	chdb::any_mux_t embedded_mux;
 	epoll_t * epoll{nullptr};
 	int epoll_flags = (int) (EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 	ss::vector<std::shared_ptr<embedded_stream_reader_t>, 4> stream_readers;

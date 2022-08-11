@@ -58,9 +58,6 @@ namespace ss {
 
 		iconv_context_t(const char* enc) : enc_(enc) {
 			conv_ = iconv_open("UTF8", enc);
-#ifdef TODO
-			debug_error("iconv_open failed: %s\n", strerrror(errno));
-#endif
 		}
 
 		~iconv_context_t() {
@@ -71,9 +68,6 @@ namespace ss {
 		size_t iconv(const char** inbuf, size_t* inbytesleft, char** outbuf, size_t* outbytesleft, const char* enc) {
 			if (enc_ != enc) {
 				if (iconv_close(conv_) == -1) {
-#ifdef TODO
-					debug_error("iconv_close failed: %s\n", strerror(errno));
-#endif
 				}
 				conv_ = iconv_open("UTF8", enc);
 				enc_ = enc;

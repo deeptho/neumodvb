@@ -51,6 +51,7 @@ struct neumo_options_t {
 
 	chdb::usals_location_t usals_location;
 	int32_t dish_move_penalty{100}; //penalty for having to move dish; reduces priority
+	int32_t resource_reuse_bonus{1000}; //penalty for having to move dish; increases priority
 
 
 	std::chrono::seconds pre_record_time{1min}; //extra seconds to record before a program start

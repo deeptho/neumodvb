@@ -38,7 +38,7 @@ using namespace date;
 using namespace date::clock_cast_detail;
 
 
-std::unique_ptr<playback_mpm_t> active_playback_t::make_client_mpm(receiver_t& receiver, int subscription_id) {
+std::unique_ptr<playback_mpm_t> active_playback_t::make_client_mpm(receiver_t& receiver, subscription_id_t subscription_id) {
 	auto mpm = std::make_unique<playback_mpm_t>(receiver, subscription_id);
 	const recdb::rec_t& rec = currently_playing_recording;
 	auto d = fs::path(receiver.options.readAccess()->recordings_path.c_str()) / rec.filename.c_str();

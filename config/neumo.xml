@@ -50,7 +50,7 @@
   </logger>
 
   <logger name="service">
-    <priority value ="error" />
+    <priority value ="debug" />
     <!--<appender-ref ref="CONSOLE"/>-->
     <appender-ref ref="FILE"/>
   </logger>
@@ -97,8 +97,8 @@
     <appender-ref ref="FILE"/>
   </logger>
 
-  <logger name="scam" additivity="false" >
-    <priority value ="error"  />
+  <logger name="scam" additivity="true" >
+    <priority value ="debug"  />
     <!--<appender-ref ref="CONSOLE"/>-->
     <appender-ref ref="FILE"/>
   </logger>

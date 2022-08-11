@@ -38,7 +38,7 @@ recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, const chdb::service_
 	time_t real_time_start = 0;
 	// real_time end will determine when epg recording will be stopped
 	time_t real_time_end = 0;
-	int subscription_id = -1;
+	subscription_id_t subscription_id = subscription_id_t{-1};
 	using namespace recdb;
 	using namespace recdb::rec;
 	ss::string<256> filename;
@@ -47,7 +47,7 @@ recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, const chdb::service_
 	assert(epgrec.rec_status != epgdb::rec_status_t::IN_PROGRESS);
 
 	epgrec.rec_status = epgdb::rec_status_t::SCHEDULED;
-	auto rec = rec_t(rec_type, subscription_id, stream_time_start, stream_time_end, real_time_start, real_time_end,
+	auto rec = rec_t(rec_type, (int)subscription_id, stream_time_start, stream_time_end, real_time_start, real_time_end,
 									 pre_record_time, post_record_time, filename, service, epgrec, {});
 	put_record(rec_wtxn, rec);
 

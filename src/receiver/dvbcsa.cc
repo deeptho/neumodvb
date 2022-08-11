@@ -241,7 +241,7 @@ int dvbcsa_t::decrypt_buffer(uint8_t* buffer, int buffer_size) {
 		std::unique_lock lck(key_mutex);
 		num_bytes_received = num_bytes_decrypted + buffer_size; // used to mark keys
 	}
-
+	dtdebugx("buffer_size=%d", buffer_size);
 	descrambling_context_t* context = nullptr;
 	// static descrambling_context_t * last_pid_context  = nullptr; //only for debugging
 	for (; packet_start + ts_packet_t::size <= buffer_size; packet_start += ts_packet_t::size) {

@@ -689,16 +689,16 @@ void subscription_t::play_service(const chdb::service_t& service) {
 		dtdebugx("PLAY SUBSCRIPTION (service) close mpm");
 		this->close();
 	}
-	int subscription_id;
+	subscription_id_t subscription_id{-1};
 	mpm = subscriber->subscribe_service(service);
-	subscription_id = mpm.get() ? mpm->subscription_id : -1;
-	if (subscription_id >= 0) {
-		dtdebugx("PLAY SUBSCRIPTION (service): subscribed=%d", subscription_id);
+	subscription_id = mpm.get() ? mpm->subscription_id : subscription_id_t{-1};
+	if ((int) subscription_id >= 0) {
+		dtdebugx("PLAY SUBSCRIPTION (service): subscribed=%d", (int) subscription_id);
 	} else {
 		dtdebugx("PLAY SUBSCRIPTION (service): subscription failed");
 	}
 
-	if (subscription_id >= 0) {
+	if ((int) subscription_id >= 0) {
 		mpm->register_audio_changed_callback(subscription_id,
 																				 [this](auto lang, auto pos) { this->on_audio_language_change(lang, pos); });
 		// mpm.init(active_service->mpm);
@@ -722,7 +722,7 @@ template <typename _mux_t> int subscription_t::play_mux(const _mux_t& mux, bool 
 		this->close();
 	}
 	auto subscription_id = subscriber->subscribe_mux(mux, blindscan);
-	assert(subscription_id == subscriber->get_subscription_id());
+	assert(subscription_id == (int) subscriber->get_subscription_id());
 	return subscription_id;
 }
 
@@ -817,16 +817,16 @@ int subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start
 		this->close();
 	}
 
-	int subscription_id;
+	subscription_id_t subscription_id{-1};
 	mpm = subscriber->subscribe_recording(rec);
-	subscription_id = mpm.get() ? mpm->subscription_id : -1;
+	subscription_id = mpm.get() ? mpm->subscription_id : subscription_id_t{-1};
 	assert(subscription_id == subscriber->get_subscription_id());
-	if (subscription_id >= 0) {
-		dtdebugx("PLAY SUBSCRIPTION (rec): subscribed subscription_id=%d", subscription_id);
+	if ((int) subscription_id >= 0) {
+		dtdebugx("PLAY SUBSCRIPTION (rec): subscribed subscription_id=%d", (int) subscription_id);
 	} else {
 		dtdebugx("PLAY SUBSCRIPTION (rec): subscription failed");
 	}
-	if (subscription_id >= 0) {
+	if ((int) subscription_id >= 0) {
 		mpm->register_audio_changed_callback(subscription_id,
 																				 [this](auto x, auto id) { this->on_audio_language_change(x, id); });
 
@@ -834,9 +834,9 @@ int subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start
 		if (mpm->move_to_time(start_play_time) < 0) {
 			dtdebug("PLAY SUBSCRIPTION (rec): aborting");
 			this->close();
-			if (subscription_id >= 0) {
+			if ((int) subscription_id >= 0) {
 				subscriber->unsubscribe();
-				assert(subscriber->get_subscription_id() < 0);
+				assert((int) subscriber->get_subscription_id() < 0);
 			}
 			return 0;
 		}
@@ -926,7 +926,7 @@ void subscription_t::close() {
 	if (!mpm)
 		return;
 	auto subscription_id = subscriber->get_subscription_id();
-	if (subscription_id >= 0)
+	if ((int) subscription_id >= 0)
 		mpm->unregister_audio_changed_callback(subscription_id);
 	std::scoped_lock lck(m);
 	mpm->close();
@@ -936,11 +936,11 @@ void subscription_t::close() {
 
 int subscription_t::stop_play() {
 	auto subscription_id = subscriber->get_subscription_id();
-	dtdebugx("STOP SUBSCRIPTION %d", subscription_id);
+	dtdebugx("STOP SUBSCRIPTION %d", (int) subscription_id);
 	std::scoped_lock lck(m);
 	if (mpm) {
 		mpm->close();
-		if (subscription_id >= 0) {
+		if ((int) subscription_id >= 0) {
 			mpm->unregister_audio_changed_callback(subscription_id);
 		}
 	}
@@ -1068,7 +1068,7 @@ int64_t subscription_t::read_data(char* buffer, uint64_t nbytes) {
 		thread_name_set = true;
 	}
 	auto subscription_id = subscriber->get_subscription_id();
-	if (subscription_id < 0)
+	if ((int) subscription_id < 0)
 		return 0;
 	if (mpm) // regular service
 		return mpm->read_data(buffer, nbytes);
@@ -1128,7 +1128,7 @@ void MpvPlayer_::notify(const chdb::signal_info_t& signal_info) {
 	auto* as = subscription.mpm->active_service();
 	if (!as)
 		return;
-	if (as->get_adapter_mac_address() == signal_info.stat.k.lnb.adapter_mac_address) {
+	if (as->get_adapter_lnb_key() == signal_info.stat.k.lnb) {
 		playback_info_t playback_info = subscription.mpm->get_current_program_info();
 		gl_canvas->overlay.set_signal_info(signal_info, playback_info);
 		subscription.show_radiobg = (playback_info.service.media_mode == chdb::media_mode_t::RADIO);

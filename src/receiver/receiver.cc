@@ -50,6 +50,7 @@
 #include "active_service.h"
 #include "neumo.h"
 #include "receiver.h"
+#include "subscriber.h"
 #include "scan.h"
 #include "spectrum.h"
 #include "util/dtutil.h"
@@ -95,37 +96,37 @@ int task_queue_t::run_tasks(system_time_t now_) {
 	return count;
 }
 
-void receiver_thread_t::unsubscribe_mux_(std::vector<task_queue_t::future_t>& futures, int subscription_id) {
-	dtdebugx("Unsubscribe subscription_id=%d", subscription_id);
-	assert(subscription_id >= 0);
+void receiver_thread_t::remove_active_adapter(std::vector<task_queue_t::future_t>& futures,
+																				 subscription_id_t subscription_id) {
+	dtdebugx("Unsubscribe subscription_id=%d", (int)subscription_id);
+	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
 	auto active_adapter_p = active_adapter_for_subscription(subscription_id);
 	if (!active_adapter_p.get()) {
-		dterrorx("no active_adapter for subscription %d", subscription_id);
+		dterrorx("no active_adapter for subscription %d", (int)subscription_id);
 		return;
 	}
 
 	auto& active_adapter = *(active_adapter_p);
 
-	if (active_adapter.reservation()->release() == 0) {
-		/*This subscription will use  a different active_adapter than before,
-			and the old active_adapter is no longer in use; so release it.
+	/*This subscription will use  a different active_adapter than before,
+		and the old active_adapter is no longer in use; so release it.
 
-			Asynchronously request active_adapter to detune for this subscription, which is the only one
-		*/
-		futures.push_back(active_adapter.tuner_thread.push_task([&active_adapter]() {
-			auto ret = cb(active_adapter.tuner_thread).remove_active_adapter(active_adapter);
-			if (ret < 0)
-				dterrorx("deactivate returned %d", ret);
-			return ret;
-		}));
-	}
-	receiver.reserved_muxes.writeAccess()->erase(subscription_id);
+		Asynchronously request active_adapter to detune for this subscription, which is the only one
+	*/
+	futures.push_back(active_adapter.tuner_thread.push_task([&active_adapter]() {
+		auto ret = cb(active_adapter.tuner_thread).remove_active_adapter(active_adapter);
+		if (ret < 0)
+			dterrorx("deactivate returned %d", ret);
+		return ret;
+	}));
+
+	receiver.subscribed_aas.writeAccess()->erase(subscription_id);
 }
 
 void receiver_thread_t::unsubscribe_active_service(std::vector<task_queue_t::future_t>& futures,
-																									 active_service_t& active_service, int subscription_id) {
-	assert(subscription_id >= 0);
+																									 active_service_t& active_service, subscription_id_t subscription_id) {
+	assert((int)subscription_id >= 0);
 
 	// release subscription's service on this mux, if any
 	auto [itch, found] = find_in_map(this->reserved_services, subscription_id);
@@ -153,9 +154,9 @@ void receiver_thread_t::unsubscribe_active_service(std::vector<task_queue_t::fut
 	this->reserved_services.erase(itch);
 }
 
-void receiver_thread_t::unsubscribe_(std::vector<task_queue_t::future_t>& futures, int subscription_id,
+void receiver_thread_t::unsubscribe_(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id,
 																		 bool service_only) {
-	if (subscription_id < 0)
+	if ((int)subscription_id < 0)
 		return;
 	if (scanner.get() && scanner->subscription_id == subscription_id) {
 		unsubscribe_scan(futures, subscription_id);
@@ -177,7 +178,7 @@ void receiver_thread_t::unsubscribe_(std::vector<task_queue_t::future_t>& future
 
 	if (service_only)
 		return;
-	unsubscribe_mux_(futures, subscription_id);
+	remove_active_adapter(futures, subscription_id);
 }
 
 /*!
@@ -186,7 +187,7 @@ void receiver_thread_t::unsubscribe_(std::vector<task_queue_t::future_t>& future
 */
 std::unique_ptr<playback_mpm_t>
 receiver_thread_t::subscribe_service_in_use(std::vector<task_queue_t::future_t>& futures,
-																						const chdb::service_t& service, int subscription_id) {
+																						const chdb::service_t& service, subscription_id_t subscription_id) {
 	auto& pr = this->reserved_services;
 	for (auto& itch : pr) {
 		auto& channel = *itch.second;
@@ -196,23 +197,14 @@ receiver_thread_t::subscribe_service_in_use(std::vector<task_queue_t::future_t>&
 				 Unsubscribe_ our old mux and service (if any)
 			*/
 			bool service_only = true;
-			if (subscription_id >= 0)
+			if ((int)subscription_id >= 0)
 				unsubscribe_(futures, subscription_id, service_only);
 			else
 				subscription_id = this->next_subscription_id++;
 			// place an additional reservation, so that the service will remain tuned if other subscriptions release it
 			reservation.reserve_current_service(service);
 			pr[subscription_id] = itch.second;
-#if 0 // BUG: already done by caller
-			auto& active_adapter = *reservation.active_adapter;
-
-			active_adapter.reservation()->reserve_current();
-			{
-				auto w = receiver.reserved_muxes.writeAccess();
-				(*w)[subscription_id] = active_adapter.shared_from_this();
-			}
-#endif
-			dtdebug("[" << service << "] sub =" << subscription_id << ": reusing existing service");
+			dtdebug("[" << service << "] sub =" << (int) subscription_id << ": reusing existing service");
 			return channel.make_client_mpm(subscription_id);
 		}
 	}
@@ -223,9 +215,9 @@ template <typename _mux_t>
 std::unique_ptr<playback_mpm_t>
 receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futures, db_txn& txn, const _mux_t& mux,
 																			const chdb::service_t& service, active_service_t* old_active_service,
-																			int subscription_id) {
+																			subscription_id_t subscription_id) {
 
-	dtdebug("Subscribe " << service << " sub =" << subscription_id << ": tune start");
+	dtdebug("Subscribe " << service << " sub =" << (int) subscription_id << ": tune start");
 
 	/*
 		If another subscription is tuned to the wanted service, we do not have to tune.
@@ -237,7 +229,7 @@ receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futur
 	// now create a new active_service, subscribe the related service and send instructions to start it
 	std::shared_ptr<active_adapter_t> active_adapter_p;
 	{
-		auto w = receiver.reserved_muxes.writeAccess();
+		auto w = receiver.subscribed_aas.writeAccess();
 		active_adapter_p = (*w)[subscription_id];
 	}
 	auto& active_adapter = *active_adapter_p;
@@ -278,11 +270,11 @@ template <>
 std::unique_ptr<playback_mpm_t>
 receiver_thread_t::subscribe_service_<chdb::any_mux_t>(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
 																											 const chdb::any_mux_t& mux, const chdb::service_t& service,
-																											 active_service_t* old_active_service, int subscription_id) {
+																											 active_service_t* old_active_service, subscription_id_t subscription_id) {
 	/*First unscubscribe the currently reserved service, except if it happens
 		to be the desired one, in which case we return immediately
 	*/
-	assert(!old_active_service || subscription_id >= 0);
+	assert(!old_active_service || (int) subscription_id >= 0);
 	if (old_active_service) {
 		// auto& old_tuner = *this->reserved_services[subscription_id];
 		auto& channel = *old_active_service;
@@ -312,11 +304,11 @@ receiver_thread_t::subscribe_service_<chdb::any_mux_t>(std::vector<task_queue_t:
 		tuned to the desired mux
 	*/
 
-	int ret = subscribe_mux(futures, txn, mux, subscription_id,
-													tune_options_t(scan_target_t::SCAN_FULL_AND_EPG), (const chdb::lnb_t*)nullptr);
-	if (ret < 0)
+	auto ret = subscribe_mux(futures, txn, mux, subscription_id,
+													 tune_options_t(scan_target_t::SCAN_FULL_AND_EPG), (const chdb::lnb_t*)nullptr);
+	if ((int) ret < 0)
 		return nullptr; // we could not reserve a mux
-	assert(ret == subscription_id || subscription_id < 0);
+	assert(ret == subscription_id || (int) subscription_id < 0);
 	subscription_id = ret;
 	/*at this point
 		1. we have tuned to the proper mux
@@ -343,10 +335,10 @@ receiver_thread_t::subscribe_service_<chdb::any_mux_t>(std::vector<task_queue_t:
 std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(std::vector<task_queue_t::future_t>& futures,
 																																		 db_txn& txn, const chdb::any_mux_t& mux,
 																																		 const chdb::service_t& service,
-																																		 int subscription_id) {
+																																		 subscription_id_t subscription_id) {
 	active_service_t* old_active_service{nullptr};
 
-	if (subscription_id >= 0) {
+	if ((int) subscription_id >= 0) {
 		auto [itch, found] = find_in_map(this->reserved_services, subscription_id);
 		if (found) {
 			// auto& old_tuner = *this->reserved_services[subscription_id];
@@ -372,7 +364,7 @@ int receiver_thread_t::exit() {
 
 	// receiver.scam_thread.join();
 	{
-		auto w = receiver.reserved_muxes.writeAccess();
+		auto w = receiver.subscribed_aas.writeAccess();
 		w->clear();
 	}
 	this->adaptermgr->stop();
@@ -380,8 +372,8 @@ int receiver_thread_t::exit() {
 	return 0;
 }
 
-scan_stats_t receiver_thread_t::get_scan_stats(int subscription_id) {
-	assert(subscription_id >= 0);
+scan_stats_t receiver_thread_t::get_scan_stats(subscription_id_t subscription_id) {
+	assert((int) subscription_id >= 0);
 	// make local copy first, because scanner can be reset at any time
 	auto scanner_copy = scanner;
 	// assert(scanner_copy); //scan should be in progress
@@ -393,7 +385,7 @@ scan_stats_t receiver_thread_t::get_scan_stats(int subscription_id) {
 }
 
 scan_stats_t receiver_t::get_scan_stats(int subscription_id) {
-	return receiver_thread.get_scan_stats(subscription_id);
+	return receiver_thread.get_scan_stats((subscription_id_t)subscription_id);
 }
 
 receiver_t::~receiver_t() {
@@ -412,41 +404,6 @@ void receiver_thread_t::cb_t::abort_scan() {
 	}
 }
 
-void receiver_thread_t::cb_t::dump_subs() const // for debug
-{
-	FILE* fp = fopen("/tmp/subs.txt", "w");
-	fprintf(fp, "***********SUBSCRIBED MUXES*************\n");
-	auto r = receiver.reserved_muxes.owner_read_ref();
-	for (auto& p : r) {
-		auto& id = p.first;
-		auto& active_adapter = *p.second;
-		auto* amr = active_adapter.reservation();
-		auto fr = active_adapter.current_fe->adapter->reservation.readAccess();
-		auto fefd = active_adapter.current_fe->ts.readAccess()->fefd;
-		auto& ar = *fr;
-		fprintf(fp,
-						" subscription_id=%d adapter=%p: adapter=%d frontend=%d fefd=%d "
-						"active_adapter:use_count=%d shared_ptr:use_count=%ld "
-						"adapter:use_count:mux=%d :polband=%d "
-						"mux=%s lnb=%s\n",
-						id, &active_adapter, active_adapter.get_adapter_no(), active_adapter.frontend_no(), fefd, amr->use_count(),
-						p.second.use_count(), ar.use_count_mux(), ar.use_count_polband(), to_str(amr->mux()).c_str(),
-						to_str(amr->lnb()).c_str());
-	}
-	fprintf(fp, "***********SUBSCRIBED SERVICES*************\n");
-	for (auto& c : reserved_services) {
-		auto& id = c.first;
-		auto& ch = *c.second;
-		auto& s = *ch.reservation();
-		fprintf(fp,
-						"   service[%d]=%p: active_adapter=%p service=%s "
-						"active_service:use_count=%d shared_ptr:use_count=%ld\n",
-						id, &s, s.active_adapter, s.reserved_service.name.c_str(), s.use_count(), c.second.use_count());
-	}
-	fprintf(fp, "***********   END    *************\n");
-	adaptermgr->dump(fp);
-	fclose(fp);
-}
 
 /*
 	called from tuner thread when scanning a mux has ended
@@ -467,123 +424,106 @@ void receiver_thread_t::cb_t::on_scan_mux_end(const active_adapter_t* active_ada
 	}
 }
 
-void receiver_thread_t::cb_t::dump_all_frontends() const // for debug
-{
-	FILE* fp = fopen("/tmp/frontends.txt", "w");
-	adaptermgr->dump(fp);
-	fclose(fp);
-}
 
-std::shared_ptr<active_adapter_t> receiver_thread_t::active_adapter_for_subscription(int subscription_id) {
-	if (subscription_id >= 0) {
-		auto [itmux, found] = find_in_safe_map_with_owner_read_ref(receiver.reserved_muxes, subscription_id);
+std::shared_ptr<active_adapter_t> receiver_thread_t::active_adapter_for_subscription(subscription_id_t subscription_id) {
+	if ((int) subscription_id >= 0) {
+		auto [itmux, found] = find_in_safe_map_with_owner_read_ref(receiver.subscribed_aas, subscription_id);
 		if (found)
 			return itmux->second;
 	}
 	return nullptr;
 }
 
-std::shared_ptr<active_adapter_t> receiver_t::active_adapter_for_subscription(int subscription_id) {
-	if (subscription_id >= 0) {
-		auto [itmux, found] = find_in_safe_map(reserved_muxes, subscription_id);
+std::shared_ptr<active_adapter_t> receiver_t::active_adapter_for_subscription(subscription_id_t subscription_id) {
+	if ((int) subscription_id >= 0) {
+		auto [itmux, found] = find_in_safe_map(subscribed_aas, subscription_id);
 		if (found)
 			return itmux->second;
 	}
 	return nullptr;
 }
 
+#if 0
 std::shared_ptr<active_adapter_t> receiver_thread_t::active_adapter_with_fe(dvb_frontend_t* fe) {
 
-	auto [it, found] = find_in_safe_map_if_with_owner_read_ref(receiver.reserved_muxes, [&](const auto& x) {
+	auto [it, found] = find_in_safe_map_if_with_owner_read_ref(receiver.subscribed_aas, [&](const auto& x) {
 		auto [subscription_id_, reserved_mux] = x;
-		return reserved_mux->current_fe.get() == fe;
+		return reserved_mux->fe.get() == fe;
 	});
 	if (!found)
 		return nullptr;
 	else
 		return it->second;
 }
+#endif
 
-int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
-																			std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& txn,
-																			const chdb::dvbs_mux_t& mux, int subscription_id, tune_options_t tune_options,
-																			const chdb::lnb_t* required_lnb) {
-	dvb_adapter_t* adapter_to_release = nullptr;
-	if (old_active_adapter.get()) {
-		int num_users = old_active_adapter->reservation()->use_count();
-		if (num_users == 1) { /*This means that we are the only user and the adapter will be freed
-														when we retune*/
-			adapter_to_release = old_active_adapter->current_fe->adapter;
-		}
+subscription_id_t receiver_thread_t::subscribe_mux_(
+	std::vector<task_queue_t::future_t>& futures,
+	std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& wtxn,
+	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
+	const chdb::lnb_t* required_lnb) {
+
+	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
+		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
+
+
+	int resource_reuse_bonus;
+	int dish_move_penalty;
+	{
+		auto r = receiver.options.readAccess();
+		resource_reuse_bonus = r->resource_reuse_bonus;
+		dish_move_penalty = r->dish_move_penalty;
 	}
-	auto [best_fe, best_lnb] =
-		adaptermgr->find_lnb_for_tuning_to_mux(txn, mux, required_lnb, adapter_to_release, tune_options);
-	bool found = best_fe.get();
+
+	auto [fe_, lnb_] = chdb::fe::subscribe_lnb_band_pol_sat(
+		wtxn, mux, required_lnb, fe_key_to_release, tune_options.use_blind_tune, dish_move_penalty,
+		resource_reuse_bonus);
+
+	bool found = !!fe_;
 	if (!found) {
 		user_error("Subscribe " << mux << ": no suitable adapter found");
 		if (old_active_adapter) {
-			assert(subscription_id>=0);
-			unsubscribe_mux_(futures, subscription_id);
+			assert((int)subscription_id >= 0);
+			remove_active_adapter(futures, subscription_id);
 		}
-		return -1;
+		return subscription_id_t{-1};
 	}
-	assert(!required_lnb || (best_lnb.k == required_lnb->k)); // we have the right lnb
-#ifndef NDEBUG
-	if(subscription_id>=0) {
-		auto [itch, foundservice] = find_in_map(this->reserved_services, subscription_id);
-		if (foundservice) {
-			dterror("Implementation error: no service should be subscribed at this point\n");
-			assert(0);
-		}
-	}
-#endif
-	assert(best_fe.get());
+	auto &lnb = *lnb_;
+	auto &fe = *fe_;
 
-	auto active_adapter = active_adapter_with_fe(best_fe.get());
-	bool is_same_frontend = old_active_adapter.get() && (old_active_adapter.get() == active_adapter.get());
+	assert(!required_lnb || (lnb.k == required_lnb->k)); // we have the right lnb
+
+	bool is_same_frontend = ( fe_key_to_release && *fe_key_to_release == fe.k);
 	/*
 		If new mux is on the same adapter/frontend as old mux,
-		we only need to retune, and leave reservation unchanged
+		we only need to retune.
 	*/
 	if (is_same_frontend) {
-		auto& lnb = best_lnb;
-		auto& reservation = best_fe->adapter->reservation;
-#pragma unused(reservation)
-#ifndef NDEBUG
-		bool exclusive = reservation.readAccess()->exclusive;
-		assert(exclusive || reservation.readAccess()->use_count_mux() > 0);
-#endif
-
-		/*@todo: possible race: old_active_adapter may
-			start calling on_scan_mux_end for the previously tuned mux on
-			this subscription
-		*/
 		futures.push_back(
-			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, lnb, mux, fe = best_fe]() {
+			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, lnb, mux]() {
 				/*deactivate the adapter (stop si processing) and remove it from
-					active_adapters (the next tune call will readd it)
+					active_adapters (the next tune call will read it)
 				*/
-				fe->adapter->change_fe(fe.get(), lnb, mux);
 				auto ret = cb(receiver.tuner_thread).tune(old_active_adapter, lnb, mux, tune_options);
 				if (ret < 0)
 					dterrorx("tune returned %d", ret);
 				return ret;
 			}));
+		auto adapter_no =  old_active_adapter->get_adapter_no();
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adap=" <<
+					adapter_no << " " << mux);
+
 	} else {
 		if (old_active_adapter) {
-			assert(subscription_id>=0);
-			unsubscribe_mux_(futures, subscription_id);
+			assert((int) subscription_id >= 0);
+			remove_active_adapter(futures, subscription_id);
 		}
-		active_adapter = std::make_shared<active_adapter_t>(receiver, receiver.tuner_thread, best_fe);
-		auto& reservation = best_fe->adapter->reservation;
-#pragma unused(reservation)
-		auto& lnb = best_lnb;
-		assert(reservation.readAccess()->use_count_mux() == 0);
-		active_adapter->reservation()->reserve(lnb, mux);
-		if (subscription_id < 0)
+
+		auto active_adapter = make_active_adapter(fe.k);
+		if ((int) subscription_id < 0)
 			subscription_id = this->next_subscription_id++;
 		{
-			auto w = receiver.reserved_muxes.writeAccess();
+			auto w = receiver.subscribed_aas.writeAccess();
 			(*w)[subscription_id] = active_adapter;
 		}
 		assert(active_adapter->is_open());
@@ -594,10 +534,10 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 				dterrorx("tune returned %d", ret);
 			return ret;
 		}));
-	}
-	auto adapter_no =  active_adapter->get_adapter_no();
-	dtdebug("Subscribed: subscription_id=" << subscription_id << " adap=" <<
+		auto adapter_no =  active_adapter->get_adapter_no();
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " adap=" <<
 					adapter_no << " " << mux);
+	}
 	return subscription_id;
 }
 
@@ -605,8 +545,9 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 	Find a suitable lnb  for tuning to a mux
 	If subscription_id >=0, then first unregister any service for that subscription
 	Then find a suitable adapter/frontend.
+
 	If the frontend is the same as for the current subscription, simply retune,
-	otherwie unregister the old mux/frontend/adapter and reserve a new one
+	otherwise unregister the old mux/frontend/adapter and reserve a new one
 
 	if subscription_id <0, then create a new subscription
 
@@ -615,86 +556,65 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 	@todo: the code below is mostly the same as  the lnb version; integrate
 */
 template <typename _mux_t>
-int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
-																			std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& txn,
-																			const _mux_t& mux, int subscription_id, tune_options_t tune_options,
-																			const chdb::lnb_t* required_lnb /*unused*/) {
+subscription_id_t receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
+																										std::shared_ptr<active_adapter_t>& old_active_adapter,
+																										db_txn& wtxn, const _mux_t& mux, subscription_id_t subscription_id,
+																										tune_options_t tune_options,
+																										const chdb::lnb_t* required_lnb /*unused*/) {
 	assert(!required_lnb);
 
-	dvb_adapter_t* adapter_to_release = nullptr;
-	if (old_active_adapter.get()) {
-		int num_users = old_active_adapter->reservation()->use_count();
-		if (num_users == 1) { /*This means that we are the only user and the adapter will be freed
-														when we retune*/
-			adapter_to_release = old_active_adapter->current_fe->adapter;
-		}
-	}
+	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
+		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
 
-	auto best_fe = adaptermgr->find_adapter_for_tuning_to_mux(txn, mux, adapter_to_release,
-																														tune_options.use_blind_tune);
+	auto fe_ = chdb::fe::subscribe_dvbc_or_dvbt_mux<_mux_t>(wtxn, mux, fe_key_to_release, tune_options.use_blind_tune);
+	bool found = !!fe_;
 
-	if (!best_fe.get()) {
+	if (!found) {
 		user_error("Subscribe " << mux << ": no suitable adapter found");
 		if (old_active_adapter) {
-			assert (subscription_id>=0);
-			unsubscribe_mux_(futures, subscription_id);
+			assert( (int) subscription_id >= 0);
+			remove_active_adapter(futures, subscription_id);
 		}
-		return -1;
+		return subscription_id_t{-1};
 	}
-#ifndef NDEBUG
-	if( subscription_id >=0) {
-		auto [itch, foundservice] = find_in_map(this->reserved_services, subscription_id);
-		if (foundservice) {
-			dterror("Implementation error: no service should be subscribed at this point\n");
-			assert(0);
-		}
-	}
-#endif
-	assert(best_fe.get());
 
-	auto active_adapter = active_adapter_with_fe(best_fe.get());
-	bool is_same_frontend = old_active_adapter.get() && (old_active_adapter.get() == active_adapter.get());
+	auto &fe = *fe_;
+
+	bool is_same_frontend =  ( fe_key_to_release && *fe_key_to_release == fe.k);
 	/*
 		If new mux is on the same adapter/frontend as old mux,
 		we only need to retune, and leave reservation unchanged
 	*/
 	if (is_same_frontend) {
-		auto& reservation = best_fe->adapter->reservation;
-#pragma unused(reservation)
-#ifndef NDEBUG
-		bool exclusive = reservation.readAccess()->exclusive;
-		assert(exclusive || reservation.readAccess()->use_count_mux() > 0);
-#endif
-
 		/*@todo: possible race: old_active_adapter may
 			start calling on_scan_mux_end for the previously tuned mux on
 			this subscription
 		*/
 		futures.push_back(
-			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, mux, fe = best_fe]() {
+			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, mux]() {
 				/*deactivate the adapter (stop si processing) and remove it from
-					active_adapters (the next tune call will readd it)
+					active_adapters (the next tune call will read it)
 				*/
-				fe->adapter->change_fe(fe.get(), mux);
 				auto ret = cb(receiver.tuner_thread).tune(old_active_adapter, mux, tune_options);
 				if (ret < 0)
 					dterrorx("tune returned %d", ret);
 				return ret;
 			}));
+		auto adapter_no =  old_active_adapter->get_adapter_no();
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adap=" <<
+					adapter_no << " " << mux);
+
 	} else {
 		if (old_active_adapter) {
-			assert(subscription_id>=0);
-			unsubscribe_mux_(futures, subscription_id);
+			assert((int) subscription_id >= 0);
+			remove_active_adapter(futures, subscription_id);
 		}
-		auto& reservation = best_fe->adapter->reservation;
-#pragma unused(reservation)
-		assert(reservation.readAccess()->use_count_mux() == 0);
-		auto active_adapter = std::make_shared<active_adapter_t>(receiver, receiver.tuner_thread, best_fe);
-		active_adapter->reservation()->reserve(mux);
-		if (subscription_id < 0)
+
+		auto active_adapter = make_active_adapter(fe.k);
+		if ((int) subscription_id < 0)
 			subscription_id = this->next_subscription_id++;
 		{
-			auto w = receiver.reserved_muxes.writeAccess();
+			auto w = receiver.subscribed_aas.writeAccess();
 			(*w)[subscription_id] = active_adapter;
 		}
 		assert(active_adapter->is_open());
@@ -711,10 +631,11 @@ int receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futur
 }
 
 template <>
-int receiver_thread_t::subscribe_mux_<chdb::any_mux_t>(std::vector<task_queue_t::future_t>& futures,
-																											 std::shared_ptr<active_adapter_t>& old_active_adapter,
-																											 db_txn& txn, const chdb::any_mux_t& mux, int subscription_id,
-																											 tune_options_t tune_options, const chdb::lnb_t* required_lnb) {
+subscription_id_t receiver_thread_t::subscribe_mux_<chdb::any_mux_t>(
+	std::vector<task_queue_t::future_t>& futures,
+	std::shared_ptr<active_adapter_t>& old_active_adapter,
+	db_txn& txn, const chdb::any_mux_t& mux, subscription_id_t subscription_id,
+	tune_options_t tune_options, const chdb::lnb_t* required_lnb) {
 
 	auto dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 	if (dvbs_mux)
@@ -730,15 +651,15 @@ int receiver_thread_t::subscribe_mux_<chdb::any_mux_t>(std::vector<task_queue_t:
 				return subscribe_mux_(futures, old_active_adapter, txn, *dvbt_mux, subscription_id, tune_options, nullptr);
 		}
 	}
-	return -1;
+	return subscription_id_t{-1};
 }
 
-void receiver_thread_t::cb_t::unsubscribe(int subscription_id) {
+void receiver_thread_t::cb_t::unsubscribe(subscription_id_t subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 	bool service_only = false;
 	unsubscribe_(futures, subscription_id, service_only);
 
-	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and reserved_muxes
+	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/tuner threads
 
 		See
@@ -751,9 +672,11 @@ void receiver_thread_t::cb_t::unsubscribe(int subscription_id) {
 }
 
 template <typename _mux_t>
-int receiver_thread_t::subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn, const _mux_t& mux,
-																		 int subscription_id, tune_options_t tune_options,
-																		 const chdb::lnb_t* required_lnb) {
+subscription_id_t receiver_thread_t::subscribe_mux(
+	std::vector<task_queue_t::future_t>& futures, db_txn& txn, const _mux_t& mux,
+	subscription_id_t subscription_id, tune_options_t tune_options,
+	const chdb::lnb_t* required_lnb) {
+
 	auto lnb_ok = [required_lnb](auto& old_active_adapter) {
 		return !required_lnb || old_active_adapter->uses_lnb(*required_lnb);
 	};
@@ -784,16 +707,16 @@ int receiver_thread_t::subscribe_mux(std::vector<task_queue_t::future_t>& future
 	*/
 
 	// check if we can use a mux which is in use by other subscription
-	int ret = subscribe_mux_in_use(futures, mux, subscription_id, tune_options, required_lnb);
-	if (ret >= 0) {
-		assert(subscription_id < 0 || ret == subscription_id);
+	auto ret = subscribe_mux_in_use(futures, mux, subscription_id, tune_options, required_lnb);
+	if ((int) ret >= 0) {
+		assert((int) subscription_id < 0 || ret == subscription_id);
 		return ret;
 	}
 
 	// perform the actual mux reservation
 	subscription_id = subscribe_mux_(futures, old_active_adapter, txn, mux, subscription_id, tune_options, required_lnb);
 
-	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and reserved_muxes
+	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/tuner threads
 
 		See
@@ -804,29 +727,30 @@ int receiver_thread_t::subscribe_mux(std::vector<task_queue_t::future_t>& future
 }
 
 template <class mux_t>
-int receiver_thread_t::subscribe_mux_in_use(std::vector<task_queue_t::future_t>& futures, const mux_t& mux,
-																						int subscription_id, tune_options_t tune_options,
-																						const chdb::lnb_t* required_lnb) {
-	auto& pm = receiver.reserved_muxes.owner_read_ref();
+subscription_id_t receiver_thread_t::subscribe_mux_in_use(
+	std::vector<task_queue_t::future_t>& futures, const mux_t& mux,
+	subscription_id_t subscription_id, tune_options_t tune_options,
+	const chdb::lnb_t* required_lnb) {
+
+	auto& pm = receiver.subscribed_aas.owner_read_ref();
 	for (auto& itmux : pm) {
 		auto& other_active_adapter = itmux.second;
-
-		auto& reservation = other_active_adapter->reservation;
-
 		if (other_active_adapter->is_tuned_to(mux, required_lnb)) {
 			/* The mux is already subscribed by another subscription
 				 unsubscribe_ our old mux and the service (if any)
 			*/
 
-			if (subscription_id >= 0)
-				unsubscribe_mux_(futures, subscription_id);
+			if ((int) subscription_id >= 0)
+				remove_active_adapter(futures, subscription_id);
 			else
 				subscription_id = this->next_subscription_id++;
 
 			// place an additional reservation, so that the mux will remain tuned if other subscriptions release it
+#if 0
 			reservation()->reserve_current();
+#endif
 			{
-				auto w = receiver.reserved_muxes.writeAccess();
+				auto w = receiver.subscribed_aas.writeAccess();
 				(*w)[subscription_id] = other_active_adapter;
 			}
 			auto& tuner_thread = other_active_adapter->tuner_thread;
@@ -838,33 +762,35 @@ int receiver_thread_t::subscribe_mux_in_use(std::vector<task_queue_t::future_t>&
 				return cb(tuner_thread).set_tune_options(*other_active_adapter, tune_options);
 			}));
 
-			dtdebug("[" << mux << "] subscription_id=" << subscription_id << ": reusing existing mux");
+			dtdebug("[" << mux << "] subscription_id=" << (int) subscription_id << ": reusing existing mux");
 			return subscription_id;
 		}
 	}
-	return -1;
+	return subscription_id_t{-1};
 }
 
-int receiver_thread_t::request_retune(std::vector<task_queue_t::future_t>& futures, active_adapter_t& active_adapter,
-																			int subscription_id) {
+int
+receiver_thread_t::request_retune(std::vector<task_queue_t::future_t>& futures, active_adapter_t& active_adapter,
+																			subscription_id_t subscription_id) {
 	auto& tuner_thread = active_adapter.tuner_thread;
 	futures.push_back(tuner_thread.push_task(
 											[&tuner_thread, &active_adapter]() { return cb(tuner_thread).request_retune(active_adapter); }));
 
-	dtdebug("sub =" << subscription_id << ": requesting retune");
-	return subscription_id;
+	dtdebug("sub =" << (int) subscription_id << ": requesting retune");
+	return 0;
 }
 
-template <typename mux_t> int receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes, int subscription_id)
+template <typename mux_t>
+subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes, subscription_id_t subscription_id)
 {
 	ss::string<32> s;
-	s << "SCAN[" << subscription_id << "] " << (int) muxes.size() << " muxes";
+	s << "SCAN[" << (int) subscription_id << "] " << (int) muxes.size() << " muxes";
 	log4cxx::NDC ndc(s);
 
 	std::vector<task_queue_t::future_t> futures;
 
 	bool service_only = true;
-	if (subscription_id >= 0)
+	if ((int) subscription_id >= 0)
 		unsubscribe_(futures, subscription_id, service_only);
 	bool error = wait_for_all(futures);
 	if (error) {
@@ -881,14 +807,16 @@ template <typename mux_t> int receiver_thread_t::cb_t::scan_muxes(ss::vector_<mu
 	return subscription_id;
 }
 
-int receiver_thread_t::cb_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t>& muxes, int subscription_id) {
+subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t>& muxes,
+																											subscription_id_t subscription_id) {
 	ss::string<32> s;
-	s << "SCAN[" << subscription_id << "] " << (int) muxes.size() << " muxes";
+	s << "SCAN[" << (int) subscription_id << "] " << (int) muxes.size() << " muxes";
 	log4cxx::NDC ndc(s);
 
 	std::vector<task_queue_t::future_t> futures;
 	bool service_only = true;
-	if ((!scanner.get() && subscription_id >= 0) || (scanner.get() && scanner->subscription_id != subscription_id)) {
+	if ((!scanner.get() && (int)subscription_id >= 0) ||
+			(scanner.get() && scanner->subscription_id != subscription_id)) {
 		unsubscribe_(futures, subscription_id, service_only);
 		bool error = wait_for_all(futures);
 		if (error) {
@@ -907,117 +835,116 @@ int receiver_thread_t::cb_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t>& muxes, in
 	return subscription_id;
 }
 
-template int receiver_thread_t::cb_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
-																																	 int subscription_id);
-template int receiver_thread_t::cb_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
-																																	 int subscription_id);
+template subscription_id_t
+receiver_thread_t::cb_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
+																											subscription_id_t subscription_id);
+
+template subscription_id_t
+receiver_thread_t::cb_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
+																											subscription_id_t subscription_id);
 
 template <typename _mux_t>
-int receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, int subscription_id, tune_options_t tune_options,
-																					 const chdb::lnb_t* required_lnb) {
+subscription_id_t
+receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id,
+																			 tune_options_t tune_options,
+																			 const chdb::lnb_t* required_lnb) {
 	ss::string<32> s;
-	s << "SUB[" << subscription_id << "] " << to_str(mux);
+	s << "SUB[" << (int) subscription_id << "] " << to_str(mux);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
 
 	bool service_only = true;
-	if (subscription_id >= 0)
+	if ((int) subscription_id >= 0)
 		unsubscribe_(futures, subscription_id, service_only);
 	bool error = wait_for_all(futures);
 	if (error) {
 		dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
 	}
 
-	auto txn = receiver.chdb.rtxn();
+	auto txn = receiver.chdb.wtxn();
 	subscription_id =
 		this->receiver_thread_t::subscribe_mux(futures, txn, mux, subscription_id, tune_options, required_lnb);
-	txn.abort();
+	txn.commit();
 	error = wait_for_all(futures);
 	if (error) {
 		ss::string<256> saved_error{get_error()};
 		dterror(get_error());
-		if(subscription_id>=0) {
+		if((int) subscription_id >= 0) {
 			unsubscribe_(futures, subscription_id, false /*service_only*/);
 			wait_for_all(futures);
 		}
 		user_error(saved_error); //TODO: look into better way of preserving error messages
-		return -1;
+		return subscription_id_t{-1};
 	}
 	return subscription_id;
 }
 
-int receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, chdb::lnb_t& lnb,
-																		 tune_options_t tune_options, int subscription_id) {
-	{
-		auto txn = receiver.chdb.rtxn();
-		auto c = chdb::lnb_t::find_by_key(txn, lnb.k);
-		if (c.is_valid()) {
-			auto db_lnb = c.current();
-			lnb.lof_offsets = db_lnb.lof_offsets;
-			txn.abort();
-		}
+subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn,
+																									 chdb::lnb_t& lnb, tune_options_t tune_options,
+																									 subscription_id_t subscription_id) {
+
+	auto c = chdb::lnb_t::find_by_key(wtxn, lnb.k);
+	if (c.is_valid()) {
+		auto db_lnb = c.current();
+		lnb.lof_offsets = db_lnb.lof_offsets;
 	}
+
 	auto old_active_adapter = active_adapter_for_subscription(subscription_id);
+	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
+		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
+
 	bool need_blindscan = tune_options.tune_mode == tune_mode_t::SCAN_BLIND;
 	bool need_spectrum = tune_options.tune_mode == tune_mode_t::SPECTRUM;
-	dvb_adapter_t* adapter_to_release = old_active_adapter.get() ? old_active_adapter->current_fe->adapter : nullptr;
-	assert(!adapter_to_release || old_active_adapter->reservation()->use_count() == 1);
+	auto fe_ = chdb::fe::subscribe_lnb_exclusive(wtxn, lnb, fe_key_to_release, need_blindscan, need_spectrum);
+	bool found = !!fe_;
 
-	auto fe = adaptermgr->find_fe_for_lnb(lnb, adapter_to_release, need_blindscan, need_spectrum);
-	if (!fe) {
+	if (!found) {
 		user_error("Subscribe " << lnb << ": adapter of lnb not suitable");
 		dtdebug(get_error());
 		if (old_active_adapter) {
-			assert (subscription_id >= 0);
+			assert ((int) subscription_id >= 0);
 			unsubscribe_(futures, subscription_id, false);
 		}
-		return -1;
+		return subscription_id_t{-1};
 	}
-	auto active_adapter = active_adapter_with_fe(fe.get());
-	bool is_same_frontend = old_active_adapter.get() && (old_active_adapter.get() == active_adapter.get());
+	auto& fe = *fe_;
+
+	bool is_same_frontend = ( fe_key_to_release && *fe_key_to_release == fe.k);
 	/*
 		If new mux is on the same adapter/frontend as old mux,
 		we only need to retune, and leave reservation unchanged
 	*/
 	if (is_same_frontend) {
-		auto& reservation = fe->adapter->reservation;
-#pragma unused(reservation)
-		assert(reservation.readAccess()->use_count_mux() == 0);
-		fe->adapter->change_fe(fe.get(), lnb, tune_options.sat_pos);
+
 		/*@todo: possible race: old_active_adapter may
 			start calling on_scan_mux_end for the previously tuned mux on
 			this subscription
 		*/
 		futures.push_back(old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, lnb]() {
-#if 0
-			auto ret = cb(receiver.tuner_thread).remove_active_adapter(*old_active_adapter);
-			if (ret < 0)
-				dterrorx("deactivate returned %d", ret);
-#endif
+
 			auto ret = cb(receiver.tuner_thread).lnb_activate(old_active_adapter, lnb, tune_options);
 			if (ret < 0)
 				dterrorx("tune returned %d", ret);
 			return ret;
 		}));
+		auto adapter_no =  old_active_adapter->get_adapter_no();
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adap=" << adapter_no);
 	} else {
 		if (old_active_adapter) {
-			assert (subscription_id >= 0);
-			unsubscribe_mux_(futures, subscription_id);
+			assert ((int) subscription_id >= 0);
+			remove_active_adapter(futures, subscription_id);
 		}
-		auto active_adapter = std::make_shared<active_adapter_t>(receiver, receiver.tuner_thread, fe);
-		auto& reservation = fe->adapter->reservation;
-#pragma unused(reservation)
-		assert(reservation.readAccess()->use_count_mux() == 0);
-		active_adapter->reservation()->reserve(lnb, tune_options.sat_pos);
-		if (subscription_id < 0)
+		auto active_adapter = make_active_adapter(fe.k);
+
+		if ((int) subscription_id < 0)
 			subscription_id = this->next_subscription_id++;
 		{
-			auto w = receiver.reserved_muxes.writeAccess();
+			auto w = receiver.subscribed_aas.writeAccess();
 			(*w)[subscription_id] = active_adapter;
 		}
 		assert(active_adapter->is_open());
 		futures.push_back(active_adapter->tuner_thread.push_task([this, active_adapter, lnb, tune_options]() {
-			auto ret = cb(receiver.tuner_thread).lnb_activate(active_adapter, lnb, tune_options);
+				auto ret = cb(receiver.tuner_thread).lnb_activate(active_adapter, lnb, tune_options);
 			if (ret < 0)
 				dterrorx("tune returned %d", ret);
 			return ret;
@@ -1040,13 +967,18 @@ chdb::lnb_t receiver_t::reread_lnb(const chdb::lnb_t& lnb)
 	return lnb;
 }
 
-int receiver_thread_t::cb_t::subscribe_lnb(chdb::lnb_t& lnb_, tune_options_t tune_options, int subscription_id) {
+subscription_id_t
+receiver_thread_t::cb_t::subscribe_lnb(chdb::lnb_t& lnb_, tune_options_t tune_options,
+																			 subscription_id_t subscription_id) {
+
 	auto lnb = receiver.reread_lnb(lnb_);
 	ss::string<32> s;
-	s << "SUB[" << subscription_id << "] " << to_str(lnb);
+	s << "SUB[" << (int) subscription_id << "] " << to_str(lnb);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
-	subscription_id = this->receiver_thread_t::subscribe_lnb(futures, lnb, tune_options, subscription_id);
+	auto wtxn = receiver.chdb.wtxn();
+	subscription_id = this->receiver_thread_t::subscribe_lnb(futures, wtxn, lnb, tune_options, subscription_id);
+	wtxn.commit();
 	bool error = wait_for_all(futures);
 	if (error) {
 		dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
@@ -1054,15 +986,23 @@ int receiver_thread_t::cb_t::subscribe_lnb(chdb::lnb_t& lnb_, tune_options_t tun
 	return subscription_id;
 }
 
-template int receiver_thread_t::cb_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, int subscription_id,
-																																			tune_options_t tune_options,
-																																			const chdb::lnb_t* required_lnb);
-template int receiver_thread_t::cb_t::subscribe_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, int subscription_id,
-																																			tune_options_t tune_options,
-																																			const chdb::lnb_t* required_lnb);
-template int receiver_thread_t::cb_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, int subscription_id,
-																																			tune_options_t tune_options,
-																																			const chdb::lnb_t* required_lnb);
+template subscription_id_t
+receiver_thread_t::cb_t::subscribe_mux<chdb::dvbs_mux_t>(
+	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id,
+	tune_options_t tune_options,
+	const chdb::lnb_t* required_lnb);
+
+template subscription_id_t
+receiver_thread_t::cb_t::subscribe_mux<chdb::dvbc_mux_t>(
+	const chdb::dvbc_mux_t& mux, subscription_id_t subscription_id,
+	tune_options_t tune_options,
+	const chdb::lnb_t* required_lnb);
+
+template subscription_id_t
+receiver_thread_t::cb_t::subscribe_mux<chdb::dvbt_mux_t>(
+	const chdb::dvbt_mux_t& mux, subscription_id_t subscription_id,
+	tune_options_t tune_options,
+	const chdb::lnb_t* required_lnb);
 
 template <typename mux_t> chdb::any_mux_t mux_for_service(db_txn& txn, const chdb::service_t& service);
 
@@ -1087,9 +1027,9 @@ static std::tuple<chdb::any_mux_t, int> mux_for_service(db_txn& txn, const chdb:
 	return std::make_tuple(mux, 0);
 }
 
-std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_recording_(const recdb::rec_t& rec, int subscription_id) {
+std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_recording_(const recdb::rec_t& rec, subscription_id_t subscription_id) {
 
-	dtdebug("Subscribe recording  " << rec << " sub =" << subscription_id << ": playback start");
+	dtdebug("Subscribe recording  " << rec << " sub =" << (int) subscription_id << ": playback start");
 
 	auto active_playback = std::make_shared<active_playback_t>(receiver, rec);
 	this->reserved_playbacks[subscription_id] = active_playback;
@@ -1097,9 +1037,9 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_recording_(const re
 }
 
 std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const chdb::service_t& service,
-																																					 int subscription_id) {
+																																					 subscription_id_t subscription_id) {
 	ss::string<32> s;
-	s << "SUB[" << subscription_id << "] " << to_str(service);
+	s << "SUB[" << (int) subscription_id << "] " << to_str(service);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
 	dtdebug("SUBSCRIBE started");
@@ -1109,14 +1049,14 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 	if (error1 < 0) {
 		user_error("Could not find mux for " << service);
 		bool service_only = false;
-		if (subscription_id >= 0)
+		if ((int) subscription_id >= 0)
 			unsubscribe_(futures, subscription_id, service_only);
 		txn.abort();
 		return nullptr;
 	}
 
 	// Stop any playback in progress (in that case there is no suscribed service/mux
-	if (subscription_id >= 0) {
+	if ((int) subscription_id >= 0) {
 		auto [itrec, found1] = find_in_map(this->reserved_playbacks, subscription_id);
 		if (found1) {
 			// this must be playback
@@ -1128,7 +1068,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 	// now perform the requested subscription
 	auto mpmptr = this->receiver_thread_t::subscribe_service(futures, txn, mux, service, subscription_id);
 	txn.abort();
-	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and reserved_muxes
+	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/active_adapter threads
 
 		See
@@ -1144,15 +1084,15 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 }
 
 std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_recording(const recdb::rec_t& rec,
-																																						 int subscription_id) {
+																																						 subscription_id_t subscription_id) {
 	ss::string<32> s;
-	s << "SUB[" << subscription_id << "] " << to_str(rec);
+	s << "SUB[" << (int) subscription_id << "] " << to_str(rec);
 	log4cxx::NDC ndc(s);
 	dtdebug("SUBSCRIBE rec started");
 
 	std::vector<task_queue_t::future_t> futures;
 	active_playback_t* active_playback{nullptr};
-	if (subscription_id >= 0) {
+	if ((int) subscription_id >= 0) {
 		// unsubscribe existing service and/or mux if one exists
 		auto [itrec, found] = find_in_map(this->reserved_playbacks, subscription_id);
 		if (found) {
@@ -1173,7 +1113,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_recording(con
 	called by si code when an epg or service change affecting a recording is detected
 */
 int receiver_thread_t::update_recording(recdb::rec_t& rec, const epgdb::epg_record_t& epgrec) {
-	auto subscription_id = rec.subscription_id;
+	auto subscription_id = subscription_id_t{rec.subscription_id};
 	auto [itch, found] = find_in_map(this->reserved_services, subscription_id);
 	if (found) {
 		auto& channel = *itch->second;
@@ -1213,10 +1153,10 @@ void receiver_thread_t::cb_t::start_recording(
 
 	dtdebug("RECORD - calling subscribe_");
 	// now perform the requested subscription
-	auto mpm_ptr = this->receiver_thread_t::subscribe_service(futures, txn, mux, rec_in.service, -1);
-	int subscription_id = mpm_ptr.get() ? mpm_ptr->subscription_id : -1;
+	auto mpm_ptr = this->receiver_thread_t::subscribe_service(futures, txn, mux, rec_in.service, subscription_id_t{-1});
+	subscription_id_t subscription_id = mpm_ptr.get() ? mpm_ptr->subscription_id : subscription_id_t{-1};
 	txn.abort();
-	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and reserved_muxes
+	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/active_adapter threads
 
 		See
@@ -1228,7 +1168,7 @@ void receiver_thread_t::cb_t::start_recording(
 		dterror("Unhandled error in unsubscribe");
 	}
 
-	if (subscription_id < 0)
+	if ((int) subscription_id < 0)
 		return;
 	std::optional<recdb::rec_t> rec;
 
@@ -1252,7 +1192,7 @@ void receiver_thread_t::cb_t::start_recording(
 		unsubscribe(subscription_id);
 		return;
 	}
-	assert(rec->subscription_id == subscription_id);
+	assert(rec->subscription_id == (int) subscription_id);
 
 	return;
 }
@@ -1262,8 +1202,8 @@ void receiver_thread_t::cb_t::start_recording(
 */
 void receiver_thread_t::cb_t::stop_recording(recdb::rec_t rec) // important that this is not a reference (async called)
 {
-	auto subscription_id = rec.subscription_id;
-	if (subscription_id < 0)
+	auto subscription_id = subscription_id_t{rec.subscription_id};
+	if ((int) subscription_id < 0)
 		return;
 	mpm_copylist_t copy_list;
 	int ret = -1;
@@ -1297,7 +1237,7 @@ void receiver_thread_t::cb_t::stop_recording(recdb::rec_t rec) // important that
 				.wait();
 		}
 	}
-	unsubscribe(rec.subscription_id);
+	unsubscribe((subscription_id_t)rec.subscription_id);
 }
 
 /*!
@@ -1344,22 +1284,30 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 	return toggle_recording_(service, epg);
 }
 
-template <typename _mux_t> int receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id) {
+template <typename _mux_t>
+int receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 
 	futures.push_back(receiver_thread.push_task([this, &muxes, &subscription_id]() {
-		subscription_id = cb(receiver_thread).scan_muxes(muxes, subscription_id);
+		subscription_id = (int) cb(receiver_thread).scan_muxes(muxes, (subscription_id_t) subscription_id);
 		return 0;
 	}));
 	wait_for_all(futures); //essential because muxes passed by reference
 	return subscription_id;
 }
 
-template int receiver_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes, int subscription_id);
-template int receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes, int subscription_id);
-template int receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes, int subscription_id);
+template int
+receiver_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes, int subscription_id);
 
-template <typename _mux_t> int receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id) {
+template int
+receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes, int subscription_id);
+
+template int
+receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes, int subscription_id);
+
+template <typename _mux_t> int
+receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id) {
+
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.scan_target = scan_target_t::SCAN_FULL;
@@ -1367,18 +1315,24 @@ template <typename _mux_t> int receiver_t::subscribe_mux(const _mux_t& mux, bool
 
 	futures.push_back(receiver_thread.push_task([this, &mux, tune_options, &subscription_id]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = cb(receiver_thread).subscribe_mux(mux, subscription_id, tune_options, nullptr);
+		subscription_id = (int) cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id,
+																															tune_options, nullptr);
 		return 0;
 	}));
 	wait_for_all(futures);
 	return subscription_id;
 }
-template int receiver_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan,
-																												 int subscription_id);
-template int receiver_t::subscribe_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, bool blindscan,
-																												 int subscription_id);
-template int receiver_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool blindscan,
-																												 int subscription_id);
+template int
+receiver_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan,
+																						int subscription_id);
+
+template int
+receiver_t::subscribe_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, bool blindscan,
+																						int subscription_id);
+
+template int
+receiver_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool blindscan,
+																						int subscription_id);
 
 /*!
 	for use by spectrum scan. Exclusively reserves lnb
@@ -1388,7 +1342,8 @@ template int receiver_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t&
 	in this case, the caller should make two calls, one for each band
 
 */
-int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polarisation_t& pol_, int32_t low_freq,
+int
+receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polarisation_t& pol_, int32_t low_freq,
 																			 int32_t high_freq, int sat_pos, int subscription_id) {
 	auto lnb = reread_lnb(lnb_);
 	std::vector<task_queue_t::future_t> futures;
@@ -1430,7 +1385,7 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 	tune_options.spectrum_scan_options.end_freq = high_freq;
 
 	if (sat_pos == sat_pos_none) {
-		if (chdb::on_rotor(lnb)) {
+		if (chdb::lnb::on_positioner(lnb)) {
 		} else {
 			if (lnb.networks.size() > 0)
 				sat_pos = lnb.networks[0].sat_pos;
@@ -1440,7 +1395,7 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 	tune_options.spectrum_scan_options.sat_pos = sat_pos;
 	futures.push_back(receiver_thread.push_task([this, &lnb, tune_options, &subscription_id]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
+		subscription_id = (int) cb(receiver_thread).subscribe_lnb(lnb, tune_options, (subscription_id_t) subscription_id);
 		return 0;
 	}));
 	wait_for_all(futures);
@@ -1450,7 +1405,9 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 /*!
 	for use by a blindscan which scans all muxes in a band. Exclusively reserves lnb
 */
-int receiver_t::subscribe_lnb_blindscan(chdb::lnb_t& lnb_, const chdb::fe_band_pol_t& band_pol, int subscription_id) {
+int
+receiver_t::subscribe_lnb_blindscan(chdb::lnb_t& lnb_, const chdb::fe_band_pol_t& band_pol,
+																		int subscription_id) {
 	auto lnb = reread_lnb(lnb_);
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
@@ -1460,15 +1417,16 @@ int receiver_t::subscribe_lnb_blindscan(chdb::lnb_t& lnb_, const chdb::fe_band_p
 	tune_options.tune_mode = tune_mode_t::SCAN_BLIND;
 	futures.push_back(receiver_thread.push_task([this, &lnb, tune_options, &subscription_id]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
+		subscription_id = (int) cb(receiver_thread).subscribe_lnb(lnb, tune_options, (subscription_id_t) subscription_id);
 		return 0;
 	}));
 	wait_for_all(futures);
 	return subscription_id;
 }
 
-int receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
-																			int subscription_id) {
+int
+receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
+													int subscription_id) {
 
 	{
 		auto txn = chdb.rtxn();
@@ -1486,7 +1444,7 @@ int receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
 	tune_options.retune_mode = retune_mode;
 	futures.push_back(receiver_thread.push_task([this, &lnb, &tune_options, &subscription_id]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = cb(receiver_thread).subscribe_lnb(lnb, tune_options, subscription_id);
+		subscription_id = (int) cb(receiver_thread).subscribe_lnb(lnb, tune_options, (subscription_id_t) subscription_id);
 		return 0;
 	}));
 	wait_for_all(futures);
@@ -1495,7 +1453,8 @@ int receiver_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode,
 
 /*! Same as subscribe_lnb, but also subscribes to a mux in the same call
  */
-int receiver_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
+int
+receiver_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 																			const pls_search_range_t& pls_search_range, retune_mode_t retune_mode,
 																			int subscription_id) {
 
@@ -1518,19 +1477,21 @@ int receiver_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& 
 	tune_options.pls_search_range = pls_search_range;
 	futures.push_back(receiver_thread.push_task([this, &lnb, &mux, tune_options, &subscription_id]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = cb(receiver_thread).subscribe_mux(mux, subscription_id, tune_options, &lnb);
+		subscription_id = (int) cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id,
+																															tune_options, &lnb);
 		return 0;
 	}));
 	wait_for_all(futures);
 	return subscription_id;
 }
 
-std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service(const chdb::service_t& service, int subscription_id) {
+std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service(const chdb::service_t& service,
+																															int subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 	std::unique_ptr<playback_mpm_t> ret;
 	futures.push_back(receiver_thread.push_task([this, &subscription_id, &service, &ret]() {
 		cb(receiver_thread).abort_scan();
-		ret = cb(receiver_thread).subscribe_service(service, subscription_id);
+		ret = cb(receiver_thread).subscribe_service(service, (subscription_id_t) subscription_id);
 		return 0;
 	}));
 	wait_for_all(futures);
@@ -1542,7 +1503,7 @@ std::unique_ptr<playback_mpm_t> receiver_t::subscribe_recording(const recdb::rec
 	std::vector<task_queue_t::future_t> futures;
 	std::unique_ptr<playback_mpm_t> ret;
 	futures.push_back(receiver_thread.push_task([this, &subscription_id, &rec, &ret]() {
-		ret = cb(receiver_thread).subscribe_recording(rec, subscription_id);
+		ret = cb(receiver_thread).subscribe_recording(rec, (subscription_id_t) subscription_id);
 		return 0;
 	}));
 	wait_for_all(futures);
@@ -1570,28 +1531,10 @@ void receiver_t::stop_recording(const recdb::rec_t& rec_in) {
 int receiver_t::unsubscribe(int subscription_id) {
 	receiver_thread.push_task([this, subscription_id]() {
 		cb(receiver_thread).abort_scan();
-		cb(receiver_thread).unsubscribe(subscription_id);
+		cb(receiver_thread).unsubscribe((subscription_id_t) subscription_id);
 		return 0;
 	});
 	return -1;
-}
-
-void receiver_t::dump_subs() const {
-	receiver_thread
-		.push_task([this]() {
-			cb(receiver_thread).dump_subs();
-			return 0;
-		})
-		.wait();
-}
-
-void receiver_t::dump_all_frontends() const {
-	receiver_thread
-		.push_task([this]() {
-			cb(receiver_thread).dump_all_frontends();
-			return 0;
-		})
-		.wait();
 }
 
 int receiver_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
@@ -1752,16 +1695,17 @@ void receiver_t::update_playback_info() {
 	muxes: if non-empty, it provides a list of muxes to scan (should be non empty)
 	bool scan_newly_found_muxes => if new muxes are found from si information, also scan them
 */
-int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures,
+subscription_id_t
+receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures,
 																			ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
-																			bool scan_found_muxes, int max_num_subscriptions, int subscription_id) {
+																			bool scan_found_muxes, int max_num_subscriptions, subscription_id_t subscription_id) {
 	bool init = !scanner.get();
-	if (scanner.get() && subscription_id < 0) {
+	if (scanner.get() && (int) subscription_id < 0) {
 		user_error("Scan is already in progress");
-		return -1;
+		return subscription_id_t{-1};
 	}
-	if (subscription_id < 0)
-		subscription_id = this->next_subscription_id++;
+	if ((int) subscription_id < 0)
+		subscription_id = subscription_id_t{this->next_subscription_id++};
 	if (!scanner)
 		scanner = std::make_shared<scanner_t>(*this, scan_found_muxes, max_num_subscriptions, subscription_id);
 	scanner->add_muxes(muxes, init);
@@ -1772,15 +1716,16 @@ int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futur
 }
 
 template <typename mux_t>
-int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
-																			bool scan_found_muxes, int max_num_subscriptions, int subscription_id) {
+subscription_id_t
+receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
+																			bool scan_found_muxes, int max_num_subscriptions, subscription_id_t subscription_id) {
 	bool init = !scanner.get();
-	if (scanner.get() && subscription_id < 0) {
+	if (scanner.get() && (int) subscription_id < 0) {
 		user_error("Scan is already in progress");
-		return -1;
+		return subscription_id_t{-1};
 	}
-	if (subscription_id < 0)
-		subscription_id = this->next_subscription_id++;
+	if ((int) subscription_id < 0)
+		subscription_id = subscription_id_t{this->next_subscription_id++};
 	if (!scanner)
 		scanner = std::make_unique<scanner_t>(*this, scan_found_muxes, max_num_subscriptions, subscription_id);
 	scanner->add_muxes(muxes, init);
@@ -1791,7 +1736,7 @@ int receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futur
 /*!
 	called when complete channel scan needs to be aborted
 */
-void receiver_thread_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, int subscription_id) {
+void receiver_thread_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id) {
 	scanner.reset();
 }
 
@@ -1809,6 +1754,11 @@ time_t receiver_thread_t::scan_start_time() const {
 	return scanner.get() ? scanner->scan_start_time : -1;
 }
 
+
+inline std::shared_ptr<active_adapter_t> receiver_thread_t::make_active_adapter(const chdb::fe_key_t& fe_key) {
+	auto dvb_frontend = adaptermgr->find_fe(fe_key);
+	return std::make_shared<active_adapter_t>(receiver, dvb_frontend);
+}
 
 thread_local thread_group_t thread_group{thread_group_t::unknown};
 

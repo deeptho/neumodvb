@@ -27,7 +27,10 @@
 #include <wx/timer.h>
 #include <wx/window.h>
 
-subscriber_t::subscriber_t(receiver_t* receiver_, wxWindow* window_) : receiver(receiver_), window(window_) {}
+subscriber_t::subscriber_t(receiver_t* receiver_, wxWindow* window_) : receiver(receiver_), window(window_)
+{
+	owner = getpid();
+}
 
 std::shared_ptr<subscriber_t> subscriber_t::make(receiver_t* receiver, wxWindow* window) {
 	auto ret = std::make_shared<subscriber_t>(receiver, window);
@@ -36,15 +39,15 @@ std::shared_ptr<subscriber_t> subscriber_t::make(receiver_t* receiver, wxWindow*
 }
 
 subscriber_t::~subscriber_t() {
-	if (subscription_id >= 0)
+	if ((int) subscription_id >= 0)
 		unsubscribe();
 }
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service(const chdb::service_t& service) {
 	auto mpm =
-		receiver->subscribe_service(service, subscription_id);
+		receiver->subscribe_service(service, (int) subscription_id);
 	if (!mpm.get()) {
-		subscription_id = -1;
+		subscription_id = subscription_id_t{-1};
 		active_adapter.reset();
 		notify_error(get_error());
 	} else {
@@ -57,32 +60,33 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service(const chdb::serv
 template <typename _mux_t>
 int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 {
-	int ret = receiver->subscribe_mux(mux, blindscan, subscription_id);
-	if(ret<0) {
-		assert(subscription_id<0);
-		return ret;
+	auto ret = receiver->subscribe_mux(mux, blindscan, (int) subscription_id);
+	if((int) ret<0) {
+		assert((int) subscription_id<0);
+		return (int) ret;
 	}
 	subscription_id = ret;
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
-	return subscription_id;
+	return (int) subscription_id;
 }
 
 int subscriber_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode) {
 	subscription_id =
-		receiver->subscribe_lnb(lnb, retune_mode, subscription_id);
+		receiver->subscribe_lnb(lnb, retune_mode, (int) subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
-	return subscription_id < 0 ? -1 : ++tune_attempt;
+	return (int) subscription_id < 0 ? -1 : ++tune_attempt;
 }
 
 int subscriber_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 																						const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
-	subscription_id = receiver->subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range, retune_mode, subscription_id);
+	subscription_id = receiver->subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range, retune_mode,
+																										(int) subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
-	return subscription_id < 0 ? -1 : ++tune_attempt;
+	return (int) subscription_id < 0 ? -1 : ++tune_attempt;
 }
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::rec_t& rec) {
-	auto mpm = 		receiver->subscribe_recording(rec, subscription_id);
+	auto mpm = 		receiver->subscribe_recording(rec, (int) subscription_id);
 	if (!mpm.get()) {
 		subscription_id = -1;
 		active_adapter.reset();
@@ -103,9 +107,9 @@ void subscriber_t::update_current_lnb(const chdb::lnb_t& lnb) {
 
 int subscriber_t::unsubscribe() {
 	// auto d = safe_data.writeAccess();
-	subscription_id = receiver->unsubscribe(subscription_id);
+	subscription_id = receiver->unsubscribe((int) subscription_id);
 	active_adapter.reset();
-	assert(subscription_id < 0);
+	assert((int) subscription_id < 0);
 #ifndef NDEBUG
 	auto mp = receiver->subscribers.writeAccess();
 	auto& m = *mp;
@@ -116,7 +120,7 @@ int subscriber_t::unsubscribe() {
 		assert(num_erased == 1);
 	}
 #endif
-	return subscription_id;
+	return (int) subscription_id;
 }
 
 int subscriber_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
@@ -137,9 +141,10 @@ int subscriber_t::subscribe_spectrum(chdb::lnb_t& lnb, chdb::fe_polarisation_t p
 																				 int32_t high_freq, int sat_pos) {
 	active_adapter.reset();
 
-	subscription_id = receiver->subscribe_lnb_spectrum(lnb, pol, low_freq, high_freq, sat_pos, subscription_id);
+	subscription_id = receiver->subscribe_lnb_spectrum(lnb, pol, low_freq, high_freq, sat_pos,
+																										 (int) subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
-	return subscription_id;
+	return (int) subscription_id;
 }
 
 int subscriber_t::get_adapter_no() const { return active_adapter ? active_adapter->get_adapter_no() : -1; }
@@ -147,7 +152,7 @@ int subscriber_t::get_adapter_no() const { return active_adapter ? active_adapte
 void subscriber_t::notify_signal_info(const chdb::signal_info_t& info) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
-	if (active_adapter && active_adapter->get_adapter_mac_address() == info.stat.k.lnb.adapter_mac_address) {
+	if (active_adapter && active_adapter->get_lnb_key() == info.stat.k.lnb) {
 		auto temp = info;
 		temp.tune_attempt = tune_attempt;
 		notify(temp);
@@ -164,7 +169,7 @@ void subscriber_t::notify_error(const ss::string_& errmsg) {
 void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
 		return;
-	if (active_adapter && active_adapter->get_adapter_mac_address() == spectrum.k.lnb_key.adapter_mac_address) {
+	if (active_adapter && active_adapter->get_lnb_key() == spectrum.k.lnb_key) {
 		notify(spectrum);
 	}
 }

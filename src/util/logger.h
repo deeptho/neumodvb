@@ -48,12 +48,6 @@ std::ostream& operator<<(std::ostream& os, const ss::string_& a);
 
 std::ostream& operator<<(std::ostream& os, system_time_t a);
 
-#ifdef TODO
-	std::ostream& operator<<(std::ostream& os, const audio_language_t& a);
-	std::ostream& operator<<(std::ostream& os, const audio_stream_t& s);
-	std::ostream& operator<<(std::ostream& os, const subtitle_stream_t& s);
-#endif
-
 };
 
 
@@ -66,10 +60,6 @@ namespace dtdemux {
 	std::ostream& operator<<(std::ostream& os,  const pts_dts_t& a);
 	std::ostream& operator<<(std::ostream& os,  const pcr_t& a);
 }
-#ifdef TODO
-std::ostream& operator<<(std::ostream& os, fe_delivery_system a);
-std::ostream& operator<<(std::ostream& os, fecap_scale_params a);
-#endif
 
 
 

@@ -18,7 +18,7 @@
  *
  */
 
-#include "adapter.h"
+#include "devmanager.h"
 #include "neumodb/cursors.h"
 #include "neumodb/statdb/statdb_extra.h"
 #include "receiver.h"
@@ -40,13 +40,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& receiver, dvb_frontend_t* fe) {
+std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& receiver,
+																															 std::shared_ptr<dvb_frontend_t>& fe) {
 	auto t = fe->ts.writeAccess();
 	assert(t->fefd < 0);
 	auto p = std::make_shared<fe_monitor_thread_t>(receiver, fe);
-	fe->set_monitor_thread(p);
 	fe->open_device(*t);
-	dtdebugx("starting frontend_monitor %p: fefd=%d\n", fe, t->fefd);
+	dtdebugx("starting frontend_monitor %p: fefd=%d\n", fe.get(), t->fefd);
 	p->epoll_add_fd(t->fefd,
 									EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET); // will be used to monitor the frontend edge triggered!
 	p->start_running();
@@ -83,6 +83,7 @@ void fe_monitor_thread_t::monitor_signal() {
 }
 
 chdb::signal_info_t fe_monitor_thread_t::cb_t::get_signal_info() {
+	assert(!is_paused);
 	chdb::signal_info_t signal_info;
 	fe->get_signal_info(signal_info, false);
 	return signal_info;
@@ -97,6 +98,8 @@ void fe_monitor_thread_t::handle_frontend_event() {
 		return;
 	}
 
+	if(is_paused) //we receive the event but do not actually process it
+		return;
 	/**
 	 * enum fe_status - enumerates the possible frontend status
 	 * @FE_HAS_SIGNAL:	found something above the noise level
@@ -150,13 +153,25 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	}
 }
 
+int fe_monitor_thread_t::cb_t::pause() {
+	ss::string<64> fe_name;
+	fe_name.sprintf("fe %d.%d", (int)fe->adapter_no, (int)fe->frontend_no);
+	set_name(fe_name.c_str());
+	log4cxx::MDC::put("thread_name", fe_name.c_str());
+	this->is_paused = true;
+	dtdebugx("frontend_monitor pause: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
+
+	return 0;
+}
+
+
 int fe_monitor_thread_t::run() {
 	ss::string<64> fe_name;
-	fe_name.sprintf("fe %d.%d", (int)fe->adapter->adapter_no, (int)fe->frontend_no);
+	fe_name.sprintf("fe %d.%d", (int)fe->adapter_no, (int)fe->frontend_no);
 	set_name(fe_name.c_str());
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 
-	dtdebugx("frontend_monitor run: %p: fefd=%d\n", fe, fe->ts.readAccess()->fefd);
+	dtdebugx("frontend_monitor run: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
 	auto save = shared_from_this(); // prevent ourself from being deleted until thread exits;
 
 	if (fe->api_type != api_type_t::NEUMO)
@@ -176,12 +191,13 @@ int fe_monitor_thread_t::run() {
 			} else if (fe->is_fefd(evt->data.fd)) {
 				handle_frontend_event();
 			} else if (is_timer_fd(evt)) { //only for non-neumo mode
-				monitor_signal();
+				if(!is_paused)
+					monitor_signal();
 			}
 		}
 	}
 exit_:
-	dtdebugx("frontend_monitor end: %p: fefd=%d\n", fe, fe->ts.readAccess()->fefd);
+	dtdebugx("frontend_monitor end: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
 	fe->close_device(*fe->ts.writeAccess());
 	save.reset();
 	{
@@ -267,3 +283,34 @@ void signal_monitor_t::end_stat(receiver_t& receiver) {
 	}
 	wtxn.commit();
 }
+
+/*
+	TODO:  in current code, upon tune, active_adapter first sends DTV_STOP to put frontend in IDLE
+	mode -- immediately --. It then starts tuning, but the calls involved race with the parallel
+	calls made by fe_monitor: almost all ioctls lock the semaphore "fepriv->sem", which prevents concurrent
+	access from any thread using any file descriptor
+
+	The new code should run tuning and monitoring ioctls only from fe_monitor thread.
+	tuner_thread should tune as follows:
+	1. set a flag, or run a task in fe_monitor asking to go to idle mode prior to tuning
+	2. call DTV_STOP ioctl, so that frontend stops its internal tuen tasks and will therefore
+	   be able to execute any ioctl on which an fe_monitor thread might be blocked
+	3. run the actual tune_task in the fe_monitor thread
+Note that it is essential that the DTV_STOP happens before tuning. Step 1 force fe_monitor thread
+to wait for the DTV_STOP call to be actually made
+
+Another approach could be the following:
+	1. ask fe_monitor ti run a task composed of two parts: a) wait to be notified in DTV_STOP.
+	   This notification has to come from tune_thread
+	2. call DTV_STOP ioctl and a message that tuning can proceed
+
+Ideally the kernel should also set a flag showing "idle mode", but this is not the case
+
+
+
+
+
+
+
+
+ */

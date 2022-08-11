@@ -19,7 +19,7 @@
  */
 #include "stackstring.h"
 #include "receiver/subscriber.h"
-#include "receiver/adapter.h"
+#include "receiver/devmanager.h"
 #include "neumoglcanvas.h"
 #include "neumompv.h"
 #include <mutex>
@@ -51,7 +51,7 @@ public:
 	std::atomic<bool> show_radiobg{false};
 	int seqno =0;
 	bool is_playing() const {
-		return subscriber->get_subscription_id() >=0;
+		return (int) subscriber->get_subscription_id() >=0;
 	}
 	std::function<void()> next_op = none; //callback run on close
 private:
@@ -62,7 +62,7 @@ private:
 	//active_service_t* active_service = nullptr;
 	//active_playback_t* active_playback = nullptr;
 	ss::string<128> filepath;
-	//int subscription_id =-1;
+	//subscription_id_t subscription_id =-1;
 public:
 	int64_t read_data(char*buffer, uint64_t nbytes);
 	void close_fn(); /*called when mpv player thinks it closes the file, but this "fake" close

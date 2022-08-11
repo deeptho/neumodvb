@@ -11,7 +11,7 @@ add_library(neumoreceiver SHARED  receiver.cc subscriber.cc subscriber_notify.cc
 
 target_precompile_headers(neumoreceiver PRIVATE
   active_playback.h active_stream.h dvbcsa.h subscriber.h options.h reservation.h signal_info.h
-  active_adapter.h active_service.h adapter.h filemapper.h neumofrontend.h receiver.h scam.h
+  active_adapter.h active_service.h devmanager.h filemapper.h neumofrontend.h receiver.h scam.h
   active_si_stream.h dvbapi.h mpm.h neumo.h recmgr.h scan.h task.h
   )
 
@@ -54,6 +54,7 @@ pybind11_add_module(pyspectrum spectrum_pybind.cc spectrum_algo4.cc)
 
 
 target_compile_options(pyreceiver PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
+#target_compile_options(pyspectrum PUBLIC -fsanitize=address -fno-omit-frame-pointer)
 
 target_link_libraries(pyspectrum PRIVATE neumoutil)
 target_link_libraries(pyreceiver PRIVATE neumoutil)

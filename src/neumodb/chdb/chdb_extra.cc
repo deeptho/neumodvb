@@ -1,5 +1,5 @@
 /*
- * Neumo dvb (C) 2019-2021 deeptho@gmail.com
+ * Neumo dvb (C) 2019-2022 deeptho@gmail.com
  *
  * Copyright notice:
  *
@@ -758,27 +758,25 @@ std::ostream& chdb::operator<<(std::ostream& os, const service_key_t& k) {
 std::ostream& chdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 	const char* t = (lnb_key.lnb_type == lnb_type_t::C) ? "C" :
 		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" : "Ku" ;
-	stdex::printf(os, "D%dA[0x%06x]%s %d", (int)lnb_key.dish_id, (int)lnb_key.adapter_mac_address,
-								t, (int)lnb_key.lnb_id);
+	stdex::printf(os, "D%dC[0x%06x]#d%d %s[%d]", (int)lnb_key.dish_id, (int)lnb_key.card_mac_address,
+								(int)lnb_key.rf_input,  t, (int)lnb_key.lnb_id);
 	return os;
 }
 
 std::ostream& chdb::operator<<(std::ostream& os, const lnb_t& lnb) {
 	using namespace chdb;
 	os << lnb.k;
-	const char* t = (lnb.k.lnb_type == lnb_type_t::C) ? "C" :
-		(lnb.k.lnb_type == lnb_type_t::KU) ? "Ku" : "Ku" ;
 	switch (lnb.rotor_control) {
 	case rotor_control_t::FIXED_DISH: {
 		auto sat = sat_pos_str(lnb.usals_pos); // in this case usals pos equals one of the network sat_pos
-		stdex::printf(os, "%s %s %d", sat.c_str(), t, (int)lnb.k.lnb_id);
+		stdex::printf(os, "%s %d", sat.c_str(), (int)lnb.k.lnb_id);
 	} break;
 	case rotor_control_t::ROTOR_MASTER_USALS:
 	case rotor_control_t::ROTOR_MASTER_DISEQC12:
-		stdex::printf(os, "%s rotor %d", t, (int)lnb.k.lnb_id);
+		stdex::printf(os, " rotor %d", (int)lnb.k.lnb_id);
 		break;
 	case rotor_control_t::ROTOR_SLAVE:
-		stdex::printf(os, "%s slave %d", t, (int)lnb.k.lnb_id);
+		stdex::printf(os, " slave %d", (int)lnb.k.lnb_id);
 	}
 	return os;
 }
@@ -834,7 +832,7 @@ std::ostream& chdb::operator<<(std::ostream& os, const fe_t& fe) {
 	using namespace chdb;
 	stdex::printf(os, "C%dA%d F%d", (int)fe.adapter_no, fe.card_no, (int)fe.k.frontend_no);
 	stdex::printf(os, " %s;%s", fe.adapter_name, fe.card_address);
-	stdex::printf(os, " master=[0x^06x] enabled=%s%s%s available=%d", fe.master_adapter_mac_address,
+	stdex::printf(os, " enabled=%s%s%s available=%d",
 								fe.enable_dvbs ? "S" :"", fe.enable_dvbt ? "T": "", fe.enable_dvbc ? "C" : "", fe.can_be_used);
 	return os;
 }
@@ -1089,26 +1087,25 @@ chdb::delsys_type_t chdb::delsys_to_type(chdb::fe_delsys_t delsys_) {
 	}
 }
 
-
 /*
 	returns
 	  network_exists
 		priority (if network_exists else -1)
 		usals_amount: how much does the dish need to be rotated for this network
 */
-std::tuple<bool, int, int> chdb::lnb::has_network(const lnb_t& lnb, int16_t sat_pos) {
+std::tuple<bool, int, int, int> chdb::lnb::has_network(const lnb_t& lnb, int16_t sat_pos) {
 	int usals_amount{0};
 	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
 												 [&sat_pos](const chdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
 	if (it != lnb.networks.end()) {
-		if (chdb::on_rotor(lnb)) {
-			auto usals_pos = lnb.usals_pos - lnb.offset_pos;
+		auto usals_pos = lnb.usals_pos - lnb.offset_pos;
+		if (chdb::lnb::on_positioner(lnb)) {
 			usals_amount = std::abs(usals_pos - it->usals_pos);
 		}
-		return std::make_tuple(true, it->priority, usals_amount);
+		return std::make_tuple(true, it->priority, usals_amount, usals_pos);
 	}
 	else
-		return std::make_tuple(false, -1, 0);
+		return std::make_tuple(false, -1, 0, sat_pos_none);
 }
 
 /*
@@ -1457,7 +1454,7 @@ chdb::dvbs_mux_t chdb::lnb::select_reference_mux(db_txn& rtxn, const chdb::lnb_t
 	if (proposed_mux && lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks))
 		return *proposed_mux;
 
-	if (!on_rotor(lnb)) {
+	if (!chdb::lnb::on_positioner(lnb)) {
 		for (auto& network : lnb.networks) {
 			if (usals_is_close(lnb.usals_pos, network.usals_pos)) { // dish is tuned to the right sat
 				return return_mux(network);
@@ -1503,14 +1500,14 @@ chdb::lnb_t chdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const c
 	*/
 	auto c = find_first<chdb::lnb_t>(rtxn);
 	for (auto const& lnb : c.range()) {
-		auto [has_network, network_priority, usals_move_amount] = chdb::lnb::has_network(lnb, sat.sat_pos);
+		auto [has_network, network_priority, usals_move_amount, usals_pos] = chdb::lnb::has_network(lnb, sat.sat_pos);
 		/*priority==-1 indicates:
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
 		*/
 		if (!has_network || !lnb.enabled)
 			continue;
-		if (on_rotor(lnb)) {
+		if (chdb::lnb::on_positioner(lnb)) {
 			const bool disregard_networks{false};
 			if (!proposed_mux || lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks))
 				// we prefer a rotor, which is most useful for user
@@ -1523,7 +1520,7 @@ chdb::lnb_t chdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const c
 	*/
 	c = find_first<chdb::lnb_t>(rtxn);
 	for (auto const& lnb : c.range()) {
-		auto [has_network, network_priority, usals_move_amount] = chdb::lnb::has_network(lnb, sat.sat_pos);
+		auto [has_network, network_priority, usals_move_amount, usals_pos] = chdb::lnb::has_network(lnb, sat.sat_pos);
 		assert (usals_move_amount == 0);
 		/*priority==-1 indicates:
 			for lnb_network: lnb.priority should be consulted
@@ -1634,7 +1631,7 @@ int chdb::dish::update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos)
 	auto c = chdb::find_first<chdb::lnb_t>(wtxn);
 	int num_rotors = 0; //for sanity check
 	for(auto lnb : c.range()) {
-		if(lnb.k.dish_id != dish_id || !chdb::on_rotor(lnb))
+		if(lnb.k.dish_id != dish_id || !chdb::lnb::on_positioner(lnb))
 			continue;
 		num_rotors++;
 		lnb.usals_pos = usals_pos;
@@ -1661,10 +1658,10 @@ bool chdb::dish::dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_p
 	int num_rotors = 0; //for sanity check
 
 	for(auto lnb : c.range()) {
-		if(lnb.k.dish_id != dish_id || !chdb::on_rotor(lnb))
+		if(lnb.k.dish_id != dish_id || !chdb::lnb::on_positioner(lnb))
 			continue;
 		num_rotors++;
-		auto [h, priority, usals_amount] =  chdb::lnb::has_network(lnb, sat_pos);
+		auto [h, priority, usals_amount, usals_pos] =  chdb::lnb::has_network(lnb, sat_pos);
 		if(h) {
 			return usals_amount != 0;
 		}
@@ -1798,13 +1795,16 @@ bool chdb::lnb::can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol)
 void chdb::lnb::update_lnb(db_txn& wtxn, chdb::lnb_t&  lnb)
 {
 	bool found=false;
-	auto c = fe_t::find_by_key(wtxn, lnb.k.adapter_mac_address, find_type_t::find_geq,
-														 fe_t::partial_keys_t::adapter_mac_address);
+	auto c = fe_t::find_by_card_mac_address(wtxn, lnb.k.card_mac_address);
 	if(c.is_valid()) {
 		const auto& fe = c.current();
-		lnb.adapter_name = fe.adapter_name;
-		lnb.adapter_no = fe.adapter_no;
+		lnb.name.clear();
+		if (lnb.card_no >=0)
+			lnb.name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
+		else
+			lnb.name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
 		lnb.can_be_used = fe.can_be_used;
+		lnb.card_no = fe.card_no;
 	}
 	switch(lnb.rotor_control) {
 	case chdb::rotor_control_t::ROTOR_MASTER_USALS:
@@ -1880,16 +1880,33 @@ void chdb::clean_scan_status(db_txn& wtxn)
 	When an adapter changes name, update fields "name" and "adapter_no" in all related lnb's
  */
 void chdb::lnb::update_lnb_adapter_fields(db_txn& wtxn, const chdb::fe_t& fe) {
-	auto c = lnb_t::find_by_key(wtxn, fe.k.adapter_mac_address, find_type_t::find_geq, lnb_t::partial_keys_t::adapter_mac_address);
+	auto c = lnb_t::find_by_key(wtxn, fe.card_mac_address,
+															find_type_t::find_geq, lnb_t::partial_keys_t::card_mac_address);
 	for(auto lnb : c.range()) {
-		assert (lnb.k.adapter_mac_address == fe.k.adapter_mac_address);
-		bool changed = (lnb.adapter_name != fe.adapter_name) || (lnb.adapter_no != fe.adapter_no)
-			|| (lnb.can_be_used != fe.can_be_used);
+		ss::string<32> name;
+		name.clear();
+		if (lnb.card_no >=0)
+			name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
+		else
+			name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
+		assert (lnb.k.card_mac_address == fe.card_mac_address);
+		bool changed = (lnb.name != name) ||(lnb.card_no != fe.card_no) || (lnb.can_be_used != fe.can_be_used);
 		if (!changed)
 			continue;
-		lnb.adapter_name = fe.adapter_name;
-		lnb.adapter_no = fe.adapter_no;
+		lnb.name = name;
+		lnb.card_no = fe.card_no;
 		lnb.can_be_used = fe.can_be_used;
 		put_record(wtxn, lnb);
 	}
+}
+
+
+
+int chdb::lnb::switch_id(db_txn& rtxn, const chdb::lnb_key_t& lnb_key) {
+	rf_input_key_t k{lnb_key.card_mac_address, lnb_key.rf_input};
+	auto c = chdb::rf_input_t::find_by_key(rtxn, k);
+	if(c.is_valid())
+		return c.current().switch_id;
+	else
+		return -1;
 }

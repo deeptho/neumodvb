@@ -77,6 +77,9 @@ int64_t active_stream_t::get_adapter_mac_address() const {
 	return active_adapter().get_adapter_mac_address();
 }
 
+chdb::lnb_key_t active_stream_t::get_adapter_lnb_key() const {
+	return active_adapter().get_lnb_key();
+}
 
 ss::string<32> active_stream_t::name() const
 {
@@ -268,16 +271,16 @@ int active_stream_t::deactivate()
 }
 
 
-const chdb::any_mux_t& dvb_stream_reader_t::tuned_mux() const {
+chdb::any_mux_t dvb_stream_reader_t::stream_mux() const {
 	return active_adapter.current_tp();
 }
 
 
 int16_t stream_reader_t::get_sat_pos() const
 {
-	auto& tuned_mux = this->tuned_mux();
-	auto* tuned_mux_key = mux_key_ptr(tuned_mux);
-	return tuned_mux_key->sat_pos;
+	auto stream_mux = this->stream_mux();
+	auto* stream_mux_key = mux_key_ptr(stream_mux);
+	return stream_mux_key->sat_pos;
 }
 
 
@@ -288,12 +291,12 @@ void dvb_stream_reader_t::set_current_tp(const chdb::any_mux_t& mux) const
 
 const tune_options_t& stream_reader_t::tune_options() const
 {
-	return active_adapter.tune_options;
+	return active_adapter.fe->ts.readAccess()->tune_options;
 }
 
-void dvb_stream_reader_t::on_tuned_mux_change(const chdb::any_mux_t& mux)
+void dvb_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& stream_mux)
 {
-	active_adapter.on_tuned_mux_change(mux);
+	active_adapter.on_tuned_mux_change(stream_mux); //for active_adapter stream_mux == tuned_mux
 }
 
 void dvb_stream_reader_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux)
@@ -303,16 +306,17 @@ void dvb_stream_reader_t::update_bad_received_si_mux(const std::optional<chdb::a
 
 
 
-void  stream_reader_t::update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation)
+void  stream_reader_t::update_stream_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation)
 {
-		active_adapter.current_fe->update_tuned_mux_tune_confirmation(tune_confirmation);
+	//for active_adapter stream_mux == tuned_mux
+	active_adapter.fe->update_tuned_mux_tune_confirmation(tune_confirmation);
 }
 
 
-
-void dvb_stream_reader_t::update_tuned_mux_nit(const chdb::any_mux_t& mux)
+void dvb_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stream_mux)
 {
-	active_adapter.current_fe->update_tuned_mux_nit(mux);
+	//for active_adapter stream_mux == tuned_mux
+	active_adapter.fe->update_tuned_mux_nit(stream_mux);
 
 }
 

@@ -42,7 +42,6 @@ def delsys_fn(x):
     vals = vals.difference(set(['AUTO']))
     return "/".join(vals)
 def rf_inputs_fn(x):
-
     return " ".join(str(v) for v in x[1])
 
 class FrontendTable(NeumoTable):
@@ -62,11 +61,15 @@ class FrontendTable(NeumoTable):
          CD(key='k.frontend_no',  label='FE#', basic=True, readonly=True),
          CD(key='fe_enable_menu',  label='enable', basic=False, cfn=enable_cfn, dfn=enable_dfn, sfn=enable_sfn,
             example=" DVB T+C "),
-          CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
-             dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
-         CD(key='card_name',  label='Card', basic=True, example=" TurboSight TBS 6916 (Octa DVB-S/S2/S2X)"),
+         CD(key='rf_inputs',  label='rf\ninp.', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916X "),
          CD(key='rf_in',  label='RF#', basic=True, readonly=True),
+         CD(key='card_no',  label='card#', basic=True, readonly=True),
+         CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
+             dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
+         #CD(key='card_mac_address',  label='MACC', basic=True, no_combo=True, readonly=True,
+         #   dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
+         #CD(key='card_name',  label='Card', basic=True, example=" TurboSight TBS 6916 (Octa DVB-S/S2/S2X)"),
          #CD(key='card_mac_address',  label='card MAC#', basic=True, no_combo=True, readonly=True,
          #   dfn=mac_fn, example=" 00:00:ab:00:00:00 "),
          CD(key='card_address',  label='Bus', basic=True, example=" Turbosight 6909x "),
@@ -79,7 +82,6 @@ class FrontendTable(NeumoTable):
          CD(key='priority',  label='priority', basic=True),
          CD(key='master_adapter_mac_address',  label='master', basic=True, no_combo=False,
             dfn=lambda x: x[0].adapter_name, example=" TBS 6909X #12 "),
-         CD(key='rf_inputs',  label='rf\ninputs', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          CD(key='delsys',  label='delsys', basic=True, dfn=delsys_fn, readonly=True, example='DVBT/'*6)
         ]
 

@@ -40,9 +40,10 @@ int scanner_t::housekeeping() {
 	return must_end ? 0 : pending + subscriptions.size();
 }
 
-static void report(const char* msg, int finished_subscription_id, int subscription_id, const chdb::any_mux_t& mux,
-									 const std::set<int>& subscription_ids) {
-	if (finished_subscription_id < 0 && subscription_id < 0)
+static void report(const char* msg, subscription_id_t finished_subscription_id,
+									 subscription_id_t subscription_id, const chdb::any_mux_t& mux,
+									 const std::set<subscription_id_t>& subscription_ids) {
+	if ((int) finished_subscription_id < 0 && (int) subscription_id < 0)
 		return;
 	ss::string<128> s;
 	//to_str(s, mux);
@@ -56,7 +57,7 @@ static void report(const char* msg, int finished_subscription_id, int subscripti
 
 
 template<typename mux_t>
-std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, int finished_subscription_id)
+std::tuple<subscription_id_t, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finished_subscription_id)
 {
 	std::vector<task_queue_t::future_t> futures;
 
@@ -73,34 +74,34 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, int finished_subscriptio
 	dtdebug("++++++++++++++++++++++++++++++++++");
 	for(auto mux_to_scan: c.range())  {
 		assert(mux_to_scan.c.scan_status == scan_status_t::PENDING);
-		if ((int)subscriptions.size() >= (finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1))
+		if ((int)subscriptions.size() >= ((int)finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1))
 			continue; // to have accurate num_pending count
-		int subscription_id =
+		subscription_id_t subscription_id =
 			receiver_thread.subscribe_mux(futures, rtxn, mux_to_scan, finished_subscription_id, tune_options, nullptr);
 		report("SUBSCRIBED", finished_subscription_id, subscription_id, mux_to_scan, subscriptions);
-		dtdebug("Asked to subscribe " << mux_to_scan << " subscription_id="  << subscription_id);
+		dtdebug("Asked to subscribe " << mux_to_scan << " subscription_id="  << (int) subscription_id);
 		wait_for_all(futures); // must be done before continuing this loop
 
-		if (subscription_id < 0) {
+		if ((int)subscription_id < 0) {
 			// we cannot subscribe the mux right now
 			num_pending++;
 			continue;
 		}
 		last_subscribed_mux = mux_to_scan;
-		dtdebug("subscribed to " << mux_to_scan << " subscription_id="  << subscription_id <<
-						" finished_subscription_id=" << finished_subscription_id);
+		dtdebug("subscribed to " << mux_to_scan << " subscription_id="  << (int) subscription_id <<
+						" finished_subscription_id=" << (int) finished_subscription_id);
 		//put_record(wtxn, mux_to_scan);
-		if (finished_subscription_id >= 0) {
+		if ((int)finished_subscription_id >= 0) {
 			/*all other available subscriptions are still in use, and there is no point
 				in continuing to check
 				*/
 			subscribed_muxes[subscription_id] = mux_to_scan;
 			assert(subscription_id == finished_subscription_id);
-			finished_subscription_id = -1; // we have reused finished_subscription_id, but can only do that once
+			finished_subscription_id = subscription_id_t{-1}; // we have reused finished_subscription_id, but can only do that once
 			continue;
 		} else {
 			// this is a second or third or ... subscription
-			assert(finished_subscription_id == -1);
+			assert((int)finished_subscription_id == -1);
 
 			subscriptions.insert(subscription_id);
 			subscribed_muxes[subscription_id] = mux_to_scan;
@@ -114,13 +115,13 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, int finished_subscriptio
 	Returns number of muxes left to scan
 */
 int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
-																					const chdb::any_mux_t& finished_mux) {
+												 const chdb::any_mux_t& finished_mux) {
 	std::vector<task_queue_t::future_t> futures;
 	int error{};
 	int num_pending{0};
 	auto& finished_mux_key = *chdb::mux_key_ptr(finished_mux);
 	try {
-		int finished_subscription_id{-1};
+		subscription_id_t finished_subscription_id{-1};
 		if (finished_mux_key.sat_pos != sat_pos_none) {
 			auto [it, found] = find_in_map_if(subscribed_muxes, [&finished_mux](const auto& x) {
 				auto& [subscription_id_, rec] = x;
@@ -137,41 +138,41 @@ int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
 		auto rtxn = receiver.chdb.rtxn();
 		using namespace chdb;
 		int num_pending1{0};
-		int old_finished_subscription_id = finished_subscription_id;
+		auto old_finished_subscription_id = finished_subscription_id;
 		std::tie(finished_subscription_id, num_pending1) =
 			scan_next<chdb::dvbs_mux_t>(rtxn, finished_subscription_id);
 		num_pending += num_pending1;
 		dtdebugx("old_finished_subscription_id=%d finished_subscription_id=%d num_pending=%d",
-						 old_finished_subscription_id, finished_subscription_id, num_pending);
+						 (int) old_finished_subscription_id, (int) finished_subscription_id, num_pending);
 		old_finished_subscription_id = finished_subscription_id;
 		std::tie(finished_subscription_id, num_pending1) =
 			scan_next<chdb::dvbc_mux_t>(rtxn, finished_subscription_id);
 		num_pending += num_pending1;
 		old_finished_subscription_id = finished_subscription_id;
 		dtdebugx("old_finished_subscription_id=%d finished_subscription_id=%d num_pending=%d",
-						 old_finished_subscription_id, finished_subscription_id, num_pending);
+						 (int) old_finished_subscription_id, (int) finished_subscription_id, num_pending);
 		std::tie(finished_subscription_id, num_pending1) =
 			scan_next<chdb::dvbt_mux_t>(rtxn, finished_subscription_id);
 		num_pending += num_pending1;
 		old_finished_subscription_id = finished_subscription_id;
 		dtdebugx("old_finished_subscription_id=%d finished_subscription_id=%d pending=%d",
-						 old_finished_subscription_id, finished_subscription_id, num_pending);
-		dtdebug("status: subscription_id="  << subscription_id <<
-						" finished_subscription_id=" << finished_subscription_id << " pending="
+						 (int) old_finished_subscription_id, (int)finished_subscription_id, num_pending);
+		dtdebug("status: subscription_id="  << (int) subscription_id <<
+						" finished_subscription_id=" << (int) finished_subscription_id << " pending="
 						<< num_pending);
 
-		if (finished_subscription_id >= 0) {
+		if ((int)finished_subscription_id >= 0) {
 			/*
 				We arrive here only when finished_subscription_id was not reused at all
 				finished_subscription is currently not of any use; terminate it
 			*/
 			if (subscriptions.erase(finished_subscription_id)>0) {
-				dtdebugx("Abandoning subscription %d", finished_subscription_id);
+				dtdebugx("Abandoning subscription %d", (int) finished_subscription_id);
 				cb(receiver_thread).unsubscribe(finished_subscription_id);
 				subscribed_muxes.erase(finished_subscription_id);
 				report("ERASED", finished_subscription_id, subscription_id, chdb::dvbs_mux_t(), subscriptions);
 			} else {
-				dtdebugx("Unexpected: %d", finished_subscription_id);
+				dtdebugx("Unexpected: %d", (int) finished_subscription_id);
 			}
 		}
 
@@ -198,15 +199,16 @@ int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
 	return num_pending;
 }
 
-int receiver_thread_t::cb_t::subscribe_scan(ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
-																						bool scan_found_muxes, int max_num_subscriptions, int subscription_id) {
+subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
+	ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
+	bool scan_found_muxes, int max_num_subscriptions, subscription_id_t subscription_id) {
 	ss::string<32> s;
-	s << "SUB[" << subscription_id << "] Request scan";
+	s << "SUB[" << (int) subscription_id << "] Request scan";
 	log4cxx::NDC ndc(s);
 
 	std::vector<task_queue_t::future_t> futures;
 	bool service_only = false;
-	if (subscription_id >= 0)
+	if ((int) subscription_id >= 0)
 		unsubscribe_(futures, subscription_id, service_only);
 
 	bool error = wait_for_all(futures);
@@ -225,7 +227,7 @@ int receiver_thread_t::cb_t::subscribe_scan(ss::vector_<chdb::dvbs_mux_t>& muxes
 scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 										 //ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs_,
 										 bool scan_found_muxes_, int max_num_subscriptions_,
-										 int subscription_id_)
+										 subscription_id_t subscription_id_)
 	: receiver_thread(receiver_thread_)
 	, receiver(receiver_thread_.receiver)
 	,	subscription_id(subscription_id_)
@@ -347,11 +349,11 @@ template int scanner_t::add_muxes<chdb::dvbc_mux_t>(const ss::vector_<chdb::dvbc
 template int scanner_t::add_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt_mux_t>& muxes, bool init);
 
 
-template std::tuple<int, int>
-scanner_t::scan_next<chdb::dvbs_mux_t>(db_txn& rtxn, int finished_subscription_id);
+template std::tuple<subscription_id_t, int>
+scanner_t::scan_next<chdb::dvbs_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);
 
-template std::tuple<int, int>
-scanner_t::scan_next<chdb::dvbc_mux_t>(db_txn& rtxn, int finished_subscription_id);
+template std::tuple<subscription_id_t, int>
+scanner_t::scan_next<chdb::dvbc_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);
 
-template std::tuple<int, int>
-scanner_t::scan_next<chdb::dvbt_mux_t>(db_txn& rtxn, int finished_subscription_id);
+template std::tuple<subscription_id_t, int>
+scanner_t::scan_next<chdb::dvbt_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);

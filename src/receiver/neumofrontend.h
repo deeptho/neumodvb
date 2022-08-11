@@ -1253,9 +1253,9 @@ struct dvb_frontend_parameters {
 	} u;
 };
 
-struct dvb_frontend_event {
-	fe_status_t status;
-	struct dvb_frontend_parameters parameters;
+struct dvb_frontend_event { //size = 40 bytes
+	fe_status_t status; //size = 4 bytes
+	struct dvb_frontend_parameters parameters; //size = 36 bytes
 };
 
 /* DVBv3 API calls */

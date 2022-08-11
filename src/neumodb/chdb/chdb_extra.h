@@ -1,5 +1,5 @@
 /*
- * Neumo dvb (C) 2019-2021 deeptho@gmail.com
+ * Neumo dvb (C) 2019-2022 deeptho@gmail.com
  * Copyright notice:
  *
  * This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,15 @@
 
 #include "neumodb/chdb/chdb_db.h"
 #pragma GCC visibility push(default)
+
+
+unconvertable_int(int64_t, adapter_mac_address_t);
+unconvertable_int(int64_t, card_mac_address_t);
+unconvertable_int(int, adapter_no_t);
+unconvertable_int(int, frontend_no_t);
+
 namespace chdb {
+
 	using namespace chdb;
 
 	typedef std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t> any_mux_t;
@@ -139,12 +147,6 @@ namespace chdb {
 		return chgm.k.channel_id == channel_id_template;
 	}
 
-
-	inline bool on_rotor(const chdb::lnb_t& lnb) {
-		return (lnb.rotor_control == rotor_control_t::ROTOR_MASTER_USALS) ||
-			(lnb.rotor_control == rotor_control_t::ROTOR_MASTER_DISEQC12) ||
-			(lnb.rotor_control == rotor_control_t::ROTOR_SLAVE);
-	}
 
 	template<typename mux_t>
 	uint16_t make_unique_id(db_txn& txn, mux_key_t key);
@@ -357,19 +359,6 @@ namespace chdb {
 	}
 
 
-	inline bool can_move_dish(const chdb::lnb_t& lnb)
-	{
-		switch(lnb.rotor_control) {
-		case chdb::rotor_control_t::ROTOR_MASTER_USALS:
-		case chdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
-			return true; /*this means we will send usals commands. At reservation time, positioners which
-										 will really move have already been penalized, compared to positioners already on the
-												correct sat*/
-			break;
-		default:
-			return false;
-		}
-	}
 
 	inline bool usals_is_close(int sat_pos_a, int sat_pos_b) {
 		return std::abs(sat_pos_a-sat_pos_b) <= 100;
@@ -559,6 +548,13 @@ namespace chdb {
 	};
 
 	delsys_type_t delsys_to_type (chdb::fe_delsys_t delsys);
+	template<typename mux_t> inline constexpr delsys_type_t delsys_type_for_mux_type();
+
+	template<> inline constexpr delsys_type_t delsys_type_for_mux_type<dvbs_mux_t>() { return  delsys_type_t::DVB_S;}
+	template<> inline constexpr delsys_type_t delsys_type_for_mux_type<dvbc_mux_t>() { return  delsys_type_t::DVB_C;}
+	template<> inline constexpr delsys_type_t delsys_type_for_mux_type<dvbt_mux_t>() { return  delsys_type_t::DVB_T;}
+
+
 
 	bool lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_ *error=nullptr);
 
@@ -577,11 +573,10 @@ namespace  chdb::service {
 
 namespace  chdb::lnb {
 
-	//std::optional<chdb::lnb_network_t> diseqc12(const chdb::lnb_t& lnb, int16_t sat_pos);
-	std::tuple<bool, int, int>  has_network(const lnb_t& lnb, int16_t sat_pos);
+	std::tuple<bool, int, int, int>  has_network(const lnb_t& lnb, int16_t sat_pos);
 
 	inline bool dish_needs_to_be_moved(const lnb_t& lnb, int16_t sat_pos) {
-		auto [has_network_, priority, usals_move_amount] = has_network(lnb, sat_pos);
+		auto [has_network_, priority, usals_move_amount, usals_pos] = has_network(lnb, sat_pos);
 		return !has_network_ || usals_move_amount != 0 ;
 	}
 
@@ -636,6 +631,107 @@ namespace  chdb::lnb {
 
 	void update_lnb_adapter_fields(db_txn& wtxn, const chdb::fe_t& fe);
 
+	int switch_id(db_txn& rtxn, const chdb::lnb_key_t& key);
+
+	inline bool can_move_dish(const chdb::lnb_t& lnb) {
+		switch(lnb.rotor_control) {
+		case chdb::rotor_control_t::ROTOR_MASTER_USALS:
+		case chdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
+			return true; /*this means we will send usals commands. At reservation time, positioners which
+										 will really move have already been penalized, compared to positioners already on the
+												correct sat*/
+			break;
+		default:
+			return false;
+		}
+	}
+
+	inline bool on_positioner(const chdb::lnb_t& lnb)
+	{
+		switch(lnb.rotor_control) {
+		case chdb::rotor_control_t::ROTOR_MASTER_USALS:
+		case chdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
+		case chdb::rotor_control_t::ROTOR_SLAVE:
+			return true;
+			break;
+		default:
+			return false;
+		}
+	}
+
 }
+
+namespace chdb::fe {
+	std::optional<chdb::fe_t>
+	find_best_fe_for_lnb(db_txn& rtxn, const chdb::lnb_t& lnb,
+											 const chdb::fe_key_t* fe_to_release,
+											 bool need_blindscan, bool need_spectrum, bool need_multistream,
+											 fe_polarisation_t pol, fe_band_t band,
+											 int usals_pos);
+
+	std::optional<chdb::fe_t>
+	find_best_fe_for_dvtdbc(db_txn& rtxn,
+													const chdb::fe_key_t* fe_to_release,
+													bool need_blindscan, bool need_spectrum, bool need_multistream,
+													chdb::delsys_type_t delsys_type);
+
+	std::tuple<std::optional<chdb::fe_t>,
+						 std::optional<chdb::lnb_t>,
+						 int /*fe's priority*/, int /*lnb's priority*/ >
+	find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
+																		const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
+																		const chdb::fe_key_t* fe_key_to_release,
+																		bool may_move_dish, bool use_blind_tune,
+																		int dish_move_penalty, int resource_reuse_bonus);
+
+	int dish_subscription_count(db_txn& rtxn, int dish_id);
+	int lnb_subscription_count(db_txn& rtxn, const lnb_key_t& lnb_key);
+
+	int switch_subscription_count(db_txn& rtxn, int switch_id);
+	int tuner_subscription_count(db_txn& rtxn, card_mac_address_t card_mac_address, int rf_input);
+	inline bool is_subscribed(const fe_t& fe) {
+		return fe.sub.owner >= 0;
+	}
+
+	inline bool has_rf_in(const fe_t& fe, int rf_in) {
+		for(auto& r: fe.rf_inputs) {
+			if (r == rf_in)
+				return true;
+		}
+		return false;
+	}
+
+	inline bool suports_delsys_type(const chdb::fe_t& fe, chdb::delsys_type_t delsys_type) {
+		for (auto d: fe.delsys) {
+			if (chdb::delsys_to_type(d) == delsys_type)
+				return  true;
+		}
+		return false;
+	}
+
+
+	void subscribe(db_txn& wtxn, fe_t& fe, fe_subscription_t sub);
+
+	int reserve_fe_lnb_band_pol_sat(db_txn& wtxn, const chdb::fe_key_t& fe_key, const chdb::lnb_t& lnb,
+																	chdb::fe_band_t band,  chdb::fe_polarisation_t pol);
+
+
+	int reserve_fe_lnb_exclusive(db_txn& wtxn, const chdb::fe_key_t& fe_key, const chdb::lnb_t& lnb);
+	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, const chdb::fe_key_t& fe_key, bool is_dvbc);
+
+	template<typename mux_t>
+	std::optional<chdb::fe_t>
+	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const chdb::fe_key_t* fe_key_to_release,
+														 bool use_blind_tune);
+
+	std::tuple<std::optional<chdb::fe_t>, std::optional<chdb::lnb_t>>
+	subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
+																 const chdb::lnb_t* required_lnb, const chdb::fe_key_t* fe_key_to_release,
+																 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus);
+	std::optional<chdb::fe_t>
+	subscribe_lnb_exclusive(db_txn& wtxn,  const chdb::lnb_t& lnb, const chdb::fe_key_t* fe_key_to_release,
+													bool need_blind_tune, bool need_spectrum);
+
+};
 
 #pragma GCC visibility pop

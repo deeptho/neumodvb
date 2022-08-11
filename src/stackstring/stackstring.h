@@ -655,6 +655,21 @@ namespace ss {
 		}
 
 		vector& operator=(const vector&) = default;
+
+		inline int index_of(const data_t& data) const {
+			int i=0;
+			for(const auto &el: *this) {
+				if (el == data)
+					return i;
+				++i;
+			}
+			return -1;
+		}
+
+		inline bool contains(const data_t& data) const {
+			auto i = index_of(data);
+			return i>=0;
+		}
 	};
 
 	class string_ : public databuffer_<char> {

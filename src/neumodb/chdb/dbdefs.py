@@ -935,15 +935,8 @@ lnb_key = db_struct(name='lnb_key',
                           type_id= ord('T'),
                           version = 1,
                           fields = (
-                              (4, 'int64_t', 'adapter_mac_address', -1), #Unique for each adapter and card type
-                              #For the time being, we use the mac_address of the adapter, because
-                              #we need this info to connect to the LNB, but later we replace it
-                              #with the mac_address for equivantly a mac address for the RF input
-                              #The code can then look up compatible demods, i.e., demods which can
-                              #reach the lnb
-                              #(7, 'int16_t', 'rf_input', '-1'),  #rf input number
-                              #Together with the mac_address this uniquely identigfies and output connection (cable)
-                              #on the pc. Only needed if we do not introduce rf input mac addresses
+                              (4, 'int64_t', 'card_mac_address', -1), #Unique for each card
+                              (1, 'int8_t', 'rf_input', -1),
 
                               (3, 'int8_t', 'dish_id', 0), #dish_id=0 is also the "default dish"
                               #because of switches, the same cable could be attached to multiple dishes
@@ -978,7 +971,7 @@ lnb = db_struct(name='lnb',
                 version = 1,
                 primary_key = ('key', ('k',)), #unique; may need to be revised
                 keys =  (
-                    #(ord('a'), 'adapter_sat', ('k.adapter_id', 'k.sat_pos')),
+                    #(ord('a'), 'adapter_mac_address', ('k.adapter_mac_address', 'k.sat_pos')),
                 ),
                 fields = ((1, 'lnb_key_t', 'k'),  #contains adapter and absolute/relative dish pos
                           #for a positioner: last uals position to which usals roto was set
@@ -1010,8 +1003,9 @@ lnb = db_struct(name='lnb',
                           #Sometimes more than one network can be received on the same lnb
                           #for an lnb
 
-                          (23, 'uint8_t',  'adapter_no'), #updated as adapters are discovered
                           (24, 'bool', 'can_be_used', 'true'), #updated as adapters are discovered
+                          (25, 'int8_t', 'card_no',  '-1'), #updated as adapters are discovered
+
                           # list of commands separted by ";"
                           #can contain
                           #  P send positioner commands
@@ -1021,11 +1015,33 @@ lnb = db_struct(name='lnb',
                           (13, 'ss::vector<lnb_network_t,1>' , 'networks'),
                           (16,  'ss::string<16>', 'name'), #optional name
                           (17, 'ss::vector<int32_t,2>' , 'lof_offsets'), #ofset of the local oscillator (one per band)
-                          (22, 'ss::string<32>', 'adapter_name'), #updated as adapters are discovered
                 ))
 
 
 
+rf_input_key = db_struct(name='rf_input_key',
+                          fname = 'tuner',
+                          db = db,
+                          type_id= lord('RI'),
+                          version = 1,
+                          fields = (
+                              (4, 'int64_t', 'card_mac_address', -1), #Unique for each card
+                              (1, 'int8_t', 'rf_input', -1)
+                          )
+                        )
+
+
+rf_input = db_struct(name='rf_input',
+                   fname = 'tuner',
+                   db = db,
+                   type_id= lord('ri'),
+                   version = 1,
+                   primary_key = ('key', ('k',)), #unique; may need to be revised
+                   keys =  (
+                ),
+                     fields = ((1, 'rf_input_key_t', 'k'),  #unique id for one of the connectors on one of the cards
+                               (3, 'int16_t', 'switch_id', -1), #if>=0 means inputs connected to same cable
+                               ))
 
 """
 We call a adapter/frontend combination a tuner
@@ -1102,9 +1118,11 @@ fe_subscription = db_struct(name='fe_subscription',
                            fields = ((1, 'int32_t', 'owner', -1),
                                     # (2, 'int32_t', 'subscription_id', -1),
                                      (3, 'int16_t', 'rf_in', -1),
+                                     #(8, 'int16_t', 'rf_group_id', -1),
                                      (4, 'lnb_key_t', 'lnb_key'),
                                      (5, 'fe_polarisation_t', 'pol', 'fe_polarisation_t::NONE'),
-                                     (6, 'fe_band_t', 'band', 'fe_band_t::NONE')
+                                     (6, 'fe_band_t', 'band', 'fe_band_t::NONE'),
+                                     (7, 'int16_t', 'usals_pos', 'sat_pos_none')
                 ))
 
 
@@ -1132,11 +1150,11 @@ fe = db_struct(name='fe',
                    (5, 'int16_t', 'priority', 0),
 
                    #link_group_id: -1 means not linked
-                   (6, 'int16_t', 'link_group_id', -1),
+                   #(6, 'int16_t', 'link_group_id', -1),
 
                    #master_tuner_id: -1 means not linked
-	                 (7, 'int8_t', 'tuner_group', -1),   #index of group of linked tuner which share some restrictions
-                   (23, 'int64_t', 'master_adapter_mac_address', -1),
+	                 #(7, 'int8_t', 'tuner_group', -1),   #index of group of linked tuner which share some restrictions
+                   #(23, 'int64_t', 'master_adapter_mac_address', -1),
 
                    (28, 'fe_subscription_t', 'sub'),
 

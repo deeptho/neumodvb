@@ -341,11 +341,6 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdInspect")
         self.app.CmdInspect()
 
-    def CmdDumpSubs(self, event):
-        dtdebug("CmdDumpSubs")
-        dtdebug('dumpsubs')
-        self.app.receiver.dump_subs()
-
     def CmdChannelScreenshot(self, event):
         dtdebug("CmdChannelScreenshot")
         self.app.current_mpv_player.screenshot()
@@ -533,6 +528,14 @@ class NeumoGui(wx.App):
                 init_db()
             else:
                 return self.sats
+
+    def get_cards(self):
+        txn = wx.GetApp().chdb.rtxn()
+        ret={}
+        for a in  pychdb.fe.list_all_by_card_mac_address(txn):
+            ret[f'C{a.card_no}: {a.card_short_name}' ] = a.card_mac_address
+        txn.abort()
+        return ret
 
     def get_adapters(self):
         txn = wx.GetApp().chdb.rtxn()

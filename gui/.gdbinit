@@ -3,6 +3,8 @@ set breakpoint pending on
 #break  active_mux_t::tune
 #set index-cache directory /tmp/index
 #set index-cache on
+#set environment LD_PRELOAD /usr/lib64/clang/14.0.0/lib/linux/libclang_rt.asan-x86_64.so
+break __sanitizer::Die
 exec-file /usr/bin/python3
 set args neumodvb.py
 #set environment LD_PRELOAD /usr/lib64/libasan.so.6

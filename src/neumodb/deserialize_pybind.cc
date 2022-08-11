@@ -169,7 +169,7 @@ py::object test(db_txn& txn) {
 #endif
 
 
-py::object testc(db_txn& txn) {
+py::object degraded_export(db_txn& txn) {
 	auto& db = *txn.pdb;
 	py::list list;
 	auto c = db.generic_get_first(txn);
@@ -188,7 +188,7 @@ py::object testc(db_txn& txn) {
 		if (it != dbdesc.schema_map.end()) {
 			ss::bytebuffer<256>  ser;
 			c.get_serialized_value(ser);
-			const auto& tst = it->second;
+			//const auto& tst = it->second;
 			const auto& schema = it->second.record_desc;
 			auto [val, new_offset] = deserialize_safe_to_python (ser, schema, dbdesc, 0);
 			py::dict rec;
@@ -198,7 +198,7 @@ py::object testc(db_txn& txn) {
 		}
 
 	}
-	return list;
+	return std::move(list);
 }
 
 
@@ -280,7 +280,7 @@ void export_deserialize(py::module& m) {
 		return;
 	called = true;
 	//schema::export_structs(m);
-	m.def("test_export", &testc)
+	m.def("degraded_export", &degraded_export)
 		.def("schema_map", &schema_map)
 #ifdef PURE_PYTHON
 		.def("schema_map2", &schema_map)

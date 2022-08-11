@@ -142,7 +142,7 @@ int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_
 																	 tune_options_t tune_options) {
 	// check_thread();
 	dtdebugx("lnb activate");
-	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
+	auto fefd = active_adapter->fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
 	auto ret=active_adapter->lnb_activate(lnb, tune_options);
 	return ret;
@@ -163,7 +163,7 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	active_adapter->prepare_si(mux, false /*start*/);
 	active_adapter->processed_isis.reset();
 
-	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
+	auto fefd = active_adapter->fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
 	bool user_requested = true;
 	return active_adapter->tune(lnb, mux, tune_options, user_requested);
@@ -173,6 +173,7 @@ template <typename _mux_t>
 int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const _mux_t& mux_,
 															 tune_options_t tune_options) {
 	_mux_t mux{mux_};
+
 	assert( mux.c.scan_status != scan_status_t::ACTIVE);
 	/*
 		The new scan status must be written to the database now.
@@ -183,7 +184,7 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	active_adapter->prepare_si(mux, false /*start*/);
 
 	dtdebugx("tune mux action");
-	auto fefd = active_adapter->current_fe->ts.readAccess()->fefd;
+	auto fefd = active_adapter->fe->ts.readAccess()->fefd;
 	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
 	bool user_requested = true;
 	return active_adapter->tune(mux, tune_options, user_requested);
@@ -374,7 +375,7 @@ int tuner_thread_t::run() {
 					dttime_init();
 					for (auto& it : active_adapters) {
 						auto& active_adapter = *it.second;
-						if (!active_adapter.current_fe) {
+						if (!active_adapter.fe) {
 							dterror_nice("Implementation error\n");
 							continue;
 						}
@@ -432,66 +433,27 @@ void tuner_thread_t::cb_t::update_recording(const recdb::rec_t& rec) {
 	recmgr.update_recording(rec);
 }
 
-chdb::lnb_t active_adapter_reservation_t::lnb() const {
+chdb::lnb_t active_fe_thread_safe_t::lnb() const {
 	assert(active_adapter);
 	return active_adapter->get_lnb();
 }
 
-chdb::any_mux_t active_adapter_reservation_t::mux() const {
+chdb::any_mux_t active_fe_thread_safe_t::mux() const {
 	assert(active_adapter);
 	return active_adapter->current_mux();
 }
 
-template <typename mux_t> bool active_adapter_reservation_t::is_tuned_to(const mux_t& mux) const {
+template <typename mux_t> bool active_fe_thread_safe_t::is_tuned_to(const mux_t& mux) const {
 	assert(active_adapter);
 	return active_adapter->is_tuned_to(mux);
 }
 
-template <> bool active_adapter_reservation_t::is_tuned_to(const dvbs_mux_t& mux) const;
-template <> bool active_adapter_reservation_t::is_tuned_to(const dvbc_mux_t& mux) const;
-template <> bool active_adapter_reservation_t::is_tuned_to(const dvbt_mux_t& mux) const;
-template <> bool active_adapter_reservation_t::is_tuned_to(const chdb::any_mux_t& mux) const;
+template <> bool active_fe_thread_safe_t::is_tuned_to(const dvbs_mux_t& mux) const;
+template <> bool active_fe_thread_safe_t::is_tuned_to(const dvbc_mux_t& mux) const;
+template <> bool active_fe_thread_safe_t::is_tuned_to(const dvbt_mux_t& mux) const;
+template <> bool active_fe_thread_safe_t::is_tuned_to(const chdb::any_mux_t& mux) const;
 
-int active_adapter_reservation_t::release() {
-	auto ret = use_count.unregister_subscription();
-#if 0 //leads to race condition
-	if (ret == 0) {
-		auto* fe = active_adapter->current_fe.get();
-		auto fefd = fe->ts.readAccess()->fefd;
-		dtdebugx("Release fe_fd=%d", fefd);
-		fe->adapter->release_fe();
-	}
-#endif
-	return ret;
-}
 
-int active_adapter_reservation_t::reserve(const chdb::lnb_t& lnb, int sat_pos) {
-	auto* fe = active_adapter->current_fe.get();
-	fe->adapter->reserve_fe(fe, lnb, sat_pos);
-	return check_consistency(use_count.register_subscription());
-}
-
-int active_adapter_reservation_t::reserve(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
-	auto* fe = active_adapter->current_fe.get();
-	fe->adapter->reserve_fe(fe, lnb, mux);
-	return check_consistency(use_count.register_subscription());
-}
-
-int active_adapter_reservation_t::reserve(const chdb::dvbc_mux_t& mux) {
-	auto* fe = active_adapter->current_fe.get();
-	fe->adapter->reserve_fe(fe, mux);
-	return check_consistency(use_count.register_subscription());
-}
-
-int active_adapter_reservation_t::reserve(const chdb::dvbt_mux_t& mux) {
-	auto* fe = active_adapter->current_fe.get();
-	fe->adapter->reserve_fe(fe, mux);
-	return check_consistency(use_count.register_subscription());
-}
-
-int active_adapter_reservation_t::reserve_current() {
-	return check_consistency(use_count.register_subscription());
-}
 
 tuner_thread_t::tuner_thread_t(receiver_t& receiver_)
 	: task_queue_t(thread_group_t::tuner)
@@ -504,12 +466,7 @@ tuner_thread_t::~tuner_thread_t() {
 }
 
 int tuner_thread_t::set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options) {
-	auto tune_mode = (tune_options.tune_mode == tune_mode_t::UNCHANGED) ? active_adapter.tune_options.tune_mode
-		: tune_options.tune_mode;
-	active_adapter.tune_options = tune_options;
-	active_adapter.tune_options.tune_mode = tune_mode;
-	active_adapter.retune_count = 0;
-	return 0;
+	return active_adapter.fe ? active_adapter.fe->set_tune_options(tune_options) : -1;
 }
 
 int tuner_thread_t::prepare_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux, bool start) {
@@ -538,11 +495,11 @@ int tuner_thread_t::cb_t::request_retune(active_adapter_t& active_adapter) {
 
 int tuner_thread_t::cb_t::positioner_cmd(std::shared_ptr<active_adapter_t> active_adapter, chdb::positioner_cmd_t cmd,
 																				 int par) {
-	return active_adapter->positioner_cmd(cmd, par);
+	return active_adapter->fe ? active_adapter->fe->positioner_cmd(cmd, par) : -1;
 }
 
 int tuner_thread_t::cb_t::update_current_lnb(active_adapter_t& active_adapter, const lnb_t& lnb) {
-	active_adapter.set_current_lnb(lnb);
+	active_adapter.update_current_lnb(lnb);
 	return 0;
 }
 
@@ -558,7 +515,7 @@ void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 
 	for (auto& it : active_adapters) {
 		auto& aa = *it.second;
-		if (aa.get_adapter_mac_address() != signal_info.stat.k.lnb.adapter_mac_address)
+		if (aa.current_lnb().k != signal_info.stat.k.lnb)
 			continue;
 		auto* mux = std::get_if<chdb::dvbs_mux_t>(&signal_info.driver_mux);
 		if(!mux)

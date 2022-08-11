@@ -115,11 +115,7 @@ namespace epgdb {
 		auto now = system_clock_t::to_time_t(now_);
 		return running_now(txnepg, k, now);
 	}
-#ifdef TODO
-	std::unique_ptr<screen_t<epgdb::epg_record_t>>
-#else
 	std::unique_ptr<epg_screen_t>
-#endif
 	chepg_screen(db_txn& txnepg, const chdb::service_key_t& service_key, time_t start_time,
 #ifdef USE_END_TIME
 							 time_t end_time =0,

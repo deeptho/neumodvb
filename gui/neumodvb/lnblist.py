@@ -92,7 +92,7 @@ class LnbTable(NeumoTable):
                       label='LNB', basic=True, readonly=True)
                               ]
     all_columns = \
-        [#CD(key='name',  label='name', basic=True, readonly=True, example=" TBS 6904se #12 "),
+        [CD(key='name',  label='name', basic=True, readonly=True, example=" TBS 6904se #12 "),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
          CD(key='adapter_no',  label='adap', basic=True, readonly=True,
              example=" 12"),
@@ -135,7 +135,7 @@ class LnbTable(NeumoTable):
          CD(key='transmission_mode', label='transmission_mode')]
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'k.adapter_mac_address'
+        initial_sorted_column = 'name'
         data_table= pychdb.lnb
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)

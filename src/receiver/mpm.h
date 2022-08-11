@@ -173,8 +173,8 @@ struct stream_state_t {
 	recdb::stream_descriptor_t next_streams;
 	ss::vector<chdb::language_code_t,4> audio_pref;
 	ss::vector<chdb::language_code_t,4> subtitle_pref;
-	std::map<int, callback_t> audio_language_change_callbacks;
-	std::map<int, callback_t> subtitle_language_change_callbacks;
+	std::map<subscription_id_t, callback_t> audio_language_change_callbacks;
+	std::map<subscription_id_t, callback_t> subtitle_language_change_callbacks;
 };
 
 
@@ -248,7 +248,7 @@ class playback_mpm_t : public mpm_t {
 	}
 
 public:
-	const int subscription_id;
+	const subscription_id_t subscription_id;
 
 	active_service_t* active_service () const;
 
@@ -276,19 +276,19 @@ private:
 	playback_info_t get_recording_program_info() const;
 	void update_pmt(stream_state_t& stream_state);
 public:
-	void register_audio_changed_callback(int subscription_id, stream_state_t::callback_t cb);
-	void unregister_audio_changed_callback(int subscription_id);
+	void register_audio_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
+	void unregister_audio_changed_callback(subscription_id_t subscription_id);
 
-	void register_subtitle_changed_callback(int subscription_id, stream_state_t::callback_t cb);
-	void unregister_subtitle_changed_callback(int subscription_id);
+	void register_subtitle_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
+	void unregister_subtitle_changed_callback(subscription_id_t subscription_id);
 
 	void open_recording(const char* dirname);
 	//void init();
 
 
-	playback_mpm_t(receiver_t& receiver, int subscription_id);
+	playback_mpm_t(receiver_t& receiver, subscription_id_t subscription_id);
 	playback_mpm_t(active_mpm_t& other, const chdb::service_t& live_service,
-								 const recdb::stream_descriptor_t& streamdesc, int subscription_id);
+								 const recdb::stream_descriptor_t& streamdesc, subscription_id_t subscription_id);
 	playback_mpm_t& operator=(const playback_mpm_t& other) = delete;
 
 
@@ -395,7 +395,7 @@ private:
 
 
 	recdb::rec_t
-	start_recording(int subscription_id, recdb::rec_t rec /*not a reference!*/);
+	start_recording(subscription_id_t subscription_id, recdb::rec_t rec /*not a reference!*/);
 
 	int stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& copy_command);
 	void forget_recording(const recdb::rec_t& r);

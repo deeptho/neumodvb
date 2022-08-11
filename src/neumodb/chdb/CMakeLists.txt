@@ -46,7 +46,7 @@ add_custom_command(
 
 add_custom_target(ch_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
-add_library(chdb SHARED ${gensrc} chdb_extra.cc mux_find.cc chdb_upgrade.cc browse_history.cc minsnr.cc lang_codes.cc)
+add_library(chdb SHARED ${gensrc} chdb_extra.cc mux_find.cc fe_find.cc chdb_upgrade.cc browse_history.cc minsnr.cc lang_codes.cc)
 add_dependencies(chdb ch_generated_files stat_generated_files epg_generated_files rec_generated_files)
 
 #-fbracket-depth=1024 to work around bug in lang version 12.0.1  https://bugs.llvm.org/show_bug.cgi?id=50178

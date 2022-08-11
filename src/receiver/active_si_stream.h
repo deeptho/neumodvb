@@ -48,7 +48,7 @@ struct pmt_data_t {
 	bool saved{false};  //pmts saved to db?
 	int num_pmts_received{0};
 	bool all_received() const {
-		return num_pmts_received == by_service_id.size();
+		return num_pmts_received == (int) by_service_id.size();
 	}
 };
 
@@ -199,7 +199,9 @@ struct mux_data_t  {
 	source_t source {NONE}; //set to true if from database
 	chdb::mux_key_t mux_key{}; //we also need extra_id
 	ss::string<32> mux_desc;
-	bool is_tuned_mux{false};
+
+	bool is_active_mux{false}; //the active mux is the one processing si data (embedded mux for t2mi; else tuned mux)
+
 	bool is_tuned_freq{false};
 	//data maintained by sdt section code
 	bool has_freesat_home_epg{false};
@@ -587,7 +589,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	bool sdt_actual_check_confirmation(bool mux_key_changed, int db_corrrect,mux_data_t* p_mux_data);
 
 	dtdemux::reset_type_t
-		nit_actual_update_tune_confirmation(db_txn& txn, chdb::any_mux_t& mux, bool is_tuned_mux);
+		nit_actual_update_tune_confirmation(db_txn& txn, chdb::any_mux_t& mux, bool is_active_mux);
 
 	dtdemux::reset_type_t on_nit_section_completion(db_txn& wtxn, network_data_t& network_data,
 																					dtdemux::reset_type_t ret, bool is_actual,
@@ -651,7 +653,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	}
 
 	void remove_parser(dtdemux::psi_parser_t* parser) {
-		dvb_pid_t pid{parser->get_pid()};
+		dvb_pid_t pid{(uint16_t) parser->get_pid()};
 		auto & slot = parsers[pid];
 		if(--slot.use_count == 0) {
 			dtdebugx("removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
@@ -662,7 +664,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		}
 	}
 
-	void add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_tuned_mux,
+	void add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_active_mux,
 		bool is_tuned_freq);
 
 	void process_removed_services(db_txn& txn, chdb::mux_key_t& mux_key, ss::vector_<uint16_t>& service_ids);
@@ -683,7 +685,9 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	}
 
 	bool fix_mux(chdb::any_mux_t& mux);
-	bool is_tuned_mux(const chdb::any_mux_t& mux);
+
+	//true if this mux equals the currently streamed mux (embedded mux for t2mi, or tuned mux)
+	bool is_active_mux(const chdb::any_mux_t& mux);
 	bool 	update_template_mux_parameters_from_frontend(chdb::any_mux_t& mux);
 	chdb::update_mux_ret_t update_mux(db_txn& txn, chdb::any_mux_t& mux, system_time_t now,
 																		chdb::update_mux_preserve_t::flags preserve,
@@ -691,7 +695,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	chdb::any_mux_t add_new_mux(db_txn& txn, chdb::any_mux_t& mux, system_time_t now);
 	void fix_tune_mux_template();
-	void handle_mux_change(db_txn& wtxn, chdb::any_mux_t& old_mux, chdb::any_mux_t& new_nux, bool is_tuned_mux);
+	void handle_mux_change(db_txn& wtxn, chdb::any_mux_t& old_mux, chdb::any_mux_t& new_nux, bool is_active_mux);
 	void finalize_scan(bool done);
 	mux_data_t* tuned_mux_in_nit();
 	void save_pmts(db_txn& wtxn);

@@ -22,7 +22,7 @@
 
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/statdb/statdb_extra.h"
-//#include "adapter.h"
+//#include "devmanager.h"
 
 enum class confirmed_by_t {
 		NONE,

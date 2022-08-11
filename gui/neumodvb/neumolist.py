@@ -128,6 +128,16 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
                 #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
                 self.combobox.Clear()
                 self.combobox.Append(choices)
+        elif self.col.key.endswith('card_mac_address'):
+            #recompute each time, because data may have changed
+            d = wx.GetApp().get_cards()
+            choices= list(d.keys())
+            if False: #not working. wxPython bug?
+                self.SetParameters(','.join(choices))
+            else:
+                #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
+                self.combobox.Clear()
+                self.combobox.Append(choices)
         size = self.Control.GetParent().GetParent().GetFont().GetPointSize()
         f = self.Control.GetFont()
         f.SetPointSize(size)
@@ -409,7 +419,9 @@ class NeumoTableBase(wx.grid.GridTableBase):
                     elif key.endswith("adapter_mac_address"):
                         d = wx.GetApp().get_adapters()
                         newval = d.get(val, None)
-                        neumodbutils.enum_set_subfield(rec, 'adapter_name', val)
+                    elif key.endswith("card_mac_address"):
+                        d = wx.GetApp().get_cards()
+                        newval = d.get(val, None)
                     else:
                         newval = int(val)
             except:
@@ -1048,7 +1060,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                         editor = None
                     else:
                         editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=col.key.endswith('lnb_pos') or col.allow_others)
-                elif col.key.endswith('adapter_mac_address'):
+                elif col.key.endswith('_mac_address'):
                     #Note that the following code line depends on satlist_panel being the first
                     #panel to be initialised (so: on the order of panels in neumoviewer.wxg)
                     if col.no_combo:

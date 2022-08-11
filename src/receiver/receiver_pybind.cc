@@ -66,7 +66,7 @@ static void export_recording_history(py::module& m) {
 		;
 }
 
-static int scan_muxes(receiver_t& reseiver, py::list mux_list, int subscription_id) {
+static subscription_id_t scan_muxes(receiver_t& receiver, py::list mux_list, subscription_id_t subscription_id) {
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
 	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
 	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;
@@ -93,11 +93,11 @@ static int scan_muxes(receiver_t& reseiver, py::list mux_list, int subscription_
 	}
 
 	if(dvbs_muxes.size() > 0)
-		subscription_id = reseiver.scan_muxes(dvbs_muxes, subscription_id);
+		subscription_id = receiver.scan_muxes(dvbs_muxes, (int) subscription_id);
 	if(dvbc_muxes.size() > 0)
-		subscription_id = reseiver.scan_muxes(dvbc_muxes, subscription_id);
+		subscription_id = receiver.scan_muxes(dvbc_muxes, (int) subscription_id);
 	if(dvbt_muxes.size() > 0)
-		subscription_id = reseiver.scan_muxes(dvbt_muxes, subscription_id);
+		subscription_id = receiver.scan_muxes(dvbt_muxes, (int) subscription_id);
 	return subscription_id;
 }
 
@@ -147,8 +147,6 @@ void export_receiver(py::module& m) {
 		;
 	py::class_<receiver_t>(m, "receiver_t")
 		.def(py::init<neumo_options_t*>(), py::arg("neumo_options"), "Start a NeumoDVB receiver")
-		.def("dump_subs", &receiver_t::dump_subs, "Show subscriptions")
-		.def("dump_all_frontends", &receiver_t::dump_all_frontends, "Show all tuners")
 		//unsubscribe is needed to abort mux scan in progress
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
 		.def("scan_muxes", scan_muxes,

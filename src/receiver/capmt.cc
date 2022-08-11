@@ -17,7 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include "adapter.h"
+#include "devmanager.h"
 #include "scam.h"
 #include "stackstring.h"
 #include "streamparser/si.h"

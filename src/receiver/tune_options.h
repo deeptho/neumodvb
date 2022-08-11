@@ -51,6 +51,53 @@ enum class scan_target_t :	int
 	DONE,
 };
 
+enum class tune_mode_t {
+	IDLE,
+	NORMAL,
+	SPECTRUM,
+#if 0
+	MUX_BLIND,
+#endif
+	SCAN_BLIND, //ask driver to scan blindly (not implemented)
+	POSITIONER_CONTROL,
+	UNCHANGED
+	};
+
+enum class retune_mode_t {
+	AUTO, //for normal tuning: retune if lock failed or if wrong sat detected
+	NEVER, //never retune
+	IF_NOT_LOCKED,
+	UNCHANGED
+	};
+
+struct pls_search_range_t {
+	int start{-1};
+	int end{-1};
+	chdb::fe_pls_mode_t pls_mode;
+	int timeoutms{25};
+};
+
+struct constellation_options_t {
+	//bool get_constellation{false};
+	int num_samples{0};
+};
+
+
+struct spectrum_scan_options_t {
+	time_t start_time{};
+	bool append{false}; //append to existing file
+	int16_t sat_pos{sat_pos_none};
+	chdb::fe_band_pol_t band_pol; //currently scanning band
+	bool scan_both_polarisations{false}; //
+	dtv_fe_spectrum_method spectrum_method{SPECTRUM_METHOD_FFT};
+	int start_freq{0}; //in kHz
+	int end_freq{std::numeric_limits<int>::max()}; //in kHz
+	int resolution{0}; //in kHz for spectrum and for blindscan, 0 means: use driver default
+	int fft_size{512}; //power of 2; 	int end_freq = -1; //in kHz
+	spectrum_scan_options_t() {
+		start_time = system_clock::to_time_t(now);
+	}
+};
 
 struct tune_options_t {
 	scan_target_t scan_target;

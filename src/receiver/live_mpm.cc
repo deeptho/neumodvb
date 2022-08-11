@@ -40,6 +40,20 @@ using namespace date;
 using namespace date::clock_cast_detail;
 namespace fs = std::filesystem;
 
+#ifndef NDEBUG
+static void  testf(db_txn& txn, recdb::file_t& file) {
+	auto c = recdb::find_first<recdb::file_t>(txn);
+	for(auto f: c.range()) {
+		if(f.k.stream_time_start == file.k.stream_time_start && f.fileno != file.fileno) {
+			printf("here\n");
+			assert(0);
+		}
+	}
+}
+#endif
+
+
+
 void meta_marker_t::update_epg(const epgdb::epg_record_t& epg) {
 	livebuffer_desc.epg = epg;
 	last_epg_update_time = now;
@@ -364,7 +378,7 @@ void active_mpm_t::transfer_filemap(int fd, int64_t new_num_bytes_safe_to_read) 
 	epgrec is needed to compute start_time
 
 */
-recdb::rec_t active_mpm_t::start_recording(int subscription_id, recdb::rec_t rec /*on purpose not a reference!*/) {
+recdb::rec_t active_mpm_t::start_recording(subscription_id_t subscription_id, recdb::rec_t rec /*on purpose not a reference!*/) {
 	// auto now = time(NULL); //@todo replace following call
 	// auto packetno_start =  stream_parser.event_handler.last_saved_marker.packetno_start;
 	// auto packetno_end = std::numeric_limits<int64_t>::max();
@@ -375,7 +389,7 @@ recdb::rec_t active_mpm_t::start_recording(int subscription_id, recdb::rec_t rec
 	}
 	rec.stream_time_end = stream_parser.event_handler.last_saved_marker.k.time;
 	rec.epg.rec_status = epgdb::rec_status_t::IN_PROGRESS;
-	rec.subscription_id = subscription_id;
+	rec.subscription_id = (int) subscription_id;
 
 	// TODO: times in start_play_time may have a different sign than stream_times (which can be both negative and
 	// positive)
@@ -520,6 +534,9 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 				f.stream_packetno_start += packetno_offset;
 				f.stream_packetno_end += packetno_offset;
 				// insert the file record
+#ifndef NDEBUG
+				testf(idx_txn, f);
+#endif
 				put_record(idx_txn, f);
 				// put the file in the recording's filesystem directory
 				// copy_command.filenames.push_back(f.filename.c_str());
@@ -725,6 +742,9 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 		auto file_duration_seconds = int64_t(last_file.stream_time_end - last_file.k.stream_time_start) / 1000;
 		last_file.real_time_end = last_file.real_time_start + file_duration_seconds;
 		last_file.stream_packetno_end = last_marker.packetno_end;
+#ifndef NDEBUG
+				testf(idx_txn, last_file);
+#endif
 		put_record(idx_txn, last_file);
 		dtdebug("Finalized last_file");
 	}
@@ -783,6 +803,9 @@ int active_mpm_t::next_data_file(system_time_t now, int64_t new_num_bytes_safe_t
 		tmp.real_time_end = system_clock_t::to_time_t(now);
 
 		tmp.stream_packetno_end = end_packet;
+#ifndef NDEBUG
+		testf(idx_txn, tmp);
+#endif
 		put_record(cfile, tmp);
 	}
 	current_fileno++;
@@ -838,6 +861,10 @@ int active_mpm_t::next_data_file(system_time_t now, int64_t new_num_bytes_safe_t
 		ts_packet_t::size;
 #endif
 	self_check(*mm);
+#ifndef NDEBUG
+				testf(idx_txn, mm->current_file_record);
+#endif
+
 	put_record(cfile, mm->current_file_record);
 	idx_txn.commit();
 

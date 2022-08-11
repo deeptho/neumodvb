@@ -464,3 +464,11 @@ gtk2 based replacement for gtk3
 ==============
 rtsp example in C++
 https://github.com/txgcwm/Linux-C-Examples/blob/master/h264/h264dec/rtsp.c
+
+===============
+find files installed by pip3
+pip3 show -f mpl_scatter_density
+
+install to random dir, including prerequisites
+pip3 install --no-deps --target /tmp/xxx mpl_scatter_density
+pip3 install --no-deps --target /tmp/xxx fast-histogram

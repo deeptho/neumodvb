@@ -57,10 +57,10 @@ bool set_blocking(int fd, bool on) {
 	return (fcntl(fd, F_SETFL, flags) == 0) ? true : false;
 }
 
-stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
 																 epoll_t* epoll, int epoll_flags)
 	: active_adapter(active_adapter)
-	, tuned_mux(mux)
+	, embedded_mux(embedded_mux)
 	, epoll(epoll)
 	, epoll_flags(epoll_flags)
 	,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
@@ -69,7 +69,7 @@ stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::a
 int stream_filter_t::open() {
 	//this->tuned_mux = active_adapter.current_mux();
 #ifndef NDEBUG
-	auto* k = chdb::mux_key_ptr(this->tuned_mux);
+	auto* k = chdb::mux_key_ptr(this->embedded_mux);
 #endif
 	assert(k->sat_pos != sat_pos_none);
 	start();
@@ -105,7 +105,7 @@ int stream_filter_t::start() {
 	logger = Logger::getLogger("t2mi"); //override default logger for this thread
 #endif
 	ss::string<64> ndc;
-	auto stream_pid = chdb::mux_key_ptr(tuned_mux)->t2mi_pid;
+	auto stream_pid = chdb::mux_key_ptr(embedded_mux)->t2mi_pid;
 	ndc.sprintf("PID[%d]", stream_pid);
 	log4cxx::NDC(ndc.c_str());
 	int dmx_buffer_size = 32 * 1024 * 1024;
@@ -377,7 +377,8 @@ embedded_stream_reader_t::embedded_stream_reader_t(active_adapter_t& active_adap
 																									 const std::shared_ptr<stream_filter_t>& stream_filter)
 	: stream_reader_t(active_adapter), stream_filter(stream_filter) {}
 
-int embedded_stream_reader_t::embedded_stream_pid() const { return mux_key_ptr(stream_filter->tuned_mux)->t2mi_pid; }
+int embedded_stream_reader_t::embedded_stream_pid() const {
+	return mux_key_ptr(stream_filter->embedded_mux)->t2mi_pid; }
 
 int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags) {
 	this->epoll = epoll;
@@ -438,22 +439,22 @@ void stream_filter_t::notify_other_readers(embedded_stream_reader_t* reader) {
 	}
 }
 
-const chdb::any_mux_t& embedded_stream_reader_t::tuned_mux() const {
-	return stream_filter->tuned_mux; }
+chdb::any_mux_t embedded_stream_reader_t::stream_mux() const {
+	return stream_filter->embedded_mux; }
 
-void embedded_stream_reader_t::on_tuned_mux_change(const chdb::any_mux_t& mux) {
-	stream_filter->tuned_mux = mux;
+void embedded_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& mux) {
+	stream_filter->embedded_mux = mux;
 }
 
 void embedded_stream_reader_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) {
 //noop
 }
 
-void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& mux) const {
-	assert(mux_key_ptr(mux)->sat_pos != sat_pos_none);
-	stream_filter->tuned_mux = mux;
+void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& embedded_mux) const {
+	assert(mux_key_ptr(embedded_mux)->sat_pos != sat_pos_none);
+	stream_filter->embedded_mux = embedded_mux;
 }
 
-void embedded_stream_reader_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
-	// do nothing
+void embedded_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stream_mux) {
+	stream_filter->embedded_mux = stream_mux;
 }

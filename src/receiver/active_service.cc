@@ -139,7 +139,7 @@ int service_thread_t::exit() {
 	return -1;
 }
 
-std::optional<recdb::rec_t> service_thread_t::cb_t::start_recording(int subscription_id, const recdb::rec_t& rec) {
+std::optional<recdb::rec_t> service_thread_t::cb_t::start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec) {
 	recdb::rec_t recnew = active_service.mpm.start_recording(subscription_id, rec);
 	assert(recnew.epg.rec_status == epgdb::rec_status_t::IN_PROGRESS);
 	auto* tuner_thread = &active_service.receiver.tuner_thread;
@@ -554,8 +554,9 @@ void active_service_t::set_services_key(ca_slot_t& slot, int decryption_index) {
 	}
 	/*the following can theoretically install a key on the wrog service if multiple services
 		are active on the same mux*/
-	if (pmt_is_encrypted && !found)
+	if (pmt_is_encrypted && !found) {
 		mpm.dvbcsa.add_key(slot, decryption_index, slot.last_key.receive_time);
+	}
 }
 
 void active_service_t::mark_ecm_sent(bool odd, uint16_t ecm_pid, system_time_t t) {
@@ -590,7 +591,7 @@ recdb::live_service_t active_service_t::get_live_service_key() const {
 	return ret;
 }
 
-std::unique_ptr<playback_mpm_t> active_service_t::make_client_mpm(int subscription_id) {
+std::unique_ptr<playback_mpm_t> active_service_t::make_client_mpm(subscription_id_t subscription_id) {
 	auto ret = std::make_unique<playback_mpm_t>(mpm, current_service, current_streams, subscription_id);
 	mpm.meta_marker.writeAccess()->register_playback_client(ret.get());
 	return ret;

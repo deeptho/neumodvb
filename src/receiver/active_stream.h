@@ -39,6 +39,7 @@ namespace chdb {
 	struct dvbc_mux_t;
 	struct dvbt_mux_t;
 	struct mux_key_t;
+	struct lnb_key_t;
 	typedef std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t> any_mux_t;
 }
 struct db_txn;
@@ -106,17 +107,18 @@ public:
 	virtual ~stream_reader_t() {
 	}
 
-	virtual const chdb::any_mux_t& tuned_mux() const = 0;
+	virtual chdb::any_mux_t stream_mux() const = 0;
 
 	const tune_options_t& tune_options() const;
 
-	virtual inline void on_tuned_mux_change(const chdb::any_mux_t& mux) =0;
+	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux) =0;
 	virtual inline void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) =0;
 
-	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const = 0;
-	void  update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
+	virtual inline void set_current_tp(const chdb::any_mux_t& stream_mux) const = 0;
+	void  update_stream_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
 
-	virtual void update_tuned_mux_nit(const chdb::any_mux_t& mux) = 0;
+	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
+	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux) = 0;
 
 	virtual inline bool on_epoll_event(int fd) = 0;
 
@@ -175,11 +177,12 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	virtual void close();
 
 	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const;
-	virtual const chdb::any_mux_t& tuned_mux() const;
-	virtual inline void on_tuned_mux_change(const chdb::any_mux_t& mux);
+	virtual chdb::any_mux_t stream_mux() const;
+	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux);
 	virtual inline void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
 
-	virtual void update_tuned_mux_nit(const chdb::any_mux_t& mux);
+	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
+	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux);
 /*
 		retuns a buffer range which has valid data, or the return value ret of the read call
 		Alwas return a multiple of the packet size
@@ -293,10 +296,13 @@ public:
 		close();
 	}
 
-	virtual const chdb::any_mux_t& tuned_mux() const;
+	virtual chdb::any_mux_t stream_mux() const;
 	virtual void set_current_tp(const chdb::any_mux_t& mux) const;
-	virtual void update_tuned_mux_nit(const chdb::any_mux_t& mux);
-	virtual void on_tuned_mux_change(const chdb::any_mux_t& mux);
+
+	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
+	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux);
+
+	virtual void on_stream_mux_change(const chdb::any_mux_t& mux);
 	virtual void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
 
 };
@@ -355,6 +361,7 @@ public:
 
 	int get_adapter_no() const; //thread safe because it only accesses constant members
 	int64_t get_adapter_mac_address() const; //thread safe because it only accesses constant members
+	chdb::lnb_key_t get_adapter_lnb_key() const; //thread safe because it only accesses constant members
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_stream_t(receiver_t& receiver, const std::shared_ptr<stream_reader_t>& reader)

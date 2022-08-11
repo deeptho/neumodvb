@@ -32,7 +32,7 @@ class active_playback_t final : public std::enable_shared_from_this<active_playb
 	receiver_t& receiver;
 public:
 	recdb::rec_t currently_playing_recording;
-	std::unique_ptr<playback_mpm_t> make_client_mpm(receiver_t& receiver, int subscription_id);
+	std::unique_ptr<playback_mpm_t> make_client_mpm(receiver_t& receiver, subscription_id_t subscription_id);
 
 
 	inline chdb::service_t get_current_service() const  {

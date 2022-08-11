@@ -1,5 +1,5 @@
 /*
- * Neumo dvb (C) 2019-2021 deeptho@gmail.com
+ * Neumo dvb (C) 2019-2022 deeptho@gmail.com
  *
  * Copyright notice:
  *
@@ -29,6 +29,7 @@ void export_chdb_vectors(py::module& m) {
 	using namespace chdb;
 	export_ss_vector(m, uint32_t);
 	export_ss_vector(m, int32_t);
+	export_ss_vector(m, uint8_t);
 	export_ss_vector(m, uint16_t);
 	export_ss_vector(m, int16_t);
 	export_ss_vector(m, int8_t);

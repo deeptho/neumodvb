@@ -67,7 +67,7 @@ class StatusTable(NeumoTable):
     all_columns = \
         [CD(key='k.live',  label='live', basic=True, readonly=True),
          CD(key='k.lnb.dish_id',  label='dish', basic=True, readonly=True),
-         CD(key='k.lnb.adapter_mac_address',  label='adapter', basic=True, readonly=True, no_combo = True,
+         CD(key='k.fe.adapter_mac_address',  label='adapter', basic=True, readonly=True, no_combo = True,
             dfn=lambda x: x[2].adapter_name(x[0]), example=" TBS6909X #12 "),
          CD(key='k.lnb.lnb_id',  label='ID', basic=True, readonly=True),
          CD(key='k.mux.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),

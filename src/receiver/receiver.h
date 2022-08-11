@@ -24,11 +24,11 @@
 #include "task.h"
 //#include "simgr/simgr.h"
 #include "util/access.h"
-//#include "adapter.h"
+//#include "devmanager.h"
 #include "options.h"
 #include "recmgr.h"
 #include "mpm.h"
-#include "adapter.h"
+#include "devmanager.h"
 #include "streamparser/packetstream.h"
 #include "streamparser/psi.h"
 #include "util/safe/safe.h"
@@ -126,7 +126,7 @@ public:
 	void on_epg_update(system_time_t now, const epgdb::epg_record_t& epg_record);
 	void update_recording(recdb::rec_t&rec, const chdb::service_t& service, const epgdb::epg_record_t& epgrec);
 
-	std::optional<recdb::rec_t> start_recording(int subscription_id, const recdb::rec_t& rec);
+	std::optional<recdb::rec_t> start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec);
 	int stop_recording(const recdb::rec_t& key, mpm_copylist_t& copy_commands);
 	void forget_recording(const recdb::rec_t& key);
 
@@ -370,29 +370,28 @@ class receiver_thread_t : public task_queue_t  {
 
 	*/
   //@todo: there is no reason anymore to make services_map a safe_map as it is only used in receiver_thread
-	using services_map = std::map<int, std::shared_ptr<active_service_t>>;
+	using services_map = std::map<subscription_id_t, std::shared_ptr<active_service_t>>;
 	services_map reserved_services; //open transponders, indexed by subscription id
 
-	using playback_map = std::map<int, std::shared_ptr<active_playback_t>>;
+	using playback_map = std::map<subscription_id_t, std::shared_ptr<active_playback_t>>;
 	playback_map reserved_playbacks; //recordings being played back, indexed by subscription id
 
 
 private:
 	virtual int exit() final;
 
-	std::shared_ptr<active_adapter_t> active_adapter_for_subscription(int subscription_id);
+	std::shared_ptr<active_adapter_t> active_adapter_for_subscription(subscription_id_t subscription_id);
 
-	void unsubscribe_mux_(std::vector<task_queue_t::future_t>& futures, int subscription_id);
-	void unsubscribe_(std::vector<task_queue_t::future_t>& futures, int subscription_id, bool service_only);
+	void remove_active_adapter(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
+	void unsubscribe_(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id, bool service_only);
 	void unsubscribe_active_service(std::vector<task_queue_t::future_t>& futures,
-																	active_service_t& active_service, int subscription_id);
-	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, int subscription_id);
-	void unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, int subscription_id);
+																	active_service_t& active_service, subscription_id_t subscription_id);
+	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
+	void unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
 
 
-	int subscribe_lnb(std::vector<task_queue_t::future_t>& futures,
-										chdb::lnb_t& lnb,
-										tune_options_t tune_options, int subscription_id);
+	subscription_id_t subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn, chdb::lnb_t& lnb,
+																	tune_options_t tune_options, subscription_id_t subscription_id);
 
 
 
@@ -405,11 +404,11 @@ private:
 		Returns -1 if subscription failed (no free tuners)
 
 	*/
-	int subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
-										 std::shared_ptr<active_adapter_t>& old_active_adapter,
-										 db_txn &txn, const chdb::dvbs_mux_t& mux,
-										 int subscription_id,
-										 tune_options_t tune_options, const chdb::lnb_t* required_lnb);
+	subscription_id_t subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
+																	 std::shared_ptr<active_adapter_t>& old_active_adapter,
+																	 db_txn &txn, const chdb::dvbs_mux_t& mux,
+																	 subscription_id_t subscription_id,
+																	 tune_options_t tune_options, const chdb::lnb_t* required_lnb);
 
 
 	/*!
@@ -422,10 +421,10 @@ private:
 
 	*/
 	template<typename _mux_t>
-	int subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
-										 std::shared_ptr<active_adapter_t>& old_active_adapter,
-										 db_txn &txn, const _mux_t& mux, int subscription_id,
-										 tune_options_t tune_options, const chdb::lnb_t* required_lnb /*unused*/);
+	subscription_id_t subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
+																	 std::shared_ptr<active_adapter_t>& old_active_adapter,
+																	 db_txn &txn, const _mux_t& mux, subscription_id_t subscription_id,
+																	 tune_options_t tune_options, const chdb::lnb_t* required_lnb /*unused*/);
 
 	template<typename _mux_t>
 	std::unique_ptr<playback_mpm_t>
@@ -433,33 +432,34 @@ private:
 										 db_txn &txn,
 										 const _mux_t& mux, const chdb::service_t& service,
 										 active_service_t* old_active_service,
-										 int subscription_id);
+										 subscription_id_t subscription_id);
 
 	std::unique_ptr<playback_mpm_t>
-	subscribe_recording_(const recdb::rec_t& rec, int subscription_id);
+	subscribe_recording_(const recdb::rec_t& rec, subscription_id_t subscription_id);
 
 protected:
 
 
 	template<typename _mux_t>
-	int subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
-										const _mux_t& mux, int subscription_id,
+	subscription_id_t subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
+										const _mux_t& mux, subscription_id_t subscription_id,
 										tune_options_t tune_options, const chdb::lnb_t* required_lnb);
 	template<class mux_t>
-	int subscribe_mux_in_use(std::vector<task_queue_t::future_t>& futures, const mux_t& mux,
-													 int subscription_id, tune_options_t tune_options,
+	subscription_id_t subscribe_mux_in_use(std::vector<task_queue_t::future_t>& futures, const mux_t& mux,
+													 subscription_id_t subscription_id, tune_options_t tune_options,
 													 const chdb::lnb_t* required_lnb);
-	int request_retune(std::vector<task_queue_t::future_t>& futures, active_adapter_t& active_adapter, int subscription_id);
+	int request_retune(std::vector<task_queue_t::future_t>& futures,
+										 active_adapter_t& active_adapter, subscription_id_t subscription_id);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		std::vector<task_queue_t::future_t>& futures, db_txn&txn,
 		const chdb::any_mux_t& mux, const chdb::service_t& service,
-		int subscription_id);
+		subscription_id_t subscription_id);
 #ifdef OLDTUNE
 	std::tuple<std::shared_ptr<dvb_frontend_t>,  chdb::lnb_t> find_lnb
 	(std::vector<task_queue_t::future_t>& futures,
 	 std::shared_ptr<active_adapter_t>& old_active_adapter,
-	 db_txn &txn, const chdb::dvbs_mux_t& mux, int subscription_id);
+	 db_txn &txn, const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id);
 #endif
 public:
 	receiver_t& receiver;
@@ -477,10 +477,12 @@ public:
 
 
 private:
+	inline std::shared_ptr<active_adapter_t> make_active_adapter(const chdb::fe_key_t& fe_key);
+
 	std::unique_ptr<playback_mpm_t>
 	subscribe_service_in_use(std::vector<task_queue_t::future_t>& futures,
 													 const chdb::service_t& service,
-													 int subscription_id);
+													 subscription_id_t subscription_id);
 
 	//////////////////////
 
@@ -489,8 +491,9 @@ private:
 	void log_message(const char*file, unsigned int line, const char*prefix, const char*fmt, va_list ap);
 	active_service_t* find_open_channel_by_stream_pid(uint16_t pid); //used by scam
 
+#if 0
 	std::shared_ptr<active_adapter_t> active_adapter_with_fe(dvb_frontend_t*fe);
-
+#endif
 
 
 	//implemented in two versions: once in pyneumodaivb.cc and once in main.cc
@@ -499,22 +502,23 @@ private:
 	int update_recording(recdb::rec_t&rec, const epgdb::epg_record_t& epgrec);
 
 	template<typename mux_t>
-	int subscribe_scan(std::vector<task_queue_t::future_t>& futures,
-										 ss::vector_<mux_t>& muxes,
-										 bool scan_found_muxes, int max_num_subscriptions, int subscription_id);
+	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
+																	 bool scan_found_muxes, int max_num_subscriptions,
+																	 subscription_id_t subscription_id);
 
 
-	int subscribe_scan(std::vector<task_queue_t::future_t>& futures,
-										 ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
-										 bool scan_found_muxes, int max_num_subscriptions, int subscription_id);
+	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbs_mux_t>& muxes,
+																	 ss::vector_<chdb::lnb_t>* lnbs, bool scan_found_muxes, int max_num_subscriptions,
+																	 subscription_id_t subscription_id);
 
-	int subscribe_spectrum(std::vector<task_queue_t::future_t>& futures, const chdb::lnb_t& lnb,
-												 const ss::vector_<chdb::fe_band_pol_t> bands, tune_options_t tune_options, int subscription_id);
+	subscription_id_t subscribe_spectrum(std::vector<task_queue_t::future_t>& futures, const chdb::lnb_t& lnb,
+																			 const ss::vector_<chdb::fe_band_pol_t> bands, tune_options_t tune_options,
+																			 subscription_id_t subscription_id);
 
 	virtual int run() final;
 public:
 	//functions safe to call from other threads
-	scan_stats_t get_scan_stats(int subscription_id);
+	scan_stats_t get_scan_stats(subscription_id_t subscription_id);
 
 	class cb_t;
 
@@ -526,30 +530,29 @@ public:
 
 class receiver_thread_t::cb_t : public receiver_thread_t { //callbacks
 public:
-	void dump_subs() const ; //for debug
-	void dump_all_frontends() const ; //for debug
-
 
 	template<typename _mux_t>
-	int subscribe_mux(const _mux_t& mux, int subscription_id, tune_options_t tune_options, const chdb::lnb_t* required_lnb);
+	subscription_id_t subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const chdb::lnb_t* required_lnb);
 
-	int subscribe_lnb(chdb::lnb_t& lnb, tune_options_t tune_options, int subscription_id);
-
-	std::unique_ptr<playback_mpm_t>
-	subscribe_service(const chdb::service_t& service, int subscription_id=-1);
+	subscription_id_t subscribe_lnb(chdb::lnb_t& lnb, tune_options_t tune_options, subscription_id_t subscription_id);
 
 	std::unique_ptr<playback_mpm_t>
-	subscribe_recording(const recdb::rec_t& rec, int subscription_id);
+	subscribe_service(const chdb::service_t& service,
+										subscription_id_t subscription_id = subscription_id_t{-1});
 
-	int subscribe_scan(ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
-										 bool scan_found_muxes=true, int max_num_subscriptions=-1, int subscription_id=-1);
+	std::unique_ptr<playback_mpm_t>
+	subscribe_recording(const recdb::rec_t& rec, subscription_id_t subscription_id);
+
+	subscription_id_t subscribe_scan(ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
+																	 bool scan_found_muxes=true, int max_num_subscriptions=-1,
+																	 subscription_id_t subscription_id=  subscription_id_t{-1});
 
 	template<typename _mux_t>
-	int scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id);
+	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, subscription_id_t subscription_id);
 
-	int scan_muxes(ss::vector_<chdb::dvbs_mux_t>& muxes, int subscription_id);
+	subscription_id_t scan_muxes(ss::vector_<chdb::dvbs_mux_t>& muxes, subscription_id_t subscription_id);
 
-	void unsubscribe(int subscription_id);
+	void unsubscribe(subscription_id_t subscription_id);
 	void abort_scan();
 	void start_recording(recdb::rec_t rec);
 	void stop_recording(recdb::rec_t rec);
@@ -601,14 +604,12 @@ public:
 		tuners which are currently subscribed to. These tuners are either active,
 		or they are in the process of becoming active. This data structure can only be accessed in receiver_thread
 		*/
-	using active_adapter_map = std::map<int, std::shared_ptr<active_adapter_t>>;
-	using safe_active_adapter_map = safe::thread_public_t<false, active_adapter_map>;
-	safe_active_adapter_map reserved_muxes{"receiver", thread_group_t::receiver, {}};; //open muxes, indexed by subscription id
+	using subscribed_aa_map = std::map<subscription_id_t, std::shared_ptr<active_adapter_t>>;
+	using safe_subscribed_aa_map = safe::thread_public_t<false, subscribed_aa_map>;
+	safe_subscribed_aa_map subscribed_aas{"receiver", thread_group_t::receiver, {}}; //open muxes, indexed by subscription id
 
 	using subscriber_map = safe::Safe<std::map<void*, std::shared_ptr<subscriber_t>>>;
 	subscriber_map subscribers;//indexed by subscription id
-	//const chdb::signal_info_t&  register_signal_info_cb(wxWindow* w, int subscription_id);
-	//void unregister_signal_info_cb(int subscription_id);
 
 
 	chdb::history_mgr_t browse_history;
@@ -617,15 +618,12 @@ public:
 	receiver_t(const neumo_options_t* options= nullptr);
 	~receiver_t();
 
-
-
-	void dump_subs() const;
-	void dump_all_frontends() const;
 	chdb::lnb_t reread_lnb(const chdb::lnb_t& lnb);
 	template<typename _mux_t>
 	int subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id);
 
-	int subscribe_lnb_blindscan(chdb::lnb_t& lnb,  const chdb::fe_band_pol_t& band_pol, int subscription_id);
+	int subscribe_lnb_blindscan(chdb::lnb_t& lnb,  const chdb::fe_band_pol_t& band_pol,
+																						int subscription_id);
 
 	int subscribe_lnb_spectrum(chdb::lnb_t& lnb, const chdb::fe_polarisation_t& pol,
 														 int32_t low_freq, int32_t high_freq,
@@ -645,7 +643,8 @@ public:
 	template<typename _mux_t>
 	int scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id);
 
-	std::unique_ptr<playback_mpm_t> subscribe_service(const chdb::service_t& service, int subscription_id=-1);
+	std::unique_ptr<playback_mpm_t> subscribe_service(
+		const chdb::service_t& service, int subscription_id = int{-1});
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_recording(const recdb::rec_t& rec, int subscription_id);
@@ -681,7 +680,7 @@ public:
 	void update_playback_info();
 	scan_stats_t get_scan_stats(int subscription_id);
 
-	std::shared_ptr<active_adapter_t> active_adapter_for_subscription(int subscription_id);
+	std::shared_ptr<active_adapter_t> active_adapter_for_subscription(subscription_id_t subscription_id);
 
 	void set_options(const neumo_options_t& options);
 	neumo_options_t get_options();

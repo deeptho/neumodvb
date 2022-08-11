@@ -24,7 +24,7 @@
 #include "task.h"
 //#include "simgr/simgr.h"
 #include "util/access.h"
-#include "adapter.h"
+#include "devmanager.h"
 #include "options.h"
 #include "recmgr.h"
 #include "mpm.h"
@@ -83,15 +83,10 @@ public:
 
 };
 
-class active_adapter_reservation_t {
+class active_fe_thread_safe_t {
 	friend class receiver_thread_t;
 	active_adapter_t* active_adapter {nullptr};
-	use_count_t use_count; /* if >0 it is not allowed to stop the active_adapter*/
-
-	inline int check_consistency(int x) {
-
-		return 0;
-	}
+	use_count_t use_countxxx; /* if >0 it is not allowed to stop the active_adapter*/
 
 public:
 
@@ -101,6 +96,7 @@ public:
 	/*!
 		returns the old active_adapter use count
 	*/
+#if 0
 	int reserve(const chdb::lnb_t& lnb, int sat_pos);
 	int reserve(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
 	int reserve(const chdb::dvbc_mux_t& mux);
@@ -112,9 +108,9 @@ public:
 		returns the new active_adapter use count
 	*/
 	int release();
-
+#endif
 	chdb::any_mux_t mux() const;
 	chdb::lnb_t lnb() const;
-	active_adapter_reservation_t(active_adapter_t* active_adapter_) :
+	active_fe_thread_safe_t(active_adapter_t* active_adapter_) :
 		active_adapter(active_adapter_) {}
 };

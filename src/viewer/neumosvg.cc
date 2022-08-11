@@ -29,7 +29,7 @@
 #include "date/tz.h"
 #include "neumosvg.h"
 #include "receiver/active_service.h"
-#include "receiver/adapter.h"
+#include "receiver/devmanager.h"
 #include "receiver/receiver.h"
 #include "receiver/reservation.h"
 #include "stackstring.h"

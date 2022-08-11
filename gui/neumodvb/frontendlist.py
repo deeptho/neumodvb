@@ -92,7 +92,7 @@ class FrontendTable(NeumoTable):
         self.screen = screen_if_t(screen, self.sort_order==2)
 
     def __save_record__(self, txn, record):
-        dtdebug(f'saving {record.k.badapter_mac_address}')
+        dtdebug(f'saving {record.k.adapter_mac_address}')
         pychdb.put_record(txn, record)
         return record
 

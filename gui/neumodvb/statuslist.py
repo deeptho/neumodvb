@@ -86,7 +86,7 @@ class StatusTable(NeumoTable):
 
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'k.lnb.adapter_mac_address'
+        initial_sorted_column = 'adapter_name'
         data_table= pystatdb.signal_stat
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)

@@ -182,6 +182,7 @@ PYBIND11_MODULE(pychdb, m) {
 		.def("lnb_can_tune_to_mux", &lnb_can_tune_to_mux_helper,
 				 "check if lnb can tune to mux; returns true/false and optional error string", py::arg("lnb"), py::arg("mux"),
 				 py::arg("disregard_networks") = false)
+		.def("delsys_to_type", &chdb::delsys_to_type)
 		;
 	export_neumodb(m);
 	export_chdb(m);

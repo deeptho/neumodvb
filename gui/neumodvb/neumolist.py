@@ -103,7 +103,12 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
         self.Control.SetSize(rect.x, rect.y, rect.width+extra, rect.height, wx.SIZE_ALLOW_MINUS_ONE)
 
     def Show(self, *args):
-        if self.col.key.endswith('_pos'):
+        if self.col.cfn is not None:
+            table = self.Control.GetParent().GetParent().GetTable()
+            choices= self.col.cfn(table)
+            self.combobox.Clear()
+            self.combobox.Append(choices)
+        elif self.col.key.endswith('_pos'):
             #recompute each time, because data may have changed
             sats = wx.GetApp().get_sats()
             choices= [str(x) for x in sats]
@@ -348,7 +353,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         col = self.columns[colno]
         if col.key == 'icons':
             return ''
-        field = neumodbutils.get_subfield(rec, col.key)
+        field = neumodbutils.get_subfield(rec, col.key) if col.cfn is None else None
         if self.coltypes[colno] == bool:
             return "1" if field else ""
         txt = str(field) if col.dfn is None else str(col.dfn((rec, field, self)) )
@@ -374,41 +379,46 @@ class NeumoTableBase(wx.grid.GridTableBase):
                 rec =  self.GetRow(rowno)
         except:
             dterror(f"row {rowno} out of range {self.GetNumberRows()}")
-        key = self.columns[colno].key
-        before = None if rec is None else copy.copy(neumodbutils.get_subfield(rec, key))
-        coltype = type(neumodbutils.get_subfield(self.record_t(), key))
-        newval = None
-        dtdebug(f'Setting value: COLTYPE={coltype} key={key} val={val}')
-        try:
-            if neumodbutils.is_enum(coltype):
-                newval = neumodbutils.enum_value_for_label(before, val)
-            elif coltype == str:
-                newval = val
-            elif coltype == bool:
-                newval = True if val =='1' else False
-            elif issubclass(coltype, numbers.Integral):
-                if key.endswith('frequency'):
-                    newval = int (1000*float(val))
-                elif key.startswith('freq_'):
-                    newval = int (1000*float(val)) if float(val)>=0 else -1
-                elif key.endswith('symbol_rate'):
-                    newval = int (1000*int(val))
-                elif key.endswith("sat_pos") or key.endswith("lnb_pos") or key.endswith("usals_pos"):
-                    from neumodvb.util import parse_longitude
-                    newval = parse_longitude(val)
-                elif key.endswith("adapter_mac_address"):
-                    d = wx.GetApp().get_adapters()
-                    newval = d.get(val, None)
-                else:
-                    newval = int(val)
-        except:
-            dtdebug(f'ILLEGAL VALUE val={val}')
+        col = self.columns[colno]
+        if col.sfn is not None:
+            oldrecord = None if rec is None else rec.copy()
+            rec =  col.sfn((rec, val, self))
+        else:
+            key = col.key
+            before = None if rec is None else copy.copy(neumodbutils.get_subfield(rec, key))
+            coltype = type(neumodbutils.get_subfield(self.record_t(), key))
             newval = None
-        if newval is None:
-            dtdebug("ILLEGAL new value")
-            return
-        oldrecord = None if rec is None else rec.copy()
-        neumodbutils.enum_set_subfield(rec, key, newval)
+            dtdebug(f'Setting value: COLTYPE={coltype} key={key} val={val}')
+            try:
+                if neumodbutils.is_enum(coltype):
+                    newval = neumodbutils.enum_value_for_label(before, val)
+                elif coltype == str:
+                    newval = val
+                elif coltype == bool:
+                    newval = True if val =='1' else False
+                elif issubclass(coltype, numbers.Integral):
+                    if key.endswith('frequency'):
+                        newval = int (1000*float(val))
+                    elif key.startswith('freq_'):
+                        newval = int (1000*float(val)) if float(val)>=0 else -1
+                    elif key.endswith('symbol_rate'):
+                        newval = int (1000*int(val))
+                    elif key.endswith("sat_pos") or key.endswith("lnb_pos") or key.endswith("usals_pos"):
+                        from neumodvb.util import parse_longitude
+                        newval = parse_longitude(val)
+                    elif key.endswith("adapter_mac_address"):
+                        d = wx.GetApp().get_adapters()
+                        newval = d.get(val, None)
+                    else:
+                        newval = int(val)
+            except:
+                dtdebug(f'ILLEGAL VALUE val={val}')
+                newval = None
+            if newval is None:
+                dtdebug("ILLEGAL new value")
+                return
+            oldrecord = None if rec is None else rec.copy()
+            neumodbutils.enum_set_subfield(rec, key, newval)
         # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]
         # we cannot use return value policy reference for vectors (data moves in memory on resize)
         #self.data[rowno] =rec
@@ -482,8 +492,9 @@ class NeumoTableBase(wx.grid.GridTableBase):
 class NeumoTable(NeumoTableBase):
     #label: to show in header
     #dfn: display function
-    CD = namedtuple('ColumnDescriptor', 'key label dfn basic example no_combo readonly allow_others noresize sort')
-    CD.__new__.__defaults__=(None, None, None, False, None, False, False, False, False, None)
+    CD = namedtuple('ColumnDescriptor',
+                    'key label dfn basic example no_combo readonly allow_others noresize sort cfn, sfn')
+    CD.__new__.__defaults__=(None, None, None, False, None, False, False, False, False, None, None, None)
     BCK = namedtuple('BackupRecord', 'operation oldrow oldrecord newrecord')
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     bool_fn =  lambda x: 0 if False else 1
@@ -515,7 +526,7 @@ class NeumoTable(NeumoTableBase):
         self.screen = None
         s = self.record_t()
         f = lambda x: None if x == 'icons' else type(neumodbutils.get_subfield(s, x))
-        self.coltypes = [ f(col.key) for col in self.columns]
+        self.coltypes = [ f(col.key) if col.cfn is None else None for col in self.columns]
         if db_t == pyepgdb:
             self.db = wx.GetApp().epgdb
         elif db_t == pychdb:
@@ -1001,7 +1012,10 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         editor = None
         renderer = None
         readonly = self.readonly or col.readonly
-        if col.key == 'icons':
+        if col.cfn is not None:
+            choices = []
+            editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=False)
+        elif col.key == 'icons':
             renderer = self.icon_renderer
         elif not readonly:
             if neumodbutils.is_enum(coltype):

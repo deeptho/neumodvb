@@ -831,10 +831,10 @@ std::ostream& chdb::operator<<(std::ostream& os, const fe_key_t& fe_key) {
 
 std::ostream& chdb::operator<<(std::ostream& os, const fe_t& fe) {
 	using namespace chdb;
-	stdex::printf(os, "A%d F%d", (int)fe.adapter_no, (int)fe.k.frontend_no);
-	stdex::printf(os, " %s;%s;%s", fe.card_name, fe.adapter_name, fe.card_address);
-	stdex::printf(os, " master=[0x^06x] enabled=%d available=%d", fe.master_adapter_mac_address,
-								fe.enabled, fe.can_be_used);
+	stdex::printf(os, "C%dA%d F%d", (int)fe.adapter_no, fe.card_no, (int)fe.k.frontend_no);
+	stdex::printf(os, " %s;%s", fe.adapter_name, fe.card_address);
+	stdex::printf(os, " master=[0x^06x] enabled=%s%s%s available=%d", fe.master_adapter_mac_address,
+								fe.enable_dvbs ? "S" :"", fe.enable_dvbt ? "T": "", fe.enable_dvbc ? "C" : "", fe.can_be_used);
 	return os;
 }
 
@@ -1319,7 +1319,7 @@ chdb::fe_band_t chdb::lnb::band_for_freq(const chdb::lnb_t& lnb, uint32_t freque
 	auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
 
 	if (frequency < freq_low || frequency > freq_high)
-		return chdb::fe_band_t::UNKNOWN;
+		return chdb::fe_band_t::NONE;
 	return (signed)(frequency >= freq_mid) ? chdb::fe_band_t::HIGH : chdb::fe_band_t::LOW;
 }
 
@@ -1742,7 +1742,7 @@ int chdb::lnb::voltage_for_pol(const chdb::lnb_t& lnb, const chdb::fe_polarisati
 chdb::fe_polarisation_t chdb::lnb::pol_for_voltage(const chdb::lnb_t& lnb, int voltage_) {
 	auto voltage = (fe_sec_voltage_t) voltage_;
 	if(voltage != SEC_VOLTAGE_18 && voltage != SEC_VOLTAGE_13)
-		return  chdb::fe_polarisation_t::UNKNOWN;
+		return  chdb::fe_polarisation_t::NONE;
 	bool high_voltage = (voltage == SEC_VOLTAGE_18);
 	switch(lnb.pol_type) {
 	case chdb::lnb_pol_type_t::HV:

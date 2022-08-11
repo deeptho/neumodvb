@@ -421,7 +421,7 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 	*mux_key_ptr(ret.driver_mux) = ret.stat.k.mux;
 	const auto& lnb = r->reserved_lnb;
 	int band = 0;
-	chdb::fe_polarisation_t pol{chdb::fe_polarisation_t::UNKNOWN};
+	chdb::fe_polarisation_t pol{chdb::fe_polarisation_t::NONE};
 	if (dvbs_mux) {
 		ret.stat.k.frequency = dvbs_mux->frequency;
 		ret.stat.k.pol = dvbs_mux->pol;

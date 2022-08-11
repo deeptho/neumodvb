@@ -183,7 +183,7 @@ fe_band = db_enum(name='fe_band_t',
                   storage = 'int8_t',
                   type_id = 100,
                   version = 1,
-                  fields = (('UNKNOWN',-1),
+                  fields = (('NONE',-1),
 	                          'LOW',
 	                          'HIGH'
 	                          ))
@@ -194,7 +194,7 @@ fe_polarisation = db_enum(name='fe_polarisation_t',
               storage = 'int8_t',
               type_id = 100,
               version = 1,
-              fields = (('UNKNOWN',-1),
+              fields = (('NONE',-1),
 	                      'H',
 	                      'V',
 	                      'L',
@@ -541,8 +541,8 @@ fe_band_pol = db_struct(name='fe_band_pol',
                     db = db,
                     type_id= lord('_F'), #TODO: duplicate
                     version = 1,
-                    fields = ((1, 'fe_band_t', 'band', 'fe_band_t::UNKNOWN'),
-                              (2, 'fe_polarisation_t', 'pol', 'fe_polarisation_t::UNKNOWN'),
+                    fields = ((1, 'fe_band_t', 'band', 'fe_band_t::NONE'),
+                              (2, 'fe_polarisation_t', 'pol', 'fe_polarisation_t::NONE'),
                               ))
 
 mux_key = db_struct(name='mux_key',
@@ -891,117 +891,6 @@ if False:
                                       ))
 
 """
-We call a adapter/frontend combination a tuner
-
-Tuning rules:
-
--only one frontend can be used per adapter at any time
-
-tuners can be restricted as follows:
--tuner y can only be used when x is active and then is resticted to same band/polarisation. E.g., loopthrough
-This can be extressed as y.master_tuner=x
-
-
--tuner y can be used freely, unless x is active in which case it is restricted to same band/polarisation.
-E.g. tbs6908 and tbs909x. There could be more than 2 such tuners. Such linked tuners could be put in a tuning
-group (i.e., one common number expresses that they are linked) or we could directly punt the tuner_id
-of the linked tuner (depending on the implementation, this restricts the solution to 2 linked tuners)
-
-E.g. y.linked_tuner=x x.linked_tuner=x
-
-Possible hypothetical cases:
--tuner y can be used freely or as a slave of x and then is resticted to the same mux as x. E.g., unicable
-
-
--we may want to restrict lnbs to certain muxes (e.g., in case of poor reception of a mux on some but
-not all of the dishes). This could be easier if we created a virtual lnb for each satellite position
-on a rotor?
-
-
-Selected solution:
- -each tuner has as a link_group_id field. If this is set, any tuner sharing the same link_group_id
-  is checked for tuning restrictions. For simplicty, link_group_id can be the tuner_id of one of the tuners.
-  When the tuner links tuner x to y, x.link_group_id should be set to y.link_group_id, unless
-  y.link_group_id=-1, in which case both  x.link_group_id  and  y.link_group_id  should be set to y.tuner_id
-
--each tuner x also has a master_tuner_id. If this is set (then it should probably be equal to link_group_id)
- then master_tuner_id will send the diseqc commands instead of x. x is restricted from sendin further diseqc
- but can still tune It may also be needed to
-
-
-  TODO: if linked_tuner.linked_tuner_id is also set (>=0), it will send diseqc commands and will
-  be
-
-
-"""
-fe_key = db_struct(name='fe_key',
-                          fname = 'tuner',
-                          db = db,
-                          type_id= ord('U'),
-                          version = 1,
-                          fields = (
-                              (3, 'int64_t', 'adapter_mac_address'),
-                              (5, 'uint8_t', 'frontend_no'),
-                          ))
-
-fe_supports = db_struct(name='fe_supports',
-                        fname = 'tuner',
-                        db = db,
-                        type_id= ord('q'),
-                        version = 1,
-                        fields = ((1, 'bool', 'multistream', 'false'),
-                                  (2, 'bool', 'blindscan', 'false'),
-                                  (3, 'bool', 'spectrum_sweep', 'false'),
-                                  (5, 'bool', 'spectrum_fft', 'false'),
-                                  (4, 'bool', 'iq', 'false')
-                ))
-
-
-
-
-fe = db_struct(name='fe',
-               fname = 'tuner',
-               db = db,
-               type_id= ord('u'),
-               version = 1,
-               primary_key = ('key', ('k',)),
-               keys =  (
-                   (ord('f'), 'adapter_no', ('adapter_no',)),
-               ),
-               fields = (
-                   (1, 'fe_key_t', 'k'),
-                   (25, 'int16_t', 'rf_in'),
-                   (21, 'int16_t', 'adapter_no'),
-                   (24, 'bool', 'supports_neumo'),
-                   (2, 'bool', 'present'),
-                   (3, 'bool', 'can_be_used', 'true'),
-                   (4, 'bool', 'enabled', 'true'),
-                   (5, 'int16_t', 'priority', 0),
-
-                   #link_group_id: -1 means not linked
-                   (6, 'int16_t', 'link_group_id', -1),
-
-                   #master_tuner_id: -1 means not linked
-	                 (7, 'int8_t', 'tuner_group', -1),   #index of group of linked tuner which share some restrictions
-                   (23, 'int64_t', 'master_adapter_mac_address', -1),
-
-
-                   (9, 'time_t', 'mtime'),
-                   (10, 'uint32_t', 'frequency_min'),
-                   (11, 'uint32_t', 'frequency_max'),
-                   (12, 'uint32_t', 'symbol_rate_min'),
-                   (13, 'uint32_t', 'symbol_rate_max'),
-                   (20, 'int64_t', 'card_mac_address'),
-                   (14, 'fe_supports_t', 'supports'),
-                   (15, 'ss::string<64>', 'card_name'),
-                   (26, 'ss::string<64>', 'card_short_name'),
-                   (16, 'ss::string<64>', 'adapter_name'),
-                   (17, 'ss::string<64>', 'card_address'),
-                   (19, 'ss::vector<chdb::fe_delsys_t>', 'delsys'),
-                   (27, 'ss::vector<int8_t>', 'rf_inputs'),
-               ))
-
-"""
 Principle: the same lnb can sometimes receive satellites from different positions. FOr example
 an LNB tuned to 9.0E may be able to receive 10.0E as well. In this case the lnb will have two
 network enries. The first one will be considered the main one, and the second one the secondary one,
@@ -1138,7 +1027,133 @@ lnb = db_struct(name='lnb',
 
 
 
+"""
+We call a adapter/frontend combination a tuner
 
+Tuning rules:
+
+-only one frontend can be used per adapter at any time
+
+tuners can be restricted as follows:
+-tuner y can only be used when x is active and then is resticted to same band/polarisation. E.g., loopthrough
+This can be extressed as y.master_tuner=x
+
+
+-tuner y can be used freely, unless x is active in which case it is restricted to same band/polarisation.
+E.g. tbs6908 and tbs909x. There could be more than 2 such tuners. Such linked tuners could be put in a tuning
+group (i.e., one common number expresses that they are linked) or we could directly punt the tuner_id
+of the linked tuner (depending on the implementation, this restricts the solution to 2 linked tuners)
+
+E.g. y.linked_tuner=x x.linked_tuner=x
+
+Possible hypothetical cases:
+-tuner y can be used freely or as a slave of x and then is resticted to the same mux as x. E.g., unicable
+
+
+-we may want to restrict lnbs to certain muxes (e.g., in case of poor reception of a mux on some but
+not all of the dishes). This could be easier if we created a virtual lnb for each satellite position
+on a rotor?
+
+
+Selected solution:
+ -each tuner has as a link_group_id field. If this is set, any tuner sharing the same link_group_id
+  is checked for tuning restrictions. For simplicty, link_group_id can be the tuner_id of one of the tuners.
+  When the tuner links tuner x to y, x.link_group_id should be set to y.link_group_id, unless
+  y.link_group_id=-1, in which case both  x.link_group_id  and  y.link_group_id  should be set to y.tuner_id
+
+-each tuner x also has a master_tuner_id. If this is set (then it should probably be equal to link_group_id)
+ then master_tuner_id will send the diseqc commands instead of x. x is restricted from sendin further diseqc
+ but can still tune It may also be needed to
+
+
+  TODO: if linked_tuner.linked_tuner_id is also set (>=0), it will send diseqc commands and will
+  be
+
+
+"""
+fe_key = db_struct(name='fe_key',
+                          fname = 'tuner',
+                          db = db,
+                          type_id= ord('U'),
+                          version = 1,
+                          fields = (
+                              (3, 'int64_t', 'adapter_mac_address'),
+                              (5, 'uint8_t', 'frontend_no'),
+                          ))
+
+fe_supports = db_struct(name='fe_supports',
+                        fname = 'tuner',
+                        db = db,
+                        type_id= ord('q'),
+                        version = 1,
+                        fields = ((1, 'bool', 'multistream', 'false'),
+                                  (2, 'bool', 'blindscan', 'false'),
+                                  (3, 'bool', 'spectrum_sweep', 'false'),
+                                  (5, 'bool', 'spectrum_fft', 'false'),
+                                  (4, 'bool', 'iq', 'false')
+                ))
+
+
+fe_subscription = db_struct(name='fe_subscription',
+                           fname = 'tuner',
+                           db = db,
+                           type_id= lord('qr'),
+                           version = 1,
+                           fields = ((1, 'int32_t', 'owner', -1),
+                                    # (2, 'int32_t', 'subscription_id', -1),
+                                     (3, 'int16_t', 'rf_in', -1),
+                                     (4, 'lnb_key_t', 'lnb_key'),
+                                     (5, 'fe_polarisation_t', 'pol', 'fe_polarisation_t::NONE'),
+                                     (6, 'fe_band_t', 'band', 'fe_band_t::NONE')
+                ))
+
+
+fe = db_struct(name='fe',
+               fname = 'tuner',
+               db = db,
+               type_id= ord('u'),
+               version = 1,
+               primary_key = ('key', ('k',)),
+               keys =  (
+                   (ord('f'), 'adapter_no', ('adapter_no',)),
+                   (ord('g'), 'card_mac_address', ('card_mac_address',))
+               ),
+               fields = (
+                   (29, 'int16_t', 'card_no', '-1'), #unique and stable generated number
+                   (1, 'fe_key_t', 'k'),
+                   (25, 'int16_t', 'rf_in'),
+                   (21, 'int16_t', 'adapter_no'),
+                   (24, 'bool', 'supports_neumo'),
+                   (2, 'bool', 'present'),
+                   (3, 'bool', 'can_be_used', 'true'),
+                   (4, 'uint8_t', 'enable_dvbs', 'true'),
+                   (30, 'uint8_t', 'enable_dvbt', 'true'),
+                   (31, 'uint8_t', 'enable_dvbc', 'true'),
+                   (5, 'int16_t', 'priority', 0),
+
+                   #link_group_id: -1 means not linked
+                   (6, 'int16_t', 'link_group_id', -1),
+
+                   #master_tuner_id: -1 means not linked
+	                 (7, 'int8_t', 'tuner_group', -1),   #index of group of linked tuner which share some restrictions
+                   (23, 'int64_t', 'master_adapter_mac_address', -1),
+
+                   (28, 'fe_subscription_t', 'sub'),
+
+                   (9, 'time_t', 'mtime'),
+                   (10, 'uint32_t', 'frequency_min'),
+                   (11, 'uint32_t', 'frequency_max'),
+                   (12, 'uint32_t', 'symbol_rate_min'),
+                   (13, 'uint32_t', 'symbol_rate_max'),
+                   (20, 'int64_t', 'card_mac_address'),
+                   (14, 'fe_supports_t', 'supports'),
+                   (15, 'ss::string<64>', 'card_name'),
+                   (26, 'ss::string<64>', 'card_short_name'),
+                   (16, 'ss::string<64>', 'adapter_name'),
+                   (17, 'ss::string<64>', 'card_address'),
+                   (19, 'ss::vector<chdb::fe_delsys_t>', 'delsys'),
+                   (27, 'ss::vector<uint8_t>', 'rf_inputs'),
+               ))
 
 
 #Singleton listing channels tuned to (and perhaps later some other data)

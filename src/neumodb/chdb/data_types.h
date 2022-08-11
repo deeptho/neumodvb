@@ -25,7 +25,7 @@ class freq_pol_t {
 public:
 	uint32_t freq : 29 ;
 	chdb::fe_polarisation_t pol: 3;
-	freq_pol_t(uint32_t freq_=0, chdb::fe_polarisation_t pol_= chdb::fe_polarisation_t::UNKNOWN)
+	freq_pol_t(uint32_t freq_=0, chdb::fe_polarisation_t pol_= chdb::fe_polarisation_t::NONE)
 		: freq(freq_), pol(pol_) {}
 	inline bool operator==(const freq_pol_t &other) const
 		{

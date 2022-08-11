@@ -392,7 +392,9 @@ void dvbdev_monitor_t::update_dbfe(db_txn& wtxn, const adapter_no_t adapter_no, 
 	if (changed) {
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
 		t.dbfe.k.frontend_no = int(frontend_no);
-		t.dbfe.enabled = dbfe_old.enabled;
+		t.dbfe.enable_dvbs = dbfe_old.enable_dvbs;
+		t.dbfe.enable_dvbc = dbfe_old.enable_dvbc;
+		t.dbfe.enable_dvbt = dbfe_old.enable_dvbt;
 		t.dbfe.can_be_used = t.can_be_used;
 		t.dbfe.master_adapter_mac_address = dbfe_old.master_adapter_mac_address;
 		put_record(wtxn, t.dbfe, 0);
@@ -423,7 +425,7 @@ void dvbdev_monitor_t::on_new_frontend(db_txn& wtxn, dvb_adapter_t* adapter, fro
 	{
 		auto t = fe->ts.writeAccess();
 		t->dbfe.present = true;
-		t->can_be_used = t->dbfe.enabled;
+		t->can_be_used = true;
 		t->dbfe.can_be_used = t->can_be_used;
 		update_dbfe(wtxn, adapter->adapter_no, frontend_no, *t);
 	}
@@ -963,7 +965,9 @@ void adapter_reservation_t::update_dbfe_from_db(db_txn& rtxn, dvb_frontend_t::th
 
 	if (changed) {
 		t.dbfe.mtime = system_clock_t::to_time_t(now);
-		t.dbfe.enabled = dbfe_db.enabled;
+		t.dbfe.enable_dvbs = dbfe_db.enable_dvbs;
+		t.dbfe.enable_dvbt = dbfe_db.enable_dvbt;
+		t.dbfe.enable_dvbc = dbfe_db.enable_dvbc;
 		t.dbfe.can_be_used = t.can_be_used;
 	}
 }
@@ -1051,7 +1055,7 @@ std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to(db_txn& rtxn,
 	update_dbfe_from_db(rtxn, *t);
 
 	if (!t->can_be_used			// adapter is in use by an external program
-			|| !t->dbfe.enabled // adapter is disabled by user configuration
+			|| !t->dbfe.enable_dvbs // adapter is disabled by user configuration
 			/*@todo: DVB-S2X: drivers support this if one passes DVB-S2 in stead
 				but this approach makes it impossible to tell if the mux we are handling here
 				requires DVB-S2X and if we should reject tuners which do not support DVB-S2X
@@ -1171,6 +1175,20 @@ std::shared_ptr<dvb_frontend_t> dvbdev_monitor_t::find_fe_for_lnb(const chdb::ln
 	return adapter->fe_for_delsys(chdb::fe_delsys_t::SYS_DVBS2);
 }
 
+
+template <typename mux_t>
+static inline bool is_enabled_ (chdb::fe_t& fe);
+
+template <>
+inline bool is_enabled_<chdb::dvbc_mux_t>(chdb::fe_t& fe) {
+	return fe.enable_dvbc;
+}
+
+template <>
+inline bool is_enabled_<chdb::dvbt_mux_t>(chdb::fe_t& fe) {
+	return fe.enable_dvbt;
+}
+
 /*
 	adapter_will_be_released indicates an the adapter is currently reserved but that
 	reservation will be released by retuning, because it is no longer
@@ -1192,8 +1210,9 @@ std::shared_ptr<dvb_frontend_t> adapter_reservation_t::can_tune_to
 	if (blindscan && !t->dbfe.supports.blindscan)
 		return nullptr;
 	update_dbfe_from_db(rtxn, *t);
+
 	if (!t->can_be_used			// adapter is in use by an external program
-			|| !t->dbfe.enabled // adapter is disabled by user configuration
+			|| !is_enabled_<mux_t>(t->dbfe) // adapter is disabled by user configuration
 			/*@todo: DVB-S2X: drivers support this if one passes DVB-S2 in stead
 				but this approach makes it impossible to tell if the mux we are handling here
 				requires DVB-S2X and if we should reject tuners which do not support DVB-S2X

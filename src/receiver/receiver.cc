@@ -1399,7 +1399,7 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 	tune_options.tune_mode = tune_mode_t::SPECTRUM;
 	auto& band_pol = tune_options.spectrum_scan_options.band_pol;
 	band_pol.pol = pol_;
-	if (band_pol.pol == chdb::fe_polarisation_t::UNKNOWN) {
+	if (band_pol.pol == chdb::fe_polarisation_t::NONE) {
 		tune_options.spectrum_scan_options.scan_both_polarisations = true;
 		band_pol.pol = chdb::fe_polarisation_t::H;
 	}
@@ -1415,10 +1415,10 @@ int receiver_t::subscribe_lnb_spectrum(chdb::lnb_t& lnb_, const chdb::fe_polaris
 	bool need_low = ( low_freq < mid_freq_) && has_low;
 	bool need_high = ( high_freq >= mid_freq_);
 	assert(need_high || need_low);
-	band_pol.band = (need_high && need_low) ? chdb::fe_band_t::UNKNOWN
+	band_pol.band = (need_high && need_low) ? chdb::fe_band_t::NONE
 		:  need_low ? chdb::fe_band_t::LOW : chdb::fe_band_t::HIGH;
 
-	if (band_pol.band == chdb::fe_band_t::UNKNOWN) {
+	if (band_pol.band == chdb::fe_band_t::NONE) {
 		// start with lowest band
 		band_pol.band = chdb::lnb::band_for_freq(lnb, low_freq);
 	} else if (chdb::lnb::band_for_freq(lnb, low_freq) != band_pol.band &&

@@ -65,6 +65,7 @@ std::optional<chdb::fe_t> fe::find_fe_for_lnb(db_txn& rtxn, const chdb::lnb_t& l
 	for(const auto& fe: c.range()) {
 		if(!fe.available)
 			continue;
+		assert(fe.present && fe.enable_dvbs);
 
 		if(need_blindscan && !fe.supports.blindscan)
 			continue;

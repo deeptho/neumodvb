@@ -203,7 +203,7 @@ inline int deserialize(const ss::bytebuffer_ & ser, ss::string_& str, int offset
 		size -= 1; //stored size includes traling zero
 	if(size>0) {
 		if(offset + (signed)size > ser.size()) {
-			printf("Insufficient data to deserialise\n");
+			//printf("Insufficient data to deserialise\n");
 			return -1;
 		}
 		str.copy_raw((const char*)ser.buffer()+offset, size);

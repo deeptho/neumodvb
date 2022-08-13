@@ -657,6 +657,12 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 	case 9:
 		printf("8PSK ");
 		break;
+	case 10:
+		printf("16APSK ");
+		break;
+	case 11:
+		printf("32APSK ");
+		break;	
 	default:
 		printf("MOD(%d) ", dtv_modulation_prop);
 		break;

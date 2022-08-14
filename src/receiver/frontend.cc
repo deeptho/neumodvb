@@ -1124,10 +1124,10 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
 		cmdseq.add(DTV_SEARCH_RANGE, std::min(mux.symbol_rate*2, (unsigned int)4000000));
 	} else {
-		if (((int)mux.delivery_system != SYS_DVBS) && ((int)mux.delivery_system != SYS_DVBS2)) {
+		/*if (((int)mux.delivery_system != SYS_DVBS) && ((int)mux.delivery_system != SYS_DVBS2)) {
 			dterror("illegal delivery system: " << chdb::to_str(mux.delivery_system));
 			return -1;
-		}
+		}*///handle differently or remove altogether
 
 		if (ts.readAccess()->dbfe.supports.blindscan)
 			cmdseq.add(DTV_ALGORITHM, ALGORITHM_COLD);

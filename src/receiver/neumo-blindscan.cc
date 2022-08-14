@@ -130,6 +130,7 @@ struct options_t {
 	int parse_options(int argc, char**argv);
 	bool is_sat() const {
 		switch(delivery_system) {
+		case SYS_AUTO:
 		case SYS_DVBS2:
 		case SYS_DVBS:
 		case SYS_DSS:

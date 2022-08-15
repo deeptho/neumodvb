@@ -436,7 +436,7 @@ fe_delsys_dvbs = db_enum(name='fe_delsys_dvbs_t',
         type_id = 100,
         version = 1,
         fields = ((
-	          ('SYS_AUTO', 0),
+	          ('SYS_AUTO', 22),
 	          ('SYS_DVBS', 5),
 	          ('SYS_DVBS2', 6),
 	          ('SYS_ISDBS', 9),

@@ -1130,7 +1130,8 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 			return -1;
 		}
 
-		cmdseq.add(DTV_ALGORITHM, ALGORITHM_COLD);
+		if (ts.readAccess()->dbfe.supports.blindscan)
+			cmdseq.add(DTV_ALGORITHM, ALGORITHM_COLD);
 
 		cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
 		cmdseq.add(DTV_MODULATION, (int)mux.modulation);
@@ -1150,7 +1151,8 @@ int dvb_frontend_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, co
 		auto stream_id = make_code((int)mux.pls_mode, (int)mux.pls_code) | (mux.stream_id & 0xff);
 #endif
 		cmdseq.add(DTV_STREAM_ID, stream_id);
-		cmdseq.add(DTV_SEARCH_RANGE, mux.symbol_rate);
+		if (ts.readAccess()->dbfe.supports.blindscan)
+			cmdseq.add(DTV_SEARCH_RANGE, mux.symbol_rate);
 	}
 	dtv_fe_constellation constellation;
 	if (tune_options.pls_search_range.start < tune_options.pls_search_range.end) {

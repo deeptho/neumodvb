@@ -409,6 +409,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
                     elif key.endswith("adapter_mac_address"):
                         d = wx.GetApp().get_adapters()
                         newval = d.get(val, None)
+                        neumodbutils.enum_set_subfield(rec, 'adapter_name', val)
                     else:
                         newval = int(val)
             except:

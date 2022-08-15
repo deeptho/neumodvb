@@ -669,7 +669,6 @@ int active_adapter_t::do_lnb(chdb::fe_band_t band, fe_sec_voltage_t lnb_voltage)
 	auto fefd = current_fe->ts.readAccess()->fefd;
 
 	pol_band_status.set_voltage(fefd, lnb_voltage);
-
 	/*select the proper lnb band
 		22KHz: off = low band; on = high band
 	*/
@@ -991,15 +990,34 @@ int pol_band_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		dtdebugx("Changing voltage from : v=%d to v=%d", voltage, v);
 	}
 	bool must_sleep = (voltage == SEC_VOLTAGE_OFF || voltage  <0);
+
+	/*
+		With an Amilko positioner, the positioner risks activating its current overlaod protection at startup,
+		even if the motor is not moving, because of teh current the rotor passess through for lnb and potentially
+		a switch. This problem is worse when the highest voltage is selected from a non-powered state.
+		The following increases the voltage in two phase when 18V is requested. First 12V is selected; then we
+		wait for the devises to start up (using less current and hopefully not triggering the current overload detection,
+		Then we increase the voltage to the required one)
+	 */
+	if (voltage < 0 && v == SEC_VOLTAGE_18) {
+		if (ioctl(fefd, FE_SET_VOLTAGE, SEC_VOLTAGE_13) < 0) {
+			dterrorx("problem setting voltage %d", voltage);
+			return -1;
+		}
+		dtdebug("sleeping extra at startup\n");
+		msleep(200);
+	}
+
 	voltage = v;
 
 	if (ioctl(fefd, FE_SET_VOLTAGE, voltage) < 0) {
 		dterrorx("problem setting voltage %d", voltage);
 		return -1;
 	}
+	//allow some time for the voltage on the equipment to stabilise before continuing
 	if(must_sleep) {
-		dtdebug("Sleeping after turning on voltage\n");
 		msleep(200);
 	}
+
 	return 1;
 }

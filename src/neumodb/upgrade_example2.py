@@ -4,6 +4,7 @@ import os
 sys.path.insert(0, '../../x86_64/target/lib64/')
 sys.path.insert(0, '../../build/src/neumodb/')
 sys.path.insert(0, '../../build/src/neumodb/chdb')
+sys.path.insert(0, '../../build/src/neumodb/devdb')
 sys.path.insert(0, '../../build/src/neumodb/epgdb')
 sys.path.insert(0, '../../build/src/neumodb/statdb')
 sys.path.insert(0, '../../build/src/neumodb/schema')
@@ -11,14 +12,20 @@ sys.path.insert(0, '../../build/src/stackstring/')
 #import pyneumodb
 import pydeser
 import pychdb
+import pydevdb
 import pyschemadb
-chdb = pychdb.chdb()
-chdb.open("/mnt/neumo/db/chdb.mdb/", allow_degraded_mode=True)
-txn=chdb.rtxn()
 
-d=pydeser.degraded_export(txn)
+os.system("cp -r /mnt/neumo/db/chdb.mdb/ /mnt/neumo/db/devdb.mdb/")
+
+
+#chdb = pychdb.chdb()
+#chdb.open("/mnt/neumo/db/chdb.mdb/", allow_degraded_mode=True)
+devdb = pydevdb.devdb()
+devdb.open("/mnt/neumo/db/devdb.mdb/", allow_degraded_mode=True)
+devtxn=devdb.rtxn()
+
+d=pydeser.degraded_export(devtxn)
 lnbs=[x for x in d if x['type']=='lnb']
-
 
 
 if False:
@@ -30,8 +37,8 @@ if False:
         print(ll)
 
 def get_mac_address_dict(txn):
-    sort_order = pychdb.fe.subfield_from_name('k.adapter_mac_address')<<24
-    screen=pychdb.fe.screen(txn, sort_order=sort_order)
+    sort_order = pydevdb.fe.subfield_from_name('k.adapter_mac_address')<<24
+    screen=pydevdb.fe.screen(txn, sort_order=sort_order)
     ret={}
     ret1={}
     for idx in range(screen.list_size):
@@ -39,19 +46,23 @@ def get_mac_address_dict(txn):
         ret[ll.k.adapter_mac_address] = ll.card_mac_address
         ret1[ll.k.adapter_mac_address] = ll.adapter_no
     return ret, ret1
-mac_address_dict, rf_in_dict = get_mac_address_dict(txn)
+mac_address_dict, rf_in_dict = get_mac_address_dict(devtxn)
 
 
 newlnbs=[]
 for lnb_ in lnbs:
     lnb = lnb_['data']
     k = lnb['k']
-    newlnb=pychdb.lnb.lnb()
+    newlnb=pydevdb.lnb.lnb()
     newlnb.k.dish_id = k['dish_id']
-    newlnb.k.lnb_type = pychdb.lnb_type_t(k['lnb_type'])
+    newlnb.k.lnb_type = pydevdb.lnb_type_t(k['lnb_type'])
     newlnb.k.lnb_id = k['lnb_id']
-    newlnb.k.rf_input = rf_in_dict[k['adapter_mac_address']]
-    newlnb.k.card_mac_address = mac_address_dict[k['adapter_mac_address']]
+    newlnb.k.rf_input = rf_in_dict.get(k['adapter_mac_address'], 0)
+    card_mac_address = mac_address_dict.get(k['adapter_mac_address'], None)
+    if card_mac_address is None:
+        print(f"bad lnb: {k['adapter_mac_address']}")
+        continue
+    newlnb.k.card_mac_address = card_mac_address
     for key in [ "usals_pos", "enabled", "priority", "lof_low","lof_high", "freq_low","freq_mid",
                  "freq_high", "offset_pos", "diseqc_mini", "diseqc_10", "diseqc_11", "mtime",
                  "can_be_used", "tune_string", "name" ]:
@@ -59,7 +70,7 @@ for lnb_ in lnbs:
     for key in [ "pol_type", "rotor_control"]:
         setattr(newlnb, key, type(getattr(newlnb, key))(lnb[key]))
     for network in  lnb["networks"]:
-        n = pychdb.lnb_network.lnb_network()
+        n = pydevdb.lnb_network.lnb_network()
         for kk,v in network.items():
             if kk == 'ref_mux':
                 r = network['ref_mux']
@@ -73,11 +84,12 @@ for lnb_ in lnbs:
         newlnb.lof_offsets.push_back(o)
     newlnbs.append(newlnb)
 
-txn.commit()
+devtxn.commit()
 
-chdb = pychdb.chdb()
-chdb.open("/mnt/neumo/db/chdb.mdb/", allow_degraded_mode=False)
-txn=chdb.wtxn()
-for lnb in newlnbs:
-    pychdb.put_record(txn, lnb)
-txn.commit()
+if True:
+    devdb = pydevdb.devdb()
+    devdb.open("/mnt/neumo/db/devb.mdb/", allow_degraded_mode=False)
+    txn=devdb.wtxn()
+    for lnb in newlnbs:
+        pydevdb.put_record(txn, lnb)
+    txn.commit()

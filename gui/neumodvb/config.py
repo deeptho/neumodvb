@@ -24,7 +24,7 @@ import pathlib
 from pathlib import Path
 import re
 from datetime import timedelta
-from configobj import ConfigObj
+from configobj import ConfigObj, TemplateInterpolation
 
 import neumodvb
 from neumodvb.util import is_installed, maindir, dtdebug, dterror
@@ -61,7 +61,7 @@ def get_themes_dir():
 def get_configfile(file):
     maindir_ = maindir()
     src_configdir =  pathlib.Path(maindir_, '../../config')
-    dirs = ['~/.config/neumodvb', '/etc/neumodvb',  f'{src_configdir}']
+    dirs = [ f'{src_configdir}', '/etc/neumodvb', '~/.config/neumodvb']
     filenames = [ os.path.realpath(os.path.expanduser(f'{d}/{file}')) for d in dirs]
     for f in filenames:
         if Path(f).exists():
@@ -72,14 +72,20 @@ def get_configfile(file):
 def get_config():
     maindir_ = maindir()
     src_configdir =  pathlib.Path(maindir_, '../../config')
-    dirs = ['~/.config/neumodvb', '/etc/neumodvb',  f'{src_configdir}']
+    dirs = [f'{src_configdir}', '/etc/neumodvb', '~/.config/neumodvb']
     filenames = [ os.path.realpath(os.path.expanduser(f'{d}/neumodvb.cfg')) for d in dirs]
+    config = None
     for f in filenames:
         if Path(f).exists():
             print(f'loading options from {f}')
-            config = ConfigObj(f, interpolation='template')
-            return config
-    return None
+            if config is None:
+                #config = ConfigObj(f, interpolation='template')
+                config = ConfigObj(f, interpolation=False)
+            else:
+                #config.merge(ConfigObj(f, interpolation='template'))
+                config.merge(ConfigObj(f, interpolation=False))
+    config.main.interpolation = 'Template'
+    return config
 
 def getsubattr(o, k):
     parts = k.split('.')
@@ -118,6 +124,7 @@ class get_processed_options(object):
         c= get_config()
         cfg = get_configfile(c['LOGGING']['logconfig'])
         set_logconfig(cfg)
+        engine = TemplateInterpolation(c)
         for sec in  ['PATHS', 'SCAM', 'LOGGING', 'CONFIG']:
             for k,v in c[sec].items():
                 if k in relative_files:

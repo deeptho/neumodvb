@@ -211,9 +211,7 @@ namespace devdb::fe {
 
 	int switch_subscription_count(db_txn& rtxn, int switch_id);
 	int tuner_subscription_count(db_txn& rtxn, card_mac_address_t card_mac_address, int rf_input);
-	inline bool is_subscribed(const fe_t& fe) {
-		return fe.sub.owner >= 0;
-	}
+	bool is_subscribed(const fe_t& fe);
 
 	inline bool has_rf_in(const fe_t& fe, int rf_in) {
 		for(auto& r: fe.rf_inputs) {
@@ -231,15 +229,14 @@ namespace devdb::fe {
 		return false;
 	}
 
+	void unsubscribe(db_txn& wtxn, fe_t& fe);
 
-	void subscribe(db_txn& wtxn, fe_t& fe, fe_subscription_t sub);
-
-	int reserve_fe_lnb_band_pol_sat(db_txn& wtxn, const devdb::fe_key_t& fe_key, const devdb::lnb_t& lnb,
+	int reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb,
 																	devdb::fe_band_t band,  chdb::fe_polarisation_t pol);
 
 
-	int reserve_fe_lnb_exclusive(db_txn& wtxn, const devdb::fe_key_t& fe_key, const devdb::lnb_t& lnb);
-	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, const devdb::fe_key_t& fe_key, bool is_dvbc);
+	int reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb);
+	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc);
 
 	template<typename mux_t>
 	std::optional<devdb::fe_t>

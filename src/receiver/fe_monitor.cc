@@ -94,7 +94,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	auto fefd = fe->ts.readAccess()->fefd;
 	int r = ioctl(fefd, FE_GET_EVENT, &event);
 	if (r < 0) {
-		dtdebugx("FE_GET_EVENT stat=0x%x err=%s\n", event.status, strerror(errno));
+		dtdebugx("FE_GET_EVENT stat=0x%x errno=%d err=%s\n", event.status, errno, strerror(errno));
 		return;
 	}
 
@@ -160,6 +160,18 @@ int fe_monitor_thread_t::cb_t::pause() {
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 	this->is_paused = true;
 	dtdebugx("frontend_monitor pause: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
+
+	return 0;
+}
+
+
+int fe_monitor_thread_t::cb_t::unpause() {
+	ss::string<64> fe_name;
+	fe_name.sprintf("fe %d.%d", (int)fe->adapter_no, (int)fe->frontend_no);
+	set_name(fe_name.c_str());
+	log4cxx::MDC::put("thread_name", fe_name.c_str());
+	this->is_paused = false;
+	dtdebugx("frontend_monitor unpause: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
 
 	return 0;
 }

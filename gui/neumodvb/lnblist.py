@@ -36,6 +36,7 @@ from neumodvb.lnbnetwork_dialog import  LnbNetworkDialog
 from neumodvb.lnbnetworklist import LnbNetworkGrid
 
 import pychdb
+import pydevdb
 
 
 def has_network(lnb, sat_pos):
@@ -136,27 +137,27 @@ class LnbTable(NeumoTable):
 
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'name'
-        data_table= pychdb.lnb
+        data_table= pydevdb.lnb
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
         if basic:
             CD = NeumoTable.CD
             self.all_columns= self.basic_columns
-        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
+        super().__init__(*args, parent=parent, basic=basic, db_t=pydevdb, data_table = data_table,
                          screen_getter = screen_getter,
-                         record_t=pychdb.lnb.lnb, initial_sorted_column = initial_sorted_column,
+                         record_t=pydevdb.lnb.lnb, initial_sorted_column = initial_sorted_column,
                          **kwds)
 
     def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()
-        screen = pychdb.lnb.screen(txn, sort_order=sort_field,
+        screen = pydevdb.lnb.screen(txn, sort_order=sort_field,
                                    field_matchers=matchers, match_data = match_data)
         self.screen = screen_if_t(screen, self.sort_order==2)
 
         if False:
-            sort_order = pychdb.fe.subfield_from_name('adapter_mac_address')<<24
-            self.fe_screen =pychdb.fe.screen(txn, sort_order=sort_order)
+            sort_order = pydevdb.fe.subfield_from_name('adapter_mac_address')<<24
+            self.fe_screen =pydevdb.fe.screen(txn, sort_order=sort_order)
             self.aux_screens = [ self.fe_screen]
 
 
@@ -177,10 +178,10 @@ class LnbTable(NeumoTable):
             return None
         if lnb.usals_pos !=  pychdb.sat.sat_pos_none and len(lnb.networks)==0:
             #shortcut: a single network can be created by entering sat_pos
-            network = pychdb.lnb_network.lnb_network()
+            network = pydevdb.lnb_network.lnb_network()
             network.sat_pos = lnb.usals_pos
             network.usals_pos = lnb.usals_pos
-            pychdb.lnb.add_network(lnb, network)
+            pydevdb.lnb.add_network(lnb, network)
         for n in lnb.networks:
             if self.matching_sat(txn, n.sat_pos) == pychdb.sat.sat_pos_none:
                 ss = pychdb.sat_pos_str(n.sat_pos)
@@ -193,8 +194,8 @@ class LnbTable(NeumoTable):
         if len(lnb.networks) == 0:
             dtdebug (f"No network defined on this lnb; silently skip saving")
         else:
-            pychdb.lnb.make_unique_if_template(txn, lnb)
-            pychdb.lnb.update_lnb(txn, lnb)
+            pydevdb.lnb.make_unique_if_template(txn, lnb)
+            pydevdb.lnb.update_lnb(txn, lnb)
         return lnb
 
     def __new_record__(self):

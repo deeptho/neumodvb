@@ -34,6 +34,7 @@ void export_options(py::module& m) {
 		.def_readwrite("spectrum_path", &neumo_options_t::spectrum_path)
 		.def_readwrite("scam_server_name", &neumo_options_t::scam_server_name)
 		.def_readwrite("scam_server_port", &neumo_options_t::scam_server_port)
+		.def_readwrite("devdb", &neumo_options_t::devdb)
 		.def_readwrite("chdb", &neumo_options_t::chdb)
 		.def_readwrite("statdb", &neumo_options_t::statdb)
 		.def_readwrite("epgdb", &neumo_options_t::epgdb)

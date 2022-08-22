@@ -191,7 +191,7 @@ public: //this data is safe to access from other threads
 		//@todo make thread safe
 	}
 
-	void update_lof(const ss::vector<int32_t,2>& lof_offsets);
+	void update_lof(fe_thread_safe_t& ts, const ss::vector<int32_t,2>& lof_offsets);
 private:
 	int clear();
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
@@ -252,6 +252,14 @@ private:
 	int add_service(active_service_t& channel);//tune to channel on transponder
 	std::tuple<bool, bool> check_status();
 
+	void  update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
+	int do_diseqc(bool log_strength, bool retry=false);
+	int deactivate();
+	void on_stable_pat();
+	void on_first_pat();
+	void on_tuned_mux_change(const chdb::any_mux_t& si_mux);
+	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
+
 public:
 	void lnb_update_usals_pos(int16_t usals_pos);
 	int open_demux(int mode = O_RDWR | O_NONBLOCK) const;
@@ -278,15 +286,5 @@ public:
 	void add_embedded_si_stream(const chdb::any_mux_t& emdedded_mux, bool start=false);
 
 	bool read_and_process_data_for_fd(int fd);
-private:
-	int do_diseqc(bool log_strength, bool retry=false);
-	int deactivate();
-	void on_stable_pat();
-	void on_first_pat();
-	void on_tuned_mux_change(const chdb::any_mux_t& si_mux);
-	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
 
-
-//	int open_frontend();
-//	void close_frontend();
 };

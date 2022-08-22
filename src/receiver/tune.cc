@@ -142,8 +142,7 @@ int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_
 																	 tune_options_t tune_options) {
 	// check_thread();
 	dtdebugx("lnb activate");
-	auto fefd = active_adapter->fe->ts.readAccess()->fefd;
-	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
+	this->active_adapters[active_adapter.get()] = active_adapter;
 	auto ret=active_adapter->lnb_activate(lnb, tune_options);
 	return ret;
 }
@@ -163,8 +162,7 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	active_adapter->prepare_si(mux, false /*start*/);
 	active_adapter->processed_isis.reset();
 
-	auto fefd = active_adapter->fe->ts.readAccess()->fefd;
-	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
+	this->active_adapters[active_adapter.get()] = active_adapter;
 	bool user_requested = true;
 	return active_adapter->tune(lnb, mux, tune_options, user_requested);
 }
@@ -184,8 +182,7 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	active_adapter->prepare_si(mux, false /*start*/);
 
 	dtdebugx("tune mux action");
-	auto fefd = active_adapter->fe->ts.readAccess()->fefd;
-	this->active_adapters[frontend_fd_t(fefd)] = active_adapter;
+	this->active_adapters[active_adapter.get()] = active_adapter;
 	bool user_requested = true;
 	return active_adapter->tune(mux, tune_options, user_requested);
 }
@@ -222,10 +219,7 @@ int tuner_thread_t::exit() {
 }
 
 int tuner_thread_t::cb_t::remove_active_adapter(active_adapter_t& active_adapter) {
-	auto [it, found] = find_in_map_if(this->active_adapters, [&active_adapter](const auto& x) {
-			auto [fd_, ptr] = x;
-			return ptr.get() == &active_adapter;
-		});
+	auto [it, found] = find_in_map(this->active_adapters, &active_adapter);
 	if (!found) {
 		dterrorx("Request to remove active_adapter");
 		return -1;
@@ -239,22 +233,6 @@ int tuner_thread_t::cb_t::remove_active_adapter(active_adapter_t& active_adapter
 	return 0;
 }
 
-active_adapter_t* tuner_thread_t::find_active_adapter_for_event(const epoll_event* event) const {
-	auto it = active_adapters.find(frontend_fd_t(event->data.fd));
-	if (it == active_adapters.end())
-		return NULL;
-	return it->second.get();
-}
-
-int tuner_thread_t::cb_t::on_lnb_lof_offset_update(int fefd, const ss::vector<int32_t, 2>& lof_offsets) {
-	auto it = active_adapters.find(frontend_fd_t(fefd));
-	if (it == active_adapters.end())
-		return -1;
-
-	auto& active_adapter = *it->second;
-	active_adapter.update_lof(lof_offsets);
-	return 0;
-}
 
 /*
 	called whenever  a new or updated epg record is found

@@ -37,6 +37,7 @@ from neumodvb.lnblist import lnb_label
 
 import pystatdb
 import pychdb
+import pydevdb
 
 
 def get_snr(x):
@@ -122,7 +123,7 @@ class StatusTable(NeumoTable):
     def adapter_names(self):
         txn = wx.GetApp().chdb.rtxn()
         ret={}
-        for a in  pychdb.fe.list_all_by_adapter_no(txn):
+        for a in  pydevdb.fe.list_all_by_adapter_no(txn):
             ret[a.k.adapter_mac_address] = a.adapter_name
         txn.abort()
         del txn

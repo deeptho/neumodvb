@@ -153,7 +153,7 @@ class tuner_thread_t : public task_queue_t {
 	friend class si_t;
 	receiver_t& receiver;
 	std::thread::id thread_id;
-	std::map<frontend_fd_t, std::shared_ptr<active_adapter_t>> active_adapters; //indexed by open file descriptor
+	std::map<active_adapter_t*, std::shared_ptr<active_adapter_t>> active_adapters;
 
 	/*!
 		All functions should be called from the right thread.
@@ -171,7 +171,6 @@ class tuner_thread_t : public task_queue_t {
 	void livebuffer_db_update_(system_time_t now);
 	virtual int run() final;
 //returns true on error
-	active_adapter_t* find_active_adapter_for_event(const epoll_event* event) const;
 	void on_epg_update(db_txn& txnepg, system_time_t now,
 										 epgdb::epg_record_t& epg_record/*may be updated by setting epg_record.record
 																											to true or false*/);
@@ -196,7 +195,6 @@ public:
 
 class tuner_thread_t::cb_t: public tuner_thread_t { //callbacks
 public:
-	int on_lnb_lof_offset_update(int fefd, const ss::vector<int32_t,2>& lof_offsets);
 	int remove_active_adapter(active_adapter_t& tuner);
 	int remove_service(active_adapter_t& tuner, active_service_t& channel);
 	int add_service(active_adapter_t& tuner, active_service_t& channel);//tune to channel on transponder
@@ -477,7 +475,7 @@ public:
 
 
 private:
-	inline std::shared_ptr<active_adapter_t> make_active_adapter(const devdb::fe_key_t& fe_key);
+	inline std::shared_ptr<active_adapter_t> make_active_adapter(const devdb::fe_t& dbfe);
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_service_in_use(std::vector<task_queue_t::future_t>& futures,

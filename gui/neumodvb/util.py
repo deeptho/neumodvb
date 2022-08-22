@@ -48,6 +48,7 @@ def setup():
         sys.path.insert(0, str(srcdir / 'receiver'))
         sys.path.insert(0, str(srcdir / 'stackstring'))
         sys.path.insert(0, str(srcdir / 'neumodb'))
+        sys.path.insert(0, str(srcdir / 'neumodb/devdb'))
         sys.path.insert(0, str(srcdir / 'neumodb/chdb'))
         sys.path.insert(0, str(srcdir / 'neumodb/statdb'))
         sys.path.insert(0, str(srcdir / 'neumodb/epgdb'))

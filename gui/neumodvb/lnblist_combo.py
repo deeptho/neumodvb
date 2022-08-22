@@ -34,6 +34,7 @@ from neumodvb.lnblist import BasicLnbGrid
 from neumodvb.util import dtdebug, dterror
 
 import pychdb
+import pydevdb
 
 class LnbGridPopup(BasicLnbGrid):
     """

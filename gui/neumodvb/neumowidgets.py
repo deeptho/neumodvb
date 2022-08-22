@@ -247,14 +247,13 @@ class BarGaugeOFF(PG.PyGauge):
 class DiseqcChoice(wx.Choice):
     def __init__(self, id,  *args, **kwargs):
         from neumodvb import neumodbutils
-        import pychdb
-        self. choices = neumodbutils.enum_labels(pychdb.rotor_control_t)
+        import pydevdb
+        self. choices = neumodbutils.enum_labels(pydevdb.rotor_control_t)
         kwargs['choices'] = self.choices
         super().__init__(id, *args, **kwargs)
 
     def SetValue(self, lnb) :
         from neumodvb import neumodbutils
-        import pychdb
         val = neumodbutils.enum_to_str(neumodbutils.get_subfield(lnb, 'rotor_control'))
         idx = self.choices.index(val)
         self.SetSelection(idx)

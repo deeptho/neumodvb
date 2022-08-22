@@ -36,6 +36,7 @@ from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb.neumodbutils import enum_to_str
 
 import pychdb
+import pydevdb
 
 def delsys_fn(x):
     vals= set([enum_to_str(xx).split('_')[0] for xx in x[1]])
@@ -43,6 +44,17 @@ def delsys_fn(x):
     return "/".join(vals)
 def rf_inputs_fn(x):
     return " ".join(str(v) for v in x[1])
+
+def subscription_fn(x):
+    sub = x[1]
+    if sub.usals_pos == pychdb.sat.sat_pos_none:
+        return ""
+    sat_pos=pychdb.sat_pos_str(sub.usals_pos)
+    t= lastdot(sub.lnb_key.lnb_type)
+    e = neumodbutils.enum_to_str
+    if t != 'C':
+        t='Ku'
+    return f'#{sub.lnb_key.rf_input} {sat_pos:>5}{t} {sub.lnb_key.lnb_id} {e(sub.band)}{e(sub.pol)}'
 
 class FrontendTable(NeumoTable):
     CD = NeumoTable.CD
@@ -57,21 +69,17 @@ class FrontendTable(NeumoTable):
     all_columns = \
         [CD(key='adapter_name',  label='adapter', basic=True, no_combo=True, readonly=True,
             example="TurboSight TBS 6916X #12 "),
-         CD(key='adapter_no',  label='AD#', basic=True, readonly=True),
-         CD(key='k.frontend_no',  label='FE#', basic=True, readonly=True),
+         CD(key='adapter_no',  label='Adap', basic=True, readonly=True),
+         CD(key='k.frontend_no',  label='fe', basic=True, readonly=True),
          CD(key='fe_enable_menu',  label='enable', basic=False, cfn=enable_cfn, dfn=enable_dfn, sfn=enable_sfn,
             example=" DVB T+C "),
-         CD(key='rf_inputs',  label='rf\ninp.', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
+         CD(key='sub',  label='subscription', basic=True, dfn=subscription_fn),
+         CD(key='rf_inputs',  label='rf\ninput', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916X "),
          CD(key='rf_in',  label='RF#', basic=True, readonly=True),
          CD(key='card_no',  label='card#', basic=True, readonly=True),
          CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
              dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
-         #CD(key='card_mac_address',  label='MACC', basic=True, no_combo=True, readonly=True,
-         #   dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
-         #CD(key='card_name',  label='Card', basic=True, example=" TurboSight TBS 6916 (Octa DVB-S/S2/S2X)"),
-         #CD(key='card_mac_address',  label='card MAC#', basic=True, no_combo=True, readonly=True,
-         #   dfn=mac_fn, example=" 00:00:ab:00:00:00 "),
          CD(key='card_address',  label='Bus', basic=True, example=" Turbosight 6909x "),
          CD(key='present',  label='present', basic=True, dfn=bool_fn, readonly=True),
          CD(key='can_be_used',  label='available', basic=True, dfn=bool_fn, readonly=True),
@@ -80,30 +88,28 @@ class FrontendTable(NeumoTable):
          CD(key='supports.spectrum_sweep',  label='spec\nsweep', basic=True, dfn=bool_fn, readonly=True),
          CD(key='supports.spectrum_fft',  label='spec\nfft', basic=True, dfn=bool_fn, readonly=True),
          CD(key='priority',  label='priority', basic=True),
-         CD(key='master_adapter_mac_address',  label='master', basic=True, no_combo=False,
-            dfn=lambda x: x[0].adapter_name, example=" TBS 6909X #12 "),
          CD(key='delsys',  label='delsys', basic=True, dfn=delsys_fn, readonly=True, example='DVBT/'*6)
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'adapter_no'
-        data_table= pychdb.fe
+        data_table= pydevdb.fe
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
-        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
+        super().__init__(*args, parent=parent, basic=basic, db_t=pydevdb, data_table = data_table,
                          screen_getter = screen_getter,
-                         record_t=pychdb.fe.fe, initial_sorted_column = initial_sorted_column,
+                         record_t=pydevdb.fe.fe, initial_sorted_column = initial_sorted_column,
                          **kwds)
 
     def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()
-        screen = pychdb.fe.screen(txn, sort_order=sort_field,
+        screen = pydevdb.fe.screen(txn, sort_order=sort_field,
                                    field_matchers=matchers, match_data = match_data)
         self.screen = screen_if_t(screen, self.sort_order==2)
 
     def __save_record__(self, txn, record):
         dtdebug(f'saving {record.k.adapter_mac_address}')
-        pychdb.put_record(txn, record)
+        pydevdb.put_record(txn, record)
         return record
 
     def __new_record__(self):
@@ -140,6 +146,11 @@ class FrontendTable(NeumoTable):
         rec.enable_dvbc = 'C' in v
         dtdebug(f"Set called: fe={rec} v={v}")
         return rec
+    def needs_highlight(self, fe):
+        """
+        show lnbs for missing adapters in colour
+        """
+        return not fe.can_be_used
 
 
 class FrontendGridBase(NeumoGridBase):

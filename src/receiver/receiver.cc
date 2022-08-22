@@ -121,6 +121,13 @@ void receiver_thread_t::remove_active_adapter(std::vector<task_queue_t::future_t
 		return ret;
 	}));
 
+	{
+		auto wtxn = receiver.devdb.wtxn();
+		auto dbfe = active_adapter.fe->ts.readAccess()->dbfe;
+		devdb::fe::unsubscribe(wtxn, dbfe);
+		wtxn.commit();
+	}
+
 	receiver.subscribed_aas.writeAccess()->erase(subscription_id);
 }
 
@@ -499,6 +506,7 @@ subscription_id_t receiver_thread_t::subscribe_mux_(
 		we only need to retune.
 	*/
 	if (is_same_frontend) {
+		old_active_adapter->fe->update_dbfe(fe);
 		futures.push_back(
 			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, lnb, mux]() {
 				/*deactivate the adapter (stop si processing) and remove it from
@@ -519,19 +527,19 @@ subscription_id_t receiver_thread_t::subscribe_mux_(
 			remove_active_adapter(futures, subscription_id);
 		}
 
-		auto active_adapter = make_active_adapter(fe.k);
+		auto active_adapter = make_active_adapter(fe);
 		if ((int) subscription_id < 0)
 			subscription_id = this->next_subscription_id++;
 		{
 			auto w = receiver.subscribed_aas.writeAccess();
 			(*w)[subscription_id] = active_adapter;
 		}
-		assert(active_adapter->is_open());
 
 		futures.push_back(active_adapter->tuner_thread.push_task([this, active_adapter, lnb, mux, tune_options]() {
 			auto ret = cb(receiver.tuner_thread).tune(active_adapter, lnb, mux, tune_options);
 			if (ret < 0)
 				dterrorx("tune returned %d", ret);
+			assert(active_adapter->is_open());
 			return ret;
 		}));
 		auto adapter_no =  active_adapter->get_adapter_no();
@@ -590,6 +598,7 @@ subscription_id_t receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::fu
 			start calling on_scan_mux_end for the previously tuned mux on
 			this subscription
 		*/
+		old_active_adapter->fe->update_dbfe(fe);
 		futures.push_back(
 			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, mux]() {
 				/*deactivate the adapter (stop si processing) and remove it from
@@ -610,7 +619,7 @@ subscription_id_t receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::fu
 			remove_active_adapter(futures, subscription_id);
 		}
 
-		auto active_adapter = make_active_adapter(fe.k);
+		auto active_adapter = make_active_adapter(fe);
 		if ((int) subscription_id < 0)
 			subscription_id = this->next_subscription_id++;
 		{
@@ -861,7 +870,7 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 		dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
 	}
 
-	auto txn = receiver.chdb.wtxn();
+	auto txn = receiver.devdb.wtxn();
 	subscription_id =
 		this->receiver_thread_t::subscribe_mux(futures, txn, mux, subscription_id, tune_options, required_lnb);
 	txn.commit();
@@ -920,6 +929,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 			start calling on_scan_mux_end for the previously tuned mux on
 			this subscription
 		*/
+		old_active_adapter->fe->update_dbfe(fe);
 		futures.push_back(old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, lnb]() {
 
 			auto ret = cb(receiver.tuner_thread).lnb_activate(old_active_adapter, lnb, tune_options);
@@ -934,7 +944,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 			assert ((int) subscription_id >= 0);
 			remove_active_adapter(futures, subscription_id);
 		}
-		auto active_adapter = make_active_adapter(fe.k);
+		auto active_adapter = make_active_adapter(fe);
 
 		if ((int) subscription_id < 0)
 			subscription_id = this->next_subscription_id++;
@@ -976,7 +986,7 @@ receiver_thread_t::cb_t::subscribe_lnb(devdb::lnb_t& lnb_, tune_options_t tune_o
 	s << "SUB[" << (int) subscription_id << "] " << to_str(lnb);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
-	auto wtxn = receiver.chdb.wtxn();
+	auto wtxn = receiver.devdb.wtxn();
 	subscription_id = this->receiver_thread_t::subscribe_lnb(futures, wtxn, lnb, tune_options, subscription_id);
 	wtxn.commit();
 	bool error = wait_for_all(futures);
@@ -1757,8 +1767,9 @@ time_t receiver_thread_t::scan_start_time() const {
 }
 
 
-inline std::shared_ptr<active_adapter_t> receiver_thread_t::make_active_adapter(const devdb::fe_key_t& fe_key) {
-	auto dvb_frontend = adaptermgr->find_fe(fe_key);
+inline std::shared_ptr<active_adapter_t> receiver_thread_t::make_active_adapter(const devdb::fe_t& dbfe) {
+	auto dvb_frontend = adaptermgr->find_fe(dbfe.k);
+	dvb_frontend->update_dbfe(dbfe);
 	return std::make_shared<active_adapter_t>(receiver, dvb_frontend);
 }
 

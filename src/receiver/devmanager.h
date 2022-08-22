@@ -214,6 +214,7 @@ class fe_thread_safe_t {
 
 public:
 	tune_confirmation_t tune_confirmation; //have ts_id,network_id, sat_id been confirmed by SI data?
+	int tuned_frequency{0}; // as reported by driver, compensated for lnb offset
 	chdb::any_mux_t reserved_mux;   /*mux as it is currently reserved. Will be updated with si data
 																		and will always contain the best confirmed-to-be-correct information
 																	*/
@@ -299,7 +300,6 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	const api_type_t api_type { api_type_t::UNDEFINED };
 	const int api_version{-1}; //1000 times the floating point value of version
 	chdb::delsys_type_t current_delsys_type { chdb::delsys_type_t::NONE };
-	int tuned_frequency{0}; // as reported by driver, compensated for lnb offset
 
 	int num_constellation_samples{0};
 
@@ -307,7 +307,6 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	uint32_t get_lo_frequency(uint32_t frequency);
 	int open_device(fe_thread_safe_t& t, bool rw=true, bool allow_failure=false);
 	void close_device(fe_thread_safe_t& t); //callable from main thread
-	void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, devdb::lnb_t& lnb);
 	void get_signal_info(chdb::signal_info_t& signal_info, bool get_constellation);
 	int request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& ret, bool get_constellation);
 	void get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
@@ -334,7 +333,7 @@ public:
 	safe::Safe<fe_thread_safe_t> ts;
 	safe::Safe<signal_monitor_t> signal_monitor;
 
-	std::weak_ptr<fe_monitor_thread_t> monitor_thread; //public (used in active_si_stream.cc)
+	std::shared_ptr<fe_monitor_thread_t> monitor_thread; //public (used in active_si_stream.cc)
 	void stop_frontend_monitor_and_wait();
 
 	static std::tuple<api_type_t, int> get_api_type(); //returns api_type and version
@@ -367,9 +366,15 @@ public:
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
 
 	int stop();
+	int start();
 	void update_tuned_mux_nit(const chdb::any_mux_t& mux);
 	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
-	void  update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
+	inline void reset_tuned_mux_tune_confirmation() {
+		auto w = this->ts.writeAccess();
+		w->tune_confirmation = {};
+	}
+
+
 	devdb::usals_location_t get_usals_location() const;
 
 public:
@@ -434,6 +439,10 @@ public:
 		w->tune_options = tune_options;
 		w->tune_options.tune_mode = tune_mode;
 		return 0;
+	}
+
+	inline void update_dbfe(const devdb::fe_t& fe) {
+		this->ts.writeAccess()->dbfe = fe;
 	}
 
 };
@@ -524,6 +533,7 @@ class fe_monitor_thread_t::cb_t : public fe_monitor_thread_t { //callbacks
 public:
 	chdb::signal_info_t get_signal_info();
 	int pause();
+	int unpause();
 };
 
 

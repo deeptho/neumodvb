@@ -30,15 +30,16 @@
 
 using namespace devdb;
 
-
-void fe::subscribe(db_txn& wtxn, fe_t& fe, fe_subscription_t sub) {
-	assert (!fe::is_subscribed(fe));
-	assert(sub.lnb_key.card_mac_address != -1);
-	assert(fe::has_rf_in(fe, sub.lnb_key.rf_input));
-	assert(sub.lnb_key.lnb_type != lnb_type_t::UNKNOWN);
-	fe.sub = sub;
+void fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
+	assert (fe::is_subscribed(fe));
+	assert(fe.sub.lnb_key.card_mac_address != -1);
+	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
+	if (c.is_valid())
+		fe = c.current(); //update in case of external changes
+	fe.sub = {};
 	put_record(wtxn, fe);
 }
+
 
 std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
 																											const devdb::fe_key_t* fe_to_release,
@@ -504,18 +505,17 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 	return std::make_tuple(best_fe, best_lnb, best_fe_prio, best_lnb_prio);
 }
 
-int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, const devdb::fe_key_t& fe_key, const devdb::lnb_t& lnb,
+int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb,
 																						devdb::fe_band_t band,  chdb::fe_polarisation_t pol)
 {
-	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
+	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
 		return -1;
-	auto fe = c.current();
+	fe = c.current();
 	auto& sub = fe.sub;
 	sub.owner = getpid();
 
 	//the following settings imply that we request a non-exclusive subscription
-	sub.rf_in = lnb.k.rf_input;
 	sub.lnb_key = lnb.k;
 	sub.pol = pol;
 	sub.band = band;
@@ -524,17 +524,16 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, const devdb::fe_key_t& 
 	return 0;
 }
 
-int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, const devdb::fe_key_t& fe_key, const devdb::lnb_t& lnb)
+int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb)
 {
-	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
+	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
 		return -1;
-	auto fe = c.current();
+	fe = c.current();
 	auto& sub = fe.sub;
 	sub.owner = getpid();
 
 	//the following settings imply that we request a non-exclusive subscription
-	sub.rf_in = lnb.k.rf_input;
 	sub.lnb_key = lnb.k;
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
@@ -545,17 +544,16 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, const devdb::fe_key_t& fe_
 
 
 
-int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, const devdb::fe_key_t& fe_key, bool is_dvbc)
+int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc)
 {
-	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
+	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
 		return -1;
-	auto fe = c.current();
+	fe = c.current();
 	auto& sub = fe.sub;
 	sub.owner = getpid();
 
 	//the following settings imply that we request a non-exclusive subscription
-	sub.rf_in = 0;
 	sub.lnb_key = devdb::lnb_key_t{};
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
@@ -579,7 +577,7 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
 	if(!best_fe)
 		return {}; //no frontend could be found
 
-	auto ret = devdb::fe::reserve_fe_lnb_exclusive(wtxn, best_fe->k, lnb);
+	auto ret = devdb::fe::reserve_fe_lnb_exclusive(wtxn, *best_fe, lnb);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
 	return best_fe;
 }
@@ -597,7 +595,7 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 	if(!best_fe)
 		return {}; //no frontend could be found
 
-	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, best_fe->k, *best_lnb, devdb::lnb::band_for_mux(*best_lnb, mux),
+	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, *best_fe, *best_lnb, devdb::lnb::band_for_mux(*best_lnb, mux),
 																									 mux.pol);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, best_lnb};
@@ -618,7 +616,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 	if(!best_fe)
 		return {}; //no frontend could be found
 
-	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, best_fe->k, is_dvbc);
+	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
 	return best_fe;
 }

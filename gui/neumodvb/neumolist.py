@@ -35,6 +35,7 @@ from neumodvb.util import dtdebug, dterror, get_text_extent, setup, lastdot
 from neumodvb import neumodbutils
 
 import pyepgdb
+import pydevdb
 import pychdb
 import pyrecdb
 import pystatdb
@@ -544,6 +545,8 @@ class NeumoTable(NeumoTableBase):
             self.db = wx.GetApp().epgdb
         elif db_t == pychdb:
             self.db = wx.GetApp().chdb
+        elif db_t == pydevdb:
+            self.db = wx.GetApp().devdb
         elif db_t == pyrecdb:
             self.db = wx.GetApp().recdb
         elif db_t == pystatdb:

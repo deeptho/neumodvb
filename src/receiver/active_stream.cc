@@ -309,7 +309,7 @@ void dvb_stream_reader_t::update_bad_received_si_mux(const std::optional<chdb::a
 void  stream_reader_t::update_stream_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation)
 {
 	//for active_adapter stream_mux == tuned_mux
-	active_adapter.fe->update_tuned_mux_tune_confirmation(tune_confirmation);
+	active_adapter.update_tuned_mux_tune_confirmation(tune_confirmation);
 }
 
 

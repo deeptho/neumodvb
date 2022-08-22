@@ -27,8 +27,6 @@ from neumodvb.util import setup, lastdot
 from neumodvb.neumo_dialogs_gui import  LnbNetworkDialog_
 from neumodvb.lnbnetworklist import LnbNetworkGrid
 
-import pychdb
-
 class LnbNetworkDialog(LnbNetworkDialog_):
     def __init__(self, parent, basic, readonly, *args, **kwds):
         self.basic = basic

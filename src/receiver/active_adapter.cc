@@ -294,7 +294,8 @@ void active_adapter_t::monitor() {
 			[this](dvbc_mux_t&& mux) { retune<dvbc_mux_t>(); },
 			[this](dvbt_mux_t&& mux) { retune<dvbt_mux_t>(); });
 	} else if (must_reinit_si) {
-		init_si(fe->ts.readAccess()->tune_options.scan_target);
+		auto t = fe->ts.readAccess()->tune_options.scan_target;
+		init_si(t);
 	} else {
 		/*usually scan_report will be called by process_si_data, but on bad muxes data may not
 			be present. scan_report runs with a max frequency of 1 call per 2 seconds
@@ -356,9 +357,8 @@ int active_adapter_t::open_demux(int mode) const {
 	return fd;
 }
 
-void active_adapter_t::update_lof(const ss::vector<int32_t, 2>& lof_offsets) {
-	auto w = fe->ts.writeAccess();
-	auto& lnb = w->reserved_lnb;
+void active_adapter_t::update_lof(fe_thread_safe_t& ts, const ss::vector<int32_t, 2>& lof_offsets) {
+	auto& lnb = ts.reserved_lnb;
 	lnb.lof_offsets = lof_offsets;
 	auto txn = receiver.chdb.wtxn();
 	auto c = devdb::lnb_t::find_by_key(txn, lnb.k);
@@ -522,6 +522,49 @@ void active_adapter_t::end_si() {
 }
 
 
+static void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, devdb::lnb_t& lnb, int tuned_frequency) {
+
+	auto [band, voltage_, freq_] = devdb::lnb::band_voltage_freq_for_mux(lnb, dvbs_mux);
+	/*
+		extra_lof_offset is the currently observed offset, after having corrected LOF by
+		the last known value of lnb.lof_offsets[band]
+	*/
+
+	if (lnb.lof_offsets.size() <= band + 1) {
+		// make sure both entries exist
+		for (int i = lnb.lof_offsets.size(); i < band + 1; ++i)
+			lnb.lof_offsets.push_back(0);
+	}
+	auto old = lnb.lof_offsets[band];
+	float learning_rate = 0.2;
+	int delta = (int)tuned_frequency - (int)dvbs_mux.frequency; //additional correction  needed
+	lnb.lof_offsets[band] += learning_rate * delta;
+
+	dtdebugx("Updated LOF: %d => %d", old, lnb.lof_offsets[band]);
+	if (std::abs(lnb.lof_offsets[band]) > 5000)
+		lnb.lof_offsets[band] = 0;
+}
+
+
+//called from tuner thread
+void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation) {
+	auto w = fe->ts.writeAccess();
+	if(!w->tune_confirmation.nit_actual_received && tune_confirmation.nit_actual_received) {
+		const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
+		if(dvbs_mux) {
+			using namespace chdb;
+			//ss::vector<int32_t, 2> lof_offsets;
+			auto& lnb = w->reserved_lnb;
+			set_lnb_lof_offset(*dvbs_mux, lnb, w->tuned_frequency);
+			auto lof_offsets = lnb.lof_offsets;
+			if(dvbs_mux->c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
+				dtdebug("Updating LNB LOF offset");
+				update_lof(*w, lof_offsets);
+			}
+		}
+	}
+	w->tune_confirmation = tune_confirmation;
+}
 
 
 

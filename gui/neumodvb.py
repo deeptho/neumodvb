@@ -30,6 +30,7 @@ import neumodvb
 from neumodvb.util import load_gtk3_stylesheet, dtdebug, dterror, maindir
 from neumodvb.config import options, get_configfile
 
+import pydevdb
 import pychdb
 import pyepgdb
 import pyrecdb
@@ -530,26 +531,28 @@ class NeumoGui(wx.App):
                 return self.sats
 
     def get_cards(self):
-        txn = wx.GetApp().chdb.rtxn()
+        txn = wx.GetApp().devdb.rtxn()
         ret={}
-        for a in  pychdb.fe.list_all_by_card_mac_address(txn):
+        for a in  pydevdb.fe.list_all_by_card_mac_address(txn):
             ret[f'C{a.card_no}: {a.card_short_name}' ] = a.card_mac_address
         txn.abort()
         return ret
 
     def get_adapters(self):
-        txn = wx.GetApp().chdb.rtxn()
+        txn = wx.GetApp().devdb.rtxn()
         ret={}
-        for a in  pychdb.fe.list_all_by_adapter_no(txn):
+        for a in  pydevdb.fe.list_all_by_adapter_no(txn):
             ret[f'{a.adapter_no}: {a.adapter_name}' ] = a.k.adapter_mac_address
         txn.abort()
         return ret
 
     def __init__(self, *args, **kwds):
+        self.devdb=pydevdb.devdb()
         self.chdb=pychdb.chdb()
         self.epgdb=pyepgdb.epgdb()
         self.recdb=pyrecdb.recdb()
         self.statdb=pystatdb.statdb()
+        self.devdb.open(options.devdb)
         self.chdb.open(options.chdb)
         self.epgdb.open(options.epgdb)
         self.recdb.open(options.recdb)

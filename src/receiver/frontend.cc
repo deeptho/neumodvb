@@ -456,7 +456,7 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 
 		dvbs_mux->frequency is the frequency which we were asked to tune
 			*/
-	tuned_frequency = ret.stat.k.frequency;
+	ts.writeAccess()->tuned_frequency = ret.stat.k.frequency;
 	if (api == api_type_t::NEUMO) {
 		ret.matype = cmdseq.get(DTV_MATYPE)->u.data;
 		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.driver_mux);
@@ -581,6 +581,9 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& r
 		} else {
 			cmdseq.add(DTV_ISI_LIST);
 		}
+		if(api_version >=1400) {
+			cmdseq.add(DTV_RF_INPUT);
+		}
 	}
 	auto fefd = ts.readAccess()->fefd;
 	return cmdseq.get_properties(fefd);
@@ -676,9 +679,9 @@ int dvb_frontend_t::stop() {
 		a new mux is being tuned.
 
 	 */
-	auto m = monitor_thread.lock();
+	auto m = monitor_thread;
 	std::future<int> f;
-	if (m) {
+	if (m.get()) {
 		f = m->push_task( [&m] () {
 			cb(*m).pause();
 			return 0;
@@ -707,6 +710,21 @@ int dvb_frontend_t::stop() {
 
 	return 0;
 }
+
+int dvb_frontend_t::start() {
+	auto m = monitor_thread;
+	std::future<int> f;
+	if (m.get()) {
+		//need tp push by value as we don't wait for call to complete
+		f = m->push_task( [m] () {
+			cb(*m).unpause();
+			return 0;
+		});
+	}
+	return 0;
+}
+
+
 
 /*
 	returns two fields indicating the current lock status,
@@ -922,28 +940,6 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 }
 
 
-void dvb_frontend_t::set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, devdb::lnb_t& lnb) {
-
-	auto [band, voltage_, freq_] = devdb::lnb::band_voltage_freq_for_mux(lnb, dvbs_mux);
-	/*
-		extra_lof_offset is the currently observed offset, after having corrected LOF by
-		the last known value of lnb.lof_offsets[band]
-	*/
-
-	if (lnb.lof_offsets.size() <= band + 1) {
-		// make sure both entries exist
-		for (int i = lnb.lof_offsets.size(); i < band + 1; ++i)
-			lnb.lof_offsets.push_back(0);
-	}
-	auto old = lnb.lof_offsets[band];
-	float learning_rate = 0.2;
-	int delta = (int)tuned_frequency - (int)dvbs_mux.frequency; //additional correction  needed
-	lnb.lof_offsets[band] += learning_rate * delta;
-
-	dtdebugx("Updated LOF: %d => %d", old, lnb.lof_offsets[band]);
-	if (std::abs(lnb.lof_offsets[band]) > 5000)
-		lnb.lof_offsets[band] = 0;
-}
 
 void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 	auto w = this->ts.writeAccess();
@@ -955,33 +951,6 @@ void dvb_frontend_t::update_bad_received_si_mux(const std::optional<chdb::any_mu
 	w->bad_received_si_mux = mux;
 }
 
-//called from tuner thread
-void dvb_frontend_t::update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation) {
-	auto w = this->ts.writeAccess();
-	if(!w->tune_confirmation.nit_actual_received && tune_confirmation.nit_actual_received) {
-		const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
-		if(dvbs_mux) {
-			using namespace chdb;
-			//ss::vector<int32_t, 2> lof_offsets;
-			auto& lnb = w->reserved_lnb;
-			set_lnb_lof_offset(*dvbs_mux, lnb);
-			auto lof_offsets = lnb.lof_offsets;
-			auto m = monitor_thread.lock();
-			if(m) {
-				auto& tuner_thread = m->receiver.tuner_thread;
-				int fefd = ts.readAccess()->fefd;
-				if(dvbs_mux->c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
-					dtdebug("Updating LNB LOF offset");
-					tuner_thread.push_task([&tuner_thread, fefd, lof_offsets = std::move(lof_offsets)]() {
-						cb(tuner_thread).on_lnb_lof_offset_update(fefd, lof_offsets);
-						return 0;
-					});
-				}
-			}
-		}
-	}
-	w->tune_confirmation = tune_confirmation;
-}
 
 template <typename mux_t> bool dvb_frontend_t::is_tuned_to(const mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	return this->ts.readAccess()->is_tuned_to(mux, required_lnb);
@@ -1128,17 +1097,18 @@ void cmdseq_t::init_pls_codes() {
 int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options) {
 	this->ts.writeAccess()->tune_options = tune_options;
 	// Clear old tune_mux_confirmation info
-	this->update_tuned_mux_tune_confirmation({});
+	this->reset_tuned_mux_tune_confirmation();
 
 	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO;
 
 	auto ret = -1;
-	dtdebug("Tuning adapter [ " << (int) adapter_no << "] DVB-S to " << mux << (blindscan ? "BLIND" : ""));
+	dtdebug("Tuning adapter [ " << (int) adapter_no << "] rf_in=" << (int) lnb.k.rf_input
+					<< " DVB-S to " << mux << (blindscan ? "BLIND" : ""));
 
 	current_delsys_type = chdb::delsys_type_t::DVB_S;
 	//||(mux.symbol_rate < 1000000 &&  ts.readAccess()->dbfe.supports.blindscan);
 	int num_constellation_samples = tune_options.constellation_options.num_samples;
-	tuned_frequency = mux.frequency;
+	ts.writeAccess()->tuned_frequency = mux.frequency;
 
 	cmdseq_t cmdseq;
 	this->num_constellation_samples = num_constellation_samples;
@@ -1246,6 +1216,14 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 	int ret;
 	int new_usals_sat_pos;
 	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
+	if(api_version >=1400) {
+		auto fefd = ts.readAccess()->fefd;
+		assert(ts.readAccess()->dbfe.rf_inputs.contains(lnb.k.rf_input));
+		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) lnb.k.rf_input))) {
+			printf("problem Setting rf_input% %s\n", strerror(errno));
+			return {-1, new_usals_sat_pos};
+		}
+	}
 	if (need_diseqc) {
 		std::tie(ret, new_usals_sat_pos) =
 			this->do_lnb_and_diseqc(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol));
@@ -1259,6 +1237,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 	ret = this->tune_(lnb, *dvbs_mux, tune_options);
 	if (ret < 0)
 		return {ret, new_usals_sat_pos};
+	this->start();
 	return {0, new_usals_sat_pos};
 }
 
@@ -1267,7 +1246,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tune_options) {
 	this->ts.writeAccess()->tune_options = tune_options;
 	// Clear old tune_mux_confirmation info
-	this->update_tuned_mux_tune_confirmation({});
+	this->reset_tuned_mux_tune_confirmation();
 
 	bool blindscan = tune_options.use_blind_tune;
 
@@ -1278,7 +1257,7 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 	this->num_constellation_samples = 0;
 	cmdseq_t cmdseq;
 	// any system
-	tuned_frequency = mux.frequency;
+	ts.writeAccess()->tuned_frequency = mux.frequency;
 
 	cmdseq.add(DTV_FREQUENCY, mux.frequency * 1000); // For DVB-C, it is measured in Hz.
 	cmdseq.add(DTV_INVERSION, mux.inversion);
@@ -1301,7 +1280,7 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tune_options) {
 	this->ts.writeAccess()->tune_options = tune_options;
 	// Clear old tune_mux_confirmation info
-	this->update_tuned_mux_tune_confirmation({});
+	this->reset_tuned_mux_tune_confirmation();
 
 	bool blindscan = tune_options.use_blind_tune;
 
@@ -1334,7 +1313,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 		return -1;
 	}
 	cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
-	tuned_frequency = mux.frequency;
+	ts.writeAccess()->tuned_frequency = mux.frequency;
 
 	cmdseq.add(DTV_FREQUENCY, mux.frequency * 1000); // For DVB-T, it is measured in Hz.
 	cmdseq.add(DTV_BANDWIDTH_HZ, dvbt_bandwidth);
@@ -1449,16 +1428,14 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::lnb_t& lnb, spectrum_sc
 }
 
 void dvb_frontend_t::start_frontend_monitor() {
-	auto m = monitor_thread.lock();
-	assert(!m); //monitor_thread  should not be running
+	assert(!monitor_thread.get()); //monitor_thread  should not be running
 	auto self = shared_from_this();
-	auto p = fe_monitor_thread_t::make(adaptermgr->receiver, self);
+	monitor_thread = fe_monitor_thread_t::make(adaptermgr->receiver, self);
 }
 
 void dvb_frontend_t::stop_frontend_monitor_and_wait() {
-	auto m = monitor_thread.lock();
-	if(m)
-		m->stop_running(true);
+	assert(monitor_thread.get());
+	monitor_thread->stop_running(true);
 }
 
 devdb::usals_location_t dvb_frontend_t::get_usals_location() const {
@@ -1476,7 +1453,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::lnb_t& lnb) {
 		auto w = ts.writeAccess();
 		w->reserved_mux = {};
 		w->reserved_lnb = lnb;
-		if(!monitor_thread.lock()) {
+		if(!monitor_thread.get()) {
 			start_frontend_monitor();
 		} else {
 			assert(this->ts.readAccess()->fefd >= 0);
@@ -1494,12 +1471,11 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::lnb_t& lnb, const chdb::dv
 		auto w = this->ts.writeAccess();
 		w->reserved_mux = mux;
 		w->reserved_lnb = lnb;
-
-		if (!monitor_thread.lock()) {
-			start_frontend_monitor();
-		} else {
-			assert(this->ts.readAccess()->fefd >= 0);
-		}
+	}
+	if (!monitor_thread.get()) {
+		start_frontend_monitor();
+	} else {
+		assert(this->ts.readAccess()->fefd >= 0);
 	}
 	return ret;
 }
@@ -1509,11 +1485,13 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::lnb_t& lnb, const chdb::dv
 
 template<typename mux_t>
 int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
-	auto w = this->ts.writeAccess();
-	status.retune_count = 0;
-	w->reserved_mux = mux;
-	w->reserved_lnb = devdb::lnb_t();
-	if (!monitor_thread.lock()) {
+	{
+		auto w = this->ts.writeAccess();
+		status.retune_count = 0;
+		w->reserved_mux = mux;
+		w->reserved_lnb = devdb::lnb_t();
+	}
+	if (!monitor_thread.get()) {
 
 		start_frontend_monitor();
 	} else {
@@ -1525,13 +1503,8 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 int dvb_frontend_t::release_fe() {
 	std::shared_ptr<dvb_frontend_t> fe{nullptr};
 	int ret = 0;
-	{
-
-		auto w = this->ts.writeAccess();
-
-		dtdebugx("releasing frontend_monitor: fefd=%d\n", this->ts.readAccess()->fefd);
-	}
-	if (ret == 0 && monitor_thread.lock()) {
+	dtdebugx("releasing frontend_monitor: fefd=%d\n", this->ts.readAccess()->fefd);
+	if (ret == 0 && monitor_thread.get()) {
 		stop_frontend_monitor_and_wait();
 		monitor_thread.reset();
 	}

@@ -25,6 +25,7 @@
 #include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
+#include <signal.h>
 
 #include "../util/neumovariant.h"
 
@@ -723,21 +724,37 @@ void devdb::lnb::update_lnb_adapter_fields(db_txn& wtxn, const devdb::fe_t& fe) 
 	for(auto lnb : c.range()) {
 		ss::string<32> name;
 		name.clear();
-		if (lnb.card_no >=0)
-			name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
-		else
-			name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
+		auto valid_rf_input = fe.rf_inputs.contains(lnb.k.rf_input);
+		if (lnb.card_no >=0) {
+			if(valid_rf_input)
+				name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
+			else
+				name.sprintf("C%d#?? %s", lnb.card_no, fe.card_short_name.c_str());
+		} else {
+			if(valid_rf_input)
+				name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
+			else
+				name.sprintf("C??#?? %s", fe.card_short_name.c_str());
+		}
 		assert (lnb.k.card_mac_address == fe.card_mac_address);
-		bool changed = (lnb.name != name) ||(lnb.card_no != fe.card_no) || (lnb.can_be_used != fe.can_be_used);
+		auto can_be_used =  valid_rf_input ? fe.can_be_used : false;
+		bool changed = (lnb.name != name) ||(lnb.card_no != fe.card_no) || (lnb.can_be_used != can_be_used);
 		if (!changed)
 			continue;
 		lnb.name = name;
 		lnb.card_no = fe.card_no;
-		lnb.can_be_used = fe.can_be_used;
+		lnb.can_be_used = can_be_used;
 		put_record(wtxn, lnb);
 	}
 }
 
+
+/*
+	In case two rf inputs on the same or different cards are connected to the same
+	cable, this can be indicated by rf_input_t records which for each rf input contain a
+	switch_id>=0. rf_inputs with the same switch_id care connected. rf_inputs witjout switch_id are not connected
+
+ */
 int devdb::lnb::switch_id(db_txn& rtxn, const devdb::lnb_key_t& lnb_key) {
 	rf_input_key_t k{lnb_key.card_mac_address, lnb_key.rf_input};
 	auto c = devdb::rf_input_t::find_by_key(rtxn, k);
@@ -768,4 +785,15 @@ void devdb::lnb::on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux
 			break;
 		}
 	}
+}
+
+
+bool devdb::fe::is_subscribed(const fe_t& fe) {
+	if (fe.sub.owner < 0)
+		return false;
+	if( kill((pid_t)fe.sub.owner, 0)) {
+		dtdebugx("process pid=%d has died\n", fe.sub.owner);
+		return false;
+	}
+	return true;
 }

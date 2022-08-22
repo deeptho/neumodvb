@@ -32,6 +32,7 @@ from neumodvb.util import dtdebug, dterror
 
 import pyreceiver
 import pychdb
+import pydevdb
 import pystatdb
 from pyreceiver import get_object as get_object_
 
@@ -269,12 +270,12 @@ class TuneMuxPanel(TuneMuxPanel_):
         txn = wx.GetApp().chdb.rtxn()
         if lnb is None and (mux is not None or sat is not None):
             #initialise from mux
-            lnb = pychdb.lnb.select_lnb(txn, sat, mux)
+            lnb = pydevdb.lnb.select_lnb(txn, sat, mux)
             if lnb is None:
                 return None, None, None
         if lnb is not None:
             #if mux is None on input, the following call will pick a mux on the sat to which the rotor points
-            mux = pychdb.lnb.select_reference_mux(txn, lnb, mux)
+            mux = pydevdb.lnb.select_reference_mux(txn, lnb, mux)
             if mux.k.sat_pos != pychdb.sat.sat_pos_none:
                 sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos)
             elif  len(lnb.networks)>0:
@@ -298,7 +299,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             txn = wx.GetApp().chdb.wtxn()
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
-            pychdb.lnb.update_lnb(txn, self.lnb)
+            pydevdb.lnb.update_lnb(txn, self.lnb)
             txn.commit()
         self.lnb_changed = False
         if event:
@@ -310,11 +311,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         ok = ShowOkCancel("Reset LOF offset?", f"Do you wish to reset the estimate local oscillator "
                           "ofset for this LNB?")
         if ok:
-            pychdb.lnb.reset_lof_offset(self.lnb)
+            pydevdb.lnb.reset_lof_offset(self.lnb)
             txn = wx.GetApp().chdb.wtxn()
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
-            pychdb.lnb.update_lnb(txn, self.lnb)
+            pydevdb.lnb.update_lnb(txn, self.lnb)
             txn.commit()
             self.lnb_changed = False
         if event:
@@ -365,7 +366,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.muxedit_grid.table.FinalizeUnsavedEdits()
         self.UpdateRefMux(self.mux)
         dtdebug(f"positioner: subscribing to lnb={self.lnb} mux={self.mux}")
-        can_tune, error = pychdb.lnb_can_tune_to_mux(self.lnb, self.mux)
+        can_tune, error = pydevdb.lnb_can_tune_to_mux(self.lnb, self.mux)
         if not can_tune:
             ShowMessage(f"Cannot tune to {self.mux}: {error}")
             if event is not None:
@@ -501,7 +502,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         else:
             #we need to also select a different satellite
             txn = wx.GetApp().chdb.rtxn()
-            mux = pychdb.lnb.select_reference_mux(txn, self.lnb, None)
+            mux = pydevdb.lnb.select_reference_mux(txn, self.lnb, None)
             assert mux.k.sat_pos != pychdb.sat.sat_pos_none
             sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos)
             if sat is None:
@@ -531,11 +532,11 @@ class TuneMuxPanel(TuneMuxPanel_):
             if not added:
                 return
             self.lnb_changed = True
-            network = pychdb.lnb_network.lnb_network()
+            network = pydevdb.lnb_network.lnb_network()
             network.sat_pos = sat.sat_pos
             network.usals_pos = sat.sat_pos
             dtdebug(f"Saving new lnb network: lnb={self.lnb} network={network}")
-            added = pychdb.lnb.add_network(self.lnb, network)
+            added = pydevdb.lnb.add_network(self.lnb, network)
         else:
             ShowMessage("Network unavailable",
                          f"Network {sat} not defined for lnb {self.lnb} on fixed this. Add it in lnb list first")
@@ -868,8 +869,8 @@ class PositionerDialog(PositionerDialog_):
         self.SetPosition(sat_pos)
 
     def positioner_command(self, *args):
-        if self.lnb.rotor_control in (pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12,
-                                      pychdb.rotor_control_t.ROTOR_MASTER_USALS):
+        if self.lnb.rotor_control in (pydevdb.rotor_control_t.ROTOR_MASTER_DISEQC12,
+                                      pydevdb.rotor_control_t.ROTOR_MASTER_USALS):
             if self.lnb_subscriber.positioner_cmd(*args) >= 0:
                 return True
             else:
@@ -900,7 +901,7 @@ class PositionerDialog(PositionerDialog_):
                 network.usals_pos = usals_pos
                 self.tune_mux_panel.lnb_changed = True
                 dtdebug(f"Goto XX {usals_pos}" )
-                ret=self.positioner_command(pychdb.positioner_cmd_t.GOTO_XX, usals_pos)
+                ret=self.positioner_command(pydevdb.positioner_cmd_t.GOTO_XX, usals_pos)
                 assert ret>=0
                 return
         dtdebug(f"lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
@@ -914,7 +915,7 @@ class PositionerDialog(PositionerDialog_):
                 self.tune_mux_panel.diseqc12 = diseqc12
                 dtdebug(f"updated lnb diseqc12 position: lnb={self.lnb} diseqc12={diseqc12}")
                 #dtdebug(f"Goto NN: {diseqc12}")
-                #self.tune_mux_panel.diseqc12_command(pychdb.positioner_cmd_t.GOTO_NN, diseqc12)
+                #self.tune_mux_panel.diseqc12_command(pydevdb.positioner_cmd_t.GOTO_NN, diseqc12)
                 return
         dtdebug("lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
 
@@ -922,13 +923,13 @@ class PositionerDialog(PositionerDialog_):
         self.lnb.rotor_control = self.diseqc_type_choice.GetValue()
         dtdebug(f"diseqc type set to {self.lnb.rotor_control}")
         self.tune_mux_panel.lnb_changed = True
-        t = pychdb.rotor_control_t
+        t = pydevdb.rotor_control_t
         self.enable_disable_diseqc_panels()
         self.tune_mux_panel.lnb_changed = True
         event.Skip()
 
     def enable_disable_diseqc_panels(self):
-        t = pychdb.rotor_control_t
+        t = pydevdb.rotor_control_t
         if self.lnb.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_SLAVE, t.FIXED_DISH):
             self.diseqc12_panel.Disable()
         else:
@@ -979,7 +980,7 @@ class PositionerDialog(PositionerDialog_):
 
     def OnStopPositioner(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Stop Positioner")
-        self.positioner_command(pychdb.positioner_cmd_t.HALT)
+        self.positioner_command(pydevdb.positioner_cmd_t.HALT)
         event.Skip()
 
     def OnLattitudeChanged(self, evt):  # wxGlade: PositionerDialog_.<event_handler>
@@ -1028,7 +1029,7 @@ class PositionerDialog(PositionerDialog_):
 
     def OnStorePosition(self, evt):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug(f"Diseqc12 position stored: {self.tune_mux_panel.diseqc12}")
-        self.diseqc12_command(pychdb.positioner_cmd_t.STORE_NN, self.tune_mux_panel.diseqc12)
+        self.diseqc12_command(pydevdb.positioner_cmd_t.STORE_NN, self.tune_mux_panel.diseqc12)
         evt.Skip()
 
     def OnDiseqc12PositionChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
@@ -1039,7 +1040,7 @@ class PositionerDialog(PositionerDialog_):
 
     def OnGotoRef(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Goto ref")
-        self.positioner_command(pychdb.positioner_cmd_t.GOTO_REF)
+        self.positioner_command(pydevdb.positioner_cmd_t.GOTO_REF)
         event.Skip()
 
     def OnGotoSat(self, event):  # wxGlade: PositionerDialog_.<event_handler>
@@ -1048,16 +1049,16 @@ class PositionerDialog(PositionerDialog_):
         self.tune_mux_panel.muxedit_grid.table.FinalizeUnsavedEdits()
         self.tune_mux_panel.UpdateRefMux(self.mux)
         txn = wx.GetApp().chdb.rtxn()
-        lnb = pychdb.lnb.find_by_key(txn, self.lnb.k) #reread the networks
+        lnb = pydevdb.lnb.find_by_key(txn, self.lnb.k) #reread the networks
         txn.abort()
         del txn
         network = get_network(lnb, self.sat.sat_pos)
         pos = network.usals_pos
-        if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_USALS:
-            self.positioner_command(pychdb.positioner_cmd_t.GOTO_XX, pos)
+        if self.lnb.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_USALS:
+            self.positioner_command(pydevdb.positioner_cmd_t.GOTO_XX, pos)
             self.UpdateUsalsPosition(pos)
-        elif self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
-            self.positioner_command(pychdb.positioner_cmd_t.GOTO_NN, network.diseqc12)
+        elif self.lnb.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
+            self.positioner_command(pydevdb.positioner_cmd_t.GOTO_NN, network.diseqc12)
             self.SetDiseqc12(network.diseqc12)
         else:
             ShowMessage("Cannot goto sat",
@@ -1070,7 +1071,7 @@ class PositionerDialog(PositionerDialog_):
 
     def OnGotoPosition(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug(f"Goto NN: diseqc12={self.tune_mux_panel.diseqc12}")
-        self.positioner_command(pychdb.positioner_cmd_t.GOTO_NN, self.tune_mux_panel.diseqc12)
+        self.positioner_command(pydevdb.positioner_cmd_t.GOTO_NN, self.tune_mux_panel.diseqc12)
         event.Skip()
 
     def OnToggleGotoEast(self, event):  # wxGlade: PositionerDialog_.<event_handler>
@@ -1078,11 +1079,11 @@ class PositionerDialog(PositionerDialog_):
             dtdebug("Drive east")
             self.continuous_motion = 1 # going east
             self.goto_west_toggle.SetValue(0)
-            self.positioner_command(pychdb.positioner_cmd_t.DRIVE_EAST, 0) #0=drive continuous
+            self.positioner_command(pydevdb.positioner_cmd_t.DRIVE_EAST, 0) #0=drive continuous
         else:
             dtdebug("End Drive east")
             self.continuous_motion = 0
-            self.positioner_command(pychdb.positioner_cmd_t.HALT)
+            self.positioner_command(pydevdb.positioner_cmd_t.HALT)
 
         event.Skip()
 
@@ -1091,35 +1092,35 @@ class PositionerDialog(PositionerDialog_):
             dtdebug("Drive west")
             self.continuous_motion = -1 # going west
             self.goto_east_toggle.SetValue(0)
-            self.positioner_command(pychdb.positioner_cmd_t.DRIVE_WEST, 0) #0=drive continuous
+            self.positioner_command(pydevdb.positioner_cmd_t.DRIVE_WEST, 0) #0=drive continuous
         else:
             dtdebug("End Drive west")
             self.continuous_motion = 0
-            self.positioner_command(pychdb.positioner_cmd_t.HALT)
+            self.positioner_command(pydevdb.positioner_cmd_t.HALT)
 
         event.Skip()
 
     def OnStepEast(self, event):
-        self.positioner_command(pychdb.positioner_cmd_t.DRIVE_EAST, -1)
+        self.positioner_command(pydevdb.positioner_cmd_t.DRIVE_EAST, -1)
         event.Skip()
 
     def OnStepWest(self, event):
-        self.positioner_command(pychdb.positioner_cmd_t.DRIVE_WEST, -1)
+        self.positioner_command(pydevdb.positioner_cmd_t.DRIVE_WEST, -1)
         event.Skip()
 
     def OnSetEastLimit(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Set east limit")
-        self.positioner_command(pychdb.positioner_cmd_t.LIMIT_EAST)
+        self.positioner_command(pydevdb.positioner_cmd_t.LIMIT_EAST)
         event.Skip()
 
     def OnDisableLimits(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Disable limits")
-        self.positioner_command(pychdb.positioner_cmd_t.LIMITS_OFF)
+        self.positioner_command(pydevdb.positioner_cmd_t.LIMITS_OFF)
         event.Skip()
 
     def OnSetWestLimit(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Set west limit")
-        self.positioner_command(pychdb.positioner_cmd_t.LIMIT_WEST)
+        self.positioner_command(pydevdb.positioner_cmd_t.LIMIT_WEST)
         event.Skip()
 
 def show_positioner_dialog(caller, sat=None, lnb=None, mux=None):

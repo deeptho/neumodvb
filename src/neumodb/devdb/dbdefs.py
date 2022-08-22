@@ -14,7 +14,7 @@ dbname = 'devdb'
 from generators import set_env, db_db, db_struct, db_enum, db_include
 
 
-gen_options = set_env(this_dir= get_scriptdir(), dbname=dbname, db_type_id='c', output_dir=None)
+gen_options = set_env(this_dir= get_scriptdir(), dbname=dbname, db_type_id='b', output_dir=None)
 
 db = db_db(gen_options)
 
@@ -323,13 +323,6 @@ fe = db_struct(name='fe',
                    (30, 'uint8_t', 'enable_dvbt', 'true'),
                    (31, 'uint8_t', 'enable_dvbc', 'true'),
                    (5, 'int16_t', 'priority', 0),
-
-                   #link_group_id: -1 means not linked
-                   #(6, 'int16_t', 'link_group_id', -1),
-
-                   #master_tuner_id: -1 means not linked
-	                 #(7, 'int8_t', 'tuner_group', -1),   #index of group of linked tuner which share some restrictions
-                   #(23, 'int64_t', 'master_adapter_mac_address', -1),
 
                    (28, 'fe_subscription_t', 'sub'),
 

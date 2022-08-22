@@ -172,6 +172,15 @@ py::object test(db_txn& txn) {
 py::object degraded_export(db_txn& txn) {
 	auto& db = *txn.pdb;
 	py::list list;
+	schema::neumo_schema_t s;
+	auto cs = schema::neumo_schema_t::find_by_key(txn, s.k, find_eq);
+	dbdesc_t stored_dbdesc;
+	if(cs.is_valid()) {
+		auto rec = cs.current();
+		ss::vector_<record_desc_t> converted;
+		convert_schema(rec.schema, converted);
+		stored_dbdesc.init(converted);
+	}
 	auto c = db.generic_get_first(txn);
 	for (auto status = c.is_valid(); status; status = c.next()) {
 		ss::bytebuffer<32> key;
@@ -183,20 +192,18 @@ py::object degraded_export(db_txn& txn) {
 		uint32_t type_id;
 		decode_ascending(type_id, key, 0);
 		//read record
-		auto& dbdesc = *db.dbdesc;
-		auto it = dbdesc.schema_map.find(type_id);
-		if (it != dbdesc.schema_map.end()) {
+		auto it = stored_dbdesc.schema_map.find(type_id);
+		if (it != stored_dbdesc.schema_map.end()) {
 			ss::bytebuffer<256>  ser;
 			c.get_serialized_value(ser);
 			//const auto& tst = it->second;
 			const auto& schema = it->second.record_desc;
-			auto [val, new_offset] = deserialize_safe_to_python (ser, schema, dbdesc, 0);
+			auto [val, new_offset] = deserialize_safe_to_python (ser, schema, stored_dbdesc, 0);
 			py::dict rec;
 			rec["type"] = schema.name.c_str();
 			rec["data"] = val;
 			list.append(rec);
 		}
-
 	}
 	return std::move(list);
 }

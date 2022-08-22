@@ -15,38 +15,39 @@ import pychdb
 import pydevdb
 import pyschemadb
 
-os.system("cp -r /mnt/neumo/db/chdb.mdb/ /mnt/neumo/db/devdb.mdb/")
+#os.system("rsync -artSHx --numeric-ids /mnt/neumo/db/chdb.mdb/ /mnt/neumo/db/devdb.mdb/")
 
 
-#chdb = pychdb.chdb()
-#chdb.open("/mnt/neumo/db/chdb.mdb/", allow_degraded_mode=True)
-devdb = pydevdb.devdb()
-devdb.open("/mnt/neumo/db/devdb.mdb/", allow_degraded_mode=True)
-devtxn=devdb.rtxn()
+chdb = pychdb.chdb()
+#in the line below, we open chdb instead of devdb as that is were the data we want was stored in the past
+chdb.open("/mnt/neumo/db/chdb.mdb/", allow_degraded_mode=True)
+chdbtxn = chdb.rtxn()
 
-d=pydeser.degraded_export(devtxn)
+d=pydeser.degraded_export(chdbtxn)
 lnbs=[x for x in d if x['type']=='lnb']
+fes=[x for x in d if x['type']=='fe']
+usals=[x for x in d if x['type']=='usals_location']
 
 
 if False:
-    sort_order = pychdb.service.subfield_from_name('k.service_id')<<24
-    screen=pychdb.lnb.screen(txn, sort_order=sort_order)
+    txn=devdb.rtxn()
+    sort_order = pydevdb.lnb.subfield_from_name('k.card_mac_address')<<24
+    screen=pydevdb.lnb.screen(txn, sort_order=sort_order)
 
+    xxx = []
     for idx in range(screen.list_size):
-        ll = screen.record_at_row(idx)
-        print(ll)
+        xxx.append(screen.record_at_row(idx))
+
+    print([x.usals_pos for x in xxx])
 
 def get_mac_address_dict(txn):
-    sort_order = pydevdb.fe.subfield_from_name('k.adapter_mac_address')<<24
-    screen=pydevdb.fe.screen(txn, sort_order=sort_order)
     ret={}
     ret1={}
-    for idx in range(screen.list_size):
-        ll = screen.record_at_row(idx)
-        ret[ll.k.adapter_mac_address] = ll.card_mac_address
-        ret1[ll.k.adapter_mac_address] = ll.adapter_no
+    for fe in fes:
+        ret [fe['data']['k']['adapter_mac_address']] = fe['data']['card_mac_address']
+        ret1[fe['data']['k']['adapter_mac_address']] = fe['data']['adapter_no']
     return ret, ret1
-mac_address_dict, rf_in_dict = get_mac_address_dict(devtxn)
+mac_address_dict, rf_in_dict = get_mac_address_dict(chdbtxn)
 
 
 newlnbs=[]
@@ -84,12 +85,35 @@ for lnb_ in lnbs:
         newlnb.lof_offsets.push_back(o)
     newlnbs.append(newlnb)
 
-devtxn.commit()
+newfes=[]
+for fe_ in fes:
+    fe = fe_['data']
+    k = fe['k']
+    newfe=pydevdb.fe.fe()
+    newfe.k.adapter_mac_address = k['adapter_mac_address']
+    newfe.k.frontend_no = k['frontend_no']
+    for key in [ "card_no", "rf_in", "adapter_no", "supports_neumo","present", "can_be_used",
+                 "enable_dvbs", "enable_dvbt", "enable_dvbc", "priority", "mtime", "frequency_min",
+                 "frequency_max", "symbol_rate_max", "symbol_rate_min", "card_mac_address" ,
+                 "card_name", "card_short_name", "adapter_name", "card_address"]:
+        setattr(newfe, key, fe[key])
+    for delsys in  fe["delsys"]:
+        newfe.delsys.push_back(pychdb.fe_delsys_t(delsys))
+    for rf_input in  fe["rf_inputs"]:
+        newfe.rf_inputs.push_back(rf_input)
+
+    for kk,v in fe['supports'].items():
+        setattr(newfe.supports, kk, v)
+    newfes.append(newfe)
+
+chdbtxn.abort()
 
 if True:
     devdb = pydevdb.devdb()
-    devdb.open("/mnt/neumo/db/devb.mdb/", allow_degraded_mode=False)
+    devdb.open("/mnt/neumo/db/devdb.mdb/", allow_degraded_mode=False)
     txn=devdb.wtxn()
     for lnb in newlnbs:
         pydevdb.put_record(txn, lnb)
+    for fe in newfes:
+        pydevdb.put_record(txn, fe)
     txn.commit()

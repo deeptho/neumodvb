@@ -1456,7 +1456,8 @@ void dvb_frontend_t::start_frontend_monitor() {
 
 void dvb_frontend_t::stop_frontend_monitor_and_wait() {
 	auto m = monitor_thread.lock();
-	m->stop_running(true);
+	if(m)
+		m->stop_running(true);
 }
 
 chdb::usals_location_t dvb_frontend_t::get_usals_location() const {

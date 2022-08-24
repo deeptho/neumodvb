@@ -136,7 +136,9 @@ int fe::dish_subscription_count(db_txn& rtxn, int dish_id) {
 
 int fe::lnb_subscription_count(db_txn& rtxn, const lnb_key_t& lnb_key) {
 	int ret{0};
-	auto c = find_first<fe_t>(rtxn);
+	auto c = fe_t::find_by_card_mac_address(rtxn, lnb_key.card_mac_address, find_type_t::find_eq,
+																					fe_t::partial_keys_t::card_mac_address);
+
 	for(const auto& fe: c.range()) {
 		if( !fe::is_subscribed(fe) || fe.sub.lnb_key != lnb_key )
 			continue;
@@ -207,7 +209,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 																									 chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos) {
 
 	//TODO: clean subscriptions at startup
-	auto switch_id= devdb::lnb::switch_id(rtxn, lnb.k);
+	auto switch_id = devdb::lnb::switch_id(rtxn, lnb.k);
 	auto lnb_on_positioner = devdb::lnb::on_positioner(lnb);
 
 	bool need_exclusivity = pol == chdb::fe_polarisation_t::NONE ||
@@ -219,9 +221,16 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 	auto no_best_fe_yet = [&best_fe]()
 		{ return best_fe.priority == std::numeric_limits<decltype(best_fe.priority)>::lowest(); };
 
+	/*
+		One adapter can have multiple frontends, and therefore multiple fe_t records.
+		We must check all of them
+	 */
 	auto adapter_in_use = [&rtxn](int adapter_no) {
-		auto c = fe_t::find_by_adapter_no(rtxn, adapter_no);
+		auto c = fe_t::find_by_adapter_no(rtxn, adapter_no, find_type_t::find_eq, devdb::fe_t::partial_keys_t::adapter_no);
 		for(const auto& fe: c.range()) {
+			assert(fe.adapter_no  == adapter_no);
+			if(!fe.present)
+				continue;
 			if(fe::is_subscribed(fe))
 				return true;
 		}
@@ -273,17 +282,14 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 			std::abs(usals_pos - fe.sub.usals_pos) >=30; //dish would need to be moved more than 0.3 degree
 	};
 
-	auto c = fe_t::find_by_card_mac_address(rtxn, lnb.k.card_mac_address);
+	auto c = fe_t::find_by_card_mac_address(rtxn, lnb.k.card_mac_address, find_type_t::find_eq,
+																					fe_t::partial_keys_t::card_mac_address);
 	for(const auto& fe: c.range()) {
-		assert(fe.sub.lnb_key.card_mac_address == lnb.k.card_mac_address);
+		assert(fe.card_mac_address == lnb.k.card_mac_address);
 		assert(fe.sub.lnb_key.rf_input != lnb.k.rf_input || fe.sub.lnb_key == lnb.k);
 		bool is_subscribed = fe::is_subscribed(fe) && (fe_key_to_release && fe.k != *fe_key_to_release);
 		if(!is_subscribed) {
-			if(adapter_in_use(fe.adapter_no))
-				continue; /*adapter is on use for dvbc/dvt; it cannot be used, but the
-										fe we found is not in use and cannot create conflicts with any other frontends*/
-
-			//find the best fe will all required functionality, without taking into account other subscriptions
+//find the best fe will all required functionality, without taking into account other subscriptions
 			if(!fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
 				continue; /* The fe does not currently exist, or it cannot use DVBS. So it
 									 can also not create conflicts with other fes*/
@@ -307,6 +313,10 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 				continue;  /* we cannot use the LNB with this fe, and as it is not subscribed it
 											conflicts for using the LNB with other fes => so no "continue"
 									 */
+
+			if(adapter_in_use(fe.adapter_no))
+				continue; /*adapter is on use for dvbc/dvt; it cannot be used, but the
+										fe we found is not in use and cannot create conflicts with any other frontends*/
 
 			if(need_spectrum) {
 				assert (no_best_fe_yet() || best_fe.supports.spectrum_fft || best_fe.supports.spectrum_sweep);
@@ -395,8 +405,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																			const devdb::fe_key_t* fe_key_to_release,
 																			bool may_move_dish, bool use_blind_tune,
 																			int dish_move_penalty, int resource_reuse_bonus) {
-	using namespace chdb;
-	auto c = find_first<devdb::lnb_t>(rtxn);
+	using namespace devdb;
 	int best_lnb_prio = std::numeric_limits<int>::min();
 	int best_fe_prio = std::numeric_limits<int>::min();
 	// best lnb sofar, and the corresponding connected frontend
@@ -409,18 +418,26 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		In the loop below, check if the lnb is compatible with the desired mux and tune options.
 		If the lnb is compatible, check check all existing subscriptions for conflicts.
 	*/
-
+	auto c = required_lnb ? lnb_t::find_by_key(rtxn, required_lnb->k, find_type_t::find_eq,
+																						 devdb::lnb_t::partial_keys_t::all)
+		: find_first<devdb::lnb_t>(rtxn);
 	for (auto const& lnb : c.range()) {
+#if 0
 		if (required_lnb && required_lnb->k != lnb.k)
 			continue;
 		auto* plnb = required_lnb ? required_lnb : &lnb;
 		if (!plnb->enabled)
 			continue;
+#else
+		assert(! required_lnb || required_lnb->k == lnb.k);
+		if(!lnb.enabled)
+			continue;
+#endif
 		/*
 			required_lnb may not have been saved in the database and may contain additional networks or
 			edited settings when called from positioner_dialog
 		*/
-		auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(*plnb, mux.k.sat_pos);
+		auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(lnb, mux.k.sat_pos);
 		/*priority==-1 indicates:
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
@@ -432,7 +449,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		if (lnb_is_on_rotor && (!may_move_dish || (! lnb_can_control_rotor && (usals_move_amount >= 30))))
 			continue; //skip because dish movement is not allowed or  not possible
 
-		auto lnb_priority = network_priority >= 0 ? network_priority : plnb->priority;
+		auto lnb_priority = network_priority >= 0 ? network_priority : lnb.priority;
 		auto penalty = dish_needs_to_be_moved_ ? dish_move_penalty : 0;
 		if (!has_network ||
 				(lnb_priority >= 0 && lnb_priority - penalty < best_lnb_prio) //we already have a better fe
@@ -479,7 +496,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 
 		best_fe_prio = fe_prio - penalty;
 		best_lnb_prio = (lnb_priority < 0 ? fe_prio : lnb_priority) - penalty; //<0 means: use fe_priority
-		best_lnb = *plnb;
+		best_lnb = lnb;
 		best_fe = fe;
 		if (required_lnb)
 			break; //we only beed to look at one lnb
@@ -582,7 +599,7 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 
 	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, best_fe->k, *best_lnb, devdb::lnb::band_for_mux(*best_lnb, mux),
 																									 mux.pol);
-	assert(ret>0); //reservation cannot fail as we have a write lock on the db
+	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, best_lnb};
 }
 

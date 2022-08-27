@@ -357,7 +357,7 @@ int active_adapter_t::open_demux(int mode) const {
 	return fd;
 }
 
-void active_adapter_t::update_lof(fe_thread_safe_t& ts, const ss::vector<int32_t, 2>& lof_offsets) {
+void active_adapter_t::update_lof(fe_state_t& ts, const ss::vector<int32_t, 2>& lof_offsets) {
 	auto& lnb = ts.reserved_lnb;
 	lnb.lof_offsets = lof_offsets;
 	auto txn = receiver.chdb.wtxn();

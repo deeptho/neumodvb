@@ -126,7 +126,7 @@ int cmdseq_t::spectrum(int fefd, dtv_fe_spectrum_method method) {
 	return 0;
 }
 
-int dvb_frontend_t::open_device(fe_thread_safe_t& t, bool rw, bool allow_failure) {
+int dvb_frontend_t::open_device(fe_state_t& t, bool rw, bool allow_failure) {
 	if (t.fefd >= 0)
 		return 0; // already open
 
@@ -156,7 +156,7 @@ dvb_frontend_t::~dvb_frontend_t() {
 	}
 }
 
-void dvb_frontend_t::close_device(fe_thread_safe_t& t) {
+void dvb_frontend_t::close_device(fe_state_t& t) {
 	if (t.fefd < 0)
 		return;
 	dtdebugx("closing fefd=%d", t.fefd);
@@ -171,7 +171,7 @@ void dvb_frontend_t::close_device(fe_thread_safe_t& t) {
 /*
 	return -1 on error, 1 on change, 0 on no change
 */
-static int get_frontend_names_dvapi(const adapter_no_t adapter_no, fe_thread_safe_t& t) {
+static int get_frontend_names_dvapi(const adapter_no_t adapter_no, fe_state_t& t) {
 	struct dvb_frontend_info fe_info {}; // front_end_info
 	if (ioctl(t.fefd, FE_GET_INFO, &fe_info) < 0) {
 		dterrorx("FE_GET_FRONTEND_INFO FAILED: %s", strerror(errno));
@@ -203,7 +203,7 @@ static int get_frontend_names_dvapi(const adapter_no_t adapter_no, fe_thread_saf
 }
 
 //	return -1 on error, 1 on change, 0 on no change
-static int get_frontend_names(fe_thread_safe_t& t, int adapter_no, int api_version) {
+static int get_frontend_names(fe_state_t& t, int adapter_no, int api_version) {
 	struct dvb_frontend_extended_info fe_info {}; // front_end_info
 
 	if (ioctl(t.fefd, FE_GET_EXTENDED_INFO, &fe_info) < 0) {
@@ -265,7 +265,7 @@ static int get_frontend_names(fe_thread_safe_t& t, int adapter_no, int api_versi
 }
 
 static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t frontend_no, int api_version,
-														 fe_thread_safe_t& t) {
+														 fe_state_t& t) {
 
 	int ret = get_frontend_names(t, (int)adapter_no, api_version);
 	if (ret < 0)
@@ -316,12 +316,12 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(adaptermgr_t* adaptermgr,
 	auto t = fe->ts.writeAccess();
 	// first try writeable access, then readonly
 	if (fe->open_device(*t, true, true) < 0) {
-		t->can_be_used = false;
+		t->dbfe.can_be_used = false;
 		t->info_valid = (fe->open_device(*t, false, true) == 0);
 		dtdebugx("/dev/dvb/adapter%d/frontend%d currently not useable", (int)fe->adapter_no, (int)fe->frontend_no);
 	} else {
 		t->info_valid = true;
-		t->can_be_used = true;
+		t->dbfe.can_be_used = true;
 		get_frontend_info(adapter_no, frontend_no, api_version, *t);
 
 		if(int64_t(fe->adapter_mac_address) <=0)
@@ -737,9 +737,9 @@ fe_lock_status_t dvb_frontend_t::get_lock_status() {
 	auto& ret = t.lock_status;
 	bool is_locked = ret.fe_status & FE_HAS_LOCK;
 	if (!is_locked) {
-		this->status.set_tune_status(false); // ensures that diseqc will be sent again
+		this->sec_status.set_tune_status(false); // ensures that diseqc will be sent again
 	} else
-		this->status.set_tune_status(true); // ensures that diseqc will be sent again
+		this->sec_status.set_tune_status(true); // ensures that diseqc will be sent again
 	t.lock_status.lock_lost = false;
 	return ret;
 }
@@ -1199,7 +1199,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 	if (user_requested) {
 		this->start_fe_lnb_and_mux(lnb, mux);
 	} else
-		status.retune_count++;
+		this->sec_status.retune_count++;
 
 	bool need_diseqc = this->need_diseqc(lnb, mux);
 
@@ -1220,7 +1220,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(lnb.k.rf_input));
 		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) lnb.k.rf_input))) {
-			printf("problem Setting rf_input% %s\n", strerror(errno));
+			printf("problem Setting rf_input: %s\n", strerror(errno));
 			return {-1, new_usals_sat_pos};
 		}
 	}
@@ -1342,7 +1342,7 @@ int dvb_frontend_t::tune(const mux_t& mux, const tune_options_t& tune_options, b
 	if (user_requested) {
 		this->start_fe_and_dvbc_or_dvbt_mux(mux);
 	} else
-		status.retune_count++;
+		this->sec_status.retune_count++;
 
 	/*
 		open frontend if it is not yet open
@@ -1449,7 +1449,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::lnb_t& lnb) {
 	// auto reservation_type = dvb_adapter_t::reservation_type_t::mux;
 	int ret = 0;
 	{
-		status.retune_count = 0;
+		this->sec_status.retune_count = 0;
 		auto w = ts.writeAccess();
 		w->reserved_mux = {};
 		w->reserved_lnb = lnb;
@@ -1467,7 +1467,7 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::lnb_t& lnb, const chdb::dv
 	// auto reservation_type = dvb_adapter_t::reservation_type_t::mux;
 	int ret = 0;
 	{
-		status.retune_count = 0;
+		this->sec_status.retune_count = 0;
 		auto w = this->ts.writeAccess();
 		w->reserved_mux = mux;
 		w->reserved_lnb = lnb;
@@ -1487,7 +1487,7 @@ template<typename mux_t>
 int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 	{
 		auto w = this->ts.writeAccess();
-		status.retune_count = 0;
+		this->sec_status.retune_count = 0;
 		w->reserved_mux = mux;
 		w->reserved_lnb = devdb::lnb_t();
 	}
@@ -1501,14 +1501,17 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 }
 
 int dvb_frontend_t::release_fe() {
-	std::shared_ptr<dvb_frontend_t> fe{nullptr};
-	int ret = 0;
 	dtdebugx("releasing frontend_monitor: fefd=%d\n", this->ts.readAccess()->fefd);
-	if (ret == 0 && monitor_thread.get()) {
+	if (monitor_thread.get()) {
 		stop_frontend_monitor_and_wait();
 		monitor_thread.reset();
 	}
-	return ret;
+	{
+		*this->ts.writeAccess() = {};
+		*this->signal_monitor.writeAccess() = {};
+		this->sec_status = {};
+	}
+	return 0;
 }
 
 
@@ -1565,7 +1568,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 		switch (command) {
 		case 'M': {
 
-			if (status.set_tone(fefd, SEC_TONE_OFF) < 0)
+			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_sat_pos};
 			msleep(must_pause ? 200 : 30);
 			/*
@@ -1587,7 +1590,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			auto diseqc_10 = lnb.diseqc_10;
 			if (diseqc_10 < 0)
 				break; // can be used to signal that it is off
-			if (status.set_tone(fefd, SEC_TONE_OFF) < 0)
+			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_sat_pos};
 			msleep(must_pause ? 200 : 30);
 			unsigned int extra{0};
@@ -1606,7 +1609,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			if (diseqc_11 < 0)
 				break; // can be used to signal that it is off
 			// uncommitted
-			if (status.set_tone(fefd, SEC_TONE_OFF) < 0)
+			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_sat_pos};
 
 			msleep(must_pause ? 200 : 30);
@@ -1619,7 +1622,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 		case 'X': {
 			if (skip_positioner || !can_move_dish_)
 				break;
-			if (status.set_tone(fefd, SEC_TONE_OFF) < 0)
+			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_sat_pos};
 			msleep(must_pause ? 200 : 30);
 			if (!lnb_only) {
@@ -1640,7 +1643,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 		case 'P': {
 			if (skip_positioner || !can_move_dish_)
 				break;
-			if (status.set_tone(fefd, SEC_TONE_OFF) < 0)
+			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_sat_pos};
 			msleep(must_pause ? 200 : 30);
 			int16_t usals_pos{sat_pos_none};
@@ -1710,11 +1713,11 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(devdb::fe_band_t band, fe_
 		TODO: change this to 18 Volt when using positioner
 	*/
 
-	dtdebugx("SENDING diseqc: retune_count=%d mode=%d", status.retune_count,
+	dtdebugx("SENDING diseqc: retune_count=%d mode=%d", this->sec_status.retune_count,
 					 this->ts.readAccess()->tune_options.subscription_type);
 
 	auto fefd = this->ts.readAccess()->fefd;
-	status.set_voltage(fefd, lnb_voltage);
+	this->sec_status.set_voltage(fefd, lnb_voltage);
 
 	// Note: the following is a NOOP in case no diseqc needs to be sent
 	auto [ ret, new_usals_sat_pos] = diseqc(false /*skip_positioner*/);
@@ -1726,13 +1729,13 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(devdb::fe_band_t band, fe_
 	*/
 
 	fe_sec_tone_mode_t tone = (band == devdb::fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
-	if (status.set_tone(fefd, tone)<0) {
+	if (this->sec_status.set_tone(fefd, tone)<0) {
 		return {-1, new_usals_sat_pos};
 	}
 	return {0, new_usals_sat_pos};
 }
 
-int status_t::set_tone(int fefd, fe_sec_tone_mode mode) {
+int sec_status_t::set_tone(int fefd, fe_sec_tone_mode mode) {
 	if ((int)mode < 0) {
 		assert(0);
 		return -1;
@@ -1750,7 +1753,7 @@ int status_t::set_tone(int fefd, fe_sec_tone_mode mode) {
 	return 1;
 }
 
-int status_t::set_voltage(int fefd, fe_sec_voltage v) {
+int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 	if ((int)v < 0) {
 		assert(0);
 		return -1;
@@ -1801,7 +1804,7 @@ int status_t::set_voltage(int fefd, fe_sec_voltage v) {
 	always send diseqc if tuning has failed
 */
 bool dvb_frontend_t::need_diseqc(const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux) {
-	if (!status.is_tuned())
+	if (!this->sec_status.is_tuned())
 		return true; // always send diseqc if we were not tuned
 	bool is_dvbs =
 		((int)new_mux.delivery_system == SYS_DVBS || new_mux.delivery_system == (chdb::fe_delsys_dvbs_t)SYS_DVBS2);
@@ -1820,7 +1823,7 @@ bool dvb_frontend_t::need_diseqc(const devdb::lnb_t& new_lnb, const chdb::dvbs_m
 }
 
 bool dvb_frontend_t::need_diseqc(const devdb::lnb_t& new_lnb) {
-	if (!status.is_tuned())
+	if (!this->sec_status.is_tuned())
 		return true; // always send diseqc if we were not tuned
 	auto ts = this->ts.readAccess();
 	return (new_lnb.k != ts->reserved_lnb.k);
@@ -1836,13 +1839,13 @@ int dvb_frontend_t::do_lnb(devdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) 
 
 	auto fefd = this->ts.readAccess()->fefd;
 
-	status.set_voltage(fefd, lnb_voltage);
+	this->sec_status.set_voltage(fefd, lnb_voltage);
 	/*select the proper lnb band
 		22KHz: off = low band; on = high band
 	*/
 
 	fe_sec_tone_mode_t tone = (band == devdb::fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
-	if (status.set_tone(fefd, tone)<0) {
+	if (this->sec_status.set_tone(fefd, tone)<0) {
 			dterror("problem Setting the Tone back\n");
 			return -1;
 	}
@@ -1858,23 +1861,23 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 		turn off tone to not interfere with diseqc
 	*/
 	auto fefd = this->ts.readAccess()->fefd;
-	auto old_tone = status.get_tone();
-	auto old_voltage = status.get_voltage();
+	auto old_tone = this->sec_status.get_tone();
+	auto old_voltage = this->sec_status.get_voltage();
 
 
 	if(old_voltage<0 /*unknown*/ || old_voltage == SEC_VOLTAGE_OFF)
-		status.set_voltage(fefd, SEC_VOLTAGE_18);
+		this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18);
 	//turn tone off to send command
-	if (status.set_tone(fefd, SEC_TONE_OFF) < 0)
+	if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 		return -1;
 	msleep(15);
 
 	auto ret = this->send_positioner_message(cmd, par);
 	if (old_voltage >=0 && /* avoid the case where old voltage was "unknown" */
-			status.set_voltage(fefd, old_voltage) < 0)
+			this->sec_status.set_voltage(fefd, old_voltage) < 0)
 		return -1;
 	if (old_tone >=0 && /* avoid the case where old mode was "unknown" */
-			status.set_tone(fefd, old_tone) < 0)
+			this->sec_status.set_tone(fefd, old_tone) < 0)
 		return -1;
 	return ret;
 }

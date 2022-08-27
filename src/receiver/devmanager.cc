@@ -185,7 +185,7 @@ public:
 																		const dvb_frontend_t* fe_to_release,
 																		const tune_options_t& tune_options) const;
 	void update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
-									 fe_thread_safe_t& t);
+									 fe_state_t& t);
 
 
 };
@@ -253,7 +253,7 @@ bool dvbdev_monitor_t::adapter_no_exists(adapter_no_t adapter_no) {
 	update databases
 */
 void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
-																	 fe_thread_safe_t& t) {
+																	 fe_state_t& t) {
 	t.dbfe.adapter_no = int(adapter_no);
 
 	auto devdb_wtxn = this->devdb_wtxn();
@@ -269,7 +269,6 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 		t.dbfe.enable_dvbs = dbfe_old.enable_dvbs;
 		t.dbfe.enable_dvbc = dbfe_old.enable_dvbc;
 		t.dbfe.enable_dvbt = dbfe_old.enable_dvbt;
-		t.dbfe.can_be_used = t.can_be_used;
 		put_record(devdb_wtxn, t.dbfe, 0);
 		devdb::lnb::update_lnb_adapter_fields(devdb_wtxn, t.dbfe);
 	}
@@ -300,8 +299,7 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 	{
 		auto t = fe->ts.writeAccess();
 		t->dbfe.present = true;
-		t->can_be_used = true;
-		t->dbfe.can_be_used = t->can_be_used;
+		t->dbfe.can_be_used = true;
 		update_dbfe(fe->adapter_no, fe->frontend_no, *t);
 	}
 	frontends.try_emplace({adapter_no, frontend_no}, fe);
@@ -329,7 +327,7 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) {
 					 frontends.size());
 	{
 		auto t = fe->ts.writeAccess();
-		t->can_be_used = false;
+		t->dbfe.can_be_used = false;
 		t->dbfe.present = false;
 		t->dbfe.can_be_used = false;
 		update_dbfe(fe->adapter_no, fe->frontend_no, *t);
@@ -666,7 +664,7 @@ std::shared_ptr<adaptermgr_t> adaptermgr_t::make(receiver_t& receiver) {
 
 
 
-bool fe_thread_safe_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb) const {
+bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	if (required_lnb && required_lnb->k != reserved_lnb.k)
 		return false;
 	const auto* tuned_mux = std::get_if<chdb::dvbs_mux_t>(&reserved_mux);
@@ -682,7 +680,7 @@ bool fe_thread_safe_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb
 	return true;
 }
 
-bool fe_thread_safe_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_t* required_lnb) const {
+bool fe_state_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	assert(!required_lnb);
 	const auto* tuned_mux = std::get_if<chdb::dvbt_mux_t>(&reserved_mux);
 	if (!tuned_mux)
@@ -692,7 +690,7 @@ bool fe_thread_safe_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb
 	return true;
 }
 
-bool fe_thread_safe_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_t* required_lnb) const {
+bool fe_state_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	assert(!required_lnb);
 	const auto* tuned_mux = std::get_if<chdb::dvbc_mux_t>(&reserved_mux);
 	if (!tuned_mux)
@@ -702,7 +700,7 @@ bool fe_thread_safe_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb
 	return true;
 }
 
-bool fe_thread_safe_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_t* required_lnb) const {
+bool fe_state_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	bool ret;
 	visit_variant(
 		mux, [this, &ret, required_lnb](const chdb::dvbs_mux_t& mux) { ret = this->is_tuned_to(mux, required_lnb); },

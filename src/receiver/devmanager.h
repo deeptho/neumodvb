@@ -207,10 +207,10 @@ struct fe_lock_status_t {
 	a lock. Afterwards the tune is requested to change state to the new reserved state, but this
 	may take some time
 
-	fe_thread_safe_t has pubic members. It is assumed that this class is only accessed
+	fe_state_t has pubic members. It is assumed that this class is only accessed
 	after taking a lock
  */
-class fe_thread_safe_t {
+class fe_state_t {
 
 public:
 	tune_confirmation_t tune_confirmation; //have ts_id,network_id, sat_id been confirmed by SI data?
@@ -223,13 +223,11 @@ public:
 	devdb::lnb_t reserved_lnb; //lnb currently in use
 
 	mutable devdb::fe_t dbfe;
-	bool can_be_used{false}; // true if device can be opened in write mode
 	bool info_valid{false}; // true if we could retrieve device info; "false" indicates an error
 	int fefd{-1}; //file handle if open
 	int last_saved_freq{0}; //for spectrum scan: last frequency written to spectrum file
 	tune_mode_t tune_mode{tune_mode_t::IDLE};
 	bool use_blind_tune{false};
-	bool may_move_dish{true};
 	spectrum_scan_options_t spectrum_scan_options;
 	fe_lock_status_t lock_status;
 	tune_options_t tune_options{};
@@ -247,7 +245,7 @@ public:
 	bool is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_t* required_lnb) const;
 };
 
-class status_t {
+class sec_status_t {
 	bool tuned{false};
 	int voltage{-1}; // means unknown
 	int tone{-1}; // means unknown
@@ -305,8 +303,8 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 
 	int check_frontend_parameters();
 	uint32_t get_lo_frequency(uint32_t frequency);
-	int open_device(fe_thread_safe_t& t, bool rw=true, bool allow_failure=false);
-	void close_device(fe_thread_safe_t& t); //callable from main thread
+	int open_device(fe_state_t& t, bool rw=true, bool allow_failure=false);
+	void close_device(fe_state_t& t); //callable from main thread
 	void get_signal_info(chdb::signal_info_t& signal_info, bool get_constellation);
 	int request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& ret, bool get_constellation);
 	void get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
@@ -316,7 +314,7 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	bool need_diseqc(const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux);
 	bool need_diseqc(const devdb::lnb_t& new_lnb);
 
-	status_t status;
+	sec_status_t sec_status;
 public:
 
 	static constexpr uint32_t lnb_lof_standard = DEFAULT_LOF_STANDARD;
@@ -330,7 +328,7 @@ public:
 	adapter_mac_address_t adapter_mac_address{-1};
 	card_mac_address_t card_mac_address{-1};
 
-	safe::Safe<fe_thread_safe_t> ts;
+	safe::Safe<fe_state_t> ts;
 	safe::Safe<signal_monitor_t> signal_monitor;
 
 	std::shared_ptr<fe_monitor_thread_t> monitor_thread; //public (used in active_si_stream.cc)
@@ -546,7 +544,7 @@ class adaptermgr_t {
 	friend class receiver_thread_t;
 	friend class dvbdev_monitor_t;
 	friend class dvb_adapter_t;
-	friend class fe_thread_safe_t;
+	friend class fe_state_t;
 private:
 	api_type_t api_type { api_type_t::UNDEFINED };
 	int api_version{-1}; //1000 times the floating point value of version

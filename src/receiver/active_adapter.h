@@ -28,7 +28,7 @@
 
 using namespace dtdemux;
 
-class active_fe_thread_safe_t;
+class active_fe_state_t;
 class tuner_thread_t;
 
 /* DVB-S */
@@ -191,7 +191,7 @@ public: //this data is safe to access from other threads
 		//@todo make thread safe
 	}
 
-	void update_lof(fe_thread_safe_t& ts, const ss::vector<int32_t,2>& lof_offsets);
+	void update_lof(fe_state_t& ts, const ss::vector<int32_t,2>& lof_offsets);
 private:
 	int clear();
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);

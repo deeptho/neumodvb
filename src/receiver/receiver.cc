@@ -121,13 +121,6 @@ void receiver_thread_t::remove_active_adapter(std::vector<task_queue_t::future_t
 		return ret;
 	}));
 
-	{
-		auto wtxn = receiver.devdb.wtxn();
-		auto dbfe = active_adapter.fe->ts.readAccess()->dbfe;
-		devdb::fe::unsubscribe(wtxn, dbfe);
-		wtxn.commit();
-	}
-
 	receiver.subscribed_aas.writeAccess()->erase(subscription_id);
 }
 
@@ -466,7 +459,7 @@ std::shared_ptr<active_adapter_t> receiver_thread_t::active_adapter_with_fe(dvb_
 
 subscription_id_t receiver_thread_t::subscribe_mux_(
 	std::vector<task_queue_t::future_t>& futures,
-	std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& wtxn,
+	std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& devdb_wtxn,
 	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
 	const devdb::lnb_t* required_lnb) {
 
@@ -483,7 +476,7 @@ subscription_id_t receiver_thread_t::subscribe_mux_(
 	}
 
 	auto [fe_, lnb_] = devdb::fe::subscribe_lnb_band_pol_sat(
-		wtxn, mux, required_lnb, fe_key_to_release, tune_options.use_blind_tune, dish_move_penalty,
+		devdb_wtxn, mux, required_lnb, fe_key_to_release, tune_options.use_blind_tune, dish_move_penalty,
 		resource_reuse_bonus);
 
 	bool found = !!fe_;
@@ -566,7 +559,8 @@ subscription_id_t receiver_thread_t::subscribe_mux_(
 template <typename _mux_t>
 subscription_id_t receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
 																										std::shared_ptr<active_adapter_t>& old_active_adapter,
-																										db_txn& wtxn, const _mux_t& mux, subscription_id_t subscription_id,
+																										db_txn& devdb_wtxn, const _mux_t& mux,
+																										subscription_id_t subscription_id,
 																										tune_options_t tune_options,
 																										const devdb::lnb_t* required_lnb /*unused*/) {
 	assert(!required_lnb);
@@ -574,7 +568,8 @@ subscription_id_t receiver_thread_t::subscribe_mux_(std::vector<task_queue_t::fu
 	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
 		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
 
-	auto fe_ = devdb::fe::subscribe_dvbc_or_dvbt_mux<_mux_t>(wtxn, mux, fe_key_to_release, tune_options.use_blind_tune);
+	auto fe_ = devdb::fe::subscribe_dvbc_or_dvbt_mux<_mux_t>(devdb_wtxn, mux,
+																													 fe_key_to_release, tune_options.use_blind_tune);
 	bool found = !!fe_;
 
 	if (!found) {
@@ -666,6 +661,22 @@ subscription_id_t receiver_thread_t::subscribe_mux_<chdb::any_mux_t>(
 void receiver_thread_t::cb_t::unsubscribe(subscription_id_t subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 	bool service_only = false;
+
+	{
+		auto active_adapter_p = active_adapter_for_subscription(subscription_id);
+		if (!active_adapter_p.get()) {
+			dterrorx("no active_adapter for subscription %d", (int)subscription_id);
+			return;
+		}
+		auto& active_adapter = *(active_adapter_p);
+
+		auto wtxn = receiver.devdb.wtxn();
+		auto dbfe = active_adapter.fe->ts.readAccess()->dbfe;
+		devdb::fe::unsubscribe(wtxn, dbfe);
+		wtxn.commit();
+	}
+
+
 	unsubscribe_(futures, subscription_id, service_only);
 
 	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and subscribed_aas
@@ -888,11 +899,11 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 	return subscription_id;
 }
 
-subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn,
+subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 																									 devdb::lnb_t& lnb, tune_options_t tune_options,
 																									 subscription_id_t subscription_id) {
 
-	auto c = devdb::lnb_t::find_by_key(wtxn, lnb.k);
+	auto c = devdb::lnb_t::find_by_key(devdb_wtxn, lnb.k);
 	if (c.is_valid()) {
 		auto db_lnb = c.current();
 		lnb.lof_offsets = db_lnb.lof_offsets;
@@ -904,7 +915,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 
 	bool need_blindscan = tune_options.tune_mode == tune_mode_t::SCAN_BLIND;
 	bool need_spectrum = tune_options.tune_mode == tune_mode_t::SPECTRUM;
-	auto fe_ = devdb::fe::subscribe_lnb_exclusive(wtxn, lnb, fe_key_to_release, need_blindscan, need_spectrum);
+	auto fe_ = devdb::fe::subscribe_lnb_exclusive(devdb_wtxn, lnb, fe_key_to_release, need_blindscan, need_spectrum);
 	bool found = !!fe_;
 
 	if (!found) {
@@ -986,9 +997,9 @@ receiver_thread_t::cb_t::subscribe_lnb(devdb::lnb_t& lnb_, tune_options_t tune_o
 	s << "SUB[" << (int) subscription_id << "] " << to_str(lnb);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
-	auto wtxn = receiver.devdb.wtxn();
-	subscription_id = this->receiver_thread_t::subscribe_lnb(futures, wtxn, lnb, tune_options, subscription_id);
-	wtxn.commit();
+	auto devdb_wtxn = receiver.devdb.wtxn();
+	subscription_id = this->receiver_thread_t::subscribe_lnb(futures, devdb_wtxn, lnb, tune_options, subscription_id);
+	devdb_wtxn.commit();
 	bool error = wait_for_all(futures);
 	if (error) {
 		dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later

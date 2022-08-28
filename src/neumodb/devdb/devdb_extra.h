@@ -229,6 +229,7 @@ namespace devdb::fe {
 		return false;
 	}
 
+	void unsubscribe(db_txn& wtxn, const fe_key_t& fe_key);
 	void unsubscribe(db_txn& wtxn, fe_t& fe);
 
 	int reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb,

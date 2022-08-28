@@ -30,6 +30,13 @@
 
 using namespace devdb;
 
+void fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key) {
+	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
+	auto fe = c.is_valid()  ? c.current() : fe_t{}; //update in case of external changes
+	fe.sub = {};
+	put_record(wtxn, fe);
+}
+
 void fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
 	assert (fe::is_subscribed(fe));
 	assert(fe.sub.lnb_key.card_mac_address != -1);
@@ -574,6 +581,8 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
 
 	auto best_fe = fe::find_best_fe_for_lnb(wtxn, lnb, fe_key_to_release,
 																					need_blind_tune, need_spectrum, need_multistream, pol, band, usals_pos);
+	if(fe_key_to_release)
+		unsubscribe(wtxn, *fe_key_to_release);
 	if(!best_fe)
 		return {}; //no frontend could be found
 
@@ -592,6 +601,8 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																					fe_key_to_release,
 																					may_move_dish, use_blind_tune,
 																					dish_move_penalty, resource_reuse_bonus);
+	if(fe_key_to_release)
+		unsubscribe(wtxn, *fe_key_to_release);
 	if(!best_fe)
 		return {}; //no frontend could be found
 
@@ -612,6 +623,8 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 	bool is_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
 	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
 																							 need_spectrum, need_multistream,  delsys_type);
+	if(fe_key_to_release)
+		unsubscribe(wtxn, *fe_key_to_release);
 
 	if(!best_fe)
 		return {}; //no frontend could be found

@@ -348,7 +348,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 			continue;
 		} //end of !is_subscribed
 
-		assert(!is_subscribed);
+		assert(is_subscribed);
 
 		/*this fe has an active subscription and it is not our own subscription.
 			The resources it uses (RF tuner, priority switches or t-splitters, band/pol/usals_pos)

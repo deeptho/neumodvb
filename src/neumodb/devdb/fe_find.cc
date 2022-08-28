@@ -295,9 +295,10 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 	for(const auto& fe: c.range()) {
 		assert(fe.card_mac_address == lnb.k.card_mac_address);
 		assert(fe.sub.lnb_key.rf_input != lnb.k.rf_input || fe.sub.lnb_key == lnb.k);
-		bool is_subscribed = fe::is_subscribed(fe) && (fe_key_to_release && fe.k != *fe_key_to_release);
-		if(!is_subscribed) {
-//find the best fe will all required functionality, without taking into account other subscriptions
+		bool is_subscribed = fe::is_subscribed(fe);
+		bool is_our_subscription = (fe_key_to_release && fe.k == *fe_key_to_release);
+		if(!is_subscribed || is_our_subscription) {
+      //find the best fe will all required functionality, without taking into account other subscriptions
 			if(!fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
 				continue; /* The fe does not currently exist, or it cannot use DVBS. So it
 									 can also not create conflicts with other fes*/
@@ -322,7 +323,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 											conflicts for using the LNB with other fes => so no "continue"
 									 */
 
-			if(adapter_in_use(fe.adapter_no))
+			if(!is_our_subscription && adapter_in_use(fe.adapter_no))
 				continue; /*adapter is on use for dvbc/dvt; it cannot be used, but the
 										fe we found is not in use and cannot create conflicts with any other frontends*/
 
@@ -332,7 +333,9 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 				if(fe.supports.spectrum_fft) { //best choice
 					if(no_best_fe_yet() ||
 						 !best_fe.supports.spectrum_fft || //fft is better
-						 fe.priority > best_fe.priority)
+						 (fe.priority > best_fe.priority ||
+							fe.priority == best_fe.priority && is_our_subscription) //prefer current adapter
+						)
 						best_fe = fe;
 					} else if (fe.supports.spectrum_sweep) { //second best choice
 					if( no_best_fe_yet() ||
@@ -349,13 +352,16 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 					 (best_fe.supports.spectrum_fft && !fe.supports.spectrum_fft) || //prefer non-fft
 					 (best_fe.supports.spectrum_sweep && !fe.supports.spectrum_fft
 						&& !fe.supports.spectrum_sweep) || //prefer fe with least unneeded functionality
-					 fe.priority > best_fe.priority )
+
+					 (fe.priority > best_fe.priority ||
+						fe.priority == best_fe.priority && is_our_subscription) //prefer current adapter
+					)
 					best_fe = fe;
 			} //end of !need_spectrum
 			continue;
 		} //end of !is_subscribed
 
-		assert(is_subscribed);
+		assert(is_subscribed && !is_our_subscription);
 
 		/*this fe has an active subscription and it is not our own subscription.
 			The resources it uses (RF tuner, priority switches or t-splitters, band/pol/usals_pos)

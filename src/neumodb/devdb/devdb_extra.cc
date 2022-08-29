@@ -71,7 +71,12 @@ int16_t devdb::make_unique_id(db_txn& txn, lnb_key_t key) {
 
 std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 	const char* t = (lnb_key.lnb_type == lnb_type_t::C) ? "C" :
-		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" : "Ku" ;
+		(lnb_key.lnb_type == lnb_type_t::UNIV) ? "unv" :
+		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" :
+		(lnb_key.lnb_type == lnb_type_t::KaA) ? "KaA" :
+		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaB" :
+		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaC" :
+		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaD" : "unk";
 	stdex::printf(os, "D%dC[0x%06x]#d%d %s[%d]", (int)lnb_key.dish_id, (int)lnb_key.card_mac_address,
 								(int)lnb_key.rf_input,  t, (int)lnb_key.lnb_id);
 	return os;
@@ -232,6 +237,26 @@ static std::tuple<uint32_t, uint32_t, uint32_t> lnb_band_helper(const devdb::lnb
 		freq_high = lnb.freq_high < 0 ? 12200000 : lnb.freq_high;
 		freq_mid = freq_low;
 	} break;
+	case lnb_type_t::KaA: {
+		freq_low = lnb.freq_low < 0 ? 21200000 : lnb.freq_low;
+		freq_high = lnb.freq_high < 0 ? 22200000 : lnb.freq_high;
+		freq_mid = freq_low;
+	} break;
+	case lnb_type_t::KaB: {
+		freq_low = lnb.freq_low < 0 ? 21200000 : lnb.freq_low;
+		freq_high = lnb.freq_high < 0 ? 22200000 : lnb.freq_high;
+		freq_mid = freq_low;
+	} break;
+	case lnb_type_t::KaC: {
+		freq_low = lnb.freq_low < 0 ? 21200000 : lnb.freq_low;
+		freq_high = lnb.freq_high < 0 ? 22200000 : lnb.freq_high;
+		freq_mid = freq_low;
+	} break;
+	case lnb_type_t::KaD: {
+		freq_low = lnb.freq_low < 0 ? 21200000 : lnb.freq_low;
+		freq_high = lnb.freq_high < 0 ? 22200000 : lnb.freq_high;
+		freq_mid = freq_low;
+	} break;
 	default:
 		assert(0);
 	}
@@ -303,7 +328,11 @@ std::tuple<int, int, int> devdb::lnb::band_voltage_freq_for_mux(const devdb::lnb
 		auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
 		band = (mux.frequency >= freq_mid);
 	} break;
-	case lnb_type_t::KU: {
+	case lnb_type_t::KU:
+	case lnb_type_t::KaA:
+	case lnb_type_t::KaB:
+	case lnb_type_t::KaC:
+	case lnb_type_t::KaD: {
 		band = 0;
 	} break;
 	default:
@@ -356,10 +385,35 @@ int devdb::lnb::driver_freq_for_freq(const devdb::lnb_t& lnb, int frequency) {
 		frequency = band ? frequency - lof_high : frequency - lof_low;
 	} break;
 	case lnb_type_t::KU: {
-		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
+		auto lof_low = lnb.lof_low < 0 ? 10750000 : lnb.lof_low;
 		band = 0;
 		frequency = frequency - lof_low;
 	} break;
+
+	case lnb_type_t::KaA: {
+		auto lof_low = lnb.lof_low < 0 ? 20250000 : lnb.lof_low;
+		band = 0;
+		frequency = frequency - lof_low;
+	} break;
+
+	case lnb_type_t::KaB: {
+		auto lof_low = lnb.lof_low < 0 ? 20250000 : lnb.lof_low;
+		band = 0;
+		frequency = frequency - lof_low;
+	} break;
+
+	case lnb_type_t::KaC: {
+		auto lof_low = lnb.lof_low < 0 ? 20250000 : lnb.lof_low;
+		band = 0;
+		frequency = frequency - lof_low;
+	} break;
+
+	case lnb_type_t::KaD: {
+		auto lof_low = lnb.lof_low < 0 ? 20250000 : lnb.lof_low;
+		band = 0;
+		frequency = frequency - lof_low;
+	} break;
+
 	default:
 		assert(0);
 	}
@@ -418,7 +472,7 @@ int devdb::lnb::freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, boo
 		return high_band ? correct(1, frequency + lof_high) : correct(0, frequency + lof_low);
 	} break;
 	case lnb_type_t::KU: {
-		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
+		auto lof_low = lnb.lof_low < 0 ? 10750000 : lnb.lof_low;
 		return correct(0, frequency + lof_low);
 	} break;
 	default:

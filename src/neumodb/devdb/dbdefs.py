@@ -68,7 +68,12 @@ lnb_type = db_enum(name='lnb_type_t',
                            'KU',
                            'UNIV',
                            'WDB',
-			                     'WDBUK'
+			                     'WDBUK',
+                           'KaA',
+                           'KaB',
+                           'KaC',
+                           'KaD',
+                           'KaE'
                            ))
 
 lnb_pol_type = db_enum(name='lnb_pol_type_t',

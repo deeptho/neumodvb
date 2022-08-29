@@ -1434,8 +1434,8 @@ void dvb_frontend_t::start_frontend_monitor() {
 }
 
 void dvb_frontend_t::stop_frontend_monitor_and_wait() {
-	assert(monitor_thread.get());
-	monitor_thread->stop_running(true);
+	if(monitor_thread)
+		monitor_thread->stop_running(true);
 }
 
 devdb::usals_location_t dvb_frontend_t::get_usals_location() const {

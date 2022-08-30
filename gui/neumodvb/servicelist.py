@@ -102,7 +102,7 @@ class ServiceTable(NeumoTable):
     all_columns = \
         [CD(key='ch_order',  label='#', basic=True, example="10000"),
          CD(key='name',  label='Name', basic=True, example="Investigation discovery12345"),
-         CD(key='mux_desc',  label='mux', example="28.2E 10740V"),
+         CD(key='mux_desc',  label='mux', example=" 28.2E 10740V "),
          CD(key='k.mux.sat_pos', label='Sat', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.mux.network_id',  label='nid'),
          CD(key='k.mux.ts_id',  label='tsid'),
@@ -291,7 +291,13 @@ class ServiceGridBase(NeumoGridBase):
         rowno = self.GetGridCursorRow()
         service = self.table.GetRow(rowno)
         self.table.SaveModified()
-        self.app.ServiceTune(service)
+        self.app.ServiceTune(service, replace_running=True)
+
+    def CmdTuneAdd(self, evt):
+        rowno = self.GetGridCursorRow()
+        service = self.table.GetRow(rowno)
+        self.table.SaveModified()
+        self.app.ServiceTune(service, replace_running=False)
 
     def CmdPositioner(self, event):
         dtdebug('CmdPositioner')

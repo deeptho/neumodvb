@@ -265,6 +265,13 @@ class ChgmGridBase(NeumoGridBase):
         self.table.SaveModified()
         self.app.ServiceTune(chgm)
 
+    def CmdTuneAdd(self, evt):
+        dtdebug('CmdTuneAdd')
+        rowno = self.GetGridCursorRow()
+        service = self.table.GetRow(rowno)
+        self.table.SaveModified()
+        self.app.ServiceTune(service, replace_running=False)
+
     def CmdBouquetAddService(self, evt):
         dtdebug('CmdBouquetAddService')
         row = self.GetGridCursorRow()

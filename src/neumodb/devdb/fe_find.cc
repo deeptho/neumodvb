@@ -444,7 +444,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			continue;
 #else
 		assert(! required_lnb || required_lnb->k == lnb.k);
-		if(!lnb.enabled)
+		if(!lnb.enabled || !lnb.can_be_used)
 			continue;
 #endif
 		/*
@@ -485,7 +485,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		auto fe = fe::find_best_fe_for_lnb(rtxn, lnb, fe_key_to_release,
 																				 need_blindscan, need_spectrum, need_multistream, pol, band, usals_pos);
 		if(!fe) {
-			dtdebug("LNB " << lnb << " cannot be used due to other subscriptions");
+			dtdebug("LNB " << lnb << " cannot be used");
 			continue;
 		}
 

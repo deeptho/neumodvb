@@ -211,9 +211,12 @@ receiver_thread_t::subscribe_service_in_use(std::vector<task_queue_t::future_t>&
 	return nullptr;
 }
 
+/*
+	subscribe service after having successfully subscribed a mux
+ */
 template <typename _mux_t>
 std::unique_ptr<playback_mpm_t>
-receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futures, db_txn& txn, const _mux_t& mux,
+receiver_thread_t::subscribe_service_on_mux(std::vector<task_queue_t::future_t>& futures, const _mux_t& mux,
 																			const chdb::service_t& service, active_service_t* old_active_service,
 																			subscription_id_t subscription_id) {
 
@@ -266,11 +269,12 @@ receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futur
 	return active_service_p->make_client_mpm(subscription_id);
 }
 
-template <>
+
 std::unique_ptr<playback_mpm_t>
-receiver_thread_t::subscribe_service_<chdb::any_mux_t>(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
-																											 const chdb::any_mux_t& mux, const chdb::service_t& service,
-																											 active_service_t* old_active_service, subscription_id_t subscription_id) {
+receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futures,
+																			db_txn& devdb_wtxn,
+																			const chdb::any_mux_t& mux, const chdb::service_t& service,
+																			active_service_t* old_active_service, subscription_id_t subscription_id) {
 	/*First unscubscribe the currently reserved service, except if it happens
 		to be the desired one, in which case we return immediately
 	*/
@@ -304,7 +308,7 @@ receiver_thread_t::subscribe_service_<chdb::any_mux_t>(std::vector<task_queue_t:
 		tuned to the desired mux
 	*/
 
-	auto ret = subscribe_mux(futures, txn, mux, subscription_id,
+	auto ret = subscribe_mux(futures, devdb_wtxn, mux, subscription_id,
 													 tune_options_t(scan_target_t::SCAN_FULL_AND_EPG), (const devdb::lnb_t*)nullptr);
 	if ((int) ret < 0)
 		return nullptr; // we could not reserve a mux
@@ -318,22 +322,22 @@ receiver_thread_t::subscribe_service_<chdb::any_mux_t>(std::vector<task_queue_t:
 	auto dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 
 	if (dvbs_mux)
-		return subscribe_service_(futures, txn, *dvbs_mux, service, old_active_service, subscription_id);
+		return subscribe_service_on_mux(futures, *dvbs_mux, service, old_active_service, subscription_id);
 	else {
 		auto dvbc_mux = std::get_if<chdb::dvbc_mux_t>(&mux);
 		if (dvbc_mux)
-			return subscribe_service_(futures, txn, *dvbc_mux, service, old_active_service, subscription_id);
+			return subscribe_service_on_mux(futures, *dvbc_mux, service, old_active_service, subscription_id);
 		else {
 			auto dvbt_mux = std::get_if<chdb::dvbt_mux_t>(&mux);
 			if (dvbt_mux)
-				return subscribe_service_(futures, txn, *dvbt_mux, service, old_active_service, subscription_id);
+				return subscribe_service_on_mux(futures, *dvbt_mux, service, old_active_service, subscription_id);
 		}
 	}
 	return nullptr;
 }
 
 std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(std::vector<task_queue_t::future_t>& futures,
-																																		 db_txn& txn, const chdb::any_mux_t& mux,
+																																		 db_txn& devdb_wtxn, const chdb::any_mux_t& mux,
 																																		 const chdb::service_t& service,
 																																		 subscription_id_t subscription_id) {
 	active_service_t* old_active_service{nullptr};
@@ -346,7 +350,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(std::vector
 		}
 	}
 
-	return subscribe_service_<chdb::any_mux_t>(futures, txn, mux, service, old_active_service, subscription_id);
+	return subscribe_service_(futures, devdb_wtxn, mux, service, old_active_service, subscription_id);
 }
 
 receiver_thread_t::receiver_thread_t(receiver_t& receiver_)
@@ -1065,14 +1069,14 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 	std::vector<task_queue_t::future_t> futures;
 	dtdebug("SUBSCRIBE started");
 
-	auto txn = receiver.chdb.rtxn();
-	auto [mux, error1] = mux_for_service(txn, service);
+	auto chdb_txn = receiver.chdb.rtxn();
+	auto [mux, error1] = mux_for_service(chdb_txn, service);
 	if (error1 < 0) {
 		user_error("Could not find mux for " << service);
 		bool service_only = false;
 		if ((int) subscription_id >= 0)
 			unsubscribe_(futures, subscription_id, service_only);
-		txn.abort();
+		chdb_txn.abort();
 		return nullptr;
 	}
 
@@ -1084,18 +1088,20 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 			unsubscribe(subscription_id);
 		}
 	}
+	chdb_txn.abort();
+
+	auto devdb_wtxn = receiver.devdb.wtxn();
 
 	dtdebug("SUBSCRIBE - calling subscribe_");
 	// now perform the requested subscription
-	auto mpmptr = this->receiver_thread_t::subscribe_service(futures, txn, mux, service, subscription_id);
-	txn.abort();
+	auto mpmptr = this->receiver_thread_t::subscribe_service(futures, devdb_wtxn, mux, service, subscription_id);
 	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/active_adapter threads
 
 		See
 		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
 	*/
-
+	devdb_wtxn.commit();
 	bool error = wait_for_all(futures);
 	if (error) {
 		dterror("Unhandled error in subscribe");
@@ -1165,18 +1171,21 @@ void receiver_thread_t::cb_t::start_recording(
 	std::vector<task_queue_t::future_t> futures;
 	dtdebug("RECORD started");
 
-	auto txn = receiver.chdb.rtxn();
-	auto [mux, error1] = mux_for_service(txn, rec_in.service);
+	auto chdb_txn = receiver.chdb.rtxn();
+	auto [mux, error1] = mux_for_service(chdb_txn, rec_in.service);
 	if (error1 < 0) {
 		user_error("Could not find mux for " << rec_in.service);
 		return;
 	}
+	chdb_txn.abort();
+
+	auto devdb_wtxn =  receiver.chdb.wtxn();
 
 	dtdebug("RECORD - calling subscribe_");
 	// now perform the requested subscription
-	auto mpm_ptr = this->receiver_thread_t::subscribe_service(futures, txn, mux, rec_in.service, subscription_id_t{-1});
+	auto mpm_ptr = this->receiver_thread_t::subscribe_service(futures, devdb_wtxn, mux, rec_in.service, subscription_id_t{-1});
 	subscription_id_t subscription_id = mpm_ptr.get() ? mpm_ptr->subscription_id : subscription_id_t{-1};
-	txn.abort();
+	devdb_wtxn.commit();
 	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/active_adapter threads
 

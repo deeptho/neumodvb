@@ -426,9 +426,15 @@ private:
 
 	template<typename _mux_t>
 	std::unique_ptr<playback_mpm_t>
-	subscribe_service_(std::vector<task_queue_t::future_t>& futures,
-										 db_txn &txn,
+	subscribe_service_on_mux(std::vector<task_queue_t::future_t>& futures,
 										 const _mux_t& mux, const chdb::service_t& service,
+										 active_service_t* old_active_service,
+										 subscription_id_t subscription_id);
+
+	std::unique_ptr<playback_mpm_t>
+	subscribe_service_(std::vector<task_queue_t::future_t>& futures,
+										 db_txn& devdb_wtxn, const chdb::any_mux_t& mux,
+										 const chdb::service_t& service,
 										 active_service_t* old_active_service,
 										 subscription_id_t subscription_id);
 

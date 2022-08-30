@@ -33,7 +33,6 @@ from neumodvb.util import setup, lastdot
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import dtdebug, dterror
-from neumodvb.lnblist import lnb_label
 
 import pystatdb
 import pychdb
@@ -57,17 +56,11 @@ class StatusTable(NeumoTable):
     rf_fn = lambda x: f'{get_rf(x[1]):6.2f}dB'
     ber_fn = lambda x: f'{get_ber(x[1]):8.2e}'
     mac_fn = lambda x: x[2].mac_fn(x[1])
-    lnb_key_fn = lambda x: lnb_label(x[0])
-    if False:
-        basic_columns=[CD(key='k',
-                          sort=('k.dish_id', 'k.adapter_no','k.lnb_id', 'k.lnb_id', 'usals_pos'),
-                          example='D1T2 28.2E 2812***',
-                          dfn = lnb_key_fn,
-                          label='LNB', basic=True, readonly=True)
-                       ]
     all_columns = \
         [CD(key='k.live',  label='live', basic=True, readonly=True),
-         CD(key='k.lnb.dish_id',  label='dish', basic=True, readonly=True),
+         CD(key='k.lnb',  label='lnb', basic=True, example="D0A0 Ku 28.2E 32766  ",
+            dfn = lambda x: x[2].lnb_label(x[0]),
+            sort=('k.lnb.dish_id', 'k.lnb.adapter_mac_address', 'k.lnb.lnb_id')),
          CD(key='k.fe.adapter_mac_address',  label='adapter', basic=True, readonly=True, no_combo = True,
             dfn=lambda x: x[2].adapter_name(x[0]), example=" TBS6909X #12 "),
          CD(key='k.lnb.lnb_id',  label='ID', basic=True, readonly=True),
@@ -86,8 +79,17 @@ class StatusTable(NeumoTable):
         ]
 
 
+    def lnb_label(self, signal_stat):
+        sat_pos=pychdb.sat_pos_str(signal_stat.k.mux.sat_pos)
+        t= lastdot(signal_stat.k.lnb.lnb_type)
+        if t == 'UNIV':
+            t='Ku'
+        lnb_key = signal_stat.k.lnb
+        rf_input = lnb_key.rf_input
+        return f'D{lnb_key.dish_id}#{"??" if rf_input< 0 else rf_input} {sat_pos:>5}{t} {lnb_key.lnb_id}'
+
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'adapter_name'
+        initial_sorted_column = 'k.lnb.dish_id'
         data_table= pystatdb.signal_stat
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
@@ -121,7 +123,7 @@ class StatusTable(NeumoTable):
     @property
     @ttl_cache(maxsize=128, ttl=10) #refresh every 10 seconds
     def adapter_names(self):
-        txn = wx.GetApp().chdb.rtxn()
+        txn = wx.GetApp().devdb.rtxn()
         ret={}
         for a in  pydevdb.fe.list_all_by_adapter_no(txn):
             ret[a.k.adapter_mac_address] = a.adapter_name
@@ -130,7 +132,7 @@ class StatusTable(NeumoTable):
         return ret
 
     def adapter_name(self, status):
-        return self.adapter_names.get(status.k.lnb.adapter_mac_address, status.k.lnb.adapter_mac_address)
+        return self.adapter_names.get(status.k.fe.adapter_mac_address, status.k.fe.adapter_mac_address)
 
 class StatusGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):

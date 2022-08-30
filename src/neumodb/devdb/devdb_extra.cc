@@ -243,8 +243,8 @@ static std::tuple<uint32_t, uint32_t, uint32_t> lnb_band_helper(const devdb::lnb
 		freq_mid = freq_low;
 	} break;
 	case lnb_type_t::KaB: {
-		freq_low = lnb.freq_low < 0 ? 21200000 : lnb.freq_low;
-		freq_high = lnb.freq_high < 0 ? 22200000 : lnb.freq_high;
+		freq_low = lnb.freq_low < 0 ?   18300000 : lnb.freq_low;
+		freq_high = lnb.freq_high < 0 ? 18800000 : lnb.freq_high;
 		freq_mid = freq_low;
 	} break;
 	case lnb_type_t::KaC: {
@@ -397,7 +397,7 @@ int devdb::lnb::driver_freq_for_freq(const devdb::lnb_t& lnb, int frequency) {
 	} break;
 
 	case lnb_type_t::KaB: {
-		auto lof_low = lnb.lof_low < 0 ? 20250000 : lnb.lof_low;
+		auto lof_low = lnb.lof_low < 0 ? 17350000 : lnb.lof_low;
 		band = 0;
 		frequency = frequency - lof_low;
 	} break;

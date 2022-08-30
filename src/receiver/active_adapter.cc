@@ -328,8 +328,15 @@ int active_adapter_t::lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t 
 		lnb_update_usals_pos(new_usals_sat_pos);
 
 	dtdebug("spectrum: diseqc done");
+	fe->stop();
+	if (fe->stop() < 0) /* Force the driver to go into idle mode immediately, so
+													 that the fe_monitor_thread_t will also return immediately
+												*/
+		return -1;
+	ret = fe->start_lnb_spectrum_scan(lnb, tune_options);
 
-	ret = fe->start_lnb_spectrum_scan(lnb, tune_options.spectrum_scan_options);
+	fe->start();
+
 	//dttime(100);
 	return ret;
 }
@@ -485,7 +492,7 @@ void active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		muxc->scan_status = scan_status_t::ACTIVE;
 		must_activate = true;
 	}
-	auto txn = must_activate ? receiver.chdb.wtxn() : receiver.chdb.rtxn();
+	auto chdb_txn = must_activate ? receiver.chdb.wtxn() : receiver.chdb.rtxn();
 
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 	if (dvbs_mux && dvbs_mux->k.t2mi_pid > 0) {
@@ -495,19 +502,19 @@ void active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		master_mux.k.t2mi_pid = 0;
 		/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
 			handle small differences in sat_pos*/
-		auto c = chdb::find_by_mux_physical(txn, master_mux);
+		auto c = chdb::find_by_mux_physical(chdb_txn, master_mux);
 		if (c.is_valid()) {
 			assert(mux_key_ptr(c.current())->sat_pos != sat_pos_none);
 			master_mux = c.current();
 		}
 		if(must_activate)
-			update_mux(txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
-		txn.commit();
+			update_mux(chdb_txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+		chdb_txn.commit();
 		set_current_tp(master_mux);
 		add_embedded_si_stream(mux, start);
 	} else {
 		//update_mux(txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
-		txn.commit();
+		chdb_txn.commit();
 		set_current_tp(mux);
 	}
 }

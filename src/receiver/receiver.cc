@@ -967,11 +967,11 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 			auto w = receiver.subscribed_aas.writeAccess();
 			(*w)[subscription_id] = active_adapter;
 		}
-		assert(active_adapter->is_open());
 		futures.push_back(active_adapter->tuner_thread.push_task([this, active_adapter, lnb, tune_options]() {
 				auto ret = cb(receiver.tuner_thread).lnb_activate(active_adapter, lnb, tune_options);
 			if (ret < 0)
 				dterrorx("tune returned %d", ret);
+			assert(active_adapter->is_open());
 			return ret;
 		}));
 	}

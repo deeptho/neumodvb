@@ -1018,7 +1018,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 	{
 		const auto& ts = this->ts.readAccess();
 		auto& lnb = ts->reserved_lnb;
-		auto& options = ts->spectrum_scan_options;
+		auto& options = ts->tune_options.spectrum_scan_options;
 		scan.start_time = options.start_time;
 		scan.sat_pos = options.sat_pos;
 		scan.lnb_key = lnb.k;
@@ -1052,7 +1052,8 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 
 
 	if (incomplete) {
-		auto options = this->ts.readAccess()->spectrum_scan_options; // make a copy
+		auto tune_options = this->ts.readAccess()->tune_options; // make a copy
+		auto& options  = tune_options.spectrum_scan_options;
 		auto lnb = this->ts.readAccess()->reserved_lnb;
 		if (options.band_pol.band == devdb::fe_band_t::HIGH) {
 			// switch to the next polarisation
@@ -1070,7 +1071,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 			dtdebugx("Continuing spectrum scan with pol=%s band=high",
 							 enum_to_str(options.band_pol.pol));
 		}
-		start_lnb_spectrum_scan(lnb, options);
+		start_lnb_spectrum_scan(lnb, tune_options);
 	}
 	auto result = statdb::save_spectrum_scan(spectrum_path, scan, append_now, min_freq_to_save);
 	result->is_complete = !incomplete;
@@ -1357,19 +1358,15 @@ int dvb_frontend_t::tune(const mux_t& mux, const tune_options_t& tune_options, b
 }
 
 
-int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::lnb_t& lnb, spectrum_scan_options_t options) {
+int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::lnb_t& lnb, const tune_options_t& tune_options) {
 	this->num_constellation_samples = 0;
 	using namespace chdb;
 	using namespace devdb;
+	auto& options= tune_options.spectrum_scan_options;
+	this->ts.writeAccess()->tune_options = tune_options;
 	auto lnb_voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, options.band_pol.pol);
 
 	fe_sec_tone_mode_t tone = (options.band_pol.band == fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
-	//dttime_init();
-	if (this->stop() < 0) /* Force the driver to go into idle mode immediately, so
-														that the fe_monitor_thread_t will also return immediately
-												 */
-		return -1;
-	dtdebug("tune: clear done");
 
 	// request spectrum scan
 	cmdseq_t cmdseq;
@@ -1421,7 +1418,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::lnb_t& lnb, spectrum_sc
 	auto ret = cmdseq.spectrum(fefd, options.spectrum_method);
 
 	t.tune_mode = tune_mode_t::SPECTRUM;
-	t.spectrum_scan_options = options;
+	t.tune_options.spectrum_scan_options = options;
 	dtdebugx("tune: spectrum acquisition started ret=%d", ret);
 	//dttime(100);
 	return ret;
@@ -1453,13 +1450,12 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::lnb_t& lnb) {
 		auto w = ts.writeAccess();
 		w->reserved_mux = {};
 		w->reserved_lnb = lnb;
-		if(!monitor_thread.get()) {
-			start_frontend_monitor();
-		} else {
-			assert(this->ts.readAccess()->fefd >= 0);
-		}
 	}
-
+	if(!monitor_thread.get()) {
+		start_frontend_monitor();
+	} else {
+		assert(this->ts.readAccess()->fefd >= 0);
+	}
 	return ret;
 }
 

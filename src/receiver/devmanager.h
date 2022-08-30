@@ -228,7 +228,6 @@ public:
 	int last_saved_freq{0}; //for spectrum scan: last frequency written to spectrum file
 	tune_mode_t tune_mode{tune_mode_t::IDLE};
 	bool use_blind_tune{false};
-	spectrum_scan_options_t spectrum_scan_options;
 	fe_lock_status_t lock_status;
 	tune_options_t tune_options{};
 
@@ -358,7 +357,7 @@ public:
 
 	int lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_options);
 
-	int start_lnb_spectrum_scan(const devdb::lnb_t& lnb, spectrum_scan_options_t spectrum_scan_options);
+	int start_lnb_spectrum_scan(const devdb::lnb_t& lnb, const tune_options_t& tune_options);
 
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);

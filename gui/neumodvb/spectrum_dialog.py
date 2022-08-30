@@ -20,6 +20,7 @@ import wx
 import datetime
 from dateutil import tz
 
+import pydevdb
 import pychdb
 
 from neumodvb.util import dtdebug, dterror
@@ -30,7 +31,7 @@ import pyreceiver
 from pyreceiver import get_object as get_object_
 
 def lnb_matches_spectrum(lnb,  spectrum):
-    start_freq, end_freq = pychdb.lnb.lnb_frequency_range(lnb)
+    start_freq, end_freq = pydevdb.lnb.lnb_frequency_range(lnb)
     return (start_freq <= spectrum.start_freq <= end_freq) and \
         (start_freq <= spectrum.end_freq <= end_freq)
 
@@ -51,7 +52,7 @@ class SpectrumButtons(SpectrumButtons_):
         return self.parent.OnBlindScan(event)
 
     def select_start_end(self, lnb):
-        rng = pychdb.lnb.lnb_frequency_range(lnb)
+        rng = pydevdb.lnb.lnb_frequency_range(lnb)
         start_freq, end_freq = rng
         if start_freq <= self.parent.start_freq <= end_freq and \
            start_freq <= self.parent.end_freq <= end_freq:
@@ -60,7 +61,7 @@ class SpectrumButtons(SpectrumButtons_):
         self.parent.start_freq, self.parent.end_freq = rng
         self.start_freq_text.SetValue(str(self.parent.start_freq//1000))
         self.end_freq_text.SetValue(str(self.parent.end_freq//1000))
-        is_circ = lnb.pol_type in (pychdb.lnb_pol_type_t.LR, pychdb.lnb_pol_type_t.RL)
+        is_circ = lnb.pol_type in (pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL)
         if is_circ:
             self.spectrum_horizontal.SetLabel('L')
             self.spectrum_vertical.SetLabel('R')
@@ -78,7 +79,7 @@ class SpectrumButtons(SpectrumButtons_):
         ret = []
         self.parent.start_freq = int(self.start_freq_text.GetValue())*1000
         self.parent.end_freq = int(self.end_freq_text.GetValue())*1000
-        is_circ = self.parent.lnb.pol_type in (pychdb.lnb_pol_type_t.LR, pychdb.lnb_pol_type_t.RL)
+        is_circ = self.parent.lnb.pol_type in (pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL)
         h, v, = self.spectrum_horizontal.GetValue(), \
             self.spectrum_vertical.GetValue()
         if v and h:
@@ -118,8 +119,8 @@ class SpectrumDialog(SpectrumDialog_):
         self.spectrum_buttons_panel.select_start_end(self.lnb)
         self.gettting_spectrum_ = False
 
-        bp_t = pychdb.fe_band_pol.fe_band_pol
-        b_t = pychdb.fe_band_t
+        bp_t = pydevdb.fe_band_pol.fe_band_pol
+        b_t = pydevdb.fe_band_t
         p_t = pychdb.fe_polarisation_t
 
         self.is_blindscanning = False
@@ -336,7 +337,7 @@ class SpectrumDialog(SpectrumDialog_):
            not lnb_matches_spectrum(self.lnb, spectrum):
             txn = wx.GetApp().chdb.rtxn()
             sat = pychdb.sat.find_by_key(txn, spectrum.k.sat_pos)
-            lnb = pychdb.lnb.find_by_key(txn, spectrum.k.lnb_key)
+            lnb = pydevdb.lnb.find_by_key(txn, spectrum.k.lnb_key)
             txn.abort()
             del txn
         else:
@@ -363,7 +364,7 @@ class SpectrumDialog(SpectrumDialog_):
         mux.frequency = int(freq*1000)
         mux.symbol_rate=  int(symbol_rate*1000)
         mux.stream_id = -1
-        mux.pls_mode = pychdb.fe_pls_mode_t.ROOT
+        mux.pls_mode = pydevdb.fe_pls_mode_t.ROOT
         mux.pls_code = 1
         p_t = pychdb.fe_polarisation_t
         mux.pol = getattr(p_t, pol)

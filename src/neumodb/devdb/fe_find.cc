@@ -38,7 +38,10 @@ void fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key) {
 }
 
 void fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
-	assert (fe::is_subscribed(fe));
+	if(!fe::is_subscribed(fe)) {
+		dterror("fe already ubsibscribed:" << fe);
+		return;
+	}
 	assert(fe.sub.lnb_key.card_mac_address != -1);
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if (c.is_valid())
@@ -221,7 +224,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 	auto lnb_on_positioner = devdb::lnb::on_positioner(lnb);
 
 	bool need_exclusivity = pol == chdb::fe_polarisation_t::NONE ||
-		band == devdb::fe_band_t::NONE || usals_pos != sat_pos_none;
+		band == devdb::fe_band_t::NONE || usals_pos == sat_pos_none;
 
 	fe_t best_fe{}; //the fe that we will use
 	best_fe.priority = std::numeric_limits<decltype(best_fe.priority)>::lowest();
@@ -334,7 +337,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 					if(no_best_fe_yet() ||
 						 !best_fe.supports.spectrum_fft || //fft is better
 						 (fe.priority > best_fe.priority ||
-							fe.priority == best_fe.priority && is_our_subscription) //prefer current adapter
+							(fe.priority == best_fe.priority && is_our_subscription)) //prefer current adapter
 						)
 						best_fe = fe;
 					} else if (fe.supports.spectrum_sweep) { //second best choice
@@ -354,7 +357,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 						&& !fe.supports.spectrum_sweep) || //prefer fe with least unneeded functionality
 
 					 (fe.priority > best_fe.priority ||
-						fe.priority == best_fe.priority && is_our_subscription) //prefer current adapter
+						(fe.priority == best_fe.priority && is_our_subscription)) //prefer current adapter
 					)
 					best_fe = fe;
 			} //end of !need_spectrum
@@ -593,7 +596,7 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
 		return {}; //no frontend could be found
 
 	auto ret = devdb::fe::reserve_fe_lnb_exclusive(wtxn, *best_fe, lnb);
-	assert(ret>0); //reservation cannot fail as we have a write lock on the db
+	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 	return best_fe;
 }
 

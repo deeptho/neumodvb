@@ -32,7 +32,6 @@ from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
-from neumodvb.lnblist import lnb_label
 import pystatdb
 import pychdb
 
@@ -45,9 +44,10 @@ class SpectrumTable(NeumoTable):
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     all_columns = \
         [CD(key='k.lnb_key',  label='lnb', basic=True, example="D0A0 Ku 28.2E 32766  ",
-            dfn = lambda x: x[2].lnb_label(x[1], x[0].k.sat_pos, x[0].adapter_no),
+            dfn = lambda x: x[2].lnb_label(x[0]),
             sort=('k.lnb_key.dish_id', 'k.lnb_key.adapter_mac_address', 'k.lnb_key.lnb_id')),
          CD(key='k.sat_pos',  label='sat\npos', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         CD(key='adapter_no',  label='ad#', basic=True, readonly=True),
          CD(key='k.pol',  label='pol', basic=True, dfn=lambda x: lastdot(x[1]).replace('POL',''), example='V'),
          CD(key='k.start_time',  label='date', basic=True, dfn= datetime_fn),
          CD(key='usals_pos',  label='usals_pos', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
@@ -58,12 +58,15 @@ class SpectrumTable(NeumoTable):
          #CD(key='resolution',  label='step', basic=False),
          CD(key='filename',  label='file', basic=False, example="28.2E/0/2022-07-20_00:19:48_H_dish0_adapter2")
         ]
-    def lnb_label(self, lnb_key, sat_pos, adapter_no):
+    def lnb_label(self, spectrum):
+        lnb_key = spectrum.k.lnb_key
+        sat_pos = spectrum.k.sat_pos
+        rf_input = lnb_key.rf_input
         sat_pos=pychdb.sat_pos_str(sat_pos)
         t= lastdot(lnb_key.lnb_type)
-        if t != 'C':
+        if t == 'UNIV':
             t='Ku'
-        return f'D{lnb_key.dish_id}A{"??" if adapter_no< 0 else adapter_no} {sat_pos:>5}{t} {lnb_key.lnb_id}'
+        return f'D{lnb_key.dish_id}#{"??" if rf_input< 0 else rf_input} {sat_pos:>5}{t} {lnb_key.lnb_id}'
 
     def InitialRecord(self):
         return self.app.currently_selected_spectrum

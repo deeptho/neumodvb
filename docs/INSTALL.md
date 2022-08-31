@@ -29,7 +29,7 @@ sudo pip3 install mpl_scatter_density
 #### Fedora 36 ####
 On Fedora 36:  install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
 ```
-sudo dnf install -y redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel ffmpeg-devel mpv-libs-devel https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-3.30-2710.fc35.x86_64.rpm https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm
+sudo dnf install -y redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel ffmpeg-devel mpv-libs-devel https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-3.30-2710.fc35.x86_64.rpm https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm
 ```
 
 Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
@@ -63,7 +63,7 @@ sudo apt update
 
 Then  install pre-requisite software:
 ```
-sudo  apt install -y clang clang-tools libtool libboost-program-options libboost libboost-regex libboost-context curl libcurl4 libcurl4-opensst-dev liblog4cxx-dev liblog4cxx libconfig-libconfig-dev libwxgtk3.0-gtk3 libgtk-dev freeglut3 freeglut3-dev librsvg2-dev libexif-dev libegobject-introspection libexpat1-dev python3-wxgtk2.4 python3-configobj  python3-sip-dev python3--matplot-lib python3-jinja2 python3-regex python3-scipy wxbase3-dev-wxbase3 wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak cmake
+sudo  apt install -y clang clang-tools libtool libboost-program-options libboost libboost-regex libboost-context curl libcurl4 libcurl4-opensst-dev liblog4cxx-dev liblog4cxx libconfig-libconfig-dev libwxgtk3.0-gtk3 libgtk-dev freeglut3 freeglut3-dev librsvg2-dev libexif-dev libegobject-introspection libexpat1-dev python3-wxgtk2.4 python3-configobj  python3-sip-dev python3--matplot-lib python3-jinja2 python3-regex python3-scipy wxbase3-dev-wxbase3 wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak cmake python3-cachetools
 ```
 
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";

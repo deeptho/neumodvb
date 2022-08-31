@@ -581,7 +581,7 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& r
 		} else {
 			cmdseq.add(DTV_ISI_LIST);
 		}
-		if(api_version >=1400) {
+		if(api_version >=1500) {
 			cmdseq.add(DTV_RF_INPUT);
 		}
 	}
@@ -1217,7 +1217,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 	int ret;
 	int new_usals_sat_pos;
 	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
-	if(api_version >=1400) {
+	if(api_version >=1500) {
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(lnb.k.rf_input));
 		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) lnb.k.rf_input))) {

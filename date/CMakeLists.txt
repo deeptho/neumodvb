@@ -7,7 +7,7 @@
      include( FetchContent )
      FetchContent_Declare( date_src
        GIT_REPOSITORY https://github.com/HowardHinnant/date.git
-       GIT_TAG        v3.0.0  # adjust tag/branch/commit as needed
+       GIT_TAG        v3.0.1  # adjust tag/branch/commit as needed
      )
      FetchContent_MakeAvailable(date_src)
      ...
@@ -17,7 +17,7 @@
 
 cmake_minimum_required( VERSION 3.7 )
 
-project( date VERSION 3.0.0 )
+project( date VERSION 3.0.1 )
 set(ABI_VERSION 3) # used as SOVERSION, increment when ABI changes
 
 include( GNUInstallDirs )
@@ -25,7 +25,7 @@ include( GNUInstallDirs )
 get_directory_property( has_parent PARENT_DIRECTORY )
 
 # Override by setting on CMake command line.
-#set( CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard whose features are requested." )
+set( CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard whose features are requested." )
 
 option( USE_SYSTEM_TZ_DB "Use the operating system's timezone database" OFF )
 option( MANUAL_TZ_DB "User will set TZ DB manually by invoking set_install in their code" OFF )
@@ -75,7 +75,7 @@ target_sources( date INTERFACE
 )
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)
     # public headers will get installed:
-    #set_target_properties( date PROPERTIES PUBLIC_HEADER include/date/date.h )
+    set_target_properties( date PROPERTIES PUBLIC_HEADER include/date/date.h )
 endif ()
 
 # These used to be set with generator expressions,
@@ -144,7 +144,7 @@ if( BUILD_TZ_LIB )
     endif( )
     set_target_properties( date-tz PROPERTIES
         POSITION_INDEPENDENT_CODE ON
-        #PUBLIC_HEADER "${TZ_HEADERS}"
+        PUBLIC_HEADER "${TZ_HEADERS}"
         VERSION "${PROJECT_VERSION}"
         SOVERSION "${ABI_VERSION}" )
     if( NOT MSVC )
@@ -168,22 +168,20 @@ write_basic_package_version_file( "${version_config}"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion )
 
-install( TARGETS date)
-#install( TARGETS date
-#    EXPORT dateConfig
-#    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/date
-#    )
+install( TARGETS date
+    EXPORT dateConfig
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/date )
 export( TARGETS date NAMESPACE date:: FILE dateTargets.cmake )
 if (CMAKE_VERSION VERSION_LESS 3.15)
-    #install(
-    #    FILES include/date/date.h
-    #    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/date )
+    install(
+        FILES include/date/date.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/date )
 endif ()
 
 if( BUILD_TZ_LIB )
     install( TARGETS date-tz
-        #EXPORT dateConfig
-        #PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/date
+        EXPORT dateConfig
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/date
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} )  # This is for Windows
@@ -195,13 +193,13 @@ if( WIN32 AND NOT CYGWIN)
 else( )
     set( CONFIG_LOC "${CMAKE_INSTALL_LIBDIR}/cmake/date" )
 endif( )
-#install( EXPORT dateConfig
-#  FILE dateTargets.cmake
-#  NAMESPACE date::
-#  DESTINATION ${CONFIG_LOC} )
-#install (
-#  FILES cmake/dateConfig.cmake "${version_config}"
-#  DESTINATION ${CONFIG_LOC})
+install( EXPORT dateConfig
+  FILE dateTargets.cmake
+  NAMESPACE date::
+  DESTINATION ${CONFIG_LOC} )
+install (
+  FILES cmake/dateConfig.cmake "${version_config}"
+  DESTINATION ${CONFIG_LOC})
 
 #[===================================================================[
    testing

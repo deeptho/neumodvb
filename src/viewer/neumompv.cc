@@ -101,6 +101,7 @@ void InitializeTexture(GLuint& g_texture) {
 }
 
 MpvGLCanvas::~MpvGLCanvas() {
+	this->MpvDestroy();
 	if (mpv_player) {
 		mpv_player->destroy();
 		mpv_player->wait_for_destroy();
@@ -109,6 +110,7 @@ MpvGLCanvas::~MpvGLCanvas() {
 
 	OnRender = nullptr;
 	OnSwapBuffers = nullptr;
+	tm.reset();
 	if (glContext)
 		delete glContext;
 	glContext = nullptr;
@@ -227,9 +229,11 @@ void MpvGLCanvas::MpvDestroy() {
 	Unbind(WX_MPV_WAKEUP, &MpvGLCanvas::OnMpvWakeupEvent, this);
 	// Unbind(WX_MPV_REDRAW, &MpvGLCanvas::OnMpvRedrawEvent, this);
 	dtdebugx("MpvDestroy %p mpv_player set to null\n", this);
+#if 0
 	if (mpv_player)
 		mpv_player->destroy();
 	mpv_player = nullptr;
+#endif
 }
 
 struct file_t;
@@ -999,11 +1003,6 @@ void MpvPlayer_::destroy() {
 
 	receiver->active_mpvs.writeAccess()->erase(this);
 	thread_.join();
-	if (mpv_gl) {
-		mpv_render_context_set_update_callback(mpv_gl, nullptr, nullptr);
-	}
-	mpv_render_context_free(mpv_gl);
-	mpv_terminate_destroy(mpv);
 	mpv_gl = nullptr;
 	mpv = nullptr;
 	gl_canvas = nullptr;
@@ -1036,6 +1035,12 @@ int MpvPlayer_::run() {
 		if(! timedout)
 			frames_to_play--;
 	}
+
+	if (mpv_gl) {
+		mpv_render_context_set_update_callback(mpv_gl, nullptr, nullptr);
+		mpv_render_context_free(mpv_gl);
+	}
+	mpv_terminate_destroy(mpv);
 	return 0;
 }
 

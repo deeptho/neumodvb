@@ -1074,7 +1074,7 @@ class MosaicPanel(wx.Panel):
 
         self.controller.mosaic_sizer.SetCols(self.num_cols)
         if self.num_entries == 1:
-            self.focus_idx = None
+            self.focus_idx = 0
         elif self.focus_idx is None:
             self.focus_idx = 0
         else:

@@ -2723,6 +2723,7 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 			service.name.sprintf("Service %s:%d", mux_desc.c_str(), pat_service.pmt.service_id);
 		}
 		auto new_service = service;
+		new_service.mux_desc = mux_desc;
 		new_service.pmt_pid = pat_service.pmt.pmt_pid;
 		//new_service.pr_pid = pat_service.pmt.pcr_pid;
 		new_service.video_pid = pat_service.pmt.video_pid;

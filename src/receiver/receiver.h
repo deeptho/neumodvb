@@ -207,10 +207,9 @@ public:
 					 tune_options_t tune_options);
 
 	int tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-					 tune_options_t tune_options);
+					 tune_options_t tune_options, const devdb::resource_subscription_counts_t& use_counts);
 	template<typename _mux_t>
-	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux,
-					 tune_options_t tune_options);
+	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux, tune_options_t tune_options);
 	int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
 	int prepare_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux, bool start);
 	int request_retune(active_adapter_t& active_adapter);
@@ -380,8 +379,11 @@ private:
 
 	std::shared_ptr<active_adapter_t> active_adapter_for_subscription(subscription_id_t subscription_id);
 
-	void remove_active_adapter(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
-	void unsubscribe_(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id, bool service_only);
+	void unsubscribe_mux_only(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
+														subscription_id_t subscription_id);
+	void unsubscribe_service_only(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
+	void unsubscribe_all(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
+											 subscription_id_t subscription_id);
 	void unsubscribe_active_service(std::vector<task_queue_t::future_t>& futures,
 																	active_service_t& active_service, subscription_id_t subscription_id);
 	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
@@ -390,23 +392,6 @@ private:
 
 	subscription_id_t subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn, devdb::lnb_t& lnb,
 																	tune_options_t tune_options, subscription_id_t subscription_id);
-
-
-
-/*!
-		find a suitable lnb  for tuning to a mux
-		if subscription_id >=0, then first unregister any mux for that subscription
-		ans then make a new reservation, taking into account that the old and the new mux might be the same
-		if subscription_id <0, then create a new subscription
-
-		Returns -1 if subscription failed (no free tuners)
-
-	*/
-	subscription_id_t subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
-																	 std::shared_ptr<active_adapter_t>& old_active_adapter,
-																	 db_txn &txn, const chdb::dvbs_mux_t& mux,
-																	 subscription_id_t subscription_id,
-																	 tune_options_t tune_options, const devdb::lnb_t* required_lnb);
 
 
 	/*!
@@ -419,7 +404,7 @@ private:
 
 	*/
 	template<typename _mux_t>
-	subscription_id_t subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
+	subscription_id_t subscribe_mux_not_in_use(std::vector<task_queue_t::future_t>& futures,
 																	 std::shared_ptr<active_adapter_t>& old_active_adapter,
 																	 db_txn &txn, const _mux_t& mux, subscription_id_t subscription_id,
 																	 tune_options_t tune_options, const devdb::lnb_t* required_lnb /*unused*/);
@@ -449,9 +434,10 @@ protected:
 										const _mux_t& mux, subscription_id_t subscription_id,
 										tune_options_t tune_options, const devdb::lnb_t* required_lnb);
 	template<class mux_t>
-	subscription_id_t subscribe_mux_in_use(std::vector<task_queue_t::future_t>& futures, const mux_t& mux,
-													 subscription_id_t subscription_id, tune_options_t tune_options,
-													 const devdb::lnb_t* required_lnb);
+	subscription_id_t subscribe_mux_in_use(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
+																				 const mux_t& mux, subscription_id_t subscription_id,
+																				 tune_options_t tune_options,
+																				 const devdb::lnb_t* required_lnb);
 	int request_retune(std::vector<task_queue_t::future_t>& futures,
 										 active_adapter_t& active_adapter, subscription_id_t subscription_id);
 
@@ -494,11 +480,6 @@ private:
 
 	void log_message(const char*file, unsigned int line, const char*prefix, const char*fmt, va_list ap);
 	active_service_t* find_open_channel_by_stream_pid(uint16_t pid); //used by scam
-
-#if 0
-	std::shared_ptr<active_adapter_t> active_adapter_with_fe(dvb_frontend_t*fe);
-#endif
-
 
 	//implemented in two versions: once in pyneumodaivb.cc and once in main.cc
 	void inform_python();

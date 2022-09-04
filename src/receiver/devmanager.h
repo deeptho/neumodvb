@@ -19,7 +19,6 @@
  */
 
 #pragma once
-//#include <atomic>
 #include <thread>
 #include "neumofrontend.h"
 #include "util/util.h"
@@ -310,7 +309,8 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	std::optional<statdb::spectrum_t> get_spectrum(const ss::string_& spectrum_path);
 	void start_frontend_monitor();
 
-	bool need_diseqc(const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux);
+	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux,
+																					 const devdb::resource_subscription_counts_t& counts);
 	bool need_diseqc(const devdb::lnb_t& new_lnb);
 
 	sec_status_t sec_status;
@@ -346,7 +346,7 @@ public:
 
 	std::tuple<int, int>
 	tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options,
-					 bool user_requested);
+					 bool user_requested, const devdb::resource_subscription_counts_t& use_counts);
 
 
 	int tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& options);
@@ -575,15 +575,11 @@ public:
 	 const tune_options_t& tune_options) const;
 
 
-	std::tuple<std::shared_ptr<dvb_frontend_t>,  devdb::lnb_t>
+	std::tuple<std::shared_ptr<dvb_frontend_t>,  devdb::lnb_t, devdb::resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_mux
 	(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
 	 const dvb_frontend_t* fe_to_release, const tune_options_t& tune_options) const;
-#if 0
-	std::shared_ptr<dvb_frontend_t>
-	find_fe_for_lnb( const devdb::lnb_t& lnb, const dvb_frontend_t* fe_to_release,
-									 bool need_blindscan, bool need_spectrum) const;
-#endif
+
 	int get_fd() const {
 		return inotfd;
 	}

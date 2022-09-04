@@ -151,24 +151,6 @@ void export_receiver(py::module& m) {
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
 		.def("scan_muxes", scan_muxes,
 				 "Scan muxes",  py::arg("muxlist"), py::arg("subscription_id"))
-		.def("subscribe",
-				 py::overload_cast<const chdb::dvbs_mux_t&, bool, int>(&receiver_t::subscribe_mux<chdb::dvbs_mux_t>),
-				 "Subscribe to a mux", py::arg("mux"), py::arg("blindscan"), py::arg("subscription_id"))
-		.def("subscribe",
-				 py::overload_cast<const chdb::dvbc_mux_t&, bool, int>(&receiver_t::subscribe_mux<chdb::dvbc_mux_t>),
-				 "Subscribe to a mux", py::arg("mux"), py::arg("blindscan"), py::arg("subscription_id"))
-		.def("subscribe",
-				 py::overload_cast<const chdb::dvbt_mux_t&, bool, int>(&receiver_t::subscribe_mux<chdb::dvbt_mux_t>),
-				 "Subscribe to a mux", py::arg("mux"), py::arg("blindscan"), py::arg("subscription_id"))
-#if 0
-		.def("subscribe", py::overload_cast<const chdb::service_t&, int>(&receiver_t::subscribe_service),
-				 "Subscribe to a service; if subscription_id is specified, then the service replaces "
-				 "the current subscription."
-				 "Returns thew new or existing subscription id",
-				 py::arg("service"), py::arg("subscription_id") = -1)
-
-		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe", py::arg("subscription_id"))
-#endif
 		.def("toggle_recording",
 				 py::overload_cast<const chdb::service_t&, const epgdb::epg_record_t&>(&receiver_t::toggle_recording),
 				 "Toggle recording of an epg event.", py::arg("service"), py::arg("epgrecord"))
@@ -184,19 +166,6 @@ void export_receiver(py::module& m) {
 			"get_spectrum_path",
 			[](receiver_t& receiver) { return std::string(receiver.options.readAccess()->spectrum_path.c_str()); },
 			"Return location where spectra are stored")
-#if 0
-		.def("start_recording", py::overload_cast<const chdb::service_t&, time_t, int>(&receiver_t::start_recording),
-				 "Start recording a service at a specific time for a specific duration (minutes)."
-				 , py::arg("service")
-				 , py::arg("start_time")
-				 , py::arg("duration") = 120
-			)
-		.def("stop_recording", py::overload_cast<const chdb::service_t&, time_t>(&receiver_t::stop_recording),
-				 "Stop all recordings which contain time t on service service."
-				 , py::arg("service")
-				 , py::arg("t")
-			)
-#endif
 
 		.def("stop", &receiver_t::stop, "Cleanup before exit")
 		.def_readonly("browse_history", &receiver_t::browse_history, py::return_value_policy::reference_internal)

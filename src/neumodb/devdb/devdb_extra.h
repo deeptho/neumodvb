@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <variant>
+#include <optional>
 
 
 #include "neumodb/devdb/devdb_db.h"
@@ -93,6 +94,13 @@ namespace devdb {
 
 	bool lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_ *error=nullptr);
 
+	struct resource_subscription_counts_t {
+		int dish{0};
+		int lnb{0};
+		int rf_coupler{0};
+		int tuner{0};
+	};
+
 }
 
 namespace  devdb::lnb {
@@ -152,8 +160,8 @@ namespace  devdb::lnb {
 	void update_lnb_adapter_fields(db_txn& wtxn, const devdb::fe_t& fe);
 	void on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux, chdb::dvbs_mux_t& new_mux,
 												 system_time_t now_);
-
-	int switch_id(db_txn& rtxn, const devdb::lnb_key_t& key);
+	std::optional<devdb::rf_coupler_t> get_rf_coupler(db_txn& rtxn, const devdb::lnb_key_t& lnb_key);
+	int rf_coupler_id(db_txn& rtxn, const devdb::lnb_key_t& key);
 
 	inline bool can_move_dish(const devdb::lnb_t& lnb) {
 		switch(lnb.rotor_control) {
@@ -180,7 +188,6 @@ namespace  devdb::lnb {
 			return false;
 		}
 	}
-
 }
 
 namespace devdb::fe {
@@ -199,18 +206,15 @@ namespace devdb::fe {
 
 	std::tuple<std::optional<devdb::fe_t>,
 						 std::optional<devdb::lnb_t>,
-						 int /*fe's priority*/, int /*lnb's priority*/ >
+						 resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																		const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
 																		const devdb::fe_key_t* fe_key_to_release,
 																		bool may_move_dish, bool use_blind_tune,
 																		int dish_move_penalty, int resource_reuse_bonus);
 
-	int dish_subscription_count(db_txn& rtxn, int dish_id);
-	int lnb_subscription_count(db_txn& rtxn, const lnb_key_t& lnb_key);
+	resource_subscription_counts_t subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key);
 
-	int switch_subscription_count(db_txn& rtxn, int switch_id);
-	int tuner_subscription_count(db_txn& rtxn, card_mac_address_t card_mac_address, int rf_input);
 	bool is_subscribed(const fe_t& fe);
 
 	inline bool has_rf_in(const fe_t& fe, int rf_in) {
@@ -229,28 +233,29 @@ namespace devdb::fe {
 		return false;
 	}
 
-	void unsubscribe(db_txn& wtxn, const fe_key_t& fe_key);
-	void unsubscribe(db_txn& wtxn, fe_t& fe);
+	int unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret=nullptr);
+	int unsubscribe(db_txn& wtxn, fe_t& fe);
 
 	int reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb,
-																	devdb::fe_band_t band,  chdb::fe_polarisation_t pol);
+																	devdb::fe_band_t band,  chdb::fe_polarisation_t pol, int frequency);
 
 
 	int reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb);
-	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc);
+	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency);
 
 	template<typename mux_t>
 	std::optional<devdb::fe_t>
 	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devdb::fe_key_t* fe_key_to_release,
 														 bool use_blind_tune);
 
-	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>>
+	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, resource_subscription_counts_t>
 	subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																 const devdb::lnb_t* required_lnb, const devdb::fe_key_t* fe_key_to_release,
 																 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus);
 	std::optional<devdb::fe_t>
 	subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const devdb::fe_key_t* fe_key_to_release,
 													bool need_blind_tune, bool need_spectrum);
+	devdb::fe_t subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key);
 
 };
 

@@ -142,10 +142,10 @@ int active_adapter_t::lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_
 }
 
 int active_adapter_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_options_t tune_options,
-													 bool user_requested) {
+													 bool user_requested, const devdb::resource_subscription_counts_t& use_counts) {
 	if(!fe)
 		return -1;
-	auto [ret, new_usals_sat_pos] = fe->tune(lnb, mux, tune_options, user_requested);
+	auto [ret, new_usals_sat_pos] = fe->tune(lnb, mux, tune_options, user_requested, use_counts);
 	if(ret>=0 && new_usals_sat_pos != sat_pos_none)
 		lnb_update_usals_pos(new_usals_sat_pos);
 
@@ -157,14 +157,23 @@ int active_adapter_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 	return ret;
 }
 
-int active_adapter_t::retune(const devdb::lnb_t& lnb) {
+template<>
+int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 	auto mux = std::get<chdb::dvbs_mux_t>(current_tp());
 	bool user_requested = false;
 	const bool is_retune{true};
+	devdb::lnb_t lnb;
+	devdb::resource_subscription_counts_t use_counts;
+	{
+		auto devdb_rtxn = receiver.devdb.rtxn();
+		auto lnb_key = current_lnb().k;
+		use_counts = devdb::fe::subscription_counts(devdb_rtxn, lnb_key);
+		devdb_rtxn.abort();
+	}
 	si.reset(is_retune);
 	//TODO: needless read here, followed by write within tune()
 	auto tune_options = fe->ts.readAccess()->tune_options;
-	return tune(lnb, mux, tune_options, user_requested);
+	return tune(current_lnb(), mux, tune_options, user_requested, use_counts);
 }
 
 template <typename mux_t> inline int active_adapter_t::retune() {
@@ -185,7 +194,13 @@ int active_adapter_t::restart_tune() {
 		current_tp(),
 		[this, &tune_options](dvbs_mux_t&& mux) {
 			bool user_requested = true;
-			tune(current_lnb(), mux, tune_options, user_requested);
+			devdb::resource_subscription_counts_t use_counts;
+			{
+				auto devdb_rtxn = receiver.devdb.rtxn();
+				use_counts = devdb::fe::subscription_counts(devdb_rtxn, current_lnb().k);
+				devdb_rtxn.abort();
+			}
+			tune(current_lnb(), mux, tune_options, user_requested, use_counts);
 		},
 		[this, &tune_options](dvbc_mux_t&& mux) {
 			bool user_requested = true;
@@ -286,11 +301,7 @@ void active_adapter_t::monitor() {
 	if (must_retune) {
 		visit_variant(
 			current_tp(),
-			[this](dvbs_mux_t&& mux) {
-				dttime_init();
-				retune(current_lnb());
-				dttime(100);
-			},
+			[this](dvbs_mux_t&& mux) { retune<dvbs_mux_t>();},
 			[this](dvbc_mux_t&& mux) { retune<dvbc_mux_t>(); },
 			[this](dvbt_mux_t&& mux) { retune<dvbt_mux_t>(); });
 	} else if (must_reinit_si) {
@@ -367,8 +378,8 @@ int active_adapter_t::open_demux(int mode) const {
 void active_adapter_t::update_lof(fe_state_t& ts, const ss::vector<int32_t, 2>& lof_offsets) {
 	auto& lnb = ts.reserved_lnb;
 	lnb.lof_offsets = lof_offsets;
-	auto txn = receiver.chdb.wtxn();
-	auto c = devdb::lnb_t::find_by_key(txn, lnb.k);
+	auto devdb_wtxn = receiver.devdb.wtxn();
+	auto c = devdb::lnb_t::find_by_key(devdb_wtxn, lnb.k);
 	if (c.is_valid()) {
 		/*note that we do not update the full mux (e.g., when called from positioner_dialog user may want
 			to not save some changes.
@@ -376,8 +387,8 @@ void active_adapter_t::update_lof(fe_state_t& ts, const ss::vector<int32_t, 2>& 
 		*/
 		auto lnb = c.current();
 		lnb.lof_offsets = lof_offsets;
-		put_record(txn, lnb);
-		txn.commit();
+		put_record(devdb_wtxn, lnb);
+		devdb_wtxn.commit();
 	}
 }
 
@@ -395,12 +406,12 @@ int active_adapter_t::deactivate() {
 
 void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
 	int dish_id = this->fe->ts.readAccess()->reserved_lnb.k.dish_id;
-	auto wtxn = receiver.chdb.wtxn();
-	int ret = devdb::dish::update_usals_pos(wtxn, dish_id, usals_pos);
+	auto devdb_wtxn = receiver.devdb.wtxn();
+	int ret = devdb::dish::update_usals_pos(devdb_wtxn, dish_id, usals_pos);
 	if( ret<0 )
-		wtxn.abort();
+		devdb_wtxn.abort();
 	else
-		wtxn.commit();
+		devdb_wtxn.commit();
 
 	auto w = this->fe->ts.writeAccess();
 	if (usals_pos != w->reserved_lnb.usals_pos) {

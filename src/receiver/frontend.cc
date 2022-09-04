@@ -1189,27 +1189,25 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 
 std::tuple<int, int>
 dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options,
-													 bool user_requested) {
+										 bool user_requested, const devdb::resource_subscription_counts_t& use_counts) {
 
 	this->ts.writeAccess()->tune_options = tune_options;
 	dttime_init();
 	auto muxname = chdb::to_str(mux);
 	dtdebug("Tuning to DVBS mux " << muxname.c_str() << " diseqc: lnb_id=" << lnb << " " << lnb.tune_string);
-	// needs to be at very start!
+
+	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(lnb, mux, use_counts);
 
 	if (user_requested) {
 		this->start_fe_lnb_and_mux(lnb, mux);
 	} else
 		this->sec_status.retune_count++;
 
-	bool need_diseqc = this->need_diseqc(lnb, mux);
-
 	//abort the current operation of the frontend making it go to IDLE mode
 	if (this->stop() < 0)  /* Force the driver to go into idle mode immediately, so
 																	that the fe_monitor_thread_t will also return immediately*/
 		return {-1, sat_pos_none};
 
-	dtdebug("tune: change_delivery_system done");
 	dttime(300);
 
 	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);

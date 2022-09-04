@@ -243,19 +243,19 @@ lnb = db_struct(name='lnb',
 
 
 
-rf_input_key = db_struct(name='rf_input_key',
+rf_coupler_key = db_struct(name='rf_coupler_key',
                           fname = 'fedev',
                           db = db,
                           type_id= lord('RI'),
                           version = 1,
                           fields = (
                               (4, 'int64_t', 'card_mac_address', -1), #Unique for each card
-                              (1, 'int8_t', 'rf_input', -1)
+                              (1, 'int16_t', 'rf_input', -1)
                           )
                         )
 
 
-rf_input = db_struct(name='rf_input',
+rf_coupler = db_struct(name='rf_coupler',
                    fname = 'fedev',
                    db = db,
                    type_id= lord('ri'),
@@ -263,8 +263,8 @@ rf_input = db_struct(name='rf_input',
                    primary_key = ('key', ('k',)), #unique; may need to be revised
                    keys =  (
                 ),
-                     fields = ((1, 'rf_input_key_t', 'k'),  #unique id for one of the connectors on one of the cards
-                               (3, 'int16_t', 'switch_id', -1), #if>=0 means inputs connected to same cable
+                     fields = ((1, 'rf_coupler_key_t', 'k'),  #unique id for one of the connectors on one of the cards
+                               (3, 'int16_t', 'coupler_id', -1), #if>=0 means inputs connected to same cable
                                ))
 
 fe_key = db_struct(name='fe_key',
@@ -302,7 +302,9 @@ fe_subscription = db_struct(name='fe_subscription',
                                      (4, 'lnb_key_t', 'lnb_key'),
                                      (5, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
                                      (6, 'fe_band_t', 'band', 'fe_band_t::NONE'),
-                                     (7, 'int16_t', 'usals_pos', 'sat_pos_none')
+                                     (7, 'int16_t', 'usals_pos', 'sat_pos_none'),
+                                     (2, 'int16_t', 'use_count', '0'),
+                                     (3, 'int32_t', 'frequency', '0'),
                 ))
 
 

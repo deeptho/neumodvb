@@ -25,29 +25,41 @@
 #include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
+#include <signal.h>
 
 #include "../util/neumovariant.h"
 
 using namespace devdb;
 
-void fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key) {
+
+int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
-	auto fe = c.is_valid()  ? c.current() : fe_t{}; //update in case of external changes
-	fe.sub = {};
+	assert(c.is_valid());
+	auto fe = c.current(); //update in case of external changes
+	assert(fe.sub.use_count>=1);
+	if(--fe.sub.use_count == 0) {
+		fe.sub = {};
+	}
 	put_record(wtxn, fe);
+	if (fe_ret)
+		*fe_ret = fe;
+	return fe.sub.use_count;
 }
 
-void fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
-	if(!fe::is_subscribed(fe)) {
-		dterror("fe already ubsibscribed:" << fe);
-		return;
-	}
+int fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
+	assert(fe::is_subscribed(fe));
 	assert(fe.sub.lnb_key.card_mac_address != -1);
-	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
-	if (c.is_valid())
-		fe = c.current(); //update in case of external changes
-	fe.sub = {};
+	auto ret = fe::unsubscribe(wtxn, fe.k, &fe);
+	return ret;
+}
+
+devdb::fe_t fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key) {
+	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
+	auto fe = c.is_valid()  ? c.current() : fe_t{}; //update in case of external changes
+	assert(fe.sub.use_count>=1);
+	++fe.sub.use_count;
 	put_record(wtxn, fe);
+	return fe;
 }
 
 
@@ -85,7 +97,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
 		if((!fe::is_subscribed(fe) && ! adapter_in_use(fe.adapter_no)) ||
 			 (fe_to_release && fe.k == *fe_to_release) //consider the future case where the fe will be unsubscribed
 			) {
-			//find the best fe will all required functionlity, without taking into account other subscriptions
+			//find the best fe with all required functionality, without taking into account other subscriptions
 			if(!fe.present || ! fe.can_be_used)
 				continue; 			/* we can use this frontend only if it can be connected to the proper input*/
 
@@ -133,56 +145,34 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
 }
 
 
-
-int fe::dish_subscription_count(db_txn& rtxn, int dish_id) {
-	int ret{0};
-	auto c = find_first<fe_t>(rtxn);
-	for(const auto& fe: c.range()) {
-		if( !fe::is_subscribed(fe) || fe.sub.lnb_key.dish_id != dish_id )
-			continue;
-		ret ++;
-	}
-	return ret;
-}
-
-int fe::lnb_subscription_count(db_txn& rtxn, const lnb_key_t& lnb_key) {
-	int ret{0};
+//how many active fe_t's use lnb?
+devdb::resource_subscription_counts_t
+devdb::fe::subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key) {
+	devdb::resource_subscription_counts_t ret;
 	auto c = fe_t::find_by_card_mac_address(rtxn, lnb_key.card_mac_address, find_type_t::find_eq,
 																					fe_t::partial_keys_t::card_mac_address);
+	auto rf_coupler_id = lnb::rf_coupler_id(rtxn, lnb_key);
 
 	for(const auto& fe: c.range()) {
-		if( !fe::is_subscribed(fe) || fe.sub.lnb_key != lnb_key )
+		if( !fe::is_subscribed(fe))
 			continue;
-		ret ++;
+		if(fe.sub.owner != getpid() && kill((pid_t)fe.sub.owner, 0)) {
+			dtdebugx("process pid=%d has died\n", fe.sub.owner);
+			continue;
+		}
+
+		if(fe.sub.lnb_key == lnb_key )
+			ret.lnb++;
+		if(fe.sub.lnb_key.rf_input == lnb_key.rf_input)
+			ret.tuner++;
+		if(lnb::rf_coupler_id(rtxn, fe.sub.lnb_key) == rf_coupler_id)
+			ret.rf_coupler++;
+		if( fe.sub.lnb_key.dish_id == lnb_key.dish_id
+				|| fe.sub.lnb_key == lnb_key) //the last test is in case dish_id is set to -1
+			ret.dish++;
 	}
 	return ret;
 }
-
-int fe::switch_subscription_count(db_txn& rtxn, int switch_id) {
-	if(switch_id<0)
-		return 0;
-	int ret{0};
-	auto c = find_first<fe_t>(rtxn);
-	for(const auto& fe: c.range()) {
-		if( !fe::is_subscribed(fe) || lnb::switch_id(rtxn, fe.sub.lnb_key) != switch_id)
-			continue;
-		ret ++;
-	}
-	return ret;
-}
-
-int fe::tuner_subscription_count(db_txn& rtxn, card_mac_address_t card_mac_address, int rf_input) {
-	int ret{0};
-
-	auto c = fe_t::find_by_card_mac_address(rtxn, (int64_t) card_mac_address);
-	for(const auto& fe: c.range()) {
-		if( !fe::is_subscribed(fe) || fe.sub.lnb_key.rf_input != rf_input)
-			continue;
-		ret ++;
-	}
-	return ret;
-}
-
 
 /*
 	Find out if the desired lnb can be subscribed and then switched to the desired band and polarisation
@@ -220,7 +210,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 																									 chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos) {
 
 	//TODO: clean subscriptions at startup
-	auto switch_id = devdb::lnb::switch_id(rtxn, lnb.k);
+	auto rf_coupler_id = devdb::lnb::rf_coupler_id(rtxn, lnb.k);
 	auto lnb_on_positioner = devdb::lnb::on_positioner(lnb);
 
 	bool need_exclusivity = pol == chdb::fe_polarisation_t::NONE ||
@@ -263,10 +253,10 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 		Note that priority swicthes do not need to be treated specifically as neumoDVB
 		never neither of the connectors to send diseqc, except initially when both connectors are idle.
 	 */
-	auto shared_rf_input_conflict = [&rtxn, pol, band, usals_pos] (const devdb::fe_t& fe, int switch_id) {
-		if(switch_id <0)
+	auto shared_rf_input_conflict = [&rtxn, pol, band, usals_pos] (const devdb::fe_t& fe, int rf_coupler_id) {
+		if(rf_coupler_id <0)
 			return false; //not on switch; no conflict possible
-		if(devdb::lnb::switch_id(rtxn, fe.sub.lnb_key) != switch_id)
+		if(devdb::lnb::rf_coupler_id(rtxn, fe.sub.lnb_key) != rf_coupler_id)
 			return false;  //no conflict possible
 		if(!fe.enable_dvbs || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
 			return false; //no conflict possible (not sat)
@@ -397,7 +387,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 				 2) our lnb is on a dish with a positioner, and this actuve frontend uses another lnb on the same dish
 				    pointing to a different sat
 			 */
-			if (switch_id >=0 && shared_rf_input_conflict (fe, switch_id))
+			if (rf_coupler_id >=0 && shared_rf_input_conflict (fe, rf_coupler_id))
 				return {}; //the lnb is on a cable which is tuned to another sat/pol/band
 
 			if (lnb_on_positioner && shared_positioner_conflict (fe, lnb.k.dish_id))
@@ -414,9 +404,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 
 
 
-std::tuple<std::optional<devdb::fe_t>,
-					 std::optional<devdb::lnb_t>,
-					 int /*fe's priority*/, int /*lnb's priority*/ >
+std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t>
 fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																			const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
 																			const devdb::fe_key_t* fe_key_to_release,
@@ -428,7 +416,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 	// best lnb sofar, and the corresponding connected frontend
 	std::optional<devdb::lnb_t> best_lnb;
 	std::optional<devdb::fe_t> best_fe;
-
+	resource_subscription_counts_t best_use_counts;
 
 	/*
 		Loop over all lnbs to find a suitable one.
@@ -439,17 +427,9 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																						 devdb::lnb_t::partial_keys_t::all)
 		: find_first<devdb::lnb_t>(rtxn);
 	for (auto const& lnb : c.range()) {
-#if 0
-		if (required_lnb && required_lnb->k != lnb.k)
-			continue;
-		auto* plnb = required_lnb ? required_lnb : &lnb;
-		if (!plnb->enabled)
-			continue;
-#else
 		assert(! required_lnb || required_lnb->k == lnb.k);
 		if(!lnb.enabled || !lnb.can_be_used)
 			continue;
-#endif
 		/*
 			required_lnb may not have been saved in the database and may contain additional networks or
 			edited settings when called from positioner_dialog
@@ -493,11 +473,11 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		}
 
 		auto fe_prio = fe->priority;
-
-		if(lnb_subscription_count(rtxn, lnb.k)>=1 ||
-			 tuner_subscription_count(rtxn, card_mac_address_t(fe->card_mac_address), lnb.k.rf_input) >= 1 ||
-			 dish_subscription_count(rtxn, lnb.k.dish_id) >=1 ||
-			 switch_subscription_count(rtxn, devdb::lnb::switch_id(rtxn, lnb.k)) >=1)
+		auto use_counts = subscription_counts(rtxn, lnb.k);
+		if(use_counts.lnb >= 1 ||
+			 use_counts.tuner >= 1 ||
+			 use_counts.dish >=1 ||
+			 use_counts.rf_coupler >=1)
 			fe_prio += resource_reuse_bonus;
 
 
@@ -510,32 +490,34 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		/*we cannot move the dish, but we can still use this lnb if the dish
 				happens to be pointint to the correct sat
 		*/
-
 		best_fe_prio = fe_prio - penalty;
 		best_lnb_prio = (lnb_priority < 0 ? fe_prio : lnb_priority) - penalty; //<0 means: use fe_priority
 		best_lnb = lnb;
 		best_fe = fe;
+		best_use_counts = use_counts;
 		if (required_lnb)
 			break; //we only beed to look at one lnb
 	}
-	return std::make_tuple(best_fe, best_lnb, best_fe_prio, best_lnb_prio);
+	return std::make_tuple(best_fe, best_lnb, best_use_counts);
 }
 
 int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb,
-																						devdb::fe_band_t band,  chdb::fe_polarisation_t pol)
+																					 devdb::fe_band_t band,  chdb::fe_polarisation_t pol, int frequency)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
 		return -1;
 	fe = c.current();
 	auto& sub = fe.sub;
+	assert(sub.use_count == 0);
 	sub.owner = getpid();
-
+	sub.use_count = 1;
 	//the following settings imply that we request a non-exclusive subscription
 	sub.lnb_key = lnb.k;
 	sub.pol = pol;
 	sub.band = band;
 	sub.usals_pos = lnb.usals_pos;
+	sub.frequency = frequency; //for informational purposes
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -547,8 +529,9 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const dev
 		return -1;
 	fe = c.current();
 	auto& sub = fe.sub;
+	assert(sub.use_count == 0);
 	sub.owner = getpid();
-
+	sub.use_count = 1;
 	//the following settings imply that we request a non-exclusive subscription
 	sub.lnb_key = lnb.k;
 	sub.pol = chdb::fe_polarisation_t::NONE;
@@ -560,20 +543,22 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const dev
 
 
 
-int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc)
+int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
 		return -1;
 	fe = c.current();
 	auto& sub = fe.sub;
+	assert(sub.use_count == 0);
 	sub.owner = getpid();
-
+	sub.use_count = 1;
 	//the following settings imply that we request a non-exclusive subscription
 	sub.lnb_key = devdb::lnb_key_t{};
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = is_dvbc ? sat_pos_dvbc : sat_pos_dvbt;
+	sub.frequency = frequency; //for informational purposes only
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -600,12 +585,12 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
 	return best_fe;
 }
 
-std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>>
+std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t>
 devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 													 const devdb::lnb_t* required_lnb, const devdb::fe_key_t* fe_key_to_release,
 													 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus) {
 	const bool may_move_dish{true};
-	auto[best_fe, best_lnb, best_fe_prio, best_lnb_prio ] =
+	auto[best_fe, best_lnb, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_lnb,
 																					fe_key_to_release,
 																					may_move_dish, use_blind_tune,
@@ -614,11 +599,14 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 		unsubscribe(wtxn, *fe_key_to_release);
 	if(!best_fe)
 		return {}; //no frontend could be found
-
 	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, *best_fe, *best_lnb, devdb::lnb::band_for_mux(*best_lnb, mux),
-																									 mux.pol);
+																										mux.pol, mux.frequency);
+	best_use_counts.dish++;
+	best_use_counts.lnb++;
+	best_use_counts.rf_coupler++;
+	best_use_counts.tuner++;
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
-	return {best_fe, best_lnb};
+	return {best_fe, best_lnb, best_use_counts};
 }
 
 template<typename mux_t>
@@ -638,10 +626,21 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 	if(!best_fe)
 		return {}; //no frontend could be found
 
-	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc);
+	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
 	return best_fe;
 }
+
+bool devdb::fe::is_subscribed(const fe_t& fe) {
+	if (fe.sub.owner < 0)
+		return false;
+	if( kill((pid_t)fe.sub.owner, 0)) {
+		dtdebugx("process pid=%d has died\n", fe.sub.owner);
+		return false;
+	}
+	return true;
+}
+
 
 //instantiation
 template std::optional<devdb::fe_t>

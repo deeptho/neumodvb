@@ -38,6 +38,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <signal.h>
 #include <bitset>
 
 typedef int infd_t;
@@ -180,7 +181,7 @@ public:
 	std::shared_ptr<dvb_frontend_t> find_fe_for_tuning_to_mux(db_txn& txn, const mux_t& mux,
 																														const dvb_frontend_t* fe_to_release,
 																														const tune_options_t& tune_options) const;
-	std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t>
+	std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t, devdb::resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
 																		const dvb_frontend_t* fe_to_release,
 																		const tune_options_t& tune_options) const;
@@ -726,7 +727,7 @@ dvbdev_monitor_t::find_fe_for_tuning_to_mux(db_txn& rtxn, const mux_t& mux,
 }
 
 
-std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t>
+std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t, devdb::resource_subscription_counts_t>
 dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dvbs_mux_t& mux,
 																										const devdb::lnb_t* required_lnb,
 																										const dvb_frontend_t* fe_to_release,
@@ -738,7 +739,7 @@ dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dv
 	auto fe_key = fe_to_release ? fe_to_release->fe_key() : devdb::fe_key_t{};
 	auto* fe_key_to_release = fe_to_release? &fe_key : nullptr;
 
-	auto[best_fe, best_lnb, best_fe_prio, best_lnb_prio ] =
+	auto[best_fe, best_lnb, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, mux, required_lnb,
 																					fe_key_to_release,
 																					tune_options.may_move_dish, tune_options.use_blind_tune,
@@ -747,10 +748,10 @@ dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dv
 	auto fe = find_fe(best_fe->k);
 	if (!fe) {
 		dtdebug("LNB " << *best_lnb << " not connected to any fe");
-		return {nullptr, *best_lnb};
+		return {nullptr, *best_lnb, best_use_counts};
 	}
 	assert(best_fe->can_be_used);
-	return {fe, *best_lnb};
+	return {fe, *best_lnb, best_use_counts};
 }
 
 
@@ -775,7 +776,7 @@ adaptermgr_t::find_fe_for_tuning_to_mux(db_txn& txn, const chdb::dvbt_mux_t& mux
 																				const dvb_frontend_t* fe_to_release,
 																				const tune_options_t& tune_options) const;
 
-std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t>
+std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t, devdb::resource_subscription_counts_t>
 adaptermgr_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux,
 																								const devdb::lnb_t* required_lnb,
 																								const dvb_frontend_t* fe_to_release,

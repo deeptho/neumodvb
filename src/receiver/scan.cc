@@ -199,30 +199,6 @@ int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
 	return num_pending;
 }
 
-subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
-	ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
-	bool scan_found_muxes, int max_num_subscriptions, subscription_id_t subscription_id) {
-	ss::string<32> s;
-	s << "SUB[" << (int) subscription_id << "] Request scan";
-	log4cxx::NDC ndc(s);
-
-	std::vector<task_queue_t::future_t> futures;
-	bool service_only = false;
-	if ((int) subscription_id >= 0)
-		unsubscribe_(futures, subscription_id, service_only);
-
-	bool error = wait_for_all(futures);
-	if (error) {
-		dterror("Unhandled error in subscribe_scan");
-	}
-	subscription_id = this->receiver_thread_t::subscribe_scan(futures, muxes, lnbs, scan_found_muxes,
-																														max_num_subscriptions, subscription_id);
-	error |= wait_for_all(futures);
-	if (error) {
-		dterror("Unhandled error in subscribe_scan");
-	}
-	return subscription_id;
-}
 
 scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 										 //ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs_,

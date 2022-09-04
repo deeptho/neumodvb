@@ -148,7 +148,8 @@ int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_
 }
 
 int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
-															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options) {
+															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options,
+															 const devdb::resource_subscription_counts_t& use_counts) {
 	// check_thread();
 	dtdebugx("tune mux action");
 	chdb::dvbs_mux_t mux{mux_};
@@ -164,7 +165,7 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 
 	this->active_adapters[active_adapter.get()] = active_adapter;
 	bool user_requested = true;
-	return active_adapter->tune(lnb, mux, tune_options, user_requested);
+	return active_adapter->tune(lnb, mux, tune_options, user_requested, use_counts);
 }
 
 template <typename _mux_t>

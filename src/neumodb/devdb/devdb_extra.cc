@@ -25,7 +25,6 @@
 #include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
-#include <signal.h>
 
 #include "../util/neumovariant.h"
 
@@ -809,11 +808,20 @@ void devdb::lnb::update_lnb_adapter_fields(db_txn& wtxn, const devdb::fe_t& fe) 
 	switch_id>=0. rf_inputs with the same switch_id care connected. rf_inputs witjout switch_id are not connected
 
  */
-int devdb::lnb::switch_id(db_txn& rtxn, const devdb::lnb_key_t& lnb_key) {
-	rf_input_key_t k{lnb_key.card_mac_address, lnb_key.rf_input};
-	auto c = devdb::rf_input_t::find_by_key(rtxn, k);
+std::optional<devdb::rf_coupler_t> devdb::lnb::get_rf_coupler(db_txn& rtxn, const devdb::lnb_key_t& lnb_key) {
+	rf_coupler_key_t k{lnb_key.card_mac_address, lnb_key.rf_input};
+	auto c = devdb::rf_coupler_t::find_by_key(rtxn, k);
 	if(c.is_valid())
-		return c.current().switch_id;
+		return c.current();
+	else
+		return {};
+}
+
+int devdb::lnb::rf_coupler_id(db_txn& rtxn, const devdb::lnb_key_t& lnb_key) {
+	rf_coupler_key_t k{lnb_key.card_mac_address, lnb_key.rf_input};
+	auto c = devdb::rf_coupler_t::find_by_key(rtxn, k);
+	if(c.is_valid())
+		return c.current().coupler_id;
 	else
 		return -1;
 }
@@ -839,15 +847,4 @@ void devdb::lnb::on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux
 			break;
 		}
 	}
-}
-
-
-bool devdb::fe::is_subscribed(const fe_t& fe) {
-	if (fe.sub.owner < 0)
-		return false;
-	if( kill((pid_t)fe.sub.owner, 0)) {
-		dtdebugx("process pid=%d has died\n", fe.sub.owner);
-		return false;
-	}
-	return true;
 }

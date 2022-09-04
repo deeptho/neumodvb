@@ -243,12 +243,12 @@ private:
 	int lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_options);
 
 	int tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-					 tune_options_t tune_options, bool user_requested); //(re)tune to new transponder
+					 tune_options_t tune_options, bool user_requested,
+					 const devdb::resource_subscription_counts_t& use_counts); //(re)tune to new transponder
 
 	template<typename mux_t>
 	int tune(const mux_t& mux, tune_options_t tune_options, bool user_requested);
 
-	int retune(const devdb::lnb_t& lnb);
 	int add_service(active_service_t& channel);//tune to channel on transponder
 	std::tuple<bool, bool> check_status();
 

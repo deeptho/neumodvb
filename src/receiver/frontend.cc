@@ -1227,7 +1227,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 		std::tie(ret, new_usals_sat_pos) =
 			this->do_lnb_and_diseqc(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol));
 		dtdebug("tune: do_lnb_and_diseqc done");
-	} else {
+	} else if(need_lnb) {
 		this->do_lnb(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol));
 		dtdebug("tune: do_lnb done");
 	}
@@ -1794,26 +1794,37 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 
 
 /*
-	determine if we need to send a diseqc command
-	always send diseqc if tuning has failed
+	determine if we need to send a diseqc command and/or if we need to set voltage/tone on lnb
+	always send diseqc if tuning has failed unless when lnb_use_count>1
+
+	returns need_diseqc, need_lnb
+	These can be {true, true}, {false, true} or {false, false}
+
 */
-bool dvb_frontend_t::need_diseqc(const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux) {
-	if (!this->sec_status.is_tuned())
-		return true; // always send diseqc if we were not tuned
+std::tuple<bool,bool>
+dvb_frontend_t::need_diseqc_or_lnb(const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux,
+																	 const devdb::resource_subscription_counts_t& use_counts) {
+	if (!this->sec_status.is_tuned() && use_counts.lnb == 1 && use_counts.dish <=1
+			&& use_counts.rf_coupler<=1)
+		return {true, true}; // always send diseqc if we were not tuned
 	bool is_dvbs =
 		((int)new_mux.delivery_system == SYS_DVBS || new_mux.delivery_system == (chdb::fe_delsys_dvbs_t)SYS_DVBS2);
 	if (!is_dvbs)
-		return false;
+		return {false, false};
+	if(use_counts.lnb > 1 || use_counts.rf_coupler_id >1) {
+		dtdebugx("Preventing diseqc because lnb is used more than once: use_count=%d", use_counts.lnb);
+		return {false, false};
+	}
 	auto ts = this->ts.readAccess();
 	if (new_lnb.k != ts->reserved_lnb.k)
-		return true;
+		return {true, true};
 	if (!devdb::lnb::on_positioner(new_lnb))
-		return false;
+		return {false, true};
 	bool active_rotor = (new_lnb.rotor_control == devdb::rotor_control_t::ROTOR_MASTER_USALS ||
 											 new_lnb.rotor_control == devdb::rotor_control_t::ROTOR_MASTER_DISEQC12);
 	if (!active_rotor)
-		return false;
-	return chdb::mux_key_ptr(ts->reserved_mux)->sat_pos != new_mux.k.sat_pos;
+		return {false, true};
+	return {chdb::mux_key_ptr(ts->reserved_mux)->sat_pos != new_mux.k.sat_pos, true};
 }
 
 bool dvb_frontend_t::need_diseqc(const devdb::lnb_t& new_lnb) {

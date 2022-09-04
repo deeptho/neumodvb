@@ -263,6 +263,11 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 	auto dbfe_old = c.is_valid() ? c.current() : devdb::fe_t();
 	dbfe_old.mtime = t.dbfe.mtime; //prevent this from being a change
 	bool changed = !c.is_valid() || (dbfe_old != t.dbfe);
+	if(dbfe_old.sub.owner != -1 && dbfe_old.sub.owner != getpid() && kill((pid_t)dbfe_old.sub.owner, 0)) {
+		dtdebugx("process pid=%d has died\n", dbfe_old.sub.owner);
+		t.dbfe.sub.owner = -1;
+		changed = true;
+	}
 
 	if (changed) {
 		t.dbfe.mtime = system_clock_t::to_time_t(now);

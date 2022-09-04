@@ -63,7 +63,6 @@ def get_current_network(lnb):
             return n
     return None
 
-
 def lnb_label(lnb):
     x = neumodbutils.enum_to_str(lnb.rotor_control)
     if x.startswith('ROTOR_SLAVE'):
@@ -75,12 +74,20 @@ def lnb_label(lnb):
     t= lastdot(lnb.k.lnb_type)
     if t != 'C':
         t='Ku'
-    return f'D{lnb.k.dish_id}A{lnb.adapter_no} {sat_pos:>5}{t} {lnb.k.lnb_id}'
+    return f'{lnb.name.split(" ")[0]}  {sat_pos:>5}{t} {lnb.k.lnb_id}'
+
+def card_label(lnb):
+    parts = lnb.name.split(" ")
+    short_name = parts[0]
+    name = " ".join(parts[1:])
+    short_name = short_name.split('#')[0]
+    return f'{short_name}: {name}'
 
 class LnbTable(NeumoTable):
     CD = NeumoTable.CD
     adapter_fn = lambda x: x[0].adapter_name
     mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":") if x[1]>=0 else '???'
+    card_fn = lambda x: card_label(x[0])
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
@@ -93,38 +100,34 @@ class LnbTable(NeumoTable):
                       label='LNB', basic=True, readonly=True)
                               ]
     all_columns = \
-        [CD(key='name',  label='name', basic=True, readonly=True, example=" TBS 6904se #12 "),
+        [CD(key='name',  label='LNB', basic=True, readonly=True, example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
-         CD(key='adapter_no',  label='adap', basic=True, readonly=True,
-             example=" 12"),
-          #We use mac_address as the key, to support combobox editing
-          CD(key='k.adapter_mac_address',  label='adapter', basic=True, no_combo=False, readonly=False,
-             dfn=adapter_fn, example="TurboSight TBS 6916X #12 "),
-          CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
-             dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
-          CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
-          CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
-             dfn= lambda x: pychdb.sat_pos_str(x[1])),
-          #CD(key='offset_pos',  label='usals\noffset', basic=True, no_combo = True, #allow entering sat_pos
-          #   dfn= lambda x: pychdb.sat_pos_str(x[1])),
-          CD(key='enabled',   label='ena-\nbled', basic=False),
-          CD(key='can_be_used',   label='avail-\nable', basic=False),
-          CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),
-          CD(key='diseqc_10',  label='diseqc\n10'),
-          CD(key='diseqc_11',  label='diseqc\n11'),
-          #CD(key='diseqc_mini',  label='diseqc\nmini'),
-          CD(key='tune_string',  label='tune\nstring'),
-          CD(key='k.lnb_type',  label='LNB type', dfn=lambda x: lastdot(x)),
-          CD(key='pol_type',  label='POL\ntype', dfn=lambda x: lastdot(x), basic=False),
-          CD(key='priority',  label='prio'),
-          CD(key='lof_offsets',  label='lof\noffset', dfn=lof_offset_fn, readonly = True,
-             example='-2000kHz; -20000kHz'),
-          CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
-          CD(key='freq_low',   label='freq\nmin', basic=False, dfn=freq_fn, example="10700.000"),
-          CD(key='freq_mid',   label='mid\nfreq', basic=False, dfn=freq_fn, example="10700.000"),
-          CD(key='freq_high',   label='freq\nmax', basic=False, dfn=freq_fn, example="10700.000"),
-          CD(key='lof_low',   label='LOF\nlow', basic=False, dfn=freq_fn, example="10700.000"),
-          CD(key='lof_high',   label='LOF\nhigh', basic=False, dfn=freq_fn, example="10700.000"),
+         CD(key='k.card_mac_address',  label='card', basic=True, no_combo=False, readonly=False, dfn=card_fn,
+            example=" C0: TBS 6904SE "),
+         CD(key='k.rf_input',  label='RF in', basic=True, readonly=False),
+         #CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
+         CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
+            dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         #CD(key='offset_pos',  label='usals\noffset', basic=True, no_combo = True, #allow entering sat_pos
+         #   dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         CD(key='enabled',   label='ena-\nbled', basic=False),
+         CD(key='can_be_used',   label='avail-\nable', basic=False),
+         CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),
+         CD(key='diseqc_10',  label='diseqc\n10'),
+         CD(key='diseqc_11',  label='diseqc\n11'),
+         #CD(key='diseqc_mini',  label='diseqc\nmini'),
+         CD(key='tune_string',  label='tune\nstring'),
+         CD(key='k.lnb_type',  label='LNB type', dfn=lambda x: lastdot(x)),
+         CD(key='pol_type',  label='POL\ntype', dfn=lambda x: lastdot(x), basic=False),
+         CD(key='priority',  label='prio'),
+         CD(key='lof_offsets',  label='lof\noffset', dfn=lof_offset_fn, readonly = True,
+            example='-2000kHz; -20000kHz'),
+         CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
+         CD(key='freq_low',   label='freq\nmin', basic=False, dfn=freq_fn, example="10700.000"),
+         CD(key='freq_mid',   label='freq\nmid', basic=False, dfn=freq_fn, example="10700.000"),
+         CD(key='freq_high',   label='freq\nmax', basic=False, dfn=freq_fn, example="10700.000"),
+         CD(key='lof_low',   label='LOF\nlow', basic=False, dfn=freq_fn, example="10700.000"),
+         CD(key='lof_high',   label='LOF\nhigh', basic=False, dfn=freq_fn, example="10700.000"),
         ]
 
     dvbt_columns =  \
@@ -173,7 +176,7 @@ class LnbTable(NeumoTable):
         return pychdb.sat.sat_pos_none
 
     def __save_record__(self, txn, lnb):
-        if lnb.k.adapter_mac_address <=0:
+        if lnb.k.card_mac_address <=0:
             ShowMessage("Bad data", "Enter a valid adapter number before saving")
             return None
         if lnb.usals_pos !=  pychdb.sat.sat_pos_none and len(lnb.networks)==0:

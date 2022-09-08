@@ -266,6 +266,7 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 	if(dbfe_old.sub.owner != -1 && dbfe_old.sub.owner != getpid() && kill((pid_t)dbfe_old.sub.owner, 0)) {
 		dtdebugx("process pid=%d has died\n", dbfe_old.sub.owner);
 		t.dbfe.sub.owner = -1;
+		t.dbfe.sub.use_count = 0;
 		changed = true;
 	}
 

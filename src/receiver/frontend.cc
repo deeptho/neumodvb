@@ -439,7 +439,7 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 			ret.lnb_lof_offset.reset();
 	}
 
-	//the following must be called even when not lockes, to consume the results of all DTV_... commands
+	//the following must be called even when not locked, to consume the results of all DTV_... commands
 	visit_variant(
 		ret.driver_mux,
 		[&cmdseq,  &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
@@ -1811,7 +1811,7 @@ dvb_frontend_t::need_diseqc_or_lnb(const devdb::lnb_t& new_lnb, const chdb::dvbs
 		((int)new_mux.delivery_system == SYS_DVBS || new_mux.delivery_system == (chdb::fe_delsys_dvbs_t)SYS_DVBS2);
 	if (!is_dvbs)
 		return {false, false};
-	if(use_counts.lnb > 1 || use_counts.rf_coupler_id >1) {
+	if(use_counts.lnb > 1 || use_counts.rf_coupler > 1) {
 		dtdebugx("Preventing diseqc because lnb is used more than once: use_count=%d", use_counts.lnb);
 		return {false, false};
 	}

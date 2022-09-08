@@ -185,7 +185,7 @@ public:
 	tuner_thread_t(const tuner_thread_t& other) = delete;
 	tuner_thread_t operator=(const tuner_thread_t& other) = delete;
 	inline int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
-	inline int prepare_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux, bool start);
+	inline chdb::any_mux_t prepare_si(active_adapter_t& active_adapter, chdb::any_mux_t mux, bool start);
 	inline int request_retune(active_adapter_t& active_adapter);
 public:
 
@@ -211,7 +211,7 @@ public:
 	template<typename _mux_t>
 	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux, tune_options_t tune_options);
 	int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
-	int prepare_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux, bool start);
+	chdb::any_mux_t prepare_si(active_adapter_t& active_adapter, chdb::any_mux_t mux, bool start);
 	int request_retune(active_adapter_t& active_adapter);
 
 
@@ -546,7 +546,7 @@ public:
 	int stop_recording(const chdb::service_t& service, system_time_t t);
 	int stop_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 
-	void on_scan_mux_end(const active_adapter_t* active_adapter, const chdb::any_mux_t& finished_mux);
+	void on_scan_mux_end(const chdb::any_mux_t& finished_mux);
 };
 
 struct player_cb_t {

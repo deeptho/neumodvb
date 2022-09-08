@@ -34,7 +34,7 @@ int scanner_t::housekeeping() {
 	if (must_end)
 		return 0;
 
-	auto pending = scan_loop(nullptr, {});
+	auto pending = scan_loop({});
 
 	dtdebugx("%d muxes left to scan; %d active", pending, (int)subscriptions.size());
 	return must_end ? 0 : pending + subscriptions.size();
@@ -67,17 +67,26 @@ std::tuple<subscription_id_t, int> scanner_t::scan_next(db_txn& rtxn, subscripti
 																			mux_t::partial_keys_t::scan_status);
 	int num_pending{0};
 	auto c1 = c.clone();
+#if 0
 	dtdebug("-------------------------------------");
 	for(auto mux_to_scan: c1.range())  {
 		dtdebug(" MUX=" << mux_to_scan);
 	}
 	dtdebug("++++++++++++++++++++++++++++++++++");
+#endif
+	std::optional<db_txn> devdb_wtxn;
+	subscription_id_t subscription_id{-1};
 	for(auto mux_to_scan: c.range())  {
 		assert(mux_to_scan.c.scan_status == scan_status_t::PENDING);
-		if ((int)subscriptions.size() >= ((int)finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1))
+		if ((int)subscriptions.size() >=
+				((int)finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1))
 			continue; // to have accurate num_pending count
-		subscription_id_t subscription_id =
-			receiver_thread.subscribe_mux(futures, rtxn, mux_to_scan, finished_subscription_id, tune_options, nullptr);
+		{
+			auto devdb_wtxn = receiver.devdb.wtxn();
+			subscription_id =
+				receiver_thread.subscribe_mux(futures, devdb_wtxn, mux_to_scan, finished_subscription_id, tune_options, nullptr);
+			devdb_wtxn.commit();
+		}
 		report("SUBSCRIBED", finished_subscription_id, subscription_id, mux_to_scan, subscriptions);
 		dtdebug("Asked to subscribe " << mux_to_scan << " subscription_id="  << (int) subscription_id);
 		wait_for_all(futures); // must be done before continuing this loop
@@ -90,7 +99,6 @@ std::tuple<subscription_id_t, int> scanner_t::scan_next(db_txn& rtxn, subscripti
 		last_subscribed_mux = mux_to_scan;
 		dtdebug("subscribed to " << mux_to_scan << " subscription_id="  << (int) subscription_id <<
 						" finished_subscription_id=" << (int) finished_subscription_id);
-		//put_record(wtxn, mux_to_scan);
 		if ((int)finished_subscription_id >= 0) {
 			/*all other available subscriptions are still in use, and there is no point
 				in continuing to check
@@ -107,19 +115,18 @@ std::tuple<subscription_id_t, int> scanner_t::scan_next(db_txn& rtxn, subscripti
 			subscribed_muxes[subscription_id] = mux_to_scan;
 		}
 	}
-
 	return {finished_subscription_id, num_pending};
 }
 
 /*
 	Returns number of muxes left to scan
 */
-int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
-												 const chdb::any_mux_t& finished_mux) {
+int scanner_t::scan_loop(const chdb::any_mux_t& finished_mux) {
 	std::vector<task_queue_t::future_t> futures;
 	int error{};
 	int num_pending{0};
 	auto& finished_mux_key = *chdb::mux_key_ptr(finished_mux);
+	subscription_id_t subscription_id{-1};
 	try {
 		subscription_id_t finished_subscription_id{-1};
 		if (finished_mux_key.sat_pos != sat_pos_none) {
@@ -206,7 +213,7 @@ scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 										 subscription_id_t subscription_id_)
 	: receiver_thread(receiver_thread_)
 	, receiver(receiver_thread_.receiver)
-	,	subscription_id(subscription_id_)
+	,	scan_subscription_id(subscription_id_)
 	, scan_start_time(system_clock_t::to_time_t(system_clock_t::now()))
 	,	max_num_subscriptions(max_num_subscriptions_)
 	,	scan_found_muxes(scan_found_muxes_)
@@ -306,16 +313,16 @@ scanner_t::~scanner_t() {
 /*
 	called from tuner thread when scanning a mux has ended
 */
-int scanner_t::on_scan_mux_end(const active_adapter_t* active_adapter_p,
-															 const chdb::any_mux_t& finished_mux)
+int scanner_t::on_scan_mux_end(const chdb::any_mux_t& finished_mux)
 {
 	if (must_end) {
 		return 0 ;
 	}
 
-	auto pending = scan_loop(active_adapter_p, finished_mux);
+	auto pending = scan_loop(finished_mux);
 
-	dtdebugx("%d muxes left to scan; %d active", pending, (int) subscriptions.size());
+	dtdebug("finished_mux=" << finished_mux << " " << pending << " muxes left to scan; "
+					<< ((int) subscriptions.size()) << " active");
 	return must_end ? 0 : pending + subscriptions.size();
 }
 

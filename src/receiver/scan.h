@@ -219,7 +219,7 @@ class scanner_t {
 	friend class receiver_thread_t;
 	receiver_thread_t& receiver_thread;
 	receiver_t& receiver;
-	subscription_id_t subscription_id{-1};
+	subscription_id_t scan_subscription_id{-1};
 	time_t scan_start_time{-1};
 	int max_num_subscriptions{std::numeric_limits<int>::max()};
 	bool scan_found_muxes;
@@ -242,9 +242,9 @@ class scanner_t {
 	template<typename mux_t>
 	std::tuple<subscription_id_t, int>  scan_next(db_txn& wtxn, subscription_id_t finished_subscription_id);
 
-	int scan_loop(const active_adapter_t* active_adapter_p, const chdb::any_mux_t& finished_mux);
+	int scan_loop(const chdb::any_mux_t& finished_mux);
 
-	int on_scan_mux_end(const active_adapter_t* active_adapter_p, const chdb::any_mux_t& finished_mux);
+	int on_scan_mux_end(const chdb::any_mux_t& finished_mux);
 
 		void start();
 	int housekeeping();

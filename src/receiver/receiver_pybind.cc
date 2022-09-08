@@ -66,7 +66,7 @@ static void export_recording_history(py::module& m) {
 		;
 }
 
-static subscription_id_t scan_muxes(receiver_t& receiver, py::list mux_list, subscription_id_t subscription_id) {
+static int scan_muxes(receiver_t& receiver, py::list mux_list, int subscription_id) {
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
 	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
 	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;

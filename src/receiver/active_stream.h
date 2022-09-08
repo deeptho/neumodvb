@@ -354,6 +354,7 @@ public:
 	}
 
 	inline active_adapter_t& active_adapter() const {
+		assert(reader);
 		return reader->active_adapter;
 	}
 

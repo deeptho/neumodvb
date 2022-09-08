@@ -309,7 +309,7 @@ void active_adapter_t::monitor() {
 		init_si(t);
 	} else {
 		/*usually scan_report will be called by process_si_data, but on bad muxes data may not
-			be present. scan_report runs with a max frequency of 1 call per 2 seconds
+			be present. scan_report runs with a min frequency of 1 call per 2 seconds
 		*/
 		si.scan_report();
 
@@ -494,8 +494,7 @@ void active_adapter_t::init_si(scan_target_t scan_target) {
 	}
 }
 
-
-void active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
+chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 	namespace m = chdb::update_mux_preserve_t;
 	auto* muxc = mux_common_ptr(mux);
 	bool must_activate{false};
@@ -524,10 +523,12 @@ void active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		set_current_tp(master_mux);
 		add_embedded_si_stream(mux, start);
 	} else {
-		//update_mux(txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+		if(must_activate)
+			update_mux(chdb_txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
 		chdb_txn.commit();
 		set_current_tp(mux);
 	}
+	return mux;
 }
 
 void active_adapter_t::end_si() {

@@ -119,8 +119,10 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	bool has_lock = event.status & FE_HAS_LOCK;
 	bool timedout = event.status & FE_TIMEDOUT;
 #pragma unused(timedout)
+#if 0
 	dtdebugx("SIGNAL: signal=%d carrier=%d viterbi=%d sync=%d lock=%d timedout=%d\n", signal, carrier, viterbi, has_sync,
 					 has_lock, timedout);
+#endif
 	bool done = signal && carrier && viterbi && has_sync && has_lock;
 
 	switch (fe->ts.readAccess()->tune_mode) {

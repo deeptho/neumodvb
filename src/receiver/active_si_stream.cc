@@ -946,8 +946,9 @@ void active_si_stream_t::finalize_scan(bool done)
 
 	auto scan_start_time = receiver.scan_start_time();
 	if(scan_in_progress && scan_start_time >=0) {
-		receiver_thread.push_task([this, &receiver_thread, finished_mux = std::move(mux)]() {
-			cb(receiver_thread).on_scan_mux_end(&active_adapter(), finished_mux);
+		receiver_thread.push_task([&receiver_thread, finished_mux = std::move(mux)]() {
+			dtdebug("Calling on_scan_mux_end: " << finished_mux);
+			cb(receiver_thread).on_scan_mux_end(finished_mux);
 			return 0;
 		});
 
@@ -2656,7 +2657,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 												 false /*is_active_mux*/, false /*from_sdt*/);
 				wtxn.commit();
 			} else {
-				aa.prepare_si(mux, true);
+				aa.prepare_si(mux, true); //scan the t2mi mux (as opposed to the master mux)
 			}
 		}
 	}

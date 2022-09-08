@@ -28,7 +28,7 @@
 
 using namespace dtdemux;
 
-class active_fe_state_t;
+//class active_fe_state_t;
 class tuner_thread_t;
 
 /* DVB-S */
@@ -197,7 +197,14 @@ private:
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	void handle_fe_event();
 	void monitor();
-	void prepare_si(const chdb::any_mux_t mux, bool start);
+
+	chdb::any_mux_t prepare_si(chdb::any_mux_t mux, bool start);
+	template <typename mux_t> inline  mux_t prepare_si(mux_t mux, bool start) {
+		chdb::any_mux_t mux_{mux};
+		mux_ = prepare_si(mux_, start);
+		return *std::get_if<mux_t>(&mux_);
+	}
+
 	void init_si(scan_target_t scan_target_);
 	void end_si();
 private:

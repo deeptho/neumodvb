@@ -140,10 +140,6 @@ void receiver_thread_t::unsubscribe_service_only(std::vector<task_queue_t::futur
 																								 subscription_id_t subscription_id) {
 	if ((int)subscription_id < 0)
 		return;
-	if (scanner.get() && scanner->subscription_id == subscription_id) {
-		unsubscribe_scan(futures, subscription_id);
-		return;
-	}
 	auto [itrec, foundrec] = find_in_map(this->reserved_playbacks, subscription_id);
 	if (foundrec) {
 		this->reserved_playbacks.erase(itrec);
@@ -187,7 +183,7 @@ void receiver_thread_t::unsubscribe_mux_only(std::vector<task_queue_t::future_t>
 	auto new_fe_use_count = devdb::fe::unsubscribe(devdb_wtxn, dbfe);
 
 	if(new_fe_use_count ==0) {
-		/* The active_adapter is no longer in use; so askl tuner thread to release it.
+		/* The active_adapter is no longer in use; so ask tuner thread to release it.
 		 */
 		futures.push_back(active_adapter.tuner_thread.push_task([&active_adapter]() {
 			auto ret = cb(active_adapter.tuner_thread).remove_active_adapter(active_adapter);
@@ -212,6 +208,10 @@ void receiver_thread_t::unsubscribe_all(std::vector<task_queue_t::future_t>& fut
 																				db_txn& devdb_wtxn, subscription_id_t subscription_id) {
 	if ((int)subscription_id < 0)
 		return;
+	if (scanner.get() && scanner->scan_subscription_id == subscription_id) {
+		unsubscribe_scan(futures, subscription_id);
+		return;
+	}
 	unsubscribe_service_only(futures, subscription_id);
 	unsubscribe_mux_only(futures, devdb_wtxn, subscription_id);
 }
@@ -448,14 +448,13 @@ void receiver_thread_t::cb_t::abort_scan() {
 /*
 	called from tuner thread when scanning a mux has ended
 */
-void receiver_thread_t::cb_t::on_scan_mux_end(const active_adapter_t* active_adapter_p,
-																							const chdb::any_mux_t& finished_mux)
+void receiver_thread_t::cb_t::on_scan_mux_end(const chdb::any_mux_t& finished_mux)
 {
 	if (!scanner.get()) {
 		return;
 	}
-
-	auto num_left = scanner->on_scan_mux_end(active_adapter_p, finished_mux);
+	dtdebug("Calling scanner>on_scan_mux_end: " << finished_mux);
+	auto num_left = scanner->on_scan_mux_end(finished_mux);
 	dterrorx("%d muxes left to scan", num_left);
 
 	if (num_left == 0 ) {
@@ -744,7 +743,7 @@ subscription_id_t receiver_thread_t::subscribe_mux(
 			if(tune_options.subscription_type == subscription_type_t::NORMAL) {
 				auto& tuner_thread = old_active_adapter->tuner_thread;
 				futures.push_back(tuner_thread.push_task([&tuner_thread, old_active_adapter,  mux]() {
-				cb(tuner_thread).prepare_si(*old_active_adapter, mux, true /*start*/);
+					cb(tuner_thread).prepare_si(*old_active_adapter, mux, true /*start*/);
 				return 0;
 				}));
 			} else {
@@ -784,6 +783,7 @@ subscription_id_t receiver_thread_t::subscribe_mux(
 }
 
 
+
 /*
 	called by receiver_thread_t::subscribe_mux
 	subscribe a mux/frontend which is already in use by another subscription, if one exists;
@@ -801,8 +801,27 @@ subscription_id_t receiver_thread_t::subscribe_mux_in_use(
 		if (other_active_adapter->is_tuned_to(mux, required_lnb)) {
 			auto fe_key = other_active_adapter->fe->ts.readAccess()->dbfe.k;
 			auto dbfe = devdb::fe::subscribe_fe_in_use(devdb_wtxn, fe_key);
+			auto tuned_mux = other_active_adapter->current_mux();
+			auto tuned_mux_key = *mux_key_ptr(tuned_mux);
+			if(*mux_key_ptr(mux) !=  tuned_mux_key) {
+				dterror("Two different muxes with same freq/pol: " << mux << " tuned=" << tuned_mux);
+				/*
+					This situation can occur in exceptional cases: e.g., mux created by user which overlaps with
+					one found by si, but differs from it. This data should be prevented from entering the database
+					in the first place, but it cannot be tolerated here because it will mess up scanning:
+					the two muxes will have been marked ACTIVE by the database code, but at the end of si processing,
+					only one will be marked as IDLE.
+					Returning -1 will force the mux toi be tuned on another adapter. This has the benefit that
+					in case of different/incompatible tuning parameters, both sets of parameters will be tried.
+					The downside is that if both sets of tuning parameters work, the same mux will be redundantly
+					streamed.
+				 */
+				devdb::fe::unsubscribe(devdb_wtxn, dbfe);
+				return subscription_id_t{-1};
+			}
+#if 0
 			other_active_adapter->fe->ts.writeAccess()->dbfe = dbfe;
-
+#endif
 			/* The mux is already subscribed by another subscription
 				 unsubscribe_ our old mux and the service (if any),
 				 before subscribing the found mux
@@ -814,19 +833,26 @@ subscription_id_t receiver_thread_t::subscribe_mux_in_use(
 				subscription_id = this->next_subscription_id++;
 
 			// place an additional reservation, so that the mux will remain tuned if other subscriptions release it
-#if 0
-			reservation()->reserve_current();
-#endif
 			{
 				auto w = receiver.subscribed_aas.writeAccess();
 				(*w)[subscription_id] = other_active_adapter;
 			}
+
 			auto& tuner_thread = other_active_adapter->tuner_thread;
-			futures.push_back(tuner_thread.push_task([&tuner_thread, other_active_adapter, tune_options, mux]() {
+			futures.push_back(tuner_thread.push_task([&tuner_thread, other_active_adapter, tune_options, mux](){
 				using namespace chdb;
 				namespace m = chdb::update_mux_preserve_t;
+				/*this forces an SI rescan, and possibly a new scan target
+					The SI rescan coukd be more powerful than the existing one
+					Also the tune_options may ask for constellation_samples if the original tune
+					did not.
+				*/
+
 				assert( mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
+#ifdef TODO
+				//20220906: do not restart si scanning? Test to see if this is beneficial
 				cb(tuner_thread).prepare_si(*other_active_adapter, mux, true /*start*/);
+#endif
 				return cb(tuner_thread).set_tune_options(*other_active_adapter, tune_options);
 			}));
 
@@ -882,7 +908,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<chdb::dvbs_mux
 
 	std::vector<task_queue_t::future_t> futures;
 	if ((!scanner.get() && (int)subscription_id >= 0) ||
-			(scanner.get() && scanner->subscription_id != subscription_id)) {
+			(scanner.get() && scanner->scan_subscription_id != subscription_id)) {
 		unsubscribe_service_only(futures, subscription_id);
 		bool error = wait_for_all(futures);
 		if (error) {

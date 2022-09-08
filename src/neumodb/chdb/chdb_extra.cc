@@ -400,7 +400,7 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 	if (preserve & m::SCAN_STATUS) {
 		mux.c.scan_status = db_mux.c.scan_status;
 	}
-	dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status << " preserve&SCAN_DATA=" << (preserve & m::SCAN_DATA));
+	dtdebug("db_mux=" << db_mux.k << " " << db_mux << " mux=" << mux.k << " " << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status << " preserve&SCAN_DATA=" << (preserve & m::SCAN_DATA));
 
 
 	if (preserve & m::NUM_SERVICES)
@@ -632,7 +632,7 @@ std::ostream& chdb::operator<<(std::ostream& os, const sat_t& sat) {
 
 std::ostream& chdb::operator<<(std::ostream& os, const dvbs_mux_t& mux) {
 	auto sat = sat_pos_str(mux.k.sat_pos);
-	stdex::printf(os, "%s %d%s", sat.c_str(), mux.frequency / 1000, enum_to_str(mux.pol));
+	stdex::printf(os, "%s %d.%d%s", sat.c_str(), mux.frequency / 1000, mux.frequency%1000, enum_to_str(mux.pol));
 	if (mux.stream_id >= 0)
 		stdex::printf(os, "-%d", mux.stream_id);
 	if (mux.k.t2mi_pid != 0)

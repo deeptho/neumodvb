@@ -46,7 +46,7 @@ def rf_inputs_fn(x):
     return " ".join(str(v) for v in x[1])
 
 def subscription_fn(x):
-    sub = x[1]
+    sub = x[0].sub
     if sub.usals_pos == pychdb.sat.sat_pos_none:
         return ""
     sat_pos=pychdb.sat_pos_str(sub.usals_pos)
@@ -74,7 +74,7 @@ class FrontendTable(NeumoTable):
          CD(key='k.frontend_no',  label='fe', basic=True, readonly=True),
          CD(key='fe_enable_menu',  label='enable', basic=False, cfn=enable_cfn, dfn=enable_dfn, sfn=enable_sfn,
             example=" DVB T+C "),
-         CD(key='sub',  label='subscription', basic=True, dfn=subscription_fn, example='#0 28.2EKu 10714.250H 1234'),
+         CD(key='sub.lnb_key.card_mac_address',  label='subscription', basic=True, dfn=subscription_fn, example='#0 28.2EKu 10714.250H 1234'),
          CD(key='sub.use_count',  label='fe use\ncount', basic=True, readonly=True),
          CD(key='rf_inputs',  label='rf\ninput', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916X "),

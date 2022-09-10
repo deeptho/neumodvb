@@ -358,7 +358,6 @@ public:
 		return reader->active_adapter;
 	}
 
-
 	inline ssize_t dmx_buffer_size() const {
 		auto p = std::dynamic_pointer_cast<dvb_stream_reader_t>(reader);
 		assert(p.get());

@@ -271,19 +271,27 @@ public:
 	void lnb_update_usals_pos(int16_t usals_pos);
 	int open_demux(int mode = O_RDWR | O_NONBLOCK) const;
 
-	int frontend_no() const {
+	inline devdb::fe_t dbfe() const {
+		return fe ? fe->dbfe() : devdb::fe_t{};
+	}
+
+	inline devdb::fe_key_t fe_key() const {
+		return fe ? fe->fe_key() : devdb::fe_key_t{};
+	}
+
+	inline int frontend_no() const {
 		return fe ? int(fe->frontend_no) : -1;
 	}
 
-	int get_adapter_no() const {
+	inline int get_adapter_no() const {
 		return fe ? int(fe->adapter_no) : -1;
 	}
 
-	int64_t get_adapter_mac_address() const {
+	inline int64_t get_adapter_mac_address() const {
 		return fe ? int64_t(fe->adapter_mac_address) : -1;
 	}
 
-	bool is_open() const {
+	inline bool is_open() const {
 		return fe.get() && fe->is_open();
 	}
 

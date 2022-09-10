@@ -398,6 +398,10 @@ public:
 		return this->ts.readAccess()->dbfe.k;
 	}
 
+	inline devdb::fe_t dbfe() const {
+		return this->ts.readAccess()->dbfe;
+	}
+
 	template<typename mux_t>
 	inline bool is_tuned_to(const mux_t& mux, const devdb::lnb_t* required_lnb) const;
 

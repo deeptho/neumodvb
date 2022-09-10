@@ -31,11 +31,15 @@
 
 using namespace devdb;
 
-
+/*
+	returns the remaining use_count of the unsiscribed fe
+ */
 int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	assert(c.is_valid());
 	auto fe = c.current(); //update in case of external changes
+	dtdebugx("adapter %d %d%c use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.use_count);
 	assert(fe.sub.use_count>=1);
 	if(--fe.sub.use_count == 0) {
 		fe.sub = {};
@@ -46,6 +50,9 @@ int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 	return fe.sub.use_count;
 }
 
+/*
+	returns the remaining use_count of the unsiscribed fe
+ */
 int fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
 	assert(fe::is_subscribed(fe));
 	assert(fe.sub.lnb_key.card_mac_address != -1);
@@ -53,13 +60,21 @@ int fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
 	return ret;
 }
 
-devdb::fe_t fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key) {
+std::tuple<devdb::fe_t, int> fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key,
+																										 const devdb::fe_key_t* fe_key_to_release) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	auto fe = c.is_valid()  ? c.current() : fe_t{}; //update in case of external changes
+	int released_fe_usecount{0};
 	assert(fe.sub.use_count>=1);
 	++fe.sub.use_count;
+	dtdebugx("adapter %d %d%c use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.use_count);
+
+	if(fe_key_to_release)
+		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
+
 	put_record(wtxn, fe);
-	return fe;
+	return {fe, released_fe_usecount};
 }
 
 
@@ -511,6 +526,7 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const 
 	auto& sub = fe.sub;
 	assert(sub.use_count == 0);
 	sub.owner = getpid();
+	assert(sub.use_count==0);
 	sub.use_count = 1;
 	//the following settings imply that we request a non-exclusive subscription
 	sub.lnb_key = lnb.k;
@@ -518,6 +534,8 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const 
 	sub.band = band;
 	sub.usals_pos = lnb.usals_pos;
 	sub.frequency = frequency; //for informational purposes
+	dtdebugx("adapter %d %d%c use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -531,12 +549,15 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const dev
 	auto& sub = fe.sub;
 	assert(sub.use_count == 0);
 	sub.owner = getpid();
+	assert(sub.use_count==0);
 	sub.use_count = 1;
 	//the following settings imply that we request a non-exclusive subscription
 	sub.lnb_key = lnb.k;
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = sat_pos_none;
+	dtdebugx("adapter %d %d%c use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -552,6 +573,7 @@ int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool i
 	auto& sub = fe.sub;
 	assert(sub.use_count == 0);
 	sub.owner = getpid();
+	assert(sub.use_count==0);
 	sub.use_count = 1;
 	//the following settings imply that we request a non-exclusive subscription
 	sub.lnb_key = devdb::lnb_key_t{};
@@ -564,39 +586,55 @@ int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool i
 }
 
 
-
-std::optional<devdb::fe_t>
+/*
+	returns
+	std::optional<devdb::fe_t>: the newly subscribed fe
+	int: the use_count after releasing fe_kkey_to_release, or 0 if fe_key_to_release==nullptr
+ */
+std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const devdb::fe_key_t* fe_key_to_release,
 												bool need_blind_tune, bool need_spectrum) {
 	auto pol{chdb::fe_polarisation_t::NONE}; //signifies that we to exclusively control pol
 	auto band{fe_band_t::NONE}; //signifies that we to exclusively control band
 	auto usals_pos{sat_pos_none}; //signifies that we want to be able to move rotor
 	bool need_multistream = false;
+	int released_fe_usecount{0};
 
 	auto best_fe = fe::find_best_fe_for_lnb(wtxn, lnb, fe_key_to_release,
 																					need_blind_tune, need_spectrum, need_multistream, pol, band, usals_pos);
 	if(fe_key_to_release)
-		unsubscribe(wtxn, *fe_key_to_release);
+		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
+
 	if(!best_fe)
 		return {}; //no frontend could be found
 
 	auto ret = devdb::fe::reserve_fe_lnb_exclusive(wtxn, *best_fe, lnb);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
-	return best_fe;
+	return {best_fe, released_fe_usecount};
 }
 
-std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t>
+
+/*
+	returns
+	std::optional<devdb::fe_t>: the newly subscribed fe
+	std::optional<devdb::lnb_t>: the newly subscribed lnb
+	devdb::resource_subscription_counts_t
+	int: the use_count after releasing fe_kkey_to_release, or 0 if fe_key_to_release==nullptr
+ */
+std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t, int>
 devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 													 const devdb::lnb_t* required_lnb, const devdb::fe_key_t* fe_key_to_release,
 													 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus) {
 	const bool may_move_dish{true};
+	int released_fe_usecount{0};
 	auto[best_fe, best_lnb, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_lnb,
 																					fe_key_to_release,
 																					may_move_dish, use_blind_tune,
 																					dish_move_penalty, resource_reuse_bonus);
 	if(fe_key_to_release)
-		unsubscribe(wtxn, *fe_key_to_release);
+		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
+
 	if(!best_fe)
 		return {}; //no frontend could be found
 	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, *best_fe, *best_lnb, devdb::lnb::band_for_mux(*best_lnb, mux),
@@ -606,29 +644,36 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 	best_use_counts.rf_coupler++;
 	best_use_counts.tuner++;
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
-	return {best_fe, best_lnb, best_use_counts};
+	return {best_fe, best_lnb, best_use_counts, released_fe_usecount};
 }
 
+
+/*
+	returns
+	std::optional<devdb::fe_t>: the newly subscribed fe
+	int: the use_count after releasing fe_kkey_to_release, or 0 if fe_key_to_release==nullptr
+ */
 template<typename mux_t>
-std::optional<devdb::fe_t>
+std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devdb::fe_key_t* fe_key_to_release,
 									 bool use_blind_tune) {
 
 	const bool need_spectrum{false};
+	int released_fe_usecount{0};
 	const bool need_multistream = (mux.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
 	bool is_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
 	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
 																							 need_spectrum, need_multistream,  delsys_type);
 	if(fe_key_to_release)
-		unsubscribe(wtxn, *fe_key_to_release);
+		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
 
 	if(!best_fe)
 		return {}; //no frontend could be found
 
 	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
-	return best_fe;
+	return {best_fe, released_fe_usecount};
 }
 
 bool devdb::fe::is_subscribed(const fe_t& fe) {
@@ -643,12 +688,12 @@ bool devdb::fe::is_subscribed(const fe_t& fe) {
 
 
 //instantiation
-template std::optional<devdb::fe_t>
+template std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, const chdb::dvbc_mux_t& mux,
 																						 const devdb::fe_key_t* fe_key_to_release,
 																						 bool use_blind_tune);
 
-template std::optional<devdb::fe_t>
+template std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, const chdb::dvbt_mux_t& mux,
 																						 const devdb::fe_key_t* fe_key_to_release,
 																						 bool use_blind_tune);

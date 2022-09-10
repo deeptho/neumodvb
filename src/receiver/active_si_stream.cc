@@ -214,8 +214,6 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	//at this point database is consistent with received mux
 	assert(pdb_mux);
 
-	//auto* db_mux_key = mux_key_ptr(*pdb_mux);
-	//assert(*db_mux_key == *mux_key);
 	ss::string<32> mux_desc;
 	assert (mux_key->sat_pos != sat_pos_none);
 	chdb::to_str(mux_desc, mux);
@@ -276,8 +274,6 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	}
 	if (!sat_pos_known)
 		nit_data.nit_actual_sat_positions.push_back(mux_key->sat_pos);
-
-	//assert(p_mux_data->mux_key.extra_id!=0);
 
 	auto& n = nit_data.get_original_network(mux_key->network_id);
 	n.add_mux(p_mux_data->mux_key.ts_id, from_sdt);
@@ -2578,8 +2574,6 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 										});
 
 			namespace m = chdb::update_mux_preserve_t;
-			//assert(mux_key_ptr(signal_info.mux)->sat_pos != sat_pos_none);
-
 
 			dtdebug("Update mux " << signal_info.driver_mux << " tuned=" << reader->stream_mux());
 			if (mux_common_ptr(mux)->tune_src == chdb::tune_src_t::TEMPLATE ||

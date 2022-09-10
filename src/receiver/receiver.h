@@ -384,6 +384,10 @@ private:
 	void unsubscribe_service_only(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
 	void unsubscribe_all(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 											 subscription_id_t subscription_id);
+	void release_active_adapter(std::vector<task_queue_t::future_t>& futures,
+															std::shared_ptr<active_adapter_t>& active_adapter,
+															db_txn& devdb_wtxn, subscription_id_t subscription_id);
+
 	void unsubscribe_active_service(std::vector<task_queue_t::future_t>& futures,
 																	active_service_t& active_service, subscription_id_t subscription_id);
 	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
@@ -404,10 +408,11 @@ private:
 
 	*/
 	template<typename _mux_t>
-	subscription_id_t subscribe_mux_not_in_use(std::vector<task_queue_t::future_t>& futures,
-																	 std::shared_ptr<active_adapter_t>& old_active_adapter,
-																	 db_txn &txn, const _mux_t& mux, subscription_id_t subscription_id,
-																	 tune_options_t tune_options, const devdb::lnb_t* required_lnb /*unused*/);
+	std::tuple<subscription_id_t, devdb::fe_key_t>
+	subscribe_mux_not_in_use(std::vector<task_queue_t::future_t>& futures,
+													 std::shared_ptr<active_adapter_t>& old_active_adapter,
+													 db_txn &txn, const _mux_t& mux, subscription_id_t subscription_id,
+													 tune_options_t tune_options, const devdb::lnb_t* required_lnb /*unused*/);
 
 	template<typename _mux_t>
 	std::unique_ptr<playback_mpm_t>
@@ -430,14 +435,17 @@ protected:
 
 
 	template<typename _mux_t>
-	subscription_id_t subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
-										const _mux_t& mux, subscription_id_t subscription_id,
-										tune_options_t tune_options, const devdb::lnb_t* required_lnb);
+	std::tuple<subscription_id_t, devdb::fe_key_t>
+	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
+								const _mux_t& mux, subscription_id_t subscription_id,
+								tune_options_t tune_options, const devdb::lnb_t* required_lnb);
 	template<class mux_t>
-	subscription_id_t subscribe_mux_in_use(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
-																				 const mux_t& mux, subscription_id_t subscription_id,
-																				 tune_options_t tune_options,
-																				 const devdb::lnb_t* required_lnb);
+	std::tuple<subscription_id_t, devdb::fe_key_t> subscribe_mux_in_use(
+		std::vector<task_queue_t::future_t>& futures,
+		std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& devdb_wtxn,
+		const mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
+		const devdb::lnb_t* required_lnb);
+
 	int request_retune(std::vector<task_queue_t::future_t>& futures,
 										 active_adapter_t& active_adapter, subscription_id_t subscription_id);
 
@@ -517,7 +525,8 @@ class receiver_thread_t::cb_t : public receiver_thread_t { //callbacks
 public:
 
 	template<typename _mux_t>
-	subscription_id_t subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const devdb::lnb_t* required_lnb);
+	std::tuple<subscription_id_t, devdb::fe_key_t>
+	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const devdb::lnb_t* required_lnb);
 
 	subscription_id_t subscribe_lnb(devdb::lnb_t& lnb, tune_options_t tune_options, subscription_id_t subscription_id);
 
@@ -606,7 +615,8 @@ public:
 
 	devdb::lnb_t reread_lnb(const devdb::lnb_t& lnb);
 	template<typename _mux_t>
-	int subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id);
+	int
+	subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id);
 
 	int subscribe_lnb_blindscan(devdb::lnb_t& lnb,  const devdb::fe_band_pol_t& band_pol,
 																						int subscription_id);

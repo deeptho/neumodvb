@@ -177,21 +177,31 @@ void receiver_thread_t::unsubscribe_mux_only(std::vector<task_queue_t::future_t>
 
 	auto& active_adapter = *(active_adapter_p);
 
-	receiver.subscribed_aas.writeAccess()->erase(subscription_id);
-
 	auto dbfe = active_adapter.fe->ts.readAccess()->dbfe;
 	auto new_fe_use_count = devdb::fe::unsubscribe(devdb_wtxn, dbfe);
-
 	if(new_fe_use_count ==0) {
-		/* The active_adapter is no longer in use; so ask tuner thread to release it.
-		 */
-		futures.push_back(active_adapter.tuner_thread.push_task([&active_adapter]() {
-			auto ret = cb(active_adapter.tuner_thread).remove_active_adapter(active_adapter);
+		release_active_adapter(futures, active_adapter_p, devdb_wtxn, subscription_id);
+	}
+}
+
+void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
+																							 std::shared_ptr<active_adapter_t>& active_adapter,
+																						 db_txn& devdb_wtxn, subscription_id_t subscription_id) {
+	dtdebugx("Unsubscribe subscription_id=%d", (int)subscription_id);
+	assert((int)subscription_id >= 0);
+	// release subscription's service on this mux, if any
+
+	receiver.subscribed_aas.writeAccess()->erase(subscription_id);
+
+	/* The active_adapter is no longer in use; so ask tuner thread to release it.
+	 */
+	futures.push_back(active_adapter->tuner_thread.push_task([active_adapter]() {
+		auto ret = cb(active_adapter->tuner_thread).remove_active_adapter(*active_adapter);
 		if (ret < 0)
 			dterrorx("deactivate returned %d", ret);
 		return ret;
 		}));
-	}
+	active_adapter.reset();
 }
 
 
@@ -343,8 +353,7 @@ receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futur
 		4. The code will give preference to reusing a frontend which is already
 		tuned to the desired mux
 	*/
-
-	auto ret = subscribe_mux(futures, devdb_wtxn, mux, subscription_id,
+	auto [ret, subscribed_fe_key] = subscribe_mux(futures, devdb_wtxn, mux, subscription_id,
 													 tune_options_t(scan_target_t::SCAN_FULL_AND_EPG), (const devdb::lnb_t*)nullptr);
 	if ((int) ret < 0)
 		return nullptr; // we could not reserve a mux
@@ -385,7 +394,6 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(std::vector
 			old_active_service = &*itch->second;
 		}
 	}
-
 	return subscribe_service_(futures, devdb_wtxn, mux, service, old_active_service, subscription_id);
 }
 
@@ -482,28 +490,26 @@ std::shared_ptr<active_adapter_t> receiver_t::active_adapter_for_subscription(su
 	return nullptr;
 }
 
-#if 0
-std::shared_ptr<active_adapter_t> receiver_thread_t::active_adapter_with_fe(dvb_frontend_t* fe) {
-
-	auto [it, found] = find_in_safe_map_if_with_owner_read_ref(receiver.subscribed_aas, [&](const auto& x) {
-		auto [subscription_id_, reserved_mux] = x;
-		return reserved_mux->fe.get() == fe;
-	});
-	if (!found)
-		return nullptr;
-	else
-		return it->second;
-}
-#endif
-
-
 /*
 	called by receiver_thread_t::subscribe_mux_<chdb::any_mux_t>
             template receiver_thread_t::subscribe_mux<mux_t>
             scanner_t::scan_next
+
+	-subscribe a frontend, and associated lnb in dvbfe, which may fail;
+	-simultaneously unsubscribe the formerly subscribed frontend, if any exists
+	-In case the new frontend differs from the old one, and the onld one is no longer subscribed,
+	release the old active adapter
+  -Create a new active adapter or reuse the old one
+	-tune or the active adapter (or retune the old one if it is reused)
+
+	if required_lnb is specified, then only use that lnb and fe's which can reach it.
+
+	on input, subscribption_id is either an existing subscribption_id (>=0) or -1 (ask to create a new one)
+	on output, -1 is returned if no subscription, could be made otherwise the subscription_id
  */
 template<>
-subscription_id_t receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
+std::tuple<subscription_id_t, devdb::fe_key_t>
+receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 	std::vector<task_queue_t::future_t>& futures,
 	std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& devdb_wtxn,
 	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
@@ -520,31 +526,38 @@ subscription_id_t receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 		resource_reuse_bonus = r->resource_reuse_bonus;
 		dish_move_penalty = r->dish_move_penalty;
 	}
-
-	auto [fe_, lnb_, use_counts_] = devdb::fe::subscribe_lnb_band_pol_sat(
+	assert(!fe_key_to_release || old_active_adapter.get());
+	auto [fe_, lnb_, use_counts_, released_fe_usecount] = devdb::fe::subscribe_lnb_band_pol_sat(
 		devdb_wtxn, mux, required_lnb, fe_key_to_release, tune_options.use_blind_tune, dish_move_penalty,
 		resource_reuse_bonus);
+	assert(!fe_key_to_release || old_active_adapter.get());
 
 	bool found = !!fe_;
-	if (!found) {
-		user_error("Subscribe " << mux << ": no suitable adapter found");
-		if (old_active_adapter) {
-			assert((int)subscription_id >= 0);
-			unsubscribe_all(futures, devdb_wtxn, subscription_id);
+	bool is_same_frontend = found && ( fe_key_to_release && *fe_key_to_release == fe_->k);
+
+	if (fe_key_to_release && released_fe_usecount == 0) {
+		assert(old_active_adapter);
+		assert((int)subscription_id >= 0);
+		if(!is_same_frontend) {
+			dtdebug("releasing old active_adapter");
+			release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id);
+			assert(!old_active_adapter);
 		}
-		return subscription_id_t{-1};
 	}
+
+	if (!found)
+		return {subscription_id_t{-1}, {}}; //new subscription failed; existing mux is always properly released
+
 	auto &lnb = *lnb_;
 	auto &fe = *fe_;
 	auto & use_counts = use_counts_;
 	assert(!required_lnb || (lnb.k == required_lnb->k)); // we have the right lnb
-
-	bool is_same_frontend = ( fe_key_to_release && *fe_key_to_release == fe.k);
+	assert(!is_same_frontend || !fe_key_to_release || old_active_adapter.get());
 	/*
 		If new mux is on the same adapter/frontend as old mux,
 		we only need to retune.
 	*/
-	if (is_same_frontend) {
+	if (is_same_frontend) { //keep old_active_adapter
 		old_active_adapter->fe->update_dbfe(fe);
 		futures.push_back(
 			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, lnb, mux,
@@ -562,10 +575,7 @@ subscription_id_t receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 					adapter_no << " " << mux);
 
 	} else {
-		if (old_active_adapter) {
-			assert((int) subscription_id >= 0);
-			unsubscribe_all(futures, devdb_wtxn, subscription_id);
-		}
+		old_active_adapter.reset(); //make sure that we do not accidentally reuse this
 
 		auto active_adapter = make_active_adapter(fe);
 		if ((int) subscription_id < 0)
@@ -587,29 +597,29 @@ subscription_id_t receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " adap=" <<
 					adapter_no << " " << mux);
 	}
-	return subscription_id;
+	return {subscription_id, fe.k};
 }
 
+
 /*!
-	Find a suitable lnb  for tuning to a mux
-	If subscription_id >=0, then first unregister any service for that subscription
-	Then find a suitable adapter/frontend.
+	-subscribe a frontend, which may fail;
+	-simultaneously unsubscribe the formerly subscribed frontend, if any exists
+	-In case the new frontend differs from the old one, and the onld one is no longer subscribed,
+	release the old active adapter
+  -Create a new active adapter or reuse the old one
+	-tune or the active adapter (or retune the old one if it is reused)
 
-	If the frontend is the same as for the current subscription, simply retune,
-	otherwise unregister the old mux/frontend/adapter and reserve a new one
 
-	if subscription_id <0, then create a new subscription
-
-	Returns -1 if subscription failed (no free tuners)
-
-	@todo: the code below is mostly the same as  the lnb version; integrate
+	on input, subscribption_id is either an existing subscribption_id (>=0) or -1 (ask to create a new one)
+	on output, -1 is returned if no subscription, could be made otherwise the subscription_id
 
 */
 /*
 	called by receiver_thread_t::subscribe_mux_<chdb::any_mux_t>
  */
 template <typename _mux_t>
-subscription_id_t receiver_thread_t::subscribe_mux_not_in_use(
+std::tuple<subscription_id_t, devdb::fe_key_t>
+receiver_thread_t::subscribe_mux_not_in_use(
 	std::vector<task_queue_t::future_t>& futures,
 	std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& devdb_wtxn,
 	const _mux_t& mux, subscription_id_t subscription_id,
@@ -619,31 +629,32 @@ subscription_id_t receiver_thread_t::subscribe_mux_not_in_use(
 	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
 		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
 
-	auto fe_ = devdb::fe::subscribe_dvbc_or_dvbt_mux<_mux_t>(devdb_wtxn, mux,
-																													 fe_key_to_release, tune_options.use_blind_tune);
+	auto [fe_, released_fe_usecount] = devdb::fe::subscribe_dvbc_or_dvbt_mux<_mux_t>(
+		devdb_wtxn, mux, fe_key_to_release, tune_options.use_blind_tune);
+
 	bool found = !!fe_;
+	bool is_same_frontend =  ( fe_key_to_release && *fe_key_to_release == fe_->k);
+
+	if (fe_key_to_release && released_fe_usecount == 0) {
+		assert(old_active_adapter);
+		assert((int)subscription_id >= 0);
+		if(!is_same_frontend) {
+			dtdebug("releasing old active_adapter");
+			release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id);
+			assert(!old_active_adapter);
+		}
+	}
 
 	if (!found) {
-		user_error("Subscribe " << mux << ": no suitable adapter found");
-		if (old_active_adapter) {
-			assert( (int) subscription_id >= 0);
-			unsubscribe_all(futures, devdb_wtxn, subscription_id);
-		}
-		return subscription_id_t{-1};
+		return {subscription_id_t{-1}, {}};
 	}
 
 	auto &fe = *fe_;
-
-	bool is_same_frontend =  ( fe_key_to_release && *fe_key_to_release == fe.k);
 	/*
 		If new mux is on the same adapter/frontend as old mux,
 		we only need to retune, and leave reservation unchanged
 	*/
-	if (is_same_frontend) {
-		/*@todo: possible race: old_active_adapter may
-			start calling on_scan_mux_end for the previously tuned mux on
-			this subscription
-		*/
+	if (is_same_frontend) { //keep old_active_adapter
 		old_active_adapter->fe->update_dbfe(fe);
 		futures.push_back(
 			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, mux]() {
@@ -660,10 +671,7 @@ subscription_id_t receiver_thread_t::subscribe_mux_not_in_use(
 					adapter_no << " " << mux);
 
 	} else {
-		if (old_active_adapter) {
-			assert((int) subscription_id >= 0);
-			unsubscribe_all(futures, devdb_wtxn, subscription_id);
-		}
+		old_active_adapter.reset(); //make sure that we do not accidentally reuse this
 
 		auto active_adapter = make_active_adapter(fe);
 		if ((int) subscription_id < 0)
@@ -682,11 +690,12 @@ subscription_id_t receiver_thread_t::subscribe_mux_not_in_use(
 		}));
 	}
 	dtdebug("Subscribed to: " << mux);
-	return subscription_id;
+	return {subscription_id, fe.k};
 }
 
 template <>
-subscription_id_t receiver_thread_t::subscribe_mux_not_in_use<chdb::any_mux_t>(
+std::tuple<subscription_id_t, devdb::fe_key_t>
+receiver_thread_t::subscribe_mux_not_in_use<chdb::any_mux_t>(
 	std::vector<task_queue_t::future_t>& futures,
 	std::shared_ptr<active_adapter_t>& old_active_adapter,
 	db_txn& txn, const chdb::any_mux_t& mux, subscription_id_t subscription_id,
@@ -709,7 +718,7 @@ subscription_id_t receiver_thread_t::subscribe_mux_not_in_use<chdb::any_mux_t>(
 																				tune_options, nullptr);
 		}
 	}
-	return subscription_id_t{-1};
+	return {subscription_id_t{-1}, {}};
 }
 
 
@@ -718,14 +727,24 @@ subscription_id_t receiver_thread_t::subscribe_mux_not_in_use<chdb::any_mux_t>(
      receiver_thread_t::subscribe_service_
 		 receiver_thread_t::cb_t::subscribe_mux
 
-	1. if the current mux of the subscription is the one needed, restart si processing and possibly retune
-   	 to the same frequency, but do not change existing subscription
-	2. else see if the mux we need is already active for some other subscription by calling subscribe_mux_in_use
-	3. else call subscribe_mux_not_in_use to subscribe a complete new mux, not yet in use
+	-subscribe new mux, and unsubscribe the old one, taking into account they may be the same;
+	release active_adapters as needed as a side effect, in three steps
+	 1. check if the new mux is the same as the one active on the subscription. In this case
+	   restart si processing and/or retune
+   2. else check if the the mux is already active on some other subscription. If so, increament use count
+	    of that new frontend, and decrease it on the old frontend
+   3. else reserve an fe  for the new mux. If so, increament use count
+	    of that new frontend, and decrease it on the old frontend; new and old frontend can turn
+			out to be the same, in which case use_count does not change
+  Then, if the oild fe's use_count has dropped to 0, release the old active adapter
+
+	-Before this call, any active service should be removed
+
 
  */
 template <typename _mux_t>
-subscription_id_t receiver_thread_t::subscribe_mux(
+std::tuple<subscription_id_t, devdb::fe_key_t>
+receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const _mux_t& mux,
 	subscription_id_t subscription_id, tune_options_t tune_options,
 	const devdb::lnb_t* required_lnb) {
@@ -751,7 +770,7 @@ subscription_id_t receiver_thread_t::subscribe_mux(
 				/// during DX-ing retunes need to be forced
 				request_retune(futures, *old_active_adapter, subscription_id);
 			}
-			return subscription_id;
+			return {subscription_id, old_active_adapter->fe_key()};
 		}
 	}
 	/*We now know that the old unsubscribed mux is different from the new one
@@ -762,15 +781,16 @@ subscription_id_t receiver_thread_t::subscribe_mux(
 	*/
 
 	// check if we can use a mux which is in use by other subscription
-	auto ret = subscribe_mux_in_use(futures, devdb_wtxn, mux, subscription_id, tune_options, required_lnb);
+	auto [ret, subscribed_fe_key] = subscribe_mux_in_use(futures, old_active_adapter,
+																													devdb_wtxn, mux, subscription_id, tune_options, required_lnb);
 	if ((int) ret >= 0) {
 		assert((int) subscription_id < 0 || ret == subscription_id);
-		return ret;
+		return {ret, subscribed_fe_key};
 	}
 
-	// perform the actual mux reservation
-	subscription_id = subscribe_mux_not_in_use(futures, old_active_adapter, devdb_wtxn, mux,
-																	 subscription_id, tune_options, required_lnb);
+  // perform the actual mux reservation
+	std::tie(subscription_id, subscribed_fe_key) = subscribe_mux_not_in_use(futures, old_active_adapter, devdb_wtxn, mux,
+																																					subscription_id, tune_options, required_lnb);
 
 	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/tuner threads
@@ -779,28 +799,30 @@ subscription_id_t receiver_thread_t::subscribe_mux(
 		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
 	*/
 
-	return subscription_id;
+	return {subscription_id, subscribed_fe_key};
 }
 
 
 
 /*
 	called by receiver_thread_t::subscribe_mux
-	subscribe a mux/frontend which is already in use by another subscription, if one exists;
-	increment the use count in the database
+
+	Check all existing subscriptions, to see if they use the mux we need
+	If we find one, then we increment the found fe's use count and release our old fe
+	If the old fe's use count dropped to zero, we release our old active adapted
+
  */
 template <class mux_t>
-subscription_id_t receiver_thread_t::subscribe_mux_in_use(
-	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const mux_t& mux,
-	subscription_id_t subscription_id, tune_options_t tune_options,
+std::tuple<subscription_id_t, devdb::fe_key_t>
+receiver_thread_t::subscribe_mux_in_use(
+	std::vector<task_queue_t::future_t>& futures, std::shared_ptr<active_adapter_t>& old_active_adapter,
+	db_txn& devdb_wtxn, const mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
 	const devdb::lnb_t* required_lnb) {
 
 	auto& pm = receiver.subscribed_aas.owner_read_ref();
 	for (auto& itmux : pm) {
 		auto& other_active_adapter = itmux.second;
 		if (other_active_adapter->is_tuned_to(mux, required_lnb)) {
-			auto fe_key = other_active_adapter->fe->ts.readAccess()->dbfe.k;
-			auto dbfe = devdb::fe::subscribe_fe_in_use(devdb_wtxn, fe_key);
 			auto tuned_mux = other_active_adapter->current_mux();
 			auto tuned_mux_key = *mux_key_ptr(tuned_mux);
 			if(*mux_key_ptr(mux) !=  tuned_mux_key) {
@@ -816,20 +838,31 @@ subscription_id_t receiver_thread_t::subscribe_mux_in_use(
 					The downside is that if both sets of tuning parameters work, the same mux will be redundantly
 					streamed.
 				 */
-				devdb::fe::unsubscribe(devdb_wtxn, dbfe);
-				return subscription_id_t{-1};
+				continue;
 			}
-#if 0
-			other_active_adapter->fe->ts.writeAccess()->dbfe = dbfe;
-#endif
+			auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
+		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
+
+			auto fe_key = other_active_adapter->fe->ts.readAccess()->dbfe.k;
+			auto [dbfe, released_fe_usecount] = devdb::fe::subscribe_fe_in_use(devdb_wtxn, fe_key, fe_key_to_release);
+
 			/* The mux is already subscribed by another subscription
 				 unsubscribe_ our old mux and the service (if any),
 				 before subscribing the found mux
 			*/
+			if (fe_key_to_release && released_fe_usecount == 0) {
+				assert(old_active_adapter);
+#ifndef NDEBUG
+				bool is_same_frontend = ( fe_key_to_release && *fe_key_to_release == dbfe.k);
+				assert(!is_same_frontend);
+#endif
+				assert((int)subscription_id >= 0);
+				dtdebug("releasing old active_adapter");
+				release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id);
+				assert(!old_active_adapter);
+			}
 
-			if ((int) subscription_id >= 0)
-				unsubscribe_all(futures, devdb_wtxn, subscription_id);
-			else
+			if ((int) subscription_id < 0)
 				subscription_id = this->next_subscription_id++;
 
 			// place an additional reservation, so that the mux will remain tuned if other subscriptions release it
@@ -857,10 +890,10 @@ subscription_id_t receiver_thread_t::subscribe_mux_in_use(
 			}));
 
 			dtdebug("[" << mux << "] subscription_id=" << (int) subscription_id << ": reusing existing mux");
-			return subscription_id;
+			return {subscription_id, fe_key};
 		}
 	}
-	return subscription_id_t{-1};
+	return {subscription_id_t{-1}, {}};
 }
 
 int
@@ -937,18 +970,18 @@ receiver_thread_t::cb_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux
 
 /*
 	called by receiver_t::subscribe_lnb_and_mux
-
 	sets up futures
 	unregisters service if any
 	calls receiver_thread_t::subscribe_mux which does the mux work:
 	if something goes wrong, removes any subscription. Not sure if this has any effect at all
  */
 template <typename _mux_t>
-subscription_id_t
+std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id,
 																			 tune_options_t tune_options,
 																			 const devdb::lnb_t* required_lnb) {
 	ss::string<32> s;
+	devdb::fe_key_t subscribed_fe_key;
 	s << "SUB[" << (int) subscription_id << "] " << to_str(mux);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
@@ -960,23 +993,14 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 	}
 
 	auto devdb_wtxn = receiver.devdb.wtxn();
-	subscription_id =
+	std::tie(subscription_id, subscribed_fe_key) =
 		this->receiver_thread_t::subscribe_mux(futures, devdb_wtxn, mux, subscription_id, tune_options, required_lnb);
 	devdb_wtxn.commit();
 	error = wait_for_all(futures);
-	if (error) {
-		ss::string<256> saved_error{get_error()};
-		dterror(get_error());
-		if((int) subscription_id >= 0) {
-			auto devdb_wtxn = receiver.devdb.wtxn();
-			unsubscribe_all(futures, devdb_wtxn, subscription_id);
-			devdb_wtxn.commit();
-			wait_for_all(futures);
-		}
-		user_error(saved_error); //TODO: look into better way of preserving error messages
-		return subscription_id_t{-1};
-	}
-	return subscription_id;
+	if(error)
+		return {subscription_id_t{-1}, {}};
+	else
+		return {subscription_id, subscribed_fe_key};
 }
 
 subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
@@ -995,21 +1019,29 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 
 	bool need_blindscan = tune_options.tune_mode == tune_mode_t::SCAN_BLIND;
 	bool need_spectrum = tune_options.tune_mode == tune_mode_t::SPECTRUM;
-	auto fe_ = devdb::fe::subscribe_lnb_exclusive(devdb_wtxn, lnb, fe_key_to_release, need_blindscan, need_spectrum);
+	auto [fe_, released_fe_usecount] = devdb::fe::subscribe_lnb_exclusive(
+		devdb_wtxn, lnb, fe_key_to_release, need_blindscan, need_spectrum);
+
 	bool found = !!fe_;
+	bool is_same_frontend = ( fe_key_to_release && *fe_key_to_release == fe_->k);
+
+	if (fe_key_to_release && released_fe_usecount == 0) {
+		assert(old_active_adapter);
+		assert((int)subscription_id >= 0);
+		if(!is_same_frontend) {
+			dtdebug("releasing old active_adapter");
+			release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id);
+			assert(!old_active_adapter);
+		}
+	}
 
 	if (!found) {
 		user_error("Subscribe " << lnb << ": adapter of lnb not suitable");
-		dtdebug(get_error());
-		if (old_active_adapter) {
-			assert ((int) subscription_id >= 0);
-			unsubscribe_all(futures, devdb_wtxn, subscription_id);
-		}
 		return subscription_id_t{-1};
 	}
+
 	auto& fe = *fe_;
 
-	bool is_same_frontend = ( fe_key_to_release && *fe_key_to_release == fe.k);
 	/*
 		If new mux is on the same adapter/frontend as old mux,
 		we only need to retune, and leave reservation unchanged
@@ -1031,10 +1063,8 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 		auto adapter_no =  old_active_adapter->get_adapter_no();
 		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adap=" << adapter_no);
 	} else { //if !is_same_frontend
-		if (old_active_adapter) {
-			assert ((int) subscription_id >= 0);
-			unsubscribe_all(futures, devdb_wtxn, subscription_id);
-		}
+		old_active_adapter.reset(); //prevent accidental reuse
+
 		auto active_adapter = make_active_adapter(fe);
 
 		if ((int) subscription_id < 0)
@@ -1087,19 +1117,19 @@ receiver_thread_t::cb_t::subscribe_lnb(devdb::lnb_t& lnb_, tune_options_t tune_o
 	return subscription_id;
 }
 
-template subscription_id_t
+template std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbs_mux_t>(
 	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id,
 	tune_options_t tune_options,
 	const devdb::lnb_t* required_lnb);
 
-template subscription_id_t
+template std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbc_mux_t>(
 	const chdb::dvbc_mux_t& mux, subscription_id_t subscription_id,
 	tune_options_t tune_options,
 	const devdb::lnb_t* required_lnb);
 
-template subscription_id_t
+template std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbt_mux_t>(
 	const chdb::dvbt_mux_t& mux, subscription_id_t subscription_id,
 	tune_options_t tune_options,
@@ -1423,21 +1453,22 @@ receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes, i
                  and subscriber_pynbind.cc
  */
 template <typename _mux_t> int
-receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id) {
+receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id_) {
 
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.scan_target = scan_target_t::SCAN_FULL;
 	tune_options.use_blind_tune = blindscan;
-
-	futures.push_back(receiver_thread.push_task([this, &mux, tune_options, &subscription_id]() {
+	devdb::fe_key_t subscribed_fe_key;
+	subscription_id_t subscription_id{subscription_id_};
+	futures.push_back(receiver_thread.push_task([this, &mux, tune_options, &subscription_id, &subscribed_fe_key]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = (int) cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id,
-																															tune_options, nullptr);
+		std::tie(subscription_id, subscribed_fe_key) = cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id,
+																																										 tune_options, nullptr);
 		return 0;
 	}));
 	wait_for_all(futures);
-	return subscription_id;
+	return (int) subscription_id;
 }
 template int
 receiver_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan,
@@ -1573,7 +1604,9 @@ receiver_t::subscribe_lnb(devdb::lnb_t& lnb, retune_mode_t retune_mode,
 int
 receiver_t::subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 																			const pls_search_range_t& pls_search_range, retune_mode_t retune_mode,
-																			int subscription_id) {
+																			int subscription_id_) {
+	subscription_id_t subscription_id{subscription_id_};
+	devdb::fe_key_t subscribed_fe_key;
 
 	{
 		auto txn = chdb.rtxn();
@@ -1592,14 +1625,14 @@ receiver_t::subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux
 	tune_options.use_blind_tune = blindscan;
 	tune_options.retune_mode = retune_mode;
 	tune_options.pls_search_range = pls_search_range;
-	futures.push_back(receiver_thread.push_task([this, &lnb, &mux, tune_options, &subscription_id]() {
+	futures.push_back(receiver_thread.push_task([this, &lnb, &mux, tune_options, &subscription_id, &subscribed_fe_key]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = (int) cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id,
-																															tune_options, &lnb);
+		std::tie(subscription_id, subscribed_fe_key) = cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id,
+																																										 tune_options, &lnb);
 		return 0;
 	}));
 	wait_for_all(futures);
-	return subscription_id;
+	return (int) subscription_id;
 }
 
 std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service(const chdb::service_t& service,

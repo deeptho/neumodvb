@@ -154,13 +154,14 @@ class epoll_t {
 
 #define unconvertable_int(base_name, type_name)	\
 class type_name {																\
-	base_name data;																\
+	base_name data{0};														\
 																								\
 public:																					\
  explicit type_name(base_name x) :							\
 	data(x)																				\
   {}																						\
 																								\
+ type_name() = default;													\
  type_name(const type_name& x) = default;				\
 																								\
  explicit operator base_name() const {					\

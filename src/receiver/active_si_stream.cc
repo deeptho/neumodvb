@@ -941,10 +941,11 @@ void active_si_stream_t::finalize_scan(bool done)
 	auto& receiver_thread = receiver.receiver_thread;
 
 	auto scan_start_time = receiver.scan_start_time();
+	auto fe = active_adapter().dbfe();
 	if(scan_in_progress && scan_start_time >=0) {
-		receiver_thread.push_task([&receiver_thread, finished_mux = std::move(mux)]() {
-			dtdebug("Calling on_scan_mux_end: " << finished_mux);
-			cb(receiver_thread).on_scan_mux_end(finished_mux);
+		dtdebug("Calling on_scan_mux_end: " << mux);
+		receiver_thread.push_task([&receiver_thread, fe, mux]() {
+			cb(receiver_thread).on_scan_mux_end(fe, mux);
 			return 0;
 		});
 

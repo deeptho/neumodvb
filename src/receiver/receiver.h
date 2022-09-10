@@ -555,7 +555,7 @@ public:
 	int stop_recording(const chdb::service_t& service, system_time_t t);
 	int stop_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 
-	void on_scan_mux_end(const chdb::any_mux_t& finished_mux);
+	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux);
 };
 
 struct player_cb_t {

@@ -207,6 +207,8 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 
 
 /*
+	Release all resources (services, muxes) and also update database
+
   service_only=false called by
 	       receiver_thread_t::cb_t::subscribe_mux after subscribing fails
 				 receiver_thread_t::subscribe_lnb after subscribing fails
@@ -456,13 +458,13 @@ void receiver_thread_t::cb_t::abort_scan() {
 /*
 	called from tuner thread when scanning a mux has ended
 */
-void receiver_thread_t::cb_t::on_scan_mux_end(const chdb::any_mux_t& finished_mux)
+void receiver_thread_t::cb_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux)
 {
 	if (!scanner.get()) {
 		return;
 	}
-	dtdebug("Calling scanner>on_scan_mux_end: " << finished_mux);
-	auto num_left = scanner->on_scan_mux_end(finished_mux);
+	dtdebug("Calling scanner->on_scan_mux_end: adapter=" <<finished_fe.adapter_no << " " << finished_fe.sub);
+	auto num_left = scanner->on_scan_mux_end(finished_fe, finished_mux);
 	dterrorx("%d muxes left to scan", num_left);
 
 	if (num_left == 0 ) {

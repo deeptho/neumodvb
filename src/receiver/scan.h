@@ -21,6 +21,7 @@
 #pragma once
 #include <boost/context/continuation_fcontext.hpp>
 #include "neumodb/chdb/chdb_extra.h"
+#include "neumodb/devdb/devdb_extra.h"
 #include "devmanager.h"
 #include "tune_options.h"
 
@@ -229,9 +230,11 @@ class scanner_t {
 	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
 
 	ss::vector<devdb::lnb_t, 16> allowed_lnbs;
-	std::set<subscription_id_t> subscriptions;
+	std::map<devdb::fe_key_t, subscription_id_t> subscriptions;
+
 	std::map<subscription_id_t, chdb::any_mux_t> subscribed_muxes;
-	void add_completed_mux(const chdb::any_mux_t& mux, int num_pending);
+
+	void add_completed(const devdb::fe_t& fe, const chdb::any_mux_t& mux, int num_pending);
 
 	void set_allowed_lnbs(const ss::vector_<devdb::lnb_t>& lnbs);
 	void set_allowed_lnbs();
@@ -240,11 +243,11 @@ class scanner_t {
 	int add_muxes(const ss::vector_<mux_t>& muxes, bool init);
 
 	template<typename mux_t>
-	std::tuple<subscription_id_t, int>  scan_next(db_txn& wtxn, subscription_id_t finished_subscription_id);
+	int scan_next(db_txn& wtxn, subscription_id_t finished_subscription_id);
 
-	int scan_loop(const chdb::any_mux_t& finished_mux);
+	int scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux);
 
-	int on_scan_mux_end(const chdb::any_mux_t& finished_mux);
+	int on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux);
 
 		void start();
 	int housekeeping();

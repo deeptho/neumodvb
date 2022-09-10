@@ -94,6 +94,14 @@ namespace devdb::dish {
 
 namespace devdb {
 
+//need for use as key in map
+	inline bool operator<(const devdb::fe_key_t a , const devdb::fe_key_t b) {
+		return a.adapter_mac_address == b.adapter_mac_address
+			? (a.frontend_no < b.frontend_no) :
+			(a.adapter_mac_address < b.adapter_mac_address);
+	}
+
+
 	bool lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_ *error=nullptr);
 
 	struct resource_subscription_counts_t {
@@ -246,19 +254,22 @@ namespace devdb::fe {
 	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency);
 
 	template<typename mux_t>
-	std::optional<devdb::fe_t>
+	std::tuple<std::optional<devdb::fe_t>, int>
 	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devdb::fe_key_t* fe_key_to_release,
 														 bool use_blind_tune);
 
-	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, resource_subscription_counts_t>
+	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, resource_subscription_counts_t, int>
 	subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																 const devdb::lnb_t* required_lnb, const devdb::fe_key_t* fe_key_to_release,
 																 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus);
-	std::optional<devdb::fe_t>
+	std::tuple<std::optional<devdb::fe_t>, int>
 	subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const devdb::fe_key_t* fe_key_to_release,
 													bool need_blind_tune, bool need_spectrum);
-	devdb::fe_t subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key);
+	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key,
+																									 const devdb::fe_key_t* fe_key_to_release);
 
 };
+
+
 
 #pragma GCC visibility pop

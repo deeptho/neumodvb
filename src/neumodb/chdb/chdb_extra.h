@@ -475,6 +475,8 @@ namespace chdb::service {
 
 namespace chdb {
 
+	void merge_services(db_txn& wtxn, const mux_key_t& src_key, const any_mux_t& dst);
+
 
 	template<typename mux_t> float min_snr(const mux_t& mux);
 

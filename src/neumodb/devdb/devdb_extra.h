@@ -58,6 +58,7 @@ namespace devdb {
 	void to_str(ss::string_& ret, const fe_band_pol_t& band_pol);
 	void to_str(ss::string_& ret, const fe_t& fe);
 	void to_str(ss::string_& ret, const fe_key_t& fe_key);
+	void to_str(ss::string_& ret, const fe_subscription_t& sub);
 
 	template<typename T>
 	inline void to_str(ss::string_& ret, const T& t) {
@@ -78,6 +79,7 @@ namespace devdb {
 	std::ostream& operator<<(std::ostream& os, const fe_band_pol_t& band_pol);
 	std::ostream& operator<<(std::ostream& os, const chdb::fe_polarisation_t& pol);
 	std::ostream& operator<<(std::ostream& os, const fe_key_t& fe_key);
+	std::ostream& operator<<(std::ostream& os, const fe_subscription_t& sub);
 	std::ostream& operator<<(std::ostream& os, const fe_t& fe);
 
 }

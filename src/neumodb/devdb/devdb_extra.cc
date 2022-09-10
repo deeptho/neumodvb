@@ -133,6 +133,20 @@ std::ostream& devdb::operator<<(std::ostream& os, const fe_t& fe) {
 }
 
 
+std::ostream& devdb::operator<<(std::ostream& os, const fe_subscription_t& sub) {
+	stdex::printf(os, "%d.%d%c use_count=%d\n", sub.frequency/1000, sub.frequency%1000,
+								sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', sub.use_count);
+	return os;
+
+}
+
+
+
+void devdb::to_str(ss::string_& ret, const fe_subscription_t& sub) {
+	ret.clear();
+	ret << sub;
+}
+
 void devdb::to_str(ss::string_& ret, const lnb_key_t& lnb_key) {
 	ret.clear();
 	ret << lnb_key;

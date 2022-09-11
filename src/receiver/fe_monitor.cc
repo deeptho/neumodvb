@@ -60,8 +60,7 @@ void fe_monitor_thread_t::monitor_signal() {
 
 	bool get_constellation{true};
 
-	chdb::signal_info_t info;
-	fe->get_signal_info(info, get_constellation);
+	auto info = fe->get_signal_info(get_constellation);
 	bool verbose = false;
 	if (verbose) {
 		dtdebug("------------------------------------------------------");
@@ -84,9 +83,7 @@ void fe_monitor_thread_t::monitor_signal() {
 
 chdb::signal_info_t fe_monitor_thread_t::cb_t::get_signal_info() {
 	assert(!is_paused);
-	chdb::signal_info_t signal_info;
-	fe->get_signal_info(signal_info, false);
-	return signal_info;
+	return fe->get_signal_info(false);
 }
 
 void fe_monitor_thread_t::handle_frontend_event() {

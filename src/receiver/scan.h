@@ -211,10 +211,42 @@ struct scan_stats_t
 	int scheduled_muxes{0};
 	int finished_muxes{0};
 	int active_muxes{0};
+	int scanned_peaks{0};
+	int failed_peaks{0};
+	int scheduled_peaks{0};
+	int finished_peaks{0};
 	chdb::any_mux_t last_subscribed_mux{}; //or one of them
 	chdb::any_mux_t last_scanned_mux{};
+
+	scan_stats_t() = default;
+
+	scan_stats_t(int num_scheduled_muxes, int num_scheduled_peaks, chdb::any_mux_t last_subscribed_mux)
+		: scheduled_muxes(num_scheduled_muxes)
+		, scheduled_peaks(num_scheduled_peaks)
+		, last_subscribed_mux(last_subscribed_mux)
+		{}
 };
 
+
+struct blindscan_key_t {
+	//subscriber_t* subscriber{nullptr};
+	int16_t sat_pos{sat_pos_none};
+	int8_t band;
+	chdb::fe_polarisation_t pol;
+	bool operator<(const blindscan_key_t& other) const;
+
+	blindscan_key_t(int16_t sat_pos, chdb::fe_polarisation_t pol, uint32_t frequency);
+
+};
+
+//todo: extend to dvbc and dvbt
+struct blindscan_t {
+	int16_t sat_pos{sat_pos_none};
+	std::optional<devdb::lnb_key_t> required_lnb_key;
+	ss::vector_<chdb::spectral_peak_t> peaks;
+
+	bool operator<(const blindscan_key_t& other) const;
+};
 
 class scanner_t {
 	friend class receiver_thread_t;
@@ -234,6 +266,7 @@ class scanner_t {
 
 	std::map<subscription_id_t, chdb::any_mux_t> subscribed_muxes;
 
+	std::map<blindscan_key_t, blindscan_t> blindscans;
 	void add_completed(const devdb::fe_t& fe, const chdb::any_mux_t& mux, int num_pending);
 
 	void set_allowed_lnbs(const ss::vector_<devdb::lnb_t>& lnbs);
@@ -242,10 +275,14 @@ class scanner_t {
 	template<typename mux_t>
 	std::tuple<subscription_id_t, subscription_id_t> scan_try_mux(subscription_id_t finished_subscription_id ,
 																																devdb::fe_key_t finished_fe_key,
-																																const mux_t& mux_to_scan, const devdb::lnb_t* required_lnb);
+																																const mux_t& mux_to_scan,
+																																const devdb::lnb_key_t* required_lnb_key);
 
 	template<typename mux_t>
 	int add_muxes(const ss::vector_<mux_t>& muxes, bool init);
+
+	int add_peaks(const statdb::spectrum_key_t& spectrum_key,
+								const ss::vector_<chdb::spectral_peak_t>& peaks, bool init);
 
 	template<typename mux_t>
 	std::tuple<int, int> scan_next(db_txn& wtxn, subscription_id_t finished_subscription_id);
@@ -258,7 +295,7 @@ class scanner_t {
 	int housekeeping();
 
 	void init();
-
+	void clear_peaks(const chdb::dvbs_mux_t& finished_mux);
 public:
 	scanner_t(receiver_thread_t& receiver_thread_,
 						//ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,

@@ -421,7 +421,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t>
 fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
-																			const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
+																			const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
 																			const devdb::fe_key_t* fe_key_to_release,
 																			bool may_move_dish, bool use_blind_tune,
 																			int dish_move_penalty, int resource_reuse_bonus) {
@@ -438,11 +438,11 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		In the loop below, check if the lnb is compatible with the desired mux and tune options.
 		If the lnb is compatible, check check all existing subscriptions for conflicts.
 	*/
-	auto c = required_lnb ? lnb_t::find_by_key(rtxn, required_lnb->k, find_type_t::find_eq,
+	auto c = required_lnb_key ? lnb_t::find_by_key(rtxn, *required_lnb_key, find_type_t::find_eq,
 																						 devdb::lnb_t::partial_keys_t::all)
 		: find_first<devdb::lnb_t>(rtxn);
 	for (auto const& lnb : c.range()) {
-		assert(! required_lnb || required_lnb->k == lnb.k);
+		assert(! required_lnb_key || *required_lnb_key == lnb.k);
 		if(!lnb.enabled || !lnb.can_be_used)
 			continue;
 		/*
@@ -510,7 +510,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		best_lnb = lnb;
 		best_fe = fe;
 		best_use_counts = use_counts;
-		if (required_lnb)
+		if (required_lnb_key)
 			break; //we only beed to look at one lnb
 	}
 	return std::make_tuple(best_fe, best_lnb, best_use_counts);
@@ -623,12 +623,12 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
  */
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t, int>
 devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-													 const devdb::lnb_t* required_lnb, const devdb::fe_key_t* fe_key_to_release,
+													 const devdb::lnb_key_t* required_lnb_key, const devdb::fe_key_t* fe_key_to_release,
 													 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus) {
 	const bool may_move_dish{true};
 	int released_fe_usecount{0};
 	auto[best_fe, best_lnb, best_use_counts] =
-		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_lnb,
+		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_lnb_key,
 																					fe_key_to_release,
 																					may_move_dish, use_blind_tune,
 																					dish_move_penalty, resource_reuse_bonus);

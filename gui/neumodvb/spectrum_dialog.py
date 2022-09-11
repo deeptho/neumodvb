@@ -43,13 +43,15 @@ class SpectrumButtons(SpectrumButtons_):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
+        self.serial_blindscan_all = True
         wx.CallAfter(self.select_range_and_pols)
 
     def OnAcquireSpectrum(self, event):
         return self.Parent.OnAcquireSpectrum(event)
 
     def OnBlindScan(self, event):
-        return self.parent.OnBlindScan(event)
+        return self.parent.OnBlindScanSerial(event) if self.serial_blindscan_all \
+            else self.parent.OnBlindScanParallel(event)
 
     def select_start_end(self, lnb):
         rng = pydevdb.lnb.lnb_frequency_range(lnb)
@@ -250,7 +252,7 @@ class SpectrumDialog(SpectrumDialog_):
             self.EndBlindScan()
             self.spectrum_buttons_panel.blindscan_button.SetValue(0)
 
-    def OnBlindScan(self, event=None):
+    def OnBlindScanSerial(self, event=None):
         dtdebug("Blindscan start")
 
         obj = event.GetEventObject()
@@ -284,6 +286,29 @@ class SpectrumDialog(SpectrumDialog_):
                 wx.CallAfter(self.blindscan_next)
         event.Skip()
 
+    def OnBlindScanParallel(self, event=None):
+        dtdebug("Blindscan start parallel")
+
+        obj = event.GetEventObject()
+        isPressed = obj.GetValue()
+        if not isPressed:
+            dtdebug("Ending blindscan all")
+            self.EndBlindScan()
+        else:
+            dtdebug("starting blindscan all - parallel")
+            self.blindscan_start = datetime.datetime.now(tz=tz.tzlocal())
+            self.tps_to_scan = []
+            self.tune_mux_panel.use_blindscan = True
+            self.is_blindscanning = True
+            self.blindscan_all()
+        event.Skip()
+
+    def blindscan_all(self):
+        subscriber = self.tune_mux_panel.mux_subscriber
+        lnb, sat  = self.tune_mux_panel.lnb, self.tune_mux_panel.sat
+        for key, spectrum in self.spectrum_plot.spectra.items():
+            k = spectrum.spectrum.k
+            subscriber.scan_spectral_peaks(k, spectrum.peak_data[:,0], spectrum.peak_data[:,1])
     def blindscan_next(self):
         self.done_time = None
         if len(self.tps_to_scan) == 0:
@@ -379,6 +404,7 @@ class SpectrumDialog(SpectrumDialog_):
             ShowMessage("Error", data)
             return
         need_si = True
+        print(f'CB: {data}')
         if data == False:
             mux = self.tune_mux_panel.last_tuned_mux
             self.blindscan_num_muxes += 1

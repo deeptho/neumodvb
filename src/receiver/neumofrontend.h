@@ -174,7 +174,7 @@ struct dvb_frontend_extended_info {
 	__u8       supports_neumo; /*historically we relied on FE_CAN... to indicate supported features,
 														 but in future we will rely on data returned by FE_GET_EXTENDED_INFO
 														 Note that FE_GET_EXTENDED_INFO works on all drivers, even non neumo ones:
-														 it is available as soon as neumo suppoprt is activated in dvb_api. Legacy
+														 it is available as soon as neumo support is activated in dvb_api. Legacy
 														 drivers will initialize fields thet don;t know to zero, but in some case
 														 (e.g., rf_in) 0 is a valid value. The fe_info.supports_neumo flag, when
 														 set - indicates that such fields have been properly initialized anyway

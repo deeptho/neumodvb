@@ -364,8 +364,6 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 	return py::make_tuple(annoty, leftrightflag);
 }
 
-
-
 /*
 	estimate peaks
 	input: spec: spectrum and freq: corresponding frequencies
@@ -428,8 +426,7 @@ PYBIND11_MODULE(pyspectrum, m) {
 
 	)pbdoc";
 	;
-	m
-		.def("find_annot_locations", &find_annot_locations)
+	m.def("find_annot_locations", &find_annot_locations)
 		.def("find_spectral_peaks", &find_spectral_peaks,
 				 "detect peaks in the spectrum and return their center frequencies and symbol rate",
 				 py::arg("freq"), py::arg("spectrum")

@@ -29,6 +29,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> //for std::optional
 #include "viewer/wxpy_api.h"
+#include "scan.h"
 #include <gtk/gtk.h>
 #include <sip.h>
 #include <stdio.h>
@@ -141,6 +142,32 @@ void export_pls_search_range(py::module& m) {
 		;
 }
 
+
+static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_key_t& spectrum_key,
+																			py::array_t<float> peak_freq, py::array_t<float> peak_sr) {
+	py::buffer_info infofreq = peak_freq.request();
+	if (infofreq.ndim != 1)
+		throw std::runtime_error("Bad number of dimensions");
+	auto* pfreq = (float*)infofreq.ptr;
+	py::buffer_info infosr = peak_sr.request();
+	if (infosr.ndim != 1)
+		throw std::runtime_error("Bad number of dimensions");
+	auto* psr = (float*)infosr.ptr;
+
+	int n = infofreq.shape[0];
+	if (n!= infosr.shape[0])
+		throw std::runtime_error("Bad Spectrum and freq need to have same size");
+	ss::vector_<chdb::spectral_peak_t> peaks;
+	peaks.reserve(n);
+	for(int i =0 ; i< n; ++i) {
+		peaks.push_back(chdb::spectral_peak_t{(uint32_t) (pfreq[i]*1000), (uint32_t) psr[i],
+				spectrum_key.pol, chdb::spectral_peak_t::scan_status_t::NON_BLIND_PENDING});
+	}
+	auto subscription_id = subscriber.scan_spectral_peaks(peaks, spectrum_key);
+	return subscription_id;
+}
+
+
 void export_subscriber(py::module& m) {
 	static bool called = false;
 	if (called)
@@ -180,6 +207,10 @@ void export_subscriber(py::module& m) {
 				 , py::arg("blindscan")
 				 , py::arg("pls_search_mode")=false
 				 , py::arg("retune_mode"))
+		.def("scan_spectral_peaks", &scan_spectral_peaks,
+				 "scan peaks in the spectrum all atonce",
+				 py::arg("spectrum_key"), py::arg("peak_freq"), py::arg("peak_sr")
+			)
 		.def_property_readonly("error_message", [](subscriber_t* self) {
 			return get_error().c_str(); })
 		.def("unsubscribe"

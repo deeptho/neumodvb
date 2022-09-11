@@ -589,7 +589,8 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& r
 	return cmdseq.get_properties(fefd);
 }
 
-void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constellation) {
+chdb::signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
+	chdb::signal_info_t ret{ts.readAccess()->dbfe.k};
 	ret.lock_status = ts.readAccess()->lock_status.fe_status;
 	using namespace chdb;
 	// bool is_sat = true;
@@ -597,7 +598,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 
 	cmdseq_t cmdseq;
 	if(request_signal_info(cmdseq, ret, get_constellation)<0)
-		return;
+		return ret;
 
 	statdb::signal_stat_entry_t& last_stat = ret.last_stat();
 	auto& signal_strength_stats = cmdseq.get(DTV_STAT_SIGNAL_STRENGTH)->u.st;
@@ -660,6 +661,7 @@ void dvb_frontend_t::get_signal_info(chdb::signal_info_t& ret, bool get_constell
 			ret.matype_list.push_back(matype_list.matypes[i]);
 #endif
 	}
+	return ret;
 }
 
 /* Force the driver to go into idle mode immediately, so
@@ -952,8 +954,9 @@ void dvb_frontend_t::update_bad_received_si_mux(const std::optional<chdb::any_mu
 }
 
 
-template <typename mux_t> bool dvb_frontend_t::is_tuned_to(const mux_t& mux, const devdb::lnb_t* required_lnb) const {
-	return this->ts.readAccess()->is_tuned_to(mux, required_lnb);
+template <typename mux_t> bool dvb_frontend_t::is_tuned_to(const mux_t& mux,
+																													 const devdb::lnb_key_t* required_lnb_key) const {
+	return this->ts.readAccess()->is_tuned_to(mux, required_lnb_key);
 }
 
 
@@ -1889,10 +1892,10 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 
 
 //instantiations
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_t* required_lnb) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_t* required_lnb) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_t* required_lnb) const;
+template bool dvb_frontend_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
+template bool dvb_frontend_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
+template bool dvb_frontend_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
+template bool dvb_frontend_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
 
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux);
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux);

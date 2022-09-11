@@ -25,6 +25,8 @@
 #include "neumodb/db_keys_helper.h"
 #include "receiver.h"
 
+
+using spectral_scan_status_t = chdb::spectral_peak_t::scan_status_t;
 /*
 	Processes events and continues scanning.
 	found_mux_keys = muxes found in nit_actual and nit_other
@@ -56,24 +58,38 @@ static void report(const char* msg, subscription_id_t finished_subscription_id,
 	dtdebug(s.c_str());
 }
 
+
+bool blindscan_key_t::operator<(const blindscan_key_t& other) const {
+	if(sat_pos != other.sat_pos)
+		return sat_pos < other.sat_pos;
+	if(band != other.band)
+		return band < other.band;
+	if(pol != other.pol)
+		return (int) pol  < (int) other.pol;
+	return false;
+	//return (intptr_t) subscriber  < (intptr_t) other.subscriber;
+}
+
+blindscan_key_t::blindscan_key_t(int16_t sat_pos, chdb::fe_polarisation_t pol, uint32_t frequency)
+	: sat_pos(sat_pos)
+	, band{frequency >= 11700000 && frequency <= 12800000}
+	, pol(pol)
+	{}
+
+
 template<typename mux_t>
-static inline bool& skip_helper(std::map<int,bool>& skip_map, const mux_t& mux)
+requires (! std::is_same_v<chdb::spectral_peak_t, mux_t>)
+static inline bool& skip_helper(std::map<blindscan_key_t,bool>& skip_map, const mux_t& mux)
 {
 	using namespace chdb;
-	int band = 0;
-	/*The following handles most lnbs well. Worst case  band will be wrong
-		which may lead to a decision to skip scanning a mux now, but the it will be retried
-		in a future call of scan_loop
-	*/
-	if (mux.frequency >= 11700000 && mux.frequency <= 12800000)
-		band = 1;
-	int pol = 0;
-	if constexpr (std::is_same<chdb::dvbs_mux_t, mux_t>::value) {
-		pol= (mux.pol == fe_polarisation_t::V) || (mux.pol == fe_polarisation_t::R);
+	if constexpr (std::is_same_v<chdb::dvbs_mux_t, mux_t>) {
+		return skip_map[blindscan_key_t{mux.k.sat_pos, mux.pol, mux.frequency}];
+	} else {
+		return skip_map[blindscan_key_t{mux.k.sat_pos, chdb::fe_polarisation_t::H, mux.frequency}];
 	}
-	int key = (mux.k.sat_pos) << 16 | (band &1) << 8 | (pol&1);
-	return skip_map[key];
 }
+
+
 
 /*
 	returns the number the new subscription_id and the new value of finished_subscription_id,
@@ -83,7 +99,7 @@ template<typename mux_t>
 std::tuple<subscription_id_t, subscription_id_t>
 scanner_t::scan_try_mux(subscription_id_t finished_subscription_id ,
 												devdb::fe_key_t finished_fe_key,
-												const mux_t& mux_to_scan, const devdb::lnb_t* required_lnb)
+												const mux_t& mux_to_scan, const devdb::lnb_key_t* required_lnb_key)
 {
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{-1};
@@ -91,7 +107,8 @@ scanner_t::scan_try_mux(subscription_id_t finished_subscription_id ,
 	{
 		auto wtxn = receiver.devdb.wtxn();
 			std::tie(subscription_id, subscribed_fe_key) =
-				receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, finished_subscription_id, tune_options, required_lnb);
+				receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, finished_subscription_id, tune_options,
+																			required_lnb_key);
 			wtxn.commit();
 	}
 	report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", finished_subscription_id, subscription_id, mux_to_scan, subscriptions);
@@ -132,10 +149,6 @@ scanner_t::scan_try_mux(subscription_id_t finished_subscription_id ,
 				chdb::delete_record(chdb_wtxn, mux_to_scan);
 				chdb_wtxn.commit();
 			}
-#if 0 //not needed
-			subscriptions.erase(subscribed_fe_key); //remove old entry
-			subscribed_muxes.erase(subscription_id);
-#endif
 		} else {
 			//this indicates that our new subscription uses the same fe as our old one
 			subscribed_muxes[subscription_id] = mux_to_scan;
@@ -171,13 +184,11 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finish
 
 	// start as many subscriptions as possible
 	using namespace chdb;
-	auto c = mux_t::find_by_scan_status(rtxn, scan_status_t::PENDING, find_type_t::find_geq,
-																			mux_t::partial_keys_t::scan_status);
 	int num_pending{0};
-	auto c1 = c.clone();
+
 	int num_skipped{0};
 	devdb::fe_key_t finished_fe_key;
-	std::map<int, bool> skip_map;
+	std::map<blindscan_key_t, bool> skip_map;
 
 	if ((int)finished_subscription_id >= 0) {
 		/*
@@ -193,22 +204,123 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finish
 		finished_fe_key = itold->first;
 	}
 
-#if 0
-	dtdebug("-------------------------------------");
-	for(auto mux_to_scan: c1.range())  {
-		dtdebug(" MUX=" << mux_to_scan);
-	}
-	dtdebug("++++++++++++++++++++++++++++++++++");
-#endif
-
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{-1};
-	for(auto mux_to_scan: c.range()) {
 
+	/*Scan all spectral peaks for blindscans launched from the spectrum dialog is in propgress.
+		In this case we force the lnb used to acquire the spectrum (e.g., in case the lnb is on a large \
+		this, and scanning another lnb on a smaller dish might not succeed).
+
+		The user can also launch blindscan on more than one lnb but for the same sat (e.g., on multiple dishes).
+		In this case, in the current code, only one of those lnbs will be considered, as the peaks are stored
+		in the same data structure
+
+
+	*/
+
+	for(auto& [key, blindscan]:  blindscans) {
+		bool& skip_sat_band = skip_map[key]; /*Note that key depends on lnb for a spectral peak, whereas
+																					 key below does not depend on lnb for a mux (which can be for any
+																					 lnb).
+																					 TODO: various strange situations can occur:
+																					 1. user asks to scan muxes ffrom dvbs mux and then also
+																					 to scan peaks from spectrum dialog. This can lead to the same
+																					 mux being scanned on a specific lnb and on "any" lnb
+																					 2. even if user only starts blindscan, which will use a specific lnb,
+																					 si processing can create new muxes which can then be scanned on any lnb
+
+																				 */
+		if(skip_sat_band) {
+			num_skipped += blindscan.peaks.size();
+			num_pending += blindscan.peaks.size();
+			continue;
+			}
+			for(int idx = blindscan.peaks.size()-1;  idx>=0 ; --idx) {
+				auto &peak = blindscan.peaks[idx];
+				using namespace chdb;
+				if(peak.scan_status == spectral_scan_status_t::NON_BLIND_IN_PROGRESS ||
+					 peak.scan_status == spectral_scan_status_t::BLIND_IN_PROGRESS)
+					continue;
+
+				dvbs_mux_t mux;
+				if ((int)subscriptions.size() >=
+						((int)finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1)) {
+					num_skipped += blindscan.peaks.size();
+					num_pending += blindscan.peaks.size();
+					break; // to have accurate num_pending count
+				}
+				mux.k.sat_pos = blindscan.sat_pos;
+				mux.frequency = peak.frequency;
+				mux.pol = peak.pol;
+				mux.symbol_rate = peak.symbol_rate;
+				assert(mux.stream_id == -1);
+				assert(mux.pls_mode == fe_pls_mode_t::ROOT);
+				assert(mux.pls_code == 1);
+				/*
+					each peak will be scanned twice if we have si data for the mux:
+					the first scan will use the si data. The second scan will only take
+					place if the si-data based scan fails
+
+					peak.retry_blind is set to true if the first scan has been tried,
+					in which case it should not be retried
+
+				 */
+				auto new_scan_status = spectral_scan_status_t::BLIND_IN_PROGRESS;
+				if(peak.scan_status == spectral_scan_status_t::NON_BLIND_PENDING) {
+					auto c = find_by_mux_physical(rtxn, mux, true/*ignore_stream_ids*/);
+					if(c.is_valid()) {
+						auto db_mux = c.current();
+						if(true || db_mux.c.scan_status == scan_status_t::PENDING) {
+							/*heuristic: we assume that this means scanning an earlier mux has
+								provided si data with correct tuning parameters. This assumption could be
+								wrong if the user has simultaneously launched a regular (non-blind) scan)
+
+								We try these values instead of the blind scanned ones
+							*/
+							mux = db_mux;
+							new_scan_status = spectral_scan_status_t::NON_BLIND_IN_PROGRESS;
+						}
+					} else {
+						new_scan_status = spectral_scan_status_t::BLIND_IN_PROGRESS;
+					}
+				} else {
+					assert(peak.scan_status == spectral_scan_status_t::BLIND_PENDING);
+					new_scan_status = spectral_scan_status_t::BLIND_IN_PROGRESS;
+				}
+				mux.c.scan_status = scan_status_t::PENDING;
+				std::tie(subscription_id, finished_subscription_id) =
+					scan_try_mux(finished_subscription_id, finished_fe_key, mux,
+											 blindscan.required_lnb_key ? &*blindscan.required_lnb_key : nullptr);
+#if 0
+				if(finished_subscription_id == blindscan_list.current_subscription_id)
+					blindscan_list.current_subscription_id = subscription_id;
+#endif
+				if ((int)subscription_id < 0) {
+					// we cannot subscribe the mux right now
+					num_pending++;
+					skip_sat_band = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
+					continue;
+				} else {
+					peak.scan_status = new_scan_status;
+				}
+			}
+	}
+
+	/*
+		Now scan any si muxes. These can either be entered by the user
+		or added as a result of an earlier scan. The muxes tried are the ones with scan status PENDING
+		in the database. The database does not contain any preference for an lnb, so as a general rule
+		scanning will use any suitable lnb.
+	 */
+	auto c = mux_t::find_by_scan_status(rtxn, scan_status_t::PENDING, find_type_t::find_geq,
+																			mux_t::partial_keys_t::scan_status);
+	for(auto mux_to_scan: c.range()) {
 		assert(mux_to_scan.c.scan_status == scan_status_t::PENDING);
 		if ((int)subscriptions.size() >=
-				((int)finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1))
+				((int)finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1)) {
+			num_pending++;
 			continue; // to have accurate num_pending count
+		}
 		bool& skip_mux = skip_helper(skip_map, mux_to_scan);
 		if(skip_mux) {
 			num_skipped++;
@@ -228,7 +340,6 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finish
 
 	}
 
-
 	if ((int)finished_subscription_id >= 0) {
 		assert (finished_subscription_id == subscription_id || (int)subscription_id < 0);
 		//we have not reused finished_subscription_id so this subscription must be ended
@@ -245,6 +356,57 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finish
 	return {num_pending, num_skipped};
 }
 
+
+/*
+	remove spectral peaks which have already been successfully scanned
+ */
+
+void scanner_t::clear_peaks(const chdb::dvbs_mux_t& finished_mux) {
+	bool failed{true};
+	using namespace chdb;
+	switch(finished_mux.c.scan_result) {
+	case  scan_result_t::PARTIAL:
+	case  scan_result_t::OK:
+	case  scan_result_t::NODATA:
+		failed = false;
+		break;
+	default:
+		return;
+	}
+
+	blindscan_key_t key{finished_mux.k.sat_pos, finished_mux.pol, finished_mux.frequency};
+	auto& blindscan = blindscans[key];
+	for(int idx=0; idx < blindscan.peaks.size(); ++idx) {
+		auto& peak = blindscan.peaks[idx];
+		dvbs_mux_t mux;
+		mux.k.sat_pos = blindscan.sat_pos;
+		mux.frequency = peak.frequency;
+		mux.pol = peak.pol;
+		mux.symbol_rate = peak.symbol_rate;
+		assert(mux.stream_id == -1);
+		assert(mux.pls_mode == fe_pls_mode_t::ROOT);
+		assert(mux.pls_code == 1);
+
+		if(chdb::matches_physical_fuzzy(mux, finished_mux, true /*check_sat_pos*/)) {
+			if(failed) {
+				switch(peak.scan_status) {
+				case spectral_scan_status_t::NON_BLIND_PENDING:
+				case spectral_scan_status_t::BLIND_PENDING:
+					continue;
+				case spectral_scan_status_t::NON_BLIND_IN_PROGRESS:
+					peak.scan_status = spectral_scan_status_t::BLIND_PENDING;
+					continue;
+				case spectral_scan_status_t::BLIND_IN_PROGRESS:
+					blindscan.peaks.erase(idx);
+					continue;
+				}
+			} else {// ! failed
+				blindscan.peaks.erase(idx);
+			}
+		}
+	}
+}
+
 /*
 	Returns number of muxes left to scan
 */
@@ -259,6 +421,10 @@ int scanner_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& 
 	subscription_id_t finished_subscription_id_dvbs{-1};
 	subscription_id_t finished_subscription_id_dvbc{-1};
 	subscription_id_t finished_subscription_id_dvbt{-1};
+
+	auto* finished_dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&finished_mux);
+	if(finished_dvbs_mux)
+		clear_peaks(*finished_dvbs_mux);
 
 	try {
 		subscription_id_t finished_subscription_id{-1};
@@ -277,7 +443,6 @@ int scanner_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& 
 			else
 				finished_subscription_id_dvbs = finished_subscription_id;
 		}
-
 		// start as many subscriptions as possible
 		auto rtxn = receiver.chdb.rtxn();
 		using namespace chdb;
@@ -399,10 +564,8 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, bool init) {
 	{
 		auto w = scan_stats.writeAccess();
 		if (init) {
-			w->last_subscribed_mux = last_subscribed_mux;
-			w->failed_muxes = 0;
-			w->finished_muxes = 0;
-			w->scheduled_muxes = muxes.size();
+			*w = scan_stats_t(muxes.size() /*num_scheduled_muxes*/, 0 /* num_scheduled_peaks*/,
+												last_subscribed_mux);
 		} else{
 			w->scheduled_muxes += muxes.size(); //might be wrong when same mux is added, but scan_loop will fix this later
 		}
@@ -411,6 +574,35 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, bool init) {
 	return 0;
 }
 
+int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key,
+												 const ss::vector_<chdb::spectral_peak_t>& peaks, bool init) {
+	for(const auto& peak: peaks) {
+		blindscan_key_t key = {spectrum_key.sat_pos, spectrum_key.pol, peak.frequency};
+		auto& blindscan = blindscans[key];
+		if(blindscan.sat_pos == sat_pos_none) {
+			blindscan.sat_pos = spectrum_key.sat_pos;
+			blindscan.required_lnb_key = spectrum_key.lnb_key;
+		}  else {
+			assert(blindscan.required_lnb_key == spectrum_key.lnb_key);
+			assert(blindscan.sat_pos == spectrum_key.sat_pos);
+			blindscan.peaks.push_back(peak);
+		}
+	}
+
+
+	//initialize statistics
+	{
+		auto w = scan_stats.writeAccess();
+		if (init) {
+			*w = scan_stats_t(0 /*num_scheduled_muxes*/, peaks.size() /* num_scheduled_peaks*/,
+												last_subscribed_mux);
+		} else{
+			w->scheduled_peaks += peaks.size(); //might be wrong when same mux is added, but scan_loop will fix this later
+		}
+		w->active_muxes = subscriptions.size();
+	}
+	return 0;
+}
 
 
 

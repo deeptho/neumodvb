@@ -357,9 +357,6 @@ class receiver_thread_t : public task_queue_t  {
 	*/
 	std::shared_ptr<adaptermgr_t> adaptermgr;
 
-	//for channel scan
-	std::shared_ptr<scanner_t> scanner;
-
 		/*
 		channels which are currently subscribed to. Note that each subscribed channel implies
 		a subscribed tuner. The channels are either active or becoming active.
@@ -372,6 +369,9 @@ class receiver_thread_t : public task_queue_t  {
 
 	using playback_map = std::map<subscription_id_t, std::shared_ptr<active_playback_t>>;
 	playback_map reserved_playbacks; //recordings being played back, indexed by subscription id
+
+	//for channel scan
+	std::shared_ptr<scanner_t> scanner;
 
 
 private:
@@ -412,7 +412,7 @@ private:
 	subscribe_mux_not_in_use(std::vector<task_queue_t::future_t>& futures,
 													 std::shared_ptr<active_adapter_t>& old_active_adapter,
 													 db_txn &txn, const _mux_t& mux, subscription_id_t subscription_id,
-													 tune_options_t tune_options, const devdb::lnb_t* required_lnb /*unused*/);
+													 tune_options_t tune_options, const devdb::lnb_key_t* required_lnb_key /*unused*/);
 
 	template<typename _mux_t>
 	std::unique_ptr<playback_mpm_t>
@@ -438,13 +438,13 @@ protected:
 	std::tuple<subscription_id_t, devdb::fe_key_t>
 	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
 								const _mux_t& mux, subscription_id_t subscription_id,
-								tune_options_t tune_options, const devdb::lnb_t* required_lnb);
+								tune_options_t tune_options, const devdb::lnb_key_t* required_lnb_key);
 	template<class mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t> subscribe_mux_in_use(
 		std::vector<task_queue_t::future_t>& futures,
 		std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& devdb_wtxn,
 		const mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
-		const devdb::lnb_t* required_lnb);
+		const devdb::lnb_key_t* required_lnb_key);
 
 	int request_retune(std::vector<task_queue_t::future_t>& futures,
 										 active_adapter_t& active_adapter, subscription_id_t subscription_id);
@@ -496,13 +496,14 @@ private:
 
 	template<typename mux_t>
 	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
-																	 bool scan_found_muxes, int max_num_subscriptions,
-																	 subscription_id_t subscription_id);
-
-
-	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbs_mux_t>& muxes,
 																	 ss::vector_<devdb::lnb_t>* lnbs, bool scan_found_muxes, int max_num_subscriptions,
 																	 subscription_id_t subscription_id);
+
+	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures,
+																	 ss::vector_<chdb::spectral_peak_t>& peaks,
+																	 const statdb::spectrum_key_t& spectrum_key,
+																	 bool scan_found_muxes, int max_num_subscriptions,
+																	 subscription_id_t subscription_id, subscriber_t* subscriber_ptr=nullptr);
 
 	subscription_id_t subscribe_spectrum(std::vector<task_queue_t::future_t>& futures, const devdb::lnb_t& lnb,
 																			 const ss::vector_<devdb::fe_band_pol_t> bands, tune_options_t tune_options,
@@ -512,11 +513,10 @@ private:
 public:
 	//functions safe to call from other threads
 	scan_stats_t get_scan_stats(subscription_id_t subscription_id);
-
+	void notify_signal_info(const chdb::signal_info_t& info);
 	class cb_t;
 
 	time_t scan_start_time() const;
-
 };
 
 
@@ -526,7 +526,7 @@ public:
 
 	template<typename _mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t>
-	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const devdb::lnb_t* required_lnb);
+	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const devdb::lnb_key_t* required_lnb_key);
 
 	subscription_id_t subscribe_lnb(devdb::lnb_t& lnb, tune_options_t tune_options, subscription_id_t subscription_id);
 
@@ -537,15 +537,21 @@ public:
 	std::unique_ptr<playback_mpm_t>
 	subscribe_recording(const recdb::rec_t& rec, subscription_id_t subscription_id);
 
-	subscription_id_t subscribe_scan(ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
+	template<typename mux_t>
+	subscription_id_t subscribe_scan(ss::vector_<mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
 																	 bool scan_found_muxes=true, int max_num_subscriptions=-1,
 																	 subscription_id_t subscription_id=  subscription_id_t{-1});
+
+	subscription_id_t subscribe_scan(ss::vector_<chdb::spectral_peak_t>& muxes, const devdb::lnb_t& lnb,
+																	 bool scan_found_muxes, int max_num_subscriptions, subscription_id_t subscription_id);
+
 
 	template<typename _mux_t>
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, subscription_id_t subscription_id);
 
-	subscription_id_t scan_muxes(ss::vector_<chdb::dvbs_mux_t>& muxes, subscription_id_t subscription_id);
-
+	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
+																				const statdb::spectrum_key_t& spectrum_key,
+																				subscription_id_t subscription_id);
 	void unsubscribe(subscription_id_t subscription_id);
 	void abort_scan();
 	void start_recording(recdb::rec_t rec);
@@ -568,6 +574,10 @@ struct player_cb_t {
 
 
 class receiver_t {
+
+	//for channel scan
+	std::shared_ptr<scanner_t> scanner;
+
 
 	int toggle_recording_(const chdb::service_t& service,
 										 const epgdb::epg_record_t& epg_record);
@@ -636,6 +646,9 @@ public:
 		return subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range_t{},  retune_mode, subscription_id);
 	}
 
+	int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
+													const statdb::spectrum_key_t& spectrum_key, int subscription_id);
+
 	template<typename _mux_t>
 	int scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id);
 
@@ -670,7 +683,9 @@ public:
 	chdb::language_code_t get_current_subtitle_language(int subscription_id);
 
 
-	void notify_signal_info(const chdb::signal_info_t& info);
+	inline void notify_signal_info(const chdb::signal_info_t& info) {
+		receiver_thread.notify_signal_info(info);
+	}
 	void notify_spectrum_scan(const statdb::spectrum_t& scan);
 
 	void update_playback_info();

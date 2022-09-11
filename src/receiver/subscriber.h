@@ -39,6 +39,17 @@ namespace pybind11 {
 	class object;
 };
 
+struct blindscan_t;
+
+struct notification_t {
+	int16_t sat_pos{sat_pos_none};
+	devdb::lnb_key_t lnb_key;
+
+	inline bool matches( int16_t sat_pos, const devdb::lnb_key_t& lnb_key) const {
+		return sat_pos == this->sat_pos && lnb_key == this->lnb_key;
+	}
+};
+
 class subscriber_t
 {
 
@@ -47,7 +58,7 @@ class subscriber_t
 	int tune_attempt{0}; //to detect old status messages which come in after the most recent tune
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
-	std::shared_ptr<active_adapter_t>active_adapter;
+	std::shared_ptr<active_adapter_t> active_adapter; //set if subscribed to specific mux
 public:
 	enum class event_type_t : uint32_t {
 		ERROR_MSG  = (1<<0),
@@ -55,7 +66,7 @@ public:
 		SPECTRUM_SCAN = (1<<2)
 	};
 
-
+	safe::Safe<notification_t> notification;
 	int event_flag{ int(event_type_t::ERROR_MSG)|
 		int(event_type_t::SIGNAL_INFO) | int(event_type_t::SPECTRUM_SCAN)}; //which events to report
 
@@ -67,6 +78,7 @@ public:
 
 	void notify_error(const ss::string_& errmsg);
 	void notify_signal_info(const chdb::signal_info_t& info);
+	void notify_signal_info(blindscan_t& scanner, const chdb::signal_info_t& info);
 	void notify_spectrum_scan(const statdb::spectrum_t& spectrum);
 
 	subscriber_t(receiver_t* receiver, wxWindow* window);
@@ -88,6 +100,10 @@ public:
 	int subscribe_spectrum(devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
 												 int32_t low_freq, int32_t high_freq,
 												 int sat_pos=sat_pos_none);
+
+	int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
+																				const statdb::spectrum_key_t& spectrum_key);
+
 	int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 	int get_adapter_no() const;
 

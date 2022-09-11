@@ -218,7 +218,7 @@ namespace devdb::fe {
 						 std::optional<devdb::lnb_t>,
 						 resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
-																		const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
+																		const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
 																		const devdb::fe_key_t* fe_key_to_release,
 																		bool may_move_dish, bool use_blind_tune,
 																		int dish_move_penalty, int resource_reuse_bonus);
@@ -260,7 +260,7 @@ namespace devdb::fe {
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, resource_subscription_counts_t, int>
 	subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-																 const devdb::lnb_t* required_lnb, const devdb::fe_key_t* fe_key_to_release,
+																 const devdb::lnb_key_t* required_lnb_key, const devdb::fe_key_t* fe_key_to_release,
 																 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus);
 	std::tuple<std::optional<devdb::fe_t>, int>
 	subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const devdb::fe_key_t* fe_key_to_release,

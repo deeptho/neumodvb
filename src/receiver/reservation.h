@@ -86,7 +86,6 @@ public:
 class active_fe_thread_safe_t {
 	friend class receiver_thread_t;
 	active_adapter_t* active_adapter {nullptr};
-	use_count_t use_countxxx; /* if >0 it is not allowed to stop the active_adapter*/
 
 public:
 

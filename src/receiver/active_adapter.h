@@ -181,8 +181,8 @@ public: //this data is safe to access from other threads
 		return fe->ts.readAccess()->reserved_lnb.k;
 	}
 
-	bool uses_lnb(const devdb::lnb_t&lnb) const {
-		return fe->ts.readAccess()->reserved_lnb.k == lnb.k;
+	bool uses_lnb(const devdb::lnb_key_t& lnb_key) const {
+		return fe->ts.readAccess()->reserved_lnb.k == lnb_key;
 		//@todo make thread safe
 	}
 	devdb::lnb_t
@@ -232,9 +232,9 @@ public:
 	virtual ~active_adapter_t() final;
 
 	template<typename mux_t>
-	bool is_tuned_to(const mux_t& mux, const devdb::lnb_t* required_lnb) {
+	bool is_tuned_to(const mux_t& mux, const devdb::lnb_key_t* required_lnb_key) {
 		assert(fe.get());
-		return fe->is_tuned_to(mux, required_lnb);
+		return fe->is_tuned_to(mux, required_lnb_key);
 	}
 
 private:

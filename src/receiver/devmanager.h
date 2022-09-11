@@ -236,11 +236,11 @@ public:
 		differences in ts_id and network_id
 	*/
 
-	bool is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_t* required_lnb) const;
-	bool is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb) const;
+	bool is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
+	bool is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
 	//required_lnb is not actually used below
-	bool is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_t* required_lnb) const;
-	bool is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_t* required_lnb) const;
+	bool is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
+	bool is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
 };
 
 class sec_status_t {
@@ -303,7 +303,7 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	uint32_t get_lo_frequency(uint32_t frequency);
 	int open_device(fe_state_t& t, bool rw=true, bool allow_failure=false);
 	void close_device(fe_state_t& t); //callable from main thread
-	void get_signal_info(chdb::signal_info_t& signal_info, bool get_constellation);
+	chdb::signal_info_t get_signal_info(bool get_constellation);
 	int request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& ret, bool get_constellation);
 	void get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
 	std::optional<statdb::spectrum_t> get_spectrum(const ss::string_& spectrum_path);
@@ -403,7 +403,7 @@ public:
 	}
 
 	template<typename mux_t>
-	inline bool is_tuned_to(const mux_t& mux, const devdb::lnb_t* required_lnb) const;
+	inline bool is_tuned_to(const mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
 
 	inline bool is_open() const {
 		auto t = ts.readAccess();
@@ -509,8 +509,6 @@ private:
 		return -1;
 	}
 
-	//void update_mpv(const chdb::signal_info_t& info);
-
 	inline void handle_frontend_event();
 public:
 	class cb_t;
@@ -581,7 +579,7 @@ public:
 
 	std::tuple<std::shared_ptr<dvb_frontend_t>,  devdb::lnb_t, devdb::resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_mux
-	(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
+	(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
 	 const dvb_frontend_t* fe_to_release, const tune_options_t& tune_options) const;
 
 	int get_fd() const {

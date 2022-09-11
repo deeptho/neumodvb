@@ -78,6 +78,7 @@ struct tune_confirmation_t {
 namespace chdb {
 
 	struct signal_info_t {
+		devdb::fe_key_t fe_key;
 		int tune_attempt{0};
 		any_mux_t driver_mux; /*contains only confirmed information, with information from driver
 														overriding that from si stream. Missing information is filled in with
@@ -107,7 +108,10 @@ namespace chdb {
 		fe_status_t lock_status;
 		ss::vector_<dtv_fe_constellation_sample> constellation_samples;
 
-		signal_info_t()  {
+		signal_info_t() = default;
+
+		signal_info_t(const devdb::fe_key_t& fe_key)
+			: fe_key(fe_key) {
 			stat.stats.resize(1);
 		}
 

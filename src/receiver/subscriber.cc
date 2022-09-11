@@ -85,6 +85,19 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_
 	return (int) subscription_id < 0 ? -1 : ++tune_attempt;
 }
 
+int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
+																			const statdb::spectrum_key_t& spectrum_key) {
+	{
+		auto w = notification.writeAccess();
+		auto & n = *w;
+		n.sat_pos = spectrum_key.sat_pos;
+		n.lnb_key = spectrum_key.lnb_key;
+		//todo: allow multiple scans on different sats/lnbs
+	}
+	subscription_id = receiver->scan_spectral_peaks(peaks, spectrum_key, (int) subscription_id);
+	return (int)subscription_id;
+}
+
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::rec_t& rec) {
 	auto mpm = 		receiver->subscribe_recording(rec, (int) subscription_id);
 	if (!mpm.get()) {
@@ -152,11 +165,24 @@ int subscriber_t::get_adapter_no() const { return active_adapter ? active_adapte
 void subscriber_t::notify_signal_info(const chdb::signal_info_t& info) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
-	if (active_adapter && active_adapter->get_lnb_key() == info.stat.k.lnb) {
+	if (active_adapter && active_adapter->get_lnb_key() == info.stat.k.lnb
+			/* GUI tuned to a specific mux, e.g., positioner_dialog*/
+		) {
 		auto temp = info;
 		temp.tune_attempt = tune_attempt;
 		notify(temp);
 	}
+}
+
+void subscriber_t::notify_signal_info(blindscan_t& blindscan, const chdb::signal_info_t& info) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
+		return;
+	assert(!active_adapter);
+	/*spectrum scan in progress; multiple adapters can be involved in the scan*/
+	if(blindscan.required_lnb_key && *blindscan.required_lnb_key == info.stat.k.lnb) {
+		notify(info);
+	}
+
 }
 
 void subscriber_t::notify_error(const ss::string_& errmsg) {

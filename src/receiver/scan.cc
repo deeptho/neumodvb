@@ -57,27 +57,20 @@ static void report(const char* msg, subscription_id_t finished_subscription_id,
 }
 
 template<typename mux_t>
-static inline int pol_helper(const mux_t & mux) {
-	return 0;
-}
-
-template<>
-inline int pol_helper<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t & mux) {
-	using namespace chdb;
-	return (mux.pol == fe_polarisation_t::V) || (mux.pol == fe_polarisation_t::R);
-}
-
-template<typename mux_t>
 static inline bool& skip_helper(std::map<int,bool>& skip_map, const mux_t& mux)
 {
+	using namespace chdb;
 	int band = 0;
 	/*The following handles most lnbs well. Worst case  band will be wrong
 		which may lead to a decision to skip scanning a mux now, but the it will be retried
 		in a future call of scan_loop
 	*/
 	if (mux.frequency >= 11700000 && mux.frequency <= 12800000)
-		band = 1 ;
-	int pol = pol_helper(mux);
+		band = 1;
+	int pol = 0;
+	if constexpr (std::is_same<chdb::dvbs_mux_t, mux_t>::value) {
+		pol= (mux.pol == fe_polarisation_t::V) || (mux.pol == fe_polarisation_t::R);
+	}
 	int key = (mux.k.sat_pos) << 16 | (band &1) << 8 | (pol&1);
 	return skip_map[key];
 }

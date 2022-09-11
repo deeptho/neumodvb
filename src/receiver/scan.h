@@ -243,7 +243,7 @@ class scanner_t {
 	int add_muxes(const ss::vector_<mux_t>& muxes, bool init);
 
 	template<typename mux_t>
-	int scan_next(db_txn& wtxn, subscription_id_t finished_subscription_id);
+	std::tuple<int, int> scan_next(db_txn& wtxn, subscription_id_t finished_subscription_id);
 
 	int scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux);
 

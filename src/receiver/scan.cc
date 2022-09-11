@@ -56,11 +56,37 @@ static void report(const char* msg, subscription_id_t finished_subscription_id,
 	dtdebug(s.c_str());
 }
 
+template<typename mux_t>
+static inline int pol_helper(const mux_t & mux) {
+	return 0;
+}
+
+template<>
+inline int pol_helper<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t & mux) {
+	using namespace chdb;
+	return (mux.pol == fe_polarisation_t::V) || (mux.pol == fe_polarisation_t::R);
+}
+
+template<typename mux_t>
+static inline bool& skip_helper(std::map<int,bool>& skip_map, const mux_t& mux)
+{
+	int band = 0;
+	/*The following handles most lnbs well. Worst case  band will be wrong
+		which may lead to a decision to skip scanning a mux now, but the it will be retried
+		in a future call of scan_loop
+	*/
+	if (mux.frequency >= 11700000 && mux.frequency <= 12800000)
+		band = 1 ;
+	int pol = pol_helper(mux);
+	int key = (mux.k.sat_pos) << 16 | (band &1) << 8 | (pol&1);
+	return skip_map[key];
+}
+
 /*
-	returns the number of pending muxes to scan
+	returns the number of pending  muxes to scan, and number of skipped muxes
  */
 template<typename mux_t>
-int scanner_t::scan_next(db_txn& rtxn, subscription_id_t finished_subscription_id)
+std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finished_subscription_id)
 {
 	std::vector<task_queue_t::future_t> futures;
 
@@ -70,7 +96,10 @@ int scanner_t::scan_next(db_txn& rtxn, subscription_id_t finished_subscription_i
 																			mux_t::partial_keys_t::scan_status);
 	int num_pending{0};
 	auto c1 = c.clone();
+	int num_skipped{0};
 	devdb::fe_key_t finished_fe_key;
+	std::map<int, bool> skip_map;
+
 	if ((int)finished_subscription_id >= 0) {
 		/*
 			find the fe used by our existing subscription
@@ -100,19 +129,26 @@ int scanner_t::scan_next(db_txn& rtxn, subscription_id_t finished_subscription_i
 		if ((int)subscriptions.size() >=
 				((int)finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1))
 			continue; // to have accurate num_pending count
+		bool& skip_mux = skip_helper(skip_map, mux_to_scan);
+		if(skip_mux) {
+			num_skipped++;
+			num_pending++;
+			continue;
+		}
 		{
-			auto devdb_wtxn = receiver.devdb.wtxn();
+			auto wtxn = receiver.devdb.wtxn();
 			std::tie(subscription_id, subscribed_fe_key) =
-				receiver_thread.subscribe_mux(futures, devdb_wtxn, mux_to_scan, finished_subscription_id, tune_options, nullptr);
-			devdb_wtxn.commit();
+				receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, finished_subscription_id, tune_options, nullptr);
+			wtxn.commit();
 		}
 		report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", finished_subscription_id, subscription_id, mux_to_scan, subscriptions);
 		dtdebug("Asked to subscribe " << mux_to_scan << " subscription_id="  << (int) subscription_id);
-		wait_for_all(futures); // must be done before continuing this loop
+		wait_for_all(futures); // must be done before continuing this loop (?)
 
 		if ((int)subscription_id < 0) {
 			// we cannot subscribe the mux right now
 			num_pending++;
+			skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
 			continue;
 		}
 		last_subscribed_mux = mux_to_scan;
@@ -131,7 +167,10 @@ int scanner_t::scan_next(db_txn& rtxn, subscription_id_t finished_subscription_i
 					never happen. We */
 				dtdebug("Cannot insert because fe=" << subscribed_fe_key << " is already used by subscription_id="
 								<< (int)existing_subscription_id);
-				cb(receiver_thread).unsubscribe(subscription_id);
+				auto wtxn = receiver.devdb.wtxn();
+				receiver_thread.unsubscribe(futures, wtxn, subscription_id);
+				wtxn.commit();
+				wait_for_all(futures);
 				report("ERASED", finished_subscription_id, subscription_id, chdb::dvbs_mux_t(), subscriptions);
 				{
 					namespace m = chdb::update_mux_preserve_t;
@@ -171,13 +210,16 @@ int scanner_t::scan_next(db_txn& rtxn, subscription_id_t finished_subscription_i
 	if ((int)finished_subscription_id >= 0) {
 		//we have not reused finished_subscription_id so this subscription must be ended
 		dtdebugx("Abandoning subscription %d", (int) finished_subscription_id);
-		cb(receiver_thread).unsubscribe(finished_subscription_id);
+		auto wtxn = receiver.devdb.wtxn();
+		receiver_thread.unsubscribe(futures, wtxn, finished_subscription_id);
+		wtxn.commit();
 		report("ERASED", finished_subscription_id, subscription_id, chdb::dvbs_mux_t(), subscriptions);
 		subscriptions.erase(finished_fe_key); //remove old entry
 		subscribed_muxes.erase(subscription_id);
+		wait_for_all(futures);
 	}
 
-	return num_pending;
+	return {num_pending, num_skipped};
 }
 
 /*
@@ -187,6 +229,7 @@ int scanner_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& 
 	std::vector<task_queue_t::future_t> futures;
 	int error{};
 	int num_pending{0};
+	int num_skipped{0};
 
 	auto& finished_mux_key = *chdb::mux_key_ptr(finished_mux);
 	assert(finished_mux_key.sat_pos == sat_pos_none || finished_fe.sub.owner == getpid());
@@ -216,22 +259,21 @@ int scanner_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& 
 		auto rtxn = receiver.chdb.rtxn();
 		using namespace chdb;
 		int num_pending1{0};
+		int num_skipped1{0};
 
-		num_pending1 = scan_next<chdb::dvbs_mux_t>(rtxn, finished_subscription_id_dvbs);
+		std::tie(num_pending1, num_skipped1) = scan_next<chdb::dvbs_mux_t>(rtxn, finished_subscription_id_dvbs);
 		num_pending += num_pending1;
-		dtdebugx("finished_subscription_id=%d num_pending=%d", (int) finished_subscription_id_dvbs, num_pending);
+		num_skipped += num_skipped1;
 
-		num_pending1 = scan_next<chdb::dvbc_mux_t>(rtxn, finished_subscription_id_dvbc);
+		std::tie(num_pending1, num_skipped1) = scan_next<chdb::dvbc_mux_t>(rtxn, finished_subscription_id_dvbc);
 		num_pending += num_pending1;
-		dtdebugx("finished_subscription_id=%d num_pending=%d", (int) finished_subscription_id_dvbc, num_pending);
+		num_skipped += num_skipped1;
 
-		num_pending1 = scan_next<chdb::dvbt_mux_t>(rtxn, finished_subscription_id_dvbt);
+		std::tie(num_pending1, num_skipped1) = scan_next<chdb::dvbt_mux_t>(rtxn, finished_subscription_id_dvbt);
 		num_pending += num_pending1;
-		dtdebugx("finished_subscription_id=%d pending=%d", (int)finished_subscription_id_dvbt, num_pending);
+		num_skipped += num_skipped1;
 
-		dtdebug("status: finished_subscription_id=" << (int) finished_subscription_id << " pending="
-						<< num_pending);
-
+		dtdebugx("finished_subscription_id=%d pending=%d skipped=%d", (int) finished_subscription_id, num_pending, num_skipped);
 
 		if (finished_fe.sub.usals_pos != sat_pos_none) {
 			add_completed(finished_fe, finished_mux, num_pending);
@@ -383,6 +425,6 @@ template int scanner_t::add_muxes<chdb::dvbc_mux_t>(const ss::vector_<chdb::dvbc
 template int scanner_t::add_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt_mux_t>& muxes, bool init);
 
 
-template int scanner_t::scan_next<chdb::dvbs_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);
-template int scanner_t::scan_next<chdb::dvbc_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);
-template int scanner_t::scan_next<chdb::dvbt_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);
+template std::tuple<int,int> scanner_t::scan_next<chdb::dvbs_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);
+template std::tuple<int,int> scanner_t::scan_next<chdb::dvbc_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);
+template std::tuple<int,int> scanner_t::scan_next<chdb::dvbt_mux_t>(db_txn& rtxn, subscription_id_t finished_subscription_id);

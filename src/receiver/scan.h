@@ -240,6 +240,11 @@ class scanner_t {
 	void set_allowed_lnbs();
 
 	template<typename mux_t>
+	std::tuple<subscription_id_t, subscription_id_t> scan_try_mux(subscription_id_t finished_subscription_id ,
+																																devdb::fe_key_t finished_fe_key,
+																																const mux_t& mux_to_scan, const devdb::lnb_t* required_lnb);
+
+	template<typename mux_t>
 	int add_muxes(const ss::vector_<mux_t>& muxes, bool init);
 
 	template<typename mux_t>

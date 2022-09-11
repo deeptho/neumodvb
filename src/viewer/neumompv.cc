@@ -594,12 +594,6 @@ py::handle MpvPlayer::get_canvas() const {
 	return wxCast(self->gl_canvas);
 }
 
-#if 0
-py::handle MpvPlayer::make_canvas(py::object frame_) {
-	auto* self = dynamic_cast<MpvPlayer_*>(this);
-	return self->make_canvas(frame_);
-}
-#endif
 
 int MpvPlayer_::screenshot() {
 	if (!mpv) {

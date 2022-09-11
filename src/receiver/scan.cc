@@ -76,6 +76,92 @@ static inline bool& skip_helper(std::map<int,bool>& skip_map, const mux_t& mux)
 }
 
 /*
+	returns the number the new subscription_id and the new value of finished_subscription_id,
+	which will be -1 to to indicate that it can no longer be reused
+ */
+template<typename mux_t>
+std::tuple<subscription_id_t, subscription_id_t>
+scanner_t::scan_try_mux(subscription_id_t finished_subscription_id ,
+												devdb::fe_key_t finished_fe_key,
+												const mux_t& mux_to_scan, const devdb::lnb_t* required_lnb)
+{
+	devdb::fe_key_t subscribed_fe_key;
+	subscription_id_t subscription_id{-1};
+	std::vector<task_queue_t::future_t> futures;
+	{
+		auto wtxn = receiver.devdb.wtxn();
+			std::tie(subscription_id, subscribed_fe_key) =
+				receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, finished_subscription_id, tune_options, required_lnb);
+			wtxn.commit();
+	}
+	report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", finished_subscription_id, subscription_id, mux_to_scan, subscriptions);
+	dtdebug("Asked to subscribe " << mux_to_scan << " subscription_id="  << (int) subscription_id);
+	wait_for_all(futures); // must be done before continuing this loop (?)
+
+	if ((int)subscription_id < 0) {
+		// we cannot subscribe the mux right now
+		return {subscription_id, finished_subscription_id};
+	}
+	last_subscribed_mux = mux_to_scan;
+	dtdebug("subscribed to " << mux_to_scan << " subscription_id="  << (int) subscription_id <<
+					" finished_subscription_id=" << (int) finished_subscription_id);
+
+	/*at this point, we know that our newly subscribed fe differs from our old subscribed fe
+	 */
+
+	auto [it, inserted] = subscriptions.insert({subscribed_fe_key, subscription_id});
+	if(!inserted) {
+		//the newly subscribed fe is already used by a subscription
+		auto existing_subscription_id = it->second;
+		if(existing_subscription_id != subscription_id) {
+			/*this indicates that some duplicate muxes exist in the database, which should normally
+				never happen. We */
+			dtdebug("Cannot insert because fe=" << subscribed_fe_key << " is already used by subscription_id="
+							<< (int)existing_subscription_id);
+			auto wtxn = receiver.devdb.wtxn();
+			receiver_thread.unsubscribe(futures, wtxn, subscription_id);
+			wtxn.commit();
+			wait_for_all(futures);
+			report("ERASED", finished_subscription_id, subscription_id, chdb::dvbs_mux_t(), subscriptions);
+			{
+				namespace m = chdb::update_mux_preserve_t;
+				auto chdb_wtxn = receiver.chdb.wtxn();
+				auto dst_mux = subscribed_muxes[existing_subscription_id];
+				assert(mux_key_ptr(dst_mux)->sat_pos != sat_pos_none);
+				chdb::merge_services(chdb_wtxn, mux_to_scan.k, dst_mux);
+				chdb::delete_record(chdb_wtxn, mux_to_scan);
+				chdb_wtxn.commit();
+			}
+#if 0 //not needed
+			subscriptions.erase(subscribed_fe_key); //remove old entry
+			subscribed_muxes.erase(subscription_id);
+#endif
+		} else {
+			//this indicates that our new subscription uses the same fe as our old one
+			subscribed_muxes[subscription_id] = mux_to_scan;
+			finished_subscription_id = subscription_id_t{-1}; // we have reused finished_subscription_id, but can only do that once
+		}
+		return {subscription_id, finished_subscription_id};
+	}
+
+	if ((int)finished_subscription_id >= 0) {
+		assert(subscription_id == finished_subscription_id);
+		/*
+			We have reused an old subscription_id, but are now using a different fe than before
+			Find the old fe we are using; not that at this point, subscription_id will be present twice
+			as a value in subscriptions; find the old one (by skipping the new one)
+		*/
+		subscriptions.erase(finished_fe_key); //remove old entry
+		subscribed_muxes.erase(subscription_id);
+		finished_subscription_id = subscription_id_t{-1}; // we can still attempt to subscribe, but with new a new subscription_id
+	}
+	subscribed_muxes[subscription_id] = mux_to_scan;
+
+	return {subscription_id, finished_subscription_id};
+}
+
+
+/*
 	returns the number of pending  muxes to scan, and number of skipped muxes
  */
 template<typename mux_t>
@@ -117,7 +203,8 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finish
 
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{-1};
-	for(auto mux_to_scan: c.range())  {
+	for(auto mux_to_scan: c.range()) {
+
 		assert(mux_to_scan.c.scan_status == scan_status_t::PENDING);
 		if ((int)subscriptions.size() >=
 				((int)finished_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1))
@@ -128,15 +215,9 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finish
 			num_pending++;
 			continue;
 		}
-		{
-			auto wtxn = receiver.devdb.wtxn();
-			std::tie(subscription_id, subscribed_fe_key) =
-				receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, finished_subscription_id, tune_options, nullptr);
-			wtxn.commit();
-		}
-		report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", finished_subscription_id, subscription_id, mux_to_scan, subscriptions);
-		dtdebug("Asked to subscribe " << mux_to_scan << " subscription_id="  << (int) subscription_id);
-		wait_for_all(futures); // must be done before continuing this loop (?)
+
+		std::tie(subscription_id, finished_subscription_id) =
+			scan_try_mux(finished_subscription_id, finished_fe_key, mux_to_scan, nullptr);
 
 		if ((int)subscription_id < 0) {
 			// we cannot subscribe the mux right now
@@ -144,63 +225,12 @@ std::tuple<int, int> scanner_t::scan_next(db_txn& rtxn, subscription_id_t finish
 			skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
 			continue;
 		}
-		last_subscribed_mux = mux_to_scan;
-		dtdebug("subscribed to " << mux_to_scan << " subscription_id="  << (int) subscription_id <<
-						" finished_subscription_id=" << (int) finished_subscription_id);
 
-		/*at this point, we know that our newly subscribed fe differs from our old subscribed fe
-		 */
-
-		auto [it, inserted] = subscriptions.insert({subscribed_fe_key, subscription_id});
-		if(!inserted) {
-			//the newly subscribed fe is already used by a subscription
-			auto existing_subscription_id = it->second;
-			if(existing_subscription_id != subscription_id) {
-				/*this indicates that some duplicate muxes exist in the database, which should normally
-					never happen. We */
-				dtdebug("Cannot insert because fe=" << subscribed_fe_key << " is already used by subscription_id="
-								<< (int)existing_subscription_id);
-				auto wtxn = receiver.devdb.wtxn();
-				receiver_thread.unsubscribe(futures, wtxn, subscription_id);
-				wtxn.commit();
-				wait_for_all(futures);
-				report("ERASED", finished_subscription_id, subscription_id, chdb::dvbs_mux_t(), subscriptions);
-				{
-					namespace m = chdb::update_mux_preserve_t;
-					auto chdb_wtxn = receiver.chdb.wtxn();
-					auto dst_mux = subscribed_muxes[existing_subscription_id];
-					assert(mux_key_ptr(dst_mux)->sat_pos != sat_pos_none);
-					chdb::merge_services(chdb_wtxn, mux_to_scan.k, dst_mux);
-					chdb::delete_record(chdb_wtxn, mux_to_scan);
-					chdb_wtxn.commit();
-				}
-#if 0 //not needed
-				subscriptions.erase(subscribed_fe_key); //remove old entry
-				subscribed_muxes.erase(subscription_id);
-#endif
-			} else {
-				//this indicates that our new subscription uses the same fe as our old one
-				subscribed_muxes[subscription_id] = mux_to_scan;
-				finished_subscription_id = subscription_id_t{-1}; // we have reused finished_subscription_id, but can only do that once
-			}
-			continue;
-		}
-
-		if ((int)finished_subscription_id >= 0) {
-			assert(subscription_id == finished_subscription_id);
-			/*
-				We have reused an old subscription_id, but are now using a different fe than before
-				Find the old fe we are using; not that at this point, subscription_id will be present twice
-				as a value in subscriptions; find the old one (by skipping the new one)
-			 */
-			subscriptions.erase(finished_fe_key); //remove old entry
-			subscribed_muxes.erase(subscription_id);
-			finished_subscription_id = subscription_id_t{-1}; // we can still attempt to subscribe, but with new a new subscription_id
-		}
-		subscribed_muxes[subscription_id] = mux_to_scan;
 	}
 
+
 	if ((int)finished_subscription_id >= 0) {
+		assert (finished_subscription_id == subscription_id || (int)subscription_id < 0);
 		//we have not reused finished_subscription_id so this subscription must be ended
 		dtdebugx("Abandoning subscription %d", (int) finished_subscription_id);
 		auto wtxn = receiver.devdb.wtxn();

@@ -336,7 +336,6 @@ class Spectrum(object):
             return
         f = self.peak_data[:,0]
         snr = None
-        bw =  self.peak_data[:,1]/2000000
         for row in self.peak_data:
             tp = Tp(spectrum=self, freq=row[0], symbol_rate=row[1]/1000.)
             self.tps.append(tp)

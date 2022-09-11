@@ -392,7 +392,7 @@ private:
 																	active_service_t& active_service, subscription_id_t subscription_id);
 	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
 	void unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
-
+	void unsubscribe(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, subscription_id_t subscription_id);
 
 	subscription_id_t subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn, devdb::lnb_t& lnb,
 																	tune_options_t tune_options, subscription_id_t subscription_id);

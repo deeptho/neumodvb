@@ -1930,6 +1930,17 @@ time_t receiver_thread_t::scan_start_time() const {
 
 
 
+void receiver_thread_t::unsubscribe(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, subscription_id_t subscription_id) {
+	unsubscribe_all(futures, devdb_wtxn, subscription_id);
+	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and subscribed_aas
+		This could cause these structures to be destroyed while still in use by by stream/tuner threads
+
+		See
+		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
+	*/
+}
+
+
 /*
 	called by
       receiver_thread_t::cb_t::subscribe_service to stop any playback or recording in progress
@@ -1939,7 +1950,7 @@ time_t receiver_thread_t::scan_start_time() const {
 void receiver_thread_t::cb_t::unsubscribe(subscription_id_t subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 	auto devdb_wtxn = receiver.devdb.wtxn();
-	unsubscribe_all(futures, devdb_wtxn, subscription_id);
+	this->receiver_thread_t::unsubscribe(futures, devdb_wtxn, subscription_id);
 	devdb_wtxn.commit();
 	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/tuner threads

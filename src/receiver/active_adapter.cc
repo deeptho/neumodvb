@@ -219,14 +219,10 @@ template<typename mux_t>
 int active_adapter_t::tune(const mux_t& mux, tune_options_t tune_options, bool user_requested) {
 	if(!fe)
 		return -1;
-	auto ret = fe->tune(mux, tune_options, user_requested);
-
+	fe->tune(mux, tune_options, user_requested);
+	tune_start_time = system_clock_t::now();
 	tune_state = WAITING_FOR_LOCK;
 
-	ret = fe->tune_(mux, tune_options);
-	if (ret < 0)
-		return ret;
-	tune_start_time = system_clock_t::now();
 	si.deactivate();
 	return 0;
 }

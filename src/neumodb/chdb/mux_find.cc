@@ -363,10 +363,12 @@ get_by_nid_tid_unique_ret_t chdb::get_by_network_id_ts_id(db_txn& txn, uint16_t 
 
 
 /*
-	Look up da mux in the database with EXACT sat_pos, approximate frequency, correcp polarisation
+	Look up a mux in the database with EXACT sat_pos, approximate frequency, correct polarisation
+	and (unless ignore_stream_ids == true) correct stream_id and tsmi_pid
 */
 static
-db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const chdb::dvbs_mux_t& mux)
+db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const chdb::dvbs_mux_t& mux,
+																														bool ignore_stream_ids)
 {
 	using namespace chdb;
 
@@ -377,7 +379,10 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 	auto c = dvbs_mux_t::find_by_sat_pol_freq(txn, mux.k.sat_pos, mux.pol, mux.frequency, find_leq,
 																										 dvbs_mux_t::partial_keys_t::sat_pos_pol);
 	auto temp = c.clone();
-	//c points to correct frequency or the next lower one on the sat
+	/*c points to correct frequency or the next lower one on the sat
+
+		make it point to
+	 */
 	while (c.is_valid()) {
 		/*
 			handle the case of muxes with very similar frequency but different stream_id or t2mi_pid
@@ -392,13 +397,20 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 			c.next(); //return to last value
 			break;
 		}
+		/*note that mux.frequency >= db_mux.frequency;
+			Therefore, at this point, mux and db_mux overlap, but there may be more than one overlapping mux
+		 */
 		c.prev();
 	}
-	/* if c.valid(), then c points to the correct frequency
+	/* if c.valid(), then c points to a mux whose frequency is below mux.frequency and which does not
+		 overlap in spectrum with mux
 	 */
-	//restore cursor to its starting value because we have moved beyond the list for current (sat_pos,pol)
 	if (!c.is_valid() && temp.is_valid()) {
+		/*restore cursor to its starting value because we have moved beyond the list for current (sat_pos,pol),
+			i.e., because there is no overlapping mux in the database.
+		*/
 		c = std::move(temp);
+		//it is possible that c is still not valid, e.g., because the db has no muxes on the sat with required pol
 	}
 	temp.close();
 	if (!c.is_valid()) {
@@ -417,7 +429,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 		There could be multiple matching muxes with very similar frequencies in the database
 		(although we try to prevent this)
 
-		at this point, c points to the bottom of the range of possibly matching frequencies
+		at this point, c points to the bottom of the range (just below) of possibly matching frequencies
 	*/
 	int best = std::numeric_limits<int>::max();
 	auto bestc = c.clone();
@@ -425,16 +437,19 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 		assert(db_mux.k.sat_pos == mux.k.sat_pos); // see above: iterator would be invalid in this case
 		assert(db_mux.pol == mux.pol);
 
-		if (db_mux.frequency == mux.frequency && db_mux.pol == mux.pol && db_mux.stream_id == mux.stream_id &&
-				db_mux.k.t2mi_pid == mux.k.t2mi_pid) {
-			return c;
+		if (db_mux.frequency == mux.frequency && db_mux.pol == mux.pol &&
+				(ignore_stream_ids || ( db_mux.stream_id == mux.stream_id &&
+																db_mux.k.t2mi_pid == mux.k.t2mi_pid))) {
+			return c; //exact match
 		}
 		auto tolerance = (((int)std::min(db_mux.symbol_rate, mux.symbol_rate))*1.35) / 2000;
 		if ((int)mux.frequency - (int)db_mux.frequency >= tolerance)
 			continue;
 		if ((int)db_mux.frequency - (int)mux.frequency >= tolerance)
-			break;
-		if (db_mux.pol != mux.pol || db_mux.stream_id != mux.stream_id || db_mux.k.t2mi_pid != mux.k.t2mi_pid)
+			break; //no overlap and we have reached the top of the range with possible overlap
+		if (db_mux.pol != mux.pol)
+			continue;
+		if (!ignore_stream_ids && (db_mux.stream_id != mux.stream_id || db_mux.k.t2mi_pid != mux.k.t2mi_pid))
 			continue;
 		// delta will drop in each iteration and will start to rise after the minimum
 		auto delta = std::abs((int)db_mux.frequency - (int)mux.frequency);
@@ -462,17 +477,18 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 
 /*
 	Look up a mux in the database with approximate sat_pos and  frequency,
-	but correct polarisation, t2mi_pid and stream_id
+	but correct polarisation, and (unless ignore_stream_ids == true) correct t2mi_pid and stream_id
 
 	Limitations: in case duplicate matching muxes exist, the code will not always detect this
 	and might return the wrong one. Such cases should be avoided in the first place
 
 	used by find_fuzzy_ (update_mux), find_by_mux_physical (init_si)
 */
-db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, chdb::dvbs_mux_t& mux)
+db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const chdb::dvbs_mux_t& mux,
+																													 bool ignore_stream_ids)
 {
 	//first try with the given sat_pos. In most cases this will give the correct result
-	auto c = find_by_mux_fuzzy_helper(txn, mux);
+	auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_ids);
 	if (c.is_valid())
 		return c;
 	int sat_tolerance = 30; //0.3 degrees
@@ -483,7 +499,7 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, chdb::dv
 		if (sat.sat_pos == mux.k.sat_pos)
 			continue; //already tried
 		dtdebugx("found sat_pos: %d\n", sat.sat_pos);
-		auto c = find_by_mux_fuzzy_helper(txn, mux);
+		auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_ids);
 		if (c.is_valid())
 			return c;
 	}
@@ -590,7 +606,7 @@ template db_tcursor_index<chdb::dvbc_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn
 
 
 
-std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux)
+std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_ids)
 {
 	using namespace chdb;
 	switch(mux_key_ptr(mux)->sat_pos) {
@@ -601,7 +617,7 @@ std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_
 	case sat_pos_dvbc: {
 		auto* pmux = std::get_if<dvbc_mux_t>(&mux);
 		assert(pmux);
-		auto c = find_by_mux_physical(txn, *pmux);
+		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_ids);
 		if(c.is_valid())
 			return c.current();
 	}
@@ -609,7 +625,7 @@ std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_
 	case sat_pos_dvbt: {
 		auto* pmux = std::get_if<dvbt_mux_t>(&mux);
 		assert(pmux);
-		auto c = find_by_mux_physical(txn, *pmux);
+		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_ids);
 		if(c.is_valid())
 			return c.current();
 	}
@@ -617,7 +633,7 @@ std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_
 	default: {
 		auto* pmux = std::get_if<dvbs_mux_t>(&mux);
 		assert(pmux);
-		auto c = find_by_mux_physical(txn, *pmux);
+		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_ids);
 		if(c.is_valid())
 			return c.current();
 	}
@@ -629,15 +645,12 @@ std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_
 
 /*
 	find a mux which matches approximately in sat_pos, and frequency
-	and exactly in polarisation, t2mi_pid and stream_id
+	and exactly in polarisation, and (unless ignore_stream_ids) exactly in t2mi_pid and stream_id
 
-	version only for dvbc and dvbt
-
-	used by add_mux in scan.cc
-
-	cursor nature only used to see if something found
+	@todo: ignore_stream_ids not yet used by dvbc/dvbt code
 */
-template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux_physical(db_txn& txn, const mux_t& mux) {
+template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux_physical(db_txn& txn, const mux_t& mux,
+																																			 bool ignore_stream_ids) {
 	/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
 		handle small differences in sat_pos*/
 
@@ -646,30 +659,21 @@ template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux_physical(db_txn& t
 		return c;
 	else {
 		// find tps with matching frequency, but probably incorrect network_id/ts_id
-		auto c = chdb::find_by_freq_fuzzy<mux_t>(txn, mux.frequency);
-		return std::move(c.maincursor);
+		if constexpr (std::is_same_v<mux_t, chdb::dvbs_mux_t>) {
+			// approx. match in sat_pos, frequency, exact match in  polarisation, t2mi_pid and stream_id
+			auto c = chdb::find_by_mux_fuzzy(txn, mux, ignore_stream_ids);
+			return std::move(c.maincursor);
+		} else {
+			auto c = chdb::find_by_freq_fuzzy<mux_t>(txn, mux.frequency);
+			return std::move(c.maincursor);
+		}
 	}
 }
 
-template db_tcursor<chdb::dvbt_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbt_mux_t& mux);
-template db_tcursor<chdb::dvbc_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbc_mux_t& mux);
-
-/*
-	find a mux which matches approximately in sat_pos, and frequency
-	and exactly in polarisation, t2mi_pid and stream_id
-
-	used by add_mux in scan.cc
-*/
-db_tcursor<chdb::dvbs_mux_t> chdb::find_by_mux_physical(db_txn& txn, chdb::dvbs_mux_t& mux) {
-	/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
-		handle small differences in sat_pos*/
-	auto c = find_by_mux<chdb::dvbs_mux_t>(txn, mux);
-	if (c.is_valid()) //exact match in sat_pos, network_id, ts_id ....
-		return c;
-	else {
-		// approx. match in sat_pis, frequency, exact match in  polarisation, t2mi_pid and stream_id
-		auto c =
-			chdb::find_by_mux_fuzzy(txn, mux);
-		return std::move(c.maincursor);
-	}
-}
+//template instantiations
+template db_tcursor<chdb::dvbs_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbs_mux_t& mux,
+																																 bool ignore_stream_ids);
+template db_tcursor<chdb::dvbt_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbt_mux_t& mux,
+																																 bool ignore_stream_ids);
+template db_tcursor<chdb::dvbc_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbc_mux_t& mux,
+																																 bool ignore_stream_ids);

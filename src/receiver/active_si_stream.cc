@@ -186,7 +186,7 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	using namespace chdb;
 	const bool from_sdt{false};
 	//find a mux with approx. correct sat_pos and frequency and exact polarisation, t2mi_pid and stream_id
-	auto  pdb_mux = get_by_mux_physical(wtxn, mux);
+	auto  pdb_mux = get_by_mux_physical(wtxn, mux, false /*ignore_stream_ids*/);
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
 	mux_common->tune_src =  is_active_mux ? tune_src_t::NIT_ACTUAL_TUNED :

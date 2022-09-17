@@ -469,7 +469,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		 such that (sat_pos, network_id, ts_id, extra_id) differs from the existing old mux
 	*/
 	namespace m = update_mux_preserve_t;
-	auto c = chdb::find_by_mux_physical(wtxn, mux);
+	auto c = chdb::find_by_mux_physical(wtxn, mux, false /*ignore_stream_ids*/);
 	bool is_new = true; // do we modify an existing record or create a new one?
 
 	if (c.is_valid()) {

@@ -508,7 +508,7 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		master_mux.k.t2mi_pid = 0;
 		/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
 			handle small differences in sat_pos*/
-		auto c = chdb::find_by_mux_physical(chdb_txn, master_mux);
+		auto c = chdb::find_by_mux_physical(chdb_txn, master_mux, false /*ignore_stream_ids*/);
 		if (c.is_valid()) {
 			assert(mux_key_ptr(c.current())->sat_pos != sat_pos_none);
 			master_mux = c.current();

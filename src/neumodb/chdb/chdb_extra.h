@@ -24,9 +24,9 @@
 #include <cmath>
 #include <variant>
 
-
 #include "neumodb/chdb/chdb_db.h"
 #pragma GCC visibility push(default)
+
 
 namespace chdb {
 
@@ -366,11 +366,9 @@ namespace chdb {
 																										int16_t tuned_sat_pos);
 	get_by_nid_tid_unique_ret_t get_by_network_id_ts_id(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 	template<typename mux_t>
-	db_tcursor<mux_t> find_by_mux_physical(db_txn& txn, const mux_t& mux);
+	db_tcursor<mux_t> find_by_mux_physical(db_txn& txn, const mux_t& mux, bool ignore_stream_ids);
 
-	db_tcursor<chdb::dvbs_mux_t> find_by_mux_physical(db_txn& txn, chdb::dvbs_mux_t& mux);
-
-	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux);
+	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_ids);
 
 	void clean_scan_status(db_txn& wtxn);
 };
@@ -394,7 +392,7 @@ namespace chdb {
 
 
 	db_tcursor_index<chdb::dvbs_mux_t>
-	find_by_mux_fuzzy(db_txn& txn, chdb::dvbs_mux_t& mux);
+	find_by_mux_fuzzy(db_txn& txn, const chdb::dvbs_mux_t& mux, bool ignore_stream_ids);
 
 	inline bool is_t2mi_mux(const chdb::any_mux_t& mux) {
 		const auto *dvbs_mux =  std::get_if<chdb::dvbs_mux_t>(&mux);

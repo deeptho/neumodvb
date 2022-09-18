@@ -86,6 +86,12 @@ protected:
 	virtual int exit() = 0;
 
 public:
+
+	inline bool must_exit() {
+		std::lock_guard<std::mutex> lk(mutex);
+		return must_exit_;
+	}
+
 	void join() {
 		if(thread_.joinable())
 			thread_.join();
@@ -162,11 +168,12 @@ public:
 
 
 	void stop_running(bool wait) {
+		assert(!must_exit_);
+
 		auto f = push_task( [this](){
-			must_exit_=true;
 			exit();
 			return -1;
-		});
+		}, true /*must_exit*/);
 		if(wait) {
 			f.wait();
 			status_future.wait();
@@ -192,7 +199,7 @@ public:
 	virtual ~task_queue_t() {
 	}
 
-	std::future<int> push_task(std::function<int()>&& callback) const {
+	std::future<int> push_task(std::function<int()>&& callback, bool must_exit=false) {
 		if(std::this_thread::get_id() == this->thread_.get_id()) {
 			dterror("Thread calls back to itself");
 			//assert(0);
@@ -208,7 +215,15 @@ public:
 		auto f = task.get_future();
 
 		std::lock_guard<std::mutex> lk(mutex);
+
+		if(must_exit)
+			this->must_exit_ = true;
+		if(must_exit_)
+			tasks = {}; //clear queue
+
 		tasks.push(std::move(task));
+		if(tasks.size()>=10)
+			printf("large nunber of tasks %ld\n", tasks.size());
 		notify_fd.unblock();
 		return f;
 	}
@@ -283,7 +298,7 @@ public:
 	}
 
 protected:
-	int run_tasks(system_time_t now_);
+	int run_tasks(system_time_t now_, bool do_acknowledge=true);
 
 };
 

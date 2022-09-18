@@ -465,10 +465,6 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 		c.close();
 		return c;
 	}
-	if(c.is_valid()) {
-		auto db_mux = c.current();
-	} else {
-	}
 	c.close();
 	return bestc;
 }

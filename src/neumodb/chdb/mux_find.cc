@@ -22,6 +22,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "stackstring/ssaccu.h"
+#include "template_util.h"
 #include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
@@ -46,8 +47,8 @@ static get_by_nid_tid_unique_ret_t get_by_nid_tid_unique_(db_txn& txn, int16_t n
 																													bool check_sat_pos, int16_t tuned_sat_pos) {
 	using namespace chdb;
 
-	auto c = dvbs_mux_t::find_by_network_id_ts_id(txn, network_id, ts_id, find_type_t::find_geq,
-																								dvbs_mux_t::partial_keys_t::network_id_ts_id);
+	auto c = mux_t::find_by_network_id_ts_id(txn, network_id, ts_id, find_type_t::find_geq,
+																								mux_t::partial_keys_t::network_id_ts_id);
 
 	if (!c.is_valid()) {
 		c.close();
@@ -655,7 +656,7 @@ template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux_physical(db_txn& t
 		return c;
 	else {
 		// find tps with matching frequency, but probably incorrect network_id/ts_id
-		if constexpr (std::is_same_v<mux_t, chdb::dvbs_mux_t>) {
+		if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 			// approx. match in sat_pos, frequency, exact match in  polarisation, t2mi_pid and stream_id
 			auto c = chdb::find_by_mux_fuzzy(txn, mux, ignore_stream_ids);
 			return std::move(c.maincursor);

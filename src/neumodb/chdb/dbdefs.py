@@ -505,6 +505,7 @@ mux_common = db_struct(name='mux_common',
                               #(6, 'bool',  'is_template', 'false'),
                               #(10, 'bool',  'freq_from_si', 'false'), #true if frequency was set from si
                               (11, 'tune_src_t', 'tune_src', 'tune_src_t::AUTO'),
+                              (12, 'uint32_t', 'scan_id', '0'),
                               (7, 'time_t', 'mtime'),
                               (9, 'ss::vector<epg_type_t,2>', 'epg_types'),
                               ))
@@ -560,6 +561,7 @@ dvbc_mux = db_struct(name='dvbc_mux',
                 primary_key = ('key', ('k',)), #unique
                 keys =  (
                 (lord('cf'), 'freq', ('frequency',)),
+                (lord('cn'), 'network_id_ts_id', ('k.network_id', 'k.ts_id')),
                 (lord('cs'), 'scan_status', ('c.scan_status', 'c.scan_time')),
                 ),                     #not unique, could be split in unique and non-unique later
                 fields = ((1, 'mux_key_t', 'k'),
@@ -583,6 +585,7 @@ dvbt_mux = db_struct(name='dvbt_mux',
                 primary_key = ('key', ('k',)), #unique
                 keys =  (
                 (lord('tf'), 'freq', ('frequency',)),
+                (lord('tn'), 'network_id_ts_id', ('k.network_id', 'k.ts_id')),
                 (lord('ts'), 'scan_status', ('c.scan_status', 'c.scan_time')),
                 ),                     #not unique, could be split in unique and non-unique later
                 fields = ((1, 'mux_key_t', 'k'),

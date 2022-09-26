@@ -134,7 +134,7 @@ std::ostream& devdb::operator<<(std::ostream& os, const fe_t& fe) {
 
 
 std::ostream& devdb::operator<<(std::ostream& os, const fe_subscription_t& sub) {
-	stdex::printf(os, "%d.%d%c use_count=%d\n", sub.frequency/1000, sub.frequency%1000,
+	stdex::printf(os, "%d.%d%c use_count=%d ", sub.frequency/1000, sub.frequency%1000,
 								sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', sub.use_count);
 	return os;
 

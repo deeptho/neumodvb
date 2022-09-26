@@ -22,7 +22,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "stackstring/ssaccu.h"
-#include "template_util.h"
+#include "util/template_util.h"
 #include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>

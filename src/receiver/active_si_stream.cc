@@ -917,6 +917,10 @@ void active_si_stream_t::finalize_scan(bool done)
 	mux_common->scan_status = chdb::scan_status_t::IDLE;
 	mux_common->scan_duration = scan_state.scan_duration();
 	mux_common->scan_time = system_clock_t::to_time_t(now);
+	if(mux_common->scan_duration == 0) { //needed in case tuning fails
+		mux_common->scan_duration =
+			std::chrono::duration_cast<std::chrono::seconds>(now - active_adapter().tune_start_time).count();
+	}
 	reader->on_stream_mux_change(mux); //needed to ensure that mux_common changes are not overwritten
 	auto wtxn = chdb.wtxn();
 	const bool may_change_sat_pos{false};

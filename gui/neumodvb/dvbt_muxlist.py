@@ -59,6 +59,7 @@ class DvbtMuxTable(NeumoTable):
          CD(key='c.mtime', label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33*'),
          CD(key='c.scan_time', label='Scanned', dfn=datetime_fn, example='2021-06-16 18:30:33*', readonly=True),
          CD(key='c.scan_status', label='Scan\nstatus', dfn=lambda x: lastdot(x)),
+         CD(key='c.scan_id', label='Scan\nID', dfn=lambda x: "" if x[1]==0 else str(x[1] &0xff)),
          CD(key='c.scan_result', label='Scan\nresult', dfn=lambda x: lastdot(x)) ,
          CD(key='c.scan_duration', label='Scan time', dfn=time_fn),
          CD(key='c.epg_scan', label='Epg\nscan', dfn=bool_fn),

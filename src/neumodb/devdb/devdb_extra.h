@@ -223,7 +223,8 @@ namespace devdb::fe {
 																		bool may_move_dish, bool use_blind_tune,
 																		int dish_move_penalty, int resource_reuse_bonus);
 
-	resource_subscription_counts_t subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key);
+	resource_subscription_counts_t subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key,
+																										 const devdb::fe_key_t* fe_key_to_release);
 
 	bool is_subscribed(const fe_t& fe);
 

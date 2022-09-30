@@ -32,7 +32,7 @@
 using namespace devdb;
 
 /*
-	returns the remaining use_count of the unsiscribed fe
+	returns the remaining use_count of the unsuscribed fe
  */
 int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
@@ -162,7 +162,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
 
 //how many active fe_t's use lnb?
 devdb::resource_subscription_counts_t
-devdb::fe::subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key) {
+devdb::fe::subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key, const devdb::fe_key_t* fe_key_to_release) {
 	devdb::resource_subscription_counts_t ret;
 	auto c = fe_t::find_by_card_mac_address(rtxn, lnb_key.card_mac_address, find_type_t::find_eq,
 																					fe_t::partial_keys_t::card_mac_address);
@@ -175,16 +175,18 @@ devdb::fe::subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key) {
 			dtdebugx("process pid=%d has died\n", fe.sub.owner);
 			continue;
 		}
-
-		if(fe.sub.lnb_key == lnb_key )
-			ret.lnb++;
-		if(fe.sub.lnb_key.rf_input == lnb_key.rf_input)
-			ret.tuner++;
-		if(lnb::rf_coupler_id(rtxn, fe.sub.lnb_key) == rf_coupler_id)
-			ret.rf_coupler++;
-		if( fe.sub.lnb_key.dish_id == lnb_key.dish_id
-				|| fe.sub.lnb_key == lnb_key) //the last test is in case dish_id is set to -1
-			ret.dish++;
+		bool fe_will_be_released = fe_key_to_release && *fe_key_to_release == fe.k;
+		if(!fe_will_be_released) {
+			if(fe.sub.lnb_key == lnb_key )
+				ret.lnb++;
+			if(fe.sub.lnb_key.rf_input == lnb_key.rf_input)
+				ret.tuner++;
+			if(lnb::rf_coupler_id(rtxn, fe.sub.lnb_key) == rf_coupler_id)
+				ret.rf_coupler++;
+			if( fe.sub.lnb_key.dish_id == lnb_key.dish_id
+					|| fe.sub.lnb_key == lnb_key) //the last test is in case dish_id is set to -1
+				ret.dish++;
+		}
 	}
 	return ret;
 }
@@ -416,9 +418,9 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 	return best_fe;
 }
 
-
-
-
+/*
+	Return the use_counts as they will be after releasing fe_key_to_release
+ */
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t>
 fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																			const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
@@ -488,7 +490,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		}
 
 		auto fe_prio = fe->priority;
-		auto use_counts = subscription_counts(rtxn, lnb.k);
+		auto use_counts = subscription_counts(rtxn, lnb.k, fe_key_to_release);
+
 		if(use_counts.lnb >= 1 ||
 			 use_counts.tuner >= 1 ||
 			 use_counts.dish >=1 ||

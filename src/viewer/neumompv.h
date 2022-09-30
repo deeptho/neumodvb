@@ -38,7 +38,7 @@ class playback_mpm_t;
 
 class MpvPlayer;
 class MpvPlayer_;
-class subscription_t;
+class mpv_subscription_t;
 class  MpvGLCanvas;
 
 namespace chdb {
@@ -55,7 +55,7 @@ namespace pybind11 {
 
 class MpvPlayer : public std::enable_shared_from_this<MpvPlayer>, public player_cb_t {
 	friend class MpvGLCanvas;
-	friend class subscription_t;
+	friend class mpv_subscription_t;
 protected:
 	bool mustexit = false;
 
@@ -65,8 +65,6 @@ public:
 	receiver_t* receiver = nullptr;
 	virtual ~MpvPlayer() {}
 	static std::shared_ptr<MpvPlayer> make(receiver_t * receiver, pybind11::object parent_window);
-
-	//subscription_t subscription;
 	std::string config_dir;
 	std::condition_variable cv;
 	std::mutex m;

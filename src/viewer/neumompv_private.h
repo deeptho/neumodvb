@@ -38,7 +38,7 @@ class receiver_t;
 class MpvPlayer_;
 class playback_mpm_t;
 
-class subscription_t {
+class mpv_subscription_t {
 	friend class MpvPlayer;
 	friend class MpvPlayer_;
 	bool pending_close = false; //used to speed up channel change
@@ -78,8 +78,8 @@ public:
 	}
 	void open();
 
-	subscription_t(receiver_t* receiver_, MpvPlayer_* mpv_player_);
-	~subscription_t();
+	mpv_subscription_t(receiver_t* receiver_, MpvPlayer_* mpv_player_);
+	~mpv_subscription_t();
 
 	void play_service(const chdb::service_t& service);
 	template<typename _mux_t> int play_mux(const _mux_t& mux, bool blindscan);
@@ -100,12 +100,12 @@ public:
 
 class MpvPlayer_ : public MpvPlayer {
 	friend class MpvGLCanvas;
-	friend class subscription_t;
+	friend class mpv_subscription_t;
 
 public:
 	MpvGLCanvas* gl_canvas;
 	mpv_handle* mpv = nullptr;
-	subscription_t subscription;
+	mpv_subscription_t subscription;
 	bool has_been_destroyed = false;
 	inline void wait_for_destroy() {
 		std::unique_lock<std::mutex> lk(m);

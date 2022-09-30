@@ -264,7 +264,7 @@ static int64_t read_fn(void* cookie, char* buf, uint64_t nbytes) {
 	}
 }
 
-void subscription_t::close_fn() {
+void mpv_subscription_t::close_fn() {
 	auto get = [this] {
 		std::scoped_lock lck(m);
 		auto ret = next_op;
@@ -283,7 +283,7 @@ static void close_fn(void* cookie) {
 	//player->subscription.close();
 }
 
-void subscription_t::open() {
+void mpv_subscription_t::open() {
 
 	auto get = [this] {
 		std::scoped_lock lck(m);
@@ -302,7 +302,7 @@ void subscription_t::open() {
 	called from python gui
 	returns -1 on error
 */
-int subscription_t::set_audio_language(int idx) {
+int mpv_subscription_t::set_audio_language(int idx) {
 	if (!mpm) {
 		dtdebug("No active playvack");
 		return -1;
@@ -314,7 +314,7 @@ int subscription_t::set_audio_language(int idx) {
 	called from python gui
 	returns -1 on error
 */
-int subscription_t::set_subtitle_language(int idx) {
+int mpv_subscription_t::set_subtitle_language(int idx) {
 	if (!mpm) {
 		dtdebug("No active playvack");
 		return -1;
@@ -339,7 +339,7 @@ int subscription_t::set_subtitle_language(int idx) {
 	match what the user wants
 	This function is thread safe
 */
-void subscription_t::on_audio_language_change(const chdb::language_code_t& lang, int id) {
+void mpv_subscription_t::on_audio_language_change(const chdb::language_code_t& lang, int id) {
 	ss::string<16> arg;
 	// id=2;
 	arg.sprintf("%d", id + 1);
@@ -676,7 +676,7 @@ int MpvPlayer::set_subtitle_language(int id) {
 	return self->set_subtitle_language(id);
 }
 
-void subscription_t::play_service(const chdb::service_t& service) {
+void mpv_subscription_t::play_service(const chdb::service_t& service) {
 	log4cxx_store_threadname();
 	dtdebugx("PLAY SUBSCRIPTION (service)");
 	if (is_playing()) {
@@ -710,7 +710,7 @@ void subscription_t::play_service(const chdb::service_t& service) {
 
 
 
-template <typename _mux_t> int subscription_t::play_mux(const _mux_t& mux, bool blindscan) {
+template <typename _mux_t> int mpv_subscription_t::play_mux(const _mux_t& mux, bool blindscan) {
 	dtdebugx("PLAY SUBSCRIPTION (mux)");
 	if (is_playing()) {
 		this->close();
@@ -804,7 +804,7 @@ template int MpvPlayer::play_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, 
 
 template int MpvPlayer::play_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool blindscan);
 
-int subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time) {
+int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time) {
 	log4cxx_store_threadname();
 	dtdebugx("PLAY RECORDING %s", rec.epg.event_name.c_str());
 	if (is_playing()) {
@@ -869,7 +869,7 @@ int MpvPlayer::play_recording(const recdb::rec_t& rec, milliseconds_t start_play
 	return self->play_recording(rec, start_play_time);
 }
 
-int subscription_t::jump(int seconds) {
+int mpv_subscription_t::jump(int seconds) {
 	auto play_pos = mpm->get_current_play_time();
 	play_pos += milliseconds_t(1000 * seconds);
 	if (play_pos < milliseconds_t(0))
@@ -915,7 +915,7 @@ int MpvPlayer::jump(int seconds) {
 	return self->jump(seconds);
 }
 
-void subscription_t::close() {
+void mpv_subscription_t::close() {
 	pmt_change_count = 0;
 	if (!mpm)
 		return;
@@ -928,7 +928,7 @@ void subscription_t::close() {
 	subscriber->unsubscribe();
 }
 
-int subscription_t::stop_play() {
+int mpv_subscription_t::stop_play() {
 	auto subscription_id = subscriber->get_subscription_id();
 	dtdebugx("STOP SUBSCRIPTION %d", (int) subscription_id);
 	std::scoped_lock lck(m);
@@ -1046,16 +1046,16 @@ void MpvPlayer::signal() {
 	cv.notify_one();
 }
 
-subscription_t::subscription_t(receiver_t* receiver_, MpvPlayer_* mpv_player_)
+mpv_subscription_t::mpv_subscription_t(receiver_t* receiver_, MpvPlayer_* mpv_player_)
 	: m(mpv_player_->m)
 	, cv(mpv_player_->cv)
 	, receiver(receiver_)
 	, mpv_player(mpv_player_) {
 }
 
-subscription_t::~subscription_t() {}
+mpv_subscription_t::~mpv_subscription_t() {}
 
-int64_t subscription_t::read_data(char* buffer, uint64_t nbytes) {
+int64_t mpv_subscription_t::read_data(char* buffer, uint64_t nbytes) {
 	static thread_local bool thread_name_set{false};
 	if (!thread_name_set) {
 		log4cxx_store_threadname();
@@ -1070,7 +1070,7 @@ int64_t subscription_t::read_data(char* buffer, uint64_t nbytes) {
 		return wait_for_close();
 }
 
-int64_t subscription_t::wait_for_close() {
+int64_t mpv_subscription_t::wait_for_close() {
 	std::unique_lock<std::mutex> lk(m);
 	cv.wait(lk, [this] { return pending_close; });
 	return 0;

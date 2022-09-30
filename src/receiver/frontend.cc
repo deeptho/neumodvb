@@ -1810,10 +1810,12 @@ dvb_frontend_t::need_diseqc_or_lnb(const devdb::lnb_t& new_lnb, const chdb::dvbs
 	if (!this->sec_status.is_tuned() && use_counts.lnb == 1 && use_counts.dish <=1
 			&& use_counts.rf_coupler<=1)
 		return {true, true}; // always send diseqc if we were not tuned
+#if 0
 	bool is_dvbs =
 		((int)new_mux.delivery_system == SYS_DVBS || new_mux.delivery_system == (chdb::fe_delsys_dvbs_t)SYS_DVBS2);
 	if (!is_dvbs)
 		return {false, false};
+#endif
 	if(use_counts.lnb > 1 || use_counts.rf_coupler > 1) {
 		dtdebugx("Preventing diseqc because lnb is used more than once: use_count=%d", use_counts.lnb);
 		return {false, false};

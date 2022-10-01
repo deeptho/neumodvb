@@ -139,6 +139,7 @@ class ChgmTable(NeumoTable):
                                            key_prefix_type=pychdb.chgm.chgm_prefix.chg, key_prefix_data=ref,
                                         field_matchers=matchers, match_data = match_data)
             txn.abort()
+            del txn
         else:
             chg = None
             chgm = None
@@ -167,6 +168,7 @@ class ChgmTable(NeumoTable):
         txn =self.db.rtxn()
         ret = pychdb.chg.contains_service(txn, e, chgm.service)
         txn.abort()
+        del txn
         return ret
 
 class ChgmGridBase(NeumoGridBase):
@@ -185,6 +187,7 @@ class ChgmGridBase(NeumoGridBase):
         txn = wx.GetApp().chdb.rtxn()
         channel = pychdb.chgm.find_by_chgm_order(txn, chno)
         txn.abort()
+        del txn
         if channel is None:
             return
         row = self.table.screen.set_reference(channel)

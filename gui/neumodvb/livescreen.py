@@ -163,6 +163,7 @@ class LiveServiceScreen(object):
             txn = self.chdb.rtxn()
             self.sat_screen_ = pychdb.sat.screen(txn, sort_order=int(pychdb.sat.column.sat_pos) << 24)
             txn.abort()
+            del txn
         return self.sat_screen_
 
     @property
@@ -171,6 +172,7 @@ class LiveServiceScreen(object):
             txn = self.chdb.rtxn()
             self.chg_screen_ = pychdb.chg.screen(txn, sort_order=int(pychdb.chg.column.name)<<24)
             txn.abort()
+            del txn
         return self.chg_screen_
 
     def reportOFF(self, label):
@@ -185,7 +187,10 @@ class LiveServiceScreen(object):
         if service is not None and sat is not None  and service.k.mux.sat_pos != sat.sat_pos:
             service = None
 
-        return self.set_service_screen_(txn, service, sat)
+        ret = self.set_service_screen_(txn, service, sat)
+        txn.abort()
+        del txn
+        return ret
 
     def entry_for_ch_order(self, chno):
         if chno >= 65535:
@@ -198,19 +203,22 @@ class LiveServiceScreen(object):
         else:
             ret = pychdb.service.find_by_ch_order(txn, chno)
         txn.abort()
+        del txn
         return ret
     def set_service_screen(self, service, sort_order=None):
         """
         """
         h = self.app.receiver.browse_history
         txn = self.chdb.rtxn()
-
         sat = None if  h.h.filter_sat.sat_pos == pychdb.sat.sat_pos_none else  h.h.filter_sat
         if service is not None and sat is not None  and service.k.mux.sat_pos != sat.sat_pos:
             #a sat filter is in place, but it is not compatible with service
             #we update the filter
             service = None
-        return self.set_service_screen_(txn, service, sat, sort_order)
+        ret = self.set_service_screen_(txn, service, sat, sort_order)
+        txn.abort()
+        del txn
+        return ret
 
     def set_service_screen_(self, txn , service, sat, sort_order=None):
         """
@@ -241,6 +249,7 @@ class LiveServiceScreen(object):
             service_idx = self.screen.set_reference(service)
         self.selected_service_or_channel = service
         txn.abort()
+        del txn
         #print(f'new_type={new_type} {h.h.list_filter_type} {sat_pos} {h.h.filter_sat.sat_pos} {sort_order} { h.h.service_sort_order}')
         if new_type != h.h.list_filter_type or sat_pos != h.h.filter_sat.sat_pos \
            or sort_order != h.h.service_sort_order:
@@ -267,7 +276,10 @@ class LiveServiceScreen(object):
             #we update the filter
             chg = pychdb.chg.find_by_key(txn, chgm.k.chg)
 
-        return self.set_chgm_screen_(txn, chgm, chg, sort_order)
+        ret = self.set_chgm_screen_(txn, chgm, chg, sort_order)
+        txn.abort()
+        del txn
+        return ret
 
     def set_chg_filter(self, chg):
         t = pychdb.list_filter_type_t
@@ -277,7 +289,10 @@ class LiveServiceScreen(object):
         if chgm is not None and chg is not None and chgm.k != chg.k:
             chgm = None
 
-        return self.set_chgm_screen_(txn, chgm, chg)
+        ret = self.set_chgm_screen_(txn, chgm, chg)
+        txn.abort()
+        del txn
+        return ret
 
     def set_chgm_screen_(self, txn, chgm, chg, sort_order=None):
         t = pychdb.list_filter_type_t
@@ -308,6 +323,7 @@ class LiveServiceScreen(object):
             chgm_idx = self.screen.set_reference(chgm)
         self.selected_service_or_channel = chgm
         txn.abort()
+        del txn
         if new_type != h.h.list_filter_type or h.h.filter_chg != chg or h.h.chgm_sort_order != sort_order:
             h.h.filter_chg = pychdb.chg.chg() if chg is None else chg
             h.h.list_filter_type =  new_type
@@ -347,6 +363,7 @@ class LiveServiceScreen(object):
             txn = self.chdb.rtxn()
             service = pychdb.service.find_by_key(txn, chgm.service)
             txn.abort()
+            del txn
             h.save(chgm)
             h.save(service)
             return service
@@ -372,6 +389,7 @@ class LiveServiceScreen(object):
             txn = self.chdb.rtxn()
             service = h.last_service() if chgm is None else pychdb.service.find_by_key(txn, chgm.service)
             txn.abort()
+            del txn
             if False:
                 self.set_service_screen(service)
                 return self.selected_service_or_channel
@@ -467,6 +485,7 @@ class LiveServiceScreen(object):
         txn = self.chdb.rtxn()
         service = pychdb.service.find_by_key(txn, entry.service)
         txn.abort()
+        del txn
         return service
 
 class LiveRecordingScreen(object):
@@ -543,7 +562,10 @@ class LiveRecordingScreen(object):
         h = self.app.receiver.rec_browse_history
         txn = self.recdb.rtxn()
 
-        return self.set_recordings_screen_(txn, recording, sort_order)
+        ret = self.set_recordings_screen_(txn, recording, sort_order)
+        txn.abort()
+        del txn
+        return ret
 
     def set_recordings_screen_(self, txn, recording, sort_order=None, filter_type=None):
         """
@@ -576,6 +598,7 @@ class LiveRecordingScreen(object):
             recording_idx = self.screen.set_reference(recording)
         self.selected_recording = recording
         txn.abort()
+        del txn
         if new_type != h.h.list_filter_type  \
            or sort_order != h.h.rec_sort_order:
             h.h.list_filter_type = new_type
@@ -587,7 +610,10 @@ class LiveRecordingScreen(object):
         t = pyrecdb.list_filter_type_t
         h = self.app.receiver.rec_browse_history
         txn = self.recdb.rtxn()
-        return self.set_recordings_screen_(txn, None, filter_type=filter_type)
+        ret = self.set_recordings_screen_(txn, None, filter_type=filter_type)
+        txn.abort()
+        del txn
+        return ret
 
     def SelectRecording(self, recording):
         """

@@ -841,6 +841,8 @@ class NeumoTable(NeumoTableBase):
             self.screen.invert_rows = self.sort_order == 2
         else:
             self.screen_getter(txn, subfield)
+        txn.abort()
+        del txn
         return
 
     def reload(self):
@@ -974,6 +976,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             txn=self.table.db.rtxn()
             changed = self.table.screen.update(txn)
             txn.abort()
+            del txn
             return changed
         return False
 

@@ -125,6 +125,7 @@ class StatusTable(NeumoTable):
         for a in  pychdb.fe.list_all_by_adapter_no(txn):
             ret[a.k.adapter_mac_address] = a.adapter_name
         txn.abort()
+        del txn
         return ret
 
     def adapter_name(self, status):

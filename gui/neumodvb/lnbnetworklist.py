@@ -198,7 +198,7 @@ class LnbNetworkGrid(NeumoGridBase):
         txn = self.db.wtxn()
         mux = pychdb.dvbs_mux.find_by_key(txn, mux_key)
         txn.abort()
-
+        del txn
         mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
         self.table.SaveModified()

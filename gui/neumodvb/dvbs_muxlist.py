@@ -112,6 +112,8 @@ class DvbsMuxTable(NeumoTable):
                                             key_prefix_type=pychdb.dvbs_mux.dvbs_mux_prefix.sat_pos,
                                             key_prefix_data=ref,
                                             field_matchers=matchers, match_data = match_data)
+            txn.abort()
+            del txn
         else:
             sat = None
             mux = None
@@ -193,6 +195,7 @@ class DvbsMuxGridBase(NeumoGridBase):
             txn = wx.GetApp().chdb.rtxn()
             self.sat=pychdb.sat.find_by_key(txn, sat_pos)
             self.mux=pychdb.dvbs_mux.find_by_key(txn, service.k.mux)
+            txn.abort()
             del txn
         if self.mux is None:
             service = wx.GetApp().live_service_screen.selected_service
@@ -202,6 +205,7 @@ class DvbsMuxGridBase(NeumoGridBase):
                 txn = wx.GetApp().chdb.rtxn()
                 self.mux=pychdb.dvbs_mux.find_by_key(txn, service.k.mux)
                 dtdebug(f"CurrentSatAndMux {self.sat} {self.mux}")
+                txn.abort()
                 del txn
             elif self.table.screen:
                 self.mux = None

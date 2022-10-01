@@ -94,6 +94,8 @@ class DvbcMuxTable(NeumoTable):
         screen=pychdb.dvbc_mux.screen(txn, sort_order=sort_field,
                                       key_prefix_type=pychdb.dvbc_mux.dvbc_mux_prefix.none, key_prefix_data=ref,
                                       field_matchers=matchers, match_data = match_data)
+        txn.abort()
+        del txn
         self.screen=screen_if_t(screen, self.sort_order==2)
 
     def __new_record__(self):

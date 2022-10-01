@@ -128,6 +128,7 @@ class GridEpgData(GridData):
             txn = self.epgdb.rtxn()
             epg_screen = self.epg_screens.add_service(txn, key)
             txn.abort()
+            del txn
         return epg_screen
 
     def remove_epg_data_for_channels(self, chidx_start, chidx_end):
@@ -1279,6 +1280,7 @@ class RecordPanel(wx.Panel):
         txn = self.data.ls.chdb.rtxn()
         changed = self.data.ls.screen.update(txn)
         txn.commit()
+        del txn
         if changed:
             dtdebug(f"Updating live service screen")
             old_record = self.selected_row_entry
@@ -1654,6 +1656,7 @@ class GridEpgPanel(RecordPanel):
                     if refocus:
                         row.focus_current()
         txn_epg.abort()
+        del txn_epg
         if any_change:
             self.Layout()
 
@@ -2170,6 +2173,7 @@ class RecordingsPanel(RecordPanel):
         txn = self.data.ls.recdb.rtxn()
         changed = self.data.ls.screen.update(txn)
         txn.commit()
+        del txn
         if changed:
             dtdebug(f"Updating live service screen")
             old_record = self.selected_row_entry

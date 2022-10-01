@@ -87,10 +87,13 @@ class SatTable(NeumoTable):
             from neumodvb.init_db import init_db
             dtdebug("Empty database; adding sats")
             txn.abort()
+            del txn
             init_db()
             txn = self.db.rtxn()
             screen = pychdb.sat.screen(txn, sort_order=sort_order,
                                        field_matchers=matchers, match_data = match_data)
+            txn.abort()
+            del txn
         self.screen = screen_if_t(screen, self.sort_order==2)
 
     def __save_record__(self, txn, record):

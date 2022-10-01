@@ -154,6 +154,7 @@ class ServiceTable(NeumoTable):
                                            key_prefix_data=ref,
                                            field_matchers=matchers, match_data = match_data)
             txn.abort()
+            del txn
         else:
             sat = None
             service = None
@@ -189,6 +190,7 @@ class ServiceTable(NeumoTable):
         txn =self.db.rtxn()
         ret = pychdb.chg.contains_service(txn, e, service.k)
         txn.abort()
+        del txn
         return ret
 
 
@@ -197,6 +199,7 @@ class ServiceGridBase(NeumoGridBase):
         txn = wx.GetApp().chdb.rtxn()
         service = pychdb.service.find_by_ch_order(txn, chno)
         txn.abort()
+        del txn
         if service is None:
             return
         row = self.table.screen.set_reference(service)
@@ -313,6 +316,7 @@ class ServiceGridBase(NeumoGridBase):
         if mux is None:
             return
         txn.commit()
+        del txn
         mux_name= f"{mux}"
         dtdebug(f'Positioner requested for mux={mux}')
         from neumodvb.positioner_dialog import show_positioner_dialog

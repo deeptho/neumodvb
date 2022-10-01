@@ -106,6 +106,8 @@ class SpectrumTable(NeumoTable):
     def mac_fn(self, mac):
         txn = self.chdb.rtxn()
         ret = pychdb.fe.find_by_key(txn, mac)
+        txn.abort()
+        del txn
         return str(ret)
         return mac.to_bytes(6, byteorder='little').hex(":") if x[1]>=0 else '???'
 

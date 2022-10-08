@@ -263,13 +263,14 @@ namespace {{dbname}} {
 
 	const record_desc_t&  {{struct.class_name}}::descriptor() {
      static const record_desc_t desc = {
-       {{struct.class_name}}::type_id_, //type_id
-       {{struct.record_version}}, //record_version
-			 "{{struct.name}}", //name
-          {//fields
+       .type_id = {{struct.class_name}}::type_id_, //type_id
+       .record_version = {{struct.record_version}}, //record_version
+			 .name = "{{struct.name}}", //name
+			 .fields = {//fields
           {%for f in struct.fields %}
              {
-              {{f.field_id}}, //field_id, unique identifier for this field within struct {{struct.class_name}}
+              .field_id = {{f.field_id}}, //field_id, unique identifier for this field within struct {{struct.class_name}}
+							.type_id =
               {%if f.is_vector  %}
               data_types::vector|  //This is a vector type
               {%else%}
@@ -280,19 +281,45 @@ namespace {{dbname}} {
 							{% else %}
 							data_types::data_type<{{f.namespace}}{{f.scalar_type}}>(), //type_id_, uniquely identifies data type
 							{% endif %}
+							.serialized_size =
               {%if f.has_variable_size%}
               -1, // serialized_size: -1 means that this is a variable size record
               {%else%}
 							 compile_time_serialized_size<{{f.type}}>(),
 							 //sizeof({{struct.class_name}}::{{f.name}}), //serialized size
               {%endif%}
-              "{{f.type}}",   //type as seen in c++
-              "{{f.name}}"  //name as seen in c++
+              .type = "{{f.type}}",   //type as seen in c++
+              .name = "{{f.name}}"  //name as seen in c++
               }
            {%- if not loop.last -%}
                 ,
            {% endif %}
            {%endfor %}
+			 },
+
+			 .indexes = {//indexes
+          {%for key in struct.keys %}
+					{%if key.index_id != None  %}
+					{
+						.type_id = {{struct.class_name}}::type_id_,
+						.index_id = {{key.index_id}},
+						.name = "{{key.index_name}}",
+						.fields = {
+          {%for field in key.fields %}
+					{
+						.name = "{{field.name}}"
+					}
+					{%- if not loop.last -%}
+                ,
+					{% endif %}
+					{% endfor %}
+							}
+					}
+					{%- if not loop.last -%}
+                ,
+					{% endif %}
+					{% endif %}
+					{%endfor %}
 					}
 		 };
 		 return desc;

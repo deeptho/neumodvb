@@ -52,6 +52,30 @@ struct field_desc_t {
 
 };
 
+struct index_field_desc_t {
+	ss::string<16> name;
+	bool operator== (const index_field_desc_t& other) const;
+	bool operator!= (const index_field_desc_t& other) const {
+		return ! (*this == other);
+	}
+
+};
+
+struct index_desc_t {
+	uint32_t type_id;  //unique (within a structure) identifier for this index
+	uint32_t index_id;  //unique (within a structure) identifier for this index
+	ss::string<16> name; //descriptive name (for error reporting; same as c filed name)
+	//field_desc_t& operator=(const field_desc_t& other) = default;
+	//field_desc_t& operator=(field_desc_t&& other) = default;
+
+	ss::vector<index_field_desc_t, 4> fields;
+
+	bool operator== (const index_desc_t& other) const;
+	bool operator!= (const index_desc_t& other) const {
+		return ! (*this == other);
+	}
+};
+
 
 /*
  fully  equivalent to  neumo_schema_record_t
@@ -62,6 +86,7 @@ struct record_desc_t {
 	uint32_t record_version;
 	ss::string<32> name;
 	ss::vector<field_desc_t> fields;
+	ss::vector<index_desc_t> indexes;
 	template<typename record_t> const field_desc_t* get_field_desc(record_t&record, const char*name);
 	template <typename field_t, typename record_t> field_t& _get_field_ref(record_t&record, const char*name);
 /*
@@ -208,11 +233,18 @@ public:
 	const all_schemas_t* p_all_sw_schemas = nullptr; //as defined by the code
 
 	std::map<uint64_t, record_data_t> schema_map; //as stored in the database file, but indexed by type_id
+	std::map<uint64_t, index_desc_t> index_map; //as stored in the database file, but indexed by type_id
 	const record_data_t* metadata_for_type(int type_id) const;
+	inline const index_desc_t* metadata_for_index_type(int type_id) const;
 
 	const record_desc_t* schema_for_type(int type_id) const {
 		auto* p = metadata_for_type(type_id);
 		return p ? &(p->record_desc): NULL;
+	}
+
+	const index_desc_t* index_desc_for_index_type(int type_id) const {
+		auto* p = metadata_for_index_type(type_id);
+		return p;
 	}
 
 
@@ -228,6 +260,16 @@ inline const record_data_t* dbdesc_t::metadata_for_type(int type_id) const {
 	//look up in schema....
 	auto it = schema_map.find(type_id);
 	if (it == schema_map.end())
+		return NULL;
+	return &(it->second);
+}
+
+
+inline const index_desc_t* dbdesc_t::metadata_for_index_type(int type_id) const {
+	type_id &= ~(data_types::vector|data_types::enumeration);
+	//look up in schema....
+	auto it = index_map.find(type_id);
+	if (it == index_map.end())
 		return NULL;
 	return &(it->second);
 }

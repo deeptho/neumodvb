@@ -91,16 +91,16 @@ void convert_schema(const ss::vector_<schema::neumo_schema_record_t>& in, ss::ve
 }
 
 /*
-	schema_map is what is stored in the database file
+	record_schema is what is stored in the database file
 	current_schema is the schema used by the code
 */
-void record_data_t::init(const record_desc_t& schema_map, const record_desc_t& current_schema) {
+void record_data_t::init(const record_desc_t& record_schema, const record_desc_t& current_schema) {
 	int32_t offset = 0;
 	auto num_fields = current_schema.fields.size();
 	for (int i = 0; i < (int)num_fields; ++i)
 		field_offsets[i] = NOTFOUND;
 	int i = -1; // index of variable field
-	for (auto& foreign_field : schema_map.fields) {
+	for (auto& foreign_field : record_schema.fields) {
 		if (foreign_field.serialized_size > 0) {
 			auto* field = current_schema.find_field(foreign_field.field_id, foreign_field.type_id);
 			if (field) {
@@ -129,9 +129,12 @@ void dbdesc_t::init(const ss::vector_<record_desc_t>& sw_schema) {
 	// init with what is defined by the current code; may be overrriden by
 	// calling dbdesc_t::init with a schema retrieved from the database file
 	schema_map.clear();
+	index_map.clear();
 	for (const auto& sw_record_schema : sw_schema) {
 		// store a default, current schema
 		schema_map.try_emplace(sw_record_schema.type_id, sw_record_schema);
+		for(const auto& index: sw_record_schema.indexes)
+			index_map.try_emplace(index.index_id, index);
 	}
 }
 
@@ -141,6 +144,7 @@ void dbdesc_t::init(const all_schemas_t& all_sw_schemas) {
 
 	this->p_all_sw_schemas = &all_sw_schemas; // save in case it is later needed
 	schema_map.clear();
+	index_map.clear();
 	for (const auto& a : all_sw_schemas) {
 		assert(a.pschema);
 		auto& sw_schema = *a.pschema;
@@ -157,6 +161,8 @@ void dbdesc_t::init(const all_schemas_t& all_sw_schemas) {
 				*/
 				dterrorx("several records have same  type_id 0x%x", sw_record_schema.type_id);
 			}
+			for(const auto& index: sw_record_schema.indexes)
+				index_map.try_emplace(index.index_id, index);
 		}
 	}
 }
@@ -203,8 +209,48 @@ bool record_desc_t::operator==(const record_desc_t& other) const {
 		if (field != other_field)
 			return false;
 	}
+
+	idx = 0;
+	if(indexes.size() != other.indexes.size())
+		return false;
+	for (auto& index : indexes) {
+		if (idx >= other.indexes.size())
+			return false;
+		auto& other_index = other.indexes[idx++];
+		if (index != other_index)
+			return false;
+	}
+
 	return true;
 }
+
+
+bool index_field_desc_t::operator==(const index_field_desc_t& other) const {
+	if (name != other.name) //@todo: should be replaced with type based lookup (field_id)
+		return false;
+	return true;
+}
+
+
+bool index_desc_t::operator==(const index_desc_t& other) const {
+	if (type_id != other.type_id)
+		return false;
+
+	if (index_id != other.index_id)
+		return false;
+	int idx = 0;
+	if (fields.size() != other.fields.size())
+		return false;
+	for (auto& field : fields) {
+		if (idx >= other.fields.size())
+			return false;
+		auto& other_field = other.fields[idx++];
+		if (field != other_field)
+			return false;
+	}
+	return true;
+}
+
 
 /*
 	compare a schema "stored_schema" stored in a database

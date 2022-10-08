@@ -661,16 +661,15 @@ class SignalPanel(SignalPanel_):
         self.Speak()
         locked = signal_info.has_lock
         driver_mux = signal_info.driver_mux
-        frequency_text = f'{driver_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') if signal_info.has_timing_lock else ''
-        symbolrate_text = f'{driver_mux.symbol_rate/1e3:.0f} kS/s' if signal_info.has_timing_lock else ''
+        frequency_text = f'{driver_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ')
+        symbolrate_text = f'{driver_mux.symbol_rate/1e3:.0f} kS/s'
         fec=lastdot(driver_mux.fec).replace(' ', '/') if locked else ''
         delsys=lastdot(driver_mux.delivery_system)
         modulation=lastdot(driver_mux.modulation)
-        modulation_text = f'{delsys} - {modulation}  {fec}' if locked else ''
+        modulation_text = f'{delsys} - {modulation}  {fec}' if signal_info.has_timing_lock else ''
         fec = f'{fec}' if signal_info.has_fec else ''
-
-        self.freq_sr_modulation_text.SetLabel(f'{frequency_text}  {symbolrate_text} '
-                                              f'{delsys} - {modulation}  {fec}' if signal_info.has_timing_lock else '')
+        self.freq_sr_modulation_text.SetForegroundColour(wx.Colour('blue' if signal_info.has_timing_lock else 'red'))
+        self.freq_sr_modulation_text.SetLabel(f'{frequency_text}  {symbolrate_text} {modulation_text}')
         self.signal_info = signal_info
         snr = self.signal_info.snr/1000
         if is_tuned:

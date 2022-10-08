@@ -18,12 +18,13 @@
 #
 import sys
 import os
+import subprocess
 
 #the following import also sets up import path
 import neumodvb
-from neumodvb.util import setup, maindir
+from neumodvb.util import setup
 from neumodvb.config import options
-
+from neumodvb.util import load_gtk3_stylesheet, dtdebug, dterror, maindir
 
 dbpath=options.db_dir
 
@@ -36,7 +37,7 @@ def upgrade(dbtype, dbname):
     db = os.path.join(dbpath, dbname)
     cmd=f"neumoupgrade -t{dbtype} {db}.mdb"
     print(cmd)
-    os.system(cmd)
+    subprocess.call(cmd, shell=True, env=os.environ)
 
 
 upgrade("chdb", "chdb")

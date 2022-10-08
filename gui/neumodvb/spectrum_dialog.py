@@ -338,6 +338,7 @@ class SpectrumDialog(SpectrumDialog_):
             sat = pychdb.sat.find_by_key(txn, spectrum.k.sat_pos)
             lnb = pychdb.lnb.find_by_key(txn, spectrum.k.lnb_key)
             txn.abort()
+            del txn
         else:
             lnb = self.lnb
             sat = self.sat

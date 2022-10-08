@@ -281,6 +281,8 @@ class TuneMuxPanel(TuneMuxPanel_):
                 sat = pychdb.sat.find_by_key(txn, lnb.networks[0].sat_pos)
             return lnb, sat, mux
         #self.app.MuxTune(mux)
+        txn.abort()
+        del txn
 
     def OnSave(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("saving")
@@ -506,6 +508,7 @@ class TuneMuxPanel(TuneMuxPanel_):
                 mux.k.sat_pos = network.sat_pos
             elif mux.k.sat_pos == pychdb.sat.sat_pos_none:
                 mux.k.sat_pos = sat.sat_pos
+            txn.abort()
             del txn
             assert mux.k.sat_pos == sat.sat_pos
             self.ChangeSat(sat)
@@ -547,6 +550,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.mux = pychdb.dvbs_mux.dvbs_mux()
         if self.mux.k.sat_pos == pychdb.sat.sat_pos_none:
             self.mux.k.sat_pos = self.sat.sat_pos
+        txn.abort()
         del txn
         dtdebug(f"self.mux={self.mux} self.sat={self.sat}")
         assert self.mux.k.sat_pos == self.sat.sat_pos
@@ -1046,6 +1050,7 @@ class PositionerDialog(PositionerDialog_):
         txn = wx.GetApp().chdb.rtxn()
         lnb = pychdb.lnb.find_by_key(txn, self.lnb.k) #reread the networks
         txn.abort()
+        del txn
         network = get_network(lnb, self.sat.sat_pos)
         pos = network.usals_pos
         if self.lnb.rotor_control == pychdb.rotor_control_t.ROTOR_MASTER_USALS:

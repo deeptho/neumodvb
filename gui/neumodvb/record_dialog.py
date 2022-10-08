@@ -60,6 +60,7 @@ class RecordDialog(RecordDialog_):
             #attempt to load record
             epg = pyepgdb.running_now(txn, service.k, self.start_time)
             txn.abort()
+            del txn
             dtdebug(f'EPG now = {epg} start={self.start_time} {datetime.datetime.fromtimestamp(self.start_time, tz=tz.tzlocal())}')
         self.epg = epg
         if epg is None:
@@ -136,7 +137,7 @@ def show_record_dialog(parent, record, epg=None, start_time=None):
         txn = wx.GetApp().chdb.rtxn()
         service = pychdb.service.find_by_key(txn, key)
         txn.abort()
-
+        del txn
     dlg = RecordDialog(parent.GetParent(), service, epg, start_time, title="New recording")
     dlg.Prepare()
     ret = dlg.ShowModal()

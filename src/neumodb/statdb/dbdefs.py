@@ -70,10 +70,10 @@ spectrum_key = db_struct(name='spectrum_key',
                          type_id= lord('sk'),
                          version = 1,
                          fields = ((1, 'devdb::lnb_key_t', 'lnb_key'),
-                                   (5, 'devdb::fe_key_t' , 'fe_key'),
-                                   (2, 'int16_t', 'sat_pos'),
-                                   (3, 'chdb::fe_polarisation_t', 'pol'),
-                                   (4, 'time_t', 'start_time')
+                                   (5, 'devdb::fe_key_t' , 'fe_key'), #todo: remove; not needed
+                                   (2, 'int16_t', 'sat_pos', 'sat_pos_none'),
+                                   (3, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
+                                   (4, 'time_t', 'start_time', '0')
                                    ))
 
 

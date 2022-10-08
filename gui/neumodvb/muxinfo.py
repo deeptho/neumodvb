@@ -70,7 +70,7 @@ class MuxInfoTextCtrl(wx.TextCtrl):
         app = wx.GetApp()
         if app.scan_subscription_id >= 0:
             st = app.receiver.get_scan_stats(app.scan_subscription_id)
-            done = st.scheduled_muxes + st.active_muxes == 0
+            done = st.pending_muxes + st.active_muxes == 0
             if done:
                 self.ChangeValue(f"Scanning: DONE")
             elif st.last_subscribed_mux.k.sat_pos != pychdb.sat.sat_pos_none:
@@ -78,7 +78,7 @@ class MuxInfoTextCtrl(wx.TextCtrl):
             else:
                 self.ChangeValue(f"Scanning: ...")
             self.SetDefaultStyle(wx.TextAttr(wx.RED, font=large.Bold()))
-            pending = st.scheduled_muxes
+            pending = st.pending_muxes
             ok = st.finished_muxes - st.failed_muxes
             self.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={st.active_muxes}"
             self.AppendText(self.last_scan_text)

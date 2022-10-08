@@ -488,7 +488,6 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			dtdebug("LNB " << lnb << " cannot be used");
 			continue;
 		}
-
 		auto fe_prio = fe->priority;
 		auto use_counts = subscription_counts(rtxn, lnb.k, fe_key_to_release);
 

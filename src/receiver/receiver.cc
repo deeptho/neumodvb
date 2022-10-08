@@ -1511,7 +1511,8 @@ receiver_t::subscribe_lnb_spectrum(devdb::lnb_t& lnb_, const chdb::fe_polarisati
 		tune_options.spectrum_scan_options.scan_both_polarisations = true;
 		band_pol.pol = chdb::fe_polarisation_t::H;
 	}
-	auto [low_freq_, mid_freq_, high_freq_] = devdb::lnb::band_frequencies(lnb, band_pol.band);
+	auto [low_freq_, mid_freq_, high_freq_, lof_low_, lof_high_, inverted_spectrum] =
+		devdb::lnb::band_frequencies(lnb, band_pol.band);
 	low_freq = low_freq < 0 ? low_freq_ : low_freq;
 	high_freq = high_freq < 0 ? high_freq_ : high_freq;
 

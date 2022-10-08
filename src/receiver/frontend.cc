@@ -1025,7 +1025,8 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		scan.start_time = options.start_time;
 		scan.sat_pos = options.sat_pos;
 		scan.lnb_key = lnb.k;
-		auto [start_freq, mid_freq, end_freq] = devdb::lnb::band_frequencies(lnb, options.band_pol.band);
+		auto [start_freq, mid_freq, end_freq, lof_low, lof_high, inverted_spectrum] =
+			devdb::lnb::band_frequencies(lnb, options.band_pol.band);
 		scan.band_pol = options.band_pol;
 		scan.start_freq = options.start_freq;
 		scan.end_freq = options.end_freq;
@@ -1372,7 +1373,8 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::lnb_t& lnb, const tune_
 	// request spectrum scan
 	cmdseq_t cmdseq;
 	cmdseq.add(DTV_DELIVERY_SYSTEM, (int)SYS_DVBS);
-	auto [start_freq, mid_freq, end_freq] = devdb::lnb::band_frequencies(lnb, options.band_pol.band);
+	auto [start_freq, mid_freq, end_freq, lof_low, lof_high, inverted_spectrum] =
+		devdb::lnb::band_frequencies(lnb, options.band_pol.band);
 	start_freq = std::max(options.start_freq, start_freq);
 	end_freq = std::min(options.end_freq, end_freq);
 	switch (options.band_pol.band) {

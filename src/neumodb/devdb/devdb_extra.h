@@ -137,7 +137,7 @@ namespace  devdb::lnb {
 		freq: frequency after LNB local oscilllator compensation
 	*/
 	std::tuple<int, int, int> band_voltage_freq_for_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
-	devdb::fe_band_t band_for_freq(const devdb::lnb_t& lnb, uint32_t frequency);
+	devdb::fe_band_t band_for_freq(const devdb::lnb_t& lnb, int32_t frequency);
 
 	inline devdb::fe_band_t band_for_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
 		return band_for_freq(lnb, mux.frequency);
@@ -154,7 +154,9 @@ namespace  devdb::lnb {
 	*/
 	int freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band);
 	int driver_freq_for_freq(const devdb::lnb_t& lnb, int frequency);
-	std::tuple<int32_t, int32_t, int32_t> band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band);
+
+	std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool>
+	band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band);
 
 	bool add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network);
 	void update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb);

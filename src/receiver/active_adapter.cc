@@ -167,7 +167,7 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 	{
 		auto devdb_rtxn = receiver.devdb.rtxn();
 		auto lnb_key = current_lnb().k;
-		use_counts = devdb::fe::subscription_counts(devdb_rtxn, lnb_key);
+		use_counts = devdb::fe::subscription_counts(devdb_rtxn, lnb_key, nullptr /*fe_key_to_release*/);
 		devdb_rtxn.abort();
 	}
 	si.reset(is_retune);
@@ -197,7 +197,7 @@ int active_adapter_t::restart_tune() {
 			devdb::resource_subscription_counts_t use_counts;
 			{
 				auto devdb_rtxn = receiver.devdb.rtxn();
-				use_counts = devdb::fe::subscription_counts(devdb_rtxn, current_lnb().k);
+				use_counts = devdb::fe::subscription_counts(devdb_rtxn, current_lnb().k, nullptr /*fe_key_to_release*/);
 				devdb_rtxn.abort();
 			}
 			tune(current_lnb(), mux, tune_options, user_requested, use_counts);

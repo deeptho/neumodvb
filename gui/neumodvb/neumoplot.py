@@ -297,14 +297,14 @@ class Spectrum(object):
                 best = delta
         return found, best
 
-    def annot_for_mux(self, mux):
+    def annot_for_peak(self, peak):
         found = None
         best = 20000000
-        if mux is None:
+        if peak is None:
             return None
         for annot in self.annots:
-            delta= abs(annot.tp.freq*1000 - mux.frequency)
-            if delta < best and annot.tp.spectrum.spectrum.k.pol == mux.pol:
+            delta= abs(annot.tp.freq*1000 - peak.frequency)
+            if delta < best and annot.tp.spectrum.spectrum.k.pol == peak.pol:
                 found = annot
                 best = delta
         return found
@@ -748,9 +748,7 @@ class SpectrumPlot(wx.Panel):
         spectrum.legend_panel = panel
 
     def make_key(self, spectrum):
-        sat = pychdb.sat_pos_str(spectrum.k.sat_pos)
-        key = spectrum.filename
-        return key
+        return str(spectrum.k)
 
     def toggle_spectrum(self, spectrum):
         key = self.make_key(spectrum)
@@ -888,25 +886,37 @@ class SpectrumPlot(wx.Panel):
         self.current_annot = annot
         self.canvas.draw()
 
+    def set_annot_status_(self, annot, peak, mux, locked):
+        if annot is None:
+            assert False
+            return
+        freq, symbol_rate = int(mux.frequency/1000), int(mux.symbol_rate/1000),
+        annot.set_text(f"{freq:8.3f}{enum_to_str(mux.pol)} \n{symbol_rate}kS/s ")
+        annot.tp.scan_ok = locked
+        annot.tp.scan_failed = not locked
+        color = 'green' if locked  else 'red'
+        annot.set_color(color)
+        self.canvas.draw()
+
+    def set_annot_status(self, spectrum_key, peak, mux, locked):
+        key = str(spectrum_key)
+        spectrum = self.spectra[key]
+        annot = spectrum.annot_for_peak(peak)
+        if annot is None:
+            assert False
+            return
+        self.set_annot_status_(annot, peak, mux, locked)
+
     def set_current_annot_status(self, mux, si_or_driver_mux, locked):
         if self.current_annot is None:
             return
-        spectrum = self.current_annot.tp.spectrum
-        if spectrum.annot_for_mux(mux) != self.current_annot:
-            return
-        freq, symbol_rate = int(si_or_driver_mux.frequency/1000), int(si_or_driver_mux.symbol_rate/1000),
-        self.current_annot.set_text(f"{freq:8.3f}{spectrum.pol} \n{symbol_rate}kS/s ")
-        self.current_annot.tp.scan_ok = locked
-        self.current_annot.tp.scan_failed = not locked
-        color = 'green' if locked  else 'red'
-        self.current_annot.set_color(color)
-        self.canvas.draw()
+        self.set_annot_status_(self.current_annot, mux, si_or_driver_mux, locked)
 
     def reset_current_annot_status(self, mux):
         if self.current_annot is None:
             return
         spectrum = self.current_annot.tp.spectrum
-        if spectrum.annot_for_mux(mux) != self.current_annot:
+        if spectrum.annot_for_peak(mux) != self.current_annot:
             return
         self.current_annot.tp.scan_ok = False
         self.current_annot.tp.scan_failed = False

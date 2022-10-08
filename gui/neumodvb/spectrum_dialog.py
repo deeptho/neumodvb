@@ -43,15 +43,13 @@ class SpectrumButtons(SpectrumButtons_):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
-        self.serial_blindscan_all = True
         wx.CallAfter(self.select_range_and_pols)
 
     def OnAcquireSpectrum(self, event):
         return self.Parent.OnAcquireSpectrum(event)
 
     def OnBlindScan(self, event):
-        return self.parent.OnBlindScanSerial(event) if self.serial_blindscan_all \
-            else self.parent.OnBlindScanParallel(event)
+        self.parent.OnBlindScan(event)
 
     def select_start_end(self, lnb):
         rng = pydevdb.lnb.lnb_frequency_range(lnb)
@@ -252,41 +250,8 @@ class SpectrumDialog(SpectrumDialog_):
             self.EndBlindScan()
             self.spectrum_buttons_panel.blindscan_button.SetValue(0)
 
-    def OnBlindScanSerial(self, event=None):
-        dtdebug("Blindscan start")
 
-        obj = event.GetEventObject()
-        isPressed = obj.GetValue()
-        if not isPressed:
-            dtdebug("Ending blindscan all")
-            self.EndBlindScan()
-        else:
-            dtdebug("starting blindscan all")
-            self.blindscan_start = datetime.datetime.now(tz=tz.tzlocal())
-            self.tps_to_scan = []
-            self.tune_mux_panel.use_blindscan = True
-            for key, spectrum in self.spectrum_plot.spectra.items():
-                self.tps_to_scan += spectrum.tps_to_scan()
-            if False:
-                #debugging only
-                for key, spectrum in self.spectrum_plot.spectra.items():
-                    annot,_ = spectrum.annot_for_freq(11509)
-                    idx = self.tps_to_scan.index(annot.tp)
-                    self.tps_to_scan = self.tps_to_scan[idx:]
-                    break
-            if len(self.tps_to_scan) == 0:
-                self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
-                m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)
-                ShowMessage("No spectral peaks available scan: only bands displayed on screen will be "
-                            "scanned and already scanned muxes will be skipped" )
-                self.spectrum_buttons_panel.blindscan_button.SetValue(0)
-                self.is_blindscanning = False
-            else:
-                self.is_blindscanning = True
-                wx.CallAfter(self.blindscan_next)
-        event.Skip()
-
-    def OnBlindScanParallel(self, event=None):
+    def OnBlindScan(self, event=None):
         dtdebug("Blindscan start parallel")
 
         obj = event.GetEventObject()
@@ -302,6 +267,7 @@ class SpectrumDialog(SpectrumDialog_):
             self.is_blindscanning = True
             self.blindscan_all()
         event.Skip()
+
 
     def blindscan_all(self):
         subscriber = self.tune_mux_panel.mux_subscriber
@@ -404,8 +370,7 @@ class SpectrumDialog(SpectrumDialog_):
             ShowMessage("Error", data)
             return
         need_si = True
-        print(f'CB: {data}')
-        if data == False:
+        if data == False: #called from blindscan_next
             mux = self.tune_mux_panel.last_tuned_mux
             self.blindscan_num_muxes += 1
             self.blindscan_num_nonlocked_muxes += 1
@@ -414,6 +379,28 @@ class SpectrumDialog(SpectrumDialog_):
             if self.is_blindscanning:
                  tp = self.tp_being_scanned
                  self.blindscan_next()
+        elif type(data) == pyreceiver.scan_report_t: #called from blindscan_next
+            has_lock = data.mux.c.scan_result != pychdb.scan_result_t.NOLOCK
+            self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak, data.mux, has_lock)
+
+            s = data.scan_stats
+            print(f'STATS: pend={s.pending_peaks}+{s.pending_muxes} act={s.active_muxes} fin={s.finished_muxes}')
+
+            if data.scan_stats.pending_muxes + data.scan_stats.active_muxes + data.scan_stats.pending_peaks == 0:
+                self.is_blindscanning = False
+                self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
+                m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)
+                title = "Blindscan spectrum finished"
+                msg = f"Scanned {data.scan_stats.finished_muxes} (Locked: {data.scan_stats.locked_muxes}; " \
+                    f"DVB: {data.scan_stats.si_muxes}; Failed: {data.scan_stats.failed_muxes}) muxes in {m}min {s}s"
+                dtdebug(msg)
+                ShowMessage(title, msg)
+                self.spectrum_buttons_panel.blindscan_button.SetValue(0)
+                self.is_blindscanning = False
+                self.EndBlindScan()
+                return
+
+
         elif type(data) == pyreceiver.signal_info_t:
             self.signal_info = data
             need_si = not self.signal_info.has_no_dvb
@@ -431,39 +418,6 @@ class SpectrumDialog(SpectrumDialog_):
                     dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done} no_dvb={self.signal_info.has_no_dvb}")
                     self.spectrum_plot.set_current_annot_status(mux, self.signal_info.consolidated_mux,
                                                                 self.signal_info.has_lock)
-                    if self.is_blindscanning:
-                        tp = self.tp_being_scanned
-                        scan_time = datetime.datetime.now(tz=tz.tzlocal()) - self.done_time
-                        dvb_stream_ids = [ x & 0xff for x in data.matype_list if (x>>14)& 0x3 == 0x3]
-                        all_stream_ids = [ x & 0xff for x in data.matype_list]
-                        if not hasattr(tp, 'isis_present'):
-                            tp.isis_present = set(all_stream_ids)
-                            tp.dvb_isis_present = set(dvb_stream_ids)
-                            #add both consolidated_mux.stream_id driver_mux.stream_id in case drivers change stream_id (which is bug)
-                            tp.isis_scanned = set((data.consolidated_mux.stream_id, data.driver_mux.stream_id))
-                        else:
-                            old_num_isi = len(tp.isis_present)
-                            tp.isis_present = set.union(set(all_stream_ids), tp.isis_present)
-                            tp.dvb_isis_present = set.union(set(dvb_stream_ids), tp.dvb_isis_present)
-                            print(f'num isis: {old_num_isi} {len(tp.isis_present)}')
-                            if len(tp.isis_present) > old_num_isi and len(tp.isis_present) <256:
-                                if scan_time >= datetime.timedelta(seconds=self.mis_scan_time-10):
-                                    self.mis_scan_time += 10
-                                print(f'new isis found; wait longer: {self.mis_scan_time}')
-                            #add both si_mux.stream_id driver_mux.stream_id in case drivers change stream_id (which is bug)
-                            tp.isis_scanned.add(data.driver_mux.stream_id)
-                            tp.isis_scanned.add(data.consolidated_mux.stream_id)
-                        tp.isis_to_scan =  tp.dvb_isis_present -  tp.isis_scanned
-                        if len(tp.isis_to_scan)>0:
-                            stream_id = min(tp.isis_to_scan)
-                            tp.isis_to_scan.discard(stream_id)
-                            self.next_stream(stream_id)
-                        elif len(tp.isis_present)==0 or len(tp.isis_present) == 256 or \
-                             scan_time >= datetime.timedelta(seconds=self.mis_scan_time):
-                            # Scan at least 20 seconds to detect all/many streams
-                            self.blindscan_next()
-                        elif len(tp.isis_present):
-                            print('waiting some more')
             else:
                 mux = self.tune_mux_panel.last_tuned_mux
 

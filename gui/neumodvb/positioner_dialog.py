@@ -180,7 +180,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.lnb_activated_ = False
         self.use_blindscan_ = False
         self.retune_mode_ =  pyreceiver.retune_mode_t.IF_NOT_LOCKED
-        self.tune_attempt = False
         self.signal_info = pyreceiver.signal_info_t()
         self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
 
@@ -232,14 +231,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             return
         if type(data) == pyreceiver.signal_info_t:
             self.signal_info = data
-            if self.signal_info.tune_attempt != self.tune_attempt:
-                pass
-                return
-            else:
-                pass
-            if not self.tuned_ :
-                self.ClearSignalInfo()
-                return
             self.OnSignalInfoUpdate(data)
         self.parent.OnSubscriberCallback(data)
 
@@ -359,7 +350,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         else:
             self.tuned_ = True
             self.lnb_activated_ = True
-            self.tune_attempt = ret
         return self.tuned_
 
     def OnTune(self, event=None, pls_search_range=None):  # wxGlade: PositionerDialog_.<event_handler>
@@ -672,15 +662,14 @@ class SignalPanel(SignalPanel_):
         self.freq_sr_modulation_text.SetLabel(f'{frequency_text}  {symbolrate_text} {modulation_text}')
         self.signal_info = signal_info
         snr = self.signal_info.snr/1000
-        if is_tuned:
-            if snr <= -1000:
-                snr = None
-            rf_level = self.signal_info.signal_strength/1000
-            min_snr = self.signal_info.min_snr/1000
-            snr_ranges = [0, max(min_snr, 0), max(min_snr+2, 0), self.snr_ranges[3]]
-            if snr_ranges != self.snr_ranges:
-                self.snr_ranges = snr_ranges
-                self.snr_gauge.SetRange(snr_ranges)
+        if snr <= -1000:
+            snr = None
+        rf_level = self.signal_info.signal_strength/1000
+        min_snr = self.signal_info.min_snr/1000
+        snr_ranges = [0, max(min_snr, 0), max(min_snr+2, 0), self.snr_ranges[3]]
+        if snr_ranges != self.snr_ranges:
+            self.snr_ranges = snr_ranges
+            self.snr_gauge.SetRange(snr_ranges)
         for key in self.status_keys:
             val = getattr(self.signal_info, f'has_{key}')
             w = getattr(self, f'has_{key}')

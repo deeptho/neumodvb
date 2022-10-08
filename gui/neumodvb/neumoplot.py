@@ -337,7 +337,7 @@ class Spectrum(object):
         snr = None
         bw =  self.peak_data[:,1]/2000000
         for row in self.peak_data:
-            tp = Tp(spectrum=self, freq=row[0], symbol_rate=row[1]/1000)
+            tp = Tp(spectrum=self, freq=row[0], symbol_rate=row[1]/1000.)
             self.tps.append(tp)
 
     def plot_spec(self, fname):

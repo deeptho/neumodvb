@@ -106,11 +106,12 @@ scan_result = db_enum(name='scan_result_t',
                    version = 1,
                    fields=(
                        ('NONE', 0), #never tried
-                       ('FAILED', 1), #could not tune. No si received
+                       ('NOLOCK', 1), #could not tune. No si received
                        ('ABORTED', 2), #timeout stage was not reached
                        ('PARTIAL', 3), #timeout stage was reached, but result was incomplete
                        ('OK', 4), #completion stage reached or timedout
                        ('NODATA', 5), #completion stage reached or timedout
+                       ('NODVB', 6), #not a dvb mux, but was locked
                        ('DISABLED', 127),
                    ))
 
@@ -458,6 +459,17 @@ fe_pls_mode = db_enum(name='fe_pls_mode_t',
             'GOLD',
             'COMBO',
         )))
+
+
+spectral_peak = db_struct(name='spectral_peak',
+                    fname = 'mux',
+                    db = db,
+                    type_id= lord('sp'),
+                    version = 1,
+                    fields = ((1, 'uint32_t', 'frequency', '0'),
+                              (2, 'uint32_t', 'symbol_rate', '0'),
+                              (3, 'fe_polarisation_t', 'pol', '')
+                              ))
 
 
 mux_key = db_struct(name='mux_key',

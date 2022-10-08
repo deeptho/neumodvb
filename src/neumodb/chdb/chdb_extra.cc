@@ -344,7 +344,10 @@ void chdb::merge_services(db_txn& wtxn, const mux_key_t& src_key, const chdb::an
 template <typename mux_t>
 bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preserve) {
 	namespace m = update_mux_preserve_t;
-	dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+	dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status << " result=" << (int) db_mux.c.scan_result << "/" << (int)mux.c.scan_result);
+		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
+						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
+					 mux.c.scan_id >0);
 
 	bool mux_key_incompatible{false}; // db_mux and mux have different key, even after update
 	//assert(!is_template(mux)); //templates should never make it into the database via update_mux
@@ -425,6 +428,12 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 	}
 	if (preserve & m::SCAN_STATUS) {
 		mux.c.scan_status = db_mux.c.scan_status;
+		mux.c.scan_id = db_mux.c.scan_id;
+
+		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
+						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
+					 mux.c.scan_id >0);
+
 	}
 	dtdebug("db_mux=" << db_mux.k << " " << db_mux << " mux=" << mux.k << " " << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status << " preserve&SCAN_DATA=" << (preserve & m::SCAN_DATA));
 
@@ -495,12 +504,19 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 			if(is_template(db_mux))
 				db_mux.k = mux.k;
 		}
+		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
+						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
+					 mux.c.scan_id >0);
 
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		ret = key_matches ? update_mux_ret_t::MATCHING_SI_AND_FREQ: update_mux_ret_t::MATCHING_FREQ;
 
 		is_new = false;
 		cb(&db_mux.c);
+				assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
+						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
+					 mux.c.scan_id >0);
+
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		merge_muxes<mux_t>(mux, db_mux, preserve);
 		if(! key_matches)
@@ -1154,6 +1170,7 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 			}
 		}
 		mux.c.scan_status = chdb::scan_status_t::IDLE;
+		mux.c.scan_id = 0;
 		put_record(wtxn, mux);
 		count++;
 	}
@@ -1170,6 +1187,7 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 			}
 		}
 		mux.c.scan_status = chdb::scan_status_t::IDLE;
+		mux.c.scan_id = 0;
 		put_record(wtxn, mux);
 		count++;
 	}

@@ -29,19 +29,6 @@
 
 
 namespace chdb {
-	struct spectral_peak_t {
-		enum class scan_status_t : uint8_t {
-			NON_BLIND_PENDING,
-			NON_BLIND_IN_PROGRESS,
-			BLIND_PENDING,
-			BLIND_IN_PROGRESS,
-		};
-
-		uint32_t frequency{0};
-		uint32_t symbol_rate{0};
-		chdb::fe_polarisation_t pol{chdb::fe_polarisation_t::NONE};
-		scan_status_t scan_status{scan_status_t::NON_BLIND_PENDING};
-	};
 	using namespace chdb;
 
 	typedef std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t> any_mux_t;

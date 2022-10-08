@@ -139,6 +139,9 @@ private:
 
 		*/
 	std::bitset<256> processed_isis;
+	steady_time_t last_new_matype_time;
+	bool scan_mux_end_reported{false};
+
 	safe::Safe<std::map <uint16_t, std::shared_ptr<stream_filter_t>>> stream_filters; //indexed by stream_pid
 	std::map <uint16_t, active_si_stream_t> embedded_si_streams; //indexed by stream_pid
 
@@ -159,6 +162,9 @@ private:
 	}
 #endif
 	void set_current_tp(const chdb::any_mux_t& mux) {
+		assert((mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
+						mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					 mux_common_ptr(mux)->scan_id >0);
 		fe->update_tuned_mux_nit(mux);
 	};
 
@@ -192,7 +198,7 @@ public: //this data is safe to access from other threads
 		//@todo make thread safe
 	}
 
-	void update_lof(fe_state_t& ts, const ss::vector<int32_t,2>& lof_offsets);
+	void update_lof(const fe_state_t& ts, const ss::vector<int32_t,2>& lof_offsets);
 private:
 	int clear();
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
@@ -200,12 +206,13 @@ private:
 	void monitor();
 
 	chdb::any_mux_t prepare_si(chdb::any_mux_t mux, bool start);
+
 	template <typename mux_t> inline  mux_t prepare_si(mux_t mux, bool start) {
 		chdb::any_mux_t mux_{mux};
 		mux_ = prepare_si(mux_, start);
 		return *std::get_if<mux_t>(&mux_);
 	}
-
+	void check_scan_mux_end();
 	void init_si(scan_target_t scan_target_);
 	void end_si();
 private:
@@ -220,7 +227,7 @@ private:
 	active_si_stream_t si;
 	int remove_service(active_service_t& channel);
 	int remove_all_services(rec_manager_t& recmgr);
-
+	void on_notify_signal_info(chdb::signal_info_t& signal_info);
 public:
 
 	active_adapter_t(receiver_t& receiver_,
@@ -241,10 +248,7 @@ public:
 private:
 
 	template<typename mux_t> inline int retune();
-	int restart_tune();
-
-
-	int lnb_blind_scan(const devdb::lnb_t& lnb, tune_options_t tune_options);
+	int restart_tune(const chdb::any_mux_t& mux);
 
 	int lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options);
 
@@ -258,7 +262,7 @@ private:
 	int tune(const mux_t& mux, tune_options_t tune_options, bool user_requested);
 
 	int add_service(active_service_t& channel);//tune to channel on transponder
-	std::tuple<bool, bool> check_status();
+	std::tuple<bool, bool, bool, bool> check_status();
 
 	void  update_tuned_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
 	int do_diseqc(bool log_strength, bool retry=false);

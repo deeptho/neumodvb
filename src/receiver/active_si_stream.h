@@ -358,7 +358,6 @@ struct active_si_data_t {
 	std::map <std::pair<uint16_t,uint16_t>, chdb::mux_key_t> mux_key_by_network_id_ts_id;
 
 	bool is_embedded_si{false};
-	system_time_t tune_start_time{};
 
 	scan_state_t scan_state;
 	bool scan_in_progress{false};
@@ -563,6 +562,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	dtdemux::ts_stream_t stream_parser;
 	scan_target_t scan_target; //which SI tables should be scanned?
 	bool scan_done{false};
+	bool call_scan_mux_end{false};
 
 	/*we need one parser per pid; within each pid multiple tables may exist
 		but those are transmitted sequentially. Between pids, they are not

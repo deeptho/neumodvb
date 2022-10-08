@@ -198,6 +198,16 @@ class signal_monitor_t {
 struct fe_lock_status_t {
 	bool lock_lost{false}; //
 	fe_status_t fe_status{};
+	int16_t matype{-1};
+	//true if we detected this is not a dvbs transport stream
+	inline bool is_locked() {
+		return fe_status & FE_HAS_LOCK;
+	}
+	inline bool is_not_ts() {
+		return is_locked() && matype >=0 && // otherwise we do not know matype yet
+			matype != 256 && //dvbs
+			(matype >> 6) != 3; //not a transport stream
+	}
 };
 
 
@@ -336,6 +346,7 @@ public:
 	static std::tuple<api_type_t, int> get_api_type(); //returns api_type and version
 
 	void set_lock_status(fe_status_t fe_status);
+	void clear_lock_status();
 
 	/*TODO:  dvb_frontend_t acts both as an interface to the outside world and
 		as a provider of low level calls towards the driver.

@@ -19,8 +19,6 @@
  *
  */
 #include "spectrum_algo.h"
-int debug_freq = 10809750;
-bool debug_found;
 
 typedef int32_t s32;
 typedef uint32_t u32;
@@ -173,8 +171,6 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 								old->freq, old->bw,
 								si->w);
 #endif
-				if(cand->freq >=  debug_freq-10 && cand->freq <=  debug_freq+10)
-					printf("here\n");
 #ifdef DEBUGXXX
 				si->check();
 #endif
@@ -187,13 +183,8 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 								cand->freq, cand->bw, cand->mean_snr, cand->min_snr
 					);
 #endif //TODO: handle equal tps
-				if(old->freq >=  debug_freq-10 && old->freq <=  debug_freq+10) {
-					printf("here\n");
-					debug_found= true;
-				}
+
 				assert(i>=0 && i < si->num_peaks);
-				if(i+1 >= si->max_num_peaks)
-					printf("here\n");
 				assert(i+1 < si->max_num_peaks);
 				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * (si->num_peaks - i - 1));
 				--i;
@@ -213,12 +204,6 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 #ifdef DEBUGXXX
 				dprintk("Removing older peak because it contains other peaks %dkHz BW=%dkHz\n", old->freq, old->bw);
 #endif
-				if(old->freq >=  debug_freq-10 && old->freq <=  debug_freq+10)
-					printf("here\n");
-				if(cand->freq >=  debug_freq-10 && cand->freq <=  debug_freq+10) {
-					debug_found= true;
-					printf("here\n");
-				}
 				memmove(&si->peaks[i], &si->peaks[i + 1], sizeof(si->peaks[0]) * (si->num_peaks - i - 1));
 				si->num_peaks--;
 				--i;
@@ -495,7 +480,6 @@ static int cmp_fn(const void* pa, const void* pb) {
 void find_tps(ss::vector_<spectral_peak_t>& res,	ss::vector_<int32_t>& sig, ss::vector_<uint32_t>& freq) {
 	struct spectrum_scan_state_t ss;
 	struct scan_internal_t si;
-	debug_found= false;
 	ss.threshold = 3000;
 	ss.threshold2 = 3000;
 	ss.mincount = 1;

@@ -32,6 +32,7 @@
 #include "streamparser/packetstream.h"
 #include "streamparser/psi.h"
 #include "util/safe/safe.h"
+#include "scan.h"
 struct wxWindow;
 struct spectrum_scan_t;
 
@@ -55,7 +56,6 @@ class subscriber_t
 
 	pid_t owner;
 	subscription_id_t subscription_id{-1};
-	int tune_attempt{0}; //to detect old status messages which come in after the most recent tune
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::shared_ptr<active_adapter_t> active_adapter; //set if subscribed to specific mux
@@ -63,12 +63,16 @@ public:
 	enum class event_type_t : uint32_t {
 		ERROR_MSG  = (1<<0),
 		SIGNAL_INFO = (1<<1),
-		SPECTRUM_SCAN = (1<<2)
+		SPECTRUM_SCAN = (1<<2),
+		SCAN_MUX_END = (1<<3)
 	};
 
 	safe::Safe<notification_t> notification;
-	int event_flag{ int(event_type_t::ERROR_MSG)|
-		int(event_type_t::SIGNAL_INFO) | int(event_type_t::SPECTRUM_SCAN)}; //which events to report
+	int event_flag{
+		int(event_type_t::ERROR_MSG) |
+		int(event_type_t::SCAN_MUX_END) |
+		int(event_type_t::SIGNAL_INFO) |
+		int(event_type_t::SPECTRUM_SCAN)}; //which events to report
 
 	inline subscription_id_t get_subscription_id() const {
 		return subscription_id;
@@ -77,6 +81,7 @@ public:
 	static pybind11::object handle_to_py_object(int64_t handlle);
 
 	void notify_error(const ss::string_& errmsg);
+	void notify_scan_mux_end(const scan_report_t& report);
 	void notify_signal_info(const chdb::signal_info_t& info);
 	void notify_signal_info(blindscan_t& scanner, const chdb::signal_info_t& info);
 	void notify_spectrum_scan(const statdb::spectrum_t& spectrum);

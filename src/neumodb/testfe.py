@@ -35,18 +35,9 @@ screen=pydevdb.fe.screen(txn, sort_order=sort_order)
 ret=[]
 for idx in range(screen.list_size):
     ll = screen.record_at_row(idx)
-    if ll.present and ll.adapter_no==1:
-        ret.append(ll)
-        #print(f"{mac_fn(ll.k.adapter_mac_address)}: {ll.adapter_name}: {ll.adapter_no}.{ll.k.frontend_no}: {ll.master_adapter_mac_address}"
+    if ll.present:
+        #ret.append(ll)
+        print(f"{ll.adapter_no}.{ll.sub.lnb_key}: {ll.sub.frequency}")
         #      f' present={ll.present}')
 
 print("===================================")
-sort_order = pychdb.fe.subfield_from_name('card_mac_address')<<24
-screen=pychdb.fe.screen(txn, sort_order=sort_order)
-ret={}
-for idx in range(screen.list_size):
-    ll = screen.record_at_row(idx)
-    if ll.present:
-        ret[ll.card_mac_address] = ll.card_name
-for mac,name in ret.items():
-    print(f"{mac_fn(mac)}: {name}")

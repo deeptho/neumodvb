@@ -26,6 +26,7 @@
 //#include <sys/poll.h>
 #include <sys/epoll.h>
 //#include <sys/stat.h>
+#include "util/template_util.h"
 #include "active_service.h"
 #include "active_si_stream.h"
 #include "receiver.h"
@@ -147,6 +148,17 @@ int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_
 	return ret;
 }
 
+void tuner_thread_t::cb_t::restart_si(active_adapter_t& active_adapter,
+																			const chdb::any_mux_t& mux, const tune_options_t& tune_options ,
+																			bool start) {
+	// check_thread();
+	dtdebugx("tune restart_si");
+	active_adapter.end_si(); //clear left overs from last tune
+	active_adapter.prepare_si(mux, start);
+	active_adapter.processed_isis.reset();
+	active_adapter.fe->set_tune_options(tune_options);
+}
+
 int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
 															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options,
 															 const devdb::resource_subscription_counts_t& use_counts) {
@@ -180,7 +192,9 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 		pending, and whne parallel tuners are in use, the second tuner might decide to scan
 		the mux again
 		*/
+	active_adapter->end_si(); //clear left overs from last tune
 	mux = active_adapter->prepare_si(mux, false /*start*/);
+	active_adapter->processed_isis.reset();
 
 	dtdebugx("tune mux action");
 	this->active_adapters[active_adapter.get()] = active_adapter;
@@ -452,8 +466,25 @@ chdb::any_mux_t tuner_thread_t::prepare_si(active_adapter_t& active_adapter, chd
 	return active_adapter.prepare_si(mux, start);
 }
 
-int tuner_thread_t::request_retune(active_adapter_t& active_adapter) {
-	active_adapter.restart_tune();
+int tuner_thread_t::request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t& mux_,
+																	 const tune_options_t& tune_options) {
+	{
+		int frequency;
+		int symbol_rate;
+		auto &m = mux_;
+		std::visit([&frequency, &symbol_rate](auto& mux)  {
+			frequency= get_member(mux, frequency, -1);
+			symbol_rate= get_member(mux, symbol_rate, -1);
+		},
+			m);
+		if (std::abs(frequency - (int)11648799) < 1000)
+			printf("here: freq=%d srate=%d\n", frequency, symbol_rate);
+	}
+	active_adapter.fe->set_tune_options(tune_options);
+	active_adapter.end_si(); //clear left overs from last tune
+	auto mux = active_adapter.prepare_si(mux_, false /*start*/);
+	active_adapter.processed_isis.reset();
+	active_adapter.restart_tune(mux);
 	return 0;
 }
 
@@ -466,8 +497,9 @@ chdb::any_mux_t tuner_thread_t::cb_t::prepare_si(active_adapter_t& active_adapte
 }
 
 
-int tuner_thread_t::cb_t::request_retune(active_adapter_t& active_adapter) {
-	return this->tuner_thread_t::request_retune(active_adapter);
+int tuner_thread_t::cb_t::request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+																				 const tune_options_t& tune_options) {
+	return this->tuner_thread_t::request_retune(active_adapter, mux, tune_options);
 }
 
 int tuner_thread_t::cb_t::positioner_cmd(std::shared_ptr<active_adapter_t> active_adapter, devdb::positioner_cmd_t cmd,
@@ -483,44 +515,11 @@ int tuner_thread_t::cb_t::update_current_lnb(active_adapter_t& active_adapter, c
 
 void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 {
-	std::optional<db_txn> txn;
-	auto get_txn = 	[this, &txn] () -> db_txn& {
-		if(!txn)
-			txn.emplace(receiver.chdb.wtxn());
-		return *txn;
-	};
-
 	for (auto& it : active_adapters) {
 		auto& aa = *it.second;
 		if (aa.current_lnb().k != signal_info.stat.k.lnb)
 			continue;
-		auto* mux = std::get_if<chdb::dvbs_mux_t>(&signal_info.driver_mux);
-		if(!mux)
-			continue;
-
-		for(auto ma: signal_info.matype_list) {
-			auto stream_id = ma & 0xff;
-			if(aa.processed_isis.test(stream_id))
-				continue;
-			aa.processed_isis.set(stream_id);
-			auto matype = ma >> 8;
-			mux->c = chdb::mux_common_t{};
-			mux->k.network_id = 0; //unknown
-			mux->k.ts_id = 0; //unknown
-			mux->k.extra_id = 0; //unknown
-
-			/* note: s m->modulation, m->fec cannot be found from matype. Assume they are the same;
-			 m->rolloff could be found*/
-			mux->stream_id = stream_id;
-			mux->matype = matype;
-			mux->c.tune_src = tune_src_t::DRIVER;
-			namespace m = chdb::update_mux_preserve_t;
-			//The following inserts a mux for each discovered multistream, but only if none exists yet
-			auto& wtxn = get_txn();
-			chdb::update_mux(wtxn, *mux, now, m::ALL);
-		}
-		if(txn)
-			txn->commit();
+		aa.on_notify_signal_info(signal_info);
 		break; //only one adapter can match
 	}
 	return;

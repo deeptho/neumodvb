@@ -74,7 +74,7 @@ int subscriber_t::subscribe_lnb(devdb::lnb_t& lnb, retune_mode_t retune_mode) {
 	subscription_id =
 		receiver->subscribe_lnb(lnb, retune_mode, (int) subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
-	return (int) subscription_id < 0 ? -1 : ++tune_attempt;
+	return (int) subscription_id < 0;
 }
 
 int subscriber_t::subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
@@ -82,7 +82,7 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_
 	subscription_id = receiver->subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range, retune_mode,
 																										(int) subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
-	return (int) subscription_id < 0 ? -1 : ++tune_attempt;
+	return (int) subscription_id;
 }
 
 int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
@@ -162,25 +162,31 @@ int subscriber_t::subscribe_spectrum(devdb::lnb_t& lnb, chdb::fe_polarisation_t 
 
 int subscriber_t::get_adapter_no() const { return active_adapter ? active_adapter->get_adapter_no() : -1; }
 
-void subscriber_t::notify_signal_info(const chdb::signal_info_t& info) {
+void subscriber_t::notify_signal_info(const chdb::signal_info_t& signal_info) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
-	if (active_adapter && active_adapter->get_lnb_key() == info.stat.k.lnb
+	if (active_adapter && active_adapter->get_lnb_key() == signal_info.stat.k.lnb
 			/* GUI tuned to a specific mux, e.g., positioner_dialog*/
 		) {
-		auto temp = info;
-		temp.tune_attempt = tune_attempt;
-		notify(temp);
+		notify(signal_info);
 	}
+
+
 }
 
-void subscriber_t::notify_signal_info(blindscan_t& blindscan, const chdb::signal_info_t& info) {
+void subscriber_t::notify_scan_mux_end(const scan_report_t& report) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SCAN_MUX_END)))
+		return;
+	notify(report);
+}
+
+void subscriber_t::notify_signal_info(blindscan_t& blindscan, const chdb::signal_info_t& signal_info) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
 	assert(!active_adapter);
 	/*spectrum scan in progress; multiple adapters can be involved in the scan*/
-	if(blindscan.required_lnb_key && *blindscan.required_lnb_key == info.stat.k.lnb) {
-		notify(info);
+	if(blindscan.spectrum_key.lnb_key == signal_info.stat.k.lnb) {
+		notify(signal_info);
 	}
 
 }

@@ -76,7 +76,7 @@ std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaB" :
 		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaC" :
 		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaD" : "unk";
-	stdex::printf(os, "D%dC[0x%06x]#d%d %s[%d]", (int)lnb_key.dish_id, (int)lnb_key.card_mac_address,
+	stdex::printf(os, "D%dC[%06x]#d%d %s[%d]", (int)lnb_key.dish_id, (int)lnb_key.card_mac_address,
 								(int)lnb_key.rf_input,  t, (int)lnb_key.lnb_id);
 	return os;
 }
@@ -396,7 +396,7 @@ devdb::fe_band_t devdb::lnb::band_for_freq(const devdb::lnb_t& lnb, int32_t freq
 int devdb::lnb::driver_freq_for_freq(const devdb::lnb_t& lnb, int frequency) {
 	using namespace chdb;
 	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
-	auto band = (signed)frequency >= freq_mid;
+	int band = (signed)frequency >= freq_mid;
 	frequency = band ? frequency - lof_high : frequency - lof_low;
 	assert( (frequency <0) == inverted_spectrum);
 	frequency = std::abs(frequency);

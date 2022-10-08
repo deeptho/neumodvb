@@ -22,9 +22,11 @@
 
 
 enum class subscription_type_t {
-	NORMAL, /*regular viewing: an lnb is reserved non-exclusively, polband and sat_posh are also reserved
-						non-exlcusively. This mans other lnbs on the same dish can be used by other subscriptions,
-						and slave demods are allowed as well
+	NORMAL, /*regular viewing: resourced are reserved non-exclusively. This means other lnbs on the same dish
+						can be used by other subscriptions
+					*/
+	SCAN, /*scanning muxes in the background: resources are reserved non-exclusively, also reserved
+					non-exclusively
 					*/
 	LNB_EXCLUSIVE,     /*in this case, a second subscriber cannot subscribe to the mux
 						at first tune, position data is used from the lnb. Retunes cannot
@@ -55,10 +57,10 @@ enum class tune_mode_t {
 	IDLE,
 	NORMAL,
 	SPECTRUM,
+	BLIND, //ask driver to scan blindly (not implemented)
 #if 0
 	MUX_BLIND,
 #endif
-	SCAN_BLIND, //ask driver to scan blindly (not implemented)
 	POSITIONER_CONTROL,
 	UNCHANGED
 	};
@@ -104,6 +106,7 @@ struct tune_options_t {
 	tune_mode_t tune_mode;
 	bool use_blind_tune{false};
 	bool may_move_dish{true};
+	bool propagate_scan{true};
 	pls_search_range_t pls_search_range;
 	retune_mode_t retune_mode{retune_mode_t::AUTO};
 
@@ -130,5 +133,4 @@ struct tune_options_t {
 		, subscription_type(subscription_type)
 		{
 		}
-
 };

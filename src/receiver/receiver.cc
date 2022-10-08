@@ -224,9 +224,8 @@ void receiver_thread_t::unsubscribe_all(std::vector<task_queue_t::future_t>& fut
 																				db_txn& devdb_wtxn, subscription_id_t subscription_id) {
 	if ((int)subscription_id < 0)
 		return;
-	if (scanner.get() && scanner->scan_subscription_id == subscription_id) {
+	if (scanner.get()) {
 		unsubscribe_scan(futures, subscription_id);
-		return;
 	}
 	unsubscribe_service_only(futures, subscription_id);
 	unsubscribe_mux_only(futures, devdb_wtxn, subscription_id);
@@ -426,20 +425,21 @@ int receiver_thread_t::exit() {
 	return 0;
 }
 
-scan_stats_t receiver_thread_t::get_scan_stats(subscription_id_t subscription_id) {
-	assert((int) subscription_id >= 0);
+scan_stats_t receiver_thread_t::get_scan_stats(subscription_id_t scan_subscription_id) {
+	assert((int) scan_subscription_id >= 0);
 	// make local copy first, because scanner can be reset at any time
 	auto scanner_copy = scanner;
 	// assert(scanner_copy); //scan should be in progress
 	if (scanner_copy) {
-		auto r = scanner_copy->scan_stats.readAccess();
+		auto& scan = scanner_copy->scans.at(scan_subscription_id);
+		auto r = scan.scan_stats.readAccess();
 		return *r;
 	}
 	return {};
 }
 
-scan_stats_t receiver_t::get_scan_stats(int subscription_id) {
-	return receiver_thread.get_scan_stats((subscription_id_t)subscription_id);
+scan_stats_t receiver_t::get_scan_stats(int scan_subscription_id) {
+	return receiver_thread.get_scan_stats((subscription_id_t) scan_subscription_id);
 }
 
 receiver_t::~receiver_t() {
@@ -452,6 +452,7 @@ receiver_thread_t::~receiver_thread_t() {
 }
 
 void receiver_thread_t::cb_t::abort_scan() {
+	//TODO: this should reset only the subscribed scan
 	if (scanner) {
 		dtdebug("Aborting scan in progress");
 		scanner.reset();
@@ -468,12 +469,9 @@ void receiver_thread_t::cb_t::on_scan_mux_end(const devdb::fe_t& finished_fe, co
 		return;
 	}
 	dtdebug("Calling scanner->on_scan_mux_end: adapter=" <<finished_fe.adapter_no << " " << finished_fe.sub);
-	auto num_left = scanner->on_scan_mux_end(finished_fe, finished_mux);
-	dterrorx("%d muxes left to scan", num_left);
-
-	if (num_left == 0 ) {
+	auto remove_scanner = scanner->on_scan_mux_end(finished_fe, finished_mux);
+	if (remove_scanner) {
 		scanner.reset();
-		return;
 	}
 }
 
@@ -522,9 +520,9 @@ receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 	const devdb::lnb_key_t* required_lnb_key) {
 
 	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
-		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
+		? &old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
 
-
+	assert(!fe_key_to_release || fe_key_to_release->adapter_mac_address !=0);
 	int resource_reuse_bonus;
 	int dish_move_penalty;
 	{
@@ -634,7 +632,7 @@ receiver_thread_t::subscribe_mux_not_in_use(
 	assert(!required_lnb_key);
 
 	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
-		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
+		? &old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
 
 	auto [fe_, released_fe_usecount] = devdb::fe::subscribe_dvbc_or_dvbt_mux<_mux_t>(
 		devdb_wtxn, mux, fe_key_to_release, tune_options.use_blind_tune);
@@ -768,14 +766,16 @@ receiver_thread_t::subscribe_mux(
 		if (lnb_ok(old_active_adapter) && old_active_adapter->is_tuned_to(mux, required_lnb_key)) {
 			if(tune_options.subscription_type == subscription_type_t::NORMAL) {
 				auto& tuner_thread = old_active_adapter->tuner_thread;
-				futures.push_back(tuner_thread.push_task([&tuner_thread, old_active_adapter,  mux]() {
-					cb(tuner_thread).prepare_si(*old_active_adapter, mux, true /*start*/);
+				futures.push_back(tuner_thread.push_task([&tuner_thread, &tune_options, old_active_adapter, mux]() {
+					/*needed in case  the new subscription is a scan
+					 */
+					cb(tuner_thread).restart_si(*old_active_adapter, mux, tune_options, true /*start*/);
 				return 0;
 				}));
 			} else {
 				dtdebug("subscribe " << mux << ": already subscribed to mux");
-				/// during DX-ing retunes need to be forced
-				request_retune(futures, *old_active_adapter, subscription_id);
+				/// during DX-ing and scanning retunes need to be forced
+				request_retune(futures, *old_active_adapter, mux, tune_options, subscription_id);
 			}
 			return {subscription_id, old_active_adapter->fe_key()};
 		}
@@ -849,7 +849,7 @@ receiver_thread_t::subscribe_mux_in_use(
 				continue;
 			}
 			auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
-		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
+				? &old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
 
 			auto fe_key = other_active_adapter->fe->ts.readAccess()->dbfe.k;
 			auto [dbfe, released_fe_usecount] = devdb::fe::subscribe_fe_in_use(devdb_wtxn, fe_key, fe_key_to_release);
@@ -880,7 +880,7 @@ receiver_thread_t::subscribe_mux_in_use(
 			}
 
 			auto& tuner_thread = other_active_adapter->tuner_thread;
-			futures.push_back(tuner_thread.push_task([&tuner_thread, other_active_adapter, tune_options, mux](){
+			futures.push_back(tuner_thread.push_task([&tuner_thread, other_active_adapter, &tune_options, mux](){
 				using namespace chdb;
 				namespace m = chdb::update_mux_preserve_t;
 				/*this forces an SI rescan, and possibly a new scan target
@@ -890,11 +890,9 @@ receiver_thread_t::subscribe_mux_in_use(
 				*/
 
 				assert( mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
-#ifdef TODO
-				//20220906: do not restart si scanning? Test to see if this is beneficial
-				cb(tuner_thread).prepare_si(*other_active_adapter, mux, true /*start*/);
-#endif
-				return cb(tuner_thread).set_tune_options(*other_active_adapter, tune_options);
+				//needed in case the new tune is a scan
+				cb(tuner_thread).restart_si(*other_active_adapter, mux, tune_options, true /*start*/);
+				return 0;
 			}));
 
 			dtdebug("[" << mux << "] subscription_id=" << (int) subscription_id << ": reusing existing mux");
@@ -906,12 +904,15 @@ receiver_thread_t::subscribe_mux_in_use(
 
 int
 receiver_thread_t::request_retune(std::vector<task_queue_t::future_t>& futures, active_adapter_t& active_adapter,
-																			subscription_id_t subscription_id) {
+																	const chdb::any_mux_t& mux,
+																	const tune_options_t& tune_options, subscription_id_t subscription_id) {
 	auto& tuner_thread = active_adapter.tuner_thread;
 	futures.push_back(tuner_thread.push_task(
-											[&tuner_thread, &active_adapter]() { return cb(tuner_thread).request_retune(active_adapter); }));
+											[&tuner_thread, &active_adapter, mux, tune_options]() {
+												return cb(tuner_thread).request_retune(active_adapter, mux,
+																															 tune_options); }));
 
-	dtdebug("sub =" << (int) subscription_id << ": requesting retune");
+	dtdebug("subscription_id=" << (int) subscription_id << ": requesting retune");
 	return 0;
 }
 
@@ -923,7 +924,6 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 	log4cxx::NDC ndc(s);
 
 	std::vector<task_queue_t::future_t> futures;
-	assert(!(scanner.get() && scanner->scan_subscription_id != subscription_id));
 	if ((!scanner.get() && (int)subscription_id >= 0)) {
 		unsubscribe_service_only(futures, subscription_id);
 		auto devdb_wtxn = receiver.devdb.wtxn();
@@ -1027,7 +1027,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
 		? 	& old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
 
-	bool need_blindscan = tune_options.tune_mode == tune_mode_t::SCAN_BLIND;
+	bool need_blindscan = tune_options.tune_mode == tune_mode_t::BLIND;
 	bool need_spectrum = tune_options.tune_mode == tune_mode_t::SPECTRUM;
 	auto [fe_, released_fe_usecount] = devdb::fe::subscribe_lnb_exclusive(
 		devdb_wtxn, lnb, fe_key_to_release, need_blindscan, need_spectrum);
@@ -1558,28 +1558,6 @@ receiver_t::subscribe_lnb_spectrum(devdb::lnb_t& lnb_, const chdb::fe_polarisati
 	return subscription_id;
 }
 
-/*!
-	for use by a blindscan which scans all muxes in a band. Exclusively reserves lnb
-*/
-int
-receiver_t::subscribe_lnb_blindscan(devdb::lnb_t& lnb_, const devdb::fe_band_pol_t& band_pol,
-																		int subscription_id) {
-	auto lnb = reread_lnb(lnb_);
-	std::vector<task_queue_t::future_t> futures;
-	tune_options_t tune_options;
-	// tune_options.start_time = now;
-	tune_options.scan_target = scan_target_t::SCAN_FULL;
-	tune_options.subscription_type = subscription_type_t::LNB_EXCLUSIVE;
-	tune_options.tune_mode = tune_mode_t::SCAN_BLIND;
-	futures.push_back(receiver_thread.push_task([this, &lnb, tune_options, &subscription_id]() {
-		cb(receiver_thread).abort_scan();
-		subscription_id = (int) cb(receiver_thread).subscribe_lnb(lnb, tune_options, (subscription_id_t) subscription_id);
-		return 0;
-	}));
-	wait_for_all(futures);
-	return subscription_id;
-}
-
 int
 receiver_t::subscribe_lnb(devdb::lnb_t& lnb, retune_mode_t retune_mode,
 													int subscription_id) {
@@ -1830,14 +1808,33 @@ void receiver_thread_t::notify_signal_info(const chdb::signal_info_t& signal_inf
 				continue;
 			//Notify spectrum and positioner dialog screens tuned to a single mux
 			ms->notify_signal_info(signal_info);
+
+			//notify spectrum_dialog
 			if(scanner) {
-				for(auto& [key, blindscan]: scanner->blindscans) {
-					if (blindscan.required_lnb_key &&
-							ms->notification.readAccess()->matches(blindscan.sat_pos, *blindscan.required_lnb_key))
-						ms->notify_signal_info(blindscan, signal_info);
-				}
+				scanner->notify_signal_info(*ms, signal_info);
+
 			}
 		}
+	}
+}
+
+void receiver_thread_t::notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report) {
+	{
+		if(!scanner)
+			return;
+		auto mss = receiver.subscribers.readAccess();
+		auto [it, found] = find_in_map_if(
+			*mss, [scan_subscription_id](auto&x) {
+				auto& sub= x.second;
+				return sub->get_subscription_id() == scan_subscription_id;
+			});
+		if(!found)
+			return;
+		auto& ms = it->second;
+		if (!ms)
+			return;
+		//Notify spectrum dialog and muxlist
+		ms->notify_scan_mux_end(report);
 	}
 }
 
@@ -1904,15 +1901,12 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, 
 																	ss::vector_<devdb::lnb_t>* lnbs, bool scan_found_muxes, int max_num_subscriptions,
 																	subscription_id_t subscription_id) {
 	bool init = !scanner.get();
-	if (scanner.get() && (int) subscription_id < 0) {
-		user_error("Scan is already in progress");
-		return subscription_id_t{-1};
-	}
 	if ((int) subscription_id < 0)
 		subscription_id = subscription_id_t{this->next_subscription_id++};
 	if (!scanner)
-		scanner = std::make_unique<scanner_t>(*this, scan_found_muxes, max_num_subscriptions, subscription_id);
-	scanner->add_muxes(muxes, init);
+		scanner = std::make_unique<scanner_t>(*this, scan_found_muxes, max_num_subscriptions);
+
+	scanner->add_muxes(muxes, init, subscription_id);
 	if (lnbs && init)
 		scanner->set_allowed_lnbs(*lnbs);
 	scanner->housekeeping(); // start initial scan
@@ -1924,7 +1918,8 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, 
 */
 void receiver_thread_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 																				 subscription_id_t subscription_id) {
-	scanner.reset();
+	if(scanner.get())
+		scanner->unsubscribe_scan(subscription_id);
 }
 
 

@@ -53,6 +53,7 @@ class subscriber_t;
 
 struct tune_options_t;
 struct spectrum_scan_t;
+struct scan_report_t;
 
 inline void todo(const char*s)
 {
@@ -186,7 +187,9 @@ public:
 	tuner_thread_t operator=(const tuner_thread_t& other) = delete;
 	inline int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
 	inline chdb::any_mux_t prepare_si(active_adapter_t& active_adapter, chdb::any_mux_t mux, bool start);
-	inline int request_retune(active_adapter_t& active_adapter);
+	inline int request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+														const tune_options_t& tune_options);
+
 public:
 
 	class cb_t;
@@ -205,6 +208,8 @@ public:
 
 	int lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
 					 tune_options_t tune_options);
+	void restart_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+									const tune_options_t& tune_options, bool start);
 
 	int tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 					 tune_options_t tune_options, const devdb::resource_subscription_counts_t& use_counts);
@@ -212,7 +217,8 @@ public:
 	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux, tune_options_t tune_options);
 	int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
 	chdb::any_mux_t prepare_si(active_adapter_t& active_adapter, chdb::any_mux_t mux, bool start);
-	int request_retune(active_adapter_t& active_adapter);
+	int request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t&mux,
+										 const tune_options_t& tune_options);
 
 
 	void toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
@@ -332,6 +338,7 @@ struct frontend_idx_t {
 
 class receiver_thread_t : public task_queue_t  {
 	friend class scanner_t;
+	friend class scan_t;
 
 	/// All data in this class can only be accessed serially
 //	mutable std::mutex mutex; //TODO: check when/if this is needed
@@ -447,7 +454,9 @@ protected:
 		const devdb::lnb_key_t* required_lnb_key);
 
 	int request_retune(std::vector<task_queue_t::future_t>& futures,
-										 active_adapter_t& active_adapter, subscription_id_t subscription_id);
+										 active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+										 const tune_options_t& tune_options,
+										 subscription_id_t subscription_id);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		std::vector<task_queue_t::future_t>& futures, db_txn&txn,
@@ -512,8 +521,9 @@ private:
 	virtual int run() final;
 public:
 	//functions safe to call from other threads
-	scan_stats_t get_scan_stats(subscription_id_t subscription_id);
+	scan_stats_t get_scan_stats(subscription_id_t scan_subscription_id);
 	void notify_signal_info(const chdb::signal_info_t& info);
+	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report);
 	class cb_t;
 
 	time_t scan_start_time() const;
@@ -614,7 +624,7 @@ public:
 	safe_subscribed_aa_map subscribed_aas{"receiver", thread_group_t::receiver, {}}; //open muxes, indexed by subscription id
 
 	using subscriber_map = safe::Safe<std::map<void*, std::shared_ptr<subscriber_t>>>;
-	subscriber_map subscribers;//indexed by subscription id
+	subscriber_map subscribers;//indexed by address
 
 
 	chdb::history_mgr_t browse_history;
@@ -627,9 +637,6 @@ public:
 	template<typename _mux_t>
 	int
 	subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id);
-
-	int subscribe_lnb_blindscan(devdb::lnb_t& lnb,  const devdb::fe_band_pol_t& band_pol,
-																						int subscription_id);
 
 	int subscribe_lnb_spectrum(devdb::lnb_t& lnb, const chdb::fe_polarisation_t& pol,
 														 int32_t low_freq, int32_t high_freq,
@@ -686,10 +693,13 @@ public:
 	inline void notify_signal_info(const chdb::signal_info_t& info) {
 		receiver_thread.notify_signal_info(info);
 	}
+	inline void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report) {
+		receiver_thread.notify_scan_mux_end(scan_subscription_id, report);
+	}
 	void notify_spectrum_scan(const statdb::spectrum_t& scan);
 
 	void update_playback_info();
-	scan_stats_t get_scan_stats(int subscription_id);
+	scan_stats_t get_scan_stats(int scan_subscription_id);
 
 	std::shared_ptr<active_adapter_t> active_adapter_for_subscription(subscription_id_t subscription_id);
 

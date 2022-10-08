@@ -31,9 +31,6 @@
 
 using namespace chdb;
 
-
-
-
 /*find a matching mux, based on ts_id, network_id, ignoring  extra_id
 	This is called by the SDT_other parsing code at the moment NIT as not been
 	received and so sat_pos is not yet known. In this case, if the database contains
@@ -271,6 +268,14 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 	}
 	if (preserve & m::SCAN_STATUS) {
 		mux.c.scan_status = db_mux.c.scan_status;
+		/*
+			only one subscriber in 1 process is allowed to scan a mux, otherwise one of the subscribers
+			will never get notified. This must be handled in the subscription code
+		 */
+		assert( mux.c.scan_id == db_mux.c.scan_id || mux.c.scan_id != 0);
+		assert((mux.c.scan_id !=0) || ((mux.c.scan_status != scan_status_t::PENDING) &&
+																	 (mux.c.scan_status != scan_status_t::ACTIVE)));
+		mux.c.scan_id = db_mux.c.scan_id;
 	}
 	dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status << " preserve&SCAN_DATA=" << (preserve & m::SCAN_DATA));
 

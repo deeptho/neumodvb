@@ -26,6 +26,7 @@
 #include "stackstring.h"
 #include "stackstring_impl.h"
 #include "cursors.h"
+#include "util/template_util.h"
 #include "neumodb/neumodb.h"
 #include "neumodb/schema/schema_db.h"
 #include "neumodb/chdb/chdb_extra.h"
@@ -98,7 +99,7 @@ int neumodb_upgrade(const char* from_dbname, const char* to_dbname,
 	}
 
 	///////////specific for recdb ////////////////////
-	if constexpr (std::is_same_v<db_t, recdb::recdb_t>) {
+	if constexpr (is_same_type_v<db_t, recdb::recdb_t>) {
 
 		epgdb::epgdb_t from_epgdb (from_db);
 		epgdb::epgdb_t to_epgdb (to_db);

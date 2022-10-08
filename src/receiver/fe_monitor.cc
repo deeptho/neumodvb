@@ -55,7 +55,7 @@ std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& recei
 
 void fe_monitor_thread_t::monitor_signal() {
 	auto m = fe->ts.readAccess()->tune_mode;
-	if (m != tune_mode_t::NORMAL)
+	if (m != tune_mode_t::NORMAL && m != tune_mode_t::BLIND)
 		return;
 
 	bool get_constellation{true};
@@ -142,7 +142,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 		break;
 	case tune_mode_t::IDLE:
 	case tune_mode_t::NORMAL:
-	case tune_mode_t::SCAN_BLIND:
+	case tune_mode_t::BLIND:
 	case tune_mode_t::POSITIONER_CONTROL:
 	case tune_mode_t::UNCHANGED:
 		fe->set_lock_status(event.status);

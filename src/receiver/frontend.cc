@@ -473,6 +473,10 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 					dvbs_mux->stream_id = -1;
 #endif
 			}
+
+			if(ts.readAccess()->lock_status.matype == -1) {
+			ts.writeAccess()->lock_status.matype = ret.matype;
+			};
 		}
 		auto* p = cmdseq.get(DTV_CONSTELLATION);
 		if(p) {
@@ -591,14 +595,15 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& r
 
 chdb::signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 	chdb::signal_info_t ret{ts.readAccess()->dbfe.k};
-	ret.lock_status = ts.readAccess()->lock_status.fe_status;
 	using namespace chdb;
 	// bool is_sat = true;
 	ret.stat.k.time = system_clock_t::to_time_t(now);
 
 	cmdseq_t cmdseq;
-	if(request_signal_info(cmdseq, ret, get_constellation)<0)
+	if(request_signal_info(cmdseq, ret, get_constellation)<0) {
+		ret.lock_status = ts.readAccess()->lock_status.fe_status; //needs to be done after retrieving signal_info
 		return ret;
+	}
 
 	statdb::signal_stat_entry_t& last_stat = ret.last_stat();
 	auto& signal_strength_stats = cmdseq.get(DTV_STAT_SIGNAL_STRENGTH)->u.st;
@@ -640,6 +645,8 @@ chdb::signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 	}
 
 	get_mux_info(ret, cmdseq, api_type);
+	ret.lock_status = ts.readAccess()->lock_status.fe_status; //needs to be done after retrieving signal_info
+
 	auto* p = cmdseq.get(DTV_CONSTELLATION);
 	if (p) {
 		auto& cs = p->u.constellation;
@@ -751,9 +758,16 @@ void dvb_frontend_t::set_lock_status(fe_status_t fe_status) {
 	auto& t = *ts.writeAccess();
 	// if(fe_status & FE_TIMEDOUT)
 	bool locked_before = t.lock_status.fe_status & FE_HAS_LOCK;
+	if(!locked_now)
+		t.lock_status.matype = -1;
 	if (locked_before && !locked_now)
 		t.lock_status.lock_lost = true;
 	t.lock_status.fe_status = fe_status;
+}
+
+void dvb_frontend_t::clear_lock_status() {
+	auto& t = *ts.writeAccess();
+	t.lock_status = {};
 }
 
 static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
@@ -944,6 +958,10 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 
 
 void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
+	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+				 chdb::mux_common_ptr(mux)->scan_id >0);
+
 	auto w = this->ts.writeAccess();
 	w->reserved_mux = mux;
 }
@@ -980,6 +998,7 @@ inline void spectrum_scan_t::adjust_frequencies(const devdb::lnb_t& lnb, int hig
 
 std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_& spectrum_path) {
 	this->num_constellation_samples = 0;
+	this->clear_lock_status();
 	auto ret = std::make_unique<spectrum_scan_t>();
 	auto& scan = *ret;
 	struct dtv_property p[] = {
@@ -1100,15 +1119,14 @@ void cmdseq_t::init_pls_codes() {
 }
 
 int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options) {
-	this->ts.writeAccess()->tune_options = tune_options;
 	// Clear old tune_mux_confirmation info
+	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
-
 	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO;
 
 	auto ret = -1;
 	dtdebug("Tuning adapter [ " << (int) adapter_no << "] rf_in=" << (int) lnb.k.rf_input
-					<< " DVB-S to " << mux << (blindscan ? "BLIND" : ""));
+					<< " DVB-S to " << mux << (blindscan ? " BLIND" : ""));
 
 	current_delsys_type = chdb::delsys_type_t::DVB_S;
 	//||(mux.symbol_rate < 1000000 &&  ts.readAccess()->dbfe.supports.blindscan);
@@ -1194,7 +1212,6 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 std::tuple<int, int>
 dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options,
 										 bool user_requested, const devdb::resource_subscription_counts_t& use_counts) {
-
 	this->ts.writeAccess()->tune_options = tune_options;
 	dttime_init();
 	auto muxname = chdb::to_str(mux);
@@ -1247,10 +1264,9 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 
 
 int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tune_options) {
-	this->ts.writeAccess()->tune_options = tune_options;
 	// Clear old tune_mux_confirmation info
+	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
-
 	bool blindscan = tune_options.use_blind_tune;
 
 	dtdebug("Tuning adapter [ " << (int) adapter_no << "] DVB-C to " << mux << (blindscan ? "BLIND" : ""));
@@ -1275,16 +1291,15 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 	auto& t = *ts.writeAccess();
 	auto fefd = t.fefd;
 	t.tune_mode = tune_options.tune_mode;
-	t.tune_mode = tune_mode_t::NORMAL;
+	assert(t.tune_mode == tune_mode_t::NORMAL ||t.tune_mode == tune_mode_t::BLIND);
 	int heartbeat_interval = 0;
 	return cmdseq.tune(fefd, heartbeat_interval);
 }
 
 int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tune_options) {
-	this->ts.writeAccess()->tune_options = tune_options;
 	// Clear old tune_mux_confirmation info
+	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
-
 	bool blindscan = tune_options.use_blind_tune;
 
 	dtdebug("Tuning adapter [ " << (int) adapter_no << "] DVB-T to " << mux << (blindscan ? "BLIND" : ""));
@@ -1365,6 +1380,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::lnb_t& lnb, const tune_
 	using namespace chdb;
 	using namespace devdb;
 	auto& options= tune_options.spectrum_scan_options;
+	this->clear_lock_status();
 	this->ts.writeAccess()->tune_options = tune_options;
 	auto lnb_voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, options.band_pol.pol);
 
@@ -1464,6 +1480,10 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::lnb_t& lnb) {
 
 int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
 	// auto reservation_type = dvb_adapter_t::reservation_type_t::mux;
+		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+				 chdb::mux_common_ptr(mux)->scan_id >0);
+
 	int ret = 0;
 	{
 		this->sec_status.retune_count = 0;

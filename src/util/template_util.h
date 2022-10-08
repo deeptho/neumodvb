@@ -34,9 +34,8 @@
 	}(v)																														\
 
 #define set_member(v, m, val)																					\
-	[](auto& x)  {																											\
+	[&](auto& x)  {																											\
 		if has_member(x, m)  {																						\
-				printf("setting %p to %d\n", &x, val);												\
 				x.m =val;																											\
 			}																																\
 	}(v)																																\

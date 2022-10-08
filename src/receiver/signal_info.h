@@ -79,7 +79,6 @@ namespace chdb {
 
 	struct signal_info_t {
 		devdb::fe_key_t fe_key;
-		int tune_attempt{0};
 		any_mux_t driver_mux; /*contains only confirmed information, with information from driver
 														overriding that from si stream. Missing information is filled in with
 														confirmed information*/

@@ -24,13 +24,8 @@
 
 namespace py = pybind11;
 
-void export_scan_stats(py::module& m);
-
-
 void export_subscriber(py::module &m);
 
 
+void export_scan_report(py::module &m);
 void export_signal_info(py::module &m);
-#if 0
-void export_spectrum_scan(py::module &m);
-#endif

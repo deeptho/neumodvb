@@ -37,17 +37,6 @@
 
 namespace py = pybind11;
 
-void export_scan_stats(py::module& m) {
-	py::class_<scan_stats_t>(m, "scan_stats")
-		.def_readonly("scheduled_muxes", &scan_stats_t::scheduled_muxes)
-		.def_readonly("finished_muxes", &scan_stats_t::finished_muxes)
-		.def_readonly("active_muxes", &scan_stats_t::active_muxes)
-		.def_readonly("failed_muxes", &scan_stats_t::failed_muxes)
-		.def_readonly("last_scanned_mux", &scan_stats_t::last_scanned_mux)
-		.def_readonly("last_subscribed_mux", &scan_stats_t::last_subscribed_mux)
-		;
-}
-
 template <typename T> T* wxLoad(py::object src, const wxString& inTypeName) {
 	/* Extract PyObject from handle */
 	PyObject* source = src.ptr();
@@ -159,9 +148,9 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 		throw std::runtime_error("Bad Spectrum and freq need to have same size");
 	ss::vector_<chdb::spectral_peak_t> peaks;
 	peaks.reserve(n);
-	for(int i =0 ; i< n; ++i) {
+	for(int i = n-1 ; i>=0; --i) {
 		peaks.push_back(chdb::spectral_peak_t{(uint32_t) (pfreq[i]*1000), (uint32_t) psr[i],
-				spectrum_key.pol, chdb::spectral_peak_t::scan_status_t::NON_BLIND_PENDING});
+				spectrum_key.pol});
 	}
 	auto subscription_id = subscriber.scan_spectral_peaks(peaks, spectrum_key);
 	return subscription_id;
@@ -242,7 +231,6 @@ void export_signal_info(py::module& m) {
 	using namespace chdb;
 	py::class_<signal_info_t>(m, "signal_info_t")
 		.def(py::init())
-		.def_readonly("tune_attempt", &signal_info_t::tune_attempt)
 		.def_property_readonly("has_carrier", [](const signal_info_t& i) {
 			return (i.lock_status& FE_HAS_CARRIER) ? 1 : 0;
 		})
@@ -364,5 +352,34 @@ void export_signal_info(py::module& m) {
 		.def_property_readonly("min_snr", [](const signal_info_t& i) {
 			return (int)(chdb::min_snr(i.driver_mux)*1000);
 		})
+		;
+}
+
+void export_scan_report(py::module& m) {
+	static bool called = false;
+	if (called)
+		return;
+	called = true;
+	using namespace chdb;
+	py::class_<scan_stats_t>(m, "scan_stats_t")
+		.def(py::init())
+		.def_readwrite("pending_peaks", &scan_stats_t::pending_peaks)
+		.def_readwrite("pending_muxes", &scan_stats_t::pending_muxes)
+		.def_readwrite("active_muxes", &scan_stats_t::active_muxes)
+		.def_readwrite("finished_muxes", &scan_stats_t::finished_muxes)
+		.def_readwrite("failed_muxes", &scan_stats_t::failed_muxes)
+		.def_readwrite("locked_muxes", &scan_stats_t::locked_muxes)
+		.def_readwrite("si_muxes", &scan_stats_t::si_muxes)
+		;
+	py::class_<scan_report_t>(m, "scan_report_t")
+		.def(py::init())
+		.def_readwrite("spectrum_key", &scan_report_t::spectrum_key)
+		.def_readwrite("peak", &scan_report_t::peak)
+		.def_readwrite("mux", &scan_report_t::mux)
+		.def_readwrite("fe_key", &scan_report_t::fe_key)
+		//.def_readwrite("lnb_key", &scan_report_t::lnb_key)
+		//.def_readwrite("sat_pos", &scan_report_t::sat_pos)
+		.def_readwrite("band", &scan_report_t::band)
+		.def_readwrite("scan_stats", &scan_report_t::scan_stats)
 		;
 }

@@ -272,6 +272,11 @@ int active_stream_t::deactivate()
 
 
 chdb::any_mux_t dvb_stream_reader_t::stream_mux() const {
+	auto mux =active_adapter.current_tp();
+	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+				 chdb::mux_common_ptr(mux)->scan_id >0);
+
 	return active_adapter.current_tp();
 }
 
@@ -291,7 +296,8 @@ void dvb_stream_reader_t::set_current_tp(const chdb::any_mux_t& mux) const
 
 const tune_options_t& stream_reader_t::tune_options() const
 {
-	return active_adapter.fe->ts.readAccess()->tune_options;
+	auto& tune_options = active_adapter.fe->ts.readAccess()->tune_options;
+	return tune_options;
 }
 
 void dvb_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& stream_mux)

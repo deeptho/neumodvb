@@ -313,7 +313,7 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 
 	// adapter->update_adapter_can_be_used();
 	frontend_map.emplace(wd, fe);
-	dtdebugx("new frontend adap=%d fe=%d wd=%d\n", (int)fe->adapter_no, (int)fe->frontend_no, wd);
+	dtdebugx("new frontend adapter %d fe=%d wd=%d\n", (int)fe->adapter_no, (int)fe->frontend_no, wd);
 }
 
 void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) {
@@ -330,7 +330,7 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) {
 	//@todo: stop all active muxes and active services
 	fe->stop_frontend_monitor_and_wait();
 	frontend_map.erase(it);
-	dtdebugx("delete frontend adap=%d fe=%d wd=%d count=%ld\n", (int)fe->adapter_no, (int)fe->frontend_no, event->wd,
+	dtdebugx("delete frontend adapter %d fe=%d wd=%d count=%ld\n", (int)fe->adapter_no, (int)fe->frontend_no, event->wd,
 					 frontends.size());
 	{
 		auto t = fe->ts.writeAccess();

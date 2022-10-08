@@ -4,7 +4,7 @@
  * Copyright notice:
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the sGNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
@@ -190,10 +190,10 @@ PYBIND11_MODULE(pyreceiver, m) {
 	export_receiver(m);
 	export_subscriber(m);
 	export_signal_info(m);
+	export_scan_report(m);
 	export_logger(m);
 	export_live_history(m);
 	export_recording_history(m);
-	export_scan_stats(m);
 	export_options(m);
 	m.attr("__version__") = version_info();
 

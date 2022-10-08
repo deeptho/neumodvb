@@ -67,10 +67,11 @@ bool wait_for_all(std::vector<task_queue_t::future_t>& futures) {
 /*
 	returns number of executed tasks, or -1 in case of exit
 */
-int task_queue_t::run_tasks(system_time_t now_) {
+int task_queue_t::run_tasks(system_time_t now_, bool do_acknowledge) {
 	now = now_;
 	// dtdebug("start");
-	acknowledge();
+	if(do_acknowledge)
+		acknowledge();
 	// dtdebug("acknowledged");
 	int count = 0;
 	for (;;) {

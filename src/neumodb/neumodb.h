@@ -180,6 +180,10 @@ public:
 		return  db_cursor(txn, dbi);
 	}
 
+	auto generic_cursor(db_txn& txn, lmdb::dbi& dbi) {
+		return  db_cursor(txn, dbi);
+	}
+
 
 	/*
 		gets the very first record in the database
@@ -187,6 +191,13 @@ public:
 	auto generic_get_first(db_txn&txn) {
 		lmdb::val k{};
 		auto c = generic_cursor(txn);
+		c.get(k, nullptr, MDB_FIRST);
+		return c;
+	}
+
+	auto generic_get_first(db_txn&txn, lmdb::dbi& dbi) {
+		lmdb::val k{};
+		auto c = generic_cursor(txn, dbi);
 		c.get(k, nullptr, MDB_FIRST);
 		return c;
 	}
@@ -256,6 +267,7 @@ public:
 	is left between records.
 */
 int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags);
+int stats_db(neumodb_t& from_db);
 
 namespace schema {
 struct neumo_schema_t;

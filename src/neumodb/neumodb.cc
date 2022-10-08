@@ -105,6 +105,84 @@ int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags) {
 	return 1;
 }
 
+int stats_db(neumodb_t& db) {
+	std::map<int,int> key_sizes;
+	std::map<int,int> val_sizes;
+	std::map<int,int> record_counts;
+	std::map<int,int> index_key_sizes;
+	std::map<int,int> index_val_sizes;
+	std::map<int,int> index_counts;
+	std::map<int,std::string> record_names;
+	std::map<int,std::string> index_names;
+
+	for(int for_index=0; for_index<2; ++for_index) {
+		// using namespace schema;
+		auto from_txn = db.rtxn();
+		auto from_cursor = for_index ?
+			db.generic_get_first(from_txn, db.dbi_index):
+			db.generic_get_first(from_txn);
+
+		/*Check if both databases are related; this does NOT compare if the stored
+			schemas match, but rather that the programmer does not try to convert
+			unrelated databases; the test is a partial test (checks pointers)
+		*/
+		auto& current = *db.dbdesc;
+		for (auto status = from_cursor.is_valid(); status; status = from_cursor.next()) {
+			ss::bytebuffer<32> key;
+			ss::bytebuffer<128> val;
+			from_cursor.get_serialized_key(key);
+			from_cursor.get_serialized_value(val);
+			auto encoded_type_id = *(uint32_t*)key.buffer();
+			auto type_id = decode_ascending(encoded_type_id);
+
+			if(for_index) {
+				auto index_id = type_id;
+				auto* index_desc = current.index_desc_for_index_type(index_id);
+				auto it = index_names.find(index_id);
+
+				if(it == index_names.end()) {
+					auto* desc = current.schema_for_type(index_desc->type_id);
+					index_names[index_id] = record_names[desc->type_id] + " " +
+						std::string(index_desc? index_desc->name.c_str() : "NONAME");
+				}
+				index_key_sizes[index_id] += key.size();
+				index_val_sizes[index_id] += val.size();
+				index_counts[index_id] ++;
+			} else {
+				auto* desc = current.schema_for_type(type_id);
+				auto it = record_names.find(type_id);
+				if(it == record_names.end())
+					record_names[type_id] = std::string(desc? desc->name.c_str() : "NONAME");
+				key_sizes[type_id] += key.size();
+				val_sizes[type_id] += val.size();
+				record_counts[type_id] ++;
+			}
+
+		}
+
+		if(!for_index) {
+			for(auto [type_id, count] : record_counts) {
+				auto key_size = key_sizes[type_id];
+				auto val_size = val_sizes[type_id];
+				printf("%s (0x%x): %d records; key_size=%d val_size=%d\n",
+							 record_names[type_id].c_str(),
+							 type_id, count, key_size, val_size);
+			}
+		} else {
+			for(auto [index_id, count] : index_counts) {
+				auto index_key_size = index_key_sizes[index_id];
+				auto index_val_size = index_val_sizes[index_id];
+				printf("%s (0x%x): %d idx records; key_size=%d val_size=%d\n",
+							 index_names[index_id].c_str(),
+							 index_id, count, index_key_size, index_val_size);
+			}
+
+		}
+
+	}
+	return 1;
+}
+
 int neumodb_t::wait_for_activity(int old_txn_id) {
 	std::unique_lock<std::mutex> lk(activity_mutex);
 	activity_cv.wait(lk, [this, old_txn_id] { return last_txn_id > old_txn_id; });

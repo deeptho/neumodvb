@@ -113,5 +113,6 @@ EXPORT void export_neumodb(py::module& m) {
 				 py::arg("table_name"), py::arg("allow_degraded_mode") = false)
 		// py::keep_alive<0,1>() => ensure that the result of wtxn and rtxn os destroyed before teh database
 		.def("wtxn", &neumodb_t::wtxn, py::keep_alive<0, 1>())
-		.def("rtxn", &neumodb_t::rtxn, py::keep_alive<0, 1>());
+		.def("rtxn", &neumodb_t::rtxn, py::keep_alive<0, 1>())
+		.def("stats", &stats_db);
 }

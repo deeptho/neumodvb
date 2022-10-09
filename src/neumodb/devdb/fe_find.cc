@@ -626,8 +626,8 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t, int>
 devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 													 const devdb::lnb_key_t* required_lnb_key, const devdb::fe_key_t* fe_key_to_release,
-													 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus) {
-	const bool may_move_dish{true};
+																			bool use_blind_tune, bool may_move_dish,
+																			int dish_move_penalty, int resource_reuse_bonus) {
 	int released_fe_usecount{0};
 	auto[best_fe, best_lnb, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_lnb_key,

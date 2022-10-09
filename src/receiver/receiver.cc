@@ -534,7 +534,8 @@ receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 	}
 	assert(!fe_key_to_release || old_active_adapter.get());
 	auto [fe_, lnb_, use_counts_, released_fe_usecount] = devdb::fe::subscribe_lnb_band_pol_sat(
-		devdb_wtxn, mux, required_lnb_key, fe_key_to_release, tune_options.use_blind_tune, dish_move_penalty,
+		devdb_wtxn, mux, required_lnb_key, fe_key_to_release, tune_options.use_blind_tune,
+		tune_options.may_move_dish, dish_move_penalty,
 		resource_reuse_bonus);
 	assert(!fe_key_to_release || old_active_adapter.get());
 

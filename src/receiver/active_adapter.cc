@@ -100,6 +100,9 @@ std::tuple<bool, bool> active_adapter_t::check_status() {
 			}
 		}
 	} break;
+	case TUNE_FAILED:
+		must_reinit_si = true;
+		break;
 	case LOCKED:
 		if (lock_lost) {
 			if (is_locked) {
@@ -150,7 +153,7 @@ int active_adapter_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 		lnb_update_usals_pos(new_usals_sat_pos);
 
 	tune_start_time = system_clock_t::now();
-	tune_state = WAITING_FOR_LOCK;
+	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
 
 	si.deactivate();
 	dtdebugx("tune: done ret=%d\n", ret);

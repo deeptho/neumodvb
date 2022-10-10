@@ -23,6 +23,7 @@
 #include "receiver/neumofrontend.h"
 #include "stackstring/ssaccu.h"
 #include "xformat/ioformat.h"
+#include <signal.h>
 #include <iomanip>
 #include <iostream>
 
@@ -1145,6 +1146,13 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 
 	for(auto mux: c.range())  {
 		assert (mux.c.scan_status == chdb::scan_status_t::PENDING);
+		if(mux.c.scan_id != 0) {
+			auto owner_pid = mux.c.scan_id >>8;
+			if(kill((pid_t)owner_pid, 0)) {
+				dtdebugx("process pid=%d is still active; skip deleting pending status\n", owner_pid);
+				continue;
+			}
+		}
 		mux.c.scan_status = chdb::scan_status_t::IDLE;
 		put_record(wtxn, mux);
 		count++;
@@ -1154,6 +1162,13 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 																 mux_t::partial_keys_t::scan_status);
 	for(auto mux: c.range())  {
 		assert (mux.c.scan_status == chdb::scan_status_t::ACTIVE);
+		if(mux.c.scan_id != 0) {
+			auto owner_pid = mux.c.scan_id >>8;
+			if(kill((pid_t)owner_pid, 0)) {
+				dtdebugx("process pid=%d is still active; skip deleting pending status\n", owner_pid);
+				continue;
+			}
+		}
 		mux.c.scan_status = chdb::scan_status_t::IDLE;
 		put_record(wtxn, mux);
 		count++;

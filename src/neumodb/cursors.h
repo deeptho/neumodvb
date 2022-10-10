@@ -112,7 +112,12 @@ public:
 		return done_;
 	}
 	void next() {
+#if 0
 		done_ = !cursor.is_valid() || !cursor.next(op_next);
+#else
+		if(!done_)
+			done_ = !cursor.next(op_next);
+#endif
 		check_done();
 	}
 };

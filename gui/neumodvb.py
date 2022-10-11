@@ -546,17 +546,27 @@ class NeumoGui(wx.App):
         txn.abort()
         return ret
 
+    @property
+    def devdb(self):
+        return self.receiver.devdb
+
+    @property
+    def chdb(self):
+        return self.receiver.chdb
+
+    @property
+    def epgdb(self):
+        return self.receiver.epgdb
+
+    @property
+    def recdb(self):
+        return self.receiver.recdb
+
+    @property
+    def statdb(self):
+        return self.receiver.statdb
+
     def __init__(self, *args, **kwds):
-        self.devdb=pydevdb.devdb()
-        self.chdb=pychdb.chdb()
-        self.epgdb=pyepgdb.epgdb()
-        self.recdb=pyrecdb.recdb()
-        self.statdb=pystatdb.statdb()
-        self.devdb.open(options.devdb)
-        self.chdb.open(options.chdb)
-        self.epgdb.open(options.epgdb)
-        self.recdb.open(options.recdb)
-        self.statdb.open(options.statdb)
         self.scan_subscription_id = -1
         self.receiver = pyreceiver.receiver_t(options.receiver)
         self.currently_selected_rec = None

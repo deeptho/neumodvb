@@ -172,6 +172,11 @@ void export_receiver(py::module& m) {
 		.def_readonly("rec_browse_history", &receiver_t::rec_browse_history, py::return_value_policy::reference_internal)
 		.def_property_readonly("error_message", [](receiver_t* self) { return get_error().c_str(); })
 		.def_property("options", &receiver_t::get_options, &receiver_t::set_options)
+		.def_readonly("devdb", &receiver_t::devdb)
+		.def_readonly("chdb", &receiver_t::chdb)
+		.def_readonly("epgdb", &receiver_t::epgdb)
+		.def_readonly("recdb", &receiver_t::recdb)
+		.def_readonly("statdb", &receiver_t::statdb)
 		;
 }
 

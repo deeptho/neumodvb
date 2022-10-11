@@ -265,37 +265,37 @@ static std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool> lnb_band_he
 	case lnb_type_t::KaA: {
 		freq_low = lnb.freq_low < 0 ?   18200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 19200000 : lnb.freq_high;
-		freq_mid = (lnb.freq_mid < 0) ? 18700000 : lnb.freq_mid;
-		lof_low =  20250000;
-		lof_high =  20250000;
+		freq_mid = freq_low;
+		lof_low =  17250000;
+		lof_high =  17250000;
 	} break;
 	case lnb_type_t::KaB: {
 		freq_low = lnb.freq_low < 0 ?   19200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 20200000 : lnb.freq_high;
-		freq_mid = (lnb.freq_mid < 0) ? 19700000 : lnb.freq_mid;
-		lof_low =   20250000;
-		lof_high =  20250000;
+		freq_mid = freq_low;
+		lof_low =   18250000;
+		lof_high =  18250000;
 	} break;
 	case lnb_type_t::KaC: {
 		freq_low = lnb.freq_low < 0 ?   20200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 21200000 : lnb.freq_high;
-		freq_mid = (lnb.freq_mid < 0) ? 20700000 : lnb.freq_mid;
-		lof_low =   20250000;
-		lof_high =  20250000;
+		freq_mid = freq_low;
+		lof_low =   19250000;
+		lof_high =  19250000;
 	} break;
 	case lnb_type_t::KaD: {
 		freq_low = lnb.freq_low < 0 ?   21200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 22200000 : lnb.freq_high;
-		freq_mid = (lnb.freq_mid < 0) ? 21700000 : lnb.freq_mid;
+		freq_mid = freq_low;
 		lof_low =   20250000;
 		lof_high =  20250000;
 	} break;
 	case lnb_type_t::KaE: {
 		freq_low = lnb.freq_low < 0 ?   17200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 18200000 : lnb.freq_high;
-		freq_mid = (lnb.freq_mid < 0) ? 17700000 : lnb.freq_mid;
-		lof_low =   20250000;
-		lof_high =  20250000;
+		freq_mid = freq_low;
+		lof_low =   16250000;
+		lof_high =  16250000;
 	} break;
 	default:
 		assert(0);

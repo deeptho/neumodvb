@@ -199,7 +199,9 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	dtdebugx("tune mux action");
 	this->active_adapters[active_adapter.get()] = active_adapter;
 	bool user_requested = true;
-	return active_adapter->tune(mux, tune_options, user_requested);
+	auto ret = active_adapter->tune(mux, tune_options, user_requested);
+	assert (ret>=0 || active_adapter->tune_state == active_adapter_t::TUNE_FAILED);
+	return ret;
 }
 
 template int tuner_thread_t::cb_t::tune<chdb::dvbc_mux_t>(std::shared_ptr<active_adapter_t> active_adapter,
@@ -236,14 +238,14 @@ int tuner_thread_t::exit() {
 int tuner_thread_t::cb_t::remove_active_adapter(active_adapter_t& active_adapter) {
 	auto [it, found] = find_in_map(this->active_adapters, &active_adapter);
 	if (!found) {
-		dterrorx("Request to remove active_adapter");
+		dterrorx("Request to remove active_adapter %d which was already removed", active_adapter.get_adapter_no());
 		return -1;
 	}
 
 	assert(&active_adapter == it->second.get());
-	dtdebug("calling deactivate");
+	dtdebugx("calling deactivate adapter %d", active_adapter.get_adapter_no());
 	active_adapter.deactivate();
-	dtdebug("calling deactivate done");
+	dtdebugx("calling deactivate adapter %d done", active_adapter.get_adapter_no());
 	active_adapters.erase(it);
 	return 0;
 }
@@ -300,7 +302,7 @@ void tuner_thread_t::livebuffer_db_update_(system_time_t now_) {
 			if (c.is_valid()) {
 				auto live_service = c.current();
 				live_service.update_time = now;
-				dtdebug("Updating live service adap=" << tuner.get_adapter_no() << " create=" << creation_time
+				dtdebug("Updating live service adapter " << tuner.get_adapter_no() << " create=" << creation_time
 								<< " update=" << now);
 				recdb::put_record_at_key(c, c.current_serialized_primary_key(), live_service);
 			}

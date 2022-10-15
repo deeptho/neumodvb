@@ -324,8 +324,8 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
 	bool no_data = (network_id == 0 && ts_id == 0);
-	dtdebugx("There is no nit_actual on this tp - faking one with sat_pos=%d network_id=%d, ts_id=%d", expected_sat_pos,
-					 network_id, ts_id);
+	dtdebugx("There is no nit_actual on this tp - faking one with sat_pos=%d network_id=%d, ts_id=%d tuned_mux=%s",
+					 expected_sat_pos, network_id, ts_id, chdb::to_str(reader->stream_mux()).c_str());
 	auto mux = reader->stream_mux();
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
@@ -577,7 +577,7 @@ void active_si_stream_t::check_timeouts() {
 		out.sprintf(" epg[0x%x]=%d/%d", pid, c.num_completed, c.num_known);
 	}
 	out.sprintf(" eit=%d/%d", eit_data.eit_other_existing_records, eit_data.eit_other_updated_records);
-
+	out.sprintf(" tuned_mux=%s", chdb::to_str(reader->stream_mux()).c_str());
 	if (delayed_print || last != out) {
 		if (timedout) {
 			dtdebug(out);
@@ -928,6 +928,7 @@ void active_si_stream_t::finalize_scan(bool done)
 		mux_common->scan_result = chdb::scan_result_t::NOLOCK;
 		mux_common->tune_src = chdb::tune_src_t::AUTO;
 	}
+	dtdebug("SET IDLE " << mux);
 	mux_common->scan_status = chdb::scan_status_t::IDLE;
 	mux_common->scan_duration = scan_state.scan_duration();
 	mux_common->scan_time = system_clock_t::to_time_t(now);
@@ -1586,10 +1587,10 @@ chdb::update_mux_ret_t active_si_stream_t::update_mux(db_txn& wtxn, chdb::any_mu
 			//do not scan transponders on the wrong sat
 			if(!is_active_mux &&
 				 (!pdbc || pdbc->mtime < scan_start_time) && ! on_wrong_sat) {
+				dtdebug("SET PENDING " << mux);
 				mux_common_ptr(mux)->scan_status = scan_status_t::PENDING;
 				assert(scan_id > 0);
 				mux_common_ptr(mux)->scan_id = scan_id;
-				dtdebug("SET PENDING " << mux);
 				assert((mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 								mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
 							 mux_common_ptr(mux)->scan_id >0);
@@ -1626,11 +1627,10 @@ chdb::any_mux_t active_si_stream_t::add_new_mux(db_txn& txn, chdb::any_mux_t& mu
 			/*ensure that found muxes are scanned, unless they have been scanned already
 				in the current run*/
 			assert(!pdbc); //otherwise this is not a new mux
+			dtdebug("SET PENDING " << mux);
 			mux_common_ptr(mux)->scan_status = scan_status_t::PENDING;
 			assert (c.scan_id > 0);
 			mux_common_ptr(mux)->scan_id = c.scan_id;
-
-			dtdebug("SET PENDING " << mux);
 		}
 		return true;
 	};

@@ -191,7 +191,7 @@ void receiver_thread_t::unsubscribe_mux_only(std::vector<task_queue_t::future_t>
 void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
 																							 std::shared_ptr<active_adapter_t>& active_adapter,
 																						 db_txn& devdb_wtxn, subscription_id_t subscription_id) {
-	dtdebugx("Unsubscribe subscription_id=%d", (int)subscription_id);
+	dtdebugx("release_active_adapter subscription_id=%d", (int)subscription_id);
 	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
 
@@ -576,7 +576,7 @@ receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 				return ret;
 			}));
 		auto adapter_no =  old_active_adapter->get_adapter_no();
-		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adap=" <<
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adapter " <<
 					adapter_no << " " << mux);
 
 	} else {
@@ -599,7 +599,7 @@ receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 			return ret;
 		}));
 		auto adapter_no =  active_adapter->get_adapter_no();
-		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " adap=" <<
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " adapter " <<
 					adapter_no << " " << mux);
 	}
 	return {subscription_id, fe.k};
@@ -672,7 +672,7 @@ receiver_thread_t::subscribe_mux_not_in_use(
 				return ret;
 			}));
 		auto adapter_no =  old_active_adapter->get_adapter_no();
-		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adap=" <<
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adapter " <<
 					adapter_no << " " << mux);
 
 	} else {
@@ -877,6 +877,8 @@ receiver_thread_t::subscribe_mux_in_use(
 			{
 				auto w = receiver.subscribed_aas.writeAccess();
 				(*w)[subscription_id] = other_active_adapter;
+				dtdebugx("subscription_id=%d adapter_no=%d other_active_adapter=%p", (int)subscription_id,
+								 other_active_adapter->get_adapter_no(), other_active_adapter.get());
 			}
 
 			auto& tuner_thread = other_active_adapter->tuner_thread;
@@ -1071,7 +1073,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 			return ret;
 		}));
 		auto adapter_no =  old_active_adapter->get_adapter_no();
-		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adap=" << adapter_no);
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " using old adapter " << adapter_no);
 	} else { //if !is_same_frontend
 		old_active_adapter.reset(); //prevent accidental reuse
 

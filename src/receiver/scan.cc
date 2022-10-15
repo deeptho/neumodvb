@@ -213,6 +213,7 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbc_mux_t>) {
 		}
 		mux.stream_id = -1;
+		dtdebug("SET PENDING " << mux);
 		mux.c.scan_status = scan_status_t::PENDING;
 		assert(mux.c.scan_id == scan_id);
 		const bool use_blind_tune = true;
@@ -265,6 +266,7 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 			assert(mux.k.sat_pos == blindscan.spectrum_key.sat_pos);
 			mux.symbol_rate = subscription.peak.symbol_rate;
 		}
+		dtdebug("SET PENDING " << mux);
 		mux.stream_id = -1;
 		mux.c.scan_status = scan_status_t::PENDING;
 		auto c = find_by_mux_physical(chdb_rtxn, mux, true/*ignore_stream_ids*/);
@@ -281,6 +283,7 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 		} else {
 			subscription.is_peak_scan = true;
 		}
+		dtdebug("SET PENDING " << mux);
 		mux.c.scan_status = scan_status_t::PENDING;
 		mux.c.scan_id = scan_id;
 		subscription.mux = mux;
@@ -464,7 +467,6 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 		subscription.mux = mux_to_scan;
 
 		auto pol = get_member(mux_to_scan, pol, chdb::fe_polarisation_t::NONE);
-		assert(mux_to_scan.k.sat_pos == 700); //TODO: remove
 		blindscan_key_t key = {mux_to_scan.k.sat_pos, pol, mux_to_scan.frequency};
 		auto [it, found] = find_in_map(blindscans, key);
 		devdb::lnb_key_t* required_lnb_key{nullptr};
@@ -583,7 +585,9 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		if( (int) subscription_to_erase1 >=0)
 			subscription_to_erase = subscription_to_erase1;
 
-		dtdebugx("finished_subscription_id=%d pending=%d+%d skipped=%d+%d", (int) finished_subscription_id,
+		dtdebugx("finished_subscription_id=%d subscription_to_erase =%d pending=%d+%d skipped=%d+%d",
+						 (int) finished_subscription_id,
+						 (int) subscription_to_erase,
 						 num_pending_peaks, num_pending_muxes, num_skipped_peaks, num_skipped_muxes);
 
 		add_completed(finished_fe, finished_mux, num_pending_muxes, num_pending_peaks);
@@ -720,8 +724,9 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 
 	report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", reuseable_subscription_id, subscription_id,
 				 *subscription.mux, subscriptions);
-	dtdebug("Asked to subscribe " << *subscription.mux << " reuseable_subscription_id="  << (int) reuseable_subscription_id
-					<< " subscription_id=" << (int) subscription_id << " peak=" << subscription.peak.frequency
+	dtdebug("Asked to subscribe " << *subscription.mux << " reuseable_subscription_id="  <<
+					(int) reuseable_subscription_id << " subscription_id=" << (int) subscription_id <<
+					" peak=" << subscription.peak.frequency
 		);
 	auto error = wait_for_all(futures); // must be done before continuing this loop (?)
 
@@ -733,6 +738,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 			wait_for_all(futures);
 			auto chdb_wtxn = receiver.chdb.wtxn();
 			auto &c = *chdb::mux_common_ptr(*subscription.mux);
+			dtdebug("SET IDLE " << *subscription.mux);
 			c.scan_status = chdb::scan_status_t::IDLE;
 			c.scan_result = chdb::scan_result_t::NOLOCK;
 			c.scan_id = 0;
@@ -794,6 +800,7 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 
 	for(auto mux: c.range())  {
 		assert (mux.c.scan_status == chdb::scan_status_t::PENDING);
+		dtdebug("SET IDLE " << mux);
 		mux.c.scan_status = chdb::scan_status_t::IDLE;
 		put_record(wtxn, mux);
 		count++;
@@ -857,7 +864,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, bool init, subscriptio
 		}
 #endif
 		auto mux = mux_;
-		assert(mux.k.sat_pos == 700); //TODO: remove
+		dtdebug("SET PENDING " << mux);
 		mux.c.scan_status = chdb::scan_status_t::PENDING;
 		mux.c.scan_id = scan_id;
 		put_record(wtxn, mux);

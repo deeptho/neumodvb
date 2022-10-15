@@ -289,8 +289,11 @@ void active_adapter_t::on_first_pat() {
 void active_adapter_t::monitor() {
 	assert(fe);
 	auto tune_mode = fe->ts.readAccess()->tune_options.tune_mode;
-	if(tune_mode != tune_mode_t::NORMAL && tune_mode != tune_mode_t::BLIND)
+	if(tune_mode != tune_mode_t::NORMAL && tune_mode != tune_mode_t::BLIND) {
+		dtdebugx("adapter %d NO MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
 		return;
+	}
+	dtdebugx("adapter %d MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
 	bool must_retune{false};
 	bool must_reinit_si{false};
 	bool must_reset_si{false};
@@ -368,7 +371,7 @@ active_adapter_t::active_adapter_t(receiver_t& receiver_, std::shared_ptr<dvb_fr
 
 
 active_adapter_t::~active_adapter_t() {
-	dtdebugx("Adapter %d frontend %d destroyed\n", get_adapter_no(), frontend_no());
+	dtdebugx("~active_adapter_t: %p. Adapter %d frontend %d destroyed\n", this, get_adapter_no(), frontend_no());
 }
 
 int active_adapter_t::open_demux(int mode) const {
@@ -505,6 +508,7 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 	auto* muxc = mux_common_ptr(mux);
 	bool must_activate{false};
 	if(muxc->scan_status == scan_status_t::PENDING || muxc->scan_status == scan_status_t::ACTIVE)  {
+		dtdebug("SET ACTIVE " << mux);
 		muxc->scan_status = scan_status_t::ACTIVE;
 		assert (muxc->scan_id > 0);
 		must_activate = true;
@@ -548,7 +552,8 @@ void active_adapter_t::end_si() {
 }
 
 
-static void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, devdb::lnb_t& lnb, int tuned_frequency) {
+static void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, devdb::lnb_t& lnb,
+															 int tuned_frequency, int adapter_no) {
 
 	auto [band, voltage_, freq_] = devdb::lnb::band_voltage_freq_for_mux(lnb, dvbs_mux);
 	/*
@@ -566,7 +571,7 @@ static void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, devdb::lnb_t& l
 	int delta = (int)tuned_frequency - (int)dvbs_mux.frequency; //additional correction  needed
 	lnb.lof_offsets[band] += learning_rate * delta;
 
-	dtdebugx("Updated LOF: %d => %d", old, lnb.lof_offsets[band]);
+	dtdebugx("adapter %d Updated LOF: %d => %d", adapter_no, old, lnb.lof_offsets[band]);
 	if (std::abs(lnb.lof_offsets[band]) > 5000)
 		lnb.lof_offsets[band] = 0;
 }
@@ -586,7 +591,7 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 				using namespace chdb;
 				//ss::vector<int32_t, 2> lof_offsets;
 				auto& lnb = w->reserved_lnb;
-				set_lnb_lof_offset(*dvbs_mux, lnb, w->tuned_frequency);
+				set_lnb_lof_offset(*dvbs_mux, lnb, w->tuned_frequency, get_adapter_no());
 			}
 		}
 		w->tune_confirmation = tune_confirmation;
@@ -597,7 +602,7 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 		auto r = fe->ts.readAccess();
 		auto& lnb = r->reserved_lnb;
 		if(dvbs_mux->c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
-			dtdebug("Updating LNB LOF offset");
+			dtdebugx("adapter %d Updating LNB LOF offset", get_adapter_no());
 			update_lof(*r, lnb.lof_offsets);
 		}
 	}
@@ -621,15 +626,6 @@ void active_adapter_t::check_scan_mux_end()
 		auto dbfe = this->fe->dbfe();
 		auto mux = si.reader->stream_mux();
 		dtdebug("calling on_scan_mux_end dbfe=" <<dbfe << " mux=" <<mux);
-
-	{
-		int frequency;
-		auto m = mux;
-		std::visit([&frequency](auto& mux)  {
-			frequency= get_member(mux, frequency, -1);
-		},
-			m);
-	}
 		auto& receiver_thread = receiver.receiver_thread;
 		receiver_thread.push_task([&receiver_thread, dbfe, mux]() {
 			cb(receiver_thread).on_scan_mux_end(dbfe, mux);
@@ -639,8 +635,6 @@ void active_adapter_t::check_scan_mux_end()
 	scan_mux_end_reported = true;
 }
 
-
-
 void active_adapter_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 {
 	std::optional<db_txn> txn;
@@ -649,14 +643,19 @@ void active_adapter_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 			txn.emplace(receiver.chdb.wtxn());
 		return *txn;
 	};
-
 	auto* mux_key = mux_key_ptr(signal_info.driver_mux);
 	auto* c = mux_common_ptr(signal_info.driver_mux);
-	bool is_active = c->scan_status == scan_status_t::ACTIVE;
 	auto scan_id = c->scan_id;
+	int tuned_stream_id{-1};
+	std::visit([&tuned_stream_id](auto &mux) {
+		tuned_stream_id = get_member(mux, stream_id, -1);
+	}, signal_info.driver_mux);
+
 	for(auto ma: signal_info.matype_list) {
 		auto stream_id = ma & 0xff;
 		if(this->processed_isis.test(stream_id))
+			continue;
+		if(stream_id == tuned_stream_id)
 			continue;
 		last_new_matype_time = steady_clock_t::now();
 		//we have found a new stream_id
@@ -664,10 +663,7 @@ void active_adapter_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 		auto matype = ma >> 8;
 		auto is_dvb = ((ma >> 14) & 0x3) == 0x3;
 		*c = chdb::mux_common_t{};
-		if(is_dvb && is_active) {
-			c->scan_status = scan_status_t::PENDING;
-			c->scan_id = scan_id;
-		}
+
 		mux_key->network_id = 0; //unknown
 		mux_key->ts_id = 0; //unknown
 		mux_key->extra_id = 0; //unknown
@@ -682,9 +678,48 @@ void active_adapter_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 
 		c->tune_src = tune_src_t::DRIVER;
 		namespace m = chdb::update_mux_preserve_t;
+
+		auto update_scan_status =[&](const chdb::mux_common_t* pdbc) {
+			bool is_active = c->scan_status == scan_status_t::ACTIVE;
+			if( is_active) {
+				*c = *pdbc;
+				return true;
+			}
+			if(is_dvb) {
+				if(!pdbc) { //there is no mux for this stream yet; create one
+					assert(c->scan_status != scan_status_t::IDLE); //@TODO remove - not valid in general
+					c->scan_status = scan_status_t::PENDING;
+						c->scan_id = scan_id;
+				} else {
+					*c = *pdbc;
+					//leave the existing mux alone (e.g., may be already being scanned, even if status is PENDING)
+				}
+				} else { //not dvb
+				if(pdbc)
+					*c = *pdbc;
+				if(pdbc && (pdbc->scan_status == scan_status_t::PENDING ||
+										pdbc->scan_status == scan_status_t::NONE ||
+										(pdbc->scan_status != scan_status_t::ACTIVE &&
+										 c->scan_result != chdb::scan_result_t::NODVB))
+					) { //cancel any pending scan
+					c->scan_result = chdb::scan_result_t::NODVB;
+					c->scan_duration = std::chrono::duration_cast<std::chrono::seconds>(system_clock_t::now()
+																																							- tune_start_time).count();
+					c->scan_time = system_clock_t::to_time_t(now);
+					c->scan_status = scan_status_t::IDLE;
+					c->scan_id = 0;
+				}
+			}
+			return true;
+		};
+
 		//The following inserts a mux for each discovered multistream, but only if none exists yet
 		auto& wtxn = get_txn();
-		chdb::update_mux(wtxn, signal_info.driver_mux, now, m::ALL);
+#if 0
+		dtdebug("XXXXXXX loop stream_id="  <<  (int) stream_id << ": " << signal_info.driver_mux);
+#endif
+		chdb::update_mux(wtxn, signal_info.driver_mux, now, m::flags{m::ALL & ~m::MUX_KEY & ~m::SCAN_STATUS &
+				~m::SCAN_DATA}, update_scan_status);
 	}
 	if(txn)
 		txn->commit();

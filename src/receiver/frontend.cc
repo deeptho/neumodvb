@@ -1125,7 +1125,7 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO;
 
 	auto ret = -1;
-	dtdebug("Tuning adapter [ " << (int) adapter_no << "] rf_in=" << (int) lnb.k.rf_input
+	dtdebug("Tuning adapter " << (int) adapter_no << " rf_in=" << (int) lnb.k.rf_input
 					<< " DVB-S to " << mux << (blindscan ? " BLIND" : ""));
 
 	current_delsys_type = chdb::delsys_type_t::DVB_S;
@@ -1202,6 +1202,8 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 	}
 	auto fefd = t.fefd;
 	t.use_blind_tune = blindscan;
+	dtdebugx("change tune mode on adapter %d from %d to %d\n", (int)adapter_no,
+					 (int) t.tune_mode, (int) tune_options.tune_mode);
 	t.tune_mode = tune_options.tune_mode;
 	int heartbeat_interval = (api_type == api_type_t::NEUMO) ? 1000 : 0;
 	ret = cmdseq.tune(fefd, heartbeat_interval);
@@ -1225,6 +1227,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 		this->sec_status.retune_count++;
 
 	//abort the current operation of the frontend making it go to IDLE mode
+	dtdebug("calling stop");
 	if (this->stop() < 0)  /* Force the driver to go into idle mode immediately, so
 																	that the fe_monitor_thread_t will also return immediately*/
 		return {-1, sat_pos_none};
@@ -1234,7 +1237,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);
 	assert(dvbs_mux);
 	int ret;
-	int new_usals_sat_pos;
+	int new_usals_sat_pos{sat_pos_none};
 	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
 	if(api_version >=1500) {
 		auto fefd = ts.readAccess()->fefd;
@@ -1290,6 +1293,8 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 
 	auto& t = *ts.writeAccess();
 	auto fefd = t.fefd;
+	dtdebugx("change tune mode on adapter %d from %d to %d\n", (int) adapter_no,
+					 (int) t.tune_mode, (int) tune_options.tune_mode);
 	t.tune_mode = tune_options.tune_mode;
 	assert(t.tune_mode == tune_mode_t::NORMAL ||t.tune_mode == tune_mode_t::BLIND);
 	int heartbeat_interval = 0;
@@ -1348,6 +1353,8 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 	auto& t = *ts.writeAccess();
 	auto fefd = t.fefd;
 	t.use_blind_tune = tune_options.use_blind_tune;
+	dtdebugx("change tune mode on adapter %d from %d to %d\n",
+					 (int) adapter_no, (int) t.tune_mode, (int) tune_options.tune_mode);
 	t.tune_mode = tune_options.tune_mode;
 	int heartbeat_interval = 0;
 	return cmdseq.tune(fefd, heartbeat_interval);
@@ -1526,6 +1533,8 @@ int dvb_frontend_t::release_fe() {
 		monitor_thread.reset();
 	}
 	{
+		dtdebugx("change tune mode on adapter %d: clear from %d", (int)adapter_no,
+						 (int) this->ts.readAccess()->tune_mode);
 		*this->ts.writeAccess() = {};
 		*this->signal_monitor.writeAccess() = {};
 		this->sec_status = {};

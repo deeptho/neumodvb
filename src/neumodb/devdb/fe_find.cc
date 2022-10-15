@@ -460,7 +460,9 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		bool lnb_can_control_rotor = devdb::lnb::can_move_dish(lnb);
 		bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
 
-		if (lnb_is_on_rotor && (!may_move_dish || (! lnb_can_control_rotor && (usals_move_amount >= 30))))
+		if (lnb_is_on_rotor && (usals_move_amount >= 30) &&
+				(!may_move_dish || ! lnb_can_control_rotor)
+			)
 			continue; //skip because dish movement is not allowed or  not possible
 
 		auto lnb_priority = network_priority >= 0 ? network_priority : lnb.priority;

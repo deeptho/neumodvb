@@ -689,11 +689,11 @@ void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb)
 	auto c = fe_t::find_by_card_mac_address(wtxn, lnb.k.card_mac_address);
 	if(c.is_valid()) {
 		const auto& fe = c.current();
-		lnb.name.clear();
+		lnb.connection_name.clear();
 		if (lnb.card_no >=0)
-			lnb.name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
+			lnb.connection_name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
 		else
-			lnb.name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
+			lnb.connection_name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
 		lnb.can_be_used = fe.can_be_used;
 		lnb.card_no = fe.card_no;
 	}
@@ -754,10 +754,10 @@ void devdb::lnb::update_lnb_adapter_fields(db_txn& wtxn, const devdb::fe_t& fe) 
 		}
 		assert (lnb.k.card_mac_address == fe.card_mac_address);
 		auto can_be_used =  valid_rf_input ? fe.can_be_used : false;
-		bool changed = (lnb.name != name) ||(lnb.card_no != fe.card_no) || (lnb.can_be_used != can_be_used);
+		bool changed = (lnb.connection_name != name) ||(lnb.card_no != fe.card_no) || (lnb.can_be_used != can_be_used);
 		if (!changed)
 			continue;
-		lnb.name = name;
+		lnb.connection_name = name;
 		lnb.card_no = fe.card_no;
 		lnb.can_be_used = can_be_used;
 		put_record(wtxn, lnb);

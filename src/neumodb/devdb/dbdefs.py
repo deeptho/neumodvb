@@ -237,7 +237,7 @@ lnb = db_struct(name='lnb',
                           #  when we will reach destination)
                           (9, 'ss::string<16>' , 'tune_string', '"UCP"'),
                           (13, 'ss::vector<lnb_network_t,1>' , 'networks'),
-                          (16,  'ss::string<16>', 'name'), #optional name
+                          (16,  'ss::string<16>', 'connection_name'),
                           (17, 'ss::vector<int32_t,2>' , 'lof_offsets'), #ofset of the local oscillator (one per band)
                 ))
 

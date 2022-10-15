@@ -74,10 +74,10 @@ def lnb_label(lnb):
     t= lastdot(lnb.k.lnb_type)
     if t != 'C':
         t='Ku'
-    return f'{lnb.name.split(" ")[0]}  {sat_pos:>5}{t} {lnb.k.lnb_id}'
+    return f'{lnb.connection_name.split(" ")[0]}  {sat_pos:>5}{t} {lnb.k.lnb_id}'
 
 def card_label(lnb):
-    parts = lnb.name.split(" ")
+    parts = lnb.connection_name.split(" ")
     short_name = parts[0]
     name = " ".join(parts[1:])
     short_name = short_name.split('#')[0]
@@ -100,7 +100,8 @@ class LnbTable(NeumoTable):
                       label='LNB', basic=True, readonly=True)
                               ]
     all_columns = \
-        [CD(key='name',  label='LNB', basic=True, readonly=True, example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
+        [CD(key='connection_name',  label='LNB', basic=True, readonly=True,
+            example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
          CD(key='k.card_mac_address',  label='card', basic=True, no_combo=False, readonly=False, dfn=card_fn,
             example=" C0: TBS 6904SE "),
@@ -139,7 +140,7 @@ class LnbTable(NeumoTable):
          CD(key='transmission_mode', label='transmission_mode')]
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'name'
+        initial_sorted_column = 'connection_name'
         data_table= pydevdb.lnb
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)

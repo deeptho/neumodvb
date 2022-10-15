@@ -54,7 +54,7 @@ def subscription_fn(x):
     e = neumodbutils.enum_to_str
     if t != 'C':
         t='Ku'
-    f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}'
+    f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}-{sub.stream_id}'
     return f'#{sub.lnb_key.rf_input} {sat_pos:>5}{t} {f} {sub.lnb_key.lnb_id}'
 
 class FrontendTable(NeumoTable):
@@ -74,12 +74,14 @@ class FrontendTable(NeumoTable):
          CD(key='k.frontend_no',  label='fe', basic=True, readonly=True),
          CD(key='fe_enable_menu',  label='enable', basic=False, cfn=enable_cfn, dfn=enable_dfn, sfn=enable_sfn,
             example=" DVB T+C "),
-         CD(key='sub.lnb_key.card_mac_address',  label='subscription', basic=True, dfn=subscription_fn, example='#0 28.2EKu 10714.250H 1234'),
+         CD(key='sub.lnb_key.card_mac_address',  label='subscription', basic=True, dfn=subscription_fn, example='#0 28.2EKu 10714.250H-255 1234'),
          CD(key='sub.use_count',  label='fe use\ncount', basic=True, readonly=True),
          CD(key='rf_inputs',  label='rf\ninput', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916X "),
          CD(key='rf_in',  label='RF#', basic=True, readonly=True),
          CD(key='card_no',  label='card#', basic=True, readonly=True),
+         #CD(key='card_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
+         #    dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
          CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
              dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
          CD(key='card_address',  label='Bus', basic=True, example=" Turbosight 6909x "),

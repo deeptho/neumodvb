@@ -305,6 +305,7 @@ fe_subscription = db_struct(name='fe_subscription',
                                      (7, 'int16_t', 'usals_pos', 'sat_pos_none'),
                                      (2, 'int16_t', 'use_count', '0'),
                                      (3, 'int32_t', 'frequency', '0'),
+                                     (8, 'int32_t', 'stream_id', '-1'),
                 ))
 
 

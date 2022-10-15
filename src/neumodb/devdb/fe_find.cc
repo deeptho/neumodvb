@@ -38,8 +38,8 @@ int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	assert(c.is_valid());
 	auto fe = c.current(); //update in case of external changes
-	dtdebugx("adapter %d %d%c use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
-					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.use_count);
+	dtdebugx("adapter %d %d%c-%d use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	assert(fe.sub.use_count>=1);
 	if(--fe.sub.use_count == 0) {
 		fe.sub = {};
@@ -51,7 +51,7 @@ int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 }
 
 /*
-	returns the remaining use_count of the unsiscribed fe
+	returns the remaining use_count of the unsubscribed fe
  */
 int fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
 	assert(fe::is_subscribed(fe));
@@ -67,8 +67,8 @@ std::tuple<devdb::fe_t, int> fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_
 	int released_fe_usecount{0};
 	assert(fe.sub.use_count>=1);
 	++fe.sub.use_count;
-	dtdebugx("adapter %d %d%c use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
-					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.use_count);
+	dtdebugx("adapter %d %d%c-%d use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 
 	if(fe_key_to_release)
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
@@ -519,7 +519,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 }
 
 int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb,
-																					 devdb::fe_band_t band,  chdb::fe_polarisation_t pol, int frequency)
+																					 devdb::fe_band_t band,  chdb::fe_polarisation_t pol,
+																					 int frequency, int stream_id)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
@@ -536,8 +537,9 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const 
 	sub.band = band;
 	sub.usals_pos = lnb.usals_pos;
 	sub.frequency = frequency; //for informational purposes
-	dtdebugx("adapter %d %d%c use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
-					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.use_count);
+	sub.stream_id = stream_id; //for informational purposes
+	dtdebugx("adapter %d %d%c-%d use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -558,15 +560,15 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const dev
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = sat_pos_none;
-	dtdebugx("adapter %d %d%c use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
-					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.use_count);
+	sub.frequency = 0;
+		sub.stream_id = -1;
+	dtdebugx("adapter %d %d%c-%d use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
 }
 
-
-
-int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency)
+int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency, int stream_id)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
@@ -583,6 +585,7 @@ int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool i
 	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = is_dvbc ? sat_pos_dvbc : sat_pos_dvbt;
 	sub.frequency = frequency; //for informational purposes only
+	sub.stream_id = stream_id; //for informational purposes only
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -640,7 +643,7 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 	if(!best_fe)
 		return {}; //no frontend could be found
 	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, *best_fe, *best_lnb, devdb::lnb::band_for_mux(*best_lnb, mux),
-																										mux.pol, mux.frequency);
+																										mux.pol, mux.frequency, mux.stream_id);
 	best_use_counts.dish++;
 	best_use_counts.lnb++;
 	best_use_counts.rf_coupler++;
@@ -673,7 +676,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 	if(!best_fe)
 		return {}; //no frontend could be found
 
-	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency);
+	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency, mux.stream_id);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, released_fe_usecount};
 }

@@ -250,11 +250,11 @@ namespace devdb::fe {
 	int unsubscribe(db_txn& wtxn, fe_t& fe);
 
 	int reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb,
-																	devdb::fe_band_t band,  chdb::fe_polarisation_t pol, int frequency);
+																	devdb::fe_band_t band,  chdb::fe_polarisation_t pol, int frequency, int stream_id);
 
 
 	int reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const devdb::lnb_t& lnb);
-	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency);
+	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency, int stream_id);
 
 	template<typename mux_t>
 	std::tuple<std::optional<devdb::fe_t>, int>

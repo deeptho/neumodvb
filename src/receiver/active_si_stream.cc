@@ -2516,7 +2516,10 @@ active_si_stream_t::~active_si_stream_t() { deactivate(); }
 
 bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_mux_t& mux) {
 	//auto& c = *mux_common_ptr(mux);
-	auto monitor = active_adapter().fe->monitor_thread;
+	auto& aa = active_adapter();
+	if(aa.tune_state == active_adapter_t::TUNE_FAILED)
+		return false;
+	auto monitor = aa.fe->monitor_thread;
 	chdb::signal_info_t signal_info;
 	assert(!is_template(mux)); //otherwise we should not be called
 	if (monitor) {

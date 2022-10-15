@@ -589,10 +589,7 @@ bool dvbdev_monitor_t::renumber_cards() {
 
 void dvbdev_monitor_t::update_lnbs() {
 	auto devdb_wtxn = this->devdb_wtxn();
-	auto c = devdb::find_first<devdb::fe_t>(devdb_wtxn);
-	for (auto fe : c.range()) {
-		devdb::lnb::update_lnb_adapter_fields(devdb_wtxn, fe);
-	}
+	devdb::lnb::update_lnbs(devdb_wtxn);
 	devdb_wtxn.commit(); //commit child transaction
 }
 

@@ -170,6 +170,7 @@ namespace  devdb::lnb {
 	}
 
 	void update_lnb_adapter_fields(db_txn& wtxn, const devdb::fe_t& fe);
+	void update_lnbs(db_txn& devdb_wtxn);
 	void on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux, chdb::dvbs_mux_t& new_mux,
 												 system_time_t now_);
 	std::optional<devdb::rf_coupler_t> get_rf_coupler(db_txn& rtxn, const devdb::lnb_key_t& lnb_key);

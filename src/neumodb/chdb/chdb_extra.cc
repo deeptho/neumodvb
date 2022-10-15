@@ -1205,7 +1205,7 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 		assert (mux.c.scan_status == chdb::scan_status_t::PENDING);
 		if(mux.c.scan_id != 0) {
 			auto owner_pid = mux.c.scan_id >>8;
-			if(kill((pid_t)owner_pid, 0)) {
+			if(kill((pid_t)owner_pid, 0) == 0) {
 				dtdebugx("process pid=%d is still active; skip deleting pending status\n", owner_pid);
 				continue;
 			}
@@ -1222,7 +1222,7 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 		assert (mux.c.scan_status == chdb::scan_status_t::ACTIVE);
 		if(mux.c.scan_id != 0) {
 			auto owner_pid = mux.c.scan_id >>8;
-			if(kill((pid_t)owner_pid, 0)) {
+			if(kill((pid_t)owner_pid, 0) == 0) {
 				dtdebugx("process pid=%d is still active; skip deleting pending status\n", owner_pid);
 				continue;
 			}

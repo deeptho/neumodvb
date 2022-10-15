@@ -202,6 +202,7 @@ public:
 inline void
 lmdb::error::raise(const char* const origin,
                    const int rc) {
+	fprintf(stderr, "lmdb returns error=%d",rc);
 	assert(0);
   switch (rc) {
     case MDB_KEYEXIST:         throw key_exist_error{origin, rc};
@@ -213,6 +214,7 @@ lmdb::error::raise(const char* const origin,
 #ifdef MDB_BAD_DBI
     case MDB_BAD_DBI:          throw bad_dbi_error{origin, rc};
 #endif
+
     default:
 			throw lmdb::runtime_error{origin, rc};
   }

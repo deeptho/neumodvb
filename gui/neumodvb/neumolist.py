@@ -604,14 +604,14 @@ class NeumoTable(NeumoTableBase):
         if len(self.filtered_colnos) == 0:
             return None, None
         match_data = self.filter_record
-        matchers = pychdb.field_matcher_t_vector()
+        matchers = pydevdb.field_matcher_t_vector()
         for colno in self.filtered_colnos:
             col = self.columns[colno]
             coltype = type(neumodbutils.get_subfield(self.record_t(), col.key))
-            matchtype = pychdb.field_matcher.match_type.EQ
+            matchtype = pydevdb.field_matcher.match_type.EQ
             if coltype == str:
-                matchtype = pychdb.field_matcher.match_type.STARTSWITH
-            m = pychdb.field_matcher.field_matcher(self.data_table.subfield_from_name(col.key),
+                matchtype = pydevdb.field_matcher.match_type.STARTSWITH
+            m = pydevdb.field_matcher.field_matcher(self.data_table.subfield_from_name(col.key),
                                                        matchtype)
 
             matchers.push_back(m)

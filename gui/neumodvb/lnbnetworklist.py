@@ -33,6 +33,7 @@ from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer,  GridPopup, screen_if_t
 from neumodvb.neumo_dialogs import ShowMessage
 
+import pydevdb
 import pychdb
 
 class lnbnetwork_screen_t(object):
@@ -75,11 +76,11 @@ class LnbNetworkTable(NeumoTable):
 
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'sat_pos'
-        data_table= pychdb.lnb_network
+        data_table= pydevdb.lnb_network
         self.lnb = None
         self.changed = False
-        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
-                         record_t=pychdb.lnb_network.lnb_network,
+        super().__init__(*args, parent=parent, basic=basic, db_t=pydevdb, data_table = data_table,
+                         record_t=pydevdb.lnb_network.lnb_network,
                          screen_getter = self.screen_getter,
                          initial_sorted_column = initial_sorted_column,
                          **kwds)
@@ -97,7 +98,7 @@ class LnbNetworkTable(NeumoTable):
     def __save_record__(self, txn, record):
         dtdebug(f'NETWORKS: {len(self.lnb.networks)}')
         if True:
-            added = pychdb.lnb.add_network(self.lnb, record)
+            added = pydevdb.lnb.add_network(self.lnb, record)
             if added:
                 self.changed = True
             return record

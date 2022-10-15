@@ -23,6 +23,7 @@
 #include "receiver/neumofrontend.h"
 #include "stackstring/ssaccu.h"
 #include "xformat/ioformat.h"
+#include "util/template_util.h"
 #include <signal.h>
 #include <iomanip>
 #include <iostream>
@@ -335,6 +336,14 @@ void chdb::merge_services(db_txn& wtxn, const mux_key_t& src_key, const chdb::an
 	}
 }
 
+void chdb::remove_services(db_txn& wtxn, const mux_key_t& mux_key) {
+	auto c = chdb::service::find_by_mux_key(wtxn, mux_key);
+	for(const auto& service: c.range()) {
+		assert(service.k.mux == mux_key);
+		delete_record(c, service);
+	}
+}
+
 
 /*
 	selectively replace some data in mux by data in db_mux, while preserving the data specified in
@@ -344,7 +353,7 @@ void chdb::merge_services(db_txn& wtxn, const mux_key_t& src_key, const chdb::an
 template <typename mux_t>
 bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preserve) {
 	namespace m = update_mux_preserve_t;
-	dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status << " result=" << (int) db_mux.c.scan_result << "/" << (int)mux.c.scan_result);
+	dtdebug("db_mux=" << db_mux << "-> mux=" << mux << ";" << " result=" << (int) db_mux.c.scan_result << ";" << (int)mux.c.scan_result);
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
@@ -435,7 +444,8 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 					 mux.c.scan_id >0);
 
 	}
-	dtdebug("db_mux=" << db_mux.k << " " << db_mux << " mux=" << mux.k << " " << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status << " preserve&SCAN_DATA=" << (preserve & m::SCAN_DATA));
+	dtdebug("after merge db_mux=" << db_mux.k << " " << db_mux << " mux=" << mux.k << " " << mux << "->"
+					<< " preserve&SCAN_DATA=" << (preserve & m::SCAN_DATA));
 
 
 	if (preserve & m::NUM_SERVICES)
@@ -513,15 +523,22 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 
 		is_new = false;
 		cb(&db_mux.c);
-				assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
+		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
 
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		merge_muxes<mux_t>(mux, db_mux, preserve);
-		if(! key_matches)
-			merge_services(wtxn, db_mux.k, mux);
-
+		if(! key_matches) {
+			int matype = get_member(mux, matype, 0x3 << 14);
+			int db_matype = get_member(db_mux, matype, 0x3 << 14);
+			auto is_dvb = ((matype >> 14) & 0x3) == 0x3;
+			auto db_mux_is_dvb = ((db_matype >> 14) & 0x3) == 0x3;
+			if(is_dvb && db_mux_is_dvb)
+				merge_services(wtxn, db_mux.k, mux);
+			else if (!is_dvb && db_mux_is_dvb)
+				remove_services(wtxn, db_mux.k);
+		}
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 
 		dtdebugx("Transponder %s: sat_pos=%d => %d nid=%d => %d ts_id=%d => %d", to_str(mux).c_str(),
@@ -555,7 +572,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 						 mux.c.num_services);
 		assert(mux.frequency > 0);
 
-		dtdebug("mux=" << mux << " status=" << (int)mux.c.scan_status);
+		dtdebug("mux=" << mux);
 		put_record(wtxn, mux);
 	}
 	return ret;
@@ -658,6 +675,24 @@ std::ostream& chdb::operator<<(std::ostream& os, const language_code_t& code) {
 	return os;
 }
 
+inline static const char* scan_status_name(const chdb::scan_status_t& scan_status) {
+	switch(scan_status) {
+	case scan_status_t::PENDING:
+		return "PENDING";
+	case scan_status_t::IDLE:
+		return "IDLE";
+	case scan_status_t::ACTIVE:
+		return "ACTIVE";
+	case scan_status_t::NONE:
+		return "NONE";
+	}
+}
+
+std::ostream& chdb::operator<<(std::ostream& os, const scan_status_t& scan_status) {
+	os << scan_status_name(scan_status);
+	return os;
+}
+
 std::ostream& chdb::operator<<(std::ostream& os, const sat_t& sat) {
 	if (sat.sat_pos == sat_pos_dvbc) {
 		stdex::printf(os, "DVBC");
@@ -681,6 +716,7 @@ std::ostream& chdb::operator<<(std::ostream& os, const dvbs_mux_t& mux) {
 		stdex::printf(os, "-%d", mux.stream_id);
 	if (mux.k.t2mi_pid != 0)
 		stdex::printf(os, "-T%d", mux.k.t2mi_pid);
+	stdex::printf(os, " %s", scan_status_name(mux.c.scan_status));
 	return os;
 }
 
@@ -764,6 +800,11 @@ std::ostream& chdb::operator<<(std::ostream& os, const chgm_t& chgm) {
 void chdb::to_str(ss::string_& ret, const sat_t& sat) {
 	ret.clear();
 	sat_pos_str(ret, sat.sat_pos);
+}
+
+void chdb::to_str(ss::string_& ret, const scan_status_t& scan_status) {
+	ret.clear();
+	ret << scan_status;
 }
 
 void chdb::to_str(ss::string_& ret, const language_code_t& code) {

@@ -179,7 +179,7 @@ namespace chdb {
 
 namespace chdb {
 	using namespace chdb;
-
+	void to_str(ss::string_& ret, const scan_status_t& scan_status);
 	void to_str(ss::string_& ret, const language_code_t& code);
 	void to_str(ss::string_& ret, const sat_t& sat);
 	void to_str(ss::string_& ret, const mux_key_t& mux_key);
@@ -240,6 +240,7 @@ namespace chdb {
 		return s;
 	}
 
+	std::ostream& operator<<(std::ostream& os, const scan_status_t& scan_status);
 	std::ostream& operator<<(std::ostream& os, const language_code_t& code);
 	std::ostream& operator<<(std::ostream& os, const sat_t& sat);
 	std::ostream& operator<<(std::ostream& os, const mux_key_t& mux_key);
@@ -473,6 +474,7 @@ namespace chdb::service {
 namespace chdb {
 
 	void merge_services(db_txn& wtxn, const mux_key_t& src_key, const any_mux_t& dst);
+	void remove_services(db_txn& wtxn, const mux_key_t& mux_key);
 
 
 	template<typename mux_t> float min_snr(const mux_t& mux);

@@ -520,9 +520,8 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 	int num_skipped_peaks{0};
 	auto& finished_mux_key = *mux_key_ptr(finished_mux);
 	scan_subscription_t* finished_subscription_ptr{nullptr};
-	auto chdb_rtxn = receiver.chdb.rtxn();
-
-	auto try_all = [&] (subscription_id_t finished_subscription_id, scan_subscription_t& subscription) mutable {
+	auto try_all = [&](
+		db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_subscription_t& subscription) mutable {
 		// start as many subscriptions as possible
 		using namespace chdb;
 
@@ -599,19 +598,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		/*it is essential that subscription is retrieved by val in the loop below
 			as it is filled with trial data which is only saved when subscription succeeds
 		*/
-#if 0
-		for(auto [finished_subscription_id, subscription] : subscriptions) {
-			/*in general only one subscription will match, but in specific cases
-				multiple ones may exist. For example: is a mux is misdetected as two peaks,
-				both peaks end up selecting the same database mux. That mux is successfully scanned
-				and we need to terminate both subscriptions
-			*/
-			if( subscription.fe_key != finished_fe.k)
-				continue; //no match
-			count++;
-		}
-		count = 0;
-#endif
+
 		for(auto it = subscriptions.begin(); it != subscriptions.end();) {
 			scan_subscription_t subscription {it->second}; //need to copy
 			subscription_id_t finished_subscription_id{it->first};
@@ -624,6 +611,13 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 				it = std::next(it);
 				continue; //no match
 			}
+			/*it is essential to start a new transaction at this point
+				because scan_next will loop over all pending muxes, changing
+				scan_status to ACTIVE for some of the muxes;
+				In order to not rescan those muxes, we need to discover the new ACTIVE status,
+				which is done by creating a new transaction
+			*/
+			auto chdb_rtxn = receiver.chdb.rtxn();
 			count++;
 			auto& blindscan = blindscans[subscription.blindscan_key];
 			bool finished = finish_subscription(chdb_rtxn,  finished_subscription_id,
@@ -636,8 +630,9 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			} else {
 				finished_subscription_ptr = & subscription;  //allow try_all to reuse this subscription
 				subscription.mux.reset();
-				auto subscription_to_erase = try_all(finished_subscription_id, subscription);
+				auto subscription_to_erase = try_all(chdb_rtxn, finished_subscription_id, subscription);
 				if((int) subscription_to_erase >=0) {
+					assert(subscription_to_erase == finished_subscription_id);
 					it = subscriptions.erase(it);
 					scan_stats.writeAccess()->active_muxes = subscriptions.size();
 				} else {
@@ -654,30 +649,27 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			}
 			assert(finished_mux_key.sat_pos == sat_pos_none || finished_fe.sub.owner == getpid());
 			report.scan_stats = *scan_stats.readAccess();
-			auto & s = report.scan_stats;
-			printf("notifying on_scan_mux_end: pend=%d+%d act=%d fin=%d\n",
-							 s.pending_peaks, s.pending_muxes, s.active_muxes, s.finished_muxes);
-			if (s.pending_peaks + s.pending_muxes + s.active_muxes ==1)
-				printf("here\n");
 
 			dtdebug("SCAN REPORT: mux=" << *report.mux << " result=" << (int) chdb::mux_common_ptr(*report.mux)->scan_result);
 			receiver_thread.notify_scan_mux_end(scan_subscription_id, report);
+			chdb_rtxn.commit();
 		}
 		if(count==0) {
 			dterror("XXXX finished subscription not found for " << finished_mux);
 		} else if(count!=1) {
 			dtdebug("XXXX multiple finished subscriptions for " << finished_mux);
 		}
+	} else {
+		//in case new frontends or lnbs have become available for use
+		scan_subscription_t subscription;
+		finished_subscription_ptr = nullptr;
+		auto finished_subscription_id = subscription_id_t{-1};
+		auto chdb_rtxn = receiver.chdb.rtxn();
+		auto subscription_to_erase = try_all(chdb_rtxn, finished_subscription_id, subscription);
+		assert((int) subscription_to_erase == -1);
+		chdb_rtxn.commit();
+
 	}
-	//in case new frontends or lnbs have become available for use
-	scan_subscription_t subscription;
-	finished_subscription_ptr = nullptr;
-	auto finished_subscription_id = subscription_id_t{-1};
-	auto subscription_to_erase = try_all(finished_subscription_id, subscription);
-	assert((int) subscription_to_erase == -1);
-	chdb_rtxn.commit();
-
-
 	// error = wait_for_all(futures);
 
 	if (error) {

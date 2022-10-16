@@ -108,6 +108,9 @@ public:
 
 	int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key);
+	int scan_muxes(const ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
+								 const ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
+								 const ss::vector_<chdb::dvbt_mux_t> dvbt_muxes);
 
 	int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 	int get_adapter_no() const;

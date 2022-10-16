@@ -1438,14 +1438,18 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 	main entry point
  */
 template <typename _mux_t>
-int receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id) {
+subscription_id_t receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes, subscription_id_t subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 
 	futures.push_back(receiver_thread.push_task([this, &muxes, &subscription_id]() {
-		subscription_id = (int) cb(receiver_thread).scan_muxes(muxes, (subscription_id_t) subscription_id);
+		subscription_id = cb(receiver_thread).scan_muxes(muxes, subscription_id);
 		return 0;
 	}));
 	wait_for_all(futures); //essential because muxes passed by reference
+	futures.push_back(receiver_thread.push_task([this]() {
+		cb(receiver_thread).scan_now(); // start initial scan
+		return 0;
+	}));
 	return subscription_id;
 }
 
@@ -1776,6 +1780,11 @@ int receiver_thread_t::run() {
 	return 0;
 }
 
+int receiver_thread_t::cb_t::scan_now() {
+	scanner->housekeeping(true);
+	return 0;
+}
+
 void receiver_thread_t::notify_signal_info(const chdb::signal_info_t& signal_info) {
 
 	/*
@@ -1913,7 +1922,6 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, 
 	scanner->add_muxes(muxes, init, subscription_id);
 	if (lnbs && init)
 		scanner->set_allowed_lnbs(*lnbs);
-	scanner->housekeeping(true); // start initial scan
 	return subscription_id;
 }
 
@@ -1944,7 +1952,6 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	if (!scanner)
 		scanner = std::make_shared<scanner_t>(*this, scan_found_muxes, max_num_subscriptions);
 	scanner->add_peaks(spectrum_key, peaks, init, subscription_id);
-	scanner->housekeeping(true); // start initial scan
 	return subscription_id;
 }
 
@@ -2028,14 +2035,14 @@ thread_local thread_group_t thread_group{thread_group_t::unknown};
  */
 
 //template instantiations
-template int
-receiver_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes, int subscription_id);
+template subscription_id_t
+receiver_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes, subscription_id_t subscription_id);
 
-template int
-receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes, int subscription_id);
+template subscription_id_t
+receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes, subscription_id_t subscription_id);
 
-template int
-receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes, int subscription_id);
+template subscription_id_t
+receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes, subscription_id_t subscription_id);
 
 template int
 receiver_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan,

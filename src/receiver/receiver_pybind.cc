@@ -66,42 +66,6 @@ static void export_recording_history(py::module& m) {
 		;
 }
 
-static int scan_muxes(receiver_t& receiver, py::list mux_list, int subscription_id) {
-	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
-	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
-	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;
-	for(auto m: mux_list) {
-		bool ok{false};
-		if(!ok)
-			try {
-				auto* dvbs_mux = m.cast<chdb::dvbs_mux_t*>();
-				dvbs_muxes.push_back(*dvbs_mux);
-				ok=true;
-			} catch (py::cast_error& e) {}
-		if(!ok)
-			try {
-				auto* dvbc_mux = m.cast<chdb::dvbc_mux_t*>();
-				dvbc_muxes.push_back(*dvbc_mux);
-				ok=true;
-			} catch (py::cast_error& e) {}
-		if(!ok)
-			try {
-				auto* dvbt_mux = m.cast<chdb::dvbt_mux_t*>();
-				dvbt_muxes.push_back(*dvbt_mux);
-				ok=true;
-			} catch (py::cast_error& e) {}
-	}
-
-	if(dvbs_muxes.size() > 0)
-		subscription_id = receiver.scan_muxes(dvbs_muxes, (int) subscription_id);
-	if(dvbc_muxes.size() > 0)
-		subscription_id = receiver.scan_muxes(dvbc_muxes, (int) subscription_id);
-	if(dvbt_muxes.size() > 0)
-		subscription_id = receiver.scan_muxes(dvbt_muxes, (int) subscription_id);
-	return subscription_id;
-}
-
-
 static void set_process_name(const char* name)
 {
 	setproctitle(name);
@@ -149,8 +113,6 @@ void export_receiver(py::module& m) {
 		.def(py::init<neumo_options_t*>(), py::arg("neumo_options"), "Start a NeumoDVB receiver")
 		//unsubscribe is needed to abort mux scan in progress
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
-		.def("scan_muxes", scan_muxes,
-				 "Scan muxes",  py::arg("muxlist"), py::arg("subscription_id"))
 		.def("toggle_recording",
 				 py::overload_cast<const chdb::service_t&, const epgdb::epg_record_t&>(&receiver_t::toggle_recording),
 				 "Toggle recording of an epg event.", py::arg("service"), py::arg("epgrecord"))

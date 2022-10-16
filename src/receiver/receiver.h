@@ -572,6 +572,7 @@ public:
 	int stop_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 
 	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux);
+	int scan_now();
 };
 
 struct player_cb_t {
@@ -657,7 +658,7 @@ public:
 													const statdb::spectrum_key_t& spectrum_key, int subscription_id);
 
 	template<typename _mux_t>
-	int scan_muxes(ss::vector_<_mux_t>& muxes, int subscription_id);
+	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, subscription_id_t subscription_id);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		const chdb::service_t& service, int subscription_id = int{-1});

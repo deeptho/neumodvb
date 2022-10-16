@@ -98,6 +98,37 @@ int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 	return (int)subscription_id;
 }
 
+int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
+														 ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
+														 ss::vector_<chdb::dvbt_mux_t> dvbt_muxes) {
+	{
+		auto w = notification.writeAccess();
+		auto & n = *w;
+		n.sat_pos = sat_pos_none;
+		n.lnb_key = {};
+		//todo: allow multiple scans on different sats/lnbs
+	}
+	subscription_id_t ret;
+	if(dvbs_muxes.size() > 0)
+		ret = receiver->scan_muxes(dvbs_muxes, subscription_id);
+	if((int) ret<0)
+		return (int) ret;
+	assert(ret == subscription_id || (int) subscription_id == -1);
+	if(dvbc_muxes.size() > 0)
+		ret = receiver->scan_muxes(dvbc_muxes, ret);
+	if((int) ret<0)
+		return (int) ret;
+	assert(ret == subscription_id || (int) subscription_id == -1);
+	if(dvbt_muxes.size() > 0)
+		subscription_id = receiver->scan_muxes(dvbt_muxes, subscription_id);
+	if((int) ret<0)
+		return (int) ret;
+	assert(ret == subscription_id || (int) subscription_id == -1);
+
+	subscription_id = ret;
+	return (int)subscription_id;
+}
+
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::rec_t& rec) {
 	auto mpm = 		receiver->subscribe_recording(rec, (int) subscription_id);
 	if (!mpm.get()) {

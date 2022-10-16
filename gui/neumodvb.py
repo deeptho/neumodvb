@@ -134,6 +134,7 @@ class neumoMainFrame(mainFrame):
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTimer) #used to refresh list on screen
         self.timer.Start(2000)
+        self.Bind(wx.EVT_COMMAND_ENTER, self.app.OnSubscriberCallback)
 
     @property
     @lru_cache(maxsize=None)
@@ -238,8 +239,7 @@ class neumoMainFrame(mainFrame):
                items_to_toggle[item_name] = onoff if onoff else items_to_toggle.get(item_name, False)
 
     def Stop(self):
-        if self.app.scan_subscription_id >=0:
-            self.app.MuxScanStop()
+        self.app.MuxScanStop()
         self.app.current_mpv_player.stop_play()
 
     def colPopupOFF(self, col, evt):
@@ -567,12 +567,12 @@ class NeumoGui(wx.App):
         return self.receiver.statdb
 
     def __init__(self, *args, **kwds):
-        self.scan_subscription_id = -1
         self.receiver = pyreceiver.receiver_t(options.receiver)
         self.currently_selected_rec = None
         self.currently_selected_spectrum = None
         self.live_service_screen = LiveServiceScreen(self)
         self.live_recording_screen_ = None
+        self.scan_subscriber_ = None
         super().__init__(*args, **kwds)
         self.bitmaps = NeumoBitmaps()
         if False:
@@ -580,6 +580,12 @@ class NeumoGui(wx.App):
             self.presLan_fr = gettext.translation("neumodvb", "./locale", languages=['fr'])
             self.presLan_fr.install()
             self.wxLocale('FR')
+
+    @property
+    def scan_subscriber(self):
+        if self.scan_subscriber_ is None:
+            self.scan_subscriber_ = pyreceiver.subscriber_t(self.receiver, self.frame)
+        return self.scan_subscriber_
 
     @property
     def live_recording_screen(self):
@@ -590,6 +596,10 @@ class NeumoGui(wx.App):
     @property
     def current_mpv_player(self):
         return self.frame.live_panel.mosaic_panel.current_mpv_player
+
+    def OnSubscriberCallback(self, data):
+        print(f'callback: {data}')
+
 
     def PlayRecording(self, rec):
         self.current_mpv_player.play_recording(rec)
@@ -604,15 +614,16 @@ class NeumoGui(wx.App):
         dtdebug(f"Requested subscription to mux {mux}")
 
     def MuxScan(self, muxlist):
-        self.scan_subscription_id = self.receiver.scan_muxes(muxlist, self.scan_subscription_id)
-        #TODO => what about subscription ids?
+        ret = self.scan_subscriber.scan_muxes(muxlist)
+        if ret < 0:
+            ShowMessage("Muxscan failed", self.scan_subscriber.error_message) #todo: record error message
         dtdebug(f"Requested subscription to scan mux {muxlist}")
 
     def MuxScanStop(self):
-        if self.scan_subscription_id >= 0:
-            self.scan_subscription_id = self.receiver.unsubscribe(self.scan_subscription_id)
+        if self.scan_subscriber_ is not None:
+            self.scan_subscriber.unsubscribe()
             #TODO => what about subscription ids?
-            dtdebug(f"Requested mux_scanning to stop: scan_subscription_id={self.scan_subscription_id}")
+            dtdebug(f"Requested mux_scanning to stop")
 
     def ToggleOverlay(self):
         self.current_mpv_player.toggle_overlay()

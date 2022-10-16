@@ -510,7 +510,7 @@ namespace chdb::service {
 	inline auto find_by_mux_key(db_txn& txn, const mux_key_t& mux_key) {
 		service_key_t service_key{};
 		service_key.mux = mux_key;
-		auto c = service_t::find_by_k(txn, service_key, find_geq);
+		auto c = service_t::find_by_k(txn, service_key, find_geq, service_t::partial_keys_t::mux);
 		return c;
 	}
 

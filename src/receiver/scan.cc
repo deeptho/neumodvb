@@ -922,7 +922,7 @@ scanner_t::~scanner_t() {
 }
 
 
-void scanner_t::notify_signal_info(subscriber_t& subscriber, const chdb::signal_info_t& signal_info)
+void scanner_t::notify_signal_info(subscriber_t& subscriber, const signal_info_t& signal_info)
 {
 	for(auto& [scan_id, scan] : this->scans)
 		for(auto& [key, blindscan]: scan.blindscans) {

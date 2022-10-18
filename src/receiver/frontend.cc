@@ -409,7 +409,8 @@ static int get_dvbt_mux_info(chdb::dvbt_mux_t& mux, const cmdseq_t& cmdseq) {
 	return mux.frequency;
 }
 
-void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api) {
+int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api) {
+	int matype{-1};
 	using namespace chdb;
 	const auto r = this->ts.readAccess();
 	const auto* dvbs_mux = std::get_if<dvbs_mux_t>(&r->reserved_mux);
@@ -457,25 +458,21 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 		dvbs_mux->frequency is the frequency which we were asked to tune
 			*/
 	if (api == api_type_t::NEUMO) {
-		ret.matype = cmdseq.get(DTV_MATYPE)->u.data;
+		matype = cmdseq.get(DTV_MATYPE)->u.data;
 		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.driver_mux);
 		if (dvbs_mux) {
 			if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
 				dvbs_mux->matype = 256;
-				ret.matype =  256; //means dvbs
+				matype =  256; //means dvbs
 				dvbs_mux->stream_id = -1;
 			} else {
-				dvbs_mux->matype = ret.matype;
+				dvbs_mux->matype = matype;
 #if 0 //seems to go wrong on 25.5W 11174V: multistream
-				bool is_mis = !(ret.matype & (1 << 5));
+				bool is_mis = !(matype & (1 << 5));
 				if (!is_mis)
 					dvbs_mux->stream_id = -1;
 #endif
 			}
-
-			if(ts.readAccess()->lock_status.matype == -1) {
-			ts.writeAccess()->lock_status.matype = ret.matype;
-			};
 		}
 		auto* p = cmdseq.get(DTV_CONSTELLATION);
 		if(p) {
@@ -508,18 +505,19 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 				if (isi_bitset[j] & mask) {
 					ret.isi_list.push_back(i);
 					//fake matype for earlier versions of neumo dvbapi
-					ret.matype_list.push_back(i | (ret.matype <<8));
+					ret.matype_list.push_back(i | (matype <<8));
 				}
 			}
 		}
 	}
+	return matype;
 }
 
 /*
 	lnb is needed to identify dish on which signal is captured
 	mux_ is needed to translate tuner frequency to real frequency
 */
-int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& ret, bool get_constellation) {
+int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bool get_constellation) {
 	cmdseq.add(DTV_STAT_SIGNAL_STRENGTH);
 	cmdseq.add(DTV_STAT_CNR);
 
@@ -593,15 +591,15 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& r
 	return cmdseq.get_properties(fefd);
 }
 
-chdb::signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
-	chdb::signal_info_t ret{ts.readAccess()->dbfe.k};
+signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
+	signal_info_t ret{ts.readAccess()->dbfe.k};
 	using namespace chdb;
 	// bool is_sat = true;
 	ret.stat.k.time = system_clock_t::to_time_t(now);
 
 	cmdseq_t cmdseq;
 	if(request_signal_info(cmdseq, ret, get_constellation)<0) {
-		ret.lock_status = ts.readAccess()->lock_status.fe_status; //needs to be done after retrieving signal_info
+		ret.lock_status = ts.readAccess()->lock_status; //needs to be done after retrieving signal_info
 		return ret;
 	}
 
@@ -644,8 +642,19 @@ chdb::signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 		last_stat.ber = ber_enum; //hack
 	}
 
-	get_mux_info(ret, cmdseq, api_type);
-	ret.lock_status = ts.readAccess()->lock_status.fe_status; //needs to be done after retrieving signal_info
+	auto matype = get_mux_info(ret, cmdseq, api_type);
+	{
+		auto r = ts.readAccess();
+		if(r->last_signal_info) {
+			auto new_isi_found = ret.isi_list != r->last_signal_info->isi_list;
+			ret.last_new_matype_time = new_isi_found ?  steady_clock_t::now() :
+				r->last_signal_info->last_new_matype_time;
+		} else {
+			ret.last_new_matype_time = steady_clock_t::now();
+		}
+	}
+	ret.lock_status = ts.readAccess()->lock_status; //needs to be done after retrieving signal_info
+	ret.lock_status.matype = matype; //not yet set in ts.readAccess()->lock_status; will be set there below
 
 	auto* p = cmdseq.get(DTV_CONSTELLATION);
 	if (p) {
@@ -659,7 +668,7 @@ chdb::signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 	if (api_type == api_type_t::NEUMO && api_version >= 1200) {
 		uint64_t lock_time = cmdseq.get(DTV_LOCKTIME)->u.data;
 		uint64_t bitrate = cmdseq.get(DTV_BITRATE)->u.data;
-		ret.stat.locktime_ms = (ret.lock_status & FE_HAS_LOCK) ? lock_time : 0;
+		ret.stat.locktime_ms = (ret.lock_status.fe_status & FE_HAS_LOCK) ? lock_time : 0;
 		ret.bitrate = bitrate;
 #if 0
 		auto matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
@@ -668,7 +677,11 @@ chdb::signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 			ret.matype_list.push_back(matype_list.matypes[i]);
 #endif
 	}
-	ts.writeAccess()->last_signal_info = ret;
+
+	ret.lock_status.matype = matype;
+	auto w = ts.writeAccess();
+	w->lock_status.matype = matype;
+	w->last_signal_info = ret;
 	return ret;
 }
 

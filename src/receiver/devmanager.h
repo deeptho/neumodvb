@@ -62,12 +62,7 @@ class dvbdev_monitor_t;
 class adaptermgr_t;
 class receiver_t;
 class fe_monitor_thread_t;
-
-
-
-namespace chdb {
-	struct signal_info_t;
-}
+struct signal_info_t;
 
 namespace statdb {
 	struct spectrum_t;
@@ -195,20 +190,6 @@ class signal_monitor_t {
 	}
 };
 
-struct fe_lock_status_t {
-	bool lock_lost{false}; //
-	fe_status_t fe_status{};
-	int16_t matype{-1};
-	//true if we detected this is not a dvbs transport stream
-	inline bool is_locked() {
-		return fe_status & FE_HAS_LOCK;
-	}
-	inline bool is_not_ts() {
-		return is_locked() && matype >=0 && // otherwise we do not know matype yet
-			matype != 256 && //dvbs
-			(matype >> 6) != 3; //not a transport stream
-	}
-};
 
 
 
@@ -238,7 +219,7 @@ public:
 	bool use_blind_tune{false};
 	fe_lock_status_t lock_status;
 	tune_options_t tune_options{};
-	std::optional<chdb::signal_info_t> last_signal_info; //last retrieved signal_info
+	std::optional<signal_info_t> last_signal_info; //last retrieved signal_info
 	/*
 		check if mux is the same transponder as the currently tuned on.
 		This compares  atm frequency and polarisation, so as to account for possible
@@ -312,9 +293,9 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	uint32_t get_lo_frequency(uint32_t frequency);
 	int open_device(fe_state_t& t, bool rw=true, bool allow_failure=false);
 	void close_device(fe_state_t& t); //callable from main thread
-	chdb::signal_info_t get_signal_info(bool get_constellation);
-	int request_signal_info(cmdseq_t& cmdseq, chdb::signal_info_t& ret, bool get_constellation);
-	void get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
+	signal_info_t get_signal_info(bool get_constellation);
+	int request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bool get_constellation);
+	int get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
 	std::optional<statdb::spectrum_t> get_spectrum(const ss::string_& spectrum_path);
 	void start_frontend_monitor();
 
@@ -455,7 +436,7 @@ public:
 	inline void update_dbfe(const devdb::fe_t& fe) {
 		this->ts.writeAccess()->dbfe = fe;
 	}
-	inline std::optional<chdb::signal_info_t> get_last_signal_info() {
+	inline std::optional<signal_info_t> get_last_signal_info() {
 		return ts.readAccess()->last_signal_info;
 	}
 };

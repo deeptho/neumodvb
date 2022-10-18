@@ -1785,16 +1785,14 @@ int receiver_thread_t::cb_t::scan_now() {
 	return 0;
 }
 
-void receiver_thread_t::notify_signal_info(const chdb::signal_info_t& signal_info) {
-
+void receiver_thread_t::notify_signal_info(const signal_info_t& signal_info) {
 	/*
 		create new muxes for all discovered stream_ids
 	 */
-	receiver.tuner_thread.push_task([this, signal_info =const_cast<chdb::signal_info_t&>(signal_info)] () mutable  {
+	receiver.tuner_thread.push_task([this, signal_info =const_cast<signal_info_t&>(signal_info)] () mutable  {
 		cb(receiver.tuner_thread).on_notify_signal_info(signal_info);
 		return 0;
 	});
-
 	/*
 		provide all mpv's with updated signal information for the OSD
 	 */

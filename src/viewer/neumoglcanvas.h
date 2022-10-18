@@ -62,7 +62,7 @@ class mpv_overlay_t {
 	std::unique_ptr<svg_radiobg_t> svg_radiobg;
 	void render(svg_t* svgptr, int window_width, int window_height);
 public:
-	void set_signal_info(const chdb::signal_info_t& signal_info, const playback_info_t& info);
+	void set_signal_info(const signal_info_t& signal_info, const playback_info_t& info);
 	void set_playback_info(const playback_info_t& info);
 
 	void render_osd(int window_width, int window_height) {

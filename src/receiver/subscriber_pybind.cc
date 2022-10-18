@@ -267,22 +267,22 @@ void export_signal_info(py::module& m) {
 	py::class_<signal_info_t>(m, "signal_info_t")
 		.def(py::init())
 		.def_property_readonly("has_carrier", [](const signal_info_t& i) {
-			return (i.lock_status& FE_HAS_CARRIER) ? 1 : 0;
+			return (i.lock_status.fe_status & FE_HAS_CARRIER) ? 1 : 0;
 		})
 		.def_property_readonly("has_timing_lock", [](const signal_info_t& i) {
-			return (i.lock_status& FE_HAS_TIMING_LOCK) ? 1 : 0;
+			return (i.lock_status.fe_status & FE_HAS_TIMING_LOCK) ? 1 : 0;
 		})
 		.def_property_readonly("has_fec", [](const signal_info_t& i) {
-			return (i.lock_status& FE_HAS_VITERBI) ? 1 : 0;
+			return (i.lock_status.fe_status & FE_HAS_VITERBI) ? 1 : 0;
 		})
 		.def_property_readonly("has_sync", [](const signal_info_t& i) {
-			return (i.lock_status& FE_HAS_SYNC) ? 1 : 0;
+			return (i.lock_status.fe_status & FE_HAS_SYNC) ? 1 : 0;
 		})
 		.def_property_readonly("has_lock", [](const signal_info_t& i) {
-			return (i.lock_status& FE_HAS_LOCK) ? 1 : 0;
+			return (i.lock_status.fe_status & FE_HAS_LOCK) ? 1 : 0;
 		})
 		.def_property_readonly("has_fail", [](const signal_info_t& i) {
-			return (i.lock_status& FE_TIMEDOUT) ? 1 : 0;
+			return (i.lock_status.fe_status & FE_TIMEDOUT) ? 1 : 0;
 		})
 		.def_property_readonly("sat_pos_confirmed", [](const signal_info_t& i) {
 			return i.tune_confirmation.sat_by != confirmed_by_t::NONE
@@ -321,7 +321,7 @@ void export_signal_info(py::module& m) {
 			return i.tune_confirmation.si_done;
 		})
 		.def_property_readonly("has_no_dvb", [](const signal_info_t& i) {
-			return  (i.matype >= 0 && i.matype<256) && (i.matype >>6) != 3;
+			return  (i.lock_status.matype >= 0 && i.lock_status.matype<256) && (i.lock_status.matype >>6) != 3;
 		})
 		.def_readonly("stat", &signal_info_t::stat)
 		.def_property_readonly("signal_strength", [](const signal_info_t& i) {
@@ -350,7 +350,7 @@ void export_signal_info(py::module& m) {
 			return  &(ss::vector_<uint16_t>&)i.matype_list;
 		})
 		.def_property_readonly("matype", [](const signal_info_t& i) {
-			auto ret = chdb::matype_str(i.matype);
+			auto ret = chdb::matype_str(i.lock_status.matype);
 			return  std::string(ret.c_str());
 		})
 		.def_property_readonly("locktime", [](const signal_info_t& i) {
@@ -360,10 +360,10 @@ void export_signal_info(py::module& m) {
 			return i.bitrate;
 		})
 		.def_property_readonly("has_matype", [](const signal_info_t& i) {
-			return i.matype >=0;
+			return i.lock_status.matype >=0;
 		})
 		.def_property_readonly("mis_mode", [](const signal_info_t& i) {
-			return !((i.matype >>5)&1);
+			return !((i.lock_status.matype >>5)&1);
 		})
 		.def_property_readonly("constellation_samples", [](const signal_info_t& i) {
 			return constellation_helper(i.constellation_samples);

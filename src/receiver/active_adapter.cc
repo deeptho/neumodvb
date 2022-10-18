@@ -637,7 +637,7 @@ void active_adapter_t::check_scan_mux_end()
 	scan_mux_end_reported = true;
 }
 
-void active_adapter_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
+void active_adapter_t::on_notify_signal_info(signal_info_t& signal_info)
 {
 	std::optional<db_txn> txn;
 	auto get_txn = 	[this, &txn] () -> db_txn& {

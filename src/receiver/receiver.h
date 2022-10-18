@@ -175,7 +175,7 @@ class tuner_thread_t : public task_queue_t {
 	void on_epg_update(db_txn& txnepg, system_time_t now,
 										 epgdb::epg_record_t& epg_record/*may be updated by setting epg_record.record
 																											to true or false*/);
-	void on_notify_signal_info(chdb::signal_info_t& info);
+	void on_notify_signal_info(signal_info_t& info);
 	virtual int exit();
 public:
 	tuner_thread_t(receiver_t& receiver_);
@@ -202,7 +202,7 @@ public:
 	int remove_service(active_adapter_t& tuner, active_service_t& channel);
 	int add_service(active_adapter_t& tuner, active_service_t& channel);//tune to channel on transponder
 	int on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt);
-	void on_notify_signal_info(chdb::signal_info_t& signal_info);
+	void on_notify_signal_info(signal_info_t& signal_info);
 
 	int update_service(const chdb::service_t& service);
 
@@ -522,7 +522,7 @@ private:
 public:
 	//functions safe to call from other threads
 	scan_stats_t get_scan_stats(subscription_id_t scan_subscription_id);
-	void notify_signal_info(const chdb::signal_info_t& info);
+	void notify_signal_info(const signal_info_t& info);
 	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report);
 	class cb_t;
 
@@ -576,7 +576,7 @@ public:
 };
 
 struct player_cb_t {
-	virtual void notify(const chdb::signal_info_t& info) {};
+	virtual void notify(const signal_info_t& info) {};
 	virtual void update_playback_info() {};
 	virtual void update_epg_info(const epgdb::epg_record_t& epg) {};
 	player_cb_t() {};
@@ -691,7 +691,7 @@ public:
 	chdb::language_code_t get_current_subtitle_language(int subscription_id);
 
 
-	inline void notify_signal_info(const chdb::signal_info_t& info) {
+	inline void notify_signal_info(const signal_info_t& info) {
 		receiver_thread.notify_signal_info(info);
 	}
 	inline void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report) {

@@ -75,48 +75,61 @@ struct tune_confirmation_t {
 	}
 };
 
-namespace chdb {
 
-	struct signal_info_t {
-		devdb::fe_key_t fe_key;
-		any_mux_t driver_mux; /*contains only confirmed information, with information from driver
-														overriding that from si stream. Missing information is filled in with
-														confirmed information*/
-		any_mux_t consolidated_mux; /*contains the most uuptodate information about the currently
-																					tuned mux, including possible corrections received from the si
-																					stream
-																				*/
-		std::optional<any_mux_t> bad_received_si_mux;
-		int32_t bitrate{0};
-		int32_t locktime_ms{0};
-		statdb::signal_stat_t stat;
-		inline statdb::signal_stat_entry_t& last_stat() {
-			return stat.stats[stat.stats.size()-1];
+
+struct fe_lock_status_t {
+	bool lock_lost{false}; //
+	fe_status_t fe_status{};
+	int16_t matype{-1};
+	//true if we detected this is not a dvbs transport stream
+	inline bool is_locked() {
+		return fe_status & FE_HAS_LOCK;
+	}
+	inline bool is_not_ts() {
+		return is_locked() && matype >=0 && // otherwise we do not know matype yet
+			matype != 256 && //dvbs
+			(matype >> 6) != 3; //not a transport stream
 		}
+};
 
-		inline const statdb::signal_stat_entry_t& last_stat() const {
-			return stat.stats[stat.stats.size()-1];
-		}
+struct signal_info_t {
+	devdb::fe_key_t fe_key;
+	chdb::any_mux_t driver_mux; /*contains only confirmed information, with information from driver
+													overriding that from si stream. Missing information is filled in with
+													confirmed information*/
+	chdb::any_mux_t consolidated_mux; /*contains the most uuptodate information about the currently
+																tuned mux, including possible corrections received from the si
+																stream
+															*/
+	std::optional<chdb::any_mux_t> bad_received_si_mux;
+	int32_t bitrate{0};
+	int32_t locktime_ms{0};
+	statdb::signal_stat_t stat;
+	inline statdb::signal_stat_entry_t& last_stat() {
+		return stat.stats[stat.stats.size()-1];
+	}
 
-		tune_confirmation_t tune_confirmation;
-		std::optional<int32_t> lnb_lof_offset; //most uptodate version
-		//extra
-		int16_t matype{-1};
-		ss::vector<int16_t, 8> isi_list;
-		ss::vector<uint16_t, 256> matype_list; //size needs to be 256 in current implementation
-		fe_status_t lock_status;
-		ss::vector_<dtv_fe_constellation_sample> constellation_samples;
+	inline const statdb::signal_stat_entry_t& last_stat() const {
+		return stat.stats[stat.stats.size()-1];
+	}
 
-		signal_info_t() = default;
+	tune_confirmation_t tune_confirmation;
+	std::optional<int32_t> lnb_lof_offset; //most uptodate version
+	//extra
+	//int16_t matype{-1};
+	ss::vector<int16_t, 8> isi_list;
+	ss::vector<uint16_t, 256> matype_list; //size needs to be 256 in current implementation
+	fe_lock_status_t lock_status;
+	steady_time_t last_new_matype_time;
+	ss::vector_<dtv_fe_constellation_sample> constellation_samples;
+	signal_info_t() = default;
 
-		signal_info_t(const devdb::fe_key_t& fe_key)
-			: fe_key(fe_key) {
-			stat.stats.resize(1);
-		}
+	signal_info_t(const devdb::fe_key_t& fe_key)
+		: fe_key(fe_key) {
+		stat.stats.resize(1);
+	}
 
-		~signal_info_t() {
-			//printf("signal_info destroyed %p\n");
-		}
-	};
-
-}
+	~signal_info_t() {
+		//printf("signal_info destroyed %p\n");
+	}
+};

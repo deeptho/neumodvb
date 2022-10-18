@@ -464,7 +464,7 @@ void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 	self->play_time.set_time_value(system_clock_t::to_time_t(playback_info.play_time), "%H:%M:%S");
 }
 
-void svg_overlay_t::set_signal_info(const chdb::signal_info_t& signal_info, const playback_info_t& playback_info) {
+void svg_overlay_t::set_signal_info(const signal_info_t& signal_info, const playback_info_t& playback_info) {
 	set_playback_info(playback_info);
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
 	float min_snr = chdb::min_snr(signal_info.driver_mux);

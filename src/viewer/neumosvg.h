@@ -27,10 +27,8 @@ namespace epgdb {
 struct epg_record_t;
 };
 
-namespace chdb {
-	struct signal_info_t;
-};
 
+struct signal_info_t;
 struct playback_info_t;
 
 class svg_t {
@@ -57,7 +55,7 @@ protected:
 
 public:
 	virtual ~svg_overlay_t() = 0;
-	void set_signal_info(const chdb::signal_info_t& signal_info,
+	void set_signal_info(const signal_info_t& signal_info,
 											 const playback_info_t& playback_info);
 	void set_playback_info(const playback_info_t& playback_info);
 	void set_livebuffer_info(const playback_info_t& playback_info);

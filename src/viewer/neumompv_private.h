@@ -139,7 +139,7 @@ public:
 	void repaint();
 
 	void make_canvas(py::object frame_);
-	void notify(const chdb::signal_info_t& info);
+	void notify(const signal_info_t& info);
 	void update_playback_info();
 
 	MpvPlayer_(receiver_t* receiver);

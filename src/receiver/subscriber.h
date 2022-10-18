@@ -82,8 +82,8 @@ public:
 
 	void notify_error(const ss::string_& errmsg);
 	void notify_scan_mux_end(const scan_report_t& report);
-	void notify_signal_info(const chdb::signal_info_t& info);
-	void notify_signal_info(blindscan_t& scanner, const chdb::signal_info_t& info);
+	void notify_signal_info(const signal_info_t& info);
+	void notify_signal_info(blindscan_t& scanner, const signal_info_t& info);
 	void notify_spectrum_scan(const statdb::spectrum_t& spectrum);
 
 	subscriber_t(receiver_t* receiver, wxWindow* window);

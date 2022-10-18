@@ -515,7 +515,7 @@ int tuner_thread_t::cb_t::update_current_lnb(active_adapter_t& active_adapter, c
 }
 
 
-void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
+void tuner_thread_t::on_notify_signal_info(signal_info_t& signal_info)
 {
 	for (auto& it : active_adapters) {
 		auto& aa = *it.second;
@@ -528,6 +528,6 @@ void tuner_thread_t::on_notify_signal_info(chdb::signal_info_t& signal_info)
 }
 
 
-void tuner_thread_t::cb_t::on_notify_signal_info(chdb::signal_info_t& info) {
+void tuner_thread_t::cb_t::on_notify_signal_info(signal_info_t& info) {
 	this->tuner_thread_t::on_notify_signal_info(info);
 }

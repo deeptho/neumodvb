@@ -2529,7 +2529,7 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 	assert(signal_info_);
 	auto & signal_info = *signal_info_;
 	dttime(200);
-	if (signal_info.lock_status & FE_HAS_LOCK) {
+	if (signal_info.lock_status.fe_status & FE_HAS_LOCK) {
 		//c.tune_src = chdb::tune_src_t::DRIVER;
 		*mux_key_ptr(signal_info.driver_mux) = *mux_key_ptr(mux);			 // overwrite key
 		mux_common_ptr(signal_info.driver_mux)->tune_src = 	mux_common_ptr(mux)->tune_src;

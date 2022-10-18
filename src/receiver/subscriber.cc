@@ -193,7 +193,7 @@ int subscriber_t::subscribe_spectrum(devdb::lnb_t& lnb, chdb::fe_polarisation_t 
 
 int subscriber_t::get_adapter_no() const { return active_adapter ? active_adapter->get_adapter_no() : -1; }
 
-void subscriber_t::notify_signal_info(const chdb::signal_info_t& signal_info) {
+void subscriber_t::notify_signal_info(const signal_info_t& signal_info) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
 	if (active_adapter && active_adapter->get_lnb_key() == signal_info.stat.k.lnb
@@ -211,7 +211,8 @@ void subscriber_t::notify_scan_mux_end(const scan_report_t& report) {
 	notify(report);
 }
 
-void subscriber_t::notify_signal_info(blindscan_t& blindscan, const chdb::signal_info_t& signal_info) {
+
+void subscriber_t::notify_signal_info(blindscan_t& blindscan, const signal_info_t& signal_info) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
 	assert(!active_adapter);

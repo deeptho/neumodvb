@@ -1115,7 +1115,7 @@ void MpvPlayer_::repaint() {
 }
 
 //! returns true if this was the right mpv
-void MpvPlayer_::notify(const chdb::signal_info_t& signal_info) {
+void MpvPlayer_::notify(const signal_info_t& signal_info) {
 	std::scoped_lock lck(m);
 	if (!subscription.mpm)
 		return;
@@ -1131,7 +1131,7 @@ void MpvPlayer_::notify(const chdb::signal_info_t& signal_info) {
 	return;
 }
 
-void MpvPlayer::notify(const chdb::signal_info_t& info) {
+void MpvPlayer::notify(const signal_info_t& info) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	self->notify(info);
 }
@@ -1214,7 +1214,7 @@ void mpv_overlay_t::render(svg_t* svg, int window_width, int window_height) {
 	glEnd();
 }
 
-void mpv_overlay_t::set_signal_info(const chdb::signal_info_t& signal_info, const playback_info_t& playback_info) {
+void mpv_overlay_t::set_signal_info(const signal_info_t& signal_info, const playback_info_t& playback_info) {
 	if (svg_overlay.get()) {
 		svg_overlay->set_signal_info(signal_info, playback_info);
 	}

@@ -75,8 +75,8 @@ void fe_monitor_thread_t::monitor_signal() {
 	receiver.notify_signal_info(info);
 	dttime(200);
 	{
-		auto ts = fe->signal_monitor.writeAccess();
-		auto &signal_monitor = *ts;
+		auto w = fe->signal_monitor.writeAccess();
+		auto &signal_monitor = *w;
 		signal_monitor.update_stat(receiver, info.stat);
 	}
 }
@@ -203,7 +203,10 @@ int fe_monitor_thread_t::run() {
 		}
 	}
 exit_:
-	fe->close_device(*fe->ts.writeAccess());
+	{
+		auto w = fe->ts.writeAccess();
+	fe->close_device(*w);
+	}
 	dtdebugx("frontend_monitor end: %p: closed device\n", fe.get());
 	save.reset();
 	{

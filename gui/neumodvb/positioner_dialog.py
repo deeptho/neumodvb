@@ -327,7 +327,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         ret = self.mux_subscriber.subscribe_lnb(self.lnb,  self.retune_mode)
         if ret < 0:
             if not silent:
-                ShowMessage("SubsribeLnb failed", self.mux_subscriber.error_message) #todo: record error message
+                ShowMessage("SubscribeLnb failed", self.mux_subscriber.error_message) #todo: record error message
             dtdebug(f"Tuning failed {self.mux_subscriber.error_message}")
 
         self.tuned_ = False

@@ -27,7 +27,7 @@ from functools import lru_cache
 #the following import also sets up import path
 import neumodvb
 
-from neumodvb.util import load_gtk3_stylesheet, dtdebug, dterror, maindir
+from neumodvb.util import load_gtk3_stylesheet, dtdebug, dterror, maindir, get_object
 from neumodvb.config import options, get_configfile
 
 import pydevdb
@@ -134,7 +134,7 @@ class neumoMainFrame(mainFrame):
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.OnTimer) #used to refresh list on screen
         self.timer.Start(2000)
-        self.Bind(wx.EVT_COMMAND_ENTER, self.app.OnSubscriberCallback)
+        self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
 
     @property
     @lru_cache(maxsize=None)
@@ -158,6 +158,17 @@ class neumoMainFrame(mainFrame):
             dtdebug('ACCEL OFF')
             accel_tbl = wx.AcceleratorTable()
             self.SetAcceleratorTable(accel_tbl)
+
+    def OnSubscriberCallback(self, evt):
+        data = get_object(evt)
+        if type(data) == pyreceiver.scan_report_t:
+            panel =self.current_panel()
+            if panel is None:
+                return
+            if hasattr(panel, "main_grid"):
+                grid = panel.main_grid
+                if hasattr(grid, "infow") and grid.infow is not None:
+                    grid.infow.ShowScanRecord(data)
 
     def current_panel(self):
         for panel in self.panels_onscreen:
@@ -332,8 +343,10 @@ class neumoMainFrame(mainFrame):
         assert 0
 
     def OnExit(self, event=None):
+        print('OnExit')
         dtdebug(f"Asking receiver to exit receiver={self.app.receiver}")
         self.app.receiver.stop()
+        print('OnExit done')
         #self.app.receiver = None
         dtdebug("OnExit done")
         return 0
@@ -475,11 +488,17 @@ class neumoMainFrame(mainFrame):
         return wx.GetApp().SubtitleLang(dark_mode)
     def CmdExit(self, event):
         dtdebug("CmdExit")
+        print('CmdExit')
         if self.current_panel() != self.live_panel:
+            print('CmdExit1')
             dtdebug("OnClose")
             self.current_panel().grid.OnClose()
+            print('CmdExit2')
+        print('CmdExit3')
         self.live_panel.OnClose(event)
+        print('CmdExit4')
         self.Close()
+        print('CmdExit5')
         event.Skip(False) #needed to prevent being executed multiple times
     def CmdEditMode(self, is_checked):
         dtdebug("CmdEditMode")
@@ -597,10 +616,6 @@ class NeumoGui(wx.App):
     def current_mpv_player(self):
         return self.frame.live_panel.mosaic_panel.current_mpv_player
 
-    def OnSubscriberCallback(self, data):
-        print(f'callback: {data}')
-
-
     def PlayRecording(self, rec):
         self.current_mpv_player.play_recording(rec)
         dtdebug(f"SUBSCRIBED to recording {rec}")
@@ -615,11 +630,13 @@ class NeumoGui(wx.App):
 
     def MuxScan(self, muxlist):
         ret = self.scan_subscriber.scan_muxes(muxlist)
+        print(f'MuxScan')
         if ret < 0:
             ShowMessage("Muxscan failed", self.scan_subscriber.error_message) #todo: record error message
         dtdebug(f"Requested subscription to scan mux {muxlist}")
 
     def MuxScanStop(self):
+        print(f'MuxScanStop')
         if self.scan_subscriber_ is not None:
             self.scan_subscriber.unsubscribe()
             #TODO => what about subscription ids?

@@ -154,12 +154,5 @@ class DvbcMuxGrid(NeumoGridBase):
             mux = self.table.GetRow(row)
             muxes.append(mux)
         self.app.MuxScan(muxes)
-    def OnTimerOFF(self, evt):
+    def OnTimer(self, evt):
         super().OnTimer(evt)
-        if wx.GetApp().scan_subscription_id >= 0:
-            if self.infow is not None:
-                scan_ended = self.infow.ShowScanRecord()
-                if scan_ended:
-                    if self.app.scan_subscription_id >=0:
-                        self.app.MuxScanStop()
-                        self.app.scan_subscription_id <0

@@ -125,6 +125,12 @@ def load_gtk3_stylesheet(fname):
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )
 
+
+def get_object(evt):
+    s = evt.GetExtraLong()
+    import pyreceiver
+    return pyreceiver.get_object(s)
+
 def dtdebug(message):
     import pyreceiver
     frameinfo = getframeinfo(currentframe().f_back)

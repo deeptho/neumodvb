@@ -159,7 +159,7 @@ dvb_frontend_t::~dvb_frontend_t() {
 void dvb_frontend_t::close_device(fe_state_t& t) {
 	if (t.fefd < 0)
 		return;
-	dtdebugx("closing fefd=%d", t.fefd);
+	dtdebugx("closing fefd=%d\n", t.fefd);
 	while (::close(t.fefd) != 0) {
 		if (errno != EINTR)
 			dterrorx("Error closing /dev/dvb/adapter%d/frontend%d: %s", (int)adapter_no, (int)frontend_no,
@@ -668,6 +668,7 @@ chdb::signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 			ret.matype_list.push_back(matype_list.matypes[i]);
 #endif
 	}
+	ts.writeAccess()->last_signal_info = ret;
 	return ret;
 }
 
@@ -1476,6 +1477,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::lnb_t& lnb) {
 		auto w = ts.writeAccess();
 		w->reserved_mux = {};
 		w->reserved_lnb = lnb;
+		w->last_signal_info.reset();
 	}
 	if(!monitor_thread.get()) {
 		start_frontend_monitor();
@@ -1497,6 +1499,7 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::lnb_t& lnb, const chdb::dv
 		auto w = this->ts.writeAccess();
 		w->reserved_mux = mux;
 		w->reserved_lnb = lnb;
+		w->last_signal_info.reset();
 	}
 	if (!monitor_thread.get()) {
 		start_frontend_monitor();
@@ -1516,6 +1519,7 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 		this->sec_status.retune_count = 0;
 		w->reserved_mux = mux;
 		w->reserved_lnb = devdb::lnb_t();
+		w->	last_signal_info.reset();
 	}
 	if (!monitor_thread.get()) {
 

@@ -81,11 +81,6 @@ void fe_monitor_thread_t::monitor_signal() {
 	}
 }
 
-chdb::signal_info_t fe_monitor_thread_t::cb_t::get_signal_info() {
-	assert(!is_paused);
-	return fe->get_signal_info(false);
-}
-
 void fe_monitor_thread_t::handle_frontend_event() {
 	struct dvb_frontend_event event {};
 	auto fefd = fe->ts.readAccess()->fefd;
@@ -208,15 +203,15 @@ int fe_monitor_thread_t::run() {
 		}
 	}
 exit_:
-	dtdebugx("frontend_monitor end: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
 	fe->close_device(*fe->ts.writeAccess());
+	dtdebugx("frontend_monitor end: %p: closed device\n", fe.get());
 	save.reset();
 	{
 		auto ts = fe->signal_monitor.writeAccess();
 		auto &signal_monitor = *ts;
 		signal_monitor.end_stat(receiver);
 	}
-
+	dtdebugx("frontend_monitor end: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
 	return 0;
 }
 

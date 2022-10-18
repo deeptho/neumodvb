@@ -239,7 +239,7 @@ public:
 	bool use_blind_tune{false};
 	fe_lock_status_t lock_status;
 	tune_options_t tune_options{};
-
+	std::optional<chdb::signal_info_t> last_signal_info; //last retrieved signal_info
 	/*
 		check if mux is the same transponder as the currently tuned on.
 		This compares  atm frequency and polarisation, so as to account for possible
@@ -456,7 +456,9 @@ public:
 	inline void update_dbfe(const devdb::fe_t& fe) {
 		this->ts.writeAccess()->dbfe = fe;
 	}
-
+	inline std::optional<chdb::signal_info_t> get_last_signal_info() {
+		return ts.readAccess()->last_signal_info;
+	}
 };
 
 
@@ -541,7 +543,6 @@ public:
 
 class fe_monitor_thread_t::cb_t : public fe_monitor_thread_t { //callbacks
 public:
-	chdb::signal_info_t get_signal_info();
 	int pause();
 	int unpause();
 };

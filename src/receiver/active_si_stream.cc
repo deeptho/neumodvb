@@ -2520,86 +2520,79 @@ bool active_si_stream_t::update_template_mux_parameters_from_frontend(chdb::any_
 	if(aa.tune_state == active_adapter_t::TUNE_FAILED)
 		return false;
 	auto monitor = aa.fe->monitor_thread;
-	chdb::signal_info_t signal_info;
+	dttime_init();
 	assert(!is_template(mux)); //otherwise we should not be called
-	if (monitor) {
-		/*refresh signal info; we need to be sure that frequency is up to date. Using older data
-			from a cache in dvb_frontend_t would not be a good idea because it may be outdated (data race),
-			so there is no cache
+
+	/*Obtain newwest signal info
+	*/
+	auto signal_info_ = aa.fe->get_last_signal_info();
+	assert(signal_info_);
+	auto & signal_info = *signal_info_;
+	dttime(200);
+	if (signal_info.lock_status & FE_HAS_LOCK) {
+		//c.tune_src = chdb::tune_src_t::DRIVER;
+		*mux_key_ptr(signal_info.driver_mux) = *mux_key_ptr(mux);			 // overwrite key
+		mux_common_ptr(signal_info.driver_mux)->tune_src = 	mux_common_ptr(mux)->tune_src;
+		/* We DO NOT overwrite common, because this function is only
+			 ever called in two cases: 1) to add a fake nit, in which mux == stream_mux
+			 and it does not matter 2) to correct some tuning parameters from si, in which
+			 mux comes from si and has no useful mux_common info.
+
+			 The main reason for not copying is to not overwrite scan_status
 		*/
+		//auto& c = *mux_common_ptr(mux);
 
-		monitor
-			->push_task([&signal_info, &monitor]() {
-				signal_info = cb(*monitor).get_signal_info();
-				return 0;
-			})
-			.wait();
+		auto& si_mux = mux;
 
-		if (signal_info.lock_status & FE_HAS_LOCK) {
-			//c.tune_src = chdb::tune_src_t::DRIVER;
-			*mux_key_ptr(signal_info.driver_mux) = *mux_key_ptr(mux);			 // overwrite key
-			mux_common_ptr(signal_info.driver_mux)->tune_src = 	mux_common_ptr(mux)->tune_src;
-			/* We DO NOT overwrite common, because this function is only
-				 ever called in two cases: 1) to add a fake nit, in which mux == stream_mux
-				 and it does not matter 2) to correct some tuning parameters from si, in which
-				 mux comes from si and has no useful mux_common info.
+		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
+						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					 chdb::mux_common_ptr(mux)->scan_id >0);
 
-				 The main reason for not copying is to not overwrite scan_status
-			*/
-			//auto& c = *mux_common_ptr(mux);
+		visit_variant(signal_info.driver_mux,
+									[&](chdb::dvbs_mux_t& mux) {
+										auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
+										assert(p);
+										/*override user enetred "auto" data in signal_info.mux modulation data with si_data in case
+											si_mux is later overwritten with signal_info.mux*/
+										if(mux.rolloff == chdb::fe_rolloff_t::ROLLOFF_AUTO)
+											mux.rolloff = p->rolloff;
+										if(p->modulation == chdb::fe_modulation_t::QAM_AUTO) {//happens on 22.0E 4181V
+										} else {
+											mux.modulation = p->modulation;
+										}
+										if(p->delivery_system != mux.delivery_system) { //happens on 14.0W 11024H
+											p->delivery_system = mux.delivery_system;
+										}
+										p->matype = mux.matype; /* set si_mux.matype from driver info (which is the only source for it)*/
+									},
+									[&](chdb::dvbc_mux_t& mux) {
+										auto* p = std::get_if<chdb::dvbc_mux_t>(&si_mux);
+										assert(p);
+										if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
+											mux.modulation = p->modulation;
+										}
 
-			auto& si_mux = mux;
+									},
+									[&](chdb::dvbt_mux_t& mux) {
+										auto* p = std::get_if<chdb::dvbt_mux_t>(&si_mux);
+										assert(p);
+										if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
+											mux.modulation = p->modulation;
+										}
+									});
 
-	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
-				 chdb::mux_common_ptr(mux)->scan_id >0);
+		namespace m = chdb::update_mux_preserve_t;
 
-			visit_variant(signal_info.driver_mux,
-										[&](chdb::dvbs_mux_t& mux) {
-											auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
-											assert(p);
-											/*override user enetred "auto" data in signal_info.mux modulation data with si_data in case
-												si_mux is later overwritten with signal_info.mux*/
-											if(mux.rolloff == chdb::fe_rolloff_t::ROLLOFF_AUTO)
-												mux.rolloff = p->rolloff;
-											if(p->modulation == chdb::fe_modulation_t::QAM_AUTO) {//happens on 22.0E 4181V
-											} else {
-												mux.modulation = p->modulation;
-											}
-											if(p->delivery_system != mux.delivery_system) { //happens on 14.0W 11024H
-												p->delivery_system = mux.delivery_system;
-											}
-											p->matype = mux.matype; /* set si_mux.matype from driver info (which is the only source for it)*/
-										},
-										[&](chdb::dvbc_mux_t& mux) {
-											auto* p = std::get_if<chdb::dvbc_mux_t>(&si_mux);
-											assert(p);
-											if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
-												mux.modulation = p->modulation;
-											}
+		dtdebug("Update mux " << signal_info.driver_mux << " tuned=" << reader->stream_mux());
+		if (mux_common_ptr(mux)->tune_src == chdb::tune_src_t::TEMPLATE ||
+				mux_common_ptr(mux)->tune_src == chdb::tune_src_t::DRIVER)
 
-										},
-										[&](chdb::dvbt_mux_t& mux) {
-											auto* p = std::get_if<chdb::dvbt_mux_t>(&si_mux);
-											assert(p);
-											if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
-												mux.modulation = p->modulation;
-											}
-										});
+			assert((chdb::mux_common_ptr(signal_info.driver_mux)->scan_status != chdb::scan_status_t::ACTIVE &&
+							chdb::mux_common_ptr(signal_info.driver_mux)->scan_status != chdb::scan_status_t::PENDING) ||
+						 chdb::mux_common_ptr(signal_info.driver_mux)->scan_id >0);
 
-			namespace m = chdb::update_mux_preserve_t;
-
-			dtdebug("Update mux " << signal_info.driver_mux << " tuned=" << reader->stream_mux());
-			if (mux_common_ptr(mux)->tune_src == chdb::tune_src_t::TEMPLATE ||
-					mux_common_ptr(mux)->tune_src == chdb::tune_src_t::DRIVER)
-
-				assert((chdb::mux_common_ptr(signal_info.driver_mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(signal_info.driver_mux)->scan_status != chdb::scan_status_t::PENDING) ||
-				 chdb::mux_common_ptr(signal_info.driver_mux)->scan_id >0);
-
-				mux = signal_info.driver_mux;
-			return true;
-		}
+		mux = signal_info.driver_mux;
+		return true;
 	}
 	return false;
 }

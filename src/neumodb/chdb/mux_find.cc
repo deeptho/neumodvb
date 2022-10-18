@@ -571,18 +571,18 @@ bool chdb::matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool
 		return false;
 	auto tolerance = (((int)std::min(a.symbol_rate, b.symbol_rate))*1.35) / 2000;
 
-	return (std::abs((int)a.frequency - (int)b.frequency) < tolerance);
+	return (std::abs((int)a.frequency - (int)b.frequency) <= tolerance);
 
 }
 
 bool chdb::matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos) {
 	auto tolerance = 1000;
-	return (std::abs((int)a.frequency - (int)b.frequency) < tolerance);
+	return (std::abs((int)a.frequency - (int)b.frequency) <= tolerance);
 }
 
 bool chdb::matches_physical_fuzzy(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos) {
 	auto tolerance = 1000;
-	return (std::abs((int)a.frequency - (int)b.frequency) < tolerance);
+	return (std::abs((int)a.frequency - (int)b.frequency) <= tolerance);
 }
 
 bool chdb::matches_physical_fuzzy(const chdb::any_mux_t& a, const chdb::any_mux_t& b, bool check_sat_pos) {

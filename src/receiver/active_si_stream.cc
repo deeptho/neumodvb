@@ -2707,7 +2707,9 @@ void active_si_stream_t::update_tuned_mux(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	bool is_template = mux_common_ptr(mux)->tune_src == chdb::tune_src_t::TEMPLATE;
 	assert(!is_template);
 	bool sat_pos_changed = db_key->sat_pos != key->sat_pos;
-	assert(matches_physical_fuzzy(mux, stream_mux)); //only small changes allowed
+	if(matches_physical_fuzzy(mux, stream_mux)) { //only small changes allowed
+		dtdebug("Muxes differ too much: mux=" << mux << " stream_mux=" << stream_mux);
+	}
 	assert(may_change_sat_pos || db_key->sat_pos == key->sat_pos );
 	assert(may_change_nit_tid || (key->network_id ==db_key->network_id && key->ts_id == db_key->ts_id));
 	namespace m = chdb::update_mux_preserve_t;

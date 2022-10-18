@@ -487,7 +487,6 @@ void find_tps(ss::vector_<spectral_peak_t>& res,	ss::vector_<int32_t>& sig, ss::
 	int j = 0;
 
 	scan_all(&ss, &si, sig.buffer(), freq.buffer(), sig.size());
-	//printf("FREQ=%d BW=%d SNR=%ddB\n", frequency, bw, snr);
 
 	qsort(&si.peaks[0], si.num_peaks, sizeof(si.peaks[0]), cmp_fn);
 	res.clear();

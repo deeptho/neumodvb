@@ -485,7 +485,6 @@ void find_tps(ss::vector_<spectral_peak_t>& res,	ss::vector_<int32_t>& sig, ss::
 		if (si.num_peaks >= si.max_num_peaks)
 			break;
 		ret = stid135_spectral_scan_next(&ss, &si, &frequency, &snr);
-		//printf("FREQ=%d BW=%d SNR=%ddB\n", frequency, bw, snr);
 		if (ret >= 0) {
 			si.peaks[si.num_peaks++] = si.last_peak;
 #if 0

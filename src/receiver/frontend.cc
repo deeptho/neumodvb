@@ -456,7 +456,6 @@ void dvb_frontend_t::get_mux_info(chdb::signal_info_t& ret, const cmdseq_t& cmds
 
 		dvbs_mux->frequency is the frequency which we were asked to tune
 			*/
-	ts.writeAccess()->tuned_frequency = ret.stat.k.frequency;
 	if (api == api_type_t::NEUMO) {
 		ret.matype = cmdseq.get(DTV_MATYPE)->u.data;
 		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.driver_mux);
@@ -1130,9 +1129,7 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 					<< " DVB-S to " << mux << (blindscan ? " BLIND" : ""));
 
 	current_delsys_type = chdb::delsys_type_t::DVB_S;
-	//||(mux.symbol_rate < 1000000 &&  ts.readAccess()->dbfe.supports.blindscan);
 	int num_constellation_samples = tune_options.constellation_options.num_samples;
-	ts.writeAccess()->tuned_frequency = mux.frequency;
 
 	cmdseq_t cmdseq;
 	this->num_constellation_samples = num_constellation_samples;
@@ -1280,7 +1277,6 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 	this->num_constellation_samples = 0;
 	cmdseq_t cmdseq;
 	// any system
-	ts.writeAccess()->tuned_frequency = mux.frequency;
 
 	cmdseq.add(DTV_FREQUENCY, mux.frequency * 1000); // For DVB-C, it is measured in Hz.
 	cmdseq.add(DTV_INVERSION, mux.inversion);
@@ -1337,7 +1333,6 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 		return -1;
 	}
 	cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
-	ts.writeAccess()->tuned_frequency = mux.frequency;
 
 	cmdseq.add(DTV_FREQUENCY, mux.frequency * 1000); // For DVB-T, it is measured in Hz.
 	cmdseq.add(DTV_BANDWIDTH_HZ, dvbt_bandwidth);

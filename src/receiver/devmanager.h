@@ -223,7 +223,6 @@ class fe_state_t {
 
 public:
 	tune_confirmation_t tune_confirmation; //have ts_id,network_id, sat_id been confirmed by SI data?
-	int tuned_frequency{0}; // as reported by driver, compensated for lnb offset
 	chdb::any_mux_t reserved_mux;   /*mux as it is currently reserved. Will be updated with si data
 																		and will always contain the best confirmed-to-be-correct information
 																	*/

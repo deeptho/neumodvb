@@ -591,7 +591,9 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 				using namespace chdb;
 				//ss::vector<int32_t, 2> lof_offsets;
 				auto& lnb = w->reserved_lnb;
-				set_lnb_lof_offset(*dvbs_mux, lnb, w->tuned_frequency, get_adapter_no());
+				int freq=0;
+				std::visit([&freq](auto& mux){ freq = get_member(mux, frequency, 0);}, w->last_signal_info->driver_mux);
+				set_lnb_lof_offset(*dvbs_mux, lnb, freq, get_adapter_no());
 			}
 		}
 		w->tune_confirmation = tune_confirmation;

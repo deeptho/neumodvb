@@ -889,7 +889,7 @@ int dvb_frontend_t::send_diseqc_message(char switch_type, unsigned char port, un
 	int err;
 	auto fefd = ts.readAccess()->fefd;
 	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
-		dterror("problem sending the DiseqC message\n");
+		dterror("problem sending the DiseqC message");
 		return -1;
 	}
 	return 0;
@@ -962,7 +962,7 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 	int err;
 	auto fefd = ts.readAccess()->fefd;
 	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
-		dterror("problem sending the DiseqC message\n");
+		dterror("problem sending the DiseqC message");
 		return -1;
 	}
 	return 0;
@@ -1031,14 +1031,14 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 	cmdseq.props[0].u.spectrum = spectrum;
 
 	if (ioctl(fefd, FE_GET_PROPERTY, &cmdseq) < 0) {
-		dterrorx("ioctl failed: %s\n", strerror(errno));
+		dterrorx("ioctl failed: %s", strerror(errno));
 		assert(0); // todo: handle EINTR
 		return {};
 	}
 	spectrum = cmdseq.props[0].u.spectrum;
 
 	if (spectrum.num_freq <= 0) {
-		dterror("kernel returned spectrum with 0 samples\n");
+		dterror("kernel returned spectrum with 0 samples");
 		return {};
 	}
 	scan.resize(spectrum.num_freq, spectrum.num_candidates);
@@ -1213,7 +1213,7 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 	}
 	auto fefd = w->fefd;
 	w->use_blind_tune = blindscan;
-	dtdebugx("change tune mode on adapter %d from %d to %d\n", (int)adapter_no,
+	dtdebugx("change tune mode on adapter %d from %d to %d", (int)adapter_no,
 					 (int) w->tune_mode, (int) tune_options.tune_mode);
 	w->tune_mode = tune_options.tune_mode;
 	int heartbeat_interval = (api_type == api_type_t::NEUMO) ? 1000 : 0;
@@ -1257,7 +1257,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(lnb.k.rf_input));
 		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) lnb.k.rf_input))) {
-			printf("problem Setting rf_input: %s\n", strerror(errno));
+			printf("problem Setting rf_input: %s", strerror(errno));
 			return {-1, new_usals_sat_pos};
 		}
 	}
@@ -1306,7 +1306,7 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 
 	auto w = ts.writeAccess();
 	auto fefd = w->fefd;
-	dtdebugx("change tune mode on adapter %d from %d to %d\n", (int) adapter_no,
+	dtdebugx("change tune mode on adapter %d from %d to %d", (int) adapter_no,
 					 (int) w->tune_mode, (int) tune_options.tune_mode);
 	w->tune_mode = tune_options.tune_mode;
 	assert(w->tune_mode == tune_mode_t::NORMAL || w->tune_mode == tune_mode_t::BLIND);
@@ -1365,7 +1365,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 	auto w = ts.writeAccess();
 	auto fefd = w->fefd;
 	w->use_blind_tune = tune_options.use_blind_tune;
-	dtdebugx("change tune mode on adapter %d from %d to %d\n",
+	dtdebugx("change tune mode on adapter %d from %d to %d",
 					 (int) adapter_no, (int) w->tune_mode, (int) tune_options.tune_mode);
 	w->tune_mode = tune_options.tune_mode;
 	int heartbeat_interval = 0;
@@ -1447,11 +1447,11 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::lnb_t& lnb, const tune_
 	auto fefd = w->fefd;
 
 	if ((ioctl(fefd, FE_SET_VOLTAGE, lnb_voltage))) {
-		dterror("problem Setting the Voltage\n");
+		dterror("problem Setting the Voltage");
 		return -1;
 	}
 	if (ioctl(fefd, FE_SET_TONE, tone) < 0) {
-		dterror("problem Setting the Tone back\n");
+		dterror("problem Setting the Tone back");
 		return -1;
 	}
 	while (1) {
@@ -1546,7 +1546,7 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 }
 
 int dvb_frontend_t::release_fe() {
-	dtdebugx("releasing frontend_monitor: fefd=%d\n", this->ts.readAccess()->fefd);
+	dtdebugx("releasing frontend_monitor: fefd=%d", this->ts.readAccess()->fefd);
 	if (monitor_thread.get()) {
 		stop_frontend_monitor_and_wait();
 		monitor_thread.reset();
@@ -1628,7 +1628,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			auto b = std::min(lnb.diseqc_mini, (uint8_t)1);
 			ret = ioctl(fefd, FE_DISEQC_SEND_BURST, b);
 			if (ret < 0) {
-				dterror("problem sending the Tone Burst\n");
+				dterror("problem sending the Tone Burst");
 			}
 			must_pause = !repeated;
 		} break;
@@ -1815,7 +1815,7 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 			dterrorx("problem setting voltage %d", voltage);
 			return -1;
 		}
-		dtdebug("sleeping extra at startup\n");
+		dtdebug("sleeping extra at startup");
 		msleep(200);
 	}
 
@@ -1895,7 +1895,7 @@ int dvb_frontend_t::do_lnb(devdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) 
 
 	fe_sec_tone_mode_t tone = (band == devdb::fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 	if (this->sec_status.set_tone(fefd, tone)<0) {
-			dterror("problem Setting the Tone back\n");
+			dterror("problem Setting the Tone back");
 			return -1;
 	}
 	return 0;

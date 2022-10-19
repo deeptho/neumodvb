@@ -38,7 +38,7 @@ int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	assert(c.is_valid());
 	auto fe = c.current(); //update in case of external changes
-	dtdebugx("adapter %d %d%c-%d use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+	dtdebugx("adapter %d %d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
 					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	assert(fe.sub.use_count>=1);
 	if(--fe.sub.use_count == 0) {
@@ -67,7 +67,7 @@ std::tuple<devdb::fe_t, int> fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_
 	int released_fe_usecount{0};
 	assert(fe.sub.use_count>=1);
 	++fe.sub.use_count;
-	dtdebugx("adapter %d %d%c-%d use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+	dtdebugx("adapter %d %d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
 					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 
 	if(fe_key_to_release)
@@ -172,7 +172,7 @@ devdb::fe::subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key, const dev
 		if( !fe::is_subscribed(fe))
 			continue;
 		if(fe.sub.owner != getpid() && kill((pid_t)fe.sub.owner, 0)) {
-			dtdebugx("process pid=%d has died\n", fe.sub.owner);
+			dtdebugx("process pid=%d has died", fe.sub.owner);
 			continue;
 		}
 		bool fe_will_be_released = fe_key_to_release && *fe_key_to_release == fe.k;
@@ -540,7 +540,7 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const 
 	sub.usals_pos = lnb.usals_pos;
 	sub.frequency = frequency; //for informational purposes
 	sub.stream_id = stream_id; //for informational purposes
-	dtdebugx("adapter %d %d%c-%d use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+	dtdebugx("adapter %d %d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
 					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
@@ -564,7 +564,7 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const dev
 	sub.usals_pos = sat_pos_none;
 	sub.frequency = 0;
 		sub.stream_id = -1;
-	dtdebugx("adapter %d %d%c-%d use_count=%d\n", fe.adapter_no, fe.sub.frequency/1000,
+	dtdebugx("adapter %d %d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
 					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
@@ -687,7 +687,7 @@ bool devdb::fe::is_subscribed(const fe_t& fe) {
 	if (fe.sub.owner < 0)
 		return false;
 	if( kill((pid_t)fe.sub.owner, 0)) {
-		dtdebugx("process pid=%d has died\n", fe.sub.owner);
+		dtdebugx("process pid=%d has died", fe.sub.owner);
 		return false;
 	}
 	return true;

@@ -157,7 +157,7 @@ int active_adapter_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
 
 	si.deactivate();
-	dtdebugx("tune: done ret=%d\n", ret);
+	dtdebugx("tune: done ret=%d", ret);
 	return ret;
 }
 
@@ -371,7 +371,7 @@ active_adapter_t::active_adapter_t(receiver_t& receiver_, std::shared_ptr<dvb_fr
 
 
 active_adapter_t::~active_adapter_t() {
-	dtdebugx("~active_adapter_t: %p. Adapter %d frontend %d destroyed\n", this, get_adapter_no(), frontend_no());
+	dtdebugx("~active_adapter_t: %p. Adapter %d frontend %d destroyed", this, get_adapter_no(), frontend_no());
 }
 
 int active_adapter_t::open_demux(int mode) const {

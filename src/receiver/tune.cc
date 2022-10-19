@@ -380,6 +380,7 @@ int tuner_thread_t::run() {
 						dttime_init();
 						active_adapter.monitor();
 						dttime(200);
+						run_tasks(now, false); //prioritize tuning commands
 					}
 					dttime(150);
 					clean_dbs(now, false);
@@ -413,6 +414,7 @@ int tuner_thread_t::run() {
 							break;
 						}
 					}
+					run_tasks(now, false); //prioritize tuning commands
 				}
 			}
 		}

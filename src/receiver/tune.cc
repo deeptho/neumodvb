@@ -126,8 +126,10 @@ int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const 
 		active_adapter.set_current_tp(mux);
 		auto txn = receiver.chdb.wtxn();
 		namespace m = chdb::update_mux_preserve_t;
-		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES});
+		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES}, false /*ignore_key*/, true /*must_exist*/,
+										 false /*allow_multiple_keys*/);
 		txn.commit();
+		dtdebug("committed");
 	}
 	return 0;
 }
@@ -136,6 +138,7 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 	auto txn = receiver.chdb.wtxn();
 	put_record(txn, service);
 	txn.commit();
+	dtdebug("committed");
 	return 0;
 }
 
@@ -163,7 +166,6 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options,
 															 const devdb::resource_subscription_counts_t& use_counts) {
 	// check_thread();
-	dtdebugx("tune mux action");
 	chdb::dvbs_mux_t mux{mux_};
 	/*
 		The new scan status must be written to the database now.
@@ -171,6 +173,7 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 		pending, and when parallel tuners are in use, the second tuner might decide to scan
 			the mux again
 	*/
+	dtdebug("tune mux action " << mux);
 	active_adapter->end_si(); //clear left overs from last tune
 	mux = active_adapter->prepare_si(mux, false /*start*/);
 	active_adapter->processed_isis.reset();
@@ -403,6 +406,7 @@ int tuner_thread_t::run() {
 					prefix << "TUN" << active_adapter.get_adapter_no() << "-SI";
 					log4cxx::NDC ndc(prefix.c_str());
 					dttime_init();
+
 					if (evt->events & EPOLLERR) {
 						dterrorx("ERROR in epoll event for fd=%d", evt->data.fd);
 					} else if (evt->events & EPOLLIN) {
@@ -514,22 +518,4 @@ int tuner_thread_t::cb_t::positioner_cmd(std::shared_ptr<active_adapter_t> activ
 int tuner_thread_t::cb_t::update_current_lnb(active_adapter_t& active_adapter, const devdb::lnb_t& lnb) {
 	active_adapter.update_current_lnb(lnb);
 	return 0;
-}
-
-
-void tuner_thread_t::on_notify_signal_info(signal_info_t& signal_info)
-{
-	for (auto& it : active_adapters) {
-		auto& aa = *it.second;
-		if (aa.current_lnb().k != signal_info.stat.k.lnb)
-			continue;
-		aa.on_notify_signal_info(signal_info);
-		break; //only one adapter can match
-	}
-	return;
-}
-
-
-void tuner_thread_t::cb_t::on_notify_signal_info(signal_info_t& info) {
-	this->tuner_thread_t::on_notify_signal_info(info);
 }

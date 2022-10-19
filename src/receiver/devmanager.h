@@ -318,6 +318,7 @@ public:
 	card_mac_address_t card_mac_address{-1};
 
 	safe::Safe<fe_state_t> ts;
+	std::condition_variable ts_cv;
 	safe::Safe<signal_monitor_t> signal_monitor;
 
 	std::shared_ptr<fe_monitor_thread_t> monitor_thread; //public (used in active_si_stream.cc)
@@ -346,8 +347,8 @@ public:
 	template<typename mux_t>
 	int tune(const mux_t& mux, const tune_options_t& tune_options, bool user_requested);
 
-	int lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_options);
-
+	std::tuple<int, int>
+	lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options);
 	int start_lnb_spectrum_scan(const devdb::lnb_t& lnb, const tune_options_t& tune_options);
 
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
@@ -436,12 +437,18 @@ public:
 	inline void update_dbfe(const devdb::fe_t& fe) {
 		this->ts.writeAccess()->dbfe = fe;
 	}
-	inline std::optional<signal_info_t> get_last_signal_info() {
-		return ts.readAccess()->last_signal_info;
+	inline std::optional<signal_info_t> get_last_signal_info(bool wait) {
+		auto ret = ts.readAccess()->last_signal_info;
+		if (wait && !ret) {
+			std::unique_lock<std::mutex> lk(ts.mutex(), std::adopt_lock);
+			ts_cv.wait(lk, [&]() {
+				ret = ts.readAccess()->last_signal_info;
+				return ret;
+			});
+		}
+		return ret;
 	}
 };
-
-
 
 class use_count_t {
 	friend class receiver_thread_t;

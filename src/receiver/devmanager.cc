@@ -181,6 +181,7 @@ public:
 	std::shared_ptr<dvb_frontend_t> find_fe_for_tuning_to_mux(db_txn& txn, const mux_t& mux,
 																														const dvb_frontend_t* fe_to_release,
 																														const tune_options_t& tune_options) const;
+
 	std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t, devdb::resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
 																		const dvb_frontend_t* fe_to_release,
@@ -304,10 +305,10 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 	}
 	auto fe = dvb_frontend_t::make(this, adapter_no, frontend_no, api_type, api_version);
 	{
-		auto t = fe->ts.writeAccess();
-		t->dbfe.present = true;
-		t->dbfe.can_be_used = true;
-		update_dbfe(fe->adapter_no, fe->frontend_no, *t);
+		auto w = fe->ts.writeAccess();
+		w->dbfe.present = true;
+		w->dbfe.can_be_used = true;
+		update_dbfe(fe->adapter_no, fe->frontend_no, *w);
 	}
 	frontends.try_emplace({adapter_no, frontend_no}, fe);
 
@@ -333,11 +334,11 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) {
 	dtdebugx("delete frontend adapter %d fe=%d wd=%d count=%ld\n", (int)fe->adapter_no, (int)fe->frontend_no, event->wd,
 					 frontends.size());
 	{
-		auto t = fe->ts.writeAccess();
-		t->dbfe.can_be_used = false;
-		t->dbfe.present = false;
-		t->dbfe.can_be_used = false;
-		update_dbfe(fe->adapter_no, fe->frontend_no, *t);
+		auto w = fe->ts.writeAccess();
+		w->dbfe.can_be_used = false;
+		w->dbfe.present = false;
+		w->dbfe.can_be_used = false;
+		update_dbfe(fe->adapter_no, fe->frontend_no, *w);
 	}
 	frontends.erase({fe->adapter_no, fe->frontend_no});
 	// adapter->update_adapter_can_be_used();
@@ -361,7 +362,7 @@ void dvbdev_monitor_t::on_new_adapter(int adapter_no) {
 	}
 	sprintf(fname, "/dev/dvb/adapter%d", adapter_no);
 	auto wd = inotify_add_watch(inotfd, fname, IN_CREATE | IN_DELETE_SELF);
-	adapter_no_map.emplace(wd, adapter_no);
+	adapter_no_map.emplace(wd, adapter_no_t{adapter_no});
 	dtdebugx("new adapter %d wd=%d\n", adapter_no, wd);
 	discover_frontends(adapter_no_t(adapter_no));
 }
@@ -727,7 +728,7 @@ dvbdev_monitor_t::find_fe_for_tuning_to_mux(db_txn& rtxn, const mux_t& mux,
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
 	bool need_multistream = (mux.stream_id >= 0);
 	auto best_dbfe = devdb::fe::find_best_fe_for_dvtdbc(rtxn, fe_key_to_release, need_blindscan, need_spectrum,
-																									 need_multistream,  delsys_type);
+																											need_multistream,  delsys_type, false /*ignore_subscriptions*/);
 	assert(best_dbfe->can_be_used);
 	return find_fe(best_dbfe->k);
 }
@@ -749,7 +750,7 @@ dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dv
 		fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, mux, required_lnb_key,
 																					fe_key_to_release,
 																					tune_options.may_move_dish, tune_options.use_blind_tune,
-																					dish_move_penalty, resource_reuse_bonus);
+																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
 	//temporary hack to return the proper live data structures
 	auto fe = find_fe(best_fe->k);
 	if (!fe) {

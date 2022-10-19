@@ -153,45 +153,7 @@ class epoll_t {
 };
 
 #define unconvertable_int(base_name, type_name)	\
-class type_name {																\
-	base_name data{0};														\
-																								\
-public:																					\
- explicit type_name(base_name x) :							\
-	data(x)																				\
-  {}																						\
-																								\
- type_name() = default;													\
- type_name(const type_name& x) = default;				\
-																								\
- explicit operator base_name() const {					\
-	return data;																	\
-}																								\
- 																								\
- type_name& operator= (base_name x) {						\
-	 data =x;																			\
-	 return *this;																\
- }																							\
-																								\
- type_name& operator= (const type_name& x) {		\
-	data  = x.data;																\
-	return *this;																	\
- }																							\
- bool operator== (const type_name& x) const {		\
-	 return data == x.data;												\
- }																							\
-																								\
- bool operator < (const type_name x) const {		\
-	 return data < x.data;												\
- }																							\
- bool operator > (const type_name& x) const {		\
-	 return data > x.data;												\
- }																							\
- bool operator!= (const type_name& x) const {		\
-	return data != x.data;												\
-	}																							\
-}
-
+	enum class type_name : base_name {}
 
 
 extern thread_local std::shared_ptr<ss::string<256>> error_;
@@ -218,7 +180,22 @@ extern int _slowdown(time_t*last,int *count, time_t now, int maxcount);
 }
 
 
-unconvertable_int(int, subscription_id_t);
+enum class subscription_id_t : int {
+	NONE = -1, // unspecified failure or no subscription
+	RESERVATION_FAILED = -2,
+	TUNE_FAILED = -3
+};
+
+inline subscription_id_t& operator++(subscription_id_t& x) {
+	x= (subscription_id_t) (1+(int)x);
+	return x;
+}
+
+inline subscription_id_t operator++(subscription_id_t& x, int) {
+	auto ret = x;
+	x= (subscription_id_t) (1+(int)x);
+	return ret;
+}
 
 void assert_fail_stop(const char *assertion, const char *file, unsigned line, const char *function) throw();
 

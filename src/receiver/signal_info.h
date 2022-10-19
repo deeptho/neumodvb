@@ -43,6 +43,8 @@ struct tune_confirmation_t {
 	confirmed_by_t sat_by{confirmed_by_t::NONE};
 	confirmed_by_t ts_id_by{confirmed_by_t::NONE};
 	confirmed_by_t network_id_by{confirmed_by_t::NONE};
+	std::optional<chdb::mux_key_t> sdt_actual_mux_key;
+	std::optional<chdb::mux_key_t> nit_actual_mux_key;
 	bool nit_actual_seen{false};
 	bool nit_actual_received{false};
 	bool sdt_actual_seen{false};

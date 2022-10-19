@@ -42,12 +42,12 @@
 
 std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& receiver,
 																															 std::shared_ptr<dvb_frontend_t>& fe) {
-	auto t = fe->ts.writeAccess();
-	assert(t->fefd < 0);
+	auto w = fe->ts.writeAccess();
+	assert(w->fefd < 0);
 	auto p = std::make_shared<fe_monitor_thread_t>(receiver, fe);
-	fe->open_device(*t);
-	dtdebugx("starting frontend_monitor %p: fefd=%d\n", fe.get(), t->fefd);
-	p->epoll_add_fd(t->fefd,
+	fe->open_device(*w);
+	dtdebugx("starting frontend_monitor %p: fefd=%d\n", fe.get(), w->fefd);
+	p->epoll_add_fd(w->fefd,
 									EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET); // will be used to monitor the frontend edge triggered!
 	p->start_running();
 	return p;
@@ -205,7 +205,7 @@ int fe_monitor_thread_t::run() {
 exit_:
 	{
 		auto w = fe->ts.writeAccess();
-	fe->close_device(*w);
+		fe->close_device(*w);
 	}
 	dtdebugx("frontend_monitor end: %p: closed device\n", fe.get());
 	save.reset();

@@ -147,9 +147,10 @@ namespace dtdemux {
 		template<typename parser_t, typename... Args>
 		inline auto register_pid(int pid, Args... args) {
 			auto parser=std::make_shared<parser_t>(*this, pid, args...);
-			register_parser(pid, [parser, pid](ts_packet_t* p){
-				ss::string<16> ndc;
-				ndc.sprintf("PID(0x%x)", pid);
+			ss::string<16> prefix(log4cxx::NDC::peek().c_str());
+			register_parser(pid, [parser, pid, prefix](ts_packet_t* p){
+				ss::string<32> ndc;
+				ndc.sprintf("%s PID(0x%x)", prefix.c_str(), pid);
 				log4cxx::NDC::push(ndc.c_str());
 				parser->parse(p);});
 			return parser;

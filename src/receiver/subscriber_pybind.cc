@@ -157,7 +157,6 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 }
 
 static int scan_muxes(subscriber_t& subscriber, py::list mux_list) {
-	subscription_id_t subscription_id{-1};
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
 	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
 	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;

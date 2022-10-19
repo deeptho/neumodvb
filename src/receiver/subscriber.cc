@@ -45,7 +45,7 @@ subscriber_t::~subscriber_t() {
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service(const chdb::service_t& service) {
 	auto mpm =
-		receiver->subscribe_service(service, (int) subscription_id);
+		receiver->subscribe_service(service, subscription_id);
 	if (!mpm.get()) {
 		subscription_id = subscription_id_t{-1};
 		active_adapter.reset();
@@ -60,7 +60,7 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service(const chdb::serv
 template <typename _mux_t>
 int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 {
-	auto ret = receiver->subscribe_mux(mux, blindscan, (int) subscription_id);
+	auto ret = receiver->subscribe_mux(mux, blindscan, subscription_id);
 	if((int) ret<0) {
 		assert((int) subscription_id<0);
 		return (int) ret;
@@ -71,16 +71,16 @@ int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 }
 
 int subscriber_t::subscribe_lnb(devdb::lnb_t& lnb, retune_mode_t retune_mode) {
-	subscription_id =
-		receiver->subscribe_lnb(lnb, retune_mode, (int) subscription_id);
+	subscription_id = (subscription_id_t)
+		receiver->subscribe_lnb(lnb, retune_mode, subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
-	return (int) subscription_id < 0;
+	return (int) subscription_id;
 }
 
 int subscriber_t::subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 																						const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
 	subscription_id = receiver->subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range, retune_mode,
-																										(int) subscription_id);
+																										subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
 }
@@ -94,7 +94,7 @@ int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 		n.lnb_key = spectrum_key.lnb_key;
 		//todo: allow multiple scans on different sats/lnbs
 	}
-	subscription_id = receiver->scan_spectral_peaks(peaks, spectrum_key, (int) subscription_id);
+	subscription_id = receiver->scan_spectral_peaks(peaks, spectrum_key, subscription_id);
 	return (int)subscription_id;
 }
 
@@ -130,9 +130,9 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 }
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::rec_t& rec) {
-	auto mpm = 		receiver->subscribe_recording(rec, (int) subscription_id);
+	auto mpm = 		receiver->subscribe_recording(rec, subscription_id);
 	if (!mpm.get()) {
-		subscription_id = -1;
+		subscription_id = subscription_id_t::NONE;
 		active_adapter.reset();
 	} else {
 		subscription_id = mpm->subscription_id;
@@ -151,9 +151,15 @@ void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 
 int subscriber_t::unsubscribe() {
 	// auto d = safe_data.writeAccess();
-	subscription_id = receiver->unsubscribe((int) subscription_id);
+	if((int) subscription_id<0) {
+		dtdebug("ignoring unubscribe (subscription_id<0)");
+		return -1;
+	}
+	dtdebug("calling receiver->unsubscribe");
+	subscription_id = receiver->unsubscribe(subscription_id);
 	active_adapter.reset();
 	assert((int) subscription_id < 0);
+	dtdebug("calling receiver->unsubscribe -1");
 #ifndef NDEBUG
 	auto mp = receiver->subscribers.writeAccess();
 	auto& m = *mp;
@@ -164,6 +170,7 @@ int subscriber_t::unsubscribe() {
 		assert(num_erased == 1);
 	}
 #endif
+	dtdebug("calling receiver->unsubscribe -2");
 	return (int) subscription_id;
 }
 
@@ -186,7 +193,7 @@ int subscriber_t::subscribe_spectrum(devdb::lnb_t& lnb, chdb::fe_polarisation_t 
 	active_adapter.reset();
 
 	subscription_id = receiver->subscribe_lnb_spectrum(lnb, pol, low_freq, high_freq, sat_pos,
-																										 (int) subscription_id);
+																										 subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
 }

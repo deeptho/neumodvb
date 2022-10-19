@@ -196,10 +196,9 @@ int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
 }
 
 template<typename mux_t>
-void chdb::on_mux_key_change(db_txn& wtxn, const mux_t& old_mux, mux_t& new_mux, system_time_t now_) {
+void chdb::on_mux_key_change(db_txn& wtxn, const mux_key_t& old_mux_key, mux_t& new_mux, system_time_t now_) {
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace chdb;
-	auto& old_mux_key = *mux_key_ptr(old_mux);
 	auto& new_mux_key = *mux_key_ptr(new_mux);
 	{
 		auto c = service_t::find_by_key(wtxn, old_mux_key, find_type_t::find_geq,
@@ -216,12 +215,20 @@ void chdb::on_mux_key_change(db_txn& wtxn, const mux_t& old_mux, mux_t& new_mux,
 	}
 }
 
-void chdb::on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux, chdb::dvbs_mux_t& new_mux,
+void chdb::on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::dvbs_mux_t& new_mux,
 															system_time_t now_) {
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace chdb;
-	auto& old_mux_key = *mux_key_ptr(old_mux);
 	auto& new_mux_key = *mux_key_ptr(new_mux);
+	{
+		auto c = chdb::sat_t::find_by_key(wtxn, new_mux_key.sat_pos);
+		if (!c.is_valid()) {
+			chdb::sat_t sat;
+			sat.sat_pos = new_mux_key.sat_pos;
+			sat.name = chdb::sat_pos_str(new_mux_key.sat_pos);
+			put_record(wtxn, sat);
+		}
+	}
 	{
 		auto c = service_t::find_by_key(wtxn, old_mux_key, find_type_t::find_geq,
 																		service_t::partial_keys_t::mux);
@@ -246,27 +253,15 @@ void chdb::on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux, chdb
 	}
 }
 
-void chdb::on_mux_key_change(db_txn& wtxn, const chdb::any_mux_t& old_mux, chdb::any_mux_t& new_mux,
+void chdb::on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::any_mux_t& new_mux,
 															system_time_t now_) {
 	using namespace chdb;
 
-		visit_variant(
-		new_mux,
-		[&](chdb::dvbs_mux_t& new_mux) { on_mux_key_change(wtxn,
-																											 *std::get_if<dvbs_mux_t>(&old_mux),
-																											 new_mux,
-																											 now_);
-		},
-		[&](chdb::dvbc_mux_t& new_mux) { on_mux_key_change(wtxn,
-																											 *std::get_if<dvbc_mux_t>(&old_mux),
-																											 new_mux,
-																											 now_);
-		},
-		[&](chdb::dvbt_mux_t& new_mux) { on_mux_key_change(wtxn,
-																											 *std::get_if<dvbt_mux_t>(&old_mux),
-																											 new_mux,
-																											 now_);
-		});
+	std::visit([&](auto& new_mux) { on_mux_key_change(wtxn,
+																										old_mux_key,
+																										new_mux,
+																										now_);
+	}, new_mux);
 }
 
 static inline void copy_tuning(dvbc_mux_t& mux, dvbc_mux_t& db_mux) {
@@ -353,20 +348,19 @@ void chdb::remove_services(db_txn& wtxn, const mux_key_t& mux_key) {
 template <typename mux_t>
 bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preserve) {
 	namespace m = update_mux_preserve_t;
-	dtdebug("db_mux=" << db_mux << "-> mux=" << mux << ";" << " result=" << (int) db_mux.c.scan_result << ";" << (int)mux.c.scan_result);
-		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
-						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
-					 mux.c.scan_id >0);
+	dtdebug("db_mux=" << db_mux << "-> mux=" << mux);
+	assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
+					mux.c.scan_status != chdb::scan_status_t::PENDING) ||
+				 mux.c.scan_id >0);
 
 	bool mux_key_incompatible{false}; // db_mux and mux have different key, even after update
-	//assert(!is_template(mux)); //templates should never make it into the database via update_mux
-	if( (preserve & m::MUX_KEY) ||  is_template(mux)) {
+	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->extra_id == 0) {
 		//templat mux key entered by user is never considered valid,  so use database value
 		mux.k = db_mux.k;
 	}
 	if(db_mux.c.tune_src == tune_src_t::USER && mux.c.tune_src != tune_src_t::AUTO)  {
 		/*preserve all tuning data, unless the user wants to turn this off, which is indicated by
-		 mux.c.tune_src == tune_src_t::MANUAL
+			mux.c.tune_src == tune_src_t::MANUAL
 		*/
 		mux.c.tune_src = tune_src_t::USER;
 		copy_tuning(mux, db_mux); //preserve what is in the database
@@ -375,6 +369,15 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 	switch(mux.c.tune_src) {
 	case tune_src_t::TEMPLATE:
 		mux.c.tune_src = db_mux.c.tune_src;
+		break;
+
+	case tune_src_t::SDT_ACTUAL_TUNED:
+		if( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED && tuning_is_same(mux, db_mux) )
+			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
+		else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
+			copy_tuning( mux, db_mux );
+			mux.c.tune_src = db_mux.c.tune_src;
+		}
 		break;
 
 	case tune_src_t::NIT_ACTUAL_TUNED:
@@ -459,10 +462,29 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 /*! Put a mux record, taking into account that its key may have changed
 	returns: true if this is a new mux (first time scanned); false otherwise
 	Also, updates the mux, specifically k.extra_id
+
+	First find a mux which matches approximately in sat_pos, and frequency
+	and exactly in polarisation,
+  and exactly in key except extra_id (unless ignore_key==True)
+	and exactly in t2mi_pid and stream_id
+
+	In case of multiple matches prefer the one with matching extra_id (unless ignore_key==True)
+	and with closest frequency
+
+	Then either change the found mux, but preserve some of its data (depending on preserver(
+	or insert a new one.
+
+	In case MUX_KEY preservation is requested: do not change the mux_key (including extra_id)
+
+	for must_exist: return without saving if existing mux cannot be found and update would create a new mux
+
+	allow_multiple_keys: if true then never replace a record with a different key but insert a new one
 */
 template <typename mux_t>
 update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, update_mux_preserve_t::flags preserve,
-																	std::function<bool(const chdb::mux_common_t*)> cb) {
+																	std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+																	bool ignore_key, bool must_exist, bool allow_multiple_keys)
+{
 	auto now = system_clock_t::to_time_t(now_);
 	//assert(mux.c.tune_src != tune_src_t::TEMPLATE);
 	update_mux_ret_t ret = update_mux_ret_t::UNKNOWN;
@@ -489,30 +511,35 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		 such that (sat_pos, network_id, ts_id, extra_id) differs from the existing old mux
 	*/
 	namespace m = update_mux_preserve_t;
-	auto c = chdb::find_by_mux_physical(wtxn, mux, false /*ignore_stream_ids*/);
+	assert(!(ignore_key && (!(preserve & m::MUX_KEY))));
+	assert(!ignore_key ||!allow_multiple_keys);
+	auto c = chdb::find_by_mux_physical(wtxn, mux, false /*ignore_stream_id*/, ignore_key);
 	bool is_new = true; // do we modify an existing record or create a new one?
-
 	if (c.is_valid()) {
 		db_mux = c.current();
 		if(db_mux.k.extra_id == 0 ) {
 			dterror("Database mux " << db_mux << " has zero extra_id; fixing it");
 			mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
 		}
-
-		mux.k.extra_id = db_mux.k.extra_id;
-		auto key_matches = mux.k == db_mux.k;
+		auto tmp_key = mux.k;
+		tmp_key.extra_id = db_mux.k.extra_id;
+		auto key_matches = tmp_key == db_mux.k;
 		/*
 			if !key_matches:  We are going to overwrite a mux with similar frequency but different ts_id, network_id.
 			If one of the muxes is a template and the other not, the non-template data
 			gets priority.
 		*/
-		if(!key_matches) {
-			if (preserve & m::MUX_KEY)
-				return update_mux_ret_t::NO_MATCHING_KEY;
-			delete_record(c, db_mux);
-			mux.k.extra_id =  make_unique_id<mux_t>(wtxn, mux.k);
-			if(is_template(db_mux))
+		if(!ignore_key && !key_matches) {
+			if(!allow_multiple_keys) {
+				if ((preserve & m::MUX_KEY) && must_exist)
+					return update_mux_ret_t::NO_MATCHING_KEY;
+				delete_record(c, db_mux);
+			}
+			if(mux.k.extra_id ==0)
+				mux.k.extra_id =  make_unique_id<mux_t>(wtxn, mux.k);
+			if(is_template(db_mux) && !allow_multiple_keys) {
 				db_mux.k = mux.k;
+			}
 		}
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
@@ -521,23 +548,26 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		ret = key_matches ? update_mux_ret_t::MATCHING_SI_AND_FREQ: update_mux_ret_t::MATCHING_FREQ;
 
-		is_new = false;
-		cb(&db_mux.c);
+		is_new = (allow_multiple_keys && ! key_matches);
+		if(!cb( (allow_multiple_keys && !key_matches) ? nullptr : &db_mux.c, (allow_multiple_keys && !key_matches) ? nullptr : &db_mux.k))
+			return update_mux_ret_t::NO_MATCHING_KEY;
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
 
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
-		merge_muxes<mux_t>(mux, db_mux, preserve);
-		if(! key_matches) {
-			int matype = get_member(mux, matype, 0x3 << 14);
-			int db_matype = get_member(db_mux, matype, 0x3 << 14);
-			auto is_dvb = ((matype >> 14) & 0x3) == 0x3;
-			auto db_mux_is_dvb = ((db_matype >> 14) & 0x3) == 0x3;
-			if(is_dvb && db_mux_is_dvb)
-				merge_services(wtxn, db_mux.k, mux);
-			else if (!is_dvb && db_mux_is_dvb)
-				remove_services(wtxn, db_mux.k);
+		if(!is_new) {
+			merge_muxes<mux_t>(mux, db_mux, preserve);
+			if(!key_matches) {
+				int matype = get_member(mux, matype, 0x3 << 14);
+				int db_matype = get_member(db_mux, matype, 0x3 << 14);
+				auto is_dvb = ((matype >> 14) & 0x3) == 0x3;
+				auto db_mux_is_dvb = ((db_matype >> 14) & 0x3) == 0x3;
+				if(is_dvb && db_mux_is_dvb)
+					merge_services(wtxn, db_mux.k, mux);
+				else if (!is_dvb && db_mux_is_dvb)
+					remove_services(wtxn, db_mux.k);
+			}
 		}
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 
@@ -545,16 +575,22 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 						 db_mux.k.sat_pos, mux.k.sat_pos, db_mux.k.network_id,
 						 mux.k.network_id, db_mux.k.ts_id, mux.k.ts_id);
 		//assert( mux.c.tune_src != tune_src_t::TEMPLATE );
-		is_new = false;
-		ret = update_mux_ret_t::MATCHING_SI_AND_FREQ;
+
+		ret = is_new ? update_mux_ret_t::NO_MATCHING_KEY : update_mux_ret_t::MATCHING_SI_AND_FREQ;
 	} else { //no mux in db
+		if(must_exist)
+			return  update_mux_ret_t::NO_MATCHING_KEY;
 		ret = update_mux_ret_t::NEW;
-		cb(nullptr);
+		if(!cb(nullptr, nullptr))
+			return update_mux_ret_t::NO_MATCHING_KEY;
 		// It is possible that another tp exists with the same ts_id at an other very different frequency.
 		// Therefore we need to generate a unique extra_id
-		mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
+		if(mux.k.extra_id==0) {
+			mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
+		}
 	}
 
+	assert(!is_template(mux));
 	assert(ret != update_mux_ret_t::UNKNOWN);
 	// the database has a mux, but we may need to update it
 
@@ -566,13 +602,14 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 			if the match was based on frequency, an existing mux may be overwritten!
 		*/
 		mux.c.mtime = now;
-		assert(mux.k.extra_id != 0);
 
 		dtdebugx("NIT %s: old=%s  new=%s #s=%d", is_new ? "NEW" : "CHANGED", to_str(db_mux).c_str(), to_str(mux).c_str(),
 						 mux.c.num_services);
 		assert(mux.frequency > 0);
 
 		dtdebug("mux=" << mux);
+		assert(mux.k.extra_id>0);
+		assert(!is_template(mux));
 		put_record(wtxn, mux);
 	}
 	return ret;
@@ -580,16 +617,20 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 
 update_mux_ret_t chdb::update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
 																	update_mux_preserve_t::flags preserve,
-																	std::function<bool(const chdb::mux_common_t*)> cb) {
+																	std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+																	bool ignore_key, bool must_exist, bool allow_multiple_keys) {
 	using namespace chdb;
 	update_mux_ret_t ret;
 	visit_variant(
-		mux, [&](chdb::dvbs_mux_t& mux) {
+		mux,
+		[&](chdb::dvbs_mux_t& mux) {
 			if(mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_DVBS)
 				mux.matype = 256;
-			ret = chdb::update_mux(wtxn, mux, now, preserve, cb); },
-		[&](chdb::dvbc_mux_t& mux) { ret = chdb::update_mux(wtxn, mux, now, preserve, cb); },
-		[&](chdb::dvbt_mux_t& mux) { ret = chdb::update_mux(wtxn, mux, now, preserve, cb); });
+			ret = chdb::update_mux(wtxn, mux, now, preserve, cb, ignore_key, must_exist, allow_multiple_keys); },
+		[&](chdb::dvbc_mux_t& mux) { ret = chdb::update_mux(wtxn, mux, now, preserve, cb,
+																												ignore_key, must_exist, allow_multiple_keys); },
+		[&](chdb::dvbt_mux_t& mux) { ret = chdb::update_mux(wtxn, mux, now, preserve, cb,
+																												ignore_key, must_exist, allow_multiple_keys); });
 	return ret;
 }
 
@@ -688,6 +729,29 @@ inline static const char* scan_status_name(const chdb::scan_status_t& scan_statu
 	}
 }
 
+inline static const char* scan_result_name(const chdb::scan_result_t& scan_result) {
+	switch(scan_result) {
+	case scan_result_t::NONE:
+		return "NONE";
+	case scan_result_t::NOLOCK:
+		return "NOLOCK";
+	case scan_result_t::ABORTED:
+		return "ABORTED";
+	case scan_result_t::PARTIAL:
+		return "PARTIAL";
+	case scan_result_t::OK:
+		return "OK";
+	case scan_result_t::NODATA:
+		return "NODATA";
+	case scan_result_t::NODVB:
+		return "NODVB";
+	case scan_result_t::BAD:
+		return "BAD";
+	case scan_result_t::DISABLED:
+		return "DISABLED";
+	}
+}
+
 std::ostream& chdb::operator<<(std::ostream& os, const scan_status_t& scan_status) {
 	os << scan_status_name(scan_status);
 	return os;
@@ -711,12 +775,13 @@ std::ostream& chdb::operator<<(std::ostream& os, const sat_t& sat) {
 
 std::ostream& chdb::operator<<(std::ostream& os, const dvbs_mux_t& mux) {
 	auto sat = sat_pos_str(mux.k.sat_pos);
-	stdex::printf(os, "%s %d.%d%s", sat.c_str(), mux.frequency / 1000, mux.frequency%1000, enum_to_str(mux.pol));
+	stdex::printf(os, "%d.%03d%s", mux.frequency / 1000, mux.frequency%1000, enum_to_str(mux.pol));
 	if (mux.stream_id >= 0)
-		stdex::printf(os, "-%d", mux.stream_id);
-	if (mux.k.t2mi_pid != 0)
-		stdex::printf(os, "-T%d", mux.k.t2mi_pid);
-	stdex::printf(os, " %s", scan_status_name(mux.c.scan_status));
+		stdex::printf(os, "-%d ", mux.stream_id);
+	else
+		stdex::printf(os, " ");
+	os << mux.k;
+	stdex::printf(os, " %s/%s", scan_status_name(mux.c.scan_status), scan_result_name(mux.c.scan_result));
 	return os;
 }
 
@@ -752,7 +817,7 @@ std::ostream& chdb::operator<<(std::ostream& os, const any_mux_t& mux) {
 std::ostream& chdb::operator<<(std::ostream& os, const mux_key_t& k) {
 	auto sat = sat_pos_str(k.sat_pos);
 	os << sat;
-	stdex::printf(os, " - nid=%d tid=%d extra=%d", k.network_id, k.ts_id, k.extra_id);
+	stdex::printf(os, " - %d/%d/%d", k.network_id, k.ts_id, k.extra_id);
 	if (k.t2mi_pid != 0)
 		stdex::printf(os, "-T%d", k.t2mi_pid);
 
@@ -1242,3 +1307,49 @@ void chdb::clean_scan_status(db_txn& wtxn)
 	clean<chdb::dvbc_mux_t>(wtxn);
 	clean<chdb::dvbt_mux_t>(wtxn);
 }
+
+/*
+	Clear PENDING scan status  for all muxes with overlapping frequency with ref_mux,
+	except ref_mux itself.
+	This is used in two cases
+	1. a mux has been successfully tuned, but it is not a multistream. In this case any multistream
+	on the same mux is incorrect (e.g., left over from old mux status) and scanning it will be pointless
+	2. a stream has failed to lock. In this case, any other stream with the same tuning parameters and
+	different stream_id will fail to scan as well, and scanning them is a pointless waste of time
+
+	We must be careful to not clear the PENDING status on muxes with different symbol rate, e.g., in
+	case a bad broadband mux overlaps with a good narrow band mux.
+
+	Also, we do not clear muxes which differ only in mux_key
+ */
+template <typename mux_t> void chdb::clear_all_streams_pending_status(
+	db_txn& chdb_wtxn, system_time_t now_, const mux_t& ref_mux) {
+	using namespace chdb;
+	auto c = chdb::find_by_mux_physical(chdb_wtxn, ref_mux, true /*ignore_stream_id*/, true /*ignore_key*/);
+	int tolerance = get_member(ref_mux, symbol_rate, 500000)/1000; //in kHze
+
+	for(auto mux: c.range()) {
+		if(mux.k.sat_pos != ref_mux.k.sat_pos)
+			break; //we have reached the end
+		if ((int)mux.frequency >  (int) ref_mux.frequency + tolerance)
+			break; //we have reached the end
+		if(mux.k == ref_mux.k || mux.stream_id == ref_mux.stream_id)
+			continue;
+		if(!matches_physical(mux, ref_mux, true /*check_sat_pos*/, true /*ignore_stream_id*/))
+				continue;
+		if(mux.c.scan_status == scan_status_t::PENDING && mux.c.scan_id == ref_mux.c.scan_id && mux.stream_id>=0) {
+			mux.c.scan_status = scan_status_t::IDLE;
+			mux.c.scan_result = ref_mux.c.scan_result;
+			put_record(chdb_wtxn, mux);
+		}
+	}
+}
+
+
+//template instantiations
+template void chdb::clear_all_streams_pending_status(db_txn& chdb_wtxn, system_time_t now_,
+																										 const chdb::dvbs_mux_t& ref_mux);
+template void chdb::clear_all_streams_pending_status(db_txn& chdb_wtxn, system_time_t now_,
+																										 const chdb::dvbc_mux_t& ref_mux);
+template void chdb::clear_all_streams_pending_status(db_txn& chdb_wtxn, system_time_t now_,
+																							const chdb::dvbt_mux_t& ref_mux);

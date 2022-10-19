@@ -30,7 +30,6 @@
 
 #include<optional>
 
-
 /*
 	class to easily start a read transaction and perform a search, returning both a transaction and a cursor
 	This approach is more convenient than return a tuple.
@@ -179,7 +178,6 @@ struct db_txn : public lmdb::txn {
 		updated,
 		deleted
 	};
-
 	neumodb_t* pdb{nullptr};
 	int num_cursors = 0;
 	bool use_log{false};
@@ -245,11 +243,6 @@ struct db_txn : public lmdb::txn {
 		return this->_handle;
 	}
 	void commit() {
-#if 0 //not sure if this code should be activated and/or if similar code is needed for abort()
-		if(num_cursors>0) {
-			mdb_cursors_close(handle(), true);
-		}
-#endif
 		assert(this->_handle);
 		this->lmdb::txn::commit();
 

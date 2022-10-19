@@ -171,7 +171,7 @@ namespace  devdb::lnb {
 
 	void update_lnb_adapter_fields(db_txn& wtxn, const devdb::fe_t& fe);
 	void update_lnbs(db_txn& devdb_wtxn);
-	void on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux, chdb::dvbs_mux_t& new_mux,
+	void on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::dvbs_mux_t& new_mux,
 												 system_time_t now_);
 	std::optional<devdb::rf_coupler_t> get_rf_coupler(db_txn& rtxn, const devdb::lnb_key_t& lnb_key);
 	int rf_coupler_id(db_txn& rtxn, const devdb::lnb_key_t& key);
@@ -209,13 +209,13 @@ namespace devdb::fe {
 											 const devdb::fe_key_t* fe_to_release,
 											 bool need_blindscan, bool need_spectrum, bool need_multistream,
 											 chdb::fe_polarisation_t pol, fe_band_t band,
-											 int usals_pos);
+											 int usals_pos, bool ignore_subscriptions);
 
 	std::optional<devdb::fe_t>
 	find_best_fe_for_dvtdbc(db_txn& rtxn,
 													const devdb::fe_key_t* fe_to_release,
 													bool need_blindscan, bool need_spectrum, bool need_multistream,
-													chdb::delsys_type_t delsys_type);
+													chdb::delsys_type_t delsys_type, bool ignore_subscriptions);
 
 	std::tuple<std::optional<devdb::fe_t>,
 						 std::optional<devdb::lnb_t>,
@@ -224,7 +224,7 @@ namespace devdb::fe {
 																		const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
 																		const devdb::fe_key_t* fe_key_to_release,
 																		bool may_move_dish, bool use_blind_tune,
-																		int dish_move_penalty, int resource_reuse_bonus);
+																		int dish_move_penalty, int resource_reuse_bonus, bool ignore_subscriptions);
 
 	resource_subscription_counts_t subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key,
 																										 const devdb::fe_key_t* fe_key_to_release);
@@ -262,11 +262,19 @@ namespace devdb::fe {
 	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devdb::fe_key_t* fe_key_to_release,
 														 bool use_blind_tune);
 
+	bool can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
+																			const devdb::lnb_key_t* required_lnb_key,
+																			bool use_blind_tune, bool may_move_dish,
+																			int dish_move_penalty, int resource_reuse_bonus);
+
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, resource_subscription_counts_t, int>
 	subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																 const devdb::lnb_key_t* required_lnb_key, const devdb::fe_key_t* fe_key_to_release,
 														 bool use_blind_tune, bool may_move_dish, int dish_move_penalty, int resource_reuse_bonus);
-	std::tuple<std::optional<devdb::fe_t>, int>
+
+	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, bool use_blind_tune);
+
+		std::tuple<std::optional<devdb::fe_t>, int>
 	subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const devdb::fe_key_t* fe_key_to_release,
 													bool need_blind_tune, bool need_spectrum);
 	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key,

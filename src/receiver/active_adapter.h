@@ -227,7 +227,9 @@ private:
 	active_si_stream_t si;
 	int remove_service(active_service_t& channel);
 	int remove_all_services(rec_manager_t& recmgr);
-	void on_notify_signal_info(signal_info_t& signal_info);
+	void check_for_new_streams();
+	void check_for_unlockable_streams();
+	void check_for_non_existing_streams();
 public:
 
 	active_adapter_t(receiver_t& receiver_,

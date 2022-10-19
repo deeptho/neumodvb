@@ -170,9 +170,9 @@ void dbdesc_t::init(const all_schemas_t& all_sw_schemas) {
 void dbdesc_t::init(const all_schemas_t& all_sw_schemas, const ss::vector_<record_desc_t>& stored_schema) {
 	init(all_sw_schemas);
 	for (const auto& stored_record_schema : stored_schema) {
-
 		// look up the slot for stored_record_schema.type_id for the currently processed struct
 		auto* metadata = metadata_for_type(stored_record_schema.type_id);
+
 		if (metadata != nullptr) {
 			const auto& current_record_schema = metadata->record_desc;
 			// store the schema info about this struct, and also compute offsets

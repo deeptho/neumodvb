@@ -84,15 +84,15 @@ namespace chdb {
 	};
 
 	template<typename mux_t>
-	void on_mux_key_change(db_txn&txn, const mux_t& old_mux,
+	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux_key,
 													mux_t& new_mux,
 												 system_time_t now_);
 
-	void on_mux_key_change(db_txn&txn, const chdb::dvbs_mux_t& old_mux,
+	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux,
 													chdb::dvbs_mux_t& new_mux,
 													system_time_t now_);
 
-	void on_mux_key_change(db_txn&txn, const chdb::any_mux_t& old_mux,
+	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux,
 													chdb::any_mux_t& new_mux,
 													system_time_t now_);
 	/*
@@ -101,13 +101,25 @@ namespace chdb {
 	 */
 	update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 															system_time_t now, update_mux_preserve_t::flags preserve,
-															std::function<bool(const chdb::mux_common_t*)> cb);
+															std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+															bool ignore_key, bool must_exist, bool allow_multiple_keys);
 
 	inline update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
-																		 system_time_t now, update_mux_preserve_t::flags preserve) {
-		return update_mux(txn, mux, now, preserve, [](const chdb::mux_common_t*) { return true;});
+																		 system_time_t now, update_mux_preserve_t::flags preserve,
+																		 bool ignore_key, bool must_exist, bool allow_multiple_keys) {
+		return update_mux(txn, mux, now, preserve,
+											[](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;}, ignore_key,
+											must_exist, allow_multiple_keys);
 	}
 
+	template <typename mux_t> void clear_all_streams_pending_status(db_txn& chdb_wtxn,
+																																	system_time_t now_, const mux_t& mux);
+
+	inline void clear_all_streams_pending_status(db_txn& chdb_wtxn, system_time_t now_, const chdb::any_mux_t& mux) {
+		std::visit([&](auto& mux){
+			clear_all_streams_pending_status(chdb_wtxn, now_, mux);
+		},mux);
+	}
 
 	/*! Put a mux record, taking into account that its key may have changed
 		returns: true if this is a new mux (first time scanned); false otherwise
@@ -117,11 +129,14 @@ namespace chdb {
 	*/
 	template<typename mux_t>
 	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
-															std::function<bool(const chdb::mux_common_t*)> cb);
+															std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+															bool ignore_key, bool must_exist, bool allow_multiple_keys);
 
 	template<typename mux_t>
-	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve) {
-		return update_mux(txn, mux, now, preserve, [](const chdb::mux_common_t*) { return true;});
+	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
+															bool ignore_key, bool must_exist, bool allow_multiple_keys) {
+		return update_mux(txn, mux, now, preserve, [](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;},
+											ignore_key, must_exist);
 	}
 
 
@@ -316,11 +331,20 @@ namespace chdb::sat {
 
 namespace chdb {
 
-	//tuning parameters (sat_pos, polarisation, frequency) indicate "equal channels"
+	/* tuning parameters (sat_pos, polarisation, frequency) indicate "equal or overlapping" muxes
+	 */
 	bool matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos=true);
 	bool matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos=true);
 	bool matches_physical_fuzzy(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos=true);
 	bool matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos=true);
+
+	/* tuning parameters (sat_pos, polarisation, frequency) indicate muxes with same bandwidth
+		 and frequency with tight tolerance
+	 */
+	bool matches_physical(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
+	bool matches_physical(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
+	bool matches_physical(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
+	bool matches_physical(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
 
 	inline int dvb_type(const chdb::any_mux_t& mux) {
 		auto sat_pos = chdb::mux_key_ptr(mux)->sat_pos;
@@ -342,9 +366,6 @@ namespace chdb {
 	 */
 	template<typename mux_t>
 	db_tcursor<mux_t> find_by_mux(db_txn& txn, const mux_t& mux);
-#if 0
-	db_tcursor<chdb::dvbs_mux_t> find_by_mux(db_txn& txn, const dvbs_mux_t& mux);
-#endif
 
 /*!
 	find a matching mux, based on sat_pos, ts_id, network_id, ignoring  extra_id
@@ -366,9 +387,9 @@ namespace chdb {
 																										int16_t tuned_sat_pos);
 	get_by_nid_tid_unique_ret_t get_by_network_id_ts_id(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 	template<typename mux_t>
-	db_tcursor<mux_t> find_by_mux_physical(db_txn& txn, const mux_t& mux, bool ignore_stream_ids);
+	db_tcursor<mux_t> find_by_mux_physical(db_txn& txn, const mux_t& mux, bool ignore_stream_id, bool ignore_keys);
 
-	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_ids);
+	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_id, bool ignore_key);
 
 	void clean_scan_status(db_txn& wtxn);
 };

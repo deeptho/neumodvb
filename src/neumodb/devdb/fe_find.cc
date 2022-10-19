@@ -78,12 +78,10 @@ std::tuple<devdb::fe_t, int> fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_
 }
 
 
-std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
-																											const devdb::fe_key_t* fe_to_release,
-																											bool need_blindscan,
-																											bool need_spectrum,
-																											bool need_multistream,
-																											chdb::delsys_type_t delsys_type) {
+std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
+	db_txn& rtxn, const devdb::fe_key_t* fe_to_release,
+	bool need_blindscan, bool need_spectrum, bool need_multistream,
+	chdb::delsys_type_t delsys_type, bool ignore_subscriptions) {
 	bool need_dvbt = delsys_type == chdb::delsys_type_t::DVB_T;
 	bool need_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
 	auto c = devdb::find_first<devdb::fe_t>(rtxn);
@@ -94,7 +92,9 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
 	auto no_best_fe_yet = [&best_fe]()
 		{ return best_fe.priority == std::numeric_limits<decltype(best_fe.priority)>::lowest(); };
 
-	auto adapter_in_use = [&rtxn](int adapter_no) {
+	auto adapter_in_use = [&rtxn, ignore_subscriptions](int adapter_no) {
+		if(ignore_subscriptions)
+			return false;
 		auto c = fe_t::find_by_adapter_no(rtxn, adapter_no);
 		for(const auto& fe: c.range()) {
 			if(fe::is_subscribed(fe))
@@ -219,14 +219,12 @@ devdb::fe::subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key, const dev
 	 will be atomic
  */
 
+std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
+	db_txn& rtxn, const devdb::lnb_t& lnb,
+	const devdb::fe_key_t* fe_key_to_release,
+	bool need_blindscan, bool need_spectrum, bool need_multistream,
+	chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos, bool ignore_subscriptions) {
 
-std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::lnb_t& lnb,
-																									 const devdb::fe_key_t* fe_key_to_release,
-																									 bool need_blindscan, bool need_spectrum,
-																									 bool need_multistream,
-																									 chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos) {
-
-	//TODO: clean subscriptions at startup
 	auto rf_coupler_id = devdb::lnb::rf_coupler_id(rtxn, lnb.k);
 	auto lnb_on_positioner = devdb::lnb::on_positioner(lnb);
 
@@ -243,7 +241,9 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 		One adapter can have multiple frontends, and therefore multiple fe_t records.
 		We must check all of them
 	 */
-	auto adapter_in_use = [&rtxn](int adapter_no) {
+	auto adapter_in_use = [&rtxn, ignore_subscriptions](int adapter_no) {
+		if(ignore_subscriptions)
+			return false;
 		auto c = fe_t::find_by_adapter_no(rtxn, adapter_no, find_type_t::find_eq, devdb::fe_t::partial_keys_t::adapter_no);
 		for(const auto& fe: c.range()) {
 			assert(fe.adapter_no  == adapter_no);
@@ -270,7 +270,10 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 		Note that priority swicthes do not need to be treated specifically as neumoDVB
 		never neither of the connectors to send diseqc, except initially when both connectors are idle.
 	 */
-	auto shared_rf_input_conflict = [&rtxn, pol, band, usals_pos] (const devdb::fe_t& fe, int rf_coupler_id) {
+	auto shared_rf_input_conflict = [&rtxn, pol, band, usals_pos, ignore_subscriptions]
+		(const devdb::fe_t& fe, int rf_coupler_id) {
+		if(ignore_subscriptions)
+			return false;
 		if(rf_coupler_id <0)
 			return false; //not on switch; no conflict possible
 		if(devdb::lnb::rf_coupler_id(rtxn, fe.sub.lnb_key) != rf_coupler_id)
@@ -289,9 +292,12 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 		Furthermore,m if we need exclusivity, we cannot use the dish at all if a subscription exists
 
 	 */
-	auto shared_positioner_conflict = [usals_pos, need_exclusivity] (const devdb::fe_t& fe, int dish_id) {
+	auto shared_positioner_conflict = [usals_pos, need_exclusivity, ignore_subscriptions]
+		(const devdb::fe_t& fe, int dish_id) {
 		if (dish_id <0)
 			return false; //lnb is on a dish of its own (otherwise user needs to set dish_id)
+		if(ignore_subscriptions)
+			return false;
 		if (fe.sub.lnb_key.dish_id <0 || fe.sub.lnb_key.dish_id != dish_id )
 			return false; //fe's subscribed lnb is on a dish of its own (otherwise user needs to set dish_id)
 		assert(fe.sub.lnb_key.dish_id == dish_id);
@@ -305,8 +311,9 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::l
 	for(const auto& fe: c.range()) {
 		assert(fe.card_mac_address == lnb.k.card_mac_address);
 		assert(fe.sub.lnb_key.rf_input != lnb.k.rf_input || fe.sub.lnb_key == lnb.k);
-		bool is_subscribed = fe::is_subscribed(fe);
-		bool is_our_subscription = (fe_key_to_release && fe.k == *fe_key_to_release);
+		bool is_subscribed = ignore_subscriptions ? false: fe::is_subscribed(fe);
+		bool is_our_subscription = ignore_subscriptions ? false : (fe_key_to_release && fe.k == *fe_key_to_release);
+
 		if(!is_subscribed || is_our_subscription) {
       //find the best fe will all required functionality, without taking into account other subscriptions
 			if(!fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
@@ -426,7 +433,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																			const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
 																			const devdb::fe_key_t* fe_key_to_release,
 																			bool may_move_dish, bool use_blind_tune,
-																			int dish_move_penalty, int resource_reuse_bonus) {
+																			int dish_move_penalty, int resource_reuse_bonus,
+																			bool ignore_subscriptions) {
 	using namespace devdb;
 	int best_lnb_prio = std::numeric_limits<int>::min();
 	int best_fe_prio = std::numeric_limits<int>::min();
@@ -484,8 +492,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		auto band{devdb::lnb::band_for_mux(lnb, mux)}; //signifies that non-exlusive control is fine
 
 		bool need_multistream = (mux.stream_id >= 0);
-		auto fe = fe::find_best_fe_for_lnb(rtxn, lnb, fe_key_to_release,
-																				 need_blindscan, need_spectrum, need_multistream, pol, band, usals_pos);
+		auto fe = fe::find_best_fe_for_lnb(rtxn, lnb, fe_key_to_release, need_blindscan, need_spectrum,
+																			 need_multistream, pol, band, usals_pos, ignore_subscriptions);
 		if(!fe) {
 			dtdebug("LNB " << lnb << " cannot be used");
 			continue;
@@ -540,7 +548,7 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const 
 	sub.usals_pos = lnb.usals_pos;
 	sub.frequency = frequency; //for informational purposes
 	sub.stream_id = stream_id; //for informational purposes
-	dtdebugx("adapter %d %d.%d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
+	dtdebugx("adapter %d %d.%03d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
 					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
@@ -607,8 +615,8 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
 	bool need_multistream = false;
 	int released_fe_usecount{0};
 
-	auto best_fe = fe::find_best_fe_for_lnb(wtxn, lnb, fe_key_to_release,
-																					need_blind_tune, need_spectrum, need_multistream, pol, band, usals_pos);
+	auto best_fe = fe::find_best_fe_for_lnb(wtxn, lnb, fe_key_to_release, need_blind_tune, need_spectrum,
+																					need_multistream, pol, band, usals_pos, false /*ignore_subscriptions*/);
 	if(fe_key_to_release)
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
 
@@ -630,7 +638,7 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
  */
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>, devdb::resource_subscription_counts_t, int>
 devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-													 const devdb::lnb_key_t* required_lnb_key, const devdb::fe_key_t* fe_key_to_release,
+																			const devdb::lnb_key_t* required_lnb_key, const devdb::fe_key_t* fe_key_to_release,
 																			bool use_blind_tune, bool may_move_dish,
 																			int dish_move_penalty, int resource_reuse_bonus) {
 	int released_fe_usecount{0};
@@ -638,7 +646,7 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_lnb_key,
 																					fe_key_to_release,
 																					may_move_dish, use_blind_tune,
-																					dish_move_penalty, resource_reuse_bonus);
+																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
 	if(fe_key_to_release)
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
 
@@ -652,6 +660,19 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 	best_use_counts.tuner++;
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, best_lnb, best_use_counts, released_fe_usecount};
+}
+
+/*returns true if subscription is possible, ignoring any existing subscriptions*/
+bool devdb::fe::can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
+																							 const devdb::lnb_key_t* required_lnb_key,
+																							 bool use_blind_tune, bool may_move_dish,
+																							 int dish_move_penalty, int resource_reuse_bonus) {
+	auto[best_fe, best_lnb, best_use_counts] =
+		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_lnb_key,
+																					nullptr /*fe_key_to_release*/,
+																					may_move_dish, use_blind_tune,
+																					dish_move_penalty, resource_reuse_bonus, true /*ignore_subscriptions*/);
+	return !!best_fe;
 }
 
 
@@ -671,7 +692,8 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
 	bool is_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
 	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
-																							 need_spectrum, need_multistream,  delsys_type);
+																										need_spectrum, need_multistream,  delsys_type,
+																										false /*ignore_subscriptions*/);
 	if(fe_key_to_release)
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
 
@@ -681,6 +703,19 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency, mux.stream_id);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, released_fe_usecount};
+}
+
+
+/*returns true if subscription is possible, ignoring any existing subscriptions*/
+template<typename mux_t> bool
+devdb::fe::can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, bool use_blind_tune) {
+	const bool need_spectrum{false};
+	const bool need_multistream = (mux.stream_id >= 0);
+	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
+	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, nullptr /*fe_key_to_release*/, use_blind_tune,
+																										need_spectrum, need_multistream,  delsys_type,
+																										true /*ignore_subscriptions*/);
+	return !!best_fe;
 }
 
 bool devdb::fe::is_subscribed(const fe_t& fe) {
@@ -704,3 +739,8 @@ template std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, const chdb::dvbt_mux_t& mux,
 																						 const devdb::fe_key_t* fe_key_to_release,
 																						 bool use_blind_tune);
+
+template bool
+devdb::fe::can_subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, const chdb::dvbc_mux_t& mux, bool use_blind_tune);
+template bool
+devdb::fe::can_subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, const chdb::dvbt_mux_t& mux, bool use_blind_tune);

@@ -146,17 +146,18 @@ int active_adapter_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 													 bool user_requested, const devdb::resource_subscription_counts_t& use_counts) {
 	if(!fe)
 		return -1;
+	if(user_requested)
+		tune_state = TUNE_INIT;
 	last_new_matype_time = steady_clock_t::now();
 	scan_mux_end_reported = false;
-
+	assert(tune_state != TUNE_FAILED);
 	auto [ret, new_usals_sat_pos] = fe->tune(lnb, mux, tune_options, user_requested, use_counts);
 	if(ret>=0 && new_usals_sat_pos != sat_pos_none)
 		lnb_update_usals_pos(new_usals_sat_pos);
 
 	tune_start_time = system_clock_t::now();
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
-
-	si.deactivate();
+	si.deactivate(tune_state == TUNE_FAILED /*error*/);
 	dtdebugx("tune: done ret=%d", ret);
 	return ret;
 }
@@ -165,7 +166,6 @@ template<>
 int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 	auto mux = std::get<chdb::dvbs_mux_t>(current_tp());
 	bool user_requested = false;
-	const bool is_retune{true};
 	devdb::lnb_t lnb;
 	devdb::resource_subscription_counts_t use_counts;
 	{
@@ -174,7 +174,7 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 		use_counts = devdb::fe::subscription_counts(devdb_rtxn, lnb_key, nullptr /*fe_key_to_release*/);
 		devdb_rtxn.abort();
 	}
-	si.reset(is_retune);
+	si.reset(true /*force_finalize*/, tune_state==tune_state_t::TUNE_FAILED);
 	//TODO: needless read here, followed by write within tune()
 	auto tune_options = fe->ts.readAccess()->tune_options;
 	return tune(current_lnb(), mux, tune_options, user_requested, use_counts);
@@ -183,8 +183,7 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 template <typename mux_t> inline int active_adapter_t::retune() {
 	auto mux = std::get<mux_t>(current_tp());
 	bool user_requested = false;
-	const bool is_retune{true};
-	si.reset(is_retune);
+	si.reset(true /*force_finalize*/, tune_state == tune_state_t::TUNE_FAILED);
 
 	//TODO: needless read here, followed by write within tune()
 	auto tune_options = fe->ts.readAccess()->tune_options;
@@ -223,13 +222,15 @@ template<typename mux_t>
 int active_adapter_t::tune(const mux_t& mux, tune_options_t tune_options, bool user_requested) {
 	if(!fe)
 		return -1;
+	if(user_requested)
+		tune_state = TUNE_INIT;
 	last_new_matype_time = steady_clock_t::now();
 	scan_mux_end_reported = false;
-	fe->tune(mux, tune_options, user_requested);
+	auto ret = fe->tune(mux, tune_options, user_requested);
 	tune_start_time = system_clock_t::now();
-	tune_state = WAITING_FOR_LOCK;
+	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
 
-	si.deactivate();
+	si.deactivate(tune_state == TUNE_FAILED /*error*/);
 	return 0;
 }
 
@@ -293,12 +294,17 @@ void active_adapter_t::monitor() {
 		dtdebugx("adapter %d NO MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
 		return;
 	}
+	if(tune_state == TUNE_INIT) {
+		dtdebugx("adapter %d NO MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
+		return;
+	}
 	dtdebugx("adapter %d MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
+
 	bool must_retune{false};
 	bool must_reinit_si{false};
 	bool must_reset_si{false};
 	bool is_not_ts{false};
-
+	dttime_init();
 	assert(!(must_reinit_si && must_retune)); // if must_retune si will be inited anyway
 
 	if (si.abort_on_wrong_sat()) {
@@ -307,6 +313,9 @@ void active_adapter_t::monitor() {
 	} else {
 		std::tie(must_retune, must_reinit_si, must_reset_si, is_not_ts) = check_status();
 	}
+	dttime(200);
+	if(!must_retune)
+		check_for_new_streams();
 
 	if (must_retune) {
 		visit_variant(
@@ -316,47 +325,37 @@ void active_adapter_t::monitor() {
 			[this](dvbt_mux_t&& mux) { retune<dvbt_mux_t>(); });
 	} else if (must_reinit_si) {
 		auto t = fe->ts.readAccess()->tune_options.scan_target;
+		ss::string<128> prefix;
+		prefix << "TUN" << this->get_adapter_no();
+		log4cxx::NDC ndc(prefix.c_str());
 		init_si(t);
 	} else if (must_reset_si || is_not_ts) {
 		//now - tune_start_time xxx
-		si.reset(true);
+		si.reset(true /*force_finalize*/, tune_state == tune_state_t::TUNE_FAILED);
+		dttime(200);
 		check_scan_mux_end();
+		dttime(200);
 	} else {
 		/*usually scan_report will be called by process_si_data, but on bad muxes data may not
 			be present. scan_report runs with a min frequency of 1 call per 2 seconds
 		*/
 		si.scan_report();
+		dttime(200);
 		check_scan_mux_end();
+		dttime(200);
 	}
-
+	dttime(200);
 }
 
 
 int active_adapter_t::lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options) {
-	//dttime_init();
-	// needs to be at very start!
+
 	set_current_tp({});
-
-	auto band = tune_options.spectrum_scan_options.band_pol.band;
-	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
-	auto voltage = devdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
-
-	auto [ret, new_usals_sat_pos ] =
-		fe->do_lnb_and_diseqc(band, voltage);
+	auto [ret, new_usals_sat_pos] = fe->lnb_spectrum_scan(lnb, tune_options);
 	if(new_usals_sat_pos != sat_pos_none)
 		lnb_update_usals_pos(new_usals_sat_pos);
 
 	dtdebug("spectrum: diseqc done");
-	fe->stop();
-	if (fe->stop() < 0) /* Force the driver to go into idle mode immediately, so
-													 that the fe_monitor_thread_t will also return immediately
-												*/
-		return -1;
-	ret = fe->start_lnb_spectrum_scan(lnb, tune_options);
-
-	fe->start();
-
-	//dttime(100);
 	return ret;
 }
 
@@ -400,14 +399,13 @@ void active_adapter_t::update_lof(const fe_state_t& ts, const ss::vector<int32_t
 }
 
 int active_adapter_t::deactivate() {
-	tune_state = TUNE_INIT;
 	end_si();
 	active_services.clear();
-
 	auto* fe = this->fe.get();
 	auto fefd = fe->ts.readAccess()->fefd;
 	dtdebugx("Release fe_fd=%d", fefd);
 	fe->release_fe();
+	tune_state = TUNE_INIT;
 	return 0;
 }
 
@@ -425,6 +423,7 @@ void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
 		// measure how long it takes to move positioner
 		usals_timer.start(w->reserved_lnb.usals_pos, usals_pos);
 		w->reserved_lnb.usals_pos = usals_pos;
+		assert(w->dbfe.rf_inputs.size()>0);
 	}
 }
 
@@ -434,6 +433,7 @@ void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
  */
 void active_adapter_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	fe->ts.writeAccess()->reserved_lnb = lnb;
+	assert(fe->ts.readAccess()->dbfe.rf_inputs.size()>0);
 };
 
 //only called from active_si_stream.h true, true and true, false and false, false,
@@ -523,20 +523,37 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		master_mux.k.t2mi_pid = 0;
 		/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
 			handle small differences in sat_pos*/
-		auto c = chdb::find_by_mux_physical(chdb_txn, master_mux, false /*ignore_stream_ids*/);
+		auto c = chdb::find_by_mux_physical(chdb_txn, master_mux, false /*ignore_stream_ids*/, false /*ignore_key*/);
 		if (c.is_valid()) {
 			assert(mux_key_ptr(c.current())->sat_pos != sat_pos_none);
 			master_mux = c.current();
 		}
-		if(must_activate)
-			update_mux(chdb_txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+		if(must_activate) {
+			if(!chdb::is_template(mux)) { //delay activation of templates until we know they can be tuned
+				chdb::update_mux(chdb_txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS},
+												 false /*ignore_key*/, true /*must_exist*/, false /*allow_multiple_keys*/);
+			}
+		}
 		chdb_txn.commit();
+		if(must_activate)
+			dtdebug("committed write");
+		else
+			dtdebug("committed read");
 		set_current_tp(master_mux);
 		add_embedded_si_stream(mux, start);
 	} else {
-		if(must_activate)
-			update_mux(chdb_txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS});
+		if(must_activate) {
+			if(!chdb::is_template(mux)) { //delay activation of templates until we know they can be tuned
+				chdb::update_mux(chdb_txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS},
+												 false /*ignore_key*/, true /*must_exist*/, false /*allow_multiple_keys*/);
+			}
+		}
 		chdb_txn.commit();
+		if(must_activate)
+			dtdebug("committed write");
+		else
+			dtdebug("committed read");
+
 		set_current_tp(mux);
 	}
 	return mux;
@@ -544,9 +561,9 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 
 void active_adapter_t::end_si() {
 	for (auto& [pid, si_] : embedded_si_streams) {
-		si_.deactivate();
+		si_.deactivate(false /*tune_failed*/);
 	}
-	si.deactivate();
+	si.deactivate(false /*tune_failed*/);
 	embedded_si_streams.clear();
 	stream_filters.writeAccess()->clear();
 }
@@ -597,6 +614,7 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 			}
 		}
 		w->tune_confirmation = tune_confirmation;
+		assert(w->dbfe.rf_inputs.size()>0);
 	}
 
 	if(dvbs_mux) {
@@ -629,16 +647,48 @@ void active_adapter_t::check_scan_mux_end()
 		auto mux = si.reader->stream_mux();
 		dtdebug("calling on_scan_mux_end dbfe=" <<dbfe << " mux=" <<mux);
 		auto& receiver_thread = receiver.receiver_thread;
-		receiver_thread.push_task([&receiver_thread, dbfe, mux]() {
-			cb(receiver_thread).on_scan_mux_end(dbfe, mux);
+		auto* c = chdb::mux_common_ptr(mux);
+		if(chdb::mux_key_ptr(mux)->extra_id==0) {
+			c->scan_status = chdb::scan_status_t::IDLE;
+			c->scan_result =  chdb::scan_result_t::NOLOCK;
+			assert(is_template(mux));
+		} else  {
+			if(tune_state == tune_state_t::TUNE_FAILED || tune_state == tune_state_t::WAITING_FOR_LOCK)
+				check_for_unlockable_streams();
+			else if (processed_isis.count()==0) {
+				check_for_non_existing_streams();
+			}
+			if(c->scan_status != chdb::scan_status_t::IDLE) {
+				c->scan_status = chdb::scan_status_t::IDLE;
+				c->scan_result = (tune_state == tune_state_t::TUNE_FAILED)
+					? chdb::scan_result_t::BAD
+					: (tune_state == tune_state_t::WAITING_FOR_LOCK) ? chdb::scan_result_t::NOLOCK
+					: c->scan_result;
+
+				auto chdb_wtxn = receiver.chdb.wtxn();
+				assert(chdb::mux_key_ptr(mux)->extra_id>0);
+				put_record(chdb_wtxn, mux);
+				chdb_wtxn.commit();
+			}
+		}
+		receiver_thread.push_task([&receiver_thread, dbfe, mux, this]() {
+			cb(receiver_thread).on_scan_mux_end(dbfe, mux, this);
 			return 0;
 		});
 	}
 	scan_mux_end_reported = true;
 }
 
-void active_adapter_t::on_notify_signal_info(signal_info_t& signal_info)
+void active_adapter_t::check_for_new_streams()
 {
+	auto signal_info_ = fe->get_last_signal_info(false /*wait*/);
+	if(!signal_info_)
+		return;
+	auto& signal_info = *signal_info_;
+	if(signal_info.last_new_matype_time == last_new_matype_time)
+		return;
+	last_new_matype_time = signal_info.last_new_matype_time;
+
 	std::optional<db_txn> txn;
 	auto get_txn = 	[this, &txn] () -> db_txn& {
 		if(!txn)
@@ -659,7 +709,7 @@ void active_adapter_t::on_notify_signal_info(signal_info_t& signal_info)
 			continue;
 		if(stream_id == tuned_stream_id)
 			continue;
-		last_new_matype_time = steady_clock_t::now();
+		last_new_matype_time = signal_info.last_new_matype_time;
 		//we have found a new stream_id
 		this->processed_isis.set(stream_id);
 		auto matype = ma >> 8;
@@ -678,32 +728,34 @@ void active_adapter_t::on_notify_signal_info(signal_info_t& signal_info)
 			[stream_id](chdb::dvbc_mux_t& m) {m.stream_id= stream_id;},
 			[stream_id](chdb::dvbt_mux_t& m) {m.stream_id= stream_id;});
 
-		c->tune_src = tune_src_t::DRIVER;
 		namespace m = chdb::update_mux_preserve_t;
 
-		auto update_scan_status =[&](const chdb::mux_common_t* pdbc) {
-			bool is_active = c->scan_status == scan_status_t::ACTIVE;
+		auto update_scan_status =[&](const chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
+			bool is_active = pdbc && pdbc->scan_status == scan_status_t::ACTIVE;
 			if( is_active) {
-				*c = *pdbc;
-				return true;
+
+				return false;
 			}
 			if(is_dvb) {
 				if(!pdbc) { //there is no mux for this stream yet; create one
-					assert(c->scan_status != scan_status_t::IDLE); //@TODO remove - not valid in general
 					c->scan_status = scan_status_t::PENDING;
-						c->scan_id = scan_id;
+					c->scan_id = scan_id;
 				} else {
 					*c = *pdbc;
 					//leave the existing mux alone (e.g., may be already being scanned, even if status is PENDING)
 				}
-				} else { //not dvb
+			} else { //not dvb
 				if(pdbc)
 					*c = *pdbc;
+				if(c->tune_src == tune_src_t::AUTO)
+					c->tune_src = tune_src_t::DRIVER;
 				if(pdbc && (pdbc->scan_status == scan_status_t::PENDING ||
 										pdbc->scan_status == scan_status_t::NONE ||
 										(pdbc->scan_status != scan_status_t::ACTIVE &&
 										 c->scan_result != chdb::scan_result_t::NODVB))
 					) { //cancel any pending scan
+					//@todo muxes set to IDLE here are not counted in scan_report
+					dtdebug("CANCEL SCAN: " <<  signal_info.driver_mux);
 					c->scan_result = chdb::scan_result_t::NODVB;
 					c->scan_duration = std::chrono::duration_cast<std::chrono::seconds>(system_clock_t::now()
 																																							- tune_start_time).count();
@@ -717,14 +769,38 @@ void active_adapter_t::on_notify_signal_info(signal_info_t& signal_info)
 
 		//The following inserts a mux for each discovered multistream, but only if none exists yet
 		auto& wtxn = get_txn();
-#if 0
-		dtdebug("XXXXXXX loop stream_id="  <<  (int) stream_id << ": " << signal_info.driver_mux);
-#endif
-		chdb::update_mux(wtxn, signal_info.driver_mux, now, m::flags{m::ALL & ~m::MUX_KEY & ~m::SCAN_STATUS &
-				~m::SCAN_DATA}, update_scan_status);
+		chdb::update_mux(wtxn, signal_info.driver_mux, now, m::flags{m::ALL & ~m::SCAN_STATUS &
+				~m::SCAN_DATA & ~m::TUNE_SRC}, update_scan_status, true /*ignore_key*/, false /*must_exist*/, false /*allow_multiple_keys*/);
 	}
-	if(txn)
+	if(txn) {
 		txn->commit();
+		dtdebug("committed");
+	}
+}
+
+void active_adapter_t::check_for_unlockable_streams()
+{
+	assert (tune_state == tune_state_t::WAITING_FOR_LOCK || tune_state == tune_state_t::TUNE_FAILED);
+	auto mux = current_tp();
+	auto* c = chdb::mux_common_ptr(mux);
+	c->scan_result = (tune_state == tune_state_t::TUNE_FAILED) ? scan_result_t::BAD : scan_result_t::NOLOCK;
+	auto chdb_wtxn = receiver.chdb.wtxn();
+	chdb::clear_all_streams_pending_status(chdb_wtxn, now, mux);
+	chdb_wtxn.commit();
+	dtdebug("committed");
+}
+
+void active_adapter_t::check_for_non_existing_streams()
+{
+	assert (tune_state == tune_state_t::LOCKED);
+	auto mux = current_tp();
+	auto* c = chdb::mux_common_ptr(mux);
+	assert(processed_isis.count()==0);
+	c->scan_result=scan_result_t::BAD;
+	auto chdb_wtxn = receiver.chdb.wtxn();
+	chdb::clear_all_streams_pending_status(chdb_wtxn, now, mux);
+	chdb_wtxn.commit();
+	dtdebug("committed");
 }
 
 //instantiations

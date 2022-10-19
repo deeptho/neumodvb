@@ -679,9 +679,12 @@ signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 	}
 
 	ret.lock_status.matype = matype;
-	auto w = ts.writeAccess();
-	w->lock_status.matype = matype;
-	w->last_signal_info = ret;
+	{
+		auto w = ts.writeAccess();
+		w->lock_status.matype = matype;
+		w->last_signal_info = ret;
+	}
+	ts_cv.notify_all();
 	return ret;
 }
 
@@ -1222,6 +1225,46 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 	return ret;
 }
 
+/*
+	returns: ret = return status
+	         new_usals_sat_pos
+ */
+std::tuple<int, int>
+dvb_frontend_t::lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options) {
+	this->start_fe_and_lnb(lnb);
+
+	auto band = tune_options.spectrum_scan_options.band_pol.band;
+	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
+	auto voltage = devdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+
+	if(api_version >=1500) {
+		auto fefd = ts.readAccess()->fefd;
+		assert(ts.readAccess()->dbfe.rf_inputs.contains(lnb.k.rf_input));
+		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) lnb.k.rf_input))) {
+			dtdebugx("problem Setting rf_input: %s", strerror(errno));
+			return {-1, sat_pos_none};
+		}
+	}
+	auto [ret, new_usals_sat_pos ] =
+		this->do_lnb_and_diseqc(band, voltage);
+#ifdef TODO
+	if(new_usals_sat_pos != sat_pos_none)
+		lnb_update_usals_pos(new_usals_sat_pos);
+#endif
+	dtdebug("spectrum: diseqc done");
+	this->stop();
+	if (this->stop() < 0) /* Force the driver to go into idle mode immediately, so
+													 that the fe_monitor_thread_t will also return immediately
+												*/
+		return {-1, new_usals_sat_pos};
+	ret = this->start_lnb_spectrum_scan(lnb, tune_options);
+
+	this->start();
+
+	//dttime(100);
+	return {ret, new_usals_sat_pos};
+}
+
 std::tuple<int, int>
 dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options,
 										 bool user_requested, const devdb::resource_subscription_counts_t& use_counts) {
@@ -1257,7 +1300,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(lnb.k.rf_input));
 		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) lnb.k.rf_input))) {
-			printf("problem Setting rf_input: %s", strerror(errno));
+			dtdebugx("problem Setting rf_input: %s", strerror(errno));
 			return {-1, new_usals_sat_pos};
 		}
 	}

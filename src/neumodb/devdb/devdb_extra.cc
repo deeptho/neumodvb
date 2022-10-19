@@ -845,11 +845,10 @@ int devdb::lnb::rf_coupler_id(db_txn& rtxn, const devdb::lnb_key_t& lnb_key) {
 }
 
 
-void devdb::lnb::on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux, chdb::dvbs_mux_t& new_mux,
+void devdb::lnb::on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::dvbs_mux_t& new_mux,
 																	 system_time_t now_) {
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace chdb;
-	auto& old_mux_key = *mux_key_ptr(old_mux);
 	auto& new_mux_key = *mux_key_ptr(new_mux);
 	{
 		auto c = find_first<lnb_t>(wtxn);

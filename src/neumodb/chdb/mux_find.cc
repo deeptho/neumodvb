@@ -141,7 +141,7 @@ template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux(db_txn& txn, const
 					 cmux.k.network_id == mux.k.network_id && cmux.k.ts_id == mux.k.ts_id);
 		if (matches_physical_fuzzy(mux, cmux)) {
 			if(cmux.k == mux.k)
-				return c; //best match
+				return c; //best match, because extra_id also matches
 			bestc = c;
 		}
 	}
@@ -346,7 +346,7 @@ get_by_nid_tid_unique_ret_t chdb::get_by_network_id_ts_id(db_txn& txn, uint16_t 
 */
 static
 db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const chdb::dvbs_mux_t& mux,
-																														bool ignore_stream_ids)
+																														bool ignore_stream_id)
 {
 	using namespace chdb;
 
@@ -416,7 +416,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 		assert(db_mux.pol == mux.pol);
 
 		if (db_mux.frequency == mux.frequency && db_mux.pol == mux.pol &&
-				(ignore_stream_ids || ( db_mux.stream_id == mux.stream_id &&
+				(ignore_stream_id || ( db_mux.stream_id == mux.stream_id &&
 																db_mux.k.t2mi_pid == mux.k.t2mi_pid))) {
 			return c; //exact match
 		}
@@ -427,7 +427,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 			break; //no overlap and we have reached the top of the range with possible overlap
 		if (db_mux.pol != mux.pol)
 			continue;
-		if (!ignore_stream_ids && (db_mux.stream_id != mux.stream_id || db_mux.k.t2mi_pid != mux.k.t2mi_pid))
+		if (!ignore_stream_id && (db_mux.stream_id != mux.stream_id || db_mux.k.t2mi_pid != mux.k.t2mi_pid))
 			continue;
 		// delta will drop in each iteration and will start to rise after the minimum
 		auto delta = std::abs((int)db_mux.frequency - (int)mux.frequency);
@@ -459,10 +459,10 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 	used by find_fuzzy_ (update_mux), find_by_mux_physical (init_si)
 */
 db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const chdb::dvbs_mux_t& mux,
-																													 bool ignore_stream_ids)
+																													 bool ignore_stream_id)
 {
 	//first try with the given sat_pos. In most cases this will give the correct result
-	auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_ids);
+	auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_id);
 	if (c.is_valid())
 		return c;
 	int sat_tolerance = 30; //0.3 degrees
@@ -473,7 +473,7 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const ch
 		if (sat.sat_pos == mux.k.sat_pos)
 			continue; //already tried
 		dtdebugx("found sat_pos: %d\n", sat.sat_pos);
-		auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_ids);
+		auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_id);
 		if (c.is_valid())
 			return c;
 	}
@@ -549,38 +549,79 @@ bool chdb::matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool
 
 bool chdb::matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos) {
 	auto tolerance = 1000;
+	if (a.stream_id != b.stream_id)
+		return false;
 	return (std::abs((int)a.frequency - (int)b.frequency) <= tolerance);
 }
 
 bool chdb::matches_physical_fuzzy(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos) {
 	auto tolerance = 1000;
+	if (a.stream_id != b.stream_id)
+		return false;
 	return (std::abs((int)a.frequency - (int)b.frequency) <= tolerance);
 }
 
 bool chdb::matches_physical_fuzzy(const chdb::any_mux_t& a, const chdb::any_mux_t& b, bool check_sat_pos) {
 	using namespace chdb;
 	bool ret{false};
-	visit_variant(
-		a, [&](const chdb::dvbs_mux_t& a) {
-			auto* pb = std::get_if<dvbs_mux_t>(&b);
-				ret = pb? chdb::matches_physical_fuzzy(a, *pb, check_sat_pos): false;},
-		[&](const chdb::dvbc_mux_t& a) {
-			auto* pb = std::get_if<dvbc_mux_t>(&b);
-			ret = pb? matches_physical_fuzzy(a, *pb, check_sat_pos): false;},
-		[&](const chdb::dvbt_mux_t& a) {
-			auto* pb = std::get_if<dvbt_mux_t>(&b);
-			ret = pb? matches_physical_fuzzy(a, *pb, check_sat_pos): false;});
+	std::visit([&](const auto& a) {
+		auto* pb = std::get_if<typename std::remove_cvref<decltype(a)>::type>(&b);
+		ret = pb? chdb::matches_physical_fuzzy(a, *pb, check_sat_pos): false;}, a);
 	return ret;
 }
 
-template db_tcursor_index<chdb::dvbt_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
-template db_tcursor_index<chdb::dvbc_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
+bool chdb::matches_physical(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos,
+														bool ignore_stream_id) {
+	if (((int)a.pol& ~0x2) != ((int)b.pol & ~0x2)) //we allow switch between L/H and R/V
+		return false;
+	if (check_sat_pos && (std::abs(a.k.sat_pos - b.k.sat_pos) > 30)) // 0.3 degree
+		return false;
+	if (!ignore_stream_id && (a.stream_id != b.stream_id))
+		return false;
+	auto delta = std::abs((int)a.symbol_rate - (int)b.symbol_rate);
+	if (delta * 20 > (int)std::min(a.symbol_rate, b.symbol_rate))
+		return false;  //symbol rates differ by more than 5%
 
+	delta = std::abs((int)a.frequency - (int)b.frequency);
+	//frequencies must differe by less than 20%
+ 	return (delta * 5 <= (int)std::min(a.symbol_rate, b.symbol_rate));
+}
 
+bool chdb::matches_physical(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos,
+														bool ignore_stream_id) {
+	if (!ignore_stream_id && (a.stream_id != b.stream_id))
+		return false;
+	auto delta = std::abs((int)a.symbol_rate - (int)b.symbol_rate);
+	if (delta * 20 > (int)std::min(a.symbol_rate, b.symbol_rate))
+		return false;  //symbol rates differ by more than 5%
 
+	delta = std::abs((int)a.frequency - (int)b.frequency);
+	//frequencies must differe by less than 250kHz
+ 	return (delta <= 250);
+}
 
+bool chdb::matches_physical(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos,
+														bool ignore_stream_id) {
+	if (!ignore_stream_id && (a.stream_id != b.stream_id))
+		return false;
 
-std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_ids)
+	auto delta = std::abs((int)a.frequency - (int)b.frequency);
+	//frequencies must differe by less than 250kHz
+ 	return (delta <= 250);
+}
+
+bool chdb::matches_physical(const chdb::any_mux_t& a, const chdb::any_mux_t& b, bool check_sat_pos,
+														bool ignore_stream_id) {
+	using namespace chdb;
+	bool ret{false};
+	std::visit([&](const auto& a) {
+		auto* pb = std::get_if<typename std::remove_cvref<decltype(a)>::type>(&b);
+		ret=chdb::matches_physical(a, *pb, check_sat_pos, ignore_stream_id);
+	}, a);
+	return ret;
+}
+
+std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_id, bool ignore_key)
 {
 	using namespace chdb;
 	switch(mux_key_ptr(mux)->sat_pos) {
@@ -591,7 +632,7 @@ std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_
 	case sat_pos_dvbc: {
 		auto* pmux = std::get_if<dvbc_mux_t>(&mux);
 		assert(pmux);
-		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_ids);
+		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_id, ignore_key);
 		if(c.is_valid())
 			return c.current();
 	}
@@ -599,7 +640,7 @@ std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_
 	case sat_pos_dvbt: {
 		auto* pmux = std::get_if<dvbt_mux_t>(&mux);
 		assert(pmux);
-		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_ids);
+		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_id, ignore_key);
 		if(c.is_valid())
 			return c.current();
 	}
@@ -607,7 +648,7 @@ std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_
 	default: {
 		auto* pmux = std::get_if<dvbs_mux_t>(&mux);
 		assert(pmux);
-		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_ids);
+		auto c = find_by_mux_physical(txn, *pmux, ignore_stream_id, ignore_key);
 		if(c.is_valid())
 			return c.current();
 	}
@@ -619,35 +660,40 @@ std::optional<chdb::any_mux_t> chdb::get_by_mux_physical(db_txn& txn, chdb::any_
 
 /*
 	find a mux which matches approximately in sat_pos, and frequency
-	and exactly in polarisation, and (unless ignore_stream_ids) exactly in t2mi_pid and stream_id
+	and exactly in polarisation,
+  and exactly in key except extra_id (unless ignore_key==True)
+	and exactly in t2mi_pid and stream_id (unless ignore_stream_ids)
 
 	@todo: ignore_stream_ids not yet used by dvbc/dvbt code
 */
 template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux_physical(db_txn& txn, const mux_t& mux,
-																																			 bool ignore_stream_ids) {
+																																			 bool ignore_stream_id, bool ignore_key) {
 	/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
 		handle small differences in sat_pos*/
+	if(!ignore_key) {
+		auto c = chdb::find_by_mux(txn, mux);
+		if (c.is_valid())
+			return c;
+	}
 
-	auto c = chdb::find_by_mux(txn, mux);
-	if (c.is_valid())
-		return c;
-	else {
-		// find tps with matching frequency, but probably incorrect network_id/ts_id
-		if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
-			// approx. match in sat_pos, frequency, exact match in  polarisation, t2mi_pid and stream_id
-			auto c = chdb::find_by_mux_fuzzy(txn, mux, ignore_stream_ids);
-			return std::move(c.maincursor);
-		} else {
-			auto c = chdb::find_by_freq_fuzzy<mux_t>(txn, mux.frequency);
-			return std::move(c.maincursor);
-		}
+	// find tps with matching frequency, but probably incorrect network_id/ts_id
+	if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
+		// approx. match in sat_pos, frequency, exact match in  polarisation, t2mi_pid and stream_id
+		auto c = chdb::find_by_mux_fuzzy(txn, mux, ignore_stream_id);
+		return std::move(c.maincursor);
+	} else {
+		auto c = chdb::find_by_freq_fuzzy<mux_t>(txn, mux.frequency);
+		return std::move(c.maincursor);
 	}
 }
 
 //template instantiations
+template db_tcursor_index<chdb::dvbt_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
+template db_tcursor_index<chdb::dvbc_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
+
 template db_tcursor<chdb::dvbs_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbs_mux_t& mux,
-																																 bool ignore_stream_ids);
+																																 bool ignore_stream_id, bool ignore_key);
 template db_tcursor<chdb::dvbt_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbt_mux_t& mux,
-																																 bool ignore_stream_ids);
+																																 bool ignore_stream_id, bool ignore_key);
 template db_tcursor<chdb::dvbc_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbc_mux_t& mux,
-																																 bool ignore_stream_ids);
+																																 bool ignore_stream_id, bool ignore_key);

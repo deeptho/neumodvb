@@ -96,6 +96,7 @@ tune_src = db_enum(name='tune_src_t',
                        ('DRIVER', 4, 'drv'),  #from driver; frequency approx. correct, sat_pos may be incorrect
                        ('USER', 5, 'usr'), #user has locked the data from being overwritten
                        ('AUTO', 6, 'auto'), #temporary state: user has turned off "USER", but source of data is unknown
+                       ('SDT_ACTUAL_TUNED', 7, 'sdt'),
                        ('UNKNOWN', -1, 'unk'), #not initialised
                            ))
 

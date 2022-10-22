@@ -1545,6 +1545,14 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 	return 0;
 }
 
+int dvb_frontend_t::reset_ts() {
+	auto w = ts.writeAccess();
+	auto saved = w->dbfe;
+	*w = {};
+	w->dbfe = saved;
+	return 0;
+}
+
 int dvb_frontend_t::release_fe() {
 	dtdebugx("releasing frontend_monitor: fefd=%d", this->ts.readAccess()->fefd);
 	if (monitor_thread.get()) {
@@ -1554,7 +1562,7 @@ int dvb_frontend_t::release_fe() {
 	{
 		dtdebugx("change tune mode on adapter %d: clear from %d", (int)adapter_no,
 						 (int) this->ts.readAccess()->tune_mode);
-		this->ts.assign({});
+		this->reset_ts();
 		this->signal_monitor.assign({});
 		this->sec_status = {};
 	}

@@ -361,7 +361,7 @@ public:
 		auto w = this->ts.writeAccess();
 		w->tune_confirmation = {};
 	}
-
+	int reset_ts();
 
 	devdb::usals_location_t get_usals_location() const;
 

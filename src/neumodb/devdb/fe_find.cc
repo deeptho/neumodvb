@@ -38,7 +38,7 @@ int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	assert(c.is_valid());
 	auto fe = c.current(); //update in case of external changes
-	dtdebugx("adapter %d %d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
+	dtdebugx("adapter %d %d.%03d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
 					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	assert(fe.sub.use_count>=1);
 	if(--fe.sub.use_count == 0) {
@@ -540,7 +540,7 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const 
 	sub.usals_pos = lnb.usals_pos;
 	sub.frequency = frequency; //for informational purposes
 	sub.stream_id = stream_id; //for informational purposes
-	dtdebugx("adapter %d %d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
+	dtdebugx("adapter %d %d.%d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
 					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;

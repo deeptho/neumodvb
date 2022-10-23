@@ -732,7 +732,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 			auto &c = *chdb::mux_common_ptr(*subscription.mux);
 			dtdebug("SET IDLE " << *subscription.mux);
 			c.scan_status = chdb::scan_status_t::IDLE;
-			c.scan_result = chdb::scan_result_t::NOLOCK;
+			c.scan_result = chdb::scan_result_t::BAD;
 			c.scan_id = 0;
 			namespace m = chdb::update_mux_preserve_t;
 			chdb::update_mux(chdb_wtxn, *subscription.mux, now, m::flags{(m::MUX_COMMON|m::MUX_KEY)& ~m::SCAN_STATUS});

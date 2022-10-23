@@ -110,25 +110,24 @@ get_by_nid_tid_unique_ret_t chdb::get_by_nid_tid_unique(db_txn& txn, int16_t net
 	}
 }
 
-
-
 /*
 	find a mux which matches approximately exacly in sat_pos, polarisation, t2mi_pid and stream_id
-	approximately in frequency, disregarding extra_id,
+	approximately in frequency, disregarding extra_id. If multiple matches occur (should not happen)
+	then prefer the mux with matching extra_id
 
-	cursor nature only used to check if something was found
+	Returns a possibly invalid cursor
 
 	Used by: update_mux, find_by_mux_physical (init_si)
-
 */
-db_tcursor<chdb::dvbs_mux_t> chdb::find_by_mux(db_txn& txn, const dvbs_mux_t& mux) {
+template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux(db_txn& txn, const mux_t& mux) {
 	using namespace chdb;
-	auto c = dvbs_mux_t::find_by_key(txn, mux.k.sat_pos, mux.k.network_id, mux.k.ts_id, mux.k.t2mi_pid, find_geq,
-																	 dvbs_mux_t::partial_keys_t::sat_pos_network_id_ts_id_t2mi_pid);
+	auto c = mux_t::find_by_key(txn, mux.k.sat_pos, mux.k.network_id, mux.k.ts_id, mux.k.t2mi_pid, find_geq,
+															mux_t::partial_keys_t::sat_pos_network_id_ts_id_t2mi_pid);
 	if (!c.is_valid()) {
 		c.close();
 		return c;
 	}
+	std::optional<db_tcursor<mux_t>> bestc;
 	/*There could be multiple muxes with the same sat_pos, network_id and ts_id.
 		Therefore also check the frequency
 
@@ -140,42 +139,15 @@ db_tcursor<chdb::dvbs_mux_t> chdb::find_by_mux(db_txn& txn, const dvbs_mux_t& mu
 		//@todo double check that searching starts at a closeby frequency
 		assert(cmux.k.sat_pos == mux.k.sat_pos && cmux.k.t2mi_pid == mux.k.t2mi_pid &&
 					 cmux.k.network_id == mux.k.network_id && cmux.k.ts_id == mux.k.ts_id);
-		if (matches_physical_fuzzy(mux, cmux))
-			return c;
+		if (matches_physical_fuzzy(mux, cmux)) {
+			if(cmux.k == mux.k)
+				return c; //best match
+			bestc = c;
+		}
 	}
 	c.close();
-	return c;
+	return bestc ? *bestc : c;
 }
-
-/*
-	find a mux with exact sat_pos, network_id, ts_id, t2mid_pid, stream_id, polarisation and the closest frequency
-	extra_id is ignored
-*/
-template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux(db_txn& txn, const mux_t& mux) {
-	using namespace chdb;
-	auto c = mux_t::find_by_key(txn, mux.k.sat_pos, mux.k.network_id, mux.k.ts_id, mux.k.t2mi_pid, find_geq,
-															mux_t::partial_keys_t::sat_pos_network_id_ts_id_t2mi_pid);
-	if (!c.is_valid()) {
-		c.close();
-		return c;
-	}
-	/*@todo
-		Return the mux with the closest frequency instead of returning the first one which
-		is close enough. The problem is how to remember a cursor for the best matching position.
-		This requires lmdb::cursor to be made copyable
-	*/
-	for (auto const& cmux : c.range()) {
-		//@todo double check that searching starts at a closeby frequency
-		assert(cmux.k.sat_pos == mux.k.sat_pos && cmux.k.t2mi_pid == mux.k.t2mi_pid &&
-					 cmux.k.network_id == mux.k.network_id && cmux.k.ts_id == mux.k.ts_id);
-		if (matches_physical_fuzzy(mux, cmux))
-			return c;
-	}
-	c.close();
-	return c;
-}
-
-
 
 /*
 	selectively replace some data in mux by data in db_mux, while preserving the data specified in

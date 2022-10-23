@@ -342,9 +342,9 @@ namespace chdb {
 	 */
 	template<typename mux_t>
 	db_tcursor<mux_t> find_by_mux(db_txn& txn, const mux_t& mux);
-
+#if 0
 	db_tcursor<chdb::dvbs_mux_t> find_by_mux(db_txn& txn, const dvbs_mux_t& mux);
-
+#endif
 
 /*!
 	find a matching mux, based on sat_pos, ts_id, network_id, ignoring  extra_id

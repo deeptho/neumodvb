@@ -1030,8 +1030,10 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 																					 required_lnb_key);
 	devdb_wtxn.commit();
 	error = wait_for_all(futures);
-	if(error)
-		return {subscription_id_t{-1}, {}};
+	if(error) {
+		unsubscribe(subscription_id);
+		return {subscription_id_t::TUNE_FAILED, {}};
+	}
 	else
 		return {subscription_id, subscribed_fe_key};
 }

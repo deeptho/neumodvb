@@ -168,7 +168,7 @@ class neumoMainFrame(mainFrame):
             if hasattr(panel, "main_grid"):
                 grid = panel.main_grid
                 if hasattr(grid, "infow") and grid.infow is not None:
-                    grid.infow.ShowScanRecord(data)
+                    grid.infow.ShowScanRecord(panel, data)
 
     def current_panel(self):
         for panel in self.panels_onscreen:

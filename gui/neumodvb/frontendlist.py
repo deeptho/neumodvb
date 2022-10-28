@@ -136,7 +136,7 @@ class FrontendTable(NeumoTable):
     def enable_dfn(self, rec):
         ret = []
         d = set([pychdb.delsys_to_type(d) for d in rec.delsys])
-        d.remove(pychdb.delsys_type_t.NONE)
+        #d.remove(pychdb.delsys_type_t.NONE)
         if rec.enable_dvbs and pychdb.delsys_type_t.DVB_S in d: ret.append('S')
         if rec.enable_dvbt and pychdb.delsys_type_t.DVB_T in d: ret.append('T')
         if rec.enable_dvbc and pychdb.delsys_type_t.DVB_C in d: ret.append('C')

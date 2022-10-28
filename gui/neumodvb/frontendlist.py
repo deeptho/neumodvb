@@ -54,7 +54,8 @@ def subscription_fn(x):
     e = neumodbutils.enum_to_str
     if t != 'C':
         t='Ku'
-    f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}-{sub.stream_id}'
+    sid = "" if (sub.stream_id < 0)  else f'-{sub.stream_id}'
+    f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
     return f'#{sub.lnb_key.rf_input} {sat_pos:>5}{t} {f} {sub.lnb_key.lnb_id}'
 
 class FrontendTable(NeumoTable):

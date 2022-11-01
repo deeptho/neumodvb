@@ -47,6 +47,9 @@ class MuxInfoTextCtrl(wx.TextCtrl):
         self.last_scan_text = ""
 
     def ShowRecord(self, mux):
+        if self.last_scan_text:
+            self.ChangeValue(self.last_scan_text)
+            return
         if mux is None:
             h = wx.GetApp().receiver.browse_history
             sat = h.h.dvbs_muxlist_filter_sat
@@ -56,38 +59,15 @@ class MuxInfoTextCtrl(wx.TextCtrl):
         e = lambda x: enum_to_str(x)
         f = self.GetFont()
         large = self.GetFont()
-        large.SetPointSize(int(f.GetPointSize()*1.5))
+        large.SetPointSize(int(f.GetPointSize()*1.2))
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
         app = wx.GetApp()
         self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")
-        if self.last_scan_text:
-            self.AppendText(self.last_scan_text)
 
     def ShowScanRecord(self, panel, data):
-        if False:
-            f = self.GetFont()
-            large = self.GetFont()
-            large.SetPointSize(int(f.GetPointSize()*1.5))
-            self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
-            app = wx.GetApp()
-            st = data.scan_stats
-            done = st.pending_muxes + st.active_muxes == 0
-            if done:
-                self.ChangeValue(f"Scanning: DONE")
-            elif data.mux.k.sat_pos != pychdb.sat.sat_pos_none:
-                self.ChangeValue(f"Scanned {data.mux}:")
-            else:
-                self.ChangeValue(f"Scanning: ...")
-            self.SetDefaultStyle(wx.TextAttr(wx.RED, font=large.Bold()))
-            pending = st.pending_muxes
-            ok = st.locked_muxes
-            self.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={st.active_muxes}"
-            self.AppendText(self.last_scan_text)
-            return done
-        else:
-            st = data.scan_stats
-            done = st.pending_muxes + st.active_muxes == 0
-            pending = st.pending_muxes
-            ok = st.locked_muxes
-            self.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={st.active_muxes}"
-            self.ShowRecord(panel.grid.table.CurrentlySelectedRecord())
+        st = data.scan_stats
+        done = st.pending_muxes + st.active_muxes == 0
+        pending = st.pending_muxes
+        ok = st.locked_muxes
+        self.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={st.active_muxes}"
+        self.ShowRecord(panel.grid.table.CurrentlySelectedRecord())

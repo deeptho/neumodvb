@@ -23,6 +23,25 @@ db = db_db(gen_options)
 """
 
 
+neumo_schema_index_field =db_struct(name='neumo_schema_index_field',
+                    fname = 'schema',
+                    db = db,
+                    type_id= 0x00ffff05,
+                    version = 1,
+                    fields = ((5, 'ss::string<16>', 'name'),
+                              ))
+
+neumo_schema_index_record =db_struct(name='neumo_schema_index_record',
+                    fname = 'schema',
+                    db = db,
+                    type_id= 0x00ffff06,
+                    version = 1,
+                    fields = ((1, 'int32_t', 'type_id'), #of parent record (not needed)
+                              (2, 'int32_t', 'index_id'),
+                              (3, 'ss::string<32>', 'name'),
+                              (4, 'ss::vector<neumo_schema_index_field_t,16>', 'fields'),
+                              ))
+
 neumo_schema_record_field =db_struct(name='neumo_schema_record_field',
                     fname = 'schema',
                     db = db,
@@ -44,6 +63,7 @@ neumo_schema_record =db_struct(name='neumo_schema_record',
                               (2, 'uint32_t', 'record_version'),
                               (3, 'ss::string<32>', 'name'),
                               (4, 'ss::vector<neumo_schema_record_field_t,16>', 'fields'),
+                              (5, 'ss::vector<neumo_schema_index_record_t,4>', 'indexes'),
                               ))
 
 neumo_schema_key = db_struct(name='neumo_schema_key',

@@ -52,11 +52,25 @@ static void convert(const record_desc_t& in, schema::neumo_schema_record_t& out)
 	out.type_id = in.type_id;
 	out.record_version = in.record_version;
 	out.name = in.name;
+
 	for (auto& field : in.fields) {
 		schema::neumo_schema_record_field_t f;
 		convert(field, f);
 		out.fields.push_back(f);
 	}
+#if 0 //TODO does not work yet
+	for (auto& in_index : in.indexes) {
+		schema::neumo_schema_index_record_t out_index;
+		out_index.type_id = in_index.type_id;
+		out_index.index_id = in_index.index_id;
+		out_index.name = in_index.name;
+		for (auto& in_field : in_index.fields) {
+			schema::neumo_schema_index_field_t out_field;
+			out_field.name = in_field.name;
+			out_index.fields.push_back(out_field);
+		}
+	}
+#endif
 }
 
 static void convert(const schema::neumo_schema_record_t& in, record_desc_t& out) {
@@ -209,7 +223,7 @@ bool record_desc_t::operator==(const record_desc_t& other) const {
 		if (field != other_field)
 			return false;
 	}
-
+#if 0 //TODO does not work yet
 	idx = 0;
 	if(indexes.size() != other.indexes.size())
 		return false;
@@ -220,7 +234,7 @@ bool record_desc_t::operator==(const record_desc_t& other) const {
 		if (index != other_index)
 			return false;
 	}
-
+#endif
 	return true;
 }
 

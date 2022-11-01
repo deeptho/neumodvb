@@ -910,6 +910,10 @@ class SpectrumPlot(wx.Panel):
     def set_current_annot_status(self, mux, si_or_driver_mux, locked):
         if self.current_annot is None:
             return
+        annot = self.current_annot
+        if abs(annot.tp.freq*1000 - si_or_driver_mux.frequency) >= 0.2 * annot.tp.symbol_rate \
+            or enum_to_str(si_or_driver_mux.pol) != annot.tp.spectrum.pol:
+            return
         self.set_annot_status_(self.current_annot, mux, si_or_driver_mux, locked)
 
     def reset_current_annot_status(self, mux):

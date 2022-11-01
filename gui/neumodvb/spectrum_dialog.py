@@ -275,53 +275,7 @@ class SpectrumDialog(SpectrumDialog_):
         for key, spectrum in self.spectrum_plot.spectra.items():
             k = spectrum.spectrum.k
             subscriber.scan_spectral_peaks(k, spectrum.peak_data[:,0], spectrum.peak_data[:,1])
-    def blindscan_next(self):
-        self.done_time = None
-        if len(self.tps_to_scan) == 0:
-            self.is_blindscanning = False
-            self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
-            m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)
-            title = "Blindscan spectrum finished"
-            msg = f"Scanned {self.blindscan_num_muxes} (Locked: {self.blindscan_num_locked_muxes}; " \
-                f"DVB: {self.blindscan_num_si_muxes}) muxes in {m}min {s}s"
-            dtdebug(msg)
-            ShowMessage(title, msg)
-            self.spectrum_buttons_panel.blindscan_button.SetValue(0)
-            self.is_blindscanning = False
-            self.EndBlindScan()
-            return
-        tp = self.tps_to_scan.pop(0)
-        self.tp_being_scanned = tp
-        dtdebug(f"scanning {tp}; {len(self.tps_to_scan)} tps left to scan")
-        self.spectrum_plot.set_current_tp(tp)
-        mux = self.OnSelectMux(tp)
-        self.ClearSignalInfo()
-        assert self.tune_mux_panel.mux.frequency == mux.frequency
-        if not self.tune_mux_panel.Tune(mux, retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
-            if self.tp_being_scanned is None:
-                title = "Blindscan failed"
-                msg = f"Blindscan failed: {self.tune_mux_panel.mux_subscriber.error_message}"
-                ShowMessage(title, msg)
-                self.EndBlindScan()
-            else:
-                dtdebug("Moving on after tuning failed")
-                self.OnSubscriberCallback(False)
 
-
-    def next_stream(self, stream_id):
-        tp = self.tp_being_scanned
-        dtdebug(f"scanning {tp}; {len(self.tps_to_scan)} tps left to scan")
-        mux = self.mux.copy()
-        mux.stream_id = stream_id
-        mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
-        self.tune_mux_panel.mux = mux
-        self.tune_mux_panel.muxedit_grid.Reset()
-        self.spectrum_plot.reset_current_annot_status(mux)
-        #self.ClearSignalInfo()
-        if not self.tune_mux_panel.Tune(mux,  retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
-            #attempt retune once
-            if not self.tune_mux_panel.Tune(mux,  retune_mode=pyreceiver.retune_mode_t.NEVER, silent=True):
-                self.OnSubscriberCallback(self.signal_info)
     def OnSelectMux(self, tp):
         spectrum = tp.spectrum.spectrum
         if spectrum.k.sat_pos != self.sat.sat_pos or \
@@ -370,16 +324,10 @@ class SpectrumDialog(SpectrumDialog_):
             ShowMessage("Error", data)
             return
         need_si = True
-        if data == False: #called from blindscan_next
-            mux = self.tune_mux_panel.last_tuned_mux
-            self.blindscan_num_muxes += 1
-            self.blindscan_num_nonlocked_muxes += 1
-            dtdebug(f"TUNE DONE mux={mux} ERROR")
-            self.spectrum_plot.set_current_annot_status(mux, mux, False)
-            if self.is_blindscanning:
-                 tp = self.tp_being_scanned
-                 self.blindscan_next()
-        elif type(data) == pyreceiver.scan_report_t: #called from blindscan_next
+        if type(data) == pyreceiver.scan_report_t: #called from scanner
+            if data.mux is None:
+                dtdebug("scan end")
+
             has_lock = data.mux.c.scan_result != pychdb.scan_result_t.NOLOCK
             self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak, data.mux, has_lock)
 
@@ -400,7 +348,6 @@ class SpectrumDialog(SpectrumDialog_):
                 self.EndBlindScan()
                 return
 
-
         elif type(data) == pyreceiver.signal_info_t:
             self.signal_info = data
             need_si = not self.signal_info.has_no_dvb
@@ -411,13 +358,10 @@ class SpectrumDialog(SpectrumDialog_):
                     self.mis_scan_time = 20 #minimum time to scan multistreams
                elif datetime.datetime.now(tz=tz.tzlocal()) - self.done_time >= datetime.timedelta(seconds=1): # show result for at least 1 second
                     mux = self.tune_mux_panel.last_tuned_mux
-                    self.blindscan_num_muxes += 1
-                    self.blindscan_num_locked_muxes += self.signal_info.has_lock
-                    self.blindscan_num_nonlocked_muxes += not self.signal_info.has_lock
-                    self.blindscan_num_si_muxes += (self.signal_info.has_nit or self.signal_info.has_sdt or self.signal_info.has_pat)
                     dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done} no_dvb={self.signal_info.has_no_dvb}")
-                    self.spectrum_plot.set_current_annot_status(mux, self.signal_info.consolidated_mux,
-                                                                self.signal_info.has_lock)
+                    if not self.is_blindscanning:
+                        self.spectrum_plot.set_current_annot_status(mux, self.signal_info.consolidated_mux,
+                                                                    self.signal_info.has_lock)
             else:
                 mux = self.tune_mux_panel.last_tuned_mux
 

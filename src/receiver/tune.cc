@@ -228,6 +228,8 @@ int tuner_thread_t::cb_t::add_service(active_adapter_t& tuner, active_service_t&
 int tuner_thread_t::exit() {
 	dtdebugx("tuner exit");
 	for (auto& it : active_adapters) {
+		if(!it.second)
+			continue;
 		auto& active_adapter = *it.second;
 		active_adapter.remove_all_services(recmgr);
 		ss::string<128> prefix;
@@ -249,7 +251,7 @@ int tuner_thread_t::cb_t::remove_active_adapter(active_adapter_t& active_adapter
 	dtdebugx("calling deactivate adapter %d", active_adapter.get_adapter_no());
 	active_adapter.deactivate();
 	dtdebugx("calling deactivate adapter %d done", active_adapter.get_adapter_no());
-	active_adapters.erase(it);
+	it->second.reset();
 	return 0;
 }
 
@@ -266,6 +268,8 @@ void tuner_thread_t::on_epg_update(db_txn& txnepg, system_time_t now,
 	auto timeshift_duration = receiver.options.readAccess()->timeshift_duration;
 
 	for (auto& it : active_adapters) {
+		if(!it.second)
+			continue;
 		auto& tuner = *it.second;
 		for (auto& it : tuner.active_services) {
 			auto& [current_pmt_pid, tu] = it;
@@ -294,6 +298,8 @@ void tuner_thread_t::livebuffer_db_update_(system_time_t now_) {
 	auto txn = receiver.recdb.wtxn();
 	// first update modification time of live_service records
 	for (auto& it : active_adapters) {
+		if(!it.second)
+			continue;
 		auto& tuner = *it.second;
 		for (auto& it : tuner.active_services) {
 			auto& [current_pmt_pid, tu] = it;
@@ -356,6 +362,7 @@ int tuner_thread_t::run() {
 		now = system_clock_t::now();
 		// printf("n=%d\n", n);
 		for (auto evt = next_event(); evt; evt = next_event()) {
+			bool needs_remove{false};
 			if (is_event_fd(evt)) {
 				ss::string<128> prefix;
 				prefix << "TUN-CMD";
@@ -367,38 +374,44 @@ int tuner_thread_t::run() {
 					return 0;
 				}
 			} else if (is_timer_fd(evt)) {
-				dttime_init();
-				{
 					// time to do some housekeeping (check tuner)
-					dttime_init();
-					for (auto& it : active_adapters) {
-						auto& active_adapter = *it.second;
-						if (!active_adapter.fe) {
-							dterror_nice("Implementation error\n");
-							continue;
-						}
-						ss::string<128> prefix;
-						prefix << "TUN" << active_adapter.get_adapter_no() << "-MON";
-						log4cxx::NDC ndc(prefix.c_str());
-						dttime_init();
-						active_adapter.monitor();
-						dttime(200);
-						run_tasks(now, false); //prioritize tuning commands
+				for (auto& it : active_adapters) {
+					if(!it.second) {
+						needs_remove = true;
+						continue;
 					}
-					dttime(150);
-					clean_dbs(now, false);
-					dttime(100);
-					recmgr.housekeeping(now);
-					dttime(100);
-					livebuffer_db_update.run([this](system_time_t now) { livebuffer_db_update_(now); }, now);
-					dttime(100);
+					auto& active_adapter = *it.second;
+					if (!active_adapter.fe) {
+						dterror_nice("Implementation error\n");
+						continue;
+					}
+					dttime_init();
+					ss::string<128> prefix;
+					prefix << "TUN" << active_adapter.get_adapter_no() << "-MON";
+					log4cxx::NDC ndc(prefix.c_str());
+					active_adapter.monitor();
+					auto delay = dttime(-1);
+					if (delay >= 500)
+						dterrorx("monitor cycle took too long delay=%d", delay);
+					run_tasks(now, false); //prioritize tuning commands
 				}
+				dttime_init();
+				clean_dbs(now, false);
+				dttime(100);
+				recmgr.housekeeping(now);
+				dttime(100);
+				livebuffer_db_update.run([this](system_time_t now) { livebuffer_db_update_(now); }, now);
+				dttime(100);
 				auto delay = dttime(-1);
 				if (delay >= 500)
-					dterrorx("timer cycle took too long delay=%d", delay);
+					dterrorx("clean cycle took too long delay=%d", delay);
 			} else {
 				// this must be a si event
 				for (auto& it : active_adapters) {
+					if(!it.second) {
+						needs_remove = true;
+						continue;
+					}
 					auto& active_adapter = *it.second;
 					// active_adapter will return if fd is for other active_adapter
 					// The following call returns true if fd was for this active_adapter
@@ -419,6 +432,16 @@ int tuner_thread_t::run() {
 						}
 					}
 					run_tasks(now, false); //prioritize tuning commands
+				}
+			}
+			if(needs_remove) {
+				for(auto it = active_adapters.begin(); it != active_adapters.end();) {
+					if(it->second)
+						++it;
+					else {
+						dtdebug("Erasing empty aa pointer");
+						it = active_adapters.erase(it);
+					}
 				}
 			}
 		}

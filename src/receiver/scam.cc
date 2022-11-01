@@ -45,6 +45,10 @@ extern "C" {
 #include <dvbcsa/dvbcsa.h>
 };
 
+static bytebuffer<512> last_filtered_data;
+static int last_filtered_data_count{0};
+
+
 void ca_filter_t::update(const ca_filter_t& other) {
 	dmx_filter = other.dmx_filter;
 	assert(pid == other.pid);
@@ -319,6 +323,12 @@ int scam_t::scam_flush_write() {
 	to abuffer instead.
  */
 int scam_t::write_to_scam(ss::bytebuffer_& msg) {
+	static bytebuffer<64> last;
+	if (msg == last) {
+		dtdebug_nice("Duplicate message sent\n");
+	}
+	last = msg;
+	dtdebug(msg);
 	if (scam_fd < 0)
 		return -1;
 	if (write_in_progress) {
@@ -741,24 +751,40 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 	mask_string.resize_no_init(n);
 
 	auto pid = filter.pid;
-	auto it = filters.find(filter_no);
-	bool same_pid = false;
-	if (it != filters.end()) {
-		if (it->second.pid != filter.pid) {
-			dterrorx("duplicate filter filter_no=%d old_pid=%d new_pid=%d", uint8_t(filter_no), it->second.pid, filter.pid);
-			it->second = filter;
-			same_pid = false;
-		} else {
-			dtdebugx("FILTER update: demux=%d filter[%d] pid=%d: %s %s", uint8_t(filter.demux_no), uint8_t(filter_no),
-							 filter.pid, filter_string.c_str(), mask_string.c_str());
-			it->second.update(filter);
-			same_pid = true;
+	bool found{false};
+	bool same_pid{false};
+
+	for(auto it = filters.begin(); it != filters.end(); ) {
+		auto& [f_no, f] = *it;
+		if(f_no == filter_no) {
+			found =true;
+			if (f.pid != filter.pid) {
+				dterrorx("duplicate filter filter_no=%d old_pid=%d new_pid=%d",
+								 uint8_t(filter_no), f.pid, filter.pid);
+				f = filter;
+				same_pid = false;
+			} else {
+				dtdebugx("FILTER update: demux=%d filter[%d] pid=%d: %s %s", uint8_t(filter.demux_no), uint8_t(filter_no),
+								 filter.pid, filter_string.c_str(), mask_string.c_str());
+				f.update(filter);
+				same_pid = true;
+			}
+		} else if (f.pid == filter.pid) {
+				dtdebugx("SCAM would register same pid multiple times; unregistering filter_no=%d ecm_pid=%d\n",
+								 (int)filter_no, (int)f.pid);
+				same_pid = true;
+				it = filters.erase(it);
+				continue;
 		}
-	} else {
+		++it;
+	}
+
+	if(!found) {
 		filters[filter_no] = filter;
 		dtdebugx("FILTER NEW: demux=%d filter[%d] pid=%d is_ca=%d: %s %s", uint8_t(filter.demux_no), uint8_t(filter_no),
 						 filter.pid, pmts[0].is_ecm_pid(filter.pid), filter_string.c_str(), mask_string.c_str());
 	}
+
 	bool is_ecm = true;
 	//@todo todo("when to register emm pid instead of ecm_pid?");
 	if (!reader->is_open()) {
@@ -766,8 +792,9 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 		assert(reader->is_open());
 	} else if (!same_pid)
 		add_pid(pid);
-	if (!same_pid)
+	if (!same_pid) {
 		stream_parser.register_psi_pid(pid, is_ecm ? "ECM" : "EMM");
+	}
 }
 
 void active_scam_t::ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, uint16_t ecm_pid) {
@@ -784,6 +811,10 @@ void active_scam_t::ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, u
 		stream_parser.unregister_psi_pid(ecm_pid);
 		restart_decryption(ecm_pid, system_clock_t::now());
 	}
+
+	last_filtered_data.clear();
+	last_filtered_data_count=0;
+
 }
 
 /*!
@@ -938,6 +969,13 @@ int scam_t::scam_send_filtered_data(uint8_t filter_no, uint8_t demux_no, const s
 	out_msg.append_raw(native_to_net((uint8_t)demux_no));
 	out_msg.append_raw(native_to_net((uint8_t)filter_no));
 	out_msg.append_raw(buffer.buffer(), buffer.size());
+	if(out_msg == last_filtered_data) {
+		dtdebugx("Sending duplicate filtered data filter=%d demux_no=%d count=%d",
+						 filter_no, demux_no, last_filtered_data_count);
+		last_filtered_data_count++;
+	} else
+		last_filtered_data_count =0;
+	last_filtered_data = out_msg;
 	return write_to_scam(out_msg);
 }
 

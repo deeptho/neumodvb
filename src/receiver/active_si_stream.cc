@@ -1602,7 +1602,11 @@ bool active_si_stream_t::update_mux(
 	bool must_exist{false};
 
 	if(from_sdt) {
-		chdb::mux_common_ptr(mux)->tune_src = tune_src_t::SDT_ACTUAL_TUNED;
+		auto *c = chdb::mux_common_ptr(mux);
+		//note that the following settings will only be stored if the mux does not yet exist
+		c->tune_src = tune_src_t::SDT_ACTUAL_TUNED;
+		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = 0;
 		chdb::update_mux(chdb_wtxn, mux, now,  preserve,
 										 false /*ignore_key*/, false /*must_exist*/, true /*allow_multiple_keys*/);
 		return true;

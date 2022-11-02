@@ -1527,7 +1527,6 @@ bool active_si_stream_t::update_mux(
 			} else
 				*chdb::mux_key_ptr(mux) = tmp; //copy extra_id
 		} else {
-			printf("here\n");
 		}
 		if (is_reader_mux //this is the mux generating the si data; don't change its own scan_status
 				|| !reader_mux_is_scanning //we are not scanning
@@ -1876,7 +1875,6 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 						At this point 2 muxes with the same tuning parameters should already exist:
 						a NIT version and an SDT version. We use the reader mux, but with changed key
 					 */
-					printf("here\n");
 					auto saved_key = mux_key;
 					mux = reader_mux;
 					*chdb::mux_key_ptr(mux) = saved_key;

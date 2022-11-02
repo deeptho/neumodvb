@@ -248,7 +248,8 @@ class LiveServiceScreen(object):
         else:
             service_idx = self.screen.set_reference(service)
         self.selected_service_or_channel = service
-
+        txn.abort()
+        del txn
         #print(f'new_type={new_type} {h.h.list_filter_type} {sat_pos} {h.h.filter_sat.sat_pos} {sort_order} { h.h.service_sort_order}')
         if new_type != h.h.list_filter_type or sat_pos != h.h.filter_sat.sat_pos \
            or sort_order != h.h.service_sort_order:
@@ -321,7 +322,8 @@ class LiveServiceScreen(object):
         else:
             chgm_idx = self.screen.set_reference(chgm)
         self.selected_service_or_channel = chgm
-
+        txn.abort()
+        del txn
         if new_type != h.h.list_filter_type or h.h.filter_chg != chg or h.h.chgm_sort_order != sort_order:
             h.h.filter_chg = pychdb.chg.chg() if chg is None else chg
             h.h.list_filter_type =  new_type
@@ -595,7 +597,8 @@ class LiveRecordingScreen(object):
         else:
             recording_idx = self.screen.set_reference(recording)
         self.selected_recording = recording
-
+        txn.abort()
+        del txn
         if new_type != h.h.list_filter_type  \
            or sort_order != h.h.rec_sort_order:
             h.h.list_filter_type = new_type

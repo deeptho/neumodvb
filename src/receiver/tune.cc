@@ -508,8 +508,6 @@ int tuner_thread_t::request_retune(active_adapter_t& active_adapter, const chdb:
 			symbol_rate= get_member(mux, symbol_rate, -1);
 		},
 			m);
-		if (std::abs(frequency - (int)11648799) < 1000)
-			printf("here: freq=%d srate=%d\n", frequency, symbol_rate);
 	}
 	active_adapter.fe->set_tune_options(tune_options);
 	active_adapter.end_si(); //clear left overs from last tune

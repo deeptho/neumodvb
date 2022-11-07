@@ -488,17 +488,11 @@ class neumoMainFrame(mainFrame):
         return wx.GetApp().SubtitleLang(dark_mode)
     def CmdExit(self, event):
         dtdebug("CmdExit")
-        print('CmdExit')
         if self.current_panel() != self.live_panel:
-            print('CmdExit1')
             dtdebug("OnClose")
             self.current_panel().grid.OnClose()
-            print('CmdExit2')
-        print('CmdExit3')
         self.live_panel.OnClose(event)
-        print('CmdExit4')
         self.Close()
-        print('CmdExit5')
         event.Skip(False) #needed to prevent being executed multiple times
     def CmdEditMode(self, is_checked):
         dtdebug("CmdEditMode")

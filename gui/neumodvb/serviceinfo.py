@@ -45,7 +45,7 @@ class ServiceInfoTextCtrl(wx.TextCtrl):
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=f))
         self.AppendText("Blue on grey text\n")
 
-    def ShowRecord(self, rec):
+    def ShowRecord(self, table, rec):
         if rec is None:
             return
         if type(rec)==pychdb.chgm.chgm:

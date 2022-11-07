@@ -45,7 +45,7 @@ class RecInfoTextCtrl(wx.TextCtrl):
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=f))
         self.AppendText("Blue on grey text\n")
 
-    def ShowRecord(self, rec):
+    def ShowRecord(self, table, rec):
         wx.GetApp().currently_selected_rec = rec
         dt =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
         t =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%H:%M:%S")

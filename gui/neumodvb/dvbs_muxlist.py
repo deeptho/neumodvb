@@ -186,7 +186,7 @@ class DvbsMuxGridBase(NeumoGridBase):
         if mux is None:
             mux = self.table.screen.record_at_row(0)
         if self.infow is not None:
-            self.infow.ShowRecord(mux)
+            self.infow.ShowRecord(self.table, mux)
 
     def CurrentSatAndMux(self):
         if not self.allow_all and self.sat is None:

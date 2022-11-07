@@ -44,30 +44,48 @@ class MuxInfoTextCtrl(wx.TextCtrl):
             self.AppendTeext("Red on grey text\n")
             self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=f))
             self.AppendText("Blue on grey text\n")
-        self.last_scan_text = ""
+        self.last_scan_text = None
+        self.scan_done = False
 
-    def ShowRecord(self, mux):
-        if self.last_scan_text:
+    def ShowRecord(self, table, mux):
+        if self.last_scan_text is not None:
             self.ChangeValue(self.last_scan_text)
+            if self.scan_done:
+                self.last_scan_text = None
             return
-        if mux is None:
-            h = wx.GetApp().receiver.browse_history
-            sat = h.h.dvbs_muxlist_filter_sat
-            self.ChangeValue(f"{str(sat)}: No muxes")
-            return
-        dt =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
-        e = lambda x: enum_to_str(x)
-        f = self.GetFont()
-        large = self.GetFont()
-        large.SetPointSize(int(f.GetPointSize()*1.2))
-        self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
-        app = wx.GetApp()
-        self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")
+        if False:
+            if mux is None:
+                h = wx.GetApp().receiver.browse_history
+                sat = h.h.dvbs_muxlist_filter_sat
+                self.ChangeValue(f"{str(sat)}: No muxes")
+                return
+            dt =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+            e = lambda x: enum_to_str(x)
+            f = self.GetFont()
+            large = self.GetFont()
+            large.SetPointSize(int(f.GetPointSize()*1.2))
+            self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
+            app = wx.GetApp()
+            self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")
+        else:
+            f = self.GetFont()
+            large = self.GetFont()
+            large.SetPointSize(int(f.GetPointSize()*1.2))
+            self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
+            app = wx.GetApp()
+            num_muxes = table.screen.list_size
+            self.ChangeValue(f"{num_muxes} muxes")
+
 
     def ShowScanRecord(self, panel, data):
         st = data.scan_stats
         done = st.pending_muxes + st.active_muxes == 0
         pending = st.pending_muxes
         ok = st.locked_muxes
-        self.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={st.active_muxes}"
-        self.ShowRecord(panel.grid.table.CurrentlySelectedRecord())
+        active = st.active_muxes
+        if pending+active == 0:
+            self.scan_done = True
+        else:
+            self.scan_done = False
+        self.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={active}"
+        self.ShowRecord(panel.grid.table, panel.grid.table.CurrentlySelectedRecord())

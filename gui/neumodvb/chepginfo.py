@@ -39,7 +39,7 @@ import pyepgdb
 class ChEpgInfoTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-    def ShowRecord(self, rec):
+    def ShowRecord(self, table, rec):
         if rec is None:
             return
         dt =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")

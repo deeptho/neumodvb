@@ -747,6 +747,8 @@ inline static const char* scan_result_name(const chdb::scan_result_t& scan_resul
 		return "NODVB";
 	case scan_result_t::BAD:
 		return "BAD";
+	case scan_result_t::TEMPFAIL:
+		return "TMPFAIL";
 	case scan_result_t::DISABLED:
 		return "DISABLED";
 	}

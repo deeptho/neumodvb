@@ -114,6 +114,7 @@ scan_result = db_enum(name='scan_result_t',
                        ('NODATA', 5), #completion stage reached or timedout
                        ('NODVB', 6), #not a dvb mux, but was locked
                        ('BAD', 7), #illegal tuning parameter or tune failure
+                       ('TEMPFAIL', 8), #scanning failed because of lack of resources
                        ('DISABLED', 127),
                    ))
 

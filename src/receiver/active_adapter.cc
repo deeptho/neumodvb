@@ -63,13 +63,17 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 		return {};
 	auto status = fe->get_lock_status();
 	bool is_locked = status.is_locked();
+	bool temp_tune_failure = status.has_soft_tune_failure();
 	bool is_not_ts = status.is_not_ts();
 	int lock_lost = status.lock_lost;
 	bool must_tune = false;
 	bool must_reinit_si = false;
 	bool must_reset_si = false;
 	si.scan_state.locked = is_locked;
+	si.scan_state.temp_tune_failure = temp_tune_failure;
 	si.scan_state.is_not_ts = is_not_ts;
+	if(temp_tune_failure)
+		tune_state = TUNE_FAILED_TEMP;
 	switch (tune_state) {
 	case TUNE_INIT: {
 		assert(0);
@@ -99,6 +103,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 		}
 	} break;
 	case TUNE_FAILED:
+	case TUNE_FAILED_TEMP:
 		must_reset_si = true;
 		break;
 	case LOCKED:
@@ -314,7 +319,7 @@ void active_adapter_t::monitor() {
 		std::tie(must_retune, must_reinit_si, must_reset_si, is_not_ts) = check_status();
 	}
 	dttime(200);
-	if(!must_retune)
+	if(tune_state != tune_state_t::TUNE_FAILED  && tune_state != tune_state_t::TUNE_FAILED_TEMP && !must_retune)
 		check_for_new_streams();
 
 	if (must_retune) {
@@ -655,12 +660,14 @@ void active_adapter_t::check_scan_mux_end()
 		} else  {
 			if(tune_state == tune_state_t::TUNE_FAILED || tune_state == tune_state_t::WAITING_FOR_LOCK)
 				check_for_unlockable_streams();
-			else if (processed_isis.count()==0) {
+			else if (tune_state == tune_state_t::LOCKED && processed_isis.count()==0) {
 				check_for_non_existing_streams();
 			}
 			if(c->scan_status != chdb::scan_status_t::IDLE) {
 				c->scan_status = chdb::scan_status_t::IDLE;
-				c->scan_result = (tune_state == tune_state_t::TUNE_FAILED)
+				c->scan_result = (tune_state == tune_state_t::TUNE_FAILED_TEMP)
+					? chdb::scan_result_t::TEMPFAIL:
+					(tune_state == tune_state_t::TUNE_FAILED)
 					? chdb::scan_result_t::BAD
 					: (tune_state == tune_state_t::WAITING_FOR_LOCK) ? chdb::scan_result_t::NOLOCK
 					: c->scan_result;

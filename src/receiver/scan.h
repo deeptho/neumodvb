@@ -200,6 +200,7 @@ struct scan_state_t {
 
 	steady_time_t last_update_time;
 	bool locked{false};
+	bool temp_tune_failure{false};
 	bool is_not_ts{false}; //true if we detected somethign else than an mpeg ts on this mux
 	bool aborted{false};
 };
@@ -208,7 +209,6 @@ struct scan_state_t {
 
 
 struct blindscan_key_t {
-	//subscriber_t* subscriber{nullptr};
 	int16_t sat_pos{sat_pos_none};
 	int8_t band{0};
 	chdb::fe_polarisation_t pol;

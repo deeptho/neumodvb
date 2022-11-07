@@ -117,6 +117,7 @@ class active_adapter_t final : public  std::enable_shared_from_this<active_adapt
 		WAITING_FOR_LOCK, //tuning was started, waiting for lock;
 		LOCKED, //tuning was started, si processing is running
 		TUNE_FAILED, //tuning failed
+		TUNE_FAILED_TEMP, //tuning failed temporarily because of lack of resources
 	};
 	friend class si_t;
 	friend class tuner_thread_t;

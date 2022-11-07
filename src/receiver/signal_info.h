@@ -35,6 +35,8 @@ enum class confirmed_by_t {
 };
 
 
+class dvb_frontend_t;
+
 struct tune_confirmation_t {
 	constexpr static  std::chrono::duration sat_pos_change_timeout = 15000ms; //in ms
 
@@ -86,6 +88,9 @@ struct fe_lock_status_t {
 	//true if we detected this is not a dvbs transport stream
 	inline bool is_locked() {
 		return fe_status & FE_HAS_LOCK;
+	}
+	inline bool has_soft_tune_failure() {
+		return fe_status & FE_OUT_OF_RESOURCES;
 	}
 	inline bool is_not_ts() {
 		return is_locked() && matype >=0 && // otherwise we do not know matype yet

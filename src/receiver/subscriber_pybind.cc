@@ -283,6 +283,9 @@ void export_signal_info(py::module& m) {
 		.def_property_readonly("has_fail", [](const signal_info_t& i) {
 			return (i.lock_status.fe_status & FE_TIMEDOUT) ? 1 : 0;
 		})
+		.def_property_readonly("has_tempfail", [](const signal_info_t& i) {
+			return (i.lock_status.fe_status & FE_OUT_OF_RESOURCES) ? 1 : 0;
+		})
 		.def_property_readonly("sat_pos_confirmed", [](const signal_info_t& i) {
 			return i.tune_confirmation.sat_by != confirmed_by_t::NONE
 				&& mux_common_ptr(i.driver_mux)->tune_src ==  tune_src_t::NIT_ACTUAL_TUNED;

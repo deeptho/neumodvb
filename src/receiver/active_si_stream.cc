@@ -822,6 +822,12 @@ void active_si_stream_t::finalize_scan(bool done, bool tune_failed)
 	auto mux = reader->stream_mux();
 	to_str(s, mux);
 	auto* mux_common = chdb::mux_common_ptr(mux);
+	if(scan_state.temp_tune_failure) {
+		dtdebug("finalize_scan NOSAVE scan_in_progress=" << scan_in_progress << " " << mux);
+		auto scan_start_time = receiver.scan_start_time();
+		call_scan_mux_end  = (scan_in_progress && scan_start_time >=0);
+		return;
+	}
 	if(! scan_state.locked && chdb::is_template(mux)) {
 		dtdebug("finalize_scan NOSAVE scan_in_progress=" << scan_in_progress << " " << mux);
 		auto scan_start_time = receiver.scan_start_time();

@@ -291,7 +291,7 @@ enum fe_sec_mini_cmd {
  * @FE_TIMEDOUT:	Fo lock within the last about 2 seconds.
  * @FE_HAS_TIMING_LOCK:		TIming loop has locked
  * @FE_IDLE:		Frontend has gone idle
- *
+ * size: 4 byes
  */
 enum fe_status {
 	FE_NONE			= 0x00,
@@ -303,6 +303,7 @@ enum fe_status {
 	FE_TIMEDOUT		= 0x20,
 	FE_HAS_TIMING_LOCK		= 0x40, //was FE_REINIT; not used anyway
 	FE_IDLE		= 0x80,
+	FE_OUT_OF_RESOURCES = 0x100 //e.g., No LLR for stid135
 };
 
 /**

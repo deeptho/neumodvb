@@ -1,5 +1,5 @@
 /*
- * Neumo dvb (C) 2019-2021 deeptho@gmail.com
+ * Neumo dvb (C) 2019-2023 deeptho@gmail.com
  * Copyright notice:
  *
  * This program is free software; you can redistribute it and/or modify
@@ -143,8 +143,8 @@ subscription_id_t scanner_t::scan_subscription_id_for_mux(const chdb::any_mux_t&
 	auto scan_id =  mux_common_ptr(finished_mux)->scan_id;
 	if (scan_id >>8 != getpid())
 		return subscription_id_t{-1};
-	auto finished_subscription_id = subscription_id_t(scan_id & 0xff);
-	return finished_subscription_id;
+	auto scan_subscription_id = subscription_id_t(scan_id & 0xff);
+	return scan_subscription_id;
 }
 
 
@@ -337,6 +337,9 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 	case  scan_result_t::OK:
 	case  scan_result_t::NODATA:
 		failed = false;
+		break;
+	case chdb::scan_result_t::TEMPFAIL:
+		return true;
 		break;
 	default:
 		break;

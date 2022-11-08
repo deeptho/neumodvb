@@ -383,6 +383,7 @@ public:
 						bool scan_found_muxes, int max_num_subscriptions);
 	using stats_t = safe::Safe<scan_stats_t>;
 	~scanner_t();
-	void notify_signal_info(subscriber_t& subscriber, const signal_info_t& signal_info);
+	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,
+													const signal_info_t& signal_info);
 
 };

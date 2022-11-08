@@ -77,13 +77,12 @@ public:
 	inline subscription_id_t get_subscription_id() const {
 		return subscription_id;
 	}
-	template<typename T> void notify(const T& data);
+	template<typename T> void notify(const T& data) const;
 	static pybind11::object handle_to_py_object(int64_t handlle);
 
 	void notify_error(const ss::string_& errmsg);
 	void notify_scan_mux_end(const scan_report_t& report);
-	void notify_signal_info(const signal_info_t& info);
-	void notify_signal_info(blindscan_t& scanner, const signal_info_t& info);
+	void notify_signal_info(const signal_info_t& info, bool from_scanner) const;
 	void notify_spectrum_scan(const statdb::spectrum_t& spectrum);
 
 	subscriber_t(receiver_t* receiver, wxWindow* window);

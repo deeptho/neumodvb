@@ -100,6 +100,7 @@ struct fe_lock_status_t {
 };
 
 struct signal_info_t {
+	dvb_frontend_t* fe{nullptr};
 	devdb::fe_key_t fe_key;
 	chdb::any_mux_t driver_mux; /*contains only confirmed information, with information from driver
 													overriding that from si stream. Missing information is filled in with
@@ -131,8 +132,8 @@ struct signal_info_t {
 	ss::vector_<dtv_fe_constellation_sample> constellation_samples;
 	signal_info_t() = default;
 
-	signal_info_t(const devdb::fe_key_t& fe_key)
-		: fe_key(fe_key) {
+	signal_info_t(dvb_frontend_t* fe, const devdb::fe_key_t& fe_key)
+		: fe(fe), fe_key(fe_key) {
 		stat.stats.resize(1);
 	}
 

@@ -1029,37 +1029,31 @@ scanner_t::~scanner_t() {
 }
 
 
-void scanner_t::notify_signal_info(subscriber_t& subscriber, const signal_info_t& signal_info)
+void scanner_t::notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& fe_subscription_ids,
+																	 const signal_info_t& signal_info)
 {
-	for(auto& [scan_id, scan] : this->scans)
-		for(auto& [key, blindscan]: scan.blindscans) {
-			if (!subscriber.notification.readAccess()->matches(blindscan.spectrum_key.sat_pos,
-																												 blindscan.spectrum_key.lnb_key))
-				continue; //not for one of the muxes we are scanning
-			if(scan.subscriptions.size() == 0)
-				continue; //we are done
-			auto [it, found] = find_in_map(scan.subscriptions, scan.monitored_subscription_id);
-			if(! found) {
-				it = scan.subscriptions.begin();
-				scan.monitored_subscription_id = it->first;
-			}
-			auto & subscription = it->second; //we only report for one subscription at a time
-			if(!subscription.mux)
-				continue; //should not happen
-			auto & mux = signal_info.driver_mux;
-			auto & peak = subscription.peak;
-			int frequency{-1};
-			int symbol_rate{4000}; //default applies to dvbt
-			std::visit([&frequency, &symbol_rate](auto& mux) { frequency = mux.frequency;
-					if constexpr (!is_same_type_v<decltype(mux), chdb::dvbt_mux_t>) {
-												 symbol_rate = mux.symbol_rate;
-					}}, mux);
-			auto diff = std::abs((int)frequency  - (int) peak.frequency );
-			auto tolerance = (std::min((int)symbol_rate, (int)peak.symbol_rate)*1.35)/2000;
-			if(diff < tolerance)
-				subscriber.notify_signal_info(blindscan, signal_info);
+
+	auto [it, found] = find_in_map(this->scans, subscriber.get_subscription_id());
+	if(!found)
+		return; //not a scan control subscription_id
+	auto &scan = it->second;
+	for(auto subscription_id: fe_subscription_ids) {
+		auto [it, found] = find_in_map(scan.subscriptions, subscription_id);
+		if(!found)
+			continue; //this is not a subscription used by this scan
+		auto [itm, foundm] = find_in_map(scan.subscriptions, scan.monitored_subscription_id);
+		if(!foundm) // scan.monitored_subscription_id no longer valid
+				scan.monitored_subscription_id = subscription_id_t::NONE;
+		if((int) scan.monitored_subscription_id < 0)
+			scan.monitored_subscription_id = subscription_id;//pick a new subscription_id to monitor
+
+		if(subscription_id == scan.monitored_subscription_id) {
+			subscriber.notify_signal_info(signal_info, true /*from_scanner*/);
+			return;
 		}
+	}
 }
+
 
 template int scanner_t::add_muxes<chdb::dvbs_mux_t>(const ss::vector_<chdb::dvbs_mux_t>& muxes, bool init,
 																										subscription_id_t subscription_id);

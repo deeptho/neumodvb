@@ -592,7 +592,7 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 }
 
 signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
-	signal_info_t ret{ts.readAccess()->dbfe.k};
+	signal_info_t ret{this, ts.readAccess()->dbfe.k};
 	using namespace chdb;
 	// bool is_sat = true;
 	ret.stat.k.time = system_clock_t::to_time_t(now);

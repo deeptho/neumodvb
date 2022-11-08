@@ -583,11 +583,6 @@ struct player_cb_t {
 
 
 class receiver_t {
-
-	//for channel scan
-	std::shared_ptr<scanner_t> scanner;
-
-
 	int toggle_recording_(const chdb::service_t& service,
 										 const epgdb::epg_record_t& epg_record);
 	int toggle_recording_(const chdb::service_t& service, system_time_t start_time,

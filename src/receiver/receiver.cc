@@ -503,7 +503,10 @@ void receiver_thread_t::cb_t::on_scan_mux_end(const devdb::fe_t& finished_fe, co
 			}
 		}
 
-
+	/*call scanner to start scanning new muxes and to prepare a scan report
+		which will be asynchronously returned to receiver_thread by calling notify_scan_mux_end,
+		which will pass the message to the GUI
+	*/
 	auto remove_scanner = scanner->on_scan_mux_end(finished_fe, finished_mux, subscription_ids);
 	if (remove_scanner) {
 		scanner.reset();
@@ -1823,29 +1826,62 @@ void receiver_thread_t::notify_signal_info(const signal_info_t& signal_info) {
 		}
 	}
 
+
+	ss::vector<subscription_id_t, 4> subscription_ids;
+	if(scanner) {
+		auto aas = receiver.subscribed_aas.readAccess();
+
+		//find all subscriptions
+		for (auto [subscription_id, aaptr] : *aas) {
+			auto& active_adapter = *aaptr.get();
+			/*Notify spectrum and positioner dialog screens tuned to a single mux
+				Note that during a blindscan, positioner_dialog or spectrum_dialog
+				will not react to the following call, as they have no active subscriber_t, i.e.,
+				one associated with a specific adapter or lnb
+			*/
+			if(signal_info.fe == active_adapter.fe.get())
+				subscription_ids.push_back(subscription_id);
+		}
+	}
+
 	/*
-		send a signal_info message to a specific wxpython window which will then receove a EVT_COMMAND_ENTER
+		send a signal_info message to a specific wxpython window (positioner_dialog)
+		which will then receove a EVT_COMMAND_ENTER
 		signal. Each window is associated with a subscription. The message is passed on if the subscription's
 		active_adapter uses the lnb which is stored in the signal_info message
 	 */
 	{
 		auto mss = receiver.subscribers.readAccess();
-		for (auto [subscription_id, ms_shared_ptr] : *mss) {
+		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
-			//Notify spectrum and positioner dialog screens tuned to a single mux
-			ms->notify_signal_info(signal_info);
+			/*Notify spectrum and positioner dialog screens tuned to a single mux
+				Note that during a blindscan, positioner_dialog or spectrum_dialog
+				will not react to the following call, as they have no active subscriber_t, i.e.,
+				one associated with a specific adapter or lnb
+			*/
+			ms->notify_signal_info(signal_info, false /*from_scanner*/);
 
-			//notify spectrum_dialog
-			if(scanner) {
-				scanner->notify_signal_info(*ms, signal_info);
+			if(subscription_ids.size() > 0) {
+				/*
+					Usually subscription_ids will have only one entry, which could be
+					a subscription created by the scanner. Ask the scanner to check the signal_info.
+					The scanner will then decide whether or not to pass this on to the scan_subscriber
+					data structures associated with blindscans. These scan_subscribers will then update their gui
 
+					The following call will also happen for other subscribers than teh scan subscribers.
+					In that case it will be a NOOP
+				*/
+				scanner->notify_signal_info(*ms, subscription_ids, signal_info);
 			}
 		}
+
 	}
 }
 
+
+//called from scanner loop to inform scanner subscription
 void receiver_thread_t::notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report) {
 	{
 		if(!scanner)

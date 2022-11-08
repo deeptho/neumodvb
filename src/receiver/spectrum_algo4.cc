@@ -102,6 +102,7 @@ struct scan_internal_t {
 
 #ifdef DEBUGXXX
 void scan_internal_t::check() {
+#if 0
 	if(!debug_found)
 		return;
 	for(int i=0; i< num_peaks; ++i) {
@@ -112,6 +113,7 @@ void scan_internal_t::check() {
 		}
 	}
 	dprintk("!!!! no longer present\n");
+#endif
 }
 #endif
 

@@ -79,7 +79,7 @@ template <typename T> inline static intptr_t make_object(const T& obj) {
 }
 
 //called from receiver thread
-template <typename T> void subscriber_t::notify(const T& data) {
+template <typename T> void subscriber_t::notify(const T& data) const {
 	wxCommandEvent event(wxEVT_COMMAND_ENTER);
 	auto p = make_object(data);
 	static_assert(sizeof(p) <= sizeof(long));
@@ -89,7 +89,7 @@ template <typename T> void subscriber_t::notify(const T& data) {
 
 #endif
 
-template void subscriber_t::notify<std::string>(const std::string&);
-template void subscriber_t::notify<signal_info_t>(const signal_info_t&);
-template void subscriber_t::notify<statdb::spectrum_t>(const statdb::spectrum_t&);
-template void subscriber_t::notify<scan_report_t>(const scan_report_t&);
+template void subscriber_t::notify<std::string>(const std::string&) const;
+template void subscriber_t::notify<signal_info_t>(const signal_info_t&) const;
+template void subscriber_t::notify<statdb::spectrum_t>(const statdb::spectrum_t&) const;
+template void subscriber_t::notify<scan_report_t>(const scan_report_t&) const;

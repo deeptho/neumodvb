@@ -173,9 +173,6 @@ namespace  devdb::lnb {
 	void update_lnbs(db_txn& devdb_wtxn);
 	void on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::dvbs_mux_t& new_mux,
 												 system_time_t now_);
-	std::optional<devdb::rf_coupler_t> get_rf_coupler(db_txn& rtxn, const devdb::lnb_key_t& lnb_key);
-	int rf_coupler_id(db_txn& rtxn, const devdb::lnb_key_t& key);
-
 	inline bool can_move_dish(const devdb::lnb_t& lnb) {
 		switch(lnb.rotor_control) {
 		case devdb::rotor_control_t::ROTOR_MASTER_USALS:
@@ -279,7 +276,6 @@ namespace devdb::fe {
 													bool need_blind_tune, bool need_spectrum);
 	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key,
 																									 const devdb::fe_key_t* fe_key_to_release);
-
 };
 
 

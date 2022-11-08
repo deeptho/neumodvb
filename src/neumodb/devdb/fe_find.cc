@@ -160,14 +160,40 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 }
 
 
+/*
+	In case two rf inputs on the same or different cards are connected to the same
+	cable, this can be indicated by rf_input_t records which for each rf input contain a
+	switch_id>=0. rf_inputs with the same switch_id care connected. rf_inputs witjout switch_id are not connected
+
+ */
+static inline bool rf_coupler_conflict(db_txn& rtxn, const devdb::fe_t& fe, bool ignore_subscriptions,
+																			 chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos) {
+	if(fe.rf_coupler_id <0 || ignore_subscriptions)
+		return false;
+	auto c = find_first<devdb::fe_t>(rtxn);
+	for(const auto &otherfe: c.range()) {
+		if(fe.k == otherfe.k)
+			continue;
+		if(fe.rf_coupler_id != otherfe.rf_coupler_id)
+			continue;
+		if(!otherfe.enable_dvbs || !devdb::fe::suports_delsys_type(otherfe, chdb::delsys_type_t::DVB_S))
+			continue; //no conflict possible (not sat)
+		if(otherfe.sub.pol != pol || otherfe.sub.band != band || otherfe.sub.usals_pos != usals_pos)
+			return true;
+	}
+	return false;
+}
+
+
 //how many active fe_t's use lnb?
 devdb::resource_subscription_counts_t
 devdb::fe::subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key, const devdb::fe_key_t* fe_key_to_release) {
 	devdb::resource_subscription_counts_t ret;
 	auto c = fe_t::find_by_card_mac_address(rtxn, lnb_key.card_mac_address, find_type_t::find_eq,
 																					fe_t::partial_keys_t::card_mac_address);
+#ifdef TODO
 	auto rf_coupler_id = lnb::rf_coupler_id(rtxn, lnb_key);
-
+#endif
 	for(const auto& fe: c.range()) {
 		if( !fe::is_subscribed(fe))
 			continue;
@@ -181,8 +207,10 @@ devdb::fe::subscription_counts(db_txn& rtxn, const lnb_key_t& lnb_key, const dev
 				ret.lnb++;
 			if(fe.sub.lnb_key.rf_input == lnb_key.rf_input)
 				ret.tuner++;
+#ifdef TODO
 			if(lnb::rf_coupler_id(rtxn, fe.sub.lnb_key) == rf_coupler_id)
 				ret.rf_coupler++;
+#endif
 			if( fe.sub.lnb_key.dish_id == lnb_key.dish_id
 					|| fe.sub.lnb_key == lnb_key) //the last test is in case dish_id is set to -1
 				ret.dish++;
@@ -225,7 +253,6 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 	bool need_blindscan, bool need_spectrum, bool need_multistream,
 	chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos, bool ignore_subscriptions) {
 
-	auto rf_coupler_id = devdb::lnb::rf_coupler_id(rtxn, lnb.k);
 	auto lnb_on_positioner = devdb::lnb::on_positioner(lnb);
 
 	bool need_exclusivity = pol == chdb::fe_polarisation_t::NONE ||
@@ -255,36 +282,6 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 		return false;
 	};
 
-
-
-	/*
-		cables to one rf_input (tuner) on one card can be shared with another rf_input (tuner) on the same or another
-		card using external switches, which pass dc power and diseqc commands. Some witches are symmetric, i.e.,
-		let thorugh diseqc  from both connectors, others are priority switches, with only one connector being able
-		to send diseqc commandswhen the connector with priority has dc power connected.
-
-		Bot the types of input sharing are made known to neumoDVB by declaring a tuner_group>=0 to
-		each connected rf_input. Tuners in the same group can be used simulataneoulsy but only on the same
-		sat, pol, band combination.
-
-		Note that priority swicthes do not need to be treated specifically as neumoDVB
-		never neither of the connectors to send diseqc, except initially when both connectors are idle.
-	 */
-	auto shared_rf_input_conflict = [&rtxn, pol, band, usals_pos, ignore_subscriptions]
-		(const devdb::fe_t& fe, int rf_coupler_id) {
-		if(ignore_subscriptions)
-			return false;
-		if(rf_coupler_id <0)
-			return false; //not on switch; no conflict possible
-		if(devdb::lnb::rf_coupler_id(rtxn, fe.sub.lnb_key) != rf_coupler_id)
-			return false;  //no conflict possible
-		if(!fe.enable_dvbs || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
-			return false; //no conflict possible (not sat)
-		if(fe.sub.pol != pol || fe.sub.band != band || fe.sub.usals_pos != usals_pos)
-			return true;
-		return false;
-	};
-
 	/*
 		multiple LNBs can be in use on the same dish. In this case only the first
 		subscription should be able to move the dish. If any subcription uses the required dish_id,
@@ -308,9 +305,11 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 
 	auto c = fe_t::find_by_card_mac_address(rtxn, lnb.k.card_mac_address, find_type_t::find_eq,
 																					fe_t::partial_keys_t::card_mac_address);
+	//loop over all frontends which can reach the lnb
 	for(const auto& fe: c.range()) {
 		assert(fe.card_mac_address == lnb.k.card_mac_address);
-		assert(fe.sub.lnb_key.rf_input != lnb.k.rf_input || fe.sub.lnb_key == lnb.k);
+		if(!(fe.sub.lnb_key.rf_input != lnb.k.rf_input || fe.sub.lnb_key == lnb.k))
+			dterrorx("Multiple LNBS with the same rf_in");
 		bool is_subscribed = ignore_subscriptions ? false: fe::is_subscribed(fe);
 		bool is_our_subscription = ignore_subscriptions ? false : (fe_key_to_release && fe.k == *fe_key_to_release);
 
@@ -344,6 +343,17 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 				continue; /*adapter is on use for dvbc/dvt; it cannot be used, but the
 										fe we found is not in use and cannot create conflicts with any other frontends*/
 
+				/*
+					cables to one rf_input (tuner) on one card can be shared with another rf_input (tuner) on the same or another
+					card using external switches, which pass dc power and diseqc commands. Some switches are symmetric, i.e.,
+					let through diseqc  from both connectors, others are priority switches, with only one connector being able
+					to send diseqc commandswhen the connector with priority has dc power connected.
+
+					Note that priority switches do not need to be treated specifically as neumoDVB
+					never neither of the connectors to send diseqc, except initially when both connectors are idle.
+				*/
+			if(fe.rf_coupler_id >=0 && rf_coupler_conflict(rtxn, fe, ignore_subscriptions, pol, band, usals_pos))
+				continue;
 			if(need_spectrum) {
 				assert (no_best_fe_yet() || best_fe.supports.spectrum_fft || best_fe.supports.spectrum_sweep);
 
@@ -404,16 +414,10 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 		} else {
 			/* case 3. the desired LNB and the desired RF tuner are not used by fe
 
-				 The remain conflicts are:
-				 1) our lnb is connected through a priority or T-combiner switch,
-				    in which case the cable may use another lnb (note the case of the same lnb, but wrong pol/band/sat_pos
-				    has already been handled in case 1) and we cannot use it
-				 2) our lnb is on a dish with a positioner, and this actuve frontend uses another lnb on the same dish
-				    pointing to a different sat
+				 The remain conflict is:
+				 our lnb is on a dish with a positioner, and this actuve frontend uses another lnb on the same dish
+				 pointing to a different sat
 			 */
-			if (rf_coupler_id >=0 && shared_rf_input_conflict (fe, rf_coupler_id))
-				return {}; //the lnb is on a cable which is tuned to another sat/pol/band
-
 			if (lnb_on_positioner && shared_positioner_conflict (fe, lnb.k.dish_id))
 				return {}; //the lnb is on a cable which is tuned to another sat/pol/band
 		}

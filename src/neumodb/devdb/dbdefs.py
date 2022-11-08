@@ -242,30 +242,30 @@ lnb = db_struct(name='lnb',
                 ))
 
 
+if False:
+    rf_coupler_key = db_struct(name='rf_coupler_key',
+                              fname = 'fedev',
+                              db = db,
+                              type_id= lord('RI'),
+                              version = 1,
+                              fields = (
+                                  (4, 'int64_t', 'card_mac_address', -1), #Unique for each card
+                                  (1, 'int16_t', 'rf_input', -1)
+                              )
+                            )
 
-rf_coupler_key = db_struct(name='rf_coupler_key',
-                          fname = 'fedev',
-                          db = db,
-                          type_id= lord('RI'),
-                          version = 1,
-                          fields = (
-                              (4, 'int64_t', 'card_mac_address', -1), #Unique for each card
-                              (1, 'int16_t', 'rf_input', -1)
-                          )
-                        )
 
-
-rf_coupler = db_struct(name='rf_coupler',
-                   fname = 'fedev',
-                   db = db,
-                   type_id= lord('ri'),
-                   version = 1,
-                   primary_key = ('key', ('k',)), #unique; may need to be revised
-                   keys =  (
-                ),
-                     fields = ((1, 'rf_coupler_key_t', 'k'),  #unique id for one of the connectors on one of the cards
-                               (3, 'int16_t', 'coupler_id', -1), #if>=0 means inputs connected to same cable
-                               ))
+    rf_coupler = db_struct(name='rf_coupler',
+                       fname = 'fedev',
+                       db = db,
+                       type_id= lord('ri'),
+                       version = 1,
+                       primary_key = ('key', ('k',)), #unique; may need to be revised
+                       keys =  (
+                    ),
+                         fields = ((1, 'rf_coupler_key_t', 'k'),  #unique id for one of the connectors on one of the cards
+                                   (3, 'int16_t', 'coupler_id', -1), #if>=0 means inputs connected to same cable
+                                   ))
 
 fe_key = db_struct(name='fe_key',
                           fname = 'fedev',
@@ -331,7 +331,7 @@ fe = db_struct(name='fe',
                    (30, 'uint8_t', 'enable_dvbt', 'true'),
                    (31, 'uint8_t', 'enable_dvbc', 'true'),
                    (5, 'int16_t', 'priority', 0),
-
+                   (32, 'int8_t', 'rf_coupler_id',  '-1'), #defines coupling with other fe
                    (28, 'fe_subscription_t', 'sub'),
 
                    (9, 'time_t', 'mtime'),

@@ -175,12 +175,16 @@ py::object degraded_export(db_txn& txn) {
 	schema::neumo_schema_t s;
 	auto cs = schema::neumo_schema_t::find_by_key(txn, s.k, find_eq);
 	dbdesc_t stored_dbdesc;
+	auto saved = txn.pdb->schema_is_current;
+	//the following hackish line is needed to be able to read the schema
+	txn.pdb->schema_is_current = true;
 	if(cs.is_valid()) {
 		auto rec = cs.current();
 		ss::vector_<record_desc_t> converted;
 		convert_schema(rec.schema, converted);
 		stored_dbdesc.init(converted);
 	}
+	txn.pdb->schema_is_current = saved;
 	auto c = db.generic_get_first(txn);
 	for (auto status = c.is_valid(); status; status = c.next()) {
 		ss::bytebuffer<32> key;

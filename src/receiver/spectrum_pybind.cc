@@ -18,7 +18,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include "spectrum_algo.h"
+#include "spectrum_algo_private.h"
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> //for std::optional
@@ -364,13 +364,64 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 	return py::make_tuple(annoty, leftrightflag);
 }
 
-/*
-	estimate peaks
-	input: spec: spectrum and freq: corresponding frequencies
-	output: frequencies of peaks and symbolrates
-	(euqally sized)
+static py::object make_kernels(py::array_t<float> freq, py::array_t<float> spectrum, int w) {
 
- */
+	py::buffer_info infospec = spectrum.request();
+	if (infospec.ndim != 1)
+		throw std::runtime_error("Bad number of dimensions");
+	auto* pspec = (float*)infospec.ptr;
+	int stridespec = infospec.strides[0] / sizeof(float);
+
+	py::buffer_info infofreq = freq.request();
+	if (infofreq.ndim != 1)
+		throw std::runtime_error("Bad number of dimensions");
+	auto* pfreq = (float*)infofreq.ptr;
+	int stridefreq = infofreq.strides[0] / sizeof(float);
+
+	int n = infofreq.shape[0];
+	if (n!= infospec.shape[0])
+		throw std::runtime_error("Bad Spectrum and freq need to have same size");
+
+	ss::vector_<int32_t> spectrum_;
+	ss::vector_<uint32_t> freq_;
+	spectrum_.reserve(n);
+	freq_.reserve(n);
+
+	for(int i =0 ; i< n; ++i) {
+		freq_.push_back(pfreq[i*stridefreq]*1e3);
+		spectrum_.push_back(pspec[i*stridespec]);
+	}
+
+
+	struct spectrum_scan_state_t ss;
+	struct scan_internal_t si;
+	ss.threshold = 3000;
+	ss.threshold2 = 3000;
+	ss.mincount = 1;
+
+
+	stid135_spectral_scan_init(&ss, &si, spectrum_.buffer(), freq_.buffer(), freq_.size());
+	si.w = w;
+
+	auto ret = py::array_t<int, py::array::c_style>({2, freq_.size()});
+	py::buffer_info ret_info = ret.request();
+	int ret_stride0 = ret_info.strides[0] / sizeof(int);
+	int ret_stride1 = ret_info.strides[1] / sizeof(int);
+	auto* p_ret = (int*)ret_info.ptr;
+
+	auto response_ret = py::array_t<float, py::array::c_style>({2,freq_.size()});
+	py::buffer_info response_ret_info = response_ret.request();
+	auto* p_response_ret = (float*)response_ret_info.ptr;
+
+	stid135_spectral_init_level(&ss, &si, p_response_ret, p_response_ret+ret_stride0);
+
+	for(int i=0; i < freq_.size(); ++i) {
+		p_ret[i*ret_stride1] = !!(si.peak_marks[i] & FALLING);
+		p_ret[i*ret_stride1+ret_stride0] = !!(si.peak_marks[i] & RISING);
+	}
+	return py::make_tuple(ret, response_ret);
+}
+
 static py::object find_spectral_peaks(py::array_t<float> freq, py::array_t<float> spectrum) {
 
 	py::buffer_info infospec = spectrum.request();
@@ -430,6 +481,9 @@ PYBIND11_MODULE(pyspectrum, m) {
 		.def("find_spectral_peaks", &find_spectral_peaks,
 				 "detect peaks in the spectrum and return their center frequencies and symbol rate",
 				 py::arg("freq"), py::arg("spectrum")
+			)
+		.def("make_kernels", &make_kernels,
+				 "make kernels", py::arg("freq"), py::arg("spectrum"), py::arg("w")
 			)
 		;
 }

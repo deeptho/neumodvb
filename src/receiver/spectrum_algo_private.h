@@ -31,9 +31,9 @@ struct spectrum_peak_t {
 	u32 freq;				 // frequency of current peak
 	s32 symbol_rate; // estimated symbolrate of current peak
 	s32 mean_snr;
-	s32 min_snr;
+	//s32 min_snr;
 	s32 mean_level;
-	s32 min_level;
+	//s32 min_level;
 };
 
 /*
@@ -65,15 +65,17 @@ struct spectrum_scan_state_t {
 };
 
 struct spectrum_peak_internal_t {
-	s32 idx;			// index at which we last found a peak
-	s32 freq;			// frequency of current peak
-	s32 bw;				// bandwidth of current peak
-	s32 rise_idx; // location of last processed rising peak
-	s32 fall_idx; // location of last processed falling peak
-	s32 mean_snr;
-	s32 min_snr;
-	s32 mean_level;
-	s32 min_level;
+	s32 idx;			// center index at which we last found a peak
+	s32 rise_idx; // location of rising part of peal (3dB)
+	s32 fall_idx; // location of falling part of peak (3dB)
+	s32 freq;			// central frequency of current peak
+	s32 bw;				// 3dB bandwidth of current peak
+
+	s32 mean_snr; // SNR of central peak w.r.t. to what we think is noise level
+	s32 mean_level;  //level of central plateau
+
+	s32 dip_level; // amplude of lowest dip in central
+	s32 dip_snr; //snr of this dip w.r.t. what we think is the noise level
 };
 
 
@@ -99,3 +101,18 @@ struct scan_internal_t {
 	void check();
 
 };
+
+enum slope_t
+{
+	NONE = 0,
+	FALLING = 1,
+	RISING = 2
+};
+
+int stid135_spectral_scan_init(struct spectrum_scan_state_t* ss, struct scan_internal_t* si, s32* spectrum,
+															 u32* freq, int len);
+
+void stid135_spectral_init_level(struct spectrum_scan_state_t* ss,
+																 struct scan_internal_t* si,
+																 float* falling_response_ret=nullptr,
+																 float* rising_response_ret=nullptr);

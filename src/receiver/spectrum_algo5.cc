@@ -159,42 +159,6 @@ static int check_candidate_tp(struct spectrum_scan_state_t* ss, struct scan_inte
 
 */
 
-static void falling_kernelV1(spectrum_scan_state_t* ss, struct scan_internal_t* si,
-													 float* response_ret) {
-	s32 delta = (si->w * 16) / 200;
-	s32 w = si->w;
-	int n = ss->spectrum_len;
-	int i;
-	int besti{-1};
-	float best{0};
-	if(delta <= 2 || 2*delta >= si->w)
-		delta = 1;
-	if (delta == 0)
-		delta = 1;
-	for (i = w; i < n - delta; ++i) {
-		s32 power = (si->rs[i] - si->rs[i - w]) / w;
-		s32 right = ss->spectrum[i + delta];
-		auto response = power - right;
-		if (response > ss->threshold) {
-			// mark complete peak if not already on a peak
-			if(besti >=0 && i - besti >= si->w)
-				besti = -1;
-			if(besti < 0 || best  < response) {
-				if(besti >=0) {
-					si->peak_marks[besti] &= ~FALLING;
-					if (response_ret)
-						response_ret[besti] = 0;
-				}
-				si->peak_marks[i] |= FALLING;
-				if (response_ret)
-					response_ret[i] = response;
-				besti = i;
-				best = response;
-			}
-		}
-	}
-}
-
 static void falling_kernel(spectrum_scan_state_t* ss, struct scan_internal_t* si,
 													 float* response_ret) {
 	s32 delta = (si->w * 16) / 200;

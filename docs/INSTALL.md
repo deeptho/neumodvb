@@ -66,6 +66,20 @@ Then  install pre-requisite software:
 sudo  apt install -y clang clang-tools libtool libboost-program-options libboost libboost-regex libboost-context curl libcurl4 libcurl4-opensst-dev liblog4cxx-dev liblog4cxx libconfig-libconfig-dev libwxgtk3.0-gtk3 libgtk-dev freeglut3 freeglut3-dev librsvg2-dev libexif-dev libegobject-introspection libexpat1-dev python3-wxgtk2.4 python3-configobj  python3-sip-dev python3--matplot-lib python3-jinja2 python3-regex python3-scipy wxbase3-dev-wxbase3 wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak cmake python3-cachetools
 ```
 
+Also, install a recent clang compiler:
+```
+readonly llvmVersion=14
+sudo apt-get update -y
+sudo apt-get install -y lsb-release wget software-properties-common apt-utils
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
+sudo add-apt-repository -y "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-${llvmVersion} main"
+sudo apt-get update -y
+sudo apt-get install clang-${llvmVersion}
+sudo apt remove  clang
+sudo ln -fs /usr/bin/clang-14  /usr/bin/clang
+sudo ln -fs /usr/bin/clang++-14  /usr/bin/clang++
+```
+
 In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
 at least the following packages are needed:
 

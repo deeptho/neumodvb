@@ -771,7 +771,7 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 			}
 		} else if (f.pid == filter.pid) {
 				dtdebugx("SCAM would register same pid multiple times; unregistering filter_no=%d ecm_pid=%d\n",
-								 (int)(uint8_t)filter_no, (int)f.pid);
+								 (int)filter_no, (int)f.pid);
 				same_pid = true;
 				it = filters.erase(it);
 				continue;

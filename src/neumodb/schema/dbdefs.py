@@ -63,7 +63,10 @@ neumo_schema_record =db_struct(name='neumo_schema_record',
                               (2, 'uint32_t', 'record_version'),
                               (3, 'ss::string<32>', 'name'),
                               (4, 'ss::vector<neumo_schema_record_field_t,16>', 'fields'),
-                              (5, 'ss::vector<neumo_schema_index_record_t,4>', 'indexes'),
+                              #The following is not yet ok: if overall schema is changed, then database upgrade code
+                              #will read the wronng "schema" schema. This "schema" schema would need to be
+                              #stored in the database so that it can upgrade itself
+                              #(5, 'ss::vector<neumo_schema_index_record_t,4>', 'indexes'),
                               ))
 
 neumo_schema_key = db_struct(name='neumo_schema_key',

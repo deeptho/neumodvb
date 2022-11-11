@@ -109,7 +109,7 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 			dterrorx("Auto upgrading database %s SUCCESS", dbpath);
 			autoconvert = false; // prevent  a conversion loop
 			//envp = std::make_shared<lmdb::env>(lmdb::env::create());
-			*envp = lmdb::env::create(); //recreate environment which was clode earlier
+			*envp = lmdb::env::create(); //recreate environment which was closed earlier
 			{{dbname}}::{{dbname}}_t::open(dbpath, allow_degraded_mode, table_name, use_log, mapsize);
 		}
 

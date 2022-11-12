@@ -1,5 +1,5 @@
 /*
- * Neumo dvb (C) 2019-2021 deeptho@gmail.com
+ * Neumo dvb (C) 2019-2022 deeptho@gmail.com
  * Copyright notice:
  *
  * This program is free software; you can redistribute it and/or modify
@@ -36,6 +36,7 @@
 #include "util/neumovariant.h"
 #include "spectrum_algo.h"
 #include "devmanager.h"
+#include "util/template_util.h"
 
 static inline constexpr int make_code(int pls_mode, int pls_code, int timeout = 0) {
 	return (timeout & 0xff) | ((pls_code & 0x3FFFF) << 8) | (((pls_mode)&0x3) << 26);
@@ -385,7 +386,6 @@ static int get_dvbc_mux_info(chdb::dvbc_mux_t& mux, const cmdseq_t& cmdseq) {
 	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.get(DTV_INVERSION)->u.data;
 	mux.stream_id = cmdseq.get(DTV_STREAM_ID)->u.data;
 	// int dtv_scrambling_sequence_index_prop = cmdseq.get()->u.data;
-
 	return mux.frequency;
 }
 
@@ -473,6 +473,9 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 					dvbs_mux->stream_id = -1;
 #endif
 			}
+		} else {
+			//currently no dvbt/dvbc mux correctly sets matype
+			matype = -1;
 		}
 		auto* p = cmdseq.get(DTV_CONSTELLATION);
 		if(p) {

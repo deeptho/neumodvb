@@ -81,6 +81,15 @@ class SatTable(NeumoTable):
 
     def screen_getter_xxx(self, txn, sort_order):
         match_data, matchers = self.get_filter_()
+        if pychdb.sat.find_by_key(txn, pychdb.sat.sat_pos_dvbc) is None  or \
+           pychdb.sat.find_by_key(txn, pychdb.sat.sat_pos_dvbt) is None:
+            from neumodvb.init_db import fix_db
+            fix_db()
+            #open a read txn to reflect the update
+            #note that parent will continue to use outdated txn, but screen will still be ok
+            #and we should not close the parent's txn, because parent will do that
+            #also note that garbage collection will clean up the txn
+            txn = self.db.rtxn()
         screen = pychdb.sat.screen(txn, sort_order=sort_order,
                                    field_matchers=matchers, match_data = match_data)
         if screen.list_size==0:

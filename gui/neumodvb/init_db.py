@@ -10,6 +10,14 @@ import pychdb
 from pathlib import Path
 
 
+def add_dvbc_dvbt(txn):
+    for sat_pos, name in ((pychdb.sat.sat_pos_dvbc, "DVB-C"), (pychdb.sat.sat_pos_dvbt, "DVB-T")):
+        sat = pychdb.sat.sat()
+        sat.sat_pos = int(sat_pos)
+        sat.name = name
+        pychdb.put_record(txn, sat)
+
+
 def load_sats(txn):
     sats= get_configfile('sats.txt')
     if sats is None:
@@ -36,4 +44,11 @@ def init_db():
     db.open(options.chdb)
     txn = db.wtxn()
     load_sats(txn)
+    txn.commit()
+
+def fix_db():
+    db = pychdb.chdb()
+    db.open(options.chdb)
+    txn = db.wtxn()
+    add_dvbc_dvbt(txn)
     txn.commit()

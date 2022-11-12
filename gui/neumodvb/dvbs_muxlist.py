@@ -167,6 +167,12 @@ class DvbsMuxGridBase(NeumoGridBase):
             evt.Skip(True)
 
     def SelectSat(self, sat):
+        if sat.sat_pos == pychdb.sat.sat_pos_dvbc:
+            self.app.frame.CmdDvbcMuxList(None)
+            return
+        elif sat.sat_pos == pychdb.sat.sat_pos_dvbt:
+            self.app.frame.CmdDvbtMuxList(None)
+            return
         self.sat = sat
         if sat is not None:
             self.mux = None
@@ -177,9 +183,9 @@ class DvbsMuxGridBase(NeumoGridBase):
         else:
             h.h.dvbs_muxlist_filter_sat = sat
         h.save()
-        wx.CallAfter(self.handle_sat_change, None, self.mux)
+        wx.CallAfter(self.handle_sat_change, None, sat, self.mux)
 
-    def handle_sat_change(self, evt, mux):
+    def handle_sat_change(self, evt, sat, mux):
         self.table.GetRow.cache_clear()
         self.OnRefresh(None, mux)
         if mux is None:

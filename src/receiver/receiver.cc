@@ -671,11 +671,14 @@ receiver_thread_t::subscribe_mux_not_in_use(
 	auto* fe_key_to_release = (old_active_adapter && old_active_adapter->fe)
 		? &old_active_adapter->fe->ts.readAccess()->dbfe.k : nullptr;
 
+	assert(!fe_key_to_release || fe_key_to_release->adapter_mac_address !=0);
+
 	auto [fe_, released_fe_usecount] = devdb::fe::subscribe_dvbc_or_dvbt_mux<_mux_t>(
 		devdb_wtxn, mux, fe_key_to_release, tune_options.use_blind_tune);
+	assert(!fe_key_to_release || old_active_adapter.get());
 
 	bool found = !!fe_;
-	bool is_same_frontend =  ( fe_key_to_release && *fe_key_to_release == fe_->k);
+	bool is_same_frontend = found && ( fe_key_to_release && *fe_key_to_release == fe_->k);
 
 	if (fe_key_to_release && released_fe_usecount == 0) {
 		assert(old_active_adapter);
@@ -688,12 +691,13 @@ receiver_thread_t::subscribe_mux_not_in_use(
 	}
 
 	if (!found)
-		return {subscription_id_t::RESERVATION_FAILED, {}};
+		return {subscription_id_t::RESERVATION_FAILED, {}}; //new subscription failed; existing mux is always properly released
 
 	auto &fe = *fe_;
+	assert(!is_same_frontend || !fe_key_to_release || old_active_adapter.get());
 	/*
 		If new mux is on the same adapter/frontend as old mux,
-		we only need to retune, and leave reservation unchanged
+		we only need to retune.
 	*/
 	if (is_same_frontend) { //keep old_active_adapter
 		old_active_adapter->fe->update_dbfe(fe);
@@ -713,7 +717,7 @@ receiver_thread_t::subscribe_mux_not_in_use(
 
 	} else {
 		old_active_adapter.reset(); //make sure that we do not accidentally reuse this
-
+		assert(fe.k.adapter_mac_address != 0);
 		auto active_adapter = make_active_adapter(fe);
 		if ((int) subscription_id < 0)
 			subscription_id = this->next_subscription_id++;
@@ -721,16 +725,18 @@ receiver_thread_t::subscribe_mux_not_in_use(
 			auto w = receiver.subscribed_aas.writeAccess();
 			(*w)[subscription_id] = active_adapter;
 		}
-		assert(active_adapter->is_open());
 
 		futures.push_back(active_adapter->tuner_thread.push_task([this, active_adapter, mux, tune_options]() {
 			auto ret = cb(receiver.tuner_thread).tune(active_adapter, mux, tune_options);
 			if (ret < 0)
 				dterrorx("tune returned %d", ret);
+			assert(active_adapter->is_open());
 			return ret;
 		}));
+		auto adapter_no =  active_adapter->get_adapter_no();
+		dtdebug("Subscribed: subscription_id=" << (int) subscription_id << " adapter " <<
+					adapter_no << " " << mux);
 	}
-	dtdebug("Subscribed to: " << mux);
 	return {subscription_id, fe.k};
 }
 

@@ -71,6 +71,8 @@ class neumoMainFrame(mainFrame):
         self.dvbs_muxgrid.infow = self.dvbs_muxinfo_text
         self.dvbc_muxgrid.infow = self.dvbc_muxinfo_text
         self.dvbt_muxgrid.infow = self.dvbt_muxinfo_text
+        self.servicegrid.infow = self.serviceinfo_text
+        self.chgmgrid.infow = self.chgminfo_text
         self.bouquet_being_edited=None
         self.panels = [
             self.servicelist_panel,

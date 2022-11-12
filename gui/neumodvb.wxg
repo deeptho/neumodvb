@@ -126,10 +126,9 @@
             <object class="sizeritem">
                 <option>1</option>
                 <border>0</border>
-                <flag>wxEXPAND|wxFIXED_MINSIZE</flag>
+                <flag>wxEXPAND</flag>
                 <object class="wxPanel" name="servicelist_panel" base="EditPanel">
                     <hidden>1</hidden>
-                    <style>wxCLIP_CHILDREN</style>
                     <object class="wxBoxSizer" name="sizer_3" base="EditBoxSizer">
                         <orient>wxVERTICAL</orient>
                         <object class="sizeritem">
@@ -141,7 +140,7 @@
                                 <object class="sizeritem">
                                     <option>0</option>
                                     <border>3</border>
-                                    <flag>wxALL|wxEXPAND</flag>
+                                    <flag>wxLEFT|wxRIGHT|wxEXPAND</flag>
                                     <object class="SatListComboCtrl" name="service_sat_sel" base="EditTextCtrl">
                                         <extracode>from neumodvb.satlist_combo import SatListComboCtrl</extracode>
                                         <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_LEFT|wxTE_DONTWRAP</style>
@@ -156,6 +155,16 @@
                                             <handler event="EVT_BUTTON">OnGroupShowAll</handler>
                                         </events>
                                         <label>All</label>
+                                    </object>
+                                </object>
+                                <object class="sizeritem">
+                                    <option>3</option>
+                                    <border>3</border>
+                                    <flag>wxLEFT|wxRIGHT|wxALIGN_CENTER_VERTICAL</flag>
+                                    <object class="ServiceInfoTextCtrl" name="serviceinfo_text" base="EditTextCtrl">
+                                        <extracode>from neumodvb.serviceinfo import ServiceInfoTextCtrl</extracode>
+                                        <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_NO_VSCROLL</style>
+                                        <value></value>
                                     </object>
                                 </object>
                             </object>
@@ -182,20 +191,21 @@
             <object class="sizeritem">
                 <option>1</option>
                 <border>0</border>
-                <flag>wxEXPAND|wxFIXED_MINSIZE</flag>
+                <flag>wxEXPAND</flag>
                 <object class="wxPanel" name="chgmlist_panel" base="EditPanel">
                     <hidden>1</hidden>
                     <object class="wxBoxSizer" name="sizer_28" base="EditBoxSizer">
                         <orient>wxVERTICAL</orient>
                         <object class="sizeritem">
                             <option>0</option>
-                            <border>0</border>
+                            <border>3</border>
+                            <flag>wxALL|wxEXPAND</flag>
                             <object class="wxBoxSizer" name="sizer_101" base="EditBoxSizer">
                                 <orient>wxHORIZONTAL</orient>
                                 <object class="sizeritem">
                                     <option>0</option>
-                                    <border>0</border>
-                                    <flag>wxEXPAND</flag>
+                                    <border>3</border>
+                                    <flag>wxLEFT|wxRIGHT|wxEXPAND</flag>
                                     <object class="ChgListComboCtrl" name="chgm_chg_sel" base="EditTextCtrl">
                                         <extracode>from neumodvb.chglist_combo import ChgListComboCtrl</extracode>
                                         <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_LEFT|wxTE_DONTWRAP</style>
@@ -203,13 +213,23 @@
                                 </object>
                                 <object class="sizeritem">
                                     <option>0</option>
-                                    <border>0</border>
-                                    <flag>wxFIXED_MINSIZE</flag>
+                                    <border>3</border>
+                                    <flag>wxLEFT|wxRIGHT|wxALIGN_CENTER_VERTICAL|wxFIXED_MINSIZE</flag>
                                     <object class="wxButton" name="button_101" base="EditButton">
                                         <events>
                                             <handler event="EVT_BUTTON">OnGroupShowAll</handler>
                                         </events>
                                         <label>All</label>
+                                    </object>
+                                </object>
+                                <object class="sizeritem">
+                                    <option>3</option>
+                                    <border>3</border>
+                                    <flag>wxLEFT|wxRIGHT|wxALIGN_CENTER_VERTICAL</flag>
+                                    <object class="ServiceInfoTextCtrl" name="chgminfo_text" base="EditTextCtrl">
+                                        <extracode>from neumodvb.serviceinfo import ServiceInfoTextCtrl</extracode>
+                                        <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_NO_VSCROLL</style>
+                                        <value></value>
                                     </object>
                                 </object>
                             </object>

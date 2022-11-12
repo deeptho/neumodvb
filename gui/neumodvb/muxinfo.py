@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Neumo dvb (C) 2019-2021 deeptho@gmail.com
+# Neumo dvb (C) 2019-2022 deeptho@gmail.com
 # Copyright notice:
 #
 # This program is free software; you can redistribute it and/or modify
@@ -26,9 +26,7 @@ import copy
 import datetime
 from dateutil import tz
 
-from neumodvb.util import setup
 from neumodvb.neumodbutils import enum_to_str
-
 
 import pychdb
 
@@ -41,7 +39,7 @@ class MuxInfoTextCtrl(wx.TextCtrl):
             self.AppendText("Red text\n")
             f = self.GetFont()
             self.SetDefaultStyle(wx.TextAttr(wx.NullColour, font=f.Bold()))
-            self.AppendTeext("Red on grey text\n")
+            self.AppendText("Red on grey text\n")
             self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=f))
             self.AppendText("Blue on grey text\n")
         self.last_scan_text = None

@@ -1868,13 +1868,13 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		chdb::any_mux_t mux;
 		auto reader_mux = reader->stream_mux();
 		if (is_actual) {
+			mux = reader_mux;
 			if (is_embedded_si //we are processing sdt found in t2mi embedded mux
 					&& !matches_reader_mux(mux) && //but there is some problem with frequency or pol
 					pat_data.has_ts_id(services.ts_id)) {
 				//this happens on 40.0E 3992L T2MI. main mux does not have nit. Embedded nit is empty
 				auto saved_key = mux_key;
 				// copy from reader_mux to avoid consulting the db, but preserve mux_key
-				mux = reader_mux;
 				*chdb::mux_key_ptr(mux) = saved_key;
 				namespace m = chdb::update_mux_preserve_t;
 				this->update_mux(wtxn, mux, now, true /*is_reader_mux*/, true /*from_sdt*/,
@@ -1885,9 +1885,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 						At this point 2 muxes with the same tuning parameters should already exist:
 						a NIT version and an SDT version. We use the reader mux, but with changed key
 					 */
-					auto saved_key = mux_key;
-					mux = reader_mux;
-					*chdb::mux_key_ptr(mux) = saved_key;
+					*chdb::mux_key_ptr(mux) = mux_key;
 				}
 			}
 		} else {

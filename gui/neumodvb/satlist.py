@@ -86,8 +86,10 @@ class SatTable(NeumoTable):
         if screen.list_size==0:
             from neumodvb.init_db import init_db
             dtdebug("Empty database; adding sats")
-            txn.abort()
-            del txn
+            #open a read txn to reflect the update
+            #note that parent will continue to use outdated txn, but screen will still be ok
+            #and we should not close the parent's txn, because parent will do that
+            #also note that garbage collection will clean up the txn
             init_db()
             txn = self.db.rtxn()
             screen = pychdb.sat.screen(txn, sort_order=sort_order,

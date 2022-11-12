@@ -977,7 +977,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 		for (auto& s : pat_table.entries) {
 			if (!is_embedded_si && s.service_id != 0x0 /*skip pat*/)
 				add_pmt(s.service_id, s.pmt_pid);
-			}
+		}
 
 		bool all_done = true;
 		for (auto& [ts_id, table] : pat_data.by_ts_id) {

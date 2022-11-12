@@ -595,6 +595,7 @@ int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool i
 	sub.use_count = 1;
 	//the following settings imply that we request a non-exclusive subscription
 	sub.lnb_key = devdb::lnb_key_t{};
+	sub.lnb_key.card_mac_address = fe.card_mac_address;
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = is_dvbc ? sat_pos_dvbc : sat_pos_dvbt;
@@ -705,7 +706,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 		return {}; //no frontend could be found
 
 	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency, mux.stream_id);
-	assert(ret>0); //reservation cannot fail as we have a write lock on the db
+	assert(ret == 0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, released_fe_usecount};
 }
 

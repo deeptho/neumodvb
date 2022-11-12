@@ -41,13 +41,14 @@ class MuxInfoTextCtrl(wx.TextCtrl):
             self.ChangeValue(self.last_scan_text)
             if self.scan_done:
                 self.last_scan_text = None
+            return
         f = self.GetFont()
         large = self.GetFont()
         large.SetPointSize(int(f.GetPointSize()*1.2))
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
         app = wx.GetApp()
         num_muxes = table.screen.list_size
-        self.ChangeValue(f"{num_muxes} mux" if muxes == 1 else f"{num_muxes} muxes" )
+        self.ChangeValue(f"{num_muxes} mux" if num_muxes == 1 else f"{num_muxes} muxes" )
 
 
     def ShowScanRecord(self, panel, data):

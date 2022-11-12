@@ -628,6 +628,7 @@ class NeumoGui(wx.App):
         ret = self.scan_subscriber.scan_muxes(muxlist)
         print(f'MuxScan')
         if ret < 0:
+            from neumodvb.neumo_dialogs import ShowMessage
             ShowMessage("Muxscan failed", self.scan_subscriber.error_message) #todo: record error message
         dtdebug(f"Requested subscription to scan mux {muxlist}")
 

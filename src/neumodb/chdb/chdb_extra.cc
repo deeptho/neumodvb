@@ -1303,11 +1303,39 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 	dtdebugx("Cleaned %d muxes with PENDING/ACTIVE status", count);
 }
 
+template<typename record_t> static void clean_expired(db_txn& wtxn, std::chrono::seconds age, const char* label)
+{
+	using namespace chdb;
+	int count{0};
+	int skipped{0};
+	//auto age = std::chrono::duration_cast<std::chrono::seconds>(age.count);
+	auto t = system_clock_t::to_time_t(now + age);
+	auto c = find_first<record_t>(wtxn);
+
+	for(auto record: c.range())  {
+		if(!record.expired)
+			continue;
+		if(record.mtime >= t) {
+			skipped++;
+			continue;
+		}
+		delete_record(wtxn, record);
+		count++;
+	}
+	dtdebugx("removed %d expired %s; %d skipped", count, label, skipped);
+}
+
 void chdb::clean_scan_status(db_txn& wtxn)
 {
 	clean<chdb::dvbs_mux_t>(wtxn);
 	clean<chdb::dvbc_mux_t>(wtxn);
 	clean<chdb::dvbt_mux_t>(wtxn);
+}
+
+void chdb::clean_expired_services(db_txn& wtxn, std::chrono::seconds age)
+{
+	clean_expired<chdb::service_t>(wtxn, age, "services");
+	clean_expired<chdb::chgm_t>(wtxn, age, "services");
 }
 
 /*

@@ -392,6 +392,7 @@ namespace chdb {
 	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_id, bool ignore_key);
 
 	void clean_scan_status(db_txn& wtxn);
+	void clean_expired_services(db_txn& wtxn, std::chrono::seconds age);
 };
 
 namespace chdb::dvbs_mux {

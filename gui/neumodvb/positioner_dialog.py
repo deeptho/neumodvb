@@ -484,7 +484,8 @@ class TuneMuxPanel(TuneMuxPanel_):
     def ChangeLnb(self, lnb):
         add = False
         self.lnb = lnb
-
+        if lnb is None:
+            return
         if not on_rotor(lnb) and has_network(lnb, self.sat.sat_pos):
             # no change needed
             network=get_network(self.lnb, self.sat.sat_pos)
@@ -510,6 +511,8 @@ class TuneMuxPanel(TuneMuxPanel_):
 
 
     def ChangeSat(self, sat):
+        if sat is None or self.lnb is None:
+            return
         if sat.sat_pos == self.sat.sat_pos:
             return
         add = False

@@ -35,6 +35,7 @@ from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
 import pychdb
 
 class DvbcMuxTable(NeumoTable):
+    record_t =  pychdb.dvbc_mux.dvbc_mux
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") \
@@ -77,9 +78,9 @@ class DvbcMuxTable(NeumoTable):
         data_table= pychdb.dvbc_mux
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
-        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table= data_table,
+        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, record_t=self.record_t,
+                         data_table= data_table,
                          screen_getter = screen_getter,
-                         record_t =  pychdb.dvbc_mux.dvbc_mux,
                          initial_sorted_column = initial_sorted_column, **kwds)
 
     def __save_record__(self, txn, record):
@@ -140,7 +141,7 @@ class DvbcMuxGrid(NeumoGridBase):
         row = self.GetGridCursorRow()
         mux = self.table.screen.record_at_row(row)
         mux_name= f"{int(mux.frequency/1000)}"
-        dtdebug(f'MuxTune requested for row={row}: PLAY mux={mux_name}')
+        dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
         self.app.MuxTune(mux)
 
     def CmdScan(self, evt):

@@ -36,6 +36,7 @@ from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLab
 import pychdb
 
 class DvbtMuxTable(NeumoTable):
+    record_t =  pychdb.dvbt_mux.dvbt_mux
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") \
@@ -77,9 +78,9 @@ class DvbtMuxTable(NeumoTable):
         data_table= pychdb.dvbt_mux
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
-        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table= data_table,
+        super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, record_t=self.record_t,
+                         data_table= data_table,
                          screen_getter = screen_getter,
-                         record_t =  pychdb.dvbt_mux.dvbt_mux,
                          initial_sorted_column = initial_sorted_column, **kwds)
 
     def __save_record__(self, txn, record):
@@ -115,7 +116,6 @@ class DvbtMuxGrid(NeumoGridBase):
         super().__init__(basic, readonly, table, *args, **kwds)
         self.sort_order = 0
         self.sort_column = None
-        #self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.Bind(wx.EVT_CHAR, self.OnKeyCheck)
         self.sat = None #sat for which to show muxes
 

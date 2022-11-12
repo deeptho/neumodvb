@@ -109,20 +109,23 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 		//todo: allow multiple scans on different sats/lnbs
 	}
 	subscription_id_t ret{subscription_id_t::NONE};
-	if(dvbs_muxes.size() > 0)
+	if(dvbs_muxes.size() > 0) {
 		ret = receiver->scan_muxes(dvbs_muxes, subscription_id);
-	if((int) ret<0)
-		return (int) ret;
+		if((int) ret<0)
+			return (int) ret;
+	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
-	if(dvbc_muxes.size() > 0)
+	if(dvbc_muxes.size() > 0) {
 		ret = receiver->scan_muxes(dvbc_muxes, ret);
-	if((int) ret<0)
-		return (int) ret;
+		if((int) ret<0)
+			return (int) ret;
+	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
-	if(dvbt_muxes.size() > 0)
+	if(dvbt_muxes.size() > 0) {
 		subscription_id = receiver->scan_muxes(dvbt_muxes, subscription_id);
-	if((int) ret<0)
-		return (int) ret;
+		if((int) ret<0)
+			return (int) ret;
+	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
 
 	subscription_id = ret;

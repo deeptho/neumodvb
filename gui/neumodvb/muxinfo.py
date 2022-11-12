@@ -33,15 +33,6 @@ import pychdb
 class MuxInfoTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        if False:
-            self.ChangeValue("test ")
-            self.SetDefaultStyle(wx.TextAttr(wx.RED))
-            self.AppendText("Red text\n")
-            f = self.GetFont()
-            self.SetDefaultStyle(wx.TextAttr(wx.NullColour, font=f.Bold()))
-            self.AppendText("Red on grey text\n")
-            self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=f))
-            self.AppendText("Blue on grey text\n")
         self.last_scan_text = None
         self.scan_done = False
 
@@ -50,29 +41,13 @@ class MuxInfoTextCtrl(wx.TextCtrl):
             self.ChangeValue(self.last_scan_text)
             if self.scan_done:
                 self.last_scan_text = None
-            return
-        if False:
-            if mux is None:
-                h = wx.GetApp().receiver.browse_history
-                sat = h.h.dvbs_muxlist_filter_sat
-                self.ChangeValue(f"{str(sat)}: No muxes")
-                return
-            dt =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
-            e = lambda x: enum_to_str(x)
-            f = self.GetFont()
-            large = self.GetFont()
-            large.SetPointSize(int(f.GetPointSize()*1.2))
-            self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
-            app = wx.GetApp()
-            self.ChangeValue(f"{str(mux)}: {mux.c.num_services} services.")
-        else:
-            f = self.GetFont()
-            large = self.GetFont()
-            large.SetPointSize(int(f.GetPointSize()*1.2))
-            self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
-            app = wx.GetApp()
-            num_muxes = table.screen.list_size
-            self.ChangeValue(f"{num_muxes} muxes")
+        f = self.GetFont()
+        large = self.GetFont()
+        large.SetPointSize(int(f.GetPointSize()*1.2))
+        self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
+        app = wx.GetApp()
+        num_muxes = table.screen.list_size
+        self.ChangeValue(f"{num_muxes} mux" if muxes == 1 else f"{num_muxes} muxes" )
 
 
     def ShowScanRecord(self, panel, data):

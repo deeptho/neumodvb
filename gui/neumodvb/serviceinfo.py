@@ -45,3 +45,16 @@ class ServiceInfoTextCtrl(wx.TextCtrl):
         app = wx.GetApp()
         num_services = table.screen.list_size
         self.ChangeValue(f"{num_services} service" if num_services == 1 else f"{num_services} services" )
+
+    def ShowScanRecord(self, panel, data):
+        st = data.scan_stats
+        done = st.pending_muxes + st.active_muxes == 0
+        pending = st.pending_muxes
+        ok = st.locked_muxes
+        active = st.active_muxes
+        if pending+active == 0:
+            self.scan_done = True
+        else:
+            self.scan_done = False
+        self.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={active}"
+        self.ShowRecord(panel.grid.table, panel.grid.table.CurrentlySelectedRecord())

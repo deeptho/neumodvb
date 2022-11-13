@@ -519,21 +519,26 @@ void dvbdev_monitor_t::disable_missing_adapters() {
 	auto devdb_wtxn = this->devdb_wtxn();
 	auto c = devdb::find_first<devdb::fe_t>(devdb_wtxn);
 	for (auto fe : c.range()) {
-		auto found = frontends.contains({adapter_no_t(fe.adapter_no), frontend_no_t(fe.k.frontend_no)});
-
+		bool found{false};
+		//check if an frontend with the correct key is present
+		for (const auto& [k, present_fe]: frontends) {
+			auto ts = present_fe->ts.readAccess();
+			if(ts->dbfe.k ==  fe.k) {
+				found = true;
+				break;
+			}
+		}
 		if(!found) {
 			ss::string<128> adapter_name;
 			adapter_name.sprintf("A-- %s", fe.card_short_name);
 			if(fe.present || fe.can_be_used || adapter_name != fe.adapter_name) {
-					fe.can_be_used = false;
-					fe.present = false;
-					fe.adapter_no = -1;
-					fe.adapter_name = adapter_name;
-					put_record(devdb_wtxn, fe);
+				fe.can_be_used = false;
+				fe.present = false;
+				fe.adapter_no = -1;
+				fe.adapter_name = adapter_name;
+				put_record(devdb_wtxn, fe);
 			}
-		} else {
 		}
-
 	}
 	devdb_wtxn.commit(); //commit child transaction
 }

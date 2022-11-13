@@ -345,11 +345,8 @@ class neumoMainFrame(mainFrame):
         assert 0
 
     def OnExit(self, event=None):
-        print('OnExit')
         dtdebug(f"Asking receiver to exit receiver={self.app.receiver}")
         self.app.receiver.stop()
-        print('OnExit done')
-        #self.app.receiver = None
         dtdebug("OnExit done")
         return 0
 

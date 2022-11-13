@@ -690,12 +690,12 @@ void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb)
 	if(c.is_valid()) {
 		const auto& fe = c.current();
 		lnb.connection_name.clear();
+		lnb.card_no = fe.card_no;
 		if (lnb.card_no >=0)
 			lnb.connection_name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
 		else
 			lnb.connection_name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
 		lnb.can_be_used = fe.can_be_used;
-		lnb.card_no = fe.card_no;
 	}
 	switch(lnb.rotor_control) {
 	case devdb::rotor_control_t::ROTOR_MASTER_USALS:

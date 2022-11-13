@@ -18,7 +18,10 @@ from matplotlib.widgets import Slider
 plt.ion()
 
 #specfname=f'{options.spectrum_path}/30.0W/2022-11-07_20:49:34_H_dish2_C92ab2200_RF1_spectrum.dat'
-specfname=f'{options.spectrum_path}/30.0W/2022-11-07_20:49:48_V_dish2_C92ab2200_RF1_spectrum.dat'
+#specfname=f'{options.spectrum_path}/30.0W/2022-11-07_20:49:48_V_dish2_C92ab2200_RF1_spectrum.dat'
+#specfname=f'{options.spectrum_path}/53.0E/2022-11-02_20:12:55_H_dish0_C92ab2200_RF0_spectrum.dat'
+specfname=f'{options.spectrum_path}/14.0W/2022-07-05_21:28:18_V_dish1_adapter2_spectrum.dat'
+
 windows = np.array([2,    4,    6,    8,   10,   12,   14,   16,   18,   20,   22,
 	                  24,   26,   28,   30,   32,   34,   36,   38,   40,   42,   44,
 	                  46,   48,   50,   52,   54,   56,   58,   60,   62,   64,   66,
@@ -49,8 +52,7 @@ def make_plot(idx=10):
     global falling_idxs, rising_idxs, falling_resp, rising_resp
     global vlines1, vlines2, fig, axes
     w=windows[idx]
-    w=idx
-    print(f'w={w}')
+    print(f'idx={idx} w={w}')
     peak_marks, responses = make_kernels(freq, spec, w)
     falling, rising = peak_marks
     falling_resp, rising_resp = responses
@@ -65,7 +67,7 @@ def make_plot(idx=10):
     vlines2=axes.vlines(freq[rising_idxs], annotymin, annotymin+rising_resp[rising_idxs],
                         color='blue')
 
-make_plot()
+make_plot(104)
 #axes.vlines(freq[np.where(rising!=0)], annotymin, annotymax, color='blue')
 
 def update(val):
@@ -74,8 +76,8 @@ def update(val):
     fig.canvas.draw_idle()
 
 axslider = fig.add_axes([0.25, -0, 0.65, 0.03])
-#slider = Slider(ax=axslider, label='w', valmin=0, valmax=windows.shape[0]-1, valinit=10)
-slider = Slider(ax=axslider, label='w', valmin=2, valmax=200, valinit=98)
+slider = Slider(ax=axslider, label='w', valmin=0, valmax=windows.shape[0]-1, valinit=104)
+#slider = Slider(ax=axslider, label='w', valmin=2, valmax=200, valinit=98)
 
 # register the update function with each slider
 slider.on_changed(update)

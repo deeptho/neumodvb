@@ -66,13 +66,17 @@ struct spectrum_scan_state_t {
 
 struct spectrum_peak_internal_t {
 	s32 idx;			// center index at which we last found a peak
+	s32 lowest_left_idx; //minimum left of peak
+	s32 lowest_right_idx; //minimum right of peak
 	s32 rise_idx; // location of rising part of peal (3dB)
 	s32 fall_idx; // location of falling part of peak (3dB)
 	s32 freq;			// central frequency of current peak
 	s32 bw;				// 3dB bandwidth of current peak
-
+	s32 lowest_left_level;
+	s32 lowest_right_level;
 	s32 mean_snr; // SNR of central peak w.r.t. to what we think is noise level
 	s32 mean_level;  //level of central plateau
+	s32 fluctuation;  //estimate of mean absolute signal fluctuation
 
 	s32 dip_level; // amplude of lowest dip in central
 	s32 dip_snr; //snr of this dip w.r.t. what we think is the noise level
@@ -81,6 +85,7 @@ struct spectrum_peak_internal_t {
 
 struct scan_internal_t {
 	s32* rs;						// running sum
+	s32* noise;						// noise values
 	s32 start_idx;			// analysis starts at spectrum[start_idx]
 	s32 end_idx;				// analysis end at spectrum[end_idx]-1
 	s32 next_frequency; // If we found a transponder last time, this is the frequency just above the transponder bandwidth

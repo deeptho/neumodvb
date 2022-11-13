@@ -478,7 +478,6 @@ struct db_cursor : private lmdb::cursor {
 		bool ret = get(k, v, (const MDB_cursor_op) MDB_GET_CURRENT);
 		if(!ret) //we reached the end of the index table
 			return ret;
-		assert((int)k.size()>=key_prefix.size());
 		if(this->key_prefix.size() == 0)
 			return true;
 		if((int)k.size() < (int)key_prefix.size())
@@ -525,7 +524,6 @@ struct db_cursor : private lmdb::cursor {
 		bool ret = get(k, v, op);
 		if(!ret) //we reached the end of the index table
 			return ret;
-		assert((int)k.size()>=key_prefix.size());
 		if(this->key_prefix.size() == 0)
 			return true;
 		if((int)k.size()< (int)key_prefix.size())
@@ -534,7 +532,6 @@ struct db_cursor : private lmdb::cursor {
 			//we have reached another key type, but iteration must stop when the last key of the current type was found
 			return false;
 		}
-		//printf("KEY=0x%x\n", *(uint32_t*)k.data());
 		return true;
 	}
 
@@ -543,7 +540,6 @@ struct db_cursor : private lmdb::cursor {
 		bool ret = this->get(k, v, (const MDB_cursor_op) MDB_PREV);
 		if(!ret) //we reached the start of the index table
 			return ret;
-		assert((int)k.size()>=key_prefix.size());
 		if(this->key_prefix.size() == 0)
 			return true;
 		if((int)k.size() < (int)key_prefix.size())
@@ -552,7 +548,6 @@ struct db_cursor : private lmdb::cursor {
 			//we have reached another key type, but iteration must stop when the last key of the current type was found
 			return false;
 		}
-		//printf("KEY=0x%x\n", *(uint32_t*)k.data());
 		return true;
 	}
 
@@ -921,7 +916,6 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 		if(!ret) //we reached the end of the index table
 			return ret;
 
-		//assert((int)k.size() >= this->key_prefix.size()); erroneous assertion
 		if((int) k.size() < (int) this->key_prefix.size())
 			return false;
 

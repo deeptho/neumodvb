@@ -540,10 +540,11 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 			}
 		}
 		chdb_txn.commit();
-		if(must_activate)
+		if(must_activate) {
 			dtdebug("committed write");
-		else
+		} else {
 			dtdebug("committed read");
+		}
 		set_current_tp(master_mux);
 		add_embedded_si_stream(mux, start);
 	} else {
@@ -554,11 +555,11 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 			}
 		}
 		chdb_txn.commit();
-		if(must_activate)
+		if(must_activate) {
 			dtdebug("committed write");
-		else
+		} else {
 			dtdebug("committed read");
-
+		}
 		set_current_tp(mux);
 	}
 	return mux;

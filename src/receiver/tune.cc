@@ -91,8 +91,10 @@ void tuner_thread_t::clean_dbs(system_time_t now, bool at_start) {
 		chdb::chdb_t::clean_log(wtxn);
 		if(at_start)
 			chdb::clean_scan_status(wtxn);
-		if(at_start)
-			clean_expired_services(wtxn, std::chrono::months{1});
+		if(at_start) {
+			//ancient ubuntu does not know std::chrono::months{1}; hence use hours
+			clean_expired_services(wtxn, std::chrono::hours{24*30});
+		}
 		wtxn.commit();
 	}
 	{

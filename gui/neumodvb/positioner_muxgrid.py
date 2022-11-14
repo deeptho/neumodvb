@@ -108,8 +108,7 @@ class DvbsMuxTable(NeumoTable):
     def __new_record__(self):
         ret=self.record_t()
         sat = self.parent.controller.parent.sat
-        assert sat is not None
-        ret.k.sat_pos = sat.sat_pos
+        ret.k.sat_pos = pychdb.sat.sat_pos_none if sat is None else at.sat_pos
         ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
         return ret
 

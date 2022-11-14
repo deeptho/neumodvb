@@ -749,8 +749,8 @@ class PositionerDialog(PositionerDialog_):
         self.diseqc_type_choice.controller = self.tune_mux_panel.mux_controller
         self.diseqc_type_choice.SetValue(self.lnb)
         self.enable_disable_diseqc_panels()
-        network = get_network(self.lnb, self.sat.sat_pos)
-        self.SetPosition(self.sat.sat_pos if network is None else network.usals_pos)
+        network = None if self.sat is None else get_network(self.lnb, self.sat.sat_pos)
+        self.SetPosition( (pychdb.sat.sat_pos_none if self.sat is None else self.sat.sat_pos) if network is None else network.usals_pos)
         self.SetDiseqc12Position(0 if network is None else network.diseqc12)
         self.SetUsalsLocation()
         if network is not None:

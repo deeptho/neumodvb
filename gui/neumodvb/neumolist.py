@@ -320,7 +320,6 @@ class NeumoTableBase(wx.grid.GridTableBase):
         self.unsaved_edit_undo_list = []
         self.filtered_colnos = set()
         self.parent = parent
-
     def needs_highlight(self, record):
          return False
     def SetReference(self, record):
@@ -594,8 +593,9 @@ class NeumoTable(NeumoTableBase):
         return True
 
     def GetNumberRows(self):
-        ret = 0 if self.screen is None else self.screen.list_size
-        return ret
+        if self.screen is None:
+            return 0
+        return (self.screen.list_size + 1)  if self.screen.has_editing_record else self.screen.list_size
 
 
     @lru_cache(maxsize=30) #cache the last row, because multiple columns will lookup same row
@@ -639,6 +639,20 @@ class NeumoTable(NeumoTableBase):
             self.unsaved_edit_undo_list.append(self.BCK(operation, rowno, oldrecord, newrecord))
         else:
             self.undo_list.append(self.BCK(operation, rowno, oldrecord, newrecord))
+
+    def PeekUnsavedEdits(self):
+        ret = None
+        if len(self.unsaved_edit_undo_list) ==0 :
+            return None, None, None, None
+        first = self.unsaved_edit_undo_list[0]
+        last = self.unsaved_edit_undo_list[-1]
+        if first.oldrow in self.new_rows:
+            operation = 'new'
+        else:
+            operation = 'replace'
+
+        firstrec = None if operation =='new' else first.oldrecord
+        return ret, firstrec, last.newrecord, first.oldrow
 
     def FinalizeUnsavedEdits(self):
         ret = None
@@ -730,7 +744,7 @@ class NeumoTable(NeumoTableBase):
         """
         TODO: when record changes affect sort order, list should be reordered
         """
-        op, old, new, rowno = self.FinalizeUnsavedEdits() # merge all unsaved edits into one (they are in the same row)
+        op, old, new, rowno = self.PeekUnsavedEdits() # merge all unsaved edits into one (they are in the same row)
         if new is None:
             return
         txn = self.db.wtxn()
@@ -744,14 +758,15 @@ class NeumoTable(NeumoTableBase):
         saved = self.__save_record__(txn, new)
         error = saved is None
         if error:
-            self.record_being_edited = new
-            self.row_being_edited = rowno
-            wx.CallAfter(self.parent.SelectRow, rowno)
+            pass
+            #self.parent.MakeCellVisible(rowno, 0)
+            #self.parent.SetGridCursor(rowno, 0)
         else:
             changed = self.screen.update(txn)
             txn.commit()
             del txn
             idx =0
+            self.FinalizeUnsavedEdits() # merge all unsaved edits into one (they are in the same row)
             self.GetRow.cache_clear()
             if changed:
                 self.parent.SelectRecord(new)
@@ -1215,10 +1230,12 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.infow.ShowRecord(self.table, rec)
 
     def OnGridCellSelect(self, evt):
-        if evt.GetRow() != self.GetGridCursorRow():
+        if self.table.row_being_edited is not None and evt.GetRow() != self.table.row_being_edited:
             self.OnRowSelect(evt.GetRow())
             #if len(self.table.unsaved_edit_undo_list) > 0:
-            self.table.SaveModified()
+            wx.CallAfter(self.table.SaveModified)
+        elif evt.GetRow() != self.GetGridCursorRow():
+            self.OnRowSelect(evt.GetRow())
         else:
             pass
         wx.CallAfter(self.SelectRow,evt.GetRow())

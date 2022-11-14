@@ -183,18 +183,27 @@ class LnbTable(NeumoTable):
         if lnb.k.card_mac_address <=0:
             ShowMessage("Bad data", "Enter a valid adapter number before saving")
             return None
-        if lnb.usals_pos !=  pychdb.sat.sat_pos_none and len(lnb.networks)==0:
+        if lnb.usals_pos ==  pychdb.sat.sat_pos_none:
+                add = ShowMessage("Add Usals pos", f"Specify Usals pos")
+                return None
+
+        if lnb.usals_pos !=  pychdb.sat.sat_pos_none and len(lnb.networks) == 0:
             #shortcut: a single network can be created by entering sat_pos
             network = pydevdb.lnb_network.lnb_network()
             network.sat_pos = lnb.usals_pos
             network.usals_pos = lnb.usals_pos
-            pydevdb.lnb.add_network(lnb, network)
+            if self.matching_sat(txn, network.sat_pos) == pychdb.sat.sat_pos_none:
+                ss = pychdb.sat_pos_str(network.sat_pos)
+                add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
+                if not add:
+                    return None
+                pydevdb.lnb.add_network(lnb, network)
         for n in lnb.networks:
             if self.matching_sat(txn, n.sat_pos) == pychdb.sat.sat_pos_none:
                 ss = pychdb.sat_pos_str(n.sat_pos)
                 add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
                 if not add:
-                    return
+                    return None
                 sat = pychdb.sat.sat()
                 sat.sat_pos = n.sat_pos;
                 pychdb.put_record(txn, sat)

@@ -320,6 +320,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         self.unsaved_edit_undo_list = []
         self.filtered_colnos = set()
         self.parent = parent
+        self.last_edited_colno = None
     def needs_highlight(self, record):
          return False
     def SetReference(self, record):
@@ -400,6 +401,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         except:
             dterror(f"row {rowno} out of range {self.GetNumberRows()}")
         col = self.columns[colno]
+        self.last_edited_colno = colno
         if col.sfn is not None:
             oldrecord = None if rec is None else rec.copy()
             rec =  col.sfn((rec, val, self))
@@ -758,9 +760,9 @@ class NeumoTable(NeumoTableBase):
         saved = self.__save_record__(txn, new)
         error = saved is None
         if error:
-            pass
-            #self.parent.MakeCellVisible(rowno, 0)
-            #self.parent.SetGridCursor(rowno, 0)
+            txn.commit()
+            self.parent.MakeCellVisible(rowno, 0 if self.last_edited_colno is None else self.last_edited_colno)
+            wx.CallAfter(self.parent.SetGridCursor, rowno, 0 if self.last_edited_colno is None else self.last_edited_colno)
         else:
             changed = self.screen.update(txn)
             txn.commit()

@@ -683,7 +683,7 @@ bool devdb::lnb::can_pol(const devdb::lnb_t &  lnb, chdb::fe_polarisation_t pol)
 	}
 }
 
-void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb)
+void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb, bool save)
 {
 	bool found=false;
 	auto c = fe_t::find_by_card_mac_address(wtxn, lnb.k.card_mac_address);
@@ -721,8 +721,10 @@ void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb)
 	default:
 		break;
 	}
-	put_record(wtxn, lnb);
+	if(save)
+		put_record(wtxn, lnb);
 }
+
 
 void devdb::lnb::reset_lof_offset(devdb::lnb_t&  lnb)
 {

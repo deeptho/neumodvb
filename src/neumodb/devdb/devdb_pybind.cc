@@ -46,7 +46,7 @@ static void export_lnb_extra(py::module& m) {
 	using namespace devdb;
 	mm
 		.def("update_lnb", &lnb::update_lnb, "save chanfed lnb, while checking tune string",
-				 py::arg("wtxn"), py::arg("lnb"))
+				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
 		.def("reset_lof_offset", &lnb::reset_lof_offset,
 				 "reset the LOF offset to 0",
 				 py::arg("lnb"))

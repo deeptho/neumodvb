@@ -159,7 +159,7 @@ namespace  devdb::lnb {
 	band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band);
 
 	bool add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network);
-	void update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb);
+	void update_lnb(db_txn& wtxn, devdb::lnb_t& lnb, bool save);
 	void reset_lof_offset(devdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);
 

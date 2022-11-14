@@ -88,6 +88,7 @@ class LnbTable(NeumoTable):
     adapter_fn = lambda x: x[0].adapter_name
     mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":") if x[1]>=0 else '???'
     card_fn = lambda x: card_label(x[0])
+    card_rf_in_fn = lambda x: x[2].connection_name(x[0])
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
@@ -103,9 +104,11 @@ class LnbTable(NeumoTable):
         [CD(key='connection_name',  label='LNB', basic=True, readonly=True,
             example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
-         CD(key='k.card_mac_address',  label='card', basic=True, no_combo=False, readonly=False, dfn=card_fn,
-            example=" C0: TBS 6904SE "),
-         CD(key='k.rf_input',  label='RF in', basic=True, readonly=False),
+         #CD(key='k.card_mac_address',  label='card', basic=True, no_combo=False, readonly=False, dfn=card_fn,
+         #   example=" C0: TBS 6904SE "),
+         #CD(key='k.rf_input',  label='RF in', basic=True, readonly=False),
+         CD(key='k.rf_input',  label='Card / RF in', basic=True, no_combo = False, readonly=False, dfn=card_rf_in_fn,
+            example="C0#10: TBS 6904SE" ),
          #CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
          CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
@@ -200,6 +203,19 @@ class LnbTable(NeumoTable):
         pydevdb.lnb.make_unique_if_template(txn, lnb)
         pydevdb.lnb.update_lnb(txn, lnb)
         return lnb
+
+    def connection_name(self, record):
+        """
+        update connection name if needed
+        """
+        if record is None:
+            return "select card/rfin"
+        if len(record.connection_name)==0:
+            #update needed
+            txn = self.db.rtxn()
+            pydevdb.lnb.update_lnb(txn, record, save=False)
+            txn.abort()
+        return record.connection_name
 
     def __new_record__(self):
         ret=self.record_t()

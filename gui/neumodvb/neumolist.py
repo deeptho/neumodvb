@@ -139,6 +139,16 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
                 #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
                 self.combobox.Clear()
                 self.combobox.Append(choices)
+        elif self.col.key.endswith('rf_input'):
+            #recompute each time, because data may have changed
+            d = wx.GetApp().get_cards_with_rf_in()
+            choices= list(d.keys())
+            if False: #not working. wxPython bug?
+                self.SetParameters(','.join(choices))
+            else:
+                #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
+                self.combobox.Clear()
+                self.combobox.Append(choices)
         size = self.Control.GetParent().GetParent().GetFont().GetPointSize()
         f = self.Control.GetFont()
         f.SetPointSize(size)
@@ -399,7 +409,6 @@ class NeumoTableBase(wx.grid.GridTableBase):
             before = None if rec is None else copy.copy(neumodbutils.get_subfield(rec, key))
             coltype = type(neumodbutils.get_subfield(self.record_t(), key))
             newval = None
-            dtdebug(f'Setting value: COLTYPE={coltype} key={key} val={val}')
             try:
                 if neumodbutils.is_enum(coltype):
                     newval = neumodbutils.enum_value_for_label(before, val)
@@ -423,6 +432,9 @@ class NeumoTableBase(wx.grid.GridTableBase):
                     elif key.endswith("card_mac_address"):
                         d = wx.GetApp().get_cards()
                         newval = d.get(val, None)
+                    elif key.endswith("rf_input"):
+                        d = wx.GetApp().get_cards_with_rf_in()
+                        newval = d.get(val, None)
                     else:
                         newval = int(val)
             except:
@@ -432,7 +444,11 @@ class NeumoTableBase(wx.grid.GridTableBase):
                 dtdebug("ILLEGAL new value")
                 return
             oldrecord = None if rec is None else rec.copy()
-            neumodbutils.enum_set_subfield(rec, key, newval)
+            if key.endswith("rf_input"):
+                rec.k.card_mac_address, rec.k.rf_input = newval
+                rec.connection_name = "" # will be reset by display code
+            else:
+                neumodbutils.enum_set_subfield(rec, key, newval)
         # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]
         # we cannot use return value policy reference for vectors (data moves in memory on resize)
         #self.data[rowno] =rec
@@ -1064,6 +1080,14 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                     else:
                         editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=col.key.endswith('lnb_pos') or col.allow_others)
                 elif col.key.endswith('_mac_address'):
+                    #Note that the following code line depends on satlist_panel being the first
+                    #panel to be initialised (so: on the order of panels in neumoviewer.wxg)
+                    if col.no_combo:
+                        editor = None
+                    else:
+                        choices = [] # will be computed in NeumoChoiceEditor.Show()
+                        editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=False)
+                elif col.key.endswith('rf_input'):
                     #Note that the following code line depends on satlist_panel being the first
                     #panel to be initialised (so: on the order of panels in neumoviewer.wxg)
                     if col.no_combo:

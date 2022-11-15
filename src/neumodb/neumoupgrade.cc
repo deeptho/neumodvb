@@ -36,6 +36,10 @@ using namespace boost;
 namespace po = boost::program_options;
 namespace fs = std::filesystem;
 
+namespace devdb {
+	struct devdb_t;
+}
+
 namespace chdb {
 	struct chdb_t;
 }
@@ -145,9 +149,10 @@ int main(int argc, char** argv) {
 	bool force_overwrite = options.force_overwrite;
 	bool inplace_upgrade = options.inplace_upgrade;
 	bool dont_backup = options.dont_backup;
-	if (options.db_type == "chdb") {
+	if (options.db_type == "devdb") {
+		return neumodb_upgrade<devdb::devdb_t>(from_dbname, to_dbname, force_overwrite, inplace_upgrade, dont_backup);
+	} else  if (options.db_type == "chdb") {
 		return neumodb_upgrade<chdb::chdb_t>(from_dbname, to_dbname, force_overwrite, inplace_upgrade, dont_backup);
-
 	} else if (options.db_type == "statdb") {
 		return neumodb_upgrade<statdb::statdb_t>(from_dbname, to_dbname, force_overwrite, inplace_upgrade, dont_backup);
 	} else if (options.db_type == "epgdb") {

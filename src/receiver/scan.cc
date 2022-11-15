@@ -200,7 +200,7 @@ int scanner_t::scan_loop(const active_adapter_t* active_adapter_p,
 }
 
 subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
-	ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
+	ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
 	bool scan_found_muxes, int max_num_subscriptions, subscription_id_t subscription_id) {
 	ss::string<32> s;
 	s << "SUB[" << (int) subscription_id << "] Request scan";
@@ -225,7 +225,7 @@ subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
 }
 
 scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
-										 //ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs_,
+										 //ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs_,
 										 bool scan_found_muxes_, int max_num_subscriptions_,
 										 subscription_id_t subscription_id_)
 	: receiver_thread(receiver_thread_)
@@ -316,7 +316,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, bool init) {
 
 
 
-void scanner_t::set_allowed_lnbs(const ss::vector_<chdb::lnb_t>& lnbs) { allowed_lnbs = lnbs; }
+void scanner_t::set_allowed_lnbs(const ss::vector_<devdb::lnb_t>& lnbs) { allowed_lnbs = lnbs; }
 
 void scanner_t::set_allowed_lnbs() { allowed_lnbs.clear(); }
 

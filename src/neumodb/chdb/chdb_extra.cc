@@ -101,43 +101,6 @@ ss::vector_<int16_t> chdb::dvbs_mux::list_distinct_sats(db_txn& txn) {
 	return data;
 }
 
-
-template <typename cursor_t> static int16_t make_unique_id(db_txn& txn, lnb_key_t key, cursor_t& c) {
-	key.lnb_id = 0;
-	int gap_start = 1; // start of a potential gap of unused extra_ids
-	for (const auto& lnb : c.range()) {
-		if (lnb.k.lnb_id > gap_start) {
-			/*we reached the first matching mux; assign next available lower  value to lnb.k.lnb_id
-				this can only fail if about 65535 lnbs
-				In that case the loop continues, just in case some of these  65535 muxes have been deleted in the mean time,
-				which has left gaps in numbering */
-			// easy case: just assign the next lower id
-			return lnb.k.lnb_id - 1;
-		} else {
-			// check for a gap in the numbers
-			gap_start = lnb.k.lnb_id + 1;
-			assert(gap_start > 0);
-		}
-	}
-
-	if (gap_start >= std::numeric_limits<decltype(key.lnb_id)>::max()) {
-		// all ids exhausted
-		// The following is very unlikely. We prefer to cause a result on a
-		// single mux rather than throwing an error
-		dterror("Overflow for extra_id");
-		assert(0);
-	}
-
-	// we reach here if this is the very first mux with this key
-	return std::numeric_limits<decltype(key.lnb_id)>::max(); // highest possible value
-}
-
-int16_t chdb::make_unique_id(db_txn& txn, lnb_key_t key) {
-	key.lnb_id = 0;
-	auto c = chdb::lnb_t::find_by_k(txn, key, find_geq);
-	return ::make_unique_id(txn, key, c);
-}
-
 template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, mux_key_t key, cursor_t& c) {
 	key.extra_id = 0;
 	int gap_start = 1; // start of a potential gap of unused extra_ids
@@ -278,22 +241,8 @@ void chdb::on_mux_key_change(db_txn& wtxn, const chdb::dvbs_mux_t& old_mux, chdb
 				put_record(wtxn, sat);
 			}
 		}
-	} {
-		auto c = find_first<chdb::lnb_t>(wtxn);
-		for(auto lnb: c.range()) {
-			auto* n = lnb::get_network(lnb, old_mux_key.sat_pos);
-			if(n) {
-				lnb.mtime = now;
-				if (n->ref_mux == old_mux_key) {
-					n->ref_mux = new_mux_key;
-					put_record(wtxn, lnb);
-				}
-			}
-			break;
-		}
 	}
 }
-
 
 void chdb::on_mux_key_change(db_txn& wtxn, const chdb::any_mux_t& old_mux, chdb::any_mux_t& new_mux,
 															system_time_t now_) {
@@ -317,9 +266,6 @@ void chdb::on_mux_key_change(db_txn& wtxn, const chdb::any_mux_t& old_mux, chdb:
 																											 now_);
 		});
 }
-
-
-
 
 static inline void copy_tuning(dvbc_mux_t& mux, dvbc_mux_t& db_mux) {
 	mux.delivery_system = db_mux.delivery_system;
@@ -361,8 +307,6 @@ static inline void copy_tuning(dvbs_mux_t& mux, dvbs_mux_t& db_mux) {
 	mux.matype = db_mux.matype;
 	mux.pls_code = db_mux.pls_code;
 }
-
-
 
 /*
 	selectively replace some data in mux by data in db_mux, while preserving the data specified in
@@ -467,8 +411,6 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 
 	return mux_key_incompatible;
 }
-
-
 
 /*! Put a mux record, taking into account that its key may have changed
 	returns: true if this is a new mux (first time scanned); false otherwise
@@ -589,9 +531,6 @@ update_mux_ret_t chdb::update_mux(db_txn& txn, chdb::any_mux_t& mux, system_time
 		[&](chdb::dvbt_mux_t& mux) { ret = chdb::update_mux(txn, mux, now, preserve, cb); });
 	return ret;
 }
-
-
-
 
 void chdb::sat_pos_str(ss::string_& s, int position) {
 	if (position == sat_pos_dvbc) {
@@ -755,38 +694,6 @@ std::ostream& chdb::operator<<(std::ostream& os, const service_key_t& k) {
 	return os;
 }
 
-std::ostream& chdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
-	const char* t = (lnb_key.lnb_type == lnb_type_t::C) ? "C" :
-		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" : "Ku" ;
-	stdex::printf(os, "D%dC[0x%06x]#d%d %s[%d]", (int)lnb_key.dish_id, (int)lnb_key.card_mac_address,
-								(int)lnb_key.rf_input,  t, (int)lnb_key.lnb_id);
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const lnb_t& lnb) {
-	using namespace chdb;
-	os << lnb.k;
-	switch (lnb.rotor_control) {
-	case rotor_control_t::FIXED_DISH: {
-		auto sat = sat_pos_str(lnb.usals_pos); // in this case usals pos equals one of the network sat_pos
-		stdex::printf(os, "%s %d", sat.c_str(), (int)lnb.k.lnb_id);
-	} break;
-	case rotor_control_t::ROTOR_MASTER_USALS:
-	case rotor_control_t::ROTOR_MASTER_DISEQC12:
-		stdex::printf(os, " rotor %d", (int)lnb.k.lnb_id);
-		break;
-	case rotor_control_t::ROTOR_SLAVE:
-		stdex::printf(os, " slave %d", (int)lnb.k.lnb_id);
-	}
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const lnb_network_t& lnb_network) {
-	auto s = sat_pos_str(lnb_network.sat_pos);
-	// the int casts are needed (bug in std::printf?
-	stdex::printf(os, "[%p] pos=%s enabled=%d", &lnb_network, s.c_str(), lnb_network.enabled);
-	return os;
-}
 
 std::ostream& chdb::operator<<(std::ostream& os, const fe_polarisation_t& pol) {
 		stdex::printf(os, "%s",
@@ -795,17 +702,6 @@ std::ostream& chdb::operator<<(std::ostream& os, const fe_polarisation_t& pol) {
 									: pol == fe_polarisation_t::L ? "L"
 									: "R");
 		return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const fe_band_pol_t& band_pol) {
-	// the int casts are needed (bug in std::printf?
-	stdex::printf(os, "%s-%s",
-								band_pol.pol == fe_polarisation_t::H	 ? "H"
-								: band_pol.pol == fe_polarisation_t::V ? "V"
-								: band_pol.pol == fe_polarisation_t::L ? "L"
-								: "R",
-								band_pol.band == fe_band_t::HIGH ? "High" : "Low");
-	return os;
 }
 
 std::ostream& chdb::operator<<(std::ostream& os, const chg_t& chg) {
@@ -818,22 +714,6 @@ std::ostream& chdb::operator<<(std::ostream& os, const chgm_t& chgm) {
 	stdex::printf(os, "[%04d:%04d] ", chgm.k.chg.bouquet_id, chgm.chgm_order);
 	os << chgm.service;
 	stdex::printf(os, " %s", chgm.name.c_str());
-	return os;
-}
-
-
-std::ostream& chdb::operator<<(std::ostream& os, const fe_key_t& fe_key) {
-	stdex::printf(os, "A[0x%06x]", (int)fe_key.adapter_mac_address);
-	return os;
-}
-
-
-std::ostream& chdb::operator<<(std::ostream& os, const fe_t& fe) {
-	using namespace chdb;
-	stdex::printf(os, "C%dA%d F%d", (int)fe.adapter_no, fe.card_no, (int)fe.k.frontend_no);
-	stdex::printf(os, " %s;%s", fe.adapter_name, fe.card_address);
-	stdex::printf(os, " enabled=%s%s%s available=%d",
-								fe.enable_dvbs ? "S" :"", fe.enable_dvbt ? "T": "", fe.enable_dvbc ? "C" : "", fe.can_be_used);
 	return os;
 }
 
@@ -885,36 +765,6 @@ void chdb::to_str(ss::string_& ret, const chg_t& chg) {
 void chdb::to_str(ss::string_& ret, const chgm_t& chgm) {
 	ret.clear();
 	ret << chgm;
-}
-
-void chdb::to_str(ss::string_& ret, const lnb_key_t& lnb_key) {
-	ret.clear();
-	ret << lnb_key;
-}
-
-void chdb::to_str(ss::string_& ret, const lnb_t& lnb) {
-	ret.clear();
-	ret << lnb;
-}
-
-void chdb::to_str(ss::string_& ret, const lnb_network_t& lnb_network) {
-	ret.clear();
-	ret << lnb_network;
-}
-
-void chdb::to_str(ss::string_& ret, const fe_band_pol_t& band_pol) {
-	ret.clear();
-	ret << band_pol;
-}
-
-void chdb::to_str(ss::string_& ret, const fe_key_t& fe_key) {
-	ret.clear();
-	ret << fe_key;
-}
-
-void chdb::to_str(ss::string_& ret, const fe_t& fe) {
-	ret.clear();
-	ret << fe;
 }
 
 namespace chdb {
@@ -1053,8 +903,6 @@ bool chdb::is_same(const dvbc_mux_t& a, const dvbc_mux_t& b) {
 	return true;
 }
 
-
-
 chdb::delsys_type_t chdb::delsys_to_type(chdb::fe_delsys_t delsys_) {
 	auto delsys = (fe_delivery_system)delsys_;
 	switch (delsys) {
@@ -1087,71 +935,6 @@ chdb::delsys_type_t chdb::delsys_to_type(chdb::fe_delsys_t delsys_) {
 	}
 }
 
-/*
-	returns
-	  network_exists
-		priority (if network_exists else -1)
-		usals_amount: how much does the dish need to be rotated for this network
-*/
-std::tuple<bool, int, int, int> chdb::lnb::has_network(const lnb_t& lnb, int16_t sat_pos) {
-	int usals_amount{0};
-	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
-												 [&sat_pos](const chdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
-	if (it != lnb.networks.end()) {
-		auto usals_pos = lnb.usals_pos - lnb.offset_pos;
-		if (chdb::lnb::on_positioner(lnb)) {
-			usals_amount = std::abs(usals_pos - it->usals_pos);
-		}
-		return std::make_tuple(true, it->priority, usals_amount, usals_pos);
-	}
-	else
-		return std::make_tuple(false, -1, 0, sat_pos_none);
-}
-
-/*
-	returns the network if it exists
-*/
-const chdb::lnb_network_t* chdb::lnb::get_network(const lnb_t& lnb, int16_t sat_pos) {
-	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
-												 [&sat_pos](const chdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
-	if (it != lnb.networks.end())
-		return &*it;
-	else
-		return nullptr;
-}
-
-chdb::lnb_network_t* chdb::lnb::get_network(lnb_t& lnb, int16_t sat_pos) {
-	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
-												 [&sat_pos](chdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
-	if (it != lnb.networks.end())
-		return &*it;
-	else
-		return nullptr;
-}
-
-#if 0
-chdb::lnb_t chdb::lnb::new_lnb(int adapter_no, int16_t sat_pos, int dish_id, chdb::lnb_type_t type) {
-	auto c = chdb::lnb_t();
-	bool on_rotor = false;
-	c.k.adapter_no = adapter_no;
-	c.k.dish_id = dish_id;
-	c.k.lnb_id = on_rotor ? 0 : sat_pos;
-	c.k.lnb_type = chdb::lnb_type_t::UNIV;
-
-	c.pol_type = chdb::lnb_pol_type_t::HV;
-	c.enabled = true;
-	c.mtime = system_clock_t::to_time_t(now);
-
-	c.usals_pos = sat_pos;
-
-	c.tune_string = "UC";
-	c.diseqc_10 = 0;
-	c.networks.push_back(
-		lnb_network_t(sat_pos, {} /*priority*/, sat_pos /*usals_pos*/, {} /*diseqc12*/, {} /*enabled*/, {} /*ref_mux*/));
-
-	return c;
-}
-#endif
 
 void chdb::service::update_audio_pref(db_txn& txn, const chdb::service_t& from_service) {
 	auto c = chdb::service_t::find_by_key(txn, from_service.k);
@@ -1197,359 +980,6 @@ void chdb::delete_record(db_txn& txn, const chdb::any_mux_t& mux) {
 		mux, [&txn](const chdb::dvbs_mux_t& mux) { delete_record(txn, mux); },
 		[&txn](const chdb::dvbc_mux_t& mux) { delete_record(txn, mux); },
 		[&txn](const chdb::dvbt_mux_t& mux) { delete_record(txn, mux); });
-}
-
-static std::tuple<uint32_t, uint32_t, uint32_t> lnb_band_helper(const chdb::lnb_t& lnb) {
-	auto freq_low = std::numeric_limits<uint32_t>::min();
-	auto freq_high = std::numeric_limits<uint32_t>::min();
-	auto freq_mid = freq_low;
-
-	switch (lnb.k.lnb_type) {
-	case lnb_type_t::C: {
-		freq_low = lnb.freq_low < 0 ? 3400000 : lnb.freq_low;
-		freq_high = lnb.freq_high < 0 ? 4200000 : lnb.freq_high;
-		freq_mid = freq_low;
-	} break;
-	case lnb_type_t::WDB: {
-		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
-		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
-		freq_mid = freq_high;
-	} break;
-	case lnb_type_t::WDBUK: {
-		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
-		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
-		freq_mid = freq_high;
-	} break;
-	case lnb_type_t::UNIV: {
-		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
-		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
-		freq_mid = (lnb.freq_mid < 0) ? 11700000 : lnb.freq_mid;
-	} break;
-	case lnb_type_t::KU: {
-		freq_low = lnb.freq_low < 0 ? 11700000 : lnb.freq_low;
-		freq_high = lnb.freq_high < 0 ? 12200000 : lnb.freq_high;
-		freq_mid = freq_low;
-	} break;
-	default:
-		assert(0);
-	}
-	return {freq_low, freq_mid, freq_high};
-}
-
-
-std::tuple<uint32_t, uint32_t> chdb::lnb::lnb_frequency_range(const chdb::lnb_t& lnb)
-{
-	auto [low, mid, high] = lnb_band_helper(lnb);
-	return {low, high};
-}
-
-bool chdb::lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_* error) {
-	auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
-	if (mux.frequency < freq_low || mux.frequency >= freq_high) {
-		if(error) {
-		error->sprintf("Frequency %.3fMhz out for range; must be between %.3fMhz and %.3fMhz",
-							 mux.frequency/(float)1000, freq_low/float(1000), freq_high/(float)1000);
-		}
-		return false;
-	}
-	if (!chdb::lnb::can_pol(lnb, mux.pol)) {
-		if(error) {
-			*error << "Polarisation " << mux.pol << " not supported";
-		}
-		return false;
-	}
-	if (disregard_networks)
-		return true;
-	for (auto& network : lnb.networks) {
-		if (network.sat_pos == mux.k.sat_pos)
-			return true;
-	}
-	if(error) {
-		*error << "No network for  " << sat_pos_str(mux.k.sat_pos);
-	}
-	return false;
-}
-
-/*
-	band = 0 or 1 for low or high (22Khz off/on)
-	voltage = 0 (H,L, 13V) or 1 (V, R, 18V) or 2 (off)
-	freq: frequency after LNB local oscilllator compensation
-
-	Reasons why lnb cannot tune mux: c_band lnb cannot tune ku-band mux; lnb has wrong polarisation
-*/
-std::tuple<int, int, int> chdb::lnb::band_voltage_freq_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
-	using namespace chdb;
-	int band = -1;
-	int voltage = -1;
-	int frequency = -1;
-	const bool disregard_networks{true};
-	if (!lnb_can_tune_to_mux(lnb, mux, disregard_networks))
-		return std::make_tuple(band, voltage, frequency);
-
-	frequency = driver_freq_for_freq(lnb, mux.frequency);
-	switch (lnb.k.lnb_type) {
-	case lnb_type_t::C: {
-		band = 0;
-	} break;
-	case lnb_type_t::WDB: {
-		band = 0;
-	} break;
-	case lnb_type_t::WDBUK: {
-		band = 0;
-	} break;
-	case lnb_type_t::UNIV: {
-		auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
-		band = (mux.frequency >= freq_mid);
-	} break;
-	case lnb_type_t::KU: {
-		band = 0;
-	} break;
-	default:
-		assert(0);
-	}
-	voltage = voltage_for_pol(lnb, mux.pol);
-	return std::make_tuple(band, voltage, frequency);
-}
-
-chdb::fe_band_t chdb::lnb::band_for_freq(const chdb::lnb_t& lnb, uint32_t frequency) {
-	using namespace chdb;
-
-	auto [freq_low, freq_mid, freq_high] = lnb_band_helper(lnb);
-
-	if (frequency < freq_low || frequency > freq_high)
-		return chdb::fe_band_t::NONE;
-	return (signed)(frequency >= freq_mid) ? chdb::fe_band_t::HIGH : chdb::fe_band_t::LOW;
-}
-
-int chdb::lnb::driver_freq_for_freq(const chdb::lnb_t& lnb, int frequency) {
-	using namespace chdb;
-	int band = 0;
-
-	switch (lnb.k.lnb_type) {
-	case lnb_type_t::C: {
-		band = 0;
-		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
-		frequency = frequency - lof_low;
-		break;
-	}
-	case lnb_type_t::WDB: {
-		band = 0;
-		auto lof_low = lnb.lof_low < 0 ? 10400000 : lnb.lof_low;
-		frequency = frequency - lof_low;
-		break;
-	}
-	case lnb_type_t::WDBUK: {
-		band = 0;
-		auto lof_low = lnb.lof_low < 0 ? 10410000 : lnb.lof_low;
-		frequency = frequency - lof_low;
-		break;
-	}
-	case lnb_type_t::UNIV: {
-		auto lof_low = (lnb.lof_low < 0) ? 9750000 : lnb.lof_low;
-		auto lof_high = (lnb.lof_high < 0) ? 10600000 : lnb.lof_high;
-
-		auto freq_mid = (lnb.freq_mid < 0) ? 11700000 : lnb.freq_mid;
-		band = (signed)frequency >= freq_mid;
-
-		frequency = band ? frequency - lof_high : frequency - lof_low;
-	} break;
-	case lnb_type_t::KU: {
-		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
-		band = 0;
-		frequency = frequency - lof_low;
-	} break;
-	default:
-		assert(0);
-	}
-	frequency = std::abs(frequency);
-	if (band < lnb.lof_offsets.size()) {
-		if (std::abs(lnb.lof_offsets[band]) < 5000)
-			frequency += lnb.lof_offsets[band];
-	}
-	return frequency;
-}
-
-std::tuple<int32_t, int32_t, int32_t> chdb::lnb::band_frequencies(const chdb::lnb_t& lnb, chdb::fe_band_t band) {
-	return lnb_band_helper(lnb);
-}
-
-/*
-	translate driver frequency to real frequency
-	voltage_high = true if high
-	@todo: see linuxdvb_lnb.c for more configs to support
-	@todo: uniqcable
-*/
-int chdb::lnb::freq_for_driver_freq(const chdb::lnb_t& lnb, int frequency, bool high_band) {
-	using namespace chdb;
-	bool invert{false};
-	auto correct = [&lnb, invert](int band, int frequency) {
-		if (band >= lnb.lof_offsets.size()) {
-			//dterror("lnb_loffsets too small for lnb: " << lnb);
-			return frequency;
-		}
-		if (std::abs(lnb.lof_offsets[band]) < 5000) {
-			if(invert)
-				frequency += lnb.lof_offsets[band];
-			else
-				frequency -= lnb.lof_offsets[band];
-		}
-		return frequency;
-	};
-
-	switch (lnb.k.lnb_type) {
-	case lnb_type_t::C: {
-		invert = true;
-		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
-		return correct(0, -frequency + lof_low); // - to cope with inversion
-	} break;
-	case lnb_type_t::WDB: {
-		auto lof_low = lnb.lof_low < 0 ? 10400000 : lnb.lof_low;
-		return correct(0, frequency + lof_low);
-	} break;
-	case lnb_type_t::WDBUK: {
-		auto lof_low = lnb.lof_low < 0 ? 10410000 : lnb.lof_low;
-		return correct(0, frequency + lof_low);
-	} break;
-	case lnb_type_t::UNIV: {
-		auto lof_low = lnb.lof_low < 0 ? 9750000 : lnb.lof_low;
-		auto lof_high = lnb.lof_high < 0 ? 10600000 : lnb.lof_high;
-		return high_band ? correct(1, frequency + lof_high) : correct(0, frequency + lof_low);
-	} break;
-	case lnb_type_t::KU: {
-		auto lof_low = lnb.lof_low < 0 ? 5150000 : lnb.lof_low;
-		return correct(0, frequency + lof_low);
-	} break;
-	default:
-		assert(0);
-	}
-	return -1;
-}
-
-
-
-chdb::dvbs_mux_t chdb::lnb::select_reference_mux(db_txn& rtxn, const chdb::lnb_t& lnb,
-																								 const chdb::dvbs_mux_t* proposed_mux) {
-	auto return_mux = [&rtxn, &lnb](const chdb::lnb_network_t& network) {
-		auto c = dvbs_mux_t::find_by_key(rtxn, network.ref_mux);
-		if (c.is_valid()) {
-			auto mux = c.current();
-			if (chdb::lnb::can_pol(lnb, mux.pol))
-				return mux;
-		}
-			c = dvbs_mux_t::find_by_key(rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
-																	dvbs_mux_t::partial_keys_t::sat_pos);
-		if (c.is_valid()) {
-			auto mux = c.current();
-			if (chdb::lnb::can_pol(lnb, mux.pol))
-				return mux;
-		}
-		auto mux = dvbs_mux_t();
-		mux.k.sat_pos = network.sat_pos; //handle case where reference mux is absent
-		mux.pol = chdb::lnb::pol_for_voltage(lnb, 0); //select default
-		return mux;
-	};
-
-	using namespace chdb;
-	const bool disregard_networks{false};
-	if (proposed_mux && lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks))
-		return *proposed_mux;
-
-	if (!chdb::lnb::on_positioner(lnb)) {
-		for (auto& network : lnb.networks) {
-			if (usals_is_close(lnb.usals_pos, network.usals_pos)) { // dish is tuned to the right sat
-				return return_mux(network);
-			}
-		}
-		if (lnb.networks.size() > 0)
-			return return_mux(lnb.networks[0]);
-
-	} else {
-		auto best = std::numeric_limits<int>::max();
-		const chdb::lnb_network_t* bestp{nullptr};
-		for (auto& network : lnb.networks) {
-			auto delta = std::abs(network.usals_pos - lnb.usals_pos);
-			if (delta < best) {
-				best = delta;
-				bestp = &network;
-			}
-		}
-		if (bestp && usals_is_close(bestp->usals_pos, lnb.usals_pos)) {
-			return return_mux(*bestp);
-		}
-		return dvbs_mux_t(); //  has sat_pos == sat_pos_none; no network present
-	}
-	return dvbs_mux_t(); // has sat_pos == sat_pos_none;
-}
-
-chdb::lnb_t chdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const chdb::dvbs_mux_t* proposed_mux) {
-	using namespace chdb;
-	if (!sat_ && !proposed_mux)
-		return lnb_t();
-	chdb::sat_t sat;
-	if (sat_) {
-		sat = *sat_;
-	} else {
-		auto c = sat_t::find_by_key(rtxn, proposed_mux->k.sat_pos);
-		if (!c.is_valid())
-			return lnb_t();
-		sat = c.current();
-	}
-	/*
-		Loop over all lnbs to find a suitable one.
-		First give preference to rotor
-	*/
-	auto c = find_first<chdb::lnb_t>(rtxn);
-	for (auto const& lnb : c.range()) {
-		auto [has_network, network_priority, usals_move_amount, usals_pos] = chdb::lnb::has_network(lnb, sat.sat_pos);
-		/*priority==-1 indicates:
-			for lnb_network: lnb.priority should be consulted
-			for lnb: front_end.priority should be consulted
-		*/
-		if (!has_network || !lnb.enabled)
-			continue;
-		if (chdb::lnb::on_positioner(lnb)) {
-			const bool disregard_networks{false};
-			if (!proposed_mux || lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks))
-				// we prefer a rotor, which is most useful for user
-				return lnb;
-		}
-	}
-
-	/*
-		Try without rotor
-	*/
-	c = find_first<chdb::lnb_t>(rtxn);
-	for (auto const& lnb : c.range()) {
-		auto [has_network, network_priority, usals_move_amount, usals_pos] = chdb::lnb::has_network(lnb, sat.sat_pos);
-		assert (usals_move_amount == 0);
-		/*priority==-1 indicates:
-			for lnb_network: lnb.priority should be consulted
-			for lnb: front_end.priority should be consulted
-		*/
-		if (!has_network || !lnb.enabled)
-			continue;
-		const bool disregard_networks{false};
-		if (!proposed_mux || lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks))
-			return lnb;
-	}
-	// give up
-	return lnb_t();
-}
-
-bool chdb::lnb::add_network(chdb::lnb_t& lnb, chdb::lnb_network_t& network) {
-	using namespace chdb;
-	for (auto& n : lnb.networks) {
-		if (n.sat_pos == network.sat_pos)
-			return false; // cannot add duplicate network
-	}
-	if (network.usals_pos == sat_pos_none)
-		network.usals_pos = network.sat_pos;
-	lnb.networks.push_back(network);
-	if (lnb.usals_pos == sat_pos_none)
-		lnb.usals_pos = (network.usals_pos == sat_pos_none) ? network.sat_pos : network.usals_pos;
-	std::sort(lnb.networks.begin(), lnb.networks.end(),
-						[](const lnb_network_t& a, const lnb_network_t& b) { return a.sat_pos < b.sat_pos; });
-	return true;
 }
 
 bool chdb::has_epg_type(const chdb::any_mux_t& mux, chdb::epg_type_t epg_type) {
@@ -1626,53 +1056,6 @@ bool chdb::remove_epg_type(chdb::any_mux_t& mux, chdb::epg_type_t tnew) {
 	return true;
 }
 
-int chdb::dish::update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos)
-{
-	auto c = chdb::find_first<chdb::lnb_t>(wtxn);
-	int num_rotors = 0; //for sanity check
-	for(auto lnb : c.range()) {
-		if(lnb.k.dish_id != dish_id || !chdb::lnb::on_positioner(lnb))
-			continue;
-		num_rotors++;
-		lnb.usals_pos = usals_pos;
-		put_record(wtxn, lnb);
-	}
-	if (num_rotors == 0) {
-		dterrorx("None of the LNBs for dish %d seems to be on a rotor", dish_id);
-		return -1 ;
-	}
-	return 0;
-}
-
-
-
-/*
-	Find the current usals_posi for the desired sat_pos and compare it with the
-	current usals_pos of the dish.
-
-	As all lnbs on the same dish agree on usals_pos, we can stop when we find the first one
- */
-bool chdb::dish::dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos)
-{
-	auto c = chdb::find_first<chdb::lnb_t>(rtxn);
-	int num_rotors = 0; //for sanity check
-
-	for(auto lnb : c.range()) {
-		if(lnb.k.dish_id != dish_id || !chdb::lnb::on_positioner(lnb))
-			continue;
-		num_rotors++;
-		auto [h, priority, usals_amount, usals_pos] =  chdb::lnb::has_network(lnb, sat_pos);
-		if(h) {
-			return usals_amount != 0;
-		}
-	}
-	if (num_rotors == 0) {
-		dterrorx("None of the LNBs for dish %d seems to be on a rotor", dish_id);
-	}
-	return false;
-}
-
-
 
 static inline auto bouquet_find_service(db_txn& rtxn, const chdb::chg_t& chg, const chdb::service_key_t& service_key) {
 	using namespace chdb;
@@ -1726,122 +1109,6 @@ bool chdb::toggle_channel_in_bouquet(db_txn& wtxn, const chg_t& chg, const chgm_
 	return true;
 }
 
-int chdb::lnb::voltage_for_pol(const chdb::lnb_t& lnb, const chdb::fe_polarisation_t pol) {
-	if(lnb::swapped_pol(lnb))
-		return
-		(pol == fe_polarisation_t::V || pol == fe_polarisation_t::R)
-			? SEC_VOLTAGE_18 : SEC_VOLTAGE_13;
-	else
-		return
-			(pol == fe_polarisation_t::V || pol == fe_polarisation_t::R)
-			? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
-}
-
-chdb::fe_polarisation_t chdb::lnb::pol_for_voltage(const chdb::lnb_t& lnb, int voltage_) {
-	auto voltage = (fe_sec_voltage_t) voltage_;
-	if(voltage != SEC_VOLTAGE_18 && voltage != SEC_VOLTAGE_13)
-		return  chdb::fe_polarisation_t::NONE;
-	bool high_voltage = (voltage == SEC_VOLTAGE_18);
-	switch(lnb.pol_type) {
-	case chdb::lnb_pol_type_t::HV:
-		return high_voltage 	? chdb::fe_polarisation_t::H : chdb::fe_polarisation_t::V;
-	case chdb::lnb_pol_type_t::VH:
-		return (!high_voltage) 	? chdb::fe_polarisation_t::H : chdb::fe_polarisation_t::V;
-	case chdb::lnb_pol_type_t::LR:
-		return high_voltage 	? chdb::fe_polarisation_t::L : chdb::fe_polarisation_t::R;
-	case chdb::lnb_pol_type_t::RL:
-		return (!high_voltage) 	? chdb::fe_polarisation_t::L : chdb::fe_polarisation_t::R;
-	case chdb::lnb_pol_type_t::H:
-		return chdb::fe_polarisation_t::H;
-	case chdb::lnb_pol_type_t::V:
-		return chdb::fe_polarisation_t::V;
-	case chdb::lnb_pol_type_t::L:
-		return chdb::fe_polarisation_t::L;
-	case chdb::lnb_pol_type_t::R:
-		return chdb::fe_polarisation_t::R;
-	default:
-		return chdb::fe_polarisation_t::H;
-	}
-}
-
-bool chdb::lnb::can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol)
-{
-	switch(lnb.pol_type) {
-	case chdb::lnb_pol_type_t::HV:
-	case chdb::lnb_pol_type_t::VH:
-		return pol == chdb::fe_polarisation_t::H || pol == chdb::fe_polarisation_t::V;
-		break;
-	case chdb::lnb_pol_type_t::H:
-		return pol == chdb::fe_polarisation_t::H;
-		break;
-	case chdb::lnb_pol_type_t::V:
-		return pol == chdb::fe_polarisation_t::V;
-		break;
-	case chdb::lnb_pol_type_t::LR:
-	case chdb::lnb_pol_type_t::RL:
-		return pol == chdb::fe_polarisation_t::L || pol == chdb::fe_polarisation_t::R;
-		break;
-	case chdb::lnb_pol_type_t::L:
-		return pol == chdb::fe_polarisation_t::L;
-		break;
-	case chdb::lnb_pol_type_t::R:
-		return pol == chdb::fe_polarisation_t::R;
-		break;
-	default:
-		return false;
-	}
-}
-
-void chdb::lnb::update_lnb(db_txn& wtxn, chdb::lnb_t&  lnb)
-{
-	bool found=false;
-	auto c = fe_t::find_by_card_mac_address(wtxn, lnb.k.card_mac_address);
-	if(c.is_valid()) {
-		const auto& fe = c.current();
-		lnb.name.clear();
-		if (lnb.card_no >=0)
-			lnb.name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
-		else
-			lnb.name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
-		lnb.can_be_used = fe.can_be_used;
-		lnb.card_no = fe.card_no;
-	}
-	switch(lnb.rotor_control) {
-	case chdb::rotor_control_t::ROTOR_MASTER_USALS:
-		//replace all diseqc12 commands with USALS commands
-		for(auto& c: lnb.tune_string) {
-			if (c=='X') {
-				c = 'P';
-			} found = true;
-		}
-		if (!found)
-			lnb.tune_string.push_back('P');
-		break;
-	case chdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
-		//replace all usals commands with diseqc12 commands
-		for(auto& c: lnb.tune_string) {
-			if (c=='P') {
-				c = 'X';
-			} found = true;
-		}
-		if (!found)
-			lnb.tune_string.push_back('X');
-		break;
-	default:
-		break;
-	}
-	put_record(wtxn, lnb);
-}
-
-void chdb::lnb::reset_lof_offset(chdb::lnb_t&  lnb)
-{
-	lnb.lof_offsets.resize(2);
-	lnb.lof_offsets[0] = 0;
-	lnb.lof_offsets[1] = 0;
-}
-
-
-
 template<typename mux_t> static void clean(db_txn& wtxn)
 {
 	using namespace chdb;
@@ -1873,40 +1140,4 @@ void chdb::clean_scan_status(db_txn& wtxn)
 	clean<chdb::dvbs_mux_t>(wtxn);
 	clean<chdb::dvbc_mux_t>(wtxn);
 	clean<chdb::dvbt_mux_t>(wtxn);
-}
-
-
-/*
-	When an adapter changes name, update fields "name" and "adapter_no" in all related lnb's
- */
-void chdb::lnb::update_lnb_adapter_fields(db_txn& wtxn, const chdb::fe_t& fe) {
-	auto c = lnb_t::find_by_key(wtxn, fe.card_mac_address,
-															find_type_t::find_geq, lnb_t::partial_keys_t::card_mac_address);
-	for(auto lnb : c.range()) {
-		ss::string<32> name;
-		name.clear();
-		if (lnb.card_no >=0)
-			name.sprintf("C%d#%d %s", lnb.card_no, lnb.k.rf_input, fe.card_short_name.c_str());
-		else
-			name.sprintf("C??#%d %s", lnb.k.rf_input, fe.card_short_name.c_str());
-		assert (lnb.k.card_mac_address == fe.card_mac_address);
-		bool changed = (lnb.name != name) ||(lnb.card_no != fe.card_no) || (lnb.can_be_used != fe.can_be_used);
-		if (!changed)
-			continue;
-		lnb.name = name;
-		lnb.card_no = fe.card_no;
-		lnb.can_be_used = fe.can_be_used;
-		put_record(wtxn, lnb);
-	}
-}
-
-
-
-int chdb::lnb::switch_id(db_txn& rtxn, const chdb::lnb_key_t& lnb_key) {
-	rf_input_key_t k{lnb_key.card_mac_address, lnb_key.rf_input};
-	auto c = chdb::rf_input_t::find_by_key(rtxn, k);
-	if(c.is_valid())
-		return c.current().switch_id;
-	else
-		return -1;
 }

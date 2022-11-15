@@ -205,10 +205,10 @@ public:
 
 	int update_service(const chdb::service_t& service);
 
-	int lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
+	int lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
 					 tune_options_t tune_options);
 
-	int tune(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+	int tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 					 tune_options_t tune_options);
 	template<typename _mux_t>
 	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux,
@@ -221,8 +221,8 @@ public:
 	void toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 
 	void update_recording(const recdb::rec_t& rec);
-	int positioner_cmd(std::shared_ptr<active_adapter_t> active_adapter, chdb::positioner_cmd_t cmd, int par);
-	int update_current_lnb(active_adapter_t& adapter,  const chdb::lnb_t& lnb);
+	int positioner_cmd(std::shared_ptr<active_adapter_t> active_adapter, devdb::positioner_cmd_t cmd, int par);
+	int update_current_lnb(active_adapter_t& adapter,  const devdb::lnb_t& lnb);
 };
 
 
@@ -390,7 +390,7 @@ private:
 	void unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
 
 
-	subscription_id_t subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn, chdb::lnb_t& lnb,
+	subscription_id_t subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn, devdb::lnb_t& lnb,
 																	tune_options_t tune_options, subscription_id_t subscription_id);
 
 
@@ -408,7 +408,7 @@ private:
 																	 std::shared_ptr<active_adapter_t>& old_active_adapter,
 																	 db_txn &txn, const chdb::dvbs_mux_t& mux,
 																	 subscription_id_t subscription_id,
-																	 tune_options_t tune_options, const chdb::lnb_t* required_lnb);
+																	 tune_options_t tune_options, const devdb::lnb_t* required_lnb);
 
 
 	/*!
@@ -424,7 +424,7 @@ private:
 	subscription_id_t subscribe_mux_(std::vector<task_queue_t::future_t>& futures,
 																	 std::shared_ptr<active_adapter_t>& old_active_adapter,
 																	 db_txn &txn, const _mux_t& mux, subscription_id_t subscription_id,
-																	 tune_options_t tune_options, const chdb::lnb_t* required_lnb /*unused*/);
+																	 tune_options_t tune_options, const devdb::lnb_t* required_lnb /*unused*/);
 
 	template<typename _mux_t>
 	std::unique_ptr<playback_mpm_t>
@@ -443,11 +443,11 @@ protected:
 	template<typename _mux_t>
 	subscription_id_t subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
 										const _mux_t& mux, subscription_id_t subscription_id,
-										tune_options_t tune_options, const chdb::lnb_t* required_lnb);
+										tune_options_t tune_options, const devdb::lnb_t* required_lnb);
 	template<class mux_t>
 	subscription_id_t subscribe_mux_in_use(std::vector<task_queue_t::future_t>& futures, const mux_t& mux,
 													 subscription_id_t subscription_id, tune_options_t tune_options,
-													 const chdb::lnb_t* required_lnb);
+													 const devdb::lnb_t* required_lnb);
 	int request_retune(std::vector<task_queue_t::future_t>& futures,
 										 active_adapter_t& active_adapter, subscription_id_t subscription_id);
 
@@ -456,7 +456,7 @@ protected:
 		const chdb::any_mux_t& mux, const chdb::service_t& service,
 		subscription_id_t subscription_id);
 #ifdef OLDTUNE
-	std::tuple<std::shared_ptr<dvb_frontend_t>,  chdb::lnb_t> find_lnb
+	std::tuple<std::shared_ptr<dvb_frontend_t>,  devdb::lnb_t> find_lnb
 	(std::vector<task_queue_t::future_t>& futures,
 	 std::shared_ptr<active_adapter_t>& old_active_adapter,
 	 db_txn &txn, const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id);
@@ -477,7 +477,7 @@ public:
 
 
 private:
-	inline std::shared_ptr<active_adapter_t> make_active_adapter(const chdb::fe_key_t& fe_key);
+	inline std::shared_ptr<active_adapter_t> make_active_adapter(const devdb::fe_key_t& fe_key);
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_service_in_use(std::vector<task_queue_t::future_t>& futures,
@@ -508,11 +508,11 @@ private:
 
 
 	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbs_mux_t>& muxes,
-																	 ss::vector_<chdb::lnb_t>* lnbs, bool scan_found_muxes, int max_num_subscriptions,
+																	 ss::vector_<devdb::lnb_t>* lnbs, bool scan_found_muxes, int max_num_subscriptions,
 																	 subscription_id_t subscription_id);
 
-	subscription_id_t subscribe_spectrum(std::vector<task_queue_t::future_t>& futures, const chdb::lnb_t& lnb,
-																			 const ss::vector_<chdb::fe_band_pol_t> bands, tune_options_t tune_options,
+	subscription_id_t subscribe_spectrum(std::vector<task_queue_t::future_t>& futures, const devdb::lnb_t& lnb,
+																			 const ss::vector_<devdb::fe_band_pol_t> bands, tune_options_t tune_options,
 																			 subscription_id_t subscription_id);
 
 	virtual int run() final;
@@ -532,9 +532,9 @@ class receiver_thread_t::cb_t : public receiver_thread_t { //callbacks
 public:
 
 	template<typename _mux_t>
-	subscription_id_t subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const chdb::lnb_t* required_lnb);
+	subscription_id_t subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const devdb::lnb_t* required_lnb);
 
-	subscription_id_t subscribe_lnb(chdb::lnb_t& lnb, tune_options_t tune_options, subscription_id_t subscription_id);
+	subscription_id_t subscribe_lnb(devdb::lnb_t& lnb, tune_options_t tune_options, subscription_id_t subscription_id);
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_service(const chdb::service_t& service,
@@ -543,7 +543,7 @@ public:
 	std::unique_ptr<playback_mpm_t>
 	subscribe_recording(const recdb::rec_t& rec, subscription_id_t subscription_id);
 
-	subscription_id_t subscribe_scan(ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
+	subscription_id_t subscribe_scan(ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
 																	 bool scan_found_muxes=true, int max_num_subscriptions=-1,
 																	 subscription_id_t subscription_id=  subscription_id_t{-1});
 
@@ -595,6 +595,7 @@ public:
 
 
 	statdb::statdb_t statdb;
+	devdb::devdb_t devdb;
 	chdb::chdb_t chdb;
 	//safe to access from other threads
 	epgdb::epgdb_t epgdb;
@@ -618,24 +619,24 @@ public:
 	receiver_t(const neumo_options_t* options= nullptr);
 	~receiver_t();
 
-	chdb::lnb_t reread_lnb(const chdb::lnb_t& lnb);
+	devdb::lnb_t reread_lnb(const devdb::lnb_t& lnb);
 	template<typename _mux_t>
 	int subscribe_mux(const _mux_t& mux, bool blindscan, int subscription_id);
 
-	int subscribe_lnb_blindscan(chdb::lnb_t& lnb,  const chdb::fe_band_pol_t& band_pol,
+	int subscribe_lnb_blindscan(devdb::lnb_t& lnb,  const devdb::fe_band_pol_t& band_pol,
 																						int subscription_id);
 
-	int subscribe_lnb_spectrum(chdb::lnb_t& lnb, const chdb::fe_polarisation_t& pol,
+	int subscribe_lnb_spectrum(devdb::lnb_t& lnb, const chdb::fe_polarisation_t& pol,
 														 int32_t low_freq, int32_t high_freq,
 														 int sat_pos, int subscription_id);
 
-	int subscribe_lnb(chdb::lnb_t& lnb,  retune_mode_t retune_mode, int subscription_id);
+	int subscribe_lnb(devdb::lnb_t& lnb,  retune_mode_t retune_mode, int subscription_id);
 
-	int subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
+	int subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 														const pls_search_range_t& pls_search_range,
 														retune_mode_t retune_mode, int subscription_id);
 
-	inline int subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
+	inline int subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 																	 retune_mode_t retune_mode, int subscription_id) {
 		return subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range_t{},  retune_mode, subscription_id);
 	}

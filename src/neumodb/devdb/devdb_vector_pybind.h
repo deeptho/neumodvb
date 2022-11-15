@@ -1,6 +1,5 @@
 /*
  * Neumo dvb (C) 2019-2022 deeptho@gmail.com
- *
  * Copyright notice:
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,19 +17,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include "neumodb/chdb/chdb_extra.h"
-#include "stackstring/stackstring_pybind.h"
+
+#pragma once
 #include <pybind11/pybind11.h>
-#include <stdio.h>
-
 namespace py = pybind11;
-
-void export_chdb_vectors(py::module& m) {
-	using namespace chdb;
-	export_ss_vector(m, service_t);
-	export_ss_vector(m, dvbs_mux_t);
-	export_ss_vector(m, dvbc_mux_t);
-	export_ss_vector(m, dvbt_mux_t);
-	export_ss_vector(m, sat_t);
-	export_ss_vector(m, epg_type_t);
-}
+void export_devdb_vectors(py::module &m);

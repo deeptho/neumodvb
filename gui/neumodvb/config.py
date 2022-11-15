@@ -138,7 +138,7 @@ class get_processed_options(object):
                 else:
                     setattr(self, k, v)
 
-        import pychdb # for usals_location
+        import pydevdb # for usals_location
         for sec in  ['DISH', 'RECORD', 'TIMESHIFT']:
             for k,v in c[sec].items():
                 try:

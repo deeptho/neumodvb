@@ -138,7 +138,7 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 	return 0;
 }
 
-int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
+int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
 																	 tune_options_t tune_options) {
 	// check_thread();
 	dtdebugx("lnb activate");
@@ -148,7 +148,7 @@ int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_
 	return ret;
 }
 
-int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const chdb::lnb_t& lnb,
+int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
 															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options) {
 	// check_thread();
 	dtdebugx("tune mux action");
@@ -433,7 +433,7 @@ void tuner_thread_t::cb_t::update_recording(const recdb::rec_t& rec) {
 	recmgr.update_recording(rec);
 }
 
-chdb::lnb_t active_fe_thread_safe_t::lnb() const {
+devdb::lnb_t active_fe_thread_safe_t::lnb() const {
 	assert(active_adapter);
 	return active_adapter->get_lnb();
 }
@@ -493,12 +493,12 @@ int tuner_thread_t::cb_t::request_retune(active_adapter_t& active_adapter) {
 	return this->tuner_thread_t::request_retune(active_adapter);
 }
 
-int tuner_thread_t::cb_t::positioner_cmd(std::shared_ptr<active_adapter_t> active_adapter, chdb::positioner_cmd_t cmd,
+int tuner_thread_t::cb_t::positioner_cmd(std::shared_ptr<active_adapter_t> active_adapter, devdb::positioner_cmd_t cmd,
 																				 int par) {
 	return active_adapter->fe ? active_adapter->fe->positioner_cmd(cmd, par) : -1;
 }
 
-int tuner_thread_t::cb_t::update_current_lnb(active_adapter_t& active_adapter, const lnb_t& lnb) {
+int tuner_thread_t::cb_t::update_current_lnb(active_adapter_t& active_adapter, const devdb::lnb_t& lnb) {
 	active_adapter.update_current_lnb(lnb);
 	return 0;
 }

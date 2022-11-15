@@ -47,7 +47,7 @@ add_custom_command(
 add_custom_target(rec_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(recdb SHARED ${gensrc} recdb_extra.cc recdb_upgrade.cc rec_browse_history.cc)
-add_dependencies(recdb rec_generated_files ch_generated_files epg_generated_files stat_generated_files date::date)
+add_dependencies(recdb rec_generated_files dev_generated_files ch_generated_files epg_generated_files stat_generated_files date::date)
 
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(recdb PUBLIC -fPIC -fsized-deallocation)

@@ -70,14 +70,14 @@ int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 	return (int) subscription_id;
 }
 
-int subscriber_t::subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode) {
+int subscriber_t::subscribe_lnb(devdb::lnb_t& lnb, retune_mode_t retune_mode) {
 	subscription_id =
 		receiver->subscribe_lnb(lnb, retune_mode, (int) subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id < 0 ? -1 : ++tune_attempt;
 }
 
-int subscriber_t::subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
+int subscriber_t::subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 																						const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
 	subscription_id = receiver->subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range, retune_mode,
 																										(int) subscription_id);
@@ -97,7 +97,7 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::r
 	return mpm;
 }
 
-void subscriber_t::update_current_lnb(const chdb::lnb_t& lnb) {
+void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	auto& tuner_thread = receiver->tuner_thread;
 	if (!active_adapter)
 		return; // can happen when called from gui
@@ -123,7 +123,7 @@ int subscriber_t::unsubscribe() {
 	return (int) subscription_id;
 }
 
-int subscriber_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
+int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 	if (!active_adapter)
 		return -1;
 	auto& tuner_thread = receiver->tuner_thread;
@@ -137,7 +137,7 @@ int subscriber_t::positioner_cmd(chdb::positioner_cmd_t cmd, int par) {
 	return ret;
 }
 
-int subscriber_t::subscribe_spectrum(chdb::lnb_t& lnb, chdb::fe_polarisation_t pol, int32_t low_freq,
+int subscriber_t::subscribe_spectrum(devdb::lnb_t& lnb, chdb::fe_polarisation_t pol, int32_t low_freq,
 																				 int32_t high_freq, int sat_pos) {
 	active_adapter.reset();
 

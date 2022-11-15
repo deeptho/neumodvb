@@ -228,12 +228,12 @@ class scanner_t {
 	bool must_end = false;
 	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
 
-	ss::vector<chdb::lnb_t, 16> allowed_lnbs;
+	ss::vector<devdb::lnb_t, 16> allowed_lnbs;
 	std::set<subscription_id_t> subscriptions;
 	std::map<subscription_id_t, chdb::any_mux_t> subscribed_muxes;
 	void add_completed_mux(const chdb::any_mux_t& mux, int num_pending);
 
-	void set_allowed_lnbs(const ss::vector_<chdb::lnb_t>& lnbs);
+	void set_allowed_lnbs(const ss::vector_<devdb::lnb_t>& lnbs);
 	void set_allowed_lnbs();
 
 	template<typename mux_t>
@@ -253,7 +253,7 @@ class scanner_t {
 
 public:
 	scanner_t(receiver_thread_t& receiver_thread_,
-						//ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<chdb::lnb_t>* lnbs,
+						//ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
 						bool scan_found_muxes, int max_num_subscriptions,
 						subscription_id_t subscription_id);
 

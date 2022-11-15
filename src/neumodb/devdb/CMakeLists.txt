@@ -9,7 +9,7 @@ include_directories(
     # The location of the headers after installation
     $<INSTALL_INTERFACE:include>
 )
-set(GEN stats enums statdb_db) #basename of generated files
+set(GEN options fedev enums devdb_db) #basename of generated files
 
 list(TRANSFORM GEN APPEND .cc OUTPUT_VARIABLE gensrc)
 
@@ -24,13 +24,12 @@ list(TRANSFORM TEMPLATE APPEND .h OUTPUT_VARIABLE genhtemplate)
 list(TRANSFORM TEMPLATE APPEND .cc OUTPUT_VARIABLE gencctemplate)
 list(TRANSFORM TEMPLATE APPEND _pybind.cc OUTPUT_VARIABLE genpybindtemplate)
 
-list(APPEND gensrc statdb_keys.cc)
-list(APPEND genhdr statdb_keys.h)
+list(APPEND gensrc devdb_keys.cc)
+list(APPEND genhdr devdb_keys.h)
 list(APPEND genhtemplate ${PROJECT_SOURCE_DIR}/neumodb/templates/db_keys.h)
 list(APPEND gencctemplate ${PROJECT_SOURCE_DIR}/neumodb/templates/db_keys.cc)
 
 set(gendeps ${genhtemplate} ${gencctemplate} ${genpybindtemplate} ${CMAKE_CURRENT_SOURCE_DIR}/dbdefs.py )
-set(extgendeps ch_generated_files epg_generated_files rec_generated_files date::date)
 
 set(codegen ${PROJECT_SOURCE_DIR}/neumodb/neumodb.py ${PROJECT_SOURCE_DIR}/neumodb/generators.py  )
 list(TRANSFORM TEMPLATE PREPEND ${PROJECT_SOURCE_DIR}/neumodb/templates/)
@@ -41,28 +40,30 @@ get_filename_component(DB ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 add_custom_command(
     OUTPUT ${genhdr} ${gensrc} ${pybind_srcs}
     COMMAND ${PYTHON_EXECUTABLE}  ${PROJECT_SOURCE_DIR}/neumodb/neumodb.py --db=${DB}
-    DEPENDS ${gendeps} ${extgendeps} ${codegen}
-    COMMENT "Generating code for neumodb statdb."
+    DEPENDS ${gendeps} ${codegen}
+    COMMENT "Generating code for neumodb devdb."
 )
 
-add_custom_target(stat_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
+add_custom_target(dev_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
-add_library(statdb SHARED ${gensrc} statdb_extra.cc statdb_upgrade.cc)
-add_dependencies(statdb stat_generated_files dev_generated_files ch_generated_files epg_generated_files rec_generated_files date::date)
+add_library(devdb SHARED ${gensrc} devdb_extra.cc fe_find.cc devdb_upgrade.cc)
+add_dependencies(devdb dev_generated_files ch_generated_files stat_generated_files epg_generated_files rec_generated_files)
 
+#-fbracket-depth=1024 to work around bug in lang version 12.0.1  https://bugs.llvm.org/show_bug.cgi?id=50178
 # -fsized-deallocation needed to prevent operator delete error
-target_compile_options(statdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
+target_compile_options(devdb PUBLIC -fPIC  -fsized-deallocation PRIVATE -fvisibility=hidden -fbracket-depth=1024)
 
-pybind11_add_module(pystatdb statdb_pybind.cc statdb_vector_pybind.cc ${pybind_srcs})
+pybind11_add_module(pydevdb devdb_pybind.cc devdb_vector_pybind.cc ${pybind_srcs})
 
-target_compile_options(pystatdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
-target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb neumodb schema date::date-tz)
-target_link_libraries(pystatdb PRIVATE statdb pyneumodb)
+target_compile_options(pydevdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
+target_link_libraries(devdb PUBLIC stackstring neumolmdb neumoutil neumodb schema)
+
+target_link_libraries(pydevdb PRIVATE devdb chdb pyneumodb pyschemadb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
-target_precompile_headers(statdb PRIVATE [[<stdint.h>]] statdb_extra.h ${precomp})
-target_precompile_headers(pystatdb PRIVATE [[<stdint.h>]] statdb_extra.h ${precomp})
+target_precompile_headers(devdb PRIVATE [[<stdint.h>]] devdb_extra.h  ${precomp})
+target_precompile_headers(pydevdb PRIVATE [[<stdint.h>]] devdb_extra.h ${precomp})
 
 
-install (TARGETS pystatdb DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
-install (TARGETS statdb  DESTINATION lib64)
+install (TARGETS pydevdb  DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS devdb  DESTINATION lib64)

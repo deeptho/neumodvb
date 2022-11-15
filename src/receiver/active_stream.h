@@ -39,9 +39,14 @@ namespace chdb {
 	struct dvbc_mux_t;
 	struct dvbt_mux_t;
 	struct mux_key_t;
-	struct lnb_key_t;
 	typedef std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t> any_mux_t;
 }
+
+namespace devdb {
+	struct lnb_key_t;
+}
+
+
 struct db_txn;
 struct tune_confirmation_t;
 class stream_filter_t;
@@ -361,7 +366,7 @@ public:
 
 	int get_adapter_no() const; //thread safe because it only accesses constant members
 	int64_t get_adapter_mac_address() const; //thread safe because it only accesses constant members
-	chdb::lnb_key_t get_adapter_lnb_key() const; //thread safe because it only accesses constant members
+	devdb::lnb_key_t get_adapter_lnb_key() const; //thread safe because it only accesses constant members
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_stream_t(receiver_t& receiver, const std::shared_ptr<stream_reader_t>& reader)

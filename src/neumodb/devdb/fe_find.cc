@@ -28,7 +28,7 @@
 
 #include "../util/neumovariant.h"
 
-using namespace chdb;
+using namespace devdb;
 
 
 void fe::subscribe(db_txn& wtxn, fe_t& fe, fe_subscription_t sub) {
@@ -40,15 +40,15 @@ void fe::subscribe(db_txn& wtxn, fe_t& fe, fe_subscription_t sub) {
 	put_record(wtxn, fe);
 }
 
-std::optional<chdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
-																											const chdb::fe_key_t* fe_to_release,
+std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
+																											const devdb::fe_key_t* fe_to_release,
 																											bool need_blindscan,
 																											bool need_spectrum,
 																											bool need_multistream,
 																											chdb::delsys_type_t delsys_type) {
 	bool need_dvbt = delsys_type == chdb::delsys_type_t::DVB_T;
 	bool need_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
-	auto c = chdb::find_first<chdb::fe_t>(rtxn);
+	auto c = devdb::find_first<devdb::fe_t>(rtxn);
 
 	fe_t best_fe{}; //the fe that we will use
 	best_fe.priority = std::numeric_limits<decltype(best_fe.priority)>::lowest();
@@ -66,9 +66,9 @@ std::optional<chdb::fe_t> fe::find_best_fe_for_dvtdbc(db_txn& rtxn,
 	};
 
 	for(const auto& fe: c.range()) {
-		if (need_dvbc && (!fe.enable_dvbc || !chdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_C)))
+		if (need_dvbc && (!fe.enable_dvbc || !fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_C)))
 			continue;
-		if (need_dvbt && (!fe.enable_dvbt || !chdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_T)))
+		if (need_dvbt && (!fe.enable_dvbt || !fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_T)))
 			continue;
 
 		if((!fe::is_subscribed(fe) && ! adapter_in_use(fe.adapter_no)) ||
@@ -200,18 +200,18 @@ int fe::tuner_subscription_count(db_txn& rtxn, card_mac_address_t card_mac_addre
  */
 
 
-std::optional<chdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const chdb::lnb_t& lnb,
-																									 const chdb::fe_key_t* fe_key_to_release,
+std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const devdb::lnb_t& lnb,
+																									 const devdb::fe_key_t* fe_key_to_release,
 																									 bool need_blindscan, bool need_spectrum,
 																									 bool need_multistream,
-																									 fe_polarisation_t pol, fe_band_t band, int usals_pos) {
+																									 chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos) {
 
 	//TODO: clean subscriptions at startup
-	auto switch_id= chdb::lnb::switch_id(rtxn, lnb.k);
-	auto lnb_on_positioner = chdb::lnb::on_positioner(lnb);
+	auto switch_id= devdb::lnb::switch_id(rtxn, lnb.k);
+	auto lnb_on_positioner = devdb::lnb::on_positioner(lnb);
 
 	bool need_exclusivity = pol == chdb::fe_polarisation_t::NONE ||
-		band == chdb::fe_band_t::NONE || usals_pos != sat_pos_none;
+		band == devdb::fe_band_t::NONE || usals_pos != sat_pos_none;
 
 	fe_t best_fe{}; //the fe that we will use
 	best_fe.priority = std::numeric_limits<decltype(best_fe.priority)>::lowest();
@@ -243,12 +243,12 @@ std::optional<chdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const chdb::lnb
 		Note that priority swicthes do not need to be treated specifically as neumoDVB
 		never neither of the connectors to send diseqc, except initially when both connectors are idle.
 	 */
-	auto shared_rf_input_conflict = [&rtxn, pol, band, usals_pos] (const chdb::fe_t& fe, int switch_id) {
+	auto shared_rf_input_conflict = [&rtxn, pol, band, usals_pos] (const devdb::fe_t& fe, int switch_id) {
 		if(switch_id <0)
 			return false; //not on switch; no conflict possible
-		if(chdb::lnb::switch_id(rtxn, fe.sub.lnb_key) != switch_id)
+		if(devdb::lnb::switch_id(rtxn, fe.sub.lnb_key) != switch_id)
 			return false;  //no conflict possible
-		if(!fe.enable_dvbs || !chdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
+		if(!fe.enable_dvbs || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
 			return false; //no conflict possible (not sat)
 		if(fe.sub.pol != pol || fe.sub.band != band || fe.sub.usals_pos != usals_pos)
 			return true;
@@ -262,7 +262,7 @@ std::optional<chdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const chdb::lnb
 		Furthermore,m if we need exclusivity, we cannot use the dish at all if a subscription exists
 
 	 */
-	auto shared_positioner_conflict = [usals_pos, need_exclusivity] (const chdb::fe_t& fe, int dish_id) {
+	auto shared_positioner_conflict = [usals_pos, need_exclusivity] (const devdb::fe_t& fe, int dish_id) {
 		if (dish_id <0)
 			return false; //lnb is on a dish of its own (otherwise user needs to set dish_id)
 		if (fe.sub.lnb_key.dish_id <0 || fe.sub.lnb_key.dish_id != dish_id )
@@ -284,7 +284,7 @@ std::optional<chdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const chdb::lnb
 										fe we found is not in use and cannot create conflicts with any other frontends*/
 
 			//find the best fe will all required functionality, without taking into account other subscriptions
-			if(!fe.present || !chdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
+			if(!fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
 				continue; /* The fe does not currently exist, or it cannot use DVBS. So it
 									 can also not create conflicts with other fes*/
 
@@ -387,21 +387,21 @@ std::optional<chdb::fe_t> fe::find_best_fe_for_lnb(db_txn& rtxn, const chdb::lnb
 
 
 
-std::tuple<std::optional<chdb::fe_t>,
-					 std::optional<chdb::lnb_t>,
+std::tuple<std::optional<devdb::fe_t>,
+					 std::optional<devdb::lnb_t>,
 					 int /*fe's priority*/, int /*lnb's priority*/ >
 fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
-																			const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
-																			const chdb::fe_key_t* fe_key_to_release,
+																			const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
+																			const devdb::fe_key_t* fe_key_to_release,
 																			bool may_move_dish, bool use_blind_tune,
 																			int dish_move_penalty, int resource_reuse_bonus) {
 	using namespace chdb;
-	auto c = find_first<chdb::lnb_t>(rtxn);
+	auto c = find_first<devdb::lnb_t>(rtxn);
 	int best_lnb_prio = std::numeric_limits<int>::min();
 	int best_fe_prio = std::numeric_limits<int>::min();
 	// best lnb sofar, and the corresponding connected frontend
-	std::optional<chdb::lnb_t> best_lnb;
-	std::optional<chdb::fe_t> best_fe;
+	std::optional<devdb::lnb_t> best_lnb;
+	std::optional<devdb::fe_t> best_fe;
 
 
 	/*
@@ -420,14 +420,14 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			required_lnb may not have been saved in the database and may contain additional networks or
 			edited settings when called from positioner_dialog
 		*/
-		auto [has_network, network_priority, usals_move_amount, usals_pos] = chdb::lnb::has_network(*plnb, mux.k.sat_pos);
+		auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(*plnb, mux.k.sat_pos);
 		/*priority==-1 indicates:
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
 		*/
 		auto dish_needs_to_be_moved_ = usals_move_amount != 0;
-		bool lnb_can_control_rotor = chdb::lnb::can_move_dish(lnb);
-		bool lnb_is_on_rotor = chdb::lnb::on_positioner(lnb);
+		bool lnb_can_control_rotor = devdb::lnb::can_move_dish(lnb);
+		bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
 
 		if (lnb_is_on_rotor && (!may_move_dish || (! lnb_can_control_rotor && (usals_move_amount >= 30))))
 			continue; //skip because dish movement is not allowed or  not possible
@@ -441,14 +441,14 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 
     /* check if lnb  support required frequency, polarisation...*/
 		const bool disregard_networks{false};
-		if (!chdb::lnb_can_tune_to_mux(lnb, mux, disregard_networks))
+		if (!devdb::lnb_can_tune_to_mux(lnb, mux, disregard_networks))
 			continue;
 
 
 		const auto need_blindscan = use_blind_tune;
 		const bool need_spectrum = false;
 		auto pol{mux.pol}; //signifies that non-exlusive control is fine
-		auto band{chdb::lnb::band_for_mux(lnb, mux)}; //signifies that non-exlusive control is fine
+		auto band{devdb::lnb::band_for_mux(lnb, mux)}; //signifies that non-exlusive control is fine
 
 		bool need_multistream = (mux.stream_id >= 0);
 		auto fe = fe::find_best_fe_for_lnb(rtxn, lnb, fe_key_to_release,
@@ -463,7 +463,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		if(lnb_subscription_count(rtxn, lnb.k)>=1 ||
 			 tuner_subscription_count(rtxn, card_mac_address_t(fe->card_mac_address), lnb.k.rf_input) >= 1 ||
 			 dish_subscription_count(rtxn, lnb.k.dish_id) >=1 ||
-			 switch_subscription_count(rtxn, chdb::lnb::switch_id(rtxn, lnb.k)) >=1)
+			 switch_subscription_count(rtxn, devdb::lnb::switch_id(rtxn, lnb.k)) >=1)
 			fe_prio += resource_reuse_bonus;
 
 
@@ -487,10 +487,10 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 	return std::make_tuple(best_fe, best_lnb, best_fe_prio, best_lnb_prio);
 }
 
-int chdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, const chdb::fe_key_t& fe_key, const chdb::lnb_t& lnb,
-																						chdb::fe_band_t band,  chdb::fe_polarisation_t pol)
+int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, const devdb::fe_key_t& fe_key, const devdb::lnb_t& lnb,
+																						devdb::fe_band_t band,  chdb::fe_polarisation_t pol)
 {
-	auto c = chdb::fe_t::find_by_key(wtxn, fe_key);
+	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	if( !c.is_valid())
 		return -1;
 	auto fe = c.current();
@@ -507,9 +507,9 @@ int chdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, const chdb::fe_key_t& fe
 	return 0;
 }
 
-int chdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, const chdb::fe_key_t& fe_key, const chdb::lnb_t& lnb)
+int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, const devdb::fe_key_t& fe_key, const devdb::lnb_t& lnb)
 {
-	auto c = chdb::fe_t::find_by_key(wtxn, fe_key);
+	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	if( !c.is_valid())
 		return -1;
 	auto fe = c.current();
@@ -520,7 +520,7 @@ int chdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, const chdb::fe_key_t& fe_ke
 	sub.rf_in = lnb.k.rf_input;
 	sub.lnb_key = lnb.k;
 	sub.pol = chdb::fe_polarisation_t::NONE;
-	sub.band = chdb::fe_band_t::NONE;
+	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = sat_pos_none;
 	put_record(wtxn, fe);
 	return 0;
@@ -528,9 +528,9 @@ int chdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, const chdb::fe_key_t& fe_ke
 
 
 
-int chdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, const chdb::fe_key_t& fe_key, bool is_dvbc)
+int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, const devdb::fe_key_t& fe_key, bool is_dvbc)
 {
-	auto c = chdb::fe_t::find_by_key(wtxn, fe_key);
+	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	if( !c.is_valid())
 		return -1;
 	auto fe = c.current();
@@ -539,9 +539,9 @@ int chdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, const chdb::fe_key_t& fe
 
 	//the following settings imply that we request a non-exclusive subscription
 	sub.rf_in = 0;
-	sub.lnb_key = chdb::lnb_key_t{};
+	sub.lnb_key = devdb::lnb_key_t{};
 	sub.pol = chdb::fe_polarisation_t::NONE;
-	sub.band = chdb::fe_band_t::NONE;
+	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = is_dvbc ? sat_pos_dvbc : sat_pos_dvbt;
 	put_record(wtxn, fe);
 	return 0;
@@ -549,10 +549,10 @@ int chdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, const chdb::fe_key_t& fe
 
 
 
-std::optional<chdb::fe_t>
-chdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const chdb::lnb_t& lnb, const chdb::fe_key_t* fe_key_to_release,
+std::optional<devdb::fe_t>
+devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const devdb::fe_key_t* fe_key_to_release,
 												bool need_blind_tune, bool need_spectrum) {
-	auto pol{fe_polarisation_t::NONE}; //signifies that we to exclusively control pol
+	auto pol{chdb::fe_polarisation_t::NONE}; //signifies that we to exclusively control pol
 	auto band{fe_band_t::NONE}; //signifies that we to exclusively control band
 	auto usals_pos{sat_pos_none}; //signifies that we want to be able to move rotor
 	bool need_multistream = false;
@@ -562,14 +562,14 @@ chdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const chdb::lnb_t& lnb, const c
 	if(!best_fe)
 		return {}; //no frontend could be found
 
-	auto ret = chdb::fe::reserve_fe_lnb_exclusive(wtxn, best_fe->k, lnb);
+	auto ret = devdb::fe::reserve_fe_lnb_exclusive(wtxn, best_fe->k, lnb);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
 	return best_fe;
 }
 
-std::tuple<std::optional<chdb::fe_t>, std::optional<chdb::lnb_t>>
-chdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-													 const chdb::lnb_t* required_lnb, const chdb::fe_key_t* fe_key_to_release,
+std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::lnb_t>>
+devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
+													 const devdb::lnb_t* required_lnb, const devdb::fe_key_t* fe_key_to_release,
 													 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus) {
 	const bool may_move_dish{true};
 	auto[best_fe, best_lnb, best_fe_prio, best_lnb_prio ] =
@@ -580,39 +580,39 @@ chdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 	if(!best_fe)
 		return {}; //no frontend could be found
 
-	auto ret = chdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, best_fe->k, *best_lnb, chdb::lnb::band_for_mux(*best_lnb, mux),
+	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, best_fe->k, *best_lnb, devdb::lnb::band_for_mux(*best_lnb, mux),
 																									 mux.pol);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, best_lnb};
 }
 
 template<typename mux_t>
-std::optional<chdb::fe_t>
-chdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const chdb::fe_key_t* fe_key_to_release,
+std::optional<devdb::fe_t>
+devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devdb::fe_key_t* fe_key_to_release,
 									 bool use_blind_tune) {
 
 	const bool need_spectrum{false};
 	const bool need_multistream = (mux.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
-	bool is_dvbc = delsys_type == delsys_type_t::DVB_C;
-	auto best_fe = chdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
+	bool is_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
+	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
 																							 need_spectrum, need_multistream,  delsys_type);
 
 	if(!best_fe)
 		return {}; //no frontend could be found
 
-	auto ret = chdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, best_fe->k, is_dvbc);
+	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, best_fe->k, is_dvbc);
 	assert(ret>0); //reservation cannot fail as we have a write lock on the db
 	return best_fe;
 }
 
 //instantiation
-template std::optional<chdb::fe_t>
-chdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, const chdb::dvbc_mux_t& mux,
-																						 const chdb::fe_key_t* fe_key_to_release,
+template std::optional<devdb::fe_t>
+devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, const chdb::dvbc_mux_t& mux,
+																						 const devdb::fe_key_t* fe_key_to_release,
 																						 bool use_blind_tune);
 
-template std::optional<chdb::fe_t>
-chdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, const chdb::dvbt_mux_t& mux,
-																						 const chdb::fe_key_t* fe_key_to_release,
+template std::optional<devdb::fe_t>
+devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, const chdb::dvbt_mux_t& mux,
+																						 const devdb::fe_key_t* fe_key_to_release,
 																						 bool use_blind_tune);

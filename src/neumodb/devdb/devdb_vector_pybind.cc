@@ -25,12 +25,10 @@
 
 namespace py = pybind11;
 
-void export_chdb_vectors(py::module& m) {
-	using namespace chdb;
-	export_ss_vector(m, service_t);
-	export_ss_vector(m, dvbs_mux_t);
-	export_ss_vector(m, dvbc_mux_t);
-	export_ss_vector(m, dvbt_mux_t);
-	export_ss_vector(m, sat_t);
-	export_ss_vector(m, epg_type_t);
+void export_devdb_vectors(py::module& m) {
+	using namespace devdb;
+	export_ss_vector(m, lnb_t);
+	export_ss_vector(m, lnb_network_t);
+	export_ss_vector(m, chdb::fe_delsys_t);
+	export_ss_vector(m, fe_t);
 }

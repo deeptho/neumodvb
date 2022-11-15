@@ -153,7 +153,7 @@ private:
 	};
 
 #if 1
-	inline const chdb::lnb_t& current_lnb() const {
+	inline const devdb::lnb_t& current_lnb() const {
 		return fe->ts.readAccess()->reserved_lnb;
 	}
 #endif
@@ -161,7 +161,7 @@ private:
 		fe->update_tuned_mux_nit(mux);
 	};
 
-	void update_current_lnb(const chdb::lnb_t& lnb);
+	void update_current_lnb(const devdb::lnb_t& lnb);
 
 	//connected to the correct sat; TODO: replace with something based on lnb
 	//tuner_stats_t fe_stats; //python interface: snr and such
@@ -177,15 +177,15 @@ public: //this data is safe to access from other threads
 		//@todo make thread safe
 	};
 
-	inline chdb::lnb_key_t get_lnb_key() const {
+	inline devdb::lnb_key_t get_lnb_key() const {
 		return fe->ts.readAccess()->reserved_lnb.k;
 	}
 
-	bool uses_lnb(const chdb::lnb_t&lnb) const {
+	bool uses_lnb(const devdb::lnb_t&lnb) const {
 		return fe->ts.readAccess()->reserved_lnb.k == lnb.k;
 		//@todo make thread safe
 	}
-	chdb::lnb_t
+	devdb::lnb_t
 	get_lnb() const { //lnb currently in use
 		return fe->ts.readAccess()->reserved_lnb;
 		//@todo make thread safe
@@ -225,7 +225,7 @@ public:
 	virtual ~active_adapter_t() final;
 
 	template<typename mux_t>
-	bool is_tuned_to(const mux_t& mux, const chdb::lnb_t* required_lnb) {
+	bool is_tuned_to(const mux_t& mux, const devdb::lnb_t* required_lnb) {
 		assert(fe.get());
 		return fe->is_tuned_to(mux, required_lnb);
 	}
@@ -236,19 +236,19 @@ private:
 	int restart_tune();
 
 
-	int lnb_blind_scan(const chdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_blind_scan(const devdb::lnb_t& lnb, tune_options_t tune_options);
 
-	int lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options);
 
-	int lnb_activate(const chdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_options);
 
-	int tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+	int tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 					 tune_options_t tune_options, bool user_requested); //(re)tune to new transponder
 
 	template<typename mux_t>
 	int tune(const mux_t& mux, tune_options_t tune_options, bool user_requested);
 
-	int retune(const chdb::lnb_t& lnb);
+	int retune(const devdb::lnb_t& lnb);
 	int add_service(active_service_t& channel);//tune to channel on transponder
 	std::tuple<bool, bool> check_status();
 

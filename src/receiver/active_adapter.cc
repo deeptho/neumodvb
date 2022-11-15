@@ -116,7 +116,7 @@ std::tuple<bool, bool> active_adapter_t::check_status() {
 	return {must_tune, must_reinit_si};
 }
 
-int active_adapter_t::lnb_activate(const chdb::lnb_t& lnb, tune_options_t tune_options) {
+int active_adapter_t::lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_options) {
 	this->fe->start_fe_and_lnb(lnb);
 	switch (tune_options.tune_mode) {
 	case tune_mode_t::SPECTRUM:
@@ -141,7 +141,7 @@ int active_adapter_t::lnb_activate(const chdb::lnb_t& lnb, tune_options_t tune_o
 	return 0;
 }
 
-int active_adapter_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_options_t tune_options,
+int active_adapter_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_options_t tune_options,
 													 bool user_requested) {
 	if(!fe)
 		return -1;
@@ -157,7 +157,7 @@ int active_adapter_t::tune(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 	return ret;
 }
 
-int active_adapter_t::retune(const chdb::lnb_t& lnb) {
+int active_adapter_t::retune(const devdb::lnb_t& lnb) {
 	auto mux = std::get<chdb::dvbs_mux_t>(current_tp());
 	bool user_requested = false;
 	const bool is_retune{true};
@@ -305,11 +305,11 @@ void active_adapter_t::monitor() {
 
 }
 
-int active_adapter_t::lnb_blind_scan(const chdb::lnb_t& lnb, tune_options_t tune_options) {
+int active_adapter_t::lnb_blind_scan(const devdb::lnb_t& lnb, tune_options_t tune_options) {
 	return 0;
 }
 
-int active_adapter_t::lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t tune_options) {
+int active_adapter_t::lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options) {
 	//dttime_init();
 	// needs to be at very start!
 #if 0
@@ -319,7 +319,7 @@ int active_adapter_t::lnb_spectrum_scan(const chdb::lnb_t& lnb, tune_options_t t
 
 	auto band = tune_options.spectrum_scan_options.band_pol.band;
 	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
-	auto voltage = chdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+	auto voltage = devdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
 
 	auto [ret, new_usals_sat_pos ] =
 		fe->do_lnb_and_diseqc(band, voltage);
@@ -361,7 +361,7 @@ void active_adapter_t::update_lof(const ss::vector<int32_t, 2>& lof_offsets) {
 	auto& lnb = w->reserved_lnb;
 	lnb.lof_offsets = lof_offsets;
 	auto txn = receiver.chdb.wtxn();
-	auto c = chdb::lnb_t::find_by_key(txn, lnb.k);
+	auto c = devdb::lnb_t::find_by_key(txn, lnb.k);
 	if (c.is_valid()) {
 		/*note that we do not update the full mux (e.g., when called from positioner_dialog user may want
 			to not save some changes.
@@ -389,7 +389,7 @@ int active_adapter_t::deactivate() {
 void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
 	int dish_id = this->fe->ts.readAccess()->reserved_lnb.k.dish_id;
 	auto wtxn = receiver.chdb.wtxn();
-	int ret = chdb::dish::update_usals_pos(wtxn, dish_id, usals_pos);
+	int ret = devdb::dish::update_usals_pos(wtxn, dish_id, usals_pos);
 	if( ret<0 )
 		wtxn.abort();
 	else
@@ -407,7 +407,7 @@ void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
 	Called when user edits lnb parameters.
 	Todo: What if the parameters cause a change in dish, usals_pos...?
  */
-void active_adapter_t::update_current_lnb(const chdb::lnb_t& lnb) {
+void active_adapter_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	fe->ts.writeAccess()->reserved_lnb = lnb;
 };
 

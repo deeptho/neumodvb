@@ -140,8 +140,17 @@ void active_si_stream_t::handle_mux_change(db_txn& wtxn, chdb::any_mux_t& db_mux
 	}
 
 	//fix services and other non-mux data
-	on_mux_key_change(wtxn, db_mux, mux, now);
-	namespace m = chdb::update_mux_preserve_t;
+	chdb::on_mux_key_change(wtxn, db_mux, mux, now);
+	{
+		auto wtxn = receiver.devdb.wtxn();
+		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
+		if(dvbs_mux) {
+			auto* dvbs_db_mux =  std::get_if<chdb::dvbs_mux_t>(&db_mux);
+			devdb::lnb::on_mux_key_change(wtxn, *dvbs_db_mux, *dvbs_mux, now);
+		}
+		wtxn.commit();
+	}
+		namespace m = chdb::update_mux_preserve_t;
 	update_mux(wtxn, mux, now,  m::flags{m::MUX_COMMON}, is_active_mux, from_sdt);
 }
 
@@ -1345,7 +1354,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 		return false; //curent lnb cannot tune this mux and it is safer not to fix is
 #endif
 	const bool disregard_networks{true};
-	if (dvbs_mux && !chdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), *dvbs_mux, disregard_networks)) {
+	if (dvbs_mux && !devdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), *dvbs_mux, disregard_networks)) {
 		auto tmp = *dvbs_mux;
 		if(tmp.frequency == 0) {
 			if(pat_data.has_ts_id(tmp.k.ts_id)) {
@@ -1369,7 +1378,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 		else if (tmp.pol == chdb::fe_polarisation_t::R)
 			tmp.pol = chdb::fe_polarisation_t::V;
 		bool can_be_tuned_with_pol_change =
-			chdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), tmp, disregard_networks);
+			devdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), tmp, disregard_networks);
 		if(can_be_tuned_with_pol_change) {//happens on 20E:  4.18150L which claims "H"
 			dtdebug("Found a mux which differs in circular/linear polarisationy: " << mux);
 			*dvbs_mux = tmp;

@@ -28,12 +28,6 @@
 #include "neumodb/chdb/chdb_db.h"
 #pragma GCC visibility push(default)
 
-
-unconvertable_int(int64_t, adapter_mac_address_t);
-unconvertable_int(int64_t, card_mac_address_t);
-unconvertable_int(int, adapter_no_t);
-unconvertable_int(int, frontend_no_t);
-
 namespace chdb {
 
 	using namespace chdb;
@@ -150,9 +144,6 @@ namespace chdb {
 
 	template<typename mux_t>
 	uint16_t make_unique_id(db_txn& txn, mux_key_t key);
-
-	int16_t make_unique_id(db_txn& txn, chdb::lnb_key_t key);
-
 	int32_t make_unique_id(db_txn& txn, chdb::chg_key_t key);
 	int32_t make_unique_id(db_txn& txn, chdb::chgm_key_t key);
 
@@ -182,12 +173,6 @@ namespace chdb {
 			chgm.k.channel_id = chdb::make_unique_id(txn, chgm.k);
 	}
 
-	template<>
-	inline void make_unique_if_template<lnb_t>(db_txn& txn, lnb_t& lnb ) {
-		if(lnb.k.lnb_id<0)
-			lnb.k.lnb_id = chdb::make_unique_id(txn, lnb.k);
-	}
-
 	chdb::media_mode_t media_mode_for_service_type(uint8_t service_type);
 };
 
@@ -203,14 +188,8 @@ namespace chdb {
 	void to_str(ss::string_& ret, const any_mux_t& mux);
 	void to_str(ss::string_& ret, const mux_key_t& k);
 	void to_str(ss::string_& ret, const service_t& service);
-	void to_str(ss::string_& ret, const lnb_t& lnb);
-	void to_str(ss::string_& ret, const lnb_key_t& lnb_key);
-	void to_str(ss::string_& ret, const lnb_network_t& lnb_network);
-	void to_str(ss::string_& ret, const fe_band_pol_t& band_pol);
 	void to_str(ss::string_& ret, const chg_t& chg);
 	void to_str(ss::string_& ret, const chgm_t& channel);
-	void to_str(ss::string_& ret, const fe_t& fe);
-	void to_str(ss::string_& ret, const fe_key_t& fe_key);
 
 
 	inline void to_str(ss::string_& ret, const mux_common_t& t) {
@@ -223,9 +202,6 @@ namespace chdb {
 		ret.sprintf("%p", &t);
 	}
 	inline void to_str(ss::string_& ret, const fe_delsys_dvbs_t& t) {
-		ret.sprintf("%p", &t);
-	}
-	inline void to_str(ss::string_& ret, const fe_supports_t& t) {
 		ret.sprintf("%p", &t);
 	}
 	inline void to_str(ss::string_& ret, const chg_key_t& t) {
@@ -273,15 +249,9 @@ namespace chdb {
 	std::ostream& operator<<(std::ostream& os, const mux_key_t& k);
 	std::ostream& operator<<(std::ostream& os, const service_t& service);
 	std::ostream& operator<<(std::ostream& os, const service_key_t& k);
-	std::ostream& operator<<(std::ostream& os, const lnb_key_t& lnb_key);
-	std::ostream& operator<<(std::ostream& os, const lnb_t& lnb);
-	std::ostream& operator<<(std::ostream& os, const lnb_network_t& lnb_network);
-	std::ostream& operator<<(std::ostream& os, const fe_band_pol_t& band_pol);
 	std::ostream& operator<<(std::ostream& os, const fe_polarisation_t& pol);
 	std::ostream& operator<<(std::ostream& os, const chg_t& chg);
 	std::ostream& operator<<(std::ostream& os, const chgm_t& channel);
-	std::ostream& operator<<(std::ostream& os, const fe_key_t& fe_key);
-	std::ostream& operator<<(std::ostream& os, const fe_t& fe);
 
 	inline bool is_same(const chgm_t &a, const chgm_t &b) {
 		if (!(a.k == b.k))
@@ -401,12 +371,6 @@ namespace chdb {
 	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux);
 
 	void clean_scan_status(db_txn& wtxn);
-};
-
-namespace chdb::dish {
-	//dish objects do not really exist in the database, but curent state (usals_pos) is stored in all relevant lnbs
-	int update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos);
-	bool dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos);
 };
 
 namespace chdb::dvbs_mux {
@@ -547,16 +511,13 @@ namespace chdb {
 
 	};
 
-	delsys_type_t delsys_to_type (chdb::fe_delsys_t delsys);
+	delsys_type_t delsys_to_type(chdb::fe_delsys_t delsys);
 	template<typename mux_t> inline constexpr delsys_type_t delsys_type_for_mux_type();
 
 	template<> inline constexpr delsys_type_t delsys_type_for_mux_type<dvbs_mux_t>() { return  delsys_type_t::DVB_S;}
 	template<> inline constexpr delsys_type_t delsys_type_for_mux_type<dvbc_mux_t>() { return  delsys_type_t::DVB_C;}
 	template<> inline constexpr delsys_type_t delsys_type_for_mux_type<dvbt_mux_t>() { return  delsys_type_t::DVB_T;}
 
-
-
-	bool lnb_can_tune_to_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_ *error=nullptr);
 
 	bool bouquet_contains_service(db_txn& rtxn, const chdb::chg_t& chg, const chdb::service_key_t& service_key);
 
@@ -569,169 +530,5 @@ namespace  chdb::service {
 	void update_audio_pref(db_txn&txn, const chdb::service_t& service);
 	void update_subtitle_pref(db_txn&txn, const chdb::service_t& service);
 }
-
-
-namespace  chdb::lnb {
-
-	std::tuple<bool, int, int, int>  has_network(const lnb_t& lnb, int16_t sat_pos);
-
-	inline bool dish_needs_to_be_moved(const lnb_t& lnb, int16_t sat_pos) {
-		auto [has_network_, priority, usals_move_amount, usals_pos] = has_network(lnb, sat_pos);
-		return !has_network_ || usals_move_amount != 0 ;
-	}
-
-	const chdb::lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);
-	chdb::lnb_network_t* get_network(lnb_t& lnb, int16_t sat_pos);
-
-#if 0
-	chdb::lnb_t new_lnb(int tuner_id, int16_t sat_pos, int dish_id=0,
-											chdb::lnb_type_t type = chdb::lnb_type_t::UNIV);
-#endif
-	chdb::dvbs_mux_t
-	select_reference_mux(db_txn& rtxn, const chdb::lnb_t& lnb, const chdb::dvbs_mux_t* proposed_mux);
-
-	chdb::lnb_t
-	select_lnb(db_txn& rtxn, const chdb::sat_t* sat, const chdb::dvbs_mux_t* proposed_mux);
-
-	/*
-		band = 0 or 1 for low or high (22Khz off/on)
-		voltage = 0 (V,R, 13V) or 1 (H, L, 18V) or 2 (off)
-		freq: frequency after LNB local oscilllator compensation
-	*/
-	std::tuple<int, int, int> band_voltage_freq_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
-	chdb::fe_band_t band_for_freq(const chdb::lnb_t& lnb, uint32_t frequency);
-
-	inline chdb::fe_band_t band_for_mux(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
-		return band_for_freq(lnb, mux.frequency);
-	}
-
-	int voltage_for_pol(const chdb::lnb_t& lnb, const chdb::fe_polarisation_t pol);
-
-  /*
-		translate driver frequency to real frequency
-		tone = 0 if off
-		voltage = 1 if high
-		@todo: see linuxdvb_lnb.c for more configs to support
-		@todo: uniqcable
-	*/
-	int freq_for_driver_freq(const chdb::lnb_t& lnb, int frequency, bool high_band);
-	int driver_freq_for_freq(const chdb::lnb_t& lnb, int frequency);
-	std::tuple<int32_t, int32_t, int32_t> band_frequencies(const chdb::lnb_t& lnb, chdb::fe_band_t band);
-
-	bool add_network(chdb::lnb_t& lnb, chdb::lnb_network_t& network);
-	void update_lnb(db_txn& wtxn, chdb::lnb_t&  lnb);
-	void reset_lof_offset(chdb::lnb_t&  lnb);
-	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const chdb::lnb_t& lnb);
-
-	bool can_pol(const chdb::lnb_t &  lnb, chdb::fe_polarisation_t pol);
-	chdb::fe_polarisation_t pol_for_voltage(const chdb::lnb_t& lnb, int voltage);
-	inline bool swapped_pol(const chdb::lnb_t &  lnb) {
-		return lnb.pol_type == chdb::lnb_pol_type_t::VH || lnb.pol_type == chdb::lnb_pol_type_t::RL;
-	}
-
-	void update_lnb_adapter_fields(db_txn& wtxn, const chdb::fe_t& fe);
-
-	int switch_id(db_txn& rtxn, const chdb::lnb_key_t& key);
-
-	inline bool can_move_dish(const chdb::lnb_t& lnb) {
-		switch(lnb.rotor_control) {
-		case chdb::rotor_control_t::ROTOR_MASTER_USALS:
-		case chdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
-			return true; /*this means we will send usals commands. At reservation time, positioners which
-										 will really move have already been penalized, compared to positioners already on the
-												correct sat*/
-			break;
-		default:
-			return false;
-		}
-	}
-
-	inline bool on_positioner(const chdb::lnb_t& lnb)
-	{
-		switch(lnb.rotor_control) {
-		case chdb::rotor_control_t::ROTOR_MASTER_USALS:
-		case chdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
-		case chdb::rotor_control_t::ROTOR_SLAVE:
-			return true;
-			break;
-		default:
-			return false;
-		}
-	}
-
-}
-
-namespace chdb::fe {
-	std::optional<chdb::fe_t>
-	find_best_fe_for_lnb(db_txn& rtxn, const chdb::lnb_t& lnb,
-											 const chdb::fe_key_t* fe_to_release,
-											 bool need_blindscan, bool need_spectrum, bool need_multistream,
-											 fe_polarisation_t pol, fe_band_t band,
-											 int usals_pos);
-
-	std::optional<chdb::fe_t>
-	find_best_fe_for_dvtdbc(db_txn& rtxn,
-													const chdb::fe_key_t* fe_to_release,
-													bool need_blindscan, bool need_spectrum, bool need_multistream,
-													chdb::delsys_type_t delsys_type);
-
-	std::tuple<std::optional<chdb::fe_t>,
-						 std::optional<chdb::lnb_t>,
-						 int /*fe's priority*/, int /*lnb's priority*/ >
-	find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
-																		const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
-																		const chdb::fe_key_t* fe_key_to_release,
-																		bool may_move_dish, bool use_blind_tune,
-																		int dish_move_penalty, int resource_reuse_bonus);
-
-	int dish_subscription_count(db_txn& rtxn, int dish_id);
-	int lnb_subscription_count(db_txn& rtxn, const lnb_key_t& lnb_key);
-
-	int switch_subscription_count(db_txn& rtxn, int switch_id);
-	int tuner_subscription_count(db_txn& rtxn, card_mac_address_t card_mac_address, int rf_input);
-	inline bool is_subscribed(const fe_t& fe) {
-		return fe.sub.owner >= 0;
-	}
-
-	inline bool has_rf_in(const fe_t& fe, int rf_in) {
-		for(auto& r: fe.rf_inputs) {
-			if (r == rf_in)
-				return true;
-		}
-		return false;
-	}
-
-	inline bool suports_delsys_type(const chdb::fe_t& fe, chdb::delsys_type_t delsys_type) {
-		for (auto d: fe.delsys) {
-			if (chdb::delsys_to_type(d) == delsys_type)
-				return  true;
-		}
-		return false;
-	}
-
-
-	void subscribe(db_txn& wtxn, fe_t& fe, fe_subscription_t sub);
-
-	int reserve_fe_lnb_band_pol_sat(db_txn& wtxn, const chdb::fe_key_t& fe_key, const chdb::lnb_t& lnb,
-																	chdb::fe_band_t band,  chdb::fe_polarisation_t pol);
-
-
-	int reserve_fe_lnb_exclusive(db_txn& wtxn, const chdb::fe_key_t& fe_key, const chdb::lnb_t& lnb);
-	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, const chdb::fe_key_t& fe_key, bool is_dvbc);
-
-	template<typename mux_t>
-	std::optional<chdb::fe_t>
-	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const chdb::fe_key_t* fe_key_to_release,
-														 bool use_blind_tune);
-
-	std::tuple<std::optional<chdb::fe_t>, std::optional<chdb::lnb_t>>
-	subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-																 const chdb::lnb_t* required_lnb, const chdb::fe_key_t* fe_key_to_release,
-																 bool use_blind_tune, int dish_move_penalty, int resource_reuse_bonus);
-	std::optional<chdb::fe_t>
-	subscribe_lnb_exclusive(db_txn& wtxn,  const chdb::lnb_t& lnb, const chdb::fe_key_t* fe_key_to_release,
-													bool need_blind_tune, bool need_spectrum);
-
-};
 
 #pragma GCC visibility pop

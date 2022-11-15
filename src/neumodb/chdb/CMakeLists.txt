@@ -9,7 +9,7 @@ include_directories(
     # The location of the headers after installation
     $<INSTALL_INTERFACE:include>
 )
-set(GEN options tuner sat mux service tune_state enums chdb_db) #basename of generated files
+set(GEN sat mux service tune_state enums chdb_db) #basename of generated files
 
 list(TRANSFORM GEN APPEND .cc OUTPUT_VARIABLE gensrc)
 
@@ -47,7 +47,7 @@ add_custom_command(
 add_custom_target(ch_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(chdb SHARED ${gensrc} chdb_extra.cc mux_find.cc chdb_upgrade.cc browse_history.cc minsnr.cc lang_codes.cc)
-add_dependencies(chdb ch_generated_files stat_generated_files epg_generated_files rec_generated_files)
+add_dependencies(chdb dev_generated_files ch_generated_files stat_generated_files epg_generated_files rec_generated_files)
 
 #-fbracket-depth=1024 to work around bug in lang version 12.0.1  https://bugs.llvm.org/show_bug.cgi?id=50178
 # -fsized-deallocation needed to prevent operator delete error

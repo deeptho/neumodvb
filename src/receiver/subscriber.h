@@ -75,20 +75,20 @@ public:
 	~subscriber_t();
 
 	int unsubscribe();
-	void update_current_lnb(const chdb::lnb_t & lnb);
+	void update_current_lnb(const devdb::lnb_t & lnb);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(const chdb::service_t& service);
 
 	template <typename _mux_t>
 	int subscribe_mux(const _mux_t& mux, bool blindscan);
 
-	int subscribe_lnb(chdb::lnb_t& lnb, retune_mode_t retune_mode);
-	int subscribe_lnb_and_mux(chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
+	int subscribe_lnb(devdb::lnb_t& lnb, retune_mode_t retune_mode);
+	int subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 														const pls_search_range_t& pls_search_range, retune_mode_t retune_mode);
-	int subscribe_spectrum(chdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
+	int subscribe_spectrum(devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
 												 int32_t low_freq, int32_t high_freq,
 												 int sat_pos=sat_pos_none);
-	int positioner_cmd(chdb::positioner_cmd_t cmd, int par);
+	int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 	int get_adapter_no() const;
 
 	std::unique_ptr<playback_mpm_t> subscribe_recording(const recdb::rec_t& rec);

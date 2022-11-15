@@ -22,6 +22,7 @@ def lord(x):
     return  int.from_bytes(x.encode(), sys.byteorder)
 
 db_include(fname='stats', db=db, include='neumodb/chdb/chdb_db.h')
+db_include(fname='stats', db=db, include='neumodb/devdb/devdb_db.h')
 
 signal_stat_entry = db_struct(name='signal_stat_entry',
                               fname = 'stats',
@@ -41,8 +42,8 @@ signal_stat_key = db_struct(name='signal_stat_key',
                               version = 1,
                               fields = ((1, 'bool',  'live', 'true'),
                                         (2, 'chdb::mux_key_t', 'mux'),
-                                        (3, 'chdb::lnb_key_t', 'lnb'),
-                                        (7, 'chdb::fe_key_t', 'fe'),
+                                        (3, 'devdb::lnb_key_t', 'lnb'),
+                                        (7, 'devdb::fe_key_t', 'fe'),
                                         (4, 'int32_t', 'frequency'),
                                         (5, 'chdb::fe_polarisation_t', 'pol'),
                                         (6, 'time_t',  'time'),
@@ -68,8 +69,8 @@ spectrum_key = db_struct(name='spectrum_key',
                          db = db,
                          type_id= lord('sk'),
                          version = 1,
-                         fields = ((1, 'chdb::lnb_key_t', 'lnb_key'),
-                                   (5, 'chdb::fe_key_t' , 'fe_key'),
+                         fields = ((1, 'devdb::lnb_key_t', 'lnb_key'),
+                                   (5, 'devdb::fe_key_t' , 'fe_key'),
                                    (2, 'int16_t', 'sat_pos'),
                                    (3, 'chdb::fe_polarisation_t', 'pol'),
                                    (4, 'time_t', 'start_time')

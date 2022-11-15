@@ -88,51 +88,10 @@ static void export_chgm_extra(py::module& m) {
 		;
 }
 
-
-static void export_lnb_extra(py::module& m) {
-#if 0
-	chdb::lnb_t new_lnb(int tuner_id, int16_t sat_pos, int dish_id = 0, chdb::lnb_type_t type = chdb::lnb_type_t::UNIV);
-#endif
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
-	mm
-#if 0
-		.def("new_lnb", &chdb::lnb::new_lnb, "create a new lnb", py::arg("tuner_id"), py::arg("sat_pos"),
-				 py::arg("dish_id") = 0, py::arg("type") = chdb::lnb_type_t::UNIV)
-#endif
-		.def("update_lnb", &chdb::lnb::update_lnb, "save chanfed lnb, while checking tune string",
-				 py::arg("wtxn"), py::arg("lnb"))
-		.def("reset_lof_offset", &chdb::lnb::reset_lof_offset,
-				 "reset the LOF offset to 0",
-				 py::arg("lnb"))
-		.def("make_unique_if_template", make_unique_if_template<lnb_t>,
-				 "Make the key of this lnb unique, but only if lnb.k.id<0")
-		.def("select_reference_mux", &chdb::lnb::select_reference_mux,
-				 "Select a reference mux for an lnb; use prosed_mux if suitable, else use "
-				 "one which will not move positioner",
-				 py::arg("rtxn"), py::arg("lnb"), py::arg("proposed_mux").none(true) = nullptr)
-		.def("select_lnb", &chdb::lnb::select_lnb, "Select an lnb; whcih can tune to sat or mux; prefers positioner",
-				 py::arg("rtxn"), py::arg("sat").none(true) = nullptr, py::arg("mux").none(true) = nullptr)
-		.def("add_network", &chdb::lnb::add_network,
-				 "Add a network to an lnb if it does not yet exist; returns true if network was added", py::arg("lnb"),
-				 py::arg("lnb_network"))
-		.def("lnb_frequency_range", &chdb::lnb::lnb_frequency_range,
-				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"));
-		;
-}
-
 static void export_lang_extra(py::module& m) {
 	m.def("lang_name", &chdb::lang_name,
 				"human readable language name", py::arg("lang_code"))
 		;
-}
-
-static std::tuple<bool, std::optional<std::string>>
-lnb_can_tune_to_mux_helper(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks) {
-	ss::string<128> error;
-	bool ret= chdb::lnb_can_tune_to_mux(lnb, mux, disregard_networks, &error);
-	if (ret)
-		return {ret, {}};
-	return {ret, error};
 }
 
 PYBIND11_MODULE(pychdb, m) {
@@ -148,7 +107,6 @@ PYBIND11_MODULE(pychdb, m) {
     )pbdoc";
 
 	using namespace chdb;
-	export_ss_vector(m, fe_band_pol_t);
 
 	m.def(
 		"sat_pos_str", [](int sat_pos) { return std::string(sat_pos_str(sat_pos).c_str()); },
@@ -179,9 +137,6 @@ PYBIND11_MODULE(pychdb, m) {
 				return std::string(x);
 			},
 			"make human readable representation", py::arg("mux"))
-		.def("lnb_can_tune_to_mux", &lnb_can_tune_to_mux_helper,
-				 "check if lnb can tune to mux; returns true/false and optional error string", py::arg("lnb"), py::arg("mux"),
-				 py::arg("disregard_networks") = false)
 		.def("delsys_to_type", &chdb::delsys_to_type)
 		;
 	export_neumodb(m);
@@ -191,7 +146,6 @@ PYBIND11_MODULE(pychdb, m) {
 	chdb::export_structs(m);
 	export_mux_extra(m);
 	export_sat_extra(m);
-	export_lnb_extra(m);
 	export_chg_extra(m);
 	export_chgm_extra(m);
 	export_lang_extra(m);

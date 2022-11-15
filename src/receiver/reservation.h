@@ -97,8 +97,8 @@ public:
 		returns the old active_adapter use count
 	*/
 #if 0
-	int reserve(const chdb::lnb_t& lnb, int sat_pos);
-	int reserve(const chdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
+	int reserve(const devdb::lnb_t& lnb, int sat_pos);
+	int reserve(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
 	int reserve(const chdb::dvbc_mux_t& mux);
 	int reserve(const chdb::dvbt_mux_t& mux);
 
@@ -110,7 +110,7 @@ public:
 	int release();
 #endif
 	chdb::any_mux_t mux() const;
-	chdb::lnb_t lnb() const;
+	devdb::lnb_t lnb() const;
 	active_fe_thread_safe_t(active_adapter_t* active_adapter_) :
 		active_adapter(active_adapter_) {}
 };

@@ -98,6 +98,12 @@ EXPORT void export_neumodb(py::module& m) {
 	export_field_matcher_t(m);
 	export_ss_vector(m, field_matcher_t);
 
+	export_ss_vector(m, int32_t);
+	export_ss_vector(m, uint32_t);
+	export_ss_vector(m, uint16_t);
+	export_ss_vector(m, int16_t);
+	export_ss_vector(m, int8_t);
+	export_ss_vector(m, uint8_t);
 	export_milli_seconds_t(m);
 	py::class_<db_txn>(m, "db_txn")
 		.def("commit", &db_txn::commit, "Commit transaction")

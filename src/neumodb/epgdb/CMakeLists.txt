@@ -47,7 +47,7 @@ add_custom_command(
 add_custom_target(epg_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(epgdb SHARED ${gensrc} epgdb_extra.cc epgdb_upgrade.cc)
-add_dependencies(epgdb epg_generated_files ch_generated_files stat_generated_files  date::date)
+add_dependencies(epgdb epg_generated_files dev_generated_files ch_generated_files stat_generated_files  date::date)
 
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(epgdb PUBLIC -fPIC -fsized-deallocation)

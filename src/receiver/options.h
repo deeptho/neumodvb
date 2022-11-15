@@ -23,6 +23,7 @@
 #include "stackstring.h"
 #include "stackstring.h"
 #include "neumodb/chdb/chdb_extra.h"
+#include "neumodb/devdb/devdb_extra.h"
 
 #define CALLBACK
 
@@ -40,6 +41,7 @@ struct neumo_options_t {
 	std::string spectrum_path{"/mnt/neumo/spectrum"};
 	std::string scam_server_name{"streacom.mynet"};
 	int scam_server_port{9000};
+	std::string devdb{"/mnt/neumo/db/devdb.mdb"};
 	std::string chdb{"/mnt/neumo/db/chdb.mdb"};
 	std::string statdb{"/mnt/neumo/db/statdb.mdb"};
 	std::string epgdb{"/mnt/neumo/db/epgdb.mdb"};
@@ -49,7 +51,7 @@ struct neumo_options_t {
 	std::string radiobg_svg{"radiobg.svg"};
 	std::string mpvconfig{"mpv"};
 
-	chdb::usals_location_t usals_location;
+	devdb::usals_location_t usals_location;
 	int32_t dish_move_penalty{100}; //penalty for having to move dish; reduces priority
 	int32_t resource_reuse_bonus{1000}; //penalty for having to move dish; increases priority
 

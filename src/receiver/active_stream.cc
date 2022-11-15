@@ -77,7 +77,7 @@ int64_t active_stream_t::get_adapter_mac_address() const {
 	return active_adapter().get_adapter_mac_address();
 }
 
-chdb::lnb_key_t active_stream_t::get_adapter_lnb_key() const {
+devdb::lnb_key_t active_stream_t::get_adapter_lnb_key() const {
 	return active_adapter().get_lnb_key();
 }
 

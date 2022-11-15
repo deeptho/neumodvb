@@ -18,19 +18,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include "neumodb/chdb/chdb_extra.h"
-#include "stackstring/stackstring_pybind.h"
-#include <pybind11/pybind11.h>
-#include <stdio.h>
 
-namespace py = pybind11;
-
-void export_chdb_vectors(py::module& m) {
-	using namespace chdb;
-	export_ss_vector(m, service_t);
-	export_ss_vector(m, dvbs_mux_t);
-	export_ss_vector(m, dvbc_mux_t);
-	export_ss_vector(m, dvbt_mux_t);
-	export_ss_vector(m, sat_t);
-	export_ss_vector(m, epg_type_t);
-}
+#include "neumodb/neumodb_upgrade_impl.h"
+template
+EXPORT int neumodb_upgrade<devdb::devdb_t>(const char* from_dbname, const char* to_dbname,
+																					 bool force_overwrite, bool inplace_upgrade, bool dont_backup);

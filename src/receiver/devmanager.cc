@@ -145,8 +145,8 @@ public:
 	std::shared_ptr<dvb_frontend_t> find_fe_for_tuning_to_mux(db_txn& txn, const mux_t& mux,
 																														const dvb_frontend_t* fe_to_release,
 																														const tune_options_t& tune_options) const;
-	std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
-	find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb,
+	std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t>
+	find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb,
 																		const dvb_frontend_t* fe_to_release,
 																		const tune_options_t& tune_options) const;
 	void update_dbfe(db_txn& wtxn, const adapter_no_t adapter_no, const frontend_no_t frontend_no,
@@ -213,8 +213,8 @@ void dvbdev_monitor_t::update_dbfe(db_txn& wtxn, const adapter_no_t adapter_no, 
 	t.dbfe.adapter_no = int(adapter_no);
 
 
-	auto c = chdb::fe_t::find_by_key(wtxn, chdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
-	auto dbfe_old = c.is_valid() ? c.current() : chdb::fe_t();
+	auto c = devdb::fe_t::find_by_key(wtxn, devdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
+	auto dbfe_old = c.is_valid() ? c.current() : devdb::fe_t();
 	dbfe_old.mtime = t.dbfe.mtime; //prevent this from being a change
 	bool changed = !c.is_valid() || (dbfe_old != t.dbfe);
 
@@ -226,7 +226,7 @@ void dvbdev_monitor_t::update_dbfe(db_txn& wtxn, const adapter_no_t adapter_no, 
 		t.dbfe.enable_dvbt = dbfe_old.enable_dvbt;
 		t.dbfe.can_be_used = t.can_be_used;
 		put_record(wtxn, t.dbfe, 0);
-		chdb::lnb::update_lnb_adapter_fields(wtxn, t.dbfe);
+		devdb::lnb::update_lnb_adapter_fields(wtxn, t.dbfe);
 	}
 }
 
@@ -462,7 +462,7 @@ int dvbdev_monitor_t::stop() {
 
 void dvbdev_monitor_t::disable_missing_adapters(db_txn& wtxn) {
 	using namespace chdb;
-	auto c = find_first<chdb::fe_t>(wtxn);
+	auto c = devdb::find_first<devdb::fe_t>(wtxn);
 	for (auto fe : c.range()) {
 		auto found = frontends.contains({adapter_no_t(fe.adapter_no), frontend_no_t(fe.k.frontend_no)});
 
@@ -485,7 +485,7 @@ void dvbdev_monitor_t::disable_missing_adapters(db_txn& wtxn) {
 bool dvbdev_monitor_t::renumber_cards(db_txn& wtxn) {
 	using namespace chdb;
 	std::map<card_mac_address_t, int> card_numbers;
-	auto c = find_first<chdb::fe_t>(wtxn);
+	auto c = devdb::find_first<devdb::fe_t>(wtxn);
 	auto saved = c.clone();
 	bool changed = false;
 	std::bitset<128> numbers_in_use;
@@ -525,7 +525,7 @@ bool dvbdev_monitor_t::renumber_cards(db_txn& wtxn) {
 			fe.card_no = card_no;
 			changed = true;
 			put_record(wtxn, fe);
-			chdb::lnb::update_lnb_adapter_fields(wtxn, fe);
+			devdb::lnb::update_lnb_adapter_fields(wtxn, fe);
 		}
 	}
 	return changed;
@@ -606,7 +606,7 @@ std::shared_ptr<adaptermgr_t> adaptermgr_t::make(receiver_t& receiver) {
 
 
 
-bool fe_thread_safe_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const chdb::lnb_t* required_lnb) const {
+bool fe_thread_safe_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	if (required_lnb && required_lnb->k != reserved_lnb.k)
 		return false;
 	const auto* tuned_mux = std::get_if<chdb::dvbs_mux_t>(&reserved_mux);
@@ -622,7 +622,7 @@ bool fe_thread_safe_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const chdb::lnb_
 	return true;
 }
 
-bool fe_thread_safe_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const chdb::lnb_t* required_lnb) const {
+bool fe_thread_safe_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	assert(!required_lnb);
 	const auto* tuned_mux = std::get_if<chdb::dvbt_mux_t>(&reserved_mux);
 	if (!tuned_mux)
@@ -632,7 +632,7 @@ bool fe_thread_safe_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const chdb::lnb_
 	return true;
 }
 
-bool fe_thread_safe_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const chdb::lnb_t* required_lnb) const {
+bool fe_thread_safe_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	assert(!required_lnb);
 	const auto* tuned_mux = std::get_if<chdb::dvbc_mux_t>(&reserved_mux);
 	if (!tuned_mux)
@@ -642,7 +642,7 @@ bool fe_thread_safe_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const chdb::lnb_
 	return true;
 }
 
-bool fe_thread_safe_t::is_tuned_to(const chdb::any_mux_t& mux, const chdb::lnb_t* required_lnb) const {
+bool fe_thread_safe_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_t* required_lnb) const {
 	bool ret;
 	visit_variant(
 		mux, [this, &ret, required_lnb](const chdb::dvbs_mux_t& mux) { ret = this->is_tuned_to(mux, required_lnb); },
@@ -656,27 +656,28 @@ std::shared_ptr<dvb_frontend_t>
 dvbdev_monitor_t::find_fe_for_tuning_to_mux(db_txn& rtxn, const mux_t& mux,
 																						const dvb_frontend_t* fe_to_release,
 																						const tune_options_t& tune_options) const {
-	const chdb::fe_key_t* fe_key_to_release;
+	const devdb::fe_key_t* fe_key_to_release;
 	const auto need_blindscan = tune_options.use_blind_tune;
 	const bool need_spectrum = false;
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
 	bool need_multistream = (mux.stream_id >= 0);
-	auto best_dbfe = chdb::fe::find_best_fe_for_dvtdbc(rtxn, fe_key_to_release, need_blindscan, need_spectrum,
+	auto best_dbfe = devdb::fe::find_best_fe_for_dvtdbc(rtxn, fe_key_to_release, need_blindscan, need_spectrum,
 																									 need_multistream,  delsys_type);
 	assert(best_dbfe->can_be_used);
 	return find_fe(best_dbfe->k);
 }
 
 
-std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
+std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t>
 dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dvbs_mux_t& mux,
-																										const chdb::lnb_t* required_lnb,
+																										const devdb::lnb_t* required_lnb,
 																										const dvb_frontend_t* fe_to_release,
 																										const tune_options_t& tune_options) const {
 	using namespace chdb;
+	using namespace devdb;
 	auto dish_move_penalty = get_dish_move_penalty();
 	auto resource_reuse_bonus = get_resource_reuse_bonus();
-	auto fe_key = fe_to_release ? fe_to_release->fe_key() : chdb::fe_key_t{};
+	auto fe_key = fe_to_release ? fe_to_release->fe_key() : devdb::fe_key_t{};
 	auto* fe_key_to_release = fe_to_release? &fe_key : nullptr;
 
 	auto[best_fe, best_lnb, best_fe_prio, best_lnb_prio ] =
@@ -716,9 +717,9 @@ adaptermgr_t::find_fe_for_tuning_to_mux(db_txn& txn, const chdb::dvbt_mux_t& mux
 																				const dvb_frontend_t* fe_to_release,
 																				const tune_options_t& tune_options) const;
 
-std::tuple<std::shared_ptr<dvb_frontend_t>, chdb::lnb_t>
+std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t>
 adaptermgr_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux,
-																								const chdb::lnb_t* required_lnb,
+																								const devdb::lnb_t* required_lnb,
 																								const dvb_frontend_t* fe_to_release,
 																								const tune_options_t& tune_options) const {
 	return (static_cast<const dvbdev_monitor_t*>(this))

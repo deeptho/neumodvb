@@ -99,7 +99,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 		}
 	} break;
 	case TUNE_FAILED:
-		must_reinit_si = true;
+		must_reset_si = true;
 		break;
 	case LOCKED:
 		if (lock_lost) {

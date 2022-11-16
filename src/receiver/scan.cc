@@ -64,14 +64,23 @@ scan_t::scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id, bool
 	Return 0 when scanning is done; otherwise number of muxes left
 
 */
-int scanner_t::housekeeping() {
+int scanner_t::housekeeping(bool force) {
 	if (must_end)
 		return 0;
+	auto now = steady_clock_t::now();
+	if (!force && now - last_house_keeping_time < 60s)
+		return 0;
+	last_house_keeping_time = now;
+	int pending{0};
+	int active{0};
 
-	auto pending = scan_loop({}, {});
-
-	dtdebugx("%d muxes left to scan; %d active", pending, (int)subscriptions.size());
-	return must_end ? 0 : pending + subscriptions.size();
+	for(auto& [subscription_id, scan]: scans) {
+		auto [pending1, active1] = scan.scan_loop({}, {});
+		active += active1;
+		pending += pending1;
+	}
+	dtdebugx("%d muxes left to scan; %d active", pending, active);
+	return must_end ? 0 : pending + active;
 }
 
 static void report(const char* msg, subscription_id_t finished_subscription_id,

@@ -1763,6 +1763,8 @@ int receiver_thread_t::run() {
 				}
 			} else if (is_timer_fd(evt)) {
 				receiver.update_playback_info();
+				if(scanner)
+					scanner->housekeeping(false);
 			} else if (evt->data.fd == adaptermgr->inotfd) {
 				adaptermgr->run();
 			}
@@ -1909,7 +1911,7 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, 
 	scanner->add_muxes(muxes, init, subscription_id);
 	if (lnbs && init)
 		scanner->set_allowed_lnbs(*lnbs);
-	scanner->housekeeping(); // start initial scan
+	scanner->housekeeping(true); // start initial scan
 	return subscription_id;
 }
 
@@ -1938,9 +1940,9 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	if ((int) subscription_id < 0)
 		subscription_id = subscription_id_t{this->next_subscription_id++};
 	if (!scanner)
-		scanner = std::make_shared<scanner_t>(*this, scan_found_muxes, max_num_subscriptions, subscription_id);
-	scanner->add_peaks(spectrum_key, peaks, init);
-	scanner->housekeeping(); // start initial scan
+		scanner = std::make_shared<scanner_t>(*this, scan_found_muxes, max_num_subscriptions);
+	scanner->add_peaks(spectrum_key, peaks, init, subscription_id);
+	scanner->housekeeping(true); // start initial scan
 	return subscription_id;
 }
 

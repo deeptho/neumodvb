@@ -71,16 +71,17 @@ class FrontendTable(NeumoTable):
     all_columns = \
         [CD(key='adapter_name',  label='adapter', basic=True, no_combo=True, readonly=True,
             example="TurboSight TBS 6916X #12 "),
-         CD(key='adapter_no',  label='Adap', basic=True, readonly=True),
+         #CD(key='adapter_no',  label='Adap', basic=True, readonly=True),
          CD(key='k.frontend_no',  label='fe', basic=True, readonly=True),
+         CD(key='card_no',  label='card#', basic=True, readonly=True),
+         CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916X "),
          CD(key='fe_enable_menu',  label='enable', basic=False, cfn=enable_cfn, dfn=enable_dfn, sfn=enable_sfn,
             example=" DVB T+C "),
+         CD(key='priority',  label='priority', basic=True),
          CD(key='sub.lnb_key.card_mac_address',  label='subscription', basic=True, dfn=subscription_fn, example='#0 28.2EKu 10714.250H-255 1234'),
          CD(key='sub.use_count',  label='fe use\ncount', basic=True, readonly=True),
-         CD(key='rf_inputs',  label='rf\ninput', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
-         CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916X "),
-         CD(key='rf_in',  label='RF#', basic=True, readonly=True),
-         CD(key='card_no',  label='card#', basic=True, readonly=True),
+         CD(key='rf_inputs',  label='rf\ninputs', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
+         #CD(key='rf_in',  label='RF#', basic=True, readonly=True),
          #CD(key='card_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
          #    dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
          CD(key='k.adapter_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
@@ -92,7 +93,6 @@ class FrontendTable(NeumoTable):
          CD(key='supports.blindscan',  label='blind\n-scan', basic=True, dfn=bool_fn, readonly=True),
          CD(key='supports.spectrum_sweep',  label='spec\nsweep', basic=True, dfn=bool_fn, readonly=True),
          CD(key='supports.spectrum_fft',  label='spec\nfft', basic=True, dfn=bool_fn, readonly=True),
-         CD(key='priority',  label='priority', basic=True),
          CD(key='delsys',  label='delsys', basic=True, dfn=delsys_fn, readonly=True, example='DVBT/'*6)
         ]
 

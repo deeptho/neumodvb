@@ -108,7 +108,7 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 		n.lnb_key = {};
 		//todo: allow multiple scans on different sats/lnbs
 	}
-	subscription_id_t ret;
+	subscription_id_t ret{subscription_id_t::NONE};
 	if(dvbs_muxes.size() > 0)
 		ret = receiver->scan_muxes(dvbs_muxes, subscription_id);
 	if((int) ret<0)

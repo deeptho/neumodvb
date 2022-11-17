@@ -760,11 +760,11 @@ void active_adapter_t::check_for_new_streams()
 				if(pdbc && (pdbc->scan_status == scan_status_t::PENDING ||
 										pdbc->scan_status == scan_status_t::NONE ||
 										(pdbc->scan_status != scan_status_t::ACTIVE &&
-										 c->scan_result != chdb::scan_result_t::NODVB))
+										 c->scan_result != chdb::scan_result_t::NOTS))
 					) { //cancel any pending scan
 					//@todo muxes set to IDLE here are not counted in scan_report
 					dtdebug("CANCEL SCAN: " <<  signal_info.driver_mux);
-					c->scan_result = chdb::scan_result_t::NODVB;
+					c->scan_result = chdb::scan_result_t::NOTS;
 					c->scan_duration = std::chrono::duration_cast<std::chrono::seconds>(system_clock_t::now()
 																																							- tune_start_time).count();
 					c->scan_time = system_clock_t::to_time_t(now);

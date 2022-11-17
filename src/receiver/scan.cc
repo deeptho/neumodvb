@@ -687,7 +687,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 					scan_stats.writeAccess()->active_muxes = subscriptions.size();
 				} else {
 					bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
-					bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NODVB;
+					bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOTS;
 					auto w = scan_stats.writeAccess();
 					w->active_muxes = subscriptions.size();
 					w->finished_muxes++;

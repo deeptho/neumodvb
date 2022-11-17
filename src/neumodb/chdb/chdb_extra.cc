@@ -743,7 +743,7 @@ inline static const char* scan_result_name(const chdb::scan_result_t& scan_resul
 		return "OK";
 	case scan_result_t::NODATA:
 		return "NODATA";
-	case scan_result_t::NODVB:
+	case scan_result_t::NOTS:
 		return "NODVB";
 	case scan_result_t::BAD:
 		return "BAD";

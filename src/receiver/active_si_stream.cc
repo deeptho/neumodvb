@@ -843,7 +843,7 @@ void active_si_stream_t::finalize_scan(bool done, bool tune_failed)
 		mux_common->scan_result = chdb::scan_result_t::ABORTED;
 	else if (is_embedded_si ? active_adapter().si.scan_state.locked : scan_state.locked) {
 		if(scan_state.is_not_ts) {
-			mux_common->scan_result = chdb::scan_result_t::NODVB;
+			mux_common->scan_result = chdb::scan_result_t::NOTS;
 		} else {
 			mux_common->scan_result = scan_state.scan_completed() ? chdb::scan_result_t::OK : chdb::scan_result_t::PARTIAL;
 		}

@@ -878,7 +878,8 @@ class NeumoTable(NeumoTableBase):
                 v = self.data_table.subfield_from_name(col)
             else:
                 v = self.data_table.subfield_from_name(c)
-            assert v != 0
+            if v == 0:
+                continue
             subfield |= (v<<shift)
             shift -= 8
             if shift < 0 :

@@ -16,6 +16,8 @@ Some of the features include
 Currently this software is fully functional, but is of alpha quality. It has seen
 very little testing.
 
+## [Changes](docs/changes.md) ##
+
 ## [Installation](docs/INSTALL.md) ##
 
 ## [Reporting bugs](docs/bugs.md) ##

@@ -322,7 +322,7 @@ fe = db_struct(name='fe',
                fields = (
                    (29, 'int16_t', 'card_no', '-1'), #unique and stable generated number
                    (1, 'fe_key_t', 'k'),
-                   (25, 'int16_t', 'rf_in'),
+                   #(25, 'int16_t', 'rf_in'),
                    (21, 'int16_t', 'adapter_no'),
                    (24, 'bool', 'supports_neumo'),
                    (2, 'bool', 'present'),
@@ -333,7 +333,6 @@ fe = db_struct(name='fe',
                    (5, 'int16_t', 'priority', 0),
                    (32, 'int8_t', 'rf_coupler_id',  '-1'), #defines coupling with other fe
                    (28, 'fe_subscription_t', 'sub'),
-
                    (9, 'time_t', 'mtime'),
                    (10, 'uint32_t', 'frequency_min'),
                    (11, 'uint32_t', 'frequency_max'),

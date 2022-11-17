@@ -227,8 +227,10 @@ static int get_frontend_names(fe_state_t& t, int adapter_no, int api_version) {
 																		*/
 	}
 	t.dbfe.supports_neumo = 	fe_info.supports_neumo;
+#if 0
 	t.dbfe.rf_in = (fe_info.supports_neumo && fe_info.default_rf_input >= 0) ?
 		fe_info.default_rf_input : adapter_no;
+#endif
 	t.dbfe.card_name.sprintf(card_name, strlen(card_name));
 	t.dbfe.card_short_name.sprintf(card_short_name, strlen(card_short_name));
 	for(int i=0; i < fe_info.num_rf_inputs; ++i) {

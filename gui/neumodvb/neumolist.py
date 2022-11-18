@@ -797,7 +797,7 @@ class NeumoTable(NeumoTableBase):
         if self.screen.update(txn):
             changed = True
         else:
-            return
+            pass
         if txn is not None:
             txn.commit()
             del txn

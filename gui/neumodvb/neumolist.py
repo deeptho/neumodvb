@@ -688,6 +688,7 @@ class NeumoTable(NeumoTableBase):
             #self.data[last.oldrow] = last.oldrecord
             assert last.oldrow == self.row_being_edited
             self.record_being_edited = last.oldrecord
+            self.GetRow.cache_clear()
             return 0
         elif len(self.undo_list)>0:
             last = self.undo_list.pop()

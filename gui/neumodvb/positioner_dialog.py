@@ -821,20 +821,25 @@ class PositionerDialog(PositionerDialog_):
     def SetDiseqc12Position(self, idx):
         self.diseqc_position_spin_ctrl.SetValue(idx)
 
-    def SetUsalsLocation(self, hemispheres_only=False):
+    def SetUsalsLocation(self, longitude=None, lattitude=None):
         receiver = wx.GetApp().receiver
-        opts =  receiver.options
+        opts =  receiver.get_options()
+        if longitude is not None:
+            opts.usals_location.usals_longitude = longitude
+        if lattitude is not None:
+            opts.usals_location.usals_lattitude = lattitude
+        if longitude is not None or lattitude is not None:
+            devdb_wtxn = receiver.devdb.wtxn()
+            opts.save_usals_location(devdb_wtxn)
+            devdb_wtxn.commit()
+            receiver.set_options(opts)
+        longitude = f'{abs(opts.usals_location.usals_longitude)/100.:3.1f}'
+        self.longitude_text_ctrl.ChangeValue(longitude)
 
-        if True or not hemispheres_only:
-            longitude = f'{abs(opts.usals_location.usals_longitude)/100.:3.1f}'
-            self.longitude_text_ctrl.ChangeValue(longitude)
-
-            lattitude = f'{abs(opts.usals_location.usals_lattitude)/100.:3.1f}'
-            self.lattitude_text_ctrl.ChangeValue(lattitude)
-
+        lattitude = f'{abs(opts.usals_location.usals_lattitude)/100.:3.1f}'
+        self.lattitude_text_ctrl.ChangeValue(lattitude)
         self.lattitude_north_south_choice.SetSelection(opts.usals_location.usals_lattitude<0)
         self.longitude_east_west_choice.SetSelection(opts.usals_location.usals_longitude<0)
-
     def SetDiseqc12(self, diseqc12):
         self.tune_mux_panel.diseqc12 = diseqc12
         self.diseqc_position_spin_ctrl.SetValue(self.tune_mux_panel.diseqc12)
@@ -952,7 +957,7 @@ class PositionerDialog(PositionerDialog_):
     def OnUsalsStepEast(self, event):
         self.position += self.step
         self.SetPosition(self.position)
-        self.UpdateUsalsPosition(self.position)
+        slf.UpdateUsalsPosition(self.position)
         event.Skip()
 
     def OnUsalsStepWest(self, event):
@@ -975,46 +980,42 @@ class PositionerDialog(PositionerDialog_):
         event.Skip()
 
     def OnLattitudeChanged(self, evt):  # wxGlade: PositionerDialog_.<event_handler>
-        receiver = wx.GetApp().receiver
+        val = self.lattitude_text_ctrl.GetValue()  if type(evt) == wx.FocusEvent \
+            else evt.GetString()
         from neumodvb.util import parse_lattitude
-        val = parse_lattitude(evt.GetString())
+        val = parse_lattitude(val)
         dtdebug(f'site lattitude changed to {val}')
-        opts =  receiver.options
-        opts.usals_location.usals_lattitude = val
-        receiver.options = opts;
-        self.SetUsalsLocation(hemispheres_only=True)
+        self.SetUsalsLocation(lattitude = val)
         evt.Skip()
 
     def OnLattitudeNorthSouthSelect(self, evt):  # wxGlade: PositionerDialog_.<event_handler>
         receiver = wx.GetApp().receiver
-        opts =  receiver.options
+        opts =  receiver.get_options()
         val = abs(opts.usals_location.usals_lattitude)
         if evt.GetSelection() == 1:
             val = -val
         opts.usals_location.usals_lattitude = val
-        receiver.options = opts;
+        receiver.set_options(opts);
         dtdebug(f'site lattitude changed to {val}')
         evt.Skip()
 
     def OnLongitudeChanged(self, evt):  # wxGlade: PositionerDialog_.<event_handler>
-        receiver = wx.GetApp().receiver
+        val = self.longitude_text_ctrl.GetValue()  if type(evt) == wx.FocusEvent \
+            else evt.GetString()
         from neumodvb.util import parse_longitude
-        val = parse_longitude(evt.GetString())
+        val = parse_longitude(val)
         dtdebug(f'site longitude changed to {val}')
-        opts =  receiver.options
-        opts.usals_location.usals_longitude = val
-        receiver.options = opts;
-        self.SetUsalsLocation(hemispheres_only=True)
+        self.SetUsalsLocation(longitude = val)
         evt.Skip()
 
     def OnLongitudeEastWestSelect(self, evt):  # wxGlade: PositionerDialog_.<event_handler>
         receiver = wx.GetApp().receiver
-        opts =  receiver.options
+        opts =  receiver.get_options()
         val = abs(opts.usals_location.usals_longitude)
         if evt.GetSelection() == 1:
             val = -val
         opts.usals_location.usals_longitude = val
-        receiver.options = opts;
+        receiver.set_options(opts);
         dtdebug(f'site longitude changed to {val}')
         evt.Skip()
 

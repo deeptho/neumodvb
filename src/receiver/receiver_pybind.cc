@@ -122,6 +122,8 @@ void export_receiver(py::module& m) {
 				 py::overload_cast<const chdb::service_t&, time_t, int, const char*>(&receiver_t::toggle_recording),
 				 "Toggle recording the current service.", py::arg("service"), py::arg("start"), py::arg("duration"),
 				 py::arg("event_name"))
+		.def("get_options", &receiver_t::get_options)
+		.def("set_options", &receiver_t::set_options, py::arg("options"))
 		.def("get_scan_stats", &receiver_t::get_scan_stats, "Return true if a statistics of current scan, in progress",
 				 py::arg("subscription_id"))
 		.def(
@@ -133,7 +135,6 @@ void export_receiver(py::module& m) {
 		.def_readonly("browse_history", &receiver_t::browse_history, py::return_value_policy::reference_internal)
 		.def_readonly("rec_browse_history", &receiver_t::rec_browse_history, py::return_value_policy::reference_internal)
 		.def_property_readonly("error_message", [](receiver_t* self) { return get_error().c_str(); })
-		.def_property("options", &receiver_t::get_options, &receiver_t::set_options)
 		.def_readonly("devdb", &receiver_t::devdb)
 		.def_readonly("chdb", &receiver_t::chdb)
 		.def_readonly("epgdb", &receiver_t::epgdb)

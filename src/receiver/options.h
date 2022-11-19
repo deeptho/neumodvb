@@ -64,10 +64,13 @@ struct neumo_options_t {
 	std::chrono::seconds timeshift_duration{2h}; //ow far can user rewind?
 	std::chrono::seconds livebuffer_retention_time{5min}; //how soon is an inactive timehsift buffer removed
 
-	std::chrono::seconds livebuffer_mpm_part_duration{300s}; //how quickly live buffers are deleted after they become inactive
-
+	std::chrono::seconds livebuffer_mpm_part_duration{300s}; //duration of an mpm part
 
 
 	neumo_options_t()
 		{}
+
+	void load_from_db(db_txn& devdb_wtxn, int32_t user_id=0);
+	void save_to_db(db_txn& devdb_wtxn, int32_t user_id=0);
+	void save_usals_location(db_txn& wtxn);
 };

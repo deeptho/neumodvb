@@ -1734,22 +1734,32 @@ receiver_t::receiver_t(const neumo_options_t* options)
 	, rec_browse_history(recdb)
 {
 	if(options) {
-		*(this->options.writeAccess()) = *options;
+		auto w = this->options.writeAccess();
+		*w = *options;
 	}
 	set_logconfig(options->logconfig.c_str());
 	identify();
 
 	log4cxx_store_threadname();
 	// this will throw in case of error
-	auto r = this->options.readAccess();
-	statdb.open(r->statdb.c_str());
-	chdb.extra_flags = MDB_NOSYNC;
-	chdb.open(r->chdb.c_str());
-	devdb.extra_flags = MDB_NOSYNC;
-	devdb.open(r->devdb.c_str(), false /*allow_degraded_mode*/, nullptr /*table_name*/, 2*1024u*1024u /*mapsize*/);
-	epgdb.extra_flags = MDB_NOSYNC;
-	epgdb.open(r->epgdb.c_str());
-	recdb.open(r->recdb.c_str());
+	{
+		auto r = this->options.readAccess();
+		statdb.open(r->statdb.c_str());
+		chdb.extra_flags = MDB_NOSYNC;
+		chdb.open(r->chdb.c_str());
+		devdb.extra_flags = MDB_NOSYNC;
+		devdb.open(r->devdb.c_str(), false /*allow_degraded_mode*/, nullptr /*table_name*/, 2*1024u*1024u /*mapsize*/);
+		epgdb.extra_flags = MDB_NOSYNC;
+		epgdb.open(r->epgdb.c_str());
+		recdb.open(r->recdb.c_str());
+	}
+	{
+		auto devdb_wtxn = this->devdb.wtxn();
+		auto w = this->options.writeAccess();
+		auto & options = *w;
+		options.load_from_db(devdb_wtxn);
+		devdb_wtxn.commit();
+	}
 	browse_history.init();
 	rec_browse_history.init();
 	start();

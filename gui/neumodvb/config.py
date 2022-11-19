@@ -118,6 +118,11 @@ def setsubattr_obj(o, k, val):
 
 
 class get_processed_options(object):
+    """
+    read paths and default options from various config files
+    Then overwritew options with cureent values stored in the database
+    However, paths are not stored in the database
+    """
     def __init__(self):
         relative_files = ('logconfig', 'gui', 'css', 'mpvconfig')
         o =options_t()
@@ -139,7 +144,7 @@ class get_processed_options(object):
                     setattr(self, k, v)
 
         import pydevdb # for usals_location
-        for sec in  ['DISH', 'RECORD', 'TIMESHIFT']:
+        for sec in  ['RECORD', 'TIMESHIFT']:
             for k,v in c[sec].items():
                 try:
                     old = getsubattr(o,k)

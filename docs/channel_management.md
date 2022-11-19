@@ -7,18 +7,19 @@ service being broadcast via satellite. On the other hand, a channel is a service
 put in a bouquet. The difference is important: channels and services are stored as separate
 records in the database. They can be assigned separate numbers for easy zapping.
 
-Services are created when they are discovered in the SDT data in muxes. Most of their properties
-are updated automatically, so there is little sense in changing them. For instance, you can change
-the name of a service in the service list, but this change will be overwritten with the name in the
-SDT table as soon as you tune to the service, or even an other related service.
+Services are created when they are discovered in the SDT data or in the PAT data of muxes. Most of
+their properties are updated automatically, so there is little sense in changing them. For instance,
+you can change the name of a service in the service list, but this change will be overwritten with
+the name in the SDT table as soon as you tune to the service, or even an other related service.
 
 There are a few exceptions:
 
 * the service number is purely user defined.
-* some information like `VPID` (video pid) and `PMT PID` is not (yet?) extracted by neumoDVB because
-  in most cases it is not needed for tuning. In rare cases, their value
-  is needed for tuning. One example is services that are not listed in the SDT. These streams are non-compliant,
-  rare,  and are not yet handled well by neumoDVB (please submit a ticket if you find an example)
+* some information like `VPID` (video pid) and `PMT PID` is usually not needed for tuning. In rare cases,
+  their value is needed for tuning. One example is services that are not listed in the SDT, nor in PAT.
+  These streams are non-compliant, rare,  and are not yet handled well by neumoDVB (please submit a ticket
+  if you find
+  an example)
 
   Another example are the encrypted BBC streams at 27.5W. In this case the PMT is encrypted and it is not
   even possible to discover the video pid prior to decrypting this PMT. Currently this decryption is implemented
@@ -26,29 +27,19 @@ There are a few exceptions:
 
 Similarly, it is pointless to remove services from the service list because they will be recreated when neumoDVB
 discovers them in SI information, even from other muxes. One exception would be to remove erroneous services
-due to software bugs or non longer existing services. The latter are flagged as "expired", but not automatically
-removed, to avoid deleting user specified information accidentally. In general, services are considered "expired"
-if their mux still exists but the services are no longer there. Not being able to receive a mux is not enough
-to expire services.
+due to software bugs or no longer existing services. The latter are flagged as "expired", but not
+immediately removed, to avoid deleting user specified information accidentally. In general, services are
+considered "expired" if their mux still exists but the services are no longer there. Not being able to receive
+a mux is not enough to expire services. After a certain amount of time (one month currently) expired
+muxes are deleted.
 
 
 In general there are two practical ways to prepare your channel list for viewing
 
-* Stick to services and give them a suitable service number. The services you are not interested in
-  could be assigned number 0. In future software version, the initial service number will probably
-  be auto-generated as a high number. In any case, the services useful to you will appear at the end
-  or start of lists.
-
-  Myself, I tend to group services in numerical ranges, e.g., all freesat channels
-  between 100 and 199, all French channels between 200 and 299, ...  I do not remember all service
-  numbers, but I know that typing the number "201" will navigate to the French part of the list. From
-  there on, I can navigate with arrow keys.
-
-  For instance, having assigned number 101 to "BBC One HD", and assuming that `Edit mode` is off, you
-  can press key "1" on the keyboard. A popup window will then appear in which you can complete the number
-  as "101" and the cursor in the list will move to BBC One. More importantly, this also works in live viewing
-  mode.
-
+* Stick to services and give them a suitable service number. Other services  will have the default
+  number 0. Your services will therefore appear at the end of the list.
+* Create bouquets, copy the channels you are interested into the bouquet and during viewing
+  use theose channel list(s) instead of the service list.
 
 ### Assigning service numbers ###
 

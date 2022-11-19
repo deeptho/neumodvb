@@ -54,6 +54,7 @@ scan_t::scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id, bool
 			tune_options.subscription_type = subscription_type_t::SCAN;
 			tune_options.may_move_dish = false; //could become an option
 			tune_options.use_blind_tune = false; //could become an option
+			tune_options.constellation_options.num_samples = 1024 * 16;
 }
 
 

@@ -15,6 +15,7 @@ the name in the SDT table as soon as you tune to the service, or even an other r
 There are a few exceptions:
 
 * the service number is purely user defined.
+
 * some information like `VPID` (video pid) and `PMT PID` is usually not needed for tuning. In rare cases,
   their value is needed for tuning. One example is services that are not listed in the SDT, nor in PAT.
   These streams are non-compliant, rare,  and are not yet handled well by neumoDVB (please submit a ticket
@@ -38,6 +39,7 @@ In general there are two practical ways to prepare your channel list for viewing
 
 * Stick to services and give them a suitable service number. Other services  will have the default
   number 0. Your services will therefore appear at the end of the list.
+
 * Create bouquets, copy the channels you are interested into the bouquet and during viewing
   use theose channel list(s) instead of the service list.
 

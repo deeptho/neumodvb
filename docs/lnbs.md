@@ -17,6 +17,7 @@ In simple satellite setups, adding an LNB entry is easy:
 
 First visit the LNB screen by selecting `LNBs` in the list menu. This screen will still be empty.
 Selecting `New` from the `Edit` menu will add one line to the table, which you will then need to edit.
+
 ![screenshot](images/lnb_list.png)
 
 The following fields are crucial (`edit mode` needs to be on to change them):
@@ -67,14 +68,18 @@ and it may be useful to understand their meaning
   that the LNB is connected to RF input 0 of card 4 and is pointing at 7.0E. The LNB is a universal LLNB (Ku)
   The last number is a unique ID. In case the LNB is on a rotating dish, the satellite position will be replaced
   by `rotor`
+
 * `dish`. **Editable** If you have multiple dishes give them each a different number. This allows e.g., using
   LNBs aimed at the same satellite  on multiple dishes. Setting this number correctly is also essential
   in case of a moveable this: neumoDVB assumes that all LNBs on the same dish will move if the dish is
   moved. If the dish numbers differ, neumoDVB will assume that the LNBs are on different dishes
+
 * `enabled`. **Editable** To prevent neumoDVB from using an LNB, unckech this box.
+
 * `available`. **Editable** This field will be unchecked if the LNB cannot be used now, e.g., because
   the card is  not in the system, or for some other reason. If the LNB is not available, the background
   is shown in red.
+
 * `rotor`. **Editable** If you have a dish on a positioner, set this to `ROTOR_MASTER_USALS` (recommended) or
   `ROTOR_MASTER_DIEQC12`. This will cause the receiver to start sending DiSEqC commands to rotate the dish.
   In this case, you also need define the list of networks (satellites), that the positioner is allowed to
@@ -83,25 +88,35 @@ and it may be useful to understand their meaning
   The value `ROTOR_SLAVE` means that the LNB is attached to a movable dish, but cannot be used to actually
   move the dish. neumoDVB will use this LNB only if it determines that the dish is already pointing
   in the right direction.
+
 * `lnb type`. **Editable** Change this in case of a C-band or Ka band lnb.
+
 * `pol type`. HV for a regular linear LNB, LR for a regular circular one. The other options indicate LNBs with
   swapped polarisations. E.g., a linar LNB rotated by 90 degrees or a circular one in which the depolarising
   plate is rotated by 90 degrees.
+
 * `prio`. **Editable** Change this to give preference to some LNBs when multiple ones can tune to the same
   satellite. LNBs with higher values are used preferentially
+
 * `lof_offset`. This is a read-only field. Afte rusing an LNB for a while, it will indicate any offset in the
 LNBs local oscillator (the two numbers are for the low and high band, respectively)
+
 * `Networks`. **Editable** Clicking on this field will popup a window, which lists all the networks that an LNB
   can tune to
+
 * `freq min`. **Editable** This sets the lowest possible frequency the LNB can tune to. The special value
   -1 means that this is set to the default value for this lnb type, e.g., 10.7 Ghz for a universal LNB.
+
 * `freq mid`. **Editable** This sets the frequency which separates the low from the high band on the LNB
   The special value -1 means that this is set to the default value for this lnb type, e.g., 10.7 Ghz for
   a universal LNB. For LNBs with only one band, set this value equal to `freq max`.
+
 * `freq max`. **Editable**  This sets the highest possible frequency the LNB can tune to. The special value
   -1 means that this is set to the default value for this lnb type, e.g., 12.75 Ghz for a universal LNB.
+
 * `LOF low`. **Editable** This sets the local oscillator frequency for the low band on the LNB. The special
   value  -1 means that this is set to the default value for this lnb type.
+
 * `LOF high`. **Editable**  This sets the local oscillator frequency for the high band on the LNB. The
   special value  -1 means that this is set to the default value for this lnb type.
 
@@ -120,8 +135,10 @@ The fields have the following meaning:
   considers these positions correct. This can be confusing, e.g., if you expect services to be present
   in a list for 52.0E but they are instead on 53.0E. neumoDVB always considers the values in the SI stream
   to e the true ones, as long as the deviation is less than 1 degree.
+
 * `priority` In case multiple LNBs point to the same satellite, neumoDVB will use the one which has the '
   correct network and has the highest priority
+
 * `Usals pos:` The actual position you wish to move the dish to. For instance, for difficult
   satellites you may get a better signal by moving to a slightly different position that the official one.
   If your dish setup is imperfect, you may also need an usals position different from the true satellite

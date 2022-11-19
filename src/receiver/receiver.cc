@@ -1,5 +1,5 @@
 /*
- * Neumo dvb (C) 2019-2021 deeptho@gmail.com
+ * Neumo dvb (C) 2019-2022 deeptho@gmail.com
  * Copyright notice:
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1671,7 +1671,6 @@ std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service(const chdb::servic
 		return 0;
 	}));
 	wait_for_all(futures);
-	// browse_history.save(service);
 	return ret;
 }
 

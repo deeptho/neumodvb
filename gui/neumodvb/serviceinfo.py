@@ -20,7 +20,6 @@
 import wx
 import wx.grid
 import wx.lib.mixins.listctrl as listmix
-
 import sys
 import os
 import copy
@@ -35,8 +34,15 @@ import pyepgdb
 class ServiceInfoTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
+        self.last_scan_text = None
+        self.scan_done = False
 
     def ShowRecord(self, table, rec):
+        if self.last_scan_text is not None:
+            self.ChangeValue(self.last_scan_text)
+            if self.scan_done:
+                self.last_scan_text = None
+            return
         ls = wx.GetApp().live_service_screen
         f = self.GetFont()
         large = self.GetFont()

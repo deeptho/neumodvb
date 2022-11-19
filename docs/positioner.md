@@ -31,22 +31,20 @@ the top panels are not useful. but the bottom panels allow you to easily tune to
 The top panel, from left to right, has the following sub-panels:
 
 * `Motor control`allows switching between USALS, DiSeQc1.2 positioners, slave LNBs (which are LNBs on a
-  moving dish, but without the possibility to send commands to the positioner)  and a setup without a positioner.
-  The documentation for the LNB screen provides related information.
+  moving dish, but without the possibility to send commands to the positioner)  and a setup without a
+  positioner. The documentation for the LNB screen provides related information.
+* The buttons below allow manual rotor control.  `Step East`  and `Step West` move the dish by the smallest
+  possible amount.  `Go East` and `Go West` will drive the dish continuously. Motion will stop when you
+  press `Halt`, when your dish reaches internal limits, or until it hits a wall or some other obstacle.
+  Use at your own risk.  `Go Ref` goes to the reference position. If your dish is properly installed,
+  it will move due south.
 
- * The buttons below allow manual rotor control.  `Step East`  and `Step West` move the dish by the smallest possible
-   amounts.  `Go East` and `Go West` will drive the dish continuously. Motion will stop when you press `Halt`,
-   when your dish reaches internal limits, or until it hits a wall or some other obstacle.
-   Use at your own risk.  `Go Ref` goes to the reference position. If your dish is properly installed,
-   it will move due south.
-
-   To avoid damage, it is possible to set software limits on the range in which the dish can move. To use this
-   feature, first move the dish using any of the positioner commands to the west-most position you consider
-   safe. Then press `Set West`. From this point on, the dish will refuse to move more west that this. The
-   `Set East` button operates similarly. If the set limits are too narrow, your can remove them by pressing
-   the `No limits` button and then set new ones.
-
- * `Diseqc 1.2` allows you to store dish positions at a specific numbered slot. First,  move the dish using
+  To avoid damage, it is possible to set software limits on the range in which the dish can move. To use this
+  feature, first move the dish using any of the positioner commands to the west-most position you consider
+  safe. Then press `Set West`. From this point on, the dish will refuse to move more west that this. The
+  `Set East` button operates similarly. If the set limits are too narrow, your can remove them by pressing
+  the `No limits` button and then set new ones.
+* `Diseqc 1.2` allows you to store dish positions at a specific numbered slot. First,  move the dish using
    any of the positioner commands until you receive the satellite you want. You can observe SNR levels to make
    the best possible decision and use `Step East` and `Step West` to fine tune.
    Once you are satisfied with the current position, enter a preset number in the text field
@@ -57,9 +55,7 @@ The top panel, from left to right, has the following sub-panels:
    *Very important*. After making changes, these changes are not automatically saved. You need to press the
    `Save` button on the `LNB and sat` panel to save the preset position into the database. In case you forget,
    neumoDVB will remind you when you try to close the positioner control.
-
-
- * `USALS control` allows you to send the positioner manually to a specific satellite position,
+* `USALS control` allows you to send the positioner manually to a specific satellite position,
    by entering it in text form in various formats: 5.0W, -5.0, ... The `East` and `West buttons` ask for
    a small step in the specified direction, but in this case the step is in known units (e.g., 0.1 degree)
    which means neumoDVB knwows the position the dish moves to and shows it on screen.
@@ -72,15 +68,32 @@ The top panel, from left to right, has the following sub-panels:
    neumoDVB will remind you when you try to close the positioner control.
 
    `Location` allows you to enter your dish's location. Changes to the values will be taken into
-   account the next time any USALS operation is performed. Unfortunately changes are not yet written
-   to neumoDVB's config file, so you will need to edit that file to make permanent changes.
+   account the next time any USALS operation is performed. These changes are written to the database
+   as soon as they are changed, and therefore remembered.
+* `Signal Panel` shows signal strength and SNR, tuning information reported by the driver, lock status,
+  and information about the type of DVB signal received and the streams it contains.
 
- * `LNB and Sat` allows you to select the desired LNB and the network (sat) on this LNB. The `Save` button
+  The `Speak` button, when enabled will read out the SNR level using computer audio. Every few seconds it
+  will also speak the currently tuned satellite position. This information is obtained from the DVB stream,
+  so - apart from bad information in the stream - the satellite position is correct. This is handy when
+  tuning a dish: for instance you can use a USB card and a laptop to run neumoDVB near your dish. It well
+  tell you if the dish is pointing at the right sat, and tell you if adjustments improve the signal.
+  Alternative solutions would include sending the audio through other means, e.g., a baby-phone.
+* `LNB and Sat` allows you to select the desired LNB and the network (sat) on this LNB. The `Save` button
    saves all kinds of lnb related changes, including usals settings, default mux ...
    The `Reset LOF` button resets the local oscillator offset of the LNB to zero. The latter is automatically
    updated by comparing information from the driver with service information from the mux
 
- * `Tune Mux` allows you to select a mux from the list of known muxes, and then adjusting the main tuning parameters
-   as needed. If the `Blind` button is gray, nlindscan will be performed. The `Tune` button starts tuning.
-   The `ABort button` ends tuning. `PLS srch.` is an experimental feature to cycle through all possile PLS codes
-   until the mux locks (this can take several hours)
+* `Service Information` displays information received from the stream (if any). The panel indicates the
+   status of data reception using colours: gray, black or blue colour indicate that PAT, NIT or SDT
+   dat have not been received, have been partially or fully received. If a NIT table is received,
+   and if it contains valid information about the tuned mux, this panel also indicates the satellite
+   position, frequency and other tuning information included in the stream.
+
+* `Constellation` shows IQ samples retrieved from the driver. The `Update` button can toggle this diplay
+  on or off.
+
+* `Tune Mux` allows you to select a mux from the list of known muxes, and then adjusting the main tuning
+   parameters as needed. If the `Blind` button is gray, nlindscan will be performed. The `Tune` button starts
+   tuning. The `ABort button` ends tuning. `PLS srch.` is an experimental feature to cycle through all possile
+   PLS codes until the mux locks (this can take several hours).

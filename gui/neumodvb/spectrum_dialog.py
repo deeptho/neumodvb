@@ -332,9 +332,8 @@ class SpectrumDialog(SpectrumDialog_):
             self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak, data.mux, has_lock)
 
             s = data.scan_stats
-            print(f'STATS: pend={s.pending_peaks}+{s.pending_muxes} act={s.active_muxes} fin={s.finished_muxes}')
-
-            if data.scan_stats.pending_muxes + data.scan_stats.active_muxes + data.scan_stats.pending_peaks == 0:
+            if data.scan_stats.pending_muxes + data.scan_stats.active_muxes + \
+               data.scan_stats.pending_peaks == 0:
                 self.is_blindscanning = False
                 self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
                 m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)

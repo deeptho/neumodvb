@@ -1530,10 +1530,10 @@ bool active_si_stream_t::update_mux(
 		if (is_reader_mux //this is the mux generating the si data; don't change its own scan_status
 				|| !reader_mux_is_scanning //we are not scanning
 				|| !propagate_scan //tune_options request no setting of pending states on discovered muxes
-				|| pdbc && (
-					pdbc->scan_status == chdb::scan_status_t::ACTIVE //the mux is being scanned
-					|| pdbc->scan_status == chdb::scan_status_t::PENDING //scanning already planned
-					)
+				|| (pdbc && (
+							pdbc->scan_status == chdb::scan_status_t::ACTIVE //the mux is being scanned
+							|| pdbc->scan_status == chdb::scan_status_t::PENDING //scanning already planned
+							))
 			)
 			return true; //update the mux,
 		//do not

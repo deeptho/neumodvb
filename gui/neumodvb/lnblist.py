@@ -197,7 +197,7 @@ class LnbTable(NeumoTable):
                 add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
                 if not add:
                     return None
-                pydevdb.lnb.add_network(lnb, network)
+            pydevdb.lnb.add_network(lnb, network)
         for n in lnb.networks:
             if self.matching_sat(txn, n.sat_pos) == pychdb.sat.sat_pos_none:
                 ss = pychdb.sat_pos_str(n.sat_pos)

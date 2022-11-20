@@ -1530,9 +1530,10 @@ bool active_si_stream_t::update_mux(
 		if (is_reader_mux //this is the mux generating the si data; don't change its own scan_status
 				|| !reader_mux_is_scanning //we are not scanning
 				|| !propagate_scan //tune_options request no setting of pending states on discovered muxes
-				|| !pdbc
-				|| pdbc->scan_status == chdb::scan_status_t::ACTIVE //the is being scanned
-				|| pdbc->scan_status == chdb::scan_status_t::PENDING //scanning already planned
+				|| pdbc && (
+					pdbc->scan_status == chdb::scan_status_t::ACTIVE //the mux is being scanned
+					|| pdbc->scan_status == chdb::scan_status_t::PENDING //scanning already planned
+					)
 			)
 			return true; //update the mux,
 		//do not
@@ -1543,14 +1544,15 @@ bool active_si_stream_t::update_mux(
 		if((!pdbc || pdbc->mtime < scan_start_time) && ! on_wrong_sat) {
 			dtdebug("SET PENDING " << mux);
 			pc->scan_status = scan_status_t::PENDING;
-			pdbc->scan_status = scan_status_t::PENDING;
 			assert(scan_id > 0);
 			pc->scan_id = scan_id;
-			pdbc->scan_id = scan_id;
+			if(pdbc) {
+				pdbc->scan_status = scan_status_t::PENDING;
+				pdbc->scan_id = scan_id;
+			}
 			assert((pc->scan_status != chdb::scan_status_t::ACTIVE &&
 							pc->scan_status != chdb::scan_status_t::PENDING) ||
 						 pc->scan_id >0);
-
 		}
 
 		return true;

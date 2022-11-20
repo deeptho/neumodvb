@@ -283,6 +283,11 @@ static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t 
 		t.dbfe.k.adapter_mac_address = 0x2L | ((uint64_t)(int(frontend_no) | (int(adapter_no) << 8)) <<32);
 		dtdebugx("No mac address; faking one: 0x%lx\n", t.dbfe.k.adapter_mac_address);
 	}
+	if(t.dbfe.rf_inputs.size() ==0) {
+		//non blindscan drivers
+		t.dbfe.rf_inputs.push_back(0);
+	}
+
 	struct dtv_property properties[16];
 
 	memset(properties, 0, sizeof(properties));

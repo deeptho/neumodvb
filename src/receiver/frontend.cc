@@ -493,7 +493,7 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 			ret.constellation_samples.resize_no_init(cs.num_samples); // we may have retrieved fewer samples than we asked
 		}
 
-		if(api_version >= 1200) {
+		if(api_type == api_type_t::NEUMO && api_version >= 1200) {
 			ret.locktime_ms = cmdseq.get(DTV_LOCKTIME)->u.data;
 			ret.bitrate = cmdseq.get(DTV_BITRATE)->u.data;
 			auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
@@ -724,26 +724,27 @@ int dvb_frontend_t::stop() {
 		});
 	}
 
-	/*
-		ask driver to abort quickly any tune or monitoring command in progress.
-		This is needed in case a long-lasting tune, spectrum acquisition.... is still running
-	 */
-	auto fefd = ts.readAccess()->fefd;
-	struct dtv_algo_ctrl algo_ctrl;
-	algo_ctrl.cmd = DTV_STOP;
-	if ((ioctl(fefd, FE_ALGO_CTRL, &algo_ctrl)) == -1) {
-		dtdebug("ALGO_CTRL: DTV STOP failed: " << strerror(errno));
-	}
-
-	/* In case monitor_thread has called ioctl. This ioctl will no longer be blocked by a tune in
-		 progress and thus will return fast. monitor_thread should therefore quickly execute the pause()
-		 task
-	 */
-	if(f.valid())
-		f.wait();
-   /* pause task has been run now
+	if(ts.readAccess()->dbfe.supports_neumo) {
+		/*
+			ask driver to abort quickly any tune or monitoring command in progress.
+			This is needed in case a long-lasting tune, spectrum acquisition.... is still running
 		*/
+		auto fefd = ts.readAccess()->fefd;
+		struct dtv_algo_ctrl algo_ctrl;
+		algo_ctrl.cmd = DTV_STOP;
+		if ((ioctl(fefd, FE_ALGO_CTRL, &algo_ctrl)) == -1) {
+			dtdebug("ALGO_CTRL: DTV STOP failed: " << strerror(errno));
+		}
 
+		/* In case monitor_thread has called ioctl. This ioctl will no longer be blocked by a tune in
+			 progress and thus will return fast. monitor_thread should therefore quickly execute the pause()
+		 task
+		*/
+		if(f.valid())
+			f.wait();
+		/* pause task has been run now
+		 */
+	}
 	return 0;
 }
 
@@ -1185,7 +1186,7 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 			return -1;
 		}
 
-		if (ts.readAccess()->dbfe.supports.blindscan)
+		if (api_type == api_type_t::NEUMO && ts.readAccess()->dbfe.supports.blindscan)
 			cmdseq.add(DTV_ALGORITHM, ALGORITHM_COLD);
 
 		cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
@@ -1206,7 +1207,7 @@ int dvb_frontend_t::tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, 
 		auto stream_id = make_code((int)mux.pls_mode, (int)mux.pls_code) | (mux.stream_id & 0xff);
 #endif
 		cmdseq.add(DTV_STREAM_ID, stream_id);
-		if (ts.readAccess()->dbfe.supports.blindscan)
+		if (api_type == api_type_t::NEUMO && ts.readAccess()->dbfe.supports.blindscan)
 			cmdseq.add(DTV_SEARCH_RANGE, mux.symbol_rate);
 	}
 	dtv_fe_constellation constellation;

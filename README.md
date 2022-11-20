@@ -16,7 +16,15 @@ Some of the features include
 Currently this software is fully functional, but is of alpha quality. It has seen
 very little testing.
 
+**Important** The database schema has changed in a non-backwards compatible way in neumoDVB 1.0.
+As a result, all LNB definitions will be lost and need to be re-entered. Moreover the details of
+this have changed. Read the documentation. Other parts of the database are not affected, because
+neumoDVB in general upgrades older information to the newer database schema. However, the changes
+to LNBs are too large.
+
 ## [Changes](docs/changes.md) ##
+
+
 
 ## [Installation](docs/INSTALL.md) ##
 

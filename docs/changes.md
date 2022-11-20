@@ -2,6 +2,8 @@
 
 ## Changes in version neumodvb-1.0 ##
 
+### Most important changes ###
+
 * New database format: data related to local setup is now stored in anew database, called devdb.md
   Also, the definition of LNBs and frontends has changed to better support new features. As a result
   of the move, old LNB definitions will be lost and need to be reentered. The remaining database

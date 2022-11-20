@@ -716,7 +716,7 @@ template <typename _mux_t> int mpv_subscription_t::play_mux(const _mux_t& mux, b
 		this->close();
 	}
 	auto subscription_id = subscriber->subscribe_mux(mux, blindscan);
-	assert(subscription_id == (int) subscriber->get_subscription_id());
+	assert(subscription_id == (int) subscriber->get_subscription_id() || subscription_id<0);
 	return subscription_id;
 }
 

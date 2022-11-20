@@ -367,7 +367,8 @@ class NeumoTableBase(wx.grid.GridTableBase):
 
     def GetValue_text(self, rowno, colno):
         if rowno <0 or rowno > self.GetNumberRows():
-            dtdebug(f"ILLEGAL rowno: rowno={rowno} len={len(data)}")
+            dtdebug(f"ILLEGAL rowno: rowno={rowno} len={self.GetNumberRows()}")
+            return "???"
         rec = self.GetRow(rowno)
         if rec is None:
             return "???"

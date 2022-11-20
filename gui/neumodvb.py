@@ -566,6 +566,9 @@ class NeumoGui(wx.App):
             ret[f'{a.adapter_no}: {a.adapter_name}' ] = a.k.adapter_mac_address
         txn.abort()
         return ret
+    @property
+    def neumo_drivers_installed(self):
+        return self.receiver.get_api_type()[0] == "neumo"
 
     @property
     def devdb(self):

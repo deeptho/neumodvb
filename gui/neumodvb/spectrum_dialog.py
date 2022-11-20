@@ -215,9 +215,12 @@ class SpectrumDialog(SpectrumDialog_):
         obj = event.GetEventObject()
         isPressed = obj.GetValue()
         if not isPressed:
-            dtdebug("Ending blindscan")
+            dtdebug("Ending spectrum aquisition")
             self.EndBlindScan()
         else:
+            if not wx.GetApp().neumo_drivers_installed:
+                ShowMessage("Unsupported", "Spectrum not supported (neumo drivers not installed)")
+                return
             dtdebug("starting spectrum acquisition")
             self.spectrum_buttons_panel.get_range_and_pols()
             if (self.end_freq < self.start_freq):
@@ -260,6 +263,9 @@ class SpectrumDialog(SpectrumDialog_):
             dtdebug("Ending blindscan all")
             self.EndBlindScan()
         else:
+            if not wx.GetApp().neumo_drivers_installed:
+                ShowMessage("Unsupported", "Blindscan not supported (neumo drivers not installed)")
+                return
             dtdebug("starting blindscan all - parallel")
             self.blindscan_start = datetime.datetime.now(tz=tz.tzlocal())
             self.tps_to_scan = []

@@ -766,6 +766,18 @@ dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dv
 	return {fe, *best_lnb, best_use_counts};
 }
 
+std::tuple<std::string, int> adaptermgr_t::get_api_type() const {
+	const char* api_type="";
+	switch(this->api_type) {
+	case api_type_t::NEUMO:
+		api_type = "neumo";
+		break;
+	default:
+		api_type = "dvbapi";
+		break;
+	}
+	return { api_type, this->api_version};
+}
 
 
 

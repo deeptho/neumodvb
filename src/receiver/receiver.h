@@ -525,6 +525,7 @@ public:
 	class cb_t;
 
 	time_t scan_start_time() const;
+	std::tuple<std::string, int> get_api_type() const;
 };
 
 
@@ -704,4 +705,5 @@ public:
 		return receiver_thread.scan_start_time();
 	}
 
+	std::tuple<std::string, int> get_api_type() const;
 };

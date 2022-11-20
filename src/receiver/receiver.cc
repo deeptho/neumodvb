@@ -2095,6 +2095,15 @@ inline std::shared_ptr<active_adapter_t> receiver_thread_t::make_active_adapter(
 	return std::make_shared<active_adapter_t>(receiver, dvb_frontend);
 }
 
+std::tuple<std::string, int> receiver_thread_t::get_api_type() const {
+	return this->adaptermgr->get_api_type();
+}
+
+std::tuple<std::string, int> receiver_t::get_api_type() const {
+	return receiver_thread.get_api_type();
+}
+
+
 thread_local thread_group_t thread_group{thread_group_t::unknown};
 
 /*

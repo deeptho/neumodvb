@@ -338,6 +338,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.retune_mode = retune_mode
         self.pls_search_range = pyreceiver.pls_search_range_t() if pls_search_range is None else pls_search_range
         dtdebug(f'Tuning - {"BLIND" if self.use_blindscan else "REGULAR"} scan: {mux} pls_search_range={pls_search_range}')
+
+        if self.use_blindscan and not wx.GetApp().neumo_drivers_installed:
+            ShowMessage("Unsupported", "Blindscan not supported (neumo drivers not installed)")
+            return False
+
         ret = self.mux_subscriber.subscribe_lnb_and_mux(self.lnb, mux, self.use_blindscan,
                                                         self.pls_search_range,
                                                         self.retune_mode)

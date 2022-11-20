@@ -587,6 +587,6 @@ public:
 	int run();
 	int start();
 	int stop();
+	std::tuple<std::string, int> get_api_type() const;
 	static std::shared_ptr<adaptermgr_t> make(receiver_t& receiver);
-
 };

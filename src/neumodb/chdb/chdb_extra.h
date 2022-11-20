@@ -393,6 +393,7 @@ namespace chdb {
 
 	void clean_scan_status(db_txn& wtxn);
 	void clean_expired_services(db_txn& wtxn, std::chrono::seconds age);
+	void clean_chgms_without_services(db_txn& wtxn);
 };
 
 namespace chdb::dvbs_mux {

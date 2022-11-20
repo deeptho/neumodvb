@@ -1335,7 +1335,27 @@ void chdb::clean_scan_status(db_txn& wtxn)
 void chdb::clean_expired_services(db_txn& wtxn, std::chrono::seconds age)
 {
 	clean_expired<chdb::service_t>(wtxn, age, "services");
-	clean_expired<chdb::chgm_t>(wtxn, age, "services");
+	clean_expired<chdb::chgm_t>(wtxn, age, "channels");
+	clean_chgms_without_services(wtxn);
+}
+
+void chdb::clean_chgms_without_services(db_txn& wtxn)
+{
+	using namespace chdb;
+	int count{0};
+	dttime_init();
+	//auto age = std::chrono::duration_cast<std::chrono::seconds>(age.count);
+	auto c = find_first<chgm_t>(wtxn);
+	for(auto record: c.range())  {
+		auto& service_key =  record.service;
+		auto c1 = service_t::find_by_key(wtxn, service_key, find_type_t::find_eq);
+		if(!c1.is_valid()) {
+			delete_record(wtxn, record);
+			count++;
+		}
+	}
+	dttime(10);
+	dtdebugx("%d chgm records deleted\n", count);
 }
 
 /*

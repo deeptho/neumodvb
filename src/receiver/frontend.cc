@@ -781,6 +781,11 @@ fe_lock_status_t dvb_frontend_t::get_lock_status() {
 }
 
 void dvb_frontend_t::set_lock_status(fe_status_t fe_status) {
+	if(api_type == api_type_t::DVBAPI) {
+		if (fe_status & (FE_HAS_SIGNAL | FE_HAS_CARRIER | FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK))
+			fe_status = (fe_status_t) (fe_status | FE_HAS_TIMING_LOCK); //not present in dvbapi
+	}
+
 	bool locked_now = fe_status & FE_HAS_LOCK;
 	auto w = ts.writeAccess();
 

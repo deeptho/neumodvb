@@ -1499,17 +1499,10 @@ bool active_si_stream_t::update_mux(
 			tmp.extra_id = pdbk->extra_id; //at this stage extra_id may not yet have been copied
 			if (*pdbk != tmp) {
 				if(!is_reader_mux && pdbc->scan_status == chdb::scan_status_t::ACTIVE) {
-#if 0
-					dtdebug("changing key on active mux on other adapter; changing to IDLE; mux=" << mux);
-					pc->scan_status = chdb::scan_status_t::IDLE; /*make the mux idle to avoid dangling ACTIVE states
-																												 in case of races*/
-					pdbc->scan_status = pc->scan_status;
-#else
 					dtdebug("NOT changing key on active mux on other adapter; changing to IDLE; mux=" << mux);
 					pc->scan_status = chdb::scan_status_t::IDLE; /*make the mux idle to avoid dangling ACTIVE states
 																												 in case of races*/
 					return false;
-#endif
 				}
 
 				/* when detecting a key change we need to adjust services

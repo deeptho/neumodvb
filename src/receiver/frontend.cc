@@ -718,7 +718,7 @@ int dvb_frontend_t::stop() {
 	auto m = monitor_thread;
 	std::future<int> f;
 	if (m.get()) {
-		f = m->push_task( [&m] () {
+		f = m->push_task( [m] () {
 			cb(*m).pause();
 			return 0;
 		});

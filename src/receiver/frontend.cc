@@ -1307,7 +1307,7 @@ dvb_frontend_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const
 	int ret;
 	int new_usals_sat_pos{sat_pos_none};
 	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
-	if(api_version >=1500) {
+	if(api_type == api_type_t::NEUMO && api_version >=1500) {
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(lnb.k.rf_input));
 		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) lnb.k.rf_input))) {

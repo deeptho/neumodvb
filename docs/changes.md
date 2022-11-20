@@ -4,7 +4,7 @@
 
 ### Most important changes ###
 
-* New database format: data related to local setup is now stored in anew database, called devdb.md
+* New database format: data related to local setup is now stored in anew database, called devdb.mdb
   Also, the definition of LNBs and frontends has changed to better support new features. As a result
   of the move, old LNB definitions will be lost and need to be reentered. The remaining database
   now contain data that is independent of the local hardware setup and can therefore be shared

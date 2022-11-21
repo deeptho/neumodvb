@@ -90,8 +90,9 @@ namespace dtdemux {
 				throw bad_data_exception();
 		}
 
-		stored_section_t(const ss::bytebuffer<4096>& payload_, uint16_t pid) :
-			payload(payload_) {}
+		stored_section_t(const ss::bytebuffer<4096>& payload_, uint16_t pid_)
+			: pid(pid_)
+			, payload(payload_) {}
 
 		int available() const {
 			return payload.size() - bytes_read;

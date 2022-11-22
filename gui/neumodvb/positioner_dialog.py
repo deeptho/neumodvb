@@ -421,9 +421,9 @@ class TuneMuxPanel(TuneMuxPanel_):
         consolidated_mux = signal_info.consolidated_mux
         sat_pos_confirmed = signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
         nit_valid = consolidated_mux.c.tune_src == pychdb.tune_src_t.NIT_ACTUAL_TUNED
-
+        pol = neumodbutils.enum_to_str(consolidated_mux.pol)
         if self.signal_info.nit_received:
-            self.si_freq_text.SetLabel(f'{consolidated_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ') \
+            self.si_freq_text.SetLabel(f'{consolidated_mux.frequency/1e3:,.3f} MHz {pol}'.replace(',', ' ') \
                                     if nit_valid else 'INVALID')
             self.si_symbolrate_text.SetLabel(f'{consolidated_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
                                     if nit_valid else '')
@@ -659,7 +659,8 @@ class SignalPanel(SignalPanel_):
         self.Speak()
         locked = signal_info.has_lock
         driver_mux = signal_info.driver_mux
-        frequency_text = f'{driver_mux.frequency/1e3:,.3f} Mhz'.replace(',', ' ')
+        pol = neumodbutils.enum_to_str(driver_mux.pol)
+        frequency_text = f'{driver_mux.frequency/1e3:,.3f} MHz {pol}'.replace(',', ' ')
         symbolrate_text = f'{driver_mux.symbol_rate/1e3:.0f} kS/s'
         fec=lastdot(driver_mux.fec).replace(' ', '/') if locked else ''
         delsys=lastdot(driver_mux.delivery_system)

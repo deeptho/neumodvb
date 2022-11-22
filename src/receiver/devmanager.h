@@ -438,11 +438,14 @@ public:
 		this->ts.writeAccess()->dbfe = fe;
 	}
 	inline std::optional<signal_info_t> get_last_signal_info(bool wait) {
-		auto ret = ts.readAccess()->last_signal_info;
+		auto fn = [this] () {
+			return ts.readAccess()->last_signal_info;
+		};
+		auto ret = fn();
 		if (wait && !ret) {
 			std::unique_lock<std::mutex> lk(ts.mutex(), std::adopt_lock);
 			ts_cv.wait(lk, [&]() {
-				ret = ts.readAccess()->last_signal_info;
+				ret = fn();
 				return ret;
 			});
 		}

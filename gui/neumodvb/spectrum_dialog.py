@@ -344,7 +344,7 @@ class SpectrumDialog(SpectrumDialog_):
                 self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
                 m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)
                 title = "Blindscan spectrum finished"
-                msg = f"Scanned {data.scan_stats.finished_muxes} (Locked: {data.scan_stats.locked_muxes}; " \
+                msg = f"Scanned: {data.scan_stats.finished_muxes} (Locked: {data.scan_stats.locked_muxes}; " \
                     f"DVB: {data.scan_stats.si_muxes}; Failed: {data.scan_stats.failed_muxes}) muxes in {m}min {s}s"
                 dtdebug(msg)
                 ShowMessage(title, msg)

@@ -76,7 +76,7 @@ namespace dtdemux {
 
 	struct stored_section_t {
 		uint16_t pid{0x1fff};
-		const ss::bytebuffer<4096>& payload; //4096 = maximum size of any section
+		const ss::bytebuffer_& payload;
 		int bytes_read{0};
 		bool error{false};
 		bool throw_on_error{false};
@@ -90,7 +90,7 @@ namespace dtdemux {
 				throw bad_data_exception();
 		}
 
-		stored_section_t(const ss::bytebuffer<4096>& payload_, uint16_t pid_)
+		stored_section_t(const ss::bytebuffer_& payload_, uint16_t pid_)
 			: pid(pid_)
 			, payload(payload_) {}
 

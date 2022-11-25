@@ -54,7 +54,6 @@ struct ss::header_t {
 		//if extended_inline_= 0 and allocated_=0
 		void* allocated_buffer_ = 0;
 	allocated_sub_header_t() = delete;
-
 	};
 
 
@@ -68,7 +67,6 @@ struct ss::header_t {
 		view_sub_header_t(int capacity_)
 		: capacity_(capacity_)
 		{}
-
 
 
 	};
@@ -117,7 +115,9 @@ struct ss::header_t {
 	public:
 
 	inline void set_size (int size) {
+#if 0
 		assert(size <= ei.capacity_);
+#endif
 		ei.size_ = size;
 	}
 
@@ -184,7 +184,9 @@ struct ss::header_t {
 	}
 
 	inline void set_size (int size) {
+#if 0
 		assert((!allocated_buffer() && size ==0) || size <= get_capacity());
+#endif
 		a.size_ = size;
 	}
 
@@ -202,7 +204,9 @@ struct ss::header_t {
 
 	public:
 	inline void set_size (int size) {
+#if 0
 		assert(size <= v.capacity_);
+#endif
 		v.size_ = size;
 	}
 
@@ -293,16 +297,22 @@ struct ss::header_t {
 		and memory for allocated objects
 	*/
 	data_with_capacity<1>* allocated_buffer() const {
+#if 0
 		assert(h.inited);
+#endif
 		if(h.allocated_) {
+#if 0
 			assert(!h.view_);
+#endif
 			return ((allocated_layout*)this)->allocated_buffer();
 		}
 		return nullptr;
 	};
 
 	inline const T* buffer() const {
+#if 0
 		assert(h.inited);
+#endif
 		if(h.allocated_)
 			return &allocated_buffer()->data()[0];
 		else if (h.view_) {
@@ -320,18 +330,24 @@ struct ss::header_t {
 
 
 	data_with_capacity<1>* steal_allocated_buffer() {
+#if 0
 		assert(h.inited);
 		assert(h.allocated_);
+#endif
 		auto ret = allocated_buffer();
 		h.allocated_ = false;
+#if 0
 		assert(!h.view_);
+#endif
 		((allocated_layout*)this)->set_allocated_buffer(nullptr);
 		h.allocated_=false;
 		return ret;
 	}
 
 	void set_size(int size) {
+#if 0
 		assert(h.inited);
+#endif
 		if(h.allocated_)
 			((allocated_layout*)this)->set_size(size);
 		else if(h.view_)
@@ -339,13 +355,17 @@ struct ss::header_t {
 		else if(h.extended_inline_) {
 			((extended_inline_layout<1>*)this)->set_size(size);
 		} else {
+#if 0
 			assert(size <= (int) inline_capacity());
+#endif
 			h.size_ = size;
 		}
 	}
 
 	inline int size() const {
+#if 0
 		assert(h.inited);
+#endif
 		if(h.allocated_)
 			return ((allocated_layout*)this)->get_size();
 		else if(h.view_)
@@ -358,7 +378,9 @@ struct ss::header_t {
 
 
 	inline int capacity() const {
+#if 0
 		assert(h.inited);
+#endif
 		if(h.view_)
 			return ((view_layout*)this)->get_capacity();
 		else if(h.allocated_)
@@ -371,8 +393,10 @@ struct ss::header_t {
 
 
 	void set_inline_buffer() {
+#if 0
 		assert(h.inited);
 		assert(!h.view_);
+#endif
 		h.allocated_ = false;
 		h.size_ = 0; //DANGEROUS
 		if(h.extended_inline_) {
@@ -381,9 +405,13 @@ struct ss::header_t {
 	}
 
 	void set_external_buffer(data_with_capacity<1>* ext_buffer) {
+#if 0
 		assert(h.inited);
+#endif
 		h.allocated_ = true;
+#if 0
 		assert(!h.view_);
+#endif
 		auto* pa = (allocated_layout*)this;
 		pa->set_allocated_buffer(ext_buffer);
 		set_size(0);
@@ -391,9 +419,13 @@ struct ss::header_t {
 
 
 	void set_view_buffer(T* view, int view_size) {
+#if 0
 		assert(h.inited);
+#endif
 		h.allocated_ = false;
+#if 0
 		assert(h.view_);
+#endif
 		h.size_ = 0; //DANGEROUS
 		auto* pa = (view_layout*)this;
 		pa->set_buffer(view, view_size);

@@ -1,11 +1,12 @@
 /*
  * freesat_huffman.c
- *
  * Decode a Freesat huffman encoded buffer.
  * Once decoded the buffer can be used like a "standard" DVB buffer.
  *
  * Code originally authored for tv_grab_dvb_plus and subsequently modified
  * to integrate into tvheadend by Adam Sutton <dev@adamsutton.me.uk>
+ *
+ * Code speed improved by deeptho@gmail.com
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +28,67 @@
 #include "ssaccu.h"
 #include <vector>
 
-static std::vector<huff_entry_t>  sky_uk_entries{{
+struct huff_data_t {
+	std::vector<huff_entry_t> entries;
+	uint16_t boundsx[256]{{}};
+
+	huff_data_t(std::initializer_list<huff_entry_t> entries_)
+		: entries(entries_) {
+		int16_t j{0};
+		int last_idx{-1};
+		for (const auto& e: entries) {
+			int idx = (e.code >> 24);
+			for(int k= last_idx+1; k < idx; ++k) {
+				boundsx[k] = boundsx[last_idx];
+			}
+			if(boundsx[idx]==0)
+				boundsx[idx]  = j;
+			last_idx = idx;
+			++j;
+		}
+
+		for(int j= last_idx+1; j < 256; ++j) {
+			boundsx[j] = boundsx[last_idx];
+		}
+		entries.push_back({0xffffffff, 0, 0, 0x0}); //avoids the need for some bounds checking
+
+	}
+
+	inline const huff_entry_t& decode_piece(uint32_t code, opentv_table_type_t t) const;
+
+};
+
+
+inline const huff_entry_t& huff_data_t::decode_piece(uint32_t code, opentv_table_type_t t) const {
+	static huff_entry_t invalid{0x00000000, 0, 0, ""};
+	int idx = code >> 24;
+	auto first = boundsx[idx];
+	//assert(first+1 < entries.size());
+	auto& firste = entries[first];
+	auto& laste = entries[first+1];
+	bool multiple_matches = !((firste.code ^ laste.code) & 0xff000000);
+	if(! multiple_matches) [[likely]] {
+		return firste;
+	}
+	auto last = (idx <255)  ? boundsx[idx+1] : entries.size();
+
+	huff_entry_t tofind(code, 32, 0, nullptr);
+
+	auto found = lower_bound(entries.begin()+first, entries.begin()+last, tofind);
+	//assert(found -entries.begin() >0);
+	found--; //entry now points at prefix element, or current entry is incorrect
+	auto &e = *found;
+	unsigned int mask=std::numeric_limits<uint32_t>::max();
+	mask >>= e.numbits;
+	mask = ~mask;
+	auto ret = (code&mask) == (e.code&mask);
+	if(!ret)
+		return invalid;
+	return *found;
+}
+
+
+static huff_data_t sky_uk_data{
 		{0x00000000, 4, 1, "s"},
 		{0x10000000, 7, 0, ""},
 		{0x12000000, 7, 1, "S"},
@@ -540,9 +601,9 @@ static std::vector<huff_entry_t>  sky_uk_entries{{
 		{0xec000000, 7, 1, "."},
 		{0xee000000, 7, 1, " "},
 		{0xf0000000, 4, 1, "e"}
-	}};
+};
 
-static std::vector<huff_entry_t> sky_it_entries{{
+static huff_data_t sky_it_data{
 		{0x00000000, 5, 1, "s"},
 		{0x08000000, 7, 1, "'"},
 		{0x0a000000, 8, 1, "A"},
@@ -1052,11 +1113,10 @@ static std::vector<huff_entry_t> sky_it_entries{{
 		{0xf7900000, 12, 10, "Drammatico"},
 		{0xf7a00000, 11, 2, "Un"},
 		{0xf7c00000, 10, 1, "I"},
-		{0xf8000000, 5, 1, "a"},
+		{0xf8000000, 5, 1, "a"}
+};
 
-	}};
-
-static std::vector<huff_entry_t> sky_nz_entries{{
+static huff_data_t sky_nz_data{
 		{0x00000000, 6, 1, "s"},
 		{0x10000000, 9, 0, ""},
 		{0x12000000, 9, 1, "S"},
@@ -1480,73 +1540,71 @@ static std::vector<huff_entry_t> sky_nz_entries{{
 		{0xeb800000, 11, 1, "N"},
 		{0xec000000, 9, 1, "."},
 		{0xee000000, 9, 0, ""},
-		{0xf0000000, 6, 1, "e"},
-	}};
+		{0xf0000000, 6, 1, "e"}
+};
 
-static inline auto& get_entries(opentv_table_type_t t) {
+
+
+static inline auto& get_table(opentv_table_type_t t) {
 	switch (t) {
 	default:
 	case opentv_table_type_t::SKY_UK:
-		return sky_uk_entries;
+		return sky_uk_data;
 	case opentv_table_type_t::SKY_IT:
-		return sky_it_entries;
-
+		return sky_it_data;
 	case opentv_table_type_t::SKY_NZ:
-		return sky_nz_entries;
+		return sky_nz_data;
 	}
 }
 
-static inline const huff_entry_t decode_piece(uint32_t code, opentv_table_type_t t) {
-	auto& entries = get_entries(t);
-	huff_entry_t tofind(code, 32, 0, nullptr);
-	auto a = entries.begin();
-	auto b = entries.end();
-
-	auto found = lower_bound(entries.begin(), entries.end(), tofind);
-	if (found == entries.end())
-		return huff_entry_t();
-	return *found;
-}
 
 bool opentv_decode_string(ss::string_& ret, unsigned char* data, unsigned int n, opentv_table_type_t t) {
+
+	auto& table = get_table(t);
+
 	unsigned char* p = data; // current input byte
 	int pbits = 8;					 // number of bits still present in p[0]
 	unsigned char* pend = p + n;
 	unsigned int code = 0;
-	int codebits = 0; // number of bits still to be processed in code
+	int next_codebit = 32; // number of bits still to be processed in code
 	unsigned int val = (*p++);
 	val <<= 2;
 	val &= 0xff;
 	pbits -= 2;
-	while (codebits > 0 || pbits > 0) {
+	while (next_codebit < 32 || pbits > 0) {
 		// fill code completely with 32 bits of data,
 		// except at the very end
-		while (codebits < 32 && pbits > 0) {
+		while (next_codebit > 0) {
 			// maximum number of bits that can be added to code
-			int numbits = std::min(pbits, 32 - codebits);
-			int shift = 32 - codebits - 8;
+			int numbits = std::min(pbits, next_codebit);
+			int shift = next_codebit - 8;
 			if (shift >= 0)
 				code |= (val << shift);
 			else
 				code |= (val >> (-shift));
 			pbits -= numbits;
-			val <<= numbits;
-			val &= 0xff;
-			codebits += numbits;
-			if (pbits == 0 && p < pend) {
+			next_codebit -= numbits;
+			if (pbits > 0 ) {
+				val <<= numbits;
+				val &= 0xff;
+			} else if (p < pend) {
 				val = *p++;
 				pbits = 8;
+			} else {
+				break;
 			}
 		}
 
-		auto res = decode_piece(code, t);
+		auto& res = table.decode_piece(code, t);
 		if (!res.numbits)
 			return false; // something is wrong because we don't make progress
-		if (res.numbits > codebits)
+		if (res.numbits > 32- next_codebit)
 			break;
-		ret << res.data;
+
+		ret.append(res.data, res.data_len+1);
+
 		code <<= res.numbits;
-		codebits -= res.numbits;
+		next_codebit += res.numbits;
 	}
 	return true;
 }

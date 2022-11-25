@@ -702,6 +702,14 @@ namespace ss {
 			int s = parent::size();
 			return s > 1 ? s - 1 : 0;
 		}
+
+		//append zero terminated string of length len (not including zero terminator)
+		inline void append(const char* data, int len) {
+			int s = parent::size();
+			if(s > 0)
+				set_size(s-1); //remove training 0x0
+			append_raw(data, len);
+		}
 		void append_tolower(const string_& in);
 
 		static string_ view(char* v, int v_cap, int v_len) {

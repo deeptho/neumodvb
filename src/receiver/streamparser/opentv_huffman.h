@@ -40,13 +40,8 @@ public:
 	constexpr huff_entry_t(uint32_t code, uint8_t numbits, uint8_t data_len, const char* data) :
 		code(code), numbits(numbits), data_len(data_len), data(data) {}
 
-
-	bool operator<(const huff_entry_t&other) const {
-		unsigned int mask=std::numeric_limits<uint32_t>::max();
-		mask >>= std::min(numbits,other.numbits);
-		mask = ~mask;
-		return (code&mask) < (other.code&mask);
+	inline bool operator<(const huff_entry_t&other) const {
+		return code < other.code;
 	}
-
 
 };

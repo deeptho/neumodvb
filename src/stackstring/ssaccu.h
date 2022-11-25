@@ -35,13 +35,14 @@ namespace ss {
 		accu_t(ss::accu_t& other) : std::basic_ostream<char>(std::move(other)), s(other.s) {
 		}
 
+		~accu_t() {
+		}
 
-		int overflow(int c) {
+		inline int overflow(int c) {
 			s.push_back(c);
 			return 0;
 		}
 	};
-
 
 	template<typename T>
 	inline accu_t string_::operator<<(const T& x) {
@@ -49,7 +50,5 @@ namespace ss {
 		a << x;
 		return a;
 	}
-
-
 
 };

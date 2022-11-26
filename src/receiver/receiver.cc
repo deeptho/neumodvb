@@ -1514,7 +1514,7 @@ receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t s
 
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
-	tune_options.scan_target = scan_target_t::SCAN_FULL;
+	tune_options.scan_target = scan_target_t::SCAN_FULL_AND_EPG;
 	tune_options.use_blind_tune = blindscan;
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{subscription_id_};

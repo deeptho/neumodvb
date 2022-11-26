@@ -371,7 +371,7 @@ void active_si_stream_t::process_si_data() {
 	bool must_abort = false;
 	for (int i = 0; i < 5; ++i) {
 		if (steady_clock_t::now() - start > 500ms) {
-			dtdebug("SKIPPING EARLY\n");
+			dtdebugx("SKIPPING EARLY i=%d\n", i);
 			break;
 		}
 
@@ -1960,6 +1960,8 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 	} else
 		scan_state.set_active(cidx);
 
+	dttime_init();
+
 	auto stream_mux = reader->stream_mux();
 	auto stream_mux_key = mux_key_ptr(stream_mux);
 
@@ -1972,11 +1974,13 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		auto* service_key = bat_data.lookup_opentv_channel(epg.channel_id);
 		if (!service_key) {
 			bool done = bat_done();
+#if 0
 			dtdebugx("Cannot enter %s records, because channel with channel_id_id=%d has not been found in BAT%s",
 							 epg.is_sky		 ? "SKYUK_EPG"
 							 : epg.is_mhw2 ? "MHW2_EPG"
 							 : "",
 							 epg.channel_id, (done ? " (not retrying)" : " (retrying)"));
+#endif
 			return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 		}
 		epg.epg_service.sat_pos = service_key->mux.sat_pos;
@@ -2064,7 +2068,9 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		} else
 			existing_records++;
 	}
+	dttime(2000);
 	txn.commit();
+	dttime(2000);
 	return dtdemux::reset_type_t::NO_RESET;
 }
 
@@ -2261,6 +2267,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 }
 
 dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouquet, const subtable_info_t& info) {
+	dttime_init();
 	if(!is_embedded_si && !pat_data.stable_pat())
 		return dtdemux::reset_type_t::RESET;
 	auto cidx = scan_state_t::BAT;
@@ -2289,6 +2296,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	auto c = chdb::chg_t::find_by_key(
 		txn, chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id, stream_mux_key->sat_pos), find_eq);
 	bool chg_changed = true;
+	dttime(1000);
 	if (c.is_valid()) {
 		auto tmp = c.current();
 		chg_changed = (chg.name != tmp.name);
@@ -2397,8 +2405,9 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		chg.mtime = system_clock_t::to_time_t(now);
 		put_record(txn, chg);
 	}
-
+	dttime(1000);
 	txn.commit();
+	dttime(1000);
 	//@todo: can we check for completion?
 	return dtdemux::reset_type_t::NO_RESET;
 }

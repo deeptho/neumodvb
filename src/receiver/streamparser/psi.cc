@@ -37,6 +37,7 @@
 #include <iomanip>
 #include <iostream>
 
+
 using namespace dtdemux;
 using namespace dtypes;
 
@@ -460,9 +461,9 @@ void nit_parser_t::parse_payload_unit() {
 }
 
 void sdt_bat_parser_t::parse_payload_unit() {
+	dttime_init();
 	parse_payload_unit_init();
 	RETURN_ON_ERROR;
-
 	auto& hdr = *header();
 
 	bool is_sdt = (hdr.table_id == 0x42 || hdr.table_id == 0x46);
@@ -536,6 +537,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 }
 
 void eit_parser_t::parse_payload_unit() {
+	dttime_init();
 	parse_payload_unit_init();
 	RETURN_ON_ERROR;
 

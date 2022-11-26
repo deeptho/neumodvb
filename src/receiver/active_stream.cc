@@ -232,7 +232,7 @@ void active_stream_t::remove_pid(uint16_t pid)
 				if(reader->remove_pid(pid)<0) {
 					dterror("DMX_REMOVE_PID " << pid << " FAILED: " << strerror(errno));
 				} else
-					dterror("DMX_REMOVE_PID " << pid );
+					dtdebug("DMX_REMOVE_PID " << pid );
 				int idx  = &x - &open_pids[0];
 				open_pids.erase(open_pids.begin() + idx);
 			}

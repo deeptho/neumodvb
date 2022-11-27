@@ -105,6 +105,7 @@ int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags) {
 	return 1;
 }
 
+//[[clang::optnone]]
 int stats_db(neumodb_t& db) {
 	std::map<int,int> key_sizes;
 	std::map<int,int> val_sizes;
@@ -115,13 +116,18 @@ int stats_db(neumodb_t& db) {
 	std::map<int,std::string> record_names;
 	std::map<int,std::string> index_names;
 
-	for(int for_index=0; for_index<2; ++for_index) {
+	for(int for_index=0; for_index<2; for_index++) {
 		// using namespace schema;
 		auto from_txn = db.rtxn();
 		auto from_cursor = for_index ?
 			db.generic_get_first(from_txn, db.dbi_index):
 			db.generic_get_first(from_txn);
-
+		printf("------------\n");
+		if(for_index) {
+			printf("INDEX records\n");
+		} else  {
+			printf("DATA records\n");
+		}
 		/*Check if both databases are related; this does NOT compare if the stored
 			schemas match, but rather that the programmer does not try to convert
 			unrelated databases; the test is a partial test (checks pointers)
@@ -178,6 +184,7 @@ int stats_db(neumodb_t& db) {
 			}
 
 		}
+		printf("------------\n\n");
 
 	}
 	return 1;

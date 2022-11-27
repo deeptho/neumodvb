@@ -275,9 +275,8 @@ namespace dtdemux {
 		for(;;) {
 			auto* p= static_cast<implementation_t*>(this)->read_packet();
 			assert(!p || p->range.available() ==  p->range.tst);
-
 			if(!p)
-				return; //temporary end of stream
+				break; //temporary end of stream
 			assert(!p || p->range.available() == p->range.tst);
 			int packet_pid = p->get_pid();
 			assert(!p || p->range.available() == p->range.tst);
@@ -289,7 +288,7 @@ namespace dtdemux {
 				p = call_fiber(fn, p);
 				//dump_fibers("after", packet_pid);
 				if(!p)
-					return;
+					break;
 				else {
 					//printf("skipping pid=%d seq=%d\n", p[0], p[1]);
 				}

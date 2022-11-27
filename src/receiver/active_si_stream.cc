@@ -129,7 +129,8 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 	auto stream_mux = reader->stream_mux();
 	mux_key->t2mi_pid = reader->embedded_stream_pid();
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 	if(is_active_mux)
 		*mux_common = *mux_common_ptr(stream_mux); //copy scan_id and such
@@ -1457,7 +1458,8 @@ bool active_si_stream_t::update_mux(
 	auto reader_mux = reader->stream_mux();
 
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 
 	bool is_wrong_dvb_type = dvb_type(mux) != dvb_type(reader_mux);
@@ -1477,7 +1479,8 @@ bool active_si_stream_t::update_mux(
 	if(is_reader_mux && ! is_embedded_si) {
 		//fixes things like modulation in case nit provides incorrect data
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 					 chdb::mux_common_ptr(mux)->scan_id >0);
 		dttime_init();
 		update_reader_mux_parameters_from_frontend(mux); /*correct some obviously bad data in a mux, based on what driver reports
@@ -1486,7 +1489,8 @@ bool active_si_stream_t::update_mux(
 																										 */
 		dttime(200);
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 					 chdb::mux_common_ptr(mux)->scan_id >0);
 
 	}
@@ -1533,6 +1537,7 @@ bool active_si_stream_t::update_mux(
 				|| (pdbc && (
 							pdbc->scan_status == chdb::scan_status_t::ACTIVE //the mux is being scanned
 							|| pdbc->scan_status == chdb::scan_status_t::PENDING //scanning already planned
+							|| pdbc->scan_status == chdb::scan_status_t::RETRY //scanning already planned
 							))
 			)
 			return true; //update the mux,
@@ -1551,14 +1556,16 @@ bool active_si_stream_t::update_mux(
 				pdbc->scan_id = scan_id;
 			}
 			assert((pc->scan_status != chdb::scan_status_t::ACTIVE &&
-							pc->scan_status != chdb::scan_status_t::PENDING) ||
+							pc->scan_status != chdb::scan_status_t::PENDING &&
+							pc->scan_status != chdb::scan_status_t::RETRY) ||
 						 pc->scan_id >0);
 		}
 
 		return true;
 	};
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 	/*
 		The following will first attempt to find a mux in the database with
@@ -2470,7 +2477,8 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 		auto& si_mux = mux;
 
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 					 chdb::mux_common_ptr(mux)->scan_id >0);
 
 		visit_variant(signal_info.driver_mux,
@@ -2524,7 +2532,8 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 				mux_common_ptr(mux)->tune_src == chdb::tune_src_t::DRIVER)
 
 			assert((chdb::mux_common_ptr(signal_info.driver_mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-							chdb::mux_common_ptr(signal_info.driver_mux)->scan_status != chdb::scan_status_t::PENDING) ||
+							chdb::mux_common_ptr(signal_info.driver_mux)->scan_status != chdb::scan_status_t::PENDING &&
+							chdb::mux_common_ptr(signal_info.driver_mux)->scan_status != chdb::scan_status_t::RETRY) ||
 						 chdb::mux_common_ptr(signal_info.driver_mux)->scan_id >0);
 
 		mux = signal_info.driver_mux;

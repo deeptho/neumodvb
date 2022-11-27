@@ -991,7 +991,8 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 
 void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 
 	auto w = this->ts.writeAccess();
@@ -1565,7 +1566,8 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::lnb_t& lnb) {
 int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
 	// auto reservation_type = dvb_adapter_t::reservation_type_t::mux;
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 
 	int ret = 0;

@@ -339,8 +339,17 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 	case  scan_result_t::NODATA:
 		failed = false;
 		break;
-	case chdb::scan_result_t::TEMPFAIL:
+	case chdb::scan_result_t::TEMPFAIL: {
+		/*
+			This currently happens on tbs6909x if the LLR budget has been exceeded.
+			As a heuristic we will rescan only if the number of subscriptions drops by 1,
+			including the rescanned mux.
+			Such muxes will have the scan status RETRY
+		*/
+		auto temp = std::max((int)subscriptions.size() -1, 0);
+		max_num_subscriptions_for_retry = std::min(temp, max_num_subscriptions_for_retry);
 		return true;
+	}
 		break;
 	default:
 		break;
@@ -458,69 +467,81 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 		}
 	}
 
-	subscription_id_t subscription_id{-1};
-	/*
-		Now scan any si muxes. If such scans match our scan_id then they must have been added
-		for some peak we failed to discover
-	 */
-	auto c = mux_t::find_by_scan_status(chdb_rtxn, scan_status_t::PENDING, find_type_t::find_geq,
-																			mux_t::partial_keys_t::scan_status);
-	for(auto mux_to_scan: c.range()) {
-
-		assert(mux_to_scan.c.scan_status == scan_status_t::PENDING);
-		if(mux_to_scan.c.scan_id != scan_id)
-			continue;
-
-		if ((int)subscriptions.size() >=
-				((int)reuseable_subscription_id < 0 ? scanner.max_num_subscriptions : scanner.max_num_subscriptions + 1)) {
-			num_pending_muxes++;
-			continue; // to have accurate num_pending count
-		}
-
-		bool& skip_mux = skip_helper(skip_map, mux_to_scan);
-		if(skip_mux) {
-			num_skipped_muxes++;
-			num_pending_muxes++;
-			continue;
-		}
-		subscription.mux = mux_to_scan;
-
-		if(receiver_thread.must_exit())
-			throw std::runtime_error("Exit requested");
-
-		auto pol = get_member(mux_to_scan, pol, chdb::fe_polarisation_t::NONE);
-		blindscan_key_t key = {mux_to_scan.k.sat_pos, pol, mux_to_scan.frequency};
-		auto [it, found] = find_in_map(blindscans, key);
-		devdb::lnb_key_t* required_lnb_key{nullptr};
-		if(found) {
-			auto& blindscan = it->second;
-			required_lnb_key = blindscan.valid()
-				? &blindscan.spectrum_key.lnb_key : nullptr;
-		}
-		if(mux_is_being_scanned(mux_to_scan)) {
-			dtdebug("Skipping mux already in progress: " << mux_to_scan);
+	for(int pass=0; pass < 2; ++pass) {
+		/*
+			Now scan any si muxes. If such scans match our scan_id then they must have been added
+			for some peak we failed to discover
+		*/
+		if(pass == 0 && (int)subscriptions.size() >=
+			 max_num_subscriptions_for_retry - (((int)reuseable_subscription_id >=0) ? 1 : 0)) {
+			/*heuristic: require at least 2 demods free before retrying a temp fail
+			 */
 			continue;
 		}
 
-		subscription_id_t subscription_id;
-		const bool use_blind_tune = false;
-		std::tie(subscription_id, reuseable_subscription_id) =
-			scan_try_mux(reuseable_subscription_id, subscription, required_lnb_key, use_blind_tune);
+		auto c = mux_t::find_by_scan_status(chdb_rtxn, pass ==0
+																				? scan_status_t::RETRY :
+																				scan_status_t::PENDING, find_type_t::find_geq,
+																				mux_t::partial_keys_t::scan_status);
+		for(auto mux_to_scan: c.range()) {
 
-		if ((int)subscription_id < 0) {
-			// we cannot subscribe the mux right now
-			if(subscription_id == subscription_id_t::RESERVATION_FAILED) {
+			assert(mux_to_scan.c.scan_status == scan_status_t::PENDING ||
+						 mux_to_scan.c.scan_status == scan_status_t::RETRY);
+			if( mux_to_scan.c.scan_status == scan_status_t::RETRY)
+				printf("here\n");
+			if(mux_to_scan.c.scan_id != scan_id)
+				continue;
+
+			if ((int)subscriptions.size() >=
+					((int)reuseable_subscription_id < 0 ? scanner.max_num_subscriptions : scanner.max_num_subscriptions + 1)) {
 				num_pending_muxes++;
-				skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
-			} else {
-        //it is not possible to tune, probably because symbol_rate is out range
+				continue; // to have accurate num_pending count
 			}
-			continue;
-		}
 
+			bool& skip_mux = skip_helper(skip_map, mux_to_scan);
+			if(skip_mux) {
+				num_skipped_muxes++;
+				num_pending_muxes++;
+				continue;
+			}
+			subscription.mux = mux_to_scan;
+
+			if(receiver_thread.must_exit())
+				throw std::runtime_error("Exit requested");
+
+			auto pol = get_member(mux_to_scan, pol, chdb::fe_polarisation_t::NONE);
+			blindscan_key_t key = {mux_to_scan.k.sat_pos, pol, mux_to_scan.frequency};
+			auto [it, found] = find_in_map(blindscans, key);
+			devdb::lnb_key_t* required_lnb_key{nullptr};
+			if(found) {
+				auto& blindscan = it->second;
+				required_lnb_key = blindscan.valid()
+					? &blindscan.spectrum_key.lnb_key : nullptr;
+			}
+			if(mux_is_being_scanned(mux_to_scan)) {
+				dtdebug("Skipping mux already in progress: " << mux_to_scan);
+				continue;
+			}
+
+			subscription_id_t subscription_id;
+			const bool use_blind_tune = false;
+			std::tie(subscription_id, reuseable_subscription_id) =
+				scan_try_mux(reuseable_subscription_id, subscription, required_lnb_key, use_blind_tune);
+
+			if ((int)subscription_id < 0) {
+				// we cannot subscribe the mux right now
+				if(subscription_id == subscription_id_t::RESERVATION_FAILED) {
+					num_pending_muxes++;
+					skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
+				} else {
+					//it is not possible to tune, probably because symbol_rate is out range
+				}
+				continue;
+			}
+		}
 	}
 	if ((int)reuseable_subscription_id >= 0) {
-		assert (reuseable_subscription_id == subscription_id || (int)subscription_id < 0);
+		subscription_id_t subscription_id{-1};
 		//we have not reused reuseable_subscription_id so this subscription must be ended
 		dtdebugx("Abandoning subscription %d", (int) reuseable_subscription_id);
 		auto wtxn = receiver.devdb.wtxn();
@@ -642,7 +663,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		for(auto finished_subscription_id: finished_subscription_ids) {
 			auto [it, found] = find_in_map(this->subscriptions, finished_subscription_id);
 			if(!found) {
-				dtdebugx("Skipping unknows subscription_id=%d", (int)finished_subscription_id);
+				dtdebugx("Skipping unknown subscription_id=%d", (int)finished_subscription_id);
 				continue;
 			}
 			scan_subscription_t subscription {it->second}; //need to copy
@@ -783,16 +804,6 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		auto wtxn = receiver.devdb.wtxn();
 		tune_options.use_blind_tune = use_blind_tune;
 		assert(mux_common_ptr(mux)->scan_id!=0);
-#if 0
-		{
-			int frequency;
-			frequency= get_member(mux, frequency, -1);
-			if (std::abs(frequency - (int)10886750) < 1000) {
-				assert(chdb::mux_common_ptr(mux)->scan_id !=0);
-				printf("here\n");
-			}
-		}
-#endif
 		std::tie(subscription_id, subscribed_fe_key) =
 			receiver_thread.subscribe_mux(futures, wtxn, mux, reuseable_subscription_id, tune_options,
 																		required_lnb_key);
@@ -880,19 +891,23 @@ scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 template<typename mux_t> static void clean(db_txn& wtxn)
 {
 	using namespace chdb;
-	int count{0};
-	auto c = mux_t::find_by_scan_status(wtxn, scan_status_t::PENDING, find_type_t::find_geq,
-																			mux_t::partial_keys_t::scan_status);
+	auto fn = [&](auto scan_status, const char* msg) {
+		int count{0};
+		auto c = mux_t::find_by_scan_status(wtxn, scan_status, find_type_t::find_geq,
+																				mux_t::partial_keys_t::scan_status);
 
-	for(auto mux: c.range())  {
-		assert (mux.c.scan_status == chdb::scan_status_t::PENDING);
-		dtdebug("SET IDLE " << mux);
-		mux.c.scan_status = chdb::scan_status_t::IDLE;
-		put_record(wtxn, mux);
-		count++;
-	}
-	dtdebugx("Cleaned %d muxes with PENDING status", count);
-	//assert(count==0); //should not occur, except at startup but clean_dbs should take care of that
+		for(auto mux: c.range())  {
+			assert (mux.c.scan_status == scan_status);
+			dtdebug("SET IDLE " << mux);
+			mux.c.scan_status = chdb::scan_status_t::IDLE;
+			put_record(wtxn, mux);
+			count++;
+		}
+		dtdebugx("Cleaned %d muxes with %s status", count, msg);
+	};
+
+	fn(scan_status_t::PENDING, "PENDING");
+	fn(scan_status_t::RETRY, "RETRY");
 }
 
 void scanner_t::init()

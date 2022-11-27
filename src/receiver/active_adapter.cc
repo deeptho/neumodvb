@@ -512,7 +512,8 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 	namespace m = chdb::update_mux_preserve_t;
 	auto* muxc = mux_common_ptr(mux);
 	bool must_activate{false};
-	if(muxc->scan_status == scan_status_t::PENDING || muxc->scan_status == scan_status_t::ACTIVE)  {
+	if(muxc->scan_status == scan_status_t::PENDING ||
+		 muxc->scan_status == scan_status_t::RETRY || muxc->scan_status == scan_status_t::ACTIVE)  {
 		dtdebug("SET ACTIVE " << mux);
 		muxc->scan_status = scan_status_t::ACTIVE;
 		assert (muxc->scan_id > 0);
@@ -665,7 +666,7 @@ void active_adapter_t::check_scan_mux_end()
 				check_for_non_existing_streams();
 			}
 			if(c->scan_status != chdb::scan_status_t::IDLE) {
-				c->scan_status = chdb::scan_status_t::IDLE;
+				c->scan_status = chdb::scan_status_t::RETRY;
 				c->scan_result = (tune_state == tune_state_t::TUNE_FAILED_TEMP)
 					? chdb::scan_result_t::TEMPFAIL:
 					(tune_state == tune_state_t::TUNE_FAILED)
@@ -758,6 +759,7 @@ void active_adapter_t::check_for_new_streams()
 				if(c->tune_src == tune_src_t::AUTO)
 					c->tune_src = tune_src_t::DRIVER;
 				if(pdbc && (pdbc->scan_status == scan_status_t::PENDING ||
+										pdbc->scan_status == scan_status_t::RETRY ||
 										pdbc->scan_status == scan_status_t::NONE ||
 										(pdbc->scan_status != scan_status_t::ACTIVE &&
 										 c->scan_result != chdb::scan_result_t::NOTS))

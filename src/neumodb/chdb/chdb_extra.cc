@@ -37,7 +37,6 @@ const char* chdb::lang_name(const chdb::language_code_t& code) {
 	return ::lang_name(code.lang1, code.lang2, code.lang3);
 }
 
-
 const mux_key_t* chdb::mux_key_ptr(const chdb::any_mux_t& key) {
 	{
 		auto* p = std::get_if<chdb::dvbs_mux_t>(&key);
@@ -726,7 +725,10 @@ inline static const char* scan_status_name(const chdb::scan_status_t& scan_statu
 		return "ACTIVE";
 	case scan_status_t::NONE:
 		return "NONE";
+	case scan_status_t::RETRY:
+		return "RETRY";
 	}
+	return "??";
 }
 
 inline static const char* scan_result_name(const chdb::scan_result_t& scan_result) {

@@ -281,6 +281,7 @@ class scan_t {
 	subscription_id_t monitored_subscription_id{-1};
 	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
 	chdb::any_mux_t last_subscribed_mux;
+	int max_num_subscriptions_for_retry{std::numeric_limits<int>::max()}; //maximum number of subscriptions that have been in use
 
 	//TODO important: no fe_key_t should occur more than once in subscriptions
 	std::map<subscription_id_t, scan_subscription_t> subscriptions;

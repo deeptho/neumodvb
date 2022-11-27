@@ -442,14 +442,16 @@ void stream_filter_t::notify_other_readers(embedded_stream_reader_t* reader) {
 chdb::any_mux_t embedded_stream_reader_t::stream_mux() const {
 	auto & mux = stream_filter->embedded_mux;
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-				 chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 
 	return stream_filter->embedded_mux; }
 
 void embedded_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& mux) {
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-				 chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 	stream_filter->embedded_mux = mux;
 }
@@ -462,15 +464,17 @@ void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& embedded_mu
 	assert(mux_key_ptr(embedded_mux)->sat_pos != sat_pos_none);
 	auto& mux = embedded_mux;
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-				 chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 	stream_filter->embedded_mux = embedded_mux;
 }
 
 void embedded_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stream_mux) {
 	auto & mux = stream_mux;
-		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-				 chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
+	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 	stream_filter->embedded_mux = stream_mux;
 }

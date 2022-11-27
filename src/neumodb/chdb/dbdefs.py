@@ -79,6 +79,7 @@ scan_status = db_enum(name='scan_status_t',
                        ('IDLE', 1),  #mux has been scanned before
                        ('ACTIVE', 2), #mux is being scanned
                        ('NONE', 3), #mux has never been scanned
+                       ('RETRY', 4) #mux was scanned but experienced temporary failure. rescanning is needed
                            ))
 
 #Where does tuning paramter data come from?

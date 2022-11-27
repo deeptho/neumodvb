@@ -426,7 +426,8 @@ int tuner_thread_t::run() {
 
 					if (evt->events & EPOLLERR) {
 						dterrorx("ERROR in epoll event for fd=%d", evt->data.fd);
-					} else if (evt->events & EPOLLIN) {
+					}
+					if (evt->events & EPOLLIN) {
 						if (active_adapter.read_and_process_data_for_fd(evt->data.fd)) {
 							// printf("processed using new si interface\n");
 							auto delay = dttime(300);

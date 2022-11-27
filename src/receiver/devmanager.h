@@ -445,7 +445,7 @@ public:
 		if (wait && !ret) {
 			std::unique_lock<std::mutex> lk(ts.mutex(), std::adopt_lock);
 			ts_cv.wait(lk, [&]() {
-				ret = fn();
+				ret = ts.readAccess(std::adopt_lock)->last_signal_info;
 				return ret;
 			});
 		}

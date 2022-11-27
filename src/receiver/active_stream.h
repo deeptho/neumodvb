@@ -113,7 +113,6 @@ public:
 	}
 
 	virtual chdb::any_mux_t stream_mux() const = 0;
-
 	const tune_options_t& tune_options() const;
 
 	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux) =0;

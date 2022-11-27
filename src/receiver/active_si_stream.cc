@@ -312,8 +312,8 @@ active_si_stream_t::lookup_nit_key(db_txn& txn, uint16_t network_id, uint16_t ts
 	 In case of multiple matches, but a unique match for a sat position close to the tuned one,
 	 we can also gamble that it is the correct one
 	 */
-	auto* stream_mux_key = mux_key_ptr(reader->stream_mux());
-	auto ret = chdb::get_by_nid_tid_unique(txn, network_id, ts_id, stream_mux_key->sat_pos);
+	auto stream_mux_key = this->stream_mux_key();
+	auto ret = chdb::get_by_nid_tid_unique(txn, network_id, ts_id, stream_mux_key.sat_pos);
 
 	if ( (ret.unique == chdb::get_by_nid_tid_unique_ret_t::UNIQUE) ||
 			 ret.unique == chdb::get_by_nid_tid_unique_ret_t::UNIQUE_ON_SAT) {
@@ -339,8 +339,8 @@ mux_data_t* active_si_stream_t::lookup_nit_from_sdt(db_txn& txn, uint16_t networ
 	/*guestimate that the network may be on the current sat; if it exists in the database
 		from an earlier tune, accept it as correct
 	*/
-	auto* stream_mux_key = mux_key_ptr(reader->stream_mux());
-	auto ret = chdb::get_by_nid_tid_unique(txn, network_id, ts_id, stream_mux_key->sat_pos);
+	auto stream_mux_key = this->stream_mux_key();
+	auto ret = chdb::get_by_nid_tid_unique(txn, network_id, ts_id, stream_mux_key.sat_pos);
 	if (ret.unique == chdb::get_by_nid_tid_unique_ret_t::UNIQUE_ON_SAT) {
 		auto& db_mux = ret.mux;
 		auto* mux_key = mux_key_ptr(db_mux);
@@ -749,8 +749,8 @@ void active_si_stream_t::init(scan_target_t scan_target_) {
 			}
 		}
 	}
-	auto k = chdb::mux_key_ptr(reader->stream_mux());
-	if (k->sat_pos == sat_pos_dvbc || k->sat_pos == sat_pos_dvbt) {
+	auto k = this->stream_mux_key();
+	if (k.sat_pos == sat_pos_dvbc || k.sat_pos == sat_pos_dvbt) {
 		tune_confirmation.sat_by = confirmed_by_t::AUTO;
 	}
 }
@@ -776,13 +776,13 @@ void active_si_stream_t::scan_report() {
 	if (no_data && !tune_confirmation.si_done) {
 		dtdebug("No data on this mux; setting si_done = true");
 		auto txn = chdb.wtxn();
-		auto* tuned_key = mux_key_ptr(reader->stream_mux());
+		auto tuned_key = this->stream_mux_key();
 
 		/*
 			If a mux exists with a similar enough frequency, its tuning parameters will be updated.
 			If no such mux exists one will be created with network_id=ts_id=0
 		*/
-		add_fake_nit(txn, 0, 0, tuned_key->sat_pos, true /*is_reader_mux*/, false /*from_sdt*/);
+		add_fake_nit(txn, 0, 0, tuned_key.sat_pos, true /*is_reader_mux*/, false /*from_sdt*/);
 		assert(tune_confirmation.sat_by == confirmed_by_t::NONE);
 		tune_confirmation.sat_by = confirmed_by_t::FAKE;
 		txn.commit();
@@ -1809,8 +1809,8 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 	}
 	bool donotsave = false;
 	if (!services.is_actual) {
-		auto* reader_mux_key = mux_key_ptr(reader->stream_mux());
-		if (reader_mux_key->sat_pos != mux_key.sat_pos) {
+				auto reader_mux_key = this->stream_mux_key();
+		if (reader_mux_key.sat_pos != mux_key.sat_pos) {
 			dtdebug("SDT_OTHER: ignore services for other sat: " << mux_key);
 			donotsave = true;
 		}
@@ -1845,7 +1845,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 
 	if (is_actual) {
 		// update current_tp in case ts_id or network_id have changed
-		auto tuned_key = *chdb::mux_key_ptr(reader->stream_mux());
+		auto tuned_key = this->stream_mux_key();
 		bool mux_key_changed = mux_key != tuned_key;
 		bool must_reset = sdt_actual_check_confirmation(mux_key_changed, db_found - db_changed, p_mux_data);
 		if (must_reset) {
@@ -2162,7 +2162,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		scan_state.set_active(scan_state_t::SDT_NETWORK);
 
 	auto wtxn = chdb_txn();
-	auto* tuned_key = mux_key_ptr(reader->stream_mux());
+	auto tuned_key = this->stream_mux_key();
 
 	auto* p_mux_data = lookup_nit_from_sdt(wtxn, services.original_network_id, services.ts_id);
 	if(!services.is_actual && !p_mux_data) {
@@ -2174,9 +2174,9 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 
 
 	std::optional<mux_data_t> temp;
-	bool is_wrong_dvb_type = p_mux_data && dvb_type(p_mux_data->mux_key.sat_pos) != dvb_type(tuned_key->sat_pos);
+	bool is_wrong_dvb_type = p_mux_data && dvb_type(p_mux_data->mux_key.sat_pos) != dvb_type(tuned_key.sat_pos);
 	bool on_wrong_sat = p_mux_data && !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
-		&& std::abs((int)p_mux_data->mux_key.sat_pos - (int)tuned_key->sat_pos) >= 30;
+		&& std::abs((int)p_mux_data->mux_key.sat_pos - (int)tuned_key.sat_pos) >= 30;
 
 	if (services.is_actual && p_mux_data && ! on_wrong_sat && !p_mux_data->is_active_mux) {
 		/* happens on 4.0W 12353H, which reports wrong frequency in nit_actual; also on  20.0E 3966R
@@ -2189,7 +2189,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 				tune_confirmation.sat_by = confirmed_by_t::FAKE;
 			}
 			//insert a mux based on the currently streamed one
-			p_mux_data = add_fake_nit(wtxn, services.original_network_id, services.ts_id, tuned_key->sat_pos,
+			p_mux_data = add_fake_nit(wtxn, services.original_network_id, services.ts_id, tuned_key.sat_pos,
 																true /*is_reader_mux*/, true /*from_sdt*/);
 		}
 	}
@@ -2199,7 +2199,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 			/*on 30.0W 11644H network_id differs in nit and sdt
 				If we have data for nit then use that
 			*/
-			p_mux_data = lookup_nit_from_sdt(wtxn, tuned_key->network_id, services.ts_id);
+			p_mux_data = lookup_nit_from_sdt(wtxn, tuned_key.network_id, services.ts_id);
 			if(p_mux_data)
 				p_mux_data->is_active_mux = true;
 
@@ -2223,7 +2223,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 				 does not contain an entry with the correct network_id/ts_id.
 				 No hope of finding this in nit  and we have found no useful info in the database either
 			*/
-			auto mux_key = *mux_key_ptr(reader->stream_mux()); // to update extra_id
+			auto mux_key = this->stream_mux_key();
 			p_mux_data = add_fake_nit(wtxn, services.original_network_id, services.ts_id,
 																mux_key.sat_pos, true /*is_reader_mux*/, true /*from_sdt*/);
 			if (!p_mux_data) {
@@ -2243,7 +2243,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		/* this happens on 5.0W 11455.5H: NIT_ACTUAL reports a completely different frequency than the true one
 			 causing misdetection of is_active_mux
 		 */
-		p_mux_data = add_fake_nit(wtxn, services.original_network_id, services.ts_id, tuned_key->sat_pos,
+		p_mux_data = add_fake_nit(wtxn, services.original_network_id, services.ts_id, tuned_key.sat_pos,
 															true /*is_reader_mux*/, true /*from_sdt*/);
 		if (tune_confirmation.sat_by == confirmed_by_t::AUTO) {
 
@@ -2572,7 +2572,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 
 	for (const auto& desc : pmt.pid_descriptors) {
 		bool is_t2mi = desc.t2mi_stream_id >= 0;
-		auto sat_pos = mux_key_ptr(reader->stream_mux())->sat_pos;
+		auto sat_pos = this->stream_mux_key().sat_pos;
 		if (pmt.pmt_pid == 256 && desc.stream_type ==  stream_type::stream_type_t::PES_PRIV
 				&& desc.stream_pid == 4096 && std::abs(sat_pos - (int)4000)<300) {
 			//40.0 E
@@ -2657,7 +2657,8 @@ bool active_si_stream_t::matches_reader_mux(const chdb::any_mux_t& mux)
 	/*sat, freq, pol match what is currently tuned;
 		for t2mi, the frequency of the embedded mux matches that of the tuned one
 	*/
-	return chdb::matches_physical_fuzzy(mux, reader->stream_mux());
+	auto stream_mux = reader->stream_mux();
+	return chdb::matches_physical_fuzzy(mux, stream_mux);
 }
 
 void active_si_stream_t::save_pmts(db_txn& wtxn)

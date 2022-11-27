@@ -547,6 +547,11 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	std::optional<db_txn> epgdb_txn_;
 	std::optional<db_txn> chdb_txn_;
 
+	inline chdb::mux_key_t stream_mux_key() const {
+		auto tmp = reader->stream_mux();
+		return *chdb::mux_key_ptr(tmp);
+	}
+
 	inline db_txn epgdb_txn() {
 		if(!epgdb_txn_)
 			epgdb_txn_.emplace(epgdb.wtxn());
@@ -681,7 +686,8 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	bool matches_reader_mux(const chdb::any_mux_t& mux);
 
 	inline bool is_reader_mux(const chdb::any_mux_t& mux) const {
-		return *mux_key_ptr(mux) == *mux_key_ptr(reader->stream_mux());
+		auto stream_mux = reader->stream_mux();
+		return *mux_key_ptr(mux) == *mux_key_ptr(stream_mux);
 	}
 
 	bool 	update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);

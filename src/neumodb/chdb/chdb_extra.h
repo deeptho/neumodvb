@@ -34,7 +34,10 @@ namespace chdb {
 	typedef std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t> any_mux_t;
 	bool has_epg_type(const chdb::any_mux_t& mux, chdb::epg_type_t epg_type);
 	const mux_key_t* mux_key_ptr(const chdb::any_mux_t& key);
+	const mux_key_t* mux_key_ptr(const chdb::any_mux_t&& key) =delete; //cannot be used with temporaries
+
 	mux_key_t* mux_key_ptr(chdb::any_mux_t& mux);
+	mux_key_t* mux_key_ptr(chdb::any_mux_t&& mux) = delete; //cannot be used with temporaries
 
 	template<typename mux_t> inline  const mux_key_t* mux_key_ptr(const mux_t& mux) { return &mux.k;}
 

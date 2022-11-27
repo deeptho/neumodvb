@@ -170,10 +170,10 @@ public:
 	void stop_running(bool wait) {
 		assert(!must_exit_);
 
-		auto f = push_task( [this](){
+		auto f = push_task_and_exit( [this](){
 			exit();
 			return -1;
-		}, true /*must_exit*/);
+		});
 		if(wait) {
 			f.wait();
 			status_future.wait();
@@ -199,7 +199,7 @@ public:
 	virtual ~task_queue_t() {
 	}
 
-	std::future<int> push_task(std::function<int()>&& callback, bool must_exit=false) {
+	std::future<int> push_task_(std::function<int()>&& callback, bool must_exit=false) {
 		if(std::this_thread::get_id() == this->thread_.get_id()) {
 			dterror("Thread calls back to itself");
 			//assert(0);
@@ -216,8 +216,11 @@ public:
 
 		std::lock_guard<std::mutex> lk(mutex);
 
-		if(must_exit)
+		if(must_exit) {
+			if(this->must_exit_) //avoid calling stop_running multiple times
+				return {};
 			this->must_exit_ = true;
+		}
 		if(must_exit_)
 			tasks = {}; //clear queue
 
@@ -226,6 +229,14 @@ public:
 			printf("large nunber of tasks %ld\n", tasks.size());
 		notify_fd.unblock();
 		return f;
+	}
+
+	inline std::future<int> push_task_and_exit(std::function<int()>&& callback) {
+		return push_task_(std::move(callback), true);
+	}
+
+	inline std::future<int> push_task(std::function<int()>&& callback) {
+		return push_task_(std::move(callback), false);
 	}
 
 	void acknowledge() {

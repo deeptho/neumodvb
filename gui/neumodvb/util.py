@@ -178,6 +178,7 @@ def parse_longitude(val):
 tune_src_map__ = {'NIT ACTUAL TUNED': 'nit tuned',
                   'NIT ACTUAL NON TUNED': 'nit',
                   'NIT OTHER NON TUNED': 'nit',
+                  'SDT ACTUAL TUNED': 'sdt actual tuned',
                   'DRIVER': 'driver',
                   'USER': 'override',
                   'AUTO':  'auto',

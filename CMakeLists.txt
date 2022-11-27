@@ -39,7 +39,9 @@ endif()
 
 #add_compile_options(-DBOOST_DISABLE_ASSERTS -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=. -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.)
 
-add_compile_options (-fPIC -fsized-deallocation -DHAS_UNCAUGHT_EXCEPTIONS=1 -D DATA_DIR=${CMAKE_SOURCE_DIR}/data)
+add_compile_options (
+  $<$<CONFIG:DEBUG>:-Og>
+  -fPIC -fsized-deallocation -DHAS_UNCAUGHT_EXCEPTIONS=1 -D DATA_DIR=${CMAKE_SOURCE_DIR}/data)
 #add_link_options( -lasan)
 
 find_package(Boost 1.69 REQUIRED regex context program_options)
@@ -53,7 +55,6 @@ find_package(Python COMPONENTS Interpreter Development)
 
 
 pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-
 
 
 set(CMAKE_BUILD_TYPE Debug)

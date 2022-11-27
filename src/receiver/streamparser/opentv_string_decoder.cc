@@ -54,6 +54,7 @@ struct huff_data_t {
 
 	}
 
+	//[[clang::optnone]]
 	inline const huff_entry_t& decode_piece(uint32_t code, opentv_table_type_t t) const;
 
 };

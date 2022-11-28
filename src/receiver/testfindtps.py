@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 mpl.use('WXAgg')
 #del sys.modules['gi.repository.Gtk']
 import numpy as np
-import numpy as np
 sys.path.insert(0, '../../x86_64/target/lib64/')
 sys.path.insert(0, '../../build/src/receiver')
 sys.path.insert(0, '../../build/src/stackstring/')

@@ -74,7 +74,7 @@ def lnb_label(lnb):
     t= lastdot(lnb.k.lnb_type)
     if t != 'C':
         t='Ku'
-    return f'{lnb.connection_name.split(" ")[0]}  {sat_pos:>5}{t} {lnb.k.lnb_id}'
+    return f'{lnb.connection_name.split(" ")[0]} {sat_pos:>5}{t} {lnb.k.lnb_id}'
 
 def card_label(lnb):
     parts = lnb.connection_name.split(" ")

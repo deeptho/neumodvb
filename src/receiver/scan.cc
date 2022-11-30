@@ -326,9 +326,7 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 	using namespace chdb;
 	assert(subscription.mux);
 	auto& blindscan = blindscans[subscription.blindscan_key];
-	if(!blindscan.valid()) {
-		return true;
-	}
+
 	auto saved = *subscription.mux;
 	subscription.mux = finished_mux;
 	auto* c = mux_common_ptr(*subscription.mux);
@@ -347,13 +345,19 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 			Such muxes will have the scan status RETRY
 		*/
 		auto temp = std::max((int)subscriptions.size() -1, 0);
-		max_num_subscriptions_for_retry = std::min(temp, max_num_subscriptions_for_retry);
+		if(max_num_subscriptions_for_retry == std::numeric_limits<int>::max())
+			 max_num_subscriptions_for_retry = std::min(temp, max_num_subscriptions_for_retry);
 		return true;
 	}
 		break;
 	default:
 		break;
 	}
+
+	if(!blindscan.valid()) {
+		return true; //regular scan, not spectrum scan, this can be finisged
+	}
+
 	if(failed) {
 		int frequency;
 		int symbol_rate;

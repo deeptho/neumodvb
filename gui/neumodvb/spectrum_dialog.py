@@ -278,10 +278,16 @@ class SpectrumDialog(SpectrumDialog_):
     def blindscan_all(self):
         subscriber = self.tune_mux_panel.mux_subscriber
         lnb, sat  = self.tune_mux_panel.lnb, self.tune_mux_panel.sat
+        new_entries=[]
         for key, spectrum in self.spectrum_plot.spectra.items():
             k = spectrum.spectrum.k
+            if k.lnb_key != lnb.k:
+                k.lnb_key = lnb.k # in case user has overridden
+                newkey = self.spectrum_plot.make_key(spectrum.spectrum)
+                new_entries.append((newkey,  spectrum))
             subscriber.scan_spectral_peaks(k, spectrum.peak_data[:,0], spectrum.peak_data[:,1])
-
+        for key, spectrum in new_entries:
+            self.spectrum_plot.spectra[key] = spectrum
     def OnSelectMux(self, tp):
         spectrum = tp.spectrum.spectrum
         if spectrum.k.sat_pos != self.sat.sat_pos or \

@@ -626,7 +626,7 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::lnb_t& lnb, const
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
 
 	if(!best_fe)
-		return {}; //no frontend could be found
+		return {best_fe, released_fe_usecount}; //no frontend could be found
 
 	auto ret = devdb::fe::reserve_fe_lnb_exclusive(wtxn, *best_fe, lnb);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
@@ -654,9 +654,12 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
 	if(fe_key_to_release)
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
-
+	if(released_fe_usecount >=1)
+		printf("here\n");
 	if(!best_fe)
-		return {}; //no frontend could be found
+		return {{}, {}, {}, released_fe_usecount}; //no frontend could be found
+	if(fe_key_to_release && best_fe->k == *fe_key_to_release)
+		released_fe_usecount++;
 	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, *best_fe, *best_lnb, devdb::lnb::band_for_mux(*best_lnb, mux),
 																										mux.pol, mux.frequency, mux.stream_id);
 	best_use_counts.dish++;
@@ -703,7 +706,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
 
 	if(!best_fe)
-		return {}; //no frontend could be found
+		return {best_fe, released_fe_usecount}; //no frontend could be found
 
 	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency, mux.stream_id);
 	assert(ret == 0); //reservation cannot fail as we have a write lock on the db

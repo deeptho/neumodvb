@@ -390,7 +390,7 @@ private:
 											 subscription_id_t subscription_id);
 	void release_active_adapter(std::vector<task_queue_t::future_t>& futures,
 															std::shared_ptr<active_adapter_t>& active_adapter,
-															db_txn& devdb_wtxn, subscription_id_t subscription_id);
+															db_txn& devdb_wtxn, subscription_id_t subscription_id, bool deactivate);
 
 	void unsubscribe_active_service(std::vector<task_queue_t::future_t>& futures,
 																	active_service_t& active_service, subscription_id_t subscription_id);

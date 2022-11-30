@@ -180,31 +180,32 @@ void receiver_thread_t::unsubscribe_mux_only(std::vector<task_queue_t::future_t>
 
 	auto dbfe = active_adapter.fe->ts.readAccess()->dbfe;
 	auto new_fe_use_count = devdb::fe::unsubscribe(devdb_wtxn, dbfe);
-	if(new_fe_use_count ==0) {
-		dtdebug(dbfe << " use_count now 0: release_active_adapter subscription_id=" << (int) subscription_id);
-		release_active_adapter(futures, active_adapter_p, devdb_wtxn, subscription_id);
-	} else {
-		dtdebug(dbfe << " use_count=" << (int) new_fe_use_count <<": release_active_adapter subscription_id=" << (int) subscription_id);
-	}
+	bool deactivate = new_fe_use_count == 0;
+
+	dtdebug(dbfe << " use_count now 0: release_active_adapter subscription_id=" << (int) subscription_id);
+	release_active_adapter(futures, active_adapter_p, devdb_wtxn, subscription_id, deactivate);
+
 }
 
 void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
 																							 std::shared_ptr<active_adapter_t>& active_adapter,
-																						 db_txn& devdb_wtxn, subscription_id_t subscription_id) {
+																							 db_txn& devdb_wtxn, subscription_id_t subscription_id,
+																							 bool deactivate) {
 	dtdebugx("release_active_adapter subscription_id=%d", (int)subscription_id);
 	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
 
 	receiver.subscribed_aas.writeAccess()->erase(subscription_id);
-
-	/* The active_adapter is no longer in use; so ask tuner thread to release it.
-	 */
-	futures.push_back(active_adapter->tuner_thread.push_task([active_adapter]() {
-		auto ret = cb(active_adapter->tuner_thread).remove_active_adapter(*active_adapter);
-		if (ret < 0)
+	if(deactivate) {
+		/* The active_adapter is no longer in use; so ask tuner thread to release it.
+		 */
+		futures.push_back(active_adapter->tuner_thread.push_task([active_adapter]() {
+			auto ret = cb(active_adapter->tuner_thread).remove_active_adapter(*active_adapter);
+			if (ret < 0)
 			dterrorx("deactivate returned %d", ret);
-		return ret;
+			return ret;
 		}));
+	}
 	active_adapter.reset();
 }
 
@@ -574,18 +575,15 @@ receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 		tune_options.may_move_dish, dish_move_penalty,
 		resource_reuse_bonus);
 	assert(!fe_key_to_release || old_active_adapter.get());
-
 	bool found = !!fe_;
 	bool is_same_frontend = found && ( fe_key_to_release && *fe_key_to_release == fe_->k);
-
-	if (fe_key_to_release && released_fe_usecount == 0) {
+	bool deactivate = released_fe_usecount == 0;
+	if (fe_key_to_release && !is_same_frontend) {
 		assert(old_active_adapter);
 		assert((int)subscription_id >= 0);
-		if(!is_same_frontend) {
-			dtdebug("releasing old active_adapter subscription_id=" << (int) subscription_id);
-			release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id);
-			assert(!old_active_adapter);
-		}
+		dtdebug("releasing old active_adapter subscription_id=" << (int) subscription_id);
+		release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id, deactivate);
+		assert(!old_active_adapter);
 	}
 
 	if (!found)
@@ -595,12 +593,12 @@ receiver_thread_t::subscribe_mux_not_in_use<chdb::dvbs_mux_t>(
 	auto &fe = *fe_;
 	auto & use_counts = use_counts_;
 	assert(!required_lnb_key || (lnb.k == *required_lnb_key)); // we have the right lnb
-	assert(!is_same_frontend || !fe_key_to_release || old_active_adapter.get());
+	//assert(!is_same_frontend || !fe_key_to_release || old_active_adapter.get());
 	/*
 		If new mux is on the same adapter/frontend as old mux,
 		we only need to retune.
 	*/
-	if (is_same_frontend) { //keep old_active_adapter
+	if (old_active_adapter) { //keep old_active_adapter
 		old_active_adapter->fe->update_dbfe(fe);
 		futures.push_back(
 			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, lnb, mux,
@@ -679,27 +677,26 @@ receiver_thread_t::subscribe_mux_not_in_use(
 
 	bool found = !!fe_;
 	bool is_same_frontend = found && ( fe_key_to_release && *fe_key_to_release == fe_->k);
-
-	if (fe_key_to_release && released_fe_usecount == 0) {
+	bool deactivate = released_fe_usecount == 0;
+	if (fe_key_to_release) {
 		assert(old_active_adapter);
 		assert((int)subscription_id >= 0);
-		if(!is_same_frontend) {
-			dtdebug("releasing old active_adapter subscription_id=" << (int) subscription_id);
-			release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id);
-			assert(!old_active_adapter);
-		}
+		assert(!is_same_frontend);
+		dtdebug("releasing old active_adapter subscription_id=" << (int) subscription_id);
+		release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id, deactivate);
+		assert(!old_active_adapter);
 	}
 
 	if (!found)
 		return {subscription_id_t::RESERVATION_FAILED, {}}; //new subscription failed; existing mux is always properly released
 
 	auto &fe = *fe_;
-	assert(!is_same_frontend || !fe_key_to_release || old_active_adapter.get());
+	//assert(!is_same_frontend || !fe_key_to_release || old_active_adapter.get());
 	/*
 		If new mux is on the same adapter/frontend as old mux,
 		we only need to retune.
 	*/
-	if (is_same_frontend) { //keep old_active_adapter
+	if (old_active_adapter) { //keep old_active_adapter
 		old_active_adapter->fe->update_dbfe(fe);
 		futures.push_back(
 			old_active_adapter->tuner_thread.push_task([this, old_active_adapter, tune_options, mux]() {
@@ -888,7 +885,8 @@ receiver_thread_t::subscribe_mux_in_use(
 				 unsubscribe_ our old mux and the service (if any),
 				 before subscribing the found mux
 			*/
-			if (fe_key_to_release && released_fe_usecount == 0) {
+			bool deactivate = released_fe_usecount == 0;
+			if (fe_key_to_release) {
 				assert(old_active_adapter);
 #ifndef NDEBUG
 				bool is_same_frontend = ( fe_key_to_release && *fe_key_to_release == dbfe.k);
@@ -896,7 +894,7 @@ receiver_thread_t::subscribe_mux_in_use(
 #endif
 				assert((int)subscription_id >= 0);
 				dtdebug("releasing old active_adapter subscription_id=" <<  (int) subscription_id);
-				release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id);
+				release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id, deactivate);
 				assert(!old_active_adapter);
 			}
 
@@ -910,7 +908,7 @@ receiver_thread_t::subscribe_mux_in_use(
 				dtdebugx("subscription_id=%d adapter_no=%d other_active_adapter=%p", (int)subscription_id,
 								 other_active_adapter->get_adapter_no(), other_active_adapter.get());
 			}
-
+#if 0
 			auto& tuner_thread = other_active_adapter->tuner_thread;
 			futures.push_back(tuner_thread.push_task([&tuner_thread, other_active_adapter, &tune_options, mux](){
 				using namespace chdb;
@@ -926,7 +924,7 @@ receiver_thread_t::subscribe_mux_in_use(
 				cb(tuner_thread).restart_si(*other_active_adapter, mux, tune_options, true /*start*/);
 				return 0;
 			}));
-
+#endif
 			dtdebug("[" << mux << "] subscription_id=" << (int) subscription_id << ": reusing existing mux");
 			return {subscription_id, fe_key};
 		}
@@ -1067,16 +1065,13 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 		devdb_wtxn, lnb, fe_key_to_release, need_blindscan, need_spectrum);
 
 	bool found = !!fe_;
-	bool is_same_frontend = ( fe_key_to_release && *fe_key_to_release == fe_->k);
-
-	if (fe_key_to_release && released_fe_usecount == 0) {
+	bool deactivate = released_fe_usecount == 0;
+	if (fe_key_to_release) {
 		assert(old_active_adapter);
 		assert((int)subscription_id >= 0);
-		if(!is_same_frontend) {
-			dtdebug("releasing old active_adapter subscription_id=" << (int) subscription_id);
-			release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id);
-			assert(!old_active_adapter);
-		}
+		dtdebug("releasing old active_adapter subscription_id=" << (int) subscription_id);
+		release_active_adapter(futures, old_active_adapter, devdb_wtxn, subscription_id, deactivate);
+		assert(!old_active_adapter);
 	}
 
 	if (!found) {
@@ -1090,7 +1085,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 		If new mux is on the same adapter/frontend as old mux,
 		we only need to retune, and leave reservation unchanged
 	*/
-	if (is_same_frontend) {
+	if (old_active_adapter) {
 
 		/*@todo: possible race: old_active_adapter may
 			start calling on_scan_mux_end for the previously tuned mux on

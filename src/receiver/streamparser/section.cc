@@ -1058,8 +1058,12 @@ namespace dtdemux {
 			}
 		}
 
-		if (s.bytes_read != end)
-			s.throw_bad_data();
+		if (s.bytes_read != end) {
+			dtdebug_nicex("Unexpected: s.bytes_read=%d != end=%d", s.bytes_read, end);
+			if(s.bytes_read > end)
+				s.throw_bad_data();
+			s.bytes_read = end;
+		}
 	}
 
 #if 0

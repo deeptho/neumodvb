@@ -311,8 +311,8 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 		if(!(fe.sub.lnb_key.rf_input != lnb.k.rf_input || fe.sub.lnb_key == lnb.k))
 			dterrorx("Multiple LNBS with the same rf_in");
 		bool is_subscribed = ignore_subscriptions ? false: fe::is_subscribed(fe);
-		bool is_our_subscription = ignore_subscriptions ? false : (fe_key_to_release && fe.k == *fe_key_to_release);
-
+		bool is_our_subscription = (ignore_subscriptions || fe.sub.use_count>1) ? false
+			: (fe_key_to_release && fe.k == *fe_key_to_release);
 		if(!is_subscribed || is_our_subscription) {
       //find the best fe will all required functionality, without taking into account other subscriptions
 			if(!fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))

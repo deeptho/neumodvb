@@ -33,33 +33,19 @@ import pychdb
 class MuxInfoTextCtrl(wx.TextCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        self.last_scan_text = None
-        self.scan_done = False
 
     def ShowRecord(self, table, mux):
-        if self.last_scan_text is not None:
-            self.ChangeValue(self.last_scan_text)
-            if self.scan_done:
-                self.last_scan_text = None
-            return
         f = self.GetFont()
         large = self.GetFont()
         large.SetPointSize(int(f.GetPointSize()*1.2))
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
         app = wx.GetApp()
+        if app.scan_in_progress:
+            self.ChangeValue(app.last_scan_text)
+            return
         num_muxes = table.screen.list_size
         self.ChangeValue(f"{num_muxes} mux" if num_muxes == 1 else f"{num_muxes} muxes" )
 
 
-    def ShowScanRecord(self, panel, data):
-        st = data.scan_stats
-        done = st.pending_muxes + st.active_muxes == 0
-        pending = st.pending_muxes
-        ok = st.locked_muxes
-        active = st.active_muxes
-        if pending+active == 0:
-            self.scan_done = True
-        else:
-            self.scan_done = False
-        self.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={active}"
+    def ShowScanRecord(self, panel):
         self.ShowRecord(panel.grid.table, panel.grid.table.CurrentlySelectedRecord())

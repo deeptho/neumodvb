@@ -164,13 +164,21 @@ class neumoMainFrame(mainFrame):
     def OnSubscriberCallback(self, evt):
         data = get_object(evt)
         if type(data) == pyreceiver.scan_report_t:
+            st = data.scan_stats
+            done = st.pending_muxes + st.active_muxes == 0
+            pending = st.pending_muxes
+            ok = st.locked_muxes
+            active = st.active_muxes
+            self.app.scan_in_progress = pending+active > 0
+            self.app.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={active}" \
+                if self.app.scan_in_progress else None
             panel =self.current_panel()
             if panel is None:
                 return
             if hasattr(panel, "main_grid"):
                 grid = panel.main_grid
                 if hasattr(grid, "infow") and grid.infow is not None:
-                    grid.infow.ShowScanRecord(panel, data)
+                    grid.infow.ShowScanRecord(panel)
 
     def current_panel(self):
         for panel in self.panels_onscreen:
@@ -597,6 +605,8 @@ class NeumoGui(wx.App):
         self.live_service_screen = LiveServiceScreen(self)
         self.live_recording_screen_ = None
         self.scan_subscriber_ = None
+        self.last_scan_text = ""
+        self.scan_in_progress = False
         super().__init__(*args, **kwds)
         self.bitmaps = NeumoBitmaps()
         if False:

@@ -63,19 +63,6 @@ def get_current_network(lnb):
             return n
     return None
 
-def lnb_label(lnb):
-    x = neumodbutils.enum_to_str(lnb.rotor_control)
-    if x.startswith('ROTOR_SLAVE'):
-        sat_pos='slave'
-    elif x.startswith('ROTOR'):
-        sat_pos='rotor'
-    else:
-        sat_pos=pychdb.sat_pos_str(lnb.usals_pos)
-    t= lastdot(lnb.k.lnb_type)
-    if t != 'C':
-        t='Ku'
-    return f'{lnb.connection_name.split(" ")[0]} {sat_pos:>5}{t} {lnb.k.lnb_id}'
-
 def card_label(lnb):
     parts = lnb.connection_name.split(" ")
     short_name = parts[0]
@@ -93,7 +80,7 @@ class LnbTable(NeumoTable):
     lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
-    lnb_key_fn = lambda x: lnb_label(x[0])
+    lnb_key_fn = lambda x: str(x[0])
     basic_columns=[CD(key='k',
                       sort=('k.dish_id', 'adapter_mac_address','k.lnb_id', 'usals_pos'),
                       example='D1T2 28.2E 2812***',

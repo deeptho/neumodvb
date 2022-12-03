@@ -26,7 +26,7 @@ from neumodvb import  minispinctrl, minifloatspin
 from neumodvb.positioner_dialog_gui import  PositionerDialog_, SignalPanel_ , TuneMuxPanel_
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb import neumodbutils
-from neumodvb.lnblist import has_network, get_network, lnb_label
+from neumodvb.lnblist import has_network, get_network
 from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror
 
@@ -102,7 +102,7 @@ class LnbController(object):
     def CurrentGroupText(self):
         if self.parent.lnb is None:
             return ""
-        return  lnb_label(self.parent.lnb)
+        return str(self.parent.lnb)
 
 class SatController(object):
     def __init__(self, parent):

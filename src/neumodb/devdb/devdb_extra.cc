@@ -67,8 +67,7 @@ int16_t devdb::make_unique_id(db_txn& txn, lnb_key_t key) {
 	return ::make_unique_id(txn, key, c);
 }
 
-
-std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
+static inline const char* lnb_type_str(const lnb_key_t& lnb_key) {
 	const char* t = (lnb_key.lnb_type == lnb_type_t::C) ? "C" :
 		(lnb_key.lnb_type == lnb_type_t::UNIV) ? "unv" :
 		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" :
@@ -76,6 +75,11 @@ std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaB" :
 		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaC" :
 		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaD" : "unk";
+	return t;
+}
+
+std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
+	const char* t = lnb_type_str(lnb_key);
 	stdex::printf(os, "D%dC[%06x]#d%d %s[%d]", (int)lnb_key.dish_id, (int)lnb_key.card_mac_address,
 								(int)lnb_key.rf_input,  t, (int)lnb_key.lnb_id);
 	return os;
@@ -83,18 +87,20 @@ std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 
 std::ostream& devdb::operator<<(std::ostream& os, const lnb_t& lnb) {
 	using namespace chdb;
-	os << lnb.k;
+	//os << lnb.k;
+	const char* lnb_type = lnb_type_str(lnb.k);
+	stdex::printf(os, "C%d #%d ", (int)lnb.card_no, (int)lnb.k.rf_input);
 	switch (lnb.rotor_control) {
 	case rotor_control_t::FIXED_DISH: {
 		auto sat = sat_pos_str(lnb.usals_pos); // in this case usals pos equals one of the network sat_pos
-		stdex::printf(os, "%s %d", sat.c_str(), (int)lnb.k.lnb_id);
+		stdex::printf(os, "%s %s %d", sat.c_str(), lnb_type, (int)lnb.k.lnb_id);
 	} break;
 	case rotor_control_t::ROTOR_MASTER_USALS:
 	case rotor_control_t::ROTOR_MASTER_DISEQC12:
-		stdex::printf(os, " rotor %d", (int)lnb.k.lnb_id);
+		stdex::printf(os, " rotor %s %d", lnb_type, (int)lnb.k.lnb_id);
 		break;
 	case rotor_control_t::ROTOR_SLAVE:
-		stdex::printf(os, " slave %d", (int)lnb.k.lnb_id);
+		stdex::printf(os, " slave %s %d", lnb_type, (int)lnb.k.lnb_id);
 	}
 	return os;
 }

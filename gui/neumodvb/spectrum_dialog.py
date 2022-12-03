@@ -25,7 +25,6 @@ import pychdb
 
 from neumodvb.util import dtdebug, dterror
 from neumodvb.spectrum_dialog_gui import SpectrumDialog_, SpectrumButtons_, SpectrumListPanel_
-from neumodvb.positioner_dialog import LnbController, SatController, MuxController
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 import pyreceiver
 from pyreceiver import get_object as get_object_
@@ -109,7 +108,6 @@ class SpectrumDialog(SpectrumDialog_):
         from neumodvb.positioner_dialog import EVT_LNB_CHANGE, EVT_ABORT_TUNE
         self.tune_mux_panel.Bind(EVT_LNB_CHANGE, self.OnChangeLnb)
         self.tune_mux_panel.Bind(EVT_ABORT_TUNE, self.OnAbortTune)
-
         self.parent = parent
 
         self.SetTitle(f'Spectrum - {self.lnb}')
@@ -389,7 +387,7 @@ class SpectrumDialog(SpectrumDialog_):
                     self.tune_mux_panel.AbortTune()
 
     def ChangeLnb(self, lnb):
-        self.tune_mux_panel.positioner_lnb_sel.UpdateText()
+        self.tune_mux_panel.positioner_lnb_sel.SetLnb(lnb)
         self.SetTitle(f'Spectrum analysis - {lnb}')
 
     def ChangeSatPos(self, sat_pos):

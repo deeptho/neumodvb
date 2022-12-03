@@ -573,7 +573,7 @@ class NeumoTable(NeumoTableBase):
             self.db = wx.GetApp().statdb
         else:
             assert(0)
-        #self.data = None #start off with an empty table. Table will be populated in OnCreateWindow
+        #self.data = None #start off with an empty table. Table will be populated in OnWindowCreate
         self.red_bg = wx.grid.GridCellAttr()
         self.red_bg.SetBackgroundColour('red')
         self.screen_getter = screen_getter
@@ -960,7 +960,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.HideRowLabels()
         #self.SetDefaultCellBackgroundColour('yellow')
         #self.Bind ( wx.EVT_WINDOW_DESTROY, self.OnDestroyWindow )
-        self.Bind ( wx.EVT_WINDOW_CREATE, self.OnCreateWindow )
+        self.Bind ( wx.EVT_WINDOW_CREATE, self.OnWindowCreate )
         self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
         self.Bind ( wx.grid.EVT_GRID_SELECT_CELL, self.OnGridCellSelect)
         self.Bind ( wx.grid.EVT_GRID_EDITOR_HIDDEN, self.OnGridEditorHidden)
@@ -1247,7 +1247,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             pass
         wx.CallAfter(self.SelectRow,evt.GetRow())
 
-    def OnCreateWindow(self, evt):
+    def OnWindowCreate(self, evt):
         if self.created:
             #prevent multiple calls of this function (bug in wxPython?)
             evt.Skip()
@@ -1256,7 +1256,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.Parent.Bind(wx.EVT_SHOW, self.OnShow)
         rec = self.table.InitialRecord()
         self.SetSelectionMode(wx.grid.Grid.SelectRows)
-        dtdebug(f'OnCreateWindow rec_to_select={rec}')
+        dtdebug(f'OnWindowCreate rec_to_select={rec}')
         self.OnRefresh(None, rec_to_select=rec)
         #self.SelectRecord(rec)
         #evt.Skip()
@@ -1362,7 +1362,7 @@ class GridPopup(wx.ComboPopup):
         super().__init__(*args, **kwds)
         self.popup_grid = None
         self.popup_panel = None
-
+        self.popup_height = None
     def OnMotion(self, evt):
         pass
 
@@ -1375,8 +1375,9 @@ class GridPopup(wx.ComboPopup):
     def Create(self, parent):
         #called when user clicks on channel selector
         self.parent = parent
-        width, height = parent.Parent.controller.GetSize()
-        self.popup_size = (width//2, height)
+        if  parent.Parent.window_for_computing_width is not None:
+            width, height = parent.Parent.window_for_computing_width.GetSize()
+            self.popup_height = height//2
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         assert self.popup_grid is None
         assert self.popup_panel is None
@@ -1388,14 +1389,6 @@ class GridPopup(wx.ComboPopup):
         self.popup_grid.SetFocus()
         return True
 
-    def DestroyPopupOFF(self):
-
-        self.popup_grid.Destroy()
-        self.popup_panel.Destroy()
-        delattr(self, 'popup_panel')
-        delattr(self, 'popup_grid')
-        return _combo.ComboCtrl_DestroyPopup(*args, **kwargs)
-
     def IsCreated(self):
         return hasattr(self, popup_panel)
 
@@ -1405,7 +1398,7 @@ class GridPopup(wx.ComboPopup):
 
     def GetStringValue(self):
         row = self.popup_grid.selected_row
-        return self.popup_grid.controller.CurrentGroupText()
+        return self.parent.Parent.CurrentGroupText()
         return "Not set"
 
     # Called immediately after the popup is shown
@@ -1443,7 +1436,9 @@ class GridPopup(wx.ComboPopup):
         extra = wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X)
         extra *= 10 #wx.SYS_VSCROLL_X seems to much too small (only 2 pixels; gnome3 craziness?)
         w = self.ComboCtrl.popup.popup_grid.gridwidth + extra
-        return w, self.popup_size[1] #wx.ComboPopup.GetAdjustedSize(self, minWidth, prefHeight, maxHeight)
+        if self.popup_height is None:
+            self.popup_height = maxHeight
+        return w, self.popup_height #wx.ComboPopup.GetAdjustedSize(self, minWidth, prefHeight, maxHeight)
 
     # Return true if you want delay the call to Create until the popup
     # is shown for the first time. It is more efficient, but note that

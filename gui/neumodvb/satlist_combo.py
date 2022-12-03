@@ -18,6 +18,7 @@
 #
 import wx
 import wx.grid
+import wx.lib.newevent
 import sys
 import os
 import copy
@@ -35,6 +36,8 @@ from neumodvb.util import dtdebug, dterror
 
 import pychdb
 
+SatSelectEvent, EVT_SAT_SELECT = wx.lib.newevent.NewCommandEvent()
+
 class SatGridPopup(BasicSatGrid):
     """
     grid which appears in dvbs_mux list popup
@@ -43,20 +46,13 @@ class SatGridPopup(BasicSatGrid):
         super().__init__(*args, **kwds)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
-        self.controller = self.Parent.Parent.Parent.controller
-        x = getattr(self.Parent.GrandParent.GrandParent, 'lnb_controller', None)
-        x = getattr(x, 'parent', None)
-        self.sat = getattr(x, 'sat', None)
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-                rec= self.table.GetValue(self.selected_row, None)
-                self.sat = rec
-                self.controller.SelectSat(rec)
-                wx.CallAfter(self.controller.SetFocus)
-            self.Parent.Parent.Parent.GetPopupControl().Dismiss()
+                sat = self.table.GetValue(self.selected_row, None)
+                self.Parent.GrandParent.OnSelectSat(sat)
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -74,7 +70,7 @@ class SatGridPopup(BasicSatGrid):
 class SatListComboCtrl(wx.ComboCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        self.example = 'All Satellites'+' '*2
+        self.example = 'All Satellites'+' '*4
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
         self.font.SetPointSize(self.font.GetPointSize()+6)
@@ -83,29 +79,49 @@ class SatListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(SatGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.sat = None
+        self.allow_all = True
+        self.window_for_computing_width = None
 
-    def UpdateText(self):
-        self.SetText(self.controller.CurrentGroupText())
+    def SetSat(self, sat, allow_all=False):
+        """
+        Called by parent window to intialise state
+        """
+        self.sat, self.allow_all = sat, allow_all
+        self.SetText(self.CurrentGroupText())
+
+    def OnSelectSat(self, sat):
+        """Called when user selects a sat
+        """
+        self.sat = sat
+        wx.PostEvent(self, SatSelectEvent(wx.NewIdRef(), sat=sat))
+        self.popup.Dismiss()
+        self.SetText(self.CurrentGroupText())
+
+    def CurrentGroupText(self):
+        if self.sat is None:
+            return "All satellites" if self.allow_all else ""
+        return str(self.sat.name if len(self.sat.name)>0 else str(self.sat))
+
 
     def show_all(self):
         """
         Instead of a single satellite show all of them
         """
-        self.controller.SelectSat(None)
-        cgt = self.controller.CurrentGroupText()
+        wx.PostEvent(self, SatSelectEvent(wx.NewIdRef(), sat=None))
+        self.sat = None
+        cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
         self.SetMinSize((w,h))
         self.SetValue(cgt)
-        wx.CallAfter(self.controller.SetFocus)
 
     def OnWindowCreate(self, evt):
         """
         Attach an event handler, but make sure it is called only once
         """
-        #for some reason EVT_WINDOW_CREATE is called many time when popup is shown
-        #unbinding the event handler takes care of this
-        self.Unbind (wx.EVT_WINDOW_CREATE)
-        cgt = self.controller.CurrentGroupText()
+        if evt.GetWindow() != self:
+            return
+        cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
         self.SetMinSize((w,h))
         self.SetValue(cgt)

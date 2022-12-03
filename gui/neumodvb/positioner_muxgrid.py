@@ -31,7 +31,6 @@ import regex as re
 from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
-from neumodvb.satlist import BasicSatGrid
 
 import pychdb
 
@@ -45,7 +44,7 @@ class positioner_mux_screen_t(object):
 
     def record_at_row(self, rowno):
         assert(rowno==0)
-        mux = self.parent.parent.controller.parent.mux
+        mux = self.parent.parent.tune_mux_panel.mux
         if mux is None:
             mux = self.parent.InitialRecord()
         return mux
@@ -100,14 +99,14 @@ class DvbsMuxTable(NeumoTable):
         return record
 
     def screen_getter_xxx(self, txn, sort_order):
-        mux = self.parent.controller.parent.mux
+        mux = self.parent.tune_mux_panel.mux
         if mux is None:
             mux = self.InitialRecord()
         self.screen=screen_if_t(positioner_mux_screen_t(self), self.sort_order==2)
 
     def __new_record__(self):
         ret=self.record_t()
-        sat = self.parent.controller.parent.sat
+        sat = self.parent.tune_mux_panel.sat
         ret.k.sat_pos = pychdb.sat.sat_pos_none if sat is None else sat.sat_pos
         ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
         return ret
@@ -118,6 +117,7 @@ class PositionerDvbsMuxGrid(NeumoGridBase):
         readonly = False
         table = DvbsMuxTable(self, basic)
         super().__init__(basic, readonly, table, *args, **kwds)
+        self.tune_mux_panel = self.Parent.GrandParent
         self.ShowScrollbars(wx.SHOW_SB_NEVER,wx.SHOW_SB_NEVER)
         self.sort_order = 0
         self.sort_column = None
@@ -151,7 +151,8 @@ class PositionerDvbsMuxGrid(NeumoGridBase):
     def Reset(self):
         self.table.GetRow.cache_clear()
         self.table.FinalizeUnsavedEdits()
-        wx.CallAfter(self.doit, None, self.controller.parent.mux)
+        mux = self.tune_mux_panel.mux
+        wx.CallAfter(self.doit, None, mux)
 
     def doit(self, evt, mux):
         self.table.GetRow.cache_clear()

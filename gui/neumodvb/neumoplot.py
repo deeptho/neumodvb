@@ -496,8 +496,8 @@ class ConstellationPlotBase(wx.Panel):
         #                flag=wx.LEFT | wx.TOP | wx.EXPAND)
         self.SetSizer(self.sizer)
         self.Fit()
-        self.Bind ( wx.EVT_WINDOW_CREATE, self.OnCreateWindow )
-        self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
+        self.Bind (wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.Parent.Bind (wx.EVT_SHOW, self.OnShowHide)
         self.legend  = None
         self.cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         self.constellation_graphs=[]
@@ -509,7 +509,7 @@ class ConstellationPlotBase(wx.Panel):
         if event.IsShown():
             self.draw()
 
-    def OnCreateWindow(self,event):
+    def OnWindowCreate(self,event):
         if event.GetWindow() == self:
             #self.start_freq, self.end_freq = self.parent.start_freq, self.parent.end_freq
             self.draw()
@@ -614,8 +614,8 @@ class SpectrumPlot(wx.Panel):
         self.sizer.Add(self.scrollbar, proportion=0,
                         flag=wx.LEFT | wx.TOP | wx.EXPAND)
         self.SetSizer(self.sizer)
-        self.Bind ( wx.EVT_WINDOW_CREATE, self.OnCreateWindow )
-        self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
+        self.Bind (wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.Parent.Bind (wx.EVT_SHOW, self.OnShowHide)
         self.count =0
         from collections import OrderedDict
         self.spectra = OrderedDict()
@@ -665,7 +665,7 @@ class SpectrumPlot(wx.Panel):
         if event.IsShown():
             self.draw()
 
-    def OnCreateWindow(self,event):
+    def OnWindowCreate(self,event):
         if event.GetWindow() == self:
             #self.start_freq, self.end_freq = self.parent.start_freq, self.parent.end_freq
             self.draw()
@@ -1018,6 +1018,184 @@ class SpectrumPlot(wx.Panel):
             self.show_spectrum(spectrum)
         self.figure.canvas.draw()
         self.parent.Refresh()
+
+
+
+
+class SignalHistoryPlot(wx.Panel):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.xlimits = None
+        self.ylimits = None
+        self.zoom_bandwidth=500 #zoom all graphs to this amount of time
+        self.parent = parent
+        self.spectrum = pystatdb.spectrum.spectrum()
+        self.scrollbar = wx.ScrollBar(self)
+        self.scrollbar.SetScrollbar(0, self.zoom_bandwidth, 2100, 200)
+        self.scrollbar.Bind(wx.EVT_COMMAND_SCROLL, self.OnScroll)
+
+        self.figure = mpl.figure.Figure()
+        self.axes = self.figure.add_subplot(111)
+        self.canvas = FigureCanvas(self, -1, self.figure)
+        self.toolbar_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        #self.toolbar_sizer = wx.FlexGridSizer(1, 4, 0, 10)
+        self.toolbar = NavigationToolbar(self.canvas)
+        self.toolbar.Realize()
+        self.toolbar_sizer.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
+
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.toolbar_sizer, 0, wx.LEFT | wx.EXPAND)
+
+        self.sizer.Add(self.canvas, proportion=1,
+                        flag=wx.LEFT | wx.TOP | wx.EXPAND)
+        self.sizer.Add(self.scrollbar, proportion=0,
+                        flag=wx.LEFT | wx.TOP | wx.EXPAND)
+        self.SetSizer(self.sizer)
+        self.Bind ( wx.EVT_WINDOW_CREATE, self.OnCreateWindow )
+        self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
+        if False:
+            self.count =0
+            from collections import OrderedDict
+            self.spectra = OrderedDict()
+            self.legend  = None
+            self.figure.canvas.mpl_connect('pick_event', self.on_pick)
+            self.figure.canvas.mpl_connect('button_press_event', self.on_button_press)
+            self.shift_is_held = False
+            self.ctrl_is_held = False
+            #self.figure.canvas.mpl_connect('key_press_event', self.set_modifiers)
+            #self.figure.canvas.mpl_connect('key_release_event', self.unset_modifiers)
+        self.cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        if False:
+            self.current_annot = None #currently selected annot
+            self.current_annot_vline = None
+            self.do_detrend = True
+            self.pan_start_freq = None
+            self.add_detrend_button()
+            self.add_status_box()
+            self.mux_creator = None
+            wx.CallAfter(self.compute_annot_scale_factors)
+
+    def OnShowHide(self,event):
+        if event.IsShown():
+            self.draw()
+
+    def OnWindowCreate(self,event):
+        if event.GetWindow() == self:
+            #self.start_freq, self.end_freq = self.parent.start_freq, self.parent.end_freq
+            self.draw()
+        else:
+            pass
+
+    def OnScroll(self, event):
+        pos = event.GetPosition()
+        offset =pos
+        self.pan_spectrum(offset)
+
+    def draw(self):
+        self.axes.clear()
+        self.Fit()
+        self.figure.subplots_adjust(left=0.05, bottom=0.1, right=0.98, top=0.92)
+        self.axes.spines['right'].set_visible(False)
+        self.axes.spines['top'].set_visible(False)
+        self.axes.set_ylabel('dB')
+        self.axes.set_xlabel('Date')
+        xlimits, ylimits = self.get_limits()
+        self.axes.set_xlim(xlimits)
+        self.canvas.draw()
+
+
+    def add_legend_button(self, spectrum, color) :
+        if False:
+            panel = wx.Panel(self, wx.ID_ANY, style=wx.BORDER_SUNKEN)
+            self.toolbar_sizer.Add(panel, 0, wx.LEFT|wx.RIGHT, 10)
+            sizer = wx.FlexGridSizer(3, 1, 0)
+            static_line = wx.StaticLine(panel, wx.ID_ANY)
+            static_line.SetMinSize((20, 2))
+            static_line.SetBackgroundColour(wx.Colour(color))
+            static_line.SetForegroundColour(wx.Colour(color))
+
+            sizer.Add(static_line, 1, wx.ALIGN_CENTER_VERTICAL, 0)
+
+            button = wx.ToggleButton(panel, wx.ID_ANY, _(spectrum.label))
+            sizer.Add(button, 0, 0, 0)
+            button.spectrum = spectrum
+            button.SetValue(1)
+
+            self.close_button = wx.Button(panel, -1, "", style=wx.BU_NOTEXT)
+            self.close_button.SetMinSize((32, -1))
+            self.close_button.SetBitmap(wx.ArtProvider.GetBitmap(wx.ART_CLOSE, wx.ART_OTHER, (16, 16)))
+            self.close_button.spectrum = spectrum
+            sizer.Add(self.close_button, 0, 0, 0)
+
+            panel.SetSizer(sizer)
+
+            self.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleAnnots, button)
+            self.Bind(wx.EVT_BUTTON, self.OnCloseGraph, self.close_button)
+            self.Layout()
+            spectrum.legend_panel = panel
+
+    def show_signal(self, spectrum):
+        key = self.make_key(spectrum)
+        s = self.spectra.get(key, None)
+        if s is not None:
+            self.hide_spectrum(spectrum)
+            is_first = False
+        else:
+            is_first = len(self.spectra)==0
+        self.get_limits.cache_clear()
+        s = Spectrum(self, spectrum, color=self.cycle_colors[len(self.spectra)])
+        self.spectra[key] = s
+        self.add_legend_button(s, s.color)
+        s.show()
+        if self.legend is not None:
+            self.legend.remove()
+        #self.pan_spectrum(0)
+        self.pan_band(s.spec[0,0])
+        xlimits, ylimits = self.get_limits()
+        offset = 0 if self.pan_start_freq is None else self.pan_start_freq - xlimits[0]
+
+        self.scrollbar.SetScrollbar(offset, self.zoom_bandwidth, xlimits[1] - xlimits[0], 200)
+        self.canvas.draw()
+        wx.CallAfter(self.parent.Refresh)
+
+    def hide_signal(self, spectrum):
+        key = self.make_key(spectrum)
+        s = self.spectra.get(key, None)
+        if s is None:
+            return
+        s.legend_panel.Destroy()
+        self.toolbar_sizer.Layout()
+        s.clear()
+        del self.spectra[key]
+        if self.legend is not None:
+            self.legend.remove()
+
+    @lru_cache(maxsize=None)
+    def get_limits(self):
+        if False:
+            if self.spectra is None or len(self.spectra)==0:
+                return ((self.parent.start_freq/1000, self.parent.end_freq/1000), (-60.0, -40.0))
+            xlimits, ylimits = None, None
+            for spectrum in self.spectra.values():
+                xlimits = combine_ranges(xlimits, spectrum.xlimits)
+                ylimits = combine_ranges(ylimits, spectrum.ylimits)
+            #-100 and +100 to allow offscreen annotations to be seen
+            return (xlimits[0] - 100 , xlimits[1] +100), ylimits
+
+    def update_matplotlib_legend(self, spectrum):
+        self.legend = self.figure.legend(ncol=len(self.spectra))
+
+        for legline, key in zip(self.legend.get_lines(), self.spectra):
+            legline.set_picker(True)  # Enable picking on the legend line.
+            legline.key = key
+
+    def OnCloseGraph(self, evt):
+        if False:
+            spectrum = evt.GetEventObject().spectrum.spectrum
+            self.hide_spectrum(spectrum)
+            self.canvas.draw()
+            self.parent.Refresh()
+
 
 """
 solution to layout text boxes (freq,pol,symrate) suhc that they do not overlap with the vertical lines

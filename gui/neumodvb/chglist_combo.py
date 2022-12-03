@@ -18,6 +18,7 @@
 #
 import wx
 import wx.grid
+import wx.lib.newevent
 import sys
 import os
 import copy
@@ -35,6 +36,8 @@ from neumodvb.util import dtdebug, dterror
 
 import pychdb
 
+ChgSelectEvent, EVT_CHG_SELECT = wx.lib.newevent.NewCommandEvent()
+
 class ChgGridPopup(BasicChgGrid):
     """
     grid which appears in dvbs_mux list popup
@@ -43,16 +46,14 @@ class ChgGridPopup(BasicChgGrid):
         super().__init__(*args, **kwds)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
-        self.controller = self.Parent.Parent.Parent.controller
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-                rec= self.table.GetValue(self.selected_row, None)
-                self.controller.SelectChg(rec)
-                wx.CallAfter(self.controller.SetFocus)
-            self.Parent.Parent.Parent.GetPopupControl().Dismiss()
+                chg = self.table.GetValue(self.selected_row, None)
+                print(f'posting chgselect={chg}')
+                self.Parent.GrandParent.OnSelectChg(chg)
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -60,7 +61,7 @@ class ChgGridPopup(BasicChgGrid):
     def EditMode(self):
         return  False
 
-    def OnDone(self, rec):
+    def OnDoneOFF(self, rec):
         self.controller.SelectChg(rec)
         self.controller.SetFocus()
 
@@ -83,24 +84,52 @@ class ChgListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(ChgGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.chg = None
+        self.allow_all = True
+
+    def SetChg(self, chg, allow_all=False):
+        """
+        Called by parent window to intialise state
+        """
+        self.chg, self.allow_all = chg, allow_all
+        print(f'SetChg {chg}')
+        self.SetText(self.CurrentGroupText())
+
+    def OnSelectChg(self, chg):
+        """Called when user selects a chg
+        """
+        print(f'satlist_combo received OnSelectChg {chg}')
+        self.chg = chg
+        wx.PostEvent(self, ChgSelectEvent(wx.NewIdRef(), chg=chg))
+        self.popup.Dismiss()
+        self.SetText(self.CurrentGroupText())
+
+    def CurrentGroupText(self):
+        if self.chg is None:
+            return "All Groups" if self.allow_all else ""
+        print(f"returning xxx CurrentGroupText {str(self.chg)}")
+        return str(self.chg)
+
 
     def show_all(self):
-        self.controller.SelectChg(None)
-        cgt = self.controller.CurrentGroupText()
+        """
+        Instead of a single group show all of them
+        """
+        print(f'showall chg select={None}')
+        wx.PostEvent(self, ChgSelectEvent(wx.NewIdRef(), chg=None))
+        self.chg = None
+        cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
         self.SetMinSize((w,h))
         self.SetValue(cgt)
-        wx.CallAfter(self.controller.SetFocus)
 
     def OnWindowCreate(self, evt):
         """
         Attach an event handler, but make sure it is called only once
         """
-        #for some reacon EVT_WINDOW_CREATE is called many time when popup is shown
-        #unbinding the event handler takes care of this
-        self.Parent.Unbind (wx.EVT_WINDOW_CREATE)
-        parent_grid = self.controller
-        cgt = self.controller.CurrentGroupText()
+        if evt.GetWindow() != self:
+            return
+        cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
         self.SetMinSize((w,h))
         self.SetValue(cgt)

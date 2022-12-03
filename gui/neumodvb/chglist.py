@@ -29,7 +29,7 @@ import numbers
 
 from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
-from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer
+from neumodvb.neumolist import NeumoTable, NeumoGridBase, screen_if_t
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 
 

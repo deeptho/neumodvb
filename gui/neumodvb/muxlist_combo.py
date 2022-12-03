@@ -18,6 +18,7 @@
 #
 import wx
 import wx.grid
+import wx.lib.newevent
 import sys
 import os
 import copy
@@ -30,32 +31,36 @@ import regex as re
 from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
 from neumodvb.neumolist import GridPopup
-from neumodvb.dvbs_muxlist import BasicDvbsMuxGrid
+from neumodvb.dvbs_muxlist import DvbsBasicMuxGrid
 from neumodvb.util import dtdebug, dterror
 
 import pychdb
 
+MuxSelectEvent, EVT_MUX_SELECT = wx.lib.newevent.NewCommandEvent()
 
-class DvbsMuxGridPopup(BasicDvbsMuxGrid):
+class DvbsMuxGridPopup(DvbsBasicMuxGrid):
     """
     grid which appears in dvbs_mux list popup
     """
     def __init__(self, *args, **kwds):
         super().__init__(*args, **kwds)
-        self.allow_all = True
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
-        self.controller = self.Parent.Parent.Parent.controller
-        self.sat = self.controller.parent.sat
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        super().OnWindowCreate(evt)
+        sat = self.Parent.GrandParent.sat
+        self.SelectSat(sat)
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-                rec= self.table.GetValue(self.selected_row, None)
-                self.controller.SelectMux(rec)
-                wx.CallAfter(self.controller.SetFocus)
-            self.Parent.Parent.Parent.GetPopupControl().Dismiss()
+                mux = self.table.GetValue(self.selected_row, None)
+                self.Parent.GrandParent.OnSelectMux(mux)
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -64,8 +69,8 @@ class DvbsMuxGridPopup(BasicDvbsMuxGrid):
         return  False
 
     def GetItemText(self, rowno):
-        rec = self.table.GetValue(rowno, None)
-        return str(rec)
+        mux = self.table.GetValue(rowno, None)
+        return str(mux)
 
     def OnRowSelect(self, rowno):
         self.selected_row = rowno
@@ -82,23 +87,38 @@ class DvbsMuxListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(DvbsMuxGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.mux = None
+        self.sat = None
+        self.window_for_computing_width = None
 
-    def SelectSat(self, sat):
+    def SetMux(self, mux):
+        """
+        Called by parent window to intialise state
+        """
+        self.mux = mux
+        self.SetText(self.CurrentGroupText())
+
+    def OnSelectMux(self, mux):
+        """Called when user selects a mux
+        """
+        print(f'satlist_combo received OnSelectMux {mux}')
+        self.mux = mux
+        wx.PostEvent(self, MuxSelectEvent(wx.NewIdRef(), mux=mux))
+        self.popup.Dismiss()
+        self.SetText(self.CurrentGroupText())
+
+    def CurrentGroupText(self):
+        print(f"returning xxx CurrentGroupText{str(self.mux)}")
+        return str(self.mux)
+
+    def SetSat(self, sat):
+        """
+        Set sat from external (not by user)
+        """
+        print(f'muxlist_combo received SetSat (old) {sat}')
+        self.sat = sat
         if self.popup.popup_grid is not None:
             self.popup.popup_grid.SelectSat(sat)
-    def UpdateText(self):
-        self.SetText(self.controller.CurrentGroupText())
-
-    def show_all(self):
-        """
-        Instead of muxes on a single satellite show all of them
-        """
-        self.controller.SelectMux(None)
-        cgt = self.controller.CurrentGroupText()
-        w,h = self.font_dc.GetTextExtent(self.example)
-        self.SetMinSize((w,h))
-        self.SetValue(cgt)
-        wx.CallAfter(self.controller.SetFocus)
 
     def OnWindowCreate(self, evt):
         """
@@ -106,8 +126,9 @@ class DvbsMuxListComboCtrl(wx.ComboCtrl):
         """
         #for some reason EVT_WINDOW_CREATE is called many time when popup is shown
         #unbinding the event handler takes care of this
-        self.Unbind (wx.EVT_WINDOW_CREATE)
-        cgt = self.controller.CurrentGroupText()
+        if evt.GetWindow() != self:
+            return
+        cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
         self.SetMinSize((w,h))
         self.SetValue(cgt)

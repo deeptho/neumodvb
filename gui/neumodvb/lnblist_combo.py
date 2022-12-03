@@ -18,6 +18,7 @@
 #
 import wx
 import wx.grid
+import wx.lib.newevent
 import sys
 import os
 import copy
@@ -36,6 +37,8 @@ from neumodvb.util import dtdebug, dterror
 import pychdb
 import pydevdb
 
+LnbSelectEvent, EVT_LNB_SELECT = wx.lib.newevent.NewCommandEvent()
+
 class LnbGridPopup(BasicLnbGrid):
     """
     grid which appears in dvbs_mux list popup
@@ -44,16 +47,13 @@ class LnbGridPopup(BasicLnbGrid):
         super().__init__(*args, **kwds)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
-        self.controller = self.Parent.Parent.Parent.controller
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-                rec= self.table.GetValue(self.selected_row, None)
-                self.controller.SelectLnb(rec)
-                wx.CallAfter(self.controller.SetFocus)
-            self.Parent.Parent.Parent.GetPopupControl().Dismiss()
+                lnb = self.table.GetValue(self.selected_row, None)
+                self.Parent.GrandParent.OnSelectLnb(lnb)
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -62,8 +62,8 @@ class LnbGridPopup(BasicLnbGrid):
         return  False
 
     def GetItemText(self, rowno):
-        rec = self.table.GetValue(rowno, None)
-        return str(rec)
+        lnb = self.table.GetValue(rowno, None)
+        return str(lnb)
 
     def OnRowSelect(self, rowno):
         self.selected_row = rowno
@@ -80,20 +80,30 @@ class LnbListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(LnbGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.lnb = None
+        self.window_for_computing_width = None
 
-    def UpdateText(self):
-        self.SetText(self.controller.CurrentGroupText())
+    def SetLnb(self, lnb):
+        """
+        Called by parent window to intialise state
+        """
+        self.lnb = lnb
+        print(f'SetLnb {lnb}')
+        self.SetText(self.CurrentGroupText())
 
-    def show_all(self):
+    def OnSelectLnb(self, lnb):
+        """Called when user selects a lnb
         """
-        Instead of lnbs on a single satellite show all of them
-        """
-        self.controller.SelectLnb(None)
-        cgt = self.controller.CurrentGroupText()
-        w,h = self.font_dc.GetTextExtent(self.example)
-        self.SetMinSize((w,h))
-        self.SetValue(cgt)
-        wx.CallAfter(self.controller.SetFocus)
+        print(f'lnblist_combo received OnSelectLnb {lnb}')
+        self.lnb = lnb
+        wx.PostEvent(self, LnbSelectEvent(wx.NewIdRef(), lnb=lnb))
+        self.popup.Dismiss()
+        self.SetText(self.CurrentGroupText())
+
+    def CurrentGroupText(self):
+        if self.lnb is None:
+            return ""
+        return str(self.lnb)
 
     def OnWindowCreate(self, evt):
         """
@@ -101,8 +111,10 @@ class LnbListComboCtrl(wx.ComboCtrl):
         """
         #for some reason EVT_WINDOW_CREATE is called many time when popup is shown
         #unbinding the event handler takes care of this
-        self.Unbind (wx.EVT_WINDOW_CREATE)
-        cgt = self.controller.CurrentGroupText()
+        if evt.GetWindow() != self:
+            return
+        cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
         self.SetMinSize((w,h))
         self.SetValue(cgt)
+        evt.Skip(True)

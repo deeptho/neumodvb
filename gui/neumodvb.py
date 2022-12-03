@@ -98,13 +98,11 @@ class neumoMainFrame(mainFrame):
                 if type(parent) == wx.Panel:
                     parent.main_grid = grid
                     panel = None
-        self.service_sat_sel.controller=self.servicegrid
+        self.service_sat_sel.window_for_computing_width=self.servicegrid
+        self.dvbs_muxlist_sat_sel.window_for_computing_width = self.dvbs_muxgrid
 
-        self.chgm_chg_sel.controller=self.chgmgrid
-
-        self.dvbs_muxlist_sat_sel.controller = self.dvbs_muxgrid
-
-        self.chepg_service_sel.controller =self.chepggrid
+        self.chgm_chg_sel.window_for_computing_width = self.chgmgrid
+        self.chepg_service_sel.window_for_computing_width =self.chepggrid
 
         self.panels_onscreen=[]
         self.previous_panels_onscreen=[]

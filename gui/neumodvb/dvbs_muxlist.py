@@ -31,7 +31,7 @@ from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror, tune_src_str
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, screen_if_t
-from neumodvb.satlist import BasicSatGrid
+from neumodvb.satlist_combo import EVT_SAT_SELECT
 
 import pychdb
 
@@ -144,10 +144,7 @@ class DvbsMuxGridBase(NeumoGridBase):
         self.sort_column = None
         self.Bind(wx.EVT_CHAR, self.OnKeyCheck)
         self.mux = None #currently selected mux
-        h = wx.GetApp().receiver.browse_history
-        self.sat = h.h.dvbs_muxlist_filter_sat
-        if self.sat.sat_pos == pychdb.sat.sat_pos_none:
-            self.sat = None
+        self.sat = None #currently selected sat; muxlist will be restricted to this sat
 
     def OnKeyCheck(self, evt):
         """
@@ -166,25 +163,12 @@ class DvbsMuxGridBase(NeumoGridBase):
         else:
             evt.Skip(True)
 
-    def SelectSat(self, sat):
-        if sat.sat_pos == pychdb.sat.sat_pos_dvbc:
-            self.app.frame.CmdDvbcMuxList(None)
-            return
-        elif sat.sat_pos == pychdb.sat.sat_pos_dvbt:
-            self.app.frame.CmdDvbtMuxList(None)
-            return
-        self.sat = sat
-        if sat is not None:
-            self.mux = None
-        sat, mux = self.CurrentSatAndMux()
-        h = wx.GetApp().receiver.browse_history
-        if sat is None:
-            h.h.dvbs_muxlist_filter_sat.sat_pos = pychdb.sat.sat_pos_none
-        else:
-            h.h.dvbs_muxlist_filter_sat = sat
-        h.save()
-        wx.CallAfter(self.handle_sat_change, None, sat, self.mux)
-
+    def CmdSelectSat(self, evt):
+        sat = evt.sat
+        print(f'dvbs_muxlist received CmdSelectSat {sat}')
+        wx.CallAfter(self.SelectSat, sat)
+    def SelectMux(self, mux):
+        self.mux = mux
     def handle_sat_change(self, evt, sat, mux):
         self.table.GetRow.cache_clear()
         self.OnRefresh(None, mux)
@@ -234,6 +218,15 @@ class DvbsMuxGridBase(NeumoGridBase):
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
         self.app.MuxTune(mux)
 
+    def CmdSignalHistory(self, evt):
+        self.table.SaveModified()
+        row = self.GetGridCursorRow()
+        mux = self.table.screen.record_at_row(row)
+        mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
+        dtdebug(f'CmdSignalHistory requested for row={row}: PLAY mux={mux_name}')
+        from neumodvb.signalhistory_dialog import show_signalhistory_dialog
+        show_signalhistory_dialog(self, sat=self.sat, mux=mux)
+
     def CmdPositioner(self, event):
         dtdebug('CmdPositioner')
         self.OnPositioner(event)
@@ -272,15 +265,79 @@ class DvbsMuxGridBase(NeumoGridBase):
     def OnTimer(self, evt):
         super().OnTimer(evt)
 
-class BasicDvbsMuxGrid(DvbsMuxGridBase):
-    def __init__(self, *args, **kwds):
-        super().__init__(True, True, *args, **kwds)
-        if False:
-            self.SetSelectionMode(wx.grid.Grid.GridSelectionModes.GridSelectRows)
-        else:
-            self.SetSelectionMode(wx.grid.Grid.SelectRows)
-
-
 class DvbsMuxGrid(DvbsMuxGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(False, False, *args, **kwds)
+        h = wx.GetApp().receiver.browse_history
+        self.sat = h.h.dvbs_muxlist_filter_sat
+        if self.sat.sat_pos == pychdb.sat.sat_pos_none:
+            self.sat = None
+        self.GetParent().Bind(EVT_SAT_SELECT, self.CmdSelectSat)
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        super().OnWindowCreate(evt)
+        print(f'dvbs_muxlist: OnWindowCreate window={evt.GetWindow()==self}')
+        self.SelectSat(self.sat)
+        self.GrandParent.dvbs_muxlist_sat_sel.SetSat(self.sat, self.allow_all)
+    def SelectSat(self, sat):
+        if sat is None:
+            pass
+        elif sat.sat_pos == pychdb.sat.sat_pos_dvbc:
+            self.app.frame.CmdDvbcMuxList(None)
+            return
+        elif sat.sat_pos == pychdb.sat.sat_pos_dvbt:
+            self.app.frame.CmdDvbtMuxList(None)
+            return
+        self.sat = sat
+        if sat is not None:
+            self.mux = None
+        sat, mux = self.CurrentSatAndMux()
+        h = wx.GetApp().receiver.browse_history
+        if sat is None:
+            h.h.dvbs_muxlist_filter_sat.sat_pos = pychdb.sat.sat_pos_none
+        else:
+            h.h.dvbs_muxlist_filter_sat = sat
+        h.save()
+        wx.CallAfter(self.SetFocus)
+        print(f'calling handle_sat_change sat={sat} mux={self.mux}')
+        wx.CallAfter(self.handle_sat_change, None, sat, self.mux)
+
+class DvbsBasicMuxGrid(DvbsMuxGridBase):
+    def __init__(self, *args, **kwds):
+        super().__init__(True, True, *args, **kwds)
+        if False:
+            h = wx.GetApp().receiver.browse_history
+            self.sat = h.h.dvbs_muxlist_filter_sat
+            if self.sat.sat_pos == pychdb.sat.sat_pos_none:
+                self.sat = None
+
+        self.GetParent().Bind(EVT_SAT_SELECT, self.CmdSelectSat)
+        #self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+
+    def OnWindowCreateOFF(self, evt):
+        if evt.GetWindow() != self:
+            return
+        print(f'dvbs_muxlist: OnWindowCreate window={evt.GetWindow()==self}')
+        self.SelectSat(self.sat)
+        if False:
+            self.GrandParent.dvbs_muxlist_sat_sel.SetSat(self.sat, self.allow_all)
+    def SelectSat(self, sat):
+        print(f'dvbs_muxlist received SelectSat {sat}')
+        if sat is None:
+            pass
+        elif sat.sat_pos == pychdb.sat.sat_pos_dvbc:
+            self.app.frame.CmdDvbcMuxList(None)
+            return
+        elif sat.sat_pos == pychdb.sat.sat_pos_dvbt:
+            self.app.frame.CmdDvbtMuxList(None)
+            return
+        self.sat = sat
+        if sat is not None:
+            self.mux = None
+        sat, mux = self.CurrentSatAndMux()
+        wx.CallAfter(self.SetFocus)
+        print(f'calling handle_sat_change sat={sat} mux={self.mux}')
+        wx.CallAfter(self.handle_sat_change, None, sat, self.mux)

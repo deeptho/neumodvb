@@ -29,6 +29,9 @@ from neumodvb import neumodbutils
 from neumodvb.lnblist import has_network, get_network
 from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror
+from neumodvb.satlist_combo import EVT_SAT_SELECT
+from neumodvb.lnblist_combo import EVT_LNB_SELECT
+from neumodvb.muxlist_combo import EVT_MUX_SELECT
 
 import pyreceiver
 import pychdb
@@ -82,71 +85,6 @@ class UsalsPosSpinCtrl(minifloatspin.MiniFloatSpin):
         self.parent = parent
         self.Bind(minifloatspin.EVT_MINISPIN, self.parent.GetParent().OnUsalsStepChanged)
 
-class LnbController(object):
-    def __init__(self, parent):
-        self.parent = parent
-
-    def GetSize(self):
-        width, height = self.parent.GetSize()
-        return (width//2, height//2)
-
-    def SelectLnb(self, rec):
-        #called when user selects lnb from list, so the GUI already shows the correct lnb
-        dtdebug(f"selected lnb: {rec}")
-        self.parent.lnb = rec
-        wx.CallAfter(self.parent.ChangeLnb, rec)
-
-    def SetFocus(self):
-        return self.parent.SetFocus()
-
-    def CurrentGroupText(self):
-        if self.parent.lnb is None:
-            return ""
-        return str(self.parent.lnb)
-
-class SatController(object):
-    def __init__(self, parent):
-        self.parent = parent
-
-    def GetSize(self):
-        width, height = self.parent.GetSize()
-        return (width//2, height//2)
-
-    def SelectSat(self, rec):
-        dtdebug(f"selected sat: {rec}")
-        wx.CallAfter(self.parent.ChangeSat, rec)
-
-    def SetFocus(self):
-        return self.parent.SetFocus()
-
-    def CurrentGroupText(self):
-        if self.parent.sat is None:
-            return ""
-        return str(self.parent.sat.name if len(self.parent.sat.name)>0 else str(self.parent.sat))
-
-class MuxController(object):
-    def __init__(self, parent, initial_mux):
-        self.parent = parent
-        self.last_selected_mux = None if initial_mux is None else initial_mux.copy() #unmodified copy
-
-    def GetSize(self):
-        width, height = self.parent.GetSize()
-        return (width//2, height//2)
-
-    def SelectMux(self, rec):
-        dtdebug(f"selected mux: {rec}")
-        self.last_selected_mux = None if rec is None else rec.copy()
-        wx.CallAfter(self.parent.UpdateRefMux, rec)
-        pass
-
-    def SetFocus(self):
-        return self.parent.SetFocus()
-
-    def CurrentGroupText(self):
-        if self.parent.mux is None or self.parent.mux.k.sat_pos == pychdb.sat.sat_pos_none:
-            return "None"
-        return str(self.parent.mux)
-
 def on_rotor(lnb):
     return neumodbutils.enum_to_str(lnb.rotor_control).startswith('ROTOR')
 
@@ -155,8 +93,21 @@ class TuneMuxPanel(TuneMuxPanel_):
     def __init__(self, parent, *args, **kwds):
         super().__init__(parent, *args, **kwds)
         self.parent = parent
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.positioner_sat_sel.window_for_computing_width = self
+        self.positioner_lnb_sel.window_for_computing_width = self
+        self.positioner_mux_sel.window_for_computing_width = self
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        self.positioner_sat_sel.SetSat(self.sat)
+        self.positioner_lnb_sel.SetLnb(self.lnb)
+        self.positioner_mux_sel.SetSat(self.sat)
+        self.positioner_mux_sel.SetMux(self.mux)
 
-    def init(self, parent, sat, lnb,  mux):
+    def init(self, parent, sat, lnb,  mux, window_for_computing_width=None):
+        if window_for_computing_width is not None:
+            self.positioner_sat_sel.window_for_computing_width = window_for_computing_width
         self.lnb, self.sat, self.mux = self.SelectInitialData(lnb, sat, mux)
         self.si_status_keys= ('pat', 'nit', 'sdt')
         self.other_status_keys= ('fail', 'si_done')
@@ -165,15 +116,12 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.diseqc12 = 0
         self.last_tuned_mux = None # needed because user can change self.mux while tuning is in progress
         assert (mux is None and sat is None) or (sat is None and lnb is None) or (lnb is None and mux is None)
-        self.sat_controller = SatController(self)
-        self.lnb_controller = LnbController(self)
-        self.mux_controller = MuxController(self, self.mux)
-        self.positioner_lnb_sel.controller = self.lnb_controller
-        self.positioner_sat_sel.controller = self.sat_controller
-        self.positioner_mux_sel.controller = self.mux_controller
-        self.positioner_mux_sel.SelectSat(self.sat)
-        self.muxedit_grid.controller = self.mux_controller
-        self.mux_controller.last_selected_mux = self.mux.copy()
+        self.GetParent().Bind(EVT_SAT_SELECT, self.CmdSelectSat)
+        self.GetParent().Bind(EVT_LNB_SELECT, self.CmdSelectLnb)
+        self.GetParent().Bind(EVT_MUX_SELECT, self.CmdSelectMux)
+
+        self.positioner_mux_sel.SetSat(self.sat)
+        self.last_selected_mux = self.mux.copy()
         self.lnb_changed = False
         self.mux_subscriber_ = None
         self.tuned_ = False
@@ -182,6 +130,30 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.retune_mode_ =  pyreceiver.retune_mode_t.IF_NOT_LOCKED
         self.signal_info = pyreceiver.signal_info_t()
         self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
+
+    def CmdSelectMux(self, evt):
+        """
+        called when user selects mux from list
+        """
+        mux = evt.mux
+        dtdebug(f"selected mux: {mux}")
+        wx.CallAfter(self.ChangeMux, mux)
+
+    def CmdSelectSat(self, evt):
+        """
+        called when user selects sat from list
+        """
+        sat = evt.sat
+        dtdebug(f"selected sat: {sat}")
+        wx.CallAfter(self.ChangeSat, sat)
+
+    def CmdSelectLnb(self, evt):
+        """
+        called when user selects lnb from list
+        """
+        lnb = evt.lnb
+        dtdebug(f"selected sat: {lnb}")
+        wx.CallAfter(self.ChangeLnb, lnb)
 
     @property
     def use_blindscan(self):
@@ -272,7 +244,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             elif  len(lnb.networks)>0:
                 sat = pychdb.sat.find_by_key(txn, lnb.networks[0].sat_pos)
             return lnb, sat, mux
-        #self.app.MuxTune(mux)
         txn.abort()
         del txn
 
@@ -404,7 +375,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()
         self.parent.ClearSignalInfo()
-        self.mux = self.mux_controller.last_selected_mux.copy()
+        self.mux = self.last_selected_mux.copy()
         self.muxedit_grid.Reset()
         event.Skip()
 
@@ -482,9 +453,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             val = 0
             w = getattr(self, f'status_{key}')
             w.SetLabel('')
-        if False:
-            self.dvb_ids_text.SetLabel('')
-        #self.parent.ClearSignalInfo()
 
     def ChangeLnb(self, lnb):
         add = False
@@ -514,6 +482,10 @@ class TuneMuxPanel(TuneMuxPanel_):
         evt = LnbChangeEvent(lnb=lnb)
         wx.PostEvent(self, evt)
 
+    def ChangeMux(self, mux):
+        dtdebug(f"selected mux: {mux}")
+        self.last_selected_mux = None if mux is None else mux.copy()
+        wx.CallAfter(self.UpdateRefMux, mux)
 
     def ChangeSat(self, sat):
         if sat is None or self.lnb is None:
@@ -555,10 +527,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         assert self.mux.k.sat_pos == self.sat.sat_pos
         if network is not None:
             self.parent.SetDiseqc12Position(network.diseqc12)
-        self.positioner_sat_sel.UpdateText()
-        self.positioner_mux_sel.UpdateText()
-        self.positioner_mux_sel.SelectSat(sat)
-        self.mux_controller.SelectMux(self.mux)
+        self.positioner_sat_sel.SetSat(self.sat)
+        self.positioner_lnb_sel.SetLnb(self.lnb)
+        self.positioner_mux_sel.SetMux(self.mux)
+        self.positioner_mux_sel.SetSat(self.sat)
+        self.positioner_mux_sel.SetMux(self.mux)
         self.muxedit_grid.Reset()
         sat_pos = self.sat.sat_pos if network is None else network.usals_pos
         self.parent.ChangeSatPos(sat_pos)
@@ -571,7 +544,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             dtdebug(f"changing sat_pos from={self.sat.sat_pos} to={rec.k.sat_pos}")
             rec.k.sat_pos = self.sat.sat_pos
         self.mux = rec
-        self.positioner_mux_sel.UpdateText()
         self.muxedit_grid.Reset()
         for n in self.lnb.networks:
             if n.sat_pos == self.mux.k.sat_pos:
@@ -690,7 +662,6 @@ class SignalPanel(SignalPanel_):
                 w.SetForegroundColour(wx.Colour('blue' if val else 'red'))
         if not locked:
             dtdebug("SignalPanel: NO LONGER LOCKED")
-            #self.ClearSignalInfo()
             self.rf_level_gauge.SetValue(rf_level)
             self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
             self.snr_gauge.SetValue(self.snr_ranges[0] if snr is None else snr)
@@ -699,8 +670,6 @@ class SignalPanel(SignalPanel_):
         self.ber_accu = 0.9*self.ber_accu + 0.1*  self.signal_info.ber
         ber = self.ber_accu if self.signal_info.ber> self.ber_accu else self.signal_info.ber
         lber =math.log10(max(1e-9,ber))
-        #self.snr_gauge.SetRange(20.0)
-        #self.ref_level_gauge.SetRange(-20.0)
 
         self.rf_level_gauge.SetValue(rf_level)
         self.snr_gauge.SetValue(self.snr_ranges[0] if snr is None else snr)
@@ -752,7 +721,6 @@ class PositionerDialog(PositionerDialog_):
 
         self.SetTitle(f'Positioner Control - {self.tune_mux_panel.lnb}')
 
-        self.diseqc_type_choice.controller = self.tune_mux_panel.mux_controller
         self.diseqc_type_choice.SetValue(self.lnb)
         self.enable_disable_diseqc_panels()
         network = None if self.sat is None else get_network(self.lnb, self.sat.sat_pos)
@@ -854,9 +822,6 @@ class PositionerDialog(PositionerDialog_):
         self.step = pos
         self.rotor_step_spin_ctrl.SetValue(self.step/100)
 
-    def SetDiseqcTypeOFF(self, diseqc_type):
-        self.diseqc_type_choice.SetSelection
-
     def CheckCancel(self, event):
         if event.GetKeyCode() in [wx.WXK_ESCAPE, wx.WXK_CONTROL_C]:
             dtdebug("ESCAPE")
@@ -916,8 +881,6 @@ class PositionerDialog(PositionerDialog_):
                 self.tune_mux_panel.lnb_changed = True
                 self.tune_mux_panel.diseqc12 = diseqc12
                 dtdebug(f"updated lnb diseqc12 position: lnb={self.lnb} diseqc12={diseqc12}")
-                #dtdebug(f"Goto NN: {diseqc12}")
-                #self.tune_mux_panel.diseqc12_command(pydevdb.positioner_cmd_t.GOTO_NN, diseqc12)
                 return
         dtdebug("lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
 
@@ -968,7 +931,6 @@ class PositionerDialog(PositionerDialog_):
 
     def OnUsalsStepWest(self, event):
         self.position -= self.step
-        #self.rotor_position_text_ctrl.SetValue(pychdb.sat_pos_str(self.position))
         self.SetPosition(self.position)
         self.UpdateUsalsPosition(self.position)
         event.Skip()

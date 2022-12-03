@@ -23,20 +23,18 @@ import os
 import copy
 from collections import namedtuple, OrderedDict
 import numbers
+
 import datetime
 from dateutil import tz
 import regex as re
 
-from neumodvb import satlist
-from neumodvb.util import setup, lastdot
-from neumodvb.util import dtdebug, dterror
+from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumo_dialogs_gui import ChannelNoDialog_
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
+from neumodvb.satlist_combo import EVT_SAT_SELECT
 
 import pychdb
-
-
 
 class ChannelNoDialog(ChannelNoDialog_):
     def __init__(self, parent, basic, *args, **kwds):
@@ -73,7 +71,6 @@ class ChannelNoDialog(ChannelNoDialog_):
         event.Skip()
 
     def OnTimer(self, event, ret=wx.ID_OK):
-        #print("timer")
         self.EndModal(ret)
 
 
@@ -91,8 +88,6 @@ def ask_channel_number(caller, initial_chno=None):
             pass
     dlg.Destroy()
     return chno
-
-
 
 class ServiceTable(NeumoTable):
     CD = NeumoTable.CD
@@ -193,8 +188,18 @@ class ServiceTable(NeumoTable):
         del txn
         return ret
 
-
 class ServiceGridBase(NeumoGridBase):
+    def __init__(self, basic, readonly, *args, **kwds):
+        self.allow_all = True
+        table = ServiceTable(self, basic)
+        super().__init__(basic, readonly, table, *args, **kwds)
+        self.sort_order = 0
+        self.sort_column = None
+        self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
+        self.grid_specific_menu_items=['epg_record_menu_item']
+        self.restrict_to_sat = None
+        self.service = None
+
     def MoveToChno(self, chno):
         txn = wx.GetApp().chdb.rtxn()
         service = pychdb.service.find_by_ch_order(txn, chno)
@@ -207,17 +212,6 @@ class ServiceGridBase(NeumoGridBase):
             self.GoToCell(row, self.GetGridCursorCol())
             self.SelectRow(row)
             self.SetFocus()
-
-    def __init__(self, basic, readonly, *args, **kwds):
-        self.allow_all = True
-        table = ServiceTable(self, basic)
-        super().__init__(basic, readonly, table, *args, **kwds)
-        self.sort_order = 0
-        self.sort_column = None
-        self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        self.grid_specific_menu_items=['epg_record_menu_item']
-        self.restrict_to_sat = None
-        self.service = None
 
     def OnShow(self, evt):
         self.service = None
@@ -260,6 +254,10 @@ class ServiceGridBase(NeumoGridBase):
 
     def EditMode(self):
         return  self.GetParent().GetParent().edit_mode
+
+    def CmdSelectSat(self, evt):
+        sat = evt.sat
+        wx.CallAfter(self.SelectSat, sat)
 
     def SelectSat(self, sat):
         self.restrict_to_sat = sat
@@ -368,3 +366,12 @@ class BasicServiceGrid(ServiceGridBase):
 class ServiceGrid(ServiceGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(False, False, *args, **kwds)
+        self.GetParent().Bind(EVT_SAT_SELECT, self.CmdSelectSat)
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        sat, _ = self.CurrentSatAndService()
+        self.SelectSat(sat)
+        self.GrandParent.service_sat_sel.SetSat(self.restrict_to_sat, self.allow_all)

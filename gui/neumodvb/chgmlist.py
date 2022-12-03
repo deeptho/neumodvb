@@ -23,6 +23,7 @@ import os
 import copy
 from collections import namedtuple, OrderedDict
 import numbers
+
 import datetime
 from dateutil import tz
 import regex as re
@@ -31,6 +32,7 @@ from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumo_dialogs_gui import ChannelNoDialog_
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
+from neumodvb.chglist_combo import EVT_CHG_SELECT
 
 import pychdb
 
@@ -85,7 +87,6 @@ def ask_channel_number(caller, initial_chno=None):
             pass
     dlg.Destroy()
     return chno
-
 
 class ChgmTable(NeumoTable):
     CD = NeumoTable.CD
@@ -172,6 +173,7 @@ class ChgmTable(NeumoTable):
         return ret
 
 class ChgmGridBase(NeumoGridBase):
+
     def __init__(self, basic, readonly, *args, **kwds):
         self.allow_all = True
         table = ChgmTable(self, basic)
@@ -182,6 +184,7 @@ class ChgmGridBase(NeumoGridBase):
         self.grid_specific_menu_items=['epg_record_menu_item']
         self.restrict_to_chg = None
         self.chgm = None
+        self.GetParent().Bind(EVT_CHG_SELECT, self.CmdSelectChg)
 
     def MoveToChno(self, chno):
         txn = wx.GetApp().chdb.rtxn()
@@ -232,6 +235,11 @@ class ChgmGridBase(NeumoGridBase):
 
     def EditMode(self):
         return  self.GetParent().GetParent().edit_mode
+
+    def CmdSelectChg(self, evt):
+        chg = evt.chg
+        print(f'chgmlist received SelectChg {chg}')
+        wx.CallAfter(self.SelectChg, chg)
 
     def SelectChg(self, chg):
         self.restrict_to_chg = chg
@@ -309,3 +317,14 @@ class BasicChgmGrid(ChgmGridBase):
 class ChgmGrid(ChgmGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(False, False, *args, **kwds)
+        self.GetParent().Bind(EVT_CHG_SELECT, self.CmdSelectChg)
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        super().OnWindowCreate(evt)
+        print(f'chgmlist: OnWindowCreate window={evt.GetWindow()==self}')
+        chg, _ = self.CurrentChgAndChgm()
+        self.SelectChg(chg)
+        self.GrandParent.chgm_chg_sel.SetChg(self.restrict_to_chg, self.allow_all)

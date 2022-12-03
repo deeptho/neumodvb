@@ -147,24 +147,6 @@ class FilterGrid(NeumoGridBase):
         #self.Bind ( wx.grid.EVT_GRID_SELECT_CELL, self.OnGridCellSelect)
         self.GoToCell(0, len(self.table.columns)-1)
         self.SetGridCursor(0, len(self.table.columns)-1)
-    def OnGridCellSelectOFF(self, evt):
-        self.SetSelectionMode(wx.grid.Grid.SelectColumns)
-        wx.CallAfter(self.SelectCol,evt.GetCol())
-    def OnCreateWindowOFF(self, evt):
-        if self.created:
-            #prevent multiple calls of this function (bug in wxPython?)
-            evt.Skip()
-            return
-        self.created = True
-        self.Parent.Bind(wx.EVT_SHOW, self.OnShow)
-        rec = self.table.InitialRecord()
-        self.SetSelectionMode(wx.grid.Grid.SelectColumns)
-        dtdebug(f'OnCreateWindow rec_to_select={rec}')
-        self.OnRefresh(None, rec_to_select=rec)
-        #self.SelectRecord(rec)
-        #evt.Skip()
-
-
 
     def OnKeyCheck(self, evt):
         """

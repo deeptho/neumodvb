@@ -491,8 +491,6 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 
 			assert(mux_to_scan.c.scan_status == scan_status_t::PENDING ||
 						 mux_to_scan.c.scan_status == scan_status_t::RETRY);
-			if( mux_to_scan.c.scan_status == scan_status_t::RETRY)
-				printf("here\n");
 			if(mux_to_scan.c.scan_id != scan_id)
 				continue;
 

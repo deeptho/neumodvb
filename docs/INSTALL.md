@@ -32,7 +32,7 @@ On Fedora 36:  install at least the following RPMs with "sudo dnf install -y &lt
 sudo dnf install -y redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel ffmpeg-devel mpv-libs-devel https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-3.30-2710.fc35.x86_64.rpm https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm
 ```
 
-Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
+Some of these packages are provided by rpmfusion, which can be installed using the instructions at
 <https://rpmfusion.org/Configuration>
 
 
@@ -87,7 +87,7 @@ at least the following packages are needed:
 sudo pip3 regex mpl_scatter_density
 ```
 
-#### Ubutu 22.04.1 LTS ####
+#### Ubuntu 22.04.1 LTS ####
 
 ```
 sudo  apt install -y  libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang lsb-core lsb-release python3-regex
@@ -99,10 +99,10 @@ at least the following packages are needed:
 sudo pip3 install mpl_scatter_density
 ```
 
-#### Ubutu 20.04.4 LTS ####
+#### Ubuntu 20.04.4 LTS ####
 
 Install clang and clang++ with a version number of at least 14. The newest neumoDVB code does not compile
-with the clan included in ubuntu
+with the clang included in Ubuntu
 ```
 sudo  apt install -y  libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev  python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang lsb-core lsb-release python3-regex
 ```
@@ -181,7 +181,7 @@ For packaging purposes, commands like ' make install DESTDIR=/tmp/temporary_loca
 
 neumoDVB can work with the regular linuxDVB drivers and supports all cards supported by these drivers.
 
-If you own a supported card, it is best to install the neumo blindscan kerel drivers.
+If you own a supported card, it is best to install the neumo blindscan kernel drivers.
 These drivers are available at
 [https://github.com/deeptho/blindscan](https://github.com/deeptho/blindscan).
 

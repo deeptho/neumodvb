@@ -394,7 +394,7 @@ class LiveServiceScreen(object):
             else:
                 return service
         else:
-            return self.selected_service_or_channel
+            return h.last_service()
 
     @property
     def selected_chgm(self):

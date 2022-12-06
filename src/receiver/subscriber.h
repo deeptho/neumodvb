@@ -44,10 +44,10 @@ struct blindscan_t;
 
 struct notification_t {
 	int16_t sat_pos{sat_pos_none};
-	devdb::lnb_key_t lnb_key;
+	devdb::rf_path_t rf_path;
 
-	inline bool matches( int16_t sat_pos, const devdb::lnb_key_t& lnb_key) const {
-		return sat_pos == this->sat_pos && lnb_key == this->lnb_key;
+	inline bool matches( int16_t sat_pos, const devdb::rf_path_t& rf_path) const {
+		return sat_pos == this->sat_pos && rf_path == this->rf_path;
 	}
 };
 
@@ -98,10 +98,10 @@ public:
 	template <typename _mux_t>
 	int subscribe_mux(const _mux_t& mux, bool blindscan);
 
-	int subscribe_lnb(devdb::lnb_t& lnb, retune_mode_t retune_mode);
-	int subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
+	int subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode);
+	int subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 														const pls_search_range_t& pls_search_range, retune_mode_t retune_mode);
-	int subscribe_spectrum(devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
+	int subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
 												 int32_t low_freq, int32_t high_freq,
 												 int sat_pos=sat_pos_none);
 

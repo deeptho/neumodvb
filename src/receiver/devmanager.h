@@ -142,8 +142,14 @@ struct spectrum_scan_t {
 		adapt the driver code, wh
 	 */
 	time_t start_time{};
+#if 1
+	devdb::rf_path_t rf_path{};
+#else
 	devdb::lnb_key_t lnb_key;
-	devdb::fe_key_t fe_key;
+	//devdb::fe_key_t fe_key;
+	int64_t card_mac_address{-1};
+	int8_t rf_input{-1};
+#endif
 	int16_t adapter_no{-1};
 	int16_t usals_pos{sat_pos_none};
 	int16_t sat_pos{sat_pos_none};
@@ -210,6 +216,13 @@ public:
 	std::optional<chdb::any_mux_t> bad_received_si_mux; /* mux as received from the SI stream, but
 																												 only if it conflicts with reserved_mux */
 	devdb::lnb_t reserved_lnb; //lnb currently in use
+	devdb::rf_path_t reserved_rf_path; //rf_path currently in use
+
+	inline devdb::lnb_connection_t reserved_lnb_connection() const {
+		auto *conn = connection_for_rf_path(reserved_lnb, reserved_rf_path);
+		assert(conn);
+		return *conn;
+	}
 
 	mutable devdb::fe_t dbfe;
 	bool info_valid{false}; // true if we could retrieve device info; "false" indicates an error
@@ -226,11 +239,11 @@ public:
 		differences in ts_id and network_id
 	*/
 
-	bool is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
-	bool is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
+	bool is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
+	bool is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
 	//required_lnb is not actually used below
-	bool is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
-	bool is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
+	bool is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
+	bool is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
 };
 
 class sec_status_t {
@@ -299,9 +312,10 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	std::optional<statdb::spectrum_t> get_spectrum(const ss::string_& spectrum_path);
 	void start_frontend_monitor();
 
-	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux,
+	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path,
+																					 const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux,
 																					 const devdb::resource_subscription_counts_t& counts);
-	bool need_diseqc(const devdb::lnb_t& new_lnb);
+	bool need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb);
 
 	sec_status_t sec_status;
 public:
@@ -334,12 +348,13 @@ public:
 		Move the latter to fe_monitor_thread_t ? Unless those needed when monitor_thread is not running
 	*/
 	fe_lock_status_t get_lock_status();
-	int tune_(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& options);
+	int tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+						const tune_options_t& options);
 
 	std::tuple<int, int>
-	tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options,
-					 bool user_requested, const devdb::resource_subscription_counts_t& use_counts);
-
+	tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+			 const tune_options_t& tune_options,
+			 bool user_requested, const devdb::resource_subscription_counts_t& use_counts);
 
 	int tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& options);
 	int tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& options);
@@ -348,8 +363,9 @@ public:
 	int tune(const mux_t& mux, const tune_options_t& tune_options, bool user_requested);
 
 	std::tuple<int, int>
-	lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options);
-	int start_lnb_spectrum_scan(const devdb::lnb_t& lnb, const tune_options_t& tune_options);
+	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, tune_options_t tune_options);
+	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+															const tune_options_t& tune_options);
 
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
@@ -395,7 +411,7 @@ public:
 	}
 
 	template<typename mux_t>
-	inline bool is_tuned_to(const mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const;
+	inline bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
 
 	inline bool is_open() const {
 		auto t = ts.readAccess();
@@ -408,7 +424,7 @@ public:
 
 	~dvb_frontend_t();
 
-	int start_fe_and_lnb(const devdb::lnb_t & lnb);
+	int start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devdb::lnb_t & lnb);
 
 	int start_fe_lnb_and_mux(const devdb::lnb_t & lnb, const chdb::dvbs_mux_t& mux);
 
@@ -579,9 +595,9 @@ public:
 	 const tune_options_t& tune_options) const;
 
 
-	std::tuple<std::shared_ptr<dvb_frontend_t>,  devdb::lnb_t, devdb::resource_subscription_counts_t>
+	std::tuple<std::shared_ptr<dvb_frontend_t>,  devdb::rf_path_t, devdb::lnb_t, devdb::resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_mux
-	(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
+	(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path,
 	 const dvb_frontend_t* fe_to_release, const tune_options_t& tune_options) const;
 
 	int get_fd() const {

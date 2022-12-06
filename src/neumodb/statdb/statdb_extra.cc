@@ -46,7 +46,8 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_entry_t& e)
 
 std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_key_t& k) {
 	auto sat = chdb::sat_pos_str(k.mux.sat_pos);
-	stdex::printf(os, "[%02d] %5s:%5.3f%s", (int)k.lnb.card_mac_address, sat, k.frequency / 1000., enum_to_str(k.pol));
+	stdex::printf(os, "[%02d] %5s:%5.3f%s", (int)k.rf_path.card_mac_address, sat, k.frequency / 1000.,
+								enum_to_str(k.pol));
 	using namespace date;
 	os << date::format(" %F %H:%M:%S", zoned_time(current_zone(),
 																								floor<std::chrono::seconds>(system_clock::from_time_t(k.time))));
@@ -64,7 +65,9 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_t& stat) {
 }
 
 std::ostream& statdb::operator<<(std::ostream& os, const spectrum_key_t& spectrum_key) {
-	os << spectrum_key.lnb_key;
+	ss::string<32> rf_path;
+	rf_path.sprintf("%06x_RF%d" , (int)spectrum_key.rf_path.card_mac_address, spectrum_key.rf_path.rf_input);
+	os << rf_path;
 	auto sat = chdb::sat_pos_str(spectrum_key.sat_pos);
 	stdex::printf(os, " %5s: %s ", sat, enum_to_str(spectrum_key.pol));
 	using namespace date;
@@ -92,8 +95,8 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 								 zoned_time(current_zone(),
 														floor<std::chrono::seconds>(system_clock::from_time_t(spectrum.k.start_time)))
 		)
-		 << pol_ << "_dish" << (int)spectrum.k.lnb_key.dish_id<< "_C";
-	ret.sprintf("%06x_RF%d" , (int)spectrum.k.lnb_key.card_mac_address, spectrum.k.lnb_key.rf_input);
+		 << pol_ << "_dish" << (int)spectrum.k.rf_path.lnb.dish_id<< "_C";
+	ret.sprintf("%06x_RF%d" , (int)spectrum.k.rf_path.card_mac_address, spectrum.k.rf_path.rf_input);
 }
 
 
@@ -107,7 +110,7 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 	int num_freq = scan.freq.size();
 	if(num_freq<=0)
 		return {};
-	statdb::spectrum_t spectrum{statdb::spectrum_key_t{scan.lnb_key, scan.fe_key,
+	statdb::spectrum_t spectrum{statdb::spectrum_key_t{devdb::rf_path_t{scan.rf_path},
 			scan.sat_pos, scan.band_pol.pol, scan.start_time},
 		(uint32_t)scan.start_freq,
 		(uint32_t)scan.end_freq,

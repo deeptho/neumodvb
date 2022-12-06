@@ -216,11 +216,13 @@ void export_subscriber(py::module& m) {
 		.def("subscribe_lnb"
 				 , &subscriber_t::subscribe_lnb
 				 , "Subscribe to a specific lnb without (re)tuning"
+				 , py::arg("rf_path")
 				 , py::arg("lnb")
 				 , py::arg("retune_mode"))
 		.def("subscribe_lnb_and_mux"
 				 , &subscriber_t::subscribe_lnb_and_mux
 				 , "Subscribe to a specific mux usign a specific lnb"
+				 , py::arg("rf_path")
 				 , py::arg("lnb")
 				 , py::arg("mux")
 				 , py::arg("blindscan")
@@ -242,6 +244,7 @@ void export_subscriber(py::module& m) {
 		.def("subscribe_spectrum"
 				 , &subscriber_t::subscribe_spectrum
 				 , "acquire a spectrum for this lnb"
+				 , py::arg("rf_path")
 				 , py::arg("lnb")
 				 , py::arg("pol to scan")
 				 , py::arg("start_freq")

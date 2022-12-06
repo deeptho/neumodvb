@@ -299,7 +299,7 @@ private:
 	std::tuple<subscription_id_t, subscription_id_t>
 	scan_try_mux(subscription_id_t reusable_subscription_id ,
 							 scan_subscription_t& subscription,
-							 const devdb::lnb_key_t* required_lnb_key,
+							 const devdb::rf_path_t* required_rf_path,
 							 bool use_blind_tune);
 
 	void rescan_peak(blindscan_t& blindscan, subscription_id_t reusable_subscription_id,

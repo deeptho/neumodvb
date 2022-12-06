@@ -203,12 +203,13 @@ public:
 	int on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt);
 	int update_service(const chdb::service_t& service);
 
-	int lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
-					 tune_options_t tune_options);
+	int lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const devdb::rf_path_t& rf_path,
+									 const devdb::lnb_t& lnb, tune_options_t tune_options);
 	void restart_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
 									const tune_options_t& tune_options, bool start);
 
-	int tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+	int tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::rf_path_t& rf_path,
+					 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 					 tune_options_t tune_options, const devdb::resource_subscription_counts_t& use_counts);
 	template<typename _mux_t>
 	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux, tune_options_t tune_options);
@@ -399,7 +400,8 @@ private:
 												subscription_id_t subscription_id);
 	void unsubscribe(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, subscription_id_t subscription_id);
 
-	subscription_id_t subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn, devdb::lnb_t& lnb,
+	subscription_id_t subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& wtxn,
+																	devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																	tune_options_t tune_options, subscription_id_t subscription_id);
 
 
@@ -417,7 +419,7 @@ private:
 	subscribe_mux_not_in_use(std::vector<task_queue_t::future_t>& futures,
 													 std::shared_ptr<active_adapter_t>& old_active_adapter,
 													 db_txn &txn, const _mux_t& mux, subscription_id_t subscription_id,
-													 tune_options_t tune_options, const devdb::lnb_key_t* required_lnb_key /*unused*/);
+													 tune_options_t tune_options, const devdb::rf_path_t* required_rf_path /*unused*/);
 
 	template<typename _mux_t>
 	std::unique_ptr<playback_mpm_t>
@@ -443,13 +445,13 @@ protected:
 	std::tuple<subscription_id_t, devdb::fe_key_t>
 	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
 								const _mux_t& mux, subscription_id_t subscription_id,
-								tune_options_t tune_options, const devdb::lnb_key_t* required_lnb_key);
+								tune_options_t tune_options, const devdb::rf_path_t* required_rf_path);
 	template<class mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t> subscribe_mux_in_use(
 		std::vector<task_queue_t::future_t>& futures,
 		std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& devdb_wtxn,
 		const mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
-		const devdb::lnb_key_t* required_lnb_key);
+		const devdb::rf_path_t* required_rf_path);
 
 	int request_retune(std::vector<task_queue_t::future_t>& futures,
 										 active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
@@ -535,9 +537,10 @@ public:
 
 	template<typename _mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t>
-	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const devdb::lnb_key_t* required_lnb_key);
+	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const devdb::rf_path_t* required_rf_path);
 
-	subscription_id_t subscribe_lnb(devdb::lnb_t& lnb, tune_options_t tune_options, subscription_id_t subscription_id);
+	subscription_id_t subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, tune_options_t tune_options,
+																	subscription_id_t subscription_id);
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_service(const chdb::service_t& service,
@@ -633,19 +636,22 @@ public:
 	subscription_id_t
 	subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t subscription_id);
 
-	subscription_id_t subscribe_lnb_spectrum(devdb::lnb_t& lnb, const chdb::fe_polarisation_t& pol,
-														 int32_t low_freq, int32_t high_freq,
-														 int sat_pos, subscription_id_t subscription_id);
+	subscription_id_t subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
+																					 const chdb::fe_polarisation_t& pol,
+																					 int32_t low_freq, int32_t high_freq,
+																					 int sat_pos, subscription_id_t subscription_id);
 
-	subscription_id_t subscribe_lnb(devdb::lnb_t& lnb,  retune_mode_t retune_mode, subscription_id_t subscription_id);
+	subscription_id_t subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  retune_mode_t retune_mode,
+																	subscription_id_t subscription_id);
 
-	subscription_id_t subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
-														const pls_search_range_t& pls_search_range,
-														retune_mode_t retune_mode, subscription_id_t subscription_id);
+	subscription_id_t subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+																					bool blindscan, const pls_search_range_t& pls_search_range,
+																					retune_mode_t retune_mode, subscription_id_t subscription_id);
 
-	inline subscription_id_t subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
+	inline subscription_id_t subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
+																								 const chdb::dvbs_mux_t& mux, bool blindscan,
 																								 retune_mode_t retune_mode, subscription_id_t subscription_id) {
-		return subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range_t{},  retune_mode, subscription_id);
+		return subscribe_lnb_and_mux(rf_path, lnb, mux, blindscan, pls_search_range_t{},  retune_mode, subscription_id);
 	}
 
 	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,

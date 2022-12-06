@@ -118,3 +118,78 @@ class LnbListComboCtrl(wx.ComboCtrl):
         self.SetMinSize((w,h))
         self.SetValue(cgt)
         evt.Skip(True)
+
+class LnbConnectionGridPopup(BasicLnbGrid):
+    """
+    grid which appears in dvbs_mux list popup
+    """
+    def __init__(self, *args, **kwds):
+        super().__init__(*args, **kwds)
+        self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
+        self.selected_row = None if self.table.GetNumberRows() == 0 else 0
+        self.controller = self.Parent.Parent.Parent.controller
+        x = getattr(self.Parent.GrandParent.GrandParent, 'lnb_connection_controller', None)
+        x = getattr(x, 'parent', None)
+        self.rf_input = getattr(x, 'connection', None)
+
+    def OnKeyDown(self, evt):
+        keycode = evt.GetKeyCode()
+        if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
+            if self.selected_row is not None:
+                rec= self.table.GetValue(self.selected_row, None)
+                self.controller.SelectLnb(rec)
+                wx.CallAfter(self.controller.SetFocus)
+            self.Parent.Parent.Parent.GetPopupControl().Dismiss()
+            evt.Skip(False)
+        else:
+            evt.Skip(True)
+
+    def EditMode(self):
+        return  False
+
+    def GetItemText(self, rowno):
+        rec = self.table.GetValue(rowno, None)
+        return str(rec)
+
+    def OnRowSelect(self, rowno):
+        self.selected_row = rowno
+
+
+class LnbConnectionListComboCtrl(wx.ComboCtrl):
+    def __init__(self, *args, **kwds):
+        super().__init__( *args, **kwds)
+        self.example = 'D1T2 28.2E 2812***'
+        self.font_dc =  wx.ScreenDC()
+        self.font = self.GetFont()
+        self.font.SetPointSize(self.font.GetPointSize()+6)
+        self.SetFont(self.font)
+        self.font_dc.SetFont(self.font) # for estimating label sizes
+        self.popup = GridPopup(LnbGridPopup)
+        self.SetPopupControl(self.popup)
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+
+    def UpdateText(self):
+        self.SetText(self.controller.CurrentGroupText())
+
+    def show_all(self):
+        """
+        Instead of lnbs on a single satellite show all of them
+        """
+        self.controller.SelectLnb(None)
+        cgt = self.controller.CurrentGroupText()
+        w,h = self.font_dc.GetTextExtent(self.example)
+        self.SetMinSize((w,h))
+        self.SetValue(cgt)
+        wx.CallAfter(self.controller.SetFocus)
+
+    def OnWindowCreate(self, evt):
+        """
+        Attach an event handler, but make sure it is called only once
+        """
+        #for some reason EVT_WINDOW_CREATE is called many time when popup is shown
+        #unbinding the event handler takes care of this
+        self.Unbind (wx.EVT_WINDOW_CREATE)
+        cgt = self.controller.CurrentGroupText()
+        w,h = self.font_dc.GetTextExtent(self.example)
+        self.SetMinSize((w,h))
+        self.SetValue(cgt)

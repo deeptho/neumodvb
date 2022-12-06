@@ -235,7 +235,7 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 		std::tie(subscription_id, reuseable_subscription_id) =
 			scan_try_mux(reuseable_subscription_id, subscription,
 									 blindscan.spectrum_key.sat_pos != sat_pos_none
-									 ? &blindscan.spectrum_key.lnb_key : nullptr, use_blind_tune);
+									 ? &blindscan.spectrum_key.rf_path : nullptr, use_blind_tune);
 	}, *subscription.mux);
 
 
@@ -306,7 +306,7 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 		std::tie(subscription_id, finished_subscription_id) =
 			scan_try_mux(finished_subscription_id, subscription,
 									 blindscan.spectrum_key.sat_pos != sat_pos_none
-									 ? &blindscan.spectrum_key.lnb_key : nullptr, use_blind_tune);
+									 ? &blindscan.spectrum_key.rf_path : nullptr, use_blind_tune);
 	}, *subscription.mux);
 	return subscription_id;
 }
@@ -514,11 +514,11 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 			auto pol = get_member(mux_to_scan, pol, chdb::fe_polarisation_t::NONE);
 			blindscan_key_t key = {mux_to_scan.k.sat_pos, pol, mux_to_scan.frequency};
 			auto [it, found] = find_in_map(blindscans, key);
-			devdb::lnb_key_t* required_lnb_key{nullptr};
+			devdb::rf_path_t* required_rf_path{nullptr};
 			if(found) {
 				auto& blindscan = it->second;
-				required_lnb_key = blindscan.valid()
-					? &blindscan.spectrum_key.lnb_key : nullptr;
+				required_rf_path = blindscan.valid()
+					? &blindscan.spectrum_key.rf_path : nullptr;
 			}
 			if(mux_is_being_scanned(mux_to_scan)) {
 				dtdebug("Skipping mux already in progress: " << mux_to_scan);
@@ -528,7 +528,7 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 			subscription_id_t subscription_id;
 			const bool use_blind_tune = false;
 			std::tie(subscription_id, reuseable_subscription_id) =
-				scan_try_mux(reuseable_subscription_id, subscription, required_lnb_key, use_blind_tune);
+				scan_try_mux(reuseable_subscription_id, subscription, required_rf_path, use_blind_tune);
 
 			if ((int)subscription_id < 0) {
 				// we cannot subscribe the mux right now
@@ -795,7 +795,7 @@ bool scan_t::mux_is_being_scanned(const chdb::any_mux_t& mux)
 //template<typename mux_t>
 std::tuple<subscription_id_t, subscription_id_t>
 scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
-										 scan_subscription_t& subscription, const devdb::lnb_key_t* required_lnb_key,
+										 scan_subscription_t& subscription, const devdb::rf_path_t* required_rf_path,
 										 bool use_blind_tune)
 {
 	devdb::fe_key_t subscribed_fe_key;
@@ -808,7 +808,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		assert(mux_common_ptr(mux)->scan_id!=0);
 		std::tie(subscription_id, subscribed_fe_key) =
 			receiver_thread.subscribe_mux(futures, wtxn, mux, reuseable_subscription_id, tune_options,
-																		required_lnb_key);
+																		required_rf_path);
 		wtxn.commit();
 	}, *subscription.mux);
 
@@ -952,8 +952,8 @@ void scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 
 static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const tune_options_t& tune_options){
 	if constexpr (is_same_type_v<chdb::dvbs_mux_t, decltype(mux)>) {
-		const devdb::lnb_key_t* required_lnb_key{nullptr};
-		return devdb::fe::can_subscribe_lnb_band_pol_sat(devdb_rtxn, mux, required_lnb_key,
+		const devdb::rf_path_t* required_rf_path{nullptr};
+		return devdb::fe::can_subscribe_lnb_band_pol_sat(devdb_rtxn, mux, required_rf_path,
 																										 tune_options.use_blind_tune, tune_options.may_move_dish,
 																										 0 /*dish_move_penalty*/, 0/*resource_reuse_bonus*/);
 	} else {

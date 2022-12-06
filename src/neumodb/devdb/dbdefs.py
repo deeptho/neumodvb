@@ -159,14 +159,11 @@ lnb_key = db_struct(name='lnb_key',
                           type_id= ord('T'),
                           version = 1,
                           fields = (
-                              (4, 'int64_t', 'card_mac_address', -1), #Unique for each card
-                              (1, 'int8_t', 'rf_input', -1),
-
                               (3, 'int8_t', 'dish_id', 0), #dish_id=0 is also the "default dish"
                               #because of switches, the same cable could be attached to multiple dishes
+                              (21, 'int16_t', 'offset_pos', '0'), #only for master usals positioner: in 1/100 degre: offset w.r.t. t center of dish
+                              (2, 'int16_t', 'lnb_id', '-1'), #unique identifier for lnb. Still needed?
 
-                              (2, 'int16_t', 'lnb_id', '-1'), #unique identifier for lnb
-                              #Because of swicthes the same cable may lead to multiple lnbs
                               #Usually the  orbital position (fixed dish) or the offset position on dish
                               #uniquely identifies the lnb, but not always: multiple dishes can point to
                               #the same orbital position and combined lnbs or lnbs on a revolver could
@@ -178,6 +175,52 @@ lnb_key = db_struct(name='lnb_key',
                               (5, 'lnb_type_t',  'lnb_type', 'lnb_type_t::UNIV'),
                           )
                         )
+
+
+rf_path = db_struct(name='rf_path',
+                        fname = 'fedev',
+                    db = db,
+                    type_id= lord('TC'),
+                    version = 1,
+                    fields = ((1, 'lnb_key_t', 'lnb'),
+                              (2, 'int64_t', 'card_mac_address', -1), #Unique for each card
+                              (3, 'int8_t', 'rf_input', -1),
+                              )
+                    )
+
+lnb_connection = db_struct(name='lnb_connection',
+                fname = 'fedev',
+                db = db,
+                type_id= lord('tc'),
+                version = 1,
+                keys =  (
+                    #(ord('a'), 'adapter_mac_address', ('k.adapter_mac_address', 'k.sat_pos')),
+                ),
+                fields = ((1, 'int64_t', 'card_mac_address', -1), #Unique for each card
+                          (2, 'int8_t', 'rf_input', -1),
+
+                          (3, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
+                          (4, 'int16_t',  'priority', -1), #
+                          (5, 'rotor_control_t', 'rotor_control', 'rotor_control_t::FIXED_DISH'), #
+                          (6, 'uint8_t' , 'diseqc_mini'),
+                          (7, 'int8_t' , 'diseqc_10', '-1'),
+                          (8, 'int8_t' , 'diseqc_11', '-1'),
+                          # disec12 is not included here as this is part of the dish
+
+                          #Sometimes more than one network can be received on the same lnb
+                          #for an lnb
+
+                          (10, 'int8_t', 'card_no',  '-1'), #updated as adapters are discovered
+
+                          # list of commands separted by ";"
+                          #can contain
+                          #  P send positioner commands
+                          #  ? send positioner commands while keeping voltage high (todo; problem is we do not know
+                          #  when we will reach destination)
+                          (11, 'ss::string<16>' , 'tune_string', '"UCP"'),
+                          (12,  'ss::string<16>', 'connection_name'),
+                ))
+
 
 
 #lnb record
@@ -205,67 +248,24 @@ lnb = db_struct(name='lnb',
                           #So; pos sent to rotor = usals_pos - offset_pos
                           #not used for a fixed dish, but should be set equal to the sat in networks[0] for clarity,
                           #i.e., the main satellite
-                          (20, 'int16_t', 'usals_pos', 'sat_pos_none'),
+                          (2, 'int16_t', 'usals_pos', 'sat_pos_none'),
 
-                          (2, 'lnb_pol_type_t',  'pol_type', 'lnb_pol_type_t::HV'), #bit flag indicating which polarisations can be used
-                          (3, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
-                          (4, 'int16_t',  'priority', -1), #
-                          (5, 'int32_t', 'lof_low', -1), # local oscillator, -1 means default
-                          (6, 'int32_t', 'lof_high', -1), # local oscillator, -1 means default
-                          (7, 'int32_t', 'freq_low', -1), # lowest frequency which can be tuned
-                          (18, 'int32_t', 'freq_mid', -1), # frequency to switch between low/high band
-                          (19, 'int32_t', 'freq_high', -1), # highest frequency wich can be tuned
-                          (8, 'rotor_control_t', 'rotor_control', 'rotor_control_t::FIXED_DISH'), #
-                          (21, 'int16_t', 'offset_pos', '0'), #only for master usals positioner: in 1/100 degre: offset w.r.t. t center of dish
-
-                          (10, 'uint8_t' , 'diseqc_mini'),
-                          (11, 'int8_t' , 'diseqc_10', '-1'),
-                          (12, 'int8_t' , 'diseqc_11', '-1'),
-                          # disec12 is not included here as this is part of the dish
-
-                          (14,  'time_t', 'mtime'),
-                          #Sometimes more than one network can be received on the same lnb
-                          #for an lnb
-
-                          (24, 'bool', 'can_be_used', 'true'), #updated as adapters are discovered
-                          (25, 'int8_t', 'card_no',  '-1'), #updated as adapters are discovered
-
-                          # list of commands separted by ";"
-                          #can contain
-                          #  P send positioner commands
-                          #  ? send positioner commands while keeping voltage high (todo; problem is we do not know
-                          #  when we will reach destination)
-                          (9, 'ss::string<16>' , 'tune_string', '"UCP"'),
+                          (3, 'lnb_pol_type_t',  'pol_type', 'lnb_pol_type_t::HV'), #bit flag indicating which polarisations can be used
+                          (4, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
+                          (5, 'int16_t',  'priority', -1), #
+                          (6, 'int32_t', 'lof_low', -1), # local oscillator, -1 means default
+                          (7, 'int32_t', 'lof_high', -1), # local oscillator, -1 means default
+                          (8, 'int32_t', 'freq_low', -1), # lowest frequency which can be tuned
+                          (9, 'int32_t', 'freq_mid', -1), # frequency to switch between low/high band
+                          (10, 'int32_t', 'freq_high', -1), # highest frequency wich can be tuned
+                          (11,  'time_t', 'mtime'),
+                          (12, 'bool', 'can_be_used', 'true'), #updated as adapters are discovered
                           (13, 'ss::vector<lnb_network_t,1>' , 'networks'),
-                          (16,  'ss::string<16>', 'connection_name'),
-                          (17, 'ss::vector<int32_t,2>' , 'lof_offsets'), #ofset of the local oscillator (one per band)
+                          (14, 'ss::vector<lnb_connection_t,1>' , 'connections'),
+                          (15, 'ss::vector<int32_t,2>' , 'lof_offsets'), #ofset of the local oscillator (one per band)
                 ))
 
 
-if False:
-    rf_coupler_key = db_struct(name='rf_coupler_key',
-                              fname = 'fedev',
-                              db = db,
-                              type_id= lord('RI'),
-                              version = 1,
-                              fields = (
-                                  (4, 'int64_t', 'card_mac_address', -1), #Unique for each card
-                                  (1, 'int16_t', 'rf_input', -1)
-                              )
-                            )
-
-
-    rf_coupler = db_struct(name='rf_coupler',
-                       fname = 'fedev',
-                       db = db,
-                       type_id= lord('ri'),
-                       version = 1,
-                       primary_key = ('key', ('k',)), #unique; may need to be revised
-                       keys =  (
-                    ),
-                         fields = ((1, 'rf_coupler_key_t', 'k'),  #unique id for one of the connectors on one of the cards
-                                   (3, 'int16_t', 'coupler_id', -1), #if>=0 means inputs connected to same cable
-                                   ))
 
 fe_key = db_struct(name='fe_key',
                           fname = 'fedev',
@@ -299,13 +299,13 @@ fe_subscription = db_struct(name='fe_subscription',
                                     # (2, 'int32_t', 'subscription_id', -1),
                                      #(3, 'int16_t', 'rf_in', -1),
                                      #(8, 'int16_t', 'rf_group_id', -1),
-                                     (4, 'lnb_key_t', 'lnb_key'),
-                                     (5, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
-                                     (6, 'fe_band_t', 'band', 'fe_band_t::NONE'),
-                                     (7, 'int16_t', 'usals_pos', 'sat_pos_none'),
-                                     (2, 'int16_t', 'use_count', '0'),
-                                     (3, 'int32_t', 'frequency', '0'),
-                                     (8, 'int32_t', 'stream_id', '-1'),
+                                     (3, 'rf_path_t', 'rf_path'),
+                                     (4, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
+                                     (5, 'fe_band_t', 'band', 'fe_band_t::NONE'),
+                                     (6, 'int16_t', 'usals_pos', 'sat_pos_none'),
+                                     (7, 'int16_t', 'use_count', '0'),
+                                     (8, 'int32_t', 'frequency', '0'),
+                                     (9, 'int32_t', 'stream_id', '-1'),
                 ))
 
 

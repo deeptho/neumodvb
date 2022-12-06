@@ -157,11 +157,14 @@ private:
 		return fe->tuned_mux();
 	};
 
-#if 1
+
 	inline const devdb::lnb_t& current_lnb() const {
 		return fe->ts.readAccess()->reserved_lnb;
 	}
-#endif
+	inline const devdb::rf_path_t& current_rf_path() const {
+		return fe->ts.readAccess()->reserved_rf_path;
+	}
+
 	void set_current_tp(const chdb::any_mux_t& mux) {
 		assert((mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 						mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
@@ -243,9 +246,9 @@ public:
 	virtual ~active_adapter_t() final;
 
 	template<typename mux_t>
-	bool is_tuned_to(const mux_t& mux, const devdb::lnb_key_t* required_lnb_key) {
+	bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path) {
 		assert(fe.get());
-		return fe->is_tuned_to(mux, required_lnb_key);
+		return fe->is_tuned_to(mux, required_rf_path);
 	}
 
 private:
@@ -253,11 +256,11 @@ private:
 	template<typename mux_t> inline int retune();
 	int restart_tune(const chdb::any_mux_t& mux);
 
-	int lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, tune_options_t tune_options);
 
-	int lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_activate(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, tune_options_t tune_options);
 
-	int tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+	int tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 					 tune_options_t tune_options, bool user_requested,
 					 const devdb::resource_subscription_counts_t& use_counts); //(re)tune to new transponder
 

@@ -182,8 +182,8 @@ public:
 																														const dvb_frontend_t* fe_to_release,
 																														const tune_options_t& tune_options) const;
 
-	std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t, devdb::resource_subscription_counts_t>
-	find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key,
+	std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::rf_path_t, devdb::lnb_t, devdb::resource_subscription_counts_t>
+	find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path,
 																		const dvb_frontend_t* fe_to_release,
 																		const tune_options_t& tune_options) const;
 	void update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
@@ -673,8 +673,8 @@ std::shared_ptr<adaptermgr_t> adaptermgr_t::make(receiver_t& receiver) {
 
 
 
-bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const {
-	if (required_lnb_key && *required_lnb_key != reserved_lnb.k)
+bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path) const {
+	if (required_rf_path && *required_rf_path != reserved_rf_path)
 		return false;
 	const auto* tuned_mux = std::get_if<chdb::dvbs_mux_t>(&reserved_mux);
 	if (!tuned_mux)
@@ -689,8 +689,8 @@ bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::lnb_key_t
 	return true;
 }
 
-bool fe_state_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const {
-	assert(!required_lnb_key);
+bool fe_state_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t* required_rf_path) const {
+	assert(!required_rf_path);
 	const auto* tuned_mux = std::get_if<chdb::dvbt_mux_t>(&reserved_mux);
 	if (!tuned_mux)
 		return false;
@@ -699,8 +699,8 @@ bool fe_state_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::lnb_key_t
 	return true;
 }
 
-bool fe_state_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const {
-	assert(!required_lnb_key);
+bool fe_state_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t* required_rf_path) const {
+	assert(!required_rf_path);
 	const auto* tuned_mux = std::get_if<chdb::dvbc_mux_t>(&reserved_mux);
 	if (!tuned_mux)
 		return false;
@@ -709,15 +709,15 @@ bool fe_state_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::lnb_key_t
 	return true;
 }
 
-bool fe_state_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::lnb_key_t* required_lnb_key) const {
+bool fe_state_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t* required_rf_path) const {
 	bool ret;
 	visit_variant(
-		mux, [this, &ret, required_lnb_key](const chdb::dvbs_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_lnb_key); },
-		[this, &ret, required_lnb_key](const chdb::dvbc_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_lnb_key); },
-		[this, &ret, required_lnb_key](const chdb::dvbt_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_lnb_key); });
+		mux, [this, &ret, required_rf_path](const chdb::dvbs_mux_t& mux) {
+			ret = this->is_tuned_to(mux, required_rf_path); },
+		[this, &ret, required_rf_path](const chdb::dvbc_mux_t& mux) {
+			ret = this->is_tuned_to(mux, required_rf_path); },
+		[this, &ret, required_rf_path](const chdb::dvbt_mux_t& mux) {
+			ret = this->is_tuned_to(mux, required_rf_path); });
 	return ret;
 }
 
@@ -738,9 +738,9 @@ dvbdev_monitor_t::find_fe_for_tuning_to_mux(db_txn& rtxn, const mux_t& mux,
 }
 
 
-std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t, devdb::resource_subscription_counts_t>
+std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::rf_path_t, devdb::lnb_t, devdb::resource_subscription_counts_t>
 dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dvbs_mux_t& mux,
-																										const devdb::lnb_key_t* required_lnb_key,
+																										const devdb::rf_path_t* required_rf_path,
 																										const dvb_frontend_t* fe_to_release,
 																										const tune_options_t& tune_options) const {
 	using namespace chdb;
@@ -750,8 +750,8 @@ dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dv
 	auto fe_key = fe_to_release ? fe_to_release->fe_key() : devdb::fe_key_t{};
 	auto* fe_key_to_release = fe_to_release? &fe_key : nullptr;
 
-	auto[best_fe, best_lnb, best_use_counts] =
-		fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, mux, required_lnb_key,
+	auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+		fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, mux, required_rf_path,
 																					fe_key_to_release,
 																					tune_options.may_move_dish, tune_options.use_blind_tune,
 																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
@@ -759,10 +759,10 @@ dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dv
 	auto fe = find_fe(best_fe->k);
 	if (!fe) {
 		dtdebug("LNB " << *best_lnb << " not connected to any fe");
-		return {nullptr, *best_lnb, best_use_counts};
+		return {nullptr, *best_rf_path, *best_lnb, best_use_counts};
 	}
 	assert(best_fe->can_be_used);
-	return {fe, *best_lnb, best_use_counts};
+	return {fe, *best_rf_path, *best_lnb, best_use_counts};
 }
 
 std::tuple<std::string, int> adaptermgr_t::get_api_type() const {
@@ -799,11 +799,11 @@ adaptermgr_t::find_fe_for_tuning_to_mux(db_txn& txn, const chdb::dvbt_mux_t& mux
 																				const dvb_frontend_t* fe_to_release,
 																				const tune_options_t& tune_options) const;
 
-std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::lnb_t, devdb::resource_subscription_counts_t>
+std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::rf_path_t, devdb::lnb_t, devdb::resource_subscription_counts_t>
 adaptermgr_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux,
-																								const devdb::lnb_key_t* required_lnb_key,
+																								const devdb::rf_path_t* required_rf_path,
 																								const dvb_frontend_t* fe_to_release,
 																								const tune_options_t& tune_options) const {
 	return (static_cast<const dvbdev_monitor_t*>(this))
-		->find_fe_and_lnb_for_tuning_to_mux(txn, mux, required_lnb_key, fe_to_release, tune_options);
+		->find_fe_and_lnb_for_tuning_to_mux(txn, mux, required_rf_path, fe_to_release, tune_options);
 }

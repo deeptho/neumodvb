@@ -70,16 +70,17 @@ int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 	return (int) subscription_id;
 }
 
-int subscriber_t::subscribe_lnb(devdb::lnb_t& lnb, retune_mode_t retune_mode) {
+int subscriber_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode) {
 	subscription_id = (subscription_id_t)
-		receiver->subscribe_lnb(lnb, retune_mode, subscription_id);
+		receiver->subscribe_lnb(rf_path, lnb, retune_mode, subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
 }
 
-int subscriber_t::subscribe_lnb_and_mux(devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
-																						const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
-	subscription_id = receiver->subscribe_lnb_and_mux(lnb, mux, blindscan, pls_search_range, retune_mode,
+int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
+																				const chdb::dvbs_mux_t& mux, bool blindscan,
+																				const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
+	subscription_id = receiver->subscribe_lnb_and_mux(rf_path, lnb, mux, blindscan, pls_search_range, retune_mode,
 																										subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
@@ -91,7 +92,7 @@ int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 		auto w = notification.writeAccess();
 		auto & n = *w;
 		n.sat_pos = spectrum_key.sat_pos;
-		n.lnb_key = spectrum_key.lnb_key;
+		n.rf_path = spectrum_key.rf_path;
 		//todo: allow multiple scans on different sats/lnbs
 	}
 	subscription_id = receiver->scan_spectral_peaks(peaks, spectrum_key, subscription_id);
@@ -105,7 +106,7 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 		auto w = notification.writeAccess();
 		auto & n = *w;
 		n.sat_pos = sat_pos_none;
-		n.lnb_key = {};
+		n.rf_path = {};
 		//todo: allow multiple scans on different sats/lnbs
 	}
 	subscription_id_t ret{subscription_id_t::NONE};
@@ -191,11 +192,12 @@ int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 	return ret;
 }
 
-int subscriber_t::subscribe_spectrum(devdb::lnb_t& lnb, chdb::fe_polarisation_t pol, int32_t low_freq,
-																				 int32_t high_freq, int sat_pos) {
+int subscriber_t::subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
+																		 chdb::fe_polarisation_t pol, int32_t low_freq,
+																		 int32_t high_freq, int sat_pos) {
 	active_adapter.reset();
 
-	subscription_id = receiver->subscribe_lnb_spectrum(lnb, pol, low_freq, high_freq, sat_pos,
+	subscription_id = receiver->subscribe_lnb_spectrum(rf_path, lnb, pol, low_freq, high_freq, sat_pos,
 																										 subscription_id);
 	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
@@ -232,7 +234,7 @@ void subscriber_t::notify_error(const ss::string_& errmsg) {
 void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
 		return;
-	if (active_adapter && active_adapter->get_lnb_key() == spectrum.k.lnb_key) {
+	if (active_adapter && active_adapter->get_lnb_key() == spectrum.k.rf_path.lnb) {
 		notify(spectrum);
 	}
 }

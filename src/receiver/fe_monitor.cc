@@ -220,7 +220,7 @@ exit_:
 
 void signal_monitor_t::update_stat(receiver_t& receiver, const statdb::signal_stat_t& update) {
 	//it is possible that max_key changes without tuning
-	bool save_old =  stat.stats.size()>0 && (stat.k.mux != update.k.mux || stat.k.lnb != update.k.lnb);
+	bool save_old =  stat.stats.size()>0 && (stat.k.mux != update.k.mux || stat.k.rf_path != update.k.rf_path);
 	if (save_old ) {
 		auto wtxn = receiver.statdb.wtxn();
 		if(stat.stats.size() > 0 ) {

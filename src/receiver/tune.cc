@@ -146,12 +146,13 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 	return 0;
 }
 
-int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
-																	 tune_options_t tune_options) {
+int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_adapter,
+																			 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+																			 tune_options_t tune_options) {
 	// check_thread();
 	dtdebugx("lnb activate");
 	this->active_adapters[active_adapter.get()] = active_adapter;
-	auto ret=active_adapter->lnb_activate(lnb, tune_options);
+	auto ret=active_adapter->lnb_activate(rf_path, lnb, tune_options);
 	return ret;
 }
 
@@ -166,7 +167,8 @@ void tuner_thread_t::cb_t::restart_si(active_adapter_t& active_adapter,
 	active_adapter.fe->set_tune_options(tune_options);
 }
 
-int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::lnb_t& lnb,
+int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
+															 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options,
 															 const devdb::resource_subscription_counts_t& use_counts) {
 	// check_thread();
@@ -184,7 +186,7 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 
 	this->active_adapters[active_adapter.get()] = active_adapter;
 	bool user_requested = true;
-	return active_adapter->tune(lnb, mux, tune_options, user_requested, use_counts);
+	return active_adapter->tune(rf_path, lnb, mux, tune_options, user_requested, use_counts);
 }
 
 template <typename _mux_t>

@@ -122,13 +122,14 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 	return {must_tune, must_reinit_si, must_reset_si, is_not_ts};
 }
 
-int active_adapter_t::lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_options) {
+int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
+																	 const devdb::lnb_t& lnb, tune_options_t tune_options) {
 	last_new_matype_time = steady_clock_t::now();
 	scan_mux_end_reported = false;
-	this->fe->start_fe_and_lnb(lnb);
+	this->fe->start_fe_and_lnb(rf_path, lnb);
 	switch (tune_options.tune_mode) {
 	case tune_mode_t::SPECTRUM:
-		return lnb_spectrum_scan(lnb, tune_options);
+		return lnb_spectrum_scan(rf_path, lnb, tune_options);
 	default:
 		assert(0);
 		//fall through
@@ -147,7 +148,8 @@ int active_adapter_t::lnb_activate(const devdb::lnb_t& lnb, tune_options_t tune_
 	return 0;
 }
 
-int active_adapter_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_options_t tune_options,
+int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
+													 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_options_t tune_options,
 													 bool user_requested, const devdb::resource_subscription_counts_t& use_counts) {
 	if(!fe)
 		return -1;
@@ -156,7 +158,7 @@ int active_adapter_t::tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 	last_new_matype_time = steady_clock_t::now();
 	scan_mux_end_reported = false;
 	assert(tune_state != TUNE_FAILED);
-	auto [ret, new_usals_sat_pos] = fe->tune(lnb, mux, tune_options, user_requested, use_counts);
+	auto [ret, new_usals_sat_pos] = fe->tune(rf_path, lnb, mux, tune_options, user_requested, use_counts);
 	if(ret>=0 && new_usals_sat_pos != sat_pos_none)
 		lnb_update_usals_pos(new_usals_sat_pos);
 
@@ -175,14 +177,14 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 	devdb::resource_subscription_counts_t use_counts;
 	{
 		auto devdb_rtxn = receiver.devdb.rtxn();
-		auto lnb_key = current_lnb().k;
-		use_counts = devdb::fe::subscription_counts(devdb_rtxn, lnb_key, nullptr /*fe_key_to_release*/);
+		auto rf_path = current_rf_path();
+		use_counts = devdb::fe::subscription_counts(devdb_rtxn, rf_path, nullptr /*fe_key_to_release*/);
 		devdb_rtxn.abort();
 	}
 	si.reset(true /*force_finalize*/, tune_state==tune_state_t::TUNE_FAILED);
 	//TODO: needless read here, followed by write within tune()
 	auto tune_options = fe->ts.readAccess()->tune_options;
-	return tune(current_lnb(), mux, tune_options, user_requested, use_counts);
+	return tune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, use_counts);
 }
 
 template <typename mux_t> inline int active_adapter_t::retune() {
@@ -205,10 +207,10 @@ int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
 			devdb::resource_subscription_counts_t use_counts;
 			{
 				auto devdb_rtxn = receiver.devdb.rtxn();
-				use_counts = devdb::fe::subscription_counts(devdb_rtxn, current_lnb().k, nullptr /*fe_key_to_release*/);
+				use_counts = devdb::fe::subscription_counts(devdb_rtxn, current_rf_path(), nullptr /*fe_key_to_release*/);
 				devdb_rtxn.abort();
 			}
-			tune(current_lnb(), mux, tune_options, user_requested, use_counts);
+			tune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, use_counts);
 		},
 		[this, &tune_options](const dvbc_mux_t& mux) {
 			bool user_requested = true;
@@ -353,10 +355,11 @@ void active_adapter_t::monitor() {
 }
 
 
-int active_adapter_t::lnb_spectrum_scan(const devdb::lnb_t& lnb, tune_options_t tune_options) {
+int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
+																				const devdb::lnb_t& lnb, tune_options_t tune_options) {
 
 	set_current_tp({});
-	auto [ret, new_usals_sat_pos] = fe->lnb_spectrum_scan(lnb, tune_options);
+	auto [ret, new_usals_sat_pos] = fe->lnb_spectrum_scan(rf_path, lnb, tune_options);
 	if(new_usals_sat_pos != sat_pos_none)
 		lnb_update_usals_pos(new_usals_sat_pos);
 

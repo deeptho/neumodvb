@@ -97,8 +97,6 @@ class SpectrumListPanel(SpectrumListPanel_):
     def OnRowSelect(self, evt):
         dtdebug(f"ROW SELECT {evt.GetRow()}")
 
-
-
 class SpectrumDialog(SpectrumDialog_):
 
     def __init__(self, parent, mux=None, sat=None, lnb=None, *args, **kwargs):
@@ -108,6 +106,7 @@ class SpectrumDialog(SpectrumDialog_):
         from neumodvb.positioner_dialog import EVT_LNB_CHANGE, EVT_ABORT_TUNE
         self.tune_mux_panel.Bind(EVT_LNB_CHANGE, self.OnChangeLnb)
         self.tune_mux_panel.Bind(EVT_ABORT_TUNE, self.OnAbortTune)
+
         self.parent = parent
 
         self.SetTitle(f'Spectrum - {self.lnb}')

@@ -23,6 +23,7 @@ import warnings
 import os
 import sys
 import time
+import datetime
 import regex as re
 from dateutil import tz
 import matplotlib as mpl
@@ -30,8 +31,6 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from matplotlib.colors import Normalize, LogNorm
-from scipy.interpolate import interpn
 import warnings
 
 import mpl_scatter_density # adds projection='scatter_density'
@@ -53,45 +52,9 @@ import datetime
 
 #horrible hack: matplotlib (in neumplot.py) uses the presence of this module to decide what backend to
 #use and then refuses to use wx
-del sys.modules['gi.repository.Gtk']
+if 'gi.repository.Gtk' in sys.modules:
+    del sys.modules['gi.repository.Gtk']
 mpl.use('WXAgg')
-
-white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
-    (0, '#ffffff00'),
-    (1e-20, '#440053'),
-    (0.2, '#404388'),
-    (0.4, '#2a788e'),
-    (0.6, '#21a784'),
-    (0.8, '#78d151'),
-    (1, '#fde624'),
-], N=256)
-
-
-def density_scatter( x , y, ax = None, sort = True, bins = 20, **kwargs )   :
-    """
-    Scatter plot colored by 2d histogram
-    """
-    if ax is None :
-        fig , ax = plt.subplots()
-    data , x_e, y_e = np.histogram2d( x, y, bins = bins, density = True )
-    z = interpn( ( 0.5*(x_e[1:] + x_e[:-1]) , 0.5*(y_e[1:]+y_e[:-1]) ) , data , np.vstack([x,y]).T , method = "splinef2d", bounds_error = False)
-
-    #To be sure to plot all data
-    z[np.where(np.isnan(z))] = 0.0
-
-    # Sort the points by density, so that the densest points are plotted last
-    if sort :
-        idx = z.argsort()
-        x, y, z = x[idx], y[idx], z[idx]
-
-    ax.scatter( x, y, c=z, **kwargs )
-
-    norm = Normalize(vmin = np.min(z), vmax = np.max(z))
-    cbar = fig.colorbar(cm.ScalarMappable(norm = norm), ax=ax)
-    cbar.ax.set_ylabel('Density')
-
-    return ax
-
 
 class CustomToolbar(NavigationToolbar):
     """
@@ -466,124 +429,6 @@ class Spectrum(object):
 
         self.axes.set_ylim(ylimits)
         self.axes.set_xlim(xlimits)
-
-def log_transform(im):
-    '''returns log(image) scaled to the interval [0,1]'''
-    try:
-        (min, max) = (im[im > 0].min(), im.max())
-        if (max > min) and (max > 0):
-            return 255*(np.log(im.clip(min, max)) - np.log(min)) / (np.log(max) - np.log(min))
-    except:
-        pass
-    return im
-
-
-class ConstellationPlotBase(wx.Panel):
-    def __init__(self, parent, figsize, *args, **kwargs):
-        super().__init__(parent, *args, **kwargs)
-        self.xlimits = None
-        self.ylimits = None
-        self.parent = parent
-
-        self.figure = mpl.figure.Figure(figsize=figsize)
-        self.axes = self.figure.add_subplot(111, projection='scatter_density')
-        self.canvas = FigureCanvas(self, -1, self.figure)
-        #print(f'BLIT={FigureCanvas.supports_blit}')
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.canvas, proportion=1,
-                        flag=wx.LEFT | wx.TOP | wx.EXPAND)
-        #self.sizer.Add(self.scrollbar, proportion=0,
-        #                flag=wx.LEFT | wx.TOP | wx.EXPAND)
-        self.SetSizer(self.sizer)
-        self.Fit()
-        self.Bind (wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
-        self.Parent.Bind (wx.EVT_SHOW, self.OnShowHide)
-        self.legend  = None
-        self.cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        self.constellation_graphs=[]
-        self.min = None
-        self.max = None
-        self.samples = None
-
-    def OnShowHide(self,event):
-        if event.IsShown():
-            self.draw()
-
-    def OnWindowCreate(self,event):
-        if event.GetWindow() == self:
-            #self.start_freq, self.end_freq = self.parent.start_freq, self.parent.end_freq
-            self.draw()
-        else:
-            pass
-
-    def draw(self):
-        self.axes.clear()
-        self.figure.patch.set_alpha(0.2)
-        self.Fit()
-        #self.figure.subplots_adjust(left=0.15, bottom=0.15, right=0.95, top=0.95)
-        self.figure.subplots_adjust(left=0, bottom=0, right=1, top=1)
-        self.axes.set_axis_off()
-        #self.axes.spines['right'].set_visible(False)
-        #self.axes.spines['top'].set_visible(False)
-        #self.plot_constellation()
-        #self.axes.set_ylabel('dB')
-        #self.axes.set_xlabel('Frequency (Mhz)')
-        self.axes.set_xlim((-120, 120))
-        self.axes.set_ylim((-120, 120))
-        self.canvas.draw()
-
-    def clear_data(self):
-        self.samples = None
-
-    def show_constellation(self, samples):
-        import timeit
-        if False:
-            maxsize = 32*1024
-            if self.samples is not None:
-                if self.samples.shape[1] + samples.shape[1] < maxsize:
-                    self.samples = np.hstack([self.samples, samples])
-                else:
-                    self.samples = np.hstack([self.samples[:,samples.shape[1]:], samples])
-            else:
-                self.samples = samples
-        else:
-            self.samples = samples
-        if len(self.constellation_graphs)>0:
-            self.constellation_graphs[0].remove()
-            self.constellation_graphs=[]
-        #dtdebug(f'constellation: plotting {self.samples.shape} samples')
-        start =timeit.timeit()
-        with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', r'All-NaN (slice|axis) encountered')
-            graph = self.axes.scatter_density(self.samples[0,:], self.samples[1,:], vmin=0, vmax= 10., cmap=white_viridis)
-
-        end =timeit.timeit()
-
-        self.constellation_graphs.append(graph)
-        if len(self.constellation_graphs) > 5:
-            old = self.constellation_graphs.pop(0)
-            old.remove()
-        self.axes.set_xlim((-120, 120))
-        self.axes.set_ylim((-120, 120))
-        self.canvas.draw()
-        wx.CallAfter(self.parent.Refresh)
-
-    def clear_constellation(self):
-        #dtdebug(f'clearing constellation samples')
-        for x in self.constellation_graphs:
-            x.remove()
-        self.constellation_graphs = []
-        self.canvas.draw()
-        wx.CallAfter(self.parent.Refresh)
-
-
-class SmallConstellationPlot(ConstellationPlotBase):
-    def __init__(self, parent, *args, **kwargs):
-        super().__init__(parent, (1.5,1.5), *args, **kwargs)
-
-class ConstellationPlot(ConstellationPlotBase):
-    def __init__(self, parent, *args, **kwargs):
-        super().__init__(parent, (1.5, 1.5), *args, **kwargs)
 
 class SpectrumPlot(wx.Panel):
     def __init__(self, parent, *args, **kwargs):
@@ -1018,183 +863,6 @@ class SpectrumPlot(wx.Panel):
             self.show_spectrum(spectrum)
         self.figure.canvas.draw()
         self.parent.Refresh()
-
-
-
-
-class SignalHistoryPlot(wx.Panel):
-    def __init__(self, parent, *args, **kwargs):
-        super().__init__(parent, *args, **kwargs)
-        self.xlimits = None
-        self.ylimits = None
-        self.zoom_bandwidth=500 #zoom all graphs to this amount of time
-        self.parent = parent
-        self.spectrum = pystatdb.spectrum.spectrum()
-        self.scrollbar = wx.ScrollBar(self)
-        self.scrollbar.SetScrollbar(0, self.zoom_bandwidth, 2100, 200)
-        self.scrollbar.Bind(wx.EVT_COMMAND_SCROLL, self.OnScroll)
-
-        self.figure = mpl.figure.Figure()
-        self.axes = self.figure.add_subplot(111)
-        self.canvas = FigureCanvas(self, -1, self.figure)
-        self.toolbar_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        #self.toolbar_sizer = wx.FlexGridSizer(1, 4, 0, 10)
-        self.toolbar = NavigationToolbar(self.canvas)
-        self.toolbar.Realize()
-        self.toolbar_sizer.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
-
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.toolbar_sizer, 0, wx.LEFT | wx.EXPAND)
-
-        self.sizer.Add(self.canvas, proportion=1,
-                        flag=wx.LEFT | wx.TOP | wx.EXPAND)
-        self.sizer.Add(self.scrollbar, proportion=0,
-                        flag=wx.LEFT | wx.TOP | wx.EXPAND)
-        self.SetSizer(self.sizer)
-        self.Bind ( wx.EVT_WINDOW_CREATE, self.OnCreateWindow )
-        self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
-        if False:
-            self.count =0
-            from collections import OrderedDict
-            self.spectra = OrderedDict()
-            self.legend  = None
-            self.figure.canvas.mpl_connect('pick_event', self.on_pick)
-            self.figure.canvas.mpl_connect('button_press_event', self.on_button_press)
-            self.shift_is_held = False
-            self.ctrl_is_held = False
-            #self.figure.canvas.mpl_connect('key_press_event', self.set_modifiers)
-            #self.figure.canvas.mpl_connect('key_release_event', self.unset_modifiers)
-        self.cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        if False:
-            self.current_annot = None #currently selected annot
-            self.current_annot_vline = None
-            self.do_detrend = True
-            self.pan_start_freq = None
-            self.add_detrend_button()
-            self.add_status_box()
-            self.mux_creator = None
-            wx.CallAfter(self.compute_annot_scale_factors)
-
-    def OnShowHide(self,event):
-        if event.IsShown():
-            self.draw()
-
-    def OnWindowCreate(self,event):
-        if event.GetWindow() == self:
-            #self.start_freq, self.end_freq = self.parent.start_freq, self.parent.end_freq
-            self.draw()
-        else:
-            pass
-
-    def OnScroll(self, event):
-        pos = event.GetPosition()
-        offset =pos
-        self.pan_spectrum(offset)
-
-    def draw(self):
-        self.axes.clear()
-        self.Fit()
-        self.figure.subplots_adjust(left=0.05, bottom=0.1, right=0.98, top=0.92)
-        self.axes.spines['right'].set_visible(False)
-        self.axes.spines['top'].set_visible(False)
-        self.axes.set_ylabel('dB')
-        self.axes.set_xlabel('Date')
-        xlimits, ylimits = self.get_limits()
-        self.axes.set_xlim(xlimits)
-        self.canvas.draw()
-
-
-    def add_legend_button(self, spectrum, color) :
-        if False:
-            panel = wx.Panel(self, wx.ID_ANY, style=wx.BORDER_SUNKEN)
-            self.toolbar_sizer.Add(panel, 0, wx.LEFT|wx.RIGHT, 10)
-            sizer = wx.FlexGridSizer(3, 1, 0)
-            static_line = wx.StaticLine(panel, wx.ID_ANY)
-            static_line.SetMinSize((20, 2))
-            static_line.SetBackgroundColour(wx.Colour(color))
-            static_line.SetForegroundColour(wx.Colour(color))
-
-            sizer.Add(static_line, 1, wx.ALIGN_CENTER_VERTICAL, 0)
-
-            button = wx.ToggleButton(panel, wx.ID_ANY, _(spectrum.label))
-            sizer.Add(button, 0, 0, 0)
-            button.spectrum = spectrum
-            button.SetValue(1)
-
-            self.close_button = wx.Button(panel, -1, "", style=wx.BU_NOTEXT)
-            self.close_button.SetMinSize((32, -1))
-            self.close_button.SetBitmap(wx.ArtProvider.GetBitmap(wx.ART_CLOSE, wx.ART_OTHER, (16, 16)))
-            self.close_button.spectrum = spectrum
-            sizer.Add(self.close_button, 0, 0, 0)
-
-            panel.SetSizer(sizer)
-
-            self.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleAnnots, button)
-            self.Bind(wx.EVT_BUTTON, self.OnCloseGraph, self.close_button)
-            self.Layout()
-            spectrum.legend_panel = panel
-
-    def show_signal(self, spectrum):
-        key = self.make_key(spectrum)
-        s = self.spectra.get(key, None)
-        if s is not None:
-            self.hide_spectrum(spectrum)
-            is_first = False
-        else:
-            is_first = len(self.spectra)==0
-        self.get_limits.cache_clear()
-        s = Spectrum(self, spectrum, color=self.cycle_colors[len(self.spectra)])
-        self.spectra[key] = s
-        self.add_legend_button(s, s.color)
-        s.show()
-        if self.legend is not None:
-            self.legend.remove()
-        #self.pan_spectrum(0)
-        self.pan_band(s.spec[0,0])
-        xlimits, ylimits = self.get_limits()
-        offset = 0 if self.pan_start_freq is None else self.pan_start_freq - xlimits[0]
-
-        self.scrollbar.SetScrollbar(offset, self.zoom_bandwidth, xlimits[1] - xlimits[0], 200)
-        self.canvas.draw()
-        wx.CallAfter(self.parent.Refresh)
-
-    def hide_signal(self, spectrum):
-        key = self.make_key(spectrum)
-        s = self.spectra.get(key, None)
-        if s is None:
-            return
-        s.legend_panel.Destroy()
-        self.toolbar_sizer.Layout()
-        s.clear()
-        del self.spectra[key]
-        if self.legend is not None:
-            self.legend.remove()
-
-    @lru_cache(maxsize=None)
-    def get_limits(self):
-        if False:
-            if self.spectra is None or len(self.spectra)==0:
-                return ((self.parent.start_freq/1000, self.parent.end_freq/1000), (-60.0, -40.0))
-            xlimits, ylimits = None, None
-            for spectrum in self.spectra.values():
-                xlimits = combine_ranges(xlimits, spectrum.xlimits)
-                ylimits = combine_ranges(ylimits, spectrum.ylimits)
-            #-100 and +100 to allow offscreen annotations to be seen
-            return (xlimits[0] - 100 , xlimits[1] +100), ylimits
-
-    def update_matplotlib_legend(self, spectrum):
-        self.legend = self.figure.legend(ncol=len(self.spectra))
-
-        for legline, key in zip(self.legend.get_lines(), self.spectra):
-            legline.set_picker(True)  # Enable picking on the legend line.
-            legline.key = key
-
-    def OnCloseGraph(self, evt):
-        if False:
-            spectrum = evt.GetEventObject().spectrum.spectrum
-            self.hide_spectrum(spectrum)
-            self.canvas.draw()
-            self.parent.Refresh()
 
 
 """

@@ -72,6 +72,7 @@ control_menu = (
     SEP,
     MI("Tune",  _("&Tune\tCtrl-Enter"), ""),
     MI("TuneAdd",  _("&Tune - Add\tShift-Ctrl-Enter"), ""),
+    MI("SignalHistory",  _("&Signal History\tCtrl-H"), ""),
     MI("Play",  _("&Play\tCtrl-Enter"), ""),
     MI("Play Add",  _("&Play- Add\tShift-Ctrl-Enter"), ""),
     MI("Scan",  _("&Scan\tCtrl-S"), ""),

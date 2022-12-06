@@ -1155,7 +1155,7 @@
                                                         <border>0</border>
                                                         <flag>wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxSHAPED</flag>
                                                         <object class="wx.Panel" name="constellation_plot" base="EditPanel" instance_class="ConstellationPlot">
-                                                            <extracode>from neumodvb.neumoplot import ConstellationPlot</extracode>
+                                                            <extracode>from neumodvb.constellationplot import ConstellationPlot</extracode>
                                                         </object>
                                                     </object>
                                                     <object class="sizeritem">

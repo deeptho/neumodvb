@@ -26,7 +26,7 @@
 template<typename T>
 inline int deserialize(const ss::bytebuffer_ &ser, T& val, int offset=0);
 
-//deserialization of a simple integer, but with possibly differen word length
+//deserialization of a simple integer, but with possibly different word length
 template<typename T>
 inline std::enable_if_t<std::is_integral_v<T>, int>
 deserialize_int(const ss::bytebuffer_ &ser, T& val, int foreign_type_id, int offset=0);
@@ -120,6 +120,25 @@ deserialize_int(const ss::bytebuffer_ &ser, T& val, int foreign_type_id, int off
 	}
 	case int64: {
 		int64_t val_;
+		ret = decode_ascending(val_, ser, offset);
+		val = val_;
+		return ret;
+	}
+	default:
+		assert (0);
+	}
+
+	return ret;
+}
+
+//deserialization of a simple primitive type with different word length
+inline float32_t
+deserialize_float(const ss::bytebuffer_ &ser, float32_t& val, int foreign_type_id, int offset)  {
+	int ret = -1;
+	using namespace data_types;
+	switch(foreign_type_id & ~data_types::enumeration & ~data_types::vector) {
+	case float32: {
+		float32_t val_;
 		ret = decode_ascending(val_, ser, offset);
 		val = val_;
 		return ret;

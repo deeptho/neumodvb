@@ -97,6 +97,15 @@ namespace data_types {
 		}
 	}
 
+	inline bool is_float_type(int type_id){ //built in scalar type; hardwired
+		switch(type_id & ~data_types::enumeration & ~data_types::vector) {
+		case float32:
+			return true;
+		default:
+			return false;
+		}
+	}
+
 	inline bool is_boolean_type(int type_id){ //built in scalar type; hardwired
 		return  (type_id & ~ data_types::enumeration) == boolean;
 	}

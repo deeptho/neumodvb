@@ -45,6 +45,18 @@ std::tuple<py::object,int> deserialize_int_to_python(const ss::bytebuffer_&ser, 
 }
 
 static inline
+std::tuple<py::object,int> deserialize_float_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
+	float32_t val;
+	auto new_offset = deserialize_float(ser, val, foreign_type_id, offset);
+	if(new_offset>=0) {
+		py::float_ val_{val};
+		return {val_, new_offset};
+	}
+	assert(0);
+	return {py::cast<py::none>(Py_None), offset};
+}
+
+static inline
 std::tuple<py::object,int> deserialize_boolean_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
 	int64_t val;
 	auto new_offset = deserialize_int(ser, val, foreign_type_id, offset);
@@ -82,6 +94,8 @@ std::tuple<py::object, int> deserialize_builtin_safe_to_python
 	if(data_types::is_int_type(type_id)) {
 		//type_id &= ~  data_types::enumeration;
 		return deserialize_int_to_python(ser, type_id, offset);
+	} else if(data_types::is_float_type(type_id)) {
+		return deserialize_float_to_python(ser, type_id, offset);
 	} else 	if(data_types::is_boolean_type(type_id)) {
 		//type_id &= ~  data_types::enumeration;
 		return deserialize_boolean_to_python(ser, type_id, offset);

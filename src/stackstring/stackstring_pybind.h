@@ -58,8 +58,8 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
 											//printf("[%p] len\n", &v);
 										 v.resize(size); })
 		.def("push_back", [](ss::vector_<T> &v, const T& val) {
-			               v.resize_no_init(v.size()+1);
-										 v[v.size()-1] = val;
+                		 v.resize_no_init(v.size()+1);
+										 new(&v[v.size()-1]) T(val);
 		})
 #if 0
 		.def("address", [](ss::vector_<T> &v) {

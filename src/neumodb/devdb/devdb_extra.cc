@@ -173,6 +173,11 @@ void devdb::to_str(ss::string_& ret, const lnb_network_t& lnb_network) {
 	ret << lnb_network;
 }
 
+void devdb::to_str(ss::string_& ret, const lnb_connection_t& lnb_connection) {
+	ret.clear();
+	ret << lnb_connection;
+}
+
 void devdb::to_str(ss::string_& ret, const fe_band_pol_t& band_pol) {
 	ret.clear();
 	ret << band_pol;
@@ -704,10 +709,9 @@ void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb, bool save)
 		conn.connection_name.clear();
 		conn.card_no = fe.card_no;
 		if (conn.card_no >=0)
-			conn.connection_name.sprintf("C%d#%d %s", conn.card_no, conn.rf_input,
-																	fe.card_short_name.c_str());
+			conn.connection_name.sprintf("%s C%d#%d", fe.card_short_name.c_str(), conn.card_no, conn.rf_input);
 		else
-			conn.connection_name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
+			conn.connection_name.sprintf("%s C??#%d", fe.card_short_name.c_str(), conn.rf_input);
 		lnb.can_be_used = fe.can_be_used;
 		}
 		switch(conn.rotor_control) {
@@ -773,10 +777,11 @@ static void update_lnb_adapter_fields(db_txn& wtxn, devdb::lnb_t& lnb, const dev
 	bool any_change{lnb.can_be_used != can_be_used};
 
 	for(auto& conn: lnb.connections) {
+		if(conn.card_mac_address != fe.card_mac_address)
+			continue;
 		name.clear();
 		auto valid_rf_input = fe.rf_inputs.contains(conn.rf_input);
-		assert(valid_rf_input);
-		auto card_no = fe.card_no;
+		auto card_no = valid_rf_input ? fe.card_no : -1;
 		if (card_no >=0) {
 			name.sprintf("C%d#%d %s", card_no, conn.rf_input, fe.card_short_name.c_str());
 		} else {

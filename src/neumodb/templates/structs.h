@@ -212,6 +212,18 @@ inline static
 {% endfor %}
 {% endfor %}
 {% endif %}
+
+	 {% if struct.primary_key == None %}
+	 {% elif struct.primary_key.fields|length >= 1 %}
+      inline bool has_same_key(const {{struct.class_name}}& other) {
+		    {%for f in struct.primary_key.fields %}
+				if(!({{f.name}} == other.{{f.name}}))
+					return false;
+				{% endfor%}
+				return true;
+				}
+   {% endif %}
+
 	}; //end 	struct {{struct.class_name}}
 		inline bool operator==(const {{struct.class_name}}& a, const {{struct.class_name}}& b) {
     {%for f in struct.fields  %}
@@ -261,6 +273,7 @@ namespace {{dbname}} {
     {% endfor %}
 		{
 		}
+
 } //end of namespace {{dbname}}
 
 

@@ -27,6 +27,7 @@ import numbers
 import datetime
 from dateutil import tz
 import regex as re
+from cachetools.func import ttl_cache
 
 from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
@@ -43,9 +44,11 @@ class SpectrumTable(NeumoTable):
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     all_columns = \
-        [CD(key='k.lnb_key',  label='lnb', basic=True, example="D0A0 Ku 28.2E 32766  ",
+        [CD(key='k.rf_path.lnb',  label='lnb', basic=True, example="D0A0 Ku 28.2E 32766  ",
             dfn = lambda x: x[2].lnb_label(x[0]),
-            sort=('k.lnb_key.dish_id', 'k.lnb_key.adapter_mac_address', 'k.lnb_key.lnb_id')),
+            sort=('k.rf_path.lnb.dish_id', 'k.rf_path.lnb.card_mac_address', 'k.rf_path.rf_input', 'k.rf_path.lnb.lnb_id')),
+         CD(key='k.rf_path',  label='Card/RF', basic=True, readonly=True, no_combo = True,
+            dfn=lambda x: x[2].rf_path_name(x[0]), example=" TBS6909X #12 "),
          CD(key='k.sat_pos',  label='sat\npos', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='adapter_no',  label='ad#', basic=True, readonly=True),
          CD(key='k.pol',  label='pol', basic=True, dfn=lambda x: lastdot(x[1]).replace('POL',''), example='V'),
@@ -59,14 +62,12 @@ class SpectrumTable(NeumoTable):
          CD(key='filename',  label='file', basic=False, example="28.2E/0/2022-07-20_00:19:48_H_dish0_adapter2")
         ]
     def lnb_label(self, spectrum):
-        lnb_key = spectrum.k.lnb_key
-        sat_pos = spectrum.k.sat_pos
-        rf_input = lnb_key.rf_input
-        sat_pos=pychdb.sat_pos_str(sat_pos)
+        lnb_key = spectrum.k.rf_path.lnb
+        sat_pos =pychdb.sat_pos_str(spectrum.k.sat_pos)
         t= lastdot(lnb_key.lnb_type)
         if t == 'UNIV':
             t='Ku'
-        return f'D{lnb_key.dish_id}#{"??" if rf_input< 0 else rf_input} {sat_pos:>5}{t} {lnb_key.lnb_id}'
+        return f'D{lnb_key.dish_id} {sat_pos:>5}{t} {lnb_key.lnb_id}'
 
     def InitialRecord(self):
         return self.app.currently_selected_spectrum
@@ -114,6 +115,15 @@ class SpectrumTable(NeumoTable):
         return str(ret)
         return mac.to_bytes(6, byteorder='little').hex(":") if x[1]>=0 else '???'
 
+    @property
+    @ttl_cache(maxsize=128, ttl=10) #refresh every 10 seconds
+    def rf_path_dict(self):
+        cards = wx.GetApp().get_cards_with_rf_in()
+        ret = dict((v,k) for k, v in cards.items())
+        return ret
+
+    def rf_path_name(self, status):
+        return self.rf_path_dict.get((status.k.rf_path.card_mac_address,status.k.rf_path.rf_input))
 
 class SpectrumGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):

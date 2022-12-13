@@ -193,9 +193,7 @@ lnb_connection = db_struct(name='lnb_connection',
                 db = db,
                 type_id= lord('tc'),
                 version = 1,
-                keys =  (
-                    #(ord('a'), 'adapter_mac_address', ('k.adapter_mac_address', 'k.sat_pos')),
-                ),
+                 primary_key = ('key', ('card_mac_address','rf_input')), #this key is needed for temporary database (per lnb)
                 fields = ((1, 'int64_t', 'card_mac_address', -1), #Unique for each card
                           (2, 'int8_t', 'rf_input', -1),
 

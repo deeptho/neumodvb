@@ -278,8 +278,8 @@ class SpectrumDialog(SpectrumDialog_):
         new_entries=[]
         for key, spectrum in self.spectrum_plot.spectra.items():
             k = spectrum.spectrum.k
-            if k.lnb_key != lnb.k:
-                k.lnb_key = lnb.k # in case user has overridden
+            if k.rf_path.lnb != lnb.k:
+                k.rf_path.lnb = lnb.k # in case user has overridden
                 newkey = self.spectrum_plot.make_key(spectrum.spectrum)
                 new_entries.append((newkey,  spectrum))
             subscriber.scan_spectral_peaks(k, spectrum.peak_data[:,0], spectrum.peak_data[:,1])
@@ -291,7 +291,7 @@ class SpectrumDialog(SpectrumDialog_):
            not lnb_matches_spectrum(self.lnb, spectrum):
             txn = wx.GetApp().chdb.rtxn()
             sat = pychdb.sat.find_by_key(txn, spectrum.k.sat_pos)
-            lnb = pydevdb.lnb.find_by_key(txn, spectrum.k.lnb_key)
+            lnb = pydevdb.lnb.find_by_key(txn, spectrum.k.rf_path.lnb)
             txn.abort()
             del txn
         else:

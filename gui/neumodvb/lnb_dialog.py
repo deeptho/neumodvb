@@ -24,8 +24,9 @@ import copy
 
 
 from neumodvb.util import setup, lastdot
-from neumodvb.neumo_dialogs_gui import  LnbNetworkDialog_
+from neumodvb.neumo_dialogs_gui import  LnbNetworkDialog_,LnbConnectionDialog_
 from neumodvb.lnbnetworklist import LnbNetworkGrid
+from neumodvb.lnbconnectionlist import LnbConnectionGrid
 
 class LnbNetworkDialog(LnbNetworkDialog_):
     def __init__(self, parent, basic, readonly, *args, **kwds):
@@ -69,4 +70,50 @@ class LnbNetworkDialog(LnbNetworkDialog_):
         self.lnbnetworklist_panel.RemoveChild(self.lnbnetworkgrid)
         self.lnbnetworkgrid.Destroy()
         self.lnbnetworkgrid = None
+        event.Skip()
+
+
+
+class LnbConnectionDialog(LnbConnectionDialog_):
+    def __init__(self, parent, basic, readonly, *args, **kwds):
+        self.basic = basic
+        self.readonly = readonly
+        super().__init__(parent, *args, **kwds)
+        self.lnbconnectiongrid = None
+
+    def Prepare(self, lnbgrid):
+        self.lnbconnectiongrid = LnbConnectionGrid(self.basic, self.readonly, self.lnbconnectionlist_panel, \
+                                             wx.ID_ANY, size=(1, 1))
+        self.lnbgrid = lnbgrid
+        self.lnbconnectiongrid_sizer.Add(self.lnbconnectiongrid, 1, wx.ALL | wx.EXPAND | wx.FIXED_MINSIZE, 1)
+        self.Layout()
+
+    def CheckCancel(self, event):
+        if event.GetKeyCode() in [wx.WXK_ESCAPE, wx.WXK_CONTROL_C]:
+            self.OnTimer(None, ret=wx.ID_CANCEL)
+            event.Skip(False)
+        event.Skip()
+
+    def OnNew(self, event):
+        self.lnbconnectiongrid.OnNew(event)
+        event.Skip()
+
+    def OnDelete(self, event):
+        self.lnbconnectiongrid.OnDelete(event)
+        event.Skip()
+
+    def OnDone(self, event):
+        self.lnbconnectiongrid.OnDone(event)
+        self.lnbconnectiongrid_sizer.Remove(1) #remove current grid
+        self.lnbconnectionlist_panel.RemoveChild(self.lnbconnectiongrid)
+        lnbconnectiongrid = self.lnbconnectiongrid
+        self.lnbconnectiongrid = None
+        wx.CallAfter(lnbconnectiongrid.Destroy)
+        event.Skip()
+
+    def OnCancel(self, event):
+        self.lnbconnectiongrid_sizer.Remove(1) #remove current grid
+        self.lnbconnectionlist_panel.RemoveChild(self.lnbconnectiongrid)
+        self.lnbconnectiongrid.Destroy()
+        self.lnbconnectiongrid = None
         event.Skip()

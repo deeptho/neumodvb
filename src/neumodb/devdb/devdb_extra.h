@@ -55,6 +55,7 @@ namespace devdb {
 	void to_str(ss::string_& ret, const lnb_t& lnb);
 	void to_str(ss::string_& ret, const lnb_key_t& lnb_key);
 	void to_str(ss::string_& ret, const lnb_network_t& lnb_network);
+	void to_str(ss::string_& ret, const lnb_connection_t& lnb_connection);
 	void to_str(ss::string_& ret, const fe_band_pol_t& band_pol);
 	void to_str(ss::string_& ret, const fe_t& fe);
 	void to_str(ss::string_& ret, const fe_key_t& fe_key);

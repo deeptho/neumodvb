@@ -50,13 +50,13 @@ def subscription_fn(x):
     if sub.usals_pos == pychdb.sat.sat_pos_none:
         return ""
     sat_pos=pychdb.sat_pos_str(sub.usals_pos)
-    t= lastdot(sub.lnb_key.lnb_type)
+    t= lastdot(sub.rf_path.lnb.lnb_type)
     e = neumodbutils.enum_to_str
     if t != 'C':
         t='Ku'
     sid = "" if (sub.stream_id < 0)  else f'-{sub.stream_id}'
     f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
-    return f'#{sub.lnb_key.rf_input} {sat_pos:>5}{t} {f} {sub.lnb_key.lnb_id}'
+    return f'#{sub.rf_path.rf_input} {sat_pos:>5}{t} {f} {sub.rf_path.lnb.lnb_id}'
 
 class FrontendTable(NeumoTable):
     CD = NeumoTable.CD
@@ -78,7 +78,7 @@ class FrontendTable(NeumoTable):
          CD(key='fe_enable_menu',  label='enable', basic=False, cfn=enable_cfn, dfn=enable_dfn, sfn=enable_sfn,
             example=" DVB T+C "),
          CD(key='priority',  label='priority', basic=True),
-         CD(key='sub.lnb_key.card_mac_address',  label='subscription', basic=True, dfn=subscription_fn, example='#0 28.2EKu 10714.250H-255 1234'),
+         CD(key='sub.rf_path.card_mac_address',  label='subscription', basic=True, dfn=subscription_fn, example='#0 28.2EKu 10714.250H-255 1234'),
          CD(key='sub.use_count',  label='fe use\ncount', basic=True, readonly=True),
          CD(key='rf_inputs',  label='rf\ninputs', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          #CD(key='rf_in',  label='RF#', basic=True, readonly=True),

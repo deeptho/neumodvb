@@ -43,7 +43,7 @@ import numpy as np
 
 from neumodvb.util import dtdebug, dterror
 from neumodvb.neumodbutils import enum_to_str
-
+from neumodvb.neumo_dialogs import ShowMessage
 import pyspectrum
 import pystatdb
 import pychdb
@@ -215,7 +215,7 @@ class Spectrum(object):
         self.color = color
         sat = pychdb.sat_pos_str(self.spectrum.k.sat_pos)
         date = datetime.datetime.fromtimestamp(self.spectrum.k.start_time , tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M")
-        label = f'{date} {sat} {enum_to_str(self.spectrum.k.pol)} dish {self.spectrum.k.lnb_key.dish_id}'
+        label = f'{date} {sat} {enum_to_str(self.spectrum.k.pol)} dish {self.spectrum.k.rf_path.lnb.dish_id}'
         self.label = label
         self.annots = []
         self.tps = []
@@ -229,7 +229,7 @@ class Spectrum(object):
 
     def __str__(self):
         sat = pychdb.sat_pos_str(self.spectrum.k.sat_pos)
-        return f'{sat} {enum_to_str(self.spectrum.k.pol)} dish {self.spectrum.k.lnb_key.dish_id}'
+        return f'{sat} {enum_to_str(self.spectrum.k.pol)} dish {self.spectrum.k.rf_path.lnb.dish_id}'
 
     def tps_to_scan(self) :
         return [ tp for tp in self.tps if not tp.scan_failed and not tp.scan_ok ]
@@ -281,8 +281,9 @@ class Spectrum(object):
         spectrum_fname = ''.join([path, '/', self.spectrum.filename, "_spectrum.dat"])
         tps_fname = ''.join([path, '/', self.spectrum.filename, "_peaks.dat"])
         pol = self.spectrum.k.pol
-        self.process(spectrum_fname, tps_fname)
+        ret = self.process(spectrum_fname, tps_fname)
         self.drawn = True
+        return ret
 
     def make_tps(self, tpsname):
         #n = len(spec[:,1])
@@ -305,13 +306,18 @@ class Spectrum(object):
 
     def plot_spec(self, fname):
         dtdebug(f"loading spectrum {fname}")
-        self.spec = np.atleast_2d(np.loadtxt(fname))
+        try:
+            self.spec = np.atleast_2d(np.loadtxt(fname))
+        except:
+            ShowMessage(f'Could not open {fname}')
+            return False
         if self.parent.do_detrend:
             self.detrend()
         t = self.spec[:,0]
         a = self.spec[:,1]
-
         self.spectrum_graph = self.axes.plot(t, a/1000,label=self.label, color=self.color)
+        return True
+
     def annot_size(self):
         s = self.parent.annot_scale_factors
         xlimits, ylimits = self.parent.get_limits()
@@ -347,7 +353,7 @@ class Spectrum(object):
         lowest_freq, highest_freq = self.spec[0, 0] , self.spec[-1,0]
         # the +8 is a heuristic, in case the highest frequencies of the Ku_low band would exceed 11700 due to lnb lof offset
         has_two_bands = (highest_freq > 11700+8) and (lowest_freq < 11700-8) and \
-            self.spectrum.k.lnb_key.lnb_type == pydevdb.lnb_type_t.UNIV
+            self.spectrum.k.rf_path.lnb.lnb_type == pydevdb.lnb_type_t.UNIV
         if has_two_bands:
             mid_idx1 = np.searchsorted(self.spec[:,0], 11700-8, side='left')
             mid_idx = np.searchsorted(self.spec[mid_idx1:,0], 11700, side='left') + mid_idx1
@@ -404,7 +410,9 @@ class Spectrum(object):
 
 
     def process(self, specname, tpsname):
-        self.plot_spec(specname)
+        if not self.plot_spec(specname):
+            self.spectrum_graph = None
+            return False
         frequency_step = round(1000*(self.spec[1:,0] - self.spec[:-1,0]).mean())
         sig = self.spec[:,1]
         self.make_tps(tpsname)
@@ -429,6 +437,7 @@ class Spectrum(object):
 
         self.axes.set_ylim(ylimits)
         self.axes.set_xlim(xlimits)
+        return True
 
 class SpectrumPlot(wx.Panel):
     def __init__(self, parent, *args, **kwargs):
@@ -637,7 +646,8 @@ class SpectrumPlot(wx.Panel):
         s = Spectrum(self, spectrum, color=self.cycle_colors[len(self.spectra)])
         self.spectra[key] = s
         self.add_legend_button(s, s.color)
-        s.show()
+        if not s.show():
+            return
         if self.legend is not None:
             self.legend.remove()
         #self.pan_spectrum(0)

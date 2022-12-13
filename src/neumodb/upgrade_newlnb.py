@@ -48,7 +48,7 @@ for lnb_ in lnbs:
                 setattr(conn, key, type(getattr(conn, key))(lnb[key]))
     for key in ["card_mac_address",  "rf_input"]:
                 setattr(conn, key, type(getattr(conn, key))(k[key]))
-
+    newlnb.connections.push_back(conn)
     for network in  lnb["networks"]:
         n = pydevdb.lnb_network.lnb_network()
         for kk,v in network.items():
@@ -147,3 +147,6 @@ if True:
     txn=statdb.wtxn()
     for stat in newstats:
         pystatdb.put_record(txn, stat)
+    for spec in newspecs:
+        pystatdb.put_record(txn, spec)
+    txn.commit()

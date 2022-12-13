@@ -45,7 +45,7 @@ static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
 	using namespace devdb;
 	mm
-		.def("update_lnb", &lnb::update_lnb, "save chanfed lnb, while checking tune string",
+		.def("update_lnb", &lnb::update_lnb, "save changed lnb, while checking tune string",
 				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
 		.def("reset_lof_offset", &lnb::reset_lof_offset,
 				 "reset the LOF offset to 0",

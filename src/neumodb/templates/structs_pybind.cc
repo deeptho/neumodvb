@@ -48,6 +48,9 @@ namespace {{dbname}} {
 			py::arg("{{f.name }}") {%-if not loop.last  %}, {%-endif%}
     {% endfor %}
 			)
+		{% if struct.primary_key.fields | length >=1 %}
+		.def("has_same_key", &{{struct.class_name}}::has_same_key)
+		{% endif %}
 		.def("copy", [](const {{struct.class_name}}& self){ return self;})
     .def("__repr__", [](const {{struct.class_name}}& self){ auto x = to_str(self); return std::string(x.c_str());})
     {%for f in struct.fields %}

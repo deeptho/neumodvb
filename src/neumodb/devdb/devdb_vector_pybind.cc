@@ -29,6 +29,7 @@ void export_devdb_vectors(py::module& m) {
 	using namespace devdb;
 	export_ss_vector(m, lnb_t);
 	export_ss_vector(m, lnb_network_t);
+	export_ss_vector(m, lnb_connection_t);
 	export_ss_vector(m, chdb::fe_delsys_t);
 	export_ss_vector(m, fe_t);
 }

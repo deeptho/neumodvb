@@ -178,6 +178,8 @@ class SignalHistory(object):
             self.xlimits = (ret[0][0][0], ret[-1][0][0])
             if self.xlimits[1] == self.xlimits[0]:
                 self.xlimits[0] -= datetime.timedelta(second=60)
+        else:
+            ylimits = 0, 1e-6
         if ylimits[1] <= ylimits[0]:
             ylimits[1] = ylimits[0] + 1e-6
         self.axes.set_ylim(ylimits)

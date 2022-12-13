@@ -32,7 +32,7 @@ from neumodvb.util import setup, lastdot
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import dtdebug, dterror
-from neumodvb.lnbnetwork_dialog import  LnbNetworkDialog
+from neumodvb.lnb_dialog import  LnbNetworkDialog, LnbConnectionDialog
 from neumodvb.lnbnetworklist import LnbNetworkGrid
 
 import pychdb
@@ -78,6 +78,7 @@ class LnbTable(NeumoTable):
     card_rf_in_fn = lambda x: x[2].connection_name(x[0])
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
+    lnbconn_fn =  lambda x: '; '.join([ conn.connection_name for conn in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
     lnb_key_fn = lambda x: str(x[0])
@@ -88,14 +89,14 @@ class LnbTable(NeumoTable):
                       label='LNB', basic=True, readonly=True)
                               ]
     all_columns = \
-        [CD(key='connection_name',  label='LNB', basic=True, readonly=True,
-            example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
+        [#CD(key='connection_name',  label='LNB', basic=True, readonly=True,
+         #   example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
          #CD(key='k.card_mac_address',  label='card', basic=True, no_combo=False, readonly=False, dfn=card_fn,
          #   example=" C0: TBS 6904SE "),
          #CD(key='k.rf_input',  label='RF in', basic=True, readonly=False),
-         CD(key='k.rf_input',  label='Card / RF in', basic=True, no_combo = False, readonly=False, dfn=card_rf_in_fn,
-            example="C0#10: TBS 6904SE" ),
+         #CD(key='k.rf_input',  label='Card / RF in', basic=True, no_combo = False, readonly=False, dfn=card_rf_in_fn,
+         #   example="C0#10: TBS 6904SE" ),
          #CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
          CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
@@ -103,17 +104,18 @@ class LnbTable(NeumoTable):
          #   dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='enabled',   label='ena-\nbled', basic=False),
          CD(key='can_be_used',   label='avail-\nable', basic=False),
-         CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),
-         CD(key='diseqc_10',  label='diseqc\n10'),
-         CD(key='diseqc_11',  label='diseqc\n11'),
+         #CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),
+         #CD(key='diseqc_10',  label='diseqc\n10'),
+         #CD(key='diseqc_11',  label='diseqc\n11'),
          #CD(key='diseqc_mini',  label='diseqc\nmini'),
-         CD(key='tune_string',  label='tune\nstring'),
+         #CD(key='tune_string',  label='tune\nstring'),
          CD(key='k.lnb_type',  label='LNB type', dfn=lambda x: lastdot(x)),
+         CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
+         CD(key='connections',  label='Connections', dfn=lnbconn_fn, example='TBS6909X#3; '*4),
          CD(key='pol_type',  label='POL\ntype', dfn=lambda x: lastdot(x), basic=False),
          CD(key='priority',  label='prio'),
          CD(key='lof_offsets',  label='lof\noffset', dfn=lof_offset_fn, readonly = True,
             example='-2000kHz; -20000kHz'),
-         CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
          CD(key='freq_low',   label='freq\nmin', basic=False, dfn=freq_fn, example="10700.000"),
          CD(key='freq_mid',   label='freq\nmid', basic=False, dfn=freq_fn, example="10700.000"),
          CD(key='freq_high',   label='freq\nmax', basic=False, dfn=freq_fn, example="10700.000"),
@@ -130,7 +132,7 @@ class LnbTable(NeumoTable):
          CD(key='transmission_mode', label='transmission_mode')]
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'connection_name'
+        initial_sorted_column = 'usals_pos'
         data_table= pydevdb.lnb
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
@@ -233,13 +235,18 @@ class LnbGridBase(NeumoGridBase):
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.Bind(wx.grid.EVT_GRID_CELL_LEFT_DCLICK, self.OnLeftClicked)
 
-    def CheckShowNetworkDialog(self, evt, rowno, colno):
-        if self.table.columns[colno].key == 'networks' and \
-                    self.GetGridCursorRow() == rowno:
+    def CheckShowDialog(self, evt, rowno, colno):
+        key = self.table.columns[colno].key
+        if key in('networks', 'connections') and self.GetGridCursorRow() == rowno:
             if not hasattr(self, 'dlg'):
                 readonly = False
                 basic = False
-                self.dlg = LnbNetworkDialog(self.GetParent(), title="Networks", basic=basic, readonly=readonly)
+                if key == 'networks' :
+                    self.dlg = LnbNetworkDialog(self.GetParent(), title="LNB Networks",
+                                                basic=basic, readonly=readonly)
+                elif key == 'connections':
+                    self.dlg = LnbConnectionDialog(self.GetParent(), title="LNB Connections",
+                                                   basic=basic, readonly=readonly)
             else:
                 pass
             self.dlg.Prepare(self)
@@ -250,6 +257,7 @@ class LnbGridBase(NeumoGridBase):
         else:
             return False
 
+
     def OnKeyDown(self, evt):
         """
         After editing, move cursor right
@@ -258,7 +266,7 @@ class LnbGridBase(NeumoGridBase):
         if keycode == wx.WXK_RETURN  and not evt.HasAnyModifiers():
             rowno = self.GetGridCursorRow()
             colno = self.GetGridCursorCol()
-            self.CheckShowNetworkDialog(evt, rowno, colno)
+            self.CheckShowDialog(evt, rowno, colno)
         else:
             evt.Skip(True)
 
@@ -268,7 +276,7 @@ class LnbGridBase(NeumoGridBase):
         """
         colno = evt.GetCol()
         rowno = evt.GetRow()
-        if self.CheckShowNetworkDialog(evt, rowno, colno):
+        if self.CheckShowDialog(evt, rowno, colno):
             evt.Skip(False)
         else:
             evt.Skip(True)

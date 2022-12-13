@@ -107,6 +107,79 @@
             </object>
         </object>
     </object>
+    <object class="LnbConnectionDialog_" name="dialog_11" base="EditDialog">
+        <size>1200, 400</size>
+        <title>Connections</title>
+        <style>wxDEFAULT_DIALOG_STYLE|wxMAXIMIZE_BOX|wxMINIMIZE_BOX|wxRESIZE_BORDER|wxSTAY_ON_TOP</style>
+        <object class="wxBoxSizer" name="sizer_11" base="EditBoxSizer">
+            <orient>wxVERTICAL</orient>
+            <object class="sizeritem">
+                <option>1</option>
+                <border>0</border>
+                <flag>wxALL|wxEXPAND|wxFIXED_MINSIZE</flag>
+                <object class="wxPanel" name="lnbconnectionlist_panel" base="EditPanel">
+                    <style>wxBORDER_RAISED|wxCLIP_CHILDREN</style>
+                    <object class="wxBoxSizer" name="lnbconnectiongrid_sizer" base="EditBoxSizer">
+                        <orient>wxVERTICAL</orient>
+                        <attribute>1</attribute>
+                        <object class="sizerslot" />
+                    </object>
+                </object>
+            </object>
+            <object class="sizeritem">
+                <option>0</option>
+                <border>0</border>
+                <flag>wxALIGN_RIGHT|wxFIXED_MINSIZE</flag>
+                <object class="wxBoxSizer" name="sizer_21" base="EditBoxSizer">
+                    <orient>wxHORIZONTAL</orient>
+                    <object class="sizeritem">
+                        <option>1</option>
+                        <border>0</border>
+                        <object class="wxButton" name="New" base="EditButton">
+                            <events>
+                                <handler event="EVT_BUTTON">OnNew</handler>
+                            </events>
+                            <label>New</label>
+                        </object>
+                    </object>
+                    <object class="sizeritem">
+                        <option>1</option>
+                        <border>0</border>
+                        <object class="wxButton" name="Delete" base="EditButton">
+                            <events>
+                                <handler event="EVT_BUTTON">OnDelete</handler>
+                            </events>
+                            <label>Delete</label>
+                        </object>
+                    </object>
+                    <object class="sizeritem">
+                        <option>0</option>
+                        <border>1</border>
+                        <flag>wxALL</flag>
+                        <object class="wxButton" name="Cancel" base="EditButton">
+                            <events>
+                                <handler event="EVT_BUTTON">OnCancel</handler>
+                            </events>
+                            <id>wxID_CANCEL</id>
+                            <label>Cancel</label>
+                        </object>
+                    </object>
+                    <object class="sizeritem">
+                        <option>0</option>
+                        <border>1</border>
+                        <flag>wxALL</flag>
+                        <object class="wxButton" name="Done" base="EditButton">
+                            <events>
+                                <handler event="EVT_BUTTON">OnDone</handler>
+                            </events>
+                            <id>wxID_OK</id>
+                            <label>Done</label>
+                        </object>
+                    </object>
+                </object>
+            </object>
+        </object>
+    </object>
     <object class="ErrorDialog_" name="dialog_2" base="EditDialog">
         <size>800, 300</size>
         <title>dialog_2</title>

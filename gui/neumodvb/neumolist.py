@@ -1084,7 +1084,10 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 editor = wx.grid.GridCellBoolEditor()
                 pass
             elif col.key in ('networks',):
-                editor = None #LnbNetworkEditor(col)
+                editor = None
+                readonly = True
+            elif col.key in ('connections',):
+                editor = None
                 readonly = True
             elif col.key.endswith('lang'):
                 readonly = True

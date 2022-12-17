@@ -112,8 +112,11 @@ class SatListComboCtrl(wx.ComboCtrl):
         self.sat = None
         cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
-        self.SetMinSize((w,h))
+        button_size = self.GetButtonSize()
+        self.SetMinSize((w+button_size.width,h))
+        self.SetPopupMinWidth(w)
         self.SetValue(cgt)
+        evt.Skip(True)
 
     def OnWindowCreate(self, evt):
         """
@@ -123,6 +126,8 @@ class SatListComboCtrl(wx.ComboCtrl):
             return
         cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
-        self.SetMinSize((w,h))
+        button_size = self.GetButtonSize()
+        self.SetMinSize((w+button_size.width,h))
+        self.SetPopupMinWidth(w)
         self.SetValue(cgt)
         evt.Skip(True)

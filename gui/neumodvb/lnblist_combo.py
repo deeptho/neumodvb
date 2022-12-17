@@ -109,13 +109,13 @@ class LnbListComboCtrl(wx.ComboCtrl):
         """
         Attach an event handler, but make sure it is called only once
         """
-        #for some reason EVT_WINDOW_CREATE is called many time when popup is shown
-        #unbinding the event handler takes care of this
         if evt.GetWindow() != self:
             return
         cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
-        self.SetMinSize((w,h))
+        button_size = self.GetButtonSize()
+        self.SetMinSize((w+button_size.width,h))
+        self.SetPopupMinWidth(w)
         self.SetValue(cgt)
         evt.Skip(True)
 
@@ -186,10 +186,12 @@ class LnbConnectionListComboCtrl(wx.ComboCtrl):
         """
         Attach an event handler, but make sure it is called only once
         """
-        #for some reason EVT_WINDOW_CREATE is called many time when popup is shown
-        #unbinding the event handler takes care of this
-        self.Unbind (wx.EVT_WINDOW_CREATE)
-        cgt = self.controller.CurrentGroupText()
+        if evt.GetWindow() != self:
+            return
+        cgt = self.CurrentGroupText()
         w,h = self.font_dc.GetTextExtent(self.example)
-        self.SetMinSize((w,h))
+        button_size = self.GetButtonSize()
+        self.SetMinSize((w+button_size.width,h))
+        self.SetPopupMinWidth(w)
         self.SetValue(cgt)
+        evt.Skip(True)

@@ -40,6 +40,13 @@ static void export_devdb(py::module& m) {
 		;
 }
 
+static std::optional<lnb_connection_t> conn_helper
+(const devdb::lnb_t& lnb, const devdb::rf_path_t& rf_path) {
+	auto * p =connection_for_rf_path(lnb, rf_path);
+	if(p)
+		return *p;
+	return {};
+}
 
 static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
@@ -47,20 +54,34 @@ static void export_lnb_extra(py::module& m) {
 	mm
 		.def("update_lnb", &lnb::update_lnb, "save changed lnb, while checking tune string",
 				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
+		.def("can_move_dish", &lnb::can_move_dish,
+				 "Returns true if this lnb connection can move the dish",
+				 py::arg("lnb_connection"))
+		.def("on_positioner", &lnb::on_positioner,
+				 "Returns true if this lnb is on a positioner",
+				 py::arg("lnb"))
 		.def("reset_lof_offset", &lnb::reset_lof_offset,
 				 "reset the LOF offset to 0",
 				 py::arg("lnb"))
 		.def("make_unique_if_template", make_unique_if_template,
 				 "Make the key of this lnb unique, but only if lnb.k.id<0")
-		.def("select_reference_mux", &lnb::select_reference_mux,
-				 "Select a reference mux for an lnb; use prosed_mux if suitable, else use "
+		.def("select_sat_and_reference_mux", &lnb::select_sat_and_reference_mux,
+				 "Select a sat and reference mux for an lnb; use prosed_mux if suitable, else use "
 				 "one which will not move positioner",
 				 py::arg("rtxn"), py::arg("lnb"), py::arg("proposed_mux").none(true) = nullptr)
-		.def("select_lnb", &lnb::select_lnb, "Select an lnb; whcih can tune to sat or mux; prefers positioner",
+		.def("select_lnb", &lnb::select_lnb, "Select an lnb; which can tune to sat or mux",
 				 py::arg("rtxn"), py::arg("sat").none(true) = nullptr, py::arg("mux").none(true) = nullptr)
+		.def("select_rf_path", &lnb::select_rf_path, "Select an rf_path for lnb", py::arg("lnb"))
+		.def("connection_for_rf_path", &conn_helper, "Return lnb_connection for rf_path"
+				 , py::arg("lnb")
+				 , py::arg("rf_path"))
 		.def("add_network", &lnb::add_network,
 				 "Add a network to an lnb if it does not yet exist; returns true if network was added", py::arg("lnb"),
 				 py::arg("lnb_network"))
+		.def("add_connection", &lnb::add_connection,
+				 "Add a connection to an lnb if it does not yet exist; returns true if connection was added",
+				 py::arg("rtxn"), py::arg("lnb"),
+				 py::arg("lnb_connection"))
 		.def("lnb_frequency_range", &lnb::lnb_frequency_range,
 				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"));
 		;

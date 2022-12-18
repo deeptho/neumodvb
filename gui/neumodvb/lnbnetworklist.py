@@ -124,18 +124,6 @@ class LnbNetworkTable(NeumoTable):
         dtdebug("ERROR: cannot find record to delete")
         self.changed = True
 
-    def remove_duplicate_networks(self):
-        idx1 = 0
-        erased = False
-        while idx1 < len(self.lnb.networks):
-            for idx2 in range(idx1+1, len(self.lnb.networks)):
-                if self.lnb.networks[idx1].sat_pos == self.lnb.networks[idx2].sat_pos:
-                    self.lnb.networks.erase(idx2)
-                    erased = True
-                    break
-            idx1 += 1
-        return erased
-
     def __new_record__(self):
         ret=self.record_t()
         return ret
@@ -172,12 +160,8 @@ class LnbNetworkGrid(NeumoGridBase):
             if len(self.table.lnb.networks) ==0:
                 ShowMessage(title=_("Need at least one network per LNB"),
                             message=_("Each LNB needs at least one network. A default one has been added"))
-            if self.table.remove_duplicate_networks():
-                ShowMessage(title=_("Duplicate network on LNB"),
-                            message=_("All networks on an LNB need to unique. One or more duplicates have been removed."))
-
             lnbgrid = self.GetParent().GetParent().lnbgrid
-            lnbgrid.set_networks(self.table.lnb.networks)
+            lnbgrid.set_networks(self.table.lnb)
             lnbgrid.table.SaveModified()
         dtdebug(f"OnDone called changed-{self.table.changed}")
 

@@ -449,8 +449,13 @@ class NeumoTableBase(wx.grid.GridTableBase):
                 return
             oldrecord = None if rec is None else rec.copy()
             if key.endswith("rf_input"):
-                rec.k.card_mac_address, rec.k.rf_input = newval
-                rec.connection_name = "" # will be reset by display code
+                if rec is None:
+                    pass
+                elif type(rec) == pydevdb.lnb_connection.lnb_connection:
+                    rec.card_mac_address, rec.rf_input = newval
+                else:
+                    rec.k.card_mac_address, rec.k.rf_input = newval
+                    rec.connection_name = "" # will be reset by display code
             else:
                 neumodbutils.enum_set_subfield(rec, key, newval)
         # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]
@@ -1407,7 +1412,7 @@ class GridPopup(wx.ComboPopup):
     # Called immediately after the popup is shown
     def OnPopup(self):
         rec_to_select = self.popup_grid.table.InitialRecord()
-        self.popup_grid.OnRefresh(None, rec_to_select)
+        wx.CallAfter(self.popup_grid.OnRefresh, None, rec_to_select)
         wx.ComboPopup.OnPopup(self)
 
     # Called when popup is dismissed

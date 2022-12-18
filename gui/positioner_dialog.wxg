@@ -874,7 +874,7 @@
                                                         <option>0</option>
                                                         <border>0</border>
                                                         <object class="wxFlexGridSizer" name="grid_sizer_7" base="EditFlexGridSizer">
-                                                            <rows>4</rows>
+                                                            <rows>5</rows>
                                                             <cols>2</cols>
                                                             <vgap>10</vgap>
                                                             <hgap>5</hgap>
@@ -883,7 +883,7 @@
                                                                 <border>0</border>
                                                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                                                 <object class="wxStaticText" name="label_1b" base="EditStaticText">
-                                                                    <tooltip>LNB controlling positioner</tooltip>
+                                                                    <tooltip>LNB to use for tuning</tooltip>
                                                                     <style>wxALIGN_LEFT</style>
                                                                     <label>LNB:</label>
                                                                 </object>
@@ -898,6 +898,27 @@
                                                                     <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_LEFT|wxTE_DONTWRAP</style>
                                                                 </object>
                                                             </object>
+                                                            <object class="sizeritem">
+                                                                <option>0</option>
+                                                                <border>0</border>
+                                                                <flag>wxALIGN_CENTER_VERTICAL</flag>
+                                                                <object class="wxStaticText" name="label_1b" base="EditStaticText">
+                                                                    <tooltip>Card and RF input</tooltip>
+                                                                    <style>wxALIGN_LEFT</style>
+                                                                    <label>Tuner:</label>
+                                                                </object>
+                                                            </object>
+                                                            <object class="sizeritem">
+                                                                <option>1</option>
+                                                                <border>0</border>
+                                                                <flag>wxALIGN_CENTER_VERTICAL</flag>
+                                                                <object class="LnbRfPathListComboCtrl" name="positioner_rf_path_sel" base="EditTextCtrl">
+                                                                    <extracode>from neumodvb.lnblist_combo import LnbRfPathListComboCtrl</extracode>
+                                                                    <tooltip>Card and RF input and to tune mux</tooltip>
+                                                                    <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_LEFT|wxTE_DONTWRAP</style>
+                                                                </object>
+                                                            </object>
+
                                                             <object class="sizeritem">
                                                                 <option>0</option>
                                                                 <border>0</border>

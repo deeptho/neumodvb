@@ -80,7 +80,7 @@ static inline const char* lnb_type_str(const lnb_key_t& lnb_key) {
 
 std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 	const char* t = lnb_type_str(lnb_key);
-	stdex::printf(os, "D%d%d %s[%d]", (int)lnb_key.dish_id,
+	stdex::printf(os, "D%d %s [%d]", (int)lnb_key.dish_id,
 								t, (int)lnb_key.lnb_id);
 	return os;
 }
@@ -460,34 +460,45 @@ int devdb::lnb::freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, boo
 }
 
 
+/*
+	Selects the nextwork on the proposed lnb which best matches
+	the lnb's usals position, i.e., the satellite position to which the dish points.
 
-chdb::dvbs_mux_t devdb::lnb::select_reference_mux(db_txn& rtxn, const devdb::lnb_t& lnb,
-																								 const chdb::dvbs_mux_t* proposed_mux) {
-	auto return_mux = [&rtxn, &lnb](const devdb::lnb_network_t& network) {
+	In case the dish would need to be moved, return None, None
+	In case the dish is not on a positioner, return the mux for the main network
+ */
+std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
+devdb::lnb::select_sat_and_reference_mux(db_txn& rtxn, const devdb::lnb_t& lnb,
+																				 const chdb::dvbs_mux_t* proposed_mux) {
+
+	auto return_mux = [&rtxn, &lnb](const devdb::lnb_network_t& network)
+		-> std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
+		{
+		auto cs = chdb::sat_t::find_by_key(rtxn, network.sat_pos);
+		std::optional<chdb::sat_t> sat = cs.is_valid() ? cs.current() : chdb::sat_t();
 		auto c = chdb::dvbs_mux_t::find_by_key(rtxn, network.ref_mux);
 		if (c.is_valid()) {
 			auto mux = c.current();
 			if (devdb::lnb::can_pol(lnb, mux.pol))
-				return mux;
+				return {mux, sat};
 		}
-			c = chdb::dvbs_mux_t::find_by_key(rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
-																	chdb::dvbs_mux_t::partial_keys_t::sat_pos);
+		c = chdb::dvbs_mux_t::find_by_key(rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
+																			chdb::dvbs_mux_t::partial_keys_t::sat_pos);
 		if (c.is_valid()) {
 			auto mux = c.current();
 			if (devdb::lnb::can_pol(lnb, mux.pol))
-				return mux;
+				return {mux, sat};
 		}
-		auto mux = chdb::dvbs_mux_t();
-		mux.k.sat_pos = network.sat_pos; //handle case where reference mux is absent
-		mux.pol = devdb::lnb::pol_for_voltage(lnb, 0); //select default
-		return mux;
+		return {{}, sat};
 	};
 
 	using namespace chdb;
 	const bool disregard_networks{false};
-	if (proposed_mux && lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks))
-		return *proposed_mux;
-
+	if (proposed_mux && lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks)) {
+		auto cs = chdb::sat_t::find_by_key(rtxn, proposed_mux->k.sat_pos);
+		return {*proposed_mux, cs.is_valid() ? cs.current() : chdb::sat_t{}};
+	}
+#if 0
 	if (!devdb::lnb::on_positioner(lnb)) {
 		for (auto& network : lnb.networks) {
 			if (usals_is_close(lnb.usals_pos, network.usals_pos)) { // dish is tuned to the right sat
@@ -497,7 +508,9 @@ chdb::dvbs_mux_t devdb::lnb::select_reference_mux(db_txn& rtxn, const devdb::lnb
 		if (lnb.networks.size() > 0)
 			return return_mux(lnb.networks[0]);
 
-	} else {
+	} else
+#endif
+	{
 		auto best = std::numeric_limits<int>::max();
 		const devdb::lnb_network_t* bestp{nullptr};
 		for (auto& network : lnb.networks) {
@@ -509,69 +522,133 @@ chdb::dvbs_mux_t devdb::lnb::select_reference_mux(db_txn& rtxn, const devdb::lnb
 		}
 		if (bestp && usals_is_close(bestp->usals_pos, lnb.usals_pos)) {
 			return return_mux(*bestp);
+		} else if( bestp && !devdb::lnb::on_positioner(lnb)) {
+			return return_mux(*bestp);
 		}
-		return chdb::dvbs_mux_t(); //  has sat_pos == sat_pos_none; no network present
+		return {}; //  has sat_pos == sat_pos_none; no network present
 	}
-	return chdb::dvbs_mux_t(); // has sat_pos == sat_pos_none;
+	//return {}; // has sat_pos == sat_pos_none;
 }
 
-lnb_t devdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const chdb::dvbs_mux_t* proposed_mux) {
+namespace devdb::lnb {
+	static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
+	select_lnb(db_txn& rtxn, const chdb::dvbs_mux_t& proposed_mux);
+};
+
+/*
+	find the best lnb for tuning to a sat and possibly to a specific mux oin the sat sat
+ */
+static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
+devdb::lnb::select_lnb(db_txn& rtxn, const chdb::dvbs_mux_t& proposed_mux) {
 	using namespace chdb;
-	if (!sat_ && !proposed_mux)
-		return lnb_t();
-	chdb::sat_t sat;
-	if (sat_) {
-		sat = *sat_;
-	} else {
-		auto c = sat_t::find_by_key(rtxn, proposed_mux->k.sat_pos);
-		if (!c.is_valid())
-			return lnb_t();
-		sat = c.current();
-	}
-	/*
-		Loop over all lnbs to find a suitable one.
-		First give preference to rotor
-	*/
-	auto c = find_first<devdb::lnb_t>(rtxn);
-	for (auto const& lnb : c.range()) {
-		auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(lnb, sat.sat_pos);
-		/*priority==-1 indicates:
-			for lnb_network: lnb.priority should be consulted
-			for lnb: front_end.priority should be consulted
-		*/
-		if (!has_network || !lnb.enabled)
-			continue;
-		if (devdb::lnb::on_positioner(lnb)) {
-			const bool disregard_networks{false};
-			if (!proposed_mux || lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks))
-				// we prefer a rotor, which is most useful for user
-				return lnb;
+
+
+	int dish_move_penalty{0};
+	int resource_reuse_bonus{0};
+
+	//first try to find an lnb not in use, which does not require moving a dish
+	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+			fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, proposed_mux, nullptr /*required_rf_path*/,
+																						nullptr /*fe_key_to_release*/,
+																						false /*may_move_dish*/, true /*use_blind_tune*/,
+																						dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
+
+		if(best_lnb) {
+			assert(best_rf_path);
+			return {*best_rf_path, *best_lnb};
 		}
 	}
 
-	/*
-		Try without rotor
-	*/
-	c = find_first<devdb::lnb_t>(rtxn);
-	for (auto const& lnb : c.range()) {
-		auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(lnb, sat.sat_pos);
-		assert (usals_move_amount == 0);
-		/*priority==-1 indicates:
-			for lnb_network: lnb.priority should be consulted
-			for lnb: front_end.priority should be consulted
-		*/
-		if (!has_network || !lnb.enabled)
-			continue;
-		const bool disregard_networks{false};
-		if (!proposed_mux || lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks))
-			return lnb;
+	//now try to find an lnb not in use, which does require moving a dish
+	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+			fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, proposed_mux, nullptr /*required_rf_path*/,
+																						nullptr /*fe_key_to_release*/,
+																						true /*may_move_dish*/, true /*use_blind_tune*/,
+																						dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
+
+		if(best_lnb) {
+			assert(best_rf_path);
+			return {*best_rf_path, *best_lnb};
+		}
 	}
-	// give up
-	return lnb_t();
+
+	//now try to find an lnb which can be in use, and which can move a dish, also allowing non blindtune rf_paths
+	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+			fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, proposed_mux, nullptr /*required_rf_path*/,
+																						nullptr /*fe_key_to_release*/,
+																						true /*may_move_dish*/, false /*use_blind_tune*/,
+																						dish_move_penalty, resource_reuse_bonus, true /*ignore_subscriptions*/);
+
+		if(best_lnb) {
+			assert(best_rf_path);
+			return {*best_rf_path, *best_lnb};
+		}
+	}
+
+	return {};
+}
+
+std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb) {
+	if (!lnb.enabled || lnb.connections.size()==0)
+		return {};
+
+	for(int pass=0; pass < 2; ++pass) {
+		for(const auto& lnb_connection:  lnb.connections) {
+			bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
+			if(!conn_can_control_rotor && pass ==0)
+				continue;
+			rf_path_t rf_path {lnb.k, lnb_connection.card_mac_address, lnb_connection.rf_input};
+			return {rf_path};
+		}
+	}
+	return {};
+}
+
+std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
+devdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const chdb::dvbs_mux_t* proposed_mux) {
+	using namespace chdb;
+	if(proposed_mux)
+		return select_lnb(rtxn, *proposed_mux);
+	if(!sat_)
+		return {}; //too little info to make  choice
+
+	chdb::sat_t sat = *sat_;
+
+	/*
+		Loop over all lnbs which can tune to sat
+	*/
+
+	for(int pass=0; pass <2; ++pass) {
+		bool may_move_dish = pass >=1;
+		auto c = find_first<devdb::lnb_t>(rtxn);
+		for (auto const& lnb : c.range()) {
+			auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(lnb, sat.sat_pos);
+			/*priority==-1 indicates:
+				for lnb_network: lnb.priority should be consulted
+				for lnb: front_end.priority should be consulted
+			*/
+			if (!has_network || !lnb.enabled || lnb.connections.size()==0)
+				continue;
+			bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
+
+			for(const auto& lnb_connection:  lnb.connections) {
+				bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
+
+				if (lnb_is_on_rotor && (usals_move_amount >= 30) &&
+						(!may_move_dish || ! conn_can_control_rotor)
+					)
+					continue; //skip because dish movement is not allowed or  not possible
+
+				rf_path_t rf_path {lnb.k, lnb_connection.card_mac_address, lnb_connection.rf_input};
+				return {rf_path, lnb};
+			}
+		}
+	}
+	return {};
 }
 
 bool devdb::lnb::add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network) {
-	using namespace chdb;
+	using namespace devdb;
 	for (auto& n : lnb.networks) {
 		if (n.sat_pos == network.sat_pos)
 			return false; // cannot add duplicate network
@@ -581,8 +658,23 @@ bool devdb::lnb::add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network) {
 	lnb.networks.push_back(network);
 	if (lnb.usals_pos == sat_pos_none)
 		lnb.usals_pos = (network.usals_pos == sat_pos_none) ? network.sat_pos : network.usals_pos;
-	std::sort(lnb.networks.begin(), lnb.networks.end(),
-						[](const lnb_network_t& a, const lnb_network_t& b) { return a.sat_pos < b.sat_pos; });
+	return true;
+}
+
+
+bool devdb::lnb::add_connection(db_txn& rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& lnb_connection) {
+	using namespace devdb;
+	for (auto& conn : lnb.connections) {
+		if (conn.card_mac_address == lnb_connection.card_mac_address &&
+				conn.rf_input == lnb_connection.rf_input)
+			return false; // cannot add duplicate network
+	}
+	lnb_connection.rotor_control = on_positioner(lnb) ? rotor_control_t::ROTOR_SLAVE : rotor_control_t::FIXED_DISH;
+	lnb.connections.push_back(lnb_connection);
+	lnb::update_lnb(rtxn, lnb , false /*save*/);
+
+	//update the input argument
+	lnb_connection = lnb.connections[lnb.connections.size()-1];
 	return true;
 }
 
@@ -739,8 +831,36 @@ void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb, bool save)
 			break;
 		}
 	}
-	if(save)
+
+	if(save) { /*we deliberately do not sort or remove duplicate data  when we are not really
+							 saving. This is needed to provide a stable editing GUI for connections and networks
+						 */
+		std::sort(lnb.networks.begin(), lnb.networks.end(),
+							[](const lnb_network_t& a, const lnb_network_t& b) { return a.sat_pos < b.sat_pos; });
+		for(int i=1; i< lnb.networks.size(); ) {
+			if(lnb.networks[i-1].sat_pos == lnb.networks[i].sat_pos)
+				lnb.networks.erase(i); //remove duplicate network
+			else
+				++i;
+		}
+
+		std::sort(lnb.connections.begin(), lnb.connections.end(),
+							[](const lnb_connection_t& a, const lnb_connection_t& b) {
+								if(a.card_mac_address == b.card_mac_address)
+									return a.rf_input < b.rf_input;
+								else
+									return a.card_mac_address < b.card_mac_address;
+							}
+			);
+		for(int i=1; i< lnb.connections.size(); ) {
+			if(lnb.connections[i-1].card_mac_address == lnb.connections[i].card_mac_address &&
+				 lnb.connections[i-1].rf_input == lnb.connections[i].rf_input)
+				lnb.networks.erase(i); //remove duplicate connection
+			else
+				++i;
+		}
 		put_record(wtxn, lnb);
+	}
 }
 
 

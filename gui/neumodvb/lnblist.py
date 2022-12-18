@@ -45,6 +45,11 @@ def has_network(lnb, sat_pos):
             return True
     return False
 
+def must_move_dish(lnb, sat_pos):
+    if lnb is None:
+        return False
+    return pydevdb.lnb.on_positioner(lnb) and abs(sat_pos - lnb.usals_pos) >= 30
+
 def has_network_with_usals(lnb, usals_pos):
     for n in lnb.networks:
         if n.usals_pos == usals_pos:
@@ -84,7 +89,7 @@ class LnbTable(NeumoTable):
     lnb_key_fn = lambda x: str(x[0])
     basic_columns=[CD(key='k',
                       sort=('k.dish_id', 'adapter_mac_address','k.lnb_id', 'usals_pos'),
-                      example='D1T2 28.2E 2812***',
+                      example='D1 unv [32762] 30.0W ',
                       dfn = lnb_key_fn,
                       label='LNB', basic=True, readonly=True)
                               ]
@@ -169,9 +174,6 @@ class LnbTable(NeumoTable):
         return pychdb.sat.sat_pos_none
 
     def __save_record__(self, txn, lnb):
-        if lnb.k.card_mac_address <=0:
-            ShowMessage("Bad data", "Enter a valid adapter number before saving")
-            return None
         if lnb.usals_pos ==  pychdb.sat.sat_pos_none:
                 add = ShowMessage("Add Usals pos", f"Specify Usals pos")
                 return None
@@ -315,7 +317,7 @@ class LnbGridBase(NeumoGridBase):
         lnb = self.table.screen.record_at_row(row)
         dtdebug(f'Positioner requested for lnb={lnb}')
         from neumodvb.positioner_dialog import show_positioner_dialog
-        show_positioner_dialog(self, lnb=lnb)
+        show_positioner_dialog(self, rf_path=None, lnb=lnb)
         self.table.SaveModified()
         #self.app.MuxTune(mux)
 
@@ -344,13 +346,27 @@ class LnbGridBase(NeumoGridBase):
         dtdebug(f'CURRENT LNB: sel={self.selected_row} {lnb}  {len(lnb.networks)}')
         return lnb
 
-    def set_networks(self, networks):
+    def set_networks(self, lnb):
+        """ Called from lnbnetworklist after editing
+        """
+        networks = lnb.networks
+        rowno =self.GetGridCursorRow()
+        rec =  self.table.CurrentlySelectedRecord()
+        assert rec.k == lnb.k
+        oldrecord = rec.copy()
+        rec.networks = networks
+        # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]
+        # we cannot use return value policy reference for vectors (data moves in memory on resize)
+        self.table.Backup("edit", rowno, oldrecord, rec)
+        dtdebug("SET NETWORKS {}= {} => {}".format(rowno, lnb_network_str(oldrecord.networks), lnb_network_str(rec.networks)))
+
+    def set_connections(self, lnb):
         """ Called from lnbnetworklist after editing
         """
         rowno =self.GetGridCursorRow()
         rec =  self.table.CurrentlySelectedRecord()
         oldrecord = rec.copy()
-        rec.networks = networks
+        rec.connections = lnb.connections
         # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]
         # we cannot use return value policy reference for vectors (data moves in memory on resize)
         self.table.Backup("edit", rowno, oldrecord, rec)

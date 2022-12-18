@@ -138,11 +138,13 @@ namespace devdb::lnb {
 	const devdb::lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);
 	devdb::lnb_network_t* get_network(lnb_t& lnb, int16_t sat_pos);
 
-	chdb::dvbs_mux_t
-	select_reference_mux(db_txn& rtxn, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t* proposed_mux);
+	std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
+	select_sat_and_reference_mux(db_txn& rtxn, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t* proposed_mux);
 
-	devdb::lnb_t
+	std::tuple<std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>>
 	select_lnb(db_txn& rtxn, const chdb::sat_t* sat, const chdb::dvbs_mux_t* proposed_mux);
+
+	std::optional<rf_path_t> select_rf_path(const devdb::lnb_t& lnb);
 
 	/*
 		band = 0 or 1 for low or high (22Khz off/on)
@@ -172,6 +174,7 @@ namespace devdb::lnb {
 	band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band);
 
 	bool add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network);
+	bool add_connection(db_txn& rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection);
 	void update_lnb(db_txn& wtxn, devdb::lnb_t& lnb, bool save);
 	void reset_lof_offset(devdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);

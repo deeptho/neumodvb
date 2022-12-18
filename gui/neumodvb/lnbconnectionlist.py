@@ -39,7 +39,7 @@ import pychdb
 class lnbconnection_screen_t(object):
     def __init__(self, parent):
         self.parent = parent
-        assert self.parent.lnb is not None
+        #assert self.parent.lnb is not None
 
     @property
     def list_size(self):
@@ -65,12 +65,14 @@ class lnbconnection_screen_t(object):
 class LnbConnectionTable(NeumoTable):
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
-    adapter_fn = lambda x: x[0].connection_name
+    card_rf_input_dfn = lambda x: x[0].connection_name
+    card_rf_input_cfn = lambda table: table.card_rf_input_cfn()
+    card_rf_input_sfn = lambda x: x[2].card_rf_input_sfn(x[0], x[1])
     all_columns = \
-        [CD(key='card_mac_address',  label='MAC', basic=True, no_combo=True, readonly=True,
-            dfn=adapter_fn, example=" AA:BB:CC:DD:EE:FF "),
-         CD(key='rf_input',  label='adap', basic=True, readonly=True,
-            example=" 12"),
+        [#CD(key='card_mac_address',  label='MAC', basic=True, no_combo=False, readonly=False,
+         #   dfn=adapter_fn, example=" AA:BB:CC:DD:EE:FF "),
+         CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="TBS 6909X C0#3 ",
+            dfn=card_rf_input_dfn, sfn=card_rf_input_sfn),
          CD(key='enabled',   label='ena-\nbled', basic=False),
          CD(key='priority',  label='prio'),
          CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),
@@ -96,55 +98,48 @@ class LnbConnectionTable(NeumoTable):
         txn is not used; instead we use self.lnb
         """
         if self.lnb is None:
-            lnbgrid = self.parent.GetParent().GetParent().lnbgrid
-            self.lnb = lnbgrid.CurrentLnb().copy()
+            if hasattr(self.parent, "lnb"):
+                self.lnb = self.parent.lnb #used by combo popu
+            else:
+                lnbgrid = self.parent.GetParent().GetParent().lnbgrid #used by lnb connection list
+                self.lnb = lnbgrid.CurrentLnb().copy()
             assert self.lnb is not None
         self.screen = screen_if_t(lnbconnection_screen_t(self), self.sort_order==2)
 
     def __save_record__(self, txn, record):
         dtdebug(f'CONNECTIONS: {len(self.lnb.connections)}')
-        if True:
-            added = pydevdb.lnb.add_connection(self.lnb, record)
-            if added:
-                self.changed = True
-            return record
-        else:
-            for i in range(len(self.lnb.connections)):
-                if self.lnb.connections[i].sat_pos == record.sat_pos:
-                    self.lnb.connections[i] = record
-                    self.changed = True
-                    return record
-            i = len(self.lnb.connections)
-            dtdebug(f"Adding connection={record} to llnb{self.lnb}")
-            self.lnb.connections.resize(i+1)
-            self.lnb.connections[i] = record
+        rtxn = self.db.rtxn()
+        added = pydevdb.lnb.add_connection(rtxn, self.lnb, record)
+        rtxn.abort()
+        if added:
             self.changed = True
-            return record
+        return record
 
     def __delete_record__(self, txn, record):
         for i in range(len(self.lnb.connections)):
-            if self.lnb.connections[i].sat_pos == record.sat_pos:
+            if self.lnb.connections[i].card_mac_address == record.card_mac_address and \
+                self.lnb.connections[i].rf_input == record.rf_input:
                 self.lnb.connections.erase(i)
                 self.changed = True
                 return
         dtdebug("ERROR: cannot find record to delete")
         self.changed = True
 
-    def remove_duplicate_connections(self):
-        idx1 = 0
-        erased = False
-        while idx1 < len(self.lnb.connections):
-            for idx2 in range(idx1+1, len(self.lnb.connections)):
-                if self.lnb.connections[idx1].sat_pos == self.lnb.connections[idx2].sat_pos:
-                    self.lnb.connections.erase(idx2)
-                    erased = True
-                    break
-            idx1 += 1
-        return erased
-
     def __new_record__(self):
         ret=self.record_t()
         return ret
+
+    def card_rf_input_sfn(self, rec, v):
+        d = wx.GetApp().get_cards_with_rf_in()
+        newval = d.get(v, None)
+        #this is needed to correctly display the name of the record if user moves cursor to different cell in new record
+        rec.card_mac_address, rec.rf_input = newval
+        rtxn = self.db.rtxn()
+        #we do not want to overwrite the official lnb yet (would disturb detection of record being edited)
+        lnb = self.lnb.copy()
+        added = pydevdb.lnb.add_connection(rtxn, lnb, rec)
+        rtxn.abort()
+        return rec
 
 class LnbConnectionGrid(NeumoGridBase):
     def _add_accels(self, items):
@@ -170,6 +165,9 @@ class LnbConnectionGrid(NeumoGridBase):
         ])
         self.EnableEditing(self.app.frame.edit_mode)
 
+    def SetRfPath(self, rf_path, lnb):
+        self.rf_path, self.lnb = rf_path, lnb
+
     def OnDone(self, evt):
         #@todo(). When a new record has been inserted and connection has been changed, and then user clicks "done"
         #this is not seen as a change, because the editor has not yet saved itself
@@ -178,12 +176,8 @@ class LnbConnectionGrid(NeumoGridBase):
             if len(self.table.lnb.connections) ==0:
                 ShowMessage(title=_("Need at least one connection per LNB"),
                             message=_("Each LNB needs at least one connection. A default one has been added"))
-            if self.table.remove_duplicate_connections():
-                ShowMessage(title=_("Duplicate connection on LNB"),
-                            message=_("All connections on an LNB need to unique. One or more duplicates have been removed."))
-
             lnbgrid = self.GetParent().GetParent().lnbgrid
-            lnbgrid.set_connections(self.table.lnb.connections)
+            lnbgrid.set_connections(self.table.lnb)
             lnbgrid.table.SaveModified()
         dtdebug(f"OnDone called changed-{self.table.changed}")
 
@@ -220,3 +214,7 @@ class LnbConnectionGrid(NeumoGridBase):
         dtdebug(f'old_mode={self.app.frame.edit_mode}')
         self.app.frame.ToggleEditMode()
         self.EnableEditing(self.app.frame.edit_mode)
+
+class BasicLnbConnectionGrid(LnbConnectionGrid):
+    def __init__(self, *args, **kwds):
+        super().__init__(False, False, *args, **kwds)

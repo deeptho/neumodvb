@@ -78,10 +78,10 @@ class DvbsMuxGridPopup(DvbsBasicMuxGrid):
 class DvbsMuxListComboCtrl(wx.ComboCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        self.example = '28.2E 12709H-12'+' '*2
+        self.example = '28.2E 12709H-12'
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
-        self.font.SetPointSize(self.font.GetPointSize()+8)
+        self.font.SetPointSize(self.font.GetPointSize()+6)
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(DvbsMuxGridPopup)

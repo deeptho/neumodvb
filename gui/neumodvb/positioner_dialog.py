@@ -26,11 +26,11 @@ from neumodvb import  minispinctrl, minifloatspin
 from neumodvb.positioner_dialog_gui import  PositionerDialog_, SignalPanel_ , TuneMuxPanel_
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb import neumodbutils
-from neumodvb.lnblist import has_network, get_network
+from neumodvb.lnblist import has_network, get_network, must_move_dish
 from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror
 from neumodvb.satlist_combo import EVT_SAT_SELECT
-from neumodvb.lnblist_combo import EVT_LNB_SELECT
+from neumodvb.lnblist_combo import EVT_LNB_SELECT, EVT_RF_PATH_SELECT
 from neumodvb.muxlist_combo import EVT_MUX_SELECT
 
 import pyreceiver
@@ -42,6 +42,11 @@ from pyreceiver import get_object as get_object_
 LnbChangeEvent, EVT_LNB_CHANGE = wx.lib.newevent.NewEvent()
 AbortTuneEvent, EVT_ABORT_TUNE = wx.lib.newevent.NewEvent()
 
+def on_positioner(lnb):
+    return False if lnb is None else pydevdb.lnb.on_positioner(lnb)
+
+def can_move_dish(lnb_connection):
+    return False if lnb_connection is None else pydevdb.lnb.can_move_dish(lnb_connection)
 
 def same_mux_key(a, b):
     return a.sat_pos == b.sat_pos and  a.network_id == b.network_id \
@@ -85,10 +90,6 @@ class UsalsPosSpinCtrl(minifloatspin.MiniFloatSpin):
         self.parent = parent
         self.Bind(minifloatspin.EVT_MINISPIN, self.parent.GetParent().OnUsalsStepChanged)
 
-def on_rotor(lnb):
-    return neumodbutils.enum_to_str(lnb.rotor_control).startswith('ROTOR')
-
-
 class TuneMuxPanel(TuneMuxPanel_):
     def __init__(self, parent, *args, **kwds):
         super().__init__(parent, *args, **kwds)
@@ -96,19 +97,21 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
         self.positioner_sat_sel.window_for_computing_width = self
         self.positioner_lnb_sel.window_for_computing_width = self
+        self.positioner_rf_path_sel.window_for_computing_width = self
         self.positioner_mux_sel.window_for_computing_width = self
     def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
         self.positioner_sat_sel.SetSat(self.sat)
-        self.positioner_lnb_sel.SetLnb(self.lnb)
+        self.positioner_lnb_sel.SetLnb(self.rf_path, self.lnb)
+        self.positioner_rf_path_sel.SetRfPath(self.rf_path, self.lnb)
         self.positioner_mux_sel.SetSat(self.sat)
         self.positioner_mux_sel.SetMux(self.mux)
 
     def init(self, parent, sat, lnb,  mux, window_for_computing_width=None):
         if window_for_computing_width is not None:
             self.positioner_sat_sel.window_for_computing_width = window_for_computing_width
-        self.lnb, self.sat, self.mux = self.SelectInitialData(lnb, sat, mux)
+        self.rf_path, self.lnb, self.sat, self.mux = self.SelectInitialData(lnb, sat, mux)
         self.si_status_keys= ('pat', 'nit', 'sdt')
         self.other_status_keys= ('fail', 'si_done')
 
@@ -118,6 +121,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         assert (mux is None and sat is None) or (sat is None and lnb is None) or (lnb is None and mux is None)
         self.GetParent().Bind(EVT_SAT_SELECT, self.CmdSelectSat)
         self.GetParent().Bind(EVT_LNB_SELECT, self.CmdSelectLnb)
+        self.GetParent().Bind(EVT_RF_PATH_SELECT, self.CmdSelectRfPath)
         self.GetParent().Bind(EVT_MUX_SELECT, self.CmdSelectMux)
 
         self.positioner_mux_sel.SetSat(self.sat)
@@ -152,8 +156,16 @@ class TuneMuxPanel(TuneMuxPanel_):
         called when user selects lnb from list
         """
         lnb = evt.lnb
-        dtdebug(f"selected sat: {lnb}")
+        dtdebug(f"selected lnb: {lnb}")
         wx.CallAfter(self.ChangeLnb, lnb)
+
+    def CmdSelectRfPath(self, evt):
+        """
+        called when user selects an rf_path from a list
+        """
+        rf_path = evt.rf_path
+        dtdebug(f"selected rf_path: {rf_path}")
+        wx.CallAfter(self.ChangeRfPath, rf_path)
 
     @property
     def use_blindscan(self):
@@ -227,28 +239,31 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def SelectInitialData(self, lnb, sat, mux):
         """
-        select an inital choice for lnb mux and sat
+        select an inital choice for rf_path, lnb, mux and sat
         """
         #force mux and sat to be compatible
         devdb_txn = wx.GetApp().devdb.rtxn()
+        rf_path = None
         if lnb is None and (mux is not None or sat is not None):
             #initialise from mux
-            lnb = pydevdb.lnb.select_lnb(devdb_txn, sat, mux)
+            rf_path, lnb = pydevdb.lnb.select_lnb(devdb_txn, sat, mux)
             devdb_txn.abort()
             del devdb_txn
             if lnb is None:
-                return None, None, None
+                return None, None, None, None
         if lnb is not None:
+            if rf_path is None:
+                rf_path = pydevdb.lnb.select_rf_path(lnb)
             #if mux is None on input, the following call will pick a mux on the sat to which the rotor points
             chdb_txn = wx.GetApp().chdb.rtxn()
-            mux = pydevdb.lnb.select_reference_mux(chdb_txn, lnb, mux)
+            mux, sat = pychdb.select_sat_and_reference_mux(chdb_txn, lnb, mux)
             if mux.k.sat_pos != pychdb.sat.sat_pos_none:
                 sat = pychdb.sat.find_by_key(chdb_txn, mux.k.sat_pos)
             elif  len(lnb.networks)>0:
                 sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos)
-            return lnb, sat, mux
-        chdb_txn.abort()
-        del chdb_txn
+            return rf_path, lnb, sat, mux
+        txn.abort()
+        del txn
 
     def OnSave(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("saving")
@@ -317,7 +332,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             ShowMessage("Unsupported", "Blindscan not supported (neumo drivers not installed)")
             return False
 
-        ret = self.mux_subscriber.subscribe_lnb_and_mux(self.lnb, mux, self.use_blindscan,
+        ret = self.mux_subscriber.subscribe_lnb_and_mux(self.rf_path, self.lnb, mux, self.use_blindscan,
                                                         self.pls_search_range,
                                                         self.retune_mode)
         self.last_tuned_mux = mux.copy()
@@ -461,27 +476,33 @@ class TuneMuxPanel(TuneMuxPanel_):
         add = False
         self.lnb = lnb
         if lnb is None:
+            self.rf_path = None
             return
-        if not on_rotor(lnb) and has_network(lnb, self.sat.sat_pos):
+        self.rf_path = pydevdb.lnb.select_rf_path(lnb)
+        if has_network(lnb, self.sat.sat_pos) and not must_move_dish(lnb, self.sat.sat_pos):
             # no change needed
-            network=get_network(self.lnb, self.sat.sat_pos)
+            network = get_network(self.lnb, self.sat.sat_pos)
             self.parent.SetDiseqc12Position(network.diseqc12)
         else:
-            #we need to also select a different satellite
+            #we need to also select a different satellite, to one which is allowed by the lnb
             txn = wx.GetApp().chdb.rtxn()
-            mux = pydevdb.lnb.select_reference_mux(txn, self.lnb, None)
-            assert mux.k.sat_pos != pychdb.sat.sat_pos_none
-            sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos)
-            if sat is None:
-                mux.k.sat_pos = network.sat_pos
-            elif mux.k.sat_pos == pychdb.sat.sat_pos_none:
-                mux.k.sat_pos = sat.sat_pos
+            mux, sat = pydevdb.lnb.select_sat_and_reference_mux(txn, self.lnb, None)
+            #mux and sat will be None if positioner would need to be moved
             txn.abort()
             del txn
-            assert mux.k.sat_pos == sat.sat_pos
             self.ChangeSat(sat)
+            self.positioner_mux_sel.SetMux(self.mux)
         self.lnb_changed = False
-        self.parent.ChangeLnb(lnb) #update window title
+        self.parent.ChangeLnb(self.rf_path, self.lnb) #update window title
+        evt = LnbChangeEvent(lnb=lnb)
+        wx.PostEvent(self, evt)
+
+    def ChangeRfPath(self, rf_path):
+        add = False
+        if self.lnb is None:
+            return
+        lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, rf_path)
+        self.parent.ChangeLnbConnection(self.rf_path, self.lnb) #update window title
         evt = LnbChangeEvent(lnb=lnb)
         wx.PostEvent(self, evt)
 
@@ -496,10 +517,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         if sat.sat_pos == self.sat.sat_pos:
             return
         add = False
+        lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
         network = get_network(self.lnb, sat.sat_pos)
-        if network is not None:
-            pass #allow all satellites
-        elif on_rotor(self.lnb):
+        if (not on_positioner(self.lnb) or can_move_dish(lnb_connection)) and network is not None:
+            pass #we can switch to the network using diseqc or by moving the dish
+        elif on_positioner(self.lnb):
             #allow only network or add network
             added = ShowOkCancel("Add network?", f"Network {sat} not yet defined for lnb {self.lnb}. Add it?")
             if not added:
@@ -517,7 +539,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         assert network is not None
         txn = wx.GetApp().chdb.rtxn()
         self.sat = sat
-        if on_rotor(self.lnb):
+        if on_positioner(self.lnb):
+            self.lnb_change |= elf.lnb.usals_pos != network.usals_pos
             self.lnb.usals_pos = network.usals_pos
         self.mux = pychdb.dvbs_mux.find_by_key(txn,network.ref_mux)
         if self.mux is None or self.mux.k.sat_pos != self.sat.sat_pos: #The latter can happen when sat_pos of ref_mux was updated
@@ -905,15 +928,15 @@ class PositionerDialog(PositionerDialog_):
 
     def enable_disable_diseqc_panels(self):
         t = pydevdb.rotor_control_t
-        if self.lnb.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_SLAVE, t.FIXED_DISH):
+        if self.lnb_connection.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_SLAVE, t.FIXED_DISH):
             self.diseqc12_panel.Disable()
         else:
             self.diseqc12_panel.Enable()
-        if self.lnb.rotor_control in (t.ROTOR_MASTER_DISEQC12, t.ROTOR_SLAVE, t.FIXED_DISH):
+        if self.lnb_connection.rotor_control in (t.ROTOR_MASTER_DISEQC12, t.ROTOR_SLAVE, t.FIXED_DISH):
             self.usals_panel.Disable()
         else:
             self.usals_panel.Enable()
-        if self.lnb.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_MASTER_DISEQC12):
+        if self.lnb_connection.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_MASTER_DISEQC12):
             self.usals_panel.Enable()
         else:
             self.usals_panel.Disable()
@@ -1096,12 +1119,4 @@ class PositionerDialog(PositionerDialog_):
 def show_positioner_dialog(caller, sat=None, rf_path=None, lnb=None, mux=None):
     dlg = PositionerDialog(caller, sat=sat, rf_path=rf_path, lnb=lnb, mux=mux)
     dlg.Show()
-    return None
-    dlg.Close(None)
-    if val == wx.ID_OK:
-        try:
-            pass
-        except:
-            pass
-    dlg.Destroy()
     return None

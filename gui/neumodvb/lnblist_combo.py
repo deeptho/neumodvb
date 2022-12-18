@@ -32,12 +32,14 @@ from neumodvb.util import setup, lastdot
 from neumodvb import neumodbutils
 from neumodvb.neumolist import GridPopup
 from neumodvb.lnblist import BasicLnbGrid
+from neumodvb.lnbconnectionlist import BasicLnbConnectionGrid
 from neumodvb.util import dtdebug, dterror
 
 import pychdb
 import pydevdb
 
 LnbSelectEvent, EVT_LNB_SELECT = wx.lib.newevent.NewCommandEvent()
+RfPathSelectEvent, EVT_RF_PATH_SELECT = wx.lib.newevent.NewCommandEvent()
 
 class LnbGridPopup(BasicLnbGrid):
     """
@@ -71,7 +73,7 @@ class LnbGridPopup(BasicLnbGrid):
 class LnbListComboCtrl(wx.ComboCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        self.example = 'C2#0 16.0KU 2812****xx'
+        self.example = 'D0 unv [13355] 30.0W'
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
         self.font.SetPointSize(self.font.GetPointSize()+6)
@@ -83,12 +85,12 @@ class LnbListComboCtrl(wx.ComboCtrl):
         self.lnb = None
         self.window_for_computing_width = None
 
-    def SetLnb(self, lnb):
+    def SetLnb(self, rf_path, lnb):
         """
         Called by parent window to intialise state
         """
-        self.lnb = lnb
-        print(f'SetLnb {lnb}')
+        self.rf_path, self.lnb = rf_path, lnb
+        print(f'SetLnb {lnb} {rf_path}')
         self.SetText(self.CurrentGroupText())
 
     def OnSelectLnb(self, lnb):
@@ -119,27 +121,30 @@ class LnbListComboCtrl(wx.ComboCtrl):
         self.SetValue(cgt)
         evt.Skip(True)
 
-class LnbConnectionGridPopup(BasicLnbGrid):
+class RfPathGridPopup(BasicLnbConnectionGrid):
     """
-    grid which appears in dvbs_mux list popup
+    grid which appears on positioner_dialog
     """
     def __init__(self, *args, **kwds):
         super().__init__(*args, **kwds)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
-        self.controller = self.Parent.Parent.Parent.controller
-        x = getattr(self.Parent.GrandParent.GrandParent, 'lnb_connection_controller', None)
-        x = getattr(x, 'parent', None)
-        self.rf_input = getattr(x, 'connection', None)
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        lnb = self.Parent.GrandParent.lnb
+        rf_path = self.Parent.GrandParent.rf_path
+        self.SetRfPath(rf_path, lnb)
+        super().OnWindowCreate(evt)
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-                rec= self.table.GetValue(self.selected_row, None)
-                self.controller.SelectLnb(rec)
-                wx.CallAfter(self.controller.SetFocus)
-            self.Parent.Parent.Parent.GetPopupControl().Dismiss()
+                rf_input = self.table.GetValue(self.selected_row, None)
+                self.Parent.GrandParent.OnSelectRfInput(rf_input)
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -148,39 +153,52 @@ class LnbConnectionGridPopup(BasicLnbGrid):
         return  False
 
     def GetItemText(self, rowno):
-        rec = self.table.GetValue(rowno, None)
-        return str(rec)
+        rf_input = self.table.GetValue(rowno, None)
+        return str(rf_input)
 
     def OnRowSelect(self, rowno):
         self.selected_row = rowno
 
-
-class LnbConnectionListComboCtrl(wx.ComboCtrl):
+class LnbRfPathListComboCtrl(wx.ComboCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        self.example = 'D1T2 28.2E 2812***'
+        self.example = 'C0#3 TBS6909X'
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
         self.font.SetPointSize(self.font.GetPointSize()+6)
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
-        self.popup = GridPopup(LnbGridPopup)
+        self.popup = GridPopup(RfPathGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.lnb, self.rf_path = None, None
+        self.window_for_computing_width = None
 
-    def UpdateText(self):
-        self.SetText(self.controller.CurrentGroupText())
+    @property
+    def lnb_connection (self):
+        return pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
 
-    def show_all(self):
+    def SetRfPath(self, rf_path, lnb):
         """
-        Instead of lnbs on a single satellite show all of them
+        Called by parent window to intialise state
         """
-        self.controller.SelectLnb(None)
-        cgt = self.controller.CurrentGroupText()
-        w,h = self.font_dc.GetTextExtent(self.example)
-        self.SetMinSize((w,h))
-        self.SetValue(cgt)
-        wx.CallAfter(self.controller.SetFocus)
+        self.rf_path, self.lnb = rf_path, lnb
+        print(f'SetRfPath lnb={lnb} rf_path={rf_path}')
+        self.SetText(self.CurrentGroupText())
+
+    def OnSelectRfPath(self, rf_path):
+        """Called when user selects an rf_path
+        """
+        print(f'lnblist_combo received OnSelectRfPath {rf_path}')
+        self.rf_path = rf_path
+        wx.PostEvent(self, RfPathSelectEvent(wx.NewIdRef(), rf_path=rf_path))
+        self.popup.Dismiss()
+        self.SetText(self.CurrentGroupText())
+
+    def CurrentGroupText(self):
+        if self.rf_path is None:
+            return ""
+        return str(self.lnb_connection.connection_name)
 
     def OnWindowCreate(self, evt):
         """

@@ -130,7 +130,7 @@ std::tuple<py::object, int> deserialize_field_safe_to_python
 			return INVALID;
 		auto limit = offset + size;
 		py::list list;
-		for (int i=0; offset<limit; ++i) {
+		while (offset<limit) {
 			auto [ val, new_offset] =
 				subschema?
 				deserialize_safe_to_python(ser, *subschema, dbdesc, offset) :

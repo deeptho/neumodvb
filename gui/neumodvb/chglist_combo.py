@@ -107,7 +107,6 @@ class ChgListComboCtrl(wx.ComboCtrl):
     def CurrentGroupText(self):
         if self.chg is None:
             return "All Groups" if self.allow_all else ""
-        print(f"returning xxx CurrentGroupText {str(self.chg)}")
         return str(self.chg)
 
 

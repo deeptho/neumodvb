@@ -426,7 +426,7 @@ public:
 
 	int start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devdb::lnb_t & lnb);
 
-	int start_fe_lnb_and_mux(const devdb::lnb_t & lnb, const chdb::dvbs_mux_t& mux);
+	int start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const devdb::lnb_t & lnb, const chdb::dvbs_mux_t& mux);
 
 	template<typename mux_t>
 	int start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux);

@@ -228,7 +228,7 @@ class SpectrumDialog(SpectrumDialog_):
                 self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
             else:
                 pol = self.pols_to_scan.pop(0)
-                self.mux_subscriber.subscribe_spectrum(self.lnb, pol,
+                self.mux_subscriber.subscribe_spectrum(self.rf_path, self.lnb, pol,
                                                        self.start_freq, self.end_freq,
                                                        self.sat.sat_pos)
         event.Skip()
@@ -291,13 +291,15 @@ class SpectrumDialog(SpectrumDialog_):
            not lnb_matches_spectrum(self.lnb, spectrum):
             txn = wx.GetApp().chdb.rtxn()
             sat = pychdb.sat.find_by_key(txn, spectrum.k.sat_pos)
+            rf_path = None
             lnb = pydevdb.lnb.find_by_key(txn, spectrum.k.rf_path.lnb)
             txn.abort()
             del txn
         else:
+            rf_path = self.rf_path
             lnb = self.lnb
             sat = self.sat
-        self.tune_mux_panel.ChangeLnb(lnb)
+        self.tune_mux_panel.ChangeLnb(rf_path, lnb)
         self.tune_mux_panel.ChangeSat(sat)
         mux = self.tune_mux_panel.mux
         mux.frequency = int(tp.freq*1000)
@@ -312,7 +314,7 @@ class SpectrumDialog(SpectrumDialog_):
         return mux
 
     def OnUpdateMux(self, freq, pol, symbol_rate):
-        lnb = self.lnb
+        rf_path, lnb = self.rf_path, self.lnb
         sat = self.sat
         mux = pychdb.dvbs_mux.dvbs_mux()
         mux.frequency = int(freq*1000)
@@ -378,16 +380,16 @@ class SpectrumDialog(SpectrumDialog_):
             if data.is_complete:
                 if len(self.pols_to_scan) != 0:
                     pol = self.pols_to_scan.pop(0)
-                    self.mux_subscriber.subscribe_spectrum(self.lnb, pol,
+                    self.mux_subscriber.subscribe_spectrum(self.rf_path, self.lnb, pol,
                                                            self.start_freq, self.end_freq,
                                                            self.sat.sat_pos)
                 else:
                     self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
                     self.tune_mux_panel.AbortTune()
 
-    def ChangeLnb(self, lnb):
-        self.tune_mux_panel.positioner_lnb_sel.SetLnb(lnb)
-        self.SetTitle(f'Spectrum analysis - {lnb}')
+    def ChangeLnb(self, rf_path, lnb):
+        self.tune_mux_panel.positioner_lnb_sel.SetLnb(rf_path, lnb)
+        self.SetTitle(f'Spectrum analysis - {lnb} {rf_path}')
 
     def ChangeSatPos(self, sat_pos):
         pass
@@ -410,7 +412,7 @@ class SpectrumDialog(SpectrumDialog_):
         event.Skip()
 
 
-def show_spectrum_dialog(caller, sat=None, lnb=None , mux=None):
+def show_spectrum_dialog(caller, sat=None, rf_path=None, lnb=None , mux=None):
     dlg = SpectrumDialog(caller, sat=sat, lnb=lnb, mux=mux)
     dlg.Show()
     return None

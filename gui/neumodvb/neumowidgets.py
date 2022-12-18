@@ -252,9 +252,9 @@ class DiseqcChoice(wx.Choice):
         kwargs['choices'] = self.choices
         super().__init__(id, *args, **kwargs)
 
-    def SetValue(self, lnb) :
+    def SetValue(self, lnb_connection) :
         from neumodvb import neumodbutils
-        val = neumodbutils.enum_to_str(neumodbutils.get_subfield(lnb, 'rotor_control'))
+        val = neumodbutils.enum_to_str(neumodbutils.get_subfield(lnb_connection, 'rotor_control'))
         idx = self.choices.index(val)
         self.SetSelection(idx)
 

@@ -1308,7 +1308,7 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(rf_path, lnb, mux, use_counts);
 
 	if (user_requested) {
-		this->start_fe_lnb_and_mux(lnb, mux);
+		this->start_fe_lnb_and_mux(rf_path, lnb, mux);
 	} else
 		this->sec_status.retune_count++;
 
@@ -1579,7 +1579,8 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 	return ret;
 }
 
-int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
+int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+																				 const chdb::dvbs_mux_t& mux) {
 	// auto reservation_type = dvb_adapter_t::reservation_type_t::mux;
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
@@ -1591,6 +1592,7 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::lnb_t& lnb, const chdb::dv
 		this->sec_status.retune_count = 0;
 		auto w = this->ts.writeAccess();
 		w->reserved_mux = mux;
+		w->reserved_rf_path = rf_path;
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
 	}
@@ -1668,6 +1670,7 @@ int dvb_frontend_t::release_fe() {
 */
 std::tuple<int ,int>
 dvb_frontend_t::diseqc(bool skip_positioner) {
+
 	auto [fefd, rf_path, lnb, lnb_connection, mux] = [this]() {
 		auto r = this->ts.readAccess();
 		const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&r->reserved_mux);

@@ -531,7 +531,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         if network is not None:
             self.parent.SetDiseqc12Position(network.diseqc12)
         self.positioner_sat_sel.SetSat(self.sat)
-        self.positioner_lnb_sel.SetLnb(self.lnb)
+        self.positioner_lnb_sel.SetLnb(self.rf_path, self.lnb)
         self.positioner_mux_sel.SetMux(self.mux)
         self.positioner_mux_sel.SetSat(self.sat)
         self.positioner_mux_sel.SetMux(self.mux)
@@ -717,14 +717,13 @@ class SignalPanel(SignalPanel_):
 
 
 class PositionerDialog(PositionerDialog_):
-    def __init__(self, parent, sat, lnb, mux, *args, **kwds):
+    def __init__(self, parent, sat, rf_path, lnb, mux, *args, **kwds):
         super().__init__(parent, *args, **kwds)
         self.tune_mux_panel.init(self, sat, lnb, mux)
         self.parent = parent
 
         self.SetTitle(f'Positioner Control - {self.tune_mux_panel.lnb}')
-
-        self.diseqc_type_choice.SetValue(self.lnb)
+        self.diseqc_type_choice.SetValue(self.lnb_connection)
         self.enable_disable_diseqc_panels()
         network = None if self.sat is None else get_network(self.lnb, self.sat.sat_pos)
         self.SetPosition( (pychdb.sat.sat_pos_none if self.sat is None else self.sat.sat_pos) if network is None else network.usals_pos)
@@ -742,6 +741,14 @@ class PositionerDialog(PositionerDialog_):
     @property
     def lnb(self):
         return self.tune_mux_panel.lnb
+
+    @property
+    def rf_path(self):
+        return self.tune_mux_panel.rf_path
+
+    @property
+    def lnb_connection (self):
+        return pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
 
     @property
     def sat(self):
@@ -832,8 +839,8 @@ class PositionerDialog(PositionerDialog_):
             event.Skip(False)
         event.Skip()
 
-    def ChangeLnb(self, lnb):
-        self.SetTitle(f'Positioner Control - {lnb}')
+    def ChangeLnb(self, rf_path, lnb):
+        self.SetTitle(f'Positioner Control - {lnb} {rf_path}')
 
     def ChangeSatPos(self, sat_pos):
         self.SetPosition(sat_pos)
@@ -1086,8 +1093,8 @@ class PositionerDialog(PositionerDialog_):
         self.positioner_command(pydevdb.positioner_cmd_t.LIMIT_WEST)
         event.Skip()
 
-def show_positioner_dialog(caller, sat=None, lnb=None, mux=None):
-    dlg = PositionerDialog(caller, sat=sat, lnb=lnb, mux=mux)
+def show_positioner_dialog(caller, sat=None, rf_path=None, lnb=None, mux=None):
+    dlg = PositionerDialog(caller, sat=sat, rf_path=rf_path, lnb=lnb, mux=mux)
     dlg.Show()
     return None
     dlg.Close(None)

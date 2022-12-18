@@ -479,7 +479,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			continue;
 		const auto need_blindscan = use_blind_tune;
 		const bool need_spectrum = false;
-		auto pol{mux.pol}; //signifies that non-exlusive control is fine
+		auto pol{mux.pol}; //signifies that non-exclusive control is fine
 		auto band{devdb::lnb::band_for_mux(lnb, mux)}; //signifies that non-exlusive control is fine
 
 		bool need_multistream = (mux.stream_id >= 0);

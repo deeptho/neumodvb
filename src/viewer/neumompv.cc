@@ -471,7 +471,10 @@ bool MpvPlayer_::create() {
 		auto glCanvas = reinterpret_cast<MpvGLCanvas*>(ctx);
 		return glCanvas ? glCanvas->GetProcAddress(name) : nullptr;
 	};
-	mpv_opengl_init_params gl_init_params{get_proc_address, gl_canvas, nullptr};
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+	mpv_opengl_init_params gl_init_params{get_proc_address, gl_canvas};
+#pragma clang diagnostic pop
 	mpv_render_param params[]{{MPV_RENDER_PARAM_API_TYPE, const_cast<char*>(MPV_RENDER_API_TYPE_OPENGL)},
 		{MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
 		{MPV_RENDER_PARAM_INVALID, nullptr}};

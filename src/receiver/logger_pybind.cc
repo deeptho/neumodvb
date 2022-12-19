@@ -39,7 +39,11 @@ static void logger_log(bool is_error, const char* file, const char* func, int li
 			? ::log4cxx::Level::getError()
 			: ::log4cxx::Level::getDebug(),
 			oss_.str(oss_ << message),
-			::log4cxx::spi::LocationInfo(file, func, 	line));
+#ifdef LOG4CXX_VERSION_MAJOR
+			::log4cxx::spi::LocationInfo(file, file, func, 	line));
+#else
+		::log4cxx::spi::LocationInfo(file, func, 	line));
+#endif
 	}
 }
 

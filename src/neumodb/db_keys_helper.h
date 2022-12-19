@@ -465,13 +465,10 @@ void list(
 	auto c = key_t::template find_by_serialized_key<record_t>(txn, start_key, key_prefix,
 																														find_type_t::find_geq);
 	c.set_key_prefix(key_prefix);
-	//n is total number of records
 
-	int n=0; //number of records
 	data.clear();
 	for (; c.is_valid(); c.next()) {
 		auto x = c.current();
 		data.push_back(x);
-		n++;
 	}
 }

@@ -59,6 +59,7 @@ def setup():
     os.environ['PATH'] +=  os.pathsep + str(builddir / 'neumodb') # for neumoupgrade
     #to suppress some more annoying warnings
     os.environ['XDG_CURRENT_DESKTOP'] = 'none'
+    os.environ['WXSUPPRESS_SIZER_FLAGS_CHECK'] = '1'
     os.environ['NO_AT_BRIDGE'] = '1'
     from neumodvb.config import get_themes_dir
     themes_dir = get_themes_dir()

@@ -23,6 +23,8 @@
 #include <clocale>
 #include <pybind11/pybind11.h>
 #include "wx/dcsvg.h"
+#include <X11/Xlib.h>
+#include <GL/glx.h>
 #include <GL/glut.h>
 #include <string>
 #include <sys/timeb.h>

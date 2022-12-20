@@ -136,8 +136,9 @@ public:
 	int stop_play();
 	int pause();
 	int run();
+#if 0
 	void repaint();
-
+#endif
 	void make_canvas(py::object frame_);
 	void notify(const signal_info_t& info);
 	void update_playback_info();

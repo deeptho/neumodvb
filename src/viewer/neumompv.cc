@@ -23,6 +23,8 @@
 #include <pybind11/pybind11.h>
 #include "neumompv_private.h"
 #include "wx/dcsvg.h"
+#include <X11/Xlib.h>
+#include <GL/glx.h>
 #include <GL/glut.h>
 #include <string>
 #include <sys/timeb.h>
@@ -1112,11 +1114,12 @@ void MpvPlayer::close() {
 	self->subscription.set_pending_close(true);
 }
 
+#if 0
 void MpvPlayer_::repaint() {
 	wxPaintEvent evt(wxID_ANY);
 	gl_canvas->AddPendingEvent(evt);
 }
-
+#endif
 //! returns true if this was the right mpv
 void MpvPlayer_::notify(const signal_info_t& signal_info) {
 	std::scoped_lock lck(m);

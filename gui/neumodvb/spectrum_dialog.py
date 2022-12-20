@@ -152,6 +152,10 @@ class SpectrumDialog(SpectrumDialog_):
         return self.tune_mux_panel.lnb
 
     @property
+    def rf_path(self):
+        return self.tune_mux_panel.rf_path
+
+    @property
     def sat(self):
         return self.tune_mux_panel.sat
 
@@ -291,7 +295,7 @@ class SpectrumDialog(SpectrumDialog_):
            not lnb_matches_spectrum(self.lnb, spectrum):
             txn = wx.GetApp().chdb.rtxn()
             sat = pychdb.sat.find_by_key(txn, spectrum.k.sat_pos)
-            rf_path = None
+            rf_path = spectrum.k.rf_path
             lnb = pydevdb.lnb.find_by_key(txn, spectrum.k.rf_path.lnb)
             txn.abort()
             del txn
@@ -299,7 +303,8 @@ class SpectrumDialog(SpectrumDialog_):
             rf_path = self.rf_path
             lnb = self.lnb
             sat = self.sat
-        self.tune_mux_panel.ChangeLnb(rf_path, lnb)
+        self.tune_mux_panel.ChangeLnb(lnb)
+        self.tune_mux_panel.ChangeRfPath(rf_path)
         self.tune_mux_panel.ChangeSat(sat)
         mux = self.tune_mux_panel.mux
         mux.frequency = int(tp.freq*1000)

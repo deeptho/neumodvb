@@ -48,6 +48,34 @@ And some bugs need to be fixed by upgrading python3-matplotlib-wx to at least ve
 sudo dnf update --enablerepo=updates-testing python3-matplotlib-wx
 ```
 
+#### Fedora 37 ####
+On Fedora 37:  install at least the following RPMs with "sudo dnf install -y &lt;PACKAGE&gt;":
+```
+sudo dnf install -y redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel ffmpeg-devel mpv-libs-devel https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-3.30-2710.fc35.x86_64.rpm https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm
+```
+
+Also make sure that the following packages are **not** installed, as they might lead to compiling or linking with the wrong
+libraries, resulting in crashes:
+```
+sudo dnf remove wxGTK3-devel
+```
+
+Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
+<https://rpmfusion.org/Configuration>
+
+
+In addition, some python code needs to be installed using "sudo pip3 install &lt;PACKAGE&gt;";
+at least the following packages are needed:
+
+```
+sudo pip3 install mpl_scatter_density
+```
+
+And some bugs need to be fixed by upgrading python3-matplotlib-wx to at least version 3.5.2:
+```
+sudo dnf update --enablerepo=updates-testing python3-matplotlib-wx
+```
+
 
 #### Debian ####
 

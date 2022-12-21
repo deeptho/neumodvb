@@ -75,6 +75,10 @@ static void export_lnb_extra(py::module& m) {
 		.def("connection_for_rf_path", &conn_helper, "Return lnb_connection for rf_path"
 				 , py::arg("lnb")
 				 , py::arg("rf_path"))
+		.def("rf_path_for_connection", &devdb::rf_path_for_connection,
+				 "Return rf_path for lnb_connection"
+				 , py::arg("lnb_key")
+				 , py::arg("lnb_connection"))
 		.def("add_network", &lnb::add_network,
 				 "Add a network to an lnb if it does not yet exist; returns true if network was added", py::arg("lnb"),
 				 py::arg("lnb_network"))

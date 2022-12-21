@@ -143,8 +143,10 @@ class RfPathGridPopup(BasicLnbConnectionGrid):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-                rf_input = self.table.GetValue(self.selected_row, None)
-                self.Parent.GrandParent.OnSelectRfInput(rf_input)
+
+                lnb_connection = self.table.GetValue(self.selected_row, None)
+                rf_path = pydevdb.lnb.rf_path_for_connection(self.lnb.k, lnb_connection)
+                self.Parent.GrandParent.OnSelectRfPath(rf_path)
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -162,7 +164,7 @@ class RfPathGridPopup(BasicLnbConnectionGrid):
 class LnbRfPathListComboCtrl(wx.ComboCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
-        self.example = 'C0#3 TBS6909X'
+        self.example = 'TBS 6909X C0#3 '
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
         self.font.SetPointSize(self.font.GetPointSize()+6)
@@ -196,8 +198,9 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
         self.SetText(self.CurrentGroupText())
 
     def CurrentGroupText(self):
-        if self.rf_path is None:
+        if self.rf_path is None or self.lnb is None:
             return ""
+        print(f'lnb={type(self.lnb)} rf_path={type(self.rf_path)}')
         return str(self.lnb_connection.connection_name)
 
     def OnWindowCreate(self, evt):

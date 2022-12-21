@@ -95,6 +95,11 @@ namespace devdb::dish {
 
 
 namespace devdb {
+	inline rf_path_t rf_path_for_connection(const devdb::lnb_key_t& lnb_key,
+																					const devdb::lnb_connection_t& lnb_connection) {
+		return devdb::rf_path_t{lnb_key, lnb_connection.card_mac_address, lnb_connection.rf_input};
+	}
+
 	inline const lnb_connection_t* connection_for_rf_path(const devdb::lnb_t& lnb, const devdb::rf_path_t& rf_path) {
 		for(auto& conn: lnb.connections) {
 			if (conn.rf_input == rf_path.rf_input)

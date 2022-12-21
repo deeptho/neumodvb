@@ -1568,6 +1568,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 		this->sec_status.retune_count = 0;
 		auto w = ts.writeAccess();
 		w->reserved_mux = {};
+		w->reserved_rf_path = rf_path;
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
 	}
@@ -1613,6 +1614,7 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 		auto w = this->ts.writeAccess();
 		this->sec_status.retune_count = 0;
 		w->reserved_mux = mux;
+		w->reserved_rf_path = devdb::rf_path_t();
 		w->reserved_lnb = devdb::lnb_t();
 		w->	last_signal_info.reset();
 	}

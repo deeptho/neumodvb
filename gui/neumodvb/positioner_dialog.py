@@ -502,8 +502,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         if self.lnb is None:
             return
         lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, rf_path)
-        self.parent.ChangeLnbConnection(self.rf_path, self.lnb) #update window title
-        evt = LnbChangeEvent(lnb=lnb)
+        self.parent.ChangeLnb(self.rf_path, self.lnb) #update window title
+        evt = LnbChangeEvent(lnb=self.lnb)
         wx.PostEvent(self, evt)
 
     def ChangeMux(self, mux):

@@ -313,7 +313,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             return self.tuned_ # no need to subscribe
         self.retune_mode = retune_mode
         dtdebug(f'Subscribe LNB')
-        ret = self.mux_subscriber.subscribe_lnb(self.lnb,  self.retune_mode)
+        ret = self.mux_subscriber.subscribe_lnb(self.rf_path, self.lnb,  self.retune_mode)
         if ret < 0:
             if not silent:
                 ShowMessage("SubscribeLnb failed", self.mux_subscriber.error_message) #todo: record error message
@@ -540,7 +540,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         txn = wx.GetApp().chdb.rtxn()
         self.sat = sat
         if on_positioner(self.lnb):
-            self.lnb_change |= elf.lnb.usals_pos != network.usals_pos
+            self.lnb_changed |= self.lnb.usals_pos != network.usals_pos
             self.lnb.usals_pos = network.usals_pos
         self.mux = pychdb.dvbs_mux.find_by_key(txn,network.ref_mux)
         if self.mux is None or self.mux.k.sat_pos != self.sat.sat_pos: #The latter can happen when sat_pos of ref_mux was updated
@@ -869,7 +869,7 @@ class PositionerDialog(PositionerDialog_):
         self.SetPosition(sat_pos)
 
     def positioner_command(self, *args):
-        if self.lnb.rotor_control in (pydevdb.rotor_control_t.ROTOR_MASTER_DISEQC12,
+        if self.lnb_connection.rotor_control in (pydevdb.rotor_control_t.ROTOR_MASTER_DISEQC12,
                                       pydevdb.rotor_control_t.ROTOR_MASTER_USALS):
             if self.lnb_subscriber.positioner_cmd(*args) >= 0:
                 return True
@@ -878,7 +878,7 @@ class PositionerDialog(PositionerDialog_):
 
         else:
             ShowMessage("Cannot control rotor",
-                        f"Rotor control setting {neumodbutils.enum_to_str(self.lnb.rotor_control)} does not "
+                        f"Rotor control setting {neumodbutils.enum_to_str(self.lnb_connection.rotor_control)} does not "
                         "allow moving the positioner")
         return False
 
@@ -918,8 +918,8 @@ class PositionerDialog(PositionerDialog_):
         dtdebug("lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
 
     def OnDiseqcTypeChoice(self, event):  # wxGlade: PositionerDialog_.<event_handler>
-        self.lnb.rotor_control = self.diseqc_type_choice.GetValue()
-        dtdebug(f"diseqc type set to {self.lnb.rotor_control}")
+        self.lnb_connection.rotor_control = self.diseqc_type_choice.GetValue()
+        dtdebug(f"diseqc type set to {self.lnb_connection.rotor_control}")
         self.tune_mux_panel.lnb_changed = True
         t = pydevdb.rotor_control_t
         self.enable_disable_diseqc_panels()
@@ -959,7 +959,7 @@ class PositionerDialog(PositionerDialog_):
     def OnUsalsStepEast(self, event):
         self.position += self.step
         self.SetPosition(self.position)
-        slf.UpdateUsalsPosition(self.position)
+        self.UpdateUsalsPosition(self.position)
         event.Skip()
 
     def OnUsalsStepWest(self, event):
@@ -1047,10 +1047,10 @@ class PositionerDialog(PositionerDialog_):
         del txn
         network = get_network(lnb, self.sat.sat_pos)
         pos = network.usals_pos
-        if self.lnb.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_USALS:
+        if self.lnb_connection.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_USALS:
             self.positioner_command(pydevdb.positioner_cmd_t.GOTO_XX, pos)
             self.UpdateUsalsPosition(pos)
-        elif self.lnb.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
+        elif self.lnb_connection.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
             self.positioner_command(pydevdb.positioner_cmd_t.GOTO_NN, network.diseqc12)
             self.SetDiseqc12(network.diseqc12)
         else:

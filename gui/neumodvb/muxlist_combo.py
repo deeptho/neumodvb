@@ -51,19 +51,24 @@ class DvbsMuxGridPopup(DvbsBasicMuxGrid):
     def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
-        super().OnWindowCreate(evt)
         sat = self.Parent.GrandParent.sat
+        self.sat = sat
+        super().OnWindowCreate(evt)
         self.SelectSat(sat)
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-                mux = self.table.GetValue(self.selected_row, None)
-                self.Parent.GrandParent.OnSelectMux(mux)
+                wx.CallAfter(self.OnSelectMux, self.selected_row)
             evt.Skip(False)
         else:
             evt.Skip(True)
+
+    def OnSelectMux(self, selected_row):
+        if self.selected_row is not None:
+            mux = self.table.GetValue(selected_row, None)
+            self.Parent.GrandParent.OnSelectMux(mux)
 
     def EditMode(self):
         return  False

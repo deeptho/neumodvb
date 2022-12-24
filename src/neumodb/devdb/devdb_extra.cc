@@ -31,7 +31,7 @@
 using namespace devdb;
 
 
-template <typename cursor_t> static int16_t make_unique_id(db_txn& txn, lnb_key_t key, cursor_t& c) {
+template <typename cursor_t> static int16_t make_unique_id(lnb_key_t key, cursor_t& c) {
 	key.lnb_id = 0;
 	int gap_start = 1; // start of a potential gap of unused extra_ids
 	for (const auto& lnb : c.range()) {
@@ -61,10 +61,10 @@ template <typename cursor_t> static int16_t make_unique_id(db_txn& txn, lnb_key_
 	return std::numeric_limits<decltype(key.lnb_id)>::max(); // highest possible value
 }
 
-int16_t devdb::make_unique_id(db_txn& txn, lnb_key_t key) {
+int16_t devdb::make_unique_id(db_txn& devdb_rtxn, lnb_key_t key) {
 	key.lnb_id = 0;
-	auto c = devdb::lnb_t::find_by_k(txn, key, find_geq);
-	return ::make_unique_id(txn, key, c);
+	auto c = devdb::lnb_t::find_by_k(devdb_rtxn, key, find_geq);
+	return ::make_unique_id(key, c);
 }
 
 static inline const char* lnb_type_str(const lnb_key_t& lnb_key) {

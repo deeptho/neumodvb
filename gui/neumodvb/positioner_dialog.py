@@ -230,22 +230,25 @@ class TuneMuxPanel(TuneMuxPanel_):
         select an inital choice for lnb mux and sat
         """
         #force mux and sat to be compatible
-        txn = wx.GetApp().chdb.rtxn()
+        devdb_txn = wx.GetApp().devdb.rtxn()
         if lnb is None and (mux is not None or sat is not None):
             #initialise from mux
-            lnb = pydevdb.lnb.select_lnb(txn, sat, mux)
+            lnb = pydevdb.lnb.select_lnb(devdb_txn, sat, mux)
+            devdb_txn.abort()
+            del devdb_txn
             if lnb is None:
                 return None, None, None
         if lnb is not None:
             #if mux is None on input, the following call will pick a mux on the sat to which the rotor points
-            mux = pydevdb.lnb.select_reference_mux(txn, lnb, mux)
+            chdb_txn = wx.GetApp().chdb.rtxn()
+            mux = pydevdb.lnb.select_reference_mux(chdb_txn, lnb, mux)
             if mux.k.sat_pos != pychdb.sat.sat_pos_none:
-                sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos)
+                sat = pychdb.sat.find_by_key(chdb_txn, mux.k.sat_pos)
             elif  len(lnb.networks)>0:
-                sat = pychdb.sat.find_by_key(txn, lnb.networks[0].sat_pos)
+                sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos)
             return lnb, sat, mux
-        txn.abort()
-        del txn
+        chdb_txn.abort()
+        del chdb_txn
 
     def OnSave(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("saving")
@@ -1008,7 +1011,7 @@ class PositionerDialog(PositionerDialog_):
         dtdebug("Goto sat")
         self.tune_mux_panel.muxedit_grid.table.FinalizeUnsavedEdits()
         self.tune_mux_panel.UpdateRefMux(self.mux)
-        txn = wx.GetApp().chdb.rtxn()
+        txn = wx.GetApp().devdb.rtxn()
         lnb = pydevdb.lnb.find_by_key(txn, self.lnb.k) #reread the networks
         txn.abort()
         del txn

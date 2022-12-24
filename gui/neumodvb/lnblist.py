@@ -231,7 +231,7 @@ class LnbGridBase(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        self.Bind(wx.grid.EVT_GRID_CELL_LEFT_CLICK, self.OnLeftClicked)
+        self.Bind(wx.grid.EVT_GRID_CELL_LEFT_DCLICK, self.OnLeftClicked)
 
     def CheckShowNetworkDialog(self, evt, rowno, colno):
         if self.table.columns[colno].key == 'networks' and \

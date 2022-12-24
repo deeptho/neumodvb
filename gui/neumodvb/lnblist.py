@@ -103,9 +103,9 @@ class LnbTable(NeumoTable):
          #CD(key='k.rf_input',  label='RF in', basic=True, readonly=False),
          #CD(key='k.rf_input',  label='Card / RF in', basic=True, no_combo = False, readonly=False, dfn=card_rf_in_fn,
          #   example="C0#10: TBS 6904SE" ),
-         #CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
          CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
          #CD(key='offset_pos',  label='usals\noffset', basic=True, no_combo = True, #allow entering sat_pos
          #   dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='enabled',   label='ena-\nbled', basic=False),

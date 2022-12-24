@@ -463,14 +463,14 @@ int devdb::lnb::freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, boo
 
 namespace devdb::lnb {
 	static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
-	select_lnb(db_txn& rtxn, const chdb::dvbs_mux_t& proposed_mux);
+	select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux);
 };
 
 /*
 	find the best lnb for tuning to a sat and possibly to a specific mux oin the sat sat
  */
 static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
-devdb::lnb::select_lnb(db_txn& rtxn, const chdb::dvbs_mux_t& proposed_mux) {
+devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux) {
 	using namespace chdb;
 
 
@@ -479,7 +479,7 @@ devdb::lnb::select_lnb(db_txn& rtxn, const chdb::dvbs_mux_t& proposed_mux) {
 
 	//first try to find an lnb not in use, which does not require moving a dish
 	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
-			fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, proposed_mux, nullptr /*required_rf_path*/,
+			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux, nullptr /*required_rf_path*/,
 																						nullptr /*fe_key_to_release*/,
 																						false /*may_move_dish*/, true /*use_blind_tune*/,
 																						dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
@@ -492,7 +492,7 @@ devdb::lnb::select_lnb(db_txn& rtxn, const chdb::dvbs_mux_t& proposed_mux) {
 
 	//now try to find an lnb not in use, which does require moving a dish
 	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
-			fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, proposed_mux, nullptr /*required_rf_path*/,
+			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux, nullptr /*required_rf_path*/,
 																						nullptr /*fe_key_to_release*/,
 																						true /*may_move_dish*/, true /*use_blind_tune*/,
 																						dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
@@ -505,7 +505,7 @@ devdb::lnb::select_lnb(db_txn& rtxn, const chdb::dvbs_mux_t& proposed_mux) {
 
 	//now try to find an lnb which can be in use, and which can move a dish, also allowing non blindtune rf_paths
 	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
-			fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, proposed_mux, nullptr /*required_rf_path*/,
+			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux, nullptr /*required_rf_path*/,
 																						nullptr /*fe_key_to_release*/,
 																						true /*may_move_dish*/, false /*use_blind_tune*/,
 																						dish_move_penalty, resource_reuse_bonus, true /*ignore_subscriptions*/);
@@ -536,10 +536,10 @@ std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb) {
 }
 
 std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
-devdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const chdb::dvbs_mux_t* proposed_mux) {
+devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::dvbs_mux_t* proposed_mux) {
 	using namespace chdb;
 	if(proposed_mux)
-		return select_lnb(rtxn, *proposed_mux);
+		return select_lnb(devdb_rtxn, *proposed_mux);
 	if(!sat_)
 		return {}; //too little info to make  choice
 
@@ -551,7 +551,7 @@ devdb::lnb::select_lnb(db_txn& rtxn, const chdb::sat_t* sat_, const chdb::dvbs_m
 
 	for(int pass=0; pass <2; ++pass) {
 		bool may_move_dish = pass >=1;
-		auto c = find_first<devdb::lnb_t>(rtxn);
+		auto c = find_first<devdb::lnb_t>(devdb_rtxn);
 		for (auto const& lnb : c.range()) {
 			auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(lnb, sat.sat_pos);
 			/*priority==-1 indicates:
@@ -593,7 +593,7 @@ bool devdb::lnb::add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network) {
 }
 
 
-bool devdb::lnb::add_connection(db_txn& rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& lnb_connection) {
+bool devdb::lnb::add_connection(db_txn& devdb_rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& lnb_connection) {
 	using namespace devdb;
 	for (auto& conn : lnb.connections) {
 		if (conn.card_mac_address == lnb_connection.card_mac_address &&
@@ -602,7 +602,7 @@ bool devdb::lnb::add_connection(db_txn& rtxn, devdb::lnb_t& lnb, devdb::lnb_conn
 	}
 	lnb_connection.rotor_control = on_positioner(lnb) ? rotor_control_t::ROTOR_SLAVE : rotor_control_t::FIXED_DISH;
 	lnb.connections.push_back(lnb_connection);
-	lnb::update_lnb(rtxn, lnb , false /*save*/);
+	lnb::update_lnb(devdb_rtxn, lnb , false /*save*/);
 
 	//update the input argument
 	lnb_connection = lnb.connections[lnb.connections.size()-1];
@@ -636,9 +636,9 @@ int dish::update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos)
 
 	As all lnbs on the same dish agree on usals_pos, we can stop when we find the first one
  */
-bool devdb::dish::dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos)
+bool devdb::dish::dish_needs_to_be_moved(db_txn& devdb_rtxn, int dish_id, int16_t sat_pos)
 {
-	auto c = devdb::find_first<devdb::lnb_t>(rtxn);
+	auto c = devdb::find_first<devdb::lnb_t>(devdb_rtxn);
 	int num_rotors = 0; //for sanity check
 
 	for(auto lnb : c.range()) {
@@ -722,11 +722,12 @@ bool devdb::lnb::can_pol(const devdb::lnb_t &  lnb, chdb::fe_polarisation_t pol)
 	}
 }
 
-void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb, bool save)
+void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 {
 	bool found=false;
+	bool on_positioner{false};
 	for(auto &conn: lnb.connections) {
-		auto c = fe_t::find_by_card_mac_address(wtxn, conn.card_mac_address);
+		auto c = fe_t::find_by_card_mac_address(devdb_wtxn, conn.card_mac_address);
 		if(c.is_valid()) {
 			const auto& fe = c.current();
 		conn.connection_name.clear();
@@ -790,7 +791,7 @@ void devdb::lnb::update_lnb(db_txn& wtxn, devdb::lnb_t&  lnb, bool save)
 			else
 				++i;
 		}
-		put_record(wtxn, lnb);
+		put_record(devdb_wtxn, lnb);
 	}
 }
 
@@ -822,7 +823,7 @@ static void invalidate_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb)
 	put_record(devdb_wtxn, lnb);
 }
 
-static void update_lnb_adapter_fields(db_txn& wtxn, devdb::lnb_t& lnb, const devdb::fe_t& fe) {
+static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, const devdb::fe_t& fe) {
 	ss::string<32> name;
 	auto can_be_used =  fe.can_be_used;
 	bool any_change{lnb.can_be_used != can_be_used};
@@ -849,7 +850,7 @@ static void update_lnb_adapter_fields(db_txn& wtxn, devdb::lnb_t& lnb, const dev
 	lnb.can_be_used = can_be_used;
 	if(!any_change)
 		return;
-	put_record(wtxn, lnb);
+	put_record(devdb_wtxn, lnb);
 }
 
 
@@ -881,7 +882,6 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn) {
 		return {}; //no fe found with lnb's rf_input
 	};
 
-
 	auto c = devdb::find_first<devdb::lnb_t>(devdb_wtxn);
 	for(auto lnb: c.range()) {
 		for(auto conn: lnb.connections) {
@@ -896,20 +896,20 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn) {
 	}
 }
 
-void devdb::lnb::on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::dvbs_mux_t& new_mux,
-																	 system_time_t now_) {
+void devdb::lnb::on_mux_key_change(db_txn& devdb_wtxn, const chdb::mux_key_t& old_mux_key,
+																	 chdb::dvbs_mux_t& new_mux, system_time_t now_) {
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace chdb;
 	auto& new_mux_key = *mux_key_ptr(new_mux);
 	{
-		auto c = find_first<lnb_t>(wtxn);
+		auto c = find_first<lnb_t>(devdb_wtxn);
 		for(auto lnb: c.range()) {
 			auto* n = lnb::get_network(lnb, old_mux_key.sat_pos);
 			if(n) {
 				lnb.mtime = now;
 				if (n->ref_mux == old_mux_key) {
 					n->ref_mux = new_mux_key;
-					put_record(wtxn, lnb);
+					put_record(devdb_wtxn, lnb);
 				}
 			}
 			break;

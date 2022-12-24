@@ -741,6 +741,7 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 		switch(conn.rotor_control) {
 		case devdb::rotor_control_t::ROTOR_MASTER_USALS:
 			//replace all diseqc12 commands with USALS commands
+			on_positioner = true;
 			for(auto& c: conn.tune_string) {
 				if (c=='X') {
 					c = 'P';
@@ -751,6 +752,7 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 			break;
 		case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
 			//replace all usals commands with diseqc12 commands
+			on_positioner = true;
 			for(auto& c: conn.tune_string) {
 				if (c=='P') {
 					c = 'X';
@@ -767,6 +769,8 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 	if(save) { /*we deliberately do not sort or remove duplicate data  when we are not really
 							 saving. This is needed to provide a stable editing GUI for connections and networks
 						 */
+		if(on_positioner)
+			lnb.on_positioner = on_positioner;
 		std::sort(lnb.networks.begin(), lnb.networks.end(),
 							[](const lnb_network_t& a, const lnb_network_t& b) { return a.sat_pos < b.sat_pos; });
 		for(int i=1; i< lnb.networks.size(); ) {
@@ -827,6 +831,10 @@ static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, con
 	ss::string<32> name;
 	auto can_be_used =  fe.can_be_used;
 	bool any_change{lnb.can_be_used != can_be_used};
+
+	bool on_positioner = devdb::lnb::on_positioner(lnb);
+	any_change |= on_positioner != lnb.on_positioner;
+	lnb.on_positioner = on_positioner;
 
 	for(auto& conn: lnb.connections) {
 		if(conn.card_mac_address != fe.card_mac_address)

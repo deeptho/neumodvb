@@ -248,6 +248,7 @@ lnb = db_struct(name='lnb',
                           #i.e., the main satellite
                           (2, 'int16_t', 'usals_pos', 'sat_pos_none'),
 
+                          (16, 'bool',  'on_positioner', 'false'), #bit flag indicating if lnb is on rotor
                           (3, 'lnb_pol_type_t',  'pol_type', 'lnb_pol_type_t::HV'), #bit flag indicating which polarisations can be used
                           (4, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
                           (5, 'int16_t',  'priority', -1), #

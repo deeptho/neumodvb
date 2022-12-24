@@ -207,17 +207,17 @@ namespace devdb::lnb {
 	inline bool on_positioner(const devdb::lnb_t& lnb)
 	{
 		for(const auto& conn: lnb.connections) {
-		switch(conn.rotor_control) {
-		case devdb::rotor_control_t::ROTOR_MASTER_USALS:
-		case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
-		case devdb::rotor_control_t::ROTOR_SLAVE:
-			return true;
-			break;
+			switch(conn.rotor_control) {
+			case devdb::rotor_control_t::ROTOR_MASTER_USALS:
+			case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
+			case devdb::rotor_control_t::ROTOR_SLAVE:
+				return true;
+				break;
 		default:
 			break;
+			}
 		}
-		}
-		return false;
+		return lnb.on_positioner;
 	}
 }
 

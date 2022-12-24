@@ -97,6 +97,7 @@ class LnbTable(NeumoTable):
         [#CD(key='connection_name',  label='LNB', basic=True, readonly=True,
          #   example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
+         CD(key='on_positioner',  label='on\nrotor', basic=True, readonly=False),
          #CD(key='k.card_mac_address',  label='card', basic=True, no_combo=False, readonly=False, dfn=card_fn,
          #   example=" C0: TBS 6904SE "),
          #CD(key='k.rf_input',  label='RF in', basic=True, readonly=False),

@@ -20,6 +20,7 @@
  */
 #include "chdb_vector_pybind.h"
 #include "neumodb/chdb/chdb_extra.h"
+#include "neumodb/devdb/devdb_extra.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
 #include <pybind11/pybind11.h>
@@ -36,7 +37,16 @@ namespace chdb {
 } // namespace chdb
 
 static void export_chdb(py::module& m) {
-	py::class_<chdb::chdb_t, neumodb_t>(m, "chdb").def(py::init<>())
+	py::class_<chdb::chdb_t, neumodb_t>(m, "chdb")
+		.def(py::init<>())
+		;
+}
+
+static void export_chdb_extra(py::module& m) {
+	m.def("select_sat_and_reference_mux", &chdb::select_sat_and_reference_mux,
+				"Select a sat and reference mux for an lnb; use prosed_mux if suitable, else use "
+				"one which will not move positioner",
+				py::arg("rtxn"), py::arg("lnb"), py::arg("proposed_mux").none(true) = nullptr)
 		;
 }
 
@@ -141,6 +151,7 @@ PYBIND11_MODULE(pychdb, m) {
 		;
 	export_neumodb(m);
 	export_chdb(m);
+	export_chdb_extra(m);
 	export_chdb_vectors(m);
 	chdb::export_enums(m);
 	chdb::export_structs(m);

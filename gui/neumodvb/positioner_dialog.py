@@ -251,6 +251,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             del devdb_txn
             if lnb is None:
                 return None, None, None, None
+
         if lnb is not None:
             if rf_path is None:
                 rf_path = pydevdb.lnb.select_rf_path(lnb)
@@ -262,8 +263,8 @@ class TuneMuxPanel(TuneMuxPanel_):
             elif  len(lnb.networks)>0:
                 sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos)
             return rf_path, lnb, sat, mux
-        txn.abort()
-        del txn
+        chdb_txn.abort()
+        del chdb_txn
 
     def OnSave(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("saving")
@@ -485,11 +486,11 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.parent.SetDiseqc12Position(network.diseqc12)
         else:
             #we need to also select a different satellite, to one which is allowed by the lnb
-            txn = wx.GetApp().chdb.rtxn()
-            mux, sat = pydevdb.lnb.select_sat_and_reference_mux(txn, self.lnb, None)
+            chdb_txn = wx.GetApp().chdb.rtxn()
+            mux, sat = pychdb.select_sat_and_reference_mux(chdb_txn, self.lnb, None)
             #mux and sat will be None if positioner would need to be moved
-            txn.abort()
-            del txn
+            chdb_txn.abort()
+            del chdb_txn
             self.ChangeSat(sat)
             self.positioner_mux_sel.SetMux(self.mux)
         self.lnb_changed = False

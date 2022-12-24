@@ -27,6 +27,9 @@
 #include "neumodb/chdb/chdb_db.h"
 #pragma GCC visibility push(default)
 
+namespace devdb {
+	struct lnb_t;
+};
 
 namespace chdb {
 	using namespace chdb;
@@ -193,6 +196,12 @@ namespace chdb {
 	}
 
 	chdb::media_mode_t media_mode_for_service_type(uint8_t service_type);
+
+	std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
+	select_sat_and_reference_mux(db_txn& rtxn, const devdb::lnb_t& lnb,
+															 const chdb::dvbs_mux_t* proposed_mux);
+
+
 };
 
 namespace chdb {

@@ -65,10 +65,6 @@ static void export_lnb_extra(py::module& m) {
 				 py::arg("lnb"))
 		.def("make_unique_if_template", make_unique_if_template,
 				 "Make the key of this lnb unique, but only if lnb.k.id<0")
-		.def("select_sat_and_reference_mux", &lnb::select_sat_and_reference_mux,
-				 "Select a sat and reference mux for an lnb; use prosed_mux if suitable, else use "
-				 "one which will not move positioner",
-				 py::arg("rtxn"), py::arg("lnb"), py::arg("proposed_mux").none(true) = nullptr)
 		.def("select_lnb", &lnb::select_lnb, "Select an lnb; which can tune to sat or mux",
 				 py::arg("rtxn"), py::arg("sat").none(true) = nullptr, py::arg("mux").none(true) = nullptr)
 		.def("select_rf_path", &lnb::select_rf_path, "Select an rf_path for lnb", py::arg("lnb"))

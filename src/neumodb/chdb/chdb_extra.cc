@@ -20,6 +20,7 @@
  */
 
 #include "neumodb/chdb/chdb_extra.h"
+#include "neumodb/devdb/devdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "stackstring/ssaccu.h"
 #include "xformat/ioformat.h"
@@ -1399,6 +1400,74 @@ template <typename mux_t> void chdb::clear_all_streams_pending_status(
 	}
 }
 
+/*
+	Selects the nextwork on the proposed lnb which best matches
+	the lnb's usals position, i.e., the satellite position to which the dish points.
+
+	In case the dish would need to be moved, return None, None
+	In case the dish is not on a positioner, return the mux for the main network
+ */
+std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
+chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
+																	 const chdb::dvbs_mux_t* proposed_mux) {
+	auto return_mux = [&chdb_rtxn, &lnb](const devdb::lnb_network_t& network)
+		-> std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
+		{
+			auto cs = chdb::sat_t::find_by_key(chdb_rtxn, network.sat_pos);
+			std::optional<chdb::sat_t> sat = cs.is_valid() ? cs.current() : chdb::sat_t();
+		auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
+		if (c.is_valid()) {
+			auto mux = c.current();
+			if (devdb::lnb::can_pol(lnb, mux.pol))
+				return {mux, sat};
+		}
+		c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
+																			chdb::dvbs_mux_t::partial_keys_t::sat_pos);
+		if (c.is_valid()) {
+			auto mux = c.current();
+			if (devdb::lnb::can_pol(lnb, mux.pol))
+				return {mux, sat};
+		}
+		return {{}, sat};
+		};
+
+	using namespace chdb;
+	const bool disregard_networks{false};
+	if (proposed_mux && lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks)) {
+		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, proposed_mux->k.sat_pos);
+		return {*proposed_mux, cs.is_valid() ? cs.current() : chdb::sat_t{}};
+	}
+#if 0
+	if (!devdb::lnb::on_positioner(lnb)) {
+		for (auto& network : lnb.networks) {
+			if (usals_is_close(lnb.usals_pos, network.usals_pos)) { // dish is tuned to the right sat
+				return return_mux(network);
+			}
+		}
+		if (lnb.networks.size() > 0)
+			return return_mux(lnb.networks[0]);
+
+	} else
+#endif
+	{
+		auto best = std::numeric_limits<int>::max();
+		const devdb::lnb_network_t* bestp{nullptr};
+		for (auto& network : lnb.networks) {
+			auto delta = std::abs(network.usals_pos - lnb.usals_pos);
+			if (delta < best) {
+				best = delta;
+				bestp = &network;
+			}
+		}
+		if (bestp && usals_is_close(bestp->usals_pos, lnb.usals_pos)) {
+			return return_mux(*bestp);
+		} else if( bestp && !devdb::lnb::on_positioner(lnb)) {
+			return return_mux(*bestp);
+		}
+		return {}; //  has sat_pos == sat_pos_none; no network present
+	}
+	//return {}; // has sat_pos == sat_pos_none;
+}
 
 //template instantiations
 template void chdb::clear_all_streams_pending_status(db_txn& chdb_wtxn, system_time_t now_,

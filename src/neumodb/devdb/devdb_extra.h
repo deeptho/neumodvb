@@ -143,9 +143,6 @@ namespace devdb::lnb {
 	const devdb::lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);
 	devdb::lnb_network_t* get_network(lnb_t& lnb, int16_t sat_pos);
 
-	std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
-	select_sat_and_reference_mux(db_txn& rtxn, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t* proposed_mux);
-
 	std::tuple<std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>>
 	select_lnb(db_txn& rtxn, const chdb::sat_t* sat, const chdb::dvbs_mux_t* proposed_mux);
 

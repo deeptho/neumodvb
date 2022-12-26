@@ -75,11 +75,11 @@ static void export_lnb_extra(py::module& m) {
 				 "Return rf_path for lnb_connection"
 				 , py::arg("lnb_key")
 				 , py::arg("lnb_connection"))
-		.def("add_network", &lnb::add_network,
-				 "Add a network to an lnb if it does not yet exist; returns true if network was added", py::arg("lnb"),
+		.def("add_or_edit_network", &lnb::add_or_edit_network,
+				 "Add a network to an lnb if it does not yet exist or edit it; returns true if network was added or changed", py::arg("lnb"),
 				 py::arg("lnb_network"))
-		.def("add_connection", &lnb::add_connection,
-				 "Add a connection to an lnb if it does not yet exist; returns true if connection was added",
+		.def("add_or_edit_connection", &lnb::add_or_edit_connection,
+				 "Add a connection to an lnb if it does not yet exist or edit it; returns true if connection was added or changed",
 				 py::arg("rtxn"), py::arg("lnb"),
 				 py::arg("lnb_connection"))
 		.def("lnb_frequency_range", &lnb::lnb_frequency_range,

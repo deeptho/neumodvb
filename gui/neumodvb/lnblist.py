@@ -163,44 +163,20 @@ class LnbTable(NeumoTable):
             self.aux_screens = [ self.fe_screen]
 
 
-    def matching_sat(self, txn, sat_pos):
-        sats = wx.GetApp().get_sats()
-        if len(sats) == 0:
-            from neumodvb.init_db import load_sats
-            dtdebug("Empty database; adding sats")
-            load_sats(txn)
-        for sat in sats:
-            if sat.sat_pos == sat_pos:
-                return sat_pos
-        return pychdb.sat.sat_pos_none
 
     def __save_record__(self, txn, lnb):
-        if lnb.usals_pos ==  pychdb.sat.sat_pos_none:
-                add = ShowMessage("Add Usals pos", f"Specify Usals pos")
-                return None
+        if True:
+            if len(lnb.networks) == 0:
+                cont = ShowOkCancel("Add network?",
+                                   f"This LNB has no networks defined and cannot be used. Continue anyway?")
+                if not cont:
+                    return None
 
-        if lnb.usals_pos !=  pychdb.sat.sat_pos_none and len(lnb.networks) == 0:
-            #shortcut: a single network can be created by entering sat_pos
-            network = pydevdb.lnb_network.lnb_network()
-            network.sat_pos = lnb.usals_pos
-            network.usals_pos = lnb.usals_pos
-            if self.matching_sat(txn, network.sat_pos) == pychdb.sat.sat_pos_none:
-                ss = pychdb.sat_pos_str(network.sat_pos)
-                add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
-                if not add:
+            if len(lnb.connections) == 0:
+                cont = ShowOkCancel("Add connection?",
+                                   f"This LNB has no connections defined and cannot be used. Continue anyway?")
+                if not cont:
                     return None
-            pydevdb.lnb.add_network(lnb, network)
-        for n in lnb.networks:
-            if self.matching_sat(txn, n.sat_pos) == pychdb.sat.sat_pos_none:
-                ss = pychdb.sat_pos_str(n.sat_pos)
-                add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
-                if not add:
-                    return None
-                sat = pychdb.sat.sat()
-                sat.sat_pos = n.sat_pos;
-                pychdb.put_record(txn, sat)
-        if len(lnb.networks) == 0:
-            dtdebug (f"No network defined on this lnb; silently skip saving")
         pydevdb.lnb.make_unique_if_template(txn, lnb)
         pydevdb.lnb.update_lnb(txn, lnb)
         return lnb
@@ -226,7 +202,7 @@ class LnbTable(NeumoTable):
         """
         show lnbs for missing adapters in colour
         """
-        return not lnb.can_be_used
+        return not lnb.can_be_used and len(lnb.networks)>0 and len(lnb.connections)>0
 
 class LnbGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):
@@ -353,7 +329,7 @@ class LnbGridBase(NeumoGridBase):
         networks = lnb.networks
         rowno =self.GetGridCursorRow()
         rec =  self.table.CurrentlySelectedRecord()
-        assert rec.k == lnb.k
+        assert lnb.has_same_key(rec)
         oldrecord = rec.copy()
         rec.networks = networks
         # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]

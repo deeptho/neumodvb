@@ -175,8 +175,8 @@ namespace devdb::lnb {
 	std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool>
 	band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band);
 
-	bool add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network);
-	bool add_connection(db_txn& rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection);
+	bool add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network);
+	bool add_or_edit_connection(db_txn& rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection);
 	void update_lnb(db_txn& wtxn, devdb::lnb_t& lnb, bool save);
 	void reset_lof_offset(devdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);

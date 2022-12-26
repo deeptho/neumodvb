@@ -28,12 +28,17 @@ def enum_to_str(val):
      return str(val).split('.')[-1]
 
 def enum_labels(field):
-     return list(getattr(field, '__entries').keys())
-
+     ret = []
+     for k in getattr(field, '__entries').keys():
+          ret.append(k.replace('_', ' '))
+     return ret
 def enum_value_for_label(enum, label):
      a = getattr(enum, '__entries')
      if label in a:
           return a[label][0]
+     l = label.replace(' ', '_')
+     if l in a:
+          return a[l][0]
      else:
           return None
 

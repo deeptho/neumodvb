@@ -203,7 +203,8 @@ std::tuple<bool, int, int, int> devdb::lnb::has_network(const lnb_t& lnb, int16_
 	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
 												 [&sat_pos](const devdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
 	if (it != lnb.networks.end()) {
-		auto usals_pos = lnb.usals_pos - lnb.k.offset_pos;
+		auto usals_pos = lnb.usals_pos == sat_pos_none ? (it->usals_pos -lnb.k.offset_pos)
+			: (lnb.usals_pos - lnb.k.offset_pos);
 		if (devdb::lnb::on_positioner(lnb)) {
 			usals_amount = std::abs(usals_pos - it->usals_pos);
 		}
@@ -578,11 +579,14 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 	return {};
 }
 
-bool devdb::lnb::add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network) {
+bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network) {
 	using namespace devdb;
 	for (auto& n : lnb.networks) {
-		if (n.sat_pos == network.sat_pos)
-			return false; // cannot add duplicate network
+		if (n.sat_pos == network.sat_pos) {
+			bool changed = network != n;
+			n = network;
+			return changed;
+		}
 	}
 	if (network.usals_pos == sat_pos_none)
 		network.usals_pos = network.sat_pos;
@@ -593,14 +597,19 @@ bool devdb::lnb::add_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network) {
 }
 
 
-bool devdb::lnb::add_connection(db_txn& devdb_rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& lnb_connection) {
+bool devdb::lnb::add_or_edit_connection(db_txn& devdb_rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& lnb_connection) {
 	using namespace devdb;
 	for (auto& conn : lnb.connections) {
 		if (conn.card_mac_address == lnb_connection.card_mac_address &&
-				conn.rf_input == lnb_connection.rf_input)
-			return false; // cannot add duplicate network
+				conn.rf_input == lnb_connection.rf_input) {
+			bool changed = lnb_connection != conn;
+			conn = lnb_connection;
+			return changed;
+		}
 	}
-	lnb_connection.rotor_control = on_positioner(lnb) ? rotor_control_t::ROTOR_SLAVE : rotor_control_t::FIXED_DISH;
+	if(on_positioner(lnb) && 	lnb_connection.rotor_control == rotor_control_t::FIXED_DISH)
+		lnb_connection.rotor_control = rotor_control_t::ROTOR_SLAVE;
+
 	lnb.connections.push_back(lnb_connection);
 	lnb::update_lnb(devdb_rtxn, lnb , false /*save*/);
 

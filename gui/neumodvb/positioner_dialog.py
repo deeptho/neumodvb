@@ -258,9 +258,9 @@ class TuneMuxPanel(TuneMuxPanel_):
             #if mux is None on input, the following call will pick a mux on the sat to which the rotor points
             chdb_txn = wx.GetApp().chdb.rtxn()
             mux, sat = pychdb.select_sat_and_reference_mux(chdb_txn, lnb, mux)
-            if mux.k.sat_pos != pychdb.sat.sat_pos_none:
+            if mux is not None and mux.k.sat_pos != pychdb.sat.sat_pos_none:
                 sat = pychdb.sat.find_by_key(chdb_txn, mux.k.sat_pos)
-            elif  len(lnb.networks)>0:
+            elif len(lnb.networks)>0:
                 sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos)
             return rf_path, lnb, sat, mux
         chdb_txn.abort()
@@ -532,7 +532,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             network.sat_pos = sat.sat_pos
             network.usals_pos = sat.sat_pos
             dtdebug(f"Saving new lnb network: lnb={self.lnb} network={network}")
-            added = pydevdb.lnb.add_network(self.lnb, network)
+            changed = pydevdb.lnb.add_or_edit_network(self.lnb, network)
         else:
             ShowMessage("Network unavailable",
                          f"Network {sat} not defined for lnb {self.lnb} on fixed this. Add it in lnb list first")

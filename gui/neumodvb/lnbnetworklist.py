@@ -95,25 +95,37 @@ class LnbNetworkTable(NeumoTable):
             assert self.lnb is not None
         self.screen = screen_if_t(lnbnetwork_screen_t(self), self.sort_order==2)
 
+    def matching_sat(self, txn, sat_pos):
+        sats = wx.GetApp().get_sats()
+        if len(sats) == 0:
+            from neumodvb.init_db import load_sats
+            dtdebug("Empty database; adding sats")
+            load_sats(txn)
+        for sat in sats:
+            if sat.sat_pos == sat_pos:
+                return sat_pos
+        return pychdb.sat.sat_pos_none
+
     def __save_record__(self, txn, record):
         dtdebug(f'NETWORKS: {len(self.lnb.networks)}')
-        if True:
-            added = pydevdb.lnb.add_network(self.lnb, record)
-            if added:
-                self.changed = True
-            return record
-        else:
-            for i in range(len(self.lnb.networks)):
-                if self.lnb.networks[i].sat_pos == record.sat_pos:
-                    self.lnb.networks[i] = record
-                    self.changed = True
-                    return record
-            i = len(self.lnb.networks)
-            dtdebug(f"Adding network={record} to llnb{self.lnb}")
-            self.lnb.networks.resize(i+1)
-            self.lnb.networks[i] = record
+        if record.usals_pos == pychdb.sat.sat_pos_none:
+            record.usals_pos = record.sat_pos
+        if record.sat_pos == pychdb.sat.sat_pos_none:
+            record.sat_pos = record.usals_pos
+        changed = pydevdb.lnb.add_or_edit_network(self.lnb, record)
+        if changed:
             self.changed = True
-            return record
+
+        for n in self.lnb.networks:
+            if self.matching_sat(txn, n.sat_pos) == pychdb.sat.sat_pos_none:
+                ss = pychdb.sat_pos_str(n.sat_pos)
+                add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
+                if not add:
+                    return None
+                sat = pychdb.sat.sat()
+                sat.sat_pos = n.sat_pos;
+                pychdb.put_record(txn, sat)
+        return record
 
     def __delete_record__(self, txn, record):
         for i in range(len(self.lnb.networks)):

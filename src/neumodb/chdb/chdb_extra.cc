@@ -1450,16 +1450,20 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 	} else
 #endif
 	{
+		auto usals_pos = lnb.usals_pos;
+
 		auto best = std::numeric_limits<int>::max();
 		const devdb::lnb_network_t* bestp{nullptr};
 		for (auto& network : lnb.networks) {
-			auto delta = std::abs(network.usals_pos - lnb.usals_pos);
+			if(usals_pos == sat_pos_none)
+				usals_pos = network.usals_pos;
+			auto delta =  std::abs(network.usals_pos - usals_pos);
 			if (delta < best) {
 				best = delta;
 				bestp = &network;
 			}
 		}
-		if (bestp && usals_is_close(bestp->usals_pos, lnb.usals_pos)) {
+		if (bestp && usals_is_close(bestp->usals_pos, usals_pos)) {
 			return return_mux(*bestp);
 		} else if( bestp && !devdb::lnb::on_positioner(lnb)) {
 			return return_mux(*bestp);

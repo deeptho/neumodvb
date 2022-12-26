@@ -39,7 +39,7 @@ import pychdb
 class lnbconnection_screen_t(object):
     def __init__(self, parent):
         self.parent = parent
-        #assert self.parent.lnb is not None
+        assert self.parent.lnb is not None
 
     @property
     def list_size(self):
@@ -75,7 +75,7 @@ class LnbConnectionTable(NeumoTable):
             dfn=card_rf_input_dfn, sfn=card_rf_input_sfn),
          CD(key='enabled',   label='ena-\nbled', basic=False),
          CD(key='priority',  label='prio'),
-         CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),
+         CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR Master USALS'),
          CD(key='diseqc_10',  label='diseqc\n10'),
          CD(key='diseqc_11',  label='diseqc\n11'),
          #CD(key='diseqc_mini',  label='diseqc\nmini'),
@@ -99,7 +99,7 @@ class LnbConnectionTable(NeumoTable):
         """
         if self.lnb is None:
             if hasattr(self.parent, "lnb"):
-                self.lnb = self.parent.lnb #used by combo popu
+                self.lnb = self.parent.lnb #used by combo popup
             else:
                 lnbgrid = self.parent.GetParent().GetParent().lnbgrid #used by lnb connection list
                 self.lnb = lnbgrid.CurrentLnb().copy()
@@ -109,9 +109,9 @@ class LnbConnectionTable(NeumoTable):
     def __save_record__(self, txn, record):
         dtdebug(f'CONNECTIONS: {len(self.lnb.connections)}')
         rtxn = self.db.rtxn()
-        added = pydevdb.lnb.add_connection(rtxn, self.lnb, record)
+        changed = pydevdb.lnb.add_or_edit_connection(rtxn, self.lnb, record)
         rtxn.abort()
-        if added:
+        if changed:
             self.changed = True
         return record
 
@@ -137,7 +137,7 @@ class LnbConnectionTable(NeumoTable):
         rtxn = self.db.rtxn()
         #we do not want to overwrite the official lnb yet (would disturb detection of record being edited)
         lnb = self.lnb.copy()
-        added = pydevdb.lnb.add_connection(rtxn, lnb, rec)
+        changed = pydevdb.lnb.add_or_edit_connection(rtxn, lnb, rec)
         rtxn.abort()
         return rec
 

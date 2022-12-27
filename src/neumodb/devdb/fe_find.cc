@@ -460,15 +460,17 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		assert(! required_rf_path || required_rf_path->lnb == lnb.k);
 		if(!lnb.enabled || !lnb.can_be_used)
 			continue;
-		/*
-			required_lnb may not have been saved in the database and may contain additional networks or
-			edited settings when called from positioner_dialog
-		*/
 		auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(lnb, mux.k.sat_pos);
 		/*priority==-1 indicates:
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
 		*/
+		if(required_rf_path && ! has_network) {
+			chdb::sat_t sat;
+			sat.sat_pos = mux.k.sat_pos;
+			user_error("LNB  " << lnb << ": LNB has no nertwork to tune to sat " << sat);
+			break;
+		}
 
 		bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
 		auto dish_needs_to_be_moved_ = usals_move_amount != 0;
@@ -541,6 +543,16 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 				return std::make_tuple(best_fe, best_rf_path, best_lnb,
 															 best_use_counts); //we only beed to look at one lnb
 		}
+
+		if(required_rf_path && ! best_fe) {
+			chdb::sat_t sat;
+			sat.sat_pos = mux.k.sat_pos;
+			user_error("LNB  " << lnb << ": no suitable connection to tune to sat " << sat);
+			break;
+		}
+
+
+
 	}
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }

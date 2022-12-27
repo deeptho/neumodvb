@@ -772,7 +772,7 @@ std::ostream& chdb::operator<<(std::ostream& os, const sat_t& sat) {
 	} else if (sat.sat_pos == sat_pos_none) {
 		stdex::printf(os, "----");
 	} else {
-		float fpos = std::abs(sat.sat_pos) / 10.;
+		auto fpos = std::abs(sat.sat_pos) / (double)100.;
 		stdex::printf(os, "%3.1f%c", fpos, sat.sat_pos < 0 ? 'W' : 'E');
 	}
 	return os;

@@ -130,7 +130,7 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex) {
 	assert(other.num_bytes_safe_to_read <= num_bytes_safe_to_read);
 
 	cv.wait(lk, [this, &other] {
-		// relock olk
+		// relock lk
 		auto ret = was_interrupted ||
 			(num_bytes_safe_to_read > other.num_bytes_safe_to_read && //data is available
 			 last_streams.packetno_start>=0); //pmt was received

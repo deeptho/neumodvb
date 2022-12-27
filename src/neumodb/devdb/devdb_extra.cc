@@ -208,7 +208,7 @@ std::tuple<bool, int, int, int> devdb::lnb::has_network(const lnb_t& lnb, int16_
 		if (devdb::lnb::on_positioner(lnb)) {
 			usals_amount = std::abs(usals_pos - it->usals_pos);
 		}
-		return std::make_tuple(true, it->priority, usals_amount, usals_pos);
+		return std::make_tuple(true, it->priority,  lnb.usals_pos == sat_pos_none ? sat_pos_none : usals_amount, usals_pos);
 	}
 	else
 		return std::make_tuple(false, -1, 0, sat_pos_none);

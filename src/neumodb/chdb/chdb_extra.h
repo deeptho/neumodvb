@@ -29,6 +29,7 @@
 
 namespace devdb {
 	struct lnb_t;
+	struct lnb_network_t;
 };
 
 namespace chdb {
@@ -201,6 +202,8 @@ namespace chdb {
 	select_sat_and_reference_mux(db_txn& rtxn, const devdb::lnb_t& lnb,
 															 const chdb::dvbs_mux_t* proposed_mux);
 
+	chdb::dvbs_mux_t
+	select_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb, int16_t sat_pos);
 
 };
 

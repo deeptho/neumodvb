@@ -1401,7 +1401,7 @@ template <typename mux_t> void chdb::clear_all_streams_pending_status(
 }
 
 /*
-	Selects the nextwork on the proposed lnb which best matches
+	Selects the network on the proposed lnb which best matches
 	the lnb's usals position, i.e., the satellite position to which the dish points.
 
 	In case the dish would need to be moved, return None, None
@@ -1437,18 +1437,6 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, proposed_mux->k.sat_pos);
 		return {*proposed_mux, cs.is_valid() ? cs.current() : chdb::sat_t{}};
 	}
-#if 0
-	if (!devdb::lnb::on_positioner(lnb)) {
-		for (auto& network : lnb.networks) {
-			if (usals_is_close(lnb.usals_pos, network.usals_pos)) { // dish is tuned to the right sat
-				return return_mux(network);
-			}
-		}
-		if (lnb.networks.size() > 0)
-			return return_mux(lnb.networks[0]);
-
-	} else
-#endif
 	{
 		auto usals_pos = lnb.usals_pos;
 
@@ -1471,6 +1459,56 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		return {}; //  has sat_pos == sat_pos_none; no network present
 	}
 	//return {}; // has sat_pos == sat_pos_none;
+}
+
+
+/*
+	Selects and sets initial reference mux for  the current lnb and network
+	returns False if input parameters invalid, else true.
+	mux is selected from the database or a non-existing mux with some good defaults is created
+ */
+chdb::dvbs_mux_t
+chdb::select_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
+																	 int16_t sat_pos) {
+	using namespace chdb;
+	using namespace devdb;
+	fe_polarisation_t pol;
+	switch(lnb.pol_type) {
+	case lnb_pol_type_t::HV:
+	case lnb_pol_type_t::VH:
+	case lnb_pol_type_t::H:
+		pol = fe_polarisation_t::H;
+		break;
+	case lnb_pol_type_t::V:
+		pol = fe_polarisation_t::V;
+		break;
+	case lnb_pol_type_t::LR:
+	case lnb_pol_type_t::RL:
+		pol = fe_polarisation_t::L;
+		break;
+	case lnb_pol_type_t::R:
+		pol = fe_polarisation_t::R;
+		break;
+	default:
+		pol = fe_polarisation_t::R;
+		break;
+	}
+	auto [low_freq, high_freq] = devdb::lnb::lnb_frequency_range(lnb);
+
+	assert(sat_pos != sat_pos_none);
+
+	auto c = dvbs_mux_t::find_by_sat_pol_freq
+		(chdb_rtxn, sat_pos, pol, low_freq,
+		 find_type_t::find_geq, dvbs_mux_t::partial_keys_t::sat_pos_pol);
+	if(c.is_valid()) {
+		return c.current();
+	} else {
+		dvbs_mux_t ret;
+		ret.k.sat_pos = sat_pos;
+		ret.frequency = low_freq;
+		ret.pol = pol;
+		return ret;
+	}
 }
 
 //template instantiations

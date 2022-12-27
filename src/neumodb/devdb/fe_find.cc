@@ -468,7 +468,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		if(required_rf_path && ! has_network) {
 			chdb::sat_t sat;
 			sat.sat_pos = mux.k.sat_pos;
-			user_error("LNB  " << lnb << ": LNB has no nertwork to tune to sat " << sat);
+			user_error("LNB  " << lnb << ": LNB has no network to tune to sat " << sat);
 			break;
 		}
 

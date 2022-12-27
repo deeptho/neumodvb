@@ -47,6 +47,9 @@ static void export_chdb_extra(py::module& m) {
 				"Select a sat and reference mux for an lnb; use prosed_mux if suitable, else use "
 				"one which will not move positioner",
 				py::arg("rtxn"), py::arg("lnb"), py::arg("proposed_mux").none(true) = nullptr)
+		.def("select_reference_mux", &chdb::select_reference_mux,
+				"Select a reference mux for an lnb; choose a mux from the database or mux with good defaults",
+				 py::arg("chdb_rtxn"), py::arg("lnb"), py::arg("sat_pos").none(true) = nullptr)
 		;
 }
 

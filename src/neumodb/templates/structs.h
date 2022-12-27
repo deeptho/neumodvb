@@ -191,7 +191,10 @@ namespace {{dbname}} {
 (db_txn& txn, {%- for field in prefix.fields %}
 		const {{field.namespace}}{{field.scalar_type}}& {{field.short_name}},
 	{%endfor -%}
-		find_type_t find_type = find_eq,
+		find_type_t find_type
+   {% if prefix.is_full_key %}
+   = find_eq
+   {%endif%} ,
        {{struct.class_name}}::partial_keys_t key_prefix={{struct.class_name}}::partial_keys_t::none);
 
 {%if key.index_name != prefix.prefix_name and loop.index == 1 %}

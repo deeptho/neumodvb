@@ -569,7 +569,7 @@ class NeumoGui(wx.App):
         ret={}
         for a in  pydevdb.fe.list_all_by_card_mac_address(txn):
             for rf_in in a.rf_inputs:
-                ret[f'C{a.card_no}#{rf_in}: {a.card_short_name}' ] = (a.card_mac_address, rf_in)
+                ret[f'C{a.card_no}#{rf_in} {a.card_short_name}' ] = (a.card_mac_address, rf_in)
         txn.abort()
         return ret
 

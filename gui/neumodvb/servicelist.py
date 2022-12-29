@@ -193,6 +193,8 @@ class ServiceGridBase(NeumoGridBase):
         self.allow_all = True
         table = ServiceTable(self, basic)
         super().__init__(basic, readonly, table, *args, **kwds)
+        self.SetSelectionMode(wx.grid.Grid.SelectRows)
+        self.SetTabBehaviour(wx.grid.Grid.Tab_Leave)
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
@@ -345,8 +347,6 @@ def IsNumericKey(keycode):
 class BasicServiceGrid(ServiceGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
-        self.SetSelectionMode(wx.grid.Grid.SelectRows)
-        self.SetTabBehaviour(wx.grid.Grid.Tab_Leave)#
 
     def OnKeyDownOFF(self, evt):
         keycode = evt.GetUnicodeKey()

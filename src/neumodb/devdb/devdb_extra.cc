@@ -742,9 +742,9 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 		conn.connection_name.clear();
 		conn.card_no = fe.card_no;
 		if (conn.card_no >=0)
-			conn.connection_name.sprintf("%s C%d#%d", fe.card_short_name.c_str(), conn.card_no, conn.rf_input);
+			conn.connection_name.sprintf("C%d#%d %s", conn.card_no, conn.rf_input, fe.card_short_name.c_str());
 		else
-			conn.connection_name.sprintf("%s C??#%d", fe.card_short_name.c_str(), conn.rf_input);
+			conn.connection_name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
 		lnb.can_be_used = fe.can_be_used;
 		}
 		switch(conn.rotor_control) {

@@ -143,6 +143,7 @@ class FilterGrid(NeumoGridBase):
         self.mux = None #currently selected mux
         h = wx.GetApp().receiver.browse_history
         self.allow_all = False
+        self.num_rows_on_screen = 1
         #self.SetSelectionMode(wx.grid.Grid.SelectColumns)
         #self.Bind ( wx.grid.EVT_GRID_SELECT_CELL, self.OnGridCellSelect)
         self.GoToCell(0, len(self.table.columns)-1)

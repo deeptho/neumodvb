@@ -794,6 +794,7 @@ class NeumoTable(NeumoTableBase):
             self.FinalizeUnsavedEdits() # merge all unsaved edits into one (they are in the same row)
             self.GetRow.cache_clear()
             if changed:
+                self.parent.sync_rows()
                 self.parent.SelectRecord(new)
         self.parent.ForceRefresh()
         return True
@@ -824,12 +825,8 @@ class NeumoTable(NeumoTableBase):
         if txn is not None:
             txn.commit()
             del txn
-        self.parent.BeginBatch()
-        for row in sorted(rows, reverse=True):
-            #self.data.erase(row)
-            msg = wx.grid.GridTableMessage(self, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, row, 1)
-            self.parent.ProcessTableMessage(msg)
-        self.parent.EndBatch()
+
+        self.parent.sync_rows()
         if changed:
             self.GetRow.cache_clear()
             rowno = max(min(rows) - 1, 0)
@@ -922,10 +919,12 @@ class NeumoTable(NeumoTableBase):
         self.__get_data__()
 
 class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
+
     def __init__(self, basic, readonly, table, *args, dark_mode=False, fontscale=1, **kwds):
         super().__init__(*args, **kwds)
         panel = args[0]
         panel.grid = self
+        self. num_rows_on_screen = 0
         self.dark_mode = dark_mode
         if self.dark_mode:
             self.SetBackgroundColour(wx.Colour('black'))
@@ -990,6 +989,32 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.Bind(wx.grid.EVT_GRID_CELL_RIGHT_CLICK, self.OnColumnMenu)
 
         self.Bind(wx.grid.EVT_GRID_LABEL_LEFT_CLICK, self.OnToggleSort)
+
+    def sync_rows(self):
+        """
+        add or remove rows on screen to reflect vchanges in underlying table
+        """
+        num_rows  = self.table.GetNumberRows()
+        if num_rows == self.num_rows_on_screen:
+            return
+        self.BeginBatch()
+        if num_rows > self.num_rows_on_screen:
+            num = num_rows - self.num_rows_on_screen
+            print(f'adding {num} rows')
+            #self.AppendRows(num)
+            msg = wx.grid.GridTableMessage(self.table,
+                                           wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, num)
+            self.ProcessTableMessage(msg)
+        elif num_rows < self.num_rows_on_screen:
+            num = self.num_rows_on_screen - num_rows
+            print(f'removing {num} rows')
+            msg = wx.grid.GridTableMessage(self.table,
+                                           wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED,
+                                           self.num_rows_on_screen-1, num)
+            self.ProcessTableMessage(msg)
+        self.EndBatch()
+        self.num_rows_on_screen = num_rows
+
     def OnDone(self, event):
         self.EnableCellEditControl(enable=False)
         pass
@@ -1317,12 +1342,9 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.table.screen.editing_record = rec
         n = self.table.GetNumberRows()
         self.table.GetRow.cache_clear()
-        self.AppendRows(1)
-        msg = wx.grid.GridTableMessage(self.table,
-                                       wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, 1)
-        self.ProcessTableMessage(msg)
-        self.MakeCellVisible(n, 0)
-        wx.CallAfter(self.SetGridCursor, n, 0)
+        self.sync_rows()
+        self.MakeCellVisible(self.GetNumberRows()-1, 0)
+        wx.CallAfter(self.SetGridCursor, self.GetNumberRows()-1, 0)
 
     def OnDelete(self, evt):
         dtdebug(f"delete record row={self.GetGridCursorRow()} col={self.GetGridCursorCol()}; " \
@@ -1333,19 +1355,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
     def OnUndo(self, evt):
         num_rows_added = self.table.Undo()
-        if num_rows_added >0:
-            self.AppendRows(num_rows_added)
-            msg = wx.grid.GridTableMessage(self.table,
-                                           wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, num_rows_added)
-        elif num_rows_added <0:
-            self.DeleteRows(-num_rows_added)
-            msg = wx.grid.GridTableMessage(self.table,
-                                           wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, row, -num_rows_added)
-        else:
-            msg = None
-        if msg is not None:
-            self.ProcessTableMessage(msg)
-
+        self.sync_rows()
         self.ForceRefresh()
 
     def OnRefresh(self, evt, rec_to_select=None):
@@ -1353,16 +1363,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.table.__get_data__()
         if oldlen >0 and rec_to_select is None:
             rec_to_select = self.table.CurrentlySelectedRecord()
-        newlen = self.table.GetNumberRows()
-        if newlen != oldlen: #test to see if code below can be removed
-            pass
-        if newlen>oldlen:
-            msg = wx.grid.GridTableMessage(self.table,
-                                           wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, newlen-oldlen)
-            self.ProcessTableMessage(msg)
-        elif newlen < oldlen:
-            msg = wx.grid.GridTableMessage(self.table, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, newlen, oldlen-newlen)
-            self.ProcessTableMessage(msg)
+        self.sync_rows()
         if self.infow is not None:
             self.infow.ShowRecord(self.table, self.table.CurrentlySelectedRecord())
         self.ForceRefresh()

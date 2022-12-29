@@ -696,15 +696,28 @@ template<>
  void encode_ascending<{{dbname}}::{{struct.class_name}}>(
 	ss::bytebuffer_ &ser, const {{dbname}}::{{struct.class_name}}& in)  {
 	using namespace {{dbname}};
-	{%for f in struct.fields %}
-	{%- if f.is_vector %}
-	for(const auto& v: in.{{f.name}}) {
-		encode_ascending(ser, v);
-	}
-	{%- else %}
-	encode_ascending(ser, in.{{f.name}});
-	{% endif %}
-	{%endfor %}
+	{% if struct.is_table %}
+	//encode only primary key
+	{%for f in struct.primary_key.fields %}
+	  {%- if f.is_vector %}
+	  for(const auto& v: in.{{f.name}}) {
+		  encode_ascending(ser, v);
+	  }
+	  {%- else %}
+	  encode_ascending(ser, in.{{f.name}});
+	  {% endif %}
+	  {%endfor %}
+	{% else %}
+  	{%for f in struct.fields %}
+	  {%- if f.is_vector %}
+	  for(const auto& v: in.{{f.name}}) {
+		  encode_ascending(ser, v);
+	  }
+	  {%- else %}
+	  encode_ascending(ser, in.{{f.name}});
+	  {% endif %}
+	  {%endfor %}
+	 {% endif %}
 };
 
 

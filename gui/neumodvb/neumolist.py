@@ -1308,6 +1308,11 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
     def OnNew(self, evt):
         dtdebug(f"new record row={self.GetGridCursorRow()} col={self.GetGridCursorCol()}")
         oldn = self.table.GetNumberRows()
+        if self.table.screen.has_editing_record:
+            saved = self.table.SaveModified()
+            if not saved:
+                #this happens when the user has not yet pressed enter on a selected value
+                return
         rec= self.table.new_row()
         self.table.screen.editing_record = rec
         n = self.table.GetNumberRows()

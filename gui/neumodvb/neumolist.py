@@ -49,8 +49,19 @@ class screen_if_t(object):
         self.screen = screen
         #if True: translate all incoming/outgoing row_numbers to turn screen upside down
         self.invert_rows = invert_rows
-        self.has_editing_record = False
-        self.editing_record = None
+        self.editing_record_ = None
+
+    @property
+    def editing_record(self):
+        return self.editing_record_
+
+    @property
+    def has_editing_record(self):
+        return self.editing_record_ is not None
+
+    @editing_record.setter
+    def editing_record(self, val):
+        self.editing_record_ = val
 
     @property
     def list_size(self):
@@ -78,13 +89,6 @@ class screen_if_t(object):
             return self.screen.list_size - 1 - rowno
         else:
             return rowno
-
-    def set_editing_record(self, rec):
-        self.has_editing_record = True
-        self.editing_record = rec
-
-    def clear_editing_record(self):
-        self.has_editing_record = False
 
 def get_linenumber():
     cf = currentframe()
@@ -313,7 +317,6 @@ class MyColLabelRenderer(glr.GridLabelRenderer):
 class NeumoTableBase(wx.grid.GridTableBase):
     def __init__(self, parent, *args, **kwds):
         super().__init__(*args, **kwds)
-        self.record_being_edited = None
         self.row_being_edited = None
         self.new_rows = set()
         self.undo_list = []
@@ -321,6 +324,16 @@ class NeumoTableBase(wx.grid.GridTableBase):
         self.filtered_colnos = set()
         self.parent = parent
         self.last_edited_colno = None
+
+    @property
+    def record_being_edited(self):
+        return None if self.screen is None else self.screen.editing_record
+
+    @record_being_edited.setter
+    def record_being_edited(self, val):
+        if self.screen is not None:
+            self.screen.editing_record =val
+
     def needs_highlight(self, record):
          return False
     def SetReference(self, record):
@@ -366,7 +379,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
             return colno if colno is None else '?????'
 
     def GetValue_text(self, rowno, colno):
-        if rowno <0 or rowno > self.GetNumberRows():
+        if rowno <0 or rowno >= self.GetNumberRows():
             dtdebug(f"ILLEGAL rowno: rowno={rowno} len={self.GetNumberRows()}")
             return "???"
         rec = self.GetRow(rowno)
@@ -602,10 +615,11 @@ class NeumoTable(NeumoTableBase):
     def DeleteRows(self, pos=0, numRows=1, updateLabels=True):
         return True
 
-    def GetNumberRows(self):
+    def GetNumberRows(self, ignore_editing_record=False):
         if self.screen is None:
             return 0
-        return (self.screen.list_size + 1)  if self.screen.has_editing_record else self.screen.list_size
+        return (self.screen.list_size + 1)  if (self.screen.has_editing_record and not ignore_editing_record) \
+            else self.screen.list_size
 
 
     @lru_cache(maxsize=30) #cache the last row, because multiple columns will lookup same row
@@ -757,7 +771,7 @@ class NeumoTable(NeumoTableBase):
         """
         op, old, new, rowno = self.PeekUnsavedEdits() # merge all unsaved edits into one (they are in the same row)
         if new is None:
-            return
+            return False
         txn = self.db.wtxn()
         #delete plus put ensures that we have the correct result also when the primary key is changed
         #nNote that this does not handle dependent records of other types
@@ -782,6 +796,7 @@ class NeumoTable(NeumoTableBase):
             if changed:
                 self.parent.SelectRecord(new)
         self.parent.ForceRefresh()
+        return True
 
     def DeleteRows(self, rows):
         txn = None
@@ -792,7 +807,7 @@ class NeumoTable(NeumoTableBase):
         changed = False;
         for row in rows:
             if row in self.new_rows:
-                self.screen.clear_editing_record()
+                self.screen.editing_record = None
                 changed = True
             else:
                 record = self.GetRow(row).copy()
@@ -801,7 +816,6 @@ class NeumoTable(NeumoTableBase):
                 self.__delete_record__(txn, record)
         if len(tobackup)>0:
             self.undo_list.append(tobackup)
-        currently_selected_row = self.parent.GetGridCursorRow()
         txn = self.db.wtxn() if txn is None else txn
         if self.screen.update(txn):
             changed = True
@@ -828,7 +842,7 @@ class NeumoTable(NeumoTableBase):
             self.parent.ForceRefresh()
 
     def new_row(self):
-        rowno = self.GetNumberRows()
+        rowno = self.GetNumberRows(ignore_editing_record=True)
         self.selected_row = rowno
         rec = self.__new_record__()
         #self.data[n] = rec
@@ -1293,9 +1307,10 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
     def OnNew(self, evt):
         dtdebug(f"new record row={self.GetGridCursorRow()} col={self.GetGridCursorCol()}")
-        n = self.table.GetNumberRows()
+        oldn = self.table.GetNumberRows()
         rec= self.table.new_row()
-        self.table.screen.set_editing_record(rec)
+        self.table.screen.editing_record = rec
+        n = self.table.GetNumberRows()
         self.table.GetRow.cache_clear()
         self.AppendRows(1)
         msg = wx.grid.GridTableMessage(self.table,

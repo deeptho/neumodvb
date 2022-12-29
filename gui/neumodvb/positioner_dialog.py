@@ -266,7 +266,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         chdb_txn.abort()
         del chdb_txn
 
-    def OnSave(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+    def OnSave(self, event=None):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("saving")
         for n in self.lnb.networks:
             if n.sat_pos == self.sat.sat_pos:
@@ -277,13 +277,13 @@ class TuneMuxPanel(TuneMuxPanel_):
                 break
 
         if self.lnb_changed:
-            txn = wx.GetApp().chdb.wtxn()
+            txn = wx.GetApp().devdb.wtxn()
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
             pydevdb.lnb.update_lnb(txn, self.lnb)
             txn.commit()
         self.lnb_changed = False
-        if event:
+        if event is not None:
             event.Skip()
 
     def OnResetLof(self, event):  # wxGlade: PositionerDialog_.<event_handler>
@@ -293,7 +293,7 @@ class TuneMuxPanel(TuneMuxPanel_):
                           "ofset for this LNB?")
         if ok:
             pydevdb.lnb.reset_lof_offset(self.lnb)
-            txn = wx.GetApp().chdb.wtxn()
+            txn = wx.GetApp().devdb.wtxn()
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
             pydevdb.lnb.update_lnb(txn, self.lnb)
@@ -349,6 +349,8 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def OnTune(self, event=None, pls_search_range=None):  # wxGlade: PositionerDialog_.<event_handler>
         self.muxedit_grid.table.FinalizeUnsavedEdits()
+        if self.lnb_changed:
+            self.OnSave()
         self.UpdateRefMux(self.mux)
         dtdebug(f"positioner: subscribing to lnb={self.lnb} mux={self.mux}")
         can_tune, error = pydevdb.lnb_can_tune_to_mux(self.lnb, self.mux)
@@ -543,9 +545,9 @@ class TuneMuxPanel(TuneMuxPanel_):
         if on_positioner(self.lnb):
             self.lnb_changed |= self.lnb.usals_pos != network.usals_pos
             self.lnb.usals_pos = network.usals_pos
-        self.mux = pychdb.dvbs_mux.find_by_key(txn,network.ref_mux)
+        self.mux = pychdb.dvbs_mux.find_by_key(txn, network.ref_mux)
         if self.mux is None or self.mux.k.sat_pos != self.sat.sat_pos: #The latter can happen when sat_pos of ref_mux was updated
-            self.mux = pychdb.dvbs_mux.dvbs_mux()
+            self.mux = pychdb.select_reference_mux(txn, self.lnb, network.sat_pos)
         if self.mux.k.sat_pos == pychdb.sat.sat_pos_none:
             self.mux.k.sat_pos = self.sat.sat_pos
         txn.abort()

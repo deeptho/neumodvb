@@ -290,13 +290,19 @@ class SpectrumDialog(SpectrumDialog_):
         for key, spectrum in new_entries:
             self.spectrum_plot.spectra[key] = spectrum
     def OnSelectMux(self, tp):
+        """
+        called when user clicks mux in spectrum plot
+        """
         spectrum = tp.spectrum.spectrum
         if spectrum.k.sat_pos != self.sat.sat_pos or \
            not lnb_matches_spectrum(self.lnb, spectrum):
             txn = wx.GetApp().chdb.rtxn()
             sat = pychdb.sat.find_by_key(txn, spectrum.k.sat_pos)
+            txn.abort()
+            del txn
+            txn = wx.GetApp().devdb.rtxn()
             rf_path = spectrum.k.rf_path
-            lnb = pydevdb.lnb.find_by_key(txn, spectrum.k.rf_path.lnb)
+            lnb = pydevdb.lnb.find_by_key(txn, rf_path.lnb)
             txn.abort()
             del txn
         else:
@@ -325,7 +331,7 @@ class SpectrumDialog(SpectrumDialog_):
         mux.frequency = int(freq*1000)
         mux.symbol_rate=  int(symbol_rate*1000)
         mux.stream_id = -1
-        mux.pls_mode = pydevdb.fe_pls_mode_t.ROOT
+        mux.pls_mode = pychdb.fe_pls_mode_t.ROOT
         mux.pls_code = 1
         p_t = pychdb.fe_polarisation_t
         mux.pol = getattr(p_t, pol)

@@ -165,7 +165,7 @@ class DvbsMuxGridBase(NeumoGridBase):
 
     def CmdSelectSat(self, evt):
         sat = evt.sat
-        print(f'dvbs_muxlist received CmdSelectSat {sat}')
+        dtdebug(f'dvbs_muxlist received CmdSelectSat {sat}')
         wx.CallAfter(self.SelectSat, sat)
     def SelectMux(self, mux):
         self.mux = mux
@@ -325,7 +325,7 @@ class DvbsBasicMuxGrid(DvbsMuxGridBase):
         if False:
             self.GrandParent.dvbs_muxlist_sat_sel.SetSat(self.sat, self.allow_all)
     def SelectSat(self, sat):
-        print(f'dvbs_muxlist received SelectSat {sat}')
+        dtdebug(f'dvbs_muxlist received SelectSat {sat}')
         if sat is None:
             pass
         elif sat.sat_pos == pychdb.sat.sat_pos_dvbc:

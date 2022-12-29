@@ -52,7 +52,6 @@ class ChgGridPopup(BasicChgGrid):
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
                 chg = self.table.GetValue(self.selected_row, None)
-                print(f'posting chgselect={chg}')
                 self.Parent.GrandParent.OnSelectChg(chg)
             evt.Skip(False)
         else:
@@ -92,13 +91,12 @@ class ChgListComboCtrl(wx.ComboCtrl):
         Called by parent window to intialise state
         """
         self.chg, self.allow_all = chg, allow_all
-        print(f'SetChg {chg}')
         self.SetText(self.CurrentGroupText())
 
     def OnSelectChg(self, chg):
         """Called when user selects a chg
         """
-        print(f'satlist_combo received OnSelectChg {chg}')
+        dtdebug(f'satlist_combo received OnSelectChg {chg}')
         self.chg = chg
         wx.PostEvent(self, ChgSelectEvent(wx.NewIdRef(), chg=chg))
         self.popup.Dismiss()
@@ -114,7 +112,7 @@ class ChgListComboCtrl(wx.ComboCtrl):
         """
         Instead of a single group show all of them
         """
-        print(f'showall chg select={None}')
+        dtdebug(f'showall chg select={None}')
         wx.PostEvent(self, ChgSelectEvent(wx.NewIdRef(), chg=None))
         self.chg = None
         cgt = self.CurrentGroupText()

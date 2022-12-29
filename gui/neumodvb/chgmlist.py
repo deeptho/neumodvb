@@ -238,7 +238,7 @@ class ChgmGridBase(NeumoGridBase):
 
     def CmdSelectChg(self, evt):
         chg = evt.chg
-        print(f'chgmlist received SelectChg {chg}')
+        dtdebug(f'chgmlist received SelectChg {chg}')
         wx.CallAfter(self.SelectChg, chg)
 
     def SelectChg(self, chg):
@@ -324,7 +324,6 @@ class ChgmGrid(ChgmGridBase):
         if evt.GetWindow() != self:
             return
         super().OnWindowCreate(evt)
-        print(f'chgmlist: OnWindowCreate window={evt.GetWindow()==self}')
         chg, _ = self.CurrentChgAndChgm()
         self.SelectChg(chg)
         self.GrandParent.chgm_chg_sel.SetChg(self.restrict_to_chg, self.allow_all)

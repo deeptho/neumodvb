@@ -143,7 +143,7 @@ class BasicSpectrumGrid(SpectrumGridBase):
         self.Bind (wx.grid.EVT_GRID_RANGE_SELECT, self.OnGridRowSelect)
 
     def OnGridRowSelect(self, evt):
-        pass #print(f"ROWxxxx SELECT {evt.GetTopRow()}-{evt.GetBottomRow()}: {evt.Selecting()}")
+        pass
 
 class SpectrumSelectionGrid(SpectrumGridBase):
     def __init__(self, *args, **kwds):

@@ -90,13 +90,12 @@ class LnbListComboCtrl(wx.ComboCtrl):
         Called by parent window to intialise state
         """
         self.rf_path, self.lnb = rf_path, lnb
-        print(f'SetLnb {lnb} {rf_path}')
         self.SetText(self.CurrentGroupText())
 
     def OnSelectLnb(self, lnb):
         """Called when user selects a lnb
         """
-        print(f'lnblist_combo received OnSelectLnb {lnb}')
+        dtdebug(f'lnblist_combo received OnSelectLnb {lnb}')
         self.lnb = lnb
         wx.PostEvent(self, LnbSelectEvent(wx.NewIdRef(), lnb=lnb))
         self.popup.Dismiss()
@@ -185,13 +184,12 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
         Called by parent window to intialise state
         """
         self.rf_path, self.lnb = rf_path, lnb
-        print(f'SetRfPath lnb={lnb} rf_path={rf_path}')
         self.SetText(self.CurrentGroupText())
 
     def OnSelectRfPath(self, rf_path):
         """Called when user selects an rf_path
         """
-        print(f'lnblist_combo received OnSelectRfPath {rf_path}')
+        dtdebug(f'lnblist_combo received OnSelectRfPath {rf_path}')
         self.rf_path = rf_path
         wx.PostEvent(self, RfPathSelectEvent(wx.NewIdRef(), rf_path=rf_path))
         self.popup.Dismiss()
@@ -200,7 +198,6 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
     def CurrentGroupText(self):
         if self.rf_path is None or self.lnb is None:
             return ""
-        print(f'lnb={type(self.lnb)} rf_path={type(self.rf_path)}')
         return str(self.lnb_connection.connection_name)
 
     def OnWindowCreate(self, evt):

@@ -162,21 +162,27 @@ class LnbTable(NeumoTable):
             self.fe_screen =pydevdb.fe.screen(txn, sort_order=sort_order)
             self.aux_screens = [ self.fe_screen]
 
-
-
     def __save_record__(self, txn, lnb):
-        if True:
-            if len(lnb.networks) == 0:
+        if len(lnb.networks) == 0:
+            if lnb.usals_pos != pychdb.sat.sat_pos_none:
                 cont = ShowOkCancel("Add network?",
-                                   f"This LNB has no networks defined and cannot be used. Continue anyway?")
-                if not cont:
-                    return None
+                                f"Add networkk for {pychdb.sat_pos_str(lnb.usals_pos)}?")
+                if cont:
+                    network = pydevdb.lnb_network.lnb_network()
+                    network.usals_pos = lnb.usals_pos
+                    network.sat_pos = lnb.usals_pos
+                    pydevdb.lnb.add_or_edit_network(lnb, network)
+        if len(lnb.networks) == 0:
+            cont = ShowOkCancel("Add network?",
+                                f"This LNB has no networks defined and cannot be used. Continue anyway?")
+            if not cont:
+                return None
 
-            if len(lnb.connections) == 0:
-                cont = ShowOkCancel("Add connection?",
-                                   f"This LNB has no connections defined and cannot be used. Continue anyway?")
-                if not cont:
-                    return None
+        if len(lnb.connections) == 0:
+            cont = ShowOkCancel("Add connection?",
+                               f"This LNB has no connections defined and cannot be used. Continue anyway?")
+            if not cont:
+                return None
         pydevdb.lnb.make_unique_if_template(txn, lnb)
         pydevdb.lnb.update_lnb(txn, lnb)
         return lnb

@@ -621,7 +621,6 @@ int dvbdev_monitor_t::run() {
 		if (length < 0)
 			perror("read");
 
-		auto devdb_wtxn = receiver.devdb.wtxn();
 		/*actually read return the list of change events happens. Here, read the change event one by one and process it
 		 * accordingly.*/
 		for (int i = 0; i < length;) {

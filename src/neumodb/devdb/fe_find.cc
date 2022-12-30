@@ -487,6 +487,11 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		bool need_multistream = (mux.stream_id >= 0);
 
 		for(const auto& lnb_connection: lnb.connections) {
+			if(required_rf_path) {
+				auto rf_path = devdb::rf_path_for_connection(lnb.k, lnb_connection);
+				if (rf_path != *required_rf_path)
+					continue;
+			}
 
 			bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
 
@@ -693,8 +698,6 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
 	if(fe_key_to_release)
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
-	if(released_fe_usecount >=1)
-		printf("here\n");
 	if(!best_fe)
 		return {{}, {}, {}, {}, released_fe_usecount}; //no frontend could be found
 	if(fe_key_to_release && best_fe->k == *fe_key_to_release)

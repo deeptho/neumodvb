@@ -503,7 +503,9 @@ class TuneMuxPanel(TuneMuxPanel_):
     def ChangeRfPath(self, rf_path):
         add = False
         if self.lnb is None:
+            self.rf_path = None
             return
+        self.rf_path = rf_path
         lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, rf_path)
         self.parent.ChangeLnb(self.rf_path, self.lnb) #update window title
         evt = LnbChangeEvent(lnb=self.lnb)

@@ -294,7 +294,7 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 	int wd = -1;
 	int count = 0;
 	while (((wd = inotify_add_watch(inotfd, fname, IN_OPEN | IN_CLOSE | IN_DELETE_SELF)) < 0) && (count < 100)) {
-		usleep(1000);
+		usleep(20000);
 		count++;
 	}
 	if (count > 0)

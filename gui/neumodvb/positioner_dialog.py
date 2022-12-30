@@ -125,7 +125,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.GetParent().Bind(EVT_MUX_SELECT, self.CmdSelectMux)
 
         self.positioner_mux_sel.SetSat(self.sat)
-        self.last_selected_mux = self.mux.copy()
+        self.last_selected_mux = None if self.mux is None else self.mux.copy()
         self.lnb_changed = False
         self.mux_subscriber_ = None
         self.tuned_ = False

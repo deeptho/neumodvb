@@ -1000,7 +1000,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.BeginBatch()
         if num_rows > self.num_rows_on_screen:
             num = num_rows - self.num_rows_on_screen
-            print(f'adding {num} rows')
             #self.AppendRows(num)
             msg = wx.grid.GridTableMessage(self.table,
                                            wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, num)

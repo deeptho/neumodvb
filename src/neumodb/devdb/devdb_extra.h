@@ -146,7 +146,7 @@ namespace devdb::lnb {
 	std::tuple<std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>>
 	select_lnb(db_txn& rtxn, const chdb::sat_t* sat, const chdb::dvbs_mux_t* proposed_mux);
 
-	std::optional<rf_path_t> select_rf_path(const devdb::lnb_t& lnb);
+	std::optional<rf_path_t> select_rf_path(const devdb::lnb_t& lnb, int16_t sat_pos = sat_pos_none);
 
 	/*
 		band = 0 or 1 for low or high (22Khz off/on)

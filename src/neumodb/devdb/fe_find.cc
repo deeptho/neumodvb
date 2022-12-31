@@ -442,6 +442,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 	using namespace devdb;
 	int best_lnb_prio = std::numeric_limits<int>::min();
 	int best_fe_prio = std::numeric_limits<int>::min();
+	int best_rf_path_prio = std::numeric_limits<int>::min();
 	// best lnb sofar, and the corresponding connected frontend
 	std::optional<devdb::lnb_t> best_lnb;
 	std::optional<devdb::rf_path_t> best_rf_path;
@@ -506,6 +507,11 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 					(lnb_priority >= 0 && lnb_priority - penalty < best_lnb_prio) //we already have a better fe
 				)
 				continue;
+			if (lnb_priority >= 0 && lnb_priority - penalty == best_lnb_prio) {
+				if(best_rf_path && best_rf_path_prio >= lnb_connection.priority ) {
+					continue;
+				}
+			}
 
 			rf_path_t rf_path;
 			rf_path.lnb = lnb.k;
@@ -542,6 +548,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			best_lnb_prio = (lnb_priority < 0 ? fe_prio : lnb_priority) - penalty; //<0 means: use fe_priority
 			best_lnb = lnb;
 			best_rf_path = devdb::rf_path_t{lnb.k, lnb_connection.card_mac_address, lnb_connection.rf_input};
+			best_rf_path_prio = lnb_connection.priority;
 			best_fe = fe;
 			best_use_counts = use_counts;
 			if (required_rf_path)

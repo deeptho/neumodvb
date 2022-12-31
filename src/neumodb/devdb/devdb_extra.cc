@@ -520,18 +520,33 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 	return {};
 }
 
-std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb) {
+std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int16_t sat_pos) {
 	if (!lnb.enabled || lnb.connections.size()==0)
 		return {};
+	bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
+	int usals_move_amount{0};
+	if( sat_pos != sat_pos_none)  {
+		auto [has_network, network_priority, usals_move_amount_, usals_pos] = devdb::lnb::has_network(lnb, sat_pos);
+		usals_move_amount = usals_move_amount_;
+	}
 
 	for(int pass=0; pass < 2; ++pass) {
+		const lnb_connection_t* best_conn{nullptr};
+		bool may_move_dish = pass >=1;
 		for(const auto& lnb_connection:  lnb.connections) {
 			bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
-			if(!conn_can_control_rotor && pass ==0)
-				continue;
-			rf_path_t rf_path {lnb.k, lnb_connection.card_mac_address, lnb_connection.rf_input};
-			return {rf_path};
+			if (lnb_is_on_rotor && (usals_move_amount >= 30) &&
+					(!may_move_dish || !conn_can_control_rotor)
+				)
+				continue; //skip because dish movement is not allowed or  not possible
+			if(!best_conn || lnb_connection.priority > best_conn->priority)
+				best_conn = &lnb_connection;
 		}
+		if(best_conn) {
+			return rf_path_t{lnb.k, best_conn->card_mac_address, best_conn->rf_input};
+		}
+		if(usals_move_amount ==0)
+			break; //pass 2 will not help
 	}
 	return {};
 }
@@ -545,7 +560,9 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 		return {}; //too little info to make  choice
 
 	chdb::sat_t sat = *sat_;
-
+	int best_lnb_prio = std::numeric_limits<int>::min();
+	std::optional<devdb::lnb_t> best_lnb;
+	std::optional<rf_path_t> best_rf_path;
 	/*
 		Loop over all lnbs which can tune to sat
 	*/
@@ -562,18 +579,26 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 			if (!has_network || !lnb.enabled || lnb.connections.size()==0)
 				continue;
 			bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
+			if (lnb_is_on_rotor && (usals_move_amount >= 30) && !may_move_dish)
+				continue; //skip because dish movement is not allowed or  not possible
 
-			for(const auto& lnb_connection:  lnb.connections) {
-				bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
+			auto dish_needs_to_be_moved_ = usals_move_amount != 0;
+			auto lnb_priority = network_priority >= 0 ? network_priority : lnb.priority;
+			if (!has_network ||
+					(lnb_priority >= 0 && lnb_priority < best_lnb_prio) //we already have a better lnb
+				)
+				continue;
 
-				if (lnb_is_on_rotor && (usals_move_amount >= 30) &&
-						(!may_move_dish || ! conn_can_control_rotor)
-					)
-					continue; //skip because dish movement is not allowed or  not possible
+			auto rf_path = select_rf_path(lnb, sat.sat_pos);
+			if(!rf_path)
+				continue;
 
-				rf_path_t rf_path {lnb.k, lnb_connection.card_mac_address, lnb_connection.rf_input};
-				return {rf_path, lnb};
-			}
+			best_lnb_prio = lnb_priority;
+			best_lnb = lnb;
+		}
+		if(best_lnb) {
+			assert(best_rf_path);
+			return {best_rf_path, best_lnb};
 		}
 	}
 	return {};

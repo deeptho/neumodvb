@@ -488,6 +488,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		bool need_multistream = (mux.stream_id >= 0);
 
 		for(const auto& lnb_connection: lnb.connections) {
+			if(!lnb_connection.can_be_used)
+				continue;
 			if(required_rf_path) {
 				auto rf_path = devdb::rf_path_for_connection(lnb.k, lnb_connection);
 				if (rf_path != *required_rf_path)

@@ -534,6 +534,8 @@ std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int
 		const lnb_connection_t* best_conn{nullptr};
 		bool may_move_dish = pass >=1;
 		for(const auto& lnb_connection:  lnb.connections) {
+			if(!lnb_connection.enabled)
+				continue;
 			bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
 			if (lnb_is_on_rotor && (usals_move_amount >= 30) &&
 					(!may_move_dish || !conn_can_control_rotor)

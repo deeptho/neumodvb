@@ -74,6 +74,7 @@ class LnbConnectionTable(NeumoTable):
          CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="TBS 6909X C0#3 ",
             dfn=card_rf_input_dfn, sfn=card_rf_input_sfn),
          CD(key='enabled',   label='ena-\nbled', basic=False),
+         CD(key='can_be_used',   label='avail\nable', basic=False),
          CD(key='priority',  label='prio'),
          CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR Master USALS'),
          CD(key='diseqc_10',  label='diseqc\n10'),
@@ -140,6 +141,12 @@ class LnbConnectionTable(NeumoTable):
         changed = pydevdb.lnb.add_or_edit_connection(rtxn, lnb, rec)
         rtxn.abort()
         return rec
+
+    def needs_highlight(self, conn):
+        """
+        show lnb connectiobs for missing adapters in colour
+        """
+        return not conn.can_be_used
 
 class LnbConnectionGrid(NeumoGridBase):
     def _add_accels(self, items):

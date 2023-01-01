@@ -198,6 +198,7 @@ lnb_connection = db_struct(name='lnb_connection',
                           (2, 'int8_t', 'rf_input', -1),
 
                           (3, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
+                          (13, 'bool',  'can_be_used', 'true'), #bit flag indicating if this connection can be used
                           (4, 'int16_t',  'priority', -1), #
                           (5, 'rotor_control_t', 'rotor_control', 'rotor_control_t::FIXED_DISH'), #
                           (6, 'uint8_t' , 'diseqc_mini'),

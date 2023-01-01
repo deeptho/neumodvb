@@ -582,7 +582,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 			if (lnb_is_on_rotor && (usals_move_amount >= 30) && !may_move_dish)
 				continue; //skip because dish movement is not allowed or  not possible
 
-			auto dish_needs_to_be_moved_ = usals_move_amount != 0;
+			//		auto dish_needs_to_be_moved_ = usals_move_amount != 0;
 			auto lnb_priority = network_priority >= 0 ? network_priority : lnb.priority;
 			if (!has_network ||
 					(lnb_priority >= 0 && lnb_priority < best_lnb_prio) //we already have a better lnb
@@ -760,18 +760,22 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 {
 	bool found=false;
 	bool on_positioner{false};
+	bool can_be_used{false};
+
 	for(auto &conn: lnb.connections) {
 		auto c = fe_t::find_by_card_mac_address(devdb_wtxn, conn.card_mac_address);
 		if(c.is_valid()) {
 			const auto& fe = c.current();
-		conn.connection_name.clear();
-		conn.card_no = fe.card_no;
-		if (conn.card_no >=0)
-			conn.connection_name.sprintf("C%d#%d %s", conn.card_no, conn.rf_input, fe.card_short_name.c_str());
-		else
-			conn.connection_name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
-		lnb.can_be_used = fe.can_be_used;
-		}
+			conn.connection_name.clear();
+			conn.card_no = fe.card_no;
+			if (conn.card_no >=0)
+				conn.connection_name.sprintf("C%d#%d %s", conn.card_no, conn.rf_input, fe.card_short_name.c_str());
+			else
+				conn.connection_name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
+			conn.can_be_used = fe.can_be_used;
+			can_be_used = true;
+		} else
+			conn.can_be_used = false;
 		switch(conn.rotor_control) {
 		case devdb::rotor_control_t::ROTOR_MASTER_USALS:
 			//replace all diseqc12 commands with USALS commands
@@ -799,6 +803,7 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 			break;
 		}
 	}
+	lnb.can_be_used = can_be_used;
 
 	if(save) { /*we deliberately do not sort or remove duplicate data  when we are not really
 							 saving. This is needed to provide a stable editing GUI for connections and networks
@@ -845,34 +850,40 @@ void devdb::lnb::reset_lof_offset(devdb::lnb_t&  lnb)
 static void invalidate_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb) {
 	ss::string<32> name;
 	name.clear();
+	bool any_change{lnb.can_be_used == true};
 	for (auto& conn: lnb.connections) {
 		if(conn.card_no >=0) {
 			name.sprintf("C%d#?? %06x", conn.card_no, conn.card_mac_address);
 		} else {
-		name.sprintf("C??#?? %06x", conn.card_mac_address);
+			name.sprintf("C??#?? %06x", conn.card_mac_address);
 		}
 		auto can_be_used =  false;
-		bool changed = (conn.connection_name != name) || (lnb.can_be_used != can_be_used);
+		bool changed = (conn.connection_name != name) || (conn.can_be_used != can_be_used);
+		any_change |= changed;
 		if (!changed)
-		return;
+			continue;
 		conn.connection_name = name;
-		lnb.can_be_used = can_be_used;
+		conn.can_be_used = can_be_used;
 	}
-	put_record(devdb_wtxn, lnb);
+	lnb.can_be_used = false;
+	if(any_change)
+		put_record(devdb_wtxn, lnb);
 }
 
 static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, const devdb::fe_t& fe) {
 	ss::string<32> name;
-	auto can_be_used =  fe.can_be_used;
-	bool any_change{lnb.can_be_used != can_be_used};
+	auto can_be_used{false};
+	bool any_change{false};
 
 	bool on_positioner = devdb::lnb::on_positioner(lnb);
 	any_change |= on_positioner != lnb.on_positioner;
 	lnb.on_positioner = on_positioner;
 
 	for(auto& conn: lnb.connections) {
-		if(conn.card_mac_address != fe.card_mac_address)
+		if(conn.card_mac_address != fe.card_mac_address) {
+			can_be_used |= conn.can_be_used;
 			continue;
+		}
 		name.clear();
 		auto valid_rf_input = fe.rf_inputs.contains(conn.rf_input);
 		auto card_no = valid_rf_input ? fe.card_no : -1;
@@ -882,13 +893,18 @@ static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, con
 			name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
 		}
 		assert (conn.card_mac_address == fe.card_mac_address);
-		bool changed = (conn.connection_name != name) ||(conn.card_no != card_no);
+		bool changed = (conn.connection_name != name) ||(conn.card_no != card_no) ||
+			(conn.can_be_used != fe.can_be_used);
 		any_change |= changed;
+		can_be_used |= fe.can_be_used;
+		conn.can_be_used = fe.can_be_used;
+
 		if(!changed)
 			continue;
 		conn.connection_name = name;
 		conn.card_no = card_no;
 	}
+	any_change |= (lnb.can_be_used != can_be_used);
 	lnb.can_be_used = can_be_used;
 	if(!any_change)
 		return;
@@ -919,7 +935,6 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn) {
 			auto valid_rf_input = fe.rf_inputs.contains(conn.rf_input);
 			if (valid_rf_input)
 				return fe;
-			//return fe.present && fe.can_be_used;
 		}
 		return {}; //no fe found with lnb's rf_input
 	};

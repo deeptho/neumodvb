@@ -784,6 +784,9 @@ void dvb_frontend_t::set_lock_status(fe_status_t fe_status) {
 	if(api_type == api_type_t::DVBAPI) {
 		if (fe_status & (FE_HAS_SIGNAL | FE_HAS_CARRIER | FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK))
 			fe_status = (fe_status_t) (fe_status | FE_HAS_TIMING_LOCK); //not present in dvbapi
+	} else {
+		if (fe_status & FE_OUT_OF_RESOURCES)
+			fe_status = (fe_status_t) (fe_status | FE_HAS_TIMING_LOCK); //handle older neumodrivers
 	}
 
 	bool locked_now = fe_status & FE_HAS_LOCK;

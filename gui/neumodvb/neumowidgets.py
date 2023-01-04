@@ -254,8 +254,12 @@ class DiseqcChoice(wx.Choice):
 
     def SetValue(self, lnb_connection) :
         from neumodvb import neumodbutils
-        val = neumodbutils.enum_to_str(neumodbutils.get_subfield(lnb_connection, 'rotor_control')).replace('_', ' ')
-        idx = self.choices.index(val)
+        if lnb_connection is None:
+            self.choices.append('????')
+            idx = len(self.choices)-1
+        else:
+            val = neumodbutils.enum_to_str(neumodbutils.get_subfield(lnb_connection, 'rotor_control')).replace('_', ' ')
+            idx = self.choices.index(val)
         self.SetSelection(idx)
 
     def GetValue(self) :
@@ -263,5 +267,8 @@ class DiseqcChoice(wx.Choice):
         import pychdb
         idx = self.GetCurrentSelection()
         choice = self.choices[idx]
-        val = neumodbutils.enum_value_for_label(pychdb.rotor_control_t, choice)
-        return val
+        try:
+            val = neumodbutils.enum_value_for_label(pychdb.rotor_control_t, choice)
+            return val
+        except:
+            return None

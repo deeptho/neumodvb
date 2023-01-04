@@ -776,7 +776,7 @@ class PositionerDialog(PositionerDialog_):
 
     @property
     def lnb_connection (self):
-        return pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
+        return None if self.rf_path is None else pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
 
     @property
     def sat(self):
@@ -933,18 +933,16 @@ class PositionerDialog(PositionerDialog_):
 
     def enable_disable_diseqc_panels(self):
         t = pydevdb.rotor_control_t
-        if self.lnb_connection.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_SLAVE, t.FIXED_DISH):
+        if self.lnb_connection is None or \
+           self.lnb_connection.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_SLAVE, t.FIXED_DISH):
             self.diseqc12_panel.Disable()
         else:
             self.diseqc12_panel.Enable()
-        if self.lnb_connection.rotor_control in (t.ROTOR_MASTER_DISEQC12, t.ROTOR_SLAVE, t.FIXED_DISH):
+        if self.lnb_connection is None or \
+           self.lnb_connection.rotor_control in (t.ROTOR_MASTER_DISEQC12, t.ROTOR_SLAVE, t.FIXED_DISH):
             self.usals_panel.Disable()
         else:
             self.usals_panel.Enable()
-        if self.lnb_connection.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_MASTER_DISEQC12):
-            self.usals_panel.Enable()
-        else:
-            self.usals_panel.Disable()
 
     def OnPositionChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         val = event if type(event) == str  else event.GetString()

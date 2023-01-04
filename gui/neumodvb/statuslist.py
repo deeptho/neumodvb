@@ -60,9 +60,9 @@ class StatusTable(NeumoTable):
         [CD(key='k.live',  label='live', basic=True, readonly=True),
          CD(key='k.rf_path.lnb',  label='lnb', basic=True, example="D0A0 Ku 28.2E 32766  ",
             dfn = lambda x: x[2].lnb_label(x[0]),
-            sort=('k.rf_path.lnb.dish_id', 'k.rf_path.card_mac_address','k.rf_path.rf_input', 'k.lnb.lnb_id')),
+            sort=('k.rf_path.lnb.dish_id', 'k.rf_path.card_mac_address','k.rf_path.rf_input', 'k.rf_path.lnb.lnb_id')),
          CD(key='k.rf_path',  label='Card/RF', basic=True, readonly=True, no_combo = True,
-            dfn=lambda x: x[2].rf_path_name(x[0]), example=" TBS6909X #12 "),
+            dfn=lambda x: x[2].rf_path_name(x[0]), example="C2#3 TBS6909X "),
          CD(key='k.rf_path.lnb.lnb_id',  label='ID', basic=True, readonly=True),
          CD(key='k.mux.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.mux.network_id', label='nid'),
@@ -82,13 +82,13 @@ class StatusTable(NeumoTable):
     def lnb_label(self, signal_stat):
         lnb_key = signal_stat.k.rf_path.lnb
         sat_pos=pychdb.sat_pos_str(signal_stat.k.mux.sat_pos)
-        t= lastdot(signal_stat.k.lnb.lnb_type)
+        t= lastdot(lnb_key.lnb_type)
         if t == 'UNIV':
             t='Ku'
         return f'D{lnb_key.dish_id} {sat_pos:>5}{t} {lnb_key.lnb_id}'
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'k.lnb.dish_id'
+        initial_sorted_column = 'k.rf_path.lnb.dish_id'
         data_table= pystatdb.signal_stat
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)

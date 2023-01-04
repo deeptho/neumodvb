@@ -151,11 +151,11 @@ class FrontendTable(NeumoTable):
         rec.enable_dvbc = 'C' in v
         dtdebug(f"Set called: fe={rec} v={v}")
         return rec
-    def needs_highlight(self, fe):
+    def highlight_colour(self, fe):
         """
         show lnbs for missing adapters in colour
         """
-        return not fe.can_be_used
+        return self.parent.default_highlight_colour if not fe.can_be_used else None
 
 
 class FrontendGridBase(NeumoGridBase):

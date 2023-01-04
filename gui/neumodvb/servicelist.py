@@ -177,16 +177,16 @@ class ServiceTable(NeumoTable):
     def get_icon_sort_key(self):
         return 'encrypted'
 
-    def needs_highlight(self,service):
+    def highlight_colour(self,service):
         e = self.app.frame.bouquet_being_edited
         if e is None:
-            return False
+            return None
 
         txn =self.db.rtxn()
         ret = pychdb.chg.contains_service(txn, e, service.k)
         txn.abort()
         del txn
-        return ret
+        return self.parent.default_highlight_colour if ret else None
 
 class ServiceGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):

@@ -146,7 +146,7 @@ class LnbConnectionTable(NeumoTable):
         """
         show lnb connectiobs for missing adapters in colour
         """
-        return not conn.can_be_used
+        return self.parent.default_highlight_colour if not conn.can_be_used else None
 
 class LnbConnectionGrid(NeumoGridBase):
     def _add_accels(self, items):

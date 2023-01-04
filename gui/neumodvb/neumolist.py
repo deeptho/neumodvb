@@ -331,8 +331,8 @@ class NeumoTableBase(wx.grid.GridTableBase):
         if self.screen is not None:
             self.screen.editing_record =val
 
-    def needs_highlight(self, record):
-         return False
+    def highlight_colour(self, record):
+         return None
     def SetReference(self, record):
         assert 0
     def AppendRows(self, numRows=1, updateLabels=True):
@@ -594,7 +594,7 @@ class NeumoTable(NeumoTableBase):
         self.screen_getter = screen_getter
         self.parent = parent
 
-    def needs_highlight(self, record):
+    def highlight_colour(self, record):
         """
         to be overridden in derived tables
         Should return True or False or None
@@ -629,12 +629,8 @@ class NeumoTable(NeumoTableBase):
         else:
             ret = self.record_being_edited
             assert self.row_being_edited == rowno
-        hl =self.needs_highlight(ret)
-        if hl is not None:
-            if hl:
-                self.parent.ColourRow(rowno)
-            else:
-                self.parent.UnColourRow(rowno)
+        colour =self.highlight_colour(ret)
+        self.parent.ColourRow(rowno, colour=colour)
         return ret
 
     def get_filter_(self):
@@ -916,6 +912,7 @@ class NeumoTable(NeumoTableBase):
         self.__get_data__()
 
 class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
+    default_highlight_colour='#ffcfd4'
 
     def __init__(self, basic, readonly, table, *args, dark_mode=False, fontscale=1, **kwds):
         super().__init__(*args, **kwds)
@@ -1048,11 +1045,15 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         dtdebug("OnGridEditorShown")
         #wx.GetApp().frame.set_accelerators(False)
 
-    def ColourRow(self, row):
+    def ColourRow(self, row, colour=default_highlight_colour): #light red
         attr = wx.grid.GridCellAttr()
-        attr.SetBackgroundColour('#ffcfd4') #light red
+        if colour is None:
+            colour = self.GetDefaultCellBackgroundColour()
+            self.coloured_rows.discard(row)
+        else:
+            self.coloured_rows.add(row)
+        attr.SetBackgroundColour(colour)
         self.SetRowAttr(row, attr)
-        self.coloured_rows.add(row)
 
     def UnColourRow(self, row):
         if row in self.coloured_rows:

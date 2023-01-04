@@ -204,11 +204,16 @@ class LnbTable(NeumoTable):
         ret=self.record_t()
         return ret
 
-    def needs_highlight(self, lnb):
+    def highlight_colour(self, lnb):
         """
         show lnbs for missing adapters in colour
         """
-        return not lnb.can_be_used and len(lnb.networks)>0 and len(lnb.connections)>0
+        if not lnb.can_be_used and len(lnb.networks)>0 and len(lnb.connections)>0:
+            return self.parent.default_highlight_colour
+        elif not lnb.enabled:
+            return '#A0A0A0' #light gray
+        else:
+            return None
 
 class LnbGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):

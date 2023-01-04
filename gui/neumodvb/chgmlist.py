@@ -162,7 +162,7 @@ class ChgmTable(NeumoTable):
         chgm = self.GetRow(rowno)
         return ( chgm.encrypted, chgm.expired)
 
-    def needs_highlight(self,chgm):
+    def highlight_colour(self,chgm):
         e = self.app.frame.bouquet_being_edited
         if e is None:
             return False
@@ -170,7 +170,7 @@ class ChgmTable(NeumoTable):
         ret = pychdb.chg.contains_service(txn, e, chgm.service)
         txn.abort()
         del txn
-        return ret
+        return self.parent.default_highlight_colour if ret else None
 
 class ChgmGridBase(NeumoGridBase):
 

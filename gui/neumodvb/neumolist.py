@@ -45,6 +45,16 @@ is_old_wx = float('.'.join(wx.version().split(' ')[-1].split('.')[:-1])) <=3.1
 def lnb_network_str(lnb_networks):
     return '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in lnb_networks])
 
+def NeumoGetBestSize(self, grid, attr, dc, row, col):
+    text = grid.GetCellValue(row, col)
+    dc.SetFont(attr.GetFont())
+    from wx.lib import wordwrap
+    text = wordwrap.wordwrap(text, grid.GetColSize(col), dc, breakLongWords = False)
+    w, h = dc.GetMultiLineTextExtent(text)
+    return wx.Size(w, h)
+
+#path buggy wxpython code to fix extra space at end
+wx.grid.GridCellAutoWrapStringRenderer.GetBestSize = NeumoGetBestSize
 
 class screen_if_t(object):
     def __init__(self, screen, invert_rows):
@@ -108,9 +118,11 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
     def SetSize(self, rect):
         extra = self.Control.GetParent().GetParent().combobox_extra_width
         self.Control.SetSize(rect.x, rect.y, rect.width+extra, rect.height, wx.SIZE_ALLOW_MINUS_ONE)
+
     def SetChoices(self, choices):
         self.SetParameters(','.join(choices))
         self.Reset()
+
     def Show(self, *args):
         choices = None
         if self.col.cfn is not None:
@@ -1115,9 +1127,11 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             elif col.key in ('networks',):
                 editor = None
                 readonly = True
+                renderer = wx.grid.GridCellAutoWrapStringRenderer()
             elif col.key in ('connections',):
                 editor = None
                 readonly = True
+                renderer = wx.grid.GridCellAutoWrapStringRenderer()
             elif col.key.endswith('lang'):
                 readonly = True
             elif issubclass(coltype, numbers.Integral):

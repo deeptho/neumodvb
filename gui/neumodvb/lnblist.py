@@ -116,8 +116,8 @@ class LnbTable(NeumoTable):
          #CD(key='diseqc_mini',  label='diseqc\nmini'),
          #CD(key='tune_string',  label='tune\nstring'),
          CD(key='k.lnb_type',  label='LNB type', dfn=lambda x: lastdot(x)),
-         CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*4),
-         CD(key='connections',  label='Connections', dfn=lnbconn_fn, example='TBS6909X#3; '*4),
+         CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*6),
+         CD(key='connections',  label='Connections', dfn=lnbconn_fn, example='C2#1 TBS6909X; '*4),
          CD(key='pol_type',  label='POL\ntype', dfn=lambda x: lastdot(x), basic=False),
          CD(key='priority',  label='prio'),
          CD(key='lof_offsets',  label='lof\noffset', dfn=lof_offset_fn, readonly = True,
@@ -219,6 +219,11 @@ class LnbGridBase(NeumoGridBase):
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.Bind(wx.grid.EVT_GRID_CELL_LEFT_DCLICK, self.OnLeftClicked)
+
+    def OnShowHide(self, event):
+        #Ensure that multiline rows are shown fully
+        wx.CallAfter(self.AutoSizeRows)
+        return super().OnShowHide(event)
 
     def CheckShowDialog(self, evt, rowno, colno):
         key = self.table.columns[colno].key

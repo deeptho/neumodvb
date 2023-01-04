@@ -300,6 +300,9 @@ class LnbGridBase(NeumoGridBase):
         lnb = self.table.screen.record_at_row(row)
         dtdebug(f'Positioner requested for lnb={lnb}')
         from neumodvb.positioner_dialog import show_positioner_dialog
+        if not lnb.enabled:
+            ShowMessage(f' LNB {lnb} not enabled')
+            return
         show_positioner_dialog(self, rf_path=None, lnb=lnb)
         self.table.SaveModified()
         #self.app.MuxTune(mux)

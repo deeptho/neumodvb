@@ -40,6 +40,8 @@ import pychdb
 import pyrecdb
 import pystatdb
 
+is_old_wx = float('.'.join(wx.version().split(' ')[-1].split('.')[:-1])) <=3.1
+
 def lnb_network_str(lnb_networks):
     return '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in lnb_networks])
 
@@ -106,58 +108,41 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
     def SetSize(self, rect):
         extra = self.Control.GetParent().GetParent().combobox_extra_width
         self.Control.SetSize(rect.x, rect.y, rect.width+extra, rect.height, wx.SIZE_ALLOW_MINUS_ONE)
-
+    def SetChoices(self, choices):
+        self.SetParameters(','.join(choices))
+        self.Reset()
     def Show(self, *args):
+        choices = None
         if self.col.cfn is not None:
             table = self.Control.GetParent().GetParent().GetTable()
             choices= self.col.cfn(table)
-            self.combobox.Clear()
-            self.combobox.Append(choices)
         elif self.col.key.endswith('_pos'):
             #recompute each time, because data may have changed
             sats = wx.GetApp().get_sats()
             choices= [str(x) for x in sats]
-            if False: #not working. wxPython bug?
-                self.SetParameters(','.join(choices))
-            else:
-                #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
-                self.combobox.Clear()
-                self.combobox.Append(choices)
         elif self.col.key.endswith('adapter_mac_address'):
             #recompute each time, because data may have changed
             d = wx.GetApp().get_adapters()
             choices= list(d.keys())
-            if False: #not working. wxPython bug?
-                self.SetParameters(','.join(choices))
-            else:
-                #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
-                self.combobox.Clear()
-                self.combobox.Append(choices)
         elif self.col.key.endswith('card_mac_address'):
             #recompute each time, because data may have changed
             d = wx.GetApp().get_cards()
             choices= list(d.keys())
-            if False: #not working. wxPython bug?
-                self.SetParameters(','.join(choices))
-            else:
-                #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
-                self.combobox.Clear()
-                self.combobox.Append(choices)
         elif self.col.key.endswith('rf_input'):
             #recompute each time, because data may have changed
             d = wx.GetApp().get_cards_with_rf_in()
             choices= list(d.keys())
-            if False: #not working. wxPython bug?
-                self.SetParameters(','.join(choices))
-            else:
-                #note self.comboxbox is added in NeumoGridBase.OnGridEditorCreated
-                self.combobox.Clear()
-                self.combobox.Append(choices)
         size = self.Control.GetParent().GetParent().GetFont().GetPointSize()
         f = self.Control.GetFont()
         f.SetPointSize(size)
         ret = super().Show(*args)
         self.Control.SetFont(f)
+        if choices is not None:
+            if is_old_wx:
+                self.combobox.Clear()
+                self.combobox.Append(choices)
+            else:
+                wx.CallAfter(self.SetChoices, choices)
         return ret
 
 
@@ -982,7 +967,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
         self.Bind ( wx.grid.EVT_GRID_SELECT_CELL, self.OnGridCellSelect)
         self.Bind ( wx.grid.EVT_GRID_EDITOR_HIDDEN, self.OnGridEditorHidden)
-        self.Bind ( wx.grid.EVT_GRID_EDITOR_CREATED, self.OnGridEditorCreated)
+        if is_old_wx:
+            self.Bind ( wx.grid.EVT_GRID_EDITOR_CREATED, self.OnGridEditorCreated)
         self.Bind ( wx.grid.EVT_GRID_EDITOR_SHOWN, self.OnGridEditorShown)
         self.__make_columns__()
         self.Bind(wx.grid.EVT_GRID_LABEL_RIGHT_CLICK, self.OnColumnMenu)

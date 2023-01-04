@@ -597,6 +597,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 
 			best_lnb_prio = lnb_priority;
 			best_lnb = lnb;
+			best_rf_path = rf_path;
 		}
 		if(best_lnb) {
 			assert(best_rf_path);

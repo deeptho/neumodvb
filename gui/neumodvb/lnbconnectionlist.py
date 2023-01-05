@@ -76,6 +76,7 @@ class LnbConnectionTable(NeumoTable):
          CD(key='enabled',   label='ena-\nbled', basic=False),
          CD(key='can_be_used',   label='avail\nable', basic=False),
          CD(key='priority',  label='prio'),
+         CD(key='rf_coupler_id',  label='rf\ncoupler', basic=False),
          CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR Master USALS'),
          CD(key='diseqc_10',  label='diseqc\n10'),
          CD(key='diseqc_11',  label='diseqc\n11'),

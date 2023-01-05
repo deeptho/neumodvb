@@ -164,6 +164,11 @@ private:
 	inline const devdb::rf_path_t& current_rf_path() const {
 		return fe->ts.readAccess()->reserved_rf_path;
 	}
+	inline int current_rf_coupler_id() const {
+		auto r = fe->ts.readAccess();
+		auto* conn = connection_for_rf_path(r->reserved_lnb, r->reserved_rf_path);
+		return conn ?  conn->rf_coupler_id : -1;
+	}
 
 	void set_current_tp(const chdb::any_mux_t& mux) {
 		assert((mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&

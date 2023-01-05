@@ -166,15 +166,16 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	switch_id>=0. rf_inputs with the same switch_id care connected. rf_inputs witjout switch_id are not connected
 
  */
-static inline bool rf_coupler_conflict(db_txn& rtxn, const devdb::fe_t& fe, bool ignore_subscriptions,
+static inline bool rf_coupler_conflict(db_txn& rtxn, const devdb::lnb_connection_t& lnb_connection,
+																			 const devdb::fe_t& fe, bool ignore_subscriptions,
 																			 chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos) {
-	if(fe.rf_coupler_id <0 || ignore_subscriptions)
+	if(lnb_connection.rf_coupler_id < 0 || ignore_subscriptions)
 		return false;
 	auto c = find_first<devdb::fe_t>(rtxn);
 	for(const auto &otherfe: c.range()) {
 		if(fe.k == otherfe.k)
 			continue;
-		if(fe.rf_coupler_id != otherfe.rf_coupler_id)
+		if(otherfe.sub.rf_coupler_id < 0 || otherfe.sub.rf_coupler_id != lnb_connection.rf_coupler_id)
 			continue;
 		if(!otherfe.enable_dvbs || !devdb::fe::suports_delsys_type(otherfe, chdb::delsys_type_t::DVB_S))
 			continue; //no conflict possible (not sat)
@@ -187,13 +188,14 @@ static inline bool rf_coupler_conflict(db_txn& rtxn, const devdb::fe_t& fe, bool
 
 //how many active fe_t's use lnb?
 devdb::resource_subscription_counts_t
-devdb::fe::subscription_counts(db_txn& rtxn, const devdb::rf_path_t& rf_path,
+devdb::fe::subscription_counts(db_txn& rtxn, const devdb::rf_path_t& rf_path, int rf_coupler_id,
 															 const devdb::fe_key_t* fe_key_to_release) {
 	devdb::resource_subscription_counts_t ret;
+#if 0
 	auto c = fe_t::find_by_card_mac_address(rtxn, rf_path.card_mac_address, find_type_t::find_eq,
 																					fe_t::partial_keys_t::card_mac_address);
-#ifdef TODO
-	auto rf_coupler_id = lnb::rf_coupler_id(rtxn, lnb_key);
+#else
+	auto c = devdb::find_first<devdb::fe_t>(rtxn);
 #endif
 	for(const auto& fe: c.range()) {
 		if( !fe::is_subscribed(fe))
@@ -204,14 +206,16 @@ devdb::fe::subscription_counts(db_txn& rtxn, const devdb::rf_path_t& rf_path,
 		}
 		bool fe_will_be_released = fe_key_to_release && *fe_key_to_release == fe.k;
 		if(!fe_will_be_released) {
-			if(fe.sub.rf_path == rf_path )
-				ret.lnb++;
-			if(fe.sub.rf_path.rf_input == rf_path.rf_input)
+			if(fe.sub.rf_path == rf_path)
+				ret.rf_path++;
+			if(fe.sub.rf_path.card_mac_address == rf_path.card_mac_address &&
+				 fe.sub.rf_path.rf_input == rf_path.rf_input)
 				ret.tuner++;
-#ifdef TODO
-			if(lnb::rf_coupler_id(rtxn, fe.sub.lnb_key) == rf_coupler_id)
-				ret.rf_coupler++;
-#endif
+
+			if(fe.sub.rf_coupler_id >=0 && fe.sub.rf_coupler_id == rf_coupler_id)  {
+					ret.rf_coupler++;
+			}
+
 			if( fe.sub.rf_path.lnb.dish_id == rf_path.lnb.dish_id
 					|| fe.sub.rf_path == rf_path) //the last test is in case dish_id is set to -1
 				ret.dish++;
@@ -249,13 +253,16 @@ devdb::fe::subscription_counts(db_txn& rtxn, const devdb::rf_path_t& rf_path,
  */
 
 std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
-	db_txn& rtxn, const devdb::rf_path_t& rf_path,
+	db_txn& rtxn, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	const devdb::fe_key_t* fe_key_to_release,
 	bool need_blindscan, bool need_spectrum, bool need_multistream,
 	chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos, bool ignore_subscriptions,
 	bool lnb_on_positioner) {
 
-
+	auto* conn = connection_for_rf_path(lnb, rf_path);
+	if (!conn)
+		return {};
+	auto & lnb_connection = *conn;
 	bool need_exclusivity = pol == chdb::fe_polarisation_t::NONE ||
 		band == devdb::fe_band_t::NONE || usals_pos == sat_pos_none;
 
@@ -351,7 +358,10 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 					Note that priority switches do not need to be treated specifically as neumoDVB
 					never neither of the connectors to send diseqc, except initially when both connectors are idle.
 				*/
-			if(fe.rf_coupler_id >=0 && rf_coupler_conflict(rtxn, fe, ignore_subscriptions, pol, band, usals_pos))
+
+
+			if(lnb_connection.rf_coupler_id >=0 &&
+				 rf_coupler_conflict(rtxn, lnb_connection, fe, ignore_subscriptions, pol, band, usals_pos))
 				continue;
 			if(need_spectrum) {
 				assert (no_best_fe_yet() || best_fe.supports.spectrum_fft || best_fe.supports.spectrum_sweep);
@@ -488,7 +498,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		bool need_multistream = (mux.stream_id >= 0);
 
 		for(const auto& lnb_connection: lnb.connections) {
-			if(!lnb_connection.can_be_used)
+			if(!lnb_connection.can_be_used || !lnb_connection.enabled)
 				continue;
 			if(required_rf_path) {
 				auto rf_path = devdb::rf_path_for_connection(lnb.k, lnb_connection);
@@ -519,7 +529,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			rf_path.lnb = lnb.k;
 			rf_path.card_mac_address = lnb_connection.card_mac_address;
 			rf_path.rf_input = lnb_connection.rf_input;
-			auto fe = fe::find_best_fe_for_lnb(rtxn, rf_path, fe_key_to_release, need_blindscan, need_spectrum,
+			auto fe = fe::find_best_fe_for_lnb(rtxn, rf_path, lnb,
+																				 fe_key_to_release, need_blindscan, need_spectrum,
 																				 need_multistream, pol, band, usals_pos, ignore_subscriptions,
 																				 lnb_is_on_rotor);
 			if(!fe) {
@@ -528,18 +539,24 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			}
 
 			auto fe_prio = fe->priority;
-			auto use_counts = subscription_counts(rtxn, rf_path, fe_key_to_release);
+			auto rf_coupler_id{-1};
+			auto* conn = connection_for_rf_path(lnb, rf_path);
+			if(conn)
+				rf_coupler_id = conn->rf_coupler_id;
 
-			if(use_counts.lnb >= 1 ||
+			auto use_counts = subscription_counts(rtxn, rf_path, rf_coupler_id, fe_key_to_release);
+
+			if(use_counts.rf_path >= 1 ||
 				 use_counts.tuner >= 1 ||
 				 use_counts.dish >=1 ||
 				 use_counts.rf_coupler >=1)
 				fe_prio += resource_reuse_bonus;
 
-
-
-
 			if (lnb_priority < 0 || lnb_priority - penalty == best_lnb_prio)
+				if (best_rf_path_prio >= lnb_connection.priority) // use connection priority to break the tie
+					continue;
+
+			if (lnb_priority < 0 || best_rf_path_prio == lnb_connection.priority)
 				if (fe_prio - penalty <= best_fe_prio) // use fe_priority to break the tie
 					continue;
 
@@ -568,6 +585,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 
 
 	}
+	user_error("Could not find find available lnb, frontend or tuner");
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }
 
@@ -589,6 +607,11 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const 
 	//the following settings imply that we request a non-exclusive subscription
 
 	sub.rf_path = rf_path;
+	sub.rf_coupler_id = -1;
+	auto* conn = connection_for_rf_path(lnb, rf_path);
+	if(conn)
+		sub.rf_coupler_id = conn->rf_coupler_id;
+
 	sub.pol = pol;
 	sub.band = band;
 	sub.usals_pos = lnb.usals_pos;
@@ -615,6 +638,11 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const dev
 	//the following settings imply that we request a non-exclusive subscription
 
 	sub.rf_path = rf_path;
+	sub.rf_coupler_id =  -1;
+	auto* conn = connection_for_rf_path(lnb, rf_path);
+	if(conn)
+		sub.rf_coupler_id = conn->rf_coupler_id;
+
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = sat_pos_none;
@@ -644,6 +672,7 @@ int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool i
 
 
 	sub.rf_path = rf_path;
+	sub.rf_coupler_id  = -1;
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = is_dvbc ? sat_pos_dvbc : sat_pos_dvbt;
@@ -669,9 +698,10 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn, const devdb::rf_path_t& rf_path
 	bool need_multistream = false;
 	int released_fe_usecount{0};
 	bool lnb_on_positioner = devdb::lnb::on_positioner(lnb);
-
-	auto best_fe = fe::find_best_fe_for_lnb(wtxn, rf_path, fe_key_to_release, need_blind_tune, need_spectrum,
-																					need_multistream, pol, band, usals_pos, false /*ignore_subscriptions*/,
+	auto best_fe = fe::find_best_fe_for_lnb(wtxn, rf_path, lnb,
+																					fe_key_to_release, need_blind_tune, need_spectrum,
+																					need_multistream, pol, band, usals_pos,
+																					false /*ignore_subscriptions*/,
 																					lnb_on_positioner);
 	if(fe_key_to_release)
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
@@ -715,7 +745,7 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																										devdb::lnb::band_for_mux(*best_lnb, mux),
 																										mux.pol, mux.frequency, mux.stream_id);
 	best_use_counts.dish++;
-	best_use_counts.lnb++;
+	best_use_counts.rf_path++;
 	best_use_counts.rf_coupler++;
 	best_use_counts.tuner++;
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db

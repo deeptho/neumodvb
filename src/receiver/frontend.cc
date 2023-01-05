@@ -1939,7 +1939,7 @@ std::tuple<bool,bool>
 dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
 																	 const chdb::dvbs_mux_t& new_mux,
 																	 const devdb::resource_subscription_counts_t& use_counts) {
-	if (!this->sec_status.is_tuned() && use_counts.lnb == 1 && use_counts.dish <=1
+	if (!this->sec_status.is_tuned() && use_counts.rf_path == 1 && use_counts.dish <=1
 			&& use_counts.rf_coupler<=1)
 		return {true, true}; // always send diseqc if we were not tuned
 #if 0
@@ -1948,8 +1948,8 @@ dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const de
 	if (!is_dvbs)
 		return {false, false};
 #endif
-	if(use_counts.lnb > 1 || use_counts.rf_coupler > 1) {
-		dtdebugx("Preventing diseqc because lnb is used more than once: use_count=%d", use_counts.lnb);
+	if(use_counts.rf_path > 1 || use_counts.rf_coupler > 1) {
+		dtdebugx("Preventing diseqc because rf_path is used more than once: use_count=%d", use_counts.rf_path);
 		return {false, false};
 	}
 	auto r = this->ts.readAccess();

@@ -210,6 +210,7 @@ lnb_connection = db_struct(name='lnb_connection',
                           #for an lnb
 
                           (10, 'int8_t', 'card_no',  '-1'), #updated as adapters are discovered
+                          (14, 'int8_t', 'rf_coupler_id',  '-1'), #defines coupling with other connnection
 
                           # list of commands separted by ";"
                           #can contain
@@ -306,6 +307,7 @@ fe_subscription = db_struct(name='fe_subscription',
                                      (7, 'int16_t', 'use_count', '0'),
                                      (8, 'int32_t', 'frequency', '0'),
                                      (9, 'int32_t', 'stream_id', '-1'),
+                                     (10, 'int32_t', 'rf_coupler_id', '-1'),
                 ))
 
 
@@ -331,7 +333,6 @@ fe = db_struct(name='fe',
                    (30, 'uint8_t', 'enable_dvbt', 'true'),
                    (31, 'uint8_t', 'enable_dvbc', 'true'),
                    (5, 'int16_t', 'priority', 0),
-                   (32, 'int8_t', 'rf_coupler_id',  '-1'), #defines coupling with other fe
                    (28, 'fe_subscription_t', 'sub'),
                    (9, 'time_t', 'mtime'),
                    (10, 'uint32_t', 'frequency_min'),

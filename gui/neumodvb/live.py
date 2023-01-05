@@ -1032,7 +1032,7 @@ class MosaicPanel(wx.Panel):
     def OnSubscriberCallback(self, evt):
         data = get_object(evt)
         if type(data) == str:
-            ShowMessage("Subscribe failed", data)
+            ShowMessage("Subscription failed", data)
     def AddMpvPlayer(self):
         import pyneumompv
         mpv_player = pyneumompv.MpvPlayer(self.controller.app.receiver, self)

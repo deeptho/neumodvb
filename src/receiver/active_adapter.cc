@@ -178,7 +178,9 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 	{
 		auto devdb_rtxn = receiver.devdb.rtxn();
 		auto rf_path = current_rf_path();
-		use_counts = devdb::fe::subscription_counts(devdb_rtxn, rf_path, nullptr /*fe_key_to_release*/);
+		auto rf_coupler_id = current_rf_coupler_id();
+		use_counts = devdb::fe::subscription_counts(devdb_rtxn, rf_path, rf_coupler_id,
+																								nullptr /*fe_key_to_release*/);
 		devdb_rtxn.abort();
 	}
 	si.reset(true /*force_finalize*/, tune_state==tune_state_t::TUNE_FAILED);
@@ -207,7 +209,9 @@ int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
 			devdb::resource_subscription_counts_t use_counts;
 			{
 				auto devdb_rtxn = receiver.devdb.rtxn();
-				use_counts = devdb::fe::subscription_counts(devdb_rtxn, current_rf_path(), nullptr /*fe_key_to_release*/);
+				auto rf_coupler_id = current_rf_coupler_id();
+				use_counts = devdb::fe::subscription_counts(devdb_rtxn, current_rf_path(), rf_coupler_id,
+																										nullptr /*fe_key_to_release*/);
 				devdb_rtxn.abort();
 			}
 			tune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, use_counts);

@@ -58,11 +58,11 @@ class StatusTable(NeumoTable):
     mac_fn = lambda x: x[2].mac_fn(x[1])
     all_columns = \
         [CD(key='k.live',  label='live', basic=True, readonly=True),
-         CD(key='k.rf_path.lnb',  label='lnb', basic=True, example="D0A0 Ku 28.2E 32766  ",
+         CD(key='k.rf_path.lnb',  label='lnb', basic=True, example="D0A0 Ku 28.2E ",
             dfn = lambda x: x[2].lnb_label(x[0]),
             sort=('k.rf_path.lnb.dish_id', 'k.rf_path.card_mac_address','k.rf_path.rf_input', 'k.rf_path.lnb.lnb_id')),
          CD(key='k.rf_path',  label='Card/RF', basic=True, readonly=True, no_combo = True,
-            dfn=lambda x: x[2].rf_path_name(x[0]), example="C2#3 TBS6909X "),
+            dfn=lambda x: x[2].rf_path_name(x[0]), example="C2#3 TBS6904se "),
          CD(key='k.rf_path.lnb.lnb_id',  label='ID', basic=True, readonly=True),
          CD(key='k.mux.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.mux.network_id', label='nid'),

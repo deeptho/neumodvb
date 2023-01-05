@@ -363,8 +363,10 @@ receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futur
 		4. The code will give preference to reusing a frontend which is already
 		tuned to the desired mux
 	*/
+	tune_options_t tune_options(scan_target_t::SCAN_FULL_AND_EPG);
+	tune_options.may_move_dish = false;
 	auto [ret, subscribed_fe_key] = subscribe_mux(futures, devdb_wtxn, mux, subscription_id,
-													 tune_options_t(scan_target_t::SCAN_FULL_AND_EPG), nullptr);
+																								tune_options, nullptr);
 	if ((int) ret < 0)
 		return nullptr; // we could not reserve a mux
 	assert(ret == subscription_id || (int) subscription_id < 0);
@@ -1512,6 +1514,7 @@ receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t s
 
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
+	tune_options.may_move_dish = false;
 	tune_options.scan_target = scan_target_t::SCAN_FULL_AND_EPG;
 	tune_options.use_blind_tune = blindscan;
 	devdb::fe_key_t subscribed_fe_key;

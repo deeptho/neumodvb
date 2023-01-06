@@ -144,7 +144,7 @@ def dterror(message):
     filename = frameinfo.filename.split('/')[-1]
     pyreceiver.log(True, filename, frameinfo.function, frameinfo.lineno, message);
 
-def parse_lattitude(val):
+def parse_latitude(val):
     import re
     m=re.match(r'^([-]{0,1}[0-9]+[.]{0,1}[0-9]*)\s*([NSns]{0,1})', val)
     if m is not None:

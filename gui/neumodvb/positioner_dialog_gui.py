@@ -594,14 +594,14 @@ class PositionerDialog_(wx.Frame):
         label_3 = wx.StaticText(self.usals_panel, wx.ID_ANY, _("Location"))
         grid_sizer2b.Add(label_3, 0, wx.ALIGN_CENTER_VERTICAL | wx.FIXED_MINSIZE, 0)
 
-        self.lattitude_text_ctrl = wx.TextCtrl(self.usals_panel, wx.ID_ANY, _("0.0N"), style=wx.TE_CENTRE | wx.TE_PROCESS_ENTER)
-        self.lattitude_text_ctrl.SetToolTip(_("Latitude of location where dish is installed"))
-        self.lattitude_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.OnLattitudeChanged)
-        grid_sizer2b.Add(self.lattitude_text_ctrl, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.FIXED_MINSIZE | wx.RIGHT, 0)
+        self.latitude_text_ctrl = wx.TextCtrl(self.usals_panel, wx.ID_ANY, _("0.0N"), style=wx.TE_CENTRE | wx.TE_PROCESS_ENTER)
+        self.latitude_text_ctrl.SetToolTip(_("Latitude of location where dish is installed"))
+        self.latitude_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.OnLatitudeChanged)
+        grid_sizer2b.Add(self.latitude_text_ctrl, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.FIXED_MINSIZE | wx.RIGHT, 0)
 
-        self.lattitude_north_south_choice = wx.Choice(self.usals_panel, wx.ID_ANY, choices=[_("North"), _("South")])
-        self.lattitude_north_south_choice.SetSelection(0)
-        grid_sizer2b.Add(self.lattitude_north_south_choice, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 0)
+        self.latitude_north_south_choice = wx.Choice(self.usals_panel, wx.ID_ANY, choices=[_("North"), _("South")])
+        self.latitude_north_south_choice.SetSelection(0)
+        grid_sizer2b.Add(self.latitude_north_south_choice, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 0)
 
         grid_sizer2b.Add((0, 0), 0, 0, 0)
 
@@ -670,8 +670,8 @@ class PositionerDialog_(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnUsalsStepWest, self.usals_step_west_button)
         self.Bind(wx.EVT_BUTTON, self.OnGotoSat, self.usals_reset_button)
         self.Bind(wx.EVT_BUTTON, self.OnGotoUsals, self.usals_set_button)
-        self.Bind(wx.EVT_TEXT_ENTER, self.OnLattitudeChanged, self.lattitude_text_ctrl)
-        self.Bind(wx.EVT_CHOICE, self.OnLattitudeNorthSouthSelect, self.lattitude_north_south_choice)
+        self.Bind(wx.EVT_TEXT_ENTER, self.OnLatitudeChanged, self.latitude_text_ctrl)
+        self.Bind(wx.EVT_CHOICE, self.OnLatitudeNorthSouthSelect, self.latitude_north_south_choice)
         self.Bind(wx.EVT_TEXT_ENTER, self.OnLongitudeChanged, self.longitude_text_ctrl)
         self.Bind(wx.EVT_CHOICE, self.OnLongitudeEastWestSelect, self.longitude_east_west_choice)
         # end wxGlade
@@ -744,12 +744,12 @@ class PositionerDialog_(wx.Frame):
         print("Event handler 'OnGotoUsals' not implemented!")
         event.Skip()
 
-    def OnLattitudeChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
-        print("Event handler 'OnLattitudeChanged' not implemented!")
+    def OnLatitudeChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        print("Event handler 'OnLatitudeChanged' not implemented!")
         event.Skip()
 
-    def OnLattitudeNorthSouthSelect(self, event):  # wxGlade: PositionerDialog_.<event_handler>
-        print("Event handler 'OnLattitudeNorthSouthSelect' not implemented!")
+    def OnLatitudeNorthSouthSelect(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        print("Event handler 'OnLatitudeNorthSouthSelect' not implemented!")
         event.Skip()
 
     def OnLongitudeChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>

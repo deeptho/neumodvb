@@ -357,7 +357,7 @@ usals_location = db_struct(name ='usals_location',
                     type_id = lord('ou'),
                     version = 1,
                     fields = (
-                        (0, 'int16_t', 'usals_lattitude', '0'), #in 1/100 degree
+                        (0, 'int16_t', 'usals_latitude', '0'), #in 1/100 degree
                         (1, 'int16_t', 'usals_longitude', '0'), #in 1/100 degree
                         (2, 'int16_t', 'usals_altitude', '0') #in m (?)
                               )
@@ -381,5 +381,6 @@ user_options = db_struct(name ='user_options',
                         (8, 'int32_t', 'livebuffer_retention_time', '10*60'),  #10 minutes
                         (9, 'int32_t', 'livebuffer_mpm_part_duration', '10*60'),  #10 minutes
                         (10, 'int32_t', 'dish_move_penalty', 100),
-                        (11, 'int32_t', 'resource_reuse_bonus', 1000)
+                        (11, 'int32_t', 'resource_reuse_bonus', 1000),
+                        (12, 'bool', 'tune_may_move_dish', 'false')
                     ))

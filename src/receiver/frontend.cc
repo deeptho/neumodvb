@@ -970,7 +970,7 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 	case positioner_cmd_t::GOTO_XX: {
 		auto loc = this->get_usals_location();
 
-		auto angle = sat_pos_to_angle(par / 10, loc.usals_longitude / 10, loc.usals_lattitude / 10);
+		auto angle = sat_pos_to_angle(par / 10, loc.usals_longitude / 10, loc.usals_latitude / 10);
 
 		cmd.msg[3] = (angle >> 8) & 0xff;
 		cmd.msg[4] = angle & 0xff;

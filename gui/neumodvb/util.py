@@ -152,7 +152,7 @@ def parse_latitude(val):
         pos = int (float(pos)*100)
         north_south = north_south.lower()
         if 'n' in north_south:
-            pos = abs(pos)
+            pass # -4.0N becomes 4.0S
         elif 's' in north_south:
             pos = -abs(pos)
         return pos
@@ -167,9 +167,9 @@ def parse_longitude(val):
         pos = int (float(pos)*100)
         east_west = east_west.lower()
         if 'e' in east_west:
-            pos = abs(pos)
+            pass # -4.0E becomes 4.0W
         elif 'w' in east_west:
-            pos = -abs(pos)
+            pos = -abs(pos) #-7.0W becomes 7.0W
         return pos
     else:
         return 0

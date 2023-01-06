@@ -1168,7 +1168,14 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	// Clear old tune_mux_confirmation info
 	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
-	auto blindscan = tune_options.use_blind_tune || mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO;
+	if(api_type != api_type_t::NEUMO && mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO) {
+		user_error("Standard dvb api drivers do not support SYS_AUTO; Install neumo drivers or select "
+							 "SYS_DVBSS, SYS_DVBS...");
+		return -1;
+	}
+
+	auto blindscan = tune_options.use_blind_tune || (
+		api_type == api_type_t::NEUMO && mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO);
 
 	auto ret = -1;
 	dtdebug("Tuning adapter " << (int) adapter_no << " rf_in=" << (int) rf_path.rf_input

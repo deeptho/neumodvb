@@ -162,6 +162,10 @@ inline const ss::string_& get_error() {
 	return *error_;
 }
 
+inline void set_error(const ss::string_& old) {
+	*error_ =old;
+}
+
 
 #ifdef NODEBUG
 #define slowdown(maxcount, msg)   {}

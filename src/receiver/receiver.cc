@@ -181,10 +181,8 @@ void receiver_thread_t::unsubscribe_mux_only(std::vector<task_queue_t::future_t>
 	auto dbfe = active_adapter.fe->ts.readAccess()->dbfe;
 	auto new_fe_use_count = devdb::fe::unsubscribe(devdb_wtxn, dbfe);
 	bool deactivate = new_fe_use_count == 0;
-
 	dtdebug(dbfe << " use_count now 0: release_active_adapter subscription_id=" << (int) subscription_id);
 	release_active_adapter(futures, active_adapter_p, devdb_wtxn, subscription_id, deactivate);
-
 }
 
 void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
@@ -1043,7 +1041,9 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 	devdb_wtxn.commit();
 	error = wait_for_all(futures);
 	if(error) {
+		auto saved_error = get_error();
 		unsubscribe(subscription_id);
+		set_error(saved_error); //restore error message
 		return {subscription_id_t::TUNE_FAILED, {}};
 	}
 	else

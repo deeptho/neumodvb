@@ -105,7 +105,7 @@ class DvbsMuxListComboCtrl(wx.ComboCtrl):
     def OnSelectMux(self, mux):
         """Called when user selects a mux
         """
-        print(f'satlist_combo received OnSelectMux {mux}')
+        dtdebug(f'satlist_combo received OnSelectMux {mux}')
         self.mux = mux
         wx.PostEvent(self, MuxSelectEvent(wx.NewIdRef(), mux=mux))
         self.popup.Dismiss()
@@ -118,7 +118,7 @@ class DvbsMuxListComboCtrl(wx.ComboCtrl):
         """
         Set sat from external (not by user)
         """
-        print(f'muxlist_combo received SetSat (old) {sat}')
+        dtdebug(f'muxlist_combo received SetSat (old) {sat}')
         self.sat = sat
         if self.popup.popup_grid is not None:
             self.popup.popup_grid.SelectSat(sat)

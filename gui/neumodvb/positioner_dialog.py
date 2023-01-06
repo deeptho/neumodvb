@@ -691,7 +691,7 @@ class SignalPanel(SignalPanel_):
                 w.SetLabel('' if val == 0 else 'fin')
             else:
                 w.SetForegroundColour(wx.Colour('blue' if val else 'red'))
-        if not locked:
+        if not signal_info.has_timing_lock:
             dtdebug("SignalPanel: NO LONGER LOCKED")
             self.rf_level_gauge.SetValue(rf_level)
             self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
@@ -711,16 +711,17 @@ class SignalPanel(SignalPanel_):
 
         stream_id = driver_mux.stream_id
         isi = ''
-        if locked:
+        if signal_info.has_timing_lock:
             lst, prefix, suffix = get_isi_list(stream_id, signal_info)
             isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) for i in lst])
             isi = f'[{len(signal_info.isi_list)}]: {prefix}{isi}{suffix}'
         self.isi_list_text.SetLabelMarkup(isi)
         #we need the int cast, because driver_mux.delivery_sysstem can be of dvbs, ddvbt or dvbc type
-        if int(driver_mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and locked:
-            matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
-        else:
-            matype="DVBS"
+        #if int(driver_mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and signal_info.timing_lock:
+        #if signal_info.timing_lock:
+        matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
+        #else:
+        #matype="DVBS"
         if locked and signal_info.has_matype:
             pls_mode = lastdot(str(driver_mux.pls_mode))
             pls = f'PLS: {pls_mode} {driver_mux.pls_code}'

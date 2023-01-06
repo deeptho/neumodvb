@@ -371,9 +371,15 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, const cmdseq_t& cmdseq, cons
 	mux.rolloff = (chdb::fe_rolloff_t)cmdseq.get(DTV_ROLLOFF)->u.data;
 	mux.pilot = (chdb::fe_pilot_t)cmdseq.get(DTV_PILOT)->u.data;
 	auto stream_id_prop = cmdseq.get(DTV_STREAM_ID)->u.data;
-	mux.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
-	mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
-	mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
+	if(stream_id_prop ==0xffffffff) {
+		mux.stream_id = -1;
+		mux.pls_mode = chdb::fe_pls_mode_t::ROOT;
+		mux.pls_code = 1;
+	} else {
+		mux.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
+		mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
+		mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
+	}
 	return mux.frequency;
 }
 

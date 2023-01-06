@@ -30,6 +30,7 @@ void neumo_options_t::load_from_db(db_txn& devdb_wtxn, int32_t user_id)
 		/*the following are disabled for now, as there is no
 			GUI to set them
 		*/
+		this->tune_may_move_dish = u.tune_may_move_dish;
 		this->dish_move_penalty = u.dish_move_penalty;
 		this->resource_reuse_bonus = u.resource_reuse_bonus;
 		this->pre_record_time = std::chrono::seconds(u.pre_record_time);

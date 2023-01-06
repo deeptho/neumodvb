@@ -171,6 +171,11 @@ public:
 		return r->dish_move_penalty;
 	}
 
+	inline bool get_tune_may_move_dish() const {
+		auto r = receiver.options.readAccess();
+		return r->tune_may_move_dish;
+	}
+
 	inline int get_resource_reuse_bonus() const {
 		auto r = receiver.options.readAccess();
 		return r->resource_reuse_bonus;

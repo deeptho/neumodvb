@@ -52,6 +52,7 @@ struct neumo_options_t {
 	std::string mpvconfig{"mpv"};
 
 	devdb::usals_location_t usals_location;
+	bool tune_may_move_dish{false};
 	int32_t dish_move_penalty{100}; //penalty for having to move dish; reduces priority
 	int32_t resource_reuse_bonus{1000}; //penalty for having to move dish; increases priority
 

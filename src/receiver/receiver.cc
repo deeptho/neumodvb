@@ -364,7 +364,10 @@ receiver_thread_t::subscribe_service_(std::vector<task_queue_t::future_t>& futur
 		tuned to the desired mux
 	*/
 	tune_options_t tune_options(scan_target_t::SCAN_FULL_AND_EPG);
-	tune_options.may_move_dish = false;
+	{
+		auto r = receiver.options.readAccess();
+		tune_options.may_move_dish = r->tune_may_move_dish;
+	}
 	auto [ret, subscribed_fe_key] = subscribe_mux(futures, devdb_wtxn, mux, subscription_id,
 																								tune_options, nullptr);
 	if ((int) ret < 0)
@@ -1514,7 +1517,11 @@ receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t s
 
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
-	tune_options.may_move_dish = false;
+	{
+		auto r = this->options.readAccess();
+		tune_options.may_move_dish = r->tune_may_move_dish;
+	}
+
 	tune_options.scan_target = scan_target_t::SCAN_FULL_AND_EPG;
 	tune_options.use_blind_tune = blindscan;
 	devdb::fe_key_t subscribed_fe_key;

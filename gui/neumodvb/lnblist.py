@@ -75,6 +75,16 @@ def card_label(lnb):
     short_name = short_name.split('#')[0]
     return f'{short_name}: {name}'
 
+def strike_through(str):
+    return '\u0336'.join(str) + '\u0336'
+
+def  lnbconn_fn(x):
+    return '; '.join([ strike_through(conn.connection_name) if not conn.can_be_used or not conn.enabled \
+                       else conn.connection_name for conn in x[1]])
+def lnbnetwork_fn(x):
+    return '; '.join([ strike_through(pychdb.sat_pos_str(network.sat_pos)) if not network.enabled \
+                       else pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
+
 class LnbTable(NeumoTable):
     CD = NeumoTable.CD
     adapter_fn = lambda x: x[0].adapter_name
@@ -82,8 +92,6 @@ class LnbTable(NeumoTable):
     card_fn = lambda x: card_label(x[0])
     card_rf_in_fn = lambda x: x[2].connection_name(x[0])
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
-    lnbnetwork_fn =  lambda x: '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in x[1]])
-    lnbconn_fn =  lambda x: '; '.join([ conn.connection_name for conn in x[1]])
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
     lnb_key_fn = lambda x: str(x[0])

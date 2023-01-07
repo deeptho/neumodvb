@@ -764,7 +764,8 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 	bool found=false;
 	bool on_positioner{false};
 	bool can_be_used{false};
-
+	if(lnb.usals_pos == sat_pos_none && lnb.networks.size() >0)
+		lnb.usals_pos = lnb.networks[0].sat_pos;
 	for(auto &conn: lnb.connections) {
 		auto c = fe_t::find_by_card_mac_address(devdb_wtxn, conn.card_mac_address);
 		if(c.is_valid()) {

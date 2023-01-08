@@ -21,8 +21,10 @@ import wx.adv
 import wx.lib.agw.pygauge as PG
 import wx.lib.agw.peakmeter as PM
 import wx.lib.masked as masked
+import wx.lib.newevent
 import datetime
 import re
+
 
 def _set_textctrl_size_by_chars(self, tc, w, h):
     sz = tc.GetTextExtent('X')
@@ -272,3 +274,54 @@ class DiseqcChoice(wx.Choice):
             return val
         except:
             return None
+
+OnChangeEvent, EVT_VALUE_CHANGED = wx.lib.newevent.NewEvent()
+
+class TextCtrl(wx.TextCtrl):
+
+    def __init__(self,*args,**kwargs):
+        self.old_value = None
+        wx.TextCtrl.__init__(self,*args, style=wx.TE_PROCESS_ENTER, **kwargs)
+        self.Bind(wx.EVT_SET_FOCUS, self.gotFocus) # used to set old value
+        self.Bind(wx.EVT_KILL_FOCUS, self.lostFocus) # used to get new value
+        self.Bind(wx.EVT_TEXT_ENTER, self.lostFocus) # used to get new value
+
+    def gotFocus(self, evt):
+        evt.Skip()
+        self.old_value = self.GetValue()
+    def lostFocus(self, evt):
+        evt.Skip(False)
+        if self.GetValue() != self.old_value:
+            evt = OnChangeEvent(widget=self, oldValue=self.old_value, newValue=self.GetValue())
+            wx.PostEvent(self, evt)
+
+class LongitudeTextCtrl(TextCtrl):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    def SetValue(self, floatval):
+        from pychdb import sat_pos_str
+        super().SetValue(sat_pos_str(int(floatval*100)))
+    def GetValue(self):
+        from neumodvb.util import parse_longitude
+        from pychdb import sat_pos_str
+        val = super().GetValue()
+        floatval = parse_longitude(val)/100.
+        self.ChangeValue(sat_pos_str(int(floatval*100))) #normalise display
+        return floatval
+
+class LatitudeTextCtrl(TextCtrl):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    def StrValue(self, floatval):
+        return f'{floatval}S' if floatval < 0 else f'{floatval}N'
+
+    def SetValue(self, floatval):
+        from pychdb import sat_pos_str
+        super().SetValue(self.StrValue(floatval))
+    def GetValue(self):
+        from neumodvb.util import parse_latitude
+        from pychdb import sat_pos_str
+        val = super().GetValue()
+        floatval = parse_latitude(val)/100.
+        self.ChangeValue(self.StrValue(floatval)) #normalise display
+        return floatval

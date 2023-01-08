@@ -309,7 +309,7 @@ void active_adapter_t::monitor() {
 		dtdebugx("adapter %d NO MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
 		return;
 	}
-	dtdebugx("adapter %d MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
+	//dtdebugx("adapter %d MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
 
 	bool must_retune{false};
 	bool must_reinit_si{false};

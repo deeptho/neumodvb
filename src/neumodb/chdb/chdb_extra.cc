@@ -647,15 +647,16 @@ void chdb::sat_pos_str(ss::string_& s, int position) {
 	}
 }
 
-void chdb::matype_str(ss::string_& s, int16_t matype) {
+void chdb::matype_str(ss::string_& s, int16_t matype, int rolloff) {
 	// See en 302 307 v1.1.2; stid135 manual seems wrong in places
 	// en_302307v010201p_DVBS2.pdf
 	//s.sprintf("0x%x ", matype);
+	bool is_ts{false};
 	if( matype == 256 ) { //dvbs
 		s.sprintf("DVBS");
 		return;
 	}
-
+	s.sprintf("0x%x: ", matype);
 	if( matype <0 ) { //not tuned yet; matype unknown
 		s.sprintf("");
 		return;
@@ -672,6 +673,7 @@ void chdb::matype_str(ss::string_& s, int16_t matype) {
 		break;
 	case 3:
 		s.sprintf("TS "); //transport stream
+		is_ts=true;
 		break;
 #if 0
 	case 4:
@@ -693,21 +695,34 @@ void chdb::matype_str(ss::string_& s, int16_t matype) {
 		s.sprintf("ISSYI ");
 
 	if ((matype >> 2) & 1)
-		s.sprintf("NPD ");
-
-	switch (matype & 3) {
-	case 0:
-		s.sprintf("35%%");
-		break;
-	case 1:
-		s.sprintf("25%%");
-		break;
-	case 2:
-		s.sprintf("20%%");
-		break;
-	case 3:
-		s.sprintf("??%%");
-		break;
+		s.sprintf(is_ts? "NPD ": "Lite ");
+	if(rolloff>=0) {
+		switch((fe_rolloff) rolloff) {
+		case 	ROLLOFF_35: s.sprintf("35%%"); break;
+		case 	ROLLOFF_20: s.sprintf("20%%"); break;
+		case 	ROLLOFF_25: s.sprintf("25%%"); break;
+		case 	ROLLOFF_LOW: s.sprintf("low%%"); break;
+		case 	ROLLOFF_15: s.sprintf("15%%"); break;
+		case 	ROLLOFF_10: s.sprintf("10%%"); break;
+		case 	ROLLOFF_5: s.sprintf("5%%"); break;
+		default:
+			s.sprintf("??"); break;
+		}
+	} else {
+		switch (matype & 3) {
+		case 0:
+			s.sprintf("35%%");
+			break;
+		case 1:
+			s.sprintf("25%%");
+			break;
+		case 2:
+			s.sprintf("20%%");
+			break;
+		case 3:
+			s.sprintf("LO"); //low rollof (requires inspection of multiple bbframes)
+			break;
+		}
 	}
 }
 

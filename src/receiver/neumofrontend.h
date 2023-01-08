@@ -699,6 +699,7 @@ enum fe_rolloff {
 	ROLLOFF_15,
 	ROLLOFF_10,
 	ROLLOFF_5,
+	ROLLOFF_LOW, //unknown but lower than 20
 };
 
 /**

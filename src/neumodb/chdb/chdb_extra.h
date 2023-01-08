@@ -263,10 +263,10 @@ namespace chdb {
 		return s;
 	}
 
-	void matype_str(ss::string_& s, int16_t matype);
-	inline auto matype_str(int16_t matype) {
+	void matype_str(ss::string_& s, int16_t matype, int rolloff=-1);
+	inline auto matype_str(int16_t matype, int rolloff=-1) {
 		ss::string<32> s;
-		matype_str(s, matype);
+		matype_str(s, matype, rolloff);
 		return s;
 	}
 

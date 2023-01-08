@@ -355,7 +355,8 @@ void export_signal_info(py::module& m) {
 			return  &(ss::vector_<uint16_t>&)i.matype_list;
 		})
 		.def_property_readonly("matype", [](const signal_info_t& i) {
-			auto ret = chdb::matype_str(i.lock_status.matype);
+			auto *dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&i.driver_mux);
+			auto ret = chdb::matype_str(i.lock_status.matype, dvbs_mux ? (int)dvbs_mux->rolloff : -1);
 			return  std::string(ret.c_str());
 		})
 		.def_property_readonly("locktime", [](const signal_info_t& i) {

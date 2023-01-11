@@ -156,14 +156,14 @@ class epoll_t {
 	enum class type_name : base_name {}
 
 
-extern thread_local std::shared_ptr<ss::string<256>> error_;
+extern thread_local ss::string<256> user_error_;
 
 inline const ss::string_& get_error() {
-	return *error_;
+	return user_error_;
 }
 
 inline void set_error(const ss::string_& old) {
-	*error_ =old;
+	user_error_ =old;
 }
 
 

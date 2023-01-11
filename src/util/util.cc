@@ -396,4 +396,4 @@ int file_swap(const char* file1, const char* file2) {
 
 __thread system_time_t now{};
 
-thread_local std::shared_ptr<ss::string<256>> error_{std::make_shared<ss::string<256>>()};
+thread_local ss::string<256> user_error_;

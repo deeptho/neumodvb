@@ -58,12 +58,12 @@
 
 int task_queue_t::future_t::get() {
 	auto ret= base.get();
-	error_->append(ret.errmsg);
+	user_error_.append(ret.errmsg);
 	return ret.retval;
 }
 
 bool wait_for_all(std::vector<task_queue_t::future_t>& futures) {
-	error_->clear();
+	user_error_.clear();
 	bool error = false;
 	for (auto& f : futures) {
 		auto ret= f.get();

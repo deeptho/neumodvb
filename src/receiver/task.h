@@ -248,7 +248,7 @@ public:
 		task_t task([callback{std::move(callback)}]() {
 			task_result_t ret;
 			ret.retval = callback();
-			ret.errmsg = *error_;
+			ret.errmsg = user_error_;
 			return ret;
 		});
 		auto f = task.get_future();

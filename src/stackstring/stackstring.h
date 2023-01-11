@@ -710,6 +710,10 @@ namespace ss {
 				set_size(s-1); //remove training 0x0
 			append_raw(data, len);
 		}
+
+		inline void append(const string_& in) {
+			append(in.buffer(), in.size()+1);
+		}
 		void append_tolower(const string_& in);
 
 		static string_ view(char* v, int v_cap, int v_len) {

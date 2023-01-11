@@ -56,10 +56,19 @@
 #include "util/dtutil.h"
 #include "util/identification.h"
 
+int task_queue_t::future_t::get() {
+	auto ret= base.get();
+	error_->append(ret.errmsg);
+	return ret.retval;
+}
+
 bool wait_for_all(std::vector<task_queue_t::future_t>& futures) {
+	error_->clear();
 	bool error = false;
-	for (auto& f : futures)
-		error |= (f.get() < 0);
+	for (auto& f : futures) {
+		auto ret= f.get();
+		error |= (ret < 0);
+	}
 	futures.clear();
 	return error;
 }

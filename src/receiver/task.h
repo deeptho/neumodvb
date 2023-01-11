@@ -53,13 +53,56 @@ public:
 };
 
 
+struct task_result_t  {
+	int retval{0};
+	ss::string<64> errmsg;
+};
+
 
 class task_queue_t {
 	template<typename T> friend typename T::cb_t& cb(T& t);
 	template<typename T> friend const typename T::cb_t& cb(const T& t);
 public:
-	typedef std::packaged_task<int()> task_t;
-	typedef std::future<int> future_t;
+
+	class future_t {
+		using base_t = std::future<task_result_t>;
+		base_t base;
+	public:
+		future_t() = default;
+		future_t(const base_t& base) = delete;
+		future_t(future_t&& other)  = default;
+		future_t(base_t&& base_) : base (std::move(base_)) {}
+
+		future_t& operator=(future_t&& other) { base = std::move(other.base); return *this;}
+		future_t& operator=(const future_t& other) = delete;
+
+		int get();
+		inline void wait() { base.wait(); }
+		bool valid() const noexcept { return base.valid();}
+	};
+
+	class task_t {
+		using base_t = std::packaged_task<task_result_t()>;
+		using callback_t = std::function<task_result_t()>;
+		base_t base;
+	public:
+
+		inline future_t get_future() {
+			return future_t(base.get_future());
+		}
+		task_t() = default;
+		explicit task_t (callback_t&& f) : base(std::move(f)) {}
+		task_t(const task_t& other) = delete;
+		task_t(task_t&& other) : base(std::move(other.base)) {}
+
+		task_t& operator=(const task_t& other) = delete;
+		task_t& operator=(task_t&& other) = default;
+
+		inline void operator()() {
+			base();
+		}
+	};
+
 	typedef std::queue<task_t> queue_t;
 
 private:
@@ -186,8 +229,6 @@ public:
 		return status_future.get();
 	}
 
-	//std::future<int(void)> tuner_queue_status;
-
 	task_queue_t(thread_group_t thread_group) :thread_group(thread_group)  {
 		//owner=std::this_thread::get_id();
 		epx.add_fd(int(notify_fd), EPOLLIN|EPOLLERR|EPOLLHUP);
@@ -199,17 +240,15 @@ public:
 	virtual ~task_queue_t() {
 	}
 
-	std::future<int> push_task_(std::function<int()>&& callback, bool must_exit=false) {
+	future_t push_task_(std::function<int()>&& callback, bool must_exit=false) {
 		if(std::this_thread::get_id() == this->thread_.get_id()) {
 			dterror("Thread calls back to itself");
 			//assert(0);
 		}
-
-		auto perr = ::error_;
-		std::packaged_task<int()> task([perr, callback{std::move(callback)}]() {
-			auto ret = callback();
-			if(perr.get())
-				*perr = *error_;
+		task_t task([callback{std::move(callback)}]() {
+			task_result_t ret;
+			ret.retval = callback();
+			ret.errmsg = *error_;
 			return ret;
 		});
 		auto f = task.get_future();
@@ -231,11 +270,11 @@ public:
 		return f;
 	}
 
-	inline std::future<int> push_task_and_exit(std::function<int()>&& callback) {
+	inline future_t push_task_and_exit(std::function<int()>&& callback) {
 		return push_task_(std::move(callback), true);
 	}
 
-	inline std::future<int> push_task(std::function<int()>&& callback) {
+	inline future_t push_task(std::function<int()>&& callback) {
 		return push_task_(std::move(callback), false);
 	}
 

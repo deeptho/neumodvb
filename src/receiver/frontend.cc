@@ -723,7 +723,7 @@ int dvb_frontend_t::stop() {
 
 	 */
 	auto m = monitor_thread;
-	std::future<int> f;
+	task_queue_t::future_t f;
 	if (m.get()) {
 		f = m->push_task( [m] () {
 			cb(*m).pause();
@@ -757,7 +757,7 @@ int dvb_frontend_t::stop() {
 
 int dvb_frontend_t::start() {
 	auto m = monitor_thread;
-	std::future<int> f;
+	task_queue_t::future_t f;
 	if (m.get()) {
 		//need tp push by value as we don't wait for call to complete
 		f = m->push_task( [m] () {

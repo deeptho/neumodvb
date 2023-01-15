@@ -380,7 +380,7 @@ class Spectrum(object):
         offset = h*1.5*1000
         self.pol = enum_to_str (self.spectrum.k.pol)
         annoty, lrflag = pyspectrum.find_annot_locations(spec[:,1], idxs, f, #f only used for debugging
-                                                         int(w*xscale), int(h*1.8*1000),
+                                                         int(w*xscale), int(h*2*1000),
                                                          offset)
         self.annot_maxy = annoty.max()/1000
         annoty /= 1000
@@ -745,7 +745,7 @@ class SpectrumPlot(wx.Panel):
         if annot is None:
             assert False
             return
-        freq, symbol_rate = int(mux.frequency/1000), int(mux.symbol_rate/1000),
+        freq, symbol_rate = mux.frequency/1000, int(mux.symbol_rate/1000),
         annot.set_text(f"{freq:8.3f}{enum_to_str(mux.pol)} \n{symbol_rate}kS/s ")
         annot.tp.scan_ok = locked
         annot.tp.scan_failed = not locked

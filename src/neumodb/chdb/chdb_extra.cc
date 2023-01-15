@@ -777,6 +777,11 @@ std::ostream& chdb::operator<<(std::ostream& os, const scan_status_t& scan_statu
 	return os;
 }
 
+std::ostream& chdb::operator<<(std::ostream& os, const scan_result_t& scan_result) {
+	os << scan_result_name(scan_result);
+	return os;
+}
+
 std::ostream& chdb::operator<<(std::ostream& os, const sat_t& sat) {
 	if (sat.sat_pos == sat_pos_dvbc) {
 		stdex::printf(os, "DVBC");

@@ -183,6 +183,7 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 																								nullptr /*fe_key_to_release*/);
 		devdb_rtxn.abort();
 	}
+	dtdebug("Calling si.reset with force_finalize=true\n");
 	si.reset(true /*force_finalize*/, tune_state==tune_state_t::TUNE_FAILED);
 	//TODO: needless read here, followed by write within tune()
 	auto tune_options = fe->ts.readAccess()->tune_options;
@@ -192,6 +193,7 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 template <typename mux_t> inline int active_adapter_t::retune() {
 	auto mux = std::get<mux_t>(current_tp());
 	bool user_requested = false;
+	dtdebug("Calling si.reset with force_finalize=true\n");
 	si.reset(true /*force_finalize*/, tune_state == tune_state_t::TUNE_FAILED);
 
 	//TODO: needless read here, followed by write within tune()
@@ -342,6 +344,7 @@ void active_adapter_t::monitor() {
 		init_si(t);
 	} else if (must_reset_si || is_not_ts) {
 		//now - tune_start_time xxx
+		dtdebugx("Calling si.reset with force_finalize=true; must_reset_si=%d is_not_ts=%d\n", must_reset_si, is_not_ts);
 		si.reset(true /*force_finalize*/, tune_state == tune_state_t::TUNE_FAILED);
 		dttime(200);
 		check_scan_mux_end();
@@ -659,7 +662,6 @@ void active_adapter_t::check_scan_mux_end()
 	if(this->fe) {
 		auto dbfe = this->fe->dbfe();
 		auto mux = si.reader->stream_mux();
-		dtdebug("calling on_scan_mux_end dbfe=" <<dbfe << " mux=" <<mux);
 		auto& receiver_thread = receiver.receiver_thread;
 		auto* c = chdb::mux_common_ptr(mux);
 		if(chdb::mux_key_ptr(mux)->extra_id==0) {
@@ -687,6 +689,9 @@ void active_adapter_t::check_scan_mux_end()
 				chdb_wtxn.commit();
 			}
 		}
+		dtdebug("calling on_scan_mux_end dbfe=" << dbfe << " mux=" <<mux << " scan_result="<<
+						mux_common_ptr(mux)->scan_result);
+
 		receiver_thread.push_task([&receiver_thread, dbfe, mux, this]() {
 			cb(receiver_thread).on_scan_mux_end(dbfe, mux, this);
 			return 0;

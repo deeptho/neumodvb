@@ -271,6 +271,7 @@ namespace chdb {
 	}
 
 	std::ostream& operator<<(std::ostream& os, const scan_status_t& scan_status);
+	std::ostream& operator<<(std::ostream& os, const scan_result_t& scan_result);
 	std::ostream& operator<<(std::ostream& os, const language_code_t& code);
 	std::ostream& operator<<(std::ostream& os, const sat_t& sat);
 	std::ostream& operator<<(std::ostream& os, const mux_key_t& mux_key);

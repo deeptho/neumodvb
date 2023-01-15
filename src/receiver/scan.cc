@@ -709,6 +709,8 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 				if((int) subscription_to_erase >=0) {
 					assert(subscription_to_erase == finished_subscription_id);
 					it = subscriptions.erase(it);
+					if (subscription_to_erase == monitored_subscription_id)
+						monitored_subscription_id = subscription_id_t::NONE;
 					scan_stats.writeAccess()->active_muxes = subscriptions.size();
 				} else {
 					bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
@@ -1056,21 +1058,20 @@ void scanner_t::notify_signal_info(const subscriber_t& subscriber, const ss::vec
 	if(!found)
 		return; //not a scan control subscription_id
 	auto &scan = it->second;
+
 	for(auto subscription_id: fe_subscription_ids) {
 		auto [it, found] = find_in_map(scan.subscriptions, subscription_id);
 		if(!found)
 			continue; //this is not a subscription used by this scan
-		auto [itm, foundm] = find_in_map(scan.subscriptions, scan.monitored_subscription_id);
-		if(!foundm) // scan.monitored_subscription_id no longer valid
-				scan.monitored_subscription_id = subscription_id_t::NONE;
-		if((int) scan.monitored_subscription_id < 0)
-			scan.monitored_subscription_id = subscription_id;//pick a new subscription_id to monitor
-
+		if (scan.monitored_subscription_id == subscription_id_t::NONE) {
+			scan.monitored_subscription_id = subscription_id;
+		}
 		if(subscription_id == scan.monitored_subscription_id) {
 			subscriber.notify_signal_info(signal_info, true /*from_scanner*/);
 			return;
 		}
 	}
+	dterrorx("NOT Notifying: monitored_subscription_id=%d\n", (int) scan.monitored_subscription_id);
 }
 
 

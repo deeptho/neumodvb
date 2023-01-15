@@ -196,8 +196,10 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 /*
 	rescan a peak after the first scan, which used database parameters and which failed.
 	This time, use peak parameters
+	returns false if scan has been launched successfully, or otherwise true, meaning that
+	mux scan should be abolished
  */
-void
+bool
 scan_t::rescan_peak(blindscan_t& blindscan,
 										subscription_id_t reuseable_subscription_id, scan_subscription_t& subscription)
 
@@ -244,10 +246,10 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 		/* we cannot subscribe the mux right now.  This should never happen
 			 as we own a subscription
 		*/
-		assert(0);
+		return true;
 	} else {
 	}
-	return;
+	return false;
 }
 
 
@@ -372,8 +374,7 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 			 std::min(symbol_rate, (int) subscription.peak.symbol_rate)/4) //less than 25% difference in symbol rate
 			return true; //blindscanned will not likely lead to different results
 		dtdebug("Calling rescan_peak for mux: " << finished_mux);
-		rescan_peak(blindscan, subscription_id, subscription);
-		return false;
+		return rescan_peak(blindscan, subscription_id, subscription);
 	}
 
 	/*

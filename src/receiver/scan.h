@@ -302,7 +302,7 @@ private:
 							 const devdb::rf_path_t* required_rf_path,
 							 bool use_blind_tune);
 
-	void rescan_peak(blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
+	bool rescan_peak(blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
 									 scan_subscription_t& subscription);
 
 	subscription_id_t scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,

@@ -136,7 +136,7 @@ std::ostream& devdb::operator<<(std::ostream& os, const fe_key_t& fe_key) {
 
 std::ostream& devdb::operator<<(std::ostream& os, const fe_t& fe) {
 	using namespace chdb;
-	stdex::printf(os, "C%dA%d F%d", (int)fe.adapter_no, fe.card_no, (int)fe.k.frontend_no);
+	stdex::printf(os, "C%dA%d F%d", fe.card_no, (int)fe.adapter_no, (int)fe.k.frontend_no);
 	stdex::printf(os, " %s;%s", fe.adapter_name, fe.card_address);
 	stdex::printf(os, " enabled=%s%s%s available=%d",
 								fe.enable_dvbs ? "S" :"", fe.enable_dvbt ? "T": "", fe.enable_dvbc ? "C" : "", fe.can_be_used);

@@ -81,8 +81,11 @@ active_si_stream_t::active_si_stream_t
 }
 
 void active_si_stream_t::reset(bool force_finalize, bool tune_failed) {
-	if((force_finalize || tune_failed) && !scan_done)
+	if((force_finalize || tune_failed) && !scan_done) {
+		dtdebugx("tune failed? force_finalize=%d tune_failed=%d scan_done=%d\n",
+						force_finalize, tune_failed, scan_done);
 		finalize_scan(true /*done*/, tune_failed);
+	}
 	::active_si_data_t::reset();
 	scan_done = force_finalize || tune_failed;
 	call_scan_mux_end = true;
@@ -808,6 +811,7 @@ void active_si_stream_t::scan_report() {
 		tune_confirmation.si_done = true;
 		reader->update_stream_mux_tune_confirmation(tune_confirmation);
 	}
+	dtdebug("tune succeeded\n");
 	finalize_scan(done, false /*tune_failed*/);
 }
 
@@ -824,7 +828,7 @@ void active_si_stream_t::finalize_scan(bool done, bool tune_failed)
 	to_str(s, mux);
 	auto* mux_common = chdb::mux_common_ptr(mux);
 	if(scan_state.temp_tune_failure) {
-		dtdebug("finalize_scan NOSAVE scan_in_progress=" << scan_in_progress << " " << mux);
+		dtdebug("finalize_scan NOSAVE temp_tune_failure scan_in_progress=" << scan_in_progress << " " << mux);
 		auto scan_start_time = receiver.scan_start_time();
 		call_scan_mux_end  = (scan_in_progress && scan_start_time >=0);
 		return;

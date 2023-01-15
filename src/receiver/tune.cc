@@ -179,6 +179,11 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 		pending, and when parallel tuners are in use, the second tuner might decide to scan
 			the mux again
 	*/
+	ss::string<128> prefix;
+	prefix << "TUN" << active_adapter->get_adapter_no() << "-TUNE";
+	log4cxx::NDC::pop();
+	log4cxx::NDC ndc(prefix.c_str());
+
 	dtdebug("tune mux action " << mux);
 	active_adapter->end_si(); //clear left overs from last tune
 	mux = active_adapter->prepare_si(mux, false /*start*/);
@@ -204,6 +209,10 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	active_adapter->end_si(); //clear left overs from last tune
 	mux = active_adapter->prepare_si(mux, false /*start*/);
 	active_adapter->processed_isis.reset();
+	ss::string<128> prefix;
+	prefix << "TUN" << active_adapter->get_adapter_no() << "-TUNE";
+	log4cxx::NDC::pop();
+	log4cxx::NDC ndc(prefix.c_str());
 
 	dtdebugx("tune mux action");
 	this->active_adapters[active_adapter.get()] = active_adapter;
@@ -240,6 +249,7 @@ int tuner_thread_t::exit() {
 		active_adapter.remove_all_services(recmgr);
 		ss::string<128> prefix;
 		prefix << "SI" << active_adapter.get_adapter_no() << "-STOP";
+		log4cxx::NDC::pop();
 		log4cxx::NDC ndc(prefix.c_str());
 		active_adapter.deactivate();
 	}
@@ -247,6 +257,11 @@ int tuner_thread_t::exit() {
 }
 
 int tuner_thread_t::cb_t::remove_active_adapter(active_adapter_t& active_adapter) {
+	ss::string<128> prefix;
+	prefix << "TUN" << active_adapter.get_adapter_no() << "-REMOVE";
+	log4cxx::NDC::pop();
+	log4cxx::NDC ndc(prefix.c_str());
+
 	auto [it, found] = find_in_map(this->active_adapters, &active_adapter);
 	if (!found) {
 		dterrorx("Request to remove active_adapter %d which was already removed", active_adapter.get_adapter_no());

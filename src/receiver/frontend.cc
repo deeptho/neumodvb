@@ -1830,8 +1830,8 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 		if (ret < 0)
 			return {ret, new_usals_sat_pos};
 	}
-	if( must_pause)
-		msleep(100);
+
+	msleep(20);
 	return {1, new_usals_sat_pos};
 }
 
@@ -1876,6 +1876,7 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(devdb::fe_band_t band, fe_
 	if (this->sec_status.set_tone(fefd, tone)<0) {
 		return {-1, new_usals_sat_pos};
 	}
+	msleep(20);
 	return {0, new_usals_sat_pos};
 }
 

@@ -538,10 +538,12 @@ void dvbdev_monitor_t::disable_missing_adapters() {
 		if(!found) {
 			ss::string<128> adapter_name;
 			adapter_name.sprintf("A-- %s", fe.card_short_name);
-			if(fe.present || fe.can_be_used || adapter_name != fe.adapter_name) {
+			if(fe.present || fe.can_be_used || adapter_name != fe.adapter_name ||
+				 fe.sub != devdb::fe_subscription_t()) {
 				fe.can_be_used = false;
 				fe.present = false;
 				fe.adapter_no = -1;
+				fe.sub = {};
 				fe.adapter_name = adapter_name;
 				put_record(devdb_wtxn, fe);
 			}

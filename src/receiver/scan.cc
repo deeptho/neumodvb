@@ -752,13 +752,10 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		chdb_rtxn.commit();
 		if(!subscription.scan_start_reported) {
 			subscription.scan_start_reported = true;
-			auto& blindscan = blindscans[subscription.blindscan_key];
-			scan_report_t report{subscription, blindscan.spectrum_key, {}};
-			report.scan_stats = *scan_stats.readAccess();
-			receiver_thread.notify_scan_mux_end(scan_subscription_id, report);
+			auto scan_stats_ = *scan_stats.readAccess();
+			receiver_thread.notify_scan_start(scan_subscription_id, scan_stats_);
 		}
 	}
-	// error = wait_for_all(futures);
 
 	if (error) {
 		dterror("Error encountered during scan");

@@ -523,6 +523,7 @@ public:
 	//functions safe to call from other threads
 	scan_stats_t get_scan_stats(subscription_id_t scan_subscription_id);
 	void notify_signal_info(const signal_info_t& info);
+	void notify_scan_start(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats);
 	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report);
 	class cb_t;
 

@@ -1938,6 +1938,27 @@ void receiver_thread_t::notify_scan_mux_end(subscription_id_t scan_subscription_
 	}
 }
 
+//called from scanner loop to inform about scan statistics at start (for display on mux screen)
+void receiver_thread_t::notify_scan_start(subscription_id_t scan_subscription_id, const scan_stats_t& stats) {
+	{
+		if(!scanner)
+			return;
+		auto mss = receiver.subscribers.readAccess();
+		auto [it, found] = find_in_map_if(
+			*mss, [scan_subscription_id](auto&x) {
+				auto& sub= x.second;
+				return sub->get_subscription_id() == scan_subscription_id;
+			});
+		if(!found)
+			return;
+		auto& ms = it->second;
+		if (!ms)
+			return;
+		//Notify spectrum dialog and muxlist
+		ms->notify_scan_start(stats);
+	}
+}
+
 void receiver_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum) {
 	{
 		auto mss = subscribers.readAccess();

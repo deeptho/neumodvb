@@ -216,6 +216,11 @@ void subscriber_t::notify_signal_info(const signal_info_t& signal_info, bool fro
 	}
 }
 
+void subscriber_t::notify_scan_start(const scan_stats_t& scan_stats) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SCAN_START)))
+		return;
+	notify(scan_stats);
+}
 
 void subscriber_t::notify_scan_mux_end(const scan_report_t& report) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SCAN_MUX_END)))

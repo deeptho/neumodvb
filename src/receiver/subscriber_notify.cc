@@ -62,9 +62,11 @@ template <typename T> void subscriber_t::notify(const T& data) {
 #else
 typedef std::unique_ptr<std::string> string_ptr_t;
 typedef std::unique_ptr<signal_info_t> signal_info_ptr_t;
+typedef std::unique_ptr<scan_stats_t> scan_stats_ptr_t;
 typedef std::unique_ptr<scan_report_t> scan_report_ptr_t;
 typedef std::unique_ptr<statdb::spectrum_t> spectrum_ptr_t;
-typedef std::variant<signal_info_ptr_t, scan_report_ptr_t, spectrum_ptr_t, string_ptr_t> notification_ptr_t;
+typedef std::variant<signal_info_ptr_t, scan_stats_ptr_t, scan_report_ptr_t,
+										 spectrum_ptr_t, string_ptr_t> notification_ptr_t;
 
 py::object subscriber_t::handle_to_py_object(int64_t handle) {
 	auto& ptr = *(notification_ptr_t*)handle;
@@ -93,3 +95,4 @@ template void subscriber_t::notify<std::string>(const std::string&) const;
 template void subscriber_t::notify<signal_info_t>(const signal_info_t&) const;
 template void subscriber_t::notify<statdb::spectrum_t>(const statdb::spectrum_t&) const;
 template void subscriber_t::notify<scan_report_t>(const scan_report_t&) const;
+template void subscriber_t::notify<scan_stats_t>(const scan_stats_t&) const;

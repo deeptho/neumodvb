@@ -161,8 +161,13 @@ class neumoMainFrame(mainFrame):
 
     def OnSubscriberCallback(self, evt):
         data = get_object(evt)
-        if type(data) == pyreceiver.scan_report_t:
+        if type(data) == pyreceiver.scan_stats_t:
+            st = data
+        elif type(data) == pyreceiver.scan_report_t:
             st = data.scan_stats
+        else:
+            st = None
+        if st is not None:
             done = st.pending_muxes + st.active_muxes == 0
             pending = st.pending_muxes
             ok = st.locked_muxes

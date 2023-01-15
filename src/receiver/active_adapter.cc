@@ -336,7 +336,7 @@ void active_adapter_t::monitor() {
 			[this](dvbs_mux_t&& mux) { retune<dvbs_mux_t>();},
 			[this](dvbc_mux_t&& mux) { retune<dvbc_mux_t>(); },
 			[this](dvbt_mux_t&& mux) { retune<dvbt_mux_t>(); });
-	} else if (must_reinit_si) {
+	} else if (must_reinit_si && ! is_not_ts ) {
 		auto t = fe->ts.readAccess()->tune_options.scan_target;
 		ss::string<128> prefix;
 		prefix << "TUN" << this->get_adapter_no();

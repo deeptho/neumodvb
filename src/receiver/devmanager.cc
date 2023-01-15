@@ -268,6 +268,8 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 																		devdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
 	auto dbfe_old = c.is_valid() ? c.current() : devdb::fe_t();
 	dbfe_old.mtime = t.dbfe.mtime; //prevent this from being a change
+	if (t.dbfe.card_no<0)
+		t.dbfe.card_no = dbfe_old.card_no;
 	bool changed = !c.is_valid() || (dbfe_old != t.dbfe);
 	if(dbfe_old.sub.owner != -1 && dbfe_old.sub.owner != getpid() && kill((pid_t)dbfe_old.sub.owner, 0)) {
 		dtdebugx("process pid=%d has died\n", dbfe_old.sub.owner);

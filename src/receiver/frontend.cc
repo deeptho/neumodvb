@@ -1197,9 +1197,10 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 		if (mux.symbol_rate > 0)
 			cmdseq.add(DTV_SYMBOL_RATE, mux.symbol_rate); //
 		cmdseq.add(DTV_FREQUENCY, frequency);						// For satellite delivery systems, it is measured in kHz.
-
-		// not needed?
+#if 0
+		// not needed and is dangerous when multiple frontends attached to same tuner
 		cmdseq.add(DTV_VOLTAGE, 1 - pol_is_v);
+#endif
 		cmdseq.init_pls_codes();
 		if (mux.stream_id >= 0)
 			cmdseq.add_pls_code(make_code((int)mux.pls_mode, (int)mux.pls_code));
@@ -1217,8 +1218,10 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 
 		cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
 		cmdseq.add(DTV_MODULATION, (int)mux.modulation);
-
-		// cmdseq.add(DTV_VOLTAGE,  1 - pol_is_v);
+#if 0
+// not needed and is dangerous when multiple frontends attached to same tuner
+		cmdseq.add(DTV_VOLTAGE,  1 - pol_is_v);
+#endif
 		cmdseq.add(DTV_FREQUENCY, frequency);					// For satellite delivery systems, it is measured in kHz.
 		cmdseq.add(DTV_SYMBOL_RATE, mux.symbol_rate); // Must be in Symbols/second
 		cmdseq.add(DTV_INNER_FEC, (int)mux.fec);

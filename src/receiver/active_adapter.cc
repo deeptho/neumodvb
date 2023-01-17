@@ -397,10 +397,9 @@ int active_adapter_t::open_demux(int mode) const {
 	return fd;
 }
 
-void active_adapter_t::update_lof(const fe_state_t& ts, const ss::vector<int32_t, 2>& lof_offsets) {
-	auto& lnb = ts.reserved_lnb;
+void active_adapter_t::update_lof(const devdb::lnb_key_t& lnb_key, const ss::vector<int32_t, 2>& lof_offsets) {
 	auto devdb_wtxn = receiver.devdb.wtxn();
-	auto c = devdb::lnb_t::find_by_key(devdb_wtxn, lnb.k);
+	auto c = devdb::lnb_t::find_by_key(devdb_wtxn, lnb_key);
 	if (c.is_valid()) {
 		/*note that we do not update the full mux (e.g., when called from positioner_dialog user may want
 			to not save some changes.
@@ -636,11 +635,10 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 
 	if(dvbs_mux) {
 		using namespace chdb;
-		auto r = fe->ts.readAccess();
-		auto& lnb = r->reserved_lnb;
+		auto lnb = fe->ts.readAccess()->reserved_lnb;
 		if(dvbs_mux->c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
 			dtdebugx("adapter %d Updating LNB LOF offset", get_adapter_no());
-			update_lof(*r, lnb.lof_offsets);
+			update_lof(lnb.k, lnb.lof_offsets);
 		}
 	}
 }

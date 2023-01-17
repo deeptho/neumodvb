@@ -207,7 +207,7 @@ public: //this data is safe to access from other threads
 		//@todo make thread safe
 	}
 
-	void update_lof(const fe_state_t& ts, const ss::vector<int32_t,2>& lof_offsets);
+	void update_lof(const devdb::lnb_key_t& lnb_key, const ss::vector<int32_t,2>& lof_offsets);
 private:
 	int clear();
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);

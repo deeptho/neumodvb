@@ -95,7 +95,8 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 					dtdebug("Timed out while waiting for lock; retuning for " << current_tp());
 					must_tune = true;
 				}
-				auto* c = mux_common_ptr(fe->tuned_mux());
+				auto mux = fe->tuned_mux();
+				auto* c = mux_common_ptr(mux);
 				auto scan_in_progress = (c->scan_status == chdb::scan_status_t::ACTIVE);
 				if(scan_in_progress)
 					must_reset_si = true;

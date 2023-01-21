@@ -454,6 +454,10 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 			ret.lnb_lof_offset.reset();
 	}
 
+	bool tone_on = cmdseq.get(DTV_TONE)->u.data == SEC_TONE_ON;
+	auto freq = cmdseq.get(DTV_FREQUENCY)->u.data;
+	ret.uncorrected_driver_freq =  devdb::lnb::uncorrected_freq_for_driver_freq(lnb, freq, tone_on);
+
 	//the following must be called even when not locked, to consume the results of all DTV_... commands
 	visit_variant(
 		ret.driver_mux,
@@ -1186,9 +1190,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 
 	cmdseq_t cmdseq;
 	this->num_constellation_samples = num_constellation_samples;
-	// auto lo_frequency = get_lo_frequency(mux.frequency);
 	auto [band, voltage, frequency] = devdb::lnb::band_voltage_freq_for_mux(lnb, mux);
-	int pol_is_v = 1 - voltage;
 	cmdseq.add_clear();
 	if (blindscan) {
 		assert (api_type == api_type_t::NEUMO);

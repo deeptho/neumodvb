@@ -169,6 +169,7 @@ namespace devdb::lnb {
 		@todo: see linuxdvb_lnb.c for more configs to support
 		@todo: uniqcable
 	*/
+	int uncorrected_freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band);
 	int freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band);
 	int driver_freq_for_freq(const devdb::lnb_t& lnb, int frequency);
 
@@ -178,7 +179,7 @@ namespace devdb::lnb {
 	bool add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network);
 	bool add_or_edit_connection(db_txn& rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection);
 	void update_lnb(db_txn& wtxn, devdb::lnb_t& lnb, bool save);
-	void reset_lof_offset(devdb::lnb_t&  lnb);
+	void reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);
 
 	bool can_pol(const devdb::lnb_t &  lnb, chdb::fe_polarisation_t pol);

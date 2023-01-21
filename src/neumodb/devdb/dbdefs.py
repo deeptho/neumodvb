@@ -21,7 +21,7 @@ db = db_db(gen_options)
 def lord(x):
     return  int.from_bytes(x.encode(), sys.byteorder)
 
-db_include(fname='stats', db=db, include='neumodb/chdb/chdb_db.h')
+db_include(fname='chdb', db=db, include='neumodb/chdb/chdb_db.h')
 
 rotor_control = db_enum(name='rotor_control_t',
                    db = db,
@@ -384,3 +384,43 @@ user_options = db_struct(name ='user_options',
                         (11, 'int32_t', 'resource_reuse_bonus', 1000),
                         (12, 'bool', 'tune_may_move_dish', 'false')
                     ))
+
+
+
+tuned_frequency_offsets_key = \
+    db_struct(name='tuned_frequency_offsets_key',
+              fname = 'fedev',
+              db = db,
+              type_id= lord('FO'),
+              version = 1,
+              fields = (
+                  (1, 'lnb_key_t', 'lnb_key'),
+                  (2, 'fe_band_t', 'band'),
+              ))
+
+
+tuned_frequency_offset = \
+    db_struct(name='tuned_frequency_offset',
+              fname = 'fedev',
+              db = db,
+              type_id= lord('fo'),
+              version = 1,
+              fields = (
+                  (1, 'int16_t', 'sat_pos', 'sat_pos_none'),           #official satellite position
+                  (2, 'uint32_t', 'nit_frequency', '0'), #frequency as defined in NIT
+                  (3, 'chdb::fe_polarisation_t', 'pol'),
+                  (4, 'int32_t', 'frequency_offset', '0')
+              ))
+
+tuned_frequency_offsets = \
+    db_struct(name='tuned_frequency_offsets',
+              fname = 'fedev',
+              db = db,
+              type_id= lord('fs'),
+              version = 1,
+              primary_key = ('key', ('k', )),
+              fields = (
+                  (1, 'tuned_frequency_offsets_key_t', 'k'),
+                  (2, 'ss::vector<tuned_frequency_offset_t, 11>', 'frequency_offsets'),
+                  (3, 'time_t', 'mtime') #last seen or last updated?
+              ))

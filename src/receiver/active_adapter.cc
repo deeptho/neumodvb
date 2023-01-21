@@ -398,19 +398,100 @@ int active_adapter_t::open_demux(int mode) const {
 	return fd;
 }
 
-void active_adapter_t::update_lof(const devdb::lnb_key_t& lnb_key, const ss::vector<int32_t, 2>& lof_offsets) {
-	auto devdb_wtxn = receiver.devdb.wtxn();
-	auto c = devdb::lnb_t::find_by_key(devdb_wtxn, lnb_key);
-	if (c.is_valid()) {
-		/*note that we do not update the full mux (e.g., when called from positioner_dialog user may want
+
+static void set_lnb_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t& lnb, int band, int nit_frequency, int lof_offset) {
+
+	auto c = devdb::lnb_t::find_by_key(devdb_wtxn, lnb.k);
+		/*note that we do not update the full lnb (e.g., when called from positioner_dialog user may want
 			to not save some changes.
-			So instead, we set only the lof_offsets
+			So instead, we copy most of the lnb from the database
 		*/
-		auto lnb = c.current();
-		lnb.lof_offsets = lof_offsets;
-		put_record(devdb_wtxn, lnb);
-		devdb_wtxn.commit();
+	if(c.is_valid())
+		lnb = c.current();
+
+	if (lnb.lof_offsets.size() <= band + 1) {
+		// make sure both entries exist
+		for (int i = lnb.lof_offsets.size(); i < band + 1; ++i)
+			lnb.lof_offsets.push_back(0);
 	}
+
+	lnb.lof_offsets[band] = lof_offset;
+
+	if (std::abs(lnb.lof_offsets[band]) > 5000)
+		lnb.lof_offsets[band] = 0;
+
+	put_record(devdb_wtxn, lnb);
+}
+
+/*
+	Estimate the lnb's local offset frequency, by comparing driver data with NIT data, while allowing
+	some errors in the NIT data.
+
+	We keep a list of up to 19 muxes tuned (on any sat or polarision) and the differences between driver
+	and nit frequency on those muxes. The median of the offsets is taken as the lof offset.
+	When the list grows to 19, it is reduced to 17 muxes by removing the most extreme measured
+	frequency differences.
+
+	This approach will return the correct lof offset as soon as more muxes with correct nit frequency
+	than with incorrect nit frequencies have been tuned.
+
+	The estimates are also gradually updated over time.
+
+ */
+void active_adapter_t::update_lof(devdb::lnb_t& lnb, int16_t sat_pos, chdb::fe_polarisation_t pol,
+																	int nit_frequency, int uncorrected_driver_freq) {
+	using namespace devdb;
+	auto band = devdb::lnb::band_for_freq(lnb, nit_frequency);
+
+	auto devdb_wtxn = receiver.devdb.wtxn();
+
+	tuned_frequency_offsets_key_t k{lnb.k, band};
+	auto c = devdb::tuned_frequency_offsets_t::find_by_key(devdb_wtxn, k);
+	auto offsets_record = c.is_valid() ? c.current() : tuned_frequency_offsets_t{k, {}, {}};
+	auto& offsets = offsets_record.frequency_offsets;
+	tuned_frequency_offset_t offset{sat_pos, (uint32_t) nit_frequency, pol, uncorrected_driver_freq - nit_frequency};
+	bool found{false};
+
+	for(auto& o: offsets) {
+		if ((int)o.nit_frequency == nit_frequency) {
+			float learning_rate = 0.2;
+			o.frequency_offset += learning_rate * (uncorrected_driver_freq - nit_frequency - o.frequency_offset);
+			found = true;
+			break;
+		}
+	}
+
+	if(!found)
+		offsets.push_back(offset);
+
+	auto cmp = [](const auto &a, const auto  &b) {
+		return a.frequency_offset < b.frequency_offset;
+	};
+
+	if(offsets.size()>=19) {
+		//remove lowest
+		auto m = offsets.begin();
+		std::nth_element(offsets.begin(), m,  offsets.end(), cmp);
+		offsets.erase(0);
+
+		//remove largest
+		m= offsets.end()-1;
+		std::nth_element(offsets.begin(), m,  offsets.end(), cmp);
+		offsets.erase(offsets.size()-1);
+	}
+
+	//compute median
+	auto n = offsets.size()/2;
+	auto m = offsets.begin() +n ;
+		std::nth_element(offsets.begin(), m,  offsets.end(), cmp);
+	auto lof_offset = m->frequency_offset;
+
+	put_record(devdb_wtxn, offsets_record);
+
+	set_lnb_lof_offset(devdb_wtxn, lnb, (int)band, nit_frequency, lof_offset);
+	devdb_wtxn.commit();
+
+
 }
 
 int active_adapter_t::deactivate() {
@@ -586,29 +667,6 @@ void active_adapter_t::end_si() {
 }
 
 
-static void set_lnb_lof_offset(const chdb::dvbs_mux_t& dvbs_mux, devdb::lnb_t& lnb,
-															 int tuned_frequency, int adapter_no) {
-
-	auto [band, voltage_, freq_] = devdb::lnb::band_voltage_freq_for_mux(lnb, dvbs_mux);
-	/*
-		extra_lof_offset is the currently observed offset, after having corrected LOF by
-		the last known value of lnb.lof_offsets[band]
-	*/
-
-	if (lnb.lof_offsets.size() <= band + 1) {
-		// make sure both entries exist
-		for (int i = lnb.lof_offsets.size(); i < band + 1; ++i)
-			lnb.lof_offsets.push_back(0);
-	}
-	auto old = lnb.lof_offsets[band];
-	float learning_rate = 0.2;
-	int delta = (int)tuned_frequency - (int)dvbs_mux.frequency; //additional correction  needed
-	lnb.lof_offsets[band] += learning_rate * delta;
-
-	dtdebugx("adapter %d Updated LOF: %d => %d", adapter_no, old, lnb.lof_offsets[band]);
-	if (std::abs(lnb.lof_offsets[band]) > 5000)
-		lnb.lof_offsets[band] = 0;
-}
 
 
 //called from tuner thread
@@ -616,31 +674,32 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 	/*we split the code in two parts to avoid deadlock between receiver and tuner thread
 		that is caused by locking devdb and fe->ts simulataneously
 	*/
-	const chdb::dvbs_mux_t* dvbs_mux{nullptr};
+	devdb::lnb_t lnb;
+	int16_t sat_pos{sat_pos_none};
+	uint32_t uncorrected_driver_freq;
+	uint32_t nit_frequency;
+	chdb::fe_polarisation_t pol;
+
+	bool need_lof_offset_update{false};
 	{
 		auto w = fe->ts.writeAccess();
 		if(!w->tune_confirmation.nit_actual_received && tune_confirmation.nit_actual_received) {
-			dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
-			if(dvbs_mux) {
-				using namespace chdb;
-				//ss::vector<int32_t, 2> lof_offsets;
-				auto& lnb = w->reserved_lnb;
-				int freq=0;
-				std::visit([&freq](auto& mux){ freq = get_member(mux, frequency, 0);}, w->last_signal_info->driver_mux);
-				set_lnb_lof_offset(*dvbs_mux, lnb, freq, get_adapter_no());
+			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
+			if(dvbs_mux && (dvbs_mux->c.tune_src == tune_src_t::NIT_ACTUAL_TUNED)) {
+				lnb = w->reserved_lnb;
+				need_lof_offset_update = true;
+				sat_pos = dvbs_mux->k.sat_pos;
+				pol = dvbs_mux->pol;
+				nit_frequency = dvbs_mux->frequency;
+				uncorrected_driver_freq = w->last_signal_info->uncorrected_driver_freq;
 			}
 		}
 		w->tune_confirmation = tune_confirmation;
-		assert(w->dbfe.rf_inputs.size()>0);
 	}
-
-	if(dvbs_mux) {
-		using namespace chdb;
-		auto lnb = fe->ts.readAccess()->reserved_lnb;
-		if(dvbs_mux->c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
-			dtdebugx("adapter %d Updating LNB LOF offset", get_adapter_no());
-			update_lof(lnb.k, lnb.lof_offsets);
-		}
+	if(need_lof_offset_update) {
+		dtdebugx("adapter %d Updating LNB LOF offset", get_adapter_no());
+		update_lof(lnb, sat_pos, pol, nit_frequency, uncorrected_driver_freq);
+		fe->ts.writeAccess()->reserved_lnb = lnb;
 	}
 }
 

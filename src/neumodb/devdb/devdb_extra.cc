@@ -435,6 +435,34 @@ devdb::lnb::band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band) {
 	@todo: see linuxdvb_lnb.c for more configs to support
 	@todo: uniqcable
 */
+int devdb::lnb::uncorrected_freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band) {
+	using namespace chdb;
+
+	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
+
+	auto correct = [&lnb](int band, int frequency, bool inverted_spectrum) {
+		if (band >= lnb.lof_offsets.size()) {
+			//dterror("lnb_loffsets too small for lnb: " << lnb);
+			return frequency;
+		}
+		if (std::abs(lnb.lof_offsets[band]) < 5000) {
+			if(inverted_spectrum)
+				frequency += lnb.lof_offsets[band];
+			else
+				frequency -= lnb.lof_offsets[band];
+		}
+		return frequency;
+	};
+
+	return (inverted_spectrum ? -frequency : frequency)+ (high_band ? lof_high: lof_low);
+}
+
+/*
+	translate driver frequency to real frequency
+	voltage_high = true if high
+	@todo: see linuxdvb_lnb.c for more configs to support
+	@todo: uniqcable
+*/
 int devdb::lnb::freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band) {
 	using namespace chdb;
 
@@ -843,11 +871,16 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 }
 
 
-void devdb::lnb::reset_lof_offset(devdb::lnb_t&  lnb)
+void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)
 {
 	lnb.lof_offsets.resize(2);
 	lnb.lof_offsets[0] = 0;
 	lnb.lof_offsets[1] = 0;
+	tuned_frequency_offsets_t record;
+	record.k = {lnb.k, fe_band_t::LOW};
+	delete_record(devdb_wtxn, record);
+	record.k.band = fe_band_t::HIGH;
+	delete_record(devdb_wtxn, record);
 }
 
 
@@ -977,3 +1010,24 @@ void devdb::lnb::on_mux_key_change(db_txn& devdb_wtxn, const chdb::mux_key_t& ol
 		}
 	}
 }
+
+#if 0
+void devdb::lnb::find_freq_offset_for_mux(db_txn& devdb_rtxn,  const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux)
+{
+	auto now = system_clock_t::to_time_t(now_);
+	using namespace devdb;
+	auto c = tuned_frequency_offset_t::find_by_key(devdb_rtxn, lnb.k, mux.k.sat_pos, mux.frequency, find_type_t::find_eq);
+	if(c.valid()) {
+		return c.current.frequency_offset;
+	}
+	else {
+		auto [band_, pol_, freq] = lnb::band_voltage_freq_for_mux(lnb, mux);
+		band = band_;
+		pol = dvbs_mux->pol;
+		if(band < lnb.lof_offsets.size())
+			return lnb.lof_offsets[band];
+		else
+			return 0;
+	}
+}
+#endif

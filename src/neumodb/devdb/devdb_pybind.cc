@@ -62,6 +62,7 @@ static void export_lnb_extra(py::module& m) {
 				 py::arg("lnb"))
 		.def("reset_lof_offset", &lnb::reset_lof_offset,
 				 "reset the LOF offset to 0",
+				 py::arg("devdb_wtxn"),
 				 py::arg("lnb"))
 		.def("make_unique_if_template", make_unique_if_template,
 				 "Make the key of this lnb unique, but only if lnb.k.id<0")

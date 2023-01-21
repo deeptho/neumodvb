@@ -292,8 +292,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         ok = ShowOkCancel("Reset LOF offset?", f"Do you wish to reset the estimate local oscillator "
                           "ofset for this LNB?")
         if ok:
-            pydevdb.lnb.reset_lof_offset(self.lnb)
             txn = wx.GetApp().devdb.wtxn()
+            pydevdb.lnb.reset_lof_offset(txn, self.lnb)
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
             pydevdb.lnb.update_lnb(txn, self.lnb)

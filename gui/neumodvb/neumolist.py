@@ -929,6 +929,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.infow = None
         self.coloured_rows= set()
         glr.GridWithLabelRenderersMixin.__init__(self)
+        self.do_autosize_rows = False
         self.readonly = readonly
         self.basic  = basic
         self.app = wx.GetApp()
@@ -1095,6 +1096,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         editing_record_selected  = self.GridCursorRow in self.table.new_rows
         rec = self.table.CurrentlySelectedRecord()
         self.table.set_sort_column(sort_column)
+        if self.do_autosize_rows:
+            self.AutoSizeRows()
         self.Refresh()
         if editing_record_selected:
             rowno = self.GridCursorRow

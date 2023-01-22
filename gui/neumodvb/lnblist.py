@@ -228,6 +228,7 @@ class LnbGridBase(NeumoGridBase):
         table = LnbTable(self, basic)
         self.lnb = None #lnb for which networks will be edited
         super().__init__(basic, readonly, table, *args, **kwds)
+        self.do_autosize_rows = True
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)

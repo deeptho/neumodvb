@@ -401,6 +401,7 @@ enum fe_code_rate {
  * @APSK_32:	32-APSK modulation
  * @DQPSK:	DQPSK modulation
  * @QAM_4_NR:	4-QAM-NR modulation
+ * @DUMMY_PLF:	DUMMY PLF Frames
  *
  * Please note that not all modulations are supported by a given standard.
  *
@@ -437,6 +438,7 @@ enum fe_modulation {
 	APSK_128L,
 	APSK_256L,
 	APSK_1024,
+	DUMMY_PLF=64, //NEUMO
 };
 
 /**

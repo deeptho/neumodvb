@@ -419,6 +419,9 @@ class TuneMuxPanel(TuneMuxPanel_):
                                     if nit_valid else 'INVALID')
             self.si_symbolrate_text.SetLabel(f'{consolidated_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
                                     if nit_valid else '')
+        else:
+            self.si_freq_text.SetLabel('')
+            self.si_symbolrate_text.SetLabel('')
 
         mux = signal_info.driver_mux
         locked = signal_info.has_lock

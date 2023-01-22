@@ -78,6 +78,8 @@ class SpectrumButtons(SpectrumButtons_):
         ret = []
         self.parent.start_freq = int(self.start_freq_text.GetValue())*1000
         self.parent.end_freq = int(self.end_freq_text.GetValue())*1000
+        if self.parent.lnb is None:
+            dterror("self.parent.lnb=None")
         is_circ = self.parent.lnb.pol_type in (pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL)
         h, v, = self.spectrum_horizontal.GetValue(), \
             self.spectrum_vertical.GetValue()

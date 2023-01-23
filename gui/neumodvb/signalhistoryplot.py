@@ -135,7 +135,7 @@ class SignalHistory(object):
             ss = screen.record_at_row(idx) # record for one tuned session
             t =[]
             snr, strength, ber = [], [], []
-            addr = ss.k.lnb.card_mac_address
+            addr = ss.k.rf_path.card_mac_address
             for idx, st in enumerate(ss.stats):
                 t1 = datetime.datetime.fromtimestamp(ss.k.time + idx*300, tz=tz.tzlocal())
                 t.append(t1)
@@ -153,15 +153,16 @@ class SignalHistory(object):
             name = f'{ss.k.frequency/1000:.3f}{enum_to_str(ss.k.pol)} {adapters.get(addr, hex(addr))}'
             ret.append((t, snr, strength, ber, addr, name))
         txn.abort()
-        labeled = set()
+        labeled = {}
         curves =[]
         #it = iter(color_cycler)
         for t, snr, strength, ber, adapter, label in ret:
             if adapter in labeled:
                 label=None
+                marker = labeled[adapter]
             else:
-                labeled.add(adapter)
                 marker = next(self.markers)
+                labeled[adapter] = marker
             if self.signal_type == SignalType.SNR:
                 curves.append(self.axes.plot(t, snr/1000., label=label, color=self.color, marker=marker))
                 ylimits = [0, 20]

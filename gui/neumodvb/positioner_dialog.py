@@ -485,6 +485,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.rf_path = None
             return
         self.rf_path = pydevdb.lnb.select_rf_path(lnb)
+        self.positioner_rf_path_sel.SetRfPath(self.rf_path, self.lnb)
         if has_network(lnb, self.sat.sat_pos) and not must_move_dish(lnb, self.sat.sat_pos):
             # no change needed
             network = get_network(self.lnb, self.sat.sat_pos)

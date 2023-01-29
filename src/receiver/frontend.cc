@@ -431,11 +431,11 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 	ret.consolidated_mux = r->reserved_mux;
 	ret.bad_received_si_mux = r->bad_received_si_mux;
 	ret.driver_mux = r->reserved_mux; //ensures that we return proper any_mux_t type for dvbc and dvbt
-	ret.stat.k.mux = *mux_key_ptr(r->reserved_mux);
+	ret.stat.k.sat_pos = mux_key_ptr(r->reserved_mux)->sat_pos;
 	if (ret.tune_confirmation.si_done) {
 		dtdebugx("reporting si_done=true");
 	}
-	*mux_key_ptr(ret.driver_mux) = ret.stat.k.mux;
+	*mux_key_ptr(ret.driver_mux) = *mux_key_ptr(r->reserved_mux);
 	const auto& lnb = r->reserved_lnb;
 	const auto& rf_path = r->reserved_rf_path;
 	int band = 0;
@@ -614,6 +614,7 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 
 signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 	signal_info_t ret{this, ts.readAccess()->dbfe.k};
+	ret.tune_count = ts.readAccess()->tune_count;
 	using namespace chdb;
 	// bool is_sat = true;
 	ret.stat.k.time = system_clock_t::to_time_t(now);
@@ -1247,6 +1248,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	}
 
 	auto w = ts.writeAccess();
+	w->tune_count++;
 	if( w->dbfe.supports.iq && num_constellation_samples > 0) {
 		constellation.num_samples = num_constellation_samples;
 		constellation.samples = nullptr;
@@ -1395,6 +1397,7 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
 
 	auto w = ts.writeAccess();
+	w->tune_count++;
 	auto fefd = w->fefd;
 	dtdebugx("change tune mode on adapter %d from %d to %d", (int) adapter_no,
 					 (int) w->tune_mode, (int) tune_options.tune_mode);
@@ -1453,6 +1456,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
 
 	auto w = ts.writeAccess();
+	w->tune_count++;
 	auto fefd = w->fefd;
 	w->use_blind_tune = tune_options.use_blind_tune;
 	dtdebugx("change tune mode on adapter %d from %d to %d",

@@ -64,11 +64,7 @@ class StatusTable(NeumoTable):
          CD(key='k.rf_path',  label='Card/RF', basic=True, readonly=True, no_combo = True,
             dfn=lambda x: x[2].rf_path_name(x[0]), example="C2#3 TBS6904se "),
          CD(key='k.rf_path.lnb.lnb_id',  label='ID', basic=True, readonly=True),
-         CD(key='k.mux.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),
-         CD(key='k.mux.network_id', label='nid'),
-         CD(key='k.mux.ts_id', label='tsid'),
-         CD(key='k.mux.t2mi_pid', label='t2mi\npid', readonly=False),
-         CD(key='k.mux.extra_id', label='subid', readonly=False),
+         CD(key='k.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.frequency',  label='freq', basic=True, readonly = True, dfn= freq_fn, example="10725.114"),
          CD(key='k.pol', label='Pol', basic=True, dfn=lambda x: lastdot(x).replace('POL',''), example='V'),
 

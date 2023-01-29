@@ -45,8 +45,9 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_entry_t& e)
 }
 
 std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_key_t& k) {
-	auto sat = chdb::sat_pos_str(k.mux.sat_pos);
-	stdex::printf(os, "[%02d] %5s:%5.3f%s", (int)k.rf_path.card_mac_address, sat, k.frequency / 1000.,
+	auto sat = chdb::sat_pos_str(k.sat_pos);
+	stdex::printf(os, "%06x_RF%d %5s:%5.3f%s", (int)k.rf_path.card_mac_address, k.rf_path.rf_input,
+								sat, k.frequency / 1000.,
 								enum_to_str(k.pol));
 	using namespace date;
 	os << date::format(" %F %H:%M:%S", zoned_time(current_zone(),
@@ -204,4 +205,34 @@ void statdb::clean_live(db_txn& wtxn) {
 		delete_record_at_cursor(c);
 		put_record(wtxn, stat);
 	}
+}
+
+ss::vector_<signal_stat_t> statdb::signal_stat::get_by_mux_fuzzy(
+	db_txn& devdb_rtxn, int16_t sat_pos, chdb::fe_polarisation_t pol, int frequency, time_t start_time, int tolerance) {
+	using namespace statdb;
+	signal_stat_key_t key;
+	key.sat_pos = sat_pos;
+	key.pol = pol;
+	auto start_freq = frequency -tolerance;
+	auto end_freq = frequency +tolerance;
+	ss::vector_<signal_stat_t> ret;
+	ret.reserve(16);
+	// look up the first record with matching live, sat_pos, pol and closeby frequency
+	// and create a range which iterates over all with the same live, sat_pos, pol combination
+	for(int live=0; live < 2; ++live) {
+		key.live = live;
+		key.frequency = start_freq;
+		auto c = signal_stat_t::find_by_key(devdb_rtxn, key, find_type_t::find_geq,
+																				signal_stat_t::partial_keys_t::live_sat_pos_pol);
+
+		for (auto const& stat : c.range()) {
+			if(stat.k.frequency >= end_freq)
+				break;
+			if(stat.k.time < start_time)
+				continue;
+			ret.push_back(stat);
+		}
+		c.close();
+	}
+	return ret;
 }

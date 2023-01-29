@@ -561,14 +561,6 @@ class NeumoGui(wx.App):
         txn.abort()
         return ret
 
-    def get_cards(self, card_mac_address):
-        txn = wx.GetApp().devdb.rtxn()
-        ret={}
-        for a in  pydevdb.fe.list_all_by_card_mac_address(txn):
-            ret[f'C{a.card_no}: {a.card_short_name}' ] = a.card_mac_address
-        txn.abort()
-        return ret
-
     def get_cards_with_rf_in(self):
         txn = wx.GetApp().devdb.rtxn()
         ret={}

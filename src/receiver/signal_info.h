@@ -100,6 +100,7 @@ struct fe_lock_status_t {
 };
 
 struct signal_info_t {
+	int tune_count{0}; //increases by 1 with every tune
 	dvb_frontend_t* fe{nullptr};
 	devdb::fe_key_t fe_key;
 	uint32_t uncorrected_driver_freq{0};

@@ -41,11 +41,11 @@ signal_stat_key = db_struct(name='signal_stat_key',
                               type_id= lord('Ik'),
                               version = 1,
                               fields = ((1, 'bool',  'live', 'true'),
-                                        (2, 'chdb::mux_key_t', 'mux'),
-                                        (8, 'devdb::rf_path_t', 'rf_path'),
-                                        (4, 'int32_t', 'frequency'),
+                                        (9, 'int16_t', 'sat_pos'),
                                         (5, 'chdb::fe_polarisation_t', 'pol'),
+                                        (4, 'int32_t', 'frequency'),
                                         (6, 'time_t',  'time'),
+                                        (8, 'devdb::rf_path_t', 'rf_path'),
                                         ))
 
 

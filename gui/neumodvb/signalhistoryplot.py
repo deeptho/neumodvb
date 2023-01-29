@@ -99,14 +99,6 @@ class SignalHistory(object):
         self.drawn = True
         self.plot_sighist(self.signal_type)
 
-    def get_adapters(self, receiver):
-        txn = receiver.devdb.rtxn()
-        ret={}
-        for a in  pydevdb.fe.list_all_by_adapter_no(txn):
-            ret[a.k.adapter_mac_address] = f'{a.adapter_name}'
-        txn.abort()
-        return ret
-
     def next_prop(self):
         for c in plt.rcParams['axes.prop_cycle']:
             yield c
@@ -119,71 +111,63 @@ class SignalHistory(object):
             (pystatdb.signal_stat.subfield_from_name('k.lnb.card_mac_address')<<16) | \
             (pystatdb.signal_stat.subfield_from_name('k.lnb.rf_input')<<8)
 
-        ref=pystatdb.signal_stat.signal_stat()
-        ref.k.live = False
-        ref.k.mux = mux.k
         receiver = wx.GetApp().receiver
-        adapters = self.get_adapters(receiver)
+        cards = { c: k for k,c in wx.GetApp().get_cards_with_rf_in().items()}
         txn = receiver.statdb.rtxn()
-        screen = pystatdb.signal_stat.screen(txn, sort_order=sort_order,
-                                           key_prefix_type=pystatdb.signal_stat.signal_stat_prefix.live_mux,
-                                           key_prefix_data=ref)
-        ret=[]
-        minstrength, maxstrength = 0, -80
-        minber, maxber = 0, 0
-        for idx in range(screen.list_size):
-            ss = screen.record_at_row(idx) # record for one tuned session
+        stats = pystatdb.signal_stat.get_by_mux_fuzzy(txn, mux.k.sat_pos, mux.pol, mux.frequency)
+        txn.abort()
+        signals={}
+        if self.signal_type == SignalType.SNR:
+            minsignal, maxsignal = 0, 20
+        elif self.signal_type == SignalType.STRENGTH:
+            minsignal, maxsignal = 0, -80
+        elif self.signal_type == SignalType.BER:
+            minsignal, maxsignal = None, None
+        for ss in stats:
             t =[]
-            snr, strength, ber = [], [], []
-            addr = ss.k.rf_path.card_mac_address
+            values = []
             for idx, st in enumerate(ss.stats):
                 t1 = datetime.datetime.fromtimestamp(ss.k.time + idx*300, tz=tz.tzlocal())
                 t.append(t1)
-                snr.append(st.snr)
-                strength.append(st.signal_strength)
-                ber.append(st.ber)
+                if self.signal_type == SignalType.SNR:
+                    values.append(st.snr/1000.)
+                elif self.signal_type == SignalType.STRENGTH:
+                    values.append(st.strength/1000.)
+                elif self.signal_type == SignalType.BER:
+                    values.append(st.ber)
             t=np.array(t)
-            snr = np.array(snr)
-            ber =np.array(ber)
-            strength = np.array(strength)
-            minstrength = min(minstrength, strength.min())
-            maxstrength = max(maxstrength, strength.max())
-            #minber = min(minber, ber.min())
-            maxber = max(maxber, ber.max())
-            name = f'{ss.k.frequency/1000:.3f}{enum_to_str(ss.k.pol)} {adapters.get(addr, hex(addr))}'
-            ret.append((t, snr, strength, ber, addr, name))
-        txn.abort()
-        labeled = {}
-        curves =[]
+            values = np.array(values)
+            rf_path = cards.get((ss.k.rf_path.card_mac_address, ss.k.rf_path.rf_input), '???')
+            signal = signals.get(rf_path, [])
+            signal.append((t, values))
+            signals[rf_path] = signal
+
         #it = iter(color_cycler)
-        for t, snr, strength, ber, adapter, label in ret:
-            if adapter in labeled:
-                label=None
-                marker = labeled[adapter]
-            else:
-                marker = next(self.markers)
-                labeled[adapter] = marker
-            if self.signal_type == SignalType.SNR:
-                curves.append(self.axes.plot(t, snr/1000., label=label, color=self.color, marker=marker))
-                ylimits = [0, 20]
-            elif self.signal_type == SignalType.STRENGTH:
-                curves.append(self.axes.plot(t, strength/1000., label=label, color=self.color, marker=marker))
-                ylimits = [minstrength/1000-5, maxstrength/1000+5]
-            elif self.signal_type == SignalType.BER:
-                curves.append(self.axes.plot(t, ber, label=label, color=self.color, marker=marker))
-                ylimits = [0, maxber]
+        curves = []
+        mint, maxt= None, None
+        for rf_path, signal in signals.items():
+            marker = next(self.markers)
+            name = f'{mux.frequency/1000:.3f}{enum_to_str(mux.pol)} {rf_path}'
+            for t, values in  signal:
+                mint = min(t) if mint is None else min(min(t), mint)
+                maxt = max(t) if maxt is None else max(max(t), maxt)
+                minsignal = values.min() if minsignal is None else minsignal
+                maxsignal =values.max() if maxsignal is None else maxsignal
+                curves.append(self.axes.plot(t, values, label=name, color=self.color, marker=marker))
+                name = None
         self.curves = curves
         self.legend = self.axes.legend()
-        self.xlimits, self.ylimits = None, None
-        if len(ret) > 0:
-            self.xlimits = (ret[0][0][0], ret[-1][0][0])
-            if self.xlimits[1] == self.xlimits[0]:
-                self.xlimits[0] -= datetime.timedelta(second=60)
+        if mint is not None:
+            self.xlimits = [mint, maxt]
         else:
-            ylimits = 0, 1e-6
-        if ylimits[1] <= ylimits[0]:
-            ylimits[1] = ylimits[0] + 1e-6
-        self.axes.set_ylim(ylimits)
+            self.xlimits = [0, datetime.timedelta(seconds=60)]
+        if self.xlimits[1] == self.xlimits[0]:
+            self.xlimits[0] -= datetime.timedelta(seconds=60)
+
+        self.ylimits = minsignal, maxsignal
+        if maxsignal <= minsignal:
+            self.ylimits[1] = self.ylimits[0] + 1e-6
+        self.axes.set_ylim(self.ylimits)
 
 
 class SignalHistoryPlot(wx.Panel):

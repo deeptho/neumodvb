@@ -59,7 +59,6 @@ void fe_monitor_thread_t::monitor_signal() {
 		return;
 
 	bool get_constellation{true};
-
 	auto info = fe->get_signal_info(get_constellation);
 	bool verbose = false;
 	if (verbose) {
@@ -77,7 +76,7 @@ void fe_monitor_thread_t::monitor_signal() {
 	{
 		auto w = fe->signal_monitor.writeAccess();
 		auto &signal_monitor = *w;
-		signal_monitor.update_stat(receiver, info.stat);
+		signal_monitor.update_stat(receiver, info);
 	}
 }
 
@@ -218,9 +217,11 @@ exit_:
 	return 0;
 }
 
-void signal_monitor_t::update_stat(receiver_t& receiver, const statdb::signal_stat_t& update) {
-	//it is possible that max_key changes without tuning
-	bool save_old =  stat.stats.size()>0 && (stat.k.mux != update.k.mux || stat.k.rf_path != update.k.rf_path);
+void signal_monitor_t::update_stat(receiver_t& receiver, const signal_info_t& info) {
+	auto& update = info.stat;
+	bool reset = tune_count!=info.tune_count;
+	tune_count = info.tune_count;
+	bool save_old =  stat.stats.size()>0 && reset;
 	if (save_old ) {
 		auto wtxn = receiver.statdb.wtxn();
 		if(stat.stats.size() > 0 ) {

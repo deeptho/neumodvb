@@ -76,3 +76,9 @@ namespace statdb {
 	void clean_live(db_txn& wtxn);
 
 }
+
+namespace statdb::signal_stat {
+	ss::vector_<signal_stat_t> get_by_mux_fuzzy(
+		db_txn& devdb_rtxn, int16_t sat_pos, chdb::fe_polarisation_t pol, int frequency, time_t start_time,
+		int tolerance);
+}

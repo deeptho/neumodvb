@@ -186,9 +186,9 @@ class signal_monitor_t {
 	float signal_strength_sum{0.};
 	float ber_sum{0.};
 	int stats_count{0};
+	int tune_count{-1};
 
-
-	void update_stat(receiver_t& receiver, const statdb::signal_stat_t& update);
+	void update_stat(receiver_t& receiver, const signal_info_t& info);
 	void end_stat(receiver_t& receiver);
 
 	public:
@@ -209,6 +209,7 @@ class signal_monitor_t {
 class fe_state_t {
 
 public:
+	int tune_count{0};
 	tune_confirmation_t tune_confirmation; //have ts_id,network_id, sat_id been confirmed by SI data?
 	chdb::any_mux_t reserved_mux;   /*mux as it is currently reserved. Will be updated with si data
 																		and will always contain the best confirmed-to-be-correct information

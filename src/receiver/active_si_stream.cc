@@ -2679,14 +2679,37 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 	using namespace chdb;
 	auto stream_mux = reader->stream_mux();
 	auto* stream_mux_key = mux_key_ptr(stream_mux);
+	auto mux_key = *stream_mux_key;
 	assert(stream_mux_key->extra_id >0);
 	assert(!chdb::is_template(stream_mux));
 	ss::string<32> mux_desc;
 	assert (stream_mux_key->sat_pos != sat_pos_none);
 	chdb::to_str(mux_desc, stream_mux);
 	int count{0};
+
+	if (nit_data.by_network_id_ts_id.size()==1){
+		for(auto &[key, val]: nit_data.by_network_id_ts_id) {
+			mux_key.network_id = key.first;
+			mux_key.ts_id = key.second;
+		}
+	}
+
+	if(sdt_data.actual_network_id >=0 && sdt_data.actual_ts_id >= 0) {
+		mux_key.network_id = sdt_data.actual_network_id;
+		mux_key.ts_id = sdt_data.actual_ts_id;
+		}
+
 	for (auto& [service_id, pat_service]: pmt_data.by_service_id) {
-		service_key_t service_key(*stream_mux_key,  pat_service.pmt.service_id);
+
+		//pat entry for ts_id has priority
+		for (auto& [ts_id, pat_table]:  pat_data.by_ts_id) {
+			for(auto& e: pat_table.entries) {
+				if(e.service_id == pat_service.pmt.service_id) {
+					mux_key.ts_id = ts_id;
+				}
+			}
+		}
+		service_key_t service_key(mux_key,  pat_service.pmt.service_id);
 		auto c = service_t::find_by_key(wtxn, service_key);
 		auto service = c.is_valid() ? c.current() : service_t{};
 		if(! c.is_valid()) {

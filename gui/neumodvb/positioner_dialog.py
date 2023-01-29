@@ -580,13 +580,14 @@ class TuneMuxPanel(TuneMuxPanel_):
             rec.k.sat_pos = self.sat.sat_pos
         self.mux = rec
         self.muxedit_grid.Reset()
-        for n in self.lnb.networks:
-            if n.sat_pos == self.mux.k.sat_pos:
-                assert self.sat.sat_pos == self.mux.k.sat_pos
-                self.lnb_changed |= not same_mux_key(n.ref_mux, self.mux.k)
-                n.ref_mux = self.mux.k
-                dtdebug(f"saving ref_mux={self.mux}")
-                return
+        if self.lnb is not None:
+            for n in self.lnb.networks:
+                if n.sat_pos == self.mux.k.sat_pos:
+                    assert self.sat.sat_pos == self.mux.k.sat_pos
+                    self.lnb_changed |= not same_mux_key(n.ref_mux, self.mux.k)
+                    n.ref_mux = self.mux.k
+                    dtdebug(f"saving ref_mux={self.mux}")
+                    return
         dtdebug(f"network not found: lnb={self.lnb} sat_pos={self.mux.k.sat_pos}")
 
 class SignalPanel(SignalPanel_):

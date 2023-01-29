@@ -111,7 +111,7 @@ get_by_nid_tid_unique_ret_t chdb::get_by_nid_tid_unique(db_txn& txn, int16_t net
 }
 
 /*
-	find a mux which matches approximately exacly in sat_pos, polarisation, t2mi_pid and stream_id
+	find a mux which matches exactly in sat_pos, polarisation, t2mi_pid and stream_id
 	approximately in frequency, disregarding extra_id. If multiple matches occur (should not happen)
 	then prefer the mux with matching extra_id
 

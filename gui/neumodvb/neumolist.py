@@ -413,6 +413,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
                 rec =  self.GetRow(rowno)
         except:
             dterror(f"row {rowno} out of range {self.GetNumberRows()}")
+            return
         col = self.columns[colno]
         self.last_edited_colno = colno
         if col.sfn is not None:
@@ -1002,7 +1003,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.ProcessTableMessage(msg)
         elif num_rows < self.num_rows_on_screen:
             num = self.num_rows_on_screen - num_rows
-            print(f'removing {num} rows')
+            dtdebug(f'removing {num} rows')
             msg = wx.grid.GridTableMessage(self.table,
                                            wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED,
                                            self.num_rows_on_screen-1, num)

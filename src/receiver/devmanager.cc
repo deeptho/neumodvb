@@ -589,13 +589,19 @@ bool dvbdev_monitor_t::renumber_cards() {
 	}
 
 	c = saved;
-	for (auto fe : c.range()) {
-		auto card_no = card_numbers[(card_mac_address_t)fe.card_mac_address];
+	for (auto dbfe : c.range()) {
+		auto card_no = card_numbers[(card_mac_address_t)dbfe.card_mac_address];
 		assert(card_no >= 0);
-		if (card_no != fe.card_no) {
-			fe.card_no = card_no;
+		if (card_no != dbfe.card_no) {
+			dbfe.card_no = card_no;
 			changed = true;
-			put_record(devdb_wtxn, fe);
+			put_record(devdb_wtxn, dbfe);
+		}
+		auto it = frontends.find({(adapter_no_t)dbfe.adapter_no, (frontend_no_t)dbfe.k.frontend_no});
+		if(it != frontends.end())  {
+			auto& fe =*it->second;
+			auto w = fe.ts.writeAccess();
+			w->dbfe.card_no = dbfe.card_no;
 		}
 	}
 	devdb_wtxn.commit(); //commit child transaction
@@ -670,6 +676,7 @@ void dvbdev_monitor_t::update_lnbs() {
 
 /*
 	Returns -1 on error, 0 on no nore events, 1 on events processed
+	runs in receiver_thread
 */
 int dvbdev_monitor_t::run() {
 	int num = 0;

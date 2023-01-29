@@ -66,18 +66,18 @@ class LnbNetworkTable(NeumoTable):
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
     all_columns = \
-        [CD(key='sat_pos',  label='LNB Pos.', dfn= lambda x: pychdb.sat_pos_str(x[1])),
-         CD(key='priority',  label='priority'),
-         CD(key='usals_pos',  label='Usals pos.', allow_others=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
-         CD(key='diseqc12',  label='diseqc 1.2'),
-         CD(key='enabled',  label='enabled', dfn=bool_fn),
-         CD(key='ref_mux',  label='ref mux', readonly= True, example="28.2E: nid=1234 tid=1234")
+        [CD(key='sat_pos',  label='LNB Pos.', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         CD(key='priority',  label='priority', basic=False),
+         CD(key='usals_pos',  label='Usals pos.', basic=False, allow_others=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         CD(key='diseqc12',  label='diseqc 1.2', basic=False),
+         CD(key='enabled',  label='enabled', basic=False, dfn=bool_fn),
+         CD(key='ref_mux',  label='ref mux', basic=False, readonly= True, example="28.2E: nid=1234 tid=1234")
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'sat_pos'
         data_table= pydevdb.lnb_network
-        self.lnb = None
+        self.lnb_ = None
         self.changed = False
         super().__init__(*args, parent=parent, basic=basic, db_t=pydevdb, data_table = data_table,
                          record_t=pydevdb.lnb_network.lnb_network,
@@ -85,13 +85,46 @@ class LnbNetworkTable(NeumoTable):
                          initial_sorted_column = initial_sorted_column,
                          **kwds)
 
+    @property
+    def lnb(self):
+        if hasattr(self.parent, "lnb"):
+            self.lnb_ = self.parent.lnb #used by combo popup
+        else:
+            lnbgrid = self.parent.GetParent().GetParent().lnbgrid
+            self.lnb_ = lnbgrid.CurrentLnb().copy()
+        return self.lnb_
+
+    @property
+    def network(self):
+        if hasattr(self.parent, "network"):
+            return self.parent.network
+        return None
+    @network.setter
+    def network(self, val):
+        if hasattr(self.parent, "network"):
+            self.parent.network = val
+
+    def InitialRecord(self):
+        return self.network
+
+    def SetSat(self, sat):
+        if self.lnb is None:
+            return self.network
+        for network in self.lnb.networks:
+            if network.sat_pos == sat.sat_pos:
+                self.network = network
+                return self.network
+
     def screen_getter(self, txn, sort_field):
         """
         txn is not used; instead we use self.lnb
         """
         if self.lnb is None:
-            lnbgrid = self.parent.GetParent().GetParent().lnbgrid
-            self.lnb = lnbgrid.CurrentLnb().copy()
+            if hasattr(self.parent, "lnb"):
+                self.lnb = self.parent.lnb #used by combo popup
+            else:
+                lnbgrid = self.parent.GetParent().GetParent().lnbgrid #used by lnb connection list
+                self.lnb = lnbgrid.CurrentLnb().copy()
             assert self.lnb is not None
         self.screen = screen_if_t(lnbnetwork_screen_t(self), self.sort_order==2)
 
@@ -103,8 +136,8 @@ class LnbNetworkTable(NeumoTable):
             load_sats(txn)
         for sat in sats:
             if sat.sat_pos == sat_pos:
-                return sat_pos
-        return pychdb.sat.sat_pos_none
+                return sat
+        return None
 
     def __save_record__(self, txn, record):
         dtdebug(f'NETWORKS: {len(self.lnb.networks)}')
@@ -117,7 +150,7 @@ class LnbNetworkTable(NeumoTable):
             self.changed = True
 
         for n in self.lnb.networks:
-            if self.matching_sat(txn, n.sat_pos) == pychdb.sat.sat_pos_none:
+            if self.matching_sat(txn, n.sat_pos) is None:
                 ss = pychdb.sat_pos_str(n.sat_pos)
                 add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
                 if not add:
@@ -151,7 +184,7 @@ class LnbNetworkGrid(NeumoGridBase):
         self.SetAcceleratorTable(accel_tbl)
 
     def __init__(self, basic, readonly, *args, **kwds):
-        table = LnbNetworkTable(self)
+        table = LnbNetworkTable(self, basic=basic)
         super().__init__(basic, readonly, table, *args, **kwds)
         self.sort_order = 0
         self.sort_column = None
@@ -163,6 +196,9 @@ class LnbNetworkGrid(NeumoGridBase):
             (wx.ACCEL_CTRL,  ord('E'), self.OnEditMode)
         ])
         self.EnableEditing(self.app.frame.edit_mode)
+
+    def SetSat(self, sat):
+        self.network = self.table.SetSat(sat)
 
     def OnDone(self, evt):
         #@todo(). When a new record has been inserted and network has been changed, and then user clicks "done"
@@ -188,7 +224,6 @@ class LnbNetworkGrid(NeumoGridBase):
         else:
             evt.Skip(True)
 
-
     def CmdTune(self, evt):
         row = self.GetGridCursorRow()
         mux_key = self.screen.record_at_row(row).ref_mux
@@ -210,3 +245,18 @@ class LnbNetworkGrid(NeumoGridBase):
         dtdebug(f'old_mode={self.app.frame.edit_mode}')
         self.app.frame.ToggleEditMode()
         self.EnableEditing(self.app.frame.edit_mode)
+
+    def handle_lnb_change(self, lnb, network):
+        self.table.GetRow.cache_clear()
+        self.OnRefresh(None, network)
+        if lnb_network is None:
+            self.network = self.table.screen.record_at_row(0)
+        else:
+            self.network = network
+
+
+class BasicLnbNetworkGrid(LnbNetworkGrid):
+    def __init__(self, *args, **kwds):
+        basic = True
+        readonly = True
+        super().__init__(basic, readonly, *args, **kwds)

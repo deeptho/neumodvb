@@ -424,10 +424,10 @@
                                             <option>0</option>
                                             <border>0</border>
                                             <flag>wxRIGHT|wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxFIXED_MINSIZE</flag>
-                                            <object class="wxTextCtrl" name="lattitude_text_ctrl" base="EditTextCtrl">
-                                                <extracode_post>self.lattitude_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.OnLattitudeChanged)</extracode_post>
+                                            <object class="wxTextCtrl" name="latitude_text_ctrl" base="EditTextCtrl">
+                                                <extracode_post>self.latitude_text_ctrl.Bind(wx.EVT_KILL_FOCUS, self.OnLatitudeChanged)</extracode_post>
                                                 <events>
-                                                    <handler event="EVT_TEXT_ENTER">OnLattitudeChanged</handler>
+                                                    <handler event="EVT_TEXT_ENTER">OnLatitudeChanged</handler>
                                                 </events>
                                                 <tooltip>Latitude of location where dish is installed</tooltip>
                                                 <style>wxTE_PROCESS_ENTER|wxTE_CENTRE</style>
@@ -438,9 +438,9 @@
                                             <option>0</option>
                                             <border>0</border>
                                             <flag>wxLEFT|wxALIGN_CENTER_VERTICAL</flag>
-                                            <object class="wxChoice" name="lattitude_north_south_choice" base="EditChoice">
+                                            <object class="wxChoice" name="latitude_north_south_choice" base="EditChoice">
                                                 <events>
-                                                    <handler event="EVT_CHOICE">OnLattitudeNorthSouthSelect</handler>
+                                                    <handler event="EVT_CHOICE">OnLatitudeNorthSouthSelect</handler>
                                                 </events>
                                                 <selection>0</selection>
                                                 <choices>
@@ -932,8 +932,8 @@
                                                                 <option>0</option>
                                                                 <border>0</border>
                                                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                                                <object class="SatListComboCtrl" name="positioner_sat_sel" base="EditTextCtrl">
-                                                                    <extracode>from neumodvb.satlist_combo import SatListComboCtrl</extracode>
+                                                                <object class="LnbNetworkSatListComboCtrl" name="positioner_sat_sel" base="EditTextCtrl">
+                                                                    <extracode>from neumodvb.lnblist_combo import LnbNetworkSatListComboCtrl</extracode>
                                                                     <tooltip>Satellite position for which to edit LNB usals position</tooltip>
                                                                     <style>wxTE_MULTILINE|wxTE_READONLY|wxTE_RICH|wxTE_LEFT|wxTE_DONTWRAP</style>
                                                                 </object>

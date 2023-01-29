@@ -37,7 +37,7 @@ import pychdb
 
 class ServiceGridPopup(BasicServiceGrid):
     """
-    grid which appears in dvbs_mux list popup
+    grid which appears in chepg list popup
     """
     def __init__(self, *args, **kwds):
         super().__init__(*args, **kwds)

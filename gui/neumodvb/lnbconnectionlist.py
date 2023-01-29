@@ -87,13 +87,35 @@ class LnbConnectionTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'connection_name'
         data_table= pydevdb.lnb_connection
-        self.lnb = None
+        self.lnb_ = None
         self.changed = False
         super().__init__(*args, parent=parent, basic=basic, db_t=pydevdb, data_table = data_table,
                          record_t=pydevdb.lnb_connection.lnb_connection,
                          screen_getter = self.screen_getter,
                          initial_sorted_column = initial_sorted_column,
                          **kwds)
+
+    @property
+    def lnb(self):
+        if hasattr(self.parent, "lnb"):
+            self.lnb_ = self.parent.lnb #used by combo popup
+        else:
+            lnbgrid = self.parent.GetParent().GetParent().lnbgrid
+            self.lnb_ = lnbgrid.CurrentLnb().copy()
+        return self.lnb_
+
+    @property
+    def lnb_connection(self):
+        if hasattr(self.parent, "lnb_connection"):
+            return self.parent.lnb_connection
+        return None
+    @lnb_connection.setter
+    def lnb_connection(self, val):
+        if hasattr(self.parent, "lnb_connection"):
+            self.parent.lnb_connection = val
+
+    def InitialRecord(self):
+        return self.lnb_connection
 
     def screen_getter(self, txn, sort_field):
         """
@@ -200,7 +222,6 @@ class LnbConnectionGrid(NeumoGridBase):
         else:
             evt.Skip(True)
 
-
     def CmdTune(self, evt):
         row = self.GetGridCursorRow()
         mux_key = self.screen.record_at_row(row).ref_mux
@@ -231,7 +252,7 @@ class LnbConnectionGrid(NeumoGridBase):
         else:
             self.rf_path = rf_path
 
-    def SelectLnb(self, lnb, rf_path):
+    def SelectLnbOFF(self, lnb, rf_path):
         self.SetRfPath(lnb, rf_path)
         #wx.CallAfter(self.SetFocus)
         print(f'calling handle_lnb_change lnb={lnb} rf_path={self.rf_path}')

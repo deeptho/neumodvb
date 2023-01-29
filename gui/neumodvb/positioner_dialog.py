@@ -102,7 +102,7 @@ class TuneMuxPanel(TuneMuxPanel_):
     def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
-        self.positioner_sat_sel.SetSat(self.sat)
+        self.positioner_sat_sel.SetLnbAndSat(self.lnb, self.sat)
         self.positioner_lnb_sel.SetLnb(self.rf_path, self.lnb)
         self.positioner_rf_path_sel.SetRfPath(self.rf_path, self.lnb)
         self.positioner_mux_sel.SetSat(self.sat)
@@ -562,7 +562,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         assert self.mux.k.sat_pos == self.sat.sat_pos
         if network is not None:
             self.parent.SetDiseqc12Position(network.diseqc12)
-        self.positioner_sat_sel.SetSat(self.sat)
+        self.positioner_sat_sel.SetLnbAndSat(self.lnb, self.sat)
         self.positioner_lnb_sel.SetLnb(self.rf_path, self.lnb)
         self.positioner_mux_sel.SetMux(self.mux)
         self.positioner_mux_sel.SetSat(self.sat)

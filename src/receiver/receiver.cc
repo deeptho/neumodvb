@@ -2145,6 +2145,16 @@ std::tuple<std::string, int> receiver_t::get_api_type() const {
 	return receiver_thread.get_api_type();
 }
 
+void receiver_thread_t::cb_t::renumber_card(int old_number, int new_number) {
+	adaptermgr->renumber_card(old_number, new_number);
+}
+
+void receiver_t::renumber_card(int old_number, int new_number) {
+	receiver_thread.push_task([this, old_number, new_number]() {
+		cb(receiver_thread).renumber_card(old_number, new_number);
+		return 0;
+	}).wait();
+}
 
 thread_local thread_group_t thread_group{thread_group_t::unknown};
 

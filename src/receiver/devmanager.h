@@ -608,5 +608,8 @@ public:
 	int start();
 	int stop();
 	std::tuple<std::string, int> get_api_type() const;
+
+	void renumber_card(int old_number, int new_number);
+
 	static std::shared_ptr<adaptermgr_t> make(receiver_t& receiver);
 };

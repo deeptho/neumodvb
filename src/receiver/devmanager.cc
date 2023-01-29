@@ -194,7 +194,7 @@ public:
 	void update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
 									 fe_state_t& t);
 
-
+	void renumber_card(int old_number, int new_number);
 };
 
 
@@ -602,6 +602,66 @@ bool dvbdev_monitor_t::renumber_cards() {
 	return changed;
 }
 
+void dvbdev_monitor_t::renumber_card(int old_number, int new_number) {
+	using namespace chdb;
+	std::map<card_mac_address_t, int> card_numbers;
+	auto devdb_wtxn = this->devdb_wtxn();
+	auto c = devdb::find_first<devdb::fe_t>(devdb_wtxn);
+	auto saved = c.clone();
+	std::bitset<128> numbers_in_use;
+
+	if(old_number == new_number)
+		return;
+
+	for (auto dbfe : c.range()) {
+		auto card_no = std::min((int)dbfe.card_no, ((int) numbers_in_use.size()-1));
+		card_numbers.try_emplace((card_mac_address_t)dbfe.card_mac_address,
+														 (card_no < 0 || numbers_in_use[card_no]) ? -1 : card_no);
+		if(dbfe.card_no <0)
+			continue;
+		numbers_in_use[dbfe.card_no] = true;
+	}
+
+	auto next_card_no = [&] {
+		int ret=0;
+		for(int n = 0; n < (int)numbers_in_use.size(); ++n) {
+			if(!numbers_in_use[n]) {
+				numbers_in_use[n] =  true;
+				return ret;
+			}
+			ret++;
+		}
+		return -1;
+	};
+
+	c =saved;
+
+	int next = -1;
+	if (numbers_in_use[new_number]) {
+		next = next_card_no();
+	}
+
+	for(auto dbfe : c.range()) {
+		if (dbfe.card_no == new_number) {
+			assert(next >= 0);
+			dbfe.card_no  = next;
+			put_record(devdb_wtxn, dbfe);
+		} else if(dbfe.card_no == old_number) {
+			dbfe.card_no = new_number;
+			put_record(devdb_wtxn, dbfe);
+		}
+		auto it = frontends.find({(adapter_no_t)dbfe.adapter_no, (frontend_no_t)dbfe.k.frontend_no});
+		if(it != frontends.end())  {
+			auto& fe =*it->second;
+			auto w = fe.ts.writeAccess();
+			w->dbfe.card_no = dbfe.card_no;
+		}
+	}
+
+	devdb_wtxn.commit(); //commit child transaction
+	this->commit_txns();
+}
+
 void dvbdev_monitor_t::update_lnbs() {
 	auto devdb_wtxn = this->devdb_wtxn();
 	devdb::lnb::update_lnbs(devdb_wtxn);
@@ -659,6 +719,11 @@ int dvbdev_monitor_t::run() {
 		}
 		commit_txns();
 	}
+}
+
+void adaptermgr_t::renumber_card(int old_number, int new_number) {
+	auto* self = dynamic_cast<dvbdev_monitor_t*>(this);
+	return self->renumber_card(old_number, new_number);
 }
 
 int adaptermgr_t::run() {

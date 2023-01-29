@@ -112,6 +112,8 @@ void export_receiver(py::module& m) {
 	py::class_<receiver_t>(m, "receiver_t")
 		.def(py::init<neumo_options_t*>(), py::arg("neumo_options"), "Start a NeumoDVB receiver")
 		//unsubscribe is needed to abort mux scan in progress
+		.def("renumber_card", &receiver_t::renumber_card, "Renumber a card",
+				 py::arg("old_number"), py::arg("new_number"))
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
 		.def("toggle_recording",
 				 py::overload_cast<const chdb::service_t&, const epgdb::epg_record_t&>(&receiver_t::toggle_recording),

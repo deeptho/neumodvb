@@ -67,13 +67,14 @@ class FrontendTable(NeumoTable):
     enable_cfn = lambda table: table.enable_cfn()
     enable_sfn = lambda x: x[2].enable_sfn(x[0], x[1])
     enable_dfn = lambda x: x[2].enable_dfn(x[0])
+    card_no_sfn = lambda x: x[2].card_no_sfn(x[0], x[1])
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     all_columns = \
         [CD(key='adapter_name',  label='adapter', basic=True, no_combo=True, readonly=True,
             example="TurboSight TBS 6916X #12 "),
          #CD(key='adapter_no',  label='Adap', basic=True, readonly=True),
          CD(key='k.frontend_no',  label='fe', basic=True, readonly=True),
-         CD(key='card_no',  label='card#', basic=True, readonly=True),
+         CD(key='card_no',  label='card#', basic=True, readonly=False, sfn=card_no_sfn),
          CD(key='card_short_name',  label='Card', basic=True, example=" TBS 6916X "),
          CD(key='fe_enable_menu',  label='enable', basic=False, cfn=enable_cfn, dfn=enable_dfn, sfn=enable_sfn,
             example=" DVB T+C "),
@@ -151,6 +152,14 @@ class FrontendTable(NeumoTable):
         rec.enable_dvbc = 'C' in v
         dtdebug(f"Set called: fe={rec} v={v}")
         return rec
+
+    def card_no_sfn(self, rec, v):
+        v = int(v)
+        wx.GetApp().receiver.renumber_card(rec.card_no, v)
+        rec.card_no = v;
+        return rec
+
+
     def highlight_colour(self, fe):
         """
         show lnbs for missing adapters in colour

@@ -576,6 +576,7 @@ public:
 
 	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux, const active_adapter_t*aa);
 	int scan_now();
+	void renumber_card(int old_number, int new_number);
 };
 
 struct player_cb_t {
@@ -713,4 +714,6 @@ public:
 	}
 
 	std::tuple<std::string, int> get_api_type() const;
+
+	void renumber_card(int old_number, int new_number);
 };

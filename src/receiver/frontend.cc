@@ -1209,7 +1209,10 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 			cmdseq.add_pls_code(make_code((int)mux.pls_mode, (int)mux.pls_code));
 		cmdseq.add_pls_codes(DTV_PLS_SEARCH_LIST);
 		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
-		cmdseq.add(DTV_SEARCH_RANGE, std::min(mux.symbol_rate*2, (unsigned int)4000000));
+		if(mux.symbol_rate >= 2000000)
+			cmdseq.add(DTV_SEARCH_RANGE, std::max(mux.symbol_rate, (unsigned int)4000000));
+		else
+			cmdseq.add(DTV_SEARCH_RANGE, mux.symbol_rate);
 	} else {
 		if (((int)mux.delivery_system != SYS_DVBS) && ((int)mux.delivery_system != SYS_DVBS2)) {
 			dterror("illegal delivery system: " << chdb::to_str(mux.delivery_system));

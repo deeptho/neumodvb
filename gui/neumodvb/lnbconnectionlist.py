@@ -223,6 +223,21 @@ class LnbConnectionGrid(NeumoGridBase):
         self.app.frame.ToggleEditMode()
         self.EnableEditing(self.app.frame.edit_mode)
 
+    def handle_lnb_change(self, lnb, rf_path):
+        self.table.GetRow.cache_clear()
+        self.OnRefresh(None, rf_path)
+        if rf_path is None:
+            self.rf_path = self.table.screen.record_at_row(0)
+        else:
+            self.rf_path = rf_path
+
+    def SelectLnb(self, lnb, rf_path):
+        self.SetRfPath(lnb, rf_path)
+        #wx.CallAfter(self.SetFocus)
+        print(f'calling handle_lnb_change lnb={lnb} rf_path={self.rf_path}')
+        wx.CallAfter(self.handle_lnb_change, None, self.lnb, self.rf_path)
+
+
 class BasicLnbConnectionGrid(LnbConnectionGrid):
     def __init__(self, *args, **kwds):
         basic = True

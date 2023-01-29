@@ -174,11 +174,17 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
         self.lnb, self.rf_path = None, None
         self.window_for_computing_width = None
+        self.Bind(wx.EVT_COMBOBOX_CLOSEUP, self.OnEndPopup)
 
     @property
     def lnb_connection (self):
         return pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
 
+    def OnEndPopup(self, evt):
+        popup = self.popup
+        self.popup = GridPopup(RfPathGridPopup)
+        self.SetPopupControl(self.popup)
+        del popup
     def SetRfPath(self, rf_path, lnb):
         """
         Called by parent window to intialise state

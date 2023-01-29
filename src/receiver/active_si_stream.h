@@ -366,6 +366,7 @@ struct active_si_data_t {
 	bool pmts_can_be_saved() const {
 		return ! pmt_data.saved &&
 			nit_actual_done() &&
+			sdt_actual_done() &&
 			pmt_data.all_received();
 	}
 

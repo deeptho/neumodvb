@@ -1519,7 +1519,7 @@ bool active_si_stream_t::update_mux(
 				dtdebug("database key change detected: si-reader-mux: db="<< mux << " db=" << *pdbk);
 				if(pdbc->tune_src ==  tune_src_t::USER)
 					*mux_key_ptr(mux) = *pdbk;
-				else {
+				else if (!(preserve & update_mux_preserve_t::MUX_KEY)) {
 					//fix services and other non-mux data
 					chdb::on_mux_key_change(chdb_wtxn, *pdbk, mux, now);
 					{

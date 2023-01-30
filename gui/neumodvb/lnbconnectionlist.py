@@ -98,11 +98,19 @@ class LnbConnectionTable(NeumoTable):
     @property
     def lnb(self):
         if hasattr(self.parent, "lnb"):
-            self.lnb_ = self.parent.lnb #used by combo popup
+            return self.parent.lnb #used by combo popup
         else:
-            lnbgrid = self.parent.GetParent().GetParent().lnbgrid
-            self.lnb_ = lnbgrid.CurrentLnb().copy()
-        return self.lnb_
+            if self.lnb_ is None:
+                lnbgrid = self.parent.GetParent().GetParent().lnbgrid
+                self.lnb_ = lnbgrid.CurrentLnb().copy()
+            return self.lnb_
+
+    @lnb.setter
+    def lnb(self, val):
+        if hasattr(self.parent, "lnb"):
+            self.parent.lnb = val #used by combo popup
+        else:
+            self.lnb_ = val
 
     @property
     def lnb_connection(self):

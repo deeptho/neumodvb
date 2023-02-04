@@ -116,7 +116,6 @@ class SatListComboCtrl(wx.ComboCtrl):
         self.SetMinSize((w+button_size.width,h))
         self.SetPopupMinWidth(w)
         self.SetValue(cgt)
-        evt.Skip(True)
 
     def OnWindowCreate(self, evt):
         """

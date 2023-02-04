@@ -50,7 +50,7 @@ class SpectrumTable(NeumoTable):
          CD(key='k.rf_path',  label='Card/RF', basic=True, readonly=True, no_combo = True,
             dfn=lambda x: x[2].rf_path_name(x[0]), example=" TBS6909X #12 "),
          CD(key='k.sat_pos',  label='sat\npos', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
-         CD(key='adapter_no',  label='ad#', basic=True, readonly=True),
+         CD(key='adapter_no',  label='ad#', basic=False, readonly=True),
          CD(key='k.pol',  label='pol', basic=True, dfn=lambda x: lastdot(x[1]).replace('POL',''), example='V'),
          CD(key='k.start_time',  label='date', basic=True, dfn= datetime_fn),
          CD(key='usals_pos',  label='usals_pos', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),

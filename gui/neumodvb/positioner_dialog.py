@@ -99,6 +99,18 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.positioner_lnb_sel.window_for_computing_width = self
         self.positioner_rf_path_sel.window_for_computing_width = self
         self.positioner_mux_sel.window_for_computing_width = self
+
+    def clear_template_strings(self):
+        """
+        remove some data used by wxg to estimate window size
+        """
+        print ('CLEAR')
+        for key in self.other_status_keys:
+            w = getattr(self, f'status_{key}')
+            w.SetLabel('')
+        self.si_freq_text.SetLabel('')
+        self.si_symbolrate_text.SetLabel('')
+        self.si_nit_ids_text.SetLabel('')
     def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
@@ -107,14 +119,13 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.positioner_rf_path_sel.SetRfPath(self.rf_path, self.lnb)
         self.positioner_mux_sel.SetSat(self.sat)
         self.positioner_mux_sel.SetMux(self.mux)
-
+        wx.CallAfter(self.clear_template_strings)
     def init(self, parent, sat, lnb,  mux, window_for_computing_width=None):
         if window_for_computing_width is not None:
             self.positioner_sat_sel.window_for_computing_width = window_for_computing_width
         self.rf_path, self.lnb, self.sat, self.mux = self.SelectInitialData(lnb, sat, mux)
         self.si_status_keys= ('pat', 'nit', 'sdt')
         self.other_status_keys= ('fail', 'si_done')
-
         self.ref_mux = None
         self.diseqc12 = 0
         self.last_tuned_mux = None # needed because user can change self.mux while tuning is in progress
@@ -278,9 +289,10 @@ class TuneMuxPanel(TuneMuxPanel_):
 
         if self.lnb_changed:
             txn = wx.GetApp().devdb.wtxn()
+            #adjust lnb_connections based on possible changes in frontends
+            pydevdb.lnb.update_lnb(txn, self.lnb)
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
-            pydevdb.lnb.update_lnb(txn, self.lnb)
             txn.commit()
         self.lnb_changed = False
         if event is not None:
@@ -572,6 +584,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.parent.ChangeSatPos(sat_pos)
 
     def UpdateRefMux(self, rec):
+        #if rec is None:
+        #    dterror("Called with None")
+        #    rec = pychdb.dvs_mux.dvbs_mux()
+        #    rec.k.sat_pos = self.sat.sat_pos
+        #    rec.frequency = self.lnb.k.lnb_type == pydevdb.lnb.lnb_
         if rec.k.sat_pos == pychdb.sat.sat_pos_none:
             rec.k.sat_pos = self.sat.sat_pos
         dtdebug(f"UpdateRefMux: rec.k.sat_pos={rec.k.sat_pos} self.sat.sat_pos={self.sat.sat_pos}")
@@ -780,6 +797,10 @@ class PositionerDialog(PositionerDialog_):
     def rf_path(self):
         return self.tune_mux_panel.rf_path
 
+    @rf_path.setter
+    def rf_path(self, val):
+        assert False
+
     @property
     def lnb_connection (self):
         return None if self.rf_path is None else pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
@@ -805,7 +826,6 @@ class PositionerDialog(PositionerDialog_):
         return self.tune_mux_panel.lnb_subscriber
 
     def Prepare(self, lnbgrid):
-        pass
         self.Layout()
 
     def Close(self):

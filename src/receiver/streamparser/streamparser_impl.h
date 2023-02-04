@@ -106,7 +106,7 @@ namespace dtdemux {
 
 
 	template<typename T> inline T data_range_t::get() {
-		assert(curpos+sizeof(T) < end);
+		assert(curpos+sizeof(T) <= end);
 		if(curpos+sizeof(T) < end) {
 			T ret= get_<T>(curpos);
 			curpos += sizeof(T);
@@ -121,7 +121,7 @@ namespace dtdemux {
 
 
 	template<typename T> inline void data_range_t::put(const T& val) {
-		assert(curpos+sizeof(T) < end);
+		assert(curpos+sizeof(T) <= end);
 		put_<T>(curpos, val);
 		curpos += sizeof(T);
 		assert(available()>=0);

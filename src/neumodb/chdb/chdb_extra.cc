@@ -1471,7 +1471,7 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 				bestp = &network;
 			}
 		}
-		if (bestp && usals_is_close(bestp->usals_pos, usals_pos)) {
+		if (bestp /*&& usals_is_close(bestp->usals_pos, usals_pos)*/) {
 			return return_mux(*bestp);
 		} else if( bestp && !devdb::lnb::on_positioner(lnb)) {
 			return return_mux(*bestp);

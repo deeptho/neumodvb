@@ -104,7 +104,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         """
         remove some data used by wxg to estimate window size
         """
-        print ('CLEAR')
         for key in self.other_status_keys:
             w = getattr(self, f'status_{key}')
             w.SetLabel('')
@@ -271,7 +270,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             mux, sat = pychdb.select_sat_and_reference_mux(chdb_txn, lnb, mux)
             if mux is not None and mux.k.sat_pos != pychdb.sat.sat_pos_none:
                 sat = pychdb.sat.find_by_key(chdb_txn, mux.k.sat_pos)
-            elif len(lnb.networks)>0:
+            elif sat is None and len(lnb.networks)>0:
                 sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos)
             return rf_path, lnb, sat, mux
         chdb_txn.abort()

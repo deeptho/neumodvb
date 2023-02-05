@@ -1435,20 +1435,20 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		{
 			auto cs = chdb::sat_t::find_by_key(chdb_rtxn, network.sat_pos);
 			std::optional<chdb::sat_t> sat = cs.is_valid() ? cs.current() : chdb::sat_t();
-		auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
-		if (c.is_valid()) {
-			auto mux = c.current();
-			if (devdb::lnb::can_pol(lnb, mux.pol))
-				return {mux, sat};
-		}
-		c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
-																			chdb::dvbs_mux_t::partial_keys_t::sat_pos);
-		if (c.is_valid()) {
-			auto mux = c.current();
-			if (devdb::lnb::can_pol(lnb, mux.pol))
-				return {mux, sat};
-		}
-		return {{}, sat};
+			auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
+			if (c.is_valid()) {
+				auto mux = c.current();
+				if (devdb::lnb::can_pol(lnb, mux.pol))
+					return {mux, sat};
+			}
+			c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
+																				chdb::dvbs_mux_t::partial_keys_t::sat_pos);
+			if (c.is_valid()) {
+				auto mux = c.current();
+				if (devdb::lnb::can_pol(lnb, mux.pol))
+					return {mux, sat};
+			}
+			return {{}, sat};
 		};
 
 	using namespace chdb;

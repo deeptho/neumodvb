@@ -272,6 +272,8 @@ class TuneMuxPanel(TuneMuxPanel_):
                 sat = pychdb.sat.find_by_key(chdb_txn, mux.k.sat_pos)
             elif sat is None and len(lnb.networks)>0:
                 sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos)
+            if mux is None:
+                mux = pychdb.dvbs_mux.dvbs_mux()
             return rf_path, lnb, sat, mux
         chdb_txn.abort()
         del chdb_txn
@@ -283,7 +285,8 @@ class TuneMuxPanel(TuneMuxPanel_):
                 self.ref_mux = self.mux if self.signal_info is None else self.signal_info.driver_mux
                 self.ref_mux.k.sat_pos = self.sat.sat_pos
                 n.ref_mux = self.ref_mux.k
-                self.lnb_changed |= not same_mux_key(self.ref_mux.k, self.mux.k)
+                if self.mux is not None:
+                    self.lnb_changed |= not same_mux_key(self.ref_mux.k, self.mux.k)
                 break
 
         if self.lnb_changed:

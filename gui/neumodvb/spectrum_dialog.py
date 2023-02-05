@@ -315,12 +315,13 @@ class SpectrumDialog(SpectrumDialog_):
         self.tune_mux_panel.ChangeRfPath(rf_path)
         self.tune_mux_panel.ChangeSat(sat)
         mux = self.tune_mux_panel.mux
-        mux.frequency = int(tp.freq*1000)
-        mux.symbol_rate=  int(tp.symbol_rate*1000)
+        if tp is not None:
+            mux.frequency = int(tp.freq*1000)
+            mux.symbol_rate=  int(tp.symbol_rate*1000)
+            mux.pol = tp.spectrum.spectrum.k.pol
         mux.stream_id = -1
         mux.pls_mode = pychdb.fe_pls_mode_t.ROOT
         mux.pls_code = 1
-        mux.pol = tp.spectrum.spectrum.k.pol
         #to test
         mux.k.sat_pos = sat.sat_pos
         self.tune_mux_panel.muxedit_grid.Reset()

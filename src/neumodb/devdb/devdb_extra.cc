@@ -88,7 +88,7 @@ std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 std::ostream& devdb::operator<<(std::ostream& os, const lnb_t& lnb) {
 	using namespace chdb;
 	os << lnb.k;
-	auto sat = sat_pos_str(lnb.usals_pos); // in this case usals pos equals one of the network sat_pos
+	auto sat = sat_pos_str(lnb.usals_pos - lnb.offset_pos); // in this case usals pos equals one of the network sat_pos
 	os << " " << sat;
 	return os;
 }
@@ -203,8 +203,7 @@ std::tuple<bool, int, int, int> devdb::lnb::has_network(const lnb_t& lnb, int16_
 	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
 												 [&sat_pos](const devdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
 	if (it != lnb.networks.end()) {
-		auto usals_pos = lnb.usals_pos == sat_pos_none ? (it->usals_pos -lnb.k.offset_pos)
-			: (lnb.usals_pos - lnb.k.offset_pos);
+		auto usals_pos = lnb.usals_pos == sat_pos_none ? it->usals_pos :  lnb.usals_pos;
 		if (devdb::lnb::on_positioner(lnb)) {
 			usals_amount = std::abs(usals_pos - it->usals_pos);
 		}

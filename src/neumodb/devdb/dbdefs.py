@@ -161,7 +161,6 @@ lnb_key = db_struct(name='lnb_key',
                           fields = (
                               (3, 'int8_t', 'dish_id', 0), #dish_id=0 is also the "default dish"
                               #because of switches, the same cable could be attached to multiple dishes
-                              (21, 'int16_t', 'offset_pos', '0'), #only for master usals positioner: in 1/100 degre: offset w.r.t. t center of dish
                               (2, 'int16_t', 'lnb_id', '-1'), #unique identifier for lnb. Still needed?
 
                               #Usually the  orbital position (fixed dish) or the offset position on dish
@@ -253,6 +252,7 @@ lnb = db_struct(name='lnb',
                           (16, 'bool',  'on_positioner', 'false'), #bit flag indicating if lnb is on rotor
                           (3, 'lnb_pol_type_t',  'pol_type', 'lnb_pol_type_t::HV'), #bit flag indicating which polarisations can be used
                           (4, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
+                          (17, 'int16_t', 'offset_pos', '0'), #only for master usals positioner: in 1/100 degre: offset w.r.t. t center of dish, used for adjusting usals_pos for display purposes
                           (5, 'int16_t',  'priority', -1), #
                           (6, 'int32_t', 'lof_low', -1), # local oscillator, -1 means default
                           (7, 'int32_t', 'lof_high', -1), # local oscillator, -1 means default

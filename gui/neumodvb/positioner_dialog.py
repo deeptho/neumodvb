@@ -776,7 +776,9 @@ class PositionerDialog(PositionerDialog_):
         self.diseqc_type_choice.SetValue(self.lnb_connection)
         self.enable_disable_diseqc_panels()
         network = None if self.sat is None else get_network(self.lnb, self.sat.sat_pos)
-        self.SetPosition( (pychdb.sat.sat_pos_none if self.sat is None else self.sat.sat_pos) if network is None else network.usals_pos)
+        self.SetPosition( (pychdb.sat.sat_pos_none if self.sat is None else self.sat.sat_pos) \
+                          if network is None else network.usals_pos + self.lnb.offset_pos)
+        self.SetLnbOffsetPos(self.lnb.offset_pos)
         self.SetDiseqc12Position(0 if network is None else network.diseqc12)
         self.SetUsalsLocation()
         if network is not None:
@@ -852,8 +854,13 @@ class PositionerDialog(PositionerDialog_):
         self.tune_mux_panel.constellation_plot.clear_data()
 
     def SetPosition(self, pos):
-        self.position = pos
+        self.position = pos #the satellite pointed to (even for an offset lnb)
         self.rotor_position_text_ctrl.SetValue(pychdb.sat_pos_str(self.position))
+
+    def SetLnbOffsetPos(self, offset_pos=None):
+        val = f'{abs(offset_pos)/100.:3.1f}'
+        self.lnb_offset_pos_text_ctrl.ChangeValue(val)
+        self.lnb_offset_pos_east_west_choice.SetSelection(offset_pos<0)
 
     def SetDiseqc12Position(self, idx):
         self.diseqc_position_spin_ctrl.SetValue(idx)
@@ -877,6 +884,7 @@ class PositionerDialog(PositionerDialog_):
         self.latitude_text_ctrl.ChangeValue(latitude)
         self.latitude_north_south_choice.SetSelection(opts.usals_location.usals_latitude<0)
         self.longitude_east_west_choice.SetSelection(opts.usals_location.usals_longitude<0)
+
     def SetDiseqc12(self, diseqc12):
         self.tune_mux_panel.diseqc12 = diseqc12
         self.diseqc_position_spin_ctrl.SetValue(self.tune_mux_panel.diseqc12)
@@ -921,6 +929,21 @@ class PositionerDialog(PositionerDialog_):
         self.update_constellation = evt.IsChecked()
         dtdebug(f"OnToggleConstellation={self.update_constellation}")
         evt.Skip()
+
+    def UpdateLnbOffsetPos(self, offset_pos):
+        """
+        Set the LNB offset position to offset_pos, updating usals_pos, but without
+        moving the dish. Offset_pos is positive it lnb points to a sat more east than the
+        central lnb
+        """
+        dtdebug(f"LNB offset_pos set to {offset_pos/100}")
+        delta = offset_pos - self.lnb.offset_pos
+        self.lnb.offset_pos = offset_pos
+        self.tune_mux_panel.lnb_changed = True
+        self.position += delta
+        #update the usals_position shown on screen
+        if delta != 0:
+            self.SetPosition(self.position)
 
     def UpdateUsalsPosition(self, usals_pos):
         dtdebug(f"USALS position set to {usals_pos/100}")
@@ -969,6 +992,18 @@ class PositionerDialog(PositionerDialog_):
         else:
             self.usals_panel.Enable()
 
+    def OnLnbOffsetPosChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        val = self.lnb_offset_pos_text_ctrl.GetValue()
+        from neumodvb.util import parse_longitude
+        offset_pos = parse_longitude(val)
+        sel = self.lnb_offset_pos_east_west_choice.GetSelection()
+        if sel == 1:
+            offset_pos = - offset_pos
+        self.SetLnbOffsetPos(offset_pos)
+        self.UpdateLnbOffsetPos(offset_pos)
+        if type(event) != str:
+            event.Skip()
+
     def OnPositionChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         val = event if type(event) == str  else event.GetString()
         from neumodvb.util import parse_longitude
@@ -981,19 +1016,19 @@ class PositionerDialog(PositionerDialog_):
 
     def OnGotoUsals(self, event):
         self.OnPositionChanged(self.rotor_position_text_ctrl.GetValue())
-        self.UpdateUsalsPosition(self.position)
+        self.UpdateUsalsPosition(self.position - self.lnb.offset_pos)
 
 
     def OnUsalsStepEast(self, event):
         self.position += self.step
         self.SetPosition(self.position)
-        self.UpdateUsalsPosition(self.position)
+        self.UpdateUsalsPosition(self.position - self.lnb.offset_pos)
         event.Skip()
 
     def OnUsalsStepWest(self, event):
         self.position -= self.step
         self.SetPosition(self.position)
-        self.UpdateUsalsPosition(self.position)
+        self.UpdateUsalsPosition(self.position - self.lnb.offset_pos)
         event.Skip()
 
     def OnUsalsStepChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
@@ -1046,6 +1081,16 @@ class PositionerDialog(PositionerDialog_):
         opts.usals_location.usals_longitude = val
         receiver.set_options(opts);
         dtdebug(f'site longitude changed to {val}')
+        evt.Skip()
+
+    def OnLnbOffsetPosEastWestSelect(self, evt):
+        from neumodvb.util import parse_longitude
+        val = self.lnb_offset_pos_text_ctrl.GetValue()
+        offset_pos = parse_longitude(val)
+        val = abs(offset_pos)
+        if evt.GetSelection() == 1:
+            val = -val
+        self.UpdateLnbOffsetPos(val)
         evt.Skip()
 
     def OnStorePosition(self, evt):  # wxGlade: PositionerDialog_.<event_handler>

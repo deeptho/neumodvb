@@ -95,6 +95,7 @@ class LnbTable(NeumoTable):
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
     lnb_key_fn = lambda x: str(x[0])
+    cur_pos_fn = lambda x:  pychdb.sat_pos_str(x[0].usals_pos + x[0].offset_pos)
     basic_columns=[CD(key='k',
                       sort=('k.dish_id', 'adapter_mac_address','k.lnb_id', 'usals_pos'),
                       example='D1 unv [32762] 30.0W ',
@@ -111,11 +112,11 @@ class LnbTable(NeumoTable):
          #CD(key='k.rf_input',  label='RF in', basic=True, readonly=False),
          #CD(key='k.rf_input',  label='Card / RF in', basic=True, no_combo = False, readonly=False, dfn=card_rf_in_fn,
          #   example="C0#10: TBS 6904SE" ),
-         CD(key='usals_pos',  label='usals\npos', basic=True, no_combo = True, #allow entering sat_pos
+         CD(key='usals_pos',  label='cur sat\npos', basic=True, no_combo = True, #allow entering sat_pos
+            dfn= cur_pos_fn),
+         CD(key='offset_pos',  label='offset\npos', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
-         #CD(key='offset_pos',  label='usals\noffset', basic=True, no_combo = True, #allow entering sat_pos
-         #   dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='enabled',   label='ena-\nbled', basic=False),
          CD(key='can_be_used',   label='avail-\nable', basic=False),
          #CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),

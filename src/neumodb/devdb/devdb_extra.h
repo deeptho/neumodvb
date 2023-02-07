@@ -136,8 +136,8 @@ namespace devdb {
 		enum flags : int {
 			NONE = 0x0,
 			KEY = 0x1,
-			GENERAL_DATA  = 0x2, //enabled, pol_type, freq_mid....
-			USALS_POS  = 0x4,
+			GENERAL  = 0x2, //enabled, pol_type, freq_mid....
+			USALS  = 0x4,
 			CONNECTIONS  = 0x8, //directly used
 			NETWORKS   = 0x10, // directly used
 			ALL = 0xffff,
@@ -193,7 +193,8 @@ namespace devdb::lnb {
 	bool add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network, bool save);
 	bool add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection, bool save);
 
-	bool update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save);
+	bool update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save);
+	bool update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save);
 	bool update_lnb_from_db(db_txn& wtxn, devdb::lnb_t& lnb, devdb::update_lnb_preserve_t::flags preserve, bool save);
 	void reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);

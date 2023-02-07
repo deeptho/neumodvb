@@ -51,7 +51,9 @@ static std::optional<lnb_connection_t> conn_helper
 static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
 	using namespace devdb;
-	mm.def("update_lnb", &lnb::update_lnb, "save changed lnb",
+	mm.def("update_lnb_from_positioner", &lnb::update_lnb_from_positioner, "save changed lnb",
+				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
+		.def("update_lnb_from_lnblist", &lnb::update_lnb_from_lnblist, "save changed lnb",
 				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
 		.def("can_move_dish", &lnb::can_move_dish,
 				 "Returns true if this lnb connection can move the dish",

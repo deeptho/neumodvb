@@ -39,7 +39,7 @@ import pydevdb
 import pystatdb
 from pyreceiver import get_object as get_object_
 
-LnbChangeEvent, EVT_LNB_CHANGE = wx.lib.newevent.NewEvent()
+LnbSelectEvent, EVT_LNB_SELECT = wx.lib.newevent.NewEvent()
 AbortTuneEvent, EVT_ABORT_TUNE = wx.lib.newevent.NewEvent()
 
 def on_positioner(lnb):
@@ -165,7 +165,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         """
         lnb = evt.lnb
         dtdebug(f"selected lnb: {lnb}")
-        wx.CallAfter(self.ChangeLnb, lnb)
+        wx.CallAfter(self.SelectLnb, lnb)
 
     def CmdSelectRfPath(self, evt):
         """
@@ -290,7 +290,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         if self.lnb_changed:
             txn = wx.GetApp().devdb.wtxn()
             #adjust lnb_connections based on possible changes in frontends
-            pydevdb.lnb.update_lnb(txn, self.lnb)
+            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb)
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
             txn.commit()
@@ -308,7 +308,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             pydevdb.lnb.reset_lof_offset(txn, self.lnb)
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
-            pydevdb.lnb.update_lnb(txn, self.lnb)
+            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb)
             txn.commit()
             self.lnb_changed = False
         if event:
@@ -490,7 +490,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             w = getattr(self, f'status_{key}')
             w.SetLabel('')
 
-    def ChangeLnb(self, lnb):
+    def SelectLnb(self, lnb):
         add = False
         self.lnb = lnb
         if lnb is None:
@@ -512,9 +512,9 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.ChangeSat(sat)
             self.positioner_mux_sel.SetMux(self.mux)
         self.lnb_changed = False
-        self.parent.ChangeLnb(self.rf_path, self.lnb) #update window title
+        self.parent.SetWindowTitle(self.rf_path, self.lnb) #update window title
         self.positioner_lnb_sel.Update()
-        evt = LnbChangeEvent(lnb=lnb)
+        evt = LnbSelectEvent(lnb=lnb)
         wx.PostEvent(self, evt)
 
     def ChangeRfPath(self, rf_path):
@@ -524,9 +524,8 @@ class TuneMuxPanel(TuneMuxPanel_):
             return
         self.rf_path = rf_path
         #lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, rf_path)
-        self.parent.ChangeLnb(self.rf_path, self.lnb) #update window title
-        evt = LnbChangeEvent(lnb=self.lnb)
-        wx.PostEvent(self, evt)
+        self.parent.SetWindowTitle(self.rf_path, self.lnb) #update window title
+        self.positioner_rf_path_sel.Update()
 
     def ChangeMux(self, mux):
         dtdebug(f"selected mux: {mux}")
@@ -900,7 +899,7 @@ class PositionerDialog(PositionerDialog_):
             event.Skip(False)
         event.Skip()
 
-    def ChangeLnb(self, rf_path, lnb):
+    def SetWindowTitle(self, rf_path, lnb):
         self.SetTitle(f'Positioner Control - {lnb} {rf_path}')
 
     def ChangeSatPos(self, sat_pos):

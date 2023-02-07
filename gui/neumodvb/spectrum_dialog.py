@@ -105,8 +105,8 @@ class SpectrumDialog(SpectrumDialog_):
         super().__init__(parent, *args, **kwargs)
         self.tune_mux_panel.init(self, sat, lnb, mux)
 
-        from neumodvb.positioner_dialog import EVT_LNB_CHANGE, EVT_ABORT_TUNE
-        self.tune_mux_panel.Bind(EVT_LNB_CHANGE, self.OnChangeLnb)
+        from neumodvb.positioner_dialog import EVT_LNB_SELECT, EVT_ABORT_TUNE
+        self.tune_mux_panel.Bind(EVT_LNB_SELECT, self.OnSelectLnb)
         self.tune_mux_panel.Bind(EVT_ABORT_TUNE, self.OnAbortTune)
 
         self.parent = parent
@@ -145,7 +145,7 @@ class SpectrumDialog(SpectrumDialog_):
         self.grid.OnTimer(evt)
         evt.Skip(True) #ensures tat other windows also get the event
 
-    def OnChangeLnb(self, evt):
+    def OnSelectLnb(self, evt):
         ret = self.spectrum_buttons_panel.select_start_end(evt.lnb)
         return ret
 
@@ -311,7 +311,7 @@ class SpectrumDialog(SpectrumDialog_):
             rf_path = self.rf_path
             lnb = self.lnb
             sat = self.sat
-        self.tune_mux_panel.ChangeLnb(lnb)
+        self.tune_mux_panel.SelectLnb(lnb)
         self.tune_mux_panel.ChangeRfPath(rf_path)
         self.tune_mux_panel.ChangeSat(sat)
         mux = self.tune_mux_panel.mux
@@ -401,7 +401,7 @@ class SpectrumDialog(SpectrumDialog_):
                     self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
                     self.tune_mux_panel.AbortTune()
 
-    def ChangeLnb(self, rf_path, lnb):
+    def SetWindowTitle(self, rf_path, lnb):
         self.SetTitle(f'Spectrum analysis - {lnb} {rf_path}')
 
     def ChangeSatPos(self, sat_pos):

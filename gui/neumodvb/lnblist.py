@@ -106,24 +106,17 @@ class LnbTable(NeumoTable):
         [#CD(key='connection_name',  label='LNB', basic=True, readonly=True,
          #   example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
          CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
+            #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='on_positioner',  label='on\nrotor', basic=True, readonly=False),
-         #CD(key='k.card_mac_address',  label='card', basic=True, no_combo=False, readonly=False, dfn=card_fn,
-         #   example=" C0: TBS 6904SE "),
-         #CD(key='k.rf_input',  label='RF in', basic=True, readonly=False),
-         #CD(key='k.rf_input',  label='Card / RF in', basic=True, no_combo = False, readonly=False, dfn=card_rf_in_fn,
-         #   example="C0#10: TBS 6904SE" ),
-         CD(key='usals_pos',  label='cur sat\npos', basic=True, no_combo = True, #allow entering sat_pos
+            #following must be readonly, or change may be accidentally undone by positioner dialog
+         CD(key='usals_pos',  label='cur sat\npos', basic=True, readonly=True, no_combo = True, #allow entering sat_pos
             dfn= cur_pos_fn),
-         CD(key='offset_pos',  label='offset\npos', basic=True, no_combo = True, #allow entering sat_pos
+            #following must be readonly, or change may be accidentally undone by positioner dialog
+         CD(key='offset_pos',  label='offset\npos', basic=True, readonly=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
          CD(key='enabled',   label='ena-\nbled', basic=False),
-         CD(key='can_be_used',   label='avail-\nable', basic=False),
-         #CD(key='rotor_control',  label='rotor', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR TYPE USALS'),
-         #CD(key='diseqc_10',  label='diseqc\n10'),
-         #CD(key='diseqc_11',  label='diseqc\n11'),
-         #CD(key='diseqc_mini',  label='diseqc\nmini'),
-         #CD(key='tune_string',  label='tune\nstring'),
+         CD(key='can_be_used',   label='avail-\nable', basic=False, readonly=True),
          CD(key='k.lnb_type',  label='LNB type', dfn=lambda x: lastdot(x)),
          CD(key='networks',   label='Networks', dfn=lnbnetwork_fn, example='19.0E; '*6),
          CD(key='connections',  label='Connections', dfn=lnbconn_fn, example='C2#1 TBS6909X; '*4),
@@ -193,7 +186,7 @@ class LnbTable(NeumoTable):
             if not cont:
                 return None
         pydevdb.lnb.make_unique_if_template(txn, lnb)
-        pydevdb.lnb.update_lnb(txn, lnb)
+        pydevdb.lnb.update_lnb_from_lnblist(txn, lnb)
         return lnb
 
     def connection_name(self, record):
@@ -205,7 +198,7 @@ class LnbTable(NeumoTable):
         if len(record.connection_name)==0:
             #update needed
             txn = self.db.rtxn()
-            pydevdb.lnb.update_lnb(txn, record, save=False)
+            pydevdb.lnb.update_lnb_from_lnblist(txn, record, save=False)
             txn.abort()
         return record.connection_name
 

@@ -667,7 +667,7 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 
 	if(on_positioner(lnb) && 	lnb_connection.rotor_control == rotor_control_t::FIXED_DISH) {
 		lnb_connection.rotor_control = rotor_control_t::ROTOR_SLAVE;
-		preserve = p_t(preserve & p_t::ALL & ~p_t::GENERAL_DATA);
+		preserve = p_t(preserve & p_t::ALL & ~p_t::GENERAL);
 	}
 
 	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, preserve, save);
@@ -822,16 +822,30 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	if(db_lnb) {
 		if((preserve & p_t::KEY))
 			lnb.k = db_lnb->k;
-
+		if(preserve & p_t::USALS) {
+			lnb.usals_pos = db_lnb->usals_pos;
+			lnb.on_positioner = db_lnb->on_positioner;
+			lnb.offset_pos = db_lnb->offset_pos;
+		}
+		if(preserve & p_t::GENERAL) {
+			lnb.pol_type = db_lnb->pol_type;
+			lnb.enabled = db_lnb->enabled;
+			lnb.priority = db_lnb->priority;
+			lnb.lof_low = db_lnb->lof_low;
+			lnb.lof_high = db_lnb->lof_high;
+			lnb.freq_low = db_lnb->freq_low;
+			lnb.freq_mid = db_lnb->freq_mid;
+			lnb.freq_high = db_lnb->freq_high;
+		}
 		if ((preserve & p_t::NETWORKS))
 			lnb.networks = db_lnb->networks;
+		if (preserve & p_t::CONNECTIONS) {
+			lnb.connections = db_lnb->connections;
+			lnb.can_be_used = db_lnb->can_be_used;
+		}
 	}
 
-
-	if (db_lnb && (preserve & p_t::CONNECTIONS)) {
-		lnb.connections = db_lnb->connections;
-		lnb.can_be_used = db_lnb->can_be_used;
-	} else {
+	if (!db_lnb || !(preserve & p_t::CONNECTIONS)) {
 		for(auto &conn: lnb.connections) {
 			auto c = fe_t::find_by_card_mac_address(devdb_wtxn, conn.card_mac_address);
 			if(c.is_valid()) {
@@ -914,8 +928,16 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 }
 
 
-bool devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save) {
-	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, devdb::update_lnb_preserve_t::flags::NONE, save);
+bool devdb::lnb::update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save) {
+	using p_t = devdb::update_lnb_preserve_t::flags;
+	auto preserve = p_t(p_t::ALL & ~p_t::USALS);
+	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, preserve, save);
+}
+
+bool devdb::lnb::update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save) {
+	using p_t = devdb::update_lnb_preserve_t::flags;
+	auto preserve = p_t(p_t::ALL & ~p_t::GENERAL);
+	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, preserve, save);
 }
 
 void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)

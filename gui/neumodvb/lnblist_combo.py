@@ -227,7 +227,6 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
         """Called when user selects an rf_path
         """
         dtdebug(f'lnblist_combo received OnSelectRfPath {rf_path}')
-        self.rf_path = rf_path
         wx.PostEvent(self, RfPathSelectEvent(wx.NewIdRef(), rf_path=rf_path))
         self.popup.Dismiss()
         self.SetText(self.CurrentGroupText())
@@ -379,7 +378,6 @@ class LnbNetworkSatListComboCtrl(wx.ComboCtrl):
         """Called when user selects an sat
         """
         dtdebug(f'lnblist_combo received OnSelectLnbNetworkSat {sat}')
-        self.sat = sat
         wx.PostEvent(self, SatSelectEvent(wx.NewIdRef(), sat=sat))
         self.popup.Dismiss()
         self.SetText(self.CurrentGroupText())

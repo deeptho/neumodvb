@@ -438,21 +438,6 @@ int devdb::lnb::uncorrected_freq_for_driver_freq(const devdb::lnb_t& lnb, int fr
 	using namespace chdb;
 
 	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
-
-	auto correct = [&lnb](int band, int frequency, bool inverted_spectrum) {
-		if (band >= lnb.lof_offsets.size()) {
-			//dterror("lnb_loffsets too small for lnb: " << lnb);
-			return frequency;
-		}
-		if (std::abs(lnb.lof_offsets[band]) < 5000) {
-			if(inverted_spectrum)
-				frequency += lnb.lof_offsets[band];
-			else
-				frequency -= lnb.lof_offsets[band];
-		}
-		return frequency;
-	};
-
 	return (inverted_spectrum ? -frequency : frequency)+ (high_band ? lof_high: lof_low);
 }
 

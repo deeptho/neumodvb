@@ -756,8 +756,8 @@ class SignalPanel(SignalPanel_):
         self.sat_pos_text.SetForegroundColour(wx.Colour(
             'red' if on_wrong_sat else 'blue' if nit_received else 'black'))
         self.sat_pos_text.SetLabel(f'{pychdb.sat_pos_str(driver_mux.k.sat_pos)}{c}' if locked else '')
-        self.lnb_lof_offset_text.SetLabel(f'{self.signal_info.lnb_lof_offset:,d} kHz'.replace(',', ' ')) \
-            if self.signal_info.lnb_lof_offset is not None else None
+        self.lnb_lof_offset_text.SetLabel(f'{self.signal_info.lnb_lof_offset:,d} kHz'.replace(',', ' ') \
+            if self.signal_info.lnb_lof_offset is not None else '???')
 
         self.freq_sr_sizer.Layout()
         return True

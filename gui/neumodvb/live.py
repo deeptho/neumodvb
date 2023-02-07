@@ -51,24 +51,35 @@ class GridData(object):
     def __init__(self, parent, rowtype):
         self.parent = parent
         self.ls = wx.GetApp().live_service_screen
+        self.rowtype = rowtype
         if rowtype == RowType.GRIDEPG:
-            self.row_screen = self.ls.screen
             self.OnSelectRow = self.OnSelectServiceOrChannel
         elif rowtype == RowType.SERVICE_OR_CHANNEL:
-            self.row_screen = self.ls.screen
             self.OnSelectRow = self.OnSelectServiceOrChannel
         elif rowtype == RowType.SAT:
-            self.row_screen = self.ls.sat_screen
             self.OnSelectRow = self.OnSelectSat
         elif rowtype == RowType.CHG:
-            self.row_screen = self.ls.chg_screen
             self.OnSelectRow = self.OnSelectChg
         elif rowtype == RowType.REC:
             self.ls = wx.GetApp().live_recording_screen
-            self.row_screen = self.ls.screen
             self.OnSelectRow = self.OnSelectRecording
         else:
             assert 0
+    @property
+    def row_screen(self):
+        rowtype = self.rowtype
+        if rowtype == RowType.GRIDEPG:
+            return self.ls.screen
+        elif rowtype == RowType.SERVICE_OR_CHANNEL:
+            return self.ls.screen
+        elif rowtype == RowType.SAT:
+            return self.ls.sat_screen
+        elif rowtype == RowType.CHG:
+            return self.ls.chg_screen
+        elif rowtype == RowType.REC:
+            return self.ls.screen
+        else:
+            return None
 
     def GetNumberRows(self):
         ret = 0 if self.row_screen is None else self.row_screen.list_size

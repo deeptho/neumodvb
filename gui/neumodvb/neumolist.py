@@ -1144,7 +1144,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                     readonly = True
                 elif col.key.endswith('frequency') or col.key.startswith('freq_') or col.key.startswith('lof_'):
                     editor = NeumoFloatEditor(col, precision=3)
-                elif col.key.endswith('sat_pos') or col.key.endswith('lnb_pos') or col.key.endswith('usals_pos'):
+                elif col.key.endswith('sat_pos') or col.key.endswith('lnb_pos') \
+                     or col.key.endswith('usals_pos') or col.key.endswith('offset_pos'):
                     #Note that the following code line depends on satlist_panel being the first
                     #panel to be initialised (so: on the order of panels in neumoviewer.wxg)
                     choices=[] # will be computed in NeumoChoiceEditor.Show()

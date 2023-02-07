@@ -91,7 +91,6 @@ class DvbsMuxListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(DvbsMuxGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
-        self.mux = None
         self.sat = None
         self.window_for_computing_width = None
 

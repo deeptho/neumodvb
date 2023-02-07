@@ -574,8 +574,8 @@ std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int
 		if(best_conn) {
 			return rf_path_t{lnb.k, best_conn->card_mac_address, best_conn->rf_input};
 		}
-		if(usals_move_amount ==0)
-			break; //pass 2 will not help
+		if(usals_move_amount == 0)
+			break; //pass 2 will not help to improve
 	}
 	return {};
 }
@@ -634,8 +634,13 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 	return {};
 }
 
-bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network) {
+bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network, bool save) {
 	using namespace devdb;
+	if (network.usals_pos == sat_pos_none)
+		network.usals_pos = network.sat_pos;
+	if(network.sat_pos == sat_pos_none)
+		network.sat_pos = network.usals_pos;
+
 	for (auto& n : lnb.networks) {
 		if (n.sat_pos == network.sat_pos) {
 			bool changed = network != n;
@@ -645,6 +650,8 @@ bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& ne
 	}
 	if (network.usals_pos == sat_pos_none)
 		network.usals_pos = network.sat_pos;
+	if (network.sat_pos == sat_pos_none)
+		network.sat_pos = network.usals_pos;
 	lnb.networks.push_back(network);
 	if (lnb.usals_pos == sat_pos_none)
 		lnb.usals_pos = (network.usals_pos == sat_pos_none) ? network.sat_pos : network.usals_pos;
@@ -652,25 +659,44 @@ bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& ne
 }
 
 
-bool devdb::lnb::add_or_edit_connection(db_txn& devdb_rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& lnb_connection) {
+bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
+																				devdb::lnb_connection_t& lnb_connection, bool save) {
 	using namespace devdb;
+	using p_t = update_lnb_preserve_t::flags;
+	auto preserve = p_t::ALL;
+	preserve = (p_t) ((int) preserve & (~(int)p_t::CONNECTIONS));
+	//if connection already exists, update it
+	bool exists{false};
 	for (auto& conn : lnb.connections) {
 		if (conn.card_mac_address == lnb_connection.card_mac_address &&
 				conn.rf_input == lnb_connection.rf_input) {
-			bool changed = lnb_connection != conn;
+			exists = true;
 			conn = lnb_connection;
-			return changed;
+			break;
 		}
 	}
-	if(on_positioner(lnb) && 	lnb_connection.rotor_control == rotor_control_t::FIXED_DISH)
-		lnb_connection.rotor_control = rotor_control_t::ROTOR_SLAVE;
+	//new connection; add it
+	if(!exists) {
+		lnb.connections.push_back(lnb_connection);
+	}
 
-	lnb.connections.push_back(lnb_connection);
-	lnb::update_lnb(devdb_rtxn, lnb , false /*save*/);
+	if(on_positioner(lnb) && 	lnb_connection.rotor_control == rotor_control_t::FIXED_DISH) {
+		lnb_connection.rotor_control = rotor_control_t::ROTOR_SLAVE;
+		preserve = p_t(preserve & p_t::ALL & ~p_t::GENERAL_DATA);
+	}
+
+	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, preserve, save);
 
 	//update the input argument
-	lnb_connection = lnb.connections[lnb.connections.size()-1];
-	return true;
+	for (auto& conn : lnb.connections) {
+		if (conn.card_mac_address == lnb_connection.card_mac_address &&
+				conn.rf_input == lnb_connection.rf_input) {
+			lnb_connection = conn;
+			break;
+		}
+	}
+
+	return changed;
 }
 
 
@@ -786,56 +812,84 @@ bool devdb::lnb::can_pol(const devdb::lnb_t &  lnb, chdb::fe_polarisation_t pol)
 	}
 }
 
-void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
+
+/*
+	Bring an lnb used by the GUI uptodate with the most recent information.
+	If save==true update database
+	devdb_wtxn can also be a readonly transaction if db is not updated
+ */
+bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
+																		devdb::update_lnb_preserve_t::flags preserve, bool save)
 {
+	using namespace devdb;
+	using p_t = update_lnb_preserve_t::flags;
 	bool found=false;
 	bool on_positioner{false};
 	bool can_be_used{false};
 	if(lnb.usals_pos == sat_pos_none && lnb.networks.size() >0)
 		lnb.usals_pos = lnb.networks[0].sat_pos;
-	for(auto &conn: lnb.connections) {
-		auto c = fe_t::find_by_card_mac_address(devdb_wtxn, conn.card_mac_address);
-		if(c.is_valid()) {
-			const auto& fe = c.current();
-			conn.connection_name.clear();
-			conn.card_no = fe.card_no;
-			if (conn.card_no >=0)
-				conn.connection_name.sprintf("C%d#%d %s", conn.card_no, conn.rf_input, fe.card_short_name.c_str());
-			else
-				conn.connection_name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
-			conn.can_be_used = fe.can_be_used;
-			can_be_used = true;
-		} else
-			conn.can_be_used = false;
-		switch(conn.rotor_control) {
-		case devdb::rotor_control_t::ROTOR_MASTER_USALS:
-			//replace all diseqc12 commands with USALS commands
-			on_positioner = true;
-			for(auto& c: conn.tune_string) {
-				if (c=='X') {
-					c = 'P';
-				} found = true;
-			}
-			if (!found)
-				conn.tune_string.push_back('P');
-			break;
-		case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
-			//replace all usals commands with diseqc12 commands
-			on_positioner = true;
-			for(auto& c: conn.tune_string) {
-				if (c=='P') {
-					c = 'X';
-				} found = true;
-			}
-			if (!found)
-				conn.tune_string.push_back('X');
-			break;
-		default:
-			break;
-		}
+	std::optional<lnb_t> db_lnb;
+	auto c = lnb_t::find_by_key(devdb_wtxn, lnb.k, find_type_t::find_eq, devdb::lnb_t::partial_keys_t::all);
+	if(c.is_valid()) {
+		db_lnb = c.current();
 	}
-	lnb.can_be_used = can_be_used;
 
+	if(db_lnb) {
+		if((preserve & p_t::KEY))
+			lnb.k = db_lnb->k;
+
+		if ((preserve & p_t::NETWORKS))
+			lnb.networks = db_lnb->networks;
+	}
+
+
+	if (db_lnb && (preserve & p_t::CONNECTIONS)) {
+		lnb.connections = db_lnb->connections;
+		lnb.can_be_used = db_lnb->can_be_used;
+	} else {
+		for(auto &conn: lnb.connections) {
+			auto c = fe_t::find_by_card_mac_address(devdb_wtxn, conn.card_mac_address);
+			if(c.is_valid()) {
+				const auto& fe = c.current();
+				conn.connection_name.clear();
+				conn.card_no = fe.card_no;
+				if (conn.card_no >=0)
+					conn.connection_name.sprintf("C%d#%d %s", conn.card_no, conn.rf_input, fe.card_short_name.c_str());
+				else
+					conn.connection_name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
+				conn.can_be_used = fe.can_be_used;
+				can_be_used = true;
+			} else
+				conn.can_be_used = false;
+			switch(conn.rotor_control) {
+			case devdb::rotor_control_t::ROTOR_MASTER_USALS:
+				//replace all diseqc12 commands with USALS commands
+				on_positioner = true;
+				for(auto& c: conn.tune_string) {
+					if (c=='X') {
+						c = 'P';
+					} found = true;
+				}
+				if (!found)
+					conn.tune_string.push_back('P');
+				break;
+			case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
+				//replace all usals commands with diseqc12 commands
+				on_positioner = true;
+				for(auto& c: conn.tune_string) {
+					if (c=='P') {
+						c = 'X';
+					} found = true;
+				}
+				if (!found)
+					conn.tune_string.push_back('X');
+				break;
+			default:
+				break;
+			}
+		}
+		lnb.can_be_used = can_be_used;
+	}
 	if(save) { /*we deliberately do not sort or remove duplicate data  when we are not really
 							 saving. This is needed to provide a stable editing GUI for connections and networks
 						 */
@@ -865,10 +919,19 @@ void devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save)
 			else
 				++i;
 		}
+		if(db_lnb && db_lnb->k != lnb.k) {
+			delete_record(devdb_wtxn, *db_lnb);
+		}
 		put_record(devdb_wtxn, lnb);
 	}
+	auto changed = (!db_lnb || (lnb != *db_lnb));
+	return changed;
 }
 
+
+bool devdb::lnb::update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save) {
+	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, devdb::update_lnb_preserve_t::flags::NONE, save);
+}
 
 void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)
 {

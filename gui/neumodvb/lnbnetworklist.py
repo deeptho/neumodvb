@@ -32,14 +32,13 @@ from neumodvb.util import dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer,  GridPopup, screen_if_t
 from neumodvb.neumo_dialogs import ShowMessage
-
+from neumodvb.util import find_parent_prop
 import pydevdb
 import pychdb
 
 class lnbnetwork_screen_t(object):
     def __init__(self, parent):
         self.parent = parent
-        assert self.parent.lnb is not None
 
     @property
     def list_size(self):
@@ -87,26 +86,16 @@ class LnbNetworkTable(NeumoTable):
 
     @property
     def lnb(self):
-        if hasattr(self.parent, "lnb"):
-            return self.parent.lnb #used by combo popup
-        else:
-            if self.lnb_ is None:
-                lnbgrid = self.parent.GetParent().GetParent().lnbgrid
-                self.lnb_ = lnbgrid.CurrentLnb().copy()
-            return self.lnb_
-
-    @lnb.setter
-    def lnb(self, val):
-        if hasattr(self.parent, "lnb"):
-            self.parent.lnb = val #used by combo popup
-        else:
-            self.lnb_ = val
+        if self.lnb_  is None:
+            self.lnb_ = find_parent_prop(self, 'lnb')
+        return self.lnb_
 
     @property
     def network(self):
         if hasattr(self.parent, "network"):
             return self.parent.network
         return None
+
     @network.setter
     def network(self, val):
         if hasattr(self.parent, "network"):
@@ -127,13 +116,6 @@ class LnbNetworkTable(NeumoTable):
         """
         txn is not used; instead we use self.lnb
         """
-        if self.lnb is None:
-            if hasattr(self.parent, "lnb"):
-                self.lnb = self.parent.lnb #used by combo popup
-            else:
-                lnbgrid = self.parent.GetParent().GetParent().lnbgrid #used by lnb connection list
-                self.lnb = lnbgrid.CurrentLnb().copy()
-            assert self.lnb is not None
         self.screen = screen_if_t(lnbnetwork_screen_t(self), self.sort_order==2)
 
     def matching_sat(self, txn, sat_pos):
@@ -153,7 +135,7 @@ class LnbNetworkTable(NeumoTable):
             record.usals_pos = record.sat_pos
         if record.sat_pos == pychdb.sat.sat_pos_none:
             record.sat_pos = record.usals_pos
-        changed = pydevdb.lnb.add_or_edit_network(self.lnb, record)
+        changed = pydevdb.lnb.add_or_edit_network(self.lnb, record, save=False)
         if changed:
             self.changed = True
 
@@ -216,9 +198,6 @@ class LnbNetworkGrid(NeumoGridBase):
             if len(self.table.lnb.networks) ==0:
                 ShowMessage(title=_("Need at least one network per LNB"),
                             message=_("Each LNB needs at least one network. A default one has been added"))
-            lnbgrid = self.GetParent().GetParent().lnbgrid
-            lnbgrid.set_networks(self.table.lnb)
-            lnbgrid.table.SaveModified()
         dtdebug(f"OnDone called changed-{self.table.changed}")
 
     def OnKeyDown(self, evt):
@@ -261,7 +240,6 @@ class LnbNetworkGrid(NeumoGridBase):
             self.network = self.table.screen.record_at_row(0)
         else:
             self.network = network
-
 
 class BasicLnbNetworkGrid(LnbNetworkGrid):
     def __init__(self, *args, **kwds):

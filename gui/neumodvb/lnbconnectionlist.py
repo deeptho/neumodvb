@@ -32,14 +32,13 @@ from neumodvb.util import dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer,  GridPopup, screen_if_t
 from neumodvb.neumo_dialogs import ShowMessage
-
+from neumodvb.util import find_parent_prop
 import pydevdb
 import pychdb
 
 class lnbconnection_screen_t(object):
     def __init__(self, parent):
         self.parent = parent
-        assert self.parent.lnb is not None
 
     @property
     def list_size(self):
@@ -97,20 +96,13 @@ class LnbConnectionTable(NeumoTable):
 
     @property
     def lnb(self):
-        if hasattr(self.parent, "lnb"):
-            return self.parent.lnb #used by combo popup
-        else:
-            if self.lnb_ is None:
-                lnbgrid = self.parent.GetParent().GetParent().lnbgrid
-                self.lnb_ = lnbgrid.CurrentLnb().copy()
-            return self.lnb_
+        if self.lnb_  is None:
+            self.lnb_ = find_parent_prop(self, 'lnb')
+        return self.lnb_
 
     @lnb.setter
     def lnb(self, val):
-        if hasattr(self.parent, "lnb"):
-            self.parent.lnb = val #used by combo popup
-        else:
-            self.lnb_ = val
+        assert False
 
     @property
     def lnb_connection(self):
@@ -129,20 +121,11 @@ class LnbConnectionTable(NeumoTable):
         """
         txn is not used; instead we use self.lnb
         """
-        if self.lnb is None:
-            if hasattr(self.parent, "lnb"):
-                self.lnb = self.parent.lnb #used by combo popup
-            else:
-                lnbgrid = self.parent.GetParent().GetParent().lnbgrid #used by lnb connection list
-                self.lnb = lnbgrid.CurrentLnb().copy()
-            assert self.lnb is not None
         self.screen = screen_if_t(lnbconnection_screen_t(self), self.sort_order==2)
 
-    def __save_record__(self, txn, record):
+    def __save_record__(self, wtxn, record):
         dtdebug(f'CONNECTIONS: {len(self.lnb.connections)}')
-        rtxn = self.db.rtxn()
-        changed = pydevdb.lnb.add_or_edit_connection(rtxn, self.lnb, record)
-        rtxn.abort()
+        changed = pydevdb.lnb.add_or_edit_connection(wtxn, self.lnb, record, save=False)
         if changed:
             self.changed = True
         return record
@@ -168,8 +151,7 @@ class LnbConnectionTable(NeumoTable):
         rec.card_mac_address, rec.rf_input = newval
         rtxn = self.db.rtxn()
         #we do not want to overwrite the official lnb yet (would disturb detection of record being edited)
-        lnb = self.lnb.copy()
-        changed = pydevdb.lnb.add_or_edit_connection(rtxn, lnb, rec)
+        changed = pydevdb.lnb.add_or_edit_connection(rtxn, self.lnb, rec, save=False)
         rtxn.abort()
         return rec
 
@@ -203,9 +185,6 @@ class LnbConnectionGrid(NeumoGridBase):
         ])
         self.EnableEditing(self.app.frame.edit_mode)
 
-    def SetRfPath(self, rf_path, lnb):
-        self.rf_path, self.lnb = rf_path, lnb
-
     def OnDone(self, evt):
         #@todo(). When a new record has been inserted and connection has been changed, and then user clicks "done"
         #this is not seen as a change, because the editor has not yet saved itself
@@ -214,9 +193,6 @@ class LnbConnectionGrid(NeumoGridBase):
             if len(self.table.lnb.connections) ==0:
                 ShowMessage(title=_("Need at least one connection per LNB"),
                             message=_("Each LNB needs at least one connection. A default one has been added"))
-            lnbgrid = self.GetParent().GetParent().lnbgrid
-            lnbgrid.set_connections(self.table.lnb)
-            lnbgrid.table.SaveModified()
         dtdebug(f"OnDone called changed-{self.table.changed}")
 
     def OnKeyDown(self, evt):
@@ -259,13 +235,6 @@ class LnbConnectionGrid(NeumoGridBase):
             self.rf_path = self.table.screen.record_at_row(0)
         else:
             self.rf_path = rf_path
-
-    def SelectLnbOFF(self, lnb, rf_path):
-        self.SetRfPath(lnb, rf_path)
-        #wx.CallAfter(self.SetFocus)
-        print(f'calling handle_lnb_change lnb={lnb} rf_path={self.rf_path}')
-        wx.CallAfter(self.handle_lnb_change, None, self.lnb, self.rf_path)
-
 
 class BasicLnbConnectionGrid(LnbConnectionGrid):
     def __init__(self, *args, **kwds):

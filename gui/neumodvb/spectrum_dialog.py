@@ -402,7 +402,6 @@ class SpectrumDialog(SpectrumDialog_):
                     self.tune_mux_panel.AbortTune()
 
     def ChangeLnb(self, rf_path, lnb):
-        self.tune_mux_panel.positioner_lnb_sel.SetLnb(rf_path, lnb)
         self.SetTitle(f'Spectrum analysis - {lnb} {rf_path}')
 
     def ChangeSatPos(self, sat_pos):

@@ -113,12 +113,10 @@ class TuneMuxPanel(TuneMuxPanel_):
     def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
-        self.positioner_sat_sel.SetLnbAndSat(self.lnb, self.sat)
-        self.positioner_lnb_sel.SetLnb(self.rf_path, self.lnb)
-        self.positioner_rf_path_sel.SetRfPath(self.rf_path, self.lnb)
         self.positioner_mux_sel.SetSat(self.sat)
         self.positioner_mux_sel.SetMux(self.mux)
         wx.CallAfter(self.clear_template_strings)
+
     def init(self, parent, sat, lnb,  mux, window_for_computing_width=None):
         if window_for_computing_width is not None:
             self.positioner_sat_sel.window_for_computing_width = window_for_computing_width
@@ -499,7 +497,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.rf_path = None
             return
         self.rf_path = pydevdb.lnb.select_rf_path(lnb)
-        self.positioner_rf_path_sel.SetRfPath(self.rf_path, self.lnb)
+        self.positioner_rf_path_sel.Update()
         if has_network(lnb, self.sat.sat_pos) and not must_move_dish(lnb, self.sat.sat_pos):
             # no change needed
             network = get_network(self.lnb, self.sat.sat_pos)
@@ -515,6 +513,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.positioner_mux_sel.SetMux(self.mux)
         self.lnb_changed = False
         self.parent.ChangeLnb(self.rf_path, self.lnb) #update window title
+        self.positioner_lnb_sel.Update()
         evt = LnbChangeEvent(lnb=lnb)
         wx.PostEvent(self, evt)
 
@@ -576,9 +575,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         assert self.mux.k.sat_pos == self.sat.sat_pos
         if network is not None:
             self.parent.SetDiseqc12Position(network.diseqc12)
-        self.positioner_sat_sel.SetLnbAndSat(self.lnb, self.sat)
-        self.positioner_lnb_sel.SetLnb(self.rf_path, self.lnb)
-        self.positioner_mux_sel.SetMux(self.mux)
+        self.positioner_sat_sel.Update()
         self.positioner_mux_sel.SetSat(self.sat)
         self.positioner_mux_sel.SetMux(self.mux)
         self.muxedit_grid.Reset()

@@ -131,6 +131,20 @@ namespace devdb {
 
 }
 
+namespace devdb {
+	namespace update_lnb_preserve_t {
+		enum flags : int {
+			NONE = 0x0,
+			KEY = 0x1,
+			GENERAL_DATA  = 0x2, //enabled, pol_type, freq_mid....
+			USALS_POS  = 0x4,
+			CONNECTIONS  = 0x8, //directly used
+			NETWORKS   = 0x10, // directly used
+			ALL = 0xffff,
+		};
+	};
+};
+
 namespace devdb::lnb {
 
 	std::tuple<bool, int, int, int>  has_network(const lnb_t& lnb, int16_t sat_pos);
@@ -176,9 +190,11 @@ namespace devdb::lnb {
 	std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool>
 	band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band);
 
-	bool add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network);
-	bool add_or_edit_connection(db_txn& rtxn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection);
-	void update_lnb(db_txn& wtxn, devdb::lnb_t& lnb, bool save);
+	bool add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network, bool save);
+	bool add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection, bool save);
+
+	bool update_lnb(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save);
+	bool update_lnb_from_db(db_txn& wtxn, devdb::lnb_t& lnb, devdb::update_lnb_preserve_t::flags preserve, bool save);
 	void reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);
 

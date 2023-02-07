@@ -246,16 +246,21 @@ class LnbGridBase(NeumoGridBase):
             if not hasattr(self, 'dlg'):
                 readonly = False
                 basic = False
+                lnb =  self.table.CurrentlySelectedRecord()
                 if key == 'networks' :
-                    self.dlg = LnbNetworkDialog(self.GetParent(), title="LNB Networks",
+                    self.dlg = LnbNetworkDialog(self.GetParent(), lnb, title="LNB Networks",
                                                 basic=basic, readonly=readonly)
                 elif key == 'connections':
-                    self.dlg = LnbConnectionDialog(self.GetParent(), title="LNB Connections",
+                    self.dlg = LnbConnectionDialog(self.GetParent(), lnb, title="LNB Connections",
                                                    basic=basic, readonly=readonly)
             else:
                 pass
             self.dlg.Prepare(self)
             self.dlg.ShowModal()
+            oldlnb = lnb
+            lnb = self.dlg.lnb
+            self.table.Backup("edit", rowno, oldlnb, lnb)
+            self.table.SaveModified()
             self.dlg.Destroy()
             del self.dlg
             return True
@@ -341,9 +346,6 @@ class LnbGridBase(NeumoGridBase):
         from neumodvb.spectrum_dialog import show_spectrum_dialog
         show_spectrum_dialog(self, lnb=lnb)
 
-    def OnRowSelectOFF(self, rowno):
-        self.selected_row = rowno
-
     def CurrentLnb(self):
         assert self.selected_row is not None
         if self.selected_row >= self.table.GetNumberRows():
@@ -351,33 +353,6 @@ class LnbGridBase(NeumoGridBase):
         lnb = self.table.GetRow(self.selected_row)
         dtdebug(f'CURRENT LNB: sel={self.selected_row} {lnb}  {len(lnb.networks)}')
         return lnb
-
-    def set_networks(self, lnb):
-        """ Called from lnbnetworklist after editing
-        """
-        networks = lnb.networks
-        rowno =self.GetGridCursorRow()
-        rec =  self.table.CurrentlySelectedRecord()
-        assert lnb.has_same_key(rec)
-        oldrecord = rec.copy()
-        rec.networks = networks
-        # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]
-        # we cannot use return value policy reference for vectors (data moves in memory on resize)
-        self.table.Backup("edit", rowno, oldrecord, rec)
-        dtdebug("SET NETWORKS {}= {} => {}".format(rowno, lnb_network_str(oldrecord.networks), lnb_network_str(rec.networks)))
-
-    def set_connections(self, lnb):
-        """ Called from lnbnetworklist after editing
-        """
-        rowno =self.GetGridCursorRow()
-        rec =  self.table.CurrentlySelectedRecord()
-        oldrecord = rec.copy()
-        rec.connections = lnb.connections
-        # be careful: self.data[rowno].field will operate on a copy of self.data[rowno]
-        # we cannot use return value policy reference for vectors (data moves in memory on resize)
-        self.table.Backup("edit", rowno, oldrecord, rec)
-        dtdebug("SET NETWORKS {}= {} => {}".format(rowno, lnb_network_str(oldrecord.networks), lnb_network_str(rec.networks)))
-
 
 class BasicLnbGrid(LnbGridBase):
     def __init__(self, *args, **kwds):

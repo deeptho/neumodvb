@@ -51,8 +51,7 @@ static std::optional<lnb_connection_t> conn_helper
 static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
 	using namespace devdb;
-	mm
-		.def("update_lnb", &lnb::update_lnb, "save changed lnb, while checking tune string",
+	mm.def("update_lnb", &lnb::update_lnb, "save changed lnb",
 				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
 		.def("can_move_dish", &lnb::can_move_dish,
 				 "Returns true if this lnb connection can move the dish",
@@ -78,12 +77,12 @@ static void export_lnb_extra(py::module& m) {
 				 , py::arg("lnb_key")
 				 , py::arg("lnb_connection"))
 		.def("add_or_edit_network", &lnb::add_or_edit_network,
-				 "Add a network to an lnb if it does not yet exist or edit it; returns true if network was added or changed", py::arg("lnb"),
-				 py::arg("lnb_network"))
+				 "Add a network to an lnb if it does not yet exist or edit it; returns true if network was added "
+				 "or changed", py::arg("lnb"), py::arg("lnb_network"), py::arg("save"))
 		.def("add_or_edit_connection", &lnb::add_or_edit_connection,
-				 "Add a connection to an lnb if it does not yet exist or edit it; returns true if connection was added or changed",
-				 py::arg("rtxn"), py::arg("lnb"),
-				 py::arg("lnb_connection"))
+				 "Add a connection to an lnb if it does not yet exist or edit it; returns true if connection was added "
+				 "or changed",
+				 py::arg("rtxn"), py::arg("lnb"), py::arg("lnb_connection"), py::arg("save"))
 		.def("lnb_frequency_range", &lnb::lnb_frequency_range,
 				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"));
 		;

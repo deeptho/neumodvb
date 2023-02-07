@@ -193,3 +193,11 @@ def tune_src_str(x):
         return tune_src_map__[x]
     except:
         return x
+
+def find_parent_prop(self, attr, parent=None):
+    if parent is not None  and hasattr(self, attr):
+        return getattr(self, attr)
+    if hasattr(self, 'Parent'):
+        return find_parent_prop(self.Parent, attr, parent=self if parent is None else parent)
+    elif hasattr(self, 'parent'):
+        return find_parent_prop(self.parent, attr, parent=self if parent is None else parent)

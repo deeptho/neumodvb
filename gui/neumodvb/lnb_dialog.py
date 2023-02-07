@@ -29,8 +29,9 @@ from neumodvb.lnbnetworklist import LnbNetworkGrid
 from neumodvb.lnbconnectionlist import LnbConnectionGrid
 
 class LnbNetworkDialog(LnbNetworkDialog_):
-    def __init__(self, parent, basic, readonly, *args, **kwds):
+    def __init__(self, parent, lnb, basic, readonly, *args, **kwds):
         self.basic = basic
+        self.lnb = lnb
         self.readonly = readonly
         super().__init__(parent, *args, **kwds)
         self.lnbnetworkgrid = None
@@ -75,8 +76,9 @@ class LnbNetworkDialog(LnbNetworkDialog_):
 
 
 class LnbConnectionDialog(LnbConnectionDialog_):
-    def __init__(self, parent, basic, readonly, *args, **kwds):
+    def __init__(self, parent, lnb, basic, readonly, *args, **kwds):
         self.basic = basic
+        self.lnb = lnb
         self.readonly = readonly
         super().__init__(parent, *args, **kwds)
         self.lnbconnectiongrid = None

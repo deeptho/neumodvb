@@ -35,7 +35,7 @@ from neumodvb.lnblist import BasicLnbGrid
 from neumodvb.lnbconnectionlist import BasicLnbConnectionGrid
 from neumodvb.lnbnetworklist import BasicLnbNetworkGrid
 from neumodvb.util import dtdebug, dterror
-
+from neumodvb.util import find_parent_prop
 import pychdb
 import pydevdb
 
@@ -84,21 +84,27 @@ class LnbListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(LnbGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
-        self.lnb = None
+        self.lnb_ = None
         self.window_for_computing_width = None
 
-    def SetLnb(self, rf_path, lnb):
+    def Update(self):
         """
-        Called by parent window to intialise state
+        called when user selects LNB
         """
-        self.rf_path, self.lnb = rf_path, lnb
+        self.lnb_ = None # force reread
         self.SetText(self.CurrentGroupText())
+
+    @property
+    def lnb(self):
+        if self.lnb_ is None:
+            self.lnb_ = find_parent_prop(self, 'lnb')
+        return self.lnb_
 
     def OnSelectLnb(self, lnb):
         """Called when user selects a lnb
         """
         dtdebug(f'lnblist_combo received OnSelectLnb {lnb}')
-        self.lnb = lnb
+        self.lnb_ = lnb
         wx.PostEvent(self, LnbSelectEvent(wx.NewIdRef(), lnb=lnb))
         self.popup.Dismiss()
         self.SetText(self.CurrentGroupText())
@@ -130,21 +136,24 @@ class RfPathGridPopup(BasicLnbConnectionGrid):
         super().__init__(*args, **kwds)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
+        self.lnb_ = None
         #self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
 
     @property
     def lnb(self):
-        return self.Parent.GrandParent.lnb
-    @lnb.setter
-    def lnb(self, val):
-        self.Parent.GrandParent.lnb = val
+        if self.lnb_ is None:
+            self.lnb_ = find_parent_prop(self, 'lnb')
+            txn = wx.GetApp().devdb.rtxn()
+            self.lnb_= pydevdb.lnb.find_by_key(txn, self.lnb_.k) #reread the networks
+            txn.abort()
+            del txn
+        return self.lnb_
 
-    def OnWindowCreateOFF(self, evt):
+    def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
         lnb = self.Parent.GrandParent.lnb
         rf_path = self.Parent.GrandParent.rf_path
-        self.SetRfPath(rf_path, lnb)
         super().OnWindowCreate(evt)
 
     def OnKeyDown(self, evt):
@@ -181,9 +190,28 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(RfPathGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
-        self.lnb, self.rf_path = None, None
+        self.lnb_, self.rf_path_ = None, None
         self.window_for_computing_width = None
         self.Bind(wx.EVT_COMBOBOX_CLOSEUP, self.OnEndPopup)
+
+    def Update(self):
+        """
+        called when user selects LNB
+        """
+        self.lnb_, self.rf_path_ = None, None # force reread
+        self.SetText(self.CurrentGroupText())
+
+    @property
+    def lnb(self):
+        if self.lnb_ is None:
+            self.lnb_ = find_parent_prop(self, 'lnb')
+        return self.lnb_
+
+    @property
+    def rf_path(self):
+        if self.rf_path_ is None:
+            self.rf_path_ = find_parent_prop(self, 'rf_path')
+        return self.rf_path_
 
     @property
     def lnb_connection (self):
@@ -194,13 +222,6 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(RfPathGridPopup)
         self.SetPopupControl(self.popup)
         del popup
-
-    def SetRfPath(self, rf_path, lnb):
-        """
-        Called by parent window to intialise state
-        """
-        self.rf_path, self.lnb = rf_path, lnb
-        self.SetText(self.CurrentGroupText())
 
     def OnSelectRfPath(self, rf_path):
         """Called when user selects an rf_path
@@ -239,14 +260,18 @@ class LnbNetworkSatGridPopup(BasicLnbNetworkGrid):
         self.network_ = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
+        self.lnb_ = None
         #self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
 
     @property
     def lnb(self):
-        return self.Parent.GrandParent.lnb
-    @lnb.setter
-    def lnb(self, val):
-        self.Parent.GrandParent.lnb = val
+        if self.lnb_ is None:
+            self.lnb_ = find_parent_prop(self, 'lnb')
+            txn = wx.GetApp().devdb.rtxn()
+            self.lnb_= pydevdb.lnb.find_by_key(txn, self.lnb_.k) #reread the networks
+            txn.abort()
+            del txn
+        return self.lnb_
 
     @property
     def sat(self):
@@ -273,10 +298,9 @@ class LnbNetworkSatGridPopup(BasicLnbNetworkGrid):
                 self.network_ = network
                 return
 
-    def OnWindowCreateOFF(self, evt):
+    def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
-        self.lnb = self.Parent.GrandParent.lnb
         sat = self.Parent.GrandParent.sat
         self.table.SetSat(sat)
         super().OnWindowCreate(evt)
@@ -308,6 +332,7 @@ class LnbNetworkSatGridPopup(BasicLnbNetworkGrid):
 class LnbNetworkSatListComboCtrl(wx.ComboCtrl):
     def __init__(self, *args, **kwds):
         super().__init__( *args, **kwds)
+        self.lnb_, self.sat_ = None, None
         self.example = 'TBS 6909X C0#3 '
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
@@ -317,9 +342,28 @@ class LnbNetworkSatListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(LnbNetworkSatGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
-        self.lnb, self.sat = None, None
+        self.lnb_, self.sat_ = None, None
         self.window_for_computing_width = None
         self.Bind(wx.EVT_COMBOBOX_CLOSEUP, self.OnEndPopup)
+
+    def Update(self):
+        """
+        called when user selects LNB
+        """
+        self.lnb_, self.sat_ = None, None # force reread
+        self.SetText(self.CurrentGroupText())
+
+    @property
+    def lnb(self):
+        if self.lnb_ is None:
+            self.lnb_ = find_parent_prop(self, 'lnb')
+        return self.lnb_
+
+    @property
+    def sat(self):
+        if self.sat_ is None:
+            self.sat_ = find_parent_prop(self, 'sat')
+        return self.sat_
 
     @property
     def lnb_connection (self):
@@ -330,13 +374,6 @@ class LnbNetworkSatListComboCtrl(wx.ComboCtrl):
         self.popup = GridPopup(LnbNetworkSatGridPopup)
         self.SetPopupControl(self.popup)
         del popup
-
-    def SetLnbAndSat(self, lnb, sat):
-        """
-        Called by parent window to intialise state
-        """
-        self.lnb, self.sat = lnb, sat
-        self.SetText(self.CurrentGroupText())
 
     def OnSelectLnbNetworkSat(self, sat):
         """Called when user selects an sat

@@ -32,8 +32,8 @@ from neumodvb.util import dtdebug, dterror, tune_src_str
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, screen_if_t
 from neumodvb.satlist_combo import EVT_SAT_SELECT
-
 import pychdb
+import pydevdb
 
 class DvbsMuxTable(NeumoTable):
     record_t =  pychdb.dvbs_mux.dvbs_mux
@@ -82,7 +82,7 @@ class DvbsMuxTable(NeumoTable):
          CD(key='rolloff', label='rolloff'),
          CD(key='transmission_mode', label='transmission_mode')]
 
-    def __init__(self, parent, basic=False, *args, **kwds):
+    def __init__(self, parent, basic=False, filter_band=None, *args, **kwds):
         initial_sorted_column = 'frequency'
         data_table= pychdb.dvbs_mux
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
@@ -91,6 +91,7 @@ class DvbsMuxTable(NeumoTable):
                          data_table= data_table,
                          screen_getter = screen_getter,
                          initial_sorted_column = initial_sorted_column, **kwds)
+        self.filter_band = filter_band
 
     def InitialRecord(self):
         sat, mux= self.parent.CurrentSatAndMux()
@@ -101,8 +102,36 @@ class DvbsMuxTable(NeumoTable):
         pychdb.put_record(txn, record) #this will overwrite any mux with given ts_id even if frequency is very wrong
         return record
 
-    def screen_getter_xxx(self, txn, sort_field):
+    def filter_band_(self, band):
+        """
+        install a filter to only allow muxes from a specific satellite band which is identified
+        band is a tuple of low and high frequency limit of the band
+        """
+        import pydevdb
         match_data, matchers = self.get_filter_()
+        if matchers is None:
+            match_data = self.record_t()
+            matchers = pydevdb.field_matcher_t_vector()
+        freq_field_id = self.data_table.subfield_from_name("frequency")
+
+        #if user has already filtered for a specific frequency, then setting a limit is pointless
+        for m in matchers:
+            if m.field_id == freq_field_id:
+                return match_data, matchers # this matcher is more specific
+
+        m = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.GEQ)
+        matchers.push_back(m)
+
+        match_data2 = self.record_t()
+        matchers2 = pydevdb.field_matcher_t_vector()
+        matchers2.push_back(m)
+
+        match_data.frequency, match_data2.frequency = band
+        return match_data, matchers
+
+    def screen_getter_xxx(self, txn, sort_field):
+        match_data, matchers = self.get_filter_() if self.filter_band is None else \
+            self.filter_band_(self.filter_band)
         if self.parent.allow_all and self.parent.sat:
             sat, mux= self.parent.CurrentSatAndMux()
             ref = pychdb.dvbs_mux.dvbs_mux()
@@ -145,6 +174,9 @@ class DvbsMuxGridBase(NeumoGridBase):
         self.Bind(wx.EVT_CHAR, self.OnKeyCheck)
         self.mux = None #currently selected mux
         self.sat = None #currently selected sat; muxlist will be restricted to this sat
+
+    def SelectBand(self, lnb):
+        self.table.filter_band = pydevdb.lnb.lnb_frequency_range(lnb)
 
     def OnKeyCheck(self, evt):
         """
@@ -282,6 +314,7 @@ class DvbsMuxGrid(DvbsMuxGridBase):
         print(f'dvbs_muxlist: OnWindowCreate window={evt.GetWindow()==self}')
         self.SelectSat(self.sat)
         self.GrandParent.dvbs_muxlist_sat_sel.SetSat(self.sat, self.allow_all)
+
     def SelectSat(self, sat):
         if sat is None:
             pass

@@ -158,6 +158,8 @@ public:
 	} // number of entries in the complete list
 	ss::vector<field_matcher_t> field_matchers;
 	record_t match_data;
+	ss::vector<field_matcher_t> field_matchers2;
+	record_t match_data2;
 
 	HIDDEN inline static bool is_primary(const dynamic_key_t &order);
 private:
@@ -205,6 +207,8 @@ private:
 										int pos_top,  //return num_records starting at position pos_top from top
 										ss::vector_<field_matcher_t>& field_matchers,
 										const record_t * match_data,
+										ss::vector_<field_matcher_t>& field_matchers2,
+										const record_t * match_data2,
 										const record_t * reference);
 
 	/*
@@ -255,7 +259,9 @@ public:
 					 , const record_t* upper_limit_ = nullptr
 #endif
 					 const ss::vector_<field_matcher_t>* field_matchers_ =nullptr,
-					 const record_t* match_data_ = nullptr
+					 const record_t* match_data_ = nullptr,
+					 const ss::vector_<field_matcher_t>* field_matchers2_ =nullptr,
+					 const record_t* match_data2_ = nullptr
 		);
 
 //returns true if an update is needed

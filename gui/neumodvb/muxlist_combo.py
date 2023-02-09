@@ -27,7 +27,7 @@ import datetime
 from dateutil import tz
 import regex as re
 
-from neumodvb.util import setup, lastdot
+from neumodvb.util import setup, lastdot, find_parent_prop
 from neumodvb import neumodbutils
 from neumodvb.neumolist import GridPopup
 from neumodvb.dvbs_muxlist import DvbsBasicMuxGrid
@@ -50,10 +50,12 @@ class DvbsMuxGridPopup(DvbsBasicMuxGrid):
     def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
-        sat = self.Parent.GrandParent.sat
+        lnb = find_parent_prop(self, 'lnb')
+        sat = find_parent_prop(self, 'sat')
         self.sat = sat
         super().OnWindowCreate(evt)
         self.SelectSat(sat)
+        self.SelectBand(lnb)
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()

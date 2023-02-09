@@ -1247,6 +1247,8 @@ namespace {{dbname}} {
 			break;
 			{%endif%}
 				{%- endfor %}
+			default:
+				return true;
 			}
 		}
 		return true;
@@ -1335,9 +1337,10 @@ void screen_t<{{dbname}}::{{struct.class_name}}>::fill_list_db
  int pos_top,  //return num_records starting at position pos_top from top
  ss::vector_<field_matcher_t>& field_matchers,
  const {{struct.class_name}} * match_data,
+ ss::vector_<field_matcher_t>& field_matchers2,
+ const {{struct.class_name}} * match_data2,
  const {{struct.class_name}} * reference
-	)
-{
+) {
 	using namespace {{dbname}};
 	using namespace {{dbname}}::{{struct.name}};
 

@@ -101,24 +101,19 @@ namespace {{dbname}} {
 		py::class_<s_t>(mm, "screen")
 			.def(py::init<db_txn&, uint32_t, {{struct.class_name}}::partial_keys_t,
 					 const {{struct.class_name}}*, const {{struct.class_name}}*,
-					 const ss::vector_<field_matcher_t>*,
-					 const {{struct.class_name}}*>(),
+					 const ss::vector_<field_matcher_t>*, const {{struct.class_name}}*,
+					 const ss::vector_<field_matcher_t>*, const {{struct.class_name}}*
+					 >(),
 					 py::arg("db_txn"),
 					 py::arg("sort_order"),
 					 py::arg("key_prefix_type")={{struct.class_name}}::partial_keys_t::none,
 					 py::arg("key_prefix_data") = nullptr,
 					 py::arg("lower_limit") = nullptr,
 					 py::arg("field_matchers") = nullptr,
-					 py::arg("match_data") = nullptr
+					 py::arg("match_data") = nullptr,
+					 py::arg("field_matchers2") = nullptr,
+					 py::arg("match_data2") = nullptr
 				)
-#ifdef NEWXXX
-			.def(py::init<db_txn&, uint32_t, const ss::vector_<field_matcher_t>*,
-					 const {{struct.class_name}}*>(),
-					 py::arg("db_txn"),
-					 py::arg("sort_order"),
-					 py::arg("field_matchers") = nullptr,
-					 py::arg("match_data") = nullptr)
-#endif
 			.def("update", &s_t::update)
 			.def("record_at_row", &s_t::record_at_row, py::arg("row_number"))
 			.def("set_reference", py::overload_cast<const {{struct.class_name}}&>(&s_t::set_reference), py::arg("record"))
@@ -126,14 +121,23 @@ namespace {{dbname}} {
 			.def_property_readonly("list_size", &s_t::list_size)
 			.def_readonly("sort_order", &s_t::sort_order)
 			.def_property("field_matchers",
-          [](const s_t &x) {
-            return &(ss::vector_<field_matcher_t> &)x.field_matchers;
-          },
-          [](s_t &x, const ss::vector_<field_matcher_t>&val) {
-						x.field_matchers=val;
-					}
+										[](const s_t &x) {
+											return &(ss::vector_<field_matcher_t> &)x.field_matchers;
+										},
+										[](s_t &x, const ss::vector_<field_matcher_t>&val) {
+											x.field_matchers=val;
+										}
 				)
 			.def_readwrite("match_data", &s_t::match_data)
+			.def_property("field_matchers2",
+										[](const s_t &x) {
+											return &(ss::vector_<field_matcher_t> &)x.field_matchers;
+										},
+										[](s_t &x, const ss::vector_<field_matcher_t>&val) {
+											x.field_matchers2=val;
+					}
+				)
+			.def_readwrite("match_data2", &s_t::match_data2)
     ;
 	}
 } //end namespace {{dbname}}

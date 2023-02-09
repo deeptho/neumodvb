@@ -84,7 +84,7 @@ void screen_t<record_t>::init
 	} else
 		tmpdb = tmpdb_;
 	auto wtxn = tmpdb->wtxn();
-	fill_list_db(txn, wtxn, -1, 0, field_matchers, &match_data, nullptr);
+	fill_list_db(txn, wtxn, -1, 0, field_matchers, &match_data, field_matchers2, &match_data2, nullptr);
 	monitor.txn_id = txn.txn_id();
 	wtxn.commit();
 }
@@ -106,7 +106,7 @@ void screen_t<record_t>::init
 		tmpdb->open_temp("/tmp/neumolists");
 		auto wtxn = tmpdb->wtxn();
 
-		fill_list_db(txn, wtxn, -1, 0, field_matchers, &match_data, nullptr);
+		fill_list_db(txn, wtxn, -1, 0, field_matchers, &match_data, field_matchers2, &match_data2, nullptr);
 		monitor.txn_id = txn.txn_id();
 		wtxn.commit();
 }
@@ -618,7 +618,9 @@ screen_t<record_t>::screen_t
  , const record_t* upper_limit_
 #endif
  const ss::vector_<field_matcher_t>* field_matchers_,
- const record_t* match_data_
+ const record_t* match_data_,
+ const ss::vector_<field_matcher_t>* field_matchers2_,
+ const record_t* match_data2_
 	)
 	: screen_t(dynamic_key_t(sort_order_), key_prefix_type_, key_prefix_data_,
 						 lower_limit_
@@ -636,6 +638,13 @@ screen_t<record_t>::screen_t
 		match_data = *match_data_;
 	} else {
 		assert(!match_data_);
+	}
+	if(field_matchers2_) {
+		field_matchers2 = *field_matchers2_;
+		assert(match_data2_);
+		match_data2 = *match_data2_;
+	} else {
+		assert(!match_data2_);
 	}
 	this->init(txn, -1, 0);
 }

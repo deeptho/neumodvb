@@ -217,4 +217,6 @@ class LnbConnectionGrid(NeumoGridBase):
 
 class BasicLnbConnectionGrid(LnbConnectionGrid):
     def __init__(self, *args, **kwds):
-        super().__init__(basic=False, readonly=False, *args, **kwds)
+        basic = True
+        readonly = True
+        super().__init__(basic, readonly, *args, **kwds)

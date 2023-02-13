@@ -443,6 +443,9 @@ std::ostream& operator<<(std::ostream& os, field_matcher_t::match_type_t match_t
 	case m_t::STARTSWITH:
 		os << "STARTSWITH";
 		break;
+	default:
+		os << "???";
+		break;
 	}
 	return os;
 }

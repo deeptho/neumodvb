@@ -137,7 +137,7 @@ class SignalHistory(object):
                     values.append(st.ber)
             t=np.array(t)
             values = np.array(values)
-            rf_path = cards.get((ss.k.rf_path.card_mac_address, ss.k.rf_path.rf_input), '???')
+            rf_path = f'D{ss.k.rf_path.lnb.dish_id}' + cards.get((ss.k.rf_path.card_mac_address, ss.k.rf_path.rf_input), '???')
             signal = signals.get(rf_path, [])
             signal.append((t, values))
             signals[rf_path] = signal

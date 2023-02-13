@@ -61,7 +61,7 @@ The top panel, from left to right, has the following sub-panels:
    `Save` button on the `LNB and sat` panel to save the preset position into the database. In case you forget,
    neumoDVB will remind you when you try to close the positioner control.
 
-   DiSeqC 1.2 is not as well tested as USALS. If possible, use USALS.
+   DiSEqC 1.2 is not as well tested as USALS. If possible, use USALS.
 
 * `USALS control` allows you to send the positioner manually to a specific satellite position,
    by entering it in text form in various formats: 5.0W, -5.0, ...  This number is always the satellite
@@ -69,7 +69,7 @@ The top panel, from left to right, has the following sub-panels:
 
    The `East` and `West buttons` ask for a small step in the specified direction, but in this case the step
    is in known units (e.g., 0.1 degree) and will also affect the USALS position. The adjustment is also sent
-   using USALS instead of `step` DiSeqC commands.
+   using USALS instead of `step` DiSEqC commands.
 
    The size of the step can be changed using the `step` spin control. which is initially set at 0.1 degree.
    A bigger step may be useful for smaller dishes. `Set` activates the textual value entered (but you can also press the `ENTER` key).

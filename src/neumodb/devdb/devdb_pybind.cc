@@ -52,7 +52,7 @@ static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
 	using namespace devdb;
 	mm.def("update_lnb_from_positioner", &lnb::update_lnb_from_positioner, "save changed lnb",
-				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
+				 py::arg("wtxn"), py::arg("lnb"), py::arg("usals_location"), py::arg("save")=true)
 		.def("update_lnb_from_lnblist", &lnb::update_lnb_from_lnblist, "save changed lnb",
 				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
 		.def("can_move_dish", &lnb::can_move_dish,
@@ -80,13 +80,16 @@ static void export_lnb_extra(py::module& m) {
 				 , py::arg("lnb_connection"))
 		.def("add_or_edit_network", &lnb::add_or_edit_network,
 				 "Add a network to an lnb if it does not yet exist or edit it; returns true if network was added "
-				 "or changed", py::arg("lnb"), py::arg("lnb_network"), py::arg("save"))
+				 "or changed", py::arg("lnb"), py::arg("usals_location"), py::arg("lnb_network"))
 		.def("add_or_edit_connection", &lnb::add_or_edit_connection,
 				 "Add a connection to an lnb if it does not yet exist or edit it; returns true if connection was added "
 				 "or changed",
-				 py::arg("rtxn"), py::arg("lnb"), py::arg("lnb_connection"), py::arg("save"))
+				 py::arg("rtxn"), py::arg("lnb"), py::arg("lnb_connection"))
 		.def("lnb_frequency_range", &lnb::lnb_frequency_range,
-				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"));
+				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"))
+		.def("current_sat_pos", &devdb::lnb::current_sat_pos,
+				 "Obtain the direction in which the lnb currently points",
+				 py::arg("lnb"), py::arg("usals_location"))
 		;
 }
 

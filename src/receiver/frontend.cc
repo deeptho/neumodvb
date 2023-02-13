@@ -817,72 +817,6 @@ void dvb_frontend_t::clear_lock_status() {
 	w->lock_status = {};
 }
 
-static int sat_pos_to_angle(int angle, int my_longitude, int my_latitude) {
-	double g8, g9, g10;
-	double g14, g15, g16, g17, g18, g19, g20, g21, g22, g23, g24, g25;
-	double g26, g27, g28, g29, g30, g31, g32, g33, g34, g35, g36, g37;
-	int posi_angle = 0;
-	int tmp;
-	char z_conversion[10] = {0x00, 0x02, 0x03, 0x05, 0x06, 0x08, 0x0a, 0x0b, 0x0d, 0x0e};
-
-	g8 = ((double)angle) / 10.;
-	g9 = ((double)my_longitude) / 10.;
-	g10 = ((double)my_latitude) / 10.;
-
-	g14 = (fabs(g8) > 180.) ? 1000. : g8;
-	g15 = (fabs(g9) > 180.) ? 1000. : g9;
-	g16 = (fabs(g10) > 90.) ? 1000. : g10;
-
-	if (g14 > 999. || g15 > 999. || g16 > 999.) {
-		g17 = 0.;
-		g18 = 0.;
-		g19 = 0.;
-	} else {
-		g17 = g14;
-		g18 = g15;
-		g19 = g16;
-	}
-
-	g20 = fabs(g17 - g18);
-	g21 = g20 > 180. ? -(360. - g20) : g20;
-	if (fabs(g21) > 80.) {
-		g22 = 0;
-	} else
-		g22 = g21;
-
-	g23 = 6378. * sin(M_PI * g19 / 180.);
-	g24 = sqrt(40678884. - g23 * g23);
-	g25 = g24 * sin(M_PI * g22 / 180.);
-	g26 = sqrt(g23 * g23 + g25 * g25);
-	g27 = sqrt(40678884. - g26 * g26);
-	g28 = 42164.2 - g27;
-	g29 = sqrt(g28 * g28 + g26 * g26);
-	g30 = sqrt((42164.2 - g24) * (42164.2 - g24) + g23 * g23);
-	g31 = sqrt(3555639523. - 3555639523. * cos(M_PI * g22 / 180.));
-	g32 = acos((g29 * g29 + g30 * g30 - g31 * g31) / (2 * g29 * g30));
-	g33 = g32 * 180. / M_PI;
-	if (fabs(g33) > 80.) {
-		g34 = 0.;
-	} else
-		g34 = g33;
-
-	g35 = ((g17 < g18 && g19 > 0.) || (g17 > g18 && g19 < 0.)) ? g34 : -g34;
-	g36 = (g17 < -89.9 && g18 > 89.9) ? -g35 : g35;
-	g37 = (g17 > 89.9 && g18 < -89.9) ? -g35 : g36;
-
-	if (g37 > 0.) {
-		tmp = (int)((g37 + 0.05) * 10); //+0.05 means: round up
-		posi_angle |= 0xD000;
-	} else {
-		tmp = (int)((g37 - 0.05) * 10); //-0.05 means: round down
-		posi_angle |= 0xE000;
-		tmp = -tmp;
-	}
-
-	posi_angle |= (tmp / 10) << 4;
-	posi_angle |= z_conversion[tmp % 10]; // computes decimal fraction of angle in 1/16 of a degree
-	return posi_angle;
-}
 
 /** @brief generate and diseqc message for a committed or uncommitted switch
  * specification is available from http://www.eutelsat.com/
@@ -981,7 +915,7 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 	case positioner_cmd_t::GOTO_XX: {
 		auto loc = this->get_usals_location();
 
-		auto angle = sat_pos_to_angle(par / 10, loc.usals_longitude / 10, loc.usals_latitude / 10);
+		auto angle = devdb::lnb::sat_pos_to_usals_par(par / 10, loc.usals_longitude / 10, loc.usals_latitude / 10);
 
 		cmd.msg[3] = (angle >> 8) & 0xff;
 		cmd.msg[4] = angle & 0xff;

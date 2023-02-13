@@ -125,7 +125,7 @@ class LnbConnectionTable(NeumoTable):
 
     def __save_record__(self, wtxn, record):
         dtdebug(f'CONNECTIONS: {len(self.lnb.connections)}')
-        changed = pydevdb.lnb.add_or_edit_connection(wtxn, self.lnb, record, save=False)
+        changed = pydevdb.lnb.add_or_edit_connection(wtxn, self.lnb, record)
         if changed:
             self.changed = True
         return record
@@ -151,7 +151,7 @@ class LnbConnectionTable(NeumoTable):
         rec.card_mac_address, rec.rf_input = newval
         rtxn = self.db.rtxn()
         #we do not want to overwrite the official lnb yet (would disturb detection of record being edited)
-        changed = pydevdb.lnb.add_or_edit_connection(rtxn, self.lnb, rec, save=False)
+        changed = pydevdb.lnb.add_or_edit_connection(rtxn, self.lnb, rec)
         rtxn.abort()
         return rec
 

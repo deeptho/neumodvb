@@ -284,8 +284,8 @@ private:
 	void on_first_pat();
 	void on_tuned_mux_change(const chdb::any_mux_t& si_mux);
 	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
-
 public:
+	devdb::usals_location_t get_usals_location();
 	void lnb_update_usals_pos(int16_t usals_pos);
 	int open_demux(int mode = O_RDWR | O_NONBLOCK) const;
 

@@ -129,13 +129,14 @@ class LnbNetworkTable(NeumoTable):
                 return sat
         return None
 
+    def get_usals_location(self):
+        receiver = wx.GetApp().receiver
+        opts =  receiver.get_options()
+        return opts.usals_location
+
     def __save_record__(self, txn, record):
         dtdebug(f'NETWORKS: {len(self.lnb.networks)}')
-        if record.usals_pos == pychdb.sat.sat_pos_none:
-            record.usals_pos = record.sat_pos
-        if record.sat_pos == pychdb.sat.sat_pos_none:
-            record.sat_pos = record.usals_pos
-        changed = pydevdb.lnb.add_or_edit_network(self.lnb, record, save=False)
+        changed = pydevdb.lnb.add_or_edit_network(self.lnb, self.get_usals_location(), record)
         if changed:
             self.changed = True
 

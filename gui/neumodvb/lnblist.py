@@ -95,7 +95,7 @@ class LnbTable(NeumoTable):
     lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
     freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
     lnb_key_fn = lambda x: str(x[0])
-    cur_pos_fn = lambda x:  pychdb.sat_pos_str(x[0].usals_pos + x[0].offset_pos)
+    cur_pos_fn = lambda x:  pychdb.sat_pos_str(x[0].usals_pos + x[0].offset_angle)
     basic_columns=[CD(key='k',
                       sort=('k.dish_id', 'adapter_mac_address','k.lnb_id', 'usals_pos'),
                       example='D1 unv [32762] 30.0W ',
@@ -109,10 +109,13 @@ class LnbTable(NeumoTable):
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='on_positioner',  label='on\nrotor', basic=True, readonly=False),
             #following must be readonly, or change may be accidentally undone by positioner dialog
-         CD(key='usals_pos',  label='cur sat\npos', basic=True, readonly=True, no_combo = True, #allow entering sat_pos
-            dfn= cur_pos_fn),
+         CD(key='cur_sat_pos',  label='cur sat\npos', basic=True, readonly=True, no_combo = True, #allow entering sat_pos
+            dfn= lambda x: x[2].cur_sat_pos_fn(x[0])),
             #following must be readonly, or change may be accidentally undone by positioner dialog
-         CD(key='offset_pos',  label='offset\npos', basic=True, readonly=True, no_combo = True, #allow entering sat_pos
+         CD(key='usals_pos',  label='usals\npos', basic=True, readonly=True, no_combo = True,
+            dfn= lambda x: pychdb.sat_pos_str(x[1])),
+            #following must be readonly, or change may be accidentally undone by positioner dialog
+         CD(key='offset_angle',  label='offset\nangle', basic=True, readonly=True, no_combo = True,
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='k.lnb_id',  label='ID', basic=False, readonly=True, example="12345"),
          CD(key='enabled',   label='ena-\nbled', basic=False),
@@ -138,6 +141,11 @@ class LnbTable(NeumoTable):
          CD(key='hierarchy', label='hierarchy'),
          CD(key='rolloff', label='rolloff'),
          CD(key='transmission_mode', label='transmission_mode')]
+
+    def cur_sat_pos_fn(self, lnb):
+        loc =self.get_usals_location()
+        sat_pos = pydevdb.lnb.current_sat_pos(lnb, loc)
+        return pychdb.sat_pos_str(sat_pos)
 
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'usals_pos'
@@ -173,7 +181,7 @@ class LnbTable(NeumoTable):
                     network = pydevdb.lnb_network.lnb_network()
                     network.usals_pos = lnb.usals_pos
                     network.sat_pos = lnb.usals_pos
-                    pydevdb.lnb.add_or_edit_network(lnb, network)
+                    pydevdb.lnb.add_or_edit_network(lnb, self.get_usals_location(), network)
         if len(lnb.networks) == 0:
             cont = ShowOkCancel("Add network?",
                                 f"This LNB has no networks defined and cannot be used. Continue anyway?")
@@ -188,6 +196,11 @@ class LnbTable(NeumoTable):
         pydevdb.lnb.make_unique_if_template(txn, lnb)
         pydevdb.lnb.update_lnb_from_lnblist(txn, lnb)
         return lnb
+
+    def get_usals_location(self):
+        receiver = wx.GetApp().receiver
+        opts =  receiver.get_options()
+        return opts.usals_location
 
     def connection_name(self, record):
         """

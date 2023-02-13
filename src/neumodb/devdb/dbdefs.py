@@ -247,12 +247,13 @@ lnb = db_struct(name='lnb',
                           #So; pos sent to rotor = usals_pos - offset_pos
                           #not used for a fixed dish, but should be set equal to the sat in networks[0] for clarity,
                           #i.e., the main satellite
-                          (2, 'int16_t', 'usals_pos', 'sat_pos_none'),
+                          (2, 'int16_t', 'usals_pos', 'sat_pos_none'), #satellite position of center lnb
+                          (18, 'int16_t', 'cur_sat_pos', 'sat_pos_none'), #satellite position of this lnb (different if in offset pos)
 
                           (16, 'bool',  'on_positioner', 'false'), #bit flag indicating if lnb is on rotor
                           (3, 'lnb_pol_type_t',  'pol_type', 'lnb_pol_type_t::HV'), #bit flag indicating which polarisations can be used
                           (4, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
-                          (17, 'int16_t', 'offset_pos', '0'), #only for master usals positioner: in 1/100 degre: offset w.r.t. t center of dish, used for adjusting usals_pos for display purposes
+                          (17, 'int16_t', 'offset_angle', '0'), #in 1/100 degree: offset w.r.t. t center of dish, used for adjusting usals_pos for display purposes
                           (5, 'int16_t',  'priority', -1), #
                           (6, 'int32_t', 'lof_low', -1), # local oscillator, -1 means default
                           (7, 'int32_t', 'lof_high', -1), # local oscillator, -1 means default

@@ -89,7 +89,7 @@ namespace devdb {
 
 namespace devdb::dish {
 	//dish objects do not really exist in the database, but curent state (usals_pos) is stored in all relevant lnbs
-	int update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos);
+	int update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos, const devdb::usals_location_t& loc);
 	bool dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos);
 };
 
@@ -146,7 +146,11 @@ namespace devdb {
 };
 
 namespace devdb::lnb {
-
+	int current_sat_pos(devdb::lnb_t& lnb, const devdb::usals_location_t& loc);
+	int angle_to_sat_pos(int angle, const devdb::usals_location_t& loc);
+	int sat_pos_to_usals_par(int angle, int my_longitude, int my_latitude);
+	int sat_pos_to_angle(int angle, int my_longitude, int my_latitude);
+	void set_lnb_offset_angle(devdb::lnb_t&  lnb, const devdb::usals_location_t& loc);
 	std::tuple<bool, int, int, int>  has_network(const lnb_t& lnb, int16_t sat_pos);
 
 	inline bool dish_needs_to_be_moved(const lnb_t& lnb, int16_t sat_pos) {
@@ -190,12 +194,13 @@ namespace devdb::lnb {
 	std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool>
 	band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band);
 
-	bool add_or_edit_network(devdb::lnb_t& lnb, devdb::lnb_network_t& network, bool save);
-	bool add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection, bool save);
+	bool add_or_edit_network(devdb::lnb_t& lnb, const devdb::usals_location_t& loc, devdb::lnb_network_t& network);
+	bool add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection);
 
-	bool update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save);
+	bool update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, const devdb::usals_location_t& loc, bool save);
 	bool update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save);
-	bool update_lnb_from_db(db_txn& wtxn, devdb::lnb_t& lnb, devdb::update_lnb_preserve_t::flags preserve, bool save);
+	bool update_lnb_from_db(db_txn& wtxn, devdb::lnb_t& lnb, const std::optional<devdb::usals_location_t>& loc,
+													devdb::update_lnb_preserve_t::flags preserve, bool save);
 	void reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);
 

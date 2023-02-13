@@ -128,6 +128,7 @@ int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 	last_new_matype_time = steady_clock_t::now();
 	scan_mux_end_reported = false;
 	this->fe->start_fe_and_lnb(rf_path, lnb);
+
 	switch (tune_options.tune_mode) {
 	case tune_mode_t::SPECTRUM:
 		return lnb_spectrum_scan(rf_path, lnb, tune_options);
@@ -491,7 +492,6 @@ void active_adapter_t::update_lof(devdb::lnb_t& lnb, int16_t sat_pos, chdb::fe_p
 	set_lnb_lof_offset(devdb_wtxn, lnb, (int)band, nit_frequency, lof_offset);
 	devdb_wtxn.commit();
 
-
 }
 
 int active_adapter_t::deactivate() {
@@ -505,10 +505,16 @@ int active_adapter_t::deactivate() {
 	return 0;
 }
 
+devdb::usals_location_t active_adapter_t::get_usals_location() {
+	auto r = receiver.options.readAccess();
+	return r->usals_location;
+}
+
 void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
 	int dish_id = this->fe->ts.readAccess()->reserved_lnb.k.dish_id;
+	auto loc = this->get_usals_location();
 	auto devdb_wtxn = receiver.devdb.wtxn();
-	int ret = devdb::dish::update_usals_pos(devdb_wtxn, dish_id, usals_pos);
+	int ret = devdb::dish::update_usals_pos(devdb_wtxn, dish_id, usals_pos, loc);
 	if( ret<0 )
 		devdb_wtxn.abort();
 	else

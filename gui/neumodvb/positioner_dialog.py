@@ -214,6 +214,11 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.OnTune()
         return self.mux_subscriber
 
+    def get_usals_location(self):
+        receiver = wx.GetApp().receiver
+        opts =  receiver.get_options()
+        return opts.usals_location
+
     def OnSubscriberCallback(self, evt):
         data = get_object(evt)
         if type(data) == str:
@@ -290,7 +295,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         if self.lnb_changed:
             txn = wx.GetApp().devdb.wtxn()
             #adjust lnb_connections based on possible changes in frontends
-            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb)
+            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.get_usals_location())
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
             txn.commit()
@@ -308,7 +313,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             pydevdb.lnb.reset_lof_offset(txn, self.lnb)
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
-            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb)
+            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.usals_location())
             txn.commit()
             self.lnb_changed = False
         if event:
@@ -552,7 +557,8 @@ class TuneMuxPanel(TuneMuxPanel_):
             network.sat_pos = sat.sat_pos
             network.usals_pos = sat.sat_pos
             dtdebug(f"Saving new lnb network: lnb={self.lnb} network={network}")
-            changed = pydevdb.lnb.add_or_edit_network(self.lnb, network)
+            changed = pydevdb.lnb.add_or_edit_network(self.lnb, self.get_usals_location(), network)
+            self.lnb_changed = True
         else:
             ShowMessage("Network unavailable",
                          f"Network {sat} not defined for lnb {self.lnb} on fixed this. Add it in lnb list first")
@@ -776,8 +782,8 @@ class PositionerDialog(PositionerDialog_):
         self.enable_disable_diseqc_panels()
         network = None if self.sat is None else get_network(self.lnb, self.sat.sat_pos)
         self.SetPosition( (pychdb.sat.sat_pos_none if self.sat is None else self.sat.sat_pos) \
-                          if network is None else network.usals_pos + self.lnb.offset_pos)
-        self.SetLnbOffsetPos(self.lnb.offset_pos)
+                          if network is None else network.usals_pos)
+        self.SetLnbOffsetPos(self.lnb.offset_angle)
         self.SetDiseqc12Position(0 if network is None else network.diseqc12)
         self.SetUsalsLocation()
         if network is not None:
@@ -856,33 +862,43 @@ class PositionerDialog(PositionerDialog_):
         self.position = pos #the satellite pointed to (even for an offset lnb)
         self.rotor_position_text_ctrl.SetValue(pychdb.sat_pos_str(self.position))
 
-    def SetLnbOffsetPos(self, offset_pos=None):
-        val = f'{abs(offset_pos)/100.:3.1f}'
-        self.lnb_offset_pos_text_ctrl.ChangeValue(val)
-        self.lnb_offset_pos_east_west_choice.SetSelection(offset_pos<0)
+    def SetLnbOffsetPos(self, offset_angle=None):
+        self.lnb_offset_angle_text_ctrl.SetLabel(pychdb.sat_pos_str(offset_angle))
 
     def SetDiseqc12Position(self, idx):
         self.diseqc_position_spin_ctrl.SetValue(idx)
 
-    def SetUsalsLocation(self, longitude=None, latitude=None):
+    def get_usals_location(self):
         receiver = wx.GetApp().receiver
         opts =  receiver.get_options()
-        if longitude is not None:
-            opts.usals_location.usals_longitude = longitude
-        if latitude is not None:
-            opts.usals_location.usals_latitude = latitude
-        if longitude is not None or latitude is not None:
+        return opts.usals_location
+
+    def save_usals_location(self, loc):
+        receiver = wx.GetApp().receiver
+        opts =  receiver.get_options()
+        if opts.usals_location != loc:
+            print('saving usals_location')
             devdb_wtxn = receiver.devdb.wtxn()
+            opts.usals_location = loc
             opts.save_usals_location(devdb_wtxn)
             devdb_wtxn.commit()
             receiver.set_options(opts)
-        longitude = f'{abs(opts.usals_location.usals_longitude)/100.:3.1f}'
+
+    def SetUsalsLocation(self, longitude=None, latitude=None):
+        loc = self.get_usals_location()
+        if longitude is not None:
+            loc.usals_longitude = longitude
+        if latitude is not None:
+            loc.usals_latitude = latitude
+        if longitude is not None or latitude is not None:
+            self.save_usals_location(loc)
+        longitude = f'{abs(loc.usals_longitude)/100.:3.1f}'
         self.longitude_text_ctrl.ChangeValue(longitude)
 
-        latitude = f'{abs(opts.usals_location.usals_latitude)/100.:3.1f}'
+        latitude = f'{abs(loc.usals_latitude)/100.:3.1f}'
         self.latitude_text_ctrl.ChangeValue(latitude)
-        self.latitude_north_south_choice.SetSelection(opts.usals_location.usals_latitude<0)
-        self.longitude_east_west_choice.SetSelection(opts.usals_location.usals_longitude<0)
+        self.latitude_north_south_choice.SetSelection(loc.usals_latitude<0)
+        self.longitude_east_west_choice.SetSelection(loc.usals_longitude<0)
 
     def SetDiseqc12(self, diseqc12):
         self.tune_mux_panel.diseqc12 = diseqc12
@@ -929,20 +945,6 @@ class PositionerDialog(PositionerDialog_):
         dtdebug(f"OnToggleConstellation={self.update_constellation}")
         evt.Skip()
 
-    def UpdateLnbOffsetPos(self, offset_pos):
-        """
-        Set the LNB offset position to offset_pos, updating usals_pos, but without
-        moving the dish. Offset_pos is positive it lnb points to a sat more east than the
-        central lnb
-        """
-        dtdebug(f"LNB offset_pos set to {offset_pos/100}")
-        delta = offset_pos - self.lnb.offset_pos
-        self.lnb.offset_pos = offset_pos
-        self.tune_mux_panel.lnb_changed = True
-        self.position += delta
-        #update the usals_position shown on screen
-        if delta != 0:
-            self.SetPosition(self.position)
 
     def UpdateUsalsPosition(self, usals_pos):
         dtdebug(f"USALS position set to {usals_pos/100}")
@@ -991,18 +993,6 @@ class PositionerDialog(PositionerDialog_):
         else:
             self.usals_panel.Enable()
 
-    def OnLnbOffsetPosChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
-        val = self.lnb_offset_pos_text_ctrl.GetValue()
-        from neumodvb.util import parse_longitude
-        offset_pos = parse_longitude(val)
-        sel = self.lnb_offset_pos_east_west_choice.GetSelection()
-        if sel == 1:
-            offset_pos = - offset_pos
-        self.SetLnbOffsetPos(offset_pos)
-        self.UpdateLnbOffsetPos(offset_pos)
-        if type(event) != str:
-            event.Skip()
-
     def OnPositionChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         val = event if type(event) == str  else event.GetString()
         from neumodvb.util import parse_longitude
@@ -1015,19 +1005,19 @@ class PositionerDialog(PositionerDialog_):
 
     def OnGotoUsals(self, event):
         self.OnPositionChanged(self.rotor_position_text_ctrl.GetValue())
-        self.UpdateUsalsPosition(self.position - self.lnb.offset_pos)
+        self.UpdateUsalsPosition(self.position)
 
 
     def OnUsalsStepEast(self, event):
         self.position += self.step
         self.SetPosition(self.position)
-        self.UpdateUsalsPosition(self.position - self.lnb.offset_pos)
+        self.UpdateUsalsPosition(self.position)
         event.Skip()
 
     def OnUsalsStepWest(self, event):
         self.position -= self.step
         self.SetPosition(self.position)
-        self.UpdateUsalsPosition(self.position - self.lnb.offset_pos)
+        self.UpdateUsalsPosition(self.position)
         event.Skip()
 
     def OnUsalsStepChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
@@ -1080,16 +1070,6 @@ class PositionerDialog(PositionerDialog_):
         opts.usals_location.usals_longitude = val
         receiver.set_options(opts);
         dtdebug(f'site longitude changed to {val}')
-        evt.Skip()
-
-    def OnLnbOffsetPosEastWestSelect(self, evt):
-        from neumodvb.util import parse_longitude
-        val = self.lnb_offset_pos_text_ctrl.GetValue()
-        offset_pos = parse_longitude(val)
-        val = abs(offset_pos)
-        if evt.GetSelection() == 1:
-            val = -val
-        self.UpdateLnbOffsetPos(val)
         evt.Skip()
 
     def OnStorePosition(self, evt):  # wxGlade: PositionerDialog_.<event_handler>

@@ -132,7 +132,7 @@ class SignalHistory(object):
                 if self.signal_type == SignalType.SNR:
                     values.append(st.snr/1000.)
                 elif self.signal_type == SignalType.STRENGTH:
-                    values.append(st.strength/1000.)
+                    values.append(st.signal_strength/1000.)
                 elif self.signal_type == SignalType.BER:
                     values.append(st.ber)
             t=np.array(t)
@@ -164,7 +164,7 @@ class SignalHistory(object):
         if self.xlimits[1] == self.xlimits[0]:
             self.xlimits[0] -= datetime.timedelta(seconds=60)
 
-        self.ylimits = minsignal, maxsignal
+        self.ylimits = [minsignal, maxsignal]
         if maxsignal <= minsignal:
             self.ylimits[1] = self.ylimits[0] + 1e-6
         self.axes.set_ylim(self.ylimits)

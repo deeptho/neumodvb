@@ -13,7 +13,7 @@ Initially this dialog will contain only a single column. The screenshot below sh
   the user pressed `OK` so that a filter for that was created
 
 * The second time, the user selected a cell in the `Name` column which contained "BNT 3." The user edited this
-  cell in the filter dialog (by double clicking) and then changed the valuee to "BNT." The screenshot below
+  cell in the filter dialog (by double clicking) and then changed the value to "BNT." The screenshot below
   shows the dialog just before the user presses `OK` again.
 
 ![Filter Dialog](images/filter_dialog.png)

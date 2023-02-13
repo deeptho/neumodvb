@@ -20,30 +20,33 @@ As editing/configuring  and viewing are very different tasks, they require diffe
   essential for viewing mode is accessible using shortcuts without using the mouse. The short cuts can be
   easily mapped onto remote control buttons (but this functionality is not provided by neumoDVB)
 
-* neumoDVB is not perfect and does not fully comply with the design guidelines below.* In some
+* neumoDVB is not perfect and does not fully comply with the design guidelines below. In some
   cases this because of lack of time, in other cases because of limitations of the toolkit (e.g.,
   scrolling with the  mouse wheel in the list screens is quite sluggish).
 
 The following text is meant to provide some insight in the underlying choices for neumoDVB's GUI.
 It describes mostly how it should be, and not so much how it actually is in its current form.
-Comments Filter:
+
 
 If you contribute changes, please try to adhere to the general design philosophy when possible.
 
 The following design guidelines are essential in the view of the developers. They completely
-go against "modern", which tend to violate essential guidelines for GUI design, as they were
-proposed many years ago, when software was still improving instead of deteriorating:
+go against "modern" practices, which tend to violate essential guidelines for GUI design, which were
+based on careful thought about usability and feature discoverability.
+Those were the days when software was still improving instead of deteriorating:
 
-* GUI items should be discoverable easily. Menu bars are the solution, but modern GUIs tend to prefer hidden
-  menus or even no menus at all. At best they provide some icons instead. Icons as in modern GUIs can be
-  visually nice, but also  very mysterious: what do they actually do? If a window can be scrolled, then the
+* GUI items should be discoverable easily. Menu bars are the solution for this, but modern GUIs tend to prefer hidden
+  menus or even no menus at all and rely on accidental discovery of features. At best they provide some mysterious
+  icons, which correspond to features.  Icons as in modern GUIs can be visually nice, but often do not convey
+  the meaning of a feature well: what do they actually do?  If a window can be scrolled, then the
   presence of  a scroll bar should reveal this. Instead in modern GUIs, the scroll-bar is hidden and when it
   appears it is too thin and thus difficult to operate. We don't want that.
 
-* Actionable GUI elements should be clearly distinguished form text and decorations and should follow clear
-  conventions. For instance, "greyed out" used to mean that some command is not available in the current
+* Actionable GUI elements should be clearly distinguished from text and decorations and should follow clear
+  conventions. For instance, "grayed out" used to mean that some command is not available in the current
   context. Modern GUIs tend to prefer the opposite: no distinction between decorations and actionable items,
-  grey text as the norm, tiny fonts, hige empty space ...
+  grey text as the norm, tiny fonts, huge empty spaces instead of useful information, no scroll bars to indicate that
+  more information is available...
 
 * Buttons should follow a clear convention: If the text of a button says "on", does that mean that
   the button is currently on, or that you have to press the button to turn it on? In neumoDVB on states
@@ -53,7 +56,8 @@ proposed many years ago, when software was still improving instead of deteriorat
 * Readability is important: that means big enough font sizes, well-contrasting colours. Modern GUIs don't
   seem to care much and prefer low contrast interfaces in shades of gray, minuscule fonts... Many people
   suffer from color blindness. Therefore - whenever difference in color matters - we try to pick colours
-  that are distinguishable even for color blind people.
+  that are well distinguishable even for color blind people (Hence the preference for blue and red instead of
+  green and red).
 
 Unfortunately, this gradual degradation in modern GUI design is reflected in toolkits (e.g., essential
 functionality removed in GTK3 compared to GTK2, more will be dropped in GTK4) and working around it is
@@ -61,14 +65,10 @@ not easy. Some poor design choices in various toolkits also mean that it is very
 even impossible to ensure that font sizes and colours are consistent on different screens.  For instance,
 even discovering the current screen resolution is a nightmare, with some software deliberately reporting
 wrong values for compatibility with software bugs, other software having crucial functions not implemented
-and therefore also reporting wrong values ..
+and therefore also reporting wrong values. Fortunately, the `wxWidgets` toolkit used in neumoDVB gets it
+right in many cases, and tries to do the right thing.
 
-This means that even the demos provided in wxWidgets have a mixture of minuscule (sometimes unreadable)
-and correctly sized fonts. One underlying cause is the poor handling (not by wxWidgets but by underlying
-software layers) of "high-DPI" displays. For instance X-windows reports such displays to have a resolution
-of 96dpi, thus contradicting the results obtained through other means.
-
-neumoDVB tries to work around these problems where possible, but still has some problems in this area.
+neumoDVB tries to work around the remaining problems where possible, but still has some problems in this area.
 
 If you experience GUI problems with neumoDVB (e.g., improper font sizes), there are several steps you
 can take:
@@ -86,13 +86,14 @@ EndSection
  * Instead of gnome, try a GUI system such as Mate, which adopts a similar design philosophy as
    neumoDVB.
 
- * Try experimenting with various themes and tweaking tools
+ * Try experimenting with various themes and tweaking tools. Note that the default themes are so bad and buggy
+   that neumoDVB has to rely on its own tweaked theme in `config/share/themes/Neumo/`.
 
  * Try experimenting with the settings in `neumodvb.css`. CSS support is incomplete in GTK3,
-   and wxWidgets sometimes makes changes on top. So success is not guaranteed
+   and wxWidgets sometimes makes changes on top. So success is not guaranteed.
 
  * (Unfortunately) some color and font settings are hard coded in the python files. Fortunately,
-   making changes is easy. If you find settings that work better, report them in a ticket.
+   making changes in Python is easy. If you find settings that work better, report them in a ticket.
 
  * Report the problem as a ticket on GitHub, but then please explain clearly what is the problem
    and all the (non-working) solutions you have tried.

@@ -35,7 +35,7 @@ The fields to complete are:
   You can get the values on the internet. If the blindscan drivers are installed, the values will be found
   automatically in typical cases, but this is not always true. The `positioner` dialog also allows searching
   the correct value, but this can take hours and is not 100% reliable.
-* `stream.` **Editable**  the stream id of a multistream. If a mux contains multiple streams, then neumoDVB
+* `stream.` **Editable**  the stream id of a multi-stream. If a mux contains multiple streams, then neumoDVB
   considers each stream as a separate mux.
 * `FEC`: **Editable** Forward Error Correction. Almost never needs to be set.
 * `nid`: **Editable**  network id; leave blank because the value is not used for initial tuning.
@@ -60,7 +60,7 @@ needed to uniquely identify them. T2MI is more of mystery in this respect. mux k
 identify services, and we opted to not include redundant information in them. `stream_id` is currently
 considered redundant, but `t2mipid` not. This could change in future.
 
-The field `extra_id` is generated internally by neumoDVB when multile muxes with different frequencies
+The field `extra_id` is generated internally by neumoDVB when multiple muxes with different frequencies
 but same stream_ids exist on a satellite.
 
 
@@ -73,7 +73,7 @@ The user can add more than one mux to the scan queue at the start, but also whil
 
 At the start of scanning and whenever a mux scan ends, NeumoDVB checks the scan queue and tries to
 tune as many muxes in the queue as possible using all available adapters. If you have multiple dishes
-capable of tuning the same satellite, or if your DVB card suports Slave tuners, then multiple muxes
+capable of tuning the same satellite, or if your DVB card supports Slave tuners, then multiple muxes
 will be scanned in parallel.
 
 **Be careful if you have have a dish on a positioner:**

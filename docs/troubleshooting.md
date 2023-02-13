@@ -7,6 +7,7 @@ In case of problems, the following information may help to understand the proble
 * NeumoDVB's GUI is written python using the wxWidgets library. In case of problems
   with the GUI, the usual problem will be either a crash (wxWidgets) or a python stack trace. Debug and
   error messages in the log file (by default: `/tmp/neumo.log`) may also shed light on the problem.
+
 * The GUI calls into  a number of shared libraries, which implement the DVB receiver, the database code...
   These libraries come in two flavors:  Those named `libxxx.so` do the actual work, whereas those named
   `pyXXX.so`are interface libraries allowing to call the `libxxx.so` libraries from python.
@@ -43,14 +44,14 @@ In case of problems, the following information may help to understand the proble
   be on a filesystem with plenty of room as a single recording can be several Gigabytes in size.
 
   * The locations where live buffers will be stored, by default: `~/neumo/live`. Live buffers store the audio and
-  video of the currently viewed service(s) to allow pausing and timeshift. The *cannot* be turned off.
+  video of the currently viewed service(s) to allow pausing and time shift. The *cannot* be turned off.
   This too needs to  be on a file system with plenty of room.
 
  It may not be a good idea to keep the live and recording folder in your home directory. Instead you may want
  to store them in a separate filesystem. This way, you can backup them separately from your regular files.
 
 * NeumoDVB logs a log of debug and error messages to its log file. The log file location can be configured
-  by editing `neumo.xml`, which contains the path of the actual logfile, and also allows turning on or off
+  by editing `neumo.xml`, which contains the path of the actual log file, and also allows turning on or off
   various classes of of debug messages (google for Log4CXX to understand this file). By default, log files
   are stored in `/tmp/`. In case of problems, these files can grow quite big. So if you experience strange
   problems, check that the /tmp file system has sufficient space.

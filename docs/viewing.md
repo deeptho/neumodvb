@@ -2,7 +2,7 @@
 
 ## Viewing and recording TV ##
 
-To actually view channels, you need to swictch to the live mode screen (which is distinghuished by a dark background)
+To actually view channels, you need to switch to the live mode screen (which is distinguished by a dark background)
 To do so, press `Ctrl-L` if needed. In the live mode screen several displays can be activated
 
 * **Channel Grid mode.**  `View - Channels` or pressing `C` shows a channel/service list, along with live TV preview window
@@ -17,7 +17,7 @@ performed.
 * **Recordings.** `View - Recordings` or pressing `R` shows the list of earlier recorded programs, along with the preview window
 performed.
 
-* **View mode.** `View Show/Hide GUI` pr pressing `L` toggles between video only display and the last selectd live mode screen (channels, grid epg...)
+* **View mode.** `View Show/Hide GUI` pr pressing `L` toggles between video only display and the last selectd live mode screen (channels, grid EPG...)
 
 * **Channel Screenshot.** `Control Channel Screenshot` pr pressing `Ctrl-J` screenshots the currently playing service
 -- without any overlays -- and saves it to /tmp/screenshots. If you don't like the location, change it to something
@@ -55,7 +55,7 @@ This screen actually contains five or more distinct regions, which can be naviga
 * left: the channel or service list, selected and ordered according to the top line
 
 * right: the currently playing service(s), also called "live" services.
-  There can be multiple live services. In that case, one of the live services will be considered the actvive
+  There can be multiple live services. In that case, one of the live services will be considered the active
   one, which means that it is the one that can be re-tuned, paused ... The current one will be
   will be highlighted in yellow.
 
@@ -101,7 +101,7 @@ In the channel list screen region,
 Remember that other keys are also available to switch between views
 * Press `L` to show only video
 
-* Press `E` to show the grid epg
+* Press `E` to show the grid EPG
 
 * Press `Ctrl-F` to enter full screen
 
@@ -127,7 +127,7 @@ Currently neumoDVB supports:
 
 Compared to TVHeadend, several features are not supported:
 
-* No XMLTV epg, but this would be easy to add
+* No XMLTV EPG, but this would be easy to add
 
 * No scheduled EPG scanning
 
@@ -142,8 +142,8 @@ most cases:
 * Some providers (FreeSat, SkyUk, Movistar+) provide 7 or even 14-day EPG. If you view some of
   those channels regularly, chances are that your EPG will be up to date just through this viewing
 
-* For "Freesat" the fastest EPG is on the Freesat home mux, which has no viewable programs. Still
-  after scanning this mux, you can tune to the service called "Freesat Home" for a 5 to 10 minutes
+* For "FreeSat" the fastest EPG is on the FreeSat home mux, which has no viewable programs. Still
+  after scanning this mux, you can tune to the service called "FreeSat Home" for a 5 to 10 minutes
   to replenish EPG
 
 * Other providers provide only a few hours worth of EPG or - even worse - only now/next records. In this
@@ -151,7 +151,7 @@ most cases:
 
 So, for now, it is up to the user to tune EPG services from time to time.
 
-The grid epg screen is shown below. You can navigate between programs using the arrow keys.
+The grid EPG screen is shown below. You can navigate between programs using the arrow keys.
 When the channel list is sorted numerically, you can also enter numeric keys to bring relevant
 channels on screen. Other channel lists or sort orders can be selected by navigating to the
 corresponding screen area using Ctrl-arrow key combinations.
@@ -172,7 +172,7 @@ screen:
 As it's name suggests this mode is for watching TV.
 The most useful commands are
 
-* `L` To show the service list or the grid epg (which ever was used last)
+* `L` To show the service list or the grid EPG (which ever was used last)
 
 * `E` To show the Grid EPG
 
@@ -180,13 +180,13 @@ The most useful commands are
 
 * `Toggle Overlay` (`Ctrl-O`). This activates the on-screen display, which displays signal levels, and
 some program information, but also - at the bottom - some information about the current playback position
-when in timeshift mode.
+when in time shift mode.
 
 The screenshot below shows the on-screen display.  It displays information about the live channel.
-In the example, playback has been paused and therefore the live channel is in "TIMESHIFT" mode.
+In the example, playback has been paused and therefore the live channel is in "TIME SHIFT" mode.
 The navigation bar at the bottom shows the duration of the current
 program: it runs from 01:00 to 03:00. It also shows that the program has started only a few minutes
-ago: the orange region indicates the available timeshift data. This area will grow over time.
+ago: the orange region indicates the available time shift data. This area will grow over time.
 
 When one of the playing services is focused (as indicated by a yellow border), also some
 keys for "trick" play will be enabled:
@@ -204,8 +204,8 @@ keys for "trick" play will be enabled:
 
 ![Channel screen](images/live_fullscreen.png)
 
-When you start a recording on a channel which has an active timeshift buffer, this data will be
-included in the recording. Timeshift buffers are discarded when you end playback of a channel.
+When you start a recording on a channel which has an active time shift buffer, this data will be
+included in the recording. Time Shift buffers are discarded when you end playback of a channel.
 This is also the case when you  accidentally switch channels. In this case, if the program is important,
 you have a few minutes before the disk files of the live buffers are actually discarded. These files
 can be converted into a recording relatively easily, but you have to copy them immediately to preserve
@@ -230,11 +230,11 @@ be proposed for the currently running program.
 
 ### Anonymous recordings ###
 
-'anonymous` recordings` are recordings created without an epg record. Simply select an empty area
-in the grid epg and press record, or press record on the services screen when no EPG is present.
+'anonymous` recordings` are recordings created without an EPG record. Simply select an empty area
+in the grid EPG and press record, or press record on the services screen when no EPG is present.
 Then enter start and end time and a title. Should EPG records overlapping with the recording appear later,
-then secondary recordings will be created automatically for each overlapping epg record. This is convenient
-for services with only now/next epg, which may arrive after scheduling the
+then secondary recordings will be created automatically for each overlapping EPG record. This is convenient
+for services with only now/next EPG, which may arrive after scheduling the
 anonymous recording. Anonymous recordings will be shown on the EPG screen, but will be overlayed with
 epg records, should these exist. Canceling a secondary epg recording also cancels the anonymous recording.
 

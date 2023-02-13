@@ -8,15 +8,18 @@ To report a bug:
   help understand or fix the bug, then add your information to the existing ticket
 
 * If you report any problem, it is essential to provide the minimal information requested by the ticket template,
-  which appears when you open a new ticket on GitHub.
-  It is also essential to clearly explain the problem and if possible how it can be reproduced, or
-  under which conditions it occurs.
+  which appears when you open a new ticket on GitHub. It is also essential to clearly explain the problem and if
+  possible how it can be reproduced, or under which conditions it occurs.
+
+* Note that "crashes" come in different types. neumoDVB will deliberately stop, after logging an error in /tmp/neumo.log
+  if it detects an unexpected condition which it cannot recover from. However, it may also crash without detecting
+  such a condition. In this case, the error message on the console is needed to understand the problem.
 
 * If the problem is reproducible, please download and compile the latest version of the software to see
   it still occurs. Also if possible, spend some time analyzing the problem in detail, e.g., experimenting
   with more verbose log settings in the ```neumo.xml``` config file, finding a simpler way to make the problem
-  occur, or even using gdb to trakc down the problem. It is not as difficult as you think and you do not need
-  to be a developer to record a stack dump in gdb
+  occur, or even using gdb to track down the problem. It is not as difficult as you think and you do not need
+  to be a developer to record a stack dump in gdb.
 
 
 ## Debugging neumoDVB ###
@@ -46,15 +49,15 @@ Even if you have never used ```gdb``` before, it should be easy to provide minim
 as follows:
 
 * First install cgdb and gdb.
-* The create ``~/gdbinit``` with the following content:
+* Then create ``~/gdbinit``` with the following content:
 ```set auto-load safe-path /:.
    set pagination off
    set auto-load local-gdbinit on
 ```
 * Now inspect the content of ```~/neumodvb/gui/.gdbinit```. Here you can specify breakpoints if needed,
-but more importantly you specify how the debugger should start neumoDVB. This is a bit complicated because
-it consists of a mixture of python and C++ code. The defaults in  ```~/neumodvb/gui/.gdbinit``` should be
-fine as they are.
+  but more importantly you specify how the debugger should start neumoDVB. This is a bit complicated because
+  it consists of a mixture of python and C++ code. The defaults in  ```~/neumodvb/gui/.gdbinit``` should be
+  fine as they are.
 
 * Then run neumoDVB under cgdb as follows:
 ```
@@ -85,6 +88,7 @@ In this case, you can edit ```src/CMakeLists.txt``` and uncomment the line
 ```
 #add_compile_options(-D__assert_fail=assert_fail_stop)
 ```
+
 Then you need to rebuild.
 Then when an assertion occurs, neumoDVB will not crash as usual, but instead put itself to sleep:
 all threads will stop what they are doing but the program will not end.

@@ -16,14 +16,14 @@ There are a few exceptions:
 
 * the service number is purely user defined.
 
-* some information like `VPID` (video pid) and `PMT PID` is usually not needed for tuning. In rare cases,
+* some information like `VPID` (video PID) and `PMT PID` is usually not needed for tuning. In rare cases,
   their value is needed for tuning. One example is services that are not listed in the SDT, nor in PAT.
   These streams are non-compliant, rare,  and are not yet handled well by neumoDVB (please submit a ticket
   if you find
   an example)
 
   Another example are the encrypted BBC streams at 27.5W. In this case the PMT is encrypted and it is not
-  even possible to discover the video pid prior to decrypting this PMT. Currently this decryption is implemented
+  even possible to discover the video PID prior to decrypting this PMT. Currently this decryption is implemented
   un a way that requires the user to specify the video PID.
 
 Similarly, it is pointless to remove services from the service list because they will be recreated when neumoDVB
@@ -41,7 +41,7 @@ In general there are two practical ways to prepare your channel list for viewing
   number 0. Your services will therefore appear at the end of the list.
 
 * Create bouquets, copy the channels you are interested into the bouquet and during viewing
-  use theose channel list(s) instead of the service list.
+  use those channel list(s) instead of the service list.
 
 ### Assigning service numbers ###
 

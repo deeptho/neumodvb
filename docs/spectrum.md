@@ -29,18 +29,18 @@ polarisation. Parallel scan is activated automatically.
 ### Starting a spectrum acquisition ###
 
 * At the very bottom left on the screen, first select the polarizations you want to scan. Also select
-  the frequency range to scan. The default is to scan all, which will take about 40 seconds on TBS6909x.
+  the frequency range to scan. The default is to scan all, which will take about 40 seconds on TBS6909X.
 
 * Then press the `spectrum scan` button.
 
 Note that some cards, such as tbs5927 allow tuning outside of the normal frequency ranges. If the driver
-supports it, you can therefore also enter a low frequency limit the scan below 10.7Ghz or a high frequency
-above 12.75Ghz. However, this only works if the LNB frequency limits have been properly adjusted on the
+supports it, you can therefore also enter a low frequency limit the scan below 10.7 GHz or a high frequency
+above 12.75 GHz. However, this only works if the LNB frequency limits have been properly adjusted on the
 `lnb list` screen.
 
 Spectrum scan is performed one band/polarization at a time. The result will be displayed as a graph
 on the top half of the screen. To prevent a complete mess, the graph - which, for a universal LNB, covers the
-range 10.7-12.75 Ghz - is zoomed horizontally by default. Above the graph (top left) some command buttons
+range 10.7-12.75 GHz - is zoomed horizontally by default. Above the graph (top left) some command buttons
 are available to zoom and pan in the graph. These are from the `matplotlib` library and some of them may operate
 a bit awkwardly. From left to right
 
@@ -69,7 +69,7 @@ a bit awkwardly. From left to right
 To the right of these `matlplotlib` buttons are other buttons:
 
 * The `minus` button turns on or off baseline removal. If you LNB is connected with a long cable, then signal
-  drop a lot towards the end of the frequency bands. They are lowest just below 11.7 Ghz and near 12.7GHz.
+  drop a lot towards the end of the frequency bands. They are lowest just below 11.7 GHz and near 12.7 GHz.
   Base line removal subtracts this trend and allows a better view on the spectrum
 
 * The other buttons allow  you to turn on/off textual annotations on the displayed graphs, or to remove the
@@ -90,7 +90,7 @@ these annotations could quickly become a confusing and overlapping mess. neumoDV
 by shifting text up as needed. Sometimes this may lead to to the text being above the visible part of the plot.
 Use the panning facilities in this case.
 
-After blindscanning a mux (see below), the frequency and symbolrate of a peak is updated with the information
+After blindscanning a mux (see below), the frequency and symbol rate of a peak is updated with the information
 received from the demodulator and -- when available -- with the values reported in the DVB service information
 of the mux. The latter always takes precedence. It is usually more accurate, but sometimes it is also
 completely wrong due to an error by the broadcaster. Really large errors are ignored by neumoDVB, but
@@ -168,17 +168,17 @@ The following panels will show various information:
     just tune to many high symbol rate muxes in the same frequency band. Gradually the compensation
     will improve and neumoDVB will also start tuning to the low symbol rate muxes correctly.
 
-    * `MATYPE` shows data about the current DVB-S2 modulation scheme
+    * `MATYPE` shows data about the current DVB-S2 modulation scheme.
 
-    * `PLS` shows the Physical Layer Scrambling properties, "ROOT-1" in the example
+    * `PLS` shows the Physical Layer Scrambling properties, "ROOT-1" in the example.
 
-    * `ISI` shows the number of multistreams on this mux between brackets, followed by the list
-      of the stream_ids, or -1 in case the mux is not a multistream
+    * `ISI` shows the number of multi-streams on this mux between brackets, followed by the list
+      of the stream_ids, or -1 in case the mux is not a multi-stream.
 
 * The `LNB and sat` panel allows selecting  another LNB, so that the next spectrum or blind scan can
   operate on another LNB without having to close the spectrum screen and return to the LNB screen.
   As the LNB can be on a rotor, it may also be necessary to select the desired satellite using the `Sat`
-  combobox. The `Save` button then saves some information for the LNB such as the default mux. The
+  combo-box. The `Save` button then saves some information for the LNB such as the default mux. The
   `Reset LOF` box can be used to reset the LOF offset estimate, which is gradually updated with each
   successful tune.
 
@@ -198,7 +198,7 @@ The following panels will show various information:
 
 * The `Tune mux` panel allows you to pick an already known (earlier scanned) mux from a list. This
     is very handy if your drivers do not support blind scan, because it will copy the proper tuning parameters,
-    such as symbolrate, PLS codes and such. You can still use blind scan if you want.
+    such as symbol rate, PLS codes and such. You can still use blind scan if you want.
 
   * At the very bottom, you can enter tuning parameters directly. This allows you to also tune frequencies
     not detected during spectrum scan. It is however very unlikely that such frequencies will tune. A more

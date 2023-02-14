@@ -119,6 +119,8 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 
 ### [Positioner control](docs/positioner.md) ###
 
+### [Signal history](docs/signal_history.md) ###
+
 ### [Filtering lists](docs/lists.md) ###
 
 

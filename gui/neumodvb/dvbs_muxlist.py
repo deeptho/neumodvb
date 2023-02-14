@@ -335,7 +335,6 @@ class DvbsMuxGrid(DvbsMuxGridBase):
             h.h.dvbs_muxlist_filter_sat = sat
         h.save()
         wx.CallAfter(self.SetFocus)
-        print(f'calling handle_sat_change sat={sat} mux={self.mux}')
         wx.CallAfter(self.handle_sat_change, None, sat, self.mux)
 
 class DvbsBasicMuxGrid(DvbsMuxGridBase):
@@ -372,5 +371,4 @@ class DvbsBasicMuxGrid(DvbsMuxGridBase):
             self.mux = None
         sat, mux = self.CurrentSatAndMux()
         wx.CallAfter(self.SetFocus)
-        print(f'calling handle_sat_change sat={sat} mux={self.mux}')
         wx.CallAfter(self.handle_sat_change, None, sat, self.mux)

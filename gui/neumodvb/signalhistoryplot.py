@@ -168,7 +168,7 @@ class SignalHistory(object):
         if maxsignal <= minsignal:
             self.ylimits[1] = self.ylimits[0] + 1e-6
         self.axes.set_ylim(self.ylimits)
-
+        self.axes.xaxis.set_major_formatter(mpl.dates.DateFormatter('%Y-%m-%d\n %H:%M:%S'))
 
 class SignalHistoryPlot(wx.Panel):
     def __init__(self, parent, *args, **kwargs):
@@ -235,7 +235,7 @@ class SignalHistoryPlot(wx.Panel):
         self.axes.spines['right'].set_visible(False)
         self.axes.spines['top'].set_visible(False)
         self.axes.set_ylabel('dB')
-        self.axes.set_xlabel('Date')
+        self.axes.set_xlabel('Date\n')
         xlimits, ylimits = self.get_limits()
         if False:
             self.axes.set_xlim(xlimits)

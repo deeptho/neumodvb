@@ -1,5 +1,83 @@
 # Changes in neumoDVB #
 
+## Changes in version neumodvb-1.1 ##
+
+### Most important changes ###
+
+* Database format has changed once more, but only regarding LNB definitions. The main change is that there is now
+  on entry per physical LNB  in the LNB list, whereas in the past there was a separate entry for each LNB input cable.
+  This means that DiSEqC settings will have to be re-entered. The new format is explained in the documentation and
+  was needed to allow some advanced features to work better.
+* New layout of the LNB screen, with exactly one line per physical LNB. To "connect" an LNB to a card double-click on
+  the cell in the `connections` column and add all tuners to which the LNB is connected. Most DiSEqC settings are associated
+  with such a connection and need to be set on this connection, and no longer on the LNB itself. This allows neumoDVB
+  to compute a single LOF correction value for each LNB  instead of separately for each connection.
+  Connections and networks in lnb list also follow a multi-line layout. Individual connections or networks that can not
+  be currently used for some reason are shown as strike-through text.
+* Estimate the current satellite position for offset LNBs and display it in the LNB list instead of the USALS pos
+  which is more difficult to interpret for offset LNBs.
+* New `signal history` feature which shows historic SNR for muxes. Use it to inspect signal degradation over time.
+* In spectrum and positioner dialog only show muxes for frequencies supported by the LNB. For example, do not show
+  C-band muxes for a Ku-band LNB/
+* Ensure immediate consistency of networks, connections and other lnb fields across lnb list and positioner dialog and
+  spectrum dialog. For example, when adding a network to an LNB in the LNB list, the new network can be selected in the
+  spectrum dialog without having to close and reopen it.
+* More useful, default sat selection when positioner is currently not pointing to any sat.
+* Improved layout of spectrum dialog to also show the date when a spectrum was captured in the spectrum list.
+* Identify all LNBs in the system by a small, never changing number, allowing for easier brief identification of cards.
+  E.g. C0 means card 0. C1 card 1.... neumoDVB takes care of this numbering, but the user can change it.
+* Blindscan search range is now adapted to symbol rate leading to fewer cases where tuning fails.
+* More robust estimation of lof_offsets to handle incorrect data in NIT
+* Correctly identify roll-off values below 20%
+* Introduce rf_coupler_id: setting this value to a number different than -1 on a connection signifies that that connection
+  shares a cable with any other connection having the same rf_coupler_id. neumoDVB will then ensure that compatible voltage,
+  polarisation, band, and satellites are selected on those connections.
+* Do not allow dish motion when tuning services, only when using positioner. This is a choice that will be turned into an
+  option later.
+* In positioner and spectrum dialog, allow separate selection of lnb and tuner (lnb_connection)
+
+### Bug fixes and improvements ###
+
+* Avoid overwriting lnb values set in lnblist when saving lnb in positioner_dialog. This allows editing various pieces
+  of LNB information in the LNB list, and the in the positioner dialog without the changes made on the two screens interfere.
+* Bug: when editing service number in services screen, and then switching to live screen, the old channel number is shown
+  instead of the new one
+* Display ??? when lnb LOF loffset is not known
+* Avoid some assertions when LNB's ref_mux is None and when lnb is None
+* Bug: incorrect detection of adaptation field of ts packets in rare cases. These led to an assertion.
+* Wait with saving pmts until IS ACTUAL has been received or timed out
+* Improved guessing of network_id and ts_id when some SI tables are missing.
+* Bug: mux_keys of some services incorrectly renamed when an invalid NIT is received, leading to un-tunable services.
+* Detect dummy plf modcode
+* Bug: Incorrect mux display in spectrum_scan at end of spectrum.
+* Increase height of text annotations in spectrum scan
+* Bug: do not call init_si on non transport streams
+* Bug: signal_info and constellation scan long time not updated during blindscan all.
+* Avoid assertion when rescan_peak fails
+* Log scan result
+* Clear old subscriptions left on some no longer existing adapter; Improved status list layout
+* Bug: do not set DTV_VOLTAGE when voltage ioctl was used (redundant)
+* Add user error messages when reservation fails on required lnb
+* Fix a datarace in the way error messages are passed from tasks to calling threads
+* Report error when SYS_AUTO is requested for non-neumo drivers
+* When driver resturns stream_id==0xffffffff, do not set a pls code
+* Handle sign in latitude and longitude
+* Add tune_may_move_dish internal option.
+* Display matype in more cases
+* Bug: Fedora fc37 ComboBoxes do not work properly
+* Take into account button dimensions when sizing ComboCtrl text
+* Avoid assertion when starting positioner_dialog on disabled lnb
+* Allow positioner dialog and spectrum list to start for enabled but not available lnbs.
+* Bug: when adding record with duplicate key, row with question marks appears because row count is incorrect
+* Bug: incorrect number of rows on screen (resulting in records with question marks) due to row_being_edited out of sync
+  with screen's editing record
+* Bug: incorrect handling of row_being_edited when user requests new record, when edit of new record in progress.
+* Bug: RowSelectionMode not activated in service_list
+* Always choose reasonable default for reference_mux. Implement select_reference_mux
+* Add lnb_id to lnblist screen.
+* Add on_positioner field to lnb, update it as needed, and show in lnblist
+* Add lnb connection editor
+
 ## Changes in version neumodvb-1.0 ##
 
 ### Most important changes ###
@@ -26,7 +104,7 @@
 * Improved spectrum analysis: very wide band muxes are no longer detected as dozens of very small
   peaks, but as a single or a small number of peaks. This speeds up blind scanning as well. The estimated
   symbol rate of peaks used to be very inaccurate and is not more accurate.
-* Change voltage from 0 to 18V in two steps to avoid current overloads when many diseqc switches switch
+* Change voltage from 0 to 18V in two steps to avoid current overloads when many DiSEqC switches switch
   simultaneously.
 
 ### Spectrum analysis and blind scan ###
@@ -106,16 +184,16 @@
 ### Tuning and viewing ###
 
 * Improved support for dvbapi
-* Gradually change voltage from from 0 to 18V to avoid current overloads when many diseqc switches switch
+* Gradually change voltage from from 0 to 18V to avoid current overloads when many DiSEqC switches switch
   simultaneously.
-* Wait 200ms after powering up diseqc circuitry.
+* Wait 200ms after powering up DiSEqC circuitry.
 * Handle invalid parameters during tuning (e.g., frequency/symbol_rate out of range), reporting them to
   GUI and properly releasing resources.
 * Prevent forcing blind mode based on delsys; instead respect tune option.
 * Split all tuning related actions into two phases: 1) reservation of resources; 2) the actual tuning
   This allows to better handle some failure cases.
 * Subscriptions are now stored in the database, facilitating multiple instances of neumoDVB running parallel.
-* Bug: diseqc commands sent without waiting for LNB power-up.
+* Bug: DiSEqC commands sent without waiting for LNB power-up.
 * Bug: tuning to DVB-C/DVB-T fails; invalid assertion.
 * Bug: when tuning fails in positioner_dialog, subscription_id<0 is returned but mux is not unsubscribed (and
   cannot be unsubscribed).
@@ -126,7 +204,7 @@
 * Prefer to reuse current adapter when all else is equal.
 * When two subscriptions use same tuner, do not power down tuner when ending only one of the subscriptions.
   This is supported as of neumo driver 1.5.
-* Bug: voltage and tone state not cleared after frontend close, resulting in diseqc not being sent
+* Bug: voltage and tone state not cleared after frontend close, resulting in DiSEqC not being sent
   and tuning failing.
 * Avoid crash on exit when fe_monitor not running.
 * Assertion when softcam returns bad keys.
@@ -302,7 +380,7 @@ Compilation and internals
 * Removed dependency on setproctitle and made it less error-prone
 * Add script for testing peak finding algorithm
 
-Diseqc
+DiSEqC
 
 * Add more time between sending commands to cascaded swicthes, solving some erroneous switching
 
@@ -372,10 +450,10 @@ Various bugs fixed:
 Positioner related
 
 * More consistent layout of positioner dialog. Disable some functions when unusable
-* Fixes for diseqc12, e.g., new diseqc12 value not stored when user updates it
-* Positioner bug fixes: send diseqc switch commands before sending any positioner command;
+* Fixes for DiSEqC12, e.g., new DiSEqC12 value not stored when user updates it
+* Positioner bug fixes: send DiSEqC switch commands before sending any positioner command;
   report better error messages in GUI; properly handle continuous motion.
-* Send diseqc switch commands before spectrum scan to avoid scanning the wrong lnb
+* Send DiSEqC switch commands before spectrum scan to avoid scanning the wrong lnb
 * Prevent dish movement during mux scan
 * Satellite is now only shown as "confirmed" (no question mark) if the position was actually
   found in the NIT table.

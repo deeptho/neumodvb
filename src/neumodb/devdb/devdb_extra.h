@@ -102,7 +102,7 @@ namespace devdb {
 
 	inline const lnb_connection_t* connection_for_rf_path(const devdb::lnb_t& lnb, const devdb::rf_path_t& rf_path) {
 		for(auto& conn: lnb.connections) {
-			if (conn.rf_input == rf_path.rf_input)
+			if (conn.card_mac_address == rf_path.card_mac_address && conn.rf_input == rf_path.rf_input)
 				return & conn;
 		}
 		return nullptr;

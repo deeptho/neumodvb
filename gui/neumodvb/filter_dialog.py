@@ -179,7 +179,6 @@ class FilterDialog(FilterDialog_):
     def __init__(self, parent_grid, basic, readonly, *args, **kwds):
         self.basic = basic
         self.parent_grid = parent_grid
-        print(f'ROW1={self.parent_grid.GetGridCursorRow()}')
         self.parent_table = parent_grid.table
         self.readonly = readonly
         super().__init__(parent_grid.GetParent(), *args, **kwds)

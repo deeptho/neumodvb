@@ -88,7 +88,7 @@ std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
 std::ostream& devdb::operator<<(std::ostream& os, const lnb_t& lnb) {
 	using namespace chdb;
 	os << lnb.k;
-	auto sat = sat_pos_str(lnb.cur_sat_pos); // in this case usals pos equals one of the network sat_pos
+	auto sat = sat_pos_str(lnb.cur_sat_pos == sat_pos_none ? lnb.usals_pos : lnb.cur_sat_pos); // in this case usals pos equals one of the network sat_pos
 	os << " " << sat;
 	return os;
 }
@@ -619,12 +619,16 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 	return {};
 }
 
+#if 0
 int devdb::lnb::current_sat_pos(devdb::lnb_t& lnb, const devdb::usals_location_t& loc)
 {
+	if (lnb.offset_angle==0)
+		return lnb.usals_pos;
 	auto angle = devdb::lnb::sat_pos_to_angle(lnb.usals_pos, loc.usals_longitude, loc.usals_latitude);
 	//computed for offset lnb
 	return devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
 }
+#endif
 
 bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, const devdb::usals_location_t& loc, devdb::lnb_network_t& network)
 {
@@ -909,7 +913,7 @@ int devdb::lnb::angle_to_sat_pos(int angle, const devdb::usals_location_t& loc) 
 	auto angle_low = sat_pos_to_angle(sat_pos_low, longitude, latitude);
 	auto angle_high =  sat_pos_to_angle(sat_pos_high, longitude, latitude);
 	auto sat_pos = (sat_pos_low + sat_pos_high) / 2; // best estimate
-	while (sat_pos_high - sat_pos_low >= 2) {
+	while (sat_pos_high - sat_pos_low > 1) {
 		sat_pos = (sat_pos_low + sat_pos_high) / 2; // best estimate
 		auto angle_ =  sat_pos_to_angle(sat_pos, longitude, latitude);
 		assert(angle_ >= angle_low && angle <= angle_high);
@@ -967,6 +971,14 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, cons
 		assert(loc);
 		devdb::lnb::set_lnb_offset_angle(lnb, *loc);
 	}
+	if(lnb.cur_sat_pos == sat_pos_none) {
+		if(lnb.offset_angle ==0)
+			lnb.cur_sat_pos = lnb.usals_pos;
+		else {
+			auto angle = devdb::lnb::sat_pos_to_angle(lnb.usals_pos, loc->usals_longitude, loc->usals_latitude);
+			lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, *loc);
+		}
+	}
 
 	std::optional<lnb_t> db_lnb;
 	auto c = lnb_t::find_by_key(devdb_wtxn, lnb.k, find_type_t::find_eq, devdb::lnb_t::partial_keys_t::all);
@@ -979,6 +991,7 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, cons
 			lnb.k = db_lnb->k;
 		if(preserve & p_t::USALS) {
 			lnb.usals_pos = db_lnb->usals_pos;
+			lnb.cur_sat_pos = db_lnb->cur_sat_pos;
 			lnb.on_positioner = db_lnb->on_positioner;
 			lnb.offset_angle = db_lnb->offset_angle;
 		}
@@ -1202,6 +1215,11 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn) {
 
 	auto c = devdb::find_first<devdb::lnb_t>(devdb_wtxn);
 	for(auto lnb: c.range()) {
+		if(lnb.cur_sat_pos == sat_pos_none) {
+			//hack to correct older database records
+			lnb.cur_sat_pos = lnb.usals_pos;
+			put_record(devdb_wtxn, lnb);
+		}
 		for(auto conn: lnb.connections) {
 			auto found = find_fe(conn);
 			if(found) {

@@ -146,7 +146,7 @@ namespace devdb {
 };
 
 namespace devdb::lnb {
-	int current_sat_pos(devdb::lnb_t& lnb, const devdb::usals_location_t& loc);
+	//int current_sat_pos(devdb::lnb_t& lnb, const devdb::usals_location_t& loc);
 	int angle_to_sat_pos(int angle, const devdb::usals_location_t& loc);
 	int sat_pos_to_usals_par(int angle, int my_longitude, int my_latitude);
 	int sat_pos_to_angle(int angle, int my_longitude, int my_latitude);

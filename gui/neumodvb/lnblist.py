@@ -110,7 +110,7 @@ class LnbTable(NeumoTable):
          CD(key='on_positioner',  label='on\nrotor', basic=True, readonly=False),
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='cur_sat_pos',  label='cur sat\npos', basic=True, readonly=True, no_combo = True, #allow entering sat_pos
-            dfn= lambda x: x[2].cur_sat_pos_fn(x[0])),
+            dfn= lambda x: pychdb.sat_pos_str(x[1])),
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='usals_pos',  label='usals\npos', basic=True, readonly=True, no_combo = True,
             dfn= lambda x: pychdb.sat_pos_str(x[1])),

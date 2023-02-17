@@ -154,7 +154,7 @@ inline bool is_audio (stream_type_t st)
 }
 
 
-inline bool is_subtitle (stream_type_t st)
+inline bool is_private(stream_type_t st)
 {
 	return
 		st == stream_type_t::PES_PRIV;

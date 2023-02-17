@@ -125,6 +125,10 @@ namespace dtdemux {
 		bool is_t2mi() const {
 			return t2mi_stream_id>=0;
 		}
+
+		inline bool has_subtitles() const {
+			return subtitle_descriptors.size() > 0;
+		}
 	};
 
 

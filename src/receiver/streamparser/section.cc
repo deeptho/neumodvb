@@ -2285,7 +2285,7 @@ static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code
 	using namespace chdb;
 	int order = 0; /* for duplicate entries in pmt, order will be 0,1,2,...*/
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
-		if(!stream_type::is_subtitle(stream_type::stream_type_t(pid_desc.stream_type)))
+		if(!pid_desc.has_subtitles())
 			continue;
 		for (const auto& desc : pid_desc.subtitle_descriptors) {
 			language_code_t lang_code(order, desc.lang_code[0], desc.lang_code[1], desc.lang_code[2]);
@@ -2304,7 +2304,7 @@ static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code
 	first_subtitle(const pmt_info_t& pmtinfo) {
 	using namespace chdb;
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
-		if(!stream_type::is_subtitle(stream_type::stream_type_t(pid_desc.stream_type)))
+		if(!pid_desc.has_subtitles())
 			continue;
 		for (const auto& desc : pid_desc.subtitle_descriptors) {
 			auto&c  = desc.lang_code;

@@ -322,7 +322,7 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 	using namespace stream_type;
 	for (const auto& pidinfo : pmt.pid_descriptors) {
 		// dtdebug(pidinfo);
-		if (is_video(pidinfo.stream_type) || is_audio(pidinfo.stream_type) || is_subtitle(pidinfo.stream_type))
+		if (is_video(pidinfo.stream_type) || is_audio(pidinfo.stream_type) || pidinfo.has_subtitles())
 			process(pidinfo.stream_pid);
 		/*the following code will reuse any existing parser
 			@todo: in case of a radio channel, we need to register an audio pid instead

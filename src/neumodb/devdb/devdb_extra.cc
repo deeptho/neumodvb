@@ -1005,8 +1005,20 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, cons
 			lnb.freq_mid = db_lnb->freq_mid;
 			lnb.freq_high = db_lnb->freq_high;
 		}
-		if ((preserve & p_t::NETWORKS))
+
+		if (!(preserve & p_t::REF_MUX)) {
+			for(auto & dbn: db_lnb->networks) {
+				for(const auto & n: lnb.networks) {
+					if(n.sat_pos == dbn.sat_pos)
+						dbn.ref_mux = n.ref_mux;
+					break;
+				}
+			}
+		}
+
+		if((preserve & p_t::NETWORKS)) {
 			lnb.networks = db_lnb->networks;
+		}
 		if (preserve & p_t::CONNECTIONS) {
 			lnb.connections = db_lnb->connections;
 			lnb.can_be_used = db_lnb->can_be_used;
@@ -1098,7 +1110,7 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, cons
 
 bool devdb::lnb::update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, const devdb::usals_location_t& loc, bool save) {
 	using p_t = devdb::update_lnb_preserve_t::flags;
-	auto preserve = p_t(p_t::ALL & ~p_t::USALS);
+	auto preserve = p_t(p_t::ALL & ~(p_t::USALS | p_t::REF_MUX));
 	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, loc, preserve, save);
 }
 

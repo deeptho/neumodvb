@@ -138,8 +138,9 @@ namespace devdb {
 			KEY = 0x1,
 			GENERAL  = 0x2, //enabled, pol_type, freq_mid....
 			USALS  = 0x4,
-			CONNECTIONS  = 0x8, //directly used
-			NETWORKS   = 0x10, // directly used
+			CONNECTIONS = 0x8,
+			NETWORKS = 0x10,
+			REF_MUX = 0x20,
 			ALL = 0xffff,
 		};
 	};

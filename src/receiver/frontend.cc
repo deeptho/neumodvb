@@ -349,7 +349,7 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, const cmdseq_t& cmdseq, cons
 	int voltage = cmdseq.get(DTV_VOLTAGE)->u.data;
 	bool tone_on = cmdseq.get(DTV_TONE)->u.data == SEC_TONE_ON;
 	if (tone_on != (band == 1)) {
-		// dtdebugx("driver does not return proper tone setting");
+		dtdebugx("driver does not return proper tone setting");
 		tone_on = band;
 	}
 	int freq = cmdseq.get(DTV_FREQUENCY)->u.data;
@@ -455,6 +455,11 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 	}
 
 	bool tone_on = cmdseq.get(DTV_TONE)->u.data == SEC_TONE_ON;
+	if (tone_on != (band == 1)) {
+		dtdebugx("driver does not return proper tone setting");
+		tone_on = band;
+	}
+
 	auto freq = cmdseq.get(DTV_FREQUENCY)->u.data;
 	ret.uncorrected_driver_freq =  devdb::lnb::uncorrected_freq_for_driver_freq(lnb, freq, tone_on);
 

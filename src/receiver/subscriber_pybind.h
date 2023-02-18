@@ -29,3 +29,4 @@ void export_subscriber(py::module &m);
 
 void export_scan_report(py::module &m);
 void export_signal_info(py::module &m);
+void export_sdt_data(py::module &m);

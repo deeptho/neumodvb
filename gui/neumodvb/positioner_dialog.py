@@ -110,6 +110,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.si_freq_text.SetLabel('')
         self.si_symbolrate_text.SetLabel('')
         self.si_nit_ids_text.SetLabel('')
+        self.si_sdt_services_text.SetLabel('')
     def OnWindowCreate(self, evt):
         if evt.GetWindow() != self:
             return
@@ -225,6 +226,9 @@ class TuneMuxPanel(TuneMuxPanel_):
             ShowMessage("Error", data)
             return
         if self.mux_subscriber_ is None:
+            return
+        if type(data) == pyreceiver.sdt_data_t:
+            self.OnSdtInfoUpdate(data)
             return
         if type(data) == pyreceiver.signal_info_t:
             self.signal_info = data
@@ -412,7 +416,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         dtdebug("OnResetTune")
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()
-        self.parent.ClearSignalInfo()
         self.mux = self.last_selected_mux.copy()
         self.muxedit_grid.Reset()
         event.Skip()
@@ -424,6 +427,14 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def OnClose(self, evt):
         return self.parent.OnClose(evt);
+
+    def OnSdtInfoUpdate(self, sdt):
+        ret =[]
+        for s in sdt.services:
+            ret.append(f'{s.name}')
+        self.si_sdt_services_text.SetLabel('; '.join(ret))
+        w=self.si_sdt_services_text.GetParent().GetClientSize()[0]-50
+        self.si_sdt_services_text.Wrap(w)
 
     def OnSignalInfoUpdate(self, signal_info):
         self.parent.UpdateSignalInfo(signal_info, self.tuned_)
@@ -485,7 +496,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.si_freq_text.SetLabel('')
         self.si_symbolrate_text.SetLabel('')
         self.si_nit_ids_text.SetLabel('')
-
+        self.si_sdt_services_text.SetLabel('')
+        self.si_sdt_services_text.SetLabel('')
         for key in self.si_status_keys:
             val = 0
             w = getattr(self, f'status_{key}')

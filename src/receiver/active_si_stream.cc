@@ -1726,7 +1726,7 @@ bool nit_data_t::update_nit_completion(scan_state_t& scan_state, const subtable_
 
 std::tuple<bool, bool>
 active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& service, mux_data_t* p_mux_data,
-	bool donotsave) {
+																				bool donotsave, bool is_actual) {
 	chdb::mux_key_t& mux_key = p_mux_data->mux_key;
 	auto c = chdb::service::find_by_mux_sid(wtxn, mux_key, service.k.service_id);
 	bool db_found{false};
@@ -1754,7 +1754,10 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 			assert((int)strlen(ch.mux_desc.c_str()) == ch.mux_desc.size());
 			changed = true;
 		}
-
+		if(is_actual) {
+			auto& actual_services = sdt_data.actual_services;
+			actual_services.push_back(ch);
+		}
 		if (changed) {
 			ch.expired = false;
 			ch.media_mode = service.media_mode;
@@ -1813,6 +1816,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 	if (p_mux_data->sdt[is_actual].subtable_info.version_number != info.version_number) {
 		// record which services have been found
 		service_ids.clear();
+		sdt_data.actual_services.clear();
 		if (p_mux_data)
 			nit_data.reset_sdt_completion(scan_state, info, *p_mux_data);
 
@@ -1843,7 +1847,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		service_ids.push_back(service.k.service_id);
 
 		auto [db_found_, changed] =
-			sdt_process_service(wtxn, service, p_mux_data, donotsave);
+			sdt_process_service(wtxn, service, p_mux_data, donotsave, is_actual);
 		db_found += db_found_;
 		db_changed += changed;
 
@@ -1869,8 +1873,11 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 	bool done_now = nit_data.update_sdt_completion(scan_state, info, *p_mux_data);
 	tune_confirmation.sdt_actual_received = done_now;
 	if (done_now) {
-		if (!donotsave)
+		if (!donotsave) {
 			process_removed_services(wtxn, mux_key, service_ids);
+			dtdebugx("Notifying SDT ACTUAL");
+			receiver.receiver_thread.notify_sdt_actual(sdt_data);
+		}
 		chdb::any_mux_t mux;
 		auto reader_mux = reader->stream_mux();
 		if (is_actual) {

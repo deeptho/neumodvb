@@ -1916,6 +1916,21 @@ void receiver_thread_t::notify_signal_info(const signal_info_t& signal_info) {
 	}
 }
 
+//called from tuner thread when SDT ACTUAL has completed to report services to gui
+void receiver_thread_t::notify_sdt_actual(const sdt_data_t& sdt_data) {
+	ss::vector<subscription_id_t, 4> subscription_ids;
+	{
+		auto mss = receiver.subscribers.readAccess();
+		for (auto [subsptr, ms_shared_ptr] : *mss) {
+			auto* ms = ms_shared_ptr.get();
+			if (!ms)
+				continue;
+			/*Notify positioner dialog
+			*/
+			ms->notify_sdt_actual(sdt_data);
+		}
+	}
+}
 
 //called from scanner loop to inform scanner subscription
 void receiver_thread_t::notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report) {

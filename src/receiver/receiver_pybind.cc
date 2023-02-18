@@ -156,6 +156,7 @@ PYBIND11_MODULE(pyreceiver, m) {
 	export_receiver(m);
 	export_subscriber(m);
 	export_signal_info(m);
+	export_sdt_data(m);
 	export_scan_report(m);
 	export_logger(m);
 	export_live_history(m);

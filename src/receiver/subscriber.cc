@@ -228,6 +228,11 @@ void subscriber_t::notify_scan_mux_end(const scan_report_t& report) {
 	notify(report);
 }
 
+void subscriber_t::notify_sdt_actual(const sdt_data_t& data) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))
+		return;
+	notify(data);
+}
 
 void subscriber_t::notify_error(const ss::string_& errmsg) {
 	if (!(event_flag & int(subscriber_t::event_type_t::ERROR_MSG)))

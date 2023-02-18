@@ -222,6 +222,8 @@ struct mux_data_t  {
 struct sdt_data_t {
 	int actual_network_id{-1};
 	int actual_ts_id{-1};
+	ss::vector<chdb::service_t, 32> actual_services;
+
 	void reset() {
 		*this = sdt_data_t();
 	}
@@ -597,7 +599,8 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 																					bool on_wrong_sat, bool done);
 
 	std::tuple<bool, bool>
-	sdt_process_service(db_txn& wtxn, const chdb::service_t& service, mux_data_t* p_mux_data, bool donotsave);
+	sdt_process_service(db_txn& wtxn, const chdb::service_t& service, mux_data_t* p_mux_data,
+											bool donotsave, bool is_actual);
 
 	dtdemux::reset_type_t sdt_section_cb_(db_txn& txn, const sdt_services_t&services, const subtable_info_t& i,
 														 mux_data_t* p_mux_data);

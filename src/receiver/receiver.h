@@ -54,6 +54,7 @@ class subscriber_t;
 struct tune_options_t;
 struct spectrum_scan_t;
 struct scan_report_t;
+struct sdt_data_t;
 
 inline void todo(const char*s)
 {
@@ -525,6 +526,7 @@ public:
 	void notify_signal_info(const signal_info_t& info);
 	void notify_scan_start(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats);
 	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report);
+	void notify_sdt_actual(const sdt_data_t& sdt_data);
 	class cb_t;
 
 	time_t scan_start_time() const;

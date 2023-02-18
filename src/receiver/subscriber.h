@@ -41,6 +41,7 @@ namespace pybind11 {
 };
 
 struct blindscan_t;
+struct sdt_data_t;
 
 struct notification_t {
 	int16_t sat_pos{sat_pos_none};
@@ -64,7 +65,8 @@ public:
 		SIGNAL_INFO = (1<<1),
 		SPECTRUM_SCAN = (1<<2),
 		SCAN_START = (1<<3),
-		SCAN_MUX_END = (1<<4)
+		SCAN_MUX_END = (1<<4),
+		SDT_ACTUAL = (1<<5)
 	};
 
 	safe::Safe<notification_t> notification;
@@ -72,6 +74,7 @@ public:
 		int(event_type_t::ERROR_MSG) |
 		int(event_type_t::SCAN_START) |
 		int(event_type_t::SCAN_MUX_END) |
+		int(event_type_t::SDT_ACTUAL) |
 		int(event_type_t::SIGNAL_INFO) |
 		int(event_type_t::SPECTRUM_SCAN)}; //which events to report
 
@@ -84,6 +87,7 @@ public:
 	void notify_error(const ss::string_& errmsg);
 	void notify_scan_start(const scan_stats_t& scan_stats);
 	void notify_scan_mux_end(const scan_report_t& report);
+	void notify_sdt_actual(const sdt_data_t& sdt_data);
 	void notify_signal_info(const signal_info_t& info, bool from_scanner) const;
 	void notify_spectrum_scan(const statdb::spectrum_t& spectrum);
 

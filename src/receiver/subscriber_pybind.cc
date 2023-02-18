@@ -22,6 +22,7 @@
 #include "receiver/devmanager.h"
 #include "receiver/neumofrontend.h"
 #include "receiver/receiver.h"
+#include "receiver/active_si_stream.h"
 #include "receiver/scan.h"
 #include "receiver/subscriber.h"
 #include "stackstring/stackstring_pybind.h"
@@ -393,6 +394,21 @@ void export_signal_info(py::module& m) {
 		.def_property_readonly("min_snr", [](const signal_info_t& i) {
 			return (int)(chdb::min_snr(i.driver_mux)*1000);
 		})
+		;
+}
+
+void export_sdt_data(py::module& m) {
+	static bool called = false;
+	if (called)
+		return;
+	called = true;
+	using namespace chdb;
+	py::class_<sdt_data_t>(m, "sdt_data_t")
+		.def(py::init())
+		.def_readwrite("network_id", &sdt_data_t::actual_network_id)
+		.def_readwrite("ts_id", &sdt_data_t::actual_ts_id)
+		.def_property_readonly("services", [](sdt_data_t& sdt_data) {
+			return (ss::vector_<chdb::service_t>&) sdt_data.actual_services;})
 		;
 }
 

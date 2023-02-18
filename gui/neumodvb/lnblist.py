@@ -110,7 +110,7 @@ class LnbTable(NeumoTable):
          CD(key='on_positioner',  label='on\nrotor', basic=True, readonly=False),
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='cur_sat_pos',  label='cur sat\npos', basic=True, readonly=True, no_combo = True, #allow entering sat_pos
-            dfn= lambda x: pychdb.sat_pos_str(x[1])),
+            dfn= lambda x: x[2].cur_sat_pos_fn(x[0])),
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='usals_pos',  label='usals\npos', basic=True, readonly=True, no_combo = True,
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
@@ -143,8 +143,7 @@ class LnbTable(NeumoTable):
          CD(key='transmission_mode', label='transmission_mode')]
 
     def cur_sat_pos_fn(self, lnb):
-        loc =self.get_usals_location()
-        sat_pos = pydevdb.lnb.current_sat_pos(lnb, loc)
+        sat_pos = lnb.usals_pos if lnb.cur_sat_pos == pychdb.sat.sat_pos_none else lnb.cur_sat_pos
         return pychdb.sat_pos_str(sat_pos)
 
     def __init__(self, parent, basic=False, *args, **kwds):

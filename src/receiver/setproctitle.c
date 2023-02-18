@@ -64,7 +64,7 @@ static inline size_t spt_min(size_t a, size_t b) {
 } /* spt_min() */
 
 
-
+__attribute__((no_sanitize("address")))
 static int spt_copyenv() {
 	extern char **environ;
 	char *eq;
@@ -76,8 +76,8 @@ static int spt_copyenv() {
 	char* p;
 
 	memcpy(saved, SPT.base, SPT.end - SPT.base);
-	for(p = pstart; p[0] != 0 && p <pend ; p+=strlen(p) +1) {
-		if (!(eq = strchr(p, '=')))
+	for(p = pstart; p[0] != 0 && p < pend ; p += strnlen(p, pend-p) +1) {
+		if (!(eq = memchr(p, '=', pend-p)))
 			setenv(p, "", 1);
 		else {
 			*eq = '\0';
@@ -190,7 +190,7 @@ void spt_init(int argc, char *argv[]) {
 #define SPT_MAXTITLE 255
 #endif
 
-__attribute__((no_sanitize_address))
+__attribute__((no_sanitize("address")))
 void setproctitle(const char *fmt, ...) {
 	char buf[SPT_MAXTITLE + 1]; /* use buffer in case argv[0] is passed */
 	va_list ap;

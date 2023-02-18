@@ -7,14 +7,15 @@ project(neumodvb VERSION 0.6.1)
 
 # documentation build as an option and set it to ON by default
 option (BUILD_DOCS "Build documentation" false)
+option (SANITIZE "Sanitize" true)
 
-#if (SANITIZE)
+if (SANITIZE)
 #add_compile_options(--save-temps)
-#add_compile_options(-fsanitize=address)
-#add_link_options(-fsanitize=address -lasan)
-#set(CMAKE_EXE_LINKER_FLAGS_INIT "-fsanitize=address -lasan -fno-omit-frame-pointer")
-#set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fsanitize=address -lasan -fno-omit-frame-pointer")
-#endif (SANITIZE)
+add_compile_options(-fsanitize=address)
+add_link_options(-fsanitize=address -lasan)
+set(CMAKE_EXE_LINKER_FLAGS_INIT "-fsanitize=address -lasan -fno-omit-frame-pointer")
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fsanitize=address -lasan -fno-omit-frame-pointer")
+endif (SANITIZE)
 
 #ensure that absolute filenames do not appear in debugging strings and in generated debug data in the sharedlibs
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__FILENAME__=='\"$(subst ${CMAKE_SOURCE_DIR}/,,$(abspath $<))\"'")

@@ -693,7 +693,7 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 	}
 
 	bool save = false;
-	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, {} /*loc*/, preserve, save);
+	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, {} /*loc*/, preserve, save, sat_pos_none);
 
 	//update the input argument
 	for (auto& conn : lnb.connections) {
@@ -958,8 +958,10 @@ void devdb::lnb::set_lnb_offset_angle(devdb::lnb_t&  lnb, const devdb::usals_loc
 	If save==true update database
 	devdb_wtxn can also be a readonly transaction if db is not updated
  */
-bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, const std::optional<devdb::usals_location_t>& loc,
-																		devdb::update_lnb_preserve_t::flags preserve, bool save)
+bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
+																		const std::optional<devdb::usals_location_t>& loc,
+																		devdb::update_lnb_preserve_t::flags preserve, bool save,
+																		int16_t cur_sat_pos)
 {
 	using namespace devdb;
 	using p_t = update_lnb_preserve_t::flags;
@@ -971,13 +973,12 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, cons
 		assert(loc);
 		devdb::lnb::set_lnb_offset_angle(lnb, *loc);
 	}
-	if(lnb.cur_sat_pos == sat_pos_none) {
-		if(lnb.offset_angle ==0)
+
+	if(lnb.offset_angle ==0)
 			lnb.cur_sat_pos = lnb.usals_pos;
-		else {
-			auto angle = devdb::lnb::sat_pos_to_angle(lnb.usals_pos, loc->usals_longitude, loc->usals_latitude);
-			lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, *loc);
-		}
+	else {
+		auto angle = devdb::lnb::sat_pos_to_angle(lnb.usals_pos, loc->usals_longitude, loc->usals_latitude);
+		lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, *loc);
 	}
 
 	std::optional<lnb_t> db_lnb;
@@ -1006,19 +1007,29 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, cons
 			lnb.freq_high = db_lnb->freq_high;
 		}
 
-		if (!(preserve & p_t::REF_MUX)) {
-			for(auto & dbn: db_lnb->networks) {
+		if (preserve & p_t::NETWORKS) {
+			if(cur_sat_pos == sat_pos_none)
+				lnb.networks = db_lnb->networks;
+			else { //still preserve usals and ref mux set from positioner dialog
 				for(const auto & n: lnb.networks) {
-					if(n.sat_pos == dbn.sat_pos)
-						dbn.ref_mux = n.ref_mux;
+					if (n.sat_pos != cur_sat_pos)
+						continue;
+					for(auto & dbn: db_lnb->networks) {
+						if (dbn.sat_pos != cur_sat_pos)
+							continue;
+						//found
+						if(!(preserve & p_t::REF_MUX))
+							dbn.ref_mux = n.ref_mux;
+						if(!(preserve & p_t::USALS))
+							dbn.usals_pos = n.usals_pos;
+						lnb.networks = db_lnb->networks;
+						break;
+					}
 					break;
 				}
 			}
 		}
 
-		if((preserve & p_t::NETWORKS)) {
-			lnb.networks = db_lnb->networks;
-		}
 		if (preserve & p_t::CONNECTIONS) {
 			lnb.connections = db_lnb->connections;
 			lnb.can_be_used = db_lnb->can_be_used;
@@ -1108,16 +1119,18 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, cons
 }
 
 
-bool devdb::lnb::update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, const devdb::usals_location_t& loc, bool save) {
+bool devdb::lnb::update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
+																						const devdb::usals_location_t& loc, int16_t cur_sat_pos,
+																						bool save) {
 	using p_t = devdb::update_lnb_preserve_t::flags;
 	auto preserve = p_t(p_t::ALL & ~(p_t::USALS | p_t::REF_MUX));
-	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, loc, preserve, save);
+	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, loc, preserve, save, cur_sat_pos);
 }
 
 bool devdb::lnb::update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save) {
 	using p_t = devdb::update_lnb_preserve_t::flags;
 	auto preserve = p_t(p_t::ALL & ~p_t::GENERAL);
-	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, {} /*loc*/, preserve, save);
+	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, {} /*loc*/, preserve, save, sat_pos_none);
 }
 
 void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)

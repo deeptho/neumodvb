@@ -295,7 +295,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         if self.lnb_changed:
             txn = wx.GetApp().devdb.wtxn()
             #adjust lnb_connections based on possible changes in frontends
-            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.get_usals_location())
+            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.get_usals_location(), self.sat.sat_pos)
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
             txn.commit()
@@ -313,7 +313,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             pydevdb.lnb.reset_lof_offset(txn, self.lnb)
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
             self.mux_subscriber.update_current_lnb(self.lnb)
-            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.usals_location())
+            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.get_usals_location())
             txn.commit()
             self.lnb_changed = False
         if event:

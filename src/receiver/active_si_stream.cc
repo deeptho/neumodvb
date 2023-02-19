@@ -1261,12 +1261,13 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 		auto tmp = *dvbs_mux;
 		if(tmp.frequency == 0) {
 			if(pat_data.has_ts_id(tmp.k.ts_id)) {
-					//happens on 26.0E: 12034H and 14.0W: 11623V
+					//happens on 26.0E: 12034H and 14.0W: 11623V, 14.0W: 11638H
 				dtdebug("Fixing zero frequency: " << mux);
-				tmp.frequency = std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->frequency;
-				tmp.pol = std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->pol;
-				tmp.k.sat_pos = std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->k.sat_pos;
-				tmp.delivery_system =  std::get_if<chdb::dvbs_mux_t>(&tuned_mux)->delivery_system;
+				tmp = *std::get_if<chdb::dvbs_mux_t>(&tuned_mux);
+				tmp.k.ts_id = dvbs_mux->k.ts_id;
+				tmp.k.network_id = dvbs_mux->k.network_id;
+				if(std::abs(dvbs_mux->k.sat_pos - tmp.k.sat_pos) < 30)
+					tmp.k.sat_pos = dvbs_mux->k.sat_pos;
 				can_be_tuned = true;
 				*dvbs_mux = tmp;
 				return can_be_tuned;
@@ -1283,7 +1284,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 		bool can_be_tuned_with_pol_change =
 			devdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), tmp, disregard_networks);
 		if(can_be_tuned_with_pol_change) {//happens on 20E:  4.18150L which claims "H"
-			dtdebug("Found a mux which differs in circular/linear polarisationy: " << mux);
+			dtdebug("Found a mux which differs in circular/linear polarisation: " << mux);
 			*dvbs_mux = tmp;
 			can_be_tuned = true;
 		}

@@ -95,6 +95,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         super().__init__(parent, *args, **kwds)
         self.parent = parent
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self.OnWindowDestroy)
         self.positioner_sat_sel.window_for_computing_width = self
         self.positioner_lnb_sel.window_for_computing_width = self
         self.positioner_rf_path_sel.window_for_computing_width = self
@@ -175,7 +176,12 @@ class TuneMuxPanel(TuneMuxPanel_):
         rf_path = evt.rf_path
         dtdebug(f"selected rf_path: {rf_path}")
         wx.CallAfter(self.ChangeRfPath, rf_path)
-
+    def OnWindowDestroy(self, evt):
+        dtdebug('TuneMuxPanel destroyed')
+        if self.mux_subscriber_ is not None:
+            self.mux_subscriber_.unsubscribe()
+            del self.mux_subscriber_
+            self.mux_subscriber_ = None
     @property
     def use_blindscan(self):
         return self.use_blindscan_

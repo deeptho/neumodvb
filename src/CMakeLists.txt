@@ -7,7 +7,7 @@ project(neumodvb VERSION 0.6.1)
 
 # documentation build as an option and set it to ON by default
 option (BUILD_DOCS "Build documentation" false)
-option (SANITIZE "Sanitize" true)
+option (SANITIZE "Sanitize" false)
 
 if (SANITIZE)
 #add_compile_options(--save-temps)

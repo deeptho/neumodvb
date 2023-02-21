@@ -426,6 +426,10 @@ struct active_si_data_t {
 		return scan_state.completed(scan_state_t::completion_index_t::NIT_OTHER);
 	}
 
+	bool sdt_actual_notpresent() const {
+		return scan_state.notpresent(scan_state_t::completion_index_t::SDT_ACTUAL);
+	}
+
 	bool sdt_actual_completed() const {
 		return scan_state.completed(scan_state_t::completion_index_t::SDT_ACTUAL);
 	}
@@ -707,6 +711,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 #endif
 	void finalize_scan(bool done, bool tune_failed);
 	mux_data_t* tuned_mux_in_nit();
+	void update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_t& mux);
 	void save_pmts(db_txn& wtxn);
 public:
 	void reset(bool is_retune, bool tune_failed);

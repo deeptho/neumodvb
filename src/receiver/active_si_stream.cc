@@ -876,8 +876,12 @@ void active_si_stream_t::finalize_scan(bool done, bool tune_failed)
 	dttime(200);
 	auto wtxn = chdb.wtxn();
 	dttime(200);
-	namespace m = chdb::update_mux_preserve_t;
-	this->update_mux(wtxn, mux, now, true /*is_active_mux*/, false /*from_sdt*/, m::MUX_KEY /*preserve*/);
+	if(nit_actual_notpresent() && sdt_actual_notpresent())
+		update_stream_ids_from_pat(wtxn, mux);
+	else {
+		namespace m = chdb::update_mux_preserve_t;
+		this->update_mux(wtxn, mux, now, true /*is_active_mux*/, false /*from_sdt*/, m::MUX_KEY /*preserve*/);
+	}
 	dttime(200);
 	if (nit_actual_done() || nit_actual_notpresent() || done) {
 		if(pmts_can_be_saved())
@@ -2680,6 +2684,21 @@ bool active_si_stream_t::matches_reader_mux(const chdb::any_mux_t& mux)
 	*/
 	auto stream_mux = reader->stream_mux();
 	return chdb::matches_physical_fuzzy(mux, stream_mux);
+}
+
+
+void active_si_stream_t::update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_t& mux)
+{
+	auto it = pat_data.by_ts_id.begin();
+	bool found = it != pat_data.by_ts_id.end();
+	if(found) {
+		auto ts_id = it->first;
+		auto* mux_key = mux_key_ptr(mux);
+		mux_key->ts_id = ts_id;
+	}
+	namespace m = chdb::update_mux_preserve_t;
+	this->update_mux(wtxn, mux, now, true /*is_active_mux*/, false /*from_sdt*/,
+									 found ? m::NONE : m::MUX_KEY /*preserve*/);
 }
 
 void active_si_stream_t::save_pmts(db_txn& wtxn)

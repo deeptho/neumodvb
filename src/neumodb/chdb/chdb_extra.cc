@@ -1430,7 +1430,38 @@ template <typename mux_t> void chdb::clear_all_streams_pending_status(
 std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
 chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 																	 const chdb::dvbs_mux_t* proposed_mux) {
-	auto return_mux = [&chdb_rtxn, &lnb](const devdb::lnb_network_t& network)
+	auto return_some_mux = [&lnb](std::optional<chdb::sat_t>& sat)
+		-> std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
+		{
+			chdb::dvbs_mux_t mux;
+			mux.k.sat_pos = sat->sat_pos;
+			switch (lnb.pol_type) {
+			case devdb::lnb_pol_type_t::HV:
+			case devdb::lnb_pol_type_t::VH:
+			case devdb::lnb_pol_type_t::H:
+				mux.pol = chdb::fe_polarisation_t::H;
+				break;
+			case devdb::lnb_pol_type_t::V:
+				mux.pol = chdb::fe_polarisation_t::V;
+				break;
+			case devdb::lnb_pol_type_t::LR:
+			case devdb::lnb_pol_type_t::RL:
+			case devdb::lnb_pol_type_t::L:
+				mux.pol = chdb::fe_polarisation_t::L;
+				break;
+			case devdb::lnb_pol_type_t::R:
+				mux.pol = chdb::fe_polarisation_t::R;
+				break;
+			default:
+				break;
+			}
+			auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = devdb::lnb::band_frequencies(
+				lnb, devdb::fe_band_t::LOW);
+			mux.frequency = freq_low;
+			return {mux, sat};
+		};
+
+	auto return_mux = [&chdb_rtxn, &lnb, &return_some_mux](const devdb::lnb_network_t& network)
 		-> std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
 		{
 			auto cs = chdb::sat_t::find_by_key(chdb_rtxn, network.sat_pos);
@@ -1438,17 +1469,17 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 			auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
 			if (c.is_valid()) {
 				auto mux = c.current();
-				if (devdb::lnb::can_pol(lnb, mux.pol))
+				if (devdb::lnb_can_tune_to_mux(lnb, mux, true /*disregard networks*/, nullptr /*error*/))
 					return {mux, sat};
 			}
+			//pick the first mux on the sat as the ref mux, taking into account lnb type and polarisation
 			c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
 																				chdb::dvbs_mux_t::partial_keys_t::sat_pos);
-			if (c.is_valid()) {
-				auto mux = c.current();
-				if (devdb::lnb::can_pol(lnb, mux.pol))
+			for(auto mux: c.range()) {
+				if (devdb::lnb_can_tune_to_mux(lnb, mux, true /*disregard networks*/, nullptr /*error*/))
 					return {mux, sat};
 			}
-			return {{}, sat};
+			return return_some_mux(sat);
 		};
 
 	using namespace chdb;
@@ -1471,14 +1502,18 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 				bestp = &network;
 			}
 		}
-		if (bestp /*&& usals_is_close(bestp->usals_pos, usals_pos)*/) {
+
+		if (bestp) {
 			return return_mux(*bestp);
 		} else if( bestp && !devdb::lnb::on_positioner(lnb)) {
 			return return_mux(*bestp);
 		}
-		return {}; //  has sat_pos == sat_pos_none; no network present
+		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, lnb.cur_sat_pos);
+		std::optional<chdb::sat_t> sat = cs.is_valid() ? cs.current() : chdb::sat_t();
+		if(!sat)
+			return {{}, sat};
+		return return_some_mux(sat);
 	}
-	//return {}; // has sat_pos == sat_pos_none;
 }
 
 

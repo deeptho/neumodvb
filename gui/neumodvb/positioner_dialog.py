@@ -280,9 +280,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             #if mux is None on input, the following call will pick a mux on the sat to which the rotor points
             chdb_txn = wx.GetApp().chdb.rtxn()
             mux, sat = pychdb.select_sat_and_reference_mux(chdb_txn, lnb, mux)
-            if mux is not None and mux.k.sat_pos != pychdb.sat.sat_pos_none:
-                sat = pychdb.sat.find_by_key(chdb_txn, mux.k.sat_pos)
-            elif sat is None and len(lnb.networks)>0:
+            if sat is None and len(lnb.networks)>0:
                 sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos)
             if mux is None:
                 mux = pychdb.dvbs_mux.dvbs_mux()

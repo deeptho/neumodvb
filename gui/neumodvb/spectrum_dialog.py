@@ -60,7 +60,8 @@ class SpectrumButtons(SpectrumButtons_):
         self.parent.start_freq, self.parent.end_freq = rng
         self.start_freq_text.SetValue(str(self.parent.start_freq//1000))
         self.end_freq_text.SetValue(str(self.parent.end_freq//1000))
-        is_circ = lnb.pol_type in (pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL)
+        is_circ = lnb.pol_type in (pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL,
+                                   pydevdb.lnb_pol_type_t.L, pydevdb.lnb_pol_type_t.R)
         if is_circ:
             self.spectrum_horizontal.SetLabel('L')
             self.spectrum_vertical.SetLabel('R')
@@ -68,8 +69,24 @@ class SpectrumButtons(SpectrumButtons_):
             self.spectrum_horizontal.SetLabel('H')
             self.spectrum_vertical.SetLabel('V')
     def select_range_and_pols(self):
-        self.spectrum_horizontal.SetValue(1)
-        self.spectrum_vertical.SetValue(1)
+        lnb = self.parent.lnb
+        if lnb.pol_type in (pydevdb.lnb_pol_type_t.VH, pydevdb.lnb_pol_type_t.HV,
+                            pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL,
+                            pydevdb.lnb_pol_type_t.L, pydevdb.lnb_pol_type_t.H):
+            self.spectrum_horizontal.SetValue(1)
+            self.spectrum_horizontal.Enable(True)
+        else:
+            self.spectrum_horizontal.SetValue(0)
+            self.spectrum_horizontal.Enable(False)
+        if lnb.pol_type in (pydevdb.lnb_pol_type_t.VH, pydevdb.lnb_pol_type_t.HV,
+                            pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL,
+                            pydevdb.lnb_pol_type_t.R, pydevdb.lnb_pol_type_t.V):
+            self.spectrum_vertical.SetValue(1)
+            self.spectrum_vertical.Enable(True)
+        else:
+            self.spectrum_vertical.SetValue(0)
+            self.spectrum_vertical.Enable(False)
+
         self.start_freq_text.SetValue(str(self.parent.start_freq//1000))
         self.end_freq_text.SetValue(str(self.parent.end_freq//1000))
 

@@ -381,7 +381,6 @@ void active_service_t::update_epg_(db_txn& parent_txn, const system_time_t now, 
 	auto now_ = system_clock_t::to_time_t(now);
 	auto dst_epg_txn = parent_txn.child_txn(mpm.db->mpm_rec.recepgdb);
 	auto src_epg_txn = receiver.epgdb.rtxn();
-	int count = 0;
 	auto start = now;
 	auto timeshift_duration = receiver.options.readAccess()->timeshift_duration;
 	for (;;) {
@@ -395,13 +394,8 @@ void active_service_t::update_epg_(db_txn& parent_txn, const system_time_t now, 
 			mm->update_epg(*rec);
 			mm = nullptr;
 		}
-		count++;
 		start = system_clock_t::from_time_t(rec->end_time + 1); // so that we can find the next record
 	}
-#if 0
-	if (count == 0)
-		dtdebug("no epg found");
-#endif
 	dst_epg_txn.commit();
 }
 

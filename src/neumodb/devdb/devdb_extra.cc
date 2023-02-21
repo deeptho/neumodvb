@@ -73,8 +73,8 @@ static inline const char* lnb_type_str(const lnb_key_t& lnb_key) {
 		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" :
 		(lnb_key.lnb_type == lnb_type_t::KaA) ? "KaA" :
 		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaB" :
-		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaC" :
-		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaD" : "unk";
+		(lnb_key.lnb_type == lnb_type_t::KaC) ? "KaC" :
+		(lnb_key.lnb_type == lnb_type_t::KaD) ? "KaD" : "unk";
 	return t;
 }
 

@@ -39,7 +39,6 @@ import pydevdb
 import pystatdb
 from pyreceiver import get_object as get_object_
 
-LnbSelectEvent, EVT_LNB_SELECT = wx.lib.newevent.NewEvent()
 AbortTuneEvent, EVT_ABORT_TUNE = wx.lib.newevent.NewEvent()
 
 def on_positioner(lnb):
@@ -537,8 +536,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.lnb_changed = False
         self.parent.SetWindowTitle(self.rf_path, self.lnb) #update window title
         self.positioner_lnb_sel.Update()
-        evt = LnbSelectEvent(lnb=lnb)
-        wx.PostEvent(self, evt)
 
     def ChangeRfPath(self, rf_path):
         add = False

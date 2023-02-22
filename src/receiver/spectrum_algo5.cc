@@ -279,7 +279,6 @@ static void rising_kernel(spectrum_scan_state_t* ss, struct scan_internal_t* si,
 	int i;
 	int besti{-1};
 	float best{0};
-	int count{0};
 	if(delta <= 2 || 2*delta >= si->w)
 		delta = 1;
 	if (delta == 0)
@@ -293,7 +292,6 @@ static void rising_kernel(spectrum_scan_state_t* ss, struct scan_internal_t* si,
 			if(besti >=0 && i - besti >= si->w/4)
 				besti = -1;
 			if(besti >=0 && best <= response /* && response > 2 * ss->threshold*/) {
-				count -= 	!!(si->peak_marks[besti] & ~RISING);
 				si->peak_marks[besti] &= ~RISING;
 				if (response_ret)
 					response_ret[besti] = 0;
@@ -304,7 +302,6 @@ static void rising_kernel(spectrum_scan_state_t* ss, struct scan_internal_t* si,
 				continue; //current peak is weak and overlaps with previous one
 
 			si->peak_marks[i] |= RISING;
-			count++;
 			if (response_ret)
 				response_ret[i] = response;
 			if(response > best || besti<0) {

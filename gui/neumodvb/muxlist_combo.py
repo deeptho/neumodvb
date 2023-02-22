@@ -27,7 +27,7 @@ import datetime
 from dateutil import tz
 import regex as re
 
-from neumodvb.util import setup, lastdot, find_parent_prop
+from neumodvb.util import setup, lastdot, find_parent_prop, wxpythonversion, wxpythonversion42
 from neumodvb import neumodbutils
 from neumodvb.neumolist import GridPopup
 from neumodvb.dvbs_muxlist import DvbsBasicMuxGrid
@@ -87,7 +87,7 @@ class DvbsMuxListComboCtrl(wx.ComboCtrl):
         self.example = '28.2E 12709H-12'
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
-        self.font.SetPointSize(self.font.GetPointSize()+6)
+        self.font.SetPointSize(self.font.GetPointSize()+ (6 if wxpythonversion < wxpythonversion42 else 1))
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(DvbsMuxGridPopup)

@@ -28,7 +28,7 @@ import datetime
 from dateutil import tz
 import regex as re
 
-from neumodvb.util import setup, lastdot
+from neumodvb.util import setup, lastdot, wxpythonversion, wxpythonversion42
 from neumodvb import neumodbutils
 from neumodvb.neumolist import GridPopup
 from neumodvb.lnblist import BasicLnbGrid
@@ -78,7 +78,7 @@ class LnbListComboCtrl(wx.ComboCtrl):
         self.example = 'D0 unv [13355] 30.0W'
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
-        self.font.SetPointSize(self.font.GetPointSize()+6)
+        self.font.SetPointSize(self.font.GetPointSize()+ (6 if wxpythonversion < wxpythonversion42 else 1))
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(LnbGridPopup)
@@ -184,7 +184,7 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
         self.example = 'TBS 6909X C0#3 '
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
-        self.font.SetPointSize(self.font.GetPointSize()+6)
+        self.font.SetPointSize(self.font.GetPointSize()+ (6 if wxpythonversion < wxpythonversion42 else 1))
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(RfPathGridPopup)
@@ -335,7 +335,7 @@ class LnbNetworkSatListComboCtrl(wx.ComboCtrl):
         self.example = 'TBS 6909X C0#3 '
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
-        self.font.SetPointSize(self.font.GetPointSize()+6)
+        self.font.SetPointSize(self.font.GetPointSize()+ (6 if wxpythonversion < wxpythonversion42 else 1))
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(LnbNetworkSatGridPopup)

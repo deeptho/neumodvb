@@ -30,6 +30,8 @@ def maindir():
 
 configdir = None
 setup_done = False
+wxpythonversion = None
+wxpythonversion42 = None
 
 def setup():
     """
@@ -66,7 +68,11 @@ def setup():
     if themes_dir is not None:
         os.environ['GTK_THEME'] = 'Neumo'
         os.environ['GTK_DATA_PREFIX'] = themes_dir
-
+    from packaging import version
+    import wx
+    global wxpythonversion, wxpythonversion42
+    wxpythonversion = version.parse(wx.version().split(' ')[0])
+    wxpythonversion42 = version.parse('4.2.0')
     setup_done = True
 
 

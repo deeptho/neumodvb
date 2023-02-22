@@ -1786,6 +1786,10 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 			dtdebug("SAVING new service " << ch);
 			put_record(wtxn, ch);
 		}
+		if(is_actual) {
+			auto& actual_services = sdt_data.actual_services;
+			actual_services.push_back(ch);
+		}
 	}
 	return {db_found, changed};
 }

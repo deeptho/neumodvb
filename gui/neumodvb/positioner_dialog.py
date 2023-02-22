@@ -248,10 +248,10 @@ class TuneMuxPanel(TuneMuxPanel_):
         if self.tuned_:
             self.mux_subscriber.unsubscribe()
             del self.mux_subscriber_
+            self.mux_subscriber_ = None
             self.tuned_ = False
             self.lnb_activated_ = False
             dtdebug("SUBS deleted\n")
-            self.mux_subscriber_ = None
         elif self.lnb_activated_:
             self.lnb_subscriber.unsubscribe()
             self.tuned_ = False
@@ -401,8 +401,10 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.OnTune(event, pls_search_range=pls_search_range)
 
     def AbortTune(self):
-        self.mux_subscriber.unsubscribe()
-        self.mux_subscriber_ = None
+        if self.mux_subscriber_ is not None:
+            self.mux_subscriber.unsubscribe()
+            del self.mux_subscriber_
+            self.mux_subscriber_ = None
         self.tuned_ = False
         self.lnb_activated_ = False
         self.ClearSignalInfo()

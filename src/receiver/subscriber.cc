@@ -164,16 +164,18 @@ int subscriber_t::unsubscribe() {
 	active_adapter.reset();
 	assert((int) subscription_id < 0);
 	dtdebug("calling receiver->unsubscribe -1");
-#ifndef NDEBUG
+
 	auto mp = receiver->subscribers.writeAccess();
 	auto& m = *mp;
 	auto it = m.find(this);
 	if (it != m.end()) {
+#ifndef NDEBUG
+		dtdebugx("Erasing subscription window=%p subscription_id=%d\n", window, (int)subscription_id);
 		int num_erased = m.erase(this);
 #pragma unused(num_erased)
 		assert(num_erased == 1);
-	}
 #endif
+	}
 	dtdebug("calling receiver->unsubscribe -2");
 	return (int) subscription_id;
 }

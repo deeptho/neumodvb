@@ -693,7 +693,8 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 	}
 
 	bool save = false;
-	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, {} /*loc*/, preserve, save, sat_pos_none);
+	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, {} /*loc*/, preserve, save,
+																				 sat_pos_none, nullptr /*curr_conn*/);
 
 	//update the input argument
 	for (auto& conn : lnb.connections) {
@@ -961,7 +962,8 @@ void devdb::lnb::set_lnb_offset_angle(devdb::lnb_t&  lnb, const devdb::usals_loc
 bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 																		const std::optional<devdb::usals_location_t>& loc,
 																		devdb::update_lnb_preserve_t::flags preserve, bool save,
-																		int16_t cur_sat_pos)
+																		int16_t cur_sat_pos,
+																		devdb::lnb_connection_t* cur_conn)
 {
 	using namespace devdb;
 	using p_t = update_lnb_preserve_t::flags;
@@ -1008,9 +1010,9 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 		}
 
 		if (preserve & p_t::NETWORKS) {
-			if(cur_sat_pos == sat_pos_none)
+			if(cur_sat_pos == sat_pos_none) {
 				lnb.networks = db_lnb->networks;
-			else { //still preserve usals and ref mux set from positioner dialog
+			} else { //still take usals and ref mux set from positioner dialog
 				for(const auto & n: lnb.networks) {
 					if (n.sat_pos != cur_sat_pos)
 						continue;
@@ -1020,8 +1022,9 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 						//found
 						if(!(preserve & p_t::REF_MUX))
 							dbn.ref_mux = n.ref_mux;
-						if(!(preserve & p_t::USALS))
+						if(!(preserve & p_t::USALS)) {
 							dbn.usals_pos = n.usals_pos;
+						}
 						lnb.networks = db_lnb->networks;
 						break;
 					}
@@ -1031,6 +1034,13 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 		}
 
 		if (preserve & p_t::CONNECTIONS) {
+   //still take usals and ref mux set from positioner dialog
+			if(cur_conn)
+				for(auto& db_conn: db_lnb->connections) {
+					if(db_conn.card_mac_address == cur_conn->card_mac_address &&
+						 db_conn.rf_input == cur_conn->rf_input)
+						db_conn.rotor_control = cur_conn->rotor_control;
+				}
 			lnb.connections = db_lnb->connections;
 			lnb.can_be_used = db_lnb->can_be_used;
 		}
@@ -1120,17 +1130,21 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 
 
 bool devdb::lnb::update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
-																						const devdb::usals_location_t& loc, int16_t cur_sat_pos,
+																						const devdb::usals_location_t& loc,
+																						int16_t cur_sat_pos,
+																						devdb::lnb_connection_t* curr_connection,
 																						bool save) {
 	using p_t = devdb::update_lnb_preserve_t::flags;
 	auto preserve = p_t(p_t::ALL & ~(p_t::USALS | p_t::REF_MUX));
-	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, loc, preserve, save, cur_sat_pos);
+	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, loc, preserve, save,
+																				cur_sat_pos, curr_connection);
 }
 
 bool devdb::lnb::update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save) {
 	using p_t = devdb::update_lnb_preserve_t::flags;
 	auto preserve = p_t(p_t::ALL & ~p_t::GENERAL);
-	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, {} /*loc*/, preserve, save, sat_pos_none);
+	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, {} /*loc*/, preserve, save,
+																				sat_pos_none, nullptr /*cur_conn*/);
 }
 
 void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)

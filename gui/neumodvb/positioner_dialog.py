@@ -326,6 +326,18 @@ class TuneMuxPanel(TuneMuxPanel_):
         if event:
             event.Skip()
 
+    def OnUsalsTypeChanged(self):
+        dtdebug("Saving usals changes")
+        assert self.lnb is not None
+        lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
+        txn = wx.GetApp().devdb.wtxn()
+        pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.get_usals_location(), pychdb.sat.sat_pos_none,
+                                               lnb_connection, save=True)
+        txn.commit()
+        #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
+        self.mux_subscriber.update_current_lnb(self.lnb)
+        self.lnb_changed = False
+
     def OnToggleConstellation(self, evt):
         self.parent.OnToggleConstellation(evt)
 
@@ -874,7 +886,7 @@ class PositionerDialog(PositionerDialog_):
         self.tune_mux_panel.constellation_plot.clear_data()
 
     def SetPosition(self, pos):
-        self.position = pos #the satellite pointed to (even for an offset lnb)
+        self.position = pos #the satellite pointed to pos (even for an offset lnb)
         self.rotor_position_text_ctrl.SetValue(pychdb.sat_pos_str(self.position))
 
     def SetLnbOffsetPos(self, offset_angle=None):
@@ -993,6 +1005,7 @@ class PositionerDialog(PositionerDialog_):
         t = pydevdb.rotor_control_t
         self.enable_disable_diseqc_panels()
         self.tune_mux_panel.lnb_changed = True
+        self.tune_mux_panel.OnUsalsTypeChanged()
         event.Skip()
 
     def enable_disable_diseqc_panels(self):

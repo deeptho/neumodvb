@@ -199,10 +199,11 @@ namespace devdb::lnb {
 	bool add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection);
 
 	bool update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, const devdb::usals_location_t& loc,
-																	int16_t current_sat_pos, bool save);
+																	int16_t current_sat_pos, devdb::lnb_connection_t* curr_connection, bool save);
 	bool update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save);
 	bool update_lnb_from_db(db_txn& wtxn, devdb::lnb_t& lnb, const std::optional<devdb::usals_location_t>& loc,
-													devdb::update_lnb_preserve_t::flags preserve, bool save, int16_t current_sat_pos);
+													devdb::update_lnb_preserve_t::flags preserve, bool save, int16_t current_sat_pos,
+													devdb::lnb_connection_t* cur_conn);
 	void reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb);
 	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);
 

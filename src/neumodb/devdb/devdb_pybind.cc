@@ -40,20 +40,19 @@ static void export_devdb(py::module& m) {
 		;
 }
 
-static std::optional<lnb_connection_t> conn_helper
-(const devdb::lnb_t& lnb, const devdb::rf_path_t& rf_path) {
-	auto * p =connection_for_rf_path(lnb, rf_path);
-	if(p)
-		return *p;
-	return {};
+static inline devdb::lnb_connection_t* conn_helper
+(devdb::lnb_t& lnb, devdb::rf_path_t& rf_path) {
+	return connection_for_rf_path(lnb, rf_path);
 }
 
 static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
 	using namespace devdb;
-	mm.def("update_lnb_from_positioner", &lnb::update_lnb_from_positioner, "save changed lnb",
-				 py::arg("wtxn"), py::arg("lnb"), py::arg("usals_location"),
-				 py::arg("current_sat_pos")=sat_pos_none, py::arg("save")=true)
+	mm.def("update_lnb_from_positioner", &lnb::update_lnb_from_positioner, "save changed lnb"
+				 , py::arg("wtxn"), py::arg("lnb"), py::arg("usals_location")
+				 , py::arg("current_sat_pos")=sat_pos_none
+				 , py::arg("current_conn")= nullptr
+				 ,py::arg("save")=true)
 		.def("update_lnb_from_lnblist", &lnb::update_lnb_from_lnblist, "save changed lnb",
 				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
 		.def("can_move_dish", &lnb::can_move_dish,
@@ -72,7 +71,9 @@ static void export_lnb_extra(py::module& m) {
 				 py::arg("devdb_rtxn"), py::arg("sat").none(true) = nullptr, py::arg("mux").none(true) = nullptr)
 		.def("select_rf_path", &lnb::select_rf_path, "Select an rf_path for lnb", py::arg("lnb"),
 				 py::arg("sat_pos")=sat_pos_none)
-		.def("connection_for_rf_path", &conn_helper, "Return lnb_connection for rf_path"
+		.def("connection_for_rf_path", &conn_helper
+				 , py::return_value_policy::reference_internal
+				 , "Return lnb_connection for rf_path"
 				 , py::arg("lnb")
 				 , py::arg("rf_path"))
 		.def("rf_path_for_connection", &devdb::rf_path_for_connection,

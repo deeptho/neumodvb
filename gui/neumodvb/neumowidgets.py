@@ -267,11 +267,11 @@ class DiseqcChoice(wx.Choice):
 
     def GetValue(self) :
         from neumodvb import neumodbutils
-        import pychdb
+        import pydevdb
         idx = self.GetCurrentSelection()
         choice = self.choices[idx]
         try:
-            val = neumodbutils.enum_value_for_label(pychdb.rotor_control_t, choice)
+            val = neumodbutils.enum_value_for_label(pydevdb.rotor_control_t, choice)
             return val
         except:
             return None

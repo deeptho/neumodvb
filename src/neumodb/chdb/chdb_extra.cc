@@ -659,6 +659,10 @@ void chdb::matype_str(ss::string_& s, int16_t matype, int rolloff) {
 		s.sprintf("DVBS");
 		return;
 	}
+	if(matype <0) {
+		s.sprintf("");
+		return;
+	}
 	s.sprintf("0x%x: ", matype);
 	if( matype <0 ) { //not tuned yet; matype unknown
 		s.sprintf("");

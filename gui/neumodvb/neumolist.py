@@ -31,7 +31,7 @@ from dateutil import tz
 import regex as re
 from inspect import currentframe
 
-from neumodvb.util import dtdebug, dterror, get_text_extent, setup, lastdot
+from neumodvb.util import dtdebug, dterror, get_text_extent, setup, lastdot, wxpythonversion, wxpythonversion42
 from neumodvb import neumodbutils
 
 import pyepgdb
@@ -954,16 +954,18 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.SetDefaultCellFont(font)
         self.cellfont = self.GetDefaultCellFont()
         self.header_font = self.GetFont()
-        self.header_font.SetPointSize(self.header_font.GetPointSize()+2)
+        extrasize = 2 if wxpythonversion < wxpythonversion42 else 0
+        self.header_font.SetPointSize(self.header_font.GetPointSize() + extrasize)
         self.dc =  wx.ScreenDC()
         self.header_dc =  wx.ScreenDC()
         self.header_font.SetWeight(wx.BOLD)
         self.SetLabelFont(self.header_font)
-        self.cellfont.SetPointSize(self.cellfont.GetPointSize()+2)
+        self.cellfont.SetPointSize(self.cellfont.GetPointSize()+ extrasize)
         self.SetDefaultCellFont(self.cellfont)
         self.dc.SetFont(self.font) # for estimating label sizes
         self.header_dc.SetFont(self.header_font) # for estimating label sizes
         self.combobox_extra_width , _ = self.header_dc.GetTextExtent(f"XXX")
+        self.SetGridLineColour(wx.Colour('lightgray'))
         fg = self.GetLabelTextColour()
         bg = self.GetBackgroundColour()
         if self.dark_mode:
@@ -982,6 +984,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.Bind ( wx.grid.EVT_GRID_EDITOR_CREATED, self.OnGridEditorCreated)
         self.Bind ( wx.grid.EVT_GRID_EDITOR_SHOWN, self.OnGridEditorShown)
         self.__make_columns__()
+        extrasize = 0 if wxpythonversion < wxpythonversion42 else 10
+        self.SetColLabelSize(self.GetColLabelSize() + extrasize)
         self.Bind(wx.grid.EVT_GRID_LABEL_RIGHT_CLICK, self.OnColumnMenu)
         self.Bind(wx.grid.EVT_GRID_CELL_RIGHT_CLICK, self.OnColumnMenu)
 

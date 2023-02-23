@@ -838,6 +838,12 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 
 	db_tcursor<data_t> maincursor;
 
+		void set_key_prefix( const ss::bytebuffer_& key_prefix_) {
+			db_tcursor_<data_t>::set_key_prefix(key_prefix_);
+			auto main_key_prefix = data_t::make_key(data_t::keys_t::key, data_t::partial_keys_t::none,  nullptr);
+			maincursor.set_key_prefix(main_key_prefix);
+		}
+
 	auto current_serialized_secondary_key() {
 		return this->db_tcursor_<data_t>::current_serialized_key();
 	}

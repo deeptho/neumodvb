@@ -372,9 +372,10 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 		break;
 
 	case tune_src_t::SDT_ACTUAL_TUNED:
-		if( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED && tuning_is_same(mux, db_mux) )
+		if( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
+			copy_tuning( mux, db_mux );
 			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
-		else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
+		} else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
 			copy_tuning( mux, db_mux );
 			mux.c.tune_src = db_mux.c.tune_src;
 		}
@@ -382,14 +383,16 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 
 	case tune_src_t::NIT_ACTUAL_TUNED:
 		if(db_mux.c.tune_src == tune_src_t::USER) {
-			copy_tuning( mux, db_mux );
+			copy_tuning( mux, db_mux);
 			mux.c.tune_src = db_mux.c.tune_src;
 		}
 		break;
 
 	case tune_src_t::NIT_ACTUAL_NON_TUNED:
-		if( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED && tuning_is_same(mux, db_mux) )
+		if( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
+			copy_tuning( mux, db_mux);
 			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
+		}
 		else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
 			copy_tuning( mux, db_mux );
 			mux.c.tune_src = db_mux.c.tune_src;
@@ -399,9 +402,10 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 
 	case tune_src_t::NIT_OTHER_NON_TUNED:
 		if( ( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED ||
-					db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_NON_TUNED )
-				 && tuning_is_same(mux, db_mux) )
+					db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_NON_TUNED )) {
+			copy_tuning( mux, db_mux );
 			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
+		}
 		else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
 			copy_tuning( mux, db_mux );
 			mux.c.tune_src = db_mux.c.tune_src;
@@ -411,8 +415,7 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 	case tune_src_t::DRIVER:
 		if( ( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED ||
 					db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_NON_TUNED ||
-					db_mux.c.tune_src == tune_src_t::NIT_OTHER_NON_TUNED )
-				 && tuning_is_same(mux, db_mux) )
+					db_mux.c.tune_src == tune_src_t::NIT_OTHER_NON_TUNED ))
 			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
 		else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
 			copy_tuning( mux, db_mux );

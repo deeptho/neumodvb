@@ -164,6 +164,7 @@ class SpectrumDialog(SpectrumDialog_):
 
     def OnSelectLnb(self, evt):
         ret = self.spectrum_buttons_panel.select_start_end(evt.lnb)
+        evt.Skip(True)
         return ret
 
     @property

@@ -81,7 +81,7 @@ namespace chdb {
 			NUM_SERVICES  = 0x4, //directly used
 			EPG_TYPES   = 0x8, // directly used
 			TUNE_SRC   = 0x10, //indrectly used
-			MUX_KEY = 0x20, //directlt used
+			MUX_KEY = 0x20, //directly used
 			TUNE_DATA = 0x40, //NOT USED
 			PLS_DATA = 0x80, //NOT USED
 			MTIME = 0x100,

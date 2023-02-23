@@ -517,6 +517,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 	assert(!(ignore_key && (!(preserve & m::MUX_KEY))));
 	assert(!ignore_key ||!allow_multiple_keys);
 	auto c = chdb::find_by_mux_physical(wtxn, mux, false /*ignore_stream_id*/, ignore_key);
+	bool delete_db_mux{false};
+
 	bool is_new = true; // do we modify an existing record or create a new one?
 	if (c.is_valid()) {
 		db_mux = c.current();
@@ -536,7 +538,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 			if(!allow_multiple_keys) {
 				if ((preserve & m::MUX_KEY) && must_exist)
 					return update_mux_ret_t::NO_MATCHING_KEY;
-				delete_record(c, db_mux);
+				delete_db_mux = true;
 			}
 			if(mux.k.extra_id ==0)
 				mux.k.extra_id =  make_unique_id<mux_t>(wtxn, mux.k);
@@ -613,6 +615,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		dtdebug("mux=" << mux);
 		assert(mux.k.extra_id>0);
 		assert(!is_template(mux));
+		if(delete_db_mux)
+			delete_record(c, db_mux);
 		put_record(wtxn, mux);
 	}
 	return ret;

@@ -24,7 +24,7 @@ import wx.lib.masked as masked
 import wx.lib.newevent
 import datetime
 import re
-
+from neumodvb.util import wxpythonversion, wxpythonversion42
 
 def _set_textctrl_size_by_chars(self, tc, w, h):
     sz = tc.GetTextExtent('X')
@@ -195,7 +195,8 @@ class TimeTextCtrl(wx.TextCtrl):
 class BarGauge(PM.PeakMeterCtrl):
     def __init__(self, parent, id, range, *args, **kwargs):
         self.parent = parent
-        super().__init__(parent, id,  style=wx.SUNKEN_BORDER, agwStyle=PM.PM_HORIZONTAL, size=(-1,10))
+        size = 10 if wxpythonversion < wxpythonversion42 else 20
+        super().__init__(parent, id,  style=wx.SUNKEN_BORDER, agwStyle=PM.PM_HORIZONTAL, size=(-1, size))
         self.SetMeterBands(1, 25)
         self._clrNormal, self._clrHigh = self._clrHigh, self._clrNormal
 

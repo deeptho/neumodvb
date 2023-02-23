@@ -311,7 +311,6 @@ class DvbsMuxGrid(DvbsMuxGridBase):
         if evt.GetWindow() != self:
             return
         super().OnWindowCreate(evt)
-        print(f'dvbs_muxlist: OnWindowCreate window={evt.GetWindow()==self}')
         self.SelectSat(self.sat)
         self.GrandParent.dvbs_muxlist_sat_sel.SetSat(self.sat, self.allow_all)
 

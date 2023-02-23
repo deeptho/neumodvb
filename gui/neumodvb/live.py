@@ -23,7 +23,7 @@ from functools import cached_property, lru_cache
 import datetime
 from dateutil import tz
 
-from neumodvb.util import setup, get_text_extent
+from neumodvb.util import setup, get_text_extent, wxpythonversion, wxpythonversion42
 from neumodvb.neumo_dialogs import ShowMessage
 from neumodvb.chepglist import content_types
 from neumodvb.util import dtdebug, dterror
@@ -1323,7 +1323,7 @@ class RecordPanel(wx.Panel):
         self.created = True
         gtk_add_window_style(self, "active")
         self.set_initial_top_idx()
-        self.row_gap = 8
+        self.row_gap = 8 if wxpythonversion < wxpythonversion42 else 4
         gbs = self.gbs = wx.GridBagSizer(vgap=self.row_gap, hgap=5)
         self.sizer =  wx.FlexGridSizer(1, 2, 0, 0)
         self.sizer.AddGrowableRow(0)

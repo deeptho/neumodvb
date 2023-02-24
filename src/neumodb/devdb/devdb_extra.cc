@@ -1038,8 +1038,10 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 			if(cur_conn)
 				for(auto& db_conn: db_lnb->connections) {
 					if(db_conn.card_mac_address == cur_conn->card_mac_address &&
-						 db_conn.rf_input == cur_conn->rf_input)
+						 db_conn.rf_input == cur_conn->rf_input) {
 						db_conn.rotor_control = cur_conn->rotor_control;
+						break;
+					}
 				}
 			lnb.connections = db_lnb->connections;
 			lnb.can_be_used = db_lnb->can_be_used;

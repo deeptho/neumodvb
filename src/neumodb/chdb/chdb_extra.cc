@@ -1411,7 +1411,18 @@ void chdb::clean_chgms_without_services(db_txn& wtxn)
 template <typename mux_t> void chdb::clear_all_streams_pending_status(
 	db_txn& chdb_wtxn, system_time_t now_, const mux_t& ref_mux) {
 	using namespace chdb;
-	auto c = chdb::find_by_mux_physical(chdb_wtxn, ref_mux, true /*ignore_stream_id*/, true /*ignore_key*/);
+
+	auto c = [&]() {
+		// find tps with matching frequency, but probably incorrect network_id/ts_id
+		if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
+			// approx. match in sat_pos, frequency, exact match in  polarisation, t2mi_pid and stream_id
+			return chdb::find_by_mux_fuzzy(chdb_wtxn, ref_mux, true/*ignore_stream_id*/);
+		} else {
+			return chdb::find_by_freq_fuzzy<mux_t>(chdb_wtxn, ref_mux.frequency);
+		}
+	}();
+
+
 	int tolerance = get_member(ref_mux, symbol_rate, 500000)/1000; //in kHze
 
 	for(auto mux: c.range()) {

@@ -65,9 +65,11 @@ class LnbNetworkTable(NeumoTable):
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
     all_columns = \
-        [CD(key='sat_pos',  label='LNB Pos.', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
+        [CD(key='sat_pos',  label='LNB Pos.', basic=True, dfn= lambda x: pychdb.sat_pos_str(x[1]),
+            sfn = lambda x: x[2].sat_pos_sfn(x[0], x[1])),
          CD(key='priority',  label='priority', basic=False),
-         CD(key='usals_pos',  label='Usals pos.', basic=False, allow_others=True, dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         CD(key='usals_pos',  label='Usals pos.', basic=False, allow_others=True,
+            dfn= lambda x: pychdb.sat_pos_str(x[1]), sfn = lambda x: x[2].usals_pos_sfn(x[0], x[1])),
          CD(key='diseqc12',  label='diseqc 1.2', basic=False),
          CD(key='enabled',  label='enabled', basic=False, dfn=bool_fn),
          CD(key='ref_mux',  label='ref mux', basic=False, readonly= True, example="28.2E: nid=1234 tid=1234")
@@ -83,6 +85,23 @@ class LnbNetworkTable(NeumoTable):
                          screen_getter = self.screen_getter,
                          initial_sorted_column = initial_sorted_column,
                          **kwds)
+    def sat_pos_sfn(self, record, val):
+        from neumodvb.util import parse_longitude
+        newval = parse_longitude(val)
+        record.sat_pos = newval
+        changed = pydevdb.lnb.add_or_edit_network(self.lnb, self.get_usals_location(), record)
+        if changed:
+            self.changed = True
+        return record
+
+    def usals_pos_sfn(self, record, val):
+        from neumodvb.util import parse_longitude
+        newval = parse_longitude(val)
+        record.usals_pos = newval
+        changed = pydevdb.lnb.add_or_edit_network(self.lnb, self.get_usals_location(), record)
+        if changed:
+            self.changed = True
+        return record
 
     @property
     def lnb(self):

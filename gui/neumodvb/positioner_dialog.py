@@ -200,6 +200,10 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.retune_mode_ = value
 
     @property
+    def lnb_connection (self):
+        return None if self.rf_path is None else pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
+
+    @property
     def mux_subscriber(self):
         if self.mux_subscriber_ is None:
             receiver = wx.GetApp().receiver
@@ -546,7 +550,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.ChangeSat(sat)
             self.positioner_mux_sel.SetMux(self.mux)
         self.lnb_changed = False
-        self.parent.SetWindowTitle(self.rf_path, self.lnb) #update window title
+        self.parent.SetWindowTitle(self.lnb, self.lnb_connection, self.sat) #update window title
         self.positioner_lnb_sel.Update()
 
     def ChangeRfPath(self, rf_path):
@@ -556,7 +560,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             return
         self.rf_path = rf_path
         #lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, rf_path)
-        self.parent.SetWindowTitle(self.rf_path, self.lnb) #update window title
+        self.parent.SetWindowTitle(self.lnb, self.lnb_connection, self.sat) #update window title
         self.positioner_rf_path_sel.Update()
 
     def ChangeMux(self, mux):
@@ -613,6 +617,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.muxedit_grid.Reset()
         sat_pos = self.sat.sat_pos if network is None else network.usals_pos
         self.parent.ChangeSatPos(sat_pos)
+        self.parent.SetWindowTitle(self.lnb, self.lnb_connection, self.sat) #update window title
 
     def UpdateRefMux(self, rec):
         #if rec is None:
@@ -804,7 +809,7 @@ class PositionerDialog(PositionerDialog_):
         self.tune_mux_panel.init(self, sat, lnb, mux)
         self.parent = parent
 
-        self.SetTitle(f'Positioner Control - {self.tune_mux_panel.lnb}')
+        self.SetWindowTitle(self.lnb, self.lnb_connection, self.sat)
         self.diseqc_type_choice.SetValue(self.lnb_connection)
         self.enable_disable_diseqc_panels()
         network = None if self.sat is None else get_network(self.lnb, self.sat.sat_pos)
@@ -942,8 +947,8 @@ class PositionerDialog(PositionerDialog_):
             event.Skip(False)
         event.Skip()
 
-    def SetWindowTitle(self, rf_path, lnb):
-        self.SetTitle(f'Positioner Control - {lnb} {rf_path}')
+    def SetWindowTitle(self, lnb, lnb_connection, sat):
+        self.SetTitle(f'Positioner Control - {lnb.k} {lnb_connection} {sat}')
 
     def ChangeSatPos(self, sat_pos):
         self.SetPosition(sat_pos)

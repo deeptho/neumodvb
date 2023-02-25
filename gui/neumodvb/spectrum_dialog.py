@@ -419,8 +419,8 @@ class SpectrumDialog(SpectrumDialog_):
                     self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
                     self.tune_mux_panel.AbortTune()
 
-    def SetWindowTitle(self, rf_path, lnb):
-        self.SetTitle(f'Spectrum analysis - {lnb} {rf_path}')
+    def SetWindowTitle(self, lnb, lnb_connection, sat):
+        self.SetTitle(f'Spectrum analysis - {lnb.k} {lnb_connection} {sat}')
 
     def ChangeSatPos(self, sat_pos):
         pass

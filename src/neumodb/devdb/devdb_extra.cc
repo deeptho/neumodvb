@@ -634,7 +634,7 @@ bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, const devdb::usals_locat
 {
 	using namespace devdb;
 	if (network.usals_pos == sat_pos_none) {
-		if (lnb.offset_angle == 0 )
+		if (!lnb.on_positioner)
 			network.usals_pos  = network.sat_pos;
 		else {
 			devdb::lnb::set_lnb_offset_angle(lnb, loc); //redundant, but safe
@@ -644,8 +644,17 @@ bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, const devdb::usals_locat
 			network.usals_pos = devdb::lnb::angle_to_sat_pos(angle - lnb.offset_angle, loc);
 		}
 	}
-	if(network.sat_pos == sat_pos_none)
-		network.sat_pos = network.usals_pos;
+	if(network.sat_pos == sat_pos_none) {
+		if (!lnb.on_positioner)
+			network.sat_pos  = network.usals_pos;
+		else {
+			devdb::lnb::set_lnb_offset_angle(lnb, loc); //redundant, but safe
+			//angle for central lnb
+			auto angle = devdb::lnb::sat_pos_to_angle(network.usals_pos, loc.usals_longitude, loc.usals_latitude);
+			//computed for offset lnb
+			network.sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
+		}
+	}
 
 	for (auto& n : lnb.networks) {
 		if (n.sat_pos == network.sat_pos) {

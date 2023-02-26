@@ -722,12 +722,14 @@ int dish::update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos,const devdb:
 {
 	auto c = devdb::find_first<devdb::lnb_t>(wtxn);
 	int num_rotors = 0; //for sanity check
+
 	auto angle = devdb::lnb::sat_pos_to_angle(usals_pos, loc.usals_longitude, loc.usals_latitude);
 
 	for(auto lnb : c.range()) {
 		if(lnb.k.dish_id != dish_id || !devdb::lnb::on_positioner(lnb))
 			continue;
 		num_rotors++;
+		devdb::lnb::set_lnb_offset_angle(lnb, loc); //redundant, but safe
 		lnb.usals_pos = usals_pos;
 		lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
 		put_record(wtxn, lnb);

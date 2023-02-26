@@ -926,7 +926,7 @@ int devdb::lnb::angle_to_sat_pos(int angle, const devdb::usals_location_t& loc) 
 	while (sat_pos_high - sat_pos_low > 1) {
 		sat_pos = (sat_pos_low + sat_pos_high) / 2; // best estimate
 		auto angle_ =  sat_pos_to_angle(sat_pos, longitude, latitude);
-		assert(angle_ >= angle_low && angle <= angle_high);
+		assert(angle_ >= angle_low && angle_ <= angle_high);
 		if (angle_ == angle)
 			break;
 		if(angle > angle_) {

@@ -985,13 +985,17 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 		devdb::lnb::set_lnb_offset_angle(lnb, *loc);
 	}
 
-	if(lnb.offset_angle ==0)
+	if(loc) {
+		if(!lnb.on_positioner ==0)
 			lnb.cur_sat_pos = lnb.usals_pos;
-	else {
+		else {
+		devdb::lnb::set_lnb_offset_angle(lnb, *loc); //redundant, but safe
+		//angle for central lnb
 		auto angle = devdb::lnb::sat_pos_to_angle(lnb.usals_pos, loc->usals_longitude, loc->usals_latitude);
+		//computed for offset lnb
 		lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, *loc);
+		}
 	}
-
 	std::optional<lnb_t> db_lnb;
 	auto c = lnb_t::find_by_key(devdb_wtxn, lnb.k, find_type_t::find_eq, devdb::lnb_t::partial_keys_t::all);
 	if(c.is_valid()) {

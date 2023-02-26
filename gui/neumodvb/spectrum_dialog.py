@@ -252,6 +252,8 @@ class SpectrumDialog(SpectrumDialog_):
                 self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
             else:
                 pol = self.pols_to_scan.pop(0)
+                #reread usals in case we are part of spectrum_dialog and positioner_dialog has changed them
+                self.lnb = self.read_lnb_from_db()
                 self.mux_subscriber.subscribe_spectrum(self.rf_path, self.lnb, pol,
                                                        self.start_freq, self.end_freq,
                                                        self.sat.sat_pos)

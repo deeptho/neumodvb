@@ -784,12 +784,7 @@ class SignalPanel(SignalPanel_):
             isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) for i in lst])
             isi = f'[{len(signal_info.isi_list)}]: {prefix}{isi}{suffix}'
         self.isi_list_text.SetLabelMarkup(isi)
-        #we need the int cast, because driver_mux.delivery_sysstem can be of dvbs, ddvbt or dvbc type
-        #if int(driver_mux.delivery_system) == int(pychdb.fe_delsys_t.DVBS2) and signal_info.timing_lock:
-        #if signal_info.timing_lock:
         matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
-        #else:
-        #matype="DVBS"
         if locked and signal_info.has_matype:
             pls_mode = lastdot(str(driver_mux.pls_mode))
             pls = f'PLS: {pls_mode} {driver_mux.pls_code}'

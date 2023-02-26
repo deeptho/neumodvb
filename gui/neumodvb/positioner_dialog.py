@@ -181,6 +181,14 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.mux_subscriber_.unsubscribe()
             del self.mux_subscriber_
             self.mux_subscriber_ = None
+
+    def read_lnb_from_db(self):
+        txn = wx.GetApp().devdb.rtxn()
+        lnb = pydevdb.lnb.find_by_key(txn, self.lnb.k)
+        txn.abort()
+        del txn
+        return lnb
+
     @property
     def use_blindscan(self):
         return self.use_blindscan_
@@ -404,6 +412,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         mux.matype = -1
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()
+        #reread usals in case we are part of spectrum_dialog and positioner_dialog has changed them
+        self.lnb = self.read_lnb_from_db()
         wx.CallAfter(self.Tune,  mux, retune_mode=pyreceiver.retune_mode_t.IF_NOT_LOCKED,
                      pls_search_range=pls_search_range)
         if event is not None:
@@ -1126,10 +1136,7 @@ class PositionerDialog(PositionerDialog_):
         dtdebug("Goto sat")
         self.tune_mux_panel.muxedit_grid.table.FinalizeUnsavedEdits()
         self.tune_mux_panel.UpdateRefMux(self.mux)
-        txn = wx.GetApp().devdb.rtxn()
-        lnb = pydevdb.lnb.find_by_key(txn, self.lnb.k) #reread the networks
-        txn.abort()
-        del txn
+        lnb = self.tune_mux_panel.read_lnb_from_db() #to reread the networks
         network = get_network(lnb, self.sat.sat_pos)
         pos = network.usals_pos
         if self.lnb_connection.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_USALS:

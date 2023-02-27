@@ -1832,8 +1832,12 @@ int receiver_thread_t::run() {
 				}
 			} else if (is_timer_fd(evt)) {
 				receiver.update_playback_info();
-				if(scanner)
-					scanner->housekeeping(false);
+				if(scanner) {
+					auto remove_scanner = scanner->housekeeping(false);
+					if (remove_scanner) {
+						scanner.reset();
+					}
+				}
 			} else if (evt->data.fd == adaptermgr->inotfd) {
 				adaptermgr->run();
 			}
@@ -1844,7 +1848,11 @@ int receiver_thread_t::run() {
 }
 
 int receiver_thread_t::cb_t::scan_now() {
-	scanner->housekeeping(true);
+	auto remove_scanner = scanner->housekeeping(true);
+	if (remove_scanner) {
+		scanner.reset();
+	}
+
 	return 0;
 }
 
@@ -1882,7 +1890,7 @@ void receiver_thread_t::notify_signal_info(const signal_info_t& signal_info) {
 
 	/*
 		send a signal_info message to a specific wxpython window (positioner_dialog)
-		which will then receove a EVT_COMMAND_ENTER
+		which will then receive a EVT_COMMAND_ENTER
 		signal. Each window is associated with a subscription. The message is passed on if the subscription's
 		active_adapter uses the lnb which is stored in the signal_info message
 	 */
@@ -2075,7 +2083,11 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	if (!scanner)
 		scanner = std::make_shared<scanner_t>(*this, scan_found_muxes, max_num_subscriptions);
 	scanner->add_peaks(spectrum_key, peaks, init, subscription_id);
-		scanner->housekeeping(true); // start initial scan
+	bool remove_scanner = scanner->housekeeping(true); // start initial scan
+	if(remove_scanner) {
+		scanner.reset();
+		return subscription_id_t::TUNE_FAILED;
+	}
 	return subscription_id;
 }
 

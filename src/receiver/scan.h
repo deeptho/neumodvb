@@ -368,7 +368,7 @@ class scanner_t {
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
 											 const ss::vector_<subscription_id_t> subscription_ids);
 
-	int housekeeping(bool force);
+	bool housekeeping(bool force);
 
 	void init();
 //	void clear_peaks(const chdb::dvbs_mux_t& finished_mux);

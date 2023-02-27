@@ -65,12 +65,12 @@ scan_t::scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id, bool
 	Return 0 when scanning is done; otherwise number of muxes left
 
 */
-int scanner_t::housekeeping(bool force) {
+bool scanner_t::housekeeping(bool force) {
 	if (must_end)
-		return 0;
+		return true;
 	auto now = steady_clock_t::now();
 	if (!force && now - last_house_keeping_time < 60s)
-		return 0;
+		return false;
 	last_house_keeping_time = now;
 	int pending{0};
 	int active{0};
@@ -87,7 +87,7 @@ int scanner_t::housekeeping(bool force) {
 
 	dtdebugx("%d muxes left to scan; %d active", pending, active);
 
-	return must_end ? 0 : pending + active;
+	return must_end ? true : ((pending + active)==0);
 }
 
 static void report(const char* msg, subscription_id_t finished_subscription_id,
@@ -175,6 +175,9 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 							" muxes to scan: pending=" << (int) pending << " active=" << (int) active << " subs="  <<
 							((int) scan.subscriptions.size()));
 
+			while(!must_end && ( pending + active != 0) && scan.subscriptions.size() == 0 ) {
+				std::tie(pending, active) = scan.scan_loop({}, {}, {});
+			}
 			auto ret = must_end ? 0 : pending + active;
 			if( !ret ) {
 				std::vector<task_queue_t::future_t> futures;
@@ -533,7 +536,9 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 
 			if ((int)subscription_id < 0) {
 				// we cannot subscribe the mux right now
-				if(subscription_id == subscription_id_t::RESERVATION_FAILED) {
+				if(subscription_id == subscription_id_t::RESERVATION_FAILED_PERMANENTLY) {
+					skip_mux = false; //ensure that we do not even try muxes on the same sat, pol, band in this run
+				} else if(subscription_id == subscription_id_t::RESERVATION_FAILED) {
 					num_pending_muxes++;
 					skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
 				} else {
@@ -750,7 +755,18 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		assert((int) subscription_to_erase == -1);
 		dtdebugx("committing\n");
 		chdb_rtxn.commit();
-		if(!subscription.scan_start_reported) {
+
+		if(subscriptions.size() ==0) {
+			/*send one more message to inform gui that scan is done
+				This may be needed when all pending scans fail
+			*/
+			subscription.mux = {};
+			scan_report_t report{subscription, {}, {}};
+			report.scan_stats = *scan_stats.readAccess();
+			auto ss = *scan_stats.readAccess();
+			dtdebug("SCAN REPORT: mux=" << *report.mux << " pending=" << ss.pending_muxes << " active=" << ss.active_muxes);
+			receiver_thread.notify_scan_mux_end(scan_subscription_id, report);
+		} else if(!subscription.scan_start_reported) {
 			subscription.scan_start_reported = true;
 			auto scan_stats_ = *scan_stats.readAccess();
 			receiver_thread.notify_scan_start(scan_subscription_id, scan_stats_);
@@ -821,7 +837,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	/*
 		When tuning fails, it is essential that tuner_thread does NOT immediately unsubscribe the mux,
 		but rather informs us about the failure via scan_mux_end. Otherwise we would have to
-		update the mux status ourselves (here in the code), which also would force us to reqacauire a new
+		update the mux status ourselves (here in the code), which also would force us to reacqauire a new
 		read transaction in the middle of a read loop
 	 */
 	assert((int)subscription_id >=0 || subscription_id != subscription_id_t::TUNE_FAILED);
@@ -829,7 +845,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	/*An error can occur when resources cannot be reserved; this is reported immediately
 		by returning subscription_id_t == RESERVATION_FAILED;
 		Afterwards only tuning errors can occur. These errors will be noticed by error==true after
-		calling wait_for_all. Such errors inducated TUNE_FAILED.
+		calling wait_for_all. Such errors indicated TUNE_FAILED.
 	*/
 	if ((int)subscription_id < 0) {
 		if(subscriptions.size()==0) {
@@ -848,6 +864,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 											 m::flags{(m::MUX_COMMON|m::MUX_KEY)& ~m::SCAN_STATUS}, false /*ignore_key*/,
 											 true /*must_exist*/, false /*allow_multiple_keys*/);
 			chdb_wtxn.commit();
+			subscription_id = subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 		}
 		return {subscription_id, reuseable_subscription_id};
 	}

@@ -380,11 +380,12 @@ class SpectrumDialog(SpectrumDialog_):
             return
         need_si = True
         if type(data) == pyreceiver.scan_report_t: #called from scanner
-            if data.mux is None:
+            is_scan_end = data.mux is None
+            if is_scan_end:
                 dtdebug("scan end")
-                return
-            has_lock = data.mux.c.scan_result != pychdb.scan_result_t.NOLOCK
-            self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak, data.mux, has_lock)
+            else:
+                has_lock = data.mux.c.scan_result != pychdb.scan_result_t.NOLOCK
+                self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak, data.mux, has_lock)
 
             s = data.scan_stats
             if data.scan_stats.pending_muxes + data.scan_stats.active_muxes + \

@@ -515,7 +515,10 @@ void active_si_stream_t::fix_tune_mux_template() {
 	//TODO: check if this does the right thing for t2mi
 	if (is_template) {
 		dtdebug("Fixing stream_mux template status: " << stream_mux);
-		update_reader_mux_parameters_from_frontend(stream_mux);
+		auto locked = update_reader_mux_parameters_from_frontend(stream_mux);
+		if(!locked) {
+			dterrorx("lock lost\n");
+		}
 		//at this stage we must be locked (si processing only starts after lock)
 	}
 	if(is_active) { /*we  need to set the active status*/
@@ -1492,11 +1495,12 @@ bool active_si_stream_t::update_mux(
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 					 chdb::mux_common_ptr(mux)->scan_id >0);
 		dttime_init();
-		update_reader_mux_parameters_from_frontend(mux); /*correct some obviously bad data in a mux, based on what driver reports
+		auto locked = update_reader_mux_parameters_from_frontend(mux); /*correct some obviously bad data in a mux, based on what driver reports
 																																			Basically: always trust the tuning parameters that were used to successfully tune,
 																																			except for frequency and symbolrate (the values reported by the driver can be slightly off)
-																										 */
-		dttime(200);
+																																	 */
+		assert(locked);
+		assert(chdb::mux_common_ptr(mux)->tune_src != chdb::tune_src_t::TEMPLATE);
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
@@ -2486,7 +2490,15 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 	assert(signal_info_);
 	auto & signal_info = *signal_info_;
 	dttime(200);
-	if (signal_info.lock_status.fe_status & FE_HAS_LOCK) {
+	if (
+#if 1
+		true /*if lock is lost during init_si, we must proceed to avoid adding a template mux to the db.
+					 A better approach would be to retry later
+				 */
+#else
+		signal_info.lock_status.fe_status & FE_HAS_LOCK
+#endif
+		) {
 		//c.tune_src = chdb::tune_src_t::DRIVER;
 		if(is_template(mux)) {
 			mux_common_ptr(mux)->tune_src = chdb::tune_src_t::DRIVER;
@@ -2559,7 +2571,8 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 		mux = signal_info.driver_mux;
 		return true;
 	}
-	return false;
+
+	return (signal_info.lock_status.fe_status & FE_HAS_LOCK);
 }
 
 

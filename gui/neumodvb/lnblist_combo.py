@@ -234,7 +234,7 @@ class LnbRfPathListComboCtrl(wx.ComboCtrl):
     def CurrentGroupText(self):
         if self.rf_path is None or self.lnb is None:
             return ""
-        return str(self.lnb_connection.connection_name)
+        return '???' if self.lnb_connection is None else str(self.lnb_connection.connection_name)
 
     def OnWindowCreate(self, evt):
         """

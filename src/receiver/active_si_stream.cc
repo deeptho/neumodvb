@@ -2642,7 +2642,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 				assert(mux_common_ptr(mux)->scan_status == chdb::scan_status_t::ACTIVE);
 				mux_common_ptr(mux)->scan_status = chdb::scan_status_t::PENDING;
 				namespace m = chdb::update_mux_preserve_t;
-				auto wtxn = chdb.wtxn();
+				auto wtxn = chdb_txn();
 				namespace m = chdb::update_mux_preserve_t;
 				this->update_mux(wtxn, mux, now, false /*is_reader_mux*/, false /*from_sdt*/, m::MUX_COMMON /*preserve*/);
 				wtxn.commit();
@@ -2750,6 +2750,7 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 			for(auto& e: pat_table.entries) {
 				if(e.service_id == pat_service.pmt.service_id) {
 					mux_key.ts_id = ts_id;
+					break;
 				}
 			}
 		}

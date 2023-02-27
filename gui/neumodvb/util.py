@@ -180,6 +180,10 @@ def parse_longitude(val):
     else:
         return 0
 
+def is_circ(lnb):
+    import pydevdb
+    return lnb.pol_type in (pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL,
+                            pydevdb.lnb_pol_type_t.L, pydevdb.lnb_pol_type_t.R)
 
 
 tune_src_map__ = {'NIT ACTUAL TUNED': 'nit tuned',

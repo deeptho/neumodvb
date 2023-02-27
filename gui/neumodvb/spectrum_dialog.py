@@ -23,7 +23,7 @@ from dateutil import tz
 import pydevdb
 import pychdb
 
-from neumodvb.util import dtdebug, dterror
+from neumodvb.util import dtdebug, dterror, is_circ
 from neumodvb.spectrum_dialog_gui import SpectrumDialog_, SpectrumButtons_, SpectrumListPanel_
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 import pyreceiver
@@ -60,14 +60,13 @@ class SpectrumButtons(SpectrumButtons_):
         self.parent.start_freq, self.parent.end_freq = rng
         self.start_freq_text.SetValue(str(self.parent.start_freq//1000))
         self.end_freq_text.SetValue(str(self.parent.end_freq//1000))
-        is_circ = lnb.pol_type in (pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL,
-                                   pydevdb.lnb_pol_type_t.L, pydevdb.lnb_pol_type_t.R)
-        if is_circ:
+        if is_circ(lnb):
             self.spectrum_horizontal.SetLabel('L')
             self.spectrum_vertical.SetLabel('R')
         else:
             self.spectrum_horizontal.SetLabel('H')
             self.spectrum_vertical.SetLabel('V')
+
     def select_range_and_pols(self):
         lnb = self.parent.lnb
         if lnb.pol_type in (pydevdb.lnb_pol_type_t.VH, pydevdb.lnb_pol_type_t.HV,
@@ -97,15 +96,15 @@ class SpectrumButtons(SpectrumButtons_):
         self.parent.end_freq = int(self.end_freq_text.GetValue())*1000
         if self.parent.lnb is None:
             dterror("self.parent.lnb=None")
-        is_circ = self.parent.lnb.pol_type in (pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL)
         h, v, = self.spectrum_horizontal.GetValue(), \
             self.spectrum_vertical.GetValue()
+        lnb = self.parent.lnb
         if v and h:
-            self.parent.pols_to_scan = [ p_t.L, p_t.R ] if is_circ else [ p_t.H, p_t.V ]
+            self.parent.pols_to_scan = [ p_t.L, p_t.R ] if is_circ(lnb) else [ p_t.H, p_t.V ]
         elif h:
-            self.parent.pols_to_scan = [ p_t.L ] if is_circ else [ p_t.H ]
+            self.parent.pols_to_scan = [ p_t.L ] if is_circ(lnb) else [ p_t.H ]
         elif v:
-            self.parent.pols_to_scan = [ p_t.R ] if is_circ else [ p_t.V ]
+            self.parent.pols_to_scan = [ p_t.R ] if is_circ(lnb) else [ p_t.V ]
 
 class SpectrumListPanel(SpectrumListPanel_):
     def __init__(self, parent, *args, **kwds):
@@ -226,7 +225,18 @@ class SpectrumDialog(SpectrumDialog_):
         self.spectrum_plot.toggle_spectrum(spectrum)
 
     def OnDrawMux(self, evt):
-        self.spectrum_plot.start_draw_mux()
+        lnb = self.lnb
+        if lnb.pol_type in (pydevdb.lnb_pol_type_t.VH, pydevdb.lnb_pol_type_t.HV, pydevdb.lnb_pol_type_t.H):
+            default_pol = 'H'
+        elif lnb.pol_type in (pydevdb.lnb_pol_type_t.VH, pydevdb.lnb_pol_type_t.HV, pydevdb.lnb_pol_type_t.V):
+            default_pol = 'V'
+        elif lnb.pol_type in (pydevdb.lnb_pol_type_t.RL, pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.L):
+            default_pol = 'L'
+        elif lnb.pol_type in (pydevdb.lnb_pol_type_t.R):
+            default_pol = 'R'
+        else:
+            default_pol = 'H'
+        self.spectrum_plot.start_draw_mux(default_pol)
 
     def OnToggleBlindscan(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         self.use_blindscan = event.IsChecked()

@@ -702,13 +702,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	bool update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
 									bool tuned_mux, bool from_sdt, chdb::update_mux_preserve_t::flags preserve);
 
-#if 0
-	chdb::any_mux_t add_new_mux(db_txn& txn, chdb::any_mux_t& mux, system_time_t now);
-#endif
 	void fix_tune_mux_template();
-#if 0
-	void handle_mux_change(db_txn& wtxn, chdb::any_mux_t& old_mux, chdb::any_mux_t& new_nux, bool is_active_mux);
-#endif
 	void finalize_scan(bool done, bool tune_failed);
 	mux_data_t* tuned_mux_in_nit();
 	void update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_t& mux);

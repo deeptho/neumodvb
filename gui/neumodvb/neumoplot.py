@@ -489,17 +489,18 @@ class SpectrumPlot(wx.Panel):
         self.add_status_box()
         self.mux_creator = None
         wx.CallAfter(self.compute_annot_scale_factors)
+
     def add_drawn_mux(self, freq, pol, symbol_rate):
         txt = f"{freq:8.3f}{pol} {int(symbol_rate)}kS/s "
         dtdebug(f'Add drawn mux {txt}')
         wx.CallAfter(self.parent.OnUpdateMux, freq, pol, symbol_rate)
 
-    def start_draw_mux(self):
+    def start_draw_mux(self, default_pol):
         if self.mux_creator is not None:
             self.mux_creator.show()
             return
         from neumodvb.draw_mux import MuxSelector
-        self.mux_creator = MuxSelector(self)
+        self.mux_creator = MuxSelector(self, pol=default_pol)
 
     def set_modifiers(self, event):
         if 'shift' in event.key:

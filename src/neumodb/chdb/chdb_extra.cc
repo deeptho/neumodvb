@@ -1561,6 +1561,7 @@ chdb::select_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		break;
 	case lnb_pol_type_t::LR:
 	case lnb_pol_type_t::RL:
+	case lnb_pol_type_t::L:
 		pol = fe_polarisation_t::L;
 		break;
 	case lnb_pol_type_t::R:

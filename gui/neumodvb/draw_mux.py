@@ -21,7 +21,7 @@ from matplotlib.widgets import RectangleSelector
 import wx
 
 class MuxSelector(RectangleSelector):
-    def __init__(self, parent):
+    def __init__(self, parent, pol):
         super().__init__(parent.axes, self.line_select_callback,
                          drawtype='box', useblit=False,
                          button=[1],  # don't use middle button
@@ -32,7 +32,7 @@ class MuxSelector(RectangleSelector):
         self.t = None
         self.parent.figure.canvas.mpl_connect('key_press_event', self.toggle_selector)
         self.set_active(True)
-        self.pol='H'
+        self.pol= pol
     def press(self, event):
         """Button press handler and validator."""
         return super().press(event)
@@ -85,6 +85,7 @@ class MuxSelector(RectangleSelector):
     def show(self):
         self.set_active(True)
         self.set_visible(True)
+
     def toggle_selector(self, event):
         if event.key.lower() in ['v', 'h', 'l', 'r'] and self.active:
             self.pol = event.key.upper()

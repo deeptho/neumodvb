@@ -87,7 +87,7 @@ public:
 	void notify_error(const ss::string_& errmsg);
 	void notify_scan_start(const scan_stats_t& scan_stats);
 	void notify_scan_mux_end(const scan_report_t& report);
-	void notify_sdt_actual(const sdt_data_t& sdt_data);
+	void notify_sdt_actual(const sdt_data_t& sdt_data, dvb_frontend_t* fe, bool from_scanner) const;
 	void notify_signal_info(const signal_info_t& info, bool from_scanner) const;
 	void notify_spectrum_scan(const statdb::spectrum_t& spectrum);
 

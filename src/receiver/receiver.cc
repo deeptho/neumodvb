@@ -1878,10 +1878,9 @@ void receiver_thread_t::notify_signal_info(const signal_info_t& signal_info) {
 		//find all subscriptions
 		for (auto [subscription_id, aaptr] : *aas) {
 			auto& active_adapter = *aaptr.get();
-			/*Notify spectrum and positioner dialog screens tuned to a single mux
-				Note that during a blindscan, positioner_dialog or spectrum_dialog
-				will not react to the following call, as they have no active subscriber_t, i.e.,
-				one associated with a specific adapter or lnb
+			/*Gather all subscribers that use the fe during a blindscan,
+				so that they can passed to the scanner code, which will pick
+				the subscriber currently used by the signal_info panel.
 			*/
 			if(signal_info.fe == active_adapter.fe.get())
 				subscription_ids.push_back(subscription_id);
@@ -1900,22 +1899,22 @@ void receiver_thread_t::notify_signal_info(const signal_info_t& signal_info) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
-			/*Notify spectrum and positioner dialog screens tuned to a single mux
-				Note that during a blindscan, positioner_dialog or spectrum_dialog
+			/*Notify positioner dialog screens and spectrum_dialof screens which
+				are busy tuning a single mux.
+
+				Note that during a blindscan, spectrum_dialog
 				will not react to the following call, as they have no active subscriber_t, i.e.,
-				one associated with a specific adapter or lnb
+				one associated with a specific adapter or lnb. A "blindscan all" spectrum_dialog will
+				ignore the following call
 			*/
 			ms->notify_signal_info(signal_info, false /*from_scanner*/);
 
 			if(subscription_ids.size() > 0) {
+				assert (scanner);
 				/*
-					Usually subscription_ids will have only one entry, which could be
-					a subscription created by the scanner. Ask the scanner to check the signal_info.
-					The scanner will then decide whether or not to pass this on to the scan_subscriber
-					data structures associated with blindscans. These scan_subscribers will then update their gui
-
-					The following call will also happen for other subscribers than teh scan subscribers.
-					In that case it will be a NOOP
+					Inform the scanner of all its currently active child subscriptions.
+					The scanner will then decide for which of these subscriptions it will show signal_info
+					and will ignore unwanted signal_info
 				*/
 				scanner->notify_signal_info(*ms, subscription_ids, signal_info);
 			}
@@ -1925,18 +1924,49 @@ void receiver_thread_t::notify_signal_info(const signal_info_t& signal_info) {
 }
 
 //called from tuner thread when SDT ACTUAL has completed to report services to gui
-void receiver_thread_t::notify_sdt_actual(const sdt_data_t& sdt_data) {
+void receiver_thread_t::notify_sdt_actual(const sdt_data_t& sdt_data, dvb_frontend_t*fe) {
 	ss::vector<subscription_id_t, 4> subscription_ids;
+	if(scanner) {
+		auto aas = receiver.subscribed_aas.readAccess();
+
+		//find all subscriptions
+		for (auto [subscription_id, aaptr] : *aas) {
+			auto& active_adapter = *aaptr.get();
+			/*Gather all subscribers that use the fe during a blindscan,
+				so that they can passed to the scanner code, which will pick
+				the subscriber currently used by the signal_info pane.l
+			*/
+			if(fe == active_adapter.fe.get())
+				subscription_ids.push_back(subscription_id);
+		}
+	}
+
+	/*
+		send an sdt_data message to a specific wxpython window (positioner_dialog)
+		which will then receive a EVT_COMMAND_ENTER
+		signal. Each window is associated with a subscription. The message is passed on if the subscription's
+		active_adapter uses the lnb which is stored in the sdt_data message
+	 */
 	{
 		auto mss = receiver.subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
-			/*Notify positioner dialog
-			*/
-			ms->notify_sdt_actual(sdt_data);
+
+			ms->notify_sdt_actual(sdt_data, fe, false /*from_scanner*/);
+
+			if(subscription_ids.size() > 0) {
+				assert (scanner);
+				/*
+					Inform the scanner of all its currently active child subscriptions.
+					The scanner will then decide for which of these subscriptions it will show signal_info
+					and will ignore unwanted signal_info
+				*/
+				scanner->notify_sdt_actual(*ms, subscription_ids, sdt_data, fe);
+			}
 		}
+
 	}
 }
 

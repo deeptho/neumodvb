@@ -1088,6 +1088,31 @@ void scanner_t::notify_signal_info(const subscriber_t& subscriber, const ss::vec
 	dterrorx("NOT Notifying: monitored_subscription_id=%d\n", (int) scan.monitored_subscription_id);
 }
 
+void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,
+																	const ss::vector_<subscription_id_t>& fe_subscription_ids,
+																	const sdt_data_t& sdt_data, dvb_frontend_t* fe)
+{
+
+	auto [it, found] = find_in_map(this->scans, subscriber.get_subscription_id());
+	if(!found)
+		return; //not a scan control subscription_id
+	auto &scan = it->second;
+
+	for(auto subscription_id: fe_subscription_ids) {
+		auto [it, found] = find_in_map(scan.subscriptions, subscription_id);
+		if(!found)
+			continue; //this is not a subscription used by this scan
+		if (scan.monitored_subscription_id == subscription_id_t::NONE) {
+			scan.monitored_subscription_id = subscription_id;
+		}
+		if(subscription_id == scan.monitored_subscription_id) {
+			subscriber.notify_sdt_actual(sdt_data, fe, true /*from_scanner*/);
+			return;
+		}
+	}
+	dterrorx("NOT Notifying: monitored_subscription_id=%d\n", (int) scan.monitored_subscription_id);
+}
+
 
 template int scanner_t::add_muxes<chdb::dvbs_mux_t>(const ss::vector_<chdb::dvbs_mux_t>& muxes, bool init,
 																										subscription_id_t subscription_id);

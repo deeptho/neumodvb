@@ -1889,7 +1889,8 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		if (!donotsave) {
 			process_removed_services(wtxn, mux_key, service_ids);
 			dtdebugx("Notifying SDT ACTUAL");
-			receiver.receiver_thread.notify_sdt_actual(sdt_data);
+			auto& aa = active_adapter();
+			receiver.receiver_thread.notify_sdt_actual(sdt_data, aa.fe.get());
 		}
 		chdb::any_mux_t mux;
 		auto reader_mux = reader->stream_mux();

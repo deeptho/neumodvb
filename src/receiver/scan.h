@@ -31,6 +31,7 @@ class receiver_thread_t;
 class tuner_thread_t;
 class receiver_t;
 class active_adapter_t;
+struct sdt_data_t;
 
 
 struct scan_state_t {
@@ -386,5 +387,7 @@ public:
 	~scanner_t();
 	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,
 													const signal_info_t& signal_info);
+	void notify_sdt_actual(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,
+												 const sdt_data_t& sdt_data, dvb_frontend_t* fe);
 
 };

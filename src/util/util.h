@@ -187,7 +187,8 @@ extern int _slowdown(time_t*last,int *count, time_t now, int maxcount);
 enum class subscription_id_t : int {
 	NONE = -1, // unspecified failure or no subscription
 	RESERVATION_FAILED = -2,
-	TUNE_FAILED = -3
+	RESERVATION_FAILED_PERMANENTLY = -3,
+	TUNE_FAILED = -4
 };
 
 inline subscription_id_t& operator++(subscription_id_t& x) {

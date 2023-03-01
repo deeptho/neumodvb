@@ -718,7 +718,7 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 }
 
 
-int dish::update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos,const devdb::usals_location_t& loc)
+int dish::update_usals_pos(db_txn& wtxn, devdb::lnb_t& lnb_, int usals_pos,const devdb::usals_location_t& loc)
 {
 	auto c = devdb::find_first<devdb::lnb_t>(wtxn);
 	int num_rotors = 0; //for sanity check
@@ -726,17 +726,19 @@ int dish::update_usals_pos(db_txn& wtxn, int dish_id, int usals_pos,const devdb:
 	auto angle = devdb::lnb::sat_pos_to_angle(usals_pos, loc.usals_longitude, loc.usals_latitude);
 
 	for(auto lnb : c.range()) {
-		if(lnb.k.dish_id != dish_id || !devdb::lnb::on_positioner(lnb))
+		if(lnb.k.dish_id != lnb_.k.dish_id || !devdb::lnb::on_positioner(lnb))
 			continue;
 		num_rotors++;
 		devdb::lnb::set_lnb_offset_angle(lnb, loc); //redundant, but safe
 		lnb.usals_pos = usals_pos;
 		lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
 		put_record(wtxn, lnb);
+		if(lnb.k == lnb_.k)
+			lnb_ = lnb;
 	}
 	if (num_rotors == 0) {
-		dterrorx("None of the LNBs for dish %d seems to be on a rotor", dish_id);
-		return -1 ;
+		dterrorx("None of the LNBs for dish %d seems to be on a rotor", lnb_.k.dish_id);
+		return -1;
 	}
 	return 0;
 }

@@ -511,19 +511,20 @@ devdb::usals_location_t active_adapter_t::get_usals_location() {
 }
 
 void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
-	int dish_id = this->fe->ts.readAccess()->reserved_lnb.k.dish_id;
 	auto loc = this->get_usals_location();
 	auto devdb_wtxn = receiver.devdb.wtxn();
-	int ret = devdb::dish::update_usals_pos(devdb_wtxn, dish_id, usals_pos, loc);
+	auto lnb = this->fe->ts.readAccess()->reserved_lnb;
+	int ret = devdb::dish::update_usals_pos(devdb_wtxn, lnb, usals_pos, loc);
 	if( ret<0 )
 		devdb_wtxn.abort();
 	else
 		devdb_wtxn.commit();
 
 	auto w = this->fe->ts.writeAccess();
-	if (usals_pos != w->reserved_lnb.usals_pos) {
+	w->reserved_lnb = lnb;
+	if (usals_pos != lnb.usals_pos) {
 		// measure how long it takes to move positioner
-		usals_timer.start(w->reserved_lnb.usals_pos, usals_pos);
+		usals_timer.start(lnb.usals_pos, usals_pos);
 		w->reserved_lnb.usals_pos = usals_pos;
 		assert(w->dbfe.rf_inputs.size()>0);
 	}

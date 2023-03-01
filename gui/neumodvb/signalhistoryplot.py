@@ -57,7 +57,6 @@ import pyspectrum
 import pystatdb
 import pychdb
 import pydevdb
-import datetime
 
 #horrible hack: matplotlib (in neumplot.py) uses the presence of this module to decide what backend to
 #use and then refuses to use wx
@@ -127,7 +126,7 @@ class SignalHistory(object):
             t =[]
             values = []
             for idx, st in enumerate(ss.stats):
-                t1 = datetime.datetime.fromtimestamp(ss.k.time + idx*300, tz=tz.tzlocal())
+                t1 = datetime.datetime.fromtimestamp(ss.k.time + idx*300)
                 t.append(t1)
                 if self.signal_type == SignalType.SNR:
                     values.append(st.snr/1000.)
@@ -168,6 +167,7 @@ class SignalHistory(object):
         if maxsignal <= minsignal:
             self.ylimits[1] = self.ylimits[0] + 1e-6
         self.axes.set_ylim(self.ylimits)
+        self.axes.xaxis_date(tz=tz.tzlocal())
         self.axes.xaxis.set_major_formatter(mpl.dates.DateFormatter('%Y-%m-%d\n %H:%M:%S'))
 
 class SignalHistoryPlot(wx.Panel):

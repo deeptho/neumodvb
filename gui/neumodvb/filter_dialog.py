@@ -61,6 +61,7 @@ class NeumoFilterTable(NeumoTableBase):
             neumodbutils.enum_set_subfield(self.filter_record,
                                            parent_table.columns[new_filter_colno].key, filter_value)
             self.GetRow.cache_clear()
+
     def InitialRecord(self):
         return None
 
@@ -139,29 +140,26 @@ class FilterGrid(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.parent_table = parent_table
-        self.Bind(wx.EVT_CHAR, self.OnKeyCheck)
         self.mux = None #currently selected mux
         h = wx.GetApp().receiver.browse_history
         self.allow_all = False
         self.num_rows_on_screen = 1
-        #self.SetSelectionMode(wx.grid.Grid.SelectColumns)
-        #self.Bind ( wx.grid.EVT_GRID_SELECT_CELL, self.OnGridCellSelect)
         self.GoToCell(0, len(self.table.columns)-1)
         self.SetGridCursor(0, len(self.table.columns)-1)
+        self.MakeCellVisible(0, len(self.table.columns)-1)
+        self.SetFocus()
+        self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
 
-    def OnKeyCheck(self, evt):
+    def OnKeyDown(self, evt):
         """
         After editing, move cursor right
         """
         keycode = evt.GetKeyCode()
+        modifiers = evt.GetModifiers()
+        is_ctrl = (modifiers & wx.ACCEL_CTRL)
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
-            if self.EditMode():
-                self.MoveCursorRight(False)
-            else:
-                row = self.GetGridCursorRow()
-                mux = self.table.screen.record_at_row(row)
-                dtdebug(f'RETURN pressed on row={row}: PLAY mux={mux}')
-                self.app.MuxTune(mux)
+            dialog = self.GetGrandParent()
+            wx.PostEvent(dialog.Done, wx.CommandEvent(wx.EVT_BUTTON.typeId, dialog.Done.GetId()))
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -224,7 +222,8 @@ class FilterDialog(FilterDialog_):
         wx.CallAfter(grid.Destroy)
         if changed:
             self.parent_table.GetRow.cache_clear()
-        event.Skip()
+        if event is not None:
+            event.Skip()
 
     def OnCancel(self, event):
         self.grid_sizer.Remove(1) #remove current grid

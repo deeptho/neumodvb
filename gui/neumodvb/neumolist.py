@@ -407,8 +407,8 @@ class NeumoTableBase(wx.grid.GridTableBase):
 
     def SetValue(self, rowno, colno, val):
         try:
-            if rowno == self.row_being_edited:
-                rec = self.record_being_edited
+            if rowno == self.row_being_edited :
+                rec = self.record_being_edited if self.record_being_edited is not None else self.GetRow(rowno)
             else:
                 rec =  self.GetRow(rowno)
         except:

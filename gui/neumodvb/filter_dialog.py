@@ -213,6 +213,7 @@ class FilterDialog(FilterDialog_):
 
     def OnDone(self, event):
         changed = (self.parent_table.filtered_colnos != self.grid.table.new_filtered_colnos)
+        changed |= (self.parent_table.filter_record != self.grid.table.filter_record)
         self.parent_table.filtered_colnos = self.grid.table.new_filtered_colnos
         self.parent_table.filter_record = self.grid.table.filter_record
         self.grid.OnDone(event)

@@ -598,7 +598,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.lnb_changed = True
             network = pydevdb.lnb_network.lnb_network()
             network.sat_pos = sat.sat_pos
-            network.usals_pos = sat.sat_pos
+            network.usals_pos = pychdb.sat.sat_pos_none
             dtdebug(f"Saving new lnb network: lnb={self.lnb} network={network}")
             changed = pydevdb.lnb.add_or_edit_network(self.lnb, self.get_usals_location(), network)
             self.lnb_changed = True

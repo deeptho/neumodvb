@@ -660,7 +660,7 @@ class SignalPanel(SignalPanel_):
         super().__init__(parent, *args, **kwds)
         self.signal_info = pyreceiver.signal_info_t()
         self.SetDefaultLevels()
-        self.status_keys = ('carrier', 'timing_lock', 'fec', 'lock', 'sync')
+        self.status_keys = ('carrier', 'timing_lock', 'lock', 'fec', 'sync')
         from neumodvb.speak import Speaker
         self.speak_signal = False
         self.speaker = Speaker()

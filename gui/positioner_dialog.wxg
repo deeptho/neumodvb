@@ -700,18 +700,18 @@
                                                     <object class="sizeritem">
                                                         <option>0</option>
                                                         <border>0</border>
-                                                        <object class="wxStaticText" name="has_fec" base="EditStaticText">
+                                                        <object class="wxStaticText" name="has_lock" base="EditStaticText">
                                                             <foreground>#ff0000</foreground>
-                                                            <label>fec</label>
+                                                            <label>lock</label>
                                                             <attribute>1</attribute>
                                                         </object>
                                                     </object>
                                                     <object class="sizeritem">
                                                         <option>0</option>
                                                         <border>0</border>
-                                                        <object class="wxStaticText" name="has_lock" base="EditStaticText">
+                                                        <object class="wxStaticText" name="has_fec" base="EditStaticText">
                                                             <foreground>#ff0000</foreground>
-                                                            <label>lock</label>
+                                                            <label>fec</label>
                                                             <attribute>1</attribute>
                                                         </object>
                                                     </object>

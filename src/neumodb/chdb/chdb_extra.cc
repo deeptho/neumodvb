@@ -355,7 +355,7 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 
 	bool mux_key_incompatible{false}; // db_mux and mux have different key, even after update
 	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->extra_id == 0) {
-		//templat mux key entered by user is never considered valid,  so use database value
+		//template mux key entered by user is never considered valid,  so use database value
 		mux.k = db_mux.k;
 	}
 	if(db_mux.c.tune_src == tune_src_t::USER && mux.c.tune_src != tune_src_t::AUTO)  {
@@ -1301,42 +1301,33 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 {
 	using namespace chdb;
 	int count{0};
-	auto c = mux_t::find_by_scan_status(wtxn, scan_status_t::PENDING, find_type_t::find_geq,
-																			mux_t::partial_keys_t::scan_status);
 
-	for(auto mux: c.range())  {
-		assert (mux.c.scan_status == chdb::scan_status_t::PENDING);
-		if(mux.c.scan_id != 0) {
-			auto owner_pid = mux.c.scan_id >>8;
-			if(kill((pid_t)owner_pid, 0) == 0) {
-				dtdebugx("process pid=%d is still active; skip deleting pending status\n", owner_pid);
+	auto clean = [&](scan_status_t scan_status) {
+		auto c = mux_t::find_by_scan_status(wtxn, scan_status, find_type_t::find_geq,
+																				mux_t::partial_keys_t::scan_status);
+
+		for(auto mux: c.range())  {
+			assert (mux.c.scan_status == scan_status);
+			if(mux.c.scan_id != 0) {
+				auto owner_pid = mux.c.scan_id >>8;
+				if(kill((pid_t)owner_pid, 0) == 0) {
+					dtdebugx("process pid=%d is still active; skip deleting scan status\n", owner_pid);
 				continue;
+				}
 			}
+			mux.c.scan_status = chdb::scan_status_t::IDLE;
+			mux.c.scan_id = 0;
+			put_record(wtxn, mux);
+			count++;
 		}
-		mux.c.scan_status = chdb::scan_status_t::IDLE;
-		mux.c.scan_id = 0;
-		put_record(wtxn, mux);
-		count++;
-	}
+	};
 
-	c = mux_t::find_by_scan_status(wtxn, scan_status_t::ACTIVE, find_type_t::find_geq,
-																 mux_t::partial_keys_t::scan_status);
-	for(auto mux: c.range())  {
-		assert (mux.c.scan_status == chdb::scan_status_t::ACTIVE);
-		if(mux.c.scan_id != 0) {
-			auto owner_pid = mux.c.scan_id >>8;
-			if(kill((pid_t)owner_pid, 0) == 0) {
-				dtdebugx("process pid=%d is still active; skip deleting pending status\n", owner_pid);
-				continue;
-			}
-		}
-		mux.c.scan_status = chdb::scan_status_t::IDLE;
-		mux.c.scan_id = 0;
-		put_record(wtxn, mux);
-		count++;
-	}
 
-	dtdebugx("Cleaned %d muxes with PENDING/ACTIVE status", count);
+	clean(scan_status_t::PENDING);
+	clean(scan_status_t::ACTIVE);
+	clean(scan_status_t::RETRY);
+
+	dtdebugx("Cleaned %d muxes with PENDING/ACTIVE/RETRY status", count);
 }
 
 template<typename record_t> static void clean_expired(db_txn& wtxn, std::chrono::seconds age, const char* label)

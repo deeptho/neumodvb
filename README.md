@@ -28,7 +28,7 @@ to LNBs are too large.
 
 ## [Installation](docs/INSTALL.md) ##
 
-## Troubleshooting (docs/troubleshooting.md) ##
+## [Troubleshooting](docs/troubleshooting.md) ##
 
 ## [Reporting bugs](docs/bugs.md) ##
 

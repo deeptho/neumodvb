@@ -98,7 +98,7 @@ class FrontendTable(NeumoTable):
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'adapter_no'
+        initial_sorted_column = 'card_no'
         data_table= pydevdb.fe
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 

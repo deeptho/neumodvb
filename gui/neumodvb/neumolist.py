@@ -557,7 +557,7 @@ class NeumoTable(NeumoTableBase):
     def __init__(self, parent, basic=False, db_t=None, record_t=None,
                  data_table = None, screen_getter = None,
                  initial_sorted_column = None,
-                 sort_order = 1,
+                 sort_order = 0,
                  *args, **kwds):
         """
         """
@@ -594,6 +594,11 @@ class NeumoTable(NeumoTableBase):
         self.red_bg.SetBackgroundColour('red')
         self.screen_getter = screen_getter
         self.parent = parent
+        if initial_sorted_column:
+            if type(initial_sorted_column) == str:
+                self.set_initial_sort_column(initial_sorted_column)
+            else:
+                self.set_initial_sort_column(initial_sorted_column[0])
 
     def highlight_colour(self, record):
         """
@@ -850,7 +855,7 @@ class NeumoTable(NeumoTableBase):
         self.db_t.delete_record(txn, record)
 
     def set_sort_column(self, colno):
-        need_refresh = False
+        #need_refresh = False
         need_new_data = False
         if 0 <= colno <= len(self.columns):
             if self.columns[colno].sort is not None:
@@ -860,8 +865,8 @@ class NeumoTable(NeumoTableBase):
 
             self.sort_colno = colno
             if self.sort_columns[0: len(sort_columns)] == sort_columns:
-                self.sort_order = 1 if self.sort_order ==2 else 2
-                need_refresh = (self.sort_order !=2)
+                self.sort_order = 1 if self.sort_order != 1 else 2
+                #need_refresh = (self.sort_order !=2)
             else:
                 need_new_data = True
                 self.sort_columns = sort_columns + self.sort_columns
@@ -873,6 +878,19 @@ class NeumoTable(NeumoTableBase):
             self.__get_data__()
         self.screen.invert_rows = self.sort_order == 2
         self.GetRow.cache_clear()
+
+    def set_initial_sort_column(self, key):
+        #need_refresh = False
+        need_new_data = False
+        colno = next ( idx for (idx, col) in enumerate(self.columns) if col.key == key)
+        if 0 <= colno <= len(self.columns):
+            if self.columns[colno].sort is not None:
+                sort_columns = list(self.columns[colno].sort)
+            else:
+                sort_columns = [ self.columns[colno].key ]
+
+            self.sort_colno = colno
+            self.sort_order = 2 if key.endswith('_time') else 1
 
     def __get_data__(self, use_cache=False):
         """

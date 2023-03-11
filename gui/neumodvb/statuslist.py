@@ -84,7 +84,7 @@ class StatusTable(NeumoTable):
         return f'D{lnb_key.dish_id} {sat_pos:>5}{t} {lnb_key.lnb_id}'
 
     def __init__(self, parent, basic=False, *args, **kwds):
-        initial_sorted_column = 'k.rf_path.lnb.dish_id'
+        initial_sorted_column = 'k.sat_pos'
         data_table= pystatdb.signal_stat
 
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)

@@ -247,7 +247,7 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 	if (!hdr.current_next || cstate.version_number != hdr.version_number) {
 		/*
 			The original code forced a reset when a version number changes. The implicit asummption is that
-			version changes are very are and tha the new version should take precedence.
+			version changes are very are and that the new version should take precedence.
 
 			A first problem  is that this might causes a reset cycle between versions with current_next=1 and 0.
 			A second problem occurs with invalid data (7.0E, 10804V - several versions of same bouquet
@@ -269,7 +269,7 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 	}
 	if (cstate.completed) {
 		timedout_now = t.timedout_now();
-		return {timedout_now, badversion, section_type_t::DUPLICATE};
+		return {timedout_now, badversion, section_type_t::COMPLETE};
 	}
 
 	auto cstate_status = cstate.set_flag(hdr);

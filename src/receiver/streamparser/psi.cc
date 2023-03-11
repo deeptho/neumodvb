@@ -353,7 +353,6 @@ void pmt_parser_t::parse_payload_unit() {
 	bool success = false;
 
 	if (must_process || timedout)  {
-		timedout = false;
 		stored_section_t section(payload, hdr.pid);
 		section.skip(hdr.header_len); // already parsed
 		success = timedout ? true : parse_pmt_section(section, pmt);
@@ -391,9 +390,7 @@ void pat_parser_t::parse_payload_unit() {
 #endif
 	pat_services_t pat_services;
 	bool success = false;
-	if (must_process) {
-		assert(!timedout);
-		timedout = false;
+	if (must_process || timedout) {
 		stored_section_t section(payload, hdr.pid);
 		section.skip(hdr.header_len); // already parsed
 		success = parse_pat_section(section, pat_services);
@@ -439,9 +436,7 @@ void nit_parser_t::parse_payload_unit() {
 		dtdebugx("Parser completed");
 	nit_network_t network;
 	bool success{false};
-	if (must_process) {
-		assert(!timedout);
-		timedout = false;
+	if (must_process || timedout) {
 		stored_section_t section(payload, hdr.pid);
 		section.skip(hdr.header_len); // already parsed
 		success = parse_nit_section(section, network);
@@ -489,9 +484,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 #endif
 		sdt_services_t services;
 		bool success{false};
-		if (must_process) {
-			assert(!timedout);
-			timedout = false;
+		if (must_process || timedout) {
 			stored_section_t section(payload, hdr.pid);
 			section.skip(hdr.header_len); // already parsed
 			success = parse_sdt_section(section, services);
@@ -512,8 +505,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 			dtdebugx("Parser completed now");
 		bouquet_t bouquet;
 		bool success{false};
-		if (must_process) {
-			assert(!timedout);
+		if (must_process || timedout) {
 			timedout = false;
 			stored_section_t section(payload, hdr.pid);
 			section.skip(hdr.header_len); // already parsed
@@ -562,9 +554,7 @@ void eit_parser_t::parse_payload_unit() {
 	epg.is_sky = epg.is_sky_summary || epg.is_sky_title;
 	epg.is_freesat = (pid == dtdemux::ts_stream_t::FREESAT_EIT_PID);
 	bool success{false};
-	if (must_process) {
-		assert(!timedout);
-		timedout = false;
+	if (must_process || timedout) {
 		stored_section_t section(payload, hdr.pid);
 		section.skip(hdr.header_len); // already parsed
 		log4cxx::NDC::push(" EIT");
@@ -646,8 +636,7 @@ void mhw2_parser_t::parse_payload_unit() {
 
 	bool success{false};
 	dtdemux::reset_type_t must_reset{dtdemux::reset_type_t::NO_RESET};
-	if (must_process) {
-		assert(!timedout);
+	if (must_process || timedout) {
 		timedout = false;
 		stored_section_t section(payload, hdr.pid);
 		section.skip(hdr.header_len); // already parsed

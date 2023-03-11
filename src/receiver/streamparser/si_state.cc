@@ -268,7 +268,7 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 		return {timedout_now, badversion, section_type_t::BAD_VERSION};
 	}
 	if (cstate.completed) {
-		timedout_now = t.timedout_now();
+		timedout_now = false;
 		return {timedout_now, badversion, section_type_t::COMPLETE};
 	}
 
@@ -282,8 +282,9 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 
 	if (cstate_status == section_type_t::DUPLICATE) {
 		last_section = steady_clock_t::now();
+		timedout_now = t.timedout_now();
 		//assert(!completed); It is possible that new incomplete subtables have been discovered
-		return {false, badversion, cstate_status};
+		return {timedout_now, badversion, cstate_status};
 	}
 
 	assert(cstate_status == section_type_t::LAST);

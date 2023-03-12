@@ -1238,9 +1238,9 @@ namespace dtdemux {
 		const bool in_es_loop = false;
 		pmt.parse_descriptors(*this, info,
 													in_es_loop);
+		pmt.estimated_media_mode = (info.t2mi_stream_id >=0) ? media_mode_t::UNKNOWN : media_mode_t::T2MI;
 
 		// elementary stream loop
-
 		while (this->available() > 4) { // 4 is the crc
 
 			auto stream_type = this->get<uint8_t>();
@@ -1262,6 +1262,8 @@ namespace dtdemux {
 			pid_info_t info(stream_pid, stream_type);
 			const bool in_es_loop = true;
 			pmt.parse_descriptors(*this, info, in_es_loop);
+		if(info.t2mi_stream_id >=0)
+			pmt.estimated_media_mode = media_mode_t::T2MI;
 			pmt.pid_descriptors.push_back(info);
 		}
 		uint32_t crc UNUSED = this->get<uint32_t>();
@@ -1273,6 +1275,7 @@ namespace dtdemux {
 		if(!error)
 			current_version_number = hdr.version_number;
 #endif
+		assert(	(int)pmt.estimated_media_mode <=4);
 		return true;
 	}
 

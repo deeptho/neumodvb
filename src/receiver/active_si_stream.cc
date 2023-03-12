@@ -2765,8 +2765,8 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 		auto new_service = service;
 		new_service.mux_desc = mux_desc;
 		new_service.pmt_pid = pat_service.pmt.pmt_pid;
-		//new_service.pr_pid = pat_service.pmt.pcr_pid;
 		new_service.video_pid = pat_service.pmt.video_pid;
+		assert(	(int)pat_service.pmt.estimated_media_mode <=4);
 		if (pat_service.pmt.estimated_media_mode != media_mode_t::UNKNOWN)
 			new_service.media_mode = pat_service.pmt.estimated_media_mode;
 		new_service.encrypted = pat_service.pmt.is_encrypted();

@@ -68,6 +68,7 @@ media_mode = db_enum(name='media_mode_t',
                            ('TV', 1),
                            ('RADIO', 2),
                            ('DATA', 3),
+                           ('T2MI', 4),
                            ))
 scan_status = db_enum(name='scan_status_t',
                    db = db,

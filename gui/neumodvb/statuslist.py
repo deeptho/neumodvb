@@ -77,7 +77,7 @@ class StatusTable(NeumoTable):
 
     def lnb_label(self, signal_stat):
         lnb_key = signal_stat.k.rf_path.lnb
-        sat_pos=pychdb.sat_pos_str(signal_stat.k.mux.sat_pos)
+        sat_pos=pychdb.sat_pos_str(signal_stat.k.sat_pos)
         t= lastdot(lnb_key.lnb_type)
         if t == 'UNIV':
             t='Ku'

@@ -40,6 +40,8 @@ class Speaker(object):
                 if  x is None:
                     dtdebug(f"previous speak command still running; skipping; poll={x}")
                     return
+                elif x != 0:
+                    dterror(f"espeak failed: errror={self.p.returncode}")
             self.p = subprocess.Popen(inputcommand,  shell=False)
 
     def speak_string(self, x):

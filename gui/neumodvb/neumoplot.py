@@ -433,6 +433,7 @@ class Spectrum(object):
         self.xlimits = (int(self.spec[0,0]), int(self.spec[-1,0] ))
         self.ylimits = (ylimits[0], ylimits[1] if self.annot_maxy is None else self.annot_maxy )
         self.parent.get_limits.cache_clear() #needs update!
+        self.ylimits = (self.ylimits[0], min(self.ylimits[1], self.ylimits[0]+30))
         xlimits, ylimits = self.parent.get_limits()
 
         self.axes.set_ylim(ylimits)

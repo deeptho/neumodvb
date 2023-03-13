@@ -62,8 +62,7 @@ template <typename cursor_t> static int16_t make_unique_id(lnb_key_t key, cursor
 }
 
 int16_t devdb::make_unique_id(db_txn& devdb_rtxn, lnb_key_t key) {
-	key.lnb_id = 0;
-	auto c = devdb::lnb_t::find_by_k(devdb_rtxn, key, find_geq);
+	auto c = devdb::lnb_t::find_by_key(devdb_rtxn, key.dish_id, find_geq);
 	return ::make_unique_id(key, c);
 }
 

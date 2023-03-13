@@ -195,9 +195,8 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 	update the status of all live stat_info_t records to non-live
  */
 void statdb::clean_live(db_txn& wtxn) {
-	signal_stat_key_t k;
-	k.live=true;
-	auto c = signal_stat_t::find_by_key(wtxn, k, find_type_t::find_geq, signal_stat_t::partial_keys_t::live);
+	bool live=true;
+	auto c = signal_stat_t::find_by_key(wtxn, live, find_type_t::find_geq, signal_stat_t::partial_keys_t::live);
 	for (; c.is_valid(); c.next()) {
 		auto stat = c.current();
 		assert(stat.k.live);
@@ -210,9 +209,6 @@ void statdb::clean_live(db_txn& wtxn) {
 ss::vector_<signal_stat_t> statdb::signal_stat::get_by_mux_fuzzy(
 	db_txn& devdb_rtxn, int16_t sat_pos, chdb::fe_polarisation_t pol, int frequency, time_t start_time, int tolerance) {
 	using namespace statdb;
-	signal_stat_key_t key;
-	key.sat_pos = sat_pos;
-	key.pol = pol;
 	auto start_freq = frequency -tolerance;
 	auto end_freq = frequency +tolerance;
 	ss::vector_<signal_stat_t> ret;
@@ -220,9 +216,9 @@ ss::vector_<signal_stat_t> statdb::signal_stat::get_by_mux_fuzzy(
 	// look up the first record with matching live, sat_pos, pol and closeby frequency
 	// and create a range which iterates over all with the same live, sat_pos, pol combination
 	for(int live=0; live < 2; ++live) {
-		key.live = live;
-		key.frequency = start_freq;
-		auto c = signal_stat_t::find_by_key(devdb_rtxn, key, find_type_t::find_geq,
+		auto c = signal_stat_t::find_by_key(devdb_rtxn,
+																				live, sat_pos, pol, start_freq,
+																				find_type_t::find_geq,
 																				signal_stat_t::partial_keys_t::live_sat_pos_pol);
 
 		for (auto const& stat : c.range()) {

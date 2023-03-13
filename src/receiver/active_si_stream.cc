@@ -2138,9 +2138,7 @@ void active_si_stream_t::process_removed_services(db_txn& txn, chdb::mux_key_t& 
 
 void active_si_stream_t::process_removed_channels(db_txn& txn, const chdb::chg_key_t& chg_key,
 																									ss::vector_<uint16_t>& channel_ids) {
-	chdb::chgm_key_t k{};
-	k.chg = chg_key;
-	auto c = chdb::chgm_t::find_by_key(txn, k, find_geq, chdb::chgm_t::partial_keys_t::chg);
+	auto c = chdb::chgm_t::find_by_key(txn, chg_key, find_geq, chdb::chgm_t::partial_keys_t::chg);
 
 	for (const auto& channel : c.range()) {
 		if (channel.k.chg != chg_key)
@@ -2579,10 +2577,9 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 
 void active_si_stream_t::load_movistar_bouquet() {
 	auto txn = chdb.rtxn();
-	chdb::chgm_key_t k{};
 	auto sat_pos = reader->get_sat_pos();
-	k.chg = (chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id_movistar, sat_pos));
-	auto c = chdb::chgm_t::find_by_key(txn, k, find_geq, chdb::chgm_t::partial_keys_t::chg);
+	auto chg = chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id_movistar, sat_pos);
+	auto c = chdb::chgm_t::find_by_key(txn, chg, find_geq, chdb::chgm_t::partial_keys_t::chg);
 	for (const auto& chgm : c.range()) {
 		bat_data.opentv_service_keys.try_emplace(chgm.k.channel_id, chgm.service);
 	}
@@ -2591,10 +2588,9 @@ void active_si_stream_t::load_movistar_bouquet() {
 
 void active_si_stream_t::load_skyuk_bouquet() {
 	auto txn = chdb.rtxn();
-	chdb::chgm_key_t k{};
 	auto sat_pos = reader->get_sat_pos();
-	k.chg = (chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id_sky_opentv, sat_pos));
-	auto c = chdb::chgm_t::find_by_key(txn, k, find_geq, chdb::chgm_t::partial_keys_t::chg);
+	auto chg = chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id_sky_opentv, sat_pos);
+	auto c = chdb::chgm_t::find_by_key(txn, chg, find_geq, chdb::chgm_t::partial_keys_t::chg);
 	for (const auto& chgm : c.range()) {
 		bat_data.opentv_service_keys.try_emplace(chgm.k.channel_id, chgm.service);
 	}

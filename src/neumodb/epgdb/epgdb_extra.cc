@@ -179,10 +179,6 @@ std::optional<epgdb::epg_record_t> epgdb::running_now(db_txn& txnepg, const chdb
 
 std::optional<chdb::service_t> epgdb::service_for_epg_record(db_txn& txn, const epgdb::epg_record_t& epg_record) {
 	using namespace chdb;
-	service_key_t k;
-	k.mux.sat_pos = epg_record.k.service.sat_pos;
-	k.mux.network_id = epg_record.k.service.network_id;
-	k.mux.ts_id = epg_record.k.service.ts_id;
 	/*
 		Note that epg_record.k.service.sat_pos could be wrong, because sat_pos relates to the satellite
 		on which the epg record was found. Sometimes satellites report epg for muxes on other satellites.
@@ -195,7 +191,10 @@ std::optional<chdb::service_t> epgdb::service_for_epg_record(db_txn& txn, const 
 	*/
 
 	// we do can not included k.mux.t2mi_pid and k.mux.extra_id in the serch, so we use a loop
-	auto c = service_t::find_by_key(txn, k, find_type_t::find_geq, service_t::partial_keys_t::sat_pos_network_id_ts_id);
+	auto c = service_t::find_by_key(txn,
+																	epg_record.k.service.sat_pos, epg_record.k.service.network_id,
+																	epg_record.k.service.ts_id,
+																	find_type_t::find_geq, service_t::partial_keys_t::sat_pos_network_id_ts_id);
 	for (const auto& service : c.range()) {
 		if (service.k.service_id == epg_record.k.service.service_id)
 			return service;
@@ -380,7 +379,8 @@ static bool save_epg_record_if_better_(db_txn& txnepg, const epgdb::epg_record_t
 	epg_key.start_time -= tolerance;
 	auto c = epgdb::epg_record_t::find_by_key(
 		txnepg,
-		epg_key,													 // epg service must match
+		epg_key.service,													 // epg service must match
+		epg_key.start_time,
 		find_geq, // start_time  must be within range
 		// note the absence of event_id => we allow any event_id
 		epgdb::epg_record_t::partial_keys_t::service // iterator will only return records with proper service

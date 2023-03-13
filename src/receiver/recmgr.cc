@@ -229,8 +229,9 @@ int rec_manager_t::schedule_recordings_for_overlapping_epg(db_txn& rec_wtxn, db_
 	using namespace epgdb;
 	epg_key_t epg_key = sched_epg_record.k;
 	assert (epg_key.anonymous);
-	epg_key.anonymous = false;
 	epg_key.start_time -= tolerance;
+	epg_key.event_id = 0 ; //minimal value for this field; important for serialization as a lower bound
+	epg_key.anonymous = false;
 	auto c = epgdb::epg_record_t::find_by_key(
 		epg_wtxn,
 		epg_key,

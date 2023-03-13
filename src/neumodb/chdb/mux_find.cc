@@ -316,8 +316,8 @@ get_by_nid_tid_unique_ret_t chdb::get_by_network_id_ts_id(db_txn& txn, uint16_t 
 		return ret;
 	}
 	{
-		chdb::mux_key_t mux_key(sat_pos_dvbt, network_id, ts_id, 0, 0);
-		auto c = chdb::dvbt_mux_t::find_by_key(txn, mux_key);
+		auto c = chdb::dvbt_mux_t::find_by_key(txn, sat_pos_dvbt, network_id, ts_id, find_type_t::find_eq,
+																					 dvbt_mux_t::partial_keys_t::sat_pos_network_id_ts_id);
 		if (c.is_valid()) {
 			ret.mux = c.current();
 			ret.unique = get_by_nid_tid_unique_ret_t::UNIQUE;
@@ -326,8 +326,8 @@ get_by_nid_tid_unique_ret_t chdb::get_by_network_id_ts_id(db_txn& txn, uint16_t 
 		return ret;
 	}
 	{
-		chdb::mux_key_t mux_key(sat_pos_dvbc, 0, network_id, ts_id, 0);
-		auto c = chdb::dvbc_mux_t::find_by_key(txn, mux_key);
+		auto c = chdb::dvbc_mux_t::find_by_key(txn, sat_pos_dvbc, network_id, ts_id, find_type_t::find_eq,
+																					 dvbc_mux_t::partial_keys_t::sat_pos_network_id_ts_id);
 		if (c.is_valid()) {
 			ret.mux = c.current();
 			ret.unique = get_by_nid_tid_unique_ret_t::UNIQUE;
@@ -466,7 +466,7 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const ch
 	if (c.is_valid())
 		return c;
 	int sat_tolerance = 30; //0.3 degrees
-	auto cs = sat_t::find_by_sat_pos(txn, mux.k.sat_pos-sat_tolerance, find_type_t::find_geq);
+	auto cs = sat_t::find_by_key(txn, mux.k.sat_pos-sat_tolerance, find_type_t::find_geq);
 	for(const auto& sat:  cs.range()) {
 		if (sat.sat_pos > mux.k.sat_pos + sat_tolerance)
 			break;
@@ -486,19 +486,20 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const ch
 	sed by find_fuzzy_ (update_mux), find_by_mux_physical
 */
 template <typename mux_t>
-db_tcursor_index<mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance) {
+requires (!is_same_type_v<mux_t, chdb::dvbs_mux_t>)
+db_tcursor<mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance) {
 	using namespace chdb;
 
 	// look up the first record with matching sat_pos and closeby frequency
 	// and create a range which iterates over all with the same sat_freq_pol
 	// find_leq is essential to find the first frequency below the wanted one if the wanted one does not exist
-	auto c = mux_t::find_by_frequency(txn, frequency, find_leq);
+	auto c = mux_t::find_by_key(txn, frequency, find_leq);
 
 	if (!c.is_valid()) {
 		// no frequencies lower than the wanted one
 		c.close();
 		// perhaps there are closeby higher frequencies
-		c = mux_t::find_by_frequency(txn, frequency, find_geq);
+		c = mux_t::find_by_key(txn, frequency, find_geq);
 		if (!c.is_valid()) {
 			// no frequencies higher than the wanted one on this sat
 			c.close();
@@ -683,13 +684,13 @@ template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux_physical(db_txn& t
 		return std::move(c.maincursor);
 	} else {
 		auto c = chdb::find_by_freq_fuzzy<mux_t>(txn, mux.frequency);
-		return std::move(c.maincursor);
+		return c;
 	}
 }
 
 //template instantiations
-template db_tcursor_index<chdb::dvbt_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
-template db_tcursor_index<chdb::dvbc_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
+template db_tcursor<chdb::dvbt_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
+template db_tcursor<chdb::dvbc_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
 
 template db_tcursor<chdb::dvbs_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbs_mux_t& mux,
 																																 bool ignore_stream_id, bool ignore_key);

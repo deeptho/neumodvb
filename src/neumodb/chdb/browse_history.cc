@@ -38,7 +38,7 @@ chdb::history_mgr_t::history_mgr_t(neumodb_t& db_, int32_t user_id)
 void chdb::history_mgr_t::init() {
 	assert(!inited);
 	auto txn = db.rtxn();
-	auto c = browse_history_t::find_by_user_id(txn, h.user_id);
+	auto c = browse_history_t::find_by_key(txn, h.user_id);
 	if (c.is_valid()) {
 		h = c.current();
 	}

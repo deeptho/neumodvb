@@ -19,6 +19,7 @@
  */
 
 #pragma once
+#include <util/template_util.h>
 #include <iostream>
 #include <cstdlib>
 #include <cmath>
@@ -57,7 +58,7 @@ namespace chdb {
 	bool add_epg_type(chdb::any_mux_t& mux, chdb::epg_type_t tnew);
 
 	/*
-	 returns true if epg type was actually updated
+		returns true if epg type was actually updated
 	*/
 	bool remove_epg_type(chdb::any_mux_t& mux, chdb::epg_type_t tnew);
 
@@ -317,7 +318,7 @@ namespace chdb::sat {
 
 	inline auto find_by_position_fuzzy(db_txn& txn, int position, int tolerance=30) {
 		using namespace chdb;
-		auto c = sat_t::find_by_sat_pos(txn, position, find_leq);
+		auto c = sat_t::find_by_key(txn, position, find_leq);
 		if (!c.is_valid()) {
 			c.close();
 			return c;
@@ -426,9 +427,9 @@ namespace chdb::dvbs_mux {
 namespace chdb {
 
 	template<typename mux_t>
-	db_tcursor_index<mux_t>
+	requires (!is_same_type_v<mux_t, chdb::dvbs_mux_t>)
+	db_tcursor<mux_t>
 	find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance=1000);
-
 
 	db_tcursor_index<chdb::dvbs_mux_t>
 	find_by_mux_fuzzy(db_txn& txn, const chdb::dvbs_mux_t& mux, bool ignore_stream_ids);
@@ -502,7 +503,7 @@ namespace chdb::service {
 	inline auto find_by_mux_key(db_txn& txn, const mux_key_t& mux_key) {
 		service_key_t service_key{};
 		service_key.mux = mux_key;
-		auto c = service_t::find_by_k(txn, service_key, find_geq, service_t::partial_keys_t::mux);
+		auto c = service_t::find_by_key(txn, service_key, find_geq, service_t::partial_keys_t::mux);
 		return c;
 	}
 

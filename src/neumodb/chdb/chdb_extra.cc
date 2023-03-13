@@ -143,12 +143,12 @@ template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, mux_key
 
 template <typename mux_t> uint16_t chdb::make_unique_id(db_txn& txn, mux_key_t key) {
 	key.extra_id = 0;
-	auto c = mux_t::find_by_k(txn, key, find_geq);
+	auto c = mux_t::find_by_key(txn, key, find_geq);
 	return ::make_unique_id(txn, key, c);
 }
 
 int32_t chdb::make_unique_id(db_txn& txn, chg_key_t key) {
-	auto c = chg_t::find_by_k(txn, key, find_geq);
+	auto c = chg_t::find_by_key(txn, key, find_geq);
 	int gap_start = 1; // start of a potential gap of unused extra_ids
 	for (const auto& chg : c.range()) {
 		if (chg.k.bouquet_id > gap_start) {
@@ -172,7 +172,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chg_key_t key) {
 }
 
 int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
-	auto c = chgm_t::find_by_k(txn, key, find_geq);
+	auto c = chgm_t::find_by_key(txn, key, find_geq);
 	int gap_start = 1; // start of a potential gap of unused extra_ids
 	for (const auto& chgm : c.range()) {
 		if (chgm.k.channel_id > gap_start) {
@@ -242,7 +242,7 @@ void chdb::on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, c
 	} {
 		//todo: chgm
 	} {
-		auto c = sat_t::find_by_sat_pos(wtxn, old_mux_key.sat_pos, find_type_t::find_geq,
+		auto c = sat_t::find_by_key(wtxn, old_mux_key.sat_pos, find_type_t::find_geq,
 																		sat_t::partial_keys_t::sat_pos);
 		for(auto sat: c.range()) {
 			if (sat.reference_tp == old_mux_key) {

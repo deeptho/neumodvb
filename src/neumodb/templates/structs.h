@@ -198,6 +198,7 @@ namespace {{dbname}} {
        {{struct.class_name}}::partial_keys_t key_prefix={{struct.class_name}}::partial_keys_t::none);
 
 {%if key.index_name != prefix.prefix_name and loop.index == 1 %}
+#if 0
 inline static
 {{cursor_type}}<{{struct.class_name}}> find_by_{{prefix.prefix_name}}
 (db_txn& txn, {%- for field in prefix.fields %}
@@ -209,6 +210,7 @@ inline static
 	{%endfor -%}
 		find_type, key_prefix);
 }
+#endif
 {% endif %}
 
 {% endif %}

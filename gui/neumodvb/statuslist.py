@@ -52,8 +52,8 @@ class StatusTable(NeumoTable):
     CD = NeumoTable.CD
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
-    snr_fn = lambda x: f'{get_snr(x[1]):6.2f}dB'
-    rf_fn = lambda x: f'{get_rf(x[1]):6.2f}dB'
+    snr_fn = lambda x: f'{get_snr(x[1]):6.1f}dB'
+    rf_fn = lambda x: f'{get_rf(x[1]):6.1f}dB'
     ber_fn = lambda x: f'{get_ber(x[1]):8.2e}'
     mac_fn = lambda x: x[2].mac_fn(x[1])
     all_columns = \
@@ -68,7 +68,7 @@ class StatusTable(NeumoTable):
          CD(key='k.frequency',  label='freq', basic=True, readonly = True, dfn= freq_fn, example="10725.114"),
          CD(key='k.pol', label='Pol', basic=True, dfn=lambda x: lastdot(x).replace('POL',''), example='V'),
 
-         CD(key='k.time', label='Start', basic=True, dfn=datetime_fn, example='2021-06-16 18:30:33'),
+         CD(key='k.time', label='Start', basic=True, dfn=datetime_fn, example='2021-06-16 18:30:33 '),
          CD(key='stats', label='Signal', basic=True, dfn=rf_fn, example='-12.3dB '),
          CD(key='stats', label='SNR', basic=True, dfn=snr_fn, example='12.3dB '),
          CD(key='stats', label='BER', basic=True, dfn=ber_fn, example='1.111e-12 '),

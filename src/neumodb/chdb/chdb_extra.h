@@ -81,32 +81,33 @@ namespace chdb {
 			SCAN_STATUS  = 0x2,
 			NUM_SERVICES  = 0x4, //directly used
 			EPG_TYPES   = 0x8, // directly used
-			TUNE_SRC   = 0x10, //indrectly used
+			NIT_SI_DATA = 0x10,
+			MUX_COMMON = SCAN_DATA | SCAN_STATUS | NUM_SERVICES | EPG_TYPES | NIT_SI_DATA,
+
 			MUX_KEY = 0x20, //directly used
-			TUNE_DATA = 0x40, //NOT USED
-			PLS_DATA = 0x80, //NOT USED
-			MTIME = 0x100,
+			TUNE_DATA = 0x40,
+			MTIME = 0x80,
+
 			ALL = 0xffff,
-			MUX_COMMON = SCAN_DATA | SCAN_STATUS | NUM_SERVICES | EPG_TYPES | TUNE_SRC,
 		};
 	};
 
 	template<typename mux_t>
 	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux_key,
-													mux_t& new_mux,
+												 mux_t& new_mux,
 												 system_time_t now_);
 
 	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux,
-													chdb::dvbs_mux_t& new_mux,
-													system_time_t now_);
+												 chdb::dvbs_mux_t& new_mux,
+												 system_time_t now_);
 
 	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux,
-													chdb::any_mux_t& new_mux,
-													system_time_t now_);
+												 chdb::any_mux_t& new_mux,
+												 system_time_t now_);
 	/*
 		if callback returns false; save is aborted
 		if callback receives nullptr, record was not found
-	 */
+	*/
 	update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 															system_time_t now, update_mux_preserve_t::flags preserve,
 															std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
@@ -222,6 +223,8 @@ namespace chdb {
 	void to_str(ss::string_& ret, const service_t& service);
 	void to_str(ss::string_& ret, const chg_t& chg);
 	void to_str(ss::string_& ret, const chgm_t& channel);
+	void to_str(ss::string_& ret, tune_src_t tune_src);
+	void to_str(ss::string_& ret, key_src_t key_src);
 
 
 	inline void to_str(ss::string_& ret, const mux_common_t& t) {
@@ -286,6 +289,8 @@ namespace chdb {
 	std::ostream& operator<<(std::ostream& os, const fe_polarisation_t& pol);
 	std::ostream& operator<<(std::ostream& os, const chg_t& chg);
 	std::ostream& operator<<(std::ostream& os, const chgm_t& channel);
+	std::ostream& operator<<(std::ostream& os, const tune_src_t tune_src);
+	std::ostream& operator<<(std::ostream& os, const key_src_t key_src);
 
 	inline bool is_same(const chgm_t &a, const chgm_t &b) {
 		if (!(a.k == b.k))
@@ -313,10 +318,10 @@ namespace chdb {
 namespace chdb::sat {
 	/*!
 		find a satellite which is close to position; returns the best match
-		We adopt a tolerance of 0.3 degrees.
-	 */
+		We adopt a tolerance of sat_pos_tolerance.
+	*/
 
-	inline auto find_by_position_fuzzy(db_txn& txn, int position, int tolerance=30) {
+	inline auto find_by_position_fuzzy(db_txn& txn, int position, int tolerance = 30) {
 		using namespace chdb;
 		auto c = sat_t::find_by_key(txn, position, find_leq);
 		if (!c.is_valid()) {
@@ -357,7 +362,7 @@ namespace chdb {
 
 	/* tuning parameters (sat_pos, polarisation, frequency) indicate muxes with same bandwidth
 		 and frequency with tight tolerance
-	 */
+	*/
 	bool matches_physical(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
 	bool matches_physical(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
 	bool matches_physical(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
@@ -380,7 +385,7 @@ namespace chdb {
 	/*!
 		find a mux which the correct network_id and ts_id and closely matching frequency
 		we adopt a tolerance of 1000kHz
-	 */
+	*/
 	template<typename mux_t>
 	db_tcursor<mux_t> find_by_mux(db_txn& txn, const mux_t& mux);
 
@@ -388,7 +393,7 @@ namespace chdb {
 	find a matching mux, based on sat_pos, ts_id, network_id, ignoring  extra_id
 	This is called by the SDT_other parsing code and will not work if multiple
 	muxes exist on the same sat with the same (network_id, ts_id)
- */
+*/
 	struct get_by_nid_tid_unique_ret_t {
 		enum unique_type_t {
 			UNIQUE,
@@ -444,7 +449,7 @@ namespace chdb::dvbt_mux {
 
 	/*!
 		find a mux which with the correct network_id and ts_id and closely matching frequency
-	 */
+	*/
 	db_tcursor<chdb::dvbt_mux_t> find_by_mux_key_fuzzy(db_txn& txn, const dvbt_mux_t& mux, int tolerance=1000);
 
 	inline bool is_template(const dvbt_mux_t& mux)
@@ -467,7 +472,7 @@ namespace chdb::dvbc_mux {
 
 	/*!
 		find a mux which with the correct network_id and ts_id and closely matching frequency
-	 */
+	*/
 	db_tcursor<chdb::dvbc_mux_t> find_by_mux_key_fuzzy(db_txn& txn, const dvbc_mux_t& mux, int tolerance=1000);
 
 	inline bool is_template(const dvbc_mux_t& mux)
@@ -478,7 +483,7 @@ namespace chdb::dvbc_mux {
 		If the mux is a template (mux.k.network_id==0 && mux.k.mux.ts_id==and not yet has
 		an extra_id (mux.k.extra_id == 0), then assign it a
 		unique extra_id
-	 */
+	*/
 	inline void make_unique_if_template(db_txn& txn, dvbc_mux_t& mux ) {
 		if(is_template(mux) && mux.k.extra_id==0)
 			mux.k.extra_id = chdb::make_unique_id<dvbc_mux_t>(txn, mux.k);
@@ -494,12 +499,12 @@ namespace chdb::service {
 
 
 /*
-		find first service on mux
-		@todo this is used to loop over all services on a mux, but how do we stop the iteration
-		when the cursor reaches the next mux?
-		Currently caller must handle this by checking for change in mux
-		set_prefix_key is the solution
-	 */
+	find first service on mux
+	@todo this is used to loop over all services on a mux, but how do we stop the iteration
+	when the cursor reaches the next mux?
+	Currently caller must handle this by checking for change in mux
+	set_prefix_key is the solution
+*/
 	inline auto find_by_mux_key(db_txn& txn, const mux_key_t& mux_key) {
 		service_key_t service_key{};
 		service_key.mux = mux_key;

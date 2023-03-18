@@ -150,7 +150,11 @@ template <typename mux_t> void chdb::clear_all_streams_pending_status(
 		// find tps with matching frequency, but probably incorrect network_id/ts_id
 		if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 			// approx. match in sat_pos, frequency, exact match in  polarisation, t2mi_pid and stream_id
-			return chdb::find_by_mux_fuzzy(chdb_wtxn, ref_mux, true/*ignore_stream_id*/, true /*ignore_t2mi_pid*/);
+			return chdb::find_by_mux_fuzzy(chdb_wtxn, ref_mux, true/*ignore_stream_id*/
+#if 0
+																		 , true /*ignore_t2mi_pid*/
+#endif
+				);
 		} else {
 			return chdb::find_by_freq_fuzzy<mux_t>(chdb_wtxn, ref_mux.frequency);
 		}

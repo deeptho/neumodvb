@@ -1349,13 +1349,17 @@ namespace dtdemux {
 			bool is_dvbs{false};
 			bool is_dvbt{false};
 			bool is_dvbc{false};
-			auto tune_src = is_actual ? tune_src_t::NIT_ACTUAL_NON_TUNED : tune_src_t::NIT_OTHER_NON_TUNED;
+			auto tune_src = is_actual ? tune_src_t::NIT_ACTUAL : tune_src_t::NIT_OTHER;
+			auto key_src = is_actual ? key_src_t::NIT_ACTUAL : key_src_t::NIT_OTHER;
 			dvbs_mux_t dvbs_mux;
 			dvbt_mux_t dvbt_mux;
 			dvbc_mux_t dvbc_mux;
 			dvbs_mux.c.tune_src = tune_src;
+			dvbs_mux.c.key_src = key_src;
 			dvbc_mux.c.tune_src = tune_src;
+			dvbc_mux.c.key_src = key_src;
 			dvbt_mux.c.tune_src = tune_src;
+			dvbt_mux.c.key_src = key_src;
 
 			auto ts_id = this->get<uint16_t>();
 			auto original_network_id = this->get<uint16_t>();
@@ -1381,8 +1385,10 @@ namespace dtdemux {
 						this->get_fields<s2_satellite_delivery_system_descriptor_t>(dvbs_mux);
 						if (!is_dvbs) {
 							dvbs_mux.k.network_id = original_network_id;
+							dvbs_mux.c.nit_network_id = original_network_id;
 							dvbs_mux.k.extra_id = 0; // will be updated in process_nit
 							dvbs_mux.k.ts_id = ts_id;
+							dvbs_mux.c.nit_ts_id = ts_id;
 							is_dvbs = true;
 						}
 					}
@@ -1390,16 +1396,20 @@ namespace dtdemux {
 				case SI::SatelliteDeliverySystemDescriptorTag: {
 					this->get_fields<satellite_delivery_system_descriptor_t>(dvbs_mux);
 					dvbs_mux.k.network_id = original_network_id;
+					dvbs_mux.c.nit_network_id = original_network_id;
 					dvbs_mux.k.extra_id = 0; // will be updated in process_nit
 					dvbs_mux.k.ts_id = ts_id;
+					dvbs_mux.c.nit_ts_id = ts_id;
 					is_dvbs = true;
 					network.sat_set = true;
 				} break;
 				case SI::CableDeliverySystemDescriptorTag: {
 					auto& mux = dvbc_mux;
 					mux.k.network_id = original_network_id;
+					mux.c.nit_network_id = original_network_id;
 					mux.k.extra_id = 0; // will be updated in process_nit
 					mux.k.ts_id = ts_id;
+					mux.c.nit_ts_id = ts_id;
 					is_dvbc = true;
 
 					this->get_fields<cable_delivery_system_descriptor_t>(dvbc_mux);
@@ -1407,8 +1417,10 @@ namespace dtdemux {
 				case SI::TerrestrialDeliverySystemDescriptorTag: {
 					auto& mux = dvbt_mux;
 					mux.k.network_id = original_network_id;
+					mux.c.nit_network_id = original_network_id;
 					mux.k.extra_id = 0; // will be updated in process_nit
 					mux.k.ts_id = ts_id;
+					mux.c.nit_ts_id = ts_id;
 					is_dvbt = true;
 					if (this->get_fields<terrestrial_delivery_system_descriptor_t>(dvbt_mux) < 0) {
 						dterror("Bad mux found: " << dvbt_mux);

@@ -137,13 +137,10 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 				 chdb::mux_common_ptr(mux)->scan_id >0);
 	if(is_active_mux)
 		*mux_common = *mux_common_ptr(stream_mux); //copy scan_id and such
-	mux_common->tune_src =  is_active_mux ? tune_src_t::NIT_ACTUAL_TUNED :
-		is_actual ? tune_src_t::NIT_ACTUAL_NON_TUNED : tune_src_t::NIT_OTHER_NON_TUNED;
-
 	namespace m = chdb::update_mux_preserve_t;
 	if(!this->update_mux(wtxn, mux, now, is_active_mux, false /*from_sdt*/,
-											 is_active_mux ? m::flags(m::MUX_COMMON & ~ m::SCAN_STATUS & ~m::TUNE_SRC)
-											 : m::flags(m::MUX_COMMON & ~m::TUNE_SRC) /*preserve*/))
+											 is_active_mux ? m::flags(m::MUX_COMMON & ~ m::SCAN_STATUS)
+											 : m::flags(m::MUX_COMMON) /*preserve*/))
 		return; //something went wring, e.g., on wrong sat
 	assert(mux_key->extra_id != 0);
 
@@ -153,7 +150,10 @@ void active_si_stream_t::add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bo
 #ifndef NDEBUG
 	if(is_active_mux) {
 		auto& c  = *mux_common_ptr(mux);
-		assert( c.tune_src == chdb::tune_src_t::NIT_ACTUAL_NON_TUNED || c.tune_src == chdb::tune_src_t::NIT_ACTUAL_TUNED);
+		assert( c.tune_src == tune_src_t::NIT_TUNED);
+#if 0
+		assert((c.key_src == chdb::key_src_t::SDT_TUNED) ||(!from_sdt  && c.key_src == key_src_t::NIT_TUNED));
+#endif
 	}
 #endif
 
@@ -249,7 +249,7 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 	auto preserve = m::MUX_COMMON;
 	if(!is_embedded_si) {
 		mux_common->tune_src = tune_src_t::TEMPLATE;
-		preserve = m::flags{preserve & ~ m::TUNE_SRC};
+		preserve = m::flags{preserve};
 	}
 	assert(expected_sat_pos == mux_key->sat_pos);
 	mux_key->network_id = network_id;
@@ -1223,7 +1223,8 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		{
 			auto stream_mux = reader->stream_mux();
 			assert(!chdb::is_template(stream_mux));
-			assert(chdb::mux_key_ptr(stream_mux)->extra_id >0);
+			assert(chdb::mux_key_ptr(stream_mux)->extra_id >0 ||
+						 chdb::mux_common_ptr(stream_mux)->key_src == key_src_t::NONE);
 		}
 		if(tune_confirmation.sat_by == confirmed_by_t::NONE)
 			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
@@ -1413,8 +1414,6 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 		/*if is_active_mux=true, then we already know that the sat_pos matches within a tolerance,
 			otherwise we need to check if we are on the wrong sat
 		*/
-		auto& c  = *mux_common_ptr(mux);
-		assert( c.tune_src == chdb::tune_src_t::NIT_ACTUAL_NON_TUNED || c.tune_src == chdb::tune_src_t::NIT_ACTUAL_TUNED );
 		dtdebugx("NIT CONFIRMS sat=%d network_id=%d ts_id=%d", mux_key->sat_pos, mux_key->network_id, mux_key->ts_id);
 		if (tune_confirmation.sat_by == confirmed_by_t::NONE)
 			tune_confirmation.sat_by = confirmed_by_t::NIT;
@@ -1624,8 +1623,14 @@ bool active_si_stream_t::update_mux(
 
 	if(from_sdt) {
 		auto *c = chdb::mux_common_ptr(mux);
-		//note that the following settings will only be stored if the mux does not yet exist
-		c->tune_src = tune_src_t::SDT_ACTUAL_TUNED;
+#if 0
+#ifndef NDEBUG
+		auto testpreserve  = m::flags((m::SCAN_DATA | m::NIT_SI_DATA | m::TUNE_DATA));
+#endif
+		assert((preserve &testpreserve) == testpreserve);
+#endif
+		assert(is_reader_mux); //SDT_ACTUAL is only ever written for the reader_mux
+		c->key_src = key_src_t::SDT_TUNED;
 		c->scan_status = chdb::scan_status_t::IDLE;
 		c->scan_id = 0;
 		chdb::update_mux(chdb_wtxn, mux, now,  preserve,
@@ -2498,7 +2503,7 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 		signal_info.lock_status.fe_status & FE_HAS_LOCK
 #endif
 		) {
-		//c.tune_src = chdb::tune_src_t::DRIVER;
+		//c.tune_src = chdb::tune_src_t::DRIVER_NONE_TUNED;
 		if(is_template(mux)) {
 			mux_common_ptr(mux)->tune_src = chdb::tune_src_t::DRIVER;
 		}
@@ -2516,7 +2521,7 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 									[&](chdb::dvbs_mux_t& mux) {
 										auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
 										assert(p);
-										if(p->c.tune_src == chdb::tune_src_t::NIT_ACTUAL_TUNED) {
+										if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
 											mux.frequency = p->frequency;
 											mux.symbol_rate = p->symbol_rate;
 										}
@@ -2537,7 +2542,7 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 									[&](chdb::dvbc_mux_t& mux) {
 										auto* p = std::get_if<chdb::dvbc_mux_t>(&si_mux);
 										assert(p);
-										if(p->c.tune_src == chdb::tune_src_t::NIT_ACTUAL_TUNED) {
+										if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
 											mux.frequency = p->frequency;
 											mux.symbol_rate = p->symbol_rate;
 										}
@@ -2549,7 +2554,7 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 									[&](chdb::dvbt_mux_t& mux) {
 										auto* p = std::get_if<chdb::dvbt_mux_t>(&si_mux);
 										assert(p);
-										if(p->c.tune_src == chdb::tune_src_t::NIT_ACTUAL_TUNED) {
+										if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
 											mux.frequency = p->frequency;
 										}
 										if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
@@ -2557,8 +2562,8 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 										}
 									});
 
-		dtdebug("Update driver_mux=" << signal_info.driver_mux << " tuned=" << reader->stream_mux() << "tune_src=" <<
-						(int)chdb::mux_common_ptr(si_mux)->tune_src);
+		dtdebug("Update driver_mux=" << signal_info.driver_mux << " stream_mux=" << reader->stream_mux()
+						<< " tune_src=" << (int)chdb::mux_common_ptr(si_mux)->tune_src);
 		if (mux_common_ptr(mux)->tune_src == chdb::tune_src_t::TEMPLATE ||
 				mux_common_ptr(mux)->tune_src == chdb::tune_src_t::DRIVER)
 
@@ -2690,7 +2695,7 @@ bool active_si_stream_t::matches_reader_mux(const chdb::any_mux_t& mux)
 		t2mi pids start with the nid/tid from their parent mux. So tid may be incorrect
 	*/
 	auto* c = chdb::mux_common_ptr(mux);
-	bool check_pat = !is_embedded_si || !(c->tune_src == chdb::tune_src_t::DRIVER || c->tune_src == chdb::tune_src_t::AUTO);
+	bool check_pat = !is_embedded_si || (c->tune_src == chdb::tune_src_t::DRIVER || c->tune_src == chdb::tune_src_t::NIT_TUNED);
 	if ( check_pat && ! pat_data.has_ts_id( mux_key_ptr(mux)->ts_id))
 		return false;
 	/*sat, freq, pol match what is currently tuned;

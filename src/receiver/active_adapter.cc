@@ -692,7 +692,7 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 		auto w = fe->ts.writeAccess();
 		if(!w->tune_confirmation.nit_actual_received && tune_confirmation.nit_actual_received) {
 			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
-			if(dvbs_mux && (dvbs_mux->c.tune_src == tune_src_t::NIT_ACTUAL_TUNED)) {
+			if(dvbs_mux && (dvbs_mux->c.key_src == key_src_t::NIT_TUNED)) {
 				lnb = w->reserved_lnb;
 				need_lof_offset_update = true;
 				sat_pos = dvbs_mux->k.sat_pos;
@@ -833,8 +833,9 @@ void active_adapter_t::check_for_new_streams()
 			} else { //not dvb
 				if(pdbc)
 					*c = *pdbc;
-				if(c->tune_src == tune_src_t::AUTO)
-					c->tune_src = tune_src_t::DRIVER;
+				c->tune_src = tune_src_t::DRIVER;
+				c->key_src = key_src_t::NONE;
+
 				if(pdbc && (pdbc->scan_status == scan_status_t::PENDING ||
 										pdbc->scan_status == scan_status_t::RETRY ||
 										pdbc->scan_status == scan_status_t::NONE ||
@@ -857,7 +858,7 @@ void active_adapter_t::check_for_new_streams()
 		//The following inserts a mux for each discovered multistream, but only if none exists yet
 		auto& wtxn = get_txn();
 		chdb::update_mux(wtxn, signal_info.driver_mux, now, m::flags{m::ALL & ~m::SCAN_STATUS &
-				~m::SCAN_DATA & ~m::TUNE_SRC}, update_scan_status, true /*ignore_key*/, false /*must_exist*/, false /*allow_multiple_keys*/);
+				~m::SCAN_DATA}, update_scan_status, true /*ignore_key*/, false /*must_exist*/, false /*allow_multiple_keys*/);
 	}
 	if(txn) {
 		txn->commit();

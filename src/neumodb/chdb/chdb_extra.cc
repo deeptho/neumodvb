@@ -273,6 +273,7 @@ static inline void copy_tuning(dvbc_mux_t& mux, dvbc_mux_t& db_mux) {
 	mux.fec_inner = db_mux.fec_inner;
 	mux.fec_outer = db_mux.fec_outer;
 	mux.stream_id = db_mux.stream_id;
+	mux.c.tune_src = db_mux.c.tune_src;
 }
 
 static inline void copy_tuning(dvbt_mux_t& mux, dvbt_mux_t& db_mux) {
@@ -287,6 +288,7 @@ static inline void copy_tuning(dvbt_mux_t& mux, dvbt_mux_t& db_mux) {
 	mux.HP_code_rate = db_mux.HP_code_rate;
 	mux.LP_code_rate = db_mux.LP_code_rate;
 	mux.stream_id = db_mux.stream_id;
+	mux.c.tune_src = db_mux.c.tune_src;
 }
 
 static inline void copy_tuning(dvbs_mux_t& mux, dvbs_mux_t& db_mux) {
@@ -303,6 +305,7 @@ static inline void copy_tuning(dvbs_mux_t& mux, dvbs_mux_t& db_mux) {
 	mux.pls_mode = db_mux.pls_mode;
 	mux.matype = db_mux.matype;
 	mux.pls_code = db_mux.pls_code;
+	mux.c.tune_src = db_mux.c.tune_src;
 }
 
 
@@ -324,7 +327,7 @@ void chdb::merge_services(db_txn& wtxn, const mux_key_t& src_key, const chdb::an
 				dst_service.ch_order = service.ch_order;
 				put_record(wtxn, dst_service);
 			}
-		} else  {
+		} else {
 			chdb::to_str(service.mux_desc, dst);
 			put_record(wtxn, service);
 		}
@@ -346,14 +349,13 @@ void chdb::remove_services(db_txn& wtxn, const mux_key_t& mux_key) {
  */
 
 template <typename mux_t>
-bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preserve) {
+void merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preserve) {
 	namespace m = update_mux_preserve_t;
 	dtdebug("db_mux=" << db_mux << "-> mux=" << mux);
 	assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 					mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 				 mux.c.scan_id >0);
 
-	bool mux_key_incompatible{false}; // db_mux and mux have different key, even after update
 	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->extra_id == 0) {
 		//template mux key entered by user is never considered valid,  so use database value
 		mux.k = db_mux.k;
@@ -366,81 +368,20 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 		copy_tuning(mux, db_mux); //preserve what is in the database
 	}
 
-	switch(mux.c.tune_src) {
-	case tune_src_t::TEMPLATE:
-		mux.c.tune_src = db_mux.c.tune_src;
-		break;
+	if( (preserve & m::MUX_KEY) ) { //actual copying handled by caller
+		mux.c.key_src = db_mux.c.key_src;
+	}
 
-	case tune_src_t::SDT_ACTUAL_TUNED:
-		if( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
-			copy_tuning( mux, db_mux );
-			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
-		} else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
-			copy_tuning( mux, db_mux );
-			mux.c.tune_src = db_mux.c.tune_src;
-		}
-		break;
-
-	case tune_src_t::NIT_ACTUAL_TUNED:
-		if(db_mux.c.tune_src == tune_src_t::USER) {
-			copy_tuning( mux, db_mux);
-			mux.c.tune_src = db_mux.c.tune_src;
-		}
-		break;
-
-	case tune_src_t::NIT_ACTUAL_NON_TUNED:
-		if( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED) {
-			copy_tuning( mux, db_mux);
-			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
-		}
-		else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
-			copy_tuning( mux, db_mux );
-			mux.c.tune_src = db_mux.c.tune_src;
-		}
-		break;
-
-
-	case tune_src_t::NIT_OTHER_NON_TUNED:
-		if( ( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED ||
-					db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_NON_TUNED )) {
-			copy_tuning( mux, db_mux );
-			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
-		}
-		else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
-			copy_tuning( mux, db_mux );
-			mux.c.tune_src = db_mux.c.tune_src;
-		}
-		break;
-
-	case tune_src_t::DRIVER:
-		if( ( db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_TUNED ||
-					db_mux.c.tune_src == tune_src_t::NIT_ACTUAL_NON_TUNED ||
-					db_mux.c.tune_src == tune_src_t::NIT_OTHER_NON_TUNED ))
-			mux.c.tune_src = db_mux.c.tune_src; //simply preserve where most accurate data comes from
-		else if( db_mux.c.tune_src == tune_src_t::USER) { //user wants to preserve
-			copy_tuning( mux, db_mux );
-			mux.c.tune_src = db_mux.c.tune_src;
-		}
-		break;
-
-	case tune_src_t::USER:
-		break;
-
-	case tune_src_t::AUTO:
-		break;
-
-	case tune_src_t::UNKNOWN:
-		assert(0);
-		break;
-	};
-	//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
-
+	if (preserve & m::TUNE_DATA) {
+		copy_tuning(mux, db_mux); //preserve what is in the database
+	}
 	if (preserve & m::SCAN_DATA) {
+		mux.c.scan_time = db_mux.c.scan_time;
 		mux.c.scan_result = db_mux.c.scan_result;
 		mux.c.scan_duration = db_mux.c.scan_duration;
-		mux.c.scan_time = db_mux.c.scan_time;
 		mux.c.epg_scan = db_mux.c.epg_scan;
 	}
+
 	if (preserve & m::SCAN_STATUS) {
 		mux.c.scan_status = db_mux.c.scan_status;
 		mux.c.scan_id = db_mux.c.scan_id;
@@ -459,7 +400,11 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 
 	if (preserve & m::EPG_TYPES)
 		mux.c.epg_types = db_mux.c.epg_types;
-	return mux_key_incompatible;
+
+	if (preserve & m::NIT_SI_DATA) {
+		mux.c.nit_network_id = db_mux.c.nit_network_id;
+		mux.c.nit_ts_id = db_mux.c.nit_ts_id;
+	}
 }
 
 /*! Put a mux record, taking into account that its key may have changed
@@ -468,7 +413,7 @@ bool merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 
 	First find a mux which matches approximately in sat_pos, and frequency
 	and exactly in polarisation,
-  and exactly in key except extra_id (unless ignore_key==True)
+ and exactly in key except extra_id (unless ignore_key==True)
 	and exactly in t2mi_pid and stream_id
 
 	In case of multiple matches prefer the one with matching extra_id (unless ignore_key==True)
@@ -529,6 +474,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		auto tmp_key = mux.k;
 		tmp_key.extra_id = db_mux.k.extra_id;
 		auto key_matches = tmp_key == db_mux.k;
+		if(key_matches)
+			mux.k.extra_id = db_mux.k.extra_id; //avoid creating two muxes with same extra_id
 		/*
 			if !key_matches:  We are going to overwrite a mux with similar frequency but different ts_id, network_id.
 			If one of the muxes is a template and the other not, the non-template data
@@ -559,7 +506,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
-
+		key_matches = (mux.k == db_mux.k); //key can be changed by cb()
+		delete_db_mux = !key_matches;
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		if(!is_new) {
 			merge_muxes<mux_t>(mux, db_mux, preserve);
@@ -586,13 +534,11 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		if(must_exist)
 			return  update_mux_ret_t::NO_MATCHING_KEY;
 		ret = update_mux_ret_t::NEW;
+		dterror("Database mux " << db_mux << " setting extra_id on new mux");
+		mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
+
 		if(!cb(nullptr, nullptr))
 			return update_mux_ret_t::NO_MATCHING_KEY;
-		// It is possible that another tp exists with the same ts_id at an other very different frequency.
-		// Therefore we need to generate a unique extra_id
-		if(mux.k.extra_id==0) {
-			mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
-		}
 	}
 
 	assert(!is_template(mux));
@@ -736,6 +682,36 @@ void chdb::matype_str(ss::string_& s, int16_t matype, int rolloff) {
 		}
 	}
 }
+
+std::ostream& chdb::operator<<(std::ostream& os, tune_src_t tune_src) {
+	switch(tune_src) {
+	case tune_src_t::TEMPLATE:  os << "tmpl"; break;
+	case tune_src_t::NIT_TUNED:  os << "nit"; break;
+	case tune_src_t::NIT_ACTUAL: os << "nita"; break;
+	case tune_src_t::NIT_OTHER:  os << "nito"; break;
+	case tune_src_t::DRIVER:     os << "drv"; break;
+	case tune_src_t::USER:       os << "user"; break;
+	case tune_src_t::AUTO:       os << "auto"; break;
+	case tune_src_t::UNKNOWN:    os << "unk"; break;
+	}
+	return os;
+}
+
+
+std::ostream& chdb::operator<<(std::ostream& os, key_src_t key_src) {
+	switch(key_src) {
+	case  key_src_t::NONE:  os << "none"; break;
+	case key_src_t::NIT_TUNED:  os << "nit"; break;
+	case key_src_t::SDT_TUNED: os << "sdt"; break;
+	case key_src_t::PAT_TUNED: os << "pat"; break;
+	case key_src_t::NIT_ACTUAL:  os << "nita"; break;
+	case key_src_t::NIT_OTHER:  os << "nito"; break;
+	case key_src_t::USER:       os << "user"; break;
+	case key_src_t::AUTO:       os << "auto"; break;
+	}
+	return os;
+}
+
 
 std::ostream& chdb::operator<<(std::ostream& os, const language_code_t& code) {
 	os << lang_name(code);
@@ -953,6 +929,16 @@ void chdb::to_str(ss::string_& ret, const chg_t& chg) {
 void chdb::to_str(ss::string_& ret, const chgm_t& chgm) {
 	ret.clear();
 	ret << chgm;
+}
+
+void chdb::to_str(ss::string_& ret, tune_src_t tune_src) {
+	ret.clear();
+	ret << tune_src;
+}
+
+void chdb::to_str(ss::string_& ret, key_src_t key_src) {
+	ret.clear();
+	ret << key_src;
 }
 
 namespace chdb {

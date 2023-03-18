@@ -90,16 +90,42 @@ tune_src = db_enum(name='tune_src_t',
                    type_id = 100,
                    version = 1,
                    fields=(
-                       ('TEMPLATE', 0, 'templ'), #temporary values entered by user
-                       ('NIT_ACTUAL_TUNED', 1, 'natu'),  #NIT_ACTUAL after tuning the transponder: freq and sat_pos correct
-                                                         #and verified by comparing to driver data
-                       ('NIT_ACTUAL_NON_TUNED', 2, 'na'), #NIT_ACTUAL on some other mux, but not verified by tunung
-                       ('NIT_OTHER_NON_TUNED', 3, 'no'), #NIT_OTHER on some other mux (least reliable)
-                       ('DRIVER', 4, 'drv'),  #from driver; frequency approx. correct, sat_pos may be incorrect
-                       ('USER', 5, 'usr'), #user has locked the data from being overwritten
-                       ('AUTO', 6, 'auto'), #temporary state: user has turned off "USER", but source of data is unknown
-                       ('SDT_ACTUAL_TUNED', 7, 'sdt'),
-                       ('UNKNOWN', -1, 'unk'), #not initialised
+                       ('TEMPLATE', 0), #temporary values entered by user
+                       ('NIT_TUNED', 1),      #mux has been tuned, confirming tuning parameters
+                                        #freq is value from nit, but some values overridden from driver
+
+                       ('NIT_ACTUAL', 2),     #mux has not been tuned
+                                        #freq is value from NIT_ACTUAL table
+
+
+                       ('NIT_OTHER', 3),     #mux has not been tuned
+                                        #freq is value from NIT_OTHER table
+
+
+                       ('DRIVER', 4),  #mux has been tuned
+                                       #tuning parameters from driver
+
+                       ('USER', 5),    #user has locked the data from being overwritten
+                       ('AUTO', 6), #temporary state: user has turned off "USER", but source of data is unknown
+                       ('UNKNOWN', -1), #not initialised
+                   ))
+
+key_src = db_enum(name='key_src_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=(
+                       ('NONE', -1),  #IDs randomly chosen, no SI data available afer tuning
+                       ('SDT_TUNED', 1),   #mux has been tuned, ids from SDT
+                       ('NIT_TUNED', 2),   #mux has been tuned, only NIT read from stream,
+                       ('PAT_TUNED', 3),   #mux has been tuned, but no valid SDT/PAT; ts_id is reliable network_id not
+                                                        #no valid NIT_ACTUAL and SDT_ACTUAL
+                                                        #nid is invalid, ts_id comes from PAT
+                       ('NIT_ACTUAL', 4),   #mux has NOT been tuned, found in NIT_ACTUAL
+                       ('NIT_OTHER', 5),   #mux has NOT been tuned, found in NIT_OTHER
+                       ('USER', 6), #user has locked the data from being overwritten
+                       ('AUTO', 7) #temporary state: user has turned off "USER", but source of data is unknown
                            ))
 
 scan_result = db_enum(name='scan_result_t',
@@ -515,15 +541,18 @@ mux_common = db_struct(name='mux_common',
                     version = 1,
                     ignore_for_equality_fields = ('mtime',),
                     fields = ((1, 'time_t', 'scan_time'),
-                              (2, 'scan_status_t', 'scan_status', 'scan_status_t::NONE'),
                               (3, 'scan_result_t', 'scan_result'),
                               (8, 'time_t', 'scan_duration'),
-                              (4, 'uint16_t', 'num_services'),
                               (5, 'bool', 'epg_scan'),
-                              #(6, 'bool',  'is_template', 'false'),
-                              #(10, 'bool',  'freq_from_si', 'false'), #true if frequency was set from si
-                              (11, 'tune_src_t', 'tune_src', 'tune_src_t::AUTO'),
+                              (2, 'scan_status_t', 'scan_status', 'scan_status_t::NONE'),
                               (12, 'uint32_t', 'scan_id', '0'),
+                              (4, 'uint16_t', 'num_services'),
+                              (14, 'uint16_t', 'nit_network_id'), #usually redundant
+                              (15, 'uint16_t', 'nit_ts_id'), #usually redundant
+
+                              (11, 'tune_src_t', 'tune_src', 'tune_src_t::AUTO'),
+                              (13, 'key_src_t', 'key_src', 'key_src_t::NONE'),
+
                               (7, 'time_t', 'mtime'),
                               (9, 'ss::vector<epg_type_t,2>', 'epg_types'),
                               ))

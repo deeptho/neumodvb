@@ -28,7 +28,7 @@ import datetime
 from dateutil import tz
 
 from neumodvb.util import setup, lastdot
-from neumodvb.util import dtdebug, dterror, tune_src_str
+from neumodvb.util import dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
 
@@ -65,7 +65,8 @@ class DvbcMuxTable(NeumoTable):
          CD(key='c.scan_duration', label='Scan time', dfn=time_fn),
          CD(key='c.epg_scan', label='Epg\nscan', dfn=bool_fn),
          CD(key='c.epg_types', label='Epg\ntypes', dfn=epg_types_fn, example='FST'*2, readonly=True),
-         CD(key='c.tune_src', label='tun\nsrc', dfn=lambda x: tune_src_str(x), readonly=True, example="NIT_ACTUAL_NON_TUNED")
+         CD(key='c.tune_src', label='tun\nsrc', dfn=lambda x: pychdb.tune_src_str(x[1]), readonly=True, example="nita"),
+         CD(key='c.key_src', label='ids\nsrc', dfn=lambda x: pychdb.key_src_str(x[1]), readonly=True, example="nita")
          ]
 
     other_columns =  \

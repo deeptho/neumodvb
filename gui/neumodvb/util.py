@@ -186,24 +186,6 @@ def is_circ(lnb):
                             pydevdb.lnb_pol_type_t.L, pydevdb.lnb_pol_type_t.R)
 
 
-tune_src_map__ = {'NIT ACTUAL TUNED': 'nit tuned',
-                  'NIT ACTUAL NON TUNED': 'nit',
-                  'NIT OTHER NON TUNED': 'nit',
-                  'SDT ACTUAL TUNED': 'sdt actual tuned',
-                  'DRIVER': 'driver',
-                  'USER': 'override',
-                  'AUTO':  'auto',
-                  'TEMPLATE':  'template',
-                  'UNKNOWN': 'unknown'}
-
-
-def tune_src_str(x):
-    x = lastdot(x)
-    try:
-        return tune_src_map__[x]
-    except:
-        return x
-
 def find_parent_prop(self, attr, parent=None):
     if parent is not None  and hasattr(self, attr):
         return getattr(self, attr)

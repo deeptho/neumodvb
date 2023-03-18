@@ -426,15 +426,15 @@ void merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 
 	for must_exist: return without saving if existing mux cannot be found and update would create a new mux
 
-	allow_multiple_keys: if true then never replace a record with a different key but insert a new one
 */
 template <typename mux_t>
 update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, update_mux_preserve_t::flags preserve,
 																	std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-																	bool ignore_key, bool must_exist, bool allow_multiple_keys)
+																	bool ignore_key, bool ignore_t2mi_pid, bool must_exist)
 {
 	auto now = system_clock_t::to_time_t(now_);
 	//assert(mux.c.tune_src != tune_src_t::TEMPLATE);
+	assert(!ignore_t2mi_pid || ignore_key);
 	update_mux_ret_t ret = update_mux_ret_t::UNKNOWN;
 	mux_t db_mux;
 	/* The following cases need to be handled
@@ -459,14 +459,14 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		 such that (sat_pos, network_id, ts_id, extra_id) differs from the existing old mux
 	*/
 	namespace m = update_mux_preserve_t;
-	assert(!(ignore_key && (!(preserve & m::MUX_KEY))));
-	assert(!ignore_key ||!allow_multiple_keys);
-	auto c = chdb::find_by_mux_physical(wtxn, mux, false /*ignore_stream_id*/, ignore_key);
+	/*find mux with matching frequency, stream_id and t2mi_pid*/
+	auto c = chdb::find_by_mux_physical(wtxn, mux, false /*ignore_stream_id*/, ignore_key, ignore_t2mi_pid);
 	bool delete_db_mux{false};
 
 	bool is_new = true; // do we modify an existing record or create a new one?
 	if (c.is_valid()) {
 		db_mux = c.current();
+		assert(db_mux.stream_id == mux.stream_id);
 		if(db_mux.k.extra_id == 0 ) {
 			dterror("Database mux " << db_mux << " has zero extra_id; fixing it");
 			mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
@@ -477,19 +477,18 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		if(key_matches)
 			mux.k.extra_id = db_mux.k.extra_id; //avoid creating two muxes with same extra_id
 		/*
-			if !key_matches:  We are going to overwrite a mux with similar frequency but different ts_id, network_id.
+			if !key_matches: We are going to overwrite a mux with similar frequency but different ts_id, network_id.
 			If one of the muxes is a template and the other not, the non-template data
 			gets priority.
 		*/
-		if(!ignore_key && !key_matches) {
-			if(!allow_multiple_keys) {
-				if ((preserve & m::MUX_KEY) && must_exist)
-					return update_mux_ret_t::NO_MATCHING_KEY;
-				delete_db_mux = true;
-			}
+		if(!key_matches) {
+			if ((preserve & m::MUX_KEY) && must_exist)
+				return update_mux_ret_t::NO_MATCHING_KEY;
+			delete_db_mux = true;
+
 			if(mux.k.extra_id ==0)
 				mux.k.extra_id =  make_unique_id<mux_t>(wtxn, mux.k);
-			if(is_template(db_mux) && !allow_multiple_keys) {
+			if(is_template(db_mux)) {
 				db_mux.k = mux.k;
 			}
 		}
@@ -500,8 +499,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		ret = key_matches ? update_mux_ret_t::MATCHING_SI_AND_FREQ: update_mux_ret_t::MATCHING_FREQ;
 
-		is_new = (allow_multiple_keys && ! key_matches);
-		if(!cb( (allow_multiple_keys && !key_matches) ? nullptr : &db_mux.c, (allow_multiple_keys && !key_matches) ? nullptr : &db_mux.k))
+		is_new = false;
+		if(!cb(&db_mux.c, &db_mux.k))
 			return update_mux_ret_t::NO_MATCHING_KEY;
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
@@ -572,7 +571,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 update_mux_ret_t chdb::update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
 																	update_mux_preserve_t::flags preserve,
 																	std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-																	bool ignore_key, bool must_exist, bool allow_multiple_keys) {
+																	bool ignore_key, bool ignore_t2mi_pid, bool must_exist) {
 	using namespace chdb;
 	update_mux_ret_t ret;
 	visit_variant(
@@ -580,11 +579,11 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_tim
 		[&](chdb::dvbs_mux_t& mux) {
 			if(mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_DVBS)
 				mux.matype = 256;
-			ret = chdb::update_mux(wtxn, mux, now, preserve, cb, ignore_key, must_exist, allow_multiple_keys); },
+			ret = chdb::update_mux(wtxn, mux, now, preserve, cb, ignore_key, ignore_t2mi_pid, must_exist); },
 		[&](chdb::dvbc_mux_t& mux) { ret = chdb::update_mux(wtxn, mux, now, preserve, cb,
-																												ignore_key, must_exist, allow_multiple_keys); },
+																												ignore_key, ignore_t2mi_pid, must_exist); },
 		[&](chdb::dvbt_mux_t& mux) { ret = chdb::update_mux(wtxn, mux, now, preserve, cb,
-																												ignore_key, must_exist, allow_multiple_keys); });
+																												ignore_key, ignore_t2mi_pid, must_exist); });
 	return ret;
 }
 

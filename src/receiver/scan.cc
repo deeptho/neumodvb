@@ -285,10 +285,12 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 			assert(mux.k.sat_pos == blindscan.spectrum_key.sat_pos);
 			mux.symbol_rate = subscription.peak.symbol_rate;
 		}
-
+		mux.k.t2mi_pid = 0;
 		mux.stream_id = -1;
 		mux.c.scan_status = scan_status_t::PENDING;
-		auto c = find_by_mux_physical(chdb_rtxn, mux, true/*ignore_stream_id*/, false /*ignore_key*/);
+		/* ignore_t2mi_pid = false to ensure that we always find the encapsulating mux in case of t2mi*/
+		auto c = find_by_mux_physical(chdb_rtxn, mux, true/*ignore_stream_id*/, false /*ignore_key*/,
+																	false /*ignore_t2mi_pid*/);
 		if(c.is_valid()) {
 			auto db_mux = c.current();
 			/*heuristic: we assume that this means scanning an earlier mux has
@@ -796,7 +798,7 @@ bool scan_t::mux_is_being_scanned(const chdb::any_mux_t& mux)
 			std::visit([&](const auto& mux) {
 				auto* p = std::get_if<typename std::remove_cvref<decltype(mux)>::type>(& (*subscription.mux));
 				ret = p && ((mux.k == p->k) ||
-										chdb::matches_physical_fuzzy(mux, *p, true /*check_sat_pos*/));
+										chdb::matches_physical_fuzzy(mux, *p, true /*check_sat_pos*/));  //or stream_id or t2mi_pid does not match
 			}, mux);
 			if(ret)
 				return true;
@@ -862,7 +864,8 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 			namespace m = chdb::update_mux_preserve_t;
 			chdb::update_mux(chdb_wtxn, *subscription.mux, now,
 											 m::flags{(m::MUX_COMMON|m::MUX_KEY)& ~m::SCAN_STATUS}, false /*ignore_key*/,
-											 true /*must_exist*/, false /*allow_multiple_keys*/);
+											 false /*ignore_t2mi_pid*/,
+											 true /*must_exist*/);
 			chdb_wtxn.commit();
 			subscription_id = subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 		}

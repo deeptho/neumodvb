@@ -111,14 +111,14 @@ namespace chdb {
 	update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 															system_time_t now, update_mux_preserve_t::flags preserve,
 															std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-															bool ignore_key, bool must_exist, bool allow_multiple_keys);
+															bool ignore_key, bool ignore_t2mi_pid, bool must_exist);
 
 	inline update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 																		 system_time_t now, update_mux_preserve_t::flags preserve,
-																		 bool ignore_key, bool must_exist, bool allow_multiple_keys) {
+																		 bool ignore_key, bool ignore_t2mi_pid, bool must_exist) {
 		return update_mux(txn, mux, now, preserve,
 											[](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;}, ignore_key,
-											must_exist, allow_multiple_keys);
+											ignore_t2mi_pid, must_exist);
 	}
 
 	template <typename mux_t> void clear_all_streams_pending_status(db_txn& chdb_wtxn,
@@ -139,13 +139,13 @@ namespace chdb {
 	template<typename mux_t>
 	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
 															std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-															bool ignore_key, bool must_exist, bool allow_multiple_keys);
+															bool ignore_key, bool ignore_t2mi_pid, bool must_exist);
 
 	template<typename mux_t>
 	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
-															bool ignore_key, bool must_exist, bool allow_multiple_keys) {
+															bool ignore_key, bool ignore_t2mi_pid, bool must_exist) {
 		return update_mux(txn, mux, now, preserve, [](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;},
-											ignore_key, must_exist);
+											ignore_key, ignore_t2mi_pid, must_exist);
 	}
 
 
@@ -409,9 +409,11 @@ namespace chdb {
 																										int16_t tuned_sat_pos);
 	get_by_nid_tid_unique_ret_t get_by_network_id_ts_id(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 	template<typename mux_t>
-	db_tcursor<mux_t> find_by_mux_physical(db_txn& txn, const mux_t& mux, bool ignore_stream_id, bool ignore_keys);
+	db_tcursor<mux_t> find_by_mux_physical(db_txn& txn, const mux_t& mux, bool ignore_stream_id,
+																				 bool ignore_keys, bool ignore_t2mi_pid);
 
-	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_id, bool ignore_key);
+	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_id,
+																										 bool ignore_key, bool ignore_t2mi_pid);
 
 	void clean_scan_status(db_txn& wtxn);
 	void clean_expired_services(db_txn& wtxn, std::chrono::seconds age);
@@ -437,7 +439,7 @@ namespace chdb {
 	find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance=1000);
 
 	db_tcursor_index<chdb::dvbs_mux_t>
-	find_by_mux_fuzzy(db_txn& txn, const chdb::dvbs_mux_t& mux, bool ignore_stream_ids);
+	find_by_mux_fuzzy(db_txn& txn, const chdb::dvbs_mux_t& mux, bool ignore_stream_ids, bool ignore_t2mi_pid);
 
 	inline bool is_t2mi_mux(const chdb::any_mux_t& mux) {
 		const auto *dvbs_mux =  std::get_if<chdb::dvbs_mux_t>(&mux);

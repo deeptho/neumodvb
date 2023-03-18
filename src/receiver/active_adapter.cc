@@ -627,7 +627,8 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		master_mux.k.t2mi_pid = 0;
 		/*TODO: this will not detect almost duplicates in frequency (which should not be present anyway) or
 			handle small differences in sat_pos*/
-		auto c = chdb::find_by_mux_physical(chdb_txn, master_mux, false /*ignore_stream_ids*/, false /*ignore_key*/);
+		auto c = chdb::find_by_mux_physical(chdb_txn, master_mux, false /*ignore_stream_ids*/,
+																				false /*ignore_key*/, false /*ignore_t2mi_pid*/);
 		if (c.is_valid()) {
 			assert(mux_key_ptr(c.current())->sat_pos != sat_pos_none);
 			master_mux = c.current();
@@ -635,7 +636,7 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		if(must_activate) {
 			if(!chdb::is_template(mux)) { //delay activation of templates until we know they can be tuned
 				chdb::update_mux(chdb_txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS},
-												 false /*ignore_key*/, true /*must_exist*/, false /*allow_multiple_keys*/);
+												 false /*ignore_key*/, false /*ignore_t2mi_pid*/, true /*must_exist*/);
 			}
 		}
 		chdb_txn.commit();
@@ -650,7 +651,7 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		if(must_activate) {
 			if(!chdb::is_template(mux)) { //delay activation of templates until we know they can be tuned
 				chdb::update_mux(chdb_txn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS},
-												 false /*ignore_key*/, true /*must_exist*/, false /*allow_multiple_keys*/);
+												 false /*ignore_key*/, false /*ignore_t2mi_pid*/, true /*must_exist*/);
 			}
 		}
 		chdb_txn.commit();
@@ -857,8 +858,10 @@ void active_adapter_t::check_for_new_streams()
 
 		//The following inserts a mux for each discovered multistream, but only if none exists yet
 		auto& wtxn = get_txn();
+		assert(chdb::mux_key_ptr(signal_info.driver_mux)->t2mi_pid ==0);
 		chdb::update_mux(wtxn, signal_info.driver_mux, now, m::flags{m::ALL & ~m::SCAN_STATUS &
-				~m::SCAN_DATA}, update_scan_status, true /*ignore_key*/, false /*must_exist*/, false /*allow_multiple_keys*/);
+				~m::SCAN_DATA}, update_scan_status, true /*ignore_key*/, false /*ignore_t2mi_pid*/,
+			false /*must_exist*/);
 	}
 	if(txn) {
 		txn->commit();

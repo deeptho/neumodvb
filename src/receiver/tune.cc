@@ -130,8 +130,8 @@ int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const 
 		active_adapter.set_current_tp(mux);
 		auto txn = receiver.chdb.wtxn();
 		namespace m = chdb::update_mux_preserve_t;
-		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES}, false /*ignore_key*/, true /*must_exist*/,
-										 false /*allow_multiple_keys*/);
+		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES}, false /*ignore_key*/,
+										 false /*ignore_t2mi_pid*/, true /*must_exist*/);
 		txn.commit();
 		dtdebug("committed");
 	}

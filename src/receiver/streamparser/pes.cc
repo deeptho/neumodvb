@@ -305,7 +305,6 @@ static const char* aspect_ratios[] = {"invalid", "square", "4/3", "16/9", "2.21/
 void dtdemux::mpeg2_parser_t::parse_payload_unit() {
 	bool is_payload_unit_start = parse_pes_header();
 	RETURN_ON_ERROR;
-	RETURN_ON_ENCRYPTED;
 	if (!is_payload_unit_start)
 		return;
 	on_pes_start();

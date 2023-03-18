@@ -408,6 +408,8 @@ class TuneMuxPanel(TuneMuxPanel_):
                 event.Skip()
             return
         mux =self.mux.copy()
+        if self.use_blindscan:
+            mux.k.t2mi_pid = 0
         mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
         mux.matype = -1
         self.ClearSignalInfo()

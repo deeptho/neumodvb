@@ -322,8 +322,7 @@ db_tcursor_index<chdb::dvbs_mux_t> find_by_mux_fuzzy_helper(db_txn& txn, const c
 		// delta will drop in each iteration and will start to rise after the minimum
 		auto delta = std::abs((int)db_mux.frequency - (int)mux.frequency);
 		if (delta > best) {
-			c.prev();
-			return c;
+			return bestc;
 		}
 		best = delta;
 		bestc = c;

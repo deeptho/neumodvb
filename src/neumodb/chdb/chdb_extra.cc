@@ -10,7 +10,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -116,9 +116,9 @@ template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, mux_key
 			assert(0);
 			continue;
 		} else if (mux.k.extra_id > gap_start) {
-			/*we reached the first matching mux; assign next available lower  value to mux.k.extra_id
+			/*we reached the first matching mux; assign next available lower value to mux.k.extra_id
 				this can only fail if about 65535 muxes with the same sat_pos, network_id and ts_id exist;
-				In that case the loop continues, just in case some of these  65535 muxes have been deleted in the mean time,
+				In that case the loop continues, just in case some of these 65535 muxes have been deleted in the mean time,
 				which has left gaps in numbering */
 			// easy case: just assign the next lower id
 			return mux.k.extra_id - 1;
@@ -357,10 +357,10 @@ void merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 				 mux.c.scan_id >0);
 
 	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->extra_id == 0) {
-		//template mux key entered by user is never considered valid,  so use database value
+		//template mux key entered by user is never considered valid, so use database value
 		mux.k = db_mux.k;
 	}
-	if(db_mux.c.tune_src == tune_src_t::USER && mux.c.tune_src != tune_src_t::AUTO)  {
+	if(db_mux.c.tune_src == tune_src_t::USER && mux.c.tune_src != tune_src_t::AUTO) {
 		/*preserve all tuning data, unless the user wants to turn this off, which is indicated by
 			mux.c.tune_src == tune_src_t::MANUAL
 		*/
@@ -442,7 +442,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		 => insert new mux in the db; ensure unique extra_id
 		 b) tp with (more or less) correct frequency and polarisation exists but has a different network_id or ts_id
 		 with network_id and ts_id !=0
-		 => delete the old mux, which is clearly invalid now;  and insert the new mux with unique extra_id  (as in case a)
+		 => delete the old mux, which is clearly invalid now; and insert the new mux with unique extra_id (as in case a)
 		 c) a tp with (more or less) correct frequency and polarisation exists but has a network_id=0 and ts_id =0
 		 ts_id (0, 0). The latter occurs when seeding the database.
 		 => delete the old template mux and set extra_id=0 (as in case a)
@@ -532,7 +532,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		ret = is_new ? update_mux_ret_t::NO_MATCHING_KEY : update_mux_ret_t::MATCHING_SI_AND_FREQ;
 	} else { //no mux in db
 		if(must_exist)
-			return  update_mux_ret_t::NO_MATCHING_KEY;
+			return update_mux_ret_t::NO_MATCHING_KEY;
 		ret = update_mux_ret_t::NEW;
 		dterror("Database mux " << db_mux << " setting extra_id on new mux");
 		mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
@@ -554,15 +554,16 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		*/
 		mux.c.mtime = now;
 
-		dtdebugx("NIT %s: old=%s  new=%s #s=%d", is_new ? "NEW" : "CHANGED", to_str(db_mux).c_str(), to_str(mux).c_str(),
+		dtdebugx("NIT %s: old=%s new=%s #s=%d", is_new ? "NEW" : "CHANGED", to_str(db_mux).c_str(), to_str(mux).c_str(),
 						 mux.c.num_services);
 		assert(mux.frequency > 0);
 
 		dtdebug("mux=" << mux);
 		assert(mux.k.extra_id>0);
 		assert(!is_template(mux));
-		if(delete_db_mux)
+		if(delete_db_mux) {
 			delete_record(c, db_mux);
+		}
 		put_record(wtxn, mux);
 	}
 	return ret;

@@ -356,7 +356,6 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 					mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 				 mux.c.scan_id >0);
 
-	bool mux_key_incompatible{false}; // db_mux and mux have different key, even after update
 	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->extra_id == 0) {
 		//template mux key entered by user is never considered valid, so use database value
 		mux.k = db_mux.k;
@@ -400,7 +399,6 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 
 	if (preserve & m::EPG_TYPES)
 		mux.c.epg_types = db_mux.c.epg_types;
-	return mux_key_incompatible;
 }
 
 /*! Put a mux record, taking into account that its key may have changed

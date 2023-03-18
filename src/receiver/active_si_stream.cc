@@ -1208,7 +1208,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	auto sat_pos = nit_data.nit_actual_sat_positions.size()>=1 ? nit_data.nit_actual_sat_positions[0] : sat_pos_none;
 	bool is_wrong_dvb_type = dvb_type(sat_pos) != dvb_type(stream_mux);
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
-		&& sat_pos != sat_pos_none && std::abs(sat_pos - stream_mux_key->sat_pos) >= 30;
+		&& sat_pos != sat_pos_none && std::abs(sat_pos - stream_mux_key->sat_pos) >= sat_pos_tolerance;
 
 	ret = on_nit_section_completion(wtxn, network_data, ret, network.is_actual, on_wrong_sat, done);
 	if(ret== dtdemux::reset_type_t::RESET ||
@@ -1274,7 +1274,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 				tmp = *std::get_if<chdb::dvbs_mux_t>(&tuned_mux);
 				tmp.k.ts_id = dvbs_mux->k.ts_id;
 				tmp.k.network_id = dvbs_mux->k.network_id;
-				if(std::abs(dvbs_mux->k.sat_pos - tmp.k.sat_pos) < 30)
+				if(std::abs(dvbs_mux->k.sat_pos - tmp.k.sat_pos) < sat_pos_tolerance)
 					tmp.k.sat_pos = dvbs_mux->k.sat_pos;
 				can_be_tuned = true;
 				*dvbs_mux = tmp;
@@ -1308,7 +1308,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 			//reuters on 22W 4026R reports the wrong polarisation
 			dvbs_mux->pol =  chdb::fe_polarisation_t::R;
 		}
-		can_be_tuned = std::abs((int) mux_key->sat_pos - (int) tuned_mux_key->sat_pos) <=30;
+		can_be_tuned = std::abs((int) mux_key->sat_pos - (int) tuned_mux_key->sat_pos) <= sat_pos_tolerance;
 	}
 	return can_be_tuned;
 }
@@ -1384,7 +1384,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 		tuned to the right frequency and polarisation (matches, sat_pos is wrong (leading to !is_active_mux)
 	*/
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
-		&& (std::abs((int)mux_key->sat_pos - (int)tuned_mux_key->sat_pos) > 30);
+		&& (std::abs((int)mux_key->sat_pos - (int)tuned_mux_key->sat_pos) > sat_pos_tolerance);
 	if (is_wrong_dvb_type)
 		return  dtdemux::reset_type_t::NO_RESET;
 	if (on_wrong_sat) {
@@ -1431,7 +1431,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 			network_id, ts_id for the tuned mux is considered authorative
 		*/
 		if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
-			assert(std::abs(tuned_mux_key->sat_pos - mux_key->sat_pos) <= 30 ||
+			assert(std::abs(tuned_mux_key->sat_pos - mux_key->sat_pos) <= sat_pos_tolerance ||
 						 !on_wrong_sat);
 			dtdebugx("NIT CONFIRMS sat=%d", mux_key->sat_pos);
 			tune_confirmation.sat_by = confirmed_by_t::NIT;
@@ -1475,7 +1475,7 @@ bool active_si_stream_t::update_mux(
 
 	bool is_wrong_dvb_type = dvb_type(mux) != dvb_type(reader_mux);
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
-		&& std::abs(mux_key_ptr(reader_mux)->sat_pos - mux_key_ptr(mux)->sat_pos) >= 30;
+		&& std::abs(mux_key_ptr(reader_mux)->sat_pos - mux_key_ptr(mux)->sat_pos) >= sat_pos_tolerance;
 	if(on_wrong_sat)
 		return false;
 
@@ -2211,9 +2211,9 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 	std::optional<mux_data_t> temp;
 	bool is_wrong_dvb_type = p_mux_data && dvb_type(p_mux_data->mux_key.sat_pos) != dvb_type(tuned_key.sat_pos);
 	bool on_wrong_sat = p_mux_data && !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
-		&& std::abs((int)p_mux_data->mux_key.sat_pos - (int)tuned_key.sat_pos) >= 30;
-
-	if (services.is_actual && p_mux_data && ! on_wrong_sat && !p_mux_data->is_active_mux) {
+		&& std::abs((int)p_mux_data->mux_key.sat_pos - (int)tuned_key.sat_pos) >= sat_pos_tolerance;
+	//test 4.0W 12353H
+	if (services.is_actual && ! on_wrong_sat && !p_mux_data->is_active_mux) {
 		/* happens on 4.0W 12353H, which reports wrong frequency in nit_actual; also on  20.0E 3966R
 			 So we have foudn a mux in the database, but it cannot be the correct one
 			 as it is not currently being streamed on this frontend

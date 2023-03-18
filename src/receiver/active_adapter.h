@@ -286,7 +286,7 @@ private:
 	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
 public:
 	devdb::usals_location_t get_usals_location();
-	void lnb_update_usals_pos(int16_t usals_pos);
+	void lnb_update_usals_pos(int16_t usals_pos, int16_t sat_pos);
 	int open_demux(int mode = O_RDWR | O_NONBLOCK) const;
 
 	inline devdb::fe_t dbfe() const {

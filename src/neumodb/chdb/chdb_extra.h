@@ -321,7 +321,7 @@ namespace chdb::sat {
 		We adopt a tolerance of sat_pos_tolerance.
 	*/
 
-	inline auto find_by_position_fuzzy(db_txn& txn, int position, int tolerance = 30) {
+	inline auto find_by_position_fuzzy(db_txn& txn, int position, int tolerance = sat_pos_tolerance) {
 		using namespace chdb;
 		auto c = sat_t::find_by_key(txn, position, find_leq);
 		if (!c.is_valid()) {

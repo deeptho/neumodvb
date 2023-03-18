@@ -59,7 +59,7 @@ static get_by_nid_tid_unique_ret_t get_by_nid_tid_unique_(db_txn& txn, int16_t n
 		/*There could be multiple muxes with the same sat_pos, network_id and ts_id.
 			Therefore we count them
 		*/
-		if(check_sat_pos && std::abs(cmux.k.sat_pos - tuned_sat_pos) <= 30 ) {
+		if(check_sat_pos && std::abs(cmux.k.sat_pos - tuned_sat_pos) <= sat_pos_tolerance ) {
 			if( close_sat_count++ > 0 ) {
 				ret.unique =  get_by_nid_tid_unique_ret_t::NOT_UNIQUE;
 				break;
@@ -354,7 +354,7 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const ch
 	auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_id, ignore_t2mi_pid);
 	if (c.is_valid())
 		return c;
-	int sat_tolerance = 30; //0.3 degrees
+	int sat_tolerance = sat_pos_tolerance;
 	auto cs = sat_t::find_by_key(txn, mux.k.sat_pos-sat_tolerance, find_type_t::find_geq);
 	for(const auto& sat:  cs.range()) {
 		if (sat.sat_pos > mux.k.sat_pos + sat_tolerance)
@@ -427,7 +427,7 @@ db_tcursor<mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int 
 bool chdb::matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos) {
 	if (((int)a.pol& ~0x2) != ((int)b.pol & ~0x2)) //we allow switch between L/H and R/V
 		return false;
-	if (check_sat_pos && (std::abs(a.k.sat_pos - b.k.sat_pos) > 30)) // 0.3 degree
+	if (check_sat_pos && (std::abs(a.k.sat_pos - b.k.sat_pos) > sat_pos_tolerance))
 		return false;
 	if (a.stream_id != b.stream_id || a.k.t2mi_pid != b.k.t2mi_pid)
 		return false;
@@ -464,7 +464,7 @@ bool chdb::matches_physical(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check
 														bool ignore_stream_id) {
 	if (((int)a.pol& ~0x2) != ((int)b.pol & ~0x2)) //we allow switch between L/H and R/V
 		return false;
-	if (check_sat_pos && (std::abs(a.k.sat_pos - b.k.sat_pos) > 30)) // 0.3 degree
+	if (check_sat_pos && (std::abs(a.k.sat_pos - b.k.sat_pos) > sat_pos_tolerance))
 		return false;
 	if (!ignore_stream_id && (a.stream_id != b.stream_id))
 		return false;

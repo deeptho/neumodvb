@@ -308,7 +308,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 		assert(fe.sub.rf_path.lnb.dish_id == dish_id);
 		return need_exclusivity || //exclusivity cannot be offered
 			(fe.sub.usals_pos == sat_pos_none) ||  //dish is reserved exclusively by fe
-			std::abs(usals_pos - fe.sub.usals_pos) >=30; //dish would need to be moved more than 0.3 degree
+			std::abs(usals_pos - fe.sub.usals_pos) >= sat_pos_tolerance; //dish would need to be moved more than sat_pos_tolerance
 	};
 
 	auto c = fe_t::find_by_card_mac_address(rtxn, rf_path.card_mac_address, find_type_t::find_eq,
@@ -508,7 +508,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 
 			bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
 
-			if (lnb_is_on_rotor && (usals_move_amount >= 30) &&
+			if (lnb_is_on_rotor && (usals_move_amount >= sat_pos_tolerance) &&
 					(!may_move_dish || ! conn_can_control_rotor)
 				)
 				continue; //skip because dish movement is not allowed or  not possible

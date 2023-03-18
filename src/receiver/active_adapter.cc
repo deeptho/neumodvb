@@ -138,7 +138,7 @@ int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 	case tune_mode_t::POSITIONER_CONTROL: {
 		auto [ret, new_usals_sat_pos] = fe->diseqc(true /*skip_positioner*/);
 		if(new_usals_sat_pos != sat_pos_none)
-			lnb_update_usals_pos(new_usals_sat_pos);
+			lnb_update_usals_pos(new_usals_sat_pos, sat_pos_none);
 
 		if(ret<0) {
 			dterrorx("diseqc failed: err=%d", ret);
@@ -162,7 +162,7 @@ int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
 	assert(tune_state != TUNE_FAILED);
 	auto [ret, new_usals_sat_pos] = fe->tune(rf_path, lnb, mux, tune_options, user_requested, use_counts);
 	if(ret>=0 && new_usals_sat_pos != sat_pos_none)
-		lnb_update_usals_pos(new_usals_sat_pos);
+		lnb_update_usals_pos(new_usals_sat_pos, mux.k.sat_pos);
 
 	tune_start_time = system_clock_t::now();
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
@@ -370,7 +370,7 @@ int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 	set_current_tp({});
 	auto [ret, new_usals_sat_pos] = fe->lnb_spectrum_scan(rf_path, lnb, tune_options);
 	if(new_usals_sat_pos != sat_pos_none)
-		lnb_update_usals_pos(new_usals_sat_pos);
+		lnb_update_usals_pos(new_usals_sat_pos, sat_pos_none);
 
 	dtdebug("spectrum: diseqc done");
 	return ret;
@@ -510,11 +510,14 @@ devdb::usals_location_t active_adapter_t::get_usals_location() {
 	return r->usals_location;
 }
 
-void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos) {
+/*
+	set a new usals_pos, for tuning to sat at sat_pos (which may be left unspecified as sat_pos_none)
+ */
+void active_adapter_t::lnb_update_usals_pos(int16_t usals_pos, int16_t sat_pos) {
 	auto loc = this->get_usals_location();
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	auto lnb = this->fe->ts.readAccess()->reserved_lnb;
-	int ret = devdb::dish::update_usals_pos(devdb_wtxn, lnb, usals_pos, loc);
+	int ret = devdb::dish::update_usals_pos(devdb_wtxn, lnb, usals_pos, loc, sat_pos);
 	if( ret<0 )
 		devdb_wtxn.abort();
 	else
@@ -539,7 +542,7 @@ void active_adapter_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	assert(fe->ts.readAccess()->dbfe.rf_inputs.size()>0);
 };
 
-//only called from active_si_stream.h true, true and true, false and false, false,
+//only called from active_si_stream.h
 void active_adapter_t::on_tuned_mux_change(const chdb::any_mux_t& mux) {
 	fe->update_tuned_mux_nit(mux);
 }

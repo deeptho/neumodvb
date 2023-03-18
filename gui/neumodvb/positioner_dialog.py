@@ -674,11 +674,11 @@ class SignalPanel(SignalPanel_):
         consolidated_mux = self.signal_info.consolidated_mux
         nit_received = self.signal_info.nit_received
         sat_pos = bad_nit.k.sat_pos if bad_nit else consolidated_mux.k.sat_pos
-        snr = self.signal_info.snr/1000
+        snr = self.signal_info.snr/1000 if locked else None
         if snr is not None:
             if snr <= -1000.:
                 snr = None
-            self.speaker.speak(sat_pos, snr, nit_received)
+        self.speaker.speak(sat_pos, snr, nit_received)
 
     def SetDefaultLevels(self):
         self.snr_ranges=[0, 10, 12,  20]

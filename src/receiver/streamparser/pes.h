@@ -100,8 +100,8 @@ struct pes_parser_t : public ts_substream_t {
 
 		virtual void parse_payload_unit()  override = 0;
 		void on_pes_start();
-	video_parser_t(ts_stream_t& parent, int service_id, int pid, const char* _name) :
-		pes_parser_t(parent, service_id, pid, /*stream_type,*/ _name)
+		video_parser_t(ts_stream_t& parent, int service_id, int pid, const char* _name) :
+			pes_parser_t(parent, service_id, pid, /*stream_type,*/ _name)
 			{
 			}
 

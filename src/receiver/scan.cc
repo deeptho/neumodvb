@@ -48,6 +48,7 @@ scan_t::scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id, bool
 	, scan_subscription_id(scan_subscription_id)
 	, scan_id(scanner_t::make_scan_id(scan_subscription_id))
 {
+	dtdebugx("MAKE SCAN_ID: pid=0x%x subscription_id=%d ret=%d\n", getpid(), (int)scan_subscription_id, scan_id);
 			tune_options.scan_target =  scan_target_t::SCAN_FULL;
 			tune_options.propagate_scan = propagate_scan; //if false, we scan only peaks
 			tune_options.retune_mode = retune_mode_t::NEVER;
@@ -988,6 +989,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, bool init, subscriptio
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto chdb_wtxn = receiver.chdb.wtxn();
 	auto scan_id = make_scan_id(scan_subscription_id);
+	dtdebugx("MAKE SCAN_ID: pid=0x%x subscription_id=%d ret=%d\n", getpid(), (int)scan_subscription_id, scan_id);
 	/* ensure that empty entry exists. This camn be used to set required_lnb and such
 	 */
 	scans.try_emplace(scan_subscription_id, *this, scan_subscription_id, true /*propagate_scan*/);

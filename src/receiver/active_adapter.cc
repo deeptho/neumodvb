@@ -349,7 +349,13 @@ void active_adapter_t::monitor() {
 		dtdebugx("Calling si.reset with force_finalize=true; must_reset_si=%d is_not_ts=%d\n", must_reset_si, is_not_ts);
 		si.reset(true /*force_finalize*/, tune_state == tune_state_t::TUNE_FAILED);
 		dttime(200);
-		check_scan_mux_end();
+		check_scan_mux_end(si);
+		for (auto& [pid, si] : embedded_si_streams) {
+			si.scan_report();
+			dttime(200);
+			check_scan_mux_end(si);
+			dttime(200);
+		}
 		dttime(200);
 	} else {
 		/*usually scan_report will be called by process_si_data, but on bad muxes data may not
@@ -357,8 +363,14 @@ void active_adapter_t::monitor() {
 		*/
 		si.scan_report();
 		dttime(200);
-		check_scan_mux_end();
+		check_scan_mux_end(si);
 		dttime(200);
+		for (auto& [pid, si] : embedded_si_streams) {
+			si.scan_report();
+			dttime(200);
+			check_scan_mux_end(si);
+			dttime(200);
+		}
 	}
 	dttime(200);
 }
@@ -588,11 +600,12 @@ void active_adapter_t::add_embedded_si_stream(const chdb::any_mux_t& embedded_mu
 
 bool active_adapter_t::read_and_process_data_for_fd(int fd) {
 	if (si.read_and_process_data_for_fd(fd)) {
-		check_scan_mux_end();
+		check_scan_mux_end(si);
 		return true;
 	}
 	for (auto& [pid, si] : embedded_si_streams) {
 		if (si.read_and_process_data_for_fd(fd)) {
+			check_scan_mux_end(si);
 			return true;
 		}
 	}
@@ -635,6 +648,10 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		if (c.is_valid()) {
 			assert(mux_key_ptr(c.current())->sat_pos != sat_pos_none);
 			master_mux = c.current();
+			auto* cm = mux_common_ptr(mux);
+			auto* cmm = mux_common_ptr(master_mux);
+			cm->tune_src = cmm->tune_src;
+		} else {
 		}
 		if(must_activate) {
 			if(!chdb::is_template(mux)) { //delay activation of templates until we know they can be tuned
@@ -650,6 +667,7 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 		}
 		set_current_tp(master_mux);
 		add_embedded_si_stream(mux, start);
+		return master_mux;
 	} else {
 		if(must_activate) {
 			if(!chdb::is_template(mux)) { //delay activation of templates until we know they can be tuned
@@ -664,8 +682,8 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start) {
 			dtdebug("committed read");
 		}
 		set_current_tp(mux);
+		return mux;
 	}
-	return mux;
 }
 
 void active_adapter_t::end_si() {
@@ -714,7 +732,7 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 	}
 }
 
-void active_adapter_t::check_scan_mux_end()
+void active_adapter_t::check_scan_mux_end(active_si_stream_t& si)
 {
 	if(!si.call_scan_mux_end //si-processing not ready, or end of scan should not take any action
 		 || scan_mux_end_reported //we have taken action before
@@ -741,7 +759,8 @@ void active_adapter_t::check_scan_mux_end()
 			if(tune_state == tune_state_t::TUNE_FAILED || tune_state == tune_state_t::WAITING_FOR_LOCK)
 				check_for_unlockable_streams();
 			else if (tune_state == tune_state_t::LOCKED && processed_isis.count()==0) {
-				check_for_non_existing_streams();
+				if(!si.is_embedded_si)
+					check_for_non_existing_streams();
 			}
 			if(c->scan_status != chdb::scan_status_t::IDLE) {
 				c->scan_status = chdb::scan_status_t::RETRY;

@@ -223,7 +223,7 @@ private:
 		mux_ = prepare_si(mux_, start);
 		return *std::get_if<mux_t>(&mux_);
 	}
-	void check_scan_mux_end();
+	void check_scan_mux_end(active_si_stream_t& si);
 	void init_si(scan_target_t scan_target_);
 	void end_si();
 private:

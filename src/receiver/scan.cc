@@ -160,7 +160,7 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 {
 	if (must_end) {
 		dtdebug("must_end");
-		return 0;
+		return true;
 	}
 	auto scan_subscription_id = scan_subscription_id_for_mux(finished_mux);
 	if((int)scan_subscription_id >= 0) {

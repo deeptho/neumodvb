@@ -790,10 +790,12 @@ std::ostream& chdb::operator<<(std::ostream& os, const dvbs_mux_t& mux) {
 	auto sat = sat_pos_str(mux.k.sat_pos);
 	stdex::printf(os, "%d.%03d%s", mux.frequency / 1000, mux.frequency%1000, enum_to_str(mux.pol));
 	if (mux.stream_id >= 0)
-		stdex::printf(os, "-%d ", mux.stream_id);
-	else
-		stdex::printf(os, " ");
+		stdex::printf(os, "-%d", mux.stream_id);
+	if (mux.k.t2mi_pid != 0)
+		stdex::printf(os, "-T%d", mux.k.t2mi_pid);
+	stdex::printf(os, " ");
 	os << mux.k;
+	os << " scan_id=" << mux.c.scan_id;
 #if 0
 	stdex::printf(os, " %s/%s", scan_status_name(mux.c.scan_status), scan_result_name(mux.c.scan_result));
 #endif

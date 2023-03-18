@@ -882,15 +882,18 @@ class NeumoTable(NeumoTableBase):
     def set_initial_sort_column(self, key):
         #need_refresh = False
         need_new_data = False
-        colno = next ( idx for (idx, col) in enumerate(self.columns) if col.key == key)
-        if 0 <= colno <= len(self.columns):
-            if self.columns[colno].sort is not None:
-                sort_columns = list(self.columns[colno].sort)
-            else:
-                sort_columns = [ self.columns[colno].key ]
+        try:
+            colno = next ( idx for (idx, col) in enumerate(self.columns) if col.key == key)
+            if 0 <= colno <= len(self.columns):
+                if self.columns[colno].sort is not None:
+                    sort_columns = list(self.columns[colno].sort)
+                else:
+                    sort_columns = [ self.columns[colno].key ]
 
-            self.sort_colno = colno
-            self.sort_order = 2 if key.endswith('_time') else 1
+                self.sort_colno = colno
+                self.sort_order = 2 if key.endswith('_time') else 1
+        except:
+            pass
 
     def __get_data__(self, use_cache=False):
         """

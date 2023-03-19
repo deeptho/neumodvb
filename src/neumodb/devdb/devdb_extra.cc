@@ -201,6 +201,8 @@ std::tuple<bool, int, int, int> devdb::lnb::has_network(const lnb_t& lnb, int16_
 	int usals_amount{0};
 	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
 												 [&sat_pos](const devdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
+	/*@todo allow closeby networks
+	 */
 	if (it != lnb.networks.end()) {
 		auto usals_pos = lnb.usals_pos == sat_pos_none ? it->usals_pos :  lnb.usals_pos;
 		if (devdb::lnb::on_positioner(lnb)) {
@@ -715,7 +717,6 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 
 	return changed;
 }
-
 
 int dish::update_usals_pos(db_txn& wtxn, devdb::lnb_t& lnb_, int usals_pos,
 													 const devdb::usals_location_t& loc, int sat_pos) {

@@ -812,6 +812,9 @@ void active_adapter_t::check_for_new_streams()
 		tuned_stream_id = get_member(mux, stream_id, -1);
 	}, signal_info.driver_mux);
 
+	auto tuned_mux = current_tp();
+	bool is_scanning = mux_common_ptr(tuned_mux)->scan_status == scan_status_t::ACTIVE;
+
 	for(auto ma: signal_info.matype_list) {
 		auto stream_id = ma & 0xff;
 		if(this->processed_isis.test(stream_id))
@@ -839,23 +842,24 @@ void active_adapter_t::check_for_new_streams()
 
 		namespace m = chdb::update_mux_preserve_t;
 
-		auto update_scan_status =[&](const chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
+		auto update_scan_status = [&](const chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
 			bool is_active = pdbc && pdbc->scan_status == scan_status_t::ACTIVE;
 			if( is_active) {
-
 				return false;
 			}
 			if(is_dvb) {
 				if(!pdbc) { //there is no mux for this stream yet; create one
-					c->scan_status = scan_status_t::PENDING;
-					c->scan_id = scan_id;
+					c->scan_status = is_scanning ? scan_status_t::PENDING : scan_status_t::NONE;
+					c->scan_id = is_scanning ? scan_id : 0;
 				} else {
 					*c = *pdbc;
-					//leave the existing mux alone (e.g., may be already being scanned, even if status is PENDING)
+					//leave the existing mux scan_status alone (e.g., may be already being scanned, even if status is PENDING)
 				}
 			} else { //not dvb
-				if(pdbc)
+				if(pdbc) {
 					*c = *pdbc;
+					//leave the existing mux scan_status alone (e.g., may be already being scanned, even if status is PENDING)
+				}
 				c->tune_src = tune_src_t::DRIVER;
 				c->key_src = key_src_t::NONE;
 

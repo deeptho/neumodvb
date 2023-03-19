@@ -614,7 +614,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 											bool donotsave, bool is_actual);
 
 	dtdemux::reset_type_t sdt_section_cb_(db_txn& txn, const sdt_services_t&services, const subtable_info_t& i,
-														 mux_data_t* p_mux_data);
+																				mux_data_t* p_mux_data);
 	dtdemux::reset_type_t sdt_section_cb(const sdt_services_t&services, const subtable_info_t& i);
 
 	dtdemux::reset_type_t bat_section_cb(const bouquet_t& bouquet, const subtable_info_t& i);
@@ -624,12 +624,13 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	dtdemux::reset_type_t eit_section_cb(epg_t& epg, const subtable_info_t& i);
 
 	mux_data_t* lookup_mux_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
+	mux_data_t* add_reader_mux_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 
 	std::optional<chdb::mux_key_t>
 	lookup_nit_key(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 
 	mux_data_t* add_fake_nit(db_txn& txn, uint16_t network_id, uint16_t ts_id, int16_t expected_sat_pos,
-													 bool is_reader_mux, bool from_sdt);
+													 bool from_sdt);
 
 	int deactivate(bool tune_failed);
 	//int open();
@@ -675,8 +676,8 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		}
 	}
 
-	void add_mux_from_nit(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_active_mux,
-		bool is_tuned_freq);
+	void add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_active_mux,
+							 bool is_tuned_freq, bool from_sdt);
 
 	void process_removed_services(db_txn& txn, chdb::mux_key_t& mux_key, ss::vector_<uint16_t>& service_ids);
 

@@ -118,7 +118,6 @@ struct network_data_t {
 	}
 };
 
-
 struct onid_data_t {
 	int sdt_num_muxes_completed{0}; //number marked completed by sdt
 	int sdt_num_muxes_present{0}; //number retrieved by sdt

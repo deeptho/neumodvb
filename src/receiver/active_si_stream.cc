@@ -1975,7 +1975,6 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		bool donotsave_stats{false};
 		if (is_actual) {
 			mux = reader_mux;
-
 			assert (mux_key_ptr(reader_mux)->ts_id == mux_key.ts_id);
 		} else {
 			// we need the full mux, so we need to load it from the db

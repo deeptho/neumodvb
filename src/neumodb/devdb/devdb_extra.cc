@@ -989,7 +989,7 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	}
 
 	if(loc) {
-		if(!lnb.on_positioner ==0)
+		if(!lnb.on_positioner)
 			lnb.cur_sat_pos = lnb.usals_pos;
 		else {
 		devdb::lnb::set_lnb_offset_angle(lnb, *loc); //redundant, but safe

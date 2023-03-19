@@ -731,9 +731,12 @@ int dish::update_usals_pos(db_txn& wtxn, devdb::lnb_t& lnb_, int usals_pos,
 		devdb::lnb::set_lnb_offset_angle(lnb, loc); //redundant, but safe
 		lnb.usals_pos = usals_pos;
 		lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
-		put_record(wtxn, lnb);
-		if(lnb.k == lnb_.k)
+		if(lnb.k == lnb_.k) {
+			if(sat_pos != sat_pos_none)
+				lnb.cur_sat_pos = sat_pos;
 			lnb_ = lnb;
+		}
+		put_record(wtxn, lnb);
 	}
 	if (num_rotors == 0) {
 		dterrorx("None of the LNBs for dish %d seems to be on a rotor", lnb_.k.dish_id);

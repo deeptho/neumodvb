@@ -85,6 +85,7 @@ enum class stream_type_t : uint8_t {
 		AC3_AUDIO     = 0x81, //!< AC-3 Audio (ATSC only)
 		SCTE35_SPLICE = 0x86, //!< SCTE 35 splice information tables
 		EAC3_AUDIO    = 0x87, //!< Enhanced-AC-3 Audio (ATSC only)
+		MPE_FEC      = 0x90, //DVB  - stream_type value for Time Slicing / MPE-FEC
     };
 
 
@@ -110,7 +111,8 @@ inline bool is_pes (stream_type_t st)
 		st == stream_type_t::AC3_AUDIO   ||
 		st == stream_type_t::EAC3_AUDIO  ||
 		st == stream_type_t::HEVC_VIDEO  ||
-		st == stream_type_t::HEVC_SUBVIDEO;
+		st == stream_type_t::HEVC_SUBVIDEO ||
+		st == stream_type_t::MPE_FEC;
 }
 
 

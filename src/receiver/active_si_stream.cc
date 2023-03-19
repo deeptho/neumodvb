@@ -2207,7 +2207,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 
 	auto wtxn = chdb_txn();
 	auto tuned_key = this->stream_mux_key();
-	auto* p_mux_data = lookup_nit_from_sdt(wtxn, services.original_network_id, services.ts_id);
+	auto* p_mux_data = lookup_mux_from_sdt(wtxn, services.original_network_id, services.ts_id);
 	if(!services.is_actual && !p_mux_data) {
 		bool nit_done = (nit_actual_done());
 		wtxn.abort();

@@ -1238,8 +1238,7 @@ namespace dtdemux {
 		const bool in_es_loop = false;
 		pmt.parse_descriptors(*this, info,
 													in_es_loop);
-		pmt.estimated_media_mode = (info.t2mi_stream_id >=0) ? media_mode_t::UNKNOWN : media_mode_t::T2MI;
-
+		pmt.estimated_media_mode = (info.t2mi_stream_id >=0) ? media_mode_t::T2MI : media_mode_t::UNKNOWN;
 		// elementary stream loop
 		while (this->available() > 4) { // 4 is the crc
 

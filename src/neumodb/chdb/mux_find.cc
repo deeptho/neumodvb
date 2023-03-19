@@ -141,7 +141,7 @@ template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux(db_txn& txn, const
 					 cmux.k.network_id == mux.k.network_id && cmux.k.ts_id == mux.k.ts_id);
 		if (matches_physical_fuzzy(mux, cmux)) {
 			if(cmux.k == mux.k)
-				return c; //best match, because extra_id also matches
+				return c; //best match, because extra_id also matches; and stream_id, t2mi_pid also match
 			bestc = c;
 		}
 	}

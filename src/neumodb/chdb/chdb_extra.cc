@@ -390,8 +390,8 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 					 mux.c.scan_id >0);
 
 	}
-	dtdebug("after merge db_mux=" << db_mux.k << " " << db_mux << " mux=" << mux.k << " " << mux << "->"
-					<< " preserve&SCAN_DATA=" << (preserve & m::SCAN_DATA));
+	dtdebug("after merge db_mux=" << db_mux << " mux=" << mux << "->"
+					<< " preserve&SCAN_STATUS=" << (preserve & m::SCAN_STATUS));
 
 
 	if (preserve & m::NUM_SERVICES)

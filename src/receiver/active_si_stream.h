@@ -207,7 +207,7 @@ struct mux_data_t  {
 	bool has_freesat_home_epg{false};
 	bool has_opentv_epg{false};
 
-	mux_sdt_data_t sdt[2]{{}}; //indexed by nit_actual
+	mux_sdt_data_t sdt[2]{{}}; //indexed by sdt.is_actual
 	subtable_info_t sdt_actual_subtable_info;
 
 	ss::vector<uint16_t, 32> service_ids; //service ids seen
@@ -233,7 +233,14 @@ struct active_si_data_t;
 
 struct nit_data_t {
 
+	/*
+		The following map contains either data received in NIT_ACTUAL or data
+		retrieved from the database.
+		network_id, ts_id may be incorrect, but has best-effort values; these values are invalid id
+		has_valid_nit_tid(mux.src)
+	 */
 	std::map <std::pair<uint16_t,uint16_t>, mux_data_t> by_network_id_ts_id;
+
 	ss::vector<int16_t, 4> nit_actual_sat_positions; //sat_positions encountered in any mux listed in nit_actual
 	//mux_data_t * tuned_mux_data{nullptr};
 
@@ -616,7 +623,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	dtdemux::reset_type_t eit_section_cb(epg_t& epg, const subtable_info_t& i);
 
-	mux_data_t* lookup_nit_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
+	mux_data_t* lookup_mux_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 
 	std::optional<chdb::mux_key_t>
 	lookup_nit_key(db_txn& txn, uint16_t network_id, uint16_t ts_id);

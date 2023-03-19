@@ -760,7 +760,7 @@ bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t
 	const auto* tuned_mux = std::get_if<chdb::dvbs_mux_t>(&reserved_mux);
 	if (!tuned_mux)
 		return false;
-	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/))
+	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/)) //or stream_id or t2mi_pid does not match
 		return false;
 	if (tuned_mux->stream_id != mux.stream_id)
 		return false;
@@ -775,7 +775,7 @@ bool fe_state_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t
 	const auto* tuned_mux = std::get_if<chdb::dvbt_mux_t>(&reserved_mux);
 	if (!tuned_mux)
 		return false;
-	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/))
+	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/)) //or stream_id or t2mi_pid does not match
 		return false;
 	return true;
 }
@@ -785,7 +785,7 @@ bool fe_state_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t
 	const auto* tuned_mux = std::get_if<chdb::dvbc_mux_t>(&reserved_mux);
 	if (!tuned_mux)
 		return false;
-	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/))
+	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/)) //or stream_id or t2mi_pid does not match
 		return false;
 	return true;
 }

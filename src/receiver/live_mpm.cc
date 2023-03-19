@@ -261,6 +261,7 @@ active_mpm_t::active_mpm_t(active_service_t* parent_, system_time_t now)
 	file_time_limit = active_service->receiver.options.readAccess()->livebuffer_mpm_part_duration;
 	active_service->pat_parser = stream_parser.register_pat_pid();
 	active_service->pat_parser->section_cb = [this](const pat_services_t& pat_services, const subtable_info_t& i) {
+		assert(!i.timedout);
 		for (const auto& e : pat_services.entries) {
 			if (e.service_id == active_service->current_service.k.service_id) {
 				active_service->have_pat = true;

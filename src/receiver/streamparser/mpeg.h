@@ -137,6 +137,14 @@ inline bool is_mpeg2 (stream_type_t st)
 		st == stream_type_t::MPEG2_VIDEO;
 }
 
+#ifdef NOTWORKING
+inline bool is_hevc (stream_type_t st)
+{
+	return
+		st == stream_type_t::HEVC_VIDEO ||
+		st == stream_type_t::HEVC_SUBVIDEO;
+}
+#endif
 
 //----------------------------------------------------------------------------
 // Check if an ST value indicates an audio stream

@@ -290,6 +290,17 @@ void h264_parser_t::parse_payload_unit() {
 	return;
 }
 
+#ifdef NOTWORKING
+void hevc_parser_t::parse_payload_unit() {
+	bool is_payload_unit_start = parse_pes_header();
+	RETURN_ON_ERROR;
+	if (!is_payload_unit_start)
+		return;
+	on_pes_start();
+	return;
+}
+#endif
+
 static const char* frame_rates[] = {"invalid",
 	"23.976",
 	"24",

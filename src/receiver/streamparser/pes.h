@@ -126,6 +126,19 @@ struct pes_parser_t : public ts_substream_t {
 		virtual ~h264_parser_t() {}
 	};
 
+#ifdef NOTWORKING
+	struct hevc_parser_t : public video_parser_t {
+		virtual void parse_payload_unit()  override;
+
+		hevc_parser_t(ts_stream_t& parent, int service_id, int pid) :
+			video_parser_t(parent, service_id, pid, /*stream_type,*/ "hevc")
+			{}
+
+		hevc_parser_t(const hevc_parser_t& other) = delete;
+
+		virtual ~hevc_parser_t() {}
+	};
+#endif
 
 	struct mpeg2_parser_t : public video_parser_t {
 		virtual void parse_payload_unit() override;

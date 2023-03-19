@@ -423,6 +423,20 @@ void ts_stream_t::register_video_pids(int service_id, int video_pid, int pcr_pid
 		register_parser(video_pid, fn); // video
 		// return std::static_pointer_cast<video_parser_t>(parser);
 		return;
+#ifdef NOTWORKING
+		/*
+			code interfderes with regular hdtv processing
+		 */
+	} else if(is_hevc(stream_type)) {
+		auto parser = std::make_shared<hevc_parser_t>(*this, service_id, video_pid);
+		auto fn = [parser](ts_packet_t* p) {
+			log4cxx::NDC::push("HEVC");
+			parser->parse(p);
+		};
+		register_parser(video_pid, fn); // video
+		// return std::static_pointer_cast<video_parser_t>(parser);
+		return;
+#endif
 	} else {
 		///@todo Does H.265 work?
 		auto parser = std::make_shared<h264_parser_t>(*this, service_id, video_pid);

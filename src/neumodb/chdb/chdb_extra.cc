@@ -474,6 +474,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		auto tmp_key = mux.k;
 		tmp_key.extra_id = db_mux.k.extra_id;
 		auto key_matches = tmp_key == db_mux.k;
+		if(key_matches)
+			mux.k.extra_id = db_mux.k.extra_id; //avoid creating two muxes with same extra_id
 		/*
 			if !key_matches: We are going to overwrite a mux with similar frequency but different ts_id, network_id.
 			If one of the muxes is a template and the other not, the non-template data
@@ -530,13 +532,11 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		if(must_exist)
 			return update_mux_ret_t::NO_MATCHING_KEY;
 		ret = update_mux_ret_t::NEW;
+		dterror("Database mux " << db_mux << " setting extra_id on new mux");
+		mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
+
 		if(!cb(nullptr, nullptr))
 			return update_mux_ret_t::NO_MATCHING_KEY;
-		// It is possible that another tp exists with the same ts_id at an other very different frequency.
-		// Therefore we need to generate a unique extra_id
-		if(mux.k.extra_id==0) {
-			mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
-		}
 	}
 
 	assert(!is_template(mux));

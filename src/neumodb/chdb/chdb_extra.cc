@@ -793,7 +793,6 @@ std::ostream& chdb::operator<<(std::ostream& os, const dvbs_mux_t& mux) {
 		stdex::printf(os, "-T%d", mux.k.t2mi_pid);
 	stdex::printf(os, " ");
 	os << mux.k;
-	os << " scan_id=" << mux.c.scan_id;
 #if 0
 	stdex::printf(os, " %s/%s", scan_status_name(mux.c.scan_status), scan_result_name(mux.c.scan_result));
 #endif

@@ -162,7 +162,7 @@ namespace chdb {
 		return chg.k.bouquet_id == bouquet_id_template;
 	}
 
-		inline bool is_template(const chgm_t& chgm) {
+	inline bool is_template(const chgm_t& chgm) {
 		return chgm.k.channel_id == channel_id_template;
 	}
 
@@ -179,7 +179,7 @@ namespace chdb {
 		If the mux is a template (mux.k.network_id==0 && mux.k.mux.ts_id==and not yet has
 		an extra_id (mux.k.extra_id == 0), then assign it a
 		unique extra_id
-	 */
+	*/
 	template<typename mux_t>
 	inline void make_unique_if_template(db_txn& txn, mux_t& mux ) {
 		if(is_template(mux) && mux.k.extra_id==0)

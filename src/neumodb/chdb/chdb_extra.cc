@@ -349,13 +349,14 @@ void chdb::remove_services(db_txn& wtxn, const mux_key_t& mux_key) {
  */
 
 template <typename mux_t>
-void merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preserve) {
+void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserve) {
 	namespace m = update_mux_preserve_t;
 	dtdebug("db_mux=" << db_mux << "-> mux=" << mux);
 	assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 					mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 				 mux.c.scan_id >0);
 
+	bool mux_key_incompatible{false}; // db_mux and mux have different key, even after update
 	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->extra_id == 0) {
 		//template mux key entered by user is never considered valid, so use database value
 		mux.k = db_mux.k;
@@ -372,9 +373,8 @@ void merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 		mux.c.key_src = db_mux.c.key_src;
 	}
 
-	if (preserve & m::TUNE_DATA) {
-		copy_tuning(mux, db_mux); //preserve what is in the database
-	}
+	//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+
 	if (preserve & m::SCAN_DATA) {
 		mux.c.scan_time = db_mux.c.scan_time;
 		mux.c.scan_result = db_mux.c.scan_result;
@@ -400,11 +400,7 @@ void merge_muxes(mux_t& mux, mux_t& db_mux,  update_mux_preserve_t::flags preser
 
 	if (preserve & m::EPG_TYPES)
 		mux.c.epg_types = db_mux.c.epg_types;
-
-	if (preserve & m::NIT_SI_DATA) {
-		mux.c.nit_network_id = db_mux.c.nit_network_id;
-		mux.c.nit_ts_id = db_mux.c.nit_ts_id;
-	}
+	return mux_key_incompatible;
 }
 
 /*! Put a mux record, taking into account that its key may have changed
@@ -474,8 +470,6 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		auto tmp_key = mux.k;
 		tmp_key.extra_id = db_mux.k.extra_id;
 		auto key_matches = tmp_key == db_mux.k;
-		if(key_matches)
-			mux.k.extra_id = db_mux.k.extra_id; //avoid creating two muxes with same extra_id
 		/*
 			if !key_matches: We are going to overwrite a mux with similar frequency but different ts_id, network_id.
 			If one of the muxes is a template and the other not, the non-template data
@@ -487,7 +481,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 			delete_db_mux = true;
 
 			if(mux.k.extra_id ==0)
-				mux.k.extra_id =  make_unique_id<mux_t>(wtxn, mux.k);
+				mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
 			if(is_template(db_mux)) {
 				db_mux.k = mux.k;
 			}
@@ -505,8 +499,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
-		key_matches = (mux.k == db_mux.k); //key can be changed by cb()
-		delete_db_mux = !key_matches;
+
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		if(!is_new) {
 			merge_muxes<mux_t>(mux, db_mux, preserve);
@@ -533,11 +526,13 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		if(must_exist)
 			return update_mux_ret_t::NO_MATCHING_KEY;
 		ret = update_mux_ret_t::NEW;
-		dterror("Database mux " << db_mux << " setting extra_id on new mux");
-		mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
-
 		if(!cb(nullptr, nullptr))
 			return update_mux_ret_t::NO_MATCHING_KEY;
+		// It is possible that another tp exists with the same ts_id at an other very different frequency.
+		// Therefore we need to generate a unique extra_id
+		if(mux.k.extra_id==0) {
+			mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
+		}
 	}
 
 	assert(!is_template(mux));

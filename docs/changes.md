@@ -1,5 +1,126 @@
 # Changes in neumoDVB #
 
+
+## Changes in version neumodvb-1.2 ##
+
+### Most important changes ###
+
+* Internal processing of SI data has been simplified, removing many exceptions while still correcting
+  for incorrect data in muxes with bad SI data.
+* Several bugs were fixed causing blindscan or mux scan to never end.
+* During scanning, discovered services are now shown in positioner and spectrum dialog.
+* Support for wxpython4.2.
+
+### SI processing and blind scanning improvements ###
+* Various bug fixes causing blindscan to never end (but some more remain).
+* Correct handling of multistreams during scan.
+* Bug: in by_mux_fuzzy_helper returns wrong mux, causing updates to be applied to the wrong mux.
+* t2mi muxes sometimes incorrectly updated after scan.
+* set t2mi_pid to zero before blind scanning, so that not only the t2mi mux is canned but also its parent mux.
+* Add T2MI media type while scanning PMT.
+* Ensure sdt data shown during spectrum scan corresponds to nit info.
+* Bug: deadlock while saving services.
+* Do not trust tuning information from muxes except from nit_actual and from driver.
+* Bug: sometimes services missing in service list in positioner and spectrum dialog.
+* Pick proper ts_id when NIT and SDT are absent.
+* Avoid creating services with incorrect mux_key which can then not be tuned.
+* Make frequency estimate robust against incorrect tone status returned from driver.
+* Avoid creating muxes which differ only in extra_id on same frequency.
+* Simplification of mux scanning code: Always give preference to sdt version if  ts_id and network_id,
+  even if mux reports other (incorrect) data. If there is no SDT, prefer setting these values from
+  NIT, and if there is no (valid) NIT, use the value of ts_id in PAT. Also ensure that all of this
+  works irrespective of the other in which NIT and SDT are received and handle timeouts when they not exist.
+
+
+### Handling of various muxes which broadcast incorrect SI data ###
+* Incorrect detection of t2mi on 30.0W 11382H, which does not have t2mi data.
+* 39.0E 10930V stream 1 reports 30E as satellite position in the NIT actual table.
+  This causes NIT_ACTUAL to be ignored, resulting in no useful nit data. On the other hand,
+  there is no SDT  table. Now,  pat data is used in this case.
+* 14.0W. Incorrect modulation parameters belarus24hd.
+
+### Bugs related to changing LNB settings ###
+
+* Incorrect estimation of current satellite positions on offset LNBs.
+* usals_pos not correctly set when entering sat_pos in network.
+* Incorrect computation of cur_sat_pos.
+* Offset angle for offset LNBS incorrectly estimated or not recomputed.
+* Bug: lnb_cur_sat_pos messed up when closing lnb network dialog.
+* Ensure that usals_pos and sat_pos are both initialized in network_list
+  if either one is set. This also solves a bug when clicking "sort" on
+  uninitialized usals_pos or sat_pos column.
+* Ensure that spectrum acquisition always uses the most recent usals_pos
+  if this has been changed from positioner_dialog.
+* Update positioner and spectrum dialog title after changing sat; include card in title.
+* Network and connection combo not updated after selecting lnb in positioner or spectrum dialog.
+* Reference mux not saved when set.
+* Usals type cannot be changed from positioner and change is not immediately visible in lnblist.
+* Usals pos not correctly set in positioner dialog.
+
+### Support for wxpython4.2 ###
+* Detect wxpython version and remove workarounds needed un older versions of wxpython when
+  wxpython4.2 is detected.
+* Bug: incorrect  font size in grids vin wxpython4.2.
+* Bug: excessive row spacing in live screen in wxpython4.2.
+ *Bug: Excessive size  of bar gauges in wxpython4.2.
+* Bug: incorrect size of comboxes in wxpython4.2.
+* Bug; Togglebuttons have different size than regular buttons in newer OSes.
+
+
+### Other GUI related changes ##
+* Show list of services in postioner and spectrum dialogs.
+* Improved selection of mux on tune mux panel if no reference mux is set:
+  specifically select a tunable default frequency and polarisation.
+* Bug: subtitles on arte confused by mpv with teletext. The solution is to not save teletext information
+  in the stream as neumoDVB does not implement teletext anyway.
+* Signal history: improved date formatting; Show signalhistory_plot in local time.
+* Improved formatting of status_list.
+* The speak function now also speaks "not locked" when appropriate.
+* Improved sort default sort order for time columns.
+* In DVBS mux list, indicate more clearly where network and ts ids were found, by introducing key_src.
+* spectrum_plot: allow a range of no more than  30dB range in initial spectrum plot.
+* Indicate initially sorted column in GUI using triangle. The old code sorted properly but did
+  not indicate graphically which column was sorted.
+* When filtering a column, avoid some needless clicks and mouse movements: in the popup window immediately.
+  focus the new filter cell, without user having to click the cell. Also allow the filter dialog to close
+  by just pressing ENTER.
+* Bug: filter not updated after its value has been edited.
+* Move lock indicator to more logical position, i.e., in front of transport stream specific lock indicators.
+* Pick proper default polarisation for draw_mux (circular versus linear).
+* Bug ShowOkCancel not imported resulting in python exception.
+* Display unknown matype as blank.
+* Bug: incorrect string value for Ka LNB subtype.
+* Bug: In the status list screen, not only live muxes are shown but also previously tuned ones.
+
+
+### Various bugs causing crashes or incorrect data ###
+
+* For LNBs with One band, set freq_mid to freq_high in all cases.
+* Bug: si_state returns erroneous value of timedout.
+* Bug: si_state check erroneously returns duplicated instead of completed
+  for single section, potentially resulting in lost SI data.
+* Bug: when a table times out, it still must be processed because some code
+  in active_si_stream relies on knowing ts_id.
+* Bug: scan_status_t::RETRY status should also be cleared at startup.
+* Avoid assertion when lock is lost after init_si has been called.
+* Bug: incorrect looping over frequencies.
+* Bug: crash due to accessing record of different type when looping over
+  cursor range due to key_prefix not being set.
+* Bug: database mux sometimes deleted when not overwritten.
+* Bug: memory corruption due to not unregistering subscriber properly.
+* Bug: Do not rely on voltage and tone retrieved from driver, because.
+  for slave connections, these values are not even set in the driver.
+* Prevent events being queued on window after it is destroyed.
+* Bug: incorrect matching of rf_path causing wrong tuner to be used.
+* Bug: PENDING status set on multistream while not scanning.
+* Bug: incorrect usage of find_by_key like functions in conjunction with
+  find_geq because default fields lead to incorrect lower bound.
+* Introduce sat_pos_tolerance. Muxes on satellites less than 1 degree apart are now
+  treated correctly when SI data is received.
+* Workaround for false positive at start when using sanitized, causing a crash at startup
+* Add Sanitize compilation option, disabling it by default
+
+
 ## Changes in version neumodvb-1.1 ##
 
 ### Most important changes ###

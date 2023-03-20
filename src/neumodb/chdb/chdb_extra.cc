@@ -372,8 +372,9 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 		mux.c.key_src = db_mux.c.key_src;
 	}
 
-	//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
-
+	if (preserve & m::TUNE_DATA) {
+		copy_tuning(mux, db_mux); //preserve what is in the database
+	}
 	if (preserve & m::SCAN_DATA) {
 		mux.c.scan_time = db_mux.c.scan_time;
 		mux.c.scan_result = db_mux.c.scan_result;
@@ -399,6 +400,11 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 
 	if (preserve & m::EPG_TYPES)
 		mux.c.epg_types = db_mux.c.epg_types;
+
+	if (preserve & m::NIT_SI_DATA) {
+		mux.c.nit_network_id = db_mux.c.nit_network_id;
+		mux.c.nit_ts_id = db_mux.c.nit_ts_id;
+	}
 }
 
 /*! Put a mux record, taking into account that its key may have changed

@@ -1317,7 +1317,8 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		{
 			auto stream_mux = reader->stream_mux();
 			assert(!chdb::is_template(stream_mux));
-			assert(chdb::mux_key_ptr(stream_mux)->extra_id >0);
+			assert(chdb::mux_key_ptr(stream_mux)->extra_id >0 ||
+						 chdb::mux_common_ptr(stream_mux)->key_src == key_src_t::NONE);
 		}
 		if(tune_confirmation.sat_by == confirmed_by_t::NONE)
 			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
@@ -1975,6 +1976,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		bool donotsave_stats{false};
 		if (is_actual) {
 			mux = reader_mux;
+
 			assert (mux_key_ptr(reader_mux)->ts_id == mux_key.ts_id);
 		} else {
 			// we need the full mux, so we need to load it from the db

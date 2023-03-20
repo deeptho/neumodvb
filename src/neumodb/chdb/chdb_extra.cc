@@ -505,7 +505,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
-
+		key_matches = (mux.k == db_mux.k); //key can be changed by cb()
+		delete_db_mux = !key_matches;
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		if(!is_new) {
 			merge_muxes<mux_t>(mux, db_mux, preserve);

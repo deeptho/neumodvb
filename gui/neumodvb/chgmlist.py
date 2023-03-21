@@ -154,18 +154,19 @@ class ChgmTable(NeumoTable):
     def get_icons(self):
         return (self.app.bitmaps.encrypted_bitmap, self.app.bitmaps.expired_bitmap)
 
-    def get_icon_sort_key(self):
-        return 'encrypted'
-
     def get_icon_state(self, rowno, colno):
         col = self.columns[colno]
         chgm = self.GetRow(rowno)
         return ( chgm.encrypted, chgm.expired)
 
+    def get_icon_sort_key(self):
+        return 'encrypted'
+
     def highlight_colour(self,chgm):
         e = self.app.frame.bouquet_being_edited
         if e is None:
-            return False
+            return None
+
         txn =self.db.rtxn()
         ret = pychdb.chg.contains_service(txn, e, chgm.service)
         txn.abort()

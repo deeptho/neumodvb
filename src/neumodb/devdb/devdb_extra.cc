@@ -933,7 +933,8 @@ int devdb::lnb::angle_to_sat_pos(int angle, const devdb::usals_location_t& loc) 
 	while (sat_pos_high - sat_pos_low > 1) {
 		sat_pos = (sat_pos_low + sat_pos_high) / 2; // best estimate
 		auto angle_ =  sat_pos_to_angle(sat_pos, longitude, latitude);
-		assert(angle_ >= angle_low && angle_ <= angle_high);
+		if(!(angle_ >= angle_low && angle_ <= angle_high))
+		  return sat_pos_none;
 		if (angle_ == angle)
 			break;
 		if(angle > angle_) {
@@ -1001,6 +1002,8 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 		auto angle = devdb::lnb::sat_pos_to_angle(lnb.usals_pos, loc->usals_longitude, loc->usals_latitude);
 		//computed for offset lnb
 		lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, *loc);
+		if(lnb.cur_sat_pos == sat_pos_none)
+		  lnb.cur_sat_pos = lnb.usals_pos;
 		}
 	}
 	std::optional<lnb_t> db_lnb;

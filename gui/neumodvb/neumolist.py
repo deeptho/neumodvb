@@ -772,8 +772,8 @@ class NeumoTable(NeumoTableBase):
         if new is None:
             return False
         txn = self.db.wtxn()
-        #delete plus put ensures that we have the correct result also when the primary key is changed
-        #nNote that this does not handle dependent records of other types
+        #delete followed by put ensures that we have the correct result also when the primary key is changed
+        #Note that this does not handle dependent records of other types
         if old is None:
             dtdebug(f"SAVE NEW: {op}: {new}")
         else:

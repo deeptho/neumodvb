@@ -606,7 +606,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.lnb_changed = True
         else:
             ShowMessage("Network unavailable",
-                         f"Network {sat} not defined for lnb {self.lnb} on fixed this. Add it in lnb list first")
+                         f"Network {sat} not defined for lnb {self.lnb} on fixed dish. Add it in lnb list first")
             return
         assert network is not None
         txn = wx.GetApp().chdb.rtxn()
@@ -622,7 +622,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         txn.abort()
         del txn
         dtdebug(f"self.mux={self.mux} self.sat={self.sat}")
-        assert self.mux.k.sat_pos == self.sat.sat_pos
+        assert (self.mux.k.sat_pos - self.sat.sat_pos) < 5
         if network is not None:
             self.parent.SetDiseqc12Position(network.diseqc12)
         self.positioner_sat_sel.Update()

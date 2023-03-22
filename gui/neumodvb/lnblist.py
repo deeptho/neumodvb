@@ -58,7 +58,7 @@ def has_network_with_usals(lnb, usals_pos):
 
 def get_network(lnb, sat_pos):
     for n in lnb.networks:
-        if n.sat_pos == sat_pos:
+        if (n.sat_pos - sat_pos) < 5:
             return n
     return None
 

@@ -144,7 +144,7 @@ class LnbNetworkTable(NeumoTable):
             dtdebug("Empty database; adding sats")
             load_sats(txn)
         for sat in sats:
-            if sat.sat_pos == sat_pos:
+            if abs(sat.sat_pos - sat_pos) < 5:
                 return sat
         return None
 

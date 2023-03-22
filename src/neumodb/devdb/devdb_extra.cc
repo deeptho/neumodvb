@@ -97,7 +97,8 @@ std::ostream& devdb::operator<<(std::ostream& os, const lnb_connection_t& con) {
 	//os << lnb.k;
 	stdex::printf(os, "C%d #%d ", (int)con.card_no, (int)con.rf_input);
 	switch (con.rotor_control) {
-	case rotor_control_t::FIXED_DISH: {
+	case rotor_control_t::ROTOR_MASTER_MANUAL: {
+		stdex::printf(os, " man");
 	} break;
 	case rotor_control_t::ROTOR_MASTER_USALS:
 	case rotor_control_t::ROTOR_MASTER_DISEQC12:
@@ -620,17 +621,6 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 	return {};
 }
 
-#if 0
-int devdb::lnb::current_sat_pos(devdb::lnb_t& lnb, const devdb::usals_location_t& loc)
-{
-	if (lnb.offset_angle==0)
-		return lnb.usals_pos;
-	auto angle = devdb::lnb::sat_pos_to_angle(lnb.usals_pos, loc.usals_longitude, loc.usals_latitude);
-	//computed for offset lnb
-	return devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
-}
-#endif
-
 bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, const devdb::usals_location_t& loc, devdb::lnb_network_t& network)
 {
 	using namespace devdb;
@@ -696,12 +686,12 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 	if(!exists) {
 		lnb.connections.push_back(lnb_connection);
 	}
-
+#if 0
 	if(on_positioner(lnb) && 	lnb_connection.rotor_control == rotor_control_t::FIXED_DISH) {
 		lnb_connection.rotor_control = rotor_control_t::ROTOR_SLAVE;
 		preserve = p_t(preserve & p_t::ALL & ~p_t::GENERAL);
 	}
-
+#endif
 	bool save = false;
 	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, {} /*loc*/, preserve, save,
 																				 sat_pos_none, nullptr /*curr_conn*/);
@@ -1168,6 +1158,8 @@ bool devdb::lnb::update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  l
 bool devdb::lnb::update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save) {
 	using p_t = devdb::update_lnb_preserve_t::flags;
 	auto preserve = p_t(p_t::ALL & ~p_t::GENERAL);
+	/*note: the following "preserve" has no effect as caller first deletes any existing record
+	 */
 	return devdb::lnb::update_lnb_from_db(devdb_wtxn, lnb, {} /*loc*/, preserve, save,
 																				sat_pos_none, nullptr /*cur_conn*/);
 }

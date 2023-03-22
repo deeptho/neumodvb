@@ -963,8 +963,8 @@ class PositionerDialog(PositionerDialog_):
         self.SetPosition(sat_pos)
 
     def positioner_command(self, *args):
-        if self.lnb_connection.rotor_control in (pydevdb.rotor_control_t.ROTOR_MASTER_DISEQC12,
-                                      pydevdb.rotor_control_t.ROTOR_MASTER_USALS):
+        if self.lnb_connection.rotor_control in (pydevdb.rotor_control_t.MASTER_DISEQC12,
+                                      pydevdb.rotor_control_t.MASTER_USALS):
             if self.lnb_subscriber.positioner_cmd(*args) >= 0:
                 return True
             else:
@@ -1025,12 +1025,12 @@ class PositionerDialog(PositionerDialog_):
     def enable_disable_diseqc_panels(self):
         t = pydevdb.rotor_control_t
         if self.lnb_connection is None or \
-           self.lnb_connection.rotor_control in (t.ROTOR_MASTER_USALS, t.ROTOR_SLAVE, t.FIXED_DISH):
+           self.lnb_connection.rotor_control in (t.MASTER_USALS, t.SLAVE, t.MASTER_MANUAL):
             self.diseqc12_panel.Disable()
         else:
             self.diseqc12_panel.Enable()
         if self.lnb_connection is None or \
-           self.lnb_connection.rotor_control in (t.ROTOR_MASTER_DISEQC12, t.ROTOR_SLAVE, t.FIXED_DISH):
+           self.lnb_connection.rotor_control in (t.MASTER_DISEQC12, t.SLAVE, t.MASTER_MANUAL):
             self.usals_panel.Disable()
         else:
             self.usals_panel.Enable()
@@ -1138,10 +1138,10 @@ class PositionerDialog(PositionerDialog_):
         lnb = self.tune_mux_panel.read_lnb_from_db() #to reread the networks
         network = get_network(lnb, self.sat.sat_pos)
         pos = network.usals_pos
-        if self.lnb_connection.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_USALS:
+        if self.lnb_connection.rotor_control == pydevdb.rotor_control_t.MASTER_USALS:
             self.positioner_command(pydevdb.positioner_cmd_t.GOTO_XX, pos)
             self.UpdateUsalsPosition(pos)
-        elif self.lnb_connection.rotor_control == pydevdb.rotor_control_t.ROTOR_MASTER_DISEQC12:
+        elif self.lnb_connection.rotor_control == pydevdb.rotor_control_t.MASTER_DISEQC12:
             self.positioner_command(pydevdb.positioner_cmd_t.GOTO_NN, network.diseqc12)
             self.SetDiseqc12(network.diseqc12)
         else:

@@ -219,6 +219,7 @@ namespace devdb::lnb {
 												 system_time_t now_);
 	inline bool can_move_dish(const devdb::lnb_connection_t& conn) {
 		switch(conn.rotor_control) {
+		case devdb::rotor_control_t::ROTOR_MASTER_MANUAL:
 		case devdb::rotor_control_t::ROTOR_MASTER_USALS:
 		case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
 			return true; /*this means we will send usals commands. At reservation time, positioners which
@@ -232,6 +233,7 @@ namespace devdb::lnb {
 
 	inline bool on_positioner(const devdb::lnb_t& lnb)
 	{
+#if 0
 		for(const auto& conn: lnb.connections) {
 			switch(conn.rotor_control) {
 			case devdb::rotor_control_t::ROTOR_MASTER_USALS:
@@ -243,6 +245,7 @@ namespace devdb::lnb {
 			break;
 			}
 		}
+#endif
 		return lnb.on_positioner;
 	}
 }

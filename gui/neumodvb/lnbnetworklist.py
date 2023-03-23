@@ -137,12 +137,8 @@ class LnbNetworkTable(NeumoTable):
         """
         self.screen = screen_if_t(lnbnetwork_screen_t(self), self.sort_order==2)
 
-    def matching_sat(self, txn, sat_pos):
+    def matching_sat(self, sat_pos):
         sats = wx.GetApp().get_sats()
-        if len(sats) == 0:
-            from neumodvb.init_db import load_sats
-            dtdebug("Empty database; adding sats")
-            load_sats(txn)
         for sat in sats:
             if abs(sat.sat_pos - sat_pos) < 5:
                 return sat
@@ -160,7 +156,7 @@ class LnbNetworkTable(NeumoTable):
             self.changed = True
 
         for n in self.lnb.networks:
-            if self.matching_sat(txn, n.sat_pos) is None:
+            if self.matching_sat(n.sat_pos) is None:
                 ss = pychdb.sat_pos_str(n.sat_pos)
                 add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
                 if not add:

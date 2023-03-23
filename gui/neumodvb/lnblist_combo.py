@@ -310,9 +310,7 @@ class LnbNetworkSatGridPopup(BasicLnbNetworkGrid):
             if self.selected_row is not None:
 
                 lnb_network = self.table.GetValue(self.selected_row, None)
-                txn = self.table.db.rtxn()
-                sat = self.table.matching_sat(txn, lnb_network.sat_pos)
-                txn.abort()
+                sat = self.table.matching_sat(lnb_network.sat_pos)
                 self.Parent.GrandParent.OnSelectLnbNetworkSat(sat)
             evt.Skip(False)
         else:

@@ -124,8 +124,9 @@ key_src = db_enum(name='key_src_t',
                                                         #nid is invalid, ts_id comes from PAT
                        ('NIT_ACTUAL', 4),   #mux has NOT been tuned, found in NIT_ACTUAL
                        ('NIT_OTHER', 5),   #mux has NOT been tuned, found in NIT_OTHER
-                       ('USER', 6), #user has locked the data from being overwritten
-                       ('AUTO', 7) #temporary state: user has turned off "USER", but source of data is unknown
+                       ('SDT_OTHER', 6),   #mux has NOT been tuned, found in NIT_OTHER
+                       ('USER', 7), #user has locked the data from being overwritten
+                       ('AUTO', 8) #temporary state: user has turned off "USER", but source of data is unknown
                            ))
 
 scan_result = db_enum(name='scan_result_t',

@@ -1728,12 +1728,19 @@ bool active_si_stream_t::update_mux(
 
 	if(from_sdt) {
 		auto *c = chdb::mux_common_ptr(mux);
+		if(is_reader_mux) { //SDT_ACTUAL
+			c->key_src = key_src_t::SDT_TUNED;
 #ifndef NDEBUG
 		auto testpreserve  = m::flags((m::SCAN_DATA | m::NIT_SI_DATA | m::TUNE_DATA));
 #endif
 		assert((preserve &testpreserve) == testpreserve);
-		assert(is_reader_mux); //SDT_ACTUAL is only ever written for the reader_mux
-		c->key_src = key_src_t::SDT_TUNED;
+		} else {
+			c->key_src = key_src_t::SDT_OTHER;
+#ifndef NDEBUG
+			auto testpreserve  = m::ALL & ~m::SERVICES;
+#endif
+		assert((preserve &testpreserve) == testpreserve);
+		}
 		chdb::update_mux(chdb_wtxn, mux, now,  preserve, true /*ignore_key*/,
 										 false /*ignore_t2mi_pid*/, false /*must_exist*/);
 	} else {
@@ -2015,7 +2022,9 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 			if (changed) { //update statistics
 				namespace m = chdb::update_mux_preserve_t;
 				dtdebug("Update mux " << mux << " tuned=" << reader->stream_mux());
-				auto preserve = m::flags{m::ALL & ~(m::NUM_SERVICES | m::EPG_TYPES | m::MUX_KEY)};
+				auto preserve = is_actual
+					? m::flags{m::ALL & ~(m::NUM_SERVICES | m::EPG_TYPES | m::MUX_KEY)}
+					: m::ALL; //then only new records will be created, but nothing will be updated
 				bool is_reader_mux = this->matches_reader_mux(mux);
 				this->update_mux(wtxn, mux, now, is_reader_mux, true /*from_sdt*/, preserve /*preserve*/);
 			}

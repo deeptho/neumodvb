@@ -984,6 +984,7 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	if(lnb.usals_pos == sat_pos_none && lnb.networks.size() >0 && loc) {
 		lnb.usals_pos = lnb.networks[0].sat_pos;
 		devdb::lnb::set_lnb_offset_angle(lnb, *loc);
+	}
 
 	if(loc) {
 		if(!lnb.on_positioner)

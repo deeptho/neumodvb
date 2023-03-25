@@ -622,7 +622,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         txn.abort()
         del txn
         dtdebug(f"self.mux={self.mux} self.sat={self.sat}")
-        assert (self.mux.k.sat_pos - self.sat.sat_pos) < 5
+        assert abs(self.mux.k.sat_pos - self.sat.sat_pos) < 5
         if network is not None:
             self.parent.SetDiseqc12Position(network.diseqc12)
         self.positioner_sat_sel.Update()

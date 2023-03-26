@@ -706,6 +706,7 @@ std::ostream& chdb::operator<<(std::ostream& os, key_src_t key_src) {
 	case key_src_t::PAT_TUNED: os << "pat"; break;
 	case key_src_t::NIT_ACTUAL:  os << "nita"; break;
 	case key_src_t::NIT_OTHER:  os << "nito"; break;
+	case key_src_t::SDT_OTHER:  os << "sdto"; break;
 	case key_src_t::USER:       os << "user"; break;
 	case key_src_t::AUTO:       os << "auto"; break;
 	}

@@ -1737,7 +1737,7 @@ bool active_si_stream_t::update_mux(
 		} else {
 			c->key_src = key_src_t::SDT_OTHER;
 #ifndef NDEBUG
-			auto testpreserve  = m::ALL & ~m::SERVICES;
+			auto testpreserve  = m::ALL & ~m::NUM_SERVICES;
 #endif
 		assert((preserve &testpreserve) == testpreserve);
 		}

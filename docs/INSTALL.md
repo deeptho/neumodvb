@@ -31,17 +31,18 @@ at least the following packages are needed:
 sudo pip3 install mpl_scatter_density
 ```
 
-#### Fedora 36/37 ####
-On Fedora 36/37:  install at least the following RPMs with `sudo dnf install -y <PACKAGE>`:
+#### Fedora 36 ####
+On Fedora 36:  install at least the following RPMs with `sudo dnf install -y <PACKAGE>`:
 
 ``` bash
 sudo dnf install -y redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options \
 boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel \
-wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection \
-expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools \
-python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel \
-wxBase3 wxBase3-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
-ffmpeg-devel mpv-libs-devel tsduck 
+wxGTK3 wxGTK3-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif \
+gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matplotlib-wx \
+python3-sip-devel  python3-cachetools python3-gobject-base  python3-configobj \
+python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 \
+wxBase3-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
+ffmpeg-devel mpv-libs-devel tsduck
 ```
 
 Some of these packages are provided by rpmfusion, which can be installed using the instructions at

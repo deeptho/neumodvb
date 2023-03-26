@@ -246,10 +246,6 @@ template<typename record_t>
 inline void screen_t<record_t>::delete_screen_record
 	(db_tcursor<record_t>& tcursor, const ss::bytebuffer_& primary_key) {
 	assert(!tcursor.is_index_cursor);
-#if 0
-	if(!tcursor.find(primary_key))
-		return; //there is no record with the primary key
-#endif
 
 	assert(tcursor.txn.pdb->use_dynamic_keys);
 	assert(tcursor.txn.pdb->dynamic_keys.size()==1);
@@ -388,8 +384,7 @@ inline db_tcursor_index<record_t> screen_t<record_t>::first_cursor(db_txn& rtxn)
 {
 
 	auto find_type =  find_type_t::find_geq;
-	auto key_prefix =record_t::make_key(sort_order, record_t::partial_keys_t::all, nullptr);
-
+	auto key_prefix =record_t::make_key(sort_order, record_t::partial_keys_t::none, nullptr);
 	auto c = secondary_key_t::template find_by_serialized_key<record_t>(rtxn, key_prefix, key_prefix,
 																																			find_type);
 	c.set_key_prefix(key_prefix);
@@ -405,8 +400,7 @@ inline db_tcursor_index<record_t> screen_t<record_t>::last_cursor(db_txn& rtxn)
 {
 
 	auto find_type =  find_type_t::find_leq;
-
-	auto key_prefix =record_t::make_key(sort_order, record_t::partial_keys_t::all, nullptr, false);
+	auto key_prefix =record_t::make_key(sort_order, record_t::partial_keys_t::none, nullptr, false);
 	auto upper_limit =record_t::make_key(sort_order, record_t::partial_keys_t::all, nullptr, true);
 	auto c = secondary_key_t::template find_by_serialized_key<record_t>(rtxn, upper_limit,
 																																			key_prefix,
@@ -425,7 +419,7 @@ template <typename record_t>
 inline db_tcursor_index<record_t> screen_t<record_t>::reference_cursor
 (db_txn& rtxn, monitor_t::reference_t& reference)
 {
-	auto key_prefix =record_t::make_key(sort_order, record_t::partial_keys_t::all, nullptr);
+	auto key_prefix =record_t::make_key(sort_order, record_t::partial_keys_t::none, nullptr);
 	if(reference.row_number<0) {
 		//auto find_type =  find_type_t::find_geq;
 		auto c = first_cursor(rtxn);

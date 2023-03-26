@@ -75,14 +75,14 @@ deserialize_int(const ss::bytebuffer_ &ser, T& val, int foreign_type_id, int off
 	int ret = -1;
 	using namespace data_types;
 	switch(foreign_type_id & ~data_types::enumeration & ~data_types::vector) {
-	case uint8: {
+	case uint8:
+	case boolean: {
 		uint8_t val_;
 		ret = decode_ascending(val_, ser, offset);
 		val = val_;
 		return ret;
 	}
-	case int8:
-	case boolean: {
+	case int8: {
 		int8_t val_;
 		ret = decode_ascending(val_, ser, offset);
 		val = val_;

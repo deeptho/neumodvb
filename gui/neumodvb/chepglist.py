@@ -29,7 +29,7 @@ from dateutil import tz
 import regex as re
 import time
 
-from neumodvb.util import setup, lastdot
+from neumodvb.util import setup, lastdot, dtdebug, dterror
 
 import pychdb
 import pyepgdb

@@ -195,23 +195,11 @@ namespace {{dbname}} {
    {% if prefix.is_full_key %}
    = find_eq
    {%endif%} ,
-       {{struct.class_name}}::partial_keys_t key_prefix={{struct.class_name}}::partial_keys_t::none);
-
-{%if key.index_name != prefix.prefix_name and loop.index == 1 %}
-#if 0
-inline static
-{{cursor_type}}<{{struct.class_name}}> find_by_{{prefix.prefix_name}}
-(db_txn& txn, {%- for field in prefix.fields %}
-		const {{field.namespace}}{{field.scalar_type}}& {{field.short_name}},
-	{%endfor -%}
-		find_type_t find_type = find_eq,
-{{struct.class_name}}::partial_keys_t key_prefix={{struct.class_name}}::partial_keys_t::none) {
-	return find_by_{{key.index_name}}(txn, {%- for field in prefix.fields %} {{field.short_name}},
-	{%endfor -%}
-		find_type, key_prefix);
-}
-#endif
+       {{struct.class_name}}::partial_keys_t key_prefix ={{struct.class_name}}::partial_keys_t::none
+      {% if prefix.is_full_key %}, {{struct.class_name}}::partial_keys_t find_prefix =
+{{struct.class_name}}::partial_keys_t::{{prefix.prefix_name}}
 {% endif %}
+	);
 
 {% endif %}
 {% endfor %}

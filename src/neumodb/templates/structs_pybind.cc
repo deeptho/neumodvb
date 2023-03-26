@@ -264,18 +264,19 @@ namespace {{dbname}} {
 	void export_{{struct.name}}_find(py::module& mm) {
 		{% for key in struct.keys %}
 		{% for prefix in key.key_prefixes %}
-		{% if not  prefix.duplicate %}
+		{% if prefix.is_full_key and not  prefix.duplicate %}
 		{%set num_fields = loop.index %}
 		{
 			auto fn = [](db_txn& txn,
 				{%- for field in prefix.fields %}const {{field.namespace}}{{field.scalar_type}}& {{field.short_name}},
 				{%- endfor -%}
-				find_type_t find_type, {{struct.class_name}}::partial_keys_t key_prefix) {
-									auto c = {{struct.class_name}}::find_by_{{key.index_name}}(txn,
-										{%- for field in prefix.fields %}{{field.short_name}},
-										{%- endfor -%}
-										find_type, key_prefix);
-						        return record_at_cursor<{{struct.class_name}}, decltype(c)>(c);
+				find_type_t find_type, {{struct.class_name}}::partial_keys_t key_prefix,
+				{{struct.class_name}}::partial_keys_t find_prefix) {
+				auto c = {{struct.class_name}}::find_by_{{key.index_name}}(txn,
+					{%- for field in prefix.fields %}{{field.short_name}},
+					{%- endfor -%}
+					find_type, key_prefix, find_prefix);
+				return record_at_cursor<{{struct.class_name}}, decltype(c)>(c);
 								};
 			mm.def("find_by_{{key.index_name}}", fn,
 						 "Find a {{struct.name}} using an index"
@@ -285,6 +286,7 @@ namespace {{dbname}} {
 						 {%endfor -%}
 						 , py::arg("find_type") = find_type_t::find_eq
 						 , py::arg("key_prefix") =  {{struct.class_name}}::partial_keys_t::none
+						 , py::arg("find_prefix")	=	{{struct.class_name}}::partial_keys_t::{{prefix.prefix_name}}
 				);
 	  }
 {% endif %}

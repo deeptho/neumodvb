@@ -992,14 +992,17 @@ namespace {{dbname}} {
 	Find a record by a full or partial key specified by the arguments.
 	The returned cursor points to the record if find_type==find_eq, or to a nearby
 	record otherwise.
-	The cursors key_prefix is set to all records for the specified key (so if a partial key is
-	specified, the cursor can be moved to records which do not start with the cursors key_prefix
+
+	key_prefix: restricts the valid range based on a specific prefix part of the key
+	find_prefix: restricts the lookup to a specific prefix part of the key.
+  if find_prefix smaller then the key itself then  find_type may not equal find_eq.
  */
 {{cursor_type}}<{{struct.class_name}}> {{struct.class_name}}::find_by_{{key.index_name}}
 (db_txn& txn, {%- for field in prefix.fields %}
 		const {{field.namespace}}{{field.scalar_type}}& {{field.short_name}},
 	{%endfor -%}
-		find_type_t find_type,  {{struct.class_name}}::partial_keys_t key_prefix)
+		find_type_t find_type,  {{struct.class_name}}::partial_keys_t key_prefix
+{% if prefix.is_full_key %}, {{struct.class_name}}::partial_keys_t find_prefix {% endif %})
 {
    {{struct.class_name}} temp;
 	 {%for field in prefix.fields %}
@@ -1010,16 +1013,19 @@ namespace {{dbname}} {
 		This is a code error. The caller should use find_geq instead.
 	*/
 	assert(find_type!= find_type_t::find_eq || ("Incorrect code" == nullptr));
+	auto find_prefix = {{struct.class_name}}::partial_keys_t::{{prefix.prefix_name}};
 	{% else %}
 	//This is is a full key
+	assert(find_type!= find_type_t::find_eq ||
+				 find_prefix == {{struct.class_name}}::partial_keys_t::{{prefix.prefix_name}} ||
+				 find_prefix == {{struct.class_name}}::partial_keys_t::all || ("Incorrect code" == nullptr));
 	{% endif %}
 	auto key_prefix_ =
 		{{struct.class_name}}::make_key({{struct.class_name}}::keys_t::{{key.index_name}},
 																		key_prefix,  &temp);
 	const auto& {{key_name}}_key = {{struct.class_name}}::make_key
 														({{struct.class_name}}::keys_t::{{key.index_name}},
-														 {{struct.class_name}}::partial_keys_t::{{prefix.prefix_name}},
-														 &temp);
+														 find_prefix, &temp);
 
   assert({{key_name}}_key.size() >= (int)sizeof(uint32_t));
 

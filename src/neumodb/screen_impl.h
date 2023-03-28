@@ -401,7 +401,7 @@ inline db_tcursor_index<record_t> screen_t<record_t>::last_cursor(db_txn& rtxn)
 
 	auto find_type =  find_type_t::find_leq;
 	auto key_prefix =record_t::make_key(sort_order, record_t::partial_keys_t::none, nullptr, false);
-	auto upper_limit =record_t::make_key(sort_order, record_t::partial_keys_t::all, nullptr, true);
+	auto upper_limit =record_t::make_key(sort_order, record_t::partial_keys_t::none, nullptr, true);
 	auto c = secondary_key_t::template find_by_serialized_key<record_t>(rtxn, upper_limit,
 																																			key_prefix,
 																																			find_type);

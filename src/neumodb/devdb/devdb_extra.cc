@@ -248,76 +248,77 @@ static std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool> lnb_band_he
 	case lnb_type_t::C: {
 		freq_low = lnb.freq_low < 0 ? 3400000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 4200000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low = 5150000;
-		lof_high = 5150000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low = lnb.lof_low < 0 ? 5150000 :  lnb.lof_low;
+		lof_high = lnb.lof_high < 0 ? 5150000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::WDB: {
 		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low = 10400000;
-		lof_high = 10400000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low = lnb.lof_low < 0 ? 10400000 : lnb.lof_low;
+		lof_high = lnb.lof_high < 0 ? 10400000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::WDBUK: {
 		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low = 10410000;
-		lof_high = 1041000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low = lnb.lof_low < 0 ? 10410000 : lnb.lof_low;
+		lof_high = lnb.lof_high < 0 ? 1041000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::UNIV: {
 		freq_low = lnb.freq_low < 0 ? 10700000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 12750000 : lnb.freq_high;
 		freq_mid = (lnb.freq_mid < 0) ? 11700000 : lnb.freq_mid;
-		lof_low =  9750000;
-		lof_high = 10600000;
+		lof_low =  lnb.lof_low < 0 ? 9750000 : lnb.lof_low;
+		lof_high = lnb.lof_high < 0 ? 10600000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::KU: {
 		freq_low = lnb.freq_low < 0 ?  11700000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 12200000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low = 9750000;
-		lof_high = 9750000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low = lnb.lof_low < 0 ? 9750000 : lnb.lof_low;
+		lof_high = lnb.lof_high < 0 ? 9750000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::KaA: {
 		freq_low = lnb.freq_low < 0 ?   18200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 19200000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low =  17250000;
-		lof_high =  17250000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low =  lnb.lof_low < 0 ? 17250000  : lnb.lof_low;
+		lof_high =  lnb.lof_high < 0 ?17250000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::KaB: {
 		freq_low = lnb.freq_low < 0 ?   19200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 20200000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low =   18250000;
-		lof_high =  18250000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low =   lnb.lof_low < 0 ? 18250000 : lnb.lof_low;
+		lof_high =  lnb.lof_high < 0 ?18250000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::KaC: {
 		freq_low = lnb.freq_low < 0 ?   20200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 21200000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low =   19250000;
-		lof_high =  19250000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low =   lnb.lof_low < 0 ? 19250000 : lnb.lof_low;
+		lof_high =  lnb.lof_high < 0 ?19250000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::KaD: {
 		freq_low = lnb.freq_low < 0 ?   21200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 22200000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low =   20250000;
-		lof_high =  20250000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low =   lnb.lof_low < 0 ? 20250000 : lnb.lof_low;
+		lof_high =  lnb.lof_high < 0 ?20250000 : lnb.lof_high;
 	} break;
 	case lnb_type_t::KaE: {
 		freq_low = lnb.freq_low < 0 ?   17200000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 18200000 : lnb.freq_high;
-		freq_mid = freq_high;
-		lof_low =   16250000;
-		lof_high =  16250000;
+		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
+		lof_low =   lnb.lof_low < 0 ? 16250000 : lnb.lof_low;
+		lof_high =  lnb.lof_high < 0 ? 16250000 : lnb.lof_high;
 	} break;
 	default:
 		assert(0);
 	}
+
 	bool inverted_spectrum = lof_low >= freq_low;
 	return {freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum};
 }
@@ -975,7 +976,6 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	using namespace devdb;
 	using p_t = update_lnb_preserve_t::flags;
 	bool found=false;
-	bool on_positioner{false};
 	bool can_be_used{false};
 	if(!lnb.on_positioner && lnb.networks.size() >0) {
 		lnb.usals_pos = lnb.networks[0].usals_pos;
@@ -1082,7 +1082,6 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 			switch(conn.rotor_control) {
 			case devdb::rotor_control_t::ROTOR_MASTER_USALS:
 				//replace all diseqc12 commands with USALS commands
-				on_positioner = true;
 				for(auto& c: conn.tune_string) {
 					if (c=='X') {
 						c = 'P';
@@ -1093,7 +1092,6 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 				break;
 			case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
 				//replace all usals commands with diseqc12 commands
-				on_positioner = true;
 				for(auto& c: conn.tune_string) {
 					if (c=='P') {
 						c = 'X';
@@ -1111,8 +1109,6 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	if(save) { /*we deliberately do not sort or remove duplicate data  when we are not really
 							 saving. This is needed to provide a stable editing GUI for connections and networks
 						 */
-		if(on_positioner)
-			lnb.on_positioner = on_positioner;
 		std::sort(lnb.networks.begin(), lnb.networks.end(),
 							[](const lnb_network_t& a, const lnb_network_t& b) { return a.sat_pos < b.sat_pos; });
 		for(int i=1; i< lnb.networks.size(); ) {

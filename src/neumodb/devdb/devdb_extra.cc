@@ -104,8 +104,8 @@ std::ostream& devdb::operator<<(std::ostream& os, const lnb_connection_t& con) {
 	case rotor_control_t::ROTOR_MASTER_DISEQC12:
 		stdex::printf(os, " rotor");
 		break;
-	case rotor_control_t::ROTOR_SLAVE:
-		stdex::printf(os, " slave");
+	case rotor_control_t::ROTOR_NONE:
+		stdex::printf(os, " none");
 	}
 	return os;
 }

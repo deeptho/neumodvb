@@ -31,7 +31,7 @@ rotor_control = db_enum(name='rotor_control_t',
                    fields=(('ROTOR_MASTER_MANUAL', 0),  #rotor controlled by user
                            'ROTOR_MASTER_USALS', #lnb on rotor, with its cable connected to the rotor
                            'ROTOR_MASTER_DISEQC12', #lnb on rotor, with its cable connected to the rotor
-                           'ROTOR_SLAVE', #lnb on rotor, with its cable not connected to the rotor
+                           'ROTOR_NONE', #lnb on rotor, with its cable not connected to the rotor, or lnb not on rotor
                            ))
 
 positioner_cmd = db_enum(name='positioner_cmd_t',
@@ -199,7 +199,7 @@ lnb_connection = db_struct(name='lnb_connection',
                           (3, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
                           (13, 'bool',  'can_be_used', 'true'), #bit flag indicating if this connection can be used
                           (4, 'int16_t',  'priority', -1), #
-                          (5, 'rotor_control_t', 'rotor_control', 'rotor_control_t::ROTOR_MASTER_USALS'), #
+                          (5, 'rotor_control_t', 'rotor_control', 'rotor_control_t::ROTOR_NONE'), #
                           (6, 'uint8_t' , 'diseqc_mini'),
                           (7, 'int8_t' , 'diseqc_10', '-1'),
                           (8, 'int8_t' , 'diseqc_11', '-1'),

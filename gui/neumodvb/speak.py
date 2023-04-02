@@ -43,7 +43,7 @@ class Speaker(object):
                 elif x != 0:
                     dterror(f"espeak failed: errror={self.p.returncode}")
             self.p = subprocess.Popen(inputcommand,  shell=False)
-
+            dtdebug(f'espeak: {inputcommand}')
     def speak_string(self, x):
         if self.cmd is not None:
             c = [self.cmd,  '-ven-us+f4', '-k5', '-s170', x]

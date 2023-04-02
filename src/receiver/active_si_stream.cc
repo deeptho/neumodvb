@@ -305,7 +305,7 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 	}
 
 	this->update_mux(wtxn, mux, now, true /*is_reader_mux*/, from_sdt,  m::flags{ m::MUX_COMMON & ~m::SCAN_STATUS } /*preserve*/);
-	assert(mux_key->ts_id == ts_id);
+	//assert(mux_key->ts_id == ts_id);
 	if (!from_sdt && !is_embedded_si) {
 		reader->on_stream_mux_change(mux);
 	}

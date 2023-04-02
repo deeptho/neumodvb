@@ -473,7 +473,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.parent.UpdateSignalInfo(signal_info, self.tuned_)
         consolidated_mux = signal_info.consolidated_mux
         sat_pos_confirmed = signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
-        nit_valid = consolidated_mux.c.tune_src == pychdb.key_src_t.NIT_TUNED
+        nit_valid = consolidated_mux.c.tune_src == pychdb.tune_src_t.NIT_TUNED
         pol = neumodbutils.enum_to_str(consolidated_mux.pol)
         if self.signal_info.nit_received:
             self.si_freq_text.SetLabel(f'{consolidated_mux.frequency/1e3:,.3f} MHz {pol}'.replace(',', ' ') \

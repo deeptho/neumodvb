@@ -552,7 +552,7 @@ std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int
 			if(!lnb_connection.enabled)
 				continue;
 			bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
-			if (lnb_is_on_rotor && (usals_move_amount >= sat_pos_tolerance) &&
+			if (lnb_is_on_rotor && (usals_move_amount > sat_pos_tolerance) &&
 					(!may_move_dish || !conn_can_control_rotor)
 				)
 				continue; //skip because dish movement is not allowed or  not possible
@@ -596,7 +596,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 			if (!has_network || !lnb.enabled || lnb.connections.size()==0)
 				continue;
 			bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
-			if (lnb_is_on_rotor && (usals_move_amount >= sat_pos_tolerance) && !may_move_dish)
+			if (lnb_is_on_rotor && (usals_move_amount > sat_pos_tolerance) && !may_move_dish)
 				continue; //skip because dish movement is not allowed or  not possible
 
 			//		auto dish_needs_to_be_moved_ = usals_move_amount != 0;

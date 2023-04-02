@@ -1025,12 +1025,12 @@ class PositionerDialog(PositionerDialog_):
     def enable_disable_diseqc_panels(self):
         t = pydevdb.rotor_control_t
         if self.lnb_connection is None or \
-           self.lnb_connection.rotor_control in (t.MASTER_USALS, t.SLAVE, t.MASTER_MANUAL):
+           self.lnb_connection.rotor_control in (t.MASTER_USALS, t.NONE, t.MASTER_MANUAL):
             self.diseqc12_panel.Disable()
         else:
             self.diseqc12_panel.Enable()
         if self.lnb_connection is None or \
-           self.lnb_connection.rotor_control in (t.MASTER_DISEQC12, t.SLAVE, t.MASTER_MANUAL):
+           self.lnb_connection.rotor_control in (t.MASTER_DISEQC12, t.NONE, t.MASTER_MANUAL):
             self.usals_panel.Disable()
         else:
             self.usals_panel.Enable()

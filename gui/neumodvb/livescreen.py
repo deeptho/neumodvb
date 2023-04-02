@@ -234,7 +234,7 @@ class LiveServiceScreen(object):
             ref = pychdb.service.service()
             ref.k.mux.sat_pos = sat.sat_pos
             self.screen = pychdb.service.screen(txn, sort_order=sort_order,
-                                                key_prefix_type=pychdb.service.service_prefix.k.network_id_ts_id_sat_pos,
+                                                key_prefix_type=pychdb.service.service_prefix.sat_pos,
                                                 key_prefix_data=ref)
         sat_pos = pychdb.sat.sat_pos_none if sat is None else sat.sat_pos
         if service is None and  type(self.selected_service_or_channel) == pychdb.service.service:

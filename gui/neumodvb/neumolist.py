@@ -720,6 +720,8 @@ class NeumoTable(NeumoTableBase):
                 txn.commit()
                 if changed:
                     self.GetRow.cache_clear()
+                    if self.do_autosize_rows:
+                        self.AutoSizeRows()
                     self.parent.SelectRecord(l.oldrecord)
                     self.parent.ForceRefresh()
                 #self.data = self.__get_data__()
@@ -732,6 +734,8 @@ class NeumoTable(NeumoTableBase):
                 txn.commit()
                 if changed:
                     self.GetRow.cache_clear()
+                    if self.do_autosize_rows:
+                        self.AutoSizeRows()
                     self.parent.SelectRecord(last.oldrecord)
                     self.parent.ForceRefresh()
                 assert last.oldrow < self.GetNumberRows()
@@ -747,6 +751,8 @@ class NeumoTable(NeumoTableBase):
                 txn.commit()
                 if changed:
                     self.GetRow.cache_clear()
+                    if self.do_autosize_rows:
+                        self.AutoSizeRows()
                     self.parent.ForceRefresh()
                 assert last.oldrow == self.GetNumberRows()
                 #self.data.pop()
@@ -794,6 +800,8 @@ class NeumoTable(NeumoTableBase):
             self.GetRow.cache_clear()
             if changed:
                 self.parent.sync_rows()
+                if self.do_autosize_rows:
+                        self.AutoSizeRows()
                 self.parent.SelectRecord(new)
         self.parent.ForceRefresh()
         return True
@@ -819,6 +827,8 @@ class NeumoTable(NeumoTableBase):
         txn = self.db.wtxn() if txn is None else txn
         if self.screen.update(txn):
             changed = True
+            if self.do_autosize_rows:
+                self.AutoSizeRows()
         else:
             pass
         if txn is not None:
@@ -1111,6 +1121,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         if changed:
             self.table.on_screen_changed()
             self.table.GetRow.cache_clear()
+            if self.do_autosize_rows:
+                        self.AutoSizeRows()
             self.OnRefresh(None, None)
             if self.infow is not None:
                 self.infow.ShowRecord(self.table, self.table.CurrentlySelectedRecord())

@@ -79,7 +79,7 @@ std::tuple<devdb::fe_t, int> fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_
 
 
 std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
-	db_txn& rtxn, const devdb::fe_key_t* fe_to_release,
+	db_txn& rtxn, const devdb::fe_key_t* fe_key_to_release,
 	bool need_blindscan, bool need_spectrum, bool need_multistream,
 	chdb::delsys_type_t delsys_type, bool ignore_subscriptions) {
 	bool need_dvbt = delsys_type == chdb::delsys_type_t::DVB_T;
@@ -108,10 +108,11 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 			continue;
 		if (need_dvbt && (!fe.enable_dvbt || !fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_T)))
 			continue;
+		bool is_subscribed = ignore_subscriptions ? false: fe::is_subscribed(fe);
+		bool is_our_subscription = (ignore_subscriptions || fe.sub.use_count>1) ? false
+			: (fe_key_to_release && fe.k == *fe_key_to_release);
+		if(!is_subscribed  || is_our_subscription) {
 
-		if((!fe::is_subscribed(fe) && ! adapter_in_use(fe.adapter_no)) ||
-			 (fe_to_release && fe.k == *fe_to_release) //consider the future case where the fe will be unsubscribed
-			) {
 			//find the best fe with all required functionality, without taking into account other subscriptions
 			if(!fe.present || ! fe.can_be_used)
 				continue; 			/* we can use this frontend only if it can be connected to the proper input*/

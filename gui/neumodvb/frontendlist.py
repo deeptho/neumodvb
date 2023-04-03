@@ -49,14 +49,19 @@ def subscription_fn(x):
     sub = x[0].sub
     if sub.usals_pos == pychdb.sat.sat_pos_none:
         return ""
-    sat_pos=pychdb.sat_pos_str(sub.usals_pos)
-    t= lastdot(sub.rf_path.lnb.lnb_type)
-    e = neumodbutils.enum_to_str
-    if t != 'C':
-        t='Ku'
     sid = "" if (sub.stream_id < 0)  else f'-{sub.stream_id}'
-    f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
-    return f'#{sub.rf_path.rf_input} {sat_pos:>5}{t} {f} {sub.rf_path.lnb.lnb_id}'
+    if sub.usals_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
+        sat_pos=pychdb.sat_pos_str(sub.usals_pos)
+        t= lastdot(sub.rf_path.lnb.lnb_type)
+        e = neumodbutils.enum_to_str
+        if t != 'C':
+            t='Ku'
+            f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
+            return f'#{sub.rf_path.rf_input} {sat_pos:>5}{t} {f} {sub.rf_path.lnb.lnb_id}'
+    else:
+            f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{sid}'
+            return f'#{sub.rf_path.rf_input} {f}'
+
 
 class FrontendTable(NeumoTable):
     CD = NeumoTable.CD

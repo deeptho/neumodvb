@@ -690,7 +690,7 @@ receiver_thread_t::subscribe_mux_not_in_use(
 	bool found = !!fe_;
 	bool is_same_frontend = found && ( fe_key_to_release && *fe_key_to_release == fe_->k);
 	bool deactivate = released_fe_usecount == 0;
-	if (fe_key_to_release) {
+	if (fe_key_to_release && !is_same_frontend) {
 		assert(old_active_adapter);
 		assert((int)subscription_id >= 0);
 		assert(!is_same_frontend);

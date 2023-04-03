@@ -789,7 +789,8 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 
 	if(!best_fe)
 		return {best_fe, released_fe_usecount}; //no frontend could be found
-
+	if(fe_key_to_release && best_fe->k == *fe_key_to_release)
+		released_fe_usecount++;
 	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency, mux.stream_id);
 	assert(ret == 0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, released_fe_usecount};

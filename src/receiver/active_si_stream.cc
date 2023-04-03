@@ -887,7 +887,7 @@ void active_si_stream_t::scan_report() {
 			If no such mux exists one will be created with network_id=ts_id=0
 		*/
 		add_fake_nit(txn, 0, 0, tuned_key.sat_pos, false /*from_sdt*/);
-		assert(tune_confirmation.sat_by == confirmed_by_t::NONE);
+		assert(tune_confirmation.sat_by == confirmed_by_t::NONE || tune_confirmation.sat_by == confirmed_by_t::AUTO);
 		tune_confirmation.sat_by = confirmed_by_t::FAKE;
 		txn.commit();
 		tune_confirmation.si_done = true;

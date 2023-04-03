@@ -376,19 +376,19 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const ch
 */
 template <typename mux_t>
 requires (!is_same_type_v<mux_t, chdb::dvbs_mux_t>)
-db_tcursor<mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance) {
+db_tcursor_index<mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance) {
 	using namespace chdb;
 
 	// look up the first record with matching sat_pos and closeby frequency
 	// and create a range which iterates over all with the same sat_freq_pol
 	// find_leq is essential to find the first frequency below the wanted one if the wanted one does not exist
-	auto c = mux_t::find_by_key(txn, frequency, find_leq);
+	auto c = mux_t::find_by_freq(txn, frequency, find_leq);
 
 	if (!c.is_valid()) {
 		// no frequencies lower than the wanted one
 		c.close();
 		// perhaps there are closeby higher frequencies
-		c = mux_t::find_by_key(txn, frequency, find_geq);
+		c = mux_t::find_by_freq(txn, frequency, find_geq);
 		if (!c.is_valid()) {
 			// no frequencies higher than the wanted one on this sat
 			c.close();
@@ -576,13 +576,13 @@ template <typename mux_t> db_tcursor<mux_t> chdb::find_by_mux_physical(db_txn& t
 		return std::move(c.maincursor);
 	} else {
 		auto c = chdb::find_by_freq_fuzzy<mux_t>(txn, mux.frequency);
-		return c;
+		return std::move(c.maincursor);
 	}
 }
 
 //template instantiations
-template db_tcursor<chdb::dvbt_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
-template db_tcursor<chdb::dvbc_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
+template db_tcursor_index<chdb::dvbt_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
+template db_tcursor_index<chdb::dvbc_mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance);
 
 template db_tcursor<chdb::dvbs_mux_t> chdb::find_by_mux_physical(db_txn& txn, const chdb::dvbs_mux_t& mux,
 																																 bool ignore_stream_id, bool ignore_key,

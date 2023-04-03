@@ -435,7 +435,7 @@ namespace chdb {
 
 	template<typename mux_t>
 	requires (!is_same_type_v<mux_t, chdb::dvbs_mux_t>)
-	db_tcursor<mux_t>
+	db_tcursor_index<mux_t>
 	find_by_freq_fuzzy(db_txn& txn, uint32_t frequency, int tolerance=1000);
 
 	db_tcursor_index<chdb::dvbs_mux_t>

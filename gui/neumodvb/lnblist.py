@@ -149,7 +149,7 @@ class LnbTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'usals_pos'
         data_table= pydevdb.lnb
-
+        self.do_autosize_rows = True
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
         if basic:
@@ -234,7 +234,6 @@ class LnbGridBase(NeumoGridBase):
         table = LnbTable(self, basic)
         self.lnb = None #lnb for which networks will be edited
         super().__init__(basic, readonly, table, *args, **kwds)
-        self.do_autosize_rows = True
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)

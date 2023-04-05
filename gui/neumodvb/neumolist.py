@@ -321,6 +321,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
         self.filtered_colnos = set()
         self.parent = parent
         self.last_edited_colno = None
+        self.do_autosize_rows = False
 
     @property
     def record_being_edited(self):
@@ -801,7 +802,7 @@ class NeumoTable(NeumoTableBase):
             if changed:
                 self.parent.sync_rows()
                 if self.do_autosize_rows:
-                        self.AutoSizeRows()
+                    self.AutoSizeRows()
                 self.parent.SelectRecord(new)
         self.parent.ForceRefresh()
         return True
@@ -961,7 +962,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.infow = None
         self.coloured_rows= set()
         glr.GridWithLabelRenderersMixin.__init__(self)
-        self.do_autosize_rows = False
         self.readonly = readonly
         self.basic  = basic
         self.app = wx.GetApp()
@@ -1121,8 +1121,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         if changed:
             self.table.on_screen_changed()
             self.table.GetRow.cache_clear()
-            if self.do_autosize_rows:
-                        self.AutoSizeRows()
+            if self.table.do_autosize_rows:
+                self.table.AutoSizeRows()
             self.OnRefresh(None, None)
             if self.infow is not None:
                 self.infow.ShowRecord(self.table, self.table.CurrentlySelectedRecord())
@@ -1134,8 +1134,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         editing_record_selected  = self.GridCursorRow in self.table.new_rows
         rec = self.table.CurrentlySelectedRecord()
         self.table.set_sort_column(sort_column)
-        if self.do_autosize_rows:
-            self.AutoSizeRows()
+        if self.table.do_autosize_rows:
+            self.table.AutoSizeRows()
         self.Refresh()
         if editing_record_selected:
             rowno = self.GridCursorRow

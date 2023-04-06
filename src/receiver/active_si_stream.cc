@@ -2503,37 +2503,38 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 					 chdb::mux_common_ptr(mux)->scan_id >0);
-
+		bool driver_data_reliable = signal_info.driver_data_reliable;
 		visit_variant(signal_info.driver_mux,
 									[&](chdb::dvbs_mux_t& mux) {
 										auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
 										assert(p);
 										if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
-											mux.frequency = p->frequency;
-											mux.symbol_rate = p->symbol_rate;
+											//copy frequency and symbol_rate from si_mux
+											if(!driver_data_reliable || (std::abs((int)mux.frequency - (int) p->frequency) < 50))
+												mux.frequency = p->frequency;
+											if(!driver_data_reliable || (std::abs((int)mux.symbol_rate - (int) p->symbol_rate) < 10))
+												mux.symbol_rate = p->symbol_rate;
 										}
 
-										/*override user entered "auto" data in signal_info.mux modulation data with si_data in case
-											si_mux is later overwritten with signal_info.mux*/
-										if(mux.rolloff == chdb::fe_rolloff_t::ROLLOFF_AUTO)
+										/*override user entered "auto" data in signal_info.mux modulation data,
+											e.g. because blindscan is not well supported */
+										if(!driver_data_reliable || mux.rolloff == chdb::fe_rolloff_t::ROLLOFF_AUTO)
 											mux.rolloff = p->rolloff;
-										if(p->modulation == chdb::fe_modulation_t::QAM_AUTO) {//happens on 22.0E 4181V
-										} else {
+										if(!driver_data_reliable || mux.modulation == chdb::fe_modulation_t::QAM_AUTO)
 											mux.modulation = p->modulation;
-										}
-										if(p->delivery_system != mux.delivery_system) { //happens on 14.0W 11024H
-											p->delivery_system = mux.delivery_system;
-										}
-										p->matype = mux.matype; /* set si_mux.matype from driver info (which is the only source for it)*/
+										if(driver_data_reliable)
+											p->matype = mux.matype; /* set si_mux.matype from driver info (which is the only source for it)*/
 									},
 									[&](chdb::dvbc_mux_t& mux) {
 										auto* p = std::get_if<chdb::dvbc_mux_t>(&si_mux);
 										assert(p);
 										if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
-											mux.frequency = p->frequency;
-											mux.symbol_rate = p->symbol_rate;
+											if(!driver_data_reliable || (std::abs((int)mux.frequency - (int) p->frequency) < 50))
+												mux.frequency = p->frequency;
+											if(!driver_data_reliable || (std::abs((int)mux.symbol_rate - (int) p->symbol_rate) < 10))
+												mux.symbol_rate = p->symbol_rate;
 										}
-										if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
+										if(!driver_data_reliable || mux.modulation == chdb::fe_modulation_t::QAM_AUTO) {
 											mux.modulation = p->modulation;
 										}
 
@@ -2542,9 +2543,10 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 										auto* p = std::get_if<chdb::dvbt_mux_t>(&si_mux);
 										assert(p);
 										if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
+											if(!driver_data_reliable || (std::abs((int)mux.frequency - (int) p->frequency) < 50))
 											mux.frequency = p->frequency;
 										}
-										if(p->modulation != chdb::fe_modulation_t::QAM_AUTO) {
+										if(!driver_data_reliable || mux.modulation == chdb::fe_modulation_t::QAM_AUTO) {
 											mux.modulation = p->modulation;
 										}
 									});

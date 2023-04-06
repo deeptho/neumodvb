@@ -466,6 +466,7 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 		dvbs_mux->frequency is the frequency which we were asked to tune
 			*/
 	if (api == api_type_t::NEUMO) {
+		ret.driver_data_reliable =true;
 		matype = cmdseq.get(DTV_MATYPE)->u.data;
 		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.driver_mux);
 		if (dvbs_mux) {

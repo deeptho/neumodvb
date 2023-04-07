@@ -767,7 +767,13 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			scan_report_t report{subscription, {}, {}};
 			report.scan_stats = *scan_stats.readAccess();
 			auto ss = *scan_stats.readAccess();
-			dtdebug("SCAN REPORT: mux=" << *report.mux << " pending=" << ss.pending_muxes << " active=" << ss.active_muxes);
+			if(report.mux) {
+				dtdebug("SCAN REPORT: mux=" << *report.mux << " pending=" <<
+							ss.pending_muxes << " active=" << ss.active_muxes);
+			} else {
+								dtdebug("SCAN REPORT: mux=" << "NONE" << " pending=" <<
+							ss.pending_muxes << " active=" << ss.active_muxes);
+			}
 			receiver_thread.notify_scan_mux_end(scan_subscription_id, report);
 		} else if(!subscription.scan_start_reported) {
 			subscription.scan_start_reported = true;

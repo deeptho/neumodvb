@@ -87,7 +87,7 @@ struct fe_lock_status_t {
 	int16_t matype{-1};
 	//true if we detected this is not a dvbs transport stream
 	inline bool is_locked() {
-		return fe_status & FE_HAS_LOCK;
+		return fe_status & FE_HAS_VITERBI;
 	}
 	inline bool has_soft_tune_failure() {
 		return fe_status & FE_OUT_OF_RESOURCES;

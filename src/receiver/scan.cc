@@ -914,7 +914,7 @@ scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 template<typename mux_t> static void clean(db_txn& wtxn)
 {
 	using namespace chdb;
-	auto fn = [&](auto scan_status, const char* msg) {
+	auto fn = [&](auto scan_status, const char* label) {
 		int count{0};
 		auto c = mux_t::find_by_scan_status(wtxn, scan_status, find_type_t::find_geq,
 																				mux_t::partial_keys_t::scan_status);
@@ -926,7 +926,7 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 			put_record(wtxn, mux);
 			count++;
 		}
-		dtdebugx("Cleaned %d muxes with %s status", count, msg);
+		dtdebugx("Cleaned %d muxes with %s status\n", count, label);
 	};
 
 	fn(scan_status_t::PENDING, "PENDING");

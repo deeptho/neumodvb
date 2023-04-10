@@ -1344,7 +1344,7 @@ void receiver_thread_t::cb_t::start_recording(
 	}
 	chdb_txn.abort();
 
-	auto devdb_wtxn =  receiver.chdb.wtxn();
+	auto devdb_wtxn =  receiver.devdb.wtxn();
 
 	dtdebug("RECORD - calling subscribe_");
 	// now perform the requested subscription

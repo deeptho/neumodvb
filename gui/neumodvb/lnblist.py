@@ -149,7 +149,6 @@ class LnbTable(NeumoTable):
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'usals_pos'
         data_table= pydevdb.lnb
-        self.do_autosize_rows = True
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
         if basic:
@@ -159,6 +158,7 @@ class LnbTable(NeumoTable):
                          screen_getter = screen_getter,
                          record_t=pydevdb.lnb.lnb, initial_sorted_column = initial_sorted_column,
                          **kwds)
+        self.do_autosize_rows = True
 
     def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()

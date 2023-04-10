@@ -615,7 +615,15 @@ int deserialize_field_safe
 	{%endfor %}
 	default:
 		// this field does not exist currently and should be ignored
-		return offset+foreign_field.serialized_size;
+		if(foreign_field.serialized_size > 0)
+			return offset+foreign_field.serialized_size;
+		else {
+			uint32_t size;
+			if (deserialize(ser, size, offset) < 0) // skip over the variable size record. Safe even for foreign fields
+				return -1;
+			offset += sizeof(size) + size;
+			return offset;
+		}
 		break;
 	}
 	return -1;

@@ -65,7 +65,7 @@ class active_adapter_t;
 class epoll_tx1;
 
 class stream_reader_t : public std::enable_shared_from_this<stream_reader_t> {
-	constexpr static  std::chrono::duration data_timeout = 50000ms; //in ms
+	constexpr static  std::chrono::duration data_timeout = 10000ms; //in ms
 	steady_time_t last_data_time{};
 
 public:
@@ -104,8 +104,9 @@ public:
 	virtual void close() {
 	}
 
-	virtual void reset()  {
+	virtual void reset() final {
 		num_read = 0;
+		data_tick();
 	}
 
 

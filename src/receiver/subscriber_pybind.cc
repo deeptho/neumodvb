@@ -109,6 +109,13 @@ static std::shared_ptr<subscriber_t> make_subscriber(receiver_t* receiver, py::o
 	return subscriber_t::make(receiver, w);
 }
 
+static std::shared_ptr<subscriber_t> get_global_subscriber(receiver_t* receiver, py::object window) {
+	if(!receiver->global_subscriber) {
+		receiver->global_subscriber = make_subscriber(receiver, window);
+	}
+	return receiver->global_subscriber;
+}
+
 static py::object get_object(long x) {
 	return subscriber_t::handle_to_py_object(x);
 }
@@ -195,19 +202,25 @@ void export_subscriber(py::module& m) {
 	called = true;
 	export_retune_mode(m);
 	export_pls_search_range(m);
-	m.def("get_object", &get_object);
-	m.def("set_gtk_window_name", &set_gtk_window_name
+	m.def("get_object", &get_object)
+		.def("set_gtk_window_name", &set_gtk_window_name
 				, "Set a gtk widget name for a wx window (needed for css styling)"
 				, py::arg("window")
-				, py::arg("name"));
-	m.def("gtk_add_window_style", &gtk_add_window_style
-				, "Set a gtk widget style name for a wx window (needed for css styling)"
-				, py::arg("window")
-				, py::arg("name"));
-	m.def("gtk_remove_window_style", &gtk_remove_window_style
+				 , py::arg("name"))
+		.def("gtk_add_window_style", &gtk_add_window_style
+				 , "Set a gtk widget style name for a wx window (needed for css styling)"
+				 , py::arg("window")
+				 , py::arg("name"))
+		.def("gtk_remove_window_style", &gtk_remove_window_style
 				, "Remove a gtk widget style name for a wx window (needed for css styling)"
-				, py::arg("window")
-				, py::arg("name"));
+				 , py::arg("window")
+				 , py::arg("name"))
+		.def("global_subscriber", &get_global_subscriber
+				 ,"Connect to the global subscriber to catch non-subscriber specific error messages"
+				 , py::arg("receiver")
+				 , py::arg("window")
+			)
+		;
 	py::class_<subscriber_t, std::shared_ptr<subscriber_t>>(m, "subscriber_t")
 		.def(py::init(&make_subscriber))
 		.def("update_current_lnb"

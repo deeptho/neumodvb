@@ -29,6 +29,7 @@ import neumodvb
 
 from neumodvb.util import load_gtk3_stylesheet, dtdebug, dterror, maindir, get_object
 from neumodvb.config import options, get_configfile
+from neumodvb.neumo_dialogs import ShowMessage
 
 import pydevdb
 import pychdb
@@ -165,6 +166,9 @@ class neumoMainFrame(mainFrame):
             st = data
         elif type(data) == pyreceiver.scan_report_t:
             st = data.scan_stats
+        elif type(data) == str:
+            ShowMessage("Error", data)
+            return
         else:
             st = None
         if st is not None:
@@ -617,6 +621,7 @@ class NeumoGui(wx.App):
             self.presLan_fr = gettext.translation("neumodvb", "./locale", languages=['fr'])
             self.presLan_fr.install()
             self.wxLocale('FR')
+        self.global_subscriber_ = pyreceiver.global_subscriber(self.receiver, self.frame) #catch global error messages
 
     @property
     def scan_subscriber(self):

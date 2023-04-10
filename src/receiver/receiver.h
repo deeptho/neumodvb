@@ -627,7 +627,7 @@ public:
 
 	using subscriber_map = safe::Safe<std::map<void*, std::shared_ptr<subscriber_t>>>;
 	subscriber_map subscribers;//indexed by address
-
+	std::shared_ptr<subscriber_t> global_subscriber; //for sending error messages
 
 	chdb::history_mgr_t browse_history;
 	recdb::rec_history_mgr_t rec_browse_history;

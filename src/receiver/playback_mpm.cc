@@ -892,7 +892,7 @@ ss::vector_<chdb::language_code_t> playback_mpm_t::subtitle_languages() {
 }
 
 active_service_t* playback_mpm_t::active_service() const {
-	return live_mpm->active_service;
+	return live_mpm ? live_mpm->active_service : nullptr;
 }
 
 /*

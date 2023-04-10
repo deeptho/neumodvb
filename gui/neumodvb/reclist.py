@@ -29,7 +29,7 @@ from dateutil import tz
 import regex as re
 
 
-from neumodvb.util import lastdot
+from neumodvb.util import lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel

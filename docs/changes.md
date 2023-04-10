@@ -1,6 +1,56 @@
 # Changes in neumoDVB #
 
 
+## Changes in version neumodvb-1.2.1 ##
+
+
+### Main changes
+
+* Report error when recording in background fails.
+* Bug: recordings did not start.
+* Bug: Avoid assertion when recordings list is empty.
+* Assertion when showing service info in recordings screen.
+* Fixed row auto sizing and deleting in lnb list and other lists.
+* Fixed assertion while scanning DVB-C muxes.
+* Bug: dvbsc and dvbt tune code sometimes find wrong mux due to bug in find_by_mux_fuzzy.
+* Bug: incorrect selection of frontend during dvbsc and dvbt tune.
+* Bug: assertion when adding more muxes to scan in progress.
+* Frontend list: improved display of DVBC/DVBT subscriptions.
+* Use the same tolerance everywhere when deciding if a satellite is sufficiently close to the
+  current one  for possible reception; Allow error up to and including 1 degree.
+* Bug: NIT_ACTUAL incorrectly treated as invalid in GUI in some cases.
+* Slightly simplify positioner control: SLAVE control is replaced by NONE, signifying that
+  no dish moving commands will be sent. Actual "slave" status is now determined from `on_positioner' field
+  and `positioner' field is no longer automatically adjusted.
+* Bug: custom lnb settings low_low/high freq_low/mid/high were ignored.
+* Improved installation instructions: Merge pull request #29 from Saentist/patch-1.
+* Bug: missing abs() when comparing sat_pos, leading to incorrect lnb network selection.
+* Improved installation instructions Ubuntu 22.04.
+* Avoid assertions when receiving SDT_OTHER table.
+* When usals computation goes wrong, e.g., because user did not set proper usals_location or selects
+  satellite below the horizon, set `lnb.cur_sat_pos` to lnb.usals_pos and avoid assertion.
+* When user turns off `on_positioner`, for an LNB, ensure that `lnb.usals_pos` and
+  `lnb.sat_pos` are set to values from the network list, such that the `cur_sat_pos`
+  column is correct.
+* Replace `rotor_control_t::FIXED_DISH` with `rotor_control_t::ROTOR_MASTER_MANUAL`,
+  which will be used to indicate that user wants external-to-neumo rotor
+  control. The only difference is that no dish moving commands will be sent.
+* Bug: error deleting rows in lists.
+* Bug: channel list (not service list) no longer working
+
+### Other changes
+
+* Crash when switching to recording playback due to null pointer dereference.
+* Debug message messed up due to using msg as variable name.
+* Bug: scan_status not preserved when updating muxes during scan.
+* Fix erroneous assertions.
+* Various python assertions because of non-imported symbols.
+* Bug: incorrect deserialisation of boolean.
+* Show SDT_OTHER in operator<<.
+* Bug: incorrect usage of make_key in screens sorting by predefined key.
+* Improved find_by_key by adding find_prefix, which can be different from key_prefix.
+* Bug: `matching_sat` computation could access wrong database.
+
 ## Changes in version neumodvb-1.2 ##
 
 ### Most important changes ###

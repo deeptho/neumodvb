@@ -1,6 +1,10 @@
 # Changes in neumoDVB #
 
 
+## Changes in version neumodvb-1.2.2 ##
+* Really fixed row auto sizing and deleting in lnb list and other lists.
+
+
 ## Changes in version neumodvb-1.2.1 ##
 
 

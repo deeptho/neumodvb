@@ -722,7 +722,7 @@ class NeumoTable(NeumoTableBase):
                 if changed:
                     self.GetRow.cache_clear()
                     if self.do_autosize_rows:
-                        self.AutoSizeRows()
+                        self.parent.AutoSizeRows()
                     self.parent.SelectRecord(l.oldrecord)
                     self.parent.ForceRefresh()
                 #self.data = self.__get_data__()
@@ -736,7 +736,7 @@ class NeumoTable(NeumoTableBase):
                 if changed:
                     self.GetRow.cache_clear()
                     if self.do_autosize_rows:
-                        self.AutoSizeRows()
+                        self.parent.AutoSizeRows()
                     self.parent.SelectRecord(last.oldrecord)
                     self.parent.ForceRefresh()
                 assert last.oldrow < self.GetNumberRows()
@@ -753,7 +753,7 @@ class NeumoTable(NeumoTableBase):
                 if changed:
                     self.GetRow.cache_clear()
                     if self.do_autosize_rows:
-                        self.AutoSizeRows()
+                        self.parent.AutoSizeRows()
                     self.parent.ForceRefresh()
                 assert last.oldrow == self.GetNumberRows()
                 #self.data.pop()
@@ -802,7 +802,7 @@ class NeumoTable(NeumoTableBase):
             if changed:
                 self.parent.sync_rows()
                 if self.do_autosize_rows:
-                    self.AutoSizeRows()
+                    self.parent.AutoSizeRows()
                 self.parent.SelectRecord(new)
         self.parent.ForceRefresh()
         return True
@@ -829,7 +829,7 @@ class NeumoTable(NeumoTableBase):
         if self.screen.update(txn):
             changed = True
             if self.do_autosize_rows:
-                self.AutoSizeRows()
+                self.parent.AutoSizeRows()
         else:
             pass
         if txn is not None:
@@ -1122,7 +1122,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.table.on_screen_changed()
             self.table.GetRow.cache_clear()
             if self.table.do_autosize_rows:
-                self.table.AutoSizeRows()
+                self.AutoSizeRows()
             self.OnRefresh(None, None)
             if self.infow is not None:
                 self.infow.ShowRecord(self.table, self.table.CurrentlySelectedRecord())
@@ -1135,7 +1135,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         rec = self.table.CurrentlySelectedRecord()
         self.table.set_sort_column(sort_column)
         if self.table.do_autosize_rows:
-            self.table.AutoSizeRows()
+            self.AutoSizeRows()
         self.Refresh()
         if editing_record_selected:
             rowno = self.GridCursorRow

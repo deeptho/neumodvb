@@ -468,6 +468,7 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 																	*/
 					} else {
 						//it is not possible to tune, probably because symbol_rate is out range
+						blindscan.peaks.erase(idx);
 					}
 					continue;
 				} else {

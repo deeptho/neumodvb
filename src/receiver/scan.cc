@@ -350,11 +350,16 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 			This currently happens on tbs6909x if the LLR budget has been exceeded.
 			As a heuristic we will rescan only if the number of subscriptions drops by 1,
 			including the rescanned mux.
-			Such muxes will have the scan status RETRY
+			Such muxes will have the scan status RETRY if they were saved in the database
+
+			TODO: if we are scanning a peak not yet in the database, we have to re-add the peak
 		*/
 		auto temp = std::max((int)subscriptions.size() -1, 0);
 		if(max_num_subscriptions_for_retry == std::numeric_limits<int>::max())
 			 max_num_subscriptions_for_retry = std::min(temp, max_num_subscriptions_for_retry);
+
+		if(subscription.is_peak_scan)
+			blindscan.peaks.push_back(subscription.peak);
 		return true;
 	}
 		break;

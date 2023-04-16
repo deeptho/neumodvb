@@ -39,11 +39,13 @@ class MuxInfoTextCtrl(wx.TextCtrl):
         large = self.GetFont()
         large.SetPointSize(int(f.GetPointSize()*1.2))
         self.SetDefaultStyle(wx.TextAttr(wx.BLUE, font=large.Bold()))
+        num_muxes = table.screen.list_size
         app = wx.GetApp()
         if app.scan_in_progress:
-            self.ChangeValue(app.last_scan_text)
+            val=f"{num_muxes} mux" if num_muxes == 1 else f"{num_muxes} muxes"
+            val = f"{val}; {app.last_scan_text}"
+            self.ChangeValue(val)
             return
-        num_muxes = table.screen.list_size
         self.ChangeValue(f"{num_muxes} mux" if num_muxes == 1 else f"{num_muxes} muxes" )
 
 

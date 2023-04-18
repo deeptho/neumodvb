@@ -963,11 +963,13 @@ namespace dtdemux {
 				}
 			} break;
 			case SI::AC3DescriptorTag: { // see en_300468v011101p-1.pdf p. 119
-				static int called = 0;
-				if (!called) {
-					dtdebug_nice("AC3Descriptor ");
-					called = 1;
-				}
+				info.audio_lang.ac3 = true;
+				info.audio_lang.ac3_descriptor_data.push_back(_desc.tag);
+				info.audio_lang.ac3_descriptor_data.push_back(_desc.len);
+				info.audio_lang.ac3_descriptor_data.append_raw(s.current_pointer(0), _desc.len);
+				s.skip(_desc.len);
+			} break;
+			case SI::EnhancedAC3DescriptorTag: { // see en_300468v011101p-1.pdf p. 121
 				info.audio_lang.ac3 = true;
 				info.audio_lang.ac3_descriptor_data.push_back(_desc.tag);
 				info.audio_lang.ac3_descriptor_data.push_back(_desc.len);

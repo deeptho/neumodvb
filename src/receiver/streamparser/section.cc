@@ -1250,19 +1250,25 @@ namespace dtdemux {
 			auto stream_pid = this->get<uint16_t>();
 			pmt.capmt_data.append_raw((uint16_t)native_to_net(stream_pid));
 			stream_pid &= 0x1fff;
-			if (stream_type::is_video(stream_type::stream_type_t(stream_type))) {
-				pmt.video_pid = stream_pid;
-				pmt.estimated_media_mode = media_mode_t::TV;
-			} else if (is_audio(stream_type::stream_type_t(stream_type))) {
-				if(pmt.estimated_media_mode != media_mode_t::TV)
-					pmt.estimated_media_mode = media_mode_t::RADIO;
-			}
 
 			pid_info_t info(stream_pid, stream_type);
 			const bool in_es_loop = true;
 			pmt.parse_descriptors(*this, info, in_es_loop);
-		if(info.t2mi_stream_id >=0)
-			pmt.estimated_media_mode = media_mode_t::T2MI;
+
+			if (stream_type::is_video(stream_type::stream_type_t(stream_type))) {
+				pmt.video_pid = stream_pid;
+				pmt.estimated_media_mode = media_mode_t::TV;
+			} else if (is_audio(info)) {
+				if(pmt.estimated_media_mode != media_mode_t::TV)
+					pmt.estimated_media_mode = media_mode_t::RADIO;
+			}
+
+
+
+			if(info.t2mi_stream_id >=0)
+				pmt.estimated_media_mode = media_mode_t::T2MI;
+
+
 			pmt.pid_descriptors.push_back(info);
 		}
 		uint32_t crc UNUSED = this->get<uint32_t>();
@@ -2240,7 +2246,7 @@ find_audio_pref_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
 	using namespace chdb;
 	int order = 0; /* for duplicate entries in pmt, order will be 0,1,2,...*/
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
-		if(!stream_type::is_audio(stream_type::stream_type_t(pid_desc.stream_type)))
+		if(!is_audio(pid_desc))
 			continue;
 		language_code_t lang_code(order, pid_desc.audio_lang.lang_code[0], pid_desc.audio_lang.lang_code[1],
 															pid_desc.audio_lang.lang_code[2]);
@@ -2260,7 +2266,7 @@ static std::tuple<const dtdemux::pid_info_t*, chdb::language_code_t>
 first_audio(const pmt_info_t& pmtinfo) {
 	using namespace chdb;
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
-		if(!stream_type::is_audio(stream_type::stream_type_t(pid_desc.stream_type)))
+		if(!is_audio(pid_desc))
 			continue;
 		auto&c  = pid_desc.audio_lang.lang_code;
 		chdb::language_code_t lang_code(0, c[0], c[1], c[2]);

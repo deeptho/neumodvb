@@ -515,6 +515,20 @@ namespace dtdemux {
 	bool pmt_ca_changed(const pmt_info_t& a,  const pmt_info_t& b);
 	uint32_t crc32(const uint8_t* data, int size);
 
+	inline bool is_audio (const pid_info_t& pidinfo) {
+		using namespace stream_type;
+		stream_type_t st = pidinfo.stream_type;
+		if(pidinfo.audio_lang.ac3_descriptor_data.size() > 0)
+			return true;
+		return
+			st == stream_type_t::MPEG1_AUDIO ||
+			st == stream_type_t::MPEG2_AUDIO ||
+			st == stream_type_t::MPEG4_AUDIO ||
+			st == stream_type_t::AAC_AUDIO   ||
+			st == stream_type_t::AC3_AUDIO   ||
+			st == stream_type_t::EAC3_AUDIO;
+	}
+
 
 
 	std::ostream& operator<<(std::ostream& os, const pid_info_t& info);

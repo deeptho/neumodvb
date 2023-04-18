@@ -148,21 +148,6 @@ inline bool is_hevc (stream_type_t st)
 }
 #endif
 
-//----------------------------------------------------------------------------
-// Check if an ST value indicates an audio stream
-//----------------------------------------------------------------------------
-
-inline bool is_audio (stream_type_t st)
-{
-	return
-		st == stream_type_t::MPEG1_AUDIO ||
-		st == stream_type_t::MPEG2_AUDIO ||
-		st == stream_type_t::MPEG4_AUDIO ||
-		st == stream_type_t::AAC_AUDIO   ||
-		st == stream_type_t::AC3_AUDIO   ||
-		st == stream_type_t::EAC3_AUDIO;
-}
-
 
 inline bool is_private(stream_type_t st)
 {

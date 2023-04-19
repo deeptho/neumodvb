@@ -1359,13 +1359,15 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 	}
 	{
 		auto usals_pos = lnb.usals_pos;
-
+		auto cur_sat_pos = lnb.cur_sat_pos;
 		auto best = std::numeric_limits<int>::max();
 		const devdb::lnb_network_t* bestp{nullptr};
 		for (auto& network : lnb.networks) {
 			if(usals_pos == sat_pos_none)
 				usals_pos = network.usals_pos;
-			auto delta =  std::abs(network.usals_pos - usals_pos);
+			if(cur_sat_pos == sat_pos_none)
+				cur_sat_pos = network.sat_pos;
+			auto delta =  std::abs(network.sat_pos - cur_sat_pos);
 			if (delta < best) {
 				best = delta;
 				bestp = &network;

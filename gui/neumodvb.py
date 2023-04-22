@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Neumo dvb (C) 2019-2021 deeptho@gmail.com
+# Neumo dvb (C) 2019-2023 deeptho@gmail.com
 # Copyright notice:
 #
 # This program is free software; you can redistribute it and/or modify

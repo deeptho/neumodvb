@@ -790,8 +790,8 @@ template <typename _mux_t>
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const _mux_t& mux,
-	subscription_id_t subscription_id, tune_options_t tune_options,
-	const devdb::rf_path_t* required_rf_path) {
+	subscription_id_t subscription_id, const tune_options_t& tune_options,
+	const devdb::rf_path_t* required_rf_path, uint32_t scan_id) {
 
 	auto lnb_ok = [required_rf_path](auto& old_active_adapter) {
 		return !required_rf_path || old_active_adapter->uses_lnb(required_rf_path->lnb);
@@ -804,8 +804,9 @@ receiver_thread_t::subscribe_mux(
 	if (old_active_adapter) {
 		if (lnb_ok(old_active_adapter) && old_active_adapter->is_tuned_to(mux, required_rf_path)) {
 			if(tune_options.subscription_type == subscription_type_t::NORMAL) {
-				auto& tuner_thread = old_active_adapter->tuner_thread;
-				futures.push_back(tuner_thread.push_task([&tuner_thread, &tune_options, old_active_adapter, mux]() {
+				auto& tuner_thread = receiver.tuner_thread;
+				futures.push_back(tuner_thread.push_task([&tuner_thread, tune_options, old_active_adapter, mux,
+																									subscription_id, scan_id]() {
 					/*needed in case  the new subscription is a scan
 					 */
 					cb(tuner_thread).restart_si(*old_active_adapter, mux, tune_options, true /*start*/);
@@ -828,7 +829,7 @@ receiver_thread_t::subscribe_mux(
 
 	// check if we can use a mux which is in use by other subscription
 	auto [ret, subscribed_fe_key] = subscribe_mux_in_use(futures, old_active_adapter, devdb_wtxn, mux,
-																											 subscription_id, tune_options, required_rf_path);
+																											 subscription_id, tune_options, required_rf_path, scan_id);
 	if ((int) ret >= 0) {
 		assert(subscribed_fe_key.adapter_mac_address != 0);
 		assert((int) subscription_id < 0 || ret == subscription_id);
@@ -863,8 +864,8 @@ template <class mux_t>
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::subscribe_mux_in_use(
 	std::vector<task_queue_t::future_t>& futures, std::shared_ptr<active_adapter_t>& old_active_adapter,
-	db_txn& devdb_wtxn, const mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
-	const devdb::rf_path_t* required_rf_path) {
+	db_txn& devdb_wtxn, const mux_t& mux, subscription_id_t subscription_id, const tune_options_t& tune_options,
+	const devdb::rf_path_t* required_rf_path, uint32_t scan_id) {
 
 	auto& pm = receiver.subscribed_aas.owner_read_ref();
 	for (auto& itmux : pm) {
@@ -931,10 +932,13 @@ receiver_thread_t::subscribe_mux_in_use(
 					did not.
 				*/
 
-				assert( mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
-				//needed in case the new tune is a scan
-				cb(tuner_thread).restart_si(*other_active_adapter, mux, tune_options, true /*start*/);
-				return 0;
+			auto& tuner_thread = receiver.tuner_thread;
+			futures.push_back(tuner_thread.push_task([&tuner_thread, tune_options, other_active_adapter, mux,
+																								subscription_id, scan_id]() {
+				/*needed in case  the new subscription is a scan
+				 */
+				cb(tuner_thread).add_si(*other_active_adapter, mux, tune_options, subscription_id, scan_id);
+					return 0;
 			}));
 #endif
 			dtdebug("[" << mux << "] subscription_id=" << (int) subscription_id << ": reusing existing mux");

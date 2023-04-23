@@ -163,7 +163,7 @@ int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
 	auto [ret, new_usals_sat_pos] = fe->tune(rf_path, lnb, mux, tune_options, user_requested, use_counts);
 	if(ret>=0 && new_usals_sat_pos != sat_pos_none)
 		lnb_update_usals_pos(new_usals_sat_pos, mux.k.sat_pos);
-
+	auto tune_mode = fe->ts.readAccess()->tune_options.tune_mode;
 	tune_start_time = system_clock_t::now();
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
 	si.deactivate(tune_state == TUNE_FAILED /*error*/);

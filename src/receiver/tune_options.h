@@ -117,7 +117,6 @@ struct tune_options_t {
 															 we rather rely on subscribe_mux, which has the desired sat_pos encoded
 															 in the mux
 														 */
-
 	//only for spectrum acquisition
 	spectrum_scan_options_t spectrum_scan_options;
 	constellation_options_t constellation_options;

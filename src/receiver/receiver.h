@@ -446,13 +446,13 @@ protected:
 	std::tuple<subscription_id_t, devdb::fe_key_t>
 	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
 								const _mux_t& mux, subscription_id_t subscription_id,
-								tune_options_t tune_options, const devdb::rf_path_t* required_rf_path);
+								const tune_options_t& tune_options, const devdb::rf_path_t* required_rf_path, uint32_t scan_id=0);
 	template<class mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t> subscribe_mux_in_use(
 		std::vector<task_queue_t::future_t>& futures,
 		std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& devdb_wtxn,
-		const mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
-		const devdb::rf_path_t* required_rf_path);
+		const mux_t& mux, subscription_id_t subscription_id, const tune_options_t& tune_options,
+		const devdb::rf_path_t* required_rf_path, uint32_t scan_id);
 
 	int request_retune(std::vector<task_queue_t::future_t>& futures,
 										 active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
@@ -595,8 +595,8 @@ class receiver_t {
 										 const epgdb::epg_record_t& epg_record);
 	int toggle_recording_(const chdb::service_t& service, system_time_t start_time,
 											 int duration, const char* event_name);
-
 public:
+
 	//safe to access from other threads (only tasks can be called)
 
 	using  options_t = safe::Safe<neumo_options_t>;

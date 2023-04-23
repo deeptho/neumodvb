@@ -321,7 +321,7 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 
 	// adapter->update_adapter_can_be_used();
 	frontend_map.emplace(wd, fe);
-	dtdebugx("new frontend adapter %d fe=%d wd=%d\n", (int)fe->adapter_no, (int)fe->frontend_no, wd);
+	dtdebugx("new frontend adapter %d fe=%d wd=%d p=%p\n", (int)fe->adapter_no, (int)fe->frontend_no, wd, fe.get());
 }
 
 void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) {

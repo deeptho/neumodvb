@@ -2449,7 +2449,16 @@ void active_si_stream_t::init_scanning(scan_target_t scan_target_) {
 }
 
 
-active_si_stream_t::~active_si_stream_t() { deactivate(false /*tune_failed*/); }
+active_si_stream_t::~active_si_stream_t() {
+#if 0
+	/*the following can cause a raise when receiver_thread attempts to call remove_active
+		in tuner thread: when creating the task, the active_adapter shared_ptr is copied into the lambda,
+		but then discivered to have been resleased. receiver_thread then calls ~active_adapter, which
+		calls ~active_si_stream, but "reset" should only be called from tuner_thread
+
+		reset(true /*close_streams*/);
+#endif
+}
 
 /*
 	mux is a mux identified as the one we are currently processsing si_data for

@@ -54,10 +54,8 @@ def subscription_fn(x):
         sat_pos=pychdb.sat_pos_str(sub.usals_pos)
         t= lastdot(sub.rf_path.lnb.lnb_type)
         e = neumodbutils.enum_to_str
-        if t != 'C':
-            t='Ku'
-            f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
-            return f'#{sub.rf_path.rf_input} {sat_pos:>5}{t} {f} {sub.rf_path.lnb.lnb_id}'
+        f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
+        return f'#{sub.rf_path.rf_input} {sat_pos:>5}{t} {f} {sub.rf_path.lnb.lnb_id}'
     else:
             f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{sid}'
             return f'#{sub.rf_path.rf_input} {f}'

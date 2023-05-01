@@ -582,11 +582,9 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			user_error("LNB  " << lnb << ": no suitable connection to tune to sat " << sat);
 			break;
 		}
-
-
-
 	}
-	user_error("Could not find find available lnb, frontend or tuner");
+	if(!best_fe)
+		user_error("Could not find find available lnb, frontend or tuner for mux " << mux);
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }
 

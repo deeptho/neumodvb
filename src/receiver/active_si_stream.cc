@@ -2593,6 +2593,7 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 	visit_variant(signal_info.driver_mux,
 								[&](chdb::dvbs_mux_t& mux) {
 									auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
+									mux.k.t2mi_pid = p->k.t2mi_pid;
 									assert(p);
 									if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
 										//copy frequency and symbol_rate from si_mux
@@ -2682,7 +2683,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 	for (const auto& desc : pmt.pid_descriptors) {
 		bool is_t2mi = desc.t2mi_stream_id >= 0;
 		auto sat_pos = this->stream_mux_key().sat_pos;
-		if (pmt.pmt_pid == 256 && desc.stream_type ==  stream_type::stream_type_t::PES_PRIV
+		if (!is_t2mi && pmt.pmt_pid == 256 && desc.stream_type ==  stream_type::stream_type_t::PES_PRIV
 				&& desc.stream_pid == 4096 &&
 				(
 				std::abs(sat_pos - (int)4000) < 300  || //40.0 E
@@ -2699,16 +2700,11 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 			mux_key_ptr(mux)->t2mi_pid = desc.stream_pid;
 			assert(!chdb::is_template(mux));
 			if(scan_in_progress) {
-				/*
-					It would be dangerous to just activate the si scan on the same subscription
-					as the scanner will terminate the subscription when the master mux has been scanned
-					Instead, we set the pending status on the t2mi mux so that it will be scanned later
-				 */
 				namespace m = chdb::update_mux_preserve_t;
 				auto preserve = m::flags{ m::MUX_COMMON & ~ m::SCAN_STATUS};
 				if(mux_common_ptr(mux)->scan_status == chdb::scan_status_t::ACTIVE) {
 					mux_common_ptr(mux)->scan_status = chdb::scan_status_t::PENDING;
-					preserve = m::flags(preserve & ~m::SCAN_STATUS);
+					preserve = m::flags(preserve | m::SCAN_STATUS); //avoid changing ACTIVE to pending
 				}
 				auto wtxn = chdb_txn();
 				namespace m = chdb::update_mux_preserve_t;

@@ -89,7 +89,7 @@ bool file_exists(char* fname) {
 }
 
 void event_handle_t::init() {
-	_fd = ::eventfd(0, EFD_CLOEXEC);
+	_fd = ::eventfd(0, EFD_CLOEXEC|EFD_NONBLOCK);
 	if (_fd < 0) {
 		LOG4CXX_ERROR(logger, "error creating eventfd:" << strerror(errno));
 	}
@@ -116,8 +116,12 @@ int event_handle_t::reset() {
 	assert(caller == owner); // needs to be called from owning thread
 #endif
 	uint64_t u = 0;
-	if (::read(_fd, &u, sizeof(uint64_t)) != sizeof(uint64_t)) {
-		LOG4CXX_ERROR(logger, "Error reading eventfd: " << strerror(errno));
+	auto ret= ::read(_fd, &u, sizeof(uint64_t));
+	if (ret != sizeof(uint64_t)) {
+		if(ret==EWOULDBLOCK)
+			LOG4CXX_ERROR(logger, "Spurious wakeup event fd=" << _fd);
+		else
+			LOG4CXX_ERROR(logger, "Error reading eventfd: " << strerror(errno));
 	}
 	return u;
 }

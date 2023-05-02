@@ -1984,7 +1984,8 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 		if (is_actual) {
 			mux = reader_mux;
 
-			assert (mux_key_ptr(reader_mux)->ts_id == mux_key.ts_id);
+			if (mux_key_ptr(reader_mux)->ts_id == mux_key.ts_id)
+				dterrorx("Unexpected: mux_key_ptr(reader_mux)->ts_id != mux_key.ts_id: %d %d\n", mux_key_ptr(reader_mux)->ts_id, mux_key.ts_id);
 		} else {
 			// we need the full mux, so we need to load it from the db
 			// we only update if we found exactly 1 mux; otherwise we better wait for nit_actual/nit_other to tell us the

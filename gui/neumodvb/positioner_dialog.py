@@ -515,11 +515,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         sat_text = f'{pychdb.sat_pos_str(mux.k.sat_pos)}' if sat_pos_confirmed else \
             f'{pychdb.sat_pos_str(bad_nit.k.sat_pos)}' if bad_nit is not None else '??'
 
-        nid_text = f'{mux.c.network_id}' if bad_nit is None else f'{bad_nit.c.network_id}'
-        tid_text = f'{mux.c.ts_id}' if bad_nit is None else f'{bad_nit.c.ts_id}'
+        nid_text = f'{mux.c.network_id}' if nit_valid else f'{bad_nit.c.network_id}' if bad_nit is not None else '??'
+        tid_text = f'{mux.c.ts_id}' if nit_valid else f'{bad_nit.c.ts_id}'if bad_nit is not None else '??'
 
         if self.signal_info.nit_received:
-            self.si_nit_ids_text.SetForegroundColour(wx.Colour('black' if bad_nit is None else 'red'))
+            self.si_nit_ids_text.SetForegroundColour(wx.Colour('black' if nit_valid else 'red'))
             self.si_nit_ids_text.SetLabel(f'{sat_text} nid={nid_text} tid={tid_text}')
         else:
             self.si_nit_ids_text.SetLabel(f'')

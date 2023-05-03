@@ -143,7 +143,6 @@ class get_processed_options(object):
                 else:
                     setattr(self, k, v)
 
-        import pydevdb # for usals_location
         for sec in  ['RECORD', 'TIMESHIFT']:
             for k,v in c[sec].items():
                 try:

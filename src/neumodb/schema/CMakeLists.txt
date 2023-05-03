@@ -41,7 +41,7 @@ add_custom_command(
     OUTPUT ${genhdr} ${gensrc} ${pybind_srcs}
     COMMAND ${PYTHON_EXECUTABLE}  ${PROJECT_SOURCE_DIR}/neumodb/neumodb.py --db=${DB}
     DEPENDS ${gendeps} ${codegen}
-    COMMENT "Generating code for neumodb schema."
+    COMMENT "Generating code for neumodb schemadb."
 )
 
 add_custom_target(schema_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
@@ -54,9 +54,10 @@ target_compile_options(schema PUBLIC -fPIC -fsized-deallocation)
 target_link_libraries(schema PUBLIC stackstring neumolmdb neumoutil neumodb)
 
 pybind11_add_module(pyschemadb SHARED schemadb_pybind.cc ${pybind_srcs})
-target_link_libraries(pyschemadb PUBLIC pyneumodb schema)
+target_link_libraries(pyschemadb PRIVATE pyneumodb schema)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
 target_precompile_headers(schema PRIVATE [[<stdint.h>]] schema_extra.h ${precomp})
 
+install (TARGETS pyschemadb  DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
 install (TARGETS schema  DESTINATION lib64)

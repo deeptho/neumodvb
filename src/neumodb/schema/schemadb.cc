@@ -39,12 +39,12 @@ static void export_schema(py::module& m) {
 		;
 }
 
-PYBIND11_MODULE(pyschema, m) {
+PYBIND11_MODULE(pyschemadb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 channel database
         -----------------------
 
-        .. currentmodule:: pyschema
+        .. currentmodule:: pyschemadb
 
         .. autosummary::
            :toctree: _generate

@@ -23,7 +23,7 @@ if destdir != '':
 #print(f"XXXX={site_packages} yy={destdir}")
 #print(f"XXXX={sys.argv}")
 
-db_modules = [ 'statdb', 'chdb', 'recdb','epgdb',  'schema' ]
+db_modules = [ 'statdb', 'chdb', 'recdb','epgdb', 'neumodb', 'schemadb' ]
 receiver_modules = [ 'receiver', 'spectrum', 'neumompv']
 
 #print(f'QQQQ=${CMAKE_CURRENT_SOURCE_DIR}')

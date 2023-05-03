@@ -60,4 +60,5 @@ include_directories(
     $<INSTALL_INTERFACE:include>
 )
 
+install (TARGETS pyneumodb  DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
 install(TARGETS neumoupgrade  DESTINATION bin)

@@ -131,7 +131,6 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 
 int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 																	 const devdb::lnb_t& lnb, tune_options_t tune_options) {
-	last_new_matype_time = steady_clock_t::now();
 #if 0
 	scan_mux_end_reported = false;
 #endif
@@ -168,7 +167,6 @@ int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
 	if(user_requested) {
 		tune_state = TUNE_INIT;
 	}
-	last_new_matype_time = steady_clock_t::now();
 #if 0
 	scan_mux_end_reported = false;
 #endif
@@ -248,7 +246,6 @@ int active_adapter_t::tune(const mux_t& mux, tune_options_t tune_options, bool u
 	if(user_requested) {
 		tune_state = TUNE_INIT;
 	}
-	last_new_matype_time = steady_clock_t::now();
 #if 0
 	scan_mux_end_reported = false;
 #endif

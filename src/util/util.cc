@@ -398,6 +398,19 @@ int file_swap(const char* file1, const char* file2) {
 }
 
 
+extern "C" {
+void __dtassert_fail(const char * assertion, const char * file, unsigned int line, const char * function)
+	__THROW
+{
+	fprintf(stderr, "AssertX: %s failed at %s:%d in function %s\n", assertion, file, line, function);
+	raise(SIGTRAP);
+	//__builtin_trap();
+					//else
+        //abort();
+}
+
+};
+
 __thread system_time_t now{};
 
 thread_local ss::string<256> user_error_;

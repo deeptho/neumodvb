@@ -32,6 +32,7 @@
 #include "neumodb/neumodb.h"
 #include "neumodb/epgdb/extra.h"
 #include "neumodb/recdb/extra.h"
+#include "util/dtassert.h"
 #endif
 
 
@@ -305,7 +306,7 @@ bool screen_t<record_t>::update_if_matches(db_txn& from_txn, 	function_view<bool
 		bool has_been_deleted = !c.maincursor.is_valid(); //@todo: maybe too much of a hack
 		ss::bytebuffer<32> old_secondary_key;
 		/*check if we have already a record with the same primary key in to_db.
-			If such a record exists, it may move to a differetn location in the secondary
+			If such a record exists, it may move to a different location in the secondary
 			indexes of to_db*/
 #ifdef DEBUG_PRINT
 		auto x = c.current_serialized_secondary_key();

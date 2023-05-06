@@ -47,11 +47,11 @@ def rf_inputs_fn(x):
 
 def subscription_fn(x):
     sub = x[0].sub
-    if sub.sat_pos == pychdb.sat.sat_pos_none:
+    if sub.mux_key.sat_pos == pychdb.sat.sat_pos_none:
         return ""
-    sid = f" {sub.mux_id}" if (sub.stream_id < 0)  else f'-{sub.stream_id} {sub.mux_id}'
-    if sub.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
-        sat_pos=pychdb.sat_pos_str(sub.sat_pos)
+    sid = f" {sub.mux_key.mux_id}" if (sub.mux_key.stream_id < 0)  else f'-{sub.mux_key.stream_id} {sub.mux_key.mux_id}'
+    if sub.mux_key.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
+        sat_pos=pychdb.sat_pos_str(sub.mux_key.sat_pos)
         t= lastdot(sub.rf_path.lnb.lnb_type)
         e = neumodbutils.enum_to_str
         f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'

@@ -58,19 +58,19 @@ class StatusTable(NeumoTable):
     mac_fn = lambda x: x[2].mac_fn(x[1])
     all_columns = \
         [CD(key='k.live',  label='live', basic=True, readonly=True),
-         CD(key='k.rf_path.lnb',  label='lnb', basic=True, example="D0A0 Ku 28.2E ",
+         CD(key='k.rf_path.lnb',  label='lnb', basic=True, example="D2 28.2EKu 1919 ",
             dfn = lambda x: x[2].lnb_label(x[0]),
             sort=('k.rf_path.lnb.dish_id', 'k.rf_path.card_mac_address','k.rf_path.rf_input', 'k.rf_path.lnb.lnb_id')),
+         CD(key='k.rf_path.lnb.lnb_id',  label='ID', basic=True, readonly=True),
          CD(key='k.rf_path',  label='Card/RF', basic=True, readonly=True, no_combo = True,
             dfn=lambda x: x[2].rf_path_name(x[0]), example="C2#3 TBS6904se "),
-         CD(key='k.rf_path.lnb.lnb_id',  label='ID', basic=True, readonly=True),
          CD(key='k.sat_pos', label='Sat', dfn= lambda x: pychdb.sat_pos_str(x[1])),
-         CD(key='k.frequency',  label='freq', basic=True, readonly = True, dfn= freq_fn, example="10725.114"),
+         CD(key='k.frequency',  label='freq', basic=True, readonly = True, dfn= freq_fn, example="10725.114 "),
          CD(key='k.pol', label='Pol', basic=True, dfn=lambda x: lastdot(x).replace('POL',''), example='V'),
 
          CD(key='k.time', label='Start', basic=True, dfn=datetime_fn, example='2021-06-16 18:30:33 '),
          CD(key='stats', label='Signal', basic=True, dfn=rf_fn, example='-12.3dB '),
-         CD(key='stats', label='SNR', basic=True, dfn=snr_fn, example='12.3dB '),
+         CD(key='stats', label='SNR', basic=True, dfn=snr_fn, example='-12.9dB '),
          CD(key='stats', label='BER', basic=True, dfn=ber_fn, example='1.111e-12 '),
         ]
 

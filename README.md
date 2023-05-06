@@ -113,6 +113,8 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 
 ### [Managing channels](docs/channel_management.md) ###
 
+### [Status  list](docs/status_list.md) ###
+
 ### [Viewing and recording TV](docs/viewing.md) ###
 
 ### [Spectrum analysis](docs/spectrum.md) ###

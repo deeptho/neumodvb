@@ -1,5 +1,63 @@
 # Changes in neumoDVB #
 
+## Changes in version neumodvb-1.3 ##
+
+* Improved identification of muxes during scan, even when details
+  such as network id and ts id change durign scan. This prevents never ending
+  scans in more cases.
+* Updated documentation: mux list, status list.
+* Display correct mux data in more cases and display bad nit info in more cases (in red).
+* Show more mux information in service info on live screen.
+* Bug: wrong band reported for wideband lnb.
+* Also show total number of muxes during scan.
+* Bug: incorrect nid and tid shown in positioner dialog.
+* Perform pmt scanning also for t2mi streams.
+* Bug: isi scan times out too soon.
+* Bug: restricting service list to sat did not work properly.
+* Introduce new assert code, which allows continuing past assertion in debugger
+* New database schema for muxes and services: introduce mux_id as part of new primary for mux and remove extra_id.
+  Add mux_id column in service list and mux list. Also, replace `mux_desc` with frequency and polarisation in services,
+  allowing filtering of services based on frequency or polarisation. Add schema_version in database records and in
+  data structures, to be able to detect major schema upgrades.
+* Code for handling major database upgrades from python and specifically converting to the database
+  format needed for neumodvb-1.3.
+* Allow receiver initialization to be interrupted for major database
+  upgrade and then for initialization to continue.
+* Avoid introducing streams with stream_id=-1 when multi stream exists but does not lock.
+* If mux cannot be locked, use NOLOCK as status instead of BAD. The latter means that the tuning parameters
+  are invalid.
+* Add scan_lock_result.
+* Always preserve mux_key when consulting driver.
+* Never change stream_id even if driver reports the wrong one, but allow overriding stream_id with value from
+  driver_mux when mux is template.
+* Properly handle case of stream ids changing during scan
+* Move some data from si.scan_state to si.tune_state, so that it is not cleared by si.reset().
+* When looking up template mux with stream_id=-1, ignore stream_id in lookup to also find multi stream.
+* Simplify active_adapter_t::monitor() loop.
+* Bug: scan subscribers erased during si.reset.
+* Bug: passing local variables into tasks stored for other threads can lead to accessing invalid memory
+* Make by_scan_status key order by pol and frequency as secondary sort order, changing order in which muxes
+  are scanned.
+* Avoid calling remove_fd with file descriptor <0.
+* Bug: Incorrect error message about fe and lnb not found.
+* Bug: Non Ku-Band subscriptions shown as None.
+* Avoid assertion in CmdBouquetAddService.
+* When selecting default network, take the one with the closest sat_pos
+  rather than the closes usals_pos.
+* Workaround for possible kernel bug which causes epoll to report that eventfd is readable, whereas it is not.
+  This causes a subsequent notifier.reset() to hang forever in read.
+* Bug: deserialize_field_safe: correctly skip variable size fields in old record
+* if peak_scan fails, then add the peak to the vector for future rescanning.
+* Handling of failed peak tuning improved.
+* Bug: data_start not correctly reset in some cases, using to incorrect no_data status.
+* Require FEC lock when scanning dvb muxes.
+* Bug: dereferencing std::optional without checking.
+* Trust modulation parameters from driver in more cases.
+* Bug: incorrect usage of make_key in screens sorting by predefined key.
+* Bug: passing auto variables into lambda leading to incorrect tune options during scan.
+* Deadlock due to active_si_stream_t destructor being called from receiver, causing access to functions
+  which should only be used by tune thread
+* Bug deserialize_field_safe: correctly skip variable size fields in old record
 
 ## Changes in version neumodvb-1.2.2 ##
 * Really fixed row auto sizing and deleting in lnb list and other lists.

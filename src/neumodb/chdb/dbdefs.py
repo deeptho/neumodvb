@@ -155,8 +155,8 @@ lock_result = db_enum(name='lock_result_t',
                    fields=(
                        ('NONE', 0), #never tried
                        ('NOLOCK', 1), #could not lock. No fec lock
-                       ('TMG', 2), #could not lock. No fec lock
-                       ('CAR', 3), #could not lock. No fec lock
+                       ('TMG', 2), #
+                       ('CAR', 3), #
                        ('FEC', 4), #fec lock
                        ('SYNC', 5), #sync bytes received (dvbs2)
                    ))

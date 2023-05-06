@@ -776,7 +776,6 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 	int released_fe_usecount{0};
 	const bool need_multistream = (mux.k.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
-	bool is_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
 	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
 																										need_spectrum, need_multistream,  delsys_type,
 																										false /*ignore_subscriptions*/);

@@ -198,6 +198,7 @@ int epoll_t::remove_fd(int fd) {
 	int s = epoll_ctl(_fd, EPOLL_CTL_DEL, fd, NULL);
 	if (s == -1) {
 		LOG4CXX_FATAL(logger, "epoll_ctl remove failed: _fd=" << (int)_fd << " fd=" << (int) fd << " "  << strerror(errno));
+		assert(false);
 		return -1;
 	}
 	return 0;

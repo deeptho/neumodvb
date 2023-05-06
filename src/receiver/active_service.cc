@@ -243,17 +243,18 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 	}
 	if (!isnext) {
 		auto& active_adapter = this->active_adapter();
+		auto active_adapter_p = active_adapter.shared_from_this();
 		// pmt deliberately passed by value
 		if (service_changed) {
-			receiver.tuner_thread.push_task([this, &active_adapter, pmt, service = current_service] {
+			receiver.tuner_thread.push_task([this, active_adapter_p, pmt, service = current_service] {
 				auto& cb_ = cb(receiver.tuner_thread);
-				cb_.on_pmt_update(active_adapter, pmt); //update epg types in dvbs_mux in database
+				cb_.on_pmt_update(*active_adapter_p, pmt); //update epg types in dvbs_mux in database
 				cb_.update_service(service); //update service record in database
 				return 0;
 			});
 		} else {
-			active_adapter.tuner_thread.push_task([this, &active_adapter, pmt] {
-				cb(receiver.tuner_thread).on_pmt_update(active_adapter, pmt);
+			active_adapter.tuner_thread.push_task([this, active_adapter_p, pmt] {
+				cb(receiver.tuner_thread).on_pmt_update(*active_adapter_p, pmt);
 				return 0;
 			});
 		}
@@ -495,7 +496,7 @@ int service_thread_t::run() {
 				log4cxx::NDC ndc("-TIMER");
 				now = system_clock_t::now();
 				active_service.housekeeping(now);
-			} else if (active_service.reader->on_epoll_event(evt->data.fd)) {
+			} else if (active_service.reader->on_epoll_event(evt)) {
 				// this must be a channel data event
 				if (!(evt->events & EPOLLIN)) {
 					dterror("Unexpected event: type=" << evt->events);

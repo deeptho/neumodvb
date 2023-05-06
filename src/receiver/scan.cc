@@ -141,35 +141,32 @@ static inline bool& skip_helper(std::map<blindscan_key_t,bool>& skip_map, const 
 
 /*check if a finished mux belongs to the current scan_t (it could belong to another scan_t
  */
-subscription_id_t scanner_t::scan_subscription_id_for_mux(const chdb::any_mux_t& finished_mux) {
-	auto scan_id =  mux_common_ptr(finished_mux)->scan_id;
+subscription_id_t scanner_t::scan_subscription_id_for_scan_id(uint32_t scan_id) {
 	if (scan_id >>8 != getpid())
 		return subscription_id_t{-1};
 	auto scan_subscription_id = subscription_id_t(scan_id & 0xff);
 	return scan_subscription_id;
 }
 
-
-
-
 /*
 	called from tuner thread when scanning a mux has ended
 	returns true if scanner is empty and should be removed
 */
 bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-																const ss::vector_<subscription_id_t> finished_subscription_ids)
+																uint32_t scan_id, subscription_id_t subscription_id)
 {
+
 	if (must_end) {
 		dtdebug("must_end");
 		return true;
 	}
-	auto scan_subscription_id = scan_subscription_id_for_mux(finished_mux);
+	auto scan_subscription_id = scan_subscription_id_for_scan_id(scan_id);
 	if((int)scan_subscription_id >= 0) {
 		try {
 			last_house_keeping_time = steady_clock_t::now();
 			auto& scan = scans.at(scan_subscription_id);
 
-			auto [pending, active] = scan.scan_loop(finished_fe, finished_mux, finished_subscription_ids);
+			auto [pending, active] = scan.scan_loop(finished_fe, finished_mux, subscription_id);
 
 			dtdebug("finished_fe adapter " << finished_fe.adapter_no <<
 							" mux=<" << finished_mux << "> " <<
@@ -185,6 +182,7 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 				auto devdb_wtxn = receiver.devdb.wtxn();
 				unsubscribe_scan(futures, devdb_wtxn, scan_subscription_id);
 				devdb_wtxn.commit();
+				wait_for_all(futures); //remove later
 				return true;
 			}
 		} catch(std::runtime_error) {
@@ -233,7 +231,7 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 		}
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbc_mux_t>) {
 		}
-		mux.stream_id = -1;
+		mux.k.stream_id = -1;
 		dtdebug("SET PENDING " << mux);
 		mux.c.scan_status = scan_status_t::PENDING;
 		assert(mux.c.scan_id == scan_id);
@@ -262,9 +260,6 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 									subscription_id_t finished_subscription_id, scan_subscription_t& subscription)
 {
 	using namespace chdb;
-	//auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&subscription.mux);
-	//assert (dvbs_mux);
-	//auto& mux = *dvbs_mux;
 	subscription.is_peak_scan = true;
 	subscription_id_t subscription_id;
 	assert(subscription.mux);
@@ -286,11 +281,11 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 			assert(mux.k.sat_pos == blindscan.spectrum_key.sat_pos);
 			mux.symbol_rate = subscription.peak.symbol_rate;
 		}
-		mux.k.t2mi_pid = 0;
-		mux.stream_id = -1;
+		mux.k.t2mi_pid = -1;
+		mux.k.stream_id = -1;
 		mux.c.scan_status = scan_status_t::PENDING;
 		/* ignore_t2mi_pid = false to ensure that we always find the encapsulating mux in case of t2mi*/
-		auto c = find_by_mux_physical(chdb_rtxn, mux, true/*ignore_stream_id*/, false /*ignore_key*/,
+		auto c = find_by_mux_physical(chdb_rtxn, mux, true/*ignore_stream_id*/, /*false *ignore_key, */
 																	false /*ignore_t2mi_pid*/);
 		if(c.is_valid()) {
 			auto db_mux = c.current();
@@ -368,7 +363,7 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 	}
 
 	if(!blindscan.valid()) {
-		return true; //regular scan, not spectrum scan, this can be finisged
+		return true; //regular scan, not spectrum scan, this can be finished
 	}
 
 	if(failed) {
@@ -578,7 +573,7 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 */
 std::tuple<int, int>
 scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-									const ss::vector_<subscription_id_t> finished_subscription_ids) {
+									subscription_id_t finished_subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 	int error{};
 	int num_pending_muxes{0};
@@ -677,11 +672,11 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		/*it is essential that subscription is retrieved by val in the loop below
 			as it is filled with trial data which is only saved when subscription succeeds
 		*/
-		for(auto finished_subscription_id: finished_subscription_ids) {
+		[&](){
 			auto [it, found] = find_in_map(this->subscriptions, finished_subscription_id);
 			if(!found) {
 				dtdebugx("Skipping unknown subscription_id=%d", (int)finished_subscription_id);
-				continue;
+				return;
 			}
 			scan_subscription_t subscription {it->second}; //need to copy
 			/*in general only one subscription will match, but in specific cases
@@ -692,7 +687,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			if( subscription.fe_key != finished_fe.k) {
 				dtdebug("finished_fe keys do not match: fe_key=" << subscription.fe_key << " finished_fe.k="
 								<< finished_fe.k);
-				continue; //no match
+				return; //no match
 			}
 			/*it is essential to start a new transaction at this point
 				because scan_next will loop over all pending muxes, changing
@@ -711,7 +706,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			if (!finished) {
 				finished_subscription_ptr = nullptr;
 				it = std::next(it);
-				continue;
+				return;
 			} else {
 				finished_subscription_ptr = & subscription;  //allow try_all to reuse this subscription
 				subscription.mux.reset();
@@ -743,10 +738,10 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			auto ss = *scan_stats.readAccess();
 			dtdebug("SCAN REPORT: mux=" << *report.mux << " pending=" << ss.pending_muxes << " active=" << ss.active_muxes);
 			receiver_thread.notify_scan_mux_end(scan_subscription_id, report);
-
 			dtdebugx("committing\n");
 			chdb_rtxn.commit();
-		}
+		}();
+
 		if(count==0) {
 			dterror("XXXX finished subscription not found for " << finished_mux);
 		} else if(count!=1) {
@@ -839,8 +834,9 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		assert(mux_common_ptr(mux)->scan_id!=0);
 		std::tie(subscription_id, subscribed_fe_key) =
 			receiver_thread.subscribe_mux(futures, wtxn, mux, reuseable_subscription_id, tune_options,
-																		required_rf_path);
+																		required_rf_path, scan_id);
 		wtxn.commit();
+		wait_for_all(futures); //remove later
 	}, *subscription.mux);
 
 	report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", reuseable_subscription_id, subscription_id,
@@ -876,7 +872,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 			c.scan_id = 0;
 			namespace m = chdb::update_mux_preserve_t;
 			chdb::update_mux(chdb_wtxn, *subscription.mux, now,
-											 m::flags{(m::MUX_COMMON|m::MUX_KEY)& ~m::SCAN_STATUS}, false /*ignore_key*/,
+											 m::flags{(m::MUX_COMMON|m::MUX_KEY)& ~m::SCAN_STATUS}, /*false ignore_key,*/
 											 false /*ignore_t2mi_pid*/,
 											 true /*must_exist*/);
 			chdb_wtxn.commit();
@@ -977,9 +973,8 @@ void scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	auto& scan = scans.at(scan_subscription_id);
 	for (auto[subscription_id, sub] : scan.subscriptions) {
 		receiver_thread.unsubscribe(futures, devdb_wtxn, subscription_id);
-
 	}
-
+	wait_for_all(futures); //remove later?
 	scans.erase(scan_subscription_id);
 }
 
@@ -1012,6 +1007,9 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, bool init, subscriptio
 		}
 		auto mux = mux_;
 		dtdebug("SET PENDING " << mux);
+		/*
+			@todo: multiple parallel scans can override each other's scan_status
+		 */
 		mux.c.scan_status = chdb::scan_status_t::PENDING;
 		mux.c.scan_id = scan_id;
 		put_record(chdb_wtxn, mux);

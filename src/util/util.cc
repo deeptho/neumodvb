@@ -31,6 +31,7 @@
 #include <sys/timerfd.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <atomic>
 
 #include "logger.h"
 #include "util.h"
@@ -135,6 +136,8 @@ int event_handle_t::close() {
 }
 
 void epoll_t::init() {
+	static std::atomic<uint32_t> next_handle{0};
+	handle= next_handle.fetch_add(1);
 	_fd = epoll_create1(0); // create an epoll instance
 	if (_fd < 0) {
 		LOG4CXX_ERROR(logger, "Could not create epoll fd\n");
@@ -157,11 +160,11 @@ int epoll_t::add_fd(int fd, int mask) {
 	assert(caller == owner); // needs to be called from owning thread
 #endif
 	struct epoll_event ev = {};
-	ev.data.fd = fd;
+	ev.data.u64 = fd | (((uint64_t)handle)<<32);
 	ev.events = mask;
 	int s = epoll_ctl(_fd, EPOLL_CTL_ADD, fd, &ev);
 	if (s == -1) {
-		LOG4CXX_FATAL(logger, "epoll_ctl add failed: " << strerror(errno));
+		LOG4CXX_FATAL(logger, "epoll_ctl add failed: _fd=" << (int)_fd << " fd=" << (int)fd <<" "  << strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -175,7 +178,7 @@ int epoll_t::mod_fd(int fd, int mask) {
 	assert(caller == owner); // needs to be called from owning thread
 #endif
 	struct epoll_event ev = {};
-	ev.data.fd = fd;
+	ev.data.u64 = fd | (((uint64_t)handle)<<32);
 	ev.events = mask;
 	int s = epoll_ctl(_fd, EPOLL_CTL_MOD, fd, &ev);
 	if (s == -1) {
@@ -194,7 +197,7 @@ int epoll_t::remove_fd(int fd) {
 #endif
 	int s = epoll_ctl(_fd, EPOLL_CTL_DEL, fd, NULL);
 	if (s == -1) {
-		LOG4CXX_FATAL(logger, "epoll_ctl remove failed: " << strerror(errno));
+		LOG4CXX_FATAL(logger, "epoll_ctl remove failed: _fd=" << (int)_fd << " fd=" << (int) fd << " "  << strerror(errno));
 		return -1;
 	}
 	return 0;

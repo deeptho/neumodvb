@@ -61,7 +61,7 @@ namespace {{dbname}} {
 	void {{dbname}}_t::store_schema(db_txn& txn, unsigned int put_flags)
 	{
 		schema::neumo_schema_t s;
-		s.version=2;
+		s.version = neumo_schema_version;
 		s.db_type="{{dbname}}";
 		for(auto& schema_entry: *dbdesc->p_all_sw_schemas) {
 			convert_schema(*schema_entry.pschema, s.schema);

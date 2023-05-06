@@ -30,7 +30,6 @@
 #include <iostream>
 
 #include "../util/neumovariant.h"
-
 using namespace chdb;
 
 extern const char* lang_name(char lang1, char lang2, char lang3);
@@ -103,48 +102,56 @@ ss::vector_<int16_t> chdb::dvbs_mux::list_distinct_sats(db_txn& txn) {
 	return data;
 }
 
-template <typename cursor_t> static uint16_t make_unique_id(db_txn& txn, mux_key_t key, cursor_t& c) {
-	key.extra_id = 0;
-	int gap_start = 1; // start of a potential gap of unused extra_ids
-	for (const auto& mux : c.range()) {
-		if (mux.k.sat_pos != key.sat_pos || mux.k.t2mi_pid != key.t2mi_pid || mux.k.network_id != key.network_id ||
-				mux.k.ts_id != key.ts_id) {
-			break; // no more matching muxes
+/*
+	make a unique id for a dvbs_mux; together with sat_pos, stream_id and k.t2mi_pid
+	this forms a unique key that is used to (re)identify the mux even when ts_id, network_id
+	or frequency change.
+	The code uses the current (initial) frequency to create the id,
+	but in general no reltion should be assumed and it should be treated as an opaque integer
+
+possible values:
+	0 : invalid data (e.g. for use with db upgrade code
+	positive integer: valid and will never change, even if other data changes
+ */
+static void make_mux_id_helper(db_txn& rtxn, int frequency, mux_key_t& mux_key) {
+	assert(mux_key.mux_id ==0); //never change mux_id on existing mux
+	uint16_t mux_id = 1+(frequency % (0xffff-1));
+	assert(mux_id>0);
+	int count=0;
+	mux_key.mux_id = mux_id;
+	auto key_prefix =  dvbs_mux_t::partial_keys_t::sat_pos_stream_id_t2mi_pid;
+	auto find_prefix =  dvbs_mux_t::partial_keys_t::all;
+	auto c = chdb::dvbs_mux_t::find_by_key(rtxn, mux_key, find_geq, key_prefix, find_prefix);
+	mux_key.mux_id = 0 ;//restore
+	for(const auto & mux: c.range()) {
+		if(mux.k.mux_id > mux_id) {
+			assert(mux_id !=0);
+			mux_key.mux_id = mux_id;
+			return;
 		}
-		if (is_template(mux) && mux.k.extra_id == 0) {
-			// templates with unset extra_id
-			assert(0);
-			continue;
-		} else if (mux.k.extra_id > gap_start) {
-			/*we reached the first matching mux; assign next available lower value to mux.k.extra_id
-				this can only fail if about 65535 muxes with the same sat_pos, network_id and ts_id exist;
-				In that case the loop continues, just in case some of these 65535 muxes have been deleted in the mean time,
-				which has left gaps in numbering */
-			// easy case: just assign the next lower id
-			return mux.k.extra_id - 1;
-		} else {
-			// check for a gap in the numbers
-			gap_start = mux.k.extra_id + 1;
-			assert(gap_start > 0);
+		assert(mux.k.mux_id == mux_id);
+		mux_id++; //may overflow
+		if(mux_id==0)
+			mux_id++;
+		if(count>=10000) {
+			dterrorx("Unpected: ran out of ids\n");
+			return;
 		}
 	}
-
-	if (gap_start >= std::numeric_limits<decltype(key.extra_id)>::max()) {
-		// all ids exhausted
-		// The following is very unlikely. We prefer to cause a result on a
-		// single mux rather than throwing an error
-		dterror("Overflow for extra_id");
-		assert(0);
-	}
-
-	// we reach here if this is the very first mux with this key
-	return std::numeric_limits<decltype(key.extra_id)>::max(); // highest possible value
+	mux_key.mux_id = mux_id; //if we reach this point, we have examined all muxes
 }
 
-template <typename mux_t> uint16_t chdb::make_unique_id(db_txn& txn, mux_key_t key) {
-	key.extra_id = 0;
-	auto c = mux_t::find_by_key(txn, key, find_geq);
-	return ::make_unique_id(txn, key, c);
+
+template<typename mux_t>
+	requires (is_same_type_v<mux_t, chdb::dvbs_mux_t> || is_same_type_v<mux_t, chdb::dvbc_mux_t>
+						|| is_same_type_v<mux_t, chdb::dvbt_mux_t>)
+void chdb::make_mux_id(db_txn& rtxn, mux_t& mux) {
+		make_mux_id_helper(rtxn, mux.frequency, mux.k);
+}
+
+void chdb::make_mux_id(db_txn& rtxn, chdb::any_mux_t& mux) {
+	std::visit([&rtxn](auto& mux) {
+		make_mux_id_helper(rtxn, mux.frequency, mux.k);}, mux);
 }
 
 int32_t chdb::make_unique_id(db_txn& txn, chg_key_t key) {
@@ -195,75 +202,6 @@ int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
 	return std::numeric_limits<decltype(key.channel_id)>::max(); // highest possible value
 }
 
-template<typename mux_t>
-void chdb::on_mux_key_change(db_txn& wtxn, const mux_key_t& old_mux_key, mux_t& new_mux, system_time_t now_) {
-	auto now = system_clock_t::to_time_t(now_);
-	using namespace chdb;
-	auto& new_mux_key = *mux_key_ptr(new_mux);
-	{
-		auto c = service_t::find_by_key(wtxn, old_mux_key, find_type_t::find_geq,
-																		service_t::partial_keys_t::mux);
-		for(auto service: c.range()) {
-			delete_record(wtxn, service);
-			chdb::to_str(service.mux_desc, new_mux);
-			service.k.mux = new_mux_key;
-			service.mtime = now;
-			put_record(wtxn, service);
-		}
-	} {
-		//todo: chgm
-	}
-}
-
-void chdb::on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::dvbs_mux_t& new_mux,
-															system_time_t now_) {
-	auto now = system_clock_t::to_time_t(now_);
-	using namespace chdb;
-	auto& new_mux_key = *mux_key_ptr(new_mux);
-	{
-		auto c = chdb::sat_t::find_by_key(wtxn, new_mux_key.sat_pos);
-		if (!c.is_valid()) {
-			chdb::sat_t sat;
-			sat.sat_pos = new_mux_key.sat_pos;
-			sat.name = chdb::sat_pos_str(new_mux_key.sat_pos);
-			put_record(wtxn, sat);
-		}
-	}
-	{
-		auto c = service_t::find_by_key(wtxn, old_mux_key, find_type_t::find_geq,
-																		service_t::partial_keys_t::mux);
-		for(auto service: c.range()) {
-			delete_record(wtxn, service);
-			chdb::to_str(service.mux_desc, new_mux);
-			service.k.mux = new_mux_key;
-			service.mtime = now;
-			put_record(wtxn, service);
-		}
-	} {
-		//todo: chgm
-	} {
-		auto c = sat_t::find_by_key(wtxn, old_mux_key.sat_pos, find_type_t::find_geq,
-																		sat_t::partial_keys_t::sat_pos);
-		for(auto sat: c.range()) {
-			if (sat.reference_tp == old_mux_key) {
-				sat.reference_tp = new_mux_key;
-				put_record(wtxn, sat);
-			}
-		}
-	}
-}
-
-void chdb::on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::any_mux_t& new_mux,
-															system_time_t now_) {
-	using namespace chdb;
-
-	std::visit([&](auto& new_mux) { on_mux_key_change(wtxn,
-																										old_mux_key,
-																										new_mux,
-																										now_);
-	}, new_mux);
-}
-
 static inline void copy_tuning(dvbc_mux_t& mux, dvbc_mux_t& db_mux) {
 	mux.delivery_system = db_mux.delivery_system;
 	mux.frequency = db_mux.frequency;
@@ -272,7 +210,7 @@ static inline void copy_tuning(dvbc_mux_t& mux, dvbc_mux_t& db_mux) {
 	mux.modulation = db_mux.modulation;
 	mux.fec_inner = db_mux.fec_inner;
 	mux.fec_outer = db_mux.fec_outer;
-	mux.stream_id = db_mux.stream_id;
+	mux.k.stream_id = db_mux.k.stream_id;
 	mux.c.tune_src = db_mux.c.tune_src;
 }
 
@@ -287,7 +225,7 @@ static inline void copy_tuning(dvbt_mux_t& mux, dvbt_mux_t& db_mux) {
 	mux.hierarchy = db_mux.hierarchy;
 	mux.HP_code_rate = db_mux.HP_code_rate;
 	mux.LP_code_rate = db_mux.LP_code_rate;
-	mux.stream_id = db_mux.stream_id;
+	mux.k.stream_id = db_mux.k.stream_id;
 	mux.c.tune_src = db_mux.c.tune_src;
 }
 
@@ -301,13 +239,14 @@ static inline void copy_tuning(dvbs_mux_t& mux, dvbs_mux_t& db_mux) {
 	mux.fec = db_mux.fec;
 	mux.rolloff = db_mux.rolloff;
 	mux.pilot = db_mux.pilot;
-	mux.stream_id = db_mux.stream_id;
+#if 0
+	mux.k.stream_id = db_mux.k.stream_id;
+#endif
 	mux.pls_mode = db_mux.pls_mode;
 	mux.matype = db_mux.matype;
 	mux.pls_code = db_mux.pls_code;
 	mux.c.tune_src = db_mux.c.tune_src;
 }
-
 
 /*
 	move services from a source mux to a destination mux if they
@@ -320,7 +259,7 @@ void chdb::merge_services(db_txn& wtxn, const mux_key_t& src_key, const chdb::an
 	auto c = chdb::service::find_by_mux_key(wtxn, src_key);
 	for(auto service: c.range()) {
 		service.k.mux = * mux_key_ptr(dst);
-		auto c1 = chdb::service_t::find_by_key(wtxn, service.k);
+		auto c1 = chdb::service_t::find_by_key(wtxn, service.k.mux, service.k.service_id);
 		if (c1.is_valid()) {
 			auto dst_service = c1.current();
 			if(dst_service.ch_order ==0 && service.ch_order !=0) {
@@ -328,7 +267,9 @@ void chdb::merge_services(db_txn& wtxn, const mux_key_t& src_key, const chdb::an
 				put_record(wtxn, dst_service);
 			}
 		} else {
-			chdb::to_str(service.mux_desc, dst);
+			std::visit([&](auto &mux) {
+			service.frequency = mux.frequency;
+			service.pol = get_member(mux, pol, chdb::fe_polarisation_t::NONE);}, dst);
 			put_record(wtxn, service);
 		}
 	}
@@ -341,7 +282,6 @@ void chdb::remove_services(db_txn& wtxn, const mux_key_t& mux_key) {
 		delete_record(c, service);
 	}
 }
-
 
 /*
 	selectively replace some data in mux by data in db_mux, while preserving the data specified in
@@ -356,7 +296,7 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 					mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 				 mux.c.scan_id >0);
 
-	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->extra_id == 0) {
+	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->mux_id == 0) {
 		//template mux key entered by user is never considered valid, so use database value
 		mux.k = db_mux.k;
 	}
@@ -367,17 +307,18 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 		mux.c.tune_src = tune_src_t::USER;
 		copy_tuning(mux, db_mux); //preserve what is in the database
 	}
-
+#if 0
 	if( (preserve & m::MUX_KEY) ) { //actual copying handled by caller
 		mux.c.key_src = db_mux.c.key_src;
 	}
-
+#endif
 	if (preserve & m::TUNE_DATA) {
 		copy_tuning(mux, db_mux); //preserve what is in the database
 	}
 	if (preserve & m::SCAN_DATA) {
 		mux.c.scan_time = db_mux.c.scan_time;
 		mux.c.scan_result = db_mux.c.scan_result;
+		mux.c.scan_lock_result = db_mux.c.scan_lock_result;
 		mux.c.scan_duration = db_mux.c.scan_duration;
 		mux.c.epg_scan = db_mux.c.epg_scan;
 	}
@@ -405,8 +346,14 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 		mux.c.nit_network_id = db_mux.c.nit_network_id;
 		mux.c.nit_ts_id = db_mux.c.nit_ts_id;
 	}
+	if (preserve & m::SDT_SI_DATA) {
+		mux.c.network_id = db_mux.c.network_id;
+		mux.c.ts_id = db_mux.c.ts_id;
+		mux.c.key_src = db_mux.c.key_src;
+	}
 }
 
+#ifdef PMUX
 /*! Put a mux record, taking into account that its key may have changed
 	returns: true if this is a new mux (first time scanned); false otherwise
 	Also, updates the mux, specifically k.extra_id
@@ -570,11 +517,190 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, 
 	}
 	return ret;
 }
+#endif
+
+/*! Put a mux record, taking into account that its key may have changed
+	returns: true if this is a new mux (first time scanned); false otherwise
+	Also, updates the mux, specifically k.extra_id
+
+
+	Either change the found mux, but preserve some of its data (depending on preserver(
+	or insert a new one.
+
+	In case MUX_KEY preservation is requested: do not change the mux_key (including extra_id)
+
+	for must_exist: return without saving if existing mux cannot be found and update would create a new mux
+
+*/
+template <typename mux_t>
+update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_,
+																			update_mux_preserve_t::flags preserve,
+																			std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+																			/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist)
+{
+	auto now = system_clock_t::to_time_t(now_);
+	//assert(mux.c.tune_src != tune_src_t::TEMPLATE);
+	update_mux_ret_t ret = update_mux_ret_t::UNKNOWN;
+	mux_t db_mux;
+	/* The following cases need to be handled
+		 a) the tp does not yet exist for this network_id, ts_id, and there is also no tp with matching freq/pol
+		 => insert new mux in the db; ensure unique extra_id
+		 b) tp with (more or less) correct frequency and polarisation exists but has a different network_id or ts_id
+		 with network_id and ts_id !=0
+		 => delete the old mux, which is clearly invalid now; and insert the new mux with unique extra_id (as in case a)
+		 c) a tp with (more or less) correct frequency and polarisation exists but has a network_id=0 and ts_id =0
+		 ts_id (0, 0). The latter occurs when seeding the database.
+		 => delete the old template mux and set extra_id=0 (as in case a)
+		 d) tp with (more or less) correct frequency and polarisation exists with the correct network_id, ts_id
+		 => update the mux, and preserve extra_id
+		 e) a tp exists with a very different frequency or a different polarisation and with the correct network_id, ts_id
+		 This could be a moved tp, but it also happens that some sats have transponders with duplicate
+		 network_id, ts_id. This happens because providers have no official network_id (e.g., muxes not for
+		 the general public). It also happens sometimes during transponder switchovers.
+		 It is difficult to decide if we update the old tp with the new frequency, or rather treat this
+		 as a new tp (e.g., two active but different transponders, two active transponders carrying the same mux,
+		 or: the old tp is no longer active and was replaced by a new tp)
+		 => the current compromise is to treat it as a new mux, so we have to select an extra_id different
+		 such that (sat_pos, network_id, ts_id, extra_id) differs from the existing old mux
+	*/
+	namespace m = update_mux_preserve_t;
+	/*find mux with matching frequency, stream_id and t2mi_pid*/
+#ifndef NDEBUG
+	auto& mux_common = *mux_common_ptr(mux);
+	if(!((mux.k.mux_id > 0) ||
+				 (is_template(mux) || mux_common.tune_src== tune_src_t::NIT_TUNED
+					|| mux_common.tune_src == tune_src_t::NIT_ACTUAL
+					|| mux_common.tune_src == tune_src_t::NIT_OTHER
+					|| mux_common.tune_src == tune_src_t::AUTO
+					|| mux_common.tune_src == tune_src_t::DRIVER)
+			 )) {
+		dterrorx("detected incorrect tune_src=%d\n", (int) mux_common.tune_src);
+	}
+#endif
+	/*a template mux with mux.k.stream_id==-1 can mean two things: 1) user wants to tune to a SIS stream
+		2) User wants to tune to a MIS stream with unspecified stream_id, and specifies mux.k.stream_id=-1
+		(default when clicking in spectrum dialog)
+		In case 2 we set ignore_stream_id true.
+	 */
+	auto ignore_stream_id = (is_template(mux) && mux.k.stream_id==-1);
+	db_tcursor<mux_t> c = mux.k.mux_id > 0 ? chdb::find_by_mux(wtxn, mux) :
+		find_by_mux_physical(wtxn, mux, ignore_stream_id /*ignore_stream_id*/, ignore_t2mi_pid);
+#if 0
+	bool delete_db_mux{false};
+#endif
+	bool is_new = true; // do we modify an existing record or create a new one?
+	if (c.is_valid()) { //mux exists
+		db_mux = c.current();
+#ifndef NDEBUG
+		assert(db_mux.k.stream_id == mux.k.stream_id);
+		assert(db_mux.k.t2mi_pid == mux.k.t2mi_pid);
+		if(db_mux.k.mux_id == 0) {
+			make_mux_id(wtxn, db_mux);
+			dterror("Illegal mux found in db and fixed: " << db_mux);
+		}
+		assert(db_mux.k.mux_id > 0);
+		auto tmp_key = mux.k;
+		tmp_key.mux_id = db_mux.k.mux_id;
+		auto key_matches = tmp_key == db_mux.k;
+		assert(key_matches);
+#else
+		bool key_matches{true};
+#endif
+		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
+						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
+					 mux.c.scan_id >0);
+		mux.k = db_mux.k;
+		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+		ret = update_mux_ret_t::MATCHING_KEY_AND_FREQ;
+
+		is_new = false;
+		if(!cb(&db_mux.c, &db_mux.k))
+			return update_mux_ret_t::NO_MATCHING_KEY;
+		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
+						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
+					 mux.c.scan_id >0);
+#ifndef NDEBUG
+		key_matches = (mux.k == db_mux.k); //key can NOT be changed by cb()
+#if 0
+		delete_db_mux = !key_matches;
+#endif
+#endif
+		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+		if(!is_new) {
+			merge_muxes<mux_t>(mux, db_mux, preserve);
+			auto& c = *mux_common_ptr(mux);
+			auto& dbc = *mux_common_ptr(db_mux);
+			auto sdt_key_matches =  (c.network_id == dbc.network_id) && (c.ts_id == dbc.ts_id);
+			if(!sdt_key_matches) {
+				int matype = get_member(mux, matype, 0x3 << 14);
+				int db_matype = get_member(db_mux, matype, 0x3 << 14);
+				auto is_dvb = ((matype >> 14) & 0x3) == 0x3;
+				auto db_mux_is_dvb = ((db_matype >> 14) & 0x3) == 0x3;
+				if(is_dvb && db_mux_is_dvb)
+					merge_services(wtxn, db_mux.k, mux);
+				else if (!is_dvb && db_mux_is_dvb)
+					remove_services(wtxn, db_mux.k);
+			}
+		}
+		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+
+		dtdebugx("Transponder %s: sat_pos=%d => %d; mux_id=%d => %d; stream_id=%d => %d; t2mi_pid=%d =< %d",
+						 to_str(mux).c_str(),
+						 db_mux.k.sat_pos, mux.k.sat_pos,
+						 db_mux.k.mux_id, mux.k.mux_id,
+						 db_mux.k.stream_id, mux.k.stream_id,
+						 db_mux.k.t2mi_pid, mux.k.t2mi_pid);
+		//assert( mux.c.tune_src != tune_src_t::TEMPLATE );
+
+		ret = is_new ? update_mux_ret_t::NO_MATCHING_KEY : update_mux_ret_t::MATCHING_KEY_AND_FREQ;
+	} else { //no mux in db
+		if(must_exist)
+			return update_mux_ret_t::NO_MATCHING_KEY;
+		ret = update_mux_ret_t::NEW;
+		/*
+			It is possible that mux.k.mux_id > 0 for a new mux, e.g., because all muxes differing only in stream_id
+			are deliberately given the same mux_id
+		 */
+		if(mux.k.mux_id == 0)
+			make_mux_id(wtxn, mux);
+		if(!cb(nullptr, nullptr))
+			return update_mux_ret_t::NO_MATCHING_KEY;
+	}
+
+	assert(!is_template(mux));
+	assert(ret != update_mux_ret_t::UNKNOWN);
+	// the database has a mux, but we may need to update it
+
+	if (!is_new && chdb::is_same(db_mux, mux))
+		ret = update_mux_ret_t::EQUAL;
+
+	if (is_new || ret != update_mux_ret_t::EQUAL) {
+		/*We found match, either based on key or on frequency
+			if the match was based on frequency, an existing mux may be overwritten!
+		*/
+		mux.c.mtime = now;
+
+		dtdebugx("NIT %s: old=%s new=%s #s=%d", is_new ? "NEW" : "CHANGED", to_str(db_mux).c_str(), to_str(mux).c_str(),
+						 mux.c.num_services);
+		assert(mux.frequency > 0);
+
+		dtdebug("mux=" << mux);
+		assert(mux.k.mux_id > 0);
+		assert(!is_template(mux));
+#if 0
+		if(delete_db_mux) {
+			delete_record(c, db_mux);
+		}
+#endif
+		put_record(wtxn, mux);
+	}
+	return ret;
+}
 
 update_mux_ret_t chdb::update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
-																	update_mux_preserve_t::flags preserve,
-																	std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-																	bool ignore_key, bool ignore_t2mi_pid, bool must_exist) {
+																			update_mux_preserve_t::flags preserve,
+																			std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+																			/*bool ignore_key, */ bool ignore_t2mi_pid, bool must_exist) {
 	using namespace chdb;
 	update_mux_ret_t ret;
 	visit_variant(
@@ -582,13 +708,14 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_tim
 		[&](chdb::dvbs_mux_t& mux) {
 			if(mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_DVBS)
 				mux.matype = 256;
-			ret = chdb::update_mux(wtxn, mux, now, preserve, cb, ignore_key, ignore_t2mi_pid, must_exist); },
+			ret = chdb::update_mux(wtxn, mux, now, preserve, cb, /*ignore_key,*/ ignore_t2mi_pid, must_exist); },
 		[&](chdb::dvbc_mux_t& mux) { ret = chdb::update_mux(wtxn, mux, now, preserve, cb,
-																												ignore_key, ignore_t2mi_pid, must_exist); },
+																												/*ignore_key,*/ ignore_t2mi_pid, must_exist); },
 		[&](chdb::dvbt_mux_t& mux) { ret = chdb::update_mux(wtxn, mux, now, preserve, cb,
-																												ignore_key, ignore_t2mi_pid, must_exist); });
+																												/*ignore_key,*/ ignore_t2mi_pid, must_exist); });
 	return ret;
 }
+
 
 void chdb::sat_pos_str(ss::string_& s, int position) {
 	if (position == sat_pos_dvbc) {
@@ -696,6 +823,8 @@ std::ostream& chdb::operator<<(std::ostream& os, tune_src_t tune_src) {
 	case tune_src_t::USER:       os << "user"; break;
 	case tune_src_t::AUTO:       os << "auto"; break;
 	case tune_src_t::UNKNOWN:    os << "unk"; break;
+	default:
+		os << (int) tune_src;
 	}
 	return os;
 }
@@ -790,15 +919,15 @@ std::ostream& chdb::operator<<(std::ostream& os, const sat_t& sat) {
 }
 
 std::ostream& chdb::operator<<(std::ostream& os, const dvbs_mux_t& mux) {
-	auto sat = sat_pos_str(mux.k.sat_pos);
+	//auto sat = sat_pos_str(mux.k.sat_pos);
 	stdex::printf(os, "%d.%03d%s", mux.frequency / 1000, mux.frequency%1000, enum_to_str(mux.pol));
-	if (mux.stream_id >= 0)
-		stdex::printf(os, "-%d", mux.stream_id);
-	if (mux.k.t2mi_pid != 0)
+	if (mux.k.stream_id >= 0)
+		stdex::printf(os, "-%d", mux.k.stream_id);
+	if (mux.k.t2mi_pid >= 0)
 		stdex::printf(os, "-T%d", mux.k.t2mi_pid);
 	stdex::printf(os, " ");
 	os << mux.k;
-#if 0
+#if 1
 	stdex::printf(os, " %s/%s", scan_status_name(mux.c.scan_status), scan_result_name(mux.c.scan_result));
 #endif
 	return os;
@@ -809,8 +938,8 @@ std::ostream& chdb::operator<<(std::ostream& os, const dvbc_mux_t& mux) {
 		stdex::printf(os, " DVB-C %dMHz", mux.frequency / 1000);
 	else
 		stdex::printf(os, " DVB-C %.3fMHz", mux.frequency / (float)1000);
-	if (mux.stream_id >= 0)
-		stdex::printf(os, " stream %d", mux.stream_id);
+	if (mux.k.stream_id >= 0)
+		stdex::printf(os, " stream %d", mux.k.stream_id);
 	return os;
 }
 
@@ -819,8 +948,8 @@ std::ostream& chdb::operator<<(std::ostream& os, const dvbt_mux_t& mux) {
 		stdex::printf(os, " DVB-T %dMHz", mux.frequency / 1000);
 	else
 		stdex::printf(os, " DVB-T %.3fMHz", mux.frequency / (float)1000);
-	if (mux.stream_id >= 0)
-		stdex::printf(os, " stream %d", mux.stream_id);
+	if (mux.k.stream_id >= 0)
+		stdex::printf(os, " stream %d", mux.k.stream_id);
 	return os;
 }
 
@@ -836,8 +965,10 @@ std::ostream& chdb::operator<<(std::ostream& os, const any_mux_t& mux) {
 std::ostream& chdb::operator<<(std::ostream& os, const mux_key_t& k) {
 	auto sat = sat_pos_str(k.sat_pos);
 	os << sat;
-	stdex::printf(os, " - %d/%d/%d", k.network_id, k.ts_id, k.extra_id);
-	if (k.t2mi_pid != 0)
+	stdex::printf(os, " - %d", k.mux_id);
+	if(k.stream_id >=0)
+		stdex::printf(os, "-%d", k.stream_id);
+	if (k.t2mi_pid >= 0)
 		stdex::printf(os, "-T%d", k.t2mi_pid);
 
 	return os;
@@ -845,13 +976,16 @@ std::ostream& chdb::operator<<(std::ostream& os, const mux_key_t& k) {
 
 std::ostream& chdb::operator<<(std::ostream& os, const service_t& service) {
 	auto s = sat_pos_str(service.k.mux.sat_pos);
-	stdex::printf(os, "[%5.5d] %s - %s", service.ch_order, service.mux_desc.c_str(), service.name.c_str());
+	stdex::printf(os, "[%5.5d] %d.%03d%s - %s", service.ch_order,
+								service.frequency / 1000, service.frequency%1000,
+								(service.pol == chdb::fe_polarisation_t::NONE) ? "" :
+								enum_to_str(service.pol), service.name.c_str());
 	return os;
 }
 
 std::ostream& chdb::operator<<(std::ostream& os, const service_key_t& k) {
 	auto s = sat_pos_str(k.mux.sat_pos);
-	stdex::printf(os, "%s ts=%d sid=%d", s.c_str(), k.mux.ts_id, k.service_id);
+	stdex::printf(os, "%s ts=%d sid=%d", s.c_str(), k.ts_id, k.service_id);
 	if (k.mux.t2mi_pid >= 0)
 		stdex::printf(os, "-T%d", k.mux.t2mi_pid);
 
@@ -860,12 +994,8 @@ std::ostream& chdb::operator<<(std::ostream& os, const service_key_t& k) {
 
 
 std::ostream& chdb::operator<<(std::ostream& os, const fe_polarisation_t& pol) {
-		stdex::printf(os, "%s",
-									pol == fe_polarisation_t::H	 ? "H"
-									: pol == fe_polarisation_t::V ? "V"
-									: pol == fe_polarisation_t::L ? "L"
-									: "R");
-		return os;
+	stdex::printf(os, "%s", pol_str(pol));
+	return os;
 }
 
 std::ostream& chdb::operator<<(std::ostream& os, const chg_t& chg) {
@@ -967,6 +1097,9 @@ bool chdb::is_same(const mux_common_t& a, const mux_common_t& b) {
 	if (!(a.scan_result == b.scan_result))
 		return false;
 
+	if (!(a.scan_lock_result == b.scan_lock_result))
+		return false;
+
 	if (!(a.num_services == b.num_services))
 		return false;
 
@@ -999,7 +1132,7 @@ bool chdb::tuning_is_same(const dvbs_mux_t& a, const dvbs_mux_t& b) {
 		return false;
 	if (!(a.pilot == b.pilot))
 		return false;
-	if (!(a.stream_id == b.stream_id))
+	if (!(a.k.stream_id == b.k.stream_id))
 		return false;
 	if (!(a.pls_mode == b.pls_mode))
 		return false;
@@ -1029,7 +1162,7 @@ bool chdb::tuning_is_same(const dvbt_mux_t& a, const dvbt_mux_t& b) {
 		return false;
 	if (!(a.LP_code_rate == b.LP_code_rate))
 		return false;
-	if (!(a.stream_id == b.stream_id))
+	if (!(a.k.stream_id == b.k.stream_id))
 		return false;
 	return true;
 }
@@ -1047,7 +1180,7 @@ bool chdb::tuning_is_same(const dvbc_mux_t& a, const dvbc_mux_t& b) {
 		return false;
 	if (!(a.fec_outer == b.fec_outer))
 		return false;
-	if (!(a.stream_id == b.stream_id))
+	if (!(a.k.stream_id == b.k.stream_id))
 		return false;
 	return true;
 }
@@ -1116,7 +1249,7 @@ chdb::delsys_type_t chdb::delsys_to_type(chdb::fe_delsys_t delsys_) {
 
 
 void chdb::service::update_audio_pref(db_txn& txn, const chdb::service_t& from_service) {
-	auto c = chdb::service_t::find_by_key(txn, from_service.k);
+	auto c = chdb::service_t::find_by_key(txn, from_service.k.mux, from_service.k.service_id);
 	/*
 		handle the case where some other thread has updated other things
 		like the service name
@@ -1130,7 +1263,7 @@ void chdb::service::update_audio_pref(db_txn& txn, const chdb::service_t& from_s
 }
 
 void chdb::service::update_subtitle_pref(db_txn& txn, const chdb::service_t& from_service) {
-	auto c = chdb::service_t::find_by_key(txn, from_service.k);
+	auto c = chdb::service_t::find_by_key(txn, from_service.k.mux, from_service.k.service_id);
 	/*
 		handle the case where some other thread has updated other things
 		like the service name
@@ -1342,7 +1475,7 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 					return {mux, sat};
 			}
 			//pick the first mux on the sat as the ref mux, taking into account lnb type and polarisation
-			c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.sat_pos, 0, 0, 0, find_type_t::find_geq,
+			c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.sat_pos, find_type_t::find_geq,
 																				chdb::dvbs_mux_t::partial_keys_t::sat_pos);
 			for(auto mux: c.range()) {
 				if (devdb::lnb_can_tune_to_mux(lnb, mux, true /*disregard networks*/, nullptr /*error*/))
@@ -1437,3 +1570,8 @@ chdb::select_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		return ret;
 	}
 }
+
+//template instantiations
+template void chdb::make_mux_id<chdb::dvbs_mux_t>(db_txn& rtxn, chdb::dvbs_mux_t& mux);
+template void chdb::make_mux_id<chdb::dvbc_mux_t>(db_txn& rtxn, chdb::dvbc_mux_t& mux);
+template void chdb::make_mux_id<chdb::dvbt_mux_t>(db_txn& rtxn, chdb::dvbt_mux_t& mux);

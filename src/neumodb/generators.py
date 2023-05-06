@@ -466,7 +466,9 @@ class db_db(object):
             fielddb, fieldstruct = fielddb.db_and_struct_for_field_type(parent_field_type)
             field_desc = list(filter(lambda field: field['name'] == part, fieldstruct.fields))
             if len(field_desc) != 1:
-                raise ValueError("Field {} not found in {}".format(part, parent_field_type))
+                msg = f"Field {part} not found in {parent_field_type}"
+                print(msg)
+                raise ValueError(msg)
             field_desc = field_desc[0]
             assert not field_desc['is_vector']
             field_type = field_desc['type']

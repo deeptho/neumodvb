@@ -29,16 +29,12 @@ namespace py = pybind11;
 using namespace devdb;
 
 extern void export_neumodb(py::module& m);
+extern void export_devdb(py::module& m);
 
 namespace devdb {
 	extern void export_enums(py::module& m);
 	extern void export_structs(py::module& m);
 } // namespace devdb
-
-static void export_devdb(py::module& m) {
-	py::class_<devdb::devdb_t, neumodb_t>(m, "devdb").def(py::init<>())
-		;
-}
 
 static inline devdb::lnb_connection_t* conn_helper
 (devdb::lnb_t& lnb, devdb::rf_path_t& rf_path) {

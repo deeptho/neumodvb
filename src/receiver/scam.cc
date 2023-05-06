@@ -396,7 +396,7 @@ int scam_thread_t::wait_for_and_handle_events(bool do_not_handle_demux_events) {
 
 void scam_t::process_demux_fd(const epoll_event* evt) {
 	for (auto& [adapter_no, p] : active_scams) {
-		if (p->reader->on_epoll_event(evt->data.fd)) {
+		if (p->reader->on_epoll_event(evt)) {
 			p->process_ca_data();
 		}
 	}

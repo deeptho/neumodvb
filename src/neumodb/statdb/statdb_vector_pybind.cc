@@ -27,6 +27,5 @@ namespace py = pybind11;
 
 void export_statdb_vectors(py::module& m) {
 	using namespace statdb;
-
 	export_ss_vector(m, signal_stat_t);
 }

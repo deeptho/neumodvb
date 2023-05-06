@@ -569,7 +569,6 @@ void rec_manager_t::on_epg_update(db_txn& epg_wtxn, epgdb::epg_record_t& epg_rec
 		but we should only do this once. Therefore, we first check for non-anonymous matches
 		and if we find one, we do not create a new non-anonymous recording;
 	*/
-
 	for(int anonymous = 0; anonymous < 2; ++anonymous)
 		if (auto rec_ = recdb::rec::best_matching(rec_rtxn, epg_record, anonymous)) {
 
@@ -686,7 +685,7 @@ void rec_manager_t::start_recordings(db_txn& rtxn, system_time_t now_) {
 				{
 					auto txn = receiver.chdb.rtxn();
 					// rec.service = epgdb::service_for_epg_record(txn, epg_record);
-					auto ec = chdb::service_t::find_by_key(txn, rec.service.k);
+					auto ec = chdb::service_t::find_by_key(txn, rec.service.k.mux, rec.service.k.service_id);
 					if (ec.is_valid())
 						rec.service = ec.current();
 				}

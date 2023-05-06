@@ -131,6 +131,7 @@ struct record_desc_t {
 
 struct schema_entry_t {
 	ss::string<16> name;
+	int schema_version{-1};
 	ss::vector_<record_desc_t>* pschema{nullptr};
 };
 
@@ -229,7 +230,7 @@ class dbdesc_t {
 public:
 
 	static constexpr int32_t NOTFOUND{std::numeric_limits<int32_t>::max()};
-
+	int schema_version{-1};
 	const all_schemas_t* p_all_sw_schemas = nullptr; //as defined by the code
 
 	std::map<uint64_t, record_data_t> schema_map; //as stored in the database file, but indexed by type_id

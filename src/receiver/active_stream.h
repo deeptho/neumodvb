@@ -125,7 +125,7 @@ public:
 	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
 	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux) = 0;
 
-	virtual inline bool on_epoll_event(int fd) = 0;
+	virtual inline bool on_epoll_event(const epoll_event* evt) = 0;
 
 	virtual inline std::tuple<uint8_t*, ssize_t> read(ssize_t size=-1)  = 0;
 	virtual inline void discard(ssize_t bytes)  =0;
@@ -149,7 +149,7 @@ public:
 
 	int16_t get_sat_pos() const;
 	virtual int embedded_stream_pid() const {
-		return 0;
+		return -1;
 	}
 };
 
@@ -174,8 +174,8 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 		return demux_fd >= 0;
 	}
 
-	virtual inline bool on_epoll_event(int fd) {
-		return demux_fd == fd;
+	virtual inline bool on_epoll_event(const epoll_event* evt) {
+		return demux_fd == (evt->data.u64 & 0xffffffff);
 	}
 	virtual int open(uint16_t initial_pid, epoll_t* epoll,
 									 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
@@ -271,7 +271,7 @@ public:
 	virtual void close();
 
 
-	virtual bool on_epoll_event(int fd);
+	virtual bool on_epoll_event(const epoll_event* evt);
 
 	virtual inline int add_pid(int pid) {
 		return 0; //we don't care
@@ -298,6 +298,7 @@ public:
 	virtual inline void discard(ssize_t num_bytes);
 
 	virtual ~embedded_stream_reader_t() {
+		notifier.close();
 		close();
 	}
 

@@ -160,10 +160,15 @@ void dbdesc_t::init(const all_schemas_t& all_sw_schemas) {
 	schema_map.clear();
 	index_map.clear();
 	for (const auto& a : all_sw_schemas) {
+		if(this->schema_version >=0 && this->schema_version != a.schema_version) {
+			dterrorx("All schemas of all databases should have the same version but found versions %d and %d\n",
+							 this->schema_version, a.schema_version);
+		}
+		this->schema_version = std::max(this->schema_version, a.schema_version);
 		assert(a.pschema);
 		auto& sw_schema = *a.pschema;
 		for (const auto& sw_record_schema : sw_schema) {
-			// store a default, current schema
+			// store a default, current schema);
 			auto [it, inserted] = schema_map.try_emplace(sw_record_schema.type_id, sw_record_schema);
 			if (!inserted) {
 				/*
@@ -273,6 +278,8 @@ bool index_desc_t::operator==(const index_desc_t& other) const {
 
 bool check_schema(const dbdesc_t& stored, const dbdesc_t& current) {
 	bool ret = true;
+	if(current.schema_version != stored.schema_version)
+		return false;
 	for (const auto& [type_id, current_desc] : current.schema_map) {
 		auto* stored_desc = stored.schema_for_type(type_id);
 		if (!stored_desc) {

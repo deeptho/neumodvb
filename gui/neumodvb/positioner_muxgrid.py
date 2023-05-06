@@ -71,7 +71,7 @@ class DvbsMuxTable(NeumoTable):
          CD(key='symbol_rate', label='SymRate',  dfn= lambda x: x[1]//1000),
          CD(key='pls_mode', label='Pls Mode', dfn=lastdot, example='COMBO'),
          CD(key='pls_code', label='Pls Code'),
-         CD(key='stream_id', label='Stream')
+         CD(key='k.stream_id', label='Stream')
          ]
 
     other_columns =  \

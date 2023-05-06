@@ -827,7 +827,7 @@ class SatBouquetGroupSelectPanel(GroupSelectPanel):
             (_("Sorted by channel number"), ('ch_order',)),
             (_("Sorted by name"), ('name',)),
             (_("Sorted by modification time"), ('mtime',)),
-            (_("Sorted by sat/mux"), ('mux_desc', 'k.service_id'))
+            (_("Sorted by sat/mux"), ('frequency', 'pol', 'k.service_id'))
         )
         self.sorttypes_chgm = (
             (_("Sort by channel number"), ('chgm_order',)),
@@ -1992,7 +1992,7 @@ class ServiceChannelPanel(RecordPanel):
         if service is None:
             infow.WriteText(f" Missing service! ")
         else:
-            infow.WriteText(f"{service.mux_desc} nid={service.k.mux.network_id} tid={service.k.mux.ts_id} ")
+            infow.WriteText(f"{service.frequency/1000} nid={service.k.network_id} tid={service.k.ts_id} ")
         infow.EndAlignment()
         if service is not None:
             infow.WriteText(f"sid={service.k.service_id} pmt={service.pmt_pid}\n\n")

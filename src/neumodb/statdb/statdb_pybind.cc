@@ -29,16 +29,11 @@
 namespace py = pybind11;
 
 extern void export_neumodb(py::module& m);
+extern void export_statdb(py::module& m);
 
 namespace statdb {
 	extern void export_enums(py::module &m);
 	extern void export_structs(py::module &m);
-}
-
-void export_statdb(py::module& m) {
-	py::class_<statdb::statdb_t, neumodb_t>(m, "statdb")
-		.def(py::init<>())
-		;
 }
 
 static void export_statdb_extra(py::module& m) {
@@ -49,7 +44,6 @@ static void export_statdb_extra(py::module& m) {
 				 py::arg("frequency"), py::arg("start_time")=0, py::arg("tolerance")=500)
 		;
 }
-
 
 PYBIND11_MODULE(pystatdb, m) {
 	m.doc() = R"pbdoc(

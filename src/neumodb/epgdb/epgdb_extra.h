@@ -81,25 +81,26 @@ namespace epgdb {
 		return true;
 
 	}
-
+#if 0
 	inline epg_service_t epg_service_from_service(const chdb::service_key_t& service_key) {
 		epg_service_t ret;
 		ret.sat_pos = service_key.mux.sat_pos;
-		ret.network_id = service_key.mux.network_id;
-		ret.ts_id = service_key.mux.ts_id;
+		ret.network_id = service_key.network_id;
+		ret.ts_id = service_key.ts_id;
 		ret.service_id = service_key.service_id;
 		return ret;
 	}
-
+#endif
+#if 0
 	inline chdb::service_key_t service_key_from_epg_service(const epgdb::epg_service_t& epgs) {
 		chdb::service_key_t ret;
 		ret.mux.sat_pos = epgs.sat_pos;
-		ret.mux.network_id = epgs.network_id;
-		ret.mux.ts_id = epgs.ts_id;
+		ret.network_id = epgs.network_id;
+		ret.ts_id = epgs.ts_id;
 		ret.service_id = epgs.service_id;
 		return ret;
 	}
-
+#endif
 
 		//TODO: see //emphasis off: see en_300468v010701p.pdf p. 78 data cleaning
 

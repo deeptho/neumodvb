@@ -317,9 +317,9 @@ namespace dtdemux {
 			mux.pls_mode = fe_pls_mode_t::ROOT; //???? no idea if this is correct
 		}
 		if (mis) {
-			mux.stream_id = get<uint8_t>();
+			mux.k.stream_id = get<uint8_t>();
 		} else {
-			mux.stream_id = -1;
+			mux.k.stream_id = -1;
 		}
 		if (has_error())
 			return -1;
@@ -524,8 +524,8 @@ namespace dtdemux {
 		while (available() >= 3 + end) {
 			chdb::service_key_t service;
 			service.service_id = get<uint16_t>();
-			service.mux.network_id = ret.network_id;
-			service.mux.ts_id = ret.ts_id;
+			service.network_id = ret.network_id;
+			service.ts_id = ret.ts_id;
 			auto service_type = get<uint8_t>();
 			auto lcn = 0;
 			auto channel_id = service.service_id;
@@ -544,8 +544,8 @@ namespace dtdemux {
 		}
 		chdb::service_key_t service;
 		service.service_id = get<uint16_t>();
-		service.mux.network_id = ret.network_id;
-		service.mux.ts_id = ret.ts_id;
+		service.network_id = ret.network_id;
+		service.ts_id = ret.ts_id;
 		auto service_type = get<uint8_t>();
 		auto channel_id = get<uint16_t>();
 		auto lcn = get<uint16_t>();
@@ -637,8 +637,8 @@ namespace dtdemux {
 			auto region_id = get<uint16_t>(); // Region number 65535 appears to be a fallback or default region.
 			if (region_id == ret.selected_region_id) {
 				chdb::service_key_t service;
-				service.mux.network_id = ret.network_id;
-				service.mux.ts_id = ret.ts_id;
+				service.network_id = ret.network_id;
+				service.ts_id = ret.ts_id;
 				service.service_id = service_id;
 				ret.bouquet.channels[channel_id] = {service, (uint16_t)lcn, (uint8_t)service_type};
 			}
@@ -1391,10 +1391,7 @@ namespace dtdemux {
 					if (desc1.len > 0) { // solves problem on 5.0W 12340H
 						this->get_fields<s2_satellite_delivery_system_descriptor_t>(dvbs_mux);
 						if (!is_dvbs) {
-							dvbs_mux.k.network_id = original_network_id;
 							dvbs_mux.c.nit_network_id = original_network_id;
-							dvbs_mux.k.extra_id = 0; // will be updated in process_nit
-							dvbs_mux.k.ts_id = ts_id;
 							dvbs_mux.c.nit_ts_id = ts_id;
 							is_dvbs = true;
 						}
@@ -1402,20 +1399,14 @@ namespace dtdemux {
 				} break;
 				case SI::SatelliteDeliverySystemDescriptorTag: {
 					this->get_fields<satellite_delivery_system_descriptor_t>(dvbs_mux);
-					dvbs_mux.k.network_id = original_network_id;
 					dvbs_mux.c.nit_network_id = original_network_id;
-					dvbs_mux.k.extra_id = 0; // will be updated in process_nit
-					dvbs_mux.k.ts_id = ts_id;
 					dvbs_mux.c.nit_ts_id = ts_id;
 					is_dvbs = true;
 					network.sat_set = true;
 				} break;
 				case SI::CableDeliverySystemDescriptorTag: {
 					auto& mux = dvbc_mux;
-					mux.k.network_id = original_network_id;
 					mux.c.nit_network_id = original_network_id;
-					mux.k.extra_id = 0; // will be updated in process_nit
-					mux.k.ts_id = ts_id;
 					mux.c.nit_ts_id = ts_id;
 					is_dvbc = true;
 
@@ -1423,10 +1414,7 @@ namespace dtdemux {
 				} break;
 				case SI::TerrestrialDeliverySystemDescriptorTag: {
 					auto& mux = dvbt_mux;
-					mux.k.network_id = original_network_id;
 					mux.c.nit_network_id = original_network_id;
-					mux.k.extra_id = 0; // will be updated in process_nit
-					mux.k.ts_id = ts_id;
 					mux.c.nit_ts_id = ts_id;
 					is_dvbt = true;
 					if (this->get_fields<terrestrial_delivery_system_descriptor_t>(dvbt_mux) < 0) {
@@ -1527,8 +1515,8 @@ namespace dtdemux {
 			ret.services.resize(ret.services.size() + 1);
 			service_t& service = ret.services[ret.services.size() - 1];
 			service.k.service_id = this->get<uint16_t>();
-			service.k.mux.network_id = original_network_id;
-			service.k.mux.ts_id = ret.ts_id;
+			service.k.network_id = original_network_id;
+			service.k.ts_id = ret.ts_id;
 
 			auto eit_ = this->get<uint8_t>();
 			bool eit_schedule_flag = eit_ & 0x2;
@@ -1991,8 +1979,8 @@ namespace dtdemux {
 			chgm.lcn = i + 1;
 			chgm.service_key.mux.sat_pos = sat_pos_none; // todo
 			chgm.service_type = 0;											 //@todo
-			chgm.service_key.mux.network_id = network_id;
-			chgm.service_key.mux.ts_id = ts_id;
+			chgm.service_key.network_id = network_id;
+			chgm.service_key.ts_id = ts_id;
 			chgm.service_key.service_id = service_id;
 			chgm.is_opentv_or_mhw2 = true;
 			bouquet.channels[chgm.lcn] = chgm;

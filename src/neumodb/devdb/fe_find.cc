@@ -38,8 +38,8 @@ int fe::unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	assert(c.is_valid());
 	auto fe = c.current(); //update in case of external changes
-	dtdebugx("adapter %d %d.%03d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
-					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
+	dtdebugx("adapter %d %d.%03d%s-%d %d use_count=%d unsubscribe", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
+					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.use_count);
 	assert(fe.sub.use_count>=1);
 	if(--fe.sub.use_count == 0) {
 		fe.sub = {};
@@ -61,14 +61,16 @@ int fe::unsubscribe(db_txn& wtxn, fe_t& fe) {
 }
 
 std::tuple<devdb::fe_t, int> fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key,
+																										 const chdb::mux_key_t &mux_key,
 																										 const devdb::fe_key_t* fe_key_to_release) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	auto fe = c.is_valid()  ? c.current() : fe_t{}; //update in case of external changes
 	int released_fe_usecount{0};
 	assert(fe.sub.use_count>=1);
 	++fe.sub.use_count;
-	dtdebugx("adapter %d %d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
-					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
+	assert(mux_key == fe.sub.mux_key);
+	dtdebugx("adapter %d %d%s-%d %d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
+					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.use_count);
 
 	if(fe_key_to_release)
 		released_fe_usecount = unsubscribe(wtxn, *fe_key_to_release);
@@ -76,7 +78,6 @@ std::tuple<devdb::fe_t, int> fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_
 	put_record(wtxn, fe);
 	return {fe, released_fe_usecount};
 }
-
 
 std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	db_txn& rtxn, const devdb::fe_key_t* fe_key_to_release,
@@ -91,7 +92,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 
 	auto no_best_fe_yet = [&best_fe]()
 		{ return best_fe.priority == std::numeric_limits<decltype(best_fe.priority)>::lowest(); };
-
+#if 0
 	auto adapter_in_use = [&rtxn, ignore_subscriptions](int adapter_no) {
 		if(ignore_subscriptions)
 			return false;
@@ -102,7 +103,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 		}
 		return false;
 	};
-
+#endif
 	for(const auto& fe: c.range()) {
 		if (need_dvbc && (!fe.enable_dvbc || !fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_C)))
 			continue;
@@ -164,7 +165,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 /*
 	In case two rf inputs on the same or different cards are connected to the same
 	cable, this can be indicated by rf_input_t records which for each rf input contain a
-	switch_id>=0. rf_inputs with the same switch_id care connected. rf_inputs witjout switch_id are not connected
+	switch_id>=0. rf_inputs with the same switch_id care connected. rf_inputs without switch_id are not connected
 
  */
 static inline bool rf_coupler_conflict(db_txn& rtxn, const devdb::lnb_connection_t& lnb_connection,
@@ -496,7 +497,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		auto pol{mux.pol}; //signifies that non-exclusive control is fine
 		auto band{devdb::lnb::band_for_mux(lnb, mux)}; //signifies that non-exlusive control is fine
 
-		bool need_multistream = (mux.stream_id >= 0);
+		bool need_multistream = (mux.k.stream_id >= 0);
 
 		for(const auto& lnb_connection: lnb.connections) {
 			if(!lnb_connection.can_be_used || !lnb_connection.enabled)
@@ -588,10 +589,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }
 
-int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-																					 const devdb::lnb_t& lnb,
-																					 devdb::fe_band_t band,  chdb::fe_polarisation_t pol,
-																					 int frequency, int stream_id)
+int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
+																			const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
@@ -604,20 +603,19 @@ int devdb::fe::reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const 
 	sub.use_count = 1;
 
 	//the following settings imply that we request a non-exclusive subscription
-
 	sub.rf_path = rf_path;
 	sub.rf_coupler_id = -1;
 	auto* conn = connection_for_rf_path(lnb, rf_path);
 	if(conn)
 		sub.rf_coupler_id = conn->rf_coupler_id;
 
-	sub.pol = pol;
-	sub.band = band;
+	sub.pol = mux.pol;
+	sub.band = 	devdb::lnb::band_for_mux(lnb, mux);
 	sub.usals_pos = lnb.usals_pos;
-	sub.frequency = frequency; //for informational purposes
-	sub.stream_id = stream_id; //for informational purposes
-	dtdebugx("adapter %d %d.%03d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
-					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
+	sub.frequency = mux.frequency;
+	sub.mux_key = mux.k;
+	dtdebugx("adapter %d %d.%03d%s-%d %d use_count=%d", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
+					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -646,14 +644,15 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const dev
 	sub.band = devdb::fe_band_t::NONE;
 	sub.usals_pos = sat_pos_none;
 	sub.frequency = 0;
-		sub.stream_id = -1;
-	dtdebugx("adapter %d %d%c-%d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
-					 fe.sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', fe.sub.stream_id, fe.sub.use_count);
+	sub.mux_key = {};
+	dtdebugx("adapter %d %d%s-%d %d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
+					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.use_count);
 	put_record(wtxn, fe);
 	return 0;
 }
 
-int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency, int stream_id)
+template<typename mux_t>
+int devdb::fe::reserve_fe_for_mux(db_txn& wtxn, devdb::fe_t& fe, const mux_t& mux)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
@@ -674,9 +673,9 @@ int devdb::fe::reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool i
 	sub.rf_coupler_id  = -1;
 	sub.pol = chdb::fe_polarisation_t::NONE;
 	sub.band = devdb::fe_band_t::NONE;
-	sub.usals_pos = is_dvbc ? sat_pos_dvbc : sat_pos_dvbt;
-	sub.frequency = frequency; //for informational purposes only
-	sub.stream_id = stream_id; //for informational purposes only
+	sub.usals_pos = mux.k.sat_pos;
+	sub.frequency = mux.frequency; //for informational purposes only
+	sub.mux_key = mux.k;
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -740,9 +739,7 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 		return {{}, {}, {}, {}, released_fe_usecount}; //no frontend could be found
 	if(fe_key_to_release && best_fe->k == *fe_key_to_release)
 		released_fe_usecount++;
-	auto ret = devdb::fe::reserve_fe_lnb_band_pol_sat(wtxn, *best_fe, *best_rf_path, *best_lnb,
-																										devdb::lnb::band_for_mux(*best_lnb, mux),
-																										mux.pol, mux.frequency, mux.stream_id);
+	auto ret = devdb::fe::reserve_fe_lnb_for_mux(wtxn, *best_fe, *best_rf_path, *best_lnb, mux);
 	best_use_counts.dish++;
 	best_use_counts.rf_path++;
 	best_use_counts.rf_coupler++;
@@ -777,7 +774,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 
 	const bool need_spectrum{false};
 	int released_fe_usecount{0};
-	const bool need_multistream = (mux.stream_id >= 0);
+	const bool need_multistream = (mux.k.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
 	bool is_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
 	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
@@ -788,9 +785,10 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 
 	if(!best_fe)
 		return {best_fe, released_fe_usecount}; //no frontend could be found
+
 	if(fe_key_to_release && best_fe->k == *fe_key_to_release)
 		released_fe_usecount++;
-	auto ret = devdb::fe::reserve_fe_dvbc_or_dvbt_mux(wtxn, *best_fe, is_dvbc, mux.frequency, mux.stream_id);
+	auto ret = devdb::fe::reserve_fe_for_mux(wtxn, *best_fe, mux);
 	assert(ret == 0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, released_fe_usecount};
 }
@@ -800,7 +798,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devd
 template<typename mux_t> bool
 devdb::fe::can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, bool use_blind_tune) {
 	const bool need_spectrum{false};
-	const bool need_multistream = (mux.stream_id >= 0);
+	const bool need_multistream = (mux.k.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
 	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, nullptr /*fe_key_to_release*/, use_blind_tune,
 																										need_spectrum, need_multistream,  delsys_type,

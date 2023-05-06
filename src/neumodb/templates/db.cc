@@ -43,7 +43,7 @@ namespace {{dbname}} {
   };
 
 	EXPORT schema_entry_t get_sw_schema() {
-		return {"{{dbname}}", & sw_schema };
+		return {"{{dbname}}", neumo_schema_version, &sw_schema };
 	}
 
 ss::vector<schema_entry_t, {{1 + external_dbs|length}}> all_sw_schemas {
@@ -54,12 +54,12 @@ ss::vector<schema_entry_t, {{1 + external_dbs|length}}> all_sw_schemas {
 };
 
 	{{dbname}}_t::{{dbname}}_t () :
-	neumodb_t(false /*readonly*/, false /*is_temp*/, true /*autoconvert*/) {
+	neumodb_t(false /*readonly*/, false /*is_temp*/, true /*autoconvert*/, false /*autoconvert_major_version*/) {
 		init(all_sw_schemas);
 	}
 
-	{{dbname}}_t::{{dbname}}_t (bool readonly, bool is_temp, bool autoconvert) :
-	neumodb_t(readonly, is_temp, autoconvert) {
+	{{dbname}}_t::{{dbname}}_t (bool readonly, bool is_temp, bool autoconvert, bool autoconvert_major_version) :
+	neumodb_t(readonly, is_temp, autoconvert, autoconvert_major_version) {
 		init(all_sw_schemas);
 	}
 
@@ -95,6 +95,11 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 			dterrorx("Database %s needs update, but autoconvert not allowed", dbpath);
 			throw db_needs_upgrade_exception("Database needs update, but autoconvert not allowed");
 		}
+		bool needs_major_upgrade = db_version != neumo_schema_version;
+		if(needs_major_upgrade && ! autoconvert_major_version) {
+			dtdebugx("Database needs major upgrade from %d to %d\n", db_version, neumo_schema_version);
+			throw db_upgrade_info_t{db_version, neumo_schema_version};
+		}
 		dterrorx("Auto upgrading database %s", dbpath);
 		const char* backup_name = nullptr;
 		bool force_overwrite = true;
@@ -108,6 +113,7 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 		} else {
 			dterrorx("Auto upgrading database %s SUCCESS", dbpath);
 			autoconvert = false; // prevent  a conversion loop
+			autoconvert_major_version = false;
 			//envp = std::make_shared<lmdb::env>(lmdb::env::create());
 			*envp = lmdb::env::create(); //recreate environment which was closed earlier
 			{{dbname}}::{{dbname}}_t::open(dbpath, allow_degraded_mode, table_name, use_log, mapsize);

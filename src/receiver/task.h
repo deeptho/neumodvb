@@ -331,9 +331,9 @@ public:
 	}
 
 	bool is_event_fd(const epoll_event* event) const {
-		return event->data.fd== int(notify_fd);
+		bool ret= (event->data.u64 & 0xffffffff) == int(notify_fd);
+		return ret;
 	}
-
 
 	bool empty() const {
 		return tasks.empty();

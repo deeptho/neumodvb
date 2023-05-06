@@ -1,0 +1,8 @@
+BasedOnStyle: Google
+
+UseTab: Always
+TabWidth: 2
+Language: Cpp
+Standard: Cpp11
+ColumnLimit: 120
+PointerAlignment: Left

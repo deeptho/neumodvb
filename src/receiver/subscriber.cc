@@ -147,10 +147,13 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::r
 
 void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	auto& tuner_thread = receiver->tuner_thread;
-	if (!active_adapter)
+	auto aaptr = active_adapter.lock();
+	if (!aaptr)
 		return; // can happen when called from gui
-	auto& aa = *active_adapter;
-	tuner_thread.push_task([&lnb, &tuner_thread, &aa]() { return cb(tuner_thread).update_current_lnb(aa, lnb); }).wait();
+	auto& aa = *aaptr;
+	//call by reference ok because of subsequent wait_for_all
+	tuner_thread.push_task([&lnb, &tuner_thread, &aa]()
+		{ return cb(tuner_thread).update_current_lnb(aa, lnb); }).wait();
 }
 
 int subscriber_t::unsubscribe() {
@@ -181,13 +184,14 @@ int subscriber_t::unsubscribe() {
 }
 
 int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
-	if (!active_adapter)
+	auto aaptr = active_adapter.lock();
+	if (!aaptr)
 		return -1;
 	auto& tuner_thread = receiver->tuner_thread;
 	int ret = -1;
-	tuner_thread
-		.push_task([this, &tuner_thread, cmd, par, &ret]() { // epg_record passed by value
-			ret = cb(tuner_thread).positioner_cmd(active_adapter, cmd, par);
+	tuner_thread //call by reference ok because of subsequent wait_for_all
+		.push_task([aaptr, &tuner_thread, cmd, par, &ret]() { // epg_record passed by value
+			ret = cb(tuner_thread).positioner_cmd(aaptr, cmd, par);
 			return 0;
 		})
 		.wait();
@@ -205,16 +209,22 @@ int subscriber_t::subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& ln
 	return (int) subscription_id;
 }
 
-int subscriber_t::get_adapter_no() const { return active_adapter ? active_adapter->get_adapter_no() : -1; }
+int subscriber_t::get_adapter_no() const {
+	auto aaptr = active_adapter.lock();
+	return aaptr ? aaptr->get_adapter_no() : -1;
+}
 
 void subscriber_t::notify_signal_info(const signal_info_t& signal_info, bool from_scanner) const {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
-	if (from_scanner || (active_adapter &&
-											active_adapter->fe.get() == signal_info.fe)
-			/* GUI tuned to a specific mux, e.g., positioner_dialog*/
-		) {
+	if (from_scanner) {
 		notify(signal_info);
+	} else {
+		auto aaptr = active_adapter.lock();
+		if(aaptr && aaptr->fe.get() == signal_info.fe) {
+			/* GUI tuned to a specific mux, e.g., positioner_dialog*/
+			notify(signal_info);
+		}
 	}
 }
 
@@ -234,11 +244,14 @@ void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data, dvb_frontend_t*
 {
 	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))
 		return;
-	if (from_scanner || (active_adapter &&
-											 active_adapter->fe.get() == fe)
-			/* GUI tuned to a specific mux, e.g., positioner_dialog*/
-		) {
+	if (from_scanner) {
 		notify(sdt_data);
+	} else {
+		auto aaptr = active_adapter.lock();
+		if (aaptr && aaptr->fe.get() == fe) {
+			/* GUI tuned to a specific mux, e.g., positioner_dialog*/
+			notify(sdt_data);
+		}
 	}
 }
 
@@ -252,7 +265,8 @@ void subscriber_t::notify_error(const ss::string_& errmsg) {
 void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
 		return;
-	if (active_adapter && active_adapter->get_lnb_key() == spectrum.k.rf_path.lnb) {
+	auto aaptr = active_adapter.lock();
+	if (aaptr && aaptr->get_lnb_key() == spectrum.k.rf_path.lnb) {
 		notify(spectrum);
 	}
 }

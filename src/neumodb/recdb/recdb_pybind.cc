@@ -29,18 +29,13 @@
 namespace py = pybind11;
 
 extern void export_neumodb(py::module& m);
+extern void export_recdb(py::module& m);
+
 namespace recdb {
 	extern void export_enums(py::module& m);
 	extern void export_enums(py::module& m);
 	extern void export_structs(py::module& m);
 } // namespace recdb
-
-void export_recdb(py::module& m) {
-	py::class_<recdb::recdb_t, neumodb_t>(m, "recdb")
-		.def(py::init<>())
-		.def(py::init<const neumodb_t&>())
-		;
-}
 
 PYBIND11_MODULE(pyrecdb, m) {
 	m.doc() = R"pbdoc(

@@ -659,6 +659,8 @@ record_t screen_t<record_t>::record_at_row(int row_number)
 	else if(row_number == monitor.auxiliary_reference.row_number)
 		return auxiliary_current_record;
 	assert(0);
+	//only for debugging
+	set_reference(row_number);
 	return primary_current_record;
 }
 

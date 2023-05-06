@@ -82,34 +82,3 @@ public:
 
 
 };
-
-class active_fe_thread_safe_t {
-	friend class receiver_thread_t;
-	active_adapter_t* active_adapter {nullptr};
-
-public:
-
-	template<typename mux_t>
-	bool is_tuned_to(const mux_t& mux) const;
-
-	/*!
-		returns the old active_adapter use count
-	*/
-#if 0
-	int reserve(const devdb::lnb_t& lnb, int sat_pos);
-	int reserve(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
-	int reserve(const chdb::dvbc_mux_t& mux);
-	int reserve(const chdb::dvbt_mux_t& mux);
-
-	int reserve_current();
-
-	/*!
-		returns the new active_adapter use count
-	*/
-	int release();
-#endif
-	chdb::any_mux_t mux() const;
-	devdb::lnb_t lnb() const;
-	active_fe_thread_safe_t(active_adapter_t* active_adapter_) :
-		active_adapter(active_adapter_) {}
-};

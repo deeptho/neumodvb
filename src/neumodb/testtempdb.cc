@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
 	service_t s3;
 	s3.k.mux.sat_pos = 12;
 	s3.k.service_id = 11;
-	s3.k.mux.ts_id = 48;
+	s3.k.ts_id = 48;
 	s3.ch_order = 77;
 
 	chdb_t db(/*readonly*/ false, /*is_temp*/ true);
@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
 	auto lst = chdb::service::list_all(txn, service_t::keys_t::key);
 	for (auto x : lst) {
 		auto q = to_str(x);
-		printf("%d %d %d %s\n", x.ch_order, x.k.service_id, x.k.mux.ts_id, q.c_str());
+		printf("%d %d %d %s\n", x.ch_order, x.k.service_id, x.k.ts_id, q.c_str());
 	}
 	printf("/////////////////////////////////\n");
 
@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
 	auto lst1 = chdb::service::list_all(txn, (uint32_t)z);
 	for (auto x : lst1) {
 		auto q = to_str(x);
-		printf("%d %d %d %s\n", x.ch_order, x.k.service_id, x.k.mux.ts_id, q.c_str());
+		printf("%d %d %d %s\n", x.ch_order, x.k.service_id, x.k.ts_id, q.c_str());
 	}
 
 	txn.commit();

@@ -31,6 +31,7 @@ void export_chdb_vectors(py::module& m) {
 	export_ss_vector(m, dvbs_mux_t);
 	export_ss_vector(m, dvbc_mux_t);
 	export_ss_vector(m, dvbt_mux_t);
+	export_ss_vector(m, language_code_t);
 	export_ss_vector(m, sat_t);
 	export_ss_vector(m, epg_type_t);
 }

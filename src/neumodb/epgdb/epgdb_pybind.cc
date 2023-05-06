@@ -30,19 +30,13 @@
 namespace py = pybind11;
 
 extern void export_neumodb(py::module& m);
+extern void export_epgdb(py::module& m);
 
 namespace epgdb {
 	extern void export_enums(py::module& m);
 	extern void export_structs(py::module& m);
 } // namespace epgdb
 
-void export_epgdb(py::module& m) {
-	py::class_<epgdb::epgdb_t, neumodb_t>(m, "epgdb")
-		.def(py::init<>())
-		.def(py::init<const neumodb_t&>())
-		.def_property_readonly("TEMPLATE_EVENT_ID", [](epgdb::epgdb_t& p) { return (uint32_t)TEMPLATE_EVENT_ID; })
-		;
-}
 
 void export_gridepg(py::module& m) {
 	using namespace epgdb;

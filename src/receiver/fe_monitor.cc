@@ -196,7 +196,7 @@ int fe_monitor_thread_t::run() {
 			} else if (fe->is_fefd(evt->data.fd)) {
 				handle_frontend_event();
 			} else if (is_timer_fd(evt)) { //only for non-neumo mode
-				if(!is_paused)
+				if(!is_paused && fe->api_type != api_type_t::NEUMO)
 					monitor_signal();
 			}
 		}

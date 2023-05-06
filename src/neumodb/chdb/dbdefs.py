@@ -136,7 +136,7 @@ scan_result = db_enum(name='scan_result_t',
                    version = 1,
                    fields=(
                        ('NONE', 0), #never tried
-                       ('NOLOCK', 1), #could not tune. No si received
+                       ('NOLOCK', 1), #could not lock. No fec lock
                        ('ABORTED', 2), #timeout stage was not reached
                        ('PARTIAL', 3), #timeout stage was reached, but result was incomplete
                        ('OK', 4), #completion stage reached or timedout
@@ -145,6 +145,20 @@ scan_result = db_enum(name='scan_result_t',
                        ('BAD', 7), #illegal tuning parameter or tune failure
                        ('TEMPFAIL', 8), #scanning failed because of lack of resources
                        ('DISABLED', 127),
+                   ))
+
+lock_result = db_enum(name='lock_result_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=(
+                       ('NONE', 0), #never tried
+                       ('NOLOCK', 1), #could not lock. No fec lock
+                       ('TMG', 2), #could not lock. No fec lock
+                       ('CAR', 3), #could not lock. No fec lock
+                       ('FEC', 4), #fec lock
+                       ('SYNC', 5), #sync bytes received (dvbs2)
                    ))
 
 fe_polarisation = db_enum(name='fe_polarisation_t',
@@ -505,17 +519,21 @@ spectral_peak = db_struct(name='spectral_peak',
                               ))
 
 
+#key unique on satelliye
+#furthermore all muxes with the same mux_id must have the same tuning parameters
+#in case of conflict the entry with stream_id=-1, t2mi_pid = -1 are authorative
+#value -1 means: no stream_id or not an embedded stream
+#value mux_id=0 is not valid, means "uninitialised"
 mux_key = db_struct(name='mux_key',
                     fname = 'mux',
                     db = db,
-                    type_id= ord('M'), #TODO: duplicate
+                    type_id= ord('P'), #TODO: duplicate
                     version = 1,
                     fields = ((1, 'int16_t', 'sat_pos', 'sat_pos_none'), #16000 DVBC 16001=DVBT
-                              (2, 'uint16_t', 'network_id'),
-                              (3, 'uint16_t', 'ts_id'),
-                              (5, 'uint16_t', 't2mi_pid', 0), #we would brefer 0x1fff but this interferes
+                              (2, 'int16_t', 'stream_id', '-1'),
+                              (5, 'int16_t', 't2mi_pid', -1), #we would brefer 0x1fff but this interferes
                                                               #with using default key as lower bound in find functions
-                              (4, 'uint16_t', 'extra_id') #distinghuishes between transponders with same network_id/ts_id on same sat
+                              (4, 'uint16_t', 'mux_id')
                               ))
 
 
@@ -543,11 +561,14 @@ mux_common = db_struct(name='mux_common',
                     ignore_for_equality_fields = ('mtime',),
                     fields = ((1, 'time_t', 'scan_time'),
                               (3, 'scan_result_t', 'scan_result'),
+                              (18, 'lock_result_t', 'scan_lock_result'),
                               (8, 'time_t', 'scan_duration'),
                               (5, 'bool', 'epg_scan'),
                               (2, 'scan_status_t', 'scan_status', 'scan_status_t::NONE'),
                               (12, 'uint32_t', 'scan_id', '0'),
                               (4, 'uint16_t', 'num_services'),
+                              (16, 'uint16_t', 'network_id'), #usually redundant
+                              (17, 'uint16_t', 'ts_id'), #usually redundant
                               (14, 'uint16_t', 'nit_network_id'), #usually redundant
                               (15, 'uint16_t', 'nit_ts_id'), #usually redundant
 
@@ -580,10 +601,10 @@ dvbs_mux = db_struct(name='dvbs_mux',
                 primary_key = ('key', ('k',)), #unique
                 keys =  (
                 (lord('sf'), 'sat_pol_freq', ('k.sat_pos', 'pol', 'frequency')),
-                (lord('sn'), 'network_id_ts_id', ('k.network_id', 'k.ts_id')),
-                (lord('ss'), 'scan_status', ('c.scan_status', 'c.scan_time')),
+                (lord('sn'), 'network_id_ts_id_sat_pos', ('c.network_id', 'c.ts_id', 'k.sat_pos')),
+                (lord('ss'), 'scan_status', ('c.scan_status', 'pol', 'frequency')),
                 ),
-                fields = ((1, 'mux_key_t', 'k'),
+                fields = ((17, 'mux_key_t', 'k'),
                           (2, 'chdb::fe_delsys_dvbs_t', 'delivery_system', 'chdb::fe_delsys_dvbs_t::SYS_DVBS2'),
                           (3, 'uint32_t', 'frequency'),
                           (9, 'chdb::fe_spectral_inversion_t', 'inversion'),
@@ -593,7 +614,6 @@ dvbs_mux = db_struct(name='dvbs_mux',
 	                        (8, 'chdb::fe_code_rate_t',  'fec', 'chdb::fe_code_rate_t::FEC_AUTO'), #aka fec_inner: dvb-s, dvb-c, dvb-t
 	                        (10, 'chdb::fe_rolloff_t', 'rolloff'),
                           (11, 'chdb::fe_pilot_t', 'pilot'),
-	                        (12, 'int16_t', 'stream_id',  -1),
 	                        (13, 'chdb::fe_pls_mode_t', 'pls_mode', 'fe_pls_mode_t::ROOT'),
                           (16, 'int16_t', 'matype', '-1'),
 	                        (14, 'uint32_t', 'pls_code',  1),
@@ -609,10 +629,10 @@ dvbc_mux = db_struct(name='dvbc_mux',
                 primary_key = ('key', ('k',)), #unique
                 keys =  (
                 (lord('cf'), 'freq', ('frequency',)),
-                (lord('cn'), 'network_id_ts_id', ('k.network_id', 'k.ts_id')),
-                (lord('cs'), 'scan_status', ('c.scan_status', 'c.scan_time')),
+                (lord('cn'), 'network_id_ts_id_sat_pos', ('c.network_id', 'c.ts_id')),
+                (lord('cs'), 'scan_status', ('c.scan_status', 'frequency')),
                 ),                     #not unique, could be split in unique and non-unique later
-                fields = ((1, 'mux_key_t', 'k'),
+                fields = ((11, 'mux_key_t', 'k'),
                           (2, 'fe_delsys_dvbc_t', 'delivery_system', 'fe_delsys_dvbc_t::SYS_DVBC'),
                           (3, 'uint32_t', 'frequency'),
                           (10, 'chdb::fe_spectral_inversion_t', 'inversion'),
@@ -620,7 +640,6 @@ dvbc_mux = db_struct(name='dvbc_mux',
 	                        (5, 'chdb::fe_modulation_t', 'modulation', 'chdb::fe_modulation_t::QAM_AUTO'),
 	                        (6, 'chdb::fe_code_rate_t',  'fec_inner', 'chdb::fe_code_rate_t::FEC_AUTO'),
 	                        (7, 'chdb::fe_code_rate_t', 'fec_outer', 'chdb::fe_code_rate_t::FEC_AUTO'),
-	                        (8, 'int16_t', 'stream_id',  -1),
                           (9, 'mux_common_t', 'c')
                 ))
 
@@ -633,10 +652,10 @@ dvbt_mux = db_struct(name='dvbt_mux',
                 primary_key = ('key', ('k',)), #unique
                 keys =  (
                 (lord('tf'), 'freq', ('frequency',)),
-                (lord('tn'), 'network_id_ts_id', ('k.network_id', 'k.ts_id')),
-                (lord('ts'), 'scan_status', ('c.scan_status', 'c.scan_time')),
+                (lord('tn'), 'network_id_ts_id_sat_pos', ('c.network_id', 'c.ts_id')),
+                (lord('ts'), 'scan_status', ('c.scan_status', 'frequency')),
                 ),                     #not unique, could be split in unique and non-unique later
-                fields = ((1, 'mux_key_t', 'k'),
+                fields = ((14, 'mux_key_t', 'k'),
                           (2, 'chdb::fe_delsys_dvbt_t', 'delivery_system', 'chdb::fe_delsys_dvbt_t::SYS_DVBT2'),
                           (3, 'uint32_t', 'frequency'),
                           (13, 'chdb::fe_spectral_inversion_t', 'inversion'),
@@ -647,7 +666,6 @@ dvbt_mux = db_struct(name='dvbt_mux',
 	                        (8, 'chdb::fe_hierarchy_t', 'hierarchy'),
 	                        (9, 'chdb::fe_code_rate_t',  'HP_code_rate', 'chdb::fe_code_rate_t::FEC_AUTO'),
 	                        (10, 'chdb::fe_code_rate_t', 'LP_code_rate', 'chdb::fe_code_rate_t::FEC_AUTO'),
-	                        (11, 'int16_t', 'stream_id',  -1),
                           (12, 'mux_common_t', 'c')
                 ))
 
@@ -682,6 +700,8 @@ service_key = db_struct(name='service_key',
                         type_id= ord('S'),
                         version = 1,
                         fields = ((1, 'mux_key_t', 'mux'),
+                                  (3, 'uint16_t' , 'network_id'),
+                                  (4, 'uint16_t' , 'ts_id'),
                                   (2, 'uint16_t', 'service_id')
                                   )
                         )
@@ -692,12 +712,11 @@ service = db_struct(name ='service',
                     db = db,
                     type_id = ord('s'),
                     version = 1,
-                    primary_key = ('key', ('k',)), #unique
+                    primary_key = ('key', ('k.mux', 'k.service_id')), #unique
                     keys =  (
-                        #The following would be a multi structure index and is not allowed
-                        # ('sat_freq_pol_sid', ('k.mux.sat_pos', 'k.mux.frequency', 'k.mux.polarisation', 'service_id')),
+                        (ord('s'), 'network_id_ts_id_service_id_sat_pos', ('k.network_id', 'k.ts_id', 'k.service_id', 'k.mux.sat_pos')),
                         (ord('c'), 'ch_order', ('ch_order',)),
-                      (ord('n'), 'name', ('tolower:name',)),
+                        (ord('n'), 'name', ('tolower:name',)),
                         #(ord('t'), 'media_mode_name', ('media_mode', 'tolower:name',)),
                         #(ord('u'), 'media_mode_ch_order', ('media_mode', 'ch_order',)),
                     ),                     #not unique, could be split in unique and non-unique later
@@ -710,6 +729,8 @@ service = db_struct(name ='service',
                         ('media_mode','media_mode')
                     ),
 	                  fields=((1, 'service_key_t', 'k'),
+                            (15, 'uint32_t', 'frequency'),
+                            (16, 'chdb::fe_polarisation_t',  'pol', 'chdb::fe_polarisation_t::NONE'),
                             (2, 'time_t', 'mtime'), #last seen or last updated?
 	                          (3, 'uint16_t', 'ch_order', '0'),
                             (4, 'uint16_t', 'service_type', '0'),
@@ -721,7 +742,6 @@ service = db_struct(name ='service',
                             #variable length data
                             (7, 'ss::string<16>', 'name'),
                             (8, 'ss::string<16>', 'provider'),
-                            (13, 'ss::string<16>', 'mux_desc'),
                             #each uint32_t consts of 3 bytes langcode ended by a one byte
                             #in case a lang code occurs more than once, 0 will mean the
                             #first one, 1 the second one and so one. If the first one

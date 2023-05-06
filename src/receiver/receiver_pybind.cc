@@ -91,14 +91,19 @@ static void set_process_name(const char* name)
 #endif
 }
 
+static void export_db_upgrade_info(py::module& m) {
+	py::class_<db_upgrade_info_t>(m, "db_upgrade_info_t")
+		.def_readonly("stored_db_version", &db_upgrade_info_t::stored_db_version)
+		.def_readonly("current_db_version", &db_upgrade_info_t::current_db_version)
+		;
+}
 
-
-void export_receiver(py::module& m) {
+static void export_receiver(py::module& m) {
 	static bool called = false;
 	if (called)
 		return;
 	called = true;
-
+	export_db_upgrade_info(m);
 	// Setup a default log config (should be overridden by user)
 	neumo_options_t options;
 	auto log_path = config_path / options.logconfig;
@@ -112,6 +117,7 @@ void export_receiver(py::module& m) {
 	py::class_<receiver_t>(m, "receiver_t")
 		.def(py::init<neumo_options_t*>(), py::arg("neumo_options"), "Start a NeumoDVB receiver")
 		//unsubscribe is needed to abort mux scan in progress
+		.def("init", &receiver_t::init, "Re-initialize a receiver if creating it failed")
 		.def("renumber_card", &receiver_t::renumber_card, "Renumber a card",
 				 py::arg("old_number"), py::arg("new_number"))
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
@@ -143,6 +149,7 @@ void export_receiver(py::module& m) {
 		.def_readonly("epgdb", &receiver_t::epgdb)
 		.def_readonly("recdb", &receiver_t::recdb)
 		.def_readonly("statdb", &receiver_t::statdb)
+		.def_readonly("db_upgrade_info", &receiver_t::db_upgrade_info)
 		;
 }
 

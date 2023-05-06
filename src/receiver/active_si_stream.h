@@ -93,7 +93,6 @@ struct pat_data_t {
 	// check all pat tables
 	bool stable_pat();
 
-
 };
 
 
@@ -195,8 +194,10 @@ struct mux_data_t  {
 	};
 
 	//data maintained by nit section code
-	source_t source {NONE}; //set to true if from database
-	chdb::mux_key_t mux_key{}; //we also need extra_id
+	bool have_sdt{false};
+	bool have_nit{false};
+
+	chdb::any_mux_t mux{};
 	ss::string<32> mux_desc;
 
 	bool is_active_mux{false}; //the active mux is the one processing si data (embedded mux for t2mi; else tuned mux)
@@ -212,10 +213,10 @@ struct mux_data_t  {
 	ss::vector<uint16_t, 32> service_ids; //service ids seen
 
 
-	mux_data_t(const chdb::mux_key_t& mux_key, const ss::string_&  mux_desc)
-		: mux_key(mux_key)
-		, mux_desc(mux_desc)
-		{}
+	mux_data_t(const chdb::any_mux_t& mux)
+		: mux(mux) {
+			chdb::to_str(mux_desc, mux);
+		}
 };
 
 struct sdt_data_t {
@@ -352,7 +353,6 @@ struct bat_data_t {
 };
 
 
-
 struct active_si_data_t {
 	tune_confirmation_t tune_confirmation;
 
@@ -362,14 +362,15 @@ struct active_si_data_t {
 	sdt_data_t sdt_data;
 	bat_data_t bat_data;
 	eit_data_t eit_data;
-	//secondary cache for eit and bat
-	std::map <std::pair<uint16_t,uint16_t>, chdb::mux_key_t> mux_key_by_network_id_ts_id;
 
 	bool is_embedded_si{false};
 
 	scan_state_t scan_state;
 	bool scan_in_progress{false};
 
+	inline bool ts_id_in_pat(uint16_t ts_id) {
+		return pat_data.by_ts_id.find(ts_id) != pat_data.by_ts_id.end();
+	}
 
 	bool pmts_can_be_saved() const {
 		return ! pmt_data.saved &&
@@ -579,7 +580,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	dtdemux::ts_stream_t stream_parser;
 	scan_target_t scan_target; //which SI tables should be scanned?
-	bool scan_done{false};
+	bool si_processing_done{false};
 	bool call_scan_mux_end{false};
 	/*we need one parser per pid; within each pid multiple tables may exist
 		but those are transmitted sequentially. Between pids, they are not
@@ -603,11 +604,9 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	dtdemux::reset_type_t
 		nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bool is_active_mux);
-
 	dtdemux::reset_type_t on_nit_section_completion(db_txn& wtxn, network_data_t& network_data,
 																					dtdemux::reset_type_t ret, bool is_actual,
 																					bool on_wrong_sat, bool done);
-
 	std::tuple<bool, bool>
 	sdt_process_service(db_txn& wtxn, const chdb::service_t& service, mux_data_t* p_mux_data,
 											bool donotsave, bool is_actual);
@@ -622,18 +621,15 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	dtdemux::reset_type_t eit_section_cb(epg_t& epg, const subtable_info_t& i);
 
-	mux_data_t* lookup_mux_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 	mux_data_t* add_reader_mux_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 
-	std::optional<chdb::mux_key_t>
-	lookup_nit_key(db_txn& txn, uint16_t network_id, uint16_t ts_id);
+	mux_data_t*
+	lookup_mux_data_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 
 	mux_data_t* add_fake_nit(db_txn& txn, uint16_t network_id, uint16_t ts_id, int16_t expected_sat_pos,
 													 bool from_sdt);
 
-	int deactivate(bool tune_failed);
-	//int open();
-	bool read_and_process_data_for_fd(int fd);
+	bool read_and_process_data_for_fd(const epoll_event* evt);
 
 	void process_si_data();
 	bool abort_on_wrong_sat() const;
@@ -649,7 +645,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	int save_network(db_txn& txn, const nit_network_t& network, int sat_pos);
 
 	void init_scanning(scan_target_t scan_target_);
-	void init(scan_target_t scan_target_);
+	bool init(scan_target_t scan_target_);
 
 	template<typename parser_t, typename... Args>
 	auto add_parser(int pid, Args... args) {
@@ -674,11 +670,10 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 			dtdebugx("not removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
 		}
 	}
+	mux_data_t* add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_active_mux,
+											bool is_tuned_freq, bool from_sdt);
 
-	void add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_active_mux,
-							 bool is_tuned_freq, bool from_sdt);
-
-	void process_removed_services(db_txn& txn, chdb::mux_key_t& mux_key, ss::vector_<uint16_t>& service_ids);
+	void process_removed_services(db_txn& txn, chdb::any_mux_t& mux, ss::vector_<uint16_t>& service_ids);
 
 	//for bouquets
 	void process_removed_channels(db_txn& txn, const chdb::chg_key_t& chg_key, ss::vector_<uint16_t>& channel_ids);
@@ -698,24 +693,28 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	bool fix_mux(chdb::any_mux_t& mux);
 
 	//true if this mux equals the currently streamed mux (embedded mux for t2mi, or tuned mux)
-	bool matches_reader_mux(const chdb::any_mux_t& mux);
+	bool matches_reader_mux(const chdb::any_mux_t& mux, bool from_sdt);
 
 	inline bool is_reader_mux(const chdb::any_mux_t& mux) const {
 		auto stream_mux = reader->stream_mux();
 		return *mux_key_ptr(mux) == *mux_key_ptr(stream_mux);
 	}
 
-	bool 	update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);
+	std::tuple<bool, bool> 	update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);
 	bool update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
-									bool tuned_mux, bool from_sdt, chdb::update_mux_preserve_t::flags preserve);
+									bool is_active_mux, bool is_tuned_freq,
+									bool from_sdt, chdb::update_mux_preserve_t::flags preserve);
 
-	void fix_tune_mux_template();
-	void finalize_scan(bool done, bool tune_failed);
+	bool fix_tune_mux_template();
+	void finalize_scan();
 	mux_data_t* tuned_mux_in_nit();
 	void update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_t& mux);
 	void save_pmts(db_txn& wtxn);
+	void activate_scan(chdb::any_mux_t& mux, subscription_id_t subscription_id, uint32_t scan_id);
+	void check_scan_mux_end();
 public:
-	void reset(bool is_retune, bool tune_failed);
+	void reset_si(bool close_streams);
+	void end();
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_si_stream_t(receiver_t& receiver,
@@ -723,5 +722,4 @@ public:
 										 ssize_t dmx_buffer_size_=32*1024L*1024);
 public:
 		virtual ~active_si_stream_t();
-
 };

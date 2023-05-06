@@ -21,8 +21,8 @@
 #include "active_stream.h"
 #include "util/logger.h"
 #include "util/util.h"
+#include "util/dtassert.h"
 #include <atomic>
-#include <cassert>
 #include <errno.h>
 #include <fcntl.h>
 #include <memory>
@@ -353,8 +353,8 @@ inline ssize_t embedded_stream_reader_t::read_into(uint8_t* p, ssize_t toread, c
 }
 
 
-inline bool embedded_stream_reader_t::on_epoll_event(int fd) {
-	if (fd == stream_filter->data_fd) {
+inline bool embedded_stream_reader_t::on_epoll_event(const epoll_event* evt) {
+	if ((evt->data.u64 & 0xffffffff) == stream_filter->data_fd) {
 		/*each of the subscribers will randomly receive this event
 			and then process incoming data
 		*/
@@ -366,7 +366,9 @@ inline bool embedded_stream_reader_t::on_epoll_event(int fd) {
 		epoll->mod_fd(stream_filter->data_fd, mask|EPOLLONESHOT); //EPOLLEXCLUSIVE not allowed!
 #endif
 		return true;
-	} else if (fd == (int)notifier) {
+	} else if (epoll && epoll->matches(evt, (int) notifier)) {
+		if(stream_filter->data_fd <0)
+			return false;
 		notifier.reset();
 		return true;
 	}
@@ -395,9 +397,10 @@ int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epo
 
 void embedded_stream_reader_t::close() {
 	if (is_open()) {
-		stream_filter->unregister_reader(this);
-		epoll->remove_fd(stream_filter->data_fd);
 		epoll->remove_fd((int)notifier);
+		stream_filter->unregister_reader(this);
+		if(stream_filter->data_fd>=0)
+			epoll->remove_fd(stream_filter->data_fd);
 		epoll = nullptr;
 	}
 }

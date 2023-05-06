@@ -361,11 +361,11 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, const cmdseq_t& cmdseq, cons
 	mux.pilot = (chdb::fe_pilot_t)cmdseq.get(DTV_PILOT)->u.data;
 	auto stream_id_prop = cmdseq.get(DTV_STREAM_ID)->u.data;
 	if(stream_id_prop ==0xffffffff) {
-		mux.stream_id = -1;
+		mux.k.stream_id = -1;
 		mux.pls_mode = chdb::fe_pls_mode_t::ROOT;
 		mux.pls_code = 1;
 	} else {
-		mux.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
+		mux.k.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
 		mux.pls_mode = chdb::fe_pls_mode_t((stream_id_prop >> 26) & 0x3);
 		mux.pls_code = (stream_id_prop >> 8) & 0x3FFFF;
 	}
@@ -386,7 +386,7 @@ static int get_dvbc_mux_info(chdb::dvbc_mux_t& mux, const cmdseq_t& cmdseq) {
 	mux.fec_inner = (chdb::fe_code_rate_t)cmdseq.get(DTV_INNER_FEC)->u.data;
 	mux.fec_outer = chdb::fe_code_rate_t::FEC_AUTO;
 	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.get(DTV_INVERSION)->u.data;
-	mux.stream_id = cmdseq.get(DTV_STREAM_ID)->u.data;
+	mux.k.stream_id = cmdseq.get(DTV_STREAM_ID)->u.data;
 	// int dtv_scrambling_sequence_index_prop = cmdseq.get()->u.data;
 	return mux.frequency;
 }
@@ -401,7 +401,7 @@ static int get_dvbt_mux_info(chdb::dvbt_mux_t& mux, const cmdseq_t& cmdseq) {
 
 	mux.modulation = (chdb::fe_modulation_t)cmdseq.get(DTV_MODULATION)->u.data;
 	mux.inversion = (chdb::fe_spectral_inversion_t)cmdseq.get(DTV_INVERSION)->u.data;
-	mux.stream_id = cmdseq.get(DTV_STREAM_ID)->u.data;
+	mux.k.stream_id = cmdseq.get(DTV_STREAM_ID)->u.data;
 	mux.bandwidth = (chdb::fe_bandwidth_t)cmdseq.get(DTV_BANDWIDTH_HZ)->u.data;
 	mux.transmission_mode = (chdb::fe_transmit_mode_t)cmdseq.get(DTV_TRANSMISSION_MODE)->u.data;
 	mux.HP_code_rate = (chdb::fe_code_rate_t)cmdseq.get(DTV_CODE_RATE_HP)->u.data;
@@ -417,7 +417,6 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 	const auto r = this->ts.readAccess();
 	const auto* dvbs_mux = std::get_if<dvbs_mux_t>(&r->reserved_mux);
 	ret.tune_confirmation = r->tune_confirmation;
-	ret.consolidated_mux = r->reserved_mux;
 	ret.bad_received_si_mux = r->bad_received_si_mux;
 	ret.driver_mux = r->reserved_mux; //ensures that we return proper any_mux_t type for dvbc and dvbt
 	ret.stat.k.sat_pos = mux_key_ptr(r->reserved_mux)->sat_pos;
@@ -473,7 +472,7 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 			if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
 				dvbs_mux->matype = 256;
 				matype =  256; //means dvbs
-				dvbs_mux->stream_id = -1;
+				dvbs_mux->k.stream_id = -1;
 			} else {
 				dvbs_mux->matype = matype;
 #if 0 //seems to go wrong on 25.5W 11174V: multistream
@@ -611,7 +610,7 @@ signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 	ret.stat.k.time = system_clock_t::to_time_t(now);
 
 	cmdseq_t cmdseq;
-	if(request_signal_info(cmdseq, ret, get_constellation)<0) {
+	if(request_signal_info(cmdseq, ret, get_constellation) < 0) {
 		ret.lock_status = ts.readAccess()->lock_status; //needs to be done after retrieving signal_info
 		return ret;
 	}
@@ -945,9 +944,9 @@ void dvb_frontend_t::update_bad_received_si_mux(const std::optional<chdb::any_mu
 }
 
 
-template <typename mux_t> bool dvb_frontend_t::is_tuned_to(const mux_t& mux,
-																													 const devdb::rf_path_t* required_rf_path) const {
-	return this->ts.readAccess()->is_tuned_to(mux, required_rf_path);
+template <typename mux_t> bool dvb_frontend_t::is_tuned_to(
+	const mux_t& mux, const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const {
+	return this->ts.readAccess()->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid);
 }
 
 
@@ -1130,10 +1129,10 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 		cmdseq.add(DTV_VOLTAGE, 1 - pol_is_v);
 #endif
 		cmdseq.init_pls_codes();
-		if (mux.stream_id >= 0)
+		if (mux.k.stream_id >= 0)
 			cmdseq.add_pls_code(make_code((int)mux.pls_mode, (int)mux.pls_code));
 		cmdseq.add_pls_codes(DTV_PLS_SEARCH_LIST);
-		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
+		cmdseq.add(DTV_STREAM_ID, mux.k.stream_id);
 		if(mux.symbol_rate >= 2000000)
 			cmdseq.add(DTV_SEARCH_RANGE, std::max(mux.symbol_rate, (unsigned int)4000000));
 		else
@@ -1160,11 +1159,11 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 		cmdseq.add(DTV_ROLLOFF, (int) mux.rolloff);
 
 		cmdseq.add(DTV_PILOT, PILOT_AUTO);
-#if 0
+#if 1
 		auto stream_id =
-			(mux.stream_id < 0 ? -1 : (make_code((int)mux.pls_mode, (int)mux.pls_code)) | (mux.stream_id & 0xff));
+			(mux.k.stream_id < 0 ? -1 : (make_code((int)mux.pls_mode, (int)mux.pls_code)) | (mux.k.stream_id & 0xff));
 #else
-		auto stream_id = make_code((int)mux.pls_mode, (int)mux.pls_code) | (mux.stream_id & 0xff);
+		auto stream_id = make_code((int)mux.pls_mode, (int)mux.pls_code) | (mux.k.stream_id & 0xff);
 #endif
 		cmdseq.add(DTV_STREAM_ID, stream_id);
 		if (api_type == api_type_t::NEUMO && ts.readAccess()->dbfe.supports.blindscan)
@@ -1220,10 +1219,7 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 	}
 	auto [ret, new_usals_sat_pos ] =
 		this->do_lnb_and_diseqc(band, voltage);
-#ifdef TODO
-	if(new_usals_sat_pos != sat_pos_none)
-		lnb_update_usals_pos(new_usals_sat_pos);
-#endif
+
 	dtdebug("spectrum: diseqc done");
 	this->stop();
 	if (this->stop() < 0) /* Force the driver to go into idle mode immediately, so
@@ -1321,8 +1317,8 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 	cmdseq.add(DTV_SYMBOL_RATE, mux.symbol_rate); // in Symbols/second
 	cmdseq.add(DTV_MODULATION, mux.modulation);
 	cmdseq.add(DTV_INNER_FEC, mux.fec_inner);
-	if (mux.stream_id >= 0)
-		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
+	if (mux.k.stream_id >= 0)
+		cmdseq.add(DTV_STREAM_ID, mux.k.stream_id);
 
 	auto w = ts.writeAccess();
 	w->tune_count++;
@@ -1380,8 +1376,8 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 	cmdseq.add(DTV_TRANSMISSION_MODE, mux.transmission_mode);
 	cmdseq.add(DTV_HIERARCHY, mux.hierarchy);
 
-	if (mux.stream_id >= 0)
-		cmdseq.add(DTV_STREAM_ID, mux.stream_id);
+	if (mux.k.stream_id >= 0)
+		cmdseq.add(DTV_STREAM_ID, mux.k.stream_id);
 
 	auto w = ts.writeAccess();
 	w->tune_count++;
@@ -1591,7 +1587,7 @@ int dvb_frontend_t::release_fe() {
 		monitor_thread.reset();
 	}
 	{
-		dtdebugx("change tune mode on adapter %d: clear from %d", (int)adapter_no,
+		dtdebugx("release_fe: change tune mode on adapter %d: clear from %d", (int)adapter_no,
 						 (int) this->ts.readAccess()->tune_mode);
 		this->reset_ts();
 		this->signal_monitor.assign({});
@@ -1979,10 +1975,14 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 
 
 //instantiations
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
+template bool dvb_frontend_t::is_tuned_to(const chdb::dvbs_mux_t& mux,
+																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
+template bool dvb_frontend_t::is_tuned_to(const chdb::dvbc_mux_t& mux,
+																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
+template bool dvb_frontend_t::is_tuned_to(const chdb::dvbt_mux_t& mux,
+																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
+template bool dvb_frontend_t::is_tuned_to(const chdb::any_mux_t& mux,
+																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
 
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux);
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux);

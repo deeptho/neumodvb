@@ -36,11 +36,24 @@
 
 
 #define TEMPLATE_EVENT_ID 0xffffffff
+
+constexpr int neumo_schema_version{3};
+
 class dbdesc_t;
 struct record_desc_t;
 struct schema_entry_t;
 
 using all_schemas_t = ss::vector_<schema_entry_t>;
+
+struct db_upgrade_info_t {
+	int stored_db_version{-1};
+	int current_db_version{-1};
+
+	db_upgrade_info_t(int stored_db_version, int current_db_version)
+		: stored_db_version(stored_db_version)
+		, current_db_version(current_db_version)
+		{}
+};
 
 class neumodb_t {
 private:
@@ -48,6 +61,7 @@ private:
 	int load_schema_(db_txn& txn);
 protected:
 	bool autoconvert {false};
+	bool autoconvert_major_version {false};
 
 	struct db_needs_upgrade_exception : public std::runtime_error {
 		using  std::runtime_error::runtime_error;
@@ -56,7 +70,7 @@ protected:
 
 	void open_(const char* dbpath, bool allow_degraded_mode = false,
 						 const char* table_name = NULL, bool use_log =true, size_t mapsize = 256*1024u*1024u);
-	neumodb_t(bool readonly=false, bool is_temp=false, bool autoconvert=false);
+	neumodb_t(bool readonly=false, bool is_temp=false, bool autoconvert=false, bool autoconvert_major_version=false);
 public:
 	int extra_flags{0};
 	bool is_open() const {
@@ -95,6 +109,7 @@ public:
 
 	std::shared_ptr<lmdb::env> envp;
 	ss::string<16> db_type;
+	int db_version {-1};
 	bool schema_is_current = true; //true if the schema stored in the database equals that of the code
 	std::shared_ptr<dbdesc_t> dbdesc;
 	//dbdesc_t dbdesc

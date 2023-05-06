@@ -30,17 +30,11 @@ namespace py = pybind11;
 using namespace chdb;
 
 extern void export_neumodb(py::module& m);
-
+extern void export_chdb(py::module& m);
 namespace chdb {
 	extern void export_enums(py::module& m);
 	extern void export_structs(py::module& m);
 } // namespace chdb
-
-static void export_chdb(py::module& m) {
-	py::class_<chdb::chdb_t, neumodb_t>(m, "chdb")
-		.def(py::init<>())
-		;
-}
 
 static void export_chdb_extra(py::module& m) {
 	m.def("select_sat_and_reference_mux", &chdb::select_sat_and_reference_mux,

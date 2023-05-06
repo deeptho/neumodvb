@@ -39,7 +39,7 @@ setup(name='neumodvb',
       platforms=['${CMAKE_CXX_PLATFORM_ID}'],
       package_dir={ '': '${CMAKE_CURRENT_SOURCE_DIR}' },
       ext_modules = prep(db_modules, 'db') + prep(receiver_modules, 'receiver'),
-      packages=['neumodvb'])
+      packages=['neumodvb', 'neumodvb.upgrade'])
 
 #hack to remove absolute path names from SOURCES.txt
 os.system(f'find {site_packages} -name SOURCES.txt -exec sed -i s%^${CMAKE_CURRENT_SOURCE_DIR}/%%g {{}} \\; ')

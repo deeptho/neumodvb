@@ -119,6 +119,7 @@ class epoll_t {
 #ifdef DTDEBUG
 	pid_t owner = (pid_t)-1;
 #endif
+	int32_t handle{0};
 
 	void init();
 
@@ -136,6 +137,14 @@ class epoll_t {
 	}
 	operator int() const {
 		return _fd;
+	}
+
+	bool matches(const epoll_event* event, int fd) const {
+		bool fd_matches = (event->data.u64 & 0xffffffff) == fd;
+		bool handle_matches = (event->data.u64 >>32) == handle;
+		if(fd_matches && ! handle_matches)
+			printf("Ignored bad match\n");
+		return (event->data.u64 & 0xffffffff) == fd && (event->data.u64 >>32) == handle;
 	}
 
 	int close();

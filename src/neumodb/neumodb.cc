@@ -28,8 +28,11 @@ void neumodb_t::init(const all_schemas_t& all_sw_schemas) {
 	dbdesc->init(all_sw_schemas);
 }
 
-neumodb_t::neumodb_t(bool readonly_, bool is_temp_, bool autoconvert_)
-	:  autoconvert(autoconvert_), is_temp(is_temp_), readonly(readonly_)
+neumodb_t::neumodb_t(bool readonly_, bool is_temp_, bool autoconvert_, bool autoconvert_major_version_)
+	:  autoconvert(autoconvert_)
+	,  autoconvert_major_version(autoconvert_major_version_)
+	, is_temp(is_temp_)
+	, readonly(readonly_)
 	, envp(std::make_shared<lmdb::env>(lmdb::env::create())) {
 }
 
@@ -205,6 +208,8 @@ void neumodb_t::open_(const char* dbpath, bool allow_degraded_mode, const char* 
 										 size_t mapsize) {
 	//bool was_open = is_open_;
 	is_open_ = true;
+	if(!envp)
+		envp = std::make_shared<lmdb::env>(lmdb::env::create());
 	try {
 		if (!readonly) {
 			mkpath(std::string(dbpath));
@@ -302,6 +307,8 @@ void neumodb_t::open_temp(const char* where, bool allow_degraded_mode, const cha
 void neumodb_t::open_secondary(const char* table_name, bool allow_degraded_mode) {
 	is_open_ = true;
 	assert(table_name);
+	if(!envp)
+		envp = std::make_shared<lmdb::env>(lmdb::env::create());
 	try {
 		// Open the channel database in a transaction
 		lmdb::txn txn(lmdb::txn::begin(*envp));
@@ -363,6 +370,7 @@ int neumodb_t::load_schema_(db_txn& txn) {
 	if (c.is_valid()) {
 		auto rec = c.current();
 		db_type = rec.db_type;
+		db_version = rec.version;
 #if 0
 	 print_schema(stored);
 #endif
@@ -373,11 +381,18 @@ int neumodb_t::load_schema_(db_txn& txn) {
 		dbdesc_t current;
 		current.init(*dbdesc->p_all_sw_schemas);
 		stored.init(converted);
+		stored.schema_version = db_version;
 		if (check_schema(stored, current)) {
 			schema_is_current = true;
 			return 1;
 		} else {
-			dtdebug("database schema CHANGED\n");
+			bool major_schema_change = current.schema_version	!= stored.schema_version;
+			if(major_schema_change) {
+				dtdebugx("major database schema change from version %d to %d\n",
+								 stored.schema_version, current.schema_version);
+			} else {
+				dtdebugx("minor databased schema change\n");
+			}
 			schema_is_current = false;
 			/*
 				Notify the code of the old schema so that record reading in degraded mode is possible

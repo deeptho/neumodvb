@@ -44,7 +44,8 @@ namespace chdb {
 	mux_key_t* mux_key_ptr(chdb::any_mux_t& mux);
 	mux_key_t* mux_key_ptr(chdb::any_mux_t&& mux) = delete; //cannot be used with temporaries
 
-	template<typename mux_t> inline  const mux_key_t* mux_key_ptr(const mux_t& mux) { return &mux.k;}
+	template<typename mux_t>
+	inline const mux_key_t* mux_key_ptr(const mux_t& mux) { return &mux.k;}
 
 	const mux_common_t* mux_common_ptr(const chdb::any_mux_t& key);
 	mux_common_t* mux_common_ptr(chdb::any_mux_t& key);
@@ -65,7 +66,7 @@ namespace chdb {
 
 	enum class update_mux_ret_t : int {
 		UNKNOWN, //not in db
-		MATCHING_SI_AND_FREQ, //network_id, ts_id and sat_pos match, and frequencsy is close
+		MATCHING_KEY_AND_FREQ, //network_id, ts_id and sat_pos match, and frequencsy is close
 		MATCHING_FREQ, //a mux exist with close frequenct, but with wrong network_id, ts_id
 		NO_MATCHING_KEY, /*to save the mux, we would have to change the key, but this is not allowed
 											 by caller, and this mux is not a template*/
@@ -82,42 +83,31 @@ namespace chdb {
 			NUM_SERVICES  = 0x4, //directly used
 			EPG_TYPES   = 0x8, // directly used
 			NIT_SI_DATA = 0x10,
-			MUX_COMMON = SCAN_DATA | SCAN_STATUS | NUM_SERVICES | EPG_TYPES | NIT_SI_DATA,
+			SDT_SI_DATA = 0x20,
+			MUX_COMMON = SCAN_DATA | SCAN_STATUS | NUM_SERVICES | EPG_TYPES | NIT_SI_DATA |SDT_SI_DATA,
 
-			MUX_KEY = 0x20, //directly used
-			TUNE_DATA = 0x40,
-			MTIME = 0x80,
+			MUX_KEY = 0x40, //directly used
+			TUNE_DATA = 0x80,
+			MTIME = 0x100,
 
 			ALL = 0xffff,
 		};
 	};
 
-	template<typename mux_t>
-	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux_key,
-												 mux_t& new_mux,
-												 system_time_t now_);
-
-	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux,
-												 chdb::dvbs_mux_t& new_mux,
-												 system_time_t now_);
-
-	void on_mux_key_change(db_txn&txn, const mux_key_t& old_mux,
-												 chdb::any_mux_t& new_mux,
-												 system_time_t now_);
 	/*
 		if callback returns false; save is aborted
 		if callback receives nullptr, record was not found
 	*/
 	update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
-															system_time_t now, update_mux_preserve_t::flags preserve,
-															std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-															bool ignore_key, bool ignore_t2mi_pid, bool must_exist);
+																	system_time_t now, update_mux_preserve_t::flags preserve,
+																	std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+																	/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist);
 
 	inline update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 																		 system_time_t now, update_mux_preserve_t::flags preserve,
-																		 bool ignore_key, bool ignore_t2mi_pid, bool must_exist) {
+																		 /*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist) {
 		return update_mux(txn, mux, now, preserve,
-											[](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;}, ignore_key,
+											[](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;}, /*ignore_key,*/
 											ignore_t2mi_pid, must_exist);
 	}
 
@@ -139,13 +129,13 @@ namespace chdb {
 	template<typename mux_t>
 	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
 															std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-															bool ignore_key, bool ignore_t2mi_pid, bool must_exist);
+															/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist);
 
 	template<typename mux_t>
 	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
-															bool ignore_key, bool ignore_t2mi_pid, bool must_exist) {
+																	/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist) {
 		return update_mux(txn, mux, now, preserve, [](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;},
-											ignore_key, ignore_t2mi_pid, must_exist);
+													/*ignore_key,*/ ignore_t2mi_pid, must_exist);
 	}
 
 
@@ -166,11 +156,15 @@ namespace chdb {
 		return chgm.k.channel_id == channel_id_template;
 	}
 
-
-	template<typename mux_t>
-	uint16_t make_unique_id(db_txn& txn, mux_key_t key);
 	int32_t make_unique_id(db_txn& txn, chdb::chg_key_t key);
 	int32_t make_unique_id(db_txn& txn, chdb::chgm_key_t key);
+
+	template<typename T>
+	requires (is_same_type_v<T, chdb::dvbs_mux_t> || is_same_type_v<T, chdb::dvbc_mux_t>
+						|| is_same_type_v<T, chdb::dvbt_mux_t>)
+		void make_mux_id(db_txn& txn, T& t );
+
+	void make_mux_id(db_txn& rtxn, chdb::any_mux_t& mux);
 
 	template<typename T>
 	inline void make_unique_if_template(db_txn& txn, T& t );
@@ -182,8 +176,9 @@ namespace chdb {
 	*/
 	template<typename mux_t>
 	inline void make_unique_if_template(db_txn& txn, mux_t& mux ) {
-		if(is_template(mux) && mux.k.extra_id==0)
-			mux.k.extra_id = chdb::make_unique_id<mux_t>(txn, mux.k);
+		if(is_template(mux)/* && mux.k.mux_id==0*/)
+			mux.k.mux_id = 0;
+		chdb::make_mux_id<mux_t>(txn, mux);
 	}
 
 	template<>
@@ -214,7 +209,7 @@ namespace chdb {
 	void to_str(ss::string_& ret, const scan_status_t& scan_status);
 	void to_str(ss::string_& ret, const language_code_t& code);
 	void to_str(ss::string_& ret, const sat_t& sat);
-	void to_str(ss::string_& ret, const mux_key_t& mux_key);
+	void to_str(ss::string_& ret, const mux_key_t& k);
 	void to_str(ss::string_& ret, const dvbs_mux_t& mux);
 	void to_str(ss::string_& ret, const dvbc_mux_t& mux);
 	void to_str(ss::string_& ret, const dvbt_mux_t& mux);
@@ -226,6 +221,13 @@ namespace chdb {
 	void to_str(ss::string_& ret, tune_src_t tune_src);
 	void to_str(ss::string_& ret, key_src_t key_src);
 
+	inline const char* pol_str(const fe_polarisation_t& pol) {
+		return
+			pol == fe_polarisation_t::H	 ? "H"
+			: pol == fe_polarisation_t::V ? "V"
+			: pol == fe_polarisation_t::L ? "L"
+			: "R";
+	}
 
 	inline void to_str(ss::string_& ret, const mux_common_t& t) {
 		ret.sprintf("%p", &t);
@@ -355,10 +357,14 @@ namespace chdb {
 
 	/* tuning parameters (sat_pos, polarisation, frequency) indicate "equal or overlapping" muxes
 	 */
-	bool matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos=true);
-	bool matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos=true);
-	bool matches_physical_fuzzy(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos=true);
-	bool matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos=true);
+	bool matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos=true,
+															bool ignore_t2mi_pid=false);
+	bool matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos=true,
+															bool ignore_t2mi_pid=false);
+	bool matches_physical_fuzzy(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos=true,
+															bool ignore_t2mi_pid=false);
+	bool matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos=true,
+															bool ignore_t2mi_pid=false);
 
 	/* tuning parameters (sat_pos, polarisation, frequency) indicate muxes with same bandwidth
 		 and frequency with tight tolerance
@@ -383,10 +389,11 @@ namespace chdb {
 	}
 
 	/*!
-		find a mux which the correct network_id and ts_id and closely matching frequency
-		we adopt a tolerance of 1000kHz
+		find a mux for which the key is already known
 	*/
 	template<typename mux_t>
+	requires (is_same_type_v<mux_t, chdb::dvbs_mux_t> || is_same_type_v<mux_t, chdb::dvbc_mux_t>
+						|| is_same_type_v<mux_t, chdb::dvbt_mux_t>)
 	db_tcursor<mux_t> find_by_mux(db_txn& txn, const mux_t& mux);
 
 /*!
@@ -405,15 +412,14 @@ namespace chdb {
 		unique_type_t unique{NOT_FOUND};
 	};
 
-	get_by_nid_tid_unique_ret_t get_by_nid_tid_unique(db_txn& txn, int16_t network_id, int16_t ts_id,
-																										int16_t tuned_sat_pos);
-	get_by_nid_tid_unique_ret_t get_by_network_id_ts_id(db_txn& txn, uint16_t network_id, uint16_t ts_id);
+	get_by_nid_tid_unique_ret_t get_by_nid_tid_sat_unique(db_txn& txn,  uint16_t network_id, uint16_t ts_id,
+																												int16_t tuned_sat_pos);
 	template<typename mux_t>
 	db_tcursor<mux_t> find_by_mux_physical(db_txn& txn, const mux_t& mux, bool ignore_stream_id,
-																				 bool ignore_keys, bool ignore_t2mi_pid);
+																				 /*bool ignore_keys,*/ bool ignore_t2mi_pid);
 
 	std::optional<chdb::any_mux_t> get_by_mux_physical(db_txn& txn, chdb::any_mux_t& mux, bool ignore_stream_id,
-																										 bool ignore_key, bool ignore_t2mi_pid);
+																										 /*bool ignore_key,*/ bool ignore_t2mi_pid);
 
 	void clean_scan_status(db_txn& wtxn);
 	void clean_expired_services(db_txn& wtxn, std::chrono::seconds age);
@@ -458,16 +464,6 @@ namespace chdb::dvbt_mux {
 	{
 		return mux.c.tune_src == tune_src_t::TEMPLATE;
 	}
-	/*
-		If the mux is a template (mux.k.network_id==0 && mux.k.mux.ts_id==and not yet has
-		an extra_id (mux.k.extra_id == 0), then assign it a
-		unique extra_id
-	*/
-	inline void make_unique_if_template(db_txn& txn, dvbt_mux_t& mux ) {
-		if(is_template(mux) && mux.k.extra_id==0)
-			mux.k.extra_id = chdb::make_unique_id<dvbt_mux_t>(txn, mux.k);
-	}
-
 }
 
 namespace chdb::dvbc_mux {
@@ -481,41 +477,29 @@ namespace chdb::dvbc_mux {
 	{
 		return mux.c.tune_src == tune_src_t::TEMPLATE;
 	}
-	/*
-		If the mux is a template (mux.k.network_id==0 && mux.k.mux.ts_id==and not yet has
-		an extra_id (mux.k.extra_id == 0), then assign it a
-		unique extra_id
-	*/
-	inline void make_unique_if_template(db_txn& txn, dvbc_mux_t& mux ) {
-		if(is_template(mux) && mux.k.extra_id==0)
-			mux.k.extra_id = chdb::make_unique_id<dvbc_mux_t>(txn, mux.k);
-	}
 }
 
 namespace chdb::service {
-
-	inline auto find_by_mux_sid(db_txn &txn, const mux_key_t &mux_key, uint16_t service_id) {
-		return service_t::find_by_key(txn, service_key_t(mux_key, service_id), find_eq);
+	inline auto find_by_mux_key_sid(db_txn &txn, const mux_key_t &mux_key, uint16_t service_id) {
+		return service_t::find_by_key(txn, mux_key, service_id, find_eq);
 	}
-
-
 
 /*
 	find first service on mux
+
+#if 0
 	@todo this is used to loop over all services on a mux, but how do we stop the iteration
 	when the cursor reaches the next mux?
 	Currently caller must handle this by checking for change in mux
 	set_prefix_key is the solution
+#else
+above comment is probably no longer valid. todo has been solved?
+#endif
 */
 	inline auto find_by_mux_key(db_txn& txn, const mux_key_t& mux_key) {
-		service_key_t service_key{};
-		service_key.mux = mux_key;
-		auto c = service_t::find_by_key(txn, service_key, find_geq, service_t::partial_keys_t::mux);
+		auto c = service_t::find_by_key(txn, mux_key, find_geq, service_t::partial_keys_t::mux /*key_prefix*/);
 		return c;
 	}
-
-
-
 }
 
 namespace chdb {
@@ -528,7 +512,7 @@ namespace chdb {
 
 	float min_snr(const chdb::any_mux_t& mux);
 
-	std::optional<chdb::any_mux_t> find_mux_by_key(db_txn& txn, const chdb::mux_key_t&mux_key);
+	std::optional<chdb::any_mux_t> find_mux_by_key(db_txn& txn, const chdb::mux_key_t& k);
 
 	const char* lang_name(const language_code_t& code);
 	inline bool is_same_language(language_code_t a, language_code_t b) {

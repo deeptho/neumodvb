@@ -106,6 +106,15 @@ public:
 	}
 };
 
+struct lock_state_t {
+	bool locked_normal{false};
+	bool locked_minimal{false}; //good enough to log in database as NOLOCK when blindscanning
+	chdb::lock_result_t tune_lock_result;
+	bool temp_tune_failure{false};
+	bool is_not_ts{false}; //true if we detected something else than an mpeg ts on this mux
+	bool is_dvb{false}; //true if we detected an mpeg ts on this mux
+};
+
 
 /*@brief: all data for a transponder currently being monitored.
 	owned by tuner_thread
@@ -116,7 +125,8 @@ class active_adapter_t final : public  std::enable_shared_from_this<active_adapt
 		TUNE_INIT, //we still need to tune
 		WAITING_FOR_LOCK, //tuning was started, waiting for lock;
 		LOCKED, //tuning was started, si processing is running
-		TUNE_FAILED, //tuning failed
+		LOCK_TIMEDOUT, //tuning was started, waiting for lock;
+		TUNE_FAILED, //tuning failed due to incorrect tuning parameters
 		TUNE_FAILED_TEMP, //tuning failed temporarily because of lack of resources
 	};
 	friend class si_t;
@@ -124,12 +134,10 @@ class active_adapter_t final : public  std::enable_shared_from_this<active_adapt
 	friend class active_si_stream_t;
 	friend class stream_reader_t;
 	friend struct dvb_stream_reader_t;
-	//friend class rec_manager_t;
 
 public:
 	receiver_t& receiver;
 	const std::shared_ptr<dvb_frontend_t> fe; //accessible by other threads (with some care?)
-	thread_private_t<active_fe_thread_safe_t> reservation{"receiver", this};
 private:
 /*
 		for uncommitted switch closest to receiver, followed by committed switch.
@@ -141,12 +149,13 @@ private:
 		*/
 	std::bitset<256> processed_isis;
 	steady_time_t last_new_matype_time;
-	bool scan_mux_end_reported{false};
 
 	safe::Safe<std::map <uint16_t, std::shared_ptr<stream_filter_t>>> stream_filters; //indexed by stream_pid
 	std::map <uint16_t, active_si_stream_t> embedded_si_streams; //indexed by stream_pid
 
 	tune_state_t tune_state{TUNE_INIT};
+	lock_state_t lock_state;
+	bool isi_processing_done{false};
 	system_time_t tune_start_time;  //when last tune started
 	constexpr static std::chrono::duration tune_timeout{15000ms}; //in ms
 
@@ -184,7 +193,6 @@ private:
 
 	uint32_t get_lo_frequency(uint32_t frequency);
 
-
 public: //this data is safe to access from other threads
 	tuner_thread_t& tuner_thread; //There is only one tuner thread for the whole process
 
@@ -216,16 +224,21 @@ private:
 	void handle_fe_event();
 	void monitor();
 
-	chdb::any_mux_t prepare_si(chdb::any_mux_t mux, bool start);
+	chdb::any_mux_t prepare_si(chdb::any_mux_t mux, bool start,
+														 subscription_id_t subscription_id =subscription_id_t::NONE,
+														 uint32_t scan_id = 0, bool add_to_running_mux=false);
 
-	template <typename mux_t> inline  mux_t prepare_si(mux_t mux, bool start) {
+	template <typename mux_t> inline  mux_t prepare_si(
+		mux_t mux, bool start, subscription_id_t subscription_id =subscription_id_t::NONE,
+		uint32_t scan_id = 0, bool add_to_running_mux=false) {
 		chdb::any_mux_t mux_{mux};
-		mux_ = prepare_si(mux_, start);
+		mux_ = prepare_si(mux_, start, subscription_id, scan_id, add_to_running_mux);
 		return *std::get_if<mux_t>(&mux_);
 	}
-	void check_scan_mux_end(active_si_stream_t& si);
+
 	void init_si(scan_target_t scan_target_);
 	void end_si();
+	void reset_si();
 private:
 
 	std::map<uint16_t, std::tuple<uint16_t, std::shared_ptr<active_service_t>>> active_services; //indexed by service_id
@@ -253,9 +266,17 @@ public:
 	virtual ~active_adapter_t() final;
 
 	template<typename mux_t>
-	bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path) {
+	bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid=false) {
 		assert(fe.get());
-		return fe->is_tuned_to(mux, required_rf_path);
+		if(chdb::is_template(mux))
+			return fe->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid);
+		auto tuned_mux = fe->tuned_mux();
+		auto tuned_mux_key = *chdb::mux_key_ptr(tuned_mux);
+		auto mux_key = *chdb::mux_key_ptr(mux);
+		//allow mismatch in t2mi_pid
+		tuned_mux_key.t2mi_pid = -1;
+		mux_key.t2mi_pid = -1;
+		return mux_key == tuned_mux_key;
 	}
 
 private:
@@ -284,6 +305,8 @@ private:
 	void on_first_pat();
 	void on_tuned_mux_change(const chdb::any_mux_t& si_mux);
 	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
+	void check_isi_processing();
+
 public:
 	devdb::usals_location_t get_usals_location();
 	void lnb_update_usals_pos(int16_t usals_pos, int16_t sat_pos);
@@ -316,8 +339,8 @@ public:
 	std::shared_ptr<stream_reader_t> make_dvb_stream_reader(ssize_t dmx_buffer_size_ = -1);
 	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(const chdb::any_mux_t& mux,
 																															 ssize_t dmx_buffer_size_ = -1);
-	void add_embedded_si_stream(const chdb::any_mux_t& emdedded_mux, bool start=false);
+	bool add_embedded_si_stream(const chdb::any_mux_t& emdedded_mux, bool start=false);
 
-	bool read_and_process_data_for_fd(int fd);
+	bool read_and_process_data_for_fd(const epoll_event* evt);
 
 };

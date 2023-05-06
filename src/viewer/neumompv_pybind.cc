@@ -51,7 +51,7 @@ void init_threads() {
 
 PYBIND11_MODULE(pyneumompv, m) {
 	export_ss(m);
-	export_ss_vector(m, chdb::language_code_t);
+	//export_ss_vector(m, chdb::language_code_t);
 	m.def("init_threads", &init_threads);
 	py::class_<MpvPlayer, std::shared_ptr<MpvPlayer>>(m, "MpvPlayer")
 		.def(py::init(&MpvPlayer::make), py::arg("receiver"), py::arg("parent_window"))

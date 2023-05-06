@@ -391,18 +391,13 @@ void export_signal_info(py::module& m) {
 		.def_property_readonly("driver_mux", [](const signal_info_t& i) { //tuned mux
 			return &i.driver_mux;
 		}
-			, "Information received from driver, with missing info filled in from consolidated_mux"
+			, "Information received from driver"
 		)
-		.def_property_readonly("consolidated_mux", [](const signal_info_t& i) { //si mux data
-			return &i.consolidated_mux;
-		}
-			, "NIT info after combining all available information, taking into account database, driver and received info"
-			)
 		.def_property_readonly("bad_received_si_mux", [](const signal_info_t& i) {
 
 			return &i.bad_received_si_mux;
 		}
-			, "NIT info as received from the current stream, but only iof it conflicts with consolidated_mux"
+			, "NIT info as received from the current stream, but only if it conflicts with driver_mux"
 			)
 		.def_property_readonly("min_snr", [](const signal_info_t& i) {
 			return (int)(chdb::min_snr(i.driver_mux)*1000);

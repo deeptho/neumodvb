@@ -145,8 +145,8 @@ std::ostream& devdb::operator<<(std::ostream& os, const fe_t& fe) {
 
 
 std::ostream& devdb::operator<<(std::ostream& os, const fe_subscription_t& sub) {
-	stdex::printf(os, "%d.%d%c use_count=%d ", sub.frequency/1000, sub.frequency%1000,
-								sub.pol == chdb::fe_polarisation_t::H ? 'H': 'V', sub.use_count);
+	stdex::printf(os, "%d.%d%s-%d %d use_count=%d ", sub.frequency/1000, sub.frequency%1000,
+								pol_str(sub.pol), sub.mux_key.stream_id, sub.mux_key.mux_id, sub.use_count);
 	return os;
 
 }
@@ -1283,27 +1283,6 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn) {
 			} else {
 				invalidate_lnb_adapter_fields(devdb_wtxn, lnb);
 			}
-		}
-	}
-}
-
-void devdb::lnb::on_mux_key_change(db_txn& devdb_wtxn, const chdb::mux_key_t& old_mux_key,
-																	 chdb::dvbs_mux_t& new_mux, system_time_t now_) {
-	auto now = system_clock_t::to_time_t(now_);
-	using namespace chdb;
-	auto& new_mux_key = *mux_key_ptr(new_mux);
-	{
-		auto c = find_first<lnb_t>(devdb_wtxn);
-		for(auto lnb: c.range()) {
-			auto* n = lnb::get_network(lnb, old_mux_key.sat_pos);
-			if(n) {
-				lnb.mtime = now;
-				if (n->ref_mux == old_mux_key) {
-					n->ref_mux = new_mux_key;
-					put_record(devdb_wtxn, lnb);
-				}
-			}
-			break;
 		}
 	}
 }

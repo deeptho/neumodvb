@@ -754,7 +754,8 @@ std::shared_ptr<adaptermgr_t> adaptermgr_t::make(receiver_t& receiver) {
 
 
 
-bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path) const {
+bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+	bool ignore_t2mi_pid) const {
 	if (required_rf_path && *required_rf_path != reserved_rf_path)
 		return false;
 	const auto* tuned_mux = std::get_if<chdb::dvbs_mux_t>(&reserved_mux);
@@ -762,43 +763,48 @@ bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t
 		return false;
 	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/)) //or stream_id or t2mi_pid does not match
 		return false;
-	if (tuned_mux->stream_id != mux.stream_id)
+	if (tuned_mux->k.stream_id != mux.k.stream_id)
 		return false;
-	if (tuned_mux->stream_id >= 0 && !(tuned_mux->pls_code == mux.pls_code && tuned_mux->pls_mode == mux.pls_mode))
+	if (tuned_mux->k.stream_id >= 0 && !(tuned_mux->pls_code == mux.pls_code && tuned_mux->pls_mode == mux.pls_mode))
 		return false;
 	// note that we do not check t2mi_pid because that does not change mux
 	return true;
 }
 
-bool fe_state_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t* required_rf_path) const {
+bool fe_state_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+														 bool ignore_t2mi_pid) const {
 	assert(!required_rf_path);
 	const auto* tuned_mux = std::get_if<chdb::dvbt_mux_t>(&reserved_mux);
 	if (!tuned_mux)
 		return false;
-	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/)) //or stream_id or t2mi_pid does not match
+	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/,
+																	 ignore_t2mi_pid)) //or stream_id or t2mi_pid does not match
 		return false;
 	return true;
 }
 
-bool fe_state_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t* required_rf_path) const {
+bool fe_state_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+														 bool ignore_t2mi_pid) const {
 	assert(!required_rf_path);
 	const auto* tuned_mux = std::get_if<chdb::dvbc_mux_t>(&reserved_mux);
 	if (!tuned_mux)
 		return false;
-	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/)) //or stream_id or t2mi_pid does not match
+	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/,
+																	 ignore_t2mi_pid)) //or stream_id or t2mi_pid does not match
 		return false;
 	return true;
 }
 
-bool fe_state_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t* required_rf_path) const {
+bool fe_state_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+														 bool ignore_t2mi_pid) const {
 	bool ret;
 	visit_variant(
-		mux, [this, &ret, required_rf_path](const chdb::dvbs_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_rf_path); },
-		[this, &ret, required_rf_path](const chdb::dvbc_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_rf_path); },
-		[this, &ret, required_rf_path](const chdb::dvbt_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_rf_path); });
+		mux, [this, &ret, required_rf_path, ignore_t2mi_pid](const chdb::dvbs_mux_t& mux) {
+			ret = this->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid); },
+		[this, &ret, required_rf_path, ignore_t2mi_pid](const chdb::dvbc_mux_t& mux) {
+			ret = this->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid); },
+		[this, &ret, required_rf_path, ignore_t2mi_pid](const chdb::dvbt_mux_t& mux) {
+			ret = this->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid); });
 	return ret;
 }
 
@@ -811,7 +817,7 @@ dvbdev_monitor_t::find_fe_for_tuning_to_mux(db_txn& rtxn, const mux_t& mux,
 	const auto need_blindscan = tune_options.use_blind_tune;
 	const bool need_spectrum = false;
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
-	bool need_multistream = (mux.stream_id >= 0);
+	bool need_multistream = (mux.k.stream_id >= 0);
 	auto best_dbfe = devdb::fe::find_best_fe_for_dvtdbc(rtxn, fe_key_to_release, need_blindscan, need_spectrum,
 																											need_multistream,  delsys_type, false /*ignore_subscriptions*/);
 	assert(best_dbfe->can_be_used);

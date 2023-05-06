@@ -130,7 +130,7 @@ int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const 
 		active_adapter.set_current_tp(mux);
 		auto txn = receiver.chdb.wtxn();
 		namespace m = chdb::update_mux_preserve_t;
-		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES}, false /*ignore_key*/,
+		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES}, /*false ignore_key,*/
 										 false /*ignore_t2mi_pid*/, true /*must_exist*/);
 		txn.commit();
 		dtdebug("committed");
@@ -156,21 +156,35 @@ int tuner_thread_t::cb_t::lnb_activate(std::shared_ptr<active_adapter_t> active_
 	return ret;
 }
 
-void tuner_thread_t::cb_t::restart_si(active_adapter_t& active_adapter,
-																			const chdb::any_mux_t& mux, const tune_options_t& tune_options ,
-																			bool start) {
+
+/*
+	Called from subscribe_mux when our own subscription is a normal tune, but mux is resubscribed, e.g.,
+	to set the scan status. The newly subscribed mux could be for a not yet running embedded t2mi stream
+
+	In this case, an embedded stream is added through prepare_si.
+	if scan_id >0, prepare_si also adds the subscription to the list of subscriptions to notify
+	when scanning finishes. In case scanning already finished, this notification is sent immediately
+
+	Finally, add_si also sets the tune options:
+	@todo: various tune requests may have conflicting tune options (such as propagate_scan)
+ */
+
+void tuner_thread_t::cb_t::add_si(active_adapter_t& active_adapter,
+																	const chdb::any_mux_t& mux, const tune_options_t& tune_options ,
+																	subscription_id_t subscription_id, uint32_t scan_id) {
 	// check_thread();
+	ss::string<128> prefix;
+	prefix << "TUN" << active_adapter.get_adapter_no() << "-ADD-SI";
 	dtdebugx("tune restart_si");
-	active_adapter.end_si(); //clear left overs from last tune
-	active_adapter.prepare_si(mux, start);
-	active_adapter.processed_isis.reset();
+	active_adapter.prepare_si(mux, true /*start*/, subscription_id, scan_id, true /*add_to_running_mux*/);
 	active_adapter.fe->set_tune_options(tune_options);
 }
 
 int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 															 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options,
-															 const devdb::resource_subscription_counts_t& use_counts) {
+															 const devdb::resource_subscription_counts_t& use_counts,
+															 subscription_id_t subscription_id, uint32_t scan_id) {
 	// check_thread();
 	chdb::dvbs_mux_t mux{mux_};
 	/*
@@ -185,8 +199,9 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 	log4cxx::NDC ndc(prefix.c_str());
 
 	dtdebug("tune mux action " << mux);
-	active_adapter->end_si(); //clear left overs from last tune
-	mux = active_adapter->prepare_si(mux, false /*start*/);
+	active_adapter->reset_si(); //clear left overs from last tune
+
+	mux = active_adapter->prepare_si(mux, false /*start*/, subscription_id, scan_id);
 	active_adapter->processed_isis.reset();
 
 	this->active_adapters[active_adapter.get()] = active_adapter;
@@ -196,7 +211,8 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 
 template <typename _mux_t>
 int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const _mux_t& mux_,
-															 tune_options_t tune_options) {
+															 tune_options_t tune_options,
+															 subscription_id_t subscription_id, uint32_t scan_id) {
 	_mux_t mux{mux_};
 
 	assert( mux.c.scan_status != scan_status_t::ACTIVE);
@@ -206,8 +222,8 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 		pending, and whne parallel tuners are in use, the second tuner might decide to scan
 		the mux again
 		*/
-	active_adapter->end_si(); //clear left overs from last tune
-	mux = active_adapter->prepare_si(mux, false /*start*/);
+	active_adapter->reset_si(); //clear left overs from last tune
+	mux = active_adapter->prepare_si(mux, false /*start*/, subscription_id, scan_id);
 	active_adapter->processed_isis.reset();
 	ss::string<128> prefix;
 	prefix << "TUN" << active_adapter->get_adapter_no() << "-TUNE";
@@ -223,10 +239,12 @@ int tuner_thread_t::cb_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 }
 
 template int tuner_thread_t::cb_t::tune<chdb::dvbc_mux_t>(std::shared_ptr<active_adapter_t> active_adapter,
-																													const chdb::dvbc_mux_t& mux, tune_options_t tune_options);
+																													const chdb::dvbc_mux_t& mux, tune_options_t tune_options,
+																													subscription_id_t subscription_id, uint32_t scan_id);
 
 template int tuner_thread_t::cb_t::tune<chdb::dvbt_mux_t>(std::shared_ptr<active_adapter_t> active_adapter,
-																													const chdb::dvbt_mux_t& mux, tune_options_t tune_options);
+																													const chdb::dvbt_mux_t& mux, tune_options_t tune_options,
+																													subscription_id_t subscription_id, uint32_t scan_id);
 
 int tuner_thread_t::cb_t::remove_service(active_adapter_t& active_adapter, active_service_t& channel) {
 	dtdebugx("tune deactivate_channel action: %s", channel.get_current_service().name.c_str());
@@ -294,17 +312,17 @@ void tuner_thread_t::on_epg_update(db_txn& txnepg, system_time_t now,
 		auto& tuner = *it.second;
 		for (auto& it : tuner.active_services) {
 			auto& [current_pmt_pid, tu] = it;
-			auto& [pmt_pid, active_servicep] = tu;
+			auto& [pmt_pid, active_service_p] = tu;
 			if (epg_record.k.start_time > system_clock_t::to_time_t(now + timeshift_duration))
 				break; // record too far in the future
-			auto service = active_servicep->get_current_service();
-			if (epg_record.k.service.sat_pos == service.k.mux.sat_pos && epg_record.k.service.ts_id == service.k.mux.ts_id &&
-					epg_record.k.service.network_id == service.k.mux.network_id &&
+			auto service = active_service_p->get_current_service();
+			if (epg_record.k.service.sat_pos == service.k.mux.sat_pos && epg_record.k.service.ts_id == service.k.ts_id &&
+					epg_record.k.service.network_id == service.k.network_id &&
 					epg_record.k.service.service_id == service.k.service_id) {
 				// send request to service_thread
-				auto& active_service = *active_servicep;
-				active_service.service_thread.push_task([now, &active_service, epg_record]() { // epg_record passed by value
-					cb(active_service.service_thread).on_epg_update(now, epg_record);
+				active_service_p->service_thread.push_task([now, active_service_p = active_service_p,
+																										epg_record]() { // epg_record passed by value
+					cb(active_service_p->service_thread).on_epg_update(now, epg_record);
 					return 0;
 				});
 			}
@@ -445,7 +463,7 @@ int tuner_thread_t::run() {
 						dterrorx("ERROR in epoll event for fd=%d", evt->data.fd);
 					}
 					if (evt->events & EPOLLIN) {
-						if (active_adapter.read_and_process_data_for_fd(evt->data.fd)) {
+						if (active_adapter.read_and_process_data_for_fd(evt)) {
 							// printf("processed using new si interface\n");
 							auto delay = dttime(300);
 							if (delay >= 200)
@@ -479,28 +497,6 @@ void tuner_thread_t::cb_t::update_recording(const recdb::rec_t& rec) {
 	recmgr.update_recording(rec);
 }
 
-devdb::lnb_t active_fe_thread_safe_t::lnb() const {
-	assert(active_adapter);
-	return active_adapter->get_lnb();
-}
-
-chdb::any_mux_t active_fe_thread_safe_t::mux() const {
-	assert(active_adapter);
-	return active_adapter->current_mux();
-}
-
-template <typename mux_t> bool active_fe_thread_safe_t::is_tuned_to(const mux_t& mux) const {
-	assert(active_adapter);
-	return active_adapter->is_tuned_to(mux);
-}
-
-template <> bool active_fe_thread_safe_t::is_tuned_to(const dvbs_mux_t& mux) const;
-template <> bool active_fe_thread_safe_t::is_tuned_to(const dvbc_mux_t& mux) const;
-template <> bool active_fe_thread_safe_t::is_tuned_to(const dvbt_mux_t& mux) const;
-template <> bool active_fe_thread_safe_t::is_tuned_to(const chdb::any_mux_t& mux) const;
-
-
-
 tuner_thread_t::tuner_thread_t(receiver_t& receiver_)
 	: task_queue_t(thread_group_t::tuner)
 	, receiver(receiver_)
@@ -515,12 +511,19 @@ int tuner_thread_t::set_tune_options(active_adapter_t& active_adapter, tune_opti
 	return active_adapter.fe ? active_adapter.fe->set_tune_options(tune_options) : -1;
 }
 
-chdb::any_mux_t tuner_thread_t::prepare_si(active_adapter_t& active_adapter, chdb::any_mux_t mux, bool start) {
-	return active_adapter.prepare_si(mux, start);
+int tuner_thread_t::cb_t::set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options) {
+	return this->tuner_thread_t::set_tune_options(active_adapter, tune_options);
 }
 
-int tuner_thread_t::request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t& mux_,
-																	 const tune_options_t& tune_options) {
+/*
+	Called when out own subscription is already tuned to mux, but retune is requested, e.g.,
+	from positioner_dialog. This is almost the same as a fresh tune, except that connection
+	to the driver is keptl active_adapter remains active
+ */
+int tuner_thread_t::cb_t::request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t& mux_,
+																				 const tune_options_t& tune_options,
+																				 subscription_id_t subscription_id, uint32_t scan_id) {
+
 	{
 		int frequency;
 		int symbol_rate;
@@ -531,26 +534,12 @@ int tuner_thread_t::request_retune(active_adapter_t& active_adapter, const chdb:
 		},
 			m);
 	}
+	active_adapter.reset_si(); //clear left overs from last tune
 	active_adapter.fe->set_tune_options(tune_options);
-	active_adapter.end_si(); //clear left overs from last tune
-	auto mux = active_adapter.prepare_si(mux_, false /*start*/);
+	auto mux = active_adapter.prepare_si(mux_, false /*start*/, subscription_id, scan_id);
 	active_adapter.processed_isis.reset();
 	active_adapter.restart_tune(mux);
 	return 0;
-}
-
-int tuner_thread_t::cb_t::set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options) {
-	return this->tuner_thread_t::set_tune_options(active_adapter, tune_options);
-}
-
-chdb::any_mux_t tuner_thread_t::cb_t::prepare_si(active_adapter_t& active_adapter, chdb::any_mux_t mux, bool start) {
-	return this->tuner_thread_t::prepare_si(active_adapter, mux, start);
-}
-
-
-int tuner_thread_t::cb_t::request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
-																				 const tune_options_t& tune_options) {
-	return this->tuner_thread_t::request_retune(active_adapter, mux, tune_options);
 }
 
 int tuner_thread_t::cb_t::positioner_cmd(std::shared_ptr<active_adapter_t> active_adapter, devdb::positioner_cmd_t cmd,

@@ -107,7 +107,10 @@ struct scan_state_t {
 			return "BUSY";
 		}
 	};
+
 	ss::vector<completion_state_t, completion_index_t::NUM> completion_states;
+
+	ss::vector<std::tuple<uint32_t, subscription_id_t>,2> scans_in_progress; //indexed by scan_id
 
 	scan_state_t() {
 		completion_states.resize(completion_index_t::NUM);
@@ -200,10 +203,6 @@ struct scan_state_t {
 	}
 
 	steady_time_t last_update_time;
-	bool locked{false};
-	bool temp_tune_failure{false};
-	bool is_not_ts{false}; //true if we detected somethign else than an mpeg ts on this mux
-	bool aborted{false};
 };
 
 
@@ -295,7 +294,7 @@ public:
 private:
 	bool mux_is_being_scanned(const chdb::any_mux_t& mux);
 	std::tuple<int, int> scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-																 const ss::vector_<subscription_id_t> finished_subscription_ids);
+																 subscription_id_t finished_subscription_id);
 
 	std::tuple<subscription_id_t, subscription_id_t>
 	scan_try_mux(subscription_id_t reusable_subscription_id ,
@@ -367,7 +366,7 @@ class scanner_t {
 												db_txn& devdb_wtxn, subscription_id_t scan_subscription_id);
 
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
-											 const ss::vector_<subscription_id_t> subscription_ids);
+											 uint32_t scan_id, subscription_id_t subscription_id);
 
 	bool housekeeping(bool force);
 
@@ -378,7 +377,7 @@ class scanner_t {
 		return (getpid() <<8)| (int) subscription_id;
 	}
 
-	subscription_id_t scan_subscription_id_for_mux(const chdb::any_mux_t& finished_mux);
+	subscription_id_t scan_subscription_id_for_scan_id(uint32_t scan_id);
 public:
 	scanner_t(receiver_thread_t& receiver_thread_,
 						//ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,

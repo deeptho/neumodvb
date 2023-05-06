@@ -349,7 +349,7 @@ class SpectrumDialog(SpectrumDialog_):
             mux.frequency = int(tp.freq*1000)
             mux.symbol_rate=  int(tp.symbol_rate*1000)
             mux.pol = tp.spectrum.spectrum.k.pol
-        mux.stream_id = -1
+        mux.k.stream_id = -1
         mux.pls_mode = pychdb.fe_pls_mode_t.ROOT
         mux.pls_code = 1
         #to test
@@ -363,7 +363,7 @@ class SpectrumDialog(SpectrumDialog_):
         mux = pychdb.dvbs_mux.dvbs_mux()
         mux.frequency = int(freq*1000)
         mux.symbol_rate=  int(symbol_rate*1000)
-        mux.stream_id = -1
+        mux.k.stream_id = -1
         mux.pls_mode = pychdb.fe_pls_mode_t.ROOT
         mux.pls_code = 1
         p_t = pychdb.fe_polarisation_t
@@ -415,7 +415,7 @@ class SpectrumDialog(SpectrumDialog_):
                     mux = self.tune_mux_panel.last_tuned_mux
                     dtdebug(f"TUNE DONE mux={mux} lock={self.signal_info.has_lock} fail={self.signal_info.has_fail} done={self.signal_info.has_si_done} no_dvb={self.signal_info.has_no_dvb}")
                     if not self.is_blindscanning:
-                        self.spectrum_plot.set_current_annot_status(mux, self.signal_info.consolidated_mux,
+                        self.spectrum_plot.set_current_annot_status(mux, self.signal_info.driver_mux,
                                                                     self.signal_info.has_lock)
             else:
                 mux = self.tune_mux_panel.last_tuned_mux

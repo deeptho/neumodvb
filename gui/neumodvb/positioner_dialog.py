@@ -48,8 +48,8 @@ def can_move_dish(lnb_connection):
     return False if lnb_connection is None else pydevdb.lnb.can_move_dish(lnb_connection)
 
 def same_mux_key(a, b):
-    return a.sat_pos == b.sat_pos and  a.network_id == b.network_id \
-        and a.ts_id == b.ts_id and a.extra_id == b.extra_id
+    return a.sat_pos == b.sat_pos and  a.stream_id == b.stream_id \
+        and a.t2mi_pid == b.t2mi_pid and a.mux_id == b.mux_id
 
 def get_object(evt):
     s = evt.GetExtraLong()
@@ -409,7 +409,8 @@ class TuneMuxPanel(TuneMuxPanel_):
             return
         mux =self.mux.copy()
         if self.use_blindscan:
-            mux.k.t2mi_pid = 0
+            mux.k.t2mi_pid = -1
+            mux.k.mux_id = 0
         mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
         mux.matype = -1
         self.ClearSignalInfo()
@@ -471,39 +472,51 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def OnSignalInfoUpdate(self, signal_info):
         self.parent.UpdateSignalInfo(signal_info, self.tuned_)
-        consolidated_mux = signal_info.consolidated_mux
+        mux = signal_info.driver_mux
         sat_pos_confirmed = signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
-        nit_valid = consolidated_mux.c.tune_src == pychdb.tune_src_t.NIT_TUNED
-        pol = neumodbutils.enum_to_str(consolidated_mux.pol)
+        nit_valid = mux.c.tune_src == pychdb.tune_src_t.NIT_TUNED
+        pol = neumodbutils.enum_to_str(mux.pol)
         if self.signal_info.nit_received:
-            self.si_freq_text.SetLabel(f'{consolidated_mux.frequency/1e3:,.3f} MHz {pol}'.replace(',', ' ') \
-                                    if nit_valid else 'INVALID')
-            self.si_symbolrate_text.SetLabel(f'{consolidated_mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' ') \
-                                    if nit_valid else '')
+            if nit_valid:
+                self.si_freq_text.SetForegroundColour(wx.Colour('black'))
+                self.si_symbolrate_text.SetForegroundColour(wx.Colour('black'))
+                self.si_freq_text.SetLabel(f'{mux.frequency/1e3:,.3f} MHz {pol}'.replace(',', ' '))
+                self.si_symbolrate_text.SetLabel(f'{mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' '))
+            else:
+                bad_nit = signal_info.bad_received_si_mux
+                self.si_freq_text.SetForegroundColour(wx.Colour('red'))
+                self.si_symbolrate_text.SetForegroundColour(wx.Colour('red'))
+                if bad_nit is not None:
+                    badpol = neumodbutils.enum_to_str(bad_nit.pol)
+                    self.si_freq_text.SetLabel(f'{bad_nit.frequency/1e3:,.3f} MHz {badpol}'.replace(',', ' '))
+                    self.si_symbolrate_text.SetLabel(f'{bad_nit.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' '))
+                else:
+                    self.si_freq_text.SetLabel(f'INVALID')
+                    self.si_symbolrate_text.SetLabel('')
+
         else:
             self.si_freq_text.SetLabel('')
             self.si_symbolrate_text.SetLabel('')
 
         if not self.signal_info.sdt_received:
             self.si_sdt_services_text.SetLabel('')
-        mux = signal_info.driver_mux
-        locked = signal_info.has_lock
 
+        locked = signal_info.has_lock
 
         cn = '' if signal_info.network_id_confirmed  else "?"
         ct = '' if signal_info.ts_id_confirmed  else "?"
-        stream = f' stream={mux.stream_id}' if mux.stream_id>=0 else ''
+        stream = f' stream={mux.k.stream_id}' if mux.k.stream_id>=0 else ''
         if not locked:
             self.ClearSignalInfo()
             return
         else:
             pass
         bad_nit = signal_info.bad_received_si_mux
-        sat_text = f'{pychdb.sat_pos_str(consolidated_mux.k.sat_pos)}' if sat_pos_confirmed else \
+        sat_text = f'{pychdb.sat_pos_str(mux.k.sat_pos)}' if sat_pos_confirmed else \
             f'{pychdb.sat_pos_str(bad_nit.k.sat_pos)}' if bad_nit is not None else '??'
 
-        nid_text = f'{consolidated_mux.k.network_id}' if bad_nit is None else f'{bad_nit.k.network_id}'
-        tid_text = f'{consolidated_mux.k.ts_id}' if bad_nit is None else f'{bad_nit.k.ts_id}'
+        nid_text = f'{mux.c.network_id}' if bad_nit is None else f'{bad_nit.c.network_id}'
+        tid_text = f'{mux.c.ts_id}' if bad_nit is None else f'{bad_nit.c.ts_id}'
 
         if self.signal_info.nit_received:
             self.si_nit_ids_text.SetForegroundColour(wx.Colour('black' if bad_nit is None else 'red'))
@@ -673,9 +686,9 @@ class SignalPanel(SignalPanel_):
             return
         locked = self.signal_info.has_timing_lock
         bad_nit = self.signal_info.bad_received_si_mux
-        consolidated_mux = self.signal_info.consolidated_mux
+        mux = self.signal_info.driver_mux
         nit_received = self.signal_info.nit_received
-        sat_pos = bad_nit.k.sat_pos if bad_nit else consolidated_mux.k.sat_pos
+        sat_pos = bad_nit.k.sat_pos if bad_nit else mux.k.sat_pos
         snr = self.signal_info.snr/1000 if locked else None
         if snr is not None:
             if snr <= -1000.:
@@ -781,7 +794,7 @@ class SignalPanel(SignalPanel_):
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
         self.ber_text.SetLabel(f'{ber:8.2E}')
 
-        stream_id = driver_mux.stream_id
+        stream_id = driver_mux.k.stream_id
         isi = ''
         if signal_info.has_timing_lock:
             lst, prefix, suffix = get_isi_list(stream_id, signal_info)

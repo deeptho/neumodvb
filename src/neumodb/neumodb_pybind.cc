@@ -91,6 +91,7 @@ void export_milli_seconds_t(py::module& m) {
 
 EXPORT void export_neumodb(py::module& m) {
 	static bool called = false;
+	m.attr("neumo_schema_version") = neumo_schema_version; //needs to be before the if(called)
 	if (called)
 		return;
 	called = true;
@@ -120,5 +121,7 @@ EXPORT void export_neumodb(py::module& m) {
 		// py::keep_alive<0,1>() => ensure that the result of wtxn and rtxn os destroyed before teh database
 		.def("wtxn", &neumodb_t::wtxn, py::keep_alive<0, 1>())
 		.def("rtxn", &neumodb_t::rtxn, py::keep_alive<0, 1>())
-		.def("stats", &stats_db);
+		.def_readonly("db_version", &neumodb_t::db_version)
+		//.def("stats", &stats_db)
+		;
 }

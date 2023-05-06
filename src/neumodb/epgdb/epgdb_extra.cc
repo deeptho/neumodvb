@@ -143,7 +143,7 @@ std::optional<epgdb::epg_record_t> epgdb::best_matching(db_txn& txnepg, const ep
 
 std::optional<epgdb::epg_record_t> epgdb::running_now(db_txn& txnepg, const chdb::service_key_t& service_key,
 																											time_t now) {
-	epg_service_t s(service_key.mux.sat_pos, service_key.mux.network_id, service_key.mux.ts_id, service_key.service_id);
+	epg_service_t s(service_key.mux.sat_pos, service_key.network_id, service_key.ts_id, service_key.service_id);
 	// const int tolerance = 30*60;
 	/*
 		find a record with start time equal to now, or the closest earlier start_time if none exists
@@ -191,14 +191,11 @@ std::optional<chdb::service_t> epgdb::service_for_epg_record(db_txn& txn, const 
 	*/
 
 	// we do can not included k.mux.t2mi_pid and k.mux.extra_id in the serch, so we use a loop
-	auto c = service_t::find_by_key(txn,
-																	epg_record.k.service.sat_pos, epg_record.k.service.network_id,
-																	epg_record.k.service.ts_id,
-																	find_type_t::find_geq, service_t::partial_keys_t::sat_pos_network_id_ts_id);
-	for (const auto& service : c.range()) {
-		if (service.k.service_id == epg_record.k.service.service_id)
-			return service;
-	}
+	auto c = service_t::find_by_network_id_ts_id_service_id_sat_pos
+		(txn, epg_record.k.service.network_id, epg_record.k.service.ts_id, epg_record.k.service.service_id,
+		 epg_record.k.service.sat_pos, find_type_t::find_eq, service_t::partial_keys_t::network_id_ts_id_service_id_sat_pos);
+	if(c.is_valid())
+		return c.current();
 	return {}; // no result
 }
 
@@ -211,8 +208,8 @@ std::unique_ptr<epg_screen_t> epgdb::chepg_screen(db_txn& txnepg, const chdb::se
 	auto start_time_ = system_clock_t::from_time_t(start_time);
 	epg_record_t prefix;
 	prefix.k.service.sat_pos = service_key.mux.sat_pos;
-	prefix.k.service.network_id = service_key.mux.network_id;
-	prefix.k.service.ts_id = service_key.mux.ts_id;
+	prefix.k.service.network_id = service_key.network_id;
+	prefix.k.service.ts_id = service_key.ts_id;
 	prefix.k.service.service_id = service_key.service_id;
 	auto cur = running_now(txnepg, service_key, start_time_);
 	prefix.k.start_time = cur ? cur->k.start_time : start_time;
@@ -315,7 +312,8 @@ std::ostream& epgdb::operator<<(std::ostream& os, const epg_source_t& s) {
 }
 
 std::ostream& epgdb::operator<<(std::ostream& os, const epg_service_t& s) {
-	os << epgdb::service_key_from_epg_service(s);
+	auto sat = chdb::sat_pos_str(s.sat_pos);
+	stdex::printf(os, "%s ts=%d sid=%d", sat.c_str(), s.ts_id, s.service_id);
 	return os;
 }
 std::ostream& epgdb::operator<<(std::ostream& os, const epg_key_t& k) {

@@ -215,8 +215,7 @@ namespace devdb::lnb {
 
 	void update_lnb_adapter_fields(db_txn& wtxn, const devdb::fe_t& fe);
 	void update_lnbs(db_txn& devdb_wtxn);
-	void on_mux_key_change(db_txn& wtxn, const chdb::mux_key_t& old_mux_key, chdb::dvbs_mux_t& new_mux,
-												 system_time_t now_);
+
 	inline bool can_move_dish(const devdb::lnb_connection_t& conn) {
 		switch(conn.rotor_control) {
 		case devdb::rotor_control_t::ROTOR_MASTER_MANUAL:
@@ -256,7 +255,7 @@ namespace devdb::fe {
 											 const devdb::fe_key_t* fe_to_release,
 											 bool need_blindscan, bool need_spectrum, bool need_multistream,
 											 chdb::fe_polarisation_t pol, fe_band_t band,
-											 int usals_pos, bool ignore_subscriptions, bool lnb_on_positioner);
+											 int sat_pos, bool ignore_subscriptions, bool lnb_on_positioner);
 
 	std::optional<devdb::fe_t>
 	find_best_fe_for_dvtdbc(db_txn& rtxn,
@@ -300,14 +299,14 @@ namespace devdb::fe {
 	int unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret=nullptr);
 	int unsubscribe(db_txn& wtxn, fe_t& fe);
 
-	int reserve_fe_lnb_band_pol_sat(db_txn& wtxn, devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-																	const devdb::lnb_t& lnb, devdb::fe_band_t band,
-																	chdb::fe_polarisation_t pol, int frequency, int stream_id);
+	int reserve_fe_lnb_for_mux(db_txn& wtxn, devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
+														 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
 
 
 	int reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
 															 const devdb::lnb_t& lnb);
-	int reserve_fe_dvbc_or_dvbt_mux(db_txn& wtxn, devdb::fe_t& fe, bool is_dvbc, int frequency, int stream_id);
+	template<typename mux_t>
+	int reserve_fe_for_mux(db_txn& wtxn, devdb::fe_t& fe, const mux_t& mux);
 
 	template<typename mux_t>
 	std::tuple<std::optional<devdb::fe_t>, int>
@@ -331,7 +330,7 @@ namespace devdb::fe {
 		subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 													const devdb::fe_key_t* fe_key_to_release,
 													bool need_blind_tune, bool need_spectrum);
-	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key,
+	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key,const chdb::mux_key_t &mux_key,
 																									 const devdb::fe_key_t* fe_key_to_release);
 };
 

@@ -186,9 +186,6 @@ public:
 	tuner_thread_t(const tuner_thread_t& other) = delete;
 	tuner_thread_t operator=(const tuner_thread_t& other) = delete;
 	inline int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
-	inline chdb::any_mux_t prepare_si(active_adapter_t& active_adapter, chdb::any_mux_t mux, bool start);
-	inline int request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
-														const tune_options_t& tune_options);
 
 public:
 
@@ -206,18 +203,19 @@ public:
 
 	int lnb_activate(std::shared_ptr<active_adapter_t> active_adapter, const devdb::rf_path_t& rf_path,
 									 const devdb::lnb_t& lnb, tune_options_t tune_options);
-	void restart_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
-									const tune_options_t& tune_options, bool start);
+	void add_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+							const tune_options_t& tune_options, subscription_id_t subscription_id, uint32_t scan_id);
 
 	int tune(std::shared_ptr<active_adapter_t> active_adapter, const devdb::rf_path_t& rf_path,
 					 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-					 tune_options_t tune_options, const devdb::resource_subscription_counts_t& use_counts);
+					 tune_options_t tune_options, const devdb::resource_subscription_counts_t& use_counts,
+					 subscription_id_t subscription_id, uint32_t scan_id);
 	template<typename _mux_t>
-	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux, tune_options_t tune_options);
+	int tune(std::shared_ptr<active_adapter_t> tuner, const _mux_t& mux, tune_options_t tune_options,
+					 subscription_id_t subscription_id, uint32_t scan_id);
 	int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
-	chdb::any_mux_t prepare_si(active_adapter_t& active_adapter, chdb::any_mux_t mux, bool start);
 	int request_retune(active_adapter_t& active_adapter, const chdb::any_mux_t&mux,
-										 const tune_options_t& tune_options);
+										 const tune_options_t& tune_options, subscription_id_t subscription_id, uint32_t scan_id);
 
 
 	void toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
@@ -420,7 +418,8 @@ private:
 	subscribe_mux_not_in_use(std::vector<task_queue_t::future_t>& futures,
 													 std::shared_ptr<active_adapter_t>& old_active_adapter,
 													 db_txn &txn, const _mux_t& mux, subscription_id_t subscription_id,
-													 tune_options_t tune_options, const devdb::rf_path_t* required_rf_path /*unused*/);
+													 tune_options_t tune_options, const devdb::rf_path_t* required_rf_path /*unused*/,
+													 uint32_t scan_id);
 
 	template<typename _mux_t>
 	std::unique_ptr<playback_mpm_t>
@@ -455,9 +454,9 @@ protected:
 		const devdb::rf_path_t* required_rf_path, uint32_t scan_id);
 
 	int request_retune(std::vector<task_queue_t::future_t>& futures,
-										 active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+										 std::shared_ptr<active_adapter_t>& active_adapter, const chdb::any_mux_t& mux,
 										 const tune_options_t& tune_options,
-										 subscription_id_t subscription_id);
+										 subscription_id_t subscription_id, uint32_t scan_id);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		std::vector<task_queue_t::future_t>& futures, db_txn&txn,
@@ -477,7 +476,6 @@ private:
 
 public:
 
-	//event_handle_t event_handle_test;
 	//buffer_t streambuffer;
 
 	receiver_thread_t(receiver_t& receiver);
@@ -540,7 +538,8 @@ public:
 
 	template<typename _mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t>
-	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options, const devdb::rf_path_t* required_rf_path);
+	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
+								const devdb::rf_path_t* required_rf_path, uint32_t scan_id=0);
 
 	subscription_id_t subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, tune_options_t tune_options,
 																	subscription_id_t subscription_id);
@@ -576,7 +575,8 @@ public:
 	int stop_recording(const chdb::service_t& service, system_time_t t);
 	int stop_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 
-	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux, const active_adapter_t*aa);
+	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
+											 uint32_t scan_id, subscription_id_t subscription_id);
 	int scan_now();
 	void renumber_card(int old_number, int new_number);
 };
@@ -591,6 +591,8 @@ struct player_cb_t {
 
 
 class receiver_t {
+	bool inited{false};
+
 	int toggle_recording_(const chdb::service_t& service,
 										 const epgdb::epg_record_t& epg_record);
 	int toggle_recording_(const chdb::service_t& service, system_time_t start_time,
@@ -601,6 +603,8 @@ public:
 
 	using  options_t = safe::Safe<neumo_options_t>;
 	options_t options;
+
+	std::optional<db_upgrade_info_t> db_upgrade_info;
 
 	receiver_thread_t receiver_thread;
 	scam_thread_t scam_thread;
@@ -634,7 +638,7 @@ public:
 
 	receiver_t(const neumo_options_t* options= nullptr);
 	~receiver_t();
-
+	bool init();
 	devdb::lnb_t reread_lnb(const devdb::lnb_t& lnb);
 	template<typename _mux_t>
 	subscription_id_t

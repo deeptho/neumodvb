@@ -304,11 +304,11 @@ fe_subscription = db_struct(name='fe_subscription',
                                      (3, 'rf_path_t', 'rf_path'),
                                      (4, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
                                      (5, 'fe_band_t', 'band', 'fe_band_t::NONE'),
-                                     (6, 'int16_t', 'usals_pos', 'sat_pos_none'),
                                      (7, 'int16_t', 'use_count', '0'),
+                                     (6, 'int16_t', 'usals_pos', 'sat_pos_none'),
                                      (8, 'int32_t', 'frequency', '0'),
-                                     (9, 'int32_t', 'stream_id', '-1'),
                                      (10, 'int32_t', 'rf_coupler_id', '-1'),
+                                     (12, 'chdb::mux_key_t' , 'mux_key')
                 ))
 
 

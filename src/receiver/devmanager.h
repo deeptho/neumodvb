@@ -240,11 +240,15 @@ public:
 		differences in ts_id and network_id
 	*/
 
-	bool is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
-	bool is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
+	bool is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+									 bool ignore_t2mi_pid) const;
+	bool is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+									 bool ignore_t2mi_pid) const;
 	//required_lnb is not actually used below
-	bool is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
-	bool is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
+	bool is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+									 bool ignore_t2mi_pid) const;
+	bool is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+									 bool ignore_t2mi_pid) const;
 };
 
 class sec_status_t {
@@ -412,7 +416,8 @@ public:
 	}
 
 	template<typename mux_t>
-	inline bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path) const;
+	inline bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path,
+													bool ignore_t2mi_pid=false) const;
 
 	inline bool is_open() const {
 		auto t = ts.readAccess();

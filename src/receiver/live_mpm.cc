@@ -292,7 +292,7 @@ ss::string<128> active_mpm_t::make_dirname(active_service_t* active_service, sys
 	*/
 	ss::string<128> dirname;
 	dirname.sprintf("%s/A%02d_ts%05d_sid%05d", active_service->receiver.options.readAccess()->live_path.c_str(),
-									active_service->get_adapter_no(), active_service->current_service.k.mux.ts_id,
+									active_service->get_adapter_no(), active_service->current_service.k.ts_id,
 									active_service->current_service.k.service_id);
 	dirname << date::format("_%Y%m%d_%H:%M:%S", zoned_time(current_zone(), floor<std::chrono::seconds>(start_time)));
 	return dirname;

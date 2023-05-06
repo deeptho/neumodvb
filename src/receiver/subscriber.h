@@ -58,7 +58,7 @@ class subscriber_t
 	subscription_id_t subscription_id{-1};
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
-	std::shared_ptr<active_adapter_t> active_adapter; //set if subscribed to specific mux
+	std::weak_ptr<active_adapter_t> active_adapter; //set if subscribed to specific mux
 public:
 	enum class event_type_t : uint32_t {
 		ERROR_MSG  = (1<<0),

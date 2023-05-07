@@ -413,6 +413,7 @@ void export_sdt_data(py::module& m) {
 	using namespace chdb;
 	py::class_<sdt_data_t>(m, "sdt_data_t")
 		.def(py::init())
+		.def_readwrite("mux_key", &sdt_data_t::mux_key)
 		.def_readwrite("network_id", &sdt_data_t::actual_network_id)
 		.def_readwrite("ts_id", &sdt_data_t::actual_ts_id)
 		.def_property_readonly("services", [](sdt_data_t& sdt_data) {

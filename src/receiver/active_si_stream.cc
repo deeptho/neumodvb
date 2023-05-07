@@ -1583,6 +1583,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 			tune_confirmation.network_id_by = confirmed_by_t::NIT;
 			sdt_data.actual_network_id = mux_common->nit_network_id;
 			sdt_data.actual_ts_id = mux_common->nit_ts_id;
+			sdt_data.mux_key = *mux_key;
 		}
 	} else {
 		namespace m = chdb::update_mux_preserve_t;
@@ -2324,6 +2325,8 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		tune_confirmation.network_id_by = confirmed_by_t::SDT;
 		sdt_data.actual_network_id = services.original_network_id;
 		sdt_data.actual_ts_id = services.ts_id;
+		auto reader_mux = reader->stream_mux();
+		sdt_data.mux_key = *chdb::mux_key_ptr(reader_mux);
 	}
 
 	if (!info.timedout && services.original_network_id == sdt_data.actual_network_id)

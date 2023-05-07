@@ -1165,14 +1165,22 @@ bool devdb::lnb::update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 
 void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)
 {
+
+	tuned_frequency_offsets_key_t k{lnb.k, {}};
+	auto c = devdb::tuned_frequency_offsets_t::find_by_key(devdb_wtxn, k, find_type_t::find_geq,
+																												 tuned_frequency_offsets_t::partial_keys_t::lnb_key,
+																												 tuned_frequency_offsets_t::partial_keys_t::lnb_key);
+	for(; c.is_valid(); c.next()) {
+#ifndef NDEBUG
+		auto tst = c.current();
+		assert (tst.k.lnb_key == lnb.k);
+#endif
+		delete_record_at_cursor(c);
+	}
+
 	lnb.lof_offsets.resize(2);
 	lnb.lof_offsets[0] = 0;
 	lnb.lof_offsets[1] = 0;
-	tuned_frequency_offsets_t record;
-	record.k = {lnb.k, fe_band_t::LOW};
-	delete_record(devdb_wtxn, record);
-	record.k.band = fe_band_t::HIGH;
-	delete_record(devdb_wtxn, record);
 }
 
 

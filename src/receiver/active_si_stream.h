@@ -198,7 +198,6 @@ struct mux_data_t  {
 	bool have_nit{false};
 
 	chdb::any_mux_t mux{};
-	ss::string<32> mux_desc;
 
 	bool is_active_mux{false}; //the active mux is the one processing si data (embedded mux for t2mi; else tuned mux)
 
@@ -214,9 +213,7 @@ struct mux_data_t  {
 
 
 	mux_data_t(const chdb::any_mux_t& mux)
-		: mux(mux) {
-			chdb::to_str(mux_desc, mux);
-		}
+		: mux(mux) {}
 };
 
 struct sdt_data_t {

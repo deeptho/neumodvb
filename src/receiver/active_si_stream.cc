@@ -414,7 +414,6 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	if(!this->update_mux(wtxn, mux, now, is_active_mux /*is_reader_mux*/, is_tuned_freq, from_sdt, preserve))
 		return nullptr; //something went wrong, e.g., on wrong sat
 
-	ss::string<32> mux_desc;
 	assert (mux_key->sat_pos != sat_pos_none);
 
 	if(is_active_mux) {
@@ -453,7 +452,6 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	p_mux_data->is_active_mux = is_active_mux;
 	p_mux_data->is_tuned_freq = is_tuned_freq;
 	p_mux_data->mux = mux;
-	chdb::to_str(p_mux_data->mux_desc, mux);
 
 	//force loading database data, allowing  small differences in sat_pos
 	bool sat_pos_known = false;
@@ -540,10 +538,8 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 	if (!from_sdt && !is_embedded_si) {
 		reader->on_stream_mux_change(mux);
 	}
-	ss::string<32> mux_desc;
 
 	if (expected_sat_pos != sat_pos_none) {
-		chdb::to_str(mux_desc, mux);
 		// we overwrite any existing mux - if we are called, this means any existing mux must be wrong
 		auto [it, inserted] = nit_data.by_network_id_ts_id.insert_or_assign(std::make_pair(network_id, ts_id),
 																																				mux_data_t{mux});
@@ -551,7 +547,6 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 		p_mux_data->is_active_mux = true;
 		p_mux_data->is_tuned_freq = true;
 		p_mux_data->mux = mux;
-		chdb::to_str(p_mux_data->mux_desc, mux);
 
 		if(from_sdt && ! p_mux_data->have_sdt) {
 			p_mux_data->have_sdt = true;
@@ -2805,8 +2800,8 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 	assert(!chdb::is_template(stream_mux));
 	ss::string<32> mux_desc;
 	assert (stream_mux_key->sat_pos != sat_pos_none);
-	chdb::to_str(mux_desc, stream_mux);
 	int count{0};
+	chdb::to_str(mux_desc, stream_mux);
 
 	if (nit_data.by_network_id_ts_id.size()==1){
 		for(auto &[key, val]: nit_data.by_network_id_ts_id) {

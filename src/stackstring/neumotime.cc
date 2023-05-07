@@ -17,14 +17,14 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
-#include <memory.h>
-#include <time.h>
-
+#include "../util/dtassert.h"
 #include "../util/dtassert.h"
 #include "neumotime.h"
 #include "ssaccu.h"
 #include "xformat/ioformat.h"
+#include <memory.h>
+#include <time.h>
+
 
 std::ostream& operator<<(std::ostream& os, const milliseconds_t& a) {
 	int h, m, s, u;

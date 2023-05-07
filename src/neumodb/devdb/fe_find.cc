@@ -22,7 +22,8 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "stackstring/ssaccu.h"
-#include "xformat/ioformat.h"
+#include "util/dtassert.h"
+//#include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
 #include <signal.h>

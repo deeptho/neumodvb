@@ -19,7 +19,7 @@
  */
 
 #pragma once
-#include <cassert>
+#include "util/dtassert.h"
 #include "stackstring/stackstring.h"
 #include "util/safe/safe.h"
 

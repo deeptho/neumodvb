@@ -11,13 +11,13 @@
 
 #pragma once
 #include <thread>
+#include "util/dtassert.h"
 #include "accessmode.h"
 #include "defaulttypes.h"
 #include "mutableref.h"
 
 #include <type_traits>
 #include <utility>
-#include <cassert>
 
 #include "threads.h"
 

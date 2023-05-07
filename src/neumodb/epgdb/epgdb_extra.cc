@@ -17,7 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
+#include "util/dtassert.h"
 #include "epgdb_extra.h"
 #include "../chdb/chdb_extra.h"
 #include "date/date.h"

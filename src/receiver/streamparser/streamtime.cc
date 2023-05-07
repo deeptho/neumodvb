@@ -22,7 +22,7 @@
 	Used when reading data only to skip it
 */
 #define UNUSED __attribute__((unused))
-
+#include "util/dtassert.h"
 #include <iomanip>
 #include <iostream>
 

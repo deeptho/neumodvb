@@ -18,6 +18,7 @@
  *
  */
 #include "active_adapter.h"
+#include "util/dtassert.h"
 #include <memory>
 #include <atomic>
 #include <unistd.h>
@@ -27,7 +28,6 @@
 #include <errno.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
-#include <cassert>
 #include <mutex>
 #pragma once
 class embedded_stream_reader_t;

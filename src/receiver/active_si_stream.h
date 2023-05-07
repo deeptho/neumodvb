@@ -220,6 +220,7 @@ struct mux_data_t  {
 };
 
 struct sdt_data_t {
+	chdb::mux_key_t mux_key;
 	int actual_network_id{-1};
 	int actual_ts_id{-1};
 	ss::vector<chdb::service_t, 32> actual_services;

@@ -23,6 +23,7 @@
 */
 #define UNUSED __attribute__((unused))
 
+#include "util/dtassert.h"
 #include "psi.h"
 #include "packetstream.h"
 #include "section.h"
@@ -33,7 +34,7 @@
 #include "dvbtext.h"
 #include "opentv_string_decoder.h"
 #include "psi_impl.h"
-#include "xformat/ioformat.h"
+//#include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
 

@@ -18,7 +18,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
+#include "util/dtassert.h"
 #include "neumodb/recdb/recdb_extra.h"
 #include "stackstring/ssaccu.h"
 #include "xformat/ioformat.h"

@@ -484,7 +484,7 @@ void active_adapter_t::update_lof(devdb::lnb_t& lnb, int16_t sat_pos, chdb::fe_p
 
 	for(auto& o: offsets) {
 		if ((int)o.nit_frequency == nit_frequency) {
-			float learning_rate = 0.2;
+			float learning_rate = 0.5;
 			o.frequency_offset += learning_rate * (uncorrected_driver_freq - nit_frequency - o.frequency_offset);
 			found = true;
 			break;
@@ -579,8 +579,9 @@ void active_adapter_t::on_tuned_mux_change(const chdb::any_mux_t& mux) {
 	fe->update_tuned_mux_nit(mux);
 }
 
-void active_adapter_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) {
-	fe->update_bad_received_si_mux(mux);
+void active_adapter_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux,
+																							bool is_bad) {
+	fe->update_received_si_mux(mux, is_bad);
 }
 
 std::shared_ptr<stream_reader_t> active_adapter_t::make_dvb_stream_reader(ssize_t dmx_buffer_size) {
@@ -778,16 +779,16 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 	bool need_lof_offset_update{false};
 	{
 		auto w = fe->ts.writeAccess();
-		if(!w->tune_confirmation.nit_actual_received && tune_confirmation.nit_actual_received) {
-			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&w->reserved_mux);
-			if(dvbs_mux && (dvbs_mux->c.key_src == key_src_t::NIT_TUNED)) {
-				lnb = w->reserved_lnb;
-				need_lof_offset_update = true;
-				sat_pos = dvbs_mux->k.sat_pos;
-				pol = dvbs_mux->pol;
-				nit_frequency = dvbs_mux->frequency;
-				uncorrected_driver_freq = w->last_signal_info->uncorrected_driver_freq;
-			}
+		if(!w->tune_confirmation.nit_actual_received && tune_confirmation.nit_actual_received
+			 && w->received_si_mux && ! w->received_si_mux_is_bad)  {
+			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(& (*w->received_si_mux));
+			assert(dvbs_mux);
+			lnb = w->reserved_lnb;
+			need_lof_offset_update = true;
+			sat_pos = dvbs_mux->k.sat_pos;
+			pol = dvbs_mux->pol;
+			nit_frequency = dvbs_mux->frequency;
+			uncorrected_driver_freq = w->last_signal_info->uncorrected_driver_freq;
 		}
 		w->tune_confirmation = tune_confirmation;
 	}

@@ -1291,7 +1291,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		bool was_active = scan_state.set_active(cidx);
 		if (!was_active && network.is_actual) {
 			dtdebug("First NIT_ACTUAL data tuned_mux=" << reader->stream_mux());
-			reader->update_bad_received_si_mux(std::optional<chdb::any_mux_t>{});
+			reader->update_received_si_mux(std::optional<chdb::any_mux_t>{}, false /*is_bad*/);
 		}
 	}
 	auto* p_network_data = &nit_data.get_network(network.network_id);
@@ -1337,10 +1337,9 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			 updates reader->current_mux
 		 */
 		bool bad_si_mux = is_tuned_freq && ! is_active_mux; //not tsid in pat or tsid differs from the one in reader_mux
-		bad_si_mux |= (network.is_actual && ts_id_in_pat(mux_common_ptr(mux)->nit_ts_id));
-		if(bad_si_mux) {
-			reader->update_bad_received_si_mux(mux); //store the bad mux
-		}
+		bad_si_mux |= (network.is_actual && !ts_id_in_pat(mux_common_ptr(mux)->nit_ts_id));
+		if(is_active_mux)
+			reader->update_received_si_mux(mux, bad_si_mux); //store the bad mux
 
 		if (!can_be_tuned) {
 			continue;
@@ -2584,7 +2583,7 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 				 mux_key_ptr(signal_info.driver_mux)->mux_id == mux_key_ptr(mux)->mux_id);
 
 
-	*mux_common_ptr(signal_info.driver_mux) = 	*mux_common_ptr(mux); //override things like ts_id
+	*mux_common_ptr(signal_info.driver_mux) = 	*mux_common_ptr(mux); //overfride things like ts_id
 
 	auto& si_mux = mux;
 

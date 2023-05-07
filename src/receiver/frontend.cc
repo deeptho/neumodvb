@@ -417,7 +417,8 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 	const auto r = this->ts.readAccess();
 	const auto* dvbs_mux = std::get_if<dvbs_mux_t>(&r->reserved_mux);
 	ret.tune_confirmation = r->tune_confirmation;
-	ret.bad_received_si_mux = r->bad_received_si_mux;
+	ret.received_si_mux = r->received_si_mux;
+	ret.received_si_mux_is_bad = r->received_si_mux_is_bad;
 	ret.driver_mux = r->reserved_mux; //ensures that we return proper any_mux_t type for dvbc and dvbt
 	ret.stat.k.sat_pos = mux_key_ptr(r->reserved_mux)->sat_pos;
 	if (ret.tune_confirmation.si_done) {
@@ -938,9 +939,10 @@ void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 	w->reserved_mux = mux;
 }
 
-void dvb_frontend_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) {
+void dvb_frontend_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad) {
 	auto w = this->ts.writeAccess();
-	w->bad_received_si_mux = mux;
+	w->received_si_mux = mux;
+	w->received_si_mux_is_bad = is_bad;
 }
 
 

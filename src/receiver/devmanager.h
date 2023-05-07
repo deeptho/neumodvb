@@ -214,8 +214,8 @@ public:
 	chdb::any_mux_t reserved_mux;   /*mux as it is currently reserved. Will be updated with si data
 																		and will always contain the best confirmed-to-be-correct information
 																	*/
-	std::optional<chdb::any_mux_t> bad_received_si_mux; /* mux as received from the SI stream, but
-																												 only if it conflicts with reserved_mux */
+	std::optional<chdb::any_mux_t> received_si_mux; /* mux as received from the SI stream*/
+	bool received_si_mux_is_bad{false}; //true if content is deemed incorrect
 	devdb::lnb_t reserved_lnb; //lnb currently in use
 	devdb::rf_path_t reserved_rf_path; //rf_path currently in use
 
@@ -378,7 +378,7 @@ public:
 	int stop();
 	int start();
 	void update_tuned_mux_nit(const chdb::any_mux_t& mux);
-	void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
+	void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
 	inline void reset_tuned_mux_tune_confirmation() {
 		auto w = this->ts.writeAccess();
 		w->tune_confirmation = {};

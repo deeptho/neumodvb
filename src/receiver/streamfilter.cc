@@ -459,7 +459,8 @@ void embedded_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& mux) 
 	stream_filter->embedded_mux = mux;
 }
 
-void embedded_stream_reader_t::update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) {
+void embedded_stream_reader_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux,
+																											bool is_bad) {
 //noop
 }
 

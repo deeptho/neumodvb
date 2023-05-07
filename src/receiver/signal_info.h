@@ -124,7 +124,8 @@ struct signal_info_t {
 	chdb::any_mux_t driver_mux; /*contains only confirmed information, with information from driver
 													overriding that from si stream. Missing information is filled in with
 													confirmed information*/
-	std::optional<chdb::any_mux_t> bad_received_si_mux;
+	std::optional<chdb::any_mux_t> received_si_mux;
+	bool received_si_mux_is_bad{false};
 	int32_t bitrate{0};
 	int32_t locktime_ms{0};
 	statdb::signal_stat_t stat;

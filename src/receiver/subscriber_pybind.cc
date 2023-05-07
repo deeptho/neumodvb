@@ -393,11 +393,15 @@ void export_signal_info(py::module& m) {
 		}
 			, "Information received from driver"
 		)
-		.def_property_readonly("bad_received_si_mux", [](const signal_info_t& i) {
-
-			return &i.bad_received_si_mux;
+		.def_property_readonly("received_si_mux", [](const signal_info_t& i) {
+			return &i.received_si_mux;
 		}
-			, "NIT info as received from the current stream, but only if it conflicts with driver_mux"
+			, "NIT info as received from the current stream"
+			)
+		.def_property_readonly("received_si_mux_is_bad", [](const signal_info_t& i) {
+			return &i.received_si_mux_is_bad;
+		}
+			, "NIT info as received from the current stream is considered incorrect"
 			)
 		.def_property_readonly("min_snr", [](const signal_info_t& i) {
 			return (int)(chdb::min_snr(i.driver_mux)*1000);

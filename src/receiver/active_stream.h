@@ -117,7 +117,7 @@ public:
 	const tune_options_t& tune_options() const;
 
 	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux) =0;
-	virtual inline void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux) =0;
+	virtual inline void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad) =0;
 
 	virtual inline void set_current_tp(const chdb::any_mux_t& stream_mux) const = 0;
 	void  update_stream_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
@@ -184,7 +184,7 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const;
 	virtual chdb::any_mux_t stream_mux() const;
 	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux);
-	virtual inline void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
+	virtual inline void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
 
 	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
 	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux);
@@ -309,7 +309,7 @@ public:
 	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux);
 
 	virtual void on_stream_mux_change(const chdb::any_mux_t& mux);
-	virtual void update_bad_received_si_mux(const std::optional<chdb::any_mux_t>& mux);
+	virtual void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
 
 };
 

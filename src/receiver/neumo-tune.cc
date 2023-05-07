@@ -147,11 +147,11 @@ int band_for_freq(int32_t frequency)		{
 		break;
 
 	case WIDEBAND_LNB:
-		return lnb_wideband_lof;
+		return 0;
 		break;
 
 	case WIDEBAND_UK_LNB:
-		return lnb_wideband_uk_lof;
+		return 0;
 		break;
 
 	case C_LNB:

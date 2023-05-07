@@ -463,10 +463,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         return self.parent.OnClose(evt);
 
     def OnSdtInfoUpdate(self, sdt):
+        nid_tid_text = f'nid={sdt.network_id} tid={sdt.ts_id}:'
         ret =[]
         for s in sdt.services:
             ret.append(f'{s.name}')
-        self.si_sdt_services_text.SetLabel('; '.join(ret))
+        self.si_sdt_services_text.SetLabel(nid_tid_text + ('; '.join(ret)))
         w=self.si_sdt_services_text.GetParent().GetClientSize()[0]-50
         self.si_sdt_services_text.Wrap(w)
 
@@ -475,25 +476,23 @@ class TuneMuxPanel(TuneMuxPanel_):
         mux = signal_info.driver_mux
         sat_pos_confirmed = signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
         nit_valid = mux.c.tune_src == pychdb.tune_src_t.NIT_TUNED
+        if nit_valid !=  (signal_info.received_si_mux is not None and  not signal_info.received_si_mux_is_bad):
+            print(f'nit_valid={nit_valid}  received={signal_info.received_si_mux_is_bad}')
         pol = neumodbutils.enum_to_str(mux.pol)
         if self.signal_info.nit_received:
             if nit_valid:
                 self.si_freq_text.SetForegroundColour(wx.Colour('black'))
                 self.si_symbolrate_text.SetForegroundColour(wx.Colour('black'))
-                self.si_freq_text.SetLabel(f'{mux.frequency/1e3:,.3f} MHz {pol}'.replace(',', ' '))
-                self.si_symbolrate_text.SetLabel(f'{mux.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' '))
             else:
-                bad_nit = signal_info.bad_received_si_mux
                 self.si_freq_text.SetForegroundColour(wx.Colour('red'))
                 self.si_symbolrate_text.SetForegroundColour(wx.Colour('red'))
-                if bad_nit is not None:
-                    badpol = neumodbutils.enum_to_str(bad_nit.pol)
-                    self.si_freq_text.SetLabel(f'{bad_nit.frequency/1e3:,.3f} MHz {badpol}'.replace(',', ' '))
-                    self.si_symbolrate_text.SetLabel(f'{bad_nit.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' '))
-                else:
-                    self.si_freq_text.SetLabel(f'INVALID')
-                    self.si_symbolrate_text.SetLabel('')
-
+            m = mux if signal_info.received_si_mux is None else signal_info.received_si_mux
+            if m is not None:
+                self.si_freq_text.SetLabel(f'{m.frequency/1e3:,.3f} MHz {pol}'.replace(',', ' '))
+                self.si_symbolrate_text.SetLabel(f'{m.symbol_rate/1e3:,.0f} kS/s'.replace(',', ' '))
+            else:
+                self.si_freq_text.SetLabel(f'NO NIT')
+                self.si_symbolrate_text.SetLabel('')
         else:
             self.si_freq_text.SetLabel('')
             self.si_symbolrate_text.SetLabel('')
@@ -511,12 +510,14 @@ class TuneMuxPanel(TuneMuxPanel_):
             return
         else:
             pass
-        bad_nit = signal_info.bad_received_si_mux
+        received_nit = signal_info.received_si_mux
+        bad_nit = signal_info.received_si_mux_is_bad
         sat_text = f'{pychdb.sat_pos_str(mux.k.sat_pos)}' if sat_pos_confirmed else \
-            f'{pychdb.sat_pos_str(bad_nit.k.sat_pos)}' if bad_nit is not None else '??'
+            f'{pychdb.sat_pos_str(received_nit.k.sat_pos)}' if received_nit is not None else '??'
 
-        nid_text = f'{mux.c.network_id}' if nit_valid else f'{bad_nit.c.network_id}' if bad_nit is not None else '??'
-        tid_text = f'{mux.c.ts_id}' if nit_valid else f'{bad_nit.c.ts_id}'if bad_nit is not None else '??'
+        nid_text = f'{mux.c.nit_network_id}' if nit_valid else f'{received_nit.c.nit_network_id}' \
+            if received_nit is not None else '??'
+        tid_text = f'{mux.c.nit_ts_id}' if nit_valid else f'{received_nit.c.nit_ts_id}'if received_nit is not None else '??'
 
         if self.signal_info.nit_received:
             self.si_nit_ids_text.SetForegroundColour(wx.Colour('black' if nit_valid else 'red'))
@@ -685,15 +686,19 @@ class SignalPanel(SignalPanel_):
         if not self.speak_signal:
             return
         locked = self.signal_info.has_timing_lock
-        bad_nit = self.signal_info.bad_received_si_mux
+        received_nit = self.signal_info.received_si_mux
         mux = self.signal_info.driver_mux
-        nit_received = self.signal_info.nit_received
-        sat_pos = bad_nit.k.sat_pos if bad_nit else mux.k.sat_pos
+        received_nit = self.signal_info.nit_received
+        sat_pos_confirmed = signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
+        sat_pos = mux.k.sat_pos if sat_pos_confirmed else \
+            received_nit.k.sat_pos if received_nit is not None \
+            else mux.k.sat_pos
+
         snr = self.signal_info.snr/1000 if locked else None
         if snr is not None:
             if snr <= -1000.:
                 snr = None
-        self.speaker.speak(sat_pos, snr, nit_received)
+        self.speaker.speak(sat_pos, snr, received_nit)
 
     def SetDefaultLevels(self):
         self.snr_ranges=[0, 10, 12,  20]

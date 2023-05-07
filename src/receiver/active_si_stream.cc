@@ -2597,12 +2597,19 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 									auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
 									mux.k.t2mi_pid = p->k.t2mi_pid;
 									assert(p);
+									bool use_driver{false};
 									if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
 										//copy frequency and symbol_rate from si_mux
 										if(!driver_data_reliable || (std::abs((int)mux.frequency - (int) p->frequency) < 50))
 											mux.frequency = p->frequency;
-										if(!driver_data_reliable || (std::abs((int)mux.symbol_rate - (int) p->symbol_rate) < 10))
+										else
+											use_driver = true;
+										if(!driver_data_reliable || (std::abs((int)mux.symbol_rate - (int) p->symbol_rate) < 10000))
 											mux.symbol_rate = p->symbol_rate;
+										else
+											use_driver = true;
+										if(use_driver)
+											mux.c.tune_src = chdb::tune_src_t::DRIVER;
 									}
 
 									/*override user entered "auto" data in signal_info.mux modulation data,

@@ -18,7 +18,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
+#include "util/dtassert.h"
 #include "neumodb/statdb/statdb_extra.h"
 #include "../util/neumovariant.h"
 #include "date/date.h"

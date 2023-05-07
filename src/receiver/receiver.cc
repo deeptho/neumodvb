@@ -1964,7 +1964,7 @@ void receiver_thread_t::notify_sdt_actual(const sdt_data_t& sdt_data, dvb_fronte
 		signal. Each window is associated with a subscription. The message is passed on if the subscription's
 		active_adapter uses the lnb which is stored in the sdt_data message
 	 */
-	{
+	if(sdt_data.mux_key.t2mi_pid<0) { //only notify for physical SDT
 		auto mss = receiver.subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();

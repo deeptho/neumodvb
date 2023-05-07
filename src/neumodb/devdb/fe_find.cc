@@ -69,7 +69,7 @@ std::tuple<devdb::fe_t, int> fe::subscribe_fe_in_use(db_txn& wtxn, const fe_key_
 	int released_fe_usecount{0};
 	assert(fe.sub.use_count>=1);
 	++fe.sub.use_count;
-	assert(mux_key == fe.sub.mux_key);
+	assert(is_same_stream(mux_key, fe.sub.mux_key));
 	dtdebugx("adapter %d %d%s-%d %d use_count=%d", fe.adapter_no, fe.sub.frequency/1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.use_count);
 

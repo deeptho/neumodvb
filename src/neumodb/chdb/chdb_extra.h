@@ -374,6 +374,13 @@ namespace chdb {
 	bool matches_physical(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
 	bool matches_physical(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos, bool ignore_stream_id);
 
+	inline bool is_same_stream(mux_key_t a , const mux_key_t& b) {
+		a.t2mi_pid = b.t2mi_pid;
+		if(a.mux_id == 0 || b.mux_id==0) //tempplate
+			a.mux_id = b.mux_id;
+		return a == b;
+	}
+
 	inline int dvb_type(const chdb::any_mux_t& mux) {
 		auto sat_pos = chdb::mux_key_ptr(mux)->sat_pos;
 		if (sat_pos == sat_pos_dvbc || sat_pos == sat_pos_dvbt)

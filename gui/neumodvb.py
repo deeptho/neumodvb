@@ -18,9 +18,6 @@
 #
 import os
 import sys
-import os
-import wx.glcanvas #needed for the created mpvglcanvas
-import wx
 import gettext
 import signal
 from functools import lru_cache
@@ -39,6 +36,9 @@ import pystatdb
 import pyneumompv
 import pyreceiver
 pyneumompv.init_threads()
+
+import wx.glcanvas #needed for the created mpvglcanvas
+import wx
 
 from neumodvb.viewer_gui import mainFrame
 import time

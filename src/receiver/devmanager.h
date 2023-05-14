@@ -415,6 +415,15 @@ public:
 		return this->ts.readAccess()->dbfe;
 	}
 
+	inline auto get_subscription_ids() const {
+		ss::vector<subscription_id_t, 4> subscription_ids;
+		auto r = this->ts.readAccess();
+		for(auto& sub: r->dbfe.sub.subs) {
+			subscription_ids.push_back((subscription_id_t)sub.subscription_id);
+		}
+		return subscription_ids;
+	}
+
 	template<typename mux_t>
 	inline bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path,
 													bool ignore_t2mi_pid=false) const;
@@ -574,7 +583,9 @@ private:
 	api_type_t api_type { api_type_t::UNDEFINED };
 	int api_version{-1}; //1000 times the floating point value of version
 
-	std::map<std::tuple<adapter_no_t, frontend_no_t>, std::shared_ptr<dvb_frontend_t>>  frontends;
+	using frontend_map = std::map<std::tuple<adapter_no_t, frontend_no_t>, std::shared_ptr<dvb_frontend_t>>;
+	using safe_frontend_map = safe::thread_public_t<false, frontend_map>;
+	safe_frontend_map frontends{"receiver", thread_group_t::receiver, {}}; //frontends, indexed by (adapter_no, frontend_no)
 	int inotfd{-1};
 
 	virtual ~adaptermgr_t() = default; //to make dynamic_cast work
@@ -583,7 +594,7 @@ private:
 		{}
 
 	inline std::shared_ptr<dvb_frontend_t>	find_fe(const devdb::fe_key_t& fe_key) const {
-		auto [it, found] = find_in_map_if(frontends, [&fe_key](const auto& x) {
+		auto [it, found] = find_in_safe_map_if_with_owner_read_ref(frontends, [&fe_key](const auto& x) {
 			auto& [key_, fe] = x;
 			return (int64_t) fe->adapter_mac_address == fe_key.adapter_mac_address &&
 				(int) fe->frontend_no == fe_key.frontend_no;
@@ -615,6 +626,17 @@ public:
 	std::tuple<std::string, int> get_api_type() const;
 
 	void renumber_card(int old_number, int new_number);
+
+	inline std::shared_ptr<dvb_frontend_t>	fe_for_dbfe(const devdb::fe_key_t& fe_key) const {
+		auto [it, found] = find_in_safe_map_if(frontends, [&fe_key](const auto& x) {
+			auto& [key_, fe] = x;
+			return (int64_t) fe->adapter_mac_address == fe_key.adapter_mac_address &&
+				(int) fe->frontend_no == fe_key.frontend_no;
+		});
+		return found ? it->second : nullptr; //TODO
+	}
+
+
 
 	static std::shared_ptr<adaptermgr_t> make(receiver_t& receiver);
 };

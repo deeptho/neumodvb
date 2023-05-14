@@ -1618,7 +1618,7 @@ int dvb_frontend_t::release_fe() {
 		P = positoner  = 1.3 = usals
 		" "= 50 ms pause
 
-		Returns <0 on error, 0 of no diseqc command was sent, 1 if at least 1 diseqc command was sent
+		Returns <0 on error, 0 if no diseqc command was sent, 1 if at least 1 diseqc command was sent
 */
 std::tuple<int ,int>
 dvb_frontend_t::diseqc(bool skip_positioner) {
@@ -1719,7 +1719,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 				if (!lnb_network) {
 					dterror("No network found");
 				} else {// this is not usals!
-					new_usals_sat_pos =lnb_network->sat_pos;
+					new_usals_sat_pos = lnb_network->sat_pos;
 				}
 
 				ret = this->send_diseqc_message('X', lnb_network->diseqc12, 0, repeated);
@@ -1906,7 +1906,7 @@ dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const de
 	auto r = this->ts.readAccess();
 	if (new_lnb.k != r->reserved_lnb.k)
 		return {true, true};
-	if (!devdb::lnb::on_positioner(new_lnb))
+	if (!new_lnb.on_positioner)
 		return {false, true};
 	auto *conn = connection_for_rf_path(new_lnb, new_rf_path);
 	assert(conn);

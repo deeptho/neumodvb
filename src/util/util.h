@@ -31,6 +31,15 @@
 #include <sys/timerfd.h>
 #include "stackstring.h"
 
+#ifndef HIDDEN
+#define HIDDEN __attribute__((visibility("hidden")))
+#endif
+#ifndef EXPORT
+#define EXPORT __attribute__((visibility("default")))
+#endif
+
+
+
 extern "C" {
 off_t filesize_fd(int fd);
 }

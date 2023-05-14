@@ -36,6 +36,8 @@ unconvertable_int(int64_t, card_mac_address_t);
 unconvertable_int(int, adapter_no_t);
 unconvertable_int(int, frontend_no_t);
 
+
+
 namespace devdb {
 
 	using namespace devdb;
@@ -89,7 +91,8 @@ namespace devdb {
 
 namespace devdb::dish {
 	//dish objects do not really exist in the database, but curent state (usals_pos) is stored in all relevant lnbs
-	int update_usals_pos(db_txn& wtxn, devdb::lnb_t&lnb, int usals_pos, const devdb::usals_location_t& loc, int sat_pos);
+	int update_usals_pos(db_txn& wtxn, const devdb::lnb_t&lnb, int usals_pos,
+											 const devdb::usals_location_t& loc, int sat_pos);
 	bool dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos);
 };
 
@@ -130,6 +133,50 @@ namespace devdb {
 	};
 
 }
+
+struct subscribe_ret_t {
+
+	struct aa_t {
+		devdb::fe_t fe;
+		devdb::rf_path_t rf_path;
+		devdb::lnb_t lnb;
+	};
+		bool failed{false};
+
+	subscription_id_t subscription_id{subscription_id_t::NONE}; /*Current or existing subscription_id_t*/
+	bool was_subscribed{false};
+
+	subscription_id_t sub_to_reuse{subscription_id_t::NONE}; /*use this active_adapter without retuning
+																														 but may need to create a new active_service*/
+	bool retune{false}; /*retune adapter to different mux?
+												only relevant if aa_sub_to_reuse == our existing subscription_id*/
+
+	bool change_service{false}; /*if false, use the service of subscription with id aa_sub_to_reuse,
+																if true, then add a new service on this active_adapter;
+																only relevant if aa_sub_to_reuse != subscription_id_t::NONE*/
+
+	//value below only relevant if aa_sub_to_reuse  == subscription_id_t::NONE
+	std::optional<aa_t> newaa; /*create new active adapter*/
+
+	static std::atomic_int next_subscription_id; //initialised in fe_subscribe.cc
+
+	devdb::resource_subscription_counts_t use_counts;
+
+	inline  bool subscription_failed() const {
+		return failed;
+	}
+
+	subscribe_ret_t(subscription_id_t subscription_id_, bool failed) :
+		subscription_id(subscription_id_)
+		{
+			was_subscribed = ((int)subscription_id >=0);
+			if(subscription_id == subscription_id_t::NONE) {
+				subscription_id = (subscription_id_t) next_subscription_id.fetch_add(1, std::memory_order_relaxed);
+			}
+		}
+	subscribe_ret_t()
+		{}
+};
 
 namespace devdb {
 	namespace update_lnb_preserve_t {
@@ -229,24 +276,6 @@ namespace devdb::lnb {
 			return false;
 		}
 	}
-
-	inline bool on_positioner(const devdb::lnb_t& lnb)
-	{
-#if 0
-		for(const auto& conn: lnb.connections) {
-			switch(conn.rotor_control) {
-			case devdb::rotor_control_t::ROTOR_MASTER_USALS:
-			case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
-			case devdb::rotor_control_t::ROTOR_SLAVE:
-				return true;
-				break;
-		default:
-			break;
-			}
-		}
-#endif
-		return lnb.on_positioner;
-	}
 }
 
 namespace devdb::fe {
@@ -255,7 +284,7 @@ namespace devdb::fe {
 											 const devdb::fe_key_t* fe_to_release,
 											 bool need_blindscan, bool need_spectrum, bool need_multistream,
 											 chdb::fe_polarisation_t pol, fe_band_t band,
-											 int sat_pos, bool ignore_subscriptions, bool lnb_on_positioner);
+											 int sat_pos, bool ignore_subscriptions);
 
 	std::optional<devdb::fe_t>
 	find_best_fe_for_dvtdbc(db_txn& rtxn,
@@ -296,22 +325,39 @@ namespace devdb::fe {
 		return false;
 	}
 
-	int unsubscribe(db_txn& wtxn, const fe_key_t& fe_key, fe_t* fe_ret=nullptr);
-	int unsubscribe(db_txn& wtxn, fe_t& fe);
+	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_key, fe_t* fe_ret=nullptr);
+	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, fe_t& fe);
+	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id);
 
-	int reserve_fe_lnb_for_mux(db_txn& wtxn, devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-														 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
+	template<typename mux_t>
+	int reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
+												devdb::fe_t& fe,  const mux_t& mux, const chdb::service_t* service);
+
+	int reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
+														 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
+														 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+														 const chdb::service_t* service);
 
 
-	int reserve_fe_lnb_exclusive(db_txn& wtxn, devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
+	int reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_id,
+															 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
 															 const devdb::lnb_t& lnb);
 	template<typename mux_t>
-	int reserve_fe_for_mux(db_txn& wtxn, devdb::fe_t& fe, const mux_t& mux);
+	int reserve_fe_for_mux(db_txn& wtxn, subscription_id_t subscription_id, devdb::fe_t& fe,
+												 const mux_t& mux, const chdb::service_t* service);
+
+	template <typename mux_t>
+	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
+																									 fe_t& fe, const mux_t& mux,
+																									 const chdb::service_t* service,
+																									 const devdb::fe_key_t* fe_key_to_release);
+
 
 	template<typename mux_t>
 	std::tuple<std::optional<devdb::fe_t>, int>
-	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, const devdb::fe_key_t* fe_key_to_release,
-														 bool use_blind_tune);
+	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscription_id, const mux_t& mux,
+														 const chdb::service_t* service,
+														 const devdb::fe_key_t* fe_key_to_release, bool use_blind_tune);
 
 	bool can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																			const devdb::rf_path_t* required_conn_key,
@@ -320,18 +366,55 @@ namespace devdb::fe {
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 						 resource_subscription_counts_t, int>
-	subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
+	subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscription_id, const chdb::dvbs_mux_t& mux,
+														 const chdb::service_t* service,
 														 const devdb::rf_path_t* required_conn_key, const devdb::fe_key_t* fe_key_to_release,
 														 bool use_blind_tune, bool may_move_dish, int dish_move_penalty, int resource_reuse_bonus);
 
-	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, bool use_blind_tune);
+	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn,
+																															 const mux_t& mux, bool use_blind_tune);
 
-		std::tuple<std::optional<devdb::fe_t>, int>
-		subscribe_lnb_exclusive(db_txn& wtxn,  const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+	std::tuple<std::optional<devdb::fe_t>, int>
+	subscribe_lnb_exclusive(db_txn& wtxn,  subscription_id_t subscription_id,
+													const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 													const devdb::fe_key_t* fe_key_to_release,
-													bool need_blind_tune, bool need_spectrum);
-	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, const fe_key_t& fe_key,const chdb::mux_key_t &mux_key,
+													bool need_blind_tune, bool need_spectrum,
+													const devdb::usals_location_t& loc);
+	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
+																									 const fe_key_t& fe_key,const chdb::mux_key_t &mux_key,
 																									 const devdb::fe_key_t* fe_key_to_release);
+
+
+
+	subscribe_ret_t subscribe(db_txn& wtxn, subscription_id_t subscription_id,
+														const devdb::rf_path_t* required_rf_path,
+														const chdb::dvbs_mux_t* mux,
+														const chdb::service_t* service,
+														bool use_blind_tune, bool may_move_dish,
+														int dish_move_penalty, int resource_reuse_bonus,
+														bool need_blindscan, bool need_spectrum, const devdb::usals_location_t& loc);
+
+	template<typename mux_t>
+	subscribe_ret_t
+	subscribe(db_txn& wtxn, subscription_id_t subscription_id,
+						const mux_t* mux,
+						const chdb::service_t* service,
+						bool use_blind_tune,
+						int resource_reuse_bonus,
+						bool need_blindscan);
+
+	std::tuple<std::optional<devdb::fe_t>, int>
+	matching_existing_subscription(db_txn& wtxn, const devdb::rf_path_t* required_rf_path,
+																 const chdb::dvbs_mux_t* mux,
+																 const chdb::service_t* service,
+																 bool match_mux_only);
+
+	template<typename mux_t>
+	std::tuple<std::optional<devdb::fe_t>, int>
+	matching_existing_subscription(db_txn& wtxn,
+																 const mux_t* mux,
+																 const chdb::service_t* service,
+																 bool match_mux_only);
 };
 
 

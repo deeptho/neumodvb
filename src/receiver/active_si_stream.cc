@@ -2042,7 +2042,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sd
 			process_removed_services(wtxn, p_mux_data->mux, service_ids);
 			dtdebugx("Notifying SDT ACTUAL");
 			auto& aa = active_adapter();
-			receiver.receiver_thread.notify_sdt_actual(sdt_data, aa.fe.get());
+			receiver.notify_sdt_actual(sdt_data, aa.fe->get_subscription_ids());
 		}
 
 		//Save statistics

@@ -18,7 +18,6 @@
  *
  */
 #include "util/dtassert.h"
-
 #include "si_state.h"
 #include "mpeg.h"
 #include "neumodb/chdb/chdb_extra.h"

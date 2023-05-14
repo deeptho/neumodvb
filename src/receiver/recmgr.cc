@@ -22,6 +22,7 @@
 #include "active_service.h"
 #include "receiver.h"
 #include <filesystem>
+#include <signal.h>
 namespace fs = std::filesystem;
 
 /*
@@ -47,7 +48,8 @@ recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, const chdb::service_
 	assert(epgrec.rec_status != epgdb::rec_status_t::IN_PROGRESS);
 
 	epgrec.rec_status = epgdb::rec_status_t::SCHEDULED;
-	auto rec = rec_t(rec_type, (int)subscription_id, stream_time_start, stream_time_end, real_time_start, real_time_end,
+	auto rec = rec_t(rec_type, -1 /*owner*/, (int)subscription_id, stream_time_start, stream_time_end,
+									 real_time_start, real_time_end,
 									 pre_record_time, post_record_time, filename, service, epgrec, {});
 	put_record(rec_wtxn, rec);
 
@@ -631,7 +633,7 @@ void rec_manager_t::stop_recordings(db_txn& rtxn, system_time_t now_) {
 		if (rec.epg.end_time + rec.post_record_time < now) {
 			next_recording_event_time = std::min(next_recording_event_time, rec.epg.end_time + rec.post_record_time);
 			dtdebug("END recording " << rec);
-			receiver.stop_recording(rec);
+			receiver.tuner_thread.stop_recording(rec);
 			rec.epg.rec_status = epgdb::rec_status_t::FINISHING;
 			update_recording(rec);
 		}
@@ -691,6 +693,9 @@ void rec_manager_t::start_recordings(db_txn& rtxn, system_time_t now_) {
 				}
 
 				rec.epg.rec_status = rec_status_t::IN_PROGRESS;
+				rec.owner = getpid();
+				subscribe_ret_t sret{subscription_id_t::NONE, false/*failed*/};
+				rec.subscription_id = (int)sret.subscription_id;
 				update_recording(rec); // must be done now to avoid starting the same recording twice
 				receiver.start_recording(rec);
 			}
@@ -731,11 +736,19 @@ rec_manager_t::rec_manager_t(receiver_t& receiver_)
 	: receiver(receiver_) {
 }
 
-void rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
+
+/*
+	returns true if a recording is active, but not in our process
+ */
+static inline bool not_ours_and_active(recdb::rec_t & rec) {
+	return rec.owner != 0 && rec.owner != getpid() && !kill((pid_t)rec.owner,0);
+}
+
+int rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
 	auto x = to_str(epg_record);
 	dtdebugx("toggle_recording: %s", x.c_str());
 	int ret = -1;
-
+	bool error{false};
 	auto txn = receiver.recdb.rtxn();
 
 	//returns true if record was found
@@ -743,19 +756,24 @@ void rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb
 		// look up the recording
 		bool found{false};
 		if (auto rec = recdb::rec::best_matching(txn, epg_record, anonymous)) {
+			if(not_ours_and_active(*rec)) {
+				user_error("Cannot change recording of other process: " << *rec);
+				error |= true;
+				return false;
+			}
 			switch (rec->epg.rec_status) {
 			case epgdb::rec_status_t::SCHEDULED: {
 				dtdebug("Toggle: Remove existing (not yet started) recording " << to_str(*rec));
 				// recording has not yet started,
 				ret = delete_schedrec(*rec);
-					break;
+				break;
 			}
 
 			case epgdb::rec_status_t::FINISHING:
 				break;
 			case epgdb::rec_status_t::IN_PROGRESS: {
 				dtdebug("Toggle: Stop running recording " << to_str(*rec));
-				receiver.stop_recording(*rec);
+				receiver.tuner_thread.stop_recording(*rec);
 				rec->epg.rec_status = epgdb::rec_status_t::FINISHED;
 				update_recording(*rec);
 				break;
@@ -783,6 +801,10 @@ void rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb
 			: new_schedrec(service, epg_record);
 		return true;
 	};
+	if(error) {
+		txn.abort();
+		return -1;
+	}
 	bool found{false};
 	if (!epg_record.k.anonymous)
 		found = fn(false);
@@ -791,6 +813,7 @@ void rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb
 		fn(true);
 	}
 	txn.commit();
+	return 0;
 }
 
 void mpm_recordings_t::open(const char* name) {

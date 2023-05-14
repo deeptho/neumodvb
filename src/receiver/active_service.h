@@ -44,7 +44,8 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 	friend class service_thread_t;
 	friend class open_channel_parser_t;
 	friend class active_mpm_t;
-
+	rec_manager_t& recmgr;
+	tuner_thread_t& tuner_thread;
 	mutable std::mutex mutex;
 	//the following fields can be modified and should not be accessed/modified without locikng a mutex
 	chdb::service_t current_service; //current channel
@@ -115,15 +116,12 @@ private:
 	void close();
 
 		//void process_psi(int pid, unsigned char* payload, int payload_size);
-	active_service_t(active_adapter_t& active_adapter, const std::shared_ptr<stream_reader_t>& reader);
+	active_service_t(rec_manager_t& recmgr, active_adapter_t& active_adapter, const std::shared_ptr<stream_reader_t>& reader);
 
-	active_service_t(active_adapter_t& active_adapter, const chdb::service_t& ch,
+	active_service_t(rec_manager_t& recmgr, active_adapter_t& active_adapter, const chdb::service_t& ch,
 									 const std::shared_ptr<stream_reader_t>& reader);
 
-	virtual ~active_service_t() final {
-		dtdebug("destructor\n");
-	}
-
+	virtual ~active_service_t() final;
 
 	virtual  ss::string<32> name() const;
 	void housekeeping(system_time_t now); //periodically called to remove old data in timeshift buffer
@@ -139,5 +137,9 @@ private:
 	std::unique_ptr<playback_mpm_t> make_client_mpm(subscription_id_t subscription_id);
 
 	bool need_decryption();
+
+	std::optional<recdb::rec_t>
+	start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec);
+
 
 };

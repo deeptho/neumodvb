@@ -247,7 +247,7 @@ void neumodb_t::open_(const char* dbpath, bool allow_degraded_mode, const char* 
 	} catch (...) {
 		dterrorx("Fatal error opening lmdb database %s", dbpath);
 		is_open_ = false;
-		assert(0);
+		return;
 	}
 	if (load_and_check_schema() < 0) {
 		if (allow_degraded_mode) {

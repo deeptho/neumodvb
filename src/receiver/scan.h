@@ -237,7 +237,6 @@ struct scan_subscription_t {
 	blindscan_key_t blindscan_key;
 	chdb::spectral_peak_t peak;
 	std::optional<chdb::any_mux_t> mux;
-	devdb::fe_key_t fe_key;
 	bool is_peak_scan{false}; //true if we scan the peak rather than a corresponding mux in the db
 };
 
@@ -362,7 +361,7 @@ class scanner_t {
 
 	int add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
 								bool init, subscription_id_t subscription_id);
-	void unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
+	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 												db_txn& devdb_wtxn, subscription_id_t scan_subscription_id);
 
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
@@ -387,6 +386,6 @@ public:
 	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,
 													const signal_info_t& signal_info);
 	void notify_sdt_actual(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,
-												 const sdt_data_t& sdt_data, dvb_frontend_t* fe);
+												 const sdt_data_t& sdt_data);
 
 };

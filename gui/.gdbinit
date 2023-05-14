@@ -17,7 +17,7 @@ set args neumodvb.py
 dir $cdir:../
 set logging file /tmp/x.log
 set logging enabled on
-#set debuginfod enabled off
+set debuginfod enabled off
 set pagination off
 source prettyprint.py
 set print pretty

@@ -33,6 +33,14 @@
 #include "streamparser/psi.h"
 #include "util/safe/safe.h"
 #include "scan.h"
+
+#ifndef HIDDEN
+#define HIDDEN __attribute__((visibility("hidden")))
+#endif
+#ifndef EXPORT
+#define EXPORT __attribute__((visibility("default")))
+#endif
+
 struct wxWindow;
 struct spectrum_scan_t;
 
@@ -58,7 +66,9 @@ class subscriber_t
 	subscription_id_t subscription_id{-1};
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
+#if 0
 	std::weak_ptr<active_adapter_t> active_adapter; //set if subscribed to specific mux
+#endif
 public:
 	enum class event_type_t : uint32_t {
 		ERROR_MSG  = (1<<0),
@@ -82,44 +92,54 @@ public:
 		return subscription_id;
 	}
 	template<typename T> void notify(const T& data) const;
-	static pybind11::object handle_to_py_object(int64_t handlle);
+	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);
 
 	void notify_error(const ss::string_& errmsg);
 	void notify_scan_start(const scan_stats_t& scan_stats);
 	void notify_scan_mux_end(const scan_report_t& report);
-	void notify_sdt_actual(const sdt_data_t& sdt_data, dvb_frontend_t* fe, bool from_scanner) const;
-	void notify_signal_info(const signal_info_t& info, bool from_scanner) const;
-	void notify_spectrum_scan(const statdb::spectrum_t& spectrum);
+	void notify_sdt_actual(const sdt_data_t& sdt_data) const;
+	void notify_sdt_actual(const sdt_data_t& sdt_data,
+												 const ss::vector_<subscription_id_t>& subscription_ids) const;
 
-	subscriber_t(receiver_t* receiver, wxWindow* window);
-	static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window);
+	void notify_signal_info(const signal_info_t& info) const;
+	void notify_signal_info(const signal_info_t& info,
+													const ss::vector_<subscription_id_t>& subscription_ids) const;
 
-	~subscriber_t();
+	void notify_spectrum_scan(const statdb::spectrum_t& spectrum,
+														const ss::vector_<subscription_id_t>& subscription_ids);
 
-	int unsubscribe();
-	void update_current_lnb(const devdb::lnb_t & lnb);
+	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window);
+	EXPORT static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window);
+
+	EXPORT ~subscriber_t();
+
+	EXPORT int unsubscribe();
+	EXPORT void update_current_lnb(const devdb::lnb_t & lnb);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(const chdb::service_t& service);
 
 	template <typename _mux_t>
 	int subscribe_mux(const _mux_t& mux, bool blindscan);
 
-	int subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode);
-	int subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
-														const pls_search_range_t& pls_search_range, retune_mode_t retune_mode);
-	int subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
-												 int32_t low_freq, int32_t high_freq,
-												 int sat_pos=sat_pos_none);
+	EXPORT int subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode);
 
-	int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
+	EXPORT int subscribe_lnb_and_mux(
+		devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
+		const pls_search_range_t& pls_search_range, retune_mode_t retune_mode);
+	EXPORT int subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
+																int32_t low_freq, int32_t high_freq,
+																int sat_pos=sat_pos_none);
+
+	EXPORT int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key);
-	int scan_muxes(const ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
+	EXPORT int scan_muxes(const ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 								 const ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
 								 const ss::vector_<chdb::dvbt_mux_t> dvbt_muxes);
 
-	int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
+	EXPORT int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
+#if 0
 	int get_adapter_no() const;
-
+#endif
 	std::unique_ptr<playback_mpm_t> subscribe_recording(const recdb::rec_t& rec);
 
 };

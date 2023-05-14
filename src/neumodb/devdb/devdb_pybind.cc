@@ -54,9 +54,6 @@ static void export_lnb_extra(py::module& m) {
 		.def("can_move_dish", &lnb::can_move_dish,
 				 "Returns true if this lnb connection can move the dish",
 				 py::arg("lnb_connection"))
-		.def("on_positioner", &lnb::on_positioner,
-				 "Returns true if this lnb is on a positioner",
-				 py::arg("lnb"))
 		.def("reset_lof_offset", &lnb::reset_lof_offset,
 				 "reset the LOF offset to 0",
 				 py::arg("devdb_wtxn"),
@@ -117,6 +114,7 @@ PYBIND11_MODULE(pydevdb, m) {
 
 	using namespace chdb;
 	export_ss_vector(m, fe_band_pol_t);
+	export_ss_vector(m, subscription_data_t);
 
 	m.def("lnb_can_tune_to_mux", &lnb_can_tune_to_mux_helper,
 				 "check if lnb can tune to mux; returns true/false and optional error string", py::arg("lnb"), py::arg("mux"),

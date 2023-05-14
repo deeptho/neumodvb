@@ -274,7 +274,7 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 	if(dbfe_old.sub.owner != -1 && dbfe_old.sub.owner != getpid() && kill((pid_t)dbfe_old.sub.owner, 0)) {
 		dtdebugx("process pid=%d has died\n", dbfe_old.sub.owner);
 		t.dbfe.sub.owner = -1;
-		t.dbfe.sub.use_count = 0;
+		t.dbfe.sub.subs.clear();
 		changed = true;
 	}
 
@@ -317,7 +317,9 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 		w->dbfe.can_be_used = true;
 		update_dbfe(fe->adapter_no, fe->frontend_no, *w);
 	}
-	frontends.try_emplace({adapter_no, frontend_no}, fe);
+	{auto w = frontends.writeAccess();
+		w->try_emplace({adapter_no, frontend_no}, fe);
+	}
 
 	// adapter->update_adapter_can_be_used();
 	frontend_map.emplace(wd, fe);
@@ -338,8 +340,7 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) {
 	//@todo: stop all active muxes and active services
 	fe->stop_frontend_monitor_and_wait();
 	frontend_map.erase(it);
-	dtdebugx("delete frontend adapter %d fe=%d wd=%d count=%ld\n", (int)fe->adapter_no, (int)fe->frontend_no, event->wd,
-					 frontends.size());
+	dtdebugx("delete frontend adapter %d fe=%d wd=%d\n", (int)fe->adapter_no, (int)fe->frontend_no, event->wd);
 	{
 		auto w = fe->ts.writeAccess();
 		w->dbfe.can_be_used = false;
@@ -347,8 +348,9 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) {
 		w->dbfe.can_be_used = false;
 		update_dbfe(fe->adapter_no, fe->frontend_no, *w);
 	}
-	frontends.erase({fe->adapter_no, fe->frontend_no});
-	// adapter->update_adapter_can_be_used();
+	{ auto w = frontends.writeAccess();
+	w->erase({fe->adapter_no, fe->frontend_no});
+	}
 }
 
 void dvbdev_monitor_t::discover_frontends(adapter_no_t adapter_no) {
@@ -496,10 +498,11 @@ int dvbdev_monitor_t::start() {
 
 int dvbdev_monitor_t::stop() {
 	// special type of for loop because monitors map will be erased and iterators are invalidated
-	for (auto& [key, fe]:  frontends) {
-		fe->stop_frontend_monitor_and_wait();
+	{ auto r = frontends.owner_read_ref();
+		for (auto& [key, fe]: r) {
+			fe->stop_frontend_monitor_and_wait();
+		}
 	}
-
 	{ //mark all live stat_info_t records as none live
 		auto wtxn = receiver.statdb.wtxn();
 		statdb::clean_live(wtxn);
@@ -528,7 +531,8 @@ void dvbdev_monitor_t::disable_missing_adapters() {
 	for (auto fe : c.range()) {
 		bool found{false};
 		//check if an frontend with the correct key is present
-		for (const auto& [k, present_fe]: frontends) {
+		auto r = frontends.owner_read_ref();
+		for (const auto& [k, present_fe]: r) {
 			auto ts = present_fe->ts.readAccess();
 			if(ts->dbfe.k ==  fe.k) {
 				found = true;
@@ -597,8 +601,9 @@ bool dvbdev_monitor_t::renumber_cards() {
 			changed = true;
 			put_record(devdb_wtxn, dbfe);
 		}
-		auto it = frontends.find({(adapter_no_t)dbfe.adapter_no, (frontend_no_t)dbfe.k.frontend_no});
-		if(it != frontends.end())  {
+		auto [it, found] = find_in_safe_map_with_owner_read_ref(
+			frontends, std::tuple{(adapter_no_t)dbfe.adapter_no, (frontend_no_t)dbfe.k.frontend_no});
+		if(found)  {
 			auto& fe =*it->second;
 			auto w = fe.ts.writeAccess();
 			w->dbfe.card_no = dbfe.card_no;
@@ -656,8 +661,9 @@ void dvbdev_monitor_t::renumber_card(int old_number, int new_number) {
 			dbfe.card_no = new_number;
 			put_record(devdb_wtxn, dbfe);
 		}
-		auto it = frontends.find({(adapter_no_t)dbfe.adapter_no, (frontend_no_t)dbfe.k.frontend_no});
-		if(it != frontends.end())  {
+		auto [it, found] = find_in_safe_map_with_owner_read_ref(
+			frontends, std::tuple{(adapter_no_t)dbfe.adapter_no, (frontend_no_t)dbfe.k.frontend_no});
+		if(found)  {
 			auto& fe =*it->second;
 			auto w = fe.ts.writeAccess();
 			w->dbfe.card_no = dbfe.card_no;

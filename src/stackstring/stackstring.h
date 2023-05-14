@@ -670,7 +670,6 @@ namespace ss {
 		}
 
 		vector& operator=(const vector&) = default;
-
 	};
 
 	class string_ : public databuffer_<char> {

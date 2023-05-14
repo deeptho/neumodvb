@@ -115,7 +115,7 @@ struct fe_lock_status_t {
 		}
 		return is_locked() && matype >=0 && // otherwise we do not know matype yet
 			(matype == 256 || //dvbs
-			 (matype >> 6) == 3); //not a transport stream
+			 (matype >> 6) == 3); //a transport stream
 		}
 };
 

@@ -53,8 +53,10 @@ class receiver_t;
 
 class rec_manager_t {
 	friend class tuner_thread_t;
-	receiver_t& receiver;
 
+public:
+	receiver_t& receiver;
+private:
 	recdb::rec_t new_recording(db_txn& rec_wtxn, const chdb::service_t& service, epgdb::epg_record_t& epg_record,
 														 int pre_record_time, int post_record_time);
 	recdb::rec_t new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn, const chdb::service_t& service, epgdb::epg_record_t& epg_record,
@@ -91,7 +93,7 @@ public:
 	void remove_live_buffer(active_service_t& active_service);
 	rec_manager_t(receiver_t&receiver_);
 
-	void toggle_recording(const chdb::service_t& service,
+	int toggle_recording(const chdb::service_t& service,
 											 const epgdb::epg_record_t& epg_record) CALLBACK;
 	void remove_livebuffers();
 	void update_recording(const recdb::rec_t& rec_in);

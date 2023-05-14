@@ -126,6 +126,7 @@ rec = db_struct(name='rec',
                      fields = (
                          (1, 'rec_type_t', 'rec_type'),                                                   #0
                          #(2, 'rec_status_t',  'status'), #in progress, scheduled, ... (included in epg)  #1
+                         (14, 'int32_t', 'owner', -1),
                          (3, 'int32_t', 'subscription_id'), #temporarily used during recording            #2
                          #in milliseconds, relative to start tuning service
                          (4, 'milliseconds_t', 'stream_time_start'),                                      #6

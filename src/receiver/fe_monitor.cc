@@ -71,7 +71,7 @@ void fe_monitor_thread_t::monitor_signal() {
 						<< " CNR: " << (e.snr * 1e-3) << "dB");
 	}
 	dttime_init();
-	receiver.notify_signal_info(info);
+	receiver.notify_signal_info(info, fe->get_subscription_ids());
 	dttime(200);
 	{
 		auto w = fe->signal_monitor.writeAccess();
@@ -129,7 +129,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 			auto c = statdb::spectrum_t::find_by_key(txn, spectrum.k);
 			put_record(txn, spectrum);
 			txn.commit();
-			receiver.notify_spectrum_scan(spectrum);
+			receiver.notify_spectrum_scan(spectrum, fe->get_subscription_ids());
 		}
 	}
 

@@ -44,15 +44,13 @@ subscriber_t::~subscriber_t() {
 }
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service(const chdb::service_t& service) {
-	auto mpm =
-		receiver->subscribe_service(service, subscription_id);
+	auto mpm = receiver->subscribe_service(service, subscription_id);
 	if (!mpm.get()) {
 		subscription_id = subscription_id_t{-1};
-		active_adapter.reset();
 		notify_error(get_error());
 	} else {
 		subscription_id = mpm->subscription_id;
-		active_adapter = receiver->active_adapter_for_subscription(subscription_id);
+		assert((int)subscription_id  >=0);
 	}
 	return mpm;
 }
@@ -66,14 +64,12 @@ int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 		return (int) ret;
 	}
 	subscription_id = ret;
-	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
 }
 
 int subscriber_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode) {
 	subscription_id = (subscription_id_t)
 		receiver->subscribe_lnb(rf_path, lnb, retune_mode, subscription_id);
-	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
 }
 
@@ -82,7 +78,6 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 																				const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
 	subscription_id = receiver->subscribe_lnb_and_mux(rf_path, lnb, mux, blindscan, pls_search_range, retune_mode,
 																										subscription_id);
-	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
 }
 
@@ -134,26 +129,30 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 }
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::rec_t& rec) {
-	auto mpm = 		receiver->subscribe_recording(rec, subscription_id);
+	auto mpm = 		receiver->subscribe_playback(rec, subscription_id);
 	if (!mpm.get()) {
 		subscription_id = subscription_id_t::NONE;
-		active_adapter.reset();
 	} else {
 		subscription_id = mpm->subscription_id;
 	}
-	active_adapter.reset();
 	return mpm;
 }
 
 void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	auto& tuner_thread = receiver->tuner_thread;
-	auto aaptr = active_adapter.lock();
-	if (!aaptr)
-		return; // can happen when called from gui
-	auto& aa = *aaptr;
 	//call by reference ok because of subsequent wait_for_all
-	tuner_thread.push_task([&lnb, &tuner_thread, &aa]()
-		{ return cb(tuner_thread).update_current_lnb(aa, lnb); }).wait();
+	auto subscription_id = this->subscription_id;
+	bool usals_pos_changed{false};
+	tuner_thread.push_task([&lnb, &tuner_thread, subscription_id, &usals_pos_changed]()
+		{ usals_pos_changed = cb(tuner_thread).update_current_lnb(subscription_id, lnb);
+			return 0;
+		}).wait();
+	if(usals_pos_changed) {
+		auto& receiver_thread = receiver->receiver_thread;
+		receiver_thread.push_task([&lnb, &receiver_thread]() { cb(receiver_thread).update_usals_pos(lnb);
+				return 0;
+			}).wait();
+	}
 }
 
 int subscriber_t::unsubscribe() {
@@ -164,7 +163,6 @@ int subscriber_t::unsubscribe() {
 	}
 	dtdebug("calling receiver->unsubscribe");
 	subscription_id = receiver->unsubscribe(subscription_id);
-	active_adapter.reset();
 	assert((int) subscription_id < 0);
 	dtdebug("calling receiver->unsubscribe -1");
 
@@ -184,14 +182,12 @@ int subscriber_t::unsubscribe() {
 }
 
 int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
-	auto aaptr = active_adapter.lock();
-	if (!aaptr)
-		return -1;
 	auto& tuner_thread = receiver->tuner_thread;
 	int ret = -1;
 	tuner_thread //call by reference ok because of subsequent wait_for_all
-		.push_task([aaptr, &tuner_thread, cmd, par, &ret]() { // epg_record passed by value
-			ret = cb(tuner_thread).positioner_cmd(aaptr, cmd, par);
+		.push_task([subscription_id = this->subscription_id,
+								&tuner_thread, cmd, par, &ret]() { // epg_record passed by value
+			ret = cb(tuner_thread).positioner_cmd(subscription_id, cmd, par);
 			return 0;
 		})
 		.wait();
@@ -201,30 +197,32 @@ int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 int subscriber_t::subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																		 chdb::fe_polarisation_t pol, int32_t low_freq,
 																		 int32_t high_freq, int sat_pos) {
-	active_adapter.reset();
 
 	subscription_id = receiver->subscribe_lnb_spectrum(rf_path, lnb, pol, low_freq, high_freq, sat_pos,
 																										 subscription_id);
-	active_adapter = receiver->active_adapter_for_subscription(subscription_id);
 	return (int) subscription_id;
 }
 
+#if 0
 int subscriber_t::get_adapter_no() const {
 	auto aaptr = active_adapter.lock();
 	return aaptr ? aaptr->get_adapter_no() : -1;
 }
+#endif
 
-void subscriber_t::notify_signal_info(const signal_info_t& signal_info, bool from_scanner) const {
+void subscriber_t::notify_signal_info(const signal_info_t& signal_info) const {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
-	if (from_scanner) {
+	notify(signal_info);
+}
+
+void subscriber_t::notify_signal_info(const signal_info_t& signal_info,
+																			const ss::vector_<subscription_id_t>& subscription_ids) const {
+	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
+		return;
+	if(subscription_ids.contains(subscription_id)) {
+		/* GUI tuned to a specific mux, e.g., positioner_dialog*/
 		notify(signal_info);
-	} else {
-		auto aaptr = active_adapter.lock();
-		if(aaptr && aaptr->fe.get() == signal_info.fe) {
-			/* GUI tuned to a specific mux, e.g., positioner_dialog*/
-			notify(signal_info);
-		}
 	}
 }
 
@@ -240,19 +238,22 @@ void subscriber_t::notify_scan_mux_end(const scan_report_t& report) {
 	notify(report);
 }
 
-void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data, dvb_frontend_t* fe, bool from_scanner) const
+void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data,
+																		 const ss::vector_<subscription_id_t>& subscription_ids) const
 {
 	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))
 		return;
-	if (from_scanner) {
+	if(subscription_ids.contains(subscription_id)) {
+		/* GUI tuned to a specific mux, e.g., positioner_dialog*/
 		notify(sdt_data);
-	} else {
-		auto aaptr = active_adapter.lock();
-		if (aaptr && aaptr->fe.get() == fe) {
-			/* GUI tuned to a specific mux, e.g., positioner_dialog*/
-			notify(sdt_data);
-		}
 	}
+}
+
+void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data) const
+{
+	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))
+		return;
+	notify(sdt_data);
 }
 
 void subscriber_t::notify_error(const ss::string_& errmsg) {
@@ -262,11 +263,11 @@ void subscriber_t::notify_error(const ss::string_& errmsg) {
 	notify(temp);
 }
 
-void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum) {
+void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum,
+																				const ss::vector_<subscription_id_t>& subscription_ids) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
 		return;
-	auto aaptr = active_adapter.lock();
-	if (aaptr && aaptr->get_lnb_key() == spectrum.k.rf_path.lnb) {
+	if(subscription_ids.contains(subscription_id)) {
 		notify(spectrum);
 	}
 }

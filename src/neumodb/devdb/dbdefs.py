@@ -292,6 +292,17 @@ fe_supports = db_struct(name='fe_supports',
                 ))
 
 
+subscription_data = db_struct(name ='subscription_data',
+                           fname = 'fedev',
+                           db = db,
+                           type_id= lord('qs'),
+                           version = 1,
+                                 fields =((1, 'int32_t', 'subscription_id'),
+                                          (2, 'bool', 'has_mux'),
+                                          (3, 'bool', 'has_service'),
+                                          (4, 'chdb::service_t', 'service')
+                ))
+
 fe_subscription = db_struct(name='fe_subscription',
                            fname = 'fedev',
                            db = db,
@@ -304,11 +315,12 @@ fe_subscription = db_struct(name='fe_subscription',
                                      (3, 'rf_path_t', 'rf_path'),
                                      (4, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
                                      (5, 'fe_band_t', 'band', 'fe_band_t::NONE'),
-                                     (7, 'int16_t', 'use_count', '0'),
+                                     #(7, 'int16_t', 'use_count', '0'),
                                      (6, 'int16_t', 'usals_pos', 'sat_pos_none'),
                                      (8, 'int32_t', 'frequency', '0'),
                                      (10, 'int32_t', 'rf_coupler_id', '-1'),
-                                     (12, 'chdb::mux_key_t' , 'mux_key')
+                                     (12, 'chdb::mux_key_t' , 'mux_key'),
+                                     (13, 'ss::vector<subscription_data_t>' , 'subs'),
                 ))
 
 

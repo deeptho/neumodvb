@@ -146,7 +146,7 @@ std::ostream& devdb::operator<<(std::ostream& os, const fe_t& fe) {
 
 std::ostream& devdb::operator<<(std::ostream& os, const fe_subscription_t& sub) {
 	stdex::printf(os, "%d.%d%s-%d %d use_count=%d ", sub.frequency/1000, sub.frequency%1000,
-								pol_str(sub.pol), sub.mux_key.stream_id, sub.mux_key.mux_id, sub.use_count);
+								pol_str(sub.pol), sub.mux_key.stream_id, sub.mux_key.mux_id, sub.subs.size());
 	return os;
 
 }
@@ -206,7 +206,7 @@ std::tuple<bool, int, int, int> devdb::lnb::has_network(const lnb_t& lnb, int16_
 	 */
 	if (it != lnb.networks.end()) {
 		auto usals_pos = lnb.usals_pos == sat_pos_none ? it->usals_pos :  lnb.usals_pos;
-		if (devdb::lnb::on_positioner(lnb)) {
+		if (lnb.on_positioner) {
 			usals_amount = std::abs(usals_pos - it->usals_pos);
 		}
 		return std::make_tuple(true, it->priority,  lnb.usals_pos == sat_pos_none ? sat_pos_none : usals_amount, usals_pos);
@@ -538,7 +538,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int16_t sat_pos) {
 	if (!lnb.enabled || lnb.connections.size()==0)
 		return {};
-	bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
+	bool lnb_is_on_rotor = lnb.on_positioner;
 	int usals_move_amount{0};
 	if( sat_pos != sat_pos_none)  {
 		auto [has_network, network_priority, usals_move_amount_, usals_pos] = devdb::lnb::has_network(lnb, sat_pos);
@@ -595,7 +595,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 			*/
 			if (!has_network || !lnb.enabled || lnb.connections.size()==0)
 				continue;
-			bool lnb_is_on_rotor = devdb::lnb::on_positioner(lnb);
+			bool lnb_is_on_rotor = lnb.on_positioner;
 			if (lnb_is_on_rotor && (usals_move_amount > sat_pos_tolerance) && !may_move_dish)
 				continue; //skip because dish movement is not allowed or  not possible
 
@@ -709,15 +709,15 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 	return changed;
 }
 
-int dish::update_usals_pos(db_txn& wtxn, devdb::lnb_t& lnb_, int usals_pos,
+
+int dish::update_usals_pos(db_txn& wtxn, const devdb::lnb_t& lnb_, int usals_pos,
 													 const devdb::usals_location_t& loc, int sat_pos) {
 	auto c = devdb::find_first<devdb::lnb_t>(wtxn);
 	int num_rotors = 0; //for sanity check
-
 	auto angle = devdb::lnb::sat_pos_to_angle(usals_pos, loc.usals_longitude, loc.usals_latitude);
 
 	for(auto lnb : c.range()) {
-		if(lnb.k.dish_id != lnb_.k.dish_id || !devdb::lnb::on_positioner(lnb))
+		if(lnb.k.dish_id != lnb_.k.dish_id || !lnb.on_positioner)
 			continue;
 		num_rotors++;
 		devdb::lnb::set_lnb_offset_angle(lnb, loc); //redundant, but safe
@@ -726,7 +726,6 @@ int dish::update_usals_pos(db_txn& wtxn, devdb::lnb_t& lnb_, int usals_pos,
 		if(lnb.k == lnb_.k) {
 			if(sat_pos != sat_pos_none)
 				lnb.cur_sat_pos = sat_pos;
-			lnb_ = lnb;
 		}
 		put_record(wtxn, lnb);
 	}
@@ -751,7 +750,7 @@ bool devdb::dish::dish_needs_to_be_moved(db_txn& devdb_rtxn, int dish_id, int16_
 	int num_rotors = 0; //for sanity check
 
 	for(auto lnb : c.range()) {
-		if(lnb.k.dish_id != dish_id || !devdb::lnb::on_positioner(lnb))
+		if(lnb.k.dish_id != dish_id || !lnb.on_positioner)
 			continue;
 		num_rotors++;
 		auto [h, priority, usals_amount, usals_pos] =  devdb::lnb::has_network(lnb, sat_pos);
@@ -1221,7 +1220,7 @@ static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, con
 	auto can_be_used{false};
 	bool any_change{false};
 
-	bool on_positioner = devdb::lnb::on_positioner(lnb);
+	bool on_positioner = lnb.on_positioner;
 	any_change |= on_positioner != lnb.on_positioner;
 	lnb.on_positioner = on_positioner;
 

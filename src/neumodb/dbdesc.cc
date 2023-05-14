@@ -87,12 +87,11 @@ static void convert(const schema::neumo_schema_record_t& in, record_desc_t& out)
 }
 
 void convert_schema(const ss::vector_<record_desc_t>& in, ss::vector_<schema::neumo_schema_record_t>& out) {
-	static int count = 0;
 	for (const auto& i : in) {
 		schema::neumo_schema_record_t o;
 		convert(i, o);
 		out.push_back(o);
-		count++;
+		//count++;
 	}
 }
 

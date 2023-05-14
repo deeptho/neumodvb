@@ -11,7 +11,7 @@ add_library(neumoreceiver SHARED  receiver.cc subscriber.cc subscriber_notify.cc
 
 target_precompile_headers(neumoreceiver PRIVATE
   active_playback.h active_stream.h dvbcsa.h subscriber.h options.h reservation.h signal_info.h
-  active_adapter.h active_service.h devmanager.h filemapper.h neumofrontend.h receiver.h scam.h
+  active_adapter.h active_service.h devmanager.h filemapper.h neumofrontend.h tuner.h receiver.h scam.h
   active_si_stream.h dvbapi.h mpm.h neumo.h recmgr.h scan.h task.h
   )
 
@@ -24,6 +24,7 @@ add_dependencies(neumoreceiver chdb statdb epgdb recdb recdb stackstring streamp
 target_link_libraries(neumoreceiver PUBLIC chdb statdb epgdb recdb neumoutil neumodb streamparser config++ PRIVATE dvbcsa ${wxWidgets_LIBRARIES})
 
 
+#target_compile_options(neumoreceiver PUBLIC -fPIC -fvisibility=hidden -fsized-deallocation) #needed to prevent operator delete error
 target_compile_options(neumoreceiver PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 install (TARGETS neumoreceiver  DESTINATION lib64)
 

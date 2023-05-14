@@ -46,7 +46,7 @@ add_custom_command(
 
 add_custom_target(dev_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
-add_library(devdb SHARED ${gensrc} devdb_extra.cc fe_find.cc devdb_upgrade.cc)
+add_library(devdb SHARED ${gensrc} devdb_extra.cc fe_find.cc fe_subscribe.cc devdb_upgrade.cc)
 add_dependencies(devdb dev_generated_files ch_generated_files stat_generated_files epg_generated_files rec_generated_files)
 
 #-fbracket-depth=1024 to work around bug in lang version 12.0.1  https://bugs.llvm.org/show_bug.cgi?id=50178

@@ -1509,7 +1509,7 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 
 		if (bestp) {
 			return return_mux(*bestp);
-		} else if( bestp && !devdb::lnb::on_positioner(lnb)) {
+		} else if( bestp && !lnb.on_positioner) {
 			return return_mux(*bestp);
 		}
 		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, lnb.cur_sat_pos);

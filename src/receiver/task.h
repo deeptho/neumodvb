@@ -113,6 +113,7 @@ private:
 protected:
 	//time_t now {}; //current time
 	bool must_exit_ = false ; //a command can set this to true to request thread exit
+	bool has_exited_ = false ; //a command can set this to true after threads has cleanly exited
 private:
 	mutable std::mutex mutex;
 	mutable queue_t tasks;
@@ -210,11 +211,16 @@ public:
 	}
 
 
+	bool has_exited() const {
+		return has_exited_;
+	}
+
 	void stop_running(bool wait) {
 		assert(!must_exit_);
 
 		auto f = push_task_and_exit( [this](){
 			exit();
+			this->has_exited_=true;
 			return -1;
 		});
 		if(wait) {
@@ -351,7 +357,6 @@ protected:
 	int run_tasks(system_time_t now_, bool do_acknowledge=true);
 
 };
-
 
 
 template<typename T> typename T::cb_t& cb(T& t) { //activate callbacks

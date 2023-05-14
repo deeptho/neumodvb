@@ -68,8 +68,10 @@ using namespace date::clock_cast_detail;
 
 
 active_service_t::active_service_t
-(active_adapter_t& active_adapter_, const std::shared_ptr<stream_reader_t>& reader)
-	: active_stream_t(active_adapter_.receiver, std::move(reader))
+(rec_manager_t& recmgr, active_adapter_t& active_adapter_, const std::shared_ptr<stream_reader_t>& reader)
+	: active_stream_t(recmgr.receiver, std::move(reader))
+	,	recmgr(recmgr)
+	,	tuner_thread(active_adapter_.tuner_thread)
 	, service_thread(*this)
 	, mpm(this, system_clock_t::now())
 	, periodic(60*30)
@@ -78,9 +80,12 @@ active_service_t::active_service_t
 
 
 
-active_service_t::active_service_t(active_adapter_t& active_adapter, const chdb::service_t& current_service_,
+active_service_t::active_service_t(rec_manager_t& recmgr, active_adapter_t& active_adapter,
+																	 const chdb::service_t& current_service_,
 																	 const std::shared_ptr<stream_reader_t>& reader)
 	: active_stream_t(active_adapter.receiver, std::move(reader))
+	, recmgr(recmgr)
+	, tuner_thread(active_adapter.tuner_thread)
 	, current_service(current_service_)
 	, service_thread(*this)
 	, mpm(this, system_clock_t::now())
@@ -126,11 +131,6 @@ int active_service_t::deactivate() {
 	return ret;
 }
 
-void service_thread_t::cb_t::update_recording(recdb::rec_t& rec, const chdb::service_t& service,
-																							const epgdb::epg_record_t& epgrec) {
-	active_service.mpm.update_recording(rec, service, epgrec);
-}
-
 int service_thread_t::exit() {
 	dtdebug("Starting to exit");
 	active_service.deactivate();
@@ -139,16 +139,10 @@ int service_thread_t::exit() {
 	return -1;
 }
 
-std::optional<recdb::rec_t> service_thread_t::cb_t::start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec) {
+std::optional<recdb::rec_t> service_thread_t::cb_t::start_recording(
+	subscription_id_t subscription_id, const recdb::rec_t& rec) {
 	recdb::rec_t recnew = active_service.mpm.start_recording(subscription_id, rec);
 	assert(recnew.epg.rec_status == epgdb::rec_status_t::IN_PROGRESS);
-	auto* tuner_thread = &active_service.receiver.tuner_thread;
-
-	tuner_thread->push_task([tuner_thread, recnew]() // recnew must be passed by value!
-													{
-														cb(*tuner_thread).update_recording(recnew);
-														return 0;
-													}); //.wait();
 	return recnew;
 }
 
@@ -456,9 +450,6 @@ void active_service_t::housekeeping(system_time_t now) {
 int service_thread_t::run() {
 
 	ss::string<128> ch_prefix;
-
-	auto saved = active_service.shared_from_this();
-
 	ch_prefix << "CH[" << active_service.get_adapter_no() << ":" << active_service.current_service.k.service_id << "]"
 						<< active_service.current_service.name;
 	char name[16];
@@ -658,4 +649,53 @@ bool active_service_t::need_decryption() {
 		}
 		return ret;
 	}
+}
+
+active_service_t::~active_service_t() {
+#ifndef NDEBUG
+	cb(tuner_thread); /*test being called from correct thread
+											we should only be destroyed when tuner_thread removes the last
+											shared_ptr poiting to the active service
+										*/
+#endif
+	recmgr.remove_live_buffer(*this);
+	service_thread.stop_running(true);
+	assert(service_thread.has_exited());
+}
+
+
+std::optional<recdb::rec_t>
+active_service_t::start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec_in)
+{
+	std::vector<task_queue_t::future_t> futures;
+	std::optional<recdb::rec_t> rec;
+	auto& as = this->service_thread;
+	assert((int) subscription_id == rec_in.subscription_id);
+	futures.push_back(as.push_task(
+											// subscription_id is stored in the recording itself
+											//Pass by reference is safe because we call wait_for_all
+											[&as, &rec, &rec_in, subscription_id]() {
+												rec = cb(as).start_recording(subscription_id, rec_in);
+												return 0;
+											}));
+
+	bool error = wait_for_all(futures);
+	if (error) {
+		dterror("Unhandled error in unsubscribe");
+	}
+
+	if((int)subscription_id < 0 && receiver.global_subscriber) {
+		ss::string<256> msg;
+		msg  << "Could not start recording: " << rec_in.epg.event_name << "\n" << rec_in.service.name  << "\n";
+		msg << get_error();
+		receiver.global_subscriber->notify_error(msg);
+	}
+	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
+		This could cause these structures to be destroyed while still in use by by stream/active_adapter threads
+
+		See
+		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
+	*/
+
+	return rec;
 }

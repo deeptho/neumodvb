@@ -98,7 +98,6 @@ void recdb::to_str(ss::string_& ret, const rec_t& r) { ret << r; }
 /*!
 	returns best matching recording recording, taking into account differences
 	in start time due to changed epg records; we require there to be overlap!
-
 */
 std::optional<recdb::rec_t> recdb::rec::best_matching(db_txn& txn, const epgdb::epg_record_t& epg_,
 																											bool anonymous) {

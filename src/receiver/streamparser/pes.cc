@@ -198,7 +198,7 @@ void h264_parser_t::parse_payload_unit() {
 			See T-REC-H.264-201704-I!!PDF-E.pdf p. 92  figure 7-1
 			Either there is an access unit delimiter or a SEI at the start
 		*/
-		dtdebugx("nal_unit_type!=NAL_AUD: 0x%x", nal_unit_type);
+		dtdebug_nicex("nal_unit_type!=NAL_AUD: 0x%x", nal_unit_type);
 		RETURN_ON_ERROR;
 	}
 	// NAL_AUD means  access_unit_delimiter_rbsp( )

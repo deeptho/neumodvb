@@ -48,7 +48,7 @@ def has_network(lnb, sat_pos):
 def must_move_dish(lnb, sat_pos):
     if lnb is None:
         return False
-    return pydevdb.lnb.on_positioner(lnb) and abs(sat_pos - lnb.usals_pos) >= 30
+    return lnb.on_positioner and abs(sat_pos - lnb.usals_pos) >= 30
 
 def has_network_with_usals(lnb, usals_pos):
     for n in lnb.networks:
@@ -241,7 +241,8 @@ class LnbGridBase(NeumoGridBase):
 
     def OnShowHide(self, event):
         #Ensure that multiline rows are shown fully
-        wx.CallAfter(self.AutoSizeRows)
+        if event.Show:
+            wx.CallAfter(self.AutoSizeRows)
         return super().OnShowHide(event)
 
     def CheckShowDialog(self, evt, rowno, colno):

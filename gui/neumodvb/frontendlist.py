@@ -84,7 +84,7 @@ class FrontendTable(NeumoTable):
          CD(key='priority',  label='priority', basic=True),
          CD(key='sub.rf_path.card_mac_address',  label='subscription', basic=True, dfn=subscription_fn,
             readonly=True, example='#0 28.2EKu 10714.250H-255 1234'),
-         CD(key='sub.use_count',  label='fe use\ncount', basic=True, readonly=True),
+         #CD(key='sub.subs',  label='fe use\ncount', basic=True, readonly=True, cfn=None, dfn= lambda x : len(x[1]) ),
          CD(key='rf_inputs',  label='rf\ninputs', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          #CD(key='rf_in',  label='RF#', basic=True, readonly=True),
          CD(key='card_mac_address',  label='CARD MAC', basic=True, no_combo=True, readonly=True,
@@ -109,7 +109,7 @@ class FrontendTable(NeumoTable):
                          screen_getter = screen_getter,
                          record_t=pydevdb.fe.fe, initial_sorted_column = initial_sorted_column,
                          **kwds)
-
+        self.do_autosize_rows = True
     def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()
         screen = pydevdb.fe.screen(txn, sort_order=sort_field,
@@ -187,6 +187,12 @@ class FrontendGridBase(NeumoGridBase):
         super().__init__(basic, readonly, table, *args, **kwds)
         self.sort_order = 0
         self.sort_column = None
+
+    def OnShowHide(self, event):
+        #Ensure that multiline rows are shown fully
+        if event.Show:
+            wx.CallAfter(self.AutoSizeRows)
+        return super().OnShowHide(event)
 
     def CmdTune(self, evt):
         row = self.GetGridCursorRow()

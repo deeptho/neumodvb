@@ -379,10 +379,9 @@ void active_mpm_t::transfer_filemap(int fd, int64_t new_num_bytes_safe_to_read) 
 	epgrec is needed to compute start_time
 
 */
-recdb::rec_t active_mpm_t::start_recording(subscription_id_t subscription_id, recdb::rec_t rec /*on purpose not a reference!*/) {
-	// auto now = time(NULL); //@todo replace following call
-	// auto packetno_start =  stream_parser.event_handler.last_saved_marker.packetno_start;
-	// auto packetno_end = std::numeric_limits<int64_t>::max();
+recdb::rec_t active_mpm_t::start_recording(
+	subscription_id_t subscription_id, recdb::rec_t rec /*on purpose not a reference!*/) {
+
 	{
 		auto mm = meta_marker.readAccess();
 		rec.stream_time_start = mm->livebuffer_stream_time_start;
@@ -390,8 +389,6 @@ recdb::rec_t active_mpm_t::start_recording(subscription_id_t subscription_id, re
 	}
 	rec.stream_time_end = stream_parser.event_handler.last_saved_marker.k.time;
 	rec.epg.rec_status = epgdb::rec_status_t::IN_PROGRESS;
-	rec.subscription_id = (int) subscription_id;
-
 	// TODO: times in start_play_time may have a different sign than stream_times (which can be both negative and
 	// positive)
 	using namespace recdb;

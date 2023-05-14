@@ -35,7 +35,6 @@ scan_report_t::scan_report_t(const scan_subscription_t& subscription,
 	, band(subscription.blindscan_key.band)
 	, peak(subscription.peak)
 	, mux(subscription.mux)
-	, fe_key(subscription.fe_key)
 	, scan_stats(scan_stats)
 		//, lnb_key (lnb_key)
 {}
@@ -679,16 +678,6 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 				return;
 			}
 			scan_subscription_t subscription {it->second}; //need to copy
-			/*in general only one subscription will match, but in specific cases
-				multiple ones may exist. For example: is a mux is misdetected as two peaks,
-				both peaks end up selecting the same database mux. That mux is successfully scanned
-				and we need to terminate both subscriptions
-			*/
-			if( subscription.fe_key != finished_fe.k) {
-				dtdebug("finished_fe keys do not match: fe_key=" << subscription.fe_key << " finished_fe.k="
-								<< finished_fe.k);
-				return; //no match
-			}
 			/*it is essential to start a new transaction at this point
 				because scan_next will loop over all pending muxes, changing
 				scan_status to ACTIVE for some of the muxes;
@@ -738,7 +727,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			report.scan_stats = *scan_stats.readAccess();
 			auto ss = *scan_stats.readAccess();
 			dtdebug("SCAN REPORT: mux=" << *report.mux << " pending=" << ss.pending_muxes << " active=" << ss.active_muxes);
-			receiver_thread.notify_scan_mux_end(scan_subscription_id, report);
+			receiver.notify_scan_mux_end(scan_subscription_id, report);
 			dtdebugx("committing\n");
 			chdb_rtxn.commit();
 		}();
@@ -776,11 +765,11 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 								dtdebug("SCAN REPORT: mux=" << "NONE" << " pending=" <<
 							ss.pending_muxes << " active=" << ss.active_muxes);
 			}
-			receiver_thread.notify_scan_mux_end(scan_subscription_id, report);
+			receiver.notify_scan_mux_end(scan_subscription_id, report);
 		} else if(!subscription.scan_start_reported) {
 			subscription.scan_start_reported = true;
 			auto scan_stats_ = *scan_stats.readAccess();
-			receiver_thread.notify_scan_start(scan_subscription_id, scan_stats_);
+			receiver.notify_scan_start(scan_subscription_id, scan_stats_);
 		}
 	}
 
@@ -833,7 +822,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		auto wtxn = receiver.devdb.wtxn();
 		tune_options.use_blind_tune = use_blind_tune;
 		assert(mux_common_ptr(mux)->scan_id!=0);
-		std::tie(subscription_id, subscribed_fe_key) =
+			subscription_id =
 			receiver_thread.subscribe_mux(futures, wtxn, mux, reuseable_subscription_id, tune_options,
 																		required_rf_path, scan_id);
 		wtxn.commit();
@@ -881,7 +870,6 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		}
 		return {subscription_id, reuseable_subscription_id};
 	}
-	subscription.fe_key = subscribed_fe_key;
 	last_subscribed_mux = *subscription.mux;
 	dtdebug("subscribed to " << *subscription.mux << " subscription_id="  << (int) subscription_id <<
 					" reuseable_subscription_id=" << (int) reuseable_subscription_id);
@@ -965,18 +953,19 @@ void scan_t::add_completed(const devdb::fe_t& fe, const chdb::any_mux_t& mux, in
 }
 
 
-void scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
+bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 																 db_txn& devdb_wtxn, subscription_id_t scan_subscription_id)
 {
 	auto [it, found ] = find_in_map(scans, scan_subscription_id);
 	if(!found)
-		return;
+		return found;
 	auto& scan = scans.at(scan_subscription_id);
 	for (auto[subscription_id, sub] : scan.subscriptions) {
 		receiver_thread.unsubscribe(futures, devdb_wtxn, subscription_id);
 	}
 	wait_for_all(futures); //remove later?
 	scans.erase(scan_subscription_id);
+	return found;
 }
 
 static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const tune_options_t& tune_options){
@@ -1080,7 +1069,8 @@ scanner_t::~scanner_t() {
 }
 
 
-void scanner_t::notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& fe_subscription_ids,
+void scanner_t::notify_signal_info(const subscriber_t& subscriber,
+																	 const ss::vector_<subscription_id_t>& fe_subscription_ids,
 																	 const signal_info_t& signal_info)
 {
 
@@ -1097,7 +1087,7 @@ void scanner_t::notify_signal_info(const subscriber_t& subscriber, const ss::vec
 			scan.monitored_subscription_id = subscription_id;
 		}
 		if(subscription_id == scan.monitored_subscription_id) {
-			subscriber.notify_signal_info(signal_info, true /*from_scanner*/);
+			subscriber.notify_signal_info(signal_info);
 			return;
 		}
 	}
@@ -1106,7 +1096,7 @@ void scanner_t::notify_signal_info(const subscriber_t& subscriber, const ss::vec
 
 void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,
 																	const ss::vector_<subscription_id_t>& fe_subscription_ids,
-																	const sdt_data_t& sdt_data, dvb_frontend_t* fe)
+																	const sdt_data_t& sdt_data)
 {
 
 	auto [it, found] = find_in_map(this->scans, subscriber.get_subscription_id());
@@ -1122,7 +1112,7 @@ void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,
 			scan.monitored_subscription_id = subscription_id;
 		}
 		if(subscription_id == scan.monitored_subscription_id) {
-			subscriber.notify_sdt_actual(sdt_data, fe, true /*from_scanner*/);
+			subscriber.notify_sdt_actual(sdt_data);
 			return;
 		}
 	}

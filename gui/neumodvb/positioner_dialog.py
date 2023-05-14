@@ -42,7 +42,7 @@ from pyreceiver import get_object as get_object_
 AbortTuneEvent, EVT_ABORT_TUNE = wx.lib.newevent.NewEvent()
 
 def on_positioner(lnb):
-    return False if lnb is None else pydevdb.lnb.on_positioner(lnb)
+    return False if lnb is None else lnb.on_positioner
 
 def can_move_dish(lnb_connection):
     return False if lnb_connection is None else pydevdb.lnb.can_move_dish(lnb_connection)

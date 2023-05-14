@@ -71,7 +71,7 @@ struct neumo_options_t {
 	neumo_options_t()
 		{}
 
-	void load_from_db(db_txn& devdb_wtxn, int32_t user_id=0);
-	void save_to_db(db_txn& devdb_wtxn, int32_t user_id=0);
-	void save_usals_location(db_txn& wtxn);
+	EXPORT void load_from_db(db_txn& devdb_wtxn, int32_t user_id=0);
+	EXPORT void save_to_db(db_txn& devdb_wtxn, int32_t user_id=0);
+	EXPORT void save_usals_location(db_txn& wtxn);
 };

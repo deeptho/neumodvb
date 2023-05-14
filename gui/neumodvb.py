@@ -551,7 +551,7 @@ class NeumoGui(wx.App):
             txn = self.chdb.rtxn()
             self.sats = pychdb.sat.list_all_by_key(txn)
             del txn
-            if len(self.sats) == 0 and not retry:
+            if len(self.sats) <= 2 and not retry:
                 from neumodvb.init_db import init_db
                 init_db()
             else:
@@ -637,7 +637,7 @@ class NeumoGui(wx.App):
             self.presLan_fr.install()
             self.wxLocale('FR')
         self.global_subscriber_ = pyreceiver.global_subscriber(self.receiver, self.frame) #catch global error messages
-
+        self.get_sats() #force create sat table of it does not exist
     @property
     def scan_subscriber(self):
         if self.scan_subscriber_ is None:

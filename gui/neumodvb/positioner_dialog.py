@@ -689,9 +689,9 @@ class SignalPanel(SignalPanel_):
         received_nit = self.signal_info.received_si_mux
         mux = self.signal_info.driver_mux
         received_nit = self.signal_info.nit_received
-        sat_pos_confirmed = signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
+        sat_pos_confirmed = self.signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
         sat_pos = mux.k.sat_pos if sat_pos_confirmed else \
-            received_nit.k.sat_pos if received_nit is not None \
+            mux.k.sat_pos if received_nit is not None \
             else mux.k.sat_pos
 
         snr = self.signal_info.snr/1000 if locked else None

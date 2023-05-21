@@ -176,9 +176,10 @@ namespace chdb {
 	*/
 	template<typename mux_t>
 	inline void make_unique_if_template(db_txn& txn, mux_t& mux ) {
-		if(is_template(mux)/* && mux.k.mux_id==0*/)
+		if(is_template(mux)/* && mux.k.mux_id==0*/) {
 			mux.k.mux_id = 0;
-		chdb::make_mux_id<mux_t>(txn, mux);
+			chdb::make_mux_id<mux_t>(txn, mux);
+		}
 	}
 
 	template<>

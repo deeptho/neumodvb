@@ -17,6 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+#include "util/dtassert.h"
 
 #include "si_state.h"
 #include "mpeg.h"

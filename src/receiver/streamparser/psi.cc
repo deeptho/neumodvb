@@ -539,6 +539,8 @@ void eit_parser_t::parse_payload_unit() {
 	if (is_stuffing)
 		return;
 
+	if(hdr.table_id > hdr.last_table_id)
+		hdr.last_table_id = hdr.table_id;
 	auto [timedout, badversion, section_type] = parser_status.check(hdr, cc_error_counter);
 	bool must_process = (section_type == section_type_t::NEW || section_type == section_type_t::LAST);
 	bool done = (section_type == section_type_t::LAST || section_type == section_type_t::COMPLETE);

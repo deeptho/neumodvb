@@ -1560,6 +1560,7 @@ namespace dtdemux {
 				case SI::CountryAvailabilityDescriptorTag:
 				case SI::PrivateDataSpecifierDescriptorTag: // xxx
 				case SI::ReturnTransmissionModeTag:					// Return_Transmission_Modes_descriptor? en_301790v010501o.pdf
+				case SI::DefaultAuthorityDescriptorTag:
 					this->skip(desc.len);
 					// ignored
 					break;

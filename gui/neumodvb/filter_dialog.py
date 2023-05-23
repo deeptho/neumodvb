@@ -121,6 +121,10 @@ class NeumoFilterTable(NeumoTableBase):
         self.sort_columns = [ self.columns[colno].key ]
         self.sort_colno = colno
         self.sort_order = 1
+    def get_icon_state(self, rowno, colno):
+        return (False, False)
+    def get_icons(self):
+        return []
 
 
 class FilterGrid(NeumoGridBase):

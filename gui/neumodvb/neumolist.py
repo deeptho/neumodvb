@@ -1282,6 +1282,8 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         """(col, evt) -> display a popup menu when a column label is
         right clicked"""
         row, col = evt.GetRow(), evt.GetCol()
+        if self.table.columns[col].key == 'icons':
+            return
         x = self.GetColSize(col)/2
         menu = wx.Menu()
         self.Refresh()
@@ -1292,7 +1294,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         it = wx.MenuItem(None, text="Remove Filter", id=col+100)
         it.rowno=row
         menu.Append(it)
-
 
         self.Bind(wx.EVT_MENU, self.ShowFilter)
 

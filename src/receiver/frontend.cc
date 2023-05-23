@@ -484,7 +484,7 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 			}
 		} else {
 			//currently no dvbt/dvbc mux correctly sets matype
-			matype = -1;
+			matype = -2;
 		}
 		auto* p = cmdseq.get(DTV_CONSTELLATION);
 		if(p) {

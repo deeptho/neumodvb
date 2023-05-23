@@ -109,6 +109,10 @@ struct fe_lock_status_t {
 			(matype >> 6) != 3; //not a transport stream
 		}
 	inline bool is_dvb() {
+		if(matype==-2) {
+			//dvbt or dvbc
+			return is_locked();
+		}
 		return is_locked() && matype >=0 && // otherwise we do not know matype yet
 			(matype == 256 || //dvbs
 			 (matype >> 6) == 3); //not a transport stream

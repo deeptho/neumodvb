@@ -782,13 +782,14 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 		if(!w->tune_confirmation.nit_actual_received && tune_confirmation.nit_actual_received
 			 && w->received_si_mux && ! w->received_si_mux_is_bad)  {
 			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(& (*w->received_si_mux));
-			assert(dvbs_mux);
-			lnb = w->reserved_lnb;
-			need_lof_offset_update = true;
-			sat_pos = dvbs_mux->k.sat_pos;
-			pol = dvbs_mux->pol;
-			nit_frequency = dvbs_mux->frequency;
-			uncorrected_driver_freq = w->last_signal_info->uncorrected_driver_freq;
+			if(dvbs_mux) {
+				lnb = w->reserved_lnb;
+				need_lof_offset_update = true;
+				sat_pos = dvbs_mux->k.sat_pos;
+				pol = dvbs_mux->pol;
+				nit_frequency = dvbs_mux->frequency;
+				uncorrected_driver_freq = w->last_signal_info->uncorrected_driver_freq;
+			}
 		}
 		w->tune_confirmation = tune_confirmation;
 	}

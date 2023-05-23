@@ -131,7 +131,7 @@ class FrontendTable(NeumoTable):
         """
         rec = self.CurrentlySelectedRecord()
         d = set([pychdb.delsys_to_type(d) for d in rec.delsys])
-        d.remove(pychdb.delsys_type_t.NONE)
+        d.discard(pychdb.delsys_type_t.NONE)
         choices = [ '', 'S'  ] if pychdb.delsys_type_t.DVB_S in d else [ '' ]
         choices = choices + [ c + '+T'  for c in choices ] if pychdb.delsys_type_t.DVB_T in d else choices
         choices = choices + [ c + '+C'  for c in choices ] if pychdb.delsys_type_t.DVB_C in d else choices

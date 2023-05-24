@@ -309,7 +309,7 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 
 	int check_frontend_parameters();
 	uint32_t get_lo_frequency(uint32_t frequency);
-	int open_device(fe_state_t& t, bool rw=true, bool allow_failure=false);
+	int open_device(fe_state_t& t, bool rw=true);
 	void close_device(fe_state_t& t); //callable from main thread
 	signal_info_t get_signal_info(bool get_constellation);
 	int request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bool get_constellation);

@@ -127,7 +127,7 @@ int cmdseq_t::spectrum(int fefd, dtv_fe_spectrum_method method) {
 	return 0;
 }
 
-int dvb_frontend_t::open_device(fe_state_t& t, bool rw, bool allow_failure) {
+int dvb_frontend_t::open_device(fe_state_t& t, bool rw) {
 	if (t.fefd >= 0)
 		return 0; // already open
 
@@ -323,21 +323,23 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(adaptermgr_t* adaptermgr,
 
 	auto w = fe->ts.writeAccess();
 	// first try writeable access, then readonly
-	if (fe->open_device(*w, true, true) < 0) {
+	if (fe->open_device(*w, true) < 0) {
 		w->dbfe.can_be_used = false;
-		w->info_valid = (fe->open_device(*w, false, true) == 0);
+		w->info_valid = (fe->open_device(*w, false) == 0);
 		dtdebugx("/dev/dvb/adapter%d/frontend%d currently not useable", (int)fe->adapter_no, (int)fe->frontend_no);
 	} else {
 		w->info_valid = true;
 		w->dbfe.can_be_used = true;
-		get_frontend_info(adapter_no, frontend_no, api_version, *w);
-
-		if(int64_t(fe->adapter_mac_address) <=0)
-			fe->adapter_mac_address = adapter_mac_address_t(w->dbfe.k.adapter_mac_address);
-		if(int64_t(fe->card_mac_address) <=0)
-			fe->card_mac_address = card_mac_address_t(w->dbfe.card_mac_address);
-		fe->close_device(*w);
 	}
+
+	get_frontend_info(adapter_no, frontend_no, api_version, *w);
+
+	if(int64_t(fe->adapter_mac_address) <=0)
+		fe->adapter_mac_address = adapter_mac_address_t(w->dbfe.k.adapter_mac_address);
+	if(int64_t(fe->card_mac_address) <=0)
+		fe->card_mac_address = card_mac_address_t(w->dbfe.card_mac_address);
+	if(w->fefd>=0)
+		fe->close_device(*w);
 	return fe;
 }
 

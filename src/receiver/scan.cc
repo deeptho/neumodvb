@@ -720,18 +720,19 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 					it = subscriptions.erase(it);
 					if (subscription_to_erase == monitored_subscription_id)
 						monitored_subscription_id = subscription_id_t::NONE;
-					scan_stats.writeAccess()->active_muxes = subscriptions.size();
 				} else {
-					bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
-					bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result == chdb::scan_result_t::NOTS;
-					auto w = scan_stats.writeAccess();
+					it = std::next(it);
+				}
+			}
+			{
+				bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
+				bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result == chdb::scan_result_t::NOTS;
+				auto w = scan_stats.writeAccess();
 					w->active_muxes = subscriptions.size();
 					w->finished_muxes++;
 					w->failed_muxes += !locked;
 					w->locked_muxes += locked;
 					w->si_muxes += (locked && !nodvb);
-					it = std::next(it);
-				}
 			}
 			assert(finished_mux_key.sat_pos == sat_pos_none || finished_fe.sub.owner == getpid());
 			report.scan_stats = *scan_stats.readAccess();

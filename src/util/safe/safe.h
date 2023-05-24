@@ -100,7 +100,7 @@ namespace safe
 
 			/**
 			 * @brief Construct a read-only Access object from a const
-			 * safe::Safe object and any additionnal argument needed to
+			 * safe::Safe object and any additional argument needed to
 			 * construct the Lock object.
 			 *
 			 * If needed, you can provide additionnal arguments to construct

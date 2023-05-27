@@ -978,8 +978,17 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	bool found=false;
 	bool can_be_used{false};
 	if(!lnb.on_positioner && lnb.networks.size() >0) {
-		lnb.usals_pos = lnb.networks[0].usals_pos;
-		lnb.cur_sat_pos = lnb.networks[0].usals_pos;
+		bool found{false};
+		for (auto& n: lnb.networks) {
+			if(lnb.cur_sat_pos == n.sat_pos) {
+				lnb.usals_pos = n.sat_pos;
+				found = true;
+			}
+		}
+		if(!found) {
+			lnb.usals_pos = lnb.networks[0].sat_pos;
+			lnb.cur_sat_pos = lnb.networks[0].sat_pos;
+		}
 	}
 	if(lnb.usals_pos == sat_pos_none && lnb.networks.size() >0 && loc) {
 		lnb.usals_pos = lnb.networks[0].sat_pos;

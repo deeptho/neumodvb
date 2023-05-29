@@ -46,20 +46,29 @@ def rf_inputs_fn(x):
     return " ".join(str(v) for v in x[1])
 
 def subscription_fn(x):
-    sub = x[0].sub
-    if sub.mux_key.sat_pos == pychdb.sat.sat_pos_none:
+    subs = x[0].sub.subs
+    if len(subs) == 0:
         return ""
-    sid = f" {sub.mux_key.mux_id}" if (sub.mux_key.stream_id < 0)  else f'-{sub.mux_key.stream_id} {sub.mux_key.mux_id}'
-    if sub.mux_key.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
-        sat_pos=pychdb.sat_pos_str(sub.mux_key.sat_pos)
-        t= lastdot(sub.rf_path.lnb.lnb_type)
-        e = neumodbutils.enum_to_str
-        f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
-        return f'#{sub.rf_path.rf_input} {sat_pos:>5}{t} {f} {sub.rf_path.lnb.lnb_id}'
-    else:
-            f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{sid}'
-            return f'#{sub.rf_path.rf_input} {f}'
-
+    ret=[]
+    for sub in subs:
+        if sub.has_service:
+            srv = ' '.join(str(sub.service).split(' ')[1:])
+            ret.append(f'#{sub.subscription_id} {srv}')
+        elif sub.mux_key.sat_pos == pychdb.sat.sat_pos_none:
+            ret.appand("???")
+        else:
+            sid = f" {sub.mux_key.mux_id}" if (sub.mux_key.stream_id < 0)  \
+                else f'-{sub.mux_key.stream_id} {sub.mux_key.mux_id}'
+            if sub.mux_key.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
+                sat_pos=pychdb.sat_pos_str(sub.mux_key.sat_pos)
+                t= lastdot(sub.rf_path.lnb.lnb_type)
+                e = neumodbutils.enum_to_str
+                f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
+                ret.appens(f'#{sub.rf_path.rf_input} {sat_pos:>5}{t} {f} {sub.rf_path.lnb.lnb_id}')
+            else:
+                f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}Mhz{sid}'
+                ret.append(f'#{sub.rf_path.rf_input} {f}')
+    return '\n'.join(ret)
 
 class FrontendTable(NeumoTable):
     CD = NeumoTable.CD
@@ -83,7 +92,7 @@ class FrontendTable(NeumoTable):
             example=" DVB T+C "),
          CD(key='priority',  label='priority', basic=True),
          CD(key='sub.rf_path.card_mac_address',  label='subscription', basic=True, dfn=subscription_fn,
-            readonly=True, example='#0 28.2EKu 10714.250H-255 1234'),
+            readonly=True, example='#0 10714.250H-255 BBC One London '),
          #CD(key='sub.subs',  label='fe use\ncount', basic=True, readonly=True, cfn=None, dfn= lambda x : len(x[1]) ),
          CD(key='rf_inputs',  label='rf\ninputs', basic=True, dfn=rf_inputs_fn, readonly=True, example='1 '*6),
          #CD(key='rf_in',  label='RF#', basic=True, readonly=True),

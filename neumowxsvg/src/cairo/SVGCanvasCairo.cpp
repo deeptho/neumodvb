@@ -15,7 +15,7 @@
 #include <wx/log.h>
 #include <wx/file.h>
 #include <algorithm>
-
+#include <stdint.h>
 wxSVGCanvasCairo::~wxSVGCanvasCairo() {
 	Destroy();
 }

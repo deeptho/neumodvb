@@ -262,7 +262,7 @@ void text_box::set_time_value(time_t t, const char* fmt) {
 	using namespace date;
 	using namespace date::clock_cast_detail;
 	using namespace std::chrono;
-	val << date::format(fmt, zoned_time(current_zone(), floor<seconds>(system_clock::from_time_t(t))));
+	val << date::format(fmt, date::zoned_time(date::current_zone(), floor<seconds>(system_clock::from_time_t(t))));
 	if (text) {
 		auto s = wxString::FromUTF8(val.c_str());
 		text->SetContent(s);

@@ -60,9 +60,9 @@ std::ostream& recdb::operator<<(std::ostream& os, const file_t& f) {
 	stdex::printf(os, "file %d; stream time: [", f.fileno);
 	os << f.k.stream_time_start << " - " << f.stream_time_end;
 	os << "] real time: [";
-	os << date::format("%F %H:%M", zoned_time(current_zone(), system_clock::from_time_t(f.real_time_start)));
+	os << date::format("%F %H:%M", date::zoned_time(current_zone(), system_clock::from_time_t(f.real_time_start)));
 	os << " - ";
-	os << date::format("%H:%M", zoned_time(current_zone(), system_clock::from_time_t(f.real_time_end)));
+	os << date::format("%H:%M", date::zoned_time(current_zone(), system_clock::from_time_t(f.real_time_end)));
 	stdex::printf(os, " packets=[%ld - %ld]", f.stream_packetno_start, f.stream_packetno_end);
 	return os;
 }
@@ -78,8 +78,8 @@ std::ostream& recdb::operator<<(std::ostream& os, const rec_t& r) {
 	os << "\n        ";
 	os << r.epg
 		 << "\nstream time: [" << r.stream_time_start << " - " << r.stream_time_end << "]\n  real time: ["
-		 << date::format("%F %H:%M", zoned_time(current_zone(), system_clock::from_time_t(r.real_time_start))) << " - "
-		 << date::format("%H:%M", zoned_time(current_zone(), system_clock::from_time_t(r.real_time_end)));
+           << date::format("%F %H:%M", date::zoned_time(current_zone(), system_clock::from_time_t(r.real_time_start))) << " - "
+           << date::format("%H:%M", date::zoned_time(current_zone(), system_clock::from_time_t(r.real_time_end)));
 	stdex::printf(os, "]\n");
 	os << "\n" << r.filename;
 	return os;
@@ -158,7 +158,7 @@ void recdb::rec::make_filename(ss::string_& ret, const chdb::service_t& s, const
 	using namespace iso_week;
 	ss::accu_t ss(ret);
 	ss << epg.event_name << " - " << s.name << " - "
-		 << date::format("%F %H:%M", zoned_time(current_zone(), system_clock::from_time_t(epg.k.start_time)));
+           << date::format("%F %H:%M", date::zoned_time(date::current_zone(), system_clock::from_time_t(epg.k.start_time)));
 	for (auto& c : ret) {
 		if (c == '/' || c == '\\' || iscntrl(c) || !c)
 			c = ' ';

@@ -28,6 +28,7 @@
 #include <ctype.h>
 #include <iconv.h>
 #include <sys/errno.h>
+#include <cstdarg>
 
 #ifdef USE_BOOST_LOCALE
 #include <boost/locale.hpp>

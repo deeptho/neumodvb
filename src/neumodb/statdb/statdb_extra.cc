@@ -50,7 +50,7 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_key_t& k) {
 								sat, k.frequency / 1000.,
 								enum_to_str(k.pol));
 	using namespace date;
-	os << date::format(" %F %H:%M:%S", zoned_time(current_zone(),
+	os << date::format(" %F %H:%M:%S", date::zoned_time(date::current_zone(),
 																								floor<std::chrono::seconds>(system_clock::from_time_t(k.time))));
 
 	return os;
@@ -72,7 +72,7 @@ std::ostream& statdb::operator<<(std::ostream& os, const spectrum_key_t& spectru
 	auto sat = chdb::sat_pos_str(spectrum_key.sat_pos);
 	stdex::printf(os, " %5s: %s ", sat, enum_to_str(spectrum_key.pol));
 	using namespace date;
-	os << date::format("%F %H:%M", zoned_time(current_zone(), system_clock::from_time_t(spectrum_key.start_time)));
+	os << date::format("%F %H:%M", date::zoned_time(current_zone(), system_clock::from_time_t(spectrum_key.start_time)));
 
 	return os;
 }
@@ -93,7 +93,7 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 	ss::accu_t ss(ret);
 	auto* pol_ = enum_to_str(spectrum.k.pol);
 	ss << sat << date::format("/%F_%H:%M:%S_",
-								 zoned_time(current_zone(),
+                                  date::zoned_time(date::current_zone(),
 														floor<std::chrono::seconds>(system_clock::from_time_t(spectrum.k.start_time)))
 		)
 		 << pol_ << "_dish" << (int)spectrum.k.rf_path.lnb.dish_id<< "_C";

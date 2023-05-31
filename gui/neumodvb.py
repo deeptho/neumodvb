@@ -324,7 +324,7 @@ class neumoMainFrame(mainFrame):
     def OnClose(self, event):
         dtdebug(f'closing veto={event.CanVeto()}')
         self.timer.Stop()
-        self.OnExit()
+        wx.CallAfter(self.OnExit)
         dtdebug('Calling Destroy')
         #self.Destroy()
         dtdebug('closing done')

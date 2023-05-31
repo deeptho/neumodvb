@@ -1185,11 +1185,9 @@ int scam_t::unregister_active_service(active_service_t* active_service, int adap
 int active_scam_t::unregister_active_service(active_service_t* active_service, int adapter_no) {
 	dterrorx("SCAM: unregister_active_service %s", active_service->get_current_service().name.c_str());
 	int use_count = 0;
-	int num_active_services = 0;
 	for (int i = registered_active_services.size() - 1; i >= 0; --i) {
 		auto& active_service_p = registered_active_services[i];
 		assert(active_service_p.get());
-		num_active_services++;
 		if (active_service_p->current_pmt_pid == active_service->current_pmt_pid)
 			use_count++;
 		if (active_service_p.get() == active_service) {
@@ -1215,7 +1213,6 @@ int active_scam_t::unregister_active_service(active_service_t* active_service, i
 						break;
 					}
 				}
-				num_active_services--;
 				pmts.erase(&x - &pmts[0]);
 				break;
 			}

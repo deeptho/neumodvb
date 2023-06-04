@@ -562,7 +562,7 @@ bool active_adapter_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	auto w = fe->ts.writeAccess();
 	bool usals_pos_changed = (lnb.on_positioner && lnb.usals_pos != w->reserved_lnb.usals_pos);
 	w->reserved_lnb = lnb;
-	assert(fe->ts.readAccess()->dbfe.rf_inputs.size()>0);
+	assert(w->dbfe.rf_inputs.size()>0);
 	return usals_pos_changed;
 };
 

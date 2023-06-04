@@ -568,7 +568,7 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn, const devdb::rf_path_t* 
 			bool rf_path_matches = ! required_rf_path || (*required_rf_path == fe.sub.rf_path);
 			bool mux_matches = mux ? (mux->k == fe.sub.mux_key ||
 																sub.has_service &&  mux->k == sub.service.k.mux) : !sub.has_mux;
-			bool service_matches = service ? (sub.has_service &&  service->k == sub.service.k) : ! sub.has_service;
+			bool service_matches = service ? (sub.has_service &&  service->k == sub.service.k) : true;
 			service_matches |= match_mux_only;
 			//in case we only need a mux, we also check for a match in frquency
 			if(rf_path_matches && mux  && ! mux_matches && service_matches) {

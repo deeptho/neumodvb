@@ -219,8 +219,11 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 	sub.mux_key.t2mi_pid = -1;
 	if(service)
 		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, *service});
-	else
-		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, {}});
+	else {
+		chdb::service_t service;
+		service.k.mux = mux.k;
+		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
+	}
 	dtdebugx("adapter %d %d.%03d%s-%d %d use_count=%d", fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
 

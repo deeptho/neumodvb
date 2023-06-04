@@ -46,28 +46,47 @@ def rf_inputs_fn(x):
     return " ".join(str(v) for v in x[1])
 
 def subscription_fn(x):
-    subs = x[0].sub.subs
+    fesub = x[0].sub
+    subs = fesub.subs
+    mux_key = fesub.mux_key
     if len(subs) == 0:
         return ""
     ret=[]
+
+    #lnb and rf input info common to all subscriptions
+    sid = f"" if (mux_key.stream_id < 0) else f'-{mux_key.stream_id}'
+    if mux_key.sat_pos == pychdb.sat.sat_pos_none:
+        ret.append(f"{sub.subscription_id}: ???")
+    elif mux_key.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
+        t= lastdot(fesub.rf_path.lnb.lnb_type)
+        sat_pos=pychdb.sat_pos_str(mux_key.sat_pos)
+        t= lastdot(fesub.rf_path.lnb.lnb_type)
+        e = neumodbutils.enum_to_str
+        f = f'{sat_pos:>5} {fesub.frequency/1000.:9.3f}{e(fesub.pol)}{sid}'
+        m = f'{f} #{fesub.rf_path.rf_input} {t}:{fesub.rf_path.lnb.lnb_id}'
+        ret.append(m)
+    else:
+        f = f'{fesub.frequency/1000.:9.3f}Mhz{sid}'
+        m = f'{f} #{fesub.rf_path.rf_input}'
+        ret.append(m)
+
     for sub in subs:
         if sub.has_service:
             srv = ' '.join(str(sub.service).split(' ')[1:])
-            ret.append(f'#{sub.subscription_id} {srv}')
-        elif sub.mux_key.sat_pos == pychdb.sat.sat_pos_none:
-            ret.appand("???")
+            ret.append(f'{sub.subscription_id}: {srv}')
+        elif sub.has_mux:
+            ret.append(f'{sub.subscription_id}: {str(sub.service.k.mux)}')
         else:
-            sid = f" {sub.mux_key.mux_id}" if (sub.mux_key.stream_id < 0)  \
-                else f'-{sub.mux_key.stream_id} {sub.mux_key.mux_id}'
-            if sub.mux_key.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
-                sat_pos=pychdb.sat_pos_str(sub.mux_key.sat_pos)
-                t= lastdot(sub.rf_path.lnb.lnb_type)
+            usals_pos = fesub.usals_pos
+            if usals_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
+                sat_pos=pychdb.sat_pos_str(usals_pos)
+                t= lastdot(fesub.rf_path.lnb.lnb_type)
                 e = neumodbutils.enum_to_str
-                f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}{e(sub.pol)}{sid}'
-                ret.appens(f'#{sub.rf_path.rf_input} {sat_pos:>5}{t} {f} {sub.rf_path.lnb.lnb_id}')
+                f = f'{e(fesub.band)}{e(fesub.pol)}'
+                ret.append(f'{sub.subscription_id}: {f}')
             else:
-                f = f'{e(sub.band)}{e(sub.pol)}' if sub.frequency == 0 else f'{sub.frequency/1000.:9.3f}Mhz{sid}'
-                ret.append(f'#{sub.rf_path.rf_input} {f}')
+                f = f'Exclsuve'
+                ret.append(f'{sub.subscription_id}: {f}')
     return '\n'.join(ret)
 
 class FrontendTable(NeumoTable):

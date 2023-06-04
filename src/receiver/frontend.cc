@@ -1225,7 +1225,6 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 		this->do_lnb_and_diseqc(band, voltage);
 
 	dtdebug("spectrum: diseqc done");
-	this->stop();
 	if (this->stop() < 0) /* Force the driver to go into idle mode immediately, so
 													 that the fe_monitor_thread_t will also return immediately
 												*/

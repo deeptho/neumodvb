@@ -378,7 +378,7 @@ template<typename T> const typename T::cb_t& cb(const T& t) { //activate callbac
 		dterror("Implementation error");
 	return *self;
 }
-bool wait_for_all(std::vector<task_queue_t::future_t>& futures);
+bool wait_for_all(std::vector<task_queue_t::future_t>& futures, bool clear_errors=false);
 
 #if 0
 template<typename T> typename T::thread_safe_t& ts(T& t) { //activate callbacks

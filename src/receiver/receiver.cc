@@ -62,8 +62,9 @@ int task_queue_t::future_t::get() {
 	return ret.retval;
 }
 
-bool wait_for_all(std::vector<task_queue_t::future_t>& futures) {
-	user_error_.clear();
+bool wait_for_all(std::vector<task_queue_t::future_t>& futures, bool clear_errors) {
+	if(clear_errors)
+		user_error_.clear();
 	bool error = false;
 	for (auto& f : futures) {
 		auto ret= f.get();
@@ -572,6 +573,9 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 																	 tune_options.use_blind_tune, tune_options.may_move_dish,
 																	 dish_move_penalty, resource_reuse_bonus,
 																	 need_blindscan, need_spectrum, loc);
+	if(sret.failed) {
+		return subscription_id_t::RESERVATION_FAILED;
+	}
 	auto& tuner_thread = receiver.tuner_thread;
 
 
@@ -583,7 +587,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	}));
 
 	dtdebug("Subscribed to: " << lnb);
-	return subscription_id;
+	return sret.subscription_id;
 }
 
 devdb::lnb_t receiver_t::reread_lnb(const devdb::lnb_t& lnb)
@@ -609,12 +613,18 @@ receiver_thread_t::cb_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& 
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
 	auto devdb_wtxn = receiver.devdb.wtxn();
+	user_error_.clear();
 	subscription_id = this->receiver_thread_t::subscribe_lnb(
 		futures, devdb_wtxn, rf_path, lnb, tune_options, subscription_id);
 	devdb_wtxn.commit();
-	bool error = wait_for_all(futures);
+	bool error = wait_for_all(futures, false /*clear_errors*/) ||
+		(int)subscription_id <0; //the 2nd case occurs when reservation failed (no futures to wait for)
 	if (error) {
-		dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
+		dterror("Unhandled error in subscribe_lnb"); // This will ensure that tuning is retried later
+		auto saved_error = get_error();
+		unsubscribe(subscription_id);
+		set_error(saved_error); //restore error message
+		return subscription_id_t::TUNE_FAILED;
 	}
 	return subscription_id;
 }
@@ -965,9 +975,18 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 		cb(receiver_thread).abort_scan();
 		subscription_id = cb(receiver_thread).subscribe_lnb(rf_path, lnb, tune_options,
 																												(subscription_id_t) subscription_id);
+		if((int) subscription_id <0)
+			this->global_subscriber->notify_error(get_error());
 		return 0;
 	}));
-	wait_for_all(futures);
+	auto error = wait_for_all(futures);
+	if(error) {
+		auto saved_error = get_error();
+		unsubscribe(subscription_id);
+		set_error(saved_error); //restore error message
+		this->global_subscriber->notify_error(get_error());
+		return subscription_id_t::TUNE_FAILED;
+	}
 	return subscription_id;
 }
 
@@ -994,7 +1013,14 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 		subscription_id = cb(receiver_thread).subscribe_lnb(rf_path, lnb, tune_options, subscription_id);
 		return 0;
 	}));
-	wait_for_all(futures);
+	auto error = wait_for_all(futures);
+	if(error) {
+		auto saved_error = get_error();
+		unsubscribe(subscription_id);
+		set_error(saved_error); //restore error message
+		return subscription_id_t::TUNE_FAILED;
+		this->global_subscriber->notify_error(get_error());
+	}
 	return subscription_id;
 }
 

@@ -360,8 +360,10 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 		if(fe.sub.rf_path == rf_path) {
       /*case 1: fe uses our lnb for another subscription; associated RF tuner is also in use
 				Check if our desired (non)exclusivity matches with other subscribers */
-			if(need_exclusivity)
+			if(need_exclusivity) {
+				user_error("Cannot reserve lnb exclusively: " << lnb);
 				return {}; //only one subscriber can exclusively control the lnb (and the path to it)
+			}
 			else { /*we do not need exclusivity, and can use this lnb  provided no exclusive subscriptions exist
 							 and provided that the lnb parameters (pol/band/diseqc) are compatible*/
 				if(fe.sub.pol != pol || fe.sub.band != band || fe.sub.usals_pos != usals_pos)

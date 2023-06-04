@@ -462,10 +462,9 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 					sret.newaa = { *fe_, *required_rf_path, lnb};
 					sret.sub_to_reuse = subscription_id_t::NONE;
 				}
+				return sret;
 			}
-			return sret;
 		}
-		return failed(subscription_id);
 	}
 	return failed(subscription_id);
 }

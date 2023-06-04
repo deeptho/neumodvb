@@ -59,14 +59,27 @@ void export_gridepg(py::module& m) {
 		;
 }
 
+static std::unique_ptr<epgdb::epg_screen_t> chepg_screen(db_txn& txnepg, const chdb::service_key_t& service_key,
+																												 time_t start_time,
+#ifdef USE_END_TIME
+																												 time_t end_time,
+#endif
+																												 uint32_t sort_order) {
+	return epgdb::chepg_screen(txnepg, service_key, start_time,
+#ifdef USE_END_TIME
+														 time_end_time,
+#endif
+														 sort_order);
+}
+
 void export_extra(py::module& m) {
 	m.def("clean", &epgdb::clean, "remove old epgdb records", py::arg("txn"), py::arg("start_time"))
-		.def("chepg_screen", &epgdb::chepg_screen, "channel epg sceen", py::arg("txnepg"), py::arg("service_key"),
+		.def("chepg_screen", &chepg_screen, "channel epg sceen", py::arg("txnepg"), py::arg("service_key"),
 				 py::arg("start_time"),
 #ifdef USE_END_TIME
 				 py::arg("end_time"),
 #endif
-				 py::arg("sort_order"), py::arg("tmpdb").none(true) = nullptr)
+				 py::arg("sort_order"))
 		.def("running_now", py::overload_cast<db_txn&, const chdb::service_key_t&, time_t>(&epgdb::running_now),
 				 "Get currently running program on service", py::arg("txnepg"), py::arg("service_key"), py::arg("now"))
 		;

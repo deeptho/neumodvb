@@ -18,6 +18,7 @@
 #
 import wx
 import wx.grid
+import wx.lib.newevent
 import sys
 import os
 import copy
@@ -35,6 +36,8 @@ from neumodvb.util import dtdebug, dterror
 
 import pychdb
 
+ServiceSelectEvent, EVT_SERVICE_SELECT = wx.lib.newevent.NewCommandEvent()
+
 class ServiceGridPopup(BasicServiceGrid):
     """
     grid which appears in chepg list popup
@@ -43,16 +46,13 @@ class ServiceGridPopup(BasicServiceGrid):
         super().__init__(*args, **kwds)
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
-        self.controller = self.Parent.Parent.Parent.controller
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-                rec= self.table.GetValue(self.selected_row, None)
-                self.controller.SelectService(rec)
-                wx.CallAfter(self.controller.SetFocus)
-            self.Parent.Parent.Parent.GetPopupControl().Dismiss()
+                service = self.table.GetValue(self.selected_row, None)
+                self.Parent.GrandParent.OnSelectService(service)
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -73,16 +73,48 @@ class ServiceListComboCtrl(wx.ComboCtrl):
         self.example = 'BBC One London'+' '*2
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
-        self.font.SetPointSize(self.font.GetPointSize()+6)
+        #self.font.SetPointSize(self.font.GetPointSize()+6)
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(ServiceGridPopup)
         self.SetPopupControl(self.popup)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+        self.service = None
+        self.allow_all = True
+        self.window_for_computing_width = None
 
-    def UpdateText(self):
-        self.SetText(self.controller.CurrentGroupText())
+    def SetService(self, service, allow_all=False):
+        """
+        Called by parent window to intialise state
+        """
+        self.service, self.allow_all = service, allow_all
+        self.SetText(self.CurrentGroupText())
 
+    def OnSelectService(self, service):
+        """Called when user selects a service
+        """
+        self.service = service
+        wx.PostEvent(self, ServiceSelectEvent(wx.NewIdRef(), service=service))
+        self.popup.Dismiss()
+        self.SetText(self.CurrentGroupText())
+
+    def CurrentGroupText(self):
+        if self.service is None:
+            return "All Services" if self.allow_all else ""
+        return str(self.service.name)
+
+    def show_all(self):
+        """
+        Instead of a single satellite show all of them
+        """
+        wx.PostEvent(self, ServiceSelectEvent(wx.NewIdRef(), service=None))
+        self.service = None
+        cgt = self.CurrentGroupText()
+        w,h = self.font_dc.GetTextExtent(self.example)
+        button_size = self.GetButtonSize()
+        self.SetMinSize((w+button_size.width,h))
+        self.SetPopupMinWidth(w)
+        self.SetValue(cgt)
 
     def OnWindowCreate(self, evt):
         """

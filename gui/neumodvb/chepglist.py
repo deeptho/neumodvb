@@ -16,7 +16,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-
 import wx
 import wx.grid
 import sys
@@ -24,13 +23,13 @@ import os
 import copy
 from collections import namedtuple, OrderedDict
 import numbers
+
 import datetime
 from dateutil import tz
 import regex as re
 import time
 
 from neumodvb.util import setup, lastdot, dtdebug, dterror
-
 import pychdb
 import pyepgdb
 import pyreceiver
@@ -38,7 +37,7 @@ import pyreceiver
 import neumodvb.neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t # IconRenderer, MyColLabelRenderer,
 from neumodvb.servicelist import BasicServiceGrid, ChannelNoDialog
-from neumodvb.servicelist_combo import ServiceGridPopup
+from neumodvb.servicelist_combo import EVT_SERVICE_SELECT
 
 __content_types ={
     0x10: 'movie/drama',
@@ -100,34 +99,45 @@ class ChEpgTable(NeumoTable):
                          screen_getter = screen_getter,
                          record_t=pyepgdb.epg_record.epg_record,
                          initial_sorted_column = initial_sorted_column,  **kwds)
+        self.app = wx.GetApp()
 
     def __save_record__(self, txn, record):
         pyepgdb.put_record(txn, record)
         return record
 
     def screen_getter_xxx(self, txn, sort_field):
-        service = self.parent.CurrentService()
         now = int(time.time())
-        screen = pyepgdb.chepg_screen(txn, service_key=service.k, start_time=now, sort_order=sort_field)
+        if True or self.parent.restrict_to_service: #TODO
+            service, epg_record = self.parent.CurrentServiceAndEpgRecord()
+            txn = self.db.rtxn()
+            if True:
+                screen = pyepgdb.chepg_screen(txn, service_key=service.k, start_time=now, sort_order=sort_field)
+            txn.abort()
+            del txn
+        else:
+            pass
         self.screen = screen_if_t(screen, self.sort_order==2)
 
     def __new_record__(self):
         return self.record_t()
 
     def get_icons(self):
-        b= wx.GetApp().bitmaps;
-        return (b.rec_scheduled_bitmap,b.rec_inprogress_bitmap)
+        return (self.app.bitmaps.rec_scheduled_bitmap, self.app.bitmaps.rec_inprogress_bitmap)
+
+    def get_icon_state(self, rowno, colno):
+        epgrec = self.GetRow(rowno)
+        if epgrec is None:
+            return (False, False)
+        t=pyepgdb.rec_status_t
+        return ( epgrec.rec_status==t.SCHEDULED, epgrec.rec_status in (t.IN_PROGRESS, t.FINISHING) )
 
     def get_icon_sort_key(self):
         return 'rec_status'
 
-    def get_icon_state(self, rowno, colno):
-        rec = self.GetRow(rowno)
-        t=pyepgdb.rec_status_t
-        return ( rec.rec_status==t.SCHEDULED, rec.rec_status in (t.IN_PROGRESS, t.FINISHING) )
 
 class ChEpgGrid(NeumoGridBase):
     def __init__(self, *args, **kwds):
+        self.allow_all = False
         basic = True
         readonly = True
         table = ChEpgTable(self, basic)
@@ -135,9 +145,11 @@ class ChEpgGrid(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        #self.Bind(wx.EVT_CHAR, self.OnKeyCheck)
-        self.service = None #service for which to show epg
+        self.GetParent().Bind(EVT_SERVICE_SELECT, self.CmdSelectService)
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
         self.grid_specific_menu_items=['epg_record_menu_item']
+        self.restrict_to_service = None
+        self.epg_record = None
 
     def OnToggleRecord(self, evt):
         epg = self.table.CurrentlySelectedRecord()
@@ -148,11 +160,10 @@ class ChEpgGrid(NeumoGridBase):
         show_record_dialog(self, service, epg=epg)
 
     def OnShow(self, evt):
-        service = wx.GetApp().live_service_screen.selected_service
-        if  self.service !=  service:
+        service = self.app.live_service_screen.selected_service
+        if  self.restrict_to_service !=  service:
             #This can happen when a new service was selected while epg panel was hidden
-            dtdebug(f"SERVICE CHANGED {self.service} {service}")
-            #self.service = service
+            dtdebug(f"SERVICE CHANGED {self.restrict_to_service} {service}")
             self.SelectService(service)
         evt.Skip()
 
@@ -160,7 +171,7 @@ class ChEpgGrid(NeumoGridBase):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             row = self.GetGridCursorRow()
-            self.app.ServiceTune(self.service)
+            self.app.ServiceTune(self.restrict_to_service)
             evt.Skip(False)
         else:
             evt.Skip(True)
@@ -168,33 +179,37 @@ class ChEpgGrid(NeumoGridBase):
     def EditMode(self):
         return False
 
-    def SelectService(self, service):
-        self.service = service
-        oldlen = self.table.GetNumberRows()
-        self.table.reload()
-        newlen = self.table.GetNumberRows()
-        msg = None
-        if newlen < oldlen:
-            msg = wx.grid.GridTableMessage(self.table, wx.grid.GRIDTABLE_NOTIFY_ROWS_DELETED, newlen, oldlen - newlen)
-        elif oldlen < newlen:
-            msg = wx.grid.GridTableMessage(self.table, wx.grid.GRIDTABLE_NOTIFY_ROWS_APPENDED, newlen-oldlen)
-        if msg is not None:
-            self.ProcessTableMessage(msg)
-        self.Refresh()
-        rowno = self.GetGridCursorRow()
-        rec = self.table.GetValue(rowno, None)
-        if rec is not None:
-            self.infow.ShowRecord(rec)
+    def CmdSelectService(self, evt):
+        service = evt.service
+        wx.CallAfter(self.SelectService, service)
 
-    def CurrentService(self):
-        if self.service is None:
-            service = wx.GetApp().live_service_screen.selected_service
-            self.service = service
-        return self.service
+    def SelectService(self, service):
+        self.restrict_to_service = service
+        self.epg_record = None
+        wx.CallAfter(self.handle_service_change, None, self.epg_record)
+
+    def handle_service_change(self, evt, epg_record):
+        dtdebug(f'doit rec_to_select={epg_record}')
+        self.table.GetRow.cache_clear()
+        self.OnRefresh(evt, epg_record)
+
+    def CurrentServiceAndEpgRecord(self):
+        if self.restrict_to_service is None:
+            epg_record = None
+            service = self.app.live_service_screen.selected_service
+            self.restrict_to_service = service
+            self.epg_record = epg_record
+        return self.restrict_to_service, self.epg_record
 
     def CurrentGroupText(self):
-        if self.service is None:
-            self.service = wx.GetApp().live_service_screen.selected_service
-        if self.service is None:
-            return ""
-        return str(self.service)
+        service, epg_record = self.CurrentServiceAndEpgRecord()
+        if service is None:
+            return "All Services" if self.allow_all else ""
+        return str(self.restrict_to_service)
+
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        service, _ = self.CurrentServiceAndEpgRecord()
+        self.SelectService(service)
+        self.GrandParent.chepg_service_sel.SetService(self.restrict_to_service, self.allow_all)

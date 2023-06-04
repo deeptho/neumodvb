@@ -103,7 +103,6 @@ class SatListComboCtrl(wx.ComboCtrl):
             return "All satellites" if self.allow_all else ""
         return str(self.sat.name if len(self.sat.name)>0 else str(self.sat))
 
-
     def show_all(self):
         """
         Instead of a single satellite show all of them

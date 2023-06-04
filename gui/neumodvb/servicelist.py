@@ -292,7 +292,6 @@ class ServiceGridBase(NeumoGridBase):
             return "All satellites" if self.allow_all else ""
         return str(sat.name if len(sat.name)>0 else str(sat))
 
-
     def CmdTune(self, evt):
         rowno = self.GetGridCursorRow()
         service = self.table.GetRow(rowno)
@@ -345,8 +344,6 @@ class ServiceGridBase(NeumoGridBase):
         if self.app.frame.bouquet_being_edited is None:
             return False #signal to neumomenu that item is disabled
         return self.app.frame.chggrid.CmdEditBouquetMode
-
-
 
 def IsNumericKey(keycode):
     return keycode >= ord('0') and keycode <= ord('9')

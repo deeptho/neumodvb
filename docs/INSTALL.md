@@ -144,6 +144,19 @@ at least the following packages are needed:
 sudo pip3 regex mpl_scatter_density
 ```
 
+### Ubuntu 23.04 ###
+
+Ubuntu 23.04 seems to be missing many of the required package,s but one user
+report success by adding Ubuntu 22.04 repositories to /etc/apt/sources.list:
+
+```bash
+deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
+deb http://archive.canonical.com/ubuntu/ jammy partner
+```
+
 #### Ubuntu 22.04.1 LTS ####
 
 ```bash

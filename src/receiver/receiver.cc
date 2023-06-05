@@ -817,10 +817,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 	auto x = to_str(service);
 	dtdebugx("toggle_recording: %s", x.c_str());
 	epgdb::epg_record_t epg;
-	epg.k.service.sat_pos = service.k.mux.sat_pos;
-	epg.k.service.network_id = service.k.network_id;
-	epg.k.service.ts_id = service.k.ts_id;
-	epg.k.service.service_id = service.k.service_id;
+	epg.k.service = service.k;
 	epg.k.event_id = TEMPLATE_EVENT_ID; /*prefix 0xffff0000 signifies a non-dvb event_id;
 																				all live recordings have the same id
 																			*/

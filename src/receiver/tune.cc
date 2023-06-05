@@ -363,9 +363,7 @@ void tuner_thread_t::on_epg_update(db_txn& txnepg, system_time_t now,
 			if (epg_record.k.start_time > system_clock_t::to_time_t(now + timeshift_duration))
 				break; // record too far in the future
 			auto service = active_service_p->get_current_service();
-			if (epg_record.k.service.sat_pos == service.k.mux.sat_pos && epg_record.k.service.ts_id == service.k.ts_id &&
-					epg_record.k.service.network_id == service.k.network_id &&
-					epg_record.k.service.service_id == service.k.service_id) {
+			if (epg_record.k.service == service.k) {
 				// send request to service_thread
 				active_service_p->service_thread.push_task([now, active_service_p = active_service_p,
 																										epg_record]() { // epg_record passed by value

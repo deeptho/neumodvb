@@ -298,7 +298,7 @@ struct eit_data_t {
 					 std::tuple<time_t, time_t>> otv_times_for_event_id; //start and end time indexed by channel_id, event_id
 
 	std::map<std::tuple<uint32_t>,
-					 std::tuple<epgdb::epg_service_t, time_t, time_t>> mhw2_key_for_event_id; //key and start/end time indexed by summary_id
+					 std::tuple<chdb::service_key_t, time_t, time_t>> mhw2_key_for_event_id; //key and start/end time indexed by summary_id
 
 
 	void reset() {
@@ -570,9 +570,12 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return epgdb_txn_->child_txn();
 	}
 
-	inline db_txn chdb_txn() {
-		if(!chdb_txn_)
+	inline db_txn chdb_txn(bool readonly=false) {
+		if(!chdb_txn_) {
+			if(readonly)
+				return chdb.rtxn();
 			chdb_txn_.emplace(chdb.wtxn());
+		}
 		return chdb_txn_->child_txn();
 	}
 

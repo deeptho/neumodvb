@@ -228,7 +228,8 @@ class IconRenderer(wx.grid.GridCellRenderer):
             icon['x'] = x
             x += icon['w'] + xspace
         return icons
-
+    def GetBestSize(self, grid, attr, dc, row, col):
+        return wx.Size(5, 5)
     def Draw(self, grid, attr, dc, rect, rowno, colno, isSelected):
         self.rect_width = rect.width
         #this is a list of tuples: (icon, draw_or_not)

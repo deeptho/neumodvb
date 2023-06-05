@@ -109,7 +109,8 @@ class neumoMainFrame(mainFrame):
         self.previous_panels_onscreen=[]
         self.previous_info_windows_onscreen = []
         self.info_windows_onscreen = []
-        self.info_windows = [self.chepginfo_text, self.recinfo_text]
+        self.info_windows = [self.recinfo_text]
+        #self.info_windows = [self.chepginfo_text, self.recinfo_text]
         self.app = wx.GetApp()
         self.mosaic_sizer = wx.GridSizer(cols=1)
         parent_sizer = self.mosaic_panel.GetSizer()
@@ -407,7 +408,8 @@ class neumoMainFrame(mainFrame):
 
     def CmdChEpg(self, event):
         dtdebug("CmdChEpg")
-        self.ShowPanel([self.chepg_panel, self.mosaic_panel], info_windows=self.chepginfo_text)
+        self.ShowPanel([self.chepg_panel, self.mosaic_panel])
+        #self.ShowPanel([self.chepg_panel, self.mosaic_panel], info_windows=self.chepginfo_text)
 
     def CmdLiveEpg(self, evt):
         dtdebug("CmdLiveEpg")

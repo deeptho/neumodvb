@@ -54,14 +54,15 @@ class ChgTable(NeumoTable):
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
 
         super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table = data_table,
-                          screen_getter = screen_getter,
+                         screen_getter = screen_getter,
                          record_t=pychdb.chg.chg, initial_sorted_column = initial_sorted_column,
                          **kwds)
 
     def screen_getter_xxx(self, txn, sort_field):
-        match_data, matchers = self.get_filter_()
+        match_data, matchers, match_data2, matchers2 = self.get_filter_()
         screen = pychdb.chg.screen(txn, sort_order=sort_field,
-                                   field_matchers=matchers, match_data = match_data)
+                                   field_matchers=matchers, match_data = match_data,
+                                   field_matchers2=matchers2, match_data2 = match_data2)
         self.screen = screen_if_t(screen, self.sort_order==2)
 
     def __save_record__(self, txn, record):

@@ -46,12 +46,10 @@ namespace epgdb {
 	}
 
 	std::ostream& operator<<(std::ostream& os, const epg_source_t& s);
-	std::ostream& operator<<(std::ostream& os, const epg_service_t& s);
 	std::ostream& operator<<(std::ostream& os, const epg_key_t& k);
 	std::ostream& operator<<(std::ostream& os, const epg_record_t& epg);
 
 	void to_str(ss::string_& ret, const epg_source_t& s);
-	void to_str(ss::string_& ret, const epg_service_t& s);
 	void to_str(ss::string_& ret, const epg_key_t& k);
 	void to_str(ss::string_& ret, const epg_record_t& r);
 

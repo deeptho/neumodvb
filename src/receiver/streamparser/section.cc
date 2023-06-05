@@ -1790,7 +1790,7 @@ namespace dtdemux {
 	}
 
 	bool stored_section_t::parse_eit_section(epg_t& ret, section_header_t& hdr) {
-		ret.epg_service.service_id = hdr.table_id_extension;
+		ret.service_key.service_id = hdr.table_id_extension;
 		ret.is_actual = (hdr.table_id == 0x4e) || ((hdr.table_id >= 0x50) && (hdr.table_id <= 0x5f));
 
 		if (!hdr.section_syntax_indicator) {
@@ -1805,14 +1805,14 @@ namespace dtdemux {
 		auto section_number = hdr.section_number;
 		auto last_section_number = hdr.last_section_number;
 
-		ret.epg_service.ts_id = hdr.table_id_extension1;
-		ret.epg_service.network_id = hdr.table_id_extension2;
+		ret.service_key.ts_id = hdr.table_id_extension1;
+		ret.service_key.network_id = hdr.table_id_extension2;
 		auto segment_last_section_number = this->get<uint8_t>();
 		auto last_table_id = this->get<uint8_t>();
 		while (this->available() > 4) {
 			ret.epg_records.resize(ret.epg_records.size() + 1);
 			epgdb::epg_record_t& rec = ret.epg_records[ret.epg_records.size() - 1];
-			rec.k.service = ret.epg_service;
+			rec.k.service = ret.service_key;
 			rec.k.event_id = this->get<uint16_t>();
 
 			this->get_fields<start_time_duration_t>(rec);

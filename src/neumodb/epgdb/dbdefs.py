@@ -12,7 +12,7 @@ def get_scriptdir():
 
 dbname = 'epgdb'
 
-from generators import set_env, db_db, db_struct, db_enum
+from generators import set_env, db_db, db_struct, db_enum, db_include
 
 gen_options=set_env(this_dir= get_scriptdir(), dbname=dbname, db_type_id='e', output_dir=None)
 
@@ -20,6 +20,9 @@ db = db_db(gen_options)
 
 def lord(x):
     return  int.from_bytes(x.encode(), sys.byteorder)
+
+
+db_include(fname='chdb', db=db, include='neumodb/chdb/chdb_db.h')
 
 """
 transponders are identified by the key:
@@ -62,17 +65,6 @@ epg_type = db_enum(name='epg_type_t',
 
 
 
-epg_service = db_struct(name='epg_service',
-                fname = 'epg',
-                db = db,
-                type_id= ord('s'),
-                version = 1,
-                fields = ((1, 'int16_t', 'sat_pos', 'sat_pos_none'), #normally not needed; sat_id of the transponder carrying the
-                                                     #data; sometimes different from sat_id of the service
-                          (2, 'uint16_t', 'network_id'),
-                          (3, 'uint16_t',  'ts_id'),
-                          (4, 'uint16_t',  'service_id')))
-
 
 epg_source = db_struct(name='epg_source',
                        fname = 'epg',
@@ -92,7 +84,7 @@ epg_key = db_struct(name='epg_key',
                     db = db,
                     type_id= ord('E'),
                     version = 1,
-                    fields = ((1, 'epg_service_t', 'service'),
+                    fields = ((1, 'chdb::service_key_t', 'service'),
 	                            (2, 'time_t', 'start_time'),
                               (3, 'uint32_t', 'event_id'), #ids from 0 to 0xffff come from dvb streams
                               (4, 'bool', 'anonymous', 'false')
@@ -116,6 +108,7 @@ epg_record = db_struct(name='epg_record',
                                  (10, 'uint16_t', 'series_link', '0xffff'), #indicates that program will be recorded
                                  (8, 'ss::string<64>', 'event_name'),
                                  (9, 'ss::string<256>', 'story'),
+                                 (12, 'ss::string<256>', 'service_name'),
                                  (11, 'ss::vector<uint16_t,4>',  'content_codes')),
                        filter_fields = (
                            ('epg_service', 'k.service'),

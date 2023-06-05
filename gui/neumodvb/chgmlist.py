@@ -138,7 +138,7 @@ class ChgmTable(NeumoTable):
             ref.k.chg = chg.k
             txn = self.db.rtxn()
             screen = pychdb.chgm.screen(txn, sort_order=sort_field,
-                                           key_prefix_type=pychdb.chgm.chgm_prefix.chg, key_prefix_data=ref,
+                                        key_prefix_type=pychdb.chgm.chgm_prefix.chg, key_prefix_data=ref,
                                         field_matchers=matchers, match_data = match_data)
             txn.abort()
             del txn

@@ -2133,29 +2133,28 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 
 	auto epg_source = epgdb::epg_source_t((epgdb::epg_type_t)(int)epg_type, info.table_id, info.version_number,
 																				stream_mux_key->sat_pos, stream_mux_c->network_id, stream_mux_c->ts_id);
-
 	if (epg.is_sky || epg.is_mhw2_title) {
 		auto* service_key = bat_data.lookup_opentv_channel(epg.channel_id);
 		if (!service_key) {
 			bool done = bat_done();
 			return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 		}
-		epg.epg_service.sat_pos = service_key->mux.sat_pos;
-		epg.epg_service.network_id = service_key->network_id;
-		epg.epg_service.ts_id = service_key->ts_id;
-		epg.epg_service.service_id = service_key->service_id;
+		epg.service_key = *service_key;
 	} else if (epg.is_mhw2_summary) {
 		// service will be looked up later
-	} else {
-		auto txn = chdb.rtxn();
+	}
 
-		auto* p_mux_data = lookup_mux_data_from_sdt(txn, epg.epg_service.network_id, epg.epg_service.ts_id);
-		txn.abort();
-		if (!p_mux_data) {
-			bool done = network_done(epg.epg_service.network_id);
-			return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
-		}
-		auto* p_mux_key = mux_key_ptr(p_mux_data->mux);
+	std::optional<chdb::service_t> service;
+	chdb::mux_key_t* p_mux_key{};
+	/*
+		The following yields a child_txn in case we have created a chdb_txn and potentially
+		created some service, otherwise a chdb.rtxn()
+	 */
+	auto chdb_txn = this->chdb_txn(true /*readonly*/);
+	auto* p_mux_data = lookup_mux_data_from_sdt(chdb_txn, epg.service_key.network_id, epg.service_key.ts_id);
+	if(p_mux_data) {
+		epg.service_key.mux = *mux_key_ptr(p_mux_data->mux);
+		p_mux_key = & epg.service_key.mux;
 		bool is_wrong_dvb_type = (dvb_type(p_mux_key->sat_pos) != dvb_type(stream_mux_key->sat_pos));
 		if (is_wrong_dvb_type) {
 			auto done = tune_confirmation.sat_by != confirmed_by_t::NONE;
@@ -2164,25 +2163,41 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				on 5.0W, but may  have unwanted consequences. We hope not...
 			*/
 			if (done)
-				epg.epg_service.sat_pos = stream_mux_key->sat_pos;
+				epg.service_key.mux.sat_pos = stream_mux_key->sat_pos;
 			else {
 				const auto* s = enum_to_str(epg_type);
 				dtdebugx("Cannot enter EPG_%s records (%s), because mux with network_id=%d and ts_id=%d has different "
 								 "dvb type and sat not yet confirmed (retrying)",
-								 epg.is_actual ? "ACTUAL" : "OTHER", s, epg.epg_service.network_id, epg.epg_service.ts_id);
+								 epg.is_actual ? "ACTUAL" : "OTHER", s, epg.service_key.network_id, epg.service_key.ts_id);
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 			}
 		} else
-			epg.epg_service.sat_pos = p_mux_key->sat_pos;
+			epg.service_key.mux.sat_pos = p_mux_key->sat_pos;
+
+		auto c = chdb::service_t::find_by_key(chdb_txn, epg.service_key.mux, epg.service_key.service_id);
+		if(c.is_valid())
+			service = c.current();
+		else
+			printf("here\n");
+
 	}
+	chdb_txn.abort();
+
+	if (!service) {
+		bool done = network_done(epg.service_key.network_id);
+		return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
+	}
+
 	auto txn = epgdb_txn();
 	for (auto& epg_record : epg.epg_records) {
 		// assert(!epg.is_sky || p_mux_key->mux_key.network_id == epg_record.k.service.network_id);
 		// assert(!epg.is_sky || p_mux_key->mux_key.ts_id == epg_record.k.service.ts_id);
-		if (epg.is_sky || epg.is_mhw2)
-			epg_record.k.service = epg.epg_service;
-		else
-			epg_record.k.service.sat_pos = epg.epg_service.sat_pos;
+		assert(epg.is_sky || epg.is_mhw2 ||
+					 (epg_record.k.service.network_id == service->k.network_id &&
+						epg_record.k.service.ts_id == service->k.ts_id &&
+						epg_record.k.service.service_id == service->k.service_id));
+		epg_record.service_name = service->name;
+		epg_record.k.service = epg.service_key;
 		epg_record.source = epg_source;
 		epg_record.mtime = system_clock_t::to_time_t(now);
 		if (epg.is_sky_title) {

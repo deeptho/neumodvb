@@ -143,19 +143,18 @@ std::optional<epgdb::epg_record_t> epgdb::best_matching(db_txn& txnepg, const ep
 
 std::optional<epgdb::epg_record_t> epgdb::running_now(db_txn& txnepg, const chdb::service_key_t& service_key,
 																											time_t now) {
-	epg_service_t s(service_key.mux.sat_pos, service_key.network_id, service_key.ts_id, service_key.service_id);
 	// const int tolerance = 30*60;
 	/*
 		find a record with start time equal to now, or the closest earlier start_time if none exists
 	*/
-	auto c = epgdb::epg_record_t::find_by_key(txnepg, s, now /* - tolerance*/, find_leq,
+	auto c = epgdb::epg_record_t::find_by_key(txnepg, service_key, now /* - tolerance*/, find_leq,
 																						epgdb::epg_record_t::partial_keys_t::service);
-	if (c.is_valid() && c.current().k.service != s)
+	if (c.is_valid() && c.current().k.service != service_key)
 		c.next(); // the current service has no records, or no records old enough
 	if (c.is_valid())
 		for (const auto& rec : c.range()) {
 
-			if (rec.k.service != s) {
+			if (rec.k.service != service_key) {
 				assert(0);
 				break; // we passed the current service
 			}
@@ -179,21 +178,8 @@ std::optional<epgdb::epg_record_t> epgdb::running_now(db_txn& txnepg, const chdb
 
 std::optional<chdb::service_t> epgdb::service_for_epg_record(db_txn& txn, const epgdb::epg_record_t& epg_record) {
 	using namespace chdb;
-	/*
-		Note that epg_record.k.service.sat_pos could be wrong, because sat_pos relates to the satellite
-		on which the epg record was found. Sometimes satellites report epg for muxes on other satellites.
-
-		@todo: this could be solved by maintaing a database table which maps network_id to multiple satellites.
-		In case the code below finds no service, we repeat the search below, for all possible values
-		of sat_id found.
-
-		Alternatively,  mux could contain an index mapping network_id, ts_id to (one or more) satellites.
-	*/
-
-	// we do can not included k.mux.t2mi_pid and k.mux.extra_id in the serch, so we use a loop
-	auto c = service_t::find_by_network_id_ts_id_service_id_sat_pos
-		(txn, epg_record.k.service.network_id, epg_record.k.service.ts_id, epg_record.k.service.service_id,
-		 epg_record.k.service.sat_pos, find_type_t::find_eq, service_t::partial_keys_t::network_id_ts_id_service_id_sat_pos);
+	const auto& service_key = epg_record.k.service;
+	auto c = chdb::service_t::find_by_key(txn, service_key.mux, service_key.service_id);
 	if(c.is_valid())
 		return c.current();
 	return {}; // no result
@@ -207,10 +193,7 @@ std::unique_ptr<epg_screen_t> epgdb::chepg_screen(db_txn& txnepg, const chdb::se
 																									uint32_t sort_order, std::shared_ptr<neumodb_t> tmpdb) {
 	auto start_time_ = system_clock_t::from_time_t(start_time);
 	epg_record_t prefix;
-	prefix.k.service.sat_pos = service_key.mux.sat_pos;
-	prefix.k.service.network_id = service_key.network_id;
-	prefix.k.service.ts_id = service_key.ts_id;
-	prefix.k.service.service_id = service_key.service_id;
+	prefix.k.service = service_key;
 	auto cur = running_now(txnepg, service_key, start_time_);
 	prefix.k.start_time = cur ? cur->k.start_time : start_time;
 	auto lower_limit = prefix;
@@ -311,11 +294,6 @@ std::ostream& epgdb::operator<<(std::ostream& os, const epg_source_t& s) {
 	return os;
 }
 
-std::ostream& epgdb::operator<<(std::ostream& os, const epg_service_t& s) {
-	auto sat = chdb::sat_pos_str(s.sat_pos);
-	stdex::printf(os, "%s ts=%d sid=%d", sat.c_str(), s.ts_id, s.service_id);
-	return os;
-}
 std::ostream& epgdb::operator<<(std::ostream& os, const epg_key_t& k) {
 	os << k.service;
 	stdex::printf(os, " [%d] ", k.event_id);
@@ -331,8 +309,6 @@ std::ostream& epgdb::operator<<(std::ostream& os, const epg_record_t& epg) {
 
 	return os;
 }
-
-void epgdb::to_str(ss::string_& ret, const epg_service_t& s) { ret << s; }
 
 void epgdb::to_str_brief(ss::string_& ret, const epg_record_t& epg) {
 	auto os = ret << date::format("%H:%M", zoned_time(current_zone(), system_clock::from_time_t(epg.k.start_time)));

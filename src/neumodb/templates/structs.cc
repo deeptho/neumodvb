@@ -1367,13 +1367,16 @@ void screen_t<{{dbname}}::{{struct.class_name}}>::fill_list_db
 		monitor.auxiliary_reference.row_number = -1; //reset
 	}
 	assert(match_data || field_matchers.size()==0);
+	assert(match_data2 || field_matchers2.size()==0);
 
 	ss::bytebuffer_& start_key = limits.key_lower_limit;
 #ifdef USE_END_TIME
 	ss::bytebuffer_& end_key = limits.key_upper_limit;
 #endif
-	auto some_match_fn = [&field_matchers, &match_data](const {{struct.class_name}}& record) {
-		return matches(record, *match_data, field_matchers);
+	auto some_match_fn = [&field_matchers, &field_matchers2, &match_data, &match_data2](
+		const {{struct.class_name}}& record) {
+		return (!match_data || matches(record, *match_data, field_matchers)) &&
+			(!match_data2 || matches(record, *match_data2, field_matchers2));
 	};
 
 	auto all_match_fn = [](const {{struct.class_name}}& record) {
@@ -1388,7 +1391,7 @@ void screen_t<{{dbname}}::{{struct.class_name}}>::fill_list_db
 																																					find_type_t::find_geq);
 			c.set_key_prefix(limits.key_prefix);
 
-			if(field_matchers.size() ==0)
+			if(!match_data && !match_data2)
 			{{struct.name}}::fill_list_db_(txn, pos_top,
 																		 all_match_fn,
 #ifdef USE_END_TIME
@@ -1415,7 +1418,7 @@ void screen_t<{{dbname}}::{{struct.class_name}}>::fill_list_db
 																																							find_type_t::find_geq);
 			c.set_key_prefix(limits.key_prefix);
 
-			if(field_matchers.size() ==0)
+			if(!match_data && !match_data2)
 			{{struct.name}}::fill_list_db_(txn, pos_top,
 																		 all_match_fn,
 #ifdef USE_END_TIME

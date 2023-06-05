@@ -114,26 +114,33 @@ class DvbsMuxTable(NeumoTable):
         if matchers is None:
             match_data = self.record_t()
             matchers = pydevdb.field_matcher_t_vector()
+        match_data2 = self.record_t()
+        matchers2 = pydevdb.field_matcher_t_vector()
+
         freq_field_id = self.data_table.subfield_from_name("frequency")
 
         #if user has already filtered for a specific frequency, then setting a limit is pointless
         for m in matchers:
             if m.field_id == freq_field_id:
-                return match_data, matchers # this matcher is more specific
-
+                return match_data, matchers, None, None # this matcher is more specific
+        #push lower bound
         m = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.GEQ)
         matchers.push_back(m)
 
-        match_data2 = self.record_t()
-        matchers2 = pydevdb.field_matcher_t_vector()
+        #push upper  bound
+        m = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.LEQ)
         matchers2.push_back(m)
 
         match_data.frequency, match_data2.frequency = band
-        return match_data, matchers
+        return match_data, matchers, match_data2, matchers2
 
     def screen_getter_xxx(self, txn, sort_field):
-        match_data, matchers = self.get_filter_() if self.filter_band is None else \
-            self.filter_band_(self.filter_band)
+        if self.filter_band is None:
+            match_data, matchers = self.get_filter_()
+            match_data2, matchers2 = None, None
+        else:
+            match_data, matchers, match_data2, matchers2 = self.filter_band_(self.filter_band)
+
         if self.parent.allow_all and self.parent.sat:
             sat, mux= self.parent.CurrentSatAndMux()
             ref = pychdb.dvbs_mux.dvbs_mux()
@@ -142,7 +149,8 @@ class DvbsMuxTable(NeumoTable):
             screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_field,
                                             key_prefix_type=pychdb.dvbs_mux.dvbs_mux_prefix.sat_pos,
                                             key_prefix_data=ref,
-                                            field_matchers=matchers, match_data = match_data)
+                                            field_matchers=matchers, match_data = match_data,
+                                            field_matchers2=matchers2, match_data2 = match_data2)
             txn.abort()
             del txn
         else:

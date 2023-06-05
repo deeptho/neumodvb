@@ -65,7 +65,7 @@ SET(USE_BOOST_LOCALE false)
 SET(TEST_CHDB false)
 
 #set(BUILD_SHARED_LIBS ON)
-#option( USE_SYSTEM_TZ_DB "Use the operating system's timezone database" OFF )
+option( USE_SYSTEM_TZ_DB "Use the operating system's timezone database" ON )
 #option( BUILD_TZ_LIB "build/install of TZ library" ON )
 #option( BUILD_SHARED_LIBS  "Build a shared version of library" ON )
 add_subdirectory(date)

@@ -54,7 +54,7 @@ def NeumoGetBestSize(self, grid, attr, dc, row, col):
     return wx.Size(w, h)
 
 #path buggy wxpython code to fix extra space at end
-wx.grid.GridCellAutoWrapStringRenderer.GetBestSize = NeumoGetBestSize
+#wx.grid.GridCellAutoWrapStringRenderer.GetBestSize = NeumoGetBestSize
 
 class screen_if_t(object):
     def __init__(self, screen, invert_rows):
@@ -902,7 +902,7 @@ class NeumoTable(NeumoTableBase):
                     sort_columns = [ self.columns[colno].key ]
 
                 self.sort_colno = colno
-                self.sort_order = 2 if key.endswith('_time') else 1
+                self.sort_order = 1 if key.endswith('_time') else 1
         except:
             pass
 
@@ -1157,6 +1157,19 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             editor = NeumoChoiceEditor(col=col, choices=choices, allowOthers=False)
         elif col.key == 'icons':
             renderer = self.icon_renderer
+        elif col.key in ('networks',):
+            editor = None
+            readonly = True
+            renderer = wx.grid.GridCellAutoWrapStringRenderer()
+        elif col.key in ('connections',):
+            editor = None
+            readonly = True
+            renderer = wx.grid.GridCellAutoWrapStringRenderer()
+        elif col.key.endswith('story'):
+            editor = None
+            renderer = wx.grid.GridCellAutoWrapStringRenderer()
+        elif col.key.endswith('lang'):
+            readonly = True
         elif not readonly:
             if neumodbutils.is_enum(coltype):
                 #see https://stackoverflow.com/questions/54843888/wxpython-how-to-set-an-editor-for-a-column-of-a-grid
@@ -1166,16 +1179,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 #editor = wx.grid.GridCellEnumEditor(choices="off,on")
                 editor = wx.grid.GridCellBoolEditor()
                 pass
-            elif col.key in ('networks',):
-                editor = None
-                readonly = True
-                renderer = wx.grid.GridCellAutoWrapStringRenderer()
-            elif col.key in ('connections',):
-                editor = None
-                readonly = True
-                renderer = wx.grid.GridCellAutoWrapStringRenderer()
-            elif col.key.endswith('lang'):
-                readonly = True
             elif issubclass(coltype, numbers.Integral):
                 if col.key.endswith('time'):
                     readonly = True

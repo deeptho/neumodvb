@@ -214,7 +214,7 @@ namespace dtdemux {
 		auto* p = this->current_pointer(len);
 		if (!p)
 			return -1;
-		decodeText(ret, p, len);
+		decode_text(ret, p, len);
 		return 0;
 	}
 
@@ -292,7 +292,7 @@ namespace dtdemux {
 		auto* p = this->current_pointer(desc.len);
 		if (!p)
 			return -1;
-		decodeText(ret, p, desc.len);
+		decode_text(ret, p, desc.len);
 		return 0;
 	}
 
@@ -301,7 +301,7 @@ namespace dtdemux {
 		auto* p = this->current_pointer(len);
 		if (!p)
 			return -1;
-		decodeText(ret, p, len);
+		decode_text(ret, p, len);
 		return 0;
 	}
 
@@ -833,7 +833,7 @@ namespace dtdemux {
 			get_fields<dvb_text_t>(item);
 		}
 		assert(available() == end);
-		ss::string<128> text;
+
 		get_fields<dvb_text_t>(rec.story); // should be appended to story
 		return 0;
 	}
@@ -862,7 +862,7 @@ namespace dtdemux {
 		auto* p1 = current_pointer(len);
 		if (!p1)
 			return -1;
-		decodeText(text, p1, len);
+		decode_text(text, p1, len);
 		return 0;
 	}
 
@@ -1990,7 +1990,7 @@ namespace dtdemux {
 			auto* p = names.current_pointer(tlen);
 			if (!p)
 				return -1;
-			decodeText(name, p, tlen);
+			decode_text(name, p, tlen);
 			RETURN_ON_ERROR false;
 		}
 		return true;
@@ -2377,7 +2377,7 @@ pmt_info_t::make_preferred_pmt_ts(ss::bytebuffer_& output,
 }
 
 
-pmt_info_t dtdemux::parse_pmt_section(const ss::bytebuffer_& pmt_section_data, uint16_t pmt_pid) {
+pmt_info_t dtdemux::parse_pmt_section(ss::bytebuffer_& pmt_section_data, uint16_t pmt_pid) {
 	stored_section_t section(pmt_section_data, pmt_pid); //@todo performs needless copy
 	pmt_info_t pmt;
 	//read the original full pmt

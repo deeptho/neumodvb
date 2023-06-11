@@ -262,16 +262,7 @@ namespace ss {
 	output_len and *output_size can be modified
 	clean: remove characters such as \0x86 and \x0x87 (emphasis)
 */
-	int string_::append_as_utf8(const char* input, int input_len, const char* enc, bool clean) {
-		int oldn = size();
-		int ret1 = _append_as_utf8(input, input_len, enc);
-		if (ret1 < 0)
-			return ret1;
-		int ret = string_::translate_dvb_control_characters(oldn, clean);
-		return ret;
-	}
-
-	int string_::_append_as_utf8(const char* input, int input_len, const char* enc) {
+	int string_::append_as_utf8(char* input, int input_len, const char* enc) {
 		if (!input || !*input)
 			return 0;
 		auto size_ = size();
@@ -281,6 +272,7 @@ namespace ss {
 		const char* inbuf = input;
 		char* outbuf = buffer() + size_;
 		int ret;
+		bool retried{false};
 		do {
 			assert(inbuf);
 			assert(outbuf - buffer() + outbytesleft <= capacity());
@@ -297,6 +289,21 @@ namespace ss {
 						// truncated input
 						priv.iconv(NULL, 0, &outbuf, &outbytesleft, enc); // reset
 						break;
+					} else if (errno == E2BIG) {
+						//not enough room in output buffer
+						int extra = capacity();
+						priv.iconv(NULL, 0, &outbuf, &outbytesleft, enc); // reset
+						if(retried)
+							break;
+						reserve( capacity() + extra); //grow string
+
+						size_ = size();
+						inbytesleft = input_len;
+						outbytesleft = capacity() - (size_ + 1);
+						inbuf = input;
+						outbuf = buffer() + size_;
+						retried = true;
+						continue;
 					} else {
 						priv.iconv(NULL, 0, &outbuf, &outbytesleft, enc); // reset
 						break;
@@ -432,67 +439,6 @@ namespace ss {
 	}
 #endif
 
-// used by libsi
-	int string_::translate_dvb_control_characters(int startpos, bool clean) {
-		auto* to = buffer() + startpos;
-		auto* from = to;
-		auto* end = buffer() + size();
-		auto size_ = size();
-		int len = size_ - startpos;
-
-		// Handle control codes:
-		while (from < end) {
-			int l = Utf8CharLen(from);
-			/* cases to treat are the single byte character codes 0x8A, 0xa0, 0x86 and 0x87.
-				 These are encoded as 0xc2, X when the original dvb data (whcih has now been utf8 encoded)
-				 was single byte. For multibyte tables (Korean, Chinese....) the result may be wrong.
-				 It is not clear what the byte values are after utf-8 encoding.
-				 It may be better to handle the special characters first:
-				 1. check if the table is single or multi byte (by checking language code)
-				 2. Special caracters are  0x8A, 0xa0, 0x86 and 0x87 (single byte table)
-				 or 0xE08A ... for 2 byte tables
-			*/
-			if (l == 2 && (uint8_t)from[0] == 0xC2) { // Possible code to replace/delete
-				switch ((uint8_t)from[1]) {
-				case 0x8A:
-					*to++ = '\n';
-					break;
-				case 0xA0:
-					*to++ = ' ';
-					break;
-				case 0x86:
-				case 0x87:
-					if (clean) {
-						// skip the code
-					} else {
-						*to++ = from[0];
-						*to++ = from[1];
-					}
-					break;
-				default:
-					*to++ = from[0];
-					*to++ = from[1];
-				}
-				from += 2;
-			} else {
-				if (from == to) {
-					from += l;
-					to += l;
-				} else
-					for (; l > 0; --l)
-						*to++ = *from++;
-			}
-		}
-		int delta = from - to;
-		assert(delta >= 0);
-		if (delta > 0) {
-			auto newlen = size() - delta;
-			assert(newlen >= 0);
-			buffer()[newlen] = 0;
-			set_size(newlen);
-		}
-		return size();
-	}
 
 	template class databuffer_<char>;
 // template class databuffer_<false>;

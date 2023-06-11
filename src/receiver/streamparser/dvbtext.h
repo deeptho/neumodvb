@@ -29,4 +29,4 @@ namespace ss {
 	struct string_;
 };
 
-int decodeText(ss::string_& out, const uint8_t* from, int len);
+int decode_text(ss::string_& out, uint8_t* from, int len);

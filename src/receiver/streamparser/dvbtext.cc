@@ -84,18 +84,20 @@ static const char* CharacterTables2[] = {
 
 #define NumEntries(Table) (sizeof(Table) / sizeof(char*))
 
-static const char* getCharacterTable(const uint8_t*& buffer, int& length, bool* isSingleByte) {
+/*
+	returns character table string, and bool which is true if single byte system
+*/
+static std::tuple<const char*, bool>
+get_char_table_and_size(uint8_t*& buffer, int& length) {
 	const char* cs = "ISO6937";
 	// Workaround for broadcaster stupidity: according to
 	// "ETSI EN 300 468" the default character set is ISO6937. But unfortunately some
 	// broadcasters actually use ISO-8859-9, but fail to correctly announce that.
-	if (isSingleByte)
-		*isSingleByte = false;
 	if (length <= 0)
-		return cs;
+		return {cs , true};
 	unsigned int tag = buffer[0];
 	if (tag >= 0x20)
-		return cs;			 // DeepThought: default table (table 0) Latin alphabet see en_300468v011101p.pdf
+		return {cs, true};			 // DeepThought: default table (table 0) Latin alphabet see en_300468v011101p.pdf
 	if (tag == 0x10) { // DeepThought: buffer[1..2] point to a table specified in iso8859 parts 1-9
 		// see p. 103
 		if (length >= 3) {
@@ -103,33 +105,101 @@ static const char* getCharacterTable(const uint8_t*& buffer, int& length, bool* 
 			if (tag < NumEntries(CharacterTables2) && CharacterTables2[tag]) {
 				buffer += 3;
 				length -= 3;
-				if (isSingleByte)
-					*isSingleByte = true;
-				return CharacterTables2[tag];
+				return {CharacterTables2[tag], true};
 			}
 		}
 	} else if (tag < NumEntries(CharacterTables1) && CharacterTables1[tag]) {
 		buffer += 1;
 		length -= 1;
-		if (isSingleByte)
-			*isSingleByte = tag <= SingleByteLimit;
-		return CharacterTables1[tag];
+		return {CharacterTables1[tag], tag <= SingleByteLimit};
 	}
-	return cs;
+	return {cs, false};
 }
+
+
+
+static 	int translate_dvb_control_characters(uint8_t* to, int size_, bool single_byte_char, bool clean) {
+	auto* from = to;
+	auto* start = to;
+	auto* end = to + size_;
+	int len = size_;
+
+	auto convert_char = [clean](uint8_t c) -> int {
+		// Handle control codes:
+		switch (c) {
+		case 0x8A:
+			return '\n';
+		case 0xA0:
+			return ' ';
+			break;
+		case 0x86:
+		case 0x87:
+			if (clean) {
+				// skip the code
+				return -1;
+			} else {
+				return '*';
+			}
+			break;
+		default:
+			break;
+		}
+		return c;
+	};
+
+	if(single_byte_char)
+		while (from < end) {
+			auto c = *from++;
+			if(c=='_') {
+				//replace " _" with ","
+				if (from-2 >= start && from[-2]==' ') {
+					assert(to[-1] == ' ');
+					to[-1] = '\''; //overwrite the space
+				}
+			} else {
+				auto ret = convert_char(c);
+				if (ret >= 0)
+					*to++ = ret;
+			}
+		}
+	else //!single_byte_char
+		while (from < end) {
+			auto last = *from++;
+			if (last == 0xe0) {
+				*to++ = 0; //may not be correct!
+				if(from <end) {
+					auto ret = convert_char(*from++);
+					if (ret >= 0)
+						*to++ = ret;
+				}
+			} else {
+				*to++ = *from++;
+				if(from <end)
+					*to++ = *from++;
+			}
+		}
+
+
+	int delta = from - to;
+	assert(delta >= 0);
+	auto newlen = size_ - delta;
+	return newlen;
+}
+
+
 
 // originally from libdtv, Copyright Rolf Hakenes <hakenes@hippomi.de>
 /* @brief decodes an SI string into a ss::string dataStructure
 	 Returns the c-length of the number of characters written
 	 String may still contain the emphasis on/off codes 0x86, 0x87
 */
-int decodeText(ss::string_& out, const uint8_t* from, int len) {
+int decode_text(ss::string_& out, uint8_t* from, int len) {
 	if (len <= 0) {
 		return 0;
 	}
 
 	// DeepThought:
-	// hack for  Al Jamahiriy 	 which stores extra zero bytes at the end
+	// hack for  Al Jamahiriy, which stores extra zero bytes at the end
 	// of strings
 	while (len >= 1 && from[len - 1] == 0)
 		len--;
@@ -140,8 +210,8 @@ int decodeText(ss::string_& out, const uint8_t* from, int len) {
 	if (from[0] == 0x1f)
 		return freesat_huffman_decode(out, from, len); // TODO? perhaps this one should also use charset conversion?
 
-	bool singleByte;
-	const char* cs = getCharacterTable(from, len, &singleByte);
-	int ret = out.append_as_utf8((char*)from, len, cs);
+	auto [cs, single_byte_char]  = get_char_table_and_size(from, len);
+	auto new_len = translate_dvb_control_characters(from, len, single_byte_char, true /*clean*/);
+	int ret = out.append_as_utf8((char*)from, new_len, cs);
 	return ret;
 }

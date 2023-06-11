@@ -674,8 +674,6 @@ namespace ss {
 	};
 
 	class string_ : public databuffer_<char> {
-		int _append_as_utf8(const char* input, int input_len, const char* enc);
-		int translate_dvb_control_characters(int oldn, bool clean);
 
 		using parent = databuffer_<char>;
 
@@ -819,7 +817,7 @@ namespace ss {
 			return std::string(buffer());
 		}
 
-		int append_as_utf8(const char* input, int input_len, const char* enc, bool clean = true);
+		int append_as_utf8(char* input, int input_len, const char* enc);
 
 		int strftime(const char* fmt, const struct tm* tm);
 		void trim(int start = 0);

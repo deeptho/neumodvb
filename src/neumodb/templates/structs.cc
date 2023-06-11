@@ -1205,7 +1205,7 @@ namespace {{dbname}} {
   {% for f in struct.subfields -%} {{f.name}},  {%- endfor %}
 	 */
 	inline bool matches(const {{struct.class_name}}& a, const {{struct.class_name}}& b,
-												 const ss::vector<field_matcher_t>& field_matchers) {
+												 const ss::vector_<field_matcher_t>& field_matchers) {
 		for(const auto & fm: field_matchers) {
 			switch({{struct.class_name}}::subfield_t(fm.field_id)) {
 			case {{struct.class_name}}::subfield_t::none:

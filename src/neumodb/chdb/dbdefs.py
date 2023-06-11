@@ -531,7 +531,7 @@ mux_key = db_struct(name='mux_key',
                     version = 1,
                     fields = ((1, 'int16_t', 'sat_pos', 'sat_pos_none'), #16000 DVBC 16001=DVBT
                               (2, 'int16_t', 'stream_id', '-1'),
-                              (5, 'int16_t', 't2mi_pid', -1), #we would brefer 0x1fff but this interferes
+                              (5, 'int16_t', 't2mi_pid', -1), #we would prefer 0x1fff but this interferes
                                                               #with using default key as lower bound in find functions
                               (4, 'uint16_t', 'mux_id')
                               ))

@@ -369,12 +369,22 @@ bool screen_t<record_t>::update_if_matches(db_txn& from_txn, 	function_view<bool
 template <typename record_t>
 bool screen_t<record_t>::update(db_txn& from_txn)
 {
-
-	auto match_fn = [](const record_t& record) {
+	auto all_match_fn = [](const record_t& record) {
 		return true;
 	};
 
-	return screen_t<record_t>::update_if_matches(from_txn, match_fn);
+	auto * match_data = this->field_matchers.size() > 0 ?  & this->match_data : nullptr;
+	auto * match_data2 = this->field_matchers2.size() > 0 ?  & this->match_data2 : nullptr;
+
+	if (!match_data && !match_data2)
+		return screen_t<record_t>::update_if_matches(from_txn, all_match_fn);
+	else {
+		auto some_match_fn = [this, &match_data, &match_data2](const record_t& record) {
+			return (!match_data || matches(record, *match_data, field_matchers)) &&
+				(!match_data2 || matches(record, *match_data2, field_matchers2));
+		};
+		return screen_t<record_t>::update_if_matches(from_txn, some_match_fn);
+	}
 }
 
 /*

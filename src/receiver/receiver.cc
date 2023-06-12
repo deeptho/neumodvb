@@ -312,7 +312,7 @@ int receiver_thread_t::exit() {
 	}
 
 	dtdebug("Receiver thread exiting -starting to wait");
-	wait_for_all(futures);
+	wait_for_all(futures, true /*clear_all_errors*/);
 
 	dtdebug("Receiver thread exiting -stopping tuner");
 	receiver.tuner_thread.stop_running(true);
@@ -973,7 +973,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 																												(subscription_id_t) subscription_id);
 		return 0;
 	}));
-	auto error = wait_for_all(futures);
+	auto error = wait_for_all(futures, true /*clear_all_errors*/);
 	if(error) {
 		auto saved_error = get_error();
 		unsubscribe(subscription_id);
@@ -1053,7 +1053,7 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 																				tune_options, &rf_path);
 		return 0;
 	}));
-	wait_for_all(futures);
+	wait_for_all(futures, true /*clear all errors*/);
 	return subscription_id;
 }
 

@@ -240,7 +240,7 @@ class TuneMuxPanel(TuneMuxPanel_):
     def OnSubscriberCallback(self, evt):
         data = get_object(evt)
         if type(data) == str:
-            ShowMessage("Error", data)
+            self.parent.OnSubscriberCallback(data)
             return
         if self.mux_subscriber_ is None:
             return

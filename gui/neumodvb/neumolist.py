@@ -876,6 +876,7 @@ class NeumoTable(NeumoTableBase):
                 sort_columns = [ self.columns[colno].key ]
 
             self.sort_colno = colno
+            key = self.columns[colno].key
             if self.sort_columns[0: len(sort_columns)] == sort_columns:
                 self.sort_order = 1 if self.sort_order != 1 else 2
                 #need_refresh = (self.sort_order !=2)
@@ -885,7 +886,7 @@ class NeumoTable(NeumoTableBase):
                 if len(self.sort_columns) > 4:
                     #keep newest 4 items; very newest is in front
                     self.sort_columns= self.sort_columns[:4]
-                self.sort_order = 1
+                self.sort_order = 2 if key.endswith('time') else 1
         if need_new_data:
             self.__get_data__()
         self.screen.invert_rows = self.sort_order == 2
@@ -903,7 +904,7 @@ class NeumoTable(NeumoTableBase):
                     sort_columns = [ self.columns[colno].key ]
 
                 self.sort_colno = colno
-                self.sort_order = 1 if key.endswith('_time') else 1
+                self.sort_order = 2 if key.endswith('time') else 1
         except:
             pass
 

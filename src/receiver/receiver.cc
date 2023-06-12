@@ -620,7 +620,6 @@ receiver_thread_t::cb_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& 
 	bool error = wait_for_all(futures, false /*clear_errors*/) ||
 		(int)subscription_id <0; //the 2nd case occurs when reservation failed (no futures to wait for)
 	if (error) {
-		dterror("Unhandled error in subscribe_lnb"); // This will ensure that tuning is retried later
 		auto saved_error = get_error();
 		unsubscribe(subscription_id);
 		set_error(saved_error); //restore error message
@@ -972,8 +971,6 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 		cb(receiver_thread).abort_scan();
 		subscription_id = cb(receiver_thread).subscribe_lnb(rf_path, lnb, tune_options,
 																												(subscription_id_t) subscription_id);
-		if((int) subscription_id <0)
-			this->global_subscriber->notify_error(get_error());
 		return 0;
 	}));
 	auto error = wait_for_all(futures);
@@ -981,7 +978,6 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 		auto saved_error = get_error();
 		unsubscribe(subscription_id);
 		set_error(saved_error); //restore error message
-		this->global_subscriber->notify_error(get_error());
 		return subscription_id_t::TUNE_FAILED;
 	}
 	return subscription_id;

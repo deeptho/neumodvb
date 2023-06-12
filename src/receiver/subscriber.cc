@@ -200,6 +200,8 @@ int subscriber_t::subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& ln
 
 	subscription_id = receiver->subscribe_lnb_spectrum(rf_path, lnb, pol, low_freq, high_freq, sat_pos,
 																										 subscription_id);
+	if ((int)subscription_id < 0)
+		notify_error(get_error());
 	return (int) subscription_id;
 }
 

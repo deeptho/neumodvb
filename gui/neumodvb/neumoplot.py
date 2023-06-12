@@ -604,7 +604,10 @@ class SpectrumPlot(wx.Panel):
         spectrum.legend_panel = panel
 
     def make_key(self, spectrum):
-        return str(spectrum.k)
+        from neumodvb.util import lastdot
+        k = spectrum.k
+        return f'{pychdb.sat_pos_str(k.sat_pos)}_{lastdot(k.pol)}_{k.rf_path.card_mac_address}_' \
+            f'{str(k.rf_path.lnb)}_{k.rf_path.rf_input}_{k.start_time}'
 
     def toggle_spectrum(self, spectrum):
         key = self.make_key(spectrum)

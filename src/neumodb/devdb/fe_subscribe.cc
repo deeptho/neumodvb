@@ -466,6 +466,16 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 					sret.sub_to_reuse = subscription_id_t::NONE;
 				}
 				return sret;
+			} else {
+				auto x = to_str(*required_rf_path);
+				auto c = fe_t::find_by_card_mac_address(wtxn, required_rf_path->card_mac_address, find_type_t::find_eq,
+																								fe_t::partial_keys_t::card_mac_address);
+				if(c.is_valid()) {
+					auto fe = c.current();
+					user_error("Cannot currently use LNB " << lnb << "  with card " << fe.card_short_name);
+				} else {
+					user_error("Cannot currently use LNB " << lnb);
+				}
 			}
 		}
 	}

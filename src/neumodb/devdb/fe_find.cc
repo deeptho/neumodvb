@@ -275,7 +275,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 			: (fe_key_to_release && fe.k == *fe_key_to_release);
 		if(!is_subscribed || is_our_subscription) {
       //find the best fe will all required functionality, without taking into account other subscriptions
-			if(!fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
+			if(!fe.can_be_used || !fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
 				continue; /* The fe does not currently exist, or it cannot use DVBS. So it
 									 can also not create conflicts with other fes*/
 
@@ -284,13 +284,6 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 										which could impact usage of lnb, but not with other neumoDVB instances,
 										as they should also see the same value of fe.enable_dvbs
 									*/
-#if 0
-			if(!fe.can_be_used)
-			{/*noop*/}  /* We cannot open the fe and control it, which means another program
-										 has control. This other program must be a separare instance of neumoDVB;
-										 otherwise there can be no subscription.
-									*/
-#endif
 			if( !fe.rf_inputs.contains(rf_path.rf_input) ||
 					(need_blindscan && !fe.supports.blindscan) ||
 					(need_multistream && !fe.supports.multistream)
@@ -388,9 +381,9 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 		}
 	}
 
-
-	if (no_best_fe_yet())
+	if (no_best_fe_yet()) {
 		return {};
+	}
 	return best_fe;
 }
 
@@ -536,7 +529,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			break;
 		}
 	}
-	if(!best_fe)
+	if(!best_fe && !required_rf_path)
 		user_error("Could not find find available lnb, frontend or tuner for mux " << mux);
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }

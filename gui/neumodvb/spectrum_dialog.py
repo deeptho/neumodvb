@@ -377,6 +377,8 @@ class SpectrumDialog(SpectrumDialog_):
     def OnSubscriberCallback(self, data):
         if type(data) == str:
             ShowMessage("Error", data)
+            self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
+            self.EndBlindScan()
             return
         need_si = True
         if type(data) == pyreceiver.scan_report_t: #called from scanner

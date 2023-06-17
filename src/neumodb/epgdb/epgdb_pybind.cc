@@ -59,27 +59,44 @@ void export_gridepg(py::module& m) {
 		;
 }
 
-static std::unique_ptr<epgdb::epg_screen_t> chepg_screen(db_txn& txnepg, const chdb::service_key_t& service_key,
+static std::unique_ptr<epgdb::epg_screen_t> chepg_screen(db_txn& txnepg,
+																												 uint32_t sort_order,
+																												 const chdb::service_key_t& service_key,
 																												 time_t start_time,
 #ifdef USE_END_TIME
 																												 time_t end_time,
 #endif
-																												 uint32_t sort_order) {
-	return epgdb::chepg_screen(txnepg, service_key, start_time,
+																												 const ss::vector_<field_matcher_t>* field_matchers_,
+																												 const epgdb::epg_record_t* match_data_,
+																												 const ss::vector_<field_matcher_t>* field_matchers2_,
+																												 const epgdb::epg_record_t* match_data2_
+	) {
+	return epgdb::chepg_screen(txnepg, {}, sort_order,
+														 service_key,
+														 start_time,
 #ifdef USE_END_TIME
 														 time_end_time,
 #endif
-														 sort_order);
+														 field_matchers_,
+														 match_data_,
+														 field_matchers2_,
+														 match_data2_
+		);
 }
 
 void export_extra(py::module& m) {
 	m.def("clean", &epgdb::clean, "remove old epgdb records", py::arg("txn"), py::arg("start_time"))
-		.def("chepg_screen", &chepg_screen, "channel epg sceen", py::arg("txnepg"), py::arg("service_key"),
+		.def("chepg_screen", &chepg_screen, "channel epg sceen",
+				 py::arg("txnepg"),
+				 py::arg("sort_order"),
+				 py::arg("service_key"),
 				 py::arg("start_time"),
 #ifdef USE_END_TIME
 				 py::arg("end_time"),
 #endif
-				 py::arg("sort_order"))
+				 py::arg("field_matchers") = nullptr, py::arg("match_data") = nullptr,
+				 py::arg("field_matchers2") = nullptr, py::arg("match_data2") = nullptr
+			)
 		.def("running_now", py::overload_cast<db_txn&, const chdb::service_key_t&, time_t>(&epgdb::running_now),
 				 "Get currently running program on service", py::arg("txnepg"), py::arg("service_key"), py::arg("now"))
 		;

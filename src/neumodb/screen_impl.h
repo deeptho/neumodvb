@@ -599,17 +599,35 @@ template <typename record_t>
 screen_t<record_t>::screen_t
 (db_txn& txn, std::shared_ptr<neumodb_t>& tmpdb, uint32_t sort_order_,
  typename record_t::partial_keys_t key_prefix_type_,
- const record_t *key_prefix_data_, const record_t* lower_limit_
+ const record_t *key_prefix_data_, const record_t* lower_limit_,
  #ifdef USE_END_TIME
- , const record_t* upper_limit_
+ const record_t* upper_limit_,
  #endif
-	) :
-	screen_t(dynamic_key_t(sort_order_), key_prefix_type_, key_prefix_data_, lower_limit_
+ const ss::vector_<field_matcher_t>* field_matchers_,
+ const record_t* match_data_,
+ const ss::vector_<field_matcher_t>* field_matchers2_,
+ const record_t* match_data2_) :
+	screen_t(dynamic_key_t(sort_order_), key_prefix_type_, key_prefix_data_,
+					 lower_limit_
 #ifdef USE_END_TIME
 					 , upper_limit_
 #endif
 		)
 {
+	if(field_matchers_) {
+		field_matchers = *field_matchers_;
+		assert(match_data_);
+		match_data = *match_data_;
+	} else {
+		assert(!match_data_);
+	}
+	if(field_matchers2_) {
+		field_matchers2 = *field_matchers2_;
+		assert(match_data2_);
+		match_data2 = *match_data2_;
+	} else {
+		assert(!match_data2_);
+	}
 	this->init(txn, tmpdb, -1, 0);
 }
 

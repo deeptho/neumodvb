@@ -100,19 +100,17 @@ class ChEpgTable(NeumoTable):
 
     def screen_getter_xxx(self, txn, sort_field):
         now = int(time.time())
+        match_data, matchers = self.filter_times_()
+        txn = self.db.rtxn()
         if self.parent.restrict_to_service:
             service, epg_record = self.parent.CurrentServiceAndEpgRecord()
-            txn = self.db.rtxn()
-            screen = pyepgdb.chepg_screen(txn, service_key=service.k, start_time=now, sort_order=sort_field)
-            txn.abort()
-            del txn
+            screen = pyepgdb.chepg_screen(txn, service_key=service.k, start_time=now, sort_order=sort_field,
+                                          field_matchers=matchers, match_data = match_data)
         else:
-            match_data, matchers = self.filter_times_()
-            txn = self.db.rtxn()
             screen = pyepgdb.epg_record.screen(txn, sort_order=sort_field,
                                                field_matchers=matchers, match_data = match_data)
-            txn.abort()
-            del txn
+        txn.abort()
+        del txn
         self.screen = screen_if_t(screen, self.sort_order==2)
 
     def filter_times_(self):

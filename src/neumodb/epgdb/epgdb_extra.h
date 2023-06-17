@@ -115,12 +115,18 @@ namespace epgdb {
 		return running_now(txnepg, k, now);
 	}
 	std::unique_ptr<epg_screen_t>
-	chepg_screen(db_txn& txnepg, const chdb::service_key_t& service_key, time_t start_time,
+	chepg_screen(db_txn& txnepg,
+							 std::shared_ptr<neumodb_t> tmpdb, uint32_t sort_order,
+							 const chdb::service_key_t& service_key,
+							 time_t start_time,
 #ifdef USE_END_TIME
 							 time_t end_time =0,
 #endif
-							 uint32_t sort_order=0,
-							 std::shared_ptr<neumodb_t> tmpdb={});
+							 const ss::vector_<field_matcher_t>* field_matchers_ =nullptr,
+							 const epgdb::epg_record_t* match_data_ = nullptr,
+							 const ss::vector_<field_matcher_t>* field_matchers2_ =nullptr,
+							 const epgdb::epg_record_t* match_data2_ = nullptr
+		);
 
 	void clean(db_txn& txnepg, system_time_t start_time);
 

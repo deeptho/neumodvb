@@ -185,12 +185,17 @@ std::optional<chdb::service_t> epgdb::service_for_epg_record(db_txn& txn, const 
 	return {}; // no result
 }
 
-std::unique_ptr<epg_screen_t> epgdb::chepg_screen(db_txn& txnepg, const chdb::service_key_t& service_key,
+std::unique_ptr<epg_screen_t> epgdb::chepg_screen(db_txn& txnepg,
+																									std::shared_ptr<neumodb_t> tmpdb, uint32_t sort_order,
+																									const chdb::service_key_t& service_key,
 																									time_t start_time,
 #ifdef USE_END_TIME
 																									time_t end_time,
 #endif
-																									uint32_t sort_order, std::shared_ptr<neumodb_t> tmpdb) {
+																									const ss::vector_<field_matcher_t>* field_matchers_,
+																									const epgdb::epg_record_t* match_data_,
+																									const ss::vector_<field_matcher_t>* field_matchers2_,
+																									const epgdb::epg_record_t* match_data2_) {
 	auto start_time_ = system_clock_t::from_time_t(start_time);
 	epg_record_t prefix;
 	prefix.k.service = service_key;
@@ -210,12 +215,18 @@ std::unique_ptr<epg_screen_t> epgdb::chepg_screen(db_txn& txnepg, const chdb::se
 		tmpdb->open_temp("/tmp/neumolists");
 	}
 
-	return std::make_unique<epg_screen_t>(txnepg, tmpdb, sort_order, epg_record_t::partial_keys_t::service, &prefix,
-																				&lower_limit
+	return std::make_unique<epg_screen_t>(txnepg, tmpdb, sort_order,
+																				epg_record_t::partial_keys_t::service,
+																				&prefix,
+																				&lower_limit,
 #ifdef USE_END_TIME
-																				,
-																				upper_limit
+																				upper_limit,
 #endif
+																				field_matchers_,
+																				match_data_,
+																				field_matchers2_,
+																				match_data2_
+
 		);
 }
 
@@ -269,21 +280,26 @@ epgdb::epg_screen_t* epgdb::gridepg_screen_t::add_service(db_txn& txnepg, const 
 		if (e.epg_screen.get() == nullptr) {
 			e.service_key = service_key;
 			dtdebug("GRID: add epg for " << service_key);
-			e.epg_screen = chepg_screen(txnepg, service_key, start_time_,
+			e.epg_screen = chepg_screen(txnepg,
+																	make_db(), epg_sort_order,
+																	service_key, start_time_
 #ifdef USE_END_TIME
-																	end_time_,
+																	, end_time_
 #endif
-																	epg_sort_order, make_db());
+				);
 			return e.epg_screen.get();
 		}
 	}
 	auto& e = entries.emplace_back(service_key);
 	dterror("GRID: add epg for " << service_key);
-	e.epg_screen = chepg_screen(txnepg, service_key, start_time_,
+	e.epg_screen = chepg_screen(txnepg,
+															make_db(),
+															epg_sort_order,
+															service_key, start_time_
 #ifdef USE_END_TIME
-															end_time_,
+															, end_time_
 #endif
-															epg_sort_order, make_db());
+		);
 	return e.epg_screen.get();
 }
 

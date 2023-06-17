@@ -56,6 +56,7 @@ void export_field_matcher_t(py::module& m) {
 		.value("GT", m_t::GT)
 		.value("LT", m_t::LT)
 		.value("STARTSWITH", m_t::STARTSWITH)
+		.value("CONTAINS", m_t::CONTAINS)
 		;
 
 	py::class_<field_matcher_t>(mm, "field_matcher")

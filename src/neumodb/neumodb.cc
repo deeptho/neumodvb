@@ -458,6 +458,9 @@ std::ostream& operator<<(std::ostream& os, field_matcher_t::match_type_t match_t
 	case m_t::STARTSWITH:
 		os << "STARTSWITH";
 		break;
+	case m_t::CONTAINS:
+		os << "CONTAINS";
+		break;
 	default:
 		os << "???";
 		break;

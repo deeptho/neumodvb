@@ -651,7 +651,7 @@ class NeumoTable(NeumoTableBase):
             coltype = type(neumodbutils.get_subfield(self.record_t(), col.key))
             matchtype = pydevdb.field_matcher.match_type.EQ
             if coltype == str:
-                matchtype = pydevdb.field_matcher.match_type.STARTSWITH
+                matchtype = pydevdb.field_matcher.match_type.CONTAINS
             m = pydevdb.field_matcher.field_matcher(self.data_table.subfield_from_name(col.key),
                                                        matchtype)
 

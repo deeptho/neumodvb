@@ -89,7 +89,8 @@ struct field_matcher_t {
 		LEQ,
 		GT,
 		LT,
-		STARTSWITH
+		STARTSWITH,
+		CONTAINS,
 	};
 
 	int8_t field_id{-1};

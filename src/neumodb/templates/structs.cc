@@ -1236,7 +1236,11 @@ namespace {{dbname}} {
 				{%if f.is_string -%}
 			case field_matcher_t::match_type_t::STARTSWITH:
 				if(strncasecmp(a.{{f.name}}.c_str(), b.{{f.name}}.c_str(),
-									 b.{{f.name}}.size()) !=0)
+									 b.{{f.name}}.size()) != 0)
+					return false;
+				break;
+			case field_matcher_t::match_type_t::CONTAINS:
+				if(strcasestr(a.{{f.name}}.c_str(), b.{{f.name}}.c_str()) == nullptr)
 					return false;
 				break;
 				{%else%}

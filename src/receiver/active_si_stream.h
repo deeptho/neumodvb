@@ -543,8 +543,6 @@ struct active_si_data_t {
 
 };
 
-
-
 class active_si_stream_t final : /*public std::enable_shared_from_this<active_stream_t>,*/
 	public active_stream_t, active_si_data_t
 {

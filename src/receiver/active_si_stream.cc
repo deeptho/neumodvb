@@ -673,6 +673,7 @@ void active_si_stream_t::process_si_data() {
 		}
 		break;
 	}
+
 	if (epgdb_txn_) {
 		if (must_abort)
 			epgdb_txn_->abort();

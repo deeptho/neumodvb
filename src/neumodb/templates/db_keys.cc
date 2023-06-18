@@ -24,6 +24,7 @@
 #include "neumodb/cursors.h"
 #include "neumodb/dbdesc.h"
 #include "neumodb/schema/schema_db.h"
+#include <uuid/uuid.h>
 
 
 namespace {{dbname}} {
@@ -62,6 +63,9 @@ namespace {{dbname}} {
 	{
 		schema::neumo_schema_t s;
 		s.version = neumo_schema_version;
+		uuid_t uuid;
+		uuid_generate(uuid);
+		s.uuid.append_raw(&uuid[0], sizeof(uuid));
 		s.db_type="{{dbname}}";
 		for(auto& schema_entry: *dbdesc->p_all_sw_schemas) {
 			convert_schema(*schema_entry.pschema, s.schema);

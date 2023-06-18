@@ -44,6 +44,11 @@ add_custom_command(
     COMMENT "Generating code for neumodb recdb."
 )
 
+set_source_files_properties(
+  ${gensrc} ${genhdr} ${pybind_srcs}
+  PROPERTIES GENERATED TRUE
+  )
+
 add_custom_target(rec_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(recdb SHARED ${gensrc} recdb_extra.cc recdb_upgrade.cc rec_browse_history.cc)
@@ -56,7 +61,8 @@ pybind11_add_module(pyrecdb recdb_pybind.cc ${pybind_srcs})
 
 target_compile_options(pyrecdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(recdb PUBLIC stackstring neumolmdb chdb epgdb neumodb schema)
-target_link_libraries(recdb PUBLIC date::date-tz)
+
+target_link_libraries(recdb PUBLIC date::date-tz uuid)
 target_link_libraries(pyrecdb PRIVATE recdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)

@@ -87,6 +87,7 @@ neumo_schema = db_struct(name='neumo_schema',
                 keys =  (
                 ),
                 fields = ((1, 'neumo_schema_key_t', 'k'),
-                          (2, 'uint32_t', 'version', '0'), #not used?
+                          (2, 'uint32_t', 'version', '0'),
                           (3, 'ss::string<32>', 'db_type', '"generic"'),
+                          (5, 'ss::vector<uint8_t,16>', 'uuid', '0'), #set at database creation and never changed
                           (4, 'ss::vector<neumo_schema_record_t, 64>', 'schema')))

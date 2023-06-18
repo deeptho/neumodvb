@@ -21,7 +21,6 @@ db = db_db(gen_options)
 def lord(x):
     return  int.from_bytes(x.encode(), sys.byteorder)
 
-
 db_include(fname='chdb', db=db, include='neumodb/chdb/chdb_db.h')
 
 """

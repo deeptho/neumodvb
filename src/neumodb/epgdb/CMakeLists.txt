@@ -44,7 +44,14 @@ add_custom_command(
     COMMENT "Generating code for neumodb epgdb."
 )
 
-add_custom_target(epg_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
+set_source_files_properties(
+  ${gensrc} ${genhdr} ${pybind_srcs}
+  PROPERTIES GENERATED TRUE
+  )
+
+add_custom_target(epg_generated_files ALL DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
+
+add_dependencies(epg_generated_files dev_generated_files ch_generated_files)
 
 add_library(epgdb SHARED ${gensrc} epgdb_extra.cc epgdb_upgrade.cc)
 add_dependencies(epgdb epg_generated_files dev_generated_files ch_generated_files stat_generated_files  date::date)
@@ -55,7 +62,7 @@ target_compile_options(epgdb PUBLIC -fPIC -fsized-deallocation)
 pybind11_add_module(pyepgdb epgdb_pybind.cc ${pybind_srcs})
 
 target_compile_options(pyepgdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
-target_link_libraries(epgdb PUBLIC stackstring neumolmdb neumoutil neumodb schema date::date-tz)
+target_link_libraries(epgdb PUBLIC stackstring neumolmdb neumoutil neumodb schema date::date-tz uuid)
 
 target_link_libraries(pyepgdb PRIVATE epgdb chdb pyneumodb)
 

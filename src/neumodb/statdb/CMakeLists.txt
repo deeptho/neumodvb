@@ -45,6 +45,11 @@ add_custom_command(
     COMMENT "Generating code for neumodb statdb."
 )
 
+set_source_files_properties(
+  ${gensrc} ${genhdr} ${pybind_srcs}
+  PROPERTIES GENERATED TRUE
+  )
+
 add_custom_target(stat_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(statdb SHARED ${gensrc} statdb_extra.cc statdb_upgrade.cc)
@@ -56,7 +61,7 @@ target_compile_options(statdb PUBLIC -fPIC -fsized-deallocation) #needed to prev
 pybind11_add_module(pystatdb statdb_pybind.cc statdb_vector_pybind.cc ${pybind_srcs})
 
 target_compile_options(pystatdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
-target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb neumodb schema date::date-tz)
+target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb neumodb schema date::date-tz uuid)
 target_link_libraries(pystatdb PRIVATE statdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)

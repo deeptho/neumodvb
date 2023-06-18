@@ -44,7 +44,12 @@ add_custom_command(
     COMMENT "Generating code for neumodb devdb."
 )
 
-add_custom_target(dev_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
+set_source_files_properties(
+  ${gensrc} ${genhdr} ${pybind_srcs}
+  PROPERTIES GENERATED TRUE
+  )
+
+add_custom_target(dev_generated_files ALL DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(devdb SHARED ${gensrc} devdb_extra.cc fe_find.cc fe_subscribe.cc devdb_upgrade.cc)
 add_dependencies(devdb dev_generated_files ch_generated_files stat_generated_files epg_generated_files rec_generated_files)
@@ -58,7 +63,7 @@ pybind11_add_module(pydevdb devdb_pybind.cc devdb_vector_pybind.cc ${pybind_srcs
 target_compile_options(pydevdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(devdb PUBLIC stackstring neumolmdb neumoutil neumodb schema)
 
-target_link_libraries(pydevdb PRIVATE devdb chdb pyneumodb pyschemadb)
+target_link_libraries(pydevdb PRIVATE devdb chdb pyneumodb pyschemadb uuid)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
 target_precompile_headers(devdb PRIVATE [[<stdint.h>]] devdb_extra.h  ${precomp})

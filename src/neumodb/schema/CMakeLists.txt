@@ -44,14 +44,19 @@ add_custom_command(
     COMMENT "Generating code for neumodb schemadb."
 )
 
-add_custom_target(schema_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
+add_custom_target(schema_generated_files ALL DEPENDS ${gendeps} ${codegen} ${gensrc} ${genhdr} ${pybind_srcs})
+
+set_source_files_properties(
+  ${gensrc} ${genhdr} ${pybind_srcs}
+  PROPERTIES GENERATED TRUE
+  )
 
 add_library(schema SHARED ${gensrc})
 add_dependencies(schema schema_generated_files)
 
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(schema PUBLIC -fPIC -fsized-deallocation)
-target_link_libraries(schema PUBLIC stackstring neumolmdb neumoutil neumodb)
+target_link_libraries(schema PUBLIC stackstring neumolmdb neumoutil neumodb uuid)
 
 pybind11_add_module(pyschemadb SHARED schemadb_pybind.cc ${pybind_srcs})
 target_link_libraries(pyschemadb PRIVATE pyneumodb schema)

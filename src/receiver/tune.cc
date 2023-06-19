@@ -536,6 +536,16 @@ int tuner_thread_t::cb_t::toggle_recording(const chdb::service_t& service, const
 	return recmgr.toggle_recording(service, epg_record);
 }
 
+void tuner_thread_t::cb_t::update_autorec(recdb::autorec_t& autorec)
+{
+	recmgr.update_autorec(autorec);
+}
+
+void tuner_thread_t::cb_t::delete_autorec(const recdb::autorec_t& autorec)
+{
+	recmgr.delete_autorec(autorec);
+}
+
 #if 0
 void tuner_thread_t::cb_t::update_recording(const recdb::rec_t& rec) {
 	recmgr.update_recording(rec);

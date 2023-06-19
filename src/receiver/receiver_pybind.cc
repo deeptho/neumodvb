@@ -121,6 +121,12 @@ static void export_receiver(py::module& m) {
 		.def("renumber_card", &receiver_t::renumber_card, "Renumber a card",
 				 py::arg("old_number"), py::arg("new_number"))
 		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
+		.def("update_autorec",
+				 (&receiver_t::update_autorec),
+				 "Create or update an auto rec", py::arg("autorec"))
+		.def("delete_autorec",
+				 (&receiver_t::update_autorec),
+				 "Delete an auto rec", py::arg("autorec"))
 		.def("toggle_recording",
 				 py::overload_cast<const chdb::service_t&, const epgdb::epg_record_t&>(&receiver_t::toggle_recording),
 				 "Toggle recording of an epg event.", py::arg("service"), py::arg("epgrecord"))

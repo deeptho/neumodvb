@@ -1113,6 +1113,25 @@ int receiver_t::toggle_recording(const chdb::service_t& service) {
 	return toggle_recording_(service, now, options.readAccess()->default_record_time.count(), nullptr);
 }
 
+int receiver_t::update_autorec(recdb::autorec_t& autorec) {
+	tuner_thread 	//call by reference ok because of subsequent .wait
+		.push_task([this, &autorec]() {
+			cb(tuner_thread).update_autorec(autorec);
+			return 0;
+		})
+		.wait();
+	return 0;
+}
+
+int receiver_t::delete_autorec(const recdb::autorec_t& autorec) {
+	tuner_thread 	//call by reference ok because of subsequent .wait
+		.push_task([this, autorec]() {
+			cb(tuner_thread).delete_autorec(autorec);
+			return 0;
+		});
+	return 0;
+}
+
 bool receiver_t::init() {
 	if(inited)
 		return inited;

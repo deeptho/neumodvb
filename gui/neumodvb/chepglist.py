@@ -36,7 +36,7 @@ import pyreceiver
 
 import neumodvb.neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t # IconRenderer, MyColLabelRenderer,
-from neumodvb.servicelist import BasicServiceGrid, ChannelNoDialog
+from neumodvb.servicelist import BasicServiceGrid
 from neumodvb.servicelist_combo import EVT_SERVICE_SELECT
 from neumodvb.epg_content_codes import content_type_name
 
@@ -164,17 +164,22 @@ class ChEpgGrid(NeumoGridBase):
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.GetParent().Bind(EVT_SERVICE_SELECT, self.CmdSelectService)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
-        self.grid_specific_menu_items=['epg_record_menu_item']
+        self.grid_specific_menu_items=['epg_record_menu_item', 'epg_autorec_menu_item']
         self.restrict_to_service = None
-        self.epg_record = None
 
     def OnToggleRecord(self, evt):
-        epg = self.table.CurrentlySelectedRecord()
-        service = self.CurrentService()
+        service, epg = self.CurrentServiceAndEpgRecord()
         assert epg is not None
         assert service is not None
         from neumodvb.record_dialog import show_record_dialog
         show_record_dialog(self, service, epg=epg)
+
+    def OnAutoRec(self, evt):
+        service, epg = self.CurrentServiceAndEpgRecord()
+        assert epg is not None
+        assert service is not None
+        from neumodvb.autorec_dialog import show_autorec_dialog
+        show_autorec_dialog(self, service, epg=epg)
 
     def OnShow(self, evt):
         service = self.app.live_service_screen.selected_service
@@ -209,21 +214,20 @@ class ChEpgGrid(NeumoGridBase):
     def SelectService(self, service):
         self.restrict_to_service = service
         self.service = None
-        self.epg_record = None
-        wx.CallAfter(self.handle_service_change, None, self.epg_record)
+        wx.CallAfter(self.handle_service_change, None)
 
-    def handle_service_change(self, evt, epg_record):
-        dtdebug(f'doit rec_to_select={epg_record}')
+    def handle_service_change(self, evt):
+        dtdebug(f'handle_service_change')
         self.table.GetRow.cache_clear()
-        self.OnRefresh(evt, epg_record)
+        self.OnRefresh(evt)
 
     def CurrentServiceAndEpgRecord(self):
         if self.restrict_to_service is None:
             epg_record = None
             service = self.app.live_service_screen.selected_service
             self.restrict_to_service = service
-            self.epg_record = epg_record
-        return self.restrict_to_service, self.epg_record
+        epg_record = self.table.CurrentlySelectedRecord()
+        return self.restrict_to_service, epg_record
 
     def CurrentGroupText(self):
         service, epg_record = self.CurrentServiceAndEpgRecord()

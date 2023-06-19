@@ -163,3 +163,31 @@ void recdb::rec::make_filename(ss::string_& ret, const chdb::service_t& s, const
 			c = ' ';
 	}
 }
+
+
+int32_t recdb::make_unique_id(db_txn& txn, autorec_t& autorec)
+{
+	if(autorec.id >=0)
+		return autorec.id;
+	int32_t id = std::numeric_limits<int32_t>::max();
+	while (id > 0) {
+		auto c = recdb::autorec_t::find_by_key(txn, id, find_leq);
+		if (c.is_valid()) {
+			auto largest = c.current();
+			if(largest.id + 1  < id) {
+				autorec.id = largest.id + 1;
+				return autorec.id;
+			}
+			/*at this stage the top range of ids is fully
+				used. We move towards lower ids looking for a gap
+			 */
+			id = largest.id - 1;
+			if(!c.prev()) {
+				assert(0);
+				break; //we failed
+			}
+		}
+	}
+	assert(0);
+	return -1;
+}

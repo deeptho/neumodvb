@@ -63,6 +63,7 @@ class neumoMainFrame(mainFrame):
         from neumodvb.neumomenu import NeumoMenuBar
         self.main_menubar = NeumoMenuBar(self)
         self.main_menubar.epg_record_menu_item = self.main_menubar.get_menu_item('ToggleRecord')
+        self.main_menubar.epg_autorec_menu_item = self.main_menubar.get_menu_item('AutoRec')
         self.main_menubar.edit_mode_checkbox = self.main_menubar.get_menu_item('EditMode')
         self.main_menubar.on_new = self.main_menubar.get_menu_item('New')
         self.edit_menu = self.main_menubar.get_menu('Edit')
@@ -84,7 +85,7 @@ class neumoMainFrame(mainFrame):
             self.chglist_panel,
             self.satlist_panel, self.frontendlist_panel, self.statuslist_panel,
             self.mosaic_panel,
-            self.reclist_panel, self.spectrumlist_panel]
+            self.reclist_panel, self.autoreclist_panel, self.spectrumlist_panel]
         self.grids = [
             self.servicegrid, self.chgmgrid,
             self.recgrid, self.spectrumgrid, self.chepggrid,
@@ -464,6 +465,10 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdRecList")
         self.ShowPanel(self.reclist_panel)
 
+    def CmdAutoRecList(self, event):
+        dtdebug("CmdAutoRecList")
+        self.ShowPanel(self.autoreclist_panel)
+
     def CmdNew(self, event):
         dtdebug("CmdNew")
         if not self.edit_mode:
@@ -532,6 +537,13 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdToggleRecord")
         m = self.get_panel_method('OnToggleRecord')
         dtdebug(f'CmdToggleRecord: {m}')
+        if m is not None:
+            m(event)
+
+    def CmdAutoRec(self, event):
+        dtdebug("CmdAutoRec")
+        m = self.get_panel_method('OnAutoRec')
+        dtdebug(f'CmdAutoRec: {m}')
         if m is not None:
             m(event)
 

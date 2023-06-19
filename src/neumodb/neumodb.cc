@@ -193,12 +193,6 @@ int stats_db(neumodb_t& db) {
 	return 1;
 }
 
-int neumodb_t::wait_for_activity(int old_txn_id) {
-	std::unique_lock<std::mutex> lk(activity_mutex);
-	activity_cv.wait(lk, [this, old_txn_id] { return last_txn_id > old_txn_id; });
-	return last_txn_id;
-}
-
 void neumodb_t::open(const char* dbpath, bool allow_degraded_mode, const char* table_name, bool use_log,
 										 size_t mapsize) {
 	this->open_(dbpath, allow_degraded_mode, table_name, use_log, mapsize);

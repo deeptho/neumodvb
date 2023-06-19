@@ -23,20 +23,6 @@ filerec= pyrecdb.file
 marker =  pyrecdb.marker
 rec = pyrecdb.rec
 
-
-#t=pyrecdb.marker_key.marker_key()
-#print(t)
-
-#db.open('/mnt/neumo/live/A00_ts02035_sid06201_20200523_03:13:29/index.mdb')
-#db.open('/mnt/neumo/live/A02_ts00006_sid01537_20201018_11:48:44/index.mdb')
-#db.open('/mnt/neumo/live/A02_ts00004_sid08588_20201105_22:16:28')
-#db.open('/mnt/neumo/live/A02_ts00004_sid08588_20201105_23:59:01')
-#db.open('/mnt/neumo/live/A02_ts00004_sid08588_20201106_00:04:22/index.mdb')
-#db.open("/mnt/neumo/recordings/Domenica In - Rai 1 HD - 2020-11-08 14:00/index.mdb")
-#db.open('/mnt/neumo/live/A02_ts00004_sid08588_20201108_17:14:35/index.mdb')
-#db.open("/mnt/neumo/live/A00_ts02024_sid05109_20201113_23:53:31/index.mdb/")
-#db.open("/tmp/mpm.mdb/")
-#db.open("/mnt/neumo/recordings/Domenica In - Rai 1 HD - 2020-11-15 14:00/index.mdb/")
 db.open('/tmp/index.mdb')
 #import pyepgdb
 datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") if x<33101382645 else "?"

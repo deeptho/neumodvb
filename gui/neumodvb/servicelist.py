@@ -30,64 +30,10 @@ import regex as re
 
 from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
-from neumodvb.neumo_dialogs_gui import ChannelNoDialog_
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
 from neumodvb.satlist_combo import EVT_SAT_SELECT
 
 import pychdb
-
-class ChannelNoDialog(ChannelNoDialog_):
-    def __init__(self, parent, basic, *args, **kwds):
-        self.parent= parent
-        self.timeout = 1000
-        if "initial_chno" in kwds:
-            initial_chno = str(kwds['initial_chno'])
-            del kwds['initial_chno']
-        else:
-            initial_chno = None
-        kwds["style"] =  kwds.get("style", 0) | wx.NO_BORDER
-        super().__init__(parent, basic, *args, **kwds)
-        if initial_chno is not None:
-            self.chno.ChangeValue(initial_chno)
-            self.chno.SetInsertionPointEnd()
-        self.timer= wx.Timer(owner=self , id =1)
-        self.Bind(wx.EVT_TIMER, self.OnTimer)
-        self.timer.StartOnce(milliseconds=self.timeout)
-        self.chno.Bind(wx.EVT_CHAR, self.CheckCancel)
-
-    def CheckCancel(self, event):
-        if event.GetKeyCode() in [wx.WXK_ESCAPE, wx.WXK_CONTROL_C]:
-            self.OnTimer(None, ret=wx.ID_CANCEL)
-            event.Skip(False)
-        event.Skip()
-
-    def OnText(self, event):
-        self.timer.Stop()
-        self.timer.StartOnce(milliseconds=self.timeout)
-        event.Skip()
-
-    def OnTextEnter(self, event):  # wxGlade: ChannelNoDialog.<event_handler>
-        self.OnTimer(None)
-        event.Skip()
-
-    def OnTimer(self, event, ret=wx.ID_OK):
-        self.EndModal(ret)
-
-
-def ask_channel_number(caller, initial_chno=None):
-    if initial_chno is not None:
-        initial_chno = str(initial_chno)
-    dlg = ChannelNoDialog(caller, -1, "Channel Number", initial_chno = initial_chno)
-
-    val = dlg.ShowModal()
-    chno = None
-    if val == wx.ID_OK:
-        try:
-            chno = int(dlg.chno.GetValue())
-        except:
-            pass
-    dlg.Destroy()
-    return chno
 
 class ServiceTable(NeumoTable):
     CD = NeumoTable.CD
@@ -201,7 +147,7 @@ class ServiceGridBase(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        self.grid_specific_menu_items=['epg_record_menu_item']
+        self.grid_specific_menu_items=['epg_record_menu_item', 'epg_autorec_menu_item']
         self.restrict_to_sat = None
         self.service = None
 
@@ -225,7 +171,17 @@ class ServiceGridBase(NeumoGridBase):
     def OnToggleRecord(self, evt):
         row = self.GetGridCursorRow()
         service = self.table.screen.record_at_row(row)
-        return service, None
+        start_time = datetime.datetime.now(tz=tz.tzlocal())
+        from neumodvb.record_dialog import show_record_dialog
+        show_record_dialog(self, service, start_time=start_time)
+
+
+    def OnAutoRec(self, evt):
+        row = self.GetGridCursorRow()
+        service = self.table.screen.record_at_row(row)
+        from neumodvb.autorec_dialog import show_autorec_dialog
+        show_autorec_dialog(self, service)
+
 
     def OnCellChanged(self, evt):
         self.MoveCursorRight(False)
@@ -252,10 +208,12 @@ class ServiceGridBase(NeumoGridBase):
                 service = self.table.GetRow(row)
                 self.app.ServiceTune(service)
             evt.Skip(False)
-        elif not self.EditMode() and not is_ctrl and IsNumericKey(keycode):
-            self.MoveToChno(ask_channel_number(self, keycode- ord('0')))
         else:
-            return #evt.Skip(True)
+            from neumodvb.channelno_dialog import ask_channel_number
+            if not self.EditMode() and not is_ctrl and IsNumericKey(keycode):
+                self.MoveToChno(ask_channel_number(self, keycode- ord('0')))
+            else:
+                return #evt.Skip(True)
 
     def EditMode(self):
         return  self.GetParent().GetParent().edit_mode
@@ -345,9 +303,6 @@ class ServiceGridBase(NeumoGridBase):
             return False #signal to neumomenu that item is disabled
         return self.app.frame.chggrid.CmdEditBouquetMode
 
-def IsNumericKey(keycode):
-    return keycode >= ord('0') and keycode <= ord('9')
-
 class BasicServiceGrid(ServiceGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
@@ -361,10 +316,12 @@ class BasicServiceGrid(ServiceGridBase):
             dtdebug(f'RETURN pressed on row={row}: PLAY service={service.name}')
             self.app.ServiceTune(service)
             evt.Skip(False)
-        elif not self.EditMode() and IsNumericKey(keycode):
-            self.MoveToChno(ask_channel_number(self, keycode- ord('0')))
         else:
-            evt.Skip(True)
+            from neumodvb.channelno_dialog import ask_channel_number, IsNumericKey
+            if not self.EditMode() and IsNumericKey(keycode):
+                self.MoveToChno(ask_channel_number(self, keycode- ord('0')))
+            else:
+                evt.Skip(True)
 
 
 class ServiceGrid(ServiceGridBase):

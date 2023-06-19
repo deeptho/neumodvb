@@ -119,8 +119,6 @@ public:
 
 	lmdb::dbi dbi_log{0}; //dangerous but convenient; could lead to errors if open is not called
 
-	int wait_for_activity(int old_txnid);
-
 	neumodb_t(const neumodb_t& main);
 
 	neumodb_t& operator = (const neumodb_t& other);

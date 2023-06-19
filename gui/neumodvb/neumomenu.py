@@ -66,7 +66,6 @@ control_menu = (
     SEP,
     MI("AudioLang",  _("&Audio language\tCtrl-Shift-3"), ""), #ctrl-#
     MI("SubtitleLang",  _("&Subtitle language\tCtrl-T"), ""),
-    MI("DumpSubs",  _("&DumpSubs\tCtrl-G"), ""),
     MI("ChannelScreenshot",  _("&ChannelScreenhot\tCtrl-J"), ""),
     MI("ToggleOverlay",  _("&Toggle overlay\tCtrl-O"), ""),
     SEP,
@@ -80,6 +79,7 @@ control_menu = (
     MI("Positioner",  _("&Positioner\tCtrl-P"), ""),
     SEP,
     MI("ToggleRecord", _("&Record\tCtrl-R"), ""),
+    MI("AutoRec", _("&Create Auto record\tCtrl-G"), ""),
     SEP,
     MI("VolumeUp", _("&Volume Up\t="), ""),
     MI("VolumeDown", _("&Volume Down\t-"), "")
@@ -130,6 +130,7 @@ lists_menu = (
     MI("FrontendList",_("&Frontends\tShift-Ctrl-F"), ""),
     SEP,
     MI("RecList",_("&Recordings\tCtrl-Shift-R"), _("recordings list")),
+    MI("AutoRecList",_("&AutoRecs\tCtrl-Shift-G "), _("autorecordings list")),
     MI("SpectrumList",_("&Spectra\tCtrl-Shift-U"), _("Spectra list"))
 )
 

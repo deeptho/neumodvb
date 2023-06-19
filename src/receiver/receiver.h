@@ -515,6 +515,8 @@ public:
 
 	EXPORT subscription_id_t unsubscribe(subscription_id_t subscription_id);
 
+	EXPORT int update_autorec(recdb::autorec_t& autorec);
+	EXPORT int delete_autorec(const recdb::autorec_t& autorec);
 
 	EXPORT int toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 	EXPORT int toggle_recording(const chdb::service_t& service);

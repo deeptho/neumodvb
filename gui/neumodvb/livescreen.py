@@ -359,7 +359,7 @@ class LiveServiceScreen(object):
             h.h.list_filter_type = t.BOUQUET_CHANNELS
             chgm =service_or_chgm
             txn = self.chdb.rtxn()
-            service = pychdb.service.find_by_key(txn, chgm.service)
+            service = pychdb.service.find_by_key(txn, chgm.service.mux, chgm.service.service_id)
             txn.abort()
             del txn
             h.save(chgm)
@@ -385,7 +385,8 @@ class LiveServiceScreen(object):
         if ft == t.BOUQUET_CHANNELS:
             chgm = h.last_chgm()
             txn = self.chdb.rtxn()
-            service = h.last_service() if chgm is None else pychdb.service.find_by_key(txn, chgm.service)
+            service = h.last_service() if chgm is None else \
+                pychdb.service.find_by_key(txn, chgm.service.mux, chgm.service.service_id)
             txn.abort()
             del txn
             if False:
@@ -481,7 +482,7 @@ class LiveServiceScreen(object):
         if type(entry) == pychdb.service.service:
             return entry
         txn = self.chdb.rtxn()
-        service = pychdb.service.find_by_key(txn, entry.service)
+        service = pychdb.service.find_by_key(txn, entry.service.mux, entry.service.service_id)
         txn.abort()
         del txn
         return service

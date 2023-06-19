@@ -92,11 +92,6 @@ public:
 
 	void open_index();
 
-	/*!
-		wait until a transaction has been written to idxdb with tnxid > > old_txn_id
-	*/
-	int wait_for_data(int old_txn_id) ;
-
 };
 
 class playback_mpm_t;

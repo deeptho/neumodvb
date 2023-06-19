@@ -107,7 +107,7 @@ class RecordDialog(RecordDialog_):
         self.duration_text.SetValueTime(self.duration)
         self.duration_text.SetEditable(self.epg is None)
 
-        self.Fit()
+        #self.Fit()
 
     def CheckCancel(self, event):
         event.Skip()
@@ -135,7 +135,7 @@ def show_record_dialog(parent, record, epg=None, start_time=None):
     else:
         key = record.service
         txn = wx.GetApp().chdb.rtxn()
-        service = pychdb.service.find_by_key(txn, key)
+        service = pychdb.service.find_by_key(txn, key.mux, key.service_id)
         txn.abort()
         del txn
     dlg = RecordDialog(parent.GetParent(), service, epg, start_time, title="New recording")

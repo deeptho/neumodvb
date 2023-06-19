@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 # Neumo dvb (C) 2019-2023 deeptho@gmail.com
 # Copyright notice:
 #
@@ -28,7 +27,7 @@ import datetime
 from dateutil import tz
 import regex as re
 
-from neumodvb.util import setup, lastdot
+from neumodvb.util import setup, lastdot, find_parent_prop, wxpythonversion, wxpythonversion42
 from neumodvb import neumodbutils
 from neumodvb.neumolist import GridPopup
 from neumodvb.chglist import BasicChgGrid
@@ -59,10 +58,6 @@ class ChgGridPopup(BasicChgGrid):
 
     def EditMode(self):
         return  False
-
-    def OnDoneOFF(self, rec):
-        self.controller.SelectChg(rec)
-        self.controller.SetFocus()
 
     def GetItemText(self, rowno):
         rec = self.table.GetValue(rowno, None)

@@ -29,6 +29,7 @@ from neumodvb.chepglist import content_types
 from neumodvb.util import dtdebug, dterror, lastdot
 from neumodvb.neumodbutils import enum_to_str
 from neumodvb.record_dialog import show_record_dialog
+from neumodvb.autorec_dialog import show_autorec_dialog
 
 import pychdb
 import pyepgdb
@@ -1552,7 +1553,7 @@ class RecordPanel(wx.Panel):
         is_ctrl = (modifiers & wx.ACCEL_CTRL)
         is_shift = (modifiers & wx.ACCEL_SHIFT)
         if not (is_ctrl or is_hft) and IsNumericKey(key):
-            from neumodvb.servicelist import IsNumericKey, ask_channel_number
+            from neumodvb.channelno_dialog import IsNumericKey, ask_channel_number
             chno = ask_channel_number(self, key- ord('0'))
             entry  = self.data.ls.entry_for_ch_order(chno)
             if entry is not None:
@@ -1610,6 +1611,16 @@ class RecordPanel(wx.Panel):
         if self.last_focused_cell.data.is_ch:
             start_time = datetime.datetime.now(tz=tz.tzlocal())
             show_record_dialog(self, record, start_time = start_time)
+            return True
+        return False
+
+    def OnAutoRec(self, event):
+        assert self.last_focused_cell is not None
+        row = self.last_focused_cell.data.row
+        record = row.row_record
+        if self.last_focused_cell.data.is_ch:
+            start_time = datetime.datetime.now(tz=tz.tzlocal())
+            show_autorec_dialog(self, record)
             return True
         return False
 
@@ -1904,6 +1915,21 @@ class GridEpgPanel(RecordPanel):
         else:
             epg=self.last_focused_cell.data.epg
             show_record_dialog(self, service, epg=epg)
+            return True
+        return False
+
+    def OnAutoRec(self, event):
+        if super().OnAutoRec(event):
+            return True
+        row = self.last_focused_cell.data.row
+        service = row.row_record
+        assert not self.last_focused_cell.data.is_ch
+        if self.last_focused_cell.data.epg is None:
+            show_autorec_dialog(self, service, start_time = self.last_focused_cell.data.start_time)
+            return True
+        else:
+            epg=self.last_focused_cell.data.epg
+            show_autorec_dialog(self, service, epg=epg)
             return True
         return False
 
@@ -2502,7 +2528,7 @@ class LivePanel(wx.Panel):
         key = evt.GetKeyCode()
         if not self.IsDescendant(w):
             return
-        from neumodvb.servicelist import IsNumericKey, ask_channel_number
+        from neumodvb.channelno_dialog import IsNumericKey, ask_channel_number
         modifiers = evt.GetModifiers()
         is_ctrl = (modifiers & wx.ACCEL_CTRL)
         is_shift = (modifiers & wx.ACCEL_SHIFT)
@@ -2578,6 +2604,12 @@ class LivePanel(wx.Panel):
             self.OnToggleLiveRecord()
         else:
             return self.grid_panel.OnToggleRecord(event)
+
+    def CmdAutoRec(self, event):
+        if self.hidden:
+            self.OnAutoRec()
+        else:
+            return self.grid_panel.OnAutoRec(event)
 
     def OnToggleLiveRecord(self):
         ls = wx.GetApp().live_service_screen

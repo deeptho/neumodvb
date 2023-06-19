@@ -219,16 +219,6 @@ void mpm_index_t::open_index() {
 	mpm_rec.open(idx_dirname.c_str());
 }
 
-
-/*!
-	blocks until new data is inserted by live_parent; returns -1 if no more data will come.
-	Otherwise returns 0
-*/
-int mpm_index_t::wait_for_data(int old_txnid) {
-	mpm_rec.idxdb.wait_for_activity(old_txnid);
-	return 0;
-}
-
 mpm_t::mpm_t(bool readonly)
 	: db(std::make_shared<mpm_index_t>())
 	, filemap(mmap_size, readonly) {
@@ -667,7 +657,7 @@ void active_mpm_t::update_recording(recdb::rec_t& rec, const chdb::service_t& se
 																		const epgdb::epg_record_t& epgrec) {
 	auto rec_wtxn = db->mpm_rec.recdb.wtxn();
 	auto recepg_txn = rec_wtxn.child_txn(db->mpm_rec.recepgdb);
-	update_recording_epg(recepg_txn, rec, epgrec);
+	update_recording_epg(recepg_txn, epgrec);
 	recepg_txn.commit();
 	rec_wtxn.commit();
 }

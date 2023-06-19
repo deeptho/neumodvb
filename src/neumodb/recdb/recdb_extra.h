@@ -76,6 +76,8 @@ public:
 
 	void to_str(ss::string_& ret, const rec_t& r);
 
+	int32_t make_unique_id(db_txn& txn, autorec_t& autorec);
+
 };
 
 namespace recdb::rec {

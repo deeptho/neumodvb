@@ -374,14 +374,18 @@ void dtdemux::mpeg2_parser_t::parse_payload_unit() {
 			if (load_intra_quantiser_matrix) {
 				this->skip(63);
 				quantiser_flags = this->get<uint8_t>();
+#if 0
 				// load_non_intra_quantiser_matrix is now again the last (=least significant) bit of quantiser_flags
 				LOG4CXX_DEBUG(logger, "Sequence header: skipped intra quantiser matrix");
+#endif
 			}
 			bool load_non_intra_quantiser_matrix = quantiser_flags & 0x01;
 			if (load_non_intra_quantiser_matrix) {
 				this->skip(64);
+#if 0
 				// load_non_intra_quantiser_matrix is now again the last (=least significant) bit of quantiser_flags
 				LOG4CXX_DEBUG(logger, "Sequence header: skipped non-intra quantiser matrix");
+#endif
 			}
 			continue;
 
@@ -402,9 +406,11 @@ void dtdemux::mpeg2_parser_t::parse_payload_unit() {
 			bool closed_gop = time_code & 0x40;
 			bool broken_link = time_code & 0x20;
 			time_code >>= 7; // time code is for video recorders
+#if 0
 			LOG4CXX_DEBUG(logger, current_ts_packet->range << ": " << pts << ": "
 										<< "GOP header: closed_gop=" << closed_gop
 										<< " broken_link=" << broken_link);
+#endif
 			/*There may be optional fields with additional start codes 0xb5.
 				Search for the next different start code
 			*/

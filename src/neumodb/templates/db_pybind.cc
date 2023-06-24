@@ -40,7 +40,9 @@ template <typename record_t> inline void xxx_put_record(db_txn& txn, const recor
 void export_{{dbname}}(py::module& m) {
 	py::class_<{{dbname}}::{{dbname}}_t, neumodb_t>(m, "{{dbname}}")
 																						//.def(py::init<>())
-																						//.def(py::init<const {{dbname}}_t&>())
+     .def(py::init<const neumodb_t&>(),
+				 py::arg("maindb")
+			)
 		.def(py::init<bool, bool, bool, bool>(),
 				 py::arg("readonly") = false,
 				 py::arg("is_temp") = false,

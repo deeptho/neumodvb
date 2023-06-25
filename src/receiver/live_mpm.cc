@@ -52,7 +52,16 @@ static void  testf(db_txn& txn, recdb::file_t& file) {
 }
 #endif
 
+static ss::string<128> relfilename(const recdb::file_t & file) {
+	ss::string<128> ret;
+	ret.sprintf("%02d_", file.fileno);
+	auto t = system_clock::from_time_t(file.real_time_start);
+	ret << date::format("%Y%m%d_%H%M%S",
+											zoned_time(current_zone(),
+																 floor<std::chrono::seconds>(t))) << ".ts";
 
+	return ret;
+}
 
 void meta_marker_t::update_epg(const epgdb::epg_record_t& epg) {
 	livebuffer_desc.epg = epg;
@@ -424,9 +433,14 @@ void mpm_copylist_t::run(db_txn& txn) {
 	using namespace recdb;
 	auto c = find_first<recdb::file_t>(txn);
 	for (auto file : c.range()) {
-		auto& fname = file.filename;
-		auto src = src_dir / fname.c_str();
-		auto dst = dst_dir / fname.c_str();
+		if (file.fileno < fileno_offset)
+			continue;
+		auto& dstfname = file.filename;
+		auto f = file;
+		f.fileno -= fileno_offset;
+		auto srcfname = ::relfilename(f);
+		auto src = src_dir / srcfname.c_str();
+		auto dst = dst_dir / dstfname.c_str();
 		fs::create_hard_link(src, dst, ec); /*
 																					TODO: tis part could be too slow in some cases (especially if link is replaced
 																					by copy) In that case, the linking can be done in another thread provided the
@@ -444,7 +458,7 @@ void mpm_copylist_t::run(db_txn& txn) {
 	to recover after a crash
 */
 
-int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
+int finalize_recording(db_txn& livebuffer_idxdb_rtxn, mpm_copylist_t& copy_command, mpm_index_t* db) {
 	// filesystem location where recording will be stored
 	auto& destdir = copy_command.dst_dir;
 	auto& rec = copy_command.rec;
@@ -460,8 +474,6 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 
 	recidx.open_index();
 	auto rec_txn = recidx.mpm_rec.recdb.wtxn(); // txn for the new mpm recording database
-
-	auto txn = db->mpm_rec.idxdb.rtxn(); // for accessing the livebuffer's database
 
 	auto start = rec.real_time_start;
 	auto end = rec.real_time_end;
@@ -479,7 +491,7 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 	milliseconds_t stream_time_offset{};
 	int64_t packetno_offset{0};
 	int64_t stream_packetno_start{-1};
-	int fileno_offset{0};
+
 	using namespace recdb;
 	{
 		/* if files already exist from an earlier recording (e.g., recording has restarted after a crash) ,
@@ -488,12 +500,13 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 		if (c.is_valid()) {
 			const auto& last = c.current();
 			stream_time_offset = last.stream_time_end;
-			fileno_offset = last.fileno + 1;
+			copy_command.fileno_offset = last.fileno + 1;
 			packetno_offset = last.stream_packetno_end;
 		}
 	}
 	{ // copy the file records into the database
-		auto c = find_first<recdb::file_t>(txn);
+		auto c = find_first<recdb::file_t>(livebuffer_idxdb_rtxn);
+
 		for (auto f : c.range()) {
 			bool not_finalised = (f.stream_time_end == std::numeric_limits<milliseconds_t>::max());
 			if (not_finalised)
@@ -506,7 +519,7 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 				}
 				if (not_finalised) {
 					dterrorx("File in recording was not finalised");
-					auto c = find_last<recdb::marker_t>(txn);
+					auto c = find_last<recdb::marker_t>(livebuffer_idxdb_rtxn);
 					if (!c.is_valid()) {
 						dterror("no index records");
 					} else {
@@ -517,7 +530,10 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 						assert(f.stream_packetno_end != std::numeric_limits<int64_t>::max());
 					}
 				}
-				f.fileno += fileno_offset;
+				f.fileno += copy_command.fileno_offset;
+				if(copy_command.fileno_offset !=0) {
+					f.filename= ::relfilename(f);
+				}
 				f.k.stream_time_start += stream_time_offset;
 				f.stream_packetno_start += packetno_offset;
 				f.stream_packetno_end += packetno_offset;
@@ -533,7 +549,7 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 	}
 	{																								// copy the marker records into the database
 		recdb::marker_key_t k(rec.stream_time_start); // refers to the livebuffer's value (no offset!)
-		auto c = recdb::marker_t::find_by_key(txn, k, find_geq);
+		auto c = recdb::marker_t::find_by_key(livebuffer_idxdb_rtxn, k, find_geq);
 		for (auto marker : c.range()) {
 			if (marker.k.time <= stream_time_end) {
 				if(stream_packetno_start<0)
@@ -551,7 +567,7 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 	{
 // copy the stream_descriptor markers into the recording database
 		auto c = recdb::stream_descriptor_t::find_by_key
-			(txn,
+			(livebuffer_idxdb_rtxn,
 			 stream_packetno_start, // refers to the livebuffer's value (no offset!)
 			 find_leq);
 		for (auto sd : c.range()) {
@@ -583,7 +599,6 @@ int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db) {
 	}
 #endif
 	rec_txn.commit();
-	txn.abort();
 	return 0;
 }
 
@@ -638,7 +653,9 @@ int active_mpm_t::stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& cop
 		fs::path(active_service->receiver.options.readAccess()->recordings_path.c_str()) / fs::path(rec.filename.c_str());
 	copy_command = mpm_copylist_t(fs::path(dirname.c_str()), destdir, rec);
 
-	::finalize_recording(copy_command, db.get());
+	auto livebuffer_idxdb_rtxn = db->mpm_rec.idxdb.rtxn(); // for accessing the livebuffer's database
+	::finalize_recording(	livebuffer_idxdb_rtxn, copy_command, db.get());
+	livebuffer_idxdb_rtxn.abort();
 	return 0;
 }
 
@@ -706,8 +723,7 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 	int ret = 0;
 	if (cmarker.is_valid()) {
 		last_marker = cmarker.current();
-	}
-	{
+	} else  {
 		dterror("Could not find last marker in mpm");
 		return -1;
 	}
@@ -715,19 +731,19 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 	auto cfile = find_last<recdb::file_t>(idx_txn);
 	if (cfile.is_valid()) {
 		last_file = cfile.current();
-	}
-	{
+	} else  {
 		dterror("Could not find last file in mpm");
 		return -1;
 	}
 
 	auto end_packet = last_marker.packetno_end;
-	auto first_packet = last_marker.packetno_start;
+	auto first_packet = last_file.stream_packetno_start;
 
 	bool not_finalised = (last_file.stream_packetno_end == std::numeric_limits<int64_t>::max());
 	if (not_finalised) {
 		assert(last_file.fileno >= 0);
-		auto file_duration_seconds = int64_t(last_file.stream_time_end - last_file.k.stream_time_start) / 1000;
+		last_file.stream_time_end = last_marker.k.time;
+		auto file_duration_seconds = (500+int64_t(last_file.stream_time_end - last_file.k.stream_time_start)) / 1000;
 		last_file.real_time_end = last_file.real_time_start + file_duration_seconds;
 		last_file.stream_packetno_end = last_marker.packetno_end;
 #ifndef NDEBUG
@@ -737,13 +753,9 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 		dtdebug("Finalized last_file");
 	}
 
-	ss::string<256> filename;
-	filename.sprintf("%s/%02d", dirname.c_str(), last_file.fileno);
-
-	filename << date::format("%Y%m%d_%H%M%S",
-													 zoned_time(current_zone(), floor<std::chrono::seconds>(
-																				system_clock::from_time_t(last_file.real_time_start))))
-					 << ".ts";
+	ss::string<128> filename;
+	auto fname = ::relfilename(last_file);
+	filename.sprintf("%s/%s", dirname.c_str(), fname.c_str());
 
 	auto* fp_out = fopen64(filename.c_str(), "a");
 	if (!fp_out) {
@@ -800,11 +812,15 @@ int active_mpm_t::next_data_file(system_time_t now, int64_t new_num_bytes_safe_t
 
 	auto new_file_stream_time_start = stream_time_end;
 	auto new_file_stream_packetno_start = end_packet;
+	mm->current_file_record.real_time_start = system_clock_t::to_time_t(now);
+	mm->current_file_record.fileno = current_fileno;
 
-	ss::string<128> relfilename;
-	relfilename.sprintf("%02d_", current_fileno);
+	auto relfilename  = ::relfilename(mm->current_file_record);
 
-	relfilename << date::format("%Y%m%d_%H%M%S", zoned_time(current_zone(), floor<std::chrono::seconds>(now))) << ".ts";
+	ss::string<128> test;
+	test.sprintf("%02d_", current_fileno);
+	test << date::format("%Y%m%d_%H%M%S", zoned_time(current_zone(), floor<std::chrono::seconds>(now))) << ".ts";
+	assert(test==relfilename);
 
 	current_filename.clear();
 	current_filename.sprintf("%s/%s", dirname.c_str(), relfilename.c_str());
@@ -831,8 +847,6 @@ int active_mpm_t::next_data_file(system_time_t now, int64_t new_num_bytes_safe_t
 	// mm->current_marker = 	stream_parser.event_handler.last_saved_marker;
 	mm->current_file_record.k.stream_time_start = new_file_stream_time_start;
 	mm->current_file_record.stream_time_end = std::numeric_limits<milliseconds_t>::max(); // signifies infinite
-	mm->current_file_record.real_time_start = system_clock_t::to_time_t(now);
-	mm->current_file_record.fileno = current_fileno;
 	mm->current_file_record.real_time_end = std::numeric_limits<time_t>::max(); // signifies infinite
 	mm->current_file_record.stream_packetno_start = new_file_stream_packetno_start;
 	mm->current_file_record.stream_packetno_end = std::numeric_limits<int64_t>::max(); // signifies infinite

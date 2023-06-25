@@ -107,9 +107,9 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 	assert(filemap.readonly);
 	live_mpm = nullptr;
 	db = std::make_shared<mpm_index_t>();
-	db->idx_dirname << dirname << "/"
-									<< "index.mdb";
+	db->idx_dirname << dirname << "/" << "index.mdb";
 	db->open_index();
+
 	current_byte_pos = 0;
 	recdb::file_t empty{};
 	currently_playing_file.assign(empty);
@@ -334,9 +334,9 @@ int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
 	if (start_play_time < milliseconds_t(0))
 		start_play_time = milliseconds_t(0);
 	dtdebug("Starting move_to_time");
-	auto txn = db->mpm_rec.idxdb.rtxn();
-	auto ret = open_(txn, start_play_time);
-	txn.abort();
+	auto idxdb_txn = db->mpm_rec.idxdb.rtxn();
+	auto ret = open_(idxdb_txn, start_play_time);
+	idxdb_txn.abort();
 	return ret;
 }
 
@@ -354,7 +354,7 @@ int playback_mpm_t::move_to_live() {
 	fileno=-1 will be ignored; otherwise fileno is the fileno which should be opened
 */
 
-int playback_mpm_t::open_(db_txn& txn, milliseconds_t start_time) {
+int playback_mpm_t::open_(db_txn& idxdb_txn, milliseconds_t start_time) {
 	error = false;
 	bool current_file_ok = false;
 	{
@@ -368,7 +368,7 @@ int playback_mpm_t::open_(db_txn& txn, milliseconds_t start_time) {
 	int fd = filemap.fd;
 	if (!current_file_ok) {
 		// The desired data is not in the current file. Open the correct one and close our filemap
-		fd = open_file_containing_time(txn, start_time);
+		fd = open_file_containing_time(idxdb_txn, start_time);
 		if (fd < 0) { /* error*/
 			filemap.unmap();
 			filemap.close();
@@ -391,8 +391,8 @@ int playback_mpm_t::open_(db_txn& txn, milliseconds_t start_time) {
 		In case the opened file is still live, end_marker
 	*/
 	recdb::marker_t current_marker;
-	get_end_marker_from_db(txn, end_marker);
-	if (start_time >= end_marker.k.time || get_marker_for_time_from_db(txn, current_marker, start_time) < 0) {
+	get_end_marker_from_db(idxdb_txn, end_marker);
+	if (start_time >= end_marker.k.time || get_marker_for_time_from_db(idxdb_txn, current_marker, start_time) < 0) {
 		dtdebugx("Requested start_play_time is beyond last logged packet");
 		if (live_mpm) {
 			auto mm = live_mpm->meta_marker.readAccess();
@@ -479,11 +479,11 @@ int playback_mpm_t::open_(db_txn& txn, milliseconds_t start_time) {
 	find the file part containing start_time, using database lookup only
 
 */
-int playback_mpm_t::open_file_containing_time(db_txn& txn, milliseconds_t start_time) {
+int playback_mpm_t::open_file_containing_time(db_txn& idxdb_txn, milliseconds_t start_time) {
 	error = false;
 	// find a file which starts at start_time, or if none exists, which contains start_time
 	using namespace recdb;
-	auto c = file_t::find_by_key(txn, file_key_t(start_time), find_leq); // largest start_time smaller than the desired
+	auto c = file_t::find_by_key(idxdb_txn, file_key_t(start_time), find_leq); // largest start_time smaller than the desired
 																																			 // one
 	if (!c.is_valid()) {
 		// this can only happen if file is corrupt
@@ -559,12 +559,13 @@ int playback_mpm_t::open_file_containing_time(db_txn& txn, milliseconds_t start_
 */
 
 int playback_mpm_t::open_next_file() {
-	auto txn = db->mpm_rec.idxdb.rtxn();
+	auto idxdb_txn = db->mpm_rec.idxdb.rtxn();
 	// WRONG: assert(currently_playing_file.stream_time_end!= std::numeric_limits<milliseconds_t>::max());
 	// WRONG, e.g., if paused for a long time:
 	// assert(meta_marker.currently_playing_file.fileno == 1 + currently_playing_file.fileno);
 
-	auto ret = open_(txn, milliseconds_t(currently_playing_file.readAccess()->k.stream_time_start));
+	auto ret = open_(idxdb_txn, milliseconds_t(currently_playing_file.readAccess()->k.stream_time_start));
+	idxdb_txn.abort();
 	return ret;
 }
 
@@ -631,8 +632,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 			f->stream_packetno_end = end_marker.packetno_end;
 			wtxn.commit();
 		}
-
-		auto txn = db->mpm_rec.idxdb.rtxn();
+		auto idxdb_txn = db->mpm_rec.idxdb.rtxn();
 		if ((int64_t)end_time == std::numeric_limits<int64_t>::max() && live_mpm) {
 				/* We must reread the database to find the correct end_time,  which will have been written
 					 by the service thread performing the writing
@@ -642,7 +642,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 #ifndef NDEBUG
 				auto fileno = currently_playing_file.readAccess()->fileno;
 #endif
-				auto c = file_t::find_by_key(txn, file_key_t(start_time), find_eq);
+				auto c = file_t::find_by_key(idxdb_txn, file_key_t(start_time), find_eq);
 				assert(c.is_valid());
 				auto r = c.current();
 				end_time = r.stream_time_end;
@@ -654,8 +654,8 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 			}
 
 		bool still_not_open = (int64_t)end_time == std::numeric_limits<int64_t>::max();
-		auto ret = still_not_open ? -1 : open_(txn, end_time);
-		txn.abort();
+		auto ret = still_not_open ? -1 : open_(idxdb_txn, end_time);
+		idxdb_txn.abort();
 		if(ret == 0 && live_mpm)
 			continue;
 		if (ret <= 0) { // end time of current file is start time of new one
@@ -910,10 +910,10 @@ int playback_mpm_t::get_end_marker_from_db(db_txn& txn, recdb::marker_t& end_mar
 	return 0;
 }
 
-int playback_mpm_t::get_marker_for_time_from_db(db_txn& txn, recdb::marker_t& current_marker,
+int playback_mpm_t::get_marker_for_time_from_db(db_txn& idxdb_txn, recdb::marker_t& current_marker,
 																								milliseconds_t start_play_time) {
 
-	auto c = recdb::marker_t::find_by_key(txn, recdb::marker_key_t(start_play_time), find_geq);
+	auto c = recdb::marker_t::find_by_key(idxdb_txn, recdb::marker_key_t(start_play_time), find_geq);
 	if (!c.is_valid()) {
 		dtdebug("Could not obtain marker for time " << start_play_time);
 		return -1;

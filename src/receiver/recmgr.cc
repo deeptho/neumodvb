@@ -119,12 +119,12 @@ void rec_manager_t::remove_livebuffers() {
 			{
 				auto idx_txn = rec_txn.child_txn(mpm_index.mpm_rec.idxdb);
 				close_last_mpm_part(idx_txn, path.c_str());
+				finalize_recording(idx_txn, copy_command, &mpm_index);
 				idx_txn.commit();
 			}
-			finalize_recording(copy_command, &mpm_index);
-			copy_command.run(rec_txn);
+			rec_txn.commit();
+			copy_command.run();
 		}
-		rec_txn.commit();
 		std::error_code ec;
 		bool ret = fs::remove_all(path, ec);
 		if (ec) {

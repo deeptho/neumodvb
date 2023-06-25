@@ -274,13 +274,6 @@ template int tuner_thread_t::cb_t::tune<chdb::dvbt_mux_t>(std::shared_ptr<active
 																													const chdb::dvbt_mux_t& mux, tune_options_t tune_options,
 																													subscription_id_t subscription_id);
 
-int tuner_thread_t::cb_t::add_service(active_adapter_t& active_adapter, subscription_id_t subscription_id,
-																			active_service_t& channel) {
-	dtdebugx("tune add ch action");
-	recmgr.add_live_buffer(channel);
-	return active_adapter.add_service(subscription_id, channel);
-}
-
 int tuner_thread_t::exit() {
 	dtdebugx("tuner exit");
 	this->active_adapters.clear();

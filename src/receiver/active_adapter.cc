@@ -1040,8 +1040,10 @@ active_adapter_t::tune_service_for_viewing(const subscribe_ret_t& sret,
 															 const chdb::any_mux_t& mux,
 															 const chdb::service_t& service) {
 	auto active_servicep = tune_service(sret, mux, service);
-	if(active_servicep)
+	if(active_servicep) {
+		recmgr.add_live_buffer(*active_servicep);
 		return active_servicep->make_client_mpm(sret.subscription_id);
+	}
 	else
 		return nullptr;
 }
@@ -1054,6 +1056,7 @@ active_adapter_t::tune_service_for_recording(const subscribe_ret_t& sret,
 	if(!active_servicep)
 		return {};
 	active_servicep->start_recording(sret.subscription_id, rec);
+	recmgr.add_live_buffer(*active_servicep);
 	return active_servicep->start_recording(sret.subscription_id, rec);
 }
 

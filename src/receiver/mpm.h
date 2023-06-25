@@ -64,6 +64,7 @@ struct mpm_copylist_t {
 	fs::path dst_dir;
 	//ss::vector<ss::string<128>, 32> filenames;
 	recdb::rec_t rec;
+	int fileno_offset{0};
 	mpm_copylist_t() = default;
 	mpm_copylist_t(const fs::path& src_dir_, const fs::path& dst_dir_, const recdb::rec_t& rec_)
 		: src_dir(src_dir_)
@@ -251,15 +252,14 @@ public:
 private:
 	void find_current_pmts(int64_t bytepos);
 	int get_end_marker_from_db(db_txn& txn, recdb::marker_t& end_marker);
-	int get_marker_for_time_from_db(db_txn& txn, recdb::marker_t& current_marker, milliseconds_t start_play_time);
+	int get_marker_for_time_from_db(db_txn& idxdb_txn, recdb::marker_t& current_marker, milliseconds_t start_play_time);
 
 	//int refresh_markers_(db_txn& txn);
 	//int refresh_markers_(db_txn& txn, milliseconds_t milliseconds);
 	//int refresh_current_file_record_(db_txn& txn);
-	int open_(db_txn& txn, milliseconds_t start_time);
+	int open_(db_txn& idxdb_txn, milliseconds_t start_time);
 
-
-	int open_file_containing_time(db_txn& txn, milliseconds_t start_time);
+	int open_file_containing_time(db_txn& recdb_txn, milliseconds_t start_time);
 
 	int open_next_file();
 	int64_t copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t numbytes);
@@ -405,5 +405,5 @@ private:
 	void destroy();
 };
 
-int finalize_recording(mpm_copylist_t& copy_command, mpm_index_t* db);
+int finalize_recording(db_txn& livebuffer_idxdb_rtxn, mpm_copylist_t& copy_command, mpm_index_t* db);
 int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname);

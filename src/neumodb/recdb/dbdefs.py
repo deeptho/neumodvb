@@ -154,7 +154,7 @@ file = db_struct(name='file',
                 (ord('f'), 'fileno', ('fileno',)),
                 ),                     #unique
                 fields = ((1, 'file_key_t', 'k'),
-                          (2, 'uint32_t', 'fileno'), #needed to avoid consulting db during timeshift to find how many records have been written
+                          (2, 'int32_t', 'fileno'), #needed to avoid consulting db during timeshift to find how many records have been written
                           (3, 'milliseconds_t', 'stream_time_end', 'std::numeric_limits<milliseconds_t>::max()'), #in milliseconds
                           (4, 'time_t', 'real_time_start'), #unix epoch
                           (5, 'time_t', 'real_time_end'), #in unix epoch

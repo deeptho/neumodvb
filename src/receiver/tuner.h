@@ -124,7 +124,6 @@ public:
 #if 0
 	int remove_service(active_adapter_t& active_adapter, subscription_id_t subscription_id, active_service_t& channel);
 #endif
-	int add_service(active_adapter_t& tuner, subscription_id_t subscription_id, active_service_t& channel);//tune to channel on transponder
 	int on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt);
 	int update_service(const chdb::service_t& service);
 

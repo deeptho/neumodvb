@@ -72,7 +72,7 @@ class ChgListComboCtrl(wx.ComboCtrl):
         self.example = 'BySkyB Bouquet 12 - commercial scotland'+' '*8
         self.font_dc =  wx.ScreenDC()
         self.font = self.GetFont()
-        self.font.SetPointSize(self.font.GetPointSize()+6)
+        self.font.SetPointSize(self.font.GetPointSize()+ (6 if wxpythonversion < wxpythonversion42 else 1))
         self.SetFont(self.font)
         self.font_dc.SetFont(self.font) # for estimating label sizes
         self.popup = GridPopup(ChgGridPopup)

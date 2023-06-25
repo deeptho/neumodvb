@@ -209,7 +209,7 @@ class ServiceGridBase(NeumoGridBase):
                 self.app.ServiceTune(service)
             evt.Skip(False)
         else:
-            from neumodvb.channelno_dialog import ask_channel_number
+            from neumodvb.channelno_dialog import ask_channel_number, IsNumericKey
             if not self.EditMode() and not is_ctrl and IsNumericKey(keycode):
                 self.MoveToChno(ask_channel_number(self, keycode- ord('0')))
             else:

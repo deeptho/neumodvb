@@ -87,6 +87,32 @@ Some of these pacakges are provided by rpmfusion, which can be installed using t
 <https://rpmfusion.org/Configuration>
 
 
+
+#### Fedora 38 ####
+On Fedora 38:  install at least the following RPMs with `sudo dnf install -y <PACKAGE>`:
+
+```bash
+sudo dnf install -y redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options \
+boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel \
+wxGTK3 wxGTK-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection \
+expat-devel python3-wxpython4 python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools \
+python3-gobject-base python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel \
+wxBase3 wxBase-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
+ffmpeg-devel mpv-libs-devel tsduck
+```
+
+Also make sure that the following packages are **not** installed, as they might lead to compiling or linking with the wrong
+libraries, resulting in crashes:
+
+```bash
+sudo dnf remove wxGTK3-devel wxBase3-devel wxsvg-devel wxGTK3-devel
+```
+
+Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
+<https://rpmfusion.org/Configuration>
+
+
+
 In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;
 at least the following packages are needed:
 

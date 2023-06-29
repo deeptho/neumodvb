@@ -894,7 +894,7 @@ void rec_manager_t::delete_autorec(const recdb::autorec_t& autorec) {
 
 void mpm_recordings_t::open(const char* name) {
 	dbname = name;
-	recdb.open(dbname.c_str());
+	recdb.open(dbname.c_str(), true /*allow_degraded_mode*/);
 	{
 		auto txn = recdb.wtxn();
 		recdb::recdb_t::clean_log(txn);

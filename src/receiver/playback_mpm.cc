@@ -35,6 +35,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include "util/dtassert.h"
+
 using namespace date;
 using namespace date::clock_cast_detail;
 

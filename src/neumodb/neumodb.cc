@@ -29,7 +29,7 @@ void neumodb_t::init(const all_schemas_t& all_sw_schemas) {
 }
 
 neumodb_t::neumodb_t(bool readonly_, bool is_temp_, bool autoconvert_, bool autoconvert_major_version_)
-	:  autoconvert(autoconvert_)
+	:  autoconvert(autoconvert_ &&! readonly_)
 	,  autoconvert_major_version(autoconvert_major_version_)
 	, is_temp(is_temp_)
 	, readonly(readonly_)
@@ -110,6 +110,8 @@ int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags) {
 
 //[[clang::optnone]]
 int stats_db(neumodb_t& db) {
+	schema::schema_t schemadb;
+
 	std::map<int,int> key_sizes;
 	std::map<int,int> val_sizes;
 	std::map<int,int> record_counts;
@@ -125,17 +127,18 @@ int stats_db(neumodb_t& db) {
 		auto from_cursor = for_index ?
 			db.generic_get_first(from_txn, db.dbi_index):
 			db.generic_get_first(from_txn);
-		printf("------------\n");
+		printf("\t------------\n");
 		if(for_index) {
-			printf("INDEX records\n");
+			printf("\tINDEX records\n");
 		} else  {
-			printf("DATA records\n");
+			printf("\tDATA records\n");
 		}
 		/*Check if both databases are related; this does NOT compare if the stored
 			schemas match, but rather that the programmer does not try to convert
 			unrelated databases; the test is a partial test (checks pointers)
 		*/
 		auto& current = *db.dbdesc;
+		auto& schema_dbdesc = schemadb.dbdesc;
 		for (auto status = from_cursor.is_valid(); status; status = from_cursor.next()) {
 			ss::bytebuffer<32> key;
 			ss::bytebuffer<128> val;
@@ -150,8 +153,8 @@ int stats_db(neumodb_t& db) {
 				auto it = index_names.find(index_id);
 
 				if(it == index_names.end()) {
-					auto* desc = current.schema_for_type(index_desc->type_id);
-					index_names[index_id] = record_names[desc->type_id] + " " +
+					auto* desc = index_desc ? current.schema_for_type(index_desc->type_id) : nullptr;
+					index_names[index_id] = (desc ? record_names[desc->type_id] : "NONAME:") + " " +
 						std::string(index_desc? index_desc->name.c_str() : "NONAME");
 				}
 				index_key_sizes[index_id] += key.size();
@@ -159,6 +162,8 @@ int stats_db(neumodb_t& db) {
 				index_counts[index_id] ++;
 			} else {
 				auto* desc = current.schema_for_type(type_id);
+				if(!desc)
+					desc = schema_dbdesc->schema_for_type(type_id);
 				auto it = record_names.find(type_id);
 				if(it == record_names.end())
 					record_names[type_id] = std::string(desc? desc->name.c_str() : "NONAME");
@@ -173,7 +178,7 @@ int stats_db(neumodb_t& db) {
 			for(auto [type_id, count] : record_counts) {
 				auto key_size = key_sizes[type_id];
 				auto val_size = val_sizes[type_id];
-				printf("%s (0x%x): %d records; key_size=%d val_size=%d\n",
+				printf("\t%s (0x%x): %d records; key_size=%d val_size=%d\n",
 							 record_names[type_id].c_str(),
 							 type_id, count, key_size, val_size);
 			}
@@ -181,13 +186,13 @@ int stats_db(neumodb_t& db) {
 			for(auto [index_id, count] : index_counts) {
 				auto index_key_size = index_key_sizes[index_id];
 				auto index_val_size = index_val_sizes[index_id];
-				printf("%s (0x%x): %d idx records; key_size=%d val_size=%d\n",
+				printf("\t%s (0x%x): %d idx records; key_size=%d val_size=%d\n",
 							 index_names[index_id].c_str(),
 							 index_id, count, index_key_size, index_val_size);
 			}
 
 		}
-		printf("------------\n\n");
+		printf("\t------------\n\n");
 
 	}
 	return 1;

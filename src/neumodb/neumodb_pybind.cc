@@ -123,6 +123,6 @@ EXPORT void export_neumodb(py::module& m) {
 		.def("wtxn", &neumodb_t::wtxn, py::keep_alive<0, 1>())
 		.def("rtxn", &neumodb_t::rtxn, py::keep_alive<0, 1>())
 		.def_readonly("db_version", &neumodb_t::db_version)
-		//.def("stats", &stats_db)
+		.def("stats", &stats_db)
 		;
 }

@@ -1263,7 +1263,7 @@ namespace lmdb {
 class lmdb::txn {
 protected:
   MDB_txn* _handle{nullptr};
-
+	bool has_been_reset{false};
 public:
   static constexpr unsigned int default_flags = 0;
 
@@ -1286,7 +1286,7 @@ public:
     return txn{handle};
   }
 	bool is_valid() const {
-		return _handle;
+		return _handle && ! has_been_reset;
 	}
  txn () = default;
   /**
@@ -1370,6 +1370,7 @@ public:
    * Resets this read-only transaction.
    */
   void reset() noexcept {
+		has_been_reset = true;
     lmdb::txn_reset(_handle);
   }
 
@@ -1379,6 +1380,7 @@ public:
    * @throws lmdb::error on failure
    */
   void renew() {
+		has_been_reset = false;
     lmdb::txn_renew(_handle);
   }
 };

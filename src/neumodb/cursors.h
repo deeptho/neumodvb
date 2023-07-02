@@ -179,6 +179,7 @@ struct db_txn : public lmdb::txn {
 		deleted
 	};
 	neumodb_t* pdb{nullptr};
+	bool readonly{false};
 	int num_cursors = 0;
 	bool use_log{false};
 	::lmdb::dbi dbi_log;
@@ -186,6 +187,7 @@ struct db_txn : public lmdb::txn {
 	db_txn(db_txn&& other)
 		: lmdb::txn(std::move(other))
 		, pdb(other.pdb)
+		, readonly(other.readonly)
 		, num_cursors(other.num_cursors)
 		, use_log(other.use_log)
 		, dbi_log(other.dbi_log.handle())
@@ -199,6 +201,7 @@ struct db_txn : public lmdb::txn {
 			*(lmdb::txn*)this =std::move((lmdb::txn&) other);
 			pdb = other.pdb;
 			other.pdb = nullptr;
+			readonly = other.readonly;
 			num_cursors = other.num_cursors;
 			other.num_cursors = 0;
 			use_log = other.use_log;
@@ -208,11 +211,11 @@ struct db_txn : public lmdb::txn {
 
 
 
-	db_txn(neumodb_t& db_, unsigned int flags);
+	db_txn(neumodb_t& db_, bool readonly, unsigned int flags);
 
 	//db_txn() : db_txn(*(neumodb_t*) nullptr, 0) {}
 
-	db_txn(db_txn& parent, neumodb_t& parent_db, unsigned int flags);
+	db_txn(db_txn& parent, neumodb_t& parent_db, bool readonly, unsigned int flags);
 	db_txn child_txn();
 	db_txn child_txn(neumodb_t& db);
 
@@ -220,23 +223,6 @@ struct db_txn : public lmdb::txn {
 		return lmdb::txn_id(this->handle());
 	}
 
-#if 0
-	void log(const ss::bytebuffer_& serialized_primary_key, update_type_t update_type) {
-		if(!use_log)
-			return; //logging turned off
-		auto id = txn_id();
-		ss::bytebuffer<32> key;
-		encode_ascending(key, id); //we have up to to_txnid
-
-		lmdb::val k{key.buffer(), (size_t)key.size()};
-		lmdb::val v{serialized_primary_key.buffer(), (size_t)serialized_primary_key.size()};
-		auto rc= dbi_log.put(this->handle(), k, v, MDB_NODUPDATA);
-		if(!rc) {
-			dterrorx("error updating log: %s", mdb_strerror(rc));
-			assert(0);
-		}
-	}
-#endif
 	void clean_log(int num_keep);
 
 	bool can_commit() const {
@@ -244,12 +230,24 @@ struct db_txn : public lmdb::txn {
 	}
 	void commit() {
 		assert(this->_handle);
-		this->lmdb::txn::commit();
-
+		if(readonly)
+			this->lmdb::txn::reset();
+		else
+			this->lmdb::txn::commit();
 	}
+
 	void abort() noexcept {
 		assert(this->_handle);
-		this->lmdb::txn::abort();
+		if(readonly)
+			this->lmdb::txn::reset();
+		else
+			this->lmdb::txn::abort();
+	}
+
+	void renew() {
+		assert(this->_handle);
+		assert(readonly);
+		this->lmdb::txn::renew();
 	}
 
 	~db_txn() {
@@ -257,7 +255,6 @@ struct db_txn : public lmdb::txn {
 			dterrorx("Implementation error: Transaction ends while cursors are still active: %d", num_cursors);
 		assert(num_cursors==0);
 	}
-
 };
 
 
@@ -981,26 +978,31 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 
 
 
-inline	db_txn::db_txn(neumodb_t& db_, unsigned int flags) :
+inline	db_txn::db_txn(neumodb_t& db_, bool readonly, unsigned int flags) :
 	lmdb::txn(lmdb::txn::begin(*db_.envp, nullptr /*parent*/, flags))
 	, pdb(&db_)
+	, readonly(readonly)
 	, use_log (pdb->use_log)
 	, dbi_log(pdb->dbi_log.handle()) {
 }
 
-inline	db_txn::db_txn(db_txn& parent_txn, neumodb_t& db_, unsigned int flags) :
+inline	db_txn::db_txn(db_txn& parent_txn, neumodb_t& db_, bool readonly, unsigned int flags) :
 	lmdb::txn(lmdb::txn::begin(*db_.envp, parent_txn._handle /*parent*/, flags))
 	, pdb(&db_)
+	, readonly(readonly)
 	, use_log(db_.use_log)
 	, dbi_log(db_.dbi_log.handle()) {
+	assert(!parent_txn.readonly);
 }
 
 inline	db_txn db_txn::child_txn(neumodb_t& db) {
-	return db_txn(*this, db, 0);
+	assert(!readonly);
+	return db_txn(*this, db, false /*readonly*/, 0);
 }
 
 inline	db_txn db_txn::child_txn() {
-	return db_txn(*this, *this->pdb, 0);
+	assert(!readonly);
+	return db_txn(*this, *this->pdb, false/*readonly*/, 0);
 }
 
 template<typename data_t>

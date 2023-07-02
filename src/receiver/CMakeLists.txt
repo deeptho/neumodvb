@@ -10,6 +10,7 @@ add_library(neumoreceiver SHARED  receiver.cc subscriber.cc subscriber_notify.cc
 
 
 target_precompile_headers(neumoreceiver PRIVATE
+  txnmgr.h
   active_playback.h active_stream.h dvbcsa.h subscriber.h options.h reservation.h signal_info.h
   active_adapter.h active_service.h devmanager.h filemapper.h neumofrontend.h tuner.h receiver.h scam.h
   active_si_stream.h dvbapi.h mpm.h neumo.h recmgr.h scan.h task.h

@@ -275,7 +275,7 @@ int rec_manager_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb:
 	// if no non-anonymous recording is created, we will have end_time < start_time
 
 	auto epg_wtxn = receiver.epgdb.wtxn();
-	auto rec_wtxn = receiver.recdb.wtxn();
+	auto rec_wtxn = recdbmgr.wtxn();
 
 	schedule_recordings_for_overlapping_epg(rec_wtxn, epg_wtxn, service, sched_epg_record);
 
@@ -290,7 +290,7 @@ int rec_manager_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb:
 
 	rec_wtxn.commit();
 	epg_wtxn.commit();
-
+	recdbmgr.release_wtxn();
 	housekeeping(now);
 	return 0;
 }
@@ -347,11 +347,12 @@ int rec_manager_t::new_schedrec(const chdb::service_t& service, epgdb::epg_recor
 
 	{
 		auto r = receiver.options.readAccess();
-		auto rec_wtxn = receiver.recdb.wtxn();
+		auto rec_wtxn = recdbmgr.wtxn();
 		auto epg_wtxn = receiver.epgdb.wtxn();
 		auto rec = new_recording(rec_wtxn, epg_wtxn, service, sched_epg_record, r->pre_record_time.count(), r->post_record_time.count());
 		epg_wtxn.commit();
 		rec_wtxn.commit();
+		recdbmgr.release_wtxn();
 		next_recording_event_time = std::min({next_recording_event_time, rec.epg.k.start_time - r->pre_record_time.count(),
 				rec.epg.end_time + r->post_record_time.count()});
 	}
@@ -551,11 +552,10 @@ void rec_manager_t::adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn, d
 	}
 }
 
-void rec_manager_t::on_epg_update_check_recordings(recdb_txnmgr_t& recdb_txnmgr,
-																									 db_txn& epg_wtxn, epgdb::epg_record_t& epg_record)
+void rec_manager_t::on_epg_update_check_recordings(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record)
 {
 	using namespace recdb;
-	auto& rec_rtxn = recdb_txnmgr.rtxn();
+	auto rec_rtxn = receiver.recdb.rtxn();
 
 	/*
 		In recdb, find the recordings which match the new/changed epg record, and update them.
@@ -578,7 +578,7 @@ void rec_manager_t::on_epg_update_check_recordings(recdb_txnmgr_t& recdb_txnmgr,
 				update_recording_epg(epg_wtxn, epg_record);
 			}
 
-			auto rec_wtxn = recdb_txnmgr.wtxn();
+			auto rec_wtxn = recdbmgr.wtxn();
 
 			if (anonymous) {
 				/* we found a matching anonymous recording and we did not match a non-anonymous recording earlier.
@@ -599,19 +599,20 @@ void rec_manager_t::on_epg_update_check_recordings(recdb_txnmgr_t& recdb_txnmgr,
 				rec.epg = epg_record;
 				put_record(rec_wtxn, rec);
 			}
+			rec_rtxn.commit();
 			rec_wtxn.commit();
-			break;
+			return;
 		}
-	recdb_txnmgr.commit();
+	rec_rtxn.commit();
 }
 
-void rec_manager_t::on_epg_update_check_autorecs(recdb_txnmgr_t& recdb_txnmgr,
-																									 db_txn& epg_wtxn, epgdb::epg_record_t& epg_record)
+void rec_manager_t::on_epg_update_check_autorecs(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record)
 {
+
 	using namespace recdb;
 	using namespace date;
 	using namespace date::clock_cast_detail;
-	auto& rec_rtxn = recdb_txnmgr.rtxn();
+	auto rec_rtxn = receiver.recdb.rtxn();
 	auto service_key = epg_record.k.service;
 	auto start_time = system_clock::from_time_t(epg_record.k.start_time);
 	auto tp = date::zoned_time(current_zone(), floor<std::chrono::seconds>(start_time));
@@ -628,6 +629,7 @@ void rec_manager_t::on_epg_update_check_autorecs(recdb_txnmgr_t& recdb_txnmgr,
 	auto c =  autorec_t::find_by_service(rec_rtxn, service_key,
 																			 find_type_t::find_geq, autorec_t::partial_keys_t::service,
 																			 autorec_t::partial_keys_t::service);
+	auto rec_wtxn = recdbmgr.wtxn();
 	for(auto autorec: c.range()) {
 		if(start_seconds < autorec.starts_after || start_seconds > autorec.starts_before)
 			continue; //no match
@@ -654,21 +656,17 @@ void rec_manager_t::on_epg_update_check_autorecs(recdb_txnmgr_t& recdb_txnmgr,
 																					 epg_record.k.service.service_id);
 		if(cs.is_valid()) {
 			auto service = cs.current();
-			auto rec_wtxn = recdb_txnmgr.wtxn();
 			new_recording(rec_wtxn, service, epg_record, options.pre_record_time.count(),
 										options.post_record_time.count());
-			rec_wtxn.commit();
 		}
 		chdb_rtxn.abort();
 	}
+	rec_wtxn.commit();
 }
 
 void rec_manager_t::on_epg_update(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record) {
-	using namespace recdb;
-	recdb_txnmgr_t recdb_txnmgr(receiver.recdb);
-	on_epg_update_check_recordings(recdb_txnmgr, epg_wtxn, epg_record);
-	on_epg_update_check_autorecs(recdb_txnmgr, epg_wtxn, epg_record);
-	recdb_txnmgr.commit();
+	on_epg_update_check_recordings(epg_wtxn, epg_record);
+	on_epg_update_check_autorecs(epg_wtxn, epg_record);
 }
 
 
@@ -789,7 +787,8 @@ int rec_manager_t::housekeeping(system_time_t now) {
 }
 
 rec_manager_t::rec_manager_t(receiver_t& receiver_)
-	: receiver(receiver_) {
+	: recdbmgr(receiver_.recdb)
+	, receiver(receiver_) {
 }
 
 

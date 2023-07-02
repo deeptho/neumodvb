@@ -23,7 +23,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/epgdb/epgdb_extra.h"
 #include "neumodb/recdb/recdb_extra.h"
-
+#include "txnmgr.h"
 
 class receiver_t;
 class active_service_t;
@@ -47,62 +47,12 @@ public:
 
 };
 
-
 class receiver_t;
-
-
-struct recdb_txnmgr_t {
-	std::optional<db_txn> recdb_wtxn_;
-	std::optional<db_txn> recdb_rtxn_;
-	recdb::recdb_t& recdb;
-
-	/*
-		transactions cannot be copied, so we return a reference
-	 */
-	inline db_txn& rtxn() {
-		if(recdb_wtxn_)
-			return  *recdb_wtxn_;
-		else if(!recdb_rtxn_)
-			recdb_rtxn_.emplace(recdb.rtxn());
-		return *recdb_rtxn_;
-	}
-
-	inline db_txn wtxn() {
-		if(recdb_wtxn_)
-			return  recdb_wtxn_->child_txn();
-		else if(recdb_rtxn_) {
-			recdb_rtxn_->abort();
-			recdb_rtxn_.reset();
-			recdb_rtxn_.emplace(recdb.wtxn());
-		}
-		return recdb_rtxn_->child_txn();
-	}
-
-	inline void commit() {
-		if(recdb_rtxn_) {
-			assert(!recdb_wtxn_);
-			recdb_rtxn_->abort();
-			recdb_rtxn_.reset();
-		}
-		if(recdb_wtxn_) {
-			recdb_wtxn_->commit();
-			recdb_wtxn_.reset();
-		}
-	}
-
-	recdb_txnmgr_t(recdb::recdb_t& recdb)
-		: recdb(recdb) {
-	}
-
-	~recdb_txnmgr_t() {
-		commit();
-	}
-
-};
 
 class rec_manager_t {
 	friend class tuner_thread_t;
 
+	txnmgr_t<recdb::recdb_t> recdbmgr;
 public:
 	receiver_t& receiver;
 private:
@@ -123,10 +73,8 @@ private:
 																							const chdb::service_t& service,
 																							epgdb::epg_record_t sched_epg_record);
 
-	void on_epg_update_check_recordings(recdb_txnmgr_t& recdb_txnmgr,
-																		db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
-	void on_epg_update_check_autorecs(recdb_txnmgr_t& recdb_txnmgr,
-																		db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
+	void on_epg_update_check_recordings(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
+	void on_epg_update_check_autorecs(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
 
 public:
 	void startup(system_time_t now);

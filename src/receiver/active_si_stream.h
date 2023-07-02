@@ -19,6 +19,7 @@
  */
 
 #pragma once
+#include "txnmgr.h"
 #include "stackstring.h"
 #include "active_stream.h"
 #include "receiver.h"
@@ -550,33 +551,12 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 
 	friend class tuner_thread_t;
-
-	chdb::chdb_t& chdb;
-	epgdb::epgdb_t& epgdb;
-
-	std::optional<db_txn> epgdb_txn_;
-	std::optional<db_txn> chdb_txn_;
-
+	txnmgr_t<chdb::chdb_t> chdbmgr;
+	txnmgr_t<epgdb::epgdb_t> epgdbmgr;
 	inline chdb::mux_key_t stream_mux_key() const {
 		auto tmp = reader->stream_mux();
 		return *chdb::mux_key_ptr(tmp);
 	}
-
-	inline db_txn epgdb_txn() {
-		if(!epgdb_txn_)
-			epgdb_txn_.emplace(epgdb.wtxn());
-		return epgdb_txn_->child_txn();
-	}
-
-	inline db_txn chdb_txn(bool readonly=false) {
-		if(!chdb_txn_) {
-			if(readonly)
-				return chdb.rtxn();
-			chdb_txn_.emplace(chdb.wtxn());
-		}
-		return chdb_txn_->child_txn();
-	}
-
 	dtdemux::ts_stream_t stream_parser;
 	scan_target_t scan_target; //which SI tables should be scanned?
 	bool si_processing_done{false};
@@ -603,14 +583,15 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	dtdemux::reset_type_t
 		nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bool is_active_mux);
-	dtdemux::reset_type_t on_nit_section_completion(db_txn& wtxn, network_data_t& network_data,
-																					dtdemux::reset_type_t ret, bool is_actual,
-																					bool on_wrong_sat, bool done);
+	dtdemux::reset_type_t on_nit_section_completion(network_data_t& network_data,
+																									dtdemux::reset_type_t ret, bool is_actual,
+																									bool on_wrong_sat, bool done);
 	std::tuple<bool, bool>
 	sdt_process_service(db_txn& wtxn, const chdb::service_t& service, mux_data_t* p_mux_data,
 											bool donotsave, bool is_actual);
 
-	dtdemux::reset_type_t sdt_section_cb_(db_txn& txn, const sdt_services_t&services, const subtable_info_t& i,
+	dtdemux::reset_type_t sdt_section_cb_(txn_proxy_t<chdb::chdb_t> & wtxn,
+																				const sdt_services_t&services, const subtable_info_t& i,
 																				mux_data_t* p_mux_data);
 	dtdemux::reset_type_t sdt_section_cb(const sdt_services_t&services, const subtable_info_t& i);
 
@@ -659,14 +640,16 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	}
 
 	void remove_parser(dtdemux::psi_parser_t* parser) {
-		dvb_pid_t pid{(uint16_t) parser->get_pid()};
-		auto & slot = parsers[pid];
+		auto pid = parser->get_pid();
+		auto & slot = parsers[(dvb_pid_t)pid];
+		dtdebugx("remove_parser for pid=%d slot.use_count=%d", pid, slot.use_count);
 		if(--slot.use_count == 0) {
-			dtdebugx("removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
-			remove_pid(parser->get_pid());
-			parsers.erase(pid);
+			dtdebugx("removing parser for pid %d; use_count=%d", (uint16_t)pid, slot.use_count);
+			stream_parser.unregister_parser(pid);
+			remove_pid(pid);
+			parsers.erase((dvb_pid_t)pid);
 		} else {
-			dtdebugx("not removing parser for pid %d; use_count=%d\n", (uint16_t)pid, slot.use_count);
+			dtdebugx("not removing parser for pid %d; use_count=%d", (uint16_t)pid, slot.use_count);
 		}
 	}
 	mux_data_t* add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_active_mux,
@@ -713,6 +696,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	void check_scan_mux_end();
 public:
 	void reset_si(bool close_streams);
+	void close();
 	void end();
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);

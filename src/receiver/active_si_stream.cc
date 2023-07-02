@@ -75,8 +75,9 @@ active_si_stream_t::active_si_stream_t
 	const std::shared_ptr<stream_reader_t>& reader,  bool is_embedded_si, ssize_t dmx_buffer_size_)
 	: active_stream_t(receiver, reader)
 	, active_si_data_t(is_embedded_si)
-	, chdb(receiver.chdb)
-	, epgdb(receiver.epgdb) {
+	, chdbmgr(receiver.chdb)
+	, epgdbmgr(receiver.epgdb)
+{
 	dtdebug("setting si_processing_done=false (init)");
 }
 
@@ -117,7 +118,7 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 		if(must_save) {
 			auto& k = *mux_key_ptr(mux);
 			assert(k.mux_id > 0 && ! is_template(mux));
-			auto chdb_wtxn = receiver.chdb.wtxn();
+			auto chdb_wtxn = chdbmgr.wtxn();
 			chdb::update_mux(chdb_wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS},
 											 false /*ignore_t2mi_pid*/, true /*must_exist*/);
 			chdb_wtxn.commit();
@@ -220,7 +221,7 @@ void active_si_stream_t::finalize_scan()
 	if(nosave)
 		return;
 
-	auto wtxn = chdb.wtxn();
+	auto wtxn = chdbmgr.wtxn();
 	dttime(200);
 
 	if(lock_state.is_dvb  &&
@@ -256,8 +257,10 @@ void active_si_stream_t::check_scan_mux_end()
 
 	dtdebug("calling on_scan_mux_end dbfe=" << dbfe << " mux=" <<mux << " scan_result="<<
 					mux_common_ptr(mux)->scan_result);
+
 	assert(mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
   //note: scans_in_progress is copied (no call by reference)
+	chdbmgr.flush_wtxn();
 	receiver_thread.push_task([&receiver_thread, dbfe, mux,  scans_in_progress=this->scan_state.scans_in_progress]() {
 		for(auto& e: scans_in_progress) {
 			auto [scan_id, subscription_id ] = e;
@@ -287,7 +290,7 @@ void active_si_stream_t::reset_si(bool close_streams) {
 		finalize_scan();
 		dtdebugx("calling scan si_processing_done=%d\n", si_processing_done);
 		check_scan_mux_end();
-		si_processing_done = false;
+
 	}
 	si_processing_done = false;
 	::active_si_data_t::reset(); //reset variables to initial state
@@ -562,8 +565,6 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 	return nullptr;
 }
 
-
-
 /*
 	called from eit and bat
 	Lookup in the database if a mux exist with
@@ -574,7 +575,7 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 
 */
 mux_data_t*
-active_si_stream_t::lookup_mux_data_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id) {
+active_si_stream_t::lookup_mux_data_from_sdt(db_txn& rtxn, uint16_t network_id, uint16_t ts_id) {
 	auto [it, found] = find_in_map(nit_data.by_network_id_ts_id, std::make_pair(network_id, ts_id));
 	if (found)
 		return &it->second; // nit has been received and mux is already known in cache, this is authorative
@@ -590,7 +591,7 @@ active_si_stream_t::lookup_mux_data_from_sdt(db_txn& txn, uint16_t network_id, u
 	 we can also gamble that it is the correct one
 	 */
 	auto stream_mux_key = this->stream_mux_key();
-	auto ret = chdb::get_by_nid_tid_sat_unique(txn, network_id, ts_id, stream_mux_key.sat_pos);
+	auto ret = chdb::get_by_nid_tid_sat_unique(rtxn, network_id, ts_id, stream_mux_key.sat_pos);
 
 	if (ret.unique == chdb::get_by_nid_tid_unique_ret_t::UNIQUE_ON_SAT) {
 		auto [it, inserted] =
@@ -625,7 +626,6 @@ void active_si_stream_t::process_si_data() {
 
 	dttime_init();
 	auto start = steady_clock_t::now();
-	bool must_abort = false;
 	for (int i = 0; i < 5; ++i) {
 		if (steady_clock_t::now() - start > 500ms) {
 			dtdebugx("SKIPPING EARLY i=%d\n", i);
@@ -664,7 +664,6 @@ void active_si_stream_t::process_si_data() {
 		stream_parser.parse();
 		if (abort_on_wrong_sat() || unstable_sat_detected()) {
 			on_wrong_sat();
-			must_abort = true;
 			reader->discard(num_bytes_to_process); // skip all remaining data
 			stream_parser.clear_data();
 		} else {
@@ -673,21 +672,8 @@ void active_si_stream_t::process_si_data() {
 		}
 		break;
 	}
-
-	if (epgdb_txn_) {
-		if (must_abort)
-			epgdb_txn_->abort();
-		else
-			epgdb_txn_->commit();
-		epgdb_txn_.reset();
-	}
-	if (chdb_txn_) {
-		if (must_abort)
-			chdb_txn_->abort();
-		else
-			chdb_txn_->commit();
-		chdb_txn_.reset();
-	}
+	epgdbmgr.release_wtxn();
+	chdbmgr.release_wtxn();
 	scan_report();
 	dttime(200);
 }
@@ -813,6 +799,7 @@ bool active_si_stream_t::fix_tune_mux_template() {
  */
 bool active_si_stream_t::init(scan_target_t scan_target_) {
 	log4cxx::NDC(name());
+	assert(!is_open());
 	if (is_open())
 		reset_si(true /*close_streams*/);
 	init_scanning(scan_target_);
@@ -1092,7 +1079,7 @@ void active_si_stream_t::on_wrong_sat() {
 /*
 	returns 1 if network  name matches database, 0 if no record was present and -1 if no match
 */
-int active_si_stream_t::save_network(db_txn& txn, const nit_network_t& network, int sat_pos) {
+int active_si_stream_t::save_network(db_txn& wtxn, const nit_network_t& network, int sat_pos) {
 
 	int ret = 0;
 	chdb::chg_t group;
@@ -1100,7 +1087,7 @@ int active_si_stream_t::save_network(db_txn& txn, const nit_network_t& network, 
 	group.k.bouquet_id = network.network_id;
 	group.k.sat_pos = sat_pos;
 	group.mtime = system_clock_t::to_time_t(now);
-	auto c = chdb::chg_t::find_by_key(txn, group.k, find_eq);
+	auto c = chdb::chg_t::find_by_key(wtxn, group.k, find_eq);
 
 	if (c.is_valid()) {
 		group = c.current();
@@ -1108,7 +1095,7 @@ int active_si_stream_t::save_network(db_txn& txn, const nit_network_t& network, 
 	}
 	if (ret != 1)
 		group.name = network.network_name;
-	put_record(txn, group);
+	put_record(wtxn, group);
 	return ret;
 }
 
@@ -1173,7 +1160,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 }
 
 dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
-	db_txn& wtxn, network_data_t& network_data, dtdemux::reset_type_t ret, bool is_actual,
+	network_data_t& network_data, dtdemux::reset_type_t ret, bool is_actual,
 	bool on_wrong_sat, bool done)
 {
 	if (done) {
@@ -1303,8 +1290,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	}
 	auto stream_mux = reader->stream_mux(); //the mux whose SI data is being analyzed here
 	auto* stream_mux_key = mux_key_ptr(stream_mux);
-
-	auto wtxn = chdb_txn();
+	auto wtxn = chdbmgr.wtxn();
 	if (network.network_name.size())
 		save_network(wtxn, network, stream_mux_key->sat_pos); // TODO: sat_pos is meaningless; network can be on multiple sats
 	using namespace chdb;
@@ -1358,7 +1344,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	bool is_wrong_dvb_type = dvb_type(sat_pos) != dvb_type(stream_mux);
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
 		&& sat_pos != sat_pos_none && std::abs(sat_pos - stream_mux_key->sat_pos) > sat_pos_tolerance;
-	ret = on_nit_section_completion(wtxn, network_data, ret, network.is_actual, on_wrong_sat, done);
+	ret = on_nit_section_completion(network_data, ret, network.is_actual, on_wrong_sat, done);
 	if(ret== dtdemux::reset_type_t::RESET ||
 		 ret == dtdemux::reset_type_t::ABORT
 		) {
@@ -1695,7 +1681,6 @@ bool active_si_stream_t::update_mux(
 		auto tmp = *chdb::mux_key_ptr(mux);
 		if(pdbk) {
 			assert (*pdbk == tmp || tmp.mux_id == 0);
-
 			assert(tmp.mux_id == pdbk->mux_id);
 			if(is_reader_mux && pdbc && (
 					 pdbc->key_src == chdb::key_src_t::SDT_TUNED ||
@@ -1972,7 +1957,8 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 	return {db_found, changed};
 }
 
-dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(db_txn& wtxn, const sdt_services_t& services,
+dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb_t> & wtxn,
+																													const sdt_services_t& services,
 																													const subtable_info_t& info, mux_data_t* p_mux_data) {
 	bool is_actual = services.is_actual;
 	assert(p_mux_data);
@@ -2151,7 +2137,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		The following yields a child_txn in case we have created a chdb_txn and potentially
 		created some service, otherwise a chdb.rtxn()
 	 */
-	auto chdb_txn = this->chdb_txn(true /*readonly*/);
+	auto chdb_txn = chdbmgr.rtxn();
 	auto* p_mux_data = lookup_mux_data_from_sdt(chdb_txn, epg.service_key.network_id, epg.service_key.ts_id);
 	if(p_mux_data) {
 		epg.service_key.mux = *mux_key_ptr(p_mux_data->mux);
@@ -2178,8 +2164,6 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		auto c = chdb::service_t::find_by_key(chdb_txn, epg.service_key.mux, epg.service_key.service_id);
 		if(c.is_valid())
 			service = c.current();
-		else
-			printf("here\n");
 
 	}
 	chdb_txn.abort();
@@ -2188,8 +2172,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		bool done = network_done(epg.service_key.network_id);
 		return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 	}
-
-	auto txn = epgdb_txn();
+	auto wtxn = epgdbmgr.wtxn(); //this wtxn will really only be created at first use
 	for (auto& epg_record : epg.epg_records) {
 		// assert(!epg.is_sky || p_mux_key->mux_key.network_id == epg_record.k.service.network_id);
 		// assert(!epg.is_sky || p_mux_key->mux_key.ts_id == epg_record.k.service.ts_id);
@@ -2218,7 +2201,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				dtdebug_nicex("Cannot enter SKYUK_EPG summary records, because title with channel_id_id=%d and  event_id=%d"
 											" has not been found yet%s",
 											epg.channel_id, epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
-				txn.abort();
+				wtxn.abort();
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 			}
 			std::tie(epg_record.k.start_time, epg_record.end_time) = it->second;
@@ -2229,21 +2212,21 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				dtdebugx("Cannot enter MHW2_EPG summary records, because title with event_id=%d"
 								 " has not been found yet%s",
 								 epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
-				txn.abort();
+				wtxn.abort();
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 			}
 			std::tie(epg_record.k.service, epg_record.k.start_time, epg_record.end_time) = it->second;
 		}
-		bool updated = epgdb::save_epg_record_if_better_update_input(txn, epg_record);
+		bool updated = epgdb::save_epg_record_if_better_update_input(wtxn, epg_record);
 
 		if (updated) {
-			active_adapter().tuner_thread.on_epg_update(txn, now, epg_record);
+			active_adapter().tuner_thread.on_epg_update(wtxn, now, epg_record);
 			updated_records++;
 		} else
 			existing_records++;
 	}
 	dttime(2000);
-	txn.commit();
+	wtxn.commit();
 	dttime(2000);
 	return dtdemux::reset_type_t::NO_RESET;
 }
@@ -2341,8 +2324,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 
 	if (!info.timedout && services.original_network_id == sdt_data.actual_network_id)
 		scan_state.set_active(scan_state_t::SDT_NETWORK);
-
-	auto wtxn = chdb_txn();
+	auto wtxn = chdbmgr.wtxn();
 	/*
 		find out what we already know about network_id,m ts_id
 		is mux known in database, and what is its extra_id?
@@ -2358,7 +2340,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		return nit_done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 	}
 
-	auto ret = sdt_section_cb_(wtxn, services, info, p_mux_data);
+	auto ret = sdt_section_cb_(wtxn, services, info, p_mux_data); //commits or aborts internally
 	return ret;
 }
 
@@ -2368,7 +2350,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		return dtdemux::reset_type_t::RESET;
 	auto cidx = scan_state_t::BAT;
 	if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
-		dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
+		//dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
 		return dtdemux::reset_type_t::RESET; // delay processing until sat_confirmed.
 	}
 	if (info.timedout) {
@@ -2382,22 +2364,22 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 
 	auto stream_mux = reader->stream_mux();
 	auto stream_mux_key = mux_key_ptr(stream_mux);
-	auto txn = chdb_txn();
+	auto wtxn = chdbmgr.wtxn();
 	auto bouquet_id = bouquet.is_mhw2 ? bouquet_id_movistar : bouquet.bouquet_id;
 	chdb::chg_t chg(chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id, stream_mux_key->sat_pos), 0, bouquet.name,
 									system_clock_t::to_time_t(now));
 	if (chg.name.size() == 0)
 		chg.name << "Bouquet " << (int)bouquet.bouquet_id;
-
-	auto c = chdb::chg_t::find_by_key(
-		txn, chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id, stream_mux_key->sat_pos), find_eq);
 	bool chg_changed = true;
-	dttime(1000);
-	if (c.is_valid()) {
-		auto tmp = c.current();
-		chg_changed = (chg.name != tmp.name);
+	{
+		auto c = chdb::chg_t::find_by_key(
+			wtxn, chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id, stream_mux_key->sat_pos), find_eq);
+		dttime(1000);
+		if (c.is_valid()) {
+			auto tmp = c.current();
+			chg_changed = (chg.name != tmp.name);
+		}
 	}
-
 	for (const auto& [channel_id, channel] : bouquet.channels) {
 		if (channel_id == 0xff)
 			continue;
@@ -2405,18 +2387,20 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		//		channel.service_key.mux.sat_pos = stream_mux_key->sat_pos;
 		/*we assume channel_ids are unique even when multiple bouquets exist in BAT
 		 */
-		auto* p_mux_data = lookup_mux_data_from_sdt(txn, channel.service_key.network_id, channel.service_key.ts_id);
+		auto* p_mux_data = lookup_mux_data_from_sdt(wtxn, channel.service_key.network_id, channel.service_key.ts_id);
 
 		if (!p_mux_data) {
 			bool done = network_done(channel.service_key.network_id);
 			if (done)
 				continue; // go for partial bouquet
 			bat_data.reset_bouquet(bouquet.bouquet_id);
-			txn.abort();
+			wtxn.abort();
 			// if not done: will reparse later; we could also store these records (would be faster)
+#if 0
 			if (!done) {
 				dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
 			}
+#endif
 			return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 		}
 		chgm.k.chg = chg.k;
@@ -2436,19 +2420,21 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 			}
 		}
 
-		auto c1 = chdb::service::find_by_mux_key_sid(txn, chgm.service.mux, chgm.service.service_id);
+		auto c1 = chdb::service::find_by_mux_key_sid(wtxn, chgm.service.mux, chgm.service.service_id);
 		if (!c1.is_valid()) {
 			bool done = mux_sdt_done(chgm.service.network_id, chgm.service.ts_id);
 			if (done)
 				continue;
 			bat_data.reset_bouquet(bouquet.bouquet_id);
-			txn.abort();
+			wtxn.abort();
+#if 0
 			dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
+#endif
 			return dtdemux::reset_type_t::RESET;
 		}
 		chdb::service_t service{c1.current()};
 
-		auto c = chdb::chgm_t::find_by_key(txn, chgm.k, find_eq);
+		auto c = chdb::chgm_t::find_by_key(wtxn, chgm.k, find_eq);
 		bool changed = true;
 		chgm.media_mode = service.media_mode;
 		chgm.encrypted = service.encrypted;
@@ -2473,7 +2459,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 			chgm.user_order = channel.lcn; // default value
 		}
 		if (changed)
-			put_record(txn, chgm);
+			put_record(wtxn, chgm);
 	}
 
 	auto& bouquet_data = bat_data.get_bouquet(chg);
@@ -2497,7 +2483,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	if (++bouquet_data.num_sections_processed == bouquet_data.subtable_info.num_sections_present) {
 		dtdebug("BAT subtable completed for bouquet=" << (int)bouquet.bouquet_id << " " << bouquet_data.channel_ids.size()
 						<< " channels");
-		process_removed_channels(txn, chg.k, bouquet_data.channel_ids);
+		process_removed_channels(wtxn, chg.k, bouquet_data.channel_ids);
 		if (chg.num_channels != bouquet_data.channel_ids.size()) {
 			chg.num_channels = bouquet_data.channel_ids.size();
 			chg_changed = true;
@@ -2505,11 +2491,9 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	}
 	if (chg_changed) {
 		chg.mtime = system_clock_t::to_time_t(now);
-		put_record(txn, chg);
+		put_record(wtxn, chg);
 	}
-	dttime(1000);
-	txn.commit();
-	dttime(1000);
+	wtxn.commit();
 	//@todo: can we check for completion?
 	return dtdemux::reset_type_t::NO_RESET;
 }
@@ -2611,8 +2595,9 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 									bool use_driver{false};
 									if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
 										//copy frequency and symbol_rate from si_mux
-										if(!driver_data_reliable || (std::abs((int)mux.frequency - (int) p->frequency) < 50))
+										if(!driver_data_reliable || (std::abs((int)mux.frequency - (int) p->frequency) < 50)) {
 											mux.frequency = p->frequency;
+										}
 										else
 											use_driver = true;
 										if(!driver_data_reliable || (std::abs((int)mux.symbol_rate - (int) p->symbol_rate) < 10000))
@@ -2667,7 +2652,7 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 
 
 void active_si_stream_t::load_movistar_bouquet() {
-	auto txn = chdb.rtxn();
+	auto txn = chdbmgr.rtxn();
 	auto sat_pos = reader->get_sat_pos();
 	auto chg = chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id_movistar, sat_pos);
 	auto c = chdb::chgm_t::find_by_key(txn, chg, find_geq, chdb::chgm_t::partial_keys_t::chg);
@@ -2678,7 +2663,7 @@ void active_si_stream_t::load_movistar_bouquet() {
 }
 
 void active_si_stream_t::load_skyuk_bouquet() {
-	auto txn = chdb.rtxn();
+	auto txn = chdbmgr.rtxn();
 	auto sat_pos = reader->get_sat_pos();
 	auto chg = chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id_sky_opentv, sat_pos);
 	auto c = chdb::chgm_t::find_by_key(txn, chg, find_geq, chdb::chgm_t::partial_keys_t::chg);
@@ -2691,7 +2676,7 @@ void active_si_stream_t::load_skyuk_bouquet() {
 reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
 	if(isnext)
 		return reset_type_t::NO_RESET;
-	dtdebugx("pmt received for sid=%d: stopping stream", pmt.service_id);
+	dtdebugx("pmt received for service_id=%d: stopping stream pmt_pid=%d", pmt.service_id, pmt.pmt_pid);
 	auto& p = pmt_data.by_service_id[pmt.service_id];
 	p.parser.reset();
 	if (!p.pmt_analysis_finished)
@@ -2726,7 +2711,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 					mux_common_ptr(mux)->scan_status = chdb::scan_status_t::PENDING;
 					preserve = m::flags(preserve | m::SCAN_STATUS); //avoid changing ACTIVE to pending
 				}
-				auto wtxn = chdb_txn();
+				auto wtxn = chdbmgr.wtxn();
 				namespace m = chdb::update_mux_preserve_t;
 				this->update_mux(wtxn, mux, now, false /*is_reader_mux*/, true /*is_tuned_freq*/,
 												 false /*from_sdt*/, preserve);
@@ -2741,8 +2726,9 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 	}
 
 	if(pmts_can_be_saved()) {
-		auto wtxn = chdb_txn();
+		auto wtxn = chdbmgr.wtxn();
 		save_pmts(wtxn);
+		wtxn.commit();
 	}
 	return reset_type_t::NO_RESET;
 }

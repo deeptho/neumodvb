@@ -247,14 +247,14 @@ public:
 			dterror("Attempting to access non opened lmdb database");
 			assert(0);
 		}
-		return db_txn(*this, 0);
+		return db_txn(*this, false /*readonly*/, 0);
 	}
 	db_txn rtxn() {
 		if(!is_open()) {
 			dterror("Attempting to access non opened lmdb database");
 			assert(0);
 		}
-		return  db_txn(*this, MDB_RDONLY);
+		return  db_txn(*this, true /*readonly*/, MDB_RDONLY);
 	}
 
 	virtual ~neumodb_t();

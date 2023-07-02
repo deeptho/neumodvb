@@ -148,7 +148,9 @@ public:
 
 	int toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 
+#if 0
 	void update_recording(const recdb::rec_t& rec);
+#endif
 
 	void update_autorec(recdb::autorec_t& autorec);
 	void delete_autorec(const recdb::autorec_t& autorec);

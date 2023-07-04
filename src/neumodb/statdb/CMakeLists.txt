@@ -30,7 +30,7 @@ list(APPEND genhtemplate ${PROJECT_SOURCE_DIR}/neumodb/templates/db_keys.h)
 list(APPEND gencctemplate ${PROJECT_SOURCE_DIR}/neumodb/templates/db_keys.cc)
 
 set(gendeps ${genhtemplate} ${gencctemplate} ${genpybindtemplate} ${CMAKE_CURRENT_SOURCE_DIR}/dbdefs.py )
-set(extgendeps ch_generated_files dev_generated_files epg_generated_files rec_generated_files date::date)
+set(extgendeps ch_generated_files dev_generated_files epg_generated_files rec_generated_files)
 
 set(codegen ${PROJECT_SOURCE_DIR}/neumodb/neumodb.py ${PROJECT_SOURCE_DIR}/neumodb/generators.py  )
 list(TRANSFORM TEMPLATE PREPEND ${PROJECT_SOURCE_DIR}/neumodb/templates/)
@@ -53,7 +53,7 @@ set_source_files_properties(
 add_custom_target(stat_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(statdb SHARED ${gensrc} statdb_extra.cc statdb_upgrade.cc)
-add_dependencies(statdb stat_generated_files dev_generated_files ch_generated_files epg_generated_files rec_generated_files date::date)
+add_dependencies(statdb stat_generated_files dev_generated_files ch_generated_files epg_generated_files rec_generated_files)
 
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(statdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
@@ -61,7 +61,7 @@ target_compile_options(statdb PUBLIC -fPIC -fsized-deallocation) #needed to prev
 pybind11_add_module(pystatdb statdb_pybind.cc statdb_vector_pybind.cc ${pybind_srcs})
 
 target_compile_options(pystatdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
-target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb neumodb schema date::date-tz uuid)
+target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb neumodb schema fmt uuid)
 target_link_libraries(pystatdb PRIVATE statdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)

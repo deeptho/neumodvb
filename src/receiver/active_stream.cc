@@ -58,13 +58,6 @@
 #include "filemapper.h"
 #include "streamparser/packetstream.h"
 
-#include "date/date.h"
-#include "date/tz.h"
-#include "date/iso_week.h"
-using namespace date;
-using namespace date::clock_cast_detail;
-
-
 using std::placeholders::_1;
 using std::placeholders::_2;
 using std::placeholders::_3;

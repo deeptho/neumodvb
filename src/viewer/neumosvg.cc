@@ -24,9 +24,7 @@
 #include <wxSVG/svgctrl.h>
 //#include <wxSVG/SVGCanvasImageCairo.h>
 //#include <wxSVG/SVGCanvasCairo.h>
-#include "date/date.h"
-#include "date/iso_week.h"
-#include "date/tz.h"
+#include <fmt/chrono.h>
 #include "neumosvg.h"
 #include "receiver/active_service.h"
 #include "receiver/devmanager.h"
@@ -135,7 +133,7 @@ struct text_box {
 	void set_value(const char* val);
 	void set_value(const ss::string_& val);
 	void set_value(int x, const char* fmt = "%4d");
-	void set_time_value(time_t t, const char* fmt = "%H:%M");
+	void set_time_value(time_t t, const char* fmt = "{:%H:%M}");
 };
 
 void level_indicator::init(wxSVGDocument* doc) {
@@ -257,12 +255,10 @@ void text_box::set_value(int x, const char* fmt) {
 	}
 }
 
-void text_box::set_time_value(time_t t, const char* fmt) {
+void text_box::set_time_value(time_t t, const char* fmt_) {
 	ss::string<32> val;
-	using namespace date;
-	using namespace date::clock_cast_detail;
-	using namespace std::chrono;
-	val << date::format(fmt, date::zoned_time(date::current_zone(), floor<seconds>(system_clock::from_time_t(t))));
+	val << fmt::vformat(fmt_, fmt::make_format_args(
+												fmt::localtime(floor<std::chrono::seconds>(system_clock::from_time_t(t)))));
 	if (text) {
 		auto s = wxString::FromUTF8(val.c_str());
 		text->SetContent(s);
@@ -461,7 +457,7 @@ void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 																																														// up
 		self->rec.set_value(recording_status_text(epgdb::rec_status_t::NONE, playback_info.is_timeshifted));
 	}
-	self->play_time.set_time_value(system_clock_t::to_time_t(playback_info.play_time), "%H:%M:%S");
+	self->play_time.set_time_value(system_clock_t::to_time_t(playback_info.play_time), "{:%H:%M:%S}");
 }
 
 void svg_overlay_t::set_signal_info(const signal_info_t& signal_info, const playback_info_t& playback_info) {

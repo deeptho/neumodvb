@@ -29,9 +29,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "date/date.h"
-#include "date/iso_week.h"
-#include "date/tz.h"
+#include <fmt/chrono.h>
 #include "log4cxx/consoleappender.h"
 #include "log4cxx/propertyconfigurator.h"
 #include "log4cxx/xml/domconfigurator.h"
@@ -46,8 +44,6 @@
 using namespace log4cxx;
 using namespace log4cxx::xml;
 using namespace log4cxx::helpers;
-using namespace date;
-using namespace date::clock_cast_detail;
 
 #include <ctime>
 #include <iomanip>
@@ -106,7 +102,7 @@ std::ostream& operator<<(std::ostream& os, const std::chrono::duration<long, std
 }
 
 std::ostream& std::operator<<(std::ostream& os, system_time_t t) {
-	os << date::format("_%Y%m%d_%H:%M:%S", zoned_time(date::current_zone(), std::chrono::floor<std::chrono::seconds>(t)));
+	os << fmt::format("_{:%Y%m%d_%T}", fmt::localtime(std::chrono::floor<std::chrono::seconds>(t)));
 	return os;
 }
 

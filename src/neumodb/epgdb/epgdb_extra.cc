@@ -20,17 +20,13 @@
 #include "util/dtassert.h"
 #include "epgdb_extra.h"
 #include "../chdb/chdb_extra.h"
-#include "date/date.h"
-#include "date/iso_week.h"
-#include "date/tz.h"
+#include "fmt/chrono.h"
 #include "xformat/ioformat.h"
 //#include <iosfwd>
 #include "neumodb/db_keys_helper.h"
 #include "neumotime.h"
 #include "stackstring/ssaccu.h"
 
-using namespace date;
-using namespace date::clock_cast_detail;
 using namespace epgdb;
 
 /*
@@ -313,13 +309,13 @@ std::ostream& epgdb::operator<<(std::ostream& os, const epg_source_t& s) {
 std::ostream& epgdb::operator<<(std::ostream& os, const epg_key_t& k) {
 	os << k.service;
 	stdex::printf(os, " [%d] ", k.event_id);
-	os << date::format("%F %H:%M", zoned_time(current_zone(), system_clock::from_time_t(k.start_time)));
+	os << fmt::format("{:%F %H:%M}", fmt::localtime(system_clock::from_time_t(k.start_time)));
 	return os;
 }
 
 std::ostream& epgdb::operator<<(std::ostream& os, const epg_record_t& epg) {
 	os << epg.k;
-	os << date::format(" - %H:%M", zoned_time(current_zone(), system_clock::from_time_t(epg.end_time)));
+	os << fmt::format(" - {:%H:%M}", fmt::localtime(system_clock::from_time_t(epg.end_time)));
 	auto rec_status = enum_to_str(epg.rec_status);
 	stdex::printf(os, ":%s %s", rec_status, epg.event_name.c_str());
 
@@ -327,8 +323,8 @@ std::ostream& epgdb::operator<<(std::ostream& os, const epg_record_t& epg) {
 }
 
 void epgdb::to_str_brief(ss::string_& ret, const epg_record_t& epg) {
-	auto os = ret << date::format("%H:%M", zoned_time(current_zone(), system_clock::from_time_t(epg.k.start_time)));
-	os << date::format(" - %H:%M", zoned_time(current_zone(), system_clock::from_time_t(epg.end_time)));
+	auto os = ret << fmt::format("{:%H:%M}", fmt::localtime(system_clock::from_time_t(epg.k.start_time)));
+	os << fmt::format(" - {:%H:%M}", fmt::localtime(system_clock::from_time_t(epg.end_time)));
 	auto rec_status = enum_to_str(epg.rec_status);
 	stdex::printf(os, ":%s%s", rec_status, epg.event_name.c_str());
 }

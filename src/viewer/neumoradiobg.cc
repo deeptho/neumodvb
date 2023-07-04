@@ -24,9 +24,6 @@
 #include <wxSVG/svgctrl.h>
 //#include <wxSVG/SVGCanvasImageCairo.h>
 //#include <wxSVG/SVGCanvasCairo.h>
-#include "date/date.h"
-#include "date/iso_week.h"
-#include "date/tz.h"
 #include "neumosvg.h"
 #include "util/logger.h"
 

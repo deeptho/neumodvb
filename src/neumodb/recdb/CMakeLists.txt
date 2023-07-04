@@ -52,7 +52,7 @@ set_source_files_properties(
 add_custom_target(rec_generated_files DEPENDS ${gensrc} ${genhdr} ${pybind_srcs})
 
 add_library(recdb SHARED ${gensrc} recdb_extra.cc recdb_upgrade.cc rec_browse_history.cc)
-add_dependencies(recdb rec_generated_files dev_generated_files ch_generated_files epg_generated_files stat_generated_files date::date)
+add_dependencies(recdb rec_generated_files dev_generated_files ch_generated_files epg_generated_files stat_generated_files)
 
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(recdb PUBLIC -fPIC -fsized-deallocation)
@@ -62,7 +62,7 @@ pybind11_add_module(pyrecdb recdb_pybind.cc ${pybind_srcs})
 target_compile_options(pyrecdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(recdb PUBLIC stackstring neumolmdb chdb epgdb neumodb schema)
 
-target_link_libraries(recdb PUBLIC date::date-tz uuid)
+target_link_libraries(recdb PUBLIC fmt uuid)
 target_link_libraries(pyrecdb PRIVATE recdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)

@@ -22,7 +22,7 @@ set_source_files_properties( subscriber_notify.cc COMPILE_FLAGS ${EXTRA_FLAGS_ST
 
 add_dependencies(neumoreceiver chdb statdb epgdb recdb recdb stackstring streamparser)
 
-target_link_libraries(neumoreceiver PUBLIC chdb statdb epgdb recdb neumoutil neumodb streamparser config++ PRIVATE dvbcsa ${wxWidgets_LIBRARIES})
+target_link_libraries(neumoreceiver PUBLIC chdb statdb epgdb recdb neumoutil neumodb streamparser config++ fmt PRIVATE dvbcsa ${wxWidgets_LIBRARIES})
 
 
 #target_compile_options(neumoreceiver PUBLIC -fPIC -fvisibility=hidden -fsized-deallocation) #needed to prevent operator delete error

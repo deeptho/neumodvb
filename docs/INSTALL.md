@@ -20,7 +20,7 @@ log4cxx log4cxx-devel libconfig libconfig-devel wxGTK3 wxGTK3-devel gtk3-devel f
 librsvg2-devel libexif-devel libexif gobject-introspection expat-devel python3-wxpython4 \
 python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-gobject-base  python3-configobj \
 python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 wxBase3-devel mpv-libs-devel \
-ffmpeg-devel ffmpeg-libs libX11-devel libglvnd-devel libdvbcsa-devel espeak mesa-dri-drivers \
+ffmpeg-devel ffmpeg-libs libX11-devel libglvnd-devel libdvbcsa-devel espeak mesa-dri-drivers fmt fmt-devel \
 https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
 ```
 
@@ -42,7 +42,7 @@ gobject-introspection expat-devel python3-wxpython4  python3-jinja2 python3-matp
 python3-sip-devel  python3-cachetools python3-gobject-base  python3-configobj \
 python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel wxBase3 \
 wxBase3-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
-ffmpeg-devel mpv-libs-devel tsduck
+ffmpeg-devel mpv-libs-devel tsduck fmt fmt-devel
 ```
 
 Some of these packages are provided by rpmfusion, which can be installed using the instructions at
@@ -73,7 +73,8 @@ expat-devel python3-wxpython4 python3-jinja2 python3-matplotlib-wx python3-sip-d
 python3-gobject-base python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel \
 wxBase3 wxBase-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
 ffmpeg-devel mpv-libs-devel https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-3.30-2710.fc35.x86_64.rpm \
-https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm
+https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm \
+fmt fmt-devel
 ```
 
 Also make sure that the following packages are **not** installed, as they might lead to compiling or linking with the wrong
@@ -98,7 +99,7 @@ wxGTK3 wxGTK-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexi
 expat-devel python3-wxpython4 python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools \
 python3-gobject-base python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel \
 wxBase3 wxBase-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
-ffmpeg-devel mpv-libs-devel tsduck
+ffmpeg-devel mpv-libs-devel tsduck fmt fmt-devel
 ```
 
 Also make sure that the following packages are **not** installed, as they might lead to compiling or linking with the wrong
@@ -145,7 +146,7 @@ sudo apt install -y clang clang-tools libtool libboost-program-options libboost 
 curl libcurl4 libcurl4-opensst-dev liblog4cxx-dev liblog4cxx libconfig-libconfig-dev libwxgtk3.0-gtk3 libgtk-dev \
 freeglut3 freeglut3-dev librsvg2-dev libexif-dev libegobject-introspection libexpat1-dev python3-wxgtk2.4 \
 python3-configobj  python3-sip-dev python3--matplot-lib python3-jinja2 python3-regex python3-scipy wxbase3-dev-wxbase3 \
-wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak cmake python3-cachetools
+wxgtk3 libmp3-dev ffmpeg libx11-dev libglvnd-dev libdvbcsa-dev espeak cmake python3-cachetools fmt fmt-dev
 ```
 
 Also, install a recent clang compiler:
@@ -190,7 +191,7 @@ sudo  apt install -y libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-open
 gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools \
 python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev \
 freeglut3-dev libwxgtk3.0-gtk3-dev  python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy \
-clang lsb-core lsb-release python3-regex liblog4cxx12 liblog4cxx-dev freeglut3
+clang lsb-core lsb-release python3-regex liblog4cxx12 liblog4cxx-dev freeglut3 fmt fmt-dev
 ```
 In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;
 at least the following packages are needed:
@@ -208,7 +209,7 @@ with the clang included in ubuntu
 sudo apt install -y libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev libwxgtk-media3.0-gtk3-dev \
 gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev python3-jinja2 python3-pip clang-format \
 python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 \
-python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang lsb-core lsb-release python3-regex
+python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang lsb-core lsb-release python3-regex fmt fmt-dev
 ```
 
 In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;

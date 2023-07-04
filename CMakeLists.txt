@@ -46,7 +46,6 @@ add_compile_options (
 
 find_package(Boost 1.69 REQUIRED regex context program_options)
 include_directories(${BOOST_INCLUDE_DIRS})
-include_directories(date/include)
 include_directories(xformat/include)
 
 find_package(PkgConfig REQUIRED)
@@ -68,7 +67,6 @@ SET(TEST_CHDB false)
 option( USE_SYSTEM_TZ_DB "Use the operating system's timezone database" ON )
 #option( BUILD_TZ_LIB "build/install of TZ library" ON )
 #option( BUILD_SHARED_LIBS  "Build a shared version of library" ON )
-add_subdirectory(date)
 
 option(BUILD_TESTING "Build the testing tree." OFF)
 

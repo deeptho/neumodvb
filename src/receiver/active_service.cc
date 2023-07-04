@@ -60,12 +60,6 @@
 #include "streamparser/packetstream.h"
 #include "streamparser/si.h"
 
-#include "date/date.h"
-#include "date/iso_week.h"
-#include "date/tz.h"
-using namespace date;
-using namespace date::clock_cast_detail;
-
 
 active_service_t::active_service_t
 (rec_manager_t& recmgr, active_adapter_t& active_adapter_, const std::shared_ptr<stream_reader_t>& reader)

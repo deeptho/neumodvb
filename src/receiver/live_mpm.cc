@@ -18,9 +18,6 @@
  *
  */
 #include "active_service.h"
-#include "date/date.h"
-#include "date/iso_week.h"
-#include "date/tz.h"
 #include "mpm.h"
 #include "receiver.h"
 #include "util/dtassert.h"
@@ -35,9 +32,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
-
-using namespace date;
-using namespace date::clock_cast_detail;
+#include "fmt/chrono.h"
+using namespace std::chrono;
 namespace fs = std::filesystem;
 
 #ifndef NDEBUG
@@ -56,10 +52,7 @@ static ss::string<128> relfilename(const recdb::file_t & file) {
 	ss::string<128> ret;
 	ret.sprintf("%02d_", file.fileno);
 	auto t = system_clock::from_time_t(file.real_time_start);
-	ret << date::format("%Y%m%d_%H%M%S",
-											zoned_time(current_zone(),
-																 floor<std::chrono::seconds>(t))) << ".ts";
-
+	ret <<  fmt::format("{:%Y%m%d_%T}", fmt::localtime(t)) << ".ts";
 	return ret;
 }
 
@@ -290,10 +283,10 @@ ss::string<128> active_mpm_t::make_dirname(active_service_t* active_service, sys
 		2. After changing channel on the same mux, directory already exists
 	*/
 	ss::string<128> dirname;
-	dirname.sprintf("%s/A%02d_ts%05d_sid%05d", active_service->receiver.options.readAccess()->live_path.c_str(),
+	dirname.sprintf("%s/A%02d_ts%05d_sid%05d_", active_service->receiver.options.readAccess()->live_path.c_str(),
 									active_service->get_adapter_no(), active_service->current_service.k.ts_id,
 									active_service->current_service.k.service_id);
-	dirname << date::format("_%Y%m%d_%H:%M:%S", zoned_time(current_zone(), floor<std::chrono::seconds>(start_time)));
+	dirname << fmt::format("{:%Y%m%d_%T}", fmt::localtime(start_time));
 	return dirname;
 }
 
@@ -816,11 +809,6 @@ int active_mpm_t::next_data_file(system_time_t now, int64_t new_num_bytes_safe_t
 	mm->current_file_record.fileno = current_fileno;
 
 	auto relfilename  = ::relfilename(mm->current_file_record);
-
-	ss::string<128> test;
-	test.sprintf("%02d_", current_fileno);
-	test << date::format("%Y%m%d_%H%M%S", zoned_time(current_zone(), floor<std::chrono::seconds>(now))) << ".ts";
-	assert(test==relfilename);
 
 	current_filename.clear();
 	current_filename.sprintf("%s/%s", dirname.c_str(), relfilename.c_str());

@@ -23,8 +23,6 @@
 #include "receiver.h"
 #include <filesystem>
 #include <signal.h>
-#include "date/date.h"
-#include "date/tz.h"
 
 namespace fs = std::filesystem;
 
@@ -610,25 +608,30 @@ void rec_manager_t::on_epg_update_check_autorecs(db_txn& epg_wtxn, epgdb::epg_re
 {
 
 	using namespace recdb;
-	using namespace date;
-	using namespace date::clock_cast_detail;
+	using namespace std::chrono;
 	auto rec_rtxn = receiver.recdb.rtxn();
 	auto service_key = epg_record.k.service;
-	auto start_time = system_clock::from_time_t(epg_record.k.start_time);
-	auto tp = date::zoned_time(current_zone(), floor<std::chrono::seconds>(start_time));
 
-	auto const info = tp.get_time_zone()->get_info(start_time);
-	start_time += info.offset;
-
-	auto dp = date::floor<date::days>(start_time);
-	hh_mm_ss t{date::floor<std::chrono::seconds>(start_time-dp)};
-
-	int start_seconds = t.minutes().count()*60;
-	int duration = epg_record.end_time - epg_record.k.start_time;
 	//find all autorecs related to this service
 	auto c =  autorec_t::find_by_service(rec_rtxn, service_key,
 																			 find_type_t::find_geq, autorec_t::partial_keys_t::service,
 																			 autorec_t::partial_keys_t::service);
+
+
+	if(!c.is_valid())
+		return;
+	auto start_time = system_clock::from_time_t(epg_record.k.start_time);
+	auto tp = zoned_time(current_zone(), floor<std::chrono::seconds>(start_time));
+
+	auto const info = tp.get_time_zone()->get_info(start_time);
+	start_time += info.offset;
+
+	auto dp = std::chrono::floor<std::chrono::days>(start_time);
+	hh_mm_ss t{std::chrono::floor<std::chrono::seconds>(start_time-dp)};
+
+	int start_seconds = t.minutes().count()*60;
+	int duration = epg_record.end_time - epg_record.k.start_time;
+
 	auto rec_wtxn = recdbmgr.wtxn();
 	for(auto autorec: c.range()) {
 		if(start_seconds < autorec.starts_after || start_seconds > autorec.starts_before)

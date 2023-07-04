@@ -19,9 +19,6 @@
  */
 #include "active_playback.h"
 #include "active_service.h"
-#include "date/date.h"
-#include "date/iso_week.h"
-#include "date/tz.h"
 #include "mpm.h"
 #include "receiver.h"
 #include "util/logger.h"
@@ -36,10 +33,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include "util/dtassert.h"
-
-using namespace date;
-using namespace date::clock_cast_detail;
-
 
 playback_mpm_t::playback_mpm_t(receiver_t& receiver_, subscription_id_t subscription_id_)
 	: mpm_t(true)

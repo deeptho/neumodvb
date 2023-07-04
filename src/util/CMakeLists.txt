@@ -11,7 +11,7 @@ add_library(neumoutil SHARED util.cc logger.cc identification.cc ${CMAKE_CURRENT
 add_dependencies(neumoutil stackstring)
 
 target_compile_options(neumoutil PUBLIC -fPIC)
-target_link_libraries(neumoutil PUBLIC dl log4cxx stackstring stdc++fs pthread  date::date-tz)
+target_link_libraries(neumoutil PUBLIC dl log4cxx stackstring stdc++fs pthread fmt)
 
 install (TARGETS neumoutil)
 

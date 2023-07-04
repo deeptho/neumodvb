@@ -2478,7 +2478,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		bouquet_data.channel_ids.push_back(channel_id);
 	}
 
-	assert(bouquet_data.num_sections_processed < bouquet_data.subtable_info.num_sections_present); //4.8E
+	assert(bouquet_data.num_sections_processed <= bouquet_data.subtable_info.num_sections_present); //4.8E
 
 	if (++bouquet_data.num_sections_processed == bouquet_data.subtable_info.num_sections_present) {
 		dtdebug("BAT subtable completed for bouquet=" << (int)bouquet.bouquet_id << " " << bouquet_data.channel_ids.size()

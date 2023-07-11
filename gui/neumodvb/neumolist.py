@@ -16,7 +16,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-
 from functools import lru_cache
 import wx
 import wx.grid
@@ -30,7 +29,7 @@ import datetime
 from dateutil import tz
 import regex as re
 from inspect import currentframe
-
+from packaging import version
 from neumodvb.util import dtdebug, dterror, get_text_extent, setup, lastdot, wxpythonversion, wxpythonversion42
 from neumodvb import neumodbutils
 
@@ -40,7 +39,7 @@ import pychdb
 import pyrecdb
 import pystatdb
 
-is_old_wx = float('.'.join(wx.version().split(' ')[-1].split('.')[:-1])) <=3.1
+is_old_wx = version.parse(wx.version().split(' ')[-1]) <= version.parse("3.1")
 
 def lnb_network_str(lnb_networks):
     return '; '.join([ pychdb.sat_pos_str(network.sat_pos) for network in lnb_networks])

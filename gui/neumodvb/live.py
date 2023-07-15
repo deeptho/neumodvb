@@ -517,10 +517,12 @@ class ChEpgGridRow(GridRow):
                 epg_idx = -1
                 break
             epg_idx +=1
-            start_col = min(max(0, (epg_record.k.start_time - start_time)//self.grid.epg_duration_width),
-                            self.grid.num_cols)
-            end_col = min(max(0, (epg_record.end_time - start_time)//self.grid.epg_duration_width),
-                          self.grid.num_cols)
+            start_col = (epg_record.k.start_time - start_time)//self.grid.epg_duration_width
+            end_col = (epg_record.end_time - start_time)//self.grid.epg_duration_width
+            if end_col <= 0 or start_col >= self.grid.num_cols:
+                continue
+            start_col = min(max(0, start_col), self.grid.num_cols)
+            end_col = min(max(0, end_col), self.grid.num_cols)
             assert end_col >= start_col
             for idx in range (start_col, end_col+1):
                 oldepg = covered.get(idx, None)

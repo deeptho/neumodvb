@@ -175,5 +175,4 @@ namespace dtdemux {
 		bool parse_mhw2_long_summary_section(epg_t& epg);
 	};
 	pmt_info_t parse_pmt_section(ss::bytebuffer_& pmt_section_data, uint16_t pmt_pid);
-	bool crc_is_correct(const ss::bytebuffer_& payload);
 };

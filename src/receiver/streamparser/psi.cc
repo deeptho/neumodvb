@@ -45,6 +45,12 @@ using namespace dtypes;
 #define BCDCHARTOINT(x) (10 * ((x & 0xF0) >> 4) + (x & 0xF))
 #define lang_iso639(a, b, c) ((a) << 16 | (b) << 8 | (c))
 
+
+inline bool crc_is_correct(const ss::bytebuffer_& payload) {
+	auto crc = crc32(payload.buffer(), payload.size());
+	return crc == 0;
+}
+
 namespace dtdemux {
 
 	section_header_t* section_parser_t::header() {

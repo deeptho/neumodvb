@@ -136,7 +136,7 @@ mmap_t(int map_len_, bool readonly_)
 	 */
 	bool init(int _fd, off_t _offset, off_t end_read_offset=-1);
 
-	/*map a different segment of teh current file to a new offset; change filesize as needed*/
+	/*map a different segment of the current file to a new offset; change filesize as needed*/
 	int move_map(off_t _offset);
 
 	int grow_map(off_t end_read_offset);

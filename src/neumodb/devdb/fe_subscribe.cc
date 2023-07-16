@@ -185,8 +185,10 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_
 
 	if(!best_fe)
 		return {best_fe, released_fe_usecount}; //no frontend could be found
-
-	auto ret = devdb::fe::reserve_fe_lnb_exclusive(wtxn, subscription_id, *best_fe, rf_path, lnb);
+#ifndef NDEBUG
+	auto ret =
+#endif
+		devdb::fe::reserve_fe_lnb_exclusive(wtxn, subscription_id, *best_fe, rf_path, lnb);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, released_fe_usecount};
 }
@@ -259,7 +261,10 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscripti
 		return {{}, {}, {}, {}, released_fe_usecount}; //no frontend could be found
 	if(fe_key_to_release && best_fe->k == *fe_key_to_release)
 		released_fe_usecount++;
-	auto ret = devdb::fe::reserve_fe_lnb_for_mux(wtxn, subscription_id, *best_fe, *best_rf_path, *best_lnb, mux,
+#ifndef NDEBUG
+	auto ret =
+#endif
+		devdb::fe::reserve_fe_lnb_for_mux(wtxn, subscription_id, *best_fe, *best_rf_path, *best_lnb, mux,
 																							 service);
 	best_use_counts.dish++;
 	best_use_counts.rf_path++;
@@ -333,7 +338,10 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 
 	if(fe_key_to_release && best_fe->k == *fe_key_to_release)
 		released_fe_usecount++;
-	auto ret = devdb::fe::reserve_fe_for_mux(wtxn, subscription_id, *best_fe, mux, service);
+#ifndef NDEBUG
+	auto ret =
+#endif
+		devdb::fe::reserve_fe_for_mux(wtxn, subscription_id, *best_fe, mux, service);
 	assert(ret == 0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, released_fe_usecount};
 }

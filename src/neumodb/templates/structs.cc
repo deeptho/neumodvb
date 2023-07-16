@@ -738,7 +738,9 @@ template<>
 void {{dbname}}::encode_subfields<{{dbname}}::{{struct.class_name}}>(
 	ss::bytebuffer_ &out, const {{dbname}}::{{struct.class_name}}& in,
 	const ss::vector_<uint8_t>&subfields)  {
+#ifndef NDEBUG
 	int count =0;
+#endif
 	for(auto field_: subfields) {
 		/*Prevent long keys from being generated in the first place
 			An example occurs when sorting lnbs by network. IN one example the key size is 594 because
@@ -796,7 +798,9 @@ void {{dbname}}::encode_subfields<{{dbname}}::{{struct.class_name}}>(
 		default:
 			assert(0);
 		}
+#ifndef NDEBUG
 		count++;
+#endif
 	}
 };
 {% endif %}

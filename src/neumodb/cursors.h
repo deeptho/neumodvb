@@ -76,7 +76,7 @@ public:
 		done_ = (c.handle() == nullptr || !c.is_valid());
 	}
 
-	auto current() {
+	inline auto current() {
 		data_t ret;
 		auto rc = cursor.get_value(ret);
 #pragma unused (rc)
@@ -84,7 +84,7 @@ public:
 		return ret;
 	}
 
-	auto current_key() {
+	inline auto current_key() {
 		data_t ret;
 		auto rc = cursor.get_key(ret);
 		if(!rc) {
@@ -94,7 +94,7 @@ public:
 		return ret;
 	}
 
-	auto current_serialized_primary_key() {
+	inline auto current_serialized_primary_key() {
 		/*be careful: meaning can be different for regular cursor (primary key) and index cursor
 			(secondary key)
 		 */
@@ -107,10 +107,10 @@ public:
 		return ret;
 	}
 
-	auto  done() const {
+	inline auto done() const {
 		return done_;
 	}
-	void next() {
+	inline void next() {
 #if 0
 		done_ = !cursor.is_valid() || !cursor.next(op_next);
 #else
@@ -140,24 +140,28 @@ struct RangeAdaptor : private Derived
         friend auto operator!=(Iterator lhs, Sentinel rhs) { return !(lhs == rhs); }
         friend auto operator!=(Sentinel lhs, Iterator rhs) { return !(lhs == rhs); }
 
-        auto operator*()  {
+        inline auto operator*()  {
 					return rng->current();
 				}
-        auto current_key()  {
+
+       inline  auto current_key()  {
 					return rng->current_key();
 				}
-			auto current_serialized_key()  {
+
+			inline auto current_serialized_key()  {
 				/*be careful: meaning can be different for regular cursor (primary key) and index cursor
 					(secondary key)
 				*/
-					return rng->current_serialized_primary_key();
-				}
-        auto& operator++() { rng->next(); return *this;
-				}
+				return rng->current_serialized_primary_key();
+			}
+
+
+			inline auto& operator++() { rng->next(); return *this;
+			}
     };
 
-    auto begin() { return Iterator{this}; }
-    auto end()   { return Sentinel{};     }
+    inline auto begin() { return Iterator{this}; }
+    inline auto end()   { return Sentinel{};     }
 };
 
 class neumodb_t;
@@ -323,7 +327,7 @@ struct db_cursor : private lmdb::cursor {
 		return lmdb::cursor::handle();
 	}
 
-	void set_key_prefix( const ss::bytebuffer_& key_prefix_) {
+	inline void set_key_prefix( const ss::bytebuffer_& key_prefix_) {
 		bool  was_valid = is_valid();
 		auto old_size = key_prefix.size();
 		key_prefix = key_prefix_;
@@ -516,7 +520,7 @@ struct db_cursor : private lmdb::cursor {
 
 
 
-	bool next(MDB_cursor_op op=MDB_NEXT) {
+	inline bool next(MDB_cursor_op op=MDB_NEXT) {
 		lmdb::val k{}, v{};
 		bool ret = get(k, v, op);
 		if(!ret) //we reached the end of the index table
@@ -532,7 +536,7 @@ struct db_cursor : private lmdb::cursor {
 		return true;
 	}
 
-	bool prev() {
+	inline bool prev() {
 		lmdb::val k{}, v{};
 		bool ret = this->get(k, v, (const MDB_cursor_op) MDB_PREV);
 		if(!ret) //we reached the start of the index table
@@ -715,7 +719,7 @@ struct db_tcursor_ : public db_cursor {
 		return *this;
 	}
 
-	data_t current() {
+	inline data_t current() {
 		if(!is_valid()) {
 			dterror("Invalid access");
 			assert(0);
@@ -835,7 +839,7 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 
 	db_tcursor<data_t> maincursor;
 
-		void set_key_prefix( const ss::bytebuffer_& key_prefix_) {
+		inline void set_key_prefix( const ss::bytebuffer_& key_prefix_) {
 			db_tcursor_<data_t>::set_key_prefix(key_prefix_);
 			auto main_key_prefix = data_t::make_key(data_t::keys_t::key, data_t::partial_keys_t::none,  nullptr);
 			maincursor.set_key_prefix(main_key_prefix);
@@ -889,7 +893,7 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 		return db_tcursor_index(*this, (db_cursor::clone_t*) NULL);
 	}
 
-	bool get_value(data_t& out, const MDB_cursor_op op=MDB_GET_CURRENT) {
+	inline bool get_value(data_t& out, const MDB_cursor_op op=MDB_GET_CURRENT) {
 		assert (maincursor.is_valid());
 		if(!this->handle())
 			return false;
@@ -899,7 +903,7 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 
 	using db_tcursor_<data_t>::is_valid;
 
-	data_t current() {
+	inline data_t current() {
 		if(!is_valid()) {
 			dterror("Invalid access");
 			assert(0);
@@ -913,7 +917,7 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 /*
 
 */
-	bool next(MDB_cursor_op op = MDB_NEXT) {
+	inline bool next(MDB_cursor_op op = MDB_NEXT) {
 		lmdb::val k{}, v{};
 		bool ret = this->get(k, v, op);
 		if(!ret) //we reached the end of the index table
@@ -940,7 +944,7 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 		return true;
 	}
 
-	bool prev() {
+	inline bool prev() {
 		lmdb::val k{}, v{};
 		bool ret = this->get(k, v, (const MDB_cursor_op) MDB_PREV);
 		if(!ret) //we reached the start of the index table

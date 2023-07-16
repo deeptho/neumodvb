@@ -140,6 +140,7 @@ int mmap_t::move_map(off_t start) {
 	uint8_t* mem = (uint8_t*)mmap(NULL, map_len, readonly ? PROT_READ : (PROT_READ | PROT_WRITE), MAP_SHARED, fd, start);
 	if (mem == (uint8_t*)-1) {
 		dterror("Error in mmap: " << strerror(errno));
+		assert(0);
 		return -1;
 	}
 	buffer = mem;
@@ -148,7 +149,8 @@ int mmap_t::move_map(off_t start) {
 }
 
 /*!
-	Resize the mapped range to min(new_map_len, file_size)
+	Resize the mapped range to min(new_map_len, file_size) ir something smaller when the map size grows
+	too long
 	and/or sets the new end_read_offset
 	Returns:
 	1 if file was remapped (there was growth)

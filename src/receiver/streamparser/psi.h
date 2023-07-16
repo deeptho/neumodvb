@@ -271,7 +271,7 @@ namespace dtdemux {
 		uint16_t channel_id{0xffff}; //only for opentv/skyuk
 		chdb::service_key_t service_key{};
 
-		ss::vector<epgdb::epg_record_t, 64> epg_records;
+		ss::vector<epgdb::epg_record_t, 128> epg_records;
 	};
 
 	class section_parser_t : public ts_substream_t

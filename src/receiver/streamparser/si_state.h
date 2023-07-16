@@ -132,7 +132,7 @@ namespace dtdemux {
 		//steady_time_t start_time{0};
 
 		std::map<subtable_key_t, completion_status_t> cstates;
-		std::map<uint8_t, table_timeout_t> table_timeouts; //indexed by table id
+		std::array<std::unique_ptr<table_timeout_t>, 256> table_timeouts; //indexed by table id
 
 		inline completion_status_t& completion_status_for_section(const section_header_t& hdr);
 
@@ -144,9 +144,6 @@ namespace dtdemux {
 		void reset();
 		void reset(const section_header_t& hdr);
 		bool timedout_now(uint8_t table_id);
-#if 0
-		void stats();
-#endif
 
 /*
 	check if a section was already processed.

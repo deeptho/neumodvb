@@ -239,8 +239,10 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 		last_cc_error_time = steady_clock_t::now();
 	}
 
-	auto [it, inserted] = table_timeouts.try_emplace(hdr.table_id, hdr.table_id);
-	auto& t = it->second;
+	auto &t = table_timeouts[hdr.table_id];
+	bool inserted = !t;
+	if (inserted)
+		t = std::make_unique<table_timeout_t>(hdr.table_id);
 
 	auto& cstate = completion_status_for_section(hdr);
 	assert(count_completed <= (int)cstates.size());
@@ -282,7 +284,7 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 
 	if (cstate_status == section_type_t::DUPLICATE) {
 		last_section = steady_clock_t::now();
-		timedout_now = t.timedout_now();
+		timedout_now = t->timedout_now();
 		//assert(!completed); It is possible that new incomplete subtables have been discovered
 		return {timedout_now, badversion, cstate_status};
 	}
@@ -304,11 +306,9 @@ void parser_status_t::reset(const section_header_t& hdr) {
 	// ensure that timeouts  are reset
 	last_cc_error_time = steady_clock_t::now();
 
-	auto it = table_timeouts.find(hdr.table_id);
-	if (it != table_timeouts.end()) {
-		auto& t = it->second;
-		t.reset();
-	}
+	auto &t  = table_timeouts[hdr.table_id];
+	if(t)
+		t->reset();
 
 	auto& cstate = completion_status_for_section(hdr);
 	assert(count_completed <= (int)cstates.size());
@@ -322,11 +322,9 @@ void parser_status_t::reset(const section_header_t& hdr) {
 }
 
 bool parser_status_t::timedout_now(uint8_t table_id) {
-	auto it = table_timeouts.find(table_id);
-	if (it != table_timeouts.end()) {
-		auto& t = it->second;
-		return t.timedout_now();
-	}
+	auto &t = table_timeouts[table_id];
+	if(t)
+		return t->timedout_now();
 	return true;
 }
 

@@ -103,7 +103,13 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 	live_mpm = nullptr;
 	db = std::make_shared<mpm_index_t>();
 	db->idx_dirname << dirname << "/" << "index.mdb";
-	db->open_index();
+	try {
+		db->open_index();
+	} catch(const db_upgrade_info_t & upgrade_info) {
+		auto r = receiver.options.readAccess();
+		printf("Need upgrade from %s\n", r->upgrade_dir.c_str());
+		assert(0);
+	}
 
 	current_byte_pos = 0;
 	recdb::file_t empty{};

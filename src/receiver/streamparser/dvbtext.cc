@@ -186,6 +186,14 @@ static 	int translate_dvb_control_characters(uint8_t* to, int size_, bool single
 	return newlen;
 }
 
+//#define PRINTTIME
+#ifdef PRINTTIME
+static int64_t processing_count;
+static int64_t processing_delay;
+#include "util/time_util.h"
+#include "util/logger.h"
+using namespace std::chrono;
+#endif
 
 
 // originally from libdtv, Copyright Rolf Hakenes <hakenes@hippomi.de>
@@ -207,8 +215,22 @@ int decode_text(ss::string_& out, uint8_t* from, int len) {
 		return len;
 	}
 
-	if (from[0] == 0x1f)
-		return freesat_huffman_decode(out, from, len); // TODO? perhaps this one should also use charset conversion?
+	if (from[0] == 0x1f) {
+#ifdef PRINTTIME
+		auto xxx_start = system_clock_t::now();
+#endif
+		auto ret= freesat_huffman_decode(out, from, len); // TODO? perhaps this one should also use charset conversion?
+#ifdef PRINTTIME
+		auto now = system_clock_t::now();
+		processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
+		processing_count++;
+		if(processing_count>0) {
+			dtdebug_nicex("PERF: %lfus per call (%ld/%ld)\n",
+										processing_delay/(double)processing_count, processing_delay, processing_count);
+		}
+#endif
+		return ret;
+	}
 
 	auto [cs, single_byte_char]  = get_char_table_and_size(from, len);
 	auto new_len = translate_dvb_control_characters(from, len, single_byte_char, true /*clean*/);

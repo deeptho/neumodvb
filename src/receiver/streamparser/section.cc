@@ -40,6 +40,11 @@
 using namespace dtdemux;
 using namespace dtypes;
 
+//#define PRINTTIME
+#ifdef PRINTTIME
+static int64_t processing_count;
+static int64_t processing_delay;
+#endif
 #define BCDCHARTOINT(x) (10 * ((x & 0xF0) >> 4) + (x & 0xF))
 #define lang_iso639(a, b, c) ((a) << 16 | (b) << 8 | (c))
 
@@ -785,7 +790,19 @@ namespace dtdemux {
 		auto* p = (uint8_t*)this->current_pointer(len);
 		if (!p)
 			return -1;
+#ifdef PRINTTIME
+		auto xxx_start = system_clock_t::now();
+#endif
 		opentv_decode_string(rec.event_name, p, len, opentv_table_type_t::SKY_UK);
+#ifdef PRINTTIME
+		auto now = system_clock_t::now();
+		processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
+		processing_count ++;
+		if(processing_count>0) {
+			dtdebug_nicex("PERF: %lfus per call (%ld/%ld)\n",
+										processing_delay/(double)processing_count, processing_delay, processing_count);
+		}
+#endif
 		return 0;
 	}
 
@@ -795,7 +812,19 @@ namespace dtdemux {
 		auto* p = (uint8_t*)this->current_pointer(len);
 		if (!p)
 			return -1;
+#ifdef PRINTTIME
+		auto xxx_start = system_clock_t::now();
+#endif
 		opentv_decode_string(rec.story, p, len, opentv_table_type_t::SKY_UK);
+#ifdef PRINTTIME
+		auto now = system_clock_t::now();
+		processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
+		processing_count ++;
+		if(processing_count>0) {
+			dtdebug_nicex("PERF: %lfus per call (%ld/%ld)\n",
+										processing_delay/(double)processing_count, processing_delay, processing_count);
+		}
+#endif
 		return 0;
 	}
 
@@ -806,7 +835,20 @@ namespace dtdemux {
 		auto* p = (uint8_t*)this->current_pointer(len);
 		if (!p)
 			return -1;
+#ifdef PRINTTIME
+		auto xxx_start = system_clock_t::now();
+#endif
 		opentv_decode_string(description, p, len, opentv_table_type_t::SKY_UK);
+#ifdef PRINTTIME
+		auto now = system_clock_t::now();
+		processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
+		processing_count ++;
+		if(processing_count>0) {
+			dtdebug_nicex("PERF: %lfus per call (%ld/%ld)\n",
+										processing_delay/(double)processing_count, processing_delay, processing_count);
+		}
+#endif
+
 		return 0;
 	}
 
@@ -1095,11 +1137,12 @@ namespace dtdemux {
 	}
 #endif
 
-	bool crc_is_correct(const ss::bytebuffer_& payload) {
+#if 0
+	inline bool crc_is_correct(const ss::bytebuffer_& payload) {
 		auto crc = crc32(payload.buffer(), payload.size());
 		return crc == 0;
 	}
-
+#endif
 	void stored_section_t::parse_section_header(section_header_t& ret) {
 		ret.pid = pid;
 

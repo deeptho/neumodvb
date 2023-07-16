@@ -21,6 +21,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "stackstring/stackstring.h"
+#include "opentv_huffman.h"
 
 struct fsattab {
 	unsigned int value;
@@ -5745,11 +5746,13 @@ static unsigned fsat_index_2[] = {
 	3160	/* 128 */
 };
 
+
+//__attribute__((optnone)) // 4 us  per call (2.5x faster than previous version)
 int freesat_huffman_decode(ss::string_& dst, const uint8_t* src, int srclen) {
 	struct fsattab* fsat_table;
 	unsigned int* fsat_index;
 	size_t p;
-	unsigned int value;
+	//unsigned int value;
 	unsigned int byte;
 	unsigned int bit;
 	char lastch;
@@ -5762,10 +5765,10 @@ int freesat_huffman_decode(ss::string_& dst, const uint8_t* src, int srclen) {
 	unsigned int maskbit;
 	unsigned short kk;
 	unsigned int b;
-
+	auto bb = bit_buffer_t(src, srclen);
 	if (src[0] != 0x1f)
 		return -1;
-
+	uint32_t code;
 	p = 0;
 	if (src[1] == 1 || src[1] == 2) {
 		if (src[1] == 1) {
@@ -5775,14 +5778,13 @@ int freesat_huffman_decode(ss::string_& dst, const uint8_t* src, int srclen) {
 			fsat_table = fsat_table_2;
 			fsat_index = fsat_index_2;
 		}
-		value = 0;
-		byte = 2;
-		bit = 0;
+		code = 0;
+		auto r= bb.discard_bits(16);
+		bool tstdone = r<=0;
+		//byte = 2;
+		//bit = 0;
 		// skip first two bytes and load 4 bytes into value
-		while (byte < 6 && byte < srclen) {
-			value |= src[byte] << ((5 - byte) * 8);
-			byte++;
-		}
+		code = bb.get_bits();
 		lastch = START;
 
 		do {
@@ -5793,7 +5795,11 @@ int freesat_huffman_decode(ss::string_& dst, const uint8_t* src, int srclen) {
 				found = 1;
 				// Encoded in the next 8 bits.
 				// Terminated by the first ASCII character.
-				nextCh = (value >> 24) & 0xff;
+
+				code = bb.get_bits();
+
+				nextCh = (code >> 24);
+
 				bitShift = 8;
 				if ((nextCh & 0x80) == 0) {
 					lastch = nextCh;
@@ -5802,16 +5808,11 @@ int freesat_huffman_decode(ss::string_& dst, const uint8_t* src, int srclen) {
 				}
 			} else {
 				indx = (unsigned int)lastch;
-				// if (src[1] == 2)
-				//    indx |= 0x80;
 				for (j = fsat_index[indx]; j < fsat_index[indx + 1]; j++) {
-					mask = 0;
-					maskbit = 0x80000000;
-					for (kk = 0; kk < fsat_table[j].bits; kk++) {
-						mask |= maskbit;
-						maskbit >>= 1;
-					}
-					if ((value & mask) == fsat_table[j].value) {
+
+					mask= ~(std::numeric_limits<uint32_t>::max() >> fsat_table[j].bits);
+
+					if ((code & mask) == fsat_table[j].value) {
 						nextCh = fsat_table[j].next;
 						bitShift = fsat_table[j].bits;
 						found = 1;
@@ -5820,25 +5821,20 @@ int freesat_huffman_decode(ss::string_& dst, const uint8_t* src, int srclen) {
 					}
 				}
 			}
+
 			if (found) {
 				if (nextCh != STOP && nextCh != ESCAPE) {
 					dst.push_back(nextCh);
 				}
-				// Shift up by the number of bits.
-				for (b = 0; b < bitShift; b++) {
-					value = (value << 1) & 0xfffffffe;
-					if (byte < srclen)
-						value |= (src[byte] >> (7 - bit)) & 1;
-					if (bit == 7) {
-						bit = 0;
-						byte++;
-					} else
-						bit++;
-				}
+				int oldbit = bit + 8*byte;
+
+				auto r = bb.discard_bits(bitShift);
+				code = bb.get_bits();
+				tstdone = r<=0 | lastch == STOP;
 			} else {
 				return -1;
 			}
-		} while (lastch != STOP && byte < srclen + 4);
+		} while (!tstdone);
 
 		return 0;
 	} else {

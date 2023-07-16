@@ -180,7 +180,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chg_key_t key) {
 
 int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
 	auto c = chgm_t::find_by_key(txn, key, find_geq);
-	int gap_start = 1; // start of a potential gap of unused extra_ids
+	int gap_start = 1; // start of a potential gap of unused ids
 	for (const auto& chgm : c.range()) {
 		if (chgm.k.channel_id > gap_start) {
 			return chgm.k.channel_id - 1;
@@ -353,172 +353,6 @@ void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserv
 	}
 }
 
-#ifdef PMUX
-/*! Put a mux record, taking into account that its key may have changed
-	returns: true if this is a new mux (first time scanned); false otherwise
-	Also, updates the mux, specifically k.extra_id
-
-	First find a mux which matches approximately in sat_pos, and frequency
-	and exactly in polarisation,
- and exactly in key except extra_id (unless ignore_key==True)
-	and exactly in t2mi_pid and stream_id
-
-	In case of multiple matches prefer the one with matching extra_id (unless ignore_key==True)
-	and with closest frequency
-
-	Then either change the found mux, but preserve some of its data (depending on preserver(
-	or insert a new one.
-
-	In case MUX_KEY preservation is requested: do not change the mux_key (including extra_id)
-
-	for must_exist: return without saving if existing mux cannot be found and update would create a new mux
-
-*/
-template <typename mux_t>
-update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_, update_mux_preserve_t::flags preserve,
-																	std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-																	bool ignore_key, bool ignore_t2mi_pid, bool must_exist)
-{
-	auto now = system_clock_t::to_time_t(now_);
-	//assert(mux.c.tune_src != tune_src_t::TEMPLATE);
-	assert(!ignore_t2mi_pid || ignore_key);
-	update_mux_ret_t ret = update_mux_ret_t::UNKNOWN;
-	mux_t db_mux;
-	/* The following cases need to be handled
-		 a) the tp does not yet exist for this network_id, ts_id, and there is also no tp with matching freq/pol
-		 => insert new mux in the db; ensure unique extra_id
-		 b) tp with (more or less) correct frequency and polarisation exists but has a different network_id or ts_id
-		 with network_id and ts_id !=0
-		 => delete the old mux, which is clearly invalid now; and insert the new mux with unique extra_id (as in case a)
-		 c) a tp with (more or less) correct frequency and polarisation exists but has a network_id=0 and ts_id =0
-		 ts_id (0, 0). The latter occurs when seeding the database.
-		 => delete the old template mux and set extra_id=0 (as in case a)
-		 d) tp with (more or less) correct frequency and polarisation exists with the correct network_id, ts_id
-		 => update the mux, and preserve extra_id
-		 e) a tp exists with a very different frequency or a different polarisation and with the correct network_id, ts_id
-		 This could be a moved tp, but it also happens that some sats have transponders with duplicate
-		 network_id, ts_id. This happens because providers have no official network_id (e.g., muxes not for
-		 the general public). It also happens sometimes during transponder switchovers.
-		 It is difficult to decide if we update the old tp with the new frequency, or rather treat this
-		 as a new tp (e.g., two active but different transponders, two active transponders carrying the same mux,
-		 or: the old tp is no longer active and was replaced by a new tp)
-		 => the current compromise is to treat it as a new mux, so we have to select an extra_id different
-		 such that (sat_pos, network_id, ts_id, extra_id) differs from the existing old mux
-	*/
-	namespace m = update_mux_preserve_t;
-	/*find mux with matching frequency, stream_id and t2mi_pid*/
-	auto c = chdb::find_by_mux_physical(wtxn, mux, false /*ignore_stream_id*/, ignore_key, ignore_t2mi_pid);
-	bool delete_db_mux{false};
-
-	bool is_new = true; // do we modify an existing record or create a new one?
-	if (c.is_valid()) {
-		db_mux = c.current();
-		assert(db_mux.stream_id == mux.stream_id);
-		if(db_mux.k.extra_id == 0 ) {
-			dterror("Database mux " << db_mux << " has zero extra_id; fixing it");
-			mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
-		}
-		auto tmp_key = mux.k;
-		tmp_key.extra_id = db_mux.k.extra_id;
-		auto key_matches = tmp_key == db_mux.k;
-		if(key_matches)
-			mux.k.extra_id = db_mux.k.extra_id; //avoid creating two muxes with same extra_id
-		/*
-			if !key_matches: We are going to overwrite a mux with similar frequency but different ts_id, network_id.
-			If one of the muxes is a template and the other not, the non-template data
-			gets priority.
-		*/
-		if(!key_matches) {
-			if ((preserve & m::MUX_KEY) && must_exist)
-				return update_mux_ret_t::NO_MATCHING_KEY;
-			delete_db_mux = true;
-
-			if(mux.k.extra_id ==0)
-				mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
-			if(is_template(db_mux)) {
-				db_mux.k = mux.k;
-			}
-		}
-		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
-						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
-					 mux.c.scan_id >0);
-
-		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
-		ret = key_matches ? update_mux_ret_t::MATCHING_SI_AND_FREQ: update_mux_ret_t::MATCHING_FREQ;
-
-		is_new = false;
-		if(!cb(&db_mux.c, &db_mux.k))
-			return update_mux_ret_t::NO_MATCHING_KEY;
-		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
-						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
-					 mux.c.scan_id >0);
-		key_matches = (mux.k == db_mux.k); //key can be changed by cb()
-		delete_db_mux = !key_matches;
-		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
-		if(!is_new) {
-			merge_muxes<mux_t>(mux, db_mux, preserve);
-			if(!key_matches) {
-				int matype = get_member(mux, matype, 0x3 << 14);
-				int db_matype = get_member(db_mux, matype, 0x3 << 14);
-				auto is_dvb = ((matype >> 14) & 0x3) == 0x3;
-				auto db_mux_is_dvb = ((db_matype >> 14) & 0x3) == 0x3;
-				if(is_dvb && db_mux_is_dvb)
-					merge_services(wtxn, db_mux.k, mux);
-				else if (!is_dvb && db_mux_is_dvb)
-					remove_services(wtxn, db_mux.k);
-			}
-		}
-		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
-
-		dtdebugx("Transponder %s: sat_pos=%d => %d nid=%d => %d ts_id=%d => %d", to_str(mux).c_str(),
-						 db_mux.k.sat_pos, mux.k.sat_pos, db_mux.k.network_id,
-						 mux.k.network_id, db_mux.k.ts_id, mux.k.ts_id);
-		//assert( mux.c.tune_src != tune_src_t::TEMPLATE );
-
-		ret = is_new ? update_mux_ret_t::NO_MATCHING_KEY : update_mux_ret_t::MATCHING_SI_AND_FREQ;
-	} else { //no mux in db
-		if(must_exist)
-			return update_mux_ret_t::NO_MATCHING_KEY;
-		ret = update_mux_ret_t::NEW;
-		dterror("Database mux " << db_mux << " setting extra_id on new mux");
-		mux.k.extra_id = make_unique_id<mux_t>(wtxn, mux.k);
-
-		if(!cb(nullptr, nullptr))
-			return update_mux_ret_t::NO_MATCHING_KEY;
-	}
-
-	if(is_template(mux)) {
-		dterror("Unexpected: saving template mux=" << mux);
-		return update_mux_ret_t::EQUAL;
-	}
-	assert(ret != update_mux_ret_t::UNKNOWN);
-	// the database has a mux, but we may need to update it
-
-	if (!is_new && chdb::is_same(db_mux, mux))
-		ret = update_mux_ret_t::EQUAL;
-
-	if (is_new || ret != update_mux_ret_t::EQUAL) {
-		/*We found match, either based on key or on frequency
-			if the match was based on frequency, an existing mux may be overwritten!
-		*/
-		mux.c.mtime = now;
-
-		dtdebugx("NIT %s: old=%s new=%s #s=%d", is_new ? "NEW" : "CHANGED", to_str(db_mux).c_str(), to_str(mux).c_str(),
-						 mux.c.num_services);
-		assert(mux.frequency > 0);
-
-		dtdebug("mux=" << mux);
-		assert(mux.k.extra_id>0);
-		assert(!is_template(mux));
-		if(delete_db_mux) {
-			delete_record(c, db_mux);
-		}
-		put_record(wtxn, mux);
-	}
-	return ret;
-}
-#endif
-
 /*! Put a mux record, taking into account that its key may have changed
 	returns: true if this is a new mux (first time scanned); false otherwise
 	Also, updates the mux, specifically k.extra_id
@@ -604,7 +438,6 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_,
 		auto key_matches = tmp_key == db_mux.k;
 		assert(key_matches);
 #else
-		bool key_matches{true};
 #endif
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||

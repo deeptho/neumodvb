@@ -27,6 +27,7 @@
 
 #include "stackstring.h"
 
+//#define PRINTTIME
 namespace dtdemux {
 	struct stored_section_t;
 	struct pmt_info_t;
@@ -433,6 +434,12 @@ namespace dtdemux {
 
 	struct eit_parser_t : public psi_parser_t
 	{
+#ifdef PRINTTIME
+		static int64_t processing_count;
+		static int64_t callback_count;
+		static int64_t processing_delay;
+		static int64_t callback_delay;
+#endif
 		parser_status_t  parser_status;
 		chdb::epg_type_t epg_type{chdb::epg_type_t::UNKNOWN};
 		std::function<reset_type_t(epg_t&, const subtable_info_t&)>

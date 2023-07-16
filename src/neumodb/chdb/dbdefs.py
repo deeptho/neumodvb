@@ -22,16 +22,6 @@ def lord(x):
     return  int.from_bytes(x.encode(), sys.byteorder)
 
 
-"""
-transponders are identified by the key:
-uint16_t: satpos
-uint16_t: nit_id
-uint16_t: ts_id
-uint16_t: extra_id; //use for cases where multiple transponders share the same ts_id
-                          //When adding a new mux, we always check the list and pick the next highest number
-
-"""
-
 list_filter_type = db_enum(name='list_filter_type_t',
                            db = db,
                            storage = 'int8_t',

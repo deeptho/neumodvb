@@ -530,7 +530,6 @@ void sdt_bat_parser_t::parse_payload_unit() {
 }
 
 void eit_parser_t::parse_payload_unit() {
-	dttime_init();
 	parse_payload_unit_init();
 	RETURN_ON_ERROR;
 
@@ -559,10 +558,19 @@ void eit_parser_t::parse_payload_unit() {
 	bool success{false};
 	if (must_process || timedout) {
 		stored_section_t section(payload, hdr.pid);
+#ifdef PRINTTIME
+		auto xxx_start = system_clock_t::now();
+#endif
 		section.skip(hdr.header_len); // already parsed
 		log4cxx::NDC::push(" EIT");
-		if (epg.is_sky)
+		if (epg.is_sky)  {
 			success = parse_sky_section(section, epg);
+#ifdef PRINTTIME
+			auto now = system_clock_t::now();
+			processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
+			processing_count ++;
+#endif
+		}
 		else
 			success = parse_eit_section(section, epg);
 		log4cxx::NDC::pop();
@@ -576,13 +584,37 @@ void eit_parser_t::parse_payload_unit() {
 	if (success  || timedout) {
 		subtable_info_t info{pid,	 epg.is_actual, hdr.table_id, hdr.version_number, hdr.last_section_number + 1,
 			done, timedout};
+#ifdef PRINTTIME
+		auto xxx_start = system_clock_t::now();
+#endif
 		auto must_reset = section_cb(epg, info);
+#ifdef PRINTTIME
+		if(epg.is_sky) {
+			auto now = system_clock_t::now();
+			callback_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
+			callback_count++;
+		}
+#endif
 		if (must_reset == reset_type_t::ABORT)
 			parent.return_early();
 		else if (must_reset == reset_type_t::RESET)
 			parser_status.reset(hdr);
 	}
+#ifdef PRINTTIME
+	if(callback_count>0) {
+		dtdebug_nicex("PERF: %lfus per sec (%ld/%ld); %lfus per cb (%ld/%ld)\n",
+									processing_delay/(double)processing_count, processing_delay, processing_count,
+									callback_delay/(double)callback_count, callback_delay, callback_count);
+	}
+#endif
 }
+
+#ifdef PRINTTIME
+int64_t eit_parser_t::processing_count;
+int64_t eit_parser_t::callback_count;
+int64_t eit_parser_t::processing_delay;
+int64_t eit_parser_t::callback_delay;
+#endif
 
 void mhw2_parser_t::parse_payload_unit() {
 	parse_payload_unit_init();

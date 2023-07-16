@@ -19,6 +19,7 @@
  */
 
 #pragma once
+#include "opentv_huffman.h"
 #include <stdint.h>
 #include <limits>
 #include <algorithm>
@@ -26,11 +27,5 @@
 namespace ss {
 	class string_;
 }
-
-enum class opentv_table_type_t {
-	SKY_UK,
-	SKY_IT,
-	SKY_NZ
-};
 
 bool opentv_decode_string(ss::string_&ret, unsigned char*data, unsigned int n, opentv_table_type_t t);

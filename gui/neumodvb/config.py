@@ -128,6 +128,7 @@ class get_processed_options(object):
         o =options_t()
         c= get_config()
         cfg = get_configfile(c['LOGGING']['logconfig'])
+        o.upgrade_dir =  str(pathlib.Path(maindir(), 'upgrade'))
         set_logconfig(cfg)
         engine = TemplateInterpolation(c)
         for sec in  ['PATHS', 'SCAM', 'LOGGING', 'CONFIG']:

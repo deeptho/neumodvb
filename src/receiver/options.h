@@ -35,7 +35,7 @@ struct neumo_options_t {
 	bool dont_backup = false;
 	bool force_overwrite = false;
 	//::chdb::options_t options;
-
+	std::string upgrade_dir{}; // set  from python
 	std::string live_path{"/mnt/neumo/live"};
 	std::string recordings_path{"/mnt/neumo/recordings"};
 	std::string spectrum_path{"/mnt/neumo/spectrum"};

@@ -215,10 +215,10 @@ void neumodb_t::open_(const char* dbpath, bool allow_degraded_mode, const char* 
 		}
 		if (is_temp) {
 			envp->set_max_dbs((MDB_dbi)128);
-			envp->open(dbpath, MDB_NOTLS | MDB_NOSYNC | MDB_WRITEMAP, 0664); // MDB_NOTLS not needed?
+			envp->open(dbpath, MDB_NOTLS | MDB_NOSYNC | MDB_WRITEMAP, 0664);
 		} else {
 			envp->set_max_dbs((MDB_dbi)12);
-			envp->open(dbpath, MDB_NOTLS | extra_flags, 0664); // MDB_NOTLS not needed?
+			envp->open(dbpath, MDB_NOTLS | extra_flags, 0664);
 		}
 		envp->set_mapsize(mapsize);
 		clean_stale_readers(dbpath);

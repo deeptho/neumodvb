@@ -31,6 +31,7 @@ void export_options(py::module& m) {
 		.def(py::init<>(), "Options for neumodvb; set before use")
 		.def("load_from_db", &neumo_options_t::load_from_db, py::arg("devdb_wtxn"), py::arg("user_id")=0)
 		.def("save_usals_location", &neumo_options_t::save_usals_location)
+		.def_readwrite("upgrade_dir", &neumo_options_t::upgrade_dir)
 		.def_readwrite("live_path", &neumo_options_t::live_path)
 		.def_readwrite("recordings_path", &neumo_options_t::recordings_path)
 		.def_readwrite("spectrum_path", &neumo_options_t::spectrum_path)

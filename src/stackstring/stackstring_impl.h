@@ -20,7 +20,8 @@
 
 
 #pragma once
-
+#include "../util/template_util.h"
+#include "../util/dtassert.h"
 using namespace ss;
 
 inline int next_power_of_two(int n) {
@@ -51,7 +52,7 @@ inline int next_power_of_two(int n) {
 
 
 	template<typename data_t>
-	data_t& databuffer_<data_t>::operator[] (int pos)
+	INLINE data_t& databuffer_<data_t>::operator[] (int pos)
 	{
 		if(pos<0)
 			pos = size() +pos;
@@ -71,10 +72,8 @@ inline int next_power_of_two(int n) {
 		return b[pos];
 	}
 
-
-
 	template<typename data_t>
-	const data_t& databuffer_<data_t>::operator[] (int pos) const
+	INLINE const data_t& databuffer_<data_t>::operator[] (int pos) const
 	{
 		if(pos<0)
 			pos = size() +pos;
@@ -88,17 +87,18 @@ inline int next_power_of_two(int n) {
 
 
 	template<typename data_t>
-	void databuffer_<data_t>::reserve(int newsize)
+	inline void databuffer_<data_t>::reserve(int newsize)
 	{
-		if(is_view())
-			return;
 		auto newcap = newsize;
-		if (newcap <=capacity())
+		if (newcap <= capacity())
+			return;
+
+		if(is_view())
 			return;
 
 		auto old_length = size();
 		newcap = next_power_of_two(newcap);
-		if(newcap - old_length <= 16)
+		if(newcap - old_length <= 32)
 			newcap *= 2;
 		if(newcap==0)
 			newcap++;
@@ -130,12 +130,7 @@ inline int next_power_of_two(int n) {
 		set_size(old_length);
 	}
 
-	template<typename data_t>
-	void databuffer_<data_t>::grow(int extra) {
-		reserve(capacity() + extra);
-	}
-
-	template<typename data_t>
+template<typename data_t>
 	databuffer_<data_t>::~databuffer_() {
 		if(is_allocated()) {
 			assert(!is_view());

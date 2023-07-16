@@ -117,7 +117,7 @@ namespace ss {
 		void move(databuffer_<data_t>& x);
 		template <int buffer_size> friend class string;
 
-		void set_size(int size) {
+		INLINE void set_size(int size) {
 			assert(header.h.inited);
 			header.set_size(size);
 		}
@@ -135,19 +135,19 @@ namespace ss {
 			return header.is_view();
 		}
 
-		inline int size() const {
+		INLINE int size() const {
 			return header.size();
 		}
 
-		inline int capacity() const {
+		INLINE int capacity() const {
 			return header.capacity();
 		}
 
-		inline const data_t* buffer() const {
+		INLINE const data_t* buffer() const {
 			return header.buffer();
 		}
 
-		inline data_t* buffer() {
+		INLINE data_t* buffer() {
 			return header.buffer();
 		}
 
@@ -167,7 +167,7 @@ namespace ss {
 			if shrink_if_possible, then capacity will be reduced to size
 			otherwise, capacity will be max(old capacity, size)
 		*/
-		void reserve(int size);
+		INLINE void reserve(int size);
 
 		/*
 			num_elements= number of inline elements after header
@@ -195,14 +195,13 @@ namespace ss {
 		}
 
 		void shrink_to_fit();
-		void grow(int extra);
 
-		void resize_no_init(int new_size) {
+		INLINE void resize_no_init(int new_size) {
 			reserve(new_size);
 			set_size(new_size);
 		}
 
-		void resize(int new_size) {
+		INLINE void resize(int new_size) {
 			int old_size = size();
 			if (old_size == (int)new_size)
 				return;
@@ -292,31 +291,33 @@ namespace ss {
 
 		~databuffer_();
 
-		data_t& operator[](int pos);
-		const data_t& operator[](int pos) const;
+		INLINE data_t& operator[](int pos);
+		INLINE const data_t& operator[](int pos) const;
 
 		void truncate(int _n);
 		void erase(int n);
 
-		void push_back(data_t&& val) {
+		INLINE void push_back(data_t&& val) {
 			assert(header.h.inited);
 			reserve(size() + 1);
 			operator[](size()) = val;
 		}
-		void push_back(const data_t& val) {
+
+		INLINE void push_back(const data_t& val) {
 			assert(header.h.inited);
 			reserve(size() + 1);
 			operator[](size()) = val;
 		}
-		///@todo the following does not make much sense for data_t!=char
-		template <typename entry_t> void append_raw(const entry_t* data, int num_data) {
+		/*todo the following does not make much sense for data_t!=char
+		 */
+		template <typename entry_t> inline void append_raw(const entry_t* data, int num_data) {
 			assert(header.h.inited);
 			int data_len = (array_item_size<entry_t>() * num_data + item_size - 1) / item_size;
-			int r = size() + data_len;
-			if (r >= capacity())
-				grow(r);
+			auto s = size();
+			int r = s + data_len;
+			reserve(r);
 			auto* b = buffer();
-			memcpy(b + size(), data, data_len * item_size);
+			memcpy(b + s, data, data_len * item_size);
 			set_size(r);
 		}
 
@@ -328,7 +329,7 @@ namespace ss {
 			return r;
 		}
 
-		template <typename entry_t> void append_raw(const entry_t& val) {
+		template <typename entry_t> inline void append_raw(const entry_t& val) {
 			append_raw(&val, 1);
 		}
 
@@ -336,7 +337,7 @@ namespace ss {
 			return append_raw_size(&val, 1);
 		}
 
-		template <typename entry_t> void push_back(const entry_t& val) {
+		template <typename entry_t> INLINE void push_back(const entry_t& val) {
 			operator[](size()) = val;
 		}
 
@@ -371,7 +372,7 @@ namespace ss {
 			return -1;
 		}
 
-		inline bool contains(const data_t& data) const {
+		INLINE bool contains(const data_t& data) const {
 			auto i = index_of(data);
 			return i>=0;
 		}
@@ -677,11 +678,12 @@ namespace ss {
 		using parent = databuffer_<char>;
 
 	public:
-		inline void reserve(int size) {
+
+		INLINE void reserve(int size) {
 			parent::reserve(size + 1);
 		}
 
-		inline void resize_no_init(int new_size) {
+		INLINE void resize_no_init(int new_size) {
 			if(new_size < size())
 				this->buffer()[new_size] =0;
 			databuffer_<char>::resize_no_init(new_size+1);
@@ -696,20 +698,20 @@ namespace ss {
 		void copy_raw(const char* v, int v_len);
 
 		// size does not include traling 0 byte, but capacity does
-		inline int size() const {
+		INLINE int size() const {
 			int s = parent::size();
 			return s > 1 ? s - 1 : 0;
 		}
 
 		//append zero terminated string of length len (not including zero terminator)
-		inline void append(const char* data, int len) {
+		INLINE void append(const char* data, int len) {
 			int s = parent::size();
 			if(s > 0)
 				set_size(s-1); //remove training 0x0
 			append_raw(data, len);
 		}
 
-		inline void append(const string_& in) {
+		INLINE void append(const char* data) {
 			append(in.buffer(), in.size()+1);
 		}
 		void append_tolower(const string_& in);
@@ -753,19 +755,19 @@ namespace ss {
 			copy_raw(v, len);
 		}
 
-		inline string_& operator=(const string_& x) {
+		INLINE string_& operator=(const string_& x) {
 			assert(header.h.inited);
 			copy_raw(x.buffer(), x.size());
 			return *this;
 		}
 
-		inline bool operator==(const string_& other) const {
+		INLINE bool operator==(const string_& other) const {
 			if (size() != other.size())
 				return false;
 			return memcmp(buffer(), other.buffer(), size()) == 0;
 		}
 
-		inline bool operator!=(const string_& other) const {
+		INLINE bool operator!=(const string_& other) const {
 			return !(*this == other);
 		}
 
@@ -790,7 +792,7 @@ namespace ss {
 			int r = ::snprintf(buffer() + size(), capacity() - size(), fmt, x);
 			auto size_ = size();
 			if (r + 1 >= (signed)(capacity() - size())) {
-				grow(r + 1 - capacity() + size_);
+				reserve(r + 1 + size_);
 				size_ += ::snprintf(buffer() + size_, capacity() - size_, fmt, x);
 			} else
 				size_ += r;
@@ -821,13 +823,13 @@ namespace ss {
 		int strftime(const char* fmt, const struct tm* tm);
 		void trim(int start = 0);
 
-		const char& operator[](int pos) const {
+		INLINE const char& operator[](int pos) const {
 			assert(header.h.inited);
 			assert(pos < size());
 			return buffer()[pos];
 		}
 
-		char& operator[](int pos) {
+		INLINE char& operator[](int pos) {
 			assert(header.h.inited);
 			if (pos >= size()) {
 				auto size_ = pos + 1;
@@ -841,13 +843,13 @@ namespace ss {
 			return buffer()[pos];
 		}
 
-		void push_back(char val) {
+		INLINE void push_back(char val) {
 			operator[](size()) = val;
 		}
 	};
 
 #if 0
-	inline bool operator==(const string_&a, const string_& b) {
+	INLINE bool operator==(const string_&a, const string_& b) {
 		if (a.size()!=b.size())
 			return false;
 		return memcmp(a.buffer(), b.buffer(), a.size())==0;
@@ -924,11 +926,11 @@ namespace ss {
 			: string(x.buffer(), x.size()) {
 		}
 
-		const char* c_str() const {
+		INLINE const char* c_str() const {
 			return buffer();
 		}
 
-		char* c_str() {
+		INLINE char* c_str() {
 			return buffer();
 		}
 

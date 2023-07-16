@@ -129,7 +129,7 @@ namespace ss {
 		int r = ::snprintf(buffer() + size(), capacity() - size(), fmt, x.c_str());
 		auto size_ = size();
 		if (r + 1 >= (signed)(capacity() - size())) {
-			grow(r + 1 - capacity() + size_);
+			reserve(r + 1  + size_);
 			size_ += ::snprintf(buffer() + size_, capacity() - size_, fmt, x.c_str());
 		} else
 			size_ += r;
@@ -153,7 +153,7 @@ namespace ss {
 
 		auto size_ = size(); // excluding terminating zero byte
 		if (16 >= (signed)(capacity() - size_)) {
-			grow(16 + 1 - capacity() + size_);
+			reserve(16 + 1 + size_);
 		}
 
 		int r = ::strftime(buffer() + size_, capacity() - size_, tformat, &t_tm);
@@ -161,7 +161,7 @@ namespace ss {
 			size_ += r;
 		} else {
 			// string is too short
-			grow(32 + 1 - capacity() + size_);
+			reserve(32 + 1 + size_);
 			r = ::strftime(buffer() + size_, capacity() - size_, tformat, &t_tm);
 			if (r > 0) {
 				size_ += r;
@@ -182,7 +182,7 @@ namespace ss {
 		auto size_ = size();
 		size_t s = capacity() - size_;
 		if (16 >= (signed)s) {
-			grow(32 + 1 - capacity() + size_);
+			reserve(32 + 1 + size_);
 			s = capacity() - size_;
 		}
 
@@ -203,7 +203,7 @@ namespace ss {
 		va_list ap;
 		va_start(ap, fmt);
 		if (s + size() > capacity()) {
-			grow(s + size() - capacity());
+			reserve(s + size());
 		}
 		s = capacity() - size();
 		int ret = vsnprintf(buffer() + size(), s, fmt, ap);
@@ -223,10 +223,10 @@ namespace ss {
 		for (int i = 0; i < 2; i++) {
 			va_list ap;
 			va_start(ap, fmt);
-			int s = capacity() - size_;
-			int ret = vsnprintf(buffer() + size_, s, fmt, ap);
+			int sx = capacity() - size_;
+			int ret = vsnprintf(buffer() + size_, sx, fmt, ap);
 			va_end(ap);
-			if (ret + 1 <= s) {
+			if (ret + 1 <= sx) {
 				size_ += ret;
 				set_size(size_ + 1);
 				assert(parent::size() == size_ + 1);
@@ -234,7 +234,7 @@ namespace ss {
 				assert(size_ + 1 <= capacity());
 				return ret;
 			}
-			grow(ret + 1 - s);
+			reserve(ret + 1 + size_);
 		}
 		set_size(size_);
 		assert(size() == size_);
@@ -316,7 +316,7 @@ namespace ss {
 			//		buffer[n]=0;
 			if (ret < 0) {
 				if (outbuf - buffer() >= (signed)capacity() || errno == E2BIG) {
-					grow(256);
+					reserve(capacity() + 256);
 
 					outbuf = buffer() + size_;
 
@@ -400,7 +400,7 @@ namespace ss {
 					inbuf += 1;
 					continue;
 				} else if (errno == E2BIG) {
-					this->grow(inbytesleft);
+					this->reserve(capacity() + inbytesleft);
 					outbytesleft += inbytesleft;
 					outbytesleft_at_start += inbytesleft;
 					continue;
@@ -441,10 +441,6 @@ namespace ss {
 
 
 	template class databuffer_<char>;
-// template class databuffer_<false>;
-
-	template class databuffer_<uint16_t>;
-	template class databuffer_<uint32_t>;
 
 }; // namespace ss
 

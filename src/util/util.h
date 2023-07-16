@@ -234,3 +234,7 @@ inline void msleep(uint32_t msec) {
 	while (nanosleep(&req, &req))
 		;
 }
+
+#define INLINE 	__attribute__((always_inline)) inline
+#define likely(x)      __builtin_expect(!!(x), 1)
+#define unlikely(x)    __builtin_expect(!!(x), 0)

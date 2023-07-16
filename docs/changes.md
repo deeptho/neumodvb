@@ -1,5 +1,10 @@
 # Changes in neumoDVB #
 
+There is a serious bug in libmesa, which makes neumoDVB crash when viewing more than one service at a time.
+The bug has been reported here and a workaround is listed. So far, the bug rport has not lead to any fixes:
+
+https://gitlab.freedesktop.org/mesa/mesa/-/issues/9125
+
 ## Changes in version neumodvb-1.3 ##
 
 * Improved identification of muxes during scan, even when details

@@ -71,7 +71,9 @@ inline int next_power_of_two(int n) {
 			}
 			set_size(pos + 1);
 		}
+#ifdef SS_ASSERT
 		assert(pos < capacity());
+#endif
 		return b[pos];
 	}
 
@@ -167,7 +169,9 @@ template<typename data_t>
 	template<typename data_t>
 	void databuffer_<data_t>::copy(const databuffer_&x)
 	{
+#ifdef SS_ASSERT
 		assert(header.h.inited);
+#endif
 		if(this== &x)
 			return;
 		if constexpr (std::is_trivial<data_t>::value) {

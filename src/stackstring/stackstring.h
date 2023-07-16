@@ -75,22 +75,25 @@ namespace ss {
 			return;
 
 		auto newcap = zero_terminate + s.size();
+#ifdef SS_ASSERT
 		assert(newcap <= s.capacity());
-
+#endif
 		if (newcap >= s.capacity())
 			return;
 
 		// we have a non-inline and allocated string
-
+#ifdef SS_ASSERT
 		assert(s.is_allocated());
-
+#endif
 		auto old_length = s.size();
 		auto old = s.steal_allocated_buffer();
 		s.clear(true);
 		s.reserve(old_length);
 		memcpy(s.header.allocated_buffer(), old, (old_length + zero_terminate) * s.item_size);
 		s.set_size(old_length);
+#ifdef SS_ASSERT
 		assert(!s.is_view());
+#endif
 		operator delete(old);
 	}
 
@@ -103,12 +106,16 @@ namespace ss {
 
 	protected:
 		void set_inline_buffer() {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			header.set_inline_buffer();
 		}
 
 		void set_external_buffer(typename header_t<data_t>::template data_with_capacity<1>* ext_buffer) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			header.set_external_buffer(ext_buffer);
 		}
 
@@ -118,7 +125,9 @@ namespace ss {
 		template <int buffer_size> friend class string;
 
 		INLINE void set_size(int size) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			header.set_size(size);
 		}
 
@@ -156,7 +165,9 @@ namespace ss {
 		}
 
 		template <typename T> offset_t write(offset_t const pos, T const& val) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			reserve(size() + sizeof(val));
 			buffer()[size()] = val;
 			set_size(size() + sizeof(val));
@@ -173,8 +184,10 @@ namespace ss {
 			num_elements= number of inline elements after header
 		*/
 		void clear_helper(bool release, bool destroy, int num_inline_elements) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
 			assert(size() == 0 || buffer());
+#endif
 			if (release && is_allocated()) {
 				auto* p = buffer();
 				if (destroy) {
@@ -243,8 +256,9 @@ namespace ss {
 
 		databuffer_(std::initializer_list<data_t> v)
 			: header(0, false) {
-
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			for (const auto& x : v)
 				this->push_back(x);
 		}
@@ -256,13 +270,17 @@ namespace ss {
 		}
 
 		inline databuffer_& operator=(const databuffer_& x) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			copy(x);
 			return *this;
 		}
 
 		inline databuffer_& operator=(databuffer_&& other) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			if (other.is_view())
 				copy(other);
 			else
@@ -298,20 +316,26 @@ namespace ss {
 		void erase(int n);
 
 		INLINE void push_back(data_t&& val) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			reserve(size() + 1);
 			operator[](size()) = val;
 		}
 
 		INLINE void push_back(const data_t& val) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			reserve(size() + 1);
 			operator[](size()) = val;
 		}
 		/*todo the following does not make much sense for data_t!=char
 		 */
 		template <typename entry_t> inline void append_raw(const entry_t* data, int num_data) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			int data_len = (array_item_size<entry_t>() * num_data + item_size - 1) / item_size;
 			auto s = size();
 			int r = s + data_len;
@@ -340,25 +364,34 @@ namespace ss {
 		template <typename entry_t> INLINE void push_back(const entry_t& val) {
 			operator[](size()) = val;
 		}
-
+#ifdef SS_ASSERT
 		void check() const {
 			assert(header.h.inited);
 		}
+#endif
 		// code for iterations
 		data_t const* begin() const {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			return buffer();
 		}
 		data_t const* end() const {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			return buffer() + size();
 		}
 		data_t* begin() {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			return buffer();
 		}
 		data_t* end() {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			return buffer() + size();
 		}
 
@@ -476,7 +509,9 @@ namespace ss {
 		template <int othernum_elements>
 		databuffer(const databuffer<othernum_elements, data_t>& x)
 			: databuffer() {
+#ifdef SS_ASSERT
 			assert(this->header.inited);
+#endif
 			this->copy(x);
 		}
 
@@ -485,14 +520,18 @@ namespace ss {
 							 // if v_len==-1, then use strlen(v) instead
 			)
 			: databuffer() {
+#ifdef SS_ASSERT
 			assert(this->header.h.inited);
+#endif
 			for (const auto& x : v)
 				this->push_back(x);
 		}
 
 		databuffer(std::initializer_list<data_t> v)
 			: databuffer() {
+#ifdef SS_ASSERT
 			assert(this->header.inited);
+#endif
 			for (const auto& x : v)
 				this->push_back(x);
 		}
@@ -548,7 +587,9 @@ namespace ss {
 
 		bytebuffer(const bytebuffer_& x)
 			: bytebuffer() {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			clear(false);
 			copy_raw((uint8_t*)x.buffer(), x.size());
 		}
@@ -560,7 +601,9 @@ namespace ss {
 
 		bytebuffer(const bytebuffer_&& x)
 			: bytebuffer() {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			move(x);
 		}
 
@@ -576,12 +619,16 @@ namespace ss {
 
 		bytebuffer(const char* v)
 			: bytebuffer((uint8_t*)v, strlen(v)) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 		}
 
 		bytebuffer(std::initializer_list<char> v)
 			: bytebuffer() {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			for (const auto& x : v)
 				this->push_back(x);
 		}
@@ -589,7 +636,9 @@ namespace ss {
 		template <int otherbuffer_size>
 		bytebuffer(const bytebuffer<otherbuffer_size>& x)
 			: bytebuffer(x.buffer(), x.size()) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 		}
 
 		template <typename T, typename parent_, int buffer_size_> friend void clear_something(T& s, bool release);
@@ -601,13 +650,17 @@ namespace ss {
 		}
 
 		bytebuffer& operator=(const bytebuffer_& x) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			copy(x);
 			return *this;
 		}
 
 		bytebuffer& operator=(const bytebuffer& x) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			this->copy(x);
 			return *this;
 		}
@@ -740,7 +793,9 @@ namespace ss {
 	public:
 		string_()
 			: parent() {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			clear();
 		}
 
@@ -764,7 +819,9 @@ namespace ss {
 		}
 
 		INLINE string_& operator=(const string_& x) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			copy_raw(x.buffer(), x.size());
 			return *this;
 		}
@@ -788,7 +845,9 @@ namespace ss {
 		}
 
 		operator std::string() const {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			return buffer();
 		}
 
@@ -805,9 +864,11 @@ namespace ss {
 			} else
 				size_ += r;
 			set_size(size_ + 1);
+#ifdef SS_ASSERT
 			assert(size() == size_);
 			assert(parent::size() == size_ + 1);
 			assert(1 + size() <= capacity());
+#endif
 			buffer()[size_] = 0;
 			return *this;
 		}
@@ -832,20 +893,26 @@ namespace ss {
 		void trim(int start = 0);
 
 		INLINE const char& operator[](int pos) const {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
 			assert(pos < size());
+#endif
 			return buffer()[pos];
 		}
 
 		INLINE char& operator[](int pos) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			if (pos >= size()) {
 				auto size_ = pos + 1;
 				reserve(size_);
 				set_size(size_ + 1);
+#ifdef SS_ASSERT
 				assert(parent::size() == size_ + 1);
 				assert(size() == size_);
 				assert(size_ + 1 <= capacity());
+#endif
 				(char&)(buffer()[size_]) = 0;
 			}
 			return buffer()[pos];
@@ -963,7 +1030,9 @@ namespace ss {
 		using string_::operator=;
 
 		string& operator=(const string_& x) {
+#ifdef SS_ASSERT
 			assert(header.h.inited);
+#endif
 			copy(x);
 			return *this;
 		}

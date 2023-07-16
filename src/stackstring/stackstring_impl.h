@@ -54,18 +54,21 @@ inline int next_power_of_two(int n) {
 	template<typename data_t>
 	INLINE data_t& databuffer_<data_t>::operator[] (int pos)
 	{
+		auto s = size();
 		if(pos<0)
-			pos = size() +pos;
-		if(pos<0)
+			pos = s +pos;
+		if(pos < 0)
 			throw std::runtime_error("Index out of range");
-		if(pos >= capacity()) {
-			reserve(pos + 1 );
-		  //throw std::out_of_range("index out of range");
-		}
+		reserve(pos + 1 );
+
 		auto* b =buffer();
-		if(pos >= size()) {
-			for(int i=size(); i<= pos; ++i)
-				new(b+i) data_t();
+		if(pos >= s) {
+			if constexpr (std::is_trivial<data_t>::value) {
+				memset(b+size(), 0, pos - s +1);
+			} else {
+				for(int i=size(); i<= pos; ++i)
+					new(b+i) data_t();
+			}
 			set_size(pos + 1);
 		}
 		assert(pos < capacity());
@@ -110,10 +113,12 @@ inline int next_power_of_two(int n) {
 		auto* p  = (D1*) operator new (s);
 		auto* old_data = buffer();
 		p->capacity_ = newcap;
-		for(int i=0; i< old_length; ++i) {
-			new(p->data()+i) data_t(old_data[i]);
-		}
-		if(!std::is_trivial<data_t>::value) {
+		if constexpr (std::is_trivial<data_t>::value) {
+			memcpy(p->data(), old_data, old_length);
+		} else {
+			for(int i=0; i< old_length; ++i) {
+				new(p->data()+i) data_t(old_data[i]);
+			}
 			for(int i=0; i< old_length; ++i)
 				old_data[i].~data_t();
 		}
@@ -150,8 +155,12 @@ template<typename data_t>
 		reserve(v_len);
 
 		auto* dest = buffer();
+		if constexpr (std::is_trivial<data_t>::value) {
+			memcpy(dest, v, v_len*sizeof(data_t));
+		} else {
 		for(int i=0; i< v_len; ++i)
 			dest[i] = (const data_t&) v[i];
+		}
 		set_size(v_len);
 	};
 
@@ -161,10 +170,13 @@ template<typename data_t>
 		assert(header.h.inited);
 		if(this== &x)
 			return;
-		clear();
+		if constexpr (std::is_trivial<data_t>::value) {
+			copy_raw(x.buffer(), x.size());
+		} else {
+			clear();
 		for (auto&xx: x)
 			push_back(xx);
-
+		}
 	};
 
 

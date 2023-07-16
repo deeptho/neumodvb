@@ -705,14 +705,22 @@ namespace ss {
 
 		//append zero terminated string of length len (not including zero terminator)
 		INLINE void append(const char* data, int len) {
-			int s = parent::size();
-			if(s > 0)
-				set_size(s-1); //remove training 0x0
-			append_raw(data, len);
+			int s = size();
+			int r = s + len;
+			reserve(r);
+			auto* b = buffer();
+			memcpy(b + s, data, len);
+			b[r] =0; //zero terminate
+			set_size(r+1);
 		}
 
 		INLINE void append(const char* data) {
-			append(in.buffer(), in.size()+1);
+			int len = strlen(data);
+			append(data, len);
+		}
+
+		INLINE void append(const string_& in) {
+			append(in.buffer(), in.size());
 		}
 		void append_tolower(const string_& in);
 
@@ -750,7 +758,7 @@ namespace ss {
 						int v_len = -1 //(upper bound for ) length of string at v;
 						// if v_len==-1, then use strlen(v) instead
 			)
-			: parent(v, (v_len == (int)-1) ? strlen(v) : v_len) {
+			: parent(v, (v_len == (int)-1) ? 1+strlen(v) : 1+v_len) {
 			auto len = (v_len == (int)-1) ? strlen(v) : v_len;
 			copy_raw(v, len);
 		}

@@ -28,19 +28,18 @@ namespace dtdemux {
 	struct ts_packet_t;
 };
 
-
+__attribute__((optnone)) //Without this  the code will crash!
 inline dtdemux::ts_packet_t* do_transfer(continuation_t& from, continuation_t& to,
 																				 dtdemux::ts_packet_t*  parameter)
 {
 	/*The address of from needs to be stored in a global variable,
 		because the stack will be replaced*/
-	static thread_local continuation_t* store_at_{};
-	static thread_local dtdemux::ts_packet_t*  parameter_{};
+	static thread_local continuation_t * store_at_{};
+	static thread_local dtdemux::ts_packet_t* parameter_{};
 	store_at_ = &from;
 	parameter_ = parameter;
 	assert (to);
 	*store_at_ = to.resume();
-	assert(*store_at_);
 	//at this point, store_at is no longer needed!
 	return parameter_;
 }
@@ -243,6 +242,7 @@ namespace dtdemux {
 			//return to root at startup and do nothing
 			dtdemux::ts_packet_t* in = do_transfer(self, invoker, nullptr);
 			//start processing many packets; fn will only return when fuly done
+			assert(in);
 			fn(in);
 			fibers.erase(dvb_pid_t(parser_pid));
 			//printf("returning root pid=%d\n", in[0]);

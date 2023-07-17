@@ -436,7 +436,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 				may_move_dish, dish_move_penalty, resource_reuse_bonus);
 		if(fe_) {
 			auto& fe = *fe_;
-			bool is_same_fe = oldfe_? false: (fe.k == oldfe_->k);
+			bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
 			sret.retune = is_same_fe;
 			sret.change_service = true;
 			sret.use_counts = use_counts_;
@@ -467,7 +467,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 				wtxn, sret.subscription_id, *required_rf_path, lnb, fe_key_to_release, need_blindscan, need_spectrum, loc);
 			sret.retune = false;
 			if(fe_) {
-				bool is_same_fe = oldfe_? false: (fe_->k == oldfe_->k);
+				bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
 				sret.retune = is_same_fe;
 				if(!is_same_fe) {
 					sret.newaa = { *fe_, *required_rf_path, lnb};
@@ -546,7 +546,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			wtxn, sret.subscription_id, *mux, service, fe_key_to_release, use_blind_tune);
 	if(fe_) {
 		auto& fe = *fe_;
-		bool is_same_fe = oldfe_? false: (fe.k == oldfe_->k);
+		bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
 		sret.retune = is_same_fe;
 		sret.change_service = !!service;
 		if(!is_same_fe) {

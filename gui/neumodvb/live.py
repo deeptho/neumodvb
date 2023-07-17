@@ -1668,17 +1668,18 @@ class GridEpgPanel(RecordPanel):
             if row.row_record is not None:
                 key = row.row_record.k if type(row.row_record) == pychdb.service.service else row.row_record.service
                 epg_screen = self.data.epg_screens.epg_screen_for_service(key)
-                #changed = epg_screen.update(txn_epg)
-                changed = epg_screen.update_between(txn_epg, self.data.start_time_unixepoch,
-                                                    self.data.end_time_unixepoch)
-                any_change |= changed
-                if changed:
-                    dtdebug(f"Updating service {row.row_record}")
-                    #self.epg_screens.remove_service(service)
-                    refocus = self.last_focused_cell is not None and self.last_focused_cell.data.row.rowno == row.rowno
-                    row.update()
-                    if refocus:
-                        row.focus_current()
+                if epg_screen is not None:
+                    #changed = epg_screen.update(txn_epg)
+                    changed = epg_screen.update_between(txn_epg, self.data.start_time_unixepoch,
+                                                        self.data.end_time_unixepoch)
+                    any_change |= changed
+                    if changed:
+                        dtdebug(f"Updating service {row.row_record}")
+                        #self.epg_screens.remove_service(service)
+                        refocus = self.last_focused_cell is not None and self.last_focused_cell.data.row.rowno == row.rowno
+                        row.update()
+                        if refocus:
+                            row.focus_current()
         txn_epg.abort()
         del txn_epg
         if any_change:
@@ -1813,6 +1814,8 @@ class GridEpgPanel(RecordPanel):
         returns False if command is not handled here
         """
         is_ctrl = (modifier & wx.ACCEL_CTRL)
+        if not hasattr(w, 'data'):
+            return False
         row = w.data.row
         if key not in (wx.WXK_LEFT, wx.WXK_RIGHT):
             return super().Navigate(w, modifier, key)

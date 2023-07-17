@@ -101,7 +101,7 @@ int mmap_t::move_map(off_t start) {
 	bool isfirst = !buffer;
 	if (buffer)
 		unmap();
-
+	assert(map_len>0);
 	offset = start;
 	if (map_len % pagesize != 0) {
 		dterrorx("map_len%%pagesize != 0 map_len=%d pagesize=%d", map_len, pagesize);
@@ -124,7 +124,9 @@ int mmap_t::move_map(off_t start) {
 			}
 			map_len = new_size - start;
 			assert(map_len % pagesize == 0);
+			assert(map_len>0);
 		}
+		assert(map_len>0);
 	} else {
 		map_len = current_size - start;
 		if (map_len % pagesize != 0)

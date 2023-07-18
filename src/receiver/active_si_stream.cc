@@ -422,8 +422,8 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 		auto& c  = *mux_common_ptr(mux);
 		if(!(c.tune_src == tune_src_t::NIT_TUNED ||
 					 c.tune_src == tune_src_t::NIT_ACTUAL || c.tune_src == tune_src_t::NIT_OTHER ||
-				 (from_sdt&& c.tune_src == tune_src_t::DRIVER))) {
-			dterrorx("Incorrect tune_src=%d\n", (int) c.tune_src);
+				 c.tune_src == tune_src_t::DRIVER)) {
+			dterrorx("Incorrect tune_src=%d", (int) c.tune_src);
 			c.tune_src = tune_src_t::DRIVER;
 		}
 		if(!((c.key_src == chdb::key_src_t::NONE) ||
@@ -2600,7 +2600,7 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 											mux.symbol_rate = p->symbol_rate;
 										else
 											use_driver = true;
-										if(use_driver)
+										if(use_driver) //vcan happen on 28.2E where SI table reports incorrect mux frequency
 											mux.c.tune_src = chdb::tune_src_t::DRIVER;
 									}
 

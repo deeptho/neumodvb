@@ -202,7 +202,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
 	return std::numeric_limits<decltype(key.channel_id)>::max(); // highest possible value
 }
 
-static inline void copy_tuning(dvbc_mux_t& mux, dvbc_mux_t& db_mux) {
+static inline void copy_tuning(dvbc_mux_t& mux, const dvbc_mux_t& db_mux) {
 	mux.delivery_system = db_mux.delivery_system;
 	mux.frequency = db_mux.frequency;
 	mux.inversion = db_mux.inversion;
@@ -214,7 +214,7 @@ static inline void copy_tuning(dvbc_mux_t& mux, dvbc_mux_t& db_mux) {
 	mux.c.tune_src = db_mux.c.tune_src;
 }
 
-static inline void copy_tuning(dvbt_mux_t& mux, dvbt_mux_t& db_mux) {
+static inline void copy_tuning(dvbt_mux_t& mux, const dvbt_mux_t& db_mux) {
 	mux.delivery_system = db_mux.delivery_system;
 	mux.frequency = db_mux.frequency;
 	mux.inversion = db_mux.inversion;
@@ -229,7 +229,7 @@ static inline void copy_tuning(dvbt_mux_t& mux, dvbt_mux_t& db_mux) {
 	mux.c.tune_src = db_mux.c.tune_src;
 }
 
-static inline void copy_tuning(dvbs_mux_t& mux, dvbs_mux_t& db_mux) {
+static inline void copy_tuning(dvbs_mux_t& mux, const dvbs_mux_t& db_mux) {
 	mux.delivery_system = db_mux.delivery_system;
 	mux.frequency = db_mux.frequency;
 	mux.inversion = db_mux.inversion;
@@ -289,7 +289,7 @@ void chdb::remove_services(db_txn& wtxn, const mux_key_t& mux_key) {
  */
 
 template <typename mux_t>
-void merge_muxes(mux_t& mux, mux_t& db_mux, update_mux_preserve_t::flags preserve) {
+void merge_muxes(mux_t& mux, const mux_t& db_mux, update_mux_preserve_t::flags preserve) {
 	namespace m = update_mux_preserve_t;
 	dtdebug("db_mux=" << db_mux << "-> mux=" << mux);
 	assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&

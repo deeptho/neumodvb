@@ -367,10 +367,10 @@ void merge_muxes(mux_t& mux, const mux_t& db_mux, update_mux_preserve_t::flags p
 
 */
 template <typename mux_t>
-update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_,
-																			update_mux_preserve_t::flags preserve,
-																			std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-																			/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist)
+update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_t now_,
+																	update_mux_preserve_t::flags preserve,
+																	update_mux_cb_t cb,
+																	/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist)
 {
 	auto now = system_clock_t::to_time_t(now_);
 	//assert(mux.c.tune_src != tune_src_t::TEMPLATE);
@@ -416,13 +416,14 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_,
 		(default when clicking in spectrum dialog)
 		In case 2 we set ignore_stream_id true.
 	 */
-	auto ignore_stream_id = (is_template(mux) && mux.k.stream_id==-1);
-	db_tcursor<mux_t> c = mux.k.mux_id > 0 ? chdb::find_by_mux(wtxn, mux) :
-		find_by_mux_physical(wtxn, mux, ignore_stream_id /*ignore_stream_id*/, ignore_t2mi_pid);
+	auto ignore_stream_id = (is_template(mux_to_save) && mux_to_save.k.stream_id==-1);
+	db_tcursor<mux_t> c = mux_to_save.k.mux_id > 0 ? chdb::find_by_mux(wtxn, mux_to_save) :
+		find_by_mux_physical(wtxn, mux_to_save, ignore_stream_id /*ignore_stream_id*/, ignore_t2mi_pid);
 #if 0
 	bool delete_db_mux{false};
 #endif
 	bool is_new = true; // do we modify an existing record or create a new one?
+	auto merged_mux = mux_to_save;
 	if (c.is_valid()) { //mux exists
 		db_mux = c.current();
 #ifndef NDEBUG
@@ -442,13 +443,11 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_,
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
-		mux.k = db_mux.k;
+		mux_to_save.k = db_mux.k;
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		ret = update_mux_ret_t::MATCHING_KEY_AND_FREQ;
 
 		is_new = false;
-		if(!cb(&db_mux.c, &db_mux.k))
-			return update_mux_ret_t::NO_MATCHING_KEY;
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
@@ -460,17 +459,20 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_,
 #endif
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 		if(!is_new) {
-			merge_muxes<mux_t>(mux, db_mux, preserve);
-			auto& c = *mux_common_ptr(mux);
+			merge_muxes<mux_t>(merged_mux, db_mux, preserve);
+			if(!cb(&merged_mux.c, &merged_mux.k, &db_mux.c, &db_mux.k))
+				return update_mux_ret_t::NO_MATCHING_KEY;
+
+			auto& c = merged_mux.c;
 			auto& dbc = *mux_common_ptr(db_mux);
 			auto sdt_key_matches =  (c.network_id == dbc.network_id) && (c.ts_id == dbc.ts_id);
 			if(!sdt_key_matches) {
-				int matype = get_member(mux, matype, 0x3 << 14);
+				int matype = get_member(merged_mux, matype, 0x3 << 14);
 				int db_matype = get_member(db_mux, matype, 0x3 << 14);
 				auto is_dvb = ((matype >> 14) & 0x3) == 0x3;
 				auto db_mux_is_dvb = ((db_matype >> 14) & 0x3) == 0x3;
 				if(is_dvb && db_mux_is_dvb)
-					merge_services(wtxn, db_mux.k, mux);
+					merge_services(wtxn, db_mux.k, merged_mux);
 				else if (!is_dvb && db_mux_is_dvb)
 					remove_services(wtxn, db_mux.k);
 			}
@@ -478,11 +480,11 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_,
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 
 		dtdebugx("Transponder %s: sat_pos=%d => %d; mux_id=%d => %d; stream_id=%d => %d; t2mi_pid=%d =< %d",
-						 to_str(mux).c_str(),
-						 db_mux.k.sat_pos, mux.k.sat_pos,
-						 db_mux.k.mux_id, mux.k.mux_id,
-						 db_mux.k.stream_id, mux.k.stream_id,
-						 db_mux.k.t2mi_pid, mux.k.t2mi_pid);
+						 to_str(merged_mux).c_str(),
+						 db_mux.k.sat_pos, merged_mux.k.sat_pos,
+						 db_mux.k.mux_id, merged_mux.k.mux_id,
+						 db_mux.k.stream_id, merged_mux.k.stream_id,
+						 db_mux.k.t2mi_pid, merged_mux.k.t2mi_pid);
 		//assert( mux.c.tune_src != tune_src_t::TEMPLATE );
 
 		ret = is_new ? update_mux_ret_t::NO_MATCHING_KEY : update_mux_ret_t::MATCHING_KEY_AND_FREQ;
@@ -494,46 +496,46 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux, system_time_t now_,
 			It is possible that mux.k.mux_id > 0 for a new mux, e.g., because all muxes differing only in stream_id
 			are deliberately given the same mux_id
 		 */
-		if(mux.k.mux_id == 0)
-			make_mux_id(wtxn, mux);
-		if(!cb(nullptr, nullptr))
+		if(merged_mux.k.mux_id == 0)
+			make_mux_id(wtxn, merged_mux);
+		if(!cb(&merged_mux.c, &merged_mux.k, nullptr, nullptr))
 			return update_mux_ret_t::NO_MATCHING_KEY;
 	}
 
 	assert(!is_template(mux));
 	assert(ret != update_mux_ret_t::UNKNOWN);
 	// the database has a mux, but we may need to update it
-
-	if (!is_new && chdb::is_same(db_mux, mux))
+	mux_to_save = merged_mux;
+	if (!is_new && chdb::is_same(db_mux, merged_mux))
 		ret = update_mux_ret_t::EQUAL;
 
 	if (is_new || ret != update_mux_ret_t::EQUAL) {
 		/*We found match, either based on key or on frequency
 			if the match was based on frequency, an existing mux may be overwritten!
 		*/
-		mux.c.mtime = now;
+		mux_to_save.c.mtime = now;
 
-		dtdebugx("NIT %s: old=%s new=%s #s=%d", is_new ? "NEW" : "CHANGED", to_str(db_mux).c_str(), to_str(mux).c_str(),
-						 mux.c.num_services);
-		assert(mux.frequency > 0);
+		dtdebugx("NIT %s: old=%s new=%s #s=%d", is_new ? "NEW" : "CHANGED", to_str(db_mux).c_str(), to_str(mux_to_save).c_str(),
+						 mux_to_save.c.num_services);
+		assert(mux_to_save.frequency > 0);
 
-		dtdebug("mux=" << mux);
-		assert(mux.k.mux_id > 0);
-		assert(!is_template(mux));
+		dtdebug("mux=" << mux_to_save);
+		assert(mux_to_save.k.mux_id > 0);
+		assert(!is_template(mux_to_save));
 #if 0
 		if(delete_db_mux) {
 			delete_record(c, db_mux);
 		}
 #endif
-		put_record(wtxn, mux);
+		put_record(wtxn, mux_to_save);
 	}
 	return ret;
 }
 
 update_mux_ret_t chdb::update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
-																			update_mux_preserve_t::flags preserve,
-																			std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
-																			/*bool ignore_key, */ bool ignore_t2mi_pid, bool must_exist) {
+																	update_mux_preserve_t::flags preserve,
+																	update_mux_cb_t cb,
+																	/*bool ignore_key, */ bool ignore_t2mi_pid, bool must_exist) {
 	using namespace chdb;
 	update_mux_ret_t ret;
 	visit_variant(

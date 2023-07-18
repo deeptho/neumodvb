@@ -239,7 +239,6 @@ void active_si_stream_t::finalize_scan()
 			save_pmts(wtxn);
 	}
 	wtxn.commit();
-
 }
 
 
@@ -1670,7 +1669,8 @@ bool active_si_stream_t::update_mux(
 
 	}
 
-	auto cb = [&](chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
+    auto cb = [&](chdb::mux_common_t* pmergedc, chdb::mux_key_t* pmergedk,
+									const chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
 		/*lookup always was done by frequency. Either nothing was found in the database (pdbk and pdbc
 			both nullptr) or some database mux was found (pdbk and pdbc different from nullptr)
 
@@ -1684,15 +1684,10 @@ bool active_si_stream_t::update_mux(
 		if(pdbk) {
 			assert (*pdbk == tmp || tmp.mux_id == 0);
 			assert(tmp.mux_id == pdbk->mux_id);
-			if(is_reader_mux && pdbc && (
-					 pdbc->key_src == chdb::key_src_t::SDT_TUNED ||
-					 pdbc->key_src == chdb::key_src_t::PAT_TUNED
-					 )) {
-				pc->key_src = pdbc->key_src;
+			if(is_reader_mux && pdbc) {
+				pmergedc->tune_src = pc->tune_src;
 			} else if (*pdbk != tmp) {
 				assert(!is_reader_mux); //because fix_tune_mux_template() has been called
-				/*
-				 */
 
 				*mux_key_ptr(mux) = *pdbk;
 				assert(preserve & update_mux_preserve_t::MUX_KEY);
@@ -1719,8 +1714,8 @@ bool active_si_stream_t::update_mux(
 			assert(scan_id > 0);
 			pc->scan_id = scan_id;
 			if(pdbc) {
-				pdbc->scan_status = scan_status_t::PENDING;
-				pdbc->scan_id = scan_id;
+				pmergedc->scan_status = scan_status_t::PENDING;
+				pmergedc->scan_id = scan_id;
 			}
 			assert((pc->scan_status != chdb::scan_status_t::ACTIVE &&
 							pc->scan_status != chdb::scan_status_t::PENDING &&
@@ -2003,7 +1998,6 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 			sdt_process_service(wtxn, service, p_mux_data, donotsave, is_actual);
 		db_found += db_found_;
 		db_changed += changed;
-
 	}
 
 	if (services.has_freesat_home_epg)

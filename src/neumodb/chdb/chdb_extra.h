@@ -94,20 +94,22 @@ namespace chdb {
 		};
 	};
 
+	using  update_mux_cb_t = std::function<bool(chdb::mux_common_t*, chdb::mux_key_t*,
+		const chdb::mux_common_t*, const chdb::mux_key_t*)>;
 	/*
 		if callback returns false; save is aborted
 		if callback receives nullptr, record was not found
 	*/
 	update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
-																	system_time_t now, update_mux_preserve_t::flags preserve,
-																	std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+															system_time_t now, update_mux_preserve_t::flags preserve, update_mux_cb_t cb,
 																	/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist);
 
 	inline update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 																		 system_time_t now, update_mux_preserve_t::flags preserve,
 																		 /*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist) {
 		return update_mux(txn, mux, now, preserve,
-											[](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;}, /*ignore_key,*/
+											[](chdb::mux_common_t*, chdb::mux_key_t*,
+												 const chdb::mux_common_t*, const chdb::mux_key_t*) { return true;}, /*ignore_key,*/
 											ignore_t2mi_pid, must_exist);
 	}
 
@@ -128,13 +130,14 @@ namespace chdb {
 	*/
 	template<typename mux_t>
 	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
-															std::function<bool(chdb::mux_common_t*, const chdb::mux_key_t*)> cb,
+															update_mux_cb_t cb,
 															/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist);
 
 	template<typename mux_t>
 	update_mux_ret_t update_mux(db_txn& txn, mux_t& mux,  system_time_t now, update_mux_preserve_t::flags preserve,
 																	/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist) {
-		return update_mux(txn, mux, now, preserve, [](chdb::mux_common_t*, const chdb::mux_key_t*) { return true;},
+		return update_mux(txn, mux, now, preserve, [](chdb::mux_common_t*, chdb::mux_key_t*,
+																									const chdb::mux_common_t*, const chdb::mux_key_t*) { return true;},
 													/*ignore_key,*/ ignore_t2mi_pid, must_exist);
 	}
 

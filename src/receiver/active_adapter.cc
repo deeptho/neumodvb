@@ -906,7 +906,8 @@ void active_adapter_t::check_for_new_streams()
 
 		namespace m = chdb::update_mux_preserve_t;
 
-		auto update_scan_status = [&](const chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
+		auto update_scan_status = [&](chdb::mux_common_t* pmergedc, chdb::mux_key_t* pmergedk,
+																	const chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
 			bool is_active = pdbc && pdbc->scan_status == scan_status_t::ACTIVE;
 			if( is_active) {
 				return false;

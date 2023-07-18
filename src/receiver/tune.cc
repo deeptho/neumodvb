@@ -201,8 +201,10 @@ void tuner_thread_t::add_si(active_adapter_t& active_adapter,
 																	const chdb::any_mux_t& mux, const tune_options_t& tune_options ,
 																	subscription_id_t subscription_id) {
 	// check_thread();
+#if 0
 	ss::string<128> prefix;
 	prefix << "TUN" << active_adapter.get_adapter_no() << "-ADD-SI";
+#endif
 	dtdebugx("tune restart_si");
 	active_adapter.prepare_si(mux, true /*start*/, subscription_id, true /*add_to_running_mux*/);
 	active_adapter.fe->set_tune_options(tune_options);

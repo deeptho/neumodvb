@@ -301,7 +301,6 @@ namespace dtdemux {
 	template<typename implementation_t>
 	int stream_parser_base_t<implementation_t>::exit()
 	{
-		log4cxx::NDC::pop();
 		fibers.clear();
 		return 0;
 	}

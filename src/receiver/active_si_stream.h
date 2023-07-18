@@ -628,14 +628,16 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	bool init(scan_target_t scan_target_);
 
 	template<typename parser_t, typename... Args>
-	auto add_parser(int pid, Args... args) {
+	auto add_parser(int pid, const ss::string_& ndc_prefix, Args... args) {
 		auto & slot = parsers[dvb_pid_t(pid)];
 		if (slot.use_count == 0) {
-			slot.p = stream_parser.register_pid<parser_t>(pid, args...);
+			assert(!slot.p);
+			slot.p = stream_parser.register_pid<parser_t>(pid, ndc_prefix, args...);
 			if(pid!=dtdemux::ts_stream_t::PAT_PID)
 				add_pid(pid);
 		}
 		slot.use_count++;
+		dtdebugx("add_parser for pid=%d slot.use_count=%d", pid, slot.use_count);
 		return static_cast<parser_t*>(slot.p.get());
 	}
 

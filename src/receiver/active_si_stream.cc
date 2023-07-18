@@ -858,21 +858,33 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 		load_skyuk_bouquet();
 	}
 
+	ss::string<256> ndc_prefix;
+	log4cxx::LogString ls;
+	log4cxx::NDC::get(ls);
+
 	if (do_standard) {
-		add_parser<dtdemux::pat_parser_t>(dtdemux::ts_stream_t::PAT_PID)->section_cb =
+
+		ndc_prefix.clear();
+		ndc_prefix.sprintf("%s PAT", ls.c_str());
+		add_parser<dtdemux::pat_parser_t>(dtdemux::ts_stream_t::PAT_PID, ndc_prefix)->section_cb =
 			[this](const pat_services_t& pat_services, const subtable_info_t& i) {
 				return this->pat_section_cb(pat_services, i);
 			};
 		scan_state.start(scan_state_t::completion_index_t::PAT, true);
-		// note: PAT_PID already added
-		add_parser<dtdemux::nit_parser_t>(dtdemux::ts_stream_t::NIT_PID)->section_cb =
+    // note: PAT_PID already added
+
+		ndc_prefix.clear();
+		ndc_prefix.sprintf("%s NIT", ls.c_str());
+		add_parser<dtdemux::nit_parser_t>(dtdemux::ts_stream_t::NIT_PID, ndc_prefix)->section_cb =
 			[this](nit_network_t& network, const subtable_info_t& i) { return this->nit_section_cb(network, i); };
 
 		scan_state.start(scan_state_t::completion_index_t::NIT_ACTUAL, true);
 		if (need_other)
 			scan_state.start(scan_state_t::completion_index_t::NIT_OTHER, false);
 
-		auto sdt_bat = add_parser<dtdemux::sdt_bat_parser_t>(dtdemux::ts_stream_t::SDT_PID);
+		ndc_prefix.clear();
+		ndc_prefix.sprintf("%s SDT", ls.c_str());
+		auto sdt_bat = add_parser<dtdemux::sdt_bat_parser_t>(dtdemux::ts_stream_t::SDT_PID, ndc_prefix);
 		sdt_bat->bat_section_cb = [this](const bouquet_t& ret, const subtable_info_t& i) {
 			return this->bat_section_cb(ret, i);
 		};
@@ -891,7 +903,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 
 	if (do_bat && is_freesat_main) {
 		// note that regular bat table is always added (same pid as SDT)
-		auto sdt_bat = add_parser<dtdemux::sdt_bat_parser_t>(3002);
+		auto sdt_bat = add_parser<dtdemux::sdt_bat_parser_t>(3002, ndc_prefix);
 		sdt_bat->fst_preferred_region_id = 1; // London @todo get this from options
 
 		sdt_bat->bat_section_cb = [this](const bouquet_t& ret, const subtable_info_t& i) {
@@ -905,24 +917,32 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 
 		if (is_skyuk) {
 			for (auto pid = dtdemux::ts_stream_t::PID_SKY_TITLE_LOW; pid <= dtdemux::ts_stream_t::PID_SKY_TITLE_HIGH; ++pid) {
-				add_parser<dtdemux::eit_parser_t>(pid, chdb::epg_type_t::SKYUK)->section_cb = eit_section_cb;
+				ndc_prefix.clear();
+				ndc_prefix.sprintf("%s SKYT", ls.c_str());
+				add_parser<dtdemux::eit_parser_t>(pid, ndc_prefix, chdb::epg_type_t::SKYUK)->section_cb = eit_section_cb;
 			}
 
 			for (auto pid = dtdemux::ts_stream_t::PID_SKY_SUMMARY_LOW; pid <= dtdemux::ts_stream_t::PID_SKY_SUMMARY_HIGH;
 					 ++pid) {
-				add_parser<dtdemux::eit_parser_t>(pid, chdb::epg_type_t::SKYUK)->section_cb = eit_section_cb;
+				ndc_prefix.clear();
+				ndc_prefix.sprintf("%s SKYS", ls.c_str());
+				add_parser<dtdemux::eit_parser_t>(pid, ndc_prefix, chdb::epg_type_t::SKYUK)->section_cb = eit_section_cb;
 			}
 
 			scan_state.start(scan_state_t::completion_index_t::SKYUK_EPG, false);
 
 		} else if (is_freesat_main) {
-			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_INFO_EIT_PF_PID, chdb::epg_type_t::FSTHOME)
+			ndc_prefix.clear();
+			ndc_prefix.sprintf("%s FSTH", ls.c_str());
+			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_INFO_EIT_PF_PID, ndc_prefix, chdb::epg_type_t::FSTHOME)
 				->section_cb = eit_section_cb;
-			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_INFO_EIT_PID, chdb::epg_type_t::FSTHOME)
+			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_INFO_EIT_PID, ndc_prefix, chdb::epg_type_t::FSTHOME)
 				->section_cb = eit_section_cb;
 			scan_state.start(scan_state_t::scan_state_t::completion_index_t::FST_EPG, false);
 		} else {
-			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::EIT_PID, chdb::epg_type_t::DVB)->section_cb =
+			ndc_prefix.clear();
+			ndc_prefix.sprintf("%s EPG", ls.c_str());
+			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::EIT_PID, ndc_prefix, chdb::epg_type_t::DVB)->section_cb =
 				eit_section_cb;
 
 			scan_state.start(scan_state_t::scan_state_t::completion_index_t::EIT_ACTUAL_EPG, false);
@@ -930,10 +950,12 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 				scan_state.start(scan_state_t::scan_state_t::completion_index_t::EIT_OTHER_EPG, false);
 
 			if (has_freesat) {
-				add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_EIT_PID, chdb::epg_type_t::FREESAT)
+				ndc_prefix.clear();
+				ndc_prefix.sprintf("%s FST", ls.c_str());
+				add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_EIT_PID, ndc_prefix, chdb::epg_type_t::FREESAT)
 					->section_cb = eit_section_cb;
 
-				add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_EIT_PF_PID, chdb::epg_type_t::FREESAT)
+				add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_EIT_PF_PID, ndc_prefix, chdb::epg_type_t::FREESAT)
 					->section_cb = eit_section_cb;
 
 				scan_state.start(scan_state_t::scan_state_t::completion_index_t::FST_EPG, false);
@@ -994,9 +1016,12 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 
 				*/
 				// auto mhw2_chl = add_parser<dtdemux::mhw2_parser_t>(564); //faster titles?
-				auto mhw2_chl1 = add_parser<dtdemux::mhw2_parser_t>(644); // short summaries, titles, channels
+				ndc_prefix.clear();
+				ndc_prefix.sprintf("%s MHW2C", ls.c_str());
 
-				auto mhw2_chl2 = add_parser<dtdemux::mhw2_parser_t>(642); // long summaries
+				auto mhw2_chl1 = add_parser<dtdemux::mhw2_parser_t>(644, ndc_prefix); // short summaries, titles, channels
+
+				auto mhw2_chl2 = add_parser<dtdemux::mhw2_parser_t>(642, ndc_prefix); // long summaries
 				mhw2_chl1->bat_section_cb = [this](const bouquet_t& ret, const subtable_info_t& i) {
 					return this->bat_section_cb(ret, i);
 				};
@@ -1023,7 +1048,9 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 					Elementary stream: type 0x00 (unknown), PID: 57 (0x0039) -> epg
 					Elementary stream: type 0x00 (unknown), PID: 58 (0x003A) -> bat/sdt
 				*/
-				add_parser<dtdemux::eit_parser_t>(57, chdb::epg_type_t::VIASAT)->section_cb = eit_section_cb;
+				ndc_prefix.clear();
+				ndc_prefix.sprintf("%s VIA", ls.c_str());
+				add_parser<dtdemux::eit_parser_t>(57, ndc_prefix, chdb::epg_type_t::VIASAT)->section_cb = eit_section_cb;
 				scan_state.start(scan_state_t::scan_state_t::completion_index_t::VIASAT_EPG, false);
 			}
 		}
@@ -1138,8 +1165,9 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 
 		//if (scan_target == scan_target_t::SCAN_FULL || scan_target == scan_target_t::SCAN_FULL_AND_EPG)
 		for (auto& s : pat_table.entries) {
-			if (s.service_id != 0x0 /*skip pat*/)
+			if (s.service_id != 0x0 /*skip pat*/) {
 				add_pmt(s.service_id, s.pmt_pid);
+			}
 		}
 
 		bool all_done = true;
@@ -2733,15 +2761,22 @@ void active_si_stream_t::add_pmt(uint16_t service_id, uint16_t pmt_pid) {
 	auto [it, inserted] = pmt_data.by_service_id.try_emplace(service_id, pat_service_t{});
 	auto& p = it->second;
 	if (inserted) {
-		dtdebugx("Adding pmt for analysis: service=%d pmt_pid=%d", (int)service_id, (int)pmt_pid);
-
-		auto pmt_section_cb = [this](dtdemux::pmt_parser_t*parser,
+		dtdebugx("Adding pmt for analysis: service=%d pmt_pid=%d\n", (int)service_id, (int)pmt_pid);
+		auto pmt_section_cb = [this, service_id, pmt_pid](dtdemux::pmt_parser_t*parser,
 																 const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
+			dtdebugx("calling remove_parser service_id=%d pmt_pid=%d\n", service_id, pmt_pid);
 			remove_parser(parser);
 			return this->pmt_section_cb(pmt, isnext);
 
 		};
-		add_parser<dtdemux::pmt_parser_t>(pmt_pid, service_id)->section_cb = pmt_section_cb;
+		dtdebugx("calling add_parser service_id=%d pmt_pid=%d\n", service_id, pmt_pid);
+		ss::string<128>  ndc_prefix;
+		log4cxx::LogString ls;
+		log4cxx::NDC::get(ls);
+		auto s= log4cxx::NDC::pop(); //remove "PAT"
+		ndc_prefix.sprintf("PMT", ls.c_str());
+		log4cxx::NDC::push(s);
+		add_parser<dtdemux::pmt_parser_t>(pmt_pid, ndc_prefix, service_id)->section_cb = pmt_section_cb;
 		p.pmt_analysis_started = true;
 	}
 }

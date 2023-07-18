@@ -324,9 +324,11 @@ void active_adapter_t::monitor() {
 				start si processing
 			*/
 			auto t = fe->ts.readAccess()->tune_options.scan_target;
+#if 0
 			ss::string<128> prefix;
 			prefix << "TUN" << this->get_adapter_no();
 			log4cxx::NDC ndc(prefix.c_str());
+#endif
 			init_si(t);
 			return;
 		} else {

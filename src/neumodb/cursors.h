@@ -272,6 +272,7 @@ struct db_cursor : private lmdb::cursor {
 	db_txn& txn;
 	bool is_index_cursor = false;
 	bool valid_ = false; //true if a cursor was positioned to some entry
+	bool dead_ = false; //true if a cursor has been destroyed explicitly
 	ss::bytebuffer<16> key_prefix; //cursor is valid if it points to a record with a matching key
 #if 0
 	inline void log(ss::bytebuffer_& primary_key, db_txn::update_type_t update_type) {
@@ -281,6 +282,9 @@ struct db_cursor : private lmdb::cursor {
   bool get(MDB_val* const key,
            MDB_val* const val,
            const MDB_cursor_op op) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		valid_ = lmdb::cursor::get(key, val, op);
 		return valid_;
 	}
@@ -288,6 +292,9 @@ struct db_cursor : private lmdb::cursor {
 	bool find(const ss::bytebuffer_& serialized_key,
 						lmdb::val & v_ret,
             const MDB_cursor_op op = MDB_SET) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		valid_ =  lmdb::cursor::find(serialized_key, v_ret, op);
 		return valid_;
 	}
@@ -296,38 +303,59 @@ struct db_cursor : private lmdb::cursor {
 	bool find_both(const ss::bytebuffer_& serialized_secondary_key,
 								 const ss::bytebuffer_& serialized_primary_key,
             const MDB_cursor_op op = MDB_SET) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		valid_ =  lmdb::cursor::find_both(serialized_secondary_key, serialized_primary_key, op);
 		return valid_;
 	}
 
 
 	void drop(const bool del=false) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		::mdb_drop(txn.handle(), dbi(), del ? 1 : 0);
 	}
 
 
 	bool find(const ss::bytebuffer_& serialized_key,
             const MDB_cursor_op op = MDB_SET) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		valid_ =  lmdb::cursor::find(serialized_key, op);
 		return valid_;
 	}
 
 	bool find(const ss::string_& serialized_key,
             const MDB_cursor_op op = MDB_SET) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		valid_ =  lmdb::cursor::find(serialized_key, op);
 		return valid_;
 	}
 
 	void close() noexcept {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		if(is_valid())
 			lmdb::cursor::close();
 	}
 
 	MDB_cursor* handle() const noexcept {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		return lmdb::cursor::handle();
 	}
 
 	inline void set_key_prefix( const ss::bytebuffer_& key_prefix_) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		bool  was_valid = is_valid();
 		auto old_size = key_prefix.size();
 		key_prefix = key_prefix_;
@@ -402,29 +430,49 @@ struct db_cursor : private lmdb::cursor {
 				//	printf("duplicated cursor\n");
 			}
 		}
-	~db_cursor() {
+
+	inline void destroy() {
+#ifdef ASSERT_DEAD
+		assert(!dead_); //may only be destroyed once
+#endif
 		if(!txn.is_valid()) {
 			_handle = nullptr;
-			}
+		}
 		if (txn.is_valid() && is_valid()) {
 			close(); /* !txn.is_valid() means that transaction was aborted/committed in which case low level
-								 		lmdb cursors have been freed*/
+									lmdb cursors have been freed*/
 		}
 		assert (txn.num_cursors >= 1);
 		txn.num_cursors--;
+		_handle = nullptr;
+		dead_ = true;
+	}
+
+	~db_cursor() {
+		if(!dead_)
+			destroy();
 	}
 
 	db_cursor clone() const {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		return db_cursor(*this, (db_cursor::clone_t*) NULL);
 	}
 
 	db_cursor& operator=(const db_cursor& other) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		if(this != &other)
 			*this = other.clone();
 		return *this;
 		}
 
 	db_cursor& operator=(db_cursor&& other) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		if(this != &other) {
 			lmdb::cursor::operator=(std::move((lmdb::cursor&)other));
 			assert( &txn == &other.txn); //cursors can be moved only if they relate to the same transaction
@@ -439,6 +487,9 @@ struct db_cursor : private lmdb::cursor {
 
 	template<class key_t>
 	bool get_key(key_t& key_out, const MDB_cursor_op op=MDB_GET_CURRENT) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val k{}, v{};
 		const bool found = get(k, v, op);
 		if(!found)
@@ -450,6 +501,9 @@ struct db_cursor : private lmdb::cursor {
 	}
 
 	bool get_serialized_key(ss::bytebuffer_& key_out, const MDB_cursor_op op=MDB_GET_CURRENT) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val k{}, v{};
 		const bool found = get(k, v, op);
 		if(!found)
@@ -459,6 +513,9 @@ struct db_cursor : private lmdb::cursor {
 	}
 
 	bool get_serialized_value(ss::bytebuffer_& val_out, const MDB_cursor_op op=MDB_GET_CURRENT) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val k{}, v{};
 		const bool found = get(k, v, op);
 		if(!found)
@@ -473,7 +530,7 @@ struct db_cursor : private lmdb::cursor {
 
 
 	bool is_valid() {
-		if(!valid_ || handle()==nullptr)
+		if(!valid_ || dead_ || handle()==nullptr)
 			return false;
 		lmdb::val k{}, v{};
 		bool ret = get(k, v, (const MDB_cursor_op) MDB_GET_CURRENT);
@@ -507,6 +564,9 @@ struct db_cursor : private lmdb::cursor {
 
 
 	bool has_key(const ss::bytebuffer_& key) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		if(handle()==nullptr)
 			return false;
 		lmdb::val k{}, v{};
@@ -521,6 +581,9 @@ struct db_cursor : private lmdb::cursor {
 
 
 	inline bool next(MDB_cursor_op op=MDB_NEXT) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val k{}, v{};
 		bool ret = get(k, v, op);
 		if(!ret) //we reached the end of the index table
@@ -537,6 +600,9 @@ struct db_cursor : private lmdb::cursor {
 	}
 
 	inline bool prev() {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val k{}, v{};
 		bool ret = this->get(k, v, (const MDB_cursor_op) MDB_PREV);
 		if(!ret) //we reached the start of the index table
@@ -559,8 +625,10 @@ struct db_cursor : private lmdb::cursor {
 		leave the cursor at the closest possible position.
 		Returns the actual offset
 	 */
-	int move_backward(int offset)
-		{
+	inline int move_backward(int offset) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 			int i=0;
 			bool ret=true;
 			for(i=0; i <offset &&ret; ++i)
@@ -579,8 +647,10 @@ struct db_cursor : private lmdb::cursor {
 		leave the cursor at the closest possible position.
 		Returns the actual offset
 	 */
-	int move_forward(int offset)
-		{
+	inline int move_forward(int offset) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 			int i=0;
 			bool ret=true;
 			for(i=0; i <offset &&ret; ++i)
@@ -596,12 +666,18 @@ struct db_cursor : private lmdb::cursor {
 	//delete record at an arbitrary key position
 	//returns false if key was not found
 	auto del(lmdb::val& key, lmdb::val& val) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		return lmdb::dbi(this->dbi()).del(this->txn, key, val);
 	}
 
 	//delete record at an arbitrary key position
 	//returns false if key was not found
 	auto del(lmdb::val& key) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		return lmdb::dbi(this->dbi()).del(this->txn, key);
 	}
 
@@ -609,22 +685,34 @@ struct db_cursor : private lmdb::cursor {
 	//put a result at an arbitrary key position
 	//returns false if key already existed
 	auto put(const lmdb::val& key, lmdb::val& val, unsigned int flags=0) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		return lmdb::dbi(this->dbi()).put(this->txn, key, val, flags);
 	}
 
 	//put a key and reserve space for the result
 	auto reserve(const lmdb::val& key, lmdb::val& val, unsigned int flags=0) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		return lmdb::dbi(this->dbi()).put(this->txn, key, val, flags);
 	}
 
 	//put a result at the current cursor position
 	void cursor_put(lmdb::val& val, unsigned int flags=0) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val key{nullptr,0};
 
 		lmdb::cursor_put(this->cursor::handle(), (MDB_val*) key, (MDB_val*) val, flags);
 	}
 
 	void cursor_del(unsigned int flags=0) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val key{nullptr,0};
 		lmdb::cursor_del(this->cursor::handle(), flags);
 		valid_ = false;
@@ -633,6 +721,9 @@ struct db_cursor : private lmdb::cursor {
 	//delete at a specific key
 	//returns false if key was not found
 	bool del_k(const ss::bytebuffer_& serialized_key) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val k{serialized_key.buffer(), (size_t)serialized_key.size()};
 
 		return this->del(k);
@@ -641,6 +732,9 @@ struct db_cursor : private lmdb::cursor {
 	//delete at a specific key and value; used for MDB_DUP index
 	//returns false if key was not found
 	bool del_kv(const ss::bytebuffer_& serialized_key, const ss::bytebuffer_& serialized_val) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val k{serialized_key.buffer(), (size_t) serialized_key.size()};
 		lmdb::val v{serialized_val.buffer(), (size_t) serialized_val.size()};
 
@@ -652,6 +746,9 @@ struct db_cursor : private lmdb::cursor {
 	//returns false if key already existed
 	bool put_kv(const ss::bytebuffer_& serialized_key, const ss::bytebuffer_& serialized_val,
 							unsigned int put_flags=0) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
 		lmdb::val k{serialized_key.buffer(), (size_t)serialized_key.size()};
 		lmdb::val v{serialized_val.buffer(), (size_t)serialized_val.size()};
 		//reserve enough space

@@ -1380,8 +1380,9 @@ public:
    * @throws lmdb::error on failure
    */
   void renew() {
-		has_been_reset = false;
+		assert(has_been_reset);
     lmdb::txn_renew(_handle);
+		has_been_reset = false;
   }
 };
 

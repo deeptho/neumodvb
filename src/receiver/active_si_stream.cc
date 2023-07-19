@@ -2470,6 +2470,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 			bool done = mux_sdt_done(chgm.service.network_id, chgm.service.ts_id);
 			if (done)
 				continue;
+			c1.destroy(); //cursor may no longer accessed after this
 			bat_data.reset_bouquet(bouquet.bouquet_id);
 			wtxn.abort();
 #if 0
@@ -2815,7 +2816,8 @@ bool active_si_stream_t::matches_reader_mux(const chdb::any_mux_t& mux, bool fro
 		t2mi pids start with the nid/tid from their parent mux. So tid may be incorrect
 	*/
 	auto* c = chdb::mux_common_ptr(mux);
-	bool check_pat = !is_embedded_si || (c->tune_src == chdb::tune_src_t::DRIVER || c->tune_src == chdb::tune_src_t::NIT_TUNED);
+	bool check_pat = !is_embedded_si || (c->tune_src == chdb::tune_src_t::DRIVER || c->tune_src == chdb::tune_src_t::NIT_TUNED
+																			 || c->tune_src == chdb::tune_src_t::NIT_CORRECTED);
 	if ( check_pat && ! pat_data.has_ts_id(from_sdt ? c->ts_id : c->nit_ts_id))
 		return false;
 	/*sat, freq, pol match what is currently tuned;

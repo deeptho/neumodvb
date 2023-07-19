@@ -50,7 +50,7 @@ class wtxn_reservation_t {
 		if(wtxn_->can_commit()) {
 			wtxn_->commit(); //delayed commit of data from other thread
 		}
-		wtxn_->reset();
+		wtxn_.reset();
 		cv.notify_one();
 	}
 

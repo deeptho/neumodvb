@@ -554,7 +554,7 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 	if ((int)reuseable_subscription_id >= 0) {
 		subscription_id_t subscription_id{-1};
 		//we have not reused reuseable_subscription_id so this subscription must be ended
-		dtdebugx("Abandoning subscription %d", (int) reuseable_subscription_id);
+		dtdebugx("Abandoning subscription_id=%d", (int) reuseable_subscription_id);
 		auto wtxn = receiver.devdb.wtxn();
 		receiver_thread.unsubscribe(futures, wtxn, reuseable_subscription_id);
 		wtxn.commit();
@@ -622,7 +622,6 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		num_skipped_peaks += num_skipped_peaks1;
 		num_pending_muxes += num_pending_muxes1;
 		num_skipped_muxes += num_skipped_muxes1;
-
 		if(receiver_thread.must_exit())
 			throw std::runtime_error("Exit requested");
 
@@ -722,6 +721,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 					w->failed_muxes += !locked;
 					w->locked_muxes += locked;
 					w->si_muxes += (locked && !nodvb);
+					w->pending_muxes = num_pending_muxes;
 			}
 			assert(finished_mux_key.sat_pos == sat_pos_none || finished_fe.sub.owner == getpid());
 			report.scan_stats = *scan_stats.readAccess();
@@ -758,6 +758,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			scan_report_t report{subscription, {}, {}};
 			report.scan_stats = *scan_stats.readAccess();
 			auto ss = *scan_stats.readAccess();
+			ss.pending_muxes = num_pending_muxes;
 			if(report.mux) {
 				dtdebug("SCAN REPORT: mux=" << *report.mux << " pending=" <<
 							ss.pending_muxes << " active=" << ss.active_muxes);
@@ -828,13 +829,13 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		wtxn.commit();
 		wait_for_all(futures); //remove later
 	}, *subscription.mux);
-
-	report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", reuseable_subscription_id, subscription_id,
-				 *subscription.mux, subscriptions);
-	dtdebug("Asked to subscribe " << *subscription.mux << " reuseable_subscription_id="  <<
-					(int) reuseable_subscription_id << " subscription_id=" << (int) subscription_id <<
-					" peak=" << subscription.peak.frequency);
-
+	if((int)subscription_id >=0) {
+		report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", reuseable_subscription_id, subscription_id,
+					 *subscription.mux, subscriptions);
+		dtdebug("Asked to subscribe " << *subscription.mux << " reuseable_subscription_id="  <<
+						(int) reuseable_subscription_id << " subscription_id=" << (int) subscription_id <<
+						" peak=" << subscription.peak.frequency);
+	}
 	/*
 		When tuning fails, it is essential that tuner_thread does NOT immediately unsubscribe the mux,
 		but rather informs us about the failure via scan_mux_end. Otherwise we would have to
@@ -1091,7 +1092,7 @@ void scanner_t::notify_signal_info(const subscriber_t& subscriber,
 			return;
 		}
 	}
-	dterrorx("NOT Notifying: monitored_subscription_id=%d\n", (int) scan.monitored_subscription_id);
+	dtdebugx("NOT Notifying: monitored_subscription_id=%d", (int) scan.monitored_subscription_id);
 }
 
 void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,

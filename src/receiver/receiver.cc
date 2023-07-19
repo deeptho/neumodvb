@@ -228,6 +228,10 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 																							false /*need_blindscan*/);
 								});
 	devdb_wtxn.commit();
+	if(sret.failed) {
+		user_error("Service reservation failed: " << service);
+		return {};
+	}
 	auto& tuner_thread = receiver.tuner_thread;
 	std::unique_ptr<playback_mpm_t> playback_mpm_ptr;
 	futures.push_back(tuner_thread.push_task([&playback_mpm_ptr, &tuner_thread, &mux, &service, &sret,
@@ -437,7 +441,7 @@ receiver_thread_t::subscribe_mux(
 	}
 
 	if(sret.failed)
-		return subscription_id_t::NONE;
+		return subscription_id_t::RESERVATION_FAILED;
 
 	auto& tuner_thread = receiver.tuner_thread;
 	futures.push_back(tuner_thread.push_task([&tuner_thread, mux, sret,

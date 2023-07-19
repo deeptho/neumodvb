@@ -410,7 +410,10 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 		preserve = propagate_scan
 			? m::flags(m::MUX_COMMON /*& ~ m::SCAN_STATUS*/ & ~ m::NIT_SI_DATA)
 			: m::flags(m::MUX_COMMON & ~ m::NIT_SI_DATA);
-		preserve = m::flags( preserve | m::MUX_KEY);
+		/*
+			m::TUNE_DATA: tune data must always be preserved (cannot be updated), except after the mux is tuned
+		*/
+		preserve = m::flags( preserve | m::MUX_KEY | m::TUNE_DATA);
 	}
 
 	if(!this->update_mux(wtxn, mux, now, is_active_mux /*is_reader_mux*/, is_tuned_freq, from_sdt, preserve))
@@ -422,7 +425,7 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 		auto& c  = *mux_common_ptr(mux);
 		if(!(c.tune_src == tune_src_t::NIT_TUNED ||
 					 c.tune_src == tune_src_t::NIT_ACTUAL || c.tune_src == tune_src_t::NIT_OTHER ||
-				 c.tune_src == tune_src_t::DRIVER)) {
+				 c.tune_src == tune_src_t::NIT_CORRECTED)) {
 			dterrorx("Incorrect tune_src=%d", (int) c.tune_src);
 			c.tune_src = tune_src_t::DRIVER;
 		}
@@ -2629,7 +2632,7 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 										else
 											use_driver = true;
 										if(use_driver) //vcan happen on 28.2E where SI table reports incorrect mux frequency
-											mux.c.tune_src = chdb::tune_src_t::DRIVER;
+											mux.c.tune_src = chdb::tune_src_t::NIT_CORRECTED;
 									}
 
 									/*override user entered "auto" data in signal_info.mux modulation data,

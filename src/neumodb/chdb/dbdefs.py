@@ -83,6 +83,8 @@ tune_src = db_enum(name='tune_src_t',
                        ('TEMPLATE', 0), #temporary values entered by user
                        ('NIT_TUNED', 1),      #mux has been tuned, confirming tuning parameters
                                         #freq is value from nit, but some values overridden from driver
+                       ('NIT_CORRECTED', 7),      #mux has been tuned, confirming tuning parameters
+                                        #freq is value from nit, but some values overridden from driver
 
                        ('NIT_ACTUAL', 2),     #mux has not been tuned
                                         #freq is value from NIT_ACTUAL table

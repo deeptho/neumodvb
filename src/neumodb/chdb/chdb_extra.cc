@@ -403,6 +403,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 	auto& mux_common = *mux_common_ptr(mux);
 	if(!((mux.k.mux_id > 0) ||
 				 (is_template(mux) || mux_common.tune_src== tune_src_t::NIT_TUNED
+					|| mux_common.tune_src== tune_src_t::NIT_CORRECTED
 					|| mux_common.tune_src == tune_src_t::NIT_ACTUAL
 					|| mux_common.tune_src == tune_src_t::NIT_OTHER
 					|| mux_common.tune_src == tune_src_t::AUTO
@@ -652,6 +653,7 @@ std::ostream& chdb::operator<<(std::ostream& os, tune_src_t tune_src) {
 	switch(tune_src) {
 	case tune_src_t::TEMPLATE:  os << "tmpl"; break;
 	case tune_src_t::NIT_TUNED:  os << "nit"; break;
+	case tune_src_t::NIT_CORRECTED:  os << "nitc"; break;
 	case tune_src_t::NIT_ACTUAL: os << "nita"; break;
 	case tune_src_t::NIT_OTHER:  os << "nito"; break;
 	case tune_src_t::DRIVER:     os << "drv"; break;

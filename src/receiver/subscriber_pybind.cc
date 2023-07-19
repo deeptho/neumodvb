@@ -305,7 +305,8 @@ void export_signal_info(py::module& m) {
 		})
 		.def_property_readonly("sat_pos_confirmed", [](const signal_info_t& i) {
 			return i.tune_confirmation.sat_by != confirmed_by_t::NONE
-				&& mux_common_ptr(i.driver_mux)->tune_src ==  tune_src_t::NIT_TUNED;
+				&& (mux_common_ptr(i.driver_mux)->tune_src ==  tune_src_t::NIT_TUNED
+						|| mux_common_ptr(i.driver_mux)->tune_src ==  tune_src_t::NIT_CORRECTED);
 		})
 		.def_property_readonly("on_wrong_sat", [](const signal_info_t& i) {
 			return i.tune_confirmation.on_wrong_sat;

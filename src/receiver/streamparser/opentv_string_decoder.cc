@@ -234,8 +234,6 @@ void tst()
 		//code=0xc9ff7217;
 		//code=0xb86a80e8; 		code=0x000080e8;
 		ss::string<256> out;
-		if(xcode == 0x8fb7)
-			printf("here\n");
 		auto [num_bits, first_num_bits] =
 			opentv_decode_stringxxx(out, (unsigned char*)&code, 8, table, 16);
 		uint16_t prefix_code =

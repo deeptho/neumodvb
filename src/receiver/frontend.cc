@@ -605,7 +605,14 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 	return cmdseq.get_properties(fefd);
 }
 
-signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
+std::optional<signal_info_t>
+dvb_frontend_t::update_lock_status_and_signal_info(fe_status_t fe_status, bool get_constellation) {
+	auto m = ts.readAccess()->tune_mode;
+	if (m != tune_mode_t::NORMAL && m != tune_mode_t::BLIND) {
+		set_lock_status(fe_status);
+		return {};
+	}
+
 	signal_info_t ret{this, ts.readAccess()->dbfe.k};
 	ret.tune_count = ts.readAccess()->tune_count;
 	using namespace chdb;
@@ -614,6 +621,7 @@ signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 
 	cmdseq_t cmdseq;
 	if(request_signal_info(cmdseq, ret, get_constellation) < 0) {
+		set_lock_status(fe_status);
 		ret.lock_status = ts.readAccess()->lock_status; //needs to be done after retrieving signal_info
 		return ret;
 	}
@@ -668,8 +676,6 @@ signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 			ret.last_new_matype_time = steady_clock_t::now();
 		}
 	}
-	ret.lock_status = ts.readAccess()->lock_status; //needs to be done after retrieving signal_info
-	ret.lock_status.matype = matype; //not yet set in ts.readAccess()->lock_status; will be set there below
 
 	auto* p = cmdseq.get(DTV_CONSTELLATION);
 	if (p) {
@@ -683,20 +689,17 @@ signal_info_t dvb_frontend_t::get_signal_info(bool get_constellation) {
 	if (api_type == api_type_t::NEUMO && api_version >= 1200) {
 		uint64_t lock_time = cmdseq.get(DTV_LOCKTIME)->u.data;
 		uint64_t bitrate = cmdseq.get(DTV_BITRATE)->u.data;
-		ret.stat.locktime_ms = (ret.lock_status.fe_status & FE_HAS_LOCK) ? lock_time : 0;
+		ret.stat.locktime_ms = lock_time;
 		ret.bitrate = bitrate;
-#if 0
-		auto matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
-		ret.matype_list.clear();
-		for(int i = 0; i < (int) matype_list.num_entries; ++i)
-			ret.matype_list.push_back(matype_list.matypes[i]);
-#endif
 	}
 
-	ret.lock_status.matype = matype;
 	{
 		auto w = ts.writeAccess();
+		w->set_lock_status(api_type, fe_status);
 		w->lock_status.matype = matype;
+		if(!w->lock_status.is_locked())
+			ret.stat.locktime_ms = 0;
+		ret.lock_status = w->lock_status;
 		w->last_signal_info = ret;
 	}
 	ts_cv.notify_all();
@@ -775,17 +778,18 @@ int dvb_frontend_t::start() {
 */
 fe_lock_status_t dvb_frontend_t::get_lock_status() {
 	auto w = ts.writeAccess();
-	auto& ret = w->lock_status;
-	bool is_locked = ret.fe_status & FE_HAS_LOCK;
+	bool is_locked = w->lock_status.is_locked();
 	if (!is_locked) {
 		this->sec_status.set_tune_status(false); // ensures that diseqc will be sent again
 	} else
 		this->sec_status.set_tune_status(true); // ensures that diseqc will be sent again
+	dtdebugx("lock_lost=%d", w->lock_status.lock_lost);
+	auto ret = w->lock_status;
 	w->lock_status.lock_lost = false;
 	return ret;
 }
 
-void dvb_frontend_t::set_lock_status(fe_status_t fe_status) {
+void fe_state_t::set_lock_status(api_type_t api_type, fe_status_t fe_status) {
 	if(api_type == api_type_t::DVBAPI) {
 		if (fe_status & (FE_HAS_SIGNAL | FE_HAS_CARRIER | FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK))
 			fe_status = (fe_status_t) (fe_status | FE_HAS_TIMING_LOCK); //not present in dvbapi
@@ -794,15 +798,22 @@ void dvb_frontend_t::set_lock_status(fe_status_t fe_status) {
 			fe_status = (fe_status_t) (fe_status | FE_HAS_TIMING_LOCK); //handle older neumodrivers
 	}
 
-	bool locked_now = fe_status & FE_HAS_LOCK;
-	auto w = ts.writeAccess();
-
-	bool locked_before = w->lock_status.fe_status & FE_HAS_LOCK;
+	bool locked_before = lock_status.is_locked();
+	lock_status.fe_status = fe_status;
+	bool locked_now = lock_status.is_locked();
 	if(!locked_now)
-		w->lock_status.matype = -1;
+		lock_status.matype = -1;
 	if (locked_before && !locked_now)
-		w->lock_status.lock_lost = true;
-	w->lock_status.fe_status = fe_status;
+		lock_status.lock_lost = true;
+
+	dtdebugx("locked_now=%d locked_before=%d lock_lost=%d",
+					 locked_now, locked_before, lock_status.lock_lost);
+
+}
+
+void dvb_frontend_t::set_lock_status(fe_status_t fe_status) {
+	auto w = ts.writeAccess();
+	w->set_lock_status(api_type, fe_status);
 }
 
 void dvb_frontend_t::clear_lock_status() {

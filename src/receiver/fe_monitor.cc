@@ -53,13 +53,13 @@ std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& recei
 	return p;
 }
 
-void fe_monitor_thread_t::monitor_signal() {
-	auto m = fe->ts.readAccess()->tune_mode;
-	if (m != tune_mode_t::NORMAL && m != tune_mode_t::BLIND)
-		return;
+void fe_monitor_thread_t::update_lock_status_and_signal_info(fe_status_t fe_status) {
 
 	bool get_constellation{true};
-	auto info = fe->get_signal_info(get_constellation);
+	auto info_ = fe->update_lock_status_and_signal_info(fe_status, get_constellation);
+	if(!info_)
+		return;
+	auto& info = *info_;
 	bool verbose = false;
 	if (verbose) {
 		dtdebug("------------------------------------------------------");
@@ -139,9 +139,10 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	case tune_mode_t::BLIND:
 	case tune_mode_t::POSITIONER_CONTROL:
 	case tune_mode_t::UNCHANGED:
-		fe->set_lock_status(event.status);
 		if (fe->api_type == api_type_t::NEUMO)
-			monitor_signal();
+			update_lock_status_and_signal_info(event.status);
+		else
+			fe->set_lock_status(event.status);
 		break;
 	}
 }
@@ -195,9 +196,14 @@ int fe_monitor_thread_t::run() {
 				}
 			} else if (fe->is_fefd(evt->data.fd)) {
 				handle_frontend_event();
-			} else if (is_timer_fd(evt)) { //only for non-neumo mode
-				if(!is_paused && fe->api_type != api_type_t::NEUMO)
-					monitor_signal();
+			} else if (is_timer_fd(evt)) {
+        /*only for non-neumo mode. In this case events are onlyu reported when a lock status
+					bit changes. In neumo mode, events are sent periodically.
+				*/
+				if(!is_paused && fe->api_type != api_type_t::NEUMO) {
+					auto state = fe->get_lock_status();
+					update_lock_status_and_signal_info(state.fe_status);
+				}
 			}
 		}
 	}

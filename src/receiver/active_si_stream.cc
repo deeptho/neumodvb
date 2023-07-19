@@ -311,6 +311,24 @@ void active_si_stream_t::reset_si(bool close_streams) {
 	reader->reset();
 }
 
+void active_si_stream_t::close() {
+	si_processing_done = false;
+	::active_si_data_t::reset(); //reset variables to initial state
+	if(is_open()) {
+		log4cxx::NDC(name());
+		dtdebug("Closing si stream reader_mux=" << reader->stream_mux());
+		stream_parser.exit(); // remove all fibers
+		parsers.clear();			// remove all parser data (parsers will be reregistered)
+	}
+	::active_stream_t::deactivate(); //remove all pids, and close streams
+	/* TODO:  check that this also closes any open pid.
+		 There should not be any, unless a stream changes from ts to non-ts
+		 but it is better to be produnt
+	*/
+
+	reader->reset();
+}
+
 bool active_si_stream_t::abort_on_wrong_sat() const {
 	return !is_embedded_si && wrong_sat_detected() && reader->tune_options().retune_mode == retune_mode_t::AUTO;
 }

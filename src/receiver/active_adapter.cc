@@ -151,29 +151,41 @@ int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 	return 0;
 }
 
+void active_adapter_t::reset()
+{
+	tune_state = TUNE_INIT;
+	processed_isis.reset();
+	isi_processing_done = false;
+	lock_state = {};
+	usals_timer = {};
+	assert(subscribed_active_services.size()==0);
+	si.close();
+}
+
 int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
-													 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_options_t tune_options,
-													 bool user_requested, const devdb::resource_subscription_counts_t& use_counts) {
+													 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux_, tune_options_t tune_options,
+													 bool user_requested, const devdb::resource_subscription_counts_t& use_counts,
+													 subscription_id_t subscription_id) {
+	chdb::dvbs_mux_t mux;
+	if(user_requested) {
+		this->reset();
+		mux = prepare_si(mux_, false /*start*/, subscription_id);
+	}
 	if(!fe) {
 		dterror("Tune failed fe=null: mux=" << mux);
 		return -1;
 	}
-	if(user_requested) {
-		tune_state = TUNE_INIT;
-	}
 	assert(tune_state != TUNE_FAILED);
 	auto [ret, new_usals_sat_pos] = fe->tune(rf_path, lnb, mux, tune_options, user_requested, use_counts);
-	auto tune_mode = fe->ts.readAccess()->tune_options.tune_mode;
 	tune_start_time = system_clock_t::now();
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
-	dtdebugx("tune: done ret=%d tun_mode=%d\n", ret, (int) tune_mode);
+	dtdebugx("Subscribed: subscription_id=%d ret=%d", (int) subscription_id, ret);
 	return ret;
 }
 
 template<>
 int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 	auto mux = std::get<chdb::dvbs_mux_t>(current_tp());
-	bool user_requested = false;
 	devdb::lnb_t lnb;
 	devdb::resource_subscription_counts_t use_counts;
 	{
@@ -186,7 +198,8 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 	}
 	//TODO: needless read here, followed by write within tune()
 	auto tune_options = fe->ts.readAccess()->tune_options;
-	return tune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, use_counts);
+	const bool user_requested = false;
+	return tune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, use_counts, subscription_id_t::NONE);
 }
 
 template <typename mux_t> inline int active_adapter_t::retune() {
@@ -195,7 +208,7 @@ template <typename mux_t> inline int active_adapter_t::retune() {
 
 	//TODO: needless read here, followed by write within tune()
 	auto tune_options = fe->ts.readAccess()->tune_options;
-	return tune(mux, tune_options, user_requested);
+	return tune(mux, tune_options, user_requested, subscription_id_t::NONE);
 }
 
 int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
@@ -213,15 +226,15 @@ int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
 																										nullptr /*fe_key_to_release*/);
 				devdb_rtxn.abort();
 			}
-			tune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, use_counts);
+			tune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, use_counts, subscription_id_t::NONE);
 		},
 		[this, &tune_options](const dvbc_mux_t& mux) {
 			bool user_requested = true;
-			tune(mux, tune_options, user_requested);
+			tune(mux, tune_options, user_requested, subscription_id_t::NONE);
 		},
 		[this, &tune_options](const dvbt_mux_t& mux) {
 			bool user_requested = true;
-			tune(mux, tune_options, user_requested);
+			tune(mux, tune_options, user_requested, subscription_id_t::NONE);
 		});
 	return 0;
 }
@@ -229,18 +242,22 @@ int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
 
 
 template<typename mux_t>
-int active_adapter_t::tune(const mux_t& mux, tune_options_t tune_options, bool user_requested) {
+int active_adapter_t::tune(const mux_t& mux_, tune_options_t tune_options, bool user_requested,
+													 subscription_id_t subscription_id) {
+	mux_t mux;
+	if(user_requested) {
+		this->reset();
+		mux = prepare_si(mux_, false /*start*/, subscription_id);
+	}
 	if(!fe)
 		return -1;
-	if(user_requested) {
-		tune_state = TUNE_INIT;
-	}
 #if 0
 	scan_mux_end_reported = false;
 #endif
 	auto ret = fe->tune(mux, tune_options, user_requested);
 	tune_start_time = system_clock_t::now();
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
+	dtdebugx("Subscribed: subscription_id=%d ret=%d", (int) subscription_id, ret);
 	return 0;
 }
 
@@ -253,7 +270,7 @@ int active_adapter_t::remove_all_services() {
 int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 	auto [it, found] = find_in_map(this->subscribed_active_services, subscription_id);
 	if (!found) {
-		dterrorx("Request to deactivate non active servuce: subscription_id=%d", (int)subscription_id);
+		//dterrorx("Request to deactivate non active service: subscription_id=%d", (int)subscription_id);
 		return -1;
 	}
 	auto& active_service = *it->second;
@@ -345,7 +362,7 @@ void active_adapter_t::monitor() {
 	}
 	if (must_retune) {
 		dtdebug("Calling si.reset with force_finalize=true\n");
-		si.reset_si(false /*close_streams*/);
+		si.reset_si(true /*close_streams*/);
 		visit_variant(
 			current_tp(),
 			[this](dvbs_mux_t&& mux) { retune<dvbs_mux_t>();},
@@ -1117,8 +1134,8 @@ int active_adapter_t::stop_recording(subscription_id_t subscription_id,
 //instantiations
 template
 int active_adapter_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, tune_options_t
-																							tune_options, bool user_requested);
+																						 tune_options, bool user_requested, subscription_id_t subscription_id);
 
 template
 int active_adapter_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, tune_options_t
-																							tune_options, bool user_requested);
+																						 tune_options, bool user_requested, subscription_id_t subscription_id);

@@ -39,7 +39,6 @@ public:
 	epgdb::epgdb_t recepgdb; //secondary database for storing epg data related to recordings  (part of recdb)
 	recdb::recdb_t idxdb;
 
-
 	mpm_recordings_t() : recdb(false, false, true /*autoconvert*/), recepgdb(recdb), idxdb(recdb) {
 	}
 

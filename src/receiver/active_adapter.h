@@ -288,7 +288,7 @@ public:
 	}
 
 private:
-
+	void reset();
 	template<typename mux_t> inline int retune();
 	int restart_tune(const chdb::any_mux_t& mux);
 
@@ -298,10 +298,10 @@ private:
 
 	int tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 					 tune_options_t tune_options, bool user_requested,
-					 const devdb::resource_subscription_counts_t& use_counts); //(re)tune to new transponder
+					 const devdb::resource_subscription_counts_t& use_counts, subscription_id_t subscription_id); //(re)tune to new transponder
 
 	template<typename mux_t>
-	int tune(const mux_t& mux, tune_options_t tune_options, bool user_requested);
+	int tune(const mux_t& mux, tune_options_t tune_options, bool user_requested, subscription_id_t subscription_id);
 
 	int add_service(subscription_id_t subscription_id, active_service_t& channel);//tune to channel on transponder
 	std::tuple<bool, bool, bool, bool> check_status();

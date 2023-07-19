@@ -41,7 +41,6 @@ static void  testf(db_txn& txn, recdb::file_t& file) {
 	auto c = recdb::find_first<recdb::file_t>(txn);
 	for(auto f: c.range()) {
 		if(f.k.stream_time_start == file.k.stream_time_start && f.fileno != file.fileno) {
-			printf("here\n");
 			assert(0);
 		}
 	}

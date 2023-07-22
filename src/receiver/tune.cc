@@ -502,8 +502,11 @@ int tuner_thread_t::run() {
 							break;
 						}
 					}
-					run_tasks(now, false); //prioritize tuning commands
 				}
+				ss::string<128> prefix;
+				prefix << "TASK";
+				log4cxx::NDC ndc(prefix.c_str());
+				run_tasks(now, false); //prioritize tuning commands
 			}
 			if(needs_remove) {
 				for(auto it = active_adapters.begin(); it != active_adapters.end();) {

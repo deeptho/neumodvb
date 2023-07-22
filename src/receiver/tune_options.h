@@ -124,7 +124,7 @@ struct tune_options_t {
 	//retune_mode_t retune_mode{retune_mode_t::ALLOWED}; //positioner not allowed when in positioner_dialog
 	subscription_type_t subscription_type{subscription_type_t::NORMAL};
 
-	explicit tune_options_t(scan_target_t scan_target =  scan_target_t::SCAN_FULL,
+	tune_options_t(scan_target_t scan_target =  scan_target_t::SCAN_FULL,
 													 tune_mode_t tune_mode= tune_mode_t::NORMAL,
 													subscription_type_t subscription_type = subscription_type_t::NORMAL)
 		: scan_target(scan_target)

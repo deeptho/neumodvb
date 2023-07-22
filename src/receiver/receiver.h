@@ -54,6 +54,7 @@ class dvb_adapter_t;
 class subscriber_t;
 
 struct tune_options_t;
+struct tune_pars_t;
 struct spectrum_scan_t;
 struct scan_report_t;
 struct sdt_data_t;

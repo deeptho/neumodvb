@@ -233,10 +233,13 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 		return {};
 	}
 	auto& tuner_thread = receiver.tuner_thread;
+	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
+		.may_move_dish = sret.may_move_dish};
+
 	std::unique_ptr<playback_mpm_t> playback_mpm_ptr;
 	futures.push_back(tuner_thread.push_task([&playback_mpm_ptr, &tuner_thread, &mux, &service, &sret,
-																						&tune_options]() {
-		playback_mpm_ptr = cb(tuner_thread).subscribe_service(sret, mux, service, tune_options);
+																						&tune_pars]() {
+		playback_mpm_ptr = cb(tuner_thread).subscribe_service(sret, mux, service, tune_pars);
 			return 0;
 	}));
 	wait_for_all(futures); //essential
@@ -285,9 +288,12 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 		return subscription_id_t::NONE;
 	}
 	auto& tuner_thread = receiver.tuner_thread;
+	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
+		.may_move_dish = sret.may_move_dish};
+
 	futures.push_back(tuner_thread.push_task([&tuner_thread, mux, rec, sret,
-																						tune_options]() mutable {
-		cb(tuner_thread).subscribe_service_for_recording(sret, mux, rec, tune_options);
+																						tune_pars]() mutable {
+		cb(tuner_thread).subscribe_service_for_recording(sret, mux, rec, tune_pars);
 		return 0;
 	}));
 	return sret.subscription_id;
@@ -403,7 +409,7 @@ void receiver_thread_t::cb_t::on_scan_mux_end(const devdb::fe_t& finished_fe, co
    3. else reserve an fe  for the new mux. If so, increament use count
 	    of that new frontend, and decrease it on the old frontend; new and old frontend can turn
 			out to be the same, in which case use_count does not change
-  Then, if the oild fe's use_count has dropped to 0, release the old active adapter
+  Then, if the old fe's use_count has dropped to 0, release the old active adapter
 
 	-Before this call, any active service should be removed
 
@@ -444,9 +450,12 @@ receiver_thread_t::subscribe_mux(
 		return subscription_id_t::RESERVATION_FAILED;
 
 	auto& tuner_thread = receiver.tuner_thread;
+	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
+		.may_move_dish = sret.may_move_dish};
+
 	futures.push_back(tuner_thread.push_task([&tuner_thread, mux, sret,
-																						tune_options]() {
-		cb(tuner_thread).subscribe_mux(sret, mux, tune_options);
+																						tune_pars]() {
+		cb(tuner_thread).subscribe_mux(sret, mux, tune_pars);
 			return 0;
 	}));
 
@@ -540,7 +549,7 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 	}
 
 	auto devdb_wtxn = receiver.devdb.wtxn();
-	subscription_id =
+	auto ret_subscription_id =
 		this->receiver_thread_t::subscribe_mux(futures, devdb_wtxn, mux, subscription_id, tune_options,
 																					 required_rf_path, scan_id);
 	devdb_wtxn.commit();
@@ -552,7 +561,7 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 		return {subscription_id_t::TUNE_FAILED, {}};
 	}
 	else
-		return {subscription_id, subscribed_fe_key};
+		return {ret_subscription_id, subscribed_fe_key};
 }
 
 subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
@@ -581,10 +590,11 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 		return subscription_id_t::RESERVATION_FAILED;
 	}
 	auto& tuner_thread = receiver.tuner_thread;
+	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
+		.may_move_dish = sret.may_move_dish};
 
-
-	futures.push_back(tuner_thread.push_task([this, subscription_id, sret, tune_options]() {
-		auto ret = cb(receiver.tuner_thread).lnb_activate(subscription_id, sret, tune_options);
+	futures.push_back(tuner_thread.push_task([this, subscription_id, sret, tune_pars]() {
+		auto ret = cb(receiver.tuner_thread).lnb_activate(subscription_id, sret, tune_pars);
 		if (ret < 0)
 			dterrorx("tune returned %d", ret);
 		return ret;
@@ -618,18 +628,18 @@ receiver_thread_t::cb_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& 
 	std::vector<task_queue_t::future_t> futures;
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	user_error_.clear();
-	subscription_id = this->receiver_thread_t::subscribe_lnb(
+	auto ret_subscription_id = this->receiver_thread_t::subscribe_lnb(
 		futures, devdb_wtxn, rf_path, lnb, tune_options, subscription_id);
 	devdb_wtxn.commit();
 	bool error = wait_for_all(futures, false /*clear_errors*/) ||
-		(int)subscription_id <0; //the 2nd case occurs when reservation failed (no futures to wait for)
+		(int)ret_subscription_id <0; //the 2nd case occurs when reservation failed (no futures to wait for)
 	if (error) {
 		auto saved_error = get_error();
 		unsubscribe(subscription_id);
 		set_error(saved_error); //restore error message
 		return subscription_id_t::TUNE_FAILED;
 	}
-	return subscription_id;
+	return ret_subscription_id;
 }
 
 template
@@ -971,9 +981,11 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	tune_options.sat_pos = sat_pos;
 	tune_options.spectrum_scan_options.sat_pos = sat_pos;
 	//call by reference ok because of subsequent wait_for_all
-	futures.push_back(receiver_thread.push_task([this, &lnb, &rf_path, tune_options, &subscription_id]() {
+	subscription_id_t ret_subscription_id;
+	futures.push_back(receiver_thread.push_task([this, &lnb, &rf_path, tune_options, &ret_subscription_id,
+																							 subscription_id]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = cb(receiver_thread).subscribe_lnb(rf_path, lnb, tune_options,
+		ret_subscription_id = cb(receiver_thread).subscribe_lnb(rf_path, lnb, tune_options,
 																												(subscription_id_t) subscription_id);
 		return 0;
 	}));
@@ -984,7 +996,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 		set_error(saved_error); //restore error message
 		return subscription_id_t::TUNE_FAILED;
 	}
-	return subscription_id;
+	return ret_subscription_id;
 }
 
 subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode,
@@ -1004,10 +1016,12 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 	tune_options.subscription_type = subscription_type_t::DISH_EXCLUSIVE;
 	tune_options.tune_mode = tune_mode_t::POSITIONER_CONTROL;
 	tune_options.retune_mode = retune_mode;
+	subscription_id_t ret_subscription_id;
 	//call by reference ok because of subsequent wait_for_all
-	futures.push_back(receiver_thread.push_task([this, &rf_path, &lnb, &tune_options, &subscription_id]() {
+	futures.push_back(receiver_thread.push_task([this, &rf_path, &lnb, &tune_options,
+																							 &ret_subscription_id, subscription_id]() {
 		cb(receiver_thread).abort_scan();
-		subscription_id = cb(receiver_thread).subscribe_lnb(rf_path, lnb, tune_options, subscription_id);
+		ret_subscription_id = cb(receiver_thread).subscribe_lnb(rf_path, lnb, tune_options, subscription_id);
 		return 0;
 	}));
 	auto error = wait_for_all(futures);
@@ -1018,7 +1032,7 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 		return subscription_id_t::TUNE_FAILED;
 		this->global_subscriber->notify_error(get_error());
 	}
-	return subscription_id;
+	return ret_subscription_id;
 }
 
 /*! Same as subscribe_lnb, but also subscribes to a mux in the same call

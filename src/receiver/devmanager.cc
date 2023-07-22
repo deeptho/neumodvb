@@ -181,16 +181,6 @@ public:
 		return r->resource_reuse_bonus;
 	}
 
-
-	template <typename mux_t>
-	std::shared_ptr<dvb_frontend_t> find_fe_for_tuning_to_mux(db_txn& txn, const mux_t& mux,
-																														const dvb_frontend_t* fe_to_release,
-																														const tune_options_t& tune_options) const;
-
-	std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::rf_path_t, devdb::lnb_t, devdb::resource_subscription_counts_t>
-	find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path,
-																		const dvb_frontend_t* fe_to_release,
-																		const tune_options_t& tune_options) const;
 	void update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
 									 fe_state_t& t);
 
@@ -814,50 +804,6 @@ bool fe_state_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t*
 	return ret;
 }
 
-template <typename mux_t>
-std::shared_ptr<dvb_frontend_t>
-dvbdev_monitor_t::find_fe_for_tuning_to_mux(db_txn& rtxn, const mux_t& mux,
-																						const dvb_frontend_t* fe_to_release,
-																						const tune_options_t& tune_options) const {
-	const devdb::fe_key_t* fe_key_to_release;
-	const auto need_blindscan = tune_options.use_blind_tune;
-	const bool need_spectrum = false;
-	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
-	bool need_multistream = (mux.k.stream_id >= 0);
-	auto best_dbfe = devdb::fe::find_best_fe_for_dvtdbc(rtxn, fe_key_to_release, need_blindscan, need_spectrum,
-																											need_multistream,  delsys_type, false /*ignore_subscriptions*/);
-	assert(best_dbfe->can_be_used);
-	return find_fe(best_dbfe->k);
-}
-
-
-std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::rf_path_t, devdb::lnb_t, devdb::resource_subscription_counts_t>
-dvbdev_monitor_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn, const chdb::dvbs_mux_t& mux,
-																										const devdb::rf_path_t* required_rf_path,
-																										const dvb_frontend_t* fe_to_release,
-																										const tune_options_t& tune_options) const {
-	using namespace chdb;
-	using namespace devdb;
-	auto dish_move_penalty = get_dish_move_penalty();
-	auto resource_reuse_bonus = get_resource_reuse_bonus();
-	auto fe_key = fe_to_release ? fe_to_release->fe_key() : devdb::fe_key_t{};
-	auto* fe_key_to_release = fe_to_release? &fe_key : nullptr;
-
-	auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
-		fe::find_fe_and_lnb_for_tuning_to_mux(rtxn, mux, required_rf_path,
-																					fe_key_to_release,
-																					tune_options.may_move_dish, tune_options.use_blind_tune,
-																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
-	//temporary hack to return the proper live data structures
-	auto fe = find_fe(best_fe->k);
-	if (!fe) {
-		dtdebug("LNB " << *best_lnb << " not connected to any fe");
-		return {nullptr, *best_rf_path, *best_lnb, best_use_counts};
-	}
-	assert(best_fe->can_be_used);
-	return {fe, *best_rf_path, *best_lnb, best_use_counts};
-}
-
 std::tuple<std::string, int> adaptermgr_t::get_api_type() const {
 	const char* api_type="";
 	switch(this->api_type) {
@@ -869,34 +815,4 @@ std::tuple<std::string, int> adaptermgr_t::get_api_type() const {
 		break;
 	}
 	return { api_type, this->api_version};
-}
-
-
-
-template <typename mux_t>
-std::shared_ptr<dvb_frontend_t> adaptermgr_t::find_fe_for_tuning_to_mux(
-	db_txn& txn, const mux_t& mux,
-	const dvb_frontend_t* fe_to_release,
-	const tune_options_t& tune_options) const {
-	return (static_cast<const dvbdev_monitor_t*>(this))
-		->find_fe_for_tuning_to_mux(txn, mux, fe_to_release, tune_options);
-}
-
-template std::shared_ptr<dvb_frontend_t>
-adaptermgr_t::find_fe_for_tuning_to_mux(db_txn& txn, const chdb::dvbc_mux_t& mux,
-																				const dvb_frontend_t* fe_to_release,
-																				const tune_options_t& tune_options) const;
-
-template std::shared_ptr<dvb_frontend_t>
-adaptermgr_t::find_fe_for_tuning_to_mux(db_txn& txn, const chdb::dvbt_mux_t& mux,
-																				const dvb_frontend_t* fe_to_release,
-																				const tune_options_t& tune_options) const;
-
-std::tuple<std::shared_ptr<dvb_frontend_t>, devdb::rf_path_t, devdb::lnb_t, devdb::resource_subscription_counts_t>
-adaptermgr_t::find_fe_and_lnb_for_tuning_to_mux(db_txn& txn, const chdb::dvbs_mux_t& mux,
-																								const devdb::rf_path_t* required_rf_path,
-																								const dvb_frontend_t* fe_to_release,
-																								const tune_options_t& tune_options) const {
-	return (static_cast<const dvbdev_monitor_t*>(this))
-		->find_fe_and_lnb_for_tuning_to_mux(txn, mux, required_rf_path, fe_to_release, tune_options);
 }

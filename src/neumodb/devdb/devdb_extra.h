@@ -36,21 +36,6 @@ unconvertable_int(int64_t, card_mac_address_t);
 unconvertable_int(int, adapter_no_t);
 unconvertable_int(int, frontend_no_t);
 
-
-
-namespace devdb {
-
-	using namespace devdb;
-
-	int16_t make_unique_id(db_txn& txn, devdb::lnb_key_t key);
-
-	inline void make_unique_if_template(db_txn& txn, lnb_t& lnb ) {
-		if(lnb.k.lnb_id<0)
-			lnb.k.lnb_id = devdb::make_unique_id(txn, lnb.k);
-	}
-
-};
-
 namespace devdb {
 	using namespace devdb;
 
@@ -115,24 +100,8 @@ namespace devdb {
 			connection_for_rf_path(const_cast<const devdb::lnb_t&>(lnb), const_cast<const devdb::rf_path_t&>(rf_path)));
 	}
 
-//need for use as key in map
-	inline bool operator<(const devdb::fe_key_t a , const devdb::fe_key_t b) {
-		return a.adapter_mac_address == b.adapter_mac_address
-			? (a.frontend_no < b.frontend_no) :
-			(a.adapter_mac_address < b.adapter_mac_address);
-	}
-
-
 	bool lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_ *error=nullptr);
-
-	struct resource_subscription_counts_t {
-		int dish{0};
-		int rf_path{0};
-		int rf_coupler{0};
-		int tuner{0};
-	};
-
-}
+};
 
 struct subscribe_ret_t {
 
@@ -159,9 +128,8 @@ struct subscribe_ret_t {
 	std::optional<aa_t> newaa; /*create new active adapter*/
 
 	static std::atomic_int next_subscription_id; //initialised in fe_subscribe.cc
-
-	devdb::resource_subscription_counts_t use_counts;
-
+	bool may_control_lnb{false};
+	bool may_move_dish{false}; //implies may_control_lnb
 	inline  bool subscription_failed() const {
 		return failed;
 	}
@@ -195,10 +163,11 @@ namespace devdb {
 
 namespace devdb::lnb {
 	//int current_sat_pos(devdb::lnb_t& lnb, const devdb::usals_location_t& loc);
-	int angle_to_sat_pos(int angle, const devdb::usals_location_t& loc);
+	int angle_to_sat_pos(int angle, const usals_location_t& loc);
 	int sat_pos_to_usals_par(int angle, int my_longitude, int my_latitude);
 	int sat_pos_to_angle(int angle, int my_longitude, int my_latitude);
-	void set_lnb_offset_angle(devdb::lnb_t&  lnb, const devdb::usals_location_t& loc);
+	void set_lnb_offset_angle(lnb_t&  lnb, const usals_location_t& loc);
+
 	std::tuple<bool, int, int, int>  has_network(const lnb_t& lnb, int16_t sat_pos);
 
 	inline bool dish_needs_to_be_moved(const lnb_t& lnb, int16_t sat_pos) {
@@ -206,27 +175,22 @@ namespace devdb::lnb {
 		return !has_network_ || usals_move_amount != 0 ;
 	}
 
-	const devdb::lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);
-	devdb::lnb_network_t* get_network(lnb_t& lnb, int16_t sat_pos);
-
-	std::tuple<std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>>
-	select_lnb(db_txn& rtxn, const chdb::sat_t* sat, const chdb::dvbs_mux_t* proposed_mux);
-
-	std::optional<rf_path_t> select_rf_path(const devdb::lnb_t& lnb, int16_t sat_pos = sat_pos_none);
+	const lnb_network_t* get_network(const lnb_t& lnb, int16_t sat_pos);
+	lnb_network_t* get_network(lnb_t& lnb, int16_t sat_pos);
 
 	/*
 		band = 0 or 1 for low or high (22Khz off/on)
 		voltage = 0 (V,R, 13V) or 1 (H, L, 18V) or 2 (off)
 		freq: frequency after LNB local oscilllator compensation
 	*/
-	std::tuple<int, int, int> band_voltage_freq_for_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux);
-	devdb::fe_band_t band_for_freq(const devdb::lnb_t& lnb, int32_t frequency);
+	std::tuple<int, int, int> band_voltage_freq_for_mux(const lnb_t& lnb, const chdb::dvbs_mux_t& mux);
+	fe_band_t band_for_freq(const lnb_t& lnb, int32_t frequency);
 
-	inline devdb::fe_band_t band_for_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
+	inline fe_band_t band_for_mux(const lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
 		return band_for_freq(lnb, mux.frequency);
 	}
 
-	int voltage_for_pol(const devdb::lnb_t& lnb, const chdb::fe_polarisation_t pol);
+	int voltage_for_pol(const lnb_t& lnb, const chdb::fe_polarisation_t pol);
 
   /*
 		translate driver frequency to real frequency
@@ -235,39 +199,38 @@ namespace devdb::lnb {
 		@todo: see linuxdvb_lnb.c for more configs to support
 		@todo: uniqcable
 	*/
-	int uncorrected_freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band);
-	int freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band);
-	int driver_freq_for_freq(const devdb::lnb_t& lnb, int frequency);
+	int uncorrected_freq_for_driver_freq(const lnb_t& lnb, int frequency, bool high_band);
+
+	int freq_for_driver_freq(const lnb_t& lnb, int frequency, bool high_band);
+	int driver_freq_for_freq(const lnb_t& lnb, int frequency);
+
 
 	std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool>
-	band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band);
+	band_frequencies(const lnb_t& lnb, fe_band_t band);
 
-	bool add_or_edit_network(devdb::lnb_t& lnb, const devdb::usals_location_t& loc, devdb::lnb_network_t& network);
-	bool add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb, devdb::lnb_connection_t& connection);
+	bool add_or_edit_network(lnb_t& lnb, const usals_location_t& loc, lnb_network_t& network);
+	bool add_or_edit_connection(db_txn& devdb_txn, lnb_t& lnb, lnb_connection_t& connection);
 
-	bool update_lnb_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, const devdb::usals_location_t& loc,
-																	int16_t current_sat_pos, devdb::lnb_connection_t* curr_connection, bool save);
-	bool update_lnb_from_lnblist(db_txn& devdb_wtxn, devdb::lnb_t&  lnb, bool save);
-	bool update_lnb_from_db(db_txn& wtxn, devdb::lnb_t& lnb, const std::optional<devdb::usals_location_t>& loc,
+	bool update_lnb_from_positioner(db_txn& devdb_wtxn, lnb_t&  lnb, const usals_location_t& loc,
+																	int16_t current_sat_pos, lnb_connection_t* curr_connection, bool save);
+	bool update_lnb_from_lnblist(db_txn& devdb_wtxn, lnb_t&  lnb, bool save);
+	bool update_lnb_from_db(db_txn& wtxn, lnb_t& lnb, const std::optional<usals_location_t>& loc,
 													devdb::update_lnb_preserve_t::flags preserve, bool save, int16_t current_sat_pos,
-													devdb::lnb_connection_t* cur_conn);
-	void reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb);
-	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const devdb::lnb_t& lnb);
+													lnb_connection_t* cur_conn);
+	void reset_lof_offset(db_txn& devdb_wtxn, lnb_t&  lnb);
 
-	bool can_pol(const devdb::lnb_t &  lnb, chdb::fe_polarisation_t pol);
-	chdb::fe_polarisation_t pol_for_voltage(const devdb::lnb_t& lnb, int voltage);
-	inline bool swapped_pol(const devdb::lnb_t &  lnb) {
-		return lnb.pol_type == devdb::lnb_pol_type_t::VH || lnb.pol_type == devdb::lnb_pol_type_t::RL;
-	}
+	std::tuple<uint32_t, uint32_t> lnb_frequency_range(const lnb_t& lnb);
 
-	void update_lnb_adapter_fields(db_txn& wtxn, const devdb::fe_t& fe);
+	void update_lnb_adapter_fields(db_txn& wtxn, const fe_t& fe);
+
+
 	void update_lnbs(db_txn& devdb_wtxn);
 
-	inline bool can_move_dish(const devdb::lnb_connection_t& conn) {
+	inline bool can_move_dish(const lnb_connection_t& conn) {
 		switch(conn.rotor_control) {
-		case devdb::rotor_control_t::ROTOR_MASTER_MANUAL:
-		case devdb::rotor_control_t::ROTOR_MASTER_USALS:
-		case devdb::rotor_control_t::ROTOR_MASTER_DISEQC12:
+		case rotor_control_t::ROTOR_MASTER_MANUAL:
+		case rotor_control_t::ROTOR_MASTER_USALS:
+		case rotor_control_t::ROTOR_MASTER_DISEQC12:
 			return true; /*this means we will send usals commands. At reservation time, positioners which
 										 will really move have already been penalized, compared to positioners already on the
 										 correct sat*/
@@ -276,123 +239,29 @@ namespace devdb::lnb {
 			return false;
 		}
 	}
+
 }
 
 namespace devdb::fe {
-	std::optional<devdb::fe_t>
-	find_best_fe_for_lnb(db_txn& rtxn, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-											 const devdb::fe_key_t* fe_to_release,
-											 bool need_blindscan, bool need_spectrum, bool need_multistream,
-											 chdb::fe_polarisation_t pol, fe_band_t band,
-											 int sat_pos, bool ignore_subscriptions);
-
-	std::optional<devdb::fe_t>
-	find_best_fe_for_dvtdbc(db_txn& rtxn,
-													const devdb::fe_key_t* fe_to_release,
-													bool need_blindscan, bool need_spectrum, bool need_multistream,
-													chdb::delsys_type_t delsys_type, bool ignore_subscriptions);
-
-	std::tuple<std::optional<devdb::fe_t>,
-						 std::optional<devdb::rf_path_t>,
-						 std::optional<devdb::lnb_t>,
-						 resource_subscription_counts_t>
-	find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
-																		const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path,
-																		const devdb::fe_key_t* fe_key_to_release,
-																		bool may_move_dish, bool use_blind_tune,
-																		int dish_move_penalty, int resource_reuse_bonus, bool ignore_subscriptions);
-
-	resource_subscription_counts_t  subscription_counts(db_txn& rtxn,
-																											const devdb::rf_path_t& rf_path,
-																											int rf_coupler_id,
-																											const devdb::fe_key_t* fe_key_to_release);
-
-	bool is_subscribed(const fe_t& fe);
-
-	inline bool has_rf_in(const fe_t& fe, int rf_in) {
-		for(auto& r: fe.rf_inputs) {
-			if (r == rf_in)
-				return true;
-		}
-		return false;
-	}
-
-	inline bool suports_delsys_type(const devdb::fe_t& fe, chdb::delsys_type_t delsys_type) {
-		for (auto d: fe.delsys) {
-			if (chdb::delsys_to_type(d) == delsys_type)
-				return  true;
-		}
-		return false;
-	}
 
 	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_key, fe_t* fe_ret=nullptr);
 	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, fe_t& fe);
 	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id);
 
-	template<typename mux_t>
-	int reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
-												devdb::fe_t& fe,  const mux_t& mux, const chdb::service_t* service);
-
-	int reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
-														 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-														 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-														 const chdb::service_t* service);
-
-
-	int reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_id,
-															 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-															 const devdb::lnb_t& lnb);
-	template<typename mux_t>
-	int reserve_fe_for_mux(db_txn& wtxn, subscription_id_t subscription_id, devdb::fe_t& fe,
-												 const mux_t& mux, const chdb::service_t* service);
-
-	template <typename mux_t>
-	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
-																									 fe_t& fe, const mux_t& mux,
-																									 const chdb::service_t* service,
-																									 const devdb::fe_key_t* fe_key_to_release);
-
-
-	template<typename mux_t>
-	std::tuple<std::optional<devdb::fe_t>, int>
-	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscription_id, const mux_t& mux,
-														 const chdb::service_t* service,
-														 const devdb::fe_key_t* fe_key_to_release, bool use_blind_tune);
-
 	bool can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-																			const devdb::rf_path_t* required_conn_key,
+																			const rf_path_t* required_conn_key,
 																			bool use_blind_tune, bool may_move_dish,
 																			int dish_move_penalty, int resource_reuse_bonus);
-
-	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
-						 resource_subscription_counts_t, int>
-	subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscription_id, const chdb::dvbs_mux_t& mux,
-														 const chdb::service_t* service,
-														 const devdb::rf_path_t* required_conn_key, const devdb::fe_key_t* fe_key_to_release,
-														 bool use_blind_tune, bool may_move_dish, int dish_move_penalty, int resource_reuse_bonus);
-
 	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn,
 																															 const mux_t& mux, bool use_blind_tune);
 
-	std::tuple<std::optional<devdb::fe_t>, int>
-	subscribe_lnb_exclusive(db_txn& wtxn,  subscription_id_t subscription_id,
-													const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-													const devdb::fe_key_t* fe_key_to_release,
-													bool need_blind_tune, bool need_spectrum,
-													const devdb::usals_location_t& loc);
-	std::tuple<devdb::fe_t, int> subscribe_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
-																									 const fe_key_t& fe_key,const chdb::mux_key_t &mux_key,
-																									 const devdb::fe_key_t* fe_key_to_release);
-
-
-
 	subscribe_ret_t subscribe(db_txn& wtxn, subscription_id_t subscription_id,
-														const devdb::rf_path_t* required_rf_path,
+														const rf_path_t* required_rf_path,
 														const chdb::dvbs_mux_t* mux,
 														const chdb::service_t* service,
 														bool use_blind_tune, bool may_move_dish,
 														int dish_move_penalty, int resource_reuse_bonus,
-														bool need_blindscan, bool need_spectrum, const devdb::usals_location_t& loc);
+														bool need_blindscan, bool need_spectrum, const usals_location_t& loc);
 
 	template<typename mux_t>
 	subscribe_ret_t
@@ -402,19 +271,22 @@ namespace devdb::fe {
 						bool use_blind_tune,
 						int resource_reuse_bonus,
 						bool need_blindscan);
+};
 
-	std::tuple<std::optional<devdb::fe_t>, int>
-	matching_existing_subscription(db_txn& wtxn, const devdb::rf_path_t* required_rf_path,
-																 const chdb::dvbs_mux_t* mux,
-																 const chdb::service_t* service,
-																 bool match_mux_only);
+namespace devdb::fe_subscription {
+	inline bool may_move_dish(const fe_subscription_t& sub) {
+		return sub.dish_usals_pos == sat_pos_none;
+	}
 
-	template<typename mux_t>
-	std::tuple<std::optional<devdb::fe_t>, int>
-	matching_existing_subscription(db_txn& wtxn,
-																 const mux_t* mux,
-																 const chdb::service_t* service,
-																 bool match_mux_only);
+	inline bool may_change_lnb(const fe_subscription_t& sub) {
+		return sub.usals_pos == sat_pos_none || sub.pol == chdb::fe_polarisation_t::NONE ||
+		sub.band == fe_band_t::NONE;
+	}
+
+	inline bool is_exclusive(const fe_subscription_t& sub) {
+		return may_change_lnb(sub) || may_move_dish(sub);
+	}
+
 };
 
 

@@ -21,6 +21,7 @@
 #include "util/dtassert.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
+#include "devdb_private.h"
 #include "stackstring/ssaccu.h"
 #include "xformat/ioformat.h"
 #include <iomanip>

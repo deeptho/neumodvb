@@ -159,7 +159,7 @@ lnb_key = db_struct(name='lnb_key',
                           type_id= ord('T'),
                           version = 1,
                           fields = (
-                              (3, 'int8_t', 'dish_id', 0), #dish_id=0 is also the "default dish"
+                              (3, 'int8_t', 'dish_id', -1), #dish_id=-1 is also the "default dish"
                               #because of switches, the same cable could be attached to multiple dishes
                               (2, 'int16_t', 'lnb_id', '-1'), #unique identifier for lnb. Still needed?
 
@@ -309,14 +309,22 @@ fe_subscription = db_struct(name='fe_subscription',
                            type_id= lord('qr'),
                            version = 1,
                            fields = ((1, 'int32_t', 'owner', -1),
-                                    # (2, 'int32_t', 'subscription_id', -1),
-                                     #(3, 'int16_t', 'rf_in', -1),
-                                     #(8, 'int16_t', 'rf_group_id', -1),
                                      (3, 'rf_path_t', 'rf_path'),
                                      (4, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
                                      (5, 'fe_band_t', 'band', 'fe_band_t::NONE'),
-                                     #(7, 'int16_t', 'use_count', '0'),
-                                     (6, 'int16_t', 'usals_pos', 'sat_pos_none'),
+                                     (6, 'int16_t', 'usals_pos', 'sat_pos_none'), #if value is sat_pos_none
+                                                                                  #then subscription
+                                                                                  #is allowed to switch
+                                                                                  #to different sat by
+                                                                                  #selecting anothe rlnb using diseqc
+                                                                                  #or by moving the dish using diseqc
+                                                                                       #is subscribed exclusive
+                                     (7, 'int16_t', 'dish_usals_pos', 'sat_pos_none'), #if value is_pos_none
+                                                                                       #then subscription is allowed
+                                                                                       #to move dish
+                                     (9, 'int8_t', 'dish_id', '-1'), #if value is_pos_none
+                                                                                       #then subscription is allowed
+                                                                                       #to move dish
                                      (8, 'int32_t', 'frequency', '0'),
                                      (10, 'int32_t', 'rf_coupler_id', '-1'),
                                      (12, 'chdb::mux_key_t' , 'mux_key'),

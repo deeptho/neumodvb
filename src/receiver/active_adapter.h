@@ -156,6 +156,7 @@ private:
 	std::map <uint16_t, active_si_stream_t> embedded_si_streams; //indexed by stream_pid
 
 	tune_state_t tune_state{TUNE_INIT};
+	tune_pars_t tune_pars;
 	lock_state_t lock_state;
 	bool isi_processing_done{false};
 	system_time_t tune_start_time;  //when last tune started
@@ -246,7 +247,7 @@ private:
 private:
 
 	std::map<subscription_id_t, std::shared_ptr<active_service_t>>
-	subscribed_active_services; //indexed by subscribtion_id
+	subscribed_active_services; //indexed by subscription_id
 
 	/*
 		key is the subscription_id
@@ -292,16 +293,17 @@ private:
 	template<typename mux_t> inline int retune();
 	int restart_tune(const chdb::any_mux_t& mux);
 
-	int lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+												tune_pars_t tune_pars);
 
-	int lnb_activate(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_activate(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, tune_pars_t tune_pars);
 
 	int tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-					 tune_options_t tune_options, bool user_requested,
-					 const devdb::resource_subscription_counts_t& use_counts, subscription_id_t subscription_id); //(re)tune to new transponder
+					 tune_pars_t tune_pars, bool user_requested, subscription_id_t subscription_id); //(re)tune to new transponder
 
 	template<typename mux_t>
-	int tune(const mux_t& mux, tune_options_t tune_options, bool user_requested, subscription_id_t subscription_id);
+	int tune(const mux_t& mux, tune_pars_t tune_pars, bool user_requested,
+					 subscription_id_t subscription_id);
 
 	int add_service(subscription_id_t subscription_id, active_service_t& channel);//tune to channel on transponder
 	std::tuple<bool, bool, bool, bool> check_status();

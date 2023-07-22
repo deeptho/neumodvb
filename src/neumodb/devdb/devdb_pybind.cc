@@ -20,6 +20,7 @@
  */
 #include "devdb_vector_pybind.h"
 #include "neumodb/devdb/devdb_extra.h"
+#include "devdb_private.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
 #include <pybind11/pybind11.h>

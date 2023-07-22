@@ -21,6 +21,7 @@
 
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
+#include "devdb_private.h"
 #include "stackstring/ssaccu.h"
 #include "util/dtassert.h"
 //#include "xformat/ioformat.h"
@@ -31,6 +32,12 @@
 #include "../util/neumovariant.h"
 
 using namespace devdb;
+
+
+static int last_band = -1;
+static chdb::fe_polarisation_t last_pol = chdb::fe_polarisation_t::NONE;
+static chdb::fe_polarisation_t test_pol = chdb::fe_polarisation_t::NONE;
+static int test_frequency;
 
 std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	db_txn& rtxn, const devdb::fe_key_t* fe_key_to_release,
@@ -45,18 +52,6 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 
 	auto no_best_fe_yet = [&best_fe]()
 		{ return best_fe.priority == std::numeric_limits<decltype(best_fe.priority)>::lowest(); };
-#if 0
-	auto adapter_in_use = [&rtxn, ignore_subscriptions](int adapter_no) {
-		if(ignore_subscriptions)
-			return false;
-		auto c = fe_t::find_by_adapter_no(rtxn, adapter_no);
-		for(const auto& fe: c.range()) {
-			if(fe::is_subscribed(fe))
-				return true;
-		}
-		return false;
-	};
-#endif
 	for(const auto& fe: c.range()) {
 		if (need_dvbc && (!fe.enable_dvbc || !fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_C)))
 			continue;
@@ -66,8 +61,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 		bool is_our_subscription = (ignore_subscriptions || fe.sub.subs.size()>1) ? false
 			: (fe_key_to_release && fe.k == *fe_key_to_release);
 		if(!is_subscribed  || is_our_subscription) {
-
-			//find the best fe with all required functionality, without taking into account other subscriptions
+			/* we found an fe that might work*/
 			if(!fe.present || ! fe.can_be_used)
 				continue; 			/* we can use this frontend only if it can be connected to the proper input*/
 
@@ -114,66 +108,77 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	return best_fe;
 }
 
-
-/*
-	In case two rf inputs on the same or different cards are connected to the same
-	cable, this can be indicated by rf_input_t records which for each rf input contain a
-	switch_id>=0. rf_inputs with the same switch_id care connected. rf_inputs without switch_id are not connected
-
- */
-static inline bool rf_coupler_conflict(db_txn& rtxn, const devdb::lnb_connection_t& lnb_connection,
-																			 const devdb::fe_t& fe, bool ignore_subscriptions,
-																			 chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos) {
-	if(lnb_connection.rf_coupler_id < 0 || ignore_subscriptions)
-		return false;
-	auto c = find_first<devdb::fe_t>(rtxn);
-	for(const auto &otherfe: c.range()) {
-		if(fe.k == otherfe.k)
-			continue;
-		if(otherfe.sub.rf_coupler_id < 0 || otherfe.sub.rf_coupler_id != lnb_connection.rf_coupler_id)
-			continue;
-		if(!otherfe.enable_dvbs || !devdb::fe::suports_delsys_type(otherfe, chdb::delsys_type_t::DVB_S))
-			continue; //no conflict possible (not sat)
-		if(otherfe.sub.pol != pol || otherfe.sub.band != band || otherfe.sub.usals_pos != usals_pos)
-			return true;
-	}
-	return false;
-}
-
-
-//how many active fe_t's use lnb?
-devdb::resource_subscription_counts_t
-devdb::fe::subscription_counts(db_txn& rtxn, const devdb::rf_path_t& rf_path, int rf_coupler_id,
-															 const devdb::fe_key_t* fe_key_to_release) {
+/* find the subscription counts for a specific set of resources that we need
+	 and also check if those resources are compatible with our intended use.
+	 Returns the use_counts if we we can actuually use all of the resources,
+	 otherwise returns nothing.
+	 s: subscription_parameters: owner, rf_path, pol, band, usals_pos, dish_usals_pos, rf_coupler_id
+*/
+	std::optional<resource_subscription_counts_t>
+devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
+																				const fe_subscription_t& s, //desired subscription_parameter
+																				const devdb::fe_key_t* fe_key_to_release,
+																				bool on_positioner) {
+	using namespace  devdb::fe_subscription;
 	devdb::resource_subscription_counts_t ret;
-#if 0
-	auto c = fe_t::find_by_card_mac_address(rtxn, rf_path.card_mac_address, find_type_t::find_eq,
-																					fe_t::partial_keys_t::card_mac_address);
-#else
 	auto c = devdb::find_first<devdb::fe_t>(rtxn);
-#endif
+	assert(s.owner>=0);
 	for(const auto& fe: c.range()) {
 		if( !fe::is_subscribed(fe))
 			continue;
-		if(fe.sub.owner != getpid() && kill((pid_t)fe.sub.owner, 0)) {
+		if(fe.sub.owner != s.owner && kill((pid_t)fe.sub.owner, 0)) {
 			dtdebugx("process pid=%d has died", fe.sub.owner);
 			continue;
 		}
+		/* at this point, fe is known to be subscribed*/
+
 		bool fe_will_be_released = fe_key_to_release && *fe_key_to_release == fe.k;
-		if(!fe_will_be_released) {
-			if(fe.sub.rf_path == rf_path)
-				ret.rf_path++;
-			if(fe.sub.rf_path.card_mac_address == rf_path.card_mac_address &&
-				 fe.sub.rf_path.rf_input == rf_path.rf_input)
-				ret.tuner++;
 
-			if(fe.sub.rf_coupler_id >=0 && fe.sub.rf_coupler_id == rf_coupler_id)  {
-					ret.rf_coupler++;
-			}
+		if(fe_will_be_released) {
+			assert(fe.sub.subs.size()==1);
+			auto& tst= fe.sub.subs[0];
+			/*
+				there will be no subscriptions and so no possible conflicts
+			 */
+		} else {
+			//Note: this could be our subscription, but only if it is shared by some other subscription
+			bool same_lnb = fe.sub.rf_path == s.rf_path;
+      /* dish_id < 0 is a special case: it signifies that the dish is different
+				 from any other dish*/
+			bool same_dish = fe.sub.dish_id == s.dish_id && s.dish_id >=0;
+      /* rf_cupler_id < 0 is a special case: it signifies there is no coupler*/
+			bool same_rf_coupler = fe.sub.rf_coupler_id == s.rf_coupler_id && s.rf_coupler_id >=0;
+			/*
+				check for conflicting tuner use (voltage, tone, diseqc)
+			 */
+			bool same_tuner = (fe.sub.rf_path.card_mac_address == s.rf_path.card_mac_address &&
+												 fe.sub.rf_path.rf_input == s.rf_path.rf_input);
+			bool same_sat_band_pol =  (fe.sub.usals_pos == s.usals_pos &&
+																 fe.sub.pol == s.pol && fe.sub.band == s.band);
+			bool same_positioner = same_dish && on_positioner;
+			/*
+				if sub and s share at least one resource and if either one
+				wants exclusive control, then there is a conflict
+			 */
+			if( (is_exclusive(fe.sub) || is_exclusive(s)) &&
+					(same_lnb || same_dish || same_tuner || same_rf_coupler))
+			return {};
 
-			if( fe.sub.rf_path.lnb.dish_id == rf_path.lnb.dish_id
-					|| fe.sub.rf_path == rf_path) //the last test is in case dish_id is set to -1
-				ret.dish++;
+			/*
+				if sub and s use the same dish and either one may want to move the idsh,
+				there is a conflict
+			 */
+			if( same_dish && (may_move_dish(fe.sub) || may_move_dish(s)))
+				return {};
+
+			//check for incompatible parameters
+			if( same_lnb && ! same_sat_band_pol )
+				return {};
+
+			ret.lnb += same_lnb;
+			ret.rf_coupler += same_rf_coupler;
+			ret.tuner += same_tuner;
+			ret.positioner += same_positioner;
 		}
 	}
 	return ret;
@@ -193,7 +198,7 @@ devdb::fe::subscription_counts(db_txn& rtxn, const devdb::rf_path_t& rf_path, in
 	-if need_blindscan/need_spectrum/need_multistream==true, then the returned fe will be able to
 	blindscan/spectrumscan/multistream
 
-	-pol == NONE or band==NONE or usals_pos == sat_pos_none,
+	-pol == NONE or band==NONE or dish_usals_pos == sat_pos_none,
 	 then the subscription is exclusive: no other subscription
 	 will be able to send diseqc commands to pick a different lnb, or polarisation or band
 
@@ -207,7 +212,8 @@ devdb::fe::subscription_counts(db_txn& rtxn, const devdb::rf_path_t& rf_path, in
 	 will be atomic
  */
 
-std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
+std::optional<std::tuple<devdb::fe_t, resource_subscription_counts_t>>
+fe::find_best_fe_for_lnb(
 	db_txn& rtxn, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	const devdb::fe_key_t* fe_key_to_release,
 	bool need_blindscan, bool need_spectrum, bool need_multistream,
@@ -217,14 +223,8 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 	if (!conn)
 		return {};
 	auto & lnb_connection = *conn;
-	bool need_exclusivity = pol == chdb::fe_polarisation_t::NONE ||
-		band == devdb::fe_band_t::NONE || usals_pos == sat_pos_none;
-
-	fe_t best_fe{}; //the fe that we will use
-	best_fe.priority = std::numeric_limits<decltype(best_fe.priority)>::lowest();
-
-	auto no_best_fe_yet = [&best_fe]()
-		{ return best_fe.priority == std::numeric_limits<decltype(best_fe.priority)>::lowest(); };
+	std::optional<fe_t> best_fe; //the fe that we will use
+	std::optional<resource_subscription_counts_t> best_use_counts; //the fe that we will use
 
 	/*
 		One adapter can have multiple frontends, and therefore multiple fe_t records.
@@ -244,27 +244,6 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 		return false;
 	};
 
-	/*
-		multiple LNBs can be in use on the same dish. In this case only the first
-		subscription should be able to move the dish. If any subcription uses the required dish_id,
-		we need to check if the dish is tuned to the right position.
-		Furthermore,m if we need exclusivity, we cannot use the dish at all if a subscription exists
-
-	 */
-	auto shared_positioner_conflict = [usals_pos, need_exclusivity, ignore_subscriptions]
-		(const devdb::fe_t& fe, int dish_id) {
-		if (dish_id <0)
-			return false; //lnb is on a dish of its own (otherwise user needs to set dish_id)
-		if(ignore_subscriptions)
-			return false;
-		if (fe.sub.rf_path.lnb.dish_id <0 || fe.sub.rf_path.lnb.dish_id != dish_id )
-			return false; //fe's subscribed lnb is on a dish of its own (otherwise user needs to set dish_id)
-		assert(fe.sub.rf_path.lnb.dish_id == dish_id);
-		return need_exclusivity || //exclusivity cannot be offered
-			(fe.sub.usals_pos == sat_pos_none) ||  //dish is reserved exclusively by fe
-			std::abs(usals_pos - fe.sub.usals_pos) > sat_pos_tolerance; //dish would need to be moved more than sat_pos_tolerance
-	};
-
 	auto c = fe_t::find_by_card_mac_address(rtxn, rf_path.card_mac_address, find_type_t::find_eq,
 																					fe_t::partial_keys_t::card_mac_address);
 	//loop over all frontends which can reach the lnb
@@ -274,6 +253,8 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 		bool is_our_subscription = (ignore_subscriptions || fe.sub.subs.size()>1) ? false
 			: (fe_key_to_release && fe.k == *fe_key_to_release);
 		if(!is_subscribed || is_our_subscription) {
+			/* we found an fe that is free (or that will be freed by caller now*/
+
       //find the best fe will all required functionality, without taking into account other subscriptions
 			if(!fe.can_be_used || !fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
 				continue; /* The fe does not currently exist, or it cannot use DVBS. So it
@@ -293,98 +274,80 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_lnb(
 									 */
 
 			if(!is_our_subscription && adapter_in_use(fe.adapter_no))
-				continue; /*adapter is on use for dvbc/dvt; it cannot be used, but the
+				continue; /*adapter is in use for dvbc/dvt; it cannot be used, but the
 										fe we found is not in use and cannot create conflicts with any other frontends*/
+			/*
+				check the resources which will be in use after we will have released any
+				existing resources that our caller will release
+			 */
 
-				/*
-					cables to one rf_input (tuner) on one card can be shared with another rf_input (tuner) on the same or another
-					card using external switches, which pass dc power and diseqc commands. Some switches are symmetric, i.e.,
-					let through diseqc  from both connectors, others are priority switches, with only one connector being able
-					to send diseqc commandswhen the connector with priority has dc power connected.
-
-					Note that priority switches do not need to be treated specifically as neumoDVB
-					never neither of the connectors to send diseqc, except initially when both connectors are idle.
-				*/
-
-
-			if(lnb_connection.rf_coupler_id >=0 &&
-				 rf_coupler_conflict(rtxn, lnb_connection, fe, ignore_subscriptions, pol, band, usals_pos))
+			fe_subscription_t s;
+			s.owner = getpid();
+			s.rf_path = rf_path;
+			s.pol =pol;
+			s.band = band;
+			s.usals_pos = usals_pos;
+			s.dish_id = lnb.k.dish_id;
+			s.dish_usals_pos = lnb.on_positioner ? s.usals_pos : lnb.usals_pos;
+			s.rf_coupler_id = lnb_connection.rf_coupler_id;
+			auto use_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner);
+			if(!use_counts_) {
+				dtdebugx("Cannot use this fe because of resource conflicts");
 				continue;
+			}
+			auto use_counts = *use_counts_;
+#if 0
+			int test_band = test_frequency/1000 > 11700;
+			if(last_band!=-1 && (test_band != last_band || test_pol != last_pol)) {
+				printf("here\n");
+				auto tst_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner);
+				auto x=*tst_counts_;
+			}
+			last_pol = test_pol;
+			last_band= test_band;
+#endif
 			if(need_spectrum) {
-				assert (no_best_fe_yet() || best_fe.supports.spectrum_fft || best_fe.supports.spectrum_sweep);
+				assert (!best_fe || best_fe->supports.spectrum_fft || best_fe->supports.spectrum_sweep);
 
 				if(fe.supports.spectrum_fft) { //best choice
-					if(no_best_fe_yet() ||
-						 !best_fe.supports.spectrum_fft || //fft is better
-						 (fe.priority > best_fe.priority ||
-							(fe.priority == best_fe.priority && is_our_subscription)) //prefer current adapter
-						)
+					if(!best_fe ||
+						 !best_fe->supports.spectrum_fft || //fft is better
+						 (fe.priority > best_fe->priority ||
+							(fe.priority == best_fe->priority && is_our_subscription)) //prefer current adapter
+						) {
 						best_fe = fe;
+						best_use_counts = use_counts;
+					}
 					} else if (fe.supports.spectrum_sweep) { //second best choice
-					if( no_best_fe_yet() ||
-							( !best_fe.supports.spectrum_fft && //best_fe with fft beats fe without fft
-								fe.priority > best_fe.priority ))
+					if( !best_fe ||
+							( !best_fe->supports.spectrum_fft && //best_fe with fft beats fe without fft
+								fe.priority > best_fe->priority )) {
 						best_fe = fe;
+						best_use_counts = use_counts;
+					}
 				} else {
 					//no spectrum support at all -> not useable
 				}
 			} else { /* if !need_spectrum; in this case fe's with and without fft support can be
 										used, but we prefer one without fft, to keep fft-hardware available for other
 										subscriptions*/
-				if(no_best_fe_yet() ||
-					 (best_fe.supports.spectrum_fft && !fe.supports.spectrum_fft) || //prefer non-fft
-					 (best_fe.supports.spectrum_sweep && !fe.supports.spectrum_fft
+				if( !best_fe ||
+					 ( best_fe->supports.spectrum_fft && !fe.supports.spectrum_fft) || //prefer non-fft
+					 ( best_fe->supports.spectrum_sweep && !fe.supports.spectrum_fft
 						&& !fe.supports.spectrum_sweep) || //prefer fe with least unneeded functionality
 
-					 (fe.priority > best_fe.priority ||
-						(fe.priority == best_fe.priority && is_our_subscription)) //prefer current adapter
-					)
+						(fe.priority > best_fe->priority ||
+						(fe.priority == best_fe->priority && is_our_subscription)) //prefer current adapter
+					) {
 					best_fe = fe;
+					best_use_counts = use_counts;
+				}
 			} //end of !need_spectrum
-			continue;
 		} //end of !is_subscribed
-
-		assert(is_subscribed && !is_our_subscription);
-
-		/*this fe has an active subscription and it is not our own subscription.
-			The resources it uses (RF tuner, priority switches or t-splitters, band/pol/usals_pos)
-			could conflict with the lnb we want to use. We check for all possible conflicts
-		*/
-		if(fe.sub.rf_path == rf_path) {
-      /*case 1: fe uses our lnb for another subscription; associated RF tuner is also in use
-				Check if our desired (non)exclusivity matches with other subscribers */
-			if(need_exclusivity) {
-				user_error("Cannot reserve lnb exclusively: " << lnb);
-				return {}; //only one subscriber can exclusively control the lnb (and the path to it)
-			}
-			else { /*we do not need exclusivity, and can use this lnb  provided no exclusive subscriptions exist
-							 and provided that the lnb parameters (pol/band/diseqc) are compatible*/
-				if(fe.sub.pol != pol || fe.sub.band != band || fe.sub.usals_pos != usals_pos)
-					return {}; /*parameter do not match, or some other subscription is exclusive (in the latter
-													case pol or band will be NONE or usals_pos will be sat_pos_none and the test will
-													be true;
-										 */
-			}
-		} else if (fe.sub.rf_path.rf_input == rf_path.rf_input) {
-      /*case 2: fe does not use our desired lnb, but uses the RF tuner with some other lnb.
-				We cannot use the RF tuner, so we can not use the LNB*/
-			return {};
-		} else {
-			/* case 3. the desired LNB and the desired RF tuner are not used by fe
-
-				 The remaining possible conflict is:
-				 our lnb is on a dish with a positioner, and this active frontend uses another lnb on the same dish
-				 pointing to a different sat
-			 */
-			if (lnb.on_positioner && shared_positioner_conflict (fe, rf_path.lnb.dish_id))
-				return {}; //the lnb is on a cable which is tuned to another sat/pol/band
-		}
 	}
-
-	if (no_best_fe_yet()) {
-		return {};
-	}
-	return best_fe;
+	if(best_fe)
+		return {{*best_fe, *best_use_counts}};
+	return {};
 }
 
 /*
@@ -477,26 +440,20 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			rf_path.lnb = lnb.k;
 			rf_path.card_mac_address = lnb_connection.card_mac_address;
 			rf_path.rf_input = lnb_connection.rf_input;
-			auto fe = fe::find_best_fe_for_lnb(rtxn, rf_path, lnb,
-																				 fe_key_to_release, need_blindscan, need_spectrum,
-																				 need_multistream, pol, band, usals_pos, ignore_subscriptions);
-			if(!fe) {
+			test_frequency = mux.frequency;
+			test_pol = mux.pol;
+			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
+				rtxn, rf_path, lnb, fe_key_to_release, need_blindscan, need_spectrum,
+				need_multistream, pol, band, usals_pos, ignore_subscriptions);
+			if(!fe_and_use_counts) {
 				dtdebug("LNB " << lnb << " cannot be used");
 				continue;
 			}
-
-			auto fe_prio = fe->priority;
-			auto rf_coupler_id{-1};
+			auto& [fe, use_counts ] = *fe_and_use_counts;
+			auto fe_prio = fe.priority;
 			auto* conn = connection_for_rf_path(lnb, rf_path);
-			if(conn)
-				rf_coupler_id = conn->rf_coupler_id;
-
-			auto use_counts = subscription_counts(rtxn, rf_path, rf_coupler_id, fe_key_to_release);
-
-			if(use_counts.rf_path >= 1 ||
-				 use_counts.tuner >= 1 ||
-				 use_counts.dish >=1 ||
-				 use_counts.rf_coupler >=1)
+			if(use_counts.lnb >= 1 ||
+				 use_counts.tuner >= 1)
 				fe_prio += resource_reuse_bonus;
 
 			if (lnb_priority < 0 || lnb_priority - penalty == best_lnb_prio)

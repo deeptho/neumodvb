@@ -152,7 +152,7 @@ inline std::shared_ptr<active_adapter_t> tuner_thread_t::make_active_adapter(con
 }
 
 int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& sret,
-																			 tune_options_t tune_options) {
+																			 tune_pars_t tune_pars) {
 	// check_thread();
 	dtdebugx("lnb activate subscription_id=%d", (int) subscription_id);
 	bool failed = sret.subscription_failed();
@@ -168,7 +168,7 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 		auto& aa = *sret.newaa;
 		auto active_adapter = make_active_adapter(aa.fe);
 		this->active_adapters[sret.subscription_id] = active_adapter;
-		return active_adapter->lnb_activate(aa.rf_path, aa.lnb, tune_options);
+		return active_adapter->lnb_activate(aa.rf_path, aa.lnb, tune_pars);
 	}
 	if(sret.newaa)  {
 		release_active_adapter(sret.subscription_id);
@@ -176,12 +176,12 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 		auto& aa = *sret.newaa;
 		auto& active_adapter = it->second;
 		active_adapter->fe->update_dbfe(aa.fe);
-		return active_adapter->lnb_activate(aa.rf_path, aa.lnb, tune_options);
+		return active_adapter->lnb_activate(aa.rf_path, aa.lnb, tune_pars);
 	}
 	assert(sret.sub_to_reuse == sret.subscription_id);
 	auto& active_adapter = it->second;
 	return active_adapter->lnb_activate(active_adapter->current_rf_path(),
-																			active_adapter->current_lnb(), tune_options);
+																			active_adapter->current_lnb(), tune_pars);
 }
 
 
@@ -211,10 +211,9 @@ void tuner_thread_t::add_si(active_adapter_t& active_adapter,
 }
 
 int tuner_thread_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
-															 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-															 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options,
-															 const devdb::resource_subscription_counts_t& use_counts,
-															 subscription_id_t subscription_id) {
+												 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+												 const chdb::dvbs_mux_t& mux_, tune_pars_t tune_pars,
+												 subscription_id_t subscription_id) {
 	// check_thread();
 	chdb::dvbs_mux_t mux{mux_};
 	/*
@@ -232,12 +231,12 @@ int tuner_thread_t::tune(std::shared_ptr<active_adapter_t> active_adapter,
 
 	this->active_adapters[subscription_id] = active_adapter;
 	bool user_requested = true;
-	return active_adapter->tune(rf_path, lnb, mux, tune_options, user_requested, use_counts, subscription_id);
+	return active_adapter->tune(rf_path, lnb, mux, tune_pars, user_requested, subscription_id);
 }
 
 template <typename _mux_t>
 int tuner_thread_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const _mux_t& mux_,
-															 tune_options_t tune_options,
+															 tune_pars_t tune_pars,
 															 subscription_id_t subscription_id) {
 	_mux_t mux{mux_};
 
@@ -257,17 +256,17 @@ int tuner_thread_t::tune(std::shared_ptr<active_adapter_t> active_adapter, const
 	dtdebugx("tune mux action");
 	this->active_adapters[subscription_id] = active_adapter;
 	bool user_requested = true;
-	auto ret = active_adapter->tune(mux, tune_options, user_requested, subscription_id);
+	auto ret = active_adapter->tune(mux, tune_pars, user_requested, subscription_id);
 	assert (ret>=0 || active_adapter->tune_state == active_adapter_t::TUNE_FAILED);
 	return ret;
 }
 
 template int tuner_thread_t::cb_t::tune<chdb::dvbc_mux_t>(std::shared_ptr<active_adapter_t> active_adapter,
-																													const chdb::dvbc_mux_t& mux, tune_options_t tune_options,
+																													const chdb::dvbc_mux_t& mux, tune_pars_t tune_pars,
 																													subscription_id_t subscription_id);
 
 template int tuner_thread_t::cb_t::tune<chdb::dvbt_mux_t>(std::shared_ptr<active_adapter_t> active_adapter,
-																													const chdb::dvbt_mux_t& mux, tune_options_t tune_options,
+																													const chdb::dvbt_mux_t& mux, tune_pars_t tune_pars,
 																													subscription_id_t subscription_id);
 
 int tuner_thread_t::exit() {
@@ -575,7 +574,7 @@ int tuner_thread_t::cb_t::update_current_lnb(subscription_id_t subscription_id, 
 std::tuple<subscription_id_t, std::shared_ptr<active_adapter_t>>
 tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 															const chdb::any_mux_t& mux,
-															const tune_options_t& tune_options) {
+															const tune_pars_t& tune_pars) {
 	/*In case of failure, release the resources associated with tjis subscription (active_adapter and
 		active_service)
 	*/
@@ -592,7 +591,7 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 		This will also release any resources alreay in use (active_mux and active_service) if they are no
 		longer needed.
 	 */
-	auto [ret1, active_adapter] = this->tuner_thread_t::tune_mux(sret, mux, tune_options);
+	auto [ret1, active_adapter] = this->tuner_thread_t::tune_mux(sret, mux, tune_pars);
 	if((int)ret1 < 0) {
 		release_all(sret.subscription_id);
 		return {subscription_id_t::NONE, {}};
@@ -603,20 +602,20 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 std::tuple<subscription_id_t, std::shared_ptr<active_adapter_t>>
 tuner_thread_t::cb_t::subscribe_mux(const subscribe_ret_t& sret,
 															const chdb::any_mux_t& mux,
-															const tune_options_t& tune_options) {
-	return this->tuner_thread_t::subscribe_mux(sret, mux, tune_options);
+															const tune_pars_t& tune_pars) {
+	return this->tuner_thread_t::subscribe_mux(sret, mux, tune_pars);
 }
 
 
 subscription_id_t
 tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sret,
 																				const chdb::any_mux_t& mux, recdb::rec_t& rec,
-																				const tune_options_t& tune_options) {
+																				const tune_pars_t& tune_pars) {
 	/*In case of failure, release the resources assosciated with this subscription (active_adapter and
 		active_service)
 	*/
 	assert(sret.subscription_id != subscription_id_t::NONE);
-	auto [subscription_id, active_adapter] = this->subscribe_mux(sret, mux, tune_options);
+	auto [subscription_id, active_adapter] = this->subscribe_mux(sret, mux, tune_pars);
 	assert(subscription_id == sret.subscription_id);
 	/*at this point
 		1. we have tuned to the proper mux
@@ -636,12 +635,12 @@ tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sre
 std::unique_ptr<playback_mpm_t>
 tuner_thread_t::cb_t::subscribe_service(const subscribe_ret_t& sret,
 																				const chdb::any_mux_t& mux, const chdb::service_t& service,
-																				const tune_options_t& tune_options) {
+																				const tune_pars_t& tune_pars) {
 	/*In case of failure, release the resources assosciated with this subscription (active_adapter and
 		active_service)
 	*/
 	assert(sret.subscription_id != subscription_id_t::NONE);
-	auto [subscription_id, active_adapter] = this->subscribe_mux(sret, mux, tune_options);
+	auto [subscription_id, active_adapter] = this->subscribe_mux(sret, mux, tune_pars);
 
 	assert(subscription_id == sret.subscription_id);
 	/*at this point
@@ -676,7 +675,7 @@ tuner_thread_t::cb_t::subscribe_service(const subscribe_ret_t& sret,
  */
 std::tuple<subscription_id_t, std::shared_ptr<active_adapter_t>>
 tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-												 const tune_options_t& tune_options) {
+												 const tune_pars_t& tune_pars) {
 	assert(sret.subscription_id != subscription_id_t::NONE);
 	if(sret.failed && sret.was_subscribed) {
 		release_all(sret.subscription_id);
@@ -690,11 +689,11 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	if(sret.sub_to_reuse == sret.subscription_id)  {
 		assert(old_active_adapter);
 		dtdebug("subscribe " << mux << ": already subscribed to mux");
-		if(tune_options.subscription_type == subscription_type_t::NORMAL) {
-			add_si(*old_active_adapter, mux, tune_options, sret.subscription_id);
+		if(tune_pars.tune_options.subscription_type == subscription_type_t::NORMAL) {
+			add_si(*old_active_adapter, mux, tune_pars.tune_options, sret.subscription_id);
 		} else {
 			/// during DX-ing and scanning retunes need to be forced
-			old_active_adapter->request_retune(mux, tune_options, sret.subscription_id);
+			old_active_adapter->request_retune(mux, tune_pars.tune_options, sret.subscription_id);
 		}
 		return { sret.subscription_id, old_active_adapter};
 	}
@@ -712,7 +711,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 			and then it will be deactivarted
 		*/
 		active_adapters[sret.subscription_id] = other_active_adapter;
-		add_si(*other_active_adapter, mux, tune_options, sret.subscription_id);
+		add_si(*other_active_adapter, mux, tune_pars.tune_options, sret.subscription_id);
 		dtdebug("subscribe " << mux << ": reused activate_adapter from subscription_id=" <<
 						(int)sret.sub_to_reuse);
 		return {sret.subscription_id, other_active_adapter};
@@ -730,14 +729,14 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 		dtdebugx("New active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id, (int)active_adapter->get_adapter_no());
 		visit_variant(mux,
 									[&](const chdb::dvbs_mux_t& mux) {
-										ret = this->tune(active_adapter, aa.rf_path, aa.lnb, mux, tune_options, sret.use_counts,
+										ret = this->tune(active_adapter, aa.rf_path, aa.lnb, mux, tune_pars,
 																	 sret.subscription_id);
 									},
 									[&](const chdb::dvbc_mux_t& mux) {
-										ret = this->tune(active_adapter, mux, tune_options, sret.subscription_id);
+										ret = this->tune(active_adapter, mux, tune_pars, sret.subscription_id);
 									},
 									[&](const chdb::dvbt_mux_t& mux) {
-										ret = this->tune(active_adapter, mux, tune_options, sret.subscription_id);
+										ret = this->tune(active_adapter, mux, tune_pars, sret.subscription_id);
 									}
 			);
 		if (ret < 0)
@@ -748,14 +747,14 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 		visit_variant(mux,
 									[&](const chdb::dvbs_mux_t& mux) {
 										ret = this->tune(active_adapter, active_adapter->current_rf_path(),
-																	 active_adapter->current_lnb(), mux, tune_options, sret.use_counts,
+																	 active_adapter->current_lnb(), mux, tune_pars,
 																	 sret.subscription_id);
 									},
 									[&](const chdb::dvbc_mux_t& mux) {
-										ret = this->tune(active_adapter, mux, tune_options, sret.subscription_id);
+										ret = this->tune(active_adapter, mux, tune_pars, sret.subscription_id);
 									},
 									[&](const chdb::dvbt_mux_t& mux) {
-										ret = this->tune(active_adapter, mux, tune_options, sret.subscription_id);
+										ret = this->tune(active_adapter, mux, tune_pars, sret.subscription_id);
 									}
 			);
 		if (ret < 0)
@@ -775,9 +774,9 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 std::tuple<subscription_id_t, devdb::fe_key_t>
 tuner_thread_t::cb_t::tune_mux(
 	const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-	const tune_options_t& tune_options) {
+	const tune_pars_t& tune_pars) {
 	auto [subscription_id, active_adapter] =
-		this->tuner_thread_t::tune_mux(sret, mux, tune_options);
+		this->tuner_thread_t::tune_mux(sret, mux, tune_pars);
 
 	if(!active_adapter.get())  {
 		assert(subscription_id == subscription_id_t::NONE);

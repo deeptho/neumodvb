@@ -466,11 +466,11 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	auto* p_mux_data = & it->second;
 	if(from_sdt && ! p_mux_data->have_sdt) {
 		p_mux_data->have_sdt = true;
-		dtdebug("Updated fropm sdt: " << mux);
+		dtdebug("Updated from sdt: " << mux);
 	}
 	if(!from_sdt && ! p_mux_data->have_nit) {
 		p_mux_data->have_nit = true;
-		dtdebug("Updated fropm nit: " << mux);
+		dtdebug("Updated from nit: " << mux);
 	}
 	p_mux_data->is_active_mux = is_active_mux;
 	p_mux_data->is_tuned_freq = is_tuned_freq;
@@ -573,11 +573,11 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 
 		if(from_sdt && ! p_mux_data->have_sdt) {
 			p_mux_data->have_sdt = true;
-			dtdebug("Updated fropm sdt: " << mux);
+			dtdebug("Updated from sdt: " << mux);
 		}
 		if(!from_sdt && ! p_mux_data->have_nit) {
 			p_mux_data->have_nit = true;
-			dtdebug("Updated fropm nit: " << mux);
+			dtdebug("Updated from nit: " << mux);
 		}
 		return p_mux_data;
 	}

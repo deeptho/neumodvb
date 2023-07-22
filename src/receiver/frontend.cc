@@ -783,7 +783,7 @@ fe_lock_status_t dvb_frontend_t::get_lock_status() {
 		this->sec_status.set_tune_status(false); // ensures that diseqc will be sent again
 	} else
 		this->sec_status.set_tune_status(true); // ensures that diseqc will be sent again
-	dtdebugx("lock_lost=%d", w->lock_status.lock_lost);
+	dtdebugx("lock_lost=%d locked=%d", w->lock_status.lock_lost, is_locked);
 	auto ret = w->lock_status;
 	w->lock_status.lock_lost = false;
 	return ret;

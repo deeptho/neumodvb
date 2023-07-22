@@ -114,9 +114,14 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 	case LOCKED:
 		if (lock_lost) {
 			if (is_locked) {
-				dtdebugx("Lock was lost; restarting si");
-				relocked_now = true;
-				isi_processing_done = false;
+				dtdebugx("Lock was lost");
+				/*lock ws lost according to the driver, but our si processing is still running. This is to be distinghuished
+					from after retune, in which case we are in the WAITING_FOR_LOCK state, which would need starting si from scratch.
+					TODO: Instead, we should signal to our caller a new flag "reset_si", which is incompatible with must_tune and
+					with relocked_now, and which signifies: do not retune, but close si, and restart it. "reset_si" is not suitable
+					as it allso calls "on_scan_mux_end". During scanning, we also prefer not to restart si processing, as we could
+					end up which an andlessly repeating loop.
+				 */
 			} else {
 				dtdebug("tuner no longer locked; retuning for " << current_tp());
 				must_tune = true;
@@ -334,17 +339,12 @@ void active_adapter_t::monitor() {
 				start si processing
 			*/
 			auto t = fe->ts.readAccess()->tune_pars.tune_options.scan_target;
-#if 0
-			ss::string<128> prefix;
-			prefix << "TUN" << this->get_adapter_no();
-			log4cxx::NDC ndc(prefix.c_str());
-#endif
 			init_si(t);
 			return;
 		} else {
 			if(!si.fix_tune_mux_template()) {
 				//lock was lost
-				si.reset_si(false/*close_streams*/);
+				si.reset_si(true /*close_streams*/);
 				return;
 			}
 		}
@@ -354,8 +354,8 @@ void active_adapter_t::monitor() {
 		check_isi_processing();
 	}
 	if (must_retune) {
-		dtdebug("Calling si.reset with force_finalize=true\n");
-		si.reset_si(true /*close_streams*/);
+		dtdebug("Calling si.reset with force_finalize=true");
+		si.reset_si(true /*close_streams*/); //calls on_scan_mux_end
 		visit_variant(
 			current_tp(),
 			[this](dvbs_mux_t&& mux) { retune<dvbs_mux_t>();},
@@ -700,7 +700,6 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
 		if(!add_to_running_mux)
 			set_current_tp(mux);
 		if(scan_id > 0) {
-			assert((int) subscription_id >=0 );
 			si.activate_scan(mux, subscription_id, scan_id);
 		}
 		return mux;
@@ -711,10 +710,6 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
 	Finalize all si processing, and notify scanners
  */
 void active_adapter_t::end_si() {
-#if 0 //in case tuning fails, adapter may not be open
-	if(!is_open())
-		return;
-#endif
 	for (auto& [pid, si_] : embedded_si_streams) {
 		si_.end();
 	}
@@ -946,7 +941,7 @@ void active_adapter_t::check_for_unlockable_streams()
 	auto chdb_wtxn = receiver.chdb.wtxn();
 	chdb::clear_all_streams_pending_status(chdb_wtxn, now, mux);
 	chdb_wtxn.commit();
-	dtdebug("committed");
+	dtdebug("unlockable stream: tune_state="<< tune_state);
 }
 
 void active_adapter_t::check_for_non_existing_streams()

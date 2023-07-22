@@ -287,7 +287,7 @@ bool check_schema(const dbdesc_t& stored, const dbdesc_t& current) {
 		} else {
 			if (*stored_desc != current_desc.record_desc) {
 				ret = false;
-				dtdebugx("type %ld has changed\n", type_id);
+				dtdebugx("type %ld has changed", type_id);
 			}
 		}
 	}

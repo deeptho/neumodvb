@@ -387,10 +387,10 @@ int neumodb_t::load_schema_(db_txn& txn) {
 		} else {
 			bool major_schema_change = current.schema_version	!= stored.schema_version;
 			if(major_schema_change) {
-				dtdebugx("major database schema change from version %d to %d\n",
-								 stored.schema_version, current.schema_version);
+				dtdebugx("%s: major database schema change from version %d to %d\n",
+								 db_type.c_str(), stored.schema_version, current.schema_version);
 			} else {
-				dtdebugx("minor databased schema change\n");
+				dtdebugx("minor database schema change\n");
 			}
 			schema_is_current = false;
 			/*

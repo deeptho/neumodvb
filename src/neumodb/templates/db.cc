@@ -106,12 +106,14 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 		bool inplace_upgrade = true;
 		bool dont_backup = false;
 		envp->close();
+		dttime_init();
 		auto ret=neumodb_upgrade<{{dbname}}::{{dbname}}_t>(dbpath, backup_name, force_overwrite, inplace_upgrade, dont_backup);
+		auto t = dttime(-1);
 		if(ret<0) {
-			dterrorx("Auto upgrading database %s FAILED", dbpath);
+			dterrorx("Auto upgrading database %s FAILED (upgrade time: %d.%d s)", dbpath, t/1000, t%1000);
 			throw e;
 		} else {
-			dterrorx("Auto upgrading database %s SUCCESS", dbpath);
+			dterrorx("Auto upgrading database %s SUCCESS (upgrade time: %d.%d s)", dbpath, t/1000, t%1000);
 			autoconvert = false; // prevent  a conversion loop
 			autoconvert_major_version = false;
 			//envp = std::make_shared<lmdb::env>(lmdb::env::create());

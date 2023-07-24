@@ -121,9 +121,6 @@ public:
 class tuner_thread_t::cb_t: public tuner_thread_t { //callbacks
 public:
 	int release_active_adapter(subscription_id_t subscription_id);
-#if 0
-	int remove_service(active_adapter_t& active_adapter, subscription_id_t subscription_id, active_service_t& channel);
-#endif
 	int on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt);
 	int update_service(const chdb::service_t& service);
 

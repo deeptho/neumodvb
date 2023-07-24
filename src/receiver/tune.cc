@@ -333,8 +333,9 @@ int tuner_thread_t::cb_t::release_active_adapter(subscription_id_t subscription_
 
 
 /*
-	called whenever  a new or updated epg record is found
-	also sets recording status on epg_record
+	called whenever  a new or updated epg record is found to update information shown
+	on live screen.
+	Also sets recording status on epg_record
 */
 
 void tuner_thread_t::on_epg_update(db_txn& txnepg, system_time_t now,
@@ -364,6 +365,13 @@ void tuner_thread_t::on_epg_update(db_txn& txnepg, system_time_t now,
 	return recmgr.on_epg_update(txnepg, epg_record);
 }
 
+/*
+	Called periodically to store update time for still active live buffers
+	and clean old ones.
+
+	Todo: do we need the update time? If not, this could be simplified by only updating
+	at service switch time
+ */
 void tuner_thread_t::livebuffer_db_update_(system_time_t now_) {
 	auto now = system_clock_t::to_time_t(now_);
 	// constexpr int tolerance = 15*60; //we look 15 minutes in to the future (and past
@@ -725,6 +733,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	 */
 	std::shared_ptr<active_adapter_t> active_adapter;
 	int ret{-1};
+
 	if(sret.newaa) {
 		auto& aa = *sret.newaa;
 		active_adapter = make_active_adapter(aa.fe);

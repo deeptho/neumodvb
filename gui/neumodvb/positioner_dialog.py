@@ -476,8 +476,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         mux = signal_info.driver_mux
         sat_pos_confirmed = signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
         nit_valid = mux.c.tune_src == pychdb.tune_src_t.NIT_TUNED
-        if nit_valid !=  (signal_info.received_si_mux is not None and  not signal_info.received_si_mux_is_bad):
-            print(f'nit_valid={nit_valid}  received={signal_info.received_si_mux_is_bad}')
         pol = neumodbutils.enum_to_str(mux.pol)
         if self.signal_info.nit_received:
             if nit_valid:

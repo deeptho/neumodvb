@@ -144,7 +144,7 @@ namespace ss {
 			return header.is_view();
 		}
 
-		INLINE int size() const {
+		inline int size() const {
 			return header.size();
 		}
 
@@ -152,11 +152,11 @@ namespace ss {
 			return header.capacity();
 		}
 
-		INLINE const data_t* buffer() const {
+		inline const data_t* buffer() const {
 			return header.buffer();
 		}
 
-		INLINE data_t* buffer() {
+		inline data_t* buffer() {
 			return header.buffer();
 		}
 
@@ -309,8 +309,8 @@ namespace ss {
 
 		~databuffer_();
 
-		INLINE data_t& operator[](int pos);
-		INLINE const data_t& operator[](int pos) const;
+		inline data_t& operator[](int pos);
+		inline const data_t& operator[](int pos) const;
 
 		void truncate(int _n);
 		void erase(int n);
@@ -1001,11 +1001,11 @@ namespace ss {
 			: string(x.buffer(), x.size()) {
 		}
 
-		INLINE const char* c_str() const {
+		inline const char* c_str() const {
 			return buffer();
 		}
 
-		INLINE char* c_str() {
+		inline char* c_str() {
 			return buffer();
 		}
 

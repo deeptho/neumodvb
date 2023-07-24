@@ -33,11 +33,12 @@
 
 using namespace devdb;
 
-
+#if 0
 static int last_band = -1;
 static chdb::fe_polarisation_t last_pol = chdb::fe_polarisation_t::NONE;
 static chdb::fe_polarisation_t test_pol = chdb::fe_polarisation_t::NONE;
 static int test_frequency;
+#endif
 
 std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	db_txn& rtxn, const devdb::fe_key_t* fe_key_to_release,
@@ -136,7 +137,6 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 
 		if(fe_will_be_released) {
 			assert(fe.sub.subs.size()==1);
-			auto& tst= fe.sub.subs[0];
 			/*
 				there will be no subscriptions and so no possible conflicts
 			 */
@@ -440,8 +440,10 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			rf_path.lnb = lnb.k;
 			rf_path.card_mac_address = lnb_connection.card_mac_address;
 			rf_path.rf_input = lnb_connection.rf_input;
+#if 0
 			test_frequency = mux.frequency;
 			test_pol = mux.pol;
+#endif
 			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
 				rtxn, rf_path, lnb, fe_key_to_release, need_blindscan, need_spectrum,
 				need_multistream, pol, band, usals_pos, ignore_subscriptions);
@@ -451,7 +453,6 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			}
 			auto& [fe, use_counts ] = *fe_and_use_counts;
 			auto fe_prio = fe.priority;
-			auto* conn = connection_for_rf_path(lnb, rf_path);
 			if(use_counts.lnb >= 1 ||
 				 use_counts.tuner >= 1)
 				fe_prio += resource_reuse_bonus;

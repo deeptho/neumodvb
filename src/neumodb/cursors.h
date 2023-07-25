@@ -341,7 +341,6 @@ struct db_cursor : private lmdb::cursor {
 #ifdef ASSERT_DEAD
 		assert(!dead_);
 #endif
-		if(is_valid())
 			lmdb::cursor::close();
 	}
 
@@ -438,7 +437,7 @@ struct db_cursor : private lmdb::cursor {
 		if(!txn.is_valid()) {
 			_handle = nullptr;
 		}
-		if (txn.is_valid() && is_valid()) {
+		if (txn.is_valid() && !!handle()) {
 			close(); /* !txn.is_valid() means that transaction was aborted/committed in which case low level
 									lmdb cursors have been freed*/
 		}

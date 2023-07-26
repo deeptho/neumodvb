@@ -688,7 +688,11 @@ void active_mpm_t::update_recordings(db_txn& parent_txn, system_time_t now) {
 			// rec.stream_packetno_end = stream_parser.event_handler.last_saved_marker.packetno_end;
 			rec.real_time_end = system_clock_t::to_time_t(now);
 			num++;
+#if 0
 			put_record_at_key(cr, cr.current_serialized_primary_key(), rec);
+#else
+			update_record_at_cursor(cr, rec);
+#endif
 		}
 		if (num_recordings_in_progress != num) {
 			dtdebugx("num_recordings_in_progress changed from %d to %d", num_recordings_in_progress, num);

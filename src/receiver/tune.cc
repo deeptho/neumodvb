@@ -391,7 +391,11 @@ void tuner_thread_t::livebuffer_db_update_(system_time_t now_) {
 				live_service.update_time = now;
 				dtdebug("Updating live service adapter " << aa.get_adapter_no() << " create=" << creation_time
 								<< " update=" << now);
+#if 0
 				recdb::put_record_at_key(c, c.current_serialized_primary_key(), live_service);
+#else
+				recdb::update_record_at_cursor(c, live_service);
+#endif
 			}
 		}
 	}

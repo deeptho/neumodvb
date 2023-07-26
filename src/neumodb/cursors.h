@@ -690,22 +690,20 @@ struct db_cursor : private lmdb::cursor {
 		return lmdb::dbi(this->dbi()).put(this->txn, key, val, flags);
 	}
 
+	//put a result at the current cursor position
+	void cursor_put(const lmdb::val& key, lmdb::val& val, unsigned int flags=0) {
+#ifdef ASSERT_DEAD
+		assert(!dead_);
+#endif
+		lmdb::cursor_put(this->cursor::handle(), (MDB_val*) &key, (MDB_val*) &val, MDB_RESERVE|MDB_CURRENT);
+	}
+
 	//put a key and reserve space for the result
 	auto reserve(const lmdb::val& key, lmdb::val& val, unsigned int flags=0) {
 #ifdef ASSERT_DEAD
 		assert(!dead_);
 #endif
 		return lmdb::dbi(this->dbi()).put(this->txn, key, val, flags);
-	}
-
-	//put a result at the current cursor position
-	void cursor_put(lmdb::val& val, unsigned int flags=0) {
-#ifdef ASSERT_DEAD
-		assert(!dead_);
-#endif
-		lmdb::val key{nullptr,0};
-
-		lmdb::cursor_put(this->cursor::handle(), (MDB_val*) key, (MDB_val*) val, flags);
 	}
 
 	void cursor_del(unsigned int flags=0) {
@@ -864,13 +862,22 @@ public:
 	}
 
 	//update data at the current cursor
-	void put_kv_at_cursor(const data_t& val) {
+	bool put_kv_at_cursor(const data_t& val) {
+		auto serialized_key = current_serialized_key();
 		auto val_size = serialized_size(val);
+		lmdb::val k{serialized_key.buffer(), (size_t)serialized_key.size()};
 		lmdb::val v{nullptr, (size_t)val_size};
 		//reserve enough space
-		this->cursor_put(v, MDB_RESERVE|MDB_CURRENT);
-		auto serialized_val = ss::bytebuffer_::view((uint8_t*)v.data(), v.size(), 0);
+
+		/*
+			This will also not work for a secondary key, because this needlessly encodes size twice.
+																			So we need a second version that does NOT serialize in case it is passed
+																			a bytebuffer
+		*/
+		this->cursor_put(k, v, MDB_RESERVE|MDB_CURRENT);
+		auto  serialized_val = ss::bytebuffer_::view((uint8_t*)v.data(), v.size(), 0);
 		serialize(serialized_val, val);
+		return true;
 	}
 
 

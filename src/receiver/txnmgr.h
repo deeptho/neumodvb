@@ -290,10 +290,14 @@ public:
 	 */
 	inline void release_wtxn() {
 		if(owned_wtxn) {
+			if(child_txn)
+				child_txn->abort();
 			assert(!child_txn);
 			wtxn_must_release = false;
 			reservation.release_wtxn();
 			owned_wtxn = nullptr;
+		} else {
+			assert(!child_txn);
 		}
 	}
 

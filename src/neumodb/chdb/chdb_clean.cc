@@ -36,8 +36,10 @@ using namespace chdb;
 namespace chdb {
 	template<typename mux_t> static void clean(db_txn& wtxn);
 	template<typename record_t> static void clean_expired(db_txn& wtxn, std::chrono::seconds age, const char* label);
+#if 0
 	static void clean_overlapping_muxes(db_txn& wtn, const chdb::dvbs_mux_t& mux, int sat_pos);
 	void clean_overlapping_muxes(db_txn& wtn, const chdb::dvbs_mux_t& mux);
+#endif
 };
 
 template<typename mux_t> static void chdb::clean(db_txn& wtxn) {

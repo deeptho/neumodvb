@@ -402,7 +402,11 @@ static bool save_epg_record_if_better_(db_txn& txnepg, const epgdb::epg_record_t
 #endif
 						put_record(txnepg, record);
 					} else { // record will be updated
+#if 0
 						put_record_at_key(c, c.current_serialized_primary_key(), record);
+#else
+						update_record_at_cursor(c, record);
+#endif
 					}
 					return true;
 				}

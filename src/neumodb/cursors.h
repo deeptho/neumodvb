@@ -864,16 +864,11 @@ public:
 	}
 
 	//update data at the current cursor
-	void put_kv_at_cursor(const ss::bytebuffer_& serialized_key, const data_t& val) {
-#ifndef NDEBUG
-		ss::bytebuffer<32> current_key;
-		this->get_key(current_key);
-		assert(current_key == serialized_key);
-#endif
+	void put_kv_at_cursor(const data_t& val) {
 		auto val_size = serialized_size(val);
 		lmdb::val v{nullptr, (size_t)val_size};
 		//reserve enough space
-		this->cursor_put(v, MDB_RESERVE);
+		this->cursor_put(v, MDB_RESERVE|MDB_CURRENT);
 		auto serialized_val = ss::bytebuffer_::view((uint8_t*)v.data(), v.size(), 0);
 		serialize(serialized_val, val);
 	}
@@ -1071,6 +1066,7 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 		assert(memcmp(upper_bound.buffer(), this->key_prefix.buffer(), upper_bound.size())==0);
 		return RangeAdaptor<PrimitiveCursorRange<data_t, db_tcursor_index>>(*this, upper_bound);
 	}
+	void put_kv_at_cursor(const data_t& val) =delete; //not possible for index cursor
 };
 
 #include "neumodb.h"

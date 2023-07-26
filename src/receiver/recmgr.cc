@@ -68,7 +68,11 @@ recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn,
 	auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, epgrec.k);
 	if (c.is_valid()) {
 		assert(epgrec.k.anonymous == (epgrec.k.event_id == TEMPLATE_EVENT_ID));
+#if 0
 		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epgrec);
+#else
+		epgdb::update_record_at_cursor(c, epgrec);
+#endif
 	}
 
 	return ret;
@@ -157,7 +161,11 @@ bool update_recording_epg(db_txn& epg_txn, const epgdb::epg_record_t& epgrec) {
 		existing.rec_status = epgrec.rec_status;
 		assert (!existing.k.anonymous);
 		assert( (existing.k.event_id == TEMPLATE_EVENT_ID) == existing.k.anonymous);
+#if 0
 		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
+#else
+				epgdb::update_record_at_cursor(c, existing);
+#endif
 	}
 
 	return false;
@@ -182,7 +190,11 @@ void rec_manager_t::update_recording(const recdb::rec_t& rec_in) {
 			else {
 				existing.rec_status = epgrec.rec_status;
 			//assert(existing.k.event_id != TEMPLATE_EVENT_ID);
+#if 0
 				epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
+#else
+				epgdb::update_record_at_cursor(c, existing);
+#endif
 			}
 		}
 	}
@@ -204,7 +216,11 @@ void rec_manager_t::delete_recording(const recdb::rec_t& rec) {
 		auto epg = c.current();
 		epg.rec_status = epgdb::rec_status_t::NONE;
 		assert(epg.k.anonymous == (epg.k.event_id == TEMPLATE_EVENT_ID));
+#if 0
 		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epg);
+#else
+		epgdb::update_record_at_cursor(c, epg);
+#endif
 	}
 	epg_txn.commit();
 }
@@ -392,19 +408,31 @@ void rec_manager_t::startup(system_time_t now_) {
 		if (rec.epg.end_time + rec.post_record_time < now) {
 			dtdebug("Finalising unfinished recording: at start up: " << rec);
 			rec.epg.rec_status = rec_status_t::FINISHED;
+#if 0
 			recdb::put_record_at_key(cr.maincursor, cr.current_serialized_primary_key(), rec);
+#else
+			recdb::update_record_at_cursor(cr.maincursor, rec);
+#endif
 		} else if (rec.epg.k.start_time - rec.pre_record_time <= now) {
 			// recording in progress
 			rec.epg.rec_status = rec_status_t::SCHEDULED; // will cause recording to be continued
 			rec.subscription_id = -1;											// we are called after program has exited
+#if 0
 			recdb::put_record_at_key(cr.maincursor, cr.current_serialized_primary_key(), rec);
+#else
+			recdb::update_record_at_cursor(cr.maincursor, rec);
+#endif
 			// next_recording_event_time = std::min(next_recording_event_time, rec.epg.end_time + rec.post_record_time);
 		} else {
 			// recording in future
 			dterror("Found future recording already in progress");
 			rec.epg.rec_status = rec_status_t::SCHEDULED; // will cause recording to be continued
 			rec.subscription_id = -1;											// we are called after program has exited
+#if 0
 			recdb::put_record_at_key(cr.maincursor, cr.current_serialized_primary_key(), rec);
+#else
+			recdb::update_record_at_cursor(cr.maincursor, rec);
+#endif
 			// next_recording_event_time = std::min(next_recording_event_time, rec.epg.k.start_time - rec.pre_record_time);
 		}
 		/*we could potentially abort the loop here if rec.start_time  is far enough into
@@ -422,14 +450,22 @@ void rec_manager_t::startup(system_time_t now_) {
 		if (rec.epg.end_time + rec.post_record_time < now) {
 			dtdebug("Finalising unfinised recording: at start up: " << rec);
 			rec.epg.rec_status = rec_status_t::FINISHED;
+#if 0
 			recdb::put_record_at_key(cr.maincursor, cr.current_serialized_primary_key(), rec);
+#else
+			recdb::update_record_at_cursor(cr.maincursor, rec);
+#endif
 			auto epg_txn = receiver.epgdb.wtxn();
 			auto c = epgdb::epg_record_t::find_by_key(epg_txn, rec.epg.k);
 			if (c.is_valid()) {
 				auto epg = c.current();
 				epg.rec_status = epgdb::rec_status_t::NONE;
 				assert(epg.k.anonymous == (epg.k.event_id == TEMPLATE_EVENT_ID));
+#if 0
 				epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epg);
+#else
+				epgdb::update_record_at_cursor(c, epg);
+#endif
 			}
 			epg_txn.commit();
 		}

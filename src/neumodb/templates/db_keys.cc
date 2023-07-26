@@ -116,7 +116,7 @@ namespace {{dbname}} {
 			update_log<{{struct.class_name}}>(tcursor.txn, primary_key, update_type);
 			return new_record;
 		}
-
+		{%if false %}
 	 template<>
 		 void put_record_at_key<{{struct.class_name}}>
 		 (db_tcursor<{{struct.class_name}}>& tcursor, const ss::bytebuffer_& primary_key, const {{struct.class_name}}& record)
@@ -124,6 +124,21 @@ namespace {{dbname}} {
 			 assert(!tcursor.is_index_cursor);
 			 update_secondary_keys<{{struct.class_name}}>(tcursor, primary_key, record);
 			 tcursor.put_kv(primary_key, record);
+			 auto update_type = db_txn::update_type_t::updated;
+			 update_log<{{struct.class_name}}>(tcursor.txn, primary_key, update_type);
+		 }
+		 {% endif %}
+		 /*
+			 update record at cursor assuming its primary key was not changed
+			*/
+	 template<>
+		 void update_record_at_cursor<{{struct.class_name}}>
+		 (db_tcursor<{{struct.class_name}}>& tcursor, const {{struct.class_name}}& record)
+		 {
+			 assert(!tcursor.is_index_cursor);
+			 auto primary_key = tcursor.current_serialized_primary_key();
+			 update_secondary_keys<{{struct.class_name}}>(tcursor, primary_key, record);
+			 tcursor.put_kv_at_cursor(record);
 			 auto update_type = db_txn::update_type_t::updated;
 			 update_log<{{struct.class_name}}>(tcursor.txn, primary_key, update_type);
 		 }

@@ -124,7 +124,7 @@ public:
 	epoll_t epx;
 protected:
 	std::thread thread_;
-	//std::thread::id owner;
+	std::thread::id owner; //needed to remember thread id when associated thread has exited (destructors)
 	std::future<int> status_future;
 	virtual int run() = 0;
 	virtual int exit() = 0;
@@ -208,6 +208,7 @@ public:
 		auto task = std::packaged_task<int(void)>(std::bind(&task_queue_t::run_, this));
 		status_future= task.get_future();
 		thread_= std::thread(std::move(task));
+		owner = thread_.get_id();
 	}
 
 
@@ -215,7 +216,7 @@ public:
 		return has_exited_;
 	}
 
-	void stop_running(bool wait) {
+	future_t stop_running(bool wait) {
 		assert(!must_exit_);
 
 		auto f = push_task_and_exit( [this](){
@@ -365,7 +366,7 @@ template<typename T> typename T::cb_t& cb(T& t) { //activate callbacks
 	auto* q = dynamic_cast<task_queue_t*>(&t);
 	if(!self || !q)
 		dterror("Implementation error");
-	if(std::this_thread::get_id() != q->thread_.get_id()) {
+	if(std::this_thread::get_id() != q->owner) {
 		dterror("Callback called from the wrong thread");
 		assert(0);
 	}

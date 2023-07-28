@@ -78,6 +78,12 @@ public:
 
 	int32_t make_unique_id(db_txn& txn, autorec_t& autorec);
 
+	recdb::rec_t new_recording(db_txn& rec_wtxn, const chdb::service_t& service,
+														 epgdb::epg_record_t& epgrec, int pre_record_time, int post_record_time);
+	recdb::rec_t new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn,
+														 const chdb::service_t& service, epgdb::epg_record_t& epgrec,
+														 int pre_record_time, int post_record_time);
+
 };
 
 namespace recdb::rec {

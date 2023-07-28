@@ -184,3 +184,50 @@ int32_t recdb::make_unique_id(db_txn& txn, autorec_t& autorec)
 	assert(0);
 	return -1;
 }
+
+
+
+recdb::rec_t recdb::new_recording(db_txn& rec_wtxn, const chdb::service_t& service,
+																					epgdb::epg_record_t& epgrec, int pre_record_time, int post_record_time) {
+	auto stream_time_start = milliseconds_t(0);
+	auto stream_time_end = stream_time_start;
+
+	// TODO: times in start_play_time may have a different sign than stream_times (which can be both negative and
+	// positive)
+	using namespace recdb;
+	time_t real_time_start = 0;
+	// real_time end will determine when epg recording will be stopped
+	time_t real_time_end = 0;
+	subscription_id_t subscription_id = subscription_id_t{-1};
+	using namespace recdb;
+	using namespace recdb::rec;
+	ss::string<256> filename;
+
+	const auto rec_type = rec_type_t::RECORDING;
+	assert(epgrec.rec_status != epgdb::rec_status_t::IN_PROGRESS);
+
+	epgrec.rec_status = epgdb::rec_status_t::SCHEDULED;
+	auto rec = rec_t(rec_type, -1 /*owner*/, (int)subscription_id, stream_time_start, stream_time_end,
+									 real_time_start, real_time_end,
+									 pre_record_time, post_record_time, filename, service, epgrec, {});
+	put_record(rec_wtxn, rec);
+
+	return rec;
+}
+
+/*
+	make and insert a new recording into the global recording database
+*/
+recdb::rec_t recdb::new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn,
+																					const chdb::service_t& service, epgdb::epg_record_t& epgrec,
+																	int pre_record_time, int post_record_time) {
+	auto ret = new_recording(rec_wtxn, service, epgrec, pre_record_time, post_record_time);
+
+	// update epgdb.mdb so that gui code can see the record
+	auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, epgrec.k);
+	if (c.is_valid()) {
+		assert(epgrec.k.anonymous == (epgrec.k.event_id == TEMPLATE_EVENT_ID));
+		epgdb::update_record_at_cursor(c, epgrec);
+	}
+	return ret;
+}

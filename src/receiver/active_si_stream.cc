@@ -694,8 +694,8 @@ void active_si_stream_t::process_si_data() {
 		}
 		break;
 	}
-	epgdbmgr.release_wtxn();
-	chdbmgr.release_wtxn();
+	epgdbmgr.release_wtxn(); //not needed?
+	chdbmgr.release_wtxn(); //not needed?
 	scan_report();
 	dttime(200);
 }

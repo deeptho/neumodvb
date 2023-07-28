@@ -74,6 +74,7 @@ class wtxn_reservation_t {
 
 public:
 
+	//Meyers singleton: should be tread safe, but destruction order is not specified
 	static wtxn_reservation_t& get_instance(db_t& db) {
 		static wtxn_reservation_t<db_t> ret(db);
 		return ret;
@@ -145,8 +146,7 @@ public:
 	 */
 	inline void maybe_release_wtxn() {
 		std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
-		assert(wtxn_);
-		if(thread_waiting_for_wtxn()) {
+		if(wtxn_ && thread_waiting_for_wtxn()) {
 			//other thread wants to being a wtxn
 			commit_wtxn();
 			owning_ticket = -1; //allow other threads to use the wtxn now
@@ -364,7 +364,8 @@ public:
 
 template<typename db_t>
 txn_proxy_t<db_t>::~txn_proxy_t() {
-	txnmgr->release_wtxn();
+	if(!readonly)
+		txnmgr->release_wtxn();
 }
 
 

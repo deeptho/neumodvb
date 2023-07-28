@@ -117,7 +117,7 @@ namespace epgdb {
 																																						 such in the input variable record*/);
 	bool save_epg_record_if_better(db_txn& txnepg, const epgdb::epg_record_t& record);
 
-
+	bool update_epg_recording_status(db_txn& epgdb_wtxn, const epgdb::epg_record_t& epgrec);
 
 	class gridepg_screen_t {
 		struct entry_t {

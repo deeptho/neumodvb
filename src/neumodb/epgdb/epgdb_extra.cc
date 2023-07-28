@@ -439,3 +439,26 @@ bool epgdb::save_epg_record_if_better(db_txn& txnepg, const epgdb::epg_record_t&
 	auto update_input = [](const epgdb::epg_record_t& old) {};
 	return save_epg_record_if_better_(txnepg, record, update_input);
 }
+
+
+
+/*
+	Update the recording status of epg record, but leave the rest of the record alone.
+	This is used to show on the epg screens
+*/
+bool epgdb::update_epg_recording_status(db_txn& epgdb_wtxn, const epgdb::epg_record_t& epgrec) {
+	assert( (epgrec.k.event_id == TEMPLATE_EVENT_ID) == epgrec.k.anonymous);
+
+	auto c = epgdb::epg_record_t::find_by_key(epgdb_wtxn, epgrec.k);
+	assert(c.is_valid());
+	if(!c.is_valid())
+		return true;
+	auto existing = c.current();
+	if (existing.rec_status != epgrec.rec_status) {
+		assert(existing.k.anonymous == (existing.k.event_id == TEMPLATE_EVENT_ID));
+		existing.rec_status = epgrec.rec_status;
+		assert (!existing.k.anonymous);
+		epgdb::update_record_at_cursor(c, existing);
+	}
+	return false;
+}

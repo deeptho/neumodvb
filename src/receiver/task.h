@@ -237,7 +237,6 @@ public:
 	}
 
 	task_queue_t(thread_group_t thread_group) :thread_group(thread_group)  {
-		//owner=std::this_thread::get_id();
 		epx.add_fd(int(notify_fd), EPOLLIN|EPOLLERR|EPOLLHUP);
 #ifdef DTDEBUG
 		epx.set_owner((pid_t)-1);
@@ -258,6 +257,10 @@ public:
 			ret.errmsg = user_error_;
 			return ret;
 		});
+		if(this->must_exit_) {
+			dterrorx("Ignored pushing task while exit is in progress");
+			return {};
+		}
 		auto f = task.get_future();
 
 		std::lock_guard<std::mutex> lk(mutex);
@@ -289,7 +292,6 @@ public:
 		notify_fd.reset();
 	}
 	void _pop_task() {
-		//assert(mutex.is_locked());
 		tasks.pop();
 	}
 

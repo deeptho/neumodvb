@@ -172,17 +172,19 @@ live_service = db_struct(name = 'live_service',
                         db = db,
                         type_id= ord('L'),
                         version = 1,
-                         primary_key = ('key', ('creation_time','adapter_no')), #unique
+                         primary_key = ('key', ('owner', 'subscription_id')), #unique
                          keys =  (
-                             (ord('l'), 'update_time', ('update_time',)),
-                         ),                     #unique
+                             #(ord('l'), 'update_time', ('update_time',)), #unique
+                         ),
                         fields = (
+                            (7, 'int32_t', 'owner', -1),
+                            (8, 'int32_t', 'subscription_id', -1),
                             (1, 'time_t', 'creation_time'),
-                            (2, 'uint8_t', 'adapter_no'),
-                            (3, 'time_t', 'update_time'),
-                            (4, 'chdb::service_t', 'service'),
+                            (2, 'int8_t', 'adapter_no'),
+                            (3, 'time_t', 'last_use_time', '-1'), #-1 signifies still being used
+                            (4, 'chdb::service_t', 'service'), #last used service
                             (5, 'ss::string<128>', 'dirname'),
-                            (6, 'epgdb::epg_record_t', 'epg') #currently active epg
+                            #(6, 'epgdb::epg_record_t', 'epg') #currently active epg
                         ))
 
 

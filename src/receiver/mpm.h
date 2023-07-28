@@ -121,9 +121,6 @@ public:
 	std::vector<playback_mpm_t*> playback_clients; /*for an active_mpm_t: filenos currently being played back
 																									by any passive mpms coupled to it
 																								*/
-	system_time_t last_epg_update_time{};
-	recdb::live_service_t livebuffer_desc{};
-
 	meta_marker_t() {
 		//needed to distinguish an uninitialized record from one with start==0
 		assert(current_marker.packetno_start == std::numeric_limits<uint32_t>::max());
@@ -131,10 +128,7 @@ public:
 	}
 	meta_marker_t(meta_marker_t&& other) = delete;
 	void init(system_time_t now);
-	void update_epg(const epgdb::epg_record_t& epg);
 	bool need_epg_update(system_time_t play_time) const;
-	epgdb::epg_record_t get_current_epg() const;
-
 	void register_playback_client(playback_mpm_t* client);
 	void unregister_playback_client(playback_mpm_t* client);
 	int playback_clients_newest_fileno() const;
@@ -351,8 +345,6 @@ public:
 private:
 	bool  file_used_by_recording(const recdb::file_t& file) const;
 	static ss::string<128> make_dirname(active_service_t*parent, system_time_t start_time);
-
-	void update_epg_if_needed(meta_marker_t* mm);
 	bool next_key(int parity);
 	void transfer_filemap(int fd, int64_t new_num_bytes_safe_to_read); //helper
 

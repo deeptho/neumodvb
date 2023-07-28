@@ -224,9 +224,6 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 }
 
 
-
-
-
 int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 	auto ls = stream_state.writeAccess();
 	auto langs = for_subtitles ? ls->current_streams.subtitle_langs : ls->current_streams.audio_langs;

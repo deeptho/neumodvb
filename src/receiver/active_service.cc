@@ -148,29 +148,6 @@ void service_thread_t::cb_t::forget_recording(const recdb::rec_t& rec_in) {
 	return active_service.mpm.forget_recording(rec_in);
 }
 
-/*!
-	epg_record is either an updated epg record or an epg record which was not considered
-	earlier
-
-	We maintain all relevant epg records in a time range
- */
-void active_service_t::on_epg_update(system_time_t now, const epgdb::epg_record_t& epg_record) {
-	auto now_ = system_clock_t::to_time_t(now);
-	assert(epg_record.k.service.service_id == current_service.k.service_id); // sanity check
-	if (epg_record.end_time < system_clock_t::to_time_t(mpm.creation_time))
-		return; // record is too old; do not update
-	if (epg_record.k.start_time > now_ + 120 * 60)
-		return; // record is too new; do not update
-	auto txnrecepg = mpm.db->mpm_rec.recepgdb.wtxn();
-	auto ret = epgdb::save_epg_record_if_better(txnrecepg, epg_record);
-	if (ret) {
-		if (epg_record.k.start_time <= now_ && now_ < epg_record.end_time) {
-			auto mm = mpm.meta_marker.writeAccess();
-			mm->update_epg(epg_record);
-		}
-	}
-	txnrecepg.commit();
-}
 
 void active_service_t::save_pmt(system_time_t now_, const pmt_info_t& pmt_info) {
 	auto now = system_clock_t::to_time_t(now_);
@@ -199,10 +176,6 @@ playback_info_t active_service_t::get_current_program_info() const {
 	ret.play_time = mm->livebuffer_end_time;
 	ret.is_recording= false;
 	return ret;
-}
-
-void service_thread_t::cb_t::on_epg_update(system_time_t now, const epgdb::epg_record_t& epg_record) {
-	active_service.on_epg_update(now, epg_record);
 }
 
 /*
@@ -362,43 +335,6 @@ void active_service_t::update_pmt_pid(int new_pmt_pid) {
 	 */
 }
 
-
-/*!
-	Add newer epg records which are not yet present
- */
-void active_service_t::update_epg_(db_txn& parent_txn, const system_time_t now, meta_marker_t* mm) {
-	auto now_ = system_clock_t::to_time_t(now);
-	auto dst_epg_txn = parent_txn.child_txn(mpm.db->mpm_rec.recepgdb);
-	auto src_epg_txn = receiver.epgdb.rtxn();
-	auto start = now;
-	auto timeshift_duration = receiver.options.readAccess()->timeshift_duration;
-	for (;;) {
-		auto rec = epgdb::running_now(src_epg_txn, current_service.k, start);
-		if (!rec)
-			break; // no more records
-		if (rec->k.start_time > system_clock_t::to_time_t(now + timeshift_duration))
-			break;
-		put_record(dst_epg_txn, *rec);
-		if ((*rec).k.start_time <= now_ && now_ < (*rec).end_time && mm) {
-			mm->update_epg(*rec);
-			mm = nullptr;
-		}
-		start = system_clock_t::from_time_t(rec->end_time + 1); // so that we can find the next record
-	}
-	dst_epg_txn.commit();
-}
-
-void active_service_t::update_epg(system_time_t now, meta_marker_t* mm) {
-	auto txn = mpm.db->mpm_rec.idxdb.wtxn();
-	if (!mm) {
-		auto w = mpm.meta_marker.writeAccess();
-		update_epg_(txn, now, &*w); // get initial epg
-	} else {
-		update_epg_(txn, now, mm); // get initial epg
-	}
-	txn.commit();
-}
-
 /*!
 	periodically called to remove old data in timeshift bufferl so that it does not grow larger than
 	what user wants
@@ -549,26 +485,14 @@ void active_service_t::mark_ecm_sent(bool odd, uint16_t ecm_pid, system_time_t t
 	}
 }
 
-recdb::live_service_t active_service_t::get_live_service() const {
-
-	auto epg = mpm.meta_marker.readAccess()->get_current_epg();
+recdb::live_service_t active_service_t::get_live_service(subscription_id_t subscription_id) const {
 	const char* p = mpm.dirname.c_str() + receiver.options.readAccess()->live_path.size();
 	if (p[0] == '/')
 		p++;
 	assert(p - mpm.dirname.c_str() < mpm.dirname.size());
-	return recdb::live_service_t(system_clock_t::to_time_t(mpm.creation_time), get_adapter_no(),
-															 system_clock_t::to_time_t(now), get_current_service(), p, epg);
-}
-
-recdb::live_service_t active_service_t::get_live_service_key() const {
-
-	const char* p = mpm.dirname.c_str() + receiver.options.readAccess()->live_path.size();
-	if (p[0] == '/')
-		p++;
-	recdb::live_service_t ret{};
-	ret.creation_time = system_clock_t::to_time_t(mpm.creation_time);
-	ret.adapter_no = get_adapter_no();
-	return ret;
+	return recdb::live_service_t(getpid() /*owner*/ , (int)subscription_id,
+															 system_clock_t::to_time_t(mpm.creation_time), get_adapter_no(),
+															 system_clock_t::to_time_t(now), get_current_service(), p/*, epg*/);
 }
 
 std::unique_ptr<playback_mpm_t> active_service_t::make_client_mpm(subscription_id_t subscription_id) {

@@ -105,12 +105,8 @@ private:
 	int deactivate();
 	//int run();
 	void update_pmt(const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data);
-
-	void on_epg_update(system_time_t now, const epgdb::epg_record_t& epg_record);
 	void save_pmt(system_time_t now, const pmt_info_t& pmt_info);
  public:
-	void update_epg_(db_txn& parent_txn, const system_time_t now, meta_marker_t* mm);
-	void update_epg(const system_time_t now, meta_marker_t* mm = nullptr);
 
 	int open();
 	void close();
@@ -132,8 +128,7 @@ private:
 		return mpm.creation_time;
 	}
 
-	recdb::live_service_t get_live_service() const;
-	recdb::live_service_t get_live_service_key() const;
+	recdb::live_service_t get_live_service(subscription_id_t subscription_id) const;
 	std::unique_ptr<playback_mpm_t> make_client_mpm(subscription_id_t subscription_id);
 
 	bool need_decryption();

@@ -33,6 +33,7 @@ class LanguageDialog(LanguageDialog_):
         self.basic = True
         self.readonly = True
         self.dark_mode = dark_mode
+        self.for_subtitles = for_subtitles
         kwds['title'] = "Subtitle Language" if for_subtitles else "Audio language"
         kwds['style'] = wx.BORDER_NONE
         super().__init__(parent, *args, **kwds)
@@ -42,7 +43,8 @@ class LanguageDialog(LanguageDialog_):
         set_gtk_window_name(self, 'language_dialog')
     def Prepare(self, lnbgrid):
         self.languagegrid = LanguageGrid(self, self.parent, self.basic, self.readonly, self.languagelist_panel, \
-                                             wx.ID_ANY, size=(-1, -1), dark_mode = self.dark_mode)
+                                         wx.ID_ANY, size=(-1, -1), dark_mode = self.dark_mode,
+                                         for_subtitles = self.for_subtitles)
         self.languagegrid_sizer.Add(self.languagegrid, 1, wx.ALL | wx.EXPAND | wx.FIXED_MINSIZE, 1)
         self.languagegrid.SetFocus()
         #num_cols = self.languagegrid.table.GetNumberCols()

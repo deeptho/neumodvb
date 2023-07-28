@@ -108,13 +108,14 @@ class LanguageTable(NeumoTable):
         self.screen = screen_if_t(service_language_screen_t(self), self.sort_order==2)
 
 class LanguageGrid(NeumoGridBase):
-    def __init__(self, dialog, parent, basic, readonly, *args, dark_mode=False, **kwds):
+    def __init__(self, dialog, parent, basic, readonly, *args, dark_mode=False, for_subtitles=False,
+                 **kwds):
         self.dark_mode = True
         self.parent = parent
         self.dialog = dialog
         self.dark_mode = dark_mode
         mpv = wx.GetApp().current_mpv_player
-        table = LanguageTable(self, mpv)
+        table = LanguageTable(self, mpv, for_subtitles= for_subtitles)
         assert readonly
         assert basic
         super().__init__(basic, readonly, table, *args, dark_mode=dark_mode, fontscale=1.5, **kwds)

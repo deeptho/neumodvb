@@ -92,6 +92,12 @@ int task_queue_t::run_tasks(system_time_t now_, bool do_acknowledge) {
 				// dtdebug("empty");
 				break;
 			}
+			if(has_exited_) {
+				dtdebug("Ignoring tasks after exit");
+				tasks = {};
+				break;
+			}
+
 			task = std::move(tasks.front());
 			// dtdebug("pop task");
 			tasks.pop();
@@ -106,8 +112,6 @@ int task_queue_t::run_tasks(system_time_t now_, bool do_acknowledge) {
 	}
 	return count;
 }
-
-
 
 
 /*
@@ -152,13 +156,16 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 
 	/* The active_adapter is no longer in use; so ask tuner thread to release it.
 	 */
-	auto& tuner_thread = receiver.tuner_thread;
-	futures.push_back(receiver.tuner_thread.push_task([&tuner_thread, subscription_id]() {
-		auto ret = cb(tuner_thread).release_active_adapter(subscription_id);
-		if (ret < 0)
-			dterrorx("deactivate returned %d", ret);
-		return ret;
-	}));
+	{
+		auto w = this->active_adaptersx.writeAccess();
+		auto& m = *w;
+	auto [it, found] = find_in_map(m, subscription_id);
+	assert(found);
+	auto& tuner_thread = it->second->tuner_thread;
+	//ask tuner thread to exit, but do not wait
+	futures.push_back(tuner_thread.stop_running(false/*wait*/));
+	m.erase(it); //if this is the last reference, it will release the tuner_thread
+	}
 }
 
 
@@ -232,14 +239,17 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 		user_error("Service reservation failed: " << service);
 		return {};
 	}
-	auto& tuner_thread = receiver.tuner_thread;
+
+	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	assert(active_adapter_p);
+	auto& aa = *active_adapter_p;
 	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
 		.may_move_dish = sret.may_move_dish};
 
 	std::unique_ptr<playback_mpm_t> playback_mpm_ptr;
-	futures.push_back(tuner_thread.push_task([&playback_mpm_ptr, &tuner_thread, &mux, &service, &sret,
+	futures.push_back(aa.tuner_thread.push_task([&playback_mpm_ptr, &aa, &mux, &service, &sret,
 																						&tune_pars]() {
-		playback_mpm_ptr = cb(tuner_thread).subscribe_service(sret, mux, service, tune_pars);
+		playback_mpm_ptr = cb(aa.tuner_thread).subscribe_service(sret, mux, service, tune_pars);
 			return 0;
 	}));
 	wait_for_all(futures); //essential
@@ -287,23 +297,27 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 	if(sret.failed) {
 		return subscription_id_t::NONE;
 	}
-	auto& tuner_thread = receiver.tuner_thread;
+
+	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	assert(active_adapter_p);
+	auto& aa = *active_adapter_p;
+
 	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
 		.may_move_dish = sret.may_move_dish};
 
-	futures.push_back(tuner_thread.push_task([&tuner_thread, mux, rec, sret,
+	futures.push_back(aa.tuner_thread.push_task([&aa, mux, rec, sret,
 																						tune_pars]() mutable {
-		cb(tuner_thread).subscribe_service_for_recording(sret, mux, rec, tune_pars);
+		cb(aa.tuner_thread).subscribe_service_for_recording(sret, mux, rec, tune_pars);
 		return 0;
 	}));
 	return sret.subscription_id;
 }
 
 receiver_thread_t::receiver_thread_t(receiver_t& receiver_)
-	: task_queue_t(thread_group_t::receiver), adaptermgr(adaptermgr_t::make(receiver_))
+	: task_queue_t(thread_group_t::receiver),
+		adaptermgr(adaptermgr_t::make(receiver_))
 		//, rec_manager_thread(*this)
-	,
-		receiver(receiver_) {}
+	, receiver(receiver_) {}
 
 int receiver_thread_t::exit() {
 	dtdebug("Receiver thread exiting");
@@ -324,8 +338,24 @@ int receiver_thread_t::exit() {
 	dtdebug("Receiver thread exiting -starting to wait");
 	wait_for_all(futures, true /*clear_all_errors*/);
 
-	dtdebug("Receiver thread exiting -stopping tuner");
-	receiver.tuner_thread.stop_running(true);
+	dtdebug("Receiver thread exiting -stopping recmgr");
+	receiver.rec_manager.recmgr_thread.stop_running(true);
+
+	dtdebug("Receiver thread exiting -stopping tuner threads");
+	{
+		auto w = active_adaptersx.writeAccess();
+		auto& m = *w;
+		for(auto& [ subscription_id, aa] : m) {
+			auto& tuner_thread = aa->tuner_thread;
+			//ask tuner thread to exit, but do not wait
+			futures.push_back(tuner_thread.stop_running(false/*wait*/));
+		}
+	}
+	wait_for_all(futures, true /*clear all errors*/);
+	{
+		auto w = active_adaptersx.writeAccess();
+		w->clear();
+	}
 
 	dtdebug("Receiver thread exiting - stopping scam");
 	receiver.scam_thread.stop_running(true);
@@ -448,14 +478,15 @@ receiver_thread_t::subscribe_mux(
 
 	if(sret.failed)
 		return subscription_id_t::RESERVATION_FAILED;
-
-	auto& tuner_thread = receiver.tuner_thread;
+	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	assert(active_adapter_p);
+	auto& aa = *active_adapter_p;
 	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
 		.may_move_dish = sret.may_move_dish};
 
-	futures.push_back(tuner_thread.push_task([&tuner_thread, mux, sret,
+	futures.push_back(aa.tuner_thread.push_task([&aa, mux, sret,
 																						tune_pars]() {
-		cb(tuner_thread).subscribe_mux(sret, mux, tune_pars);
+		cb(aa.tuner_thread).subscribe_mux(sret, mux, tune_pars);
 			return 0;
 	}));
 
@@ -564,6 +595,43 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 		return {ret_subscription_id, subscribed_fe_key};
 }
 
+active_adapter_t* receiver_thread_t::find_or_create_active_adapter
+(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,  const subscribe_ret_t& sret)
+{
+	bool failed = sret.subscription_failed();
+	if(failed) {
+		release_active_adapter(futures, devdb_wtxn, sret.subscription_id);
+		return nullptr;
+	}
+	{
+		auto w = this->active_adaptersx.writeAccess();
+		auto& m = *w;
+
+		if((int)sret.sub_to_reuse >=0 && sret.sub_to_reuse != sret.subscription_id) {
+			auto [it, found] = find_in_map(m, sret.subscription_id);
+			assert(found);
+			m[sret.subscription_id] = it->second;
+			return it->second.get();
+		}
+		assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
+		auto [it, found] = find_in_map(m, sret.subscription_id);
+		if(found)
+			return it->second.get();
+	}
+
+	assert(!sret.retune);
+	assert(sret.newaa);
+	auto dvb_frontend = receiver.fe_for_dbfe(sret.newaa->fe.k);
+	auto aa = std::make_shared<active_adapter_t>(receiver,
+																							 dvb_frontend);
+	{
+		auto w = this->active_adaptersx.writeAccess();
+		auto& m = *w;
+		m[sret.subscription_id] = aa;
+	}
+	return aa.get();
+}
+
 subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 																									 devdb::rf_path_t& rf_path,
 																									 devdb::lnb_t& lnb, tune_options_t tune_options,
@@ -589,12 +657,16 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	if(sret.failed) {
 		return subscription_id_t::RESERVATION_FAILED;
 	}
-	auto& tuner_thread = receiver.tuner_thread;
 	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
 		.may_move_dish = sret.may_move_dish};
 
-	futures.push_back(tuner_thread.push_task([this, subscription_id, sret, tune_pars]() {
-		auto ret = cb(receiver.tuner_thread).lnb_activate(subscription_id, sret, tune_pars);
+	dtdebugx("lnb activate subscription_id=%d", (int) sret.subscription_id);
+	auto* activate_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	assert(activate_adapter_p);
+	auto& aa = *activate_adapter_p;
+
+	futures.push_back(aa.tuner_thread.push_task([&aa, subscription_id, sret, tune_pars]() {
+		auto ret = cb(aa.tuner_thread).lnb_activate(subscription_id, sret, tune_pars);
 		if (ret < 0)
 			dterrorx("tune returned %d", ret);
 		return ret;
@@ -811,13 +883,14 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, const epgdb::e
 	dtdebugx("epg=%s", to_str(epg_record).c_str());
 	//call by reference allows because of subsequent .get
 	int ret{-1};
-	auto f = tuner_thread.push_task([this, &ret, &service, &epg_record]() {
-		ret=cb(tuner_thread).toggle_recording(service, epg_record);
+	auto& recmgr_thread = rec_manager.recmgr_thread;
+	recmgr_thread.push_task([&recmgr_thread, &ret, &service, &epg_record]() {
+		ret=cb(recmgr_thread).toggle_recording(service, epg_record);
 		return 0;
-	});
-	f.wait();
+	}).wait();
+
 	if(ret<0)
-		 this->global_subscriber->notify_error(get_error());
+		global_subscriber->notify_error(get_error());
 	return ret;
 }
 
@@ -1110,12 +1183,15 @@ void receiver_t::start_recording(const recdb::rec_t& rec_in) {
 }
 
 int receiver_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
-	tuner_thread 	//call by reference ok because of subsequent .wait
-		.push_task([this, &service, &epg_record]() {
-			cb(tuner_thread).toggle_recording(service, epg_record);
+
+	auto& recmgr_thread = rec_manager.recmgr_thread;
+	recmgr_thread 	//call by reference ok because of subsequent .wait
+		.push_task([&recmgr_thread, &service, &epg_record]() {
+			cb(recmgr_thread).toggle_recording(service, epg_record);
 			return 0;
 		})
 		.wait();
+
 	return 0;
 }
 
@@ -1132,9 +1208,10 @@ int receiver_t::toggle_recording(const chdb::service_t& service) {
 }
 
 int receiver_t::update_autorec(recdb::autorec_t& autorec) {
-	tuner_thread 	//call by reference ok because of subsequent .wait
-		.push_task([this, &autorec]() {
-			cb(tuner_thread).update_autorec(autorec);
+
+	auto& recmgr_thread = rec_manager.recmgr_thread;
+	recmgr_thread.push_task([&recmgr_thread, &autorec]() { 	//call by reference ok because of subsequent .wait
+			cb(recmgr_thread).update_autorec(autorec);
 			return 0;
 		})
 		.wait();
@@ -1142,11 +1219,13 @@ int receiver_t::update_autorec(recdb::autorec_t& autorec) {
 }
 
 int receiver_t::delete_autorec(const recdb::autorec_t& autorec) {
-	tuner_thread 	//call by reference ok because of subsequent .wait
-		.push_task([this, autorec]() {
-			cb(tuner_thread).delete_autorec(autorec);
+	auto& recmgr_thread = rec_manager.recmgr_thread;
+
+	recmgr_thread 	//call by reference ok because of subsequent .wait
+		.push_task([&recmgr_thread, autorec]() {
+			cb(recmgr_thread).delete_autorec(autorec);
 			return 0;
-		});
+		}).wait();
 	return 0;
 }
 
@@ -1190,7 +1269,7 @@ bool receiver_t::init() {
 receiver_t::receiver_t(const neumo_options_t* options)
 	: receiver_thread(*this)
 	, scam_thread(receiver_thread)
-	, tuner_thread(*this)
+	, rec_manager(*this)
 	, browse_history(chdb)
 	, rec_browse_history(recdb)
 {
@@ -1227,7 +1306,7 @@ int receiver_thread_t::run() {
 	adaptermgr->start();
 	epoll_add_fd(adaptermgr->inotfd, EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET);
 	now = system_clock_t::now();
-	receiver.tuner_thread.start_running();
+	receiver.rec_manager.recmgr_thread.start_running();
 	double period_sec = 2.0;
 	timer_start(period_sec);
 
@@ -1591,14 +1670,6 @@ subscription_id_t receiver_t::unsubscribe(subscription_id_t subscription_id) {
 	return subscription_id_t::NONE;
 }
 
-#if 0
-inline std::shared_ptr<active_adapter_t> receiver_thread_t::make_active_adapter(const devdb::fe_t& dbfe) {
-	auto dvb_frontend = adaptermgr->find_fe(dbfe.k);
-	dvb_frontend->update_dbfe(dbfe);
-	return std::make_shared<active_adapter_t>(receiver, dvb_frontend);
-}
-#endif
-
 std::tuple<std::string, int> receiver_thread_t::get_api_type() const {
 	return this->adaptermgr->get_api_type();
 }
@@ -1631,6 +1702,36 @@ int receiver_thread_t::cb_t::update_usals_pos(const devdb::lnb_t& lnb) {
 	return ret;
 }
 
+/*
+	Only exception would be when receiver_thread is shutting down while update_current_lnb is being
+	called. This could be prevented by setting a use count (outside of active_adapter)
+ */
+int receiver_thread_t::cb_t::update_current_lnb(subscription_id_t subscription_id, const devdb::lnb_t& lnb)
+{
+	auto aa = receiver.find_active_adapter(subscription_id);
+	bool usals_pos_changed{false};
+	if(aa) {
+		usals_pos_changed = cb(aa->tuner_thread).update_current_lnb(subscription_id, lnb);
+	};
+
+	if(usals_pos_changed) {
+		update_usals_pos(lnb);
+	}
+	return usals_pos_changed;
+}
+
+int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd,
+																				 int par) {
+	auto aa = receiver.find_active_adapter(subscription_id);
+	int ret{-1};
+	if(aa) {
+		aa->tuner_thread.push_task([subscription_id, &aa, cmd, par, &ret]() {
+			ret = cb(aa->tuner_thread).positioner_cmd(subscription_id, cmd, par);
+			return 0;
+		}).wait();
+	}
+	return ret;
+}
 
 thread_local thread_group_t thread_group{thread_group_t::unknown};
 

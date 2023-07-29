@@ -384,7 +384,7 @@ private:
 	start_recording(subscription_id_t subscription_id, recdb::rec_t rec /*not a reference!*/);
 
 	int stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& copy_command);
-	void forget_recording(const recdb::rec_t& r);
+	void forget_recording_in_livebuffer(const recdb::rec_t& r);
 
 	void delete_recording(db_txn& parent_txn, uint32_t event_id, system_time_t now);
 	void update_recording(recdb::rec_t&rec, const chdb::service_t& service,

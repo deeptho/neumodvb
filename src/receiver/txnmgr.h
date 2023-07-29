@@ -125,7 +125,8 @@ public:
 	 */
 	void release_wtxn(bool force_commit=false) {
 		std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
-		assert(wtxn_);
+		if(!wtxn_)
+			return;
 		if(force_commit || release_should_commit()) {
 			commit_wtxn();
 		}

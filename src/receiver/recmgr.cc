@@ -21,93 +21,29 @@
 #include "recmgr.h"
 #include "active_service.h"
 #include "receiver.h"
+#include "neumodb/chdb/chdb_extra.h"
 #include <filesystem>
 #include <signal.h>
 
 namespace fs = std::filesystem;
 
-/*
-	make and insert a new recording into the global recording database
-*/
-recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, const chdb::service_t& service,
-																					epgdb::epg_record_t& epgrec, int pre_record_time, int post_record_time) {
-	auto stream_time_start = milliseconds_t(0);
-	auto stream_time_end = stream_time_start;
-
-	// TODO: times in start_play_time may have a different sign than stream_times (which can be both negative and
-	// positive)
-	using namespace recdb;
-	time_t real_time_start = 0;
-	// real_time end will determine when epg recording will be stopped
-	time_t real_time_end = 0;
-	subscription_id_t subscription_id = subscription_id_t{-1};
-	using namespace recdb;
-	using namespace recdb::rec;
-	ss::string<256> filename;
-
-	const auto rec_type = rec_type_t::RECORDING;
-	assert(epgrec.rec_status != epgdb::rec_status_t::IN_PROGRESS);
-
-	epgrec.rec_status = epgdb::rec_status_t::SCHEDULED;
-	auto rec = rec_t(rec_type, -1 /*owner*/, (int)subscription_id, stream_time_start, stream_time_end,
-									 real_time_start, real_time_end,
-									 pre_record_time, post_record_time, filename, service, epgrec, {});
-	put_record(rec_wtxn, rec);
-
-	return rec;
-}
-/*
-	make and insert a new recording into the global recording database
-*/
-recdb::rec_t rec_manager_t::new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn,
-																					const chdb::service_t& service, epgdb::epg_record_t& epgrec,
-																					int pre_record_time, int post_record_time) {
-	auto ret = new_recording(rec_wtxn, service, epgrec, pre_record_time, post_record_time);
-
-	// update epgdb.mdb so that gui code can see the record
-	auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, epgrec.k);
-	if (c.is_valid()) {
-		assert(epgrec.k.anonymous == (epgrec.k.event_id == TEMPLATE_EVENT_ID));
-#if 0
-		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epgrec);
-#else
-		epgdb::update_record_at_cursor(c, epgrec);
-#endif
-	}
-
-	return ret;
-}
-
-void rec_manager_t::add_live_buffer(active_service_t& active_service) {
-	using namespace recdb;
-	auto l = active_service.get_live_service();
-	auto txn = receiver.recdb.wtxn();
-	put_record(txn, l);
-	txn.commit();
-}
-
-void rec_manager_t::remove_live_buffer(active_service_t& active_service) {
-	using namespace recdb;
-	auto l = active_service.get_live_service_key();
-	auto txn = receiver.recdb.wtxn();
-	delete_record(txn, l);
-	txn.commit();
-}
 
 /*
 	called at startup to clean old livebuffers
 */
-void rec_manager_t::remove_livebuffers() {
+void recmgr_thread_t::remove_old_livebuffers() {
 	using namespace recdb;
-	auto txn = receiver.recdb.wtxn();
+	auto txn = recdbmgr.wtxn();
 	auto c = find_first<recdb::live_service_t>(txn);
 
 	auto r = receiver.options.readAccess();
 	auto& options = *r;
-
-	for (; c.is_valid(); c.next()) {
-		auto mpm = c.current();
-		auto path = fs::path(options.live_path.c_str()) / mpm.dirname.c_str();
+	for (auto live_service: c.range()) {
+		//do not remove livebuffers from other processes
+		bool not_active = (live_service.owner >=0 && !kill((pid_t)live_service.owner, 0));
+		if(not_active)
+			continue;
+		auto path = fs::path(options.live_path.c_str()) / live_service.dirname.c_str();
 		auto dbpath = path / "index.mdb";
 		mpm_index_t mpm_index(dbpath.c_str());
 		mpm_index.open_index();
@@ -132,76 +68,25 @@ void rec_manager_t::remove_livebuffers() {
 		if (ec) {
 			dterror("Error deleting " << path << ":" << ec.message());
 		} else if (ret)
-			dtdebugx("deleted live buffer %s", mpm.dirname.c_str());
+			dtdebugx("deleted live buffer %s", live_service.dirname.c_str());
 		delete_record_at_cursor(c);
 	}
+	c.destroy();
 	txn.commit();
+	recdbmgr.flush_wtxn();
 }
 
-/*
-	called when service or epgrec has changed (e.g., on_epg_update, so that also rec must change) or
-	when status of recording changes
-
-	Note that this is called from the tuner thread, which is the same thread calling epg code.
-	We count on that to avoid races.
-
-*/
-
-bool update_recording_epg(db_txn& epg_txn, const epgdb::epg_record_t& epgrec) {
-	using namespace recdb;
-	using namespace recdb::rec;
-	assert( (epgrec.k.event_id == TEMPLATE_EVENT_ID) == epgrec.k.anonymous);
-
-	auto c = epgdb::epg_record_t::find_by_key(epg_txn, epgrec.k);
-	assert (c.is_valid());
-
-	const auto& existing = c.current();
-	if (existing.rec_status != epgrec.rec_status) { // epgrec can come from stream!
-		auto existing = c.current();
-		existing.rec_status = epgrec.rec_status;
-		assert (!existing.k.anonymous);
-		assert( (existing.k.event_id == TEMPLATE_EVENT_ID) == existing.k.anonymous);
-#if 0
-		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
-#else
-				epgdb::update_record_at_cursor(c, existing);
-#endif
-	}
-
-	return false;
-}
-
-void rec_manager_t::update_recording(const recdb::rec_t& rec_in) {
+void recmgr_thread_t::update_recording(const recdb::rec_t& rec_in) {
 	auto txn = receiver.recdb.wtxn();
 	put_record(txn, rec_in);
 	txn.commit();
-	auto epg_txn = receiver.epgdb.wtxn();
+	auto epgdb_wtxn = receiver.epgdb.wtxn();
 	auto& epgrec = rec_in.epg;
-	auto c = epgdb::epg_record_t::find_by_key(epg_txn, epgrec.k);
-	if (c.is_valid()) {
-		const auto& existing = c.current();
-		if (existing.rec_status != epgrec.rec_status) { // epgrec can come from stream!
-			auto existing = c.current();
-			assert (existing.k.anonymous == (existing.k.event_id == TEMPLATE_EVENT_ID));
-			if (existing.k.anonymous &&
-					(epgrec.rec_status == epgdb::rec_status_t::FINISHED ||
-					 epgrec.rec_status == epgdb::rec_status_t::FINISHING))
-				delete_record(epg_txn, existing); //anonymous recordings are shown on epg screen until they are finised.
-			else {
-				existing.rec_status = epgrec.rec_status;
-			//assert(existing.k.event_id != TEMPLATE_EVENT_ID);
-#if 0
-				epgdb::put_record_at_key(c, c.current_serialized_primary_key(), existing);
-#else
-				epgdb::update_record_at_cursor(c, existing);
-#endif
-			}
-		}
-	}
-	epg_txn.commit();
+	epgdb::update_epg_recording_status(epgdb_wtxn, epgrec);
+	epgdb_wtxn.commit();
 }
 
-void rec_manager_t::delete_recording(const recdb::rec_t& rec) {
+void recmgr_thread_t::delete_recording(const recdb::rec_t& rec) {
 
 	using namespace recdb;
 	using namespace recdb::rec;
@@ -228,7 +113,7 @@ void rec_manager_t::delete_recording(const recdb::rec_t& rec) {
 /*
 	schedule recordings for all epg records overlapping with sched_epg_record
 */
-int rec_manager_t::schedule_recordings_for_overlapping_epg(db_txn& rec_wtxn, db_txn& epg_wtxn,
+int recmgr_thread_t::schedule_recordings_for_overlapping_epg(db_txn& rec_wtxn, db_txn& epg_wtxn,
 																													 const chdb::service_t& service,
 																													 epgdb::epg_record_t sched_epg_record) {
 	assert(sched_epg_record.k.anonymous == (sched_epg_record.k.event_id == TEMPLATE_EVENT_ID));
@@ -270,12 +155,12 @@ int rec_manager_t::schedule_recordings_for_overlapping_epg(db_txn& rec_wtxn, db_
 		put_record(epg_wtxn, epg);
 		/*also create a recording for this program;
 		 */
-		new_recording(rec_wtxn, service, epg, pre_record_time, post_record_time);
+		recdb::new_recording(rec_wtxn, service, epg, pre_record_time, post_record_time);
 	}
 	return 0;
 }
 
-int rec_manager_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb::epg_record_t sched_epg_record,
+int recmgr_thread_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb::epg_record_t sched_epg_record,
 																					int maxgap) {
 	assert(sched_epg_record.k.event_id == TEMPLATE_EVENT_ID);
 	assert (sched_epg_record.k.anonymous);
@@ -313,7 +198,7 @@ int rec_manager_t::new_anonymous_schedrec(const chdb::service_t& service, epgdb:
 	insert a new recording into the database.
 
 */
-int rec_manager_t::new_schedrec(const chdb::service_t& service, epgdb::epg_record_t sched_epg_record) {
+int recmgr_thread_t::new_schedrec(const chdb::service_t& service, epgdb::epg_record_t sched_epg_record) {
 	/*
 		set a flag in the epg database such that epg lists can show the recording status.
 
@@ -374,7 +259,7 @@ int rec_manager_t::new_schedrec(const chdb::service_t& service, epgdb::epg_recor
 	return 0;
 }
 
-int rec_manager_t::delete_schedrec(const recdb::rec_t& rec) {
+int recmgr_thread_t::delete_schedrec(const recdb::rec_t& rec) {
 	/*
 		not updating next_recording_event_time will only result in a false wakeup
 
@@ -391,7 +276,7 @@ int rec_manager_t::delete_schedrec(const recdb::rec_t& rec) {
 	return 0;
 }
 
-void rec_manager_t::startup(system_time_t now_) {
+void recmgr_thread_t::startup(system_time_t now_) {
 	auto now = system_clock_t::to_time_t(now_);
 	/*
 		Check for recordings still in progress due to an earlier crash
@@ -471,7 +356,7 @@ void rec_manager_t::startup(system_time_t now_) {
 		}
 	}
 	parent_txn.commit();
-	remove_livebuffers();
+	remove_old_livebuffers();
 }
 
 /*
@@ -501,7 +386,7 @@ void rec_manager_t::startup(system_time_t now_) {
 	global recdb database; when new epg arrives we check if this data
 	needs an update
 */
-void rec_manager_t::adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn, db_txn& epg_wtxn,
+void recmgr_thread_t::adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn, db_txn& epg_wtxn,
 																														 recdb::rec_t& rec,
 																														 epgdb::epg_record_t& epg_record) {
 
@@ -586,149 +471,26 @@ void rec_manager_t::adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn, d
 	}
 }
 
-void rec_manager_t::on_epg_update_check_recordings(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record)
-{
-	using namespace recdb;
-	auto rec_rtxn = receiver.recdb.rtxn();
-
-	/*
-		In recdb, find the recordings which match the new/changed epg record, and update them.
-		Only ongoing or future recordings are returned by recdb::rec::best_matching
-
-		In case of anonymous recordings, we may have an overlapping anonymous and non-anonymous
-		recording. When updating an anonymous recording, we enter a new non-anonymous recording as well,
-		but we should only do this once. Therefore, we first check for non-anonymous matches
-		and if we find one, we do not create a new non-anonymous recording;
-	*/
-	for(int anonymous = 0; anonymous < 2; ++anonymous)
-		if (auto rec_ = recdb::rec::best_matching(rec_rtxn, epg_record, anonymous)) {
-
-			auto& rec = *rec_;
-			assert (anonymous == rec.epg.k.anonymous);
-			assert (anonymous == (rec.epg.k.event_id == TEMPLATE_EVENT_ID));
-			bool rec_key_changed = (epg_record.k != rec.epg.k); // can happen when start_time changed
-			if (epg_record.rec_status == epgdb::rec_status_t::NONE) {
-				epg_record.rec_status = epgdb::rec_status_t::SCHEDULED; //tag epg record as being scheduled for recording
-				update_recording_epg(epg_wtxn, epg_record);
-			}
-
-			auto rec_wtxn = recdbmgr.wtxn();
-
-			if (anonymous) {
-				/* we found a matching anonymous recording and we did not match a non-anonymous recording earlier.
-					 In this case we need to create a new recording for the matching epg record
-				*/
-				auto r = receiver.options.readAccess();
-				auto& options = *r;
-				new_recording(rec_wtxn, rec.service, epg_record, options.pre_record_time.count(),
-											options.post_record_time.count());
-			} else {
-				/* we found a matching non-anonymous recording. In this case we need to update the epg record
-					 for the recording
-				*/
-
-				if (rec_key_changed)
-					delete_record(rec_wtxn, rec);
-
-				rec.epg = epg_record;
-				put_record(rec_wtxn, rec);
-			}
-			rec_rtxn.commit();
-			rec_wtxn.commit();
-			return;
-		}
-	rec_rtxn.commit();
-}
-
-void rec_manager_t::on_epg_update_check_autorecs(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record)
-{
-
-	using namespace recdb;
-	using namespace std::chrono;
-	auto rec_rtxn = receiver.recdb.rtxn();
-	auto service_key = epg_record.k.service;
-
-	//find all autorecs related to this service
-	auto c =  autorec_t::find_by_service(rec_rtxn, service_key,
-																			 find_type_t::find_geq, autorec_t::partial_keys_t::service,
-																			 autorec_t::partial_keys_t::service);
-
-
-	if(!c.is_valid())
-		return;
-	auto start_time = system_clock::from_time_t(epg_record.k.start_time);
-	auto tp = zoned_time(current_zone(), floor<std::chrono::seconds>(start_time));
-
-	auto const info = tp.get_time_zone()->get_info(start_time);
-	start_time += info.offset;
-
-	auto dp = std::chrono::floor<std::chrono::days>(start_time);
-	hh_mm_ss t{std::chrono::floor<std::chrono::seconds>(start_time-dp)};
-
-	int start_seconds = t.minutes().count()*60;
-	int duration = epg_record.end_time - epg_record.k.start_time;
-
-	auto rec_wtxn = recdbmgr.wtxn();
-	for(auto autorec: c.range()) {
-		if(start_seconds < autorec.starts_after || start_seconds > autorec.starts_before)
-			continue; //no match
-		if(duration < autorec.min_duration || duration > autorec.max_duration)
-			continue; //no match
-		if(autorec.event_name_contains.size() >0 &&
-			 strcasestr(epg_record.event_name.c_str(), autorec.event_name_contains.c_str()) == nullptr)
-			continue;
-		if(autorec.story_contains.size() >0 &&
-			 strcasestr(epg_record.story.c_str(), autorec.story_contains.c_str()) == nullptr)
-			continue;
-
-		if (epg_record.rec_status == epgdb::rec_status_t::NONE) {
-			epg_record.rec_status = epgdb::rec_status_t::SCHEDULED; //tag epg record as being scheduled for recording
-			update_recording_epg(epg_wtxn, epg_record);
-		}
-		auto cr =  rec_t::find_by_key(rec_rtxn, epg_record.k);
-		if(cr.is_valid())
-			continue; //recording already created
-		auto r = receiver.options.readAccess();
-		auto& options = *r;
-		auto chdb_rtxn = receiver.chdb.rtxn();
-		auto cs = chdb::service_t::find_by_key(chdb_rtxn, epg_record.k.service.mux,
-																					 epg_record.k.service.service_id);
-		if(cs.is_valid()) {
-			auto service = cs.current();
-			new_recording(rec_wtxn, service, epg_record, options.pre_record_time.count(),
-										options.post_record_time.count());
-		}
-		chdb_rtxn.abort();
-	}
-	rec_wtxn.commit();
-}
-
-void rec_manager_t::on_epg_update(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record) {
-	on_epg_update_check_recordings(epg_wtxn, epg_record);
-	on_epg_update_check_autorecs(epg_wtxn, epg_record);
-}
-
-
 /*
 	For each recording in progress, check if it should be stopped
 	and stop if needed
 */
-
-void rec_manager_t::stop_recordings(db_txn& rtxn, system_time_t now_) {
+void recmgr_thread_t::stop_recordings(db_txn& recdb_rtxn, system_time_t now_) {
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace recdb;
 	// auto cr = recdb::rec::find_first(parent_txn);
-	auto cr = rec_t::find_by_status_start_time(rtxn, epgdb::rec_status_t::IN_PROGRESS, find_type_t::find_geq,
+	auto cr = rec_t::find_by_status_start_time(recdb_rtxn, epgdb::rec_status_t::IN_PROGRESS, find_type_t::find_geq,
 																						 rec_t::partial_keys_t::rec_status);
-
 	for (auto rec : cr.range()) {
 		assert(rec.epg.rec_status == epgdb::rec_status_t::IN_PROGRESS);
 		if (rec.epg.end_time + rec.post_record_time < now) {
 			next_recording_event_time = std::min(next_recording_event_time, rec.epg.end_time + rec.post_record_time);
 			dtdebug("END recording " << rec);
-			receiver.tuner_thread.stop_recording(rec);
+			stop_recording(rec);
+#if 0 //TO CHECK: not needed and counter productive?
 			rec.epg.rec_status = epgdb::rec_status_t::FINISHING;
 			update_recording(rec);
+#endif
 		}
 	}
 }
@@ -738,7 +500,7 @@ void rec_manager_t::stop_recordings(db_txn& rtxn, system_time_t now_) {
 	and act accordingly
 */
 
-void rec_manager_t::start_recordings(db_txn& rtxn, system_time_t now_) {
+void recmgr_thread_t::start_recordings(db_txn& rtxn, system_time_t now_) {
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace recdb;
 	using namespace epgdb;
@@ -807,7 +569,7 @@ void rec_manager_t::start_recordings(db_txn& rtxn, system_time_t now_) {
 	}
 }
 
-int rec_manager_t::housekeeping(system_time_t now) {
+int recmgr_thread_t::housekeeping(system_time_t now) {
 	ss::string<128> prefix;
 	prefix << "-RECMGR-HOUSEKEEPING";
 	log4cxx::NDC ndc(prefix.c_str());
@@ -827,6 +589,7 @@ int rec_manager_t::housekeeping(system_time_t now) {
 
 rec_manager_t::rec_manager_t(receiver_t& receiver_)
 	: recdbmgr(receiver_.recdb)
+	, recmgr_thread(receiver_, *this)
 	, receiver(receiver_) {
 }
 
@@ -835,10 +598,10 @@ rec_manager_t::rec_manager_t(receiver_t& receiver_)
 	returns true if a recording is active, but not in our process
  */
 static inline bool not_ours_and_active(recdb::rec_t & rec) {
-	return rec.owner != 0 && rec.owner != getpid() && !kill((pid_t)rec.owner,0);
+	return rec.owner != -1 && rec.owner != getpid() && !kill((pid_t)rec.owner, 0);
 }
 
-int rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
+int recmgr_thread_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
 	auto x = to_str(epg_record);
 	dtdebugx("toggle_recording: %s", x.c_str());
 	int ret = -1;
@@ -851,7 +614,7 @@ int rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb:
 		bool found{false};
 		if (auto rec = recdb::rec::best_matching(txn, epg_record, anonymous)) {
 			if(not_ours_and_active(*rec)) {
-				user_error("Cannot change recording of other process: " << *rec);
+				user_error("Cannot change recording of another active process: " << *rec);
 				error |= true;
 				return false;
 			}
@@ -867,7 +630,7 @@ int rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb:
 				break;
 			case epgdb::rec_status_t::IN_PROGRESS: {
 				dtdebug("Toggle: Stop running recording " << to_str(*rec));
-				receiver.tuner_thread.stop_recording(*rec);
+				stop_recording(*rec);
 				rec->epg.rec_status = epgdb::rec_status_t::FINISHED;
 				update_recording(*rec);
 				break;
@@ -910,7 +673,7 @@ int rec_manager_t::toggle_recording(const chdb::service_t& service, const epgdb:
 	return 0;
 }
 
-void rec_manager_t::update_autorec(recdb::autorec_t& autorec) {
+void recmgr_thread_t::update_autorec(recdb::autorec_t& autorec) {
 	db_txn recdb_wtxn = receiver.recdb.wtxn();
 	if(autorec.id <0) { //template
 		recdb::make_unique_id(recdb_wtxn, autorec);
@@ -924,7 +687,7 @@ void rec_manager_t::update_autorec(recdb::autorec_t& autorec) {
 	next_recording_event_time = std::numeric_limits<time_t>::min();
 }
 
-void rec_manager_t::delete_autorec(const recdb::autorec_t& autorec) {
+void recmgr_thread_t::delete_autorec(const recdb::autorec_t& autorec) {
 	db_txn recdb_wtxn = receiver.recdb.wtxn();
 	delete_record(recdb_wtxn, autorec);
 	recdb_wtxn.commit();
@@ -941,4 +704,188 @@ void mpm_recordings_t::open(const char* name) {
 
 	recepgdb.open_secondary("epg");
 	idxdb.open_secondary("idx");
+}
+
+void recmgr_thread_t::clean_dbs(system_time_t now, bool at_start) {
+	{
+		auto wtxn = receiver.chdb.wtxn();
+		chdb::chdb_t::clean_log(wtxn);
+		if(at_start)
+			chdb::clean_scan_status(wtxn);
+		if(at_start) {
+			//ancient ubuntu does not know std::chrono::months{1}; hence use hours
+			chdb::clean_expired_services(wtxn, std::chrono::hours{24*30});
+		}
+		wtxn.commit();
+	}
+	{
+		auto wtxn = receiver.recdb.wtxn();
+		recdb::recdb_t::clean_log(wtxn);
+		wtxn.commit();
+	}
+	{
+		auto wtxn = receiver.statdb.wtxn();
+		statdb::statdb_t::clean_log(wtxn);
+		wtxn.commit();
+	}
+
+	if (now > next_epg_clean_time) {
+		auto wtxn = receiver.epgdb.wtxn();
+		epgdb::clean(wtxn, now - 4h); // preserve last 4 hours
+		wtxn.commit();
+		next_epg_clean_time = now + 12h;
+	}
+}
+
+void recmgr_thread_t::stop_recording(const recdb::rec_t& rec) // important that this is not a reference (async called)
+{
+	if(rec.owner != getpid()) {
+		dterror("Error stopping recording we don't own: " << rec);
+		return;
+	}
+
+	assert(rec.subscription_id >= 0);
+	if (rec.subscription_id < 0)
+		return;
+
+	auto subscription_id = subscription_id_t{rec.subscription_id};
+	auto active_adapter = receiver.find_active_adapter(subscription_id);
+	mpm_copylist_t copy_list;
+	int ret;
+	auto& tuner_thread = active_adapter->tuner_thread; //call by reference safe because of subsequent .wait
+	tuner_thread.push_task([&tuner_thread, &rec, &copy_list, &ret]() {
+		ret=cb(tuner_thread).stop_recording(rec, copy_list);
+		return 0;
+	}).wait();
+	if (ret >= 0) {
+		assert(copy_list.rec.epg.rec_status == epgdb::rec_status_t::FINISHED);
+		copy_list.run();
+	}
+	update_recording(copy_list.rec);
+
+	auto& receiver_thread = receiver.receiver_thread;
+	receiver_thread.push_task([&receiver_thread, subscription_id]() {
+		cb(receiver_thread).unsubscribe(subscription_id);
+		return 0;
+	});
+
+}
+
+int recmgr_thread_t::run() {
+	thread_id = std::this_thread::get_id();
+	/*TODO: The timer below is used to gather signal strength, cnr and ber.
+		When used from a gui, it may be better to let the gui handle this asynchronously
+	*/
+	set_name("tuner");
+	logger = Logger::getLogger("recmgr"); // override default logger for this thread
+	double period_sec = 1.0;
+	timer_start(period_sec);
+	now = system_clock_t::now();
+	clean_dbs(now, true);
+	startup(now);
+	for (;;) {
+		auto n = epoll_wait(2000);
+		if (n < 0) {
+			dterrorx("error in poll: %s", strerror(errno));
+			continue;
+		}
+		now = system_clock_t::now();
+		// printf("n=%d\n", n);
+		for (auto evt = next_event(); evt; evt = next_event()) {
+			if (is_event_fd(evt)) {
+				ss::string<128> prefix;
+				prefix << "RECMGR-CMD";
+				log4cxx::NDC ndc(prefix.c_str());
+				// an external request was received
+				// run_tasks returns -1 if we must exit
+				if (run_tasks(now) < 0) {
+					// detach();
+					return 0;
+				}
+			} else if (is_timer_fd(evt)) {
+				dttime_init();
+				clean_dbs(now, false);
+				dttime(100);
+				housekeeping(now);
+				dttime(100);
+				livebuffer_db_update.run([this](system_time_t now) { livebuffer_db_update_(now); }, now);
+				dttime(100);
+				auto delay = dttime(-1);
+				if (delay >= 500)
+					dterrorx("clean cycle took too long delay=%d", delay);
+			} else {
+			}
+		}
+	}
+	return 0;
+}
+
+int recmgr_thread_t::cb_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
+	return this->recmgr_thread_t::toggle_recording(service, epg_record);
+}
+
+void recmgr_thread_t::cb_t::update_autorec(recdb::autorec_t& autorec)
+{
+	this->recmgr_thread_t::update_autorec(autorec);
+}
+
+void recmgr_thread_t::cb_t::delete_autorec(const recdb::autorec_t& autorec)
+{
+	this->recmgr_thread_t::delete_autorec(autorec);
+}
+
+recmgr_thread_t::recmgr_thread_t(receiver_t& receiver_, rec_manager_t& recmgr)
+	: task_queue_t(thread_group_t::tuner)
+	, receiver(receiver_)
+	, livebuffer_db_update(60)
+	, recmgr(recmgr)
+	, recdbmgr(receiver.recdb)
+{
+}
+
+recmgr_thread_t::~recmgr_thread_t() {
+	//exit();
+}
+
+int recmgr_thread_t::exit() {
+	dtdebugx("recmgr exit");
+	return 0;
+}
+
+/*
+	Called periodically to store update time for still active live buffers
+	and clean old ones.
+
+	Todo: do we need the update time? If not, this could be simplified by only updating
+	at service switch time
+ */
+void recmgr_thread_t::livebuffer_db_update_(system_time_t now_) {
+	auto now = system_clock_t::to_time_t(now_);
+	// constexpr int tolerance = 15*60; //we look 15 minutes in to the future (and past
+	auto recdb_wtxn = recdbmgr.wtxn();
+	auto recdb_rtxn = recdbmgr.wtxn();
+	auto retention_time = receiver.options.readAccess()->livebuffer_retention_time.count();
+	auto c = find_first<recdb::live_service_t>(recdb_rtxn);
+	auto pid =getpid();
+	for (auto live_service : c.range()) {
+		if((int) live_service.owner != pid)
+			continue; //leave other processes alone
+		if (live_service.last_use_time >= now - retention_time)
+			continue;
+
+		dtdebug("Removing old live buffer: adapter " << (int)live_service.adapter_no <<
+						" created=" << live_service.creation_time << " end=" << live_service.last_use_time<<
+						" update=" << now);
+		ss::string<128> dirname;
+		{
+			auto r = receiver.options.readAccess();
+			dirname.sprintf("%s/%s", r->live_path.c_str(), live_service.dirname.c_str());
+		}
+		dtdebugx("DELETING TIMESHIFT DIR %s\n", dirname.c_str());
+		rmpath(dirname.c_str());
+		delete_record(recdb_wtxn, live_service);
+	}
+	c.destroy();
+	recdb_wtxn.commit();
+	recdb_rtxn.commit();
 }

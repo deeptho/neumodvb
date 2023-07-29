@@ -66,7 +66,7 @@ ss::string<32> active_scam_t::name() const {
 	return ret;
 }
 
-active_scam_t::active_scam_t(scam_t* parent_, receiver_t& receiver, tuner_thread_t& tuner_thread,
+active_scam_t::active_scam_t(scam_t* parent_, receiver_t& receiver,
 														 active_service_t& active_service)
 	: active_stream_t(receiver, active_service.clone_stream_reader(220*dtdemux::ts_packet_t::size)) //10 sections
 	, parent (parent_)
@@ -1137,7 +1137,7 @@ int scam_t::register_active_service_if_needed(active_service_t* active_service, 
 	auto& active_scam = active_scams[adapter_no_t(adapter_no)];
 
 	if (!active_scam) {
-		active_scam = std::make_shared<active_scam_t>(this, active_service->receiver, active_service->receiver.tuner_thread,
+		active_scam = std::make_shared<active_scam_t>(this, active_service->receiver,
 																									*active_service);
 	}
 

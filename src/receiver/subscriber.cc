@@ -139,20 +139,13 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::r
 }
 
 void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
-	auto& tuner_thread = receiver->tuner_thread;
+	auto& receiver_thread = receiver->receiver_thread;
 	//call by reference ok because of subsequent wait_for_all
 	auto subscription_id = this->subscription_id;
-	bool usals_pos_changed{false};
-	tuner_thread.push_task([&lnb, &tuner_thread, subscription_id, &usals_pos_changed]()
-		{ usals_pos_changed = cb(tuner_thread).update_current_lnb(subscription_id, lnb);
-			return 0;
-		}).wait();
-	if(usals_pos_changed) {
-		auto& receiver_thread = receiver->receiver_thread;
-		receiver_thread.push_task([&lnb, &receiver_thread]() { cb(receiver_thread).update_usals_pos(lnb);
-				return 0;
-			}).wait();
-	}
+	receiver_thread.push_task([&lnb, &receiver_thread, subscription_id]() {
+		cb(receiver_thread).update_current_lnb(subscription_id, lnb);
+		return 0;
+	}).wait();
 }
 
 int subscriber_t::unsubscribe() {
@@ -182,12 +175,12 @@ int subscriber_t::unsubscribe() {
 }
 
 int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
-	auto& tuner_thread = receiver->tuner_thread;
+	auto& receiver_thread = receiver->receiver_thread;
 	int ret = -1;
-	tuner_thread //call by reference ok because of subsequent wait_for_all
+	receiver_thread //call by reference ok because of subsequent wait_for_all
 		.push_task([subscription_id = this->subscription_id,
-								&tuner_thread, cmd, par, &ret]() { // epg_record passed by value
-			ret = cb(tuner_thread).positioner_cmd(subscription_id, cmd, par);
+								&receiver_thread, cmd, par, &ret]() { // epg_record passed by value
+			ret = cb(receiver_thread).positioner_cmd(subscription_id, cmd, par);
 			return 0;
 		})
 		.wait();

@@ -44,8 +44,6 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 	friend class service_thread_t;
 	friend class open_channel_parser_t;
 	friend class active_mpm_t;
-	rec_manager_t& recmgr;
-	tuner_thread_t& tuner_thread;
 	mutable std::mutex mutex;
 	//the following fields can be modified and should not be accessed/modified without locikng a mutex
 	chdb::service_t current_service; //current channel
@@ -96,7 +94,7 @@ private:
 
 	active_mpm_t mpm;
 	periodic_t periodic;
-
+	void destroy();
 	int create_recording_in_filesystem(const recdb::rec_t& rec);
 	void update_audio_languages(const pmt_info_t& pmt);
 	void update_subtitle_languages(const pmt_info_t& pmt);
@@ -112,10 +110,11 @@ private:
 	void close();
 
 		//void process_psi(int pid, unsigned char* payload, int payload_size);
-	active_service_t(rec_manager_t& recmgr, active_adapter_t& active_adapter, const std::shared_ptr<stream_reader_t>& reader);
-
-	active_service_t(rec_manager_t& recmgr, active_adapter_t& active_adapter, const chdb::service_t& ch,
+	active_service_t(receiver_t& receiver, active_adapter_t& active_adapter,
 									 const std::shared_ptr<stream_reader_t>& reader);
+
+	active_service_t(receiver_t& receiver, active_adapter_t& active_adapter,
+									 const chdb::service_t& ch, const std::shared_ptr<stream_reader_t>& reader);
 
 	virtual ~active_service_t() final;
 

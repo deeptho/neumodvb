@@ -137,8 +137,6 @@ class active_adapter_t final : public  std::enable_shared_from_this<active_adapt
 
 public:
 	receiver_t& receiver;
-	rec_manager_t& recmgr;
-
 	const std::shared_ptr<dvb_frontend_t> fe; //accessible by other threads (with some care?)
 private:
 /*
@@ -199,7 +197,8 @@ private:
 	subscription_id_t start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec);
 #endif
 public: //this data is safe to access from other threads
-	tuner_thread_t& tuner_thread; //There is only one tuner thread for the whole process
+
+	tuner_thread_t tuner_thread;
 
 	chdb::any_mux_t current_mux() const {  //currently tuned transponder
 		return current_tp();
@@ -262,11 +261,8 @@ private:
 	void check_for_new_streams();
 	void check_for_unlockable_streams();
 	void check_for_non_existing_streams();
-	int stop_recording(subscription_id_t subscription_id, const recdb::rec_t& key, mpm_copylist_t& copy_commands);
 public:
-
-	active_adapter_t(receiver_t& receiver_, rec_manager_t& recmgr,
-									 std::shared_ptr<dvb_frontend_t>& fe_);
+	active_adapter_t(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_);
 	active_adapter_t(active_adapter_t&& other) = delete;
 	active_adapter_t(const active_adapter_t& other) = delete;
 
@@ -290,6 +286,7 @@ public:
 
 private:
 	void reset();
+	void destroy(); //called from tuner_thread on exit
 	template<typename mux_t> inline int retune();
 	int restart_tune(const chdb::any_mux_t& mux);
 

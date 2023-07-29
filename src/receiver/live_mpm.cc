@@ -422,6 +422,9 @@ void mpm_copylist_t::run(db_txn& txn) {
 	copy data and database records from a live recording into a recording
 	TODO: this code needs to be also called from the livebuffer cleanup code,
 	to recover after a crash
+
+	called from recmgr at startup to clean old livebuffers
+	Also called from active_mpmt_t at end of recording
 */
 
 int finalize_recording(db_txn& livebuffer_idxdb_rtxn, mpm_copylist_t& copy_command, mpm_index_t* db) {
@@ -625,7 +628,7 @@ int active_mpm_t::stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& cop
 	return 0;
 }
 
-void active_mpm_t::forget_recording(const recdb::rec_t& rec) {
+void active_mpm_t::forget_recording_in_livebuffer(const recdb::rec_t& rec) {
 	/*delete the recording in the livebuffer's database, marking that recording has been
 		successfully moved to the recording
 	*/
@@ -640,7 +643,7 @@ void active_mpm_t::update_recording(recdb::rec_t& rec, const chdb::service_t& se
 																		const epgdb::epg_record_t& epgrec) {
 	auto rec_wtxn = db->mpm_rec.recdb.wtxn();
 	auto recepg_txn = rec_wtxn.child_txn(db->mpm_rec.recepgdb);
-	update_recording_epg(recepg_txn, epgrec);
+	epgdb::update_epg_recording_status(recepg_txn, epgrec);
 	recepg_txn.commit();
 	rec_wtxn.commit();
 }

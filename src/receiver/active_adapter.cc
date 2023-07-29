@@ -261,6 +261,12 @@ int active_adapter_t::tune(const mux_t& mux_, tune_pars_t tune_pars, bool user_r
 
 
 int active_adapter_t::remove_all_services() {
+	std::vector<task_queue_t::future_t> futures;
+	for(auto& [subscription_id, aa] : subscribed_active_services) {
+		auto& service_thread = aa->service_thread;
+		futures.push_back(service_thread.stop_running(false/*wait*/));
+	}
+	wait_for_all(futures, true /*clear all errors*/);
 	subscribed_active_services.clear();
 	return 0;
 }
@@ -274,6 +280,9 @@ int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 	auto& active_service = *it->second;
 	auto service = active_service.get_current_service();
 	dtdebug("Removing service for subscription " << (int) subscription_id << ": service=" << service);
+	tuner_thread.remove_live_buffer(subscription_id);
+	auto& service_thread = active_service.service_thread;
+	service_thread.stop_running(false/*wait*/);
 	subscribed_active_services.erase(it);
 	return 0;
 }
@@ -394,25 +403,33 @@ int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 	return ret;
 }
 
-active_adapter_t::active_adapter_t(receiver_t& receiver_, rec_manager_t& recmgr_,
+active_adapter_t::active_adapter_t(receiver_t& receiver_,
 																	 std::shared_ptr<dvb_frontend_t>& fe_)
 
 	: receiver(receiver_)
-	, recmgr(recmgr_)
 	, fe(fe_)
-	, tuner_thread(receiver_.tuner_thread)
+	, tuner_thread(receiver_, *this)
 	,	si(receiver, std::make_unique<dvb_stream_reader_t>(*this, -1), false)
 {
+	tuner_thread.start_running();
+}
+
+void active_adapter_t::destroy() {
+#ifndef NDEBUG
+	cb(tuner_thread); //test being called from correct thread
+	assert(!tuner_thread.has_exited());
+#endif
+	dtdebugx("~active_adapter_t: %p. Adapter %d frontend %d destroyed", this, get_adapter_no(), frontend_no());
+	this->deactivate();
+	dtdebugx("calling deactivate adapter %d done", this->get_adapter_no());
 }
 
 
 active_adapter_t::~active_adapter_t() {
 #ifndef NDEBUG
-	cb(tuner_thread); //test being called from correct thread
+	assert(tuner_thread.has_exited());
 #endif
 	dtdebugx("~active_adapter_t: %p. Adapter %d frontend %d destroyed", this, get_adapter_no(), frontend_no());
-	this->deactivate();
-	dtdebugx("calling deactivate adapter %d done", this->get_adapter_no());
 }
 
 int active_adapter_t::open_demux(int mode) const {
@@ -1004,8 +1021,7 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 
 	auto reader = service.k.mux.t2mi_pid >= 0 ? this->make_embedded_stream_reader(mux)
 		: this->make_dvb_stream_reader();
-	active_service_ptr = std::make_shared<active_service_t>(tuner_thread.recmgr, *this, service, std::move(reader));
-
+	active_service_ptr = std::make_shared<active_service_t>(receiver, *this, service, std::move(reader));
 	log4cxx::NDC::pop();
 	auto& active_service = *active_service_ptr;
 
@@ -1023,7 +1039,8 @@ active_adapter_t::tune_service_for_viewing(const subscribe_ret_t& sret,
 															 const chdb::service_t& service) {
 	auto active_servicep = tune_service(sret, mux, service);
 	if(active_servicep) {
-		recmgr.add_live_buffer(*active_servicep);
+		auto live_service = active_servicep->get_live_service(sret.subscription_id);
+		tuner_thread.add_live_buffer(live_service);
 		return active_servicep->make_client_mpm(sret.subscription_id);
 	}
 	else
@@ -1038,7 +1055,8 @@ active_adapter_t::tune_service_for_recording(const subscribe_ret_t& sret,
 	if(!active_servicep)
 		return {};
 	active_servicep->start_recording(sret.subscription_id, rec);
-	recmgr.add_live_buffer(*active_servicep);
+	auto live_service = active_servicep->get_live_service(sret.subscription_id);
+	tuner_thread.add_live_buffer(live_service);
 	return active_servicep->start_recording(sret.subscription_id, rec);
 }
 
@@ -1076,22 +1094,6 @@ active_adapter_t::active_service_for_subscription(subscription_id_t subscription
 	return found ? it->second : std::shared_ptr<active_service_t>{};
 }
 
-
-int active_adapter_t::stop_recording(subscription_id_t subscription_id,
-																		 const recdb::rec_t& rec, mpm_copylist_t& copy_commands){
-	auto active_service_p = active_service_for_subscription(subscription_id);
-	assert(active_service_p);
-	auto& as = *active_service_p;
-	int ret{-1};
-	as.service_thread //call by refenrece safe, because of subsequent .wait
-		.push_task([&as, &copy_commands, &rec, &ret]() {
-					ret = cb(as.service_thread).stop_recording(rec, copy_commands);
-					return 0;
-		})
-		.wait();
-
-	return ret;
-}
 
 //instantiations
 template

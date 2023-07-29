@@ -108,12 +108,12 @@ rec = db_struct(name='rec',
                               (ord('T'), 'start_time', ('real_time_start',)),
                      ),                     #not unique
                      fields = (
-                         (1, 'rec_type_t', 'rec_type'),                                                   #0
-                         #(2, 'rec_status_t',  'status'), #in progress, scheduled, ... (included in epg)  #1
-                         (14, 'int32_t', 'owner', -1),
-                         (3, 'int32_t', 'subscription_id'), #temporarily used during recording            #2
+                         (1, 'rec_type_t', 'rec_type'),
+                         (14, 'int32_t', 'owner', -1), #pid of the process executing the recording, or -1
+                                                       #when the recording is not active
+                         (3, 'int32_t', 'subscription_id'), #subscription_id of recording in progress
                          #in milliseconds, relative to start tuning service
-                         (4, 'milliseconds_t', 'stream_time_start'),                                      #6
+                         (4, 'milliseconds_t', 'stream_time_start'),
                          (5, 'milliseconds_t', 'stream_time_end'), #if missing => runs to end
                          #official end time unix epoch
                          (6, 'time_t', 'real_time_start'), #in unix epoch

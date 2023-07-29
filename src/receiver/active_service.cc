@@ -62,10 +62,13 @@
 
 
 active_service_t::active_service_t
-(rec_manager_t& recmgr, active_adapter_t& active_adapter_, const std::shared_ptr<stream_reader_t>& reader)
-	: active_stream_t(recmgr.receiver, std::move(reader))
-	,	recmgr(recmgr)
-	,	tuner_thread(active_adapter_.tuner_thread)
+(
+	receiver_t& receiver,
+	active_adapter_t& active_adapter_,
+	const std::shared_ptr<stream_reader_t>& reader)
+	: active_stream_t(
+		receiver,
+		std::move(reader))
 	, service_thread(*this)
 	, mpm(this, system_clock_t::now())
 	, periodic(60*30)
@@ -74,20 +77,19 @@ active_service_t::active_service_t
 
 
 
-active_service_t::active_service_t(rec_manager_t& recmgr, active_adapter_t& active_adapter,
-																	 const chdb::service_t& current_service_,
-																	 const std::shared_ptr<stream_reader_t>& reader)
-	: active_stream_t(active_adapter.receiver, std::move(reader))
-	, recmgr(recmgr)
-	, tuner_thread(active_adapter.tuner_thread)
+active_service_t::active_service_t(
+	receiver_t& receiver,
+	active_adapter_t& active_adapter,
+	const chdb::service_t& current_service_,
+	const std::shared_ptr<stream_reader_t>& reader)
+	: active_stream_t(
+		receiver,
+		std::move(reader))
 	, current_service(current_service_)
 	, service_thread(*this)
 	, mpm(this, system_clock_t::now())
 	, periodic(60*30)
 {
-	dttime_init();
-	update_epg(now); // get initial epg
-	dttime(200);
 }
 
 ss::string<32> active_service_t::name() const { return current_service.name.c_str(); }
@@ -144,8 +146,8 @@ int service_thread_t::cb_t::stop_recording(const recdb::rec_t& rec_in, mpm_copyl
 	return active_service.mpm.stop_recording(rec_in, copy_commands);
 }
 
-void service_thread_t::cb_t::forget_recording(const recdb::rec_t& rec_in) {
-	return active_service.mpm.forget_recording(rec_in);
+void service_thread_t::cb_t::forget_recording_in_livebuffer(const recdb::rec_t& rec_in) {
+	return active_service.mpm.forget_recording_in_livebuffer(rec_in);
 }
 
 
@@ -207,15 +209,15 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 		auto active_adapter_p = active_adapter.shared_from_this();
 		// pmt deliberately passed by value
 		if (service_changed) {
-			receiver.tuner_thread.push_task([this, active_adapter_p, pmt, service = current_service] {
-				auto& cb_ = cb(receiver.tuner_thread);
+			active_adapter.tuner_thread.push_task([active_adapter_p, pmt, service = current_service] {
+				auto& cb_ = cb(active_adapter_p->tuner_thread);
 				cb_.on_pmt_update(*active_adapter_p, pmt); //update epg types in dvbs_mux in database
 				cb_.update_service(service); //update service record in database
 				return 0;
 			});
 		} else {
-			active_adapter.tuner_thread.push_task([this, active_adapter_p, pmt] {
-				cb(receiver.tuner_thread).on_pmt_update(*active_adapter_p, pmt);
+			active_adapter.tuner_thread.push_task([active_adapter_p, pmt] {
+				cb(active_adapter_p->tuner_thread).on_pmt_update(*active_adapter_p, pmt);
 				return 0;
 			});
 		}
@@ -569,16 +571,16 @@ bool active_service_t::need_decryption() {
 	}
 }
 
+void active_service_t::destroy() {
+#ifndef NDEBUG
+#endif
+	assert(service_thread.has_exited());
+}
+
 active_service_t::~active_service_t() {
 #ifndef NDEBUG
-	cb(tuner_thread); /*test being called from correct thread
-											we should only be destroyed when tuner_thread removes the last
-											shared_ptr poiting to the active service
-										*/
-#endif
-	recmgr.remove_live_buffer(*this);
-	service_thread.stop_running(true);
 	assert(service_thread.has_exited());
+#endif
 }
 
 

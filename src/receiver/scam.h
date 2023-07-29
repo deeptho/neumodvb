@@ -129,8 +129,7 @@ class active_scam_t final : public active_stream_t  {
 public:
 
 
-	active_scam_t(scam_t* parent,
-								receiver_t& receiver, tuner_thread_t& tuner_thread,
+	active_scam_t(scam_t* parent, receiver_t& receiver,
 								active_service_t& active_service);
 	int register_active_service(active_service_t* active_service);
 	int unregister_active_service(active_service_t* active_service, int adapter_no);

@@ -246,11 +246,13 @@ int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 	};
 
 	if (live_mpm) {
-		chdb::service_t service = live_mpm->active_service->get_current_service();
+		auto &active_service = *live_mpm->active_service;
+		chdb::service_t service = active_service.get_current_service();
 		update(service);
 		/*This needs to be run from tuner thread to avoid excessive blocking
 		 */
-		receiver.tuner_thread.push_task([this, service, for_subtitles]() // service passed by value!
+		auto& tuner_thread = active_service.active_adapter().tuner_thread;
+		tuner_thread.push_task([this, service, for_subtitles]() // service passed by value!
 			{
 				auto txn = receiver.chdb.wtxn();
 				/*

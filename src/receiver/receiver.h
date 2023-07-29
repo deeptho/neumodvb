@@ -127,10 +127,9 @@ public:
 class service_thread_t::cb_t : public service_thread_t { //callbacks
 public:
 	//int deactivate(active_service_t& channel);
-	void on_epg_update(system_time_t now, const epgdb::epg_record_t& epg_record);
 	std::optional<recdb::rec_t> start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec);
 	int stop_recording(const recdb::rec_t& key, mpm_copylist_t& copy_commands);
-	void forget_recording(const recdb::rec_t& key);
+	void forget_recording_in_livebuffer(const recdb::rec_t& key);
 
 };
 
@@ -142,7 +141,6 @@ public:
 class scam_thread_t : public task_queue_t {
 	friend class scam_t;
 
-	//receiver_thread_t& receiver_thread;
 	std::thread::id thread_id;
 
 	/*!
@@ -261,9 +259,14 @@ class receiver_thread_t : public task_queue_t  {
 	using playback_map = std::map<subscription_id_t, std::shared_ptr<active_playback_t>>;
 	playback_map reserved_playbacks; //recordings being played back, indexed by subscription id
 
+	using aa_map_t = safe::Safe<std::map<subscription_id_t, std::shared_ptr<active_adapter_t>>>;
+	aa_map_t active_adaptersx;
+
 	//for channel scan
 	using  scanner_ptr_t = safe::Safe<std::shared_ptr<scanner_t>>;
 	scanner_ptr_t scanner;
+	active_adapter_t* find_or_create_active_adapter
+	(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,  const subscribe_ret_t& sret);
 
 	virtual int exit() final;
 	void unsubscribe_mux_and_service_only(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
@@ -315,6 +318,14 @@ private:
 
 public:
 
+	inline std::shared_ptr<active_adapter_t> find_active_adapter(subscription_id_t subscription_id) {
+		if (must_exit()) {
+			dterrorx("Cannot retrieve active adapter because shutting down: %d", (int) subscription_id);
+			return nullptr;
+		}
+		auto [it, found] = find_in_safe_map(this->active_adaptersx, subscription_id);
+		return found ? it->second : nullptr;
+	}
 	inline std::shared_ptr<scanner_t> get_scanner() const {
 		auto r= scanner.readAccess();
 		return *r;
@@ -426,13 +437,14 @@ public:
 	int scan_now();
 	void renumber_card(int old_number, int new_number);
 	int update_usals_pos(const devdb::lnb_t& lnb);
+	int update_current_lnb(subscription_id_t subscription_id, const devdb::lnb_t& lnb);
+	int positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
 
 };
 
 struct player_cb_t {
 	virtual void notify(const signal_info_t& info) {};
 	virtual void update_playback_info() {};
-	virtual void update_epg_info(const epgdb::epg_record_t& epg) {};
 	player_cb_t() {};
 	virtual ~player_cb_t() {};
 };
@@ -456,7 +468,7 @@ public:
 
 	receiver_thread_t receiver_thread;
 	scam_thread_t scam_thread;
-	tuner_thread_t tuner_thread; //there is only one tuner thread for the whole program
+	rec_manager_t rec_manager;
 
 	using mpv_map = safe::Safe<std::map<void*, std::shared_ptr<player_cb_t>>>;
 	mpv_map active_mpvs;
@@ -475,6 +487,15 @@ public:
 
 	chdb::history_mgr_t browse_history;
 	recdb::rec_history_mgr_t rec_browse_history;
+
+
+/*
+	obtains a shared ptr to an active adapter. The active adapter remains valid
+	as long as a subscription is held
+*/
+	inline std::shared_ptr<active_adapter_t> find_active_adapter(subscription_id_t subscription_id) {
+		return receiver_thread.find_active_adapter(subscription_id);
+	}
 
 	EXPORT receiver_t(const neumo_options_t* options= nullptr);
 	EXPORT ~receiver_t();

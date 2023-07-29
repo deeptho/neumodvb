@@ -27,8 +27,9 @@
 
 class receiver_t;
 class active_service_t;
+class recmgr_thread_t;
+class rec_manager_t;
 
-bool update_recording_epg(db_txn& epg_txn, const epgdb::epg_record_t& epgrec);
 class mpm_recordings_t {
 
 public:
@@ -48,55 +49,90 @@ public:
 
 class receiver_t;
 
-class rec_manager_t {
-	friend class tuner_thread_t;
+class recmgr_thread_t : public task_queue_t {
+	friend class rec_manager_t;
 
-	txnmgr_t<recdb::recdb_t> recdbmgr;
-public:
 	receiver_t& receiver;
-private:
-	recdb::rec_t new_recording(db_txn& rec_wtxn, const chdb::service_t& service, epgdb::epg_record_t& epg_record,
-														 int pre_record_time, int post_record_time);
-	recdb::rec_t new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn, const chdb::service_t& service, epgdb::epg_record_t& epg_record,
-														 int pre_record_time, int post_record_time);
-	void delete_recording(const recdb::rec_t&rec);
+	std::thread::id thread_id;
 
+	system_time_t last_epg_check_time;
+	int epg_check_period = 5*60;
+
+	system_time_t next_epg_clean_time;
+
+	void clean_dbs(system_time_t now, bool at_start);
+	periodic_t livebuffer_db_update;
+
+	rec_manager_t& recmgr;
+	txnmgr_t<recdb::recdb_t> recdbmgr; //one object per thread, so not a reference
+	time_t next_recording_event_time = std::numeric_limits<time_t>::min();
+
+	virtual int run() final;
+	virtual int exit();
+
+
+	void stop_recording(const recdb::rec_t& rec); // important that this is not a reference (async called)
+	void update_recording(const recdb::rec_t& rec_in);
 	void start_recordings(db_txn& rtxn, system_time_t now);
 	void stop_recordings(db_txn& rtxn, system_time_t now);
-	void delete_old_livebuffers(db_txn& rtxn, system_time_t now);
-	time_t next_recording_event_time = std::numeric_limits<time_t>::min();
-	void adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn, db_txn& epg_wtxn,
-																								recdb::rec_t& rec,
-																								epgdb::epg_record_t& epg_record);
-	int schedule_recordings_for_overlapping_epg(db_txn& rec_wtxn, db_txn& epg_wtxn,
-																							const chdb::service_t& service,
-																							epgdb::epg_record_t sched_epg_record);
-
-	void on_epg_update_check_recordings(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
-	void on_epg_update_check_autorecs(db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
-
-public:
-	void startup(system_time_t now);
 	int housekeeping(system_time_t now);
 	int new_anonymous_schedrec(const chdb::service_t& service, epgdb::epg_record_t sched_epg_record,
 														 int maxgap=5*60) ;
 	int new_schedrec(const chdb::service_t& service, epgdb::epg_record_t epg_record);
 	//int update_schedrec(const recdb::rec_t& rec);
 	int delete_schedrec(const recdb::rec_t& rec);
-	void on_epg_update(db_txn& txnepg, epgdb::epg_record_t& epg_record /*may be updated by setting epg_record.record
-																																			 to true or false*/);
-
-
+	void delete_recording(const recdb::rec_t&rec);
 	void update_autorec(recdb::autorec_t& autorec);
 	void delete_autorec(const recdb::autorec_t& autorec);
 
-	void add_live_buffer(active_service_t& active_service);
-	void remove_live_buffer(active_service_t& active_service);
-	rec_manager_t(receiver_t&receiver_);
+	int toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
+	void delete_old_livebuffers(db_txn& rtxn, system_time_t now);
 
+	void adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn, db_txn& epg_wtxn,
+																								recdb::rec_t& rec,
+																								epgdb::epg_record_t& epg_record);
+	int schedule_recordings_for_overlapping_epg(db_txn& rec_wtxn, db_txn& epg_wtxn,
+																							const chdb::service_t& service,
+																							epgdb::epg_record_t sched_epg_record);
+	void remove_old_livebuffers();
+	void startup(system_time_t now);
+public:
+
+	recmgr_thread_t(receiver_t& receiver_, rec_manager_t& rec_manager);
+
+	~recmgr_thread_t();
+
+	recmgr_thread_t(recmgr_thread_t&& other) = delete;
+	recmgr_thread_t(const recmgr_thread_t& other) = delete;
+	recmgr_thread_t operator=(const recmgr_thread_t& other) = delete;
+	void livebuffer_db_update_(system_time_t now_);
+public:
+
+	class cb_t;
+
+};
+
+class recmgr_thread_t::cb_t: public recmgr_thread_t { //callbacks
+public:
+
+	void update_autorec(recdb::autorec_t& autorec);
+	void delete_autorec(const recdb::autorec_t& autorec);
 	int toggle_recording(const chdb::service_t& service,
 											 const epgdb::epg_record_t& epg_record) CALLBACK;
 
-	void remove_livebuffers();
-	void update_recording(const recdb::rec_t& rec_in);
+};
+
+class rec_manager_t {
+	friend class recmgr_thread_t;
+	txnmgr_t<recdb::recdb_t> recdbmgr;
+public:
+	recmgr_thread_t recmgr_thread;
+	receiver_t& receiver;
+private:
+public:
+
+	void update_autorec(recdb::autorec_t& autorec);
+	void delete_autorec(const recdb::autorec_t& autorec);
+	rec_manager_t(receiver_t&receiver_);
+
 };

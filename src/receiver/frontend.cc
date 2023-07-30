@@ -331,7 +331,7 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(adaptermgr_t* adaptermgr,
 		w->info_valid = true;
 		w->dbfe.can_be_used = true;
 	}
-
+	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	get_frontend_info(adapter_no, frontend_no, api_version, *w);
 
 	if(int64_t(fe->adapter_mac_address) <=0)
@@ -701,6 +701,7 @@ dvb_frontend_t::update_lock_status_and_signal_info(fe_status_t fe_status, bool g
 			ret.stat.locktime_ms = 0;
 		ret.lock_status = w->lock_status;
 		w->last_signal_info = ret;
+		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	}
 	ts_cv.notify_all();
 	return ret;
@@ -950,6 +951,7 @@ void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 
 	auto w = this->ts.writeAccess();
 	w->reserved_mux = mux;
+	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 }
 
 void dvb_frontend_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad) {
@@ -1190,6 +1192,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	}
 
 	auto w = ts.writeAccess();
+	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	w->tune_count++;
 	if( w->dbfe.supports.iq && num_constellation_samples > 0) {
 		constellation.num_samples = num_constellation_samples;
@@ -1218,7 +1221,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 std::tuple<int, int>
 dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 																	const devdb::lnb_t& lnb, const tune_pars_t tune_pars) {
-	this->start_fe_and_lnb(rf_path, lnb);
+	this->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
 	auto& tune_options = tune_pars.tune_options;
 	auto band = tune_options.spectrum_scan_options.band_pol.band;
 	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
@@ -1255,6 +1258,7 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	{
 		auto w =  this->ts.writeAccess();
 		w->tune_pars = tune_pars;
+		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	}
 	dttime_init();
 	auto muxname = chdb::to_str(mux);
@@ -1335,6 +1339,7 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 		cmdseq.add(DTV_STREAM_ID, mux.k.stream_id);
 
 	auto w = ts.writeAccess();
+	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	w->tune_count++;
 	auto fefd = w->fefd;
 	dtdebugx("change tune mode on adapter %d from %d to %d", (int) adapter_no,
@@ -1394,6 +1399,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 		cmdseq.add(DTV_STREAM_ID, mux.k.stream_id);
 
 	auto w = ts.writeAccess();
+	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	w->tune_count++;
 	auto fefd = w->fefd;
 	w->use_blind_tune = tune_options.use_blind_tune;
@@ -1410,6 +1416,7 @@ int dvb_frontend_t::tune(const mux_t& mux, const tune_pars_t& tune_pars, bool us
 	{
 		auto w = this->ts.writeAccess();
 		w->tune_pars = tune_pars;
+		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	}
 	if (user_requested) {
 		this->start_fe_and_dvbc_or_dvbt_mux(mux);
@@ -1441,6 +1448,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 	{
 		auto w = this->ts.writeAccess();
 		w->tune_pars = tune_pars;
+		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	}
 	auto lnb_voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, options.band_pol.pol);
 
@@ -1481,7 +1489,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 
 	auto w = ts.writeAccess();
 	auto fefd = w->fefd;
-
+	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	if ((ioctl(fefd, FE_SET_VOLTAGE, lnb_voltage))) {
 		dterror("problem Setting the Voltage");
 		return -1;
@@ -1499,6 +1507,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 
 	w->tune_mode = tune_mode_t::SPECTRUM;
 	w->tune_pars.tune_options.spectrum_scan_options = options;
+	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	dtdebugx("tune: spectrum acquisition started ret=%d", ret);
 	return ret;
 }
@@ -1531,6 +1540,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 		w->reserved_rf_path = rf_path;
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
+		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	}
 	if(!monitor_thread.get()) {
 		start_frontend_monitor();
@@ -1556,6 +1566,7 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const 
 		w->reserved_rf_path = rf_path;
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
+		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	}
 	if (!monitor_thread.get()) {
 		start_frontend_monitor();
@@ -1577,6 +1588,7 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 		w->reserved_rf_path = devdb::rf_path_t();
 		w->reserved_lnb = devdb::lnb_t();
 		w->	last_signal_info.reset();
+		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	}
 	if (!monitor_thread.get()) {
 		start_frontend_monitor();
@@ -1591,6 +1603,7 @@ int dvb_frontend_t::reset_ts() {
 	auto saved = w->dbfe;
 	*w = {};
 	w->dbfe = saved;
+	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
 	return 0;
 }
 

@@ -106,11 +106,11 @@ namespace devdb {
 struct subscribe_ret_t {
 
 	struct aa_t {
-		devdb::fe_t fe;
-		devdb::rf_path_t rf_path;
-		devdb::lnb_t lnb;
+		std::optional<devdb::fe_t> fe;
+		std::optional<devdb::rf_path_t> rf_path;
+		std::optional<devdb::lnb_t> lnb;
 	};
-		bool failed{false};
+	bool failed{false};
 
 	subscription_id_t subscription_id{subscription_id_t::NONE}; /*Current or existing subscription_id_t*/
 	bool was_subscribed{false};
@@ -125,8 +125,12 @@ struct subscribe_ret_t {
 																only relevant if aa_sub_to_reuse != subscription_id_t::NONE*/
 
 	//value below only relevant if aa_sub_to_reuse  == subscription_id_t::NONE
-	std::optional<aa_t> newaa; /*create new active adapter*/
-
+#ifdef NEWXXX
+	std::optional<aa_t> newaaxx; /*create new active adapter*/
+#else
+	aa_t aa;
+	bool is_new_aa{false};
+#endif
 	static std::atomic_int next_subscription_id; //initialised in fe_subscribe.cc
 	bool may_control_lnb{false};
 	bool may_move_dish{false}; //implies may_control_lnb
@@ -244,9 +248,7 @@ namespace devdb::lnb {
 
 namespace devdb::fe {
 
-	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_key, fe_t* fe_ret=nullptr);
-	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, fe_t& fe);
-	int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id);
+	std::optional<fe_t> unsubscribe(db_txn& wtxn, subscription_id_t subscription_id);
 
 	bool can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																			const rf_path_t* required_conn_key,

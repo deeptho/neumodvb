@@ -121,15 +121,35 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 	assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
 	{
 		assert(!sret.retune);
-		assert(sret.newaa);
-		auto& aa = *sret.newaa;
-		return active_adapter.lnb_activate(aa.rf_path, aa.lnb, tune_pars);
+#ifdef NEWXXX
+		assert(sret.newaaxx);
+		auto& aa = *sret.newaaxx;
+#else
+		assert(sret.is_new_aa);
+		auto& aa = sret.aa;
+		assert(aa.rf_path);
+		assert(aa.lnb);
+#endif
+		return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_pars);
 	}
-	if(sret.newaa)  {
-		assert(sret.newaa);
-		auto& aa = *sret.newaa;
-		active_adapter.fe->update_dbfe(aa.fe);
-		return active_adapter.lnb_activate(aa.rf_path, aa.lnb, tune_pars);
+	if(
+#ifdef NEWXXX
+		sret.newaaxx
+#else
+		sret.is_new_aa
+#endif
+		)  {
+#ifdef NEWXXX
+		auto& aa = *sret.newaaxx;
+#else
+		auto& aa = sret.aa;
+		assert(aa.rf_path);
+		assert(aa.lnb);
+#endif
+#ifdef NEWXXX
+		active_adapter.fe->update_dbfexx(aa.fe);
+#endif
+		return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_pars);
 	}
 	assert(sret.sub_to_reuse == sret.subscription_id);
 	return active_adapter.lnb_activate(active_adapter.current_rf_path(),
@@ -159,6 +179,9 @@ void tuner_thread_t::add_si(active_adapter_t& active_adapter,
 #endif
 	dtdebugx("tune restart_si");
 	active_adapter.prepare_si(mux, true /*start*/, subscription_id, true /*add_to_running_mux*/);
+#ifdef NEWXXX
+	active_adapter.fe->update_dbfexx(aa.fe);
+#endif
 	active_adapter.fe->set_tune_options(tune_options);
 }
 
@@ -545,13 +568,25 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 
 	int ret{-1};
 
-	if(sret.newaa) {
-		auto& aa = *sret.newaa;
+	if(
+#ifdef NEWXXX
+		sret.newaaxx
+#else
+		sret.is_new_aa
+#endif
+		) {
+#ifdef NEWXXX
+		auto& aa = *sret.newaaxx;
+#else
+		auto& aa = sret.aa;
+#endif
 		dtdebugx("New active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
 						 active_adapter.get_adapter_no());
 		visit_variant(mux,
 									[&](const chdb::dvbs_mux_t& mux) {
-										ret = this->tune(aa.rf_path, aa.lnb, mux, tune_pars,
+										assert(aa.rf_path);
+										assert(aa.lnb);
+										ret = this->tune(*aa.rf_path, *aa.lnb, mux, tune_pars,
 																	 sret.subscription_id);
 									},
 									[&](const chdb::dvbc_mux_t& mux) {
@@ -745,4 +780,8 @@ void tuner_thread_t::remove_live_buffer(subscription_id_t subscription_id) {
 	live_service.last_use_time = system_clock_t::to_time_t(now);
 	txn.commit();
 	recdbmgr.flush_wtxn();
+}
+
+void tuner_thread_t::update_dbfe(const devdb::fe_t& updated_dbfe) {
+	active_adapter.fe->update_dbfe(updated_dbfe);
 }

@@ -98,6 +98,7 @@ public:
 	void on_epg_update_check_autorecs(db_txn& recdb_wtxn, db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
 	void add_live_buffer(const recdb::live_service_t& active_service);
 	void remove_live_buffer(subscription_id_t subscription_id);
+	void update_dbfe(const devdb::fe_t& updated_dbfe);
 public:
 
 	class cb_t;

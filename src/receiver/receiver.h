@@ -260,7 +260,7 @@ class receiver_thread_t : public task_queue_t  {
 	playback_map reserved_playbacks; //recordings being played back, indexed by subscription id
 
 	using aa_map_t = safe::Safe<std::map<subscription_id_t, std::shared_ptr<active_adapter_t>>>;
-	aa_map_t active_adaptersx;
+	aa_map_t active_adapters;
 
 	//for channel scan
 	using  scanner_ptr_t = safe::Safe<std::shared_ptr<scanner_t>>;
@@ -275,7 +275,8 @@ class receiver_thread_t : public task_queue_t  {
 	void unsubscribe_all(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 											 subscription_id_t subscription_id);
 	void release_active_adapter(std::vector<task_queue_t::future_t>& futures,
-														db_txn& devdb_wtxn, subscription_id_t subscription_id);
+															db_txn& devdb_wtxn, subscription_id_t subscription_id,
+															const devdb::fe_t& updated_dbfe);
 
 	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
 	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
@@ -323,7 +324,7 @@ public:
 			dterrorx("Cannot retrieve active adapter because shutting down: %d", (int) subscription_id);
 			return nullptr;
 		}
-		auto [it, found] = find_in_safe_map(this->active_adaptersx, subscription_id);
+		auto [it, found] = find_in_safe_map(this->active_adapters, subscription_id);
 		return found ? it->second : nullptr;
 	}
 	inline std::shared_ptr<scanner_t> get_scanner() const {
@@ -592,5 +593,4 @@ public:
 		auto r = options.readAccess();
 		return r->usals_location;
 	}
-
 };

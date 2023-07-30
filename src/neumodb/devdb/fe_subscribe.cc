@@ -33,7 +33,67 @@
 
 using namespace devdb;
 
+static bool unsubscribe_helper(fe_t& fe, subscription_id_t subscription_id) {
+	bool erased = false;
+	int idx=0;
+	if(fe.sub.subs.size()==0 || fe.sub.owner != getpid())
+		return false;
+	for(auto& sub: fe.sub.subs) {
+		if(sub.subscription_id == (int32_t)subscription_id &&  fe.sub.owner == getpid()) {
+			if(sub.has_service) {
+				auto srv = chdb::to_str(sub.service);
+				dtdebugx("adapter %d: subscription_id=%d unsubscribe service=%s",
+								 fe.adapter_no, (int) subscription_id, srv.c_str());
+			} else if (sub.has_mux) {
+				dtdebugx("adapter %d %d.%03d%s-%d %d use_count=%d unsubscribe", fe.adapter_no,
+								 fe.sub.frequency/1000, fe.sub.frequency%1000,
+								 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
+			} else {
+				assert(fe.sub.subs.size() ==1); // lnb reservation is unique
+				dtdebugx("adapter %d use_count=%d unsubscribe", fe.adapter_no, fe.sub.subs.size());
+			}
+			fe.sub.subs.erase(idx);
+			erased = true;
+			break;
+		}
+		++idx;
+	}
 
+	if(fe.sub.subs.size() == 0) {
+		fe.sub = {};
+	}
+	return erased;
+}
+
+/*
+	returns the remaining use_count of the unsuscribed fe
+ */
+static int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_key) {
+	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
+	auto fe = c.is_valid()  ? c.current() : fe_t{}; //update in case of external changes
+	assert(fe.sub.subs.size()>=1);
+	bool erased = unsubscribe_helper(fe, subscription_id);
+	if(!erased) {
+		dterrorx("Trying to unsuscribed a non-subscribed service subscription_id=%d", (int) subscription_id);
+	}
+	else
+		put_record(wtxn, fe);
+
+	return fe.sub.subs.size();
+}
+
+std::optional<devdb::fe_t> fe::unsubscribe(db_txn& wtxn, subscription_id_t subscription_id)
+{
+	auto c = find_first<devdb::fe_t>(wtxn);
+	for(auto fe : c.range()) {
+		bool erased = unsubscribe_helper(fe, subscription_id);
+		if(erased) {
+			put_record(wtxn, fe);
+			return fe;
+		}
+	}
+	return {};
+}
 
 static inline subscribe_ret_t no_change(subscription_id_t subscription_id, int other_subscription_id) {
 	subscribe_ret_t sret{subscription_id, false/*failed*/};
@@ -411,6 +471,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			else {
 				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id);
 				subscribe_fe_in_use(wtxn, sret.subscription_id, fe, *mux, service);
+				sret.aa = { fe, {}, {}};
 				if(oldfe_)
 					unsubscribe(wtxn, sret.subscription_id, oldfe_->k);
 
@@ -432,6 +493,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			//we can reuse an existing active_mux, but need to add an active service
 			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id);
 			subscribe_fe_in_use(wtxn, sret.subscription_id, fe, *mux, service);
+			sret.aa = { fe, {}, {}};
 			if(oldfe_)
 				unsubscribe(wtxn, subscription_id, oldfe_->k);
 			sret.may_control_lnb = false;
@@ -458,14 +520,26 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			sret.change_service = true;
 			sret.may_control_lnb = ! use_counts_.is_shared();
 			sret.may_move_dish = sret.may_control_lnb && may_move_dish && ! use_counts_.shares_positioner();
+#ifdef NEWXXX
+#else
+			sret.aa = { fe, *rf_path_, *lnb_};
+#endif
 			if(!is_same_fe) {
-				sret.newaa = { fe, *rf_path_, *lnb_};
+#ifdef NEWXXX
+				sret.newaaxx = { fe, *rf_path_, *lnb_};
+#else
+				sret.is_new_aa = true;
+#endif
 				sret.sub_to_reuse = subscription_id_t::NONE;
 
 				dtdebug("fe::subscribe: newaa subscription_id=" << (int ) subscription_id << " adapter=" << (int64_t) fe.k.adapter_mac_address
 								<< "/" << (int) oldfe_->k.frontend_no
 								<< " mux="  << mux);
 			} else {
+#ifdef NEWXXX
+#else
+				sret.is_new_aa = false;
+#endif
 				dtdebug("fe::subscribe: no newaa subscription_id=" << (int ) subscription_id <<
 								" adapter=" << (int64_t)  fe.k.adapter_mac_address
 								<< " mux="  << mux);
@@ -500,10 +574,24 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			if(fe_) {
 				bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
 				sret.retune = is_same_fe;
+#ifdef NEWXXX
+#else
+					sret.aa = { *fe_, *required_rf_path, lnb};
+#endif
 				if(!is_same_fe) {
-					sret.newaa = { *fe_, *required_rf_path, lnb};
+#ifdef NEWXXX
+					sret.newaaxx = { *fe_, *required_rf_path, lnb};
+#else
+					sret.is_new_aa = true;
+#endif
 					sret.sub_to_reuse = subscription_id_t::NONE;
 				}
+#ifdef NEWXXX
+#else
+				else {
+					sret.is_new_aa = false;
+				}
+#endif
 				return sret;
 			} else {
 				auto x = to_str(*required_rf_path);
@@ -584,10 +672,24 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 		bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
 		sret.retune = is_same_fe;
 		sret.change_service = !!service;
+#ifdef NEWXXX
+#else
+		sret.aa = { fe, {}, {}};
+#endif
 		if(!is_same_fe) {
-			sret.newaa = { fe, {}, {}};
+#ifdef NEWXXX
+			sret.newaaxx = { fe, {}, {}};
+#else
+			sret.is_new_aa = true;
+#endif
 			sret.sub_to_reuse = subscription_id_t::NONE;
 		}
+#ifdef NEWXXX
+#else
+		else {
+			sret.is_new_aa = false;
+		}
+#endif
 		return sret;
 	}
 	return failed(subscription_id);
@@ -679,82 +781,6 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 		}
 	}
 	return {{}, -1};
-}
-
-
-
-static bool unsubscribe_helper(fe_t& fe, subscription_id_t subscription_id) {
-	bool erased = false;
-	int idx=0;
-	if(fe.sub.subs.size()==0 || fe.sub.owner != getpid())
-		return false;
-	for(auto& sub: fe.sub.subs) {
-		if(sub.subscription_id == (int32_t)subscription_id &&  fe.sub.owner == getpid()) {
-			if(sub.has_service) {
-				auto srv = chdb::to_str(sub.service);
-				dtdebugx("adapter %d: subscription_id=%d unsubscribe service=%s",
-								 fe.adapter_no, (int) subscription_id, srv.c_str());
-			} else if (sub.has_mux) {
-				dtdebugx("adapter %d %d.%03d%s-%d %d use_count=%d unsubscribe", fe.adapter_no,
-								 fe.sub.frequency/1000, fe.sub.frequency%1000,
-								 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
-			} else {
-				assert(fe.sub.subs.size() ==1); // lnb reservation is unique
-				dtdebugx("adapter %d use_count=%d unsubscribe", fe.adapter_no, fe.sub.subs.size());
-			}
-			fe.sub.subs.erase(idx);
-			erased = true;
-			break;
-		}
-		++idx;
-	}
-
-	if(fe.sub.subs.size() == 0) {
-		fe.sub = {};
-	}
-	return erased;
-}
-
-/*
-	returns the remaining use_count of the unsuscribed fe
- */
-int fe::unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_key, fe_t* fe_ret) {
-	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
-	auto fe = c.is_valid()  ? c.current() : fe_t{}; //update in case of external changes
-	assert(fe.sub.subs.size()>=1);
-	bool erased = unsubscribe_helper(fe, subscription_id);
-	if(!erased) {
-		dterrorx("Trying to unsuscribed a non-subscribed service subscription_id=%d", (int) subscription_id);
-	}
-	else
-		put_record(wtxn, fe);
-
-	if (fe_ret)
-		*fe_ret = fe;
-	return fe.sub.subs.size();
-}
-
-/*
-	returns the remaining use_count of the unsubscribed fe
- */
-int fe::unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, fe_t& fe) {
-	assert(fe::is_subscribed(fe));
-	assert(fe.sub.rf_path.card_mac_address != -1);
-	auto ret = fe::unsubscribe(wtxn, subscription_id, fe.k, &fe);
-	return ret;
-}
-
-int fe::unsubscribe(db_txn& wtxn, subscription_id_t subscription_id)
-{
-	auto c = find_first<devdb::fe_t>(wtxn);
-	for(auto fe : c.range()) {
-		bool erased = unsubscribe_helper(fe, subscription_id);
-		if(erased) {
-			put_record(wtxn, fe);
-			return fe.sub.subs.size();
-		}
-	}
-	return -1;
 }
 
 

@@ -143,13 +143,16 @@ void receiver_thread_t::unsubscribe_mux_and_service_only(std::vector<task_queue_
 	dtdebugx("Unsubscribe subscription_id=%d", (int)subscription_id);
 	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
-	devdb::fe::unsubscribe(devdb_wtxn, subscription_id);
-	dtdebugx("release_active_adapter subscription_id=%d", (int) subscription_id);
-	release_active_adapter(futures, devdb_wtxn, subscription_id);
+	auto updated_dbfe = devdb::fe::unsubscribe(devdb_wtxn, subscription_id);
+	assert(updated_dbfe);
+	dtdebugx("release_active_adapter subscription_id=%d use_count=%d", (int) subscription_id,
+					 updated_dbfe->sub.subs.size());
+	release_active_adapter(futures, devdb_wtxn, subscription_id, *updated_dbfe);
 }
 
 void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
-																							 db_txn& devdb_wtxn, subscription_id_t subscription_id) {
+																							 db_txn& devdb_wtxn, subscription_id_t subscription_id,
+																							 const devdb::fe_t& updated_dbfe) {
 	dtdebugx("release_active_adapter subscription_id=%d", (int)subscription_id);
 	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
@@ -157,14 +160,21 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 	/* The active_adapter is no longer in use; so ask tuner thread to release it.
 	 */
 	{
-		auto w = this->active_adaptersx.writeAccess();
+		auto w = this->active_adapters.writeAccess();
 		auto& m = *w;
-	auto [it, found] = find_in_map(m, subscription_id);
-	assert(found);
-	auto& tuner_thread = it->second->tuner_thread;
-	//ask tuner thread to exit, but do not wait
-	futures.push_back(tuner_thread.stop_running(false/*wait*/));
-	m.erase(it); //if this is the last reference, it will release the tuner_thread
+		auto [it, found] = find_in_map(m, subscription_id);
+		assert(found);
+		auto& tuner_thread = it->second->tuner_thread;
+		futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = updated_dbfe]() {
+			tuner_thread.update_dbfe(updated_dbfe);
+			return 0;
+		}));
+		if(updated_dbfe.sub.subs.size() ==0) {
+			//ask tuner thread to exit, but do not wait
+			futures.push_back(tuner_thread.stop_running(false/*wait*/));
+		}
+
+		m.erase(it); //if this is the last reference, it will release the tuner_thread
 	}
 }
 
@@ -343,7 +353,7 @@ int receiver_thread_t::exit() {
 
 	dtdebug("Receiver thread exiting -stopping tuner threads");
 	{
-		auto w = active_adaptersx.writeAccess();
+		auto w = active_adapters.writeAccess();
 		auto& m = *w;
 		for(auto& [ subscription_id, aa] : m) {
 			auto& tuner_thread = aa->tuner_thread;
@@ -353,7 +363,7 @@ int receiver_thread_t::exit() {
 	}
 	wait_for_all(futures, true /*clear all errors*/);
 	{
-		auto w = active_adaptersx.writeAccess();
+		auto w = active_adapters.writeAccess();
 		w->clear();
 	}
 
@@ -600,17 +610,25 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 {
 	bool failed = sret.subscription_failed();
 	if(failed) {
-		release_active_adapter(futures, devdb_wtxn, sret.subscription_id);
+		auto updated_dbfe = devdb::fe::unsubscribe(devdb_wtxn, sret.subscription_id);
+		if(updated_dbfe)
+			release_active_adapter(futures, devdb_wtxn, sret.subscription_id, *updated_dbfe);
 		return nullptr;
 	}
 	{
-		auto w = this->active_adaptersx.writeAccess();
+		auto w = this->active_adapters.writeAccess();
 		auto& m = *w;
 
 		if((int)sret.sub_to_reuse >=0 && sret.sub_to_reuse != sret.subscription_id) {
-			auto [it, found] = find_in_map(m, sret.subscription_id);
+			auto [it, found] = find_in_map(m, sret.sub_to_reuse);
 			assert(found);
 			m[sret.subscription_id] = it->second;
+			auto& tuner_thread = it->second->tuner_thread;
+			assert(sret.aa.fe);
+			futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = *sret.aa.fe]() {
+				tuner_thread.update_dbfe(updated_dbfe);
+				return 0;
+		}));
 			return it->second.get();
 		}
 		assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
@@ -620,14 +638,25 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 	}
 
 	assert(!sret.retune);
-	assert(sret.newaa);
-	auto dvb_frontend = receiver.fe_for_dbfe(sret.newaa->fe.k);
+#ifdef NEWXXX
+	assert(sret.newaaxx);
+	auto dvb_frontend = receiver.fe_for_dbfe(sret.newaaxx->fe.k);
+#else
+	assert(sret.is_new_aa);
+	assert(sret.aa.fe);
+	auto dvb_frontend = receiver.fe_for_dbfe(sret.aa.fe->k);
+#endif
 	auto aa = std::make_shared<active_adapter_t>(receiver,
 																							 dvb_frontend);
 	{
-		auto w = this->active_adaptersx.writeAccess();
+		auto w = this->active_adapters.writeAccess();
 		auto& m = *w;
 		m[sret.subscription_id] = aa;
+		auto& tuner_thread = aa->tuner_thread;
+		futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = *sret.aa.fe]() {
+			tuner_thread.update_dbfe(updated_dbfe);
+			return 0;
+		}));
 	}
 	return aa.get();
 }

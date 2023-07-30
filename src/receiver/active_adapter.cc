@@ -136,7 +136,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 
 int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 																	 const devdb::lnb_t& lnb, tune_pars_t tune_pars) {
-	this->fe->start_fe_and_lnb(rf_path, lnb);
+	this->fe->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
 	auto& tune_options = tune_pars.tune_options;
 	switch (tune_options.tune_mode) {
 	case tune_mode_t::SPECTRUM:

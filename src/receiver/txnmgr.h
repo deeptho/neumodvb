@@ -43,12 +43,13 @@ class wtxn_reservation_t {
 	/*
 		commit and release wtxn
 	 */
-	void commit_wtxn() {
+	void commit_master_wtxn() {
 		assert(wtxn_);
+		assert(owning_ticket>=0);
 		//dtdebugx("QQQ %p: maybe commit owning_ticket=%d", this, owning_ticket);
 		owning_ticket = -1; //allow other threads to use the mutex
 		if(wtxn_->can_commit()) {
-			wtxn_->commit(); //delayed commit of data from other thread
+			wtxn_->commit(); //could be delayed commit of data from other thread
 			//dtdebugx("QQQ %p: committed owning_ticket=%d", this, owning_ticket);
 		}
 		wtxn_.reset();
@@ -87,14 +88,6 @@ public:
 
 	db_txn& acquire_master_wtxn() {
 		std::unique_lock<std::mutex> lk(mutex);
-		if (wtxn_) {
-			/*The wtxn still exists and therefore has not been committed or
-				aborted. Just use it. The thread which becomes the new owner has to
-				call release() later, to ensure that all past modifications in this wtxn
-				will be committed to disk
-			*/
-			return *wtxn_;
-		}
 
 		//wait for access to the wtxn
 		int my_ticket = ++last_issued_ticket;
@@ -113,16 +106,14 @@ public:
 		return *wtxn_;
 	}
 
-
-   /*
+	/*
 		release wtxn without committing yet, except in the following cases:
 		-no other thread is waiting to acquire the wtxn, and therefore there is no guarantee
-		 of a future commit in the near term
+		of a future commit in the near term
 		-the transaction has been open for too long
 
 		If the txn is not committed now, then  the next thread which
 		will acquire the wtxn will later try to commit
-	 */
 	*/
 	void release_master_wtxn(bool force_commit=false) {
 		std::unique_lock<std::mutex> lk(mutex);
@@ -130,7 +121,7 @@ public:
 			return;
 		if(force_commit || release_should_commit()) {
 			//dtdebugx("QQQ %p calling commit owning_ticket=%d", this, owning_ticket);
-			commit_wtxn();
+			commit_master_wtxn();
 		}
 		else if(thread_waiting_for_wtxn()) {
 			//dtdebugx("QQQ %p transfer to other thread owning_ticket=%d", this, owning_ticket);
@@ -209,10 +200,23 @@ class txnmgr_t {
 	bool wtxn_must_release{false}; //delayed release pending
 
 	inline db_txn* acquire_wtxn() {
-		auto& wtxn = reservation.acquire_wtxn();
+		//dtdebugx("QQQ %p calling reservation.acquire_wtxn", this);
+		auto& wtxn = reservation.acquire_master_wtxn();
 		owned_wtxn = & wtxn;
 		last_wtxn_id = wtxn.txn_id();
 		return owned_wtxn;
+	}
+
+	inline void release_master_wtxn(bool force_commit=false) {
+		reservation.release_master_wtxn(force_commit);
+		owned_wtxn = nullptr;
+	}
+
+	inline void maybe_release_master_wtxn() {
+		bool released = reservation.maybe_release_master_wtxn();
+		if(released) {
+			owned_wtxn = nullptr;
+		}
 	}
 
 public:
@@ -247,7 +251,7 @@ public:
 		assert(owned_wtxn);
 		child_txn->commit();
 		child_txn.reset();
-		reservation.maybe_release_wtxn();
+		this->maybe_release_master_wtxn();
 	}
 
 	inline void abort_child_wtxn() {
@@ -257,7 +261,7 @@ public:
 		assert(owned_wtxn);
 		child_txn->abort();
 		child_txn.reset();
-		reservation.maybe_release_wtxn();
+		this->maybe_release_master_wtxn();
 	}
 
 
@@ -270,8 +274,8 @@ public:
 			return;
 		assert(!child_txn);
 		wtxn_must_release = false;
-		reservation.release_wtxn(true /*force_commit*/);
-		owned_wtxn = nullptr;
+		//dtdebugx("QQQ %p calling reservation.release_wtxn", this);
+		this->release_master_wtxn(true /*force_commit*/);
 	}
 
 	/*
@@ -281,13 +285,15 @@ public:
 		If another thread acquires the wtxn, it will first commit our data
 	 */
 	inline void release_wtxn() {
+		assert(!child_txn);
 		if(owned_wtxn) {
-			if(child_txn)
+			if(child_txn) {
 				child_txn->abort();
+				child_txn.reset();
+			}
 			assert(!child_txn);
 			wtxn_must_release = false;
-			reservation.release_wtxn();
-			owned_wtxn = nullptr;
+			this->release_master_wtxn(false /*force_commit*/);
 		} else {
 			assert(!child_txn);
 		}

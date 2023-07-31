@@ -84,7 +84,7 @@ namespace ss {
 		}
 	};
 
-	static iconv_context_t priv;
+	static thread_local iconv_context_t priv;
 
 	void unac_iso_databuffer(char* str, size_t len) {
 

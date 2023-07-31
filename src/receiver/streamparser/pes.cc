@@ -360,9 +360,11 @@ void dtdemux::mpeg2_parser_t::parse_payload_unit() {
 			auto aspect_ratio = aspect_ratio_code < sizeof(aspect_ratios) / sizeof(aspect_ratios[0])
 				? aspect_ratios[aspect_ratio_code]
 				: "invalid";
+#if 0
 			LOG4CXX_DEBUG(logger, current_ts_packet->range << ": " << pts << ": "
 										<< "SEQ header: frame_rate=" << frame_rate
 										<< " aspect_ratio=" << aspect_ratio);
+#endif
 			this->skip(3);																	// bit_rate and part of vbv_buffer_size
 			uint8_t quantiser_flags = this->get<uint8_t>(); /* 5 bits of vbv_buffer_size,
 																												 1 bit constrained_parameter_flags

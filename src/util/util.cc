@@ -120,7 +120,9 @@ int event_handle_t::reset() {
 	auto ret= ::read(_fd, &u, sizeof(uint64_t));
 	if (ret != sizeof(uint64_t)) {
 		if(errno==EWOULDBLOCK || errno==EAGAIN) {
+#if 0
 			LOG4CXX_ERROR(logger, "Spurious wakeup event fd=" << _fd);
+#endif
 		} else
 			LOG4CXX_ERROR(logger, "Error reading eventfd: " << strerror(errno));
 	}

@@ -239,7 +239,7 @@ template int tuner_thread_t::cb_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t
 																													subscription_id_t subscription_id);
 
 int tuner_thread_t::exit() {
-	dtdebugx("tuner exit");
+	dtdebugx("tuner starting exit");
 	this->active_adapter.destroy();
 	return 0;
 }

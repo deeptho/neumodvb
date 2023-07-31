@@ -261,10 +261,20 @@ private:
 	void check_for_new_streams();
 	void check_for_unlockable_streams();
 	void check_for_non_existing_streams();
-public:
-	active_adapter_t(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_);
+
 	active_adapter_t(active_adapter_t&& other) = delete;
 	active_adapter_t(const active_adapter_t& other) = delete;
+public:
+	active_adapter_t(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_);
+	inline void start_tuner_thread() {
+		tuner_thread.start_running();
+	}
+	static inline std::shared_ptr<active_adapter_t>
+	make(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_) {
+		auto ret= std::make_shared<active_adapter_t>(receiver_, fe_);
+		ret->start_tuner_thread();
+		return ret;
+	}
 
 	active_adapter_t operator=(const active_adapter_t& other) = delete;
 

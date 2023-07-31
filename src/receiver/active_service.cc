@@ -583,7 +583,6 @@ active_service_t::~active_service_t() {
 #endif
 }
 
-
 std::optional<recdb::rec_t>
 active_service_t::start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec_in)
 {

@@ -410,9 +410,7 @@ active_adapter_t::active_adapter_t(receiver_t& receiver_,
 	, fe(fe_)
 	, tuner_thread(receiver_, *this)
 	,	si(receiver, std::make_unique<dvb_stream_reader_t>(*this, -1), false)
-{
-	tuner_thread.start_running();
-}
+{}
 
 void active_adapter_t::destroy() {
 #ifndef NDEBUG
@@ -426,9 +424,6 @@ void active_adapter_t::destroy() {
 
 
 active_adapter_t::~active_adapter_t() {
-#ifndef NDEBUG
-	assert(tuner_thread.has_exited());
-#endif
 	dtdebugx("~active_adapter_t: %p. Adapter %d frontend %d destroyed", this, get_adapter_no(), frontend_no());
 }
 

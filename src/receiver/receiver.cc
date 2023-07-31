@@ -628,7 +628,7 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 			futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = *sret.aa.fe]() {
 				tuner_thread.update_dbfe(updated_dbfe);
 				return 0;
-		}));
+			}));
 			return it->second.get();
 		}
 		assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
@@ -646,8 +646,8 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 	assert(sret.aa.fe);
 	auto dvb_frontend = receiver.fe_for_dbfe(sret.aa.fe->k);
 #endif
-	auto aa = std::make_shared<active_adapter_t>(receiver,
-																							 dvb_frontend);
+	auto aa = active_adapter_t::make(receiver, dvb_frontend);
+	dtdebugx("created new AA: %p", aa.get());
 	{
 		auto w = this->active_adapters.writeAccess();
 		auto& m = *w;

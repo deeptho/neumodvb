@@ -1299,7 +1299,7 @@ class RecordPanel(wx.Panel):
             dtdebug(f"Updating live service screen")
             old_record = self.selected_row_entry
             self.data.GetRecordAtRow.cache_clear()
-            self.SelectRow(old_record)
+            self.SelectRow(old_record, data_has_changed=True)
             #wx.CallAfter(self.Refresh)
 
     def on_timer(self):
@@ -1372,7 +1372,7 @@ class RecordPanel(wx.Panel):
         if entry is not None:
             old_top_idx = self.top_idx
             self.top_idx = self.data.row_screen.set_reference(entry)
-            self.update_rows(old_top_idx)
+            self.move_rows(old_top_idx)
             self.focus_row(w, 0)
 
     def OnDestroyWindow(self, evt):
@@ -1413,16 +1413,20 @@ class RecordPanel(wx.Panel):
         dtdebug('CALL SetFocus')
         self.rows[self.last_focused_rowno].SetFocus()
 
-    def update_rows(self, old_top_idx=None):
+    def move_rows(self, old_top_idx=None):
         assert old_top_idx is not None
         self.Freeze()
-        self.update_rows_(old_top_idx = old_top_idx)
+        self.move_rows_(old_top_idx = old_top_idx)
         self.Thaw()
         self.gbs.Layout()
         for rowno, row in enumerate(self.rows):
             assert rowno == row.rowno
 
-    def update_rows_(self, old_top_idx=None):
+    def move_rows_(self, old_top_idx=None):
+        """
+        put a different set of records on screen, assuming that underlying data has not
+        changed.
+        """
         if old_top_idx < self.top_idx:
             num_rows =self.top_idx - old_top_idx
             for row in self.rows[0:num_rows]:
@@ -1449,6 +1453,24 @@ class RecordPanel(wx.Panel):
                 self.rows[rowno] = self.RowClass(self, rowno)
                 self.rows[rowno].update()
 
+    def update_rows(self, old_top_idx=None):
+        assert old_top_idx is not None
+        self.Freeze()
+        self.update_rows_(old_top_idx = old_top_idx)
+        self.Thaw()
+        self.gbs.Layout()
+        for rowno, row in enumerate(self.rows):
+            assert rowno == row.rowno
+
+    def update_rows_(self, old_top_idx=None):
+        """
+        put a different set of records on screen, taking into account that underlying data has
+        changed.
+        """
+        assert old_top_idx is not None
+        for rowno in range(0, self.num_rows_on_screen):
+            #self.rows[rowno] = self.RowClass(self, rowno)
+            self.rows[rowno].update()
 
     def scroll_down(self, rows):
         old_top_idx = self.top_idx
@@ -1460,7 +1482,7 @@ class RecordPanel(wx.Panel):
                 self.top_idx = max(self.data.GetNumberRows() -1 - self.last_focused_rowno, 0)
             else:
                 self.top_idx = old_top_idx
-        self.update_rows(old_top_idx)
+        self.move_rows(old_top_idx)
         self.focus_row(None, self.last_focused_rowno)
         wx.CallAfter(self.update_scrollbar)
 
@@ -1559,7 +1581,7 @@ class RecordPanel(wx.Panel):
             chno = ask_channel_number(self, key- ord('0'))
             entry  = self.data.ls.entry_for_ch_order(chno)
             if entry is not None:
-                self.SelectRow(entry)
+                self.SelectRow(entry, data_has_changed=False)
             return
         else:
             evt.Skip(True)
@@ -1579,16 +1601,16 @@ class RecordPanel(wx.Panel):
         gtk_add_window_style(cell, 'cell')
         return cell
 
-
-    def SelectRow(self, record):
+    def SelectRow(self, record, data_has_changed):
         if record is not None:
             old_top_idx = self.top_idx
             self.top_idx = self.data.row_screen.set_reference(record)
-            self.update_rows(old_top_idx)
+            if data_has_changed:
+                self.update_rows(old_top_idx)
+            else:
+                self.move_rows(old_top_idx)
             self.focus_row(None, 0)
             self.data.OnSelectRow(record)
-
-
 
     def OnTune(self, event, replace_running):
         assert self.last_focused_cell is not None
@@ -1728,13 +1750,13 @@ class GridEpgPanel(RecordPanel):
         else:
             self.rows[self.last_focused_rowno].focus_current()
 
-    def update_rows_(self, old_top_idx=None):
+    def move_rows_(self, old_top_idx=None):
         if old_top_idx < self.top_idx:
             self.remove_epg_data_for_rows(0, self.top_idx - old_top_idx)
         elif old_top_idx > self.top_idx:
             self.remove_epg_data_for_rows(self.top_idx - old_top_idx + len(self.rows),
                                                    len(self.rows))
-        super().update_rows_(old_top_idx = old_top_idx)
+        super().move_rows_(old_top_idx = old_top_idx)
 
     def DrawCurrentTime(self):
         now = self.now
@@ -2225,7 +2247,7 @@ class RecordingsPanel(RecordPanel):
             dtdebug(f"Updating live service screen")
             old_record = self.selected_row_entry
             self.data.GetRecordAtRow.cache_clear()
-            self.SelectRow(old_record)
+            self.SelectRow(old_record, data_has_changed=True)
             #wx.CallAfter(self.Refresh)
 
     def Navigate(self, focused_widget, modifier, key):

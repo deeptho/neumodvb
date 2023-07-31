@@ -541,6 +541,13 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	/*If the requested mux happens to be already the active mux for this subscription, simply return,
 		after restarting si processing or retuning
 	*/
+	if(!sret.is_new_aa) {
+		dtdebugx("Reusing active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
+						 (int)active_adapter.get_adapter_no());
+		auto ret1 = active_adapter.remove_service(sret.subscription_id);
+		dterrorx("Called remove_service: service was %sremoved", (ret1<0)? "NOT " : "");
+	}
+
 	if(sret.sub_to_reuse == sret.subscription_id)  {
 		assert(old_active_adapter);
 		dtdebug("subscribe " << mux << ": already subscribed to mux");
@@ -572,18 +579,8 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 
 	int ret{-1};
 
-	if(
-#ifdef NEWXXX
-		sret.newaaxx
-#else
-		sret.is_new_aa
-#endif
-		) {
-#ifdef NEWXXX
-		auto& aa = *sret.newaaxx;
-#else
+	if(sret.is_new_aa) {
 		auto& aa = sret.aa;
-#endif
 		dtdebugx("New active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
 						 active_adapter.get_adapter_no());
 		visit_variant(mux,
@@ -603,23 +600,24 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 		if (ret < 0)
 			dterrorx("tune returned %d", ret);
 	} else {
-		dtdebugx("Reusing active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
-						 (int)active_adapter.get_adapter_no());
-		visit_variant(mux,
-									[&](const chdb::dvbs_mux_t& mux) {
-										ret = this->tune(active_adapter.current_rf_path(),
-																		 active_adapter.current_lnb(), mux, tune_pars,
-																		 sret.subscription_id);
+		if(sret.retune) {
+			dtdebugx("Retuning");
+			visit_variant(mux,
+										[&](const chdb::dvbs_mux_t& mux) {
+											ret = this->tune(active_adapter.current_rf_path(),
+																			 active_adapter.current_lnb(), mux, tune_pars,
+																			 sret.subscription_id);
 									},
-									[&](const chdb::dvbc_mux_t& mux) {
-										ret = this->tune(mux, tune_pars, sret.subscription_id);
-									},
-									[&](const chdb::dvbt_mux_t& mux) {
-										ret = this->tune(mux, tune_pars, sret.subscription_id);
+										[&](const chdb::dvbc_mux_t& mux) {
+											ret = this->tune(mux, tune_pars, sret.subscription_id);
+										},
+										[&](const chdb::dvbt_mux_t& mux) {
+											ret = this->tune(mux, tune_pars, sret.subscription_id);
 									}
-			);
-		if (ret < 0)
-			dterrorx("tune returned %d", ret);
+				);
+			if (ret < 0)
+				dterrorx("retune returned %d", ret);
+		}
 	}
 #if 0
 	auto adapter_no =  active_adapter.get_adapter_no();
@@ -782,6 +780,7 @@ void tuner_thread_t::remove_live_buffer(subscription_id_t subscription_id) {
 	}
 	auto live_service = c.current();
 	live_service.last_use_time = system_clock_t::to_time_t(now);
+	c.destroy();
 	txn.commit();
 	recdbmgr.flush_wtxn();
 }

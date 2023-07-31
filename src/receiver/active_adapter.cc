@@ -264,7 +264,8 @@ int active_adapter_t::remove_all_services() {
 	std::vector<task_queue_t::future_t> futures;
 	for(auto& [subscription_id, aa] : subscribed_active_services) {
 		auto& service_thread = aa->service_thread;
-		futures.push_back(service_thread.stop_running(false/*wait*/));
+		if(!service_thread.must_exit())
+			futures.push_back(service_thread.stop_running(false/*wait*/));
 	}
 	wait_for_all(futures, true /*clear all errors*/);
 	subscribed_active_services.clear();
@@ -282,7 +283,7 @@ int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 	dtdebug("Removing service for subscription " << (int) subscription_id << ": service=" << service);
 	tuner_thread.remove_live_buffer(subscription_id);
 	auto& service_thread = active_service.service_thread;
-	service_thread.stop_running(false/*wait*/);
+	service_thread.stop_running(true/*wait*/);
 	subscribed_active_services.erase(it);
 	return 0;
 }

@@ -830,7 +830,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 	}
 	chdb_txn.abort();
 
-	dtdebug("SUBSCRIBE - calling subscribe_");
+	dtdebug("SUBSCRIBE - calling subscribe_service");
 	// now perform the requested subscription
 	auto mpmptr = this->receiver_thread_t::subscribe_service(mux, service, subscription_id);
 	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas

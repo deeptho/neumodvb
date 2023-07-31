@@ -307,9 +307,6 @@ public:
 				return {};
 			this->must_exit_ = true;
 		}
-		if(must_exit_)
-			tasks = {}; //clear queue
-
 		tasks.push(std::move(task));
 		if(tasks.size()>=10)
 			printf("large nunber of tasks %ld\n", tasks.size());

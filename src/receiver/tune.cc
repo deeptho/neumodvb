@@ -358,7 +358,8 @@ int tuner_thread_t::run() {
 					auto delay = dttime(-1);
 					if (delay >= 500)
 						dterrorx("monitor cycle took too long delay=%d", delay);
-					run_tasks(now, false); //prioritize tuning commands
+					if(run_tasks(now)<0)
+						return 0;
 				}
 				dttime_init();
 				dttime(100);
@@ -391,10 +392,12 @@ int tuner_thread_t::run() {
 				ss::string<128> prefix;
 				prefix << "TASK";
 				log4cxx::NDC ndc(prefix.c_str());
-				run_tasks(now, false); //prioritize tuning commands
+				if(run_tasks(now)<0)
+					return 0;
 			}
 		}
 	}
+	dtdebugx("Tuner thread ending done");
 	return 0;
 }
 
@@ -407,7 +410,6 @@ tuner_thread_t::tuner_thread_t(receiver_t& receiver_, active_adapter_t& aa)
 		 }
 
 tuner_thread_t::~tuner_thread_t() {
-	assert(has_exited());
 }
 
 int tuner_thread_t::set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options) {

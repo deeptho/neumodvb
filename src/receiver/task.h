@@ -105,6 +105,14 @@ public:
 
 	typedef std::queue<task_t> queue_t;
 
+/*
+	The following future is for "wait_for_exit_task", which will be run after the thread's run() has finished.
+	At that stage the the threads resources will have been released, so it is not possible to store the
+	task itself safely in task_queue_t, because task_queue_t may already have been deleted when wait_for_exit_task
+	is actually run. However it is safe to store a future and retrieve this future before task_queue_t is
+	destroyed and then use it to wait for task_queue_t's thread to end
+ */
+	future_t exit_future;
 private:
 	thread_group_t thread_group;
 	std::array<struct epoll_event, 8> events;
@@ -191,10 +199,30 @@ protected:
 #endif
 		try {
 			::thread_group = this->thread_group;
-			return run();
+			/*
+				we store this task on the stack, so that we can safely execute it later,
+				even if the task_queue datastructure has veen been destroyed
+			 */
+			auto wait_for_exit_task = task_t([]() {
+				task_result_t ret;
+				return ret;
+			});
+
+			/*
+				save a future which can be used to wait for thread desctruction
+			 */
+			exit_future = wait_for_exit_task.get_future();
+			auto ret = run();
+			this->has_exited_=true;
+
+			wait_for_exit_task();
+
+			return ret;
 		} catch (const std::exception& e) { // caught by reference to base
 			dterror("exception was caught: " << e.what());
+			assert(0);
     }
+		this->has_exited_=true;
 		return -1;
 	}
 
@@ -222,7 +250,6 @@ public:
 
 		auto f = push_task_and_exit( [this](){
 			exit();
-			this->has_exited_=true;
 			return -1;
 		});
 		if(wait) {
@@ -230,8 +257,14 @@ public:
 			status_future.wait();
 			thread_.join();
 			return {};
-		} else
+		} else {
 			thread_.detach();
+			/*
+				This future can be used to safely wait for thread exit, even well after the task_queue_t data structure
+				has been destroyed
+			 */
+			return std::move(exit_future);
+		}
 		return f;
 	}
 
@@ -246,7 +279,8 @@ public:
 #endif
 	}
 
-	virtual ~task_queue_t() {
+	~task_queue_t() {
+
 	}
 
 	future_t push_task_(std::function<int()>&& callback, bool must_exit=false) {

@@ -203,6 +203,7 @@ inline void
 lmdb::error::raise(const char* const origin,
                    const int rc) {
 	fprintf(stderr, "lmdb returns error=%d",rc);
+	assert(false);
   switch (rc) {
     case MDB_KEYEXIST:         throw key_exist_error{origin, rc};
     case MDB_NOTFOUND:         throw not_found_error{origin, rc};

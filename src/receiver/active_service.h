@@ -116,7 +116,7 @@ private:
 	active_service_t(receiver_t& receiver, active_adapter_t& active_adapter,
 									 const chdb::service_t& ch, const std::shared_ptr<stream_reader_t>& reader);
 
-	virtual ~active_service_t() final;
+	~active_service_t() final;
 
 	virtual  ss::string<32> name() const;
 	void housekeeping(system_time_t now); //periodically called to remove old data in timeshift buffer

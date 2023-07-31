@@ -309,11 +309,13 @@ void tuner_thread_t::on_epg_update(db_txn& epgdb_wtxn, system_time_t now,
 
 int tuner_thread_t::run() {
 	thread_id = std::this_thread::get_id();
-
+	auto adapter_no = active_adapter.get_adapter_no();
 	/*TODO: The timer below is used to gather signal strength, cnr and ber.
 		When used from a gui, it may be better to let the gui handle this asynchronously
 	*/
-	set_name("tuner");
+	ss::string<64> thread_name;
+	thread_name.sprintf("tuner%d", adapter_no);
+	set_name(thread_name.c_str());
 	logger = Logger::getLogger("tuner"); // override default logger for this thread
 	double period_sec = 1.0;
 	timer_start(period_sec);

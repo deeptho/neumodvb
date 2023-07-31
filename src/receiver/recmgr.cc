@@ -776,7 +776,7 @@ int recmgr_thread_t::run() {
 	/*TODO: The timer below is used to gather signal strength, cnr and ber.
 		When used from a gui, it may be better to let the gui handle this asynchronously
 	*/
-	set_name("tuner");
+	set_name("recmgr");
 	logger = Logger::getLogger("recmgr"); // override default logger for this thread
 	double period_sec = 1.0;
 	timer_start(period_sec);

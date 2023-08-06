@@ -286,6 +286,29 @@ void recmgr_thread_t::startup(system_time_t now_) {
 	using namespace recdb;
 	using namespace epgdb;
 	auto parent_txn = receiver.recdb.wtxn();
+	/*
+		clean recording status of epg records, which may not be uptodate after a crash
+	 */
+	auto clean = [&] (rec_status_t rec_status) {
+		auto cr = rec_t::find_by_status_start_time(parent_txn, rec_status, now -7*3600*24, find_type_t::find_geq,
+																							 rec_t::partial_keys_t::rec_status);
+		for (auto rec : cr.range()) {
+			if (rec.epg.end_time <= now) {
+				auto epg_txn = receiver.epgdb.wtxn();
+				auto c = epgdb::epg_record_t::find_by_key(epg_txn, rec.epg.k);
+				if (c.is_valid()) {
+					auto epg = c.current();
+					epg.rec_status = epgdb::rec_status_t::NONE;
+					epgdb::update_record_at_cursor(c, epg);
+				}
+				epg_txn.commit();
+			}
+		}
+	};
+	clean(rec_status_t::FINISHED);
+	clean(rec_status_t::FAILED);
+	clean(rec_status_t::SCHEDULED);
+
 	auto cr = rec_t::find_by_status_start_time(parent_txn, rec_status_t::IN_PROGRESS, find_type_t::find_geq,
 																						 rec_t::partial_keys_t::rec_status);
 	for (auto rec : cr.range()) {

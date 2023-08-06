@@ -328,7 +328,6 @@ struct bat_data_t {
 	std::map <uint16_t, bouquet_data_t> by_bouquet_id;
 	std::map<uint16_t, chdb::service_key_t> opentv_service_keys; //indexed by channel_id
 
-
 	bouquet_data_t& get_bouquet(const chdb::chg_t& chg) {
 		auto [it, found] = by_bouquet_id.try_emplace(chg.k.bouquet_id,
 																								 bouquet_data_t{chg.num_channels});

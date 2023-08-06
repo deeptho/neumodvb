@@ -354,7 +354,7 @@ recdb::rec_t active_mpm_t::start_recording(
 	}
 	rec.stream_time_end = stream_parser.event_handler.last_saved_marker.k.time;
 	rec.epg.rec_status = epgdb::rec_status_t::IN_PROGRESS;
-	// TODO: times in start_play_time may have a different sign than stream_times (which can be both negative and
+	// TODO: times in start_play_time may have a different sign than stream_time (which can be both negative and
 	// positive)
 	using namespace recdb;
 	num_recordings_in_progress++;

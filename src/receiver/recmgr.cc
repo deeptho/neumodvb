@@ -893,7 +893,8 @@ void recmgr_thread_t::livebuffer_db_update_(system_time_t now_) {
 	for (auto live_service : c.range()) {
 		if((int) live_service.owner != pid)
 			continue; //leave other processes alone
-		if (live_service.last_use_time >= now - retention_time)
+		if (live_service.last_use_time < 0 || //live_service still in use
+				live_service.last_use_time >= now - retention_time) //live buffer may be reused for a brief while
 			continue;
 
 		dtdebug("Removing old live buffer: adapter " << (int)live_service.adapter_no <<

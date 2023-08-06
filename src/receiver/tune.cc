@@ -762,6 +762,15 @@ void tuner_thread_t::on_epg_update_check_autorecs(db_txn& recdb_wtxn,
 void tuner_thread_t::add_live_buffer(const recdb::live_service_t& live_service) {
 	using namespace recdb;
 	auto wtxn = recdbmgr.wtxn();
+	auto c = live_service_t::find_by_key(wtxn, live_service.owner, live_service.subscription_id, find_type_t::find_eq);
+	if(c.is_valid()) {
+		auto old = c.current();
+		dtdebug("updating live_service: last_use_time from=" <<  system_clock_t::from_time_t(old.last_use_time)
+						 << " new=" << system_clock_t::from_time_t(live_service.last_use_time));
+	} else {
+		dtdebug("new live_service: last_use_time =" <<  system_clock_t::from_time_t(live_service.last_use_time));
+	}
+	c.destroy();
 	put_record(wtxn, live_service);
 	wtxn.commit();
 }

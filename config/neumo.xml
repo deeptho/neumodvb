@@ -43,6 +43,12 @@
     <appender-ref ref="FILE"/>
   </logger>
 
+  <logger name="recmgr">
+    <priority value ="debug" />
+    <!--<appender-ref ref="CONSOLE"/>-->
+    <appender-ref ref="FILE"/>
+  </logger>
+
   <logger name="tuner">
     <priority value ="debug" />
     <!--<appender-ref ref="CONSOLE"/>-->

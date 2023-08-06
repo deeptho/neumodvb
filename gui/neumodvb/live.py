@@ -1606,7 +1606,8 @@ class RecordPanel(wx.Panel):
             old_top_idx = self.top_idx
             self.top_idx = self.data.row_screen.set_reference(record)
             if data_has_changed:
-                self.update_rows(old_top_idx)
+                new_top_idx = max(0, self.top_idx - (self.row_idx-old_top_idx))
+                self.update_rows(new_top_idx)
             else:
                 self.move_rows(old_top_idx)
             self.focus_row(None, 0)

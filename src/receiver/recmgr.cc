@@ -40,8 +40,8 @@ void recmgr_thread_t::remove_old_livebuffers() {
 	auto& options = *r;
 	for (auto live_service: c.range()) {
 		//do not remove livebuffers from other processes
-		bool not_active = (live_service.owner >=0 && !kill((pid_t)live_service.owner, 0));
-		if(not_active)
+		bool active = (live_service.owner >=0 && !kill((pid_t)live_service.owner, 0));
+		if(active)
 			continue;
 		auto path = fs::path(options.live_path.c_str()) / live_service.dirname.c_str();
 		auto dbpath = path / "index.mdb";

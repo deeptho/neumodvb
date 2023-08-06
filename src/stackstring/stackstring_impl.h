@@ -116,7 +116,7 @@ inline int next_power_of_two(int n) {
 		auto* old_data = buffer();
 		p->capacity_ = newcap;
 		if constexpr (std::is_trivial<data_t>::value) {
-			memcpy(p->data(), old_data, old_length);
+			memcpy(p->data(), old_data, old_length*sizeof(data_t));
 		} else {
 			for(int i=0; i< old_length; ++i) {
 				new(p->data()+i) data_t(old_data[i]);

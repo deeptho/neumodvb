@@ -34,13 +34,11 @@ class mpm_recordings_t {
 
 public:
 	ss::string<128> dbname;
-	recdb::recdb_t recdb; //database for storing all recordings
-	//chdb::chdb_t servicedb; //secondary database for storing a single service record  (part of recdb)
-
-	epgdb::epgdb_t recepgdb; //secondary database for storing epg data related to recordings  (part of recdb)
+	recdb::recdb_t recdb; //database for storing all recordingsx
 	recdb::recdb_t idxdb;
 
-	mpm_recordings_t() : recdb(false, false, true /*autoconvert*/), recepgdb(recdb), idxdb(recdb) {
+	mpm_recordings_t() : recdb(false, false, true /*autoconvert*/),
+											 idxdb(recdb) {
 	}
 
 	void open(const char* name);

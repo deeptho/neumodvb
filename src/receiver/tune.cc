@@ -301,10 +301,10 @@ void tuner_thread_t::on_epg_update(db_txn& epgdb_wtxn, system_time_t now,
 			continue;
 		put_record(recdb_wtxn, live_service);
 	}
-	//recdbmgr.release_wtxn(); Not needed?
 	on_epg_update_check_recordings(recdb_wtxn, epgdb_wtxn, epg_record);
 	on_epg_update_check_autorecs(recdb_wtxn, epgdb_wtxn, epg_record);
 	recdb_wtxn.commit();
+	//recdbmgr.release_wtxn(); Not needed?
 }
 
 int tuner_thread_t::run() {

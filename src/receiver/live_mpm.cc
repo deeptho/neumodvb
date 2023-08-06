@@ -368,11 +368,6 @@ recdb::rec_t active_mpm_t::start_recording(
 	auto rectxn = db->mpm_rec.recdb.wtxn();
 
 	put_record(rectxn, rec);
-	// now also update the recording status in the livebuffer's epg record
-	auto recepgtxn = rectxn.child_txn(db->mpm_rec.recepgdb);
-	put_record(recepgtxn, rec.epg);
-	recepgtxn.commit();
-
 	rectxn.commit();
 	return rec;
 }
@@ -551,22 +546,6 @@ int finalize_recording(db_txn& livebuffer_idxdb_rtxn, mpm_copylist_t& copy_comma
 	}
 
 	idx_txn.commit();
-
-
-#if 1 // perhaps not needed; epg is already in rec record
-	{
-		auto src_txn = db->mpm_rec.recepgdb.rtxn(); // for accessing the livebuffer's database
-		auto dst_txn = rec_txn.child_txn(recidx.mpm_rec.recepgdb);
-		// copy epg records
-		auto c = epgdb::find_first<epgdb::epg_record_t>(src_txn);
-		for (const auto& epg_record : c.range()) {
-			if (overlap_duration(start, end, epg_record.k.start_time, epg_record.end_time) > 0) {
-				put_record(dst_txn, epg_record);
-			}
-		}
-		dst_txn.commit();
-	}
-#endif
 	rec_txn.commit();
 	return 0;
 }
@@ -605,12 +584,6 @@ int active_mpm_t::stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& cop
 	auto rec_txn = db->mpm_rec.recdb.wtxn(); // we need to reopen transaction. next_data_file opended its own transaction
 	num_recordings_in_progress--;
 	dtdebugx("num_recordings_in_progress changed to %d", num_recordings_in_progress);
-
-	// now also update teh recording status in the livebuffer's epg record
-	auto recepg_txn = rec_txn.child_txn(db->mpm_rec.recepgdb);
-	put_record(recepg_txn, rec.epg);
-	recepg_txn.commit();
-
 	// filesystem location where recording will be stored
 
 	rec.epg.rec_status =
@@ -642,9 +615,6 @@ void active_mpm_t::forget_recording_in_livebuffer(const recdb::rec_t& rec) {
 void active_mpm_t::update_recording(recdb::rec_t& rec, const chdb::service_t& service,
 																		const epgdb::epg_record_t& epgrec) {
 	auto rec_wtxn = db->mpm_rec.recdb.wtxn();
-	auto recepg_txn = rec_wtxn.child_txn(db->mpm_rec.recepgdb);
-	epgdb::update_epg_recording_status(recepg_txn, epgrec);
-	recepg_txn.commit();
 	rec_wtxn.commit();
 }
 
@@ -1059,10 +1029,11 @@ bool active_mpm_t::file_used_by_recording(const recdb::file_t& file) const {
 void active_mpm_t::delete_old_data(db_txn& parent_txn, system_time_t now) {
 	/*
 		remove old data by removing old mpm parts. Removal is done file by file (typically 5 min of mpeg data)
-		The deleted data is the one older than  now - live_buffer_duration, with one exception:
-		only files not currently in use by live viewing, or not newer than those currently in use
+		The deleted data is the one older than  now - live_buffer_duration, with the following exceptions:
+		1.  only files not currently in use by live viewing, or not newer than those currently in use
 		by live viewing should be removed. Otherwise we may be viewing an old part of the live buffer and
 		when a newer part is then reached, it may no longer exist and we have a gap in playback
+		2. we do not delete old data when recordings are in progress. These
 
 	*/
 	using namespace recdb;

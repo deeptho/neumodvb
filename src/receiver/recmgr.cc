@@ -724,9 +724,7 @@ void mpm_recordings_t::open(const char* name) {
 		recdb::recdb_t::clean_log(txn);
 		txn.commit();
 	}
-
-	recepgdb.open_secondary("epg");
-	idxdb.open_secondary("idx");
+	idxdb.open_secondary("idx", true /*allow degraded mode*/);
 }
 
 void recmgr_thread_t::clean_dbs(system_time_t now, bool at_start) {

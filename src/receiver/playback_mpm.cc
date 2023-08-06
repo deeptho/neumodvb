@@ -306,9 +306,13 @@ playback_info_t playback_mpm_t::get_current_program_info() const {
 		ret.play_time = p;
 	}
 	{
-		auto txnrecepg = this->db->mpm_rec.recepgdb.rtxn();
-		ret.epg = epgdb::running_now(txnrecepg, ret.service.k, ret.play_time);
-		txnrecepg.abort();
+		auto txnrec = this->db->mpm_rec.recdb.rtxn();
+		auto c = recdb::find_first<recdb::rec_t>(txnrec);
+		if(c.is_valid()) {
+			auto rec = c.current();
+			ret.epg = rec.epg;
+		}
+		txnrec.abort();
 	}
 	return ret;
 }

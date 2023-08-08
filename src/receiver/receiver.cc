@@ -236,19 +236,22 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 																							&service,
 																							tune_options.use_blind_tune, tune_options.may_move_dish,
 																							dish_move_penalty, resource_reuse_bonus,
-																							false /*need_blindscan*/, false /*need_spectrum*/, loc);
+																							false /*need_blindscan*/, false /*need_spectrum*/, loc,
+																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbc_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &service,
 																							tune_options.use_blind_tune, resource_reuse_bonus,
-																							false /*need_blindscan*/);
+																							false /*need_blindscan*/,
+																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbt_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &service,
 																							tune_options.use_blind_tune, resource_reuse_bonus,
-																							false /*need_blindscan*/);
+																							false /*need_blindscan*/,
+																							false /*do_not_unsubscribe_on_failure*/);
 								});
 	devdb_wtxn.commit();
 	if(sret.failed) {
@@ -304,19 +307,22 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 																							&rec.service,
 																							tune_options.use_blind_tune, tune_options.may_move_dish,
 																							dish_move_penalty, resource_reuse_bonus,
-																							false /*need_blindscan*/, false /*need_spectrum*/, loc);
+																							false /*need_blindscan*/, false /*need_spectrum*/, loc,
+																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbc_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &rec.service,
 																							tune_options.use_blind_tune, resource_reuse_bonus,
-																							false /*need_blindscan*/);
+																							false /*need_blindscan*/,
+																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbt_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &rec.service,
 																							tune_options.use_blind_tune, resource_reuse_bonus,
-																							false /*need_blindscan*/);
+																							false /*need_blindscan*/,
+																							false /*do_not_unsubscribe_on_failure*/);
 								});
 
 	if(sret.failed) {
@@ -484,7 +490,8 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const _mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id) {
+	const devdb::rf_path_t* required_rf_path, uint32_t scan_id,
+	bool do_not_unsubscribe_on_failure) {
 	int resource_reuse_bonus;
 	int dish_move_penalty;
 	devdb::usals_location_t loc;
@@ -501,13 +508,15 @@ receiver_thread_t::subscribe_mux(
 																(const chdb::service_t*) nullptr /*service*/,
 																tune_options.use_blind_tune, tune_options.may_move_dish,
 																dish_move_penalty, resource_reuse_bonus,
-																false /*need_blindscan*/, false /*need_spectrum*/, loc);
+																false /*need_blindscan*/, false /*need_spectrum*/, loc,
+																do_not_unsubscribe_on_failure);
 	} else {
 
 		sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																&mux, (const chdb::service_t*) nullptr /*service*/,
 																tune_options.use_blind_tune, resource_reuse_bonus,
-																false /*need_blindscan*/);
+																false /*need_blindscan*/,
+																do_not_unsubscribe_on_failure);
 	}
 
 	if(sret.failed) {
@@ -628,7 +637,8 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	auto ret_subscription_id =
 		this->receiver_thread_t::subscribe_mux(futures, devdb_wtxn, mux, subscription_id, tune_options,
-																					 required_rf_path, scan_id);
+																					 required_rf_path, scan_id,
+																					 false /*do_not_unsubscribe_on_failure*/);
 	devdb_wtxn.commit();
 	error = wait_for_all(futures);
 	if(error) {
@@ -711,7 +721,8 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 																	 &rf_path, nullptr /*mux*/, nullptr /*service*/,
 																	 tune_options.use_blind_tune, tune_options.may_move_dish,
 																	 dish_move_penalty, resource_reuse_bonus,
-																	 need_blindscan, need_spectrum, loc);
+																	 need_blindscan, need_spectrum, loc,
+																	 false /*do_not_unsubscribe_on_failure*/);
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
@@ -1824,7 +1835,7 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbc_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id);
+	const devdb::rf_path_t* required_rf_path, uint32_t scan_id, bool do_not_unsubscribe_on_failure);
 
 
 template
@@ -1832,14 +1843,14 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbt_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id);
+	const devdb::rf_path_t* required_rf_path, uint32_t scan_id, bool do_not_unsubscribe_on_failure);
 
 template
 subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbs_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id);
+	const devdb::rf_path_t* required_rf_path, uint32_t scan_id, bool do_not_unsubscribe_on_failure);
 
 
 template subscription_id_t

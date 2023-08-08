@@ -262,7 +262,8 @@ namespace devdb::fe {
 														const chdb::service_t* service,
 														bool use_blind_tune, bool may_move_dish,
 														int dish_move_penalty, int resource_reuse_bonus,
-														bool need_blindscan, bool need_spectrum, const usals_location_t& loc);
+														bool need_blindscan, bool need_spectrum, const usals_location_t& loc,
+														bool do_not_unsubscribe_on_failure);
 
 	template<typename mux_t>
 	subscribe_ret_t
@@ -271,7 +272,8 @@ namespace devdb::fe {
 						const chdb::service_t* service,
 						bool use_blind_tune,
 						int resource_reuse_bonus,
-						bool need_blindscan);
+						bool need_blindscan,
+						bool do_not_unsubscribe_on_failure);
 };
 
 namespace devdb::fe_subscription {

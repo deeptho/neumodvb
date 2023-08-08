@@ -173,7 +173,8 @@ namespace devdb::fe {
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscription_id, const mux_t& mux,
 														 const chdb::service_t* service,
-														 const std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release, bool use_blind_tune);
+														 const std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release,
+														 bool use_blind_tune, bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 						 resource_subscription_counts_t, std::optional<devdb::fe_t>>
@@ -182,7 +183,9 @@ namespace devdb::fe {
 														 const devdb::rf_path_t* required_conn_key,
 														 const std::optional<fe_t>& oldfe,
 														 const devdb::fe_key_t* fe_key_to_release,
-														 bool use_blind_tune, bool may_move_dish, int dish_move_penalty, int resource_reuse_bonus);
+														 bool use_blind_tune, bool may_move_dish, int dish_move_penalty,
+														 int resource_reuse_bonus,
+														 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 	subscribe_lnb_exclusive(db_txn& wtxn,  subscription_id_t subscription_id,

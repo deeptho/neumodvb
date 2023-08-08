@@ -392,7 +392,7 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 
 /*
 	returns the number of pending  muxes to scan, and number of skipped muxes
-	and subscription to erase, and the new value of reusable_subscription_id
+	and subscription to erase, and the new value of reuseable_subscription_id
  */
 template<typename mux_t>
 std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb_rtxn,
@@ -825,7 +825,8 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		assert(mux_common_ptr(mux)->scan_id!=0);
 			subscription_id =
 			receiver_thread.subscribe_mux(futures, wtxn, mux, reuseable_subscription_id, tune_options,
-																		required_rf_path, scan_id);
+																		required_rf_path, scan_id,
+																		true /*do_not_unsubscribe_on_failure*/);
 		wtxn.commit();
 		wait_for_all(futures); //remove later
 	}, *subscription.mux);

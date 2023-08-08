@@ -275,8 +275,8 @@ class receiver_thread_t : public task_queue_t  {
 	void unsubscribe_all(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 											 subscription_id_t subscription_id);
 	void release_active_adapter(std::vector<task_queue_t::future_t>& futures,
-															db_txn& devdb_wtxn, subscription_id_t subscription_id,
-															const std::optional<devdb::fe_t>& updated_dbfe);
+															subscription_id_t subscription_id,
+															const devdb::fe_t& updated_dbfe);
 
 	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
 	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
@@ -295,7 +295,8 @@ protected:
 	subscription_id_t
 	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
 								const _mux_t& mux, subscription_id_t subscription_id,
-								const tune_options_t& tune_options, const devdb::rf_path_t* required_rf_path, uint32_t scan_id=0);
+								const tune_options_t& tune_options, const devdb::rf_path_t* required_rf_path,
+								uint32_t scan_id, bool do_not_unsubscribe_on_failure);
 
 	template<class mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t> subscribe_mux_in_use(

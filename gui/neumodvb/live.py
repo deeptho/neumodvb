@@ -132,7 +132,7 @@ class GridEpgData(GridData):
         if service is None:
             return None
         if self.epg_screens is None:
-            self.epg_screens = pyepgdb.gridepg_screen(self.start_time_unixepoch,
+            self.epg_screens = pyepgdb.gridepg_screen(self.start_time_unixepoch -3600,
                                                       self.parent.num_rows_on_screen, self.epg_sort_order)
         key = service.k if type(service) == pychdb.service.service else service.service
         epg_screen = self.epg_screens.epg_screen_for_service(key)

@@ -276,7 +276,7 @@ class receiver_thread_t : public task_queue_t  {
 											 subscription_id_t subscription_id);
 	void release_active_adapter(std::vector<task_queue_t::future_t>& futures,
 															db_txn& devdb_wtxn, subscription_id_t subscription_id,
-															const devdb::fe_t& updated_dbfe);
+															const std::optional<devdb::fe_t>& updated_dbfe);
 
 	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
 	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,

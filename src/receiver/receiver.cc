@@ -1664,8 +1664,10 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	auto scanner = get_scanner();
 	bool init = !scanner.get();
 	subscribe_ret_t sret{subscription_id, false /*failed*/};
-	if (!scanner)
+	if (!scanner){
 		scanner = std::make_shared<scanner_t>(*this, scan_found_muxes, max_num_subscriptions);
+		set_scanner(scanner);
+	}
 	scanner->add_peaks(spectrum_key, peaks, init, sret.subscription_id);
 	bool remove_scanner = scanner->housekeeping(true); // start initial scan
 	if(remove_scanner) {

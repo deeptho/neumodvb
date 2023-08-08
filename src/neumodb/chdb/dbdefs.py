@@ -525,7 +525,7 @@ mux_key = db_struct(name='mux_key',
                               (2, 'int16_t', 'stream_id', '-1'),
                               (5, 'int16_t', 't2mi_pid', -1), #we would prefer 0x1fff but this interferes
                                                               #with using default key as lower bound in find functions
-                              (4, 'uint16_t', 'mux_id')
+                              (4, 'uint16_t', 'mux_id', '0')
                               ))
 
 

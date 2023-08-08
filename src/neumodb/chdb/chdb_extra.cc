@@ -138,6 +138,7 @@ static void make_mux_id_helper(db_txn& rtxn, int frequency, mux_key_t& mux_key) 
 			return;
 		}
 	}
+	assert(mux_id>0);
 	mux_key.mux_id = mux_id; //if we reach this point, we have examined all muxes
 }
 

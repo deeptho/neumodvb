@@ -719,6 +719,12 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn, const devdb::rf_path_t* 
 		if(fe.sub.owner != owner)
 			continue;
 		int idx=0;
+		if(mux && (mux->k.mux_id !=0 || fe.sub.mux_key.mux_id ==0)) {
+			/*the existing subscription or the desired one is for a frequency peak.
+				In this case, we prevent reuse
+			*/
+			continue;
+		}
 		for(auto & sub: fe.sub.subs) { //loop over all subscriptions
 			bool rf_path_matches = ! required_rf_path || (*required_rf_path == fe.sub.rf_path);
 			bool mux_matches = mux ? (mux->k == fe.sub.mux_key ||

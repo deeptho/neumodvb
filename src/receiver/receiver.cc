@@ -144,14 +144,17 @@ void receiver_thread_t::unsubscribe_mux_and_service_only(std::vector<task_queue_
 	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
 	auto updated_dbfe = devdb::fe::unsubscribe(devdb_wtxn, subscription_id);
-	assert(updated_dbfe);
+	if(!updated_dbfe) {
+		return; //can happen when unsubscribing a scan
+	}
 	dtdebugx("release_active_adapter subscription_id=%d use_count=%d", (int) subscription_id,
-					 updated_dbfe->sub.subs.size());
-	release_active_adapter(futures, devdb_wtxn, subscription_id, *updated_dbfe);
+					 updated_dbfe ? updated_dbfe->sub.subs.size() : 0);
+	assert(updated_dbfe);
+	release_active_adapter(futures, subscription_id, *updated_dbfe);
 }
 
 void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
-																							 db_txn& devdb_wtxn, subscription_id_t subscription_id,
+																							 subscription_id_t subscription_id,
 																							 const devdb::fe_t& updated_dbfe) {
 	dtdebugx("release_active_adapter subscription_id=%d", (int)subscription_id);
 	assert((int)subscription_id >= 0);
@@ -165,15 +168,18 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 		auto [it, found] = find_in_map(m, subscription_id);
 		assert(found);
 		auto& tuner_thread = it->second->tuner_thread;
-		futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = updated_dbfe]() {
-			tuner_thread.update_dbfe(updated_dbfe);
-			return 0;
-		}));
 		if(updated_dbfe.sub.subs.size() ==0) {
 			//ask tuner thread to exit, but do not wait
+			dtdebugx("Pushing tuner_thread.stop_running");
+			tuner_thread.update_dbfe(updated_dbfe);
 			futures.push_back(tuner_thread.stop_running(false/*wait*/));
+		} else {
+			futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = updated_dbfe]() {
+				tuner_thread.update_dbfe(updated_dbfe);
+				return 0;
+			}));
 		}
-
+		dtdebugx("released");
 		m.erase(it); //if this is the last reference, it will release the tuner_thread
 	}
 }
@@ -246,10 +252,19 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 								});
 	devdb_wtxn.commit();
 	if(sret.failed) {
+		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
+		if(updated_old_dbfe) {
+			dtdebugx("Subscription failed calling release_active_adapter");
+			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+		} else {
+			dtdebugx("Subscription failed: updated_old_dbfe = NONE");
+		}
 		user_error("Service reservation failed: " << service);
 		return {};
 	}
-
+	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+	}
 	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
@@ -260,7 +275,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	futures.push_back(aa.tuner_thread.push_task([&playback_mpm_ptr, &aa, &mux, &service, &sret,
 																						&tune_pars]() {
 		playback_mpm_ptr = cb(aa.tuner_thread).subscribe_service(sret, mux, service, tune_pars);
-			return 0;
+		return 0;
 	}));
 	wait_for_all(futures); //essential
 	return playback_mpm_ptr;
@@ -305,13 +320,22 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 								});
 
 	if(sret.failed) {
+		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
+		if(updated_old_dbfe) {
+			dtdebugx("Subscription failed calling release_active_adapter");
+			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+		} else {
+			dtdebugx("Subscription failed: updated_old_dbfe = NONE");
+		}
+		user_error("Service reservation failed: " << rec.service);
 		return subscription_id_t::NONE;
 	}
-
+	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+	}
 	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
-
 	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
 		.may_move_dish = sret.may_move_dish};
 
@@ -486,8 +510,22 @@ receiver_thread_t::subscribe_mux(
 																false /*need_blindscan*/);
 	}
 
-	if(sret.failed)
+	if(sret.failed) {
+		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
+		if(updated_old_dbfe) {
+			dtdebugx("Subscription failed calling release_active_adapter");
+			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+		} else {
+			dtdebugx("Subscription failed: updated_old_dbfe = NONE");
+		}
+		user_error("Mux reservation failed: " << mux);
 		return subscription_id_t::RESERVATION_FAILED;
+	}
+
+	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+	}
+
 	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
@@ -534,7 +572,6 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 	return subscription_id;
 }
 
-
 subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 	ss::vector_<chdb::spectral_peak_t>& peaks,
 	const statdb::spectrum_key_t& spectrum_key, subscription_id_t subscription_id)
@@ -562,7 +599,6 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 	}
 	return subscription_id;
 }
-
 
 
 /*
@@ -608,13 +644,10 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 (std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,  const subscribe_ret_t& sret)
 {
+#ifndef NDEBUG
 	bool failed = sret.subscription_failed();
-	if(failed) {
-		auto updated_dbfe = devdb::fe::unsubscribe(devdb_wtxn, sret.subscription_id);
-		if(updated_dbfe)
-			release_active_adapter(futures, devdb_wtxn, sret.subscription_id, *updated_dbfe);
-		return nullptr;
-	}
+#endif
+	assert(!failed);
 	{
 		auto w = this->active_adapters.writeAccess();
 		auto& m = *w;
@@ -624,8 +657,8 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 			assert(found);
 			m[sret.subscription_id] = it->second;
 			auto& tuner_thread = it->second->tuner_thread;
-			assert(sret.aa.fe);
-			futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = *sret.aa.fe]() {
+			assert(sret.aa.updated_new_dbfe);
+			futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = *sret.aa.updated_new_dbfe]() {
 				tuner_thread.update_dbfe(updated_dbfe);
 				return 0;
 			}));
@@ -638,14 +671,9 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 	}
 
 	assert(!sret.retune);
-#ifdef NEWXXX
-	assert(sret.newaaxx);
-	auto dvb_frontend = receiver.fe_for_dbfe(sret.newaaxx->fe.k);
-#else
-	assert(sret.is_new_aa);
-	assert(sret.aa.fe);
-	auto dvb_frontend = receiver.fe_for_dbfe(sret.aa.fe->k);
-#endif
+	assert(sret.aa.is_new_aa());
+	assert(sret.aa.updated_new_dbfe);
+	auto dvb_frontend = receiver.fe_for_dbfe(sret.aa.updated_new_dbfe->k);
 	auto aa = active_adapter_t::make(receiver, dvb_frontend);
 	dtdebugx("created new AA: %p", aa.get());
 	{
@@ -653,7 +681,8 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 		auto& m = *w;
 		m[sret.subscription_id] = aa;
 		auto& tuner_thread = aa->tuner_thread;
-		futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = *sret.aa.fe]() {
+		assert(sret.aa.updated_new_dbfe);
+		futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = *sret.aa.updated_new_dbfe]() {
 			tuner_thread.update_dbfe(updated_dbfe);
 			return 0;
 		}));
@@ -684,12 +713,26 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 																	 dish_move_penalty, resource_reuse_bonus,
 																	 need_blindscan, need_spectrum, loc);
 	if(sret.failed) {
+		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
+		if(updated_old_dbfe) {
+			dtdebugx("Subscription failed calling release_active_adapter");
+			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+		} else {
+			dtdebugx("Subscription failed: updated_old_dbfe = NONE");
+		}
+		user_error("Lnb reservation failed: " << lnb);
+
 		return subscription_id_t::RESERVATION_FAILED;
 	}
 	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
 		.may_move_dish = sret.may_move_dish};
 
 	dtdebugx("lnb activate subscription_id=%d", (int) sret.subscription_id);
+
+	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+	}
+
 	auto* activate_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
 	assert(activate_adapter_p);
 	auto& aa = *activate_adapter_p;
@@ -748,7 +791,7 @@ std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbs_mux_t>(
 	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id,
 	tune_options_t tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t);
+	const devdb::rf_path_t* required_rf_path, uint32_t scan_id);
 
 template
 std::tuple<subscription_id_t, devdb::fe_key_t>
@@ -1681,6 +1724,7 @@ void receiver_thread_t::cb_t::unsubscribe(subscription_id_t subscription_id) {
 		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
 	*/
 	bool error = wait_for_all(futures);
+	dtdebugx("Waiting for all futures done");
 	if (error) {
 		dterror("Unhandled error in unsubscribe");
 	}

@@ -68,18 +68,20 @@ static bool unsubscribe_helper(fe_t& fe, subscription_id_t subscription_id) {
 /*
 	returns the remaining use_count of the unsuscribed fe
  */
-static int unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_key) {
+static std::optional<devdb::fe_t>
+unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_key) {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	auto fe = c.is_valid()  ? c.current() : fe_t{}; //update in case of external changes
 	assert(fe.sub.subs.size()>=1);
 	bool erased = unsubscribe_helper(fe, subscription_id);
 	if(!erased) {
-		dterrorx("Trying to unsuscribed a non-subscribed service subscription_id=%d", (int) subscription_id);
+		dterrorx("Trying to unsubcribe a non-subscribed service subscription_id=%d", (int) subscription_id);
+		return {};
 	}
-	else
+	else {
 		put_record(wtxn, fe);
-
-	return fe.sub.subs.size();
+		return fe;
+	}
 }
 
 std::optional<devdb::fe_t> fe::unsubscribe(db_txn& wtxn, subscription_id_t subscription_id)
@@ -95,30 +97,42 @@ std::optional<devdb::fe_t> fe::unsubscribe(db_txn& wtxn, subscription_id_t subsc
 	return {};
 }
 
-static inline subscribe_ret_t no_change(subscription_id_t subscription_id, int other_subscription_id) {
+static inline subscribe_ret_t no_change(subscription_id_t subscription_id,
+																				const std::optional<devdb::fe_t>& fe) {
 	subscribe_ret_t sret{subscription_id, false/*failed*/};
-	sret.sub_to_reuse = (subscription_id_t) other_subscription_id;
+	sret.sub_to_reuse = subscription_id;
+	sret.aa = {.updated_old_dbfe=fe, .updated_new_dbfe=fe, .rf_path={}, .lnb={}};
 	return sret;
 }
 
-static inline subscribe_ret_t reuse_other_subscription(subscription_id_t subscription_id,
-																																	int other_subscription_id) {
+static inline subscribe_ret_t reuse_other_subscription(
+	subscription_id_t subscription_id,  int other_subscription_id,
+	const std::optional<devdb::fe_t>& new_fe, const std::optional<devdb::fe_t>& old_fe) {
 	subscribe_ret_t sret{subscription_id, false/*failed*/};
-	sret.sub_to_reuse = (subscription_id_t) other_subscription_id;
+	sret.aa = {.updated_old_dbfe=old_fe, .updated_new_dbfe=new_fe, .rf_path={}, .lnb={}};
+	sret.sub_to_reuse =(subscription_id_t) other_subscription_id;
+	sret.may_control_lnb = false;
+	sret.may_move_dish = false;
 	return sret;
 }
 
-static inline subscribe_ret_t new_service(subscription_id_t subscription_id,
-																										 int other_subscription_id) {
+static inline subscribe_ret_t new_service(
+	subscription_id_t subscription_id, int other_subscription_id,
+	const std::optional<devdb::fe_t>& new_fe, const std::optional<devdb::fe_t>& old_fe) {
 	subscribe_ret_t sret{subscription_id, false/*failed*/};
 	/* ret.aa_sub_to_reuse = subscribe_ret_t::NONE : keep active_adapter and do not retune*/
+	sret.aa = {.updated_old_dbfe=old_fe, .updated_new_dbfe=new_fe, .rf_path={}, .lnb={}};
 	sret.sub_to_reuse = (subscription_id_t) other_subscription_id;
 	sret.change_service = true;
+	sret.may_control_lnb = false;
+	sret.may_move_dish = false;
 	return sret;
 }
 
-static inline subscribe_ret_t failed(subscription_id_t subscription_id) {
+static inline subscribe_ret_t failed(subscription_id_t subscription_id,
+																		 const std::optional<devdb::fe_t>& old_fe) {
 	subscribe_ret_t sret{subscription_id, true /*failed*/};
+	sret.aa = {.updated_old_dbfe=old_fe, .updated_new_dbfe={}, .rf_path={}, .lnb={}};
 	sret.failed=true;
 	return sret;
 }
@@ -166,6 +180,7 @@ int devdb::fe::reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id
 																 devdb::fe_t& fe,  const mux_t& mux, const chdb::service_t* service)
 {
 	auto& subs = fe.sub.subs;
+	assert((int)subscription_id >=0);
 	if(service)
 		subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, *service});
 	else
@@ -187,7 +202,7 @@ devdb::fe_t devdb::fe::subscribe_fe_in_use(
 	dtdebugx("subscription_id=%d adapter %d %d%s-%d %d use_count=%d", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
-
+	assert((int)subscription_id >=0);
 	reserve_fe_in_use(wtxn, subscription_id, fe, mux, service);
 	return fe;
 }
@@ -230,9 +245,9 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscrip
 /*
 	returns
 	std::optional<devdb::fe_t>: the newly subscribed fe
-	int: the use_count after releasing fe_to_release, or 0 if fe_to_release=={}
+	std::optional<devdb::fe_t>: the updated version of the old (unsubscribed) fe
  */
-std::tuple<std::optional<devdb::fe_t>, int>
+std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_id,
 																	 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																	 std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release,
@@ -242,24 +257,24 @@ devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_
 	auto band{fe_band_t::NONE}; //signifies that we to exclusively control band
 	auto usals_pos{sat_pos_none}; //signifies that we want to be able to move rotor
 	bool need_multistream = false;
-	int released_fe_usecount{0};
 
 	auto fe_and_use_counts = fe::find_best_fe_for_lnb(wtxn, rf_path, lnb,
 																					fe_key_to_release, need_blind_tune, need_spectrum,
 																					need_multistream, pol, band, usals_pos,
 																					false /*ignore_subscriptions*/);
+	std::optional<devdb::fe_t> updated_old_dbfe;
 	if(oldfe)
-		released_fe_usecount = unsubscribe(wtxn, subscription_id, oldfe->k);
+		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe->k);
 
 	if(!fe_and_use_counts)
-		return {{}, released_fe_usecount}; //no frontend could be found
+		return {{}, updated_old_dbfe}; //no frontend could be found
 	auto& [best_fe, best_use_counts ] = *fe_and_use_counts;
 #ifndef NDEBUG
 	auto ret =
 #endif
 		devdb::fe::reserve_fe_lnb_exclusive(wtxn, subscription_id, best_fe, rf_path, lnb);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
-	return {best_fe, released_fe_usecount};
+	return {best_fe, updated_old_dbfe};
 }
 
 int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
@@ -321,18 +336,16 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscripti
 																			const devdb::fe_key_t* fe_key_to_release,
 																			bool use_blind_tune, bool may_move_dish,
 																			int dish_move_penalty, int resource_reuse_bonus) {
-	int released_fe_usecount{0};
 	auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_rf_path,
 																					fe_key_to_release,
 																					may_move_dish, use_blind_tune,
 																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
+	std::optional<devdb::fe_t> updated_old_dbfe;
 	if(oldfe)
-		released_fe_usecount = unsubscribe(wtxn, subscription_id, oldfe->k);
+		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe->k);
 	if(!best_fe)
-		return {{}, {}, {}, {}, released_fe_usecount}; //no frontend could be found
-	if(fe_key_to_release && best_fe->k == *fe_key_to_release)
-		released_fe_usecount++;
+		return {{}, {}, {}, {}, updated_old_dbfe}; //no frontend could be found
 #ifndef NDEBUG
 	auto ret =
 #endif
@@ -340,7 +353,7 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscripti
 																							 service);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 
-	return {best_fe, best_rf_path, best_lnb, best_use_counts, released_fe_usecount};
+	return {best_fe, best_rf_path, best_lnb, best_use_counts, updated_old_dbfe};
 }
 
 template<typename mux_t>
@@ -382,36 +395,34 @@ int devdb::fe::reserve_fe_for_mux(db_txn& wtxn, subscription_id_t subscription_i
 /*
 	returns
 	std::optional<devdb::fe_t>: the newly subscribed fe
-	int: the use_count after releasing fe_to_release, or 0 if fe_to_release=={}
+	std::optional<devdb::fe_t>: the updated old (unsubscribed) fe
  */
 template<typename mux_t>
-std::tuple<std::optional<devdb::fe_t>, int>
+std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscription_id,
 																			const mux_t& mux, const chdb::service_t* service,
 																			const std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release,
 																			bool use_blind_tune) {
 
 	const bool need_spectrum{false};
-	int released_fe_usecount{0};
 	const bool need_multistream = (mux.k.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
 	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
 																										need_spectrum, need_multistream,  delsys_type,
 																										false /*ignore_subscriptions*/);
+	std::optional<devdb::fe_t> updated_old_dbfe;
 	if(oldfe)
-		released_fe_usecount = unsubscribe(wtxn, subscription_id, oldfe->k);
+		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe->k);
 
 	if(!best_fe)
-		return {best_fe, released_fe_usecount}; //no frontend could be found
+		return {best_fe, updated_old_dbfe}; //no frontend could be found
 
-	if(fe_key_to_release && best_fe->k == *fe_key_to_release)
-		released_fe_usecount++;
 #ifndef NDEBUG
 	auto ret =
 #endif
 		devdb::fe::reserve_fe_for_mux(wtxn, subscription_id, *best_fe, mux, service);
 	assert(ret == 0); //reservation cannot fail as we have a write lock on the db
-	return {best_fe, released_fe_usecount};
+	return {best_fe, updated_old_dbfe};
 }
 
 /*
@@ -456,6 +467,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 
 	auto[ oldfe_, will_be_released ] = fe_for_subscription(wtxn, subscription_id);
 	auto* fe_key_to_release = (oldfe_ && will_be_released) ? &oldfe_->k : nullptr;
+	std::optional<devdb::fe_t> updated_old_dbfe;
 
 //try to reuse existing active_adapter and active_service as-is
 	if(mux || service) {
@@ -467,22 +479,20 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			auto& sub = fe.sub.subs[idx];
 			if (sub.subscription_id == (int)subscription_id)
 				//already subscribed and no change in lnb, mux or service
-				return no_change(subscription_id, sub.subscription_id);
+				return no_change(subscription_id, fe_);
 			else {
-				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id);
+				if(oldfe_) {
+					assert((int) subscription_id >=0);
+					updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+				}
+				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id, fe_, updated_old_dbfe);
 				subscribe_fe_in_use(wtxn, sret.subscription_id, fe, *mux, service);
-				sret.aa = { fe, {}, {}};
-				if(oldfe_)
-					unsubscribe(wtxn, sret.subscription_id, oldfe_->k);
-
-				sret.may_control_lnb = false;
-				sret.may_move_dish = false;
 				return sret;
 			}
 		}
 	}
 
-	//try to reuse existing mux as-is but add a service
+	//try to reuse existing mux as-is, except that we will also add a service
 	if(mux && service) {
 		assert(mux); //if service i not null, mux must also be non-null
 		auto [fe_, idx] = matching_existing_subscription(wtxn, required_rf_path, mux, service,
@@ -491,13 +501,12 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			auto& fe = *fe_;
 			auto& sub_to_reuse=fe.sub.subs[idx];
 			//we can reuse an existing active_mux, but need to add an active service
-			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id);
+			if(oldfe_) {
+				assert((int)subscription_id >=0);
+				updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+			}
+			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
 			subscribe_fe_in_use(wtxn, sret.subscription_id, fe, *mux, service);
-			sret.aa = { fe, {}, {}};
-			if(oldfe_)
-				unsubscribe(wtxn, subscription_id, oldfe_->k);
-			sret.may_control_lnb = false;
-			sret.may_move_dish = false;
 			return sret;
 		}
 	}
@@ -509,7 +518,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 	subscribe_ret_t sret(subscription_id, false /*failed*/);
 
 	if(mux) {
-		auto [fe_, rf_path_, lnb_, use_counts_, released_fe_usecount] =
+		auto [fe_, rf_path_, lnb_, use_counts_, updated_old_dbfe] =
 			devdb::fe::subscribe_lnb_band_pol_sat(
 				wtxn, sret.subscription_id, *mux, service, required_rf_path, oldfe_, fe_key_to_release,
 				use_blind_tune, may_move_dish, dish_move_penalty, resource_reuse_bonus);
@@ -520,26 +529,16 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			sret.change_service = true;
 			sret.may_control_lnb = ! use_counts_.is_shared();
 			sret.may_move_dish = sret.may_control_lnb && may_move_dish && ! use_counts_.shares_positioner();
-#ifdef NEWXXX
-#else
-			sret.aa = { fe, *rf_path_, *lnb_};
-#endif
+			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			if(!is_same_fe) {
-#ifdef NEWXXX
-				sret.newaaxx = { fe, *rf_path_, *lnb_};
-#else
-				sret.is_new_aa = true;
-#endif
+				assert(sret.is_new_aa());
 				sret.sub_to_reuse = subscription_id_t::NONE;
 
 				dtdebug("fe::subscribe: newaa subscription_id=" << (int ) subscription_id << " adapter=" << (int64_t) fe.k.adapter_mac_address
 								<< "/" << (int) oldfe_->k.frontend_no
 								<< " mux="  << mux);
 			} else {
-#ifdef NEWXXX
-#else
-				sret.is_new_aa = false;
-#endif
+				assert(!sret.is_new_aa());
 				dtdebug("fe::subscribe: no newaa subscription_id=" << (int ) subscription_id <<
 								" adapter=" << (int64_t)  fe.k.adapter_mac_address
 								<< " mux="  << mux);
@@ -549,7 +548,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 				auto* lnb_network = devdb::lnb::get_network(lnb, mux->k.sat_pos);
 				if (!lnb_network) {
 					dterror("No network found");
-					return failed(subscription_id);
+					return failed(sret.subscription_id, updated_old_dbfe);
 				}
 				auto usals_pos = lnb_network->usals_pos;
 				dish::update_usals_pos(wtxn, lnb, usals_pos, loc, mux->k.sat_pos /*sat_pos*/);
@@ -557,52 +556,47 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 
 			return sret;
 		}
-		return failed(subscription_id);
+		return failed(sret.subscription_id, updated_old_dbfe);
 	} else  {
 		assert(required_rf_path);
 		auto c = devdb::lnb_t::find_by_key(wtxn, required_rf_path->lnb);
-		if (c.is_valid()) {
-			auto lnb = c.current();
-			auto [fe_, released_fe_usecount] = devdb::fe::subscribe_lnb_exclusive(
-				wtxn, sret.subscription_id, *required_rf_path, lnb, oldfe_, fe_key_to_release,
-				need_blindscan, need_spectrum, loc);
+		if (!c.is_valid()) {
+			if(oldfe_ && ! do_not_unsubscribe_on_failure) {
+				assert((int)subscription_id >=0);
+				updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+			}
+			return failed(subscription_id, updated_old_dbfe);
+		}
+		auto lnb = c.current();
+		auto [fe_, updated_old_dbfe] = devdb::fe::subscribe_lnb_exclusive(
+			wtxn, sret.subscription_id, *required_rf_path, lnb, oldfe_, fe_key_to_release,
+			need_blindscan, need_spectrum, loc);
 
-			sret.retune = false;
-			sret.may_control_lnb = true;
-			sret.may_move_dish = sret.may_control_lnb && may_move_dish && lnb.on_positioner;
+		sret.retune = false;
+		sret.may_control_lnb = true;
+		sret.may_move_dish = sret.may_control_lnb && may_move_dish && lnb.on_positioner;
 
-			if(fe_) {
-				bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
-				sret.retune = is_same_fe;
-#ifdef NEWXXX
-#else
-					sret.aa = { *fe_, *required_rf_path, lnb};
-#endif
-				if(!is_same_fe) {
-#ifdef NEWXXX
-					sret.newaaxx = { *fe_, *required_rf_path, lnb};
-#else
-					sret.is_new_aa = true;
-#endif
-					sret.sub_to_reuse = subscription_id_t::NONE;
-				}
-#ifdef NEWXXX
-#else
-				else {
-					sret.is_new_aa = false;
-				}
-#endif
-				return sret;
+		if(fe_) {
+			bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
+			sret.retune = is_same_fe;
+			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= *required_rf_path, .lnb= lnb};
+
+			if(!is_same_fe) {
+				assert(sret.is_new_aa());
+				sret.sub_to_reuse = subscription_id_t::NONE;
 			} else {
-				auto x = to_str(*required_rf_path);
-				auto c = fe_t::find_by_card_mac_address(wtxn, required_rf_path->card_mac_address, find_type_t::find_eq,
-																								fe_t::partial_keys_t::card_mac_address);
-				if(c.is_valid()) {
-					auto fe = c.current();
-					user_error("Cannot currently use LNB " << lnb << "  with card " << fe.card_short_name);
-				} else {
-					user_error("Cannot currently use LNB " << lnb);
-				}
+				assert(!sret.is_new_aa());
+			}
+			return sret;
+		} else {
+			auto x = to_str(*required_rf_path);
+			auto c = fe_t::find_by_card_mac_address(wtxn, required_rf_path->card_mac_address, find_type_t::find_eq,
+																							fe_t::partial_keys_t::card_mac_address);
+			if(c.is_valid()) {
+				auto fe = c.current();
+				user_error("Cannot currently use LNB " << lnb << "  with card " << fe.card_short_name);
+			} else {
+				user_error("Cannot currently use LNB " << lnb);
 			}
 		}
 	}
@@ -629,12 +623,15 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			auto & fe = *fe_;
 			auto& sub = fe.sub.subs[idx];
 			if (sub.subscription_id == (int)subscription_id)
-				return no_change(subscription_id, sub.subscription_id);  //already subscribed and no change in lnb, mux or service
+				return no_change(subscription_id, fe_);  //already subscribed and no change in lnb, mux or service
 			else {
-				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id);
+				std::optional<devdb::fe_t> updated_old_dbfe;
+				if(oldfe_) {
+					assert((int)subscription_id>=0);
+					updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+				}
+				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id, fe_, updated_old_dbfe);
 				subscribe_fe_in_use(wtxn, sret.subscription_id, fe, *mux, service);
-				if(oldfe_)
-					unsubscribe(wtxn, subscription_id, oldfe_->k);
 				return sret;
 			}
 		}
@@ -648,11 +645,14 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 		if(fe_) {
 			auto& fe = *fe_;
 			auto& sub_to_reuse=fe.sub.subs[idx];
+			std::optional<devdb::fe_t> updated_old_dbfe;
+			if(oldfe_) {
+				assert((int)subscription_id >=0);
+				updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+			}
+			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
 			//we can reuse an existing active_mux, but need to add an active service
-			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id);
 			subscribe_fe_in_use(wtxn, sret.subscription_id, fe, *mux, service);
-			if(oldfe_)
-				unsubscribe(wtxn, subscription_id, oldfe_->k);
 			return sret;
 		}
 	}
@@ -664,7 +664,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 	subscribe_ret_t sret(subscription_id, false /*failed*/);
 	sret.sub_to_reuse = sret.was_subscribed ? sret.subscription_id : subscription_id_t::NONE;
 	assert(mux);
-	auto [fe_, released_fe_usecount] =
+	auto [fe_, updated_old_dbfe] =
 	devdb::fe::subscribe_dvbc_or_dvbt_mux(
 		wtxn, sret.subscription_id, *mux, service, oldfe_, fe_key_to_release, use_blind_tune);
 	if(fe_) {
@@ -672,27 +672,16 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 		bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
 		sret.retune = is_same_fe;
 		sret.change_service = !!service;
-#ifdef NEWXXX
-#else
-		sret.aa = { fe, {}, {}};
-#endif
+		sret.aa = { .updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe, .rf_path={}, .lnb={}};
 		if(!is_same_fe) {
-#ifdef NEWXXX
-			sret.newaaxx = { fe, {}, {}};
-#else
-			sret.is_new_aa = true;
-#endif
+			assert(sret.is_new_aa());
 			sret.sub_to_reuse = subscription_id_t::NONE;
+		} else {
+			assert(!sret.is_new_aa());
 		}
-#ifdef NEWXXX
-#else
-		else {
-			sret.is_new_aa = false;
-		}
-#endif
 		return sret;
 	}
-	return failed(subscription_id);
+	return failed(subscription_id, updated_old_dbfe);
 }
 
 
@@ -750,8 +739,6 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn, const devdb::rf_path_t* 
 	return {{}, -1};
 }
 
-
-
 template<typename mux_t>
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
@@ -789,10 +776,9 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 	return {{}, -1};
 }
 
+//instantiations
 
-//instatiations
-
-template std::tuple<std::optional<devdb::fe_t>, int>
+template std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, subscription_id_t subscription_id,
 																												const chdb::dvbc_mux_t& mux,
 																												const chdb::service_t* service,
@@ -800,7 +786,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, subscripti
 																												const devdb::fe_key_t* fe_key_to_release,
 																												bool use_blind_tune);
 
-template std::tuple<std::optional<devdb::fe_t>, int>
+template std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, subscription_id_t subscription_id,
 																												const chdb::dvbt_mux_t& mux,
 																												const chdb::service_t* service,

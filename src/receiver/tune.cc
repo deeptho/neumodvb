@@ -120,35 +120,17 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 	dtdebugx("lnb activate subscription_id=%d", (int) subscription_id);
 	assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
 	{
-		assert(!sret.retune);
-#ifdef NEWXXX
-		assert(sret.newaaxx);
-		auto& aa = *sret.newaaxx;
-#else
-		assert(sret.is_new_aa);
+		//assert(!sret.retune);
+		//assert(sret.is_new_aa);
 		auto& aa = sret.aa;
 		assert(aa.rf_path);
 		assert(aa.lnb);
-#endif
 		return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_pars);
 	}
-	if(
-#ifdef NEWXXX
-		sret.newaaxx
-#else
-		sret.is_new_aa
-#endif
-		)  {
-#ifdef NEWXXX
-		auto& aa = *sret.newaaxx;
-#else
+	if(sret.aa.is_new_aa())  {
 		auto& aa = sret.aa;
 		assert(aa.rf_path);
 		assert(aa.lnb);
-#endif
-#ifdef NEWXXX
-		active_adapter.fe->update_dbfexx(aa.fe);
-#endif
 		return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_pars);
 	}
 	assert(sret.sub_to_reuse == sret.subscription_id);
@@ -173,15 +155,8 @@ void tuner_thread_t::add_si(active_adapter_t& active_adapter,
 																	const chdb::any_mux_t& mux, const tune_options_t& tune_options ,
 																	subscription_id_t subscription_id) {
 	// check_thread();
-#if 0
-	ss::string<128> prefix;
-	prefix << "TUN" << active_adapter.get_adapter_no() << "-ADD-SI";
-#endif
 	dtdebugx("tune restart_si");
 	active_adapter.prepare_si(mux, true /*start*/, subscription_id, true /*add_to_running_mux*/);
-#ifdef NEWXXX
-	active_adapter.fe->update_dbfexx(aa.fe);
-#endif
 	active_adapter.fe->set_tune_options(tune_options);
 }
 
@@ -541,7 +516,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	/*If the requested mux happens to be already the active mux for this subscription, simply return,
 		after restarting si processing or retuning
 	*/
-	if(!sret.is_new_aa) {
+	if(!sret.aa.is_new_aa()) {
 		dtdebugx("Reusing active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
 						 (int)active_adapter.get_adapter_no());
 		auto ret1 = active_adapter.remove_service(sret.subscription_id);
@@ -579,7 +554,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 
 	int ret{-1};
 
-	if(sret.is_new_aa) {
+	if(sret.aa.is_new_aa()) {
 		auto& aa = sret.aa;
 		dtdebugx("New active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
 						 active_adapter.get_adapter_no());
@@ -788,6 +763,7 @@ void tuner_thread_t::remove_live_buffer(subscription_id_t subscription_id) {
 		return;
 	}
 	auto live_service = c.current();
+	dtdebug("setting live buffer last_use_time=" << now);
 	live_service.last_use_time = system_clock_t::to_time_t(now);
 	c.destroy();
 	txn.commit();

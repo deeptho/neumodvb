@@ -476,8 +476,8 @@ public:
 		return 0;
 	}
 
-	inline void update_dbfe(const devdb::fe_t& fe) {
-		this->ts.writeAccess()->dbfe = fe;
+	inline void update_dbfe(const std::optional<devdb::fe_t>& dbfe) {
+		this->ts.writeAccess()->dbfe = dbfe ? *dbfe : devdb::fe_t{};
 	}
 	inline std::optional<signal_info_t> get_last_signal_info(bool wait) {
 		auto fn = [this] () {

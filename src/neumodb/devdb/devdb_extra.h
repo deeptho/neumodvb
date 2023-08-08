@@ -106,9 +106,13 @@ namespace devdb {
 struct subscribe_ret_t {
 
 	struct aa_t {
-		std::optional<devdb::fe_t> fe;
+		std::optional<devdb::fe_t> updated_old_dbfe;
+		std::optional<devdb::fe_t> updated_new_dbfe;
 		std::optional<devdb::rf_path_t> rf_path;
 		std::optional<devdb::lnb_t> lnb;
+		bool is_new_aa () const {
+			return !updated_old_dbfe || !updated_new_dbfe || updated_old_dbfe->k != updated_new_dbfe->k;
+		}; //true if old_fe.adapter_no differs from new_fe.adapter_no
 	};
 	bool failed{false};
 
@@ -125,12 +129,7 @@ struct subscribe_ret_t {
 																only relevant if aa_sub_to_reuse != subscription_id_t::NONE*/
 
 	//value below only relevant if aa_sub_to_reuse  == subscription_id_t::NONE
-#ifdef NEWXXX
-	std::optional<aa_t> newaaxx; /*create new active adapter*/
-#else
 	aa_t aa;
-	bool is_new_aa{false};
-#endif
 	static std::atomic_int next_subscription_id; //initialised in fe_subscribe.cc
 	bool may_control_lnb{false};
 	bool may_move_dish{false}; //implies may_control_lnb

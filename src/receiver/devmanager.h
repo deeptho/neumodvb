@@ -487,7 +487,7 @@ public:
 		if (wait && !ret) {
 			std::unique_lock<std::mutex> lk(ts.mutex());
 			ts_cv.wait(lk, [&]() {
-				ret = ts.readAccess()->last_signal_info;
+				ret = ts.readAccess(std::adopt_lock)->last_signal_info;//adopt_lock because ts.mutex() has been locked now
 				return ret;
 			});
 		}

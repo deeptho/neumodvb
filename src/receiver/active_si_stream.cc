@@ -2326,7 +2326,7 @@ void active_si_stream_t::process_removed_channels(db_txn& txn, const chdb::chg_k
 			continue; // already expired
 		if (std::find(std::begin(channel_ids), std::end(channel_ids), channel.k.channel_id) != std::end(channel_ids))
 			continue; // service is present in si stream
-		dtdebug("Expiring channel " << channel);
+		dtdebug("Expiring channel " << channel << " id=" << channel.k.channel_id << " in chgrp=" << chg_key.bouquet_id);
 		auto s = channel;
 		s.expired = true;
 		s.mtime = system_clock_t::to_time_t(now);
@@ -2425,6 +2425,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 			chg_changed = (chg.name != tmp.name);
 		}
 	}
+	bool bouquet_incomplete{false};
 	for (const auto& [channel_id, channel] : bouquet.channels) {
 		if (channel_id == 0xff)
 			continue;
@@ -2433,11 +2434,12 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		/*we assume channel_ids are unique even when multiple bouquets exist in BAT
 		 */
 		auto* p_mux_data = lookup_mux_data_from_sdt(wtxn, channel.service_key.network_id, channel.service_key.ts_id);
-
 		if (!p_mux_data) {
 			bool done = network_done(channel.service_key.network_id);
-			if (done)
+			if (done) {
+				bouquet_incomplete = true;
 				continue; // go for partial bouquet
+			}
 			bat_data.reset_bouquet(bouquet.bouquet_id);
 			wtxn.abort();
 			// if not done: will reparse later; we could also store these records (would be faster)
@@ -2479,9 +2481,6 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 			return dtdemux::reset_type_t::RESET;
 		}
 		chdb::service_t service{c1.current()};
-
-		auto c = chdb::chgm_t::find_by_key(wtxn, chgm.k, find_eq);
-		bool changed = true;
 		chgm.media_mode = service.media_mode;
 		chgm.encrypted = service.encrypted;
 		chgm.expired = false;
@@ -2490,6 +2489,8 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		chgm.mtime = system_clock_t::to_time_t(now);
 		chgm.name = service.name;
 
+		auto c = chdb::chgm_t::find_by_key(wtxn, chgm.k, find_eq);
+		bool changed = true;
 		if (c.is_valid()) {
 			// existing record
 			changed = false;
@@ -2527,9 +2528,11 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	assert(bouquet_data.num_sections_processed <= bouquet_data.subtable_info.num_sections_present); //4.8E
 
 	if (++bouquet_data.num_sections_processed == bouquet_data.subtable_info.num_sections_present) {
-		dtdebug("BAT subtable completed for bouquet=" << (int)bouquet.bouquet_id << " " << bouquet_data.channel_ids.size()
-						<< " channels");
-		process_removed_channels(wtxn, chg.k, bouquet_data.channel_ids);
+		dtdebug("BAT subtable completed for bouquet=" << (int)bouquet.bouquet_id << " " <<
+						bouquet_data.channel_ids.size() << "/" << bouquet.channels.size() <<
+						 " channels" << " sections=" << (int)bouquet_data.subtable_info.num_sections_present);
+		if(!bouquet_incomplete)
+			process_removed_channels(wtxn, chg.k, bouquet_data.channel_ids);
 		if (chg.num_channels != bouquet_data.channel_ids.size()) {
 			chg.num_channels = bouquet_data.channel_ids.size();
 			chg_changed = true;

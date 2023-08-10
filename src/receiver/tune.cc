@@ -553,8 +553,6 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	 */
 
 	int ret{-1};
-
-	if(sret.aa.is_new_aa()) {
 		auto& aa = sret.aa;
 		dtdebugx("New active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
 						 active_adapter.get_adapter_no());
@@ -574,26 +572,6 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 			);
 		if (ret < 0)
 			dterrorx("tune returned %d", ret);
-	} else {
-		if(sret.retune) {
-			dtdebugx("Retuning");
-			visit_variant(mux,
-										[&](const chdb::dvbs_mux_t& mux) {
-											ret = this->tune(active_adapter.current_rf_path(),
-																			 active_adapter.current_lnb(), mux, tune_pars,
-																			 sret.subscription_id);
-									},
-										[&](const chdb::dvbc_mux_t& mux) {
-											ret = this->tune(mux, tune_pars, sret.subscription_id);
-										},
-										[&](const chdb::dvbt_mux_t& mux) {
-											ret = this->tune(mux, tune_pars, sret.subscription_id);
-									}
-				);
-			if (ret < 0)
-				dterrorx("retune returned %d", ret);
-		}
-	}
 #if 0
 	auto adapter_no =  active_adapter.get_adapter_no();
 	dtdebug("Subscribed: subscription_id=" << (int) sret.subscription_id << " adapter " <<

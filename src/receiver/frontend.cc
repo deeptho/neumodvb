@@ -1490,14 +1490,15 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 	auto w = ts.writeAccess();
 	auto fefd = w->fefd;
 	dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
-	if ((ioctl(fefd, FE_SET_VOLTAGE, lnb_voltage))) {
+	if(this->sec_status.set_voltage(fefd, lnb_voltage) <0)  {
 		dterror("problem Setting the Voltage");
 		return -1;
 	}
-	if (ioctl(fefd, FE_SET_TONE, tone) < 0) {
-		dterror("problem Setting the Tone back");
+	if (this->sec_status.set_tone(fefd, tone) < 0) {
+		dterror("problem setting tone");
 		return -1;
 	}
+
 	while (1) {
 		struct dvb_frontend_event event {};
 		if (ioctl(fefd, FE_GET_EVENT, &event) < 0)
@@ -1538,6 +1539,8 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 		auto w = ts.writeAccess();
 		w->reserved_mux = {};
 		w->reserved_rf_path = rf_path;
+		if(w->reserved_lnb != lnb)
+			this->sec_status.reset_voltage(w->fefd); //ensure that we wait until lnb has been powered up
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
 		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
@@ -1564,6 +1567,8 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const 
 		auto w = this->ts.writeAccess();
 		w->reserved_mux = mux;
 		w->reserved_rf_path = rf_path;
+		if(w->reserved_lnb != lnb)
+			this->sec_status.reset_voltage(w->fefd); //ensure that we wait until lnb has been powered up
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
 		dtdebugx("QQQ size=%d", w->dbfe.sub.subs.size());
@@ -1867,22 +1872,33 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		dtdebugx("Changing voltage from : v=%d to v=%d", voltage, v);
 	}
 	bool must_sleep = (voltage == SEC_VOLTAGE_OFF || voltage  <0);
+	/*
+		when starting from the unpowered state, we need to wait long enough to give equipment
+		time to power up. We assume 200ms is enough
+	 */
+	int sleeptime_ms = 200;
 
 	/*
 		With an Amilko positioner, the positioner risks activating its current overlaod protection at startup,
-		even if the motor is not moving, because of teh current the rotor passess through for lnb and potentially
+		even if the motor is not moving, because of the current the rotor passess through for lnb and potentially
 		a switch. This problem is worse when the highest voltage is selected from a non-powered state.
 		The following increases the voltage in two phase when 18V is requested. First 12V is selected; then we
 		wait for the devises to start up (using less current and hopefully not triggering the current overload detection,
-		Then we increase the voltage to the required one)
+		Then we increase the voltage to the required one).
+
+		In this case we split the sleep time over the two phases. Note that we assume that the driver
+		itself does not sleep in the ioctl call.
+
+		TODO: replace msleep with sleep_until. This woudl take into account driver sleeo
 	 */
 	if (voltage < 0 && v == SEC_VOLTAGE_18) {
+		sleeptime_ms /=2 ;
 		if (ioctl(fefd, FE_SET_VOLTAGE, SEC_VOLTAGE_13) < 0) {
 			dterrorx("problem setting voltage %d", voltage);
 			return -1;
 		}
 		dtdebug("sleeping extra at startup");
-		msleep(200);
+		msleep(sleeptime_ms);
 	}
 
 	voltage = v;
@@ -1893,7 +1909,8 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 	}
 	//allow some time for the voltage on the equipment to stabilise before continuing
 	if(must_sleep) {
-		msleep(200);
+		dtdebugx("sleeping for power up");
+		msleep(sleeptime_ms);
 	}
 
 	return 1;

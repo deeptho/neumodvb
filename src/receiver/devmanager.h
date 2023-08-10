@@ -277,6 +277,9 @@ public:
 	 */
 	int set_voltage(int fefd, fe_sec_voltage v);
 
+	inline int reset_voltage(int fefd) {
+		return set_voltage(fefd, SEC_VOLTAGE_OFF);
+	}
 	fe_sec_tone_mode get_tone() const {
 		return (fe_sec_tone_mode) tone;
 	}

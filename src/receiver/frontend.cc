@@ -1645,9 +1645,6 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 		return std::make_tuple(r->fefd, r->reserved_rf_path, r->reserved_lnb, *conn, *dvbs_mux);
 	}();
 
-	if(!this->need_diseqc(rf_path, lnb))
-		return {0, sat_pos_none};
-
 	auto & diseqc_command = lnb_connection.tune_string;
 
 	bool lnb_only = mux.k.sat_pos == sat_pos_none;

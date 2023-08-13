@@ -119,6 +119,8 @@ class AutoRecGridBase(NeumoGridBase):
     def EditMode(self):
         return  self.GetParent().GetParent().edit_mode
 
+    def OnTimer(self, evt):
+        super().OnTimer(evt)
 
 class BasicAutoRecGrid(AutoRecGridBase):
     def __init__(self, *args, **kwds):

@@ -88,10 +88,14 @@ class neumoMainFrame(mainFrame):
             self.reclist_panel, self.autoreclist_panel, self.spectrumlist_panel]
         self.grids = [
             self.servicegrid, self.chgmgrid,
-            self.recgrid, self.spectrumgrid, self.chepggrid,
+            self.chepggrid,
             self.dvbs_muxgrid, self.dvbc_muxgrid, self.dvbt_muxgrid,
             self.lnbgrid,
-            self.satgrid, self.chggrid, self.frontendgrid, self.statusgrid
+            self.chggrid,
+            self.satgrid,
+            self.frontendgrid,
+            self.statusgrid,
+            self.recgrid, self.autorecgrid, self.spectrumgrid
         ]
         for grid in self.grids:
             panel = grid

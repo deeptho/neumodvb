@@ -61,11 +61,8 @@ class AutoRecDialog(AutoRecDialog_):
         before = datetime.datetime.fromtimestamp(self.autorec.starts_before, tz=tz.tzutc())
         self.starts_before_text.SetValue(before.strftime('%H:%M'))
 
-        min_dur = datetime.datetime.fromtimestamp(self.autorec.min_duration, tz=tz.tzutc())
-        self.min_duration_text.SetValue(min_dur.strftime('%H:%M'))
-
-        max_dur = datetime.datetime.fromtimestamp(self.autorec.max_duration, tz=tz.tzutc())
-        self.max_duration_text.SetValue(max_dur.strftime('%H:%M'))
+        self.min_duration_text.SetValueTime(self.autorec.min_duration)
+        self.max_duration_text.SetValueTime(self.autorec.max_duration)
 
         #self.Layout()
         #wx.CallAfter(self.Layout)
@@ -75,6 +72,17 @@ class AutoRecDialog(AutoRecDialog_):
 
     def OnCancel(self):
         dtdebug("OnCancel")
+    def OnDone(self):
+        #assert false #update
+        #self.autorec_service_sel.GetService()
+        self.autorec.service=self.autorec_service_sel.service.k
+        self.autorec.event_name_contains=self.event_name_contains_text.GetValue()
+        self.autorec.story_contains = self.story_contains_text.GetValue()
+        self.autorec.starts_before = self.starts_before_text.GetSeconds()
+        self.autorec.starts_after = self.starts_after_text.GetSeconds()
+        self.autorec.min_duration = self.min_duration_text.GetSeconds()
+        self.autorec.max_duration = self.max_duration_text.GetSeconds()
+        wx.GetApp().receiver.update_autorec(self.autorec)
 
     def OnWindowCreateOFF(self, evt):
         if evt.GetWindow() != self:
@@ -144,7 +152,7 @@ def show_autorec_dialog(parent, record, epg=None, start_time=None):
     dlg.Fit()
     ret = dlg.ShowModal()
     if ret == wx.ID_OK:
-        wx.GetApp().receiver.update_autorec(self.autorec)
+        dlg.OnDone()
     elif ret ==wx.ID_DELETE: #delete
         wx.GetApp().receiver.delete_autorec(self.autorec)
     else:

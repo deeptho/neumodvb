@@ -120,7 +120,6 @@ class RecGridBase(NeumoGridBase):
         from neumodvb.record_dialog import show_record_dialog
         show_record_dialog(self, rec, start_time=start_time)
 
-
     def OnAutoRec(self, evt):
         row = self.GetGridCursorRow()
         rec = self.screen.record_at_row(row)
@@ -163,6 +162,9 @@ class RecGridBase(NeumoGridBase):
         dtdebug (f'CmdPlay requested for row={row}: PLAY service={rec.filename}')
         self.table.SaveModified()
         self.app.PlayRecording(rec)
+
+    def OnTimer(self, evt):
+        super().OnTimer(evt)
 
 class BasicRecGrid(RecGridBase):
     def __init__(self, *args, **kwds):

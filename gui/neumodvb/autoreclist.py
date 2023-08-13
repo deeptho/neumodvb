@@ -43,7 +43,7 @@ class AutoRecTable(NeumoTable):
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") \
         if x[1]>0 else "never"
 
-    time_fn =  lambda x: datetime.datetime.fromtimestamp(x[1]/1000, tz=tz.tzlocal()).strftime("%H:%M")
+    time_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzutc()).strftime("%H:%M")
     bool_fn = NeumoTable.bool_fn
     all_columns = \
         [
@@ -55,13 +55,13 @@ class AutoRecTable(NeumoTable):
          CD(key='service.service_id',  label='sid'),
          CD(key='service.mux.stream_id',  label='isi'),
          CD(key='service.mux.t2mi_pid',  label='t2mi'),
-         CD(key='starts_after', label='Starting\nafter', dfn=datetime_fn, example="15:30"),
-         CD(key='starts_before', label='Starting\nbefore', dfn=datetime_fn, example="15:30"),
-         CD(key='min_duration', label='Min\nduration', dfn=datetime_fn, example="10"),
-         CD(key='max_duration', label='Max\nduration', dfn=datetime_fn, example="10"),
+         CD(key='starts_after', label='Starting\nafter', dfn=time_fn, example="15:30"),
+         CD(key='starts_before', label='Starting\nbefore', dfn=time_fn, example="15:30"),
+         CD(key='min_duration', label='Min\nduration', dfn=time_fn, example="10"),
+         CD(key='max_duration', label='Max\nduration', dfn=time_fn, example="10"),
          #CD(key='content_codes', label='Type', dfn=content_codes_fn, example="None"),
-         CD(key='event_name_contains',  label='Title\nContains', dfn=time_fn, example="House MD"),
-         CD(key='story_contains',  label='Story\n contains', dfn=time_fn, example="House MD"),
+         CD(key='event_name_contains',  label='Title\nContains', example="House MD"*2),
+         CD(key='story_contains',  label='Story\n contains', example="House MD"*2),
          ]
 
     def InitialRecord(self):

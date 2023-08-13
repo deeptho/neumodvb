@@ -111,8 +111,9 @@ class TimeValidator(wx.Validator): # Create a validator subclass
         # Get the ASCII code of the input character
         keycode = event.GetKeyCode()
         # Backspace (ASCII code is 8), delete a character.
-        if keycode == 8:
-            self.StringLength -= 1
+        if keycode in (wx.WXK_RIGHT, wx.WXK_LEFT, wx.WXK_BACK):
+            if keycode == wx.WXK_BACK:
+                self.StringLength -= 1
             # Event continues to pass
             event.Skip()
             return

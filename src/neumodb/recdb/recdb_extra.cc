@@ -179,6 +179,9 @@ int32_t recdb::make_unique_id(db_txn& txn, autorec_t& autorec)
 				assert(0);
 				break; //we failed
 			}
+		} else {
+			autorec.id = 1; //initialisation
+			return autorec.id;
 		}
 	}
 	assert(0);

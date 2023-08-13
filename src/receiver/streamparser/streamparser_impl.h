@@ -253,7 +253,6 @@ namespace dtdemux {
 		};
 		self = boost::context::callcc(f);
 		assert(self);
-
 	}
 
 	template<typename implementation_t>

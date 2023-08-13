@@ -139,13 +139,17 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::r
 }
 
 void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
-	auto& receiver_thread = receiver->receiver_thread;
 	//call by reference ok because of subsequent wait_for_all
 	auto subscription_id = this->subscription_id;
-	receiver_thread.push_task([&lnb, &receiver_thread, subscription_id]() {
-		cb(receiver_thread).update_current_lnb(subscription_id, lnb);
-		return 0;
-	}).wait();
+	auto aa = receiver->find_active_adapter(subscription_id);
+	if(aa) {
+		bool usals_pos_changed{false};
+		auto& tuner_thread = aa->tuner_thread;
+		tuner_thread.push_task([&tuner_thread, &aa, subscription_id, lnb, &usals_pos_changed]() {
+			usals_pos_changed = cb(aa->tuner_thread).update_current_lnb(subscription_id, lnb);
+			return 0;
+		}).wait();
+	}
 }
 
 int subscriber_t::unsubscribe() {

@@ -1788,24 +1788,6 @@ int receiver_thread_t::cb_t::update_usals_pos(const devdb::lnb_t& lnb) {
 	return ret;
 }
 
-/*
-	Only exception would be when receiver_thread is shutting down while update_current_lnb is being
-	called. This could be prevented by setting a use count (outside of active_adapter)
- */
-int receiver_thread_t::cb_t::update_current_lnb(subscription_id_t subscription_id, const devdb::lnb_t& lnb)
-{
-	auto aa = receiver.find_active_adapter(subscription_id);
-	bool usals_pos_changed{false};
-	if(aa) {
-		usals_pos_changed = cb(aa->tuner_thread).update_current_lnb(subscription_id, lnb);
-	};
-
-	if(usals_pos_changed) {
-		update_usals_pos(lnb);
-	}
-	return usals_pos_changed;
-}
-
 int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd,
 																				 int par) {
 	auto aa = receiver.find_active_adapter(subscription_id);

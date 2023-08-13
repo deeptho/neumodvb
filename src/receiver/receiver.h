@@ -439,7 +439,6 @@ public:
 	int scan_now();
 	void renumber_card(int old_number, int new_number);
 	int update_usals_pos(const devdb::lnb_t& lnb);
-	int update_current_lnb(subscription_id_t subscription_id, const devdb::lnb_t& lnb);
 	int positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
 
 };

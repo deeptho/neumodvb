@@ -96,7 +96,7 @@ def parse_time(val, is_duration=False):
 class TimeValidator(wx.Validator): # Create a validator subclass
     def __init__(self):
         wx.Validator.__init__(self)
-        self.ValidInput = ['.','0','1','2','3','4','5','6','7','8','9']
+        self.ValidInput = ['.', ':','0','1','2','3','4','5','6','7','8','9']
         self.StringLength = 0
         self.Bind(wx.EVT_CHAR,self.OnCharChanged) # bind character input event
     def is_valid(self, x):

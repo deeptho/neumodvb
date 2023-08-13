@@ -38,8 +38,6 @@ struct pat_service_t {
 	bool pmt_analysis_finished{false};
 	bool encrypted{false};
 	pmt_info_t pmt;
-	std::shared_ptr<pmt_parser_t> parser;
-
 };
 
 
@@ -640,19 +638,33 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return static_cast<parser_t*>(slot.p.get());
 	}
 
-	void remove_parser(dtdemux::psi_parser_t* parser) {
-		auto pid = parser->get_pid();
-		auto & slot = parsers[(dvb_pid_t)pid];
-		dtdebugx("remove_parser for pid=%d slot.use_count=%d", pid, slot.use_count);
-		if(--slot.use_count == 0) {
-			dtdebugx("removing parser for pid %d; use_count=%d", (uint16_t)pid, slot.use_count);
-			stream_parser.unregister_parser(pid);
-			remove_pid(pid);
-			parsers.erase((dvb_pid_t)pid);
-		} else {
-			dtdebugx("not removing parser for pid %d; use_count=%d", (uint16_t)pid, slot.use_count);
+	inline void remove_dead_parsers() {
+		auto it = parsers.begin();
+		while(it != parsers.end()) {
+			auto& [pid, slot] = *it;
+			if(slot.use_count ==0) {
+				dtdebugx("remove_parser for pid=%d slot.use_count=%d", pid, slot.use_count);
+				stream_parser.unregister_parser((int)pid);
+				remove_pid((int)pid);
+				it = parsers.erase(it);
+			} else
+				++it;
 		}
 	}
+
+	/*
+		request pareser to be removed at a time when it is safe
+	 */
+	inline void release_parser(dtdemux::psi_parser_t* parser) {
+		auto pid = parser->get_pid();
+		auto & slot = parsers[(dvb_pid_t)pid];
+		dtdebugx("release_parser for pid=%d slot.use_count=%d", pid, slot.use_count);
+		assert(slot.use_count>0);
+		if(slot.use_count>=1)  {
+			slot.use_count--;
+		}
+	}
+
 	mux_data_t* add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual, bool is_active_mux,
 											bool is_tuned_freq, bool from_sdt);
 

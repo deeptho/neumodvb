@@ -713,6 +713,7 @@ bool active_si_stream_t::read_and_process_data_for_fd(const epoll_event* evt) {
 		reader->update_stream_mux_tune_confirmation(tune_confirmation);
 	}
 	check_timeouts();
+	remove_dead_parsers();
 	return true;
 }
 
@@ -2727,7 +2728,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 		return reset_type_t::NO_RESET;
 	dtdebugx("pmt received for service_id=%d: stopping stream pmt_pid=%d", pmt.service_id, pmt.pmt_pid);
 	auto& p = pmt_data.by_service_id[pmt.service_id];
-	p.parser.reset();
+	dtdebugx("pmt received for service_id=%d: stopping stream pmt_pid=%d parser reset done", pmt.service_id, pmt.pmt_pid);
 	if (!p.pmt_analysis_finished)
 		pmt_data.num_pmts_received++;
 	p.pmt_analysis_finished = true;
@@ -2773,7 +2774,6 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 			}
 		}
 	}
-
 	if(pmts_can_be_saved()) {
 		auto wtxn = chdbmgr.wtxn();
 		save_pmts(wtxn);
@@ -2790,7 +2790,7 @@ void active_si_stream_t::add_pmt(uint16_t service_id, uint16_t pmt_pid) {
 		auto pmt_section_cb = [this, service_id, pmt_pid](dtdemux::pmt_parser_t*parser,
 																 const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
 			dtdebugx("calling remove_parser service_id=%d pmt_pid=%d\n", service_id, pmt_pid);
-			remove_parser(parser);
+			release_parser(parser);
 			return this->pmt_section_cb(pmt, isnext);
 
 		};

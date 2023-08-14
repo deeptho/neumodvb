@@ -794,6 +794,8 @@ class GroupSelectPanel(wx.Panel):
         grouptype_text = wx.TextCtrl(self, wx.ID_ANY, "", style= wx.TE_READONLY)
         grouptype_text.SetForegroundColour(wx.WHITE)
         grouptype_text.SetFont(self.header_font)
+        self.grouptype_text = grouptype_text
+        self.layout_grouptype()
 
         sorttype_text = wx.TextCtrl(self, wx.ID_ANY, "", style= wx.TE_READONLY)
         sorttype_text.SetForegroundColour('yellow')
@@ -803,7 +805,6 @@ class GroupSelectPanel(wx.Panel):
         self.top_sizer.Add((10,10), 1, 0, border=0)
         self.top_sizer.Add(sorttype_text, 0, wx.EXPAND, 0)
         self.top_sizer.Add((10,10), 1, 0, 0)
-        self.grouptype_text = grouptype_text
         self.sorttype_text = sorttype_text
         self.SetSizerAndFit(self.top_sizer)
         self.Bind(wx.EVT_CHILD_FOCUS, self.OnFocus)
@@ -857,10 +858,8 @@ class SatBouquetGroupSelectPanel(GroupSelectPanel):
         else:
             return self.sorttypes_chgm
 
-    def display_grouptype(self):
-        idx = self.grouptype_idx
+    def layout_grouptype(self):
         t = pychdb.list_filter_type_t
-        self.grouptype_idx = idx
         txt, cmd, record_type = self.grouptypes[self.grouptype_idx]
         if record_type == t.SAT_SERVICES:
             txt = txt if self.group_select_in_progress or self.grouptype_text.HasFocus() else str(self.ls.filter_sat)
@@ -871,6 +870,9 @@ class SatBouquetGroupSelectPanel(GroupSelectPanel):
         w = max(w, self.grouptype_text_size[0])
         h = max(h, self.grouptype_text_size[1])
         self.grouptype_text.SetMinSize((w, h))
+
+    def display_grouptype(self):
+        self.layout_grouptype()
         wx.CallAfter(self.grouptype_text.Refresh)
 
     def activate_group(self):

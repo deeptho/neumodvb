@@ -130,7 +130,7 @@ mmap_t(int map_len_, bool readonly_)
 		map_len(map_len_ -map_len_ % pagesize) {
 	}
 
-	void unmap();
+	EXPORT void unmap();
 
 	/* map a new file
 	 */
@@ -141,7 +141,7 @@ mmap_t(int map_len_, bool readonly_)
 
 	int grow_map(off_t end_read_offset);
 
-	void close();
+	EXPORT void close();
 
 	mmap_t& operator=(const mmap_t& other);
 	mmap_t& operator=(mmap_t&& other);

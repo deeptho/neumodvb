@@ -264,13 +264,14 @@ private:
 	playback_info_t get_recording_program_info() const;
 	void update_pmt(stream_state_t& stream_state);
 public:
-	void register_audio_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
-	void unregister_audio_changed_callback(subscription_id_t subscription_id);
+	EXPORT active_service_t* active_service () const;
+	EXPORT void register_audio_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
+	EXPORT void unregister_audio_changed_callback(subscription_id_t subscription_id);
 
-	void register_subtitle_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
-	void unregister_subtitle_changed_callback(subscription_id_t subscription_id);
+	EXPORT void register_subtitle_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
+	EXPORT void unregister_subtitle_changed_callback(subscription_id_t subscription_id);
 
-	void open_recording(const char* dirname);
+	EXPORT void open_recording(const char* dirname);
 	//void init();
 
 
@@ -280,28 +281,28 @@ public:
 	playback_mpm_t& operator=(const playback_mpm_t& other) = delete;
 
 
-	int64_t read_data(char* buffer, uint64_t numbytes);
-	int move_to_time(milliseconds_t start_play_time);
-	int move_to_live();
+	EXPORT int64_t read_data(char* buffer, uint64_t numbytes);
+	EXPORT int move_to_time(milliseconds_t start_play_time);
+	EXPORT int move_to_live();
 	//int open(int fileno=0); //find and open file
-	void close();
-	milliseconds_t get_current_play_time() const;
-	void force_abort();
+	EXPORT void close();
+	EXPORT milliseconds_t get_current_play_time() const;
+	EXPORT void force_abort();
 	int current_fileno() const {
 		return currently_playing_file.readAccess()->fileno;
 	}
-	playback_info_t get_current_program_info() const;
-	int set_language_pref(int idx, bool for_subtitles);
+	EXPORT playback_info_t get_current_program_info() const;
+	EXPORT int set_language_pref(int idx, bool for_subtitles);
 	inline int set_audio_language(int audio_idx) {
 		return set_language_pref(audio_idx, false);
 	}
 	inline int set_subtitle_language(int subtitle_idx) {
 		return set_language_pref(subtitle_idx, true);
 	}
-	chdb::language_code_t get_current_audio_language();
-	chdb::language_code_t get_current_subtitle_language();
-	ss::vector_<chdb::language_code_t> audio_languages();
-	ss::vector_<chdb::language_code_t> subtitle_languages();
+	EXPORT chdb::language_code_t get_current_audio_language();
+	EXPORT chdb::language_code_t get_current_subtitle_language();
+	EXPORT ss::vector_<chdb::language_code_t> audio_languages();
+	EXPORT ss::vector_<chdb::language_code_t> subtitle_languages();
 
 };
 

@@ -116,10 +116,10 @@ public:
 	EXPORT int unsubscribe();
 	EXPORT void update_current_lnb(const devdb::lnb_t & lnb);
 
-	std::unique_ptr<playback_mpm_t> subscribe_service(const chdb::service_t& service);
+	EXPORT std::unique_ptr<playback_mpm_t> subscribe_service(const chdb::service_t& service);
 
 	template <typename _mux_t>
-	int subscribe_mux(const _mux_t& mux, bool blindscan);
+	EXPORT int subscribe_mux(const _mux_t& mux, bool blindscan);
 
 	EXPORT int subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode);
 
@@ -141,6 +141,6 @@ public:
 #if 0
 	int get_adapter_no() const;
 #endif
-	std::unique_ptr<playback_mpm_t> subscribe_recording(const recdb::rec_t& rec);
+	EXPORT std::unique_ptr<playback_mpm_t> subscribe_recording(const recdb::rec_t& rec);
 
 };

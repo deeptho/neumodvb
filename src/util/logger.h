@@ -69,6 +69,15 @@ namespace dtdemux {
 #define dtinfo(text, args...)			\
 		LOG4CXX_INFO(logger, text, ##args)
 
+//alternative for dtdebug
+#define dtinfof(fmt, args...)																						\
+	do {																																	\
+		ss::string<256> msg;																								\
+		msg.format(fmt, ##args);																						\
+		LOG4CXX_INFO(logger, msg);																					\
+	} while(0)
+
+
 #define dtdebug(text, args...)			\
 		LOG4CXX_DEBUG(logger, text, ##args)
 
@@ -118,6 +127,14 @@ namespace dtdemux {
 		LOG4CXX_DEBUG(logger, msg);																					\
 	} while(0)
 
+//alternative for dtdebug
+#define dtdebugf(fmt, args...)																					\
+	do {																																	\
+		ss::string<256> msg;																								\
+		msg.format(fmt, ##args);																						\
+		LOG4CXX_DEBUG(logger, msg);																					\
+	} while(0)
+
 #define dtthrowx(fmt, args...)																					\
 	do {																																	\
 		char msg[256];																											\
@@ -131,6 +148,15 @@ namespace dtdemux {
 		snprintf(msg, 255, fmt, ##args);																		\
 		LOG4CXX_ERROR(logger, msg);																					\
 	} while(0)
+
+//alternative for dtdebug
+#define dterrorf(fmt, args...)																					\
+	do {																																	\
+		ss::string<256> msg;																								\
+		msg.format(fmt, ##args);																						\
+		LOG4CXX_ERROR(logger, msg);																					\
+	} while(0)
+
 
 //error which should be reported to the user
 #define user_errorx(fmt, args...)																				\

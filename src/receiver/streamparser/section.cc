@@ -973,20 +973,19 @@ namespace dtdemux {
 				auto desc = get_ca(s, _desc, info.stream_pid);
 
 				ca_descriptors.push_back(desc);
-				dtdebug("sid=" << service_id << ": ECM PID=" << desc.ca_pid << " system_id=" << desc.ca_system_id
-								<< " stream_pid=" << desc.stream_pid);
+				dtdebugf("sid={}: ECM PID={} system_id={} stream_pid={}", service_id, desc.ca_pid,
+								 desc.ca_system_id, desc.stream_pid);
 			} break;
 			case SI::ServiceMoveDescriptorTag: {
 				auto desc = s.get<service_move_info_t>(_desc, info.stream_pid);
 				service_move_descriptors.push_back(desc);
-				dtdebug("sid=" << service_id << ": service move descriptor "
-								<< " new: network_id" << desc.new_original_network_id << " tsid=" << desc.new_transport_stream_id
-								<< " sid=" << desc.new_service_id);
+				dtdebugf("sid={}: service move descriptor new: network_id {} ts_id={} sid={}", service_id,
+								 desc.new_original_network_id, desc.new_transport_stream_id, desc.new_service_id);
 			} break;
 			case SI::MHP_PrefetchDescriptorTag: {
 				static int called = 0;
 				if (!called) {
-					dtdebug_nice("MHP_PrefetchDescriptor " << (int)_desc.tag << "=" << name_of_descriptor_tag(_desc.tag));
+					dtdebug_nicef("MHP_PrefetchDescriptor {}={}", (int)_desc.tag, name_of_descriptor_tag(_desc.tag));
 					called = 1;
 				}
 				s.skip(_desc.len);
@@ -1000,7 +999,7 @@ namespace dtdemux {
 				}
 				auto component_tag = s.get<uint8_t>();
 				if (!called) {
-					dtdebug_nice("Stream id: " << (int)component_tag);
+					dtdebug_nicef("Stream id: {}", (int)component_tag);
 					called = 1;
 				}
 			} break;
@@ -1080,9 +1079,8 @@ namespace dtdemux {
 					info.num_t2mi_streams_minus_one = num_t2mi_streams_minus_one;
 				} break;
 				default:
-					dtdebug_nice("PMT: unhandled extension descriptor " << (int)desc_tag_extension << "="
-											 << name_of_descriptor_tag(desc_tag_extension)
-											 << " size=" << (int)_desc.len);
+					dtdebug_nicef("PMT: unhandled extension descriptor {}={} size={}", (int)desc_tag_extension,
+												name_of_descriptor_tag(desc_tag_extension),(int)_desc.len);
 
 					s.skip(_desc.len - 1); // we already read 1 byte
 				}
@@ -1094,9 +1092,8 @@ namespace dtdemux {
 			case SI::VBIDataDescriptorTag:
 			case SI::TeletextDescriptorTag:
 			default:
-				dtdebug_nice("PMT: unhandled descriptor " << (int)_desc.tag << "=" << name_of_descriptor_tag(_desc.tag)
-										 << " size=" << (int)_desc.len);
-
+				dtdebug_nicef("PMT: unhandled descriptor {}={} size={}", (int)_desc.tag,
+											name_of_descriptor_tag(_desc.tag), (int)_desc.len);
 				s.skip(_desc.len);
 				break;
 			}
@@ -1197,7 +1194,7 @@ namespace dtdemux {
 		pat_services.version_number = hdr.version_number;
 		pat_services.ts_id = ts_id;
 		if (hdr.table_id != 0x0) {
-			LOG4CXX_ERROR(logger, "PAT with bad table id " << (int)hdr.table_id);
+			dterrorf("PAT with bad table id {}", (int)hdr.table_id);
 			return false;
 		}
 
@@ -1228,7 +1225,6 @@ namespace dtdemux {
 		for (int i = 0; i < num_entries; ++i) {
 			uint16_t program_number = this->get<uint16_t>();
 			uint16_t pid = this->get<uint16_t>() & 0x1fff;
-			// LOG4CXX_DEBUG(logger, "program: no=" << program_number << " pid=" << pid);
 			pat_entry_t e(program_number, pid);
 			pat_services.entries.push_back(e);
 		}
@@ -1249,12 +1245,13 @@ namespace dtdemux {
 		// current_version_number = hdr.version_number;
 		int pid = hdr.pid;
 		if (hdr.table_id != 0x02) {
-			dterror("PMT PID=" << pid << ": with bad table id " << (int)hdr.table_id);
+			dterrorf("PMT PID={}: with bad table id ", pid, (int)hdr.table_id);
 			return false;
 		}
 
 		if (hdr.section_number != 0 || hdr.last_section_number != 0) {
-			dterror("Bad PMT: secno=" << (int)hdr.section_number << " last_sec_no=" << (int)hdr.last_section_number);
+			dterrorf("Bad PMT: secno={} last_sec_no={}", (int)hdr.section_number,
+							 (int)hdr.last_section_number);
 			return false;
 		}
 
@@ -1377,8 +1374,7 @@ namespace dtdemux {
 				network.bouquet_linkage.push_back(bouquet_linkage);
 			} break;
 			default:
-				dtdebug_nice("NIT"
-										 << ": unknown descriptor " << (int)desc.tag << "=" << name_of_descriptor_tag(desc.tag));
+				dtdebug_nicef("NIT: unknown descriptor {}={}", (int)desc.tag, name_of_descriptor_tag(desc.tag));
 			case SI::PrivateDataSpecifierDescriptorTag:
 				this->skip(desc.len);
 				break;
@@ -1612,8 +1608,8 @@ namespace dtdemux {
 					if (desc.tag >= 0x80 && desc.tag <= 0xfe) {
 						// user defined descriptor
 					} else {
-						dtdebug_nice(service.name << ": unknown descriptor " << (int)desc.tag << "="
-												 << name_of_descriptor_tag(desc.tag));
+						dtdebug_nicef("{}: unknown descriptor {}={}", service.name, (int)desc.tag,
+													name_of_descriptor_tag(desc.tag));
 					}
 					this->skip(desc.len);
 					break;
@@ -1729,14 +1725,14 @@ namespace dtdemux {
 			} break;
 			case SI::LocalTimeOffsetDescriptorTag:
 
-				dtdebug("BAT: unknown descriptor " << (int)desc.tag << "=" << name_of_descriptor_tag(desc.tag)); // 129 (0x81 User defined/ATSC reserved)
+				dtdebugf("BAT: unknown descriptor {}={}", (int)desc.tag, name_of_descriptor_tag(desc.tag)); // 129 (0x81 User defined/ATSC reserved)
 				this->skip(desc.len);
 				break;
 			default:
 				if (desc.tag >= 0x80 && desc.tag <= 0xfe) {
 					// user defined descriptor
 				} else {
-					dtdebug("BAT: unknown descriptor " << (int)desc.tag << "=" << name_of_descriptor_tag(desc.tag));
+					dtdebugf("BAT: unknown descriptor {}={}", (int)desc.tag, name_of_descriptor_tag(desc.tag));
 				}
 				this->skip(desc.len);
 				break;
@@ -1799,7 +1795,8 @@ namespace dtdemux {
 					break;
 
 				default:
-					dtdebug("BAT: unknown descriptor " << (int)desc.tag << "=" << name_of_descriptor_tag(desc.tag)); // 129 (0x81 User defined/ATSC reserved)
+					dtdebugf("BAT: unknown descriptor {}={}", (int)desc.tag,
+									 name_of_descriptor_tag(desc.tag)); // 129 (0x81 User defined/ATSC reserved)
 				case 0x80 ... 0x82: //user defined
 				case 0x84 ... 0x85: //user defined
 				case 0x87 ... 0xb0: //user defined
@@ -2208,28 +2205,34 @@ namespace dtdemux {
 
 extern const char* lang_name(const char* code);
 
-std::ostream& dtdemux::operator<<(std::ostream& os, const dtdemux::pid_info_t& info) {
-	stdex::printf(os, "PID[%0x] type=0x%x ", info.stream_pid, (int)info.stream_type);
+auto fmt::formatter<dtdemux::pid_info_t>::format(const dtdemux::pid_info_t& info, format_context& ctx) const
+-> format_context::iterator
+{
+	auto ret = fmt::format_to(ctx.out(), "PID[%0x] type=0x{:x} ", info.stream_pid, (int)info.stream_type);
 	if (info.audio_lang.lang_code[0] != 0)
-		stdex::printf(os, " lang=%s %s", &info.audio_lang.lang_code[0], lang_name(&info.audio_lang.lang_code[0]));
+		ret = fmt::format_to(ctx.out(), " lang={:s} {:s}", &info.audio_lang.lang_code[0],
+									 lang_name(&info.audio_lang.lang_code[0]));
 	if (info.subtitle_descriptors.size() > 0)
-		stdex::printf(os, " subs={");
+		ret = fmt::format_to(ctx.out(), " subs={{");
 	for (const auto& s : info.subtitle_descriptors) {
-		stdex::printf(os, " type=0x%x ", (int)s.subtitle_type);
+		ret = fmt::format_to(ctx.out(),  " type=0x{:x} ", (int)s.subtitle_type);
 		if (s.lang_code[0] != 0)
-			stdex::printf(os, " lang=%s", &s.lang_code[0]);
-		stdex::printf(os, "page=%03d-%03d  ", s.composition_page_id, s.ancillary_page_id);
+					ret = fmt::format_to(ctx.out(),  " lang={:s}", &s.lang_code[0]);
+		ret = fmt::format_to(ctx.out(), "page={:03d}-{:03d}  ", s.composition_page_id, s.ancillary_page_id);
 	}
 	if (info.subtitle_descriptors.size() > 0)
-		stdex::printf(os, " }");
-	return os;
+		ret = fmt::format_to(ctx.out()," }}");
+	return ret;
 }
 
-std::ostream& dtdemux::operator<<(std::ostream& os, const dtdemux::pmt_info_t& pmt) {
+auto fmt::formatter<dtdemux::pmt_info_t>::format(const dtdemux::pmt_info_t& pmt, format_context& ctx) const
+-> format_context::iterator
+{
+	auto ret = ctx.out();
 	for (auto pid : pmt.pid_descriptors) {
-		os << pid << "\n";
+		ret = fmt::format_to(ctx.out(), "{}\n", pid);
 	}
-	return os;
+	return ret;
 }
 
 ss::vector<language_code_t, 8> pmt_info_t::audio_languages() const {

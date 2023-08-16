@@ -536,11 +536,22 @@ namespace dtdemux {
 			st == stream_type_t::EAC3_AUDIO;
 	}
 
-
-
-	std::ostream& operator<<(std::ostream& os, const pid_info_t& info);
-	std::ostream& operator<<(std::ostream& os, const pmt_info_t& pmt);
-
 } //namespace dtdemux
 const char* lang_name(const char* code);
 const char* lang_name(uint32_t code);
+
+template <> struct fmt::formatter<dtdemux::pid_info_t> {
+		inline constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator {
+			return ctx.begin();
+		}
+
+	auto format(const dtdemux::pid_info_t& a, format_context& ctx) const -> format_context::iterator;
+};
+
+template <> struct fmt::formatter<dtdemux::pmt_info_t> {
+		inline constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator {
+			return ctx.begin();
+		}
+
+	auto format(const dtdemux::pmt_info_t& a, format_context& ctx) const -> format_context::iterator;
+};

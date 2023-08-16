@@ -90,7 +90,8 @@ bool pes_parser_t::parse_pes_header() {
 		}
 		toskip -= 10;
 #if 0
-		LOG4CXX_INFO(logger, "DIFF DTS-PCR=" << (dts - (pts_dts_t) event_handler.last_pcr) << " PCR=" << event_handler.last_pcr << " DTS=" << dts);
+		dtinfof("DIFF DTS-PCR={} PCR={} DTS={}", (dts - (pts_dts_t) event_handler.last_pcr),
+						event_handler.last_pcr, dts);
 #endif
 
 		break;
@@ -134,11 +135,11 @@ void h264_parser_t::parse_slice_header(int nal_unit_type) {
 	int colour_plane_id = 0;
 	if (separate_colour_plane_flag) {
 		colour_plane_id = this->get_bits(byte, startbit, 2);
-		LOG4CXX_DEBUG(logger, "colour_plane_id=" << colour_plane_id);
+		dtdebugf("colour_plane_id={}", colour_plane_id);
 	}
 
 	auto frame_num UNUSED = this->get_bits(byte, startbit, log2_max_frame_num_minus4 + 4);
-	LOG4CXX_INFO(logger, "frame_num= " << frame_num);
+	dtinfof("frame_num={}", frame_num);
 	int field_pic_flag = 0;
 	int bottom_field_flag = 0;
 	if (!frame_mbs_only_flag) {
@@ -281,7 +282,7 @@ void h264_parser_t::parse_payload_unit() {
 			parse_sps(nal_unit_type);
 			break;
 		default:
-			LOG4CXX_DEBUG(logger, "Unhandled nal unit type: " << (int) nal_unit_type);
+			dtdebugf("Unhandled nal unit type: {}", (int) nal_unit_type);
 
 
 		}
@@ -331,8 +332,8 @@ void dtdemux::mpeg2_parser_t::parse_payload_unit() {
 			auto picture_coding_type = ((temporal_reference >> 3) & 7);
 			auto frame_type = stream_type::mpeg2_frame_type(picture_coding_type);
 #if 0
-			LOG4CXX_DEBUG(logger, current_ts_packet->range << ": " << pts << ": "
-										<< (char) frame_type << "-frame: temporal ref=" << temporal_reference);
+			dtdebugf("{}: {}: {}-frame: temporal ref={}", current_ts_packet->range, pts,
+							 (char) frame_type, temporal_reference);
 #endif
 			this->current_unit_type = frame_type;
 #ifndef NDEBUG
@@ -361,9 +362,8 @@ void dtdemux::mpeg2_parser_t::parse_payload_unit() {
 				? aspect_ratios[aspect_ratio_code]
 				: "invalid";
 #if 0
-			LOG4CXX_DEBUG(logger, current_ts_packet->range << ": " << pts << ": "
-										<< "SEQ header: frame_rate=" << frame_rate
-										<< " aspect_ratio=" << aspect_ratio);
+			dtdebugf("{}: {}: SEQ header: frame_rate={} aspect_ratio={}", current_ts_packet->range, pts,
+							 frame_rate, aspect_ratio);
 #endif
 			this->skip(3);																	// bit_rate and part of vbv_buffer_size
 			uint8_t quantiser_flags = this->get<uint8_t>(); /* 5 bits of vbv_buffer_size,
@@ -426,9 +426,9 @@ void dtdemux::mpeg2_parser_t::parse_payload_unit() {
 				break;
 			else if (code >= 0xB9 && code < 0xff) { // system start codes
 			} else if (code == 0xB2) {							// user data
-				LOG4CXX_DEBUG(logger, "user data start code: " << (int)code);
+				dtdebugf("user data start code: {}", (int)code);
 			} else {
-				LOG4CXX_DEBUG(logger, "unrecognised start code: " << (int)code);
+				dtdebugf("unrecognised start code: {}", (int)code);
 			}
 		}
 		}

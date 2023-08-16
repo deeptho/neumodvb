@@ -580,7 +580,7 @@ void chdb::matype_str(ss::string_& s, int16_t matype, int rolloff) {
 		s.sprintf("");
 		return;
 	}
-	s.sprintf("0x%x: ", matype);
+	//s.sprintf("0x%x: ", matype);
 	if( matype <0 ) { //not tuned yet; matype unknown
 		s.sprintf("");
 		return;
@@ -614,7 +614,7 @@ void chdb::matype_str(ss::string_& s, int16_t matype, int rolloff) {
 	if ((matype >> 4) & 1)
 		s.sprintf("CCM ");
 	else
-		s.sprintf("ACM/VCM ");
+		s.sprintf("VCM ");
 	if ((matype >> 3) & 1)
 		s.sprintf("ISSYI ");
 

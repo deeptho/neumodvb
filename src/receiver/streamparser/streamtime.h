@@ -20,7 +20,7 @@
 
 #pragma once
 
-#define PACKED __attribute__((packed))
+#define DTPACKED __attribute__((packed))
 #include <iostream>
 #include <iomanip>
 #include "stackstring.h"

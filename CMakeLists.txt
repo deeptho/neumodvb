@@ -20,6 +20,14 @@ SET(CMAKE_BUILD_RPATH "$ORIGIN/.")
 
 # libneumowxsvg
 include(cmake/neumowxsvg.cmake)
+include(FetchContent)
+
+set(FETCHCONTENT_BASE_DIR ${CMAKE_CURRENT_BINARY_DIR}/../build_fmt)
+
+FetchContent_Declare(fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+  GIT_TAG 6c845f57e5db589208ff0c2808238587cafafa82
+  )
 
 execute_process(COMMAND  lsb_release  -c -s OUTPUT_VARIABLE RELEASE)
 string(STRIP ${RELEASE} RELEASE)
@@ -55,10 +63,14 @@ find_package(Python COMPONENTS Interpreter Development)
 
 pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 
-
 set(CMAKE_BUILD_TYPE Debug)
 #set(CMAKE_BUILD_TYPE Release)
 #set(CMAKE_BUILD_TYPE RelWithDebInfo)
+
+#not working:  SET(CMAKE_DEBUG_POSTFIX "" CACHE STRING "add a postfix, usually d on windows")
+FetchContent_MakeAvailable(fmt)
+
+include_directories(${fmt_SOURCE_DIR}/include/)
 
 SET(USE_BOOST_LOCALE false)
 SET(TEST_CHDB false)

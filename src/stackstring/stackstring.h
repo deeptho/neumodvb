@@ -27,7 +27,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string.h>
-
+#include "fmt/format.h"
 #include "stackstring_header.h"
 
 extern int gcd(int a, int b);
@@ -732,6 +732,8 @@ namespace ss {
 
 	public:
 
+		typedef char value_type;
+
 		INLINE void reserve(int size) {
 			parent::reserve(size + 1);
 		}
@@ -880,8 +882,12 @@ namespace ss {
 		}
 
 		int snprintf(int s, const char* fmt, ...);
-
 		int sprintf(const char* fmt, ...);
+
+		template<typename... Args>  inline auto
+		format(fmt::format_string<Args...> f, Args&&... args )  {
+			return fmt::format_to(std::back_insert_iterator(*this), f, std::forward<Args>(args)...);
+		}
 
 		std::string str(void) const {
 			return std::string(buffer());

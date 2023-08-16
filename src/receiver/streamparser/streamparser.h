@@ -197,11 +197,11 @@ namespace dtdemux {
 
 	};
 
-#ifndef PACKED
-#define PACKED __attribute__((packed))
+#ifndef DTPACKED
+#define DTPACKED __attribute__((packed))
 #endif
 
-	struct PACKED ts_packet_t {
+	struct DTPACKED ts_packet_t {
 		constexpr static const int size = 188;
 		uint16_t header = 0;
 		uint8_t flags = 0;

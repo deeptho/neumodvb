@@ -22,11 +22,10 @@ set_source_files_properties( subscriber_notify.cc COMPILE_FLAGS ${EXTRA_FLAGS_ST
 
 add_dependencies(neumoreceiver chdb statdb epgdb recdb recdb stackstring streamparser)
 
-target_link_libraries(neumoreceiver PUBLIC chdb statdb epgdb recdb neumoutil neumodb streamparser config++ fmt PRIVATE dvbcsa ${wxWidgets_LIBRARIES})
+target_link_libraries(neumoreceiver PUBLIC chdb statdb epgdb recdb neumoutil neumodb streamparser config++
+  fmt::fmt PRIVATE dvbcsa ${wxWidgets_LIBRARIES})
 
-
-#target_compile_options(neumoreceiver PUBLIC -fPIC -fvisibility=hidden -fsized-deallocation) #needed to prevent operator delete error
-target_compile_options(neumoreceiver PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
+target_compile_options(neumoreceiver PUBLIC -fPIC -fvisibility=hidden -fsized-deallocation) #needed to prevent operator delete error
 install (TARGETS neumoreceiver  DESTINATION lib64)
 
 add_executable(neumo-blindscan neumo-blindscan.cc dvb_strings.cc)
@@ -65,7 +64,7 @@ target_link_libraries(pyreceiver PRIVATE neumoutil)
 string (REPLACE ";" " " EXTRA_FLAGS_STR "${GTK3_CFLAGS}")
 set_source_files_properties(subscriber_pybind.cc COMPILE_FLAGS "${EXTRA_FLAGS_STR}" )
 
-target_link_libraries(pyreceiver PUBLIC neumoreceiver )
+target_link_libraries(pyreceiver PUBLIC neumoreceiver)
 
 target_link_options(pyreceiver PUBLIC -lgtk-3)
 

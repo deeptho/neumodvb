@@ -62,7 +62,7 @@ target_compile_options(epgdb PUBLIC -fPIC -fsized-deallocation)
 pybind11_add_module(pyepgdb epgdb_pybind.cc ${pybind_srcs})
 
 target_compile_options(pyepgdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
-target_link_libraries(epgdb PUBLIC stackstring neumolmdb neumoutil neumodb schema fmt uuid)
+target_link_libraries(epgdb PUBLIC stackstring neumolmdb neumoutil neumodb schema fmt::fmt uuid)
 
 target_link_libraries(pyepgdb PRIVATE epgdb chdb pyneumodb)
 

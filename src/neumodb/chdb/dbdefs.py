@@ -554,6 +554,7 @@ mux_common = db_struct(name='mux_common',
                     fields = ((1, 'time_t', 'scan_time'),
                               (3, 'scan_result_t', 'scan_result'),
                               (18, 'lock_result_t', 'scan_lock_result'),
+                              (19, 'int8_t', 'epg_scan_completeness'),
                               (8, 'time_t', 'scan_duration'),
                               (5, 'bool', 'epg_scan'),
                               (2, 'scan_status_t', 'scan_status', 'scan_status_t::NONE'),
@@ -563,7 +564,6 @@ mux_common = db_struct(name='mux_common',
                               (17, 'uint16_t', 'ts_id'), #usually redundant
                               (14, 'uint16_t', 'nit_network_id'), #usually redundant
                               (15, 'uint16_t', 'nit_ts_id'), #usually redundant
-
                               (11, 'tune_src_t', 'tune_src', 'tune_src_t::AUTO'),
                               (13, 'key_src_t', 'key_src', 'key_src_t::NONE'),
 

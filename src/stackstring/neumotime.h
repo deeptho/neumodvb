@@ -25,7 +25,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
-#define PACKED __attribute__((packed))
+#define DTPACKED __attribute__((packed))
 
 struct milliseconds_t {
 	int64_t ms = 0;

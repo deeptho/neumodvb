@@ -11,6 +11,7 @@ cscope.files
 .pdb-pyhist
 /build/
 /build_ext/
+/build_fmt/
 /x86_64/
 \#*\#
 \.#*

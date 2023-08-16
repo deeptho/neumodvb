@@ -62,7 +62,7 @@ pybind11_add_module(pyrecdb recdb_pybind.cc ${pybind_srcs})
 target_compile_options(pyrecdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(recdb PUBLIC stackstring neumolmdb chdb epgdb neumodb schema)
 
-target_link_libraries(recdb PUBLIC fmt uuid)
+target_link_libraries(recdb PUBLIC fmt::fmt uuid)
 target_link_libraries(pyrecdb PRIVATE recdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)

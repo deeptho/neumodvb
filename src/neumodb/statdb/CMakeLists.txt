@@ -61,7 +61,7 @@ target_compile_options(statdb PUBLIC -fPIC -fsized-deallocation) #needed to prev
 pybind11_add_module(pystatdb statdb_pybind.cc statdb_vector_pybind.cc ${pybind_srcs})
 
 target_compile_options(pystatdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
-target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb neumodb schema fmt uuid)
+target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb neumodb schema fmt::fmt uuid)
 target_link_libraries(pystatdb PRIVATE statdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)

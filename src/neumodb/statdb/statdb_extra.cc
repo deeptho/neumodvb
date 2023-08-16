@@ -45,7 +45,7 @@ std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_key_t& k) {
 	stdex::printf(os, "%06x_RF%d %5s:%5.3f%s", (int)k.rf_path.card_mac_address, k.rf_path.rf_input,
 								sat, k.frequency / 1000.,
 								enum_to_str(k.pol));
-	os << fmt::format(" {:%F %T}", fmt::localtime(floor<std::chrono::seconds>(system_clock::from_time_t(k.time))));
+	os << fmt::format(" {:%F %T}", fmt::localtime(k.time));
 
 	return os;
 }
@@ -65,7 +65,7 @@ std::ostream& statdb::operator<<(std::ostream& os, const spectrum_key_t& spectru
 	os << rf_path;
 	auto sat = chdb::sat_pos_str(spectrum_key.sat_pos);
 	stdex::printf(os, " %5s: %s ", sat, enum_to_str(spectrum_key.pol));
-	os << fmt::format("{:%F %H:%M}", fmt::localtime(system_clock::from_time_t(spectrum_key.start_time)));
+	os << fmt::format("{:%F %H:%M}", fmt::localtime(spectrum_key.start_time));
 
 	return os;
 }
@@ -84,9 +84,7 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 	ss::accu_t ss(ret);
 	auto* pol_ = enum_to_str(spectrum.k.pol);
 	ss << sat << fmt::format("/{:%F_%H:%M:%S}_",
-													 fmt::localtime(
-														 floor<std::chrono::seconds>(system_clock::from_time_t(spectrum.k.start_time)))
-		)
+													 fmt::localtime(spectrum.k.start_time))
 		 << pol_ << "_dish" << (int)spectrum.k.rf_path.lnb.dish_id<< "_C";
 	ret.sprintf("%06x_RF%d" , (int)spectrum.k.rf_path.card_mac_address, spectrum.k.rf_path.rf_input);
 }

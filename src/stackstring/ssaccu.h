@@ -50,5 +50,4 @@ namespace ss {
 		a << x;
 		return a;
 	}
-
 };

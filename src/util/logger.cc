@@ -102,7 +102,7 @@ std::ostream& operator<<(std::ostream& os, const std::chrono::duration<long, std
 }
 
 std::ostream& std::operator<<(std::ostream& os, system_time_t t) {
-	os << fmt::format("_{:%Y%m%d_%T}", fmt::localtime(std::chrono::floor<std::chrono::seconds>(t)));
+	os << fmt::format("{:%Y%m%d_%T}", fmt::localtime(std::chrono::system_clock::to_time_t(t)));
 	return os;
 }
 

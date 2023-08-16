@@ -50,8 +50,7 @@ static void  testf(db_txn& txn, recdb::file_t& file) {
 static ss::string<128> relfilename(const recdb::file_t & file) {
 	ss::string<128> ret;
 	ret.sprintf("%02d_", file.fileno);
-	auto t = system_clock::from_time_t(file.real_time_start);
-	ret <<  fmt::format("{:%Y%m%d_%T}", fmt::localtime(t)) << ".ts";
+	ret <<  fmt::format("{:%Y%m%d_%T}", fmt::localtime(file.real_time_start)) << ".ts";
 	return ret;
 }
 
@@ -259,7 +258,7 @@ ss::string<128> active_mpm_t::make_dirname(active_service_t* active_service, sys
 	dirname.sprintf("%s/A%02d_ts%05d_sid%05d_", active_service->receiver.options.readAccess()->live_path.c_str(),
 									active_service->get_adapter_no(), active_service->current_service.k.ts_id,
 									active_service->current_service.k.service_id);
-	dirname << fmt::format("{:%Y%m%d_%T}", fmt::localtime(start_time));
+	dirname << fmt::format("{:%Y%m%d_%T}", fmt::localtime(std::chrono::system_clock::to_time_t(start_time)));
 	return dirname;
 }
 

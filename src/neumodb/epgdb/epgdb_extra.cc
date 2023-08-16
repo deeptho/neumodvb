@@ -309,13 +309,13 @@ std::ostream& epgdb::operator<<(std::ostream& os, const epg_source_t& s) {
 std::ostream& epgdb::operator<<(std::ostream& os, const epg_key_t& k) {
 	os << k.service;
 	stdex::printf(os, " [%d] ", k.event_id);
-	os << fmt::format("{:%F %H:%M}", fmt::localtime(system_clock::from_time_t(k.start_time)));
+	os << fmt::format("{:%F %H:%M}", fmt::localtime(k.start_time));
 	return os;
 }
 
 std::ostream& epgdb::operator<<(std::ostream& os, const epg_record_t& epg) {
 	os << epg.k;
-	os << fmt::format(" - {:%H:%M}", fmt::localtime(system_clock::from_time_t(epg.end_time)));
+	os << fmt::format(" - {:%H:%M}", fmt::localtime(epg.end_time));
 	auto rec_status = enum_to_str(epg.rec_status);
 	stdex::printf(os, ":%s %s", rec_status, epg.event_name.c_str());
 
@@ -323,8 +323,8 @@ std::ostream& epgdb::operator<<(std::ostream& os, const epg_record_t& epg) {
 }
 
 void epgdb::to_str_brief(ss::string_& ret, const epg_record_t& epg) {
-	auto os = ret << fmt::format("{:%H:%M}", fmt::localtime(system_clock::from_time_t(epg.k.start_time)));
-	os << fmt::format(" - {:%H:%M}", fmt::localtime(system_clock::from_time_t(epg.end_time)));
+	auto os = ret << fmt::format("{:%H:%M}", fmt::localtime(epg.k.start_time));
+	os << fmt::format(" - {:%H:%M}", fmt::localtime(epg.end_time));
 	auto rec_status = enum_to_str(epg.rec_status);
 	stdex::printf(os, ":%s%s", rec_status, epg.event_name.c_str());
 }

@@ -56,9 +56,9 @@ std::ostream& recdb::operator<<(std::ostream& os, const file_t& f) {
 	stdex::printf(os, "file %d; stream time: [", f.fileno);
 	os << f.k.stream_time_start << " - " << f.stream_time_end;
 	os << "] real time: [";
-	os << fmt::format("{:%F %H:%M}", fmt::localtime(system_clock::from_time_t(f.real_time_start)));
+	os << fmt::format("{:%F %H:%M}", fmt::localtime(f.real_time_start));
 	os << " - ";
-	os << fmt::format("{:%H:%M}", fmt::localtime(system_clock::from_time_t(f.real_time_end)));
+	os << fmt::format("{:%H:%M}", fmt::localtime(f.real_time_end));
 	stdex::printf(os, " packets=[%ld - %ld]", f.stream_packetno_start, f.stream_packetno_end);
 	return os;
 }
@@ -74,8 +74,8 @@ std::ostream& recdb::operator<<(std::ostream& os, const rec_t& r) {
 	os << "\n        ";
 	os << r.epg
 		 << "\nstream time: [" << r.stream_time_start << " - " << r.stream_time_end << "]\n  real time: ["
-           << fmt::format("{:%F %H:%M}", fmt::localtime(system_clock::from_time_t(r.real_time_start))) << " - "
-           << fmt::format("{:%H:%M}", fmt::localtime(system_clock::from_time_t(r.real_time_end)));
+           << fmt::format("{:%F %H:%M}", fmt::localtime(r.real_time_start)) << " - "
+           << fmt::format("{:%H:%M}", fmt::localtime(r.real_time_end));
 	stdex::printf(os, "]\n");
 	os << "\n" << r.filename;
 	return os;
@@ -150,7 +150,7 @@ std::optional<recdb::rec_t> recdb::rec::best_matching(db_txn& txn, const epgdb::
 void recdb::rec::make_filename(ss::string_& ret, const chdb::service_t& s, const epgdb::epg_record_t& epg) {
 	ss::accu_t ss(ret);
 	ss << epg.event_name << " - " << s.name << " - "
-		 << fmt::format("{:%F %H:%M}", fmt::localtime(system_clock::from_time_t(epg.k.start_time)));
+		 << fmt::format("{:%F %H:%M}", fmt::localtime(epg.k.start_time));
 	for (auto& c : ret) {
 		if (c == '/' || c == '\\' || iscntrl(c) || !c)
 			c = ' ';

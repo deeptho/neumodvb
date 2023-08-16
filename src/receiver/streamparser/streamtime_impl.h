@@ -27,8 +27,6 @@
 
 
 namespace dtdemux {
-	std::ostream& operator<<(std::ostream& os, const pts_dts_t& a);
-
 	inline std::ostream& operator<<(std::ostream& os, const data_range_t& r) {
 		int packet = (r.start_bytepos())/188;
 		int64_t offset = r.start_bytepos() -packet*(int64_t)188;//offset of start in current packet

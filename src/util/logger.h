@@ -56,9 +56,6 @@ std::ostream& operator<<(std::ostream& os, system_time_t a);
 namespace dtdemux {
 	struct pts_dts_t;
 	struct pcr_t;
-
-	std::ostream& operator<<(std::ostream& os,  const pts_dts_t& a);
-	std::ostream& operator<<(std::ostream& os,  const pcr_t& a);
 }
 
 

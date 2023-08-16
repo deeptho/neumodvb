@@ -24,6 +24,7 @@
 #include "stackstring/stackstring.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
+#include "neumotime.h"
 #include <pybind11/pybind11.h>
 #include <stdio.h>
 
@@ -82,9 +83,7 @@ void export_milli_seconds_t(py::module& m) {
 		.def(py::init<int64_t>())
 		.def("__repr__",
 				 [](milliseconds_t s) {
-					 std::stringstream ret;
-					 ret << s;
-					 return ret.str();
+					 return fmt::format("{}", s);
 				 })
 		.def("__int__", [](milliseconds_t s) { return s.ms; })
 		;

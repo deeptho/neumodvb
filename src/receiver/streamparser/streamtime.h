@@ -27,7 +27,7 @@
 #include "neumotime.h"
 #include "neumodb/serialize.h"
 #include "neumodb/deserialize.h"
-
+#include "fmt/core.h"
 
 namespace dtdemux {
 
@@ -411,4 +411,15 @@ namespace dtdemux {
 		return ! operator==(a,b);
 	}
 
+	inline auto format_as(const pcr_t& a) {
+		return pts_dts_t(a);
+	}
 }
+
+template <> struct fmt::formatter<dtdemux::pts_dts_t> {
+		inline constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator {
+			return ctx.begin();
+		}
+
+	auto format(const dtdemux::pts_dts_t& a, format_context& ctx) const -> format_context::iterator;
+};

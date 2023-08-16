@@ -25,6 +25,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include "fmt/core.h"
+
 #define DTPACKED __attribute__((packed))
 
 struct milliseconds_t {
@@ -93,3 +95,10 @@ namespace std {
 
 
 std::ostream& operator<<(std::ostream& os, const milliseconds_t& a);
+template <> struct fmt::formatter<milliseconds_t> {
+		inline constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator {
+			return ctx.begin();
+		}
+
+	auto format(const milliseconds_t& a, format_context& ctx) const -> format_context::iterator;
+};

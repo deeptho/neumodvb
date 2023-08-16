@@ -46,7 +46,7 @@ using namespace dtdemux;
 
 void event_handler_t::pcr_discontinuity_(int pid, const pcr_t& pcr) {
 	const char* label = "PCR_DISC: ";
-	dterror(label << " pcr=" << pcr << " ref_pcr=" << ref_pcr << " last_pcr=" << last_pcr);
+	dterrorf("PCR DISC: pcr={} ref_pcr={} last_pcr={}", pcr, ref_pcr, last_pcr);
 	/*This value will be corrected later. Normally we will now decode a video frame.
 		If the time is earlier than the expected next frame time, the value will be adjiusted accordingly
 	*/
@@ -65,7 +65,7 @@ void event_handler_t::pcr_discontinuity_(int pid, const pcr_t& pcr) {
 		// time_t is only accurate up to one second
 		if (correction < milliseconds_t(1000)) // most likely: no discontinuities in stream, but packet loss
 			correction = std::max(correction_lower_limit, milliseconds_t(0));
-		dterror(label << " t_old=" << t_old << " t_new=" << t_new << " t=" << t);
+		dterrorf("PCR DISC: t_old={} t_new={}", t_old, t_new, t);
 		ref_offset += correction;
 
 		// now also update the reference itself, to support very long streams (overflow of pcr_t)
@@ -73,7 +73,7 @@ void event_handler_t::pcr_discontinuity_(int pid, const pcr_t& pcr) {
 		ref_offset += delta;
 		ref_pcr = last_pcr;
 		auto t_test = pcr_play_time();
-		dterror(label << " t_old=" << t_old << " t_new=" << t_new << " t_test=" << t_test);
+		dterrorf("PCR DISC: t_old={} t_new={} t_test={}", t_old, t_new, t_test);
 		assert(t_test > t_old);
 		check_pcr_play_time();
 	}
@@ -91,7 +91,6 @@ void event_handler_t::pcr_update(int pid, const pcr_t& pcr, bool discontinuity_p
 	if (discontinuity_pending)
 		return pcr_discontinuity_(pid, pcr);
 	const char* label = "PCR_UPDATE: ";
-	// dtdebug(label << pid << " from=" << last_pcr << " to=" << pcr);
 	if (ref_pcr_update_enabled) {
 		if (!ref_pcr_inited) {
 			ref_pcr = pcr;
@@ -99,13 +98,13 @@ void event_handler_t::pcr_update(int pid, const pcr_t& pcr, bool discontinuity_p
 		} else {
 			auto delta = (pcr - last_pcr); // note that pcr may overflow!; int64_t returns signed clock ticks
 			if (delta > pcr_t::max_pcr_interval || pcr < last_pcr) {
-				LOG4CXX_ERROR(logger, "PCR jump detected: from=" << last_pcr << " to=" << pcr);
+				dterrorf("PCR jump detected: from={} to={}", last_pcr, pcr);
 				pcr_discontinuity_(pid, pcr);
 			}
 		}
 	}
 	if (last_pcr.is_valid() && pcr < last_pcr) {
-		LOG4CXX_ERROR(logger, "PCR goes back in time: old=" << pcr << " new=" << last_pcr);
+		dterrorf("PCR goes back in time: old={} new={}", pcr, last_pcr);
 	} else
 		last_pcr = pcr;
 	check_pcr_play_time();
@@ -152,16 +151,16 @@ pts_dts_t event_handler_t::check_pes_discontinuity(pts_dts_t clock_period, const
 	if (timedelta != clock_period && clock_period != zero) {
 		if (timedelta < clock_period) {
 			if (timedelta < zero) {
-				LOG4CXX_INFO(logger, "clock discontinuity from= " << old_dts << " to=" << new_dts);
+				dtinfof("clock discontinuity from={} to={}", old_dts, new_dts);
 			} else {
-				LOG4CXX_INFO(logger, "adjusting clock by " << (clock_period - timedelta));
+				dtinfof("adjusting clock by {}", (clock_period - timedelta));
 			}
 		}
 	} else if (!clock_period.is_valid() || timedelta < clock_period || clock_period == zero) {
 		if (clock_period.is_valid()) {
-			dtdebug("reducing clock period from " << clock_period << " to " << timedelta);
+			dtdebugf("reducing clock period from {} to {}", clock_period, timedelta);
 		} else {
-			dtdebug("setting clock period to " << timedelta);
+			dtdebugf("setting clock period to {}", timedelta);
 		}
 		clock_period = timedelta;
 	}
@@ -180,15 +179,12 @@ void event_handler_t::index_event(stream_type::marker_t unit_type,
 	auto num_packets = last_packetno - first_packetno;
 	if (ref_pcr_inited) {
 		if (unit_type == stream_type::marker_t::illegal) {
-			dtdebug("IDX" << std::setw(8) << name << " "
-							<< "ILLEGAL"
-							<< ": "
-							<< "[" << std::setw(8) << first_packetno << ", " << std::setw(3) << last_packetno
-							<< "] t=" << play_time_ms << " pts=" << pts << " dts=" << dts);
+			dtdebugf("IDX {:>8} ILLEGAL: [{:8d}, {:8d}] t={} pts={} dts={}", name, first_packetno, last_packetno,
+							 play_time_ms, pts, dts);
 		} else {
-			dtdebug("IDX" << std::setw(8) << name << " " << (char)unit_type << ": "
-							<< "[" << std::setw(8) << first_packetno << ", " << std::setw(3) << last_packetno
-							<< "] t=" << play_time_ms << " pts=" << pts << " dts=" << dts);
+			dtdebugf("IDX {:>8} {:c}: [{:8d}, {:8d}] t={} pts={} dts={}", name, (char)unit_type,
+							 first_packetno, last_packetno,
+							 play_time_ms, pts, dts);
 		}
 		if (unit_type == stream_type::marker_t::i_frame || unit_type == stream_type::marker_t::pes_other) {
 			auto start = std::min(last_pat_start_bytepos, last_pmt_start_bytepos) / ts_packet_t::size;
@@ -197,7 +193,7 @@ void event_handler_t::index_event(stream_type::marker_t unit_type,
 			end = std::max(end, last_packetno);
 			// start and end point to a byte region containing a pat a pmt and an i-frame (and perhaps some other
 			// data
-			dtdebug("WRITE pos=[" << start << ", " << end << "[ time=" << play_time_ms);
+			dtdebugf("WRITE pos=[{}, {}] time={}", start, end, play_time_ms);
 			using namespace recdb;
 			auto txn = idxdb->wtxn();
 			{

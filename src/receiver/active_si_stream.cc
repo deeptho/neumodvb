@@ -139,7 +139,7 @@ int active_si_data_t::epg_completeness()
 		num_sections_present += c.num_known;
 		num_sections_processed += c.num_completed;
 	}
-	return (100*num_sections_present+50)/num_sections_processed;
+	return num_sections_processed > 0 ? (100*num_sections_present+50)/num_sections_processed : 0;
 }
 
 /*

@@ -1529,7 +1529,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 		auto w = ts.writeAccess();
 		w->reserved_mux = {};
 		w->reserved_rf_path = rf_path;
-		if(w->reserved_lnb != lnb)
+		if(w->reserved_lnb != lnb && w->fefd >= 0)
 			this->sec_status.reset_voltage(w->fefd); //ensure that we wait until lnb has been powered up
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
@@ -1558,7 +1558,7 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const 
 		auto w = this->ts.writeAccess();
 		w->reserved_mux = mux;
 		w->reserved_rf_path = rf_path;
-		if(w->reserved_lnb != lnb)
+		if(w->reserved_lnb != lnb && w->fefd>=0)
 			this->sec_status.reset_voltage(w->fefd); //ensure that we wait until lnb has been powered up
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();

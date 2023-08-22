@@ -127,10 +127,10 @@ int active_service_t::deactivate() {
 }
 
 int service_thread_t::exit() {
-	dtdebug("Starting to exit");
+	dtdebugf("Starting to exit");
 	active_service.deactivate();
 	active_service.mpm.destroy();
-	dtdebug("Ended exit");
+	dtdebugf("Ended exit");
 	return -1;
 }
 
@@ -284,7 +284,7 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 	process(PAT_PID);
 	using namespace stream_type;
 	for (const auto& pidinfo : pmt.pid_descriptors) {
-		// dtdebug(pidinfo);
+		// dtdebugf(pidinfo);
 		if (is_video(pidinfo.stream_type) || is_audio(pidinfo) || pidinfo.has_subtitles())
 			process(pidinfo.stream_pid);
 		/*the following code will reuse any existing parser
@@ -396,13 +396,13 @@ int service_thread_t::run() {
 
 	timer_start(10); // fix recordings every few seconds
 	if (active_service.open() < 0) {
-		dterror("Could not open channel");
+		dterrorf("Could not open channel");
 		return -1;
 	}
 	for (;;) {
 		auto n = epoll_wait(2000);
 		if (n < 0) {
-			dterror("error in poll");
+			dterrorf("error in poll");
 			continue;
 		}
 		for (auto evt = next_event(); evt; evt = next_event()) {
@@ -412,7 +412,7 @@ int service_thread_t::run() {
 					 If the task is "exit", then run_tasks will return -1
 				*/
 				if (run_tasks(now) < 0) {
-					dterror("Exiting");
+					dterrorf("Exiting");
 					return 0;
 				}
 			} else if (is_timer_fd(evt)) {
@@ -423,11 +423,11 @@ int service_thread_t::run() {
 			} else if (active_service.reader->on_epoll_event(evt)) {
 				// this must be a channel data event
 				if (!(evt->events & EPOLLIN)) {
-					dterror("Unexpected event: type=" << evt->events);
+					dterrorf("Unexpected event: type{}=", evt->events);
 				}
 				active_service.mpm.process_channel_data();
 			} else {
-				dtdebug("event from unknown fd\n");
+				dtdebugf("event from unknown fd\n");
 				assert(0);
 			}
 		}
@@ -602,7 +602,7 @@ active_service_t::start_recording(subscription_id_t subscription_id, const recdb
 
 	bool error = wait_for_all(futures);
 	if (error) {
-		dterror("Unhandled error in unsubscribe");
+		dterrorf("Unhandled error in unsubscribe");
 	}
 
 	if((int)subscription_id < 0 && receiver.global_subscriber) {

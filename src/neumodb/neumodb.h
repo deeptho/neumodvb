@@ -131,13 +131,11 @@ public:
 		int dead=0;
 		int rc= mdb_reader_check(*envp, &dead);
 		if(rc) {
-
-			LOG4CXX_FATAL(logger, "lmdb error db="<< dbpath << " err=" <<  mdb_strerror(rc));
+			auto msg = fmt::format("lmdb error db={} err={}", dbpath, mdb_strerror(rc));
+			LOG4CXX_FATAL(logger, msg);
 
 		} else if (rc>0) {
-
-		LOG4CXX_DEBUG(logger, "Cleaned " <<  dead << " stale readers for db=" << dbpath);
-
+			dtdebugf("Cleaned {} stale readers for db={}", dead, dbpath);
 		}
 	}
 
@@ -244,14 +242,14 @@ public:
 
 	db_txn wtxn() {
 		if(!is_open()) {
-			dterror("Attempting to access non opened lmdb database");
+			dterrorf("Attempting to access non opened lmdb database");
 			assert(0);
 		}
 		return db_txn(*this, false /*readonly*/, 0);
 	}
 	db_txn rtxn() {
 		if(!is_open()) {
-			dterror("Attempting to access non opened lmdb database");
+			dterrorf("Attempting to access non opened lmdb database");
 			assert(0);
 		}
 		return  db_txn(*this, true /*readonly*/, MDB_RDONLY);

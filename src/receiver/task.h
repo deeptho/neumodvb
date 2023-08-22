@@ -219,7 +219,7 @@ protected:
 
 			return ret;
 		} catch (const std::exception& e) { // caught by reference to base
-			dterror("exception was caught: " << e.what());
+			dterrorf("exception was caught: {}", e.what());
 			assert(0);
     }
 		this->has_exited_=true;
@@ -285,7 +285,7 @@ public:
 
 	future_t push_task_(std::function<int()>&& callback, bool must_exit=false) {
 		if(std::this_thread::get_id() == this->thread_.get_id()) {
-			dterror("Thread calls back to itself");
+			dterrorf("Thread calls back to itself");
 			//assert(0);
 		}
 		task_t task([callback{std::move(callback)}]() {
@@ -401,9 +401,9 @@ template<typename T> typename T::cb_t& cb(T& t) { //activate callbacks
 	auto* self = (typename T::cb_t*)(&t);
 	auto* q = dynamic_cast<task_queue_t*>(&t);
 	if(!self || !q)
-		dterror("Implementation error");
+		dterrorf("Implementation error");
 	if(std::this_thread::get_id() != q->owner) {
-		dterror("Callback called from the wrong thread");
+		dterrorf("Callback called from the wrong thread");
 		assert(0);
 	}
 	return *self;
@@ -412,7 +412,7 @@ template<typename T> typename T::cb_t& cb(T& t) { //activate callbacks
 template<typename T> const typename T::cb_t& cb(const T& t) { //activate callbacks
 	auto* self = (const typename T::cb_t*)(&t);
 	if(!self)
-		dterror("Implementation error");
+		dterrorf("Implementation error");
 	return *self;
 }
 bool wait_for_all(std::vector<task_queue_t::future_t>& futures, bool clear_errors=false);
@@ -423,9 +423,9 @@ template<typename T> typename T::thread_safe_t& ts(T& t) { //activate callbacks
 	auto* self = (typename T::cb_t*)(&t);
 	auto* q = dynamic_cast<task_queue_t*>(&t);
 	if(!self || !q)
-		dterror("Implementation error");
+		dterrorf("Implementation error");
 	if(std::this_thread::get_id() != q->thread_.get_id()) {
-		dterror("Callback called from the wrong thread");
+		dterrorf("Callback called from the wrong thread");
 		assert(0);
 	}
 	return *self;
@@ -436,9 +436,9 @@ template<typename T> const typename T::thread_safe_t& ts(const T& t) { //activat
 	auto* self = (const typename T::cb_t*)(&t);
 	auto* q = dynamic_cast<const task_queue_t*>(&t);
 	if(!self || !q)
-		dterror("Implementation error");
+		dterrorf("Implementation error");
 	if(std::this_thread::get_id() != q->thread_.get_id()) {
-		dterror("Callback called from the wrong thread");
+		dterrorf("Callback called from the wrong thread");
 		assert(0);
 	}
 	return *self;

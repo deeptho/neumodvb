@@ -297,7 +297,7 @@ static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t 
 	struct dtv_properties props = {.num = i, .props = properties};
 
 	if ((ioctl(t.fefd, FE_GET_PROPERTY, &props)) == -1) {
-		dterror("FE_GET_PROPERTY failed: " << strerror(errno));
+		dterrorf("FE_GET_PROPERTY failed: {}", strerror(errno));
 		return -1;
 	}
 
@@ -309,7 +309,7 @@ static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t 
 		auto delsys = (chdb::fe_delsys_t)supported_delsys[i];
 		// auto fe_type = chdb::delsys_to_type (delsys);
 		auto* s = enum_to_str(delsys);
-		dtdebug("delsys[" << i << "]=" << s);
+		dtdebugf("delsys[{}]={}", i, s);
 		t.dbfe.delsys[i] = delsys;
 	}
 
@@ -740,7 +740,7 @@ int dvb_frontend_t::stop() {
 		struct dtv_algo_ctrl algo_ctrl;
 		algo_ctrl.cmd = DTV_STOP;
 		if ((ioctl(fefd, FE_ALGO_CTRL, &algo_ctrl)) == -1) {
-			dtdebug("ALGO_CTRL: DTV STOP failed: " << strerror(errno));
+			dtdebugf("ALGO_CTRL: DTV STOP failed: {}", strerror(errno));
 		}
 
 		/* In case monitor_thread has called ioctl. This ioctl will no longer be blocked by a tune in
@@ -852,15 +852,15 @@ int dvb_frontend_t::send_diseqc_message(char switch_type, unsigned char port, un
 	cmd.msg[4] = 0x00;
 	cmd.msg[5] = 0x00;
 	cmd.msg_len = 4;
-	ss::string<64> s;
-	s.format("Diseqc message[{:d}]: ", cmd.msg_len);
-	s.format("%02x %02x %02x %02x %02x %02x", cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
-	dtdebug(s.c_str());
+	dtdebugf("Diseqc message[{:d}]: "
+					 "%02x %02x %02x %02x %02x %02x",
+					 cmd.msg_len,
+					 cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
 
 	int err;
 	auto fefd = ts.readAccess()->fefd;
 	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
-		dterror("problem sending the DiseqC message");
+		dterrorf("problem sending the DiseqC message");
 		return -1;
 	}
 	return 0;
@@ -926,14 +926,13 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 	} break;
 	}
 	ss::string<64> s;
-	s.format("Diseqc message[{:d}]: ", cmd.msg_len);
-	s.format("%02x %02x %02x %02x %02x %02x", cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
-	dtdebug(s.c_str());
-
+	dtdebugf("Diseqc message[{:d}]: "
+					 "%02x %02x %02x %02x %02x %02x",
+					 cmd.msg_len, cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
 	int err;
 	auto fefd = ts.readAccess()->fefd;
 	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
-		dterror("problem sending the DiseqC message");
+		dterrorf("problem sending the DiseqC message");
 		return -1;
 	}
 	return 0;
@@ -1011,7 +1010,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 	spectrum = cmdseq.props[0].u.spectrum;
 
 	if (spectrum.num_freq <= 0) {
-		dterror("kernel returned spectrum with 0 samples");
+		dterrorf("kernel returned spectrum with 0 samples");
 		return {};
 	}
 	scan.resize(spectrum.num_freq, spectrum.num_candidates);
@@ -1234,7 +1233,7 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 	auto [ret, new_usals_sat_pos ] =
 		this->do_lnb_and_diseqc(band, voltage);
 
-	dtdebug("spectrum: diseqc done");
+	dtdebugf("spectrum: diseqc done");
 	if (this->stop() < 0) /* Force the driver to go into idle mode immediately, so
 													 that the fe_monitor_thread_t will also return immediately
 												*/
@@ -1272,7 +1271,7 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 		this->sec_status.retune_count++;
 
 	//abort the current operation of the frontend making it go to IDLE mode
-	dtdebug("calling stop");
+	dtdebugf("calling stop");
 	if (this->stop() < 0)  /* Force the driver to go into idle mode immediately, so
 																	that the fe_monitor_thread_t will also return immediately*/
 		return {-1, sat_pos_none};
@@ -1295,10 +1294,10 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	if (need_diseqc) {
 		std::tie(ret, new_usals_sat_pos) =
 			this->do_lnb_and_diseqc(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol));
-		dtdebug("tune: do_lnb_and_diseqc done");
+		dtdebugf("tune: do_lnb_and_diseqc done");
 	} else if(need_lnb) {
 		this->do_lnb(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol));
-		dtdebug("tune: do_lnb done");
+		dtdebugf("tune: do_lnb done");
 	}
 
 	dttime(300);
@@ -1378,7 +1377,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 	}
 
 	if (((int)mux.delivery_system != SYS_DVBT) && ((int)mux.delivery_system != SYS_DVBT2)) {
-		dterror("Unsupported delivery system");
+		dterrorf("Unsupported delivery system");
 		return -1;
 	}
 	cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
@@ -1483,11 +1482,11 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 	auto w = ts.writeAccess();
 	auto fefd = w->fefd;
 	if(this->sec_status.set_voltage(fefd, lnb_voltage) <0)  {
-		dterror("problem Setting the Voltage");
+		dterrorf("problem Setting the Voltage");
 		return -1;
 	}
 	if (this->sec_status.set_tone(fefd, tone) < 0) {
-		dterror("problem setting tone");
+		dterrorf("problem setting tone");
 		return -1;
 	}
 
@@ -1688,7 +1687,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			auto b = std::min(lnb_connection.diseqc_mini, (uint8_t)1);
 			ret = ioctl(fefd, FE_DISEQC_SEND_BURST, b);
 			if (ret < 0) {
-				dterror("problem sending the Tone Burst");
+				dterrorf("problem sending the Tone Burst");
 			}
 			must_pause = !repeated;
 		} break;
@@ -1707,7 +1706,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			}
 			ret = this->send_diseqc_message('C', diseqc_10 * 4, extra, repeated);
 			if (ret < 0) {
-				dterror("Sending Committed DiseqC message failed");
+				dterrorf("Sending Committed DiseqC message failed");
 			}
 			must_pause = !repeated;
 		} break;
@@ -1722,7 +1721,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			msleep(must_pause ? 200 : 30);
 			ret = this->send_diseqc_message('U', diseqc_11, 0, repeated);
 			if (ret < 0) {
-				dterror("Sending Uncommitted DiseqC message failed");
+				dterrorf("Sending Uncommitted DiseqC message failed");
 			}
 			must_pause = !repeated;
 		} break;
@@ -1735,14 +1734,14 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			if (!lnb_only) {
 				auto* lnb_network = (!lnb_only) ? devdb::lnb::get_network(lnb, mux.k.sat_pos) : nullptr;
 				if (!lnb_network) {
-					dterror("No network found");
+					dterrorf("No network found");
 				} else {// this is not usals!
 					new_usals_sat_pos = lnb_network->sat_pos;
 				}
 
 				ret = this->send_diseqc_message('X', lnb_network->diseqc12, 0, repeated);
 				if (ret < 0) {
-					dterror("Sending Committed DiseqC message failed");
+					dterrorf("Sending Committed DiseqC message failed");
 				}
 			}
 			must_pause = !repeated;
@@ -1757,7 +1756,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			if(!lnb_only) {
 				auto* lnb_network = devdb::lnb::get_network(lnb, mux.k.sat_pos);
 				if (!lnb_network) {
-					dterror("No network found");
+					dterrorf("No network found");
 				} else {
 					usals_pos = lnb_network->usals_pos;
 					new_usals_sat_pos = usals_pos;
@@ -1770,7 +1769,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			} else
 				ret = -1;
 			if (ret < 0) {
-				dterror("Sending Committed DiseqC message failed");
+				dterrorf("Sending Committed DiseqC message failed");
 			}
 			must_pause = !repeated;
 		} break;
@@ -1887,7 +1886,7 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 			dterrorf("problem setting voltage {:d}", voltage);
 			return -1;
 		}
-		dtdebug("sleeping extra at startup");
+		dtdebugf("sleeping extra at startup");
 		msleep(sleeptime_ms);
 	}
 
@@ -1971,7 +1970,7 @@ int dvb_frontend_t::do_lnb(devdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) 
 
 	fe_sec_tone_mode_t tone = (band == devdb::fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 	if (this->sec_status.set_tone(fefd, tone)<0) {
-			dterror("problem Setting the Tone back");
+			dterrorf("problem Setting the Tone back");
 			return -1;
 	}
 	return 0;

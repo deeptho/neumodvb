@@ -49,13 +49,6 @@ namespace dtdemux {
 }
 
 
-
-#define dterror(text, args...)			\
-		LOG4CXX_ERROR(logger, text, ##args)
-
-#define dtinfo(text, args...)			\
-		LOG4CXX_INFO(logger, text, ##args)
-
 //alternative for dtdebug
 #define dtinfof(fmt, args...)																						\
 	do {																																	\
@@ -64,33 +57,14 @@ namespace dtdemux {
 		LOG4CXX_INFO(logger, msg.c_str());																	\
 	} while(0)
 
-
-#define dtdebug(text, args...)			\
-		LOG4CXX_DEBUG(logger, text, ##args)
-
-#define dtthrow(text, args...)											\
-	do {																							\
-	std::stringstream ss;															\
-	ss << text  ##args;																\
-	throw std::runtime_error(ss.str());								\
-	} while(0)
-
-#define dterror_nice(text, args...)			\
+#define dterror_nicef(fmt, args...)																			\
 	do {																																	\
 		static int ___count=0; static time_t ___last=0; time_t ___now=time(NULL);	\
 		if(___now-___last<1) {___count++;break;}														\
-		LOG4CXX_ERROR(logger, text, ##args);								\
-		if(___count) 		LOG4CXX_ERROR(logger, "Last message repeated " << ___count << " times"); \
-		___count=0;___last=___now;																					\
-	} while(0)
-
-
-#define dtdebug_nice(text, args...)			\
-	do {																																	\
-		static int ___count=0; static time_t ___last=0; time_t ___now=time(NULL);	\
-		if(___now-___last<1) {___count++;break;}														\
-		LOG4CXX_DEBUG(logger, text, ##args);																\
-		if(___count) LOG4CXX_DEBUG(logger, "Last message repeated " << ___count << " times"); \
+		ss::string<256> msg;																								\
+		msg.format(fmt, ##args);																						\
+		LOG4CXX_ERROR(logger, msg.c_str());																	\
+		if(___count) LOG4CXX_ERROR(logger, "Last message repeated " << ___count << " times"); \
 		___count=0;___last=___now;																					\
 	} while(0)
 
@@ -127,14 +101,6 @@ namespace dtdemux {
 		user_error_.clear();																								\
 		user_error_.format(fmt, ##args);																		\
 		LOG4CXX_ERROR(logger, user_error_.c_str());													\
-	} while(0)
-
-//error which should be reported to the user
-#define user_error(text)														\
-	do {																							\
-		user_error_.clear();														\
-		ss::accu_t(user_error_) << text;								\
-		LOG4CXX_ERROR(logger, user_error_.c_str());			\
 	} while(0)
 
 inline int dttime_(steady_time_t& dt_timer,int timeout,const char*func,int line)

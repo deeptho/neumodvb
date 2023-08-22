@@ -379,6 +379,6 @@ public:
 	virtual ~active_stream_t() {
 		if(is_open())
 			close();
-		dtdebug("~active_stream_t\n");
+		dtdebugf("~active_stream_t\n");
 	}
 };

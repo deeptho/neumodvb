@@ -53,7 +53,7 @@ template <typename cursor_t> static int16_t make_unique_id(lnb_key_t key, cursor
 		// all ids exhausted
 		// The following is very unlikely. We prefer to cause a result on a
 		// single mux rather than throwing an error
-		dterror("Overflow for extra_id");
+		dterrorf("Overflow for extra_id");
 		assert(0);
 	}
 
@@ -419,7 +419,7 @@ int devdb::lnb::freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, boo
 
 	auto correct = [&lnb](int band, int frequency, bool inverted_spectrum) {
 		if (band >= lnb.lof_offsets.size()) {
-			//dterror("lnb_loffsets too small for lnb: " << lnb);
+			//dterrorf("lnb_loffsets too small for lnb: " << lnb);
 			return frequency;
 		}
 		if (std::abs(lnb.lof_offsets[band]) < 5000) {

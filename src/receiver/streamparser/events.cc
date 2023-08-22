@@ -125,9 +125,9 @@ pts_dts_t event_handler_t::check_pes_discontinuity(pts_dts_t clock_period, const
 		//auto p = clock_period;
 		if(timedelta < clock_period) {
 			if(timedelta < zero) {
-				LOG4CXX_INFO(logger, "clock discontinuity from= " << old_dts << " to=" << new_dts);
+				dtinfof("clock discontinuity from= {} to{}", old_dts, new_dts);
 			} else {
-				LOG4CXX_INFO(logger, "adjusting clock by " << (clock_period -timedelta));
+				dtinfof("adjusting clock by {}", (clock_period -timedelta));
 			}
 			//move clock forward/backward to the desired time
 			if(ref_pcr_update_enabled)
@@ -141,9 +141,9 @@ pts_dts_t event_handler_t::check_pes_discontinuity(pts_dts_t clock_period, const
 		}
 	} else if(!clock_period.is_valid() || timedelta < clock_period  || clock_period == zero ) {
 		if (clock_period.is_valid()) {
-			dtdebug("reducing clock period from " << clock_period << " to " << timedelta);
+			dtdebugf("reducing clock period from {} to {}", clock_period, timedelta);
 		} else {
-			dtdebug("setting clock period to " << timedelta);
+			dtdebugf("setting clock period to {}", timedelta);
 		}
 		clock_period = timedelta;
 	}

@@ -62,13 +62,13 @@ void fe_monitor_thread_t::update_lock_status_and_signal_info(fe_status_t fe_stat
 	auto& info = *info_;
 	bool verbose = false;
 	if (verbose) {
-		dtdebug("------------------------------------------------------");
+		dtdebugf("------------------------------------------------------");
 	}
 
 	if (verbose) {
 		auto &e = info.last_stat();
-		dtdebug("Signal strength: " << std::fixed << std::setprecision(1) << (e.signal_strength * 1e-3) << "dB"
-						<< " CNR: " << (e.snr * 1e-3) << "dB");
+		dtdebugf("Signal strength: {:.1f}dB  CNR:  {:1.f}dN",
+						 (e.signal_strength * 1e-3), (e.snr * 1e-3));
 	}
 	dttime_init();
 	receiver.notify_signal_info(info, fe->get_subscription_ids());

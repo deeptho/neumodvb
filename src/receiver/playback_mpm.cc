@@ -184,7 +184,7 @@ int playback_mpm_t::next_stream_change() { //byte at which new pmt becomes activ
 		assert(last_seen_live_meta_marker.last_streams.packetno_start >= ls->current_streams.packetno_start);
 		if (last_seen_live_meta_marker.last_streams.packetno_start == ls->current_streams.packetno_start) {
 			//no update pending for sure
-			//dtdebug("returning next pmt change never (live)");
+			//dtdebugf("returning next pmt change never (live)");
 			return never; //no update pending for sure
 		/* otherwise: we cannot rely on last_seen_live_meta_marker.last_stream.packetno_start because
 			 there may have been multiple pmt updates (unlikely); so we need to consult the database
@@ -337,7 +337,7 @@ int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
 	clear_stream_state();
 	if (start_play_time < milliseconds_t(0))
 		start_play_time = milliseconds_t(0);
-	dtdebug("Starting move_to_time");
+	dtdebugf("Starting move_to_time");
 	auto idxdb_txn = db->mpm_rec.idxdb.rtxn();
 	auto ret = open_(idxdb_txn, start_play_time);
 	idxdb_txn.abort();
@@ -546,11 +546,11 @@ int playback_mpm_t::open_file_containing_time(db_txn& idxdb_txn, milliseconds_t 
 	}
 	if (fd < 0) {
 		if (filemap.buffer) {
-			dtdebug("Could not open any data file; keeping current one");
+			dtdebugf("Could not open any data file; keeping current one");
 			// user wanted to move backward foward/ beyond what is available; it is best to preserve what we have
 			return filemap.fd;
 		} else {
-			dtdebug("Could not open any data file; returning error");
+			dtdebugf("Could not open any data file; returning error");
 			return fd;
 		}
 	}
@@ -663,7 +663,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 		if(ret == 0 && live_mpm)
 			continue;
 		if (ret <= 0) { // end time of current file is start time of new one
-			dtdebug("Cannot open next part");
+			dtdebugf("Cannot open next part");
 			filemap.unmap();
 			filemap.close();
 			return {-1, -1};
@@ -907,7 +907,7 @@ int playback_mpm_t::get_end_marker_from_db(db_txn& txn, recdb::marker_t& end_mar
 	using namespace recdb;
 	auto c = find_last<recdb::marker_t>(txn);
 	if (!c.is_valid()) {
-		dterror("Could not obtain last marker");
+		dterrorf("Could not obtain last marker");
 		return -1;
 	}
 	end_marker = c.current();

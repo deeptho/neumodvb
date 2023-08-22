@@ -189,7 +189,7 @@ public:
 
 
 dvbdev_monitor_t::~dvbdev_monitor_t() {
-	dtdebug("dvbdev_monitor_t destructor\n");
+	dtdebugf("dvbdev_monitor_t destructor\n");
 	if (wd_dev) {
 		inotify_rm_watch(inotfd, wd_dev);
 		wd_dev = -1;
@@ -464,7 +464,7 @@ int dvbdev_monitor_t::start() {
 
 	/*checking for error*/
 	if (inotfd < 0) {
-		dtdebug("inotify_init");
+		dtdebugf("inotify_init");
 		throw std::runtime_error("Cannot start dvbdev_monitor");
 	}
 
@@ -508,7 +508,7 @@ int dvbdev_monitor_t::stop() {
 	if (inotfd >= 0)
 		if (::close(inotfd) != 0) {
 			if (errno != EINTR)
-				dterror("Error while close inotify");
+				dterrorf("Error while close inotify");
 		}
 	return 0;
 }

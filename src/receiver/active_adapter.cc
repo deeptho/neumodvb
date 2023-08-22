@@ -328,7 +328,7 @@ void active_adapter_t::monitor() {
 	bool is_not_ts{false};
 	dttime_init();
 	if (si.abort_on_wrong_sat()) {
-		dtdebug("Attempting retune (wrong sat detected)");
+		dtdebugf("Attempting retune (wrong sat detected)");
 		must_retune = true;
 	} else {
 		std::tie(must_retune, relocked_now, tune_failed, is_not_ts) = check_status();
@@ -361,7 +361,7 @@ void active_adapter_t::monitor() {
 		check_isi_processing();
 	}
 	if (must_retune) {
-		dtdebug("Calling si.reset with force_finalize=true");
+		dtdebugf("Calling si.reset with force_finalize=true");
 		si.reset_si(true /*close_streams*/); //calls on_scan_mux_end
 		visit_variant(
 			current_tp(),
@@ -397,7 +397,7 @@ int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 	set_current_tp({});
 	auto [ret, new_usals_sat_pos] = fe->lnb_spectrum_scan(rf_path, lnb, tune_pars);
 
-	dtdebug("spectrum: diseqc done");
+	dtdebugf("spectrum: diseqc done");
 	return ret;
 }
 
@@ -734,7 +734,7 @@ void active_adapter_t::end_si() {
  */
 void active_adapter_t::reset_si() {
 	if(!is_open()) {
-		dtdebug("skipping; not open");
+		dtdebugf("skipping; not open");
 		return;
 	}
 	if (tune_state != tune_state_t::TUNE_INIT) {
@@ -939,7 +939,7 @@ void active_adapter_t::check_for_new_streams()
 	}
 	if(txn) {
 		txn->commit();
-		dtdebug("committed");
+		dtdebugf("committed");
 	}
 }
 
@@ -966,7 +966,7 @@ void active_adapter_t::check_for_non_existing_streams()
 	auto chdb_wtxn = receiver.chdb.wtxn();
 	chdb::clear_all_streams_pending_status(chdb_wtxn, now, mux);
 	chdb_wtxn.commit();
-	dtdebug("committed");
+	dtdebugf("committed");
 }
 
 

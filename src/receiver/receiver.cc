@@ -79,33 +79,33 @@ bool wait_for_all(std::vector<task_queue_t::future_t>& futures, bool clear_error
 */
 int task_queue_t::run_tasks(system_time_t now_, bool do_acknowledge) {
 	now = now_;
-	// dtdebug("start");
+	// dtdebugf("start");
 	if(do_acknowledge)
 		acknowledge();
-	// dtdebug("acknowledged");
+	// dtdebugf("acknowledged");
 	int count = 0;
 	for (;;) {
 		task_t task;
 		{
 			std::lock_guard<std::mutex> lk(mutex);
 			if (tasks.empty()) {
-				// dtdebug("empty");
+				// dtdebugf("empty");
 				break;
 			}
 			if(has_exited_) {
-				dtdebug("Ignoring tasks after exit");
+				dtdebugf("Ignoring tasks after exit");
 				tasks = {};
 				break;
 			}
 
 			task = std::move(tasks.front());
-			// dtdebug("pop task");
+			// dtdebugf("pop task");
 			tasks.pop();
 		}
-		// dtdebug("start task");
+		// dtdebugf("start task");
 		task();
 		count++;
-		// dtdebug("end task");
+		// dtdebugf("end task");
 	}
 	if (must_exit_) {
 		return -1;
@@ -203,13 +203,13 @@ void receiver_thread_t::unsubscribe_all(std::vector<task_queue_t::future_t>& fut
 	auto scanner = get_scanner();
 	if (scanner.get()) {
 		if(unsubscribe_scan(futures, devdb_wtxn, subscription_id)) {
-			 dtdebug("unsubscribed scan");
+			 dtdebugf("unsubscribed scan");
 		}
 	}
 	unsubscribe_playback_only(futures, subscription_id);
-	dtdebug("calling unsubscribe_mux_and_service_only");
+	dtdebugf("calling unsubscribe_mux_and_service_only");
 	unsubscribe_mux_and_service_only(futures, devdb_wtxn, subscription_id);
-	dtdebug("calling unsubscribe_mux_and_service_only -done");
+	dtdebugf("calling unsubscribe_mux_and_service_only -done");
 }
 
 std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
@@ -360,7 +360,7 @@ receiver_thread_t::receiver_thread_t(receiver_t& receiver_)
 	, receiver(receiver_) {}
 
 int receiver_thread_t::exit() {
-	dtdebug("Receiver thread exiting");
+	dtdebugf("Receiver thread exiting");
 
 	std::vector<task_queue_t::future_t> futures;
 	{
@@ -375,13 +375,13 @@ int receiver_thread_t::exit() {
 		devdb_wtxn.commit();
 	}
 
-	dtdebug("Receiver thread exiting -starting to wait");
+	dtdebugf("Receiver thread exiting -starting to wait");
 	wait_for_all(futures, true /*clear_all_errors*/);
 
-	dtdebug("Receiver thread exiting -stopping recmgr");
+	dtdebugf("Receiver thread exiting -stopping recmgr");
 	receiver.rec_manager.recmgr_thread.stop_running(true);
 
-	dtdebug("Receiver thread exiting -stopping tuner threads");
+	dtdebugf("Receiver thread exiting -stopping tuner threads");
 	{
 		auto w = active_adapters.writeAccess();
 		auto& m = *w;
@@ -397,13 +397,13 @@ int receiver_thread_t::exit() {
 		w->clear();
 	}
 
-	dtdebug("Receiver thread exiting - stopping scam");
+	dtdebugf("Receiver thread exiting - stopping scam");
 	receiver.scam_thread.stop_running(true);
 
-	dtdebug("Receiver thread exiting - stopping adaptermgr");
+	dtdebugf("Receiver thread exiting - stopping adaptermgr");
 	this->adaptermgr->stop();
 	this->adaptermgr.reset();
-	dtdebug("Receiver thread exiting - done");
+	dtdebugf("Receiver thread exiting - done");
 	return 0;
 }
 
@@ -437,7 +437,7 @@ void receiver_thread_t::cb_t::abort_scan() {
 	//TODO: this should reset only the subscribed scan
 	auto scanner = get_scanner();
 	if (scanner) {
-		dtdebug("Aborting scan in progress");
+		dtdebugf("Aborting scan in progress");
 		reset_scanner();
 	}
 }
@@ -567,7 +567,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 		devdb_wtxn.commit();
 		bool error = wait_for_all(futures);
 		if (error) {
-			dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
+			dterrorf("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
 		}
 	}
 	ss::vector_<devdb::lnb_t>* lnbs = nullptr; //@todo
@@ -577,7 +577,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 																														max_num_subscriptions, subscription_id);
 	bool error = wait_for_all(futures);
 	if (error) {
-		dterror("Unhandled error in scan_mux");
+		dterrorf("Unhandled error in scan_mux");
 	}
 	return subscription_id;
 }
@@ -595,7 +595,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 		unsubscribe_playback_only(futures, subscription_id);
 	bool error = wait_for_all(futures);
 	if (error) {
-		dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
+		dterrorf("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
 	}
 	bool scan_newly_found_muxes = true;
 	int max_num_subscriptions = 100;
@@ -604,7 +604,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 																														max_num_subscriptions, subscription_id);
 	error = wait_for_all(futures);
 	if (error) {
-		dterror("Unhandled error in scan_mux");
+		dterrorf("Unhandled error in scan_mux");
 	}
 	return subscription_id;
 }
@@ -630,7 +630,7 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 		unsubscribe_playback_only(futures, subscription_id);
 	bool error = wait_for_all(futures);
 	if (error) {
-		dterror("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
+		dterrorf("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
 	}
 
 	auto devdb_wtxn = receiver.devdb.wtxn();
@@ -856,7 +856,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 	auto s = fmt::format("SUB[{}] {}", (int) subscription_id, service);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
-	dtdebug("SUBSCRIBE started");
+	dtdebugf("SUBSCRIBE started");
 
 	auto chdb_txn = receiver.chdb.rtxn();
 	auto [mux, error1] = mux_for_service(chdb_txn, service);
@@ -881,7 +881,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 	}
 	chdb_txn.abort();
 
-	dtdebug("SUBSCRIBE - calling subscribe_service");
+	dtdebugf("SUBSCRIBE - calling subscribe_service");
 	// now perform the requested subscription
 	auto mpmptr = this->receiver_thread_t::subscribe_service(mux, service, subscription_id);
 	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
@@ -890,7 +890,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 		See
 		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
 	*/
-	dtdebug("SUBSCRIBE - returning to caller");
+	dtdebugf("SUBSCRIBE - returning to caller");
 	return mpmptr;
 }
 
@@ -899,7 +899,7 @@ receiver_thread_t::cb_t::subscribe_playback(const recdb::rec_t& rec,
 																												 subscription_id_t subscription_id) {
 	auto s = fmt::format("SUB[{}] {}", (int) subscription_id, rec);
 	log4cxx::NDC ndc(s);
-	dtdebug("SUBSCRIBE rec started");
+	dtdebugf("SUBSCRIBE rec started");
 
 	std::vector<task_queue_t::future_t> futures;
 	active_playback_t* active_playback{nullptr};
@@ -931,7 +931,7 @@ void receiver_thread_t::cb_t::start_recording(
 	auto s =fmt::format("REC {}", rec_in.service);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
-	dtdebug("RECORD started");
+	dtdebugf("RECORD started");
 
 	auto chdb_txn = receiver.chdb.rtxn();
 	auto [mux, error1] = mux_for_service(chdb_txn, rec_in.service);
@@ -943,7 +943,7 @@ void receiver_thread_t::cb_t::start_recording(
 
 	auto devdb_wtxn =  receiver.devdb.wtxn();
 
-	dtdebug("RECORD - calling subscribe_");
+	dtdebugf("RECORD - calling subscribe_");
 	// now perform the requested subscription
 	this->receiver_thread_t::subscribe_service_for_recording(futures, devdb_wtxn, mux, rec_in,
 																													 subscription_id_t{rec_in.subscription_id});
@@ -1378,7 +1378,7 @@ int receiver_thread_t::run() {
 	set_name("receiver");
 	logger = Logger::getLogger("receiver"); // override default logger for this thread
 
-	dtdebug("RECEIVER starting");
+	dtdebugf("RECEIVER starting");
 	adaptermgr->start();
 	epoll_add_fd(adaptermgr->inotfd, EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET);
 	now = system_clock_t::now();
@@ -1402,7 +1402,7 @@ int receiver_thread_t::run() {
 				// run_tasks returns -1 if we must exit
 				if (run_tasks(now) < 0) {
 					// detach();
-					dtdebug("Exiting cleanly");
+					dtdebugf("Exiting cleanly");
 					return 0;
 				}
 			} else if (is_timer_fd(evt)) {
@@ -1604,13 +1604,13 @@ subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
 
 	bool error = wait_for_all(futures);
 	if (error) {
-		dterror("Unhandled error in subscribe_scan");
+		dterrorf("Unhandled error in subscribe_scan");
 	}
 	subscription_id = this->receiver_thread_t::subscribe_scan(futures, muxes, lnbs, tune_options,
 																														max_num_subscriptions, subscription_id);
 	error |= wait_for_all(futures);
 	if (error) {
-		dterror("Unhandled error in subscribe_scan");
+		dterrorf("Unhandled error in subscribe_scan");
 	}
 	return subscription_id;
 }
@@ -1699,7 +1699,7 @@ time_t receiver_thread_t::scan_start_time() const {
 
 void receiver_thread_t::unsubscribe(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 																		subscription_id_t subscription_id) {
-	dtdebug("calling unsubscribe_all");
+	dtdebugf("calling unsubscribe_all");
 	unsubscribe_all(futures, devdb_wtxn, subscription_id);
 	/*wait_for_futures is needed because tuners/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/tuner threads
@@ -1707,7 +1707,7 @@ void receiver_thread_t::unsubscribe(std::vector<task_queue_t::future_t>& futures
 		See
 		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
 	*/
-	dtdebug("calling unsubscribe_all -done");
+	dtdebugf("calling unsubscribe_all -done");
 }
 
 
@@ -1731,7 +1731,7 @@ void receiver_thread_t::cb_t::unsubscribe(subscription_id_t subscription_id) {
 	bool error = wait_for_all(futures);
 	dtdebugf("Waiting for all futures done");
 	if (error) {
-		dterror("Unhandled error in unsubscribe");
+		dterrorf("Unhandled error in unsubscribe");
 	}
 }
 

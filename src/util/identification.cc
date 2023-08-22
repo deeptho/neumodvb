@@ -24,13 +24,13 @@
 
 #define BUILD_DATA ""
 std::string version_info() {
-	std::stringstream ss;
-	ss << "BUILD=" << GIT_REV << "BRANCH=" << GIT_BRANCH;
+	ss::string<128> msg;
+	msg.format("BUILD={} BRANCH={}", GIT_REV, GIT_BRANCH);
 	if (strlen(GIT_TAG) > 0)
-		ss << " TAG= " << GIT_TAG;
-	return ss.str();
+		msg.format(" TAG={}", GIT_TAG);
+	return msg;
 }
 
 void identify() {
-	LOG4CXX_INFO(logger, "BUILD=" << GIT_REV << " TAG=" << GIT_TAG << " BRANCH=" << GIT_BRANCH);
+	dtinfof("BUILD={} TAG={} BRANCH={}", GIT_REV, GIT_TAG, GIT_BRANCH);
 }

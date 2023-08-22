@@ -82,7 +82,7 @@ static void gtk_add_window_style(py::object window, const char* style) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
 	auto* x = w->GetHandle();
 	if (!x) {
-		dterror("Invalid window");
+		dterrorf("Invalid window");
 		return;
 	}
 	GtkStyleContext* ctx = gtk_widget_get_style_context(x);
@@ -92,12 +92,12 @@ static void gtk_add_window_style(py::object window, const char* style) {
 static void gtk_remove_window_style(py::object window, const char* style) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
 	if (!w) {
-		dterror("Invalid window");
+		dterrorf("Invalid window");
 		return;
 	}
 	auto* x = w->GetHandle();
 	if (!x) {
-		dterror("Invalid window");
+		dterrorf("Invalid window");
 		return;
 	}
 	GtkStyleContext* ctx = gtk_widget_get_style_context(x);

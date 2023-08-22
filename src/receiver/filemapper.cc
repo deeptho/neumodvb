@@ -119,7 +119,7 @@ int mmap_t::move_map(off_t start) {
 			}
 
 			if (ftruncate(fd, new_size) < 0) {
-				dterror("Error while truncating " << strerror(errno));
+				dterrorf("Error while truncating: {}", strerror(errno));
 				return -1;
 			}
 			map_len = new_size - start;
@@ -141,7 +141,7 @@ int mmap_t::move_map(off_t start) {
 	dtdebugf("MMAP {:d} {:d}", start, map_len);
 	uint8_t* mem = (uint8_t*)mmap(NULL, map_len, readonly ? PROT_READ : (PROT_READ | PROT_WRITE), MAP_SHARED, fd, start);
 	if (mem == (uint8_t*)-1) {
-		dterror("Error in mmap: " << strerror(errno));
+		dterrorf("Error in mmap: {}", strerror(errno));
 		assert(0);
 		return -1;
 	}
@@ -202,7 +202,7 @@ int mmap_t::grow_map(off_t end_read_offset) {
 	dtdebugf("MEMREMAP: map_len = {:d} -> {:d} buffer={:p} -> {:p}", map_len, new_map_len,
 					 fmt::ptr(buffer), fmt::ptr(mem));
 	if (mem == (void*)-1) {
-		dterror("Error in mremap: " << strerror(errno));
+		dterrorf("Error in mremap: {}", strerror(errno));
 		return -1;
 	}
 	buffer = (uint8_t*)mem;
@@ -255,7 +255,7 @@ void mmap_t::unmap() {
 		return;
 	dtdebugf("UNMAP: {:p} {:d}", fmt::ptr(buffer), map_len);
 	if (buffer && munmap(buffer, map_len) < 0) {
-		dterror("Error while unmapping: " << strerror(errno));
+		dterrorf("Error while unmapping: {}", strerror(errno));
 	}
 	offset = -1;
 	buffer = nullptr;

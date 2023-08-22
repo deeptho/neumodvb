@@ -488,7 +488,7 @@ int screen_t<record_t>::set_reference(const record_t& record)
 				return rowno;
 			}
 	}
-	dterror("Asked for row number of non-existent record");
+	dterrorf("Asked for row number of non-existent record");
 	return -1;
 }
 

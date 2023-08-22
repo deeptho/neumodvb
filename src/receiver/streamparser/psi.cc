@@ -122,7 +122,7 @@ namespace dtdemux {
 #if 0
 		if ((len & 0x3000) != 0x3000) {
 
-			dtdebug("Bad reserved bits"); //tests reserve flags
+			dtdebugf("Bad reserved bits"); //tests reserve flags
 			THROW_BAD_DATA;
 		}
 #endif

@@ -85,7 +85,7 @@ static int tcp_socket(int udp) {
 		sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	if (sockfd < 0) {
-		dterror("socked failed: " << strerror(errno));
+		dterrorf("socked failed: {}", strerror(errno));
 		return sockfd;
 	}
 	signal(SIGPIPE, SIG_IGN);
@@ -95,7 +95,7 @@ static int tcp_socket(int udp) {
 		if ((setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char*)&one, sizeof(int)) == -1) ||
 				(setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, (char*)&one, sizeof(int)) == -1) ||
 				(setsockopt(sockfd, SOL_TCP, TCP_NODELAY, (char*)&one, sizeof(int)) == -1))
-			dterror("setsockopt  failed: " << strerror(errno));
+			dterrorf("setsockopt  failed: {}", strerror(errno));
 	}
 	return sockfd;
 }
@@ -116,7 +116,7 @@ int tcp_connect(const char* hostname, int port, bool blocking, bool udp) {
 	struct sockaddr_in addr;
 	struct hostent* hp = gethostbyname(hostname);
 	if (!hp) {
-		dterror("unknown host: " << hostname);
+		dterrorf("unknown host: {}", hostname);
 		return -1;
 	}
 	addr.sin_family = hp->h_addrtype;
@@ -127,14 +127,14 @@ int tcp_connect(const char* hostname, int port, bool blocking, bool udp) {
 	auto sockfd = tcp_socket(udp);
 	if (!udp) {
 		if (connect(sockfd, (const struct sockaddr*)&addr, sizeof(addr)) != 0) {
-			dterror("tcp connect failed: " << strerror(errno));
+			dterrorf("tcp connect failed:{} ", strerror(errno));
 			return -1;
 		}
 	}
 	if (!blocking) {
 		bool ret = set_socket_blocking_enabled(sockfd, blocking);
 		if (!ret)
-			dtinfo("setting non-block disabled");
+			dtinfof("setting non-block disabled");
 	}
 	return sockfd;
 }
@@ -162,7 +162,7 @@ void scam_t::close() {
 		if (ret == 0)
 			break;
 		else if (ret < 0 && errno != EINTR) {
-			dterror("Error while closing fd=" << scam_fd << " :" << strerror(errno));
+			dterrorf("Error while closing fd={}: {}", scam_fd, strerror(errno));
 		}
 	}
 	error = false;
@@ -179,7 +179,7 @@ int scam_t::open() {
 
 	assert(scam_fd < 0);
 	if (active_scams.size() == 0) {
-		dtdebug("no need to connect to oscam");
+		dtdebugf("no need to connect to oscam");
 		return 0;
 	}
 
@@ -259,7 +259,7 @@ static int write_until_block(int fd, uint8_t* buffer, int size) {
 		else if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return written;
 		} else {
-			dterror("Error while writing to scam: " << strerror(errno));
+			dterrorf("Error while writing to scam: {}", strerror(errno));
 			return -1;
 		}
 	}
@@ -325,7 +325,7 @@ int scam_t::scam_flush_write() {
 int scam_t::write_to_scam(ss::bytebuffer_& msg) {
 	static bytebuffer<64> last;
 	if (msg == last) {
-		dtdebug_nice("Duplicate message sent\n");
+		dtdebug_nicef("Duplicate message sent");
 	}
 	last = msg;
 	dtdebugf("{}", msg);
@@ -472,10 +472,10 @@ uint8_t* scam_t::read_data(int size) {
 			}
 			if (errno == EINTR)
 				continue;
-			dterror("Fatal error while reading from scam: " << strerror(errno));
+			dterrorf("Fatal error while reading from scam: {}", strerror(errno));
 			throw std::runtime_error("reconnect");
 		} else if (n == 0) {
-			dterror("scam closed connection");
+			dterrorf("scam closed connection");
 			must_reconnect = true;
 			throw std::runtime_error("reconnect");
 		} else {
@@ -853,7 +853,7 @@ void active_scam_t::ca_set_descr(const ca_descr_t& ca_descr, uint32_t msgid) {
 	s.format("slot={:p} key[{:d}]=", fmt::ptr(&slot), ca_descr.parity);
 	for (auto x : ca_descr.cw)
 		s.format("%02x", x);
-	dtdebug(s.c_str());
+	dtdebugf("{}", s);
 #endif
 
 	slot.last_key.parity = ca_descr.parity;
@@ -887,7 +887,7 @@ void active_scam_t::ca_set_descr_aes(const ca_descr_aes_t& ca_descr_aes, uint32_
 	s.format("key[{:d}]=", ca_descr_aes.parity);
 	for (auto x : ca_descr_aes.cw)
 		s.format("%2x", x);
-	dtdebug(s.c_str());
+	dtdebugf("{}", s);
 #endif
 
 	slot.last_key.parity = ca_descr_aes.parity;
@@ -1025,7 +1025,7 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& 
 		matchcount++;
 	}
 	if (matchcount > 1)
-		dterror("Unexpected: more than one filter matches: " << matchcount);
+		dterrorf("Unexpected: more than one filter matches: {}", matchcount);
 	return matchcount > 0 ? 1 : 0;
 }
 
@@ -1043,13 +1043,13 @@ void active_scam_t::process_ca_data() {
 				continue;
 			}
 			if (errno == EOVERFLOW) {
-				dtdebug_nice("OVERFLOW");
+				dtdebug_nicef("OVERFLOW");
 				continue;
 			}
 			if (errno == EAGAIN) {
 				break; // no more data
 			} else {
-				dterror("error while reading: " << strerror(errno));
+				dterrorf("error while reading: {}", strerror(errno));
 				break;
 			}
 		}
@@ -1065,7 +1065,7 @@ void active_scam_t::process_ca_data() {
 }
 
 void scam_t::reader_loop_() {
-	dtdebug("Reader fiber starting");
+	dtdebugf("Reader fiber starting");
 	for (;;) {
 		if (must_reconnect) {
 			assert(main_fiber);
@@ -1144,7 +1144,7 @@ int scam_t::register_active_service_if_needed(active_service_t* active_service, 
 
 	active_scam->register_active_service(active_service);
 	if (scam_fd < 0) {
-		dtdebug("Registering first scam service");
+		dtdebugf("Registering first scam service");
 		open();
 	}
 	return 0;
@@ -1175,7 +1175,7 @@ int scam_t::unregister_active_service(active_service_t* active_service, int adap
 	auto num_active_services = active_scam->pmts.size();
   // @todo do we ever have more than one pmt in active_scam->pmts?
 	if (num_active_services == 0) {
-		dtdebug("unregistered last active service");
+		dtdebugf("unregistered last active service");
 		scam_send_stop_decoding(0xff, scam_outgoing_msgid = 0); // stop all decoding, but do not close
 		active_scams.erase(it);
 	} else
@@ -1198,7 +1198,7 @@ int active_scam_t::unregister_active_service(active_service_t* active_service, i
 	}
 
 	if (use_count == 0) {
-		dterror("Could not unregister active_service");
+		dterrorf("Could not unregister active_service");
 		return -1;
 	}
 	if (use_count == 1) {

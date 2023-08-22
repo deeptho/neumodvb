@@ -36,10 +36,8 @@ void export_screen_(py::module &m, const char* pytypename)
 	called =true;
 	py::class_<screen_t<record_t>>(m, pytypename)
 						 .def("__repr__", [pytypename](const screen_t<record_t>& s) {
-				std::stringstream ret;
-				ret << "screen_t<" << pytypename << ">";
-				return ret.str();
-							 });
+							 return std::string(fmt::format("screen_t<{}>", pytypename));
+						 });
 };
 
 #undef xstr

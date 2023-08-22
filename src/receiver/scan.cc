@@ -83,7 +83,7 @@ bool scanner_t::housekeeping(bool force) {
 			pending += pending1;
 		}
 	} catch(std::runtime_error) {
-		dtdebug("Detected exit condition");
+		dtdebugf("Detected exit condition");
 		must_end = true;
 	}
 
@@ -104,7 +104,7 @@ static void report(const char* msg, subscription_id_t finished_subscription_id,
 	for (auto& [id, unused] : subscriptions)
 		s.format("[:2d] ", (int)id);
 	s.format("] \n");
-	dtdebug(s.c_str());
+	dtdebugf("{}", s);
 }
 
 
@@ -157,7 +157,7 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 {
 
 	if (must_end) {
-		dtdebug("must_end");
+		dtdebugf("must_end");
 		return true;
 	}
 	auto scan_subscription_id = scan_subscription_id_for_scan_id(scan_id);
@@ -185,7 +185,7 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 				return true;
 			}
 		} catch(std::runtime_error) {
-			dtdebug("Detected exit condition");
+			dtdebugf("Detected exit condition");
 			must_end = true;
 		}
 		return false;
@@ -699,7 +699,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			} else {
 				finished_subscription_ptr = & subscription;  //allow try_all to reuse this subscription
 				subscription.mux.reset();
-				dtdebug("calling try_all\n");
+				dtdebugf("calling try_all\n");
 				auto subscription_to_erase = try_all(chdb_rtxn, finished_subscription_id, subscription);
 				dtdebugf("finished_subscription_id={} subscription_to_erase={} finished_mux={}",
 								(int) finished_subscription_id, (int) subscription_to_erase, finished_mux);
@@ -743,7 +743,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		scan_subscription_t subscription;
 		finished_subscription_ptr = nullptr;
 		auto finished_subscription_id = subscription_id_t{-1};
-		dtdebug("calling try_all\n");
+		dtdebugf("calling try_all\n");
 		auto chdb_rtxn = receiver.chdb.rtxn();
 		dtdebugf("obtained transaction\n");
 		auto subscription_to_erase = try_all(chdb_rtxn, finished_subscription_id, subscription);
@@ -776,7 +776,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 	}
 
 	if (error) {
-		dterror("Error encountered during scan");
+		dterrorf("Error encountered during scan");
 	}
 	return {num_pending_muxes + num_pending_peaks, subscriptions.size()};
 }

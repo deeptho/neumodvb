@@ -65,7 +65,7 @@ void meta_marker_t::init(system_time_t now) {
 
 void meta_marker_t::register_playback_client(playback_mpm_t* client) {
 	if (std::find(playback_clients.begin(), playback_clients.end(), client) != playback_clients.end()) {
-		dterror("Attempting to register client which is already registered");
+		dterrorf("Attempting to register client which is already registered");
 		return;
 	}
 	playback_clients.push_back(client);
@@ -74,7 +74,7 @@ void meta_marker_t::register_playback_client(playback_mpm_t* client) {
 void meta_marker_t::unregister_playback_client(playback_mpm_t* client) {
 	auto it = std::find(playback_clients.begin(), playback_clients.end(), client);
 	if (it == playback_clients.end()) {
-		dterror("Attempting to unregister client which is not registered");
+		dterrorf("Attempting to unregister client which is not registered");
 		return;
 	}
 	playback_clients.erase(it);
@@ -145,7 +145,7 @@ int meta_marker_t::update_from_db(db_txn& txn, recdb::marker_t& end_marker) {
 	using namespace recdb;
 	auto c = find_last<recdb::marker_t>(txn);
 	if (!c.is_valid()) {
-		dterror("Could not obtain last marker");
+		dterrorf("Could not obtain last marker");
 		return -1;
 	}
 	end_marker = c.current();
@@ -165,7 +165,7 @@ int meta_marker_t::update_from_db(db_txn& txn, recdb::marker_t& end_marker, mill
 	if (need_file_record) {
 		auto cf = recdb::file_t::find_by_fileno(txn, current_file_record.fileno, find_eq);
 		if (!cf.is_valid()) {
-			dterror("Could not read current_file_record");
+			dterrorf("Could not read current_file_record");
 			return -1;
 		}
 		current_file_record = cf.current();
@@ -173,7 +173,7 @@ int meta_marker_t::update_from_db(db_txn& txn, recdb::marker_t& end_marker, mill
 	using namespace recdb;
 	c = find_last<recdb::marker_t>(txn);
 	if (!c.is_valid()) {
-		dterror("Could not obtain last marker");
+		dterrorf("Could not obtain last marker");
 		return -1;
 	}
 	end_marker = c.current();
@@ -324,7 +324,7 @@ void active_mpm_t::transfer_filemap(int fd, int64_t new_num_bytes_safe_to_read) 
 						 num_bytes_processed + filemap.offset, new_num_bytes_safe_to_read);
 		// assert(new_num_bytes_safe_to_read<= num_bytes_processed +filemap.offset);
 		if (ftruncate(filemap.fd, num_bytes_processed + filemap.offset) < 0) {
-			dterror("Error while truncating " << strerror(errno));
+			dterrorf("Error while truncating {}", strerror(errno));
 		}
 		filemap.unmap();
 		filemap.close();
@@ -406,7 +406,7 @@ void mpm_copylist_t::run(db_txn& txn) {
 																					rec_t record is not deleted in the livebuffer yet. This prevents the
 																					recording's data from being deleted before it is linked/copied*/
 		if (ec) {
-			dterror("Error hardlinking " << src.c_str() << " to " << dst.c_str() << ":" << ec.message());
+			dterrorf("Error hardlinking {} to {}: {}", src.c_str(), dst.c_str(), ec.message());
 		}
 	}
 }
@@ -483,7 +483,7 @@ int finalize_recording(db_txn& livebuffer_idxdb_rtxn, mpm_copylist_t& copy_comma
 					dterrorf("File in recording was not finalised");
 					auto c = find_last<recdb::marker_t>(livebuffer_idxdb_rtxn);
 					if (!c.is_valid()) {
-						dterror("no index records");
+						dterrorf("no index records");
 					} else {
 						auto marker = c.current();
 						stream_time_end = marker.k.time;
@@ -561,12 +561,12 @@ int active_mpm_t::stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& cop
 	auto rec1_txn = db->mpm_rec.recdb.rtxn();
 	auto c = recdb::rec_t::find_by_key(rec1_txn, rec_in.epg.k, find_eq);
 	if (!c.is_valid()) {
-		dterror("Stopping a non existing recording");
+		dterrorf("Stopping a non existing recording");
 		return -1;
 	}
 	auto rec = c.current(); // most uptodate version of record
 	if (rec.epg.rec_status == epgdb::rec_status_t::FINISHED) {
-		dtdebug("recording was already stopped");
+		dtdebugf("recording was already stopped");
 		return -1;
 	}
 	rec1_txn.abort();
@@ -665,7 +665,7 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 	if (cmarker.is_valid()) {
 		last_marker = cmarker.current();
 	} else  {
-		dterror("Could not find last marker in mpm");
+		dterrorf("Could not find last marker in mpm");
 		return -1;
 	}
 
@@ -673,7 +673,7 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 	if (cfile.is_valid()) {
 		last_file = cfile.current();
 	} else  {
-		dterror("Could not find last file in mpm");
+		dterrorf("Could not find last file in mpm");
 		return -1;
 	}
 
@@ -691,7 +691,7 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 				testf(idx_txn, last_file);
 #endif
 		put_record(idx_txn, last_file);
-		dtdebug("Finalized last_file");
+		dtdebugf("Finalized last_file");
 	}
 
 	ss::string<128> filename;
@@ -700,7 +700,7 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 
 	auto* fp_out = fopen64(filename.c_str(), "a");
 	if (!fp_out) {
-		dterror_nice("Could not create output file " << filename.c_str());
+		dterror_nicef("Could not create output file {}", filename);
 		idx_txn.abort();
 		ret = -1;
 	} else {
@@ -709,7 +709,7 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 		auto num_bytes_in_last_file = (end_packet - first_packet) * (int64_t)ts_packet_t::size;
 
 		if (ftruncate(fd, num_bytes_in_last_file) < 0) {
-			dterror("Error while truncating " << strerror(errno));
+			dterrorf("Error while truncating {}", strerror(errno));
 			fclose(fp_out);
 			ret = -1;
 		}
@@ -763,21 +763,21 @@ int active_mpm_t::next_data_file(system_time_t now, int64_t new_num_bytes_safe_t
 
 	auto* fp_out = fopen64(current_filename.c_str(), "w+");
 	if (!fp_out) {
-		dterror_nice("Could not create output file " << current_filename.c_str());
+		dterror_nicef("Could not create output file {}", current_filename);
 		idx_txn.abort();
 		return -1;
 	}
 	int fd = fileno(fp_out);
 	if (ftruncate(fd, initial_file_size) < 0) {
-		dterror("Error while truncating " << strerror(errno));
+		dterrorf("Error while truncating {}", strerror(errno));
 		idx_txn.abort();
 		fclose(fp_out);
 		return -1;
 	}
-	dtdebug("Start streaming to " << current_filename.c_str());
+	dtdebugf("Start streaming to {}", current_filename);
 
 	if (setvbuf(fp_out, NULL, _IONBF, 0)) // TODO: is this needed?
-		dterror("setvbuf failed: " << strerror(errno));
+		dterrorf("setvbuf failed: {}", strerror(errno));
 	transfer_filemap(fd, new_num_bytes_safe_to_read);
 	mm->num_bytes_safe_to_read = new_num_bytes_safe_to_read;
 	// mm->current_marker = 	stream_parser.event_handler.last_saved_marker;
@@ -845,7 +845,7 @@ void active_mpm_t::process_channel_data() {
 	auto start = steady_clock_t::now();
 	for (;;) {
 		if (steady_clock_t::now() - start > 500ms) {
-			dtdebug("SKIPPING EARLY\n");
+			dtdebugf("SKIPPING EARLY\n");
 			break;
 		}
 
@@ -877,17 +877,17 @@ void active_mpm_t::process_channel_data() {
 																										&active_service->open_pids);
 		if (ret < 0) {
 			if (errno == EINTR) {
-				// dtdebug("Interrupt received (ignoring)");
+				// dtdebugf("Interrupt received (ignoring)");
 				continue;
 			}
 			if (errno == EOVERFLOW) {
-				dtdebug_nice("OVERFLOW");
+				dtdebug_nicef("OVERFLOW");
 				continue;
 			}
 			if (errno == EAGAIN) {
 				break; // no more data
 			} else {
-				dterror("error while reading: " << strerror(errno));
+				dterrorf("error while reading: {}", strerror(errno));
 				break;
 			}
 		}

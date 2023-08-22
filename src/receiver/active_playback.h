@@ -49,7 +49,7 @@ public:
 		, currently_playing_recording(rec_) {}
 
 	virtual ~active_playback_t() final {
-		dtdebug("destructor\n");
+		dtdebugf("destructor\n");
 	}
 
 	virtual  ss::string<32> name() const {

@@ -24,6 +24,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include <filesystem>
 #include <signal.h>
+#include "fmt/chrono.h"
 
 namespace fs = std::filesystem;
 
@@ -66,7 +67,7 @@ void recmgr_thread_t::remove_old_livebuffers() {
 		std::error_code ec;
 		bool ret = fs::remove_all(path, ec);
 		if (ec) {
-			dterror("Error deleting " << path << ":" << ec.message());
+			dterrorf("Error deleting {}: {}", path.string(), ec.message());
 		} else if (ret)
 			dtdebugf("deleted live buffer {}", live_service.dirname.c_str());
 		delete_record_at_cursor(c);
@@ -314,9 +315,7 @@ void recmgr_thread_t::startup(system_time_t now_) {
 	for (auto rec : cr.range()) {
 		assert(rec.epg.rec_status == rec_status_t::IN_PROGRESS);
 		if (rec.epg.end_time + rec.post_record_time < now) {
-#ifdef NEWXX
-			dtdebug("Finalising unfinished recording: at start up: " << rec);
-#endif
+			dtdebugf("Finalising unfinished recording: at start up: {}", rec);
 			rec.epg.rec_status = rec_status_t::FINISHED;
 			recdb::update_record_at_cursor(cr.maincursor, rec);
 		} else if (rec.epg.k.start_time - rec.pre_record_time <= now) {
@@ -327,7 +326,7 @@ void recmgr_thread_t::startup(system_time_t now_) {
 			// next_recording_event_time = std::min(next_recording_event_time, rec.epg.end_time + rec.post_record_time);
 		} else {
 			// recording in future
-			dterror("Found future recording already in progress");
+			dterrorf("Found future recording already in progress");
 			rec.epg.rec_status = rec_status_t::SCHEDULED; // will cause recording to be continued
 			rec.subscription_id = -1;											// we are called after program has exited
 			recdb::update_record_at_cursor(cr.maincursor, rec);
@@ -443,7 +442,7 @@ void recmgr_thread_t::adjust_anonymous_recording_on_epg_update(db_txn& rec_wtxn,
 			if (auto found = epgdb::best_matching(epg_wtxn, rec.epg.k, rec.epg.end_time, tolerance)) {
 				if (found->rec_status == epgdb::rec_status_t::NONE) {
 					found->rec_status = epgdb::rec_status_t::SCHEDULED;
-					dtdebug("unexpected: epg_record should have been marked as recording already");
+					dtdebugf("unexpected: epg_record should have been marked as recording already");
 				}
 				assert(tolerance > 0 || found->k.start_time >= rec.epg.k.start_time);
 				time_t gap = found->k.start_time - end_time;
@@ -659,7 +658,7 @@ int recmgr_thread_t::toggle_recording(const chdb::service_t& service, const epgd
 		if (found) {
 			return found;
 		}
-		dtdebug("Toggle: Insert new recording");
+		dtdebugf("Toggle: Insert new recording");
 		assert ((epg_record.k.event_id == TEMPLATE_EVENT_ID) == epg_record.k.anonymous);
 		ret = epg_record.k.anonymous ? new_anonymous_schedrec(service, epg_record)
 			: new_schedrec(service, epg_record);
@@ -879,9 +878,10 @@ void recmgr_thread_t::livebuffer_db_update_(system_time_t now_) {
 				live_service.last_use_time >= now - retention_time) //live buffer may be reused for a brief while
 			continue;
 
-		dtdebug("Removing old live buffer: adapter " << (int)live_service.adapter_no <<
-						" created=" << live_service.creation_time << " end=" << live_service.last_use_time<<
-						" update=" << now);
+		dtdebugf("Removing old live buffer: adapter {} created={} end={} update={}",
+						 (int)live_service.adapter_no,
+						 fmt::localtime(live_service.creation_time),
+						 fmt::localtime(live_service.last_use_time), fmt::localtime(now));
 		ss::string<128> dirname;
 		{
 			auto r = receiver.options.readAccess();

@@ -81,7 +81,7 @@ int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags) {
 			ss::bytebuffer<32> key;
 			from_cursor.get_serialized_key(key);
 			if (key.size() <= (int)sizeof(uint32_t)) {
-				dterror("This key is too short");
+				dterrorf("This key is too short");
 				continue;
 			}
 			auto encoded_type_id = *(uint32_t*)key.buffer();
@@ -89,7 +89,7 @@ int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags) {
 			auto* desc = current.schema_for_type(type_id);
 			if (desc == nullptr) {
 				if (type_id == data_types::data_type<schema::neumo_schema_t>()) {
-					dtdebug("schema record found");
+					dtdebugf("schema record found");
 				} else {
 					dtdebugf("unrecognized type=0x{:x}", type_id);
 				}
@@ -102,7 +102,7 @@ int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags) {
 		to_db.store_schema(to_txn, put_flags);
 		to_txn.commit();
 	} catch (...) {
-		dterror("EXCEPTION occurred");
+		dterrorf("EXCEPTION occurred");
 		return -1;
 	}
 	return 1;
@@ -250,7 +250,7 @@ void neumodb_t::open_(const char* dbpath, bool allow_degraded_mode, const char* 
 	}
 	if (load_and_check_schema() < 0) {
 		if (allow_degraded_mode) {
-			dtdebug("opening database in degraded mode");
+			dtdebugf("opening database in degraded mode");
 		} else {
 			is_open_ = false;
 			throw db_needs_upgrade_exception("Bad database, or database needs to be upgraded");
@@ -330,7 +330,7 @@ void neumodb_t::open_secondary(const char* table_name, bool allow_degraded_mode)
 	}
 	if (load_and_check_schema() < 0) {
 		if (allow_degraded_mode) {
-			dtdebug("opening database in degraded mode");
+			dtdebugf("opening database in degraded mode");
 		} else {
 			is_open_ = false;
 			throw std::runtime_error("Bad database, or database needs to be upgraded");

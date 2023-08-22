@@ -288,7 +288,7 @@ namespace ss {
 					::iconv(ctx, NULL, 0, &outbuf, &outbytesleft); // reset
 					break;
 				} else {
-					dterror("append_tolower: " << strerror(errno));
+					dterrorf("append_tolower: {}", strerror(errno));
 					break;
 				}
 			}

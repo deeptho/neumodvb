@@ -156,13 +156,13 @@ void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 int subscriber_t::unsubscribe() {
 	// auto d = safe_data.writeAccess();
 	if((int) subscription_id<0) {
-		dtdebug("ignoring unubscribe (subscription_id<0)");
+		dtdebugf("ignoring unubscribe (subscription_id<0)");
 		return -1;
 	}
-	dtdebug("calling receiver->unsubscribe");
+	dtdebugf("calling receiver->unsubscribe");
 	subscription_id = receiver->unsubscribe(subscription_id);
 	assert((int) subscription_id < 0);
-	dtdebug("calling receiver->unsubscribe -1");
+	dtdebugf("calling receiver->unsubscribe -1");
 
 	auto mp = receiver->subscribers.writeAccess();
 	auto& m = *mp;
@@ -175,7 +175,7 @@ int subscriber_t::unsubscribe() {
 		assert(num_erased == 1);
 #endif
 	}
-	dtdebug("calling receiver->unsubscribe -2");
+	dtdebugf("calling receiver->unsubscribe -2");
 	return (int) subscription_id;
 }
 

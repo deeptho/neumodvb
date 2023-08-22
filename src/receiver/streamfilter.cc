@@ -240,7 +240,7 @@ template <typename... Args> int stream_filter_t::start_command(int stream_fd, co
 			and write to fd=1*/
 		if (dup2(stream_fd, STDIN_FILENO) < 0 || dup2(childToParent[WRITE_FD], STDOUT_FILENO) < 0 ||
 				::close(childToParent[READ_FD]) != 0) {
-			dterror("error occured\n");
+			dterrorf("error occured");
 			::exit(1);
 		}
 		set_blocking(STDIN_FILENO, true);
@@ -255,7 +255,7 @@ template <typename... Args> int stream_filter_t::start_command(int stream_fd, co
 		dtdebugf("Child process {:d} running...\n", command_pid);
 
 		if (::close(childToParent[WRITE_FD]) != 0) {
-			dterror("error closing pipe fd\n");
+			dterrorf("error closing pipe fd");
 		}
 		set_blocking(childToParent[READ_FD], false);
 

@@ -55,13 +55,13 @@ namespace dtdemux {
 		ss >> c;
 		if (!ss.fail()) {
 			if (c != '.') {
-				dterror("Bad time format");
+				dterrorf("Bad time format");
 				assert(0);
 			}
 			// throw "bad time format";
 			ss >> ms;
 			if (ss.fail()) {
-				dterror("Bad time format");
+				dterrorf("Bad time format");
 				assert(0);
 			}
 		}

@@ -78,7 +78,7 @@ active_si_stream_t::active_si_stream_t
 	, chdbmgr(receiver.chdb)
 	, epgdbmgr(receiver.epgdb)
 {
-	dtdebug("setting si_processing_done=false (init)");
+	dtdebugf("setting si_processing_done=false (init)");
 }
 
 
@@ -122,7 +122,7 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 			chdb::update_mux(chdb_wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS},
 											 false /*ignore_t2mi_pid*/, true /*must_exist*/);
 			chdb_wtxn.commit();
-			dtdebug("committed write");
+			dtdebugf("committed write");
 		}
 		reader->on_stream_mux_change(mux);
 	}
@@ -300,7 +300,7 @@ void active_si_stream_t::reset_si(bool close_streams) {
 #else
 #endif
 	if(!si_processing_done) {
-		dtdebug("calling finalize_scan\n");
+		dtdebugf("calling finalize_scan\n");
 		finalize_scan();
 		dtdebugf("calling scan si_processing_done={:d}\n", si_processing_done);
 		check_scan_mux_end();
@@ -678,11 +678,11 @@ void active_si_stream_t::process_si_data() {
 #endif
 		if (ret < 0) {
 			if (errno == EINTR) {
-				// dtdebug("Interrupt received (ignoring)");
+				// dtdebugf("Interrupt received (ignoring)");
 				continue;
 			}
 			if (errno == EOVERFLOW) {
-				dtdebug_nice("OVERFLOW");
+				dtdebug_nicef("OVERFLOW");
 				continue;
 			}
 			if (errno == EAGAIN) {
@@ -1196,7 +1196,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			return dtdemux::reset_type_t::ABORT; // unstable PAT; must retune
 		}
 		if (!is_embedded_si && !pat_data.stable_pat(pat_services.ts_id)) {
-			//dtdebug("PAT not stable yet");
+			//dtdebugf("PAT not stable yet");
 			pat_table.num_sections_processed = 0;
 			return dtdemux::reset_type_t::RESET; // need to check again for stability
 		} else
@@ -1250,7 +1250,7 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
 					dtdebugf("Setting nit_actual_ok = true");
 			}
 		} else if (tune_confirmation.sat_by == confirmed_by_t::NONE && is_actual) {
-			dterror("ni_actual does not contain current mux");
+			dterrorf("ni_actual does not contain current mux");
 			/*NOTE: pat is stable at this point
 			 */
 			auto sat_count = nit_data.nit_actual_sat_positions.size();
@@ -1566,7 +1566,7 @@ bool active_si_stream_t::sdt_actual_check_confirmation(bool mux_key_changed, int
 	}
 
 	if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
-		dtdebug("Satellite cannot be confirmed; abort saving SDT services");
+		dtdebugf("Satellite cannot be confirmed; abort saving SDT services");
 		return true;
 	}
 
@@ -1598,7 +1598,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 	if (on_wrong_sat) {
 		if (is_embedded_si || pat_data.stable_pat()) {
 			//permanently on wrong sat (dish stopped moving)
-			dtdebug("sat_pos is wrong but pat is stable.");
+			dtdebugf("sat_pos is wrong but pat is stable.");
 				is_active_mux = true;
 				tune_confirmation.on_wrong_sat = std::abs(tuned_mux_key->sat_pos - mux_key->sat_pos) <= 100;
 				if (abort_on_wrong_sat())
@@ -1714,7 +1714,7 @@ bool active_si_stream_t::update_mux(
 			auto [locked, stream_id_changed] = update_reader_mux_parameters_from_frontend(mux);
 			auto failed = !locked;
 			if(failed) {
-				dtdebug("update_reader_mux_parameters_from_frontend failed (lock lost?)\n");
+				dtdebugf("update_reader_mux_parameters_from_frontend failed (lock lost?)\n");
 				chdb::mux_common_ptr(mux)->scan_result = chdb::scan_result_t::NOLOCK;
 			}
 			if(stream_id_changed) {
@@ -1944,16 +1944,18 @@ bool nit_data_t::update_nit_completion(scan_state_t& scan_state, const subtable_
 	bool done = (network_data.num_sections_processed == network_data.subtable_info.num_sections_present);
 	bool empty = (network_data.num_sections_processed == 0);
 	if (done) {
-		dtdebug("NIT_" << (info.is_actual ? "ACTUAL" : "OTHER") << " subtable completed: " << network_data.network_id << " "
-						<< by_network_id_ts_id.size() << " muxes");
+		dtdebugf("NIT_{} subtable completed: {} {} muxes",
+						 (info.is_actual ? "ACTUAL" : "OTHER"), network_data.network_id,
+						 by_network_id_ts_id.size());
 		if (info.is_actual) {
-			dtdebug("NIT_ACTUAL subtable completed: " << network_data.network_id);
+			dtdebugf("NIT_ACTUAL subtable completed: {}", network_data.network_id);
 
 			scan_state.set_completed(scan_state_t::NIT_ACTUAL);
 		}
 	}
 	if (empty) {
-		dtdebug("NIT_" << (info.is_actual ? "ACTUAL" : "OTHER") << " empty not: " << network_data.network_id);
+		dtdebugf("NIT_{}  empty nid={}",
+						 (info.is_actual ? "ACTUAL" : "OTHER"), network_data.network_id);
 	}
 	return done;
 }
@@ -2582,7 +2584,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb(epg_t& epg, const subta
 }
 
 void active_si_stream_t::init_scanning(scan_target_t scan_target_) {
-	dtdebug("setting si_processing_done=false");
+	dtdebugf("setting si_processing_done=false");
 	si_processing_done = false;
 	scan_target = scan_target_ == scan_target_t::NONE ? scan_target_t::SCAN_FULL_AND_EPG : scan_target_;
 	scan_state.reset();

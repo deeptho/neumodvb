@@ -198,7 +198,7 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK
 		OnRender(this, s.x, s.y);
 		playing_ok = true;
 	} else {
-		dterror("ONRENDER NOT READY");
+		dterrorf("ONRENDER NOT READY");
 	}
 
 	static int called = 0;
@@ -306,7 +306,7 @@ void mpv_subscription_t::open() {
 */
 int mpv_subscription_t::set_audio_language(int idx) {
 	if (!mpm) {
-		dtdebug("No active playvack");
+		dtdebugf("No active playvack");
 		return -1;
 	}
 	return mpm->set_audio_language(idx);
@@ -318,7 +318,7 @@ int mpv_subscription_t::set_audio_language(int idx) {
 */
 int mpv_subscription_t::set_subtitle_language(int idx) {
 	if (!mpm) {
-		dtdebug("No active playvack");
+		dtdebugf("No active playvack");
 		return -1;
 	}
 	return mpm->set_subtitle_language(idx);
@@ -417,7 +417,7 @@ MpvPlayer_::MpvPlayer_(receiver_t* receiver)
 
 MpvPlayer_::~MpvPlayer_() {
 	if (!has_been_destroyed) {
-		dterror("MpvPlayer destroyed without calling close");
+		dterrorf("MpvPlayer destroyed without calling close");
 	}
 }
 
@@ -434,37 +434,37 @@ bool MpvPlayer_::create() {
 	// MpvDestroy();
 	mpv = mpv_create();
 	if (!mpv) {
-		dterror("failed to create mpv instance");
+		dterrorf("failed to create mpv instance");
 		assert(0);
 	}
 
 	if (mpv_set_property_string(mpv, "config-dir", config_dir.c_str()) < 0) {
-		dterror("failed to register config-dir");
+		dterrorf("failed to register config-dir");
 		assert(0);
 	}
 	if (mpv_set_property_string(mpv, "config", "yes") < 0) {
-		dterror("failed to activate config reading");
+		dterrorf("failed to activate config reading");
 		assert(0);
 	}
 	if (mpv_initialize(mpv) < 0) {
-		dterror("failed to initialize mpv");
+		dterrorf("failed to initialize mpv");
 		assert(0);
 	}
 	if (mpv_set_property_string(mpv, "profile", "neumo") < 0) {
-		dterror("failed to register mpv neumo profile");
+		dterrorf("failed to register mpv neumo profile");
 		assert(0);
 	}
 	if (mpv_stream_cb_add_ro(mpv, "neumo", (void*)this, open_fn) < 0) {
-		dterror("failed to register mpv protocol");
+		dterrorf("failed to register mpv protocol");
 		assert(0);
 	}
 	if (mpv_set_property_string(mpv, "vo", "opengl-cb") < 0) {
-		dterror("failed to set mpv VO");
+		dterrorf("failed to set mpv VO");
 		assert(0);
 	}
 #ifdef BUG
 	if (mpv_set_property_string(mpv, "hwdec", "auto") < 0) {
-		dterror("failed to set mpv VO");
+		dterrorf("failed to set mpv VO");
 		assert(0);
 	}
 #endif
@@ -481,11 +481,11 @@ bool MpvPlayer_::create() {
 		{MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
 		{MPV_RENDER_PARAM_INVALID, nullptr}};
 	if (mpv_render_context_create(&mpv_gl, mpv, params) < 0) {
-		dterror("failed to initialize mpv GL context");
+		dterrorf("failed to initialize mpv GL context");
 		assert(0);
 	}
 	if (!mpv_gl) {
-		dterror("failed to create mpv render context");
+		dterrorf("failed to create mpv render context");
 		assert(0);
 	}
 
@@ -602,7 +602,7 @@ py::handle MpvPlayer::get_canvas() const {
 
 int MpvPlayer_::screenshot() {
 	if (!mpv) {
-		dterror("mpv not ready");
+		dterrorf("mpv not ready");
 		assert(0);
 		return -1;
 	}
@@ -618,7 +618,7 @@ int MpvPlayer::screenshot() {
 
 void MpvPlayer_::mpv_command(const char* cmd_, const char* arg2, const char* arg3) {
 	if (!mpv) {
-		dterror("mpv not ready");
+		dterrorf("mpv not ready");
 		assert(0);
 		return;
 	}
@@ -703,12 +703,12 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 		// mpm.init(active_service->mpm);
 		dtdebugf("PLAY SUBSCRIPTION (service): mpm init done");
 		if (mpm->move_to_live() < 0) {
-			dtdebug("PLAY SUBSCRIPTION (service): aborting");
+			dtdebugf("PLAY SUBSCRIPTION (service): aborting");
 			this->close(false /*unsubscribe*/);
 			subscriber->unsubscribe();
 			return;
 		}
-		dtdebug("PLAY SUBSCRIPTION (service): mpm move_to_live done");
+		dtdebugf("PLAY SUBSCRIPTION (service): mpm move_to_live done");
 	}
 	return;
 }
@@ -751,7 +751,7 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 	// we need to fake a different file each time, hence the seqno
 	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
 	if (!mpv) {
-		dterror("mpv not ready");
+		dterrorf("mpv not ready");
 		assert(0);
 		return -1;
 	}
@@ -787,7 +787,7 @@ template <typename _mux_t> int MpvPlayer_::play_mux(const _mux_t& mux, bool blin
 	// we need to fake a different file each time, hence the seqno
 	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
 	if (!mpv) {
-		dterror("mpv not ready");
+		dterrorf("mpv not ready");
 		assert(0);
 		return -1;
 	}
@@ -831,7 +831,7 @@ int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t s
 
 		dtdebugf("PLAY SUBSCRIPTION (rec): mpm init done");
 		if (mpm->move_to_time(start_play_time) < 0) {
-			dtdebug("PLAY SUBSCRIPTION (rec): aborting");
+			dtdebugf("PLAY SUBSCRIPTION (rec): aborting");
 			this->close(false /*unsubscribe*/);
 			if ((int) subscription_id >= 0) {
 				subscriber->unsubscribe();
@@ -859,7 +859,7 @@ int MpvPlayer_::play_recording(const recdb::rec_t& rec, milliseconds_t start_pla
 	// we need to fake a different file each time, hence the seqno
 	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
 	if (!mpv) {
-		dterror("mpv not ready");
+		dterrorf("mpv not ready");
 		assert(0);
 		return -1;
 	}
@@ -887,7 +887,7 @@ int mpv_subscription_t::jump(int seconds) {
 
 int MpvPlayer_::jump(int seconds) {
 	if (!mpv || !subscription.mpm) {
-		dterror("mpv not ready");
+		dterrorf("mpv not ready");
 		assert(0);
 		return -1;
 	}
@@ -953,7 +953,7 @@ int mpv_subscription_t::stop_play() {
 
 int MpvPlayer_::stop_play() {
 	if (!mpv) {
-		dterror("mpv not ready");
+		dterrorf("mpv not ready");
 		assert(0);
 		return -1;
 	}
@@ -984,7 +984,7 @@ int MpvPlayer::stop_play_and_exit() {
 
 int MpvPlayer_::pause() {
 	if (!mpv || !subscription.mpm) {
-		dterror("mpv not ready");
+		dterrorf("mpv not ready");
 		return -1;
 	}
 	static bool onoff = 1;

@@ -47,7 +47,7 @@ namespace {{dbname}} {
 			//this must be a keys_t:: field, not a subfield_t::; this is encoded as 0,0,0, key, with key!=0
 			if(sort_order.fields[1]!=0 || sort_order.fields[2] !=0 || //means
 				 sort_order.fields[3] == 0 ) {
-				dterror("Illegal sort_order none; using default");
+				dterrorf("Illegal sort_order none; using default");
 				return dynamic_key_t((uint8_t) subfield_t::DEFAULT);
 			}
 		return sort_order;
@@ -82,7 +82,7 @@ namespace {{dbname}} {
 			assert (sort_order.fields[1]==0);
 			assert (sort_order.fields[2]==0);
 			if(sort_order.fields[3]==0) {
-				dterror("Illegal sort_order none; using default");
+				dterrorf("Illegal sort_order none; using default");
 				return keys_t::{{struct.primary_key.index_name}};
 			}
 			return keys_t(sort_order.fields[3]);
@@ -140,7 +140,7 @@ namespace {{dbname}} {
 				if(strcmp(subfield_name, "{{field.name}}")==0)
 					return uint32_t(subfield_t::{{field.name.replace('.','_')}});
 			{% endfor %}
-			dterror("Illegal subfield name =" << subfield_name);
+			dterrorf("Illegal subfield name ={}", subfield_name);
 			return uint32_t(subfield_t::none);
 		}
 };
@@ -1086,7 +1086,7 @@ namespace {{dbname}} {
 				if (prefix=={{struct.class_name}}::partial_keys_t::none)
 					break;
 				if(ref == nullptr) {
-					dterror("ref parameter must be specified");
+					dterrorf("ref parameter must be specified");
 					assert(0);
 				}
 				{% for prefix in key.key_prefixes | reverse %}
@@ -1104,7 +1104,7 @@ namespace {{dbname}} {
 		    {%endfor%}
 			if(prefix == {{struct.class_name}}::partial_keys_t::all)
 				break;
-				dterror("illegal prefix for this call");
+				dterrorf("illegal prefix for this call");
 				assert(0);
 			 }
 			 break;

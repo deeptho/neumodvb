@@ -33,7 +33,7 @@ EXPORT const char* enum_to_str<{{enum.name}}>(const {{enum.name}}& val)
 	break;
 	{% endfor %}
 	default:
-		dterror("Illegal value for enum {{enum.name}}");
+		dterrorf("Illegal value for enum {{enum.name}}");
 		return "????";
 	}
 };

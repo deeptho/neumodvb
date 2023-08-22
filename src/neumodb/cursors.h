@@ -88,7 +88,7 @@ public:
 		data_t ret;
 		auto rc = cursor.get_key(ret);
 		if(!rc) {
-			dterror("Invalid access");
+			dterrorf("Invalid access");
 			assert(0);
 		}
 		return ret;
@@ -101,7 +101,7 @@ public:
 		data_t ret;
 		auto rc = cursor.current_serialized_primary_key(ret);
 		if(!rc) {
-			dterror("Invalid access");
+			dterrorf("Invalid access");
 			assert(0);
 		}
 		return ret;
@@ -815,7 +815,7 @@ struct db_tcursor_ : public db_cursor {
 
 	inline data_t current() {
 		if(!is_valid()) {
-			dterror("Invalid access");
+			dterrorf("Invalid access");
 			assert(0);
 		}
 		data_t out;
@@ -1003,7 +1003,7 @@ struct db_tcursor_index : public db_tcursor_<data_t> {
 
 	inline data_t current() {
 		if(!is_valid()) {
-			dterror("Invalid access");
+			dterrorf("Invalid access");
 			assert(0);
 		}
 		data_t out;

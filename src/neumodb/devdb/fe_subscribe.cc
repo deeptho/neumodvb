@@ -540,20 +540,19 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			if(!is_same_fe) {
 				assert(sret.is_new_aa());
 				sret.sub_to_reuse = subscription_id_t::NONE;
-				dtdebug("fe::subscribe: newaa subscription_id=" << (int ) subscription_id << " adapter=" << (int64_t) fe.k.adapter_mac_address
-								<< "/" << (int) oldfe_->k.frontend_no
-								<< " mux="  << mux);
+				dtdebugf("fe::subscribe: newaa subscription_id={}  adapter={:x}/{} mux={}",
+								 (int ) subscription_id, (int64_t) fe.k.adapter_mac_address,
+								 (int) oldfe_->k.frontend_no, *mux);
 			} else {
 				assert(!sret.is_new_aa());
-				dtdebug("fe::subscribe: no newaa subscription_id=" << (int ) subscription_id <<
-								" adapter=" << (int64_t)  fe.k.adapter_mac_address
-								<< " mux="  << mux);
+				dtdebugf("fe::subscribe: no newaa subscription_id={} adapter={:x} mux={}",
+								 (int)subscription_id, (int64_t) fe.k.adapter_mac_address, *mux);
 			}
 			auto& lnb = *lnb_;
 			if(lnb.on_positioner) {
 				auto* lnb_network = devdb::lnb::get_network(lnb, mux->k.sat_pos);
 				if (!lnb_network) {
-					dterror("No network found");
+					dterrorf("No network found");
 					return failed(sret.subscription_id, updated_old_dbfe);
 				}
 				auto usals_pos = lnb_network->usals_pos;

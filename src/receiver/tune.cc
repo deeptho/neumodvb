@@ -47,6 +47,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <values.h>
+#include "fmt/chrono.h"
+
 using namespace chdb;
 
 /** @brief Print the status
@@ -55,22 +57,22 @@ using namespace chdb;
  * @param festatus the status to display
  */
 void print_tuner_status(fe_status_t festatus) {
-	dtdebug("FE_STATUS:");
+	dtdebugf("FE_STATUS:");
 	if (festatus & FE_HAS_SIGNAL)
-		dtdebug("     FE_HAS_SIGNAL : found something above the noise level");
+		dtdebugf("     FE_HAS_SIGNAL : found something above the noise level");
 	if (festatus & FE_HAS_CARRIER)
-		dtdebug("     FE_HAS_CARRIER : found a DVB signal");
+		dtdebugf("     FE_HAS_CARRIER : found a DVB signal");
 	if (festatus & FE_HAS_VITERBI)
-		dtdebug("     FE_HAS_VITERBI : FEC is stable");
+		dtdebugf("     FE_HAS_VITERBI : FEC is stable");
 	if (festatus & FE_HAS_SYNC)
-		dtdebug("     FE_HAS_SYNC : found sync bytes");
+		dtdebugf("     FE_HAS_SYNC : found sync bytes");
 	if (festatus & FE_HAS_LOCK)
-		dtdebug("     FE_HAS_LOCK : everything's working...");
+		dtdebugf("     FE_HAS_LOCK : everything's working...");
 	if (festatus & FE_TIMEDOUT)
-		dtdebug("     FE_TIMEDOUT : no lock within the last about 2 seconds");
+		dtdebugf("     FE_TIMEDOUT : no lock within the last about 2 seconds");
 	if (festatus & FE_HAS_TIMING_LOCK)
-		dtdebug("     FE_REINIT : frontend has timing loop locked");
-	dtdebug("---");
+		dtdebugf("     FE_REINIT : frontend has timing loop locked");
+	dtdebugf("---");
 }
 
 ss::string<128> dump_caps(chdb::fe_caps_t caps) {
@@ -101,7 +103,7 @@ int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const 
 		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES}, /*false ignore_key,*/
 										 false /*ignore_t2mi_pid*/, true /*must_exist*/);
 		txn.commit();
-		dtdebug("committed");
+		dtdebugf("committed");
 	}
 	return 0;
 }
@@ -110,7 +112,7 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 	auto txn = receiver.chdb.wtxn();
 	put_record(txn, service);
 	txn.commit();
-	dtdebug("committed");
+	dtdebugf("committed");
 	return 0;
 }
 
@@ -319,7 +321,7 @@ int tuner_thread_t::run() {
 			} else if (is_timer_fd(evt)) {
 			  {
 					if (!active_adapter.fe) {
-						dterror_nice("Implementation error\n");
+						dterror_nicef("Implementation error");
 						continue;
 					}
 					dttime_init();
@@ -573,8 +575,8 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 			dterrorf("tune returned {:d}", ret);
 #if 0
 	auto adapter_no =  active_adapter.get_adapter_no();
-	dtdebug("Subscribed: subscription_id=" << (int) sret.subscription_id << " adapter " <<
-					adapter_no << " " << mux);
+	dtdebugf("Subscribed: subscription_id={} adapter {}: {}", (int) sret.subscription_id, adapter_no,
+					mux);
 #endif
 	//Destructor of old_active_adapter can call deactivate at this point
 	return sret.subscription_id;
@@ -717,10 +719,10 @@ void tuner_thread_t::add_live_buffer(const recdb::live_service_t& live_service) 
 	auto c = live_service_t::find_by_key(wtxn, live_service.owner, live_service.subscription_id, find_type_t::find_eq);
 	if(c.is_valid()) {
 		auto old = c.current();
-		dtdebug("updating live_service: last_use_time from=" <<  system_clock_t::from_time_t(old.last_use_time)
-						 << " new=" << system_clock_t::from_time_t(live_service.last_use_time));
+		dtdebugf("updating live_service: last_use_time from={} new={}",
+						 fmt::localtime(old.last_use_time), fmt::localtime(live_service.last_use_time));
 	} else {
-		dtdebug("new live_service: last_use_time =" <<  system_clock_t::from_time_t(live_service.last_use_time));
+		dtdebugf("new live_service: last_use_time={}", fmt::localtime(live_service.last_use_time));
 	}
 	c.destroy();
 	put_record(wtxn, live_service);
@@ -740,7 +742,7 @@ void tuner_thread_t::remove_live_buffer(subscription_id_t subscription_id) {
 		return;
 	}
 	auto live_service = c.current();
-	dtdebug("setting live buffer last_use_time=" << now);
+	dtdebugf("setting live buffer last_use_time={}", fmt::localtime(system_clock_t::to_time_t(now)));
 	live_service.last_use_time = system_clock_t::to_time_t(now);
 	c.destroy();
 	txn.commit();

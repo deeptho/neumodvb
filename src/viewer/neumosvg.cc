@@ -52,7 +52,7 @@ double floatattr(wxSVGElement* elem, const char* key) {
 	wxString attr = elem->GetAttribute(key);
 	double ret = -1;
 	if (!attr.ToDouble(&ret))
-		dterror("NOT A FLOAT");
+		dterrorf("NOT A FLOAT");
 	if (strcmp(key, "width") == 0) {
 		dterrorf("????? key={:s} val={:f} {:f}\n", key, ret, get_width(elem));
 	}

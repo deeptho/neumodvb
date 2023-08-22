@@ -170,7 +170,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chg_key_t key) {
 		// all ids exhausted
 		// The following is very unlikely. We prefer to cause a result on a
 		// single mux rather than throwing an error
-		dterror("Overflow for bouquet_id");
+		dterrorf("Overflow for bouquet_id");
 		assert(0);
 	}
 	// we reach here if this is the very first mux with this key
@@ -194,7 +194,7 @@ int32_t chdb::make_unique_id(db_txn& txn, chgm_key_t key) {
 		// all ids exhausted
 		// The following is very unlikely. We prefer to cause a result on a
 		// single mux rather than throwing an error
-		dterror("Overflow for chgm_id");
+		dterrorf("Overflow for chgm_id");
 		assert(0);
 	}
 	// we reach here if this is the very first mux with this key
@@ -431,7 +431,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 		assert(db_mux.k.t2mi_pid == mux.k.t2mi_pid);
 		if(db_mux.k.mux_id == 0) {
 			make_mux_id(wtxn, db_mux);
-			dterror("Illegal mux found in db and fixed: " << db_mux);
+			dterrorf("Illegal mux found in db and fixed: {}", db_mux);
 		}
 		assert(db_mux.k.mux_id > 0);
 		auto tmp_key = mux.k;
@@ -444,7 +444,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 					 mux.c.scan_id >0);
 		mux_to_save.k = db_mux.k;
-		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+
 		ret = update_mux_ret_t::MATCHING_KEY_AND_FREQ;
 
 		is_new = false;
@@ -457,7 +457,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 		delete_db_mux = !key_matches;
 #endif
 #endif
-		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
+
 		if(!is_new) {
 			merge_muxes<mux_t>(merged_mux, db_mux, preserve);
 			if(!cb(&merged_mux.c, &merged_mux.k, &db_mux.c, &db_mux.k))
@@ -477,7 +477,6 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 					remove_services(wtxn, db_mux.k);
 			}
 		}
-		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 
 		dtdebugf("Transponder {}: sat_pos={:d} => {:d}; mux_id={:d} => {:d}; stream_id={:d} => {:d}; t2mi_pid={:d} =< {:d}",
 						 merged_mux,

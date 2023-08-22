@@ -247,7 +247,7 @@ void h264_parser_t::parse_payload_unit() {
 		if (has_pts()) {
 		} else {
 #ifndef NDEBUG
-			dtdebug("Unexpected: I-frame without pts");
+			dtdebugf("Unexpected: I-frame without pts");
 #endif
 			THROW_BAD_DATA;
 		}

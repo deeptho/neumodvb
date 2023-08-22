@@ -88,7 +88,7 @@ namespace dtdemux {
 			for(;;) {
 				if(need_data()) {
 					assert(current_range.available()==0);
-					//dtdebug("READ: pid=NULL");
+					//dtdebugf("READ: pid=NULL");
 					return NULL;
 				}
 
@@ -122,7 +122,7 @@ namespace dtdemux {
 			}
 
 			if(!need_data()) {
-				dterror("set_range can only be called after current range was fully processed");
+				dterrorf("set_range can only be called after current range was fully processed");
 				assert(0);
 				return;
 			}

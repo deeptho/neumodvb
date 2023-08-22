@@ -1159,7 +1159,7 @@ namespace dtdemux {
 #if 0
 		if ((len & 0x3000) != 0x3000) {
 
-			dtdebug("Bad reserved bits"); //tests reserve flags
+			dtdebugf("Bad reserved bits"); //tests reserve flags
 			THROW_BAD_DATA;
 		}
 #endif
@@ -1209,7 +1209,7 @@ namespace dtdemux {
 			return false;
 		if (hdr.current_next) {
 		} else {
-			dtdebug("Received `next' PAT (unhandled)");
+			dtdebugf("Received `next' PAT (unhandled)");
 		}
 
 		auto num_entries = remaining / 4;
@@ -1340,7 +1340,7 @@ namespace dtdemux {
 
 		if (hdr.current_next) {
 		} else {
-			dtdebug("Received 'next' in NIT");
+			dtdebugf("Received 'next' in NIT");
 			// this happens on 52E 11246V (only next)
 		}
 		auto section_number = hdr.section_number;
@@ -1423,7 +1423,7 @@ namespace dtdemux {
 				} break;
 
 				case SI::S2SatelliteDeliverySystemDescriptorTag: {
-					dterror("S2SatelliteDeliverySystemDescriptor");
+					dterrorf("S2SatelliteDeliverySystemDescriptor");
 					if (desc1.len > 0) { // solves problem on 5.0W 12340H
 						this->get_fields<s2_satellite_delivery_system_descriptor_t>(dvbs_mux);
 						if (!is_dvbs) {
@@ -1537,7 +1537,7 @@ namespace dtdemux {
 
 		if (hdr.current_next) {
 		} else {
-			dtdebug("Received 'next' SDT unhandled");
+			dtdebugf("Received 'next' SDT unhandled");
 		}
 		auto section_number = hdr.section_number;
 		auto last_section_number = hdr.last_section_number;
@@ -1659,13 +1659,13 @@ namespace dtdemux {
 
 		if (hdr.current_next) {
 		} else {
-			dtdebug("Received 'next' BAT unhandled");
+			dtdebugf("Received 'next' BAT unhandled");
 		}
 		auto section_number = hdr.section_number;
 		auto last_section_number = hdr.last_section_number;
 
 #if 0
-		dtdebug("BAT=" << (int)hdr.table_id << " len=" << hdr.len << " bouquet_id=" <<
+		dtdebugf("BAT=" << (int)hdr.table_id << " len=" << hdr.len << " bouquet_id=" <<
 						bouquet.bouquet_id << " vers=" << (int)hdr.version_number << " current=" <<
 						(int)hdr.current_next);
 #endif
@@ -1837,7 +1837,7 @@ namespace dtdemux {
 
 		if (hdr.current_next) {
 		} else {
-			dtdebug("Received 'next' EIT unhandled");
+			dtdebugf("Received 'next' EIT unhandled");
 		}
 		auto section_number = hdr.section_number;
 		auto last_section_number = hdr.last_section_number;
@@ -1932,7 +1932,7 @@ namespace dtdemux {
 			current_version_number = hdr.version_number;
 #endif
 		} else {
-			dtdebug("Received 'next' SKY unhandled");
+			dtdebugf("Received 'next' SKY unhandled");
 		}
 		auto section_number = hdr.section_number;
 		auto last_section_number = hdr.last_section_number;

@@ -419,7 +419,7 @@ public:
 
 	template<typename _mux_t>
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const tune_options_t& tune_options,
-															 subscription_id_t subscription_id);
+															 subscription_id_t& subscription_id);
 
 	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key,
@@ -525,7 +525,7 @@ public:
 
 	template<typename _mux_t>
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const tune_options_t& tune_options,
-															 subscription_id_t subscription_id);
+															 subscription_id_t& subscription_id);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		const chdb::service_t& service, subscription_id_t subscription_id = subscription_id_t::NONE);

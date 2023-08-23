@@ -553,7 +553,12 @@ receiver_thread_t::subscribe_mux(
 template <typename mux_t>
 subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 																											const tune_options_t& tune_options,
-																											subscription_id_t subscription_id)
+																											subscription_id_t& subscription_id)
+/*
+	somewhat ugly hack: subscription_id needs to be passed by reference so that the calling
+	subscriber_t has its internal subscription_id set when scanning starts. Otherwise the
+	initial scan report woill not be received
+ */
 {
 	auto s = fmt::format("SCAN[{}] {} muxes", (int) subscription_id, (int) muxes.size());
 	log4cxx::NDC ndc(s);
@@ -1005,7 +1010,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 template <typename _mux_t>
 subscription_id_t receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes,
 																				 const tune_options_t& tune_options,
-																				 subscription_id_t subscription_id) {
+																				 subscription_id_t& subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 
 	//call by reference ok because of subsequent wait_for_all
@@ -1830,17 +1835,17 @@ receiver_thread_t::subscribe_mux(
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes,
 																				 const tune_options_t& tune_options,
-																				 subscription_id_t subscription_id);
+																				 subscription_id_t& subscription_id);
 
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
 																				 const tune_options_t& tune_options,
-																				 subscription_id_t subscription_id);
+																				 subscription_id_t& subscription_id);
 
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
 																				 const tune_options_t& tune_options,
-																				 subscription_id_t subscription_id);
+																				 subscription_id_t& subscription_id);
 
 
 template subscription_id_t
@@ -1858,17 +1863,17 @@ receiver_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool bl
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes,
 																											const tune_options_t& tune_options,
-																											subscription_id_t subscription_id);
+																											subscription_id_t& subscription_id);
 
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
 																											const tune_options_t& tune_options,
-																											subscription_id_t subscription_id);
+																											subscription_id_t& subscription_id);
 
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
 																											const tune_options_t& tune_options,
-																											subscription_id_t subscription_id);
+																											subscription_id_t& subscription_id);
 
 
 template subscription_id_t

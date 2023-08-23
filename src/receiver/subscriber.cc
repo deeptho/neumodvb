@@ -108,24 +108,26 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 	subscription_id_t ret{subscription_id};
 	if(dvbs_muxes.size() > 0) {
 		ret = receiver->scan_muxes(dvbs_muxes, tune_options, subscription_id);
+		assert(ret==subscription_id); //subscription_id is passed by reference
 		if((int) ret<0)
 			return (int) ret;
 	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
 	if(dvbc_muxes.size() > 0) {
 		ret = receiver->scan_muxes(dvbc_muxes, tune_options, ret);
+		assert(ret==subscription_id); //subscription_id is passed by reference
 		if((int) ret<0)
 			return (int) ret;
 	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
 	if(dvbt_muxes.size() > 0) {
 		subscription_id = receiver->scan_muxes(dvbt_muxes, tune_options, subscription_id);
+		assert(ret==subscription_id); //subscription_id is passed by reference
 		if((int) ret<0)
 			return (int) ret;
 	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
-
-	subscription_id = ret;
+	printf("Setting %p = %d\n", this, (int)this->subscription_id);
 	return (int)subscription_id;
 }
 

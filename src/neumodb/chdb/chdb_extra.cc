@@ -318,6 +318,7 @@ void merge_muxes(mux_t& mux, const mux_t& db_mux, update_mux_preserve_t::flags p
 		mux.c.scan_time = db_mux.c.scan_time;
 		mux.c.scan_result = db_mux.c.scan_result;
 		mux.c.scan_lock_result = db_mux.c.scan_lock_result;
+		mux.c.epg_scan_completeness = db_mux.c.epg_scan_completeness;
 		mux.c.scan_duration = db_mux.c.scan_duration;
 		mux.c.epg_scan = db_mux.c.epg_scan;
 	}
@@ -705,6 +706,9 @@ bool chdb::is_same(const mux_common_t& a, const mux_common_t& b) {
 		return false;
 
 	if (!(a.scan_result == b.scan_result))
+		return false;
+
+	if (!(a.epg_scan_completeness == b.epg_scan_completeness))
 		return false;
 
 	if (!(a.scan_lock_result == b.scan_lock_result))

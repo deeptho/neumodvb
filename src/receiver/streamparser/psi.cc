@@ -329,16 +329,21 @@ namespace dtdemux {
 
 }; // namespace dtdemux
 
-void psi_parser_t::parse_payload_unit_init() {
+void psi_parser_t::parse_payload_unit_init(parser_status_t& parser_status) {
 	auto new_play_time = parent.event_handler.pcr_play_time();
 	assert(new_play_time >= this->last_play_time);
 	this->last_play_time = new_play_time;
 	bool parse_only_section_header = false;
 	section_parser_t::parse_payload_unit_(parse_only_section_header);
+	if(has_error()) {
+		dtdebugf("Resetting parser_status becauase of error");
+		auto& hdr = *header();
+		parser_status.reset(hdr);
+	}
 }
 
 void pmt_parser_t::parse_payload_unit() {
-	parse_payload_unit_init();
+	parse_payload_unit_init(parser_status);
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
@@ -375,7 +380,7 @@ void pmt_parser_t::parse_payload_unit() {
 }
 
 void pat_parser_t::parse_payload_unit() {
-	parse_payload_unit_init();
+	parse_payload_unit_init(parser_status);
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
@@ -420,7 +425,7 @@ void pat_parser_t::parse_payload_unit() {
 }
 
 void nit_parser_t::parse_payload_unit() {
-	parse_payload_unit_init();
+	parse_payload_unit_init(parser_status);
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
@@ -463,7 +468,7 @@ void nit_parser_t::parse_payload_unit() {
 
 void sdt_bat_parser_t::parse_payload_unit() {
 	dttime_init();
-	parse_payload_unit_init();
+	parse_payload_unit_init(parser_status);
 	RETURN_ON_ERROR;
 	auto& hdr = *header();
 
@@ -535,7 +540,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 }
 
 void eit_parser_t::parse_payload_unit() {
-	parse_payload_unit_init();
+	parse_payload_unit_init(parser_status);
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
@@ -622,7 +627,7 @@ int64_t eit_parser_t::callback_delay;
 #endif
 
 void mhw2_parser_t::parse_payload_unit() {
-	parse_payload_unit_init();
+	parse_payload_unit_init(parser_status);
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();

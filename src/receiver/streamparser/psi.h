@@ -337,7 +337,7 @@ namespace dtdemux {
 		virtual ~psi_parser_t() {
 		}
 
-		void parse_payload_unit_init();
+		void parse_payload_unit_init(parser_status_t& parser_status);
 	};
 
 	struct nit_parser_t : public psi_parser_t

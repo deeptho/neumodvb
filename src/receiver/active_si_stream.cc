@@ -2240,7 +2240,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		bool done = network_done(epg.service_key.network_id);
 		return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 	}
-	auto wtxn = epgdbmgr.wtxn(); //this wtxn will really only be created at first use
+	auto epg_wtxn = epgdbmgr.wtxn(); //this wtxn will really only be created at first use
 	for (auto& epg_record : epg.epg_records) {
 		// assert(!epg.is_sky || p_mux_key->mux_key.network_id == epg_record.k.service.network_id);
 		// assert(!epg.is_sky || p_mux_key->mux_key.ts_id == epg_record.k.service.ts_id);
@@ -2269,7 +2269,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				dtdebug_nicef("Cannot enter SKYUK_EPG summary records, because title with channel_id_id={:d} and event_id={:d}"
 											" has not been found yet{:s}",
 											epg.channel_id, epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
-				wtxn.abort();
+				epg_wtxn.abort();
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 			}
 			std::tie(epg_record.k.start_time, epg_record.end_time) = it->second;
@@ -2280,15 +2280,14 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				dtdebugf("Cannot enter MHW2_EPG summary records, because title with event_id={:d}"
 								 " has not been found yet{:s}",
 								 epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
-				wtxn.abort();
+				epg_wtxn.abort();
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 			}
 			std::tie(epg_record.k.service, epg_record.k.start_time, epg_record.end_time) = it->second;
 		}
-		bool updated = epgdb::save_epg_record_if_better_update_input(wtxn, epg_record);
-
+		bool updated = epgdb::save_epg_record_if_better_update_input(epg_wtxn, epg_record);
 		if (updated) {
-			active_adapter().tuner_thread.on_epg_update(wtxn, now, epg_record);
+			active_adapter().tuner_thread.on_epg_update(epg_wtxn, now, epg_record);
 			updated_records++;
 		} else
 			existing_records++;

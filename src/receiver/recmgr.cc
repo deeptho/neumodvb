@@ -95,20 +95,16 @@ void recmgr_thread_t::delete_recording(const recdb::rec_t& rec) {
 	auto parent_txn = receiver.recdb.wtxn();
 	delete_record(parent_txn, rec);
 	parent_txn.commit();
-	auto epg_txn = receiver.epgdb.wtxn();
+	auto epg_wtxn = receiver.epgdb.wtxn();
 	// update epgdb.mdb so that gui code can see the record
-	auto c = epgdb::epg_record_t::find_by_key(epg_txn, rec.epg.k);
+	auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, rec.epg.k);
 	if (c.is_valid()) {
 		auto epg = c.current();
 		epg.rec_status = epgdb::rec_status_t::NONE;
 		assert(epg.k.anonymous == (epg.k.event_id == TEMPLATE_EVENT_ID));
-#if 0
-		epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epg);
-#else
 		epgdb::update_record_at_cursor(c, epg);
-#endif
 	}
-	epg_txn.commit();
+	epg_wtxn.commit();
 }
 
 /*
@@ -295,14 +291,14 @@ void recmgr_thread_t::startup(system_time_t now_) {
 																							 rec_t::partial_keys_t::rec_status);
 		for (auto rec : cr.range()) {
 			if (rec.epg.end_time <= now) {
-				auto epg_txn = receiver.epgdb.wtxn();
-				auto c = epgdb::epg_record_t::find_by_key(epg_txn, rec.epg.k);
+				auto epg_wtxn = receiver.epgdb.wtxn();
+				auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, rec.epg.k);
 				if (c.is_valid()) {
 					auto epg = c.current();
 					epg.rec_status = epgdb::rec_status_t::NONE;
 					epgdb::update_record_at_cursor(c, epg);
 				}
-				epg_txn.commit();
+				epg_wtxn.commit();
 			}
 		}
 	};
@@ -348,19 +344,17 @@ void recmgr_thread_t::startup(system_time_t now_) {
 			dtdebugf("Finalising unfinised recording: at start up: {}", rec);
 			rec.epg.rec_status = rec_status_t::FINISHED;
 			recdb::update_record_at_cursor(cr.maincursor, rec);
-			auto epg_txn = receiver.epgdb.wtxn();
-			auto c = epgdb::epg_record_t::find_by_key(epg_txn, rec.epg.k);
+			auto epg_wtxn = receiver.epgdb.wtxn();
+			lmdb_file=__FILE__; lmdb_line=__LINE__;
+			auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, rec.epg.k);
 			if (c.is_valid()) {
 				auto epg = c.current();
 				epg.rec_status = epgdb::rec_status_t::NONE;
 				assert(epg.k.anonymous == (epg.k.event_id == TEMPLATE_EVENT_ID));
-#if 0
-				epgdb::put_record_at_key(c, c.current_serialized_primary_key(), epg);
-#else
 				epgdb::update_record_at_cursor(c, epg);
-#endif
 			}
-			epg_txn.commit();
+			lmdb_file=__FILE__; lmdb_line=__LINE__;
+			epg_wtxn.commit();
 		}
 	}
 	parent_txn.commit();

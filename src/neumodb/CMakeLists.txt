@@ -1,4 +1,4 @@
-find_package(Python 3.7 REQUIRED) #3.5 is minimum version
+find_package(Python 3.7 REQUIRED) #3.7 is minimum version
 find_package(PythonLibs 3.7 REQUIRED)
 include_directories("${PYTHON_INCLUDE_DIR}")
 

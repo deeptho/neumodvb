@@ -139,7 +139,7 @@ int active_si_data_t::epg_completeness()
 		num_sections_present += c.num_known;
 		num_sections_processed += c.num_completed;
 	}
-	return num_sections_processed > 0 ? (100*num_sections_present+50)/num_sections_processed : 0;
+	return num_sections_processed > 0 ? (100*num_sections_processed)/num_sections_present : 0;
 }
 
 /*
@@ -955,7 +955,9 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 		auto eit_section_cb = [this](epg_t& epg, const subtable_info_t& i) { return this->eit_section_cb(epg, i); };
 
 		if (is_skyuk) {
-			for (auto pid = dtdemux::ts_stream_t::PID_SKY_TITLE_LOW; pid <= dtdemux::ts_stream_t::PID_SKY_TITLE_HIGH; ++pid) {
+			for (auto pid = dtdemux::ts_stream_t::PID_SKY_TITLE_LOW;
+					 pid <= dtdemux::ts_stream_t::PID_SKY_TITLE_HIGH; ++pid) {
+				eit_data.sky_title_pids_present++;
 				ndc_prefix.clear();
 				ndc_prefix.format("{:s} SKYT", ls.c_str());
 				add_parser<dtdemux::eit_parser_t>(pid, ndc_prefix, chdb::epg_type_t::SKYUK)->section_cb = eit_section_cb;
@@ -2164,7 +2166,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		cidx = scan_state_t::FST_EPG;
 
 	auto& c = eit_data.subtable_counts[info.pid];
-	c.num_completed = epg.num_subtables_completed;
+	c.num_completed= epg.num_subtables_completed;
 	c.num_known = epg.num_subtables_known;
 
 	assert(tune_confirmation.sat_by != confirmed_by_t::NONE);
@@ -2177,8 +2179,6 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		return dtdemux::reset_type_t::NO_RESET;
 	} else
 		scan_state.set_active(cidx);
-
-	dttime_init();
 
 	auto stream_mux = reader->stream_mux();
 	auto stream_mux_key = mux_key_ptr(stream_mux);
@@ -2265,7 +2265,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 			auto [it, found] =
 				find_in_map(eit_data.otv_times_for_event_id, std::make_tuple(epg.channel_id, epg_record.k.event_id));
 			if (!found) {
-				bool done = false;
+				bool done = eit_data.sky_title_done();
 				dtdebug_nicef("Cannot enter SKYUK_EPG summary records, because title with channel_id_id={:d} and event_id={:d}"
 											" has not been found yet{:s}",
 											epg.channel_id, epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
@@ -2293,9 +2293,11 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		} else
 			existing_records++;
 	}
-	dttime(2000);
-	wtxn.commit();
-	dttime(2000);
+
+	if(epg.is_sky_title & info.completed) {
+		eit_data.sky_title_pids_completed++;
+	}
+	epg_wtxn.commit();
 	return dtdemux::reset_type_t::NO_RESET;
 }
 

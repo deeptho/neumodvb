@@ -110,7 +110,13 @@ namespace dtdemux {
 		bool completed = false;
 		uint32_t section_flags[16]{0};
 		inline bool set_flag(int idx);
+#if 0
+		inline void unset_flag(int idx);
+#endif
 		inline section_type_t set_flag(const section_header_t& hdr);
+#if 0
+		inline void unset_flag(const section_header_t& hdr);
+#endif
 		completion_status_t() = default;
 
 		inline completion_status_t(const section_header_t& hdr);
@@ -152,11 +158,14 @@ namespace dtdemux {
 	returns: timedout, new_subtable_version, section_type
  */
 		std::tuple<bool, bool, section_type_t> check(const section_header_t& hdr, int cc_error_counter);
-
+#if 0
+		void forget_section(const section_header_t& hdr);
+#endif
 		std::tuple<int, int> get_counts() const {
 			return std::make_tuple(count_completed, cstates.size());
 		}
-
-		void dump_cstates();
+#if 0
+		void dump_cstates(int pid);
+#endif
 	};
 }

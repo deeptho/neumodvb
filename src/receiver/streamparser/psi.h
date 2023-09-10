@@ -50,7 +50,8 @@ namespace dtdemux {
 		bool timedout{false};
 		subtable_info_t() = default;
 		subtable_info_t(int pid, bool is_actual,
-										int table_id, int version_number, int num_sections_present, bool completed, bool timedout)
+										int table_id, int version_number,
+										int num_sections_present, bool completed, bool timedout)
 			: pid(pid)
 			, is_actual(is_actual)
 			,	table_id(table_id)
@@ -337,7 +338,7 @@ namespace dtdemux {
 		virtual ~psi_parser_t() {
 		}
 
-		void parse_payload_unit_init(parser_status_t& parser_status);
+		void parse_payload_unit_init();
 	};
 
 	struct nit_parser_t : public psi_parser_t

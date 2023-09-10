@@ -203,7 +203,7 @@ namespace dtdemux {
 		if (!is_stuffing) {
 			if (!parse_only_section_header && hdr.section_syntax_indicator &&
 					!crc_is_correct(payload)) { // CA sections may not have a crc!
-				dtdebugf("Skipping bad section (CRC error) pid=0x{:x}", pid);
+				dtdebugf("Skipping bad section (CRC error) section_number={} pid=0x{:x}", hdr.section_number, pid);
 				THROW_BAD_DATA;
 				RETURN_ON_ERROR;
 			}
@@ -329,21 +329,16 @@ namespace dtdemux {
 
 }; // namespace dtdemux
 
-void psi_parser_t::parse_payload_unit_init(parser_status_t& parser_status) {
+void psi_parser_t::parse_payload_unit_init() {
 	auto new_play_time = parent.event_handler.pcr_play_time();
 	assert(new_play_time >= this->last_play_time);
 	this->last_play_time = new_play_time;
 	bool parse_only_section_header = false;
 	section_parser_t::parse_payload_unit_(parse_only_section_header);
-	if(has_error()) {
-		dtdebugf("Resetting parser_status becauase of error");
-		auto& hdr = *header();
-		parser_status.reset(hdr);
-	}
 }
 
 void pmt_parser_t::parse_payload_unit() {
-	parse_payload_unit_init(parser_status);
+	parse_payload_unit_init();
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
@@ -380,7 +375,7 @@ void pmt_parser_t::parse_payload_unit() {
 }
 
 void pat_parser_t::parse_payload_unit() {
-	parse_payload_unit_init(parser_status);
+	parse_payload_unit_init();
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
@@ -425,7 +420,7 @@ void pat_parser_t::parse_payload_unit() {
 }
 
 void nit_parser_t::parse_payload_unit() {
-	parse_payload_unit_init(parser_status);
+	parse_payload_unit_init();
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
@@ -468,7 +463,7 @@ void nit_parser_t::parse_payload_unit() {
 
 void sdt_bat_parser_t::parse_payload_unit() {
 	dttime_init();
-	parse_payload_unit_init(parser_status);
+	parse_payload_unit_init();
 	RETURN_ON_ERROR;
 	auto& hdr = *header();
 
@@ -523,7 +518,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 			success = parse_bat_section(section, bouquet);
 		}
 		if (success || timedout) {
-			dtdebugf("bat_cb bouquet={:d} vers={:d} sec={:d}/{:d} done={:d} timedout={:d}\n", bouquet.bouquet_id,
+			dtdebug_nicef("bat_cb bouquet={:d} vers={:d} sec={:d}/{:d} done={:d} timedout={:d}\n", bouquet.bouquet_id,
 						 hdr.version_number, hdr.section_number, hdr.last_section_number + 1, done, timedout);
 			subtable_info_t info{pid, true, hdr.table_id, hdr.version_number, hdr.last_section_number + 1, done, timedout};
 			auto must_reset = bat_section_cb(bouquet, info);
@@ -540,7 +535,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 }
 
 void eit_parser_t::parse_payload_unit() {
-	parse_payload_unit_init(parser_status);
+	parse_payload_unit_init();
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();
@@ -556,7 +551,7 @@ void eit_parser_t::parse_payload_unit() {
 	bool completed_now = (section_type == section_type_t::LAST);
 	assert(!(must_process && badversion));
 	if (completed_now)
-		dtdebugf("Parser completed");
+		dtdebugf("Parser: table completed");
 	epg_t epg;
 	std::tie(epg.num_subtables_completed, epg.num_subtables_known) = parser_status.get_counts();
 
@@ -627,7 +622,7 @@ int64_t eit_parser_t::callback_delay;
 #endif
 
 void mhw2_parser_t::parse_payload_unit() {
-	parse_payload_unit_init(parser_status);
+	parse_payload_unit_init();
 	RETURN_ON_ERROR;
 
 	auto& hdr = *header();

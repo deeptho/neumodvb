@@ -285,6 +285,12 @@ struct eit_data_t {
 	int eit_actual_existing_records{0};
 	int eit_other_updated_records{0};
 	int eit_other_existing_records{0};
+	int sky_title_pids_present{0};
+	int sky_title_pids_completed{0};
+
+	inline bool sky_title_done() const {
+		return sky_title_pids_present ==  sky_title_pids_completed;
+	}
 
 	struct subtable_count_t {
 		int num_known{0};
@@ -656,7 +662,22 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 				++it;
 		}
 	}
-
+#if 0
+	inline void dump_parsers() {
+		auto it = parsers.begin();
+		dtdebugf("dumping skyt");
+		while(it != parsers.end()) {
+			auto& [pid, slot] = *it;
+			if((int)pid >=0x30 && (int)pid < 0x38) {
+				eit_parser_t& p = dynamic_cast<eit_parser_t&>(*slot.p);
+				auto& parser_status = p.parser_status;
+				parser_status.dump_cstates((int)pid);
+			}
+			++it;
+		}
+		dtdebugf("dumping skyt done");
+	}
+#endif
 	/*
 		request pareser to be removed at a time when it is safe
 	 */

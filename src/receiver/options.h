@@ -52,7 +52,13 @@ struct neumo_options_t {
 	std::string mpvconfig{"mpv"};
 
 	devdb::usals_location_t usals_location;
+	bool tune_use_blind_tune{false};
+	bool positioner_dialog_use_blind_tune{false};
+	bool scan_use_blind_tune{false};
+
 	bool tune_may_move_dish{false};
+	bool scan_may_move_dish{false};
+
 	int32_t dish_move_penalty{100}; //penalty for having to move dish; reduces priority
 	int32_t resource_reuse_bonus{1000}; //penalty for having to move dish; increases priority
 
@@ -67,11 +73,11 @@ struct neumo_options_t {
 
 	std::chrono::seconds livebuffer_mpm_part_duration{300s}; //duration of an mpm part
 
+	std::chrono::seconds max_scan_duration{180s}; /*after this time, scan will be forcefull ended*/
 
 	neumo_options_t()
 		{}
 
 	EXPORT void load_from_db(db_txn& devdb_wtxn, int32_t user_id=0);
 	EXPORT void save_to_db(db_txn& devdb_wtxn, int32_t user_id=0);
-	EXPORT void save_usals_location(db_txn& wtxn);
 };

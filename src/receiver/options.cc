@@ -26,13 +26,19 @@ void neumo_options_t::load_from_db(db_txn& devdb_wtxn, int32_t user_id)
 	if(c.is_valid()) {
 		const auto & u = c.current();
 		this->usals_location = u.usals_location;
-#if 0
+
+		this->tune_use_blind_tune = u.tune_use_blind_tune;
+		this->positioner_dialog_use_blind_tune = u.positioner_dialog_use_blind_tune;
+		this->scan_use_blind_tune = u.scan_use_blind_tune;
 		/*the following are disabled for now, as there is no
 			GUI to set them
 		*/
+#if 0
 		this->tune_may_move_dish = u.tune_may_move_dish;
+		this->scan_may_move_dish = u.scan_may_move_dish;
 		this->dish_move_penalty = u.dish_move_penalty;
 		this->resource_reuse_bonus = u.resource_reuse_bonus;
+
 		this->pre_record_time = std::chrono::seconds(u.pre_record_time);
 		this->post_record_time = std::chrono::seconds(u.post_record_time);
 		this->max_pre_record_time = std::chrono::seconds(u.max_pre_record_time);
@@ -55,6 +61,14 @@ void neumo_options_t::save_to_db(db_txn& devdb_wtxn, int32_t user_id)
 	u.user_id = user_id;
 	u.mtime = system_clock_t::to_time_t(now);
 	u.usals_location = this->usals_location;
+	this->tune_use_blind_tune = u.tune_use_blind_tune;
+	this->positioner_dialog_use_blind_tune = u.positioner_dialog_use_blind_tune;
+	this->scan_use_blind_tune = u.scan_use_blind_tune;
+	u.tune_may_move_dish = this->tune_may_move_dish;
+	u.scan_may_move_dish = this->scan_may_move_dish;
+	u.dish_move_penalty = this->dish_move_penalty;
+	u.resource_reuse_bonus = this->resource_reuse_bonus;
+
 	u.pre_record_time = this->pre_record_time.count();
 	u.max_pre_record_time = this->max_pre_record_time.count();
 	u.post_record_time  = this->post_record_time.count();
@@ -62,12 +76,6 @@ void neumo_options_t::save_to_db(db_txn& devdb_wtxn, int32_t user_id)
 	u.timeshift_duration = this->timeshift_duration.count();
 	u.livebuffer_retention_time = this->livebuffer_retention_time.count();
 	u.livebuffer_mpm_part_duration = this->livebuffer_mpm_part_duration.count();
-	u.dish_move_penalty = this->dish_move_penalty;
-	u.resource_reuse_bonus = this->resource_reuse_bonus;
-	put_record(devdb_wtxn, u);
-}
 
-void neumo_options_t::save_usals_location(db_txn& devdb_wtxn)
-{
-	save_to_db(devdb_wtxn);
+	put_record(devdb_wtxn, u);
 }

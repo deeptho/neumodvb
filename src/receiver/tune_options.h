@@ -103,6 +103,8 @@ struct spectrum_scan_options_t {
 
 struct tune_options_t {
 	scan_target_t scan_target;
+	std::chrono::seconds max_scan_duration{180s}; /*after this time, scan will be forcefull ended*/
+
 	tune_mode_t tune_mode;
 	bool use_blind_tune{false};
 	bool may_move_dish{true};
@@ -125,8 +127,8 @@ struct tune_options_t {
 	subscription_type_t subscription_type{subscription_type_t::NORMAL};
 
 	tune_options_t(scan_target_t scan_target =  scan_target_t::SCAN_FULL,
-													 tune_mode_t tune_mode= tune_mode_t::NORMAL,
-													subscription_type_t subscription_type = subscription_type_t::NORMAL)
+								 tune_mode_t tune_mode= tune_mode_t::NORMAL,
+								 subscription_type_t subscription_type = subscription_type_t::NORMAL)
 		: scan_target(scan_target)
 		, tune_mode(tune_mode)
 		, subscription_type(subscription_type)

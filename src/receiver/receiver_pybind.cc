@@ -136,6 +136,8 @@ static void export_receiver(py::module& m) {
 				 py::overload_cast<const chdb::service_t&, time_t, int, const char*>(&receiver_t::toggle_recording),
 				 "Toggle recording the current service.", py::arg("service"), py::arg("start"), py::arg("duration"),
 				 py::arg("event_name"))
+		.def("get_default_tune_options", &receiver_t::get_default_tune_options,
+				 py::arg("for_scan"))
 		.def("get_api_type", &receiver_t::get_api_type)
 		.def("get_options", &receiver_t::get_options)
 		.def("set_options", &receiver_t::set_options, py::arg("options"))

@@ -1357,6 +1357,7 @@ receiver_t::receiver_t(const neumo_options_t* options)
 	if(options) {
 		auto w = this->options.writeAccess();
 		*w = *options;
+		//options will be overwritten by values in db, when calling init below
 	}
 	set_logconfig(options->logconfig.c_str());
 	identify();
@@ -1795,6 +1796,19 @@ int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, d
 			return 0;
 		}).wait();
 	}
+	return ret;
+}
+
+tune_options_t receiver_t::get_default_tune_options(bool for_scan) const
+{
+	//auto &o =options;
+	auto r = options.readAccess();
+	tune_options_t ret;
+	ret.use_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
+	if (for_scan)
+		ret.subscription_type = subscription_type_t::SCAN;
+	ret.may_move_dish = for_scan ? r->scan_may_move_dish: r->tune_may_move_dish;
+	ret.max_scan_duration = 	r->max_scan_duration;
 	return ret;
 }
 

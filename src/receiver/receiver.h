@@ -572,6 +572,7 @@ public:
 	EXPORT std::tuple<std::string, int> get_api_type() const;
 
 	EXPORT void renumber_card(int old_number, int new_number);
+	EXPORT tune_options_t get_default_tune_options(bool for_scan) const;
 
 	inline std::shared_ptr<dvb_frontend_t> fe_for_dbfe(const devdb::fe_key_t& fe_key) const {
 		return receiver_thread.fe_for_dbfe(fe_key);

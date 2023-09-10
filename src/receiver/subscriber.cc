@@ -97,7 +97,7 @@ int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 														 ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
 														 ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
-														 const tune_options_t& tune_options) {
+														 const std::optional<tune_options_t>& tune_options_) {
 	{
 		auto w = notification.writeAccess();
 		auto & n = *w;
@@ -105,6 +105,10 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 		n.rf_path = {};
 		//todo: allow multiple scans on different sats/lnbs
 	}
+
+	auto& tune_options = tune_options_ ? *tune_options_ :
+		receiver->get_default_tune_options(true /*for scan*/);
+
 	subscription_id_t ret{subscription_id};
 	if(dvbs_muxes.size() > 0) {
 		ret = receiver->scan_muxes(dvbs_muxes, tune_options, subscription_id);
@@ -127,7 +131,6 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 			return (int) ret;
 	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
-	printf("Setting %p = %d\n", this, (int)this->subscription_id);
 	return (int)subscription_id;
 }
 

@@ -47,8 +47,8 @@ void export_tune_options(py::module& m) {
 void export_options(py::module& m) {
 	py::class_<neumo_options_t>(m, "options_t")
 		.def(py::init<>(), "Options for neumodvb; set before use")
-		.def("load_from_db", &neumo_options_t::load_from_db, py::arg("devdb_wtxn"), py::arg("user_id")=0)
-		.def("save_usals_location", &neumo_options_t::save_usals_location)
+		.def("load_from_db", &neumo_options_t::load_from_db, py::arg("devdb_rtxn"), py::arg("user_id")=0)
+		.def("save_to_db", &neumo_options_t::save_to_db, py::arg("devdb_wtxn"), py::arg("user_id")=0)
 		.def_readwrite("upgrade_dir", &neumo_options_t::upgrade_dir)
 		.def_readwrite("live_path", &neumo_options_t::live_path)
 		.def_readwrite("recordings_path", &neumo_options_t::recordings_path)
@@ -65,6 +65,9 @@ void export_options(py::module& m) {
 		.def_readwrite("radiobg_svg", &neumo_options_t::radiobg_svg)
 		.def_readwrite("mpvconfig", &neumo_options_t::mpvconfig)
 		.def_readwrite("usals_location", &neumo_options_t::usals_location)
+		.def_readwrite("tune_use_blind_tune", &neumo_options_t::tune_use_blind_tune)
+		.def_readwrite("positioner_dialog_use_blind_tune", &neumo_options_t::positioner_dialog_use_blind_tune)
+		.def_readwrite("scan_use_blind_tune", &neumo_options_t::scan_use_blind_tune)
 		.def_readwrite("dish_move_penalty", &neumo_options_t::dish_move_penalty)
 		.def_readwrite("pre_record_time", &neumo_options_t::pre_record_time)
 		.def_readwrite("post_record_time", &neumo_options_t::post_record_time,

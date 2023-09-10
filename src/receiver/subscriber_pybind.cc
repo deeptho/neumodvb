@@ -165,7 +165,7 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 }
 
 static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
-											const tune_options_t& tune_options) {
+											const std::optional<tune_options_t>& tune_options) {
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
 	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
 	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;
@@ -190,6 +190,7 @@ static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
 				ok=true;
 			} catch (py::cast_error& e) {}
 	}
+
 	auto ret = subscriber.scan_muxes(dvbs_muxes, dvbc_muxes, dvbt_muxes, tune_options);
 	return ret;
 }

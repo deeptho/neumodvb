@@ -135,7 +135,7 @@ public:
 	EXPORT int scan_muxes(const ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 								 const ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
 												const ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
-												const tune_options_t& tune_options);
+												const std::optional<tune_options_t>& tune_options);
 
 	EXPORT int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 #if 0

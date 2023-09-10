@@ -989,10 +989,10 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 	auto chdb_wtxn = receiver.chdb.wtxn();
 	auto scan_id = make_scan_id(scan_subscription_id);
 	dtdebugf("MAKE SCAN_ID: pid=0x{:x} subscription_id={:d} ret={:d}\n", getpid(), (int)scan_subscription_id, scan_id);
-	/* ensure that empty entry exists. This camn be used to set required_lnb and such
+	/* ensure that empty entry exists. This can be used to set required_lnb and such
 	 */
 	/*
-		The followuing call enter default tune_options if needed
+		The following call also created default tune_options if needed
 	 */
 	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, tune_options, scan_subscription_id);
 	bool init = inserted;

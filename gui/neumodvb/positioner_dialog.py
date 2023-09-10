@@ -132,14 +132,15 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.GetParent().Bind(EVT_LNB_SELECT, self.CmdSelectLnb)
         self.GetParent().Bind(EVT_RF_PATH_SELECT, self.CmdSelectRfPath)
         self.GetParent().Bind(EVT_MUX_SELECT, self.CmdSelectMux)
-
+        opts =  wx.GetApp().receiver.get_options()
         self.positioner_mux_sel.SetSat(self.sat)
         self.last_selected_mux = None if self.mux is None else self.mux.copy()
         self.lnb_changed = False
         self.mux_subscriber_ = None
         self.tuned_ = False
         self.lnb_activated_ = False
-        self.use_blindscan_ = False
+        self.use_blindscan_ = opts.positioner_dialog_use_blind_tune
+        self.blind_toggle.SetValue(self.use_blindscan_)
         self.retune_mode_ =  pyreceiver.retune_mode_t.IF_NOT_LOCKED
         self.signal_info = pyreceiver.signal_info_t()
         self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
@@ -195,7 +196,7 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     @use_blindscan.setter
     def use_blindscan(self, value):
-        self.blind_toggle.SetValue(value)
+        self.parent.save_use_blindscan(value)
         self.use_blindscan_ = value
 
     @property
@@ -455,7 +456,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         event.Skip()
 
     def OnToggleBlindscan(self, event):
-        self.use_blindscan_ = event.IsChecked()
+        self.use_blindscan = event.IsChecked()
         dtdebug(f"OnToggleBlindscan={self.use_blindscan_}")
         event.Skip()
 
@@ -930,16 +931,21 @@ class PositionerDialog(PositionerDialog_):
         opts =  receiver.get_options()
         return opts.usals_location
 
-    def save_usals_location(self, loc):
+    def save_to_db(self, par, val):
         receiver = wx.GetApp().receiver
         opts =  receiver.get_options()
-        if opts.usals_location != loc:
-            print('saving usals_location')
+        if getattr(opts, par) != val:
             devdb_wtxn = receiver.devdb.wtxn()
-            opts.usals_location = loc
-            opts.save_usals_location(devdb_wtxn)
+            setattr(opts, par, val)
+            opts.save_to_db(devdb_wtxn)
             devdb_wtxn.commit()
             receiver.set_options(opts)
+
+    def save_usals_location(self, loc):
+        self.save_to_db("usals_location", loc)
+
+    def save_use_blindscan(self, val):
+        self.save_to_db("positioner_dialog_use_blind_tune", val)
 
     def SetUsalsLocation(self, longitude=None, latitude=None):
         loc = self.get_usals_location()

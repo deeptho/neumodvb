@@ -404,12 +404,17 @@ class scanner_t {
 	inline static uint32_t make_scan_id(subscription_id_t subscription_id) {
 		return (getpid() <<8)| (int) subscription_id;
 	}
-
 	subscription_id_t scan_subscription_id_for_scan_id(uint32_t scan_id);
 public:
 	scanner_t(receiver_thread_t& receiver_thread_, int max_num_subscriptions);
 	using stats_t = safe::Safe<scan_stats_t>;
 	~scanner_t();
+
+	inline static uint32_t check_scan_id(uint32_t scan_id) {
+		auto pid = getpid();
+		return ((scan_id >> 8) == pid) ?  scan_id : 0;
+	}
+
 	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,
 													const signal_info_t& signal_info);
 	void notify_sdt_actual(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,

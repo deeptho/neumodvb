@@ -691,7 +691,7 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
 	/*
 		add an embedded si stream and set the current_mux to to the encapsulating mux
 	 */
-	auto scan_id = mux_common_ptr(mux)->scan_id;
+	auto scan_id = scanner_t::check_scan_id(mux_common_ptr(mux)->scan_id);
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 	if (dvbs_mux && dvbs_mux->k.t2mi_pid >= 0) {
 		dtdebugf("mux {} is an embedded stream", *dvbs_mux);
@@ -844,7 +844,7 @@ void active_adapter_t::check_for_new_streams()
 	};
 	auto* mux_key = mux_key_ptr(signal_info.driver_mux);
 	auto* c = mux_common_ptr(signal_info.driver_mux);
-	auto scan_id = c->scan_id;
+	auto scan_id = scanner_t::check_scan_id(c->scan_id);
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
 
 	auto tuned_mux = current_tp();

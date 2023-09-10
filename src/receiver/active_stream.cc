@@ -268,7 +268,7 @@ chdb::any_mux_t dvb_stream_reader_t::stream_mux() const {
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::mux_common_ptr(mux)->scan_id >0);
+				 scanner_t::check_scan_id(chdb::mux_common_ptr(mux)->scan_id) >0);
 
 	return active_adapter.current_tp();
 }

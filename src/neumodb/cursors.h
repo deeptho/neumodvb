@@ -236,16 +236,20 @@ struct db_txn : public lmdb::txn {
 		assert(this->_handle);
 		if(readonly)
 			this->lmdb::txn::reset();
-		else
+		else {
 			this->lmdb::txn::commit();
+			this->_handle = nullptr;
+		}
 	}
 
 	void abort() noexcept {
 		assert(this->_handle);
 		if(readonly)
 			this->lmdb::txn::reset();
-		else
+		else {
 			this->lmdb::txn::abort();
+			this->_handle = nullptr;
+		}
 	}
 
 	void renew() {
@@ -255,9 +259,12 @@ struct db_txn : public lmdb::txn {
 	}
 
 	~db_txn() {
+		assert(!this->_handle||readonly);
 		if (num_cursors!=0)
 			dterrorf("Implementation error: Transaction ends while cursors are still active: {}", num_cursors);
 		assert(num_cursors==0);
+		if(!readonly)
+			this->_handle = nullptr;
 	}
 };
 

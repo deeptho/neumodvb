@@ -120,13 +120,19 @@ def setsubattr_obj(o, k, val):
 class get_processed_options(object):
     """
     read paths and default options from various config files
-    Then overwritew options with cureent values stored in the database
-    However, paths are not stored in the database
+
+    Note that options will be  overwritten by values stored in the database.
+    This happens when  the receiver c++ object is created: it is passed the options object
+    that we read and construct here, only used to provide initial values for the database
+
+    Note that some options cannot be overriden by database values. For example, filesystem paths
+    are needed to locate the database and cannot be stored in the database
+
     """
     def __init__(self):
         relative_files = ('logconfig', 'gui', 'css', 'mpvconfig')
-        o =options_t()
-        c= get_config()
+        o = options_t()
+        c = get_config()
         cfg = get_configfile(c['LOGGING']['logconfig'])
         o.upgrade_dir =  str(pathlib.Path(maindir(), 'upgrade'))
         set_logconfig(cfg)

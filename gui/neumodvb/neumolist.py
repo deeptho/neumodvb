@@ -1393,10 +1393,23 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.MakeCellVisible(self.GetNumberRows()-1, 0)
         wx.CallAfter(self.SetGridCursor, self.GetNumberRows()-1, 0)
 
+    def CmdNew(self, event):
+        dtdebug("CmdNew")
+        f = wx.GetApp().frame
+        if not f.edit_mode:
+            f.SetEditMode(True)
+        self.OnNew(event)
+
     def OnDelete(self, evt):
         dtdebug(f"delete record row={self.GetGridCursorRow()} col={self.GetGridCursorCol()}; " \
                 "SELECTED ROWS={self.GetSelectedRows()}")
         wx.CallAfter(self.table.DeleteRows, self.GetSelectedRows())
+
+    def CmdDelete(self, event):
+        dtdebug("CmdDelete")
+        self.OnDelete(event)
+        return False
+
     def OnEditMode(self, evt):
         self.app.frame.ToggleEditMode()
 

@@ -202,6 +202,13 @@ class FilterDialog(FilterDialog_):
     def OnNew(self, event):
         event.Skip()
 
+    def CmdNew(self, event):
+        dtdebug("CmdNew")
+        f = wx.GetApp().frame
+        if not f.parent.edit_mode:
+            f.SetEditMode(True)
+        self.OnNew(event)
+
     def OnDelete(self, evt):
         remove_all = evt.Id
         if remove_all:
@@ -212,6 +219,11 @@ class FilterDialog(FilterDialog_):
             colno = self.grid.GetGridCursorCol()
             self.grid.remove_col(colno)
         evt.Skip()
+
+    def CmdDelete(self, event):
+        dtdebug("CmdDelete")
+        self.OnDelete(event)
+        return False
 
     def OnDone(self, event):
         changed = (self.parent_table.filtered_colnos != self.grid.table.new_filtered_colnos)

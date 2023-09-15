@@ -223,6 +223,13 @@ class LnbConnectionGrid(NeumoGridBase):
         self.EnableEditing(self.app.frame.edit_mode)
         return super().OnNew(evt)
 
+    def CmdNew(self, event):
+        dtdebug("CmdNew")
+        f = wx.GetApp().frame
+        if not f.edit_mode:
+            f.SetEditMode(True)
+        self.OnNew(event)
+
     def OnEditMode(self, evt):
         dtdebug(f'old_mode={self.app.frame.edit_mode}')
         self.app.frame.ToggleEditMode()

@@ -221,7 +221,7 @@ inline int deserialize(const ss::bytebuffer_ & ser, ss::string_& str, int offset
 	if(size>0)
 		size -= 1; //stored size includes traling zero
 	if(size>0) {
-		if(offset + (signed)size > ser.size()) {
+		if(size > (unsigned) (ser.size() - offset)) {
 			//printf("Insufficient data to deserialise\n");
 			return -1;
 		}

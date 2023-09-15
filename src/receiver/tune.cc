@@ -326,7 +326,7 @@ int tuner_thread_t::run() {
 					}
 					dttime_init();
 					ss::string<128> prefix;
-					prefix.format("TUN{}-MON", active_adapter.get_adapter_no());
+					prefix.format("MON", active_adapter.get_adapter_no());
 					log4cxx::NDC ndc(prefix.c_str());
 					active_adapter.monitor();
 					auto delay = dttime(-1);

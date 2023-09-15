@@ -709,11 +709,11 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
 		}
 		return master_mux;
 	} else {
-		if(!add_to_running_mux)
-			set_current_tp(mux);
 		if(scan_id > 0) {
 			si.activate_scan(mux, subscription_id, scan_id);
 		}
+		if(!add_to_running_mux)
+			set_current_tp(mux);
 		return mux;
 	}
 }

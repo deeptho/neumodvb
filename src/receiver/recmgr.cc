@@ -63,7 +63,8 @@ void recmgr_thread_t::remove_old_livebuffers() {
 			}
 			rec_txn.commit();
 			copy_command.run();
-		}
+		} else
+			rec_txn.abort();
 		std::error_code ec;
 		bool ret = fs::remove_all(path, ec);
 		if (ec) {

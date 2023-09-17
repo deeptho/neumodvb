@@ -1007,7 +1007,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
         self.HideRowLabels()
         #self.SetDefaultCellBackgroundColour('yellow')
-        #self.Bind ( wx.EVT_WINDOW_DESTROY, self.OnDestroyWindow )
         self.Bind ( wx.EVT_WINDOW_CREATE, self.OnWindowCreate )
         self.Parent.Bind ( wx.EVT_SHOW, self.OnShowHide )
         self.Bind ( wx.grid.EVT_GRID_SELECT_CELL, self.OnGridCellSelect)
@@ -1331,10 +1330,15 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.infow.ShowRecord(self.table, rec)
 
     def OnGridCellSelect(self, evt):
+        has_selection = any(True for _ in self.GetSelectedBlocks())
+
         if self.table.row_being_edited is not None and evt.GetRow() != self.table.row_being_edited:
             self.OnRowSelect(evt.GetRow())
             #if len(self.table.unsaved_edit_undo_list) > 0:
             wx.CallAfter(self.table.SaveModified)
+        elif has_selection and self.table.row_being_edited is None:
+            self.OnRowSelect(evt.GetRow())
+            return #This can be a multi-row selection event (pressing control key)
         elif evt.GetRow() != self.GetGridCursorRow():
             self.OnRowSelect(evt.GetRow())
         else:

@@ -1593,6 +1593,7 @@ void receiver_t::update_playback_info() {
 	}
 }
 
+#if 0
 template<typename mux_t>
 subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
 	ss::vector_<mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
@@ -1620,6 +1621,7 @@ subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
 	}
 	return subscription_id;
 }
+#endif
 
 /*!
 	lnbs: if non-empty, only these lnbs are allowed during scanning (set to nullptr for non-dvbs)

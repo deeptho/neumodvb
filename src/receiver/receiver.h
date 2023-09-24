@@ -406,7 +406,7 @@ public:
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_playback(const recdb::rec_t& rec, subscription_id_t subscription_id);
-
+#if 0
 	template<typename mux_t>
 	subscription_id_t subscribe_scan(ss::vector_<mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
 																	 std::optional<tune_options_t> tune_options={},
@@ -416,6 +416,11 @@ public:
 	subscription_id_t subscribe_scan(ss::vector_<chdb::spectral_peak_t>& muxes, const devdb::lnb_t& lnb,
 																	 bool scan_found_muxes, int max_num_subscriptions, subscription_id_t subscription_id);
 
+	subscription_id_t subscribe_scan(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
+																	 chdb::fe_polarisation_t pol, int32_t low_freq,
+																	 int32_t high_freq, int sat_pos,
+																	 bool scan_found_muxes, int max_num_subscriptions, subscription_id_t subscription_id);
+#endif
 
 	template<typename _mux_t>
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const tune_options_t& tune_options,

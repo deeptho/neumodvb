@@ -30,7 +30,6 @@
 scan_report_t::scan_report_t(const scan_subscription_t& subscription,
 														 const statdb::spectrum_key_t spectrum_key,
 														 const scan_stats_t& scan_stats)
-//: sat_pos(subscription.blindscan_key.sat_pos)
 	: spectrum_key(spectrum_key)
 	, band(subscription.blindscan_key.band)
 	, peak(subscription.peak)
@@ -111,17 +110,21 @@ static void report(const char* msg, subscription_id_t finished_subscription_id,
 bool blindscan_key_t::operator<(const blindscan_key_t& other) const {
 	if(sat_pos != other.sat_pos)
 		return sat_pos < other.sat_pos;
-	if(band != other.band)
-		return band < other.band;
+	if(std::get<0>(band) != std::get<0>(other.band))
+		return (int)std::get<0>(band) < (int)std::get<0>(other.band);
+	if(std::get<1>(band) != std::get<1>(other.band))
+		return (int)std::get<1>(band) < (int)std::get<1>(other.band);
 	if(pol != other.pol)
 		return (int) pol  < (int) other.pol;
 	return false;
 	//return (intptr_t) subscriber  < (intptr_t) other.subscriber;
 }
 
+
+//frequency is translated to band
 blindscan_key_t::blindscan_key_t(int16_t sat_pos, chdb::fe_polarisation_t pol, uint32_t frequency)
 	: sat_pos(sat_pos)
-	, band{frequency >= 11700000 && frequency <= 12800000}
+	, band{chdb::sat_band_for_freq(frequency)}
 	, pol(pol)
 	{}
 
@@ -132,9 +135,9 @@ static inline bool& skip_helper(std::map<blindscan_key_t,bool>& skip_map, const 
 {
 	using namespace chdb;
 	if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
-		return skip_map[blindscan_key_t{mux.k.sat_pos, mux.pol, mux.frequency}];
+		return skip_map[blindscan_key_t{mux.k.sat_pos, mux.pol, mux.frequency}]; //frequency is translated to band
 	} else {
-		return skip_map[blindscan_key_t{mux.k.sat_pos, chdb::fe_polarisation_t::H, mux.frequency}];
+		return skip_map[blindscan_key_t{mux.k.sat_pos, chdb::fe_polarisation_t::H, mux.frequency}]; //frequency is translated to band
 	}
 }
 
@@ -519,7 +522,7 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 				throw std::runtime_error("Exit requested");
 
 			auto pol = get_member(mux_to_scan, pol, chdb::fe_polarisation_t::NONE);
-			blindscan_key_t key = {mux_to_scan.k.sat_pos, pol, mux_to_scan.frequency};
+			blindscan_key_t key = {mux_to_scan.k.sat_pos, pol, mux_to_scan.frequency}; //frequency is translated to band
 			auto [it, found] = find_in_map(blindscans, key);
 			devdb::rf_path_t* required_rf_path{nullptr};
 			if(found) {
@@ -1039,7 +1042,7 @@ int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::v
 	auto& scan = it->second;
 
 	for(const auto& peak: peaks) {
-		blindscan_key_t key = {spectrum_key.sat_pos, spectrum_key.pol, peak.frequency};
+		blindscan_key_t key = {spectrum_key.sat_pos, spectrum_key.pol, peak.frequency};//frequency is translated to band
 		auto& blindscan = scan.blindscans[key];
 		if(!blindscan.valid()) {
 			blindscan.spectrum_key = spectrum_key;

@@ -67,14 +67,7 @@ int16_t devdb::make_unique_id(db_txn& devdb_rtxn, lnb_key_t key) {
 }
 
 static inline const char* lnb_type_str(const lnb_key_t& lnb_key) {
-	const char* t = (lnb_key.lnb_type == lnb_type_t::C) ? "C" :
-		(lnb_key.lnb_type == lnb_type_t::UNIV) ? "unv" :
-		(lnb_key.lnb_type == lnb_type_t::KU) ? "Ku" :
-		(lnb_key.lnb_type == lnb_type_t::KaA) ? "KaA" :
-		(lnb_key.lnb_type == lnb_type_t::KaB) ? "KaB" :
-		(lnb_key.lnb_type == lnb_type_t::KaC) ? "KaC" :
-		(lnb_key.lnb_type == lnb_type_t::KaD) ? "KaD" : "unk";
-	return t;
+	return devdb::to_str(lnb_key.lnb_type);
 }
 
 fmt::format_context::iterator
@@ -125,7 +118,7 @@ fmt::formatter<fe_band_pol_t>::format(const fe_band_pol_t& band_pol, format_cont
 												: band_pol.pol == chdb::fe_polarisation_t::V ? "V"
 												: band_pol.pol == chdb::fe_polarisation_t::L ? "L"
 												: "R",
-												band_pol.band == fe_band_t::HIGH ? "High" : "Low");
+												to_str(band_pol.band));
 }
 
 fmt::format_context::iterator
@@ -198,7 +191,6 @@ devdb::lnb_network_t* devdb::lnb::get_network(lnb_t& lnb, int16_t sat_pos) {
 		return nullptr;
 }
 
-
 static std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool> lnb_band_helper(const devdb::lnb_t& lnb) {
 	auto freq_low = std::numeric_limits<int32_t>::min();
 	auto freq_high = std::numeric_limits<int32_t>::min();
@@ -235,7 +227,7 @@ static std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool> lnb_band_he
 		lof_low =  lnb.lof_low < 0 ? 9750000 : lnb.lof_low;
 		lof_high = lnb.lof_high < 0 ? 10600000 : lnb.lof_high;
 	} break;
-	case lnb_type_t::KU: {
+	case lnb_type_t::Ku: {
 		freq_low = lnb.freq_low < 0 ?  11700000 : lnb.freq_low;
 		freq_high = lnb.freq_high < 0 ? 12200000 : lnb.freq_high;
 		freq_mid = lnb.freq_mid < 0 ? freq_high : lnb.freq_mid;
@@ -354,7 +346,7 @@ std::tuple<int, int, int> devdb::lnb::band_voltage_freq_for_mux(const devdb::lnb
 		auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
 		band = ((int)mux.frequency >= freq_mid);
 	} break;
-	case lnb_type_t::KU: {
+	case lnb_type_t::Ku: {
 		band = 0;
 	} break;
 	default:

@@ -96,11 +96,12 @@ class db_enum(object):
         prefix = os.path.commonprefix([value['name'] for value in self.values])
         for value in self.values:
             short_name = re.sub('^{}'.format(prefix), '', value['name'])
-            #short_name = multi_replace(short_name, replace)
             value['short_name'] = short_name
+            if value['display_name'] is None:
+                value['display_name']= short_name
 
     def add(self, name, val=None, display_name=None):
-        self.values.append(dict(name=name, val=val, display_name= name if display_name is None else display_name))
+        self.values.append(dict(name=name, val=val, display_name=display_name))
 
     def __repr__(self):
         return "enum {}\n{}".format(self.name, pformat(self.values))

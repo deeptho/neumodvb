@@ -239,7 +239,7 @@ struct scan_state_t {
 
 struct blindscan_key_t {
 	int16_t sat_pos{sat_pos_none};
-	int8_t band{0};
+	std::tuple<chdb::sat_band_t, devdb::fe_band_t> band{chdb::sat_band_t::Ku, devdb::fe_band_t::LOW};
 	chdb::fe_polarisation_t pol;
 
 	bool operator<(const blindscan_key_t& other) const;
@@ -284,7 +284,7 @@ struct scan_stats_t
 
 struct scan_report_t {
 	statdb::spectrum_key_t spectrum_key;
-	int band;
+	std::tuple<chdb::sat_band_t, devdb::fe_band_t> band{chdb::sat_band_t::Ku, devdb::fe_band_t::LOW};
 	chdb::spectral_peak_t peak;
 	std::optional<chdb::any_mux_t> mux;
 	devdb::fe_key_t fe_key;

@@ -329,7 +329,7 @@ class Spectrum(object):
         """
         Fit a linear curve to the minima of spectral intervals of the spectrum in spec
         The parameters of the polynomial are fit between lowidx and highidx indices. This allow excluding
-        part of the spectrum near 11700Ghz in a KU spectrum. Near that frequency it is difficult to know
+        part of the spectrum near 11700Ghz in a Ku spectrum. Near that frequency it is difficult to know
         for sure if the spectrum is from the low or high lnb band (which may have an offset in its local
         oscillator)
         """

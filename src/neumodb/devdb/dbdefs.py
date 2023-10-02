@@ -63,10 +63,10 @@ lnb_type = db_enum(name='lnb_type_t',
                    storage = 'int8_t',
                    type_id = 100,
                    version = 1,
-                   fields=(('UNKNOWN', -1),
+                   fields=(('UNKNOWN', -1, 'unk'),
                            'C',
-                           'KU',
-                           'UNIV',
+                           'Ku',
+                           ('UNIV',None,'unv'),
                            'WDB',
 			                     'WDBUK',
                            'KaA',
@@ -409,7 +409,6 @@ user_options = db_struct(name ='user_options',
                         (8, 'int32_t', 'livebuffer_retention_time', '10*60'),  #10 minutes
                         (9, 'int32_t', 'livebuffer_mpm_part_duration', '10*60'),  #10 minutes
                     ))
-
 
 
 tuned_frequency_offsets_key = \

@@ -153,6 +153,21 @@ lock_result = db_enum(name='lock_result_t',
                        ('SYNC', 5), #sync bytes received (dvbs2)
                    ))
 
+sat_band = db_enum(name='sat_band_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=(('UNKNOWN', -1),
+                           'C',
+                           'Ku',
+                           'KaA',
+                           'KaB',
+                           'KaC',
+                           'KaD',
+                           'KaE'
+                           ))
+
 fe_polarisation = db_enum(name='fe_polarisation_t',
               db = db,
               storage = 'int8_t',

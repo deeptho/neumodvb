@@ -81,6 +81,7 @@ mux_common_t* chdb::mux_common_ptr(chdb::any_mux_t& key) {
 	return const_cast<mux_common_t*>(mux_common_ptr(static_cast<const chdb::any_mux_t&>(key)));
 }
 
+
 /*!
 	return all sats in use by muxes
 */
@@ -1183,6 +1184,28 @@ chdb::select_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		ret.pol = pol;
 		return ret;
 	}
+}
+
+std::tuple<chdb::sat_band_t, devdb::fe_band_t> chdb::sat_band_for_freq(int frequency) {
+	using namespace chdb;
+	using namespace devdb;
+	if(frequency >= 3400000  && frequency <= 4200000)
+		return {sat_band_t::C, fe_band_t::LOW};
+	if(frequency >= 10700000  && frequency < 11700000)
+		return {sat_band_t::Ku, fe_band_t::LOW};
+	if(frequency >= 11700000  && frequency < 12750000)
+		return {sat_band_t::Ku, fe_band_t::HIGH};
+	if(frequency >= 18200000 && frequency < 19200000)
+		return {sat_band_t::KaA, fe_band_t::LOW};
+	if(frequency >=  19200000 && frequency < 20200000)
+		return {sat_band_t::KaB, fe_band_t::LOW};
+	if(frequency >= 20200000 && frequency < 21200000)
+		return {sat_band_t::KaC, fe_band_t::LOW};
+	if(frequency >= 21200000 && frequency < 22200000)
+		return {sat_band_t::KaD, fe_band_t::LOW};
+	if(frequency >= 17200000 && frequency < 18200000)
+		return {sat_band_t::KaE, fe_band_t::LOW};
+	return {sat_band_t::UNKNOWN, fe_band_t::LOW};
 }
 
 //template instantiations

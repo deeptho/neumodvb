@@ -38,11 +38,21 @@ namespace {{dbname}} {
     {%for f in enum.values %}
 		{{ f['type'] }} {{ f.name }}
 		{%-if f.val is not none %} = {{f.val}}{%-endif%},
-																 {% endfor %}
+    {% endfor %}
 
 	};
 
+	constexpr auto to_str({{enum.name}} v) {
+		switch(v) {
+    {%for f in enum.values %}
+		case {{enum.name}}::{{f.name}}: return "{{f.short_name}}";
+    {% endfor %}
+		default: return "";
+		};
+	}
+
 	{%endfor%}
+
 } //end of namespace {{dbname}}
 
 

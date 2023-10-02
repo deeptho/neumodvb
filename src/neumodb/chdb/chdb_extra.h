@@ -31,10 +31,13 @@
 namespace devdb {
 	struct lnb_t;
 	struct lnb_network_t;
+	enum class fe_band_t : int8_t;
 };
 
 namespace chdb {
 	using namespace chdb;
+
+	std::tuple<chdb::sat_band_t, devdb::fe_band_t> sat_band_for_freq(int frequency);
 
 	using any_mux_t = std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t>;
 	bool has_epg_type(const chdb::any_mux_t& mux, chdb::epg_type_t epg_type);

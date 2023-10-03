@@ -228,8 +228,10 @@ public:
 			f.wait();
 			status_future.wait();
 			thread_.join();
+			return {};
 		} else
 			thread_.detach();
+		return f;
 	}
 
 	int wait() {

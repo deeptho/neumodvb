@@ -345,7 +345,6 @@ void recmgr_thread_t::startup(system_time_t now_) {
 			rec.epg.rec_status = rec_status_t::FINISHED;
 			recdb::update_record_at_cursor(cr.maincursor, rec);
 			auto epg_wtxn = receiver.epgdb.wtxn();
-			lmdb_file=__FILE__; lmdb_line=__LINE__;
 			auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, rec.epg.k);
 			if (c.is_valid()) {
 				auto epg = c.current();
@@ -353,7 +352,6 @@ void recmgr_thread_t::startup(system_time_t now_) {
 				assert(epg.k.anonymous == (epg.k.event_id == TEMPLATE_EVENT_ID));
 				epgdb::update_record_at_cursor(c, epg);
 			}
-			lmdb_file=__FILE__; lmdb_line=__LINE__;
 			epg_wtxn.commit();
 		}
 	}

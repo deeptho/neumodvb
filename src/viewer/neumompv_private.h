@@ -93,7 +93,7 @@ public:
 	int set_subtitle_language(int idx);
 	void on_subtitle_language_change(const chdb::language_code_t& lang);
 
-	void close();
+	void close(bool unsubscribe);
 	int64_t wait_for_close();
 };
 

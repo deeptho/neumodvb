@@ -35,12 +35,23 @@ import pychdb
 
 class SatTable(NeumoTable):
     CD = NeumoTable.CD
-    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+    #datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+    bands_cfn = lambda table: table.bands_cfn()
+    bands_sfn = lambda x: x[2].bands_sfn(x[0], x[1])
+    bands_dfn = lambda x: x[2].bands_dfn(x[0])
+
     all_columns = \
         [CD(key='sat_pos',  label='position', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='name',  label='Name', basic=True, example=" Eutelsat 6a/12b13c "),
+         CD(key='C',  label='C', basic=False),
+         CD(key='Ku',  label='Ku', basic=False),
+         CD(key='KaA',  label='KaA', basic=False),
+         CD(key='KaB',  label='KaB', basic=False),
+         CD(key='KaC',  label='KaC', basic=False),
+         CD(key='KaD',  label='KaD', basic=False),
         ]
+
 
     def InitialRecord(self):
 
@@ -164,6 +175,30 @@ class SatGridBase(NeumoGridBase):
         self.table.SaveModified()
         #self.app.MuxTune(mux)
 
+    def CmdScan(self, evt):
+        from neumodvb.scan_dialog import show_scan_dialog
+        self.table.SaveModified()
+        rows = self.GetSelectedRows()
+        if len(rows)==0:
+            ShowMessage("No sats selected for scan")
+            return
+        sats = []
+        for row in rows:
+            sat = self.table.GetRow(row)
+            sats.append(sat)
+        title =  ', '.join([str(sat) for sat in sats[:3]])
+        if len(sats) >=3:
+            title += '...'
+        scan_pars, band_scan, spectrum_pars = show_scan_dialog(self, allow_band_scan=True, title=f'Scan {title}')
+        if scan_pars is None:
+            dtdebug(f'CmdScan aborted for {len(rows)} sats')
+            return
+        dtdebug(f'CmdScan requested for {len(rows)} sats')
+        if band_scan:
+            self.app.BandsOnSatScan(sats, scan_pars, spectrum_pars)
+        else:
+            self.app.MuxesOnSatScan(sats, scan_pars, spectrum_pars)
+
 class BasicSatGrid(SatGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
@@ -173,3 +208,4 @@ class BasicSatGrid(SatGridBase):
 class SatGrid(SatGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(False, False, *args, **kwds)
+        #self.SetSelectionMode(wx.grid.Grid.SelectRows)

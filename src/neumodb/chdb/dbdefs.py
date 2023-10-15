@@ -165,7 +165,8 @@ sat_band = db_enum(name='sat_band_t',
                            'KaB',
                            'KaC',
                            'KaD',
-                           'KaE'
+                           'KaE',
+                           'Other'
                            ))
 
 fe_polarisation = db_enum(name='fe_polarisation_t',
@@ -685,7 +686,19 @@ sat = db_struct(name='sat',
                     primary_key = ('key', ('sat_pos',)), #unique
                     fields = ((1, 'int16_t', 'sat_pos', 'sat_pos_none'),
                               (2, 'ss::string<32>', 'name'),
+                              (4, 'bool', 'C', 'false'),
+                              (5, 'bool', 'Ku', 'true'),
+                              (6, 'bool', 'KaA', 'false'),
+                              (7, 'bool', 'KaB', 'false'),
+                              (8, 'bool', 'KaC', 'false'),
+                              (9, 'bool', 'KaD', 'false'),
+                              #(19, 'bool', 'Other', 'true'),
+                              (10, 'scan_status_t', 'spectrum_scan_status'),
+                              (11, 'scan_status_t', 'mux_scan_status'),
+                              (12, 'uint32_t', 'scan_id', '0'),
                               (3, 'mux_key_t', 'reference_tp'),
+                              (14, 'time_t', 'scan_time'),
+                              (13, 'time_t', 'mtime'),
                               ))
 
 language_code = db_struct(name='language_code',

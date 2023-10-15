@@ -24,8 +24,7 @@
 #include "receiver/neumofrontend.h"
 #include "util/template_util.h"
 #include <signal.h>
-#include <iomanip>
-#include <iostream>
+#include <limits>
 
 #include "../util/neumovariant.h"
 using namespace chdb;
@@ -1206,6 +1205,28 @@ std::tuple<chdb::sat_band_t, devdb::fe_band_t> chdb::sat_band_for_freq(int frequ
 	if(frequency >= 17200000 && frequency < 18200000)
 		return {sat_band_t::KaE, fe_band_t::LOW};
 	return {sat_band_t::UNKNOWN, fe_band_t::LOW};
+}
+
+std::tuple<int32_t, int32_t> chdb::sat_band_freq_bounds(chdb::sat_band_t sat_band) {
+	using namespace chdb;
+	switch(sat_band) {
+	case sat_band_t::C:
+		return {3400000, 4200000};
+	case sat_band_t::Ku:
+		return {10700000, 12750000};
+	case sat_band_t::KaA:
+		return {18200000, 19200000};
+	case sat_band_t::KaB:
+		return {19200000, 20200000};
+	case sat_band_t::KaC:
+		return {20200000, 21200000};
+	case sat_band_t::KaD:
+		return {21200000, 22200000};
+	case sat_band_t::KaE:
+		return {17200000, 18200000};
+	default:
+		return {0, std::numeric_limits<int32_t>::max()};
+	}
 }
 
 //template instantiations

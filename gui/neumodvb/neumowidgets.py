@@ -256,7 +256,7 @@ class DiseqcChoice(wx.Choice):
         kwargs['choices'] = self.choices
         super().__init__(id, *args, **kwargs)
 
-    def SetValue(self, lnb_connection) :
+    def SetValue(self, lnb_connection):
         from neumodvb import neumodbutils
         if lnb_connection is None:
             self.choices.append('????')
@@ -266,7 +266,7 @@ class DiseqcChoice(wx.Choice):
             idx = self.choices.index(val)
         self.SetSelection(idx)
 
-    def GetValue(self) :
+    def GetValue(self):
         from neumodvb import neumodbutils
         import pydevdb
         idx = self.GetCurrentSelection()

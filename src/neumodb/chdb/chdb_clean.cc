@@ -32,7 +32,8 @@ using namespace chdb;
 
 
 namespace chdb {
-	template<typename mux_t> static void clean(db_txn& wtxn);
+	static void clean_sats(db_txn& wtxn);
+	template<typename mux_t> static void clean_muxes(db_txn& wtxn);
 	template<typename record_t> static void clean_expired(db_txn& wtxn, std::chrono::seconds age, const char* label);
 #if 0
 	static void clean_overlapping_muxes(db_txn& wtn, const chdb::dvbs_mux_t& mux, int sat_pos);
@@ -40,7 +41,46 @@ namespace chdb {
 #endif
 };
 
-template<typename mux_t> static void chdb::clean(db_txn& wtxn) {
+static void chdb::clean_sats(db_txn& wtxn) {
+	using namespace chdb;
+	int count{0};
+
+	auto c = find_first<sat_t>(wtxn);
+
+	auto clean = [&](scan_status_t& scan_status) {
+		switch(scan_status) {
+		case scan_status_t::PENDING:
+		case scan_status_t::ACTIVE:
+		case scan_status_t::RETRY:
+			scan_status = scan_status_t::IDLE;
+			return true;
+			break;
+		default:
+			return false;
+		}
+	};
+
+	for(auto sat: c.range())  {
+		bool changed = clean(sat.spectrum_scan_status);
+		changed |= clean(sat.mux_scan_status);
+		if(sat.scan_id != 0) {
+			auto owner_pid = sat.scan_id >>8;
+			if(kill((pid_t)owner_pid, 0) == 0) {
+				dtdebugf("process pid={:d} is still active; skip deleting scan status", owner_pid);
+				continue;
+			}
+			changed = true;
+		}
+		if(!changed)
+			continue;
+		sat.scan_id = 0;
+		put_record(wtxn, sat);
+		count++;
+	}
+	dtdebugf("Cleaned {:d} sats with PENDING/ACTIVE/RETRY status", count);
+}
+
+template<typename mux_t> static void chdb::clean_muxes(db_txn& wtxn) {
 	using namespace chdb;
 	int count{0};
 
@@ -96,9 +136,10 @@ template<typename record_t> static void chdb::clean_expired(db_txn& wtxn, std::c
 
 void chdb::clean_scan_status(db_txn& wtxn)
 {
-	clean<chdb::dvbs_mux_t>(wtxn);
-	clean<chdb::dvbc_mux_t>(wtxn);
-	clean<chdb::dvbt_mux_t>(wtxn);
+	clean_sats(wtxn);
+	clean_muxes<chdb::dvbs_mux_t>(wtxn);
+	clean_muxes<chdb::dvbc_mux_t>(wtxn);
+	clean_muxes<chdb::dvbt_mux_t>(wtxn);
 }
 
 void chdb::clean_expired_services(db_txn& wtxn, std::chrono::seconds age)

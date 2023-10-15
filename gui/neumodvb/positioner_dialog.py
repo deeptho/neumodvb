@@ -190,13 +190,16 @@ class TuneMuxPanel(TuneMuxPanel_):
         del txn
         return lnb
 
+    def save_use_blindscan(self, val):
+        wx.GetApp().save_option_to_db("positioner_dialog_use_blind_tune", val)
+
     @property
     def use_blindscan(self):
         return self.use_blindscan_
 
     @use_blindscan.setter
     def use_blindscan(self, value):
-        self.parent.save_use_blindscan(value)
+        self.save_use_blindscan(value)
         self.use_blindscan_ = value
 
     @property
@@ -931,21 +934,8 @@ class PositionerDialog(PositionerDialog_):
         opts =  receiver.get_options()
         return opts.usals_location
 
-    def save_to_db(self, par, val):
-        receiver = wx.GetApp().receiver
-        opts =  receiver.get_options()
-        if getattr(opts, par) != val:
-            devdb_wtxn = receiver.devdb.wtxn()
-            setattr(opts, par, val)
-            opts.save_to_db(devdb_wtxn)
-            devdb_wtxn.commit()
-            receiver.set_options(opts)
-
     def save_usals_location(self, loc):
-        self.save_to_db("usals_location", loc)
-
-    def save_use_blindscan(self, val):
-        self.save_to_db("positioner_dialog_use_blind_tune", val)
+        wx.GetAPp().save_option_to_db("usals_location", loc)
 
     def SetUsalsLocation(self, longitude=None, latitude=None):
         loc = self.get_usals_location()

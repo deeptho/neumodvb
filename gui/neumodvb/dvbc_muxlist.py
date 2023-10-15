@@ -43,15 +43,15 @@ class DvbcMuxTable(NeumoTable):
     time_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%M:%S")
     epg_types_fn =  lambda x: '; '.join([ lastdot(t) for t in x[1]])
     all_columns = \
-        [CD(key='frequency', label='Frequency', dfn= lambda x: f'{x[1]/1000.:9.3f}', example="10725.114"),
+        [CD(key='frequency', label='Freq.', dfn= lambda x: f'{x[1]/1000.:9.3f}', example="10725.114 "),
          CD(key='delivery_system', label='System',
             dfn=lambda x: lastdot(x).replace('SYS',"")),
-         CD(key='modulation', label='Modulation',
+         CD(key='modulation', label='Modul-\nation',
             dfn=lambda x: lastdot(x)),
          CD(key='symbol_rate', label='Symbol\nRate',  dfn= lambda x: x[1]//1000),
-         CD(key='fec_outer', label='FEC Outer', dfn=lambda x: lastdot(x).replace('FEC','')),
-         CD(key='fec_inner', label='FEC Inner', dfn=lambda x: lastdot(x).replace('FEC','')),
-         CD(key='k.stream_id', label='Stream ID', readonly=True),
+         CD(key='fec_outer', label='FEC\nOuter', dfn=lambda x: lastdot(x).replace('FEC','')),
+         CD(key='fec_inner', label='FEC \nInner', dfn=lambda x: lastdot(x).replace('FEC','')),
+         CD(key='k.stream_id', label='ISI', readonly=True),
          CD(key='k.t2mi_pid', label='t2mi\npid', readonly=True),
          CD(key='k.mux_id', label='mux\nid', readonly=True),
          CD(key='c.network_id', label='nid'),
@@ -59,14 +59,16 @@ class DvbcMuxTable(NeumoTable):
          CD(key='c.num_services', label='#srv'),
          CD(key='c.mtime', label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33*'),
          CD(key='c.scan_time', label='Scanned', dfn=datetime_fn, example='2021-06-16 18:30:33*', readonly=True),
+         CD(key='c.scan_lock_result', label='lock', dfn=lambda x: lastdot(x)) ,
          CD(key='c.scan_status', label='Scan\nstatus', dfn=lambda x: lastdot(x)),
-         CD(key='c.scan_id', label='Scan\nID', dfn=lambda x: "" if x[1]==0 else str(x[1] & 0xff)),
          CD(key='c.scan_result', label='Scan\nresult', dfn=lambda x: lastdot(x)) ,
-         CD(key='c.scan_duration', label='Scan time', dfn=time_fn),
+         CD(key='c.scan_duration', label='Scan\ntime', dfn=time_fn),
+         CD(key='c.epg_scan_completeness', label='EPG \n%'),
          CD(key='c.epg_scan', label='Epg\nscan', dfn=bool_fn),
-         CD(key='c.epg_types', label='Epg\ntypes', dfn=epg_types_fn, example='FST'*2, readonly=True),
+         CD(key='c.epg_types', label='Epg\ntypes', dfn=epg_types_fn, example='MOVIS ', readonly=True),
          CD(key='c.tune_src', label='tun\nsrc', dfn=lambda x: pychdb.tune_src_str(x[1]), readonly=True, example="nita"),
-         CD(key='c.key_src', label='ids\nsrc', dfn=lambda x: pychdb.key_src_str(x[1]), readonly=True, example="nita")
+         CD(key='c.key_src', label='ids\nsrc', dfn=lambda x: pychdb.key_src_str(x[1]), readonly=True, example="nita"),
+         #CD(key='c.scan_id', label='Scan\nID', dfn=lambda x: "" if x[1]==0 else str(x[1] & 0xff))
          ]
 
     other_columns =  \
@@ -146,15 +148,19 @@ class DvbcMuxGrid(NeumoGridBase):
         self.app.MuxTune(mux)
 
     def CmdScan(self, evt):
+        from neumodvb.scan_dialog import show_scan_dialog
+        scan_pars, _, _ = show_scan_dialog(self, allow_band_scan=False)
         self.table.SaveModified()
-        row = self.GetGridCursorRow()
-        mux = self.table.screen.record_at_row(row)
         rows = self.GetSelectedRows()
-        dtdebug(f'CmdScan requested for {len(rows)} muxes')
         muxes = []
         for row in rows:
             mux = self.table.GetRow(row)
             muxes.append(mux)
-        self.app.MuxScan(muxes)
+        if scan_pars is None:
+            dtdebug(f'CmdScan aborted for {len(rows)} sats')
+            return
+        dtdebug(f'CmdScan requested for {len(rows)} muxes')
+        self.app.MuxScan(muxes, scan_pars)
+
     def OnTimer(self, evt):
         super().OnTimer(evt)

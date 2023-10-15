@@ -363,7 +363,6 @@ class neumoMainFrame(mainFrame):
                 return panel.grid.OnRefresh(event)
             else:
                 return panel.OnRefresh(event)
-        assert 0
 
     def OnExit(self, event=None):
         dtdebug(f"Asking receiver to exit receiver={self.app.receiver}")
@@ -473,22 +472,12 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdAutoRecList")
         self.ShowPanel(self.autoreclist_panel)
 
-    def CmdNew(self, event):
-        dtdebug("CmdNew")
-        if not self.edit_mode:
-            self.SetEditMode(True)
-        panel = self.current_panel()
-        if panel is not None:
-            return panel.grid.OnNew(event)
-        assert 0
-
     def CmdScan(self, event):
-        dtdebug('CmdScan')
-        panel = self.current_panel()
-        if panel in (self.dvbs_muxlist_panel, self.dvbc_muxlist_panel, self.dvbt_muxlist_panel):
-            panel.grid.CmdScan(event)
-        else:
-            dterror(f"Scanning on bad panel {panel}")
+        dtdebug("CmdScan")
+        m = self.get_panel_method('CmdScan')
+        dtdebug(f'CmdScan: {m}')
+        if m is not None:
+            m(event)
 
     def CmdPause(self, event):
         dtdebug('CmdPause')
@@ -524,13 +513,6 @@ class neumoMainFrame(mainFrame):
         self.SetEditMode(is_checked)
         return True
 
-    def CmdDelete(self, event):
-        dtdebug("CmdDelete")
-        panel = self.current_panel()
-        if panel is not None and hasattr(panel, 'grid'):
-            return panel.grid.OnDelete(event)
-        return False
-
     def CmdUndo(self, event):
         dtdebug("CmdUndo")
         panel = self.current_panel()
@@ -564,6 +546,15 @@ class NeumoBitmaps(object):
 
 
 class NeumoGui(wx.App):
+    def save_option_to_db(self, par, val):
+        opts =  self.receiver.get_options()
+        if getattr(opts, par) != val:
+            devdb_wtxn = self.receiver.devdb.wtxn()
+            setattr(opts, par, val)
+            opts.save_to_db(devdb_wtxn)
+            devdb_wtxn.commit()
+            self.receiver.set_options(opts)
+
     def get_sats(self):
         for retry in False, True:
             txn = self.chdb.rtxn()
@@ -684,16 +675,34 @@ class NeumoGui(wx.App):
         self.current_mpv_player.play_mux(mux)
         dtdebug(f"Requested subscription to mux {mux}")
 
-    def MuxScan(self, muxlist):
-        ret = self.scan_subscriber.scan_muxes(muxlist)
+    def MuxScan(self, muxlist, tune_options=None):
+        ret = self.scan_subscriber.scan_muxes(muxlist, tune_options)
         dtdebug(f'MuxScan')
         if ret < 0:
             from neumodvb.neumo_dialogs import ShowMessage
-            ShowMessage("Muxscan failed", self.scan_subscriber.error_message) #todo: record error message
-        dtdebug(f"Requested subscription to scan mux {muxlist}")
+            ShowMessage("Mux scan failed", self.scan_subscriber.error_message) #todo: record error message
+        dtdebug(f"Requested subscription to scan muxes {muxlist}")
 
-    def MuxScanStop(self):
-        dtdebug(f'MuxScanStop')
+    def MuxesOnSatScan(self, satlist, tune_options=None, spectrum_pars=None):
+        chdb_rtxn = self.receiver.chdb.rtxn()
+        ret = self.scan_subscriber.scan_muxes_on_sats(chdb_rtxn, satlist, tune_options)
+        chdb_rtxn.commit()
+        dtdebug(f'SatScan')
+        if ret < 0:
+            from neumodvb.neumo_dialogs import ShowMessage
+            ShowMessage("Sat scan failed", self.scan_subscriber.error_message) #todo: record error message
+        dtdebug(f"Requested subscription to scan sats {satlist}")
+
+    def BandsOnSatScan(self, satlist, spectrum_options=None, tune_options=None):
+        ret = self.scan_subscriber.scan_spectrum(satlist, spectrum_options, tune_options)
+        dtdebug(f'SpectrumScan')
+        if ret < 0:
+            from neumodvb.neumo_dialogs import ShowMessage
+            ShowMessage("Soectrum scan failed", self.scan_subscriber.error_message) #todo: record error message
+        dtdebug(f"Requested subscription to scan spectra {satlist}")
+
+    def ScanStop(self):
+        dtdebug(f'ScanStop')
         if self.scan_subscriber_ is not None:
             self.scan_subscriber.unsubscribe()
             #TODO => what about subscription ids?

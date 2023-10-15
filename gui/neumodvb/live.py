@@ -811,7 +811,6 @@ class GroupSelectPanel(wx.Panel):
         self.display_grouptype()
         self.display_sorttype()
 
-
 class SatBouquetGroupSelectPanel(GroupSelectPanel):
     def __init__(self, parent, *args, **kwds):
         super().__init__(parent, *args, **kwds)

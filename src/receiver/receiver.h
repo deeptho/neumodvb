@@ -364,7 +364,8 @@ private:
 
 	template<typename mux_t>
 	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
-																	 ss::vector_<devdb::lnb_t>* lnbs, bool scan_found_muxes, int max_num_subscriptions,
+																	 ss::vector_<devdb::lnb_t>* lnbs, const tune_options_t& tune_options,
+																	 int max_num_subscriptions,
 																	 subscription_id_t subscription_id);
 
 	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures,
@@ -415,7 +416,8 @@ public:
 
 	template<typename mux_t>
 	subscription_id_t subscribe_scan(ss::vector_<mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
-																	 bool scan_found_muxes=true, int max_num_subscriptions=-1,
+																	 std::optional<tune_options_t> tune_options={},
+																	 int max_num_subscriptions=-1,
 																	 subscription_id_t subscription_id=  subscription_id_t{-1});
 
 	subscription_id_t subscribe_scan(ss::vector_<chdb::spectral_peak_t>& muxes, const devdb::lnb_t& lnb,
@@ -423,7 +425,8 @@ public:
 
 
 	template<typename _mux_t>
-	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, subscription_id_t subscription_id);
+	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const tune_options_t& tune_options,
+															 subscription_id_t subscription_id);
 
 	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key,
@@ -528,7 +531,8 @@ public:
 													const statdb::spectrum_key_t& spectrum_key, subscription_id_t subscription_id);
 
 	template<typename _mux_t>
-	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, subscription_id_t subscription_id);
+	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const tune_options_t& tune_options,
+															 subscription_id_t subscription_id);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		const chdb::service_t& service, subscription_id_t subscription_id = subscription_id_t::NONE);

@@ -40,7 +40,8 @@ scan_report_t::scan_report_t(const scan_subscription_t& subscription,
 {}
 
 
-scan_t::scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id, bool propagate_scan)
+scan_t::scan_t(	scanner_t& scanner, std::optional<tune_options_t> o,
+								subscription_id_t scan_subscription_id)
 	: scanner(scanner),
 		receiver_thread(scanner.receiver_thread)
 	, receiver(receiver_thread.receiver)
@@ -48,13 +49,14 @@ scan_t::scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id, bool
 	, scan_id(scanner_t::make_scan_id(scan_subscription_id))
 {
 	dtdebugx("MAKE SCAN_ID: pid=0x%x subscription_id=%d ret=%d\n", getpid(), (int)scan_subscription_id, scan_id);
-			tune_options.scan_target =  scan_target_t::SCAN_FULL;
-			tune_options.propagate_scan = propagate_scan; //if false, we scan only peaks
-			tune_options.retune_mode = retune_mode_t::NEVER;
-			tune_options.subscription_type = subscription_type_t::SCAN;
-			tune_options.may_move_dish = false; //could become an option
-			tune_options.use_blind_tune = false; //could become an option
-			tune_options.constellation_options.num_samples = 1024 * 16;
+	if(o) {
+		tune_options = *o;
+	} else
+		tune_options.scan_target =  scan_target_t::SCAN_FULL;
+	//at least override the following
+	tune_options.retune_mode = retune_mode_t::NEVER;
+	tune_options.subscription_type = subscription_type_t::SCAN;
+	tune_options.constellation_options.num_samples = 1024 * 16;
 }
 
 
@@ -895,13 +897,11 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 
 
 scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
-										 //ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs_,
-										 bool scan_found_muxes_, int max_num_subscriptions_)
+										 int max_num_subscriptions_)
 	: receiver_thread(receiver_thread_)
 	, receiver(receiver_thread_.receiver)
 	, scan_start_time(system_clock_t::to_time_t(system_clock_t::now()))
 	,	max_num_subscriptions(max_num_subscriptions_)
-	,	scan_found_muxes(scan_found_muxes_)
 {
 	tune_options.scan_target =  scan_target_t::SCAN_FULL;
 	tune_options.may_move_dish = false; //could become an option
@@ -984,16 +984,22 @@ static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const tune
 }
 
 template <typename mux_t>
-int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, bool init, subscription_id_t scan_subscription_id) {
+int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& tune_options,
+												 subscription_id_t scan_subscription_id) {
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto chdb_wtxn = receiver.chdb.wtxn();
 	auto scan_id = make_scan_id(scan_subscription_id);
 	dtdebugx("MAKE SCAN_ID: pid=0x%x subscription_id=%d ret=%d\n", getpid(), (int)scan_subscription_id, scan_id);
 	/* ensure that empty entry exists. This camn be used to set required_lnb and such
 	 */
-	scans.try_emplace(scan_subscription_id, *this, scan_subscription_id, true /*propagate_scan*/);
+	/*
+		The followuing call enter default tune_options if needed
+	 */
+	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, tune_options, scan_subscription_id);
+	bool init = inserted;
+	auto& scan = it->second;
 	for(const auto& mux_: muxes) {
-		if(!can_subscribe(devdb_rtxn, mux_, tune_options)) {
+		if(!can_subscribe(devdb_rtxn, mux_, scan.tune_options)) {
 			dtdebug("Skipping mux that cannot be tuned: " << mux_);
 			continue;
 		}
@@ -1025,7 +1031,12 @@ int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::v
 												 bool init, subscription_id_t scan_subscription_id) {
 	assert((int) scan_subscription_id >=0);
 	//auto scan_id = make_scan_id(scan_subscription_id);
-	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id, false /*propagate_scan*/);
+	tune_options_t o;
+	o.scan_target = scan_target_t::SCAN_FULL;
+	o.propagate_scan = false;
+	o.may_move_dish = false;
+	o.use_blind_tune = false;
+	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, o, scan_subscription_id);
 	auto& scan = it->second;
 
 	for(const auto& peak: peaks) {
@@ -1122,11 +1133,14 @@ void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,
 }
 
 
-template int scanner_t::add_muxes<chdb::dvbs_mux_t>(const ss::vector_<chdb::dvbs_mux_t>& muxes, bool init,
+template int scanner_t::add_muxes<chdb::dvbs_mux_t>(const ss::vector_<chdb::dvbs_mux_t>& muxes,
+																										const tune_options_t& tune_options,
 																										subscription_id_t subscription_id);
-template int scanner_t::add_muxes<chdb::dvbc_mux_t>(const ss::vector_<chdb::dvbc_mux_t>& muxes, bool init,
+template int scanner_t::add_muxes<chdb::dvbc_mux_t>(const ss::vector_<chdb::dvbc_mux_t>& muxes,
+																										const tune_options_t& tune_options,
 																										subscription_id_t subscription_id);
-template int scanner_t::add_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt_mux_t>& muxes, bool init,
+template int scanner_t::add_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt_mux_t>& muxes,
+																										const tune_options_t& tune_options,
 																										subscription_id_t subscription_id);
 
 

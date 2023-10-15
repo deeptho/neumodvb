@@ -19,7 +19,7 @@
  */
 
 #pragma once
-
+#include "neumofrontend.h"
 
 enum class subscription_type_t {
 	NORMAL, /*regular viewing: resourced are reserved non-exclusively. This means other lnbs on the same dish

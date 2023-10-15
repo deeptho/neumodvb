@@ -24,7 +24,25 @@
 #include <stdio.h>
 
 #include "options.h"
+#include "tune_options.h"
 namespace py = pybind11;
+
+
+void export_tune_options(py::module& m) {
+	py::class_<tune_options_t>(m, "tune_options_t")
+		.def(py::init<>( []() { tune_options_t ret; ret.scan_target = scan_target_t::SCAN_FULL; return ret;}),
+				 "Tune Options for neumodvb")
+		.def_readwrite("use_blind_tune", &tune_options_t::use_blind_tune)
+		.def_readwrite("may_move_dish", &tune_options_t::may_move_dish)
+		.def_readwrite("propagate_scan", &tune_options_t::propagate_scan)
+		.def_property("scan_epg",
+			[](const tune_options_t& o) { return o.scan_target ==scan_target_t::SCAN_FULL_AND_EPG;},
+									[](tune_options_t& o, bool val) { o.scan_target= val ?
+											scan_target_t::SCAN_FULL_AND_EPG :scan_target_t::SCAN_FULL;},
+									"include epg in scan")
+		;
+
+}
 
 void export_options(py::module& m) {
 	py::class_<neumo_options_t>(m, "options_t")
@@ -60,4 +78,5 @@ void export_options(py::module& m) {
 		.def_readwrite("livebuffer_mpm_part_duration", &neumo_options_t::livebuffer_mpm_part_duration,
 									 "how quickly live buffers are deleted after they become inactive")
 		;
+	export_tune_options(m);
 }

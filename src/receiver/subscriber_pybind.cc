@@ -164,7 +164,8 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 	return subscription_id;
 }
 
-static int scan_muxes(subscriber_t& subscriber, py::list mux_list) {
+static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
+											const tune_options_t& tune_options) {
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
 	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
 	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;
@@ -189,7 +190,7 @@ static int scan_muxes(subscriber_t& subscriber, py::list mux_list) {
 				ok=true;
 			} catch (py::cast_error& e) {}
 	}
-	auto ret = subscriber.scan_muxes(dvbs_muxes, dvbc_muxes, dvbt_muxes);
+	auto ret = subscriber.scan_muxes(dvbs_muxes, dvbc_muxes, dvbt_muxes, tune_options);
 	return ret;
 }
 
@@ -246,9 +247,9 @@ void export_subscriber(py::module& m) {
 				 "scan peaks in the spectrum all at once",
 				 py::arg("spectrum_key"), py::arg("peak_freq"), py::arg("peak_sr")
 			)
-		.def("scan_muxes", &scan_muxes,
-				 "scan muxes",
-				 py::arg("muxes")
+		.def("scan_muxes", &scan_muxes, "scan muxes"
+				 , py::arg("muxes")
+				 , py::arg("tune_options")=nullptr
 			)
 		.def_property_readonly("error_message", [](subscriber_t* self) {
 			return get_error().c_str(); })

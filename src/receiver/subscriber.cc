@@ -96,7 +96,8 @@ int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 
 int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 														 ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
-														 ss::vector_<chdb::dvbt_mux_t> dvbt_muxes) {
+														 ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
+														 const tune_options_t& tune_options) {
 	{
 		auto w = notification.writeAccess();
 		auto & n = *w;
@@ -106,19 +107,19 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 	}
 	subscription_id_t ret{subscription_id};
 	if(dvbs_muxes.size() > 0) {
-		ret = receiver->scan_muxes(dvbs_muxes, subscription_id);
+		ret = receiver->scan_muxes(dvbs_muxes, tune_options, subscription_id);
 		if((int) ret<0)
 			return (int) ret;
 	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
 	if(dvbc_muxes.size() > 0) {
-		ret = receiver->scan_muxes(dvbc_muxes, ret);
+		ret = receiver->scan_muxes(dvbc_muxes, tune_options, ret);
 		if((int) ret<0)
 			return (int) ret;
 	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
 	if(dvbt_muxes.size() > 0) {
-		subscription_id = receiver->scan_muxes(dvbt_muxes, subscription_id);
+		subscription_id = receiver->scan_muxes(dvbt_muxes, tune_options, subscription_id);
 		if((int) ret<0)
 			return (int) ret;
 	}
@@ -145,8 +146,8 @@ void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	if(aa) {
 		bool usals_pos_changed{false};
 		auto& tuner_thread = aa->tuner_thread;
-		tuner_thread.push_task([&tuner_thread, &aa, subscription_id, lnb, &usals_pos_changed]() {
-			usals_pos_changed = cb(aa->tuner_thread).update_current_lnb(subscription_id, lnb);
+		tuner_thread.push_task([&tuner_thread, subscription_id, lnb, &usals_pos_changed]() {
+			usals_pos_changed = cb(tuner_thread).update_current_lnb(subscription_id, lnb);
 			return 0;
 		}).wait();
 	}

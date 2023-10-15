@@ -317,7 +317,7 @@ private:
 	void add_completed(const devdb::fe_t& fe, const chdb::any_mux_t& mux, int num_pending_muxes, int num_pending_peaks);
 
 public:
-	scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id, bool propagate_scan);
+	scan_t(	scanner_t& scanner, std::optional<tune_options_t> tune_options, subscription_id_t scan_subscription_id);
 	scan_t(const scan_t& other) = delete;
 	scan_t(scan_t&& other)
 		:	scanner (other.scanner)
@@ -343,7 +343,6 @@ class scanner_t {
 	time_t scan_start_time{-1};
 	steady_time_t last_house_keeping_time{steady_clock_t::now()};
 	int max_num_subscriptions{std::numeric_limits<int>::max()};
-	bool scan_found_muxes;
 	chdb::any_mux_t last_subscribed_mux;
 	int id{0};
 	bool must_end = false;
@@ -357,7 +356,8 @@ class scanner_t {
 	void set_allowed_lnbs();
 
 	template<typename mux_t>
-	int add_muxes(const ss::vector_<mux_t>& muxes, bool init, subscription_id_t subscription_id);
+	int add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& tune_options,
+								subscription_id_t subscription_id);
 
 	int add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
 								bool init, subscription_id_t subscription_id);
@@ -378,9 +378,7 @@ class scanner_t {
 
 	subscription_id_t scan_subscription_id_for_scan_id(uint32_t scan_id);
 public:
-	scanner_t(receiver_thread_t& receiver_thread_,
-						//ss::vector_<chdb::dvbs_mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
-						bool scan_found_muxes, int max_num_subscriptions);
+	scanner_t(receiver_thread_t& receiver_thread_, int max_num_subscriptions);
 	using stats_t = safe::Safe<scan_stats_t>;
 	~scanner_t();
 	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,

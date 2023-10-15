@@ -683,7 +683,7 @@ class NeumoGui(wx.App):
             ShowMessage("Mux scan failed", self.scan_subscriber.error_message) #todo: record error message
         dtdebug(f"Requested subscription to scan muxes {muxlist}")
 
-    def MuxesOnSatScan(self, satlist, tune_options=None, spectrum_pars=None):
+    def MuxesOnSatScan(self, satlist, tune_options=None):
         chdb_rtxn = self.receiver.chdb.rtxn()
         ret = self.scan_subscriber.scan_muxes_on_sats(chdb_rtxn, satlist, tune_options)
         chdb_rtxn.commit()
@@ -693,12 +693,15 @@ class NeumoGui(wx.App):
             ShowMessage("Sat scan failed", self.scan_subscriber.error_message) #todo: record error message
         dtdebug(f"Requested subscription to scan sats {satlist}")
 
-    def BandsOnSatScan(self, satlist, spectrum_options=None, tune_options=None):
-        ret = self.scan_subscriber.scan_spectrum(satlist, spectrum_options, tune_options)
+    def BandsOnSatScan(self, satlist, scan_pars, band_scan_options):
+        ret = self.scan_subscriber.scan_bands_on_sats(satlist,
+                                                      band_scan_options['pols'],
+                                                      band_scan_options['low_freq'],
+                                                      band_scan_options['high_freq'])
         dtdebug(f'SpectrumScan')
         if ret < 0:
             from neumodvb.neumo_dialogs import ShowMessage
-            ShowMessage("Soectrum scan failed", self.scan_subscriber.error_message) #todo: record error message
+            ShowMessage("Spectrum scan failed", self.scan_subscriber.error_message) #todo: record error message
         dtdebug(f"Requested subscription to scan spectra {satlist}")
 
     def ScanStop(self):

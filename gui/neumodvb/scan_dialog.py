@@ -29,9 +29,11 @@ from enum import Enum
 from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb.neumo_dialogs_gui import ScanDialog_
 from pyreceiver import tune_options_t
+import pychdb
 
 class ScanDialog(ScanDialog_):
     def __init__(self, parent, allow_band_scan, title, *args, **kwds):
+        p_t = pychdb.fe_polarisation_t
         super().__init__(parent, *args, **kwds)
         self.receiver = wx.GetApp().receiver
         self.tune_options = self.receiver.get_default_tune_options(for_scan=True)
@@ -39,6 +41,7 @@ class ScanDialog(ScanDialog_):
         self.band_scan = allow_band_scan #use spectrum scan by default in this case
         self.tune_options.use_blind_tune = self.band_scan #must use blind tune when spectrum scanning
         self.tune_options.propagate_scan = not self.band_scan
+        self.band_scan_options = dict(low_freq=10700000, high_freq=12750000, pols=[p_t.H, p_t.V])
         if title is not None:
             self.title_label.SetLabel(title)
             self.SetTitle(title)
@@ -86,7 +89,7 @@ class ScanDialog(ScanDialog_):
         self.tune_options.propagate_scan = self.propagate_scan_checkbox.GetValue()
         self.tune_options.use_blind_tune = self.blind_tune_checkbox.GetValue()
         self.tune_options.may_move_dish = self.may_move_dish_checkbox.GetValue()
-        return self.tune_options, self.band_scan
+        return self.tune_options, self.band_scan_options if self.band_scan else None
 
 def service_for_key(service_key):
     txn = wx.GetApp().chdb.rtxn()
@@ -103,17 +106,17 @@ def show_scan_dialog(parent, title='Scan muxes', allow_band_scan=False):
     in addition, for type service, epg can be set to provide defaults for
     a new scan
     """
-    spectrum_options = None
+    band_scan_options = None
     dlg = ScanDialog(parent.GetParent(), allow_band_scan, title)
     dlg.Prepare()
     dlg.Fit()
     ret = dlg.ShowModal()
     if ret == wx.ID_OK:
-        tune_options, band_scan = dlg.OnDone()
+        tune_options, band_scan_options = dlg.OnDone()
     else:
         dlg.OnCancel()
         tune_options = None
-        spectrum_options = None
+        band_scan_options = None
         band_scan = False
     dlg.Destroy()
-    return tune_options, spectrum_options, band_scan
+    return tune_options, band_scan_options

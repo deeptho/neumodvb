@@ -30,6 +30,7 @@ import regex as re
 from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, screen_if_t, IconRenderer, MyColLabelRenderer
+from neumodvb.neumo_dialogs import ShowMessage
 
 import pychdb
 
@@ -189,15 +190,15 @@ class SatGridBase(NeumoGridBase):
         title =  ', '.join([str(sat) for sat in sats[:3]])
         if len(sats) >=3:
             title += '...'
-        scan_pars, band_scan, spectrum_pars = show_scan_dialog(self, allow_band_scan=True, title=f'Scan {title}')
+        scan_pars, band_scan_options = show_scan_dialog(self, allow_band_scan=True, title=f'Scan {title}')
         if scan_pars is None:
             dtdebug(f'CmdScan aborted for {len(rows)} sats')
             return
         dtdebug(f'CmdScan requested for {len(rows)} sats')
-        if band_scan:
-            self.app.BandsOnSatScan(sats, scan_pars, spectrum_pars)
+        if band_scan_options is not None:
+            self.app.BandsOnSatScan(sats, scan_pars, band_scan_options)
         else:
-            self.app.MuxesOnSatScan(sats, scan_pars, spectrum_pars)
+            self.app.MuxesOnSatScan(sats, scan_pars)
 
 class BasicSatGrid(SatGridBase):
     def __init__(self, *args, **kwds):

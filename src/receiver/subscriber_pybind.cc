@@ -195,6 +195,40 @@ static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
 	return ret;
 }
 
+static int scan_sats(subscriber_t& subscriber, db_txn& chdb_rtxn, py::list sat_list,
+										 const std::optional<tune_options_t>& tune_options,
+										 const std::optional<tune_options_t>& spectrum_options) {
+	using namespace chdb;
+	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
+	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
+	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;
+	assert(!spectrum_options); //todo; also to be used for selecting c, ku, ka...
+	for(auto s: sat_list) {
+		auto* sat = s.cast<chdb::sat_t*>();
+		if(!sat) {
+			dterrorf("sat == nullptr");
+			continue;
+		}
+		if(sat->sat_pos == sat_pos_dvbt) {
+			auto c = dvbt_mux_t::find_by_key(chdb_rtxn, sat->sat_pos, find_type_t::find_geq, dvbt_mux_t::partial_keys_t::sat_pos);
+			for(const auto& m : c.range()) {
+				dvbt_muxes.push_back(m);
+			}
+		} else if (sat->sat_pos == sat_pos_dvbc) {
+			auto c = dvbc_mux_t::find_by_key(chdb_rtxn, sat->sat_pos, find_type_t::find_geq, dvbc_mux_t::partial_keys_t::sat_pos);
+			for(const auto& m : c.range()) {
+				dvbc_muxes.push_back(m);
+			}
+		} else {
+			auto c = dvbs_mux_t::find_by_key(chdb_rtxn, sat->sat_pos, find_type_t::find_geq, dvbs_mux_t::partial_keys_t::sat_pos);
+			for(const auto& m : c.range()) {
+				dvbs_muxes.push_back(m);
+			}
+		}
+	}
+	auto ret = subscriber.scan_muxes(dvbs_muxes, dvbc_muxes, dvbt_muxes, tune_options);
+	return ret;
+}
 
 
 void export_subscriber(py::module& m) {
@@ -251,6 +285,12 @@ void export_subscriber(py::module& m) {
 		.def("scan_muxes", &scan_muxes, "scan muxes"
 				 , py::arg("muxes")
 				 , py::arg("tune_options")=nullptr
+			)
+		.def("scan_sats", &scan_sats, "scan sats"
+				 , py::arg("chdb_rtxn")
+				 , py::arg("sats")
+				 , py::arg("tune_options")=nullptr
+				 , py::arg("spectrum_options")=nullptr
 			)
 		.def_property_readonly("error_message", [](subscriber_t* self) {
 			return get_error().c_str(); })

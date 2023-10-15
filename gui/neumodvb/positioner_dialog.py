@@ -979,7 +979,8 @@ class PositionerDialog(PositionerDialog_):
         event.Skip()
 
     def SetWindowTitle(self, lnb, lnb_connection, sat):
-        self.SetTitle(f'Positioner Control - {lnb.k} {lnb_connection} {sat}')
+        self.SetTitle(f'Positioner Control - ???' if lnb is None \
+                      else f'Positioner Control - {lnb.k} {lnb_connection} {sat}' )
 
     def ChangeSatPos(self, sat_pos):
         self.SetPosition(sat_pos)

@@ -677,6 +677,23 @@ dvbt_mux = db_struct(name='dvbt_mux',
                           (12, 'mux_common_t', 'c')
                 ))
 
+band_scan = db_struct(name = 'band_scan',
+                      fname = 'sat',
+                      db = db,
+                      type_id = lord('as'),
+                      version = 1,
+                      ignore_for_equality_fields = ('mtime',),
+                      fields = ((1, 'sat_band_t', 'sat_band',),
+                                (2, 'fe_polarisation_t', 'pol',),
+                                (3, 'int32_t', 'start_freq', '0'),
+                                (4, 'int32_t', 'end_freq', '0'),
+                                (5, 'scan_status_t', 'spectrum_scan_status',  'scan_status_t::NONE'),
+                                (6, 'scan_status_t', 'mux_scan_status', 'scan_status_t::NONE'),
+                                (7, 'uint32_t', 'scan_id', '0'),
+                                (8, 'time_t', 'scan_time'),
+                                (9, 'time_t', 'mtime')
+                                )
+                      )
 
 sat = db_struct(name='sat',
                     fname = 'sat',
@@ -693,11 +710,12 @@ sat = db_struct(name='sat',
                               (8, 'bool', 'KaC', 'false'),
                               (9, 'bool', 'KaD', 'false'),
                               #(19, 'bool', 'Other', 'true'),
-                              (10, 'scan_status_t', 'spectrum_scan_status',  'scan_status_t::NONE'),
-                              (11, 'scan_status_t', 'mux_scan_status', 'scan_status_t::NONE'),
-                              (12, 'uint32_t', 'scan_id', '0'),
+                              #(10, 'scan_status_t', 'spectrum_scan_status',  'scan_status_t::NONE'),
+                              #(11, 'scan_status_t', 'mux_scan_status', 'scan_status_t::NONE'),
+                              #(12, 'uint32_t', 'scan_id', '0'),
+                              (15, 'ss::vector<band_scan_t,4>', 'band_scans'),
                               (3, 'mux_key_t', 'reference_tp'),
-                              (14, 'time_t', 'scan_time'),
+                              #(14, 'time_t', 'scan_time'),
                               (13, 'time_t', 'mtime'),
                               ))
 

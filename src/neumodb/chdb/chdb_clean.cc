@@ -61,19 +61,22 @@ static void chdb::clean_sats(db_txn& wtxn) {
 	};
 
 	for(auto sat: c.range())  {
-		bool changed = clean(sat.spectrum_scan_status);
-		changed |= clean(sat.mux_scan_status);
-		if(sat.scan_id != 0) {
-			auto owner_pid = sat.scan_id >>8;
-			if(kill((pid_t)owner_pid, 0) == 0) {
-				dtdebugf("process pid={:d} is still active; skip deleting scan status", owner_pid);
-				continue;
+		bool changed{false};
+		for(auto& band_scan: sat.band_scans) {
+			changed |= clean(band_scan.spectrum_scan_status);
+			changed |= clean(band_scan.mux_scan_status);
+			if(band_scan.scan_id != 0) {
+				auto owner_pid = band_scan.scan_id >>8;
+				if(kill((pid_t)owner_pid, 0) == 0) {
+					dtdebugf("process pid={:d} is still active; skip deleting scan status", owner_pid);
+					continue;
+				}
+				changed = true;
+				band_scan.scan_id = 0;
 			}
-			changed = true;
 		}
 		if(!changed)
 			continue;
-		sat.scan_id = 0;
 		put_record(wtxn, sat);
 		count++;
 	}

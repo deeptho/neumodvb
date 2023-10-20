@@ -86,6 +86,7 @@ public:
 	int play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time);
 	int screenshot();
 	int stop_play();
+	int stop_play_and_exit();
 	int jump(int seconds);
 	int set_audio_language(int idx);
 	int set_subtitle_language(int id);

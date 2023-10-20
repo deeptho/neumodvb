@@ -187,6 +187,8 @@ struct db_txn : public lmdb::txn {
 	int num_cursors = 0;
 	bool use_log{false};
 	::lmdb::dbi dbi_log;
+	const char* lmdb_file{nullptr};
+	int lmdb_line{-1};
 
 	db_txn(db_txn&& other)
 		: lmdb::txn(std::move(other))
@@ -195,7 +197,10 @@ struct db_txn : public lmdb::txn {
 		, num_cursors(other.num_cursors)
 		, use_log(other.use_log)
 		, dbi_log(other.dbi_log.handle())
+		, lmdb_file(other.lmdb_file)
+		, lmdb_line(other.lmdb_line)
 		{
+			other._handle = nullptr;
 		}
 
 	db_txn() = default;
@@ -205,11 +210,15 @@ struct db_txn : public lmdb::txn {
 			*(lmdb::txn*)this =std::move((lmdb::txn&) other);
 			pdb = other.pdb;
 			other.pdb = nullptr;
+			other._handle = nullptr;
 			readonly = other.readonly;
 			num_cursors = other.num_cursors;
 			other.num_cursors = 0;
 			use_log = other.use_log;
 			dbi_log = std::move(other.dbi_log);
+			lmdb_file = other.lmdb_file;
+			lmdb_line = other.lmdb_line;
+
 			return *this;
 		}
 
@@ -1093,7 +1102,10 @@ inline	db_txn::db_txn(neumodb_t& db_, bool readonly, unsigned int flags) :
 	, pdb(&db_)
 	, readonly(readonly)
 	, use_log (pdb->use_log)
-	, dbi_log(pdb->dbi_log.handle()) {
+	, dbi_log(pdb->dbi_log.handle())
+	, lmdb_file(::lmdb_file)
+	, lmdb_line(::lmdb_line)
+{
 }
 
 inline	db_txn::db_txn(db_txn& parent_txn, neumodb_t& db_, bool readonly, unsigned int flags) :
@@ -1101,7 +1113,10 @@ inline	db_txn::db_txn(db_txn& parent_txn, neumodb_t& db_, bool readonly, unsigne
 	, pdb(&db_)
 	, readonly(readonly)
 	, use_log(db_.use_log)
-	, dbi_log(db_.dbi_log.handle()) {
+	, dbi_log(db_.dbi_log.handle())
+	, lmdb_file(::lmdb_file)
+	, lmdb_line(::lmdb_line)
+{
 	assert(!parent_txn.readonly);
 }
 
@@ -1187,3 +1202,6 @@ record_at_cursor(cursor_t& cursor) {
 		return cursor.current();
 	return {};
 }
+
+#define lmdb_hint() \
+	lmdb_file = __FILE__; lmdb_line=__LINE__

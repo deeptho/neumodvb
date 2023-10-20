@@ -111,7 +111,8 @@ public:
 		If the txn is not committed now, then  the next thread which
 		will acquire the wtxn will later try to commit
 	*/
-	void release_master_wtxn(bool force_commit=false) {
+	void release_master_wtxn(/*bool force_commit=false*/) {
+		const bool force_commit=true;
 		std::unique_lock<std::mutex> lk(mutex);
 		if(!wtxn_) {
 			return;
@@ -193,7 +194,6 @@ class txnmgr_t {
 	int rtxn_open_count{0};
 	db_txn* owned_wtxn{nullptr};
 	std::optional<db_txn>  child_txn; //to store the last used child_txn
-	bool wtxn_must_release{false}; //delayed release pending
 
 	inline db_txn* acquire_wtxn() {
 		auto& wtxn = reservation.acquire_master_wtxn();
@@ -202,8 +202,8 @@ class txnmgr_t {
 		return owned_wtxn;
 	}
 
-	inline void release_master_wtxn(bool force_commit=false) {
-		reservation.release_master_wtxn(force_commit);
+	inline void release_master_wtxn(/*bool force_commit=false*/) {
+		reservation.release_master_wtxn(/*force_commit*/);
 		owned_wtxn = nullptr;
 	}
 
@@ -222,7 +222,6 @@ public:
 	 */
 	inline txn_proxy_t<db_t> wtxn() {
 		//cannot start a new wtxn before the old one has been committed or aborted
-		assert(!wtxn_must_release);
 		assert(!owned_wtxn);
 		assert(!child_txn);
 		return txn_proxy_t(this, false /*readonly*/);
@@ -230,7 +229,6 @@ public:
 
 	inline db_txn& begin_wtxn() {
 		//cannot start a new wtxn before the old one has been committed or aborted
-		assert(!wtxn_must_release);
 		if(!owned_wtxn) {
 			owned_wtxn = acquire_wtxn();
 			assert(!child_txn);
@@ -268,8 +266,7 @@ public:
 		if(!owned_wtxn)
 			return;
 		assert(!child_txn);
-		wtxn_must_release = false;
-		this->release_master_wtxn(true /*force_commit*/);
+		this->release_master_wtxn(/*true*/ /*force_commit*/);
 	}
 
 	/*
@@ -286,8 +283,7 @@ public:
 				child_txn.reset();
 			}
 			assert(!child_txn);
-			wtxn_must_release = false;
-			this->release_master_wtxn(false /*force_commit*/);
+			this->release_master_wtxn(/*false*/ /*force_commit*/);
 		} else {
 			assert(!child_txn);
 		}

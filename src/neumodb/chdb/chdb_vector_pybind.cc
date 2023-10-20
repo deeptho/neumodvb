@@ -28,6 +28,7 @@ namespace py = pybind11;
 void export_chdb_vectors(py::module& m) {
 	using namespace chdb;
 	export_ss_vector(m, service_t);
+	export_ss_vector(m, band_scan_t);
 	export_ss_vector(m, dvbs_mux_t);
 	export_ss_vector(m, dvbc_mux_t);
 	export_ss_vector(m, dvbt_mux_t);

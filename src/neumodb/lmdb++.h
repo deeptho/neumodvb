@@ -23,7 +23,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "../neumolmdb/neumolmdb.h"      /* for MDB_*, mdb_*() */
-
+#include "util/logger.h"
 #include <cstddef>     /* for std::size_t */
 #include <cstdio>      /* for std::snprintf() */
 #include <cstring>     /* for std::strlen() */
@@ -34,6 +34,8 @@
 #ifdef LMDBXX_DEBUG
 #include "util/dtassert.h"     /* for assert() */
 #endif
+extern thread_local const char* lmdb_file;
+extern thread_local int lmdb_line;
 
 namespace lmdb {
   using mode = mdb_mode_t;
@@ -548,6 +550,10 @@ lmdb::txn_begin(MDB_env* const env,
                 const unsigned int flags,
                 MDB_txn** txn) {
   const int rc = ::mdb_txn_begin(env, parent, flags, txn);
+	if(lmdb_line>=0) {
+		dtdebugf("QQQ txn_begin {} {} env={} parent={}", lmdb_file, lmdb_line, fmt::ptr(env), fmt::ptr(parent));
+		lmdb_line=0;
+	}
   if (rc != MDB_SUCCESS) {
     error::raise("mdb_txn_begin", rc);
   }
@@ -581,6 +587,10 @@ lmdb::txn_commit(MDB_txn* const txn) {
   if (rc != MDB_SUCCESS) {
     error::raise("mdb_txn_commit", rc);
   }
+	if(lmdb_line>=0) {
+		dtdebugf("QQQ commit {} {} env={}", lmdb_file, lmdb_line, fmt::ptr(mdb_txn_env(txn)));
+		lmdb_file=""; lmdb_line=-1;
+	}
 }
 
 /**
@@ -589,6 +599,10 @@ lmdb::txn_commit(MDB_txn* const txn) {
 static inline void
 lmdb::txn_abort(MDB_txn* const txn) noexcept {
   ::mdb_txn_abort(txn);
+	if(lmdb_line>=0) {
+		dtdebugf("QQQ abort {} {} env={}", lmdb_file, lmdb_line, fmt::ptr(mdb_txn_env(txn)));
+		lmdb_file=""; lmdb_line=-1;
+	}
 }
 
 /**

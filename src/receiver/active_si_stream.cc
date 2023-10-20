@@ -29,6 +29,11 @@
 #ifndef UNUSED
 #define UNUSED __attribute__((unused))
 #endif
+void here()
+{
+	printf("here\n");
+}
+
 
 /*
 	returns 0, sat_pos_dvbt or sat_pos_dvbc
@@ -118,9 +123,11 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 		if(must_save) {
 			auto& k = *mux_key_ptr(mux);
 			assert(k.mux_id > 0 && ! is_template(mux));
+			lmdb_hint();
 			auto chdb_wtxn = chdbmgr.wtxn();
 			chdb::update_mux(chdb_wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS},
 											 false /*ignore_t2mi_pid*/, true /*must_exist*/);
+			lmdb_hint();
 			chdb_wtxn.commit();
 			dtdebugf("committed write");
 		}
@@ -183,6 +190,8 @@ void active_si_stream_t::finalize_scan()
 
 		c->epg_scan_completeness = lock_state.is_not_ts ? 100 :
 			no_data ?  0 : epg_completeness();
+		if(c->epg_scan_completeness > 100)
+			here();
 
 		if(no_data) {
 			tune_confirmation.sat_by = confirmed_by_t::FAKE;
@@ -235,7 +244,7 @@ void active_si_stream_t::finalize_scan()
 
 	if(nosave)
 		return;
-
+	lmdb_hint();
 	auto wtxn = chdbmgr.wtxn();
 	dttime(200);
 
@@ -253,6 +262,7 @@ void active_si_stream_t::finalize_scan()
 		if(pmts_can_be_saved())
 			save_pmts(wtxn);
 	}
+	lmdb_hint();
 	wtxn.commit();
 }
 
@@ -710,7 +720,9 @@ void active_si_stream_t::process_si_data() {
 		}
 		break;
 	}
+	lmdb_hint();
 	epgdbmgr.release_wtxn(); //not needed?
+	lmdb_hint();
 	chdbmgr.release_wtxn(); //not needed?
 	scan_report();
 	dttime(200);
@@ -817,6 +829,7 @@ bool active_si_stream_t::fix_tune_mux_template() {
 	if(is_active ||is_template) { /*we  need to set the active status, or save the mux if it
 																 was not yet in the database (is_template) because it can be
 																locked now*/
+		lmdb_hint();
 		auto wtxn = receiver.chdb.wtxn();
 		c.scan_lock_result = lock_state.tune_lock_result;
 		chdb::update_mux(wtxn, stream_mux, now,  m::flags{ (m::MUX_COMMON|m::MUX_KEY)/* & ~m::SCAN_STATUS*/},
@@ -826,7 +839,7 @@ bool active_si_stream_t::fix_tune_mux_template() {
 			mux_key_ptr(stream_mux)->stream_id = old_stream_id;
 			chdb::delete_record(wtxn, stream_mux);
 		}
-
+		lmdb_hint();
 		wtxn.commit();
 	}
 	assert( c.tune_src != chdb::tune_src_t::TEMPLATE);
@@ -1361,6 +1374,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	}
 	auto stream_mux = reader->stream_mux(); //the mux whose SI data is being analyzed here
 	auto* stream_mux_key = mux_key_ptr(stream_mux);
+	lmdb_hint();
 	auto wtxn = chdbmgr.wtxn();
 	if (network.network_name.size())
 		save_network(wtxn, network, stream_mux_key->sat_pos); // TODO: sat_pos is meaningless; network can be on multiple sats
@@ -1419,6 +1433,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	if(ret== dtdemux::reset_type_t::RESET ||
 		 ret == dtdemux::reset_type_t::ABORT
 		) {
+		lmdb_hint();
 		wtxn.abort();
 		return ret;
 	}
@@ -1439,6 +1454,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		if(pmts_can_be_saved())
 			save_pmts(wtxn);
 	}
+	lmdb_hint();
 	wtxn.commit();
 	return ret;
 }
@@ -2153,6 +2169,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 		service_ids.clear();
 		sdt_data.actual_services.clear();
 	} else {
+		lmdb_hint();
 		wtxn.commit();
 	}
 	return dtdemux::reset_type_t::NO_RESET;
@@ -2168,6 +2185,8 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 	auto& c = eit_data.subtable_counts[info.pid];
 	c.num_completed= epg.num_subtables_completed;
 	c.num_known = epg.num_subtables_known;
+	if(c.num_completed > c.num_known)
+		here();
 
 	assert(tune_confirmation.sat_by != confirmed_by_t::NONE);
 	auto& updated_records = epg.is_actual ? eit_data.eit_actual_updated_records : eit_data.eit_other_updated_records;
@@ -2240,6 +2259,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 		bool done = network_done(epg.service_key.network_id);
 		return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 	}
+	lmdb_hint();
 	auto epg_wtxn = epgdbmgr.wtxn(); //this wtxn will really only be created at first use
 	for (auto& epg_record : epg.epg_records) {
 		// assert(!epg.is_sky || p_mux_key->mux_key.network_id == epg_record.k.service.network_id);
@@ -2266,9 +2286,12 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				find_in_map(eit_data.otv_times_for_event_id, std::make_tuple(epg.channel_id, epg_record.k.event_id));
 			if (!found) {
 				bool done = eit_data.sky_title_done();
+				if(done)
+					here();
 				dtdebug_nicef("Cannot enter SKYUK_EPG summary records, because title with channel_id_id={:d} and event_id={:d}"
 											" has not been found yet{:s}",
 											epg.channel_id, epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
+				lmdb_hint();
 				epg_wtxn.abort();
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 			}
@@ -2280,6 +2303,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				dtdebugf("Cannot enter MHW2_EPG summary records, because title with event_id={:d}"
 								 " has not been found yet{:s}",
 								 epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
+				lmdb_hint();
 				epg_wtxn.abort();
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 			}
@@ -2296,6 +2320,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 	if(epg.is_sky_title & info.completed) {
 		eit_data.sky_title_pids_completed++;
 	}
+	lmdb_hint();
 	epg_wtxn.commit();
 	return dtdemux::reset_type_t::NO_RESET;
 }
@@ -2394,6 +2419,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 
 	if (!info.timedout && services.original_network_id == sdt_data.actual_network_id)
 		scan_state.set_active(scan_state_t::SDT_NETWORK);
+	lmdb_hint();
 	auto wtxn = chdbmgr.wtxn();
 	/*
 		find out what we already know about network_id,m ts_id
@@ -2405,6 +2431,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		lookup_mux_data_from_sdt(wtxn, services.original_network_id, services.ts_id);
 	if(!p_mux_data) {
 		bool nit_done = (nit_actual_done());
+		lmdb_hint();
 		wtxn.abort();
 		// if not nit_done: will reparse later; we could also store these records (would be faster)
 		return nit_done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
@@ -2434,6 +2461,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 
 	auto stream_mux = reader->stream_mux();
 	auto stream_mux_key = mux_key_ptr(stream_mux);
+	lmdb_hint();
 	auto wtxn = chdbmgr.wtxn();
 	auto bouquet_id = bouquet.is_mhw2 ? bouquet_id_movistar : bouquet.bouquet_id;
 	chdb::chg_t chg(chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id, stream_mux_key->sat_pos), 0, bouquet.name,
@@ -2468,6 +2496,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 				continue; // go for partial bouquet
 			}
 			bat_data.reset_bouquet(bouquet.bouquet_id);
+			lmdb_hint();
 			wtxn.abort();
 			// if not done: will reparse later; we could also store these records (would be faster)
 #if 0
@@ -2502,6 +2531,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 				continue;
 			c1.destroy(); //cursor may no longer accessed after this
 			bat_data.reset_bouquet(bouquet.bouquet_id);
+			lmdb_hint();
 			wtxn.abort();
 #if 0
 			dtdebugf("bouquet={:d} requesting reset", bouquet.bouquet_id);
@@ -2570,6 +2600,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		chg.mtime = system_clock_t::to_time_t(now);
 		put_record(wtxn, chg);
 	}
+	lmdb_hint();
 	wtxn.commit();
 	//@todo: can we check for completion?
 	return dtdemux::reset_type_t::NO_RESET;
@@ -2788,10 +2819,12 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 					mux_common_ptr(mux)->scan_status = chdb::scan_status_t::PENDING;
 					preserve = m::flags(preserve | m::SCAN_STATUS); //avoid changing ACTIVE to pending
 				}
+				lmdb_hint();
 				auto wtxn = chdbmgr.wtxn();
 				namespace m = chdb::update_mux_preserve_t;
 				this->update_mux(wtxn, mux, now, false /*is_reader_mux*/, true /*is_tuned_freq*/,
 												 false /*from_sdt*/, preserve);
+				lmdb_hint();
 				wtxn.commit();
 			} else {
 				/*as no scan is in progress,  this is a regular tune
@@ -2802,8 +2835,10 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 		}
 	}
 	if(pmts_can_be_saved()) {
+		lmdb_hint();
 		auto wtxn = chdbmgr.wtxn();
 		save_pmts(wtxn);
+		lmdb_hint();
 		wtxn.commit();
 	}
 	return reset_type_t::NO_RESET;

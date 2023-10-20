@@ -42,6 +42,7 @@ class ChgmTable(NeumoTable):
     all_columns = \
         [CD(key='user_order', label='chno', basic=True, example="1000"),
          CD(key='chgm_order', label='lcn', basic=False, example="1000"),
+         CD(key='k.chg.bouquet_id', label='bouquet\nid', basic=False, example="1000"),
          CD(key='k.channel_id', label='id', basic=False, example="1000"),
          CD(key='name',  label='Name', basic=True, example="Investigation discovery12345"),
          CD(key='media_mode',  label='media_mode', dfn=lambda x: lastdot(x), example="RADIO"),

@@ -1014,7 +1014,14 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		return {};
 	}
 	scan.resize(spectrum.num_freq, spectrum.num_candidates);
-	if(spectrum.num_candidates == 0) {
+
+	auto [lnb, rf_path, options]  = [this](){
+		const auto r = this->ts.readAccess();
+		return std::tuple(r->reserved_lnb, r->reserved_rf_path, r->tune_pars.tune_options.spectrum_scan_options);
+	}();
+
+
+	if(options.recompute_peaks || spectrum.num_candidates == 0) {
 		find_tps(scan.peaks, scan.rf_level, scan.freq);
 	}
 
@@ -1022,36 +1029,35 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 	bool incomplete = false;
 	int min_freq_to_save{0};
 
-	{
-		const auto r = this->ts.readAccess();
-		auto& lnb = r->reserved_lnb;
-		auto& rf_path = r->reserved_rf_path;
-		auto& options = r->tune_pars.tune_options.spectrum_scan_options;
-		scan.start_time = options.start_time;
-		scan.sat_pos = options.sat_pos;
-		scan.rf_path = rf_path;
-		auto [start_freq, mid_freq, end_freq, lof_low, lof_high, inverted_spectrum] =
-			devdb::lnb::band_frequencies(lnb, options.band_pol.band);
-		scan.band_pol = options.band_pol;
-		scan.start_freq = options.start_freq;
-		scan.end_freq = options.end_freq;
-		scan.resolution = options.resolution;
-		scan.spectrum_method = options.spectrum_method;
-		scan.adjust_frequencies(lnb, scan.band_pol.band == devdb::fe_band_t::HIGH);
-		scan.usals_pos = lnb.usals_pos;
-		scan.adapter_no =  (int)this->adapter_no;
-		scan.rf_path =  rf_path;
-		auto* network = devdb::lnb::get_network(lnb, scan.sat_pos);
-		scan.lof_offsets = lnb.lof_offsets;
-		assert(!network || network->sat_pos == scan.sat_pos);
-		append_now = options.append;
-		// we will need to call start_lnb_spectrum again later to retrieve (part of) the high band)
-		incomplete =
-			(options.band_pol.band == devdb::fe_band_t::LOW && scan.end_freq > mid_freq && mid_freq < options.end_freq) ||
-			(options.scan_both_polarisations &&
-			 (options.band_pol.pol == chdb::fe_polarisation_t::H ||
-				options.band_pol.pol == chdb::fe_polarisation_t::L));
-	}
+	scan.start_time = options.start_time;
+	scan.sat_pos = options.sat_pos;
+	scan.rf_path = rf_path;
+	auto [start_freq, mid_freq, end_freq, lof_low, lof_high, inverted_spectrum] =
+		devdb::lnb::band_frequencies(lnb, options.band_pol.band);
+	scan.band_pol = options.band_pol;
+	scan.start_freq = options.start_freq;
+	scan.end_freq = options.end_freq;
+	scan.resolution = options.resolution;
+	scan.spectrum_method = options.spectrum_method;
+	scan.adjust_frequencies(lnb, scan.band_pol.band == devdb::fe_band_t::HIGH);
+	scan.usals_pos = lnb.usals_pos;
+	scan.adapter_no =  (int)this->adapter_no;
+	scan.rf_path =  rf_path;
+	auto* network = devdb::lnb::get_network(lnb, scan.sat_pos);
+	scan.lof_offsets = lnb.lof_offsets;
+	assert(!network || network->sat_pos == scan.sat_pos);
+	append_now = options.append;
+	// we will need to call start_lnb_spectrum again later to retrieve (part of) the high band)
+	incomplete =
+		(options.band_pol.band == devdb::fe_band_t::LOW && scan.end_freq > mid_freq && mid_freq < options.end_freq)
+#if 0
+		||
+		 (options.scan_both_polarisations &&
+		 (options.band_pol.pol == chdb::fe_polarisation_t::H ||
+			options.band_pol.pol == chdb::fe_polarisation_t::L))
+#endif
+		;
+
 	{
 		auto w = this->ts.writeAccess();
 		//frequency at which scan should resume (avoid frequency jumping down when starting high band)
@@ -1065,6 +1071,9 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		auto& options  = tune_pars.tune_options.spectrum_scan_options;
 		auto lnb = this->ts.readAccess()->reserved_lnb;
 		auto rf_path = this->ts.readAccess()->reserved_rf_path;
+		assert(!(options.band_pol.band == devdb::fe_band_t::HIGH)); //We do not scan more than one polatrisation per call
+#if 0
+		//the code below should not not be needed anymore because we use separate calls for each polarisation
 		if (options.band_pol.band == devdb::fe_band_t::HIGH) {
 			// switch to the next polarisation
 			assert(options.band_pol.pol == chdb::fe_polarisation_t::H ||
@@ -1074,7 +1083,9 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 				chdb::fe_polarisation_t::V : chdb::fe_polarisation_t::R;
 			options.append = false;
 			dtdebugf("Continuing spectrum scan with pol=V band=low");
-		} else {
+		} else
+#endif
+		{
 			// switch to next band
 			options.band_pol.band = devdb::fe_band_t::HIGH;
 			options.append = true;

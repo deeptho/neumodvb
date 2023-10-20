@@ -82,9 +82,11 @@ void recmgr_thread_t::update_recording(const recdb::rec_t& rec_in) {
 	auto txn = receiver.recdb.wtxn();
 	put_record(txn, rec_in);
 	txn.commit();
+	lmdb_file=__FILE__; lmdb_line=__LINE__;
 	auto epgdb_wtxn = receiver.epgdb.wtxn();
 	auto& epgrec = rec_in.epg;
 	epgdb::update_epg_recording_status(epgdb_wtxn, epgrec);
+	lmdb_file=__FILE__; lmdb_line=__LINE__;
 	epgdb_wtxn.commit();
 }
 
@@ -95,7 +97,9 @@ void recmgr_thread_t::delete_recording(const recdb::rec_t& rec) {
 
 	auto parent_txn = receiver.recdb.wtxn();
 	delete_record(parent_txn, rec);
-	parent_txn.commit();
+	parent_txn.commit
+		();
+	lmdb_file=__FILE__; lmdb_line=__LINE__;
 	auto epg_wtxn = receiver.epgdb.wtxn();
 	// update epgdb.mdb so that gui code can see the record
 	auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, rec.epg.k);
@@ -105,6 +109,7 @@ void recmgr_thread_t::delete_recording(const recdb::rec_t& rec) {
 		assert(epg.k.anonymous == (epg.k.event_id == TEMPLATE_EVENT_ID));
 		epgdb::update_record_at_cursor(c, epg);
 	}
+	lmdb_file=__FILE__; lmdb_line=__LINE__;
 	epg_wtxn.commit();
 }
 
@@ -172,6 +177,7 @@ int recmgr_thread_t::new_anonymous_schedrec(const chdb::service_t& service, epgd
 	// if no non-anonymous recording is created, we will have end_time < start_time
 
 	auto epg_wtxn = receiver.epgdb.wtxn();
+	lmdb_file=__FILE__; lmdb_line=__LINE__;
 	auto rec_wtxn = recdbmgr.wtxn();
 
 	schedule_recordings_for_overlapping_epg(rec_wtxn, epg_wtxn, service, sched_epg_record);
@@ -186,6 +192,7 @@ int recmgr_thread_t::new_anonymous_schedrec(const chdb::service_t& service, epgd
 	put_record(epg_wtxn, sched_epg_record);
 
 	rec_wtxn.commit();
+	lmdb_file=__FILE__; lmdb_line=__LINE__;
 	epg_wtxn.commit();
 	recdbmgr.release_wtxn();
 	housekeeping(now);
@@ -246,7 +253,9 @@ int recmgr_thread_t::new_schedrec(const chdb::service_t& service, epgdb::epg_rec
 		auto r = receiver.options.readAccess();
 		auto rec_wtxn = recdbmgr.wtxn();
 		auto epg_wtxn = receiver.epgdb.wtxn();
+		lmdb_file=__FILE__; lmdb_line=__LINE__;
 		auto rec = new_recording(rec_wtxn, epg_wtxn, service, sched_epg_record, r->pre_record_time.count(), r->post_record_time.count());
+		lmdb_file=__FILE__; lmdb_line=__LINE__;
 		epg_wtxn.commit();
 		rec_wtxn.commit();
 		recdbmgr.release_wtxn();
@@ -293,12 +302,14 @@ void recmgr_thread_t::startup(system_time_t now_) {
 		for (auto rec : cr.range()) {
 			if (rec.epg.end_time <= now) {
 				auto epg_wtxn = receiver.epgdb.wtxn();
+				lmdb_file=__FILE__; lmdb_line=__LINE__;
 				auto c = epgdb::epg_record_t::find_by_key(epg_wtxn, rec.epg.k);
 				if (c.is_valid()) {
 					auto epg = c.current();
 					epg.rec_status = epgdb::rec_status_t::NONE;
 					epgdb::update_record_at_cursor(c, epg);
 				}
+				lmdb_file=__FILE__; lmdb_line=__LINE__;
 				epg_wtxn.commit();
 			}
 		}
@@ -728,6 +739,7 @@ void recmgr_thread_t::clean_dbs(system_time_t now, bool at_start) {
 
 	if (now > next_epg_clean_time) {
 		auto wtxn = receiver.epgdb.wtxn();
+		lmdb_file=__FILE__; lmdb_line=__LINE__;
 		epgdb::clean(wtxn, now - 4h); // preserve last 4 hours
 		wtxn.commit();
 		next_epg_clean_time = now + 12h;

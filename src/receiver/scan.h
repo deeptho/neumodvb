@@ -33,6 +33,16 @@ class receiver_t;
 class active_adapter_t;
 struct sdt_data_t;
 
+#if 0
+struct band_to_scan_t {
+	//chdb::sat_t sat;
+	int16_t sat_pos {sat_pos_none};
+	chdb::sat_band_t sat_band;
+	chdb::fe_polarisation_t pol;
+	int start_freq;
+	int end_freq;
+};
+#endif
 
 struct scan_state_t {
 	/*
@@ -235,8 +245,10 @@ struct scan_state_t {
 };
 
 
-
-
+/*
+	internal state of blindscan is organised per satellite band (all data that can be tuned without changing diseqc
+	settings, or switching to another tuner)
+ */
 struct blindscan_key_t {
 	int16_t sat_pos{sat_pos_none};
 	std::tuple<chdb::sat_band_t, devdb::fe_band_t> band{chdb::sat_band_t::Ku, devdb::fe_band_t::LOW};
@@ -251,7 +263,14 @@ struct blindscan_key_t {
 
 //todo: extend to dvbc and dvbt
 struct blindscan_t {
-	statdb::spectrum_key_t spectrum_key;
+	/*
+		spectrum_key is set only after spectral peaks have been found. In that case it is still possible
+		that peaks.size() ==0 (empty spectrum)
+
+		peaks will always be scanned on the lnb/tuner on which they were located
+
+	*/
+	statdb::spectrum_key_t spectrum_key; //set after peaks to scan have been added to provide correct sat_pos
 	ss::vector_<chdb::spectral_peak_t> peaks;
 	bool operator<(const blindscan_key_t& other) const;
 
@@ -314,6 +333,7 @@ class scan_t {
 	//TODO important: no fe_key_t should occur more than once in subscriptions
 	std::map<subscription_id_t, scan_subscription_t> subscriptions;
 	std::map<blindscan_key_t, blindscan_t> blindscans;
+
 
 public:
 	using stats_t = safe::Safe<scan_stats_t>;
@@ -390,12 +410,18 @@ class scanner_t {
 
 	int add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
 								bool init, subscription_id_t subscription_id);
+
+	int add_bands(const ss::vector_<band_to_scan_t>& bands, const tune_options_t& tune_options,
+								subscription_id_t scan_subscription_id);
+
 	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 												db_txn& devdb_wtxn, subscription_id_t scan_subscription_id);
 
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
 											 uint32_t scan_id, subscription_id_t subscription_id);
 
+	void on_spectrum_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
+														const statdb::spectrum_t& spectrum);
 	bool housekeeping(bool force);
 
 	void init();
@@ -415,9 +441,9 @@ public:
 		return ((scan_id >> 8) == pid) ?  scan_id : 0;
 	}
 
-	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,
+	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
 													const signal_info_t& signal_info);
-	void notify_sdt_actual(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscriptions,
+	void notify_sdt_actual(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
 												 const sdt_data_t& sdt_data);
 
 };

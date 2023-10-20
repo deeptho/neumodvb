@@ -1039,7 +1039,7 @@ class MosaicPanel(wx.Panel):
 
     def OnClose(self, evt):
         for player in self.mpv_players:
-            player.stop_play()
+            player.stop_play_and_exit()
         while len(self.glcanvases)>0:
             glcanvas = self.glcanvases[-1]
             self.RemoveMpvPlayer(glcanvas, force=True)
@@ -2473,13 +2473,12 @@ class LivePanel(wx.Panel):
         main_sizer.Add(self.top_panel, 0, wx.EXPAND|wx.BOTTOM, border=5)
         main_sizer.Add(self.middle_panel, 2, wx.EXPAND)
         main_sizer.Add(self.bottom_panel, 1, wx.EXPAND)
-
+        self.main_sizer = main_sizer
         self.top_panel_layout()
         self.middle_panel_layout(rowtype)
         self.bottom_panel_layout()
+        self.SetSizerAndFit(main_sizer)
 
-        self.SetSizer(main_sizer)
-        self.main_sizer = main_sizer
         self.Layout()
 
     def OnTimer(self, evt):

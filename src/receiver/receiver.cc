@@ -572,7 +572,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 		devdb_wtxn.commit();
 		bool error = wait_for_all(futures);
 		if (error) {
-			dterrorf("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
+			dterrorf("Unhandled error in scan_muxes"); // This will ensure that tuning is retried later
 		}
 	}
 	ss::vector_<devdb::lnb_t>* lnbs = nullptr; //@todo
@@ -608,6 +608,42 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 																														scan_newly_found_muxes,
 																														max_num_subscriptions, subscription_id);
 	error = wait_for_all(futures);
+	if (error) {
+		dterrorf("Unhandled error in scan_mux");
+	}
+	return subscription_id;
+}
+
+subscription_id_t receiver_thread_t::cb_t::scan_bands(
+	ss::vector_<band_to_scan_t>& bands, tune_options_t tune_options, subscription_id_t& subscription_id)
+{
+	auto s = fmt::format("SCAN[{}] {} bands", (int) subscription_id, (int) bands.size());
+	log4cxx::NDC ndc(s);
+
+	std::vector<task_queue_t::future_t> futures;
+	auto scanner = get_scanner();
+
+	if ((!scanner.get() && (int)subscription_id >= 0)) {
+		unsubscribe_playback_only(futures, subscription_id);
+		auto devdb_wtxn = receiver.devdb.wtxn();
+		unsubscribe_mux_and_service_only(futures, devdb_wtxn, subscription_id);
+		devdb_wtxn.commit();
+		bool error = wait_for_all(futures);
+		if (error) {
+			dterrorf("Unhandled error in scan_bands"); // This will ensure that tuning is retried later
+		}
+	}
+
+	ss::vector_<devdb::lnb_t>* lnbs = nullptr; //@todo
+	int max_num_subscriptions = 100;
+
+	tune_options.spectrum_scan_options.recompute_peaks = true;
+
+	subscription_id = this->receiver_thread_t::subscribe_scan(futures, bands, lnbs,
+																														tune_options,
+																														max_num_subscriptions, subscription_id);
+
+	auto error = wait_for_all(futures);
 	if (error) {
 		dterrorf("Unhandled error in scan_mux");
 	}
@@ -1023,10 +1059,6 @@ subscription_id_t receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes,
 	return subscription_id;
 }
 
-/*
-	main entry point
- */
-
 subscription_id_t receiver_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																			const statdb::spectrum_key_t& spectrum_key,
 																		subscription_id_t subscription_id) {
@@ -1039,6 +1071,22 @@ subscription_id_t receiver_t::scan_spectral_peaks(ss::vector_<chdb::spectral_pea
 	wait_for_all(futures); //essential because muxes passed by reference
 	return subscription_id;
 }
+
+subscription_id_t receiver_t::scan_bands(ss::vector_<band_to_scan_t>& bands, tune_options_t tune_options,
+																				 subscription_id_t& subscription_id) {
+	std::vector<task_queue_t::future_t> futures;
+
+	//call by reference ok because of subsequent wait_for_all
+	futures.push_back(receiver_thread.push_task([this, &bands, &tune_options, &subscription_id]() {
+		subscription_id = cb(receiver_thread).scan_bands(bands, tune_options, subscription_id);
+		cb(receiver_thread).scan_now(); // start initial scan
+		return 0;
+	}));
+	wait_for_all(futures); //essential because muxes passed by reference
+	return subscription_id;
+}
+
+
 
 /*
 	main entry point
@@ -1094,10 +1142,14 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	tune_options.tune_mode = tune_mode_t::SPECTRUM;
 	auto& band_pol = tune_options.spectrum_scan_options.band_pol;
 	band_pol.pol = pol_;
+#if 1
+	assert(band_pol.pol != chdb::fe_polarisation_t::NONE);
+#else
 	if (band_pol.pol == chdb::fe_polarisation_t::NONE) {
 		tune_options.spectrum_scan_options.scan_both_polarisations = true;
 		band_pol.pol = chdb::fe_polarisation_t::H;
 	}
+#endif
 	auto [low_freq_, mid_freq_, high_freq_, lof_low_, lof_high_, inverted_spectrum] =
 		devdb::lnb::band_frequencies(lnb, band_pol.band);
 	low_freq = low_freq < 0 ? low_freq_ : low_freq;
@@ -1573,11 +1625,18 @@ void receiver_t::notify_scan_start(subscription_id_t scan_subscription_id, const
 void receiver_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum,
 																			const ss::vector_<subscription_id_t>& subscription_ids) {
 	{
+		auto scanner = receiver_thread.get_scanner();
 		auto mss = subscribers.readAccess();
 		for (auto [ms_, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
+			if(scanner) {
+				receiver_thread.push_task([this, ms, subscription_ids, spectrum]() {
+					cb(receiver_thread).on_spectrum_band_end(*ms, subscription_ids, spectrum);
+					return 0;
+				});
+			}
 			ms->notify_spectrum_scan(spectrum, subscription_ids);
 		}
 	}
@@ -1643,6 +1702,29 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, 
 	}
 
 	scanner->add_muxes(muxes, tune_options, sret.subscription_id);
+	if (lnbs && init)
+		scanner->set_allowed_lnbs(*lnbs);
+	return sret.subscription_id;
+}
+
+/*!
+	lnbs: if non-empty, only these lnbs are allowed during scanning (set to nullptr for non-dvbs)
+	muxes: if non-empty, it provides a list of muxes to scan (should be non empty)
+	bool scan_newly_found_muxes => if new muxes are found from si information, also scan them
+*/
+subscription_id_t
+receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<band_to_scan_t>& bands,
+																	ss::vector_<devdb::lnb_t>* lnbs, const tune_options_t& tune_options,
+																	int max_num_subscriptions,
+																	subscription_id_t subscription_id) {
+	auto scanner = get_scanner();
+	bool init = !scanner.get();
+	subscribe_ret_t sret{subscription_id, false /*failed*/};
+	if (!scanner) {
+		scanner = std::make_unique<scanner_t>(*this, max_num_subscriptions);
+		set_scanner(scanner);
+	}
+	scanner->add_bands(bands, tune_options, sret.subscription_id);
 	if (lnbs && init)
 		scanner->set_allowed_lnbs(*lnbs);
 	return sret.subscription_id;
@@ -1813,6 +1895,14 @@ tune_options_t receiver_t::get_default_tune_options(bool for_scan) const
 	ret.max_scan_duration = 	r->max_scan_duration;
 	return ret;
 }
+
+void receiver_thread_t::cb_t::on_spectrum_band_end(const subscriber_t& subscriber,
+																									 const ss::vector_<subscription_id_t>& subscription_ids,
+																									 const statdb::spectrum_t& spectrum) {
+		auto scanner = get_scanner();
+		scanner->on_spectrum_band_end(subscriber, subscription_ids, spectrum);
+}
+
 
 thread_local thread_group_t thread_group{thread_group_t::unknown};
 

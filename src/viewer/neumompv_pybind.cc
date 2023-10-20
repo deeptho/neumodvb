@@ -69,6 +69,7 @@ PYBIND11_MODULE(pyneumompv, m) {
 		.def("mpv_command", &MpvPlayer::mpv_command, py::arg("command"), py::arg("arg1") = nullptr,
 				 py::arg("arg2") = nullptr)
 		.def("stop_play", &MpvPlayer::stop_play)
+		.def("stop_play_and_exit", &MpvPlayer::stop_play_and_exit)
 		.def("close", &MpvPlayer::close)
 		.def("pause", &MpvPlayer::pause)
 		//.def("subtitles", &MpvPlayer::subtitles)

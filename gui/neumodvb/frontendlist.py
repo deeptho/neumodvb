@@ -155,7 +155,7 @@ class FrontendTable(NeumoTable):
 
     def enable_cfn(self):
         """
-        Present a menu of which delsys can be abled
+        Present a menu of which delsys can be enabled
         """
         rec = self.CurrentlySelectedRecord()
         d = set([pychdb.delsys_to_type(d) for d in rec.delsys])

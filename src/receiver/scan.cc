@@ -197,6 +197,22 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 	}
 }
 
+void scanner_t::on_spectrum_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& fe_subscription_ids,
+																		 const statdb::spectrum_t& spectrum)
+{
+	auto [it, found] = find_in_map(this->scans, subscriber.get_subscription_id());
+	if(!found)
+		return; //not a scan control subscription_id
+	auto &scan = it->second;
+
+	for(auto subscription_id: fe_subscription_ids) {
+		auto [it, found] = find_in_map(scan.subscriptions, subscription_id);
+		if(!found)
+			continue; //this is not a subscription used by this scan
+		printf("found scan complete=%d\n", spectrum.is_complete);
+	}
+}
+
 /*
 	rescan a peak after the first scan, which used database parameters and which failed.
 	This time, use peak parameters
@@ -1005,11 +1021,20 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 			dtdebugf("Skipping mux that cannot be tuned: {}", mux_);
 			continue;
 		}
-		auto mux = mux_;
+		mux_t mux;
 		dtdebugf("SET PENDING {}", mux);
 		/*
 			@todo: multiple parallel scans can override each other's scan_status
 		 */
+		auto c = mux_t::find_by_key(txn, mux.k, find_eq, mux_t::partial_keys_t::all);
+		if(c.is_valid()) {
+			const auto& db_mux = c.current();
+			bool scan_active = (db_mux.c.scan_id >0);
+			if(scan_active)
+				continue;
+			mux = db_mux;
+		} else
+			mux = mux_;
 		mux.c.scan_status = chdb::scan_status_t::PENDING;
 		mux.c.scan_id = scan_id;
 		put_record(chdb_wtxn, mux);
@@ -1064,6 +1089,137 @@ int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::v
 	}
 	return 0;
 }
+
+int scanner_t::add_bands(ss::vector_<sat_t>& sats,
+												 const ss::vector_<fe_polarisation_t>& pols,
+												 int32_t low_freq, int32_t high_freq,
+												 const tune_options_t& tune_options,
+												 subscription_id_t scan_subscription_id) {
+	auto devdb_rtxn = receiver.devdb.rtxn();
+	auto chdb_wtxn = receiver.chdb.wtxn();
+	auto scan_id = make_scan_id(scan_subscription_id);
+	dtdebugf("MAKE SCAN_ID: pid=0x{:x} subscription_id={:d} ret={:d}\n", getpid(), (int)scan_subscription_id, scan_id);
+	/* ensure that empty entry exists. This can be used to set required_lnb and such
+	 */
+	/*
+		The following call also created default tune_options if needed
+	 */
+	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, tune_options, scan_subscription_id);
+	bool init = inserted;
+	auto& scan = it->second;
+	int added_bands{0};
+
+	auto find_band_scan =[](sat_t& sat, sat_band_t_ sat_band, fe_polarisation_t pol) -> band_scan_t* {
+		for(auto& b: sat.band_scans) {
+			if(b.pol == pol && b.sat_band == sat_band)
+				return &b;
+		}
+		return nullptr;
+	};
+
+	/*
+		Add a band to scan to a sat, except if the band is already marked for scanning
+		Overwrite old data if needed to avoid ever increasing lists
+		@todo: if a user removes a band from a satellite, it is not possible to remove the old scan record
+	 */
+	auto push_bands = [&pol_list, low_freq, high_freq, scan_id](sat_t& sat, sat_band_t sat_band) {
+		int num_added{0};
+		auto [l, h] =sat_band_freq_bounds(sat_band);
+		l = std::max(l, low_freq);
+		h = std::max(h, high_freq);
+		if(h<=l)
+			return num_added; //no overlap
+		for (auto p: pol_list) {
+			auto* ppol =  p.cast<fe_polarisation_t*>();
+			auto* p_band_scan = find_band_scan(sat, sat_band, pol);
+			if(! p_band_scan) {
+				sat.band_scans.push_back(band_scan_t{
+						//.sat_pos = sat.sat_pos,
+						.sat_band = sat_band,
+							.pol = *ppol,
+							.start_freq = low_freq,
+							.end_freq = high_freq,
+							.spectrum_scan_status = scan_stats_t::PENDING,
+							.mux_scan_status = scan_stats_t::NONE,
+							.scan_id=scan_id});
+				num_added++;
+			} else {
+				if(p_band_scan->scan_id >0) {
+					//already scanning
+					continue;
+				}
+				p_band_scan->start_freq = low_freq;
+				p_band_scan->end_freq = high_freq;
+				p_band_scan->spectrum_scan_status = scan_stats_t::PENDING;
+				p_band_scan->mux_scan_status = scan_stats_t::NONE;
+				p_band_scan->scan_id = scan_id;
+				num_added++;
+			}
+		};
+		return num_added;
+	};
+
+	auto band_low = sat_band_for_freq(low_freq);
+	auto band_high = sat_band_for_freq(high_freq-1);
+
+
+	for(auto& sat: sats) {
+		auto* psat =  s.cast<chdb::sat_t*>();
+		auto c = sat_t::find_by_key(txn, psat->sat_pos, find_eq, sat_t::partial_keys_t::all);
+		if(c.is_valid())
+			*psat = c.current();
+		int added{0}; //sat has band defined. Otherwise we assume it matches
+		if(psat->C)
+			added += push_bands(*psat, sat_band_t::C);
+		if(psat->Ku)
+			added += push_bands(*psat, sat_band_t::Ku);
+		if(psat->KaA)
+			added +=push_bands(*psat, sat_band_t::KaA);
+		if(psat->KaB)
+			added += push_bands(*psat, sat_band_t::KaB);
+		if(psat->KaC)
+			added += push_bands(*psat, sat_band_t::KaC);
+		if(psat->KaD)
+			added +=  push_bands(*psat, sat_band_t::KaD);
+		if(!(psat->C | psat->Ku | psat->KaA | psat->kaB | psat->KaC -> psat->kaD)) //generic lnb (unspecified band)
+			push_bands(*psat, sat_band_t::Other);
+#ifdef TODO
+		/*
+			DT: Continue
+			Add band_to_scan to database?
+			PENDING status should be set per band
+			or per polarisation
+		*/
+		if(!can_subscribe(devdb_rtxn, mux_, scan.tune_options)) {
+			dtdebugf("Skipping sat that cannot be tuned: {}", mux_);
+			continue;
+		}
+
+		auto sat = sat_;
+		dtdebugf("Add sat to scan: {}", sat);
+		sat.spectrum_scan_status = chdb::scan_status_t::PENDING;
+		sat.mux_scan_status = chdb::scan_status_t::PENDING;
+		sat.scan_id = scan_id;
+		put_record(chdb_wtxn, sat);
+#endif
+	}
+
+	chdb_wtxn.commit();
+	{
+		auto& scan = scans.at(scan_subscription_id);
+		auto w = scan.scan_stats.writeAccess();
+		if (init) {
+			*w = scan_stats_t{};
+		} else{
+#ifdef TODO
+			w->pending_bands += added_bands; //might be wrong when same mux is added, but scan_loop will fix this later
+#endif
+		}
+		w->active_muxes = scan.subscriptions.size();
+	}
+	return 0;
+}
+
 
 
 
@@ -1133,6 +1289,7 @@ void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,
 	}
 	dterrorf("NOT Notifying: monitored_subscription_id={:d}\n", (int) scan.monitored_subscription_id);
 }
+
 
 
 template int scanner_t::add_muxes<chdb::dvbs_mux_t>(const ss::vector_<chdb::dvbs_mux_t>& muxes,

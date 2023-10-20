@@ -164,6 +164,75 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 	return subscription_id;
 }
 
+
+static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
+															py::list pol_list, int32_t low_freq, int32_t high_freq) {
+	using namespace chdb;
+	int n = sat_list.size();
+	int m = pol_list.size();
+
+	ss::vector_<sat_t> sats;
+	stats.reserve(m);
+
+	auto find_band_scan =[](sat_t& sat, sat_band_t_ sat_band, fe_polarisation_t pol) -> band_scan_t* {
+		for(auto& b: sat.band_scans) {
+			if(b.pol == pol && b.sat_band == sat_band)
+				return &b;
+		}
+		return nullptr;
+	};
+
+	auto push_bands = [&](sat_t& sat, sat_band_t sat_band) {
+
+		auto [l, h] =sat_band_freq_bounds(sat_band);
+		l = std::max(l, low_freq);
+		h = std::max(h, high_freq);
+		if(h<=l)
+			return true; //no overlap
+		for (auto p: pol_list) {
+			auto* ppol =  p.cast<fe_polarisation_t*>();
+			auto* p_band_scan = find_band_scan(sat, sat_band, pol);
+			if(! p_band_scan) {
+				sat.band_scans.push_back(band_scan_t{
+						//.sat_pos = sat.sat_pos,
+						.sat_band = sat_band,
+							.pol = *ppol,
+							.start_freq = low_freq,
+							.end_freq = high_freq,
+							.spectrum_scan_status = scan_stats_t::PENDING,
+							.mux_scan_status = scan_stats_t::IDLE,
+							.scan_id={}});
+			}
+		};
+		return true;
+	};
+
+	auto band_low = sat_band_for_freq(low_freq);
+	auto band_high = sat_band_for_freq(high_freq-1);
+
+	for(auto s: sat_list) {
+		auto* psat =  s.cast<chdb::sat_t*>();
+		bool has_band{false}; //sat has band defined. Otherwise we assume it matches
+		if(psat->C)
+			has_band |= push_bands(*psat, sat_band_t::C);
+		if(psat->Ku)
+			has_band |= push_bands(*psat, sat_band_t::Ku);
+		if(psat->KaA)
+			has_band |= push_bands(*psat, sat_band_t::KaA);
+		if(psat->KaB)
+			has_band |= push_bands(*psat, sat_band_t::KaB);
+		if(psat->KaC)
+			has_band |= push_bands(*psat, sat_band_t::KaC);
+		if(psat->KaD)
+			has_band |=  push_bands(*psat, sat_band_t::KaD);
+		if(!has_band) //generic lnb (unspecified band)
+			push_bands(*psat, sat_band_t::Other);
+	}
+	auto subscription_id = subscriber.scan_bands(bands);
+	return subscription_id;
+}
+
+
 static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
 											const std::optional<tune_options_t>& tune_options) {
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
@@ -195,7 +264,7 @@ static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
 	return ret;
 }
 
-static int scan_sats(subscriber_t& subscriber, db_txn& chdb_rtxn, py::list sat_list,
+static int scan_muxes_on_sats(subscriber_t& subscriber, db_txn& chdb_rtxn, py::list sat_list,
 										 const std::optional<tune_options_t>& tune_options,
 										 const std::optional<tune_options_t>& spectrum_options) {
 	using namespace chdb;
@@ -286,11 +355,19 @@ void export_subscriber(py::module& m) {
 				 , py::arg("muxes")
 				 , py::arg("tune_options")=nullptr
 			)
-		.def("scan_sats", &scan_sats, "scan sats"
+		.def("scan_muxes_on_sats", &scan_muxes_on_sats
+				 , "scan all muxes on selected sats"
 				 , py::arg("chdb_rtxn")
 				 , py::arg("sats")
 				 , py::arg("tune_options")=nullptr
 				 , py::arg("spectrum_options")=nullptr
+			)
+		.def("scan_bands_on_sats", &scan_bands_on_sats
+				 , "acquire spectra and then scan peaks for selected sats"
+				 , py::arg("sats")
+				 , py::arg("pols to scan")
+				 , py::arg("low_freq")
+				 , py::arg("high_freq")
 			)
 		.def_property_readonly("error_message", [](subscriber_t* self) {
 			return get_error().c_str(); })

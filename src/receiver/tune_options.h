@@ -86,11 +86,14 @@ struct constellation_options_t {
 
 
 struct spectrum_scan_options_t {
+	bool recompute_peaks{false}; //instead of relying on driver, compute the peak
 	time_t start_time{};
 	bool append{false}; //append to existing file
 	int16_t sat_pos{sat_pos_none};
 	devdb::fe_band_pol_t band_pol; //currently scanning band
+#if 0
 	bool scan_both_polarisations{false}; //
+#endif
 	dtv_fe_spectrum_method spectrum_method{SPECTRUM_METHOD_FFT};
 	int start_freq{0}; //in kHz
 	int end_freq{std::numeric_limits<int>::max()}; //in kHz

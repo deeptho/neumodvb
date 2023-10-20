@@ -976,12 +976,12 @@ int MpvPlayer::stop_play() {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->stop_play();
 }
-#if 0
+
 int MpvPlayer::stop_play_and_exit() {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->stop_play(/*true unsubscribe*/);
 }
-#endif
+
 int MpvPlayer_::pause() {
 	if (!mpv || !subscription.mpm) {
 		dterrorf("mpv not ready");

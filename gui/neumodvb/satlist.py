@@ -34,6 +34,10 @@ from neumodvb.neumo_dialogs import ShowMessage
 
 import pychdb
 
+def band_scans_fn(x):
+    return '; '.join([ f'{scan.sat_band} :{scan.spectrum_scan_status}/{scan.mux_scan_status}'
+                       for scan in x[1]])
+
 class SatTable(NeumoTable):
     CD = NeumoTable.CD
     #datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
@@ -51,6 +55,7 @@ class SatTable(NeumoTable):
          CD(key='KaB',  label='KaB', basic=False),
          CD(key='KaC',  label='KaC', basic=False),
          CD(key='KaD',  label='KaD', basic=False),
+         CD(key='band_scans', label='Scans', dfn=band_scans_fn, example='19.0E; '*6)
         ]
 
 

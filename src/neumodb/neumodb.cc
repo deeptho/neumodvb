@@ -542,3 +542,8 @@ fmt::formatter<field_matcher_t>::format(
 	const field_matcher_t& matcher, format_context& ctx) const {
 	return fmt::format_to(ctx.out(), "{}({:d})", matcher.match_type, (int)matcher.field_id);
 }
+
+
+thread_local const char* lmdb_file="";
+thread_local int lmdb_line{-1};
+thread_local int lmdb_count{0};

@@ -81,6 +81,24 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 	return (int) subscription_id;
 }
 
+int subscriber_t::scan_bands(ss::vector_<band_to_scan_t>& bands) {
+	{
+		auto w = notification.writeAccess();
+		auto & n = *w;
+		n.sat_pos = sat_pos_none;
+		n.rf_path = {};
+		//todo: allow multiple scans on different sats/lnbs
+	}
+
+	auto tune_options = receiver->get_default_tune_options(true /*for scan*/);
+
+	subscription_id_t ret{subscription_id};
+	ret = receiver->scan_bands(bands, tune_options, subscription_id);
+	assert(ret==subscription_id); //subscription_id is passed by reference
+	return (int)subscription_id;
+
+}
+
 int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																			const statdb::spectrum_key_t& spectrum_key) {
 	{

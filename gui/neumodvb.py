@@ -273,7 +273,7 @@ class neumoMainFrame(mainFrame):
                items_to_toggle[item_name] = onoff if onoff else items_to_toggle.get(item_name, False)
 
     def Stop(self):
-        self.app.MuxScanStop()
+        self.app.ScanStop()
         self.app.current_mpv_player.stop_play()
 
     def colPopupOFF(self, col, evt):

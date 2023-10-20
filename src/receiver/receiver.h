@@ -58,6 +58,7 @@ struct tune_pars_t;
 struct spectrum_scan_t;
 struct scan_report_t;
 struct sdt_data_t;
+struct band_to_scan_t;
 
 struct scan_stats_t;
 class active_adapter_t;
@@ -367,6 +368,12 @@ private:
 																	 bool scan_found_muxes, int max_num_subscriptions,
 																	 subscription_id_t subscription_id, subscriber_t* subscriber_ptr=nullptr);
 
+	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures,
+																	 ss::vector_<band_to_scan_t>& bands,
+																	 ss::vector_<devdb::lnb_t>* lnbs, const tune_options_t& tune_options,
+																	 int max_num_subscriptions,
+																	 subscription_id_t subscription_id);
+
 	subscription_id_t subscribe_spectrum(std::vector<task_queue_t::future_t>& futures, const devdb::lnb_t& lnb,
 																			 const ss::vector_<devdb::fe_band_pol_t> bands, tune_options_t tune_options,
 																			 subscription_id_t subscription_id);
@@ -429,6 +436,15 @@ public:
 	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key,
 																				subscription_id_t subscription_id);
+#if 0
+	subscription_id_t scan_spectrum(std::optional<devdb::rf_path_t>& rf_path, std::optional<devdb::lnb_t>& lnb,
+																	chdb::fe_polarisation_t pol, int32_t low_freq, int32_t high_freq, int sat_pos,
+																	tune_options_t tune_options, subscription_id_t& subscription_id);
+#else
+	subscription_id_t scan_bands(ss::vector_<band_to_scan_t>& bands, tune_options_t tune_options,
+															 subscription_id_t& subscription_id);
+#endif
+
 	void unsubscribe(subscription_id_t subscription_id);
 	void abort_scan();
 	void start_recording(recdb::rec_t rec);
@@ -437,11 +453,13 @@ public:
 
 	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
 											 uint32_t scan_id, subscription_id_t subscription_id);
+	void on_spectrum_band_end(const subscriber_t& subscriber,
+														const ss::vector_<subscription_id_t>& subscription_ids,
+														const statdb::spectrum_t& spectrum);
 	int scan_now();
 	void renumber_card(int old_number, int new_number);
 	int update_usals_pos(const devdb::lnb_t& lnb);
 	int positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
-
 };
 
 struct player_cb_t {
@@ -531,6 +549,10 @@ public:
 	template<typename _mux_t>
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const tune_options_t& tune_options,
 															 subscription_id_t& subscription_id);
+
+	subscription_id_t scan_bands(ss::vector_<band_to_scan_t>& bands, tune_options_t tune_options,
+															 subscription_id_t& subscription_id);
+
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		const chdb::service_t& service, subscription_id_t subscription_id = subscription_id_t::NONE);

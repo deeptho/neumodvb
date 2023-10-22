@@ -31,16 +31,22 @@ from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, screen_if_t, IconRenderer, MyColLabelRenderer
 from neumodvb.neumo_dialogs import ShowMessage
+from neumodvb.neumodbutils import enum_to_str
+from neumodvb.satbandlist_combo import EVT_SATBAND_SELECT
 
 import pychdb
 
 def band_scans_fn(x):
-    return '; '.join([ f'{scan.sat_band} :{scan.spectrum_scan_status}/{scan.mux_scan_status}'
-                       for scan in x[1]])
+    scan = x[1]
+    if scan.pol == pychdb.fe_polarisation_t.NONE:
+        return ''
+    return f'{enum_to_str(scan.pol)}: {enum_to_str(scan.spectrum_scan_status)}/{enum_to_str(scan.mux_scan_status)}'
 
 class SatTable(NeumoTable):
     CD = NeumoTable.CD
-    #datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+    scan_time_fn = lambda x: datetime.datetime.fromtimestamp(x[1].scan_time, \
+                                                             tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     bands_cfn = lambda table: table.bands_cfn()
     bands_sfn = lambda x: x[2].bands_sfn(x[0], x[1])
     bands_dfn = lambda x: x[2].bands_dfn(x[0])
@@ -48,20 +54,18 @@ class SatTable(NeumoTable):
     all_columns = \
         [CD(key='sat_pos',  label='position', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
+         CD(key='sat_band',  label='Band', basic=True, dfn = lambda x: enum_to_str(x[1]), example="KaA "),
          CD(key='name',  label='Name', basic=True, example=" Eutelsat 6a/12b13c "),
-         CD(key='C',  label='C', basic=False),
-         CD(key='Ku',  label='Ku', basic=False),
-         CD(key='KaA',  label='KaA', basic=False),
-         CD(key='KaB',  label='KaB', basic=False),
-         CD(key='KaC',  label='KaC', basic=False),
-         CD(key='KaD',  label='KaD', basic=False),
-         CD(key='band_scans', label='Scans', dfn=band_scans_fn, example='19.0E; '*6)
+         CD(key='band_scan_lh', label='Scan status\nLH', dfn=band_scans_fn, example='H: PARTIAL/PARTIAL '),
+         CD(key='band_scan_lh', label='Scanned\nLH', dfn = scan_time_fn, example='2023-12-31 00:00:00 '),
+         CD(key='band_scan_rv', label='Scan Status\nRV', dfn=band_scans_fn, example='H: PARTIAL/PARTIAL '),
+         CD(key='band_scan_rv', label='Scanned\nRV', dfn = scan_time_fn, example='2023-12-31 00:00:00 ')
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'sat_pos'
         data_table= pychdb.sat
-
+        self.sats_inited = False
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
         self.sat = None
         super().__init__(*args, parent=parent, basic=basic, db_t=pychdb, data_table=data_table,
@@ -69,20 +73,43 @@ class SatTable(NeumoTable):
                          record_t=pychdb.sat.sat, initial_sorted_column = initial_sorted_column,
                          **kwds)
 
-    def screen_getter_xxx(self, txn, sort_order):
+    def __save_record__(self, txn, record):
+        pychdb.put_record(txn, record)
+        return record
+
+    def filter_band_(self, sat_band):
+        """
+        install a filter to only allow satellites from a specific satellite band which is identified
+        by sat_band
+        """
+        import pydevdb
         match_data, matchers = self.get_filter_()
-        if pychdb.sat.find_by_key(txn, pychdb.sat.sat_pos_dvbc) is None  or \
-           pychdb.sat.find_by_key(txn, pychdb.sat.sat_pos_dvbt) is None:
-            from neumodvb.init_db import fix_db
-            fix_db()
-            #open a read txn to reflect the update
-            #note that parent will continue to use outdated txn, but screen will still be ok
-            #and we should not close the parent's txn, because parent will do that
-            #also note that garbage collection will clean up the txn
-            txn = self.db.rtxn()
+        if matchers is None:
+            match_data = self.record_t()
+            matchers = pydevdb.field_matcher_t_vector()
+
+        sat_band_field_id = self.data_table.subfield_from_name("sat_band")
+
+        #if user has already filtered for a specific sat, then setting a limit is pointless
+        for m in matchers:
+            if m.field_id == freq_field_id:
+                return match_data, matchers # this matcher is more specific
+        #push sat_band for matching
+        m = pydevdb.field_matcher.field_matcher(sat_band_field_id, pydevdb.field_matcher.match_type.EQ)
+        matchers.push_back(m)
+
+        match_data.sat_band = sat_band
+        return match_data, matchers
+
+    def screen_getter_xxx(self, txn, sort_order):
+        if self.parent.sat_band is None:
+            match_data, matchers = self.get_filter_()
+        else:
+            match_data, matchers = self.filter_band_(self.parent.sat_band)
         screen = pychdb.sat.screen(txn, sort_order=sort_order,
                                    field_matchers=matchers, match_data = match_data)
-        if screen.list_size==0:
+        if screen.list_size==0 and not self.sats_inited:
+            self.sats_inited = True
             from neumodvb.init_db import init_db
             dtdebug("Empty database; adding sats")
             #open a read txn to reflect the update
@@ -97,10 +124,6 @@ class SatTable(NeumoTable):
             del txn
         self.screen = screen_if_t(screen, self.sort_order==2)
 
-    def __save_record__(self, txn, record):
-        pychdb.put_record(txn, record)
-        return record
-
     def __new_record__(self):
         ret=self.record_t()
         return ret
@@ -111,6 +134,18 @@ class SatGridBase(NeumoGridBase):
         super().__init__(basic, readonly, table, *args, **kwds)
         self.sort_order = int(pychdb.sat.column.sat_pos) << 24
         self.sort_column = None
+        self.sat = None
+        self.sat_band = None #only show satellites for this band
+        self.allow_all = True
+
+    def handle_sat_band_change(self, evt, sat_band, sat):
+        self.table.GetRow.cache_clear()
+        self.OnRefresh(None, sat)
+
+    def CmdSelectSatBand(self, evt):
+        sat_band = evt.sat_band
+        dtdebug(f'satlist received CmdSelectSatBand {sat_band}')
+        wx.CallAfter(self.SelectSatBand, sat_band)
 
     def OnKeyDown(self, evt):
         """
@@ -178,15 +213,78 @@ class SatGridBase(NeumoGridBase):
         else:
             self.app.MuxesOnSatScan(sats, scan_pars)
 
+    def CurrentSatAndSatBand(self):
+        if self.sat_band is not None:
+            if self.sat is not None and self.sat.sat_band == self.sat_band:
+                return self.sat_band, self.sat #already ok
+            service = wx.GetApp().live_service_screen.selected_service
+            sat_pos = pychdb.sat.sat_pos_none if service is None else service.k.mux.sat_pos
+            txn = wx.GetApp().chdb.rtxn()
+            self.sat = pychdb.select_sat_for_sat_band(txn, self.sat_band)
+            txn.abort()
+        elif self.sat is not None and self.sat_band is not None:
+            txn = wx.GetApp().chdb.rtxn()
+            self.sat = pychdb.select_sat_for_sat_band(txn, self.sat_band, self.sat.sat_pos)
+            txn.abort()
+        return self.sat_band, self.sat
+
 class BasicSatGrid(SatGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
         self.SetSelectionMode(wx.grid.Grid.SelectRows)
 
-
 class SatGrid(SatGridBase):
+    def get_initial_data(self):
+        h = wx.GetApp().receiver.browse_history
+        self.sat_band = h.h.satlist_filter_sat_band
+        if self.sat_band == pychdb.sat_band_t.UNKNOWN:
+            self.sat_band = None
+            ls = wx.GetApp().live_service_screen
+            if ls.filter_sat is not None:
+                self.sat = ls.filter_sat
+            else:
+                service = ls.selected_service
+                if service is not None:
+                    txn = wx.GetApp().chdb.rtxn()
+                    sat_band, low_high = pychdb.sat_band_for_freq(service.imux.frequency)
+                    self.sat=pychdb.sat.find_by_key(txn, service.k.mux.sat_pos, sat_band)
+                    txn.abort()
+                    self.sat_band = sat_band
+                    del txn
+        else:
+            txn = wx.GetApp().chdb.rtxn()
+            self.sat = pychdb.select_sat_for_sat_band(txn, self.sat_band)
+            txn.abort()
+            del txn
+
     def __init__(self, *args, **kwds):
         super().__init__(False, False, *args, **kwds)
-        #self.SetSelectionMode(wx.grid.Grid.SelectRows)
+        #self.get_initial_data()
+        #if self.sat.sat_pos == pychdb.sat.sat_pos_none:
+        #    self.sat = None
+
+        self.GetParent().Bind(EVT_SATBAND_SELECT, self.CmdSelectSatBand)
+        self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
+
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        super().OnWindowCreate(evt)
+        self.GrandParent.sat_satband_sel.SetSatBand(self.sat_band, self.allow_all)
     def InitialRecord(self):
+        if self.sat is None:
+            self.get_initial_data()
         return self.sat
+
+    def SelectSatBand(self, sat_band):
+        self.sat_band = sat_band
+
+        sat_band, sat = self.CurrentSatAndSatBand()
+        h = wx.GetApp().receiver.browse_history
+        if sat_band is None:
+            h.h.satlist_filter_sat_band = pychdb.sat_band_t.UNKNOWN
+        else:
+            h.h.satlist_filter_sat_band = sat_band
+        h.save()
+        wx.CallAfter(self.SetFocus)
+        wx.CallAfter(self.handle_sat_band_change, None, sat_band, self.sat)

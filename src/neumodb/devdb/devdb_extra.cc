@@ -191,6 +191,37 @@ devdb::lnb_network_t* devdb::lnb::get_network(lnb_t& lnb, int16_t sat_pos) {
 		return nullptr;
 }
 
+
+
+chdb::sat_band_t devdb::lnb::sat_band(const devdb::lnb_t& lnb) {
+	using namespace chdb;
+	switch (lnb.k.lnb_type) {
+	case lnb_type_t::C:
+		return sat_band_t::C;
+	case lnb_type_t::WDB:
+		return sat_band_t::Ku;
+	case lnb_type_t::WDBUK:
+		return sat_band_t::Ku;
+	case lnb_type_t::UNIV:
+		return sat_band_t::Ku;
+	case lnb_type_t::Ku:
+		return sat_band_t::Ku;
+	case lnb_type_t::KaA:
+		return sat_band_t::KaA;
+	case lnb_type_t::KaB:
+		return sat_band_t::KaB;
+	case lnb_type_t::KaC:
+		return sat_band_t::KaC;
+	case lnb_type_t::KaD:
+		return sat_band_t::KaD;
+	case lnb_type_t::KaE:
+		return sat_band_t::KaE;
+	default:
+		return sat_band_t::Other;
+	}
+}
+
+
 static std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool> lnb_band_helper(const devdb::lnb_t& lnb) {
 	auto freq_low = std::numeric_limits<int32_t>::min();
 	auto freq_high = std::numeric_limits<int32_t>::min();

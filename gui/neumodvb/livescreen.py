@@ -177,7 +177,7 @@ class LiveServiceScreen(object):
 
     def reportOFF(self, label):
         h = self.app.receiver.browse_history
-        dtdebug(f'{label}: list_type{h.h.list_filter_type} filter_chg={h.h.filter_chg}' )
+        dtdebug(f'{label}: list_type{h.h.list_filter_type} filter_chg={h.h.chglist_filter_chg}' )
     def set_sat_filter(self, sat):
         """
         """
@@ -210,7 +210,7 @@ class LiveServiceScreen(object):
         """
         h = self.app.receiver.browse_history
         txn = self.chdb.rtxn()
-        sat = None if  h.h.filter_sat.sat_pos == pychdb.sat.sat_pos_none else  h.h.filter_sat
+        sat = None if  h.h.servicelist_filter_sat.sat_pos == pychdb.sat.sat_pos_none else  h.h.servicelist_filter_sat
         if service is not None and sat is not None  and service.k.mux.sat_pos != sat.sat_pos:
             #a sat filter is in place, but it is not compatible with service
             #we update the filter
@@ -249,10 +249,10 @@ class LiveServiceScreen(object):
             service_idx = self.screen.set_reference(service)
         self.selected_service_or_channel = service
 
-        #print(f'new_type={new_type} {h.h.list_filter_type} {sat_pos} {h.h.filter_sat.sat_pos} {sort_order} { h.h.service_sort_order}')
-        if new_type != h.h.list_filter_type or sat_pos != h.h.filter_sat.sat_pos \
+        #print(f'new_type={new_type} {h.h.list_filter_type} {sat_pos} {h.h.servicelist_filter_sat.sat_pos} {sort_order} { h.h.service_sort_order}')
+        if new_type != h.h.list_filter_type or sat_pos != h.h.servicelist_filter_sat.sat_pos \
            or sort_order != h.h.service_sort_order:
-            h.h.filter_sat = pychdb.sat.sat() if sat is None else sat
+            h.h.servicelist_filter_sat = pychdb.sat.sat() if sat is None else sat
             h.h.list_filter_type = new_type
             h.h.service_sort_order = int(sort_order)
             h.save()
@@ -269,7 +269,7 @@ class LiveServiceScreen(object):
         t = pychdb.list_filter_type_t
         h = self.app.receiver.browse_history
         txn = self.chdb.rtxn()
-        chg = h.h.filter_chg if h.h.filter_chg.k.bouquet_id>0 else None
+        chg = h.h.chglist_filter_chg if h.h.chglist_filter_chg.k.bouquet_id>0 else None
         if chgm is not None and chg is not None and chgm.k != chg.k:
             #a chg filter is in place, but it is not compatible with chgm
             #we update the filter
@@ -322,8 +322,8 @@ class LiveServiceScreen(object):
             chgm_idx = self.screen.set_reference(chgm)
         self.selected_service_or_channel = chgm
 
-        if new_type != h.h.list_filter_type or h.h.filter_chg != chg or h.h.chgm_sort_order != sort_order:
-            h.h.filter_chg = pychdb.chg.chg() if chg is None else chg
+        if new_type != h.h.list_filter_type or h.h.chglist_filter_chg != chg or h.h.chgm_sort_order != sort_order:
+            h.h.chglist_filter_chg = pychdb.chg.chg() if chg is None else chg
             h.h.list_filter_type =  new_type
             h.h.chgm_sort_order = int(sort_order)
             h.save()
@@ -355,7 +355,7 @@ class LiveServiceScreen(object):
         t = pychdb.list_filter_type_t
         self.selected_service_or_channel = service_or_chgm
         if type(service_or_chgm) == pychdb.chgm.chgm:
-            assert h.h.filter_chg is not None #needs to be set earlier
+            assert h.h.chglist_filter_chg is not None #needs to be set earlier
             h.h.list_filter_type = t.BOUQUET_CHANNELS
             chgm =service_or_chgm
             txn = self.chdb.rtxn()
@@ -367,7 +367,7 @@ class LiveServiceScreen(object):
             return service
         elif type(service_or_chgm) == pychdb.service.service:
             if h.h.list_filter_type  not in (t.ALL_SERVICES, t.SAT_SERVICES):
-                h.h.list_filter_type = t.ALL_SERVICES if h.h.filter_sat is None else t.SAT_SERVICES
+                h.h.list_filter_type = t.ALL_SERVICES if h.h.servicelist_filter_sat is None else t.SAT_SERVICES
             h.save(service_or_chgm)
 
             return service_or_chgm
@@ -417,7 +417,7 @@ class LiveServiceScreen(object):
             ft = self.app.receiver.browse_history.h.list_filter_type
             t = pychdb.list_filter_type_t
             h = self.app.receiver.browse_history
-            chg =  None if h.h.filter_chg.k.bouquet_id == 0 else h.h.filter_chg
+            chg =  None if h.h.chglist_filter_chg.k.bouquet_id == 0 else h.h.chglist_filter_chg
             if chg is not None:
                 return chg
             if self.chg_screen is not None and self.chg_screen.list_size>0:
@@ -431,7 +431,7 @@ class LiveServiceScreen(object):
             ft = self.app.receiver.browse_history.h.list_filter_type
             t = pychdb.list_filter_type_t
             h = self.app.receiver.browse_history
-            sat = None if  h.h.filter_sat.sat_pos == pychdb.sat.sat_pos_none else  h.h.filter_sat
+            sat = None if  h.h.servicelist_filter_sat.sat_pos == pychdb.sat.sat_pos_none else  h.h.servicelist_filter_sat
             if sat is not None:
                 return sat
             if self.sat_screen is not None and self.sat_screen.list_size>0:
@@ -444,7 +444,7 @@ class LiveServiceScreen(object):
     def filter_sat(self):
         b = self.app.receiver.browse_history
         t = pychdb.list_filter_type_t
-        return b.h.filter_sat if b.h.list_filter_type == t.SAT_SERVICES else None #restrict services to this sat
+        return b.h.servicelist_filter_sat if b.h.list_filter_type == t.SAT_SERVICES else None #restrict services to this sat
 
     @filter_sat.setter
     def filter_sat(self, val):
@@ -454,7 +454,7 @@ class LiveServiceScreen(object):
     def filter_chg(self):
         b = self.app.receiver.browse_history
         t = pychdb.list_filter_type_t
-        chg =  b.h.filter_chg if b.h.list_filter_type == t.BOUQUET_CHANNELS else None
+        chg =  b.h.chglist_filter_chg if b.h.list_filter_type == t.BOUQUET_CHANNELS else None
         return chg if chg is None or chg.k.bouquet_id>0 else None #restrict services to this sat
 
     @filter_chg.setter
@@ -462,7 +462,7 @@ class LiveServiceScreen(object):
         self.set_chg_filter(val)
         b = self.app.receiver.browse_history
         t = pychdb.list_filter_type_t
-        b.h.filter_chg = val
+        b.h.chglist_filter_chg = val
         b.h.list_filter_type = t.BOUQUET_CHANNELS #restrict services to this sat
         b.save()
 

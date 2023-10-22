@@ -47,7 +47,7 @@ static void chdb::clean_sats(db_txn& wtxn) {
 
 	auto c = find_first<sat_t>(wtxn);
 
-	auto clean = [&](scan_status_t& scan_status) {
+	auto clean1 = [&](scan_status_t& scan_status) {
 		switch(scan_status) {
 		case scan_status_t::PENDING:
 		case scan_status_t::ACTIVE:
@@ -60,25 +60,29 @@ static void chdb::clean_sats(db_txn& wtxn) {
 		}
 	};
 
-	for(auto sat: c.range())  {
-		bool changed{false};
-		for(auto& band_scan: sat.band_scans) {
-			changed |= clean(band_scan.spectrum_scan_status);
-			changed |= clean(band_scan.mux_scan_status);
-			if(band_scan.scan_id != 0) {
-				auto owner_pid = band_scan.scan_id >>8;
-				if(kill((pid_t)owner_pid, 0) == 0) {
-					dtdebugf("process pid={:d} is still active; skip deleting scan status", owner_pid);
-					continue;
+	auto clean = [&](band_scan_t& band_scan) {
+		if(band_scan.scan_id != 0) {
+			auto owner_pid = band_scan.scan_id >>8;
+			if(kill((pid_t)owner_pid, 0) == 0) {
+				dtdebugf("process pid={:d} is still active; skip deleting scan status", owner_pid);
+				return false;
 				}
-				changed = true;
-				band_scan.scan_id = 0;
-			}
+			band_scan.scan_id = 0;
 		}
-		if(!changed)
-			continue;
-		put_record(wtxn, sat);
-		count++;
+
+		bool changed{false};
+		changed |= clean1(band_scan.spectrum_scan_status);
+		changed |= clean1(band_scan.mux_scan_status);
+		return changed;
+	};
+
+	for(auto sat: c.range())  {
+		bool changed = clean(sat.band_scan_lh);
+		changed  |= clean(sat.band_scan_rv);
+		if(changed) {
+			put_record(wtxn, sat);
+			count++;
+		}
 	}
 	dtdebugf("Cleaned {:d} sats with PENDING/ACTIVE/RETRY status", count);
 }

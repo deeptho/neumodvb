@@ -1080,7 +1080,7 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 	auto return_mux = [&chdb_rtxn, &lnb, &return_some_mux](const devdb::lnb_network_t& network)
 		-> std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
 		{
-			auto cs = chdb::sat_t::find_by_key(chdb_rtxn, network.sat_pos);
+			auto cs = chdb::sat_t::find_by_key(chdb_rtxn, network.sat_pos, devdb::lnb::sat_band(lnb));
 			std::optional<chdb::sat_t> sat = cs.is_valid() ? cs.current() : chdb::sat_t();
 			auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
 			if (c.is_valid()) {
@@ -1101,7 +1101,7 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 	using namespace chdb;
 	const bool disregard_networks{false};
 	if (proposed_mux && lnb_can_tune_to_mux(lnb, *proposed_mux, disregard_networks)) {
-		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, proposed_mux->k.sat_pos);
+		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, proposed_mux->k.sat_pos, devdb::lnb::sat_band(lnb));
 		return {*proposed_mux, cs.is_valid() ? cs.current() : chdb::sat_t{}};
 	}
 	{
@@ -1126,7 +1126,7 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		} else if( bestp && !lnb.on_positioner) {
 			return return_mux(*bestp);
 		}
-		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, lnb.cur_sat_pos);
+		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, lnb.cur_sat_pos, devdb::lnb::sat_band(lnb));
 		std::optional<chdb::sat_t> sat = cs.is_valid() ? cs.current() : chdb::sat_t();
 		if(!sat)
 			return {{}, sat};
@@ -1228,6 +1228,37 @@ std::tuple<int32_t, int32_t> chdb::sat_band_freq_bounds(chdb::sat_band_t sat_ban
 		return {0, std::numeric_limits<int32_t>::max()};
 	}
 }
+
+chdb::band_scan_t& chdb::sat::band_scan_for_pol(chdb::sat_t& sat, const chdb::fe_polarisation_t pol) {
+	using namespace chdb;
+	if (pol == fe_polarisation_t::V || pol == fe_polarisation_t::R)
+		return sat.band_scan_rv;
+	else
+		return sat.band_scan_lh;
+}
+
+
+std::optional<chdb::sat_t>
+chdb::select_sat_for_sat_band(db_txn& chdb_rtxn, const chdb::sat_band_t& sat_band, int sat_pos) {
+	using namespace chdb;
+	using namespace devdb;
+	int last = std::numeric_limits<int>::max();
+	sat_t last_sat;
+	auto c = find_first<chdb::sat_t>(chdb_rtxn);
+	for(const auto& sat: c.range()) {
+		if(sat.sat_band != sat_band)
+			continue;
+		if(sat.sat_pos == sat_pos || sat_pos == sat_pos_none)
+			return sat;
+		auto diff = std::abs(sat.sat_pos - sat_pos);
+		if(diff > last)
+			return last_sat;
+		last = diff;
+		last_sat = sat;
+	}
+	return {};
+}
+
 
 //template instantiations
 template void chdb::make_mux_id<chdb::dvbs_mux_t>(db_txn& rtxn, chdb::dvbs_mux_t& mux);

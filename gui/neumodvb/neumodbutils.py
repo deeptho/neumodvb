@@ -32,6 +32,14 @@ def enum_labels(field):
      for k in getattr(field, '__entries').keys():
           ret.append(k.replace('_', ' '))
      return ret
+
+def enum_values_and_labels(field):
+     from collections import OrderedDict
+     ret = OrderedDict()
+     for k in getattr(field, '__entries').keys():
+          ret[getattr(field,k)] = k.replace('_', ' ')
+     return ret
+
 def enum_value_for_label(enum, label):
      a = getattr(enum, '__entries')
      if label in a:

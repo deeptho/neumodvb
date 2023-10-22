@@ -44,6 +44,9 @@ static void export_chdb_extra(py::module& m) {
 		.def("select_reference_mux", &chdb::select_reference_mux,
 				"Select a reference mux for an lnb; choose a mux from the database or mux with good defaults",
 				 py::arg("chdb_rtxn"), py::arg("lnb"), py::arg("sat_pos").none(true) = nullptr)
+		.def("select_sat_for_sat_band", &chdb::select_sat_for_sat_band,
+				"Select a sat for a specific sat_band, prefering one with a close sat_pos",
+				 py::arg("chdb_rtxn"), py::arg("sat_band"), py::arg("sat_pos") = sat_pos_none)
 		;
 }
 
@@ -118,6 +121,10 @@ PYBIND11_MODULE(pychdb, m) {
 	m.def(
 		"sat_pos_str", [](int sat_pos) { return std::string(sat_pos_str(sat_pos).c_str()); },
 		"make human readable representation", py::arg("sat_pos"))
+		.def("sat_band_for_freq", &chdb::sat_band_for_freq,
+				 "Sat band and low/high for frequency",
+				 py::arg("freq")
+			)
 		.def(
 			"key_src_str", [](key_src_t key_src) { return std::string(fmt::format("{}",key_src)); },
 			"make human readable representation", py::arg("key_src"))

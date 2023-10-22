@@ -210,6 +210,9 @@ namespace chdb {
 	chdb::dvbs_mux_t
 	select_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb, int16_t sat_pos);
 
+	std::optional<chdb::sat_t>
+	select_sat_for_sat_band(db_txn& chdb_rtxn, const chdb::sat_band_t& sat_band, int sat_pos);
+
 };
 
 namespace chdb {
@@ -262,7 +265,9 @@ namespace chdb {
 }
 
 namespace chdb::sat {
-	/*!
+	chdb::band_scan_t& band_scan_for_pol(chdb::sat_t& sat, const chdb::fe_polarisation_t pol);
+
+/*!
 		find a satellite which is close to position; returns the best match
 		We adopt a tolerance of sat_pos_tolerance.
 	*/

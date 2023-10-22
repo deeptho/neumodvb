@@ -210,6 +210,7 @@ namespace devdb::lnb {
 		}
 	}
 
+	chdb::sat_band_t sat_band(const devdb::lnb_t& lnb);
 }
 
 namespace devdb::fe {

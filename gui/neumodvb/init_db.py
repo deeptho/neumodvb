@@ -10,19 +10,12 @@ import pychdb
 from pathlib import Path
 
 
-def add_dvbc_dvbt(txn):
-    for sat_pos, name in ((pychdb.sat.sat_pos_dvbc, "DVB-C"), (pychdb.sat.sat_pos_dvbt, "DVB-T")):
-        sat = pychdb.sat.sat()
-        sat.sat_pos = int(sat_pos)
-        sat.name = name
-        pychdb.put_record(txn, sat)
-
-
 def load_sats(txn):
     sats= get_configfile('sats.txt')
     if sats is None:
         dterror("Could not open sats.txt; cannot initialize database")
         return
+    from neumodvb.neumodbutils import enum_value_for_label
 
     with open(sats, "r") as csv_file:
         reader = csv.reader(csv_file, delimiter='\t', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -30,12 +23,14 @@ def load_sats(txn):
         for row in reader:
             if idx == 0 :
                 assert row[0] == 'sat_pos'
-                assert row[1] == 'name'
+                assert row[1] == 'band'
+                assert row[2] == 'name'
                 idx +=1
                 continue
-            sat_pos, name = row
+            sat_pos, band, name = row
             sat = pychdb.sat.sat()
             sat.sat_pos = int(sat_pos)
+            sat.sat_band = enum_value_for_label(pychdb.sat_band_t, band)
             sat.name = name
             pychdb.put_record(txn, sat)
 
@@ -50,5 +45,4 @@ def fix_db():
     db = pychdb.chdb()
     db.open(options.chdb)
     txn = db.wtxn()
-    add_dvbc_dvbt(txn)
     txn.commit()

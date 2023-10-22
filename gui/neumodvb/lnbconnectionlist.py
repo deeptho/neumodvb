@@ -114,9 +114,6 @@ class LnbConnectionTable(NeumoTable):
         if hasattr(self.parent, "lnb_connection"):
             self.parent.lnb_connection = val
 
-    def InitialRecord(self):
-        return self.lnb_connection
-
     def screen_getter(self, txn, sort_field):
         """
         txn is not used; instead we use self.lnb
@@ -184,6 +181,9 @@ class LnbConnectionGrid(NeumoGridBase):
             (wx.ACCEL_CTRL,  ord('E'), self.OnEditMode)
         ])
         self.EnableEditing(self.app.frame.edit_mode)
+
+    def InitialRecord(self):
+        return self.table.lnb_connection
 
     def OnDone(self, evt):
         #@todo(). When a new record has been inserted and connection has been changed, and then user clicks "done"

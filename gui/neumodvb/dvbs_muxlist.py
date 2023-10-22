@@ -96,10 +96,6 @@ class DvbsMuxTable(NeumoTable):
                          initial_sorted_column = initial_sorted_column, **kwds)
         self.filter_band = filter_band
 
-    def InitialRecord(self):
-        sat, mux= self.parent.CurrentSatAndMux()
-        return mux
-
     def __save_record__(self, txn, record):
         pychdb.dvbs_mux.make_unique_if_template(txn, record)
         pychdb.put_record(txn, record) #this will overwrite any mux with given ts_id even if frequency is very wrong
@@ -147,7 +143,7 @@ class DvbsMuxTable(NeumoTable):
             ref = pychdb.dvbs_mux.dvbs_mux()
             ref.k.sat_pos = sat.sat_pos
             txn = self.db.rtxn()
-            screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_field,
+            screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,
                                             key_prefix_type=pychdb.dvbs_mux.dvbs_mux_prefix.sat_pos,
                                             key_prefix_data=ref,
                                             field_matchers=matchers, match_data = match_data,
@@ -157,7 +153,7 @@ class DvbsMuxTable(NeumoTable):
         else:
             sat = None
             mux = None
-            screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_field,
+            screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,
                                             field_matchers=matchers, match_data = match_data)
         self.screen=screen_if_t(screen, self.sort_order==2)
 
@@ -186,6 +182,10 @@ class DvbsMuxGridBase(NeumoGridBase):
         self.mux = None #currently selected mux
         self.sat = None #currently selected sat; muxlist will be restricted to this sat
 
+    def InitialRecord(self):
+        sat, mux= self.CurrentSatAndMux()
+        return mux
+
     def SelectBand(self, lnb):
         self.table.filter_band = pydevdb.lnb.lnb_frequency_range(lnb)
 
@@ -210,6 +210,7 @@ class DvbsMuxGridBase(NeumoGridBase):
         sat = evt.sat
         dtdebug(f'dvbs_muxlist received CmdSelectSat {sat}')
         wx.CallAfter(self.SelectSat, sat)
+
     def SelectMux(self, mux):
         self.mux = mux
     def handle_sat_change(self, evt, sat, mux):

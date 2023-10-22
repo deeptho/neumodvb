@@ -62,9 +62,6 @@ class NeumoFilterTable(NeumoTableBase):
                                            parent_table.columns[new_filter_colno].key, filter_value)
             self.GetRow.cache_clear()
 
-    def InitialRecord(self):
-        return None
-
     def SetReference(self, record):
         return 0
 

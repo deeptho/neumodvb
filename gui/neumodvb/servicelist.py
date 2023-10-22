@@ -64,11 +64,6 @@ class ServiceTable(NeumoTable):
          CD(key='audio_pref',  label='pref', basic=False, dfn=lang_fn, example='1234dddddddddddddd'),
          ]
 
-    def InitialRecord(self):
-        service = self.app.live_service_screen.selected_service
-        dtdebug(f"INITIAL service: service={service}")
-        return service
-
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'ch_order'
         data_table= pychdb.service
@@ -150,6 +145,11 @@ class ServiceGridBase(NeumoGridBase):
         self.grid_specific_menu_items=['epg_record_menu_item', 'epg_autorec_menu_item']
         self.restrict_to_sat = None
         self.service = None
+
+    def InitialRecord(self):
+        service = self.app.live_service_screen.selected_service
+        dtdebug(f"INITIAL service: service={service}")
+        return service
 
     def MoveToChno(self, chno):
         txn = wx.GetApp().chdb.rtxn()

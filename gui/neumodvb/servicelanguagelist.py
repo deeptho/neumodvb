@@ -81,14 +81,6 @@ class LanguageTable(NeumoTable):
             noresize=False, example='Languagexxxx')
         ]
 
-    def InitialRecord(self):
-        if self.for_subtitles:
-            ret= self.mpv_player.get_current_subtitle_language()
-        else:
-            ret = self.mpv_player.get_current_audio_language()
-        dtdebug(f"POPUP initial lang={ret}")
-        return ret
-
     def __init__(self, parent, mpv_player, for_subtitles=False, basic=False, *args, **kwds):
         initial_sorted_column = 'lang1'
         data_table= pychdb.language_code
@@ -125,6 +117,14 @@ class LanguageGrid(NeumoGridBase):
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         gtk_add_window_style(self, 'language_grid')
         set_gtk_window_name(self, 'language_grid')
+
+    def InitialRecord(self):
+        if self.for_subtitles:
+            ret= self.table.mpv_player.get_current_subtitle_language()
+        else:
+            ret = self.table.mpv_player.get_current_audio_language()
+        dtdebug(f"POPUP initial lang={ret}")
+        return ret
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()

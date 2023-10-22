@@ -61,9 +61,6 @@ class RecTable(NeumoTable):
          CD(key='stream_time_end', label='End'),
          ]
 
-    def InitialRecord(self):
-        return self.app.currently_selected_rec
-
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'real_time_start'
         data_table= pyrecdb.rec
@@ -109,6 +106,9 @@ class RecGridBase(NeumoGridBase):
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.grid_specific_menu_items=['epg_record_menu_item', 'epg_autorec_menu_item' ]
+
+    def InitialRecord(self):
+        return self.app.currently_selected_rec
 
     def OnShow(self, evt):
         super().OnShow(evt)

@@ -552,9 +552,6 @@ class NeumoTable(NeumoTableBase):
 
     all_columns = []
 
-    def InitialRecord(self):
-        return None
-
     def __init__(self, parent, basic=False, db_t=None, record_t=None,
                  data_table = None, screen_getter = None,
                  initial_sorted_column = None,
@@ -1022,6 +1019,9 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
         self.Bind(wx.grid.EVT_GRID_LABEL_LEFT_CLICK, self.OnToggleSort)
 
+    def InitialRecord(self):
+        return None
+
     def sync_rows(self):
         """
         add or remove rows on screen to reflect vchanges in underlying table
@@ -1352,7 +1352,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             return
         self.created = True
         self.Parent.Bind(wx.EVT_SHOW, self.OnShow)
-        rec = self.table.InitialRecord()
+        rec = self.InitialRecord()
         self.SetSelectionMode(wx.grid.Grid.SelectRows)
         dtdebug(f'OnWindowCreate rec_to_select={rec}')
         self.OnRefresh(None, rec_to_select=rec)
@@ -1496,7 +1496,7 @@ class GridPopup(wx.ComboPopup):
 
     # Called immediately after the popup is shown
     def OnPopup(self):
-        rec_to_select = self.popup_grid.table.InitialRecord()
+        rec_to_select = self.popup_grid.InitialRecord()
         wx.CallAfter(self.popup_grid.OnRefresh, None, rec_to_select)
         wx.ComboPopup.OnPopup(self)
 

@@ -64,9 +64,6 @@ class AutoRecTable(NeumoTable):
          CD(key='story_contains',  label='Story\n contains', example="House MD"*2),
          ]
 
-    def InitialRecord(self):
-        return self.app.currently_selected_rec
-
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'id'
         data_table= pyrecdb.autorec
@@ -110,8 +107,12 @@ class AutoRecGridBase(NeumoGridBase):
         super().__init__(basic, readonly, table, *args, **kwds)
         self.sort_order = 0
         self.sort_column = None
+        self.app = wx.GetApp()
         #self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         #self.grid_specific_menu_items=['epg_record_menu_item']
+
+    def InitialRecord(self):
+        return self.app.currently_selected_rec
 
     def OnShow(self, evt):
         super().OnShow(evt)

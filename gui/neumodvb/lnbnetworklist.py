@@ -120,9 +120,6 @@ class LnbNetworkTable(NeumoTable):
         if hasattr(self.parent, "network"):
             self.parent.network = val
 
-    def InitialRecord(self):
-        return self.network
-
     def SetSat(self, sat):
         if self.lnb is None:
             return self.network
@@ -202,6 +199,9 @@ class LnbNetworkGrid(NeumoGridBase):
             (wx.ACCEL_CTRL,  ord('E'), self.OnEditMode)
         ])
         self.EnableEditing(self.app.frame.edit_mode)
+
+    def InitialRecord(self):
+        return self.table.network
 
     def SetSat(self, sat):
         self.network = self.table.SetSat(sat)

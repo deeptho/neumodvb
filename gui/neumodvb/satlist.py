@@ -58,33 +58,6 @@ class SatTable(NeumoTable):
          CD(key='band_scans', label='Scans', dfn=band_scans_fn, example='19.0E; '*6)
         ]
 
-
-    def InitialRecord(self):
-
-        self.sat = getattr(self.parent, "sat", None)
-        #Todo: improve this ugliness
-        #If we are part of positioner or spectrum dialig, use the sat selected there
-        if self.sat:
-            self.sat = self.parent.sat
-            return self.sat
-        fn = getattr(getattr(self.parent, "controller", None), "CurrentSatAndMux", None)
-        if fn is not None:
-            #Todo: improve this ugliness
-            #If we are part of positioner or spectrum dialig, use the sat selected there
-            self.sat, _  = fn()
-            return self.sat
-        ls = wx.GetApp().live_service_screen
-        if ls.filter_sat is not None:
-            self.sat = ls.filter_sat
-            return self.sat
-        service = ls.selected_service
-        if service is not None:
-            txn = wx.GetApp().chdb.rtxn()
-            self.sat=pychdb.sat.find_by_key(txn, service.k.mux.sat_pos)
-            txn.abort()
-            del txn
-        return self.sat
-
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'sat_pos'
         data_table= pychdb.sat
@@ -215,3 +188,5 @@ class SatGrid(SatGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(False, False, *args, **kwds)
         #self.SetSelectionMode(wx.grid.Grid.SelectRows)
+    def InitialRecord(self):
+        return self.sat

@@ -58,11 +58,6 @@ class ChgmTable(NeumoTable):
          CD(key='icons',  label='', basic=False, dfn=bool_fn, example='1234'),
          ]
 
-    def InitialRecord(self):
-        chg, chgm = self.parent.CurrentChgAndChgm()
-        dtdebug(f"INITIAL RECORD chdg={chg} chgm={chgm}")
-        return chgm
-
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'chgm_order'
         data_table= pychdb.chgm
@@ -134,6 +129,12 @@ class ChgmGridBase(NeumoGridBase):
         self.restrict_to_chg = None
         self.chgm = None
         self.GetParent().Bind(EVT_CHG_SELECT, self.CmdSelectChg)
+
+    def InitialRecord(self):
+        chg, chgm = self.CurrentChgAndChgm()
+        dtdebug(f"INITIAL RECORD chdg={chg} chgm={chgm}")
+        return chgm
+
 
     def MoveToChno(self, chno):
         txn = wx.GetApp().chdb.rtxn()

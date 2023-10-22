@@ -69,9 +69,6 @@ class SpectrumTable(NeumoTable):
             t='Ku'
         return f'D{lnb_key.dish_id} {sat_pos:>5}{t} {lnb_key.lnb_id}'
 
-    def InitialRecord(self):
-        return self.app.currently_selected_spectrum
-
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'k.start_time'
         data_table= pystatdb.spectrum
@@ -131,6 +128,10 @@ class SpectrumGridBase(NeumoGridBase):
         super().__init__(basic, readonly, table, *args, **kwds)
         self.sort_order = 0
         self.sort_column = None
+
+    def InitialRecord(self):
+        return self.app.currently_selected_spectrum
+
 
 
 class BasicSpectrumGrid(SpectrumGridBase):

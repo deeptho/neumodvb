@@ -615,9 +615,12 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 }
 
 subscription_id_t receiver_thread_t::cb_t::scan_bands(
-	ss::vector_<band_to_scan_t>& bands, tune_options_t tune_options, subscription_id_t& subscription_id)
+	const ss::vector_<chdb::sat_t>& sats,
+	const ss::vector_<chdb::fe_polarisation_t>& pols,
+	int32_t low_freq, int32_t high_freq,
+	tune_options_t tune_options, subscription_id_t& subscription_id)
 {
-	auto s = fmt::format("SCAN[{}] {} bands", (int) subscription_id, (int) bands.size());
+	auto s = fmt::format("SCAN[{}] {} sats", (int) subscription_id, (int) sats.size());
 	log4cxx::NDC ndc(s);
 
 	std::vector<task_queue_t::future_t> futures;
@@ -639,7 +642,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 
 	tune_options.spectrum_scan_options.recompute_peaks = true;
 
-	subscription_id = this->receiver_thread_t::subscribe_scan(futures, bands, lnbs,
+	subscription_id = this->receiver_thread_t::subscribe_scan(futures, sats, pols, low_freq, high_freq, lnbs,
 																														tune_options,
 																														max_num_subscriptions, subscription_id);
 
@@ -1072,13 +1075,17 @@ subscription_id_t receiver_t::scan_spectral_peaks(ss::vector_<chdb::spectral_pea
 	return subscription_id;
 }
 
-subscription_id_t receiver_t::scan_bands(ss::vector_<band_to_scan_t>& bands, tune_options_t tune_options,
+subscription_id_t receiver_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
+																				 const ss::vector_<chdb::fe_polarisation_t>& pols,
+																				 int32_t low_freq, int32_t high_freq,
+																				 tune_options_t tune_options,
 																				 subscription_id_t& subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 
 	//call by reference ok because of subsequent wait_for_all
-	futures.push_back(receiver_thread.push_task([this, &bands, &tune_options, &subscription_id]() {
-		subscription_id = cb(receiver_thread).scan_bands(bands, tune_options, subscription_id);
+	futures.push_back(receiver_thread.push_task([this, &sats, pols, low_freq, high_freq,
+																							 &tune_options, &subscription_id]() {
+		subscription_id = cb(receiver_thread).scan_bands(sats, pols, low_freq, high_freq, tune_options, subscription_id);
 		cb(receiver_thread).scan_now(); // start initial scan
 		return 0;
 	}));
@@ -1713,7 +1720,10 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, 
 	bool scan_newly_found_muxes => if new muxes are found from si information, also scan them
 */
 subscription_id_t
-receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, ss::vector_<band_to_scan_t>& bands,
+receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures,
+																	const ss::vector_<chdb::sat_t>& sats,
+																	const ss::vector_<chdb::fe_polarisation_t>& pols,
+																	int32_t low_freq, int32_t high_freq,
 																	ss::vector_<devdb::lnb_t>* lnbs, const tune_options_t& tune_options,
 																	int max_num_subscriptions,
 																	subscription_id_t subscription_id) {
@@ -1724,7 +1734,7 @@ receiver_thread_t::subscribe_scan(std::vector<task_queue_t::future_t>& futures, 
 		scanner = std::make_unique<scanner_t>(*this, max_num_subscriptions);
 		set_scanner(scanner);
 	}
-	scanner->add_bands(bands, tune_options, sret.subscription_id);
+	scanner->add_bands(sats, pols, low_freq, high_freq, tune_options, sret.subscription_id);
 	if (lnbs && init)
 		scanner->set_allowed_lnbs(*lnbs);
 	return sret.subscription_id;

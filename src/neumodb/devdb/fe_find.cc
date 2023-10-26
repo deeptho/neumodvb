@@ -31,13 +31,6 @@
 
 using namespace devdb;
 
-#if 0
-static int last_band = -1;
-static chdb::fe_polarisation_t last_pol = chdb::fe_polarisation_t::NONE;
-static chdb::fe_polarisation_t test_pol = chdb::fe_polarisation_t::NONE;
-static int test_frequency;
-#endif
-
 std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	db_txn& rtxn, const devdb::fe_key_t* fe_key_to_release,
 	bool need_blindscan, bool need_spectrum, bool need_multistream,
@@ -294,16 +287,6 @@ fe::find_best_fe_for_lnb(
 				continue;
 			}
 			auto use_counts = *use_counts_;
-#if 0
-			int test_band = test_frequency/1000 > 11700;
-			if(last_band!=-1 && (test_band != last_band || test_pol != last_pol)) {
-				printf("here\n");
-				auto tst_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner);
-				auto x=*tst_counts_;
-			}
-			last_pol = test_pol;
-			last_band= test_band;
-#endif
 			if(need_spectrum) {
 				assert (!best_fe || best_fe->supports.spectrum_fft || best_fe->supports.spectrum_sweep);
 
@@ -490,6 +473,141 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }
 
+/*
+	Return the use_counts as they will be after releasing fe_key_to_release
+ */
+std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
+					 devdb::resource_subscription_counts_t>
+fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
+																			 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
+																			 const devdb::rf_path_t* required_rf_path,
+																			 const devdb::fe_key_t* fe_key_to_release,
+																			 bool may_move_dish, bool use_blind_tune, bool need_spectrum,
+																			 int dish_move_penalty, int resource_reuse_bonus,
+																			bool ignore_subscriptions) {
+	using namespace devdb;
+	int best_lnb_prio = std::numeric_limits<int>::min();
+	int best_fe_prio = std::numeric_limits<int>::min();
+	int best_rf_path_prio = std::numeric_limits<int>::min();
+	// best lnb sofar, and the corresponding connected frontend
+	std::optional<devdb::lnb_t> best_lnb;
+	std::optional<devdb::rf_path_t> best_rf_path;
+	std::optional<devdb::fe_t> best_fe;
+	resource_subscription_counts_t best_use_counts;
+
+	/*
+		Loop over all lnbs to find a suitable one.
+		In the loop below, check if the lnb is compatible with the desired sat and tune options.
+		If the lnb is compatible, check check all existing subscriptions for conflicts.
+	*/
+	auto c = required_rf_path ? lnb_t::find_by_key(rtxn, required_rf_path->lnb, find_type_t::find_eq,
+																						 devdb::lnb_t::partial_keys_t::all)
+		: find_first<devdb::lnb_t>(rtxn);
+	for (auto const& lnb : c.range()) {
+		assert(! required_rf_path || required_rf_path->lnb == lnb.k);
+		if(!lnb.enabled || !lnb.can_be_used)
+			continue;
+		auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(lnb, sat.sat_pos);
+		/*priority==-1 indicates:
+			for lnb_network: lnb.priority should be consulted
+			for lnb: front_end.priority should be consulted
+		*/
+		if(required_rf_path && ! has_network) {
+			user_errorf("LNB  {}: LNB has no network to tune to sat {}", lnb, sat);
+			break;
+		}
+
+		auto dish_needs_to_be_moved_ = usals_move_amount != 0;
+
+		/* check if lnb  support required frequency, polarisation...*/
+		const bool disregard_networks{false};
+		if (!devdb::lnb_can_scan_sat_band(lnb, sat, band_scan, disregard_networks))
+			continue;
+		const auto need_blindscan = use_blind_tune;
+		const bool need_spectrum = false;
+		auto pol{band_scan.pol}; //signifies that non-exclusive control is fine
+
+
+		for(const auto& lnb_connection: lnb.connections) {
+			if(!lnb_connection.can_be_used || !lnb_connection.enabled)
+				continue;
+			if(required_rf_path) {
+				auto rf_path = devdb::rf_path_for_connection(lnb.k, lnb_connection);
+				if (rf_path != *required_rf_path)
+					continue;
+			}
+
+			bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
+
+			if (lnb.on_positioner && (usals_move_amount > sat_pos_tolerance) &&
+					(!may_move_dish || ! conn_can_control_rotor)
+				)
+				continue; //skip because dish movement is not allowed or  not possible
+
+			auto lnb_priority = network_priority >= 0 ? network_priority : lnb.priority;
+			auto penalty = dish_needs_to_be_moved_ ? dish_move_penalty : 0;
+			if (!has_network ||
+					(lnb_priority >= 0 && lnb_priority - penalty < best_lnb_prio) //we already have a better fe
+				)
+				continue;
+			if (lnb_priority >= 0 && lnb_priority - penalty == best_lnb_prio) {
+				if(best_rf_path && best_rf_path_prio >= lnb_connection.priority ) {
+					continue;
+				}
+			}
+
+			rf_path_t rf_path;
+			rf_path.lnb = lnb.k;
+			rf_path.card_mac_address = lnb_connection.card_mac_address;
+			rf_path.rf_input = lnb_connection.rf_input;
+			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
+				rtxn, rf_path, lnb, fe_key_to_release, need_blindscan, need_spectrum,
+				false /*need_multistream*/, pol, fe_band_t::NONE /*force exclusive access
+																								 @todo: improve code to better encode
+																								 the need for exclusive access ?*/, usals_pos, ignore_subscriptions);
+			if(!fe_and_use_counts) {
+				dtdebugf("LNB {} cannot be used", lnb);
+				continue;
+			}
+			auto& [fe, use_counts ] = *fe_and_use_counts;
+			auto fe_prio = fe.priority;
+			if(use_counts.lnb >= 1 ||
+				 use_counts.tuner >= 1)
+				fe_prio += resource_reuse_bonus;
+
+			if (lnb_priority < 0 || lnb_priority - penalty == best_lnb_prio)
+				if (best_rf_path_prio >= lnb_connection.priority) // use connection priority to break the tie
+					continue;
+
+			if (lnb_priority < 0 || best_rf_path_prio == lnb_connection.priority)
+				if (fe_prio - penalty <= best_fe_prio) // use fe_priority to break the tie
+					continue;
+
+			/*we cannot move the dish, but we can still use this lnb if the dish
+				happens to be pointint to the correct sat
+			*/
+			best_fe_prio = fe_prio - penalty;
+			best_lnb_prio = (lnb_priority < 0 ? fe_prio : lnb_priority) - penalty; //<0 means: use fe_priority
+			best_lnb = lnb;
+			best_rf_path = devdb::rf_path_t{lnb.k, lnb_connection.card_mac_address, lnb_connection.rf_input};
+			best_rf_path_prio = lnb_connection.priority;
+			best_fe = fe;
+			best_use_counts = use_counts;
+			if (required_rf_path)
+				return std::make_tuple(best_fe, best_rf_path, best_lnb,
+															 best_use_counts); //we only beed to look at one lnb
+		}
+
+		if(required_rf_path && ! best_fe) {
+			user_errorf("LNB {} : no suitable connection to tune to sat {}", lnb, sat);
+			break;
+		}
+	}
+	if(!best_fe && !required_rf_path)
+		user_errorf("Could not find find available lnb, frontend or tuner for sat {}", sat);
+	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
+}
+
 
 
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
@@ -504,6 +622,25 @@ bool devdb::fe::can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mu
 																					dish_move_penalty, resource_reuse_bonus, true /*ignore_subscriptions*/);
 	return !!best_fe;
 }
+
+
+/*returns true if subscription is possible, ignoring any existing subscriptions*/
+bool devdb::fe::can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::sat_t& sat,
+																							 const chdb::band_scan_t& band_scan,
+																							 const devdb::rf_path_t* required_rf_path,
+																							 bool use_blind_tune, bool need_spectrum, bool may_move_dish,
+																							 int dish_move_penalty, int resource_reuse_bonus) {
+	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts] =
+		fe::find_fe_and_lnb_for_tuning_to_band(wtxn, sat, band_scan, required_rf_path,
+																					 nullptr /* fe_key_to_release*/,
+																					 may_move_dish, use_blind_tune, need_spectrum,
+																					 dish_move_penalty, resource_reuse_bonus,
+																					 true /*ignore_subscriptions*/);
+	return !!best_fe;
+}
+
+
+
 
 
 /*returns true if subscription is possible, ignoring any existing subscriptions*/

@@ -80,6 +80,7 @@ static void chdb::clean_sats(db_txn& wtxn) {
 		bool changed = clean(sat.band_scan_lh);
 		changed  |= clean(sat.band_scan_rv);
 		if(changed) {
+			sat.mtime = system_clock_t::to_time_t(now);
 			put_record(wtxn, sat);
 			count++;
 		}

@@ -67,7 +67,13 @@ namespace devdb {
 			connection_for_rf_path(const_cast<const devdb::lnb_t&>(lnb), const_cast<const devdb::rf_path_t&>(rf_path)));
 	}
 
-	bool lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks, ss::string_ *error=nullptr);
+	bool lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+													 bool disregard_networks, ss::string_ *error=nullptr);
+
+	bool lnb_can_scan_sat_band(const devdb::lnb_t& lnb, const chdb::sat_t& sat,
+														 const chdb::band_scan_t& band_scan,
+														 bool disregard_networks, ss::string_* error=nullptr);
+
 };
 
 struct subscribe_ret_t {
@@ -221,6 +227,13 @@ namespace devdb::fe {
 																			const rf_path_t* required_conn_key,
 																			bool use_blind_tune, bool may_move_dish,
 																			int dish_move_penalty, int resource_reuse_bonus);
+	bool can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::sat_t& sat,
+																			const chdb::band_scan_t& band_scan,
+																			const devdb::rf_path_t* required_rf_path,
+																			bool use_blind_tune, bool need_spectrum, bool may_move_dish,
+																			int dish_move_penalty, int resource_reuse_bonus);
+
+
 	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn,
 																															 const mux_t& mux, bool use_blind_tune);
 

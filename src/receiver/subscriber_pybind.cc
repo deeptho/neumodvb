@@ -172,63 +172,24 @@ static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
 	int m = pol_list.size();
 
 	ss::vector_<sat_t> sats;
-	stats.reserve(m);
+	ss::vector<fe_polarisation_t, 2> pols;
+	sats.reserve(n);
 
-	auto find_band_scan =[](sat_t& sat, sat_band_t_ sat_band, fe_polarisation_t pol) -> band_scan_t* {
-		for(auto& b: sat.band_scans) {
-			if(b.pol == pol && b.sat_band == sat_band)
-				return &b;
-		}
-		return nullptr;
-	};
-
-	auto push_bands = [&](sat_t& sat, sat_band_t sat_band) {
-
-		auto [l, h] =sat_band_freq_bounds(sat_band);
-		l = std::max(l, low_freq);
-		h = std::max(h, high_freq);
-		if(h<=l)
-			return true; //no overlap
-		for (auto p: pol_list) {
-			auto* ppol =  p.cast<fe_polarisation_t*>();
-			auto* p_band_scan = find_band_scan(sat, sat_band, pol);
-			if(! p_band_scan) {
-				sat.band_scans.push_back(band_scan_t{
-						//.sat_pos = sat.sat_pos,
-						.sat_band = sat_band,
-							.pol = *ppol,
-							.start_freq = low_freq,
-							.end_freq = high_freq,
-							.spectrum_scan_status = scan_stats_t::PENDING,
-							.mux_scan_status = scan_stats_t::IDLE,
-							.scan_id={}});
-			}
-		};
-		return true;
-	};
-
-	auto band_low = sat_band_for_freq(low_freq);
-	auto band_high = sat_band_for_freq(high_freq-1);
+	for(auto p: pol_list) {
+		auto* ppol =  p.cast<chdb::fe_polarisation_t*>();
+		pols.push_back(*ppol);
+	}
 
 	for(auto s: sat_list) {
 		auto* psat =  s.cast<chdb::sat_t*>();
-		bool has_band{false}; //sat has band defined. Otherwise we assume it matches
-		if(psat->C)
-			has_band |= push_bands(*psat, sat_band_t::C);
-		if(psat->Ku)
-			has_band |= push_bands(*psat, sat_band_t::Ku);
-		if(psat->KaA)
-			has_band |= push_bands(*psat, sat_band_t::KaA);
-		if(psat->KaB)
-			has_band |= push_bands(*psat, sat_band_t::KaB);
-		if(psat->KaC)
-			has_band |= push_bands(*psat, sat_band_t::KaC);
-		if(psat->KaD)
-			has_band |=  push_bands(*psat, sat_band_t::KaD);
-		if(!has_band) //generic lnb (unspecified band)
-			push_bands(*psat, sat_band_t::Other);
+		auto [l, h] =sat_band_freq_bounds(psat->sat_band);
+		l = std::max(l, low_freq);
+		h = std::max(h, high_freq);
+		if(h<=l)
+			continue; //no overlap
+		sats.push_back(*psat);
 	}
-	auto subscription_id = subscriber.scan_bands(bands);
+	auto subscription_id = subscriber.scan_bands(sats, pols, low_freq, high_freq);
 	return subscription_id;
 }
 

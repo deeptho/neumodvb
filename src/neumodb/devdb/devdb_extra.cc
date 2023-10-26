@@ -342,6 +342,37 @@ bool devdb::lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t&
 	return false;
 }
 
+
+bool devdb::lnb_can_scan_sat_band(const devdb::lnb_t& lnb, const chdb::sat_t& sat,
+																	const chdb::band_scan_t& band_scan,
+															bool disregard_networks, ss::string_* error) {
+	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
+	if ((int)band_scan.start_freq < freq_low || (int)band_scan.end_freq > freq_high) {
+		if(error) {
+		error->format("Incorrect range: {:.3f}-{:.3f}Mhz out for range; must be between {:.3f}Mhz and {:.3f}Mhz",
+									band_scan.start_freq/(float)1000, band_scan.end_freq/float(1000),
+									freq_low/float(1000), freq_high/(float)1000);
+		}
+		return false;
+	}
+	if (!devdb::lnb::can_pol(lnb, band_scan.pol)) {
+		if(error) {
+			error->format("Polarisation {} not supported", band_scan.pol);
+		}
+		return false;
+	}
+	if (disregard_networks)
+		return true;
+	for (auto& network : lnb.networks) {
+		if (network.sat_pos == sat.sat_pos)
+			return true;
+	}
+	if(error) {
+		error->format("No network for {}", chdb::sat_pos_str(sat.sat_pos));
+	}
+	return false;
+}
+
 /*
 	band = 0 or 1 for low or high (22Khz off/on)
 	voltage = 0 (H,L, 13V) or 1 (V, R, 18V) or 2 (off)

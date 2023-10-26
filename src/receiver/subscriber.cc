@@ -81,7 +81,9 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 	return (int) subscription_id;
 }
 
-int subscriber_t::scan_bands(ss::vector_<band_to_scan_t>& bands) {
+int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
+														 const ss::vector_<chdb::fe_polarisation_t>& pols,
+														 int32_t low_freq, int32_t high_freq) {
 	{
 		auto w = notification.writeAccess();
 		auto & n = *w;
@@ -93,7 +95,7 @@ int subscriber_t::scan_bands(ss::vector_<band_to_scan_t>& bands) {
 	auto tune_options = receiver->get_default_tune_options(true /*for scan*/);
 
 	subscription_id_t ret{subscription_id};
-	ret = receiver->scan_bands(bands, tune_options, subscription_id);
+	ret = receiver->scan_bands(sats, pols, low_freq, high_freq, tune_options, subscription_id);
 	assert(ret==subscription_id); //subscription_id is passed by reference
 	return (int)subscription_id;
 

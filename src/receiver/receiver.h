@@ -369,7 +369,9 @@ private:
 																	 subscription_id_t subscription_id, subscriber_t* subscriber_ptr=nullptr);
 
 	subscription_id_t subscribe_scan(std::vector<task_queue_t::future_t>& futures,
-																	 ss::vector_<band_to_scan_t>& bands,
+																	 const ss::vector_<chdb::sat_t>& sats,
+																	 const ss::vector_<chdb::fe_polarisation_t>& pols,
+																	 int32_t low_freq, int32_t high_freq,
 																	 ss::vector_<devdb::lnb_t>* lnbs, const tune_options_t& tune_options,
 																	 int max_num_subscriptions,
 																	 subscription_id_t subscription_id);
@@ -441,7 +443,10 @@ public:
 																	chdb::fe_polarisation_t pol, int32_t low_freq, int32_t high_freq, int sat_pos,
 																	tune_options_t tune_options, subscription_id_t& subscription_id);
 #else
-	subscription_id_t scan_bands(ss::vector_<band_to_scan_t>& bands, tune_options_t tune_options,
+	subscription_id_t scan_bands(const ss::vector_<chdb::sat_t>& sats,
+															 const ss::vector_<chdb::fe_polarisation_t>& pols,
+															 int32_t low_freq, int32_t high_freq,
+															 tune_options_t tune_options,
 															 subscription_id_t& subscription_id);
 #endif
 
@@ -550,9 +555,11 @@ public:
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const tune_options_t& tune_options,
 															 subscription_id_t& subscription_id);
 
-	subscription_id_t scan_bands(ss::vector_<band_to_scan_t>& bands, tune_options_t tune_options,
+	subscription_id_t scan_bands(const ss::vector_<chdb::sat_t>& sats,
+															 const ss::vector_<chdb::fe_polarisation_t>& pols,
+															 int32_t low_freq, int32_t high_freq,
+															 tune_options_t tune_options,
 															 subscription_id_t& subscription_id);
-
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		const chdb::service_t& service, subscription_id_t subscription_id = subscription_id_t::NONE);

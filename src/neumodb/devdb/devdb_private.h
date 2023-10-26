@@ -123,6 +123,16 @@ namespace devdb::fe {
 																		bool may_move_dish, bool use_blind_tune,
 																		int dish_move_penalty, int resource_reuse_bonus, bool ignore_subscriptions);
 
+	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
+						 devdb::resource_subscription_counts_t>
+	find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
+																		 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
+																		 const devdb::rf_path_t* required_rf_path,
+																		 const devdb::fe_key_t* fe_key_to_release,
+																		 bool may_move_dish, bool use_blind_tune, bool need_spectrum,
+																		 int dish_move_penalty, int resource_reuse_bonus,
+																		 bool ignore_subscriptions);
+
 	std::optional<resource_subscription_counts_t>
 	check_for_resource_conflicts(db_txn& rtxn,
 															 const fe_subscription_t& s, //desired subscription_parameter

@@ -411,7 +411,10 @@ class scanner_t {
 	int add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
 								bool init, subscription_id_t subscription_id);
 
-	int add_bands(const ss::vector_<band_to_scan_t>& bands, const tune_options_t& tune_options,
+	int add_bands(const ss::vector_<chdb::sat_t>& sats,
+								const ss::vector_<chdb::fe_polarisation_t>& pols,
+								int32_t low_freq, int32_t high_freq,
+								const tune_options_t& tune_options,
 								subscription_id_t scan_subscription_id);
 
 	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,

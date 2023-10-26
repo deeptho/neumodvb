@@ -129,7 +129,11 @@ public:
 	EXPORT int subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
 																int32_t low_freq, int32_t high_freq,
 																int sat_pos=sat_pos_none);
-	EXPORT int scan_bands(ss::vector_<band_to_scan_t>& bands);
+
+	EXPORT int scan_bands(const ss::vector_<chdb::sat_t>& sats,
+												const ss::vector_<chdb::fe_polarisation_t>& pols,
+												int32_t low_freq, int32_t high_freq);
+
 	EXPORT int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key);
 	EXPORT int scan_muxes(const ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,

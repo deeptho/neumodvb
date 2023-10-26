@@ -103,7 +103,7 @@ class DvbsMuxTable(NeumoTable):
 
     def filter_band_(self, band):
         """
-        install a filter to only allow muxes from a specific satellite band which is identified
+        install a filter to only allow muxes from a specific satellite band which is identified by band.
         band is a tuple of low and high frequency limit of the band
         """
         import pydevdb
@@ -131,7 +131,7 @@ class DvbsMuxTable(NeumoTable):
         match_data.frequency, match_data2.frequency = band
         return match_data, matchers, match_data2, matchers2
 
-    def screen_getter_xxx(self, txn, sort_field):
+    def screen_getter_xxx(self, txn, sort_order):
         if self.filter_band is None:
             match_data, matchers = self.get_filter_()
             match_data2, matchers2 = None, None
@@ -156,12 +156,6 @@ class DvbsMuxTable(NeumoTable):
             screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,
                                             field_matchers=matchers, match_data = match_data)
         self.screen=screen_if_t(screen, self.sort_order==2)
-
-    def screen_getter_transposed(self, txn, sort_order):
-        if self.mux is None:
-            positioner_dialog = self.parent.GetParent().GetParent().positioner
-            self.mux = positioner_dialog.mux
-        self.screen=screen_if_t(dvbs_mux_screen_t(self))
 
     def __new_record__(self):
         ret=self.record_t()
@@ -357,22 +351,10 @@ class DvbsMuxGrid(DvbsMuxGridBase):
 class DvbsBasicMuxGrid(DvbsMuxGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
-        if False:
-            h = wx.GetApp().receiver.browse_history
-            self.sat = h.h.dvbs_muxlist_filter_sat
-            if self.sat.sat_pos == pychdb.sat.sat_pos_none:
-                self.sat = None
 
         self.GetParent().Bind(EVT_SAT_SELECT, self.CmdSelectSat)
         #self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
 
-    def OnWindowCreateOFF(self, evt):
-        if evt.GetWindow() != self:
-            return
-        print(f'dvbs_muxlist: OnWindowCreate window={evt.GetWindow()==self}')
-        self.SelectSat(self.sat)
-        if False:
-            self.GrandParent.dvbs_muxlist_sat_sel.SetSat(self.sat, self.allow_all)
     def SelectSat(self, sat):
         dtdebug(f'dvbs_muxlist received SelectSat {sat}')
         if sat is None:

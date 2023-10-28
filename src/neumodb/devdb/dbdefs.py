@@ -161,7 +161,7 @@ lnb_key = db_struct(name='lnb_key',
                           fields = (
                               (3, 'int8_t', 'dish_id', -1), #dish_id=-1 is also the "default dish"
                               #because of switches, the same cable could be attached to multiple dishes
-                              (2, 'int16_t', 'lnb_id', '-1'), #unique identifier for lnb. Still needed?
+                              (2, 'int16_t', 'lnb_id', '-1'), #unique identifier for lnb.
 
                               #Usually the  orbital position (fixed dish) or the offset position on dish
                               #uniquely identifies the lnb, but not always: multiple dishes can point to

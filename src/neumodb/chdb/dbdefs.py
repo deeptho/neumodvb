@@ -21,7 +21,6 @@ db = db_db(gen_options)
 def lord(x):
     return  int.from_bytes(x.encode(), sys.byteorder)
 
-
 list_filter_type = db_enum(name='list_filter_type_t',
                            db = db,
                            storage = 'int8_t',
@@ -561,6 +560,19 @@ epg_type = db_enum(name='epg_type_t',
                            'VIASAT',
                            ))
 
+#duplicated to prevent circular dependency which would arise if using devdb_rfpath
+scan_rf_path = db_struct(name='scan_rf_path',
+                         fname = 'mux',
+                         db = db,
+                         type_id= lord('TC'),
+                         version = 1,
+                         fields = ((1, 'int16_t', 'lnb_id', '-1'), #-1 means: not set
+                                   (2, 'int64_t', 'card_mac_address', -1), #-1 means: not set
+                                   (3, 'int8_t', 'rf_input', -1), #-1 means: not set
+                                   (4, 'int8_t', 'dish_id'), #value is defined only if next three values are set
+                                )
+                         )
+
 mux_common = db_struct(name='mux_common',
                     fname = 'mux',
                     db = db,
@@ -574,6 +586,7 @@ mux_common = db_struct(name='mux_common',
                               (8, 'time_t', 'scan_duration'),
                               (5, 'bool', 'epg_scan'),
                               (2, 'scan_status_t', 'scan_status', 'scan_status_t::NONE'),
+                              (20, 'scan_rf_path_t', 'scan_rf_path'),
                               (12, 'uint32_t', 'scan_id', '0'),
                               (4, 'uint16_t', 'num_services'),
                               (16, 'uint16_t', 'network_id'), #usually redundant
@@ -677,6 +690,7 @@ dvbt_mux = db_struct(name='dvbt_mux',
                           (12, 'mux_common_t', 'c')
                 ))
 
+
 band_scan = db_struct(name = 'band_scan',
                       fname = 'sat',
                       db = db,
@@ -689,6 +703,7 @@ band_scan = db_struct(name = 'band_scan',
                                 (5, 'scan_status_t', 'spectrum_scan_status',  'scan_status_t::NONE'),
                                 (6, 'scan_status_t', 'mux_scan_status', 'scan_status_t::NONE'),
                                 (7, 'uint32_t', 'scan_id', '0'),
+                                (9, 'scan_rf_path_t', 'scan_rf_path'),
                                 (8, 'time_t', 'scan_time')
                                 )
                       )

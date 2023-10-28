@@ -267,25 +267,34 @@ struct blindscan_t {
 		spectrum_key is set only after spectral peaks have been found. In that case it is still possible
 		that peaks.size() ==0 (empty spectrum)
 
-		peaks will always be scanned on the lnb/tuner on which they were located
+		Scanning peaks is performed in two steps (first try to use mux parameters from database; then try blind),
+		but this scanning is always done using the rf_path (spectrum_key.rf_path) used to scan the mux
+
+		Therefore, peaks will always be scanned on the lnb/tuner on which they were located
 
 	*/
-	statdb::spectrum_key_t spectrum_key; //set after peaks to scan have been added to provide correct sat_pos
+	std::optional<statdb::spectrum_key_t> spectrum_key; //set after peaks to scan have been added to provide correct sat_pos
 	ss::vector_<chdb::spectral_peak_t> peaks;
 	bool operator<(const blindscan_key_t& other) const;
 
-	bool valid() const {
-		return  this->spectrum_key.sat_pos != sat_pos_none;
+	bool spectrum_acquired() const {
+		return  !!this->spectrum_key; //blindscan is valid if spectrum was acquired
 	}
 };
 
 
 struct scan_subscription_t {
+	subscription_id_t subscription_id;
 	bool scan_start_reported{false};
 	blindscan_key_t blindscan_key;
 	chdb::spectral_peak_t peak;
 	std::optional<chdb::any_mux_t> mux;
 	bool is_peak_scan{false}; //true if we scan the peak rather than a corresponding mux in the db
+	scan_subscription_t(subscription_id_t subscription_id) :
+		subscription_id(subscription_id) {}
+	scan_subscription_t(const scan_subscription_t& other) = default;
+	scan_subscription_t(scan_subscription_t&& other) = default;
+	scan_subscription_t& operator=(const scan_subscription_t& other) = default;
 };
 
 
@@ -344,11 +353,10 @@ private:
 	std::tuple<int, int> scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
 																 subscription_id_t finished_subscription_id);
 
-	std::tuple<subscription_id_t, subscription_id_t>
-	scan_try_mux(subscription_id_t reusable_subscription_id ,
-							 scan_subscription_t& subscription,
-							 const devdb::rf_path_t* required_rf_path,
-							 bool use_blind_tune);
+	subscription_id_t scan_try_mux(subscription_id_t reusable_subscription_id ,
+																 scan_subscription_t& subscription,
+																 const devdb::rf_path_t* required_rf_path,
+																 bool use_blind_tune);
 
 	bool rescan_peak(blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
 									 scan_subscription_t& subscription);
@@ -356,14 +364,22 @@ private:
 	subscription_id_t scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 															subscription_id_t subscription_id, scan_subscription_t& subscription);
 	template<typename mux_t>
-	std::tuple<int, int, int, int, subscription_id_t>
+	std::tuple<int, int, /*int, int,*/ subscription_id_t>
 	scan_next(db_txn& chdb_rtxn, subscription_id_t finished_subscription_id,
 						scan_subscription_t& subscription);
 
-	bool finish_subscription(db_txn& rtxn,  subscription_id_t finished_subscription_id,
+	subscription_id_t try_all_muxes(
+		db_txn& chdb_rtxn, /*subscription_id_t finished_subscription_id,*/ scan_subscription_t& subscription,
+
+///ffffffff
+		const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
+		//scan_subscription_t* finished_subscription_ptr,
+		//const chdb::mux_key_t& finished_mux_key,
+		int& num_pending_muxes, int& num_pending_peaks);
+
+	bool retry_subscription_if_needed(db_txn& rtxn,  subscription_id_t finished_subscription_id,
 																					 scan_subscription_t& subscription,
 																					 const chdb::any_mux_t& finished_mux);
-	void add_completed(const devdb::fe_t& fe, const chdb::any_mux_t& mux, int num_pending_muxes, int num_pending_peaks);
 
 public:
 	scan_t(	scanner_t& scanner, std::optional<tune_options_t> tune_options, subscription_id_t scan_subscription_id);

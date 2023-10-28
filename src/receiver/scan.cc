@@ -175,7 +175,6 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 							 finished_fe.adapter_no, finished_mux, (int) pending, (int) active,
 							((int) scan.subscriptions.size()));
 			//TODO: why do we perform this "housekeeping" now in the two lines below? Needed?
-
 			while(!must_end && ( pending + active != 0) && scan.subscriptions.size() == 0 ) {
 				std::tie(pending, active) = scan.scan_loop({}, {}, {});
 			}
@@ -226,21 +225,17 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 
 {
 	using namespace chdb;
-	//auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&subscription.mux);
-	//assert (dvbs_mux);
-	//auto& mux = *dvbs_mux;
 	subscription.is_peak_scan = true;
-	subscription_id_t subscription_id{-1};
 	assert(subscription.mux);
 
 	std::visit([&](auto& mux) {
-		assert(!blindscan.valid() || mux.k.sat_pos == blindscan.spectrum_key.sat_pos);
+		assert(!blindscan.spectrum_acquired() || mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
 
 		mux.frequency = subscription.peak.frequency;
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbs_mux_t>) {
-			assert(!blindscan.valid() || mux.k.sat_pos == blindscan.spectrum_key.sat_pos);
-			assert(!blindscan.valid() || mux.pol == subscription.peak.pol);
-			if(blindscan.spectrum_key.sat_pos != sat_pos_none) {
+			assert(!blindscan.spectrum_acquired() || mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
+			assert(!blindscan.spectrum_acquired() || mux.pol == subscription.peak.pol);
+			if(blindscan.spectrum_acquired()) {
 				mux.symbol_rate = subscription.peak.symbol_rate;
 			}
 			mux.pls_mode = fe_pls_mode_t::ROOT;
@@ -255,15 +250,14 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 		mux.c.scan_status = scan_status_t::PENDING;
 		assert(mux.c.scan_id == scan_id);
 		const bool use_blind_tune = true;
-		std::tie(subscription_id, reuseable_subscription_id) =
-			scan_try_mux(reuseable_subscription_id, subscription,
-									 blindscan.spectrum_key.sat_pos != sat_pos_none
-									 ? &blindscan.spectrum_key.rf_path : nullptr, use_blind_tune);
+		reuseable_subscription_id = scan_try_mux(reuseable_subscription_id, subscription,
+																						 blindscan.spectrum_acquired()
+																						 ? &blindscan.spectrum_key->rf_path : nullptr, use_blind_tune);
 	}, *subscription.mux);
 
 
 
-	if ((int)subscription_id < 0) {
+	if ((int)subscription.subscription_id < 0) {
 		/* we cannot subscribe the mux right now.  This should never happen
 			 as we own a subscription
 		*/
@@ -283,12 +277,13 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 	subscription_id_t subscription_id;
 	assert(subscription.mux);
 	auto saved = * subscription.mux;
+	assert(blindscan.spectrum_acquired());
 	std::visit([&](auto& mux) {
-		mux.k.sat_pos = blindscan.spectrum_key.sat_pos;
+		mux.k.sat_pos = blindscan.spectrum_key->sat_pos;
 		mux.frequency = subscription.peak.frequency;
 		set_member(mux, pol, subscription.peak.pol);
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbs_mux_t&>) {
-			assert(mux.k.sat_pos == blindscan.spectrum_key.sat_pos);
+			assert(mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
 			assert(mux.pol == subscription.peak.pol);
 			mux.symbol_rate = subscription.peak.symbol_rate;
 			mux.pls_mode = fe_pls_mode_t::ROOT;
@@ -297,7 +292,7 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbt_mux_t>) {
 		}
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbc_mux_t>) {
-			assert(mux.k.sat_pos == blindscan.spectrum_key.sat_pos);
+			assert(mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
 			mux.symbol_rate = subscription.peak.symbol_rate;
 		}
 		mux.k.t2mi_pid = -1;
@@ -325,23 +320,28 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 		mux.c.scan_id = scan_id;
 		subscription.mux = mux;
 		const bool use_blind_tune = true;
-		std::tie(subscription_id, finished_subscription_id) =
-			scan_try_mux(finished_subscription_id, subscription,
-									 blindscan.spectrum_key.sat_pos != sat_pos_none
-									 ? &blindscan.spectrum_key.rf_path : nullptr, use_blind_tune);
-	}, *subscription.mux);
-	return subscription_id;
+		finished_subscription_id = scan_try_mux(finished_subscription_id, subscription,
+																						blindscan.spectrum_acquired()
+																						? &blindscan.spectrum_key->rf_path : nullptr, use_blind_tune);
+		}, *subscription.mux);
+	return subscription.subscription_id;
 }
 
 
 
 /*
-	process a finished subscription;
-	returns false if we have restarted the subscription for the same frequency/pol
-	but with a different stream_id or a t2mi_pid.
+	process a finished subscription, check if we need to retry the scan of this mux:
+	typically, when scanning a peak, we first use the known parameters in the database,
+	and then if needed blindscan the peak in case parameters have changed. This means
+	the same frequency/pol combination is scanned twice.
+
+	Scanning multiple times also occurs when tuning fails temporarily when some resource is
+	unailable.
+
+	This call returns false if we are retrying scanning thus frequency/pol for some reason
 	Otherwise return true, signaling that this subscription is done
  */
-bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_id,
+bool scan_t::retry_subscription_if_needed(db_txn& rtxn,  subscription_id_t subscription_id,
 																 scan_subscription_t& subscription,
 																 const chdb::any_mux_t& finished_mux)
 {
@@ -381,7 +381,7 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 		break;
 	}
 
-	if(!blindscan.valid()) {
+	if(!blindscan.spectrum_acquired()) {
 		return true; //regular scan, not spectrum scan, this can be finished
 	}
 
@@ -415,28 +415,27 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 	and subscription to erase, and the new value of reuseable_subscription_id
  */
 template<typename mux_t>
-std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb_rtxn,
-																													subscription_id_t reuseable_subscription_id,
-																													scan_subscription_t& subscription)
+std::tuple<int, int, subscription_id_t>
+scan_t::scan_next(db_txn& chdb_rtxn,
+									subscription_id_t reuseable_subscription_id,
+									scan_subscription_t& subscription)
 {
 	std::vector<task_queue_t::future_t> futures;
 	// start as many subscriptions as possible
 	using namespace chdb;
 	int num_pending_muxes{0};
-	int num_skipped_muxes{0};
 	int num_pending_peaks{0};
-	int num_skipped_peaks{0};
-
 	std::map<blindscan_key_t, bool> skip_map;
 
 
-/*Scan all spectral peaks for blindscans launched from the spectrum dialog is in propgress.
-		In this case we force the lnb used to acquire the spectrum (e.g., in case the lnb is on a large \
-		this, and scanning another lnb on a smaller dish might not succeed).
+/* First scan available spectral peaks
+	 When scanning spectral peaks for blindscans launched after spectral scan,
+	 we force the lnb used to acquire the spectrum (e.g., in case the lnb is on a large \
+	 dish, and scanning another lnb on a smaller dish might not succeed).
 
-		The user can also launch blindscan on more than one lnb but for the same sat (e.g., on multiple dishes).
-		In this case, in the current code, only one of those lnbs will be considered, as the peaks are stored
-		in the same data structure
+	 The user can also launch blindscan on more than one lnb but for the same sat (e.g., on multiple dishes).
+	 In this case, in the current code, only one of those lnbs will be considered, as the peaks are stored
+	 in the same data structure
 
 
 	*/
@@ -446,18 +445,15 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 																					 key below does not depend on lnb for a mux (which can be for any
 																					 lnb).
 																					 TODO: various strange situations can occur:
-																					 1. user asks to scan muxes ffrom dvbs mux and then also
+																					 1. user asks to scan muxes from dvbs mux and then also
 																					 to scan peaks from spectrum dialog. This can lead to the same
 																					 mux being scanned on a specific lnb and on "any" lnb
 																					 2. even if user only starts blindscan, which will use a specific lnb,
 																					 si processing can create new muxes which can then be scanned on any lnb
 
 																				 */
-		if(skip_sat_band) {
-			num_skipped_peaks += blindscan.peaks.size();
-			num_pending_peaks += blindscan.peaks.size();
+		if(skip_sat_band)
 			continue;
-		}
 		if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) { //TODO: check based on peak freduency, required_lnb and such
 			for(int idx = blindscan.peaks.size()-1;  idx>=0 ; --idx) {
 				auto &peak = blindscan.peaks[idx];
@@ -466,8 +462,6 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 				auto max_num_subscriptions = scanner.max_num_subscriptions;
 				if ((int)subscriptions.size() >=
 						((int)reuseable_subscription_id < 0 ? max_num_subscriptions : max_num_subscriptions + 1)) {
-					num_skipped_peaks += blindscan.peaks.size();
-					num_pending_peaks += blindscan.peaks.size();
 					break; // to have accurate num_pending count
 				}
 				subscription.blindscan_key = key;
@@ -496,6 +490,7 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 				}
 			}
 		}
+		//@todo: implement blindscan for DVBC and DVBT
 	}
 
 	for(int pass=0; pass < 2; ++pass) {
@@ -528,11 +523,8 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 			}
 
 			bool& skip_mux = skip_helper(skip_map, mux_to_scan);
-			if(skip_mux) {
-				num_skipped_muxes++;
-				num_pending_muxes++;
+			if(skip_mux)
 				continue;
-			}
 			subscription.mux = mux_to_scan;
 
 			if(receiver_thread.must_exit())
@@ -544,24 +536,24 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 			devdb::rf_path_t* required_rf_path{nullptr};
 			if(found) {
 				auto& blindscan = it->second;
-				required_rf_path = blindscan.valid()
-					? &blindscan.spectrum_key.rf_path : nullptr;
+				required_rf_path = blindscan.spectrum_acquired()
+					? &blindscan.spectrum_key->rf_path : nullptr;
 			}
 			if(mux_is_being_scanned(mux_to_scan)) {
 				dtdebugf("Skipping mux already in progress: {}", mux_to_scan);
 				continue;
 			}
 
-			subscription_id_t subscription_id;
+			//subscription_id_t subscription_id;
 			const bool use_blind_tune = false;
-			std::tie(subscription_id, reuseable_subscription_id) =
+			reuseable_subscription_id =
 				scan_try_mux(reuseable_subscription_id, subscription, required_rf_path, use_blind_tune);
 
-			if ((int)subscription_id < 0) {
+			if ((int)subscription.subscription_id < 0) {
 				// we cannot subscribe the mux right now
-				if(subscription_id == subscription_id_t::RESERVATION_FAILED_PERMANENTLY) {
+				if(subscription.subscription_id == subscription_id_t::RESERVATION_FAILED_PERMANENTLY) {
 					skip_mux = false; //ensure that we do not even try muxes on the same sat, pol, band in this run
-				} else if(subscription_id == subscription_id_t::RESERVATION_FAILED) {
+				} else if(subscription.subscription_id == subscription_id_t::RESERVATION_FAILED) {
 					num_pending_muxes++;
 					skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
 				} else {
@@ -582,8 +574,95 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 		//subscriptions.erase(reuseable_subscription_id); //remove old entry
 		wait_for_all(futures);
 	}
-	return {num_pending_peaks, num_skipped_peaks, num_pending_muxes, num_skipped_muxes, reuseable_subscription_id};
+	return {num_pending_peaks, num_pending_muxes, reuseable_subscription_id};
 }
+
+
+
+subscription_id_t scan_t::try_all_muxes(
+	db_txn& chdb_rtxn, scan_subscription_t& subscription,
+	const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
+	int& num_pending_muxes,
+	int& num_pending_peaks
+	)
+{
+	// start as many subscriptions as possible
+	using namespace chdb;
+	auto& finished_mux_key = *mux_key_ptr(finished_mux);
+	subscription_id_t finished_subscription_id_dvbs{-1};
+	subscription_id_t finished_subscription_id_dvbc{-1};
+	subscription_id_t finished_subscription_id_dvbt{-1};
+	bool existing_subscription = (int)subscription.subscription_id >=0;
+
+	if(finished_mux_key.sat_pos == sat_pos_dvbc)
+		finished_subscription_id_dvbc = subscription.subscription_id;
+	else if(finished_mux_key.sat_pos == sat_pos_dvbt)
+		finished_subscription_id_dvbt = subscription.subscription_id;
+	else
+		finished_subscription_id_dvbs = subscription.subscription_id;
+
+	int num_pending_muxes1{0};
+	int num_pending_peaks1{0};
+	subscription_id_t subscription_to_erase1{-1};
+	subscription_id_t subscription_to_erase{-1};
+	/*scan any pending muxes. This is useful to reuse the finished subscription if it is not currently
+		busy, but also to take advantage of frontends used for viewing tv but then release */
+
+	if(receiver_thread.must_exit())
+		throw std::runtime_error("Exit requested");
+	dtdebugf("Calling scan_next");
+	std::tie(num_pending_peaks1, /*num_skipped_peaks1,*/ num_pending_muxes1, /*num_skipped_muxes1,*/
+					 subscription_to_erase1) =
+		scan_next<chdb::dvbs_mux_t>(chdb_rtxn, finished_subscription_id_dvbs, subscription);
+
+	subscription_to_erase = subscription_to_erase1;
+	num_pending_peaks += num_pending_peaks1;
+	num_pending_muxes += num_pending_muxes1;
+	if(receiver_thread.must_exit())
+		throw std::runtime_error("Exit requested");
+
+	dtdebugf("dvbc scan_next round\n");
+	std::tie(num_pending_peaks1, /*num_skipped_peaks1, */ num_pending_muxes1, /*num_skipped_muxes1,*/
+					 subscription_to_erase1) =
+		scan_next<chdb::dvbc_mux_t>(chdb_rtxn, finished_subscription_id_dvbc, subscription);
+
+	assert((int)subscription_to_erase == -1 || (int) subscription_to_erase1 == -1);
+	if( (int) subscription_to_erase1 >=0)
+		subscription_to_erase = subscription_to_erase1;
+
+	num_pending_peaks += num_pending_peaks1;
+	num_pending_muxes += num_pending_muxes1;
+	if(receiver_thread.must_exit())
+		throw std::runtime_error("Exit requested");
+
+	dtdebugf("dvbt scan_next\n");
+	std::tie(num_pending_peaks1, /*num_skipped_peaks1,*/ num_pending_muxes1, /*num_skipped_muxes1,*/
+					 subscription_to_erase1) =
+		scan_next<chdb::dvbt_mux_t>(chdb_rtxn, finished_subscription_id_dvbt, subscription);
+
+	num_pending_peaks += num_pending_peaks1;
+	num_pending_muxes += num_pending_muxes1;
+	assert((int)subscription_to_erase == -1 || (int) subscription_to_erase1 == -1);
+	if( (int) subscription_to_erase1 >=0)
+		subscription_to_erase = subscription_to_erase1;
+		dtdebugf("finished_subscription_id={:d} subscription_to_erase ={:d} pending={:d}+{:d}",
+					 (int) subscription.subscription_id,
+					 (int) subscription_to_erase,
+					 num_pending_peaks, num_pending_muxes);
+	auto w = scan_stats.writeAccess();
+	w->pending_peaks = num_pending_peaks;
+	w->pending_muxes = num_pending_muxes;
+	w->active_muxes = subscriptions.size();
+	if(existing_subscription) {
+		bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
+		bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result == chdb::scan_result_t::NOTS;
+		w->finished_muxes++;
+		w->failed_muxes += !locked;
+		w->locked_muxes += locked;
+		w->si_muxes += (locked && !nodvb);
+	}
+	return subscription_to_erase;
+};
 
 
 
@@ -601,89 +680,6 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 	int num_skipped_peaks{0};
 	auto& finished_mux_key = *mux_key_ptr(finished_mux);
 	scan_subscription_t* finished_subscription_ptr{nullptr};
-	auto try_all = [&](
-		db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_subscription_t& subscription) mutable {
-		// start as many subscriptions as possible
-		using namespace chdb;
-
-		subscription_id_t finished_subscription_id_dvbs{-1};
-		subscription_id_t finished_subscription_id_dvbc{-1};
-		subscription_id_t finished_subscription_id_dvbt{-1};
-		assert((finished_subscription_ptr== nullptr) == ((int) finished_subscription_id == -1));
-		if (finished_subscription_ptr) { //a subscription can be reused
-			assert((int) finished_subscription_id != -1);
-			if(finished_mux_key.sat_pos == sat_pos_dvbc)
-				finished_subscription_id_dvbc = finished_subscription_id;
-			else if(finished_mux_key.sat_pos == sat_pos_dvbt)
-				finished_subscription_id_dvbt = finished_subscription_id;
-			else
-				finished_subscription_id_dvbs = finished_subscription_id;
-		}
-
-		int num_pending_muxes1{0};
-		int num_skipped_muxes1{0};
-		int num_pending_peaks1{0};
-		int num_skipped_peaks1{0};
-		subscription_id_t subscription_to_erase1{-1};
-		subscription_id_t subscription_to_erase{-1};
-		/*scan any pending muxes. This is useful to reuse the finished subscription if it is not currently
-			busy, but also to take advantage of frontends used for viewing tv but then release */
-
-		if(receiver_thread.must_exit())
-			throw std::runtime_error("Exit requested");
-
-		dtdebugf("Calling scan_next");
-		std::tie(num_pending_peaks1, num_skipped_peaks1, num_pending_muxes1, num_skipped_muxes1,
-						 subscription_to_erase1) =
-			scan_next<chdb::dvbs_mux_t>(chdb_rtxn, finished_subscription_id_dvbs, subscription);
-
-		subscription_to_erase = subscription_to_erase1;
-		num_pending_peaks += num_pending_peaks1;
-		num_skipped_peaks += num_skipped_peaks1;
-		num_pending_muxes += num_pending_muxes1;
-		num_skipped_muxes += num_skipped_muxes1;
-		if(receiver_thread.must_exit())
-			throw std::runtime_error("Exit requested");
-
-		dtdebugf("dvbc scan_next round\n");
-		std::tie(num_pending_peaks1, num_skipped_peaks1, num_pending_muxes1, num_skipped_muxes1,
-						 subscription_to_erase1) =
-			scan_next<chdb::dvbc_mux_t>(chdb_rtxn, finished_subscription_id_dvbc, subscription);
-
-		assert((int)subscription_to_erase == -1 || (int) subscription_to_erase1 == -1);
-		if( (int) subscription_to_erase1 >=0)
-			subscription_to_erase = subscription_to_erase1;
-
-		num_pending_peaks += num_pending_peaks1;
-		num_skipped_peaks += num_skipped_peaks1;
-		num_pending_muxes += num_pending_muxes1;
-		num_skipped_muxes += num_skipped_muxes1;
-
-		if(receiver_thread.must_exit())
-			throw std::runtime_error("Exit requested");
-
-		dtdebugf("dvbt scan_next\n");
-		std::tie(num_pending_peaks1, num_skipped_peaks1, num_pending_muxes1, num_skipped_muxes1,
-						 subscription_to_erase1) =
-			scan_next<chdb::dvbt_mux_t>(chdb_rtxn, finished_subscription_id_dvbt, subscription);
-
-		num_pending_peaks += num_pending_peaks1;
-		num_skipped_peaks += num_skipped_peaks1;
-		num_pending_muxes += num_pending_muxes1;
-		num_skipped_muxes += num_skipped_muxes1;
-
-		assert((int)subscription_to_erase == -1 || (int) subscription_to_erase1 == -1);
-		if( (int) subscription_to_erase1 >=0)
-			subscription_to_erase = subscription_to_erase1;
-
-		dtdebugf("finished_subscription_id={:d} subscription_to_erase ={:d} pending={:d}+{:d} skipped={:d}+{:d}",
-						 (int) finished_subscription_id,
-						 (int) subscription_to_erase,
-						 num_pending_peaks, num_pending_muxes, num_skipped_peaks, num_skipped_muxes);
-
-		add_completed(finished_fe, finished_mux, num_pending_muxes, num_pending_peaks);
-		return subscription_to_erase;
-	};
 
 	if(mux_key_ptr(finished_mux)->sat_pos != sat_pos_none) { //otherwise we are called from housekeeping
 		int count{0};
@@ -707,41 +703,33 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			dtdebugf("obtained transaction\n");
 			count++;
 			auto& blindscan = blindscans[subscription.blindscan_key];
-			bool finished = finish_subscription(chdb_rtxn,  finished_subscription_id,
+			bool finished = retry_subscription_if_needed(chdb_rtxn,  finished_subscription_id,
 																					subscription, finished_mux);
-			dtdebugf("after finish_subscription: finished_mux={} finished=",
+			dtdebugf("after retry_subscription_if_needed: finished_mux={} finished=",
 							 finished_mux, finished);
-			scan_report_t report{subscription, blindscan.spectrum_key, {}};
+			scan_report_t report{subscription, *blindscan.spectrum_key, {}};
 			if (!finished) {
 				finished_subscription_ptr = nullptr;
 				it = std::next(it);
 				return;
-			} else {
-				finished_subscription_ptr = & subscription;  //allow try_all to reuse this subscription
-				subscription.mux.reset();
-				dtdebugf("calling try_all\n");
-				auto subscription_to_erase = try_all(chdb_rtxn, finished_subscription_id, subscription);
-				dtdebugf("finished_subscription_id={} subscription_to_erase={} finished_mux={}",
-								(int) finished_subscription_id, (int) subscription_to_erase, finished_mux);
-				if((int) subscription_to_erase >=0) {
-					assert(subscription_to_erase == finished_subscription_id);
-					it = subscriptions.erase(it);
-					if (subscription_to_erase == monitored_subscription_id)
-						monitored_subscription_id = subscription_id_t::NONE;
-				} else {
-					it = std::next(it);
-				}
 			}
-			{
-				bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
-				bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result == chdb::scan_result_t::NOTS;
-				auto w = scan_stats.writeAccess();
-					w->active_muxes = subscriptions.size();
-					w->finished_muxes++;
-					w->failed_muxes += !locked;
-					w->locked_muxes += locked;
-					w->si_muxes += (locked && !nodvb);
-					w->pending_muxes = num_pending_muxes;
+			finished_subscription_ptr = & subscription;  //allow try_all_muxes to reuse this subscription
+			subscription.mux.reset();
+			dtdebugf("calling try_all_muxes\n");
+			assert(subscription.subscription_id == finished_subscription_id);
+			auto subscription_to_erase = try_all_muxes(chdb_rtxn, /*finished_subscription_id,*/ subscription,
+																								 finished_fe, finished_mux,
+																								 /*finished_subscription_ptr, finished_mux_key,*/
+																								 num_pending_muxes, num_pending_peaks);
+			dtdebugf("finished_subscription_id={} subscription_to_erase={} finished_mux={}",
+							 (int) finished_subscription_id, (int) subscription_to_erase, finished_mux);
+			if((int) subscription_to_erase >=0) {
+				assert(subscription_to_erase == finished_subscription_id);
+				it = subscriptions.erase(it);
+				if (subscription_to_erase == monitored_subscription_id)
+					monitored_subscription_id = subscription_id_t::NONE;
+			} else {
+				it = std::next(it);
 			}
 			assert(finished_mux_key.sat_pos == sat_pos_none || finished_fe.sub.owner == getpid());
 			report.scan_stats = *scan_stats.readAccess();
@@ -760,13 +748,16 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		}
 	} else {
 		//in case new frontends or lnbs have become available for use
-		scan_subscription_t subscription;
 		finished_subscription_ptr = nullptr;
 		auto finished_subscription_id = subscription_id_t{-1};
-		dtdebugf("calling try_all\n");
+		scan_subscription_t subscription{finished_subscription_id};
+		dtdebugf("calling try_all_muxes\n");
 		auto chdb_rtxn = receiver.chdb.rtxn();
 		dtdebugf("obtained transaction\n");
-		auto subscription_to_erase = try_all(chdb_rtxn, finished_subscription_id, subscription);
+		auto subscription_to_erase = try_all_muxes(chdb_rtxn, /*finished_subscription_id,*/ subscription,
+																							 finished_fe, finished_mux,
+																							 /*finished_subscription_ptr, finished_mux_key,*/
+																							 num_pending_muxes, num_pending_peaks);
 		assert((int) subscription_to_erase == -1);
 		dtdebugf("committing\n");
 		chdb_rtxn.commit();
@@ -830,8 +821,7 @@ bool scan_t::mux_is_being_scanned(const chdb::any_mux_t& mux)
 	returns the number the new subscription_id and the new value of reuseable_subscription_id,
 	which will be -1 to to indicate that it can no longer be reused
  */
-//template<typename mux_t>
-std::tuple<subscription_id_t, subscription_id_t>
+subscription_id_t
 scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 										 scan_subscription_t& subscription, const devdb::rf_path_t* required_rf_path,
 										 bool use_blind_tune)
@@ -891,7 +881,8 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 			chdb_wtxn.commit();
 			subscription_id = subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 		}
-		return {subscription_id, reuseable_subscription_id};
+		subscription.subscription_id = subscription_id;
+		return reuseable_subscription_id;
 	}
 	last_subscribed_mux = *subscription.mux;
 	dtdebugf("subscribed to {} subscription_id={} reuseable_subscription_id={}",
@@ -899,7 +890,8 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 
 	/*at this point, we know that our newly subscribed fe differs from our old subscribed fe
 	 */
-	subscriptions[subscription_id] = subscription;
+	subscription.subscription_id = subscription_id;
+	subscriptions.insert_or_assign(subscription_id, subscription);
 
 	if ((int)reuseable_subscription_id >= 0) {
 		assert(subscription_id == reuseable_subscription_id);
@@ -911,7 +903,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		reuseable_subscription_id = subscription_id_t{-1}; // we can still attempt to subscribe, but with new a new subscription_id
 	}
 
-	return {subscription_id, reuseable_subscription_id};
+	return reuseable_subscription_id;
 }
 
 
@@ -959,20 +951,6 @@ void scanner_t::init()
 	clean<chdb::dvbt_mux_t>(wtxn);
 	wtxn.commit();
 }
-
-
-/*
-	Returns true if a the  mux was new, or false if it was already planned
-*/
-void scan_t::add_completed(const devdb::fe_t& fe, const chdb::any_mux_t& mux, int num_pending_muxes,
-	int num_pending_peaks) {
-		auto w = scan_stats.writeAccess();
-		w->pending_peaks = num_pending_peaks;
-		//w->finished_muxes++;
-		w->pending_muxes = num_pending_muxes;
-		w->active_muxes = subscriptions.size();
-}
-
 
 bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 																 db_txn& devdb_wtxn, subscription_id_t scan_subscription_id)
@@ -1081,7 +1059,7 @@ int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::v
 	for(const auto& peak: peaks) {
 		blindscan_key_t key = {spectrum_key.sat_pos, spectrum_key.pol, peak.frequency};//frequency is translated to band
 		auto& blindscan = scan.blindscans[key];
-		if(!blindscan.valid()) {
+		if(!blindscan.spectrum_acquired()) {
 			blindscan.spectrum_key = spectrum_key;
 		}  else {
 
@@ -1264,9 +1242,9 @@ template int scanner_t::add_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt
 																										subscription_id_t subscription_id);
 
 
-template std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next<chdb::dvbs_mux_t>(
+template std::tuple<int, int, subscription_id_t> scan_t::scan_next<chdb::dvbs_mux_t>(
 	db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_subscription_t& subscription);
-template std::tuple<int, int,  int, int, subscription_id_t> scan_t::scan_next<chdb::dvbc_mux_t>(
+template std::tuple<int, int, subscription_id_t> scan_t::scan_next<chdb::dvbc_mux_t>(
 	db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_subscription_t& subscription);
-template std::tuple<int, int,  int, int, subscription_id_t> scan_t::scan_next<chdb::dvbt_mux_t>(
+template std::tuple<int, int, subscription_id_t> scan_t::scan_next<chdb::dvbt_mux_t>(
 	db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_subscription_t& subscription);

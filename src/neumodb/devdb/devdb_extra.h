@@ -28,6 +28,8 @@
 
 #include "neumodb/devdb/devdb_db.h"
 #include "neumodb/chdb/chdb_extra.h"
+#include "neumodb/devdb/tune_options.h"
+
 #pragma GCC visibility push(default)
 
 
@@ -229,13 +231,11 @@ namespace devdb::fe {
 	std::optional<fe_t> unsubscribe(db_txn& wtxn, subscription_id_t subscription_id);
 
 	bool can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-																			const rf_path_t* required_conn_key,
-																			bool use_blind_tune, bool may_move_dish,
+																			const tune_options_t& tune_options,
 																			int dish_move_penalty, int resource_reuse_bonus);
 	bool can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::sat_t& sat,
 																			const chdb::band_scan_t& band_scan,
-																			const devdb::rf_path_t* required_rf_path,
-																			bool use_blind_tune, bool need_spectrum, bool may_move_dish,
+																			const tune_options_t& tune_options,
 																			int dish_move_penalty, int resource_reuse_bonus);
 
 

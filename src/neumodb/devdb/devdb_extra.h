@@ -46,10 +46,15 @@ namespace devdb::dish {
 	int update_usals_pos(db_txn& wtxn, const devdb::lnb_t&lnb, int usals_pos,
 											 const devdb::usals_location_t& loc, int sat_pos);
 	bool dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos);
+	ss::vector_<int8_t> list_dishes(db_txn& devdb_rtxn);
+
 };
 
 
 namespace devdb {
+
+	devdb::lnb_t lnb_for_lnb_id(db_txn& devdb_rtxn, int8_t dish_id, int16_t lnb_id);
+
 	inline rf_path_t rf_path_for_connection(const devdb::lnb_key_t& lnb_key,
 																					const devdb::lnb_connection_t& lnb_connection) {
 		return devdb::rf_path_t{lnb_key, lnb_connection.card_mac_address, lnb_connection.rf_input};

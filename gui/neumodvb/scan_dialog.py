@@ -45,6 +45,7 @@ class ScanDialog(ScanDialog_):
         if title is not None:
             self.title_label.SetLabel(title)
             self.SetTitle(title)
+
     def OnScanTypeChoice(self, evt):
         self.band_scan = self.scan_type_choice.GetSelection()==0
         if self.allow_band_scan:
@@ -84,6 +85,10 @@ class ScanDialog(ScanDialog_):
         dtdebug("OnCancel")
 
     def OnDone(self):
+        dishes=self.allowed_dishes_checklistbox.selected_dishes()
+        cards=self.allowed_cards_checklistbox.selected_cards()
+        self.allowed_dishes = dishes
+        self.allowed_cards = cards
         self.band_scan = self.scan_type_choice.GetSelection()==0
         self.tune_options.scan_epg = self.scan_epg_checkbox.GetValue()
         self.tune_options.propagate_scan = self.propagate_scan_checkbox.GetValue()

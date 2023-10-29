@@ -559,6 +559,8 @@ class NeumoGui(wx.App):
         for retry in False, True:
             txn = self.chdb.rtxn()
             self.sats = pychdb.sat.list_all_by_key(txn)
+            #self.dishes = sorted(s for s in set(s.dish_id for s in self.sats))
+            #print(f"dishes={self.dishes}")
             del txn
             if len(self.sats) <= 2 and not retry:
                 from neumodvb.init_db import init_db
@@ -566,10 +568,18 @@ class NeumoGui(wx.App):
             else:
                 return self.sats
 
-    def get_cards(self):
+    def get_dishes(self):
+        txn = self.devdb.rtxn()
+        self.dishes = pydevdb.dish.list_dishes(txn)
+        del txn
+        return self.dishes
+
+    def get_cards(self, available_only=False):
         txn = wx.GetApp().devdb.rtxn()
         ret={}
         for a in  pydevdb.fe.list_all_by_card_mac_address(txn):
+            if available_only and not a.available:
+                continue
             ret[f'C{a.card_no}: {a.card_short_name}' ] = a.card_mac_address
         txn.abort()
         return ret

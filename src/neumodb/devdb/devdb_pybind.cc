@@ -42,6 +42,16 @@ static inline devdb::lnb_connection_t* conn_helper
 	return connection_for_rf_path(lnb, rf_path);
 }
 
+static void export_dish_extra(py::module& m) {
+	//auto mm = py::reinterpret_borrow<py::module>(m.attr("dish"));
+	auto mm = m.def_submodule("dish");
+	using namespace devdb;
+	mm.def("list_dishes", &dish::list_dishes,
+				 "Returns a list of known dish ids",
+				 py::arg("devdb_rtxn"))
+		;
+}
+
 static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
 	using namespace devdb;
@@ -127,6 +137,7 @@ PYBIND11_MODULE(pydevdb, m) {
 	devdb::export_enums(m);
 	devdb::export_structs(m);
 	export_lnb_extra(m);
+	export_dish_extra(m);
 
 	m.attr("__version__") = version_info();
 }

@@ -978,7 +978,7 @@ void devdb::lnb::set_lnb_offset_angle(devdb::lnb_t&  lnb, const devdb::usals_loc
 }
 
 /*
-	Bring an lnb used by the GUI uptodate with the most recent information.
+	Bring an lnb used by the GUI uptodate with the most recent information in database
 	If save==true update database
 	devdb_wtxn can also be a readonly transaction if db is not updated
  */
@@ -1318,6 +1318,37 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn) {
 		}
 	}
 }
+
+devdb::lnb_t devdb::lnb_for_lnb_id(db_txn& devdb_rtxn, int8_t dish_id, int16_t lnb_id) {
+	using namespace devdb;
+	lnb_key_t k;
+	k.dish_id = dish_id;
+	k.lnb_id=lnb_id;
+	auto c = lnb_t::find_by_key(devdb_rtxn, k, find_type_t::find_eq,
+															devdb::lnb_t::partial_keys_t::dish_id_lnb_id /*key_prefix*/,
+															devdb::lnb_t::partial_keys_t::dish_id_lnb_id /*find_prefix*/);
+	assert(c.is_valid());
+	auto ret = c.current();
+	assert(ret.k.dish_id == dish_id && ret.k.lnb_id == lnb_id);
+	return ret;
+}
+
+ss::vector_<int8_t>
+devdb::dish::list_dishes(db_txn& devdb_rtxn) {
+	using namespace devdb;
+	ss::vector_<int8_t> dishes;
+	dishes.reserve(8);
+	auto c = find_first<lnb_t>(devdb_rtxn);
+	int last_dish_id = -1024;
+	for(const auto& lnb: c.range()) {
+		if(lnb.k.dish_id == last_dish_id)
+			continue;
+		last_dish_id = lnb.k.dish_id;
+		dishes.push_back(last_dish_id);
+	}
+	return dishes;
+}
+
 
 #if 0
 void devdb::lnb::find_freq_offset_for_mux(db_txn& devdb_rtxn,  const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux)

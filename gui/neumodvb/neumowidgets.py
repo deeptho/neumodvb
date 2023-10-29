@@ -327,3 +327,88 @@ class LatitudeTextCtrl(TextCtrl):
         floatval = parse_latitude(val)/100.
         self.ChangeValue(self.StrValue(floatval)) #normalise display
         return floatval
+
+
+class NeumoCheckListBox(wx.Panel):
+    def __init__(self, parent, id, title, choices, *args, **kwds):
+        kwds["style"] = kwds.get("style", 0) | wx.TAB_TRAVERSAL
+        super().__init__(parent, id, *args, **kwds)
+        self.main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.title = wx.StaticText(self, wx.ID_ANY, title)
+        self.title.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+        self.main_sizer.Add(self.title, 0, wx.BOTTOM, 5)
+
+        self.select_all_none_toggle = wx.CheckBox(self, wx.ID_ANY, _("Select"),
+                                            style=wx.CHK_3STATE | wx.CHK_ALLOW_3RD_STATE_FOR_USER)
+        self.select_all_none_toggle.Set3StateValue(wx.CHK_UNDETERMINED)
+        self.main_sizer.Add(self.select_all_none_toggle, 0, 0, 0)
+
+        self.checklistbox = wx.CheckListBox(self, wx.ID_ANY, choices=choices, style=wx.LB_MULTIPLE | wx.LB_NEEDED_SB)
+        self.checklistbox.SetFont(wx.Font(5, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, 0, "Sans"))
+        self.main_sizer.Add(self.checklistbox, 0, 0, 0)
+        self.SetSizer(self.main_sizer)
+        self.main_sizer.Fit(self)
+        self.Layout()
+
+        self.select_all_none_toggle.Bind(wx.EVT_CHECKBOX, self.SelectAllNone)
+        self.select_all_none_toggle.SetFont(wx.Font(6, wx.FONTFAMILY_DEFAULT,
+                                                    wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+        self.checklistbox.Bind(wx.EVT_CHECKLISTBOX, self.OnCheckListChanged)
+
+        self.seltype = 2 # 0=None selected, 1=All selected, 2 = Use user choices
+        #self.last_selected = None
+        self.choices = choices
+    def OnCheckListChanged(self, evt):
+        #self.last_selected = self.checklistbox.GetSelections()
+        self.seltype = 2
+        self.select_all_none_toggle.SetLabel("Select")
+        evt.Skip(False)
+
+    def GetSelectedItems(self):
+        return self.checklistbox.GetCheckedItems()
+
+    def SelectAllNone(self, evt):
+        self.seltype = evt.Selection
+        button = evt.EventObject
+        if self.seltype == 2:
+            #if self.last_selected is not None:
+            #    self.checklistbox.SetCheckedItems(self.last_selected)
+            #    self.last_selected = None
+            button.SetLabel("Select")
+            self.checklistbox.Enabled=True
+        elif self.seltype ==1:
+            #if self.last_selected is None:
+            #    self.last_selected = self.checklistbox.GetSelections()
+            self.checklistbox.SetCheckedItems(range(len(self.choices)))
+            button.SetLabel("All")
+            #self.checklistbox.Enabled=False
+        else:
+            #if self.last_selected is None:
+            #    self.last_selected = self.checklistbox.GetSelections()
+            self.checklistbox.SetCheckedItems([])
+            button.SetLabel("None")
+            #self.checklistbox.Enabled=False
+
+class DishesCheckListBox(NeumoCheckListBox):
+    def __init__(self, parent, id,  *args, **kwargs):
+        self.dishes = wx.GetApp().get_dishes()
+        title = _("Allowed dishes")
+        kwargs['choices'] = [f'Dish {str(d)}' for d in self.dishes]
+        super().__init__(parent, id, title, *args, **kwargs)
+
+    def selected_dishes(self):
+        it=self.GetSelectedItems()
+        return [self.dishes[i] for i in it]
+
+class CardsCheckListBox(NeumoCheckListBox):
+    def __init__(self, parent, id,  *args, **kwargs):
+        title = _("Allowed Cards")
+        cards = wx.GetApp().get_cards(available_only=False)
+        kwargs['choices'] = [c for c in cards]
+        self.cards = [c for c in cards.values()]
+        super().__init__(parent, id, title, *args, **kwargs)
+
+    def selected_cards(self):
+        it=self.GetSelectedItems()
+        return [self.cards[i] for i in it]

@@ -149,7 +149,7 @@ class DvbcMuxGrid(NeumoGridBase):
 
     def CmdScan(self, evt):
         from neumodvb.scan_dialog import show_scan_dialog
-        scan_pars, _, _ = show_scan_dialog(self, allow_band_scan=False)
+        scan_pars, _ = show_scan_dialog(self, allow_band_scan=False)
         self.table.SaveModified()
         rows = self.GetSelectedRows()
         muxes = []

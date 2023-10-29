@@ -1038,7 +1038,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 	scan.start_freq = options.start_freq;
 	scan.end_freq = options.end_freq;
 	scan.resolution = options.resolution;
-	scan.spectrum_method = options.spectrum_method;
+	scan.spectrum_method = options.use_fft_scan ? SPECTRUM_METHOD_FFT : SPECTRUM_METHOD_SWEEP;
 	scan.adjust_frequencies(lnb, scan.band_pol.band == devdb::fe_band_t::HIGH);
 	scan.usals_pos = lnb.usals_pos;
 	scan.adapter_no =  (int)this->adapter_no;
@@ -1506,7 +1506,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 		if (ioctl(fefd, FE_GET_EVENT, &event) < 0)
 			break;
 	}
-	auto ret = cmdseq.spectrum(fefd, options.spectrum_method);
+	auto ret = cmdseq.spectrum(fefd, options.use_fft_scan ? SPECTRUM_METHOD_FFT: SPECTRUM_METHOD_SWEEP);
 
 	w->tune_mode = tune_mode_t::SPECTRUM;
 	w->tune_pars.tune_options.spectrum_scan_options = options;

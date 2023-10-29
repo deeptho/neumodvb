@@ -19,7 +19,6 @@
  */
 
 #pragma once
-#include "neumofrontend.h"
 
 enum class subscription_type_t {
 	NORMAL, /*regular viewing: resourced are reserved non-exclusively. This means other lnbs on the same dish
@@ -91,10 +90,7 @@ struct spectrum_scan_options_t {
 	bool append{false}; //append to existing file
 	int16_t sat_pos{sat_pos_none};
 	devdb::fe_band_pol_t band_pol; //currently scanning band
-#if 0
-	bool scan_both_polarisations{false}; //
-#endif
-	dtv_fe_spectrum_method spectrum_method{SPECTRUM_METHOD_FFT};
+	bool use_fft_scan{true};
 	int start_freq{0}; //in kHz
 	int end_freq{std::numeric_limits<int>::max()}; //in kHz
 	int resolution{0}; //in kHz for spectrum and for blindscan, 0 means: use driver default
@@ -104,9 +100,13 @@ struct spectrum_scan_options_t {
 	}
 };
 
+
 struct tune_options_t {
 	scan_target_t scan_target;
 	std::chrono::seconds max_scan_duration{180s}; /*after this time, scan will be forcefull ended*/
+
+	//If set, then only those rf_path are allowed
+	std::optional<ss::vector<devdb::rf_path_t,1>> allowed_rf_paths;
 
 	tune_mode_t tune_mode;
 	bool use_blind_tune{false};
@@ -114,14 +114,6 @@ struct tune_options_t {
 	bool propagate_scan{true};
 	pls_search_range_t pls_search_range;
 	retune_mode_t retune_mode{retune_mode_t::AUTO};
-
-	int sat_pos{sat_pos_none}; /*only relevant if tune_mode ==tune_mode_t::LNB_EXCLUSIVE,
-															 Its is used to switch the lnb to another sat during spectrum scan
-
-															 For  tune_mode ==tune_mode_t::DISH_EXCLUSIVE (used during blindscan),
-															 we rather rely on subscribe_mux, which has the desired sat_pos encoded
-															 in the mux
-														 */
 	//only for spectrum acquisition
 	spectrum_scan_options_t spectrum_scan_options;
 	constellation_options_t constellation_options;

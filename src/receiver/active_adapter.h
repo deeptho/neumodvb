@@ -23,7 +23,7 @@
 #include "reservation.h"
 #include "active_si_stream.h"
 #include "devmanager.h"
-#include "tune_options.h"
+#include "neumodb/devdb/tune_options.h"
 #include <bitset>
 
 using namespace dtdemux;

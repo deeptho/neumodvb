@@ -24,7 +24,7 @@
 #include "util/util.h"
 #include "neumodb/devdb/devdb_extra.h"
 #include "neumodb/chdb/chdb_extra.h"
-#include "tune_options.h"
+#include "neumodb/devdb/tune_options.h"
 #include "task.h"
 #include "util/safe/safe.h"
 #include "signal_info.h"

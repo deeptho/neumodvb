@@ -23,7 +23,7 @@
 #include "util/dtassert.h"
 #include "util/logger.h"
 #include "util/neumovariant.h"
-#include "tune_options.h"
+#include "neumodb/devdb/tune_options.h"
 #include <dirent.h>
 #include <errno.h>
 #include <functional>

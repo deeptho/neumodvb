@@ -23,7 +23,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/devdb/devdb_extra.h"
 #include "devmanager.h"
-#include "tune_options.h"
+#include "neumodb/devdb/tune_options.h"
 
 #include <set>
 
@@ -412,20 +412,21 @@ class scanner_t {
 	int id{0};
 	bool must_end = false;
 	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
-
+#ifdef TODO
 	ss::vector<devdb::lnb_t, 16> allowed_lnbs;
-
+#endif
 	std::map<subscription_id_t, scan_t> scans;
-
+#ifdef TODO
 	void set_allowed_lnbs(const ss::vector_<devdb::lnb_t>& lnbs);
 	void set_allowed_lnbs();
-
+#endif
 	template<typename mux_t>
 	int add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& tune_options,
+								const ss::vector_<devdb::lnb_t>* allowed_lnbs,
 								subscription_id_t subscription_id);
 
-	int add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
-								bool init, subscription_id_t subscription_id);
+	int add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
+												 bool init, subscription_id_t subscription_id);
 
 	int add_bands(const ss::vector_<chdb::sat_t>& sats,
 								const ss::vector_<chdb::fe_polarisation_t>& pols,

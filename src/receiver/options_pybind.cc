@@ -24,7 +24,7 @@
 #include <stdio.h>
 
 #include "options.h"
-#include "tune_options.h"
+#include "neumodb/devdb/tune_options.h"
 namespace py = pybind11;
 
 

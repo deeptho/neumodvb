@@ -337,9 +337,9 @@ fe::find_best_fe_for_lnb(
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 					 devdb::resource_subscription_counts_t>
 fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
-																			const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path,
+																			const chdb::dvbs_mux_t& mux,
+																			const tune_options_t& tune_options,
 																			const devdb::fe_key_t* fe_key_to_release,
-																			bool may_move_dish, bool use_blind_tune,
 																			int dish_move_penalty, int resource_reuse_bonus,
 																			bool ignore_subscriptions) {
 	using namespace devdb;
@@ -357,11 +357,9 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		In the loop below, check if the lnb is compatible with the desired mux and tune options.
 		If the lnb is compatible, check check all existing subscriptions for conflicts.
 	*/
-	auto c = required_rf_path ? lnb_t::find_by_key(rtxn, required_rf_path->lnb, find_type_t::find_eq,
-																						 devdb::lnb_t::partial_keys_t::all)
-		: find_first<devdb::lnb_t>(rtxn);
+	auto c = find_first<devdb::lnb_t>(rtxn);
+
 	for (auto const& lnb : c.range()) {
-		assert(! required_rf_path || required_rf_path->lnb == lnb.k);
 		if(!lnb.enabled || !lnb.can_be_used)
 			continue;
 		auto [has_network, network_priority, usals_move_amount, usals_pos] = devdb::lnb::has_network(lnb, mux.k.sat_pos);
@@ -369,12 +367,6 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
 		*/
-		if(required_rf_path && ! has_network) {
-			chdb::sat_t sat;
-			sat.sat_pos = mux.k.sat_pos;
-			user_errorf("LNB  {}: LNB has no network to tune to sat {}", lnb, sat);
-			break;
-		}
 
 		auto dish_needs_to_be_moved_ = usals_move_amount != 0;
 
@@ -382,7 +374,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		const bool disregard_networks{false};
 		if (!devdb::lnb_can_tune_to_mux(lnb, mux, disregard_networks))
 			continue;
-		const auto need_blindscan = use_blind_tune;
+		const auto need_blindscan = tune_options.use_blind_tune;
 		const bool need_spectrum = false;
 		auto pol{mux.pol}; //signifies that non-exclusive control is fine
 		auto band{devdb::lnb::band_for_mux(lnb, mux)}; //signifies that non-exlusive control is fine
@@ -392,16 +384,15 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		for(const auto& lnb_connection: lnb.connections) {
 			if(!lnb_connection.can_be_used || !lnb_connection.enabled)
 				continue;
-			if(required_rf_path) {
-				auto rf_path = devdb::rf_path_for_connection(lnb.k, lnb_connection);
-				if (rf_path != *required_rf_path)
-					continue;
-			}
+
+			auto rf_path = devdb::rf_path_for_connection(lnb.k, lnb_connection);
+			if (!tune_options.rf_path_is_allowed(rf_path))
+				continue;
 
 			bool conn_can_control_rotor = devdb::lnb::can_move_dish(lnb_connection);
 
 			if (lnb.on_positioner && (usals_move_amount > sat_pos_tolerance) &&
-					(!may_move_dish || ! conn_can_control_rotor)
+					(!tune_options.may_move_dish || ! conn_can_control_rotor)
 				)
 				continue; //skip because dish movement is not allowed or  not possible
 
@@ -416,11 +407,12 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 					continue;
 				}
 			}
-
+#ifdef TOCHECK
 			rf_path_t rf_path;
 			rf_path.lnb = lnb.k;
 			rf_path.card_mac_address = lnb_connection.card_mac_address;
 			rf_path.rf_input = lnb_connection.rf_input;
+#endif
 #if 0
 			test_frequency = mux.frequency;
 			test_pol = mux.pol;
@@ -456,19 +448,10 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			best_rf_path_prio = lnb_connection.priority;
 			best_fe = fe;
 			best_use_counts = use_counts;
-			if (required_rf_path)
-				return std::make_tuple(best_fe, best_rf_path, best_lnb,
-															 best_use_counts); //we only beed to look at one lnb
-		}
-
-		if(required_rf_path && ! best_fe) {
-			chdb::sat_t sat;
-			sat.sat_pos = mux.k.sat_pos;
-			user_errorf("LNB {} : no suitable connection to tune to sat {}", lnb, sat);
-			break;
 		}
 	}
-	if(!best_fe && !required_rf_path)
+
+	if(!best_fe)
 		user_errorf("Could not find find available lnb, frontend or tuner for mux {}", mux);
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }
@@ -615,10 +598,17 @@ bool devdb::fe::can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mu
 																							 const devdb::rf_path_t* required_rf_path,
 																							 bool use_blind_tune, bool may_move_dish,
 																							 int dish_move_penalty, int resource_reuse_bonus) {
+	tune_options_t tune_options;
+	tune_options.may_move_dish = may_move_dish;
+	tune_options.use_blind_tune = use_blind_tune;
+	if(required_rf_path)
+		tune_options.allowed_rf_paths = {*required_rf_path};
+	else
+		tune_options.allowed_rf_paths = {};
 	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts] =
-		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_rf_path,
+		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux,
+																					tune_options,
 																					nullptr /*fe_key_to_release*/,
-																					may_move_dish, use_blind_tune,
 																					dish_move_penalty, resource_reuse_bonus, true /*ignore_subscriptions*/);
 	return !!best_fe;
 }

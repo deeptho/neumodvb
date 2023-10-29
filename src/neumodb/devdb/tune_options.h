@@ -112,6 +112,7 @@ struct tune_options_t {
 	bool use_blind_tune{false};
 	bool may_move_dish{true};
 	bool propagate_scan{true};
+	bool need_spectrum{false};
 	pls_search_range_t pls_search_range;
 	retune_mode_t retune_mode{retune_mode_t::AUTO};
 	//only for spectrum acquisition
@@ -120,6 +121,16 @@ struct tune_options_t {
 
 	//retune_mode_t retune_mode{retune_mode_t::ALLOWED}; //positioner not allowed when in positioner_dialog
 	subscription_type_t subscription_type{subscription_type_t::NORMAL};
+
+	inline bool rf_path_is_allowed(const devdb::rf_path_t& rf_path) const {
+		if(!allowed_rf_paths)
+			return true;
+		for(auto& r: *allowed_rf_paths) {
+			if(rf_path == r)
+				return true;
+		}
+		return false;
+	}
 
 	tune_options_t(scan_target_t scan_target =  scan_target_t::SCAN_FULL,
 								 tune_mode_t tune_mode= tune_mode_t::NORMAL,

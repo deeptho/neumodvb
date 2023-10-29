@@ -335,10 +335,17 @@ devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscripti
 																			bool use_blind_tune, bool may_move_dish,
 																			int dish_move_penalty, int resource_reuse_bonus,
 																			bool do_not_unsubscribe_on_failure) {
+	tune_options_t tune_options;
+	tune_options.may_move_dish = may_move_dish;
+	tune_options.use_blind_tune = use_blind_tune;
+	if(required_rf_path)
+		tune_options.allowed_rf_paths = { *required_rf_path};
+	else
+		tune_options.allowed_rf_paths = {};
 	auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
-		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux, required_rf_path,
+		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux,
+																					tune_options,
 																					fe_key_to_release,
-																					may_move_dish, use_blind_tune,
 																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
 	if(do_not_unsubscribe_on_failure && ! best_fe)
 		return {{}, {}, {}, {}, {}}; //no frontend could be found

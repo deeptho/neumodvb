@@ -509,11 +509,17 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 	int dish_move_penalty{0};
 	int resource_reuse_bonus{0};
 
+	tune_options_t tune_options;
+	tune_options.may_move_dish = false;
+	tune_options.use_blind_tune = true;
+	tune_options.allowed_rf_paths = {};
+
 	//first try to find an lnb not in use, which does not require moving a dish
+
 	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
-			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux, nullptr /*required_rf_path*/,
+			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
+																						tune_options /*tune_options*/,
 																						nullptr /*fe_key_to_release*/,
-																						false /*may_move_dish*/, true /*use_blind_tune*/,
 																						dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
 
 		if(best_lnb) {
@@ -522,11 +528,14 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 		}
 	}
 
+	tune_options.may_move_dish = true;
+	tune_options.use_blind_tune = true;
+	tune_options.allowed_rf_paths = {};
 	//now try to find an lnb not in use, which does require moving a dish
 	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
-			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux, nullptr /*required_rf_path*/,
+			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
+																						tune_options /*tune_options*/,
 																						nullptr /*fe_key_to_release*/,
-																						true /*may_move_dish*/, true /*use_blind_tune*/,
 																						dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
 
 		if(best_lnb) {
@@ -535,11 +544,14 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 		}
 	}
 
+	tune_options.may_move_dish = true;
+	tune_options.use_blind_tune = false;
+	tune_options.allowed_rf_paths = {};
 	//now try to find an lnb which can be in use, and which can move a dish, also allowing non blindtune rf_paths
 	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
-			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux, nullptr /*required_rf_path*/,
+			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
+																						tune_options,
 																						nullptr /*fe_key_to_release*/,
-																						true /*may_move_dish*/, false /*use_blind_tune*/,
 																						dish_move_penalty, resource_reuse_bonus, true /*ignore_subscriptions*/);
 
 		if(best_lnb) {

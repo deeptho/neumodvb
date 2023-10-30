@@ -232,9 +232,9 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	visit_variant(mux,
 								[&](const chdb::dvbs_mux_t& mux) {
-									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
+									sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
 																							tune_options,
-																							&mux,
+																							mux,
 																							&service,
 																							dish_move_penalty, resource_reuse_bonus,
 																							loc,
@@ -304,9 +304,9 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 	subscribe_ret_t sret;
 	visit_variant(mux,
 								[&](const chdb::dvbs_mux_t& mux) {
-									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
+									sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
 																							tune_options,
-																							&mux,
+																							mux,
 																							&rec.service,
 																							dish_move_penalty, resource_reuse_bonus,
 																							loc,
@@ -514,9 +514,9 @@ receiver_thread_t::subscribe_mux(
 	to.need_spectrum = false;
 #endif
 	if constexpr(is_same_type_v<chdb::dvbs_mux_t, _mux_t>) {
-		sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
+		sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
 																to,
-																&mux,
+																mux,
 																(const chdb::service_t*) nullptr /*service*/,
 																dish_move_penalty, resource_reuse_bonus,
 																loc,
@@ -775,12 +775,12 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	tune_options.allowed_rf_paths = {rf_path};
 	tune_options.need_spectrum = need_spectrum;
 #endif
-	auto sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																	 tune_options,
-																	 nullptr /*mux*/, nullptr /*service*/,
-																	 dish_move_penalty, resource_reuse_bonus,
-																	 loc,
-																	 false /*do_not_unsubscribe_on_failure*/);
+	auto sret = devdb::fe::subscribe_rf_path(devdb_wtxn, subscription_id,
+																					 tune_options,
+																					 rf_path,
+																					 dish_move_penalty, resource_reuse_bonus,
+																					 loc,
+																					 false /*do_not_unsubscribe_on_failure*/);
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {

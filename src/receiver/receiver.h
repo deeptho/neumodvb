@@ -264,7 +264,7 @@ class receiver_thread_t : public task_queue_t  {
 
 	virtual int exit() final;
 	void unsubscribe_mux_and_service_only(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
-														subscription_id_t subscription_id);
+																				subscription_id_t subscription_id);
 	void unsubscribe_playback_only(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id);
 	void unsubscribe_all(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 											 subscription_id_t subscription_id);

@@ -209,7 +209,7 @@ namespace devdb::fe {
 										 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
-	subscribe_lnb_exclusive(db_txn& wtxn,  subscription_id_t subscription_id,
+	subscribe_lnb(db_txn& wtxn,  subscription_id_t subscription_id,
 													const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 													std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release,
 													bool need_blind_tune, bool need_spectrum,

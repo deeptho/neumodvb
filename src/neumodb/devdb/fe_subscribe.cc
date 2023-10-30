@@ -244,7 +244,7 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscrip
 	std::optional<devdb::fe_t>: the newly subscribed fe
 	std::optional<devdb::fe_t>: the updated version of the old (unsubscribed) fe
  */
-//@todo: replace ths with subscribe_lnb_band_pol_sat with sat and band_scan argument
+//@todo: replace this with subscribe_mux with sat and band_scan argument
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_id,
 																	 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
@@ -327,7 +327,7 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 //TODO: make this return subscribe_ret_t
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 					 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
-devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscription_id,
+devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 																			const chdb::dvbs_mux_t& mux,
 																			const chdb::service_t* service,
 																			const tune_options_t& tune_options,
@@ -432,6 +432,46 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 	return {best_fe, updated_old_dbfe};
 }
 
+
+/*
+	returns
+	std::optional<devdb::fe_t>: the newly subscribed fe
+	std::optional<devdb::lnb_t>: the newly subscribed lnb
+	devdb::resource_subscription_counts_t
+	int: the use_count after releasing fe_to_release, or 0 if fe_to_release=={}
+*/
+//TODO: make this return subscribe_ret_t
+std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
+					 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
+devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
+															const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
+															const tune_options_t& tune_options,
+															const std::optional<devdb::fe_t>& oldfe,
+															const devdb::fe_key_t* fe_key_to_release,
+															int dish_move_penalty, int resource_reuse_bonus,
+															bool do_not_unsubscribe_on_failure) {
+	auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+		fe::find_fe_and_lnb_for_tuning_to_band(wtxn, sat, band_scan,
+																					tune_options,
+																					fe_key_to_release,
+																					dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
+	if(do_not_unsubscribe_on_failure && ! best_fe)
+		return {{}, {}, {}, {}, {}}; //no frontend could be found
+	std::optional<devdb::fe_t> updated_old_dbfe;
+	if(oldfe)
+		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe->k);
+	if(!best_fe)
+		return {{}, {}, {}, {}, updated_old_dbfe}; //no frontend could be found
+#ifndef NDEBUG
+	auto ret =
+#endif
+		devdb::fe::reserve_fe_lnb_exclusive(wtxn, subscription_id, *best_fe, *best_rf_path, *best_lnb);
+	assert(ret==0); //reservation cannot fail as we have a write lock on the db
+
+	return {best_fe, best_rf_path, best_lnb, best_use_counts, updated_old_dbfe};
+}
+
+
 /*
 	subscribe to a frontend and lnb, reusing resources of existing subscriptions (including the
 	current one) when possible and unssubcribing no longer needed resources
@@ -531,7 +571,7 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 
 	if(mux) {
 		auto [fe_, rf_path_, lnb_, use_counts_, updated_old_dbfe] =
-			devdb::fe::subscribe_lnb_band_pol_sat(
+			devdb::fe::subscribe_mux(
 				wtxn, sret.subscription_id, *mux, service,
 				tune_options,
 				oldfe_, fe_key_to_release,

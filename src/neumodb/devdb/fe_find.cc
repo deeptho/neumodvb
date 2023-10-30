@@ -578,7 +578,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 
 
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
-bool devdb::fe::can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
+bool devdb::fe::can_subscribe_mux(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																							 const tune_options_t& tune_options,
 																							 int dish_move_penalty, int resource_reuse_bonus) {
 	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts] =
@@ -591,7 +591,7 @@ bool devdb::fe::can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::dvbs_mu
 
 
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
-bool devdb::fe::can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::sat_t& sat,
+bool devdb::fe::can_subscribe_sat_band(db_txn& wtxn, const chdb::sat_t& sat,
 																							 const chdb::band_scan_t& band_scan,
 																							 const tune_options_t& tune_options,
 																							 int dish_move_penalty, int resource_reuse_bonus) {

@@ -189,7 +189,7 @@ namespace devdb::fe {
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 						 resource_subscription_counts_t, std::optional<devdb::fe_t>>
-	subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscription_id, const chdb::dvbs_mux_t& mux,
+	subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id, const chdb::dvbs_mux_t& mux,
 														 const chdb::service_t* service,
 														 const tune_options_t& tune_options,
 														 const std::optional<fe_t>& oldfe,
@@ -197,6 +197,16 @@ namespace devdb::fe {
 														 int dish_move_penalty,
 														 int resource_reuse_bonus,
 														 bool do_not_unsubscribe_on_failure);
+
+	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
+						 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
+	subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
+										 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
+										 const tune_options_t& tune_options,
+										 const std::optional<devdb::fe_t>& oldfe,
+										 const devdb::fe_key_t* fe_key_to_release,
+										 int dish_move_penalty, int resource_reuse_bonus,
+										 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 	subscribe_lnb_exclusive(db_txn& wtxn,  subscription_id_t subscription_id,

@@ -33,7 +33,7 @@ using namespace devdb;
 
 std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	db_txn& rtxn, const devdb::fe_key_t* fe_key_to_release,
-	bool need_blindscan, bool need_spectrum, bool need_multistream,
+	bool need_blind_tune, bool need_spectrum, bool need_multistream,
 	chdb::delsys_type_t delsys_type, bool ignore_subscriptions) {
 	bool need_dvbt = delsys_type == chdb::delsys_type_t::DVB_T;
 	bool need_dvbc = delsys_type == chdb::delsys_type_t::DVB_C;
@@ -59,7 +59,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 
 			//this fe is one that we can potentially use
 
-			if(need_blindscan && !fe.supports.blindscan)
+			if(need_blind_tune && !fe.supports.blindscan)
 				continue;
 			if(need_multistream && !fe.supports.multistream)
 				continue;
@@ -186,7 +186,7 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 	 Most multi-standard (dvbs+c+t) devices provide two frontends because typically two tuners are needed:
    one for dvbs and one for dvbc+t. Devices with only dvbc+t tend to use one tuner for both standards and
 	 thus have one frontend
-	-if need_blindscan/need_spectrum/need_multistream==true, then the returned fe will be able to
+	-if need_blind_tune/need_spectrum/need_multistream==true, then the returned fe will be able to
 	blindscan/spectrumscan/multistream
 
 	-pol == NONE or band==NONE or dish_usals_pos == sat_pos_none,
@@ -207,7 +207,7 @@ std::optional<std::tuple<devdb::fe_t, resource_subscription_counts_t>>
 fe::find_best_fe_for_lnb(
 	db_txn& rtxn, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	const devdb::fe_key_t* fe_key_to_release,
-	bool need_blindscan, bool need_spectrum, bool need_multistream,
+	bool need_blind_tune, bool need_spectrum, bool need_multistream,
 	chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos, bool ignore_subscriptions) {
 
 	auto* conn = connection_for_rf_path(lnb, rf_path);
@@ -257,7 +257,7 @@ fe::find_best_fe_for_lnb(
 										as they should also see the same value of fe.enable_dvbs
 									*/
 			if( !fe.rf_inputs.contains(rf_path.rf_input) ||
-					(need_blindscan && !fe.supports.blindscan) ||
+					(need_blind_tune && !fe.supports.blindscan) ||
 					(need_multistream && !fe.supports.multistream)
 				)
 				continue;  /* we cannot use the LNB with this fe, and as it is not subscribed it
@@ -374,8 +374,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		const bool disregard_networks{false};
 		if (!devdb::lnb_can_tune_to_mux(lnb, mux, disregard_networks))
 			continue;
-		const auto need_blindscan = tune_options.use_blind_tune;
-		const bool need_spectrum = false;
+
 		auto pol{mux.pol}; //signifies that non-exclusive control is fine
 		auto band{devdb::lnb::band_for_mux(lnb, mux)}; //signifies that non-exlusive control is fine
 
@@ -417,8 +416,9 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			test_frequency = mux.frequency;
 			test_pol = mux.pol;
 #endif
+			assert(!tune_options.need_spectrum);
 			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
-				rtxn, rf_path, lnb, fe_key_to_release, need_blindscan, need_spectrum,
+				rtxn, rf_path, lnb, fe_key_to_release, tune_options.need_blind_tune, tune_options.need_spectrum,
 				need_multistream, pol, band, usals_pos, ignore_subscriptions);
 			if(!fe_and_use_counts) {
 				dtdebugf("LNB {} cannot be used", lnb);
@@ -498,8 +498,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 		const bool disregard_networks{false};
 		if (!devdb::lnb_can_scan_sat_band(lnb, sat, band_scan, disregard_networks))
 			continue;
-		const auto need_blindscan = tune_options.use_blind_tune;
-		const bool need_spectrum = false;
+
 		auto pol{band_scan.pol}; //signifies that non-exclusive control is fine
 
 
@@ -535,8 +534,9 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 			rf_path.card_mac_address = lnb_connection.card_mac_address;
 			rf_path.rf_input = lnb_connection.rf_input;
 #endif
+			assert(!tune_options.need_spectrum);
 			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
-				rtxn, rf_path, lnb, fe_key_to_release, need_blindscan, need_spectrum,
+				rtxn, rf_path, lnb, fe_key_to_release, tune_options.need_blind_tune, tune_options.need_spectrum,
 				false /*need_multistream*/, pol, fe_band_t::NONE /*force exclusive access
 																								 @todo: improve code to better encode
 																								 the need for exclusive access ?*/, usals_pos, ignore_subscriptions);
@@ -610,11 +610,11 @@ bool devdb::fe::can_subscribe_lnb_band_pol_sat(db_txn& wtxn, const chdb::sat_t& 
 
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
 template<typename mux_t> bool
-devdb::fe::can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, bool use_blind_tune) {
+devdb::fe::can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, const mux_t& mux, bool need_blind_tune) {
 	const bool need_spectrum{false};
 	const bool need_multistream = (mux.k.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
-	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, nullptr /*fe_key_to_release*/, use_blind_tune,
+	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, nullptr /*fe_key_to_release*/, need_blind_tune,
 																										need_spectrum, need_multistream,  delsys_type,
 																										true /*ignore_subscriptions*/);
 	return !!best_fe;
@@ -634,6 +634,6 @@ bool devdb::fe::is_subscribed(const fe_t& fe) {
 //instantiation
 
 template bool
-devdb::fe::can_subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, const chdb::dvbc_mux_t& mux, bool use_blind_tune);
+devdb::fe::can_subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, const chdb::dvbc_mux_t& mux, bool need_blind_tune);
 template bool
-devdb::fe::can_subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, const chdb::dvbt_mux_t& mux, bool use_blind_tune);
+devdb::fe::can_subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, const chdb::dvbt_mux_t& mux, bool need_blind_tune);

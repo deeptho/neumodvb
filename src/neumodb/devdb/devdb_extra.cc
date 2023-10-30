@@ -511,7 +511,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 
 	tune_options_t tune_options;
 	tune_options.may_move_dish = false;
-	tune_options.use_blind_tune = true;
+	tune_options.need_blind_tune = true;
 	tune_options.allowed_rf_paths = {};
 
 	//first try to find an lnb not in use, which does not require moving a dish
@@ -529,7 +529,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 	}
 
 	tune_options.may_move_dish = true;
-	tune_options.use_blind_tune = true;
+	tune_options.need_blind_tune = true;
 	tune_options.allowed_rf_paths = {};
 	//now try to find an lnb not in use, which does require moving a dish
 	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
@@ -545,7 +545,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 	}
 
 	tune_options.may_move_dish = true;
-	tune_options.use_blind_tune = false;
+	tune_options.need_blind_tune = false;
 	tune_options.allowed_rf_paths = {};
 	//now try to find an lnb which can be in use, and which can move a dish, also allowing non blindtune rf_paths
 	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =

@@ -227,30 +227,31 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 		dish_move_penalty = r->dish_move_penalty;
 		loc = r->usals_location;
 	}
+	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	visit_variant(mux,
 								[&](const chdb::dvbs_mux_t& mux) {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																							nullptr /*required_rf_path*/, &mux,
+																							tune_options,
+																							&mux,
 																							&service,
-																							tune_options.use_blind_tune, tune_options.may_move_dish,
 																							dish_move_penalty, resource_reuse_bonus,
-																							false /*need_blindscan*/, false /*need_spectrum*/, loc,
+																							loc,
 																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbc_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &service,
-																							tune_options.use_blind_tune, resource_reuse_bonus,
-																							false /*need_blindscan*/,
+																							tune_options,
+																							resource_reuse_bonus,
 																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbt_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &service,
-																							tune_options.use_blind_tune, resource_reuse_bonus,
-																							false /*need_blindscan*/,
+																							tune_options,
+																							resource_reuse_bonus,
 																							false /*do_not_unsubscribe_on_failure*/);
 								});
 	devdb_wtxn.commit();
@@ -299,29 +300,30 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 		dish_move_penalty = r->dish_move_penalty;
 		loc = r->usals_location;
 	}
+	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
 	visit_variant(mux,
 								[&](const chdb::dvbs_mux_t& mux) {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																							nullptr /*required_rf_path*/, &mux,
+																							tune_options,
+																							&mux,
 																							&rec.service,
-																							tune_options.use_blind_tune, tune_options.may_move_dish,
 																							dish_move_penalty, resource_reuse_bonus,
-																							false /*need_blindscan*/, false /*need_spectrum*/, loc,
+																							loc,
 																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbc_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &rec.service,
-																							tune_options.use_blind_tune, resource_reuse_bonus,
-																							false /*need_blindscan*/,
+																							tune_options,
+																							resource_reuse_bonus,
 																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbt_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &rec.service,
-																							tune_options.use_blind_tune, resource_reuse_bonus,
-																							false /*need_blindscan*/,
+																							tune_options,
+																							resource_reuse_bonus,
 																							false /*do_not_unsubscribe_on_failure*/);
 								});
 
@@ -502,20 +504,29 @@ receiver_thread_t::subscribe_mux(
 		loc = r->usals_location;
 	}
 	subscribe_ret_t sret;
+#ifdef TODO
+#else
+	auto to = tune_options;
+	if(required_rf_path)
+		to.allowed_rf_paths = {*required_rf_path};
+	else
+		to.allowed_rf_paths = {};
+	to.need_spectrum = false;
+#endif
 	if constexpr(is_same_type_v<chdb::dvbs_mux_t, _mux_t>) {
 		sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																required_rf_path, &mux,
+																to,
+																&mux,
 																(const chdb::service_t*) nullptr /*service*/,
-																tune_options.use_blind_tune, tune_options.may_move_dish,
 																dish_move_penalty, resource_reuse_bonus,
-																false /*need_blindscan*/, false /*need_spectrum*/, loc,
+																loc,
 																do_not_unsubscribe_on_failure);
 	} else {
 
 		sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																&mux, (const chdb::service_t*) nullptr /*service*/,
-																tune_options.use_blind_tune, resource_reuse_bonus,
-																false /*need_blindscan*/,
+																tune_options,
+																resource_reuse_bonus,
 																do_not_unsubscribe_on_failure);
 	}
 
@@ -577,9 +588,9 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 	}
 	ss::vector_<devdb::lnb_t>* lnbs = nullptr; //@todo
 	int max_num_subscriptions = 100;
-	subscription_id = this->receiver_thread_t::subscribe_scan(futures, muxes, lnbs,
-																														tune_options,
-																														max_num_subscriptions, subscription_id);
+	subscription_id = this->receiver_thread_t::scan_muxes(futures, muxes, lnbs,
+																												tune_options,
+																												max_num_subscriptions, subscription_id);
 	bool error = wait_for_all(futures);
 	if (error) {
 		dterrorf("Unhandled error in scan_mux");
@@ -604,9 +615,9 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 	}
 	bool scan_newly_found_muxes = true;
 	int max_num_subscriptions = 100;
-	subscription_id = this->receiver_thread_t::subscribe_scan(futures, peaks, spectrum_key,
-																														scan_newly_found_muxes,
-																														max_num_subscriptions, subscription_id);
+	subscription_id = this->receiver_thread_t::scan_spectral_peaks(futures, peaks, spectrum_key,
+																																 scan_newly_found_muxes,
+																																 max_num_subscriptions, subscription_id);
 	error = wait_for_all(futures);
 	if (error) {
 		dterrorf("Unhandled error in scan_mux");
@@ -642,9 +653,9 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 
 	tune_options.spectrum_scan_options.recompute_peaks = true;
 
-	subscription_id = this->receiver_thread_t::subscribe_scan(futures, sats, pols, low_freq, high_freq, lnbs,
-																														tune_options,
-																														max_num_subscriptions, subscription_id);
+	subscription_id = this->receiver_thread_t::scan_bands(futures, sats, pols, low_freq, high_freq, lnbs,
+																												tune_options,
+																												max_num_subscriptions, subscription_id);
 
 	auto error = wait_for_all(futures);
 	if (error) {
@@ -759,12 +770,16 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 		dish_move_penalty = r->dish_move_penalty;
 		loc = r->usals_location;
 	}
-
+#ifdef TODO
+#else
+	tune_options.allowed_rf_paths = {rf_path};
+	tune_options.need_spectrum = need_spectrum;
+#endif
 	auto sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																	 &rf_path, nullptr /*mux*/, nullptr /*service*/,
-																	 tune_options.use_blind_tune, tune_options.may_move_dish,
+																	 tune_options,
+																	 nullptr /*mux*/, nullptr /*service*/,
 																	 dish_move_penalty, resource_reuse_bonus,
-																	 need_blindscan, need_spectrum, loc,
+																	 loc,
 																	 false /*do_not_unsubscribe_on_failure*/);
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
@@ -1112,7 +1127,7 @@ receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t s
 	}
 
 	tune_options.scan_target = scan_target_t::SCAN_FULL_AND_EPG;
-	tune_options.use_blind_tune = blindscan;
+	tune_options.need_blind_tune = blindscan;
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{subscription_id_};
 	//call by reference ok because of subsequent wait_for_all
@@ -1191,7 +1206,6 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 				sat_pos = lnb.networks[0].sat_pos;
 		}
 	}
-	tune_options.sat_pos = sat_pos;
 	tune_options.spectrum_scan_options.sat_pos = sat_pos;
 	//call by reference ok because of subsequent wait_for_all
 	subscription_id_t ret_subscription_id;
@@ -1271,7 +1285,7 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 	tune_options.constellation_options.num_samples = 1024 * 16;
 	tune_options.scan_target = scan_target_t::SCAN_MINIMAL;
 	tune_options.subscription_type = subscription_type_t::DISH_EXCLUSIVE;
-	tune_options.use_blind_tune = blindscan;
+	tune_options.need_blind_tune = blindscan;
 	tune_options.retune_mode = retune_mode;
 	tune_options.pls_search_range = pls_search_range;
 	//call by reference ok because of subsequent wait_for_all
@@ -1898,7 +1912,7 @@ tune_options_t receiver_t::get_default_tune_options(bool for_scan) const
 	//auto &o =options;
 	auto r = options.readAccess();
 	tune_options_t ret;
-	ret.use_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
+	ret.need_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
 	if (for_scan)
 		ret.subscription_type = subscription_type_t::SCAN;
 	ret.may_move_dish = for_scan ? r->scan_may_move_dish: r->tune_may_move_dish;

@@ -1127,7 +1127,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 		return -1;
 	}
 
-	auto blindscan = tune_options.use_blind_tune || (
+	auto blindscan = tune_options.need_blind_tune || (
 		api_type == api_type_t::NEUMO && mux.delivery_system == chdb::fe_delsys_dvbs_t::SYS_AUTO);
 
 	auto ret = -1;
@@ -1325,7 +1325,7 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 	// Clear old tune_mux_confirmation info
 	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
-	bool blindscan = tune_options.use_blind_tune;
+	bool blindscan = tune_options.need_blind_tune;
 
 	dtdebugf("Tuning adapter [{}] DVB-C to {} {}",(int) adapter_no, mux,
 					 (blindscan ? "BLIND" : ""));
@@ -1361,7 +1361,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 	// Clear old tune_mux_confirmation info
 	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
-	bool blindscan = tune_options.use_blind_tune;
+	bool blindscan = tune_options.need_blind_tune;
 
 	dtdebugf("Tuning adapter [{}] DVB-T to {}", (int) adapter_no, mux, (blindscan ? "BLIND" : ""));
 
@@ -1408,7 +1408,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 	auto w = ts.writeAccess();
 	w->tune_count++;
 	auto fefd = w->fefd;
-	w->use_blind_tune = tune_options.use_blind_tune;
+	w->use_blind_tune = tune_options.need_blind_tune;
 	dtdebugf("change tune mode on adapter {:d} from {:d} to {:d}",
 					 (int) adapter_no, (int) w->tune_mode, (int) tune_options.tune_mode);
 	w->tune_mode = tune_options.tune_mode;

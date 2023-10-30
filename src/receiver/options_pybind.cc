@@ -32,7 +32,7 @@ void export_tune_options(py::module& m) {
 	py::class_<tune_options_t>(m, "tune_options_t")
 		.def(py::init<>( []() { tune_options_t ret; ret.scan_target = scan_target_t::SCAN_FULL; return ret;}),
 				 "Tune Options for neumodvb")
-		.def_readwrite("use_blind_tune", &tune_options_t::use_blind_tune)
+		.def_readwrite("use_blind_tune", &tune_options_t::need_blind_tune)
 		.def_readwrite("may_move_dish", &tune_options_t::may_move_dish)
 		.def_readwrite("propagate_scan", &tune_options_t::propagate_scan)
 		.def_property("scan_epg",

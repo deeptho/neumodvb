@@ -109,7 +109,7 @@ struct tune_options_t {
 	std::optional<ss::vector<devdb::rf_path_t,1>> allowed_rf_paths;
 
 	tune_mode_t tune_mode;
-	bool use_blind_tune{false};
+	bool need_blind_tune{false};
 	bool may_move_dish{true};
 	bool propagate_scan{true};
 	bool need_spectrum{false};

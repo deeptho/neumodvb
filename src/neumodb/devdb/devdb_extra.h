@@ -243,12 +243,11 @@ namespace devdb::fe {
 																															 const mux_t& mux, bool use_blind_tune);
 
 	subscribe_ret_t subscribe(db_txn& wtxn, subscription_id_t subscription_id,
-														const rf_path_t* required_rf_path,
+														const tune_options_t& tune_options,
 														const chdb::dvbs_mux_t* mux,
 														const chdb::service_t* service,
-														bool use_blind_tune, bool may_move_dish,
 														int dish_move_penalty, int resource_reuse_bonus,
-														bool need_blindscan, bool need_spectrum, const usals_location_t& loc,
+														const usals_location_t& loc,
 														bool do_not_unsubscribe_on_failure);
 
 	template<typename mux_t>
@@ -256,9 +255,8 @@ namespace devdb::fe {
 	subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 						const mux_t* mux,
 						const chdb::service_t* service,
-						bool use_blind_tune,
+						const tune_options_t& tune_options,
 						int resource_reuse_bonus,
-						bool need_blindscan,
 						bool do_not_unsubscribe_on_failure);
 };
 

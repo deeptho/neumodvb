@@ -244,6 +244,7 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscrip
 	std::optional<devdb::fe_t>: the newly subscribed fe
 	std::optional<devdb::fe_t>: the updated version of the old (unsubscribed) fe
  */
+//@todo: replace ths with subscribe_lnb_band_pol_sat with sat and band_scan argument
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 devdb::fe::subscribe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_id,
 																	 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
@@ -329,19 +330,11 @@ std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::opt
 devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscription_id,
 																			const chdb::dvbs_mux_t& mux,
 																			const chdb::service_t* service,
-																			const devdb::rf_path_t* required_rf_path,
+																			const tune_options_t& tune_options,
 																			const std::optional<devdb::fe_t>& oldfe,
 																			const devdb::fe_key_t* fe_key_to_release,
-																			bool use_blind_tune, bool may_move_dish,
 																			int dish_move_penalty, int resource_reuse_bonus,
 																			bool do_not_unsubscribe_on_failure) {
-	tune_options_t tune_options;
-	tune_options.may_move_dish = may_move_dish;
-	tune_options.use_blind_tune = use_blind_tune;
-	if(required_rf_path)
-		tune_options.allowed_rf_paths = { *required_rf_path};
-	else
-		tune_options.allowed_rf_paths = {};
 	auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux,
 																					tune_options,
@@ -411,13 +404,15 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 																			const mux_t& mux, const chdb::service_t* service,
 																			const std::optional<devdb::fe_t>& oldfe,
 																			const devdb::fe_key_t* fe_key_to_release,
-																			bool use_blind_tune, bool do_not_unsubscribe_on_failure) {
+																			const tune_options_t& tune_options,
+																			bool do_not_unsubscribe_on_failure) {
 
-	const bool need_spectrum{false};
+	assert(!tune_options.need_spectrum);
 	const bool need_multistream = (mux.k.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
-	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, use_blind_tune,
-																										need_spectrum, need_multistream,  delsys_type,
+	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, tune_options.need_blind_tune,
+																										tune_options.need_spectrum, need_multistream,
+																										delsys_type,
 																										false /*ignore_subscriptions*/);
 	if(do_not_unsubscribe_on_failure && !best_fe)
 		return {best_fe, {}}; //no frontend could be found
@@ -444,9 +439,10 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 	subscription_id>=0. An existing or new subscription id. This id is unique per process
 	require_rf_path: if non-null, this will restrict allowed LNB and fe
 	mux: if null, then the subscription will perform an exclusive reservation of the lnb and fe
-	              specified in required_rf_path
+	              specified in tune_options.allowed_rf_paths
 	     if non null, then the subscription will perform a non-exclusive reservation of this mux,
-			 on any lnb/fe (if required_rf_path is null) or on the fe/lnb specified in required_rf_path
+			 on any lnb/fe (if tune_options.allowed_rf_paths is null) or on the fe/lnb specified in
+			 tune_options.allowed_rf_paths
 	service: if non-null, then mux must also be non-null and in addition to reserving the mux,
 	     the service will be reserved as well
 
@@ -470,12 +466,10 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
  */
 subscribe_ret_t
 devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
-										 const devdb::rf_path_t* required_rf_path,
+										 const tune_options_t& tune_options,
 										 const chdb::dvbs_mux_t* mux,
 										 const chdb::service_t* service,
-										 bool use_blind_tune, bool may_move_dish,
 										 int dish_move_penalty, int resource_reuse_bonus,
-										 bool need_blindscan, bool need_spectrum,
 										 const devdb::usals_location_t& loc,
 										 bool do_not_unsubscribe_on_failure) {
 
@@ -486,7 +480,9 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 //try to reuse existing active_adapter and active_service as-is
 	if(mux || service) {
 		assert(mux); //if service is not null, mux must also be non-null
-		auto [fe_, idx] = matching_existing_subscription(wtxn, required_rf_path, mux, service,
+		auto [fe_, idx] = matching_existing_subscription(wtxn,
+																										 tune_options,
+																										 mux, service,
 																										 false /*match_mux_only*/);
 		if(fe_) {
 			auto & fe = *fe_;
@@ -509,7 +505,9 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 	//try to reuse existing mux as-is, except that we will also add a service
 	if(mux && service) {
 		assert(mux); //if service i not null, mux must also be non-null
-		auto [fe_, idx] = matching_existing_subscription(wtxn, required_rf_path, mux, service,
+		auto [fe_, idx] = matching_existing_subscription(wtxn,
+																										 tune_options,
+																										 mux, service,
 																										 true /*match_mux_only*/);
 		if(fe_) {
 			auto& fe = *fe_;
@@ -534,15 +532,17 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 	if(mux) {
 		auto [fe_, rf_path_, lnb_, use_counts_, updated_old_dbfe] =
 			devdb::fe::subscribe_lnb_band_pol_sat(
-				wtxn, sret.subscription_id, *mux, service, required_rf_path, oldfe_, fe_key_to_release,
-				use_blind_tune, may_move_dish, dish_move_penalty, resource_reuse_bonus, do_not_unsubscribe_on_failure);
+				wtxn, sret.subscription_id, *mux, service,
+				tune_options,
+				oldfe_, fe_key_to_release,
+				dish_move_penalty, resource_reuse_bonus, do_not_unsubscribe_on_failure);
 		if(fe_) {
 			auto& fe = *fe_;
 			bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
 			sret.retune = is_same_fe;
 			sret.change_service = true;
 			sret.may_control_lnb = ! use_counts_.is_shared();
-			sret.may_move_dish = sret.may_control_lnb && may_move_dish && ! use_counts_.shares_positioner();
+			sret.may_move_dish = sret.may_control_lnb && tune_options.may_move_dish && ! use_counts_.shares_positioner();
 			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			if(!is_same_fe) {
 				assert(sret.is_new_aa());
@@ -570,7 +570,13 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 		}
 		return failed(sret.subscription_id, updated_old_dbfe);
 	} else  {
+#ifdef TODO
 		assert(required_rf_path);
+#else
+		//TODO: this call should allow more than one (or zero) allowed_rf_paths
+		assert(tune_options.allowed_rf_paths && tune_options.allowed_rf_paths->size()==1);
+		auto* required_rf_path = &(*tune_options.allowed_rf_paths)[0];
+#endif
 		auto c = devdb::lnb_t::find_by_key(wtxn, required_rf_path->lnb);
 		if (!c.is_valid()) {
 			if(oldfe_ && ! do_not_unsubscribe_on_failure) {
@@ -582,11 +588,11 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 		auto lnb = c.current();
 		auto [fe_, updated_old_dbfe] = devdb::fe::subscribe_lnb_exclusive(
 			wtxn, sret.subscription_id, *required_rf_path, lnb, oldfe_, fe_key_to_release,
-			need_blindscan, need_spectrum, loc);
+			tune_options.need_blind_tune, tune_options.need_spectrum, loc);
 
 		sret.retune = false;
 		sret.may_control_lnb = true;
-		sret.may_move_dish = sret.may_control_lnb && may_move_dish && lnb.on_positioner;
+		sret.may_move_dish = sret.may_control_lnb && tune_options.may_move_dish && lnb.on_positioner;
 
 		if(fe_) {
 			bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
@@ -621,9 +627,8 @@ subscribe_ret_t
 devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 										 const mux_t* mux,
 										 const chdb::service_t* service,
-										 bool use_blind_tune,
+										 const tune_options_t& tune_options,
 										 int resource_reuse_bonus,
-										 bool need_blindscan,
 	bool do_not_unsubscribe_on_failure) {
 	auto[ oldfe_, will_be_released ] = fe_for_subscription(wtxn, subscription_id);
 	auto* fe_key_to_release = (oldfe_ && will_be_released) ? &oldfe_->k : nullptr;
@@ -679,7 +684,8 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 	assert(mux);
 	auto [fe_, updated_old_dbfe] =
 	devdb::fe::subscribe_dvbc_or_dvbt_mux(
-		wtxn, sret.subscription_id, *mux, service, oldfe_, fe_key_to_release, use_blind_tune,
+		wtxn, sret.subscription_id, *mux, service, oldfe_, fe_key_to_release,
+		tune_options,
 		do_not_unsubscribe_on_failure);
 	if(fe_) {
 		auto& fe = *fe_;
@@ -710,7 +716,8 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
  */
 
 std::tuple<std::optional<devdb::fe_t>, int>
-devdb::fe::matching_existing_subscription(db_txn& wtxn, const devdb::rf_path_t* required_rf_path,
+devdb::fe::matching_existing_subscription(db_txn& wtxn,
+																					const tune_options_t& tune_options,
 																					const chdb::dvbs_mux_t* mux,
 																					const chdb::service_t* service,
 																					bool match_mux_only) {
@@ -729,7 +736,7 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn, const devdb::rf_path_t* 
 			continue;
 		}
 		for(auto & sub: fe.sub.subs) { //loop over all subscriptions
-			bool rf_path_matches = ! required_rf_path || (*required_rf_path == fe.sub.rf_path);
+			bool rf_path_matches = tune_options.rf_path_is_allowed(fe.sub.rf_path);
 			bool mux_matches = mux ? (mux->k == fe.sub.mux_key ||
 																(sub.has_service &&  mux->k == sub.service.k.mux)) : !sub.has_mux;
 			bool service_matches = service ? (sub.has_service &&  service->k == sub.service.k) : true;
@@ -798,7 +805,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, subscripti
 																												const chdb::service_t* service,
 																												const std::optional<devdb::fe_t>& oldfe,
 																												const devdb::fe_key_t* fe_key_to_release,
-																												bool use_blind_tune,
+																												const tune_options_t& tune_options,
 																												bool do_not_unsubscribe_on_failure);
 
 template std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
@@ -807,16 +814,15 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, subscripti
 																												const chdb::service_t* service,
 																												const std::optional<devdb::fe_t>& oldfe,
 																												const devdb::fe_key_t* fe_key_to_release,
-																												bool use_blind_tune,
+																												const tune_options_t& tune_options,
 																												bool do_not_unsubscribe_on_failure);
 template
 subscribe_ret_t
 devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 										 const chdb::dvbc_mux_t* mux,
 										 const chdb::service_t* service,
-										 bool use_blind_tune,
+										 const tune_options_t& tune_options,
 										 int resource_reuse_bonus,
-										 bool need_blindscan,
 										 bool do_not_unsubscribe_on_failure);
 
 template
@@ -824,9 +830,8 @@ subscribe_ret_t
 devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 										 const chdb::dvbt_mux_t* mux,
 										 const chdb::service_t* service,
-										 bool use_blind_tune,
+										 const tune_options_t& tune_options,
 										 int resource_reuse_bonus,
-										 bool need_blindscan,
 										 bool do_not_unsubscribe_on_failure);
 
 

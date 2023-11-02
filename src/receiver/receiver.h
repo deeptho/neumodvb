@@ -361,7 +361,6 @@ private:
 
 	template<typename mux_t>
 	subscription_id_t scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
-																				 ss::vector_<devdb::lnb_t>* lnbs,
 															 const tune_options_t& tune_options,
 															 int max_num_subscriptions,
 															 subscription_id_t subscription_id);
@@ -376,7 +375,6 @@ private:
 																				 const ss::vector_<chdb::sat_t>& sats,
 																				 const ss::vector_<chdb::fe_polarisation_t>& pols,
 																				 int32_t low_freq, int32_t high_freq,
-																				 ss::vector_<devdb::lnb_t>* lnbs,
 															 const tune_options_t& tune_options,
 																				 int max_num_subscriptions,
 																				 subscription_id_t subscription_id);

@@ -1168,13 +1168,6 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 	return 0;
 }
 
-
-
-
-void scanner_t::set_allowed_lnbs(const ss::vector_<devdb::lnb_t>& lnbs) { allowed_lnbs = lnbs; }
-
-void scanner_t::set_allowed_lnbs() { allowed_lnbs.clear(); }
-
 scanner_t::~scanner_t() {
 	std::vector<task_queue_t::future_t> futures;
 	auto devdb_wtxn = receiver.devdb.wtxn();

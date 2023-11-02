@@ -570,9 +570,8 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 			dterrorf("Unhandled error in scan_muxes"); // This will ensure that tuning is retried later
 		}
 	}
-	ss::vector_<devdb::lnb_t>* lnbs = nullptr; //@todo
 	int max_num_subscriptions = 100;
-	subscription_id = this->receiver_thread_t::scan_muxes(futures, muxes, lnbs,
+	subscription_id = this->receiver_thread_t::scan_muxes(futures, muxes,
 																												tune_options,
 																												max_num_subscriptions, subscription_id);
 	bool error = wait_for_all(futures);
@@ -632,12 +631,11 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 		}
 	}
 
-	ss::vector_<devdb::lnb_t>* lnbs = nullptr; //@todo
 	int max_num_subscriptions = 100;
 
 	tune_options.spectrum_scan_options.recompute_peaks = true;
 
-	subscription_id = this->receiver_thread_t::scan_bands(futures, sats, pols, low_freq, high_freq, lnbs,
+	subscription_id = this->receiver_thread_t::scan_bands(futures, sats, pols, low_freq, high_freq,
 																												tune_options,
 																												max_num_subscriptions, subscription_id);
 
@@ -1710,7 +1708,6 @@ subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
 template <typename mux_t>
 subscription_id_t
 receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
-															ss::vector_<devdb::lnb_t>* allowed_lnbs,
 															const tune_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id) {
@@ -1722,11 +1719,7 @@ receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::
 		set_scanner(scanner);
 	}
 
-	scanner->add_muxes(muxes, tune_options,
-										 allowed_lnbs,
-										 sret.subscription_id);
-	if (lnbs && init)
-		scanner->set_allowed_lnbs(*lnbs);
+	scanner->add_muxes(muxes, tune_options, sret.subscription_id);
 	return sret.subscription_id;
 }
 
@@ -1740,7 +1733,6 @@ receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 															const ss::vector_<chdb::sat_t>& sats,
 															const ss::vector_<chdb::fe_polarisation_t>& pols,
 															int32_t low_freq, int32_t high_freq,
-															ss::vector_<devdb::lnb_t>* lnbs,
 															const tune_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id) {
@@ -1752,8 +1744,6 @@ receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 		set_scanner(scanner);
 	}
 	scanner->add_bands(sats, pols, low_freq, high_freq, tune_options, sret.subscription_id);
-	if (lnbs && init)
-		scanner->set_allowed_lnbs(*lnbs);
 	return sret.subscription_id;
 }
 
@@ -2020,7 +2010,6 @@ receiver_thread_t::cb_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux
 
 template subscription_id_t
 receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbs_mux_t>& muxes,
-															ss::vector_<devdb::lnb_t>* lnbs,
 															const tune_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id);
@@ -2028,13 +2017,11 @@ receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::
 
 template subscription_id_t
 receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbc_mux_t>& muxes,
-															ss::vector_<devdb::lnb_t>* lnbs,
 															const tune_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id);
 template subscription_id_t
 receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbt_mux_t>& muxes,
-															ss::vector_<devdb::lnb_t>* lnbs,
 															const tune_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id);

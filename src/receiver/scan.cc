@@ -77,7 +77,7 @@ bool scanner_t::housekeeping(bool force) {
 
 	dtdebugf("{:d} muxes left to scan; {:d} active", pending, active);
 
-	return must_end ? true : ((pending + active)==0);
+	return must_end ? true : ((pending + active) == 0);
 }
 
 static void report(const char* msg, subscription_id_t finished_subscription_id,
@@ -204,8 +204,11 @@ void scanner_t::on_spectrum_band_end(const subscriber_t& subscriber, const ss::v
 
 /*
 	rescan a peak after the first scan, which used database parameters and which failed.
-	This time, use peak parameters
-	returns false if scan has been launched successfully, or otherwise true, meaning that
+	This time, use peak parameters instead (e.g., symbolrate estimated from peak width).
+
+	The scan is performed don the same lnb on which the original mux scan was performed
+
+	Returns false if scan has been launched successfully, or otherwise true, meaning that
 	mux scan should be abolished
  */
 bool

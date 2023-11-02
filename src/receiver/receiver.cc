@@ -709,7 +709,6 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 																									 devdb::rf_path_t& rf_path,
 																									 devdb::lnb_t& lnb, tune_options_t tune_options,
 																									 subscription_id_t subscription_id) {
-	bool need_blindscan = tune_options.tune_mode == tune_mode_t::BLIND;
 	bool need_spectrum = tune_options.tune_mode == tune_mode_t::SPECTRUM;
 	int resource_reuse_bonus;
 	int dish_move_penalty;
@@ -1625,7 +1624,6 @@ receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::
 															int max_num_subscriptions,
 															subscription_id_t subscription_id) {
 	auto scanner = get_scanner();
-	bool init = !scanner.get();
 	subscribe_ret_t sret{subscription_id, false /*failed*/};
 	if (!scanner) {
 		scanner = std::make_unique<scanner_t>(*this, max_num_subscriptions);
@@ -1691,7 +1689,7 @@ receiver_thread_t::scan_spectral_peaks(std::vector<task_queue_t::future_t>& futu
 		scanner = std::make_shared<scanner_t>(*this, max_num_subscriptions);
 		set_scanner(scanner);
 	}
-	scanner->add_peaks(spectrum_key, peaks, init, sret.subscription_id);
+	scanner->add_spectral_peaks(spectrum_key, peaks, init, sret.subscription_id);
 	bool remove_scanner = scanner->housekeeping(true); // start initial scan
 	if(remove_scanner) {
 		reset_scanner();

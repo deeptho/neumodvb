@@ -340,7 +340,6 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																			const chdb::dvbs_mux_t& mux,
 																			const tune_options_t& tune_options,
 																			const devdb::fe_key_t* fe_key_to_release,
-																			int dish_move_penalty, int resource_reuse_bonus,
 																			bool ignore_subscriptions) {
 	using namespace devdb;
 	int best_lnb_prio = std::numeric_limits<int>::min();
@@ -396,7 +395,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 				continue; //skip because dish movement is not allowed or  not possible
 
 			auto lnb_priority = network_priority >= 0 ? network_priority : lnb.priority;
-			auto penalty = dish_needs_to_be_moved_ ? dish_move_penalty : 0;
+			auto penalty = dish_needs_to_be_moved_ ? tune_options.dish_move_penalty : 0;
 			if (!has_network ||
 					(lnb_priority >= 0 && lnb_priority - penalty < best_lnb_prio) //we already have a better fe
 				)
@@ -428,7 +427,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			auto fe_prio = fe.priority;
 			if(use_counts.lnb >= 1 ||
 				 use_counts.tuner >= 1)
-				fe_prio += resource_reuse_bonus;
+				fe_prio += tune_options.resource_reuse_bonus;
 
 			if (lnb_priority < 0 || lnb_priority - penalty == best_lnb_prio)
 				if (best_rf_path_prio >= lnb_connection.priority) // use connection priority to break the tie
@@ -465,7 +464,6 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 																			 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
 																			 const tune_options_t& tune_options,
 																			 const devdb::fe_key_t* fe_key_to_release,
-																			 int dish_move_penalty, int resource_reuse_bonus,
 																			 bool ignore_subscriptions) {
 	using namespace devdb;
 	int best_lnb_prio = std::numeric_limits<int>::min();
@@ -518,7 +516,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 				continue; //skip because dish movement is not allowed or  not possible
 
 			auto lnb_priority = network_priority >= 0 ? network_priority : lnb.priority;
-			auto penalty = dish_needs_to_be_moved_ ? dish_move_penalty : 0;
+			auto penalty = dish_needs_to_be_moved_ ? tune_options.dish_move_penalty : 0;
 			if (!has_network ||
 					(lnb_priority >= 0 && lnb_priority - penalty < best_lnb_prio) //we already have a better fe
 				)
@@ -548,7 +546,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 			auto fe_prio = fe.priority;
 			if(use_counts.lnb >= 1 ||
 				 use_counts.tuner >= 1)
-				fe_prio += resource_reuse_bonus;
+				fe_prio += tune_options.resource_reuse_bonus;
 
 			if (lnb_priority < 0 || lnb_priority - penalty == best_lnb_prio)
 				if (best_rf_path_prio >= lnb_connection.priority) // use connection priority to break the tie
@@ -579,13 +577,12 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
 bool devdb::fe::can_subscribe_mux(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-																							 const tune_options_t& tune_options,
-																							 int dish_move_penalty, int resource_reuse_bonus) {
+																							 const tune_options_t& tune_options) {
 	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux,
 																					tune_options,
 																					nullptr /*fe_key_to_release*/,
-																					dish_move_penalty, resource_reuse_bonus, true /*ignore_subscriptions*/);
+																					true /*ignore_subscriptions*/);
 	return !!best_fe;
 }
 
@@ -593,13 +590,11 @@ bool devdb::fe::can_subscribe_mux(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
 bool devdb::fe::can_subscribe_sat_band(db_txn& wtxn, const chdb::sat_t& sat,
 																							 const chdb::band_scan_t& band_scan,
-																							 const tune_options_t& tune_options,
-																							 int dish_move_penalty, int resource_reuse_bonus) {
+																							 const tune_options_t& tune_options) {
 	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_band(wtxn, sat, band_scan,
 																					 tune_options,
 																					 nullptr /* fe_key_to_release*/,
-																					 dish_move_penalty, resource_reuse_bonus,
 																					 true /*ignore_subscriptions*/);
 	return !!best_fe;
 }

@@ -231,12 +231,10 @@ namespace devdb::fe {
 	std::optional<fe_t> unsubscribe(db_txn& wtxn, subscription_id_t subscription_id);
 
 	bool can_subscribe_mux(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-																			const tune_options_t& tune_options,
-																			int dish_move_penalty, int resource_reuse_bonus);
+																			const tune_options_t& tune_options);
 	bool can_subscribe_sat_band(db_txn& wtxn, const chdb::sat_t& sat,
 																			const chdb::band_scan_t& band_scan,
-																			const tune_options_t& tune_options,
-																			int dish_move_penalty, int resource_reuse_bonus);
+																			const tune_options_t& tune_options);
 
 
 	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn,
@@ -246,23 +244,17 @@ namespace devdb::fe {
 														const tune_options_t& tune_options,
 														const chdb::dvbs_mux_t& mux,
 														const chdb::service_t* service,
-														int dish_move_penalty, int resource_reuse_bonus,
-														const usals_location_t& loc,
 														bool do_not_unsubscribe_on_failure);
 
 	subscribe_ret_t subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 																		const tune_options_t& tune_options,
 																		const rf_path_t& rf_path,
-																		int dish_move_penalty, int resource_reuse_bonus,
-																		const usals_location_t& loc,
 																		bool do_not_unsubscribe_on_failure);
 
 	subscribe_ret_t subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 																		 const tune_options_t& tune_options,
 																		 const chdb::sat_t& sat,
 																		 const chdb::band_scan_t& band_scan,
-																		 int dish_move_penalty, int resource_reuse_bonus,
-															 const usals_location_t& loc,
 															 bool do_not_unsubscribe_on_failure);
 
 	template<typename mux_t>
@@ -271,7 +263,6 @@ namespace devdb::fe {
 						const mux_t* mux,
 						const chdb::service_t* service,
 						const tune_options_t& tune_options,
-						int resource_reuse_bonus,
 						bool do_not_unsubscribe_on_failure);
 };
 

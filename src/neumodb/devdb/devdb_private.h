@@ -122,7 +122,7 @@ namespace devdb::fe {
 																		const chdb::dvbs_mux_t& mux,
 																		const tune_options_t& tune_options,
 																		const devdb::fe_key_t* fe_key_to_release,
-																		int dish_move_penalty, int resource_reuse_bonus, bool ignore_subscriptions);
+																		bool ignore_subscriptions);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 						 devdb::resource_subscription_counts_t>
@@ -130,7 +130,6 @@ namespace devdb::fe {
 																		 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
 																		 const tune_options_t& tune_options,
 																		 const devdb::fe_key_t* fe_key_to_release,
-																		 int dish_move_penalty, int resource_reuse_bonus,
 																		 bool ignore_subscriptions);
 
 	std::optional<resource_subscription_counts_t>
@@ -194,8 +193,6 @@ namespace devdb::fe {
 														 const tune_options_t& tune_options,
 														 const std::optional<fe_t>& oldfe,
 														 const devdb::fe_key_t* fe_key_to_release,
-														 int dish_move_penalty,
-														 int resource_reuse_bonus,
 														 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
@@ -205,7 +202,6 @@ namespace devdb::fe {
 										 const tune_options_t& tune_options,
 										 const std::optional<devdb::fe_t>& oldfe,
 										 const devdb::fe_key_t* fe_key_to_release,
-										 int dish_move_penalty, int resource_reuse_bonus,
 										 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>

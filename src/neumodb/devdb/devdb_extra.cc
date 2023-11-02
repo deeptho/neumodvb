@@ -520,7 +520,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
 																						tune_options /*tune_options*/,
 																						nullptr /*fe_key_to_release*/,
-																						dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
+																						false /*ignore_subscriptions*/);
 
 		if(best_lnb) {
 			assert(best_rf_path);
@@ -536,7 +536,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
 																						tune_options /*tune_options*/,
 																						nullptr /*fe_key_to_release*/,
-																						dish_move_penalty, resource_reuse_bonus, false /*ignore_subscriptions*/);
+																						false /*ignore_subscriptions*/);
 
 		if(best_lnb) {
 			assert(best_rf_path);
@@ -552,7 +552,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
 																						tune_options,
 																						nullptr /*fe_key_to_release*/,
-																						dish_move_penalty, resource_reuse_bonus, true /*ignore_subscriptions*/);
+																						true /*ignore_subscriptions*/);
 
 		if(best_lnb) {
 			assert(best_rf_path);

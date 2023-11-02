@@ -39,23 +39,12 @@ scan_report_t::scan_report_t(const scan_subscription_t& subscription,
 {}
 
 
-scan_t::scan_t(	scanner_t& scanner, std::optional<tune_options_t> o,
-								subscription_id_t scan_subscription_id)
+scan_t::scan_t(scanner_t& scanner, subscription_id_t scan_subscription_id)
 	: scanner(scanner),
 		receiver_thread(scanner.receiver_thread)
 	, receiver(receiver_thread.receiver)
 	, scan_subscription_id(scan_subscription_id)
-	, scan_id(scanner_t::make_scan_id(scan_subscription_id))
 {
-	dtdebugf("MAKE SCAN_ID: pid=0x{:x} subscription_id={:d} ret={:d}\n", getpid(), (int)scan_subscription_id, scan_id);
-	if(o) {
-		tune_options = *o;
-	} else
-		tune_options.scan_target =  scan_target_t::SCAN_FULL;
-	//at least override the following
-	tune_options.retune_mode = retune_mode_t::NEVER;
-	tune_options.subscription_type = subscription_type_t::SCAN;
-	tune_options.constellation_options.num_samples = 1024 * 16;
 }
 
 

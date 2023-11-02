@@ -216,17 +216,8 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	const chdb::any_mux_t& mux, const chdb::service_t& service, subscription_id_t subscription_id) {
 
 	std::vector<task_queue_t::future_t> futures;
-	int resource_reuse_bonus;
-	int dish_move_penalty;
-	tune_options_t tune_options(scan_target_t::SCAN_FULL_AND_EPG);
-	devdb::usals_location_t loc;
-	{
-		auto r = receiver.options.readAccess();
-		tune_options.may_move_dish = r->tune_may_move_dish;
-		resource_reuse_bonus = r->resource_reuse_bonus;
-		dish_move_penalty = r->dish_move_penalty;
-		loc = r->usals_location;
-	}
+	auto tune_options = receiver.get_default_tune_options(false /*for_scan*/);
+	tune_options.scan_target = scan_target_t::SCAN_FULL_AND_EPG;
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
 	auto devdb_wtxn = receiver.devdb.wtxn();
@@ -236,22 +227,18 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 																							tune_options,
 																							mux,
 																							&service,
-																							dish_move_penalty, resource_reuse_bonus,
-																							loc,
 																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbc_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &service,
 																							tune_options,
-																							resource_reuse_bonus,
 																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbt_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &service,
 																							tune_options,
-																							resource_reuse_bonus,
 																							false /*do_not_unsubscribe_on_failure*/);
 								});
 	devdb_wtxn.commit();
@@ -308,22 +295,18 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 																							tune_options,
 																							mux,
 																							&rec.service,
-																							dish_move_penalty, resource_reuse_bonus,
-																							loc,
 																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbc_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &rec.service,
 																							tune_options,
-																							resource_reuse_bonus,
 																							false /*do_not_unsubscribe_on_failure*/);
 								},
 								[&](const chdb::dvbt_mux_t& mux)  {
 									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																							&mux, &rec.service,
 																							tune_options,
-																							resource_reuse_bonus,
 																							false /*do_not_unsubscribe_on_failure*/);
 								});
 
@@ -487,29 +470,19 @@ receiver_thread_t::subscribe_mux(
 		loc = r->usals_location;
 	}
 	subscribe_ret_t sret;
-#ifdef TODO
-#else
-	auto to = tune_options;
-	if(required_rf_path)
-		to.allowed_rf_paths = {*required_rf_path};
-	else
-		to.allowed_rf_paths = {};
-	to.need_spectrum = false;
-#endif
+
+	assert(!tune_options.need_spectrum);
 	if constexpr(is_same_type_v<chdb::dvbs_mux_t, _mux_t>) {
 		sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
-																to,
+																tune_options,
 																mux,
 																(const chdb::service_t*) nullptr /*service*/,
-																dish_move_penalty, resource_reuse_bonus,
-																loc,
 																do_not_unsubscribe_on_failure);
 	} else {
 
 		sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
 																&mux, (const chdb::service_t*) nullptr /*service*/,
 																tune_options,
-																resource_reuse_bonus,
 																do_not_unsubscribe_on_failure);
 	}
 
@@ -629,7 +602,6 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 			dterrorf("Unhandled error in scan_bands"); // This will ensure that tuning is retried later
 		}
 	}
-
 	int max_num_subscriptions = 100;
 
 	tune_options.spectrum_scan_options.recompute_peaks = true;
@@ -754,8 +726,6 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	auto sret = devdb::fe::subscribe_rf_path(devdb_wtxn, subscription_id,
 																					 tune_options,
 																					 rf_path,
-																					 dish_move_penalty, resource_reuse_bonus,
-																					 loc,
 																					 false /*do_not_unsubscribe_on_failure*/);
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
@@ -1845,12 +1815,21 @@ int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, d
 
 tune_options_t receiver_t::get_default_tune_options(bool for_scan) const
 {
-	//auto &o =options;
-	auto r = options.readAccess();
 	tune_options_t ret;
+	auto r = options.readAccess();
+
+	ret.resource_reuse_bonus = r->resource_reuse_bonus;
+	ret.dish_move_penalty = r->dish_move_penalty;
+	ret.usals_location = r->usals_location;
+
 	ret.need_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
-	if (for_scan)
+	if (for_scan) {
+		ret.scan_target =  scan_target_t::SCAN_FULL;
+		ret.retune_mode = retune_mode_t::NEVER;
 		ret.subscription_type = subscription_type_t::SCAN;
+		ret.constellation_options.num_samples = 1024 * 16;
+		ret.subscription_type = subscription_type_t::SCAN;
+	}
 	ret.may_move_dish = for_scan ? r->scan_may_move_dish: r->tune_may_move_dish;
 	ret.max_scan_duration = 	r->max_scan_duration;
 	return ret;

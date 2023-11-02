@@ -1673,7 +1673,6 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 	return ret;
 }
 
-
 /*
 	mux: typically an SI mux. Usually its key cannot be relied upon, bvecause mux.k.mux_id == 0
 	is_reader_mux: when true, we know for sure that we are processing si data retrieved for this mux (this is

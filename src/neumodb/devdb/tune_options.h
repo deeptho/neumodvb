@@ -121,6 +121,9 @@ struct tune_options_t {
 
 	//retune_mode_t retune_mode{retune_mode_t::ALLOWED}; //positioner not allowed when in positioner_dialog
 	subscription_type_t subscription_type{subscription_type_t::NORMAL};
+	devdb::usals_location_t usals_location;
+	int resource_reuse_bonus{0};
+	int dish_move_penalty{0};
 
 	inline bool rf_path_is_allowed(const devdb::rf_path_t& rf_path) const {
 		if(!allowed_rf_paths)

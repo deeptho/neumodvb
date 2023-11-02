@@ -250,9 +250,7 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 		mux.c.scan_status = scan_status_t::PENDING;
 
 		const bool use_blind_tune = true;
-		reuseable_subscription_id = scan_try_mux(reuseable_subscription_id, subscription,
-																						 blindscan.spectrum_acquired()
-																						 ? &blindscan.spectrum_key->rf_path : nullptr, use_blind_tune);
+		reuseable_subscription_id = scan_try_mux(reuseable_subscription_id, subscription, use_blind_tune);
 	}, *subscription.mux);
 
 
@@ -267,6 +265,14 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 	return false;
 }
 
+static inline chdb::scan_rf_path_t scan_rf_path(devdb::rf_path_t & p) {
+	chdb::scan_rf_path_t r;
+	r.lnb_id = p.lnb.lnb_id;
+	r.card_mac_address = p.card_mac_address;
+	r.rf_input = p.rf_input;
+	r.dish_id = p.lnb.dish_id;
+	return r;
+}
 
 subscription_id_t
 scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
@@ -299,6 +305,8 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 		mux.k.t2mi_pid = -1;
 		mux.k.stream_id = -1;
 		mux.c.scan_status = scan_status_t::PENDING;
+		mux.c.scan_rf_path = scan_rf_path(blindscan.spectrum_key->rf_path);
+
 		/* ignore_t2mi_pid = false to ensure that we always find the encapsulating mux in case of t2mi*/
 		auto c = find_by_mux_physical(chdb_rtxn, mux, true/*ignore_stream_id*/, /*false *ignore_key, */
 																	false /*ignore_t2mi_pid*/);
@@ -824,8 +832,7 @@ bool scan_t::mux_is_being_scanned(const chdb::any_mux_t& mux)
  */
 subscription_id_t
 scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
-										 scan_subscription_t& subscription, const devdb::rf_path_t* required_rf_path,
-										 bool use_blind_tune)
+										 scan_subscription_t& subscription, bool use_blind_tune)
 {
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{-1};
@@ -840,11 +847,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		assert(scanner_t::is_our_scan(scan_id));
 			subscription_id =
 			receiver_thread.subscribe_mux(futures, wtxn, mux, reuseable_subscription_id, tune_options,
-#ifdef TODO
-																		required_rf_path,
-#endif
-																		scan_id,
-																		true /*do_not_unsubscribe_on_failure*/);
+																		scan_id, true /*do_not_unsubscribe_on_failure*/);
 		wtxn.commit();
 		wait_for_all(futures); //remove later
 	}, *subscription.mux);
@@ -978,12 +981,11 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 
 static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const tune_options_t& tune_options){
 	if constexpr (is_same_type_v<chdb::dvbs_mux_t, decltype(mux)>) {
-		const devdb::rf_path_t* required_rf_path{nullptr};
-		return devdb::fe::can_subscribe_lnb_band_pol_sat(devdb_rtxn, mux, required_rf_path,
-																										 tune_options.use_blind_tune, tune_options.may_move_dish,
+		return devdb::fe::can_subscribe_mux(devdb_rtxn, mux,
+																										 tune_options,
 																										 0 /*dish_move_penalty*/, 0/*resource_reuse_bonus*/);
 	} else {
-		return devdb::fe::can_subscribe_dvbc_or_dvbt_mux(devdb_rtxn, mux, tune_options.use_blind_tune);
+		return devdb::fe::can_subscribe_dvbc_or_dvbt_mux(devdb_rtxn, mux, tune_options.need_blind_tune);
 	}
 	assert(0);
 	return false;
@@ -992,12 +994,10 @@ static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const tune
 static inline bool can_subscribe(db_txn& devdb_rtxn, const chdb::sat_t& sat,
 																 const chdb::band_scan_t& band_scan,
 																 const tune_options_t& tune_options){
-	const devdb::rf_path_t* required_rf_path{nullptr};
-	return devdb::fe::can_subscribe_lnb_band_pol_sat(devdb_rtxn, sat, band_scan, required_rf_path,
-																									 tune_options.use_blind_tune,
-																									 true /*need_spectrum*/,
-																									 tune_options.may_move_dish,
-																										 0 /*dish_move_penalty*/, 0/*resource_reuse_bonus*/);
+	assert(tune_options.need_spectrum);
+	return devdb::fe::can_subscribe_sat_band(devdb_rtxn, sat, band_scan,
+																									 tune_options,
+																									 0 /*dish_move_penalty*/, 0/*resource_reuse_bonus*/);
 }
 
 template <typename mux_t>

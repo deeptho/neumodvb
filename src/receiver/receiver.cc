@@ -475,7 +475,6 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const _mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id,
 	const chdb::scan_id_t& scan_id,
 	bool do_not_unsubscribe_on_failure) {
 	int resource_reuse_bonus;
@@ -657,11 +656,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 template <typename _mux_t>
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id,
-																			 tune_options_t tune_options,
-#ifdef TODO
-																			 const devdb::rf_path_t* required_rf_path,
-#endif
-																			 const chdb::scan_id_t& scan_id) {
+																			 tune_options_t tune_options, const chdb::scan_id_t& scan_id) {
 	devdb::fe_key_t subscribed_fe_key;
 	auto s = fmt::format("SUB[{}] {}",  (int) subscription_id, mux);
 	log4cxx::NDC ndc(s);
@@ -676,11 +671,7 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	auto ret_subscription_id =
 		this->receiver_thread_t::subscribe_mux(futures, devdb_wtxn, mux, subscription_id, tune_options,
-#ifdef TODO
-																					 required_rf_path,
-#endif
-																					 scan_id,
-																					 false /*do_not_unsubscribe_on_failure*/);
+																					 scan_id, false /*do_not_unsubscribe_on_failure*/);
 	devdb_wtxn.commit();
 	error = wait_for_all(futures);
 	if(error) {
@@ -758,11 +749,8 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 		dish_move_penalty = r->dish_move_penalty;
 		loc = r->usals_location;
 	}
-#ifdef TODO
-#else
 	tune_options.allowed_rf_paths = {rf_path};
 	tune_options.need_spectrum = need_spectrum;
-#endif
 	auto sret = devdb::fe::subscribe_rf_path(devdb_wtxn, subscription_id,
 																					 tune_options,
 																					 rf_path,
@@ -846,33 +834,19 @@ template
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbs_mux_t>(
 	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id,
-	tune_options_t tune_options,
-#ifdef TODO
-	const devdb::rf_path_t* required_rf_path,
-#endif
-	const chdb::scan_id_t& scan_id);
+	tune_options_t tune_options, const chdb::scan_id_t& scan_id);
 
 template
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbc_mux_t>(
 	const chdb::dvbc_mux_t& mux, subscription_id_t subscription_id,
-	tune_options_t tune_options,
-#ifdef TODO
-	const devdb::rf_path_t* required_rf_path,
-#endif
-	const chdb::scan_id_t& scan_id);
-
-
+	tune_options_t tune_options, const chdb::scan_id_t& scan_id);
 
 template
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbt_mux_t>(
 	const chdb::dvbt_mux_t& mux, subscription_id_t subscription_id,
-	tune_options_t tune_options,
-#ifdef TODO
-	const devdb::rf_path_t* required_rf_path,
-#endif
-	const chdb::scan_id_t& scan_id);
+	tune_options_t tune_options, const chdb::scan_id_t& scan_id);
 
 template <typename mux_t> chdb::any_mux_t mux_for_service(db_txn& txn, const chdb::service_t& service);
 
@@ -1131,8 +1105,7 @@ receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t s
 	futures.push_back(receiver_thread.push_task([this, &mux, tune_options, &subscription_id, &subscribed_fe_key]() {
 		cb(receiver_thread).abort_scan();
 		std::tie(subscription_id, subscribed_fe_key)
-			= cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id,
-																					tune_options, nullptr);
+			= cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id, tune_options);
 		return 0;
 	}));
 	wait_for_all(futures);
@@ -1285,14 +1258,14 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 	tune_options.need_blind_tune = blindscan;
 	tune_options.retune_mode = retune_mode;
 	tune_options.pls_search_range = pls_search_range;
+	tune_options.allowed_rf_paths = {rf_path};
 	//call by reference ok because of subsequent wait_for_all
 	futures.push_back(receiver_thread.push_task(
-											[this, &rf_path, &mux, tune_options, &subscription_id]() {
+											[this, &mux, tune_options, &subscription_id]() {
 		cb(receiver_thread).abort_scan();
 		devdb::fe_key_t subscribed_fe_key;
 		std::tie(subscription_id, subscribed_fe_key)
-			= cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id,
-																				tune_options, &rf_path);
+			= cb(receiver_thread).subscribe_mux(mux, (subscription_id_t) subscription_id, tune_options);
 		return 0;
 	}));
 	wait_for_all(futures, true /*clear all errors*/);
@@ -1907,10 +1880,7 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbc_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-#ifdef TODO
-	const devdb::rf_path_t* required_rf_path,
-#endif
- const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
+	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 
 template
@@ -1918,9 +1888,6 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbt_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-#ifdef TODO
-	const devdb::rf_path_t* required_rf_path,
-#endif
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 template
@@ -1928,9 +1895,6 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbs_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-#ifdef TODO
-	const devdb::rf_path_t* required_rf_path,
-#endif
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 

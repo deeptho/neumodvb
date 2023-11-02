@@ -359,14 +359,17 @@ private:
 		return ret;
 	}
 
+	inline tune_options_t& tune_options_for_scan_id(chdb::scan_id_t scan_id) {
+		assert(scan_id.opt_id >= 0 && scan_id.opt_id < tune_options_.size());
+		return tune_options_[scan_id.opt_id];
+	}
+
 	bool mux_is_being_scanned(const chdb::any_mux_t& mux);
 	std::tuple<int, int> scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
 																 subscription_id_t finished_subscription_id);
 
 	subscription_id_t scan_try_mux(subscription_id_t reusable_subscription_id ,
-																 scan_subscription_t& subscription,
-																 const devdb::rf_path_t* required_rf_path,
-																 bool use_blind_tune);
+																 scan_subscription_t& subscription, bool use_blind_tune);
 
 	bool rescan_peak(blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
 									 scan_subscription_t& subscription);

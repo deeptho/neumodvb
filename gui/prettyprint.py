@@ -16,6 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+
 class StdStringPrinter:
     def __init__(self, val):
         self.val = val
@@ -53,10 +54,13 @@ class DBPrinter:
     def to_string(self):
         #return str(self.val['header'].address)
         v1 = "(*("+str(self.val.type)+"*)("+str(self.val['header'].address)+"))"
-        eval_string = f"{v1}.buffer()[0]@{v1}.size()"
-        #return str(self.val.type.code)
-        #return eval_string
-        v=gdb.parse_and_eval(eval_string)
+        size=int(gdb.parse_and_eval(f"{v1}.size()"))
+        if size == 0:
+            return "empty"
+            pass
+        else:
+            eval_string = f"{v1}.buffer()[0]@{size}"
+            v=gdb.parse_and_eval(eval_string)
         return v
         #return self.val['c_str'](self.val) #['_M_dataplus']['_M_p'].c_str()
 
@@ -68,7 +72,7 @@ def my_pp_func(val):
   if str(val.type).startswith('ss::string') and  val.type.code != gdb.TYPE_CODE_PTR:
       return SSPrinter(val)
   #print(str(val.type))
-  if str(val.type).startswith('ss::vector') and  val.type.code != gdb.TYPE_CODE_PTR:
-      return DBPrinter(val)
+  #if str(val.type).startswith('ss::vector') and  val.type.code != gdb.TYPE_CODE_PTR:
+  #    return DBPrinter(val)
 
 gdb.pretty_printers.append(my_pp_func)

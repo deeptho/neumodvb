@@ -74,7 +74,7 @@ enum class retune_mode_t {
 struct pls_search_range_t {
 	int start{-1};
 	int end{-1};
-	chdb::fe_pls_mode_t pls_mode;
+	chdb::fe_pls_mode_t pls_mode{};
 	int timeoutms{25};
 };
 

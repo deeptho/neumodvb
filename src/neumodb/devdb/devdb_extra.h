@@ -242,13 +242,28 @@ namespace devdb::fe {
 	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn,
 																															 const mux_t& mux, bool use_blind_tune);
 
-	subscribe_ret_t subscribe(db_txn& wtxn, subscription_id_t subscription_id,
+	subscribe_ret_t subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 														const tune_options_t& tune_options,
-														const chdb::dvbs_mux_t* mux,
+														const chdb::dvbs_mux_t& mux,
 														const chdb::service_t* service,
 														int dish_move_penalty, int resource_reuse_bonus,
 														const usals_location_t& loc,
 														bool do_not_unsubscribe_on_failure);
+
+	subscribe_ret_t subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
+																		const tune_options_t& tune_options,
+																		const rf_path_t& rf_path,
+																		int dish_move_penalty, int resource_reuse_bonus,
+																		const usals_location_t& loc,
+																		bool do_not_unsubscribe_on_failure);
+
+	subscribe_ret_t subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
+																		 const tune_options_t& tune_options,
+																		 const chdb::sat_t& sat,
+																		 const chdb::band_scan_t& band_scan,
+																		 int dish_move_penalty, int resource_reuse_bonus,
+															 const usals_location_t& loc,
+															 bool do_not_unsubscribe_on_failure);
 
 	template<typename mux_t>
 	subscribe_ret_t

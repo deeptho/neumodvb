@@ -846,11 +846,12 @@ void active_adapter_t::check_for_new_streams()
 	auto* mux_key = mux_key_ptr(signal_info.driver_mux);
 	auto* c = mux_common_ptr(signal_info.driver_mux);
 	auto& scan_id = c->scan_id;
-	assert(scanner_t::is_our_scan(scan_id));
+	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
 
 	auto tuned_mux = current_tp();
 	bool is_scanning = mux_common_ptr(tuned_mux)->scan_status == scan_status_t::ACTIVE;
+	assert(is_scanning == scanner_t::is_scanning(scan_id));
 #ifndef NDEBUG
 	int last_mux_id = mux_key->mux_id;
 #endif

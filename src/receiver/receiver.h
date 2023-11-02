@@ -427,17 +427,11 @@ public:
 	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key,
 																				subscription_id_t subscription_id);
-#if 0
-	subscription_id_t scan_spectrum(std::optional<devdb::rf_path_t>& rf_path, std::optional<devdb::lnb_t>& lnb,
-																	chdb::fe_polarisation_t pol, int32_t low_freq, int32_t high_freq, int sat_pos,
-																	tune_options_t tune_options, subscription_id_t& subscription_id);
-#else
 	subscription_id_t scan_bands(const ss::vector_<chdb::sat_t>& sats,
 															 const ss::vector_<chdb::fe_polarisation_t>& pols,
 															 int32_t low_freq, int32_t high_freq,
 															 tune_options_t tune_options,
 															 subscription_id_t& subscription_id);
-#endif
 
 	void unsubscribe(subscription_id_t subscription_id);
 	void abort_scan();

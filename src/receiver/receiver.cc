@@ -1670,36 +1670,6 @@ void receiver_t::update_playback_info() {
 	}
 }
 
-#if 0
-template<typename mux_t>
-subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
-	ss::vector_<mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
-	std::optional<tune_options_t> tune_options, int max_num_subscriptions,
-	subscription_id_t subscription_id) {
-	auto s =fmt::format("SUB[{}] Request scan", (int) subscription_id);
-	log4cxx::NDC ndc(s);
-
-	std::vector<task_queue_t::future_t> futures;
-	if ((int) subscription_id >= 0) {
-		auto devdb_wtxn = receiver.devdb.wtxn();
-		unsubscribe_all(futures, devdb_wtxn, subscription_id);
-		devdb_wtxn.commit();
-	}
-
-	bool error = wait_for_all(futures);
-	if (error) {
-		dterrorf("Unhandled error in subscribe_scan");
-	}
-	subscription_id = this->receiver_thread_t::subscribe_scan(futures, muxes, lnbs, tune_options,
-																														max_num_subscriptions, subscription_id);
-	error |= wait_for_all(futures);
-	if (error) {
-		dterrorf("Unhandled error in subscribe_scan");
-	}
-	return subscription_id;
-}
-#endif
-
 /*!
 	lnbs: if non-empty, only these lnbs are allowed during scanning (set to nullptr for non-dvbs)
 	muxes: if non-empty, it provides a list of muxes to scan (should be non empty)

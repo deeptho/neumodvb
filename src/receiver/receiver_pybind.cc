@@ -141,8 +141,6 @@ static void export_receiver(py::module& m) {
 		.def("get_api_type", &receiver_t::get_api_type)
 		.def("get_options", &receiver_t::get_options)
 		.def("set_options", &receiver_t::set_options, py::arg("options"))
-		.def("get_scan_stats", &receiver_t::get_scan_stats, "Return true if a statistics of current scan, in progress",
-				 py::arg("subscription_id"))
 		.def(
 			"get_spectrum_path",
 			[](receiver_t& receiver) { return std::string(receiver.options.readAccess()->spectrum_path.c_str()); },

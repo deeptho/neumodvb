@@ -388,8 +388,6 @@ private:
 	virtual int run() final;
 public:
 	//functions safe to call from other threads
-	scan_stats_t get_scan_stats(subscription_id_t scan_subscription_id);
-
 	class cb_t;
 
 	time_t scan_start_time() const;
@@ -602,7 +600,6 @@ public:
 
 
 	void update_playback_info();
-	EXPORT scan_stats_t get_scan_stats(int scan_subscription_id);
 
 	EXPORT void set_options(const neumo_options_t& options);
 

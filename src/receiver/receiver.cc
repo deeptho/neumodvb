@@ -409,23 +409,6 @@ int receiver_thread_t::exit() {
 	return 0;
 }
 
-scan_stats_t receiver_thread_t::get_scan_stats(subscription_id_t scan_subscription_id) {
-	assert((int) scan_subscription_id >= 0);
-	// make local copy first, because scanner can be reset at any time
-	auto scanner = get_scanner();
-	// assert(scanner_copy); //scan should be in progress
-	if (scanner) {
-		auto& scan = scanner->scans.at(scan_subscription_id);
-		auto r = scan.scan_stats.readAccess();
-		return *r;
-	}
-	return {};
-}
-
-scan_stats_t receiver_t::get_scan_stats(int scan_subscription_id) {
-	return receiver_thread.get_scan_stats((subscription_id_t) scan_subscription_id);
-}
-
 receiver_t::~receiver_t() {
 	dtdebugf("receiver destroyed");
 }

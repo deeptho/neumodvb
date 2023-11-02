@@ -213,6 +213,12 @@ namespace chdb {
 	std::optional<chdb::sat_t>
 	select_sat_for_sat_band(db_txn& chdb_rtxn, const chdb::sat_band_t& sat_band, int sat_pos);
 
+	inline bool scan_in_progress(const chdb::scan_id_t& scan_id) {
+		return scan_id.subscription_id >= 0;
+	}
+
+
+
 };
 
 namespace chdb {

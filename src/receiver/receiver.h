@@ -289,15 +289,18 @@ protected:
 	subscription_id_t
 	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
 								const _mux_t& mux, subscription_id_t subscription_id,
-								const tune_options_t& tune_options, const devdb::rf_path_t* required_rf_path,
-								uint32_t scan_id, bool do_not_unsubscribe_on_failure);
+								const tune_options_t& tune_options,
+#ifdef TODO
+								const devdb::rf_path_t* required_rf_path,
+#endif
+								const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 	template<class mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t> subscribe_mux_in_use(
 		std::vector<task_queue_t::future_t>& futures,
 		std::shared_ptr<active_adapter_t>& old_active_adapter, db_txn& devdb_wtxn,
 		const mux_t& mux, subscription_id_t subscription_id, const tune_options_t& tune_options,
-		const devdb::rf_path_t* required_rf_path, uint32_t scan_id);
+		const devdb::rf_path_t* required_rf_path, const chdb::scan_id_t& scan_id);
 
 	subscription_id_t subscribe_service_for_recording(
 		std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::any_mux_t& mux,
@@ -404,7 +407,10 @@ public:
 	template<typename _mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t>
 	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
-								const devdb::rf_path_t* required_rf_path, uint32_t scan_id=0);
+#ifdef TODO
+								const devdb::rf_path_t* required_rf_path,
+#endif
+								const chdb::scan_id_t& scan_id={});
 
 	subscription_id_t subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, tune_options_t tune_options,
 																	subscription_id_t subscription_id);
@@ -457,7 +463,7 @@ public:
 	int start_recording(const chdb::service_t& service, system_time_t start_time, int duration);
 
 	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
-											 uint32_t scan_id, subscription_id_t subscription_id);
+											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
 	void on_spectrum_band_end(const subscriber_t& subscriber,
 														const ss::vector_<subscription_id_t>& subscription_ids,
 														const statdb::spectrum_t& spectrum);
@@ -526,6 +532,7 @@ public:
 	EXPORT ~receiver_t();
 	EXPORT bool init();
 	devdb::lnb_t reread_lnb(const devdb::lnb_t& lnb);
+
 	template<typename _mux_t>
 	subscription_id_t
 	subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t subscription_id);

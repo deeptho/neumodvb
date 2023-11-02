@@ -144,7 +144,7 @@ lnb_network = db_struct(name='lnb_network',
 Principle:
 there is one lnb record for each physical lnb connection. E.g., a quad lnb will  appear four times.
 Each lnb is uniquely identified by (adaptor_no, dish_id, lnb_type, lnb_id).
-lnb_id is needed because multiple lnnbs can be installed on the same dish and connected to the same adapter_no
+lnb_id is needed because multiple lnbs can be installed on the same dish and connected to the same adapter_no
 for fixed dishes, lnb_id can be set to sat_pos, as it will be unique
 for dishes on a positioner it can be set to the offset (0 for a central lnb, 30 for an lnb in an offset position)
 There could be cases in wich e.g, a KU-C combo lnb is installed. In this case, the described sat_id choice

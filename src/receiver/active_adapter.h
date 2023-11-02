@@ -183,7 +183,7 @@ private:
 	void set_current_tp(const chdb::any_mux_t& mux) {
 		assert((mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 						mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
-					 mux_common_ptr(mux)->scan_id >0);
+					 chdb::scan_in_progress(mux_common_ptr(mux)->scan_id));
 		fe->update_tuned_mux_nit(mux);
 	};
 

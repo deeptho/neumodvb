@@ -144,11 +144,10 @@ static inline bool& skip_helper(std::map<blindscan_key_t,bool>& skip_map, const 
 
 /*check if a finished mux belongs to the current scan_t (it could belong to another scan_t
  */
-subscription_id_t scanner_t::scan_subscription_id_for_scan_id(uint32_t scan_id) {
-	if (scan_id >>8 != getpid())
+subscription_id_t scanner_t::scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id) {
+	if (scan_id.pid != getpid())
 		return subscription_id_t{-1};
-	auto scan_subscription_id = subscription_id_t(scan_id & 0xff);
-	return scan_subscription_id;
+	return subscription_id_t{scan_id.subscription_id};
 }
 
 /*
@@ -156,7 +155,7 @@ subscription_id_t scanner_t::scan_subscription_id_for_scan_id(uint32_t scan_id) 
 	returns true if scanner is empty and should be removed
 */
 bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-																uint32_t scan_id, subscription_id_t subscription_id)
+																const chdb::scan_id_t& scan_id, subscription_id_t subscription_id)
 {
 
 	if (must_end) {
@@ -168,6 +167,7 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 		try {
 			last_house_keeping_time = steady_clock_t::now();
 			auto& scan = scans.at(scan_subscription_id);
+			assert(scan.scan_subscription_id == scan_subscription_id);
 
 			auto [pending, active] = scan.scan_loop(finished_fe, finished_mux, subscription_id);
 
@@ -248,7 +248,7 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 		mux.k.stream_id = -1;
 		dtdebugf("SET PENDING: {}", mux);
 		mux.c.scan_status = scan_status_t::PENDING;
-		assert(mux.c.scan_id == scan_id);
+
 		const bool use_blind_tune = true;
 		reuseable_subscription_id = scan_try_mux(reuseable_subscription_id, subscription,
 																						 blindscan.spectrum_acquired()
@@ -278,6 +278,7 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 	assert(subscription.mux);
 	auto saved = * subscription.mux;
 	assert(blindscan.spectrum_acquired());
+	auto scan_id = subscription.peak.scan_id;
 	std::visit([&](auto& mux) {
 		mux.k.sat_pos = blindscan.spectrum_key->sat_pos;
 		mux.frequency = subscription.peak.frequency;
@@ -513,7 +514,7 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 
 			assert(mux_to_scan.c.scan_status == scan_status_t::PENDING ||
 						 mux_to_scan.c.scan_status == scan_status_t::RETRY);
-			if(mux_to_scan.c.scan_id != scan_id)
+			if(!scanner_t::is_our_scan(mux_to_scan.c.scan_id))
 				continue;
 
 			if ((int)subscriptions.size() >=
@@ -832,11 +833,17 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	assert(subscription.mux);
 	std::visit([&](auto& mux)  {
 		auto wtxn = receiver.devdb.wtxn();
+		auto scan_id = mux_common_ptr(mux)->scan_id;
 		tune_options.use_blind_tune = use_blind_tune;
 		assert(mux_common_ptr(mux)->scan_id!=0);
+		assert(chdb::scan_in_progress(scan_id));
+		assert(scanner_t::is_our_scan(scan_id));
 			subscription_id =
 			receiver_thread.subscribe_mux(futures, wtxn, mux, reuseable_subscription_id, tune_options,
-																		required_rf_path, scan_id,
+#ifdef TODO
+																		required_rf_path,
+#endif
+																		scan_id,
 																		true /*do_not_unsubscribe_on_failure*/);
 		wtxn.commit();
 		wait_for_all(futures); //remove later
@@ -872,7 +879,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 			dtdebugf("SET IDLE ", *subscription.mux);
 			c.scan_status = chdb::scan_status_t::IDLE;
 			c.scan_result = chdb::scan_result_t::BAD;
-			c.scan_id = 0;
+			c.scan_id = {};
 			namespace m = chdb::update_mux_preserve_t;
 			chdb::update_mux(chdb_wtxn, *subscription.mux, now,
 											 m::flags{(m::MUX_COMMON|m::MUX_KEY)& ~m::SCAN_STATUS}, /*false ignore_key,*/
@@ -933,6 +940,7 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 			assert (mux.c.scan_status == scan_status);
 			dtdebugf("SET IDLE ", mux);
 			mux.c.scan_status = chdb::scan_status_t::IDLE;
+			mux.c.scan_id = {};
 			put_record(wtxn, mux);
 			count++;
 		}
@@ -959,6 +967,7 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	if(!found)
 		return found;
 	auto& scan = scans.at(scan_subscription_id);
+	assert(scan.scan_subscription_id == scan_subscription_id);
 	for (auto[subscription_id, sub] : scan.subscriptions) {
 		receiver_thread.unsubscribe(futures, devdb_wtxn, subscription_id);
 	}
@@ -996,16 +1005,15 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 												 subscription_id_t scan_subscription_id) {
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto chdb_wtxn = receiver.chdb.wtxn();
-	auto scan_id = make_scan_id(scan_subscription_id);
-	dtdebugf("MAKE SCAN_ID: pid=0x{:x} subscription_id={:d} ret={:d}\n", getpid(), (int)scan_subscription_id, scan_id);
-	/* ensure that empty entry exists. This can be used to set required_lnb and such
-	 */
 	/*
 		The following call also created default tune_options if needed
 	 */
 	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, tune_options, scan_subscription_id);
 	bool init = inserted;
 	auto& scan = it->second;
+
+	auto scan_id = scan.make_scan_id(scan_subscription_id, tune_options);
+
 	for(const auto& mux_: muxes) {
 		if(!can_subscribe(devdb_rtxn, mux_, scan.tune_options)) {
 			dtdebugf("Skipping mux that cannot be tuned: {}", mux_);
@@ -1019,7 +1027,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 		auto c = mux_t::find_by_key(chdb_wtxn, mux.k, find_eq, mux_t::partial_keys_t::all);
 		if(c.is_valid()) {
 			const auto& db_mux = c.current();
-			bool scan_active = (db_mux.c.scan_id >0);
+			bool scan_active = chdb::scan_in_progress(db_mux.c.scan_id);
 			if(scan_active)
 				continue;
 			mux = db_mux;
@@ -1047,7 +1055,6 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
 												 bool init, subscription_id_t scan_subscription_id) {
 	assert((int) scan_subscription_id >=0);
-	//auto scan_id = make_scan_id(scan_subscription_id);
 	tune_options_t o;
 	o.scan_target = scan_target_t::SCAN_FULL;
 	o.propagate_scan = false;
@@ -1055,6 +1062,8 @@ int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::v
 	o.use_blind_tune = false;
 	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, o, scan_subscription_id);
 	auto& scan = it->second;
+
+	auto scan_id = scan.make_scan_id(scan_subscription_id, o);
 
 	for(const auto& peak: peaks) {
 		blindscan_key_t key = {spectrum_key.sat_pos, spectrum_key.pol, peak.frequency};//frequency is translated to band
@@ -1088,8 +1097,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 	using namespace chdb;
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto chdb_wtxn = receiver.chdb.wtxn();
-	auto scan_id = make_scan_id(scan_subscription_id);
-	dtdebugf("MAKE SCAN_ID: pid=0x{:x} subscription_id={:d} ret={:d}\n", getpid(), (int)scan_subscription_id, scan_id);
+
 	/* ensure that empty entry exists. This can be used to set required_lnb and such
 	 */
 	/*
@@ -1098,6 +1106,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, tune_options, scan_subscription_id);
 	bool init = inserted;
 	auto& scan = it->second;
+	auto scan_id = scan.make_scan_id(scan_subscription_id, tune_options);
 	int added_bands{0};
 	/*
 		Add a band to scan to a sat, except if the band is already marked for scanning

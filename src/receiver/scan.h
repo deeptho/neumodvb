@@ -120,7 +120,7 @@ struct scan_state_t {
 
 	ss::vector<completion_state_t, completion_index_t::NUM> completion_states;
 
-	ss::vector<std::tuple<uint32_t, subscription_id_t>,2> scans_in_progress; //indexed by scan_id
+	ss::vector<std::tuple<chdb::scan_id_t, subscription_id_t>,2> scans_in_progress; //indexed by scan_id
 
 	scan_state_t() {
 		completion_states.resize(completion_index_t::NUM);
@@ -333,7 +333,6 @@ class scan_t {
 	receiver_thread_t& receiver_thread;
 	receiver_t& receiver;
 	subscription_id_t scan_subscription_id;
-	uint32_t scan_id;
 	subscription_id_t monitored_subscription_id{-1};
 	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
 	chdb::any_mux_t last_subscribed_mux;
@@ -349,6 +348,17 @@ public:
 	stats_t scan_stats;
 
 private:
+	inline chdb::scan_id_t make_scan_id(subscription_id_t scan_subscription_id,
+																			const tune_options_t& tune_options) {
+		chdb::scan_id_t ret;
+		ret.subscription_id = (int32_t) scan_subscription_id;
+		ret.pid = getpid();
+		ret.opt_id = next_opt_id++;
+		assert(ret.opt_id == (int)tune_options_.size());
+		tune_options_.push_back(tune_options);
+		return ret;
+	}
+
 	bool mux_is_being_scanned(const chdb::any_mux_t& mux);
 	std::tuple<int, int> scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
 																 subscription_id_t finished_subscription_id);
@@ -438,28 +448,29 @@ class scanner_t {
 												db_txn& devdb_wtxn, subscription_id_t scan_subscription_id);
 
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
-											 uint32_t scan_id, subscription_id_t subscription_id);
+											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
 
 	void on_spectrum_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
 														const statdb::spectrum_t& spectrum);
 	bool housekeeping(bool force);
 
 	void init();
-//	void clear_peaks(const chdb::dvbs_mux_t& finished_mux);
-
-	inline static uint32_t make_scan_id(subscription_id_t subscription_id) {
-		return (getpid() <<8)| (int) subscription_id;
-	}
-	subscription_id_t scan_subscription_id_for_scan_id(uint32_t scan_id);
+	subscription_id_t scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id);
 public:
 	scanner_t(receiver_thread_t& receiver_thread_, int max_num_subscriptions);
 	using stats_t = safe::Safe<scan_stats_t>;
 	~scanner_t();
 
-	inline static uint32_t check_scan_id(uint32_t scan_id) {
+	inline static bool is_our_scan(const chdb::scan_id_t& scan_id) {
 		auto pid = getpid();
-		return ((scan_id >> 8) == pid) ?  scan_id : 0;
+		return (scan_id.pid == pid) && (int) scan_id.subscription_id >= 0;
 	}
+
+	inline static int32_t scan_subscription_id(const chdb::scan_id_t& scan_id) {
+		auto pid = getpid();
+		return ((scan_id.pid) == pid) ? scan_id.subscription_id : -1;
+	}
+
 
 	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
 													const signal_info_t& signal_info);

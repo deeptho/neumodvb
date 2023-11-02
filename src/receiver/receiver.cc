@@ -449,7 +449,7 @@ void receiver_thread_t::cb_t::abort_scan() {
 	called from tuner thread when scanning a mux has ended
 */
 void receiver_thread_t::cb_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-																							uint32_t scan_id, subscription_id_t subscription_id)
+																							const chdb::scan_id_t& scan_id, subscription_id_t subscription_id)
 {
 	auto scanner = get_scanner();
 	if (!scanner.get()) {
@@ -493,6 +493,7 @@ receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const _mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
 	const devdb::rf_path_t* required_rf_path, uint32_t scan_id,
+	const chdb::scan_id_t& scan_id,
 	bool do_not_unsubscribe_on_failure) {
 	int resource_reuse_bonus;
 	int dish_move_penalty;
@@ -676,7 +677,10 @@ template <typename _mux_t>
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id,
 																			 tune_options_t tune_options,
-																			 const devdb::rf_path_t* required_rf_path, uint32_t scan_id) {
+#ifdef TODO
+																			 const devdb::rf_path_t* required_rf_path,
+#endif
+																			 const chdb::scan_id_t& scan_id) {
 	devdb::fe_key_t subscribed_fe_key;
 	auto s = fmt::format("SUB[{}] {}",  (int) subscription_id, mux);
 	log4cxx::NDC ndc(s);
@@ -691,7 +695,10 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subs
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	auto ret_subscription_id =
 		this->receiver_thread_t::subscribe_mux(futures, devdb_wtxn, mux, subscription_id, tune_options,
-																					 required_rf_path, scan_id,
+#ifdef TODO
+																					 required_rf_path,
+#endif
+																					 scan_id,
 																					 false /*do_not_unsubscribe_on_failure*/);
 	devdb_wtxn.commit();
 	error = wait_for_all(futures);
@@ -859,14 +866,20 @@ std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbs_mux_t>(
 	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id,
 	tune_options_t tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id);
+#ifdef TODO
+	const devdb::rf_path_t* required_rf_path,
+#endif
+	const chdb::scan_id_t& scan_id);
 
 template
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbc_mux_t>(
 	const chdb::dvbc_mux_t& mux, subscription_id_t subscription_id,
 	tune_options_t tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t);
+#ifdef TODO
+	const devdb::rf_path_t* required_rf_path,
+#endif
+	const chdb::scan_id_t& scan_id);
 
 
 
@@ -875,7 +888,10 @@ std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbt_mux_t>(
 	const chdb::dvbt_mux_t& mux, subscription_id_t subscription_id,
 	tune_options_t tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t);
+#ifdef TODO
+	const devdb::rf_path_t* required_rf_path,
+#endif
+	const chdb::scan_id_t& scan_id);
 
 template <typename mux_t> chdb::any_mux_t mux_for_service(db_txn& txn, const chdb::service_t& service);
 
@@ -1944,7 +1960,10 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbc_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id, bool do_not_unsubscribe_on_failure);
+#ifdef TODO
+	const devdb::rf_path_t* required_rf_path,
+#endif
+ const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 
 template
@@ -1952,14 +1971,20 @@ subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbt_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id, bool do_not_unsubscribe_on_failure);
+#ifdef TODO
+	const devdb::rf_path_t* required_rf_path,
+#endif
+	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 template
 subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbs_mux_t& mux,
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
-	const devdb::rf_path_t* required_rf_path, uint32_t scan_id, bool do_not_unsubscribe_on_failure);
+#ifdef TODO
+	const devdb::rf_path_t* required_rf_path,
+#endif
+	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 
 template subscription_id_t

@@ -92,8 +92,8 @@ active_si_stream_t::active_si_stream_t
 	when tuning is requested using the proper scan_id
  */
 void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
-																		 subscription_id_t subscription_id, uint32_t scan_id) {
-	if(scan_id == 0)
+																		 subscription_id_t subscription_id, const chdb::scan_id_t& scan_id) {
+	if(!chdb::scan_in_progress(scan_id))
 		return;
 	dtdebugf("activate_scan mux={}", mux);
 	using namespace chdb;
@@ -112,10 +112,10 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 			dtdebugf("SET ACTIVE {} must_save={}", mux, must_save);
 			if(si_processing_done) {
 				muxc->scan_status = scan_status_t::IDLE;
-				muxc->scan_id=0;
+				muxc->scan_id = {};
 			} else {
 				muxc->scan_status = scan_status_t::ACTIVE;
-				assert (muxc->scan_id > 0);
+				assert (chdb::scan_in_progress(muxc->scan_id));
 			}
 			must_save = !is_template(mux);
 		}
@@ -183,6 +183,7 @@ void active_si_stream_t::finalize_scan()
 	switch(tune_state) {
 	case tune_state_t::LOCKED: {
 		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
 		bool no_data = reader->no_data();
 		c->scan_result = lock_state.is_not_ts ? chdb::scan_result_t::NOTS :
 			no_data ?  chdb::scan_result_t::NODATA :
@@ -207,18 +208,22 @@ void active_si_stream_t::finalize_scan()
 
 	case tune_state_t::TUNE_INIT:
 		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
 		c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
 	case tune_state_t::WAITING_FOR_LOCK:
 		//we do not know if mux can be locked
 		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
 		c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
 		break;
 	case tune_state_t::LOCK_TIMEDOUT:
 		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
 		c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
 		break;
 	case tune_state_t::TUNE_FAILED:
 		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
 		c->scan_result = chdb::scan_result_t::BAD; //mux has untunable parameters
 		break;
 	case tune_state_t::TUNE_FAILED_TEMP:
@@ -398,7 +403,7 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 scanner_t::check_scan_id(chdb::mux_common_ptr(mux)->scan_id) > 0);
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	if(is_active_mux) {
 		auto tmp = *mux_common;
 		*mux_common = *mux_common_ptr(stream_mux); //copy scan_id and such
@@ -867,7 +872,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 	auto* mux_common = chdb::mux_common_ptr(stream_mux);
 	assert( mux_common->tune_src != chdb::tune_src_t::TEMPLATE);
 	scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
-	assert(!scan_in_progress || scanner_t::check_scan_id(mux_common->scan_id)>0);
+	assert(!scan_in_progress || chdb::scan_in_progress(mux_common->scan_id));
 	dtdebugf("si_processing_done={} {}", (int) si_processing_done, stream_mux);
 	bool is_freesat_main = chdb::has_epg_type(stream_mux, chdb::epg_type_t::FSTHOME);
 	bool is_skyuk = chdb::has_epg_type(stream_mux, chdb::epg_type_t::SKYUK);
@@ -1696,7 +1701,7 @@ bool active_si_stream_t::update_mux(
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 scanner_t::check_scan_id(chdb::mux_common_ptr(mux)->scan_id) >0);
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 
 	bool is_wrong_dvb_type = dvb_type(mux) != dvb_type(reader_mux);
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
@@ -1707,8 +1712,8 @@ bool active_si_stream_t::update_mux(
 	auto& c =  *mux_common_ptr(reader_mux);
 	bool reader_mux_is_scanning = c.scan_status == scan_status_t::ACTIVE;
 	bool propagate_scan = reader->tune_options().propagate_scan;
-	auto scan_id = scanner_t::check_scan_id(c.scan_id);
-	assert(!reader_mux_is_scanning || scan_id>0);
+	auto& scan_id = c.scan_id;
+	assert(!reader_mux_is_scanning || chdb::scan_in_progress(scan_id));
 	auto scan_start_time = receiver.scan_start_time();
 	auto saved = mux;
 
@@ -1717,7 +1722,7 @@ bool active_si_stream_t::update_mux(
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-					 scanner_t::check_scan_id(chdb::mux_common_ptr(mux)->scan_id) >0);
+					 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 
 		/*after receiving an sdt_actual mux, correct some obviously bad data in a mux,
 			based on what driver reports basically: always trust the tuning parameters that
@@ -1751,7 +1756,7 @@ bool active_si_stream_t::update_mux(
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-					 scanner_t::check_scan_id(chdb::mux_common_ptr(mux)->scan_id) >0);
+					 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 
 	}
 
@@ -1797,7 +1802,7 @@ bool active_si_stream_t::update_mux(
 		if((!pdbc || pdbc->mtime < scan_start_time) && ! on_wrong_sat) {
 			dtdebugf("SET PENDING {}", mux);
 			pc->scan_status = scan_status_t::PENDING;
-			assert(scan_id > 0);
+			assert(chdb::scan_in_progress(scan_id));
 			pc->scan_id = scan_id;
 			if(pdbc) {
 				pmergedc->scan_status = scan_status_t::PENDING;
@@ -1806,7 +1811,7 @@ bool active_si_stream_t::update_mux(
 			assert((pc->scan_status != chdb::scan_status_t::ACTIVE &&
 							pc->scan_status != chdb::scan_status_t::PENDING &&
 							pc->scan_status != chdb::scan_status_t::RETRY) ||
-						 pc->scan_id >0);
+						 chdb::scan_in_progress(pc->scan_id));
 		}
 
 		return true;
@@ -1815,7 +1820,7 @@ bool active_si_stream_t::update_mux(
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 scanner_t::check_scan_id(chdb::mux_common_ptr(mux)->scan_id) >0);
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	/*
 		The following will first attempt to find a mux in the database with
      -matching frequency, pol, sat_pos AND stream_id
@@ -2693,7 +2698,7 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 scanner_t::check_scan_id(chdb::mux_common_ptr(mux)->scan_id) >0);
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	bool driver_data_reliable = signal_info.driver_data_reliable;
 	visit_variant(signal_info.driver_mux,
 								[&](chdb::dvbs_mux_t& mux) {

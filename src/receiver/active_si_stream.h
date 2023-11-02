@@ -731,7 +731,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	mux_data_t* tuned_mux_in_nit();
 	void update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_t& mux);
 	void save_pmts(db_txn& wtxn);
-	void activate_scan(chdb::any_mux_t& mux, subscription_id_t subscription_id, uint32_t scan_id);
+	void activate_scan(chdb::any_mux_t& mux, subscription_id_t subscription_id, const chdb::scan_id_t& scan_id);
 	void check_scan_mux_end();
 public:
 	void reset_si(bool close_streams);

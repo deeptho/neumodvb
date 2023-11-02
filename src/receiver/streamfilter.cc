@@ -447,7 +447,7 @@ chdb::any_mux_t embedded_stream_reader_t::stream_mux() const {
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::mux_common_ptr(mux)->scan_id >0);
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 
 	return stream_filter->embedded_mux; }
 
@@ -455,7 +455,7 @@ void embedded_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& mux) 
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::mux_common_ptr(mux)->scan_id >0);
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	stream_filter->embedded_mux = mux;
 }
 
@@ -470,7 +470,7 @@ void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& embedded_mu
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::mux_common_ptr(mux)->scan_id >0);
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	stream_filter->embedded_mux = embedded_mux;
 }
 
@@ -479,6 +479,6 @@ void embedded_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stre
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::mux_common_ptr(mux)->scan_id >0);
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	stream_filter->embedded_mux = stream_mux;
 }

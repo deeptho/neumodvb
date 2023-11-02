@@ -691,7 +691,8 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
 	/*
 		add an embedded si stream and set the current_mux to to the encapsulating mux
 	 */
-	auto scan_id = scanner_t::check_scan_id(mux_common_ptr(mux)->scan_id);
+	auto& scan_id = mux_common_ptr(mux)->scan_id;
+	bool our_scan = scanner_t::is_our_scan(scan_id);
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 	if (dvbs_mux && dvbs_mux->k.t2mi_pid >= 0) {
 		dtdebugf("mux {} is an embedded stream", *dvbs_mux);
@@ -702,14 +703,14 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
 			if(!add_to_running_mux)
 				set_current_tp(master_mux);
 		}
-		if(scan_id > 0) {
+		if(our_scan) {
 			assert((int) subscription_id >=0 );
 			auto& si = embedded_si_streams.at(dvbs_mux->k.t2mi_pid);
 			si.activate_scan(mux, subscription_id, scan_id);
 		}
 		return master_mux;
 	} else {
-		if(scan_id > 0) {
+		if(our_scan) {
 			si.activate_scan(mux, subscription_id, scan_id);
 		}
 		if(!add_to_running_mux)
@@ -844,7 +845,8 @@ void active_adapter_t::check_for_new_streams()
 	};
 	auto* mux_key = mux_key_ptr(signal_info.driver_mux);
 	auto* c = mux_common_ptr(signal_info.driver_mux);
-	auto scan_id = scanner_t::check_scan_id(c->scan_id);
+	auto& scan_id = c->scan_id;
+	assert(scanner_t::is_our_scan(scan_id));
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
 
 	auto tuned_mux = current_tp();
@@ -859,7 +861,7 @@ void active_adapter_t::check_for_new_streams()
 	//c->scan_duration: set per stream below
 	//c->epg_scan // from database
 	c->scan_status = scan_status_t::IDLE;
-	c->scan_id = 0;
+	c->scan_id = {};
 	//c->num_services // from database
 	c->network_id = 0; //unknown
 	c->ts_id = 0; //unknown
@@ -908,13 +910,13 @@ void active_adapter_t::check_for_new_streams()
 			if(is_dvb) {
 				if(!pdbc) { //there is no mux for this stream yet; create one
 					c->scan_status = is_scanning ? scan_status_t::PENDING : scan_status_t::IDLE;
-					c->scan_id = is_scanning ? scan_id : 0;
+					c->scan_id = is_scanning ? scan_id : chdb::scan_id_t{};
 				} else {
 					if(!propagate_scan || pdbc->mtime >= scan_start_time || pdbc->scan_status == scan_status_t::ACTIVE)
 						return false; //leave scanning to future subscription, or scanning was already done
 					*c = *pdbc;
 					c->scan_status = scan_status_t::PENDING;
-					c->scan_id = is_scanning ? scan_id : 0;
+					c->scan_id = is_scanning ? scan_id : chdb::scan_id_t{};
 				}
 			} else { //not dvb
 				*c = ctemplate;

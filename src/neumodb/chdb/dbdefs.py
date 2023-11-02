@@ -573,6 +573,17 @@ scan_rf_path = db_struct(name='scan_rf_path',
                                 )
                          )
 
+#temporary data used during scanning
+scan_id = db_struct(name='scan_id',
+                    fname = 'mux',
+                    db = db,
+                    type_id= lord('MS'),
+                    version = 1,
+                    fields = ((1, 'int16_t', 'subscription_id', '-1'),
+                              (2, 'int16_t', 'opt_id', '-1'),
+                              (3, 'int32_t', 'pid', '-1'),
+                              ))
+
 mux_common = db_struct(name='mux_common',
                     fname = 'mux',
                     db = db,
@@ -587,7 +598,7 @@ mux_common = db_struct(name='mux_common',
                               (5, 'bool', 'epg_scan'),
                               (2, 'scan_status_t', 'scan_status', 'scan_status_t::NONE'),
                               (20, 'scan_rf_path_t', 'scan_rf_path'),
-                              (12, 'uint32_t', 'scan_id', '0'),
+                              (12, 'scan_id_t', 'scan_id'),
                               (4, 'uint16_t', 'num_services'),
                               (16, 'uint16_t', 'network_id'), #usually redundant
                               (17, 'uint16_t', 'ts_id'), #usually redundant
@@ -702,7 +713,7 @@ band_scan = db_struct(name = 'band_scan',
                                 (4, 'int32_t', 'end_freq', '0'),
                                 (5, 'scan_status_t', 'spectrum_scan_status',  'scan_status_t::NONE'),
                                 (6, 'scan_status_t', 'mux_scan_status', 'scan_status_t::NONE'),
-                                (7, 'uint32_t', 'scan_id', '0'),
+                                (7, 'scan_id_t', 'scan_id'),
                                 (9, 'scan_rf_path_t', 'scan_rf_path'),
                                 (8, 'time_t', 'scan_time')
                                 )

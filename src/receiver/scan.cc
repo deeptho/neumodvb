@@ -536,8 +536,10 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 			}
 
 			bool& skip_mux = skip_helper(skip_map, mux_to_scan);
-			if(skip_mux)
+			if(skip_mux) {
+				num_pending_muxes++;
 				continue;
+			}
 			subscription.mux = mux_to_scan;
 
 			if(receiver_thread.must_exit())
@@ -569,6 +571,7 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 					skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
 				} else {
 					//it is not possible to tune, probably because symbol_rate is out range
+					num_pending_muxes++;
 				}
 				continue;
 			}
@@ -662,6 +665,11 @@ subscription_id_t scan_t::try_all_muxes(
 	w->pending_peaks = num_pending_peaks;
 	w->pending_muxes = num_pending_muxes;
 	w->active_muxes = subscriptions.size();
+	if((int)subscription_to_erase>=0) {
+		w->active_muxes--;
+		assert(w->active_muxes>=0);
+	}
+
 	if(existing_subscription) {
 		bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
 		bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result == chdb::scan_result_t::NOTS;
@@ -817,7 +825,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		calling wait_for_all. Such errors indicated TUNE_FAILED.
 	*/
 	if ((int)subscription_id < 0) {
-		if(subscriptions.size()==0) {
+		if(subscriptions.size()== 0) {
 			/* we cannot subscribe the mux  because of some permanent failure or because of
 				 subscriptions by another program
 				 => Give up
@@ -956,7 +964,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 		/*
 			@todo: multiple parallel scans can override each other's scan_status
 		 */
-		auto c = mux_t::find_by_key(chdb_wtxn, mux.k, find_eq, mux_t::partial_keys_t::all);
+		auto c = mux_t::find_by_key(chdb_wtxn, mux_.k, find_eq, mux_t::partial_keys_t::all);
 		if(c.is_valid()) {
 			const auto& db_mux = c.current();
 			bool scan_active = chdb::scan_in_progress(db_mux.c.scan_id);

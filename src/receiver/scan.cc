@@ -871,7 +871,6 @@ scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 	tune_options.scan_target =  scan_target_t::SCAN_FULL;
 	tune_options.may_move_dish = false; //could become an option
 	tune_options.need_blind_tune = false; //could become an option
-	init();
 }
 
 

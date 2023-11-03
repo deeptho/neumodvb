@@ -1621,7 +1621,6 @@ receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id) {
 	auto scanner = get_scanner();
-	bool init = !scanner.get();
 	subscribe_ret_t sret{subscription_id, false /*failed*/};
 	if (!scanner) {
 		scanner = std::make_unique<scanner_t>(*this, max_num_subscriptions);

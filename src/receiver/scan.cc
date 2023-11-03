@@ -833,10 +833,12 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	std::visit([&](auto& mux)  {
 		auto wtxn = receiver.devdb.wtxn();
 		auto scan_id = mux_common_ptr(mux)->scan_id;
-		tune_options.use_blind_tune = use_blind_tune;
-		assert(mux_common_ptr(mux)->scan_id!=0);
+		auto& tune_options = tune_options_for_scan_id(scan_id);
+		tune_options.need_blind_tune = use_blind_tune;
+		tune_options.need_spectrum = false;
 		assert(chdb::scan_in_progress(scan_id));
 		assert(scanner_t::is_our_scan(scan_id));
+
 			subscription_id =
 			receiver_thread.subscribe_mux(futures, wtxn, mux, reuseable_subscription_id, tune_options,
 																		scan_id, true /*do_not_unsubscribe_on_failure*/);
@@ -918,7 +920,7 @@ scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 {
 	tune_options.scan_target =  scan_target_t::SCAN_FULL;
 	tune_options.may_move_dish = false; //could become an option
-	tune_options.use_blind_tune = false; //could become an option
+	tune_options.need_blind_tune = false; //could become an option
 	init();
 }
 
@@ -964,9 +966,7 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 
 static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const tune_options_t& tune_options){
 	if constexpr (is_same_type_v<chdb::dvbs_mux_t, decltype(mux)>) {
-		return devdb::fe::can_subscribe_mux(devdb_rtxn, mux,
-																										 tune_options,
-																										 0 /*dish_move_penalty*/, 0/*resource_reuse_bonus*/);
+		return devdb::fe::can_subscribe_mux(devdb_rtxn, mux, tune_options);
 	} else {
 		return devdb::fe::can_subscribe_dvbc_or_dvbt_mux(devdb_rtxn, mux, tune_options.need_blind_tune);
 	}
@@ -978,9 +978,7 @@ static inline bool can_subscribe(db_txn& devdb_rtxn, const chdb::sat_t& sat,
 																 const chdb::band_scan_t& band_scan,
 																 const tune_options_t& tune_options){
 	assert(tune_options.need_spectrum);
-	return devdb::fe::can_subscribe_sat_band(devdb_rtxn, sat, band_scan,
-																									 tune_options,
-																									 0 /*dish_move_penalty*/, 0/*resource_reuse_bonus*/);
+	return devdb::fe::can_subscribe_sat_band(devdb_rtxn, sat, band_scan, tune_options);
 }
 
 template <typename mux_t>
@@ -991,14 +989,15 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 	/*
 		The following call also created default tune_options if needed
 	 */
-	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, tune_options, scan_subscription_id);
+	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id);
 	bool init = inserted;
 	auto& scan = it->second;
+	assert(scan.scan_subscription_id == scan_subscription_id);
 
 	auto scan_id = scan.make_scan_id(scan_subscription_id, tune_options);
 
 	for(const auto& mux_: muxes) {
-		if(!can_subscribe(devdb_rtxn, mux_, scan.tune_options)) {
+		if(!can_subscribe(devdb_rtxn, mux_, scan.tune_options_for_scan_id(scan_id))) {
 			dtdebugf("Skipping mux that cannot be tuned: {}", mux_);
 			continue;
 		}
@@ -1042,8 +1041,9 @@ int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::v
 	o.scan_target = scan_target_t::SCAN_FULL;
 	o.propagate_scan = false;
 	o.may_move_dish = false;
-	o.use_blind_tune = false;
-	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, o, scan_subscription_id);
+	o.need_blind_tune = false;
+	o.allowed_rf_paths = {spectrum_key.rf_path};
+
 	auto& scan = it->second;
 
 	auto scan_id = scan.make_scan_id(scan_subscription_id, o);
@@ -1063,6 +1063,7 @@ int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::v
 	//initialize statistics
 	{
 		auto& scan = scans.at(scan_subscription_id);
+		assert(scan.scan_subscription_id == scan_subscription_id);
 		auto w = scan.scan_stats.writeAccess();
 		if (init) {
 			*w = scan_stats_t{};
@@ -1086,9 +1087,10 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 	/*
 		The following call also created default tune_options if needed
 	 */
-	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, tune_options, scan_subscription_id);
+	auto [it, inserted] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id);
 	bool init = inserted;
 	auto& scan = it->second;
+	assert(scan.scan_subscription_id == scan_subscription_id);
 	auto scan_id = scan.make_scan_id(scan_subscription_id, tune_options);
 	int added_bands{0};
 	/*
@@ -1112,7 +1114,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 			band_scan.spectrum_scan_status = scan_status_t::PENDING;
 			band_scan.mux_scan_status = scan_status_t::PENDING;
 			band_scan.scan_id=scan_id;
-			if(!can_subscribe(devdb_rtxn, sat, band_scan, scan.tune_options)) {
+			if(!can_subscribe(devdb_rtxn, sat, band_scan, scan.tune_options_for_scan_id(scan_id))) {
 				dtdebugf("Skipping sat that cannot be tuned: {}", sat);
 				band_scan = saved;
 				continue;
@@ -1138,6 +1140,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 	chdb_wtxn.commit();
 	{
 		auto& scan = scans.at(scan_subscription_id);
+		assert(scan.scan_subscription_id == scan_subscription_id);
 		auto w = scan.scan_stats.writeAccess();
 		if (init) {
 			*w = scan_stats_t{};

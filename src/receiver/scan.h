@@ -323,14 +323,14 @@ class scan_t {
 	receiver_t& receiver;
 	subscription_id_t scan_subscription_id;
 	subscription_id_t monitored_subscription_id{-1};
-	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
+	std::vector<tune_options_t> tune_options_; //indexexed by opt_id
 	chdb::any_mux_t last_subscribed_mux;
 	int max_num_subscriptions_for_retry{std::numeric_limits<int>::max()}; //maximum number of subscriptions that have been in use
 
 	//TODO important: no fe_key_t should occur more than once in subscriptions
 	std::map<subscription_id_t, scan_subscription_t> subscriptions;
 	std::map<blindscan_key_t, blindscan_t> blindscans;
-
+	int next_opt_id{0};
 
 public:
 	using stats_t = safe::Safe<scan_stats_t>;
@@ -349,7 +349,7 @@ private:
 	}
 
 	inline tune_options_t& tune_options_for_scan_id(chdb::scan_id_t scan_id) {
-		assert(scan_id.opt_id >= 0 && scan_id.opt_id < tune_options_.size());
+		assert(scan_id.opt_id >= 0 && scan_id.opt_id < (int)tune_options_.size());
 		return tune_options_[scan_id.opt_id];
 	}
 

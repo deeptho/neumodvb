@@ -276,17 +276,7 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::any_mux_t& mux,
 	recdb::rec_t& rec, subscription_id_t subscription_id) {
 	assert((int)subscription_id == rec.subscription_id);
-	int resource_reuse_bonus;
-	int dish_move_penalty;
 	tune_options_t tune_options(scan_target_t::SCAN_FULL_AND_EPG);
-	devdb::usals_location_t loc;
-	{
-		auto r = receiver.options.readAccess();
-		tune_options.may_move_dish = r->tune_may_move_dish;
-		resource_reuse_bonus = r->resource_reuse_bonus;
-		dish_move_penalty = r->dish_move_penalty;
-		loc = r->usals_location;
-	}
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
 	visit_variant(mux,
@@ -460,15 +450,6 @@ receiver_thread_t::subscribe_mux(
 	subscription_id_t subscription_id, const tune_options_t& tune_options,
 	const chdb::scan_id_t& scan_id,
 	bool do_not_unsubscribe_on_failure) {
-	int resource_reuse_bonus;
-	int dish_move_penalty;
-	devdb::usals_location_t loc;
-	{
-		auto r = receiver.options.readAccess();
-		resource_reuse_bonus = r->resource_reuse_bonus;
-		dish_move_penalty = r->dish_move_penalty;
-		loc = r->usals_location;
-	}
 	subscribe_ret_t sret;
 
 	assert(!tune_options.need_spectrum);
@@ -605,7 +586,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 	int max_num_subscriptions = 100;
 
 	tune_options.spectrum_scan_options.recompute_peaks = true;
-
+	tune_options.need_spectrum = true;
 	subscription_id = this->receiver_thread_t::scan_bands(futures, sats, pols, low_freq, high_freq,
 																												tune_options,
 																												max_num_subscriptions, subscription_id);
@@ -710,16 +691,6 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 																									 devdb::lnb_t& lnb, tune_options_t tune_options,
 																									 subscription_id_t subscription_id) {
 	bool need_spectrum = tune_options.tune_mode == tune_mode_t::SPECTRUM;
-	int resource_reuse_bonus;
-	int dish_move_penalty;
-	devdb::usals_location_t loc;
-	{
-		auto r = receiver.options.readAccess();
-		tune_options.may_move_dish = r->tune_may_move_dish;
-		resource_reuse_bonus = r->resource_reuse_bonus;
-		dish_move_penalty = r->dish_move_penalty;
-		loc = r->usals_location;
-	}
 	tune_options.allowed_rf_paths = {rf_path};
 	tune_options.need_spectrum = need_spectrum;
 	auto sret = devdb::fe::subscribe_rf_path(devdb_wtxn, subscription_id,

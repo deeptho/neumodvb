@@ -56,9 +56,9 @@ class SatTable(NeumoTable):
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='sat_band',  label='Band', basic=True, dfn = lambda x: enum_to_str(x[1]), example="KaA "),
          CD(key='name',  label='Name', basic=True, example=" Eutelsat 6a/12b13c "),
-         CD(key='band_scan_lh', label='Scan status\nLH', dfn=band_scans_fn, example='H: PARTIAL/PARTIAL '),
+         CD(key='band_scan_lh', label='Spectrum Scan\nstatus LH', dfn=band_scans_fn, example='H: PARTIAL/PARTIAL '),
          CD(key='band_scan_lh', label='Scanned\nLH', dfn = scan_time_fn, example='2023-12-31 00:00:00 '),
-         CD(key='band_scan_rv', label='Scan Status\nRV', dfn=band_scans_fn, example='H: PARTIAL/PARTIAL '),
+         CD(key='band_scan_rv', label='Spectrum Scan\nStatus RV', dfn=band_scans_fn, example='H: PARTIAL/PARTIAL '),
          CD(key='band_scan_rv', label='Scanned\nRV', dfn = scan_time_fn, example='2023-12-31 00:00:00 ')
         ]
 

@@ -33,17 +33,6 @@ class receiver_t;
 class active_adapter_t;
 struct sdt_data_t;
 
-#if 0
-struct band_to_scan_t {
-	//chdb::sat_t sat;
-	int16_t sat_pos {sat_pos_none};
-	chdb::sat_band_t sat_band;
-	chdb::fe_polarisation_t pol;
-	int start_freq;
-	int end_freq;
-};
-#endif
-
 struct scan_state_t {
 	/*
 		possible modes of operation
@@ -448,8 +437,6 @@ class scanner_t {
 	void on_spectrum_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
 														const statdb::spectrum_t& spectrum);
 	bool housekeeping(bool force);
-
-	void init();
 	subscription_id_t scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id);
 public:
 	scanner_t(receiver_thread_t& receiver_thread_, int max_num_subscriptions);

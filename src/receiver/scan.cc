@@ -946,15 +946,6 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 	fn(scan_status_t::RETRY, "RETRY");
 }
 
-void scanner_t::init()
-{
-	auto wtxn = receiver.chdb.wtxn();
-	clean<chdb::dvbs_mux_t>(wtxn);
-	clean<chdb::dvbc_mux_t>(wtxn);
-	clean<chdb::dvbt_mux_t>(wtxn);
-	wtxn.commit();
-}
-
 bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 																 db_txn& devdb_wtxn, subscription_id_t scan_subscription_id)
 {

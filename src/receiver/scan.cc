@@ -394,8 +394,8 @@ bool scan_t::retry_subscription_if_needed(subscription_id_t subscription_id,
 		break;
 	}
 
-	if(!blindscan.spectrum_acquired()) {
-		return true; //regular scan, not spectrum scan, this can be finished
+	if(!subscription.peak.is_present()) {
+		return true; //regular scan, not a peak scan, this can be finished
 	}
 
 	if(failed) {

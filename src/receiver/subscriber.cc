@@ -251,13 +251,15 @@ void subscriber_t::notify_signal_info(const signal_info_t& signal_info,
 	}
 }
 
-void subscriber_t::notify_scan_start(const scan_stats_t& scan_stats) {
-	if (!(event_flag & int(subscriber_t::event_type_t::SCAN_START)))
+void subscriber_t::notify_scan_progress(const scan_stats_t& scan_stats, bool is_start) {
+	auto match = is_start ? subscriber_t::event_type_t::SCAN_START
+		: subscriber_t::event_type_t::SCAN_PROGRESS;
+	if (!(event_flag & int(match)))
 		return;
 	notify(scan_stats);
 }
 
-void subscriber_t::notify_scan_mux_end(const scan_report_t& report) {
+void subscriber_t::notify_scan_mux_end(const scan_mux_end_report_t& report) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SCAN_MUX_END)))
 		return;
 	notify(report);

@@ -381,23 +381,21 @@ class SpectrumDialog(SpectrumDialog_):
             self.EndBlindScan()
             return
         need_si = True
-        if type(data) == pyreceiver.scan_report_t: #called from scanner
-            is_scan_end = data.mux is None
-            if is_scan_end:
-                dtdebug("scan end")
-            else:
-                has_lock = data.mux.c.scan_result != pychdb.scan_result_t.NOLOCK
-                self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak, data.mux, has_lock)
+        if type(data) == pyreceiver.scan_mux_end_report_t: #called from scanner
+            assert data.mux is not None
+            has_lock = data.mux.c.scan_result != pychdb.scan_result_t.NOLOCK
+            self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak, data.mux, has_lock)
 
-            s = data.scan_stats
-            if data.scan_stats.pending_muxes + data.scan_stats.active_muxes + \
-               data.scan_stats.pending_peaks == 0:
+        elif type(data) == pyreceiver.scan_stats_t: #called from scanner
+            scan_stats = data
+            if scan_stats.pending_muxes + scan_stats.active_muxes + \
+               scan_stats.pending_peaks == 0:
                 self.is_blindscanning = False
                 self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
                 m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)
                 title = "Blindscan spectrum finished"
-                msg = f"Scanned: {data.scan_stats.finished_muxes} (Locked: {data.scan_stats.locked_muxes}; " \
-                    f"DVB: {data.scan_stats.si_muxes}; Failed: {data.scan_stats.failed_muxes}) muxes in {m}min {s}s"
+                msg = f"Scanned: {scan_stats.finished_muxes} (Locked: {scan_stats.locked_muxes}; " \
+                    f"DVB: {scan_stats.si_muxes}; Failed: {scan_stats.failed_muxes}) muxes in {m}min {s}s"
                 dtdebug(msg)
                 ShowMessage(title, msg)
                 self.spectrum_buttons_panel.blindscan_button.SetValue(0)

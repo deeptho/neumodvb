@@ -170,8 +170,6 @@ class neumoMainFrame(mainFrame):
         data = get_object(evt)
         if type(data) == pyreceiver.scan_stats_t:
             st = data
-        elif type(data) == pyreceiver.scan_report_t:
-            st = data.scan_stats
         elif type(data) == str:
             ShowMessage("Error", data)
             return

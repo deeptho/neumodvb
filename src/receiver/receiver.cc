@@ -1509,8 +1509,9 @@ void receiver_t::notify_sdt_actual(const sdt_data_t& sdt_data,
 	}
 }
 
-//called from scanner loop to inform scanner subscription
-void receiver_t::notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report) {
+/*called from scanner loop to inform gui that a specific mux has finished scanning
+ */
+void receiver_t::notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_mux_end_report_t& report) {
 	{
 		auto scanner = receiver_thread.get_scanner();
 		if(!scanner)
@@ -1532,7 +1533,8 @@ void receiver_t::notify_scan_mux_end(subscription_id_t scan_subscription_id, con
 }
 
 //called from scanner loop to inform about scan statistics at start (for display on mux screen)
-void receiver_t::notify_scan_start(subscription_id_t scan_subscription_id, const scan_stats_t& stats) {
+void receiver_t::notify_scan_progress(subscription_id_t scan_subscription_id,
+																			const scan_stats_t& stats, bool is_start) {
 	{
 		auto scanner = receiver_thread.get_scanner();
 		if(!scanner)
@@ -1549,7 +1551,7 @@ void receiver_t::notify_scan_start(subscription_id_t scan_subscription_id, const
 		if (!ms)
 			return;
 		//Notify spectrum dialog and muxlist
-		ms->notify_scan_start(stats);
+		ms->notify_scan_progress(stats, is_start);
 	}
 }
 

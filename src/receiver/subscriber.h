@@ -75,14 +75,16 @@ public:
 		SIGNAL_INFO = (1<<1),
 		SPECTRUM_SCAN = (1<<2),
 		SCAN_START = (1<<3),
-		SCAN_MUX_END = (1<<4),
-		SDT_ACTUAL = (1<<5)
+		SCAN_PROGRESS = (1<<4),
+		SCAN_MUX_END = (1<<5),
+		SDT_ACTUAL = (1<<6)
 	};
 
 	safe::Safe<notification_t> notification;
 	int event_flag{
 		int(event_type_t::ERROR_MSG) |
 		int(event_type_t::SCAN_START) |
+		int(event_type_t::SCAN_PROGRESS) |
 		int(event_type_t::SCAN_MUX_END) |
 		int(event_type_t::SDT_ACTUAL) |
 		int(event_type_t::SIGNAL_INFO) |
@@ -95,8 +97,8 @@ public:
 	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);
 
 	void notify_error(const ss::string_& errmsg);
-	void notify_scan_start(const scan_stats_t& scan_stats);
-	void notify_scan_mux_end(const scan_report_t& report);
+	void notify_scan_progress(const scan_stats_t& scan_stats, bool is_start);
+	void notify_scan_mux_end(const scan_mux_end_report_t& report);
 	void notify_sdt_actual(const sdt_data_t& sdt_data) const;
 	void notify_sdt_actual(const sdt_data_t& sdt_data,
 												 const ss::vector_<subscription_id_t>& subscription_ids) const;

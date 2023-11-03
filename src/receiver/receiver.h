@@ -56,7 +56,7 @@ class subscriber_t;
 struct tune_options_t;
 struct tune_pars_t;
 struct spectrum_scan_t;
-struct scan_report_t;
+struct scan_mux_end_report_t;
 struct sdt_data_t;
 struct band_to_scan_t;
 
@@ -599,9 +599,10 @@ public:
 														const ss::vector_<subscription_id_t>& subscription_ids);
 
 	void notify_signal_info(const signal_info_t& info, const ss::vector_<subscription_id_t>& subscription_ids);
-	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_report_t& report);
+	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_mux_end_report_t& report);
 
-	void notify_scan_start(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats);
+	void notify_scan_progress(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats,
+														bool is_start);
 	void notify_sdt_actual(const sdt_data_t& sdt_data, const ss::vector_<subscription_id_t>& subscription_ids);
 
 	inline devdb::usals_location_t get_usals_location() const {

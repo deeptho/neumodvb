@@ -27,14 +27,13 @@
 #include "receiver.h"
 #include "util/template_util.h"
 
-scan_report_t::scan_report_t(const scan_subscription_t& subscription,
-														 const statdb::spectrum_key_t spectrum_key,
-														 const scan_stats_t& scan_stats)
+scan_mux_end_report_t::scan_mux_end_report_t(const scan_subscription_t& subscription,
+														 const statdb::spectrum_key_t spectrum_key
+	)
 	: spectrum_key(spectrum_key)
 	, band(subscription.blindscan_key.band)
 	, peak(subscription.peak)
 	, mux(subscription.mux)
-	, scan_stats(scan_stats)
 		//, lnb_key (lnb_key)
 {}
 
@@ -66,7 +65,18 @@ bool scanner_t::housekeeping(bool force) {
 	int active{0};
 	try {
 		for(auto& [subscription_id, scan]: scans) {
-			auto [pending1, active1] = scan.scan_loop({}, {}, {});
+			/*@todo: do we really need to take a new transaction for each scan (because each call below
+				loops over all muxes and some muxes get modified in the process, but this is not seen
+				in the transaction)?
+				probably not, as each mux can only be part of a single scan
+			*/
+			auto chdb_rtxn = receiver.chdb.rtxn();
+			int num_pending_muxes_{};
+			int num_pending_peaks_{};
+			scan_subscription_t subscription{subscription_id_t::NONE};
+			auto [pending1, active1] = scan.scan_loop(chdb_rtxn, subscription,
+																								num_pending_muxes_, num_pending_peaks_, {}, {});
+			chdb_rtxn.commit();
 			active += active1;
 			pending += pending1;
 		}
@@ -158,15 +168,11 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 			auto& scan = scans.at(scan_subscription_id);
 			assert(scan.scan_subscription_id == scan_subscription_id);
 
-			auto [pending, active] = scan.scan_loop(finished_fe, finished_mux, subscription_id);
+			auto [pending, active] = scan.on_scan_mux_end(finished_fe, finished_mux, subscription_id);
 
 			dtdebugf("finished_fe adapter {} mux=<{}> muxes to scan: pending={} active={} subs={}",
 							 finished_fe.adapter_no, finished_mux, (int) pending, (int) active,
 							((int) scan.subscriptions.size()));
-			//TODO: why do we perform this "housekeeping" now in the two lines below? Needed?
-			while(!must_end && ( pending + active != 0) && scan.subscriptions.size() == 0 ) {
-				std::tie(pending, active) = scan.scan_loop({}, {}, {});
-			}
 			auto ret = must_end ? 0 : pending + active;
 			if( !ret ) {
 				std::vector<task_queue_t::future_t> futures;
@@ -342,7 +348,7 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 	This call returns false if we are retrying scanning thus frequency/pol for some reason
 	Otherwise return true, signaling that this subscription is done
  */
-bool scan_t::retry_subscription_if_needed(db_txn& rtxn,  subscription_id_t subscription_id,
+bool scan_t::retry_subscription_if_needed(subscription_id_t subscription_id,
 																 scan_subscription_t& subscription,
 																 const chdb::any_mux_t& finished_mux)
 {
@@ -553,7 +559,10 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 			if ((int)subscription.subscription_id < 0) {
 				// we cannot subscribe the mux right now
 				if(subscription.subscription_id == subscription_id_t::RESERVATION_FAILED_PERMANENTLY) {
-					skip_mux = false; //ensure that we do not even try muxes on the same sat, pol, band in this run
+					skip_mux = false;
+					auto& blindscan = blindscans[subscription.blindscan_key];
+					scan_mux_end_report_t report{subscription, *blindscan.spectrum_key};
+					receiver.notify_scan_mux_end(scan_subscription_id, report); //we tried but failed immediately
 				} else if(subscription.subscription_id == subscription_id_t::RESERVATION_FAILED) {
 					num_pending_muxes++;
 					skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
@@ -577,8 +586,6 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 	}
 	return {num_pending_peaks, num_pending_muxes, reuseable_subscription_id};
 }
-
-
 
 subscription_id_t scan_t::try_all_muxes(
 	db_txn& chdb_rtxn, scan_subscription_t& subscription,
@@ -665,131 +672,74 @@ subscription_id_t scan_t::try_all_muxes(
 	return subscription_to_erase;
 };
 
+std::tuple<int, int>
+scan_t::scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
+									int& num_pending_muxes, int& num_pending_peaks,
+									const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux) {
+	dtdebugf("calling try_all_muxes\n");
+	auto scan_stats_before = *scan_stats.readAccess();
+	auto subscription_to_erase = try_all_muxes(chdb_rtxn, /*finished_subscription_id,*/ subscription,
+																						 finished_fe, finished_mux,
+																						 num_pending_muxes, num_pending_peaks);
+	auto ss = *scan_stats.readAccess();
+	if(ss != scan_stats_before)
+		receiver.notify_scan_progress(scan_subscription_id, ss, false /*is_start*/);
 
+	if((int) subscription_to_erase >=0) {
+		this->subscriptions.erase(subscription_to_erase);
+		if (subscription_to_erase == monitored_subscription_id)
+			monitored_subscription_id = subscription_id_t::NONE;
+	}
+
+	if(!subscription.scan_start_reported) {
+		subscription.scan_start_reported = true;
+		auto ss = *scan_stats.readAccess();
+		receiver.notify_scan_progress(scan_subscription_id, ss, true /*is_start*/);
+	}
+	return {num_pending_muxes + num_pending_peaks, subscriptions.size()};
+}
 
 /*
 	Returns number of muxes left to scan, and number of running subscriptions
 */
 std::tuple<int, int>
-scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
+scan_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
 									subscription_id_t finished_subscription_id) {
-	std::vector<task_queue_t::future_t> futures;
-	int error{};
+	assert((int)finished_subscription_id>=0);
 	int num_pending_muxes{0};
-	int num_skipped_muxes{0};
 	int num_pending_peaks{0};
-	int num_skipped_peaks{0};
-	auto& finished_mux_key = *mux_key_ptr(finished_mux);
-	scan_subscription_t* finished_subscription_ptr{nullptr};
 
-	if(mux_key_ptr(finished_mux)->sat_pos != sat_pos_none) { //otherwise we are called from housekeeping
-		int count{0};
-		/*it is essential that subscription is retrieved by val in the loop below
-			as it is filled with trial data which is only saved when subscription succeeds
-		*/
-		[&](){
-			auto [it, found] = find_in_map(this->subscriptions, finished_subscription_id);
-			if(!found) {
-				dtdebugf("Skipping unknown subscription_id={:d}", (int)finished_subscription_id);
-				return;
-			}
-			scan_subscription_t subscription {it->second}; //need to copy
-			/*it is essential to start a new transaction at this point
-				because scan_next will loop over all pending muxes, changing
-				scan_status to ACTIVE for some of the muxes;
-				In order to not rescan those muxes, we need to discover the new ACTIVE status,
-				which is done by creating a new transaction
-			*/
-			auto chdb_rtxn = receiver.chdb.rtxn();
-			dtdebugf("obtained transaction\n");
-			count++;
-			auto& blindscan = blindscans[subscription.blindscan_key];
-			bool finished = retry_subscription_if_needed(chdb_rtxn,  finished_subscription_id,
-																					subscription, finished_mux);
-			dtdebugf("after retry_subscription_if_needed: finished_mux={} finished=",
-							 finished_mux, finished);
-			scan_report_t report{subscription, *blindscan.spectrum_key, {}};
-			if (!finished) {
-				finished_subscription_ptr = nullptr;
-				it = std::next(it);
-				return;
-			}
-			finished_subscription_ptr = & subscription;  //allow try_all_muxes to reuse this subscription
-			subscription.mux.reset();
-			dtdebugf("calling try_all_muxes\n");
-			assert(subscription.subscription_id == finished_subscription_id);
-			auto subscription_to_erase = try_all_muxes(chdb_rtxn, /*finished_subscription_id,*/ subscription,
-																								 finished_fe, finished_mux,
-																								 /*finished_subscription_ptr, finished_mux_key,*/
-																								 num_pending_muxes, num_pending_peaks);
-			dtdebugf("finished_subscription_id={} subscription_to_erase={} finished_mux={}",
-							 (int) finished_subscription_id, (int) subscription_to_erase, finished_mux);
-			if((int) subscription_to_erase >=0) {
-				assert(subscription_to_erase == finished_subscription_id);
-				it = subscriptions.erase(it);
-				if (subscription_to_erase == monitored_subscription_id)
-					monitored_subscription_id = subscription_id_t::NONE;
-			} else {
-				it = std::next(it);
-			}
-			assert(finished_mux_key.sat_pos == sat_pos_none || finished_fe.sub.owner == getpid());
-			report.scan_stats = *scan_stats.readAccess();
-			auto ss = *scan_stats.readAccess();
-			dtdebugf("SCAN REPORT: mux={} pending={} active={}",
-							 *report.mux, ss.pending_muxes, ss.active_muxes);
-			receiver.notify_scan_mux_end(scan_subscription_id, report);
-			dtdebugf("committing\n");
-			chdb_rtxn.commit();
-		}();
-
-		if(count==0) {
-			dterrorf("XXXX finished subscription not found for {}", finished_mux);
-		} else if(count!=1) {
-			dtdebugf("XXXX multiple finished subscriptions for {}", finished_mux);
-		}
-	} else {
-		//in case new frontends or lnbs have become available for use
-		finished_subscription_ptr = nullptr;
-		auto finished_subscription_id = subscription_id_t{-1};
-		scan_subscription_t subscription{finished_subscription_id};
-		dtdebugf("calling try_all_muxes\n");
-		auto chdb_rtxn = receiver.chdb.rtxn();
-		dtdebugf("obtained transaction\n");
-		auto subscription_to_erase = try_all_muxes(chdb_rtxn, /*finished_subscription_id,*/ subscription,
-																							 finished_fe, finished_mux,
-																							 /*finished_subscription_ptr, finished_mux_key,*/
-																							 num_pending_muxes, num_pending_peaks);
-		assert((int) subscription_to_erase == -1);
-		dtdebugf("committing\n");
-		chdb_rtxn.commit();
-
-		if(subscriptions.size() ==0) {
-			/*send one more message to inform gui that scan is done
-				This may be needed when all pending scans fail
-			*/
-			subscription.mux = {};
-			scan_report_t report{subscription, {}, {}};
-			report.scan_stats = *scan_stats.readAccess();
-			auto ss = *scan_stats.readAccess();
-			ss.pending_muxes = num_pending_muxes;
-			if(report.mux) {
-				dtdebugf("SCAN REPORT: mux={} pending={} active={}",
-								 *report.mux, ss.pending_muxes, ss.active_muxes);
-			} else {
-				dtdebugf("SCAN REPORT: mux=NONE pending{} active={}",
-								 ss.pending_muxes, ss.active_muxes);
-			}
-			receiver.notify_scan_mux_end(scan_subscription_id, report);
-		} else if(!subscription.scan_start_reported) {
-			subscription.scan_start_reported = true;
-			auto scan_stats_ = *scan_stats.readAccess();
-			receiver.notify_scan_start(scan_subscription_id, scan_stats_);
-		}
+	auto [it, found] = find_in_map(this->subscriptions, finished_subscription_id);
+	auto chdb_rtxn = receiver.chdb.rtxn();
+	if(!found) {
+			dterrorf("Skipping unknown subscription_id={:d}", (int)finished_subscription_id);
+			scan_subscription_t subscription{finished_subscription_id};
+			return scan_loop(chdb_rtxn, subscription, num_pending_muxes, num_pending_peaks, {}, {});
 	}
 
-	if (error) {
-		dterrorf("Error encountered during scan");
+	auto subscription = it->second; //need to copy
+
+	auto& blindscan = blindscans[subscription.blindscan_key];
+	bool finished = retry_subscription_if_needed(finished_subscription_id,
+																							 subscription, finished_mux);
+	/*if not finished, then peak will be retried and tryign to tune new muxes
+		is ublikely to succeed. Scan statistics also do not change in that case*/
+	if (finished) {
+		assert(subscription.subscription_id == finished_subscription_id);
+		scan_mux_end_report_t report{subscription, *blindscan.spectrum_key};
+		receiver.notify_scan_mux_end(scan_subscription_id, report);
+
+		subscription.mux.reset();
+
+		scan_loop(chdb_rtxn, subscription, num_pending_muxes, num_pending_peaks,
+				finished_fe, finished_mux);
+    chdb_rtxn.commit();
+		auto ss = *scan_stats.readAccess();
+
+		dtdebugf("SCAN REPORT: mux={} pending={} active={}",
+						 *report.mux, ss.pending_muxes, ss.active_muxes);
 	}
+
 	return {num_pending_muxes + num_pending_peaks, subscriptions.size()};
 }
 

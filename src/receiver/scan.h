@@ -250,6 +250,19 @@ struct blindscan_key_t {
 	blindscan_key_t() = default;
 };
 
+struct peak_to_scan_t {
+	chdb::spectral_peak_t peak;
+	chdb::scan_id_t scan_id;
+	peak_to_scan_t() = default;
+	peak_to_scan_t(const chdb::spectral_peak_t& peak, chdb::scan_id_t scan_id)
+		: peak(peak)
+		, scan_id(scan_id)
+		{}
+	inline bool is_present() const {
+		return scan_id.subscription_id >=0;
+	}
+};
+
 //todo: extend to dvbc and dvbt
 struct blindscan_t {
 	/*
@@ -263,7 +276,7 @@ struct blindscan_t {
 
 	*/
 	std::optional<statdb::spectrum_key_t> spectrum_key; //set after peaks to scan have been added to provide correct sat_pos
-	ss::vector_<chdb::spectral_peak_t> peaks;
+	ss::vector_<peak_to_scan_t> peaks;
 	bool operator<(const blindscan_key_t& other) const;
 
 	bool spectrum_acquired() const {
@@ -276,7 +289,7 @@ struct scan_subscription_t {
 	subscription_id_t subscription_id;
 	bool scan_start_reported{false};
 	blindscan_key_t blindscan_key;
-	chdb::spectral_peak_t peak;
+	peak_to_scan_t peak;
 	std::optional<chdb::any_mux_t> mux;
 	bool is_peak_scan{false}; //true if we scan the peak rather than a corresponding mux in the db
 	scan_subscription_t(subscription_id_t subscription_id) :
@@ -450,6 +463,11 @@ public:
 	inline static bool is_our_scan(const chdb::scan_id_t& scan_id) {
 		auto pid = getpid();
 		return (scan_id.pid == pid) && (int) scan_id.subscription_id >= 0;
+	}
+
+
+	inline static bool is_scanning(const chdb::scan_id_t& scan_id) {
+		return scan_id.pid > 0 || (int) scan_id.subscription_id >= 0;
 	}
 
 	inline static int32_t scan_subscription_id(const chdb::scan_id_t& scan_id) {

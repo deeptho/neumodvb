@@ -229,12 +229,19 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 	std::visit([&](auto& mux) {
 		assert(!blindscan.spectrum_acquired() || mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
 
-		mux.frequency = subscription.peak.frequency;
+		if (mux.c.scan_rf_path.lnb_id >=0 &&  mux.c.scan_rf_path.card_mac_address >=0 && mux.c.scan_rf_path.rf_input >=0) {
+			auto devdb_rtxn = receiver.devdb.rtxn();
+			auto lnb = devdb::lnb_for_lnb_id(devdb_rtxn, mux.c.scan_rf_path.dish_id, mux.c.scan_rf_path.lnb_id);
+			devdb_rtxn.abort();
+		}
+
+		auto& peak = subscription.peak.peak;
+		mux.frequency = peak.frequency;
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbs_mux_t>) {
 			assert(!blindscan.spectrum_acquired() || mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
-			assert(!blindscan.spectrum_acquired() || mux.pol == subscription.peak.pol);
+			assert(!blindscan.spectrum_acquired() || mux.pol == peak.pol);
 			if(blindscan.spectrum_acquired()) {
-				mux.symbol_rate = subscription.peak.symbol_rate;
+				mux.symbol_rate = peak.symbol_rate;
 			}
 			mux.pls_mode = fe_pls_mode_t::ROOT;
 			mux.pls_code = 1;
@@ -278,19 +285,20 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 {
 	using namespace chdb;
 	subscription.is_peak_scan = true;
-	subscription_id_t subscription_id;
 	assert(subscription.mux);
 	auto saved = * subscription.mux;
 	assert(blindscan.spectrum_acquired());
+	auto & mux = *subscription.mux;
+	auto &peak = subscription.peak.peak;
 	auto scan_id = subscription.peak.scan_id;
 	std::visit([&](auto& mux) {
 		mux.k.sat_pos = blindscan.spectrum_key->sat_pos;
-		mux.frequency = subscription.peak.frequency;
-		set_member(mux, pol, subscription.peak.pol);
+		mux.frequency = peak.frequency;
+		set_member(mux, pol, peak.pol);
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbs_mux_t&>) {
 			assert(mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
-			assert(mux.pol == subscription.peak.pol);
-			mux.symbol_rate = subscription.peak.symbol_rate;
+			assert(mux.pol == peak.pol);
+			mux.symbol_rate = peak.symbol_rate;
 			mux.pls_mode = fe_pls_mode_t::ROOT;
 			mux.pls_code = 1;
 		}
@@ -298,7 +306,7 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 		}
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbc_mux_t>) {
 			assert(mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
-			mux.symbol_rate = subscription.peak.symbol_rate;
+			mux.symbol_rate = peak.symbol_rate;
 		}
 		mux.k.t2mi_pid = -1;
 		mux.k.stream_id = -1;
@@ -327,10 +335,8 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 		mux.c.scan_id = scan_id;
 		subscription.mux = mux;
 		const bool use_blind_tune = true;
-		finished_subscription_id = scan_try_mux(finished_subscription_id, subscription,
-																						blindscan.spectrum_acquired()
-																						? &blindscan.spectrum_key->rf_path : nullptr, use_blind_tune);
-		}, *subscription.mux);
+		finished_subscription_id = scan_try_mux(finished_subscription_id, subscription, use_blind_tune);
+	}, mux);
 	return subscription.subscription_id;
 }
 
@@ -402,8 +408,8 @@ bool scan_t::retry_subscription_if_needed(subscription_id_t subscription_id,
 
 		if (subscription.is_peak_scan)
 			return true; //we have blindscanned already
-		if(std::abs(symbol_rate -(int) subscription.peak.symbol_rate) <
-			 std::min(symbol_rate, (int) subscription.peak.symbol_rate)/4) //less than 25% difference in symbol rate
+		if(std::abs(symbol_rate -(int) subscription.peak.peak.symbol_rate) <
+			 std::min(symbol_rate, (int) subscription.peak.peak.symbol_rate)/4) //less than 25% difference in symbol rate
 			return true; //blindscanned will not likely lead to different results
 		dtdebugf("Calling rescan_peak for mux: {}", finished_mux);
 		return rescan_peak(blindscan, subscription_id, subscription);
@@ -540,12 +546,7 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 			auto pol = get_member(mux_to_scan, pol, chdb::fe_polarisation_t::NONE);
 			blindscan_key_t key = {mux_to_scan.k.sat_pos, pol, mux_to_scan.frequency}; //frequency is translated to band
 			auto [it, found] = find_in_map(blindscans, key);
-			devdb::rf_path_t* required_rf_path{nullptr};
-			if(found) {
-				auto& blindscan = it->second;
-				required_rf_path = blindscan.spectrum_acquired()
-					? &blindscan.spectrum_key->rf_path : nullptr;
-			}
+			subscription.blindscan_key = key;
 			if(mux_is_being_scanned(mux_to_scan)) {
 				dtdebugf("Skipping mux already in progress: {}", mux_to_scan);
 				continue;
@@ -554,7 +555,7 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 			//subscription_id_t subscription_id;
 			const bool use_blind_tune = false;
 			reuseable_subscription_id =
-				scan_try_mux(reuseable_subscription_id, subscription, required_rf_path, use_blind_tune);
+				scan_try_mux(reuseable_subscription_id, subscription, use_blind_tune);
 
 			if ((int)subscription.subscription_id < 0) {
 				// we cannot subscribe the mux right now
@@ -800,7 +801,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 					 *subscription.mux, subscriptions);
 		dtdebugf("Asked to subscribe {} reuseable_subscription_id={} subscription_id={} peak={}",
 						 *subscription.mux, (int) reuseable_subscription_id,
-						 (int) subscription_id, subscription.peak.frequency);
+						 (int) subscription_id, subscription.peak.peak.frequency);
 	}
 	/*
 		When tuning fails, it is essential that tuner_thread does NOT immediately unsubscribe the mux,
@@ -983,8 +984,9 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 	return 0;
 }
 
-int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
-												 bool init, subscription_id_t scan_subscription_id) {
+int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
+																	const ss::vector_<chdb::spectral_peak_t>& peaks,
+																	bool init, subscription_id_t scan_subscription_id) {
 	assert((int) scan_subscription_id >=0);
 	tune_options_t o;
 	o.scan_target = scan_target_t::SCAN_FULL;
@@ -1003,10 +1005,9 @@ int scanner_t::add_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::v
 		if(!blindscan.spectrum_acquired()) {
 			blindscan.spectrum_key = spectrum_key;
 		}  else {
-
 			assert(blindscan.spectrum_key == spectrum_key);
 		}
-		blindscan.peaks.push_back(peak);
+		blindscan.peaks.push_back(peak_to_scan_t(peak, scan_id));
 	}
 
 	//initialize statistics

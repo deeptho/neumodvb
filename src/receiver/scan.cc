@@ -1154,10 +1154,12 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 scanner_t::~scanner_t() {
 	std::vector<task_queue_t::future_t> futures;
 	auto devdb_wtxn = receiver.devdb.wtxn();
-	for(auto it = scans.begin(); it != scans.end(); ) {
-		auto subscription_id = it->first;
-		++it; //needed because the current scan will be erased
-		unsubscribe_scan(futures, devdb_wtxn, subscription_id);
+
+	//we do not iterate over elements as unsubscribe_scan erases them
+	while(scans.size() >0) {
+		auto it = scans.begin();
+		auto scan_subscription_id = it->first;
+		unsubscribe_scan(futures, devdb_wtxn, scan_subscription_id);
 	}
 	devdb_wtxn.commit();
 	wait_for_all(futures);

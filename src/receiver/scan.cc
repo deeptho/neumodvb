@@ -980,7 +980,8 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 
 	chdb_wtxn.commit();
 	{
-		auto& scan = scans.at(scan_subscription_id);
+		auto& s = scans.at(scan_subscription_id);
+		assert(&s == &scan);
 		auto w = scan.scan_stats.writeAccess();
 		if (init) {
 			*w = scan_stats_t{};
@@ -1003,7 +1004,9 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 	o.need_blind_tune = false;
 	o.allowed_rf_paths = {spectrum_key.rf_path};
 
+	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id);
 	auto& scan = it->second;
+	assert(scan.scan_subscription_id == scan_subscription_id);
 
 	auto scan_id = scan.make_scan_id(scan_subscription_id, o);
 

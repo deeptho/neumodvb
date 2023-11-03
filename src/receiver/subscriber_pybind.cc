@@ -528,9 +528,6 @@ void export_scan_report(py::module& m) {
 		.def_readwrite("peak", &scan_mux_end_report_t::peak)
 		.def_readwrite("mux", &scan_mux_end_report_t::mux)
 		.def_readwrite("fe_key", &scan_mux_end_report_t::fe_key)
-		//.def_readwrite("lnb_key", &scan_report_t::lnb_key)
-		//.def_readwrite("sat_pos", &scan_report_t::sat_pos)
-		.def_readwrite("band", &scan_report_t::band)
-		.def_readwrite("scan_stats", &scan_report_t::scan_stats)
+		.def_readwrite("band", &scan_mux_end_report_t::band)
 		;
 }

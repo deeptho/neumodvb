@@ -240,7 +240,7 @@ struct scan_state_t {
  */
 struct blindscan_key_t {
 	int16_t sat_pos{sat_pos_none};
-	std::tuple<chdb::sat_band_t, devdb::fe_band_t> band{chdb::sat_band_t::Ku, devdb::fe_band_t::LOW};
+	std::tuple<chdb::sat_band_t, devdb::fe_band_t> band{chdb::sat_band_t::UNKNOWN, devdb::fe_band_t::NONE};
 	chdb::fe_polarisation_t pol;
 
 	bool operator<(const blindscan_key_t& other) const;
@@ -286,14 +286,14 @@ struct blindscan_t {
 
 
 struct scan_subscription_t {
-	subscription_id_t subscription_id;
+	subscription_id_t subscription_id{subscription_id_t::NONE}; //positive if tuning in progress
 	bool scan_start_reported{false};
 	blindscan_key_t blindscan_key;
 	peak_to_scan_t peak;
 	std::optional<chdb::any_mux_t> mux;
 	bool is_peak_scan{false}; //true if we scan the peak rather than a corresponding mux in the db
-	scan_subscription_t(subscription_id_t subscription_id) :
-		subscription_id(subscription_id) {}
+	scan_subscription_t(subscription_id_t subscription_id)
+		: subscription_id(subscription_id) {}
 	scan_subscription_t(const scan_subscription_t& other) = default;
 	scan_subscription_t(scan_subscription_t&& other) = default;
 	scan_subscription_t& operator=(const scan_subscription_t& other) = default;
@@ -402,22 +402,9 @@ private:
 																		const chdb::any_mux_t& finished_mux);
 
 public:
-	scan_t(	scanner_t& scanner, std::optional<tune_options_t> tune_options, subscription_id_t scan_subscription_id);
+	scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id);
 	scan_t(const scan_t& other) = delete;
-	scan_t(scan_t&& other)
-		:	scanner (other.scanner)
-		,	receiver_thread(other.receiver_thread)
-		, receiver(other.receiver)
-		, scan_id(other.scan_id)
-		, tune_options(std::move(other.tune_options))
-		, last_subscribed_mux (std::move(other.last_subscribed_mux))
-		, subscriptions(std::move(other.subscriptions))
-		, blindscans (std::move(other.blindscans))
-			/*deliberately omitting scan_stats as that cannot be moved
-				we need the move constructor try_emplace in scanner_t::scans
-			 */
-		{}
-
+	scan_t(scan_t&& other) = delete;
 };
 
 class scanner_t {

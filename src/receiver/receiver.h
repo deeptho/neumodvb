@@ -290,9 +290,6 @@ protected:
 	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
 								const _mux_t& mux, subscription_id_t subscription_id,
 								const tune_options_t& tune_options,
-#ifdef TODO
-								const devdb::rf_path_t* required_rf_path,
-#endif
 								const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 	template<class mux_t>
@@ -405,9 +402,6 @@ public:
 	template<typename _mux_t>
 	std::tuple<subscription_id_t, devdb::fe_key_t>
 	subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id, tune_options_t tune_options,
-#ifdef TODO
-								const devdb::rf_path_t* required_rf_path,
-#endif
 								const chdb::scan_id_t& scan_id={});
 
 	subscription_id_t subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, tune_options_t tune_options,

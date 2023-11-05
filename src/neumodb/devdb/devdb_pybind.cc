@@ -124,7 +124,6 @@ PYBIND11_MODULE(pydevdb, m) {
     )pbdoc";
 
 	using namespace chdb;
-	export_ss_vector(m, fe_band_pol_t);
 	export_ss_vector(m, subscription_data_t);
 
 	m.def("lnb_can_tune_to_mux", &lnb_can_tune_to_mux_helper,

@@ -1039,7 +1039,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 	scan.end_freq = options.end_freq;
 	scan.resolution = options.resolution;
 	scan.spectrum_method = options.use_fft_scan ? SPECTRUM_METHOD_FFT : SPECTRUM_METHOD_SWEEP;
-	scan.adjust_frequencies(lnb, scan.band_pol.band == devdb::fe_band_t::HIGH);
+	scan.adjust_frequencies(lnb, scan.band_pol.band == chdb::sat_sub_band_t::HIGH);
 	scan.usals_pos = lnb.usals_pos;
 	scan.adapter_no =  (int)this->adapter_no;
 	scan.rf_path =  rf_path;
@@ -1049,7 +1049,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 	append_now = options.append;
 	// we will need to call start_lnb_spectrum again later to retrieve (part of) the high band)
 	incomplete =
-		(options.band_pol.band == devdb::fe_band_t::LOW && scan.end_freq > mid_freq && mid_freq < options.end_freq)
+		(options.band_pol.band == chdb::sat_sub_band_t::LOW && scan.end_freq > mid_freq && mid_freq < options.end_freq)
 #if 0
 		||
 		 (options.scan_both_polarisations &&
@@ -1071,14 +1071,14 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		auto& options  = tune_pars.tune_options.spectrum_scan_options;
 		auto lnb = this->ts.readAccess()->reserved_lnb;
 		auto rf_path = this->ts.readAccess()->reserved_rf_path;
-		assert(!(options.band_pol.band == devdb::fe_band_t::HIGH)); //We do not scan more than one polatrisation per call
+		assert(!(options.band_pol.band == chdb::sat_sub_band_t::HIGH)); //We do not scan more than one polatrisation per call
 #if 0
 		//the code below should not not be needed anymore because we use separate calls for each polarisation
-		if (options.band_pol.band == devdb::fe_band_t::HIGH) {
+		if (options.band_pol.band == chdb::sat_sub_band_t::HIGH) {
 			// switch to the next polarisation
 			assert(options.band_pol.pol == chdb::fe_polarisation_t::H ||
 						 options.band_pol.pol == chdb::fe_polarisation_t::L);
-			options.band_pol.band = devdb::fe_band_t::LOW;
+			options.band_pol.band = chdb::sat_sub_band_t::LOW;
 			options.band_pol.pol = options.band_pol.pol == chdb::fe_polarisation_t::H ?
 				chdb::fe_polarisation_t::V : chdb::fe_polarisation_t::R;
 			options.append = false;
@@ -1087,7 +1087,7 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 #endif
 		{
 			// switch to next band
-			options.band_pol.band = devdb::fe_band_t::HIGH;
+			options.band_pol.band = chdb::sat_sub_band_t::HIGH;
 			options.append = true;
 			dtdebugf("Continuing spectrum scan with pol={:s} band=high",
 							 enum_to_str(options.band_pol.pol));
@@ -1455,7 +1455,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 	}
 	auto lnb_voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, options.band_pol.pol);
 
-	fe_sec_tone_mode_t tone = (options.band_pol.band == fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
+	fe_sec_tone_mode_t tone = (options.band_pol.band == chdb::sat_sub_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 
 	// request spectrum scan
 	cmdseq_t cmdseq;
@@ -1465,10 +1465,10 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 	start_freq = std::max(options.start_freq, start_freq);
 	end_freq = std::min(options.end_freq, end_freq);
 	switch (options.band_pol.band) {
-	case devdb::fe_band_t::LOW:
+	case chdb::sat_sub_band_t::LOW:
 		end_freq = std::min(options.end_freq, mid_freq);
 		break;
-	case devdb::fe_band_t::HIGH:
+	case chdb::sat_sub_band_t::HIGH:
 		start_freq = std::max(options.start_freq, mid_freq);
 		break;
 	default:
@@ -1713,7 +1713,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			unsigned int extra{0};
 			if(!lnb_only) {
 				int pol_v_r = ((int)mux.pol & 1);
-				extra = ((pol_v_r * 2) | (devdb::lnb::band_for_mux(lnb, mux) ==  devdb::fe_band_t::HIGH ? 1 : 0));
+				extra = ((pol_v_r * 2) | (devdb::lnb::band_for_mux(lnb, mux) ==  chdb::sat_sub_band_t::HIGH ? 1 : 0));
 			}
 			ret = this->send_diseqc_message('C', diseqc_10 * 4, extra, repeated);
 			if (ret < 0) {
@@ -1811,7 +1811,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
  * @param hi_lo : the band for a dual band lnb
  * @param lnb_voltage_off : if one, force the 13/18V voltage to be 0 independantly of polarisation
  */
-std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(devdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) {
+std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage) {
 	/*
 
 		22KHz: off = low band; on = high band
@@ -1834,7 +1834,7 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(devdb::fe_band_t band, fe_
 		22KHz: off = low band; on = high band
 	*/
 
-	fe_sec_tone_mode_t tone = (band == devdb::fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
+	fe_sec_tone_mode_t tone = (band == chdb::sat_sub_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 	if (this->sec_status.set_tone(fefd, tone)<0) {
 		return {-1, new_usals_sat_pos};
 	}
@@ -1964,7 +1964,7 @@ bool dvb_frontend_t::need_diseqc(const devdb::rf_path_t& new_rf_path, const devd
 	return (new_lnb.k != r->reserved_lnb.k || new_rf_path != r->reserved_rf_path);
 }
 
-int dvb_frontend_t::do_lnb(devdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) {
+int dvb_frontend_t::do_lnb(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage) {
 	/*
 
 		22KHz: off = low band; on = high band
@@ -1979,7 +1979,7 @@ int dvb_frontend_t::do_lnb(devdb::fe_band_t band, fe_sec_voltage_t lnb_voltage) 
 		22KHz: off = low band; on = high band
 	*/
 
-	fe_sec_tone_mode_t tone = (band == devdb::fe_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
+	fe_sec_tone_mode_t tone = (band == chdb::sat_sub_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 	if (this->sec_status.set_tone(fefd, tone)<0) {
 			dterrorf("problem Setting the Tone back");
 			return -1;

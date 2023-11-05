@@ -155,7 +155,7 @@ struct spectrum_scan_t {
 	int16_t usals_pos{sat_pos_none};
 	int16_t sat_pos{sat_pos_none};
 	ss::vector<int32_t,2> lof_offsets;
-	devdb::fe_band_pol_t band_pol;
+	chdb::sat_sub_band_pol_t band_pol;
 	dtv_fe_spectrum_method spectrum_method{SPECTRUM_METHOD_FFT};
 	int32_t start_freq{-1}; //in kHz
 	int32_t end_freq{-1}; //in kHz
@@ -467,8 +467,8 @@ public:
 	int release_fe();
 
 	std::tuple<int, int> diseqc(bool skip_positioner);
-	std::tuple<int, int> do_lnb_and_diseqc(devdb::fe_band_t band, fe_sec_voltage_t lnb_voltage);
-	int do_lnb(devdb::fe_band_t band, fe_sec_voltage_t lnb_voltage);
+	std::tuple<int, int> do_lnb_and_diseqc(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage);
+	int do_lnb(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage);
 	int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 
 	inline int set_tune_options(const tune_options_t& tune_options) {

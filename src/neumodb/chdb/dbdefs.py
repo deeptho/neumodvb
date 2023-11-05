@@ -168,6 +168,16 @@ sat_band = db_enum(name='sat_band_t',
                            'Other'
                            ))
 
+sat_sub_band = db_enum(name='sat_sub_band_t',
+                  db= db,
+                  storage = 'int8_t',
+                  type_id = 100,
+                  version = 1,
+                  fields = (('NONE',-1),
+	                          'LOW',
+	                          'HIGH'
+	                          ))
+
 fe_polarisation = db_enum(name='fe_polarisation_t',
               db = db,
               storage = 'int8_t',
@@ -515,8 +525,57 @@ fe_pls_mode = db_enum(name='fe_pls_mode_t',
         )))
 
 
+scan_id = db_struct(name='scan_id',
+                    fname = 'common',
+                    db = db,
+                    type_id= lord('MS'),
+                    version = 1,
+                    fields = ((1, 'int16_t', 'subscription_id', '-1'),
+                              (2, 'int16_t', 'opt_id', '-1'),
+                              (3, 'int32_t', 'pid', '-1'),
+                              ))
+
+#duplicated to prevent circular dependency which would arise if using devdb_rfpath
+scan_rf_path = db_struct(name='scan_rf_path',
+                         fname = 'common',
+                         db = db,
+                         type_id= lord('TC'),
+                         version = 1,
+                         fields = ((1, 'int16_t', 'lnb_id', '-1'), #-1 means: not set
+                                   (2, 'int64_t', 'card_mac_address', -1), #-1 means: not set
+                                   (3, 'int8_t', 'rf_input', -1), #-1 means: not set
+                                   (4, 'int8_t', 'dish_id'), #value is defined only if next three values are set
+                                )
+                         )
+
+band_scan = db_struct(name = 'band_scan',
+                      fname = 'common',
+                      db = db,
+                      type_id = lord('as'),
+                      version = 1,
+                      ignore_for_equality_fields = ('mtime',),
+                      fields = ((2, 'fe_polarisation_t', 'pol', 'fe_polarisation_t::NONE'),
+                                (10, 'sat_band_t', 'sat_band', 'sat_band_t::UNKNOWN'),
+                                (11, 'sat_sub_band_t', 'sat_sub_band', 'sat_sub_band_t::NONE'),
+                                (5, 'scan_status_t', 'scan_status',  'scan_status_t::NONE'),
+                                #(6, 'scan_status_t', 'mux_scan_status', 'scan_status_t::NONE'),
+                                (12, 'scan_result_t', 'scan_result',  'scan_result_t::NONE'),
+                                (7, 'scan_id_t', 'scan_id'),
+                                (9, 'scan_rf_path_t', 'scan_rf_path'),
+                                (8, 'time_t', 'scan_time')
+                                ))
+
+sat_sub_band_pol = db_struct(name='sat_sub_band_pol',
+                    fname = 'common',
+                    db = db,
+                    type_id= lord('_F'), #TODO: duplicate
+                    version = 1,
+                    fields = ((1, 'sat_sub_band_t', 'band', 'sat_sub_band_t::NONE'),
+                              (2, 'fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
+                              ))
+
 spectral_peak = db_struct(name='spectral_peak',
-                    fname = 'mux',
+                    fname = 'common',
                     db = db,
                     type_id= lord('sp'),
                     version = 1,
@@ -560,30 +619,8 @@ epg_type = db_enum(name='epg_type_t',
                            'VIASAT',
                            ))
 
-#duplicated to prevent circular dependency which would arise if using devdb_rfpath
-scan_rf_path = db_struct(name='scan_rf_path',
-                         fname = 'mux',
-                         db = db,
-                         type_id= lord('TC'),
-                         version = 1,
-                         fields = ((1, 'int16_t', 'lnb_id', '-1'), #-1 means: not set
-                                   (2, 'int64_t', 'card_mac_address', -1), #-1 means: not set
-                                   (3, 'int8_t', 'rf_input', -1), #-1 means: not set
-                                   (4, 'int8_t', 'dish_id'), #value is defined only if next three values are set
-                                )
-                         )
 
 #temporary data used during scanning
-scan_id = db_struct(name='scan_id',
-                    fname = 'mux',
-                    db = db,
-                    type_id= lord('MS'),
-                    version = 1,
-                    fields = ((1, 'int16_t', 'subscription_id', '-1'),
-                              (2, 'int16_t', 'opt_id', '-1'),
-                              (3, 'int32_t', 'pid', '-1'),
-                              ))
-
 mux_common = db_struct(name='mux_common',
                     fname = 'mux',
                     db = db,
@@ -700,24 +737,6 @@ dvbt_mux = db_struct(name='dvbt_mux',
 	                        (10, 'chdb::fe_code_rate_t', 'LP_code_rate', 'chdb::fe_code_rate_t::FEC_AUTO'),
                           (12, 'mux_common_t', 'c')
                 ))
-
-
-band_scan = db_struct(name = 'band_scan',
-                      fname = 'sat',
-                      db = db,
-                      type_id = lord('as'),
-                      version = 1,
-                      ignore_for_equality_fields = ('mtime',),
-                      fields = ((2, 'fe_polarisation_t', 'pol', 'fe_polarisation_t::NONE'),
-                                (3, 'int32_t', 'start_freq', '0'),
-                                (4, 'int32_t', 'end_freq', '0'),
-                                (5, 'scan_status_t', 'spectrum_scan_status',  'scan_status_t::NONE'),
-                                (6, 'scan_status_t', 'mux_scan_status', 'scan_status_t::NONE'),
-                                (7, 'scan_id_t', 'scan_id'),
-                                (9, 'scan_rf_path_t', 'scan_rf_path'),
-                                (8, 'time_t', 'scan_time')
-                                )
-                      )
 
 sat = db_struct(name='sat',
                     fname = 'sat',

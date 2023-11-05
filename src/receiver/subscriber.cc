@@ -93,9 +93,10 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 	}
 
 	auto tune_options = receiver->get_default_tune_options(true /*for scan*/);
-
+	tune_options.spectrum_scan_options.start_freq = low_freq;
+	tune_options.spectrum_scan_options.end_freq = high_freq;
 	subscription_id_t ret{subscription_id};
-	ret = receiver->scan_bands(sats, pols, low_freq, high_freq, tune_options, subscription_id);
+	ret = receiver->scan_bands(sats, pols, tune_options, subscription_id);
 	assert(ret==subscription_id); //subscription_id is passed by reference
 	return (int)subscription_id;
 

@@ -564,7 +564,6 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 subscription_id_t receiver_thread_t::cb_t::scan_bands(
 	const ss::vector_<chdb::sat_t>& sats,
 	const ss::vector_<chdb::fe_polarisation_t>& pols,
-	int32_t low_freq, int32_t high_freq,
 	tune_options_t tune_options, subscription_id_t& subscription_id)
 {
 	auto s = fmt::format("SCAN[{}] {} sats", (int) subscription_id, (int) sats.size());
@@ -1003,7 +1002,6 @@ subscription_id_t receiver_t::scan_spectral_peaks(ss::vector_<chdb::spectral_pea
 
 subscription_id_t receiver_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 																				 const ss::vector_<chdb::fe_polarisation_t>& pols,
-																				 int32_t low_freq, int32_t high_freq,
 																				 tune_options_t tune_options,
 																				 subscription_id_t& subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
@@ -1024,7 +1022,7 @@ subscription_id_t receiver_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 /*
 	main entry point
 	called by code in receiver_pybind.cc
-                 and subscriber_pynbind.cc
+	and subscriber_pynbind.cc
  */
 template <typename _mux_t>
 subscription_id_t
@@ -1074,14 +1072,8 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	tune_options.tune_mode = tune_mode_t::SPECTRUM;
 	auto& band_pol = tune_options.spectrum_scan_options.band_pol;
 	band_pol.pol = pol_;
-#if 1
+
 	assert(band_pol.pol != chdb::fe_polarisation_t::NONE);
-#else
-	if (band_pol.pol == chdb::fe_polarisation_t::NONE) {
-		tune_options.spectrum_scan_options.scan_both_polarisations = true;
-		band_pol.pol = chdb::fe_polarisation_t::H;
-	}
-#endif
 	auto [low_freq_, mid_freq_, high_freq_, lof_low_, lof_high_, inverted_spectrum] =
 		devdb::lnb::band_frequencies(lnb, band_pol.band);
 	low_freq = low_freq < 0 ? low_freq_ : low_freq;
@@ -1095,10 +1087,10 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	bool need_low = ( low_freq < mid_freq_) && has_low;
 	bool need_high = ( high_freq >= mid_freq_);
 	assert(need_high || need_low);
-	band_pol.band = (need_high && need_low) ? devdb::fe_band_t::NONE
-		:  need_low ? devdb::fe_band_t::LOW : devdb::fe_band_t::HIGH;
+	band_pol.band = (need_high && need_low) ? chdb::sat_sub_band_t::NONE
+		:  need_low ? chdb::sat_sub_band_t::LOW : chdb::sat_sub_band_t::HIGH;
 
-	if (band_pol.band == devdb::fe_band_t::NONE) {
+	if (band_pol.band == chdb::sat_sub_band_t::NONE) {
 		// start with lowest band
 		band_pol.band = devdb::lnb::band_for_freq(lnb, low_freq);
 	} else if (devdb::lnb::band_for_freq(lnb, low_freq) != band_pol.band &&
@@ -1616,7 +1608,6 @@ subscription_id_t
 receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 															const ss::vector_<chdb::sat_t>& sats,
 															const ss::vector_<chdb::fe_polarisation_t>& pols,
-															int32_t low_freq, int32_t high_freq,
 															const tune_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id) {
@@ -1626,7 +1617,7 @@ receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 		scanner = std::make_unique<scanner_t>(*this, max_num_subscriptions);
 		set_scanner(scanner);
 	}
-	scanner->add_bands(sats, pols, low_freq, high_freq, tune_options, sret.subscription_id);
+	scanner->add_bands(sats, pols, tune_options, sret.subscription_id);
 	return sret.subscription_id;
 }
 

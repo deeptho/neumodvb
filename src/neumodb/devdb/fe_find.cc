@@ -156,7 +156,7 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 			return {};
 
 			/*
-				if sub and s use the same dish and either one may want to move the idsh,
+				if sub and s use the same dish and either one may want to move the dish,
 				there is a conflict
 			 */
 			if( same_dish && (may_move_dish(fe.sub) || may_move_dish(s)))
@@ -208,7 +208,7 @@ fe::find_best_fe_for_lnb(
 	db_txn& rtxn, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	const devdb::fe_key_t* fe_key_to_release,
 	bool need_blind_tune, bool need_spectrum, bool need_multistream,
-	chdb::fe_polarisation_t pol, fe_band_t band, int usals_pos, bool ignore_subscriptions) {
+	chdb::fe_polarisation_t pol, chdb::sat_sub_band_t band, int usals_pos, bool ignore_subscriptions) {
 
 	auto* conn = connection_for_rf_path(lnb, rf_path);
 	if (!conn)
@@ -535,7 +535,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 			assert(!tune_options.need_spectrum);
 			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
 				rtxn, rf_path, lnb, fe_key_to_release, tune_options.need_blind_tune, tune_options.need_spectrum,
-				false /*need_multistream*/, pol, fe_band_t::NONE /*force exclusive access
+				false /*need_multistream*/, pol, chdb::sat_sub_band_t::NONE /*force exclusive access
 																								 @todo: improve code to better encode
 																								 the need for exclusive access ?*/, usals_pos, ignore_subscriptions);
 			if(!fe_and_use_counts) {

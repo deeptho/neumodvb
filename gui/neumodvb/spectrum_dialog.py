@@ -134,8 +134,8 @@ class SpectrumDialog(SpectrumDialog_):
         self.spectrum_buttons_panel.select_start_end(self.lnb)
         self.gettting_spectrum_ = False
 
-        bp_t = pydevdb.fe_band_pol.fe_band_pol
-        b_t = pydevdb.fe_band_t
+        bp_t = pychdb.sat_sub_band_pol
+        b_t = pychdb.sat_band_t
         p_t = pychdb.fe_polarisation_t
 
         self.is_blindscanning = False

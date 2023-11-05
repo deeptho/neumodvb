@@ -92,27 +92,6 @@ lnb_pol_type = db_enum(name='lnb_pol_type_t',
                            'R'
                            ))
 
-fe_band = db_enum(name='fe_band_t',
-                  db= db,
-                  storage = 'int8_t',
-                  type_id = 100,
-                  version = 1,
-                  fields = (('NONE',-1),
-	                          'LOW',
-	                          'HIGH'
-	                          ))
-
-
-
-fe_band_pol = db_struct(name='fe_band_pol',
-                    fname = 'fedev',
-                    db = db,
-                    type_id= lord('_F'), #TODO: duplicate
-                    version = 1,
-                    fields = ((1, 'fe_band_t', 'band', 'fe_band_t::NONE'),
-                              (2, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
-                              ))
-
 
 """
 Principle: the same lnb can sometimes receive satellites from different positions. FOr example
@@ -311,7 +290,7 @@ fe_subscription = db_struct(name='fe_subscription',
                            fields = ((1, 'int32_t', 'owner', -1),
                                      (3, 'rf_path_t', 'rf_path'),
                                      (4, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
-                                     (5, 'fe_band_t', 'band', 'fe_band_t::NONE'),
+                                     (5, 'chdb::sat_sub_band_t', 'band', 'chdb::sat_sub_band_t::NONE'),
                                      (6, 'int16_t', 'usals_pos', 'sat_pos_none'), #if value is sat_pos_none
                                                                                   #then subscription
                                                                                   #is allowed to switch
@@ -419,7 +398,7 @@ tuned_frequency_offsets_key = \
               version = 1,
               fields = (
                   (1, 'lnb_key_t', 'lnb_key'),
-                  (2, 'fe_band_t', 'band'),
+                  (2, 'chdb::sat_sub_band_t', 'band'),
               ))
 
 

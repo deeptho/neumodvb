@@ -167,9 +167,9 @@ namespace devdb::lnb {
 		freq: frequency after LNB local oscilllator compensation
 	*/
 	std::tuple<int, int, int> band_voltage_freq_for_mux(const lnb_t& lnb, const chdb::dvbs_mux_t& mux);
-	fe_band_t band_for_freq(const lnb_t& lnb, int32_t frequency);
+	chdb::sat_sub_band_t band_for_freq(const lnb_t& lnb, int32_t frequency);
 
-	inline fe_band_t band_for_mux(const lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
+	inline chdb::sat_sub_band_t band_for_mux(const lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
 		return band_for_freq(lnb, mux.frequency);
 	}
 
@@ -189,7 +189,7 @@ namespace devdb::lnb {
 
 
 	std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool>
-	band_frequencies(const lnb_t& lnb, fe_band_t band);
+	band_frequencies(const lnb_t& lnb, chdb::sat_sub_band_t band);
 
 	bool add_or_edit_network(lnb_t& lnb, const usals_location_t& loc, lnb_network_t& network);
 	bool add_or_edit_connection(db_txn& devdb_txn, lnb_t& lnb, lnb_connection_t& connection);
@@ -273,7 +273,7 @@ namespace devdb::fe_subscription {
 
 	inline bool may_change_lnb(const fe_subscription_t& sub) {
 		return sub.usals_pos == sat_pos_none || sub.pol == chdb::fe_polarisation_t::NONE ||
-		sub.band == fe_band_t::NONE;
+			sub.band == chdb::sat_sub_band_t::NONE;
 	}
 
 	inline bool is_exclusive(const fe_subscription_t& sub) {
@@ -295,7 +295,6 @@ declfmt(devdb::lnb_key_t);
 declfmt(devdb::lnb_t);
 declfmt(devdb::lnb_connection_t);
 declfmt(devdb::lnb_network_t);
-declfmt(devdb::fe_band_pol_t);
 declfmt(devdb::fe_key_t);
 declfmt(devdb::fe_subscription_t);
 declfmt(devdb::fe_t);

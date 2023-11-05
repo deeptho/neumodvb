@@ -89,7 +89,7 @@ struct spectrum_scan_options_t {
 	time_t start_time{};
 	bool append{false}; //append to existing file
 	int16_t sat_pos{sat_pos_none};
-	devdb::fe_band_pol_t band_pol; //currently scanning band
+	chdb::sat_sub_band_pol_t band_pol; //currently scanning band
 	bool use_fft_scan{true};
 	int start_freq{0}; //in kHz
 	int end_freq{std::numeric_limits<int>::max()}; //in kHz

@@ -1036,13 +1036,11 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 
 int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 												 const ss::vector_<chdb::fe_polarisation_t>& pols,
-												 int32_t low_freq, int32_t high_freq,
 												 const tune_options_t& tune_options,
 												 subscription_id_t scan_subscription_id) {
 	using namespace chdb;
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto chdb_wtxn = receiver.chdb.wtxn();
-
 	/* ensure that empty entry exists. This can be used to set required_lnb and such
 	 */
 	/*
@@ -1059,21 +1057,17 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 		Overwrite old data if needed to avoid ever increasing lists
 		@todo: if a user removes a band from a satellite, it is not possible to remove the old scan record
 	 */
-	auto push_bands = [&pols, &devdb_rtxn, &scan, low_freq, high_freq, scan_id](sat_t& sat) {
+	auto push_bands = [&pols, &devdb_rtxn, &scan, scan_id](
+		sat_t& sat, auto band_sub_band_tuple ) {
+		auto [ sat_band, sat_sub_band] = band_sub_band_tuple;
 		int num_added{0};
-		auto [l, h] =sat_band_freq_bounds(sat.sat_band);
-		l = std::max(l, low_freq);
-		h = std::max(h, high_freq);
-		if(h<=l)
-			return num_added; //no overlap
 		for (auto pol: pols) {
 			auto& band_scan = sat::band_scan_for_pol(sat, pol);
 			auto saved = band_scan;
 			band_scan.pol = pol;
-			band_scan.start_freq = l;
-			band_scan.end_freq = h;
-			band_scan.spectrum_scan_status = scan_status_t::PENDING;
-			band_scan.mux_scan_status = scan_status_t::PENDING;
+			band_scan.sat_band = sat_band;
+			band_scan.sat_sub_band = sat_sub_band;
+			band_scan.scan_status = scan_status_t::PENDING;
 			band_scan.scan_id=scan_id;
 			if(!can_subscribe(devdb_rtxn, sat, band_scan, scan.tune_options_for_scan_id(scan_id))) {
 				dtdebugf("Skipping sat that cannot be tuned: {}", sat);
@@ -1084,15 +1078,15 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 		}
 		return num_added;
 	};
-
-	auto band_low = sat_band_for_freq(low_freq);
-	auto band_high = sat_band_for_freq(high_freq-1);
-
 	for(auto sat: sats) {
 		auto c = sat_t::find_by_key(chdb_wtxn, sat.sat_pos, sat.sat_band, find_eq, sat_t::partial_keys_t::all);
 		if(c.is_valid())
 			sat = c.current(); //reload uptodate information from database
-		int added = push_bands(sat);
+		auto l = chdb::sat_band_for_freq(tune_options.spectrum_scan_options.start_freq);
+		auto h = chdb::sat_band_for_freq(tune_options.spectrum_scan_options.start_freq);
+		int added = push_bands(sat, l);
+		if(h != l)
+			added += push_bands(sat, h);
 		dtdebugf("Add sat to scan: {}", sat);
 		sat.mtime = system_clock_t::to_time_t(now);
 		put_record(chdb_wtxn, sat);

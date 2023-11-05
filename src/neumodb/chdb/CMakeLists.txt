@@ -9,7 +9,7 @@ include_directories(
     # The location of the headers after installation
     $<INSTALL_INTERFACE:include>
 )
-set(GEN sat mux service tune_state enums chdb_db) #basename of generated files
+set(GEN common sat mux service tune_state enums chdb_db) #basename of generated files
 
 list(TRANSFORM GEN APPEND .cc OUTPUT_VARIABLE gensrc)
 

@@ -112,16 +112,6 @@ fmt::formatter<lnb_network_t>::format(const lnb_network_t& lnb_network, format_c
 }
 
 fmt::format_context::iterator
-fmt::formatter<fe_band_pol_t>::format(const fe_band_pol_t& band_pol, format_context& ctx) const {
-	return fmt::format_to(ctx.out(), "{:s}-{:s}",
-												band_pol.pol == chdb::fe_polarisation_t::H	 ? "H"
-												: band_pol.pol == chdb::fe_polarisation_t::V ? "V"
-												: band_pol.pol == chdb::fe_polarisation_t::L ? "L"
-												: "R",
-												to_str(band_pol.band));
-}
-
-fmt::format_context::iterator
 fmt::formatter<fe_key_t>::format(const fe_key_t& fe_key, format_context& ctx) const {
 	return fmt::format_to(ctx.out(), "A[0x{:06x}]", (int)fe_key.adapter_mac_address);
 }
@@ -345,31 +335,15 @@ bool devdb::lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t&
 
 bool devdb::lnb_can_scan_sat_band(const devdb::lnb_t& lnb, const chdb::sat_t& sat,
 																	const chdb::band_scan_t& band_scan,
-															bool disregard_networks, ss::string_* error) {
+																	bool disregard_networks, ss::string_* error) {
+
 	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
-	if ((int)band_scan.start_freq < freq_low || (int)band_scan.end_freq > freq_high) {
-		if(error) {
-		error->format("Incorrect range: {:.3f}-{:.3f}Mhz out for range; must be between {:.3f}Mhz and {:.3f}Mhz",
-									band_scan.start_freq/(float)1000, band_scan.end_freq/float(1000),
-									freq_low/float(1000), freq_high/(float)1000);
-		}
-		return false;
-	}
-	if (!devdb::lnb::can_pol(lnb, band_scan.pol)) {
-		if(error) {
-			error->format("Polarisation {} not supported", band_scan.pol);
-		}
-		return false;
-	}
-	if (disregard_networks)
+	auto [sat_bandl, sat_sub_bandl] = chdb::sat_band_for_freq(freq_low);
+	if(sat_bandl== band_scan.sat_band && sat_sub_bandl == band_scan.sat_sub_band)
 		return true;
-	for (auto& network : lnb.networks) {
-		if (network.sat_pos == sat.sat_pos)
-			return true;
-	}
-	if(error) {
-		error->format("No network for {}", chdb::sat_pos_str(sat.sat_pos));
-	}
+	auto [sat_bandh, sat_sub_bandh] = chdb::sat_band_for_freq(freq_high-1);
+	if(sat_bandh== band_scan.sat_band && sat_sub_bandh == band_scan.sat_sub_band)
+		return true;
 	return false;
 }
 
@@ -418,14 +392,14 @@ std::tuple<int, int, int> devdb::lnb::band_voltage_freq_for_mux(const devdb::lnb
 	return std::make_tuple(band, voltage, frequency);
 }
 
-devdb::fe_band_t devdb::lnb::band_for_freq(const devdb::lnb_t& lnb, int32_t frequency) {
+chdb::sat_sub_band_t devdb::lnb::band_for_freq(const devdb::lnb_t& lnb, int32_t frequency) {
 	using namespace chdb;
 
 	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
 
 	if (frequency < freq_low || frequency > freq_high)
-		return devdb::fe_band_t::NONE;
-	return (signed)(frequency >= freq_mid) ? devdb::fe_band_t::HIGH : devdb::fe_band_t::LOW;
+		return chdb::sat_sub_band_t::NONE;
+	return (signed)(frequency >= freq_mid) ? chdb::sat_sub_band_t::HIGH : chdb::sat_sub_band_t::LOW;
 }
 
 int devdb::lnb::driver_freq_for_freq(const devdb::lnb_t& lnb, int frequency) {
@@ -443,7 +417,7 @@ int devdb::lnb::driver_freq_for_freq(const devdb::lnb_t& lnb, int frequency) {
 }
 
 std::tuple<int32_t, int32_t, int32_t, int32_t, int32_t, bool>
-devdb::lnb::band_frequencies(const devdb::lnb_t& lnb, devdb::fe_band_t band) {
+devdb::lnb::band_frequencies(const devdb::lnb_t& lnb, chdb::sat_sub_band_t band) {
 	return lnb_band_helper(lnb);
 }
 
@@ -504,11 +478,6 @@ namespace devdb::lnb {
 static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
 devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux) {
 	using namespace chdb;
-
-
-	int dish_move_penalty{0};
-	int resource_reuse_bonus{0};
-
 	tune_options_t tune_options;
 	tune_options.may_move_dish = false;
 	tune_options.need_blind_tune = true;

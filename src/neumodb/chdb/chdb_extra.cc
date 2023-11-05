@@ -1072,7 +1072,7 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 				break;
 			}
 			auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = devdb::lnb::band_frequencies(
-				lnb, devdb::fe_band_t::LOW);
+				lnb, chdb::sat_sub_band_t::LOW);
 			mux.frequency = freq_low;
 			return {mux, sat};
 		};
@@ -1185,26 +1185,26 @@ chdb::select_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 	}
 }
 
-std::tuple<chdb::sat_band_t, devdb::fe_band_t> chdb::sat_band_for_freq(int frequency) {
+std::tuple<chdb::sat_band_t, chdb::sat_sub_band_t> chdb::sat_band_for_freq(int frequency) {
 	using namespace chdb;
 	using namespace devdb;
 	if(frequency >= 3400000  && frequency <= 4200000)
-		return {sat_band_t::C, fe_band_t::LOW};
+		return {sat_band_t::C, sat_sub_band_t::LOW};
 	if(frequency >= 10700000  && frequency < 11700000)
-		return {sat_band_t::Ku, fe_band_t::LOW};
+		return {sat_band_t::Ku, sat_sub_band_t::LOW};
 	if(frequency >= 11700000  && frequency < 12750000)
-		return {sat_band_t::Ku, fe_band_t::HIGH};
+		return {sat_band_t::Ku, sat_sub_band_t::HIGH};
 	if(frequency >= 18200000 && frequency < 19200000)
-		return {sat_band_t::KaA, fe_band_t::LOW};
+		return {sat_band_t::KaA, sat_sub_band_t::LOW};
 	if(frequency >=  19200000 && frequency < 20200000)
-		return {sat_band_t::KaB, fe_band_t::LOW};
+		return {sat_band_t::KaB, sat_sub_band_t::LOW};
 	if(frequency >= 20200000 && frequency < 21200000)
-		return {sat_band_t::KaC, fe_band_t::LOW};
+		return {sat_band_t::KaC, sat_sub_band_t::LOW};
 	if(frequency >= 21200000 && frequency < 22200000)
-		return {sat_band_t::KaD, fe_band_t::LOW};
+		return {sat_band_t::KaD, sat_sub_band_t::LOW};
 	if(frequency >= 17200000 && frequency < 18200000)
-		return {sat_band_t::KaE, fe_band_t::LOW};
-	return {sat_band_t::UNKNOWN, fe_band_t::LOW};
+		return {sat_band_t::KaE, sat_sub_band_t::LOW};
+	return {sat_band_t::UNKNOWN, sat_sub_band_t::LOW};
 }
 
 std::tuple<int32_t, int32_t> chdb::sat_band_freq_bounds(chdb::sat_band_t sat_band) {
@@ -1426,4 +1426,14 @@ fmt::formatter<chdb::key_src_t>::format(const chdb::key_src_t& key_src, format_c
 			assert(0);
 	}
 	return fmt::format_to(ctx.out(), "{}", p);
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::sat_sub_band_pol_t>::format(const chdb::sat_sub_band_pol_t& band_pol, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{:s}-{:s}",
+												band_pol.pol == chdb::fe_polarisation_t::H	 ? "H"
+												: band_pol.pol == chdb::fe_polarisation_t::V ? "V"
+												: band_pol.pol == chdb::fe_polarisation_t::L ? "L"
+												: "R",
+												to_str(band_pol.band));
 }

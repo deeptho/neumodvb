@@ -31,13 +31,13 @@
 namespace devdb {
 	struct lnb_t;
 	struct lnb_network_t;
-	enum class fe_band_t : int8_t;
+	enum class sat_sub_band_t : int8_t;
 };
 
 namespace chdb {
 	using namespace chdb;
 
-	std::tuple<chdb::sat_band_t, devdb::fe_band_t> sat_band_for_freq(int frequency);
+	std::tuple<chdb::sat_band_t, chdb::sat_sub_band_t> sat_band_for_freq(int frequency);
 	std::tuple<int32_t, int32_t> sat_band_freq_bounds(chdb::sat_band_t sat_band);
 
 	using any_mux_t = std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t>;
@@ -539,6 +539,7 @@ namespace  chdb::service {
 declfmt(chdb::scan_status_t);
 declfmt(chdb::scan_result_t);
 declfmt(chdb::language_code_t);
+declfmt(chdb::sat_sub_band_pol_t);
 declfmt(chdb::sat_t);
 declfmt(chdb::dvbs_mux_t);
 declfmt(chdb::dvbc_mux_t);

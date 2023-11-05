@@ -240,7 +240,7 @@ struct scan_state_t {
  */
 struct blindscan_key_t {
 	int16_t sat_pos{sat_pos_none};
-	std::tuple<chdb::sat_band_t, devdb::fe_band_t> band{chdb::sat_band_t::UNKNOWN, devdb::fe_band_t::NONE};
+	std::tuple<chdb::sat_band_t, chdb::sat_sub_band_t> band{chdb::sat_band_t::UNKNOWN, chdb::sat_sub_band_t::NONE};
 	chdb::fe_polarisation_t pol;
 
 	bool operator<(const blindscan_key_t& other) const;
@@ -428,7 +428,6 @@ class scanner_t {
 
 	int add_bands(const ss::vector_<chdb::sat_t>& sats,
 								const ss::vector_<chdb::fe_polarisation_t>& pols,
-								int32_t low_freq, int32_t high_freq,
 								const tune_options_t& tune_options,
 								subscription_id_t scan_subscription_id);
 

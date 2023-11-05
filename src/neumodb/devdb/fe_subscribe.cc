@@ -252,7 +252,7 @@ devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
 																	 bool need_blind_tune, bool need_spectrum,
 																	 const devdb::usals_location_t& loc) {
 	auto pol{chdb::fe_polarisation_t::NONE}; //signifies that we to exclusively control pol
-	auto band{fe_band_t::NONE}; //signifies that we to exclusively control band
+	auto band{chdb::sat_sub_band_t::NONE}; //signifies that we to exclusively control band
 	auto usals_pos{sat_pos_none}; //signifies that we want to be able to move rotor
 	bool need_multistream = false;
 
@@ -451,7 +451,7 @@ int devdb::fe::reserve_fe_for_mux(db_txn& wtxn, subscription_id_t subscription_i
 	sub.owner = getpid();
 	sub.rf_path = rf_path;
 	sub.pol = chdb::fe_polarisation_t::NONE;
-	sub.band = devdb::fe_band_t::NONE;
+	sub.band = chdb::sat_sub_band_t::NONE;
 	sub.usals_pos = mux.k.sat_pos;
 	sub.frequency = mux.frequency; //for informational purposes only
 	sub.rf_coupler_id  = -1;

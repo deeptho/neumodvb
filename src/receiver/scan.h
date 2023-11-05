@@ -437,8 +437,8 @@ class scanner_t {
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
 											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
 
-	void on_spectrum_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
-														const statdb::spectrum_t& spectrum);
+	bool on_spectrum_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
+														const spectrum_scan_t& spectrum_scan);
 	bool housekeeping(bool force);
 	subscription_id_t scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id);
 public:

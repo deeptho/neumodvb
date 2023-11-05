@@ -981,10 +981,10 @@ inline void spectrum_scan_t::adjust_frequencies(const devdb::lnb_t& lnb, int hig
 	}
 }
 
-std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_& spectrum_path) {
+std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& spectrum_path) {
 	this->num_constellation_samples = 0;
 	this->clear_lock_status();
-	auto ret = std::make_unique<spectrum_scan_t>();
+	std::optional<spectrum_scan_t> ret;
 	auto& scan = *ret;
 	struct dtv_property p[] = {
 		{.cmd = DTV_SPECTRUM}, // 0 DVB-S, 9 DVB-S2
@@ -1094,9 +1094,10 @@ std::optional<statdb::spectrum_t> dvb_frontend_t::get_spectrum(const ss::string_
 		}
 		start_lnb_spectrum_scan(rf_path, lnb, tune_options);
 	}
-	auto result = statdb::save_spectrum_scan(spectrum_path, scan, append_now, min_freq_to_save);
-	result->is_complete = !incomplete;
-	return result;
+	scan.spectrum = statdb::save_spectrum_scan(spectrum_path, scan, append_now, min_freq_to_save);
+	if(scan.spectrum)
+		scan.spectrum->is_complete = !incomplete;
+	return ret;
 }
 
 void cmdseq_t::init_pls_codes() {

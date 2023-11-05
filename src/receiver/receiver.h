@@ -586,7 +586,7 @@ public:
 		return receiver_thread.fe_for_dbfe(fe_key);
 	}
 
-	void notify_spectrum_scan(const statdb::spectrum_t& scan,
+	void notify_spectrum_scan(const spectrum_scan_t& scan,
 														const ss::vector_<subscription_id_t>& subscription_ids);
 
 	void notify_signal_info(const signal_info_t& info, const ss::vector_<subscription_id_t>& subscription_ids);

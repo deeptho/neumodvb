@@ -153,6 +153,7 @@ struct spectrum_scan_t {
 	int32_t end_freq{-1}; //in kHz
 	uint32_t resolution{0}; //in kHz for spectrum and for blindscan
 
+	std::optional<statdb::spectrum_t> spectrum; //could be empty in case writing to filesystem fails
 	static constexpr int max_num_freq{65536};
 	static constexpr int max_num_peaks{512};
 	ss::vector<uint32_t, max_num_freq> freq;
@@ -313,7 +314,7 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 
 	int request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bool get_constellation);
 	int get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
-	std::optional<statdb::spectrum_t> get_spectrum(const ss::string_& spectrum_path);
+	std::optional<spectrum_scan_t> get_spectrum(const ss::string_& spectrum_path);
 	void start_frontend_monitor();
 
 	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path,

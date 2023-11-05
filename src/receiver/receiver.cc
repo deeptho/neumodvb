@@ -1538,22 +1538,29 @@ void receiver_t::notify_scan_progress(subscription_id_t scan_subscription_id,
 	}
 }
 
-void receiver_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum,
+//called from fe_monitor code
+void receiver_t::notify_spectrum_scan(const spectrum_scan_t& scan,
 																			const ss::vector_<subscription_id_t>& subscription_ids) {
 	{
 		auto scanner = receiver_thread.get_scanner();
 		auto mss = subscribers.readAccess();
-		for (auto [ms_, ms_shared_ptr] : *mss) {
+		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
-			if(scanner) {
-				receiver_thread.push_task([this, ms, subscription_ids, spectrum]() {
-					cb(receiver_thread).on_spectrum_band_end(*ms, subscription_ids, spectrum);
-					return 0;
-				});
+			/*
+				a subscriber can either directly handle the received signal info via
+				ms->notify_spectrum_scan, or indirectly via scanner->on_spectrum_band_end(*ms...)
+			*/
+			if(scan.spectrum)
+				ms->notify_spectrum_scan(*scan.spectrum, subscription_ids);
+
+			if(subscription_ids.size() > 0) {
+#ifdef TODO2
+				if(scanner)
+					scanner->on_spectrum_band_end(subscriber, subscription_ids, scan);
+#endif
 			}
-			ms->notify_spectrum_scan(spectrum, subscription_ids);
 		}
 	}
 }

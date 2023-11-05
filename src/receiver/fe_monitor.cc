@@ -122,14 +122,16 @@ void fe_monitor_thread_t::handle_frontend_event() {
 			return;
 		}
 		ss::string<128> spectrum_path = receiver.options.readAccess()->spectrum_path.c_str();
-		auto result = fe->get_spectrum(spectrum_path);
-		if (result) {
+		auto scan = fe->get_spectrum(spectrum_path);
+		if (scan && scan->spectrum) {
 			auto txn = receiver.statdb.wtxn();
-			auto& spectrum = *result;
+			auto& spectrum = *scan->spectrum;
 			auto c = statdb::spectrum_t::find_by_key(txn, spectrum.k);
 			put_record(txn, spectrum);
 			txn.commit();
-			receiver.notify_spectrum_scan(spectrum, fe->get_subscription_ids());
+			auto finished_fe = fe->dbfe();
+
+			receiver.notify_spectrum_scan(*scan, fe->get_subscription_ids());
 		}
 	}
 

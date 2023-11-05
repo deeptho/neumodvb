@@ -229,13 +229,6 @@ int subscriber_t::subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& ln
 	return (int) subscription_id;
 }
 
-#if 0
-int subscriber_t::get_adapter_no() const {
-	auto aaptr = active_adapter.lock();
-	return aaptr ? aaptr->get_adapter_no() : -1;
-}
-#endif
-
 void subscriber_t::notify_signal_info(const signal_info_t& signal_info) const {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;

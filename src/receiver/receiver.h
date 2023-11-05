@@ -58,7 +58,6 @@ struct tune_pars_t;
 struct spectrum_scan_t;
 struct scan_mux_end_report_t;
 struct sdt_data_t;
-struct band_to_scan_t;
 
 struct scan_stats_t;
 class active_adapter_t;

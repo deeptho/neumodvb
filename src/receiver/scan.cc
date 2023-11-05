@@ -28,13 +28,10 @@
 #include "util/template_util.h"
 
 scan_mux_end_report_t::scan_mux_end_report_t(const scan_subscription_t& subscription,
-														 const statdb::spectrum_key_t spectrum_key
-	)
+																						 const statdb::spectrum_key_t spectrum_key)
 	: spectrum_key(spectrum_key)
-	, band(subscription.blindscan_key.band)
 	, peak(subscription.peak)
 	, mux(subscription.mux)
-		//, lnb_key (lnb_key)
 {}
 
 

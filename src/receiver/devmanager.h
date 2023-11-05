@@ -142,14 +142,7 @@ struct spectrum_scan_t {
 		adapt the driver code, wh
 	 */
 	time_t start_time{};
-#if 1
 	devdb::rf_path_t rf_path{};
-#else
-	devdb::lnb_key_t lnb_key;
-	//devdb::fe_key_t fe_key;
-	int64_t card_mac_address{-1};
-	int8_t rf_input{-1};
-#endif
 	int16_t adapter_no{-1};
 	int16_t usals_pos{sat_pos_none};
 	int16_t sat_pos{sat_pos_none};

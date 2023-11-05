@@ -201,9 +201,12 @@ devdb::fe_t devdb::fe::subscribe_fe_in_use(
 }
 
 
-int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_id,
-																				devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-																				const devdb::lnb_t& lnb)
+int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
+																					 const tune_options_t& tune_options,
+																					 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
+																					 const devdb::lnb_t& lnb,
+																					 const chdb::sat_t* sat,
+																					 const chdb::band_scan_t* band_scan)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
@@ -216,9 +219,9 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscrip
 
 	//the following settings imply that we request a non-exclusive subscription
 	sub.rf_path = rf_path;
-	sub.pol = chdb::fe_polarisation_t::NONE;
-	sub.band = devdb::fe_band_t::NONE;
-	sub.usals_pos = sat_pos_none;
+	sub.pol = tune_options.may_control_lnb ? chdb::fe_polarisation_t::NONE : band_scan->pol;
+	sub.band = tune_options.may_control_lnb ? chdb::sat_sub_band_t::NONE : band_scan->sat_sub_band;
+	sub.usals_pos = tune_options.may_move_dish ? sat_pos_none : sat->sat_pos;
 	sub.dish_usals_pos = lnb.on_positioner ? sub.usals_pos : lnb.usals_pos;
 	sub.dish_id = lnb.k.dish_id;
 	sub.frequency = 0;
@@ -532,7 +535,10 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 #ifndef NDEBUG
 	auto ret =
 #endif
-		devdb::fe::reserve_fe_lnb_exclusive(wtxn, subscription_id, *best_fe, *best_rf_path, *best_lnb);
+		devdb::fe::reserve_fe_lnb_for_sat_band(wtxn, subscription_id,
+																					 tune_options,
+																					 *best_fe, *best_rf_path, *best_lnb,
+																					 &sat, &band_scan);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 
 	return {best_fe, best_rf_path, best_lnb, best_use_counts, updated_old_dbfe};
@@ -672,6 +678,59 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
 	return failed(subscription_id, updated_old_dbfe);
 }
+
+subscribe_ret_t
+devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
+										 const tune_options_t& tune_options,
+										 const chdb::sat_t& sat,
+										 const chdb::band_scan_t& band_scan,
+										 bool do_not_unsubscribe_on_failure) {
+
+	auto[ oldfe_, will_be_released ] = fe_for_subscription(wtxn, subscription_id);
+	auto* fe_key_to_release = (oldfe_ && will_be_released) ? &oldfe_->k : nullptr;
+
+	subscribe_ret_t sret(subscription_id, false /*failed*/);
+
+	auto [fe_, rf_path_, lnb_, use_counts_, updated_old_dbfe] =
+		devdb::fe::subscribe_sat_band(wtxn, sret.subscription_id, sat, band_scan,
+																	tune_options, oldfe_, fe_key_to_release, do_not_unsubscribe_on_failure);
+		if(fe_) {
+			auto& fe = *fe_;
+			bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
+			sret.retune = is_same_fe;
+			sret.change_service = true;
+			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
+			if(!is_same_fe) {
+				assert(sret.is_new_aa());
+				sret.sub_to_reuse = subscription_id_t::NONE;
+				dtdebugf("fe::subscribe: newaa subscription_id={}  adapter={:x}/{} sat={}",
+								 (int ) subscription_id, (int64_t) fe.k.adapter_mac_address,
+								 (int) oldfe_->k.frontend_no, sat);
+			} else {
+				assert(!sret.is_new_aa());
+				dtdebugf("fe::subscribe: no newaa subscription_id={} adapter={:x} sat={}",
+								 (int)subscription_id, (int64_t) fe.k.adapter_mac_address, sat);
+			}
+			auto& lnb = *lnb_;
+			if(lnb.on_positioner) {
+				auto* lnb_network = devdb::lnb::get_network(lnb, sat.sat_pos);
+				if (!lnb_network) {
+					dterrorf("No network found");
+					return failed(sret.subscription_id, updated_old_dbfe);
+				}
+				auto usals_pos = lnb_network->usals_pos;
+				dish::update_usals_pos(wtxn, lnb, usals_pos, tune_options.usals_location, sat.sat_pos);
+			}
+
+			return sret;
+		}
+		return failed(sret.subscription_id, updated_old_dbfe);
+
+	if(oldfe_)
+		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+	return failed(subscription_id, updated_old_dbfe);
+}
+
 
 template<typename mux_t>
 subscribe_ret_t

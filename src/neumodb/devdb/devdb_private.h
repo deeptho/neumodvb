@@ -165,9 +165,12 @@ namespace devdb::fe {
 														 const chdb::service_t* service);
 
 
-	int reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscription_id,
-															 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-															 const devdb::lnb_t& lnb);
+	int reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
+																	const tune_options_t& tune_options,
+																	devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
+																	const devdb::lnb_t& lnb,
+																	const chdb::sat_t*sat,
+																	const chdb::band_scan_t* band_scan);
 	template<typename mux_t>
 	int reserve_fe_for_mux(db_txn& wtxn, subscription_id_t subscription_id, devdb::fe_t& fe,
 												 const mux_t& mux, const chdb::service_t* service);

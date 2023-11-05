@@ -72,8 +72,7 @@ static void chdb::clean_sats(db_txn& wtxn) {
 		}
 
 		bool changed{false};
-		changed |= clean1(band_scan.spectrum_scan_status, band_scan.scan_id);
-		changed |= clean1(band_scan.mux_scan_status, band_scan.scan_id);
+		changed |= clean1(band_scan.scan_status, band_scan.scan_id);
 		return changed;
 	};
 

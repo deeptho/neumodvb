@@ -111,6 +111,7 @@ struct tune_options_t {
 	tune_mode_t tune_mode;
 	bool need_blind_tune{false};
 	bool may_move_dish{true};
+	bool may_control_lnb{false};
 	bool propagate_scan{true};
 	bool need_spectrum{false};
 	pls_search_range_t pls_search_range;

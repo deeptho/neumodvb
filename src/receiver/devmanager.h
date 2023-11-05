@@ -31,7 +31,6 @@
 #include "util/access.h"
 
 struct tune_options_t;
-struct tune_pars_t;
 
 /* DVB-S */
 /** lnb_slof: switch frequency of LNB */
@@ -197,14 +196,6 @@ class signal_monitor_t {
 	}
 };
 
-
-struct tune_pars_t {
-	tune_options_t tune_options;
-	bool may_control_lnb{false};
-	bool may_move_dish{false};
-};
-
-
 /*@brief: all reservation data for a tuner. reservations are modified atomically while holding
 	a lock. Afterwards the tune is requested to change state to the new reserved state, but this
 	may take some time
@@ -238,7 +229,7 @@ public:
 	tune_mode_t tune_mode{tune_mode_t::IDLE};
 	bool use_blind_tune{false};
 	fe_lock_status_t lock_status;
-	tune_pars_t tune_pars;
+	tune_options_t tune_options;
 
 	void set_lock_status(api_type_t api_type, fe_status_t fe_status);
 
@@ -334,7 +325,7 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 
 	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path,
 																					 const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux,
-																					 const tune_pars_t& tune_pars);
+																					 const tune_options_t& tune_options);
 	bool need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb);
 
 	sec_status_t sec_status;
@@ -373,19 +364,19 @@ public:
 
 	std::tuple<int, int>
 	tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-			 const tune_pars_t& tune_pars, bool user_requested);
+			 const tune_options_t& tune_options, bool user_requested);
 
 	int tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& options);
 	int tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& options);
 
 	template<typename mux_t>
-	int tune(const mux_t& mux, const tune_pars_t& tune_pars, bool user_requested);
+	int tune(const mux_t& mux, const tune_options_t& tune_options, bool user_requested);
 
 	std::tuple<int, int>
 	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										const tune_pars_t tune_pars);
+										const tune_options_t tune_options);
 	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-															const tune_pars_t& tune_pars);
+															const tune_options_t& tune_options);
 
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
@@ -475,8 +466,8 @@ public:
 		auto w = this->ts.writeAccess();
 		auto tune_mode = (tune_options.tune_mode == tune_mode_t::UNCHANGED) ? tune_options.tune_mode
 			: tune_options.tune_mode;
-		w->tune_pars.tune_options = tune_options;
-		w->tune_pars.tune_options.tune_mode = tune_mode;
+		w->tune_options = tune_options;
+		w->tune_options.tune_mode = tune_mode;
 		return 0;
 	}
 

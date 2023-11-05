@@ -111,8 +111,6 @@ struct subscribe_ret_t {
 	//value below only relevant if aa_sub_to_reuse  == subscription_id_t::NONE
 	aa_t aa;
 	static std::atomic_int next_subscription_id; //initialised in fe_subscribe.cc
-	bool may_control_lnb{false};
-	bool may_move_dish{false}; //implies may_control_lnb
 	inline  bool subscription_failed() const {
 		return failed;
 	}

@@ -206,10 +206,10 @@ namespace devdb::fe {
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 	subscribe_lnb(db_txn& wtxn,  subscription_id_t subscription_id,
-													const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-													std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release,
-													bool need_blind_tune, bool need_spectrum,
-													const devdb::usals_location_t& loc);
+								const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+								const tune_options_t&  tune_options,
+								std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release
+		);
 	devdb::fe_t subscribe_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
 																	const fe_key_t& fe_key,const chdb::mux_key_t &mux_key);
 

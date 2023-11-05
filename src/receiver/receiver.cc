@@ -259,13 +259,11 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
-	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
-		.may_move_dish = sret.may_move_dish};
 
 	std::unique_ptr<playback_mpm_t> playback_mpm_ptr;
 	futures.push_back(aa.tuner_thread.push_task([&playback_mpm_ptr, &aa, &mux, &service, &sret,
-																						&tune_pars]() {
-		playback_mpm_ptr = cb(aa.tuner_thread).subscribe_service(sret, mux, service, tune_pars);
+																						&tune_options]() {
+		playback_mpm_ptr = cb(aa.tuner_thread).subscribe_service(sret, mux, service, tune_options);
 		return 0;
 	}));
 	wait_for_all(futures); //essential
@@ -317,12 +315,10 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
-	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
-		.may_move_dish = sret.may_move_dish};
 
 	futures.push_back(aa.tuner_thread.push_task([&aa, mux, rec, sret,
-																						tune_pars]() mutable {
-		cb(aa.tuner_thread).subscribe_service_for_recording(sret, mux, rec, tune_pars);
+																						tune_options]() mutable {
+		cb(aa.tuner_thread).subscribe_service_for_recording(sret, mux, rec, tune_options);
 		return 0;
 	}));
 	return sret.subscription_id;
@@ -486,12 +482,9 @@ receiver_thread_t::subscribe_mux(
 	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
-	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
-		.may_move_dish = sret.may_move_dish};
 
-	futures.push_back(aa.tuner_thread.push_task([&aa, mux, sret,
-																						tune_pars]() {
-		cb(aa.tuner_thread).subscribe_mux(sret, mux, tune_pars);
+	futures.push_back(aa.tuner_thread.push_task([&aa, mux, sret, tune_options]() {
+		cb(aa.tuner_thread).subscribe_mux(sret, mux, tune_options);
 			return 0;
 	}));
 
@@ -586,8 +579,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 
 	tune_options.spectrum_scan_options.recompute_peaks = true;
 	tune_options.need_spectrum = true;
-	subscription_id = this->receiver_thread_t::scan_bands(futures, sats, pols, low_freq, high_freq,
-																												tune_options,
+	subscription_id = this->receiver_thread_t::scan_bands(futures, sats, pols, tune_options,
 																												max_num_subscriptions, subscription_id);
 
 	auto error = wait_for_all(futures);
@@ -692,6 +684,8 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	bool need_spectrum = tune_options.tune_mode == tune_mode_t::SPECTRUM;
 	tune_options.allowed_rf_paths = {rf_path};
 	tune_options.need_spectrum = need_spectrum;
+	tune_options.may_control_lnb = true;
+	tune_options.may_move_dish = true;
 	auto sret = devdb::fe::subscribe_rf_path(devdb_wtxn, subscription_id,
 																					 tune_options,
 																					 rf_path,
@@ -708,8 +702,6 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 
 		return subscription_id_t::RESERVATION_FAILED;
 	}
-	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
-		.may_move_dish = sret.may_move_dish};
 
 	dtdebugf("lnb activate subscription_id={:d}", (int) sret.subscription_id);
 
@@ -721,8 +713,8 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	assert(activate_adapter_p);
 	auto& aa = *activate_adapter_p;
 
-	futures.push_back(aa.tuner_thread.push_task([&aa, subscription_id, sret, tune_pars]() {
-		auto ret = cb(aa.tuner_thread).lnb_activate(subscription_id, sret, tune_pars);
+	futures.push_back(aa.tuner_thread.push_task([&aa, subscription_id, sret, tune_options]() {
+		auto ret = cb(aa.tuner_thread).lnb_activate(subscription_id, sret, tune_options);
 		if (ret < 0)
 			dterrorf("tune returned {:d}", ret);
 		return ret;
@@ -1007,9 +999,8 @@ subscription_id_t receiver_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 	std::vector<task_queue_t::future_t> futures;
 
 	//call by reference ok because of subsequent wait_for_all
-	futures.push_back(receiver_thread.push_task([this, &sats, pols, low_freq, high_freq,
-																							 &tune_options, &subscription_id]() {
-		subscription_id = cb(receiver_thread).scan_bands(sats, pols, low_freq, high_freq, tune_options, subscription_id);
+	futures.push_back(receiver_thread.push_task([this, &sats, pols, &tune_options, &subscription_id]() {
+		subscription_id = cb(receiver_thread).scan_bands(sats, pols, tune_options, subscription_id);
 		cb(receiver_thread).scan_now(); // start initial scan
 		return 0;
 	}));

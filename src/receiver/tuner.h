@@ -29,7 +29,6 @@
 class playback_mpm_t;
 class active_adapter_t;
 struct tune_options_t;
-struct tune_pars_t;
 
 namespace dtdemux {
 	struct pmt_info_t;
@@ -73,17 +72,16 @@ class tuner_thread_t : public task_queue_t {
 	void release_all(subscription_id_t subscription_id);
 
 	subscription_id_t tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-														 const tune_pars_t& tune_pars);
+														 const tune_options_t& tune_options);
 	void add_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
 							const tune_options_t& tune_options, subscription_id_t subscription_id);
 	int tune(const devdb::rf_path_t& rf_path,
-					 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_pars_t tune_pars,
+					 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, tune_options_t tune_options,
 					 subscription_id_t subscription_id);
 	template<typename _mux_t>
-	int tune(const _mux_t& mux, tune_pars_t tune_pars,
-					 subscription_id_t subscription_id);
+	int tune(const _mux_t& mux, tune_options_t tune_options, subscription_id_t subscription_id);
 	subscription_id_t subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-																	const tune_pars_t& tune_options);
+																	const tune_options_t& tune_options);
 public:
 	tuner_thread_t(receiver_t& receiver_, active_adapter_t& aa);
 
@@ -111,17 +109,17 @@ public:
 	int update_service(const chdb::service_t& service);
 
 	int lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& ret,
-									 tune_pars_t tune_pars);
+									 tune_options_t tune_options);
 
 	subscription_id_t subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-																	const tune_pars_t& tune_options);
+																	const tune_options_t& tune_options);
 	subscription_id_t subscribe_service_for_recording(const subscribe_ret_t& sret,
 																										const chdb::any_mux_t& mux, recdb::rec_t& rec,
-																										const tune_pars_t& tune_pars);
+																										const tune_options_t& tune_options);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(const subscribe_ret_t& sret,
 																										const chdb::any_mux_t& mux, const chdb::service_t& service,
-																										const tune_pars_t& tune_pars);
+																										const tune_options_t& tune_options);
 
 	int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
 
@@ -138,7 +136,7 @@ public:
 	int update_current_lnb(subscription_id_t subscription_id,  const devdb::lnb_t& lnb);
 	std::tuple<subscription_id_t, devdb::fe_key_t>
 	tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-					 const tune_pars_t& tune_pars);
+					 const tune_options_t& tune_options);
 	int stop_recording(const recdb::rec_t& rec, mpm_copylist_t& copy_commands);
 
 };

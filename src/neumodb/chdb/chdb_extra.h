@@ -540,6 +540,7 @@ declfmt(chdb::scan_status_t);
 declfmt(chdb::scan_result_t);
 declfmt(chdb::language_code_t);
 declfmt(chdb::sat_sub_band_pol_t);
+declfmt(chdb::band_scan_t);
 declfmt(chdb::sat_t);
 declfmt(chdb::dvbs_mux_t);
 declfmt(chdb::dvbc_mux_t);

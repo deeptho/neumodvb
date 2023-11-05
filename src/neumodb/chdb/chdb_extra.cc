@@ -1437,3 +1437,14 @@ fmt::formatter<chdb::sat_sub_band_pol_t>::format(const chdb::sat_sub_band_pol_t&
 												: "R",
 												to_str(band_pol.band));
 }
+
+fmt::format_context::iterator
+fmt::formatter<chdb::band_scan_t>::format(const chdb::band_scan_t& band_scan, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{:s}-{:s}{:s}",
+												band_scan.pol == chdb::fe_polarisation_t::H	 ? "H"
+												: band_scan.pol == chdb::fe_polarisation_t::V ? "V"
+												: band_scan.pol == chdb::fe_polarisation_t::L ? "L"
+												: "R",
+												to_str(band_scan.sat_band),
+												to_str(band_scan.sat_sub_band));
+}

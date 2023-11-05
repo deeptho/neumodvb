@@ -224,6 +224,7 @@ public:
 	bool use_blind_tune{false};
 	fe_lock_status_t lock_status;
 	tune_options_t tune_options;
+	time_t start_time;
 
 	void set_lock_status(api_type_t api_type, fe_status_t fe_status);
 

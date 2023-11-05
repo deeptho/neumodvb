@@ -104,9 +104,6 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 		scan.usals_pos,
 		scan.adapter_no,
 		false,/*is_complete*/
-#if 0
-		scan.spectrum_is_highres,
-#endif
 		{},
 		scan.lof_offsets};
 	make_spectrum_scan_filename(spectrum.filename, spectrum);

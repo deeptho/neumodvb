@@ -57,9 +57,6 @@ enum class tune_mode_t {
 	NORMAL,
 	SPECTRUM,
 	BLIND, //ask driver to scan blindly (not implemented)
-#if 0
-	MUX_BLIND,
-#endif
 	POSITIONER_CONTROL,
 	UNCHANGED
 	};
@@ -86,7 +83,6 @@ struct constellation_options_t {
 
 struct spectrum_scan_options_t {
 	bool recompute_peaks{false}; //instead of relying on driver, compute the peak
-	time_t start_time{};
 	bool append{false}; //append to existing file
 	int16_t sat_pos{sat_pos_none};
 	chdb::sat_sub_band_pol_t band_pol; //currently scanning band
@@ -95,9 +91,7 @@ struct spectrum_scan_options_t {
 	int end_freq{std::numeric_limits<int>::max()}; //in kHz
 	int resolution{0}; //in kHz for spectrum and for blindscan, 0 means: use driver default
 	int fft_size{512}; //power of 2; 	int end_freq = -1; //in kHz
-	spectrum_scan_options_t() {
-		start_time = system_clock::to_time_t(now);
-	}
+	spectrum_scan_options_t() {}
 };
 
 

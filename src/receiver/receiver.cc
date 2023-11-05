@@ -1057,7 +1057,6 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
-	tune_options.spectrum_scan_options.start_time = time(NULL);
 	tune_options.scan_target = scan_target_t::SCAN_FULL;
 	tune_options.subscription_type = subscription_type_t::LNB_EXCLUSIVE;
 	tune_options.tune_mode = tune_mode_t::SPECTRUM;

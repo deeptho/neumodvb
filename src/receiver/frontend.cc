@@ -1015,9 +1015,11 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	}
 	scan.resize(spectrum.num_freq, spectrum.num_candidates);
 
-	auto [lnb, rf_path, options]  = [this](){
+	auto [lnb, rf_path, options, start_time]  = [this](){
 		const auto r = this->ts.readAccess();
-		return std::tuple(r->reserved_lnb, r->reserved_rf_path, r->tune_pars.tune_options.spectrum_scan_options);
+
+		return std::tuple(r->reserved_lnb, r->reserved_rf_path, r->tune_options.spectrum_scan_options,
+											r->start_time);
 	}();
 
 
@@ -1028,8 +1030,7 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	bool append_now = false;
 	bool incomplete = false;
 	int min_freq_to_save{0};
-
-	scan.start_time = options.start_time;
+	scan.start_time = start_time;
 	scan.sat_pos = options.sat_pos;
 	scan.rf_path = rf_path;
 	auto [start_freq, mid_freq, end_freq, lof_low, lof_high, inverted_spectrum] =
@@ -1538,6 +1539,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 	{
 		this->sec_status.retune_count = 0;
 		auto w = ts.writeAccess();
+		w->start_time = system_clock::to_time_t(now);
 		w->reserved_mux = {};
 		w->reserved_rf_path = rf_path;
 		if(w->reserved_lnb != lnb && w->fefd >= 0)

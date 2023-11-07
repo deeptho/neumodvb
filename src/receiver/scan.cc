@@ -124,6 +124,13 @@ blindscan_key_t::blindscan_key_t(int16_t sat_pos, chdb::fe_polarisation_t pol, u
 	, pol(pol)
 	{}
 
+//band_scan is translated to band
+blindscan_key_t::blindscan_key_t(int16_t sat_pos, const chdb::band_scan_t& band_scan)
+	: sat_pos(sat_pos)
+	, band{band_scan.sat_band, band_scan.sat_sub_band}
+	, pol(band_scan.pol)
+	{}
+
 
 template<typename mux_t>
 requires (! is_same_type_v<chdb::spectral_peak_t, mux_t>)
@@ -135,6 +142,13 @@ static inline bool& skip_helper(std::map<blindscan_key_t,bool>& skip_map, const 
 	} else {
 		return skip_map[blindscan_key_t{mux.k.sat_pos, chdb::fe_polarisation_t::H, mux.frequency}]; //frequency is translated to band
 	}
+}
+
+static inline bool& skip_helper_band(std::map<blindscan_key_t,bool>& skip_map, int16_t sat_pos,
+																const chdb::band_scan_t& band_to_scan)
+{
+	using namespace chdb;
+	return skip_map[blindscan_key_t{sat_pos, band_to_scan}]; //band_to_scan is translated to band
 }
 
 
@@ -600,6 +614,71 @@ scan_t::scan_next_muxes(db_txn& chdb_rtxn,
  */
 
 
+std::tuple<int, subscription_id_t>
+scan_t::scan_next_bands(db_txn& chdb_rtxn,
+												subscription_id_t reuseable_subscription_id,
+												scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map)
+{
+	// start as many subscriptions as possible
+	using namespace chdb;
+	int num_pending_bands{0};
+
+	auto c = find_first<sat_t>(chdb_rtxn);
+	for(auto sat_to_scan: c.range()) {
+		for(auto pass = 0; pass <2; ++pass) {
+			auto& band_scan = pass == 0 ? sat_to_scan.band_scan_rv : sat_to_scan.band_scan_lh;
+			if(!scanner_t::is_our_scan(band_scan.scan_id))
+				continue;
+
+			if ((int)subscriptions.size() >=
+					((int)reuseable_subscription_id < 0 ? scanner.max_num_subscriptions : scanner.max_num_subscriptions + 1)) {
+				num_pending_bands++;
+				continue; // to have accurate num_pending count
+			}
+
+			bool& skip_mux = skip_helper_band(skip_map, sat_to_scan.sat_pos, band_scan);
+			if(skip_mux) {
+				num_pending_bands++;
+				continue;
+			}
+
+			subscription.sat_band = {sat_to_scan, band_scan};
+
+			if(receiver_thread.must_exit())
+				throw std::runtime_error("Exit requested");
+
+			auto pol = band_scan.pol;
+			blindscan_key_t key = {sat_to_scan.sat_pos, band_scan}; //band_scan is translated to band
+			//auto [it, found] = find_in_map(blindscans, key);
+			subscription.blindscan_key = key;
+			if(band_is_being_scanned(band_scan)) {
+				dtdebugf("Skipping sat band already in progress: {}", band_scan);
+				continue;
+			}
+
+			reuseable_subscription_id = scan_try_band(reuseable_subscription_id, subscription);
+
+			if ((int)subscription.subscription_id < 0) {
+				// we cannot subscribe the mux right now
+				if(subscription.subscription_id == subscription_id_t::RESERVATION_FAILED_PERMANENTLY) {
+					skip_mux = false;
+					auto& blindscan = blindscans[subscription.blindscan_key];
+					statdb::spectrum_t spectrum;
+					spectrum.k = *blindscan.spectrum_key;
+					receiver.notify_spectrum_scan_band_end(scan_subscription_id, spectrum); //we tried but failed immediately
+				} else if(subscription.subscription_id == subscription_id_t::RESERVATION_FAILED) {
+					num_pending_bands++;
+					skip_mux = true; //ensure that we do not even try muxes on the same sat, pol, band in this run
+				} else {
+					//it is not possible to tune, probably because symbol_rate is out range
+					num_pending_bands++;
+				}
+				continue;
+			}
+		}
+	}
+	return {num_pending_bands, reuseable_subscription_id};
+}
 
 /*
 	returns the number of pending  muxes to scan, and number of skipped muxes
@@ -635,6 +714,14 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 	 */
 	std::tie(num_pending_muxes, reuseable_subscription_id) =
 		scan_next_muxes<mux_t>(chdb_rtxn, reuseable_subscription_id, subscription, skip_map);
+
+	if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
+		/*
+			Finally we attempt pending spectrum scans
+		*/
+		std::tie(num_pending_muxes, reuseable_subscription_id) =
+			scan_next_bands(chdb_rtxn, reuseable_subscription_id, subscription, skip_map);
+	}
 
 	if ((int)reuseable_subscription_id >= 0) {
 		subscription_id_t subscription_id{-1};
@@ -837,6 +924,25 @@ bool scan_t::mux_is_being_scanned(const chdb::any_mux_t& mux)
 }
 
 /*
+	Because tune thread runs asynchronously, muxes are not immediately marked as active in the database,
+	which could cause them to be scanned twice.
+	The call returns true if a (pending) mux is already being scanned
+ */
+bool scan_t::band_is_being_scanned(const chdb::band_scan_t& band_scan)
+{
+
+	for(auto it = subscriptions.begin(); it != subscriptions.end(); ++it) {
+			scan_subscription_t subscription {it->second}; //need to copy
+			if(!subscription.sat_band)
+				continue;
+			auto& [sat_, band_] = *subscription.sat_band;
+			if(band_scan.scan_id == band_.scan_id)
+				return true;
+	}
+	return false;
+}
+
+/*
 	returns the number the new subscription_id and the new value of reuseable_subscription_id,
 	which will be -1 to to indicate that it can no longer be reused
  */
@@ -927,6 +1033,92 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 
 	return reuseable_subscription_id;
 }
+
+
+subscription_id_t
+scan_t::scan_try_band(subscription_id_t reuseable_subscription_id,
+										 scan_subscription_t& subscription)
+{
+
+	devdb::fe_key_t subscribed_fe_key;
+	subscription_id_t subscription_id{-1};
+	std::vector<task_queue_t::future_t> futures;
+	assert(subscription.sat_band);
+	auto & [sat, band_scan] = *subscription.sat_band;
+	auto wtxn = receiver.devdb.wtxn();
+	auto scan_id = band_scan.scan_id;
+	auto& tune_options = tune_options_for_scan_id(scan_id);
+	assert(tune_options.need_spectrum );
+	assert(chdb::scan_in_progress(scan_id));
+	assert(scanner_t::is_our_scan(scan_id));
+
+	subscription_id =
+		receiver_thread.subscribe_spectrum(futures, wtxn, sat, band_scan, reuseable_subscription_id, tune_options,
+																			 scan_id, true /*do_not_unsubscribe_on_failure*/);
+	wtxn.commit();
+	wait_for_all(futures); //remove later
+
+	if((int)subscription_id >=0) {
+		report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", reuseable_subscription_id, subscription_id,
+					 *subscription.mux, subscriptions);
+		dtdebugf("Asked to subscribe {} reuseable_subscription_id={} subscription_id={} peak={}",
+						 *subscription.mux, (int) reuseable_subscription_id,
+						 (int) subscription_id, subscription.peak.peak.frequency);
+	}
+
+	assert((int)subscription_id >=0 || subscription_id != subscription_id_t::TUNE_FAILED);
+
+	/*An error can occur when resources cannot be reserved; this is reported immediately
+		by returning subscription_id_t == RESERVATION_FAILED;
+		Afterwards only tuning errors can occur. These errors will be noticed by error==true after
+		calling wait_for_all. Such errors indicated TUNE_FAILED.
+	*/
+	if ((int)subscription_id < 0) {
+		if(subscriptions.size()== 0) {
+			/* we cannot subscribe the sat band spectrum because of some permanent failure or because of
+				 subscriptions by another program
+				 => Give up
+			*/
+			auto chdb_wtxn = receiver.chdb.wtxn();
+			dtdebugf("SET IDLE {}:{}", sat, band_scan);
+			band_scan.scan_status  =  chdb::scan_status_t::IDLE;
+			band_scan.scan_result = chdb::scan_result_t::BAD;
+			band_scan.scan_id = {};
+			band_scan.scan_rf_path = {}; //not valid
+			band_scan.scan_time = 0; //TODO: start time is now set in spectrum_scan_options, but this will not work
+			namespace m = chdb::update_mux_preserve_t;
+			if (band_scan.pol == sat.band_scan_lh.pol)
+				sat.band_scan_lh = band_scan;
+			else
+				sat.band_scan_rv = band_scan;
+			sat.mtime = system_clock_t::to_time_t(now);
+			chdb_wtxn.commit();
+			subscription_id = subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
+		}
+		subscription.subscription_id = subscription_id;
+		return reuseable_subscription_id;
+	}
+	last_subscribed_mux = *subscription.mux;
+	dtdebugf("subscribed to {} subscription_id={} reuseable_subscription_id={}",
+					 *subscription.mux,(int) subscription_id, (int) reuseable_subscription_id);
+
+	/*at this point, we know that our newly subscribed fe differs from our old subscribed fe
+	 */
+	subscription.subscription_id = subscription_id;
+	subscriptions.insert_or_assign(subscription_id, subscription);
+
+	if ((int)reuseable_subscription_id >= 0) {
+		assert(subscription_id == reuseable_subscription_id);
+		/*
+			We have reused an old subscription_id, but are now using a different fe than before
+			Find the old fe we are using; not that at this point, subscription_id will be present twice
+			as a value in subscriptions; find the old one (by skipping the new one)
+		*/
+		reuseable_subscription_id = subscription_id_t{-1}; // we can still attempt to subscribe, but with new a new subscription_id
+	}
+	return reuseable_subscription_id;
+}
+
 
 
 scanner_t::scanner_t(receiver_thread_t& receiver_thread_,

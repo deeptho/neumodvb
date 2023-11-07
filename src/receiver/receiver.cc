@@ -439,6 +439,54 @@ void receiver_t::on_scan_mux_end(const devdb::fe_t& finished_fe,
 }
 
 
+subscription_id_t
+receiver_thread_t::subscribe_spectrum(
+	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::sat_t& sat,
+	const chdb::band_scan_t& band_scan,
+	subscription_id_t subscription_id, const tune_options_t& tune_options_,
+	const chdb::scan_id_t& scan_id,
+	bool do_not_unsubscribe_on_failure) {
+	auto tune_options = tune_options_;
+	tune_options.tune_mode = tune_mode_t::SPECTRUM;
+	subscribe_ret_t sret;
+	assert(tune_options.need_spectrum);
+
+	sret = devdb::fe::subscribe_sat_band(devdb_wtxn, subscription_id,
+																			 tune_options,
+																			 sat, band_scan, do_not_unsubscribe_on_failure);
+
+	if(sret.failed) {
+		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
+		if(updated_old_dbfe) {
+			dtdebugf("Subscription failed calling release_active_adapter");
+			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+		} else {
+			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
+		}
+		user_errorf("Sat band reservation failed: {}:{}", sat, band_scan);
+		return subscription_id_t::RESERVATION_FAILED;
+	}
+
+	dtdebugf("lnb activate subscription_id={:d}", (int) sret.subscription_id);
+
+	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+	}
+
+	auto* activate_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	assert(activate_adapter_p);
+	auto& aa = *activate_adapter_p;
+
+	futures.push_back(aa.tuner_thread.push_task([&aa, subscription_id, sret, tune_options]() {
+		auto ret = cb(aa.tuner_thread).lnb_activate(subscription_id, sret, tune_options);
+		if (ret < 0)
+			dterrorf("tune returned {:d}", ret);
+		return ret;
+	}));
+
+	dtdebugf("Subscribed to: sat band={}:{}", sat, band_scan);
+	return sret.subscription_id;
+}
 
 template <typename _mux_t>
 subscription_id_t

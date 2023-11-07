@@ -246,6 +246,7 @@ struct blindscan_key_t {
 	bool operator<(const blindscan_key_t& other) const;
 
 	blindscan_key_t(int16_t sat_pos, chdb::fe_polarisation_t pol, uint32_t frequency);
+	blindscan_key_t(int16_t sat_pos, const chdb::band_scan_t& band_scan);
 
 	blindscan_key_t() = default;
 };
@@ -291,6 +292,7 @@ struct scan_subscription_t {
 	blindscan_key_t blindscan_key;
 	peak_to_scan_t peak;
 	std::optional<chdb::any_mux_t> mux;
+	std::optional<std::tuple<chdb::sat_t, chdb::band_scan_t>> sat_band;
 	bool is_peak_scan{false}; //true if we scan the peak rather than a corresponding mux in the db
 	scan_subscription_t(subscription_id_t subscription_id)
 		: subscription_id(subscription_id) {}
@@ -315,7 +317,6 @@ struct scan_stats_t
 
 struct scan_mux_end_report_t {
 	statdb::spectrum_key_t spectrum_key;
-	std::tuple<chdb::sat_band_t, devdb::fe_band_t> band{chdb::sat_band_t::Ku, devdb::fe_band_t::LOW};
 	peak_to_scan_t peak;
 	std::optional<chdb::any_mux_t> mux;
 	devdb::fe_key_t fe_key;
@@ -366,6 +367,8 @@ private:
 	}
 
 	bool mux_is_being_scanned(const chdb::any_mux_t& mux);
+	bool band_is_being_scanned(const chdb::band_scan_t& band_scan);
+
 
 	std::tuple<int, int> scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
 													 int& num_pending_muxes, int& num_pending_peaks,
@@ -377,6 +380,9 @@ private:
 
 	subscription_id_t scan_try_mux(subscription_id_t reusable_subscription_id ,
 																 scan_subscription_t& subscription, bool use_blind_tune);
+
+	subscription_id_t scan_try_band(subscription_id_t reuseable_subscription_id,
+																	scan_subscription_t& subscription);
 
 	bool rescan_peak(blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
 									 scan_subscription_t& subscription);
@@ -392,6 +398,11 @@ private:
 	template<typename mux_t>
 	std::tuple<int, subscription_id_t>
 	scan_next_muxes(db_txn& chdb_rtxn,
+									subscription_id_t reuseable_subscription_id,
+									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
+
+	std::tuple<int, subscription_id_t>
+	scan_next_bands(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
 									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
 

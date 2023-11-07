@@ -290,14 +290,11 @@ void active_si_stream_t::check_scan_mux_end()
 	assert(mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
   //note: scans_in_progress is copied (no call by reference)
 	chdbmgr.flush_wtxn();
-	receiver_thread.push_task([&receiver_thread, dbfe, mux,  scans_in_progress=this->scan_state.scans_in_progress]() {
-		for(auto& e: scans_in_progress) {
+	auto scans_in_progress = this->scan_state.scans_in_progress;
+	for(auto& e: scans_in_progress) {
 			auto [scan_id, subscription_id ] = e;
-			cb(receiver_thread).on_scan_mux_end(dbfe, mux, scan_id, subscription_id);
-		}
-		return 0;
-	});
-
+			receiver.on_scan_mux_end(dbfe, mux, scan_id, subscription_id);
+	}
 	this->scan_state.scans_in_progress.clear();
 }
 
@@ -2119,7 +2116,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 			process_removed_services(wtxn, p_mux_data->mux, service_ids);
 			dtdebugf("Notifying SDT ACTUAL");
 			auto& aa = active_adapter();
-			receiver.notify_sdt_actual(sdt_data, aa.fe->get_subscription_ids());
+			receiver.on_sdt_actual(sdt_data, aa.fe->get_subscription_ids());
 		}
 
 		//Save statistics

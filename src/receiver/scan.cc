@@ -189,7 +189,7 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 	}
 }
 
-bool scanner_t::on_spectrum_band_end(const subscriber_t& subscriber,
+bool scanner_t::on_spectrum_scan_band_end(const subscriber_t& subscriber,
 																		 const ss::vector_<subscription_id_t>& fe_subscription_ids,
 																		 const spectrum_scan_t& scan)
 {
@@ -813,7 +813,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	/*
 		When tuning fails, it is essential that tuner_thread does NOT immediately unsubscribe the mux,
 		but rather informs us about the failure via scan_mux_end. Otherwise we would have to
-		update the mux status ourselves (here in the code), which also would force us to reacqauire a new
+		update the mux status ourselves (here in the code), which also would force us to reacquire a new
 		read transaction in the middle of a read loop
 	 */
 	assert((int)subscription_id >=0 || subscription_id != subscription_id_t::TUNE_FAILED);
@@ -1123,7 +1123,7 @@ scanner_t::~scanner_t() {
 }
 
 
-void scanner_t::notify_signal_info(const subscriber_t& subscriber,
+void scanner_t::on_signal_info(const subscriber_t& subscriber,
 																	 const ss::vector_<subscription_id_t>& fe_subscription_ids,
 																	 const signal_info_t& signal_info)
 {
@@ -1148,7 +1148,7 @@ void scanner_t::notify_signal_info(const subscriber_t& subscriber,
 	dtdebugf("NOT Notifying: monitored_subscription_id={:d}", (int) scan.monitored_subscription_id);
 }
 
-void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,
+void scanner_t::on_sdt_actual(const subscriber_t& subscriber,
 																	const ss::vector_<subscription_id_t>& fe_subscription_ids,
 																	const sdt_data_t& sdt_data)
 {

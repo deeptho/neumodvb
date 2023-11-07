@@ -84,6 +84,7 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 														 const ss::vector_<chdb::fe_polarisation_t>& pols,
 														 int32_t low_freq, int32_t high_freq) {
+	set_scanning(true);
 	{
 		auto w = notification.writeAccess();
 		auto & n = *w;
@@ -104,6 +105,7 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 
 int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																			const statdb::spectrum_key_t& spectrum_key) {
+	set_scanning(true);
 	{
 		auto w = notification.writeAccess();
 		auto & n = *w;
@@ -119,6 +121,7 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 														 ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
 														 ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
 														 const std::optional<tune_options_t>& tune_options_) {
+	set_scanning(true);
 	{
 		auto w = notification.writeAccess();
 		auto & n = *w;
@@ -259,6 +262,14 @@ void subscriber_t::notify_scan_mux_end(const scan_mux_end_report_t& report) {
 	notify(report);
 }
 
+#ifdef TODO4
+void subscriber_t::notify_scan_band_end(const scan_mux_end_report_t& report) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM)))
+		return;
+	notify(report);
+}
+#endif
+
 void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data,
 																		 const ss::vector_<subscription_id_t>& subscription_ids) const
 {
@@ -284,7 +295,13 @@ void subscriber_t::notify_error(const ss::string_& errmsg) {
 	notify(temp);
 }
 
-void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum,
+void subscriber_t::notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
+		return;
+	notify(spectrum);
+}
+
+void subscriber_t::notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum,
 																				const ss::vector_<subscription_id_t>& subscription_ids) {
 	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
 		return;
@@ -292,8 +309,6 @@ void subscriber_t::notify_spectrum_scan(const statdb::spectrum_t& spectrum,
 		notify(spectrum);
 	}
 }
-
-
 
 template
 int subscriber_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan);

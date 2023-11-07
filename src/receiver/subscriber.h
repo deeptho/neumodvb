@@ -66,6 +66,7 @@ class subscriber_t
 	subscription_id_t subscription_id{-1};
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
+	std::atomic<bool> scanning_{false}; //subscriber is scanning
 #if 0
 	std::weak_ptr<active_adapter_t> active_adapter; //set if subscribed to specific mux
 #endif
@@ -90,6 +91,14 @@ public:
 		int(event_type_t::SIGNAL_INFO) |
 		int(event_type_t::SPECTRUM_SCAN)}; //which events to report
 
+	inline bool is_scanning() const {
+		return scanning_;
+	}
+
+	inline void set_scanning(bool val) {
+		scanning_ = val;
+	}
+
 	inline subscription_id_t get_subscription_id() const {
 		return subscription_id;
 	}
@@ -98,7 +107,11 @@ public:
 
 	void notify_error(const ss::string_& errmsg);
 	void notify_scan_progress(const scan_stats_t& scan_stats, bool is_start);
+
 	void notify_scan_mux_end(const scan_mux_end_report_t& report);
+	#ifdef TODO4
+	void notify_scan_band_end(const scan_band_end_report_t& report);
+	#endif
 	void notify_sdt_actual(const sdt_data_t& sdt_data) const;
 	void notify_sdt_actual(const sdt_data_t& sdt_data,
 												 const ss::vector_<subscription_id_t>& subscription_ids) const;
@@ -107,7 +120,9 @@ public:
 	void notify_signal_info(const signal_info_t& info,
 													const ss::vector_<subscription_id_t>& subscription_ids) const;
 
-	void notify_spectrum_scan(const statdb::spectrum_t& spectrum,
+	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum);
+
+	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum,
 														const ss::vector_<subscription_id_t>& subscription_ids);
 
 	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window);

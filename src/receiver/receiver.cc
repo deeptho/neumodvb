@@ -400,8 +400,9 @@ void receiver_thread_t::cb_t::abort_scan() {
 /*
 	called from tuner thread when scanning a mux has ended
 */
-void receiver_thread_t::cb_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-																							const chdb::scan_id_t& scan_id, subscription_id_t subscription_id)
+void receiver_thread_t::cb_t::send_scan_mux_end_to_scanner(const devdb::fe_t& finished_fe,
+																													 const chdb::any_mux_t& finished_mux,
+																													 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id)
 {
 	auto scanner = get_scanner();
 	if (!scanner.get()) {
@@ -419,26 +420,26 @@ void receiver_thread_t::cb_t::on_scan_mux_end(const devdb::fe_t& finished_fe, co
 	}
 }
 
-/*
-	called by
-     receiver_thread_t::subscribe_service_
-		 receiver_thread_t::cb_t::subscribe_mux
 
-	-subscribe new mux, and unsubscribe the old one, taking into account they may be the same;
-	release active_adapters as needed as a side effect, in three steps
-	 1. check if the new mux is the same as the one active on the subscription. In this case
-	   restart si processing and/or retune
-   2. else check if the the mux is already active on some other subscription. If so, increament use count
-	    of that new frontend, and decrease it on the old frontend
-   3. else reserve an fe  for the new mux. If so, increament use count
-	    of that new frontend, and decrease it on the old frontend; new and old frontend can turn
-			out to be the same, in which case use_count does not change
-  Then, if the old fe's use_count has dropped to 0, release the old active adapter
+void receiver_t::on_scan_mux_end(const devdb::fe_t& finished_fe,
+																 const chdb::any_mux_t& finished_mux,
+																 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id) {
 
-	-Before this call, any active service should be removed
+	bool has_scanning_subscribers{true};
+	auto& receiver_thread = this->receiver_thread;
+	if(has_scanning_subscribers) {
+		//capturing by value is essential
+		receiver_thread.push_task([&receiver_thread, finished_fe, finished_mux,
+															 scan_id, subscription_id]() {
+			cb(receiver_thread).send_scan_mux_end_to_scanner(finished_fe, finished_mux,
+																											 scan_id, subscription_id);
+			return 0;
+		});
+	}
+}
 
 
- */
+
 template <typename _mux_t>
 subscription_id_t
 receiver_thread_t::subscribe_mux(
@@ -1404,8 +1405,39 @@ int receiver_thread_t::cb_t::scan_now() {
 	return 0;
 }
 
-void receiver_t::notify_signal_info(const signal_info_t& signal_info,
-																					 const ss::vector_<subscription_id_t>& subscription_ids) {
+void receiver_thread_t::cb_t::send_signal_info_to_scanner(
+	const signal_info_t& signal_info,
+	const ss::vector_<subscription_id_t>& subscription_ids) {
+
+	/*
+		send a signal_info message to a specific wxpython window (positioner_dialog)
+		which will then receive a EVT_COMMAND_ENTER
+		signal. Each window is associated with a subscription. The message is passed on if the subscription's
+		active_adapter uses the lnb which is stored in the signal_info message
+	 */
+	{
+		auto mss = receiver.subscribers.readAccess();
+		for (auto [subsptr, ms_shared_ptr] : *mss) {
+			auto* ms = ms_shared_ptr.get();
+			if (!ms || !ms->is_scanning())
+				continue;
+
+			if(subscription_ids.size() > 0) {
+				auto scanner = this->get_scanner();
+				/*
+					Inform the scanner of all its currently active child subscriptions.
+					The scanner will then decide for which of these subscriptions it will show signal_info
+					and will ignore unwanted signal_info
+				*/
+				if(scanner.get())
+					scanner->on_signal_info(*ms, subscription_ids, signal_info);
+			}
+		}
+	}
+}
+
+void receiver_t::on_signal_info(const signal_info_t& signal_info,
+																const ss::vector_<subscription_id_t>& subscription_ids) {
 	/*
 		provide all mpv's with updated signal information for the OSD
 	 */
@@ -1426,13 +1458,23 @@ void receiver_t::notify_signal_info(const signal_info_t& signal_info,
 		signal. Each window is associated with a subscription. The message is passed on if the subscription's
 		active_adapter uses the lnb which is stored in the signal_info message
 	 */
+	bool has_scanning_subscribers{false};
 	{
 		auto mss = this->subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
-			if (!ms)
+			if (!ms) //scanning subscribers are handled by scanner
 				continue;
-			/*Notify positioner dialog screens and spectrum_dialof screens which
+			if(ms->is_scanning()) {
+				has_scanning_subscribers = true;
+				continue;
+			}
+			/*
+				a subscriber can either directly handle the received signal info via
+				ms->notify_signal_info, or indirectly via scanner->notify_signal_info(*ms...)
+			 */
+
+			/*Notify positioner dialog screens and spectrum_dialog screens which
 				are busy tuning a single mux.
 
 				Note that during a blindscan, spectrum_dialog
@@ -1441,24 +1483,49 @@ void receiver_t::notify_signal_info(const signal_info_t& signal_info,
 				ignore the following call
 			*/
 			ms->notify_signal_info(signal_info, subscription_ids);
-
-			if(subscription_ids.size() > 0) {
-				auto scanner = receiver_thread.get_scanner();
-				/*
-					Inform the scanner of all its currently active child subscriptions.
-					The scanner will then decide for which of these subscriptions it will show signal_info
-					and will ignore unwanted signal_info
-				*/
-				if(scanner.get())
-					scanner->notify_signal_info(*ms, subscription_ids, signal_info);
-			}
 		}
-
+	}
+	auto& receiver_thread = this->receiver_thread;
+	if(has_scanning_subscribers) {
+		//capturing by value is essential
+		receiver_thread.push_task([&receiver_thread, signal_info, subscription_ids]() {
+			cb(receiver_thread).send_signal_info_to_scanner(signal_info, subscription_ids);
+			return 0;
+		});
 	}
 }
 
 //called from tuner thread when SDT ACTUAL has completed to report services to gui
-void receiver_t::notify_sdt_actual(const sdt_data_t& sdt_data,
+void receiver_thread_t::cb_t::send_sdt_actual_to_scanner(const sdt_data_t& sdt_data,
+																												 const ss::vector_<subscription_id_t>& subscription_ids) {
+	/*
+		send an sdt_data message to a specific wxpython window (positioner_dialog)
+		which will then receive a EVT_COMMAND_ENTER
+		signal. Each window is associated with a subscription. The message is passed on if the subscription's
+		active_adapter uses the lnb which is stored in the sdt_data message
+	 */
+	auto mss = receiver.subscribers.readAccess();
+	for (auto [subsptr, ms_shared_ptr] : *mss) {
+		auto* ms = ms_shared_ptr.get();
+		if (!ms || ! ms->is_scanning())
+			continue;
+
+		if(subscription_ids.size() > 0) {
+			auto scanner = this->get_scanner();
+
+			/*
+				Inform the scanner of all its currently active child subscriptions.
+				The scanner will then decide for which of these subscriptions it will show signal_info
+				and will ignore unwanted signal_info
+			*/
+			if(scanner.get())
+				scanner->on_sdt_actual(*ms, subscription_ids, sdt_data);
+		}
+	}
+}
+
+//called from tuner thread when SDT ACTUAL has completed to report services to gui
+void receiver_t::on_sdt_actual(const sdt_data_t& sdt_data,
 																					const ss::vector_<subscription_id_t>& subscription_ids) {
 	/*
 		send an sdt_data message to a specific wxpython window (positioner_dialog)
@@ -1466,28 +1533,28 @@ void receiver_t::notify_sdt_actual(const sdt_data_t& sdt_data,
 		signal. Each window is associated with a subscription. The message is passed on if the subscription's
 		active_adapter uses the lnb which is stored in the sdt_data message
 	 */
+	bool has_scanning_subscribers{false};
 	if(sdt_data.mux_key.t2mi_pid<0) { //only notify for physical SDT
+
 		auto mss = this->subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
-
-			ms->notify_sdt_actual(sdt_data, subscription_ids);
-
-			if(subscription_ids.size() > 0) {
-				auto scanner = receiver_thread.get_scanner();
-
-				/*
-					Inform the scanner of all its currently active child subscriptions.
-					The scanner will then decide for which of these subscriptions it will show signal_info
-					and will ignore unwanted signal_info
-				*/
-				if(scanner.get())
-					scanner->notify_sdt_actual(*ms, subscription_ids, sdt_data);
+			if(ms->is_scanning()) {
+				has_scanning_subscribers = true;
+				continue;
 			}
+			ms->notify_sdt_actual(sdt_data, subscription_ids);
 		}
-
+	}
+	auto& receiver_thread = this->receiver_thread;
+	if(has_scanning_subscribers) {
+		//capturing by value is essential
+		receiver_thread.push_task([&receiver_thread, sdt_data, subscription_ids]() {
+			cb(receiver_thread).send_sdt_actual_to_scanner(sdt_data, subscription_ids);
+			return 0;
+		});
 	}
 }
 
@@ -1495,9 +1562,6 @@ void receiver_t::notify_sdt_actual(const sdt_data_t& sdt_data,
  */
 void receiver_t::notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_mux_end_report_t& report) {
 	{
-		auto scanner = receiver_thread.get_scanner();
-		if(!scanner)
-			return;
 		auto mss = this->subscribers.readAccess();
 		auto [it, found] = find_in_map_if(
 			*mss, [scan_subscription_id](auto&x) {
@@ -1514,13 +1578,30 @@ void receiver_t::notify_scan_mux_end(subscription_id_t scan_subscription_id, con
 	}
 }
 
+/*called from scanner loop to inform gui that a specific sat band has finished spectrum scanning
+ */
+void receiver_t::notify_spectrum_scan_band_end(subscription_id_t scan_subscription_id, const statdb::spectrum_t& spectrum) {
+	{
+		auto mss = this->subscribers.readAccess();
+		auto [it, found] = find_in_map_if(
+			*mss, [scan_subscription_id](auto&x) {
+				auto& sub= x.second;
+				return sub->get_subscription_id() == scan_subscription_id;
+			});
+		if(!found)
+			return;
+		auto& ms = it->second;
+		if (!ms)
+			return;
+		//Notify spectrum dialog and muxlist
+		ms->notify_spectrum_scan_band_end(spectrum);
+	}
+}
+
 //called from scanner loop to inform about scan statistics at start (for display on mux screen)
 void receiver_t::notify_scan_progress(subscription_id_t scan_subscription_id,
 																			const scan_stats_t& stats, bool is_start) {
 	{
-		auto scanner = receiver_thread.get_scanner();
-		if(!scanner)
-			return;
 		auto mss = this->subscribers.readAccess();
 		auto [it, found] = find_in_map_if(
 			*mss, [scan_subscription_id](auto&x) {
@@ -1537,30 +1618,62 @@ void receiver_t::notify_scan_progress(subscription_id_t scan_subscription_id,
 	}
 }
 
+
+void receiver_thread_t::cb_t::send_spectrum_to_scanner(const spectrum_scan_t& scan,
+																											 const ss::vector_<subscription_id_t>& subscription_ids) {
+
+	auto scanner = this->get_scanner();
+	if (!scanner.get()) {
+		return;
+	}
+	auto mss = receiver.subscribers.readAccess();
+
+	for (auto [subsptr, ms_shared_ptr] : *mss) {
+		auto* ms = ms_shared_ptr.get();
+		if (!ms || ! ms->is_scanning())
+			continue;
+		if(subscription_ids.size() > 0) {
+			//dtdebugf("Calling scanner->on_scan_spectrum_end: adapter={}  mux={} subscription_id={}",
+			//				 finished_fe.adapter_no, finished_mux, (int) subscription_id);
+			auto remove_scanner = scanner->on_spectrum_scan_band_end(*ms, subscription_ids, scan);
+			if (remove_scanner) {
+				reset_scanner();
+				break;
+			}
+		}
+	}
+}
+
 //called from fe_monitor code
-void receiver_t::notify_spectrum_scan(const spectrum_scan_t& scan,
+void receiver_t::on_spectrum_scan_end(const spectrum_scan_t& scan,
 																			const ss::vector_<subscription_id_t>& subscription_ids) {
+	bool has_scanning_subscribers{false};
 	{
-		auto scanner = receiver_thread.get_scanner();
 		auto mss = subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
+			if(ms->is_scanning()) {
+				has_scanning_subscribers = true;
+				continue;
+			}
+
 			/*
 				a subscriber can either directly handle the received signal info via
-				ms->notify_spectrum_scan, or indirectly via scanner->on_spectrum_band_end(*ms...)
+				ms->notify_spectrum_scan_band_end, or indirectly via scanner->on_spectrum_scan_band_end(*ms...)
 			*/
 			if(scan.spectrum)
-				ms->notify_spectrum_scan(*scan.spectrum, subscription_ids);
-
-			if(subscription_ids.size() > 0) {
-#ifdef TODO2
-				if(scanner)
-					scanner->on_spectrum_band_end(subscriber, subscription_ids, scan);
-#endif
-			}
+				ms->notify_spectrum_scan_band_end(*scan.spectrum, subscription_ids);
 		}
+	}
+	auto& receiver_thread = this->receiver_thread;
+	if(has_scanning_subscribers) {
+		//capturing by value is essential
+		receiver_thread.push_task([&receiver_thread, scan, subscription_ids]() {
+			cb(receiver_thread).send_spectrum_to_scanner(scan, subscription_ids);
+			return 0;
+		});
 	}
 }
 
@@ -1793,13 +1906,14 @@ tune_options_t receiver_t::get_default_tune_options(bool for_scan) const
 	return ret;
 }
 
-void receiver_thread_t::cb_t::on_spectrum_band_end(const subscriber_t& subscriber,
+#ifdef TODO2
+void receiver_thread_t::cb_t::on_spectrum_scan_band_end(const subscriber_t& subscriber,
 																									 const ss::vector_<subscription_id_t>& subscription_ids,
 																									 const statdb::spectrum_t& spectrum) {
 		auto scanner = get_scanner();
-		scanner->on_spectrum_band_end(subscriber, subscription_ids, spectrum);
+		scanner->on_spectrum_scan_band_end(subscriber, subscription_ids, spectrum);
 }
-
+#endif
 
 thread_local thread_group_t thread_group{thread_group_t::unknown};
 

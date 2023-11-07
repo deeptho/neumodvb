@@ -437,7 +437,7 @@ class scanner_t {
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
 											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
 
-	bool on_spectrum_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
+	bool on_spectrum_scan_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
 														const spectrum_scan_t& spectrum_scan);
 	bool housekeeping(bool force);
 	subscription_id_t scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id);
@@ -462,9 +462,9 @@ public:
 	}
 
 
-	void notify_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
+	void on_signal_info(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
 													const signal_info_t& signal_info);
-	void notify_sdt_actual(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
+	void on_sdt_actual(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
 												 const sdt_data_t& sdt_data);
 
 };

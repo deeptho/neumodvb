@@ -311,17 +311,7 @@ public:
 private:
 	//safe to access from other threads (only tasks can be called)
 
-public:
-
-	inline std::shared_ptr<active_adapter_t> find_active_adapter(subscription_id_t subscription_id) {
-		if (must_exit()) {
-			dterrorf("Cannot retrieve active adapter because shutting down: {:d}", (int) subscription_id);
-			return nullptr;
-		}
-		auto [it, found] = find_in_safe_map(this->active_adapters, subscription_id);
-		return found ? it->second : nullptr;
-	}
-	inline std::shared_ptr<scanner_t> get_scanner() const {
+		inline std::shared_ptr<scanner_t> get_scanner() const {
 		auto r= scanner.readAccess();
 		return *r;
 	}
@@ -333,6 +323,18 @@ public:
 	inline void reset_scanner() {
 		auto w= scanner.writeAccess();
 		w->reset();
+	}
+
+
+public:
+
+	inline std::shared_ptr<active_adapter_t> find_active_adapter(subscription_id_t subscription_id) {
+		if (must_exit()) {
+			dterrorf("Cannot retrieve active adapter because shutting down: {:d}", (int) subscription_id);
+			return nullptr;
+		}
+		auto [it, found] = find_in_safe_map(this->active_adapters, subscription_id);
+		return found ? it->second : nullptr;
 	}
 
 	receiver_thread_t(receiver_t& receiver);
@@ -379,6 +381,7 @@ private:
 																			 subscription_id_t subscription_id);
 
 	virtual int run() final;
+
 public:
 	//functions safe to call from other threads
 	class cb_t;
@@ -430,11 +433,17 @@ public:
 	int start_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 	int start_recording(const chdb::service_t& service, system_time_t start_time, int duration);
 
-	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
-											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
-	void on_spectrum_band_end(const subscriber_t& subscriber,
+#ifdef TODO2
+	void on_spectrum_scan_band_end(const subscriber_t& subscriber,
 														const ss::vector_<subscription_id_t>& subscription_ids,
 														const statdb::spectrum_t& spectrum);
+#endif
+	void send_signal_info_to_scanner(const signal_info_t& info, const ss::vector_<subscription_id_t>& subscription_ids);
+	void send_sdt_actual_to_scanner(const sdt_data_t& sdt_data, const ss::vector_<subscription_id_t>& subscription_ids);
+	void send_spectrum_to_scanner(const spectrum_scan_t& scan, const ss::vector_<subscription_id_t>& subscription_ids);
+	void send_scan_mux_end_to_scanner(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
+																		const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
+
 	int scan_now();
 	void renumber_card(int old_number, int new_number);
 	int update_usals_pos(const devdb::lnb_t& lnb);
@@ -585,15 +594,28 @@ public:
 		return receiver_thread.fe_for_dbfe(fe_key);
 	}
 
-	void notify_spectrum_scan(const spectrum_scan_t& scan,
+	//thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously
+	void on_spectrum_scan_end(const spectrum_scan_t& scan,
 														const ss::vector_<subscription_id_t>& subscription_ids);
 
-	void notify_signal_info(const signal_info_t& info, const ss::vector_<subscription_id_t>& subscription_ids);
+	//thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously
+	void on_signal_info(const signal_info_t& info, const ss::vector_<subscription_id_t>& subscription_ids);
+
+	//thread-safe; called from tuner; notify non-scanning python subscribers synchronously and scanner asynchronously
+	void on_sdt_actual(const sdt_data_t& sdt_data, const ss::vector_<subscription_id_t>& subscription_ids);
+
+	//thread-safe; called from tuner; notify scanner asynchronously
+	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
+											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
+
+	void notify_spectrum_scan_band_end(subscription_id_t scan_subscription_id, const statdb::spectrum_t& spectrum);
+
+	//thread-safe; called from scanner; notify single python scanning subscriber synchronously
 	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_mux_end_report_t& report);
 
+	//thread-safe; called from scanner; notify single python scanning subscriber synchronously
 	void notify_scan_progress(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats,
 														bool is_start);
-	void notify_sdt_actual(const sdt_data_t& sdt_data, const ss::vector_<subscription_id_t>& subscription_ids);
 
 	inline devdb::usals_location_t get_usals_location() const {
 		auto r = options.readAccess();

@@ -71,7 +71,7 @@ void fe_monitor_thread_t::update_lock_status_and_signal_info(fe_status_t fe_stat
 						 (e.signal_strength * 1e-3), (e.snr * 1e-3));
 	}
 	dttime_init();
-	receiver.notify_signal_info(info, fe->get_subscription_ids());
+	receiver.on_signal_info(info, fe->get_subscription_ids());
 	dttime(200);
 	{
 		auto w = fe->signal_monitor.writeAccess();
@@ -131,7 +131,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 			txn.commit();
 			auto finished_fe = fe->dbfe();
 
-			receiver.notify_spectrum_scan(*scan, fe->get_subscription_ids());
+			receiver.on_spectrum_scan_end(*scan, fe->get_subscription_ids());
 		}
 	}
 

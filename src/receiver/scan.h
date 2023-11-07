@@ -383,12 +383,24 @@ private:
 
 	subscription_id_t scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 															subscription_id_t subscription_id, scan_subscription_t& subscription);
+
+	std::tuple<int, subscription_id_t>
+	scan_next_peaks(db_txn& chdb_rtxn,
+									subscription_id_t reuseable_subscription_id,
+									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
+
+	template<typename mux_t>
+	std::tuple<int, subscription_id_t>
+	scan_next_muxes(db_txn& chdb_rtxn,
+									subscription_id_t reuseable_subscription_id,
+									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
+
 	template<typename mux_t>
 	std::tuple<int, int, /*int, int,*/ subscription_id_t>
 	scan_next(db_txn& chdb_rtxn, subscription_id_t finished_subscription_id,
 						scan_subscription_t& subscription);
 
-	subscription_id_t try_all_muxes(
+	subscription_id_t try_all(
 		db_txn& chdb_rtxn, /*subscription_id_t finished_subscription_id,*/ scan_subscription_t& subscription,
 
 ///ffffffff

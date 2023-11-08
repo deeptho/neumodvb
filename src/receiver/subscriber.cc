@@ -85,14 +85,6 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 														 const ss::vector_<chdb::fe_polarisation_t>& pols,
 														 int32_t low_freq, int32_t high_freq) {
 	set_scanning(true);
-	{
-		auto w = notification.writeAccess();
-		auto & n = *w;
-		n.sat_pos = sat_pos_none;
-		n.rf_path = {};
-		//todo: allow multiple scans on different sats/lnbs
-	}
-
 	auto tune_options = receiver->get_default_tune_options(true /*for scan*/);
 	tune_options.spectrum_scan_options.start_freq = low_freq;
 	tune_options.spectrum_scan_options.end_freq = high_freq;
@@ -106,13 +98,6 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																			const statdb::spectrum_key_t& spectrum_key) {
 	set_scanning(true);
-	{
-		auto w = notification.writeAccess();
-		auto & n = *w;
-		n.sat_pos = spectrum_key.sat_pos;
-		n.rf_path = spectrum_key.rf_path;
-		//todo: allow multiple scans on different sats/lnbs
-	}
 	subscription_id = receiver->scan_spectral_peaks(peaks, spectrum_key, subscription_id);
 	return (int)subscription_id;
 }
@@ -122,14 +107,6 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 														 ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
 														 const std::optional<tune_options_t>& tune_options_) {
 	set_scanning(true);
-	{
-		auto w = notification.writeAccess();
-		auto & n = *w;
-		n.sat_pos = sat_pos_none;
-		n.rf_path = {};
-		//todo: allow multiple scans on different sats/lnbs
-	}
-
 	auto& tune_options = tune_options_ ? *tune_options_ :
 		receiver->get_default_tune_options(true /*for scan*/);
 

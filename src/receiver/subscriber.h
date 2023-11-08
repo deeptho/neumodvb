@@ -51,15 +51,6 @@ namespace pybind11 {
 struct blindscan_t;
 struct sdt_data_t;
 
-struct notification_t {
-	int16_t sat_pos{sat_pos_none};
-	devdb::rf_path_t rf_path;
-
-	inline bool matches( int16_t sat_pos, const devdb::rf_path_t& rf_path) const {
-		return sat_pos == this->sat_pos && rf_path == this->rf_path;
-	}
-};
-
 class subscriber_t
 {
 	pid_t owner;
@@ -80,8 +71,6 @@ public:
 		SCAN_MUX_END = (1<<5),
 		SDT_ACTUAL = (1<<6)
 	};
-
-	safe::Safe<notification_t> notification;
 	int event_flag{
 		int(event_type_t::ERROR_MSG) |
 		int(event_type_t::SCAN_START) |

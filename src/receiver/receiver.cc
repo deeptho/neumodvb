@@ -1530,7 +1530,8 @@ void receiver_t::on_signal_info(const signal_info_t& signal_info,
 				one associated with a specific adapter or lnb. A "blindscan all" spectrum_dialog will
 				ignore the following call
 			*/
-			ms->notify_signal_info(signal_info, subscription_ids);
+			if(subscription_ids.contains(ms->get_subscription_id()))
+				ms->notify_signal_info(signal_info);
 		}
 	}
 	auto& receiver_thread = this->receiver_thread;
@@ -1593,7 +1594,8 @@ void receiver_t::on_sdt_actual(const sdt_data_t& sdt_data,
 				has_scanning_subscribers = true;
 				continue;
 			}
-			ms->notify_sdt_actual(sdt_data, subscription_ids);
+			if(subscription_ids.contains(ms->get_subscription_id()))
+				ms->notify_sdt_actual(sdt_data);
 		}
 	}
 	auto& receiver_thread = this->receiver_thread;
@@ -1711,8 +1713,8 @@ void receiver_t::on_spectrum_scan_end(const spectrum_scan_t& scan,
 				a subscriber can either directly handle the received signal info via
 				ms->notify_spectrum_scan_band_end, or indirectly via scanner->on_spectrum_scan_band_end(*ms...)
 			*/
-			if(scan.spectrum)
-				ms->notify_spectrum_scan_band_end(*scan.spectrum, subscription_ids);
+			if(scan.spectrum &&  subscription_ids.contains(ms->get_subscription_id()))
+				ms->notify_spectrum_scan_band_end(*scan.spectrum);
 		}
 	}
 	auto& receiver_thread = this->receiver_thread;

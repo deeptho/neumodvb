@@ -238,16 +238,6 @@ void subscriber_t::notify_signal_info(const signal_info_t& signal_info) const {
 	notify(signal_info);
 }
 
-void subscriber_t::notify_signal_info(const signal_info_t& signal_info,
-																			const ss::vector_<subscription_id_t>& subscription_ids) const {
-	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
-		return;
-	if(subscription_ids.contains(subscription_id)) {
-		/* GUI tuned to a specific mux, e.g., positioner_dialog*/
-		notify(signal_info);
-	}
-}
-
 void subscriber_t::notify_scan_progress(const scan_stats_t& scan_stats, bool is_start) {
 	auto match = is_start ? subscriber_t::event_type_t::SCAN_START
 		: subscriber_t::event_type_t::SCAN_PROGRESS;
@@ -270,17 +260,6 @@ void subscriber_t::notify_scan_band_end(const scan_mux_end_report_t& report) {
 }
 #endif
 
-void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data,
-																		 const ss::vector_<subscription_id_t>& subscription_ids) const
-{
-	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))
-		return;
-	if(subscription_ids.contains(subscription_id)) {
-		/* GUI tuned to a specific mux, e.g., positioner_dialog*/
-		notify(sdt_data);
-	}
-}
-
 void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data) const
 {
 	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))
@@ -299,15 +278,6 @@ void subscriber_t::notify_spectrum_scan_band_end(const statdb::spectrum_t& spect
 	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
 		return;
 	notify(spectrum);
-}
-
-void subscriber_t::notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum,
-																				const ss::vector_<subscription_id_t>& subscription_ids) {
-	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
-		return;
-	if(subscription_ids.contains(subscription_id)) {
-		notify(spectrum);
-	}
 }
 
 template

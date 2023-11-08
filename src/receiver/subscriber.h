@@ -113,17 +113,8 @@ public:
 	void notify_scan_band_end(const scan_band_end_report_t& report);
 	#endif
 	void notify_sdt_actual(const sdt_data_t& sdt_data) const;
-	void notify_sdt_actual(const sdt_data_t& sdt_data,
-												 const ss::vector_<subscription_id_t>& subscription_ids) const;
-
 	void notify_signal_info(const signal_info_t& info) const;
-	void notify_signal_info(const signal_info_t& info,
-													const ss::vector_<subscription_id_t>& subscription_ids) const;
-
 	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum);
-
-	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum,
-														const ss::vector_<subscription_id_t>& subscription_ids);
 
 	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window);
 	EXPORT static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window);

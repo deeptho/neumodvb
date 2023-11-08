@@ -21,13 +21,15 @@
 #pragma once
 
 enum class subscription_type_t {
-	NORMAL, /*regular viewing: resourced are reserved non-exclusively. This means other lnbs on the same dish
+	TUNE, /*regular viewing: resourced are reserved non-exclusively. This means other lnbs on the same dish
 						can be used by other subscriptions
 					*/
-	SCAN, /*scanning muxes in the background: resources are reserved non-exclusively, also reserved
-					non-exclusively
-					*/
-	LNB_EXCLUSIVE,     /*in this case, a second subscriber cannot subscribe to the mux
+	MUX_SCAN,  /*scanning muxes in the background: resources are reserved non-exclusively, also reserved
+							 non-exclusively
+						 */
+	SPECTRUM_SCAN,  /*scanning muxes band in the background: resources are reserved non-exclusively
+									*/
+	LNB_CONTROL,     /*in this case, a second subscriber cannot subscribe to the mux
 						at first tune, position data is used from the lnb. Retunes cannot
 						change the positioner and diseqc settings afterwards. Instead, the user
 						must explicitly force them by a new tune call (diseqc swicthes), or by sending a
@@ -36,11 +38,6 @@ enum class subscription_type_t {
 						Also, lnb and dish are reserved exclusively, which means no other lnbs on the dish
 						can be used on the same dish
 					 */
-	DISH_EXCLUSIVE /* To be used for secondary subscriptions which are under the control of a user with a DX
-							subscription. E.g., this can be used to spectrum scan using multiple frontends ithout having to
-							exclusively lock sat_pos, polband....
-							implies all the power of LNB_EXCLUSIVE
-						*/
 	};
 
 enum class scan_target_t :	int
@@ -115,7 +112,7 @@ struct tune_options_t {
 	constellation_options_t constellation_options;
 
 	//retune_mode_t retune_mode{retune_mode_t::ALLOWED}; //positioner not allowed when in positioner_dialog
-	subscription_type_t subscription_type{subscription_type_t::NORMAL};
+	subscription_type_t subscription_type{subscription_type_t::TUNE};
 	devdb::usals_location_t usals_location;
 	int resource_reuse_bonus{0};
 	int dish_move_penalty{0};
@@ -132,7 +129,7 @@ struct tune_options_t {
 
 	tune_options_t(scan_target_t scan_target =  scan_target_t::SCAN_FULL,
 								 tune_mode_t tune_mode= tune_mode_t::NORMAL,
-								 subscription_type_t subscription_type = subscription_type_t::NORMAL)
+								 subscription_type_t subscription_type = subscription_type_t::TUNE)
 		: scan_target(scan_target)
 		, tune_mode(tune_mode)
 		, subscription_type(subscription_type)

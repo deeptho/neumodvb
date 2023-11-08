@@ -525,7 +525,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	if(sret.sub_to_reuse == sret.subscription_id)  {
 		assert(old_active_adapter);
 		dtdebugf("already subscribed to mux {}", mux);
-		if(tune_options.subscription_type == subscription_type_t::NORMAL) {
+		if(tune_options.subscription_type == subscription_type_t::TUNE) {
 			add_si(*old_active_adapter, mux, tune_options, sret.subscription_id);
 		} else {
 			/// during DX-ing and scanning retunes need to be forced

@@ -216,7 +216,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	const chdb::any_mux_t& mux, const chdb::service_t& service, subscription_id_t subscription_id) {
 
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = receiver.get_default_tune_options(false /*for_scan*/);
+	auto tune_options = receiver.get_default_tune_options(subscription_type_t::TUNE);
 	tune_options.scan_target = scan_target_t::SCAN_FULL_AND_EPG;
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
@@ -443,11 +443,9 @@ subscription_id_t
 receiver_thread_t::subscribe_spectrum(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::sat_t& sat,
 	const chdb::band_scan_t& band_scan,
-	subscription_id_t subscription_id, const tune_options_t& tune_options_,
+	subscription_id_t subscription_id, const tune_options_t& tune_options,
 	const chdb::scan_id_t& scan_id,
 	bool do_not_unsubscribe_on_failure) {
-	auto tune_options = tune_options_;
-	tune_options.tune_mode = tune_mode_t::SPECTRUM;
 	subscribe_ret_t sret;
 	assert(tune_options.need_spectrum);
 
@@ -626,8 +624,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 	}
 	int max_num_subscriptions = 100;
 
-	tune_options.spectrum_scan_options.recompute_peaks = true;
-	tune_options.need_spectrum = true;
+	assert(tune_options.need_spectrum);
 	subscription_id = this->receiver_thread_t::scan_bands(futures, sats, pols, tune_options,
 																												max_num_subscriptions, subscription_id);
 
@@ -1107,7 +1104,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
 	tune_options.scan_target = scan_target_t::SCAN_FULL;
-	tune_options.subscription_type = subscription_type_t::LNB_EXCLUSIVE;
+	tune_options.subscription_type = subscription_type_t::SPECTRUM_SCAN;
 	tune_options.tune_mode = tune_mode_t::SPECTRUM;
 	auto& band_pol = tune_options.spectrum_scan_options.band_pol;
 	band_pol.pol = pol_;
@@ -1181,7 +1178,7 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 	}
 	std::vector<task_queue_t::future_t> futures;
 	tune_options_t tune_options;
-	tune_options.subscription_type = subscription_type_t::DISH_EXCLUSIVE;
+	tune_options.subscription_type = subscription_type_t::LNB_CONTROL;
 	tune_options.tune_mode = tune_mode_t::POSITIONER_CONTROL;
 	tune_options.retune_mode = retune_mode;
 	subscription_id_t ret_subscription_id;
@@ -1225,8 +1222,9 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 	tune_options_t tune_options;
 	tune_options.constellation_options.num_samples = 1024 * 16;
 	tune_options.scan_target = scan_target_t::SCAN_MINIMAL;
-	tune_options.subscription_type = subscription_type_t::DISH_EXCLUSIVE;
+	tune_options.subscription_type = subscription_type_t::LNB_CONTROL;
 	tune_options.need_blind_tune = blindscan;
+	tune_options.tune_mode = tune_options.need_blind_tune ? tune_mode_t::BLIND : tune_mode_t::NORMAL;
 	tune_options.retune_mode = retune_mode;
 	tune_options.pls_search_range = pls_search_range;
 	tune_options.allowed_rf_paths = {rf_path};
@@ -1934,25 +1932,48 @@ int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, d
 	return ret;
 }
 
-tune_options_t receiver_t::get_default_tune_options(bool for_scan) const
+tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscription_type) const
 {
 	tune_options_t ret;
+	ret.subscription_type = subscription_type;
+	bool for_scan = false;
+	switch(subscription_type) {
+	case subscription_type_t::TUNE:
+		ret.constellation_options.num_samples = 0;
+		ret.tune_mode = tune_mode_t::NORMAL;
+		break;
+	case subscription_type_t::SPECTRUM_SCAN:
+		ret.tune_mode = tune_mode_t::SPECTRUM;
+		ret.scan_target =  scan_target_t::SCAN_FULL;
+		ret.retune_mode = retune_mode_t::NEVER;
+		ret.constellation_options.num_samples = 0;
+		ret.need_spectrum = true;
+		ret.spectrum_scan_options.recompute_peaks = true;
+		for_scan=true;
+		break;
+	case subscription_type_t::MUX_SCAN: //for scan
+		ret.tune_mode = tune_mode_t::NORMAL;
+		ret.scan_target =  scan_target_t::SCAN_FULL;
+		ret.retune_mode = retune_mode_t::NEVER;
+		ret.constellation_options.num_samples = 0;
+		for_scan=true;
+		break;
+	case subscription_type_t::LNB_CONTROL:
+		ret.tune_mode = tune_mode_t::POSITIONER_CONTROL;
+		ret.constellation_options.num_samples = 16*1024;
+		break;
+	default:
+		assert(0);
+		break;
+	}
 	auto r = options.readAccess();
-
 	ret.resource_reuse_bonus = r->resource_reuse_bonus;
 	ret.dish_move_penalty = r->dish_move_penalty;
 	ret.usals_location = r->usals_location;
-
 	ret.need_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
-	if (for_scan) {
-		ret.scan_target =  scan_target_t::SCAN_FULL;
-		ret.retune_mode = retune_mode_t::NEVER;
-		ret.subscription_type = subscription_type_t::SCAN;
-		ret.constellation_options.num_samples = 1024 * 16;
-		ret.subscription_type = subscription_type_t::SCAN;
-	}
 	ret.may_move_dish = for_scan ? r->scan_may_move_dish: r->tune_may_move_dish;
 	ret.max_scan_duration = 	r->max_scan_duration;
+
 	return ret;
 }
 

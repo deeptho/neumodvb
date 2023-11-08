@@ -85,7 +85,10 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 														 const ss::vector_<chdb::fe_polarisation_t>& pols,
 														 int32_t low_freq, int32_t high_freq) {
 	set_scanning(true);
-	auto tune_options = receiver->get_default_tune_options(true /*for scan*/);
+	auto tune_options = receiver->get_default_tune_options(subscription_type_t::SPECTRUM_SCAN);
+	tune_options.tune_mode = tune_mode_t::SPECTRUM;
+	tune_options.need_spectrum = true;
+	tune_options.spectrum_scan_options.recompute_peaks = true;
 	tune_options.spectrum_scan_options.start_freq = low_freq;
 	tune_options.spectrum_scan_options.end_freq = high_freq;
 	subscription_id_t ret{subscription_id};
@@ -108,7 +111,7 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 														 const std::optional<tune_options_t>& tune_options_) {
 	set_scanning(true);
 	auto& tune_options = tune_options_ ? *tune_options_ :
-		receiver->get_default_tune_options(true /*for scan*/);
+		receiver->get_default_tune_options(subscription_type_t::MUX_SCAN);
 
 	subscription_id_t ret{subscription_id};
 	if(dvbs_muxes.size() > 0) {

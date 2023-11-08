@@ -1229,12 +1229,21 @@ std::tuple<int32_t, int32_t> chdb::sat_band_freq_bounds(chdb::sat_band_t sat_ban
 	}
 }
 
-chdb::band_scan_t& chdb::sat::band_scan_for_pol(chdb::sat_t& sat, const chdb::fe_polarisation_t pol) {
+chdb::band_scan_t& chdb::sat::band_scan_for_pol_sub_band(chdb::sat_t& sat,
+																												 chdb::fe_polarisation_t pol,
+																												 chdb::sat_sub_band_t sub_band) {
+
 	using namespace chdb;
-	if (pol == fe_polarisation_t::V || pol == fe_polarisation_t::R)
-		return sat.band_scan_rv;
-	else
-		return sat.band_scan_lh;
+	for(auto & band_scan: sat.band_scans) {
+		if (band_scan.pol == pol && band_scan.sat_sub_band == sub_band)
+			return band_scan;
+	}
+	band_scan_t band_scan;
+	band_scan.pol=pol;
+	band_scan.sat_band = sat.sat_band;
+	band_scan.sat_sub_band=sub_band;
+	sat.band_scans.push_back(band_scan);
+	return sat.band_scans[-1];
 }
 
 

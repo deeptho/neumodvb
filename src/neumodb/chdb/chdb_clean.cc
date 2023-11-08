@@ -77,8 +77,10 @@ static void chdb::clean_sats(db_txn& wtxn) {
 	};
 
 	for(auto sat: c.range())  {
-		bool changed = clean(sat.band_scan_lh);
-		changed  |= clean(sat.band_scan_rv);
+		bool changed{false};
+		for(auto & band_scan: sat.band_scans) {
+			changed  |= clean(band_scan);
+		}
 		if(changed) {
 			sat.mtime = system_clock_t::to_time_t(now);
 			put_record(wtxn, sat);

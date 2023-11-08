@@ -625,8 +625,7 @@ scan_t::scan_next_bands(db_txn& chdb_rtxn,
 
 	auto c = find_first<sat_t>(chdb_rtxn);
 	for(auto sat_to_scan: c.range()) {
-		for(auto pass = 0; pass <2; ++pass) {
-			auto& band_scan = pass == 0 ? sat_to_scan.band_scan_rv : sat_to_scan.band_scan_lh;
+		for(auto& band_scan: sat_to_scan.band_scans) {
 			if(!scanner_t::is_our_scan(band_scan.scan_id))
 				continue;
 
@@ -1085,11 +1084,8 @@ scan_t::scan_try_band(subscription_id_t reuseable_subscription_id,
 			band_scan.scan_id = {};
 			band_scan.scan_rf_path = {}; //not valid
 			band_scan.scan_time = 0; //TODO: start time is now set in spectrum_scan_options, but this will not work
-			namespace m = chdb::update_mux_preserve_t;
-			if (band_scan.pol == sat.band_scan_lh.pol)
-				sat.band_scan_lh = band_scan;
-			else
-				sat.band_scan_rv = band_scan;
+
+			chdb::sat::band_scan_for_pol_sub_band(sat, band_scan.pol, band_scan.sat_sub_band) = band_scan;
 			sat.mtime = system_clock_t::to_time_t(now);
 			chdb_wtxn.commit();
 			subscription_id = subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
@@ -1312,7 +1308,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 		auto [ sat_band, sat_sub_band] = band_sub_band_tuple;
 		int num_added{0};
 		for (auto pol: pols) {
-			auto& band_scan = sat::band_scan_for_pol(sat, pol);
+			auto& band_scan = sat::band_scan_for_pol_sub_band(sat, pol, sat_sub_band);
 			auto saved = band_scan;
 			band_scan.pol = pol;
 			band_scan.sat_band = sat_band;

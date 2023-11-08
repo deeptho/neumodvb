@@ -37,10 +37,12 @@ from neumodvb.satbandlist_combo import EVT_SATBAND_SELECT
 import pychdb
 
 def band_scans_fn(x):
-    scan = x[1]
-    if scan.pol == pychdb.fe_polarisation_t.NONE:
-        return ''
-    return f'{enum_to_str(scan.pol)}: {enum_to_str(scan.spectrum_scan_status)}/{enum_to_str(scan.mux_scan_status)}'
+    scans = x[1]
+    ret =[]
+    for scan in scans:
+        d = datetime.datetime.fromtimestamp(scan.scan_time, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+        ret.append(f'{enum_to_str(scan.pol)}: {d}: {enum_to_str(scan.scan_status)}')
+    return '\n'.join(ret)
 
 class SatTable(NeumoTable):
     CD = NeumoTable.CD
@@ -56,10 +58,8 @@ class SatTable(NeumoTable):
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
          CD(key='sat_band',  label='Band', basic=True, dfn = lambda x: enum_to_str(x[1]), example="KaA "),
          CD(key='name',  label='Name', basic=True, example=" Eutelsat 6a/12b13c "),
-         CD(key='band_scan_lh', label='Spectrum Scan\nstatus LH', dfn=band_scans_fn, example='H: PARTIAL/PARTIAL '),
-         CD(key='band_scan_lh', label='Scanned\nLH', dfn = scan_time_fn, example='2023-12-31 00:00:00 '),
-         CD(key='band_scan_rv', label='Spectrum Scan\nStatus RV', dfn=band_scans_fn, example='H: PARTIAL/PARTIAL '),
-         CD(key='band_scan_rv', label='Scanned\nRV', dfn = scan_time_fn, example='2023-12-31 00:00:00 ')
+         CD(key='band_scans', label='Scan\nstatus', dfn=band_scans_fn,
+            example='H: 2023-12-31 00:00:00 PARTIAL/PARTIAL '*4),
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):

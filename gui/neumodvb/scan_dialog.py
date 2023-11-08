@@ -28,7 +28,7 @@ from enum import Enum
 
 from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb.neumo_dialogs_gui import ScanDialog_
-from pyreceiver import tune_options_t
+from pyreceiver import tune_options_t, subscription_type_t
 import pychdb
 
 class ScanDialog(ScanDialog_):
@@ -36,7 +36,9 @@ class ScanDialog(ScanDialog_):
         p_t = pychdb.fe_polarisation_t
         super().__init__(parent, *args, **kwds)
         self.receiver = wx.GetApp().receiver
-        self.tune_options = self.receiver.get_default_tune_options(for_scan=True)
+        self.tune_options = self.receiver.get_default_tune_options(
+            subscription_type= subscription_type_t.SPECTRUM_SCAN if allow_band_scan \
+            else subscription_type_t.MUX_SCAN)
         self.allow_band_scan = allow_band_scan
         self.band_scan = allow_band_scan #use spectrum scan by default in this case
         self.tune_options.use_blind_tune = self.band_scan #must use blind tune when spectrum scanning

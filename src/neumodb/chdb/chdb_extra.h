@@ -271,7 +271,9 @@ namespace chdb {
 }
 
 namespace chdb::sat {
-	chdb::band_scan_t& band_scan_for_pol(chdb::sat_t& sat, const chdb::fe_polarisation_t pol);
+	chdb::band_scan_t& band_scan_for_pol_sub_band(chdb::sat_t& sat, chdb::fe_polarisation_t pol,
+																								chdb::sat_sub_band_t sub_band);
+
 
 /*!
 		find a satellite which is close to position; returns the best match

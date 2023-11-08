@@ -282,7 +282,6 @@ void active_si_stream_t::check_scan_mux_end()
 
 	auto dbfe = active_adapter().fe->dbfe();
 	auto mux = reader->stream_mux();
-	auto& receiver_thread = active_adapter().receiver.receiver_thread;
 
 	dtdebugf("calling on_scan_mux_end dbfe={} mux={} scan_result={}",
 					dbfe, mux, mux_common_ptr(mux)->scan_result);

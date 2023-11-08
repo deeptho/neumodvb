@@ -647,7 +647,6 @@ scan_t::scan_next_bands(db_txn& chdb_rtxn,
 			if(receiver_thread.must_exit())
 				throw std::runtime_error("Exit requested");
 
-			auto pol = band_scan.pol;
 			blindscan_key_t key = {sat_to_scan.sat_pos, band_scan}; //band_scan is translated to band
 			//auto [it, found] = find_in_map(blindscans, key);
 			subscription.blindscan_key = key;

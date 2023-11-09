@@ -369,7 +369,7 @@ public:
 
 	std::tuple<int, int>
 	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										const tune_options_t tune_options);
+										const tune_options_t& tune_options);
 	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 															const tune_options_t& tune_options);
 

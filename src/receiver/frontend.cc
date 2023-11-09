@@ -1227,8 +1227,8 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	         new_usals_sat_pos
  */
 std::tuple<int, int>
-dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
-																	const devdb::lnb_t& lnb, const tune_options_t tune_options) {
+dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+																	const tune_options_t& tune_options) {
 	this->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
 	auto band = tune_options.spectrum_scan_options.band_pol.band;
 	auto pol = tune_options.spectrum_scan_options.band_pol.pol;

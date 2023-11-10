@@ -1207,13 +1207,22 @@ std::tuple<chdb::sat_band_t, chdb::sat_sub_band_t> chdb::sat_band_for_freq(int f
 	return {sat_band_t::UNKNOWN, sat_sub_band_t::LOW};
 }
 
-std::tuple<int32_t, int32_t> chdb::sat_band_freq_bounds(chdb::sat_band_t sat_band) {
+std::tuple<int32_t, int32_t> chdb::sat_band_freq_bounds(chdb::sat_band_t sat_band, chdb::sat_sub_band_t sub_band) {
 	using namespace chdb;
 	switch(sat_band) {
 	case sat_band_t::C:
 		return {3400000, 4200000};
 	case sat_band_t::Ku:
-		return {10700000, 12750000};
+		switch(sub_band) {
+		default:
+		case sat_sub_band_t::NONE:
+			return {10700000, 12750000};
+		case sat_sub_band_t::LOW:
+			return {10700000, 11700000};
+		case sat_sub_band_t::HIGH:
+			return {11700000, 12750000};
+		}
+		break;
 	case sat_band_t::KaA:
 		return {18200000, 19200000};
 	case sat_band_t::KaB:

@@ -38,7 +38,7 @@ namespace chdb {
 	using namespace chdb;
 
 	std::tuple<chdb::sat_band_t, chdb::sat_sub_band_t> sat_band_for_freq(int frequency);
-	std::tuple<int32_t, int32_t> sat_band_freq_bounds(chdb::sat_band_t sat_band);
+	std::tuple<int32_t, int32_t> sat_band_freq_bounds(chdb::sat_band_t sat_band, chdb::sat_sub_band_t sub_band);
 
 	using any_mux_t = std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t>;
 	bool has_epg_type(const chdb::any_mux_t& mux, chdb::epg_type_t epg_type);

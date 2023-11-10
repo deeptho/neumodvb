@@ -984,7 +984,7 @@ inline void spectrum_scan_t::adjust_frequencies(const devdb::lnb_t& lnb, int hig
 std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& spectrum_path) {
 	this->num_constellation_samples = 0;
 	this->clear_lock_status();
-	std::optional<spectrum_scan_t> ret;
+	std::optional<spectrum_scan_t> ret = spectrum_scan_t{};
 	auto& scan = *ret;
 	struct dtv_property p[] = {
 		{.cmd = DTV_SPECTRUM}, // 0 DVB-S, 9 DVB-S2

@@ -102,6 +102,22 @@ static void report(const char* msg, subscription_id_t finished_subscription_id,
 	dtdebugf("{}", s);
 }
 
+static void report(const char* msg, subscription_id_t finished_subscription_id,
+									 subscription_id_t subscription_id, const chdb::sat_t& sat,
+									 const chdb::band_scan_t& band_scan,
+									 const std::map<subscription_id_t, scan_subscription_t>& subscriptions)
+{
+	if ((int) finished_subscription_id < 0 && (int) subscription_id < 0)
+		return;
+	ss::string<128> s;
+	s.format(" Scan  {:s} {}:{} finished_subscription_id={:d} subscription_id={:d} todo=[",
+					 msg, sat, band_scan, (int)finished_subscription_id, (int)subscription_id);
+	for (auto& [id, unused] : subscriptions)
+		s.format("[:2d] ", (int)id);
+	s.format("] \n");
+	dtdebugf("{}", s);
+}
+
 
 bool blindscan_key_t::operator<(const blindscan_key_t& other) const {
 	if(sat_pos != other.sat_pos)
@@ -1058,9 +1074,9 @@ scan_t::scan_try_band(subscription_id_t reuseable_subscription_id,
 
 	if((int)subscription_id >=0) {
 		report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", reuseable_subscription_id, subscription_id,
-					 *subscription.mux, subscriptions);
-		dtdebugf("Asked to subscribe {} reuseable_subscription_id={} subscription_id={} peak={}",
-						 *subscription.mux, (int) reuseable_subscription_id,
+					 sat, band_scan, subscriptions);
+		dtdebugf("Asked to subscribe {}:{} reuseable_subscription_id={} subscription_id={} peak={}",
+						 sat, band_scan, (int) reuseable_subscription_id,
 						 (int) subscription_id, subscription.peak.peak.frequency);
 	}
 
@@ -1093,9 +1109,8 @@ scan_t::scan_try_band(subscription_id_t reuseable_subscription_id,
 		subscription.subscription_id = subscription_id;
 		return reuseable_subscription_id;
 	}
-	last_subscribed_mux = *subscription.mux;
-	dtdebugf("subscribed to {} subscription_id={} reuseable_subscription_id={}",
-					 *subscription.mux,(int) subscription_id, (int) reuseable_subscription_id);
+	dtdebugf("subscribed to {}:{} subscription_id={} reuseable_subscription_id={}",
+					 sat, band_scan, (int)subscription_id, (int) reuseable_subscription_id);
 
 	/*at this point, we know that our newly subscribed fe differs from our old subscribed fe
 	 */
@@ -1296,14 +1311,13 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 	bool init = inserted;
 	auto& scan = it->second;
 	assert(scan.scan_subscription_id == scan_subscription_id);
-	auto scan_id = scan.make_scan_id(scan_subscription_id, tune_options);
 	int added_bands{0};
 	/*
 		Add a band to scan to a sat, except if the band is already marked for scanning
 		Overwrite old data if needed to avoid ever increasing lists
 		@todo: if a user removes a band from a satellite, it is not possible to remove the old scan record
 	 */
-	auto push_bands = [&pols, &devdb_rtxn, &scan, scan_id](
+	auto push_bands = [&pols, &devdb_rtxn, &scan, &tune_options, scan_subscription_id](
 		sat_t& sat, auto band_sub_band_tuple ) {
 		auto [ sat_band, sat_sub_band] = band_sub_band_tuple;
 		int num_added{0};
@@ -1314,6 +1328,18 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 			band_scan.sat_band = sat_band;
 			band_scan.sat_sub_band = sat_sub_band;
 			band_scan.scan_status = scan_status_t::PENDING;
+			auto o = tune_options; //make a copy
+			auto& so = o.spectrum_scan_options;
+			so.band_pol.band = band_scan.sat_sub_band;
+			so.band_pol.pol = pol;
+			so.sat_pos = sat.sat_pos;
+
+			auto [l, h] =sat_band_freq_bounds(sat_band, sat_sub_band);
+			if(so.start_freq < l)
+				so.start_freq = l;
+			if(so.end_freq > h)
+				so.end_freq = h;
+			auto scan_id = scan.make_scan_id(scan_subscription_id, o);
 			band_scan.scan_id=scan_id;
 			if(!can_subscribe(devdb_rtxn, sat, band_scan, scan.tune_options_for_scan_id(scan_id))) {
 				dtdebugf("Skipping sat that cannot be tuned: {}", sat);
@@ -1329,7 +1355,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 		if(c.is_valid())
 			sat = c.current(); //reload uptodate information from database
 		auto l = chdb::sat_band_for_freq(tune_options.spectrum_scan_options.start_freq);
-		auto h = chdb::sat_band_for_freq(tune_options.spectrum_scan_options.start_freq);
+		auto h = chdb::sat_band_for_freq(tune_options.spectrum_scan_options.end_freq-1);
 		int added = push_bands(sat, l);
 		if(h != l)
 			added += push_bands(sat, h);

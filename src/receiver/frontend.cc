@@ -1476,8 +1476,8 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 	}
 	assert(start_freq <= end_freq);
 
-	dtdebugf("Spectrum acquisition on lnb {} diseqc={} range=[{}, {}]",
-					lnb, conn->tune_string, start_freq, end_freq);
+	dtdebugf("Spectrum acquisition on lnb {} diseqc={} range=[{}, {}] pol={}",
+					 lnb, conn->tune_string, start_freq, end_freq, options.band_pol.pol);
 
 	start_freq = devdb::lnb::driver_freq_for_freq(lnb, start_freq);
 	end_freq = devdb::lnb::driver_freq_for_freq(lnb, end_freq - 1) + 1;

@@ -129,6 +129,7 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 		assert(aa.lnb);
 		return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_options);
 	}
+#ifdef TODO // dead code? or error?
 	if(sret.aa.is_new_aa())  {
 		auto& aa = sret.aa;
 		assert(aa.rf_path);
@@ -137,7 +138,8 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 	}
 	assert(sret.sub_to_reuse == sret.subscription_id);
 	return active_adapter.lnb_activate(active_adapter.current_rf_path(),
-																			active_adapter.current_lnb(), tune_options);
+																		 active_adapter.current_lnb(), tune_options, spectrum_scan_options);
+#endif
 }
 
 

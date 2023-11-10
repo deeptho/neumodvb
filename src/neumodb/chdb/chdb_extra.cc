@@ -1317,7 +1317,8 @@ fmt::formatter<chdb::sat_t>::format(const chdb::sat_t& sat, format_context& ctx)
 
 fmt::format_context::iterator
 fmt::formatter<chdb::dvbs_mux_t>::format(const chdb::dvbs_mux_t& mux, format_context& ctx) const {
-	auto it = fmt::format_to(ctx.out(), "{:d}{:03d}{:s}", mux.frequency / 1000, mux.frequency%1000, enum_to_str(mux.pol));
+	auto it = fmt::format_to(ctx.out(), "{:d}.{:03d}{:s}", mux.frequency / 1000,
+													 mux.frequency%1000, enum_to_str(mux.pol));
 	if (mux.k.stream_id >= 0)
 		it = fmt::format_to(ctx.out(), "-{:d}", mux.k.stream_id);
 	if (mux.k.t2mi_pid >= 0)

@@ -1219,14 +1219,10 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 		}
 	}
 	std::vector<task_queue_t::future_t> futures;
-	tune_options_t tune_options;
-	tune_options.constellation_options.num_samples = 1024 * 16;
-	tune_options.scan_target = scan_target_t::SCAN_MINIMAL;
-	tune_options.subscription_type = subscription_type_t::LNB_CONTROL;
+	auto tune_options = this->get_default_tune_options(subscription_type_t::LNB_CONTROL);
 	tune_options.need_blind_tune = blindscan;
 	tune_options.tune_mode = tune_options.need_blind_tune ? tune_mode_t::BLIND : tune_mode_t::NORMAL;
 	tune_options.retune_mode = retune_mode;
-	tune_options.pls_search_range = pls_search_range;
 	tune_options.allowed_rf_paths = {rf_path};
 	//call by reference ok because of subsequent wait_for_all
 	futures.push_back(receiver_thread.push_task(
@@ -1937,6 +1933,7 @@ tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscrip
 	tune_options_t ret;
 	ret.subscription_type = subscription_type;
 	bool for_scan = false;
+	bool for_lnb_control = false;
 	switch(subscription_type) {
 	case subscription_type_t::TUNE:
 		ret.constellation_options.num_samples = 0;
@@ -1959,8 +1956,10 @@ tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscrip
 		for_scan=true;
 		break;
 	case subscription_type_t::LNB_CONTROL:
+		ret.scan_target =  scan_target_t::SCAN_MINIMAL;
 		ret.tune_mode = tune_mode_t::POSITIONER_CONTROL;
 		ret.constellation_options.num_samples = 16*1024;
+		for_lnb_control = true;
 		break;
 	default:
 		assert(0);
@@ -1971,7 +1970,9 @@ tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscrip
 	ret.dish_move_penalty = r->dish_move_penalty;
 	ret.usals_location = r->usals_location;
 	ret.need_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
-	ret.may_move_dish = for_scan ? r->scan_may_move_dish: r->tune_may_move_dish;
+	ret.may_move_dish = for_lnb_control ? (true : for_scan ? r->scan_may_move_dish: r->tune_may_move_dish);
+	if(ret.may_move_dish)
+		ret.may_control_lnb = true;
 	ret.max_scan_duration = 	r->max_scan_duration;
 
 	return ret;

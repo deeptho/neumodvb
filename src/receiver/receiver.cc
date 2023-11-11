@@ -1071,13 +1071,7 @@ subscription_id_t
 receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t subscription_id_) {
 
 	std::vector<task_queue_t::future_t> futures;
-	tune_options_t tune_options;
-	{
-		auto r = this->options.readAccess();
-		tune_options.may_move_dish = r->tune_may_move_dish;
-	}
-
-	tune_options.scan_target = scan_target_t::SCAN_FULL_AND_EPG;
+	auto tune_options = this->get_default_tune_options(subscription_type_t::TUNE);
 	tune_options.need_blind_tune = blindscan;
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{subscription_id_};
@@ -1943,6 +1937,7 @@ tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscrip
 	case subscription_type_t::TUNE:
 		ret.constellation_options.num_samples = 0;
 		ret.tune_mode = tune_mode_t::NORMAL;
+		ret.scan_target =  scan_target_t::SCAN_FULL_AND_EPG;
 		break;
 	case subscription_type_t::SPECTRUM_SCAN:
 		ret.tune_mode = tune_mode_t::SPECTRUM;
@@ -1964,6 +1959,7 @@ tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscrip
 		ret.scan_target =  scan_target_t::SCAN_MINIMAL;
 		ret.tune_mode = tune_mode_t::POSITIONER_CONTROL;
 		ret.constellation_options.num_samples = 16*1024;
+		ret.may_control_dish = true;
 		for_lnb_control = true;
 		break;
 	default:

@@ -551,7 +551,7 @@ lmdb::txn_begin(MDB_env* const env,
                 MDB_txn** txn) {
   const int rc = ::mdb_txn_begin(env, parent, flags, txn);
 	if(lmdb_line>=0) {
-		dtdebugf("QQQ txn_begin {} {} env={} parent={}", lmdb_file, lmdb_line, fmt::ptr(env), fmt::ptr(parent));
+		//dtdebugf("QQQ txn_begin {} {} env={} parent={}", lmdb_file, lmdb_line, fmt::ptr(env), fmt::ptr(parent));
 		lmdb_line=0;
 	}
   if (rc != MDB_SUCCESS) {
@@ -588,7 +588,7 @@ lmdb::txn_commit(MDB_txn* const txn) {
     error::raise("mdb_txn_commit", rc);
   }
 	if(lmdb_line>=0) {
-		dtdebugf("QQQ commit {} {} env={}", lmdb_file, lmdb_line, fmt::ptr(mdb_txn_env(txn)));
+		//dtdebugf("QQQ commit {} {} env={}", lmdb_file, lmdb_line, fmt::ptr(mdb_txn_env(txn)));
 		lmdb_file=""; lmdb_line=-1;
 	}
 }
@@ -600,7 +600,7 @@ static inline void
 lmdb::txn_abort(MDB_txn* const txn) noexcept {
   ::mdb_txn_abort(txn);
 	if(lmdb_line>=0) {
-		dtdebugf("QQQ abort {} {} env={}", lmdb_file, lmdb_line, fmt::ptr(mdb_txn_env(txn)));
+		//dtdebugf("QQQ abort {} {} env={}", lmdb_file, lmdb_line, fmt::ptr(mdb_txn_env(txn)));
 		lmdb_file=""; lmdb_line=-1;
 	}
 }

@@ -387,14 +387,6 @@ tuner_thread_t::tuner_thread_t(receiver_t& receiver_, active_adapter_t& aa)
 tuner_thread_t::~tuner_thread_t() {
 }
 
-int tuner_thread_t::set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options) {
-	return active_adapter.fe ? active_adapter.fe->set_tune_options(tune_options) : -1;
-}
-
-int tuner_thread_t::cb_t::set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options) {
-	return this->tuner_thread_t::set_tune_options(active_adapter, tune_options);
-}
-
 int tuner_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd,
 																				 int par) {
 		return (active_adapter.fe) ? active_adapter.fe->positioner_cmd(cmd, par) : -1;
@@ -432,7 +424,6 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 	}
 		return ret1;
 }
-
 
 subscription_id_t
 tuner_thread_t::cb_t::subscribe_mux(const subscribe_ret_t& sret,
@@ -581,15 +572,6 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 #endif
 	//Destructor of old_active_adapter can call deactivate at this point
 	return sret.subscription_id;
-}
-
-
-std::tuple<subscription_id_t, devdb::fe_key_t>
-tuner_thread_t::cb_t::tune_mux(
-	const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-	const tune_options_t& tune_options) {
-	auto subscription_id = this->tuner_thread_t::tune_mux(sret, mux, tune_options);
-	return {subscription_id, active_adapter.fe->dbfe().k};
 }
 
 void tuner_thread_t::release_all(subscription_id_t subscription_id) {

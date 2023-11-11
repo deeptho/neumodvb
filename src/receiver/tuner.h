@@ -90,7 +90,6 @@ public:
 	tuner_thread_t(tuner_thread_t&& other) = delete;
 	tuner_thread_t(const tuner_thread_t& other) = delete;
 	tuner_thread_t operator=(const tuner_thread_t& other) = delete;
-	inline int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
 	void on_epg_update_check_recordings(db_txn& recdb_wtxn, db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
 	void on_epg_update_check_autorecs(db_txn& recdb_wtxn, db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
 	void add_live_buffer(const recdb::live_service_t& active_service);
@@ -107,12 +106,12 @@ class tuner_thread_t::cb_t: public tuner_thread_t { //callbacks
 public:
 	int on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt);
 	int update_service(const chdb::service_t& service);
-
 	int lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& ret,
 									 tune_options_t tune_options);
 
 	subscription_id_t subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
 																	const tune_options_t& tune_options);
+
 	subscription_id_t subscribe_service_for_recording(const subscribe_ret_t& sret,
 																										const chdb::any_mux_t& mux, recdb::rec_t& rec,
 																										const tune_options_t& tune_options);
@@ -121,22 +120,12 @@ public:
 																										const chdb::any_mux_t& mux, const chdb::service_t& service,
 																										const tune_options_t& tune_options);
 
-	int set_tune_options(active_adapter_t& active_adapter, tune_options_t tune_options);
-
 	int toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
-
-#if 0
-	void update_recording(const recdb::rec_t& rec);
-#endif
 
 	void update_autorec(recdb::autorec_t& autorec);
 	void delete_autorec(const recdb::autorec_t& autorec);
 
 	int positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
 	int update_current_lnb(subscription_id_t subscription_id,  const devdb::lnb_t& lnb);
-	std::tuple<subscription_id_t, devdb::fe_key_t>
-	tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-					 const tune_options_t& tune_options);
 	int stop_recording(const recdb::rec_t& rec, mpm_copylist_t& copy_commands);
-
 };

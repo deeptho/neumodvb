@@ -1930,13 +1930,13 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 std::tuple<bool,bool>
 dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
 																	 const chdb::dvbs_mux_t& new_mux, const tune_options_t& tune_options) {
-	assert(!tune_options.may_move_dish || tune_options.may_control_lnb);
+	assert(!tune_options.tune_pars->send_dish_commands || tune_options.tune_pars->send_lnb_commands);
 	if (!this->sec_status.is_tuned()
-			&& tune_options.may_control_lnb
+			&& tune_options.tune_pars->send_lnb_commands
 		)
 		return {true, true}; // always send diseqc if we were not tuned
-	if(!tune_options.may_control_lnb) {
-		assert(!tune_options.may_move_dish);
+	if(!tune_options.tune_pars->send_lnb_commands) {
+		assert(!tune_options.tune_pars->send_dish_commands);
 		dtdebugf("Preventing diseqc because rf_path is used more than once");
 		return {false, false};
 	}

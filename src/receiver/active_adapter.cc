@@ -167,7 +167,8 @@ void active_adapter_t::reset()
 
 int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
 													 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux_,
-													 const tune_options_t tune_options, bool user_requested, subscription_id_t subscription_id) {
+													 const tune_options_t tune_options, bool user_requested,
+													 subscription_id_t subscription_id) {
 	chdb::dvbs_mux_t mux;
 
 	if(user_requested) {

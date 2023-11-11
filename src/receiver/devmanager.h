@@ -305,6 +305,7 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	chdb::delsys_type_t current_delsys_type { chdb::delsys_type_t::NONE };
 
 	int num_constellation_samples{0};
+	sec_status_t sec_status;
 
 	int check_frontend_parameters();
 	uint32_t get_lo_frequency(uint32_t frequency);
@@ -323,7 +324,8 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 																					 const tune_options_t& tune_options);
 	bool need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb);
 
-	sec_status_t sec_status;
+	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+															const tune_options_t& tune_options);
 public:
 
 	static constexpr uint32_t lnb_lof_standard = DEFAULT_LOF_STANDARD;
@@ -370,8 +372,6 @@ public:
 	std::tuple<int, int>
 	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 										const tune_options_t& tune_options);
-	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-															const tune_options_t& tune_options);
 
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);

@@ -286,15 +286,15 @@ protected:
 	subscription_id_t subscribe_spectrum(
 		std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::sat_t& sat,
 		const chdb::band_scan_t& band_scan,
-		subscription_id_t subscription_id, const tune_options_t& tune_options,
+		subscription_id_t subscription_id, tune_options_t tune_options,
 		const chdb::scan_id_t& scan_id,
 		bool do_not_unsubscribe_on_failure);
 
 	template<typename _mux_t>
 	subscription_id_t
-	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& txn,
+	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 								const _mux_t& mux, subscription_id_t subscription_id,
-								const tune_options_t& tune_options,
+								tune_options_t tune_options,
 								const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 	template<class mux_t>

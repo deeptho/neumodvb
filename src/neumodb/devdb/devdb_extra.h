@@ -111,6 +111,9 @@ struct subscribe_ret_t {
 	//value below only relevant if aa_sub_to_reuse  == subscription_id_t::NONE
 	aa_t aa;
 	static std::atomic_int next_subscription_id; //initialised in fe_subscribe.cc
+
+	tune_pars_t tune_pars;
+
 	inline  bool subscription_failed() const {
 		return failed;
 	}

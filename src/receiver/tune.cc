@@ -157,7 +157,7 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 
 void tuner_thread_t::add_si(active_adapter_t& active_adapter,
 																	const chdb::any_mux_t& mux, const tune_options_t& tune_options ,
-																	subscription_id_t subscription_id) {
+														subscription_id_t subscription_id) {
 	// check_thread();
 	dtdebugf("tune restart_si");
 	active_adapter.prepare_si(mux, true /*start*/, subscription_id, true /*add_to_running_mux*/);
@@ -437,7 +437,7 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 subscription_id_t
 tuner_thread_t::cb_t::subscribe_mux(const subscribe_ret_t& sret,
 															const chdb::any_mux_t& mux,
-															const tune_options_t& tune_options) {
+																		const tune_options_t& tune_options) {
 	return this->tuner_thread_t::subscribe_mux(sret, mux, tune_options);
 }
 
@@ -445,7 +445,7 @@ tuner_thread_t::cb_t::subscribe_mux(const subscribe_ret_t& sret,
 subscription_id_t
 tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sret,
 																				const chdb::any_mux_t& mux, recdb::rec_t& rec,
-																				const tune_options_t& tune_options) {
+																											const tune_options_t& tune_options) {
 	/*In case of failure, release the resources assosciated with this subscription (active_adapter and
 		active_service)
 	*/
@@ -563,7 +563,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 										assert(aa.rf_path);
 										assert(aa.lnb);
 										ret = this->tune(*aa.rf_path, *aa.lnb, mux, tune_options,
-																	 sret.subscription_id);
+																		 sret.subscription_id);
 									},
 									[&](const chdb::dvbc_mux_t& mux) {
 										ret = this->tune(mux, tune_options, sret.subscription_id);

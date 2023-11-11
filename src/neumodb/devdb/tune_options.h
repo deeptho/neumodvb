@@ -91,8 +91,17 @@ struct spectrum_scan_options_t {
 	spectrum_scan_options_t() {}
 };
 
+/*
+	restrictions imposed by subscription, e.g., should lnb commands or dish motion commands be sent
+ */
+struct tune_pars_t {
+	bool send_dish_commands{false};
+	bool send_lnb_commands{false};
+};
 
 struct tune_options_t {
+	std::optional<tune_pars_t> tune_pars; //this variable should only be set after subscribing
+
 	scan_target_t scan_target;
 	std::chrono::seconds max_scan_duration{180s}; /*after this time, scan will be forcefull ended*/
 
@@ -101,8 +110,11 @@ struct tune_options_t {
 
 	tune_mode_t tune_mode;
 	bool need_blind_tune{false};
-	bool may_move_dish{true};
-	bool may_control_lnb{false};
+	bool may_move_dish{false}; /*is allowed to move dish when tuning and no other subscriptions conflict*/
+	bool may_control_dish{false}; /*later, we may the subscription to a new dish position as we wish
+																	(exclusive use)*/
+	bool may_control_lnb{false}; /*later, we may the subscription to a new pol/band and send diseqc as we wish
+																 (exclusive use)*/
 	bool propagate_scan{true};
 	bool need_spectrum{false};
 	pls_search_range_t pls_search_range;

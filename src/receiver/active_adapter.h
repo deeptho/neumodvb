@@ -306,7 +306,7 @@ private:
 	int lnb_activate(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, tune_options_t tune_options);
 
 	int tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-					 tune_options_t tune_options, bool user_requested, subscription_id_t subscription_id); //(re)tune to new transponder
+					 tune_options_t tune_options, bool user_requested, subscription_id_t subscription_id);
 
 	template<typename mux_t>
 	int tune(const mux_t& mux, tune_options_t tune_options, bool user_requested,

@@ -447,7 +447,7 @@ receiver_thread_t::subscribe_spectrum(
 	auto& aa = *activate_adapter_p;
 
 	futures.push_back(aa.tuner_thread.push_task([&aa, subscription_id, sret, tune_options]() {
-		auto ret = cb(aa.tuner_thread).lnb_activate(subscription_id, sret, tune_options);
+		auto ret = cb(aa.tuner_thread).lnb_spectrum_scan(subscription_id, sret, tune_options);
 		if (ret < 0)
 			dterrorf("tune returned {:d}", ret);
 		return ret;

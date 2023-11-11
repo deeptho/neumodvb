@@ -118,30 +118,23 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 
 int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& sret,
 																			 tune_options_t tune_options) {
-	// check_thread();
 	dtdebugf("lnb activate subscription_id={:d}", (int) subscription_id);
-	assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
-	{
-		//assert(!sret.retune);
-		//assert(sret.is_new_aa);
-		auto& aa = sret.aa;
-		assert(aa.rf_path);
-		assert(aa.lnb);
-		return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_options);
-	}
-#ifdef TODO // dead code? or error?
-	if(sret.aa.is_new_aa())  {
-		auto& aa = sret.aa;
-		assert(aa.rf_path);
-		assert(aa.lnb);
-		return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_options);
-	}
-	assert(sret.sub_to_reuse == sret.subscription_id);
-	return active_adapter.lnb_activate(active_adapter.current_rf_path(),
-																		 active_adapter.current_lnb(), tune_options, spectrum_scan_options);
-#endif
+	auto& aa = sret.aa;
+	assert(aa.rf_path);
+	assert(aa.lnb);
+	return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_options);
 }
 
+int tuner_thread_t::cb_t::lnb_spectrum_scan(subscription_id_t subscription_id, const subscribe_ret_t& sret,
+																						tune_options_t tune_options) {
+	// check_thread();
+	dtdebugf("lnb spectrum scan subscription_id={:d}", (int) subscription_id);
+	assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
+	auto& aa = sret.aa;
+	assert(aa.rf_path);
+	assert(aa.lnb);
+	return active_adapter.lnb_spectrum_scan(*aa.rf_path, *aa.lnb, tune_options);
+}
 
 /*
 	Called from tune_mux when our own subscription is a normal tune, but mux is resubscribed, e.g.,

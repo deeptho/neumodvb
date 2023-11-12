@@ -85,7 +85,7 @@ def subscription_fn(x):
                 f = f'{e(fesub.band)}{e(fesub.pol)}'
                 ret.append(f'{sub.subscription_id}: {f}')
             else:
-                f = f'Exclsuve'
+                f = f'Exclusive'
                 ret.append(f'{sub.subscription_id}: {f}')
     return '\n'.join(ret)
 

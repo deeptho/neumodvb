@@ -333,7 +333,7 @@ namespace chdb {
 
 	inline bool is_same_stream(mux_key_t a , const mux_key_t& b) {
 		a.t2mi_pid = b.t2mi_pid;
-		if(a.mux_id == 0 || b.mux_id==0) //tempplate
+		if(a.mux_id == 0 || b.mux_id==0) //template
 			a.mux_id = b.mux_id;
 		return a == b;
 	}

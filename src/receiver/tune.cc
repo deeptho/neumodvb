@@ -519,6 +519,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 		assert(old_active_adapter);
 		dtdebugf("already subscribed to mux {}", mux);
 		if(tune_options.subscription_type == subscription_type_t::TUNE) {
+     //@todo: check the following call, this means we alreay have added si, but maybe with other tune options
 			add_si(*old_active_adapter, mux, tune_options, sret.subscription_id);
 		} else {
 			/// during DX-ing and scanning retunes need to be forced

@@ -306,7 +306,9 @@ struct scan_stats_t
 {
 	int pending_peaks{0};
 	int pending_muxes{0};
+	int pending_bands{0};
 	int active_muxes{0};
+	int active_bands{0};
 	int finished_muxes{0}; //total number of muxes we tried to scan
 	int failed_muxes{0}; //muxes which could not be locked
 	int locked_muxes{0}; //mixes which locked
@@ -337,7 +339,6 @@ class scan_t {
 	subscription_id_t scan_subscription_id;
 	subscription_id_t monitored_subscription_id{-1};
 	std::vector<tune_options_t> tune_options_; //indexexed by opt_id
-	chdb::any_mux_t last_subscribed_mux;
 	int max_num_subscriptions_for_retry{std::numeric_limits<int>::max()}; //maximum number of subscriptions that have been in use
 
 	//TODO important: no fe_key_t should occur more than once in subscriptions
@@ -347,8 +348,7 @@ class scan_t {
 
 public:
 	using stats_t = safe::Safe<scan_stats_t>;
-	stats_t scan_stats;
-
+	scan_stats_t scan_stats;
 private:
 	inline chdb::scan_id_t make_scan_id(subscription_id_t scan_subscription_id,
 																			const tune_options_t& tune_options) {
@@ -370,13 +370,13 @@ private:
 	bool band_is_being_scanned(const chdb::band_scan_t& band_scan);
 
 
-	std::tuple<int, int> scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
-													 int& num_pending_muxes, int& num_pending_peaks,
-													 const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux);
+	void scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
+								 int& num_pending_muxes, int& num_pending_peaks,
+								 const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux);
 
 
-	std::tuple<int, int> on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-																			 subscription_id_t finished_subscription_id);
+	int on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
+											subscription_id_t finished_subscription_id);
 
 	subscription_id_t scan_try_mux(subscription_id_t reusable_subscription_id ,
 																 scan_subscription_t& subscription, bool use_blind_tune);
@@ -390,35 +390,30 @@ private:
 	subscription_id_t scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 															subscription_id_t subscription_id, scan_subscription_t& subscription);
 
-	std::tuple<int, subscription_id_t>
+	subscription_id_t
 	scan_next_peaks(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
 									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
 
 	template<typename mux_t>
-	std::tuple<int, subscription_id_t>
+	subscription_id_t
 	scan_next_muxes(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
 									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
 
-	std::tuple<int, subscription_id_t>
+	subscription_id_t
 	scan_next_bands(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
 									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
 
 	template<typename mux_t>
-	std::tuple<int, int, /*int, int,*/ subscription_id_t>
+	subscription_id_t
 	scan_next(db_txn& chdb_rtxn, subscription_id_t finished_subscription_id,
 						scan_subscription_t& subscription);
 
 	subscription_id_t try_all(
-		db_txn& chdb_rtxn, /*subscription_id_t finished_subscription_id,*/ scan_subscription_t& subscription,
-
-///ffffffff
-		const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-		//scan_subscription_t* finished_subscription_ptr,
-		//const chdb::mux_key_t& finished_mux_key,
-		int& num_pending_muxes, int& num_pending_peaks);
+		db_txn& chdb_rtxn, scan_subscription_t& subscription,
+		const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux);
 
 	bool retry_subscription_if_needed(subscription_id_t finished_subscription_id,
 																		scan_subscription_t& subscription,
@@ -438,7 +433,6 @@ class scanner_t {
 	time_t scan_start_time{-1};
 	steady_time_t last_house_keeping_time{steady_clock_t::now()};
 	int max_num_subscriptions{std::numeric_limits<int>::max()};
-	chdb::any_mux_t last_subscribed_mux;
 	bool must_end = false;
 	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
 	std::map<subscription_id_t, scan_t> scans;
@@ -466,7 +460,7 @@ class scanner_t {
 	subscription_id_t scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id);
 public:
 	scanner_t(receiver_thread_t& receiver_thread_, int max_num_subscriptions);
-	using stats_t = safe::Safe<scan_stats_t>;
+
 	~scanner_t();
 
 	inline static bool is_our_scan(const chdb::scan_id_t& scan_id) {

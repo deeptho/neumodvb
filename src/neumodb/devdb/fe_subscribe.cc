@@ -890,7 +890,7 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 		if(fe.sub.owner != owner)
 			continue;
 		int idx=0;
-		if(mux && (mux->k.mux_id !=0 || fe.sub.mux_key.mux_id ==0)) {
+		if(mux && (mux->k.mux_id ==0 || fe.sub.mux_key.mux_id ==0)) {
 			/*the existing subscription or the desired one is for a frequency peak.
 				In this case, we prevent reuse
 			*/

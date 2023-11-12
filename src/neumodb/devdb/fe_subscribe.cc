@@ -197,8 +197,9 @@ template <typename mux_t>
 devdb::fe_t devdb::fe::subscribe_fe_in_use(
 	db_txn& wtxn, subscription_id_t subscription_id, fe_t& fe,
 	const mux_t& mux, const chdb::service_t* service) {
-	assert(fe.sub.subs.size()>=1);
+	assert(fe.sub.subs.size()>=0); //==0 can happen when we are tuning to a different service on the same mux
 	assert(is_same_stream(mux.k, fe.sub.mux_key));
+
 	dtdebugf("subscription_id={:d} adapter {:d} {:d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
@@ -606,10 +607,23 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			else {
 				if(oldfe_) {
 					assert((int) subscription_id >=0);
+					/*we need to unsubscribe first, because otherwise we may end up
+						adding two subscriptions with the same subscription_id, which
+						makes it impossible to unsubscribe, as that is done by subscription_id*/
 					updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+					if(updated_old_dbfe && updated_old_dbfe->k == fe.k) {
+						/*in this case, removing our old subscription
+							may have removed all old subscriptions, which then
+							resulted in clearing update_old_fe.sub;
+							Also update_old_fe.sub has one fewer subscription
+						*/
+						fe.sub.subs = updated_old_dbfe->sub.subs;
+						updated_old_dbfe = {};
+					}
 				}
-				assert(!tune_options.may_move_dish  && !tune_options.may_control_lnb);
-				assert(!sub.may_move_dish && ! sub.may_control_lnb);
+				assert(fe.sub.subs.size() ==1 ||
+							 (!tune_options.may_move_dish  && !tune_options.may_control_lnb) &&
+							 !sub.may_move_dish && ! sub.may_control_lnb);
 				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id, fe_, updated_old_dbfe);
 				subscribe_fe_in_use(wtxn, sret.subscription_id, fe, mux, service);
 				return sret;
@@ -617,8 +631,8 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 		}
 	}
 
-	//try to reuse existing mux as-is, except that we will also add a service
-	if(service) {
+	//try to reuse existing mux as-is, except that we will also add a service, or just use the tuned mux
+	if(true) {
 		assert(mux); //if service i not null, mux must also be non-null
 		auto [fe_, idx] = matching_existing_subscription(wtxn,
 																										 tune_options,
@@ -627,13 +641,27 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 		if(fe_) {
 			auto& fe = *fe_;
 			auto& sub_to_reuse=fe.sub.subs[idx];
-			//we can reuse an existing active_mux, but need to add an active service
 			if(oldfe_) {
 				assert((int)subscription_id >=0);
+			/*we can reuse an existing active_mux, but need to add an active service
+				Ee need to unsubscribe first, because otherwise we may end up
+				adding two subscriptions with the same subscription_id, which
+				makes it impossible to unsubscribe, as that is done by subscription_id
+			*/
 				updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+				if(updated_old_dbfe && updated_old_dbfe->k == fe.k) {
+					/*in this case, removing our old subscription
+						may have removed all old subscriptions, which then
+						resulted in clearing update_old_fe.sub;
+						Also update_old_fe.sub has one fewer subscription
+					*/
+					fe.sub.subs = updated_old_dbfe->sub.subs;
+					updated_old_dbfe = {};
+				}
+
 			}
-			assert(!tune_options.may_move_dish  && !tune_options.may_control_lnb);
-			assert(!sub.may_move_dish && ! sub.may_control_lnb);
+			assert(fe.sub.subs.size() ==1 || (!tune_options.may_move_dish  && !tune_options.may_control_lnb
+																				&& !sub.may_move_dish && ! sub.may_control_lnb));
 			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
 			subscribe_fe_in_use(wtxn, sret.subscription_id, fe, mux, service);
 			return sret;

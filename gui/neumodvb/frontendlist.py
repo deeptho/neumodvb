@@ -72,7 +72,8 @@ def subscription_fn(x):
 
     for sub in subs:
         if sub.has_service:
-            srv = ' '.join(str(sub.service).split(' ')[1:])
+            #srv = ' '.join(str(sub.service).split(' ')[1:])
+            srv=f'{sub.service.k.service_id} [{sub.service.ch_order}] {sub.service.name}'
             ret.append(f'{sub.subscription_id}: {srv}')
         elif sub.has_mux:
             ret.append(f'{sub.subscription_id}: {str(sub.service.k.mux)}')

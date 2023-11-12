@@ -240,13 +240,6 @@ namespace devdb::fe {
 
 	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn,
 																															 const mux_t& mux, bool use_blind_tune);
-
-	subscribe_ret_t subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
-														const tune_options_t& tune_options,
-														const chdb::dvbs_mux_t& mux,
-														const chdb::service_t* service,
-														bool do_not_unsubscribe_on_failure);
-
 	subscribe_ret_t subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 																		const tune_options_t& tune_options,
 																		const rf_path_t& rf_path,
@@ -260,11 +253,22 @@ namespace devdb::fe {
 
 	template<typename mux_t>
 	subscribe_ret_t
-	subscribe(db_txn& wtxn, subscription_id_t subscription_id,
-						const mux_t* mux,
-						const chdb::service_t* service,
-						const tune_options_t& tune_options,
-						bool do_not_unsubscribe_on_failure);
+	subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
+								const tune_options_t& tune_options,
+								const mux_t& mux,
+								const chdb::service_t* service,
+								bool do_not_unsubscribe_on_failure);
+
+	inline subscribe_ret_t
+	subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
+								const tune_options_t& tune_options,
+								const chdb::any_mux_t& mux,
+								const chdb::service_t* service,
+								bool do_not_unsubscribe_on_failure) {
+		return std::visit([&](auto&mux) -> subscribe_ret_t {
+			return subscribe_mux(wtxn, subscription_id, tune_options, mux, service, do_not_unsubscribe_on_failure);
+		}, mux);
+	}
 };
 
 namespace devdb::fe_subscription {

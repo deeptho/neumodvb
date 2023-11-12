@@ -221,26 +221,11 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
 	auto devdb_wtxn = receiver.devdb.wtxn();
-	visit_variant(mux,
-								[&](const chdb::dvbs_mux_t& mux) {
-									sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
-																							tune_options,
-																							mux,
-																							&service,
-																							false /*do_not_unsubscribe_on_failure*/);
-								},
-								[&](const chdb::dvbc_mux_t& mux)  {
-									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																							&mux, &service,
-																							tune_options,
-																							false /*do_not_unsubscribe_on_failure*/);
-								},
-								[&](const chdb::dvbt_mux_t& mux)  {
-									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																							&mux, &service,
-																							tune_options,
-																							false /*do_not_unsubscribe_on_failure*/);
-								});
+	sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
+																	tune_options,
+																	mux,
+																	&service,
+																	false /*do_not_unsubscribe_on_failure*/);
 	devdb_wtxn.commit();
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
@@ -278,27 +263,11 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 	tune_options_t tune_options(scan_target_t::SCAN_FULL_AND_EPG);
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
-	visit_variant(mux,
-								[&](const chdb::dvbs_mux_t& mux) {
-									sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
-																							tune_options,
-																							mux,
-																							&rec.service,
-																							false /*do_not_unsubscribe_on_failure*/);
-								},
-								[&](const chdb::dvbc_mux_t& mux)  {
-									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																							&mux, &rec.service,
-																							tune_options,
-																							false /*do_not_unsubscribe_on_failure*/);
-								},
-								[&](const chdb::dvbt_mux_t& mux)  {
-									sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																							&mux, &rec.service,
-																							tune_options,
-																							false /*do_not_unsubscribe_on_failure*/);
-								});
-
+	sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
+																	tune_options,
+																	mux,
+																	&rec.service,
+																	false /*do_not_unsubscribe_on_failure*/);
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
@@ -498,19 +467,11 @@ receiver_thread_t::subscribe_mux(
 	subscribe_ret_t sret;
 
 	assert(!tune_options.need_spectrum);
-	if constexpr(is_same_type_v<chdb::dvbs_mux_t, _mux_t>) {
-		sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
-																tune_options,
-																mux,
-																(const chdb::service_t*) nullptr /*service*/,
-																do_not_unsubscribe_on_failure);
-	} else {
-
-		sret = devdb::fe::subscribe(devdb_wtxn, subscription_id,
-																&mux, (const chdb::service_t*) nullptr /*service*/,
-																tune_options,
-																do_not_unsubscribe_on_failure);
-	}
+	sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
+																	tune_options,
+																	mux,
+																	(const chdb::service_t*) nullptr /*service*/,
+																	do_not_unsubscribe_on_failure);
 
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;

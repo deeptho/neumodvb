@@ -293,7 +293,7 @@ void merge_muxes(mux_t& mux, const mux_t& db_mux, update_mux_preserve_t::flags p
 	dtdebugf("db_mux={}-> mux={}", db_mux, mux);
 	assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 					mux.c.scan_status != chdb::scan_status_t::PENDING) ||
-				 mux.c.scan_id >0);
+				 scan_in_progress(mux.c.scan_id));
 
 	if( (preserve & m::MUX_KEY) || mux_key_ptr(mux)->mux_id == 0) {
 		//template mux key entered by user is never considered valid, so use database value
@@ -329,7 +329,7 @@ void merge_muxes(mux_t& mux, const mux_t& db_mux, update_mux_preserve_t::flags p
 
 		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
-					 mux.c.scan_id >0);
+					 scan_in_progress(mux.c.scan_id));
 
 	}
 	dtdebugf("after merge db_mux={} mux={} preserve&SCAN_STATUS={}", db_mux, mux,
@@ -400,9 +400,9 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 	namespace m = update_mux_preserve_t;
 	/*find mux with matching frequency, stream_id and t2mi_pid*/
 #ifndef NDEBUG
-	auto& mux_common = *mux_common_ptr(mux);
-	if(!((mux.k.mux_id > 0) ||
-				 (is_template(mux) || mux_common.tune_src== tune_src_t::NIT_TUNED
+	auto& mux_common = *mux_common_ptr(mux_to_save);
+	if(!((mux_to_save.k.mux_id > 0) ||
+				 (is_template(mux_to_save) || mux_common.tune_src== tune_src_t::NIT_TUNED
 					|| mux_common.tune_src== tune_src_t::NIT_CORRECTED
 					|| mux_common.tune_src == tune_src_t::NIT_ACTUAL
 					|| mux_common.tune_src == tune_src_t::NIT_OTHER
@@ -428,32 +428,32 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 	if (c.is_valid()) { //mux exists
 		db_mux = c.current();
 #ifndef NDEBUG
-		assert(db_mux.k.stream_id == mux.k.stream_id);
-		assert(db_mux.k.t2mi_pid == mux.k.t2mi_pid);
+		assert(db_mux.k.stream_id == mux_to_save.k.stream_id);
+		assert(db_mux.k.t2mi_pid == mux_to_save.k.t2mi_pid);
 		if(db_mux.k.mux_id == 0) {
 			make_mux_id(wtxn, db_mux);
 			dterrorf("Illegal mux found in db and fixed: {}", db_mux);
 		}
 		assert(db_mux.k.mux_id > 0);
-		auto tmp_key = mux.k;
+		auto tmp_key = mux_to_save.k;
 		tmp_key.mux_id = db_mux.k.mux_id;
 		auto key_matches = tmp_key == db_mux.k;
 		assert(key_matches);
 #else
 #endif
-		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
-						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
-					 mux.c.scan_id >0);
+		assert((mux_to_save.c.scan_status != chdb::scan_status_t::ACTIVE &&
+						mux_to_save.c.scan_status != chdb::scan_status_t::PENDING) ||
+					 scan_in_progress(mux_to_save.c.scan_id));
 		mux_to_save.k = db_mux.k;
 
 		ret = update_mux_ret_t::MATCHING_KEY_AND_FREQ;
 
 		is_new = false;
-		assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
-						mux.c.scan_status != chdb::scan_status_t::PENDING) ||
-					 mux.c.scan_id >0);
+		assert((mux_to_save.c.scan_status != chdb::scan_status_t::ACTIVE &&
+						mux_to_save.c.scan_status != chdb::scan_status_t::PENDING) ||
+					 scan_in_progress(mux_to_save.c.scan_id));
 #ifndef NDEBUG
-		key_matches = (mux.k == db_mux.k); //key can NOT be changed by cb()
+		key_matches = (mux_to_save.k == db_mux.k); //key can NOT be changed by cb()
 #if 0
 		delete_db_mux = !key_matches;
 #endif
@@ -502,7 +502,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 			return update_mux_ret_t::NO_MATCHING_KEY;
 	}
 
-	assert(!is_template(mux));
+	assert(!is_template(mux_to_save));
 	assert(ret != update_mux_ret_t::UNKNOWN);
 	// the database has a mux, but we may need to update it
 	mux_to_save = merged_mux;

@@ -275,11 +275,10 @@ devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
 	if(!fe_and_use_counts)
 		return {{}, updated_old_dbfe}; //no frontend could be found
 	auto& [best_fe, best_use_counts ] = *fe_and_use_counts;
+	assert(tune_options.may_move_dish  && tune_options.may_control_lnb);
 #ifndef NDEBUG
 	auto ret =
 #endif
-				assert(tune_options.may_move_dish  && tune_options.may_control_lnb);
-
 	devdb::fe::reserve_fe_lnb_for_sat_band(wtxn, subscription_id, tune_options, best_fe, rf_path, lnb,
 																				 nullptr /*sat*/ , nullptr /*band_scan*/);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
@@ -336,10 +335,10 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 		sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path, .lnb= lnb};
 
 		if(!is_same_fe) {
-			assert(sret.is_new_aa());
+			assert(sret.aa.is_new_aa());
 			sret.sub_to_reuse = subscription_id_t::NONE;
 		} else {
-			assert(!sret.is_new_aa());
+			assert(!sret.aa.is_new_aa());
 		}
 		return sret;
 	} else {
@@ -593,7 +592,6 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 
 //try to reuse existing active_adapter and active_service as-is
 	if(service) {
-		assert(mux); //if service is not null, mux must also be non-null
 		auto [fe_, idx] = matching_existing_subscription(wtxn,
 																										 tune_options,
 																										 &mux, service,
@@ -622,8 +620,8 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 					}
 				}
 				assert(fe.sub.subs.size() ==1 ||
-							 (!tune_options.may_move_dish  && !tune_options.may_control_lnb) &&
-							 !sub.may_move_dish && ! sub.may_control_lnb);
+							 (!tune_options.may_move_dish  && !tune_options.may_control_lnb &&
+								!fe_subscription::may_move_dish(fe.sub) && ! fe_subscription::may_change_lnb(fe.sub)));
 				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id, fe_, updated_old_dbfe);
 				subscribe_fe_in_use(wtxn, sret.subscription_id, fe, mux, service);
 				return sret;
@@ -633,7 +631,6 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 
 	//try to reuse existing mux as-is, except that we will also add a service, or just use the tuned mux
 	if(true) {
-		assert(mux); //if service i not null, mux must also be non-null
 		auto [fe_, idx] = matching_existing_subscription(wtxn,
 																										 tune_options,
 																										 &mux, service,
@@ -661,7 +658,8 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 
 			}
 			assert(fe.sub.subs.size() ==1 || (!tune_options.may_move_dish  && !tune_options.may_control_lnb
-																				&& !sub.may_move_dish && ! sub.may_control_lnb));
+																				&& !fe_subscription::may_move_dish(fe.sub) &&
+																				!fe_subscription::may_change_lnb(fe.sub)));
 			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
 			subscribe_fe_in_use(wtxn, sret.subscription_id, fe, mux, service);
 			return sret;
@@ -693,13 +691,13 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				tune_options.may_move_dish && ! use_counts_.shares_positioner();
 			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			if(!is_same_fe) {
-				assert(sret.is_new_aa());
+				assert(sret.aa.is_new_aa());
 				sret.sub_to_reuse = subscription_id_t::NONE;
 				dtdebugf("fe::subscribe: newaa subscription_id={}  adapter={:x}/{} mux={}",
 								 (int ) subscription_id, (int64_t) fe.k.adapter_mac_address,
 								 (int) oldfe_->k.frontend_no, mux);
 			} else {
-				assert(!sret.is_new_aa());
+				assert(!sret.aa.is_new_aa());
 				dtdebugf("fe::subscribe: no newaa subscription_id={} adapter={:x} mux={}",
 								 (int)subscription_id, (int64_t) fe.k.adapter_mac_address, mux);
 			}
@@ -749,13 +747,13 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 
 			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			if(!is_same_fe) {
-				assert(sret.is_new_aa());
+				assert(sret.aa.is_new_aa());
 				sret.sub_to_reuse = subscription_id_t::NONE;
 				dtdebugf("fe::subscribe: newaa subscription_id={}  adapter={:x}/{} sat={}",
 								 (int ) subscription_id, (int64_t) fe.k.adapter_mac_address,
 								 (int) oldfe_->k.frontend_no, sat);
 			} else {
-				assert(!sret.is_new_aa());
+				assert(!sret.aa.is_new_aa());
 				dtdebugf("fe::subscribe: no newaa subscription_id={} adapter={:x} sat={}",
 								 (int)subscription_id, (int64_t) fe.k.adapter_mac_address, sat);
 			}
@@ -804,9 +802,10 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 				if(oldfe_) {
 					assert((int)subscription_id>=0);
 					updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+					assert(fe.sub.subs.size() ==1 ||
+								 (!tune_options.may_move_dish  && !tune_options.may_control_lnb &&
+									!fe_subscription::may_move_dish(fe.sub) && ! fe_subscription::may_change_lnb(fe.sub)));
 				}
-				assert(!tune_options.may_move_dish  && !tune_options.may_control_lnb);
-				assert(!sub.may_move_dish && ! sub.may_control_lnb);
 				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id, fe_, updated_old_dbfe);
 				subscribe_fe_in_use(wtxn, sret.subscription_id, fe, *mux, service);
 				return sret;
@@ -826,9 +825,10 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			if(oldfe_) {
 				assert((int)subscription_id >=0);
 				updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+				assert(fe.sub.subs.size() ==1 ||
+							 (!tune_options.may_move_dish  && !tune_options.may_control_lnb &&
+								!fe_subscription::may_move_dish(fe.sub) && ! fe_subscription::may_change_lnb(fe.sub)));
 			}
-			assert(!tune_options.may_move_dish  && !tune_options.may_control_lnb);
-			assert(!sub.may_move_dish && ! sub.may_control_lnb);
 			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
 			//we can reuse an existing active_mux, but need to add an active service
 			subscribe_fe_in_use(wtxn, sret.subscription_id, fe, *mux, service);
@@ -858,7 +858,6 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			assert(sret.is_new_aa());
 			sret.sub_to_reuse = subscription_id_t::NONE;
 		} else {
-			assert(!sret.is_new_aa());
 		}
 		return sret;
 	}

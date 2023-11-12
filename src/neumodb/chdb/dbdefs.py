@@ -803,7 +803,7 @@ service = db_struct(name ='service',
                             (15, 'uint32_t', 'frequency'),
                             (16, 'chdb::fe_polarisation_t',  'pol', 'chdb::fe_polarisation_t::NONE'),
                             (2, 'time_t', 'mtime'), #last seen or last updated?
-	                          (3, 'uint16_t', 'ch_order', '0'),
+                            (3, 'uint16_t', 'ch_order', '65535'),
                             (4, 'uint16_t', 'service_type', '0'),
                             (5, 'uint16_t', 'pmt_pid', 'null_pid'),
                             (6, 'media_mode_t', 'media_mode', 'chdb::media_mode_t::UNKNOWN'),

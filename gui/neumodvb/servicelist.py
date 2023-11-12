@@ -41,7 +41,7 @@ class ServiceTable(NeumoTable):
     bool_fn = NeumoTable.bool_fn
     lang_fn = lambda x: ';'.join([ str(xx) for xx in x[1]])
     all_columns = \
-        [CD(key='ch_order',  label='#', basic=True, example="10000"),
+        [CD(key='ch_order',  label='#', dfn= lambda x: f'{"" if x[1]==65535 else x[1]}', basic=True, example="10000"),
          CD(key='name',  label='Name', basic=True, example="Investigation discovery12345"),
          CD(key='frequency',  label='freq', dfn= lambda x: f'{x[1]/1000.:9.3f}', example=" 10725.114 "),
          CD(key='pol',  label='pol', dfn=lambda x: lastdot(x[1]).replace('POL',''), example='V'),

@@ -864,7 +864,6 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 	return failed(subscription_id, updated_old_dbfe);
 }
 
-
 /*
 	return a frontend that already is tuning the mux and/or service, by returning
 	the frontend and the index of the exising subscription
@@ -874,11 +873,11 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 		-subscription_id != input => caller needs to referene the existing active adapter
 		 and release its old one
  */
-
+template<typename mux_t>
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
 																					const tune_options_t& tune_options,
-																					const chdb::dvbs_mux_t* mux,
+																					const mux_t* mux,
 																					const chdb::service_t* service,
 																					bool match_mux_only) {
 	auto owner = getpid();
@@ -896,15 +895,18 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 			continue;
 		}
 		for(auto & sub: fe.sub.subs) { //loop over all subscriptions
-			bool rf_path_matches = tune_options.rf_path_is_allowed(fe.sub.rf_path);
+			bool rf_path_matches = true;
+			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
+				rf_path_matches = tune_options.rf_path_is_allowed(fe.sub.rf_path);
+			}
 			bool mux_matches = mux ? (mux->k == fe.sub.mux_key ||
-																(sub.has_service &&  mux->k == sub.service.k.mux)) : !sub.has_mux;
-			bool service_matches = service ? (sub.has_service &&  service->k == sub.service.k) : true;
+																(sub.has_mux &&  mux->k == sub.service.k.mux)) : !sub.has_mux;
+			bool service_matches = service ? (sub.has_service &&  service->k == sub.service.k) : ! sub.has_service;
 			service_matches |= match_mux_only;
-			//in case we only need a mux, we also check for a match in frquency
-			if(rf_path_matches && mux  && ! mux_matches && service_matches) {
+			//in case we only need a mux, we also check for a match in frequency
+			if(rf_path_matches && mux && !mux_matches && (!service || match_mux_only)) {
 				//perhaps the frequency matches but not the mux key
-				dvbs_mux_t m;
+				mux_t m;
 				m.k = mux->k;
 				set_member(m, frequency, fe.sub.frequency);
 				set_member(m, pol, fe.sub.pol);
@@ -912,43 +914,6 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 																									 true /*ignore_t2mi_pid*/);
 			}
 			if(rf_path_matches && mux_matches && service_matches) {
-				return {fe, idx};
-			}
-			++idx;
-		}
-	}
-	return {{}, -1};
-}
-
-template<typename mux_t>
-std::tuple<std::optional<devdb::fe_t>, int>
-devdb::fe::matching_existing_subscription(db_txn& wtxn,
-																					const mux_t* mux,
-																					const chdb::service_t* service,
-																					bool match_mux_only) {
-	auto owner = getpid();
-	using namespace chdb;
-	auto c = find_first<devdb::fe_t>(wtxn);
-
-	for(auto fe: c.range()) {
-		if(fe.sub.owner != owner)
-			continue;
-		int idx=0;
-		for(auto & sub: fe.sub.subs) { //loop over all subscriptions
-			bool mux_matches = mux ? (sub.has_mux &&  mux->k == sub.service.k.mux) : !sub.has_mux;
-			bool service_matches = service ? (sub.has_service &&  service->k == sub.service.k) : ! sub.has_service;
-			service_matches |= match_mux_only;
-			//in case we only need a mux, we also check for a match in frquency
-			if(mux && !service && ! mux_matches ) {
-				//perhaps the frequency matches but not the mux key
-				any_mux_t m;
-				*mux_key_ptr(m) = mux->k;
-				set_member(m, frequency, fe.sub.frequency);
-				set_member(m, pol, fe.sub.pol);
-				mux_matches = chdb::matches_physical_fuzzy(*mux, m, true /*check_sat_pos*/,
-																									 true /*ignore_t2mi_pid*/);
-			}
-			if(mux_matches && service_matches) {
 				return {fe, idx};
 			}
 			++idx;
@@ -996,13 +961,22 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 template
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
-																					const chdb::dvbc_mux_t* mux,
+																					const tune_options_t& tune_options,
+																					const chdb::dvbs_mux_t* mux,
 																					const chdb::service_t* service,
 																					bool match_mux_only);
 
 template
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
+																					const tune_options_t& tune_options,
+																					const chdb::dvbc_mux_t* mux,
+																					const chdb::service_t* service,
+																					bool match_mux_only);
+template
+std::tuple<std::optional<devdb::fe_t>, int>
+devdb::fe::matching_existing_subscription(db_txn& wtxn,
+																					const tune_options_t& tune_options,
 																					const chdb::dvbt_mux_t* mux,
 																					const chdb::service_t* service,
 																					bool match_mux_only);

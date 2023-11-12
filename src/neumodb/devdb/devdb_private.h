@@ -217,17 +217,10 @@ namespace devdb::fe {
 																	const fe_key_t& fe_key,const chdb::mux_key_t &mux_key);
 
 
-
-	std::tuple<std::optional<devdb::fe_t>, int>
-	matching_existing_subscription(db_txn& wtxn,
-																 const tune_options_t& tune_options,
-																 const chdb::dvbs_mux_t* mux,
-																 const chdb::service_t* service,
-																 bool match_mux_only);
-
 	template<typename mux_t>
 	std::tuple<std::optional<devdb::fe_t>, int>
 	matching_existing_subscription(db_txn& wtxn,
+																 const tune_options_t& tune_options,
 																 const mux_t* mux,
 																 const chdb::service_t* service,
 																 bool match_mux_only);

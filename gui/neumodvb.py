@@ -701,11 +701,12 @@ class NeumoGui(wx.App):
             ShowMessage("Sat scan failed", self.scan_subscriber.error_message) #todo: record error message
         dtdebug(f"Requested subscription to scan sats {satlist}")
 
-    def BandsOnSatScan(self, satlist, scan_pars, band_scan_options):
+    def BandsOnSatScan(self, satlist, tune_options, band_scan_options):
         ret = self.scan_subscriber.scan_bands_on_sats(satlist,
                                                       band_scan_options['pols'],
                                                       band_scan_options['low_freq'],
-                                                      band_scan_options['high_freq'])
+                                                      band_scan_options['high_freq'],
+                                                      tune_options)
         dtdebug(f'SpectrumScan')
         if ret < 0:
             from neumodvb.neumo_dialogs import ShowMessage

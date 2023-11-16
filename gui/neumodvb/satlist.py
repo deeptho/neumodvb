@@ -203,15 +203,15 @@ class SatGridBase(NeumoGridBase):
         title =  ', '.join([str(sat) for sat in sats[:3]])
         if len(sats) >=3:
             title += '...'
-        scan_pars, band_scan_options = show_scan_dialog(self, allow_band_scan=True, title=f'Scan {title}')
-        if scan_pars is None:
+        tune_options, band_scan_options = show_scan_dialog(self, allow_band_scan=True, title=f'Scan {title}')
+        if tune_options is None:
             dtdebug(f'CmdScan aborted for {len(rows)} sats')
             return
         dtdebug(f'CmdScan requested for {len(rows)} sats')
         if band_scan_options is not None:
-            self.app.BandsOnSatScan(sats, scan_pars, band_scan_options)
+            self.app.BandsOnSatScan(sats, tune_options, band_scan_options)
         else:
-            self.app.MuxesOnSatScan(sats, scan_pars)
+            self.app.MuxesOnSatScan(sats, tune_options)
 
     def CurrentSatAndSatBand(self):
         if self.sat_band is not None:

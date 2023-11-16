@@ -1604,7 +1604,7 @@ void receiver_t::notify_spectrum_scan_band_end(subscription_id_t scan_subscripti
 
 //called from scanner loop to inform about scan statistics at start (for display on mux screen)
 void receiver_t::notify_scan_progress(subscription_id_t scan_subscription_id,
-																			const scan_stats_t& stats, bool is_start) {
+																			const scan_stats_t& stats) {
 	{
 		auto mss = this->subscribers.readAccess();
 		auto [it, found] = find_in_map_if(
@@ -1618,7 +1618,7 @@ void receiver_t::notify_scan_progress(subscription_id_t scan_subscription_id,
 		if (!ms)
 			return;
 		//Notify spectrum dialog and muxlist
-		ms->notify_scan_progress(stats, is_start);
+		ms->notify_scan_progress(stats);
 	}
 }
 

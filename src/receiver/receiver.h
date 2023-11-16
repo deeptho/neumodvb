@@ -620,8 +620,7 @@ public:
 	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_mux_end_report_t& report);
 
 	//thread-safe; called from scanner; notify single python scanning subscriber synchronously
-	void notify_scan_progress(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats,
-														bool is_start);
+	void notify_scan_progress(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats);
 
 	inline devdb::usals_location_t get_usals_location() const {
 		auto r = options.readAccess();

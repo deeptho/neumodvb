@@ -129,7 +129,8 @@ public:
 
 	EXPORT int scan_bands(const ss::vector_<chdb::sat_t>& sats,
 												const ss::vector_<chdb::fe_polarisation_t>& pols,
-												int32_t low_freq, int32_t high_freq);
+												int32_t low_freq, int32_t high_freq,
+												const std::optional<tune_options_t>& tune_options);
 
 	EXPORT int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key);

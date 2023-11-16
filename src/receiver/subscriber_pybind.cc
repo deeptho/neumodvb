@@ -166,11 +166,10 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 
 
 static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
-															py::list pol_list, int32_t low_freq, int32_t high_freq) {
+															py::list pol_list, int32_t low_freq, int32_t high_freq,
+															const std::optional<tune_options_t>& tune_options) {
 	using namespace chdb;
 	int n = sat_list.size();
-	int m = pol_list.size();
-
 	ss::vector_<sat_t> sats;
 	ss::vector<fe_polarisation_t, 2> pols;
 	sats.reserve(n);
@@ -189,7 +188,7 @@ static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
 			continue; //no overlap
 		sats.push_back(*psat);
 	}
-	auto subscription_id = subscriber.scan_bands(sats, pols, low_freq, high_freq);
+	auto subscription_id = subscriber.scan_bands(sats, pols, low_freq, high_freq, tune_options);
 	return subscription_id;
 }
 
@@ -329,6 +328,7 @@ void export_subscriber(py::module& m) {
 				 , py::arg("pols to scan")
 				 , py::arg("low_freq")
 				 , py::arg("high_freq")
+				 , py::arg("tune_options")
 			)
 		.def_property_readonly("error_message", [](subscriber_t* self) {
 			return get_error().c_str(); })

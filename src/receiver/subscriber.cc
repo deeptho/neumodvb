@@ -83,9 +83,11 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 
 int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 														 const ss::vector_<chdb::fe_polarisation_t>& pols,
-														 int32_t low_freq, int32_t high_freq) {
+														 int32_t low_freq, int32_t high_freq,
+														 const std::optional<tune_options_t>& tune_options_) {
 	set_scanning(true);
-	auto tune_options = receiver->get_default_tune_options(subscription_type_t::SPECTRUM_SCAN);
+	auto tune_options =
+		tune_options_ ? * tune_options_: receiver->get_default_tune_options(subscription_type_t::SPECTRUM_SCAN);
 	tune_options.tune_mode = tune_mode_t::SPECTRUM;
 	tune_options.need_spectrum = true;
 	tune_options.spectrum_scan_options.recompute_peaks = true;

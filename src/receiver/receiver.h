@@ -601,7 +601,7 @@ public:
 	}
 
 	//thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously
-	void on_spectrum_scan_end(const spectrum_scan_t& scan,
+	void on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& scan,
 														const ss::vector_<subscription_id_t>& subscription_ids);
 
 	//thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously

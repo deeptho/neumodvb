@@ -1649,7 +1649,7 @@ void receiver_thread_t::cb_t::send_spectrum_to_scanner(const spectrum_scan_t& sc
 }
 
 //called from fe_monitor code
-void receiver_t::on_spectrum_scan_end(const spectrum_scan_t& scan,
+void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& scan,
 																			const ss::vector_<subscription_id_t>& subscription_ids) {
 	bool has_scanning_subscribers{false};
 	{

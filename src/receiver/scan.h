@@ -440,8 +440,9 @@ class scanner_t {
 	int add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& tune_options,
 								subscription_id_t subscription_id);
 
-	int add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<chdb::spectral_peak_t>& peaks,
-												 bool init, subscription_id_t subscription_id);
+	template<typename peak_t>
+	int add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<peak_t>& peaks,
+												 subscription_id_t subscription_id);
 
 	int add_bands(const ss::vector_<chdb::sat_t>& sats,
 								const ss::vector_<chdb::fe_polarisation_t>& pols,

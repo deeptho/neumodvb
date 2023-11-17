@@ -1762,13 +1762,12 @@ receiver_thread_t::scan_spectral_peaks(std::vector<task_queue_t::future_t>& futu
 																			 bool scan_found_muxes, int max_num_subscriptions,
 																			 subscription_id_t subscription_id, subscriber_t* subscriber_ptr) {
 	auto scanner = get_scanner();
-	bool init = !scanner.get();
 	subscribe_ret_t sret{subscription_id, false /*failed*/};
 	if (!scanner){
 		scanner = std::make_shared<scanner_t>(*this, max_num_subscriptions);
 		set_scanner(scanner);
 	}
-	scanner->add_spectral_peaks(spectrum_key, peaks, init, sret.subscription_id);
+	scanner->add_spectral_peaks(spectrum_key, peaks, sret.subscription_id);
 	bool remove_scanner = scanner->housekeeping(true); // start initial scan
 	if(remove_scanner) {
 		reset_scanner();

@@ -26,6 +26,7 @@
 #include "neumodb/db_keys_helper.h"
 #include "receiver.h"
 #include "util/template_util.h"
+#include "neumofrontend.h"
 
 scan_mux_end_report_t::scan_mux_end_report_t(const scan_subscription_t& subscription,
 																						 const statdb::spectrum_key_t spectrum_key)
@@ -1257,9 +1258,10 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 	return 0;
 }
 
+template<typename peak_t>
 int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
-																	const ss::vector_<chdb::spectral_peak_t>& peaks,
-																	bool init, subscription_id_t scan_subscription_id) {
+																	const ss::vector_<peak_t>& peaks,
+																	subscription_id_t scan_subscription_id) {
 	assert((int) scan_subscription_id >=0);
 	tune_options_t o;
 	o.scan_target = scan_target_t::SCAN_FULL;
@@ -1274,8 +1276,14 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 
 	auto scan_id = scan.make_scan_id(scan_subscription_id, o);
 
-	for(const auto& peak: peaks) {
-		blindscan_key_t key = {spectrum_key.sat_pos, spectrum_key.pol, peak.frequency};//frequency is translated to band
+	for(const auto& peak_: peaks) {
+		chdb::spectral_peak_t peak;
+		if constexpr (is_same_type_v<chdb::spectral_peak_t, peak_t>) {
+			peak = peak_;
+		} else {
+			peak = chdb::spectral_peak_t{(uint32_t)peak_.freq, (uint32_t)peak_.symbol_rate, spectrum_key.pol};
+		}
+		blindscan_key_t key{spectrum_key.sat_pos, spectrum_key.pol, peak.frequency};
 		auto& blindscan = scan.blindscans[key];
 		if(!blindscan.spectrum_acquired()) {
 			blindscan.spectrum_key = spectrum_key;
@@ -1285,16 +1293,6 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 		blindscan.peaks.push_back(peak_to_scan_t(peak, scan_id));
 	}
 
-	//initialize statistics
-	{
-		auto& scan = scans.at(scan_subscription_id);
-		assert(scan.scan_subscription_id == scan_subscription_id);
-		auto w = scan.scan_stats.writeAccess();
-		if (init) {
-			*w = scan_stats_t{};
-		}
-		w->active_muxes = scan.subscriptions.size();
-	}
 	return 0;
 }
 
@@ -1466,3 +1464,10 @@ template subscription_id_t scan_t::scan_next<chdb::dvbc_mux_t>(
 	db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_subscription_t& subscription);
 template subscription_id_t scan_t::scan_next<chdb::dvbt_mux_t>(
 	db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_subscription_t& subscription);
+
+template int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
+																					 const ss::vector_<chdb::spectral_peak_t>& peaks,
+																					 subscription_id_t subscription_id);
+template int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
+																					 const ss::vector_<spectral_peak_t>& peaks,
+																					 subscription_id_t subscription_id);

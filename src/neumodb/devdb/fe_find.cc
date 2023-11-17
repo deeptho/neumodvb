@@ -532,7 +532,6 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 			rf_path.card_mac_address = lnb_connection.card_mac_address;
 			rf_path.rf_input = lnb_connection.rf_input;
 #endif
-			assert(!tune_options.need_spectrum);
 			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
 				rtxn, rf_path, lnb, fe_key_to_release, tune_options.need_blind_tune, tune_options.need_spectrum,
 				false /*need_multistream*/, pol, chdb::sat_sub_band_t::NONE /*force exclusive access

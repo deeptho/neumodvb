@@ -224,22 +224,47 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 	}
 }
 
-bool scanner_t::on_spectrum_scan_band_end(const subscriber_t& subscriber,
-																		 const ss::vector_<subscription_id_t>& fe_subscription_ids,
-																		 const spectrum_scan_t& scan)
+bool scanner_t::on_spectrum_scan_band_end(
+	const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
+	subscription_id_t scan_subscription_id,
+	const ss::vector_<subscription_id_t>& fe_subscription_ids)
 {
-	auto [it, found] = find_in_map(this->scans, subscriber.get_subscription_id());
+	auto& spectrum_key = spectrum_scan.spectrum->k;
+	add_spectral_peaks(spectrum_key, spectrum_scan.peaks, scan_subscription_id);
+
+	auto [it, found] = find_in_map(this->scans, scan_subscription_id);
 	if(!found)
 		return false; //not a scan control subscription_id
-	auto &scanx = it->second;
-
-	for(auto subscription_id: fe_subscription_ids) {
-		auto [it, found] = find_in_map(scanx.subscriptions, subscription_id);
-		if(!found)
-			continue; //this is not a subscription used by this scan
-		printf("found scan complete=%d\n", scan.spectrum->is_complete);
+	auto &scan = it->second;
+	try {
+		for(auto finished_subscription_id: fe_subscription_ids) {
+			auto [it, found] = find_in_map(scan.subscriptions, finished_subscription_id);
+			if(!found)
+				continue; //this is not a subscription used by this scan
+			auto& scan_subscription = it->second;
+			auto& sat_band = scan_subscription.sat_band;
+			if(!sat_band)
+				continue; //scanning muxes
+			//auto& [sat, band_scan ] = *sat_band;
+			scan.on_spectrum_scan_band_end(finished_fe, spectrum_scan,  finished_subscription_id);
+		}
+	} catch(std::runtime_error) {
+		dtdebugf("Detected exit condition");
+		must_end = true;
 	}
-	return false; //todo: return true only if scanner needs to be removed
+
+	bool done = scan.get_scan_stats().done();
+	if(must_end || done) {
+		std::vector<task_queue_t::future_t> futures;
+		auto devdb_wtxn = receiver.devdb.wtxn();
+		unsubscribe_scan(futures, devdb_wtxn, scan_subscription_id);
+		devdb_wtxn.commit();
+		wait_for_all(futures); //remove later
+		return true;
+	}
+
+
+	return false;
 }
 
 /*

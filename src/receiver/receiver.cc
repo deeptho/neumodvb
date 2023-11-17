@@ -1623,27 +1623,29 @@ void receiver_t::notify_scan_progress(subscription_id_t scan_subscription_id,
 }
 
 
-void receiver_thread_t::cb_t::send_spectrum_to_scanner(const spectrum_scan_t& scan,
+void receiver_thread_t::cb_t::send_spectrum_to_scanner(const devdb::fe_t& finished_fe,
+																											 const spectrum_scan_t& scan,
 																											 const ss::vector_<subscription_id_t>& subscription_ids) {
 
 	auto scanner = this->get_scanner();
-	if (!scanner.get()) {
+	if (!scanner.get() || subscription_ids.size() ==0) {
 		return;
 	}
+
 	auto mss = receiver.subscribers.readAccess();
 
 	for (auto [subsptr, ms_shared_ptr] : *mss) {
 		auto* ms = ms_shared_ptr.get();
 		if (!ms || ! ms->is_scanning())
 			continue;
-		if(subscription_ids.size() > 0) {
+		auto scan_subscription_id = ms->get_subscription_id();
+
 			//dtdebugf("Calling scanner->on_scan_spectrum_end: adapter={}  mux={} subscription_id={}",
 			//				 finished_fe.adapter_no, finished_mux, (int) subscription_id);
-			auto remove_scanner = scanner->on_spectrum_scan_band_end(*ms, subscription_ids, scan);
-			if (remove_scanner) {
-				reset_scanner();
-				break;
-			}
+		auto remove_scanner = scanner->on_spectrum_scan_band_end(finished_fe, scan, scan_subscription_id, subscription_ids);
+		if (remove_scanner) {
+			reset_scanner();
+			break;
 		}
 	}
 }
@@ -1674,8 +1676,8 @@ void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spec
 	auto& receiver_thread = this->receiver_thread;
 	if(has_scanning_subscribers) {
 		//capturing by value is essential
-		receiver_thread.push_task([&receiver_thread, scan, subscription_ids]() {
-			cb(receiver_thread).send_spectrum_to_scanner(scan, subscription_ids);
+		receiver_thread.push_task([&receiver_thread, finished_fe, scan, subscription_ids]() {
+			cb(receiver_thread).send_spectrum_to_scanner(finished_fe, scan, subscription_ids);
 			return 0;
 		});
 	}

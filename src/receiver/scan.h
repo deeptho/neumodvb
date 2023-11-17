@@ -259,6 +259,7 @@ struct peak_to_scan_t {
 		: peak(peak)
 		, scan_id(scan_id)
 		{}
+
 	inline bool is_present() const {
 		return scan_id.subscription_id >=0;
 	}
@@ -309,12 +310,17 @@ struct scan_stats_t
 	int pending_bands{0};
 	int active_muxes{0};
 	int active_bands{0};
-	int finished_muxes{0}; //total number of muxes we tried to scan
+	int finished_muxes{0}; //total number of muxes we scanned
+	int finished_bands{0}; //total number of bands we scanned
 	int failed_muxes{0}; //muxes which could not be locked
 	int locked_muxes{0}; //mixes which locked
 	int si_muxes{0}; //muxes with si data
 	scan_stats_t() = default;
 	friend bool operator == (const scan_stats_t&, const scan_stats_t&) = default;
+
+	inline bool done() const {
+		return pending_peaks + pending_muxes  + pending_bands + active_muxes + active_bands == 0;
+	}
 };
 
 struct scan_mux_end_report_t {
@@ -345,10 +351,17 @@ class scan_t {
 	std::map<subscription_id_t, scan_subscription_t> subscriptions;
 	std::map<blindscan_key_t, blindscan_t> blindscans;
 	int next_opt_id{0};
+	scan_stats_t scan_stats_dvbs;
+	scan_stats_t scan_stats_dvbc;
+	scan_stats_t scan_stats_dvbt;
+	inline scan_stats_t get_scan_stats() const;
 
-public:
-	using stats_t = safe::Safe<scan_stats_t>;
-	scan_stats_t scan_stats;
+	template<typename mux_t>
+	requires (! is_same_type_v<chdb::sat_t, mux_t>)
+	inline scan_stats_t& get_scan_stats_ref(const mux_t& mux);
+	inline scan_stats_t& get_scan_stats_ref(int16_t sat_pos);
+	inline scan_stats_t& get_scan_stats_ref(const chdb::sat_t& sat);
+
 private:
 	inline chdb::scan_id_t make_scan_id(subscription_id_t scan_subscription_id,
 																			const tune_options_t& tune_options) {
@@ -371,53 +384,73 @@ private:
 
 
 	void scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
-								 int& num_pending_muxes, int& num_pending_peaks,
 								 const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux);
 
+	void scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
+								 const devdb::fe_t& finished_fe, const chdb::sat_t& finished_sat);
 
-	int on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-											subscription_id_t finished_subscription_id);
 
-	subscription_id_t scan_try_mux(subscription_id_t reusable_subscription_id ,
-																 scan_subscription_t& subscription, bool use_blind_tune);
 
-	subscription_id_t scan_try_band(subscription_id_t reuseable_subscription_id,
-																	scan_subscription_t& subscription);
+	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
+											 subscription_id_t finished_subscription_id);
 
-	bool rescan_peak(blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
-									 scan_subscription_t& subscription);
+	void on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
+																 subscription_id_t finished_subscription_id);
 
-	subscription_id_t scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
-															subscription_id_t subscription_id, scan_subscription_t& subscription);
+	template <typename mux_t>
+	std::tuple<subscription_id_t, scan_subscription_t*, bool>
+	scan_try_mux(subscription_id_t reusable_subscription_id,
+							 const mux_t& mux, bool use_blind_tune, const blindscan_key_t& blindscan_key);
+
+	inline std::tuple<subscription_id_t, scan_subscription_t*, bool>
+	scan_try_mux(subscription_id_t reusable_subscription_id,
+							 const chdb::any_mux_t& mux, bool use_blind_tune) {
+		return std::visit([&](auto&mux) {
+			return scan_try_mux(reusable_subscription_id, mux, use_blind_tune);
+		}, mux);
+	}
+
+	std::tuple<subscription_id_t, scan_subscription_t*, bool>
+	scan_try_band(subscription_id_t reuseable_subscription_id,
+								const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
+								const blindscan_key_t& blindscan_key, scan_stats_t& scan_stats);
+
+	template<typename mux_t>
+	bool rescan_peak(const blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
+									 mux_t& mux, const peak_to_scan_t& peak, const blindscan_key_t& blindscan_key);
+
+	template<typename mux_t>
+	std::tuple<bool, bool>
+	scan_try_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
+						subscription_id_t reusable_subscription_id, const peak_to_scan_t& peak,
+						const blindscan_key_t& blindscan_key);
 
 	subscription_id_t
 	scan_next_peaks(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
-									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
+									std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats);
 
 	template<typename mux_t>
 	subscription_id_t
 	scan_next_muxes(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
-									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
+									std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats);
 
 	subscription_id_t
 	scan_next_bands(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
-									scan_subscription_t& subscription, std::map<blindscan_key_t, bool>& skip_map);
+									std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats);
 
 	template<typename mux_t>
 	subscription_id_t
-	scan_next(db_txn& chdb_rtxn, subscription_id_t finished_subscription_id,
-						scan_subscription_t& subscription);
-
-	subscription_id_t try_all(
-		db_txn& chdb_rtxn, scan_subscription_t& subscription,
-		const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux);
+	scan_next(db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_stats_t& scan_stats);
 
 	bool retry_subscription_if_needed(subscription_id_t finished_subscription_id,
 																		scan_subscription_t& subscription,
-																		const chdb::any_mux_t& finished_mux);
+																		const chdb::any_mux_t& finished_mux,
+																		const blindscan_key_t& blindscan_key);
+
+	void housekeeping(bool force);
 
 public:
 	scan_t(	scanner_t& scanner, subscription_id_t scan_subscription_id);
@@ -455,8 +488,9 @@ class scanner_t {
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
 											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
 
-	bool on_spectrum_scan_band_end(const subscriber_t& subscriber, const ss::vector_<subscription_id_t>& subscription_ids,
-														const spectrum_scan_t& spectrum_scan);
+	bool on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
+																 subscription_id_t scan_subscription_id,
+																 const ss::vector_<subscription_id_t>& fe_subscription_ids);
 	bool housekeeping(bool force);
 	subscription_id_t scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id);
 public:

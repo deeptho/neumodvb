@@ -56,7 +56,7 @@ def subscription_fn(x):
     #lnb and rf input info common to all subscriptions
     sid = f"" if (mux_key.stream_id < 0) else f'-{mux_key.stream_id}'
     if mux_key.sat_pos == pychdb.sat.sat_pos_none:
-        ret.append(f"{sub.subscription_id}: ???")
+        ret.append(f"{fesub.subscription_id}: Band")
     elif mux_key.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
         t= lastdot(fesub.rf_path.lnb.lnb_type)
         sat_pos=pychdb.sat_pos_str(mux_key.sat_pos)

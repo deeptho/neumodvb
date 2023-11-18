@@ -23,6 +23,7 @@
 #include "receiver/neumofrontend.h"
 #include "devdb_private.h"
 #include "util/dtassert.h"
+#include <fmt/std.h>
 #include <iomanip>
 #include <iostream>
 #include <signal.h>
@@ -40,7 +41,7 @@ static bool unsubscribe_helper(fe_t& fe, subscription_id_t subscription_id) {
 		if(sub.subscription_id == (int32_t)subscription_id &&  fe.sub.owner == getpid()) {
 			if(sub.has_service) {
 				dtdebugf("adapter {:d}: subscription_id={:d} unsubscribe service={}",
-								 fe.adapter_no, (int) subscription_id, sub.service);
+								 fe.adapter_no, (int) subscription_id, sub.v);
 			} else if (sub.has_mux) {
 				dtdebugf("adapter {:d} {:d}.{:03d}{}-{:d} {:d} use_count={:d} unsubscribe", fe.adapter_no,
 								 fe.sub.frequency/1000, fe.sub.frequency%1000,
@@ -837,9 +838,11 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				rf_path_matches = tune_options.rf_path_is_allowed(fe.sub.rf_path);
 			}
+			auto* sub_service = std::get_if<chdb::service_t>(&sub.v);
 			bool mux_matches = mux ? (mux->k == fe.sub.mux_key ||
-																(sub.has_mux &&  mux->k == sub.service.k.mux)) : !sub.has_mux;
-			bool service_matches = service ? (sub.has_service &&  service->k == sub.service.k) : ! sub.has_service;
+																(sub_service && sub.has_mux &&  mux->k == sub_service->k.mux)) : !sub.has_mux;
+			bool service_matches = service ? (sub.has_service &&  sub_service &&
+																				service->k == sub_service->k) : ! sub.has_service;
 			service_matches |= match_mux_only;
 			//in case we only need a mux, we also check for a match in frequency
 			if(rf_path_matches && mux && !mux_matches && (!service || match_mux_only)) {

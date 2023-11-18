@@ -279,7 +279,7 @@ subscription_data = db_struct(name ='subscription_data',
                                  fields =((1, 'int32_t', 'subscription_id'),
                                           (2, 'bool', 'has_mux'),
                                           (3, 'bool', 'has_service'),
-                                          (4, 'chdb::service_t', 'service')
+                                          (5, 'std::variant<std::monostate,chdb::service_t, chdb::band_scan_t>', 'v')
                 ))
 
 fe_subscription = db_struct(name='fe_subscription',

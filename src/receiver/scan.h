@@ -395,7 +395,7 @@ private:
 											 subscription_id_t finished_subscription_id);
 
 	void on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
-																 subscription_id_t finished_subscription_id);
+																 const subscription_id_t finished_subscription_id);
 
 	template <typename mux_t>
 	std::tuple<subscription_id_t, scan_subscription_t*, bool>
@@ -489,8 +489,8 @@ class scanner_t {
 											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
 
 	bool on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
-																 subscription_id_t scan_subscription_id,
-																 const ss::vector_<subscription_id_t>& fe_subscription_ids);
+																 const chdb::scan_id_t& scan_id,
+																 const ss::vector_<subscription_id_t>& subscription_ids);
 	bool housekeeping(bool force);
 	subscription_id_t scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id);
 public:

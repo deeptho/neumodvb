@@ -373,7 +373,8 @@ void receiver_thread_t::cb_t::abort_scan() {
 */
 void receiver_thread_t::cb_t::send_scan_mux_end_to_scanner(const devdb::fe_t& finished_fe,
 																													 const chdb::any_mux_t& finished_mux,
-																													 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id)
+																													 const chdb::scan_id_t& scan_id,
+																													 subscription_id_t subscription_id)
 {
 	auto scanner = get_scanner();
 	if (!scanner.get()) {
@@ -1624,36 +1625,26 @@ void receiver_t::notify_scan_progress(subscription_id_t scan_subscription_id,
 
 
 void receiver_thread_t::cb_t::send_spectrum_to_scanner(const devdb::fe_t& finished_fe,
-																											 const spectrum_scan_t& scan,
+																											 const spectrum_scan_t& spectrum_scan,
+																											 const chdb::scan_id_t& scan_id,
 																											 const ss::vector_<subscription_id_t>& subscription_ids) {
-
 	auto scanner = this->get_scanner();
-	if (!scanner.get() || subscription_ids.size() ==0) {
+	if (!scanner.get() || subscription_ids.size()== 0) {
 		return;
 	}
-
-	auto mss = receiver.subscribers.readAccess();
-
-	for (auto [subsptr, ms_shared_ptr] : *mss) {
-		auto* ms = ms_shared_ptr.get();
-		if (!ms || ! ms->is_scanning())
-			continue;
-		auto scan_subscription_id = ms->get_subscription_id();
-
-			//dtdebugf("Calling scanner->on_scan_spectrum_end: adapter={}  mux={} subscription_id={}",
-			//				 finished_fe.adapter_no, finished_mux, (int) subscription_id);
-		auto remove_scanner = scanner->on_spectrum_scan_band_end(finished_fe, scan, scan_subscription_id, subscription_ids);
-		if (remove_scanner) {
-			reset_scanner();
-			break;
+	auto remove_scanner = scanner->on_spectrum_scan_band_end(finished_fe, spectrum_scan,
+																													 scan_id, subscription_ids);
+	if (remove_scanner) {
+		reset_scanner();
 		}
-	}
 }
 
 //called from fe_monitor code
-void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& scan,
+void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
 																			const ss::vector_<subscription_id_t>& subscription_ids) {
+	auto scan_id = deactivate_spectrum_scan(spectrum_scan);
 	bool has_scanning_subscribers{false};
+	subscription_id_t subscription_id{-1};
 	{
 		auto mss = subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
@@ -1661,23 +1652,29 @@ void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spec
 			if (!ms)
 				continue;
 			if(ms->is_scanning()) {
+				assert((int)subscription_id < 0); /*only one scan_t can scan a band;
+																						it is possible that a spectrum_dialog
+																						also wants this spectrum
+																					*/
+				subscription_id = ms->get_subscription_id();
 				has_scanning_subscribers = true;
 				continue;
 			}
-
+			if (!subscription_ids.contains(ms->get_subscription_id()))
+				continue;
 			/*
-				a subscriber can either directly handle the received signal info via
-				ms->notify_spectrum_scan_band_end, or indirectly via scanner->on_spectrum_scan_band_end(*ms...)
+				This is a spectrum_dialog window. We can directly send it a copy of the spectrum
 			*/
-			if(scan.spectrum &&  subscription_ids.contains(ms->get_subscription_id()))
-				ms->notify_spectrum_scan_band_end(*scan.spectrum);
+			if(spectrum_scan.spectrum &&  subscription_ids.contains(ms->get_subscription_id()))
+				ms->notify_spectrum_scan_band_end(*spectrum_scan.spectrum);
 		}
 	}
-	auto& receiver_thread = this->receiver_thread;
+	assert(has_scanning_subscribers == scanner_t::is_our_scan(scan_id));
 	if(has_scanning_subscribers) {
+		auto& receiver_thread = this->receiver_thread;
 		//capturing by value is essential
-		receiver_thread.push_task([&receiver_thread, finished_fe, scan, subscription_ids]() {
-			cb(receiver_thread).send_spectrum_to_scanner(finished_fe, scan, subscription_ids);
+		receiver_thread.push_task([&receiver_thread, finished_fe, spectrum_scan, scan_id, subscription_ids]() {
+			cb(receiver_thread).send_spectrum_to_scanner(finished_fe, spectrum_scan, scan_id, subscription_ids);
 			return 0;
 		});
 	}
@@ -1940,14 +1937,87 @@ tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscrip
 	return ret;
 }
 
-#ifdef TODO2
-void receiver_thread_t::cb_t::on_spectrum_scan_band_end(const subscriber_t& subscriber,
-																									 const ss::vector_<subscription_id_t>& subscription_ids,
-																									 const statdb::spectrum_t& spectrum) {
-		auto scanner = get_scanner();
-		scanner->on_spectrum_scan_band_end(subscriber, subscription_ids, spectrum);
-}
+static chdb::scan_id_t activate_spectrum_scan_(chdb::chdb_t&chdb, int16_t sat_pos,
+																	 chdb::fe_polarisation_t pol,
+																	 int start_freq, int end_freq,
+																	 bool spectrum_obtained) {
+	using namespace chdb;
+	scan_id_t scan_id;
+	auto [sat_band, sat_sub_band] = sat_band_for_freq(start_freq);
+#ifndef NDEBUG
+		auto [sat_band1, sat_sub_band1] = sat_band_for_freq(end_freq-1);
+		assert(sat_band1 == sat_band);
 #endif
+	auto chdb_rtxn = chdb.rtxn();
+	auto c = chdb::sat_t::find_by_key(chdb_rtxn, sat_pos, sat_band, find_type_t::find_eq);
+	assert(c.is_valid());
+	auto sat = c.current();
+	chdb_rtxn.abort();
+	for(auto & band_scan : sat.band_scans) {
+		if(!scanner_t::is_our_scan(band_scan.scan_id))
+			continue;
+		if (band_scan.pol != pol)
+			continue;
+		auto [l, h] =sat_band_freq_bounds(band_scan.sat_band, band_scan.sat_sub_band);
+		if(start_freq > l)
+				l = start_freq;
+		if(end_freq < h)
+				h = end_freq;
+		if(l>=h)
+			continue;
+
+		assert((int)scan_id.subscription_id < 0); //there can only be one scan per band
+		scan_id = band_scan.scan_id;
+		assert(scan_id.subscription_id >= 0);
+		//we have found a matching band
+		if(spectrum_obtained != (band_scan.scan_status == scan_status_t::ACTIVE)) {
+			//some other subscription is already scanning
+		} else {
+
+			if(band_scan.scan_status == scan_status_t::PENDING ||
+				 band_scan.scan_status == scan_status_t::RETRY)  {
+				assert(!spectrum_obtained);
+				dtdebugf("SET ACTIVE {}", band_scan);
+				band_scan.scan_status = scan_status_t::ACTIVE;
+				assert (chdb::scan_in_progress(band_scan.scan_id));
+			} else if (band_scan.scan_status == scan_status_t::ACTIVE) {
+				assert(spectrum_obtained);
+								dtdebugf("SET ACTIVE {}", band_scan);
+				if(spectrum_obtained) {
+					band_scan.scan_status = scan_status_t::IDLE;
+					band_scan.scan_id = {};
+					band_scan.scan_time = system_clock_t::to_time_t(now);
+				}
+			}
+			sat.mtime = system_clock_t::to_time_t(now);
+			auto chdb_wtxn = chdb.wtxn();
+			put_record(chdb_wtxn, sat);
+			chdb_wtxn.commit();
+			dtdebugf("committed write");
+
+		}
+	}
+	return scan_id;
+}
+
+void receiver_t::activate_spectrum_scan(const spectrum_scan_options_t& spectrum_scan_options) {
+	auto sat_pos = spectrum_scan_options.sat_pos;
+	auto pol = spectrum_scan_options.band_pol.pol;
+	auto start_freq = spectrum_scan_options.start_freq;
+	auto end_freq = spectrum_scan_options.end_freq;
+	activate_spectrum_scan_(chdb, sat_pos, pol, start_freq, end_freq, false/*spectrum_obtained*/);
+}
+
+chdb::scan_id_t receiver_t::deactivate_spectrum_scan(const spectrum_scan_t&spectrum_scan) {
+	using namespace chdb;
+
+	auto sat_pos = spectrum_scan.sat_pos;
+	auto pol = spectrum_scan.band_pol.pol;
+	auto start_freq = spectrum_scan.start_freq;
+	auto end_freq = spectrum_scan.end_freq;
+	return activate_spectrum_scan_(chdb, sat_pos, pol, start_freq, end_freq, true/*spectrum_obtained*/);
+}
+
 
 thread_local thread_group_t thread_group{thread_group_t::unknown};
 

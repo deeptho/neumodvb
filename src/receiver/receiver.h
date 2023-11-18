@@ -447,6 +447,7 @@ public:
 	void send_signal_info_to_scanner(const signal_info_t& info, const ss::vector_<subscription_id_t>& subscription_ids);
 	void send_sdt_actual_to_scanner(const sdt_data_t& sdt_data, const ss::vector_<subscription_id_t>& subscription_ids);
 	void send_spectrum_to_scanner(const devdb::fe_t& finished_fe, const spectrum_scan_t& scan,
+																const chdb::scan_id_t& scan_id,
 																const ss::vector_<subscription_id_t>& subscription_ids);
 	void send_scan_mux_end_to_scanner(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
 																		const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
@@ -622,6 +623,8 @@ public:
 
 	//thread-safe; called from scanner; notify single python scanning subscriber synchronously
 	void notify_scan_progress(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats);
+	void activate_spectrum_scan(const spectrum_scan_options_t& spectrum_scan_options);
+	chdb::scan_id_t deactivate_spectrum_scan(const spectrum_scan_t& spectrum_scan);
 
 	inline devdb::usals_location_t get_usals_location() const {
 		auto r = options.readAccess();

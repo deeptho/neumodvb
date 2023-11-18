@@ -529,12 +529,4 @@ void export_scan_report(py::module& m) {
 		.def_readwrite("mux", &scan_mux_end_report_t::mux)
 		.def_readwrite("fe_key", &scan_mux_end_report_t::fe_key)
 		;
-#ifdef TODO4
-	py::class_<scan_band_end_report_t>(m, "scan_band_end_report_t")
-		.def(py::init())
-		.def_readwrite("spectrum_key", &scan_band_end_report_t::spectrum_key)
-		.def_readwrite("fe_key", &scan_band_end_report_t::fe_key)
-		.def_readwrite("band", &scan_band_end_report_t::band)
-		;
-#endif
 }

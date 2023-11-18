@@ -233,14 +233,6 @@ void subscriber_t::notify_scan_mux_end(const scan_mux_end_report_t& report) {
 	notify(report);
 }
 
-#ifdef TODO4
-void subscriber_t::notify_scan_band_end(const scan_mux_end_report_t& report) {
-	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM)))
-		return;
-	notify(report);
-}
-#endif
-
 void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data) const
 {
 	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))

@@ -124,7 +124,7 @@ void scan_t::housekeeping(bool force) {
 	if(receiver_thread.must_exit())
 		throw std::runtime_error("Exit requested");
 	dtdebugf("dvbc scan_next\n");
-	scan_next<chdb::dvbs_mux_t>(chdb_rtxn, finished_subscription_id, scan_stats_dvbc);
+	scan_next<chdb::dvbs_mux_t>(chdb_rtxn, finished_subscription_id, scan_stats_dvbs);
 
 	if(receiver_thread.must_exit())
 		throw std::runtime_error("Exit requested");
@@ -133,7 +133,7 @@ void scan_t::housekeeping(bool force) {
 
 	if(receiver_thread.must_exit())
 		throw std::runtime_error("Exit requested");
-	scan_next<chdb::dvbt_mux_t>(chdb_rtxn, finished_subscription_id, scan_stats_dvbs);
+	scan_next<chdb::dvbt_mux_t>(chdb_rtxn, finished_subscription_id, scan_stats_dvbc);
 
 	auto ss = get_scan_stats();
 	dtdebugf("pending={:d}+{:d}", ss.pending_peaks, ss.pending_muxes);
@@ -498,7 +498,7 @@ scan_t::scan_try_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 	Otherwise return true, signaling that this subscription is done
  */
 bool scan_t::retry_subscription_if_needed(subscription_id_t subscription_id,
-																 scan_subscription_t& subscription,
+																					scan_subscription_t& subscription,
 																					const chdb::any_mux_t& finished_mux,
 																					const blindscan_key_t& blindscan_key)
 {
@@ -606,8 +606,10 @@ scan_t::scan_next_peaks(db_txn& chdb_rtxn,
 						2. even if user only starts blindscan, which will use a specific lnb,
 						si processing can create new muxes which can then be scanned on any lnb
 						*/
-		if(skip_sat_band)
+		if(skip_sat_band) {
+			get_scan_stats_ref(blindscan_key.sat_pos).pending_peaks++;
 			continue;
+		}
 		for(int idx = blindscan.peaks.size()-1;  idx>=0 ; --idx) {
 			auto &peak = blindscan.peaks[idx];
 			using namespace chdb;
@@ -885,19 +887,8 @@ void scan_t::scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
 		subscription_to_erase =  scan_next<chdb::dvbs_mux_t>(chdb_rtxn, subscription.subscription_id,
 																												 scan_stats_dvbs);
 	}
-	auto& scan_stats = get_scan_stats_ref(finished_mux);
-
-
-	bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
-	bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result == chdb::scan_result_t::NOTS;
-	scan_stats.finished_muxes++;
-	scan_stats.failed_muxes += !locked;
-	scan_stats.locked_muxes += locked;
-	scan_stats.si_muxes += (locked && !nodvb);
 
 	if((int) subscription_to_erase >=0) {
-		scan_stats.active_muxes--;
-		assert(scan_stats.active_bands >=0);
 
 		this->subscriptions.erase(subscription_to_erase);
 		if (subscription_to_erase == monitored_subscription_id)
@@ -925,12 +916,38 @@ void scan_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux
 	auto subscription = it->second; //need to copy
 	assert(subscription.subscription_id == finished_subscription_id);
 
+	auto&scan_stats = get_scan_stats_ref(finished_mux);
+	scan_stats.active_muxes--;
+	assert(scan_stats.active_muxes>=0);
+
+	bool is_peak = subscription.peak.is_present();
+
 	auto chdb_rtxn = receiver.chdb.rtxn();
 
 	auto& blindscan = blindscans[subscription.blindscan_key];
 	bool finished = retry_subscription_if_needed(finished_subscription_id,
 																							 subscription, finished_mux,
 																							 subscription.blindscan_key);
+
+	bool locked = chdb::mux_common_ptr(finished_mux)->scan_result != chdb::scan_result_t::NOLOCK;
+	bool nodvb = chdb::mux_common_ptr(finished_mux)->scan_result == chdb::scan_result_t::NOTS;
+	if(finished) {
+		//no retry
+		scan_stats.finished_muxes++;
+		scan_stats.failed_muxes += !locked;
+		scan_stats.locked_muxes += locked;
+		if(is_peak) {
+			//note that these are also counted as muxes
+			scan_stats.finished_peaks++;
+			scan_stats.failed_peaks += !locked;
+			scan_stats.locked_peaks += locked;
+		}
+	} else {
+		/*This must be a peak scan where trying to use a database mux failed
+		 */
+	}
+	scan_stats.si_muxes += (locked && !nodvb);
+
 	/*if not finished, then peak will be retried and trying to tune new muxes
 		is unlikely to succeed. Scan statistics also do not change in that case*/
 	if (finished) {
@@ -990,7 +1007,6 @@ void scan_t::scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
 
 	if((int) subscription_to_erase >=0) {
 		//auto& subscription = this->subscriptions.at(subscription_to_erase);
-		scan_stats.active_bands--;
 		assert(scan_stats.active_bands >=0);
 
 		this->subscriptions.erase(subscription_to_erase);
@@ -1023,6 +1039,11 @@ void scan_t::on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spe
 	receiver.notify_spectrum_scan_band_end(scan_subscription_id, report);
 #endif
 	auto& [finished_sat, finished_band_scan] = *subscription.sat_band;
+
+	auto& scan_stats = get_scan_stats_ref(finished_sat);
+	scan_stats.active_bands--;
+	assert(scan_stats.active_bands>=0);
+
 	scan_loop(chdb_rtxn, subscription, finished_fe, finished_sat);
 	chdb_rtxn.commit();
 
@@ -1116,8 +1137,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		dtdebugf("Asked to subscribe {} reuseable_subscription_id={} subscription_id={}",
 						 mux_to_scan, (int) reuseable_subscription_id,
 						 (int) subscription_id);
-		if((int)reuseable_subscription_id <0)
-			scan_stats.active_muxes++;
+		scan_stats.active_muxes++;
 	}
 	/*
 		When tuning fails, it is essential that tuner_thread does NOT immediately unsubscribe the mux,
@@ -1209,12 +1229,12 @@ scan_t::scan_try_band(subscription_id_t reuseable_subscription_id,
 	wait_for_all(futures); //remove later
 
 	if((int)subscription_id >=0) {
+		scan_stats.active_bands++;
 		report("SUBSCRIBED", reuseable_subscription_id, subscription_id,
 					 sat, band_scan, subscriptions);
 		dtdebugf("Asked to subscribe {}:{} reuseable_subscription_id={} subscription_id={}",
 						 sat, band_scan, (int) reuseable_subscription_id,
 						 (int) subscription_id);
-		scan_stats.active_bands++;
 	}
 
 	assert((int)subscription_id >=0 || subscription_id != subscription_id_t::TUNE_FAILED);

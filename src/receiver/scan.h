@@ -310,10 +310,13 @@ struct scan_stats_t
 	int pending_bands{0};
 	int active_muxes{0};
 	int active_bands{0};
+	int finished_peaks{0}; //total number of peaks we scanned without using database parameters
 	int finished_muxes{0}; //total number of muxes we scanned
 	int finished_bands{0}; //total number of bands we scanned
+	int failed_peaks{0}; //peaks which we could not lock with frequency/symbolrate from spectrum
 	int failed_muxes{0}; //muxes which could not be locked
-	int locked_muxes{0}; //mixes which locked
+	int locked_peaks{0}; //peaks which we could lock with frequency/symbolrate from spectrum
+	int locked_muxes{0}; //muxes which locked
 	int si_muxes{0}; //muxes with si data
 	scan_stats_t() = default;
 	friend bool operator == (const scan_stats_t&, const scan_stats_t&) = default;

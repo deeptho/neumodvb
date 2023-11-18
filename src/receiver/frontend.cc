@@ -1072,19 +1072,6 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 		auto lnb = this->ts.readAccess()->reserved_lnb;
 		auto rf_path = this->ts.readAccess()->reserved_rf_path;
 		assert(!(options.band_pol.band == chdb::sat_sub_band_t::HIGH)); //We do not scan more than one polatrisation per call
-#if 0
-		//the code below should not not be needed anymore because we use separate calls for each polarisation
-		if (options.band_pol.band == chdb::sat_sub_band_t::HIGH) {
-			// switch to the next polarisation
-			assert(options.band_pol.pol == chdb::fe_polarisation_t::H ||
-						 options.band_pol.pol == chdb::fe_polarisation_t::L);
-			options.band_pol.band = chdb::sat_sub_band_t::LOW;
-			options.band_pol.pol = options.band_pol.pol == chdb::fe_polarisation_t::H ?
-				chdb::fe_polarisation_t::V : chdb::fe_polarisation_t::R;
-			options.append = false;
-			dtdebugf("Continuing spectrum scan with pol=V band=low");
-		} else
-#endif
 		{
 			// switch to next band
 			options.band_pol.band = chdb::sat_sub_band_t::HIGH;

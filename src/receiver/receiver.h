@@ -439,11 +439,6 @@ public:
 	int start_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);
 	int start_recording(const chdb::service_t& service, system_time_t start_time, int duration);
 
-#ifdef TODO2
-	void on_spectrum_scan_band_end(const subscriber_t& subscriber,
-														const ss::vector_<subscription_id_t>& subscription_ids,
-														const statdb::spectrum_t& spectrum);
-#endif
 	void send_signal_info_to_scanner(const signal_info_t& info, const ss::vector_<subscription_id_t>& subscription_ids);
 	void send_sdt_actual_to_scanner(const sdt_data_t& sdt_data, const ss::vector_<subscription_id_t>& subscription_ids);
 	void send_spectrum_to_scanner(const devdb::fe_t& finished_fe, const spectrum_scan_t& scan,

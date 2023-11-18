@@ -64,6 +64,7 @@ namespace data_types {
 	string = 9  | builtin,
 	float32= 10  | builtin,
 	variant= 20 | builtin,
+	none=    21 | builtin,
 	field_desc = 0xfd | builtin,
 	record_desc = 0xfe | builtin,
 	schema = 0xff | builtin
@@ -131,6 +132,7 @@ namespace data_types {
 	struct record_desc_t;
 	struct field_desc_t;
 
+	template<> constexpr uint32_t data_type<std::monostate>() { return none;}
 	template<> constexpr uint32_t data_type<record_desc_t>() { return record_desc;}
 	template<> constexpr uint32_t data_type<field_desc_t>() { return field_desc;}
 	template<> constexpr uint32_t data_type<uint8_t>() { return uint8;}
@@ -150,7 +152,6 @@ namespace data_types {
 
 };
 
-
 /*
 	returns serialized size when known at compile time.
 	Needs to be specialised for any types which are considered built-ins
@@ -161,7 +162,6 @@ constexpr inline int32_t compile_time_serialized_size()  {
 	if(std::is_fundamental<data_t>::value || std::is_enum<data_t>::value)
 		return sizeof(data_t);
 }
-
 
 template<>
 constexpr inline int32_t compile_time_serialized_size<milliseconds_t>()  {

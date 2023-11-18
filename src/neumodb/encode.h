@@ -30,6 +30,7 @@
 #include "stackstring.h"
 #include "neumotime.h"
 #include <array>
+#include <variant>
 
 template<typename T>
 inline auto encode_ascending(T x);
@@ -144,6 +145,11 @@ inline void encode_ascending(ss::bytebuffer_ &ser, const T& val)  {
 	auto xx = encode_ascending<T>(val);
 	for (auto x: xx)
 		ser.push_back(x);
+}
+
+template<>
+inline void encode_ascending(ss::bytebuffer_ &ser, const std::monostate& val)  {
+	// do nothing
 }
 
 //encoding of a simple primitive type

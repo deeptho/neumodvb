@@ -66,6 +66,11 @@ inline int deserialize(const ss::bytebuffer_ &ser, T& val, int offset)  {
 	return decode_ascending(val, ser, offset);
 }
 
+template<>
+inline int deserialize(const ss::bytebuffer_ &ser, std::monostate& val, int offset)  {
+	return offset;
+}
+
 
 //deserialization of a simple primitive type with different word length
 template<typename T>

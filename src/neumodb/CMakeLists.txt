@@ -32,6 +32,8 @@ target_link_libraries(testencode stackstring devdb chdb schema  neumolmdb neumod
 add_executable(testserialize testserialize.cc)
 target_link_libraries(testserialize stackstring devdb chdb neumodb pthread)
 
+add_executable(testvariant testvariant.cc)
+target_link_libraries(testvariant devdb chdb neumodb pthread)
 
 add_executable(testtempdb testtempdb.cc)
 add_dependencies(testtempdb devdb chdb neumodb schema dev_generated_files ch_generated_files)

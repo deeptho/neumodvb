@@ -198,7 +198,7 @@ int deserialize<{{dbname}}::{{struct.class_name}}>(
 			return offset;
 	switch(type_id) {
 		{% for variant_type in f.variant_types %}
-	case data_types::data_type<{{variant_type}}>(): //current type for this field
+	case data_types::data_type<typename std::remove_cvref<{{variant_type}}>::type>(): //current type for this field
 	{
 		{{variant_type}} content;
 		offset = deserialize(ser, content, offset);
@@ -211,7 +211,8 @@ int deserialize<{{dbname}}::{{struct.class_name}}>(
 	{% endfor %}
 	default:
 		// this field_type does not exist currently and should be ignored
-				return offset+foreign_field.serialized_size;
+		    assert(false);
+				return offset/*+foreign_field.serialized_size*/;
 				break;
 	}
 	}
@@ -235,8 +236,8 @@ int serialized_size<{{dbname}}::{{struct.class_name}}>(
 	int ret = 0;
 	{%for f in struct.fields %}
 	{% if f.is_variant %}
+	ret += sizeof(uint32_t); //size of type_id
 	{
-		auto ret = sizeof(uint32_t);
 		for(;;) {
 		{% for variant_type in f.variant_types %}
 		if (std::holds_alternative<{{variant_type}}>(in.{{f.name}})) {
@@ -682,15 +683,11 @@ template<>
 	serialize(out, in.{{f.name}});
 	{%elif f.is_variant%}
 	{
-		for(;;) {
-		{% for variant_type in f.variant_types %}
-		if (std::holds_alternative<{{variant_type}}>(in.{{f.name}})) {
-			serialize(out, *std::get_if<{{variant_type}}>(&in.{{f.name}}));
-			break;
-		}
-		{% endfor %}
-		break;
-		}
+		std::visit([&](const auto&val) {
+					uint32_t type_id = data_types::data_type<typename std::remove_cvref<decltype(val)>::type>();
+					serialize(out, type_id);
+					serialize(out, val);
+				}, in.{{f.name}});
 	}
 	{%else%}
 	serialize(out, in.{{f.name}});
@@ -711,6 +708,12 @@ template<>
 	  for(const auto& v: in.{{f.name}}) {
 		  encode_ascending(ser, v);
 	  }
+	  {%- elif f.is_variant %}
+		std::visit([&ser](const auto& val) {
+			uint32_t type_id = data_types::data_type<typename std::remove_cvref<decltype(val)>::type>();
+			encode_ascending(ser, type_id);
+		  encode_ascending(ser, val);
+	  }, in.{{f.name}});
 	  {%- else %}
 	  encode_ascending(ser, in.{{f.name}});
 	  {% endif %}
@@ -721,6 +724,12 @@ template<>
 	  for(const auto& v: in.{{f.name}}) {
 		  encode_ascending(ser, v);
 	  }
+	  {%- elif f.is_variant %}
+		std::visit([&ser](const auto& val) {
+			uint32_t type_id = data_types::data_type<typename std::remove_cvref<decltype(val)>::type>();
+			encode_ascending(ser, type_id);
+		  encode_ascending(ser, val);
+	  }, in.{{f.name}});
 	  {%- else %}
 	  encode_ascending(ser, in.{{f.name}});
 	  {% endif %}

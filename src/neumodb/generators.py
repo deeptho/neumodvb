@@ -207,7 +207,7 @@ class db_struct(object):
                 scalar_type = scalar_type.split(namespace)[-1]
             assert type(scalar_type)!=list
 
-        has_variable_size = _type.startswith('ss::')
+        has_variable_size = _type.startswith('ss::') or _type.startswith('std::variant')
         self.fields.append(dict(field_id=field_id, type=_type, name=_name, default=_default,
                                 namespace = namespace,
                                 is_vector=is_vector, is_vector_of_strings=is_vector_of_strings,

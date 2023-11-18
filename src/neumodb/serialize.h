@@ -55,6 +55,11 @@ inline int serialized_size(const T& val)  {
 	return ss::bytebuffer_::append_raw_size(val);
 }
 
+template<>
+inline int serialized_size(const std::monostate& val)  {
+	return 0;
+}
+
 //serialized size of a bytebuffer
 template<typename data_t>
 inline int serialized_size(const ss::databuffer_<data_t>& data)  {
@@ -138,6 +143,11 @@ template<typename T>
 inline void serialize(ss::bytebuffer_ &ser, const T& val)  {
 	static_assert(std::is_fundamental<T>::value || std::is_enum<T>::value);
 	encode_ascending(ser, val);
+}
+
+template<>
+inline void serialize(ss::bytebuffer_ &ser, const std::monostate& val)  {
+	//do nothing
 }
 
 //serialisation of a simple primitive type

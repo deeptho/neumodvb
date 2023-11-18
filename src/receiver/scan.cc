@@ -1277,7 +1277,7 @@ scan_t::scan_try_band(subscription_id_t reuseable_subscription_id,
 	ss.sat_band = {sat, band_scan};
 	ss.is_peak_scan=false;
 	auto[it, inserted] = subscriptions.insert_or_assign(subscription_id, ss);
-	assert((int)reuseable_subscription_id >= 0);
+	assert((int)subscription_id >= 0);
 	if ((int)reuseable_subscription_id >= 0) {
 		assert(subscription_id == reuseable_subscription_id);
 		/*

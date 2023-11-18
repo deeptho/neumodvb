@@ -97,7 +97,6 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 	ret = receiver->scan_bands(sats, pols, tune_options, subscription_id);
 	assert(ret==subscription_id); //subscription_id is passed by reference
 	return (int)subscription_id;
-
 }
 
 int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,

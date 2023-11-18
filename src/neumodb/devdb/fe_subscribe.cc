@@ -239,10 +239,15 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 	sub.rf_coupler_id = conn ? conn->rf_coupler_id :-1;
 
 	sub.mux_key = {};
-	dtdebugf("subscription_id={:d} adapter {:d} {:d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
-					 fe.adapter_no, fe.sub.frequency/1000,
-					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
-	fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, {}});
+	if(sat && band_scan) {
+		dtdebugf("SUBSCRIBED subscription_id={:d} band={}/{}  adapter {:d} lnb={} use_count={:d}", (int) subscription_id,
+						 *sat, *band_scan, fe.adapter_no, rf_path.lnb, fe.sub.subs.size());
+		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, *band_scan});
+	} else {
+		dtdebugf("SUBSCRIBED subscription_id={:d} adapter {:d} lnb={} use_count={:d}", (int) subscription_id,
+						 fe.adapter_no, rf_path.lnb, fe.sub.subs.size());
+		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, *band_scan});
+	}
 	put_record(wtxn, fe);
 	return 0;
 }

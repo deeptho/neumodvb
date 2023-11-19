@@ -72,6 +72,7 @@ class SatTable(NeumoTable):
                          screen_getter = screen_getter,
                          record_t=pychdb.sat.sat, initial_sorted_column = initial_sorted_column,
                          **kwds)
+        self.do_autosize_rows = True
 
     def __save_record__(self, txn, record):
         pychdb.put_record(txn, record)

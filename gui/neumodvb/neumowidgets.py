@@ -356,9 +356,10 @@ class NeumoCheckListBox(wx.Panel):
                                                     wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
         self.checklistbox.Bind(wx.EVT_CHECKLISTBOX, self.OnCheckListChanged)
 
-        self.seltype = 2 # 0=None selected, 1=All selected, 2 = Use user choices
+        self.seltype = 1 # 0=None selected, 1=All selected, 2 = Use user choices
         #self.last_selected = None
         self.choices = choices
+        self.SelectAllNone()
     def OnCheckListChanged(self, evt):
         #self.last_selected = self.checklistbox.GetSelections()
         self.seltype = 2
@@ -368,9 +369,10 @@ class NeumoCheckListBox(wx.Panel):
     def GetSelectedItems(self):
         return self.checklistbox.GetCheckedItems()
 
-    def SelectAllNone(self, evt):
-        self.seltype = evt.Selection
-        button = evt.EventObject
+    def SelectAllNone(self, evt=None):
+        if evt is not None:
+            self.seltype = evt.Selection
+        button = self.select_all_none_toggle
         if self.seltype == 2:
             #if self.last_selected is not None:
             #    self.checklistbox.SetCheckedItems(self.last_selected)

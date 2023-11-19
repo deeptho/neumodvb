@@ -323,7 +323,7 @@ class LiveServiceScreen(object):
         self.selected_service_or_channel = chgm
 
         if new_type != h.h.list_filter_type or h.h.chglist_filter_chg != chg or h.h.chgm_sort_order != sort_order:
-            h.h.chglist_filter_chg = pychdb.chg.chg() if chg is None else chg
+            h.h.chgmlist_filter_chg = pychdb.chg.chg() if chg is None else chg
             h.h.list_filter_type =  new_type
             h.h.chgm_sort_order = int(sort_order)
             h.save()

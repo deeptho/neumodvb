@@ -39,9 +39,11 @@ import pychdb
 def band_scans_fn(x):
     scans = x[1]
     ret =[]
+    is_ku = x[0].sat_band == pychdb.sat_band_t.Ku
     for scan in scans:
         d = datetime.datetime.fromtimestamp(scan.scan_time, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
-        ret.append(f'{enum_to_str(scan.pol)}: {d}: {enum_to_str(scan.scan_status)}')
+        hilo = f'{enum_to_str(scan.sat_sub_band)} ' if is_ku  else ""
+        ret.append(f'{hilo}{enum_to_str(scan.pol)}: {d}: {enum_to_str(scan.scan_status)}')
     return '\n'.join(ret)
 
 class SatTable(NeumoTable):

@@ -109,8 +109,8 @@ public:
 	int lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& ret,
 									 tune_options_t tune_options);
 
-	int lnb_spectrum_scan(subscription_id_t subscription_id, const subscribe_ret_t& ret,
-												tune_options_t tune_options);
+	int lnb_spectrum_acquistion(subscription_id_t subscription_id, const subscribe_ret_t& ret,
+															tune_options_t tune_options);
 
 	subscription_id_t subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
 																	const tune_options_t& tune_options);

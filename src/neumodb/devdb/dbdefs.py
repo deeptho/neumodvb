@@ -378,6 +378,7 @@ user_options = db_struct(name ='user_options',
                         (16, 'bool', 'scan_use_blind_tune' , 'true'),
                         (12, 'bool', 'tune_may_move_dish', 'false'),
                         (13, 'bool', 'scan_may_move_dish', 'false'),
+                        (17, 'bool', 'band_scan_save_spectrum', 'false'),
                         (10, 'int32_t', 'dish_move_penalty', 100),
                         (11, 'int32_t', 'resource_reuse_bonus', 1000),
                         (3, 'int32_t', 'pre_record_time', '1*60'), #1 minute

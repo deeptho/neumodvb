@@ -123,9 +123,9 @@ public:
 	EXPORT int subscribe_lnb_and_mux(
 		devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
 		const pls_search_range_t& pls_search_range, retune_mode_t retune_mode);
-	EXPORT int subscribe_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
-																int32_t low_freq, int32_t high_freq,
-																int sat_pos=sat_pos_none);
+	EXPORT int subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
+																						int32_t low_freq, int32_t high_freq,
+																						int sat_pos=sat_pos_none);
 
 	EXPORT int scan_bands(const ss::vector_<chdb::sat_t>& sats,
 												const ss::vector_<chdb::fe_polarisation_t>& pols,

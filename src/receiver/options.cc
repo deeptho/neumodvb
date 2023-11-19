@@ -30,6 +30,7 @@ void neumo_options_t::load_from_db(db_txn& devdb_wtxn, int32_t user_id)
 		this->tune_use_blind_tune = u.tune_use_blind_tune;
 		this->positioner_dialog_use_blind_tune = u.positioner_dialog_use_blind_tune;
 		this->scan_use_blind_tune = u.scan_use_blind_tune;
+		this->band_scan_save_spectrum = u.band_scan_save_spectrum;
 		/*the following are disabled for now, as there is no
 			GUI to set them
 		*/
@@ -64,6 +65,7 @@ void neumo_options_t::save_to_db(db_txn& devdb_wtxn, int32_t user_id)
 	this->tune_use_blind_tune = u.tune_use_blind_tune;
 	this->positioner_dialog_use_blind_tune = u.positioner_dialog_use_blind_tune;
 	this->scan_use_blind_tune = u.scan_use_blind_tune;
+	this->band_scan_save_spectrum = u.band_scan_save_spectrum;
 	u.tune_may_move_dish = this->tune_may_move_dish;
 	u.scan_may_move_dish = this->scan_may_move_dish;
 	u.dish_move_penalty = this->dish_move_penalty;

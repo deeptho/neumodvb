@@ -123,7 +123,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 		}
 		ss::string<128> spectrum_path = receiver.options.readAccess()->spectrum_path.c_str();
 		auto scan = fe->get_spectrum(spectrum_path);
-		if (scan && scan->spectrum) {
+		if (scan && scan->spectrum && fe->ts.readAccess()->tune_options.spectrum_scan_options.save_spectrum) {
 			auto txn = receiver.statdb.wtxn();
 			auto& spectrum = *scan->spectrum;
 			auto c = statdb::spectrum_t::find_by_key(txn, spectrum.k);

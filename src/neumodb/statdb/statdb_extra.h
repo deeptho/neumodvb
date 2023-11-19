@@ -36,6 +36,9 @@ namespace statdb {
 	void make_spectrum_scan_filename(ss::string_& ret, const statdb::spectrum_t& spectrum);
 
 	std::optional<statdb::spectrum_t>
+	make_spectrum(const ss::string_& spectrum_path, const spectrum_scan_t& scan, bool append, int min_freq);
+
+	std::optional<statdb::spectrum_t>
 	save_spectrum_scan(const ss::string_& spectrum_path, const spectrum_scan_t& scan, bool append, int min_freq);
 
 	void clean_live(db_txn& wtxn);

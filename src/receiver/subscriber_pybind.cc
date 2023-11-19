@@ -335,8 +335,8 @@ void export_subscriber(py::module& m) {
 		.def("unsubscribe"
 				 , &subscriber_t::unsubscribe
 				 , "End tuning")
-		.def("subscribe_spectrum"
-				 , &subscriber_t::subscribe_spectrum
+		.def("subscribe_spectrum_acquisition"
+				 , &subscriber_t::subscribe_spectrum_acquisition
 				 , "acquire a spectrum for this lnb"
 				 , py::arg("rf_path")
 				 , py::arg("lnb")

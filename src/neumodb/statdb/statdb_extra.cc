@@ -90,7 +90,7 @@ void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectru
 	append = True: append spectrum to already existing file
 	min_freq: highest frequency present in already present file
  */
-std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& spectrum_path,
+std::optional<statdb::spectrum_t> statdb::make_spectrum(const ss::string_& spectrum_path,
 																														 const spectrum_scan_t& scan,
 																														 bool append, int min_freq) {
 	int num_freq = scan.freq.size();
@@ -107,6 +107,22 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 		{},
 		scan.lof_offsets};
 	make_spectrum_scan_filename(spectrum.filename, spectrum);
+
+	return spectrum;
+}
+
+/*
+	append = True: append spectrum to already existing file
+	min_freq: highest frequency present in already present file
+ */
+std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& spectrum_path,
+																														 const spectrum_scan_t& scan,
+																														 bool append, int min_freq) {
+	auto spectrum_ = make_spectrum(spectrum_path, scan, append, min_freq);
+	if(!spectrum_)
+		return spectrum_;
+	auto & spectrum = *spectrum_;
+	int num_freq = scan.freq.size();
 	auto f = fs::path(spectrum_path.c_str()) / spectrum.filename.c_str();
 	auto d = f.parent_path();
 	std::error_code ec;
@@ -156,19 +172,18 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 			fprintf(fpout, "%.6f %d %d\n", f * 1e-3, scan.rf_level[el(i)], candidate ? candidate_symbol_rate : 0);
 		}
 		if (fclose(fpout))
-			return {};
+			return spectrum;
 
 		fpout = fopen(fpeaks.c_str(), append ? "a" : "w");
 		if (!fpout)
-			return {};
+			return spectrum;
 		for (int j=0; j < scan.peaks.size(); ++j) {
 			auto& p = scan.peaks[pel(j)];
 			fprintf(fpout, "%.6f %.6d\n", p.freq * 1e-3, p.symbol_rate);
 		}
 		if (fclose(fpout))
-			return {};
+			return spectrum;
 	}
-
 	return spectrum;
 }
 

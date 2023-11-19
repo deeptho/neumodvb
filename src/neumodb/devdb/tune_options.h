@@ -27,7 +27,9 @@ enum class subscription_type_t {
 	MUX_SCAN,  /*scanning muxes in the background: resources are reserved non-exclusively, also reserved
 							 non-exclusively
 						 */
-	SPECTRUM_SCAN,  /*scanning muxes band in the background: resources are reserved non-exclusively
+	SPECTRUM_BAND_SCAN,  /*scanning spectral band in the background: resources are reserved non-exclusively
+									*/
+	SPECTRUM_ACQ,  /*Spectrum acquisition from spectrum_dialog reserved exclusively
 									*/
 	LNB_CONTROL,     /*in this case, a second subscriber cannot subscribe to the mux
 						at first tune, position data is used from the lnb. Retunes cannot
@@ -88,6 +90,7 @@ struct spectrum_scan_options_t {
 	int end_freq{std::numeric_limits<int>::max()}; //in kHz
 	int resolution{0}; //in kHz for spectrum and for blindscan, 0 means use driver default
 	int fft_size{512}; //power of 2; 	int end_freq = -1; //in kHz
+	bool save_spectrum{true}; //save data to file
 	spectrum_scan_options_t() {}
 };
 

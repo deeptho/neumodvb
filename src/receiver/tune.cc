@@ -125,8 +125,8 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 	return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_options);
 }
 
-int tuner_thread_t::cb_t::lnb_spectrum_scan(subscription_id_t subscription_id, const subscribe_ret_t& sret,
-																						tune_options_t tune_options) {
+int tuner_thread_t::cb_t::lnb_spectrum_acquistion(subscription_id_t subscription_id, const subscribe_ret_t& sret,
+																									tune_options_t tune_options) {
 	// check_thread();
 	dtdebugf("lnb spectrum scan subscription_id={:d}", (int) subscription_id);
 	assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);

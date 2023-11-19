@@ -1081,7 +1081,10 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 		}
 		start_lnb_spectrum_scan(rf_path, lnb, tune_options);
 	}
-	scan.spectrum = statdb::save_spectrum_scan(spectrum_path, scan, append_now, min_freq_to_save);
+	if(options.save_spectrum)
+		scan.spectrum = statdb::save_spectrum_scan(spectrum_path, scan, append_now, min_freq_to_save);
+	else
+		scan.spectrum = statdb::make_spectrum(spectrum_path, scan, append_now, min_freq_to_save);
 	if(scan.spectrum)
 		scan.spectrum->is_complete = !incomplete;
 	return ret;

@@ -55,6 +55,7 @@ struct neumo_options_t {
 	bool tune_use_blind_tune{false};
 	bool positioner_dialog_use_blind_tune{false};
 	bool scan_use_blind_tune{false};
+	bool band_scan_save_spectrum{false};
 
 	bool tune_may_move_dish{false};
 	bool scan_may_move_dish{false};

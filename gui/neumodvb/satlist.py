@@ -198,13 +198,16 @@ class SatGridBase(NeumoGridBase):
             ShowMessage("No sats selected for scan")
             return
         sats = []
+        bands =set()
         for row in rows:
             sat = self.table.GetRow(row)
+            bands.add(sat.sat_band)
             sats.append(sat)
         title =  ', '.join([str(sat) for sat in sats[:3]])
         if len(sats) >=3:
             title += '...'
-        tune_options, band_scan_options = show_scan_dialog(self, allow_band_scan=True, title=f'Scan {title}')
+        tune_options, band_scan_options = show_scan_dialog(self, allow_band_scan=True, title=f'Scan {title}',
+                                                           allowed_sat_bands=[ b for b in bands])
         if tune_options is None:
             dtdebug(f'CmdScan aborted for {len(rows)} sats')
             return

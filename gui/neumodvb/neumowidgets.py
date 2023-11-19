@@ -25,6 +25,7 @@ import wx.lib.newevent
 import datetime
 import re
 from neumodvb.util import wxpythonversion, wxpythonversion42
+from neumodvb.neumodbutils import enum_value_for_label, enum_to_str, enum_labels
 
 def _set_textctrl_size_by_chars(self, tc, w, h):
     sz = tc.GetTextExtent('X')
@@ -360,6 +361,12 @@ class NeumoCheckListBox(wx.Panel):
         #self.last_selected = None
         self.choices = choices
         self.SelectAllNone()
+    def Set(self, choices):
+        self.choices = choices
+        self.checklistbox.Set(choices)
+        self.SelectAllNone()
+        self.Refresh()
+
     def OnCheckListChanged(self, evt):
         #self.last_selected = self.checklistbox.GetSelections()
         self.seltype = 2
@@ -402,6 +409,34 @@ class DishesCheckListBox(NeumoCheckListBox):
     def selected_dishes(self):
         it=self.GetSelectedItems()
         return [self.dishes[i] for i in it]
+
+class SatBandsCheckListBox(NeumoCheckListBox):
+    def __init__(self, parent, id,  *args, **kwargs):
+        import pychdb
+        self.sat_bands =  list(filter(lambda x: x != 'UNKNOWN',enum_labels(pychdb.sat_band_t)))
+        title = _("Allowed Bands")
+        kwargs['choices'] = []
+        super().__init__(parent, id, title, *args, **kwargs)
+
+    def set_allowed_sat_bands(self, sat_bands):
+        self.sat_bands = list(filter(lambda x: x != 'UNKNOWN',[enum_to_str(b) for b in sat_bands]))
+        self.Set(self.sat_bands)
+
+    def selected_sat_bands(self):
+        it=self.GetSelectedItems()
+        return [self.sat_bands[i] for i in it]
+
+class PolarisationsCheckListBox(NeumoCheckListBox):
+    def __init__(self, parent, id,  *args, **kwargs):
+        self.polarisations = ['H', 'V', 'L', 'R']
+        title = _("Scan Polarisations")
+        kwargs['choices'] = self.polarisations
+        super().__init__(parent, id, title, *args, **kwargs)
+
+    def selected_polarisations(self):
+        import pychdb
+        it=self.GetSelectedItems()
+        return [enum_value_for_label(pychdb.fe_polarisation_t, self.polarisations[i]) for i in it]
 
 class CardsCheckListBox(NeumoCheckListBox):
     def __init__(self, parent, id,  *args, **kwargs):

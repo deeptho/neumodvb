@@ -1106,12 +1106,18 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 	}
 	{
 		auto usals_pos = lnb.usals_pos;
+		auto cur_lnb_pos = lnb.cur_lnb_pos;
 		auto cur_sat_pos = lnb.cur_sat_pos;
+		if(cur_sat_pos == sat_pos_none)
+			cur_sat_pos = usals_pos;
+
 		auto best = std::numeric_limits<int>::max();
 		const devdb::lnb_network_t* bestp{nullptr};
 		for (auto& network : lnb.networks) {
 			if(usals_pos == sat_pos_none)
 				usals_pos = network.usals_pos;
+			if(cur_lnb_pos == sat_pos_none)
+				cur_lnb_pos = network.sat_pos;
 			if(cur_sat_pos == sat_pos_none)
 				cur_sat_pos = network.sat_pos;
 			auto delta =  std::abs(network.sat_pos - cur_sat_pos);
@@ -1126,7 +1132,7 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		} else if( bestp && !lnb.on_positioner) {
 			return return_mux(*bestp);
 		}
-		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, lnb.cur_sat_pos, devdb::lnb::sat_band(lnb));
+		auto cs = chdb::sat_t::find_by_key(chdb_rtxn, lnb.cur_lnb_pos, devdb::lnb::sat_band(lnb));
 		std::optional<chdb::sat_t> sat = cs.is_valid() ? cs.current() : chdb::sat_t();
 		if(!sat)
 			return {{}, sat};

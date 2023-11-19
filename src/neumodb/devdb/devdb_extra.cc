@@ -80,7 +80,9 @@ fmt::formatter<lnb_key_t>::format(const lnb_key_t& lnb_key, format_context& ctx)
 fmt::format_context::iterator
 fmt::formatter<lnb_t>::format(const lnb_t& lnb, format_context& ctx) const {
 	using namespace chdb;
-	auto sat = sat_pos_str(lnb.cur_sat_pos == sat_pos_none ? lnb.usals_pos : lnb.cur_sat_pos); // in this case usals pos equals one of the network sat_pos
+	auto sat_pos = lnb.cur_sat_pos != sat_pos_none ? lnb.cur_sat_pos
+		: lnb.cur_lnb_pos != sat_pos_none ? lnb.cur_lnb_pos : lnb.usals_pos;
+	auto sat = sat_pos_str(sat_pos); // in this case usals pos equals one of the network sat_pos
 	return fmt::format_to(ctx.out(), "{} {}", lnb.k, sat);
 }
 
@@ -719,7 +721,7 @@ int dish::update_usals_pos(db_txn& wtxn, const devdb::lnb_t& lnb_, int usals_pos
 		num_rotors++;
 		devdb::lnb::set_lnb_offset_angle(lnb, loc); //redundant, but safe
 		lnb.usals_pos = usals_pos;
-		lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
+		lnb.cur_lnb_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
 		if(lnb.k == lnb_.k) {
 			if(sat_pos != sat_pos_none)
 				lnb.cur_sat_pos = sat_pos;
@@ -973,37 +975,42 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	using p_t = update_lnb_preserve_t::flags;
 	bool found=false;
 	bool can_be_used{false};
-	if(!lnb.on_positioner && lnb.networks.size() >0) {
+	if(!lnb.on_positioner && lnb.networks.size() > 0) {
 		bool found{false};
 		for (auto& n: lnb.networks) {
-			if(lnb.cur_sat_pos == n.sat_pos) {
+			if(lnb.cur_lnb_pos == n.sat_pos ||  lnb.cur_sat_pos == n.sat_pos) {
 				lnb.usals_pos = n.sat_pos;
+				lnb.cur_lnb_pos = n.sat_pos;
+				lnb.cur_sat_pos = n.sat_pos;
 				found = true;
 			}
 		}
 		if(!found) {
 			lnb.usals_pos = lnb.networks[0].sat_pos;
+			lnb.cur_lnb_pos = lnb.networks[0].sat_pos;
 			lnb.cur_sat_pos = lnb.networks[0].sat_pos;
 		}
 	}
-	if(lnb.usals_pos == sat_pos_none && lnb.networks.size() >0 && loc) {
+	if(lnb.usals_pos == sat_pos_none && lnb.networks.size() > 0 && loc) {
 		lnb.usals_pos = lnb.networks[0].sat_pos;
+		lnb.cur_lnb_pos = lnb.usals_pos;
+		lnb.cur_sat_pos = lnb.usals_pos;
 		devdb::lnb::set_lnb_offset_angle(lnb, *loc);
 	}
 
-	if(loc) {
-		if(!lnb.on_positioner)
-			lnb.cur_sat_pos = lnb.usals_pos;
-		else {
+	if(loc && lnb.on_positioner) {
 		devdb::lnb::set_lnb_offset_angle(lnb, *loc); //redundant, but safe
 		//angle for central lnb
 		auto angle = devdb::lnb::sat_pos_to_angle(lnb.usals_pos, loc->usals_longitude, loc->usals_latitude);
 		//computed for offset lnb
-		lnb.cur_sat_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, *loc);
+		lnb.cur_lnb_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, *loc);
+		if(lnb.cur_lnb_pos == sat_pos_none)
+			lnb.cur_lnb_pos = lnb.usals_pos;
 		if(lnb.cur_sat_pos == sat_pos_none)
-		  lnb.cur_sat_pos = lnb.usals_pos;
-		}
+			lnb.cur_sat_pos = lnb.usals_pos;
 	}
+	if (cur_sat_pos)
+		lnb.cur_sat_pos = cur_sat_pos;
 	std::optional<lnb_t> db_lnb;
 	auto c = lnb_t::find_by_key(devdb_wtxn, lnb.k, find_type_t::find_eq, devdb::lnb_t::partial_keys_t::all);
 	if(c.is_valid()) {
@@ -1015,7 +1022,7 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 			lnb.k = db_lnb->k;
 		if(preserve & p_t::USALS) {
 			lnb.usals_pos = db_lnb->usals_pos;
-			lnb.cur_sat_pos = db_lnb->cur_sat_pos;
+			lnb.cur_lnb_pos = db_lnb->cur_lnb_pos;
 			lnb.on_positioner = db_lnb->on_positioner;
 			lnb.offset_angle = db_lnb->offset_angle;
 		}
@@ -1283,8 +1290,9 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn) {
 
 	auto c = devdb::find_first<devdb::lnb_t>(devdb_wtxn);
 	for(auto lnb: c.range()) {
-		if(lnb.cur_sat_pos == sat_pos_none) {
+		if(lnb.cur_lnb_pos == sat_pos_none) {
 			//hack to correct older database records
+			lnb.cur_lnb_pos = lnb.usals_pos;
 			lnb.cur_sat_pos = lnb.usals_pos;
 			put_record(devdb_wtxn, lnb);
 		}

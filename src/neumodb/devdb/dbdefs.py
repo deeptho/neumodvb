@@ -227,7 +227,13 @@ lnb = db_struct(name='lnb',
                           #not used for a fixed dish, but should be set equal to the sat in networks[0] for clarity,
                           #i.e., the main satellite
                           (2, 'int16_t', 'usals_pos', 'sat_pos_none'), #satellite position of center lnb
-                          (18, 'int16_t', 'cur_sat_pos', 'sat_pos_none'), #satellite position of this lnb (different if in offset pos)
+                          (18, 'int16_t', 'cur_lnb_pos', 'sat_pos_none'), #satellite position currentlly pointed to
+                                                                          #by this lnb (different from usals_pos
+                                                                          #for an offset lnb
+                          (19, 'int16_t', 'cur_sat_pos', 'sat_pos_none'), #satellite position last used on this
+                                                                          #lnb. This may be different from cur_lnb_pos
+                                                                          #in case of multiple close sats or because
+                                                                          #of dish tweaking
 
                           (16, 'bool',  'on_positioner', 'false'), #bit flag indicating if lnb is on rotor
                           (3, 'lnb_pol_type_t',  'pol_type', 'lnb_pol_type_t::HV'), #bit flag indicating which polarisations can be used

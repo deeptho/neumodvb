@@ -77,6 +77,11 @@ static void chdb::clean_sats(db_txn& wtxn) {
 	};
 
 	for(auto sat: c.range())  {
+		//we no longer store dvbc and dvbt as fake sats
+		if(sat.sat_pos == sat_pos_dvbc || sat.sat_pos == sat_pos_dvbt) {
+			delete_record_at_cursor(c);
+			continue;
+		}
 		bool changed{false};
 		for(auto & band_scan: sat.band_scans) {
 			changed  |= clean(band_scan);

@@ -246,7 +246,7 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 	} else {
 		dtdebugf("SUBSCRIBED subscription_id={:d} adapter {:d} lnb={} use_count={:d}", (int) subscription_id,
 						 fe.adapter_no, rf_path.lnb, fe.sub.subs.size());
-		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, *band_scan});
+		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, chdb::service_t{}});
 	}
 	put_record(wtxn, fe);
 	return 0;

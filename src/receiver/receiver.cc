@@ -726,8 +726,10 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	assert(activate_adapter_p);
 	auto& aa = *activate_adapter_p;
 
-	futures.push_back(aa.tuner_thread.push_task([&aa, subscription_id, sret, tune_options]() {
-		auto ret = cb(aa.tuner_thread).lnb_activate(subscription_id, sret, tune_options);
+	futures.push_back(aa.tuner_thread.push_task([&aa, subscription_id, sret, tune_options, need_spectrum]() {
+		auto ret = need_spectrum
+			? cb(aa.tuner_thread).lnb_spectrum_acquistion(subscription_id, sret, tune_options)
+			: cb(aa.tuner_thread).lnb_activate(subscription_id, sret, tune_options);
 		if (ret < 0)
 			dterrorf("tune returned {:d}", ret);
 		return ret;

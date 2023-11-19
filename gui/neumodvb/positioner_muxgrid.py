@@ -127,7 +127,8 @@ class PositionerDvbsMuxGrid(NeumoGridBase):
 
     def OnKillFocus(self, evt):
         rowno = self.GetGridCursorRow()
-        self.DeselectRow(rowno)
+        if rowno >= 0:
+            self.DeselectRow(rowno)
 
     def OnKeyCheck(self, evt):
         """

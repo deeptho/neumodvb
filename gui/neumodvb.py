@@ -177,12 +177,23 @@ class neumoMainFrame(mainFrame):
             st = None
         if st is not None:
             done = st.pending_muxes + st.active_muxes == 0
-            pending = st.pending_muxes
+            pending = st.pending_muxes + st.pending_peaks
             ok = st.locked_muxes
             active = st.active_muxes
             self.app.scan_in_progress = pending+active > 0
-            self.app.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={active}" \
-                if self.app.scan_in_progress else None
+            if False:
+                self.app.last_scan_text = f" ok={ok} failed={st.failed_muxes} pending={pending} active={active}" \
+                                    if self.app.scan_in_progress else None
+            else:
+                if not self.app.scan_in_progress:
+                    self.app.last_scan_text_dict={}
+                else:
+                    self.app.last_scan_text_dict = \
+                        dict(muxes=f" Muxes: ok={st.locked_muxes} failed={st.failed_muxes} " \
+                          f"pending={st.pending_muxes} active={st.active_muxes}",
+                          peaks=f"Peaks: failed={st.failed_peaks} pending={st.pending_peaks}",
+                          bands=f"Bands: pending={st.pending_bands} active={st.active_bands}" )
+
             panel =self.current_panel()
             if panel is None:
                 return

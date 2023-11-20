@@ -716,7 +716,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	}
 	tune_options.tune_pars = sret.tune_pars;
 
-	dtdebugf("lnb activate subscription_id={:d}", (int) sret.subscription_id);
+	dtdebugf("subscribe_lnb subscription_id={:d}", (int) sret.subscription_id);
 
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
 		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);

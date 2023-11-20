@@ -514,6 +514,7 @@ bool scan_t::retry_subscription_if_needed(subscription_id_t subscription_id,
 	case  scan_result_t::PARTIAL:
 	case  scan_result_t::OK:
 	case  scan_result_t::NODATA:
+	case  scan_result_t::NOTS:
 		failed = false;
 		break;
 	case chdb::scan_result_t::TEMPFAIL: {

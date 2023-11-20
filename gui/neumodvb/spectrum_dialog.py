@@ -384,7 +384,7 @@ class SpectrumDialog(SpectrumDialog_):
         if type(data) == pyreceiver.scan_mux_end_report_t: #called from scanner
             assert data.mux is not None
             has_lock = data.mux.c.scan_result != pychdb.scan_result_t.NOLOCK
-            self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak, data.mux, has_lock)
+            self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak.peak, data.mux, has_lock)
 
         elif type(data) == pyreceiver.scan_stats_t: #called from scanner
             scan_stats = data

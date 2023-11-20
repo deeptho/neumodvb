@@ -176,11 +176,9 @@ class neumoMainFrame(mainFrame):
         else:
             st = None
         if st is not None:
-            done = st.pending_muxes + st.active_muxes == 0
+            self.app.scan_in_progress = not st.done()
             pending = st.pending_muxes + st.pending_peaks
             ok = st.locked_muxes
-            self.app.scan_in_progress = pending+active > 0
-            active = st.active_muxes)
             if not self.app.scan_in_progress:
                 self.app.last_scan_text_dict={}
             else:

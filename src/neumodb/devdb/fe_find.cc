@@ -283,7 +283,7 @@ fe::find_best_fe_for_lnb(
 			s.rf_coupler_id = lnb_connection.rf_coupler_id;
 			auto use_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner);
 			if(!use_counts_) {
-				dtdebugf("Cannot use this fe because of resource conflicts");
+				//dtdebugf("Cannot use this fe because of resource conflicts");
 				continue;
 			}
 			auto use_counts = *use_counts_;
@@ -538,7 +538,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 																								 @todo: improve code to better encode
 																								 the need for exclusive access ?*/, usals_pos, ignore_subscriptions);
 			if(!fe_and_use_counts) {
-				dtdebugf("LNB {} cannot be used", lnb);
+				//dtdebugf("LNB {} cannot be used", lnb);
 				continue;
 			}
 			auto& [fe, use_counts ] = *fe_and_use_counts;

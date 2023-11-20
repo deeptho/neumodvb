@@ -546,18 +546,19 @@ bool scan_t::retry_subscription_if_needed(subscription_id_t subscription_id,
 	if(failed) {
 		int frequency;
 		int symbol_rate;
-		std::visit([&frequency, &symbol_rate](auto& mux)  {
+		if (subscription.is_peak_scan)
+			return true; //we have blindscanned already
+		std::visit([&frequency, &symbol_rate](auto& mux) {
 			frequency= get_member(mux, frequency, -1);
 			symbol_rate = get_member(mux, symbol_rate, -1);
 		}, finished_mux);
 
-		if (subscription.is_peak_scan)
-			return true; //we have blindscanned already
 		if(std::abs(symbol_rate -(int) subscription.peak.peak.symbol_rate) <
 			 std::min(symbol_rate, (int) subscription.peak.peak.symbol_rate)/4) //less than 25% difference in symbol rate
 			return true; //blindscanned will not likely lead to different results
 		dtdebugf("Calling rescan_peak for mux: {}", finished_mux);
 		assert(subscription.mux);
+		*mux_common_ptr(*subscription.mux) = *mux_common_ptr(saved); //restore scan_id and other fields
 		return std::visit([&](auto&mux) {
 			return rescan_peak(blindscan, subscription_id, mux, subscription.peak, blindscan_key);
 		}, *subscription.mux);

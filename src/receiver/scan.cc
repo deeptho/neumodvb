@@ -1034,12 +1034,7 @@ void scan_t::on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spe
 	assert(subscription.subscription_id == finished_subscription_id);
 	assert(subscription.sat_band);
 	//auto& blindscan = blindscans[subscription.blindscan_key];
-
 	auto chdb_rtxn = receiver.chdb.rtxn();
-#ifdef TOOD //not needed?
-	scan_band_end_report_t report{subscription, *blindscan.spectrum_key};
-	receiver.notify_spectrum_scan_band_end(scan_subscription_id, report);
-#endif
 	auto& [finished_sat, finished_band_scan] = *subscription.sat_band;
 
 	auto& scan_stats = get_scan_stats_ref(finished_sat);

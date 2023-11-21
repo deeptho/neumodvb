@@ -104,7 +104,7 @@ class ScanDialog(ScanDialog_):
         self.tune_options.propagate_scan = self.propagate_scan_checkbox.GetValue()
         self.tune_options.use_blind_tune = self.blind_tune_checkbox.GetValue()
         self.tune_options.may_move_dish = self.may_move_dish_checkbox.GetValue()
-        self.band_scan_options = dict(low_freq=-1, high_freq=-1, pols=pols,
+        self.band_scan_options = dict(low_freq=10700000, high_freq=12750000, pols=pols,
                                       sat_bands=sat_bands, )
 
         return self.tune_options, self.band_scan_options if self.band_scan else None

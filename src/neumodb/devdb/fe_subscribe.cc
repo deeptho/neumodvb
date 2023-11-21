@@ -703,10 +703,12 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				do_not_unsubscribe_on_failure);
 		}
 		if(fe_) {
+#ifdef TODO //positioner dialog calls like this using "subscribe_mux" instead of "subscribe_lnb_and_mux"
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				assert(!tune_options.may_control_lnb);
 				assert(!tune_options.may_control_dish);
 			}
+#endif
 			auto& fe = *fe_;
 			bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
 			sret.retune = is_same_fe;

@@ -29,7 +29,7 @@ end
 define loadbreak
   source breakpoints my.brk
 end
-
+break subscriber.cc:132
 
 define pp
   if $argc == 1

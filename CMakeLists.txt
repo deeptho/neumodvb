@@ -48,7 +48,7 @@ endif()
 #add_compile_options(-DBOOST_DISABLE_ASSERTS -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=. -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.)
 
 add_compile_options (
-  $<$<CONFIG:DEBUG>:-O2>
+#  $<$<CONFIG:DEBUG>:-Og>
   -fPIC -fsized-deallocation -DHAS_UNCAUGHT_EXCEPTIONS=1 -D DATA_DIR=${CMAKE_SOURCE_DIR}/data)
 #add_link_options( -lasan)
 

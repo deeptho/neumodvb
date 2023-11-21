@@ -335,6 +335,16 @@ struct scan_mux_end_report_t {
 	scan_mux_end_report_t(const scan_subscription_t& subscription, const statdb::spectrum_key_t spectrum_key);
 };
 
+#ifdef TODO //not needed?
+struct scan_band_end_report_t {
+	statdb::spectrum_key_t spectrum_key;
+	chdb::sat_t sat;
+	chdb::band_scan_t band_scan;
+	devdb::fe_key_t fe_key;
+	scan_band_end_report_t() = default;
+	scan_band_end_report_t(const scan_subscription_t& subscription, const statdb::spectrum_key_t spectrum_key);
+};
+#endif
 
 class scanner_t;
 class subscriber_t;

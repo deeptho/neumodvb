@@ -6,7 +6,7 @@ add_library(streamparser STATIC  events.cc pes.cc  packetstream.cc psi.cc sectio
 add_dependencies(streamparser recdb rec_generated_files)
 target_link_libraries(streamparser PUBLIC ${Boost_CONTEXT_LIBRARY})
 target_link_libraries(streamparser PRIVATE neumoutil)
-target_compile_options(streamparser PRIVATE $<$<CONFIG:DEBUG>:-O2>)
+#target_compile_options(streamparser PRIVATE $<$<CONFIG:DEBUG>:-O2>)
 
 add_executable(huffman_generator huffman_generator.cc huffman_opentv_data.cc)
 target_link_libraries(huffman_generator PRIVATE neumoutil)

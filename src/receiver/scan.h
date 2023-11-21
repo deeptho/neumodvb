@@ -174,17 +174,46 @@ struct scan_state_t {
 		commpleted means that each parser made it to the end without any unfinished
 		business
 	 */
-	inline bool scan_completed() const {
-		for(auto& c: completion_states)
+	inline bool nit_sdt_scan_completed() const {
+		for(int idx = completion_index_t::PAT; idx <= completion_index_t::SDT_NETWORK; ++idx) {
+			auto& c =  completion_states[idx];
 			if(!c.completed && !c.notpresent() && c.required_for_scan)
 				return false;
+		}
 		return true;
 	}
 
-	inline int scan_duration() const {
+	/*
+		commpleted means that each parser made it to the end without any unfinished
+		business
+	 */
+	inline bool epg_scan_completed() const {
+		for(int idx = completion_index_t::EIT_ACTUAL_EPG; idx < completion_index_t::NUM; ++idx) {
+			auto& c =  completion_states[idx];
+			if(!c.completed && !c.notpresent() && c.required_for_scan)
+				return false;
+		}
+		return true;
+	}
+
+	inline int nit_sdt_scan_duration() const {
 		auto start = steady_time_t::max();
 		auto end = steady_time_t::min();
-		for(auto& c: completion_states) {
+		for(int idx = completion_index_t::PAT; idx <= completion_index_t::SDT_NETWORK; ++idx) {
+			auto& c =  completion_states[idx];
+			if(c.active) {
+				start = std::min(start, c.start_time);
+				end = std::max(end, c.last_active);
+			}
+		}
+		return std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+	}
+
+	inline int epg_scan_duration() const {
+		auto start = steady_time_t::max();
+		auto end = steady_time_t::min();
+		for(int idx = completion_index_t::EIT_ACTUAL_EPG; idx < completion_index_t::NUM; ++idx) {
+			auto& c =  completion_states[idx];
 			if(c.active) {
 				start = std::min(start, c.start_time);
 				end = std::max(end, c.last_active);

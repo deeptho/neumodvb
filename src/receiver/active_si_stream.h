@@ -364,6 +364,8 @@ struct active_si_data_t {
 	scan_state_t scan_state;
 	bool scan_in_progress{false};
 
+	int epg_completeness();
+
 	inline bool ts_id_in_pat(uint16_t ts_id) {
 		return pat_data.by_ts_id.find(ts_id) != pat_data.by_ts_id.end();
 	}
@@ -481,7 +483,6 @@ struct active_si_data_t {
 			return it->second.num_sections_processed == it->second.subtable_info.num_sections_present;
 		return bat_done();
 	}
-
 
 	bool nit_other_all_networks_completed() const {
 		/*@todo: this includes also nit_actual, which is incorrect.

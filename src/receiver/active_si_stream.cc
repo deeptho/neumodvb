@@ -30,6 +30,10 @@
 #define UNUSED __attribute__((unused))
 #endif
 
+void here() {
+	printf("here\n");
+
+}
 /*
 	returns 0, sat_pos_dvbt or sat_pos_dvbc
 */
@@ -130,6 +134,18 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 		check_scan_mux_end(); //notify scanner if scan already completed (because of other scanner)
 }
 
+int active_si_data_t::epg_completeness()
+{
+	int num_sections_processed{0};
+	int num_sections_present{0};
+
+	for (auto& [pid, c] : eit_data.subtable_counts) {
+		num_sections_present += c.num_known;
+		num_sections_processed += c.num_completed;
+	}
+	return (100*num_sections_present+50)/num_sections_processed;
+}
+
 /*
 	update scan_result, scan_state and related parameters when
 	a scan is considered final, i.e., when
@@ -168,7 +184,11 @@ void active_si_stream_t::finalize_scan()
 		bool no_data = reader->no_data();
 		c->scan_result = lock_state.is_not_ts ? chdb::scan_result_t::NOTS :
 			no_data ?  chdb::scan_result_t::NODATA :
-			scan_state.scan_completed() ? chdb::scan_result_t::OK : chdb::scan_result_t::PARTIAL;
+			scan_state.nit_sdt_scan_completed() ? chdb::scan_result_t::OK : chdb::scan_result_t::PARTIAL;
+
+		c->epg_scan_completeness = lock_state.is_not_ts ? 100 :
+			no_data ?  0 : epg_completeness();
+
 		if(no_data) {
 			tune_confirmation.sat_by = confirmed_by_t::FAKE;
 			c->ts_id = 0;
@@ -204,7 +224,7 @@ void active_si_stream_t::finalize_scan()
 		break;
 	}
 
-	c->scan_duration = scan_state.scan_duration();
+	c->scan_duration = scan_state.nit_sdt_scan_duration();
 	c->scan_time = system_clock_t::to_time_t(now);
 	if(c->scan_duration == 0) { //needed in case tuning fails
 		c->scan_duration =
@@ -548,7 +568,7 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 		auto* mux_common = chdb::mux_common_ptr(mux);
 		mux_common->scan_result = chdb::scan_result_t::NODATA;
 		mux_common->scan_lock_result = chdb::lock_result_t::NOLOCK;
-		mux_common->scan_duration = scan_state.scan_duration();
+		mux_common->scan_duration = scan_state.nit_sdt_scan_duration();
 		// assert(scan_state.scan_duration()>=0);
 		mux_common->num_services = 0;
 		mux_common->scan_time = system_clock_t::to_time_t(now);
@@ -754,7 +774,7 @@ void active_si_stream_t::check_timeouts() {
 	for (auto& [pid, c] : eit_data.subtable_counts) {
 		out.sprintf(" epg[0x%x]=%d/%d", pid, c.num_completed, c.num_known);
 	}
-	out.sprintf(" eit=%d/%d", eit_data.eit_other_existing_records, eit_data.eit_other_updated_records);
+
 	out.sprintf(" tuned_mux=%s", chdb::to_str(reader->stream_mux()).c_str());
 	if (delayed_print || last != out) {
 		if (timedout) {

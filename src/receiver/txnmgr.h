@@ -36,6 +36,7 @@ class wtxn_reservation_t {
 	std::optional<db_txn> wtxn_;
 	steady_time_t last_wtxn_start_time;
 	static constexpr std::chrono::milliseconds max_wtxn_lifetime{200ms};
+
 	wtxn_reservation_t(db_t& db)
 		: db(db)
 		{}
@@ -46,14 +47,10 @@ class wtxn_reservation_t {
 	void commit_master_wtxn() {
 		assert(wtxn_);
 		assert(owning_ticket>=0);
-		//dtdebugx("QQQ %p: maybe commit owning_ticket=%d", this, owning_ticket);
 		owning_ticket = -1; //allow other threads to use the mutex
-		if(wtxn_->can_commit()) {
-			wtxn_->commit(); //could be delayed commit of data from other thread
-			//dtdebugx("QQQ %p: committed owning_ticket=%d", this, owning_ticket);
-		}
+		assert(wtxn_->can_commit());
+		wtxn_->commit();
 		wtxn_.reset();
-		//dtdebugx("QQQ %p: called reset owning_ticket=%d", this, owning_ticket);
 	}
 
 	bool thread_waiting_for_wtxn() const {
@@ -91,13 +88,12 @@ public:
 
 		//wait for access to the wtxn
 		int my_ticket = ++last_issued_ticket;
-		cv.wait(lk, [this, my_ticket] {
+		cv.wait(lk, [this] {
 			return (owning_ticket == -1) ;
 		});
 
 		last_owner = std::this_thread::get_id();
 		owning_ticket = my_ticket;
-		//dtdebugx("QQQ %p acquired owning_ticket=%d", this, owning_ticket);
 		if(wtxn_) {
 			return *wtxn_;
 		}
@@ -117,18 +113,18 @@ public:
 	*/
 	void release_master_wtxn(bool force_commit=false) {
 		std::unique_lock<std::mutex> lk(mutex);
-		if(!wtxn_)
+		if(!wtxn_) {
 			return;
+		}
 		if(force_commit || release_should_commit()) {
-			//dtdebugx("QQQ %p calling commit owning_ticket=%d", this, owning_ticket);
 			commit_master_wtxn();
+			owning_ticket = -1; //allow other threads to use the wtxn now
+			cv.notify_one();
 		}
 		else if(thread_waiting_for_wtxn()) {
-			//dtdebugx("QQQ %p transfer to other thread owning_ticket=%d", this, owning_ticket);
 			owning_ticket = -1; //allow other threads to use the wtxn now
 			cv.notify_one();
 		} else {
-			//dtdebugx("QQQ %p NO transfer to other thread owning_ticket=%d", this, owning_ticket);
 			owning_ticket = -1; //allow other threads to use the wtxn in the future
 		}
 	}
@@ -144,7 +140,6 @@ public:
 		std::unique_lock<std::mutex> lk(mutex);
 		if(wtxn_ && thread_waiting_for_wtxn()) {
 			//other thread wants to being a wtxn
-			//dtdebugx("QQQ %p commit for other thread now owning_ticket=%d", this, owning_ticket);
 			commit_master_wtxn();
 			owning_ticket = -1; //allow other threads to use the wtxn now
 			cv.notify_one();
@@ -161,6 +156,7 @@ template<typename db_t>
 class txn_proxy_t {
 	txnmgr_t<db_t>* txnmgr;
 	bool readonly{false};
+
 public:
 
 	txn_proxy_t(txnmgr_t<db_t>* txnmgr, bool readonly)
@@ -200,7 +196,6 @@ class txnmgr_t {
 	bool wtxn_must_release{false}; //delayed release pending
 
 	inline db_txn* acquire_wtxn() {
-		//dtdebugx("QQQ %p calling reservation.acquire_wtxn", this);
 		auto& wtxn = reservation.acquire_master_wtxn();
 		owned_wtxn = & wtxn;
 		last_wtxn_id = wtxn.txn_id();
@@ -274,7 +269,6 @@ public:
 			return;
 		assert(!child_txn);
 		wtxn_must_release = false;
-		//dtdebugx("QQQ %p calling reservation.release_wtxn", this);
 		this->release_master_wtxn(true /*force_commit*/);
 	}
 

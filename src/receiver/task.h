@@ -132,7 +132,7 @@ protected:
 public:
 
 	inline bool must_exit() {
-		std::lock_guard<std::mutex> lk(mutex);
+		std::scoped_lock<std::mutex> lk(mutex);
 		return must_exit_;
 	}
 
@@ -213,6 +213,7 @@ public:
 
 
 	bool has_exited() const {
+		std::scoped_lock<std::mutex> lk(mutex);
 		return has_exited_;
 	}
 
@@ -265,7 +266,7 @@ public:
 		}
 		auto f = task.get_future();
 
-		std::lock_guard<std::mutex> lk(mutex);
+		std::scoped_lock<std::mutex> lk(mutex);
 
 		if(must_exit) {
 			if(this->must_exit_) //avoid calling stop_running multiple times

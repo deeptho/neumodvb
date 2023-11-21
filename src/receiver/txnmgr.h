@@ -45,13 +45,14 @@ class wtxn_reservation_t {
 	 */
 	void commit_wtxn() {
 		assert(wtxn_);
-		std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
+		//dtdebugx("QQQ %p: maybe commit owning_ticket=%d", this, owning_ticket);
 		owning_ticket = -1; //allow other threads to use the mutex
 		if(wtxn_->can_commit()) {
 			wtxn_->commit(); //delayed commit of data from other thread
+			//dtdebugx("QQQ %p: committed owning_ticket=%d", this, owning_ticket);
 		}
 		wtxn_.reset();
-		cv.notify_one();
+		//dtdebugx("QQQ %p: called reset owning_ticket=%d", this, owning_ticket);
 	}
 
 	bool thread_waiting_for_wtxn() const {
@@ -84,9 +85,8 @@ public:
 		return db;
 	}
 
-	db_txn& acquire_wtxn() {
-		std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
-
+	db_txn& acquire_master_wtxn() {
+		std::unique_lock<std::mutex> lk(mutex);
 		if (wtxn_) {
 			/*The wtxn still exists and therefore has not been committed or
 				aborted. Just use it. The thread which becomes the new owner has to
@@ -104,7 +104,7 @@ public:
 
 		last_owner = std::this_thread::get_id();
 		owning_ticket = my_ticket;
-
+		//dtdebugx("QQQ %p acquired owning_ticket=%d", this, owning_ticket);
 		if(wtxn_) {
 			return *wtxn_;
 		}
@@ -123,53 +123,44 @@ public:
 		If the txn is not committed now, then  the next thread which
 		will acquire the wtxn will later try to commit
 	 */
-	void release_wtxn(bool force_commit=false) {
-		std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
+	*/
+	void release_master_wtxn(bool force_commit=false) {
+		std::unique_lock<std::mutex> lk(mutex);
 		if(!wtxn_)
 			return;
 		if(force_commit || release_should_commit()) {
+			//dtdebugx("QQQ %p calling commit owning_ticket=%d", this, owning_ticket);
 			commit_wtxn();
 		}
 		else if(thread_waiting_for_wtxn()) {
+			//dtdebugx("QQQ %p transfer to other thread owning_ticket=%d", this, owning_ticket);
 			owning_ticket = -1; //allow other threads to use the wtxn now
 			cv.notify_one();
 		} else {
+			//dtdebugx("QQQ %p NO transfer to other thread owning_ticket=%d", this, owning_ticket);
 			owning_ticket = -1; //allow other threads to use the wtxn in the future
 		}
 	}
 
-   /*
-		 If other threads are waiting, then commit the transaction and
-		 release the wtxn so that other threads can use it.
+	/*
+		If other threads are waiting, then commit the transaction and
+		release the wtxn so that other threads can use it.
 
-		 Otherwise do not commit the txn, but keep it open so that we can quickly
-		 reuse it later. This counts on our thread later calling release_wtxn
+		Otherwise do not commit the txn, but keep it open so that we can quickly
+		reuse it later. This counts on our thread later calling release_wtxn
 	 */
-	inline void maybe_release_wtxn() {
-		std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
+	inline bool maybe_release_master_wtxn() {
+		std::unique_lock<std::mutex> lk(mutex);
 		if(wtxn_ && thread_waiting_for_wtxn()) {
 			//other thread wants to being a wtxn
-			commit_wtxn();
+			//dtdebugx("QQQ %p commit for other thread now owning_ticket=%d", this, owning_ticket);
+			commit_master_wtxn();
 			owning_ticket = -1; //allow other threads to use the wtxn now
 			cv.notify_one();
+			return true;
 		}
+		return false;
 	}
-
-#if 0
-	/*
-		Do not use: only child_txns should be committed or aborted
-	*/
-	void abort_wtxn() {
-		assert(wtxn_);
-		std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
-		owning_ticket = -1; //allow other threads to use the muutex
-		if(wtxn_->can_commit()) {
-			wtxn_->abort(); //delayed commit of data from other thread
-		}
-		wtxn_.reset();
-		cv.notify_one();
-	}
-#endif
 };
 
 
@@ -372,15 +363,15 @@ txn_proxy_t<db_t>::~txn_proxy_t() {
 
 template<typename db_t>
 txn_proxy_t<db_t>::operator db_txn& () {
-	return readonly ? txnmgr->begin_rtxn() : txnmgr->begin_wtxn();
+	return unlikely(readonly) ? txnmgr->begin_rtxn() : txnmgr->begin_wtxn();
 }
 
 template<typename db_t>
 void txn_proxy_t<db_t>::commit() {
-	return readonly ? txnmgr->commit_rtxn() : txnmgr->commit_child_wtxn();
+	return unlikely(readonly) ? txnmgr->commit_rtxn() : txnmgr->commit_child_wtxn();
 }
 
 template<typename db_t>
 void txn_proxy_t<db_t>::abort() {
-	return readonly ? 	txnmgr->abort_rtxn() :txnmgr->abort_child_wtxn();
+	return unlikely(readonly) ? 	txnmgr->abort_rtxn() :txnmgr->abort_child_wtxn();
 }

@@ -46,7 +46,7 @@ std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& recei
 	assert(w->fefd < 0);
 	auto p = std::make_shared<fe_monitor_thread_t>(receiver, fe);
 	fe->open_device(*w);
-	dtdebugx("starting frontend_monitor %p: fefd=%d\n", fe.get(), w->fefd);
+	dtdebugf("starting frontend_monitor {:p}: fefd={:d}\n", fmt::ptr(fe.get()), w->fefd);
 	p->epoll_add_fd(w->fefd,
 									EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET); // will be used to monitor the frontend edge triggered!
 	p->start_running();
@@ -85,7 +85,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	auto fefd = fe->ts.readAccess()->fefd;
 	int r = ioctl(fefd, FE_GET_EVENT, &event);
 	if (r < 0) {
-		dtdebugx("FE_GET_EVENT stat=0x%x errno=%d err=%s\n", event.status, errno, strerror(errno));
+		dtdebugf("FE_GET_EVENT stat=0x{:x} errno={:d} err={:s}\n", (int)event.status, errno, strerror(errno));
 		return;
 	}
 
@@ -111,7 +111,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	bool timedout = event.status & FE_TIMEDOUT;
 #pragma unused(timedout)
 #if 0
-	dtdebugx("SIGNAL: signal=%d carrier=%d viterbi=%d sync=%d lock=%d timedout=%d\n", signal, carrier, viterbi, has_sync,
+	dtdebugf("SIGNAL: signal={:d} carrier={:d} viterbi={:d} sync={:d} lock={:d} timedout={:d}\n", signal, carrier, viterbi, has_sync,
 					 has_lock, timedout);
 #endif
 	bool done = signal && carrier && viterbi && has_sync && has_lock;
@@ -149,11 +149,11 @@ void fe_monitor_thread_t::handle_frontend_event() {
 
 int fe_monitor_thread_t::cb_t::pause() {
 	ss::string<64> fe_name;
-	fe_name.sprintf("fe %d.%d", (int)fe->adapter_no, (int)fe->frontend_no);
+	fe_name.format("fe {:d}.{:d}", (int)fe->adapter_no, (int)fe->frontend_no);
 	set_name(fe_name.c_str());
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 	this->is_paused = true;
-	dtdebugx("frontend_monitor pause: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
+	dtdebugf("frontend_monitor pause: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 
 	return 0;
 }
@@ -161,11 +161,11 @@ int fe_monitor_thread_t::cb_t::pause() {
 
 int fe_monitor_thread_t::cb_t::unpause() {
 	ss::string<64> fe_name;
-	fe_name.sprintf("fe %d.%d", (int)fe->adapter_no, (int)fe->frontend_no);
+	fe_name.format("fe {:d}.{:d}", (int)fe->adapter_no, (int)fe->frontend_no);
 	set_name(fe_name.c_str());
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 	this->is_paused = false;
-	dtdebugx("frontend_monitor unpause: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
+	dtdebugf("frontend_monitor unpause: {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 
 	return 0;
 }
@@ -173,11 +173,11 @@ int fe_monitor_thread_t::cb_t::unpause() {
 
 int fe_monitor_thread_t::run() {
 	ss::string<64> fe_name;
-	fe_name.sprintf("fe %d.%d", (int)fe->adapter_no, (int)fe->frontend_no);
+	fe_name.format("fe {:d}.{:d}", (int)fe->adapter_no, (int)fe->frontend_no);
 	set_name(fe_name.c_str());
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 
-	dtdebugx("frontend_monitor run: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
+	dtdebugf("frontend_monitor run: {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 	auto save = shared_from_this(); // prevent ourself from being deleted until thread exits;
 
 	if (fe->api_type != api_type_t::NEUMO)
@@ -185,7 +185,7 @@ int fe_monitor_thread_t::run() {
 	for (;;) {
 		auto n = epoll_wait(2000);
 		if (n < 0) {
-			dterrorx("error in poll: %s", strerror(errno));
+			dterrorf("error in poll: {:s}", strerror(errno));
 			continue;
 		}
 		now = system_clock_t::now();
@@ -212,14 +212,14 @@ exit_:
 		auto w = fe->ts.writeAccess();
 		fe->close_device(*w);
 	}
-	dtdebugx("frontend_monitor end: %p: closed device\n", fe.get());
+	dtdebugf("frontend_monitor end: {:p}: closed device\n", fmt::ptr(fe.get()));
 	save.reset();
 	{
 		auto ts = fe->signal_monitor.writeAccess();
 		auto &signal_monitor = *ts;
 		signal_monitor.end_stat(receiver);
 	}
-	dtdebugx("frontend_monitor end: %p: fefd=%d\n", fe.get(), fe->ts.readAccess()->fefd);
+	dtdebugf("frontend_monitor end: {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 	return 0;
 }
 

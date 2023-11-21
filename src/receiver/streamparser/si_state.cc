@@ -77,7 +77,7 @@ static int default_timeout(uint8_t table_id) {
 	case 0xa0 ... 0xab: /*SKYUK EPG*/
 		return 300000;		// 30000 ms (but may be longer)
 	}
-	dtdebugx("UNHANDLED timeout 0x%x\n", table_id);
+	dtdebugf("UNHANDLED timeout 0x{:x}", table_id);
 	return 20000;
 }
 
@@ -148,7 +148,7 @@ inline bool completion_status_t::set_flag(int idx) {
 inline section_type_t completion_status_t::set_flag(const section_header_t& hdr) {
 	if (hdr.section_number > hdr.last_section_number) {
 		if (hdr.section_syntax_indicator) {
-			dterrorx("section_number=%d > last=%d", hdr.section_number, hdr.last_section_number);
+			dterrorf("section_number={:d} > last={:d}", hdr.section_number, hdr.last_section_number);
 			return section_type_t::NEW;
 		}
 	}
@@ -174,7 +174,7 @@ inline section_type_t completion_status_t::set_flag(const section_header_t& hdr)
 	assert(count <= maxcount);
 	completed = (count == maxcount);
 #if 0
-	dtdebugx("table[0x%x-%d] sec=%d count=%d/%d last=%d/%d exists=%d completed=%d",
+	dtdebugf("table[0x{:x}-{:d}] sec={:d} count={:d}/{:d} last={:d}/{:d} exists={:d} completed={:d}",
 					 hdr.table_id, hdr.table_id_extension, hdr.section_number, count, maxcount,
 					 hdr.segment_last_section_number, hdr.last_section_number,
 					 exists, completed);
@@ -193,12 +193,12 @@ void parser_status_t::dump_cstates() {
 		if(k.table_id == 0x4a) {
 			ss::string<16> xxx;
 			for(auto f: cstate.section_flags)
-				xxx.sprintf("%02x ", f);
-			dtdebugx("key=[%d %d %d] "
-						 "vers=%d last_sn=%d count=%d maxcount=%d completed=%d flags=%s\n",
+				xxx.format("{:02x} ", f);
+			dtdebugf("key=[{:d} {:d} {:d}] "
+						 "vers={:d} last_sn={:d} count={:d} maxcount={:d} completed={:d} flags={:s}\n",
 							 k.table_id_extension, k.table_id_extension1, k.table_id_extension2,
 							 cstate.version_number, cstate.last_section_number, cstate.count,
-							 cstate.maxcount, cstate.completed, xxx.c_str());
+							 cstate.maxcount, cstate.completed, xxx);
 		}
 	}
 }
@@ -333,10 +333,10 @@ void parser_status_t::stats() {
 	int num = 0;
 	for (auto& [k, c] : cstates) {
 		if (k.table_id == 0x42 || k.table_id == 0x46) {
-			printf("[0x%x] ts_id=%d\n", k.table_id, k.table_id_extension);
+			printf("[0x{:x}] ts_id={:d}\n", k.table_id, k.table_id_extension);
 			num++;
 		}
 	}
-	printf("TOTAL: %d\n", num);
+	printf("TOTAL: {:d}\n", num);
 }
 #endif

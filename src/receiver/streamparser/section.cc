@@ -33,7 +33,6 @@
 #include "dvbtext.h"
 #include "opentv_string_decoder.h"
 #include "psi_impl.h"
-#include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
 
@@ -592,7 +591,7 @@ namespace dtdemux {
 			auto y UNUSED = get<uint16_t>();
 			ss::string<256> description;
 			get_fields<dvb_text_t>(description);
-			dtdebugx("FSTX: group=%d id=%d cat=%s", category_group, category_id, description.c_str());
+			dtdebugf("FSTX: group={:d} id={:d} cat={:s}", category_group, category_id, description.c_str());
 		}
 		assert(available() == end);
 		return has_error();
@@ -611,7 +610,7 @@ namespace dtdemux {
 			assert(desc_loop_len % 2 == 0);
 			while (available() > end1) {
 				auto channel_id UNUSED = get<uint16_t>() & 0xfff;
-				dtdebugx("FST: ChannelCategory group=%d cat_id=%d channel_id=%d\n", category_group, category_id, channel_id);
+				dtdebugf("FST: ChannelCategory group={:d} cat_id={:d} channel_id={:d}\n", category_group, category_id, channel_id);
 			}
 			assert(available() == end1);
 		}
@@ -619,7 +618,7 @@ namespace dtdemux {
 		assert(available() >= end);
 		if (available() > end) {
 			// this is not right! sometimes desc.len=12 and we end up here...
-			dterrorx("desc.len=%d skipping %d\n", desc.len, available() - end);
+			dterrorf("desc.len={:d} skipping {:d}\n", desc.len, available() - end);
 			skip(available() - end);
 		}
 		return has_error();
@@ -701,21 +700,21 @@ namespace dtdemux {
 		switch (linkage_type) {
 		case 0x02: // EPG service
 
-			dtdebugx("LINK to epg service nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			dtdebugf("LINK to epg service nid={:d}, tid={:d}, sid={:d}]\n", original_network_id, ts_id, service_id);
 			l.network_id = original_network_id;
 			l.ts_id = ts_id;
 			break;
 
 		case 0x04: // TS containing complete Network/Bouquet SI
 
-			dtdebugx("LINK to network/bouquet info nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			dtdebugf("LINK to network/bouquet info nid={:d}, tid={:d}, sid={:d}]\n", original_network_id, ts_id, service_id);
 			l.network_id = original_network_id;
 			l.ts_id = ts_id;
 			break;
 		case 0x09: // System Software Update Service (TS 102 006 [11])
 		default:
 #if 0
-			dtdebugx("NIT: unknown linkage: nid=%d, tid=%d, sid=%d link_type=0x%x]\n",
+			dtdebugf("NIT: unknown linkage: nid={:d}, tid={:d}, sid={:d} link_type=0x{:x}]\n",
 							 original_network_id, ts_id, service_id, linkage_type);
 			//not interested...
 #endif
@@ -736,19 +735,19 @@ namespace dtdemux {
 		auto linkage_type = get<uint8_t>();
 		switch (linkage_type) {
 		case 0x01: // information service
-			dtdebugx("LINK to info service nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			dtdebugf("LINK to info service nid={:d}, tid={:d}, sid={:d}]\n", original_network_id, ts_id, service_id);
 			break;
 
 		case 0x02: // epg service
-			// dtdebugx("LINK to epg service nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			// dtdebugf("LINK to epg service nid={:d}, tid={:d}, sid={:d}]\n", original_network_id, ts_id, service_id);
 			break;
 
 		case 0x04: // TS containing complete Network/Bouquet SI
-			// dtdebugx("LINK to network/bouquet nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			// dtdebugf("LINK to network/bouquet nid={:d}, tid={:d}, sid={:d}]\n", original_network_id, ts_id, service_id);
 			break;
 
 		case 0x05: // service replacement service
-			// dtdebugx("LINK to replacement service nid=%d, tid=%d, sid=%d]\n", original_network_id, ts_id, service_id);
+			// dtdebugf("LINK to replacement service nid={:d}, tid={:d}, sid={:d}]\n", original_network_id, ts_id, service_id);
 			break;
 		case 0x09: // System Software Update Service (TS 102 006 [11])
 			break;
@@ -799,7 +798,7 @@ namespace dtdemux {
 		processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
 		processing_count ++;
 		if(processing_count>0) {
-			dtdebug_nicex("PERF: %lfus per call (%ld/%ld)\n",
+			dtdebug_nicex("PERF: {:f}us per call ({:d}/{:d})",
 										processing_delay/(double)processing_count, processing_delay, processing_count);
 		}
 #endif
@@ -821,7 +820,7 @@ namespace dtdemux {
 		processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
 		processing_count ++;
 		if(processing_count>0) {
-			dtdebug_nicex("PERF: %lfus per call (%ld/%ld)\n",
+			dtdebug_nicex("PERF: {:f}us per call ({:d}/{:d})",
 										processing_delay/(double)processing_count, processing_delay, processing_count);
 		}
 #endif
@@ -844,7 +843,7 @@ namespace dtdemux {
 		processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
 		processing_count ++;
 		if(processing_count>0) {
-			dtdebug_nicex("PERF: %lfus per call (%ld/%ld)\n",
+			dtdebug_nicex("PERF: {:f}us per call ({:d}/{:d})",
 										processing_delay/(double)processing_count, processing_delay, processing_count);
 		}
 #endif
@@ -1041,7 +1040,6 @@ namespace dtdemux {
 						num_sky_summary_pids++;
 				} else
 					s.skip(private_desc.len); // 0x40 1 byte for IEPG service 4398
-				// dtdebugx("private data descriptor 0x%x len=%d", private_data_specifier, private_desc.len);
 				if (private_data_specifier == 0x46534154 && info.stream_pid >= 3840 && info.stream_pid <= 3844) {
 					has_freesat_epg = true; // has a local freesat stream
 					num_freesat_pids++;
@@ -1100,7 +1098,7 @@ namespace dtdemux {
 		}
 
 		if (s.bytes_read != end) {
-			dtdebug_nicex("Unexpected: s.bytes_read=%d != end=%d", s.bytes_read, end);
+			dtdebug_nicef("Unexpected: s.bytes_read={:d} != end={:d}", s.bytes_read, end);
 			if(s.bytes_read > end)
 				s.throw_bad_data();
 			s.bytes_read = end;
@@ -1216,7 +1214,7 @@ namespace dtdemux {
 
 		auto num_entries = remaining / 4;
 		if (num_entries == 0)
-			dtdebugx("empty pat");
+			dtdebugf("empty pat");
 #if 0
 		LOG4CXX_DEBUG(logger, "PAT=" << (int)hdr.table_id << " len=" << hdr.len << " ts_id=" << ts_id
 									<< " vers=" << (int)hdr.version_number << " current=" << (int)hdr.current_next
@@ -1229,7 +1227,6 @@ namespace dtdemux {
 			pat_services.entries.push_back(e);
 		}
 		uint32_t crc UNUSED = this->get<uint32_t>(); // avoid compiler warning
-		// dtdebugx("PAT CRC=0x%x", crc);
 		assert(this->available() == 0);
 		return true;
 	}
@@ -1368,7 +1365,7 @@ namespace dtdemux {
 
 			case SI::LinkageDescriptorTag: {
 				// if (network.bouquet_linkage.size() > 0)
-				// dterrorx("Unexpected: more than one bouque linkage: num=%d\n", network.bouquet_linkage.size() + 1);
+				// dterrorf("Unexpected: more than one bouque linkage: num={:d}\n", network.bouquet_linkage.size() + 1);
 				bouquet_linkage_t bouquet_linkage;
 				this->get_fields<linkage_descriptor_t>(bouquet_linkage, desc);
 				network.bouquet_linkage.push_back(bouquet_linkage);
@@ -1457,14 +1454,14 @@ namespace dtdemux {
 					mux.c.nit_ts_id = ts_id;
 					is_dvbt = true;
 					if (this->get_fields<terrestrial_delivery_system_descriptor_t>(dvbt_mux) < 0) {
-						dterror("Bad mux found: " << dvbt_mux);
+						dterrorf("Bad mux found: {}", dvbt_mux);
 					}
 				} break;
 				case SI::ServiceListDescriptorTag: {
 					bouquet_t bouquet; // todo
 					service_list_t service_list{network_id, ts_id, bouquet};
 					if (this->available() - desc1.len < end1) {
-						dterrorx("Incorrect section available=%d desc.len=%d end=%d",
+						dterrorf("Incorrect section available={:d} desc.len={:d} end={:d}",
 										 this->available(), desc1.len, end1);
 						return false;
 					}
@@ -1490,7 +1487,7 @@ namespace dtdemux {
 #if 0
 			int x = network.is_dvbs + network.is_dvbc + network.is_dvbt;
 			if(x!=1) {
-				dterrorx("NIT ts section without descriptors on %s network", is_actual ? "ACTUAL" : "OTHER");
+				dterrorf("NIT ts section without descriptors on %s network", is_actual ? "ACTUAL" : "OTHER");
 			}
 #endif
 #endif
@@ -1621,21 +1618,21 @@ namespace dtdemux {
 			}
 			assert(end >= this->available());
 			if (end > this->available()) {
-				dterrorx("Extra bytes after descriptor loop: %d/%d", end, this->available());
+				dterrorf("Extra bytes after descriptor loop: {:d}/{:d}", end, this->available());
 				this->skip(end - this->available());
 			}
 			if (service.service_type == 12 && strcmp(service.name.c_str(), "FreesatHome") == 0)
 				ret.has_freesat_home_epg = true;
 			if (service.name.size() == 0) {
-				service.name.sprintf("Service %d", service.k.service_id);
+				service.name.format("Service {:d}", service.k.service_id);
 			}
 		}
 		if (this->available() < 4) {
-			dterrorx("Too few bytes left at end of sdt");
+			dterrorf("Too few bytes left at end of sdt");
 			return false;
 		}
 		if (this->available() > 4) {
-			dterrorx("bytes left at end of sdt");
+			dterrorf("bytes left at end of sdt");
 			this->skip(this->available() - 4);
 		}
 		uint32_t crc UNUSED = this->get<uint32_t>(); // avoid compiler warning
@@ -1741,12 +1738,12 @@ namespace dtdemux {
 				return false;
 			tst -= (desc.len + 2);
 			if (tst != this->available()) {
-				dterrorx("Error while parsing bat section: %d != %d", tst, this->available());
+				dterrorf("Error while parsing bat section: {:d} != {:d}", tst, this->available());
 				return false;
 			}
 		}
 		if(end > this->available()) {
-			dterrorx("Read more bytes than we were supposed to: end=%d available=%d", end, this->available());
+			dterrorf("Read more bytes than we were supposed to: end={:d} available={:d}", end, this->available());
 			//happens on 7.0E 10804V
 			return false;
 		}
@@ -1888,7 +1885,7 @@ namespace dtdemux {
 					this->get_fields<multilingual_component_descriptor_t>(rec, desc);
 					break;
 				default:
-					dtdebugx("Unknown EIT descriptor 0x%x", desc.tag);
+					dtdebugf("Unknown EIT descriptor 0x{:x}", desc.tag);
 				case 0x80 ... 0xfe: // user defined
 				case SI::LinkageDescriptorTag:
 				case SI::PDCDescriptorTag:
@@ -2001,7 +1998,7 @@ namespace dtdemux {
 		auto offset = (int)this->bytes_read + (int)(8 * num_channels);
 		auto len = (int)this->payload.size() - offset;
 		if (len <= 0) {
-			dterrorx("Invalid channel section");
+			dterrorf("Invalid channel section");
 			return -1;
 		}
 		// hdr.table_id_extension: 0 for sd and 2 for hd and 3 for dtt
@@ -2108,7 +2105,7 @@ namespace dtdemux {
 		auto x1 = this->get<uint16_t>(); // byte 12,13
 		RETURN_ON_ERROR false;
 		this->get_fields<dvb_text_t>(rec.story); // 1 byte
-		rec.story.sprintf("\n");
+		rec.story.format("\n");
 		auto x2 = this->get<uint8_t>(); // 1 byte
 		RETURN_ON_ERROR false;
 		this->get_fields<dvb_text_t>(rec.story);
@@ -2150,7 +2147,7 @@ namespace dtdemux {
 		this->skip(10);
 
 		this->get_fields<dvb_text_t>(rec.story); // 1 byte byte pos=19 contains length
-		rec.story.sprintf("\n");
+		rec.story.format("\n");
 		RETURN_ON_ERROR false;												// pos now points here
 		this->get_fields<mhw2_dvb_text_t>(rec.story); // 2 bytes length field
 

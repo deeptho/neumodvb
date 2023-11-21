@@ -38,8 +38,6 @@ EXPORT const char* enum_to_str<{{enum.name}}>(const {{enum.name}}& val)
 	}
 };
 
-	//template const char* enum_to_str<{{enum.name}}>(const {{enum.name}}& val); //instantiate
-
 {%endfor%}
 
 
@@ -58,7 +56,5 @@ bool enum_is_valid<{{enum.name}}>(const {{enum.name}}& val)
 		return false;
 	}
 };
-
-	//template const char* enum_to_str<{{enum.name}}>(const {{enum.name}}& val); //instantiate
 
 {%endfor%}

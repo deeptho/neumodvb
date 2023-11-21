@@ -40,10 +40,10 @@ struct image_box {
 void image_box::init(wxSVGDocument* doc) {
 	ss::string<32> temp;
 
-	temp.sprintf("%s-picture", id);
+	temp.format("{:s}-picture", id);
 	auto* p = doc->GetElementById(temp.c_str());
 	if (!p)
-		dterrorx("Could not find svg element %s", temp.c_str());
+		dterrorf("Could not find svg element {:s}", temp.c_str());
 	img = p;
 }
 
@@ -78,7 +78,7 @@ svg_radiobg_impl_t::~svg_radiobg_impl_t() {}
 int svg_radiobg_impl_t::init() {
 	bool ok = svgctrl.Load(svg_filename.c_str());
 	if (!ok) {
-		dterrorx("Could not open %s", svg_filename.c_str());
+		dterrorf("Could not open {:s}", svg_filename.c_str());
 		return -1;
 	}
 	doc = svgctrl.GetSVG();

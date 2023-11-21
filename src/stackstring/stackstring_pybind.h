@@ -78,7 +78,7 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
 				if(i>=(signed)v.size())
 					throw py::index_error();
 				//if (i==5)
-				//	printf("[%p] get [%d]\n", &v, i);
+				//	printf("[%p] get [{:d}]\n", &v, i);
 				return v[i];
 		}
 #if 0
@@ -102,11 +102,10 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
 				for (size_t i = 0; i < slicelength; ++i) {
 					(*ret)[i] = v[start]; start += step;
 				}
-				//printf("[%p] slice [%ld-%ld]\n", &v, start,stop);
 				return ret; })
 #endif
 		.def("__setitem__", [](ss::vector_<T> &v, int i, const T& val) {
-				//printf("[%p] set [%d]\n", &v, i);
+				//printf("[%p] set [{:d}]\n", &v, i);
 													v[i]=val; }
 			)
 
@@ -114,7 +113,6 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
             size_t start, stop, step, slicelength;
             if (!slice.compute(s.size(), &start, &stop, &step, &slicelength))
                 throw py::error_already_set();
-						//printf("[%p] set list[%ld] %ld\n", &s, py::len(list), slicelength);
             if (slicelength != py::len(list))
                 throw std::runtime_error("Left and right hand size of slice assignment have different sizes!");
 						for (auto& v: list) {

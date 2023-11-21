@@ -21,9 +21,7 @@
 #include "util/dtassert.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
-#include "stackstring/ssaccu.h"
 #include "util/template_util.h"
-#include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
 
@@ -263,7 +261,7 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const ch
 			break;
 		if (sat.sat_pos == mux.k.sat_pos)
 			continue; //already tried
-		dtdebugx("found sat_pos: %d\n", sat.sat_pos);
+		dtdebugf("found sat_pos: {:d}\n", sat.sat_pos);
 		auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_id, ignore_t2mi_pid);
 		if (c.is_valid())
 			return c;

@@ -48,14 +48,14 @@ int neumodb_upgrade(const char* from_dbname, const char* to_dbname,
 	db_t to_db;
 	ss::string<128> backup_name;
 	if (!to_dbname) {
-		backup_name << 	from_dbname;
+		backup_name  = from_dbname;
 		for(; backup_name.size()>0 && backup_name[backup_name.size()-1]=='/'; ) {
 			backup_name.resize_no_init(backup_name.size()-1);
 		}
 		if(backup_name.size()==0)
 			return -1;
-		backup_name.sprintf(".");
-		backup_name.sprintf(ss::dateTime(time(NULL), "%Y%m%d_%H:%M:%S"));
+		backup_name.format(".");
+		backup_name.format("%Y%m{:d}_%H:%M:%S", time(NULL));
 		to_dbname = backup_name.c_str();
 	}
 
@@ -147,7 +147,7 @@ int neumodb_upgrade(const char* from_dbname, const char* to_dbname,
 		//atomically replace input and output db
 			if(file_swap(from_dbname, to_dbname)<0) {
 				//fileswa- failed
-				dterrorx("error renaming  %s to %s: %s",  from_dbname,
+				dterrorf("error renaming  {} to {}: {}",  from_dbname,
 								 to_dbname, strerror(errno));
 				fprintf(stderr, "Conversion failed; cleaning up %s\n", to_dbname);
 				auto num_deleted = fs::remove_all(path_to, err);

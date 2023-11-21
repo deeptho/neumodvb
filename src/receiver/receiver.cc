@@ -140,14 +140,14 @@ void receiver_thread_t::unsubscribe_playback_only(std::vector<task_queue_t::futu
  */
 void receiver_thread_t::unsubscribe_mux_and_service_only(std::vector<task_queue_t::future_t>& futures,
 																						 db_txn& devdb_wtxn, subscription_id_t subscription_id) {
-	dtdebugx("Unsubscribe subscription_id=%d", (int)subscription_id);
+	dtdebugf("Unsubscribe subscription_id={:d}", (int)subscription_id);
 	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
 	auto updated_dbfe = devdb::fe::unsubscribe(devdb_wtxn, subscription_id);
 	if(!updated_dbfe) {
 		return; //can happen when unsubscribing a scan
 	}
-	dtdebugx("release_active_adapter subscription_id=%d use_count=%d", (int) subscription_id,
+	dtdebugf("release_active_adapter subscription_id={:d} use_count={:d}", (int) subscription_id,
 					 updated_dbfe ? updated_dbfe->sub.subs.size() : 0);
 	assert(updated_dbfe);
 	release_active_adapter(futures, subscription_id, *updated_dbfe);
@@ -156,7 +156,7 @@ void receiver_thread_t::unsubscribe_mux_and_service_only(std::vector<task_queue_
 void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
 																							 subscription_id_t subscription_id,
 																							 const devdb::fe_t& updated_dbfe) {
-	dtdebugx("release_active_adapter subscription_id=%d", (int)subscription_id);
+	dtdebugf("release_active_adapter subscription_id={:d}", (int)subscription_id);
 	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
 
@@ -170,7 +170,7 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 		auto& tuner_thread = it->second->tuner_thread;
 		if(updated_dbfe.sub.subs.size() ==0) {
 			//ask tuner thread to exit, but do not wait
-			dtdebugx("Pushing tuner_thread.stop_running");
+			dtdebugf("Pushing tuner_thread.stop_running");
 			tuner_thread.update_dbfe(updated_dbfe);
 			futures.push_back(tuner_thread.stop_running(false/*wait*/));
 		} else {
@@ -179,7 +179,7 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 				return 0;
 			}));
 		}
-		dtdebugx("released");
+		dtdebugf("released");
 		m.erase(it); //if this is the last reference, it will release the tuner_thread
 	}
 }
@@ -257,12 +257,12 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
-			dtdebugx("Subscription failed calling release_active_adapter");
+			dtdebugf("Subscription failed calling release_active_adapter");
 			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
 		} else {
-			dtdebugx("Subscription failed: updated_old_dbfe = NONE");
+			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 		}
-		user_error("Service reservation failed: " << service);
+		user_errorf("Service reservation failed: {}", service);
 		return {};
 	}
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
@@ -328,12 +328,12 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
-			dtdebugx("Subscription failed calling release_active_adapter");
+			dtdebugf("Subscription failed calling release_active_adapter");
 			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
 		} else {
-			dtdebugx("Subscription failed: updated_old_dbfe = NONE");
+			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 		}
-		user_error("Service reservation failed: " << rec.service);
+		user_errorf("Service reservation failed: {}", rec.service);
 		return subscription_id_t::NONE;
 	}
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
@@ -425,11 +425,11 @@ scan_stats_t receiver_t::get_scan_stats(int scan_subscription_id) {
 }
 
 receiver_t::~receiver_t() {
-	dtdebugx("receiver destroyed");
+	dtdebugf("receiver destroyed");
 }
 
 receiver_thread_t::~receiver_thread_t() {
-	dtdebugx("receiver thread terminating");
+	dtdebugf("receiver thread terminating");
 	// detach();
 }
 
@@ -453,8 +453,8 @@ void receiver_thread_t::cb_t::on_scan_mux_end(const devdb::fe_t& finished_fe, co
 	if (!scanner.get()) {
 		return;
 	}
-	dtdebug("Calling scanner->on_scan_mux_end: adapter=" <<finished_fe.adapter_no << " mux=" << finished_mux
-					<< " subscription_id=" << (int) subscription_id);
+	dtdebugf("Calling scanner->on_scan_mux_end: adapter={}  mux={} subscription_id={}",
+					finished_fe.adapter_no, finished_mux, (int) subscription_id);
 	/*call scanner to start scanning new muxes and to prepare a scan report
 		which will be asynchronously returned to receiver_thread by calling notify_scan_mux_end,
 		which will pass the message to the GUI
@@ -522,12 +522,12 @@ receiver_thread_t::subscribe_mux(
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
-			dtdebugx("Subscription failed calling release_active_adapter");
+			dtdebugf("Subscription failed calling release_active_adapter");
 			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
 		} else {
-			dtdebugx("Subscription failed: updated_old_dbfe = NONE");
+			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 		}
-		user_error("Mux reservation failed: " << mux);
+		user_errorf("Mux reservation failed: {}", mux);
 		return subscription_id_t::RESERVATION_FAILED;
 	}
 
@@ -555,8 +555,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 																											const tune_options_t& tune_options,
 																											subscription_id_t subscription_id)
 {
-	ss::string<32> s;
-	s << "SCAN[" << (int) subscription_id << "] " << (int) muxes.size() << " muxes";
+	auto s = fmt::format("SCAN[{}] {} muxes", (int) subscription_id, (int) muxes.size());
 	log4cxx::NDC ndc(s);
 
 	std::vector<task_queue_t::future_t> futures;
@@ -587,8 +586,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 	ss::vector_<chdb::spectral_peak_t>& peaks,
 	const statdb::spectrum_key_t& spectrum_key, subscription_id_t subscription_id)
 {
-	ss::string<32> s;
-	s << "SCAN[" << (int) subscription_id << "] " << (int) peaks.size() << " peaks";
+	auto s = fmt::format("SCAN[{:d}] {} peaks", (int) subscription_id, (int) peaks.size());
 	log4cxx::NDC ndc(s);
 
 	std::vector<task_queue_t::future_t> futures;
@@ -624,9 +622,8 @@ std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id,
 																			 tune_options_t tune_options,
 																			 const devdb::rf_path_t* required_rf_path, uint32_t scan_id) {
-	ss::string<32> s;
 	devdb::fe_key_t subscribed_fe_key;
-	s << "SUB[" << (int) subscription_id << "] " << to_str(mux);
+	auto s = fmt::format("SUB[{}] {}",  (int) subscription_id, mux);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
 	if ((int) subscription_id >= 0)
@@ -687,7 +684,7 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 	assert(sret.aa.updated_new_dbfe);
 	auto dvb_frontend = receiver.fe_for_dbfe(sret.aa.updated_new_dbfe->k);
 	auto aa = active_adapter_t::make(receiver, dvb_frontend);
-	dtdebugx("created new AA: %p", aa.get());
+	dtdebugf("created new AA: {:p}", fmt::ptr(aa.get()));
 	{
 		auto w = this->active_adapters.writeAccess();
 		auto& m = *w;
@@ -728,19 +725,19 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
-			dtdebugx("Subscription failed calling release_active_adapter");
+			dtdebugf("Subscription failed calling release_active_adapter");
 			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
 		} else {
-			dtdebugx("Subscription failed: updated_old_dbfe = NONE");
+			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 		}
-		user_error("Lnb reservation failed: " << lnb);
+		user_errorf("Lnb reservation failed: {}", lnb);
 
 		return subscription_id_t::RESERVATION_FAILED;
 	}
 	tune_pars_t tune_pars ={.tune_options = tune_options, .may_control_lnb = sret.may_control_lnb,
 		.may_move_dish = sret.may_move_dish};
 
-	dtdebugx("lnb activate subscription_id=%d", (int) sret.subscription_id);
+	dtdebugf("lnb activate subscription_id={:d}", (int) sret.subscription_id);
 
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
 		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
@@ -753,11 +750,11 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	futures.push_back(aa.tuner_thread.push_task([&aa, subscription_id, sret, tune_pars]() {
 		auto ret = cb(aa.tuner_thread).lnb_activate(subscription_id, sret, tune_pars);
 		if (ret < 0)
-			dterrorx("tune returned %d", ret);
+			dterrorf("tune returned {:d}", ret);
 		return ret;
 	}));
 
-	dtdebug("Subscribed to: " << lnb);
+	dtdebugf("Subscribed to: lnb={}", lnb);
 	return sret.subscription_id;
 }
 
@@ -779,8 +776,7 @@ receiver_thread_t::cb_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& 
 																			 subscription_id_t subscription_id) {
 
 	auto lnb = receiver.reread_lnb(lnb_);
-	ss::string<32> s;
-	s << "SUB[" << (int) subscription_id << "] " << to_str(lnb);
+	auto s = fmt::format("SUB[{}]",  (int) subscription_id, lnb);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
 	auto devdb_wtxn = receiver.devdb.wtxn();
@@ -848,7 +844,7 @@ static std::tuple<chdb::any_mux_t, int> mux_for_service(db_txn& txn, const chdb:
 std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_playback_(const recdb::rec_t& rec,
 																																				subscription_id_t subscription_id) {
 
-	dtdebug("Subscribe recording  " << rec << " sub =" << (int) subscription_id << ": playback start");
+	dtdebugf("Subscribe recording {} sub={}: playback start", rec, (int) subscription_id);
 
 	auto active_playback = std::make_shared<active_playback_t>(receiver, rec);
 	this->reserved_playbacks[subscription_id] = active_playback;
@@ -857,8 +853,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_playback_(const rec
 
 std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const chdb::service_t& service,
 																																					 subscription_id_t subscription_id) {
-	ss::string<32> s;
-	s << "SUB[" << (int) subscription_id << "] " << to_str(service);
+	auto s = fmt::format("SUB[{}] {}", (int) subscription_id, service);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
 	dtdebug("SUBSCRIBE started");
@@ -866,7 +861,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 	auto chdb_txn = receiver.chdb.rtxn();
 	auto [mux, error1] = mux_for_service(chdb_txn, service);
 	if (error1 < 0) {
-		user_error("Could not find mux for " << service);
+		user_errorf("Could not find mux for {}", service);
 		if ((int) subscription_id >= 0) {
 			auto devdb_wtxn = receiver.devdb.wtxn();
 			unsubscribe_all(futures, devdb_wtxn, subscription_id);
@@ -902,8 +897,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 std::unique_ptr<playback_mpm_t>
 receiver_thread_t::cb_t::subscribe_playback(const recdb::rec_t& rec,
 																												 subscription_id_t subscription_id) {
-	ss::string<32> s;
-	s << "SUB[" << (int) subscription_id << "] " << to_str(rec);
+	auto s = fmt::format("SUB[{}] {}", (int) subscription_id, rec);
 	log4cxx::NDC ndc(s);
 	dtdebug("SUBSCRIBE rec started");
 
@@ -916,7 +910,7 @@ receiver_thread_t::cb_t::subscribe_playback(const recdb::rec_t& rec,
 		if (found) {
 			active_playback = &*(itrec->second);
 			if (rec.epg.k == active_playback->currently_playing_recording.epg.k) {
-				dtdebug("subscribe " << rec << ": already subscribed to recording");
+				dtdebugf("subscribe {}: already subscribed to recording", rec);
 				return active_playback->make_client_mpm(receiver, subscription_id);
 			}
 		}
@@ -934,8 +928,7 @@ receiver_thread_t::cb_t::subscribe_playback(const recdb::rec_t& rec,
 void receiver_thread_t::cb_t::start_recording(
 	recdb::rec_t rec_in) // important: should not be a reference (async called!)
 {
-	ss::string<32> s;
-	s << "REC " << to_str(rec_in.service);
+	auto s =fmt::format("REC {}", rec_in.service);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
 	dtdebug("RECORD started");
@@ -943,7 +936,7 @@ void receiver_thread_t::cb_t::start_recording(
 	auto chdb_txn = receiver.chdb.rtxn();
 	auto [mux, error1] = mux_for_service(chdb_txn, rec_in.service);
 	if (error1 < 0) {
-		user_error("Could not find mux for " << rec_in.service);
+		user_errorf("Could not find mux for {}", rec_in.service);
 		return;
 	}
 	chdb_txn.abort();
@@ -965,7 +958,7 @@ void receiver_thread_t::cb_t::start_recording(
 
 */
 int receiver_t::toggle_recording_(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
-	dtdebugx("epg=%s", to_str(epg_record).c_str());
+	dtdebugf("epg={}", epg_record);
 	//call by reference allows because of subsequent .get
 	int ret{-1};
 	auto& recmgr_thread = rec_manager.recmgr_thread;
@@ -985,8 +978,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, const epgdb::e
 int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t start_time_, int duration,
 																	const char* event_name) {
 	auto start_time = system_clock_t::to_time_t(start_time_);
-	auto x = to_str(service);
-	dtdebugx("toggle_recording: %s", x.c_str());
+	dtdebugf("toggle_recording: {}", service);
 	epgdb::epg_record_t epg;
 	epg.k.service = service.k;
 	epg.k.event_id = TEMPLATE_EVENT_ID; /*prefix 0xffff0000 signifies a non-dvb event_id;
@@ -996,12 +988,12 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 	epg.k.start_time = start_time;
 	epg.end_time = start_time + duration;
 	if (event_name)
-		epg.event_name.sprintf("%s", event_name);
+		epg.event_name.format("{:s}", event_name);
 	else {
-		epg.event_name.sprintf("%s: ", service.name.c_str());
-		epg.event_name.sprintf(ss::dateTime(epg.k.start_time, "%F %H:%M"));
-		epg.event_name.sprintf(" - ");
-		epg.event_name.sprintf(ss::dateTime(epg.end_time, "%F %H:%M"));
+		epg.event_name.format("{:s}: ", service.name.c_str());
+		epg.event_name.format(":%F %H:%M",epg.k.start_time);
+		epg.event_name.format(" - ");
+		epg.event_name.format(":%F %H:%M", epg.end_time);
 	}
 	return toggle_recording_(service, epg);
 }
@@ -1107,7 +1099,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	high_freq = high_freq < 0 ? high_freq_ : high_freq;
 
 	if( high_freq <= low_freq  || low_freq < low_freq_ || high_freq > high_freq_) {
-		user_errorx("Illegal frequency range for scan: %dkHz - %dKhz", low_freq, high_freq);
+		user_errorf("Illegal frequency range for scan: {:d}kHz - {:d}Khz", low_freq, high_freq);
 		return subscription_id_t::TUNE_FAILED;
 	}
 	bool has_low = (low_freq_ != mid_freq_);
@@ -1122,7 +1114,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 		band_pol.band = devdb::lnb::band_for_freq(lnb, low_freq);
 	} else if (devdb::lnb::band_for_freq(lnb, low_freq) != band_pol.band &&
 						 devdb::lnb::band_for_freq(lnb, high_freq) != band_pol.band) {
-		user_errorx("start and end frequency do not coincide with band");
+		user_errorf("start and end frequency do not coincide with band");
 		return subscription_id_t::TUNE_FAILED;
 	}
 	tune_options.spectrum_scan_options.start_freq = low_freq;
@@ -1375,7 +1367,7 @@ void receiver_t::start() {
 }
 
 void receiver_t::stop() {
-	dtdebugx("STOP CALLED\n");
+	dtdebugf("STOP CALLED");
 	receiver_thread.stop_running(true);
 }
 
@@ -1386,7 +1378,7 @@ int receiver_thread_t::run() {
 	set_name("receiver");
 	logger = Logger::getLogger("receiver"); // override default logger for this thread
 
-	dtdebug("RECEIVER starting\n");
+	dtdebug("RECEIVER starting");
 	adaptermgr->start();
 	epoll_add_fd(adaptermgr->inotfd, EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET);
 	now = system_clock_t::now();
@@ -1397,14 +1389,14 @@ int receiver_thread_t::run() {
 	for (;;) {
 		auto n = epoll_wait(2000);
 		if (n < 0) {
-			dterrorx("error in poll: %s", strerror(errno));
+			dterrorf("error in poll: {:s}", strerror(errno));
 			continue;
 		}
 		now = system_clock_t::now();
 		for (auto evt = next_event(); evt; evt = next_event()) {
 			if (is_event_fd(evt)) {
 				ss::string<128> prefix;
-				prefix << "RECEIVER-CMD";
+				prefix.format("RECEIVER-CMD");
 				log4cxx::NDC ndc(prefix.c_str());
 				// an external request was received
 				// run_tasks returns -1 if we must exit
@@ -1600,8 +1592,7 @@ subscription_id_t receiver_thread_t::cb_t::subscribe_scan(
 	ss::vector_<mux_t>& muxes, ss::vector_<devdb::lnb_t>* lnbs,
 	std::optional<tune_options_t> tune_options, int max_num_subscriptions,
 	subscription_id_t subscription_id) {
-	ss::string<32> s;
-	s << "SUB[" << (int) subscription_id << "] Request scan";
+	auto s =fmt::format("SUB[{}] Request scan", (int) subscription_id);
 	log4cxx::NDC ndc(s);
 
 	std::vector<task_queue_t::future_t> futures;
@@ -1738,7 +1729,7 @@ void receiver_thread_t::cb_t::unsubscribe(subscription_id_t subscription_id) {
 		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
 	*/
 	bool error = wait_for_all(futures);
-	dtdebugx("Waiting for all futures done");
+	dtdebugf("Waiting for all futures done");
 	if (error) {
 		dterror("Unhandled error in unsubscribe");
 	}

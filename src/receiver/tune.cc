@@ -78,7 +78,7 @@ ss::string<128> dump_caps(chdb::fe_caps_t caps) {
 	for (int i = 0; i < 32; ++i) {
 		auto mask = ((uint32_t)1) << i;
 		if (mask & (uint32_t)caps) {
-			ret << enum_to_str((chdb::fe_caps_t)mask) << " ";
+			ret.format("{} ", enum_to_str((chdb::fe_caps_t)mask));
 		}
 	}
 	return ret;
@@ -94,7 +94,7 @@ int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const 
 		pmt.has_skyuk_epg ? add_epg_type(mux, chdb::epg_type_t::SKYUK) : remove_epg_type(mux, chdb::epg_type_t::SKYUK);
 
 	if (changed) {
-		dtdebug("freesat/skyuk epg flag changed on mux " << mux);
+		dtdebugf("freesat/skyuk epg flag changed on mux {}", mux);
 		active_adapter.set_current_tp(mux);
 		auto txn = receiver.chdb.wtxn();
 		namespace m = chdb::update_mux_preserve_t;
@@ -117,7 +117,7 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& sret,
 																			 tune_pars_t tune_pars) {
 	// check_thread();
-	dtdebugx("lnb activate subscription_id=%d", (int) subscription_id);
+	dtdebugf("lnb activate subscription_id={:d}", (int) subscription_id);
 	assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
 	{
 		//assert(!sret.retune);
@@ -155,7 +155,7 @@ void tuner_thread_t::add_si(active_adapter_t& active_adapter,
 																	const chdb::any_mux_t& mux, const tune_options_t& tune_options ,
 																	subscription_id_t subscription_id) {
 	// check_thread();
-	dtdebugx("tune restart_si");
+	dtdebugf("tune restart_si");
 	active_adapter.prepare_si(mux, true /*start*/, subscription_id, true /*add_to_running_mux*/);
 	active_adapter.fe->set_tune_options(tune_options);
 }
@@ -171,12 +171,11 @@ int tuner_thread_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& ln
 		pending, and when parallel tuners are in use, the second tuner might decide to scan
 			the mux again
 	*/
-	ss::string<128> prefix;
-	prefix << "TUN" << active_adapter.get_adapter_no() << "-TUNE";
+	auto prefix = fmt::format("TUN{:d}-TUNE", active_adapter.get_adapter_no());
 	log4cxx::NDC::pop();
 	log4cxx::NDC ndc(prefix.c_str());
 
-	dtdebug("tune mux action " << mux);
+	dtdebugf("tune mux action {}", mux);
 	bool user_requested = true;
 	return active_adapter.tune(rf_path, lnb, mux, tune_pars, user_requested, subscription_id);
 }
@@ -194,13 +193,11 @@ int tuner_thread_t::tune(const _mux_t& mux_,
 		pending, and whne parallel tuners are in use, the second tuner might decide to scan
 		the mux again
 		*/
-
-	ss::string<128> prefix;
-	prefix << "TUN" << active_adapter.get_adapter_no() << "-TUNE";
+	auto prefix = fmt::format("TUN{}-TUNE", active_adapter.get_adapter_no());
 	log4cxx::NDC::pop();
 	log4cxx::NDC ndc(prefix.c_str());
 
-	dtdebugx("tune mux action");
+	dtdebugf("tune mux action");
 	bool user_requested = true;
 	auto ret = active_adapter.tune(mux, tune_pars, user_requested, subscription_id);
 	assert (ret>=0 || active_adapter.tune_state == active_adapter_t::TUNE_FAILED);
@@ -214,7 +211,7 @@ template int tuner_thread_t::cb_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t
 																													subscription_id_t subscription_id);
 
 int tuner_thread_t::exit() {
-	dtdebugx("tuner starting exit");
+	dtdebugf("tuner starting exit");
 	this->active_adapter.destroy();
 	return 0;
 }
@@ -289,7 +286,7 @@ int tuner_thread_t::run() {
 		When used from a gui, it may be better to let the gui handle this asynchronously
 	*/
 	ss::string<64> thread_name;
-	thread_name.sprintf("tuner%d", adapter_no);
+	thread_name.format("tuner{:d}", adapter_no);
 	set_name(thread_name.c_str());
 	logger = Logger::getLogger("tuner"); // override default logger for this thread
 	double period_sec = 1.0;
@@ -303,15 +300,15 @@ int tuner_thread_t::run() {
 	for (;;) {
 		auto n = epoll_wait(2000);
 		if (n < 0) {
-			dterrorx("error in poll: %s", strerror(errno));
+			dterrorf("error in poll: {}", strerror(errno));
 			continue;
 		}
 		now = system_clock_t::now();
-		// printf("n=%d\n", n);
+		// printf("n={:d}\n", n);
 		for (auto evt = next_event(); evt; evt = next_event()) {
 			if (is_event_fd(evt)) {
 				ss::string<128> prefix;
-				prefix << "TUN-CMD";
+				prefix.format("TUN-CMD");
 				log4cxx::NDC ndc(prefix.c_str());
 				// an external request was received
 				// run_tasks returns -1 if we must exit
@@ -327,12 +324,12 @@ int tuner_thread_t::run() {
 					}
 					dttime_init();
 					ss::string<128> prefix;
-					prefix << "TUN" << active_adapter.get_adapter_no() << "-MON";
+					prefix.format("TUN{}-MON", active_adapter.get_adapter_no());
 					log4cxx::NDC ndc(prefix.c_str());
 					active_adapter.monitor();
 					auto delay = dttime(-1);
 					if (delay >= 500)
-						dterrorx("monitor cycle took too long delay=%d", delay);
+						dterrorf("monitor cycle took too long delay={:d}", delay);
 					if(run_tasks(now)<0)
 						return 0;
 				}
@@ -340,39 +337,39 @@ int tuner_thread_t::run() {
 				dttime(100);
 				auto delay = dttime(-1);
 				if (delay >= 500)
-					dterrorx("clean cycle took too long delay=%d", delay);
+					dterrorf("clean cycle took too long delay={:d}", delay);
 			} else {
 				// this must be a si event
 				{
 					// active_adapter will return if fd is for other active_adapter
 					// The following call returns true if fd was for this active_adapter
 					ss::string<128> prefix;
-					prefix << "TUN" << active_adapter.get_adapter_no() << "-SI";
+					prefix.format("TUN{}-SI", active_adapter.get_adapter_no());
 					log4cxx::NDC ndc(prefix.c_str());
 					dttime_init();
 
 					if (evt->events & EPOLLERR) {
-						dterrorx("ERROR in epoll event for fd=%d", evt->data.fd);
+						dterrorf("ERROR in epoll event for fd={:d}", evt->data.fd);
 					}
 					if (evt->events & EPOLLIN) {
 						if (active_adapter.read_and_process_data_for_fd(evt)) {
 							// printf("processed using new si interface\n");
 							auto delay = dttime(300);
 							if (delay >= 200)
-								dterrorx("si cycle took too long delay=%d", delay);
+								dterrorf("si cycle took too long delay={:d}", delay);
 							break;
 						}
 					}
 				}
 				ss::string<128> prefix;
-				prefix << "TASK";
+				prefix.format("TASK");
 				log4cxx::NDC ndc(prefix.c_str());
 				if(run_tasks(now)<0)
 					return 0;
 			}
 		}
 	}
-	dtdebugx("Tuner thread ending done");
+	dtdebugf("Tuner thread ending done");
 	return 0;
 }
 
@@ -517,15 +514,16 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 		after restarting si processing or retuning
 	*/
 	if(!sret.aa.is_new_aa()) {
-		dtdebugx("Reusing active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
+		dtdebugf("Reusing active_adapter {:p}: subscription_id={:d} adapter_no={:d}",
+						 fmt::ptr(this), (int)sret.subscription_id,
 						 (int)active_adapter.get_adapter_no());
 		auto ret1 = active_adapter.remove_service(sret.subscription_id);
-		dterrorx("Called remove_service: service was %sremoved", (ret1<0)? "NOT " : "");
+		dterrorf("Called remove_service: service was {}removed", (ret1<0)? "NOT " : "");
 	}
 
 	if(sret.sub_to_reuse == sret.subscription_id)  {
 		assert(old_active_adapter);
-		dtdebug("subscribe " << mux << ": already subscribed to mux");
+		dtdebugf("already subscribed to mux {}", mux);
 		if(tune_pars.tune_options.subscription_type == subscription_type_t::NORMAL) {
 			add_si(*old_active_adapter, mux, tune_pars.tune_options, sret.subscription_id);
 		} else {
@@ -543,8 +541,8 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	*/
 	if((int)sret.sub_to_reuse >=0)  {
 		add_si(active_adapter, mux, tune_pars.tune_options, sret.subscription_id);
-		dtdebug("subscribe " << mux << ": reused activate_adapter from subscription_id=" <<
-						(int)sret.sub_to_reuse);
+		dtdebugf("subscribe {}: reused activate_adapter from subscription_id={}",
+						 mux, (int)sret.sub_to_reuse);
 		return sret.subscription_id;
 	}
 
@@ -554,7 +552,8 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 
 	int ret{-1};
 		auto& aa = sret.aa;
-		dtdebugx("New active_adapter %p: subscription_id=%d adapter_no=%d", this, sret.subscription_id,
+		dtdebugf("New active_adapter {:p}: subscription_id={:d} adapter_no={:d}",
+						 fmt::ptr(this), (int) sret.subscription_id,
 						 active_adapter.get_adapter_no());
 		visit_variant(mux,
 									[&](const chdb::dvbs_mux_t& mux) {
@@ -571,7 +570,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 									}
 			);
 		if (ret < 0)
-			dterrorx("tune returned %d", ret);
+			dterrorf("tune returned {:d}", ret);
 #if 0
 	auto adapter_no =  active_adapter.get_adapter_no();
 	dtdebug("Subscribed: subscription_id=" << (int) sret.subscription_id << " adapter " <<
@@ -737,7 +736,7 @@ void tuner_thread_t::remove_live_buffer(subscription_id_t subscription_id) {
 	auto txn = recdbmgr.wtxn();
 	auto c = live_service_t::find_by_key(txn, pid, (int)subscription_id, find_type_t::find_eq);
 	if(!c.is_valid()) {
-		dterrorx("Live buffer no longer exists.");
+		dterrorf("Live buffer no longer exists.");
 		return;
 	}
 	auto live_service = c.current();

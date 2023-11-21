@@ -54,7 +54,6 @@ add_compile_options (
 
 find_package(Boost 1.69 REQUIRED regex context program_options)
 include_directories(${BOOST_INCLUDE_DIRS})
-include_directories(xformat/include)
 
 find_package(PkgConfig REQUIRED)
 
@@ -82,7 +81,6 @@ option( USE_SYSTEM_TZ_DB "Use the operating system's timezone database" ON )
 
 option(BUILD_TESTING "Build the testing tree." OFF)
 
-add_subdirectory(xformat)
 add_subdirectory(pybind11)
 add_subdirectory(gui)
 add_subdirectory(src)

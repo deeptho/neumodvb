@@ -104,7 +104,7 @@ int mmap_t::move_map(off_t start) {
 	assert(map_len>0);
 	offset = start;
 	if (map_len % pagesize != 0) {
-		dterrorx("map_len%%pagesize != 0 map_len=%d pagesize=%d", map_len, pagesize);
+		dterrorf("map_len%%pagesize != 0 map_len={:d} pagesize={:d}", map_len, pagesize);
 	}
 
 	auto current_size = filesize_fd(fd);
@@ -132,13 +132,13 @@ int mmap_t::move_map(off_t start) {
 		if (map_len % pagesize != 0)
 			map_len += pagesize - (map_len % pagesize);
 		if (map_len % pagesize != 0) {
-			dterrorx("map_len%%pagesize != 0 map_len=%d current_size=%ld start=%ld pagesize=%d", map_len, current_size, start,
+			dterrorf("map_len%%pagesize != 0 map_len={:d} current_size={:d} start={:d} pagesize={:d}", map_len, current_size, start,
 							 pagesize);
 		}
 
 		assert(map_len > 0);
 	}
-	dtdebugx("MMAP %ld %d", start, map_len);
+	dtdebugf("MMAP {:d} {:d}", start, map_len);
 	uint8_t* mem = (uint8_t*)mmap(NULL, map_len, readonly ? PROT_READ : (PROT_READ | PROT_WRITE), MAP_SHARED, fd, start);
 	if (mem == (uint8_t*)-1) {
 		dterror("Error in mmap: " << strerror(errno));
@@ -199,7 +199,8 @@ int mmap_t::grow_map(off_t end_read_offset) {
 	assert(buffer);
 
 	void* mem = mremap(buffer, map_len, new_map_len, MREMAP_MAYMOVE);
-	dtdebugx("MEMREMAP: map_len = %d -> %ld buffer=%p -> %p", map_len, new_map_len, buffer, mem);
+	dtdebugf("MEMREMAP: map_len = {:d} -> {:d} buffer={:p} -> {:p}", map_len, new_map_len,
+					 fmt::ptr(buffer), fmt::ptr(mem));
 	if (mem == (void*)-1) {
 		dterror("Error in mremap: " << strerror(errno));
 		return -1;
@@ -230,7 +231,7 @@ bool mmap_t::init(int fd_, off_t start_offset, off_t end_read_offset) {
 	safe_read_len = -1;
 	auto ret = move_map(page_offset) > 0;
 	if (!ret) {
-		dterrorx("move_map failed fd=%d fd_=%d", fd, fd_);
+		dterrorf("move_map failed fd={:d} fd_={:d}", fd, fd_);
 	}
 	assert(offset == page_offset);
 	if (readonly) {
@@ -252,7 +253,7 @@ bool mmap_t::init(int fd_, off_t start_offset, off_t end_read_offset) {
 void mmap_t::unmap() {
 	if (!buffer)
 		return;
-	dtdebugx("UNMAP: %p %d", buffer, map_len);
+	dtdebugf("UNMAP: {:p} {:d}", fmt::ptr(buffer), map_len);
 	if (buffer && munmap(buffer, map_len) < 0) {
 		dterror("Error while unmapping: " << strerror(errno));
 	}
@@ -263,7 +264,7 @@ void mmap_t::unmap() {
 void mmap_t::close() {
 	while (fd >= 0 && ::close(fd) < 0) {
 		if (errno != EINTR) {
-			dterrorx("Error closing file: %s", strerror(errno));
+			dterrorf("Error closing file: {:s}", strerror(errno));
 			break;
 		}
 	}

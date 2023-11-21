@@ -37,13 +37,10 @@ void section_writer_t::end_section() {
 	length = section.current_pointer(0) - p_length - sizeof(length) + sizeof(crc32);
 	p_length[0] = (length>>8) | 0x80 | 0x30; //080= section syntax indicator; 0x30 = reserved
 	p_length[1] = (length&0xff);
-	//printf("len=%ld\n", section.processed());
 
 	crc32 = dtdemux::crc32(p_section_start, section.processed() - (p_section_start - data.buffer()));
 
-	//printf("CRC=0x%x\n",  crc32);
 	section.put<uint32_t>(crc32);
-	//assert (section.processed() <= ts_packet_t::size);
 	data.resize_no_init( section.processed());
 	section = dtdemux::data_range_t(data.buffer(), section.processed());
 }
@@ -259,10 +256,8 @@ pat_writer_t::pat_writer_t(uint16_t service_id, uint16_t pmt_pid, uint16_t ts_id
 	length = section.current_pointer(0) - p_length - sizeof(length) + sizeof(crc32);
 	p_length[0] = (length>>8) | 0x80 | 0x30; //080= section syntax indicator; 0x30 = reserved
 	p_length[1] = (length&0xff);
-	//printf("len=%ld\n", section.processed());
 
 	crc32 = dtdemux::crc32(p_section_start, section.processed() - (p_section_start - data.buffer()));
-	//printf("CRC=0x%x\n",  crc32);
 	section.put<uint32_t>(crc32);
 
 	for(int i = section.processed();  i<ts_packet_t::size;++i)

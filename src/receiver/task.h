@@ -170,7 +170,7 @@ protected:
 			if(read(timer_fd, (void*)&val, sizeof(val))>=0)
 				return ret;
 			if(errno!=EINTR) {
-				dterrorx("error while reading timerfd: %s", strerror(errno));
+				dterrorf("error while reading timerfd: {:s}", strerror(errno));
 				return true;
 			}
 		}
@@ -295,7 +295,7 @@ public:
 			return ret;
 		});
 		if(this->must_exit_) {
-			dterrorx("Ignored pushing task while exit is in progress");
+			dterrorf("Ignored pushing task while exit is in progress");
 			return {};
 		}
 		auto f = task.get_future();
@@ -309,7 +309,7 @@ public:
 		}
 		tasks.push(std::move(task));
 		if(tasks.size()>=10)
-			printf("large nunber of tasks %ld\n", tasks.size());
+			dtdebugf("large nunber of tasks {:d}", tasks.size());
 		notify_fd.unblock();
 		return f;
 	}

@@ -25,7 +25,7 @@ void ts_substream_t::parse(ts_packet_t* p) {
 	int pid = p->get_pid();
 	current_ts_packet = p;
 	process_packet_header(current_ts_packet);
-	dtdebugx("parser[%d] start", pid);
+	dtdebugf("parser[{:d}] start", pid);
 	for(;;) {
 		if(!p) //end of file before parser can even start
 			break;
@@ -77,11 +77,11 @@ void ts_substream_t::parse(ts_packet_t* p) {
 				clear_encrypted();
 			}
 		} catch(bad_data_exception()) {
-			dterrorx("parser[%d]: bad_data_exception", pid);
+			dterrorf("parser[{:d}]: bad_data_exception", pid);
 		};
 		//current_ts_packet = p;
 	}
-	//printf("parser[%d]: exiting\n", pid);
+	//printf("parser[{:d}]: exiting\n", pid);
 }
 
 } //namespace dtdemux

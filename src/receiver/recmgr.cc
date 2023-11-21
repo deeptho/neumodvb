@@ -51,7 +51,7 @@ void recmgr_thread_t::remove_old_livebuffers() {
 		auto rec_c = find_first<recdb::rec_t>(rec_txn);
 		if (rec_c.is_valid()) {
 			auto rec = rec_c.current();
-			dterror("Found recording in livebuffer - finalizing: " << rec);
+			dterrorf("Found recording in livebuffer - finalizing: {}", rec);
 			auto destdir = fs::path(options.recordings_path.c_str()) / rec.filename.c_str();
 			mpm_copylist_t copy_command(path, destdir, rec);
 			{
@@ -68,7 +68,7 @@ void recmgr_thread_t::remove_old_livebuffers() {
 		if (ec) {
 			dterror("Error deleting " << path << ":" << ec.message());
 		} else if (ret)
-			dtdebugx("deleted live buffer %s", live_service.dirname.c_str());
+			dtdebugf("deleted live buffer {}", live_service.dirname.c_str());
 		delete_record_at_cursor(c);
 	}
 	c.destroy();
@@ -314,33 +314,23 @@ void recmgr_thread_t::startup(system_time_t now_) {
 	for (auto rec : cr.range()) {
 		assert(rec.epg.rec_status == rec_status_t::IN_PROGRESS);
 		if (rec.epg.end_time + rec.post_record_time < now) {
+#ifdef NEWXX
 			dtdebug("Finalising unfinished recording: at start up: " << rec);
-			rec.epg.rec_status = rec_status_t::FINISHED;
-#if 0
-			recdb::put_record_at_key(cr.maincursor, cr.current_serialized_primary_key(), rec);
-#else
-			recdb::update_record_at_cursor(cr.maincursor, rec);
 #endif
+			rec.epg.rec_status = rec_status_t::FINISHED;
+			recdb::update_record_at_cursor(cr.maincursor, rec);
 		} else if (rec.epg.k.start_time - rec.pre_record_time <= now) {
 			// recording in progress
 			rec.epg.rec_status = rec_status_t::SCHEDULED; // will cause recording to be continued
 			rec.subscription_id = -1;											// we are called after program has exited
-#if 0
-			recdb::put_record_at_key(cr.maincursor, cr.current_serialized_primary_key(), rec);
-#else
 			recdb::update_record_at_cursor(cr.maincursor, rec);
-#endif
 			// next_recording_event_time = std::min(next_recording_event_time, rec.epg.end_time + rec.post_record_time);
 		} else {
 			// recording in future
 			dterror("Found future recording already in progress");
 			rec.epg.rec_status = rec_status_t::SCHEDULED; // will cause recording to be continued
 			rec.subscription_id = -1;											// we are called after program has exited
-#if 0
-			recdb::put_record_at_key(cr.maincursor, cr.current_serialized_primary_key(), rec);
-#else
 			recdb::update_record_at_cursor(cr.maincursor, rec);
-#endif
 			// next_recording_event_time = std::min(next_recording_event_time, rec.epg.k.start_time - rec.pre_record_time);
 		}
 		/*we could potentially abort the loop here if rec.start_time  is far enough into
@@ -356,13 +346,9 @@ void recmgr_thread_t::startup(system_time_t now_) {
 	for (auto rec : cr.range()) {
 		assert(rec.epg.rec_status == rec_status_t::FINISHING);
 		if (rec.epg.end_time + rec.post_record_time < now) {
-			dtdebug("Finalising unfinised recording: at start up: " << rec);
+			dtdebugf("Finalising unfinised recording: at start up: {}", rec);
 			rec.epg.rec_status = rec_status_t::FINISHED;
-#if 0
-			recdb::put_record_at_key(cr.maincursor, cr.current_serialized_primary_key(), rec);
-#else
 			recdb::update_record_at_cursor(cr.maincursor, rec);
-#endif
 			auto epg_txn = receiver.epgdb.wtxn();
 			auto c = epgdb::epg_record_t::find_by_key(epg_txn, rec.epg.k);
 			if (c.is_valid()) {
@@ -508,7 +494,7 @@ void recmgr_thread_t::stop_recordings(db_txn& recdb_rtxn, system_time_t now_) {
 		assert(rec.epg.rec_status == epgdb::rec_status_t::IN_PROGRESS);
 		if (rec.epg.end_time + rec.post_record_time < now) {
 			next_recording_event_time = std::min(next_recording_event_time, rec.epg.end_time + rec.post_record_time);
-			dtdebug("END recording " << rec);
+			dtdebugf("END recording {}", rec);
 			stop_recording(rec);
 #if 0 //TO CHECK: not needed and counter productive?
 			rec.epg.rec_status = epgdb::rec_status_t::FINISHING;
@@ -533,10 +519,10 @@ void recmgr_thread_t::start_recordings(db_txn& rtxn, system_time_t now_) {
 	time_t last_start_time = 0;
 	for (auto rec : cr.range()) {
 		assert(rec.epg.rec_status == rec_status_t::SCHEDULED);
-		dterror("CANDIDATE REC: " << rec.epg);
+		dterrorf("CANDIDATE REC: {}", rec.epg);
 		if (rec.epg.k.start_time - rec.pre_record_time <= now) {
 			if (rec.epg.end_time + rec.post_record_time <= now) {
-				dtdebug("TOO LATE; skip recording: " << rec);
+				dtdebugf("TOO LATE; skip recording: {}", rec);
 				auto wtxn = receiver.recdb.wtxn();
 				rec.epg.rec_status = rec_status_t::FAILED;
 				put_record(wtxn, rec);
@@ -593,8 +579,7 @@ void recmgr_thread_t::start_recordings(db_txn& rtxn, system_time_t now_) {
 }
 
 int recmgr_thread_t::housekeeping(system_time_t now) {
-	ss::string<128> prefix;
-	prefix << "-RECMGR-HOUSEKEEPING";
+	auto prefix =fmt::format("-RECMGR-HOUSEKEEPING");
 	log4cxx::NDC ndc(prefix.c_str());
 	if (system_clock_t::to_time_t(now) > next_recording_event_time) {
 		using namespace recdb;
@@ -625,8 +610,7 @@ static inline bool not_ours_and_active(recdb::rec_t & rec) {
 }
 
 int recmgr_thread_t::toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record) {
-	auto x = to_str(epg_record);
-	dtdebugx("toggle_recording: %s", x.c_str());
+	dtdebugf("toggle_recording: {}", epg_record);
 	int ret = -1;
 	bool error{false};
 	auto txn = receiver.recdb.rtxn();
@@ -637,13 +621,13 @@ int recmgr_thread_t::toggle_recording(const chdb::service_t& service, const epgd
 		bool found{false};
 		if (auto rec = recdb::rec::best_matching(txn, epg_record, anonymous)) {
 			if(not_ours_and_active(*rec)) {
-				user_error("Cannot change recording of another active process: " << *rec);
+				user_errorf("Cannot change recording of another active process: {}", *rec);
 				error |= true;
 				return false;
 			}
 			switch (rec->epg.rec_status) {
 			case epgdb::rec_status_t::SCHEDULED: {
-				dtdebug("Toggle: Remove existing (not yet started) recording " << to_str(*rec));
+				dtdebugf("Toggle: Remove existing (not yet started) recording: {}", *rec);
 				// recording has not yet started,
 				ret = delete_schedrec(*rec);
 				break;
@@ -652,18 +636,18 @@ int recmgr_thread_t::toggle_recording(const chdb::service_t& service, const epgd
 			case epgdb::rec_status_t::FINISHING:
 				break;
 			case epgdb::rec_status_t::IN_PROGRESS: {
-				dtdebug("Toggle: Stop running recording " << to_str(*rec));
+				dtdebugf("Toggle: Stop running recording: {}", *rec);
 				stop_recording(*rec);
 				rec->epg.rec_status = epgdb::rec_status_t::FINISHED;
 				update_recording(*rec);
 				break;
 			}
 			case epgdb::rec_status_t::FINISHED: {
-				dtdebug("Recording finished in the past! " << to_str(*rec));
+				dtdebugf("Recording finished in the past! {}", *rec);
 				break;
 			}
 			case epgdb::rec_status_t::FAILED: {
-				dtdebug("Recording failed in the past! " << to_str(*rec));
+				dtdebugf("Recording failed in the past! {}", *rec);
 				break;
 			} break;
 			default:
@@ -761,7 +745,7 @@ void recmgr_thread_t::clean_dbs(system_time_t now, bool at_start) {
 void recmgr_thread_t::stop_recording(const recdb::rec_t& rec) // important that this is not a reference (async called)
 {
 	if(rec.owner != getpid()) {
-		dterror("Error stopping recording we don't own: " << rec);
+		dterrorf("Error stopping recording we don't own: {}", rec);
 		return;
 	}
 
@@ -807,15 +791,15 @@ int recmgr_thread_t::run() {
 	for (;;) {
 		auto n = epoll_wait(2000);
 		if (n < 0) {
-			dterrorx("error in poll: %s", strerror(errno));
+			dterrorf("error in poll: {}", strerror(errno));
 			continue;
 		}
 		now = system_clock_t::now();
-		// printf("n=%d\n", n);
+		// printf("n={:d}\n", n);
 		for (auto evt = next_event(); evt; evt = next_event()) {
 			if (is_event_fd(evt)) {
 				ss::string<128> prefix;
-				prefix << "RECMGR-CMD";
+				prefix.format("RECMGR-CMD");
 				log4cxx::NDC ndc(prefix.c_str());
 				// an external request was received
 				// run_tasks returns -1 if we must exit
@@ -833,7 +817,7 @@ int recmgr_thread_t::run() {
 				dttime(100);
 				auto delay = dttime(-1);
 				if (delay >= 500)
-					dterrorx("clean cycle took too long delay=%d", delay);
+					dterrorf("clean cycle took too long delay={:d}", delay);
 			} else {
 			}
 		}
@@ -869,7 +853,7 @@ recmgr_thread_t::~recmgr_thread_t() {
 }
 
 int recmgr_thread_t::exit() {
-	dtdebugx("recmgr exit");
+	dtdebugf("recmgr exit");
 	return 0;
 }
 
@@ -901,9 +885,9 @@ void recmgr_thread_t::livebuffer_db_update_(system_time_t now_) {
 		ss::string<128> dirname;
 		{
 			auto r = receiver.options.readAccess();
-			dirname.sprintf("%s/%s", r->live_path.c_str(), live_service.dirname.c_str());
+			dirname.format("{:s}{:s}", r->live_path, live_service.dirname);
 		}
-		dtdebugx("DELETING TIMESHIFT DIR %s\n", dirname.c_str());
+		dtdebugf("DELETING TIMESHIFT DIR {}\n", dirname.c_str());
 		rmpath(dirname.c_str());
 		delete_record(recdb_wtxn, live_service);
 	}

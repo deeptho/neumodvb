@@ -22,8 +22,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "devdb_private.h"
-#include "stackstring/ssaccu.h"
-#include "xformat/ioformat.h"
+#include "fmt/core.h"
 #include <iomanip>
 #include <iostream>
 
@@ -78,121 +77,83 @@ static inline const char* lnb_type_str(const lnb_key_t& lnb_key) {
 	return t;
 }
 
-std::ostream& devdb::operator<<(std::ostream& os, const lnb_key_t& lnb_key) {
+fmt::format_context::iterator
+fmt::formatter<lnb_key_t>::format(const lnb_key_t& lnb_key, format_context& ctx) const {
 	const char* t = lnb_type_str(lnb_key);
-	stdex::printf(os, "D%d %s [%d]", (int)lnb_key.dish_id,
-								t, (int)lnb_key.lnb_id);
-	return os;
+	return fmt::format_to(ctx.out(), "D{:d} {:s} [{:d}]", (int)lnb_key.dish_id,
+								 t, (int)lnb_key.lnb_id);
 }
 
-std::ostream& devdb::operator<<(std::ostream& os, const lnb_t& lnb) {
+fmt::format_context::iterator
+fmt::formatter<lnb_t>::format(const lnb_t& lnb, format_context& ctx) const {
 	using namespace chdb;
-	os << lnb.k;
 	auto sat = sat_pos_str(lnb.cur_sat_pos == sat_pos_none ? lnb.usals_pos : lnb.cur_sat_pos); // in this case usals pos equals one of the network sat_pos
-	os << " " << sat;
-	return os;
+	return fmt::format_to(ctx.out(), "{} {}", lnb.k, sat);
 }
 
-std::ostream& devdb::operator<<(std::ostream& os, const lnb_connection_t& con) {
+fmt::format_context::iterator
+fmt::formatter<lnb_connection_t>::format(const lnb_connection_t& con, format_context& ctx) const {
 	using namespace chdb;
-	//os << lnb.k;
-	stdex::printf(os, "C%d #%d ", (int)con.card_no, (int)con.rf_input);
+
+	auto it = fmt::format_to(ctx.out(), "C{:d} #{:d} ", (int)con.card_no, (int)con.rf_input);
 	switch (con.rotor_control) {
 	case rotor_control_t::ROTOR_MASTER_MANUAL: {
-		stdex::printf(os, " man");
+		it = fmt::format_to(ctx.out(), " man");
 	} break;
 	case rotor_control_t::ROTOR_MASTER_USALS:
 	case rotor_control_t::ROTOR_MASTER_DISEQC12:
-		stdex::printf(os, " rotor");
+		it = fmt::format_to(ctx.out(), " rotor");
 		break;
 	case rotor_control_t::ROTOR_NONE:
-		stdex::printf(os, " none");
+		it = fmt::format_to(ctx.out(), " none");
+		break;
 	}
-	return os;
+	return it;
 }
 
-std::ostream& devdb::operator<<(std::ostream& os, const lnb_network_t& lnb_network) {
+fmt::format_context::iterator
+fmt::formatter<lnb_network_t>::format(const lnb_network_t& lnb_network, format_context& ctx) const {
 	auto s = chdb::sat_pos_str(lnb_network.sat_pos);
-	// the int casts are needed (bug in std::printf?
-	stdex::printf(os, "[%p] pos=%s enabled=%d", &lnb_network, s.c_str(), lnb_network.enabled);
-	return os;
+	return fmt::format_to(ctx.out(), "[{:p}] pos={:s} enabled={:d}", fmt::ptr(&lnb_network),
+												s.c_str(), lnb_network.enabled);
 }
 
-std::ostream& devdb::operator<<(std::ostream& os, const fe_band_pol_t& band_pol) {
-	// the int casts are needed (bug in std::printf?
-	stdex::printf(os, "%s-%s",
-								band_pol.pol == chdb::fe_polarisation_t::H	 ? "H"
-								: band_pol.pol == chdb::fe_polarisation_t::V ? "V"
-								: band_pol.pol == chdb::fe_polarisation_t::L ? "L"
-								: "R",
-								band_pol.band == fe_band_t::HIGH ? "High" : "Low");
-	return os;
+fmt::format_context::iterator
+fmt::formatter<fe_band_pol_t>::format(const fe_band_pol_t& band_pol, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{:s}-{:s}",
+												band_pol.pol == chdb::fe_polarisation_t::H	 ? "H"
+												: band_pol.pol == chdb::fe_polarisation_t::V ? "V"
+												: band_pol.pol == chdb::fe_polarisation_t::L ? "L"
+												: "R",
+												band_pol.band == fe_band_t::HIGH ? "High" : "Low");
 }
 
-std::ostream& devdb::operator<<(std::ostream& os, const fe_key_t& fe_key) {
-	stdex::printf(os, "A[0x%06x]", (int)fe_key.adapter_mac_address);
-	return os;
+fmt::format_context::iterator
+fmt::formatter<fe_key_t>::format(const fe_key_t& fe_key, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "A[0x{:06x}]", (int)fe_key.adapter_mac_address);
 }
 
 
-std::ostream& devdb::operator<<(std::ostream& os, const fe_t& fe) {
+fmt::format_context::iterator
+fmt::formatter<fe_t>::format(const fe_t& fe, format_context& ctx) const {
 	using namespace chdb;
-	stdex::printf(os, "C%dA%d F%d", fe.card_no, (int)fe.adapter_no, (int)fe.k.frontend_no);
-	stdex::printf(os, " %s;%s", fe.adapter_name, fe.card_address);
-	stdex::printf(os, " enabled=%s%s%s available=%d",
-								fe.enable_dvbs ? "S" :"", fe.enable_dvbt ? "T": "", fe.enable_dvbc ? "C" : "", fe.can_be_used);
-	return os;
+	return  fmt::format_to(ctx.out(),
+												 "C{:d}A{:d} F{:d}"
+												 " {:s};{:s}"
+												 " enabled={:s}{:s}{:s} available={:d}",
+												 fe.card_no, (int)fe.adapter_no, (int)fe.k.frontend_no,
+												 fe.adapter_name, fe.card_address,
+												 fe.enable_dvbs ? "S" :"", fe.enable_dvbt ? "T": "",
+												 fe.enable_dvbc ? "C" : "", fe.can_be_used);
 }
 
 
-std::ostream& devdb::operator<<(std::ostream& os, const fe_subscription_t& sub) {
-	stdex::printf(os, "%d.%d%s-%d %d use_count=%d ", sub.frequency/1000, sub.frequency%1000,
-								pol_str(sub.pol), sub.mux_key.stream_id, sub.mux_key.mux_id, sub.subs.size());
-	return os;
-
+fmt::format_context::iterator
+fmt::formatter<fe_subscription_t>::format(const fe_subscription_t& sub, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{:d}.{:d}{:s}-{:d} {:d} use_count={:d} ", sub.frequency/1000, sub.frequency%1000,
+												pol_str(sub.pol), sub.mux_key.stream_id, sub.mux_key.mux_id, sub.subs.size());
 }
 
-
-
-void devdb::to_str(ss::string_& ret, const fe_subscription_t& sub) {
-	ret.clear();
-	ret << sub;
-}
-
-void devdb::to_str(ss::string_& ret, const lnb_key_t& lnb_key) {
-	ret.clear();
-	ret << lnb_key;
-}
-
-void devdb::to_str(ss::string_& ret, const lnb_t& lnb) {
-	ret.clear();
-	ret << lnb;
-}
-
-void devdb::to_str(ss::string_& ret, const lnb_network_t& lnb_network) {
-	ret.clear();
-	ret << lnb_network;
-}
-
-void devdb::to_str(ss::string_& ret, const lnb_connection_t& lnb_connection) {
-	ret.clear();
-	ret << lnb_connection;
-}
-
-void devdb::to_str(ss::string_& ret, const fe_band_pol_t& band_pol) {
-	ret.clear();
-	ret << band_pol;
-}
-
-void devdb::to_str(ss::string_& ret, const fe_key_t& fe_key) {
-	ret.clear();
-	ret << fe_key;
-}
-
-void devdb::to_str(ss::string_& ret, const fe_t& fe) {
-	ret.clear();
-	ret << fe;
-}
 /*
 	returns
 	  network_exists
@@ -335,14 +296,14 @@ bool devdb::lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t&
 	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
 	if ((int)mux.frequency < freq_low || (int)mux.frequency >= freq_high) {
 		if(error) {
-		error->sprintf("Frequency %.3fMhz out for range; must be between %.3fMhz and %.3fMhz",
+		error->format("Frequency {:.3f}Mhz out for range; must be between {:.3f}Mhz and {:.3f}Mhz",
 							 mux.frequency/(float)1000, freq_low/float(1000), freq_high/(float)1000);
 		}
 		return false;
 	}
 	if (!devdb::lnb::can_pol(lnb, mux.pol)) {
 		if(error) {
-			*error << "Polarisation " << mux.pol << " not supported";
+			error->format("Polarisation {} not supported", mux.pol);
 		}
 		return false;
 	}
@@ -353,7 +314,7 @@ bool devdb::lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t&
 			return true;
 	}
 	if(error) {
-		*error << "No network for  " << chdb::sat_pos_str(mux.k.sat_pos);
+		error->format("No network for {}", chdb::sat_pos_str(mux.k.sat_pos));
 	}
 	return false;
 }
@@ -731,7 +692,7 @@ int dish::update_usals_pos(db_txn& wtxn, const devdb::lnb_t& lnb_, int usals_pos
 		put_record(wtxn, lnb);
 	}
 	if (num_rotors == 0) {
-		dterrorx("None of the LNBs for dish %d seems to be on a rotor", lnb_.k.dish_id);
+		dterrorf("None of the LNBs for dish {:d} seems to be on a rotor", lnb_.k.dish_id);
 		return -1;
 	}
 	return 0;
@@ -760,7 +721,7 @@ bool devdb::dish::dish_needs_to_be_moved(db_txn& devdb_rtxn, int dish_id, int16_
 		}
 	}
 	if (num_rotors == 0) {
-		dterrorx("None of the LNBs for dish %d seems to be on a rotor", dish_id);
+		dterrorf("None of the LNBs for dish {:d} seems to be on a rotor", dish_id);
 	}
 	return false;
 }
@@ -1081,9 +1042,9 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 				conn.connection_name.clear();
 				conn.card_no = fe.card_no;
 				if (conn.card_no >=0)
-					conn.connection_name.sprintf("C%d#%d %s", conn.card_no, conn.rf_input, fe.card_short_name.c_str());
+					conn.connection_name.format("C{:d}#{:d} {:s}", conn.card_no, conn.rf_input, fe.card_short_name.c_str());
 				else
-					conn.connection_name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
+					conn.connection_name.format("C??#{:d} {:s}", conn.rf_input, fe.card_short_name.c_str());
 				conn.can_be_used = fe.can_be_used;
 				can_be_used = true;
 			} else
@@ -1199,9 +1160,9 @@ static void invalidate_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb)
 	bool any_change{lnb.can_be_used == true};
 	for (auto& conn: lnb.connections) {
 		if(conn.card_no >=0) {
-			name.sprintf("C%d#?? %06x", conn.card_no, conn.card_mac_address);
+			name.format("C{:d}#?? {:06x}", conn.card_no, conn.card_mac_address);
 		} else {
-			name.sprintf("C??#?? %06x", conn.card_mac_address);
+			name.format("C??#?? {:06x}", conn.card_mac_address);
 		}
 		auto can_be_used =  false;
 		bool changed = (conn.connection_name != name) || (conn.can_be_used != can_be_used);
@@ -1234,9 +1195,9 @@ static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, con
 		auto valid_rf_input = fe.rf_inputs.contains(conn.rf_input);
 		auto card_no = valid_rf_input ? fe.card_no : -1;
 		if (card_no >=0) {
-			name.sprintf("C%d#%d %s", card_no, conn.rf_input, fe.card_short_name.c_str());
+			name.format("C{:d}#{:d} {:s}", card_no, conn.rf_input, fe.card_short_name);
 		} else {
-			name.sprintf("C??#%d %s", conn.rf_input, fe.card_short_name.c_str());
+			name.format("C??#{:d} {:s}", conn.rf_input, fe.card_short_name);
 		}
 		assert (conn.card_mac_address == fe.card_mac_address);
 		bool changed = (conn.connection_name != name) ||(conn.card_no != card_no) ||

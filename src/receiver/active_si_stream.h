@@ -144,7 +144,7 @@ struct onid_data_t {
 		p.sdt_completed = true;
 		sdt_num_muxes_completed += !ret;
 		if(ret) {
-			dtdebugx("sdt: ts_id=%d completed multiple times", ts_id);
+			dtdebugf("sdt: ts_id={:d} completed multiple times", ts_id);
 		}
 		return ret;
 	}
@@ -567,6 +567,10 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	struct parser_slot_t {
 		std::shared_ptr<dtdemux::psi_parser_t> p;
 		int use_count{0};
+
+		~parser_slot_t() {
+			dtdebugf("~parser_slot_t: {:p} use_count={:d} p.use_count={:d}\n", fmt::ptr(this), use_count, p.use_count());
+		}
 	};
 	std::map<dvb_pid_t, parser_slot_t>  parsers;
 
@@ -635,7 +639,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 				add_pid(pid);
 		}
 		slot.use_count++;
-		dtdebugx("add_parser for pid=%d slot.use_count=%d", pid, slot.use_count);
+		dtdebugf("add_parser for pid={:d} slot.use_count={:d}", pid, slot.use_count);
 		return static_cast<parser_t*>(slot.p.get());
 	}
 
@@ -644,7 +648,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		while(it != parsers.end()) {
 			auto& [pid, slot] = *it;
 			if(slot.use_count ==0) {
-				dtdebugx("remove_parser for pid=%d slot.use_count=%d", pid, slot.use_count);
+				dtdebugf("remove_parser for pid={:d} slot.use_count={:d}", (int)pid, slot.use_count);
 				stream_parser.unregister_parser((int)pid);
 				remove_pid((int)pid);
 				it = parsers.erase(it);
@@ -659,7 +663,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	inline void release_parser(dtdemux::psi_parser_t* parser) {
 		auto pid = parser->get_pid();
 		auto & slot = parsers[(dvb_pid_t)pid];
-		dtdebugx("release_parser for pid=%d slot.use_count=%d", pid, slot.use_count);
+		dtdebugf("release_parser for pid={:d} slot.use_count={:d}", pid, slot.use_count);
 		assert(slot.use_count>0);
 		if(slot.use_count>=1)  {
 			slot.use_count--;

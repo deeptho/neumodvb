@@ -119,35 +119,33 @@ PYBIND11_MODULE(pychdb, m) {
 		"sat_pos_str", [](int sat_pos) { return std::string(sat_pos_str(sat_pos).c_str()); },
 		"make human readable representation", py::arg("sat_pos"))
 		.def(
-			"key_src_str", [](key_src_t key_src) { return std::string(to_str(key_src).c_str()); },
+			"key_src_str", [](key_src_t key_src) { return std::string(fmt::format("{}",key_src)); },
 			"make human readable representation", py::arg("key_src"))
 		.def(
-			"tune_src_str", [](tune_src_t tune_src) { return std::string(to_str(tune_src).c_str()); },
+			"tune_src_str", [](tune_src_t tune_src) { return std::string(fmt::format("{}",tune_src)); },
 			"make human readable representation", py::arg("tune_src"))
 		.def("matype_str", [](int matype) { return std::string(matype_str(matype).c_str()); },
 				 "make human readable representation", py::arg("matype"))
 		.def(
-			"to_str", [](const sat_t& sat) { return to_str(sat).c_str(); }, "make human readable representation",
+			"to_str", [](const sat_t& sat) { return std::string(fmt::format("{}", sat)); },
+			"make human readable representation",
 			py::arg("sat"))
 		.def(
 			"to_str",
 			[](const dvbs_mux_t& mux) {
-				auto* x = to_str(mux).c_str();
-				return std::string(x);
+				return std::string(fmt::format("{}", mux));
 			},
 			"make human readable representation", py::arg("mux"))
 		.def(
 			"to_str",
 			[](const dvbc_mux_t& mux) {
-				auto* x = to_str(mux).c_str();
-				return std::string(x);
+				return std::string(fmt::format("{}", mux));
 			},
 			"make human readable representation", py::arg("mux"))
 		.def(
 			"to_str",
 			[](const dvbt_mux_t& mux) {
-				auto* x = to_str(mux).c_str();
-				return std::string(x);
+				return std::string(fmt::format("{}", mux));
 			},
 			"make human readable representation", py::arg("mux"))
 		.def("delsys_to_type", &chdb::delsys_to_type)

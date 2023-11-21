@@ -854,9 +854,6 @@ namespace ss {
 		}
 
 		inline string_& operator=(const char* other);
-
-		template <typename T> inline accu_t operator<<(const T& x);
-
 		template <typename T> string_& snprintf(const char* fmt, T&& x) {
 			int r = ::snprintf(buffer() + size(), capacity() - size(), fmt, x);
 			auto size_ = size();
@@ -874,15 +871,6 @@ namespace ss {
 			buffer()[size_] = 0;
 			return *this;
 		}
-
-		string_& sprintf(const dateTime& x);
-		string_& sprintf(const char* fmt, ss::string_& x);
-		string_& sprintf(ss::string_& x) {
-			return sprintf("%s", x);
-		}
-
-		int snprintf(int s, const char* fmt, ...);
-		int sprintf(const char* fmt, ...);
 
 		template<typename... Args>  inline auto
 		format(fmt::format_string<Args...> f, Args&&... args )  {
@@ -1103,20 +1091,5 @@ inline auto format_as(ss::string<128> s) {
 }
 
 }; // namespace ss
-
-namespace std { // needed ot log4cxx creates errors
-	std::ostream& operator<<(std::ostream& os, const ss::string_& a);
-	std::ostream& operator<<(std::ostream& os, const ss::bytebuffer_& a);
-#if 0
-	inline std::ostream& operator<<(std::ostream& os, const ss::string_& a) {
-		return os << a.c_str();
-	}
-#endif
-
-	template <int buffer_size> inline std::ostream& operator<<(std::ostream& os, const ss::string<buffer_size>& a) {
-		return os << a.c_str();
-	}
-
-}; // namespace std
 
 #include "stackstring_impl.h"

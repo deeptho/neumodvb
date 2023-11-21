@@ -59,13 +59,6 @@ struct spectrum_scan_t;
 struct scan_report_t;
 struct sdt_data_t;
 
-inline void todo(const char*s)
-{
-	dterrorx("TODO: %s", s);
-	assert(0);
-}
-
-
 struct scan_stats_t;
 class active_adapter_t;
 class tuner_thread_t;
@@ -322,7 +315,7 @@ public:
 
 	inline std::shared_ptr<active_adapter_t> find_active_adapter(subscription_id_t subscription_id) {
 		if (must_exit()) {
-			dterrorx("Cannot retrieve active adapter because shutting down: %d", (int) subscription_id);
+			dterrorf("Cannot retrieve active adapter because shutting down: {:d}", (int) subscription_id);
 			return nullptr;
 		}
 		auto [it, found] = find_in_safe_map(this->active_adapters, subscription_id);

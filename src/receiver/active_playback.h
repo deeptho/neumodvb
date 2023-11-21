@@ -52,14 +52,13 @@ public:
 		dtdebug("destructor\n");
 	}
 
-
 	virtual  ss::string<32> name() const {
-		return to_str(currently_playing_recording);
+		ss::string<32>  ret;
+		ret.format("{}", currently_playing_recording);
+		return ret;
 	}
 
-
-	/*@:
-		also during playback we need to monitor pmt for disappearing/appearing audio anguages.
+	/*also during playback we need to monitor pmt for disappearing/appearing audio anguages.
 		In this case, we have to tell the mpv thread to change to another track according to the user
 		preferences.
 		This also needs to be implemented in timeshift mode

@@ -32,9 +32,7 @@
 
 #ifdef USE_BOOST_LOCALE
 #include <boost/locale.hpp>
-// using namespace boost::locale;
 #endif
-#include "xformat/ioformat.h"
 #include <iomanip>
 
 namespace ss {
@@ -74,7 +72,7 @@ namespace ss {
 				enc_ = enc;
 				if (conv_ == (iconv_t)-1) {
 
-					dterrorx("iconv_open failed: %s\n", strerror(errno));
+					dterrorf("iconv_open failed: {:s}\n", strerror(errno));
 				}
 			}
 			if (conv_ == (iconv_t)-1)
@@ -123,125 +121,6 @@ namespace ss {
 		if (s - str > 0)
 			memmove(str, s, t - s + 1);
 		return t - s;
-	}
-
-	string_& string_::sprintf(const char* fmt, ss::string_& x) {
-		int r = ::snprintf(buffer() + size(), capacity() - size(), fmt, x.c_str());
-		auto size_ = size();
-		if (r + 1 >= (signed)(capacity() - size())) {
-			reserve(r + 1  + size_);
-			size_ += ::snprintf(buffer() + size_, capacity() - size_, fmt, x.c_str());
-		} else
-			size_ += r;
-		set_size(size_ + 1);
-		assert(parent::size() == size_ + 1);
-		assert(size() == size_);
-		assert(1 + size() <= capacity());
-		buffer()[size_] = 0;
-		return *this;
-	}
-
-	string_& string_::sprintf(const dateTime& x) {
-		struct tm t_tm;
-		const char* tformat = NULL;
-		// int n=0;
-		time_t t(x);
-
-		localtime_r(&t, &t_tm);
-
-		tformat = x.format;
-
-		auto size_ = size(); // excluding terminating zero byte
-		if (16 >= (signed)(capacity() - size_)) {
-			reserve(16 + 1 + size_);
-		}
-
-		int r = ::strftime(buffer() + size_, capacity() - size_, tformat, &t_tm);
-		if (r > 0) {
-			size_ += r;
-		} else {
-			// string is too short
-			reserve(32 + 1 + size_);
-			r = ::strftime(buffer() + size_, capacity() - size_, tformat, &t_tm);
-			if (r > 0) {
-				size_ += r;
-			} else {
-				dterror("strftime failed. Buffer too small?");
-			}
-		}
-		set_size(size_ + 1);
-		assert(parent::size() == size_ + 1);
-		assert(size() == size_);
-		assert(1 + size() <= capacity());
-		buffer()[size_] = 0;
-		return *this;
-	}
-
-
-	int string_::strftime(const char* fmt, const struct tm* tm) {
-		auto size_ = size();
-		size_t s = capacity() - size_;
-		if (16 >= (signed)s) {
-			reserve(32 + 1 + size_);
-			s = capacity() - size_;
-		}
-
-		size_t ret = ::strftime(buffer() + size_, s, fmt, tm);
-		if (ret == 0) {
-			dterror("strftime failed. Buffer too small?");
-		}
-		size_ += ret;
-		set_size(size_ + 1);
-		assert(parent::size() == size_ + 1);
-		assert(size() == size_);
-		assert(size_ + 1 < capacity());
-		buffer()[size_] = 0;
-		return ret;
-	}
-
-	int string_::snprintf(int s, const char* fmt, ...) {
-		va_list ap;
-		va_start(ap, fmt);
-		if (s + size() > capacity()) {
-			reserve(s + size());
-		}
-		s = capacity() - size();
-		int ret = vsnprintf(buffer() + size(), s, fmt, ap);
-		va_end(ap);
-		s = size() + ret;
-		set_size(s + 1);
-		assert(parent::size() == s + 1);
-		assert(size() == s);
-		assert(size() + 1 <= capacity());
-		buffer()[s] = 0;
-		return ret;
-	}
-
-	int string_::sprintf(const char* fmt, ...) {
-		int oldn = size();
-		auto size_ = oldn;
-		for (int i = 0; i < 2; i++) {
-			va_list ap;
-			va_start(ap, fmt);
-			int sx = capacity() - size_;
-			int ret = vsnprintf(buffer() + size_, sx, fmt, ap);
-			va_end(ap);
-			if (ret + 1 <= sx) {
-				size_ += ret;
-				set_size(size_ + 1);
-				assert(parent::size() == size_ + 1);
-				assert(size() == size_);
-				assert(size_ + 1 <= capacity());
-				return ret;
-			}
-			reserve(ret + 1 + size_);
-		}
-		set_size(size_);
-		assert(size() == size_);
-		assert(size_ + 1 <= capacity());
-		assert(size() + 1 <= capacity());
-		buffer()[size_] = 0;
-		return size_ - oldn;
 	}
 
 	void string_::trim(int start) {
@@ -443,19 +322,6 @@ namespace ss {
 	template class databuffer_<char>;
 
 }; // namespace ss
-
-namespace std {
-	std::ostream& operator<<(std::ostream& os, const ss::string_& a) { return os << a.c_str(); }
-	std::ostream& operator<<(std::ostream& os, const ss::bytebuffer_& a) {
-		stdex::printf(os, "buffer[%d]={", a.size());
-		for(auto &c : a) {
-			os << std::setw(2) << std::setfill('0') << std::hex << +c;
-		}
-		stdex::printf(os, "}");
-		return os;
-	}
-
-}; // namespace std
 
 #if 0
 void print_hex(ss::bytebuffer_& buffer) {

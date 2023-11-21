@@ -77,7 +77,7 @@ devdb::lnb_key_t active_stream_t::get_adapter_lnb_key() const {
 ss::string<32> active_stream_t::name() const
 {
 	ss::string<32> ret;
-	ret.sprintf("stream[%d]-%p: ", get_adapter_no(), this);
+	ret.format("stream[{:d}]-{:p}: ", get_adapter_no(), fmt::ptr(this));
 	return ret;
 }
 
@@ -151,12 +151,12 @@ void dvb_stream_reader_t::close() {
 
 		return;
 	}
-	dtdebugx("closing demux_fd=%d", demux_fd);
+	dtdebugf("closing demux_fd={:d}", demux_fd);
 	epoll->remove_fd(demux_fd);
 	if(::close(demux_fd)<0) {
 		dterror("Cannot close demux: " << strerror(errno));
 	} else {
-		dtdebugx("Closed demux_fd");
+		dtdebugf("Closed demux_fd");
 	}
 	demux_fd = -1;
 }
@@ -175,7 +175,7 @@ void active_stream_t::close() {
 	 Pid will be received as a transport stream on a single file descriptor shared with other pids
 
 	 @param pid the pid for the filter
-	 Output is sent to /dev/dvb/adapter%d/demux%d
+	 Output is sent to /dev/dvb/adapter{:d}/demux{:d}
 	 Returns 0 or -1
 */
 int active_stream_t::add_pid(uint16_t pid)

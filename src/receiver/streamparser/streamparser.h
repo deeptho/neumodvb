@@ -389,8 +389,6 @@ namespace dtdemux {
 #endif
 	};
 
-	std::ostream& operator<<(std::ostream& os, const data_range_t& r);
-
 } //namespace dtdemux
 
 //implementation details

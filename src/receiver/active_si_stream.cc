@@ -30,10 +30,6 @@
 #define UNUSED __attribute__((unused))
 #endif
 
-void here() {
-	printf("here\n");
-
-}
 /*
 	returns 0, sat_pos_dvbt or sat_pos_dvbc
 */
@@ -67,7 +63,7 @@ bool pat_data_t::stable_pat(uint16_t ts_id) {
 	if (changed) {
 		last_pat_change_time = steady_clock_t::now();
 		if(e.last_entries.size() !=0)
-			dtdebugx("pat changed %d -> %d\n", e.last_entries.size(), e.entries.size());
+			dtdebugf("pat changed {:d} -> {:d}\n", e.last_entries.size(), e.entries.size());
 		e.last_entries = e.entries;
 	}
 	stable_pat_ = !changed && ((steady_clock_t::now() - last_pat_change_time) >= pat_change_timeout);
@@ -94,7 +90,7 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 																		 subscription_id_t subscription_id, uint32_t scan_id) {
 	if(scan_id == 0)
 		return;
-	dtdebug("activate_scan mux=" << mux);
+	dtdebugf("activate_scan mux={}", mux);
 	using namespace chdb;
 	scan_state.scans_in_progress.push_back({scan_id, subscription_id});
 	namespace m = chdb::update_mux_preserve_t;
@@ -108,7 +104,7 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 
 		if(muxc->scan_status == scan_status_t::PENDING ||
 			 muxc->scan_status == scan_status_t::RETRY)  {
-			dtdebug("SET ACTIVE " << mux << " must_save=" << must_save);
+			dtdebugf("SET ACTIVE {} must_save={}", mux, must_save);
 			if(si_processing_done) {
 				muxc->scan_status = scan_status_t::IDLE;
 				muxc->scan_id=0;
@@ -170,10 +166,9 @@ void active_si_stream_t::finalize_scan()
 	ss::string<32> s;
 	auto mux = reader->stream_mux();
 	bool nosave{is_template(mux)};
-	to_str(s, mux);
 	auto tune_state = active_adapter().tune_state;
 	auto& lock_state = active_adapter().lock_state;
-	dtdebug("setting si_processing_done=true mux=" << mux);
+	dtdebugf("setting si_processing_done=true mux={}", mux);
 	auto* c = chdb::mux_common_ptr(mux);
 	c->scan_lock_result = lock_state.tune_lock_result;
 
@@ -274,8 +269,8 @@ void active_si_stream_t::check_scan_mux_end()
 	auto mux = reader->stream_mux();
 	auto& receiver_thread = active_adapter().receiver.receiver_thread;
 
-	dtdebug("calling on_scan_mux_end dbfe=" << dbfe << " mux=" <<mux << " scan_result="<<
-					mux_common_ptr(mux)->scan_result);
+	dtdebugf("calling on_scan_mux_end dbfe={} mux={} scan_result={}",
+					dbfe, mux, mux_common_ptr(mux)->scan_result);
 
 	assert(mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
   //note: scans_in_progress is copied (no call by reference)
@@ -307,7 +302,7 @@ void active_si_stream_t::reset_si(bool close_streams) {
 	if(!si_processing_done) {
 		dtdebug("calling finalize_scan\n");
 		finalize_scan();
-		dtdebugx("calling scan si_processing_done=%d\n", si_processing_done);
+		dtdebugf("calling scan si_processing_done={:d}\n", si_processing_done);
 		check_scan_mux_end();
 
 	}
@@ -316,7 +311,7 @@ void active_si_stream_t::reset_si(bool close_streams) {
 	if (close_streams) {
 		if(is_open()) {
 			log4cxx::NDC(name());
-			dtdebug("deactivate si stream reader_mux=" << reader->stream_mux());
+			dtdebugf("deactivate si stream reader_mux={}", reader->stream_mux());
 			// active_stream_t::close();
 			stream_parser.exit(); // remove all fibers
 			parsers.clear();			// remove all parser data (parsers will be reregistered)
@@ -336,7 +331,7 @@ void active_si_stream_t::close() {
 	::active_si_data_t::reset(); //reset variables to initial state
 	if(is_open()) {
 		log4cxx::NDC(name());
-		dtdebug("Closing si stream reader_mux=" << reader->stream_mux());
+		dtdebugf("Closing si stream reader_mux={}", reader->stream_mux());
 		stream_parser.exit(); // remove all fibers
 		parsers.clear();			// remove all parser data (parsers will be reregistered)
 	}
@@ -464,13 +459,13 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 		if(!(c.tune_src == tune_src_t::NIT_TUNED ||
 					 c.tune_src == tune_src_t::NIT_ACTUAL || c.tune_src == tune_src_t::NIT_OTHER ||
 				 c.tune_src == tune_src_t::NIT_CORRECTED)) {
-			dterrorx("Incorrect tune_src=%d", (int) c.tune_src);
+			dterrorf("Incorrect tune_src={:d}", (int) c.tune_src);
 			c.tune_src = tune_src_t::DRIVER;
 		}
 		if(!((c.key_src == chdb::key_src_t::NONE) ||
 					 (c.key_src == chdb::key_src_t::SDT_TUNED) ||
 				 (!from_sdt  && c.key_src == key_src_t::NIT_TUNED))) {
-			dterrorx("Incorrect key_src=%d\n", (int) c.key_src);
+			dterrorf("Incorrect key_src={:d}\n", (int) c.key_src);
 			c.key_src = chdb::key_src_t::NONE;
 		}
 	}
@@ -486,11 +481,11 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	auto* p_mux_data = & it->second;
 	if(from_sdt && ! p_mux_data->have_sdt) {
 		p_mux_data->have_sdt = true;
-		dtdebug("Updated from sdt: " << mux);
+		dtdebugf("Updated from sdt: {}", mux);
 	}
 	if(!from_sdt && ! p_mux_data->have_nit) {
 		p_mux_data->have_nit = true;
-		dtdebug("Updated from nit: " << mux);
+		dtdebugf("Updated from nit: {}", mux);
 	}
 	p_mux_data->is_active_mux = is_active_mux;
 	p_mux_data->is_tuned_freq = is_tuned_freq;
@@ -548,8 +543,9 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
 	bool no_data = (network_id == 0 && ts_id == 0);
-	dtdebugx("There is no nit_actual on this tp - faking one with sat_pos=%d network_id=%d, ts_id=%d tuned_mux=%s",
-					 expected_sat_pos, network_id, ts_id, chdb::to_str(reader->stream_mux()).c_str());
+	dtdebugf("There is no nit_actual on this tp - faking one with sat_pos={:d} network_id={:d}, ts_id={:d} "
+					 "tuned_mux={}",
+					 expected_sat_pos, network_id, ts_id, reader->stream_mux());
 	auto mux = reader->stream_mux();
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
@@ -593,11 +589,11 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 
 		if(from_sdt && ! p_mux_data->have_sdt) {
 			p_mux_data->have_sdt = true;
-			dtdebug("Updated from sdt: " << mux);
+			dtdebugf("Updated from sdt: {}", mux);
 		}
 		if(!from_sdt && ! p_mux_data->have_nit) {
 			p_mux_data->have_nit = true;
-			dtdebug("Updated from nit: " << mux);
+			dtdebugf("Updated from nit: {}", mux);
 		}
 		return p_mux_data;
 	}
@@ -668,7 +664,7 @@ void active_si_stream_t::process_si_data() {
 	auto start = steady_clock_t::now();
 	for (int i = 0; i < 5; ++i) {
 		if (steady_clock_t::now() - start > 500ms) {
-			dtdebugx("SKIPPING EARLY i=%d\n", i);
+			dtdebugf("SKIPPING EARLY i={:d}\n", i);
 			break;
 		}
 
@@ -692,7 +688,7 @@ void active_si_stream_t::process_si_data() {
 			if (errno == EAGAIN) {
 				break; // no more data
 			} else {
-				dterrorx("error while reading ret=%d errno=%d: %s", (int)ret, errno, strerror(errno));
+				dterrorf("error while reading ret={:d} errno={:d}: {}", (int)ret, errno, strerror(errno));
 				break;
 			}
 		}
@@ -760,25 +756,26 @@ void active_si_stream_t::check_timeouts() {
 
 	ss::string<64> embedded;
 	if (is_embedded_si)
-		embedded.sprintf("embedded[%d] ", reader->embedded_pid);
-	out.sprintf("%sscan=%s pat=%s nit_actual=%s nit_other=%s sdt_actual=%s sdt_other=%s bat=%s", embedded.c_str(),
+		embedded.format("embedded[{:d}] ", reader->embedded_pid);
+	out.format("{:s}scan={:s} pat={:s} nit_actual={:s} nit_other={:s} sdt_actual={:s} sdt_other={:s} bat={:s}",
+						 embedded,
 							scan_state.scan_done() ? "DONE" : "not done", scan_state.str(scan_state_t::PAT),
 							scan_state.str(scan_state_t::NIT_ACTUAL), scan_state.str(scan_state_t::NIT_OTHER),
 							scan_state.str(scan_state_t::SDT_ACTUAL), scan_state.str(scan_state_t::SDT_OTHER),
 							scan_state.str(scan_state_t::BAT));
 
 	for (auto& [network_id, n] : nit_data.by_onid) {
-		out.sprintf(" network[%d]=%d(sdt)/%d(nit)%s", network_id, n.sdt_num_muxes_present, n.nit_num_muxes_present,
+		out.format(" network[{:d}]={:d}(sdt)/{:d}(nit){:s}", network_id, n.sdt_num_muxes_present, n.nit_num_muxes_present,
 								network_done(network_id) ? " (done)" : "");
 	}
 	for (auto& [pid, c] : eit_data.subtable_counts) {
-		out.sprintf(" epg[0x%x]=%d/%d", pid, c.num_completed, c.num_known);
+		out.format(" epg[0x{:x}]={:d}/{:d}", pid, c.num_completed, c.num_known);
 	}
 
-	out.sprintf(" tuned_mux=%s", chdb::to_str(reader->stream_mux()).c_str());
+	out.format(" tuned_mux={}", reader->stream_mux());
 	if (delayed_print || last != out) {
 		if (timedout) {
-			dtdebug(out);
+			dtdebugf("{}", out);
 			delayed_print = false;
 			last_time = now;
 		} else
@@ -802,7 +799,7 @@ bool active_si_stream_t::fix_tune_mux_template() {
 	auto [locked, stream_id_changed] = update_reader_mux_parameters_from_frontend(stream_mux);
 
 	if (is_template) {
-		dtdebug("Fixing stream_mux template status: " << stream_mux);
+		dtdebugf("Fixing stream_mux template status: {}", stream_mux);
 		c.scan_time = time_t(0);
 		c.num_services = 0;
 		c.nit_network_id = 0;
@@ -812,7 +809,7 @@ bool active_si_stream_t::fix_tune_mux_template() {
 		c.epg_types = {};
 		assert(c.tune_src != chdb::tune_src_t::TEMPLATE || !locked);
 		if(!locked) {
-			dterrorx("lock lost\n");
+			dterrorf("lock lost\n");
 			return false;
 		}
 		//at this stage we must be locked (si processing only starts after lock)
@@ -858,7 +855,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 	assert( mux_common->tune_src != chdb::tune_src_t::TEMPLATE);
 	scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
 	assert(!scan_in_progress || mux_common->scan_id>0);
-	dtdebug("si_processing_done= " << (int) si_processing_done << " " << stream_mux);
+	dtdebugf("si_processing_done={} {}", (int) si_processing_done, stream_mux);
 	bool is_freesat_main = chdb::has_epg_type(stream_mux, chdb::epg_type_t::FSTHOME);
 	bool is_skyuk = chdb::has_epg_type(stream_mux, chdb::epg_type_t::SKYUK);
 	bool has_movistar = chdb::has_epg_type(stream_mux, chdb::epg_type_t::MOVISTAR);
@@ -907,7 +904,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 	if (do_standard) {
 
 		ndc_prefix.clear();
-		ndc_prefix.sprintf("%s PAT", ls.c_str());
+		ndc_prefix.format("{} PAT", ls);
 		add_parser<dtdemux::pat_parser_t>(dtdemux::ts_stream_t::PAT_PID, ndc_prefix)->section_cb =
 			[this](const pat_services_t& pat_services, const subtable_info_t& i) {
 				return this->pat_section_cb(pat_services, i);
@@ -916,7 +913,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
     // note: PAT_PID already added
 
 		ndc_prefix.clear();
-		ndc_prefix.sprintf("%s NIT", ls.c_str());
+		ndc_prefix.format("{:s} NIT", ls);
 		add_parser<dtdemux::nit_parser_t>(dtdemux::ts_stream_t::NIT_PID, ndc_prefix)->section_cb =
 			[this](nit_network_t& network, const subtable_info_t& i) { return this->nit_section_cb(network, i); };
 
@@ -925,7 +922,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 			scan_state.start(scan_state_t::completion_index_t::NIT_OTHER, false);
 
 		ndc_prefix.clear();
-		ndc_prefix.sprintf("%s SDT", ls.c_str());
+		ndc_prefix.format("{:s} SDT", ls);
 		auto sdt_bat = add_parser<dtdemux::sdt_bat_parser_t>(dtdemux::ts_stream_t::SDT_PID, ndc_prefix);
 		sdt_bat->bat_section_cb = [this](const bouquet_t& ret, const subtable_info_t& i) {
 			return this->bat_section_cb(ret, i);
@@ -951,7 +948,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 		sdt_bat->bat_section_cb = [this](const bouquet_t& ret, const subtable_info_t& i) {
 			return this->bat_section_cb(ret, i);
 		};
-		scan_state.start(scan_state_t::completion_index_t::FST_BAT, false);
+		scan_state.start(scan_state_t::completion_index_t::FST_BAT, true);
 	}
 
 	if (do_epg) {
@@ -960,47 +957,48 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 		if (is_skyuk) {
 			for (auto pid = dtdemux::ts_stream_t::PID_SKY_TITLE_LOW; pid <= dtdemux::ts_stream_t::PID_SKY_TITLE_HIGH; ++pid) {
 				ndc_prefix.clear();
-				ndc_prefix.sprintf("%s SKYT", ls.c_str());
+				ndc_prefix.format("{:s} SKYT", ls.c_str());
 				add_parser<dtdemux::eit_parser_t>(pid, ndc_prefix, chdb::epg_type_t::SKYUK)->section_cb = eit_section_cb;
 			}
 
 			for (auto pid = dtdemux::ts_stream_t::PID_SKY_SUMMARY_LOW; pid <= dtdemux::ts_stream_t::PID_SKY_SUMMARY_HIGH;
 					 ++pid) {
 				ndc_prefix.clear();
-				ndc_prefix.sprintf("%s SKYS", ls.c_str());
+				ndc_prefix.format("{:s} SKYS", ls.c_str());
 				add_parser<dtdemux::eit_parser_t>(pid, ndc_prefix, chdb::epg_type_t::SKYUK)->section_cb = eit_section_cb;
 			}
 
-			scan_state.start(scan_state_t::completion_index_t::SKYUK_EPG, false);
+			scan_state.start(scan_state_t::completion_index_t::SKYUK_EPG, true);
 
 		} else if (is_freesat_main) {
 			ndc_prefix.clear();
-			ndc_prefix.sprintf("%s FSTH", ls.c_str());
+			ndc_prefix.format("{:s} FSTH", ls.c_str());
 			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_INFO_EIT_PF_PID, ndc_prefix, chdb::epg_type_t::FSTHOME)
 				->section_cb = eit_section_cb;
 			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_INFO_EIT_PID, ndc_prefix, chdb::epg_type_t::FSTHOME)
 				->section_cb = eit_section_cb;
-			scan_state.start(scan_state_t::scan_state_t::completion_index_t::FST_EPG, false);
+			scan_state.start(scan_state_t::scan_state_t::completion_index_t::FST_EPG, true);
 		} else {
 			ndc_prefix.clear();
-			ndc_prefix.sprintf("%s EPG", ls.c_str());
+			ndc_prefix.format("{:s} EPG", ls.c_str());
 			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::EIT_PID, ndc_prefix, chdb::epg_type_t::DVB)->section_cb =
 				eit_section_cb;
 
-			scan_state.start(scan_state_t::scan_state_t::completion_index_t::EIT_ACTUAL_EPG, false);
+			scan_state.start(scan_state_t::scan_state_t::completion_index_t::EIT_ACTUAL_EPG, true);
 			if (need_other)
-				scan_state.start(scan_state_t::scan_state_t::completion_index_t::EIT_OTHER_EPG, false);
+				scan_state.start(scan_state_t::scan_state_t::completion_index_t::EIT_OTHER_EPG, true);
 
 			if (has_freesat) {
 				ndc_prefix.clear();
-				ndc_prefix.sprintf("%s FST", ls.c_str());
+				ndc_prefix.format("{:s} FST", ls.c_str());
 				add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_EIT_PID, ndc_prefix, chdb::epg_type_t::FREESAT)
 					->section_cb = eit_section_cb;
 
 				add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::FREESAT_EIT_PF_PID, ndc_prefix, chdb::epg_type_t::FREESAT)
 					->section_cb = eit_section_cb;
-
-				scan_state.start(scan_state_t::scan_state_t::completion_index_t::FST_EPG, false);
+				/*we never require FST scan to complete as it takes too long; instead we only activcate epg scan
+					on the freesat home transponder*/
+				scan_state.start(scan_state_t::scan_state_t::completion_index_t::FST_EPG, false /*required_for_scan*/);
 			}
 
 			if (has_movistar) {
@@ -1059,7 +1057,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 				*/
 				// auto mhw2_chl = add_parser<dtdemux::mhw2_parser_t>(564); //faster titles?
 				ndc_prefix.clear();
-				ndc_prefix.sprintf("%s MHW2C", ls.c_str());
+				ndc_prefix.format("{:s} MHW2C", ls.c_str());
 
 				auto mhw2_chl1 = add_parser<dtdemux::mhw2_parser_t>(644, ndc_prefix); // short summaries, titles, channels
 
@@ -1076,7 +1074,7 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 				mhw2_chl2->eit_section_cb = [this](epg_t& ret, const subtable_info_t& i) {
 					return this->eit_section_cb(ret, i);
 				};
-				scan_state.start(scan_state_t::completion_index_t::MHW2_EPG, false);
+				scan_state.start(scan_state_t::completion_index_t::MHW2_EPG, true);
 			}
 
 			if (has_viasat_baltic) {
@@ -1091,9 +1089,9 @@ bool active_si_stream_t::init(scan_target_t scan_target_) {
 					Elementary stream: type 0x00 (unknown), PID: 58 (0x003A) -> bat/sdt
 				*/
 				ndc_prefix.clear();
-				ndc_prefix.sprintf("%s VIA", ls.c_str());
+				ndc_prefix.format("{:s} VIA", ls.c_str());
 				add_parser<dtdemux::eit_parser_t>(57, ndc_prefix, chdb::epg_type_t::VIASAT)->section_cb = eit_section_cb;
-				scan_state.start(scan_state_t::scan_state_t::completion_index_t::VIASAT_EPG, false);
+				scan_state.start(scan_state_t::scan_state_t::completion_index_t::VIASAT_EPG, true);
 			}
 		}
 	}
@@ -1193,7 +1191,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 		pat_table.ts_id = pat_services.ts_id;
 		pat_table.entries = pat_services.entries;
 		if (pat_table.last_entries.size() != 0 && pat_table.last_entries != pat_table.entries) {
-			dtdebugx("PAT is unstable; force retune");
+			dtdebugf("PAT is unstable; force retune");
 			tune_confirmation.unstable_sat = true;
 			return dtdemux::reset_type_t::ABORT; // unstable PAT; must retune
 		}
@@ -1203,7 +1201,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			return dtdemux::reset_type_t::RESET; // need to check again for stability
 		} else
 			pat_data.stable_pat(pat_services.ts_id); //cause timer to be updated
-		dtdebugx("PAT found");
+		dtdebugf("PAT found");
 
 		//if (scan_target == scan_target_t::SCAN_FULL || scan_target == scan_target_t::SCAN_FULL_AND_EPG)
 		for (auto& s : pat_table.entries) {
@@ -1220,11 +1218,11 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			}
 		}
 		if (all_done) {
-			dtdebugx("PAT fully done");
+			dtdebugf("PAT fully done");
 			active_adapter().on_stable_pat();
 			scan_state.set_completed(cidx); // signal that pat is present
 		} else {
-			dtdebugx("PAT - table done, but some remaining");
+			dtdebugf("PAT - table done, but some remaining");
 		}
 	}
 	return dtdemux::reset_type_t::NO_RESET;
@@ -1249,14 +1247,14 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
 			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			if (is_actual) {
 				tune_confirmation.nit_actual_received = true;
-					dtdebugx("Setting nit_actual_ok = true");
+					dtdebugf("Setting nit_actual_ok = true");
 			}
 		} else if (tune_confirmation.sat_by == confirmed_by_t::NONE && is_actual) {
 			dterror("ni_actual does not contain current mux");
 			/*NOTE: pat is stable at this point
 			 */
 			auto sat_count = nit_data.nit_actual_sat_positions.size();
-			dtdebugx("NIT_ACTUAL does not contain currently tuned mux; nit_actual contains %d sat_positions", sat_count);
+			dtdebugf("NIT_ACTUAL does not contain currently tuned mux; nit_actual contains {:d} sat_positions", sat_count);
 			auto sat_pos = sat_count >=1 ? nit_data.nit_actual_sat_positions[0]: sat_pos_none;
 			/*
 				all nit_actual muxes are for the same sat, and we assume it is correct
@@ -1268,23 +1266,23 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
 					@todo: 10930V 39.0E actually contains 30E. So we must devise an override in the database.
 					otherwie we will never be able to tune this mux
 					*/
-				dtdebugx("NIT_ACTUAL only contains sat_pos=%d, which is very unexpected. Asking retune", sat_pos);
+				dtdebugf("NIT_ACTUAL only contains sat_pos={:d}, which is very unexpected. Asking retune", sat_pos);
 				return dtdemux::reset_type_t::ABORT;
 			}
 			if(sat_pos == sat_pos_none) {
-				dtdebugx("NIT_ACTUAL does not contain any sat_pos");
+				dtdebugf("NIT_ACTUAL does not contain any sat_pos");
 			} else {
-				dtdebugx("NIT_ACTUAL only contains sat_pos=%d (no retune allowed). confirming sat_pos", sat_pos);
+				dtdebugf("NIT_ACTUAL only contains sat_pos={:d} (no retune allowed). confirming sat_pos", sat_pos);
 				tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			}
 			tune_confirmation.nit_actual_received = true;
-			dtdebugx("Setting nit_actual_ok = true");
+			dtdebugf("Setting nit_actual_ok = true");
 			return dtdemux::reset_type_t::NO_RESET;
 		}
 		// do anything needed after a network has been fully loaded
 		if (is_actual) {
 			tune_confirmation.nit_actual_received = true;
-			dtdebugx("Setting nit_actual_ok = true");
+			dtdebugf("Setting nit_actual_ok = true");
 		}
 	} else { //! done: more nit_actual or nit_other data is coming
 		if (is_actual)
@@ -1344,7 +1342,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	} else {
 		bool was_active = scan_state.set_active(cidx);
 		if (!was_active && network.is_actual) {
-			dtdebug("First NIT_ACTUAL data tuned_mux=" << reader->stream_mux());
+			dtdebugf("First NIT_ACTUAL data tuned_mux={}", reader->stream_mux());
 			reader->update_received_si_mux(std::optional<chdb::any_mux_t>{}, false /*is_bad*/);
 		}
 	}
@@ -1424,7 +1422,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	}
 
 	if (done && network.is_actual) { // for nit other, there may be multiple entries
-		dtdebugx("NIT_ACTUAL completed");
+		dtdebugf("NIT_ACTUAL completed");
 		{
 			auto stream_mux = reader->stream_mux();
 			assert(!chdb::is_template(stream_mux));
@@ -1474,7 +1472,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 		if(tmp.frequency == 0) {
 			if(pat_data.has_ts_id(tmp.c.ts_id)) {
 					//happens on 26.0E: 12034H and 14.0W: 11623V, 14.0W: 11638H
-				dtdebug("Fixing zero frequency: " << mux);
+				dtdebugf("Fixing zero frequency: {}", mux);
 				tmp = *std::get_if<chdb::dvbs_mux_t>(&tuned_mux);
 				tmp.c.ts_id = dvbs_mux->c.ts_id;
 				tmp.c.network_id = dvbs_mux->c.network_id;
@@ -1498,12 +1496,12 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 		bool can_be_tuned_with_pol_change =
 			devdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), tmp, disregard_networks);
 		if(can_be_tuned_with_pol_change) {//happens on 20E:  4.18150L which claims "H"
-			dtdebug("Found a mux which differs in circular/linear polarisation: " << mux);
+			dtdebugf("Found a mux which differs in circular/linear polarisation: {}", mux);
 			*dvbs_mux = tmp;
 			can_be_tuned = true;
 		}
 		else {
-			dtdebug("Refusing to insert a mux which cannot be tuned: " << mux);
+			dtdebugf("Refusing to insert a mux which cannot be tuned: {}", mux);
 			can_be_tuned = false;
 		}
 	}
@@ -1522,7 +1520,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 
 dtdemux::reset_type_t active_si_stream_t::nit_section_cb(nit_network_t& network, const subtable_info_t& info) {
 	if(!is_embedded_si && !pat_data.stable_pat()) {
-		dtdebugx("Waiting for pat to stabilize");
+		dtdebugf("Waiting for pat to stabilize");
 		return dtdemux::reset_type_t::RESET;
 	}
 	if (network.is_actual)
@@ -1538,7 +1536,7 @@ bool active_si_stream_t::sdt_actual_check_confirmation(bool mux_key_changed, int
 	if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
 		// figure out if we can confirm sat
 		if (!mux_key_changed && db_correct > 2) {
-			dtdebugx("SDT_ACTUAL CONFIRMS sat=%d network_id=%d ts_id=%d: found=%d existing services",
+			dtdebugf("SDT_ACTUAL CONFIRMS sat={:d} network_id={:d} ts_id={:d}: found={:d} existing services",
 							 mux_key.sat_pos, mux_common.network_id, mux_common.ts_id, db_correct);
 			tune_confirmation.sat_by = confirmed_by_t::SDT;
 			tune_confirmation.on_wrong_sat = false;
@@ -1548,7 +1546,7 @@ bool active_si_stream_t::sdt_actual_check_confirmation(bool mux_key_changed, int
 			if (tune_confirmation.network_id_by == confirmed_by_t::NONE)
 				tune_confirmation.network_id_by = confirmed_by_t::SDT;
 		} else if (!mux_key_changed && nit_actual_done()) {
-			dtdebugx("SDT_ACTUAL CONFIRMS sat=%d network_id=%d ts_id=%d: NIT_ACTUAL is done and will not confirm",
+			dtdebugf("SDT_ACTUAL CONFIRMS sat={:d} network_id={:d} ts_id={:d}: NIT_ACTUAL is done and will not confirm",
 							 mux_key.sat_pos, mux_common.network_id, mux_common.ts_id);
 			return false;
 		} else {
@@ -1558,7 +1556,7 @@ bool active_si_stream_t::sdt_actual_check_confirmation(bool mux_key_changed, int
 	} else if (tune_confirmation.network_id_by == confirmed_by_t::NONE ||
 						 tune_confirmation.ts_id_by == confirmed_by_t::NONE) {
 		// this happens when nit_actual has seen muxes, but not the tuned mux yet
-		dtdebugx("SDT_ACTUAL CONFIRMS sat=%d network_id=%d ts_id=%d: ",
+		dtdebugf("SDT_ACTUAL CONFIRMS sat={:d} network_id={:d} ts_id={:d}: ",
 						 mux_key.sat_pos, mux_common.network_id, mux_common.ts_id);
 		if (tune_confirmation.ts_id_by == confirmed_by_t::NONE)
 			tune_confirmation.ts_id_by = confirmed_by_t::SDT;
@@ -1624,7 +1622,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 		/*if is_active_mux=true, then we already know that the sat_pos matches within a tolerance,
 			otherwise we need to check if we are on the wrong sat
 		*/
-		dtdebugx("NIT CONFIRMS sat=%d network_id=%d ts_id=%d", mux_key->sat_pos,
+		dtdebugf("NIT CONFIRMS sat={:d} network_id={:d} ts_id={:d}", mux_key->sat_pos,
 						 mux_common->nit_network_id, mux_common->nit_ts_id);
 		if (tune_confirmation.sat_by == confirmed_by_t::NONE)
 			tune_confirmation.sat_by = confirmed_by_t::NIT;
@@ -1645,7 +1643,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 		if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
 			assert(std::abs(tuned_mux_key->sat_pos - mux_key->sat_pos) <= sat_pos_tolerance ||
 						 !on_wrong_sat);
-			dtdebugx("NIT CONFIRMS sat=%d", mux_key->sat_pos);
+			dtdebugf("NIT CONFIRMS sat={:d}", mux_key->sat_pos);
 			tune_confirmation.sat_by = confirmed_by_t::NIT;
 		}
 	}
@@ -1779,7 +1777,7 @@ bool active_si_stream_t::update_mux(
 			 in the current run*/
 		//do not scan transponders on the wrong sat
 		if((!pdbc || pdbc->mtime < scan_start_time) && ! on_wrong_sat) {
-			dtdebug("SET PENDING " << mux);
+			dtdebugf("SET PENDING {}", mux);
 			pc->scan_status = scan_status_t::PENDING;
 			assert(scan_id > 0);
 			pc->scan_id = scan_id;
@@ -1878,7 +1876,7 @@ bool nit_data_t::update_sdt_completion(scan_state_t& scan_state, const subtable_
 	bool is_actual = info.is_actual;
 	auto& sdt = mux_data.sdt[is_actual];
 	if (!(reset || info.timedout || (sdt.num_sections_processed < sdt.subtable_info.num_sections_present))) {
-		dterrorx("ERROR:  reset=%d timedout=%d num_sections_processed=%d num_sections_present=%d", reset, info.timedout,
+		dterrorf("ERROR:  reset={:d} timedout={:d} num_sections_processed={:d} num_sections_present={:d}", reset, info.timedout,
 						 sdt.num_sections_processed, sdt.subtable_info.num_sections_present);
 		return true; // todo handle version change
 	}
@@ -1897,33 +1895,36 @@ bool nit_data_t::update_sdt_completion(scan_state_t& scan_state, const subtable_
 		n.add_mux(mux_common.ts_id, true);
 		// n.sdt_num_muxes_present += empty;
 		if (done_now) {
-			dtdebugx("set_sdt_completed: ts_id=%d is_actual=%d vers=%d pid=%d proc=%d pres=%d", mux_common.ts_id,
+			dtdebugf("set_sdt_completed: ts_id={:d} is_actual={:d} vers={:d} pid={:d} proc={:d} pres={:d}", mux_common.ts_id,
 							 info.is_actual, info.version_number, info.pid, sdt.num_sections_processed,
 							 sdt.subtable_info.num_sections_present);
 			n.set_sdt_completed(mux_common.ts_id);
 		}
 		if (n.sdt_num_muxes_completed > n.sdt_num_muxes_present)
-			dterrorx("assertion failed: num_muxes_completed=%d; n.sdt_num_muxes_present=%d", n.sdt_num_muxes_completed,
+			dterrorf("assertion failed: num_muxes_completed={:d}; n.sdt_num_muxes_present={:d}", n.sdt_num_muxes_completed,
 							 n.sdt_num_muxes_present);
 		assert(n.sdt_num_muxes_completed <= n.sdt_num_muxes_present);
 		if (done_now) {
-			dtdebug("SDT_" << (info.is_actual ? "ACTUAL" : "OTHER") << " subtable completed: " << mux_key << " "
-							<< "network_id=" << mux_common.network_id << "ts_id=" << mux_common.ts_id
-							<< mux_data.service_ids.size() << " services; muxes now completed on network: "
-							<< n.sdt_num_muxes_completed << "/" << n.sdt_num_muxes_present);
+			dtdebugf("SDT_{} subtable completed: {} network_id={} ts_id={}; {} services; "
+							 "muxes now completed on network: {}/{}",
+							 (info.is_actual ? "ACTUAL" : "OTHER"), mux_key,
+							 mux_common.network_id, mux_common.ts_id,
+							 mux_data.service_ids.size(), n.sdt_num_muxes_completed, n.sdt_num_muxes_present);
 			if (info.is_actual) {
 				scan_state.set_completed(scan_state_t::SDT_ACTUAL);
 			}
 			if (!info.is_actual) {
 				if (n.sdt_num_muxes_completed == n.sdt_num_muxes_present) {
-					dtdebug("Network completed: " << mux_common.network_id);
+					dtdebugf("Network completed: {}", mux_common.network_id);
 				}
 			}
 		} else if (empty) {
-			dtdebug("SDT_" << (info.is_actual ? "ACTUAL" : "OTHER") << " subtable reset: " << mux_key << " "
-							<< "network_id=" << mux_common.network_id << "ts_id=" << mux_common.ts_id
-							<< mux_data.service_ids.size() << " services; muxes now completed on network: "
-							<< n.sdt_num_muxes_completed << "/" << n.sdt_num_muxes_present);
+			dtdebugf("SDT_{} subtable reset: {} network_id={} ts_id={}; "
+							 "{} services; muxes now completed on network: {}/{}",
+							 (info.is_actual ? "ACTUAL" : "OTHER"),
+							 mux_key, mux_common.network_id, mux_common.ts_id,
+							 mux_data.service_ids.size(),
+							 n.sdt_num_muxes_completed, n.sdt_num_muxes_present);
 		}
 
 		assert(n.sdt_num_muxes_completed <= n.sdt_num_muxes_present);
@@ -1998,7 +1999,7 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 			ch.encrypted = service.encrypted;
 			ch.mtime = system_clock_t::to_time_t(now);
 			if (!donotsave) {
-				dtdebug("SAVING changed service " << ch);
+				dtdebugf("SAVING changed service {}", ch);
 				put_record(wtxn, ch);
 			}
 		}
@@ -2013,7 +2014,7 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 		}, p_mux_data->mux);
 
 		if (!donotsave) {
-			dtdebug("SAVING new service " << ch);
+			dtdebugf("SAVING new service {}", ch);
 			put_record(wtxn, ch);
 		}
 		if(is_actual) {
@@ -2048,7 +2049,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 	if (!services.is_actual) {
 				auto reader_mux_key = this->stream_mux_key();
 		if (reader_mux_key.sat_pos != mux_key.sat_pos) {
-			dtdebug("SDT_OTHER: ignore services for other sat: " << mux_key);
+			dtdebugf("SDT_OTHER: ignore services for other sat: {}", mux_key);
 			donotsave = true;
 		}
 	}
@@ -2059,7 +2060,6 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 		assert(mux_common.ts_id == service.k.ts_id);
 
 		if (service.name.size() == 0) {
-			// dtdebug("Skipping service without name "<< service.k);
 			continue;
 		}
 		service_ids.push_back(service.k.service_id);
@@ -2093,7 +2093,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 	if (done_now) {
 		if (!donotsave) {
 			process_removed_services(wtxn, p_mux_data->mux, service_ids);
-			dtdebugx("Notifying SDT ACTUAL");
+			dtdebugf("Notifying SDT ACTUAL");
 			auto& aa = active_adapter();
 			receiver.notify_sdt_actual(sdt_data, aa.fe->get_subscription_ids());
 		}
@@ -2130,7 +2130,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 
 			if (changed) { //update statistics
 				namespace m = chdb::update_mux_preserve_t;
-				dtdebug("Update mux " << mux << " tuned=" << reader->stream_mux());
+				dtdebugf("Update mux {} tuned={}", mux, reader->stream_mux());
 				auto preserve = is_actual
 					? m::flags{m::ALL & ~(m::NUM_SERVICES | m::EPG_TYPES | m::MUX_KEY)}
 					: m::ALL; //then only new records will be created, but nothing will be updated
@@ -2170,7 +2170,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 	auto& existing_records = epg.is_actual ? eit_data.eit_actual_existing_records : eit_data.eit_other_existing_records;
 	if (info.timedout) {
 		scan_state.set_timedout(cidx);
-		dtdebugx("EIT_%s: timedout unchanged=%d changed=%d\n", epg.is_actual ? "ACTUAL" : "OTHER", existing_records,
+		dtdebugf("EIT_{:s}: timedout unchanged={:d} changed={:d}\n", epg.is_actual ? "ACTUAL" : "OTHER", existing_records,
 						 updated_records);
 		return dtdemux::reset_type_t::NO_RESET;
 	} else
@@ -2219,7 +2219,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				epg.service_key.mux.sat_pos = stream_mux_key->sat_pos;
 			else {
 				const auto* s = enum_to_str(epg_type);
-				dtdebugx("Cannot enter EPG_%s records (%s), because mux with network_id=%d and ts_id=%d has different "
+				dtdebugf("Cannot enter EPG_{:s} records ({:s}), because mux with network_id={:d} and ts_id={:d} has different "
 								 "dvb type and sat not yet confirmed (retrying)",
 								 epg.is_actual ? "ACTUAL" : "OTHER", s, epg.service_key.network_id, epg.service_key.ts_id);
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
@@ -2264,8 +2264,8 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 				find_in_map(eit_data.otv_times_for_event_id, std::make_tuple(epg.channel_id, epg_record.k.event_id));
 			if (!found) {
 				bool done = false;
-				dtdebug_nicex("Cannot enter SKYUK_EPG summary records, because title with channel_id_id=%d and  event_id=%d"
-											" has not been found yet%s",
+				dtdebug_nicef("Cannot enter SKYUK_EPG summary records, because title with channel_id_id={:d} and event_id={:d}"
+											" has not been found yet{:s}",
 											epg.channel_id, epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
 				wtxn.abort();
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
@@ -2275,8 +2275,8 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 			auto [it, found] = find_in_map(eit_data.mhw2_key_for_event_id, epg_record.k.event_id);
 			if (!found) {
 				bool done = false;
-				dtdebugx("Cannot enter MHW2_EPG summary records, because title with event_id=%d"
-								 " has not been found yet%s",
+				dtdebugf("Cannot enter MHW2_EPG summary records, because title with event_id={:d}"
+								 " has not been found yet{:s}",
 								 epg_record.k.event_id, (done ? " (not retrying)" : " (retrying)"));
 				wtxn.abort();
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
@@ -2324,7 +2324,7 @@ void active_si_stream_t::process_removed_services(db_txn& txn, chdb::any_mux_t& 
 			"running".
 
 		*/
-		dtdebug("Expiring service " << service);
+		dtdebugf("Expiring service {}", service);
 		auto s = service;
 		s.expired = true;
 		s.mtime = system_clock_t::to_time_t(now);
@@ -2347,7 +2347,8 @@ void active_si_stream_t::process_removed_channels(db_txn& txn, const chdb::chg_k
 			continue; // already expired
 		if (std::find(std::begin(channel_ids), std::end(channel_ids), channel.k.channel_id) != std::end(channel_ids))
 			continue; // service is present in si stream
-		dtdebug("Expiring channel " << channel << " id=" << channel.k.channel_id << " in chgrp=" << chg_key.bouquet_id);
+		dtdebugf("Expiring channel {} id={} in chgrp={}",
+						channel, channel.k.channel_id, chg_key.bouquet_id);
 		auto s = channel;
 		s.expired = true;
 		s.mtime = system_clock_t::to_time_t(now);
@@ -2376,7 +2377,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		scan_state.set_active(cidx);
 
 	if (services.is_actual) {
-		dtdebugx("SDT_ACTUAL CONFIRMS sat=xx network_id=%d ts_id=%d", services.original_network_id, services.ts_id);
+		dtdebugf("SDT_ACTUAL CONFIRMS sat=xx network_id={:d} ts_id={:d}", services.original_network_id, services.ts_id);
 
 		if(nit_actual_done() && tune_confirmation.sat_by == confirmed_by_t::NONE)
 			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
@@ -2416,7 +2417,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		return dtdemux::reset_type_t::RESET;
 	auto cidx = scan_state_t::BAT;
 	if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
-		//dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
+		//dtdebugf("bouquet={:d} requesting reset", bouquet.bouquet_id);
 		return dtdemux::reset_type_t::RESET; // delay processing until sat_confirmed.
 	}
 	if (info.timedout) {
@@ -2434,10 +2435,12 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	auto bouquet_id = bouquet.is_mhw2 ? bouquet_id_movistar : bouquet.bouquet_id;
 	chdb::chg_t chg(chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id, stream_mux_key->sat_pos), 0, bouquet.name,
 									system_clock_t::to_time_t(now));
-	if (chg.name.size() == 0)
-		chg.name << "Bouquet " << (int)bouquet.bouquet_id;
+	if (chg.name.size() == 0) {
+		chg.name.clear();
+		chg.name.format("Bouquet {}", (int)bouquet.bouquet_id);
+	}
 	bool chg_changed = true;
-	{
+	{ //TODO: wtxn could be replaced with rtxn
 		auto c = chdb::chg_t::find_by_key(
 			wtxn, chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id, stream_mux_key->sat_pos), find_eq);
 		dttime(1000);
@@ -2466,7 +2469,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 			// if not done: will reparse later; we could also store these records (would be faster)
 #if 0
 			if (!done) {
-				dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
+				dtdebugf("bouquet={:d} requesting reset", bouquet.bouquet_id);
 			}
 #endif
 			return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
@@ -2484,7 +2487,8 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 		if (channel.is_opentv_or_mhw2) {
 			auto [it, inserted] = bat_data.opentv_service_keys.try_emplace(channel_id, chgm.service);
 			if (chgm.service != it->second) {
-				dtdebug("channel_id=" << int(channel_id) << ": service changed from " << it->second << " to " << chgm.service);
+				dtdebugf("channel_id={}: service changed from {} to {}",
+								 int(channel_id), it->second, chgm.service);
 			}
 		}
 
@@ -2497,7 +2501,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 			bat_data.reset_bouquet(bouquet.bouquet_id);
 			wtxn.abort();
 #if 0
-			dtdebugx("bouquet=%d requesting reset", bouquet.bouquet_id);
+			dtdebugf("bouquet={:d} requesting reset", bouquet.bouquet_id);
 #endif
 			return dtdemux::reset_type_t::RESET;
 		}
@@ -2533,7 +2537,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	auto& bouquet_data = bat_data.get_bouquet(chg);
 	if (bouquet_data.subtable_info.version_number != info.version_number) {
 		// record which services have been found
-		dtdebugx("BAT: bouquet=%d subtable version changed from %d to %d\n",
+		dtdebugf("BAT: bouquet={:d} subtable version changed from {:d} to {:d}\n",
 						 bouquet.bouquet_id,
 						 bouquet_data.subtable_info.version_number,
 						 info.version_number);
@@ -2549,9 +2553,9 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	assert(bouquet_data.num_sections_processed <= bouquet_data.subtable_info.num_sections_present); //4.8E
 
 	if (++bouquet_data.num_sections_processed == bouquet_data.subtable_info.num_sections_present) {
-		dtdebug("BAT subtable completed for bouquet=" << (int)bouquet.bouquet_id << " " <<
-						bouquet_data.channel_ids.size() << "/" << bouquet.channels.size() <<
-						 " channels" << " sections=" << (int)bouquet_data.subtable_info.num_sections_present);
+		dtdebugf("BAT subtable completed for bouquet={} channels={}/{} sections={}",
+						 (int)bouquet.bouquet_id, bouquet_data.channel_ids.size(), bouquet.channels.size(),
+						 (int)bouquet_data.subtable_info.num_sections_present);
 		if(!bouquet_incomplete)
 			process_removed_channels(wtxn, chg.k, bouquet_data.channel_ids);
 		if (chg.num_channels != bouquet_data.channel_ids.size()) {
@@ -2633,8 +2637,8 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 	if(driver_stream_id != mux_stream_id) {
 		stream_id_changed = true;
 		if(mux_stream_id >= 0 || !is_template(mux)) {
-			dterror("Driver returned different stream id than requested: driver="
-							 << signal_info.driver_mux << " mux=" << mux);
+			dterrorf("Driver returned different stream id than requested: driver={} mux={}",
+							 signal_info.driver_mux, mux);
 		}
 		//assert(is_template(mux));
 		mux_stream_id = driver_stream_id;
@@ -2713,8 +2717,8 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 									}
 								});
 
-	dtdebug("Update driver_mux=" << signal_info.driver_mux << " stream_mux=" << reader->stream_mux()
-					<< " tune_src=" << (int)chdb::mux_common_ptr(si_mux)->tune_src);
+	dtdebugf("Update driver_mux={} stream_mux={} tune_src={}",
+					 signal_info.driver_mux, reader->stream_mux(), (int)chdb::mux_common_ptr(si_mux)->tune_src);
 	mux = signal_info.driver_mux;
 
 	return {(signal_info.lock_status.fe_status & FE_HAS_LOCK), stream_id_changed};
@@ -2746,9 +2750,9 @@ void active_si_stream_t::load_skyuk_bouquet() {
 reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isnext) {
 	if(isnext)
 		return reset_type_t::NO_RESET;
-	dtdebugx("pmt received for service_id=%d: stopping stream pmt_pid=%d", pmt.service_id, pmt.pmt_pid);
+	dtdebugf("pmt received for service_id={:d}: stopping stream pmt_pid={:d}", pmt.service_id, pmt.pmt_pid);
 	auto& p = pmt_data.by_service_id[pmt.service_id];
-	dtdebugx("pmt received for service_id=%d: stopping stream pmt_pid=%d parser reset done", pmt.service_id, pmt.pmt_pid);
+	dtdebugf("pmt received for service_id={:d}: stopping stream pmt_pid={:d} parser reset done", pmt.service_id, pmt.pmt_pid);
 	if (!p.pmt_analysis_finished)
 		pmt_data.num_pmts_received++;
 	p.pmt_analysis_finished = true;
@@ -2806,20 +2810,20 @@ void active_si_stream_t::add_pmt(uint16_t service_id, uint16_t pmt_pid) {
 	auto [it, inserted] = pmt_data.by_service_id.try_emplace(service_id, pat_service_t{});
 	auto& p = it->second;
 	if (inserted) {
-		dtdebugx("Adding pmt for analysis: service=%d pmt_pid=%d\n", (int)service_id, (int)pmt_pid);
+		dtdebugf("Adding pmt for analysis: service={:d} pmt_pid={:d}\n", (int)service_id, (int)pmt_pid);
 		auto pmt_section_cb = [this, service_id, pmt_pid](dtdemux::pmt_parser_t*parser,
 																 const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
-			dtdebugx("calling remove_parser service_id=%d pmt_pid=%d\n", service_id, pmt_pid);
+			dtdebugf("calling remove_parser service_id={:d} pmt_pid={:d}\n", service_id, pmt_pid);
 			release_parser(parser);
 			return this->pmt_section_cb(pmt, isnext);
 
 		};
-		dtdebugx("calling add_parser service_id=%d pmt_pid=%d\n", service_id, pmt_pid);
+		dtdebugf("calling add_parser service_id={:d} pmt_pid={:d}\n", service_id, pmt_pid);
 		ss::string<128>  ndc_prefix;
 		log4cxx::LogString ls;
 		log4cxx::NDC::get(ls);
 		auto s= log4cxx::NDC::pop(); //remove "PAT"
-		ndc_prefix.sprintf("PMT", ls.c_str());
+		ndc_prefix.format("PMT", ls.c_str());
 		log4cxx::NDC::push(s);
 		add_parser<dtdemux::pmt_parser_t>(pmt_pid, ndc_prefix, service_id)->section_cb = pmt_section_cb;
 		p.pmt_analysis_started = true;
@@ -2877,10 +2881,9 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 	assert(mux_key.mux_id >0);
 
 	assert(!chdb::is_template(stream_mux));
-	ss::string<32> mux_desc;
 	assert (stream_mux_key->sat_pos != sat_pos_none);
 	int count{0};
-	chdb::to_str(mux_desc, stream_mux);
+	auto mux_desc = fmt::format("{}", stream_mux);
 
 	if (nit_data.by_network_id_ts_id.size()==1){
 		for(auto &[key, val]: nit_data.by_network_id_ts_id) {
@@ -2909,7 +2912,7 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 		auto service = c.is_valid() ? c.current() : service_t{};
 		if(! c.is_valid()) {
 			service.k = service_key;
-			service.name.sprintf("Service %s:%d", mux_desc.c_str(), pat_service.pmt.service_id);
+			service.name.format("Service {}:{:d}", mux_desc, pat_service.pmt.service_id);
 		}
 		auto new_service = service;
 		std::visit([&](auto&mux) {
@@ -2926,12 +2929,12 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 		new_service.encrypted = pat_service.pmt.is_encrypted();
 		if(new_service != service) {
 			new_service.mtime = system_clock_t::to_time_t(now);
-			dtdebug("Updating/saving service from pmt: " << service);
+			dtdebugf("Updating/saving service from pmt: {}", service);
 			count++;
 			put_record(wtxn, new_service);
 		}
 	}
-	dtdebugx("SAVED %d pmts\n", count);
+	dtdebugf("SAVED {:d} pmts\n", count);
 }
 
 /*

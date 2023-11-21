@@ -27,9 +27,9 @@ extern "C" {
 
 ss::string<32> ca_key_t::to_str() const {
 	ss::string<32> ret;
-	ret.sprintf("key [%s]:", parity ? "odd" : "even");
+	ret.format("key [{:s}]:", parity ? "odd" : "even");
 	for (int i = 0; i < 8; ++i)
-		ret.sprintf(" %02x", cw[i]);
+		ret.format(" {:02x}", cw[i]);
 	return ret;
 }
 
@@ -100,7 +100,7 @@ void decrypt_cache_t::decrypt_all_pending(const char* debug_msg) {
 		auto& scnt_field = scnt_fields[odd];
 		if (idx > 0) {
 #if 1
-			dtdebugx("Decrypting %d packets with parity=%d %s", idx, odd, debug_msg);
+			dtdebugf("Decrypting {:d} packets with parity={:d} {}", idx, odd, debug_msg);
 #endif
 			assert(idx < batch_size + 1);
 			batch[idx].data = 0;
@@ -201,7 +201,7 @@ int dvbcsa_t::skip_non_decryptable(uint8_t* buffer, int buffer_size) {
 						/*It is impossible to decrypt the packets up to packet_start (a phase transition) as
 							scam was restarted after the end of the next phase. So
 							we can skip the whole next parity phase.*/
-						dtdebugx("packets[0-%d] UNDECRYPTABLE pid=%d scrambling_control_packet=%d", packet_start, pid,
+						dtdebugf("packets[0-{:d}] UNDECRYPTABLE pid={:d} scrambling_control_packet={:d}", packet_start, pid,
 										 scrambling_control_packet);
 						descrambling_contexts.clear();
 						waiting_for_keys = false; // needed
@@ -241,7 +241,7 @@ int dvbcsa_t::decrypt_buffer(uint8_t* buffer, int buffer_size) {
 		std::unique_lock lck(key_mutex);
 		num_bytes_received = num_bytes_decrypted + buffer_size; // used to mark keys
 	}
-	dtdebugx("buffer_size=%d", buffer_size);
+	dtdebugf("buffer_size={:d}", buffer_size);
 	descrambling_context_t* context = nullptr;
 	// static descrambling_context_t * last_pid_context  = nullptr; //only for debugging
 	for (; packet_start + ts_packet_t::size <= buffer_size; packet_start += ts_packet_t::size) {
@@ -252,7 +252,7 @@ int dvbcsa_t::decrypt_buffer(uint8_t* buffer, int buffer_size) {
 		context = &descrambling_contexts[pid];
 		if (payload) {
 			if ((16 + cc - context->cc) % 16 != 0 && context->cc >= 0)
-				dterrorx("pid=%d: cc error %d/%d", pid, context->cc, cc);
+				dterrorf("pid={:d}: cc error {:d}/{:d}", pid, context->cc, cc);
 			context->cc = cc;
 		}
 
@@ -285,7 +285,7 @@ int dvbcsa_t::decrypt_buffer(uint8_t* buffer, int buffer_size) {
 
 			cache.add_packet(odd, &buffer[packet_start]);
 			context->packets_since_last_transition++;
-			// dtdebugx("packet[%d] pid=%d even_batch_idx=%d odd_batch_idx=%d", packet_start, pid, even_batch_idx,
+			// dtdebugf("packet[{:d}] pid={:d} even_batch_idx={:d} odd_batch_idx={:d}", packet_start, pid, even_batch_idx,
 			// odd_batch_idx); we handled a parity switch now
 			break;
 		default:
@@ -308,7 +308,7 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 	*/
 
 	if (pid == 0)
-		dtdebugx("called with 0 pid\n");
+		dtdebugf("called with 0 pid\n");
 	auto parity_check =
 		confirm_parity_change(buffer + packet_start, buffer_size - packet_start, pid, scrambling_control_packet);
 	int ret = -1;
@@ -318,11 +318,11 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 		*/
 		cache.decrypt_all_pending("(cannot check parity yet)");
 		start_wait_for_key_time = system_clock_t::now();
-		dtdebugx("KEY pid=%d: failed parity transition to parity=%d: control %d => %d (after %d/%d packets)", pid, odd,
+		dtdebugf("KEY pid={:d}: failed parity transition to parity={:d}: control {:d} => {:d} (after {:d}/{:d} packets)", pid, odd,
 						 context->scrambling_control_packet, scrambling_control_packet, packet_start / ts_packet_t::size,
 						 buffer_size / ts_packet_t::size);
 		if (packet_start > 0)
-			dtdebugx("KEY pid =%d parity=%d: Decrypted or skipped %d/%d packets in total "
+			dtdebugf("KEY pid ={:d} parity={:d}: Decrypted or skipped {:d}/{:d} packets in total "
 							 "(waiting for parity check data)",
 							 pid, odd, packet_start / ts_packet_t::size, buffer_size / ts_packet_t::size);
 		return -1;
@@ -330,8 +330,8 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 		/*false alarm; packet should be decoded with different parity
 			or may be corrupt
 		*/
-		dtdebugx("KEY pid=%d Packet with wrong parity detected; detected parity=%d", pid, odd);
-		dtdebugx("KEY pid=%d: aborting parity transition to parity=%d: control %d => %d (after %d/%d packets)", pid, odd,
+		dtdebugf("KEY pid={:d} Packet with wrong parity detected; detected parity={:d}", pid, odd);
+		dtdebugf("KEY pid={:d}: aborting parity transition to parity={:d}: control {:d} => {:d} (after {:d}/{:d} packets)", pid, odd,
 						 context->scrambling_control_packet, scrambling_control_packet, packet_start / ts_packet_t::size,
 						 buffer_size / ts_packet_t::size);
 		odd = !odd;
@@ -339,13 +339,13 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 		scrambling_control_packet = context->scrambling_control_packet;
 		idx = &cache.batch_idx[odd];
 	} else {
-		dtdebugx("KEY pid=%d: parity transition to parity=%d:  %d => %d (after %d/%d packets)", pid, odd,
+		dtdebugf("KEY pid={:d}: parity transition to parity={:d}:  {:d} => {:d} (after {:d}/{:d} packets)", pid, odd,
 						 context->scrambling_control_packet, scrambling_control_packet, packet_start / ts_packet_t::size,
 						 buffer_size / ts_packet_t::size);
 
 		ret = next_key(*context, pid, odd);
 		if (ret >= 0)
-			dtdebugx("KEY pid=%d: called next_key ret=%d for parity transition to parity=%d: %d => %d", pid, ret, odd,
+			dtdebugf("KEY pid={:d}: called next_key ret={:d} for parity transition to parity={:d}: {:d} => {:d}", pid, ret, odd,
 							 context->scrambling_control_packet, scrambling_control_packet);
 		context->packets_since_last_transition = 0;
 	}
@@ -355,7 +355,7 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 		*/
 		start_wait_for_key_time = system_clock_t::now();
 		cache.decrypt_all_pending("(waiting for key)");
-		dtdebugx("Decrypted or skipped %d packets in total (waiting for key)", packet_start);
+		dtdebugf("Decrypted or skipped {:d} packets in total (waiting for key)", packet_start);
 		/*
 			Check if we have to skip data
 		*/
@@ -369,7 +369,8 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 		/*new key needs to be and can be installed; first decrypt any existing data with the new parity;
 			there should be none in practice*/
 		if (*idx) {
-			dterrorx("Unexpected: old %s data (%d packets) detected while transitioning to %s parity", odd ? "odd" : "even",
+			dterrorf("Unexpected: old {:s} data ({:d} packets) detected while transitioning to {:s} parity",
+							 odd ? "odd" : "even",
 							 *idx, odd ? "odd" : "even");
 			cache.decrypt_all_pending("(before changing key - UNEXPECTED)"); /*decrypt all old data with new parity,
 																																				 before updating key for that new parity*/
@@ -379,7 +380,7 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 		assert(ret == 0); // some other pid already installed the needed key
 	}
 	if (context->scrambling_control_packet != 0 && ret != 0)
-		dtdebugx("KEY pid=%d: finished parity transition to parity=%d: %d => %d", pid, odd,
+		dtdebugf("KEY pid={:d}: finished parity transition to parity={:d}: {:d} => {:d}", pid, odd,
 						 context->scrambling_control_packet, scrambling_control_packet);
 
 	context->scrambling_control_packet = scrambling_control_packet; // remember that we made the parity transition
@@ -415,7 +416,7 @@ int dvbcsa_t::get_key(int key_idx, int parity, bool allow_future_key) {
 	/// loop over all keys, starting with the oldest (circular buffer)
 
 	if (start == end) {
-		dtdebugx("KEY LOAD %s key %d: no key yet. start=%d end=%d", parity ? "odd" : "even", key_idx, start, end);
+		dtdebugf("KEY LOAD {:s} key {:d}: no key yet. start={:d} end={:d}", parity ? "odd" : "even", key_idx, start, end);
 		waiting_for_keys = true;
 		return -1; // no key received yet
 	}
@@ -425,7 +426,7 @@ int dvbcsa_t::get_key(int key_idx, int parity, bool allow_future_key) {
 		if (!key.valid || parity != key.parity) {
 			if (key.request_bytepos > num_bytes_decrypted && !allow_future_key) {
 				// This can also happen at start, if keys are wrongly ordered
-				dtdebugx("KEY found for other parity which was requested in the future; cannot use yet (key "
+				dtdebugf("KEY found for other parity which was requested in the future; cannot use yet (key "
 								 "we want will also be in the future)");
 				/*@todo we could skip some data (but this is handled elsewehere)
 				 */
@@ -436,13 +437,13 @@ int dvbcsa_t::get_key(int key_idx, int parity, bool allow_future_key) {
 		if (key.valid && parity == key.parity) {
 			if (key.request_bytepos > num_bytes_decrypted && !allow_future_key) {
 				// This can also happen at start, if keys are wrongly ordered
-				dtdebugx("KEY found for current parity which was requested in the future; cannot use it yet");
+				dtdebugf("KEY found for current parity which was requested in the future; cannot use it yet");
 				/*@todo we could skip some data (but this is handled elsewehere)
 				 */
 				break;
 			}
 			last_installed_key_idx = idx;
-			dtdebugx("Switch to %s key idx %d => %d start=%d end=%d", parity ? "odd" : "even", key_idx, idx, start, end);
+			dtdebugf("Switch to {:s} key idx {:d} => {:d} start={:d} end={:d}", parity ? "odd" : "even", key_idx, idx, start, end);
 			waiting_for_keys = false;
 			return idx;
 		}
@@ -486,16 +487,16 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 
 			switch (context.last_used_key_validity[!odd]) {
 			case descrambling_context_t::key_validy_t::UNKNOWN:
-				dtdebugx("KEY pid %d: desired key[%d] for parity %d applies to a later parity phase", pid, otheridx, !odd);
+				dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} applies to a later parity phase", pid, otheridx, !odd);
 				break;
 			case descrambling_context_t::key_validy_t::VALID:
-				dtdebugx("KEY pid %d: UNEXPECTED: desired key[%d] for parity %d was VALID before, but seems to be VALID "
+				dtdebugf("KEY pid {:d}: UNEXPECTED: desired key[{:d}] for parity {:d} was VALID before, but seems to be VALID "
 								 "in a later phase as well)",
 								 pid, otheridx, !odd);
 				break;
 
 			case descrambling_context_t::key_validy_t::EXPIRED:
-				dtdebugx("KEY pid %d: UNEXPECTED: desired key[%d] for parity %d was EXPIRED before, but seems to be VALID "
+				dtdebugf("KEY pid {:d}: UNEXPECTED: desired key[{:d}] for parity {:d} was EXPIRED before, but seems to be VALID "
 								 "in a later phase as well)",
 								 pid, otheridx, !odd);
 				break;
@@ -517,7 +518,7 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 				state would be EXPIRED)
 			*/
 			if (key.request_bytepos < num_bytes_decrypted) {
-				dtdebugx("KEY pid %d: desired key[%d] for parity %d was UNKNOWN; is now VALID", pid, idx, odd);
+				dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} was UNKNOWN; is now VALID", pid, idx, odd);
 				context.last_used_key_validity[odd] = descrambling_context_t::key_validy_t::VALID;
 				// assert(!waiting_for_keys);
 				waiting_for_keys = false;
@@ -526,7 +527,7 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 			allow_future_key = true;
 			break;
 		case descrambling_context_t::key_validy_t::VALID:
-			dtdebugx("KEY pid %d: UNEXPECTED desired key[%d] for parity %d in VALID state visited twice", pid, idx, odd);
+			dtdebugf("KEY pid {:d}: UNEXPECTED desired key[{:d}] for parity {:d} in VALID state visited twice", pid, idx, odd);
 			break;
 		case descrambling_context_t::key_validy_t::EXPIRED:
 			assert(key.request_bytepos < num_bytes_decrypted);
@@ -542,7 +543,7 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 
 	idx = (idx + 1) % num_keys;
 	if (idx == cache.active_key_indexes[odd]) {
-		dtdebugx("KEY pid %d: desired key[%d] for parity %d already installed", pid, idx, odd);
+		dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} already installed", pid, idx, odd);
 		assert(!waiting_for_keys);
 		return 0;
 	}
@@ -565,7 +566,7 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 		// preserve the unknown state
 		break;
 	case descrambling_context_t::key_validy_t::VALID:
-		dtdebugx("KEY pid %d: UNEXPECTED last key before key[%d] for parity %d is still VALID", pid, idx, odd);
+		dtdebugf("KEY pid {:d}: UNEXPECTED last key before key[{:d}] for parity {:d} is still VALID", pid, idx, odd);
 
 		// preserve the unknown state
 		break;
@@ -578,15 +579,15 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 	}
 
 	if (key.restart_count != context.last_used_key_restart_count) {
-		dtdebugx("KEY pid %d: key[%d] for parity %d is FIRST AFTER RESTART restart_count=%d/%d", pid, idx, odd,
+		dtdebugf("KEY pid {:d}: key[{:d}] for parity {:d} is FIRST AFTER RESTART restart_count={:d}/{:d}", pid, idx, odd,
 						 key.restart_count, context.last_used_key_restart_count);
 		context.last_used_key_restart_count = key.restart_count;
 	}
-	dtdebugx("KEY pid=%d: Switched from key[%d] to key[%d] for parity %d", pid, cache.active_key_indexes[odd], ret, odd);
+	dtdebugf("KEY pid={:d}: Switched from key[{:d}] to key[{:d}] for parity {:d}", pid, cache.active_key_indexes[odd], ret, odd);
 
 	// This test needs to be done once more
 	if (idx == cache.active_key_indexes[odd]) {
-		dtdebugx("KEY pid %d: desired key with idx=%d and parity %d already installed", pid, idx, odd);
+		dtdebugf("KEY pid {:d}: desired key with idx={:d} and parity {:d} already installed", pid, idx, odd);
 		assert(!waiting_for_keys);
 		return 0;
 	}
@@ -604,12 +605,12 @@ void dvbcsa_t::add_key(const ca_slot_t& slot, int decryption_index, system_time_
 	if (this->decryption_index < 0)
 		this->decryption_index = decryption_index;
 	if (decryption_index != this->decryption_index) {
-		dterrorx("Unexpected: received keys from multiple slots: %d and %d", decryption_index, this->decryption_index);
+		dterrorf("Unexpected: received keys from multiple slots: {:d} and {:d}", decryption_index, this->decryption_index);
 	};
 	auto k = slot.last_key.to_str();
 	ss::string<64> tt;
-	tt << std::chrono::duration_cast<std::chrono::seconds>(t - start).count();
-	dtdebugx("ADD CW %s [%d] at bytepos=%ld t=%s: %s", odd_even_str(slot.last_key.parity), idx, num_bytes_received,
+	tt.format("{}", std::chrono::duration_cast<std::chrono::seconds>(t - start).count());
+	dtdebugf("ADD CW {:s} [{:d}] at bytepos={:d} t={:s}: {:s}", odd_even_str(slot.last_key.parity), idx, num_bytes_received,
 					 tt.c_str(), k.c_str());
 	auto& key = keys[idx];
 	key = slot.last_key;
@@ -627,8 +628,8 @@ void dvbcsa_t::add_key(const ca_slot_t& slot, int decryption_index, system_time_
 
 void dvbcsa_t::restart_decryption(system_time_t t) {
 	ss::string<64> tt;
-	tt << std::chrono::duration_cast<std::chrono::seconds>(t - start).count();
-	dtdebugx("DECRYPTION restarted at bytepos %ld t=%s", num_bytes_received, tt.c_str());
+	tt.format("{}", std::chrono::duration_cast<std::chrono::seconds>(t - start).count());
+	dtdebugf("DECRYPTION restarted at bytepos {:d} t={:s}", num_bytes_received, tt.c_str());
 	std::unique_lock lck(key_mutex);
 	restart_count++;
 	last_restart_decryption_bytepos = num_bytes_received;
@@ -636,8 +637,8 @@ void dvbcsa_t::restart_decryption(system_time_t t) {
 
 void dvbcsa_t::mark_ecm_sent(bool odd, system_time_t t) {
 	ss::string<64> tt;
-	tt << std::chrono::duration_cast<std::chrono::seconds>(t - start).count();
-	dtdebugx("ECM %s sent to scam at bytepos=%ld t=%s", odd_even_str(odd), num_bytes_received, tt.c_str());
+	tt.format("{}", std::chrono::duration_cast<std::chrono::seconds>(t - start).count());
+	dtdebugf("ECM {:s} sent to scam at bytepos={:d} t={:s}", odd_even_str(odd), num_bytes_received, tt.c_str());
 	std::unique_lock lck(key_mutex);
 	last_key_request_bytepos = num_bytes_received;
 	last_key_request_time = t;
@@ -651,7 +652,7 @@ void dvbcsa_t::set_cw(const descrambling_context_t& context, bool odd) {
 	dvbcsa_bs_key_set(key.cw, cache.active_keys[key.parity]);
 	auto k = key.to_str();
 	cache.active_key_indexes[key.parity] = idx;
-	dtdebugx("SET CW %s[%d]: %s", key.parity ? "odd" : "even", idx, k.c_str());
+	dtdebugf("SET CW {:s}[{:d}]: {:s}", key.parity ? "odd" : "even", idx, k.c_str());
 }
 
 dvbcsa_t::dvbcsa_t()  {

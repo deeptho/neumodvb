@@ -21,7 +21,7 @@
 #include "opentv_string_decoder.h"
 #include "opentv_huffman.h"
 
-#include "ssaccu.h"
+#include "stackstring.h"
 #include <vector>
 #include <endian.h>
 void tst();
@@ -178,6 +178,7 @@ static void fprintf_escaped(FILE*fp, ss::string_& s)
 	}
 }
 
+#if 0
 __attribute__((optnone))
 void tst1()
 {
@@ -194,27 +195,29 @@ void tst1()
 	FILE *fp=fopen(fname, "w");
 	fprintf(fp, "#include \"opentv_string_decoder.h\"\n");
 	fprintf(fp, "#include \"opentv_huffman.h\"\n");
-	fprintf(fp, "huff_data_t sky_uk_single_data={%d, {\n", key_shift);
+	fprintf(fp, "huff_data_t sky_uk_single_data={{:d}, {\n", key_shift);
 
 	for(auto& e: table.entries) {
 		if(e.num_bits<=16)
 			continue;
 		ss::string<128> out(e.data, e.data_len);
-		fprintf(fp, "{0x%08x, %d, %d, \"", e.code, e.num_bits, out.size());
+		fprintf(fp, "{0x%08x, {:d}, {:d}, \"", e.code, e.num_bits, out.size());
 		fprintf_escaped(fp, out);
 		fprintf(fp, "\"},\n");
 	}
 	fprintf(fp, "}};\n");
 	fclose(fp);
 }
+#endif
 
+#if 0
 __attribute__((optnone))
 void tst()
 {
 	static int ttt{0};
 	ttt++;
 	char fname[128];
-	sprintf(fname, "/tmp/code%d.c", ttt);
+	sprintf(fname, "/tmp/code{:d}.c", ttt);
 	uint16_t xcode;
 	int max_len=0;
 	int max_num_codes=0;
@@ -240,11 +243,11 @@ void tst()
 			((xcode >> (16- first_num_bits))<<(16-first_num_bits)) |
 			(end_of_string_code >> first_num_bits);
 		if(out.size() >= sizeof(multi_huff_entry_t::data.i)) {
-			fprintf(fp, "{%d, %d, 0x%04x, {.p=\"", num_bits, out.size(), prefix_code);
+			fprintf(fp, "{{:d}, {:d}, 0x%04x, {.p=\"", num_bits, out.size(), prefix_code);
 			fprintf_escaped(fp, out);
 			fprintf(fp, "\"}},\n");
 		} else {
-			fprintf(fp, "{%d, %d, 0x%04x, \"", num_bits, out.size(), prefix_code);
+			fprintf(fp, "{{:d}, {:d}, 0x%04x, \"", num_bits, out.size(), prefix_code);
 			fprintf_escaped(fp, out);
 			fprintf(fp, "\"},\n");
 		}
@@ -253,7 +256,8 @@ void tst()
 		max_len =std::max(out.size(), max_len);
 	}
 	fprintf(fp, "};\n");
-	printf("max len=%d\n", max_len);
+	printf("max len={:d}\n", max_len);
 	fclose(fp);
 	tst1();
 }
+#endif

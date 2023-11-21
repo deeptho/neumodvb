@@ -93,12 +93,9 @@ namespace std {
 	};
 }
 
-
-std::ostream& operator<<(std::ostream& os, const milliseconds_t& a);
 template <> struct fmt::formatter<milliseconds_t> {
-		inline constexpr auto parse(format_parse_context& ctx) -> format_parse_context::iterator {
-			return ctx.begin();
-		}
-
-	auto format(const milliseconds_t& a, format_context& ctx) const -> format_context::iterator;
+	inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) {
+		return ctx.begin();
+	}
+	format_context::iterator format(const milliseconds_t&, format_context& ctx) const ;
 };

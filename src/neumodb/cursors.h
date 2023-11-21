@@ -256,7 +256,7 @@ struct db_txn : public lmdb::txn {
 
 	~db_txn() {
 		if (num_cursors!=0)
-			dterrorx("Implementation error: Transaction ends while cursors are still active: %d", num_cursors);
+			dterrorf("Implementation error: Transaction ends while cursors are still active: {}", num_cursors);
 		assert(num_cursors==0);
 	}
 };
@@ -359,7 +359,7 @@ struct db_cursor : private lmdb::cursor {
 		auto old_size = key_prefix.size();
 		key_prefix = key_prefix_;
 		if(was_valid && old_size>0 && !is_valid()) {
-			dterrorx("Implementation error: changed key_prefix invalidates current record");
+			dterrorf("Implementation error: changed key_prefix invalidates current record");
 			assert(0);
 		}
 	}

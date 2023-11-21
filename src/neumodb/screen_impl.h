@@ -325,16 +325,13 @@ bool screen_t<record_t>::update_if_matches(db_txn& from_txn, 	function_view<bool
 			//using namespace epgdb;
 			//using namespace recdb;
 		c.get_value(record);
-		ss::string<32> rec_check;  to_str(rec_check, record);
-		printf("BAD from_txn=%ld %s ref_row=%d\n", txnid_check, rec_check.c_str(), monitor.reference.row_number);
+		ss::string<32> rec_check;
+		rec_check.format("{}", record);
+		printf("BAD from_txn=%ld %s ref_row={:d}\n", txnid_check, rec_check.c_str(), monitor.reference.row_number);
 #endif
 
 			continue; //we do not need this record (e.g., epg for wrong service
 		}
-		//c.get_value(record);
-
-		//printf ("SEC[%ld]  ", txnid_check);print_hex(x);
-		//printf ("PRIM[%ld] ", txnid_check);print_hex(primary_key);
 
 		if(!has_been_deleted) {
 			auto found = c.get_value(record);
@@ -346,8 +343,9 @@ bool screen_t<record_t>::update_if_matches(db_txn& from_txn, 	function_view<bool
 			count++;
 #ifdef DEBUG_PRINT
 
-		ss::string<32> rec_check;  to_str(rec_check, record);
-				printf("from_txn=%ld %s ref_row=%d\n", txnid_check, rec_check.c_str(), monitor.reference.row_number);
+		ss::string<32> rec_check;
+		rec_check.format("{}", record);
+		printf("from_txn=%ld %s ref_row={:d}\n", txnid_check, rec_check.c_str(), monitor.reference.row_number);
 #endif
 		} else {
 				delete_screen_record(to_cursor, primary_key);
@@ -355,7 +353,7 @@ bool screen_t<record_t>::update_if_matches(db_txn& from_txn, 	function_view<bool
 		}
 	}
 #if 0
-	printf("result: txn=%d -> %d changed=%d moved=%d resized=%d\n",
+	printf("result: txn={:d} -> {:d} changed={:d} moved={:d} resized={:d}\n",
 				 monitor.txn_id,  from_txn.txn_id(),
 				 monitor.state.screen_content_changed, monitor.state.content_moved,
 				 old_list_size != list_size);
@@ -560,7 +558,7 @@ int screen_t<record_t>::set_reference(int row_number)
 
 	int count= reference->row_number;
 	if(std::abs(row_number - count)>=large_jump_threshold) {
-		dtdebugx("LARGE JUMP: %d -> %d aux=%d\n",  count, row_number, reference == &monitor.auxiliary_reference);
+		dtdebugf("LARGE JUMP: {} -> {} aux={}",  count, row_number, reference == &monitor.auxiliary_reference);
 	}
 	if(row_number >= count) {
 		for(;c.is_valid(); c.next()) {

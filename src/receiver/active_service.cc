@@ -60,7 +60,6 @@
 #include "streamparser/packetstream.h"
 #include "streamparser/si.h"
 
-
 active_service_t::active_service_t
 (
 	receiver_t& receiver,
@@ -111,19 +110,19 @@ void active_service_t::close() {
 int active_service_t::deactivate() {
 	log4cxx::NDC(name());
 	int ret = 0;
-	dtdebugx("deactivate service");
+	dtdebugf("deactivate service");
 	if (registered_scam) {
 		auto& scam_thread = receiver.scam_thread;
 		auto future = scam_thread.push_task(
 				[this, &scam_thread]() { return cb(scam_thread).unregister_active_service(this, get_adapter_no()); });
-		dtdebugx("deactivate stream");
+		dtdebugf("deactivate stream");
 		ret = active_stream_t::deactivate();
 		future.wait(); // must be synchronous or problems will occur
-		dtdebugx("scam_thread unregister_active_service done");
+		dtdebugf("scam_thread unregister_active_service done");
 		registered_scam = false;
 	} else
 		ret = active_stream_t::deactivate();
-	dtdebugx("deactivate service done");
+	dtdebugf("deactivate service done");
 	return ret;
 }
 
@@ -186,13 +185,13 @@ playback_info_t active_service_t::get_current_program_info() const {
  */
 void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
 	using namespace dtdemux;
-	dtdebug(pmt);
+	dtdebugf("{}", pmt);
 	have_pmt = true;
 	pmt_is_encrypted = false;
 
 	if (pmt.service_id != current_service.k.service_id) {
 		// This can happen according to the dvb specs
-		dtdebugx("received pmt for wrong service_id: pid=%d service_id=%d!=%d", pmt.pmt_pid, pmt.service_id,
+		dtdebugf("received pmt for wrong service_id: pid={:d} service_id={:d}!={:d}", pmt.pmt_pid, pmt.service_id,
 						 current_service.k.service_id);
 		return;
 	}
@@ -253,7 +252,7 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 	}
 
 	if (isnext) {
-		dtdebugx("Unhandled PMT NEXT: service=%d", pmt.service_id);
+		dtdebugf("Unhandled PMT NEXT: service={:d}", pmt.service_id);
 		return;
 	}
 	int old_size = open_pids.size(); //
@@ -382,8 +381,10 @@ void active_service_t::housekeeping(system_time_t now) {
 int service_thread_t::run() {
 
 	ss::string<128> ch_prefix;
-	ch_prefix << "CH[" << active_service.get_adapter_no() << ":" << active_service.current_service.k.service_id << "]"
-						<< active_service.current_service.name;
+	ch_prefix.format("CH[{}:{}] {}", (int)active_service.get_adapter_no(),
+									 (int)active_service.current_service.k.service_id,
+									 (const char*)active_service.current_service.name.c_str());
+
 	char name[16];
 	snprintf(name, 16, "%s", ch_prefix.c_str());
 	name[15] = 0;
@@ -437,7 +438,7 @@ int service_thread_t::run() {
 
 void active_service_t::restart_decryption(uint16_t ecm_pid, system_time_t t) {
 	std::scoped_lock lck(mutex);
-	dtdebugx("Restart decryption for pid %d", ecm_pid);
+	dtdebugf("Restart decryption for pid {:d}", ecm_pid);
 	if (current_pmt.is_ecm_pid(ecm_pid)) {
 		/*set a flag indicating that decryption was interrupted,
 			while locking a mutex
@@ -606,8 +607,7 @@ active_service_t::start_recording(subscription_id_t subscription_id, const recdb
 
 	if((int)subscription_id < 0 && receiver.global_subscriber) {
 		ss::string<256> msg;
-		msg  << "Could not start recording: " << rec_in.epg.event_name << "\n" << rec_in.service.name  << "\n";
-		msg << get_error();
+		msg.format("Could not start recording: {}\n{}\n{}", rec_in.epg.event_name, rec_in.service.name, get_error());
 		receiver.global_subscriber->notify_error(msg);
 	}
 	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas

@@ -22,9 +22,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "devdb_private.h"
-#include "stackstring/ssaccu.h"
 #include "util/dtassert.h"
-//#include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
 #include <signal.h>
@@ -128,7 +126,7 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 		if( !fe::is_subscribed(fe))
 			continue;
 		if(fe.sub.owner != s.owner && kill((pid_t)fe.sub.owner, 0)) {
-			dtdebugx("process pid=%d has died", fe.sub.owner);
+			dtdebugf("process pid={} has died", fe.sub.owner);
 			continue;
 		}
 		/* at this point, fe is known to be subscribed*/
@@ -292,7 +290,7 @@ fe::find_best_fe_for_lnb(
 			s.rf_coupler_id = lnb_connection.rf_coupler_id;
 			auto use_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner);
 			if(!use_counts_) {
-				dtdebugx("Cannot use this fe because of resource conflicts");
+				dtdebugf("Cannot use this fe because of resource conflicts");
 				continue;
 			}
 			auto use_counts = *use_counts_;
@@ -391,7 +389,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		if(required_rf_path && ! has_network) {
 			chdb::sat_t sat;
 			sat.sat_pos = mux.k.sat_pos;
-			user_error("LNB  " << lnb << ": LNB has no network to tune to sat " << sat);
+			user_errorf("LNB  {}: LNB has no network to tune to sat {}", lnb, sat);
 			break;
 		}
 
@@ -448,7 +446,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 				rtxn, rf_path, lnb, fe_key_to_release, need_blindscan, need_spectrum,
 				need_multistream, pol, band, usals_pos, ignore_subscriptions);
 			if(!fe_and_use_counts) {
-				dtdebug("LNB " << lnb << " cannot be used");
+				dtdebugf("LNB {} cannot be used", lnb);
 				continue;
 			}
 			auto& [fe, use_counts ] = *fe_and_use_counts;
@@ -483,12 +481,12 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		if(required_rf_path && ! best_fe) {
 			chdb::sat_t sat;
 			sat.sat_pos = mux.k.sat_pos;
-			user_error("LNB  " << lnb << ": no suitable connection to tune to sat " << sat);
+			user_errorf("LNB {} : no suitable connection to tune to sat {}", lnb, sat);
 			break;
 		}
 	}
 	if(!best_fe && !required_rf_path)
-		user_error("Could not find find available lnb, frontend or tuner for mux " << mux);
+		user_errorf("Could not find find available lnb, frontend or tuner for mux {}", mux);
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }
 
@@ -524,7 +522,7 @@ bool devdb::fe::is_subscribed(const fe_t& fe) {
 	if (fe.sub.owner < 0)
 		return false;
 	if( kill((pid_t)fe.sub.owner, 0)) {
-		dtdebugx("process pid=%d has died", fe.sub.owner);
+		dtdebugf("process pid={:d} has died", fe.sub.owner);
 		return false;
 	}
 	return true;

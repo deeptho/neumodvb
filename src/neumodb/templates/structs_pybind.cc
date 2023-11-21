@@ -26,6 +26,22 @@ namespace py = pybind11;
 #include "neumodb/{{dbname}}/{{dbname}}_db.h"
 #include "neumodb/{{dbname}}/{{dbname}}_extra.h"
 
+#ifndef ISF_INCLUDED
+#define ISF_INCLUDED
+//helper function to provide standard repr for all undefined structs
+template<typename T>
+inline std::string repr(const T&self, const char*name)
+{
+	if constexpr (fmt::is_formattable<T>::value) {
+		static_assert(fmt::is_formattable<T>::value);
+		return fmt::format("{}", self);
+	} else {
+		return fmt::format("{}[{:p}]", (void*)&self, name);
+	}
+}
+
+#endif
+
 
 namespace {{dbname}} {
 //forward declarations and data type helpers
@@ -52,7 +68,7 @@ namespace {{dbname}} {
 		.def("has_same_key", &{{struct.class_name}}::has_same_key)
 		{% endif %}
 		.def("copy", [](const {{struct.class_name}}& self){ return self;})
-    .def("__repr__", [](const {{struct.class_name}}& self){ auto x = to_str(self); return std::string(x.c_str());})
+    .def("__repr__", [](const {{struct.class_name}}& self){ return repr(self, "{{struct.class_name}}");})
     {%for f in struct.fields %}
 		{%if f.is_string %}
 		.def_property("{{f.name}}",

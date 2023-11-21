@@ -160,7 +160,7 @@ void dbdesc_t::init(const all_schemas_t& all_sw_schemas) {
 	index_map.clear();
 	for (const auto& a : all_sw_schemas) {
 		if(this->schema_version >=0 && this->schema_version != a.schema_version) {
-			dterrorx("All schemas of all databases should have the same version but found versions %d and %d\n",
+			dterrorf("All schemas of all databases should have the same version but found versions {:d} and {:d}",
 							 this->schema_version, a.schema_version);
 		}
 		this->schema_version = std::max(this->schema_version, a.schema_version);
@@ -177,7 +177,7 @@ void dbdesc_t::init(const all_schemas_t& all_sw_schemas) {
 					type_ids are defined by the code (they are not stored in thedata) and we could detect
 					to which database type (chdb, epgdb...) they relate
 				*/
-				dterrorx("several records have same  type_id 0x%x", sw_record_schema.type_id);
+				dterrorf("several records have same  type_id 0x{:x}", sw_record_schema.type_id);
 			}
 			for(const auto& index: sw_record_schema.indexes)
 				index_map.try_emplace(index.index_id, index);
@@ -282,12 +282,12 @@ bool check_schema(const dbdesc_t& stored, const dbdesc_t& current) {
 	for (const auto& [type_id, current_desc] : current.schema_map) {
 		auto* stored_desc = stored.schema_for_type(type_id);
 		if (!stored_desc) {
-			dtdebugx("No descriptor for type %ld in database\n", type_id);
+			dtdebugf("No descriptor for type {} in database\n", type_id);
 			ret = false;
 		} else {
 			if (*stored_desc != current_desc.record_desc) {
 				ret = false;
-				dtdebugx("type %ld has changed", type_id);
+				dtdebugf("type {} has changed", type_id);
 			}
 		}
 	}

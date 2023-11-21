@@ -91,7 +91,7 @@ int convert_db(neumodb_t& from_db, neumodb_t& to_db, unsigned int put_flags) {
 				if (type_id == data_types::data_type<schema::neumo_schema_t>()) {
 					dtdebug("schema record found");
 				} else {
-					dtdebugx("unrecognized type=0x%x", type_id);
+					dtdebugf("unrecognized type=0x{:x}", type_id);
 				}
 				continue;
 			}
@@ -229,13 +229,13 @@ void neumodb_t::open_(const char* dbpath, bool allow_degraded_mode, const char* 
 		*/
 		if (table_name) {
 			ss::string<16> name;
-			name.sprintf("%s_data", table_name);
+			name.format("{:s}_data", table_name);
 			dbi = lmdb::dbi(lmdb::dbi::open(txn, name.c_str(), MDB_CREATE));
 			name.clear();
-			name.sprintf("%s_index", table_name);
+			name.format("{:s}_index", table_name);
 			dbi_index = lmdb::dbi(lmdb::dbi::open(txn, name.c_str(), MDB_CREATE | MDB_DUPSORT));
 			name.clear();
-			name.sprintf("%s_log", table_name);
+			name.format("{:s}_log", table_name);
 			dbi_log = lmdb::dbi(lmdb::dbi::open(txn, name.c_str(), MDB_CREATE | MDB_DUPSORT));
 		} else {
 			dbi = lmdb::dbi(lmdb::dbi::open(txn, "data", MDB_CREATE));
@@ -244,7 +244,7 @@ void neumodb_t::open_(const char* dbpath, bool allow_degraded_mode, const char* 
 		}
 		txn.commit();
 	} catch (...) {
-		dterrorx("Fatal error opening lmdb database %s", dbpath);
+		dterrorf("Fatal error opening lmdb database {}", dbpath);
 		is_open_ = false;
 		return;
 	}
@@ -289,14 +289,14 @@ void neumodb_t::open_temp(const char* where, bool allow_degraded_mode, const cha
 		ss::string<256> templ{"/tmp/neumo.mdb.XXXXXX"};
 		char* path = mkdtemp(templ.c_str());
 		if (!path) {
-			dterrorx("mkdtemp %s failed: %s", templ.c_str(), strerror(errno));
+			dterrorf("mkdtemp {} failed: {}", templ.c_str(), strerror(errno));
 			return;
 		}
 		open(path, allow_degraded_mode, table_name, mapsize);
 		std::filesystem::remove_all(std::filesystem::path(path));
 		use_log = false;
 	} catch (...) {
-		dterrorx("Fatal error opening temporary lmdb database in %s", where);
+		dterrorf("Fatal error opening temporary lmdb database in {}", where);
 		is_open_ = false;
 		use_log = false;
 		assert(0);
@@ -314,17 +314,17 @@ void neumodb_t::open_secondary(const char* table_name, bool allow_degraded_mode)
 		// all data is stored in a single table, for simplicity
 		// all index data is stored in a separate table to allow duplicate secondary keys
 		ss::string<16> name;
-		name.sprintf("%s_data", table_name);
+		name.format("{:s}_data", table_name);
 		dbi = lmdb::dbi(lmdb::dbi::open(txn, name.c_str(), MDB_CREATE));
 		name.clear();
-		name.sprintf("%s_index", table_name);
+		name.format("{:s}_index", table_name);
 		dbi_index = lmdb::dbi(lmdb::dbi::open(txn, name.c_str(), MDB_CREATE | MDB_DUPSORT));
 		name.clear();
-		name.sprintf("%s_log", table_name);
+		name.format("{:s}_log", table_name);
 		dbi_log = lmdb::dbi(lmdb::dbi::open(txn, name.c_str(), MDB_CREATE | MDB_DUPSORT));
 		txn.commit();
 	} catch (...) {
-		dterrorx("Fatal error opening lmdb database %s", table_name);
+		dterrorf("Fatal error opening lmdb database {}", table_name);
 		is_open_ = false;
 		throw;
 	}
@@ -351,9 +351,9 @@ void neumodb_t::drop_table(bool del) {
 #if 0
 void print_schema(schema::neumo_schema_t& s) {
 	for (const auto& r : s.schema) {
-		printf("record: type=%d vers=%d num_fields=%d\n", r.type_id, r.record_version, r.fields.size());
+		printf("record: type={:d} vers={:d} num_fields={:d}\n", r.type_id, r.record_version, r.fields.size());
 		for (const auto& i : r.fields) {
-			printf("   field: id=%d type=%d ser_size=%d type=%s name=%s\n", i.field_id, i.type_id, i.serialized_size,
+			printf("   field: id={:d} type={:d} ser_size={:d} type=%s name=%s\n", i.field_id, i.type_id, i.serialized_size,
 						 i.type.c_str(), i.name.c_str());
 		}
 	}
@@ -387,10 +387,10 @@ int neumodb_t::load_schema_(db_txn& txn) {
 		} else {
 			bool major_schema_change = current.schema_version	!= stored.schema_version;
 			if(major_schema_change) {
-				dtdebugx("%s: major database schema change from version %d to %d\n",
-								 db_type.c_str(), stored.schema_version, current.schema_version);
+				dtdebugf("{:s}: major database schema change from version {} to {}",
+								 db_type, stored.schema_version, current.schema_version);
 			} else {
-				dtdebugx("minor database schema change\n");
+				dtdebugf("minor database schema change\n");
 			}
 			schema_is_current = false;
 			/*
@@ -435,43 +435,6 @@ int neumodb_t::load_and_check_schema() {
 	use_dynamic_keys = saved_use_dynamic_keys;
 	return 0;
 }
-
-std::ostream& operator<<(std::ostream& os, field_matcher_t::match_type_t match_type) {
-	typedef field_matcher_t::match_type_t m_t;
-	switch (match_type) {
-	case m_t::EQ:
-		os << "EQ";
-		break;
-	case m_t::LEQ:
-		os << "LEQ";
-		break;
-	case m_t::GEQ:
-		os << "GEQ";
-		break;
-	case m_t::LT:
-		os << "LT";
-		break;
-	case m_t::GT:
-		os << "GT";
-		break;
-	case m_t::STARTSWITH:
-		os << "STARTSWITH";
-		break;
-	case m_t::CONTAINS:
-		os << "CONTAINS";
-		break;
-	default:
-		os << "???";
-		break;
-	}
-	return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const field_matcher_t& matcher) {
-	os << matcher.match_type << "(" << ((int)matcher.field_id) << ")";
-	return os;
-}
-
 
 #ifdef PURE_PYTHON
 ss::string<32>  data_types::typename_for_type_id(int32_t type_id)
@@ -538,3 +501,44 @@ ss::string<32>  data_types::typename_for_type_id(int32_t type_id)
 	return ret;
 }
 #endif
+
+
+fmt::format_context::iterator
+fmt::formatter<field_matcher_t::match_type_t>::format(
+	const field_matcher_t::match_type_t& match_type, format_context& ctx) const {
+	const char* p{nullptr};
+	typedef field_matcher_t::match_type_t m_t;
+	switch (match_type) {
+	case m_t::EQ:
+		p = "EQ";
+		break;
+	case m_t::LEQ:
+		p = "LEQ";
+		break;
+	case m_t::GEQ:
+		p = "GEQ";
+		break;
+	case m_t::LT:
+		p = "LT";
+		break;
+	case m_t::GT:
+		p = "GT";
+		break;
+	case m_t::STARTSWITH:
+		p = "STARTSWITH";
+		break;
+	case m_t::CONTAINS:
+		p = "CONTAINS";
+		break;
+	default:
+		p = "???";
+		break;
+	}
+	return fmt::format_to(ctx.out(), "{}", p);
+}
+
+fmt::format_context::iterator
+fmt::formatter<field_matcher_t>::format(
+	const field_matcher_t& matcher, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}({:d})", matcher.match_type, (int)matcher.field_id);
+}

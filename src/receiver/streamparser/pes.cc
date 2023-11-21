@@ -192,14 +192,14 @@ void h264_parser_t::parse_payload_unit() {
 		For any non-zero value, the larger the value, the more the importance of the NAL unit.
 	*/
 	if (nal_ref_idc > 0)
-		dtdebugx("Possible reference field: ref_idx=%d", nal_ref_idc);
+		dtdebugf("Possible reference field: ref_idx={:d}", nal_ref_idc);
 
 	if (nal_unit_type != NAL_AUD) { // Access unit delimiter
 		/*
 			See T-REC-H.264-201704-I!!PDF-E.pdf p. 92  figure 7-1
 			Either there is an access unit delimiter or a SEI at the start
 		*/
-		dtdebug_nicex("nal_unit_type!=NAL_AUD: 0x%x", nal_unit_type);
+		dtdebug_nicef("nal_unit_type!=NAL_AUD: 0x{:x}", nal_unit_type);
 		RETURN_ON_ERROR;
 	}
 	// NAL_AUD means  access_unit_delimiter_rbsp( )
@@ -225,7 +225,7 @@ void h264_parser_t::parse_payload_unit() {
 	// See http://yumichan.net/video-processing/video-compression/introduction-to-h264-2-sodb-vs-rbsp-vs-ebsp/
 	uint8_t rbsp = primary_pic_type & 0x1f;
 	if (rbsp != 0x10) { // 5 trailing bits; first should be 1; rest zero
-		dtdebugx("rbsp != 0x10: 0x%x", rbsp);
+		dtdebugf("rbsp != 0x10: 0x{:x}", rbsp);
 		THROW_BAD_DATA;
 	}
 	primary_pic_type >>= 5;
@@ -474,7 +474,7 @@ void pes_parser_t::unit_completed_cb() {
 
 	*/
 #if 0
-	dtdebugx("INDEX: %c: [%ld, %ld[", 	(char)current_unit_type, current_unit_start_bytepos,
+	dtdebugf("INDEX: %c: [{:d}, {:d}[", 	(char)current_unit_type, current_unit_start_bytepos,
 					 current_unit_end_bytepos);
 #endif
 	if (current_unit_type != stream_type::marker_t::illegal)
@@ -495,7 +495,7 @@ void dtdemux::audio_parser_t::parse_payload_unit() {
 		return;
 	on_pes_start();
 	if (pes_packet_len == 0) {
-		dterrorx("unexpected: pes_packet_len=0 in audio stream");
+		dterrorf("unexpected: pes_packet_len=0 in audio stream");
 	}
 	this->current_unit_type = stream_type::marker_t::pes_other;
 	this->skip(pes_packet_len - pes_header_data_len - 2 /*flags*/ - 1 /*pes_header_data_len*/);

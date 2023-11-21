@@ -34,7 +34,6 @@
 #include "dvbtext.h"
 #include "opentv_string_decoder.h"
 #include "psi_impl.h"
-//#include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
 
@@ -135,7 +134,7 @@ namespace dtdemux {
 		assert(bytes_read == payload.size());
 		// in this case, the test would be: len  4093
 		if (ret.len > 4096 - 3) {
-			dtdebugx("Bad section length: pid=0x%x table_id=0x%x len%d", ret.pid, ret.table_id, ret.len); // See p. 44
+			dtdebugf("Bad section length: pid=0x{:x} table_id=0x{:x} len{:d}", ret.pid, ret.table_id, ret.len); // See p. 44
 			THROW_BAD_DATA;
 			RETURN_ON_ERROR;
 		}
@@ -204,7 +203,7 @@ namespace dtdemux {
 		if (!is_stuffing) {
 			if (!parse_only_section_header && hdr.section_syntax_indicator &&
 					!crc_is_correct(payload)) { // CA sections may not have a crc!
-				dtdebugx("Skipping bad section (CRC error) pid=0x%x", pid);
+				dtdebugf("Skipping bad section (CRC error) pid=0x{:x}", pid);
 				THROW_BAD_DATA;
 				RETURN_ON_ERROR;
 			}
@@ -240,7 +239,7 @@ namespace dtdemux {
 */
 	void section_parser_t::unit_completed_cb() {
 #if 0
-		dtdebugx("INDEX: %c: [%ld, %ld[", 	(char)current_unit_type, current_unit_start_bytepos,
+		dtdebugf("INDEX: %c: [{:d}, {:d}[", 	(char)current_unit_type, current_unit_start_bytepos,
 						 current_unit_end_bytepos);
 #endif
 		if (current_unit_type == stream_type::marker_t::pat) {
@@ -393,7 +392,7 @@ void pat_parser_t::parse_payload_unit() {
 	log4cxx::NDC::push(" PAT");
 #if 0
 	if (completed_now)
-		dtdebugx("Parser completed");
+		dtdebugf("Parser completed");
 #endif
 	pat_services_t pat_services;
 	bool success = false;
@@ -402,7 +401,7 @@ void pat_parser_t::parse_payload_unit() {
 		section.skip(hdr.header_len); // already parsed
 		success = parse_pat_section(section, pat_services);
 		if (success && pat_services.entries.size() == 0) {
-			dtdebugx("empty pat (2)\n");
+			dtdebugf("empty pat (2)\n");
 			stored_section_t section(payload, hdr.pid);
 			section.skip(hdr.header_len); // already parsed
 			pat_services_t pat_services;
@@ -440,7 +439,7 @@ void nit_parser_t::parse_payload_unit() {
 	assert(!(must_process && badversion));
 	log4cxx::NDC::push(" NIT");
 	if (completed_now)
-		dtdebugx("Parser completed");
+		dtdebugf("Parser completed");
 	nit_network_t network;
 	bool success{false};
 	if (must_process || timedout) {
@@ -487,7 +486,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 		log4cxx::NDC::push(" SDT");
 #if 0
 		if (completed_now)
-			dtdebugx("Parser completed now");
+			dtdebugf("Parser completed now");
 #endif
 		sdt_services_t services;
 		bool success{false};
@@ -509,7 +508,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 	} else {
 		log4cxx::NDC::push(" BAT");
 		if (completed_now)
-			dtdebugx("Parser completed now");
+			dtdebugf("Parser completed now");
 		bouquet_t bouquet;
 		bool success{false};
 		if (must_process || timedout) {
@@ -519,7 +518,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 			success = parse_bat_section(section, bouquet);
 		}
 		if (success || timedout) {
-			dtdebugx("bat_cb bouquet=%d vers=%d sec=%d/%d done=%d timedout=%d\n", bouquet.bouquet_id,
+			dtdebugf("bat_cb bouquet={:d} vers={:d} sec={:d}/{:d} done={:d} timedout={:d}\n", bouquet.bouquet_id,
 						 hdr.version_number, hdr.section_number, hdr.last_section_number + 1, done, timedout);
 			subtable_info_t info{pid, true, hdr.table_id, hdr.version_number, hdr.last_section_number + 1, done, timedout};
 			auto must_reset = bat_section_cb(bouquet, info);
@@ -530,7 +529,7 @@ void sdt_bat_parser_t::parse_payload_unit() {
 			}
 		}
 		if (completed_now)
-			dtdebugx("Parser completed");
+			dtdebugf("Parser completed");
 	}
 	log4cxx::NDC::pop();
 }
@@ -552,7 +551,7 @@ void eit_parser_t::parse_payload_unit() {
 	bool completed_now = (section_type == section_type_t::LAST);
 	assert(!(must_process && badversion));
 	if (completed_now)
-		dtdebugx("Parser completed");
+		dtdebugf("Parser completed");
 	epg_t epg;
 	std::tie(epg.num_subtables_completed, epg.num_subtables_known) = parser_status.get_counts();
 
@@ -608,7 +607,7 @@ void eit_parser_t::parse_payload_unit() {
 	}
 #ifdef PRINTTIME
 	if(callback_count>0) {
-		dtdebug_nicex("PERF: %lfus per sec (%ld/%ld); %lfus per cb (%ld/%ld)\n",
+		dtdebug_nicex("PERF: {:f}us per sec ({:d}/{:d}); {:f}us per cb ({:d}/{:d})",
 									processing_delay/(double)processing_count, processing_delay, processing_count,
 									callback_delay/(double)callback_count, callback_delay, callback_count);
 	}
@@ -673,7 +672,7 @@ void mhw2_parser_t::parse_payload_unit() {
 	assert(!(must_process && badversion));
 	log4cxx::NDC::push(" MHW2C");
 	if (completed_now)
-		dtdebugx("Parser completed now");
+		dtdebugf("Parser completed now");
 
 	bool success{false};
 	dtdemux::reset_type_t must_reset{dtdemux::reset_type_t::NO_RESET};
@@ -723,13 +722,13 @@ void mhw2_parser_t::parse_payload_unit() {
 		if (must_reset == reset_type_t::ABORT)
 			parent.return_early();
 		else if (must_reset == reset_type_t::RESET) {
-			dtdebugx("MHW2C: requesting reset for table=%x-%d", hdr.table_id, hdr.table_id_extension);
+			dtdebugf("MHW2C: requesting reset for table={:x}-{:d}", hdr.table_id, hdr.table_id_extension);
 			parser_status.reset(hdr);
 		}
 	}
 
 	if (completed_now)
-		dtdebugx("Parser completed");
+		dtdebugf("Parser completed");
 
 	log4cxx::NDC::pop();
 }

@@ -135,7 +135,7 @@ uint32_t ts_substream_t::get_Golomb_UE(uint8_t& byte, int& startbit) {
 		}
 		b = byte & (1 << (startbit--));
 		if (leading_zero_bits > 32) {
-			dtdebugx("bad golomn UE: %x", byte_);
+			dtdebugf("bad golomn UE: {:x}", byte_);
 			throw_bad_data();
 		}
 	}
@@ -160,7 +160,7 @@ uint8_t ts_substream_t::get_start_code() {
 	if (current_ts_packet->is_encrypted()) {
 		// throw_encrypted_data(); already done in get_next_packet, but surpress error here
 	} else if ((code & 0xffffff00) != 0x00000100) {
-		dtdebugx("Bad start code 0x%x", code);
+		dtdebugf("Bad start code 0x{:x}", code);
 		throw_bad_data();
 	}
 	return code & 0xff;
@@ -214,7 +214,7 @@ uint8_t ts_substream_t::get_nalu_start_code() {
 	if (code == 1) {								 // 00 00 00 01
 		uint8_t code = get<uint8_t>(); // first byte of nal unit
 		if (code & 0x80) {						 // test for forbidden_zero_bit
-			dtdebugx("Not a nalu start code: 0x%x", code);
+			dtdebugf("Not a nalu start code: 0x{:x}", code);
 			throw_bad_data();
 		}
 		return code;
@@ -222,7 +222,7 @@ uint8_t ts_substream_t::get_nalu_start_code() {
 	if ((code & 0xffffff00) != 0x00000100) {
 		// first three bytes must be 0x 00 00 01
 		// last byte is the code
-		dtdebugx("Not a nalu start code 0x%x", code);
+		dtdebugf("Not a nalu start code 0x{:x}", code);
 		throw_bad_data();
 	}
 	return code & 0xff;
@@ -313,7 +313,7 @@ bool ts_substream_t::process_packet_header(ts_packet_t* p) {
 			if (!current_ts_packet->get_is_discontinuity() &&!is_duplicate) {
 				this->wait_for_unit_start = true; // p. 39 iso13818-1: pes packets cannot be interruped by discontinuity
 				this->continuity_errors++;				// discontinuities are not errors if they are signalled
-				dterrorx("[%d] stream error count=%ld: expected_cc=%d cc=%d payload=%d", current_ts_packet->get_pid(),
+				dterrorf("[{:d}] stream error count={:d}: expected_cc={:d} cc={:d} payload={:d}", current_ts_packet->get_pid(),
 								 this->continuity_errors, expected_cc, current_ts_packet->get_continuity_counter(),
 								 current_ts_packet->has_payload());
 				throw_bad_data();
@@ -366,7 +366,7 @@ void ts_stream_t::register_audio_pids(int service_id, int audio_pid, int pcr_pid
 	*/
 	assert(pcr_pid == audio_pid);
 	if (this->pcr_pid == pcr_pid && this->pcr_stream_type == stream_type) {
-		dtdebugx("Parser for pid %d already registered (reusing)\n", pcr_pid);
+		dtdebugf("Parser for pid {:d} already registered (reusing)\n", pcr_pid);
 		return;
 	}
 
@@ -398,7 +398,7 @@ void ts_stream_t::register_video_pids(int service_id, int video_pid, int pcr_pid
 		@todo: how do we end this parser?
 	*/
 	if (this->pcr_pid == pcr_pid && this->pcr_stream_type == stream_type) {
-		dtdebugx("Parser for pid %d already registered (reusing)\n", pcr_pid);
+		dtdebugf("Parser for pid {:d} already registered (reusing)\n", pcr_pid);
 		return;
 	}
 

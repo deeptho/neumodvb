@@ -74,9 +74,7 @@ namespace dtdemux {
 		void check_pcr_play_time() {
 			auto ret= (last_pcr -ref_pcr).milliseconds() + ref_offset;
 			if(!(ret>= last_pcr_play_time)) {
-				dterror("ASSERT "
-								<< " ret=" << ret
-								<< " last_pcr_play_time=" << last_pcr_play_time);
+				dterrorf("ASSERT ret={} last_pcr_play_time={}", ret, last_pcr_play_time);
 			}
 			assert (ret>= last_pcr_play_time);
 		}

@@ -22,8 +22,6 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/devdb/devdb_extra.h"
 #include "receiver/neumofrontend.h"
-#include "stackstring/ssaccu.h"
-#include "xformat/ioformat.h"
 #include "util/template_util.h"
 #include <signal.h>
 #include <iomanip>
@@ -134,7 +132,7 @@ static void make_mux_id_helper(db_txn& rtxn, int frequency, mux_key_t& mux_key) 
 		if(mux_id==0)
 			mux_id++;
 		if(count>=10000) {
-			dterrorx("Unpected: ran out of ids\n");
+			dterrorf("Unexpected: ran out of ids\n");
 			return;
 		}
 	}
@@ -292,7 +290,7 @@ void chdb::remove_services(db_txn& wtxn, const mux_key_t& mux_key) {
 template <typename mux_t>
 void merge_muxes(mux_t& mux, const mux_t& db_mux, update_mux_preserve_t::flags preserve) {
 	namespace m = update_mux_preserve_t;
-	dtdebug("db_mux=" << db_mux << "-> mux=" << mux);
+	dtdebugf("db_mux={}-> mux={}", db_mux, mux);
 	assert((mux.c.scan_status != chdb::scan_status_t::ACTIVE &&
 					mux.c.scan_status != chdb::scan_status_t::PENDING) ||
 				 mux.c.scan_id >0);
@@ -333,8 +331,8 @@ void merge_muxes(mux_t& mux, const mux_t& db_mux, update_mux_preserve_t::flags p
 					 mux.c.scan_id >0);
 
 	}
-	dtdebug("after merge db_mux=" << db_mux << " mux=" << mux << "->"
-					<< " preserve&SCAN_STATUS=" << (preserve & m::SCAN_STATUS));
+	dtdebugf("after merge db_mux={} mux={} preserve&SCAN_STATUS={}", db_mux, mux,
+					 (preserve & m::SCAN_STATUS));
 
 
 	if (preserve & m::NUM_SERVICES)
@@ -410,7 +408,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 					|| mux_common.tune_src == tune_src_t::AUTO
 					|| mux_common.tune_src == tune_src_t::DRIVER)
 			 )) {
-		dterrorx("detected incorrect tune_src=%d\n", (int) mux_common.tune_src);
+		dterrorf("detected incorrect tune_src={:d}\n", (int) mux_common.tune_src);
 	}
 #endif
 	/*a template mux with mux.k.stream_id==-1 can mean two things: 1) user wants to tune to a SIS stream
@@ -481,8 +479,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 		}
 		//dtdebug("db_mux=" << db_mux << " mux=" << mux << " status=" << (int)db_mux.c.scan_status << "/" << (int)mux.c.scan_status);
 
-		dtdebugx("Transponder %s: sat_pos=%d => %d; mux_id=%d => %d; stream_id=%d => %d; t2mi_pid=%d =< %d",
-						 to_str(merged_mux).c_str(),
+		dtdebugf("Transponder {}: sat_pos={:d} => {:d}; mux_id={:d} => {:d}; stream_id={:d} => {:d}; t2mi_pid={:d} =< {:d}",
+						 merged_mux,
 						 db_mux.k.sat_pos, merged_mux.k.sat_pos,
 						 db_mux.k.mux_id, merged_mux.k.mux_id,
 						 db_mux.k.stream_id, merged_mux.k.stream_id,
@@ -517,11 +515,11 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 		*/
 		mux_to_save.c.mtime = now;
 
-		dtdebugx("NIT %s: old=%s new=%s #s=%d", is_new ? "NEW" : "CHANGED", to_str(db_mux).c_str(), to_str(mux_to_save).c_str(),
+		dtdebugf("NIT {}: old={} new={} #s={:d}", is_new ? "NEW" : "CHANGED", db_mux, mux_to_save,
 						 mux_to_save.c.num_services);
 		assert(mux_to_save.frequency > 0);
 
-		dtdebug("mux=" << mux_to_save);
+		dtdebugf("mux={}", mux_to_save);
 		assert(mux_to_save.k.mux_id > 0);
 		assert(!is_template(mux_to_save));
 #if 0
@@ -556,137 +554,96 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_tim
 
 void chdb::sat_pos_str(ss::string_& s, int position) {
 	if (position == sat_pos_dvbc) {
-		s.sprintf("DVBC");
+		s.format("DVBC");
 	} else if (position == sat_pos_dvbt) {
-		s.sprintf("DVBT");
+		s.format("DVBT");
 	} else if (position == sat_pos_none) {
-		s.sprintf("----");
+		s.format("----");
 	} else {
 		auto fpos = std::abs(position) / (double)100.;
-		s.sprintf("%3.1f%c", fpos, position < 0 ? 'W' : 'E');
+		s.format("{:3.1f}{:c}", fpos, position < 0 ? 'W' : 'E');
 	}
 }
 
 void chdb::matype_str(ss::string_& s, int16_t matype, int rolloff) {
 	// See en 302 307 v1.1.2; stid135 manual seems wrong in places
 	// en_302307v010201p_DVBS2.pdf
-	//s.sprintf("0x%x ", matype);
 	bool is_ts{false};
 	if( matype == 256 ) { //dvbs
-		s.sprintf("DVBS");
+		s.format("DVBS");
 		return;
 	}
 	if(matype <0) {
-		s.sprintf("");
+		s.format("");
 		return;
 	}
-	//s.sprintf("0x%x: ", matype);
 	if( matype <0 ) { //not tuned yet; matype unknown
-		s.sprintf("");
+		s.format("");
 		return;
 	}
 	switch (matype >> 6) {
 	case 0:
-		s.sprintf("GFP "); ///generic packetised stream
+		s.format("GFP "); ///generic packetised stream
 		break;
 	case 1:
-		s.sprintf("GCS "); //generic continuous stream
+		s.format("GCS "); //generic continuous stream
 		break;
 	case 2:
-		s.sprintf("GSE "); //generic encapsulated stream
+		s.format("GSE "); //generic encapsulated stream
 		break;
 	case 3:
-		s.sprintf("TS "); //transport stream
+		s.format("TS "); //transport stream
 		is_ts=true;
 		break;
 #if 0
 	case 4:
-		s.sprintf("GSEL "); //GSE Lite
+		s.format("GSEL "); //GSE Lite
 		break;
 #endif
 	}
 
 	if ((matype >> 5) & 1)
-		s.sprintf("SIS ");
+		s.format("SIS ");
 	else
-		s.sprintf("MIS ");
+		s.format("MIS ");
 
 	if ((matype >> 4) & 1)
-		s.sprintf("CCM ");
+		s.format("CCM ");
 	else
-		s.sprintf("VCM ");
+		s.format("VCM ");
 	if ((matype >> 3) & 1)
-		s.sprintf("ISSYI ");
+		s.format("ISSYI ");
 
 	if ((matype >> 2) & 1)
-		s.sprintf(is_ts? "NPD ": "Lite ");
+		is_ts ? s.format("NPD ") : s.format("Lite ");
 	if(rolloff>=0) {
 		switch((fe_rolloff) rolloff) {
-		case 	ROLLOFF_35: s.sprintf("35%%"); break;
-		case 	ROLLOFF_20: s.sprintf("20%%"); break;
-		case 	ROLLOFF_25: s.sprintf("25%%"); break;
-		case 	ROLLOFF_LOW: s.sprintf("low%%"); break;
-		case 	ROLLOFF_15: s.sprintf("15%%"); break;
-		case 	ROLLOFF_10: s.sprintf("10%%"); break;
-		case 	ROLLOFF_5: s.sprintf("5%%"); break;
+		case 	ROLLOFF_35: s.format("35%"); break;
+		case 	ROLLOFF_20: s.format("20%"); break;
+		case 	ROLLOFF_25: s.format("25%"); break;
+		case 	ROLLOFF_LOW: s.format("low%"); break;
+		case 	ROLLOFF_15: s.format("15%"); break;
+		case 	ROLLOFF_10: s.format("10%"); break;
+		case 	ROLLOFF_5: s.format("5%"); break;
 		default:
-			s.sprintf("??"); break;
+			s.format("??"); break;
 		}
 	} else {
 		switch (matype & 3) {
 		case 0:
-			s.sprintf("35%%");
+			s.format("35%");
 			break;
 		case 1:
-			s.sprintf("25%%");
+			s.format("25%");
 			break;
 		case 2:
-			s.sprintf("20%%");
+			s.format("20%");
 			break;
 		case 3:
-			s.sprintf("LO"); //low rollof (requires inspection of multiple bbframes)
+			s.format("LO"); //low rollof (requires inspection of multiple bbframes)
 			break;
 		}
 	}
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, tune_src_t tune_src) {
-	switch(tune_src) {
-	case tune_src_t::TEMPLATE:  os << "tmpl"; break;
-	case tune_src_t::NIT_TUNED:  os << "nit"; break;
-	case tune_src_t::NIT_CORRECTED:  os << "nitc"; break;
-	case tune_src_t::NIT_ACTUAL: os << "nita"; break;
-	case tune_src_t::NIT_OTHER:  os << "nito"; break;
-	case tune_src_t::DRIVER:     os << "drv"; break;
-	case tune_src_t::USER:       os << "user"; break;
-	case tune_src_t::AUTO:       os << "auto"; break;
-	case tune_src_t::UNKNOWN:    os << "unk"; break;
-	default:
-		os << (int) tune_src;
-	}
-	return os;
-}
-
-
-std::ostream& chdb::operator<<(std::ostream& os, key_src_t key_src) {
-	switch(key_src) {
-	case  key_src_t::NONE:  os << "none"; break;
-	case key_src_t::NIT_TUNED:  os << "nit"; break;
-	case key_src_t::SDT_TUNED: os << "sdt"; break;
-	case key_src_t::PAT_TUNED: os << "pat"; break;
-	case key_src_t::NIT_ACTUAL:  os << "nita"; break;
-	case key_src_t::NIT_OTHER:  os << "nito"; break;
-	case key_src_t::SDT_OTHER:  os << "sdto"; break;
-	case key_src_t::USER:       os << "user"; break;
-	case key_src_t::AUTO:       os << "auto"; break;
-	}
-	return os;
-}
-
-
-std::ostream& chdb::operator<<(std::ostream& os, const language_code_t& code) {
-	os << lang_name(code);
-	return os;
 }
 
 inline static const char* scan_status_name(const chdb::scan_status_t& scan_status) {
@@ -728,190 +685,6 @@ inline static const char* scan_result_name(const chdb::scan_result_t& scan_resul
 	case scan_result_t::DISABLED:
 		return "DISABLED";
 	}
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const scan_status_t& scan_status) {
-	os << scan_status_name(scan_status);
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const scan_result_t& scan_result) {
-	os << scan_result_name(scan_result);
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const sat_t& sat) {
-	if (sat.sat_pos == sat_pos_dvbc) {
-		stdex::printf(os, "DVBC");
-	} else if (sat.sat_pos == sat_pos_dvbt) {
-		stdex::printf(os, "DVBT");
-	} else if (sat.sat_pos == sat_pos_dvbs) {
-		stdex::printf(os, "DVBS");
-	} else if (sat.sat_pos == sat_pos_none) {
-		stdex::printf(os, "----");
-	} else {
-		auto fpos = std::abs(sat.sat_pos) / (double)100.;
-		stdex::printf(os, "%3.1f%c", fpos, sat.sat_pos < 0 ? 'W' : 'E');
-	}
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const dvbs_mux_t& mux) {
-	//auto sat = sat_pos_str(mux.k.sat_pos);
-	stdex::printf(os, "%d.%03d%s", mux.frequency / 1000, mux.frequency%1000, enum_to_str(mux.pol));
-	if (mux.k.stream_id >= 0)
-		stdex::printf(os, "-%d", mux.k.stream_id);
-	if (mux.k.t2mi_pid >= 0)
-		stdex::printf(os, "-T%d", mux.k.t2mi_pid);
-	stdex::printf(os, " ");
-	os << mux.k;
-#if 1
-	stdex::printf(os, " %s/%s", scan_status_name(mux.c.scan_status), scan_result_name(mux.c.scan_result));
-#endif
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const dvbc_mux_t& mux) {
-	if (mux.frequency % 1000 == 0)
-		stdex::printf(os, " DVB-C %dMHz", mux.frequency / 1000);
-	else
-		stdex::printf(os, " DVB-C %.3fMHz", mux.frequency / (float)1000);
-	if (mux.k.stream_id >= 0)
-		stdex::printf(os, " stream %d", mux.k.stream_id);
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const dvbt_mux_t& mux) {
-	if (mux.frequency % 1000 == 0)
-		stdex::printf(os, " DVB-T %dMHz", mux.frequency / 1000);
-	else
-		stdex::printf(os, " DVB-T %.3fMHz", mux.frequency / (float)1000);
-	if (mux.k.stream_id >= 0)
-		stdex::printf(os, " stream %d", mux.k.stream_id);
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const any_mux_t& mux) {
-	using namespace chdb;
-	visit_variant(mux,
-								[&](const chdb::dvbs_mux_t& mux) { os << mux;},
-								[&](const chdb::dvbc_mux_t& mux) { os << mux;},
-								[&](const chdb::dvbt_mux_t& mux) { os << mux;});
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const mux_key_t& k) {
-	auto sat = sat_pos_str(k.sat_pos);
-	os << sat;
-	stdex::printf(os, " - %d", k.mux_id);
-	if(k.stream_id >=0)
-		stdex::printf(os, "-%d", k.stream_id);
-	if (k.t2mi_pid >= 0)
-		stdex::printf(os, "-T%d", k.t2mi_pid);
-
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const service_t& service) {
-	auto s = sat_pos_str(service.k.mux.sat_pos);
-	stdex::printf(os, "[%5.5d] %d.%03d%s - %s", service.ch_order,
-								service.frequency / 1000, service.frequency%1000,
-								(service.pol == chdb::fe_polarisation_t::NONE) ? "" :
-								enum_to_str(service.pol), service.name.c_str());
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const service_key_t& k) {
-	auto s = sat_pos_str(k.mux.sat_pos);
-	stdex::printf(os, "%s ts=%d sid=%d", s.c_str(), k.ts_id, k.service_id);
-	if (k.mux.t2mi_pid >= 0)
-		stdex::printf(os, "-T%d", k.mux.t2mi_pid);
-
-	return os;
-}
-
-
-std::ostream& chdb::operator<<(std::ostream& os, const fe_polarisation_t& pol) {
-	stdex::printf(os, "%s", pol_str(pol));
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const chg_t& chg) {
-	stdex::printf(os, "[%d-%04d] %s", int(chg.k.group_type), chg.k.bouquet_id, chg.name.c_str());
-
-	return os;
-}
-
-std::ostream& chdb::operator<<(std::ostream& os, const chgm_t& chgm) {
-	stdex::printf(os, "[%04d:%04d] ", chgm.k.chg.bouquet_id, chgm.chgm_order);
-	os << chgm.service;
-	stdex::printf(os, " %s", chgm.name.c_str());
-	return os;
-}
-
-void chdb::to_str(ss::string_& ret, const sat_t& sat) {
-	ret.clear();
-	sat_pos_str(ret, sat.sat_pos);
-}
-
-void chdb::to_str(ss::string_& ret, const scan_status_t& scan_status) {
-	ret.clear();
-	ret << scan_status;
-}
-
-void chdb::to_str(ss::string_& ret, const language_code_t& code) {
-	ret.clear();
-	ret << code;
-}
-
-void chdb::to_str(ss::string_& ret, const dvbs_mux_t& mux) {
-	ret.clear();
-	ret << mux;
-}
-
-void chdb::to_str(ss::string_& ret, const dvbc_mux_t& mux) {
-	ret.clear();
-	ret << mux;
-}
-
-void chdb::to_str(ss::string_& ret, const dvbt_mux_t& mux) {
-	ret.clear();
-	ret << mux;
-}
-
-void chdb::to_str(ss::string_& ret, const any_mux_t& mux) {
-	ret.clear();
-	ret << mux;
-}
-
-void chdb::to_str(ss::string_& ret, const mux_key_t& k) {
-	ret.clear();
-	ret << k;
-}
-
-void chdb::to_str(ss::string_& ret, const service_t& service) {
-	ret.clear();
-	ret << service;
-}
-
-void chdb::to_str(ss::string_& ret, const chg_t& chg) {
-	ret.clear();
-	ret << chg;
-}
-
-void chdb::to_str(ss::string_& ret, const chgm_t& chgm) {
-	ret.clear();
-	ret << chgm;
-}
-
-void chdb::to_str(ss::string_& ret, tune_src_t tune_src) {
-	ret.clear();
-	ret << tune_src;
-}
-
-void chdb::to_str(ss::string_& ret, key_src_t key_src) {
-	ret.clear();
-	ret << key_src;
 }
 
 namespace chdb {
@@ -1413,3 +1186,166 @@ chdb::select_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 template void chdb::make_mux_id<chdb::dvbs_mux_t>(db_txn& rtxn, chdb::dvbs_mux_t& mux);
 template void chdb::make_mux_id<chdb::dvbc_mux_t>(db_txn& rtxn, chdb::dvbc_mux_t& mux);
 template void chdb::make_mux_id<chdb::dvbt_mux_t>(db_txn& rtxn, chdb::dvbt_mux_t& mux);
+
+
+fmt::format_context::iterator
+fmt::formatter<chdb::scan_status_t>::format(const chdb::scan_status_t& scan_status, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}", scan_status_name(scan_status));
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::scan_result_t>::format(const chdb::scan_result_t& scan_result, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}", scan_result_name(scan_result));
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::language_code_t>::format(const chdb::language_code_t& code, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}", lang_name(code));
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::sat_t>::format(const chdb::sat_t& sat, format_context& ctx) const {
+	if (sat.sat_pos == sat_pos_dvbc) {
+		return fmt::format_to(ctx.out(), "DVBC");
+	} else if (sat.sat_pos == sat_pos_dvbt) {
+		return fmt::format_to(ctx.out(), "DVBT");
+	} else if (sat.sat_pos == sat_pos_dvbs) {
+		return fmt::format_to(ctx.out(), "DVBS");
+	} else if (sat.sat_pos == sat_pos_none) {
+		return fmt::format_to(ctx.out(), "----");
+	} else {
+		auto fpos = std::abs(sat.sat_pos) / (double)100.;
+		return fmt::format_to(ctx.out(), "{:3.1f}{:c}", fpos, sat.sat_pos < 0 ? 'W' : 'E');
+	}
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::dvbs_mux_t>::format(const chdb::dvbs_mux_t& mux, format_context& ctx) const {
+	auto it = fmt::format_to(ctx.out(), "{:d}{:03d}{:s}", mux.frequency / 1000, mux.frequency%1000, enum_to_str(mux.pol));
+	if (mux.k.stream_id >= 0)
+		it = fmt::format_to(ctx.out(), "-{:d}", mux.k.stream_id);
+	if (mux.k.t2mi_pid >= 0)
+		it = fmt::format_to(ctx.out(), "-T{:d}", mux.k.t2mi_pid);
+	it = fmt::format_to(ctx.out(), " {} {}", mux.k, mux.c.tune_src);
+	it = fmt::format_to(ctx.out(), " {:s}/{:s}",
+											scan_status_name(mux.c.scan_status), scan_result_name(mux.c.scan_result));
+	return it;
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::dvbc_mux_t>::format(const chdb::dvbc_mux_t& mux, format_context& ctx) const {
+	auto it=ctx.out();
+	if (mux.frequency % 1000 == 0)
+		it = fmt::format_to(ctx.out(), " DVB-C {:d}MHz", mux.frequency / 1000);
+	else
+		it = fmt::format_to(ctx.out(), " DVB-C {:.3f}MHz", mux.frequency / (float)1000);
+	if (mux.k.stream_id >= 0)
+		it = fmt::format_to(ctx.out(), " stream {:d}", mux.k.stream_id);
+	return it;
+}
+
+
+fmt::format_context::iterator
+fmt::formatter<chdb::dvbt_mux_t>::format(const chdb::dvbt_mux_t& mux, format_context& ctx) const {
+	auto it = ctx.out();
+	if (mux.frequency % 1000 == 0)
+			it = fmt::format_to(ctx.out(), " DVB-T {:d}MHz", mux.frequency / 1000);
+	else
+		it = fmt::format_to(ctx.out(), " DVB-T {:.3f}MHz", mux.frequency / (float)1000);
+	if (mux.k.stream_id >= 0)
+		it = fmt::format_to(ctx.out(), " stream {:d}", mux.k.stream_id);
+	return it;
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::any_mux_t>::format(const chdb::any_mux_t& mux, format_context& ctx) const {
+	using namespace chdb;
+	auto ret = ctx.out();
+	std::visit([&ret,&ctx](auto&&mux) {
+		ret = fmt::format_to(ctx.out(), "{}", mux);
+	}, mux);
+	return ret;
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::mux_key_t>::format(const chdb::mux_key_t& k, format_context& ctx) const {
+	auto sat = sat_pos_str(k.sat_pos);
+	auto it = fmt::format_to(ctx.out(), "{} - {:d}", sat, k.mux_id);
+	if(k.stream_id >=0)
+		it = fmt::format_to(ctx.out(), "-{:d}", k.stream_id);
+	if (k.t2mi_pid >= 0)
+		it = fmt::format_to(ctx.out(), "-T{:d}", k.t2mi_pid);
+	return it;
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::service_key_t>::format(const chdb::service_key_t& k, format_context& ctx) const {
+	auto s = sat_pos_str(k.mux.sat_pos);
+	auto it = fmt::format_to(ctx.out(), "{:s} ts={:d} sid={:d}", s.c_str(), k.ts_id, k.service_id);
+	if (k.mux.t2mi_pid >= 0)
+		it =fmt::format_to(ctx.out(), "-T{:d}", k.mux.t2mi_pid);
+	return it;
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::service_t>::format(const chdb::service_t& service, format_context& ctx) const {
+	auto s = sat_pos_str(service.k.mux.sat_pos);
+	return fmt::format_to(ctx.out(),  "[{:>5d}] {:d}.{:03d}{:s} - {:s}", service.ch_order,
+												service.frequency / 1000, service.frequency%1000,
+												(service.pol == chdb::fe_polarisation_t::NONE) ? "" : enum_to_str(service.pol),
+												service.name.c_str());
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::fe_polarisation_t>::format(const chdb::fe_polarisation_t& pol, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}",  "{:s}", pol_str(pol));
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::chg_t>::format(const chdb::chg_t& chg, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "[{:d}-{:04d}] {:s}", int(chg.k.group_type), chg.k.bouquet_id, chg.name.c_str());
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::chgm_t>::format(const chdb::chgm_t& chgm, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "[{:04d}:{:04d}] {} {:s}", chgm.k.chg.bouquet_id, chgm.chgm_order, chgm.service,
+												chgm.name.c_str());
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::tune_src_t>::format(const chdb::tune_src_t& tune_src, format_context& ctx) const {
+	const char* p{nullptr};
+	switch(tune_src) {
+	case tune_src_t::TEMPLATE:  p="tmpl"; break;
+	case tune_src_t::NIT_TUNED:  p="nit"; break;
+	case tune_src_t::NIT_CORRECTED:  p="nitc"; break;
+	case tune_src_t::NIT_ACTUAL: p="nita"; break;
+	case tune_src_t::NIT_OTHER:  p="nito"; break;
+	case tune_src_t::DRIVER:     p="drv"; break;
+	case tune_src_t::USER:       p="user"; break;
+	case tune_src_t::AUTO:       p="auto"; break;
+	case tune_src_t::UNKNOWN:    p="unk"; break;
+	default:
+		return fmt::format_to(ctx.out(), "{}", (int) tune_src);
+	}
+	return fmt::format_to(ctx.out(), "{}", p);
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::key_src_t>::format(const chdb::key_src_t& key_src, format_context& ctx) const {
+	const char* p{nullptr};
+	switch(key_src) {
+	case  key_src_t::NONE:  p="none"; break;
+	case key_src_t::NIT_TUNED:  p="nit"; break;
+	case key_src_t::SDT_TUNED: p="sdt"; break;
+	case key_src_t::PAT_TUNED: p="pat"; break;
+	case key_src_t::NIT_ACTUAL:  p="nita"; break;
+	case key_src_t::NIT_OTHER:  p="nito"; break;
+	case key_src_t::SDT_OTHER:  p="sdto"; break;
+	case key_src_t::USER:       p="user"; break;
+	case key_src_t::AUTO:       p="auto"; break;
+		default:
+			assert(0);
+	}
+	return fmt::format_to(ctx.out(), "{}", p);
+}

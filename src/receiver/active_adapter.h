@@ -91,7 +91,7 @@ public:
 			return;
 		stamped = true;
 		first_pat_time = steady_clock_t::now();
-		dtdebugx("positioner stamp");
+		dtdebugf("positioner stamp");
 	}
 
 	void end() {
@@ -101,7 +101,7 @@ public:
 		auto end = stamped ? first_pat_time : steady_clock_t::now();
 		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start_time).count();
 		auto speed = std::abs(usals_pos_end - usals_pos_start)*10. /(double) dur;
-		dtdebugx("positioner moved from %d to %d in %ldms = %lf degree/s",
+		dtdebugf("positioner moved from {:d} to {:d} in %{:d}ms = {:f} degree/s",
 						 usals_pos_start, usals_pos_end, dur, speed);
 	}
 };

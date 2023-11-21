@@ -239,8 +239,6 @@ class playback_mpm_t : public mpm_t {
 
 public:
 	const subscription_id_t subscription_id;
-	active_service_t* active_service () const;
-
 
 private:
 	void find_current_pmts(int64_t bytepos);

@@ -21,11 +21,8 @@
 #include "epgdb_extra.h"
 #include "../chdb/chdb_extra.h"
 #include "fmt/chrono.h"
-#include "xformat/ioformat.h"
-//#include <iosfwd>
 #include "neumodb/db_keys_helper.h"
 #include "neumotime.h"
-#include "stackstring/ssaccu.h"
 
 using namespace epgdb;
 
@@ -68,7 +65,7 @@ void epgdb::clean(db_txn& txnepg, system_time_t start_time) {
 	}
 	auto t = dttime(-1);
 	txnepg.use_log = use_log;
-	dtdebugx("Cleaned epg: %d milliseconds", t);
+	dtdebugf("Cleaned epg: {} milliseconds", t);
 }
 
 /*compute duration of overlapping part between [a1,a2] and [b1,b2]
@@ -231,12 +228,12 @@ void epgdb::gridepg_screen_t::remove_service(const chdb::service_key_t& service_
 		if (e.service_key == service_key) {
 			bool del = 1;
 			if (e.epg_screen) {
-				dtdebug("GRID: remove epg for " << service_key);
+				dtdebugf("GRID: remove epg for {}", service_key);
 				e.epg_screen->drop_temp_table(del);
 				e.epg_screen.reset();
 				e.service_key = chdb::service_key_t();
 			} else {
-				dterror("GRID: attempting to remove non-existing epgscreen for " << service_key);
+				dterrorf("GRID: attempting to remove non-existing epgscreen for {}", service_key);
 			}
 		}
 	}
@@ -261,7 +258,7 @@ epgdb::epg_screen_t* epgdb::gridepg_screen_t::add_service(db_txn& txnepg, const 
 			std::shared_ptr<neumodb_t> new_tmpdb = std::make_shared<epgdb_t>(*tmpdb);
 			new_tmpdb->add_dynamic_key(dynamic_key_t(this->epg_sort_order));
 			ss::string<32> name;
-			name.sprintf("%p", new_tmpdb.get());
+			name.format("{:p}", fmt::ptr(new_tmpdb.get()));
 			new_tmpdb->open_secondary(name.c_str());
 			return new_tmpdb;
 		} else {
@@ -275,7 +272,7 @@ epgdb::epg_screen_t* epgdb::gridepg_screen_t::add_service(db_txn& txnepg, const 
 	for (auto& e : entries) {
 		if (e.epg_screen.get() == nullptr) {
 			e.service_key = service_key;
-			dtdebug("GRID: add epg for " << service_key);
+			dtdebugf("GRID: add epg for {}", service_key);
 			e.epg_screen = chepg_screen(txnepg,
 																	make_db(), epg_sort_order,
 																	service_key, start_time_
@@ -287,7 +284,7 @@ epgdb::epg_screen_t* epgdb::gridepg_screen_t::add_service(db_txn& txnepg, const 
 		}
 	}
 	auto& e = entries.emplace_back(service_key);
-	dterror("GRID: add epg for " << service_key);
+	dterrorf("GRID: add epg for {}", service_key);
 	e.epg_screen = chepg_screen(txnepg,
 															make_db(),
 															epg_sort_order,
@@ -299,41 +296,26 @@ epgdb::epg_screen_t* epgdb::gridepg_screen_t::add_service(db_txn& txnepg, const 
 	return e.epg_screen.get();
 }
 
-std::ostream& epgdb::operator<<(std::ostream& os, const epg_source_t& s) {
+fmt::format_context::iterator
+fmt::formatter<epg_source_t>::format(const epg_source_t& s, format_context& ctx) const
+{
 	auto sat = chdb::sat_pos_str(s.sat_pos);
-	stdex::printf(os, "%s - nid=%d tsid=%d %s[%d]", sat.c_str(), s.network_id, s.ts_id, enum_to_str(s.epg_type),
-								(int)s.table_id);
-	return os;
+	return fmt::format_to(ctx.out(), "{:s} - nid={:d} tsid={:d} {:s}[{:d}]",
+												sat.c_str(), s.network_id, s.ts_id, enum_to_str(s.epg_type),
+												(int)s.table_id);
 }
 
-std::ostream& epgdb::operator<<(std::ostream& os, const epg_key_t& k) {
-	os << k.service;
-	stdex::printf(os, " [%d] ", k.event_id);
-	os << fmt::format("{:%F %H:%M}", fmt::localtime(k.start_time));
-	return os;
+fmt::format_context::iterator
+fmt::formatter<epg_key_t>::format(const epg_key_t& k, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{} [{:d}] {:%F %H:%M}", k.service, k.event_id, fmt::localtime(k.start_time));
 }
 
-std::ostream& epgdb::operator<<(std::ostream& os, const epg_record_t& epg) {
-	os << epg.k;
-	os << fmt::format(" - {:%H:%M}", fmt::localtime(epg.end_time));
-	auto rec_status = enum_to_str(epg.rec_status);
-	stdex::printf(os, ":%s %s", rec_status, epg.event_name.c_str());
 
-	return os;
+fmt::format_context::iterator
+fmt::formatter<epg_record_t>::format(const epg_record_t& epg, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{} - {:%H:%M}:{} {}", epg.k, fmt::localtime(epg.end_time),
+												enum_to_str(epg.rec_status), epg.event_name);
 }
-
-void epgdb::to_str_brief(ss::string_& ret, const epg_record_t& epg) {
-	auto os = ret << fmt::format("{:%H:%M}", fmt::localtime(epg.k.start_time));
-	os << fmt::format(" - {:%H:%M}", fmt::localtime(epg.end_time));
-	auto rec_status = enum_to_str(epg.rec_status);
-	stdex::printf(os, ":%s%s", rec_status, epg.event_name.c_str());
-}
-
-void epgdb::to_str(ss::string_& ret, const epg_key_t& k) { ret << k; }
-
-void epgdb::to_str(ss::string_& ret, const epg_record_t& r) { ret << r; }
-
-void epgdb::to_str(ss::string_& ret, const epg_source_t& s) { ret << s; }
 
 /*!
 	returns true if update or new record was found

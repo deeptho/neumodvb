@@ -22,9 +22,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "devdb_private.h"
-#include "stackstring/ssaccu.h"
 #include "util/dtassert.h"
-//#include "xformat/ioformat.h"
 #include <iomanip>
 #include <iostream>
 #include <signal.h>
@@ -41,16 +39,15 @@ static bool unsubscribe_helper(fe_t& fe, subscription_id_t subscription_id) {
 	for(auto& sub: fe.sub.subs) {
 		if(sub.subscription_id == (int32_t)subscription_id &&  fe.sub.owner == getpid()) {
 			if(sub.has_service) {
-				auto srv = chdb::to_str(sub.service);
-				dtdebugx("adapter %d: subscription_id=%d unsubscribe service=%s",
-								 fe.adapter_no, (int) subscription_id, srv.c_str());
+				dtdebugf("adapter {:d}: subscription_id={:d} unsubscribe service={}",
+								 fe.adapter_no, (int) subscription_id, sub.service);
 			} else if (sub.has_mux) {
-				dtdebugx("adapter %d %d.%03d%s-%d %d use_count=%d unsubscribe", fe.adapter_no,
+				dtdebugf("adapter {:d} {:d}.{:03d}{}-{:d} {:d} use_count={:d} unsubscribe", fe.adapter_no,
 								 fe.sub.frequency/1000, fe.sub.frequency%1000,
 								 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
 			} else {
 				assert(fe.sub.subs.size() ==1); // lnb reservation is unique
-				dtdebugx("adapter %d use_count=%d unsubscribe", fe.adapter_no, fe.sub.subs.size());
+				dtdebugf("adapter {} use_count={} unsubscribe", fe.adapter_no, fe.sub.subs.size());
 			}
 			fe.sub.subs.erase(idx);
 			erased = true;
@@ -75,7 +72,7 @@ unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_
 	assert(fe.sub.subs.size()>=1);
 	bool erased = unsubscribe_helper(fe, subscription_id);
 	if(!erased) {
-		dterrorx("Trying to unsubcribe a non-subscribed service subscription_id=%d", (int) subscription_id);
+		dterrorf("Trying to unsubcribe a non-subscribed service subscription_id={}", (int) subscription_id);
 		return {};
 	}
 	else {
@@ -185,7 +182,7 @@ int devdb::fe::reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id
 		subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, *service});
 	else
 		subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, {}});
-	dtdebugx("subscription_id=%d adapter %d %d.%03d%s-%d %d use_count=%d", (int) subscription_id,
+	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
 
@@ -199,7 +196,7 @@ devdb::fe_t devdb::fe::subscribe_fe_in_use(
 	const mux_t& mux, const chdb::service_t* service) {
 	assert(fe.sub.subs.size()>=1);
 	assert(is_same_stream(mux.k, fe.sub.mux_key));
-	dtdebugx("subscription_id=%d adapter %d %d%s-%d %d use_count=%d", (int) subscription_id,
+	dtdebugf("subscription_id={:d} adapter {:d} {:d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
 	assert((int)subscription_id >=0);
@@ -234,7 +231,7 @@ int devdb::fe::reserve_fe_lnb_exclusive(db_txn& wtxn, subscription_id_t subscrip
 	sub.rf_coupler_id = conn ? conn->rf_coupler_id :-1;
 
 	sub.mux_key = {};
-	dtdebugx("subscription_id=%d adapter %d %d%s-%d %d use_count=%d", (int) subscription_id,
+	dtdebugf("subscription_id={:d} adapter {:d} {:d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
 	fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, {}});
@@ -311,7 +308,7 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 		service.k.mux = mux.k;
 		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
 	}
-	dtdebugx("subscription_id=%d adapter %d %d.%03d%s-%d %d use_count=%d", (int) subscription_id,
+	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
 
@@ -326,6 +323,7 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 	devdb::resource_subscription_counts_t
 	int: the use_count after releasing fe_to_release, or 0 if fe_to_release=={}
 */
+//TODO: make this return subscribe_ret_t
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 					 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
 devdb::fe::subscribe_lnb_band_pol_sat(db_txn& wtxn, subscription_id_t subscription_id,
@@ -597,14 +595,13 @@ devdb::fe::subscribe(db_txn& wtxn, subscription_id_t subscription_id,
 			}
 			return sret;
 		} else {
-			auto x = to_str(*required_rf_path);
 			auto c = fe_t::find_by_card_mac_address(wtxn, required_rf_path->card_mac_address, find_type_t::find_eq,
 																							fe_t::partial_keys_t::card_mac_address);
 			if(c.is_valid()) {
 				auto fe = c.current();
-				user_error("Cannot currently use LNB " << lnb << "  with card " << fe.card_short_name);
+				user_errorf("Cannot currently use LNB {} with card {}", lnb, fe.card_short_name);
 			} else {
-				user_error("Cannot currently use LNB " << lnb);
+				user_errorf("Cannot currently use LNB {}", lnb);
 			}
 		}
 	}

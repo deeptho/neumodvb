@@ -62,7 +62,7 @@ void ca_filter_t::update(const ca_filter_t& other) {
 
 ss::string<32> active_scam_t::name() const {
 	ss::string<32> ret;
-	ret.sprintf("scam[%d]", adapter_no);
+	ret.format("scam[{:d}]", adapter_no);
 	return ret;
 }
 
@@ -195,7 +195,7 @@ scam_t::scam_t(receiver_thread_t& _receiver, scam_thread_t& scam_thread_)
 }
 
 scam_t::~scam_t() {
-	dtdebugx("scam_t destroyed");
+	dtdebugf("scam_t destroyed");
 	this->close();
 }
 
@@ -238,7 +238,7 @@ int scam_t::scam_send_capmt(const pmt_info_t& pmt_info, capmt_list_management_t 
 }
 
 int scam_thread_t::exit() {
-	dtdebugx("scam exit");
+	dtdebugf("scam exit");
 	check_thread();
 	return 0;
 }
@@ -328,7 +328,7 @@ int scam_t::write_to_scam(ss::bytebuffer_& msg) {
 		dtdebug_nice("Duplicate message sent\n");
 	}
 	last = msg;
-	dtdebug(msg);
+	dtdebugf("{}", msg);
 	if (scam_fd < 0)
 		return -1;
 	if (write_in_progress) {
@@ -365,10 +365,10 @@ int scam_t::write_to_scam(ss::bytebuffer_& msg) {
 int scam_thread_t::wait_for_and_handle_events(bool do_not_handle_demux_events) {
 	auto n = this->epoll_wait(2000);
 	if (n < 0) {
-		dterrorx("error in poll: %s", strerror(errno));
+		dterrorf("error in poll: {:s}", strerror(errno));
 		return n;
 	}
-	// printf("n=%d\n", n);
+	// printf("n={:d}\n", n);
 	for (auto evt = next_event(); evt; evt = next_event()) {
 		if (is_event_fd(evt)) {
 			// an external request was received
@@ -536,7 +536,7 @@ void scam_t::read_greeting_reply() {
 	server_reply.resize_no_init(str_size + 1);
 	memcpy(server_reply.buffer(), read_data(str_size), str_size);
 	server_reply.buffer()[str_size] = 0;
-	dtdebugx("scam server protocol=%d: %s", protocol, server_reply.buffer());
+	dtdebugf("scam server protocol={:d}: {:s}", protocol, server_reply.buffer());
 }
 
 /*
@@ -577,7 +577,7 @@ void scam_t::read_filter_request() {
 	*/
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
-		dtdebugx("Received scam request for adapter %d which has stopped descrambling", int(adapter_no));
+		dtdebugf("Received scam request for adapter {:d} which has stopped descrambling", int(adapter_no));
 		return;
 	}
 	auto& active_scam = it->second;
@@ -593,7 +593,7 @@ void scam_t::read_dmx_stop_request() {
 	auto pid = (read_field<uint16_t>());
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
-		dtdebugx("received dmx_stop request for adapter %d which has stopped descrambling", int(adapter_no));
+		dtdebugf("received dmx_stop request for adapter {:d} which has stopped descrambling", int(adapter_no));
 		return;
 	}
 	auto& active_scam = it->second;
@@ -607,7 +607,7 @@ void scam_t::read_ca_set_pid_request() {
 
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
-		dtdebugx("received ca_set_pid request for adapter %d which has stopped descrambling", int(adapter_no));
+		dtdebugf("received ca_set_pid request for adapter {:d} which has stopped descrambling", int(adapter_no));
 		return;
 	}
 	auto& active_scam = it->second;
@@ -622,7 +622,7 @@ void scam_t::read_ca_set_descr_request(uint32_t msgid) {
 	auto it = active_scams.find(adapter_no);
 
 	if (it == active_scams.end()) {
-		dtdebugx("Unhandled ca_set_descr index: %d", int(adapter_no));
+		dtdebugf("Unhandled ca_set_descr index: {:d}", int(adapter_no));
 		return;
 	}
 
@@ -638,7 +638,7 @@ void scam_t::read_ca_set_descr_aes_request(uint32_t msgid) {
 	cadescr.parity = !!cadescr.parity; // ca_descr.parity==1 indicates even, but we prefer odd
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
-		dtdebugx("received ca_set_descr_aes request for adapter %d which has stopped descrambling", int(adapter_no));
+		dtdebugf("received ca_set_descr_aes request for adapter {:d} which has stopped descrambling", int(adapter_no));
 		return;
 	}
 
@@ -652,7 +652,7 @@ void scam_t::read_ca_set_descr_mode_request() {
 	auto camode = read_field<ca_descr_mode_t>();
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
-		dtdebugx("received ca_set_descr_mode request for adapter %d which has stopped descrambling", int(adapter_no));
+		dtdebugf("received ca_set_descr_mode request for adapter {:d} which has stopped descrambling", int(adapter_no));
 		return;
 	}
 
@@ -696,8 +696,8 @@ void scam_t::read_ecm_info_request() {
 
 	i.hops = read_field<uint8_t>();
 
-	dtdebugx("ECM info for adapter=%d service=%d pid=%d: "
-					 "ca_system=%s reader=%s source=%s protocol=%s",
+	dtdebugf("ECM info for adapter={:d} service={:d} pid={:d}: "
+					 "ca_system={:s} reader={:s} source={:s} protocol={:s}",
 					 i.adapter_index, i.service_id, i.pid, ca_system_name.c_str(), reader_name.c_str(), from_source_name.c_str(),
 					 protocol_name.c_str());
 }
@@ -708,9 +708,9 @@ void active_scam_t::ca_set_pid(const ca_pid_t& ca_pid) {
 		for (auto& [idx, slot] : ca_slots) {
 			auto it = std::find_if(slot.pids.begin(), slot.pids.end(), [&ca_pid](uint16_t pid) { return pid == ca_pid.pid; });
 			if (it != slot.pids.end()) {
-				dtdebugx("CA_SET_PID REMOVE PID %d", *it);
+				dtdebugf("CA_SET_PID REMOVE PID {:d}", *it);
 				slot.pids.erase(it - slot.pids.begin());
-				dtdebugx("CA_SET_PID SLOT idx=%d now has %d entries", int16_t(idx), slot.pids.size());
+				dtdebugf("CA_SET_PID SLOT idx={:d} now has {:d} entries", int16_t(idx), slot.pids.size());
 				if (slot.pids.size() == 0) {
 					ca_slots.erase(decryption_index_t(ca_pid.index));
 				}
@@ -721,9 +721,9 @@ void active_scam_t::ca_set_pid(const ca_pid_t& ca_pid) {
 		}
 	} else {
 		auto& slot = ca_slots[decryption_index_t(ca_pid.index)];
-		dtdebugx("CA_SET_PID ADD PID %d", ca_pid.pid);
+		dtdebugf("CA_SET_PID ADD PID {:d}", ca_pid.pid);
 		if (slot.pids.size() == 0) {
-			dtdebugx("CA_SET_PID SLOT %d: first entry", ca_pid.index);
+			dtdebugf("CA_SET_PID SLOT {:d}: first entry", ca_pid.index);
 		}
 		slot.pids.push_back(ca_pid.pid);
 	}
@@ -737,13 +737,13 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 	log4cxx::NDC(name());
 	ss::string<32> filter_string;
 	ss::string<32> mask_string;
-	filter_string.sprintf("filter=");
-	mask_string.sprintf("mask=");
+	filter_string.format("filter=");
+	mask_string.format("mask=");
 	for (auto x : filter.dmx_filter.filter)
-		filter_string.sprintf("%02x ", x);
+		filter_string.format("%02x ", x);
 	int n = 0;
 	for (auto x : filter.dmx_filter.mask) {
-		mask_string.sprintf("%02x ", x);
+		mask_string.format("%02x ", x);
 		if (x != 0)
 			n = mask_string.size();
 	}
@@ -759,18 +759,18 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 		if(f_no == filter_no) {
 			found =true;
 			if (f.pid != filter.pid) {
-				dterrorx("duplicate filter filter_no=%d old_pid=%d new_pid=%d",
+				dterrorf("duplicate filter filter_no={:d} old_pid={:d} new_pid={:d}",
 								 uint8_t(filter_no), f.pid, filter.pid);
 				f = filter;
 				same_pid = false;
 			} else {
-				dtdebugx("FILTER update: demux=%d filter[%d] pid=%d: %s %s", uint8_t(filter.demux_no), uint8_t(filter_no),
+				dtdebugf("FILTER update: demux={:d} filter[{:d}] pid={:d}: {:s} {:s}", uint8_t(filter.demux_no), uint8_t(filter_no),
 								 filter.pid, filter_string.c_str(), mask_string.c_str());
 				f.update(filter);
 				same_pid = true;
 			}
 		} else if (f.pid == filter.pid) {
-				dtdebugx("SCAM would register same pid multiple times; unregistering filter_no=%d ecm_pid=%d\n",
+				dtdebugf("SCAM would register same pid multiple times; unregistering filter_no={:d} ecm_pid={:d}\n",
 								 (int)filter_no, (int)f.pid);
 				same_pid = true;
 				it = filters.erase(it);
@@ -781,7 +781,7 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 
 	if(!found) {
 		filters[filter_no] = filter;
-		dtdebugx("FILTER NEW: demux=%d filter[%d] pid=%d is_ca=%d: %s %s", uint8_t(filter.demux_no), uint8_t(filter_no),
+		dtdebugf("FILTER NEW: demux={:d} filter[{:d}] pid={:d} is_ca={:d}: {:s} {:s}", uint8_t(filter.demux_no), uint8_t(filter_no),
 						 filter.pid, pmts[0].is_ecm_pid(filter.pid), filter_string.c_str(), mask_string.c_str());
 	}
 
@@ -799,7 +799,7 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 
 void active_scam_t::ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, uint16_t ecm_pid) {
 	log4cxx::NDC(name());
-	dtdebugx("STOP FILTER: demux=%d filter[%d] ecm_pid=%d", uint8_t(filter_no), uint8_t(demux_no), ecm_pid);
+	dtdebugf("STOP FILTER: demux={:d} filter[{:d}] ecm_pid={:d}", uint8_t(filter_no), uint8_t(demux_no), ecm_pid);
 	auto it = filters.find(filter_no);
 	if (it != filters.end()) {
 		auto& filter = it->second;
@@ -845,14 +845,14 @@ void active_scam_t::ca_set_descr(const ca_descr_t& ca_descr, uint32_t msgid) {
 	log4cxx::NDC(name());
 	auto& slot = ca_slots[decryption_index_t(ca_descr.index)];
 	if (ca_descr.parity != 0 && ca_descr.parity != 1) {
-		dterrorx("illegal parity: %d", ca_descr.parity);
+		dterrorf("illegal parity: {:d}", ca_descr.parity);
 		return;
 	}
 #ifndef NDEBUG
 	ss::string<32> s;
-	s.sprintf("slot=%p key[%d]=", &slot, ca_descr.parity);
+	s.format("slot={:p} key[{:d}]=", fmt::ptr(&slot), ca_descr.parity);
 	for (auto x : ca_descr.cw)
-		s.sprintf("%02x", x);
+		s.format("%02x", x);
 	dtdebug(s.c_str());
 #endif
 
@@ -878,15 +878,15 @@ void active_scam_t::ca_set_descr_aes(const ca_descr_aes_t& ca_descr_aes, uint32_
 	log4cxx::NDC(name());
 	auto& slot = ca_slots[decryption_index_t(ca_descr_aes.index)];
 	if (ca_descr_aes.parity != 0 && ca_descr_aes.parity != 1) {
-		dterrorx("illegal parity: %d", ca_descr_aes.parity);
+		dterrorf("illegal parity: {:d}", ca_descr_aes.parity);
 		return;
 	}
 	slot.algo = ca_algo_t::CA_ALGO_AES128;
 #ifndef NDEBUG
 	ss::string<32> s;
-	s.sprintf("key[%d]=", ca_descr_aes.parity);
+	s.format("key[{:d}]=", ca_descr_aes.parity);
 	for (auto x : ca_descr_aes.cw)
-		s.sprintf("%2x", x);
+		s.format("%2x", x);
 	dtdebug(s.c_str());
 #endif
 
@@ -907,15 +907,15 @@ void active_scam_t::ca_set_descr_mode(const ca_descr_mode_t& ca_descr_mode) {
 	log4cxx::NDC(name());
 	auto& slot = ca_slots[decryption_index_t(ca_descr_mode.index)];
 	if (ca_descr_mode.cipher_mode < 0 || ca_descr_mode.cipher_mode > 1) {
-		dterrorx("illegal cipher_mode: %d", ca_descr_mode.cipher_mode);
+		dterrorf("illegal cipher_mode: {:d}", (int)ca_descr_mode.cipher_mode);
 		return;
 	}
 	if (ca_descr_mode.algo < 0 || ca_descr_mode.algo > 2) {
-		dterrorx("illegal algo: %d", ca_descr_mode.algo);
+		dterrorf("illegal algo: {:d}", (int)ca_descr_mode.algo);
 		return;
 	}
 
-	dtdebugx("CA_SET_DESCR_MODE algo=%d cipher=%d", ca_descr_mode.algo, ca_descr_mode.cipher_mode);
+	dtdebugf("CA_SET_DESCR_MODE algo={:d} cipher={:d}", (int)ca_descr_mode.algo, (int)ca_descr_mode.cipher_mode);
 
 	slot.cipher_mode = (ca_cipher_mode_t)ca_descr_mode.cipher_mode;
 	slot.algo = (ca_algo_t)ca_descr_mode.algo;
@@ -970,7 +970,7 @@ int scam_t::scam_send_filtered_data(uint8_t filter_no, uint8_t demux_no, const s
 	out_msg.append_raw(native_to_net((uint8_t)filter_no));
 	out_msg.append_raw(buffer.buffer(), buffer.size());
 	if(out_msg == last_filtered_data) {
-		dtdebugx("Sending duplicate filtered data filter=%d demux_no=%d count=%d",
+		dtdebugf("Sending duplicate filtered data filter={:d} demux_no={:d} count={:d}",
 						 filter_no, demux_no, last_filtered_data_count);
 		last_filtered_data_count++;
 	} else
@@ -1009,7 +1009,8 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& 
 
 		if (!filter_match(filter.dmx_filter, data.buffer(), data.size()))
 			continue; // this filter does not match
-		dtdebugx("ecm_request_time set for %s filter[%p]=%d pid=%d time=%ld", (data[0] == 0x80) ? "even" : "odd", &filter,
+		dtdebugf("ecm_request_time set for {:s} filter[{:p}]={:d} pid={:d} time={:d}",
+						 (data[0] == 0x80) ? "even" : "odd", fmt::ptr(&filter),
 						 uint8_t(filter_no), filter.pid, system_clock_t::to_time_t(t));
 
 		filter.msgid = parent->scam_outgoing_msgid;
@@ -1018,7 +1019,7 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& 
 
 		ret = parent->scam_send_filtered_data(uint8_t(filter_no), uint8_t(filter.demux_no), data, filter.msgid);
 		if (ret < 0) {
-			dterrorx("scam_send_filtered_data failed: ret=%d", ret);
+			dterrorf("scam_send_filtered_data failed: ret={:d}", ret);
 			return ret;
 		}
 		matchcount++;
@@ -1075,7 +1076,7 @@ void scam_t::reader_loop_() {
 			if (scam_protocol_version >= 3) {
 				auto opcode = read_field<uint8_t>();
 				if (opcode != 0xa5) { // message start
-					dterrorx("did not get message start byte: %d", opcode);
+					dterrorf("did not get message start byte: {:d}", opcode);
 				} else {
 					msgid = read_field<uint32_t>();
 				}
@@ -1116,7 +1117,7 @@ void scam_t::reader_loop_() {
 				break;
 
 			default:
-				dterrorx("Unknown scam opcode: %d", opcode);
+				dterrorf("Unknown scam opcode: {:d}", opcode);
 			}
 		} catch (std::runtime_error) {
 			must_reconnect = true;
@@ -1155,7 +1156,7 @@ int active_scam_t::register_active_service(active_service_t* active_service) {
 		if (!active_service_p.get() && !freeslot)
 			freeslot = &active_service_p;
 		else if (active_service == active_service_p.get()) {
-			dtdebugx("active_service already registered (ok)");
+			dtdebugf("active_service already registered (ok)");
 			return -1;
 		}
 	}
@@ -1183,7 +1184,7 @@ int scam_t::unregister_active_service(active_service_t* active_service, int adap
 }
 
 int active_scam_t::unregister_active_service(active_service_t* active_service, int adapter_no) {
-	dterrorx("SCAM: unregister_active_service %s", active_service->get_current_service().name.c_str());
+	dterrorf("SCAM: unregister_active_service {:s}", active_service->get_current_service().name.c_str());
 	int use_count = 0;
 	for (int i = registered_active_services.size() - 1; i >= 0; --i) {
 		auto& active_service_p = registered_active_services[i];
@@ -1201,7 +1202,7 @@ int active_scam_t::unregister_active_service(active_service_t* active_service, i
 		return -1;
 	}
 	if (use_count == 1) {
-		dtdebugx("Unregistering pmt pid %d", active_service->current_pmt_pid);
+		dtdebugf("Unregistering pmt pid {:d}", active_service->current_pmt_pid);
 		auto pmt_pid = active_service->current_pmt_pid;
 		int demux_no = 0;
 		// assert(pmts.size()<=1); //@todo do we ever have more than one pmt?

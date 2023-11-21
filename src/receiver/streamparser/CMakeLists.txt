@@ -3,8 +3,8 @@
 add_library(streamparser STATIC  events.cc pes.cc  packetstream.cc psi.cc section.cc
   streamtime.cc streamwriter.cc dvbtext.cc freesat_decode.cc opentv_string_decoder.cc
   si_state.cc sidebug.cc huffman_opentv_multi.cc huffman_opentv_single.cc)
-add_dependencies(streamparser recdb rec_generated_files xformat)
-target_link_libraries(streamparser PUBLIC ${Boost_CONTEXT_LIBRARY} xformat)
+add_dependencies(streamparser recdb rec_generated_files)
+target_link_libraries(streamparser PUBLIC ${Boost_CONTEXT_LIBRARY})
 target_link_libraries(streamparser PRIVATE neumoutil)
 target_compile_options(streamparser PRIVATE $<$<CONFIG:DEBUG>:-O2>)
 

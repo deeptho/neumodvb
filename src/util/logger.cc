@@ -89,23 +89,6 @@ template <class... Durations, class DurationIn> std::tuple<Durations...> break_d
 	return retval;
 }
 
-std::ostream& operator<<(std::ostream& os, const std::chrono::duration<long, std::ratio<1, 1000000000>>& duration) {
-
-	auto x =
-		break_down_durations<std::chrono::hours, std::chrono::minutes, std::chrono::seconds, std::chrono::nanoseconds>(
-			duration);
-	std::stringstream frac;
-	frac << std::fixed << std::setprecision(3) << float(1e-9 * std::get<3>(x).count());
-	std::string str = frac.str();
-	return os << std::setfill('0') << std::setw(2) << std::get<0>(x).count() << ":" << std::get<1>(x).count() << ":"
-						<< std::get<2>(x).count() << str.substr(1, str.length() - 1);
-}
-
-std::ostream& std::operator<<(std::ostream& os, system_time_t t) {
-	os << fmt::format("{:%Y%m%d_%T}", fmt::localtime(std::chrono::system_clock::to_time_t(t)));
-	return os;
-}
-
 LoggerPtr mainlogger = create_log("main");
 thread_local LoggerPtr logger = Logger::getLogger("main");
 thread_local log4cxx::NDC global_ndc("");

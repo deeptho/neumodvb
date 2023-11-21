@@ -25,8 +25,7 @@
 #include "neumodb/chdb/chdb_db.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/devmanager.h"
-#include "stackstring/ssaccu.h"
-#include "xformat/ioformat.h"
+#include "fmt/chrono.h"
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
@@ -34,45 +33,44 @@
 namespace fs = std::filesystem;
 using namespace statdb;
 
-std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_entry_t& e) {
-	stdex::printf(os, "pow=%3.2fdB snr=%3.2fdB ber=%3.2f",
-								e.signal_strength / 1000., e.snr / 1000., (int)e.ber);
-	return os;
+fmt::format_context::iterator
+fmt::formatter<signal_stat_entry_t>::format(const signal_stat_entry_t& e, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}",  "pow={:3.2f}dB snr={:3.2f}dB ber={:3.2}f",
+												e.signal_strength / 1000., e.snr / 1000., (int)e.ber);
 }
 
-std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_key_t& k) {
+fmt::format_context::iterator
+fmt::formatter<signal_stat_key_t>::format(const signal_stat_key_t& k, format_context& ctx) const {
 	auto sat = chdb::sat_pos_str(k.sat_pos);
-	stdex::printf(os, "%06x_RF%d %5s:%5.3f%s", (int)k.rf_path.card_mac_address, k.rf_path.rf_input,
-								sat, k.frequency / 1000.,
-								enum_to_str(k.pol));
-	os << fmt::format(" {:%F %T}", fmt::localtime(k.time));
-
-	return os;
+	return fmt::format_to(ctx.out(), "{:06x}_RF{:d} :{:5s}:{:5.3f}{:s} {:%F %T}",
+												(int)k.rf_path.card_mac_address, k.rf_path.rf_input,
+												sat, k.frequency / 1000.,
+												enum_to_str(k.pol), fmt::localtime(k.time));
 }
 
-std::ostream& statdb::operator<<(std::ostream& os, const signal_stat_t& stat) {
-	os << stat.k;
+fmt::format_context::iterator
+fmt::formatter<signal_stat_t>::format(const signal_stat_t& stat, format_context& ctx) const {
+	auto it = fmt::format_to(ctx.out(), "{}", stat.k);
 	if(stat.stats.size() > 0) {
 		auto &e = stat.stats[stat.stats.size()-1];
-		stdex::printf(os, " pow=%3.2fdB snr=%3.2fdB ber=%3.2f", e.signal_strength / 1000., e.snr / 1000., e.ber);
+		it = fmt::format_to(ctx.out(), " pow={:3.2f}dB snr={:3.2f}dB ber={:3.2f}",
+												e.signal_strength / 1000., e.snr / 1000., e.ber);
 	}
-	return os;
+	return it;
 }
 
-std::ostream& statdb::operator<<(std::ostream& os, const spectrum_key_t& spectrum_key) {
-	ss::string<32> rf_path;
-	rf_path.sprintf("%06x_RF%d" , (int)spectrum_key.rf_path.card_mac_address, spectrum_key.rf_path.rf_input);
-	os << rf_path;
+fmt::format_context::iterator
+fmt::formatter<spectrum_key_t>::format(const spectrum_key_t& spectrum_key, format_context& ctx) const {
 	auto sat = chdb::sat_pos_str(spectrum_key.sat_pos);
-	stdex::printf(os, " %5s: %s ", sat, enum_to_str(spectrum_key.pol));
-	os << fmt::format("{:%F %H:%M}", fmt::localtime(spectrum_key.start_time));
-
-	return os;
+	return fmt::format_to(ctx.out(), "{:06x}_RF{:d} {:5s}: {:s} {:%F %H:%M}" ,
+												(int)spectrum_key.rf_path.card_mac_address,
+												spectrum_key.rf_path.rf_input, sat, enum_to_str(spectrum_key.pol),
+												fmt::localtime(spectrum_key.start_time));
 }
 
-std::ostream& statdb::operator<<(std::ostream& os, const spectrum_t& spectrum) {
-	os << spectrum.k;
-	return os;
+fmt::format_context::iterator
+fmt::formatter<spectrum_t>::format(const spectrum_t& spectrum, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}", spectrum.k);
 }
 
 /*
@@ -81,12 +79,10 @@ std::ostream& statdb::operator<<(std::ostream& os, const spectrum_t& spectrum) {
 void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectrum_t& spectrum) {
 	using namespace std::chrono;
 	auto sat = chdb::sat_pos_str(spectrum.k.sat_pos);
-	ss::accu_t ss(ret);
 	auto* pol_ = enum_to_str(spectrum.k.pol);
-	ss << sat << fmt::format("/{:%F_%H:%M:%S}_",
-													 fmt::localtime(spectrum.k.start_time))
-		 << pol_ << "_dish" << (int)spectrum.k.rf_path.lnb.dish_id<< "_C";
-	ret.sprintf("%06x_RF%d" , (int)spectrum.k.rf_path.card_mac_address, spectrum.k.rf_path.rf_input);
+	ret.format("{}/{:%F_%H:%M:%S}_{}_dish{}_C{:06x}_RF{:d}", sat, fmt::localtime(spectrum.k.start_time), pol_,
+						 (int)spectrum.k.rf_path.lnb.dish_id, (int)spectrum.k.rf_path.card_mac_address,
+						 spectrum.k.rf_path.rf_input);
 }
 
 
@@ -119,7 +115,7 @@ std::optional<statdb::spectrum_t> statdb::save_spectrum_scan(const ss::string_& 
 	std::error_code ec;
 	create_directories(d, ec);
 	if (ec) {
-		dterrorx("Failed to created dir %s: error=%s", d.c_str(), ec.message().c_str());
+		dterrorf("Failed to created dir {:s}: error={:s}", d.c_str(), ec.message().c_str());
 		return {};
 	} else {
 		auto fdata = f;

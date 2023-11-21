@@ -36,7 +36,7 @@ namespace devdb {
 namespace chdb {
 	using namespace chdb;
 
-	typedef std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t> any_mux_t;
+	using any_mux_t = std::variant<chdb::dvbs_mux_t, chdb::dvbc_mux_t, chdb::dvbt_mux_t>;
 	bool has_epg_type(const chdb::any_mux_t& mux, chdb::epg_type_t epg_type);
 	const mux_key_t* mux_key_ptr(const chdb::any_mux_t& key);
 	const mux_key_t* mux_key_ptr(const chdb::any_mux_t&& key) =delete; //cannot be used with temporaries
@@ -210,20 +210,6 @@ namespace chdb {
 
 namespace chdb {
 	using namespace chdb;
-	void to_str(ss::string_& ret, const scan_status_t& scan_status);
-	void to_str(ss::string_& ret, const language_code_t& code);
-	void to_str(ss::string_& ret, const sat_t& sat);
-	void to_str(ss::string_& ret, const mux_key_t& k);
-	void to_str(ss::string_& ret, const dvbs_mux_t& mux);
-	void to_str(ss::string_& ret, const dvbc_mux_t& mux);
-	void to_str(ss::string_& ret, const dvbt_mux_t& mux);
-	void to_str(ss::string_& ret, const any_mux_t& mux);
-	void to_str(ss::string_& ret, const mux_key_t& k);
-	void to_str(ss::string_& ret, const service_t& service);
-	void to_str(ss::string_& ret, const chg_t& chg);
-	void to_str(ss::string_& ret, const chgm_t& channel);
-	void to_str(ss::string_& ret, tune_src_t tune_src);
-	void to_str(ss::string_& ret, key_src_t key_src);
 
 	inline const char* pol_str(const fe_polarisation_t& pol) {
 		return
@@ -231,38 +217,6 @@ namespace chdb {
 			: pol == fe_polarisation_t::V ? "V"
 			: pol == fe_polarisation_t::L ? "L"
 			: "R";
-	}
-
-	inline void to_str(ss::string_& ret, const mux_common_t& t) {
-		ret.sprintf("%p", &t);
-	}
-	inline void to_str(ss::string_& ret, const browse_history_t& t) {
-		ret.sprintf("%p", &t);
-	}
-	inline void to_str(ss::string_& ret, const chgm_key_t& t) {
-		ret.sprintf("%p", &t);
-	}
-	inline void to_str(ss::string_& ret, const fe_delsys_dvbs_t& t) {
-		ret.sprintf("%p", &t);
-	}
-	inline void to_str(ss::string_& ret, const chg_key_t& t) {
-		ret.sprintf("%p", &t);
-	}
-	inline void to_str(ss::string_& ret, const service_key_t& t) {
-		ret.sprintf("%p", &t);
-	}
-
-	template<typename T>
-	inline void to_str(ss::string_& ret, const T& t) {
-	}
-
-
-	template<typename T>
-	inline auto to_str(T&& t)
-	{
-		ss::string<128> s;
-		to_str((ss::string_&)s, (const T&) t);
-		return s;
 	}
 
 	void sat_pos_str(ss::string_& s, int position);
@@ -279,24 +233,6 @@ namespace chdb {
 		matype_str(s, matype, rolloff);
 		return s;
 	}
-
-	std::ostream& operator<<(std::ostream& os, const scan_status_t& scan_status);
-	std::ostream& operator<<(std::ostream& os, const scan_result_t& scan_result);
-	std::ostream& operator<<(std::ostream& os, const language_code_t& code);
-	std::ostream& operator<<(std::ostream& os, const sat_t& sat);
-	std::ostream& operator<<(std::ostream& os, const mux_key_t& mux_key);
-	std::ostream& operator<<(std::ostream& os, const dvbs_mux_t& mux);
-	std::ostream& operator<<(std::ostream& os, const dvbc_mux_t& mux);
-	std::ostream& operator<<(std::ostream& os, const dvbt_mux_t& mux);
-	std::ostream& operator<<(std::ostream& os, const any_mux_t& mux);
-	std::ostream& operator<<(std::ostream& os, const mux_key_t& k);
-	std::ostream& operator<<(std::ostream& os, const service_t& service);
-	std::ostream& operator<<(std::ostream& os, const service_key_t& k);
-	std::ostream& operator<<(std::ostream& os, const fe_polarisation_t& pol);
-	std::ostream& operator<<(std::ostream& os, const chg_t& chg);
-	std::ostream& operator<<(std::ostream& os, const chgm_t& channel);
-	std::ostream& operator<<(std::ostream& os, const tune_src_t tune_src);
-	std::ostream& operator<<(std::ostream& os, const key_src_t key_src);
 
 	inline bool is_same(const chgm_t &a, const chgm_t &b) {
 		if (!(a.k == b.k))
@@ -575,5 +511,39 @@ namespace  chdb::service {
 	void update_audio_pref(db_txn&txn, const chdb::service_t& service);
 	void update_subtitle_pref(db_txn&txn, const chdb::service_t& service);
 }
+
+#define declfmt(t)																											\
+	template <> struct fmt::formatter<t> {																\
+	inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
+		return ctx.begin();																									\
+	}																																			\
+																																				\
+	format_context::iterator format(const t&, format_context& ctx) const ;\
+}
+
+declfmt(chdb::scan_status_t);
+declfmt(chdb::scan_result_t);
+declfmt(chdb::language_code_t);
+declfmt(chdb::sat_t);
+declfmt(chdb::dvbs_mux_t);
+declfmt(chdb::dvbc_mux_t);
+declfmt(chdb::dvbt_mux_t);
+declfmt(chdb::any_mux_t);
+declfmt(chdb::mux_key_t);
+declfmt(chdb::service_t);
+declfmt(chdb::service_key_t);
+declfmt(chdb::fe_polarisation_t);
+declfmt(chdb::chg_t);
+declfmt(chdb::chgm_t);
+declfmt(chdb::tune_src_t);
+declfmt(chdb::key_src_t);
+#if 0 //not implemented
+declfmt(chdb::spectral_peak_t);
+declfmt(chdb::mux_common_t);
+declfmt(chdb::chg_key_t);
+declfmt(chdb::chgm_key_t);
+declfmt(chdb::browse_history_t);
+#endif
+#undef declfmt
 
 #pragma GCC visibility pop

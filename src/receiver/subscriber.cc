@@ -169,7 +169,7 @@ int subscriber_t::unsubscribe() {
 	auto it = m.find(this);
 	if (it != m.end()) {
 #ifndef NDEBUG
-		dtdebugx("Erasing subscription window=%p subscription_id=%d\n", window, (int)subscription_id);
+		dtdebugf("Erasing subscription window={:p} subscription_id={:d}", fmt::ptr(window), (int)subscription_id);
 		int num_erased = m.erase(this);
 #pragma unused(num_erased)
 		assert(num_erased == 1);

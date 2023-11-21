@@ -81,7 +81,7 @@ void stream_filter_t::close() {
 		return;
 	assert(data_fd >= 0);
 	if (::close(data_fd) < 0) {
-		dterrorx("Error in close: %s", strerror(errno));
+		dterrorf("Error in close: {}", strerror(errno));
 	}
 	data_fd = -1;
 	stop();
@@ -90,10 +90,10 @@ void stream_filter_t::close() {
 void stream_filter_t::stop() {
 	assert(command_pid > 0);
 	if (kill(command_pid, SIGHUP) < 0) {
-		dterrorx("Errror while sending signal: %s", strerror(errno));
+		dterrorf("Errror while sending signal: {}", strerror(errno));
 	}
 	if (waitpid(command_pid, nullptr, 0) < 0) {
-		dterrorx("Errror during wait: %s", strerror(errno));
+		dterrorf("Errror during wait: {}", strerror(errno));
 	}
 	command_pid = -1;
 }
@@ -106,7 +106,7 @@ int stream_filter_t::start() {
 #endif
 	ss::string<64> ndc;
 	auto stream_pid = chdb::mux_key_ptr(embedded_mux)->t2mi_pid;
-	ndc.sprintf("PID[%d]", stream_pid);
+	ndc.format("PID[{:d}]", stream_pid);
 	log4cxx::NDC(ndc.c_str());
 	int dmx_buffer_size = 32 * 1024 * 1024;
 	dvb_stream_reader_t dvb_reader(active_adapter, dmx_buffer_size);
@@ -116,15 +116,15 @@ int stream_filter_t::start() {
 
 	auto flags = fcntl(stream_fd, F_GETFD);
 	if (flags < 0) {
-		dterrorx("fcntl failed: %s", strerror(errno));
+		dterrorf("fcntl failed: {}", strerror(errno));
 		return -1;
 	}
 	if (fcntl(stream_fd, F_SETFD, flags & ~FD_CLOEXEC) < 0) {
-		dterrorx("Could not clear FD_CLOEXEC: %s", strerror(errno));
+		dterrorf("Could not clear FD_CLOEXEC: {}", strerror(errno));
 		return -1;
 	}
 	ss::string<32> pid_;
-	pid_.sprintf("%d", stream_pid);
+	pid_.format("{:d}", stream_pid);
 #if 1
 	data_fd = start_command(stream_fd, "tsp", "--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
 													// @todo: "--plp", plp.cstr()
@@ -135,7 +135,7 @@ int stream_filter_t::start() {
 													(char*)nullptr);
 #endif
 	if (data_fd < 0) {
-		dterrorx("Could not start command");
+		dterrorf("Could not start command");
 		return -1;
 	}
 	return 0;
@@ -174,7 +174,7 @@ inline int stream_filter_t::read_external_data() {
 		assert ( write_pointer + size <= buff_size);
 		auto ret = read(data_fd, bufferp.get() + write_pointer, size);
 		if (ret == 0) {
-			dterrorx("end stream closed\n");
+			dterrorf("end stream closed\n");
 			return -1;
 		} else if (ret < 0) {
 			if (errno == EAGAIN) {
@@ -184,7 +184,7 @@ inline int stream_filter_t::read_external_data() {
 			if (errno == EINTR)
 				continue;
 			else {
-				dterrorx("read from command failed: %s\n", strerror(errno));
+				dterrorf("read from command failed: {}", strerror(errno));
 				return -1;
 			}
 		}
@@ -226,13 +226,13 @@ template <typename... Args> int stream_filter_t::start_command(int stream_fd, co
 	*/
 
 	if (pipe(childToParent) != 0) {
-		dterrorx("pipe failed\n");
+		dterrorf("pipe failed\n");
 		::exit(1);
 	}
 
 	switch (command_pid = fork()) {
 	case -1:
-		dterrorx("Fork failed\n");
+		dterrorf("Fork failed\n");
 		::exit(-1);
 
 	case 0: /* Child */
@@ -252,7 +252,7 @@ template <typename... Args> int stream_filter_t::start_command(int stream_fd, co
 		::exit(-1);
 
 	default: /* Parent */
-		dtdebugx("Child process %d running...\n", command_pid);
+		dtdebugf("Child process {:d} running...\n", command_pid);
 
 		if (::close(childToParent[WRITE_FD]) != 0) {
 			dterror("error closing pipe fd\n");
@@ -261,12 +261,12 @@ template <typename... Args> int stream_filter_t::start_command(int stream_fd, co
 
 		auto flags = fcntl(childToParent[READ_FD], F_GETFD);
 		if (flags < 0) {
-			dterrorx("fcntl failed: %s", strerror(errno));
+			dterrorf("fcntl failed: {}", strerror(errno));
 			return -1;
 		}
 
 		if (fcntl(childToParent[READ_FD], F_SETFD, flags | FD_CLOEXEC) < 0) {
-			dterrorx("Could not set FD_CLOEXEC: %s", strerror(errno));
+			dterrorf("Could not set FD_CLOEXEC: {}", strerror(errno));
 			return -1;
 		}
 
@@ -411,7 +411,7 @@ void stream_filter_t::register_reader(embedded_stream_reader_t* reader) {
 		this->open();
 	for (int i = 0; i < stream_readers.size(); ++i) {
 		if (stream_readers[i].get() == reader) {
-			dterrorx("Reader already registered");
+			dterrorf("Reader already registered");
 			return;
 		}
 	}

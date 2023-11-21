@@ -27,8 +27,8 @@
 #include <iostream>
 
 #include "packetstream.h"
-#include "xformat/ioformat.h"
 #include "streamtime.h"
+#include "fmt/core.h"
 
 using namespace dtdemux;
 
@@ -73,8 +73,8 @@ namespace dtdemux {
 
 }; // namespace dtdemux
 
-auto fmt::formatter<dtdemux::pts_dts_t>::format(const dtdemux::pts_dts_t& a, format_context& ctx) const
--> format_context::iterator
+fmt::format_context::iterator
+fmt::formatter<dtdemux::pts_dts_t>::format(const dtdemux::pts_dts_t& a, fmt::format_context& ctx) const
 {
 		uint64_t ull = a.time >> 31;
 		int h, m, s, u;
@@ -84,4 +84,4 @@ auto fmt::formatter<dtdemux::pts_dts_t>::format(const dtdemux::pts_dts_t& a, for
 		s = (p / 10000L) - (h * 3600) - (m * 60);
 		u = p - (h * 10000L * 60 * 60) - (m * 10000L * 60) - (s * 10000L);
 		return fmt::format_to(ctx.out(), "[{:02d}:{:02d}:{:02d}.{:04d}]", h, m, s, u);
-	}
+}

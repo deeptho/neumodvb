@@ -83,16 +83,16 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 		assert(0);
 		must_tune = true;
 		isi_processing_done = false;
-		dtdebugx("Initial tuning");
+		dtdebugf("Initial tuning");
 	} break;
 	case LOCK_TIMEDOUT:
 	case WAITING_FOR_LOCK: {
 		if (lock_lost && is_locked) {
-			dtdebugx("Lock was lost; restarting si");
+			dtdebugf("Lock was lost; restarting si");
 			relocked_now = true;
 			isi_processing_done = false;
 		} else if (is_locked) {
-			dtdebugx("First lock detected");
+			dtdebugf("First lock detected");
 			tune_state = LOCKED;
 			relocked_now = true;
 			isi_processing_done = false;
@@ -100,7 +100,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 			if ((now - tune_start_time) >= tune_timeout && fe) {
 				auto retune_mode = fe->ts.readAccess()->tune_pars.tune_options.retune_mode;
 				if (retune_mode == retune_mode_t::AUTO) {
-					dtdebug("Timed out while waiting for lock; retuning for " << current_tp());
+					dtdebugf("Timed out while waiting for lock; retuning for {}", current_tp());
 					must_tune = true;
 				}
 				tune_state = LOCK_TIMEDOUT;
@@ -114,7 +114,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 	case LOCKED:
 		if (lock_lost) {
 			if (is_locked) {
-				dtdebugx("Lock was lost");
+				dtdebugf("Lock was lost");
 				/*lock ws lost according to the driver, but our si processing is still running. This is to be distinghuished
 					from after retune, in which case we are in the WAITING_FOR_LOCK state, which would need starting si from scratch.
 					TODO: Instead, we should signal to our caller a new flag "reset_si", which is incompatible with must_tune and
@@ -123,7 +123,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 					end up which an andlessly repeating loop.
 				 */
 			} else {
-				dtdebug("tuner no longer locked; retuning for " << current_tp());
+				dtdebugf("tuner no longer locked; retuning mux={}", current_tp());
 				must_tune = true;
 				isi_processing_done = false;
 			}
@@ -147,7 +147,7 @@ int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 	case tune_mode_t::POSITIONER_CONTROL: {
 		auto [ret, new_usals_sat_pos] = fe->diseqc(true /*skip_positioner*/);
 		if(ret<0) {
-			dterrorx("diseqc failed: err=%d", ret);
+			dterrorf("diseqc failed: err={:d}", ret);
 			return ret;
 		}
 	}
@@ -177,7 +177,7 @@ int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
 	} else
 		mux = mux_;
 	if(!fe) {
-		dterror("Tune failed fe=null: mux=" << mux);
+		dterrorf("Tune failed fe=null: mux={}", mux);
 		return -1;
 	}
 
@@ -186,7 +186,7 @@ int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
 	auto [ret, new_usals_sat_pos] = fe->tune(rf_path, lnb, mux, tune_pars, user_requested);
 	tune_start_time = system_clock_t::now();
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
-	dtdebugx("Subscribed: subscription_id=%d ret=%d", (int) subscription_id, ret);
+	dtdebugf("Subscribed: subscription_id={:d} ret={:d}", (int) subscription_id, ret);
 	return ret;
 }
 
@@ -255,7 +255,7 @@ int active_adapter_t::tune(const mux_t& mux_, tune_pars_t tune_pars, bool user_r
 	auto ret = fe->tune(mux, tune_pars, user_requested);
 	tune_start_time = system_clock_t::now();
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
-	dtdebugx("Subscribed: subscription_id=%d ret=%d", (int) subscription_id, ret);
+	dtdebugf("Subscribed: subscription_id={:d} ret={:d}", (int) subscription_id, ret);
 	return 0;
 }
 
@@ -275,12 +275,12 @@ int active_adapter_t::remove_all_services() {
 int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 	auto [it, found] = find_in_map(this->subscribed_active_services, subscription_id);
 	if (!found) {
-		//dterrorx("Request to deactivate non active service: subscription_id=%d", (int)subscription_id);
+		//dterrorf("Request to deactivate non active service: subscription_id={:d}", (int)subscription_id);
 		return -1;
 	}
 	auto& active_service = *it->second;
 	auto service = active_service.get_current_service();
-	dtdebug("Removing service for subscription " << (int) subscription_id << ": service=" << service);
+	dtdebugf("Removing service for subscription {}: service={}", (int) subscription_id, service);
 	tuner_thread.remove_live_buffer(subscription_id);
 	auto& service_thread = active_service.service_thread;
 	service_thread.stop_running(true/*wait*/);
@@ -292,14 +292,11 @@ int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 int active_adapter_t::add_service(subscription_id_t subscription_id, active_service_t& active_service) {
 	active_service.service_thread.start_running();
 	const auto& service = active_service.get_current_service();
-	dtdebug("TUNE ADD_CHANNEL STARTED " << service.name);
 	{
 		// pmt_pid is set to null_pid until we read it from PAT table
 		subscribed_active_services[subscription_id] = active_service.shared_from_this();
 	}
 	return 0;
-
-	dtdebug("TUNE ADD_CHANNEL ENDED " << service.name);
 }
 
 void active_adapter_t::on_stable_pat() {
@@ -316,14 +313,14 @@ void active_adapter_t::monitor() {
 	assert(fe);
 	auto tune_mode = fe->ts.readAccess()->tune_pars.tune_options.tune_mode;
 	if(tune_mode != tune_mode_t::NORMAL && tune_mode != tune_mode_t::BLIND) {
-		dtdebugx("adapter %d NO MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
+		dtdebugf("adapter {:d} NO MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
 		return;
 	}
 	if(tune_state == TUNE_INIT) {
-		dtdebugx("adapter %d NO MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
+		dtdebugf("adapter {:d} NO MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
 		return;
 	}
-	//dtdebugx("adapter %d MONITOR: tune_mode=%d", get_adapter_no(), (int) tune_mode);
+	//dtdebugf("adapter {:d} MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
 
 	bool must_retune{false};
 	bool relocked_now{false};
@@ -418,20 +415,22 @@ void active_adapter_t::destroy() {
 	cb(tuner_thread); //test being called from correct thread
 	assert(!tuner_thread.has_exited());
 #endif
-	dtdebugx("~active_adapter_t: %p. Adapter %d frontend %d destroyed", this, get_adapter_no(), frontend_no());
+	dtdebugf("~active_adapter_t: {:p}. Adapter {:d} frontend {:d} destroyed",
+					 fmt::ptr(this), get_adapter_no(), frontend_no());
 	this->deactivate();
-	dtdebugx("calling deactivate adapter %d done", this->get_adapter_no());
+	dtdebugf("calling deactivate adapter {:d} done", this->get_adapter_no());
 }
 
 
 active_adapter_t::~active_adapter_t() {
-	dtdebugx("~active_adapter_t: %p. Adapter %d frontend %d destroyed", this, get_adapter_no(), frontend_no());
+	dtdebugf("~active_adapter_t: {:p}. Adapter {:d} frontend {:d} destroyed",
+					 fmt::ptr(this), get_adapter_no(), frontend_no());
 }
 
 int active_adapter_t::open_demux(int mode) const {
 	ss::string<PATH_MAX> demux_fname;
 	const int demux_no = 0; // are there any adapters on wwich demux_no!=0? If so how to associate them with frontends?
-	demux_fname.sprintf("%s%d/demux%d", DVB_DEV_PATH, get_adapter_no(), demux_no);
+	demux_fname.format("{:s}{:d}/demux{:d}", DVB_DEV_PATH, get_adapter_no(), demux_no);
 
 	int fd = ::open(demux_fname.c_str(), mode);
 	return fd;
@@ -540,7 +539,7 @@ int active_adapter_t::deactivate() {
 	remove_all_services();
 	auto* fe = this->fe.get();
 	auto fefd = fe->ts.readAccess()->fefd;
-	dtdebugx("Release fe_fd=%d", fefd);
+	dtdebugf("Release fe_fd={:d}", fefd);
 	fe->release_fe();
 	tune_state = TUNE_INIT;
 	return 0;
@@ -611,7 +610,7 @@ bool active_adapter_t::add_embedded_si_stream(const chdb::any_mux_t& embedded_mu
 	auto* mux_key = chdb::mux_key_ptr(embedded_mux);
 	auto [it, found] = find_in_map(embedded_si_streams, mux_key->t2mi_pid);
 	if (found) {
-		dtdebugx("Ignoring request to add the same si stream twice");
+		dtdebugf("Ignoring request to add the same si stream twice");
 		return false;
 	}
 	auto reader = make_embedded_stream_reader(embedded_mux);
@@ -688,14 +687,14 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
 																						 subscription_id_t subscription_id,
 																						 bool add_to_running_mux) {
 	namespace m = chdb::update_mux_preserve_t;
-	dtdebug("prepare_si: mux=" << mux);
+	dtdebugf("prepare_si: mux={}", mux);
 	/*
 		add an embedded si stream and set the current_mux to to the encapsulating mux
 	 */
 	auto scan_id = mux_common_ptr(mux)->scan_id;
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 	if (dvbs_mux && dvbs_mux->k.t2mi_pid >= 0) {
-		dtdebug("mux " << *dvbs_mux << " is an embedded stream");
+		dtdebugf("mux {} is an embedded stream", *dvbs_mux);
 		auto master_mux = *dvbs_mux;
 		if(add_embedded_si_stream(mux, start)) {
 			auto mux_key = master_mux.k;
@@ -739,14 +738,14 @@ void active_adapter_t::reset_si() {
 		return;
 	}
 	if (tune_state != tune_state_t::TUNE_INIT) {
-		dtdebugx("resetting si_processing_done=%d\n", si.si_processing_done);
+		dtdebugf("resetting si_processing_done={:d}\n", si.si_processing_done);
 		for (auto& [pid, si_] : embedded_si_streams) {
 			si_.reset_si(true /*close stream*/);
 		}
 		si.reset_si(true /*close streams*/);
-		dtdebugx("resetting now: si_processing_done=%d\n", si.si_processing_done);
+		dtdebugf("resetting now: si_processing_done={:d}\n", si.si_processing_done);
 	} else {
-		dtdebugx("skipping tune_state=%d", (int) tune_state);
+		dtdebugf("skipping tune_state={:d}", (int) tune_state);
 	}
 	embedded_si_streams.clear();
 	stream_filters.writeAccess()->clear();
@@ -781,7 +780,7 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 		w->tune_confirmation = tune_confirmation;
 	}
 	if(need_lof_offset_update) {
-		dtdebugx("adapter %d Updating LNB LOF offset", get_adapter_no());
+		dtdebugf("adapter {:d} Updating LNB LOF offset", get_adapter_no());
 		update_lof(lnb, sat_pos, pol, nit_frequency, uncorrected_driver_freq);
 		fe->ts.writeAccess()->reserved_lnb = lnb;
 	}
@@ -954,7 +953,7 @@ void active_adapter_t::check_for_unlockable_streams()
 	auto chdb_wtxn = receiver.chdb.wtxn();
 	chdb::clear_all_streams_pending_status(chdb_wtxn, now, mux);
 	chdb_wtxn.commit();
-	dtdebug("unlockable stream: tune_state="<< tune_state);
+	dtdebugf("unlockable stream: tune_state={}", (int)tune_state);
 }
 
 void active_adapter_t::check_for_non_existing_streams()
@@ -984,7 +983,7 @@ active_adapter_t::tune_service_in_use(const subscribe_ret_t& sret,
 			// place an additional reservation, so that the service will remain tuned if other subscriptions release it
 			reservation.reserve_current_service(service);
 			subscribed_active_services[sret.subscription_id] = active_servicep;
-			dtdebug("[" << service << "] sub =" << (int) sret.subscription_id << ": reusing existing service");
+			dtdebugf("[{}] sub={}: reusing existing service", service, (int) sret.subscription_id);
 			return active_servicep;
 		}
 	}
@@ -997,7 +996,7 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 															 const chdb::service_t& service) {
 	assert(sret.subscription_id != subscription_id_t::NONE);
 
-	dtdebug("Subscribe " << service << " sub =" << (int) sret.subscription_id << ": tune start");
+	dtdebugf("Subscribe {} sub={}: tune start", service,(int) sret.subscription_id);
 
 	/*
 		If another subscription is tuned to the wanted service, we do not have to tune.
@@ -1010,9 +1009,7 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 
 	// now create a new active_service, subscribe the related service and send instructions to start it
 
-
-	ss::string<32> prefix;
-	prefix.sprintf("CH[%d:%s]", this->get_adapter_no(), chdb::to_str(service).c_str());
+	auto prefix =fmt::format("CH[{:d}:{}]", this->get_adapter_no(), service);
 	log4cxx::NDC::push(prefix.c_str());
 
 	auto reader = service.k.mux.t2mi_pid >= 0 ? this->make_embedded_stream_reader(mux)
@@ -1023,7 +1020,7 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 
 	// remember that this service is now in use (for future planning and for later unsubscription)
 	active_service.reservation()->reserve_service(*this, service);
-	dtdebugx("ACTIVE SERVICE reserved");
+	dtdebugf("ACTIVE SERVICE reserved");
 
 	add_service(sret.subscription_id, *active_service_ptr);
 	return active_service_ptr;

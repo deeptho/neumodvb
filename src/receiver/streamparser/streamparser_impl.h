@@ -174,7 +174,7 @@ namespace dtdemux {
 			p= static_cast<implementation_t*>(this)->read_packet();
 			assert(!p || p->range.available() == p->range.tst);
 			if (p==NULL) {
-				//printf("parser[%d] end of stream\n", parser_pid);
+				//printf("parser[{:d}] end of stream\n", parser_pid);
 				assert(self);
 				p = call_fiber(root, p);
 				assert(!p || p->range.available() == p->range.tst);
@@ -185,11 +185,11 @@ namespace dtdemux {
 		}
 		assert(!p || p->range.available() == p->range.tst);
 
-		//printf("parser[%d] reading packet pid=%d seqno=%d\n", pid, p[0], p[1]);
+		//printf("parser[{:d}] reading packet pid={:d} seqno={:d}\n", pid, p[0], p[1]);
 		int packet_pid = p->get_pid();
 		if (parser_pid == packet_pid) {
 			//printf("returning directly\n");
-			//dtdebugx("READx: pid=%d cc=%d", global_ts_packet.get_pid(), global_ts_packet.get_continuity_counter());
+			//dtdebugf("READx: pid={:d} cc={:d}", global_ts_packet.get_pid(), global_ts_packet.get_continuity_counter());
 			return p;
 		}
 		assert(!p || p->range.available() == p->range.tst);
@@ -232,7 +232,7 @@ namespace dtdemux {
 #ifndef NDEBUG
 		auto it = fibers.find(dvb_pid_t(parser_pid));
 		if (it != fibers.end()) {
-			dterrorx("Cannot add multiple parsers for pid %d", parser_pid);
+			dterrorf("Cannot add multiple parsers for pid {:d}", parser_pid);
 			assert(0);
 			return;
 		}
@@ -245,7 +245,7 @@ namespace dtdemux {
 			assert(in);
 			fn(in);
 			fibers.erase(dvb_pid_t(parser_pid));
-			//printf("returning root pid=%d\n", in[0]);
+			//printf("returning root pid={:d}\n", in[0]);
 			/*
 				If we ever end, we transfer control to the very first caller.
 				*/
@@ -289,10 +289,8 @@ namespace dtdemux {
 				if(!p)
 					break;
 				else {
-					//printf("skipping pid=%d seq=%d\n", p[0], p[1]);
 				}
 			} else {
-				//printf("skipping pid=%d seq=%d\n", packet_pid, p[1]);
 			}
 		}
 	}

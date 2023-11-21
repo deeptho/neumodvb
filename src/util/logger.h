@@ -43,16 +43,6 @@ struct audio_language_t;
 struct audio_stream_t;
 struct subtitle_stream_t;
 
-namespace std { //needed ot log4cxx creates errors
-std::ostream& operator<<(std::ostream& os, const ss::string_& a);
-
-std::ostream& operator<<(std::ostream& os, system_time_t a);
-
-};
-
-
-
-
 namespace dtdemux {
 	struct pts_dts_t;
 	struct pcr_t;
@@ -71,7 +61,7 @@ namespace dtdemux {
 	do {																																	\
 		ss::string<256> msg;																								\
 		msg.format(fmt, ##args);																						\
-		LOG4CXX_INFO(logger, msg);																					\
+		LOG4CXX_INFO(logger, msg.c_str());																	\
 	} while(0)
 
 
@@ -104,24 +94,15 @@ namespace dtdemux {
 		___count=0;___last=___now;																					\
 	} while(0)
 
-
-#define dtdebug_nicex(fmt, args...)			\
+#define dtdebug_nicef(fmt, args...)																			\
 	do {																																	\
 		static int ___count=0; static time_t ___last=0; time_t ___now=time(NULL);	\
 		if(___now-___last<1) {___count++;break;}														\
-		char msg[256];																											\
-		snprintf(msg, 255, fmt, ##args);																		\
-		LOG4CXX_DEBUG(logger, msg);																					\
+		ss::string<256> msg;																								\
+		msg.format(fmt, ##args);																						\
+		LOG4CXX_DEBUG(logger, msg.c_str());																	\
 		if(___count) LOG4CXX_DEBUG(logger, "Last message repeated " << ___count << " times"); \
 		___count=0;___last=___now;																					\
-	} while(0)
-
-
-#define dtdebugx(fmt, args...)																					\
-	do {																																	\
-		char msg[256];																											\
-		snprintf(msg, 255, fmt, ##args);																		\
-		LOG4CXX_DEBUG(logger, msg);																					\
 	} while(0)
 
 //alternative for dtdebug
@@ -129,21 +110,7 @@ namespace dtdemux {
 	do {																																	\
 		ss::string<256> msg;																								\
 		msg.format(fmt, ##args);																						\
-		LOG4CXX_DEBUG(logger, msg);																					\
-	} while(0)
-
-#define dtthrowx(fmt, args...)																					\
-	do {																																	\
-		char msg[256];																											\
-		snprintf(msg, 255, fmt, ##args);																		\
-		throw std::runtime_error(std::string(msg));													\
-	} while(0)
-
-#define dterrorx(fmt, args...)																					\
-	do {																																	\
-		char msg [256];																											\
-		snprintf(msg, 255, fmt, ##args);																		\
-		LOG4CXX_ERROR(logger, msg);																					\
+		LOG4CXX_DEBUG(logger, msg.c_str());																	\
 	} while(0)
 
 //alternative for dtdebug
@@ -151,15 +118,14 @@ namespace dtdemux {
 	do {																																	\
 		ss::string<256> msg;																								\
 		msg.format(fmt, ##args);																						\
-		LOG4CXX_ERROR(logger, msg);																					\
+		LOG4CXX_ERROR(logger, msg.c_str());																	\
 	} while(0)
 
-
 //error which should be reported to the user
-#define user_errorx(fmt, args...)																				\
+#define user_errorf(fmt, args...)																				\
 	do {																																	\
 		user_error_.clear();																								\
-		user_error_.sprintf(fmt, ##args);																		\
+		user_error_.format(fmt, ##args);																		\
 		LOG4CXX_ERROR(logger, user_error_.c_str());													\
 	} while(0)
 
@@ -178,7 +144,7 @@ inline int dttime_(steady_time_t& dt_timer,int timeout,const char*func,int line)
 	int ret =  std::chrono::duration_cast<std::chrono::milliseconds>(now -dt_timer).count();
 	dt_timer = now;
 	if(timeout>=0&&ret>=timeout) {
-		dtdebugx("%s_%d TIME: %d",func,line,ret);
+		dtdebugf("{:s}_{:d} TIME: {:d}",func,line,ret);
 	}
 	return ret;
 }

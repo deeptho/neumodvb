@@ -225,7 +225,7 @@ int decode_text(ss::string_& out, uint8_t* from, int len) {
 		processing_delay +=  std::chrono::duration_cast<std::chrono::microseconds>(now -xxx_start).count();
 		processing_count++;
 		if(processing_count>0) {
-			dtdebug_nicex("PERF: %lfus per call (%ld/%ld)\n",
+			dtdebug_nicex("PERF: {:f}us per call ({:d}/{:d})",
 										processing_delay/(double)processing_count, processing_delay, processing_count);
 		}
 #endif

@@ -21,22 +21,3 @@
 #pragma once
 #include "stackstring/stackstring.h"
 #include "neumodb/schema/schema_db.h"
-
-namespace schema {
-
-	template<typename T>
-	auto to_str(T& x)
-	{
-		ss::string<16> s;
-		s.sprintf("%p", &x);
-		return s;
-	}
-
-	//default for missing implementation
-	template<typename T>
-	inline std::ostream& operator<<(std::ostream& os, const T& t) {
-		os << &t;
-		return os;
-	}
-
-};

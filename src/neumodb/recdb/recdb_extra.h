@@ -23,7 +23,7 @@
 #include "neumodb/epgdb/epgdb_db.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumotime.h"
-#include "ssaccu.h"
+#include "fmt/format.h"
 
 namespace recdb {
 	using namespace recdb;
@@ -45,36 +45,7 @@ public:
 	std::optional<recdb::rec_t> prev_recording();
 	std::optional<recdb::rec_t> next_recording();
 	std::optional<recdb::rec_t> recall_recording();
-
 };
-
-	template<typename T>
-	inline void to_str(ss::string_& ret, T& t) {
-		ret.sprintf("%p", &t);
-	}
-
-	template<typename T> auto to_str(T&& t)
-	{
-		ss::string<128> s;
-		to_str(s, (const T&) t);
-		return s;
-	}
-
-	std::ostream& operator<<(std::ostream& os, const marker_key_t& k);
-	std::ostream& operator<<(std::ostream& os, const marker_t& m);
-	std::ostream& operator<<(std::ostream& os, const file_t& f);
-	std::ostream& operator<<(std::ostream& os, const rec_fragment_t& f);
-	std::ostream& operator<<(std::ostream& os, const rec_t& r);
-
-	void to_str(ss::string_& ret, const marker_key_t& k);
-
-	void to_str(ss::string_& ret, const marker_t& m);
-
-	void to_str(ss::string_& ret, const file_t& f);
-
-	void to_str(ss::string_& ret, const rec_fragment_t& f);
-
-	void to_str(ss::string_& ret, const rec_t& r);
 
 	int32_t make_unique_id(db_txn& txn, autorec_t& autorec);
 
@@ -91,3 +62,29 @@ namespace recdb::rec {
 
 	std::optional<rec_t> best_matching(db_txn& txn, const epgdb::epg_record_t& epg, bool anonymous);
 };
+
+
+#define declfmt(t)																											\
+	template <> struct fmt::formatter<t> {																\
+	inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
+		return ctx.begin();																									\
+	}																																			\
+																																				\
+	format_context::iterator format(const t&, format_context& ctx) const ;\
+}
+
+declfmt(recdb::marker_key_t);
+declfmt(recdb::marker_t);
+declfmt(recdb::file_t);
+declfmt(recdb::rec_fragment_t);
+declfmt(recdb::rec_t);
+
+#if 0 // not implemented
+declfmt(recdb::live_service_t);
+declfmt(recdb::stream_descriptor_t);
+declfmt(recdb::autorec_t);
+declfmt(recdb::file_key_t);
+declfmt(recdb::browse_history_t);
+#endif
+
+#undef declfmt

@@ -1069,7 +1069,7 @@ namespace {{dbname}} {
 
 		switch(order) {
 		default:
-			dterrorx("Illegal key: %d; using default instead", (int)order);
+			dterrorf("Illegal key: {:d}; using default instead", (int)order);
 			prefix =  {{struct.class_name}}::partial_keys_t::none;
 		{% for key in struct.keys %}
 		// key {{key.index_name}}
@@ -1120,7 +1120,7 @@ namespace {{dbname}} {
 					break;
 			}
 			if(i<0) {
-				dterrorx("Implementation error");
+				dterrorf("Implementation error");
 			}
 		}
 		return out;
@@ -1156,7 +1156,7 @@ namespace {{dbname}} {
 					break;
 			}
 			if(i<0) {
-				dterrorx("Implementation error");
+				dterrorf("Implementation error");
 			}
 		}
 		return out;
@@ -1189,7 +1189,7 @@ namespace {{dbname}} {
 					break;
 			}
 			if(i<0) {
-				dterrorx("Implementation error");
+				dterrorf("Implementation error");
 			}
 		}
 		return out;

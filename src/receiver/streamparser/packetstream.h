@@ -98,7 +98,7 @@ namespace dtdemux {
 				global_ts_packet = ts_packet_t(range);
 				assert(global_ts_packet.range.available() == global_ts_packet.range.tst);
 
-				//dtdebugx("READ: pid=%d cc=%d", global_ts_packet.get_pid(), global_ts_packet.get_continuity_counter());
+				//dtdebugf("READ: pid={:d} cc={:d}", global_ts_packet.get_pid(), global_ts_packet.get_continuity_counter());
 				if(global_ts_packet.range.is_valid())
 					return &global_ts_packet;
 			}
@@ -148,7 +148,7 @@ namespace dtdemux {
 		inline auto register_pid(int pid, const ss::string_& ndc_prefix, Args... args) {
 			auto parser=std::make_shared<parser_t>(*this, pid, args...);
 			ss::string<128> ndc;
-			ndc.sprintf("%s PID(0x%x)", ndc_prefix.c_str(), pid);
+			ndc.format("{:s} PID(0x{:x})", ndc_prefix, pid);
 			register_parser(pid, [parser, pid, ndc](ts_packet_t* p){
 				log4cxx::NDC::clear();
 				log4cxx::NDC::push(ndc.c_str());

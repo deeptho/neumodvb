@@ -293,5 +293,22 @@ bool check_schema(const dbdesc_t& stored, const dbdesc_t& current);
 template<typename T> EXPORT const char* enum_to_str(const T& val);
 template<typename T> EXPORT  bool enum_is_valid(const T& val);
 
-std::ostream& operator<<(std::ostream& os, field_matcher_t::match_type_t match_type);
-std::ostream& operator<<(std::ostream& os, const field_matcher_t& matcher);
+#ifdef declfmt
+#undef declfmt
+#endif
+
+#define declfmt(t)																											\
+	template <> struct fmt::formatter<t> {																\
+	inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
+		return ctx.begin();																									\
+	}																																			\
+																																				\
+	format_context::iterator format(const t&, format_context& ctx) const ;\
+}
+
+
+declfmt(field_matcher_t::match_type_t);
+declfmt(field_matcher_t);
+#if 0 //not implemented
+#endif
+#undef declfmt

@@ -48,7 +48,7 @@ scan_t::scan_t(	scanner_t& scanner, std::optional<tune_options_t> o,
 	, scan_subscription_id(scan_subscription_id)
 	, scan_id(scanner_t::make_scan_id(scan_subscription_id))
 {
-	dtdebugx("MAKE SCAN_ID: pid=0x%x subscription_id=%d ret=%d\n", getpid(), (int)scan_subscription_id, scan_id);
+	dtdebugf("MAKE SCAN_ID: pid=0x{:x} subscription_id={:d} ret={:d}\n", getpid(), (int)scan_subscription_id, scan_id);
 	if(o) {
 		tune_options = *o;
 	} else
@@ -87,7 +87,7 @@ bool scanner_t::housekeeping(bool force) {
 		must_end = true;
 	}
 
-	dtdebugx("%d muxes left to scan; %d active", pending, active);
+	dtdebugf("{:d} muxes left to scan; {:d} active", pending, active);
 
 	return must_end ? true : ((pending + active)==0);
 }
@@ -99,12 +99,11 @@ static void report(const char* msg, subscription_id_t finished_subscription_id,
 	if ((int) finished_subscription_id < 0 && (int) subscription_id < 0)
 		return;
 	ss::string<128> s;
-	//to_str(s, mux);
-	s.sprintf(" Scan  %s %s finished_subscription_id=%d subscription_id=%d todo=[",
-						msg, to_str(mux).c_str(), finished_subscription_id, subscription_id);
+	s.format(" Scan  {:s} {} finished_subscription_id={:d} subscription_id={:d} todo=[",
+					 msg, mux, (int)finished_subscription_id, (int)subscription_id);
 	for (auto& [id, unused] : subscriptions)
-		s.sprintf("%2d ", (int)id);
-	s.sprintf("] \n");
+		s.format("[:2d] ", (int)id);
+	s.format("] \n");
 	dtdebug(s.c_str());
 }
 
@@ -169,9 +168,8 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 
 			auto [pending, active] = scan.scan_loop(finished_fe, finished_mux, subscription_id);
 
-			dtdebug("finished_fe adapter " << finished_fe.adapter_no <<
-							" mux=<" << finished_mux << "> " <<
-							" muxes to scan: pending=" << (int) pending << " active=" << (int) active << " subs="  <<
+			dtdebugf("finished_fe adapter {} mux=<{}> muxes to scan: pending={} active={} subs={}",
+							 finished_fe.adapter_no, finished_mux, (int) pending, (int) active,
 							((int) scan.subscriptions.size()));
 
 			while(!must_end && ( pending + active != 0) && scan.subscriptions.size() == 0 ) {
@@ -233,7 +231,7 @@ scan_t::rescan_peak(blindscan_t& blindscan,
 		if constexpr (is_same_type_v<decltype(mux), chdb::dvbc_mux_t>) {
 		}
 		mux.k.stream_id = -1;
-		dtdebug("SET PENDING " << mux);
+		dtdebugf("SET PENDING: {}", mux);
 		mux.c.scan_status = scan_status_t::PENDING;
 		assert(mux.c.scan_id == scan_id);
 		const bool use_blind_tune = true;
@@ -302,7 +300,7 @@ scan_t::scan_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 			subscription.is_peak_scan = true;
 			mux.c.tune_src = tune_src_t::TEMPLATE;
 		}
-		dtdebug("SET PENDING " << mux);
+		dtdebugf("SET PENDING: {}", mux);
 		mux.c.scan_status = scan_status_t::PENDING;
 		mux.c.scan_id = scan_id;
 		subscription.mux = mux;
@@ -380,7 +378,7 @@ bool scan_t::finish_subscription(db_txn& rtxn,  subscription_id_t subscription_i
 		if(std::abs(symbol_rate -(int) subscription.peak.symbol_rate) <
 			 std::min(symbol_rate, (int) subscription.peak.symbol_rate)/4) //less than 25% difference in symbol rate
 			return true; //blindscanned will not likely lead to different results
-		dtdebug("Calling rescan_peak for mux: " << finished_mux);
+		dtdebugf("Calling rescan_peak for mux: {}", finished_mux);
 		return rescan_peak(blindscan, subscription_id, subscription);
 	}
 
@@ -530,7 +528,7 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 					? &blindscan.spectrum_key.rf_path : nullptr;
 			}
 			if(mux_is_being_scanned(mux_to_scan)) {
-				dtdebug("Skipping mux already in progress: " << mux_to_scan);
+				dtdebugf("Skipping mux already in progress: {}", mux_to_scan);
 				continue;
 			}
 
@@ -556,7 +554,7 @@ std::tuple<int, int, int, int, subscription_id_t> scan_t::scan_next(db_txn& chdb
 	if ((int)reuseable_subscription_id >= 0) {
 		subscription_id_t subscription_id{-1};
 		//we have not reused reuseable_subscription_id so this subscription must be ended
-		dtdebugx("Abandoning subscription_id=%d", (int) reuseable_subscription_id);
+		dtdebugf("Abandoning subscription_id={:d}", (int) reuseable_subscription_id);
 		auto wtxn = receiver.devdb.wtxn();
 		receiver_thread.unsubscribe(futures, wtxn, reuseable_subscription_id);
 		wtxn.commit();
@@ -614,7 +612,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		if(receiver_thread.must_exit())
 			throw std::runtime_error("Exit requested");
 
-		dtdebugx("Calling scan_next");
+		dtdebugf("Calling scan_next");
 		std::tie(num_pending_peaks1, num_skipped_peaks1, num_pending_muxes1, num_skipped_muxes1,
 						 subscription_to_erase1) =
 			scan_next<chdb::dvbs_mux_t>(chdb_rtxn, finished_subscription_id_dvbs, subscription);
@@ -627,7 +625,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		if(receiver_thread.must_exit())
 			throw std::runtime_error("Exit requested");
 
-		dtdebugx("dvbc scan_next round\n");
+		dtdebugf("dvbc scan_next round\n");
 		std::tie(num_pending_peaks1, num_skipped_peaks1, num_pending_muxes1, num_skipped_muxes1,
 						 subscription_to_erase1) =
 			scan_next<chdb::dvbc_mux_t>(chdb_rtxn, finished_subscription_id_dvbc, subscription);
@@ -644,7 +642,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		if(receiver_thread.must_exit())
 			throw std::runtime_error("Exit requested");
 
-		dtdebugx("dvbt scan_next\n");
+		dtdebugf("dvbt scan_next\n");
 		std::tie(num_pending_peaks1, num_skipped_peaks1, num_pending_muxes1, num_skipped_muxes1,
 						 subscription_to_erase1) =
 			scan_next<chdb::dvbt_mux_t>(chdb_rtxn, finished_subscription_id_dvbt, subscription);
@@ -658,7 +656,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		if( (int) subscription_to_erase1 >=0)
 			subscription_to_erase = subscription_to_erase1;
 
-		dtdebugx("finished_subscription_id=%d subscription_to_erase =%d pending=%d+%d skipped=%d+%d",
+		dtdebugf("finished_subscription_id={:d} subscription_to_erase ={:d} pending={:d}+{:d} skipped={:d}+{:d}",
 						 (int) finished_subscription_id,
 						 (int) subscription_to_erase,
 						 num_pending_peaks, num_pending_muxes, num_skipped_peaks, num_skipped_muxes);
@@ -675,7 +673,7 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		[&](){
 			auto [it, found] = find_in_map(this->subscriptions, finished_subscription_id);
 			if(!found) {
-				dtdebugx("Skipping unknown subscription_id=%d", (int)finished_subscription_id);
+				dtdebugf("Skipping unknown subscription_id={:d}", (int)finished_subscription_id);
 				return;
 			}
 			scan_subscription_t subscription {it->second}; //need to copy
@@ -686,12 +684,13 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 				which is done by creating a new transaction
 			*/
 			auto chdb_rtxn = receiver.chdb.rtxn();
-			dtdebugx("obtained transaction\n");
+			dtdebugf("obtained transaction\n");
 			count++;
 			auto& blindscan = blindscans[subscription.blindscan_key];
 			bool finished = finish_subscription(chdb_rtxn,  finished_subscription_id,
 																					subscription, finished_mux);
-			dtdebug("after finish_subscription: finished_mux=" << finished_mux << " finished=" << finished);
+			dtdebugf("after finish_subscription: finished_mux={} finished=",
+							 finished_mux, finished);
 			scan_report_t report{subscription, blindscan.spectrum_key, {}};
 			if (!finished) {
 				finished_subscription_ptr = nullptr;
@@ -702,9 +701,8 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 				subscription.mux.reset();
 				dtdebug("calling try_all\n");
 				auto subscription_to_erase = try_all(chdb_rtxn, finished_subscription_id, subscription);
-				dtdebug("finished_subscription_id=" << (int) finished_subscription_id << " subscription_to_erase=" <<
-								(int) subscription_to_erase
-								<< " finished_mux=" << finished_mux);
+				dtdebugf("finished_subscription_id={} subscription_to_erase={} finished_mux={}",
+								(int) finished_subscription_id, (int) subscription_to_erase, finished_mux);
 				if((int) subscription_to_erase >=0) {
 					assert(subscription_to_erase == finished_subscription_id);
 					it = subscriptions.erase(it);
@@ -728,16 +726,17 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			assert(finished_mux_key.sat_pos == sat_pos_none || finished_fe.sub.owner == getpid());
 			report.scan_stats = *scan_stats.readAccess();
 			auto ss = *scan_stats.readAccess();
-			dtdebug("SCAN REPORT: mux=" << *report.mux << " pending=" << ss.pending_muxes << " active=" << ss.active_muxes);
+			dtdebugf("SCAN REPORT: mux={} pending={} active={}",
+							 *report.mux, ss.pending_muxes, ss.active_muxes);
 			receiver.notify_scan_mux_end(scan_subscription_id, report);
-			dtdebugx("committing\n");
+			dtdebugf("committing\n");
 			chdb_rtxn.commit();
 		}();
 
 		if(count==0) {
-			dterror("XXXX finished subscription not found for " << finished_mux);
+			dterrorf("XXXX finished subscription not found for {}", finished_mux);
 		} else if(count!=1) {
-			dtdebug("XXXX multiple finished subscriptions for " << finished_mux);
+			dtdebugf("XXXX multiple finished subscriptions for {}", finished_mux);
 		}
 	} else {
 		//in case new frontends or lnbs have become available for use
@@ -746,10 +745,10 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 		auto finished_subscription_id = subscription_id_t{-1};
 		dtdebug("calling try_all\n");
 		auto chdb_rtxn = receiver.chdb.rtxn();
-		dtdebugx("obtained transaction\n");
+		dtdebugf("obtained transaction\n");
 		auto subscription_to_erase = try_all(chdb_rtxn, finished_subscription_id, subscription);
 		assert((int) subscription_to_erase == -1);
-		dtdebugx("committing\n");
+		dtdebugf("committing\n");
 		chdb_rtxn.commit();
 
 		if(subscriptions.size() ==0) {
@@ -762,11 +761,11 @@ scan_t::scan_loop(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finishe
 			auto ss = *scan_stats.readAccess();
 			ss.pending_muxes = num_pending_muxes;
 			if(report.mux) {
-				dtdebug("SCAN REPORT: mux=" << *report.mux << " pending=" <<
-							ss.pending_muxes << " active=" << ss.active_muxes);
+				dtdebugf("SCAN REPORT: mux={} pending={} active={}",
+								 *report.mux, ss.pending_muxes, ss.active_muxes);
 			} else {
-								dtdebug("SCAN REPORT: mux=" << "NONE" << " pending=" <<
-							ss.pending_muxes << " active=" << ss.active_muxes);
+				dtdebugf("SCAN REPORT: mux=NONE pending{} active={}",
+								 ss.pending_muxes, ss.active_muxes);
 			}
 			receiver.notify_scan_mux_end(scan_subscription_id, report);
 		} else if(!subscription.scan_start_reported) {
@@ -835,9 +834,9 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	if((int)subscription_id >=0) {
 		report((int)subscription_id <0 ? "NOT SUBSCRIBED" : "SUBSCRIBED", reuseable_subscription_id, subscription_id,
 					 *subscription.mux, subscriptions);
-		dtdebug("Asked to subscribe " << *subscription.mux << " reuseable_subscription_id="  <<
-						(int) reuseable_subscription_id << " subscription_id=" << (int) subscription_id <<
-						" peak=" << subscription.peak.frequency);
+		dtdebugf("Asked to subscribe {} reuseable_subscription_id={} subscription_id={} peak={}",
+						 *subscription.mux, (int) reuseable_subscription_id,
+						 (int) subscription_id, subscription.peak.frequency);
 	}
 	/*
 		When tuning fails, it is essential that tuner_thread does NOT immediately unsubscribe the mux,
@@ -860,7 +859,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 			*/
 			auto chdb_wtxn = receiver.chdb.wtxn();
 			auto &c = *chdb::mux_common_ptr(*subscription.mux);
-			dtdebug("SET IDLE " << *subscription.mux);
+			dtdebugf("SET IDLE ", *subscription.mux);
 			c.scan_status = chdb::scan_status_t::IDLE;
 			c.scan_result = chdb::scan_result_t::BAD;
 			c.scan_id = 0;
@@ -875,8 +874,8 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 		return {subscription_id, reuseable_subscription_id};
 	}
 	last_subscribed_mux = *subscription.mux;
-	dtdebug("subscribed to " << *subscription.mux << " subscription_id="  << (int) subscription_id <<
-					" reuseable_subscription_id=" << (int) reuseable_subscription_id);
+	dtdebugf("subscribed to {} subscription_id={} reuseable_subscription_id={}",
+					 *subscription.mux,(int) subscription_id, (int) reuseable_subscription_id);
 
 	/*at this point, we know that our newly subscribed fe differs from our old subscribed fe
 	 */
@@ -920,12 +919,12 @@ template<typename mux_t> static void clean(db_txn& wtxn)
 
 		for(auto mux: c.range())  {
 			assert (mux.c.scan_status == scan_status);
-			dtdebug("SET IDLE " << mux);
+			dtdebugf("SET IDLE ", mux);
 			mux.c.scan_status = chdb::scan_status_t::IDLE;
 			put_record(wtxn, mux);
 			count++;
 		}
-		dtdebugx("Cleaned %d muxes with %s status\n", count, label);
+		dtdebugf("Cleaned {:d} muxes with {} status\n", count, label);
 	};
 
 	fn(scan_status_t::PENDING, "PENDING");
@@ -989,7 +988,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto chdb_wtxn = receiver.chdb.wtxn();
 	auto scan_id = make_scan_id(scan_subscription_id);
-	dtdebugx("MAKE SCAN_ID: pid=0x%x subscription_id=%d ret=%d\n", getpid(), (int)scan_subscription_id, scan_id);
+	dtdebugf("MAKE SCAN_ID: pid=0x{:x} subscription_id={:d} ret={:d}\n", getpid(), (int)scan_subscription_id, scan_id);
 	/* ensure that empty entry exists. This camn be used to set required_lnb and such
 	 */
 	/*
@@ -1000,11 +999,11 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 	auto& scan = it->second;
 	for(const auto& mux_: muxes) {
 		if(!can_subscribe(devdb_rtxn, mux_, scan.tune_options)) {
-			dtdebug("Skipping mux that cannot be tuned: " << mux_);
+			dtdebugf("Skipping mux that cannot be tuned: {}", mux_);
 			continue;
 		}
 		auto mux = mux_;
-		dtdebug("SET PENDING " << mux);
+		dtdebugf("SET PENDING {}", mux);
 		/*
 			@todo: multiple parallel scans can override each other's scan_status
 		 */
@@ -1104,7 +1103,7 @@ void scanner_t::notify_signal_info(const subscriber_t& subscriber,
 			return;
 		}
 	}
-	dtdebugx("NOT Notifying: monitored_subscription_id=%d", (int) scan.monitored_subscription_id);
+	dtdebugf("NOT Notifying: monitored_subscription_id={:d}", (int) scan.monitored_subscription_id);
 }
 
 void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,
@@ -1129,7 +1128,7 @@ void scanner_t::notify_sdt_actual(const subscriber_t& subscriber,
 			return;
 		}
 	}
-	dterrorx("NOT Notifying: monitored_subscription_id=%d\n", (int) scan.monitored_subscription_id);
+	dterrorf("NOT Notifying: monitored_subscription_id={:d}\n", (int) scan.monitored_subscription_id);
 }
 
 

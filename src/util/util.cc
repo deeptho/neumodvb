@@ -279,7 +279,7 @@ int timer_start(double period_sec) {
 	struct itimerspec* old_value = NULL; // returns time to expiration + period
 	int ret = timerfd_settime(fd, flags, &new_value, old_value);
 	if (ret < 0) {
-		dterrorx("could not create timerfd: %s\n", strerror(errno));
+		dterrorf("could not create timerfd: {}", strerror(errno));
 		return -1;
 	}
 	return fd;
@@ -299,7 +299,7 @@ int timer_set_period(int fd, double period_sec) {
 	struct itimerspec* old_value = NULL; // returns time to expiration + period
 	int ret = timerfd_settime(fd, flags, &new_value, old_value);
 	if (ret < 0) {
-		dterrorx("could not create timerfd: %s\n", strerror(errno));
+		dterrorf("could not create timerfd: {}", strerror(errno));
 		return -1;
 	}
 	return fd;
@@ -311,7 +311,7 @@ int timer_stop(int fd) {
 	struct itimerspec* old_value = NULL; // returns time to expiration + period
 	int ret = timerfd_settime(fd, flags, &new_value, old_value);
 	if (ret < 0) {
-		dterrorx("could not stop timerfd: %s\n", strerror(errno));
+		dterrorf("could not stop timerfd: {}", strerror(errno));
 		return -1;
 	}
 	while (ret) {
@@ -320,7 +320,7 @@ int timer_stop(int fd) {
 			break;
 	}
 	if (ret < 0) {
-		dterrorx("could not stop timerfd: %s\n", strerror(errno));
+		dterrorf("could not stop timerfd: {}", strerror(errno));
 		return -1;
 	}
 	return ret;

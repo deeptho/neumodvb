@@ -38,39 +38,6 @@ unconvertable_int(int, frontend_no_t);
 
 namespace devdb {
 	using namespace devdb;
-
-	void to_str(ss::string_& ret, const lnb_t& lnb);
-	void to_str(ss::string_& ret, const lnb_key_t& lnb_key);
-	void to_str(ss::string_& ret, const lnb_network_t& lnb_network);
-	void to_str(ss::string_& ret, const lnb_connection_t& lnb_connection);
-	void to_str(ss::string_& ret, const fe_band_pol_t& band_pol);
-	void to_str(ss::string_& ret, const fe_t& fe);
-	void to_str(ss::string_& ret, const fe_key_t& fe_key);
-	void to_str(ss::string_& ret, const fe_subscription_t& sub);
-
-	template<typename T>
-	inline void to_str(ss::string_& ret, const T& t) {
-	}
-
-
-	template<typename T>
-	inline auto to_str(T&& t)
-	{
-		ss::string<128> s;
-		to_str((ss::string_&)s, (const T&) t);
-		return s;
-	}
-
-	std::ostream& operator<<(std::ostream& os, const lnb_key_t& lnb_key);
-	std::ostream& operator<<(std::ostream& os, const lnb_t& lnb);
-	std::ostream& operator<<(std::ostream& os, const lnb_connection_t& con);
-	std::ostream& operator<<(std::ostream& os, const lnb_network_t& lnb_network);
-	std::ostream& operator<<(std::ostream& os, const fe_band_pol_t& band_pol);
-	std::ostream& operator<<(std::ostream& os, const chdb::fe_polarisation_t& pol);
-	std::ostream& operator<<(std::ostream& os, const fe_key_t& fe_key);
-	std::ostream& operator<<(std::ostream& os, const fe_subscription_t& sub);
-	std::ostream& operator<<(std::ostream& os, const fe_t& fe);
-
 }
 
 
@@ -292,6 +259,35 @@ namespace devdb::fe_subscription {
 
 };
 
+#define declfmt(t)																											\
+	template <> struct fmt::formatter<t> {																\
+	inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
+		return ctx.begin();																									\
+	}																																			\
+																																				\
+	format_context::iterator format(const t&, format_context& ctx) const ;\
+}
 
+declfmt(devdb::lnb_key_t);
+declfmt(devdb::lnb_t);
+declfmt(devdb::lnb_connection_t);
+declfmt(devdb::lnb_network_t);
+declfmt(devdb::fe_band_pol_t);
+declfmt(devdb::fe_key_t);
+declfmt(devdb::fe_subscription_t);
+declfmt(devdb::fe_t);
+#if 0 //not yet implemented
+declfmt(devdb::tuned_frequency_offsets_key_t);
+declfmt(devdb::tuned_frequency_offsets_t);
+declfmt(devdb::tuned_frequency_offset_t);
+declfmt(devdb::fe_supports_t);
+declfmt(devdb::user_options_t);
+declfmt(devdb::usals_location_t);
+declfmt(devdb::rf_path_t);
+declfmt(devdb::subscription_data_t);
+#endif
+
+
+#undef declfmt
 
 #pragma GCC visibility pop

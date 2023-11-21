@@ -22,8 +22,6 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/devdb/devdb_extra.h"
 #include "receiver/neumofrontend.h"
-#include "stackstring/ssaccu.h"
-//#include "xformat/ioformat.h"
 #include "util/template_util.h"
 #include <signal.h>
 #include <iomanip>
@@ -55,7 +53,7 @@ template<typename mux_t> static void chdb::clean(db_txn& wtxn) {
 			if(mux.c.scan_id != 0) {
 				auto owner_pid = mux.c.scan_id >>8;
 				if(kill((pid_t)owner_pid, 0) == 0) {
-					dtdebugx("process pid=%d is still active; skip deleting scan status\n", owner_pid);
+					dtdebugf("process pid={:d} is still active; skip deleting scan status", owner_pid);
 				continue;
 				}
 			}
@@ -71,7 +69,7 @@ template<typename mux_t> static void chdb::clean(db_txn& wtxn) {
 	clean(scan_status_t::ACTIVE);
 	clean(scan_status_t::RETRY);
 
-	dtdebugx("Cleaned %d muxes with PENDING/ACTIVE/RETRY status", count);
+	dtdebugf("Cleaned {:d} muxes with PENDING/ACTIVE/RETRY status", count);
 }
 
 template<typename record_t> static void chdb::clean_expired(db_txn& wtxn, std::chrono::seconds age, const char* label)
@@ -93,7 +91,7 @@ template<typename record_t> static void chdb::clean_expired(db_txn& wtxn, std::c
 		delete_record(wtxn, record);
 		count++;
 	}
-	dtdebugx("removed %d expired %s; %d skipped", count, label, skipped);
+	dtdebugf("removed {:d} expired {:s}; {:d} skipped", count, label, skipped);
 }
 
 void chdb::clean_scan_status(db_txn& wtxn)
@@ -126,7 +124,7 @@ void chdb::clean_chgms_without_services(db_txn& wtxn)
 		}
 	}
 	dttime(10);
-	dtdebugx("%d chgm records deleted\n", count);
+	dtdebugf("{:d} chgm records deleted", count);
 }
 
 /*

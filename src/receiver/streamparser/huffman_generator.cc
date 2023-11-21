@@ -21,7 +21,7 @@
 #include "opentv_string_decoder.h"
 #include "opentv_huffman.h"
 
-#include "ssaccu.h"
+#include "stackstring.h"
 #include <vector>
 #include <endian.h>
 

@@ -196,7 +196,7 @@ extern int _slowdown(time_t*last,int *count, time_t now, int maxcount);
 		static time_t last=0;																								\
 		static int count=0;																									\
 		if(_slowdown(&last, &count, now, maxcount)){												\
-			dtdebugx("SLOW %s: Too many calls: %d/s (%d in %d s)\n",					\
+			dtdebugf("SLOW {}: Too many calls: {:d}/s ({:d} in {:d} s)\n",					\
 							 msg,(int)(count/(now-last)),count,(int)(now-last));			\
 		}																																		\
 }

@@ -27,7 +27,6 @@
 #include "neumotime.h"
 #include <pybind11/pybind11.h>
 #include <stdio.h>
-
 namespace py = pybind11;
 void export_find_type(py::module& m) {
 	static int called = false;
@@ -64,9 +63,7 @@ void export_field_matcher_t(py::module& m) {
 		.def(py::init<int8_t, field_matcher_t::match_type_t>())
 		.def("__repr__",
 				 [](field_matcher_t matcher) {
-					 std::stringstream ret;
-					 ret << matcher;
-					 return ret.str();
+					 return std::string(fmt::format("{}", matcher));
 				 })
 		.def_readwrite("field_id", &field_matcher_t::field_id)
 		.def_readwrite("match_type", &field_matcher_t::match_type)

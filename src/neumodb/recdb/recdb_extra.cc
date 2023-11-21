@@ -23,7 +23,6 @@
 #include "../chdb/chdb_extra.h"
 #include "../epgdb/epgdb_extra.h"
 #include <fmt/chrono.h>
-#include "xformat/ioformat.h"
 #include "neumotime.h"
 
 using namespace recdb;
@@ -40,56 +39,6 @@ static int overlapping(time_t s1, time_t e1, time_t s2, time_t e2) {
 
 	return 0;
 }
-
-std::ostream& recdb::operator<<(std::ostream& os, const marker_key_t& k) {
-	os << k.time;
-	return os;
-}
-
-std::ostream& recdb::operator<<(std::ostream& os, const marker_t& m) {
-	os << m.k.time;
-	stdex::printf(os, " packets=[%ld - %ld]", m.packetno_start, m.packetno_end);
-	return os;
-}
-
-std::ostream& recdb::operator<<(std::ostream& os, const file_t& f) {
-	stdex::printf(os, "file %d; stream time: [", f.fileno);
-	os << f.k.stream_time_start << " - " << f.stream_time_end;
-	os << "] real time: [";
-	os << fmt::format("{:%F %H:%M}", fmt::localtime(f.real_time_start));
-	os << " - ";
-	os << fmt::format("{:%H:%M}", fmt::localtime(f.real_time_end));
-	stdex::printf(os, " packets=[%ld - %ld]", f.stream_packetno_start, f.stream_packetno_end);
-	return os;
-}
-
-std::ostream& recdb::operator<<(std::ostream& os, const rec_fragment_t& f) {
-	os << "stream time: [" << f.play_time_start << " - " << f.play_time_end << "] play time: [" << f.stream_time_start
-		 << " - " << f.stream_time_end << "]";
-	return os;
-}
-
-std::ostream& recdb::operator<<(std::ostream& os, const rec_t& r) {
-	os << r.service;
-	os << "\n        ";
-	os << r.epg
-		 << "\nstream time: [" << r.stream_time_start << " - " << r.stream_time_end << "]\n  real time: ["
-           << fmt::format("{:%F %H:%M}", fmt::localtime(r.real_time_start)) << " - "
-           << fmt::format("{:%H:%M}", fmt::localtime(r.real_time_end));
-	stdex::printf(os, "]\n");
-	os << "\n" << r.filename;
-	return os;
-}
-
-void recdb::to_str(ss::string_& ret, const marker_key_t& k) { ret << k.time; }
-
-void recdb::to_str(ss::string_& ret, const marker_t& m) { ret << m; }
-
-void recdb::to_str(ss::string_& ret, const file_t& f) { ret << f; }
-
-void recdb::to_str(ss::string_& ret, const rec_fragment_t& f) { ret << f; }
-
-void recdb::to_str(ss::string_& ret, const rec_t& r) { ret << r; }
 
 /*!
 	returns best matching recording recording, taking into account differences
@@ -148,9 +97,7 @@ std::optional<recdb::rec_t> recdb::rec::best_matching(db_txn& txn, const epgdb::
 	create a file name for a recording
 */
 void recdb::rec::make_filename(ss::string_& ret, const chdb::service_t& s, const epgdb::epg_record_t& epg) {
-	ss::accu_t ss(ret);
-	ss << epg.event_name << " - " << s.name << " - "
-		 << fmt::format("{:%F %H:%M}", fmt::localtime(epg.k.start_time));
+	ret.format("{} - {} - {:%F %H:%M}", epg.event_name, s.name, fmt::localtime(epg.k.start_time));
 	for (auto& c : ret) {
 		if (c == '/' || c == '\\' || iscntrl(c) || !c)
 			c = ' ';
@@ -233,4 +180,48 @@ recdb::rec_t recdb::new_recording(db_txn& rec_wtxn, db_txn& epg_wtxn,
 		epgdb::update_record_at_cursor(c, epgrec);
 	}
 	return ret;
+}
+
+
+
+fmt::format_context::iterator
+fmt::formatter<marker_key_t>::format(const marker_key_t& k, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}",  k.time);
+}
+
+fmt::format_context::iterator
+fmt::formatter<marker_t>::format(const marker_t& m, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{} packets=[{:d} - {:d}]", m.k.time,
+								 m.packetno_start, m.packetno_end);
+}
+
+fmt::format_context::iterator
+fmt::formatter<file_t>::format(const file_t& f, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "file {:d}; stream time: [{} - {}]"
+								 "real time: [{:%F %H:%M} - {:%H:%M}"
+								 " packets=[{:d} - {:d}]",
+								 f.fileno, f.k.stream_time_start, f.stream_time_end,
+								 fmt::localtime(f.real_time_start),  fmt::localtime(f.real_time_end),
+								 f.stream_packetno_start, f.stream_packetno_end);
+}
+
+fmt::format_context::iterator
+fmt::formatter<rec_fragment_t>::format(const rec_fragment_t& f, format_context& ctx) const {
+	return fmt::format_to(ctx.out(),
+												"stream time: [{} - {}]"
+												"play time: [{} - {}]",
+												f.play_time_start, f.play_time_end,
+												f.stream_time_start, f.stream_time_end);
+}
+
+fmt::format_context::iterator
+fmt::formatter<rec_t>::format(const rec_t& r, format_context& ctx) const {
+	return fmt::format_to(ctx.out(),
+												"{}\n        {}\n"
+												"nstream time: [{} - {}]\n"
+												"real time: [{:%F %H:%M} - {:%H:%M}]]\n",
+												r.service, r.epg,
+												r.stream_time_start, r.stream_time_end,
+												fmt::localtime(r.real_time_start), fmt::localtime(r.real_time_end),
+												r.filename);
 }

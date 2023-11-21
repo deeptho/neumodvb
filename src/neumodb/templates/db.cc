@@ -92,15 +92,15 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 		{% if dbname != "schema" %}
 
 		if(!autoconvert) {
-			dterrorx("Database %s needs update, but autoconvert not allowed", dbpath);
+			dterrorf("Database {} needs update, but autoconvert not allowed", dbpath);
 			throw db_needs_upgrade_exception("Database needs update, but autoconvert not allowed");
 		}
 		bool needs_major_upgrade = db_version != neumo_schema_version;
 		if(needs_major_upgrade && ! autoconvert_major_version) {
-			dtdebugx("Database needs major upgrade from %d to %d\n", db_version, neumo_schema_version);
+			dtdebugf("Database needs major upgrade from {:d} to {:d}\n", db_version, neumo_schema_version);
 			throw db_upgrade_info_t{db_version, neumo_schema_version};
 		}
-		dterrorx("Auto upgrading database %s", dbpath);
+		dterrorf("Auto upgrading database {}", dbpath);
 		const char* backup_name = nullptr;
 		bool force_overwrite = true;
 		bool inplace_upgrade = true;
@@ -110,10 +110,10 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 		auto ret=neumodb_upgrade<{{dbname}}::{{dbname}}_t>(dbpath, backup_name, force_overwrite, inplace_upgrade, dont_backup);
 		auto t = dttime(-1);
 		if(ret<0) {
-			dterrorx("Auto upgrading database %s FAILED (upgrade time: %d.%d s)", dbpath, t/1000, t%1000);
+			dterrorf("Auto upgrading database {} FAILED (upgrade time: {:d}.{:d} s)", dbpath, t/1000, t%1000);
 			throw e;
 		} else {
-			dterrorx("Auto upgrading database %s SUCCESS (upgrade time: %d.%d s)", dbpath, t/1000, t%1000);
+			dterrorf("Auto upgrading database {} SUCCESS (upgrade time: {:d}.{:d} s)", dbpath, t/1000, t%1000);
 			autoconvert = false; // prevent  a conversion loop
 			autoconvert_major_version = false;
 			//envp = std::make_shared<lmdb::env>(lmdb::env::create());

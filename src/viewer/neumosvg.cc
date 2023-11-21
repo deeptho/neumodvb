@@ -54,10 +54,10 @@ double floatattr(wxSVGElement* elem, const char* key) {
 	if (!attr.ToDouble(&ret))
 		dterror("NOT A FLOAT");
 	if (strcmp(key, "width") == 0) {
-		dterrorx("????? key=%s val=%lf %f\n", key, ret, get_width(elem));
+		dterrorf("????? key={:s} val={:f} {:f}\n", key, ret, get_width(elem));
 	}
 	if (strcmp(key, "x") == 0) {
-		dterrorx("????? key=%s val=%lf %f\n", key, ret, get_x(elem));
+		dterrorf("????? key={:s} val={:f} {:f}\n", key, ret, get_x(elem));
 	}
 	return ret;
 }
@@ -81,7 +81,7 @@ static wxSVGElement* find_child_of_type(wxSVGElement*parent, const char *tagname
 		if(strcmp(tagname, t)==0)
 			ret=elem;
 		std::string content=elem->GetContent().ToStdString();
-		dtdebugx("Content=/%s/\n", content.c_str());
+		dtdebugf("Content=/{:s}/\n", content.c_str());
 		elem = (wxSVGElement*) elem->GetNext();
 	}
 	return nullptr;
@@ -138,11 +138,11 @@ struct text_box {
 
 void level_indicator::init(wxSVGDocument* doc) {
 	ss::string<32> temp;
-	temp.sprintf("%s-scroller", scroller_id);
+	temp.format("{:s}-scroller", scroller_id);
 	scroller = doc->GetElementById(temp.c_str());
 	temp.clear();
 
-	temp.sprintf("%s-bar", bar_id);
+	temp.format("{:s}-bar", bar_id);
 	bar = doc->GetElementById(temp.c_str());
 	width = get_width(bar);
 
@@ -153,7 +153,7 @@ void level_indicator::init(wxSVGDocument* doc) {
 
 	temp.clear();
 
-	temp.sprintf("%s-text", scroller_id);
+	temp.format("{:s}-text", scroller_id);
 	// magic: span elements seem to be hidden
 	auto* p = doc->GetElementById(temp.c_str());
 	if (p)
@@ -166,10 +166,10 @@ void livebuffer_t::init(wxSVGDocument* doc) {
 	level_indicator::init(doc);
 
 	ss::string<32> temp;
-	temp.sprintf("%s-indicator-ref", scroller_id);
+	temp.format("{:s}-indicator-ref", scroller_id);
 	indicator_ref = doc->GetElementById(temp.c_str());
 	temp.clear();
-	temp.sprintf("%s-indicator-box", scroller_id);
+	temp.format("{:s}-indicator-box", scroller_id);
 	indicator_box = doc->GetElementById(temp.c_str());
 
 	wxSVGTransformable* box_element = wxSVGTransformable::GetSVGTransformable(*indicator_box);
@@ -196,7 +196,7 @@ void level_indicator::set_values(double low, double high) {
 	}
 	if (text) {
 		ss::string<16> str;
-		str.sprintf("%3.1fdB", high);
+		str.format("%3.1fdB", high);
 		auto s = wxString::FromUTF8(str.c_str());
 		text->SetContent(s);
 	}
@@ -221,7 +221,7 @@ void livebuffer_t::set_indicator_value(double val) {
 void text_box::init(wxSVGDocument* doc) {
 	ss::string<32> temp;
 
-	temp.sprintf("%s-text", id);
+	temp.format("{:s}-text", id);
 	// magic: span elements seem to be hidden
 	auto* p = doc->GetElementById(temp.c_str());
 	if (p)
@@ -229,7 +229,7 @@ void text_box::init(wxSVGDocument* doc) {
 	if (p)
 		text = p->GetChildren();
 	if (!text)
-		dterrorx("Could not find svg element %s", temp.c_str());
+		dterrorf("Could not find svg element {:s}", temp.c_str());
 }
 
 void text_box::set_value(const ss::string_& val) {
@@ -248,7 +248,7 @@ void text_box::set_value(const char* val) {
 
 void text_box::set_value(int x, const char* fmt) {
 	ss::string<32> val;
-	val.sprintf(fmt, x);
+	val.format(fmt::runtime(fmt), x);
 	if (text) {
 		auto s = wxString::FromUTF8(val.c_str());
 		text->SetContent(s);
@@ -257,7 +257,7 @@ void text_box::set_value(int x, const char* fmt) {
 
 void text_box::set_time_value(time_t t, const char* fmt_) {
 	ss::string<32> val;
-	val << fmt::format(fmt::runtime(fmt_), fmt::localtime(t));
+	val.format(fmt::runtime(fmt_), fmt::localtime(t));
 	if (text) {
 		auto s = wxString::FromUTF8(val.c_str());
 		text->SetContent(s);
@@ -318,8 +318,10 @@ void svg_overlay_impl_t::traverse_xml(wxSVGElement* parent, int level) {
 		auto y = floatattr(elem, "y");
 		auto width = floatattr(elem, "width");
 		auto height = floatattr(elem, "height");
-		dtdebugx("%*selement[%d] %p s=%s x=%f y=%f w=%f h=%f\n", level, "", level, elem, content.c_str(), x, y, width,
-					 height);
+		dtdebugf("{:<{}}"
+						 "selement[{:d}] {:p} s={:s} x={:f} y={:f} w={:f} h={:f}",
+						 "", level,
+						 level, fmt::ptr(elem), content, x, y, width, height);
 		traverse_xml(elem, level + 1);
 		elem = (wxSVGElement*)elem->GetNext();
 	}
@@ -336,7 +338,7 @@ svg_overlay_impl_t::~svg_overlay_impl_t() {}
 int svg_overlay_impl_t::init() {
 	bool ok = svgctrl.Load(svg_filename.c_str());
 	if (!ok) {
-		dterrorx("Could not open %s", svg_filename.c_str());
+		dterrorf("Could not open {:s}", svg_filename.c_str());
 		return -1;
 	}
 	doc = svgctrl.GetSVG();

@@ -80,25 +80,25 @@ void InitializeTexture(GLuint& g_texture) {
 	GLenum err;
 	glGenTextures(1, &g_texture); // generate 1 texture name
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 	glBindTexture(GL_TEXTURE_2D, g_texture); // make the texture 2d
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 }
 
@@ -152,7 +152,7 @@ wxDEFINE_EVENT(WX_MPV_WAKEUP, wxThreadEvent);
 wxDEFINE_EVENT(WX_MPV_REDRAW, wxThreadEvent);
 
 void MpvGLCanvas::OnWindowCreate(wxWindowCreateEvent& evt) {
-	dtdebugx("CREATE %p", this);
+	dtdebugf("CREATE {:p}", fmt::ptr(this));
 	if (mpv_player->create()) {
 		Bind(WX_MPV_WAKEUP, &MpvGLCanvas::OnMpvWakeupEvent, this);
 	}
@@ -230,7 +230,7 @@ void* MpvGLCanvas::GetProcAddress(const char* name) {
 void MpvGLCanvas::MpvDestroy() {
 	Unbind(WX_MPV_WAKEUP, &MpvGLCanvas::OnMpvWakeupEvent, this);
 	// Unbind(WX_MPV_REDRAW, &MpvGLCanvas::OnMpvRedrawEvent, this);
-	dtdebugx("MpvDestroy %p mpv_player set to null\n", this);
+	dtdebugf("MpvDestroy {:p} mpv_player set to null\n", fmt::ptr(this));
 #if 0
 	if (mpv_player)
 		mpv_player->destroy();
@@ -279,7 +279,7 @@ void mpv_subscription_t::close_fn() {
 
 static void close_fn(void* cookie) {
 	auto* player = (MpvPlayer_*)cookie;
-	dtdebugx("MPV fake close: player=%p", player);
+	dtdebugf("MPV fake close: player={:p}", fmt::ptr(player));
 	player->subscription.close_fn();
 	//deliberately don't do anything
 	//player->subscription.close();
@@ -344,29 +344,29 @@ int mpv_subscription_t::set_subtitle_language(int idx) {
 void mpv_subscription_t::on_audio_language_change(const chdb::language_code_t& lang, int id) {
 	ss::string<16> arg;
 	// id=2;
-	arg.sprintf("%d", id + 1);
+	arg.format("{:d}", id + 1);
 	if (id < 0) {
-		dterrorx("setting BAD audio language (MPV ONLY) to %d", id);
+		dterrorf("setting BAD audio language (MPV ONLY) to {:d}", id);
 		return;
 	}
-	dtdebugx("setting audio language (MPV ONLY) to %d %s", id, chdb::lang_name(lang));
+	dtdebugf("setting audio language (MPV ONLY) to {:d} {:s}", id, chdb::lang_name(lang));
 
 	if (pmt_change_count++) {
 		if (mpv_set_property_string(mpv_player->mpv, "demuxer-lavf-o", "merge_pmt_versions=1") < 0)
-			dterrorx("Failed  language XXX");
+			dterrorf("Failed  language XXX");
 	}
 	if (mpv_set_property_string(mpv_player->mpv, "aid", arg.c_str()) < 0)
-		dterrorx("Failed setting audio language %d", id);
+		dterrorf("Failed setting audio language {:d}", id);
 }
 
 static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
 	auto* player = (MpvPlayer_*)user_data;
 	int seqno;
 	log4cxx_store_threadname();
-	dtdebugx("OPEN_FN");
+	dtdebugf("OPEN_FN");
 	player->subscription.set_pending_close(false);
 	sscanf(uri, "neumo://%p/%d", &player, &seqno);
-	dtdebugx("MPV open: player=%p", player);
+	dtdebugf("MPV open: player={:p}", fmt::ptr(player));
 	dttime_init();
 	info->cookie = player;
 	info->read_fn = ::read_fn;
@@ -429,7 +429,7 @@ void MpvGLCanvas::clear_window() {
 bool MpvPlayer_::create() {
 	if (mpv)
 		return false;
-	dtdebugx("Creating mpv %p", this);
+	dtdebugf("Creating mpv {:p}", fmt::ptr(this));
 	setlocale(LC_NUMERIC, "C");
 	// MpvDestroy();
 	mpv = mpv_create();
@@ -633,8 +633,8 @@ void MpvPlayer::mpv_command(const char* cmd_, const char* arg2, const char* arg3
 
 int MpvPlayer_::change_audio_volume(int step) {
 	ss::string<16> arg;
-	arg.sprintf("%d", step);
-	dtdebugx("adjusting audio volume by %d", step);
+	arg.format("{:d}", step);
+	dtdebugf("adjusting audio volume by {:d}", step);
 	const char* cmd[] = {"add", "volume", arg.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
 	return 0;
@@ -642,13 +642,13 @@ int MpvPlayer_::change_audio_volume(int step) {
 
 int MpvPlayer_::set_audio_language(int id) {
 	ss::string<16> arg;
-	arg.sprintf("%d", id + 1);
-	dtdebugx("setting audio language to %d", id);
+	arg.format("{:d}", id + 1);
+	dtdebugf("setting audio language to {:d}", id);
 	if (subscription.set_audio_language(id) >= 0) {
 		if (mpv_set_property_string(mpv, "aid", arg.c_str()) < 0)
-			dterrorx("Failed setting audio language %d", id);
+			dterrorf("Failed setting audio language {:d}", id);
 	} else {
-		dterrorx("Failed setting audio language %d", id);
+		dterrorf("Failed setting audio language {:d}", id);
 	}
 	return 1;
 }
@@ -665,13 +665,13 @@ int MpvPlayer::change_audio_volume(int step) {
 
 int MpvPlayer_::set_subtitle_language(int id) {
 	ss::string<16> arg;
-	arg.sprintf("%d", id + 1);
-	dtdebugx("setting subtitle language to %d", id);
+	arg.format("{:d}", id + 1);
+	dtdebugf("setting subtitle language to {:d}", id);
 	if (subscription.set_subtitle_language(id) >= 0) {
 		if (mpv_set_property_string(mpv, "sid", arg.c_str()) < 0)
-			dterrorx("Failed setting subtitle language %d", id);
+			dterrorf("Failed setting subtitle language {:d}", id);
 	} else {
-		dterrorx("Failed setting subtitle language %d", id);
+		dterrorf("Failed setting subtitle language {:d}", id);
 	}
 	return 1;
 }
@@ -683,28 +683,28 @@ int MpvPlayer::set_subtitle_language(int id) {
 
 void mpv_subscription_t::play_service(const chdb::service_t& service) {
 	log4cxx_store_threadname();
-	dtdebugx("PLAY SUBSCRIPTION (service)");
+	dtdebugf("PLAY SUBSCRIPTION (service)");
 	if (is_playing()) {
-		dtdebugx("PLAY SUBSCRIPTION (service) close mpm");
-		this->close();
+		dtdebugf("PLAY SUBSCRIPTION (service) close mpm");
+		this->close(false /*unsubscribe*/);
 	}
 	subscription_id_t subscription_id{-1};
 	mpm = subscriber->subscribe_service(service);
 	subscription_id = mpm.get() ? mpm->subscription_id : subscription_id_t{-1};
 	if ((int) subscription_id >= 0) {
-		dtdebugx("PLAY SUBSCRIPTION (service): subscribed=%d", (int) subscription_id);
+		dtdebugf("PLAY SUBSCRIPTION (service): subscribed={:d}", (int) subscription_id);
 	} else {
-		dtdebugx("PLAY SUBSCRIPTION (service): subscription failed");
+		dtdebugf("PLAY SUBSCRIPTION (service): subscription failed");
 	}
 
 	if ((int) subscription_id >= 0) {
 		mpm->register_audio_changed_callback(subscription_id,
 																				 [this](auto lang, auto pos) { this->on_audio_language_change(lang, pos); });
 		// mpm.init(active_service->mpm);
-		dtdebugx("PLAY SUBSCRIPTION (service): mpm init done");
+		dtdebugf("PLAY SUBSCRIPTION (service): mpm init done");
 		if (mpm->move_to_live() < 0) {
 			dtdebug("PLAY SUBSCRIPTION (service): aborting");
-			this->close();
+			this->close(false /*unsubscribe*/);
 			subscriber->unsubscribe();
 			return;
 		}
@@ -716,9 +716,9 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 
 
 template <typename _mux_t> int mpv_subscription_t::play_mux(const _mux_t& mux, bool blindscan) {
-	dtdebugx("PLAY SUBSCRIPTION (mux)");
+	dtdebugf("PLAY SUBSCRIPTION (mux)");
 	if (is_playing()) {
-		this->close();
+		this->close(false /*unsubscribe*/);
 	}
 	auto subscription_id = subscriber->subscribe_mux(mux, blindscan);
 	assert(subscription_id == (int) subscriber->get_subscription_id() || subscription_id<0);
@@ -737,7 +737,7 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 		dttime_init();
 		std::scoped_lock lck(subscription.m);
 		dttime(100);
-		dtdebugx("FORCE ABORT before tuning to %s", service.name.c_str());
+		dtdebugf("FORCE ABORT before tuning to {:s}", service.name.c_str());
 		if (subscription.mpm)
 			subscription.mpm->force_abort();
 		dttime(100);
@@ -749,7 +749,7 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 	subscription.filepath.clear();
 
 	// we need to fake a different file each time, hence the seqno
-	subscription.filepath.sprintf("neumo://%p/%d", this, subscription.seqno++);
+	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
 	if (!mpv) {
 		dterror("mpv not ready");
 		assert(0);
@@ -758,7 +758,7 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 	this->subscription.set_pending_close(true);
 	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
-	dtdebugx("PLAY SUBSCRIPTION %p STARTED", this);
+	dtdebugf("PLAY SUBSCRIPTION {:p} STARTED", fmt::ptr(this));
 	return 0;
 }
 
@@ -785,7 +785,7 @@ template <typename _mux_t> int MpvPlayer_::play_mux(const _mux_t& mux, bool blin
 	subscription.filepath.clear();
 
 	// we need to fake a different file each time, hence the seqno
-	subscription.filepath.sprintf("neumo://%p/%d", this, subscription.seqno++);
+	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
 	if (!mpv) {
 		dterror("mpv not ready");
 		assert(0);
@@ -794,7 +794,7 @@ template <typename _mux_t> int MpvPlayer_::play_mux(const _mux_t& mux, bool blin
 	this->subscription.set_pending_close(true);
 	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
-	dtdebugx("PLAY SUBSCRIPTION %p STARTED", this);
+	dtdebugf("PLAY SUBSCRIPTION {:p} STARTED", fmt::ptr(this));
 	return 0;
 }
 
@@ -811,9 +811,9 @@ template int MpvPlayer::play_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, 
 
 int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time) {
 	log4cxx_store_threadname();
-	dtdebugx("PLAY RECORDING %s", rec.epg.event_name.c_str());
+	dtdebugf("PLAY RECORDING {:s}", rec.epg.event_name.c_str());
 	if (is_playing()) {
-		this->close();
+		this->close(false /*unsubscribe*/);
 	}
 
 	subscription_id_t subscription_id{-1};
@@ -821,25 +821,25 @@ int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t s
 	subscription_id = mpm.get() ? mpm->subscription_id : subscription_id_t{-1};
 	assert(subscription_id == subscriber->get_subscription_id());
 	if ((int) subscription_id >= 0) {
-		dtdebugx("PLAY SUBSCRIPTION (rec): subscribed subscription_id=%d", (int) subscription_id);
+		dtdebugf("PLAY SUBSCRIPTION (rec): subscribed subscription_id={:d}", (int) subscription_id);
 	} else {
-		dtdebugx("PLAY SUBSCRIPTION (rec): subscription failed");
+		dtdebugf("PLAY SUBSCRIPTION (rec): subscription failed");
 	}
 	if ((int) subscription_id >= 0) {
 		mpm->register_audio_changed_callback(subscription_id,
 																				 [this](auto x, auto id) { this->on_audio_language_change(x, id); });
 
-		dtdebugx("PLAY SUBSCRIPTION (rec): mpm init done");
+		dtdebugf("PLAY SUBSCRIPTION (rec): mpm init done");
 		if (mpm->move_to_time(start_play_time) < 0) {
 			dtdebug("PLAY SUBSCRIPTION (rec): aborting");
-			this->close();
+			this->close(false /*unsubscribe*/);
 			if ((int) subscription_id >= 0) {
 				subscriber->unsubscribe();
 				assert((int) subscriber->get_subscription_id() < 0);
 			}
 			return 0;
 		}
-		dtdebug("PLAY SUBSCRIPTION (rec): mpm move to start_play_time done: " << start_play_time);
+		dtdebugf("PLAY SUBSCRIPTION (rec): mpm move to start_play_time done: {}", start_play_time);
 	}
 	return 0;
 }
@@ -857,7 +857,7 @@ int MpvPlayer_::play_recording(const recdb::rec_t& rec, milliseconds_t start_pla
 	subscription.filepath.clear();
 
 	// we need to fake a different file each time, hence the seqno
-	subscription.filepath.sprintf("neumo://%p/%d", this, subscription.seqno++);
+	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
 	if (!mpv) {
 		dterror("mpv not ready");
 		assert(0);
@@ -865,7 +865,7 @@ int MpvPlayer_::play_recording(const recdb::rec_t& rec, milliseconds_t start_pla
 	}
 	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
-	dtdebugx("PLAY RECORDING %p END", this);
+	dtdebugf("PLAY RECORDING {:p} END", fmt::ptr(this));
 	return 0;
 }
 
@@ -879,7 +879,7 @@ int mpv_subscription_t::jump(int seconds) {
 	play_pos += milliseconds_t(1000 * seconds);
 	if (play_pos < milliseconds_t(0))
 		play_pos = milliseconds_t(0);
-	dtdebug("JUMP seconds=" << seconds << " play_pos=" << play_pos);
+	dtdebugf("JUMP seconds={} play_pos={}", seconds, play_pos);
 	mpm->move_to_time(play_pos); // open the first file
 	// sleep(5);  //for testing
 	return 0;
@@ -908,10 +908,10 @@ int MpvPlayer_::jump(int seconds) {
 	// int64_t start = 0;
 	const char* cmd1[] = {"loadfile", nullptr};
 	::mpv_command(mpv, cmd1);
-	subscription.filepath.sprintf("neumo://%p/%d", this, subscription.seqno++);
+	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
 	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
-	dtdebugx("JUMP SUBSCRIPTION %p", this);
+	dtdebugf("JUMP SUBSCRIPTION {:p}", fmt::ptr(this));
 	return 0;
 }
 
@@ -920,7 +920,7 @@ int MpvPlayer::jump(int seconds) {
 	return self->jump(seconds);
 }
 
-void mpv_subscription_t::close() {
+void mpv_subscription_t::close(bool unsubscribe) {
 	pmt_change_count = 0;
 	if (!mpm)
 		return;
@@ -930,12 +930,13 @@ void mpv_subscription_t::close() {
 	std::scoped_lock lck(m);
 	mpm->close();
 	mpm.reset();
-	subscriber->unsubscribe();
+	if(unsubscribe)
+		subscriber->unsubscribe();
 }
 
 int mpv_subscription_t::stop_play() {
 	auto subscription_id = subscriber->get_subscription_id();
-	dtdebugx("STOP SUBSCRIPTION %d", (int) subscription_id);
+	dtdebugf("STOP SUBSCRIPTION {:d}", (int) subscription_id);
 	std::scoped_lock lck(m);
 	if (mpm) {
 		mpm->close();
@@ -956,7 +957,7 @@ int MpvPlayer_::stop_play() {
 		assert(0);
 		return -1;
 	}
-	dtdebugx("PLAY SUBSCRIPTION %p END", this);
+	dtdebugf("PLAY SUBSCRIPTION {:p} END", fmt::ptr(this));
 
 	auto op = [this]() { subscription.stop_play(); };
 	{
@@ -967,13 +968,18 @@ int MpvPlayer_::stop_play() {
 	subscription.set_pending_close(true);
 	const char* cmd[] = {"stop", nullptr};
 	::mpv_command(mpv, cmd);
-	dtdebugx("PLAY SUBSCRIPTION %p END - DONE", this);
+	dtdebugf("PLAY SUBSCRIPTION {:p} END - DONE", fmt::ptr(this));
 	return 0;
 }
 
 int MpvPlayer::stop_play() {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->stop_play();
+}
+
+int MpvPlayer::stop_play_and_exit() {
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->stop_play(/*true unsubscribe*/);
 }
 
 int MpvPlayer_::pause() {
@@ -984,7 +990,7 @@ int MpvPlayer_::pause() {
 	static bool onoff = 1;
 	mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &onoff);
 	onoff = !onoff;
-	dtdebugx("PLAY SUBSCRIPTION %p pause", this);
+	dtdebugf("PLAY SUBSCRIPTION {:p} pause", fmt::ptr(this));
 	return 0;
 }
 
@@ -1170,17 +1176,17 @@ void mpv_overlay_t::render(svg_t* svg, int window_width, int window_height) {
 	assert(data);
 	glBindTexture(GL_TEXTURE_2D, g_texture); // make the texture 2d
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 
 	glEnable(GL_TEXTURE_2D);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 	glPixelStorei(GL_UNPACK_ALIGNMENT,
 								1); // set texture parameter
@@ -1190,19 +1196,19 @@ void mpv_overlay_t::render(svg_t* svg, int window_width, int window_height) {
 	auto height = svg->get_height();
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, data);
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 	glEnable(GL_BLEND);
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	while ((err = glGetError()) != GL_NO_ERROR) {
-		dterrorx("OPENGL error %d\n", err);
+		dterrorf("OPENGL error {:d}\n", err);
 	}
 	glViewport(0,0, window_width, window_height);
 	glBegin(GL_QUADS);

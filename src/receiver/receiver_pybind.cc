@@ -74,16 +74,16 @@ static void set_process_name(const char* name)
 	int argc =0;
 	int i=0;
 	get_argc_argv(&argc, &argv);
-	printf("argc=%d\n", argc);
+	printf("argc={:d}\n", argc);
 	auto l = strlen(argv[0]);
 	if (strlen(name) > l) {
-		dterrorx("String too long: %s\n", name);
+		dterrorf("String too long: {}\n", name);
 	}
 	strncpy(argv[0], name, l+1);
 	for(i=1; i <argc; ++i)
 		argv[i]=0;
 	if (prctl(PR_SET_NAME, (unsigned long)argv[0], 0, 0, 0) < 0) {
-		dterrorx("prctl failed: %s", strerror(errno));
+		dterrorf("prctl failed: {}", strerror(errno));
 	}
 	pthread_setname_np(pthread_self(), argv[0]);
 #else

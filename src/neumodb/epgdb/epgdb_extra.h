@@ -21,7 +21,7 @@
 #pragma once
 #include "neumodb/epgdb/epgdb_db.h"
 #include "neumodb/chdb/chdb_extra.h"
-
+#include "fmt/core.h"
 
 namespace epgdb {
 	typedef screen_t<epgdb::epg_record_t> epg_screen_base_t;
@@ -36,24 +36,6 @@ namespace epgdb {
 		using epg_screen_base_t::epg_screen_base_t; //inherit constructors
 
 	};
-
-	template<typename T>
-	inline auto to_str(T&& t)
-	{
-		ss::string<64> s;
-		to_str(s, (const T&) t);
-		return s;
-	}
-
-	std::ostream& operator<<(std::ostream& os, const epg_source_t& s);
-	std::ostream& operator<<(std::ostream& os, const epg_key_t& k);
-	std::ostream& operator<<(std::ostream& os, const epg_record_t& epg);
-
-	void to_str(ss::string_& ret, const epg_source_t& s);
-	void to_str(ss::string_& ret, const epg_key_t& k);
-	void to_str(ss::string_& ret, const epg_record_t& r);
-
-	void to_str_brief(ss::string_& ret, const epg_record_t& epg);
 
 	inline bool is_same(const epg_record_t &a, const epg_record_t &b) {
 		if (!(a.k == b.k))
@@ -173,3 +155,18 @@ namespace epgdb {
 	};
 
 };
+
+#define declfmt(t)																											\
+	template <> struct fmt::formatter<t> {																\
+	inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
+		return ctx.begin();																									\
+	}																																			\
+																																				\
+	format_context::iterator format(const t&, format_context& ctx) const ;\
+}
+
+
+declfmt(epgdb::epg_source_t);
+declfmt(epgdb::epg_key_t);
+declfmt(epgdb::epg_record_t);
+#undef declfmt

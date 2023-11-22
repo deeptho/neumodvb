@@ -581,7 +581,7 @@ class NeumoGui(wx.App):
         txn = wx.GetApp().devdb.rtxn()
         ret={}
         for a in  pydevdb.fe.list_all_by_card_mac_address(txn):
-            if available_only and not a.available:
+            if available_only and not a.can_be_used:
                 continue
             ret[f'C{a.card_no}: {a.card_short_name}' ] = a.card_mac_address
         txn.abort()

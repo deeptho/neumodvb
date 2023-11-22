@@ -64,31 +64,65 @@ in the database, but can occur accidentally, e.g., as broadcasters change freque
 
 ### Scanning a mux ###
 
-Scanning a mux in this context really means: adding the mux to the scan queue. NeumoDVB
-then tunes the mux when the needed resources are available, discovers the services on it, and also other muxes
-on other frequencies as reported in the broadcast NIT tables. For the moment, neumoDVB only trusts data for
-the sateliite containing the mux being scanned, and will discard reported muxes on other satellites as often
-this data is in error. If new muxes are discovered, they are also added to the scan queue, thus allowing
-a full satellite scan even when blindscan is not available. When blindscan is available, the saved information
-also makes it easier to lock difficult muxes and by comparing the saved information with information reported
-by the driver, neumoDVB can also detect and correct frequency offsets created by imperfect LNBs.
+Scanning a mux adds the mux to the scan queue. NeumoDVB then tunes the mux when the needed resources are available,
+discovers the services on it, and also other muxes on other frequencies as reported in the broadcast NIT tables.
+NeumoDVB only trusts data for the satellite containing the mux being scanned, and will discard discovered muxes
+on other satellites than the one scanned as often this data is wrong.
+
+If the mux you want to scan is not yet in the mux list, then first you must add it and enter the required tuning
+parameters (frequency, symbol rate and polarisation when blind scanning is supported and enabled, otherwise
+also other parameters). Both newly created and existing muxes can be added to the scan queue using the command
+`Control - Scan` (`Ctrl-S`). Make sure the mux is selected (appears yellow) before you select the command
+from the menu. It is also possible to scan many muxes simultaneously by selecting them all before
+`Control - Scan`. Remember that the scan itself can also add muxes to the scan queue and that you can add
+muxes at any stage, even on other satellites. Those muxes will be scanned as soon as possible.
+
+
+
+![screenshot](images/scan_muxes_options.png)
+
+`Control - Scan` (`Ctrl-S`) leads to the abive dialog window in which a few options can be set:
+The options are:
+
+* `Scan EPG`: When checked, the scan will wait until (most of) the EPG information on the mux has been retrieved.
+NeumoDVB's EPG scanner is quite fast, but some muxes transmit EPG only slowly. When unchecked, neumoDVB
+will end the scan and tune to another mux as soon as NIT and SDT data has been received, and will not
+wait until all EPG data is received. This is useful for DX-ing
+* `Propage scan`: When checked, muxes discovered in the NIT tables of scanned muxes will be added to the scan
+queue; otherwise they will not
+* `Use blind tune`: When checked, tuning will use blind tune, which allows existing muxes in the database
+whose tuning parameters are no longer valid to still be locked (and then updated in the database). This is
+useful when symbol rates and other mux parameters have changed, but mux frequency has not changed.
+* `Allow moving dish`: When checked, tuning is allowed to move the rotor, otherwise it is not allowed.
+* `Allowed dishes`: Only checked dishes  will be used during scanning. This is useful if you know that
+ some of your dishes are not capable of tuning the mux.
+* `Allowed cards`: Only checked DVB-cards  will be used during scanning. This is useful if you know that
+ some of your dishes are not capable of tuning the mux.
+
+In general, neumoDVB will try to use all LNBs and cards in the system, scheduling scans in parallel
+where possible. NeumoDVB is aware of the limitations of cards (e..g., not being able to receive multi-streams)
+and it also knows which LNBs can receive the required mux and will not try combinations which
+are impossible, or which are prohibited by the above options. It will also not disturb any existing
+subscription (i.e, services that are playing, or being recorded, or other scans).
+
+After pressing `OK`, the actual scan will start. If allowed, newly discovered muxes will be
+added to the scan queue, thus allowing a full or almost full satellite scan even when blindscan is not
+available. When blindscan is enabled, neumodVB will still use  the tuning parameters of the mux as
+known in its database and/or as retrieved from the NIT table.
+This makes it more likely that the mux will be locked successfully.
+
+neumoDVB will also  compare the frequency and symbolrate in the NIT with information reported
+by the driver. Thus neumoDVB can detect and correct frequency offsets created by imperfect LNBs.
+This process is quite sophisticated and even deals with NIT tables that report an incorrect frequency,
+as long as most muxes have correct information. neumoDVB needs to tune sufficiently many muxes before
+the LNB frequency offset becomes reliable. So if your LNB frequency offset is very large, tuning some muxes
+may fail initially, but after a while they will start to tune reliably.
 
 At any time, the user can add more muxes to the scan queue, even while scanning is going on.
 At the start of scanning and whenever a mux scan ends, NeumoDVB checks the scan queue and tries to
 tune as many muxes in the queue as possible using all available adapters. If you have multiple dishes
 capable of tuning the same satellite, or if your DVB card supports Slave tuners, then multiple muxes
 will be scanned in parallel.
-
-**Be careful if you have have a dish on a positioner:**
-In the current code, the scan process will avoid moving any satellite dish (later this could be an
-option). Therefore you first have to move the dish to the proper position, e.g., by tuning to a service
-or mux on it.
-
-After adding a mux in the mux list, the newly created mux can be added to the scan queue using the command
-`Control - Scan` (`Ctrl-S`). Make sure the mux is selected (appears yellow) before you select the command
-from the menu. It is also possible to scan many muxes simultaneously by selecting them all before
-`Control - Scan`. Remember that the scan itself can also add muxes to the scan queue and that you can add
-muxes at any stage, even on other satellites. Those muxes will be scanned as soon as possible.
 
 The muxes screen will start filling up as in the screenshot:
 

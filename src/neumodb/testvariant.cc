@@ -31,6 +31,9 @@
 
 #include <map>
 #include <vector>
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 
 template <typename T> void testit(std::vector<T> xx) {
 	ss::bytebuffer_ ser;

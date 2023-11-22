@@ -361,6 +361,7 @@ class NeumoCheckListBox(wx.Panel):
         #self.last_selected = None
         self.choices = choices
         self.SelectAllNone()
+
     def Set(self, choices):
         self.choices = choices
         self.checklistbox.Set(choices)
@@ -375,6 +376,10 @@ class NeumoCheckListBox(wx.Panel):
 
     def GetSelectedItems(self):
         return self.checklistbox.GetCheckedItems()
+
+    def ForceAll(self):
+        self.seltype= 1
+        self.SelectAllNone()
 
     def SelectAllNone(self, evt=None):
         if evt is not None:
@@ -441,7 +446,7 @@ class PolarisationsCheckListBox(NeumoCheckListBox):
 class CardsCheckListBox(NeumoCheckListBox):
     def __init__(self, parent, id,  *args, **kwargs):
         title = _("Allowed Cards")
-        cards = wx.GetApp().get_cards(available_only=False)
+        cards = wx.GetApp().get_cards(available_only=True)
         kwargs['choices'] = [c for c in cards]
         self.cards = [c for c in cards.values()]
         super().__init__(parent, id, title, *args, **kwargs)

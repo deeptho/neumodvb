@@ -108,8 +108,8 @@ struct tune_options_t {
 	scan_target_t scan_target;
 	std::chrono::seconds max_scan_duration{180s}; /*after this time, scan will be forcefull ended*/
 
-	//If set, then only those rf_path are allowed
-	std::optional<ss::vector<devdb::rf_path_t,1>> allowed_rf_paths;
+	std::optional<ss::vector_<int8_t>> allowed_dish_ids;
+	std::optional<ss::vector_<int64_t>> allowed_card_mac_addresses;
 
 	tune_mode_t tune_mode;
 	bool need_blind_tune{false};
@@ -133,13 +133,19 @@ struct tune_options_t {
 	int dish_move_penalty{0};
 
 	inline bool rf_path_is_allowed(const devdb::rf_path_t& rf_path) const {
-		if(!allowed_rf_paths)
-			return true;
-		for(auto& r: *allowed_rf_paths) {
-			if(rf_path == r)
-				return true;
+		bool dish_matches = !allowed_dish_ids;
+		bool card_matches = !allowed_card_mac_addresses;
+		for(auto dish_id: *allowed_dish_ids) {
+			dish_matches = rf_path.lnb.dish_id == dish_id;
+			if(dish_matches)
+				break;
 		}
-		return false;
+		for(auto card_mac_address: *allowed_card_mac_addresses) {
+			card_matches = rf_path.card_mac_address == card_mac_address;
+			if(card_mac_address)
+				break;
+		}
+		return card_matches && dish_matches;
 	}
 
 	tune_options_t(scan_target_t scan_target =  scan_target_t::SCAN_FULL,

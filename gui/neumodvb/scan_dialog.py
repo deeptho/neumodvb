@@ -28,7 +28,8 @@ from enum import Enum
 
 from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb.neumo_dialogs_gui import ScanDialog_
-from pyreceiver import tune_options_t, subscription_type_t
+from pyreceiver import subscription_type_t
+from pydevdb import tune_options_t
 import pychdb
 
 class ScanDialog(ScanDialog_):
@@ -59,10 +60,16 @@ class ScanDialog(ScanDialog_):
             self.tune_options.use_blind_tune = True
             self.blind_tune_checkbox.SetValue(self.tune_options.use_blind_tune)
             self.propagate_scan_checkbox.Disable()
-            self.blind_tune_checkbox.Disable()
+            self.band_scan_save_spectrum_checkbox.Enable()
+            #self.blind_tune_checkbox.Disable()
+            #self.allowed_sat_bands_checklistbox.Enable()
         else:
             self.propagate_scan_checkbox.Enable()
             self.blind_tune_checkbox.Enable()
+            self.band_scan_save_spectrum_checkbox.SetValue(False)
+            self.band_scan_save_spectrum_checkbox.Disable()
+            #self.allowed_sat_bands_checklistbox.ForceAll()
+            #self.allowed_sat_bands_checklistbox.Disable()
 
     def Prepare(self):
         if self.allow_band_scan:
@@ -70,6 +77,8 @@ class ScanDialog(ScanDialog_):
         else:
             self.scan_type_choice.Disable()
             self.scan_type_choice.Hide()
+            self.band_scan_save_spectrum_checkbox.Disable()
+            self.band_scan_save_spectrum_checkbox.Hide()
             self.allowed_sat_bands_checklistbox.Hide()
             self.allowed_pols_checklistbox.Hide()
         self.scan_type_choice.SetSelection(0 if self.band_scan else 1)
@@ -80,7 +89,7 @@ class ScanDialog(ScanDialog_):
         if self.band_scan:
             self.propagate_scan_checkbox.Disable()
             self.blind_tune_checkbox.Disable()
-
+        self.SetSizerAndFit(self.main_sizer)
         #self.Layout()
         #wx.CallAfter(self.Layout)
 
@@ -91,12 +100,15 @@ class ScanDialog(ScanDialog_):
         dtdebug("OnCancel")
 
     def OnDone(self):
-        dishes=self.allowed_dishes_checklistbox.selected_dishes()
         pols=self.allowed_pols_checklistbox.selected_polarisations()
         sat_bands=self.allowed_sat_bands_checklistbox.selected_sat_bands()
-        cards=self.allowed_cards_checklistbox.selected_cards()
-        self.allowed_dishes = dishes
-        self.allowed_cards = cards
+        import pydevdb
+        self.tune_options.allowed_dish_ids = pydevdb.int8_t_vector()
+        for dish in self.allowed_dishes_checklistbox.selected_dishes():
+            self.tune_options.allowed_dish_ids.push_back(dish)
+        self.tune_options.allowed_card_mac_addresses = pydevdb.int64_t_vector()
+        for c in self.allowed_cards_checklistbox.selected_cards():
+            self.tune_options.allowed_card_mac_addresses.push_back(c)
         self.allowed_pols = pols
         self.allowed_sat_bands = sat_bands
         self.band_scan = self.scan_type_choice.GetSelection()==0

@@ -1412,8 +1412,8 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 	o.propagate_scan = false;
 	o.may_move_dish = false;
 	o.need_blind_tune = false;
-	o.allowed_rf_paths = {spectrum_key.rf_path};
-
+	o.allowed_dish_ids = {};
+	o.allowed_card_mac_addresses = {};
 	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id);
 	auto& scan = it->second;
 	assert(scan.scan_subscription_id == scan_subscription_id);

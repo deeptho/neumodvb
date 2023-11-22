@@ -324,6 +324,13 @@ struct scan_stats_t
 	inline bool done() const {
 		return pending_peaks + pending_muxes  + pending_bands + active_muxes + active_bands == 0;
 	}
+	inline void abort() {
+		pending_peaks = 0;
+		pending_muxes = 0;
+		pending_bands = 0;
+		active_muxes = 0;
+		active_bands = 0;
+	}
 };
 
 struct scan_mux_end_report_t {

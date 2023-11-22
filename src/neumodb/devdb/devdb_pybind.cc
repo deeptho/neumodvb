@@ -101,6 +101,28 @@ static void export_lnb_extra(py::module& m) {
 		;
 }
 
+void export_tune_options(py::module& m) {
+	py::class_<tune_options_t>(m, "tune_options_t")
+		.def(py::init<>( []() { tune_options_t ret; ret.scan_target = scan_target_t::SCAN_FULL; return ret;}),
+				 "Tune Options for neumodvb")
+		.def_readwrite("use_blind_tune", &tune_options_t::need_blind_tune)
+		.def_readwrite("may_move_dish", &tune_options_t::may_move_dish)
+		.def_readwrite("propagate_scan", &tune_options_t::propagate_scan)
+		.def_property("scan_epg",
+			[](const tune_options_t& o) { return o.scan_target ==scan_target_t::SCAN_FULL_AND_EPG;},
+									[](tune_options_t& o, bool val) { o.scan_target= val ?
+											scan_target_t::SCAN_FULL_AND_EPG :scan_target_t::SCAN_FULL;},
+									"include epg in scan")
+		.def_readwrite("allowed_dish_ids", &tune_options_t::allowed_dish_ids,
+									"dishes allowed during scan (default:all)")
+
+		.def_readwrite("allowed_card_mac_addresses", &tune_options_t::allowed_card_mac_addresses,
+									"cards allowed during scan (default:all)")
+		;
+
+}
+
+
 
 static std::tuple<bool, std::optional<std::string>>
 lnb_can_tune_to_mux_helper(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks) {
@@ -137,6 +159,6 @@ PYBIND11_MODULE(pydevdb, m) {
 	devdb::export_structs(m);
 	export_lnb_extra(m);
 	export_dish_extra(m);
-
+	export_tune_options(m);
 	m.attr("__version__") = version_info();
 }

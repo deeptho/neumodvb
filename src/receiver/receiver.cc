@@ -1831,13 +1831,12 @@ void receiver_thread_t::cb_t::unsubscribe(subscription_id_t subscription_id) {
 	called by receiver_pybind.cc and python MuxScanStop
 	which handles the subscription created by python  self.receiver.scan_muxes
  */
-subscription_id_t receiver_t::unsubscribe(subscription_id_t subscription_id) {
+void receiver_t::unsubscribe(subscription_id_t subscription_id) {
 	receiver_thread.push_task([this, subscription_id]() {
-		cb(receiver_thread).abort_scan();
 		cb(receiver_thread).unsubscribe((subscription_id_t) subscription_id);
 		return 0;
-	});
-	return subscription_id_t::NONE;
+	}).wait();
+	//return subscription_id_t::NONE;
 }
 
 std::tuple<std::string, int> receiver_thread_t::get_api_type() const {

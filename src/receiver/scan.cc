@@ -1333,10 +1333,12 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 		return found;
 	auto& scan = scans.at(scan_subscription_id);
 	assert(scan.scan_subscription_id == scan_subscription_id);
+	auto ss = scan.get_scan_stats();
+	ss.abort();
+	receiver.notify_scan_progress(scan_subscription_id, ss);
 	for (auto[subscription_id, sub] : scan.subscriptions) {
 		receiver_thread.unsubscribe(futures, devdb_wtxn, subscription_id);
 	}
-	wait_for_all(futures); //remove later?
 	scans.erase(scan_subscription_id);
 	return found;
 }

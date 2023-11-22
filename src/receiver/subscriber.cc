@@ -136,6 +136,7 @@ int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 			return (int) ret;
 	}
 	assert(ret == subscription_id || (int) subscription_id == -1);
+	subscription_id = ret;
 	return (int)subscription_id;
 }
 
@@ -170,8 +171,7 @@ int subscriber_t::unsubscribe() {
 		return -1;
 	}
 	dtdebugf("calling receiver->unsubscribe");
-	subscription_id = receiver->unsubscribe(subscription_id);
-	assert((int) subscription_id < 0);
+	receiver->unsubscribe(subscription_id);
 	dtdebugf("calling receiver->unsubscribe -1");
 
 	auto mp = receiver->subscribers.writeAccess();

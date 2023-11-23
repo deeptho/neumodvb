@@ -708,10 +708,11 @@ class NeumoGui(wx.App):
 
     def BandsOnSatScan(self, satlist, tune_options, band_scan_options):
         ret = self.scan_subscriber.scan_bands_on_sats(satlist,
-                                                      band_scan_options['pols'],
-                                                      band_scan_options['low_freq'],
-                                                      band_scan_options['high_freq'],
-                                                      tune_options)
+                                                      allowed_pols=band_scan_options['pols'],
+                                                      allowed_sat_bands=band_scan_options['sat_bands'],
+                                                      low_freq=band_scan_options['low_freq'],
+                                                      high_freq=band_scan_options['high_freq'],
+                                                      tune_options=tune_options)
         dtdebug(f'SpectrumScan')
         if ret < 0:
             from neumodvb.neumo_dialogs import ShowMessage

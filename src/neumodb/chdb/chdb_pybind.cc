@@ -161,7 +161,6 @@ PYBIND11_MODULE(pychdb, m) {
 	export_chdb(m);
 	export_chdb_extra(m);
 	export_chdb_vectors(m);
-	export_ss_vector(m, chdb::sat_sub_band_pol_t);
 	chdb::export_enums(m);
 	chdb::export_structs(m);
 	export_mux_extra(m);

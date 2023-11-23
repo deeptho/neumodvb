@@ -20,7 +20,8 @@ import wx
 import wx.adv
 import wx.lib.agw.pygauge as PG
 import wx.lib.agw.peakmeter as PM
-import wx.lib.masked as masked
+#import wx.lib.masked as masked
+import wx.lib.intctrl
 import wx.lib.newevent
 import datetime
 import re
@@ -428,8 +429,9 @@ class SatBandsCheckListBox(NeumoCheckListBox):
         self.Set(self.sat_bands)
 
     def selected_sat_bands(self):
+        import pychdb
         it=self.GetSelectedItems()
-        return [self.sat_bands[i] for i in it]
+        return [enum_value_for_label(pychdb.sat_band_t, self.sat_bands[i]) for i in it]
 
 class PolarisationsCheckListBox(NeumoCheckListBox):
     def __init__(self, parent, id,  *args, **kwargs):
@@ -454,3 +456,13 @@ class CardsCheckListBox(NeumoCheckListBox):
     def selected_cards(self):
         it=self.GetSelectedItems()
         return [self.cards[i] for i in it]
+
+
+class DtIntCtrl(wx.lib.intctrl.IntCtrl):
+    """
+    Class to filter out initial value argument from wxGLade
+    """
+    def __init__(self, parent, id, value, *args, **kwds):
+        #value = -1
+        super().__init__(parent, id, value=-1, min=-1, max=40000, allow_none=True, *args, **kwds)
+        TextCtrl.ChangeValue(self, '')

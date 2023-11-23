@@ -166,12 +166,14 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 
 
 static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
-															py::list pol_list, int32_t low_freq, int32_t high_freq,
-															const std::optional<tune_options_t>& tune_options) {
+															py::list pol_list, py::list sat_band_list,
+															int32_t low_freq, int32_t high_freq,
+															std::optional<tune_options_t> tune_options) {
 	using namespace chdb;
 	int n = sat_list.size();
 	ss::vector_<sat_t> sats;
-	ss::vector<fe_polarisation_t, 2> pols;
+	ss::vector<fe_polarisation_t, 4> pols;
+	ss::vector<sat_band_t, 4> sat_bands;
 	sats.reserve(n);
 
 	for(auto p: pol_list) {
@@ -179,11 +181,18 @@ static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
 		pols.push_back(*ppol);
 	}
 
+	for(auto band: sat_band_list) {
+		auto* pband =  band.cast<chdb::sat_band_t*>();
+		sat_bands.push_back(*pband);
+	}
+
 	for(auto s: sat_list) {
 		auto* psat =  s.cast<chdb::sat_t*>();
+		if(!sat_bands.contains(psat->sat_band))
+			continue; //band not allowed
 		auto [l, h] =sat_band_freq_bounds(psat->sat_band, sat_sub_band_t::NONE);
-		l = std::max(l, low_freq);
-		h = std::max(h, high_freq);
+		l = low_freq == -1 ? l : std::max(l, low_freq);
+		h = high_freq == -1 ? h : std::max(h, high_freq);
 		if(h<=l)
 			continue; //no overlap
 		sats.push_back(*psat);
@@ -325,7 +334,8 @@ void export_subscriber(py::module& m) {
 		.def("scan_bands_on_sats", &scan_bands_on_sats
 				 , "acquire spectra and then scan peaks for selected sats"
 				 , py::arg("sats")
-				 , py::arg("pols to scan")
+				 , py::arg("allowed_pols")
+				 , py::arg("allowed_sat_bands")
 				 , py::arg("low_freq")
 				 , py::arg("high_freq")
 				 , py::arg("tune_options")

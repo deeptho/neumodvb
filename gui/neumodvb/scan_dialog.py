@@ -100,24 +100,28 @@ class ScanDialog(ScanDialog_):
         dtdebug("OnCancel")
 
     def OnDone(self):
-        pols=self.allowed_pols_checklistbox.selected_polarisations()
         sat_bands=self.allowed_sat_bands_checklistbox.selected_sat_bands()
         import pydevdb
+        import pychdb
         self.tune_options.allowed_dish_ids = pydevdb.int8_t_vector()
         for dish in self.allowed_dishes_checklistbox.selected_dishes():
             self.tune_options.allowed_dish_ids.push_back(dish)
         self.tune_options.allowed_card_mac_addresses = pydevdb.int64_t_vector()
         for c in self.allowed_cards_checklistbox.selected_cards():
             self.tune_options.allowed_card_mac_addresses.push_back(c)
-        self.allowed_pols = pols
-        self.allowed_sat_bands = sat_bands
+        pols = self.allowed_pols_checklistbox.selected_polarisations()
+        sat_bands = sat_bands
         self.band_scan = self.scan_type_choice.GetSelection()==0
         self.tune_options.scan_epg = self.scan_epg_checkbox.GetValue()
         self.tune_options.propagate_scan = self.propagate_scan_checkbox.GetValue()
         self.tune_options.use_blind_tune = self.blind_tune_checkbox.GetValue()
         self.tune_options.may_move_dish = self.may_move_dish_checkbox.GetValue()
-        self.band_scan_options = dict(low_freq=10700000, high_freq=12750000, pols=pols,
-                                      sat_bands=sat_bands, )
+
+        start_freq = self.start_freq_textctrl.GetValue()
+        end_freq = self.end_freq_textctrl.GetValue()
+        start_freq = start_freq*1000 if start_freq != -1 else -1
+        end_freq = end_freq*1000 if end_freq != -1 else -1
+        self.band_scan_options = dict(low_freq=start_freq, high_freq=end_freq, pols=pols, sat_bands=sat_bands)
 
         return self.tune_options, self.band_scan_options if self.band_scan else None
 

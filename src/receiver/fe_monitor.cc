@@ -129,9 +129,9 @@ void fe_monitor_thread_t::handle_frontend_event() {
 			auto c = statdb::spectrum_t::find_by_key(txn, spectrum.k);
 			put_record(txn, spectrum);
 			txn.commit();
-			auto finished_fe = fe->dbfe();
-			receiver.on_spectrum_scan_end(finished_fe, *scan, fe->get_subscription_ids());
 		}
+		auto finished_fe = fe->dbfe();
+		receiver.on_spectrum_scan_end(finished_fe, *scan, fe->get_subscription_ids());
 	}
 
 		break;

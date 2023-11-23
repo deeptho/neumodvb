@@ -294,3 +294,9 @@ class SatGrid(SatGridBase):
         h.save()
         wx.CallAfter(self.SetFocus)
         wx.CallAfter(self.handle_sat_band_change, None, sat_band, self.sat)
+
+    def OnShowHide(self, event):
+        #Ensure that multiline rows are shown fully
+        if event.Show:
+            wx.CallAfter(self.AutoSizeRows)
+        return super().OnShowHide(event)

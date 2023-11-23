@@ -1283,6 +1283,38 @@ chdb::select_sat_for_sat_band(db_txn& chdb_rtxn, const chdb::sat_band_t& sat_ban
 	return {};
 }
 
+void chdb::sat::clean_band_scan_pols(chdb::sat_t& sat, devdb::lnb_pol_type_t lnb_pol_type)
+{
+	using namespace chdb;
+	for(int i=0; i < sat.band_scans.size(); ++i) {
+		auto& band_scan = sat.band_scans[i];
+		switch(band_scan.pol) {
+		case fe_polarisation_t::H:
+		case fe_polarisation_t::V:
+			if (lnb_pol_type != devdb::lnb_pol_type_t::HV) {
+				sat.band_scans.erase(i);
+				--i;
+			}
+			continue;
+			break;
+		case fe_polarisation_t::L:
+		case fe_polarisation_t::R:
+			if (lnb_pol_type != devdb::lnb_pol_type_t::LR) {
+				sat.band_scans.erase(i);
+				--i;
+			}
+			continue;
+			break;
+		default:
+			sat.band_scans.erase(i);
+			--i;
+			continue;
+			break;
+		}
+	}
+}
+
+
 
 //template instantiations
 template void chdb::make_mux_id<chdb::dvbs_mux_t>(db_txn& rtxn, chdb::dvbs_mux_t& mux);

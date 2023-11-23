@@ -618,7 +618,8 @@ public:
 
 	//thread-safe; called from scanner; notify single python scanning subscriber synchronously
 	void notify_scan_progress(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats);
-	void activate_spectrum_scan(const spectrum_scan_options_t& spectrum_scan_options);
+	void activate_spectrum_scan(const spectrum_scan_options_t& spectrum_scan_options,
+															devdb::lnb_pol_type_t lnb_pol_type);
 	chdb::scan_id_t deactivate_spectrum_scan(const spectrum_scan_t& spectrum_scan);
 
 	inline devdb::usals_location_t get_usals_location() const {

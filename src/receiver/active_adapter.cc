@@ -383,7 +383,7 @@ int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 																				const devdb::lnb_t& lnb, tune_options_t tune_options) {
 
 	set_current_tp({});
-	receiver.activate_spectrum_scan(tune_options.spectrum_scan_options);
+	receiver.activate_spectrum_scan(tune_options.spectrum_scan_options, lnb.pol_type);
 
 	auto [ret, new_usals_sat_pos] = fe->lnb_spectrum_scan(rf_path, lnb, tune_options);
 	dtdebugf("spectrum: diseqc done");

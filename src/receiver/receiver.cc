@@ -1941,10 +1941,11 @@ tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscrip
 	return ret;
 }
 
-static chdb::scan_id_t activate_spectrum_scan_(chdb::chdb_t&chdb, int16_t sat_pos,
-																	 chdb::fe_polarisation_t pol,
-																	 int start_freq, int end_freq,
-																	 bool spectrum_obtained) {
+
+static chdb::scan_id_t activate_spectrum_scan_
+(chdb::chdb_t&chdb, int16_t sat_pos, chdb::fe_polarisation_t pol,
+ int start_freq, int end_freq,
+ bool spectrum_obtained, devdb::lnb_pol_type_t lnb_pol_type= devdb::lnb_pol_type_t::UNKNOWN) {
 	using namespace chdb;
 	scan_id_t scan_id;
 	auto [sat_band, sat_sub_band] = sat_band_for_freq(start_freq);
@@ -1957,6 +1958,8 @@ static chdb::scan_id_t activate_spectrum_scan_(chdb::chdb_t&chdb, int16_t sat_po
 	assert(c.is_valid());
 	auto sat = c.current();
 	chdb_rtxn.abort();
+	if(!spectrum_obtained)
+		chdb::sat::clean_band_scan_pols(sat, lnb_pol_type);
 	for(auto & band_scan : sat.band_scans) {
 		if(!scanner_t::is_our_scan(band_scan.scan_id))
 			continue;
@@ -2004,12 +2007,14 @@ static chdb::scan_id_t activate_spectrum_scan_(chdb::chdb_t&chdb, int16_t sat_po
 	return scan_id;
 }
 
-void receiver_t::activate_spectrum_scan(const spectrum_scan_options_t& spectrum_scan_options) {
+void receiver_t::activate_spectrum_scan(const spectrum_scan_options_t& spectrum_scan_options,
+																				devdb::lnb_pol_type_t lnb_pol_type) {
 	auto sat_pos = spectrum_scan_options.sat_pos;
 	auto pol = spectrum_scan_options.band_pol.pol;
 	auto start_freq = spectrum_scan_options.start_freq;
 	auto end_freq = spectrum_scan_options.end_freq;
-	activate_spectrum_scan_(chdb, sat_pos, pol, start_freq, end_freq, false/*spectrum_obtained*/);
+	activate_spectrum_scan_(chdb, sat_pos, pol, start_freq, end_freq, false/*spectrum_obtained*/,
+													lnb_pol_type);
 }
 
 chdb::scan_id_t receiver_t::deactivate_spectrum_scan(const spectrum_scan_t&spectrum_scan) {

@@ -32,6 +32,7 @@ namespace devdb {
 	struct lnb_t;
 	struct lnb_network_t;
 	enum class sat_sub_band_t : int8_t;
+	enum class lnb_pol_type_t : int8_t;
 };
 
 namespace chdb {
@@ -274,7 +275,7 @@ namespace chdb::sat {
 	chdb::band_scan_t& band_scan_for_pol_sub_band(chdb::sat_t& sat, chdb::fe_polarisation_t pol,
 																								chdb::sat_sub_band_t sub_band);
 
-
+	void clean_band_scan_pols(chdb::sat_t& sat, devdb::lnb_pol_type_t lnb_pol_type);
 /*!
 		find a satellite which is close to position; returns the best match
 		We adopt a tolerance of sat_pos_tolerance.

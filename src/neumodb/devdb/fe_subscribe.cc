@@ -852,10 +852,10 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 																				service->k == sub_service->k) : ! sub.has_service;
 			service_matches |= match_mux_only;
 			//in case we only need a mux, we also check for a match in frequency
-			if(rf_path_matches && mux && !mux_matches && (!service || match_mux_only)) {
+			if(rf_path_matches && sub_service && mux && !mux_matches && (!service || match_mux_only)) {
 				//perhaps the frequency matches but not the mux key
 				mux_t m;
-				m.k = mux->k;
+				m.k = sub_service->k.mux;
 				set_member(m, frequency, fe.sub.frequency);
 				set_member(m, pol, fe.sub.pol);
 				mux_matches = chdb::matches_physical_fuzzy(*mux, m, true /*check_sat_pos*/,

@@ -135,16 +135,18 @@ struct tune_options_t {
 	inline bool rf_path_is_allowed(const devdb::rf_path_t& rf_path) const {
 		bool dish_matches = !allowed_dish_ids;
 		bool card_matches = !allowed_card_mac_addresses;
-		for(auto dish_id: *allowed_dish_ids) {
-			dish_matches = rf_path.lnb.dish_id == dish_id;
-			if(dish_matches)
-				break;
-		}
-		for(auto card_mac_address: *allowed_card_mac_addresses) {
-			card_matches = rf_path.card_mac_address == card_mac_address;
-			if(card_mac_address)
-				break;
-		}
+		if(allowed_dish_ids)
+			for(auto dish_id: *allowed_dish_ids) {
+				dish_matches = rf_path.lnb.dish_id == dish_id;
+				if(dish_matches)
+					break;
+			}
+		if(allowed_card_mac_addresses)
+			for(auto card_mac_address: *allowed_card_mac_addresses) {
+				card_matches = rf_path.card_mac_address == card_mac_address;
+				if(card_mac_address)
+					break;
+			}
 		return card_matches && dish_matches;
 	}
 

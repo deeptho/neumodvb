@@ -559,11 +559,6 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 		);
 	if (ret < 0)
 		dterrorf("tune returned {:d}", ret);
-#if 0
-	auto adapter_no =  active_adapter.get_adapter_no();
-	dtdebugf("Subscribed: subscription_id={} adapter {}: {}", (int) sret.subscription_id, adapter_no,
-					mux);
-#endif
 	//Destructor of old_active_adapter can call deactivate at this point
 	return sret.subscription_id;
 }

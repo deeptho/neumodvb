@@ -100,8 +100,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	return best_fe;
 }
 
-/* find the subscription counts for a specific set of resources that we need
-	 and also check if those resources are compatible with our intended use.
+/* Check if those resources for a candidate new scubscription are compatible with our intended use.
 	 Returns the use_counts if we we can actuually use all of the resources,
 	 otherwise returns nothing.
 	 s: subscription_parameters: owner, rf_path, pol, band, usals_pos, dish_usals_pos, rf_coupler_id
@@ -117,10 +116,10 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 	assert(s.owner>=0);
 	for(const auto& fe: c.range()) {
 		if( !fe::is_subscribed(fe))
-			continue;
+			continue; //no conflict possible
 		if(fe.sub.owner != s.owner && kill((pid_t)fe.sub.owner, 0)) {
 			dtdebugf("process pid={} has died", fe.sub.owner);
-			continue;
+			continue; //no conflict possible
 		}
 		/* at this point, fe is known to be subscribed*/
 
@@ -163,9 +162,10 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 				return {};
 
 			//check for incompatible parameters
-			if( same_lnb && ! same_sat_band_pol )
+			if(same_lnb && ! same_sat_band_pol )
 				return {};
-
+			if(same_tuner && (!same_lnb || ! same_sat_band_pol))
+				return {}; //we can only reuse tuner for same sat, band and pol
 			ret.lnb += same_lnb;
 			ret.rf_coupler += same_rf_coupler;
 			ret.tuner += same_tuner;

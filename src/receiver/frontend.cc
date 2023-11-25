@@ -1862,15 +1862,15 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 	} else {
 		dtdebugf("Changing voltage from : v={:d} to v={:d}", (int) voltage, (int)v);
 	}
-	bool must_sleep = (voltage == SEC_VOLTAGE_OFF || voltage  <0);
+	bool must_sleep_extra = (voltage == SEC_VOLTAGE_OFF || voltage  <0);
 	/*
 		when starting from the unpowered state, we need to wait long enough to give equipment
 		time to power up. We assume 200ms is enough
 	 */
-	int sleeptime_ms = 200;
+	int sleeptime_ms = must_sleep_extra ? 300 : 150;
 
 	/*
-		With an Amilko positioner, the positioner risks activating its current overlaod protection at startup,
+		With an Amiko positioner, the positioner risks activating its current overlaod protection at startup,
 		even if the motor is not moving, because of the current the rotor passess through for lnb and potentially
 		a switch. This problem is worse when the highest voltage is selected from a non-powered state.
 		The following increases the voltage in two phase when 18V is requested. First 12V is selected; then we
@@ -1899,10 +1899,10 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		return -1;
 	}
 	//allow some time for the voltage on the equipment to stabilise before continuing
-	if(must_sleep) {
-		dtdebugf("sleeping for power up");
-		msleep(sleeptime_ms);
+	if(must_sleep_extra) {
+		dtdebugf("sleeping extra for power up");
 	}
+	msleep(sleeptime_ms);
 
 	return 1;
 }

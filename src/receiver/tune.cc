@@ -172,7 +172,7 @@ int tuner_thread_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& ln
 	log4cxx::NDC::pop();
 	log4cxx::NDC ndc(prefix.c_str());
 
-	dtdebugf("tune mux action {}", mux);
+	dtdebugf("tune mux action lnb={} mux={}", lnb, mux);
 	bool user_requested = true;
 	return active_adapter.tune(rf_path, lnb, mux, tune_options, user_requested, subscription_id);
 }
@@ -539,26 +539,26 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	 */
 
 	int ret{-1};
-		auto& aa = sret.aa;
-		dtdebugf("New active_adapter {:p}: subscription_id={:d} adapter_no={:d}",
-						 fmt::ptr(this), (int) sret.subscription_id,
-						 active_adapter.get_adapter_no());
-		visit_variant(mux,
-									[&](const chdb::dvbs_mux_t& mux) {
-										assert(aa.rf_path);
-										assert(aa.lnb);
-										ret = this->tune(*aa.rf_path, *aa.lnb, mux, tune_options,
-																		 sret.subscription_id);
-									},
-									[&](const chdb::dvbc_mux_t& mux) {
-										ret = this->tune(mux, tune_options, sret.subscription_id);
-									},
-									[&](const chdb::dvbt_mux_t& mux) {
-										ret = this->tune(mux, tune_options, sret.subscription_id);
-									}
-			);
-		if (ret < 0)
-			dterrorf("tune returned {:d}", ret);
+	auto& aa = sret.aa;
+	dtdebugf("Active_adapter {:p}: subscription_id={:d} adapter_no={:d}",
+					 fmt::ptr(this), (int) sret.subscription_id,
+					 active_adapter.get_adapter_no());
+	visit_variant(mux,
+								[&](const chdb::dvbs_mux_t& mux) {
+									assert(aa.rf_path);
+									assert(aa.lnb);
+									ret = this->tune(*aa.rf_path, *aa.lnb, mux, tune_options,
+																	 sret.subscription_id);
+								},
+								[&](const chdb::dvbc_mux_t& mux) {
+									ret = this->tune(mux, tune_options, sret.subscription_id);
+								},
+								[&](const chdb::dvbt_mux_t& mux) {
+									ret = this->tune(mux, tune_options, sret.subscription_id);
+								}
+		);
+	if (ret < 0)
+		dterrorf("tune returned {:d}", ret);
 #if 0
 	auto adapter_no =  active_adapter.get_adapter_no();
 	dtdebugf("Subscribed: subscription_id={} adapter {}: {}", (int) sret.subscription_id, adapter_no,

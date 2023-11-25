@@ -184,7 +184,7 @@ static void report(const char* msg, subscription_id_t finished_subscription_id,
 	s.format(" Scan  {:s} {} finished_subscription_id={:d} subscription_id={:d} todo=[",
 					 msg, mux, (int)finished_subscription_id, (int)subscription_id);
 	for (auto& [id, unused] : subscriptions)
-		s.format("[:2d] ", (int)id);
+		s.format("[{:2d}] ", (int)id);
 	s.format("] \n");
 	dtdebugf("{}", s);
 }

@@ -1272,7 +1272,7 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 		this->sec_status.retune_count++;
 
 	//abort the current operation of the frontend making it go to IDLE mode
-	dtdebugf("calling stop");
+	dtdebugf("calling stop fe_monitor");
 	if (this->stop() < 0)  /* Force the driver to go into idle mode immediately, so
 																	that the fe_monitor_thread_t will also return immediately*/
 		return {-1, sat_pos_none};

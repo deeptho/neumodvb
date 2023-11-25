@@ -398,9 +398,10 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 		service.k.mux = mux.k;
 		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
 	}
-	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
-					 fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
-					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
+	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} mux_id={:d} lnb={}  use_count={:d}",
+					 (int) subscription_id, fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
+					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id,
+					 lnb, fe.sub.subs.size());
 
 	put_record(wtxn, fe);
 	return 0;

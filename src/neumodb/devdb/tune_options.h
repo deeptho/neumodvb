@@ -144,7 +144,7 @@ struct tune_options_t {
 		if(allowed_card_mac_addresses)
 			for(auto card_mac_address: *allowed_card_mac_addresses) {
 				card_matches = rf_path.card_mac_address == card_mac_address;
-				if(card_mac_address)
+				if(card_matches)
 					break;
 			}
 		return card_matches && dish_matches;

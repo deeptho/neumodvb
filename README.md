@@ -8,6 +8,7 @@ Some of the features include
  * spectral analysis of satellite bands
  * blindscan (TBS-6909x, TBS-6903x, tbs5927, and incomplete support for tbs5990)
  * scanning muxes
+ * scanning satellite bands by blind tuning
  * viewing and recording programs
  * epg scanning, including SkyUk, Freesat, Movistar, Viasat Nordic
  * watching encrypted streams using oscam
@@ -110,6 +111,8 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 ### [LNB configuration](docs/lnbs.md) ###
 
 ### [Scanning muxes](docs/muxes.md) ####
+
+### [Scanning satellite bands](docs/satellites.md) ####
 
 ### [Managing channels](docs/channel_management.md) ###
 

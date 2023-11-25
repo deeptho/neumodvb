@@ -164,11 +164,10 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 	return subscription_id;
 }
 
-
 static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
 															py::list pol_list, py::list sat_band_list,
 															int32_t low_freq, int32_t high_freq,
-															std::optional<tune_options_t> tune_options) {
+															const tune_options_t tune_options) {
 	using namespace chdb;
 	int n = sat_list.size();
 	ss::vector_<sat_t> sats;
@@ -234,35 +233,50 @@ static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
 }
 
 static int scan_muxes_on_sats(subscriber_t& subscriber, db_txn& chdb_rtxn, py::list sat_list,
-										 const std::optional<tune_options_t>& tune_options,
-										 const std::optional<tune_options_t>& spectrum_options) {
+															py::list pol_list, py::list sat_band_list,
+															const tune_options_t& tune_options) {
+
 	using namespace chdb;
+	assert(tune_options.tune_mode == tune_mode_t::NORMAL || tune_options.tune_mode == tune_mode_t::BLIND);
+	assert(tune_options.subscription_type == subscription_type_t::MUX_SCAN);
+	ss::vector_<sat_t> sats;
+	ss::vector<fe_polarisation_t, 4> pols;
+	ss::vector<sat_band_t, 4> sat_bands;
+
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
 	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
 	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;
-	assert(!spectrum_options); //todo; also to be used for selecting c, ku, ka...
+
+	for(auto p: pol_list) {
+		auto* ppol =  p.cast<chdb::fe_polarisation_t*>();
+		pols.push_back(*ppol);
+	}
+
+	for(auto band: sat_band_list) {
+		auto* pband =  band.cast<chdb::sat_band_t*>();
+		sat_bands.push_back(*pband);
+	}
+
 	for(auto s: sat_list) {
-		auto* sat = s.cast<chdb::sat_t*>();
-		if(!sat) {
-			dterrorf("sat == nullptr");
-			continue;
-		}
-		if(sat->sat_pos == sat_pos_dvbt) {
-			auto c = dvbt_mux_t::find_by_key(chdb_rtxn, sat->sat_pos, find_type_t::find_geq, dvbt_mux_t::partial_keys_t::sat_pos);
+		auto* psat =  s.cast<chdb::sat_t*>();
+		if(!sat_bands.contains(psat->sat_band))
+			continue; //band not allowed
+		auto [l, h] =sat_band_freq_bounds(psat->sat_band, sat_sub_band_t::NONE);
+
+		auto addmux = [&]<typename mux_t>(db_txn& chdb_rtxn, int sat_pos, ss::vector<mux_t,1>& mux_list) {
+			auto c = mux_t::find_by_key(chdb_rtxn, sat_pos, find_type_t::find_geq, mux_t::partial_keys_t::sat_pos);
 			for(const auto& m : c.range()) {
-				dvbt_muxes.push_back(m);
+				if((int)m.frequency >= l && (int)m.frequency <=h)
+					mux_list.push_back(m);
 			}
-		} else if (sat->sat_pos == sat_pos_dvbc) {
-			auto c = dvbc_mux_t::find_by_key(chdb_rtxn, sat->sat_pos, find_type_t::find_geq, dvbc_mux_t::partial_keys_t::sat_pos);
-			for(const auto& m : c.range()) {
-				dvbc_muxes.push_back(m);
-			}
-		} else {
-			auto c = dvbs_mux_t::find_by_key(chdb_rtxn, sat->sat_pos, find_type_t::find_geq, dvbs_mux_t::partial_keys_t::sat_pos);
-			for(const auto& m : c.range()) {
-				dvbs_muxes.push_back(m);
-			}
-		}
+		};
+
+		if(psat->sat_pos == sat_pos_dvbt)
+			addmux(chdb_rtxn, psat->sat_pos, dvbt_muxes);
+		else if (psat->sat_pos == sat_pos_dvbc)
+			addmux(chdb_rtxn, psat->sat_pos, dvbc_muxes);
+		else
+			addmux(chdb_rtxn, psat->sat_pos, dvbs_muxes);
 	}
 	auto ret = subscriber.scan_muxes(dvbs_muxes, dvbc_muxes, dvbt_muxes, tune_options);
 	return ret;
@@ -328,8 +342,9 @@ void export_subscriber(py::module& m) {
 				 , "scan all muxes on selected sats"
 				 , py::arg("chdb_rtxn")
 				 , py::arg("sats")
-				 , py::arg("tune_options")=nullptr
-				 , py::arg("spectrum_options")=nullptr
+				 , py::arg("allowed_pols")
+				 , py::arg("allowed_sat_bands")
+				 , py::arg("tune_options")
 			)
 		.def("scan_bands_on_sats", &scan_bands_on_sats
 				 , "acquire spectra and then scan peaks for selected sats"

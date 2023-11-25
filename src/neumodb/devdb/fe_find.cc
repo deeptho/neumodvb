@@ -45,9 +45,9 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 	auto no_best_fe_yet = [&best_fe]()
 		{ return best_fe.priority == std::numeric_limits<decltype(best_fe.priority)>::lowest(); };
 	for(const auto& fe: c.range()) {
-		if (need_dvbc && (!fe.enable_dvbc || !fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_C)))
+		if (need_dvbc && (!fe.enable_dvbc || !fe::supports_delsys_type(fe, chdb::delsys_type_t::DVB_C)))
 			continue;
-		if (need_dvbt && (!fe.enable_dvbt || !fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_T)))
+		if (need_dvbt && (!fe.enable_dvbt || !fe::supports_delsys_type(fe, chdb::delsys_type_t::DVB_T)))
 			continue;
 		bool is_subscribed = ignore_subscriptions ? false: fe::is_subscribed(fe);
 		bool is_our_subscription = (ignore_subscriptions || fe.sub.subs.size()>1) ? false
@@ -247,7 +247,7 @@ fe::find_best_fe_for_lnb(
 			/* we found an fe that is free (or that will be freed by caller now*/
 
       //find the best fe will all required functionality, without taking into account other subscriptions
-			if(!fe.can_be_used || !fe.present || !devdb::fe::suports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
+			if(!fe.can_be_used || !fe.present || !devdb::fe::supports_delsys_type(fe, chdb::delsys_type_t::DVB_S))
 				continue; /* The fe does not currently exist, or it cannot use DVBS. So it
 									 can also not create conflicts with other fes*/
 
@@ -449,8 +449,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			best_use_counts = use_counts;
 		}
 	}
-
-	if(!best_fe)
+	//during scanning, it is expected to see many failure; don't report them
+	if(!best_fe && tune_options.subscription_type == subscription_type_t::TUNE)
 		user_errorf("Could not find find available lnb, frontend or tuner for mux {}", mux);
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
 }

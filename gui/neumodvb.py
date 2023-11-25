@@ -696,28 +696,29 @@ class NeumoGui(wx.App):
             ShowMessage("Mux scan failed", self.scan_subscriber.error_message) #todo: record error message
         dtdebug(f"Requested subscription to scan muxes {muxlist}")
 
-    def MuxesOnSatScan(self, satlist, tune_options=None):
+    def MuxesOnSatScan(self, satlist, tune_options, band_scan_options):
         chdb_rtxn = self.receiver.chdb.rtxn()
-        ret = self.scan_subscriber.scan_muxes_on_sats(chdb_rtxn, satlist, tune_options)
+        dtdebug(f"SatScan: sats={satlist}")
+        ret = self.scan_subscriber.scan_muxes_on_sats(chdb_rtxn, satlist,
+                                                      allowed_pols=band_scan_options['pols'],
+                                                      allowed_sat_bands=band_scan_options['sat_bands'],
+                                                      tune_options=tune_options)
         chdb_rtxn.commit()
-        dtdebug(f'SatScan')
         if ret < 0:
             from neumodvb.neumo_dialogs import ShowMessage
             ShowMessage("Sat scan failed", self.scan_subscriber.error_message) #todo: record error message
-        dtdebug(f"Requested subscription to scan sats {satlist}")
 
     def BandsOnSatScan(self, satlist, tune_options, band_scan_options):
+        dtdebug(f"SpectrumScan: sats={satlist}")
         ret = self.scan_subscriber.scan_bands_on_sats(satlist,
                                                       allowed_pols=band_scan_options['pols'],
                                                       allowed_sat_bands=band_scan_options['sat_bands'],
                                                       low_freq=band_scan_options['low_freq'],
                                                       high_freq=band_scan_options['high_freq'],
                                                       tune_options=tune_options)
-        dtdebug(f'SpectrumScan')
         if ret < 0:
             from neumodvb.neumo_dialogs import ShowMessage
             ShowMessage("Spectrum scan failed", self.scan_subscriber.error_message) #todo: record error message
-        dtdebug(f"Requested subscription to scan spectra {satlist}")
 
     def ScanStop(self):
         dtdebug(f'ScanStop')

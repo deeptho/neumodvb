@@ -147,7 +147,7 @@ namespace devdb::fe {
 		return false;
 	}
 
-	inline bool suports_delsys_type(const devdb::fe_t& fe, chdb::delsys_type_t delsys_type) {
+	inline bool supports_delsys_type(const devdb::fe_t& fe, chdb::delsys_type_t delsys_type) {
 		for (auto d: fe.delsys) {
 			if (chdb::delsys_to_type(d) == delsys_type)
 				return  true;

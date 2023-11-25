@@ -57,19 +57,20 @@ class ScanDialog(ScanDialog_):
         else:
             self.scan_type_choice.Disable()
         if self.band_scan:
+            self.tune_options = self.receiver.get_default_tune_options(
+                subscription_type= subscription_type_t.SPECTRUM_BAND_SCAN)
             self.tune_options.use_blind_tune = True
             self.blind_tune_checkbox.SetValue(self.tune_options.use_blind_tune)
             self.propagate_scan_checkbox.Disable()
             self.band_scan_save_spectrum_checkbox.Enable()
-            #self.blind_tune_checkbox.Disable()
-            #self.allowed_sat_bands_checklistbox.Enable()
         else:
+            self.tune_options = self.receiver.get_default_tune_options(
+                subscription_type=subscription_type_t.MUX_SCAN)
+
             self.propagate_scan_checkbox.Enable()
             self.blind_tune_checkbox.Enable()
             self.band_scan_save_spectrum_checkbox.SetValue(False)
             self.band_scan_save_spectrum_checkbox.Disable()
-            #self.allowed_sat_bands_checklistbox.ForceAll()
-            #self.allowed_sat_bands_checklistbox.Disable()
 
     def Prepare(self):
         if self.allow_band_scan:
@@ -119,11 +120,11 @@ class ScanDialog(ScanDialog_):
 
         start_freq = self.start_freq_textctrl.GetValue()
         end_freq = self.end_freq_textctrl.GetValue()
-        start_freq = start_freq*1000 if start_freq != -1 else -1
-        end_freq = end_freq*1000 if end_freq != -1 else -1
+        start_freq = start_freq*1000 if start_freq is not None and start_freq != -1 else -1
+        end_freq = end_freq*1000 if end_freq is not None and end_freq != -1 else -1
         self.band_scan_options = dict(low_freq=start_freq, high_freq=end_freq, pols=pols, sat_bands=sat_bands)
 
-        return self.tune_options, self.band_scan_options if self.band_scan else None
+        return self.tune_options, self.band_scan_options, self.band_scan
 
 def service_for_key(service_key):
     txn = wx.GetApp().chdb.rtxn()
@@ -146,11 +147,11 @@ def show_scan_dialog(parent, title='Scan muxes', allow_band_scan=False, allowed_
     dlg.Fit()
     ret = dlg.ShowModal()
     if ret == wx.ID_OK:
-        tune_options, band_scan_options = dlg.OnDone()
+        tune_options, band_scan_options, is_band_scan = dlg.OnDone()
     else:
         dlg.OnCancel()
         tune_options = None
         band_scan_options = None
         band_scan = False
     dlg.Destroy()
-    return tune_options, band_scan_options
+    return tune_options, band_scan_options, is_band_scan

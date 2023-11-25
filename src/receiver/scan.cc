@@ -1121,7 +1121,6 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	tune_options.need_spectrum = false;
 	assert(chdb::scan_in_progress(scan_id));
 	assert(scanner_t::is_our_scan(scan_id));
-
 	subscription_id =
 		receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, reuseable_subscription_id, tune_options,
 																	scan_id, true /*do_not_unsubscribe_on_failure*/);
@@ -1376,7 +1375,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& 
 
 	for(const auto& mux_: muxes) {
 		if(!can_subscribe(devdb_rtxn, mux_, scan.tune_options_for_scan_id(scan_id))) {
-			dtdebugf("Skipping mux that cannot be tuned: {}", mux_);
+			//dtdebugf("Skipping mux that cannot be tuned: {}", mux_);
 			continue;
 		}
 		mux_t mux;

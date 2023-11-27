@@ -149,18 +149,19 @@ class DvbcMuxGrid(NeumoGridBase):
 
     def CmdScan(self, evt):
         from neumodvb.scan_dialog import show_scan_dialog
-        scan_pars, _ = show_scan_dialog(self, allow_band_scan=False)
         self.table.SaveModified()
         rows = self.GetSelectedRows()
         muxes = []
         for row in rows:
             mux = self.table.GetRow(row)
             muxes.append(mux)
-        if scan_pars is None:
-            dtdebug(f'CmdScan aborted for {len(rows)} sats')
+        tune_options, band_scan_options, is_band_scan = \
+            show_scan_dialog(self, allow_band_scan=False, title=f'Scan {len(muxes)} muxes')
+        if tune_options is None:
+            dtdebug(f'CmdScan aborted for {len(rows)} muxes')
             return
         dtdebug(f'CmdScan requested for {len(rows)} muxes')
-        self.app.MuxScan(muxes, scan_pars)
+        self.app.MuxScan(muxes, tune_options)
 
     def OnTimer(self, evt):
         super().OnTimer(evt)

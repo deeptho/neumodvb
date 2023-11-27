@@ -1928,8 +1928,9 @@ dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const de
 		return {false, false};
 	}
 	auto r = this->ts.readAccess();
-	if (new_lnb.k != r->reserved_lnb.k)
+	if (new_rf_path != r->reserved_rf_path) {
 		return {true, true};
+	}
 	if (!new_lnb.on_positioner)
 		return {false, true};
 	auto *conn = connection_for_rf_path(new_lnb, new_rf_path);

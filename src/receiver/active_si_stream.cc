@@ -1876,7 +1876,7 @@ bool active_si_stream_t::update_mux(
 	} else {
 		assert(!chdb::is_template(mux));
 		assert(mux_key_ptr(mux)->mux_id  > 0 || !from_sdt);
-		chdb::update_mux(chdb_wtxn, mux, now, preserve, cb, /*true ignore_key,*/
+		chdb::update_mux(chdb_wtxn, mux, now, preserve, cb,
 										 false /*ignore_t2mi_pid*/, false /*must_exist*/);
 	}
 	bool saving_reader_mux = (*mux_key_ptr(mux) == *mux_key_ptr(reader_mux));

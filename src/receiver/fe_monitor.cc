@@ -323,11 +323,4 @@ Another approach could be the following:
 
 Ideally the kernel should also set a flag showing "idle mode", but this is not the case
 
-
-
-
-
-
-
-
  */

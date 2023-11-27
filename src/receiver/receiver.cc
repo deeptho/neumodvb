@@ -688,6 +688,9 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 	return aa.get();
 }
 
+/*
+	called to manually control positioner
+ */
 subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 																									 devdb::rf_path_t& rf_path,
 																									 devdb::lnb_t& lnb, tune_options_t tune_options,
@@ -1162,6 +1165,7 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 }
 
 /*! Same as subscribe_lnb, but also subscribes to a mux in the same call
+	Called from positioner dialog when tuning to specfic mux on specific rf_path
  */
 subscription_id_t
 receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,

@@ -201,7 +201,7 @@ devdb::fe_t devdb::fe::subscribe_fe_in_use(
 	assert(fe.sub.subs.size()>=0); //==0 can happen when we are tuning to a different service on the same mux
 	assert(is_same_stream(mux.k, fe.sub.mux_key));
 
-	dtdebugf("subscription_id={:d} adapter {:d} {:d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
+	dtdebugf("subscribe_fe_in_use subscription_id={:d} adapter {:d} {:d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
 	assert((int)subscription_id >=0);

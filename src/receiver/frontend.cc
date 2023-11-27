@@ -853,7 +853,7 @@ int dvb_frontend_t::send_diseqc_message(char switch_type, unsigned char port, un
 	cmd.msg[5] = 0x00;
 	cmd.msg_len = 4;
 	dtdebugf("Diseqc message[{:d}]: "
-					 "%02x %02x %02x %02x %02x %02x",
+					 "{:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
 					 cmd.msg_len,
 					 cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
 
@@ -1810,11 +1810,11 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(chdb::sat_sub_band_t band,
 		TODO: change this to 18 Volt when using positioner
 	*/
 
-	dtdebugf("SENDING diseqc: retune_count={:d} mode={:d}", (int) this->sec_status.retune_count,
-					 (int) this->ts.readAccess()->tune_options.subscription_type);
-
 	auto fefd = this->ts.readAccess()->fefd;
 	this->sec_status.set_voltage(fefd, lnb_voltage);
+
+	dtdebugf("SENDING diseqc: retune_count={:d} mode={:d}", (int) this->sec_status.retune_count,
+					 (int) this->ts.readAccess()->tune_options.subscription_type);
 
 	// Note: the following is a NOOP in case no diseqc needs to be sent
 	auto [ ret, new_usals_sat_pos] = diseqc(false /*skip_positioner*/);

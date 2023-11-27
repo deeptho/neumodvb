@@ -1121,6 +1121,8 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	tune_options.need_spectrum = false;
 	assert(chdb::scan_in_progress(scan_id));
 	assert(scanner_t::is_our_scan(scan_id));
+	dtdebugf("Asking to subscribe {} reuseable_subscription_id={}",
+					 mux_to_scan, (int) reuseable_subscription_id);
 	subscription_id =
 		receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, reuseable_subscription_id, tune_options,
 																	scan_id, true /*do_not_unsubscribe_on_failure*/);
@@ -1128,9 +1130,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	wait_for_all(futures); //remove later
 
 	if((int)subscription_id >=0) {
-		report("SUBSCRIBED", reuseable_subscription_id, subscription_id,
-					 mux_to_scan, subscriptions);
-		dtdebugf("Asked to subscribe {} reuseable_subscription_id={} subscription_id={}",
+		dtdebugf("SUBSCRIBED {} reuseable_subscription_id={} subscription_id={}",
 						 mux_to_scan, (int) reuseable_subscription_id,
 						 (int) subscription_id);
 		scan_stats.active_muxes++;

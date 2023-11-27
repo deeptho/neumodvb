@@ -1223,7 +1223,7 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 	if(api_version >=1500) {
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
-		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) rf_path.rf_input))) {
+		if(this->sec_status.set_rf_input(fefd,  (int32_t) rf_path.rf_input) <0) {
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
 			return {-1, sat_pos_none};
 		}
@@ -1284,7 +1284,7 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	if(api_type == api_type_t::NEUMO && api_version >=1500) {
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
-		if ((ioctl(fefd, FE_SET_RF_INPUT, (int32_t) rf_path.rf_input))) {
+		if(this->sec_status.set_rf_input(fefd,  (int32_t) rf_path.rf_input) <0) {
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
 			return {-1, new_usals_sat_pos};
 		}
@@ -1849,13 +1849,17 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		assert(0);
 		return -1;
 	}
-	if (v == voltage) {
+	bool must_sleep_extra = (voltage == SEC_VOLTAGE_OFF || voltage  <0 || rf_input < 0);
+	if (rf_input_changed) {
+		dtdebugf("Re-applying voltage because RF_INPUT changed: v={:d}", (int) v);
+		rf_input_changed = false; //indicate that we have handled this
+		must_sleep_extra = true;
+	} else if (v == voltage) {
 		dtdebugf("No voltage change needed: v={:d}", (int) v);
 		return 0;
-	} else {
-		dtdebugf("Changing voltage from : v={:d} to v={:d}", (int) voltage, (int)v);
 	}
-	bool must_sleep_extra = (voltage == SEC_VOLTAGE_OFF || voltage  <0);
+	dtdebugf("Changing voltage from : v={:d} to v={:d}", (int) voltage, (int)v);
+
 	/*
 		when starting from the unpowered state, we need to wait long enough to give equipment
 		time to power up. We assume 200ms is enough
@@ -1873,10 +1877,9 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		In this case we split the sleep time over the two phases. Note that we assume that the driver
 		itself does not sleep in the ioctl call.
 
-		TODO: replace msleep with sleep_until. This woudl take into account driver sleeo
+		TODO: replace msleep with sleep_until. This would take into account driver sleep
 	 */
-	if (voltage < 0 && v == SEC_VOLTAGE_18) {
-		sleeptime_ms /=2 ;
+	if (must_sleep_extra  && v == SEC_VOLTAGE_18) {
 		if (ioctl(fefd, FE_SET_VOLTAGE, SEC_VOLTAGE_13) < 0) {
 			dterrorf("problem setting voltage {:d}", voltage);
 			return -1;
@@ -1892,11 +1895,29 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		return -1;
 	}
 	//allow some time for the voltage on the equipment to stabilise before continuing
-	if(must_sleep_extra) {
-		dtdebugf("sleeping extra for power up");
-	}
 	msleep(sleeptime_ms);
+	return 1;
+}
 
+int sec_status_t::set_rf_input(int fefd, int rf_input) {
+	if (rf_input < 0) {
+		assert(0);
+		return -1;
+	}
+	if (rf_input == this->rf_input) {
+		dtdebugf("No RF_INPUT change needed: rf_input={:d}", rf_input);
+		return 0;
+	} else {
+		dtdebugf("Changing RF_INPUT from {:d} to {:d}", this->rf_input, rf_input);
+	}
+
+	if ((ioctl(fefd, FE_SET_RF_INPUT, rf_input))) {
+		dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
+		this->rf_input = -1;
+		return -1;
+	}
+	this->rf_input = rf_input;
+	this->rf_input_changed  = true;
 	return 1;
 }
 

@@ -246,10 +246,15 @@ public:
 									 bool ignore_t2mi_pid) const;
 };
 
+/*
+	status of secondary equipment
+ */
 class sec_status_t {
 	bool tuned{false};
-	int voltage{-1}; // means unknown
-	int tone{-1}; // means unknown
+	int rf_input{-1}; //-1 means unknown or never set
+	bool rf_input_changed{false}; // true means that rf_input was changed and we have not set voltage yet
+	int voltage{-1};  // -1 means unknown or never set
+	int tone{-1};     // -1 means unknown or never set
 public:
 	int retune_count{0};
 	bool is_tuned() const {
@@ -262,6 +267,7 @@ public:
 		1: tone was set as wanted
 	 */
 	int set_voltage(int fefd, fe_sec_voltage v);
+	int set_rf_input(int fefd, int rf_input);
 	fe_sec_tone_mode get_tone() const {
 		return (fe_sec_tone_mode) tone;
 	}

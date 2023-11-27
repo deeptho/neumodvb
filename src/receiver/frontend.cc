@@ -705,9 +705,6 @@ dvb_frontend_t::update_lock_status_and_signal_info(fe_status_t fe_status, bool g
 	return ret;
 }
 
-/* Force the driver to go into idle mode immediately, so
-	 that the fe_monitor_thread_t will also return immediately
-*/
 int dvb_frontend_t::stop() {
 
 	/*

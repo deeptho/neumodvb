@@ -1188,8 +1188,7 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 	tune_options.need_blind_tune = blindscan;
 	tune_options.tune_mode = tune_options.need_blind_tune ? tune_mode_t::BLIND : tune_mode_t::NORMAL;
 	tune_options.retune_mode = retune_mode;
-	tune_options.allowed_dish_ids = {};
-	tune_options.allowed_card_mac_addresses = {};
+	tune_options.allowed_rf_paths = {rf_path};
 	//call by reference ok because of subsequent wait_for_all
 	futures.push_back(receiver_thread.push_task(
 											[this, &mux, tune_options, &subscription_id]() {

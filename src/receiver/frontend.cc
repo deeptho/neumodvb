@@ -1864,7 +1864,7 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		when starting from the unpowered state, we need to wait long enough to give equipment
 		time to power up. We assume 200ms is enough
 	 */
-	int sleeptime_ms = must_sleep_extra ? 300 : 150;
+	int sleeptime_ms = must_sleep_extra ? 500 : 300;
 
 	/*
 		With an Amiko positioner, the positioner risks activating its current overlaod protection at startup,
@@ -1885,7 +1885,8 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 			return -1;
 		}
 		dtdebugf("sleeping extra at startup");
-		msleep(sleeptime_ms);
+		msleep(sleeptime_ms/3);
+		sleeptime_ms -= sleeptime_ms/3;
 	}
 
 	voltage = v;

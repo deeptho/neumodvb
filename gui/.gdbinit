@@ -68,3 +68,4 @@ end
     set $n = $n + 1
   end
  end
+# set demangle-style none

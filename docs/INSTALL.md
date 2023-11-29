@@ -173,7 +173,7 @@ sudo pip3 regex mpl_scatter_density
 
 ### Ubuntu 23.04 ###
 
-Ubuntu 23.04 seems to be missing many of the required package,s but one user
+Ubuntu 23.04 seems to be missing many of the required packages but one user
 report success by adding Ubuntu 22.04 repositories to /etc/apt/sources.list:
 
 ```bash

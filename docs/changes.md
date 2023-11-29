@@ -5,6 +5,309 @@ The bug has been reported here and a workaround is listed. So far, the bug rport
 
 https://gitlab.freedesktop.org/mesa/mesa/-/issues/9125
 
+## Changes in version neumodvb-1.4 ##
+
+### Main changes
+
+* Allow scanning all existing muxes on multiple satellites, while selecting muxes based on polarisation and band.
+* Allow scanning spectral bands on multiple satellites, while selecting bands based on polarisation and band
+  and on frequency range.
+* Have muxinfo display more info during scanning.
+* Satellite list now shows information on last band scan in a multi-row format.
+* Improved code for handling conflicts during subscriptions.
+* Allow mux and service subscription to share same active mux.
+* Various bug fixes related to incorrect selection of LNBs or not powering up LNBs or selecting bands when
+  multples muxes are tuned in parallel. This also leads to more reliable scanning.
+* Refactor scan code to make it less complicated and easier to maintain.
+* Fixes for recovering recordings when neumoDVB is restarted while a recording is in progress.
+* Add autorec code, which checks all new EPG data and creates recording records based on matching
+  program name, story, start time, end time...
+* sat_list is now organized per frequency band dvbc and dvbt are no longer included in that list. Having
+  a different satellite entry per frequency band makes it easier to display only those satellites supporting
+  a specific band.
+* Use ch_order=65535 for new services so that they appear at end of service list and display 65535 as
+  empty string. The end result is that for services without a ch_order are now displayed with a blank
+  channel number and at the end of the list, as they are often not of interest to the user.
+* Distinguish between cur_lnb_pos (what position does lnb point to) and cur_sat_pos (what as the
+  last network used on lnb). The difference is important when multiple closely spaced satellites are
+  received by the same lnb.
+* Channel epg list has been improved: it allows filtering for a specifuic service. The info window has been
+  removed. Instead, the  story is shown using multiple lines in a separate column.
+* Much faster Sky UK and Freesat EPG processing due to various improvements to internal huffman
+  decoders. All Sky UK epg can now be grabbed in less than 30 seconds.
+* The EPG code, and some other code now also runs in parallel when scanning multiple muxes at once. The
+  lmdb database still leads to some serialization.
+* All debugging code now uses libfmt, leading to faster logging and more informative log messages with
+  cleaner code.
+* Internal database code has been improved to allow parallel calling from multiple threads without unneeded
+  committing of transactions.
+* Muxes now use the new `mux_id` as part of new primary for mux. This makes it easier to avoid bugs causing the
+  wrong mux record to be updated or deleted, when multiple muxes overlap.
+* In the service list the string column `mux_desc` has now been replaced with separate `frequency`
+  and `polarisation` columns, allowing filtering and sorting by frequency or polarisation.
+* The database now also stores schema_version in database records and in
+  data structures, to be able to detect major schema upgrades.
+
+### Spectrum scan and positioner dialog
+
+* Send lnb error to tune_mux_panel rather than handle it via global subscriber.
+* Improved error message when lnb action fails.
+* When tune_mux_panel action fails, handle resulting error in spectrum_dialog or positioner_dialog.
+* Reset get spectrum button if spectrum scan fails.
+* Bug: spectra acquired within one minute not treated as the same in GUI, resulting in hiding of
+  first spectrum when second is displayed.
+* Move start_time from spectrum_options to internal fe state.
+* Make get_spectrum also return peak and freq data to scan notification code.
+* Bug: Indexing of spectra no longer correct.
+
+### More reliable tuning and preventing conflicts between parallel tunes
+
+* Incorrect comparison when no service was reserved.
+* New fe_subscribe code.
+* Report error message when lnb cannot be subscribed exclusively.
+* Bug: mux list popup in positioner dialog shows Ka band muxes when LNB is of Ku type.
+* Bug: frontend info not retrieved for adapters in use and file descriptor not closed.
+* Bug: Incorrect live_service processing causes deletion of live buffers in use.
+* Faster channel changing: instead of first calling unsubscribe from neumompv and then resubscribing,
+  let tuner code do the unsubscribing. This can often reuse an existing active adapter and avoids closing
+  and then reopening a frontend.
+* Bug: active_adapter released when unsubscribing one of multiple subscriptions.
+* Bug: cannot call start_running in constructor of active_adapter.
+* Identify live_service_t by owner and subscription_id; remove epg field in live_service_t to simplify code.
+* Incorrect handling of lock loss.
+* Confusion between ret and errno.
+* Bug: incorrect handling of resource conflicts.
+* Bug: incorrect handling of unsubscription when multiple subscriptions use same fe.
+* Bug: when subscription fails, active_adapter and subscription are not released.
+* Bug: incorrect sending diseqc messages and changing voltage/pol during retune.
+* Bug: active_adapter recreated even when adapter remains the same. New fe_subscribe code.
+* Bug: assertion when tuning dvbt mux.
+* Increase sleep times after changing voltage or rf input.
+* Bug: when switching to a different lnb on a frontend, we need to allow for sufficient power up time to prevent
+  tuning from failing.
+* Do not power down tuner voltage before switching to a new lnb. Instead start with the old voltage (faster and better).
+* Bug: diseqc commands not sent when switching to the same lnb via another card or rf_input (e.g., to scan
+  another polarisation).
+* Also send voltage commands afer rf_input has changed; otherwise tuning may fail.
+* Bug: not checking if subscription uses same sat/pol/band when checking if frontend in use can be used leads
+  to reusing subscription from another lnb.
+* Bug: when reusing the same adapter, tuning uses old lnb.
+* Bug: incorrect decision that card cannot be used.
+* Bug: incorrect detection of need_diseqc.
+* Bug: sat_pos not taken into account when checking if subscription can be reused.
+* Bug: subscribe not handling properly the case where a subscription subscribes to a service (or to the mux
+  itself) on the same mux as its old subscription.
+* Unify subscribe_mux and matching_existing_subscription code for all dvb types.
+* Bug: reserve_fe_in_use not storing mux_key in subscription when subscribing to mux (instead of service).
+* Simplify subscriber notifications.
+* Allow non exclusive satellite band reservations.
+* drop may_control_lnb, may_move_dish, need_blind_tune, need_spectrum and loc a function arguments;
+  use tune_options instead. Also remove them from subscription_ret_t. Remove tune_pars_t and replace
+  with tune_optons_t.
+* move several function parameters into tune_options_t; specifically include usals_location,
+  dish_move_penalty and resource_reuse_bonus in tune_options.
+* Switch most "subscribe" calls to using tune_options_t parameter.
+* Bug: deadlock when reading last_signal_info.
+* Incorrect debug message when overriding obviously incorrect si data with driver data.
+* Simplify update_mux and its callbacks.
+* constness of merge_muxes argument.
+
+### Improved mux and satellite band scanning
+
+* Add allowed_rf_paths, allowed_dishes, and allowed_card_mac_addresses to tune_options to more finely
+  control what resources can be used in tuning.
+* Last blind scan setting in positioner and spectrum dialog now remembered as future default.
+* Bug: initial scan_report not shown.
+* Improved decisions on whether to use mux data from database while scanning spectral peaks.
+* Allow add_spectral_peaks to be also called with data from fe_monitor and handle the way that received
+  spectra asre processed: send them also to scanner_t code.
+* Bug: incorrect scan statistics.
+* Bug: ensure that canceling subscription correctly ends scan.
+* Bug: mux_common and scan_id lost when rescanning peak.
+* Bug: incorrect rescanning on scan_result_t::NOTS.
+* Gather scan_stats at point of change directly instead of returning them from function calls.
+* Bug: incorrect detection of subscribing to a frequency peak.
+* No longer include scan_stats in scan_report. Rename scan_report to scan mux_end_report_t. Ensure that
+  notify_scan_mux_end is also called for muxes that fail to tune at subscription time. Refactor scan_loop.
+* Separate code for scanning peaks and muxes.
+* Make all notification functions thread safe, while still notifying python layers without delay whenever possible.
+  Harmonize naming of notification functions.
+* Safe deletion in ~scanner_t.
+* Bug: when unsubscribing, data stored in fe_t and in database becomes inconsistent, leading to never ending scan.
+* Bug: incorrect handling of incomplete BAT tables.
+* Ignore DefaultAuthorityDescriptorTag to remove many log messages.
+* Bug: incorrect frequency from si data overwrites correct data from driver.
+* Bug: when reusing active_adapter old fds remain open, leading to incorrect early notification of scanner.
+* Bug: last_signal_info and setting lock status in frontend.cc was performed in two steps, leading tuner_thread
+  to see inconsistent information (is_dvb not yet set when lock is reported).
+* Bug: incorrect reuse of existing subscription when scanning spectral peaks.
+* Ensure generated mux_id always > 0.
+* Bug: incorrect growing of vectors of plain old data. Leads to bouquet processing incorrectly expiring
+  entries on 28.2E.
+* Bug: when reusing active_adapter old fds remain open, leading to incorrect early notification of scanner.
+* Ignore matype for dvbc and dvbt
+
+### Recording
+
+* Bug: recording not recovered from live recordings at restart.
+* Bug: when crashing multiple times, second part of ongoing recording overwrites earlier recovered part.
+* Add autorec and code for checking autorecs; Add autoreclist and add autorec dialog on various screens.
+* Add make_unique_id for recordings.
+* Bug: service.find_by_key not working.
+* Bug: autorec_id not correctly computed when autorelist is empty
+* Bug: autorec list not updated after adding autorec.
+* Bug: reclist not updated after adding recording.
+* Ignore database versions in recordings so that old recordings still play back. This relies on some structures
+  remaining valid.
+* Added owner field to rec_t. Start new tuner_thread for each active adapter.
+* Move recording code from active_adapter to tuner_thread or recmgr_thread.
+* Clean recording status of epg records, which may not be uptodate after a crash.
+
+### GUI improvements and changes
+
+* Do not show filter menu when right clicking on icons column.
+* Improved display of service in frontend list.
+* Ensure that satellite list is created when starting with empty database.
+* CmdNew and CmdDelete should not be enabled on live panel.
+* Allow selecting multiple non-contiguous rows in lists by ctrl-click.
+* Add substring matches for string filtering and make it default.
+* Display subscribed services in frontend list.
+* Improved display of subscriptions in frontendlist.
+* Display shorter matype str.
+* Try to preserve position on screen of currently selected item.
+* More logical sort order for dates/times.
+* Receiver may only exit after all application windows have been closed.
+* Font too big in chg selector on chgm screen.
+* chglist: use only 1 set of field_matchers.
+* Bug: assertion when selecting DVB type in frontend list.
+* Bug: incorrect display of services on live screen if some service changes in the background.
+* Bug: incorrect sat_pos and usals_pos set after editing lnb.
+* Bug in channel group member list.
+* Bug: speak no longer working.
+* Bug: group select text font cut off on live panel.
+* Bug: incorrect display of various fields in autoreclist.
+* Bug: autorec_dialog code was incomplete: values not updated when saving.
+* Bug: subtitle language selection not working.
+* Bug: screen update ignores filter.
+* Bug: incorrect handling of control parameters in dvb text strings
+
+### EPG improvements
+
+* New channel epg list: no more infow, allow selecting services,  allow showing all services, show story on
+  multiple lines.
+* Add service_name to epg records. Also add full service_key to epg records.
+* Bug: due to libiconv problem, incorrect handling of larger than usual epg stories.
+* Bug: sky epg scan never ends when summary data has no corresponding title.
+* clear parser_status when receiving section with bad crc
+* Use system tz db rather than downloaded one. Speeds startup of epg screen
+* Distinguish between epg and nit scanning in statistics
+* epg_scan completeness wrongly computed
+* Avoid assertion on incorrect epg data with last_table_id smaller than first_table_id
+* Fix channel_epg
+* Implemented much faster opentv huffman decoder resulting in 2.5x faster opentv string decoder.
+* Bug: gap between epg records sometimes shown as part of older epg record in grid epg
+* Show also epg data from the recent past
+* Remove epg records in live buffers and recordings (epg is still stored in rec_t record)
+* Handle case where epg_screen is None
+* Increase number of epg records per section callback to avoid reallocation.
+* Incorrect assertion, leading to chrash when processing sky epg.
+* Allow filtering in chepg_list when specific service is selected
+
+### Compiling, debugging and installing
+
+* Switch to libfmt fort logging, resulting in faster and more versatile code. Removed xformat and ssaccu.
+* Reduce log verbosity.
+* Add recmgr to logger output.
+* Improved logging.
+* Avoid accumulating error messages
+* Make stackstring functions gdb friendly again.
+* Provide fmt interface for stackstring.
+* Provide fmt interfaces for pts_dts_t,m pcr_t and millisonds_t.
+* Removed sprintf-like functions in stackstring Removed dtdebugx, dterrox, ...
+* Remove all operator<< based debug and error calls. Remove dtdebug, dterror, dtinfo, ...
+* Avoid cgdb crash: disable vector printing.
+* Improved ndc in log messages (always show tuner number)
+* Do not compile unused code
+* Fix incorrect assertions.
+* Bug: Invalid memory access.
+* Suppress cmake warning
+* Correctly indicate which symbols are exported by libneumoreceiver.so
+* Default optimisation
+* Replace date library (removing slowness of current_timezone) by std::chrono and libfmt
+* Fedora38 installation instructions
+* remove dead code.
+* stackstring: conditionally disable asserts.
+* Added ubuntu 23.04 installation instructions
+* Compilation fixes for fedora38
+
+### Database code improvements
+
+* New database access code, allowing multithreaded sharing of wtxn (tested and working on epgdb, still
+  single thread) cursors: add readonly field.
+* Ignore database versions in recordings so that old recordings still play back. This relies on some
+  structures remaining valid.
+* New database schema for muxes and services: introduce mux_id as part of new primary for mux and remove extra_id.
+  Add mux_id column in service list and mux list. Also, replace `mux_desc` with frequency and polarisation in services,
+  allowing filtering of services based on frequency or polarisation. Add schema_version in database records and in
+  data structures, to be able to detect major schema upgrades.
+* Code for handling major database upgrades from python and specifically converting to the database
+  format needed for neumodvb-1.3.
+* Improved logging of auto upgrade.
+* Allow receiver initialization to be interrupted for major database.
+  upgrade and then for initialization to continue.
+* Compute upgrade_dir in python and pass to c++ code.
+* Introduce update_record_at_cursor.
+* Allow cursor to be explicitly closed before their object is destroyed, this allowing transaction to be aborted.
+* Add uuid in schema.
+* Improve neumodbstats.py.
+* Remove fake satellites with sat_pos_dvbc and sat_pos_dvbt satellite position.
+* Improved checking of bad strings in deserialisation code.
+* Make testmpm.py work again.
+* Bug: deserialize_field_safe: correctly skip variable size fields in old record.
+* Bug: cursors are not properly destroyed if no record is read with them.
+* Bug: txnmgr accidentally removes open transaction.
+
+### Multithreading and task scheduling
+
+* A new thread is now created for each tuner. This allows parallel processing of EPG on multiple muxes.
+* Identify multiple tuner threads by adapter_no.
+* Add thread name for recmgr.
+* Allow task_queue_t::cb() to work even when thread has exited.
+* Disallow pushing tasks after exit() has been called.
+* Tuner: run_taks executed too many times.
+* BUG: various bugs in txnmgr.
+* Bug: Incorrect releasing of wtxn in txnmgr when called from multiple threads.
+* Bug: Incorrect locking.
+* Bug: accessing released memory when waiting on a future to call thread end.
+* Bug: iconv code in stackstring not threadsafe.
+* Bug: tasks for unsubscribing were removed.
+* Bug: update_lnb called from wrong thread
+* Bug: pmt_parser destroys its own fiber at exit, causing bus error
+
+### Various improvements and changes
+
+* Add variant for service and band_scan in subscription_data to be able to store scan_id for band_scans.
+  Could be done with service as well.
+* Fix variant types in database.
+* Add adapter_no to spectrum file name.
+* Introduce tune_options.tune_pars to gather restrictions imposed by sharing resources with other subscriptions.
+* Add to_str for enums in database generator. Distinghuish between various satellite bands in scan code.
+* Avoid assertion in startup code.
+* Raise assertion when using fefd which is not open.
+* Bug: division by zero.
+* Stackstring: avoid calling constructors when copying vectors containing trivial types. Leads to large.
+  speedup in debug build. Speeds up operator[] as well. Bug: size of zero terminated string.
+* Bug in growing memory of stackstring. Remove grow function. inline more stackstring code. Various optimizations.
+* hide crc_is_correct and make inline.
+* Replace map with array in code managing section flagging, resulting in speedup.
+* Additional inlining; suppress warnings when compiled optimized; compile some code optimized by default.
+* Handle version numbers with additional digits.
+* Avoid deadlock.
+* Needless stop() call.
+* Bug: callcc code crashes when compiled optimized.
+* Efficiency: needless copies of field_matchers.
+* Enable contains to more types of stackstrings.
+
 ## Changes in version neumodvb-1.3 ##
 
 * Improved identification of muxes during scan, even when details
@@ -20,14 +323,6 @@ https://gitlab.freedesktop.org/mesa/mesa/-/issues/9125
 * Bug: isi scan times out too soon.
 * Bug: restricting service list to sat did not work properly.
 * Introduce new assert code, which allows continuing past assertion in debugger
-* New database schema for muxes and services: introduce mux_id as part of new primary for mux and remove extra_id.
-  Add mux_id column in service list and mux list. Also, replace `mux_desc` with frequency and polarisation in services,
-  allowing filtering of services based on frequency or polarisation. Add schema_version in database records and in
-  data structures, to be able to detect major schema upgrades.
-* Code for handling major database upgrades from python and specifically converting to the database
-  format needed for neumodvb-1.3.
-* Allow receiver initialization to be interrupted for major database
-  upgrade and then for initialization to continue.
 * Avoid introducing streams with stream_id=-1 when multi stream exists but does not lock.
 * If mux cannot be locked, use NOLOCK as status instead of BAD. The latter means that the tuning parameters
   are invalid.
@@ -51,7 +346,7 @@ https://gitlab.freedesktop.org/mesa/mesa/-/issues/9125
   rather than the closes usals_pos.
 * Workaround for possible kernel bug which causes epoll to report that eventfd is readable, whereas it is not.
   This causes a subsequent notifier.reset() to hang forever in read.
-* Bug: deserialize_field_safe: correctly skip variable size fields in old record
+
 * if peak_scan fails, then add the peak to the vector for future rescanning.
 * Handling of failed peak tuning improved.
 * Bug: data_start not correctly reset in some cases, using to incorrect no_data status.
@@ -62,7 +357,7 @@ https://gitlab.freedesktop.org/mesa/mesa/-/issues/9125
 * Bug: passing auto variables into lambda leading to incorrect tune options during scan.
 * Deadlock due to active_si_stream_t destructor being called from receiver, causing access to functions
   which should only be used by tune thread
-* Bug deserialize_field_safe: correctly skip variable size fields in old record
+
 
 ## Changes in version neumodvb-1.2.2 ##
 * Really fixed row auto sizing and deleting in lnb list and other lists.

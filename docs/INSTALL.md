@@ -27,7 +27,7 @@ https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.f
 In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;
 at least the following packages are needed:
 
-```bash
+```shell
 sudo pip3 install mpl_scatter_density
 ```
 
@@ -170,8 +170,23 @@ at least the following packages are needed:
 ```
 sudo pip3 regex mpl_scatter_density
 ```
+#### Ubuntu 23.10 ####
+
+This seems to work after upgrading a working version from Ubuntu 23.04.
+Therefore the packages listed for older Ubuntu versions may be ok.
+
+Found by trial and error: Also install
+```
+sudo  apt install -y clang-16 clang-tools-16 libclang-16-dev libclang-cpp16 \
+    libstdc++-13-dev libwxgtk3.0-gtk3-dev libgtk-3-dev libwxgtk3.2-dev \
+    python3-packaging libwxgtk3.2-dev libwxgtk3.2-1  \
+    python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density
+```
 
 ### Ubuntu 23.04 ###
+
+The latest neumoDVB version may not work anymore because of an outdated libstdc++. You may need to
+upgrade.
 
 Ubuntu 23.04 seems to be missing many of the required packages but one user
 report success by adding Ubuntu 22.04 repositories to /etc/apt/sources.list:
@@ -185,6 +200,9 @@ deb http://archive.canonical.com/ubuntu/ jammy partner
 ```
 
 #### Ubuntu 22.04.1 LTS ####
+
+The latest neumoDVB version may not work anymore because of an outdated libstdc++. You may need to
+upgrade.
 
 ```bash
 sudo  apt install -y libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev \

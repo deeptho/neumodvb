@@ -263,7 +263,8 @@ static int scan_muxes_on_sats(subscriber_t& subscriber, db_txn& chdb_rtxn, py::l
 			continue; //band not allowed
 		auto [l, h] =sat_band_freq_bounds(psat->sat_band, sat_sub_band_t::NONE);
 
-		auto addmux = [&]<typename mux_t>(db_txn& chdb_rtxn, int sat_pos, ss::vector<mux_t,1>& mux_list) {
+		auto addmux = [&]<typename mux_t>(db_txn& chdb_rtxn, int sat_pos, ss::vector<mux_t,1>& mux_list, int l,
+																			int h) {
 			auto c = mux_t::find_by_key(chdb_rtxn, sat_pos, find_type_t::find_geq, mux_t::partial_keys_t::sat_pos);
 			for(const auto& m : c.range()) {
 				if((int)m.frequency >= l && (int)m.frequency <=h)
@@ -272,11 +273,11 @@ static int scan_muxes_on_sats(subscriber_t& subscriber, db_txn& chdb_rtxn, py::l
 		};
 
 		if(psat->sat_pos == sat_pos_dvbt)
-			addmux(chdb_rtxn, psat->sat_pos, dvbt_muxes);
+			addmux(chdb_rtxn, psat->sat_pos, dvbt_muxes, l, h);
 		else if (psat->sat_pos == sat_pos_dvbc)
-			addmux(chdb_rtxn, psat->sat_pos, dvbc_muxes);
+			addmux(chdb_rtxn, psat->sat_pos, dvbc_muxes, l, h);
 		else
-			addmux(chdb_rtxn, psat->sat_pos, dvbs_muxes);
+			addmux(chdb_rtxn, psat->sat_pos, dvbs_muxes, l, h);
 	}
 	auto ret = subscriber.scan_muxes(dvbs_muxes, dvbc_muxes, dvbt_muxes, tune_options);
 	return ret;

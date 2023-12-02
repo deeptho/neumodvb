@@ -347,7 +347,10 @@ class NeumoCheckListBox(wx.Panel):
         self.main_sizer.Add(self.select_all_none_toggle, 0, 0, 0)
 
         self.checklistbox = wx.CheckListBox(self, wx.ID_ANY, choices=choices, style=wx.LB_MULTIPLE | wx.LB_NEEDED_SB)
-        self.checklistbox.SetFont(wx.Font(5, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, 0, "Sans"))
+        self.font=self.checklistbox.GetFont()
+        self.font.SetPointSize(int(self.font.GetPointSize()*0.9))
+
+        self.checklistbox.SetFont(self.font)
         self.main_sizer.Add(self.checklistbox, 0, 0, 0)
         self.SetSizer(self.main_sizer)
         self.main_sizer.Fit(self)

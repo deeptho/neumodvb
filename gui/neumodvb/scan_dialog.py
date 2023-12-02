@@ -153,5 +153,6 @@ def show_scan_dialog(parent, title='Scan muxes', allow_band_scan=False, allowed_
         tune_options = None
         band_scan_options = None
         band_scan = False
+        is_band_scan = False
     dlg.Destroy()
     return tune_options, band_scan_options, is_band_scan

@@ -341,6 +341,8 @@ bool devdb::lnb_can_scan_sat_band(const devdb::lnb_t& lnb, const chdb::sat_t& sa
 
 	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
 	auto [sat_bandl, sat_sub_bandl] = chdb::sat_band_for_freq(freq_low);
+	if(!devdb::lnb::can_pol(lnb, band_scan.pol))
+		return false;
 	if(sat_bandl== band_scan.sat_band && sat_sub_bandl == band_scan.sat_sub_band)
 		return true;
 	auto [sat_bandh, sat_sub_bandh] = chdb::sat_band_for_freq(freq_high-1);

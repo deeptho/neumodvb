@@ -1477,9 +1477,9 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 			so.sat_pos = sat.sat_pos;
 
 			auto [l, h] =sat_band_freq_bounds(sat_band, sat_sub_band);
-			if(so.start_freq < l)
+			if(so.start_freq < 0 || so.start_freq < l)
 				so.start_freq = l;
-			if(so.end_freq > h)
+			if(so.end_freq < 0 || so.end_freq > h)
 				so.end_freq = h;
 			auto scan_id = scan.make_scan_id(scan_subscription_id, o);
 			band_scan.scan_id=scan_id;
@@ -1496,11 +1496,17 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 		auto c = sat_t::find_by_key(chdb_wtxn, sat.sat_pos, sat.sat_band, find_eq, sat_t::partial_keys_t::all);
 		if(c.is_valid())
 			sat = c.current(); //reload uptodate information from database
-		auto l = chdb::sat_band_for_freq(tune_options.spectrum_scan_options.start_freq);
-		auto h = chdb::sat_band_for_freq(tune_options.spectrum_scan_options.end_freq-1);
-		push_bands(sat, l);
-		if(h != l)
-			push_bands(sat, h);
+		auto low_freq = tune_options.spectrum_scan_options.start_freq;
+		auto high_freq = tune_options.spectrum_scan_options.end_freq;
+		auto [l, h] = sat_band_freq_bounds(sat.sat_band, sat_sub_band_t::NONE);
+		l = low_freq == -1 ? l : std::max(l, low_freq);
+		h = high_freq == -1 ? h : std::max(h, high_freq);
+
+		auto band_l = chdb::sat_band_for_freq(l);
+		auto band_h = chdb::sat_band_for_freq(h-1);
+		push_bands(sat, band_l);
+		if(band_h != band_l)
+			push_bands(sat, band_h);
 		dtdebugf("Add sat to scan: {}", sat);
 		sat.mtime = system_clock_t::to_time_t(now);
 		put_record(chdb_wtxn, sat);

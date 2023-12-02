@@ -189,7 +189,7 @@ static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
 		auto* psat =  s.cast<chdb::sat_t*>();
 		if(!sat_bands.contains(psat->sat_band))
 			continue; //band not allowed
-		auto [l, h] =sat_band_freq_bounds(psat->sat_band, sat_sub_band_t::NONE);
+		auto [l, h] = sat_band_freq_bounds(psat->sat_band, sat_sub_band_t::NONE);
 		l = low_freq == -1 ? l : std::max(l, low_freq);
 		h = high_freq == -1 ? h : std::max(h, high_freq);
 		if(h<=l)

@@ -32,31 +32,28 @@
 #include <array>
 #include <variant>
 
-template<typename T>
-inline auto encode_ascending(T x);
-
-template<> inline auto encode_ascending<uint8_t>(uint8_t x) {
+inline auto encode_ascending(uint8_t x) {
 	return std::array<uint8_t, sizeof(uint8_t)> { x };
 }
 
-template<> inline auto encode_ascending<int8_t>(int8_t x) {
+inline auto encode_ascending(int8_t x) {
 	return std::array<uint8_t, sizeof(uint8_t)> { (uint8_t) (x ^ 0x80)  };
 }
 
-template<> inline auto encode_ascending<char>(char x) {
+inline auto encode_ascending(char x) {
 	return std::array<uint8_t, sizeof(uint8_t)> { (uint8_t) (x ^ 0x80)  };
 }
 
-template<> inline auto encode_ascending<uint16_t>(uint16_t x) {
+inline auto encode_ascending(uint16_t x) {
 	return std::array<uint8_t, sizeof(uint16_t)> { (uint8_t) ((x>>8) & 0xff), (uint8_t) (x & 0xff)  };
 }
 
-template<> inline auto encode_ascending<int16_t>(int16_t x) {
+inline auto encode_ascending(int16_t x) {
 	return std::array<uint8_t, sizeof(uint16_t)> { (uint8_t) (((x>>8) & 0xff) ^ 0x80), (uint8_t) (x & 0xff)  };
 }
 
 
-template<> inline auto encode_ascending<uint32_t>(uint32_t x) {
+inline auto encode_ascending(uint32_t x) {
 	return std::array<uint8_t, sizeof(uint32_t)>
 		{ (uint8_t) ((x>>24) & 0xff),
 			 (uint8_t) ((x>>16) & 0xff),
@@ -64,7 +61,7 @@ template<> inline auto encode_ascending<uint32_t>(uint32_t x) {
 			 (uint8_t) (x & 0xff)  };
 }
 
-template<> inline auto encode_ascending<int32_t>(int32_t x) {
+inline auto encode_ascending(int32_t x) {
 	return std::array<uint8_t, sizeof(uint32_t)>
 		{ (uint8_t) (((x>>24) & 0xff) ^ 0x80),
 			 (uint8_t) ((x>>16) & 0xff),
@@ -73,7 +70,7 @@ template<> inline auto encode_ascending<int32_t>(int32_t x) {
 }
 
 
-template<> inline auto encode_ascending<uint64_t>(uint64_t x) {
+inline auto encode_ascending(uint64_t x) {
 	return std::array<uint8_t, sizeof(uint64_t)>
 		{ (uint8_t) ((x>>56) & 0xff),
 			 (uint8_t) ((x>>48) & 0xff),
@@ -86,7 +83,7 @@ template<> inline auto encode_ascending<uint64_t>(uint64_t x) {
 			 };
 }
 
-template<> inline auto encode_ascending<int64_t>(int64_t x) {
+inline auto encode_ascending(int64_t x) {
 	return std::array<uint8_t, sizeof(uint64_t)>
 		{ (uint8_t) (((x>>56) & 0xff) ^ 0x80),
 			 (uint8_t) ((x>>48) & 0xff),
@@ -99,7 +96,7 @@ template<> inline auto encode_ascending<int64_t>(int64_t x) {
 			 };
 }
 
-template<> inline auto encode_ascending<float>(float x) {
+inline auto encode_ascending(float x) {
 	static_assert(std::numeric_limits<float>::is_iec559);
 	ieee754_float y;
 	y.f = x;
@@ -115,7 +112,7 @@ template<> inline auto encode_ascending<float>(float x) {
 
 }
 
-template<> inline auto encode_ascending<double>(double x) {
+inline auto encode_ascending(double x) {
 	static_assert(std::numeric_limits<double>::is_iec559);
 	ieee754_double y;
 	y.d = x;
@@ -134,29 +131,29 @@ template<> inline auto encode_ascending<double>(double x) {
 
 //encoding of a class enum
 template<typename T>
+requires(std::is_enum<T>::value)
 inline auto encode_ascending(T x) {
-	return encode_ascending<typename std::underlying_type<T>::type>((typename std::underlying_type<T>::type)x);
+	return encode_ascending((typename std::underlying_type<T>::type)x);
 }
 
 //encoding of a simple primitive type
 template<typename T>
+requires(std::is_fundamental<T>::value || std::is_enum<T>::value)
 inline void encode_ascending(ss::bytebuffer_ &ser, const T& val)  {
 	static_assert(std::is_fundamental<T>::value || std::is_enum<T>::value);
-	auto xx = encode_ascending<T>(val);
+	auto xx = encode_ascending((T&)val);
 	for (auto x: xx)
 		ser.push_back(x);
 }
 
-template<>
 inline void encode_ascending(ss::bytebuffer_ &ser, const std::monostate& val)  {
 	// do nothing
 }
 
 //encoding of a simple primitive type
-template<>
 inline void encode_ascending(ss::bytebuffer_ &ser, const bool& val)  {
 	uint8_t val_ = val;
-	auto xx = encode_ascending<uint8_t>(val_);
+	auto xx = encode_ascending(val_);
 	for (auto x: xx)
 		ser.push_back(x);
 }
@@ -167,8 +164,7 @@ inline void encode_ascending(ss::bytebuffer_ &ser, const bool& val)  {
 	which results in strange sorting.
 	we need to keep this function for tempdata code
 */
-template<>
-	inline void encode_ascending(ss::bytebuffer_ &ser, const ss::bytebuffer_& data) {
+inline void encode_ascending(ss::bytebuffer_ &ser, const ss::bytebuffer_& data) {
 	ser.append_raw(data.buffer(), data.size()); //do not include the 0 byte
 }
 
@@ -181,6 +177,11 @@ template<int buffer_size>
 		ser.append_raw(data.buffer(), data.size()); //do not include the 0 byte
 }
 #endif
+
+template<typename T>
+inline void encode_ascending(ss::bytebuffer_ &ser, const ss::databuffer_<T>& data) {
+	ser.append_raw(data.buffer(), data.size()); //do not include the 0 byte
+}
 
 //encode a string - case 1
 inline void encode_ascending(ss::bytebuffer_ &ser, const ss::string_& str) {
@@ -205,13 +206,6 @@ inline void encode_ascending(ss::bytebuffer_ &ser, const ss::string<buffer_size>
 	//encode_ascending(ser, (uint16_t)  str.size());
 }
 
-
-template<int bytebuffer_size, typename T>
-inline void encode_ascending(ss::bytebuffer<bytebuffer_size> &ser, const T&t) {
-	encode_ascending((ss::bytebuffer_&) ser, t);
-}
-
-template<>
-inline void encode_ascending<milliseconds_t>(ss::bytebuffer_ &ser, const milliseconds_t& val)  {
+inline void encode_ascending(ss::bytebuffer_ &ser, const milliseconds_t& val)  {
 	return encode_ascending(ser, val.ms);
 }

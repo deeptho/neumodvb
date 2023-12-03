@@ -304,9 +304,7 @@ EXPORT int serialized_size<{{dbname}}::{{struct.class_name}}>(
 
 /*!{{struct.class_name}} encoding code
  */
-template<>
-EXPORT void encode_ascending<{{dbname}}::{{struct.class_name}}>(
-	ss::bytebuffer_ &ser, const {{dbname}}::{{struct.class_name}}& in);
+EXPORT void encode_ascending(ss::bytebuffer_ &ser, const {{dbname}}::{{struct.class_name}}& in);
 
 //struct {{struct.class_name}}
 namespace {{dbname}} {

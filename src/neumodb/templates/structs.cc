@@ -697,8 +697,7 @@ template<>
 
 /*!{{struct.class_name}} encoding code
  */
-template<>
- void encode_ascending<{{dbname}}::{{struct.class_name}}>(
+ void encode_ascending(
 	ss::bytebuffer_ &ser, const {{dbname}}::{{struct.class_name}}& in)  {
 	using namespace {{dbname}};
 	{% if struct.is_table %}

@@ -188,8 +188,35 @@ class db_struct(object):
         variant_types = None
         namespace = ""
         if match_variant is not None:
-            variant_types = match_variant.groups()[2].split(',')
+
+            variant_type_names = match_variant.groups()[2].split(',')
+            variant_types =[]
+            for t in variant_type_names:
+                match_vector = re.match(r'(ss::vector[_]*)(<((?:(?>[^<>]+)|(?2))*)>)', t)
+                if match_vector is not None:
+                    is_vector=True
+                    scalar_type = normalize_type(match_vector.groups()[2].split(',')[0])
+                    match_namespace = re.match(r'([^:]+::).+', scalar_type)
+                    namespace = match_namespace.group(1) if match_namespace else ""
+                    if namespace=="ss::":
+                        namespace = ""
+                    elif namespace!="":
+                        scalar_type = scalar_type.split(namespace)[-1]
+                    assert type(scalar_type)!=list
+                else:
+                    is_vector=False
+                    match_namespace = re.match(r'([^:]+::).+', t)
+                    namespace = match_namespace.group(1) if match_namespace else ""
+                    scalar_type = normalize_type(t)
+                    if namespace=="ss::":
+                        namespace = ""
+                    elif namespace!="":
+                        scalar_type = scalar_type.split(namespace)[-1]
+                    assert type(scalar_type)!=list
+                variant_types.append(dict(variant_type=t, scalar_type=scalar_type, namespace=namespace))
             scalar_type = 'variant'
+            is_vector=False
+            namespace = ""
         elif match_vector is not None:
             scalar_type = normalize_type(match_vector.groups()[2].split(',')[0])
             assert type(scalar_type)!=list
@@ -212,7 +239,8 @@ class db_struct(object):
                                 namespace = namespace,
                                 is_vector=is_vector, is_vector_of_strings=is_vector_of_strings,
                                 is_string=is_string, is_int = is_int,
-                                is_variant = is_variant, variant_types=variant_types,
+                                is_variant = is_variant,
+                                variant_types=variant_types,
                                 is_bytebuffer = is_bytebuffer,
                            #primary_key = self.primary_key,
                                 scalar_type=scalar_type, has_variable_size=has_variable_size))

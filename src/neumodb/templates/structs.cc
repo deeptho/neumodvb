@@ -198,9 +198,9 @@ int deserialize<{{dbname}}::{{struct.class_name}}>(
 			return offset;
 	switch(type_id) {
 		{% for variant_type in f.variant_types %}
-	case data_types::data_type<typename std::remove_cvref<{{variant_type}}>::type>(): //current type for this field
+	case data_types::data_type<typename std::remove_cvref<{{variant_type.variant_type}}>::type>(): //current type for this field
 	{
-		{{variant_type}} content;
+		{{variant_type.variant_type}} content;
 		offset = deserialize(ser, content, offset);
 		if(offset>=0) {
 			rec.{{f.name}} = content;
@@ -240,8 +240,8 @@ int serialized_size<{{dbname}}::{{struct.class_name}}>(
 	{
 		for(;;) {
 		{% for variant_type in f.variant_types %}
-		if (std::holds_alternative<{{variant_type}}>(in.{{f.name}})) {
-			ret += serialized_size(*std::get_if<{{variant_type}}>(&in.{{f.name}}));
+		if (std::holds_alternative<{{variant_type.variant_type}}>(in.{{f.name}})) {
+			ret += serialized_size(*std::get_if<{{variant_type.variant_type}}>(&in.{{f.name}}));
 			break;
 		}
 		{% endfor %}
@@ -552,9 +552,9 @@ int deserialize_field_safe
 				return offset;
 			switch(type_id) {
 				{% for variant_type in f.variant_types %}
-			case data_types::data_type<{{variant_type}}>(): //current type for this field
+			case data_types::data_type<typename std::remove_cvref<{{variant_type.variant_type}}>::type>(): //current type for this field
 			{
-				{{variant_type}} content;
+				{{variant_type.variant_type}} content;
 			  offset = deserialize(ser, content, offset);
 				if(offset>=0) {
 					rec.{{f.name}} = content;
@@ -773,9 +773,9 @@ void {{dbname}}::encode_subfields<{{dbname}}::{{struct.class_name}}>(
 		auto ret = sizeof(uint32_t);
 		for(;;) {
 		{% for variant_type in f.variant_types %}
-		if (std::holds_alternative<{{variant_type}}>(in.{{f.name}})) {
-			auto& content = *std::get_if<{{variant_type}}>(&in.{{f.name}});
-			encode_subfields<{{variant_type}}>(content);
+		if (std::holds_alternative<{{variant_type.variant_type}}>(in.{{f.name}})) {
+			auto& content = *std::get_if<{{variant_type.variant_type}}>(&in.{{f.name}});
+			encode_subfields<{{variant_type.variant_type}}>(content);
 			break;
 		}
 		{% endfor %}

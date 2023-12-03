@@ -77,15 +77,7 @@ namespace data_types {
 
 	template<typename T> constexpr uint32_t data_type();
 
-	template<typename T> constexpr bool is_builtin_type(){ //built in scalar type; hardwired
-		return (data_type<T>()& builtin)!=0;
-	}
-
-	inline bool is_builtin_type(int type_id){ //built in scalar type; hardwired
-		return (type_id& builtin);
-	}
-
-	inline bool is_int_type(int type_id){ //built in scalar type; hardwired
+	inline constexpr bool is_int_type(int type_id){ //built in scalar type; hardwired
 		switch(type_id & ~data_types::enumeration & ~data_types::vector) {
 		case uint8:
 		case int8:
@@ -101,7 +93,7 @@ namespace data_types {
 		}
 	}
 
-	inline bool is_float_type(int type_id){ //built in scalar type; hardwired
+	inline constexpr bool is_float_type(int type_id){ //built in scalar type; hardwired
 		switch(type_id & ~data_types::enumeration & ~data_types::vector) {
 		case float32:
 			return true;
@@ -110,23 +102,32 @@ namespace data_types {
 		}
 	}
 
-	inline bool is_boolean_type(int type_id){ //built in scalar type; hardwired
+	inline constexpr bool is_boolean_type(int type_id){ //built in scalar type; hardwired
 		return  (type_id & ~ data_types::enumeration) == boolean;
 	}
 
-	inline bool is_string_type(int type_id){ //built in scalar type; hardwired
-		return  (type_id & ~ data_types::enumeration) == string;
+	inline constexpr bool is_string_type(int type_id){ //built in scalar type; hardwired
+		return (type_id & ~ data_types::enumeration) == string;
 	}
 #ifdef PURE_PYTHON
 	EXPORT  ss::string<32>  typename_for_type_id(int32_t type_id);
 #endif
+	template<typename T> inline constexpr bool is_string_type(){ //
+		//if constexpr(requires(T a) {(ss::string_&)a;})
+		if constexpr(requires {typename T::is_string_type_t;})
+			return true;
+		return false;
+	}
+
 	template<typename T> inline constexpr bool is_vector_type(){ //
-		return (data_type<T>()& vector);
+		if constexpr(requires {typename T::element_type_t;})
+			return true;
+		return false;
 	}
 
 
-	inline bool is_vector_type(int type_id){ //
-		return (type_id & vector);
+	inline constexpr bool is_vector_type(int type_id){ //
+		return !!(type_id & vector);
 	}
 
 	struct record_desc_t;
@@ -150,6 +151,25 @@ namespace data_types {
 	//template<> constexpr uint32_t data_type<time_t>() { return time;}
 	template<> constexpr uint32_t data_type<ss::string<>>() { return string;}
 
+	template<typename T>
+	requires(is_string_type<T>())
+	constexpr uint32_t data_type() {
+		return string;
+	}
+
+	template<typename T>
+	requires(is_vector_type<T>() && !is_string_type<T>())
+	constexpr uint32_t data_type() {
+		return data_type<typename T::element_type_t>() | vector;
+	}
+
+	template<typename T> constexpr bool is_builtin_type(){ //built in scalar type; hardwired
+		return (data_type<T>()& builtin)!=0;
+	}
+
+	inline bool is_builtin_type(int type_id){ //built in scalar type; hardwired
+		return (type_id& builtin);
+	}
 };
 
 /*

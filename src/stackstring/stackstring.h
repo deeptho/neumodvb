@@ -102,6 +102,7 @@ namespace ss {
 */
 	template <typename data_t> class databuffer_ {
 	public:
+		using element_type_t = data_t;
 		header_t<data_t> header;
 
 	protected:
@@ -733,6 +734,7 @@ namespace ss {
 	public:
 
 		typedef char value_type;
+		using is_string_type_t = bool; //hack
 
 		INLINE void reserve(int size) {
 			parent::reserve(size + 1);

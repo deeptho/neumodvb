@@ -43,6 +43,38 @@
 
 namespace py = pybind11;
 
+/*
+	Comments in  makeContextCurrent suggest that a (new?) requirement is that glcontexts cannot be used
+	from a thread other than the one they are created in. This poses problems as more than one mpv thread
+	accesses the same wxGLCanvas widgets.
+
+	The solution we adopt is to create one  wxGLContext per thread, disregarding the possibility that one
+	thread might accress wmultiple wxGLCanvas widgets. The documentation of wxGLContext suggests that it is safe
+	to use the same wxGLContext on multiple wxGLCanvas widgets, as long as they share the same "attributes".
+
+	From wxGLContext docs: "one rendering context is usually used with or bound to multiple output windows in
+	turn, so that the application has access to the complete and identical state while rendering into each window.
+	Binding (making current) a rendering context with another instance of a wxGLCanvas however works only if the
+	other wxGLCanvas was created with the same attributes as the wxGLCanvas from which the wxGLContext was
+	initialized. (This applies to sharing display lists among contexts analogously."
+
+
+
+ */
+class dt_context_t : public wxGLContext {
+	static thread_local std::unique_ptr<dt_context_t> c_;
+public:
+	dt_context_t(wxGLCanvas *canvas) : wxGLContext(canvas)
+		{}
+	static wxGLContext* get(wxGLCanvas *canvas) {
+		if(!c_)
+			c_ = std::make_unique<dt_context_t>(canvas);
+		return c_.get();
+	}
+};
+
+thread_local std::unique_ptr<dt_context_t> dt_context_t::c_;
+
 
 extern void test_paint(cairo_t* cr);
 
@@ -71,7 +103,6 @@ MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 	, overlay(player.get())
 {
 	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
-	glContext = new wxGLContext(this);
 	SetClientSize(parent->GetSize());
 	tm = std::make_unique<wxTimer>(this);
 }
@@ -113,17 +144,13 @@ MpvGLCanvas::~MpvGLCanvas() {
 	OnRender = nullptr;
 	OnSwapBuffers = nullptr;
 	tm.reset();
-	if (glContext)
-		delete glContext;
-	glContext = nullptr;
 }
 
-bool MpvGLCanvas::SetCurrent() const // MPV_CALLBACK
+bool MpvGLCanvas::SetCurrent() // MPV_CALLBACK
 {
 	static std::mutex m;
 	std::scoped_lock<std::mutex> lck(m);
-	if (!glContext)
-		return false;
+	auto* glContext = dt_context_t::get(this);
 	return wxGLCanvas::SetCurrent(*glContext);
 }
 

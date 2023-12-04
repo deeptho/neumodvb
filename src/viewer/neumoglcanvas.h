@@ -102,7 +102,7 @@ public:
 	~MpvGLCanvas();
 
 	void Render();
-	bool SetCurrent() const;
+	bool SetCurrent();
 	bool SwapBuffers() /*override*/;
 	void *GetProcAddress(const char *name);
 
@@ -123,8 +123,6 @@ private:
 	void OnMpvWakeupEvent(wxThreadEvent &event);
 
 	void DoRender();
-
-	wxGLContext *glContext = nullptr;
 
 	wxDECLARE_EVENT_TABLE();
 };

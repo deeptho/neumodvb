@@ -74,8 +74,16 @@ static py::object constellation_helper(const ss::vector_<dtv_fe_constellation_sa
 
 static void set_gtk_window_name(py::object window, const char* name) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
-	auto* x = w->GetHandle();
-	gtk_widget_set_name(x, (const gchar*)name);
+	if(!w) {
+		dterrorf("Could not set window name {}", name);
+	} else {
+		auto* x = w->GetHandle();
+		if(!x) {
+			dterrorf("Could not get handle for window {}", name);
+		} else {
+			gtk_widget_set_name(x, (const gchar*)name);
+		}
+	}
 }
 
 static void gtk_add_window_style(py::object window, const char* style) {

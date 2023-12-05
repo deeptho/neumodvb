@@ -84,12 +84,20 @@ int main(int argc, char** argv) {
 	devdb::subscription_data_t y1;
 	offset1 = deserialize(ser1, y1, offset1);
 	auto& s = *std::get_if<service_t>(&y1.v);
+	if(s.k.service_id != service.k.service_id) {
+		printf("problem\n");
+	}
+
 	assert(s.k.service_id == service.k.service_id);
 
 	int offset2 = 0;
 	devdb::subscription_data_t y2;
 	offset2 = deserialize(ser2, y2, offset2);
 	auto& b = *std::get_if<band_scan_t>(&y2.v);
+	if(b.scan_id.subscription_id != band_scan.scan_id.subscription_id) {
+		printf("problem\n");
+	}
+
 	assert(b.scan_id.subscription_id == band_scan.scan_id.subscription_id);
 
 }

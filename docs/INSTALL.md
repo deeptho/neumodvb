@@ -126,6 +126,12 @@ And some bugs need to be fixed by upgrading python3-matplotlib-wx to at least ve
 ```bash
 sudo dnf update --enablerepo=updates-testing python3-matplotlib-wx
 ```
+#### Fedora 39 ####
+On Fedora 39, follow the Fedora 38 instructions and also add
+```bash
+    sudo dnf install libuuid-devel
+```
+
 #### Debian ####
 
 To install neumodvb in a Debian distro (Ubuntu, Linux Mint), first ensure that you are running a

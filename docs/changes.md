@@ -1,9 +1,9 @@
 # Changes in neumoDVB #
 
-There is a serious bug in libmesa, which makes neumoDVB crash when viewing more than one service at a time.
-The bug has been reported here and a workaround is listed. So far, the bug rport has not lead to any fixes:
+## Changes in version neumodvb-1.4.1 ##
 
-https://gitlab.freedesktop.org/mesa/mesa/-/issues/9125
+* Log incorrect usage of gtk_widget_set_name to debug sporadic problems on ubuntu
+* Avoid using the same glContext from multiple thread. This fixes crash on startup on fedora39.
 
 ## Changes in version neumodvb-1.4 ##
 

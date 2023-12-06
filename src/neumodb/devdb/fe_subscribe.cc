@@ -211,7 +211,7 @@ devdb::fe_t devdb::fe::subscribe_fe_in_use(
 
 
 int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
-																					 const tune_options_t& tune_options,
+																					 const subscription_options_t& tune_options,
 																					 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
 																					 const devdb::lnb_t& lnb,
 																					 const chdb::sat_t* sat,
@@ -261,7 +261,7 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
 												 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-												 const tune_options_t&  tune_options,
+												 const subscription_options_t&  tune_options,
 												 std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release)
 {
 	auto pol{chdb::fe_polarisation_t::NONE}; //signifies that we to exclusively control pol
@@ -308,7 +308,7 @@ devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
  */
 subscribe_ret_t
 devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
-														 const tune_options_t& tune_options,
+														 const subscription_options_t& tune_options,
 														 const rf_path_t& rf_path, bool do_not_unsubscribe_on_failure) {
 
 	auto[ oldfe_, will_be_released ] = fe_for_subscription(wtxn, subscription_id);
@@ -420,7 +420,7 @@ std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::opt
 devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 												 const chdb::dvbs_mux_t& mux,
 												 const chdb::service_t* service,
-												 const tune_options_t& tune_options,
+												 const subscription_options_t& tune_options,
 												 const std::optional<devdb::fe_t>& oldfe,
 												 const devdb::fe_key_t* fe_key_to_release,
 												 bool do_not_unsubscribe_on_failure) {
@@ -493,7 +493,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 																			const mux_t& mux, const chdb::service_t* service,
 																			const std::optional<devdb::fe_t>& oldfe,
 																			const devdb::fe_key_t* fe_key_to_release,
-																			const tune_options_t& tune_options,
+																			const subscription_options_t& tune_options,
 																			bool do_not_unsubscribe_on_failure) {
 
 	assert(!tune_options.need_spectrum);
@@ -532,7 +532,7 @@ std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::opt
 					 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
 devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 															const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
-															const tune_options_t& tune_options,
+															const subscription_options_t& tune_options,
 															const std::optional<devdb::fe_t>& oldfe,
 															const devdb::fe_key_t* fe_key_to_release,
 															bool do_not_unsubscribe_on_failure) {
@@ -587,7 +587,7 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 template<typename mux_t>
 subscribe_ret_t
 devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
-										 const tune_options_t& tune_options,
+										 const subscription_options_t& tune_options,
 										 const mux_t& mux,
 										 const chdb::service_t* service,
 										 bool do_not_unsubscribe_on_failure) {
@@ -757,7 +757,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 
 subscribe_ret_t
 devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
-										 const tune_options_t& tune_options,
+										 const subscription_options_t& tune_options,
 										 const chdb::sat_t& sat,
 										 const chdb::band_scan_t& band_scan,
 										 bool do_not_unsubscribe_on_failure) {
@@ -822,7 +822,7 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 template<typename mux_t>
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
-																					const tune_options_t& tune_options,
+																					const subscription_options_t& tune_options,
 																					const mux_t* mux,
 																					const chdb::service_t* service,
 																					bool match_mux_only) {
@@ -878,7 +878,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(db_txn& wtxn, subscripti
 																												const chdb::service_t* service,
 																												const std::optional<devdb::fe_t>& oldfe,
 																												const devdb::fe_key_t* fe_key_to_release,
-																												const tune_options_t& tune_options,
+																												const subscription_options_t& tune_options,
 																												bool do_not_unsubscribe_on_failure);
 
 template std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
@@ -887,12 +887,12 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(db_txn& wtxn, subscripti
 																												const chdb::service_t* service,
 																												const std::optional<devdb::fe_t>& oldfe,
 																												const devdb::fe_key_t* fe_key_to_release,
-																												const tune_options_t& tune_options,
+																												const subscription_options_t& tune_options,
 																												bool do_not_unsubscribe_on_failure);
 template
 subscribe_ret_t
 devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
-												 const tune_options_t& tune_options,
+												 const subscription_options_t& tune_options,
 												 const chdb::dvbs_mux_t& mux,
 												 const chdb::service_t* service,
 												 bool do_not_unsubscribe_on_failure);
@@ -900,7 +900,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 template
 subscribe_ret_t
 devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
-												 const tune_options_t& tune_options,
+												 const subscription_options_t& tune_options,
 												 const chdb::dvbc_mux_t& mux,
 												 const chdb::service_t* service,
 												 bool do_not_unsubscribe_on_failure);
@@ -908,7 +908,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 template
 subscribe_ret_t
 devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
-												 const tune_options_t& tune_options,
+												 const subscription_options_t& tune_options,
 												 const chdb::dvbt_mux_t& mux,
 												 const chdb::service_t* service,
 												 bool do_not_unsubscribe_on_failure);
@@ -916,7 +916,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 template
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
-																					const tune_options_t& tune_options,
+																					const subscription_options_t& tune_options,
 																					const chdb::dvbs_mux_t* mux,
 																					const chdb::service_t* service,
 																					bool match_mux_only);
@@ -924,14 +924,14 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 template
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
-																					const tune_options_t& tune_options,
+																					const subscription_options_t& tune_options,
 																					const chdb::dvbc_mux_t* mux,
 																					const chdb::service_t* service,
 																					bool match_mux_only);
 template
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
-																					const tune_options_t& tune_options,
+																					const subscription_options_t& tune_options,
 																					const chdb::dvbt_mux_t* mux,
 																					const chdb::service_t* service,
 																					bool match_mux_only);

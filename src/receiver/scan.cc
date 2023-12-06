@@ -1295,7 +1295,7 @@ scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 	, scan_start_time(system_clock_t::to_time_t(system_clock_t::now()))
 	,	max_num_subscriptions(max_num_subscriptions_)
 {
-	tune_options.scan_target =  scan_target_t::SCAN_FULL;
+	tune_options.scan_target =  devdb::scan_target_t::SCAN_FULL;
 	tune_options.may_move_dish = false; //could become an option
 	tune_options.need_blind_tune = false; //could become an option
 }
@@ -1342,7 +1342,7 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	return found;
 }
 
-static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const tune_options_t& tune_options){
+static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const subscription_options_t& tune_options){
 	if constexpr (is_same_type_v<chdb::dvbs_mux_t, decltype(mux)>) {
 		return devdb::fe::can_subscribe_mux(devdb_rtxn, mux, tune_options);
 	} else {
@@ -1354,13 +1354,13 @@ static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const tune
 
 static inline bool can_subscribe(db_txn& devdb_rtxn, const chdb::sat_t& sat,
 																 const chdb::band_scan_t& band_scan,
-																 const tune_options_t& tune_options){
+																 const subscription_options_t& tune_options){
 	assert(tune_options.need_spectrum);
 	return devdb::fe::can_subscribe_sat_band(devdb_rtxn, sat, band_scan, tune_options);
 }
 
 template <typename mux_t>
-int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& tune_options,
+int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const subscription_options_t& tune_options,
 												 subscription_id_t scan_subscription_id) {
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto chdb_wtxn = receiver.chdb.wtxn();
@@ -1406,8 +1406,8 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 																	const ss::vector_<peak_t>& peaks,
 																	subscription_id_t scan_subscription_id) {
 	assert((int) scan_subscription_id >=0);
-	tune_options_t o;
-	o.scan_target = scan_target_t::SCAN_FULL;
+	subscription_options_t o;
+	o.scan_target = devdb::scan_target_t::SCAN_FULL;
 	o.propagate_scan = false;
 	o.may_move_dish = false;
 	o.need_blind_tune = false;
@@ -1441,7 +1441,7 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 
 int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 												 const ss::vector_<chdb::fe_polarisation_t>& pols,
-												 const tune_options_t& tune_options,
+												 const subscription_options_t& tune_options,
 												 subscription_id_t scan_subscription_id) {
 	using namespace chdb;
 	auto devdb_rtxn = receiver.devdb.rtxn();
@@ -1584,13 +1584,13 @@ void scanner_t::on_sdt_actual(const subscriber_t& subscriber,
 
 
 template int scanner_t::add_muxes<chdb::dvbs_mux_t>(const ss::vector_<chdb::dvbs_mux_t>& muxes,
-																										const tune_options_t& tune_options,
+																										const subscription_options_t& tune_options,
 																										subscription_id_t subscription_id);
 template int scanner_t::add_muxes<chdb::dvbc_mux_t>(const ss::vector_<chdb::dvbc_mux_t>& muxes,
-																										const tune_options_t& tune_options,
+																										const subscription_options_t& tune_options,
 																										subscription_id_t subscription_id);
 template int scanner_t::add_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt_mux_t>& muxes,
-																										const tune_options_t& tune_options,
+																										const subscription_options_t& tune_options,
 																										subscription_id_t subscription_id);
 
 

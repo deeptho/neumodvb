@@ -338,7 +338,7 @@ std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::opt
 					 devdb::resource_subscription_counts_t>
 fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																			const chdb::dvbs_mux_t& mux,
-																			const tune_options_t& tune_options,
+																			const subscription_options_t& tune_options,
 																			const devdb::fe_key_t* fe_key_to_release,
 																			bool ignore_subscriptions) {
 	using namespace devdb;
@@ -462,7 +462,7 @@ std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::opt
 					 devdb::resource_subscription_counts_t>
 fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 																			 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
-																			 const tune_options_t& tune_options,
+																			 const subscription_options_t& tune_options,
 																			 const devdb::fe_key_t* fe_key_to_release,
 																			 bool ignore_subscriptions) {
 	using namespace devdb;
@@ -576,7 +576,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
 bool devdb::fe::can_subscribe_mux(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-																							 const tune_options_t& tune_options) {
+																							 const subscription_options_t& tune_options) {
 	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux,
 																					tune_options,
@@ -589,7 +589,7 @@ bool devdb::fe::can_subscribe_mux(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
 bool devdb::fe::can_subscribe_sat_band(db_txn& wtxn, const chdb::sat_t& sat,
 																							 const chdb::band_scan_t& band_scan,
-																							 const tune_options_t& tune_options) {
+																							 const subscription_options_t& tune_options) {
 	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts] =
 		fe::find_fe_and_lnb_for_tuning_to_band(wtxn, sat, band_scan,
 																					 tune_options,

@@ -117,7 +117,7 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 }
 
 int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& sret,
-																			 tune_options_t tune_options) {
+																			 subscription_options_t tune_options) {
 	dtdebugf("lnb activate subscription_id={:d}", (int) subscription_id);
 	auto& aa = sret.aa;
 	assert(aa.rf_path);
@@ -126,7 +126,7 @@ int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const 
 }
 
 int tuner_thread_t::cb_t::lnb_spectrum_acquistion(subscription_id_t subscription_id, const subscribe_ret_t& sret,
-																									tune_options_t tune_options) {
+																									subscription_options_t tune_options) {
 	// check_thread();
 	dtdebugf("lnb spectrum scan subscription_id={:d}", (int) subscription_id);
 	assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
@@ -149,7 +149,7 @@ int tuner_thread_t::cb_t::lnb_spectrum_acquistion(subscription_id_t subscription
  */
 
 void tuner_thread_t::add_si(active_adapter_t& active_adapter,
-																	const chdb::any_mux_t& mux, const tune_options_t& tune_options ,
+																	const chdb::any_mux_t& mux, const subscription_options_t& tune_options ,
 														subscription_id_t subscription_id) {
 	// check_thread();
 	dtdebugf("tune restart_si");
@@ -158,7 +158,7 @@ void tuner_thread_t::add_si(active_adapter_t& active_adapter,
 }
 
 int tuner_thread_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-												 const chdb::dvbs_mux_t& mux_, tune_options_t tune_options,
+												 const chdb::dvbs_mux_t& mux_, subscription_options_t tune_options,
 												 subscription_id_t subscription_id) {
 	// check_thread();
 	chdb::dvbs_mux_t mux{mux_};
@@ -178,7 +178,7 @@ int tuner_thread_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& ln
 }
 
 template <typename _mux_t>
-int tuner_thread_t::tune(const _mux_t& mux_, tune_options_t tune_options,
+int tuner_thread_t::tune(const _mux_t& mux_, subscription_options_t tune_options,
 												 subscription_id_t subscription_id) {
 	_mux_t mux{mux_};
 
@@ -200,10 +200,10 @@ int tuner_thread_t::tune(const _mux_t& mux_, tune_options_t tune_options,
 	return ret;
 }
 
-template int tuner_thread_t::cb_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, tune_options_t tune_options,
+template int tuner_thread_t::cb_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, subscription_options_t tune_options,
 																													subscription_id_t subscription_id);
 
-template int tuner_thread_t::cb_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, tune_options_t tune_options,
+template int tuner_thread_t::cb_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, subscription_options_t tune_options,
 																													subscription_id_t subscription_id);
 
 int tuner_thread_t::exit() {
@@ -393,7 +393,7 @@ int tuner_thread_t::cb_t::update_current_lnb(subscription_id_t subscription_id, 
 subscription_id_t
 tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 															const chdb::any_mux_t& mux,
-															const tune_options_t& tune_options) {
+															const subscription_options_t& tune_options) {
 	/*In case of failure, release the resources associated with tjis subscription (active_adapter and
 		active_service)
 	*/
@@ -421,7 +421,7 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 subscription_id_t
 tuner_thread_t::cb_t::subscribe_mux(const subscribe_ret_t& sret,
 															const chdb::any_mux_t& mux,
-																		const tune_options_t& tune_options) {
+																		const subscription_options_t& tune_options) {
 	return this->tuner_thread_t::subscribe_mux(sret, mux, tune_options);
 }
 
@@ -429,7 +429,7 @@ tuner_thread_t::cb_t::subscribe_mux(const subscribe_ret_t& sret,
 subscription_id_t
 tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sret,
 																				const chdb::any_mux_t& mux, recdb::rec_t& rec,
-																											const tune_options_t& tune_options) {
+																											const subscription_options_t& tune_options) {
 	/*In case of failure, release the resources assosciated with this subscription (active_adapter and
 		active_service)
 	*/
@@ -452,7 +452,7 @@ tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sre
 std::unique_ptr<playback_mpm_t>
 tuner_thread_t::cb_t::subscribe_service(const subscribe_ret_t& sret,
 																				const chdb::any_mux_t& mux, const chdb::service_t& service,
-																				const tune_options_t& tune_options) {
+																				const subscription_options_t& tune_options) {
 	/*In case of failure, release the resources assosciated with this subscription (active_adapter and
 		active_service)
 	*/
@@ -490,7 +490,7 @@ tuner_thread_t::cb_t::subscribe_service(const subscribe_ret_t& sret,
  */
 subscription_id_t
 tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-												 const tune_options_t& tune_options) {
+												 const subscription_options_t& tune_options) {
 	assert(sret.subscription_id != subscription_id_t::NONE);
 	if(sret.failed && sret.was_subscribed) {
 		release_all(sret.subscription_id);
@@ -511,7 +511,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	if(sret.sub_to_reuse == sret.subscription_id)  {
 		assert(old_active_adapter);
 		dtdebugf("already subscribed to mux {}", mux);
-		if(tune_options.subscription_type == subscription_type_t::TUNE) {
+		if(tune_options.subscription_type == devdb::subscription_type_t::TUNE) {
      //@todo: check the following call, this means we alreay have added si, but maybe with other tune options
 			add_si(*old_active_adapter, mux, tune_options, sret.subscription_id);
 		} else {

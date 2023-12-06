@@ -216,8 +216,8 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	const chdb::any_mux_t& mux, const chdb::service_t& service, subscription_id_t subscription_id) {
 
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = receiver.get_default_tune_options(subscription_type_t::TUNE);
-	tune_options.scan_target = scan_target_t::SCAN_FULL_AND_EPG;
+	auto tune_options = receiver.get_default_tune_options(devdb::subscription_type_t::TUNE);
+	tune_options.scan_target = devdb::scan_target_t::SCAN_FULL_AND_EPG;
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
 	auto devdb_wtxn = receiver.devdb.wtxn();
@@ -260,7 +260,7 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::any_mux_t& mux,
 	recdb::rec_t& rec, subscription_id_t subscription_id) {
 	assert((int)subscription_id == rec.subscription_id);
-	tune_options_t tune_options(scan_target_t::SCAN_FULL_AND_EPG);
+	subscription_options_t tune_options(devdb::scan_target_t::SCAN_FULL_AND_EPG);
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
 	sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
@@ -415,7 +415,7 @@ subscription_id_t
 receiver_thread_t::subscribe_spectrum(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::sat_t& sat,
 	const chdb::band_scan_t& band_scan,
-	subscription_id_t subscription_id, tune_options_t tune_options,
+	subscription_id_t subscription_id, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id,
 	bool do_not_unsubscribe_on_failure) {
 	subscribe_ret_t sret;
@@ -462,7 +462,7 @@ template <typename _mux_t>
 subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const _mux_t& mux,
-	subscription_id_t subscription_id, tune_options_t tune_options,
+	subscription_id_t subscription_id, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id,
 	bool do_not_unsubscribe_on_failure) {
 	subscribe_ret_t sret;
@@ -505,7 +505,7 @@ receiver_thread_t::subscribe_mux(
 
 template <typename mux_t>
 subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
-																											const tune_options_t& tune_options,
+																											const subscription_options_t& tune_options,
 																											subscription_id_t& subscription_id)
 /*
 	somewhat ugly hack: subscription_id needs to be passed by reference so that the calling
@@ -569,7 +569,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 subscription_id_t receiver_thread_t::cb_t::scan_bands(
 	const ss::vector_<chdb::sat_t>& sats,
 	const ss::vector_<chdb::fe_polarisation_t>& pols,
-	tune_options_t tune_options, subscription_id_t& subscription_id)
+	subscription_options_t tune_options, subscription_id_t& subscription_id)
 {
 	auto s = fmt::format("SCAN[{}] {} sats", (int) subscription_id, (int) sats.size());
 	log4cxx::NDC ndc(s);
@@ -611,7 +611,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 template <typename _mux_t>
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, subscription_id_t subscription_id,
-																			 tune_options_t tune_options, const chdb::scan_id_t& scan_id) {
+																			 subscription_options_t tune_options, const chdb::scan_id_t& scan_id) {
 	devdb::fe_key_t subscribed_fe_key;
 	auto s = fmt::format("SUB[{}] {}",  (int) subscription_id, mux);
 	log4cxx::NDC ndc(s);
@@ -693,9 +693,9 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
  */
 subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 																									 devdb::rf_path_t& rf_path,
-																									 devdb::lnb_t& lnb, tune_options_t tune_options,
+																									 devdb::lnb_t& lnb, subscription_options_t tune_options,
 																									 subscription_id_t subscription_id) {
-	bool need_spectrum = tune_options.tune_mode == tune_mode_t::SPECTRUM;
+	bool need_spectrum = tune_options.tune_mode == devdb::tune_mode_t::SPECTRUM;
 	tune_options.allowed_dish_ids = {};
 	tune_options.allowed_card_mac_addresses = {};
 	tune_options.need_spectrum = need_spectrum;
@@ -758,7 +758,7 @@ devdb::lnb_t receiver_t::reread_lnb(const devdb::lnb_t& lnb)
 }
 
 subscription_id_t
-receiver_thread_t::cb_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_, tune_options_t tune_options,
+receiver_thread_t::cb_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_, subscription_options_t tune_options,
 																			 subscription_id_t subscription_id) {
 
 	auto lnb = receiver.reread_lnb(lnb_);
@@ -785,19 +785,19 @@ template
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbs_mux_t>(
 	const chdb::dvbs_mux_t& mux, subscription_id_t subscription_id,
-	tune_options_t tune_options, const chdb::scan_id_t& scan_id);
+	subscription_options_t tune_options, const chdb::scan_id_t& scan_id);
 
 template
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbc_mux_t>(
 	const chdb::dvbc_mux_t& mux, subscription_id_t subscription_id,
-	tune_options_t tune_options, const chdb::scan_id_t& scan_id);
+	subscription_options_t tune_options, const chdb::scan_id_t& scan_id);
 
 template
 std::tuple<subscription_id_t, devdb::fe_key_t>
 receiver_thread_t::cb_t::subscribe_mux<chdb::dvbt_mux_t>(
 	const chdb::dvbt_mux_t& mux, subscription_id_t subscription_id,
-	tune_options_t tune_options, const chdb::scan_id_t& scan_id);
+	subscription_options_t tune_options, const chdb::scan_id_t& scan_id);
 
 template <typename mux_t> chdb::any_mux_t mux_for_service(db_txn& txn, const chdb::service_t& service);
 
@@ -985,7 +985,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
  */
 template <typename _mux_t>
 subscription_id_t receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes,
-																				 const tune_options_t& tune_options,
+																				 const subscription_options_t& tune_options,
 																				 subscription_id_t& subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 
@@ -1014,7 +1014,7 @@ subscription_id_t receiver_t::scan_spectral_peaks(ss::vector_<chdb::spectral_pea
 
 subscription_id_t receiver_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 																				 const ss::vector_<chdb::fe_polarisation_t>& pols,
-																				 tune_options_t tune_options,
+																				 subscription_options_t tune_options,
 																				 subscription_id_t& subscription_id) {
 	std::vector<task_queue_t::future_t> futures;
 
@@ -1040,7 +1040,7 @@ subscription_id_t
 receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t subscription_id_) {
 
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = this->get_default_tune_options(subscription_type_t::TUNE);
+	auto tune_options = this->get_default_tune_options(devdb::subscription_type_t::TUNE);
 	tune_options.need_blind_tune = blindscan;
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{subscription_id_};
@@ -1070,7 +1070,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	auto lnb = reread_lnb(lnb_);
 
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = get_default_tune_options(subscription_type_t::SPECTRUM_ACQ);
+	auto tune_options = get_default_tune_options(devdb::subscription_type_t::SPECTRUM_ACQ);
 	auto& band_pol = tune_options.spectrum_scan_options.band_pol;
 	band_pol.pol = pol_;
 
@@ -1129,7 +1129,8 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	return ret_subscription_id;
 }
 
-subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode,
+subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
+																						devdb::retune_mode_t retune_mode,
 																						subscription_id_t subscription_id) {
 
 	{
@@ -1142,9 +1143,9 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 		}
 	}
 	std::vector<task_queue_t::future_t> futures;
-	tune_options_t tune_options;
-	tune_options.subscription_type = subscription_type_t::LNB_CONTROL;
-	tune_options.tune_mode = tune_mode_t::POSITIONER_CONTROL;
+	subscription_options_t tune_options;
+	tune_options.subscription_type = devdb::subscription_type_t::LNB_CONTROL;
+	tune_options.tune_mode = devdb::tune_mode_t::POSITIONER_CONTROL;
 	tune_options.retune_mode = retune_mode;
 	subscription_id_t ret_subscription_id;
 	//call by reference ok because of subsequent wait_for_all
@@ -1171,7 +1172,7 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 subscription_id_t
 receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 																	bool blindscan, const pls_search_range_t& pls_search_range,
-																	retune_mode_t retune_mode, subscription_id_t subscription_id_) {
+																	devdb::retune_mode_t retune_mode, subscription_id_t subscription_id_) {
 	subscription_id_t subscription_id{subscription_id_};
 	devdb::fe_key_t subscribed_fe_key;
 
@@ -1185,9 +1186,9 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 		}
 	}
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = this->get_default_tune_options(subscription_type_t::LNB_CONTROL);
+	auto tune_options = this->get_default_tune_options(devdb::subscription_type_t::LNB_CONTROL);
 	tune_options.need_blind_tune = blindscan;
-	tune_options.tune_mode = tune_options.need_blind_tune ? tune_mode_t::BLIND : tune_mode_t::NORMAL;
+	tune_options.tune_mode = tune_options.need_blind_tune ? devdb::tune_mode_t::BLIND : devdb::tune_mode_t::NORMAL;
 	tune_options.retune_mode = retune_mode;
 	tune_options.allowed_rf_paths = {rf_path};
 	//call by reference ok because of subsequent wait_for_all
@@ -1703,7 +1704,7 @@ void receiver_t::update_playback_info() {
 template <typename mux_t>
 subscription_id_t
 receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<mux_t>& muxes,
-															const tune_options_t& tune_options,
+															const subscription_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id) {
 	auto scanner = get_scanner();
@@ -1726,7 +1727,7 @@ subscription_id_t
 receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 															const ss::vector_<chdb::sat_t>& sats,
 															const ss::vector_<chdb::fe_polarisation_t>& pols,
-															const tune_options_t& tune_options,
+															const subscription_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id) {
 	auto scanner = get_scanner();
@@ -1890,9 +1891,10 @@ int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, d
 	return ret;
 }
 
-tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscription_type) const
+subscription_options_t receiver_t::get_default_tune_options(devdb::subscription_type_t subscription_type) const
 {
-	tune_options_t ret;
+	using namespace devdb;
+	subscription_options_t ret;
 	ret.subscription_type = subscription_type;
 	bool for_scan = false;
 	bool for_spectrum_scan = false;
@@ -1940,7 +1942,7 @@ tune_options_t receiver_t::get_default_tune_options(subscription_type_t subscrip
 	ret.may_move_dish = for_lnb_control ? true : (for_scan ? r->scan_may_move_dish: r->tune_may_move_dish);
 	ret.may_control_lnb = for_lnb_control;
 	ret.spectrum_scan_options.save_spectrum = for_spectrum_scan ? r->band_scan_save_spectrum : true;
-	ret.max_scan_duration = 	r->max_scan_duration;
+	ret.max_scan_duration =  std::chrono::duration_cast<std::chrono::seconds>(r->max_scan_duration).count();
 
 	return ret;
 }
@@ -2047,7 +2049,7 @@ template
 subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbc_mux_t& mux,
-	subscription_id_t subscription_id, tune_options_t tune_options,
+	subscription_id_t subscription_id, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 
@@ -2055,30 +2057,30 @@ template
 subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbt_mux_t& mux,
-	subscription_id_t subscription_id, tune_options_t tune_options,
+	subscription_id_t subscription_id, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 template
 subscription_id_t
 receiver_thread_t::subscribe_mux(
 	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbs_mux_t& mux,
-	subscription_id_t subscription_id, tune_options_t tune_options,
+	subscription_id_t subscription_id, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes,
-																				 const tune_options_t& tune_options,
+																				 const subscription_options_t& tune_options,
 																				 subscription_id_t& subscription_id);
 
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
-																				 const tune_options_t& tune_options,
+																				 const subscription_options_t& tune_options,
 																				 subscription_id_t& subscription_id);
 
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
-																				 const tune_options_t& tune_options,
+																				 const subscription_options_t& tune_options,
 																				 subscription_id_t& subscription_id);
 
 
@@ -2096,34 +2098,34 @@ receiver_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool bl
 
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes,
-																											const tune_options_t& tune_options,
+																											const subscription_options_t& tune_options,
 																											subscription_id_t& subscription_id);
 
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
-																											const tune_options_t& tune_options,
+																											const subscription_options_t& tune_options,
 																											subscription_id_t& subscription_id);
 
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
-																											const tune_options_t& tune_options,
+																											const subscription_options_t& tune_options,
 																											subscription_id_t& subscription_id);
 
 
 template subscription_id_t
 receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbs_mux_t>& muxes,
-															const tune_options_t& tune_options,
+															const subscription_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id);
 
 
 template subscription_id_t
 receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbc_mux_t>& muxes,
-															const tune_options_t& tune_options,
+															const subscription_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id);
 template subscription_id_t
 receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbt_mux_t>& muxes,
-															const tune_options_t& tune_options,
+															const subscription_options_t& tune_options,
 															int max_num_subscriptions,
 															subscription_id_t subscription_id);

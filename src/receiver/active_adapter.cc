@@ -59,6 +59,8 @@ using namespace chdb;
 		Returns must_tune, must_restart_si, must_stop_si, is_not_ts (boolean)
 */
 std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
+	using namespace devdb;
+
 	if (!fe)
 		return {};
 	auto status = fe->get_lock_status();
@@ -135,9 +137,10 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 }
 
 int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
-																	 const devdb::lnb_t& lnb, tune_options_t tune_options) {
+																	 const devdb::lnb_t& lnb, subscription_options_t tune_options) {
 	this->fe->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
-	assert(tune_options.tune_mode==tune_mode_t::POSITIONER_CONTROL||tune_options.tune_mode==tune_mode_t::SPECTRUM);
+	assert(tune_options.tune_mode == devdb::tune_mode_t::POSITIONER_CONTROL||
+				 tune_options.tune_mode == devdb::tune_mode_t::SPECTRUM);
 		auto [ret, new_usals_sat_pos] = fe->diseqc(true /*skip_positioner*/);
 		if(ret<0) {
 			dterrorf("diseqc failed: err={:d}", ret);
@@ -158,7 +161,7 @@ void active_adapter_t::reset()
 
 int active_adapter_t::tune(const devdb::rf_path_t& rf_path,
 													 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux_,
-													 const tune_options_t tune_options, bool user_requested,
+													 const subscription_options_t tune_options, bool user_requested,
 													 subscription_id_t subscription_id) {
 	chdb::dvbs_mux_t mux;
 
@@ -231,7 +234,7 @@ int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
 
 
 template<typename mux_t>
-int active_adapter_t::tune(const mux_t& mux_, tune_options_t tune_options, bool user_requested,
+int active_adapter_t::tune(const mux_t& mux_, subscription_options_t tune_options, bool user_requested,
 													 subscription_id_t subscription_id) {
 	mux_t mux;
 	if(user_requested) {
@@ -301,7 +304,7 @@ void active_adapter_t::on_first_pat() {
 void active_adapter_t::monitor() {
 	assert(fe);
 	auto tune_mode = fe->ts.readAccess()->tune_options.tune_mode;
-	if(tune_mode != tune_mode_t::NORMAL && tune_mode != tune_mode_t::BLIND) {
+	if(tune_mode != devdb::tune_mode_t::NORMAL && tune_mode != devdb::tune_mode_t::BLIND) {
 		dtdebugf("adapter {:d} NO MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
 		return;
 	}
@@ -380,7 +383,7 @@ void active_adapter_t::monitor() {
 }
 
 int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
-																				const devdb::lnb_t& lnb, tune_options_t tune_options) {
+																				const devdb::lnb_t& lnb, subscription_options_t tune_options) {
 
 	set_current_tp({});
 	receiver.activate_spectrum_scan(tune_options.spectrum_scan_options, lnb.pol_type);
@@ -626,7 +629,7 @@ bool active_adapter_t::read_and_process_data_for_fd(const epoll_event* evt) {
 	return false;
 }
 
-void active_adapter_t::init_si(scan_target_t scan_target) {
+void active_adapter_t::init_si(devdb::scan_target_t scan_target) {
 	/*@When we are called on a t2mi mux, there could be confusion between the t2mi mux (with t2mi_pid set)
 		and the one without. To avoid this, we find the non-t2mi_pid version first
 	*/
@@ -1052,7 +1055,7 @@ active_adapter_t::tune_service_for_recording(const subscribe_ret_t& sret,
 	to the driver is kept active_adapter remains active
  */
 int active_adapter_t::request_retune(const chdb::any_mux_t& mux_,
-																		 const tune_options_t& tune_options,
+																		 const subscription_options_t& tune_options,
 																		 subscription_id_t subscription_id) {
 
 	{
@@ -1082,9 +1085,9 @@ active_adapter_t::active_service_for_subscription(subscription_id_t subscription
 
 //instantiations
 template
-int active_adapter_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, tune_options_t tune_options,
+int active_adapter_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, subscription_options_t tune_options,
 																						 bool user_requested, subscription_id_t subscription_id);
 
 template
-int active_adapter_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, tune_options_t tune_options,
+int active_adapter_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, subscription_options_t tune_options,
 																						 bool user_requested, subscription_id_t subscription_id);

@@ -60,7 +60,7 @@ struct pid_with_use_count_t {
 
 };
 
-struct tune_options_t;
+struct subscription_options_t;
 class active_adapter_t;
 class epoll_tx1;
 
@@ -114,7 +114,7 @@ public:
 	}
 
 	virtual chdb::any_mux_t stream_mux() const = 0;
-	const tune_options_t& tune_options() const;
+	const subscription_options_t& tune_options() const;
 
 	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux) =0;
 	virtual inline void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad) =0;

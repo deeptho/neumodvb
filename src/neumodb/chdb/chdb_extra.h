@@ -31,7 +31,6 @@
 namespace devdb {
 	struct lnb_t;
 	struct lnb_network_t;
-	enum class sat_sub_band_t : int8_t;
 	enum class lnb_pol_type_t : int8_t;
 };
 

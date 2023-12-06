@@ -120,7 +120,7 @@ namespace devdb::fe {
 						 resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																		const chdb::dvbs_mux_t& mux,
-																		const tune_options_t& tune_options,
+																		const subscription_options_t& tune_options,
 																		const devdb::fe_key_t* fe_key_to_release,
 																		bool ignore_subscriptions);
 
@@ -128,7 +128,7 @@ namespace devdb::fe {
 						 devdb::resource_subscription_counts_t>
 	find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 																		 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
-																		 const tune_options_t& tune_options,
+																		 const subscription_options_t& tune_options,
 																		 const devdb::fe_key_t* fe_key_to_release,
 																		 bool ignore_subscriptions);
 
@@ -166,7 +166,7 @@ namespace devdb::fe {
 
 
 	int reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
-																	const tune_options_t& tune_options,
+																	const subscription_options_t& tune_options,
 																	devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
 																	const devdb::lnb_t& lnb,
 																	const chdb::sat_t*sat,
@@ -186,14 +186,14 @@ namespace devdb::fe {
 	subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscription_id, const mux_t& mux,
 														 const chdb::service_t* service,
 														 const std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release,
-														 const tune_options_t& tune_options,
+														 const subscription_options_t& tune_options,
 														 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 						 resource_subscription_counts_t, std::optional<devdb::fe_t>>
 	subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id, const chdb::dvbs_mux_t& mux,
 														 const chdb::service_t* service,
-														 const tune_options_t& tune_options,
+														 const subscription_options_t& tune_options,
 														 const std::optional<fe_t>& oldfe,
 														 const devdb::fe_key_t* fe_key_to_release,
 														 bool do_not_unsubscribe_on_failure);
@@ -202,7 +202,7 @@ namespace devdb::fe {
 						 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
 	subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 										 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
-										 const tune_options_t& tune_options,
+										 const subscription_options_t& tune_options,
 										 const std::optional<devdb::fe_t>& oldfe,
 										 const devdb::fe_key_t* fe_key_to_release,
 										 bool do_not_unsubscribe_on_failure);
@@ -210,7 +210,7 @@ namespace devdb::fe {
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
 	subscribe_lnb(db_txn& wtxn,  subscription_id_t subscription_id,
 								const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-								const tune_options_t&  tune_options,
+								const subscription_options_t&  tune_options,
 								std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release
 		);
 	devdb::fe_t subscribe_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
@@ -220,7 +220,7 @@ namespace devdb::fe {
 	template<typename mux_t>
 	std::tuple<std::optional<devdb::fe_t>, int>
 	matching_existing_subscription(db_txn& wtxn,
-																 const tune_options_t& tune_options,
+																 const subscription_options_t& tune_options,
 																 const mux_t* mux,
 																 const chdb::service_t* service,
 																 bool match_mux_only);

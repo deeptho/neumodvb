@@ -364,7 +364,7 @@ class scan_t {
 	receiver_t& receiver;
 	subscription_id_t scan_subscription_id;
 	subscription_id_t monitored_subscription_id{-1};
-	std::vector<tune_options_t> tune_options_; //indexexed by opt_id
+	std::vector<subscription_options_t> tune_options_; //indexexed by opt_id
 	int max_num_subscriptions_for_retry{std::numeric_limits<int>::max()}; //maximum number of subscriptions that have been in use
 
 	//TODO important: no fe_key_t should occur more than once in subscriptions
@@ -384,7 +384,7 @@ class scan_t {
 
 private:
 	inline chdb::scan_id_t make_scan_id(subscription_id_t scan_subscription_id,
-																			const tune_options_t& tune_options) {
+																			const subscription_options_t& tune_options) {
 		chdb::scan_id_t ret;
 		ret.subscription_id = (int32_t) scan_subscription_id;
 		ret.pid = getpid();
@@ -394,7 +394,7 @@ private:
 		return ret;
 	}
 
-	inline tune_options_t& tune_options_for_scan_id(chdb::scan_id_t scan_id) {
+	inline subscription_options_t& tune_options_for_scan_id(chdb::scan_id_t scan_id) {
 		assert(scan_id.opt_id >= 0 && scan_id.opt_id < (int)tune_options_.size());
 		return tune_options_[scan_id.opt_id];
 	}
@@ -487,10 +487,10 @@ class scanner_t {
 	steady_time_t last_house_keeping_time{steady_clock_t::now()};
 	int max_num_subscriptions{std::numeric_limits<int>::max()};
 	bool must_end = false;
-	tune_options_t tune_options{scan_target_t::SCAN_MINIMAL};
+	subscription_options_t tune_options{devdb::scan_target_t::SCAN_MINIMAL};
 	std::map<subscription_id_t, scan_t> scans;
 	template<typename mux_t>
-	int add_muxes(const ss::vector_<mux_t>& muxes, const tune_options_t& tune_options,
+	int add_muxes(const ss::vector_<mux_t>& muxes, const subscription_options_t& tune_options,
 								subscription_id_t subscription_id);
 
 	template<typename peak_t>
@@ -499,7 +499,7 @@ class scanner_t {
 
 	int add_bands(const ss::vector_<chdb::sat_t>& sats,
 								const ss::vector_<chdb::fe_polarisation_t>& pols,
-								const tune_options_t& tune_options,
+								const subscription_options_t& tune_options,
 								subscription_id_t scan_subscription_id);
 
 	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,

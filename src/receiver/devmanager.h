@@ -30,7 +30,7 @@
 #include "signal_info.h"
 #include "util/access.h"
 
-struct tune_options_t;
+struct subscription_options_t;
 
 /* DVB-S */
 /** lnb_slof: switch frequency of LNB */
@@ -220,10 +220,10 @@ public:
 	bool info_valid{false}; // true if we could retrieve device info; "false" indicates an error
 	int fefd{-1}; //file handle if open
 	int last_saved_freq{0}; //for spectrum scan: last frequency written to spectrum file
-	tune_mode_t tune_mode{tune_mode_t::IDLE};
+	devdb::tune_mode_t tune_mode{devdb::tune_mode_t::IDLE};
 	bool use_blind_tune{false};
 	fe_lock_status_t lock_status;
-	tune_options_t tune_options;
+	subscription_options_t tune_options;
 	time_t start_time;
 
 	void set_lock_status(api_type_t api_type, fe_status_t fe_status);
@@ -322,11 +322,11 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 
 	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path,
 																					 const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux,
-																					 const tune_options_t& tune_options);
+																					 const subscription_options_t& tune_options);
 	bool need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb);
 
 	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-															const tune_options_t& tune_options);
+															const subscription_options_t& tune_options);
 public:
 
 	static constexpr uint32_t lnb_lof_standard = DEFAULT_LOF_STANDARD;
@@ -358,21 +358,21 @@ public:
 	*/
 	fe_lock_status_t get_lock_status();
 	int tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-						const tune_options_t& options);
+						const subscription_options_t& options);
 
 	std::tuple<int, int>
 	tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-			 const tune_options_t& tune_options, bool user_requested);
+			 const subscription_options_t& tune_options, bool user_requested);
 
-	int tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& options);
-	int tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& options);
+	int tune_(const chdb::dvbt_mux_t& mux, const subscription_options_t& options);
+	int tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& options);
 
 	template<typename mux_t>
-	int tune(const mux_t& mux, const tune_options_t& tune_options, bool user_requested);
+	int tune(const mux_t& mux, const subscription_options_t& tune_options, bool user_requested);
 
 	std::tuple<int, int>
 	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										const tune_options_t& tune_options);
+										const subscription_options_t& tune_options);
 
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
@@ -458,9 +458,9 @@ public:
 	int do_lnb(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage);
 	int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 
-	inline int set_tune_options(const tune_options_t& tune_options) {
+	inline int set_tune_options(const subscription_options_t& tune_options) {
 		auto w = this->ts.writeAccess();
-		auto tune_mode = (tune_options.tune_mode == tune_mode_t::UNCHANGED) ? tune_options.tune_mode
+		auto tune_mode = (tune_options.tune_mode == devdb::tune_mode_t::UNCHANGED) ? tune_options.tune_mode
 			: tune_options.tune_mode;
 		w->tune_options = tune_options;
 		w->tune_options.tune_mode = tune_mode;

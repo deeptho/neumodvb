@@ -81,6 +81,8 @@ void fe_monitor_thread_t::update_lock_status_and_signal_info(fe_status_t fe_stat
 }
 
 void fe_monitor_thread_t::handle_frontend_event() {
+	using namespace devdb;
+
 	struct dvb_frontend_event event {};
 	auto fefd = fe->ts.readAccess()->fefd;
 	int r = ioctl(fefd, FE_GET_EVENT, &event);

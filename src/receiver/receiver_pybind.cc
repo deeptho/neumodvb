@@ -33,16 +33,6 @@
 
 namespace py = pybind11;
 
-static void export_subscription_type(py::module& m) {
-	py::enum_<subscription_type_t>(m, "subscription_type_t", py::arithmetic())
-		.value("TUNE", subscription_type_t::TUNE)
-		.value("SPECTRUM_ACQ", subscription_type_t::SPECTRUM_ACQ)
-		.value("MUX_SCAN", subscription_type_t::MUX_SCAN)
-		.value("SPECTRUM_BAND_SCAN", subscription_type_t::SPECTRUM_BAND_SCAN)
-		.value("LNB_CONTROL", subscription_type_t::LNB_CONTROL)
-		;
-}
-
 static void export_live_history(py::module& m) {
 	using namespace chdb;
 	py::class_<history_mgr_t>(m, "browse_history")
@@ -177,7 +167,6 @@ PYBIND11_MODULE(pyreceiver, m) {
         Receiver control functions for neumoDVB
     )pbdoc";	// export_find_type(m);
 	export_receiver(m);
-	export_subscription_type(m);
 	export_subscriber(m);
 	export_signal_info(m);
 	export_sdt_data(m);

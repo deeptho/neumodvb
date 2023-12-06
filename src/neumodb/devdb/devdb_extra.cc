@@ -482,7 +482,7 @@ namespace devdb::lnb {
 static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
 devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux) {
 	using namespace chdb;
-	tune_options_t tune_options;
+	subscription_options_t tune_options;
 	tune_options.may_move_dish = false;
 	tune_options.need_blind_tune = true;
 	tune_options.allowed_dish_ids = {};

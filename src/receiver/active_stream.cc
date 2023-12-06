@@ -287,7 +287,7 @@ void dvb_stream_reader_t::set_current_tp(const chdb::any_mux_t& mux) const
 	active_adapter.set_current_tp(mux);
 }
 
-const tune_options_t& stream_reader_t::tune_options() const
+const subscription_options_t& stream_reader_t::tune_options() const
 {
 	auto& tune_options = active_adapter.fe->ts.readAccess()->tune_options;
 	return tune_options;

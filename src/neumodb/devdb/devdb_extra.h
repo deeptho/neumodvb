@@ -232,21 +232,21 @@ namespace devdb::fe {
 	std::optional<fe_t> unsubscribe(db_txn& wtxn, subscription_id_t subscription_id);
 
 	bool can_subscribe_mux(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
-																			const tune_options_t& tune_options);
+																			const subscription_options_t& tune_options);
 	bool can_subscribe_sat_band(db_txn& wtxn, const chdb::sat_t& sat,
 																			const chdb::band_scan_t& band_scan,
-																			const tune_options_t& tune_options);
+																			const subscription_options_t& tune_options);
 
 
 	template<typename mux_t> bool can_subscribe_dvbc_or_dvbt_mux(db_txn& wtxn,
 																															 const mux_t& mux, bool use_blind_tune);
 	subscribe_ret_t subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
-																		const tune_options_t& tune_options,
+																		const subscription_options_t& tune_options,
 																		const rf_path_t& rf_path,
 																		bool do_not_unsubscribe_on_failure);
 
 	subscribe_ret_t subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
-																		 const tune_options_t& tune_options,
+																		 const subscription_options_t& tune_options,
 																		 const chdb::sat_t& sat,
 																		 const chdb::band_scan_t& band_scan,
 															 bool do_not_unsubscribe_on_failure);
@@ -254,14 +254,14 @@ namespace devdb::fe {
 	template<typename mux_t>
 	subscribe_ret_t
 	subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
-								const tune_options_t& tune_options,
+								const subscription_options_t& tune_options,
 								const mux_t& mux,
 								const chdb::service_t* service,
 								bool do_not_unsubscribe_on_failure);
 
 	inline subscribe_ret_t
 	subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
-								const tune_options_t& tune_options,
+								const subscription_options_t& tune_options,
 								const chdb::any_mux_t& mux,
 								const chdb::service_t* service,
 								bool do_not_unsubscribe_on_failure) {

@@ -434,3 +434,93 @@ tuned_frequency_offsets = \
                   (2, 'ss::vector<tuned_frequency_offset_t, 11>', 'frequency_offsets'),
                   (3, 'time_t', 'mtime') #last seen or last updated?
               ))
+
+
+scan_target = db_enum(name='scan_target_t',
+        db = db,
+        storage = 'int8_t',
+        type_id = 100,
+        version = 1,
+        fields = ((
+            ('NONE', 0),
+            'SCAN_MINIMAL',
+            'SCAN_FULL',
+            'SCAN_FULL_AND_EPG',
+            'DONE'
+            )))
+
+tune_mode = db_enum(name='tune_mode_t',
+        db = db,
+        storage = 'int8_t',
+        type_id = 100,
+        version = 1,
+        fields = ((
+            ('IDLE', 0),
+            'NORMAL',
+            'SPECTRUM',
+	          'BLIND',
+	          'POSITIONER_CONTROL',
+	          'UNCHANGED'
+            )))
+
+retune_mode = db_enum(name='retune_mode_t',
+        db = db,
+        storage = 'int8_t',
+        type_id = 100,
+        version = 1,
+        fields = ((
+            ('AUTO', 0), #for normal tuning: retune if lock failed or if wrong sat detected
+            'NEVER',
+            'IF_NOT_LOCKED',
+	          'UNCHANGED'
+            )))
+
+subscription_type = db_enum(name='subscription_type_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=(
+                       ('NONE', '-1'),
+                       'TUNE', # regular viewing: resourced are reserved non-exclusively. This means other lnbs
+                               # on the same dish can be used by other subscriptions
+	                     'MUX_SCAN',  # scanning muxes in the background: resources are reserved non-exclusively,
+                                    # also reserved non-exclusively
+	                     'SPECTRUM_BAND_SCAN',  # scanning spectral band in the background: resources are reserved
+                                              # non-exclusively
+                       'SPECTRUM_ACQ',  # Spectrum acquisition from spectrum_dialog reserved exclusively
+	                     'LNB_CONTROL' #in this case, a second subscriber cannot subscribe to the mux
+                                     #at first tune, position data is used from the lnb. Retunes cannot
+										                 #change the positioner and diseqc settings afterwards. Instead, the user
+										                 #must explicitly force them by a new tune call (diseqc swicthes), or by
+                                     #sending a positoner commands (usals, diseqc1.2)
+										                 #
+                                     #Also, lnb and dish are reserved exclusively, which means no other lnbs on
+                                     #the dish can be used on the same dish
+	                 ))
+tune_options = db_struct(name ='tune_options',
+    fname = 'options',
+    db = db,
+    type_id = lord('TP'),
+    version = 1,
+    ignore_for_equality_fields = ('mtime',),
+    fields = ((1, 'scan_target_t', 'scan_target'),
+              (2, 'int32_t', 'max_scan_duration', '180'),
+              (3, 'std::optional<ss::vector_<int8_t>>', 'allowed_dish_ids'),
+              (4, 'std::optional<ss::vector_<int64_t>>', 'allowed_card_mac_addresses'),
+              (5, 'std::optional<ss::vector_<rf_path_t>>', 'allowed_rf_paths'),
+              (6, 'tune_mode_t', 'tune_mode'),
+              (7, 'bool', 'need_blind_tune', 'false'),
+	            (8, 'bool', 'may_move_dish', 'false'),    #subscription is allowed to move the dish when tuning if no
+                                                        #other subscriptions conflict; afterwards dish may not be moved
+              (9, 'bool', 'may_control_dish', 'false'), #The subscription may move move the subscribed
+                                                        #dish to a new position at any time (exclusive use)
+              (10, 'bool', 'may_control_lnb',
+               'false'),                                #subscription may change pol/band and send diseqc at any time
+                                                        #(exclusive use)
+	            (11, 'bool', 'propagate_scan', 'true'),
+	            (12, 'bool', 'need_spectrum', 'false'),
+	            (13, 'retune_mode_t', 'retune_mode', 'retune_mode_t::AUTO'),
+              (14, 'int32_t', 'resource_reuse_bonus', '0'),
+	            (15, 'int32_t', 'dish_move_penalty', '0')
+              ))

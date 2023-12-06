@@ -118,11 +118,11 @@ public:
 	template <typename _mux_t>
 	EXPORT int subscribe_mux(const _mux_t& mux, bool blindscan);
 
-	EXPORT int subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode);
+	EXPORT int subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, devdb::retune_mode_t retune_mode);
 
 	EXPORT int subscribe_lnb_and_mux(
 		devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool blindscan,
-		const pls_search_range_t& pls_search_range, retune_mode_t retune_mode);
+		const pls_search_range_t& pls_search_range, devdb::retune_mode_t retune_mode);
 	EXPORT int subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
 																						int32_t low_freq, int32_t high_freq,
 																						int sat_pos=sat_pos_none);
@@ -130,14 +130,14 @@ public:
 	EXPORT int scan_bands(const ss::vector_<chdb::sat_t>& sats,
 												const ss::vector_<chdb::fe_polarisation_t>& pols,
 												int32_t low_freq, int32_t high_freq,
-												const std::optional<tune_options_t>& tune_options);
+												const std::optional<subscription_options_t>& tune_options);
 
 	EXPORT int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key);
 	EXPORT int scan_muxes(const ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 								 const ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
 												const ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
-												const std::optional<tune_options_t>& tune_options);
+												const std::optional<subscription_options_t>& tune_options);
 
 	EXPORT int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 #if 0

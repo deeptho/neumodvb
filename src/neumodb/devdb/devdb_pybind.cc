@@ -99,21 +99,21 @@ static void export_lnb_extra(py::module& m) {
 }
 
 void export_tune_options(py::module& m) {
-	py::class_<tune_options_t>(m, "tune_options_t")
-		.def(py::init<>( []() { tune_options_t ret; ret.scan_target = scan_target_t::SCAN_FULL; return ret;}),
+	py::class_<subscription_options_t>(m, "subscription_options_t")
+		.def(py::init<>( []() { subscription_options_t ret; ret.scan_target = scan_target_t::SCAN_FULL; return ret;}),
 				 "Tune Options for neumodvb")
-		.def_readwrite("use_blind_tune", &tune_options_t::need_blind_tune)
-		.def_readwrite("may_move_dish", &tune_options_t::may_move_dish)
-		.def_readwrite("propagate_scan", &tune_options_t::propagate_scan)
+		.def_readwrite("use_blind_tune", &subscription_options_t::need_blind_tune)
+		.def_readwrite("may_move_dish", &subscription_options_t::may_move_dish)
+		.def_readwrite("propagate_scan", &subscription_options_t::propagate_scan)
 		.def_property("scan_epg",
-			[](const tune_options_t& o) { return o.scan_target ==scan_target_t::SCAN_FULL_AND_EPG;},
-									[](tune_options_t& o, bool val) { o.scan_target= val ?
-											scan_target_t::SCAN_FULL_AND_EPG :scan_target_t::SCAN_FULL;},
+			[](const subscription_options_t& o) { return o.scan_target ==devdb::scan_target_t::SCAN_FULL_AND_EPG;},
+									[](subscription_options_t& o, bool val) { o.scan_target= val ?
+											devdb::scan_target_t::SCAN_FULL_AND_EPG :scan_target_t::SCAN_FULL;},
 									"include epg in scan")
-		.def_readwrite("allowed_dish_ids", &tune_options_t::allowed_dish_ids,
+		.def_readwrite("allowed_dish_ids", &subscription_options_t::allowed_dish_ids,
 									"dishes allowed during scan (default:all)")
 
-		.def_readwrite("allowed_card_mac_addresses", &tune_options_t::allowed_card_mac_addresses,
+		.def_readwrite("allowed_card_mac_addresses", &subscription_options_t::allowed_card_mac_addresses,
 									"cards allowed during scan (default:all)")
 		;
 

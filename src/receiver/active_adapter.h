@@ -154,7 +154,7 @@ private:
 	std::map <uint16_t, active_si_stream_t> embedded_si_streams; //indexed by stream_pid
 
 	tune_state_t tune_state{TUNE_INIT};
-	tune_options_t tune_options;
+	subscription_options_t tune_options;
 	lock_state_t lock_state;
 	bool isi_processing_done{false};
 	system_time_t tune_start_time;  //when last tune started
@@ -240,7 +240,7 @@ private:
 		return *std::get_if<mux_t>(&mux_);
 	}
 
-	void init_si(scan_target_t scan_target_);
+	void init_si(devdb::scan_target_t scan_target_);
 	void end_si();
 	void reset_si();
 private:
@@ -301,15 +301,15 @@ private:
 	int restart_tune(const chdb::any_mux_t& mux);
 
 	int lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-												tune_options_t tune_options);
+												subscription_options_t tune_options);
 
-	int lnb_activate(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, tune_options_t tune_options);
+	int lnb_activate(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, subscription_options_t tune_options);
 
 	int tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-					 tune_options_t tune_options, bool user_requested, subscription_id_t subscription_id);
+					 subscription_options_t tune_options, bool user_requested, subscription_id_t subscription_id);
 
 	template<typename mux_t>
-	int tune(const mux_t& mux, tune_options_t tune_options, bool user_requested,
+	int tune(const mux_t& mux, subscription_options_t tune_options, bool user_requested,
 					 subscription_id_t subscription_id);
 
 	int add_service(subscription_id_t subscription_id, active_service_t& channel);//tune to channel on transponder
@@ -331,7 +331,7 @@ private:
 	void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
 	void check_isi_processing();
 	int request_retune(const chdb::any_mux_t& mux_,
-										 const tune_options_t& tune_options,
+										 const subscription_options_t& tune_options,
 										 subscription_id_t subscription_id);
 
 public:

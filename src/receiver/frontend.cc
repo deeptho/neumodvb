@@ -607,7 +607,7 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 std::optional<signal_info_t>
 dvb_frontend_t::update_lock_status_and_signal_info(fe_status_t fe_status, bool get_constellation) {
 	auto m = ts.readAccess()->tune_mode;
-	if (m != tune_mode_t::NORMAL && m != tune_mode_t::BLIND) {
+	if (m != devdb::tune_mode_t::NORMAL && m != devdb::tune_mode_t::BLIND) {
 		set_lock_status(fe_status);
 		return {};
 	}
@@ -1105,7 +1105,7 @@ void cmdseq_t::init_pls_codes() {
 }
 
 int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-													const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options) {
+													const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
 	// Clear old tune_mux_confirmation info
 	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
@@ -1214,7 +1214,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
  */
 std::tuple<int, int>
 dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-																	const tune_options_t& tune_options) {
+																	const subscription_options_t& tune_options) {
 	this->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
 	auto band = tune_options.spectrum_scan_options.band_pol.band;
 	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
@@ -1246,7 +1246,7 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 
 std::tuple<int, int>
 dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										 const chdb::dvbs_mux_t& mux, const tune_options_t& tune_options,
+										 const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options,
 										 bool user_requested) {
 	{
 		auto w =  this->ts.writeAccess();
@@ -1308,7 +1308,7 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 
 
 
-int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tune_options) {
+int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options) {
 	// Clear old tune_mux_confirmation info
 	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
@@ -1339,12 +1339,12 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const tune_options_t& tun
 	dtdebugf("change tune mode on adapter {:d} from {:d} to {:d}", (int) adapter_no,
 					 (int) w->tune_mode, (int) tune_options.tune_mode);
 	w->tune_mode = tune_options.tune_mode;
-	assert(w->tune_mode == tune_mode_t::NORMAL || w->tune_mode == tune_mode_t::BLIND);
+	assert(w->tune_mode == devdb::tune_mode_t::NORMAL || w->tune_mode == devdb::tune_mode_t::BLIND);
 	int heartbeat_interval = 0;
 	return cmdseq.tune(fefd, heartbeat_interval);
 }
 
-int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tune_options) {
+int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const subscription_options_t& tune_options) {
 	// Clear old tune_mux_confirmation info
 	this->clear_lock_status();
 	this->reset_tuned_mux_tune_confirmation();
@@ -1405,7 +1405,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const tune_options_t& tun
 
 
 template<typename mux_t>
-int dvb_frontend_t::tune(const mux_t& mux, const tune_options_t& tune_options, bool user_requested) {
+int dvb_frontend_t::tune(const mux_t& mux, const subscription_options_t& tune_options, bool user_requested) {
 	{
 		auto w = this->ts.writeAccess();
 		w->tune_options = tune_options;
@@ -1428,7 +1428,7 @@ int dvb_frontend_t::tune(const mux_t& mux, const tune_options_t& tune_options, b
 
 
 int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-																						const tune_options_t& tune_options) {
+																						const subscription_options_t& tune_options) {
 	this->num_constellation_samples = 0;
 	using namespace chdb;
 	using namespace devdb;
@@ -1934,7 +1934,7 @@ int sec_status_t::set_rf_input(int fefd, int rf_input) {
 */
 std::tuple<bool,bool>
 dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
-																	 const chdb::dvbs_mux_t& new_mux, const tune_options_t& tune_options) {
+																	 const chdb::dvbs_mux_t& new_mux, const subscription_options_t& tune_options) {
 	assert(!tune_options.tune_pars->send_dish_commands || tune_options.tune_pars->send_lnb_commands);
 	if (!this->sec_status.is_tuned()
 			&& tune_options.tune_pars->send_lnb_commands
@@ -2034,7 +2034,7 @@ template bool dvb_frontend_t::is_tuned_to(const chdb::any_mux_t& mux,
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux);
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux);
 
-template int dvb_frontend_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, const tune_options_t& tune_options,
+template int dvb_frontend_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options,
 																										bool user_requested);
-template int dvb_frontend_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, const tune_options_t& tune_options,
+template int dvb_frontend_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, const subscription_options_t& tune_options,
 																										bool user_requested);

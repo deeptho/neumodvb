@@ -128,15 +128,6 @@ static py::object get_object(long x) {
 	return subscriber_t::handle_to_py_object(x);
 }
 
-void export_retune_mode(py::module& m) {
-	py::enum_<retune_mode_t>(m, "retune_mode_t", py::arithmetic())
-		.value("AUTO", retune_mode_t::AUTO)
-		.value("NEVER", retune_mode_t::NEVER)
-		.value("IF_NOT_LOCKED", retune_mode_t::IF_NOT_LOCKED)
-		.value("UNCHANGED", retune_mode_t::UNCHANGED)
-		;
-}
-
 void export_pls_search_range(py::module& m) {
 	py::class_<pls_search_range_t>(m, "pls_search_range_t")
 		.def(py::init())
@@ -146,7 +137,6 @@ void export_pls_search_range(py::module& m) {
 		.def_readwrite("pls_mode", &pls_search_range_t::pls_mode)
 		;
 }
-
 
 static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_key_t& spectrum_key,
 																			py::array_t<float> peak_freq, py::array_t<float> peak_sr) {
@@ -175,7 +165,7 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
 															py::list pol_list, py::list sat_band_list,
 															int32_t low_freq, int32_t high_freq,
-															const tune_options_t tune_options) {
+															const subscription_options_t tune_options) {
 	using namespace chdb;
 	int n = sat_list.size();
 	ss::vector_<sat_t> sats;
@@ -210,7 +200,7 @@ static int scan_bands_on_sats(subscriber_t& subscriber, py::list sat_list,
 
 
 static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
-											const std::optional<tune_options_t>& tune_options) {
+											const std::optional<subscription_options_t>& tune_options) {
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;
 	ss::vector<chdb::dvbc_mux_t,1> dvbc_muxes;
 	ss::vector<chdb::dvbt_mux_t,1> dvbt_muxes;
@@ -242,10 +232,11 @@ static int scan_muxes(subscriber_t& subscriber, py::list mux_list,
 
 static int scan_muxes_on_sats(subscriber_t& subscriber, db_txn& chdb_rtxn, py::list sat_list,
 															py::list pol_list, py::list sat_band_list,
-															const tune_options_t& tune_options) {
+															const subscription_options_t& tune_options) {
 
 	using namespace chdb;
-	assert(tune_options.tune_mode == tune_mode_t::NORMAL || tune_options.tune_mode == tune_mode_t::BLIND);
+	using namespace devdb;
+	assert(tune_options.tune_mode == devdb::tune_mode_t::NORMAL || tune_options.tune_mode == devdb::tune_mode_t::BLIND);
 	assert(tune_options.subscription_type == subscription_type_t::MUX_SCAN);
 	ss::vector_<sat_t> sats;
 	ss::vector<fe_polarisation_t, 4> pols;
@@ -297,7 +288,6 @@ void export_subscriber(py::module& m) {
 	if (called)
 		return;
 	called = true;
-	export_retune_mode(m);
 	export_pls_search_range(m);
 	m.def("get_object", &get_object)
 		.def("set_gtk_window_name", &set_gtk_window_name

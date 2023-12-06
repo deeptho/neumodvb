@@ -67,7 +67,7 @@ int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 	return (int) subscription_id;
 }
 
-int subscriber_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, retune_mode_t retune_mode) {
+int subscriber_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, devdb::retune_mode_t retune_mode) {
 	subscription_id = (subscription_id_t)
 		receiver->subscribe_lnb(rf_path, lnb, retune_mode, subscription_id);
 	return (int) subscription_id;
@@ -75,7 +75,8 @@ int subscriber_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, re
 
 int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																				const chdb::dvbs_mux_t& mux, bool blindscan,
-																				const pls_search_range_t& pls_search_range, retune_mode_t retune_mode) {
+																				const pls_search_range_t& pls_search_range,
+																				devdb::retune_mode_t retune_mode) {
 	subscription_id = receiver->subscribe_lnb_and_mux(rf_path, lnb, mux, blindscan, pls_search_range, retune_mode,
 																										subscription_id);
 	return (int) subscription_id;
@@ -84,11 +85,12 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 														 const ss::vector_<chdb::fe_polarisation_t>& pols,
 														 int32_t low_freq, int32_t high_freq,
-														 const std::optional<tune_options_t>& tune_options_) {
+														 const std::optional<subscription_options_t>& tune_options_) {
 	set_scanning(true);
 	auto tune_options =
-		tune_options_ ? * tune_options_: receiver->get_default_tune_options(subscription_type_t::SPECTRUM_BAND_SCAN);
-	tune_options.tune_mode = tune_mode_t::SPECTRUM;
+		tune_options_ ? * tune_options_:
+		receiver->get_default_tune_options(devdb::subscription_type_t::SPECTRUM_BAND_SCAN);
+	tune_options.tune_mode = devdb::tune_mode_t::SPECTRUM;
 	tune_options.need_spectrum = true;
 	tune_options.spectrum_scan_options.recompute_peaks = true;
 	tune_options.spectrum_scan_options.start_freq = low_freq;
@@ -109,10 +111,10 @@ int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
 														 ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
 														 ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
-														 const std::optional<tune_options_t>& tune_options_) {
+														 const std::optional<subscription_options_t>& tune_options_) {
 	set_scanning(true);
 	auto& tune_options = tune_options_ ? *tune_options_ :
-		receiver->get_default_tune_options(subscription_type_t::MUX_SCAN);
+		receiver->get_default_tune_options(devdb::subscription_type_t::MUX_SCAN);
 
 	subscription_id_t ret{subscription_id};
 	if(dvbs_muxes.size() > 0) {

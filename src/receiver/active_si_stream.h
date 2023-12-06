@@ -562,7 +562,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return *chdb::mux_key_ptr(tmp);
 	}
 	dtdemux::ts_stream_t stream_parser;
-	scan_target_t scan_target; //which SI tables should be scanned?
+	devdb::scan_target_t scan_target; //which SI tables should be scanned?
 	bool si_processing_done{false};
 	bool call_scan_mux_end{false};
 	/*we need one parser per pid; within each pid multiple tables may exist
@@ -632,8 +632,8 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 */
 	int save_network(db_txn& txn, const nit_network_t& network, int sat_pos);
 
-	void init_scanning(scan_target_t scan_target_);
-	bool init(scan_target_t scan_target_);
+	void init_scanning(devdb::scan_target_t scan_target_);
+	bool init(devdb::scan_target_t scan_target_);
 
 	template<typename parser_t, typename... Args>
 	auto add_parser(int pid, const ss::string_& ndc_prefix, Args... args) {

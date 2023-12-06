@@ -356,7 +356,7 @@ void active_si_stream_t::close() {
 }
 
 bool active_si_stream_t::abort_on_wrong_sat() const {
-	return !is_embedded_si && wrong_sat_detected() && reader->tune_options().retune_mode == retune_mode_t::AUTO;
+	return !is_embedded_si && wrong_sat_detected() && reader->tune_options().retune_mode == devdb::retune_mode_t::AUTO;
 }
 
 /*
@@ -851,7 +851,9 @@ bool active_si_stream_t::fix_tune_mux_template() {
 /*
 	called when stream is first locked and is a transport stream; returns true on success
  */
-bool active_si_stream_t::init(scan_target_t scan_target_) {
+bool active_si_stream_t::init(devdb::scan_target_t scan_target_) {
+	using namespace devdb;
+
 	log4cxx::NDC(name());
 	assert(!is_open());
 	if (is_open())
@@ -2615,10 +2617,10 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb(epg_t& epg, const subta
 	return eit_section_cb_(epg, i);
 }
 
-void active_si_stream_t::init_scanning(scan_target_t scan_target_) {
+void active_si_stream_t::init_scanning(devdb::scan_target_t scan_target_) {
 	dtdebugf("setting si_processing_done=false");
 	si_processing_done = false;
-	scan_target = scan_target_ == scan_target_t::NONE ? scan_target_t::SCAN_FULL_AND_EPG : scan_target_;
+	scan_target = scan_target_ == devdb::scan_target_t::NONE ? devdb::scan_target_t::SCAN_FULL_AND_EPG : scan_target_;
 	scan_state.reset();
 
 	// add_table should be called in order of importance and urgency.

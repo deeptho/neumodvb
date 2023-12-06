@@ -524,7 +524,6 @@ fe_pls_mode = db_enum(name='fe_pls_mode_t',
             'COMBO',
         )))
 
-
 scan_id = db_struct(name='scan_id',
                     fname = 'common',
                     db = db,
@@ -544,7 +543,7 @@ scan_rf_path = db_struct(name='scan_rf_path',
                          fields = ((1, 'int16_t', 'lnb_id', '-1'), #-1 means: not set
                                    (2, 'int64_t', 'card_mac_address', -1), #-1 means: not set
                                    (3, 'int8_t', 'rf_input', -1), #-1 means: not set
-                                   (4, 'int8_t', 'dish_id'), #value is defined only if next three values are set
+                                   (4, 'int8_t', 'dish_id'),
                                 )
                          )
 

@@ -279,6 +279,34 @@ class DiseqcChoice(wx.Choice):
         except:
             return None
 
+class RepeatTypeChoice(wx.Choice):
+    def __init__(self, id,  *args, **kwargs):
+        from neumodvb import neumodbutils
+        import pydevdb
+        self.choices = [ 'Never', 'Hours', 'Days', 'Weeks', 'Months']
+        self.values = neumodbutils.enum_labels(pydevdb.repeat_type_t)[1:]
+        kwargs['choices'] = self.choices
+        super().__init__(id, *args, **kwargs)
+
+    def SetValue(self, repeat_type):
+        from neumodvb import neumodbutils
+        val = neumodbutils.enum_to_str(repeat_type).replace('_', ' ')
+        idx = self.values.index(val)
+        self.SetSelection(idx)
+
+    def GetValue(self):
+        from neumodvb import neumodbutils
+        import pydevdb
+        idx = self.GetCurrentSelection()
+        choice = self.values[idx]
+        try:
+            val = neumodbutils.enum_value_for_label(pydevdb.repeat_type_t, choice)
+            return val
+        except:
+            return None
+
+
+
 OnChangeEvent, EVT_VALUE_CHANGED = wx.lib.newevent.NewEvent()
 
 class TextCtrl(wx.TextCtrl):

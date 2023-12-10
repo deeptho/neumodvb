@@ -499,15 +499,16 @@ subscription_type = db_enum(name='subscription_type_t',
                                      #the dish can be used on the same dish
 	                 ))
 
-repeat = db_enum(name='repeat_t',
+repeat_type = db_enum(name='repeat_type_t',
                    db = db,
                    storage = 'int8_t',
                    type_id = 100,
                    version = 1,
                    fields=(
                        ('NONE', '-1'),
+                       'NEVER',
                        'HOURLY',
-                       'DAYLY',
+                       'DAILY',
                        'WEEKLY',
                        'MONTHLY'
                    ))
@@ -541,15 +542,7 @@ tune_options = db_struct(name ='tune_options',
 	            (15, 'int32_t', 'dish_move_penalty', '0')
               ))
 
-interval = db_struct(name ='interval',
-                     fname = 'options',
-                     db = db,
-                     type_id = lord('Sr'),
-                     version = 1,
-                     fields = ((1, 'int16_t', 'val', '1'), #when to run next
-                               (2, 'time_period_t'), 'time_period_t::DAYS'))
-
-scan_command = db_struct(name ='scan_commands',
+scan_command = db_struct(name ='scan_command',
     fname = 'options',
     db = db,
     type_id = lord('SC'),
@@ -557,7 +550,8 @@ scan_command = db_struct(name ='scan_commands',
     ignore_for_equality_fields = ('mtime',),
     fields = ((1, 'int32_t', 'id', '-1'), # -1 means "not set"
               (2, 'time_t', 'start_time', '0'), #when to run next
-              (3, 'repeat_t', 'repeat', 'repeat_t::DAYLY'), #what time of day, day of week or month to run
+              (3, 'repeat_type_t', 'repeat_type', 'repeat_type_t::DAYLY'), #what time of day, day of week or month
+                                                                           #to run
               (4, 'int16_t', 'interval', '1'), #larger interval
               (5, 'int16_t', 'max_duration', '-1'), #max duration in seconds
               (6, 'bool', 'catchup', 'true'), #if true, then run the last planned scan if it was not run

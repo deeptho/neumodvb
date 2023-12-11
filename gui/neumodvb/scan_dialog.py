@@ -45,8 +45,7 @@ class SchedulingParameters(SchedulingParameters_):
         self.startdate_datepicker.SetValue(d)
         t = datetime.datetime.fromtimestamp(self.start_time, tz=tz.tzlocal())
         self.starttime_text.SetValue(t.strftime('%H:%M'))
-        self.interval_text_ctrl.SetValue(self.scan_command.interval)
-        self.repeat_type_choice.SetValue(self.scan_command.repeat_type)
+        self.repeat_type_choice.SetValue(self.scan_command.repeat_type, self.scan_command.interval)
         self.max_duration_text.SetValueTime(self.scan_command.max_duration)
         self.catchup_checkbox.SetValue(True)
 
@@ -56,8 +55,8 @@ class SchedulingParameters(SchedulingParameters_):
         start_time = self.startdate_datepicker.GetValue().GetTicks()
         start_time += self.starttime_text.GetSeconds()
         self.scan_command.start_time = start_time
-        self.scan_command.interval = self.interval_text_ctrl.GetValue()
-        self.scan_command.repeat_type = self.repeat_type_choice.GetValue()
+        self.scan_command.repeat_type, self.scan_command.interval = \
+            self.repeat_type_choice.GetValue()
         self.scan_command.max_duration = self.max_duration_text.GetSeconds()
         self.scan_command.catchup = self.catchup_checkbox.GetValue()
 
@@ -198,7 +197,7 @@ class ScanJobDialog_(ScanDialog_):
 
 class ScanDialog(ScanJobDialog_):
     def __init__(self, parent, allow_band_scan, allowed_sat_bands, title, *args, **kwds):
-        with_schedule = False
+        with_schedule = True
         super().__init__(parent, with_schedule, allow_band_scan, allowed_sat_bands, title, *args, **kwds)
 
 def service_for_key(service_key):

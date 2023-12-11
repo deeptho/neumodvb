@@ -279,7 +279,7 @@ class DiseqcChoice(wx.Choice):
         except:
             return None
 
-class RepeatTypeChoice(wx.Choice):
+class RepeatTypeChoiceOFF(wx.Choice):
     def __init__(self, id,  *args, **kwargs):
         from neumodvb import neumodbutils
         import pydevdb
@@ -304,6 +304,35 @@ class RepeatTypeChoice(wx.Choice):
             return val
         except:
             return None
+
+class RepeatTypeChoice(wx.Choice):
+    def __init__(self, id,  *args, **kwargs):
+        from neumodvb import neumodbutils
+        import pydevdb
+        r_t = pydevdb.repeat_type_t
+        self.choices = ['Every hour', *[f"Every {h} hours" for h in [2, 3, 4, 6, 8, 12]], 'Daily', 'Weekly', 'Biweekly',
+                        'Monthly']
+        self.repeat_types = [ *[r_t.HOURLY]*7, r_t.DAILY, *[r_t.WEEKLY]*2, r_t.MONTHLY]
+
+        self.intervals = [ *[1, 2, 3, 4, 6, 8, 12], 1, *[1, 2], 1]
+        assert len(self.repeat_types) == len(self.choices)
+        assert len(self.intervals) == len(self.choices)
+
+        kwargs['choices'] = self.choices
+        super().__init__(id, *args, **kwargs)
+
+    def SetValue(self, repeat_type, interval):
+        from neumodvb import neumodbutils
+        try:
+            idx = [*zip(self.repeat_type, self.intervals)].index(repeat_type, interval)
+            self.SetSelection(idx)
+        except:
+            pass
+    def GetValue(self):
+        from neumodvb import neumodbutils
+        import pydevdb
+        idx = self.GetCurrentSelection()
+        return self.repeat_types[idx], self.intervals[idx]
 
 
 

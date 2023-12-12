@@ -388,10 +388,6 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdInspect")
         self.app.CmdInspect()
 
-    def CmdChannelScreenshot(self, event):
-        dtdebug("CmdChannelScreenshot")
-        self.app.current_mpv_player.screenshot()
-
     def CmdLiveChannels(self, event):
         dtdebug("CmdLiveChannels")
         self.ShowPanel([self.live_panel])
@@ -486,6 +482,10 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdAutoRecList")
         self.ShowPanel(self.autoreclist_panel)
 
+    def CmdScanCommandList(self, event):
+        dtdebug("CmdScanCommandList")
+        self.ShowPanel(self.scancommandlist_panel)
+
     def CmdScan(self, event):
         dtdebug("CmdScan")
         m = self.get_panel_method('CmdScan')
@@ -493,27 +493,10 @@ class neumoMainFrame(mainFrame):
         if m is not None:
             m(event)
 
-    def CmdPause(self, event):
-        dtdebug('CmdPause')
-        return wx.GetApp().Pause()
-
-    def CmdToggleOverlay(self, event):
-        dtdebug('CmdToggleOverlay')
-        return wx.GetApp().ToggleOverlay()
-
     def CmdStop(self, event):
         dtdebug('CmdStop')
         return wx.GetApp().Stop()
 
-    def CmdAudioLang(self, event):
-        dtdebug('CmdAudioLang')
-        dark_mode = self.current_panel() == self.live_panel
-        return wx.GetApp().AudioLang(dark_mode)
-
-    def CmdSubtitleLang(self, event):
-        dtdebug('CmdSubtitleLang')
-        dark_mode = self.current_panel() == self.live_panel
-        return wx.GetApp().SubtitleLang(dark_mode)
     def CmdExit(self, event):
         dtdebug("CmdExit")
         if self.current_panel() != self.live_panel:

@@ -2639,6 +2639,24 @@ class LivePanel(wx.Panel):
         else:
             return self.grid_panel.OnAutoRec(event)
 
+    def CmdAudioLang(self, event):
+        dtdebug('CmdAudioLang')
+        dark_mode = True # self.current_panel() == self.live_panel
+        return wx.GetApp().AudioLang(dark_mode)
+
+    def CmdSubtitleLang(self, event):
+        dtdebug('CmdSubtitleLang')
+        dark_mode = True # self.current_panel() == self.live_panel
+        return wx.GetApp().SubtitleLang(dark_mode)
+
+    def CmdChannelScreenshot(self, event):
+        dtdebug("CmdChannelScreenshot")
+        self.app.current_mpv_player.screenshot()
+
+    def CmdToggleOverlay(self, event):
+        dtdebug('CmdToggleOverlay')
+        return wx.GetApp().ToggleOverlay()
+
     def OnToggleLiveRecord(self):
         ls = wx.GetApp().live_service_screen
         service = ls.selected_service
@@ -2651,6 +2669,10 @@ class LivePanel(wx.Panel):
 
     def CmdFullScreen(self, evt):
         return self.parent.CmdFullScreen(evt)
+
+    def CmdPause(self, event):
+        dtdebug('CmdPause')
+        return wx.GetApp().Pause()
 
     def CmdStop(self, event):
         dtdebug('CmdStop')

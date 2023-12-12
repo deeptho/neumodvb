@@ -542,20 +542,23 @@ tune_options = db_struct(name ='tune_options',
 	            (15, 'int32_t', 'dish_move_penalty', '0')
               ))
 
-scan_command = db_struct(name ='scan_command',
+scan_command = db_struct(
+    name ='scan_command',
     fname = 'options',
     db = db,
     type_id = lord('SC'),
     version = 1,
+    primary_key= ('key', ('id',)),
     ignore_for_equality_fields = ('mtime',),
     fields = ((1, 'int32_t', 'id', '-1'), # -1 means "not set"
               (2, 'time_t', 'start_time', '0'), #when to run next
-              (3, 'repeat_type_t', 'repeat_type', 'repeat_type_t::DAYLY'), #what time of day, day of week or month
-                                                                           #to run
+              (3, 'repeat_type_t', 'repeat_type', 'repeat_type_t::DAILY'), #what time of day, day of week or month
+              #to run
               (4, 'int16_t', 'interval', '1'), #larger interval
               (5, 'int16_t', 'max_duration', '-1'), #max duration in seconds
               (6, 'bool', 'catchup', 'true'), #if true, then run the last planned scan if it was not run
-              (7, 'subscription_type_t', 'subscription_type'), #when to run next
-              (8, 'tune_options_t', 'tune_options'),
-              (9, 'ss::vector<chdb::sat_t,1>', 'sats'),
+              (7, 'time_t', 'mtime'),
+              (8, 'subscription_type_t', 'subscription_type'), #when to run next
+              (9, 'tune_options_t', 'tune_options'),
+              (10, 'ss::vector<chdb::sat_t,1>', 'sats')
               ))

@@ -85,7 +85,8 @@ class neumoMainFrame(mainFrame):
             self.chglist_panel,
             self.satlist_panel, self.frontendlist_panel, self.statuslist_panel,
             self.mosaic_panel,
-            self.reclist_panel, self.autoreclist_panel, self.spectrumlist_panel]
+            self.reclist_panel, self.autoreclist_panel, self.spectrumlist_panel,
+            self.scancommandlist_panel]
         self.grids = [
             self.servicegrid, self.chgmgrid,
             self.chepggrid,
@@ -95,7 +96,8 @@ class neumoMainFrame(mainFrame):
             self.satgrid,
             self.frontendgrid,
             self.statusgrid,
-            self.recgrid, self.autorecgrid, self.spectrumgrid
+            self.recgrid, self.autorecgrid, self.spectrumgrid,
+            self.scancommandgrid
         ]
         for grid in self.grids:
             panel = grid
@@ -245,7 +247,10 @@ class neumoMainFrame(mainFrame):
                 else:
                     wx.CallAfter(panel.SetFocus)
         for item_name, onoff in items_to_toggle.items():
-            item = getattr(self.main_menubar, item_name)
+            item = getattr(self.main_menubar, item_name, None)
+            #if item is None:
+                #item = self.main_menubar.get_menu_item(item_name)
+                #setattr(self.main_menubar, item_name, item)
             item.Enable(onoff)
         if self.live_panel in panelstoshow:
             self.set_accelerators(True)
@@ -271,7 +276,13 @@ class neumoMainFrame(mainFrame):
 
     def EnablePanelSpecificMenus(self, panel, items_to_toggle, onoff):
         if(hasattr(panel, 'grid')):
-           for item_name in panel.grid.grid_specific_menu_items:
+            specific_menu_items = panel.grid.grid_specific_menu_items
+        #elif panel == self.live_panel:
+        #    specific_menu_items = self.live_panel.grid_specific_menu_items
+        else:
+            specific_menu_items = None
+        if specific_menu_items is not None:
+           for item_name in specific_menu_items:
                #always turn item on when onoff==True else turn it off, unless it is turned on
                items_to_toggle[item_name] = onoff if onoff else items_to_toggle.get(item_name, False)
 

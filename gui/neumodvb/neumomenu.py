@@ -131,7 +131,10 @@ lists_menu = (
     SEP,
     MI("RecList",_("&Recordings\tCtrl-Shift-R"), _("recordings list")),
     MI("AutoRecList",_("&AutoRecs\tCtrl-Shift-G "), _("autorecordings list")),
-    MI("SpectrumList",_("&Spectra\tCtrl-Shift-U"), _("Spectra list"))
+    MI("SpectrumList",_("&Spectra\tCtrl-Shift-U"), _("Spectra list")),
+    SEP,
+    MI("ScanCommandList",_("&Commands\tCtrl-Shift-Q"), _("Scan commands")),
+
 )
 
 main_menubar = (

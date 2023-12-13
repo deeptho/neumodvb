@@ -141,7 +141,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.lnb_activated_ = False
         self.use_blindscan_ = opts.positioner_dialog_use_blind_tune
         self.blind_toggle.SetValue(self.use_blindscan_)
-        self.retune_mode_ =  pyreceiver.retune_mode_t.IF_NOT_LOCKED
+        self.retune_mode_ =  pydevdb.retune_mode_t.IF_NOT_LOCKED
         self.signal_info = pyreceiver.signal_info_t()
         self.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
 
@@ -227,7 +227,7 @@ class TuneMuxPanel(TuneMuxPanel_):
     def lnb_subscriber(self):
         if not self.tuned_ and not self.lnb_activated_:
             self.lnb_activated_ = True;
-            self.SubscribeLnb(retune_mode=pyreceiver.retune_mode_t.NEVER)
+            self.SubscribeLnb(retune_mode=pydevdb.retune_mode_t.NEVER)
         return self.mux_subscriber
 
     @property
@@ -434,7 +434,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.parent.ClearSignalInfo()
         #reread usals in case we are part of spectrum_dialog and positioner_dialog has changed them
         self.lnb = self.read_lnb_from_db()
-        wx.CallAfter(self.Tune,  mux, retune_mode=pyreceiver.retune_mode_t.IF_NOT_LOCKED,
+        wx.CallAfter(self.Tune,  mux, retune_mode=pydevdb.retune_mode_t.IF_NOT_LOCKED,
                      pls_search_range=pls_search_range)
         if event is not None:
             event.Skip()

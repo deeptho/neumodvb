@@ -142,7 +142,6 @@ class ServiceGridBase(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        self.grid_specific_menu_items=['epg_record_menu_item', 'epg_autorec_menu_item']
         self.restrict_to_sat = None
         self.service = None
 
@@ -168,7 +167,7 @@ class ServiceGridBase(NeumoGridBase):
         self.service = None
         super().OnShow(evt)
 
-    def OnToggleRecord(self, evt):
+    def CmdToggleRecord(self, evt):
         row = self.GetGridCursorRow()
         service = self.table.screen.record_at_row(row)
         start_time = datetime.datetime.now(tz=tz.tzlocal())
@@ -176,7 +175,7 @@ class ServiceGridBase(NeumoGridBase):
         show_record_dialog(self, service, start_time=start_time)
 
 
-    def OnAutoRec(self, evt):
+    def CmdAutoRec(self, evt):
         row = self.GetGridCursorRow()
         service = self.table.screen.record_at_row(row)
         from neumodvb.autorec_dialog import show_autorec_dialog

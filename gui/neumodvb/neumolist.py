@@ -956,7 +956,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.SetDefaultCellBackgroundColour(wx.Colour('black'))
             self.SetDefaultCellTextColour(wx.Colour('white'))
         self.col_select_mode = False
-        self.grid_specific_menu_items=[]
         self.infow = None
         self.coloured_rows= set()
         glr.GridWithLabelRenderersMixin.__init__(self)

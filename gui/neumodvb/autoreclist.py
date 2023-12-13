@@ -108,8 +108,6 @@ class AutoRecGridBase(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.app = wx.GetApp()
-        #self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        #self.grid_specific_menu_items=['epg_record_menu_item']
 
     def InitialRecord(self):
         return self.app.currently_selected_rec

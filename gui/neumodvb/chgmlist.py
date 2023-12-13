@@ -125,7 +125,6 @@ class ChgmGridBase(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        self.grid_specific_menu_items=['epg_record_menu_item', 'epg_autorec_menu_item']
         self.restrict_to_chg = None
         self.chgm = None
         self.GetParent().Bind(EVT_CHG_SELECT, self.CmdSelectChg)
@@ -153,14 +152,14 @@ class ChgmGridBase(NeumoGridBase):
         self.chgm = None
         super().OnShow(evt)
 
-    def OnToggleRecord(self, evt):
+    def CmdToggleRecord(self, evt):
         row = self.GetGridCursorRow()
         chgm = self.table.screen.record_at_row(row)
         start_time = datetime.datetime.now(tz=tz.tzlocal())
         from neumodvb.record_dialog import show_record_dialog
         show_record_dialog(self, chgm, start_time=start_time)
 
-    def OnAutoRec(self, evt):
+    def CmdAutoRec(self, evt):
         row = self.GetGridCursorRow()
         chgm = self.table.screen.record_at_row(row)
         start_time = datetime.datetime.now(tz=tz.tzlocal())

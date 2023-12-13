@@ -22,7 +22,7 @@ import wx
 
 from neumodvb.util import dtdebug, dterror
 #menu item
-MI = namedtuple('MenuItemDesc', 'name label help kind', defaults=[None, "", wx.ITEM_NORMAL])
+MI = namedtuple('MenuItemDesc', 'name label help kind start_disabled', defaults=[None, "", wx.ITEM_NORMAL, False])
 
 #menu
 MENU = namedtuple('MenuDesc', 'name, label entries')
@@ -99,7 +99,7 @@ edit_menu = (
        wx.ITEM_CHECK),
     MI("BouquetAddService",
        _("Bouquet add service&\tCtrl-M"),
-       ""),
+       "", start_disabled=True),
     MI("Delete",
        _("&Delete\tCtrl-D"),
        ""),
@@ -146,6 +146,10 @@ main_menubar = (
 
 
 class NeumoMenuBar(wx.MenuBar):
+    """
+    menu items will be enabled provided that current panel has the method needed by the menu item
+
+    """
     def __init__(self, parent, *args, **kwds):
         super().__init__(*args, **kwds)
         self.parent = parent
@@ -163,14 +167,6 @@ class NeumoMenuBar(wx.MenuBar):
         ret = self.parent.get_panel_method(method_name)
         if ret is not None:
             return ret, 2
-        if False:
-            #The following is needed in case no window is focused
-            ret = getattr(self.parent.live_panel, method_name, None)
-            if ret:
-                return ret, 1
-            ret = getattr(self.parent, method_name, None)
-            if ret:
-                return ret, 0
         return None, -1
 
     def get_panel_method(self, method_name):
@@ -181,6 +177,8 @@ class NeumoMenuBar(wx.MenuBar):
         """
         principle: lookup in parent if it supports specific method
         """
+        if it.disabled: #menu item disabled because of some current state unrelated to specifically shown panel
+            return False
         if it.desc.name in  ['Stop', 'Inspect']:
             return True
         m = self.get_panel_method(f'Cmd{it.desc.name}')
@@ -284,6 +282,7 @@ class NeumoMenuBar(wx.MenuBar):
             else:
                 item = menu.Append(wx.ID_ANY, mi.label, mi.help, mi.kind)
                 item.desc = mi
+                item.disabled = item.desc.start_disabled
                 a = item.GetAccel()
                 self.items[mi.name] = (mi, item)
                 x = f'Cmd{mi.name}'
@@ -292,8 +291,7 @@ class NeumoMenuBar(wx.MenuBar):
                 #bindings will use the same value of x
                 self.Bind(wx.EVT_MENU, lambda evt, x=x, accel=accel_key: self.run_menu_command(x, accel, evt), item)
 
-        if menudesc in (control_menu, edit_menu):
-            menu.Bind(wx.EVT_MENU_OPEN, self.OnShow)
+        menu.Bind(wx.EVT_MENU_OPEN, self.OnShow)
         return menu
 
     def make_menubar(self):

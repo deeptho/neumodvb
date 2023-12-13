@@ -164,17 +164,16 @@ class ChEpgGrid(NeumoGridBase):
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.GetParent().Bind(EVT_SERVICE_SELECT, self.CmdSelectService)
         self.Bind(wx.EVT_WINDOW_CREATE, self.OnWindowCreate)
-        self.grid_specific_menu_items=['epg_record_menu_item', 'epg_autorec_menu_item']
         self.restrict_to_service = None
 
-    def OnToggleRecord(self, evt):
+    def CmdToggleRecord(self, evt):
         service, epg = self.CurrentServiceAndEpgRecord()
         assert epg is not None
         assert service is not None
         from neumodvb.record_dialog import show_record_dialog
         show_record_dialog(self, service, epg=epg)
 
-    def OnAutoRec(self, evt):
+    def CmdAutoRec(self, evt):
         service, epg = self.CurrentServiceAndEpgRecord()
         assert epg is not None
         assert service is not None

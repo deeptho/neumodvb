@@ -62,8 +62,6 @@ class neumoMainFrame(mainFrame):
         super().__init__(*args, **kwds)
         from neumodvb.neumomenu import NeumoMenuBar
         self.main_menubar = NeumoMenuBar(self)
-        self.main_menubar.epg_record_menu_item = self.main_menubar.get_menu_item('ToggleRecord')
-        self.main_menubar.epg_autorec_menu_item = self.main_menubar.get_menu_item('AutoRec')
         self.main_menubar.edit_mode_checkbox = self.main_menubar.get_menu_item('EditMode')
         self.main_menubar.on_new = self.main_menubar.get_menu_item('New')
         self.edit_menu = self.main_menubar.get_menu('Edit')
@@ -75,30 +73,21 @@ class neumoMainFrame(mainFrame):
         self.dvbt_muxgrid.infow = self.dvbt_muxinfo_text
         self.servicegrid.infow = self.serviceinfo_text
         self.chgmgrid.infow = self.chgminfo_text
-        self.bouquet_being_edited=None
-        self.panels = [
-            self.servicelist_panel,
-            self.chgmlist_panel,
-            self.chepg_panel, self.live_panel,
-            self.dvbs_muxlist_panel, self.dvbc_muxlist_panel, self.dvbt_muxlist_panel,
-            self.lnblist_panel,
-            self.chglist_panel,
-            self.satlist_panel, self.frontendlist_panel, self.statuslist_panel,
-            self.mosaic_panel,
-            self.reclist_panel, self.autoreclist_panel, self.spectrumlist_panel,
-            self.scancommandlist_panel]
-        self.grids = [
-            self.servicegrid, self.chgmgrid,
-            self.chepggrid,
-            self.dvbs_muxgrid, self.dvbc_muxgrid, self.dvbt_muxgrid,
-            self.lnbgrid,
-            self.chggrid,
-            self.satgrid,
-            self.frontendgrid,
-            self.statusgrid,
-            self.recgrid, self.autorecgrid, self.spectrumgrid,
-            self.scancommandgrid
-        ]
+        self.bouquet_being_edited = None
+        self.panel_names = [ 'servicelist', 'chgmlist',
+                            'chepg', 'live',
+                            'dvbs_muxlist', 'dvbc_muxlist', 'dvbt_muxlist',
+                            'lnblist', 'chglist',
+                            'satlist', 'frontendlist', 'statuslist',
+                            'mosaic',
+                            'reclist', 'autoreclist', 'spectrumlist',
+                            'scancommandlist']
+
+
+        self.panels = [ getattr(self, f'{n}_panel') for n in self.panel_names]
+        self.grids = filter(lambda xx: xx is not None,
+                            [ getattr(self, f'{n.removesuffix("list")}grid',None) for n in self.panel_names])
+
         for grid in self.grids:
             panel = grid
             while panel is not None:
@@ -234,24 +223,15 @@ class neumoMainFrame(mainFrame):
                 window.Hide()
             else:
                 window.Show()
-        items_to_toggle= {}
         for panel in self.panels:
             if panel not in panelstoshow:
-                self.EnablePanelSpecificMenus(panel, items_to_toggle, False)
                 panel.Hide()
             else:
                 panel.Show()
-                self.EnablePanelSpecificMenus(panel, items_to_toggle, True)
                 if hasattr(panel, 'main_grid'):
                     panel.main_grid.SetFocus()
                 else:
                     wx.CallAfter(panel.SetFocus)
-        for item_name, onoff in items_to_toggle.items():
-            item = getattr(self.main_menubar, item_name, None)
-            #if item is None:
-                #item = self.main_menubar.get_menu_item(item_name)
-                #setattr(self.main_menubar, item_name, item)
-            item.Enable(onoff)
         if self.live_panel in panelstoshow:
             self.set_accelerators(True)
         else:
@@ -273,18 +253,6 @@ class neumoMainFrame(mainFrame):
         if False:
             menu = self.edit_menu
             self.EnableMenu(self.edit_menu, edit_mode, skip_items=[self.main_menubar.edit_mode_checkbox, self.main_menubar.on_new])
-
-    def EnablePanelSpecificMenus(self, panel, items_to_toggle, onoff):
-        if(hasattr(panel, 'grid')):
-            specific_menu_items = panel.grid.grid_specific_menu_items
-        #elif panel == self.live_panel:
-        #    specific_menu_items = self.live_panel.grid_specific_menu_items
-        else:
-            specific_menu_items = None
-        if specific_menu_items is not None:
-           for item_name in specific_menu_items:
-               #always turn item on when onoff==True else turn it off, unless it is turned on
-               items_to_toggle[item_name] = onoff if onoff else items_to_toggle.get(item_name, False)
 
     def Stop(self):
         self.app.ScanStop()
@@ -406,7 +374,7 @@ class neumoMainFrame(mainFrame):
         self.live_panel.CmdLiveRecordings(event)
 
     def FullScreen(self):
-        dtdebug("CmdFullScreen")
+        dtdebug("FullScreen")
         if not self.IsFullScreen():
             if self.current_panel() == self.live_panel:
                 self.ShowPanel([self.live_panel])
@@ -486,13 +454,6 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdScanCommandList")
         self.ShowPanel(self.scancommandlist_panel)
 
-    def CmdScan(self, event):
-        dtdebug("CmdScan")
-        m = self.get_panel_method('CmdScan')
-        dtdebug(f'CmdScan: {m}')
-        if m is not None:
-            m(event)
-
     def CmdStop(self, event):
         dtdebug('CmdStop')
         return wx.GetApp().Stop()
@@ -515,20 +476,6 @@ class neumoMainFrame(mainFrame):
         panel = self.current_panel()
         if panel is not None and hasattr(panel, 'grid'):
             return panel.grid.OnUndo(event)
-
-    def CmdToggleRecord(self, event):
-        dtdebug("CmdToggleRecord")
-        m = self.get_panel_method('OnToggleRecord')
-        dtdebug(f'CmdToggleRecord: {m}')
-        if m is not None:
-            m(event)
-
-    def CmdAutoRec(self, event):
-        dtdebug("CmdAutoRec")
-        m = self.get_panel_method('OnAutoRec')
-        dtdebug(f'CmdAutoRec: {m}')
-        if m is not None:
-            m(event)
 
 class NeumoBitmaps(object):
     def __init__(self):
@@ -620,6 +567,9 @@ class NeumoGui(wx.App):
     @property
     def statdb(self):
         return self.receiver.statdb
+
+    def get_menu_item(self, name):
+        return self.frame.main_menubar.get_menu_item(name)
 
     def __init__(self, *args, **kwds):
         self.receiver = pyreceiver.receiver_t(options.receiver)

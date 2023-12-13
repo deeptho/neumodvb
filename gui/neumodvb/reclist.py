@@ -105,7 +105,6 @@ class RecGridBase(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
-        self.grid_specific_menu_items=['epg_record_menu_item', 'epg_autorec_menu_item' ]
 
     def InitialRecord(self):
         return self.app.currently_selected_rec
@@ -113,17 +112,17 @@ class RecGridBase(NeumoGridBase):
     def OnShow(self, evt):
         super().OnShow(evt)
 
-    def OnToggleRecord(self, evt):
+    def CmdToggleRecord(self, evt):
         row = self.GetGridCursorRow()
         rec = self.table.screen.record_at_row(row)
-        dtdebug(f'OnToggleRecord {rec}')
+        dtdebug(f'CmdToggleRecord {rec}')
         from neumodvb.record_dialog import show_record_dialog
         show_record_dialog(self, rec, start_time=start_time)
 
-    def OnAutoRec(self, evt):
+    def CmdAutoRec(self, evt):
         row = self.GetGridCursorRow()
         rec = self.screen.record_at_row(row)
-        dtdebug(f'OnAutoRec {rec}')
+        dtdebug(f'CmdAutoRec {rec}')
         return rec, None
 
     def OnKeyDown(self, evt):

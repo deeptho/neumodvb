@@ -106,7 +106,6 @@ class neumoMainFrame(mainFrame):
         self.previous_info_windows_onscreen = []
         self.info_windows_onscreen = []
         self.info_windows = [self.recinfo_text]
-        #self.info_windows = [self.chepginfo_text, self.recinfo_text]
         self.app = wx.GetApp()
         self.mosaic_sizer = wx.GridSizer(cols=1)
         parent_sizer = self.mosaic_panel.GetSizer()
@@ -300,7 +299,6 @@ class neumoMainFrame(mainFrame):
         return
 
     def OnTimer(self, evt):
-        #self.parent.OnTimer(evt)
         panel =self.current_panel()
         if panel is None:
             return
@@ -314,7 +312,6 @@ class neumoMainFrame(mainFrame):
         self.timer.Stop()
         wx.CallAfter(self.OnExit)
         dtdebug('Calling Destroy')
-        #self.Destroy()
         dtdebug('closing done')
         event.Skip(True)
 
@@ -391,7 +388,6 @@ class neumoMainFrame(mainFrame):
     def CmdChEpg(self, event):
         dtdebug("CmdChEpg")
         self.ShowPanel([self.chepg_panel, self.mosaic_panel])
-        #self.ShowPanel([self.chepg_panel, self.mosaic_panel], info_windows=self.chepginfo_text)
 
     def CmdLiveEpg(self, evt):
         dtdebug("CmdLiveEpg")
@@ -503,8 +499,6 @@ class NeumoGui(wx.App):
         for retry in False, True:
             txn = self.chdb.rtxn()
             self.sats = pychdb.sat.list_all_by_key(txn)
-            #self.dishes = sorted(s for s in set(s.dish_id for s in self.sats))
-            #print(f"dishes={self.dishes}")
             del txn
             if len(self.sats) <= 2 and not retry:
                 from neumodvb.init_db import init_db

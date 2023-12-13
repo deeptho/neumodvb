@@ -57,8 +57,16 @@ view_menu = (
 
 
 control_menu = (
-    MI("Inspect",  _("Inspect"), ""),
-    #MI("PlayFile",  _("PlayFile"), ""),
+    MI("Tune",  _("&Tune\tCtrl-Enter"), ""),
+    MI("TuneAdd",  _("&Tune - Add\tShift-Ctrl-Enter"), ""),
+    MI("Play",  _("&Play\tCtrl-Enter"), ""),
+    MI("Play Add",  _("&Play- Add\tShift-Ctrl-Enter"), ""),
+    SEP,
+    MI("ToggleRecord", _("&Record\tCtrl-R"), ""),
+    MI("AutoRec", _("&Create Auto record\tCtrl-G"), ""),
+)
+
+play_menu = (
     MI("Pause",  _("&Pause\tCtrl-Space"), ""),
     MI("Stop",  _("&Stop\tCtrl-X"), ""),
     MI("JumpBack",  _("&Back\tLeft"), ""),
@@ -69,20 +77,18 @@ control_menu = (
     MI("ChannelScreenshot",  _("&ChannelScreenhot\tCtrl-J"), ""),
     MI("ToggleOverlay",  _("&Toggle overlay\tCtrl-O"), ""),
     SEP,
-    MI("Tune",  _("&Tune\tCtrl-Enter"), ""),
-    MI("TuneAdd",  _("&Tune - Add\tShift-Ctrl-Enter"), ""),
+    MI("VolumeUp", _("&Volume Up\t="), ""),
+    MI("VolumeDown", _("&Volume Down\t-"), "")
+)
+
+dx_menu = (
+    MI("Inspect",  _("Inspect"), ""),
+    #MI("PlayFile",  _("PlayFile"), ""),
     MI("SignalHistory",  _("&Signal History\tCtrl-H"), ""),
-    MI("Play",  _("&Play\tCtrl-Enter"), ""),
-    MI("Play Add",  _("&Play- Add\tShift-Ctrl-Enter"), ""),
     MI("Scan",  _("&Scan\tCtrl-S"), ""),
     MI("Spectrum",  _("&Spectrum\tCtrl-U"), _("Spectrum")),
     MI("Positioner",  _("&Positioner\tCtrl-P"), ""),
-    SEP,
-    MI("ToggleRecord", _("&Record\tCtrl-R"), ""),
-    MI("AutoRec", _("&Create Auto record\tCtrl-G"), ""),
-    SEP,
-    MI("VolumeUp", _("&Volume Up\t="), ""),
-    MI("VolumeDown", _("&Volume Down\t-"), "")
+    SEP
 )
 
 edit_menu = (
@@ -139,7 +145,9 @@ lists_menu = (
 
 main_menubar = (
     MENU('View',  _("&View"), view_menu),
+    MENU('PLay', _("&Play"), play_menu),
     MENU('Control', _("&Control"), control_menu),
+    MENU('DX', _("&DX"), dx_menu),
     MENU('Edit', _("&Edit"), edit_menu),
     MENU('Lists', _("&Lists"), lists_menu)
     )

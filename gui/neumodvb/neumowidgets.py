@@ -279,19 +279,19 @@ class DiseqcChoice(wx.Choice):
         except:
             return None
 
-class RepeatTypeChoiceOFF(wx.Choice):
+class ScanTypeChoice(wx.Choice):
     def __init__(self, id,  *args, **kwargs):
         from neumodvb import neumodbutils
         import pydevdb
-        self.choices = [ 'Never', 'Hours', 'Days', 'Weeks', 'Months']
-        self.values = neumodbutils.enum_labels(pydevdb.repeat_type_t)[1:]
+        p_t = pydevdb.subscription_type_t
+        self.choices = [ 'Scan muxes', 'Scan band', 'Acq. spectrum']
+        self.values = [ p_t.MUX_SCAN, p_t.SPECTRUM_BAND_SCAN, p_t.SPECTRUM_ACQ]
         kwargs['choices'] = self.choices
         super().__init__(id, *args, **kwargs)
 
-    def SetValue(self, repeat_type):
+    def SetValue(self, subscription_type):
         from neumodvb import neumodbutils
-        val = neumodbutils.enum_to_str(repeat_type).replace('_', ' ')
-        idx = self.values.index(val)
+        idx = self.values.index(subscription_type)
         self.SetSelection(idx)
 
     def GetValue(self):
@@ -299,11 +299,7 @@ class RepeatTypeChoiceOFF(wx.Choice):
         import pydevdb
         idx = self.GetCurrentSelection()
         choice = self.values[idx]
-        try:
-            val = neumodbutils.enum_value_for_label(pydevdb.repeat_type_t, choice)
-            return val
-        except:
-            return None
+        return choice
 
 class RepeatTypeChoice(wx.Choice):
     def __init__(self, id,  *args, **kwargs):

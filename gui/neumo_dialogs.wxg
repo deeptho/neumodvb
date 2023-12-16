@@ -852,14 +852,14 @@
                             <option>0</option>
                             <border>4</border>
                             <flag>wxBOTTOM</flag>
-                            <object class="wxChoice" name="scan_type_choice" base="EditChoice">
+                            <object class="ScanTypeChoice" name="scan_type_choice" base="EditChoice">
+                                <extracode_pre>from neumodvb.neumowidgets import ScanTypeChoice</extracode_pre>
                                 <events>
                                     <handler event="EVT_CHOICE">OnScanTypeChoice</handler>
                                 </events>
-                                <selection>1</selection>
+                                <tooltip>What tyoe fo scan to perform</tooltip>
+                                <selection>0</selection>
                                 <choices>
-                                    <choice>Scan spectrum</choice>
-                                    <choice>Scan Muxes</choice>
                                 </choices>
                             </object>
                         </object>
@@ -976,10 +976,8 @@
                                                                 <handler event="EVT_CHOICE">OnRepeatTypeChoice</handler>
                                                             </events>
                                                             <tooltip>When to repeat the job </tooltip>
-                                                            <selection>1</selection>
+                                                            <selection>0</selection>
                                                             <choices>
-                                                                <choice>Scan spectrum</choice>
-                                                                <choice>Scan Muxes</choice>
                                                             </choices>
                                                         </object>
                                                     </object>

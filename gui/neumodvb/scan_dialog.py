@@ -74,6 +74,7 @@ class ScanParameters(ScanParameters_):
             subscription_type= subscription_type_t.SPECTRUM_BAND_SCAN if allow_band_scan \
             else subscription_type_t.MUX_SCAN)
         self.allow_band_scan = allow_band_scan
+        self.allow_band_scan_for_muxes = allow_band_scan_for_muxes
         self.band_scan = allow_band_scan #use spectrum scan by default in this case
         self.tune_options.use_blind_tune = self.band_scan #must use blind tune when spectrum scanning
         self.tune_options.propagate_scan = not self.band_scan
@@ -87,8 +88,9 @@ class ScanParameters(ScanParameters_):
         else:
             self.band_scan_save_spectrum_checkbox.Disable()
             self.band_scan_save_spectrum_checkbox.Hide()
-            self.allowed_sat_bands_checklistbox.Hide()
-            self.allowed_pols_checklistbox.Hide()
+            if not self.allow_band_scan_for_muxes:
+                self.allowed_sat_bands_panel.Hide()
+                self.allowed_pols_panel.Hide()
         self.scan_epg_checkbox.SetValue(self.tune_options.scan_epg)
         self.propagate_scan_checkbox.SetValue(self.tune_options.propagate_scan)
         self.blind_tune_checkbox.SetValue(self.tune_options.use_blind_tune)
@@ -103,19 +105,16 @@ class ScanParameters(ScanParameters_):
     def CheckCancel(self, event):
         event.Skip()
 
-    def set_scan_type(self, band_scan):
-        self.band_scan = band_scan
+    def set_scan_type(self, subscription_type):
+        self.scan_command.tune_options.subscription_type = subscription_type
+        self.scan_command.tune_options = self.receiver.get_default_tune_options(
+            subscription_type= self.scan_command.tune_options.subscription_type)
         if self.band_scan:
-            self.tune_options = self.receiver.get_default_tune_options(
-                subscription_type= subscription_type_t.SPECTRUM_BAND_SCAN)
-            self.tune_options.use_blind_tune = True
-            self.blind_tune_checkbox.SetValue(self.tune_options.use_blind_tune)
+            self.scan_command.tune_options.use_blind_tune = True
+            self.blind_tune_checkbox.SetValue(self.scan_command.tune_options.use_blind_tune)
             self.propagate_scan_checkbox.Disable()
             self.band_scan_save_spectrum_checkbox.Enable()
         else:
-            self.tune_options = self.receiver.get_default_tune_options(
-                subscription_type=subscription_type_t.MUX_SCAN)
-
             self.propagate_scan_checkbox.Enable()
             self.blind_tune_checkbox.Enable()
             self.band_scan_save_spectrum_checkbox.SetValue(False)
@@ -174,13 +173,19 @@ class ScanJobDialog_(ScanDialog_):
         else:
             self.scan_type_choice.Disable()
             self.scan_type_choice.Hide()
-        self.scan_type_choice.SetSelection(0 if self.scan_parameters_panel.band_scan else 1)
+        t = self.scan_command.tune_options.subscription_type
+
+        self.scan_type_choice.SetValue(t)
         self.scan_parameters_panel.Prepare()
         self.SetSizerAndFit(self.main_sizer)
 
-    def OnScanTypeChoice(self, evt):
-        self.band_scan = self.scan_type_choice.GetSelection()==0
-        self.scan_parameters_panel.set_scan_type(self.band_scan)
+    def get_scan_type_choice(self):
+        self.scan_command.tune_options.subscription_type = self.scan_type_choice.GetValue()
+        return self.scan_command.tune_options.subscription_type
+
+    def OnScanTypeChoice(self, evt=None):
+        subscription_type = self.get_scan_type_choice()
+        self.scan_parameters_panel.set_scan_type(subscription_type)
         if self.scan_parameters_panel.allow_band_scan:
             self.scan_type_choice.Enable()
         else:

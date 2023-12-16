@@ -35,4 +35,5 @@ void export_chdb_vectors(py::module& m) {
 	export_ss_vector(m, language_code_t);
 	export_ss_vector(m, sat_t);
 	export_ss_vector(m, epg_type_t);
+	export_ss_vector(m, fe_polarisation_t);
 }

@@ -97,10 +97,26 @@ namespace {{dbname}} {
 									[](const {{struct.class_name}}&x) {
 										return &(ss::vector_<{{f.scalar_type}}>&) x.{{f.name}};
 									},
-									[]( {{struct.class_name}}&x, const ss::vector_<{{f.scalar_type}}> val)
-										{ x.{{f.name}} = val;})
-			              //{ x.{{f.name}} = {{f.type}}(&val[0], val.size()); })
-
+									[]( {{struct.class_name}}&x, py::object o)
+										{
+											if(py::isinstance<py::list>(o)) {
+												auto& v= (ss::vector_<{{f.scalar_type}}>&) x.{{f.name}};
+												v.clear();
+												auto l = py::cast<py::list>(o);
+												for(auto p: l)  {
+													if constexpr
+														(!pybind11::detail::cast_is_temporary_value_reference<{{f.scalar_type}}>::value) {
+														auto pv =  p.cast<{{f.scalar_type}}>();
+														v.push_back(pv);
+													} else {
+														auto pv =  p.cast<{{f.scalar_type}}&>();
+														v.push_back(pv);
+													}
+												}
+											} 	else {
+												auto& val = py::cast<ss::vector_<{{f.scalar_type}}>&>(o);
+												x.{{f.name}} = val;
+											}})
 		{%else%}
 		.def_readwrite("{{f.name}}", &{{struct.class_name}}::{{f.name}})
 		{%endif%}

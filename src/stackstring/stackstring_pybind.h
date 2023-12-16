@@ -61,18 +61,23 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
                 		 v.resize_no_init(v.size()+1);
 										 new(&v[v.size()-1]) T(val);
 		})
-#if 0
-		.def("address", [](ss::vector_<T> &v) {
-											return v.address();
-										})
-#endif
+		//.def("assign", py::overload_cast<const py::list&>(&assign_from_list))
+		.def("assign", [](ss::vector_<T>& v, py::list l) {
+			v.clear();
+			for(auto p: l) {
+				if constexpr (!pybind11::detail::cast_is_temporary_value_reference<T>::value) {
+					auto pv =  p.cast<T>();
+					v.push_back(pv);
+				} else {
+					auto pv =  p.cast<T&>();
+					v.push_back(pv);
+				}
+			}})
 		.def("__iter__", [](ss::vector_<T> &v) {
 				//printf("[%p] iter\n", &v);
          return py::make_iterator(v.buffer(), v.buffer()+v.size());
 			}
-#if 1
 			,py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */
-#endif
 			)
 		.def("__getitem__", [](ss::vector_<T> &v, int i) -> T& {
 				if(i>=(signed)v.size())
@@ -81,15 +86,7 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
 				//	printf("[%p] get [{:d}]\n", &v, i);
 				return v[i];
 		}
-#if 0
-			,
-			py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */
-#endif
-#if 0
-			,py::return_value_policy::reference
-#else
 			,py::return_value_policy::copy
-#endif
 			)
 #ifdef TODO
 		//TODO: this returns copies instead of a real slice

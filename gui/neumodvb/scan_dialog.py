@@ -30,6 +30,7 @@ from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb.neumo_dialogs_gui import ScanDialog_, ScanParameters_, SchedulingParameters_
 from pydevdb import subscription_type_t
 import pychdb
+import pydevdb
 
 class SchedulingParameters(SchedulingParameters_):
     def __init__(self, *args, **kwds):
@@ -67,16 +68,44 @@ class ScanParameters(ScanParameters_):
     def __init__(self, *args, **kwds):
         super().__init__(*args, **kwds)
 
-    def init(self, parent, allow_band_scan, allowed_sat_bands):
+    def init(self, parent, scan_command, allow_band_scan, allow_band_scan_for_muxes):
         p_t = pychdb.fe_polarisation_t
+        self.parent = parent
         self.allow_band_scan = allow_band_scan
         self.allow_band_scan_for_muxes = allow_band_scan_for_muxes
-        self.band_scan = allow_band_scan #use spectrum scan by default in this case
-        self.tune_options.use_blind_tune = self.band_scan #must use blind tune when spectrum scanning
-        self.tune_options.propagate_scan = not self.band_scan
-        self.band_scan_options = dict(low_freq=-1, high_freq=-1, pols=[p_t.H, p_t.V])
-        if allowed_sat_bands is not None:
-            self.allowed_sat_bands_checklistbox.set_allowed_sat_bands(allowed_sat_bands)
+        self.scan_command = scan_command
+        if len(scan_command.sats) > 0:
+            sat_bands = set()
+            for sat in scan_command.sats:
+                sat_bands.add(sat.sat_band)
+        elif len(scan_command.dvbs_muxes) > 0 and self.allow_band_scan_for_muxes:
+            sat_bands = set()
+            txn = wx.GetApp().chdb.rtxn()
+            sat=pychdb.sat.sat()
+            for mux in scan_command.dvbs_muxes:
+                if type(mux) != pychdb.dvbs_mux.dvbs_mux:
+                    continue
+                band, sub_band = pychdb.sat_band_for_freq(mux.frequency)
+                sat = pychdb.sat.find_by_key(txn, mux.k.sat_pos, band)
+                if sat:
+                    sat_bands.add(sat.sat_band)
+            txn.abort()
+        else:
+            sat_bands = None
+
+        self.receiver = wx.GetApp().receiver
+        self.scan_command.tune_options.subscription_type = subscription_type_t.SPECTRUM_BAND_SCAN if allow_band_scan \
+            else subscription_type_t.MUX_SCAN
+        self.scan_command.tune_options = self.receiver.get_default_tune_options(
+            subscription_type = self.scan_command.tune_options.subscription_type)
+        self.scan_command.tune_options.use_blind_tune = allow_band_scan #must use blind tune when spectrum scanning
+        self.scan_command.tune_options.propagate_scan = not self.band_scan
+        if sat_bands is not None:
+            self.allowed_sat_bands_checklistbox.set_allowed_sat_bands(list(sat_bands))
+
+    @property
+    def band_scan(self):
+        return self.scan_command.tune_options.subscription_type != subscription_type_t.MUX_SCAN
 
     def Prepare(self):
         if self.allow_band_scan:
@@ -87,10 +116,11 @@ class ScanParameters(ScanParameters_):
             if not self.allow_band_scan_for_muxes:
                 self.allowed_sat_bands_panel.Hide()
                 self.allowed_pols_panel.Hide()
-        self.scan_epg_checkbox.SetValue(self.tune_options.scan_epg)
-        self.propagate_scan_checkbox.SetValue(self.tune_options.propagate_scan)
-        self.blind_tune_checkbox.SetValue(self.tune_options.use_blind_tune)
-        self.may_move_dish_checkbox.SetValue(self.tune_options.may_move_dish)
+        scan_epg = self.scan_command.tune_options.scan_target == pydevdb.scan_target_t.SCAN_FULL_AND_EPG
+        self.scan_epg_checkbox.SetValue(scan_epg)
+        self.propagate_scan_checkbox.SetValue(self.scan_command.tune_options.propagate_scan)
+        self.blind_tune_checkbox.SetValue(self.scan_command.tune_options.use_blind_tune)
+        self.may_move_dish_checkbox.SetValue(self.scan_command.tune_options.may_move_dish)
         if self.band_scan:
             self.propagate_scan_checkbox.Disable()
             self.blind_tune_checkbox.Disable()
@@ -117,45 +147,52 @@ class ScanParameters(ScanParameters_):
             self.band_scan_save_spectrum_checkbox.Disable()
 
     def OnDone(self):
-        sat_bands=self.allowed_sat_bands_checklistbox.selected_sat_bands()
-        import pydevdb
-        import pychdb
-        self.tune_options.allowed_dish_ids = pydevdb.int8_t_vector()
+        allowed_sat_bands=self.allowed_sat_bands_checklistbox.selected_sat_bands()
+        self.scan_command.tune_options.allowed_dish_ids = pydevdb.int8_t_vector()
         for dish in self.allowed_dishes_checklistbox.selected_dishes():
-            self.tune_options.allowed_dish_ids.push_back(dish)
-        self.tune_options.allowed_card_mac_addresses = pydevdb.int64_t_vector()
+            self.scan_command.tune_options.allowed_dish_ids.push_back(dish)
+        self.scan_command.tune_options.allowed_card_mac_addresses = pydevdb.int64_t_vector()
         for c in self.allowed_cards_checklistbox.selected_cards():
-            self.tune_options.allowed_card_mac_addresses.push_back(c)
+            self.scan_command.tune_options.allowed_card_mac_addresses.push_back(c)
         pols = self.allowed_pols_checklistbox.selected_polarisations()
-        sat_bands = sat_bands
-        self.tune_options.scan_epg = self.scan_epg_checkbox.GetValue()
-        self.tune_options.propagate_scan = self.propagate_scan_checkbox.GetValue()
-        self.tune_options.use_blind_tune = self.blind_tune_checkbox.GetValue()
-        self.tune_options.may_move_dish = self.may_move_dish_checkbox.GetValue()
+        scan_epg = self.scan_epg_checkbox.GetValue()
+        self.scan_command.tune_options.scan_target= \
+											pydevdb.scan_target_t.SCAN_FULL_AND_EPG if scan_epg else pydevdb.scan_target_t.SCAN_FULL
+        self.scan_command.tune_options.propagate_scan = self.propagate_scan_checkbox.GetValue()
+        self.scan_command.tune_options.use_blind_tune = self.blind_tune_checkbox.GetValue()
+        self.scan_command.tune_options.may_move_dish = self.may_move_dish_checkbox.GetValue()
 
         start_freq = self.start_freq_textctrl.GetValue()
         end_freq = self.end_freq_textctrl.GetValue()
         start_freq = start_freq*1000 if start_freq is not None and start_freq != -1 else -1
         end_freq = end_freq*1000 if end_freq is not None and end_freq != -1 else -1
-        self.band_scan_options = dict(low_freq=start_freq, high_freq=end_freq, pols=pols, sat_bands=sat_bands)
-
-        return self.tune_options, self.band_scan_options, self.band_scan
+        o = self.scan_command.band_scan_options
+        o.start_freq, o.end_freq = start_freq, end_freq
+        o.pols = pols
+        v = o.pols
+        if len(self.scan_command.sats) > 0:
+            self.scan_command.sats = [ sat for sat in self.scan_command.sats if sat.sat_band in allowed_sat_bands ]
+        if len(self.scan_command.dvbs_muxes) > 0 and self.allow_band_scan_for_muxes:
+            self.scan_command.dvbs_muxes = [ mux for mux in self.scan_command.dvbs_muxes \
+                           if pychdb.sat_band_for_freq(mux.frequency)[0] in allowed_sat_bands]
 
 class ScanJobDialog_(ScanDialog_):
-    def __init__(self, parent, with_schedule, allow_band_scan, allowed_sat_bands, title, *args, **kwds):
+
+    def __init__(self, parent, with_schedule, allow_band_scan, allow_band_scan_for_muxes,
+                 title, scan_command, *args, **kwds):
         p_t = pychdb.fe_polarisation_t
         super().__init__(parent, *args, **kwds)
+        self.scan_command = scan_command
         self.with_schedule = with_schedule
-        self.scan_parameters_panel.init(parent, allow_band_scan, allowed_sat_bands)
+        self.scan_parameters_panel.init(parent, self.scan_command, allow_band_scan, allow_band_scan_for_muxes)
         if with_schedule:
-            import pydevdb
-            self.scan_command = pydevdb.scan_command.scan_command()
-            now = int(datetime.datetime.now(tz=tz.tzlocal()).timestamp())
-            self.scan_command.start_time= now
-            self.scan_command.interval=3
-            self.scan_command.repeat_type = pydevdb.repeat_type_t.HOURLY
-            self.scan_command.max_duration= 60*(60+10)
-            self.scan_command.catchup = True
+            if scan_command.id < 0: # not inited yet
+                now = int(datetime.datetime.now(tz=tz.tzlocal()).timestamp())
+                self.scan_command.start_time= now
+                self.scan_command.interval=3
+                self.scan_command.repeat_type = pydevdb.repeat_type_t.HOURLY
+                self.scan_command.max_duration= 60*(60+10)
+                self.scan_command.catchup = True
             self.scheduling_parameters_panel.init(parent, self.scan_command)
         else:
             self.scheduling_parameters_panel.Hide()
@@ -191,15 +228,17 @@ class ScanJobDialog_(ScanDialog_):
         dtdebug("OnCancel")
 
     def OnDone(self):
-        self.band_scan = self.scan_type_choice.GetSelection()==0
+        self.scan_command.tune_options.subscription_type = self.get_scan_type_choice()
         if self.with_schedule:
             self.scheduling_parameters_panel.OnDone()
-        return self.scan_parameters_panel.OnDone()
+        self.scan_parameters_panel.OnDone()
+        return self.scan_command
 
 class ScanDialog(ScanJobDialog_):
-    def __init__(self, parent, allow_band_scan, allowed_sat_bands, title, *args, **kwds):
-        with_schedule = True
-        super().__init__(parent, with_schedule, allow_band_scan, allowed_sat_bands, title, *args, **kwds)
+    def __init__(self, parent, with_schedule, allow_band_scan, allow_band_scan_for_muxes,
+                 title, scan_command, *args, **kwds):
+        super().__init__(parent, with_schedule, allow_band_scan, allow_band_scan_for_muxes,
+                         title, scan_command, *args, **kwds)
 
 def service_for_key(service_key):
     txn = wx.GetApp().chdb.rtxn()
@@ -209,25 +248,39 @@ def service_for_key(service_key):
     return service
 
 
-def show_scan_dialog(parent, title='Scan muxes', allow_band_scan=False, allowed_sat_bands=None):
+def show_scan_dialog(parent, title='Scan muxes', with_schedule=False, allow_band_scan=False,
+                     allow_band_scan_for_muxes=False,
+                     sats = None, dvbs_muxes = None, dvbc_muxes=None, dvbt_muxes=None):
     """
-    create a dialog for creating or editing an scan
-    record can be of type service, rec, or scan
-    in addition, for type service, epg can be set to provide defaults for
-    a new scan
+    create a dialog for creating or editing a scan
+    allow_band_scan: allow a spectrum scan; if False then disable the related options
+    sats: if not None, initial list of satellites to scan; this list can be further reduced
+          by the user disabling specific satellite bands
+    muxes: it not None, scan these specific muxes
+    exactly one of muxes or sats should be not None
+
     """
     band_scan_options = None
-    dlg = ScanDialog(parent.GetParent(), allow_band_scan, allowed_sat_bands, title)
+    scan_command = pydevdb.scan_command.scan_command()
+    if sats is not None:
+        scan_command.sats = sats
+    if dvbs_muxes is not None:
+        scan_command.dvbs_muxes = dvbs_muxes
+    if dvbc_muxes is not None:
+        scan_command.dvbc_muxes = dvbc_muxes
+    if dvbt_muxes is not None:
+        scan_command.dvbt_muxes = dvbt_muxes
+
+
+    dlg = ScanDialog(parent.GetParent(), with_schedule, allow_band_scan, allow_band_scan_for_muxes,
+                     title, scan_command = scan_command)
     dlg.Prepare()
     dlg.Fit()
     ret = dlg.ShowModal()
     if ret == wx.ID_OK:
-        tune_options, band_scan_options, is_band_scan = dlg.OnDone()
+        scan_command = dlg.OnDone()
     else:
         dlg.OnCancel()
-        tune_options = None
-        band_scan_options = None
-        band_scan = False
-        is_band_scan = False
+        scan_command = None
     dlg.Destroy()
-    return tune_options, band_scan_options, is_band_scan
+    return scan_command

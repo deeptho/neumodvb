@@ -192,33 +192,64 @@ class SatGridBase(NeumoGridBase):
         self.table.SaveModified()
         #self.app.MuxTune(mux)
 
-    def CmdScan(self, evt):
+    def CmdCreateScanHelper(self):
         from neumodvb.scan_dialog import show_scan_dialog
         self.table.SaveModified()
         rows = self.GetSelectedRows()
         if len(rows)==0:
             ShowMessage("No sats selected for scan")
-            return
+            return None
         sats = []
-        bands =set()
         for row in rows:
             sat = self.table.GetRow(row)
-            bands.add(sat.sat_band)
             sats.append(sat)
         title =  ', '.join([str(sat) for sat in sats[:3]])
         if len(sats) >=3:
             title += '...'
-        tune_options, band_scan_options, is_band_scan = \
-            show_scan_dialog(self, allow_band_scan=True, title=f'Scan {title}',
-                             allowed_sat_bands=[ b for b in bands])
-        if tune_options is None:
-            dtdebug(f'CmdScan aborted for {len(rows)} sats')
+
+        return show_scan_dialog(self, with_schedule=True, allow_band_scan=True, title=f'Scan {title}',
+                                sats= sats)
+
+    def CmdScan(self, evt):
+        scan_command = self.CmdCreateScanHelper()
+        sats, subscription_type = (None, None) if scan_command is None  else \
+            (scan_command.sats, scan_command.tune_options.subscription_type)
+        if scan_command is None or sats is None:
+            dtdebug(f'CmdScan aborted for {0 if sats is None else len(sats)} sats')
             return
-        dtdebug(f'CmdScan requested for {len(rows)} sats')
-        if is_band_scan:
-            self.app.BandsOnSatScan(sats, tune_options, band_scan_options)
-        else:
+        dtdebug(f'CmdScan requested for {len(sats)} sats')
+        import pydevdb
+        if subscription_type == pydevdb.subscription_type_t.MUX_SCAN:
             self.app.MuxesOnSatScan(sats, tune_options, band_scan_options)
+        elif subscription_type == pydevdb.subscription_type_t.SPECTRUM_ACQ:
+            self.app.SpectrumOnSatAcq(sats, tune_options, band_scan_options)
+        elif subscription_type == pydevdb.subscription_type_t.SPECTRUM_BAND_SCAN:
+            self.app.BandsOnSatScan(scan_command.sats, scan_command.tune_options, scan_command.band_scan_options)
+        else:
+            assert False
+    def CmdCreateScanCommand(self, evt):
+        sats, tune_options, band_scan_options, subscription_type = \
+            self.CmdCreateScanHelper()
+        if sats is None or tune_options is None:
+            dtdebug(f'CmdCreateScanCommand aborted for {0 if sats is None else len(sats)} sats')
+            return
+        dtdebug(f'CmdCreateScanCommand requested for {len(sats)} sats')
+        ret=pychdb.fe_polarisation_t_vector()
+        import pydevdb
+        s_t = pydevdb.subscription_type_t
+        c = pydevdb.scan_command.scan_command()
+        c.subscription_type = subscription_type
+        c.tune_options = tune_options
+        c.band_scan_options.start_freq = band_scan_options['low_freq']
+        c.band_scan_options.end_freq = band_scan_options['high_freq']
+        for sat in sats:
+            c.sats.push_back(sat)
+        for pol in band_scan_options['pols']:
+            c.band_scan_options.pols.push_back(pol)
+        wtxn =  wx.GetApp().devdb.wtxn()
+        pydevdb.scan_command.make_unique_if_template(wtxn, c)
+        pydevdb.put_record(wtxn, c)
+        wtxn.commit()
 
     def CurrentSatAndSatBand(self):
         if self.sat_band is not None:

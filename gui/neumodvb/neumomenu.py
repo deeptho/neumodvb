@@ -85,10 +85,13 @@ dx_menu = (
     MI("Inspect",  _("Inspect"), ""),
     #MI("PlayFile",  _("PlayFile"), ""),
     MI("SignalHistory",  _("&Signal History\tCtrl-H"), ""),
+    SEP,
     MI("Scan",  _("&Scan\tCtrl-S"), ""),
+    MI("CreateScanCommand",  _("&Create Scan Command\tAlt-S"), ""),
+    SEP,
     MI("Spectrum",  _("&Spectrum\tCtrl-U"), _("Spectrum")),
     MI("Positioner",  _("&Positioner\tCtrl-P"), ""),
-    SEP
+    SEP,
 )
 
 edit_menu = (

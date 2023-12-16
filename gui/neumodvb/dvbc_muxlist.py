@@ -147,21 +147,52 @@ class DvbcMuxGrid(NeumoGridBase):
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
         self.app.MuxTune(mux)
 
-    def CmdScan(self, evt):
+    def CmdCreateScanHelper(self, with_schedule):
         from neumodvb.scan_dialog import show_scan_dialog
         self.table.SaveModified()
         rows = self.GetSelectedRows()
+        if len(rows)==0:
+            ShowMessage("No muxes selected for scan")
+            return None
         muxes = []
         for row in rows:
             mux = self.table.GetRow(row)
             muxes.append(mux)
-        tune_options, band_scan_options, is_band_scan = \
-            show_scan_dialog(self, allow_band_scan=False, title=f'Scan {len(muxes)} muxes')
-        if tune_options is None:
-            dtdebug(f'CmdScan aborted for {len(rows)} muxes')
+        title =  ', '.join([str(mux) for mux in muxes[:3]])
+        if len(muxes) >=3:
+            title += '...'
+
+        return show_scan_dialog(self, with_schedule = with_schedule, allow_band_scan=False,
+                                title=f'Scan {len(muxes)} muxes', dvbc_muxes=muxes)
+
+    def CmdScan(self, evt):
+        scan_command=self.CmdCreateScanHelper(with_schedule=False)
+        muxes, subscription_type = (None, None) if scan_command is None else \
+            (scan_command.dvbc_muxes, scan_command.tune_options.subscription_type)
+        import pydevdb
+        assert subscription_type ==  pydevdb.subscription_type_t.MUX_SCAN
+        if scan_command is None or muxes is None:
+            dtdebug(f'CmdScan aborted for {0 if muxes is None else len(muxes)} muxes')
             return
-        dtdebug(f'CmdScan requested for {len(rows)} muxes')
-        self.app.MuxScan(muxes, tune_options)
+        dtdebug(f'CmdScan requested for {len(muxes)} muxes')
+        self.app.MuxScan(muxes, scan_command.tune_options)
+
+    def CmdCreateScanCommand(self, evt):
+        scan_command=self.CmdCreateScanHelper(with_schedule=True)
+        muxes, subscription_type = (None, None) if scan_command is None else \
+            (scan_command.dvbc_muxes, scan_command.tune_options.subscription_type)
+        import pydevdb
+        assert subscription_type ==  pydevdb.subscription_type_t.MUX_SCAN
+        if scan_command is None or muxes is None:
+            dtdebug(f'CmdScan aborted for {0 if muxes is None else len(muxes)} muxes')
+            return
+        dtdebug(f'CmdScan requested for {len(muxes)} muxes')
+
+        wtxn =  wx.GetApp().devdb.wtxn()
+        pydevdb.scan_command.make_unique_if_template(wtxn, scan_command)
+        scan_command.mtime = int(datetime.datetime.now(tz=tz.tzlocal()).timestamp())
+        pydevdb.put_record(wtxn, scan_command)
+        wtxn.commit()
 
     def OnTimer(self, evt):
         super().OnTimer(evt)

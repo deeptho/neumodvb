@@ -320,7 +320,7 @@ class RepeatTypeChoice(wx.Choice):
     def SetValue(self, repeat_type, interval):
         from neumodvb import neumodbutils
         try:
-            idx = [*zip(self.repeat_type, self.intervals)].index(repeat_type, interval)
+            idx = [*zip(self.repeat_types, self.intervals)].index((repeat_type, interval))
             self.SetSelection(idx)
         except:
             pass

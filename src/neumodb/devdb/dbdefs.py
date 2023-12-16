@@ -527,7 +527,7 @@ tune_options = db_struct(name ='tune_options',
               (4, 'std::optional<ss::vector_<int64_t>>', 'allowed_card_mac_addresses'),
               (5, 'std::optional<ss::vector_<rf_path_t>>', 'allowed_rf_paths'),
               (6, 'tune_mode_t', 'tune_mode'),
-              (7, 'bool', 'need_blind_tune', 'false'),
+              (7, 'bool', 'use_blind_tune', 'false'),
 	            (8, 'bool', 'may_move_dish', 'false'),    #subscription is allowed to move the dish when tuning if no
                                                         #other subscriptions conflict; afterwards dish may not be moved
               (9, 'bool', 'may_control_dish', 'false'), #The subscription may move move the subscribed
@@ -540,6 +540,19 @@ tune_options = db_struct(name ='tune_options',
 	            (13, 'retune_mode_t', 'retune_mode', 'retune_mode_t::AUTO'),
               (14, 'int32_t', 'resource_reuse_bonus', '0'),
 	            (15, 'int32_t', 'dish_move_penalty', '0')
+              ))
+
+band_scan_options = db_struct(
+    name ='band_scan_options',
+    fname = 'options',
+    db = db,
+    type_id = lord('Sb'),
+    version = 1,
+    ignore_for_equality_fields = ('mtime',),
+    fields = (
+              (1, 'int32_t', 'start_freq', '-1'),
+              (2, 'int32_t', 'end_freq', '-1'),
+              (3, 'ss::vector<chdb::fe_polarisation_t,4>', 'pols')
               ))
 
 scan_command = db_struct(

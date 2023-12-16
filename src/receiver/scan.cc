@@ -1117,7 +1117,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	auto wtxn = receiver.devdb.wtxn();
 	auto scan_id = mux_to_scan.c.scan_id;
 	auto& tune_options = tune_options_for_scan_id(scan_id);
-	tune_options.need_blind_tune = use_blind_tune;
+	tune_options.use_blind_tune = use_blind_tune;
 	tune_options.need_spectrum = false;
 	assert(chdb::scan_in_progress(scan_id));
 	assert(scanner_t::is_our_scan(scan_id));
@@ -1297,7 +1297,7 @@ scanner_t::scanner_t(receiver_thread_t& receiver_thread_,
 {
 	tune_options.scan_target =  devdb::scan_target_t::SCAN_FULL;
 	tune_options.may_move_dish = false; //could become an option
-	tune_options.need_blind_tune = false; //could become an option
+	tune_options.use_blind_tune = false; //could become an option
 }
 
 
@@ -1346,7 +1346,7 @@ static inline bool can_subscribe(db_txn& devdb_rtxn, const auto& mux, const subs
 	if constexpr (is_same_type_v<chdb::dvbs_mux_t, decltype(mux)>) {
 		return devdb::fe::can_subscribe_mux(devdb_rtxn, mux, tune_options);
 	} else {
-		return devdb::fe::can_subscribe_dvbc_or_dvbt_mux(devdb_rtxn, mux, tune_options.need_blind_tune);
+		return devdb::fe::can_subscribe_dvbc_or_dvbt_mux(devdb_rtxn, mux, tune_options.use_blind_tune);
 	}
 	assert(0);
 	return false;
@@ -1410,7 +1410,7 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 	o.scan_target = devdb::scan_target_t::SCAN_FULL;
 	o.propagate_scan = false;
 	o.may_move_dish = false;
-	o.need_blind_tune = false;
+	o.use_blind_tune = false;
 	o.allowed_dish_ids = {};
 	o.allowed_card_mac_addresses = {};
 	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id);

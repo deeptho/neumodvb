@@ -69,10 +69,6 @@ class ScanParameters(ScanParameters_):
 
     def init(self, parent, allow_band_scan, allowed_sat_bands):
         p_t = pychdb.fe_polarisation_t
-        self.receiver = wx.GetApp().receiver
-        self.tune_options = self.receiver.get_default_tune_options(
-            subscription_type= subscription_type_t.SPECTRUM_BAND_SCAN if allow_band_scan \
-            else subscription_type_t.MUX_SCAN)
         self.allow_band_scan = allow_band_scan
         self.allow_band_scan_for_muxes = allow_band_scan_for_muxes
         self.band_scan = allow_band_scan #use spectrum scan by default in this case

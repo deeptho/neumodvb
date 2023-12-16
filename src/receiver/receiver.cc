@@ -1040,8 +1040,8 @@ subscription_id_t
 receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, subscription_id_t subscription_id_) {
 
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = this->get_default_tune_options(devdb::subscription_type_t::TUNE);
-	tune_options.need_blind_tune = blindscan;
+	auto tune_options = this->get_default_subscription_options(devdb::subscription_type_t::TUNE);
+	tune_options.use_blind_tune = blindscan;
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t subscription_id{subscription_id_};
 	//call by reference ok because of subsequent wait_for_all
@@ -1187,8 +1187,8 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 	}
 	std::vector<task_queue_t::future_t> futures;
 	auto tune_options = this->get_default_tune_options(devdb::subscription_type_t::LNB_CONTROL);
-	tune_options.need_blind_tune = blindscan;
-	tune_options.tune_mode = tune_options.need_blind_tune ? devdb::tune_mode_t::BLIND : devdb::tune_mode_t::NORMAL;
+	tune_options.use_blind_tune = blindscan;
+	tune_options.tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND : devdb::tune_mode_t::NORMAL;
 	tune_options.retune_mode = retune_mode;
 	tune_options.allowed_rf_paths = {rf_path};
 	//call by reference ok because of subsequent wait_for_all
@@ -1938,15 +1938,49 @@ subscription_options_t receiver_t::get_default_tune_options(devdb::subscription_
 	ret.resource_reuse_bonus = r->resource_reuse_bonus;
 	ret.dish_move_penalty = r->dish_move_penalty;
 	ret.usals_location = r->usals_location;
-	ret.need_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
+	ret.use_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
 	ret.may_move_dish = for_lnb_control ? true : (for_scan ? r->scan_may_move_dish: r->tune_may_move_dish);
 	ret.may_control_lnb = for_lnb_control;
-	ret.spectrum_scan_options.save_spectrum = for_spectrum_scan ? r->band_scan_save_spectrum : true;
 	ret.max_scan_duration =  std::chrono::duration_cast<std::chrono::seconds>(r->max_scan_duration).count();
 
 	return ret;
 }
 
+spectrum_scan_options_t
+receiver_t::get_default_spectrum_scan_options(devdb::subscription_type_t subscription_type) const
+{
+	using namespace devdb;
+	spectrum_scan_options_t ret;
+	switch(subscription_type) {
+	case subscription_type_t::TUNE:
+		break;
+	case subscription_type_t::SPECTRUM_BAND_SCAN:
+	case subscription_type_t::SPECTRUM_ACQ: {
+		ret.recompute_peaks = true;
+		auto for_spectrum_scan = (subscription_type==subscription_type_t::SPECTRUM_BAND_SCAN);
+		auto r = options.readAccess();
+		ret.save_spectrum = for_spectrum_scan ? r->band_scan_save_spectrum : true;
+	}
+		break;
+	case subscription_type_t::MUX_SCAN: //for scan
+		break;
+	case subscription_type_t::LNB_CONTROL:
+		break;
+	default:
+		assert(0);
+		break;
+	}
+
+	return ret;
+}
+
+subscription_options_t receiver_t::get_default_subscription_options(devdb::subscription_type_t subscription_type) const
+{
+	using namespace devdb;
+	subscription_options_t ret = get_default_tune_options(subscription_type);
+	ret.spectrum_scan_options = get_default_spectrum_scan_options(subscription_type);
+	return ret;
+}
 
 static chdb::scan_id_t activate_spectrum_scan_
 (chdb::chdb_t&chdb, int16_t sat_pos, chdb::fe_polarisation_t pol,

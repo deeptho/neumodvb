@@ -128,16 +128,14 @@ public:
 																						int sat_pos=sat_pos_none);
 
 	EXPORT int scan_bands(const ss::vector_<chdb::sat_t>& sats,
-												const ss::vector_<chdb::fe_polarisation_t>& pols,
-												int32_t low_freq, int32_t high_freq,
-												const std::optional<subscription_options_t>& tune_options);
+												const std::optional<devdb::tune_options_t>& tune_options,
+												const devdb::band_scan_options_t& band_scan_options);
 
 	EXPORT int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key);
-	EXPORT int scan_muxes(const ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
-								 const ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
-												const ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
-												const std::optional<subscription_options_t>& tune_options);
+
+	template<typename mux_t>
+	EXPORT int scan_muxes(const ss::vector_<mux_t> muxes, const std::optional<subscription_options_t>& tune_options);
 
 	EXPORT int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 #if 0

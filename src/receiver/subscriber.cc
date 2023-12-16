@@ -83,20 +83,21 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 }
 
 int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
-														 const ss::vector_<chdb::fe_polarisation_t>& pols,
-														 int32_t low_freq, int32_t high_freq,
-														 const std::optional<subscription_options_t>& tune_options_) {
+														 const std::optional<devdb::tune_options_t>& tune_options_,
+														 const devdb::band_scan_options_t& band_scan_options) {
 	set_scanning(true);
-	auto tune_options =
+	auto so = subscription_options_t(
 		tune_options_ ? * tune_options_:
-		receiver->get_default_tune_options(devdb::subscription_type_t::SPECTRUM_BAND_SCAN);
-	tune_options.tune_mode = devdb::tune_mode_t::SPECTRUM;
-	tune_options.need_spectrum = true;
-	tune_options.spectrum_scan_options.recompute_peaks = true;
-	tune_options.spectrum_scan_options.start_freq = low_freq;
-	tune_options.spectrum_scan_options.end_freq = high_freq;
+		receiver->get_default_tune_options(devdb::subscription_type_t::SPECTRUM_BAND_SCAN));
+	so.spectrum_scan_options = receiver->get_default_spectrum_scan_options
+		(devdb::subscription_type_t::SPECTRUM_BAND_SCAN);
+	so.tune_mode = devdb::tune_mode_t::SPECTRUM;
+	so.need_spectrum = true;
+	so.spectrum_scan_options.recompute_peaks = true;
+	so.spectrum_scan_options.start_freq = band_scan_options.start_freq;
+	so.spectrum_scan_options.end_freq = band_scan_options.end_freq;
 	subscription_id_t ret{subscription_id};
-	ret = receiver->scan_bands(sats, pols, tune_options, subscription_id);
+	ret = receiver->scan_bands(sats, band_scan_options.pols, so, subscription_id);
 	assert(ret==subscription_id); //subscription_id is passed by reference
 	return (int)subscription_id;
 }
@@ -108,31 +109,16 @@ int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 	return (int)subscription_id;
 }
 
-int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> dvbs_muxes,
-														 ss::vector_<chdb::dvbc_mux_t> dvbc_muxes,
-														 ss::vector_<chdb::dvbt_mux_t> dvbt_muxes,
+template<typename mux_t>
+int subscriber_t::scan_muxes(ss::vector_<mux_t> muxes,
 														 const std::optional<subscription_options_t>& tune_options_) {
 	set_scanning(true);
 	auto& tune_options = tune_options_ ? *tune_options_ :
-		receiver->get_default_tune_options(devdb::subscription_type_t::MUX_SCAN);
+		receiver->get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
 
 	subscription_id_t ret{subscription_id};
-	if(dvbs_muxes.size() > 0) {
-		ret = receiver->scan_muxes(dvbs_muxes, tune_options, subscription_id);
-		assert(ret==subscription_id); //subscription_id is passed by reference
-		if((int) ret<0)
-			return (int) ret;
-	}
-	assert(ret == subscription_id || (int) subscription_id == -1);
-	if(dvbc_muxes.size() > 0) {
-		ret = receiver->scan_muxes(dvbc_muxes, tune_options, subscription_id);
-		assert(ret==subscription_id); //subscription_id is passed by reference
-		if((int) ret<0)
-			return (int) ret;
-	}
-	assert(ret == subscription_id || (int) subscription_id == -1);
-	if(dvbt_muxes.size() > 0) {
-		ret = receiver->scan_muxes(dvbt_muxes, tune_options, subscription_id);
+	if(muxes.size() > 0) {
+		ret = receiver->scan_muxes(muxes, tune_options, subscription_id);
 		assert(ret==subscription_id); //subscription_id is passed by reference
 		if((int) ret<0)
 			return (int) ret;
@@ -264,3 +250,13 @@ int subscriber_t::subscribe_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, b
 
 template
 int subscriber_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool blindscan);
+
+
+template int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> muxes,
+																			const std::optional<subscription_options_t>& tune_options_);
+
+template int subscriber_t::scan_muxes(ss::vector_<chdb::dvbc_mux_t> muxes,
+																			const std::optional<subscription_options_t>& tune_options_);
+
+template int subscriber_t::scan_muxes(ss::vector_<chdb::dvbt_mux_t> muxes,
+																			const std::optional<subscription_options_t>& tune_options_);

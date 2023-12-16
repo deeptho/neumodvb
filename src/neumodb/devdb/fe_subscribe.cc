@@ -270,7 +270,7 @@ devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
 	bool need_multistream = false;
 
 	auto fe_and_use_counts = fe::find_best_fe_for_lnb(wtxn, rf_path, lnb,
-																										fe_key_to_release, tune_options.need_blind_tune,
+																										fe_key_to_release, tune_options.use_blind_tune,
 																										tune_options.need_spectrum,
 																										need_multistream, pol, band, usals_pos,
 																					false /*ignore_subscriptions*/);
@@ -499,7 +499,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 	assert(!tune_options.need_spectrum);
 	const bool need_multistream = (mux.k.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
-	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, tune_options.need_blind_tune,
+	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, tune_options.use_blind_tune,
 																										tune_options.need_spectrum, need_multistream,
 																										delsys_type, false /*ignore_subscriptions*/);
 	if(do_not_unsubscribe_on_failure && !best_fe)

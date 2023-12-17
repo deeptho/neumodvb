@@ -192,7 +192,7 @@ class SatGridBase(NeumoGridBase):
         self.table.SaveModified()
         #self.app.MuxTune(mux)
 
-    def CmdCreateScanHelper(self):
+    def CmdCreateScanHelper(self, with_schedule):
         from neumodvb.scan_dialog import show_scan_dialog
         self.table.SaveModified()
         rows = self.GetSelectedRows()
@@ -207,11 +207,11 @@ class SatGridBase(NeumoGridBase):
         if len(sats) >=3:
             title += '...'
 
-        return show_scan_dialog(self, with_schedule=True, allow_band_scan=True, title=f'Scan {title}',
+        return show_scan_dialog(self, with_schedule=with_schedule, allow_band_scan=True, title=f'Scan {title}',
                                 sats= sats)
 
     def CmdScan(self, evt):
-        scan_command = self.CmdCreateScanHelper()
+        scan_command = self.CmdCreateScanHelper(with_schedule=False)
         sats, subscription_type = (None, None) if scan_command is None  else \
             (scan_command.sats, scan_command.tune_options.subscription_type)
         if scan_command is None or sats is None:
@@ -227,9 +227,10 @@ class SatGridBase(NeumoGridBase):
             self.app.BandsOnSatScan(scan_command.sats, scan_command.tune_options, scan_command.band_scan_options)
         else:
             assert False
+
     def CmdCreateScanCommand(self, evt):
         sats, tune_options, band_scan_options, subscription_type = \
-            self.CmdCreateScanHelper()
+            self.CmdCreateScanHelper(with_schedule=True)
         if sats is None or tune_options is None:
             dtdebug(f'CmdCreateScanCommand aborted for {0 if sats is None else len(sats)} sats')
             return

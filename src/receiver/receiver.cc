@@ -1716,8 +1716,8 @@ receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::
 		set_scanner(scanner);
 	}
 
-	bool success = scanner->add_muxes(muxes, tune_options, sret.subscription_id);
-	return success? sret.subscription_id : subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
+	auto num_added_muxes = scanner->add_muxes(muxes, tune_options, sret.subscription_id);
+	return num_added_muxes > 0 ? sret.subscription_id : subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 }
 
 /*!
@@ -1738,8 +1738,8 @@ receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 		scanner = std::make_unique<scanner_t>(*this, max_num_subscriptions);
 		set_scanner(scanner);
 	}
-	scanner->add_bands(sats, pols, tune_options, sret.subscription_id);
-	return sret.subscription_id;
+	auto num_added_bands = scanner->add_bands(sats, pols, tune_options, sret.subscription_id);
+	return num_added_bands > 0 ? sret.subscription_id : subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 }
 
 /*!

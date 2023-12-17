@@ -1403,7 +1403,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const subscription_opt
 	if(num_added==0) {
 		user_errorf("Could not add any of the {} muxes", muxes.size());
 	}
-	return num_added>0;
+	return num_added > 0;
 }
 
 template<typename peak_t>
@@ -1465,9 +1465,11 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 		@todo: if a user removes a band from a satellite, it is not possible to remove the old scan record
 	 */
 	auto push_bands = [&pols, &devdb_rtxn, &scan, &tune_options, scan_subscription_id](
-		sat_t& sat, auto band_sub_band_tuple ) {
+		sat_t& sat, auto band_sub_band_tuple )
+		-> std::tuple<int,int> {
 		auto [ sat_band, sat_sub_band] = band_sub_band_tuple;
 		int num_added{0};
+		int num_considered{0};
 		for (auto pol: pols) {
 			auto& band_scan = sat::band_scan_for_pol_sub_band(sat, pol, sat_sub_band);
 			auto saved = band_scan;
@@ -1488,6 +1490,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 				so.end_freq = h;
 			auto scan_id = scan.make_scan_id(scan_subscription_id, o);
 			band_scan.scan_id=scan_id;
+			num_considered ++;
 			if(!can_subscribe(devdb_rtxn, sat, band_scan, scan.tune_options_for_scan_id(scan_id))) {
 				dtdebugf("Skipping sat that cannot be tuned: {}", sat);
 				band_scan = saved;
@@ -1495,8 +1498,12 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 		}
 			num_added++;
 		}
-		return num_added;
+		return {num_added, num_considered};
 	};
+
+	int num_added_bands{0};
+	int num_bands{0};
+
 	for(auto sat: sats) {
 		auto c = sat_t::find_by_key(chdb_wtxn, sat.sat_pos, sat.sat_band, find_eq, sat_t::partial_keys_t::all);
 		if(c.is_valid())
@@ -1509,16 +1516,30 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 
 		auto band_l = chdb::sat_band_for_freq(l);
 		auto band_h = chdb::sat_band_for_freq(h-1);
-		push_bands(sat, band_l);
-		if(band_h != band_l)
-			push_bands(sat, band_h);
-		dtdebugf("Add sat to scan: {}", sat);
-		sat.mtime = system_clock_t::to_time_t(now);
-		put_record(chdb_wtxn, sat);
+		auto [na, nc] = push_bands(sat, band_l);
+		bool save = na>0;
+		num_added_bands += na;
+		num_bands += nc;
+		if(band_h != band_l) {
+			std::tie(na, nc) = push_bands(sat, band_h);
+			num_added_bands += na;
+			num_bands += nc;
+			save |= na > 0;
+		}
+		if(save) {
+			dtdebugf("Add sat to scan: {}", sat);
+			sat.mtime = system_clock_t::to_time_t(now);
+			put_record(chdb_wtxn, sat);
+		}
 	}
 
 	chdb_wtxn.commit();
-	return 0;
+
+	if(num_added_bands==0) {
+		user_errorf("Could not add any of the {} satellite bands", num_bands);
+	}
+
+	return num_added_bands;
 }
 
 scanner_t::~scanner_t() {

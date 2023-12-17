@@ -423,7 +423,7 @@ public:
 
 	template<typename _mux_t>
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const subscription_options_t& tune_options,
-															 subscription_id_t& subscription_id);
+															 subscription_id_t subscription_id);
 
 	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key,
@@ -431,7 +431,7 @@ public:
 	subscription_id_t scan_bands(const ss::vector_<chdb::sat_t>& sats,
 															 const ss::vector_<chdb::fe_polarisation_t>& pols,
 															 subscription_options_t tune_options,
-															 subscription_id_t& subscription_id);
+															 subscription_id_t subscription_id);
 
 	void unsubscribe(subscription_id_t subscription_id);
 	void abort_scan();
@@ -540,12 +540,12 @@ public:
 
 	template<typename _mux_t>
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const subscription_options_t& tune_options,
-															 subscription_id_t& subscription_id);
+															 subscriber_t& subscriber);
 
 	subscription_id_t scan_bands(const ss::vector_<chdb::sat_t>& sats,
 															 const ss::vector_<chdb::fe_polarisation_t>& pols,
 															 subscription_options_t tune_options,
-															 subscription_id_t& subscription_id);
+															 subscriber_t& subscriber);
 
 	std::unique_ptr<playback_mpm_t> subscribe_service(
 		const chdb::service_t& service, subscription_id_t subscription_id = subscription_id_t::NONE);

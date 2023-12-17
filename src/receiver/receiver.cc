@@ -506,12 +506,7 @@ receiver_thread_t::subscribe_mux(
 template <typename mux_t>
 subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 																											const subscription_options_t& tune_options,
-																											subscription_id_t& subscription_id)
-/*
-	somewhat ugly hack: subscription_id needs to be passed by reference so that the calling
-	subscriber_t has its internal subscription_id set when scanning starts. Otherwise the
-	initial scan report woill not be received
- */
+																											subscription_id_t subscription_id)
 {
 	auto s = fmt::format("SCAN[{}] {} muxes", (int) subscription_id, (int) muxes.size());
 	log4cxx::NDC ndc(s);
@@ -529,14 +524,14 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 		}
 	}
 	int max_num_subscriptions = 100;
-	subscription_id = this->receiver_thread_t::scan_muxes(futures, muxes,
-																												tune_options,
-																												max_num_subscriptions, subscription_id);
+	auto ret = this->receiver_thread_t::scan_muxes(futures, muxes,
+																								 tune_options,
+																								 max_num_subscriptions, subscription_id);
 	bool error = wait_for_all(futures);
 	if (error) {
 		dterrorf("Unhandled error in scan_mux");
 	}
-	return subscription_id;
+	return ret;
 }
 
 subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
@@ -569,7 +564,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 subscription_id_t receiver_thread_t::cb_t::scan_bands(
 	const ss::vector_<chdb::sat_t>& sats,
 	const ss::vector_<chdb::fe_polarisation_t>& pols,
-	subscription_options_t tune_options, subscription_id_t& subscription_id)
+	subscription_options_t tune_options, subscription_id_t subscription_id)
 {
 	auto s = fmt::format("SCAN[{}] {} sats", (int) subscription_id, (int) sats.size());
 	log4cxx::NDC ndc(s);
@@ -590,14 +585,14 @@ subscription_id_t receiver_thread_t::cb_t::scan_bands(
 	int max_num_subscriptions = 100;
 
 	assert(tune_options.need_spectrum);
-	subscription_id = this->receiver_thread_t::scan_bands(futures, sats, pols, tune_options,
+	auto ret =  this->receiver_thread_t::scan_bands(futures, sats, pols, tune_options,
 																												max_num_subscriptions, subscription_id);
 
 	auto error = wait_for_all(futures);
 	if (error) {
 		dterrorf("Unhandled error in scan_mux");
 	}
-	return subscription_id;
+	return ret;
 }
 
 
@@ -981,22 +976,26 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 
 
 /*
-	main entry point
+	subscription_id is passed by reference so that when a new subscription is created,
+	the proper subscription_id is stored directly in its subscriber
  */
 template <typename _mux_t>
 subscription_id_t receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes,
 																				 const subscription_options_t& tune_options,
-																				 subscription_id_t& subscription_id) {
+																				 subscriber_t& subscriber) {
 	std::vector<task_queue_t::future_t> futures;
-
+	auto ret = subscriber.get_subscription_id();
 	//call by reference ok because of subsequent wait_for_all
-	futures.push_back(receiver_thread.push_task([this, &muxes, &tune_options, &subscription_id]() {
-		subscription_id = cb(receiver_thread).scan_muxes(muxes, tune_options, subscription_id);
-		cb(receiver_thread).scan_now(); // start initial scan
+	futures.push_back(receiver_thread.push_task([this, &muxes, &tune_options, &ret, &subscriber]() {
+		ret = cb(receiver_thread).scan_muxes(muxes, tune_options, ret);
+		if((int)ret >= 0) {
+			subscriber.set_initial_subscription_id(ret);
+			cb(receiver_thread).scan_now(); // start initial scan
+		}
 		return 0;
 	}));
 	wait_for_all(futures); //essential because muxes passed by reference
-	return subscription_id;
+	return ret;
 }
 
 subscription_id_t receiver_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
@@ -1015,17 +1014,20 @@ subscription_id_t receiver_t::scan_spectral_peaks(ss::vector_<chdb::spectral_pea
 subscription_id_t receiver_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 																				 const ss::vector_<chdb::fe_polarisation_t>& pols,
 																				 subscription_options_t tune_options,
-																				 subscription_id_t& subscription_id) {
+																				 subscriber_t& subscriber) {
 	std::vector<task_queue_t::future_t> futures;
-
+	auto ret = subscriber.get_subscription_id();
 	//call by reference ok because of subsequent wait_for_all
-	futures.push_back(receiver_thread.push_task([this, &sats, pols, &tune_options, &subscription_id]() {
-		subscription_id = cb(receiver_thread).scan_bands(sats, pols, tune_options, subscription_id);
-		cb(receiver_thread).scan_now(); // start initial scan
+	futures.push_back(receiver_thread.push_task([this, &sats, pols, &tune_options, &ret, &subscriber]() {
+		ret = cb(receiver_thread).scan_bands(sats, pols, tune_options, ret);
+		if((int)ret >= 0) {
+			subscriber.set_initial_subscription_id(ret);
+			cb(receiver_thread).scan_now(); // start initial scan
+		}
 		return 0;
 	}));
 	wait_for_all(futures); //essential because muxes passed by reference
-	return subscription_id;
+	return ret;
 }
 
 
@@ -2103,17 +2105,17 @@ receiver_thread_t::subscribe_mux(
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes,
 																				 const subscription_options_t& tune_options,
-																				 subscription_id_t& subscription_id);
+																				 subscriber_t& subscriber);
 
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
 																				 const subscription_options_t& tune_options,
-																				 subscription_id_t& subscription_id);
+																				 subscriber_t& subscriber);
 
 template subscription_id_t
 receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
 																				 const subscription_options_t& tune_options,
-																				 subscription_id_t& subscription_id);
+																				 subscriber_t& subscriber);
 
 
 template subscription_id_t
@@ -2131,17 +2133,17 @@ receiver_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool bl
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes,
 																											const subscription_options_t& tune_options,
-																											subscription_id_t& subscription_id);
+																											subscription_id_t subscription_id);
 
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
 																											const subscription_options_t& tune_options,
-																											subscription_id_t& subscription_id);
+																											subscription_id_t subscription_id);
 
 template subscription_id_t
 receiver_thread_t::cb_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
 																											const subscription_options_t& tune_options,
-																											subscription_id_t& subscription_id);
+																											subscription_id_t subscription_id);
 
 
 template subscription_id_t

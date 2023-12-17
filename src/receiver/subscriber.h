@@ -58,9 +58,6 @@ class subscriber_t
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::atomic<bool> scanning_{false}; //subscriber is scanning
-#if 0
-	std::weak_ptr<active_adapter_t> active_adapter; //set if subscribed to specific mux
-#endif
 public:
 	enum class event_type_t : uint32_t {
 		ERROR_MSG  = (1<<0),
@@ -90,6 +87,10 @@ public:
 
 	inline subscription_id_t get_subscription_id() const {
 		return subscription_id;
+	}
+	void set_initial_subscription_id(subscription_id_t subscription_id) {
+		assert(this->subscription_id == subscription_id_t::NONE || this->subscription_id == subscription_id);
+		this->subscription_id = subscription_id;
 	}
 	template<typename T> void notify(const T& data) const;
 	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);

@@ -97,7 +97,7 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 	so.spectrum_scan_options.start_freq = band_scan_options.start_freq;
 	so.spectrum_scan_options.end_freq = band_scan_options.end_freq;
 	subscription_id_t ret{subscription_id};
-	ret = receiver->scan_bands(sats, band_scan_options.pols, so, subscription_id);
+	ret = receiver->scan_bands(sats, band_scan_options.pols, so, *this);
 	assert(ret==subscription_id); //subscription_id is passed by reference
 	return (int)subscription_id;
 }
@@ -118,8 +118,7 @@ int subscriber_t::scan_muxes(ss::vector_<mux_t> muxes,
 
 	subscription_id_t ret{subscription_id};
 	if(muxes.size() > 0) {
-		ret = receiver->scan_muxes(muxes, tune_options, subscription_id);
-		assert(ret==subscription_id); //subscription_id is passed by reference
+		ret = receiver->scan_muxes(muxes, tune_options, *this);
 		if((int) ret<0)
 			return (int) ret;
 	}

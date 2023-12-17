@@ -1373,6 +1373,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const subscription_opt
 	assert(scan.scan_subscription_id == scan_subscription_id);
 
 	auto scan_id = scan.make_scan_id(scan_subscription_id, tune_options);
+	int num_added{0};
 
 	for(const auto& mux_: muxes) {
 		if(!can_subscribe(devdb_rtxn, mux_, scan.tune_options_for_scan_id(scan_id))) {
@@ -1380,6 +1381,7 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const subscription_opt
 			continue;
 		}
 		mux_t mux;
+		num_added++;
 		dtdebugf("SET PENDING {}", mux_);
 		/*
 			@todo: multiple parallel scans can override each other's scan_status
@@ -1397,9 +1399,11 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const subscription_opt
 		mux.c.scan_id = scan_id;
 		put_record(chdb_wtxn, mux);
 	}
-
 	chdb_wtxn.commit();
-	return 0;
+	if(num_added==0) {
+		user_errorf("Could not add any of the {} muxes", muxes.size());
+	}
+	return num_added>0;
 }
 
 template<typename peak_t>

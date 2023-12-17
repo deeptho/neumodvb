@@ -1716,8 +1716,8 @@ receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::
 		set_scanner(scanner);
 	}
 
-	scanner->add_muxes(muxes, tune_options, sret.subscription_id);
-	return sret.subscription_id;
+	bool success = scanner->add_muxes(muxes, tune_options, sret.subscription_id);
+	return success? sret.subscription_id : subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 }
 
 /*!

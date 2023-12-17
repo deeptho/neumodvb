@@ -318,6 +318,7 @@ struct scan_stats_t
 	int locked_peaks{0}; //peaks which we could lock with frequency/symbolrate from spectrum
 	int locked_muxes{0}; //muxes which locked
 	int si_muxes{0}; //muxes with si data
+	bool scan_unsubscribed{false};//no more scan stats will be sent
 	scan_stats_t() = default;
 	friend bool operator == (const scan_stats_t&, const scan_stats_t&) = default;
 

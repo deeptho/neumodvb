@@ -517,7 +517,7 @@ void export_scan_report(py::module& m) {
 		.def_readwrite("failed_peaks", &scan_stats_t::failed_peaks)
 		.def_readwrite("locked_muxes", &scan_stats_t::locked_muxes)
 		.def_readwrite("si_muxes", &scan_stats_t::si_muxes)
-		.def("done", &scan_stats_t::done)
+		.def_readwrite("unsubscribed", &scan_stats_t::scan_unsubscribed)
 		;
 	py::class_<scan_mux_end_report_t>(m, "scan_mux_end_report_t")
 		.def(py::init())

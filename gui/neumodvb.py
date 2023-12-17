@@ -166,11 +166,15 @@ class neumoMainFrame(mainFrame):
         else:
             st = None
         if st is not None:
-            self.app.scan_in_progress = not st.done()
+            self.app.scan_in_progress = not st.unsubscribed
             pending = st.pending_muxes + st.pending_peaks
             ok = st.locked_muxes
             if not self.app.scan_in_progress:
                 self.app.last_scan_text_dict={}
+                msgs=[]
+                msgs.append(f"Scanned {st.locked_muxes+st.failed_muxes} muxes(ok={st.locked_muxes} "
+                            f"failed={st.failed_muxes})")
+                ShowMessage("Mux scan finished", "\n".join(msgs))
             else:
                 self.app.last_scan_text_dict = \
                     dict(muxes=f" Muxes: ok={st.locked_muxes} failed={st.failed_muxes} " \

@@ -85,8 +85,8 @@ class neumoMainFrame(mainFrame):
 
 
         self.panels = [ getattr(self, f'{n}_panel') for n in self.panel_names]
-        self.grids = filter(lambda xx: xx is not None,
-                            [ getattr(self, f'{n.removesuffix("list")}grid',None) for n in self.panel_names])
+        self.grids = [*filter(lambda xx: xx is not None,
+                            [ getattr(self, f'{n.removesuffix("list")}grid',None) for n in self.panel_names])]
 
         for grid in self.grids:
             panel = grid

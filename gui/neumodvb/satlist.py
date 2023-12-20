@@ -229,27 +229,19 @@ class SatGridBase(NeumoGridBase):
             assert False
 
     def CmdCreateScanCommand(self, evt):
-        sats, tune_options, band_scan_options, subscription_type = \
-            self.CmdCreateScanHelper(with_schedule=True)
+        scan_command =  self.CmdCreateScanHelper(with_schedule=True)
+        sats, tune_options = (None, None) if scan_command is None  else \
+            (scan_command.sats, scan_command.tune_options)
         if sats is None or tune_options is None:
             dtdebug(f'CmdCreateScanCommand aborted for {0 if sats is None else len(sats)} sats')
             return
         dtdebug(f'CmdCreateScanCommand requested for {len(sats)} sats')
-        ret=pychdb.fe_polarisation_t_vector()
         import pydevdb
-        s_t = pydevdb.subscription_type_t
-        c = pydevdb.scan_command.scan_command()
-        c.subscription_type = subscription_type
-        c.tune_options = tune_options
-        c.band_scan_options.start_freq = band_scan_options['low_freq']
-        c.band_scan_options.end_freq = band_scan_options['high_freq']
-        for sat in sats:
-            c.sats.push_back(sat)
-        for pol in band_scan_options['pols']:
-            c.band_scan_options.pols.push_back(pol)
         wtxn =  wx.GetApp().devdb.wtxn()
-        pydevdb.scan_command.make_unique_if_template(wtxn, c)
-        pydevdb.put_record(wtxn, c)
+        pydevdb.scan_command.make_unique_if_template(wtxn, scan_command)
+        scan_command.mtime = int(datetime.datetime.now(tz=tz.tzlocal()).timestamp())
+
+        pydevdb.put_record(wtxn, scan_command)
         wtxn.commit()
 
     def CurrentSatAndSatBand(self):

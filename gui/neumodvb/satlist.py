@@ -51,10 +51,6 @@ class SatTable(NeumoTable):
     datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
     scan_time_fn = lambda x: datetime.datetime.fromtimestamp(x[1].scan_time, \
                                                              tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
-    bands_cfn = lambda table: table.bands_cfn()
-    bands_sfn = lambda x: x[2].bands_sfn(x[0], x[1])
-    bands_dfn = lambda x: x[2].bands_dfn(x[0])
-
     all_columns = \
         [CD(key='sat_pos',  label='position', basic=True, no_combo = True, #allow entering sat_pos
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
@@ -208,7 +204,7 @@ class SatGridBase(NeumoGridBase):
             title += '...'
 
         return show_scan_dialog(self, with_schedule=with_schedule, allow_band_scan=True, title=f'Scan {title}',
-                                sats= sats)
+                                sats=sats)
 
     def CmdScan(self, evt):
         scan_command = self.CmdCreateScanHelper(with_schedule=False)
@@ -240,7 +236,6 @@ class SatGridBase(NeumoGridBase):
         wtxn =  wx.GetApp().devdb.wtxn()
         pydevdb.scan_command.make_unique_if_template(wtxn, scan_command)
         scan_command.mtime = int(datetime.datetime.now(tz=tz.tzlocal()).timestamp())
-
         pydevdb.put_record(wtxn, scan_command)
         wtxn.commit()
 

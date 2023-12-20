@@ -231,20 +231,6 @@ class BarGaugeOFF(PG.PyGauge):
     def DoGetBestSize(self):
         return wx.Window.DoGetBestSize(self)
 
-    def tst(self):
-        self.SetRange(100)
-        self.xxx=10
-        self.SetValue([self.xxx, self.xxx+20])
-
-    def OnXXX(self,evt):
-        if self.xxx >=80:
-            self.xxx=0
-            self.SetValue([self.xxx, self.xxx+20])
-        else:
-            self.xxx +=10
-            self.SetValue([self.xxx, self.xxx+20])
-        self.Refresh()
-
     def OnClose(self, evt):
         dtdebug("OnClose called")
         self.dttimer.Stop()

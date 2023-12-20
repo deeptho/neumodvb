@@ -306,11 +306,11 @@ class RepeatTypeChoice(wx.Choice):
         from neumodvb import neumodbutils
         import pydevdb
         r_t = pydevdb.repeat_type_t
-        self.choices = ['Every hour', *[f"Every {h} hours" for h in [2, 3, 4, 6, 8, 12]], 'Daily', 'Weekly', 'Biweekly',
+        self.choices = ['Never', 'Every hour', *[f"Every {h} hours" for h in [2, 3, 4, 6, 8, 12]], 'Daily', 'Weekly', 'Biweekly',
                         'Monthly']
-        self.repeat_types = [ *[r_t.HOURLY]*7, r_t.DAILY, *[r_t.WEEKLY]*2, r_t.MONTHLY]
+        self.repeat_types = [ r_t.NEVER, *[r_t.HOURLY]*7, r_t.DAILY, *[r_t.WEEKLY]*2, r_t.MONTHLY]
 
-        self.intervals = [ *[1, 2, 3, 4, 6, 8, 12], 1, *[1, 2], 1]
+        self.intervals = [ 1, *[1, 2, 3, 4, 6, 8, 12], 1, *[1, 2], 1]
         assert len(self.repeat_types) == len(self.choices)
         assert len(self.intervals) == len(self.choices)
 

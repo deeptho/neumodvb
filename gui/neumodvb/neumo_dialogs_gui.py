@@ -549,13 +549,13 @@ class SchedulingParameters_(wx.Panel):
 								self.starttime_text.SetToolTip(_("Time when job should be run for the first time (can be in in the past)"))
 								grid_sizer_5.Add(self.starttime_text, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-								label_10 = wx.StaticText(self, wx.ID_ANY, _("Repeat every:"))
+								label_10 = wx.StaticText(self, wx.ID_ANY, _("Run:"))
 								grid_sizer_2.Add(label_10, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
-								from neumodvb.neumowidgets import RepeatTypeChoice
-								self.repeat_type_choice = RepeatTypeChoice(self, wx.ID_ANY, choices=[])
-								self.repeat_type_choice.SetToolTip(_("When to repeat the job "))
-								grid_sizer_2.Add(self.repeat_type_choice, 0, wx.BOTTOM, 4)
+								from neumodvb.neumowidgets import RunTypeChoice
+								self.run_type_choice = RunTypeChoice(self, wx.ID_ANY, choices=[])
+								self.run_type_choice.SetToolTip(_("When to run the job "))
+								grid_sizer_2.Add(self.run_type_choice, 0, wx.BOTTOM, 4)
 
 								label_9 = wx.StaticText(self, wx.ID_ANY, _("Max. Duration:"))
 								grid_sizer_2.Add(label_9, 0, wx.ALIGN_CENTER_VERTICAL, 0)
@@ -582,11 +582,11 @@ class SchedulingParameters_(wx.Panel):
 
 								self.Layout()
 
-								self.repeat_type_choice.Bind(wx.EVT_CHOICE, self.OnRepeatTypeChoice)
+								self.run_type_choice.Bind(wx.EVT_CHOICE, self.OnRunTypeChoice)
 								# end wxGlade
 
-				def OnRepeatTypeChoice(self, event):  # wxGlade: SchedulingParameters_.<event_handler>
-								print("Event handler 'OnRepeatTypeChoice' not implemented!")
+				def OnRunTypeChoice(self, event):  # wxGlade: SchedulingParameters_.<event_handler>
+								print("Event handler 'OnRunTypeChoice' not implemented!")
 								event.Skip()
 
 # end of class SchedulingParameters_

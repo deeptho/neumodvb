@@ -1906,7 +1906,7 @@ devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_t
 		ret.tune_mode = tune_mode_t::NORMAL;
 		ret.scan_target =  scan_target_t::SCAN_FULL_AND_EPG;
 		break;
-	case subscription_type_t::SPECTRUM_BAND_SCAN:
+	case subscription_type_t::BAND_SCAN:
 	case subscription_type_t::SPECTRUM_ACQ:
 		ret.tune_mode = tune_mode_t::SPECTRUM;
 		ret.scan_target =  scan_target_t::SCAN_FULL;
@@ -1954,10 +1954,10 @@ receiver_t::get_default_spectrum_scan_options(devdb::subscription_type_t subscri
 	switch(subscription_type) {
 	case subscription_type_t::TUNE:
 		break;
-	case subscription_type_t::SPECTRUM_BAND_SCAN:
+	case subscription_type_t::BAND_SCAN:
 	case subscription_type_t::SPECTRUM_ACQ: {
 		ret.recompute_peaks = true;
-		auto for_spectrum_scan = (subscription_type==subscription_type_t::SPECTRUM_BAND_SCAN);
+		auto for_spectrum_scan = (subscription_type==subscription_type_t::BAND_SCAN);
 		auto r = options.readAccess();
 		ret.save_spectrum = for_spectrum_scan ? r->band_scan_save_spectrum : true;
 	}

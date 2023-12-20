@@ -285,7 +285,7 @@ class ScanTypeChoice(wx.Choice):
         import pydevdb
         p_t = pydevdb.subscription_type_t
         self.choices = [ 'Scan muxes', 'Scan band', 'Acq. spectrum']
-        self.values = [ p_t.MUX_SCAN, p_t.SPECTRUM_BAND_SCAN, p_t.SPECTRUM_ACQ]
+        self.values = [ p_t.MUX_SCAN, p_t.BAND_SCAN, p_t.SPECTRUM_ACQ]
         kwargs['choices'] = self.choices
         super().__init__(id, *args, **kwargs)
 
@@ -301,26 +301,53 @@ class ScanTypeChoice(wx.Choice):
         choice = self.values[idx]
         return choice
 
-class RepeatTypeChoice(wx.Choice):
+class RunType(object):
+    def __init__(self):
+        from neumodvb import neumodbutils
+        import pydevdb
+        r_t = pydevdb.run_type_t
+        self.run_types = [ r_t.NEVER, r_t.ONCE, *[r_t.HOURLY]*7, r_t.DAILY, *[r_t.WEEKLY]*2, r_t.MONTHLY]
+
+        self.intervals = [ 1, 1, *[1, 2, 3, 4, 6, 8, 12], 1, *[1, 2], 1]
+        self.choices = [self.run_type_str(i,t) for i, t in zip(self.intervals, self.run_types)]
+        assert len(self.run_types) == len(self.choices)
+        assert len(self.intervals) == len(self.choices)
+
+    def run_type_str(self, interval, run_type):
+        import pydevdb
+        r_t = pydevdb.run_type_t
+        if run_type == r_t.HOURLY:
+            if interval==1:
+                return 'Hourly'
+            else:
+                return f"Every {interval} hours"
+        return enum_to_str(run_type).capitalize()
+
+    def str_to_runtype(self, val):
+        import pydevdb
+        r_t = pydevdb.run_type_t
+        try:
+            idx = self.choices.index(val)
+            return self.run_types[idx], self.intervals[idx]
+        except:
+            return r_t.NEVER, 1
+
+
+class RunTypeChoice(wx.Choice):
     def __init__(self, id,  *args, **kwargs):
         from neumodvb import neumodbutils
         import pydevdb
-        r_t = pydevdb.repeat_type_t
-        self.choices = ['Never', 'Every hour', *[f"Every {h} hours" for h in [2, 3, 4, 6, 8, 12]], 'Daily', 'Weekly', 'Biweekly',
-                        'Monthly']
-        self.repeat_types = [ r_t.NEVER, *[r_t.HOURLY]*7, r_t.DAILY, *[r_t.WEEKLY]*2, r_t.MONTHLY]
+        from neumodvb.scancommandlist import run_type_str, run_type_choices
+        r_t = pydevdb.run_type_t
+        self.RT = RunType()
 
-        self.intervals = [ 1, *[1, 2, 3, 4, 6, 8, 12], 1, *[1, 2], 1]
-        assert len(self.repeat_types) == len(self.choices)
-        assert len(self.intervals) == len(self.choices)
-
-        kwargs['choices'] = self.choices
+        kwargs['choices'] = self.RT.choices
         super().__init__(id, *args, **kwargs)
 
-    def SetValue(self, repeat_type, interval):
+    def SetValue(self, run_type, interval):
         from neumodvb import neumodbutils
         try:
-            idx = [*zip(self.repeat_types, self.intervals)].index((repeat_type, interval))
+            idx = [*zip(self.RT.run_types, self.RT.intervals)].index((run_type, interval))
             self.SetSelection(idx)
         except:
             pass
@@ -328,7 +355,7 @@ class RepeatTypeChoice(wx.Choice):
         from neumodvb import neumodbutils
         import pydevdb
         idx = self.GetCurrentSelection()
-        return self.repeat_types[idx], self.intervals[idx]
+        return self.RT.run_types[idx], self.RT.intervals[idx]
 
 
 

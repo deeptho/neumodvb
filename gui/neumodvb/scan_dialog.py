@@ -46,7 +46,7 @@ class SchedulingParameters(SchedulingParameters_):
         self.startdate_datepicker.SetValue(d)
         t = datetime.datetime.fromtimestamp(self.start_time, tz=tz.tzlocal())
         self.starttime_text.SetValue(t.strftime('%H:%M'))
-        self.repeat_type_choice.SetValue(self.scan_command.repeat_type, self.scan_command.interval)
+        self.run_type_choice.SetValue(self.scan_command.run_type, self.scan_command.interval)
         self.max_duration_text.SetValueTime(self.scan_command.max_duration)
         self.catchup_checkbox.SetValue(True)
 
@@ -56,8 +56,8 @@ class SchedulingParameters(SchedulingParameters_):
         start_time = self.startdate_datepicker.GetValue().GetTicks()
         start_time += self.starttime_text.GetSeconds()
         self.scan_command.start_time = start_time
-        self.scan_command.repeat_type, self.scan_command.interval = \
-            self.repeat_type_choice.GetValue()
+        self.scan_command.run_type, self.scan_command.interval = \
+            self.run_type_choice.GetValue()
         self.scan_command.max_duration = self.max_duration_text.GetSeconds()
         self.scan_command.catchup = self.catchup_checkbox.GetValue()
 
@@ -94,7 +94,7 @@ class ScanParameters(ScanParameters_):
             sat_bands = None
 
         self.receiver = wx.GetApp().receiver
-        self.scan_command.tune_options.subscription_type = subscription_type_t.SPECTRUM_BAND_SCAN if allow_band_scan \
+        self.scan_command.tune_options.subscription_type = subscription_type_t.BAND_SCAN if allow_band_scan \
             else subscription_type_t.MUX_SCAN
         self.scan_command.tune_options = self.receiver.get_default_tune_options(
             subscription_type = self.scan_command.tune_options.subscription_type)

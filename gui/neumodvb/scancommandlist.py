@@ -27,14 +27,70 @@ import datetime
 from dateutil import tz
 import regex as re
 
-from neumodvb import neumodbutils
 from neumodvb.util import setup, lastdot
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import dtdebug, dterror
 from neumodvb.scan_dialog import  show_scan_dialog
-
+from neumodvb.neumodbutils import enum_to_str
+from neumodvb.neumowidgets import RunType
+import pychdb
 import pydevdb
+
+
+RT=RunType()
+
+def run_type_str(interval, run_type):
+    return RT.run_type_str(interval, run_type)
+
+def run_type_sfn(triple):
+    rec, val, table = triple
+    rec.run_type, rec.interval = RT.str_to_runtype(val)
+    return rec
+
+def run_type_choices():
+    r_t = pydevdb.run_type_t
+    return RunType().choices
+
+def mux_str(mux):
+    sat = pychdb.sat_pos_str(mux.k.sat_pos) if type(mux) == pychdb.dvbs_mux.dvbs_mux \
+        else 'DVBT' if type(mux) == pychdb.dvbt_mux.dvbt_mux \
+             else 'DVBC' if type(mux) == pychdb.dvbc_mux.dvbc_mux \
+                  else ''
+    pol = lastdot(mux.pol).replace('POL','') if hasattr(mux, 'pol') else ''
+    return f'{sat} {mux.frequency/1000.:9.3f}{pol}'
+
+
+def sat_mux_fn(x):
+    ret=[]
+
+    for batch in batched([f'{str(sat)}-{enum_to_str(sat.sat_band)}' for sat in x[0].sats], 4):
+        ret.append("; ".join([*batch]))
+    muxes = [*x[0].dvbs_muxes, *x[0].dvbc_muxes, *x[0].dvbt_muxes]
+    for batch in batched([mux_str(mux) for mux in [*muxes]], 2):
+        ret.append("; ".join([*batch]))
+    return "\n".join(ret)
+
+def cards_dishes_fn(x):
+    ret=[]
+    cards_dict = x[2].cards
+    for batch in batched([f'{cards_dict.get(card, "???")}' for card in x[1].allowed_card_mac_addresses], 2):
+        ret.append("; ".join([*batch]))
+    for batch in batched([f'D{dish}' for dish in x[1].allowed_dish_ids], 4):
+        ret.append("; ".join([*batch]))
+    return "\n".join(ret)
+
+def bands_fn(x):
+    ret=[]
+    pols = [enum_to_str(pol) for pol in x[1].pols]
+    ret.append('; '.join(pols))
+    if x[1].start_freq >=0 and x[1].end_freq>=0:
+        ret.append(f'{x[1].start_freq//1000}-{x[1].end_freq//1000}')
+    elif x[1].start_freq >=0:
+        ret.append(f'{x[1].start_freq//1000}-end')
+    elif x[1].end_freq >=0:
+        ret.append(f'sstart-{x[1].end_freq//1000}')
+    return "\n".join(ret)
 
 class ScanCommandTable(NeumoTable):
     CD = NeumoTable.CD
@@ -42,19 +98,21 @@ class ScanCommandTable(NeumoTable):
     mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":") if x[1]>=0 else '???'
     card_fn = lambda x: card_label(x[0])
     card_rf_in_fn = lambda x: x[2].connection_name(x[0])
-    datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
-    lof_offset_fn =  lambda x: '; '.join([ f'{int(x[0].lof_offsets[i])}kHz' for i in range(len(x[0].lof_offsets))]) if len(x[0].lof_offsets)>0 else ''
-    freq_fn = lambda x: f'{x[1]/1000.:9.3f}' if x[1]>=0 else '-1'
-    lnb_key_fn = lambda x: str(x[0])
-    cur_pos_fn = lambda x:  pychdb.sat_pos_str(x[0].usals_pos + x[0].offset_angle)
+    datetime_fn =  lambda x: '' if x[0].run_type == pydevdb.run_type_t.NEVER else \
+        datetime.datetime.fromtimestamp(x[1], tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
+    duration_fn =  lambda x: f'{x[1]//3600:02d}:{x[1]//60:02d}'
+    run_type_fn = lambda x: run_type_str(x[0].interval, x[0].run_type)
+    run_type_cfn = lambda x: run_type_choices()
     all_columns=[CD(key='id', label='ID', basic=True, readonly=True),
                  CD(key='start_time', label='Starts', basic=True, readonly=False,
                     dfn=datetime_fn, example='2021-06-16 18:30:33*'),
-                 CD(key='repeat_type', label='Repeats', basic=True, readonly=False,
-                    dfn=lambda x: f'{x[0].interval} {x[0].repeat_type}', example='6 weeks'),
-                 CD(key='max_duration', label='Max\nDuration', basic=True, readonly=False),
-                 CD(key='catchup', label='Catch up', basic=True, readonly=False),
-                 CD(key='tune_options.subscription_type', label='Command', basic=True, readonly=False),
+                 CD(key='run_type', label='Runs', basic=True, readonly=False,
+                    cfn = run_type_cfn, dfn=run_type_fn, sfn = run_type_sfn,
+                    example='Every 12 hours '),
+                 CD(key='catchup', label='Catch\nup', basic=True, readonly=False),
+                 CD(key='max_duration', label='Max\nDur.', dfn=duration_fn, basic=True, readonly=False),
+                 CD(key='tune_options.subscription_type', label='Command',
+                    dfn = lambda x: enum_to_str(x[1]).replace("_", " "), basic=True, readonly=False),
                  CD(key='tune_options', label='options', basic=False, readonly=False),
                  CD(key='mtime', label='Modified', basic=True, readonly=False,
                     dfn=datetime_fn, example='2021-06-16 18:30:33*'),
@@ -72,6 +130,7 @@ class ScanCommandTable(NeumoTable):
                          sort_order=2, #most recent on top
                          **kwds)
         self.do_autosize_rows = True
+        self.cards = { v:k for k,v in wx.GetApp().get_cards().items()}
 
     def screen_getter_xxx(self, txn, sort_field):
         match_data, matchers = self.get_filter_()

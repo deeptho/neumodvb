@@ -223,7 +223,7 @@ class SatGridBase(NeumoGridBase):
             self.app.MuxesOnSatScan(sats, tune_options, band_scan_options)
         elif subscription_type == pydevdb.subscription_type_t.SPECTRUM_ACQ:
             self.app.SpectrumOnSatAcq(sats, tune_options, band_scan_options)
-        elif subscription_type == pydevdb.subscription_type_t.SPECTRUM_BAND_SCAN:
+        elif subscription_type == pydevdb.subscription_type_t.BAND_SCAN:
             self.app.BandsOnSatScan(scan_command.sats, scan_command.tune_options, scan_command.band_scan_options)
         else:
             assert False

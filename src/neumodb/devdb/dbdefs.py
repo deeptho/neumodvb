@@ -486,7 +486,7 @@ subscription_type = db_enum(name='subscription_type_t',
                                # on the same dish can be used by other subscriptions
 	                     'MUX_SCAN',  # scanning muxes in the background: resources are reserved non-exclusively,
                                     # also reserved non-exclusively
-	                     'SPECTRUM_BAND_SCAN',  # scanning spectral band in the background: resources are reserved
+	                     'BAND_SCAN',  # scanning spectral band in the background: resources are reserved
                                               # non-exclusively
                        'SPECTRUM_ACQ',  # Spectrum acquisition from spectrum_dialog reserved exclusively
 	                     'LNB_CONTROL' #in this case, a second subscriber cannot subscribe to the mux
@@ -499,18 +499,17 @@ subscription_type = db_enum(name='subscription_type_t',
                                      #the dish can be used on the same dish
 	                 ))
 
-repeat_type = db_enum(name='repeat_type_t',
+run_type = db_enum(name='run_type_t',
                    db = db,
                    storage = 'int8_t',
                    type_id = 100,
                    version = 1,
-                   fields=(
-                       ('NONE', '-1'),
-                       'NEVER',
-                       'HOURLY',
-                       'DAILY',
-                       'WEEKLY',
-                       'MONTHLY'
+                   fields=('NEVER',
+                           'ONCE',
+                           'HOURLY',
+                           'DAILY',
+                           'WEEKLY',
+                           'MONTHLY'
                    ))
 
 
@@ -533,8 +532,7 @@ tune_options = db_struct(name ='tune_options',
                                                         #other subscriptions conflict; afterwards dish may not be moved
               (9, 'bool', 'may_control_dish', 'false'), #The subscription may move move the subscribed
                                                         #dish to a new position at any time (exclusive use)
-              (10, 'bool', 'may_control_lnb',
-               'false'),                                #subscription may change pol/band and send diseqc at any time
+              (10, 'bool', 'may_control_lnb', 'false'), #subscription may change pol/band and send diseqc at any time
                                                         #(exclusive use)
 	            (11, 'bool', 'propagate_scan', 'true'),
 	            (12, 'bool', 'need_spectrum', 'false'),
@@ -566,7 +564,7 @@ scan_command = db_struct(
     ignore_for_equality_fields = ('mtime',),
     fields = ((1, 'int16_t', 'id', '-1'), # -1 means "not set"
               (2, 'time_t', 'start_time', '-1'), #when to run next
-              (3, 'repeat_type_t', 'repeat_type', 'repeat_type_t::DAILY'), #what time of day, day of week or month
+              (3, 'run_type_t', 'run_type', 'run_type_t::NEVER'), #what time of day, day of week or month
               #to run
               (4, 'int16_t', 'interval', '1'), #larger interval
               (5, 'int16_t', 'max_duration', '3600'), #max duration in seconds

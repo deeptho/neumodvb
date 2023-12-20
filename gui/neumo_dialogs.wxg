@@ -963,19 +963,19 @@
                                                         <border>0</border>
                                                         <flag>wxALIGN_CENTER_VERTICAL</flag>
                                                         <object class="wxStaticText" name="label_10" base="EditStaticText">
-                                                            <label>Repeat every:</label>
+                                                            <label>Run:</label>
                                                         </object>
                                                     </object>
                                                     <object class="sizeritem">
                                                         <option>0</option>
                                                         <border>4</border>
                                                         <flag>wxBOTTOM</flag>
-                                                        <object class="RepeatTypeChoice" name="repeat_type_choice" base="EditChoice">
-                                                            <extracode_pre>from neumodvb.neumowidgets import RepeatTypeChoice</extracode_pre>
+                                                        <object class="RunTypeChoice" name="run_type_choice" base="EditChoice">
+                                                            <extracode_pre>from neumodvb.neumowidgets import RunTypeChoice</extracode_pre>
                                                             <events>
-                                                                <handler event="EVT_CHOICE">OnRepeatTypeChoice</handler>
+                                                                <handler event="EVT_CHOICE">OnRunTypeChoice</handler>
                                                             </events>
-                                                            <tooltip>When to repeat the job </tooltip>
+                                                            <tooltip>When to run the job </tooltip>
                                                             <selection>0</selection>
                                                             <choices>
                                                             </choices>

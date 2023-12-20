@@ -189,10 +189,6 @@ class ScanJobDialog_(ScanDialog_):
             if scan_command.id < 0: # not inited yet
                 now = int(datetime.datetime.now(tz=tz.tzlocal()).timestamp())
                 self.scan_command.start_time= now
-                self.scan_command.interval=3
-                self.scan_command.repeat_type = pydevdb.repeat_type_t.HOURLY
-                self.scan_command.max_duration= 60*(60+10)
-                self.scan_command.catchup = True
             self.scheduling_parameters_panel.init(parent, self.scan_command)
         else:
             self.scheduling_parameters_panel.Hide()

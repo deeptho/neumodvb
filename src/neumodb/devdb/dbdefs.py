@@ -565,11 +565,11 @@ scan_command = db_struct(
     primary_key= ('key', ('id',)),
     ignore_for_equality_fields = ('mtime',),
     fields = ((1, 'int16_t', 'id', '-1'), # -1 means "not set"
-              (2, 'time_t', 'start_time', '0'), #when to run next
+              (2, 'time_t', 'start_time', '-1'), #when to run next
               (3, 'repeat_type_t', 'repeat_type', 'repeat_type_t::DAILY'), #what time of day, day of week or month
               #to run
               (4, 'int16_t', 'interval', '1'), #larger interval
-              (5, 'int16_t', 'max_duration', '-1'), #max duration in seconds
+              (5, 'int16_t', 'max_duration', '3600'), #max duration in seconds
               (6, 'bool', 'catchup', 'true'), #if true, then run the last planned scan if it was not run
               (7, 'time_t', 'mtime'),
               (9, 'tune_options_t', 'tune_options'),

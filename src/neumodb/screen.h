@@ -95,7 +95,9 @@ struct field_matcher_t {
 
 	int8_t field_id{-1};
 	match_type_t match_type{match_type_t::EQ};
-
+	inline bool operator == (const field_matcher_t& other) const {
+		return field_id == other.field_id;
+	}
 };
 
 

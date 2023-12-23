@@ -213,6 +213,50 @@ class ScanCommandGridBase(NeumoGridBase):
         else:
             evt.Skip(True)
 
+    def CmdEditCommandMode(self, is_checked):
+        verbose=True
+        if not is_checked:
+            if verbose:
+                ok = ShowOkCancel("End Edit Command Mode?",
+                                  f'Turn off Edit Command Mode?\n', default_is_ok=True)
+            if not ok:
+                return ok #uncheck menu item
+            app = wx.GetApp()
+            app.get_menu_item('CommandAddSat').disabled = True
+            app.get_menu_item('CommandAddMux').disabled = True
+            app.frame.CmdScanCommandList(None)
+            dtdebug('EditCommandMode turned OFF')
+            app.frame.command_being_edited = None
+            app.frame.current_panel().grid.table.OnModified()
+            app.frame.CmdScanCommandList(None)
+            return True
+
+        row = self.GetGridCursorRow()
+        record = self.table.screen.record_at_row(row)
+        dtdebug(f'EditCommand requested for row={row}: {record}')
+        self.table.SaveModified()
+        if verbose:
+            ok = ShowOkCancel("Start Edit Command Mode?",
+                              f'Turn on Command Edit Mode for the following command?\n'
+                              f'  {command_name(record)}\n'
+                              f'When this mode is on, satellites and muxes used by the command will be highlighted '
+                              f' and you can add/remove them in the satelltite and mux lists',
+                              default_is_ok=True)
+            if not ok:
+                return ok #uncheck menu item
+            app = wx.GetApp()
+            app.get_menu_item('CommandAddSat').disabled = False
+            app.get_menu_item('CommandAddMux').disabled = False
+            if len(record.dvbs_muxes) > 0:
+                app.frame.CmdDvbsMuxList(None)
+            elif len(record.dvbc_muxes) > 0:
+                app.frame.CmdDvbcMuxList(None)
+            elif len(record.dvbt_muxes) > 0:
+                app.frame.CmdDvbtMuxList(None)
+            else:
+                app.frame.CmdSatList(None)
+        self.app.frame.command_being_edited = record
+        return True
 
 class BasicScanCommandGrid(ScanCommandGridBase):
     def __init__(self, *args, **kwds):

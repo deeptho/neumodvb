@@ -105,7 +105,6 @@ class DvbsMuxTable(NeumoTable):
         install a filter to only allow muxes from a specific satellite band which is identified by band.
         band is a tuple of low and high frequency limit of the band
         """
-        import pydevdb
         match_data, matchers = self.get_filter_()
         if matchers is None:
             match_data = self.record_t()
@@ -159,6 +158,15 @@ class DvbsMuxTable(NeumoTable):
             ret.k.sat_pos = self.parent.sat.sat_pos
         ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
         return ret
+
+    def highlight_colour(self, mux):
+        e = wx.GetApp().frame.command_being_edited
+        if e is None:
+            return None
+
+        ret = e.dvbs_muxes.index(mux)!=-1
+        return self.parent.default_highlight_colour if ret else None
+
 
 class DvbsMuxGridBase(NeumoGridBase):
 
@@ -308,7 +316,6 @@ class DvbsMuxGridBase(NeumoGridBase):
         scan_command=self.CmdCreateScanHelper(with_schedule=False)
         muxes, subscription_type = (None, None) if scan_command is None else \
             (scan_command.dvbs_muxes, scan_command.tune_options.subscription_type)
-        import pydevdb
         assert subscription_type ==  pydevdb.subscription_type_t.MUX_SCAN
         if scan_command is None or muxes is None:
             dtdebug(f'CmdScan aborted for {0 if muxes is None else len(muxes)} muxes')
@@ -320,7 +327,6 @@ class DvbsMuxGridBase(NeumoGridBase):
         scan_command=self.CmdCreateScanHelper(with_schedule=True)
         muxes, subscription_type = (None, None) if scan_command is None else \
             (scan_command.dvbs_muxes, scan_command.tune_options.subscription_type)
-        import pydevdb
         assert subscription_type ==  pydevdb.subscription_type_t.MUX_SCAN
         if scan_command is None or muxes is None:
             dtdebug(f'CmdScan aborted for {0 if muxes is None else len(muxes)} muxes')
@@ -333,8 +339,36 @@ class DvbsMuxGridBase(NeumoGridBase):
         pydevdb.put_record(wtxn, scan_command)
         wtxn.commit()
 
+    def CmdCommandAddMux(self, evt):
+        row = self.GetGridCursorRow()
+        mux = self.table.screen.record_at_row(row)
+        if self.app.frame.command_being_edited is None:
+            dtdebug(f'request to add mux {mux} to command={self.app.frame.command_being_edited} IGNORED')
+            return
+        else:
+            dtdebug(f'request to add mux {mux} to {self.app.frame.command_being_edited}')
+        command = self.app.frame.command_being_edited
+        assert command is not None
+        idx = command.dvbs_muxes.index(mux)
+        if idx <0:
+            command.dvbs_muxes.push_back(mux)
+        else:
+            command.dvbs_muxes.erase(idx)
+        wtxn = wx.GetApp().devdb.wtxn()
+        pydevdb.put_record(wtxn, command)
+        wtxn.commit()
+        self.table.OnModified()
+
+    @property
+    def CmdEditCommandMode(self):
+        if wx.GetApp().frame.command_being_edited is None:
+            return False #signal to neumomenu that item is disabled
+        return self.app.frame.scancommandgrid.CmdEditCommandMode
+
     def OnTimer(self, evt):
         super().OnTimer(evt)
+
+
 
 class DvbsMuxGrid(DvbsMuxGridBase):
     def __init__(self, *args, **kwds):

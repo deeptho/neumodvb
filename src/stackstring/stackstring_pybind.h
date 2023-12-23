@@ -54,6 +54,8 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
 		.def("erase", [](ss::vector_<T> &v, size_t idx) {
 											//printf("[%p] len\n", &v);
 										 v.erase(idx); })
+		.def("index", [](ss::vector_<T> &v, const T& val) {
+										 return v.index_of(val); })
 		.def("resize", [](ss::vector_<T> &v, size_t size) {
 											//printf("[%p] len\n", &v);
 										 v.resize(size); })

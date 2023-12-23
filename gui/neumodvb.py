@@ -74,6 +74,7 @@ class neumoMainFrame(mainFrame):
         self.servicegrid.infow = self.serviceinfo_text
         self.chgmgrid.infow = self.chgminfo_text
         self.bouquet_being_edited = None
+        self.command_being_edited = None
         self.panel_names = [ 'servicelist', 'chgmlist',
                             'chepg', 'live',
                             'dvbs_muxlist', 'dvbc_muxlist', 'dvbt_muxlist',

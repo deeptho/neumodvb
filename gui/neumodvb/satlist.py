@@ -35,6 +35,7 @@ from neumodvb.neumodbutils import enum_to_str
 from neumodvb.satbandlist_combo import EVT_SATBAND_SELECT
 
 import pychdb
+import pydevdb
 
 def band_scans_fn(x):
     scans = x[1]
@@ -126,6 +127,14 @@ class SatTable(NeumoTable):
     def __new_record__(self):
         ret=self.record_t()
         return ret
+
+    def highlight_colour(self,sat):
+        e = wx.GetApp().frame.command_being_edited
+        if e is None:
+            return None
+
+        ret = e.sats.index(sat)!=-1
+        return self.parent.default_highlight_colour if ret else None
 
 class SatGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):
@@ -254,6 +263,32 @@ class SatGridBase(NeumoGridBase):
             txn.abort()
         return self.sat_band, self.sat
 
+    def CmdCommandAddSat(self, evt):
+        row = self.GetGridCursorRow()
+        sat = self.table.screen.record_at_row(row)
+        if self.app.frame.command_being_edited is None:
+            dtdebug(f'request to add sat {sat} to command={self.app.frame.command_being_edited} IGNORED')
+            return
+        else:
+            dtdebug(f'request to add sat {sat} to {self.app.frame.command_being_edited}')
+        command = self.app.frame.command_being_edited
+        assert command is not None
+        idx = command.sats.index(sat)
+        if idx <0:
+            command.sats.push_back(sat)
+        else:
+            command.sats.erase(idx)
+        wtxn = wx.GetApp().devdb.wtxn()
+        pydevdb.put_record(wtxn, command)
+        wtxn.commit()
+        self.table.OnModified()
+
+    @property
+    def CmdEditCommandMode(self):
+        if wx.GetApp().frame.command_being_edited is None:
+            return False #signal to neumomenu that item is disabled
+        return self.app.frame.scancommandgrid.CmdEditCommandMode
+
 class BasicSatGrid(SatGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
@@ -272,7 +307,7 @@ class SatGrid(SatGridBase):
                 service = ls.selected_service
                 if service is not None:
                     txn = wx.GetApp().chdb.rtxn()
-                    sat_band, low_high = pychdb.sat_band_for_freq(service.imux.frequency)
+                    sat_band, low_high = pychdb.sat_band_for_freq(service.mux.frequency)
                     self.sat=pychdb.sat.find_by_key(txn, service.k.mux.sat_pos, sat_band)
                     txn.abort()
                     self.sat_band = sat_band

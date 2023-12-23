@@ -264,20 +264,21 @@ class SatGridBase(NeumoGridBase):
         return self.sat_band, self.sat
 
     def CmdCommandAddSat(self, evt):
-        row = self.GetGridCursorRow()
-        sat = self.table.screen.record_at_row(row)
+        rows = self.GetSelectedRows()
+        sats = [ self.table.screen.record_at_row(row) for row in rows]
         if self.app.frame.command_being_edited is None:
-            dtdebug(f'request to add sat {sat} to command={self.app.frame.command_being_edited} IGNORED')
+            dtdebug(f'request to add sat {sats} to command={self.app.frame.command_being_edited} IGNORED')
             return
         else:
-            dtdebug(f'request to add sat {sat} to {self.app.frame.command_being_edited}')
+            dtdebug(f'request to add sat {sats} to {self.app.frame.command_being_edited}')
         command = self.app.frame.command_being_edited
         assert command is not None
-        idx = command.sats.index(sat)
-        if idx <0:
-            command.sats.push_back(sat)
-        else:
-            command.sats.erase(idx)
+        for sat in sats:
+            idx = command.sats.index(sat)
+            if idx <0:
+                command.sats.push_back(sat)
+            else:
+                command.sats.erase(idx)
         wtxn = wx.GetApp().devdb.wtxn()
         pydevdb.put_record(wtxn, command)
         wtxn.commit()

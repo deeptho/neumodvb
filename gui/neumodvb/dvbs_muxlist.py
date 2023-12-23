@@ -340,20 +340,21 @@ class DvbsMuxGridBase(NeumoGridBase):
         wtxn.commit()
 
     def CmdCommandAddMux(self, evt):
-        row = self.GetGridCursorRow()
-        mux = self.table.screen.record_at_row(row)
+        rows = self.GetSelectedRows()
+        muxes = [ self.table.screen.record_at_row(row) for row in rows]
         if self.app.frame.command_being_edited is None:
-            dtdebug(f'request to add mux {mux} to command={self.app.frame.command_being_edited} IGNORED')
+            dtdebug(f'request to add mux {muxes} to command={self.app.frame.command_being_edited} IGNORED')
             return
         else:
-            dtdebug(f'request to add mux {mux} to {self.app.frame.command_being_edited}')
+            dtdebug(f'request to add mux {muxes} to {self.app.frame.command_being_edited}')
         command = self.app.frame.command_being_edited
         assert command is not None
-        idx = command.dvbs_muxes.index(mux)
-        if idx <0:
-            command.dvbs_muxes.push_back(mux)
-        else:
-            command.dvbs_muxes.erase(idx)
+        for mux in muxes:
+            idx = command.dvbs_muxes.index(mux)
+            if idx <0:
+                command.dvbs_muxes.push_back(mux)
+            else:
+                command.dvbs_muxes.erase(idx)
         wtxn = wx.GetApp().devdb.wtxn()
         pydevdb.put_record(wtxn, command)
         wtxn.commit()

@@ -230,9 +230,12 @@ class ScanCommandGridBase(NeumoGridBase):
             app.frame.current_panel().grid.table.OnModified()
             app.frame.CmdScanCommandList(None)
             return True
-
         row = self.GetGridCursorRow()
         record = self.table.screen.record_at_row(row)
+        s_t = pydevdb.subscription_type_t
+        t = record.tune_options.subscription_type
+        allow_muxes = t in (s_t.MUX_SCAN, s_t.TUNE)
+        allow_sats = t in (s_t.MUX_SCAN, s_t.BAND_SCAN, s_t.SPECTRUM_ACQ)
         dtdebug(f'EditCommand requested for row={row}: {record}')
         self.table.SaveModified()
         if verbose:
@@ -245,8 +248,8 @@ class ScanCommandGridBase(NeumoGridBase):
             if not ok:
                 return ok #uncheck menu item
             app = wx.GetApp()
-            app.get_menu_item('CommandAddSat').disabled = False
-            app.get_menu_item('CommandAddMux').disabled = False
+            app.get_menu_item('CommandAddSat').disabled = not allow_sats
+            app.get_menu_item('CommandAddMux').disabled = not allow_muxes
             if len(record.dvbs_muxes) > 0:
                 app.frame.CmdDvbsMuxList(None)
             elif len(record.dvbc_muxes) > 0:

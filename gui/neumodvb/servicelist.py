@@ -283,16 +283,17 @@ class ServiceGridBase(NeumoGridBase):
         #TODO: we can only know lnb after tuning!
 
     def CmdBouquetAddService(self, evt):
-        row = self.GetGridCursorRow()
-        service = self.table.screen.record_at_row(row)
+        rows = self.GetSelectedRows()
+        services = [ self.table.screen.record_at_row(row) for row in rows]
         if self.app.frame.bouquet_being_edited is None:
-            dtdebug(f'request to add service {service} to bouquet={self.app.frame.bouquet_being_edited} IGNORED')
+            dtdebug(f'request to add service {services} to bouquet={self.app.frame.bouquet_being_edited} IGNORED')
             return
         else:
-            dtdebug(f'request to add service {service} to {self.app.frame.bouquet_being_edited}')
+            dtdebug(f'request to add service {services} to {self.app.frame.bouquet_being_edited}')
         wtxn =  wx.GetApp().chdb.wtxn()
         assert self.app.frame.bouquet_being_edited is not None
-        pychdb.chg.toggle_service_in_bouquet(wtxn, self.app.frame.bouquet_being_edited, service)
+        for service in services:
+            pychdb.chg.toggle_service_in_bouquet(wtxn, self.app.frame.bouquet_being_edited, service)
         wtxn.commit()
         self.table.OnModified()
 

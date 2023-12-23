@@ -246,12 +246,18 @@ class ChgmGridBase(NeumoGridBase):
         self.app.ServiceTune(service, replace_running=False)
 
     def CmdBouquetAddService(self, evt):
-        dtdebug('CmdBouquetAddService')
-        row = self.GetGridCursorRow()
-        chgm = self.table.screen.record_at_row(row)
-        dtdebug(f'request to add channel {chgm} to {self.app.frame.bouquet_being_edited}')
+        rows = self.GetSelectedRows()
+        chgms = [ self.table.screen.record_at_row(row) for row in rows]
+        if self.app.frame.bouquet_being_edited is None:
+            dtdebug(f'request to add chgm {chgms} to bouquet={self.app.frame.bouquet_being_edited} IGNORED')
+            return
+        else:
+            dtdebug(f'request to add chgm {chgms} to {self.app.frame.bouquet_being_edited}')
+
         wtxn =  wx.GetApp().chdb.wtxn()
-        pychdb.chg.toggle_channel_in_bouquet(wtxn, self.app.frame.bouquet_being_edited, chgm)
+        assert self.app.frame.bouquet_being_edited is not None
+        for chgm in chgms:
+            pychdb.chg.toggle_channel_in_bouquet(wtxn, self.app.frame.bouquet_being_edited, chgm)
         wtxn.commit()
         self.table.OnModified()
 

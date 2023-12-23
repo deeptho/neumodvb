@@ -1367,25 +1367,3 @@ devdb::dish::list_dishes(db_txn& devdb_rtxn) {
 	}
 	return dishes;
 }
-
-
-#if 0
-void devdb::lnb::find_freq_offset_for_mux(db_txn& devdb_rtxn,  const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux)
-{
-	auto now = system_clock_t::to_time_t(now_);
-	using namespace devdb;
-	auto c = tuned_frequency_offset_t::find_by_key(devdb_rtxn, lnb.k, mux.k.sat_pos, mux.frequency, find_type_t::find_eq);
-	if(c.valid()) {
-		return c.current.frequency_offset;
-	}
-	else {
-		auto [band_, pol_, freq] = lnb::band_voltage_freq_for_mux(lnb, mux);
-		band = band_;
-		pol = dvbs_mux->pol;
-		if(band < lnb.lof_offsets.size())
-			return lnb.lof_offsets[band];
-		else
-			return 0;
-	}
-}
-#endif

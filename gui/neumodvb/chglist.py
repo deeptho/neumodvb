@@ -106,6 +106,7 @@ class ChgGridBase(NeumoGridBase):
             dtdebug('EditBouquetMode turned OFF')
             self.app.frame.bouquet_being_edited = None
             self.app.frame.current_panel().grid.table.OnModified()
+            self.app.frame.CmdChgList(None)
             return True
 
         row = self.GetGridCursorRow()
@@ -121,7 +122,8 @@ class ChgGridBase(NeumoGridBase):
                               default_is_ok=True)
             if not ok:
                 return ok #uncheck menu item
-            wx.GetApp().get_menu_item('BouquetAddService').disabled = False
+            self.app.get_menu_item('BouquetAddService').disabled = False
+            self.app.frame.CmdServiceList(None)
         self.app.frame.bouquet_being_edited = record
         return True
 

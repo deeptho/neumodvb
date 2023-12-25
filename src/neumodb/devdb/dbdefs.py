@@ -512,6 +512,28 @@ run_type = db_enum(name='run_type_t',
                            'MONTHLY'
                    ))
 
+run_status = db_enum(name='run_status_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=('NONE',
+                           'RUNNING',
+                           'PENDING',
+                           'FINISHED',
+                   ))
+
+run_result = db_enum(name='run_result_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=('NONE',
+                           'FAILED',
+                           'SKIPPED', #command should have been run, but was not and will not be run in future
+                           'OK',
+                   ))
+
 
 
 tune_options = db_struct(name ='tune_options',
@@ -561,15 +583,21 @@ scan_command = db_struct(
     type_id = lord('SC'),
     version = 1,
     primary_key= ('key', ('id',)),
+    keys = ((lord('rs'), 'run_status_next_time', ('run_status', 'next_time')),
+            ),
     ignore_for_equality_fields = ('mtime',),
     fields = ((1, 'int16_t', 'id', '-1'), # -1 means "not set"
-              (2, 'time_t', 'start_time', '-1'), #when to run next
+              (2, 'time_t', 'start_time', '-1'), #when to run first
               (3, 'run_type_t', 'run_type', 'run_type_t::NEVER'), #what time of day, day of week or month
               #to run
               (4, 'int16_t', 'interval', '1'), #larger interval
               (5, 'int16_t', 'max_duration', '3600'), #max duration in seconds
               (6, 'bool', 'catchup', 'true'), #if true, then run the last planned scan if it was not run
+              (17, 'time_t', 'next_time', '-1'), #when to run next
               (7, 'time_t', 'mtime'),
+              (16, 'run_status_t', 'run_status'), #set when command is actually started
+              (15, 'time_t', 'run_time'), #last time command was actually started
+              (18, 'run_result_t', 'run_result'), #set when command is actually started
               (9, 'tune_options_t', 'tune_options'),
               (11, 'band_scan_options_t', 'band_scan_options'),
               (10, 'ss::vector<chdb::sat_t,1>', 'sats'),

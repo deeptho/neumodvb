@@ -142,99 +142,126 @@ int receiver_thread_t::housekeeping(system_time_t now) {
 	return 0;
 }
 
-
-thread_local thread_group_t thread_group{thread_group_t::unknown};
+#ifdef set_member
+#undef set_member
+#endif
+#define set_member(v, m, val_)																				\
+	[&](auto& x)  {																											\
+		if has_member(x, m)  {																						\
+				auto val = val_;																							\
+				bool ret = (x.m != val);																			\
+				x.m =val;																											\
+				return ret;																										\
+			}																																\
+	}(v)																																\
 
 /*
-	subscription_id = -1 is returned from functions when resource allocation fails
-	If an error occurs after resource allocation, subscription_id should not be set to -1
-	(unless after releasing resources)
+	Compute the next time t>=now_ such
+	that the hour of the day is a multiple of interval hours after midnight
+	interval is in hours
+
+	DST behaviour:
+	-when transitioning to winter time, and when now_>= 2 AM and now_ < 3AM, the code
+	 will pick the earliest matching time
+	-when transitioning to summer time, if intverval==2, and if now_ is before 2AM, then
+	 the code will retunrn 3AM, because 2AM does not exist. We could also have opted to return 4AM
 
  */
+static time_t next_hourly(time_t now_, int interval)
+{
+	interval *= 3600;
+	using namespace std::chrono;
+	auto tz = current_zone();
+	auto nowsys = system_clock::from_time_t(now_);
+	auto nowloc = tz->to_local(nowsys);
+	auto dayloc = floor<days>(nowloc);
+	auto next= dayloc + seconds(((duration_cast<seconds>(nowloc -dayloc).count()+interval-1)/interval)*interval);
+	auto t = tz->to_sys(next, std::chrono::choose::earliest);
 
-//template instantiations
+	//A DST transition to winter time may have set t not to the next possible time, but the 2nd next
+	auto t2 = t - seconds(interval);
+	if (t2 >= nowsys)
+		t= t2;
 
-template
-subscription_id_t
-receiver_thread_t::subscribe_mux(
-	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbc_mux_t& mux,
-	subscription_id_t subscription_id, subscription_options_t tune_options,
-	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
+	return system_clock::to_time_t(t);
+}
 
+/*
+	Add an integer number of weeks to start_time such that start_time>= now_
 
-template
-subscription_id_t
-receiver_thread_t::subscribe_mux(
-	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbt_mux_t& mux,
-	subscription_id_t subscription_id, subscription_options_t tune_options,
-	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
+ */
+static time_t next_weekly(time_t now_, time_t start_time)
+{
+	using namespace std::chrono;
+	auto tz = current_zone();
+	auto nowloc = tz->to_local(system_clock::from_time_t(now_));
+	auto startloc = tz->to_local(system_clock::from_time_t(start_time));
+	auto delta = duration_cast<weeks>(nowloc - startloc);
+	auto next = startloc +delta;
+	if(next < nowloc)
+		next += weeks(1);
+	auto nextsys = tz->to_sys(next, std::chrono::choose::earliest);
+	return system_clock::to_time_t(nextsys);
+}
 
-template
-subscription_id_t
-receiver_thread_t::subscribe_mux(
-	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbs_mux_t& mux,
-	subscription_id_t subscription_id, subscription_options_t tune_options,
-	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
+/*
+	Recomputes next_time;
+	returns tow bools:
+	1. true if anything changed
+	2. true if command must be started after this call
+ */
+std::tuple<int, int> update_command(devdb::scan_command_t& cmd, system_time_t now_)
+{
+	using namespace devdb;
+	auto now = system_clock_t::to_time_t(now_);
+	bool ret{false};
+	bool must_start{false};
+	if(cmd.next_time > now)
+		return {false, false};
+	switch(cmd.run_type) {
+	case run_type_t::NEVER:
+		ret |= set_member(cmd, next_time, -1);
+		ret |= set_member(cmd, run_status,run_status_t::NONE);
+		break;
+	case run_type_t::ONCE:
+		if(cmd.next_time < now) {
+			if(cmd.run_status == run_status_t::PENDING ||
+				 cmd.run_status == run_status_t::NONE) {
+				dtdebugf("Detected skipped command {}", cmd.id);
+				ret |= set_member(cmd, run_status,
+													(cmd.next_time - now < cmd.max_duration) ? run_status_t::NONE:
+													run_status_t::RUNNING);
+				if(!must_start)
+					ret |= set_member(cmd, run_result, run_result_t::SKIPPED);
 
+			}
 
-template subscription_id_t
-receiver_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes,
-																				 const subscription_options_t& tune_options,
-																				 subscriber_t& subscriber);
+	}
+		break;
+	case run_type_t::HOURLY: {
+		auto next_time=next_hourly(now, cmd.interval);
+		ret |= set_member(cmd, next_time, next_time);
+	}
+		break;
+	case run_type_t::DAILY:
+		break;
+	case run_type_t::WEEKLY: {
+		auto next_time=next_weekly(now, cmd.start_time);
+		ret |= set_member(cmd, next_time, next_time);
+	}
+		break;
+	case run_type_t::MONTHLY:
 
-template subscription_id_t
-receiver_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
-																				 const subscription_options_t& tune_options,
-																				 subscriber_t& subscriber);
+		break;
+	}
 
-template subscription_id_t
-receiver_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
-																				 const subscription_options_t& tune_options,
-																				 subscriber_t& subscriber);
+	return {ret, must_start};
+}
 
+/*
+	https://fzco.wackymango.net/date-time-manipulations/
+	https://stackoverflow.com/questions/16773285/how-to-convert-stdchronotime-point-to-stdtm-without-using-time-t
+	https://lunarwatcher.github.io/til/cpp/incomplete-time-parsing.html
+	https://stackoverflow.com/questions/52238978/creating-a-stdchronotime-point-from-a-calendar-date-known-at-compile-time
 
-template subscription_id_t
-receiver_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan,
-																						subscription_id_t subscription_id);
-
-template subscription_id_t
-receiver_t::subscribe_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, bool blindscan,
-																						subscription_id_t subscription_id);
-
-template subscription_id_t
-receiver_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool blindscan,
-																						subscription_id_t subscription_id);
-
-template subscription_id_t
-receiver_thread_t::cb_t::scan_muxes<chdb::dvbs_mux_t>(ss::vector_<chdb::dvbs_mux_t>& muxes,
-																											const subscription_options_t& tune_options,
-																											subscription_id_t subscription_id);
-
-template subscription_id_t
-receiver_thread_t::cb_t::scan_muxes<chdb::dvbc_mux_t>(ss::vector_<chdb::dvbc_mux_t>& muxes,
-																											const subscription_options_t& tune_options,
-																											subscription_id_t subscription_id);
-
-template subscription_id_t
-receiver_thread_t::cb_t::scan_muxes<chdb::dvbt_mux_t>(ss::vector_<chdb::dvbt_mux_t>& muxes,
-																											const subscription_options_t& tune_options,
-																											subscription_id_t subscription_id);
-
-
-template subscription_id_t
-receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbs_mux_t>& muxes,
-															const subscription_options_t& tune_options,
-															int max_num_subscriptions,
-															subscription_id_t subscription_id);
-
-
-template subscription_id_t
-receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbc_mux_t>& muxes,
-															const subscription_options_t& tune_options,
-															int max_num_subscriptions,
-															subscription_id_t subscription_id);
-template subscription_id_t
-receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::vector_<chdb::dvbt_mux_t>& muxes,
-															const subscription_options_t& tune_options,
-															int max_num_subscriptions,
-															subscription_id_t subscription_id);
+*/

@@ -2067,7 +2067,6 @@ chdb::scan_id_t receiver_t::deactivate_spectrum_scan(const spectrum_scan_t&spect
 	return activate_spectrum_scan_(chdb, sat_pos, pol, start_freq, end_freq, true/*spectrum_obtained*/);
 }
 
-
 thread_local thread_group_t thread_group{thread_group_t::unknown};
 
 /*

@@ -258,6 +258,8 @@ class receiver_thread_t : public task_queue_t  {
 	//for channel scan
 	using  scanner_ptr_t = safe::Safe<std::shared_ptr<scanner_t>>;
 	scanner_ptr_t scanner;
+	time_t next_command_event_time = std::numeric_limits<time_t>::min();
+
 	active_adapter_t* find_or_create_active_adapter
 	(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,  const subscribe_ret_t& sret);
 
@@ -387,6 +389,10 @@ private:
 																			 subscription_id_t subscription_id);
 
 	virtual int run() final;
+
+	int housekeeping(system_time_t now);
+	void start_commands(db_txn& rtxn, system_time_t now);
+	void stop_commands(db_txn& rtxn, system_time_t now);
 
 public:
 	//functions safe to call from other threads

@@ -2,7 +2,7 @@ find_package(wxWidgets REQUIRED net gl core base)
 include(${wxWidgets_USE_FILE})
 
 
-add_library(neumoreceiver SHARED  receiver.cc subscriber.cc subscriber_notify.cc tune.cc scan.cc
+add_library(neumoreceiver SHARED  receiver.cc commands.cc subscriber.cc subscriber_notify.cc tune.cc scan.cc
   active_adapter.cc devmanager.cc fe_monitor.cc options.cc
   active_si_stream.cc recmgr.cc frontend.cc scam.cc
   active_stream.cc active_service.cc filemapper.cc live_mpm.cc active_playback.cc playback_mpm.cc

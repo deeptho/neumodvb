@@ -26,7 +26,7 @@ set(FETCHCONTENT_BASE_DIR ${CMAKE_CURRENT_BINARY_DIR}/../build_fmt)
 
 FetchContent_Declare(fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG 6c845f57e5db589208ff0c2808238587cafafa82
+  GIT_TAG f5e54359df4c26b6230fc61d38aa294581393084
   )
 
 execute_process(COMMAND  lsb_release  -c -s OUTPUT_VARIABLE RELEASE)

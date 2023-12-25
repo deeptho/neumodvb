@@ -585,15 +585,13 @@ int recmgr_thread_t::housekeeping(system_time_t now) {
 	auto prefix =fmt::format("-RECMGR-HOUSEKEEPING");
 	log4cxx::NDC ndc(prefix.c_str());
 	if (system_clock_t::to_time_t(now) > next_recording_event_time) {
-		using namespace recdb;
-		auto parent_txn = receiver.recdb.rtxn();
-		// check for any recordings to stop
-		stop_recordings(parent_txn, now);
-		// check for any recordings to start
-
-		start_recordings(parent_txn, now);
-
-		parent_txn.commit();
+			using namespace recdb;
+			auto parent_txn = receiver.recdb.rtxn();
+			// check for any recordings to stop
+			stop_recordings(parent_txn, now);
+			// check for any recordings to start
+			start_recordings(parent_txn, now);
+			parent_txn.commit();
 	}
 	return 0;
 }

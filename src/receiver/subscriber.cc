@@ -86,9 +86,9 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 														 const std::optional<devdb::tune_options_t>& tune_options_,
 														 const devdb::band_scan_options_t& band_scan_options) {
 	set_scanning(true);
-	auto so = subscription_options_t(
-		tune_options_ ? * tune_options_:
-		receiver->get_default_tune_options(devdb::subscription_type_t::BAND_SCAN));
+	auto so = receiver->get_default_subscription_options(devdb::subscription_type_t::BAND_SCAN);
+	if(tune_options_)
+		(devdb::tune_options_t&)so  = *tune_options_;
 	so.spectrum_scan_options = receiver->get_default_spectrum_scan_options
 		(devdb::subscription_type_t::BAND_SCAN);
 	so.tune_mode = devdb::tune_mode_t::SPECTRUM;
@@ -111,14 +111,17 @@ int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
 
 template<typename mux_t>
 int subscriber_t::scan_muxes(ss::vector_<mux_t> muxes,
-														 const std::optional<subscription_options_t>& tune_options_) {
+														 const std::optional<devdb::tune_options_t>& tune_options_) {
 	set_scanning(true);
+	auto so = 		receiver->get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
+	if(tune_options_)
+		(devdb::tune_options_t&)so = *tune_options_;
 	auto& tune_options = tune_options_ ? *tune_options_ :
 		receiver->get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
 
 	subscription_id_t ret{subscription_id};
 	if(muxes.size() > 0) {
-		ret = receiver->scan_muxes(muxes, tune_options, *this);
+		ret = receiver->scan_muxes(muxes, so, *this);
 		if((int) ret<0)
 			return (int) ret;
 	}
@@ -252,10 +255,10 @@ int subscriber_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, b
 
 
 template int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> muxes,
-																			const std::optional<subscription_options_t>& tune_options_);
+																			const std::optional<devdb::tune_options_t>& tune_options_);
 
 template int subscriber_t::scan_muxes(ss::vector_<chdb::dvbc_mux_t> muxes,
-																			const std::optional<subscription_options_t>& tune_options_);
+																			const std::optional<devdb::tune_options_t>& tune_options_);
 
 template int subscriber_t::scan_muxes(ss::vector_<chdb::dvbt_mux_t> muxes,
-																			const std::optional<subscription_options_t>& tune_options_);
+																			const std::optional<devdb::tune_options_t>& tune_options_);

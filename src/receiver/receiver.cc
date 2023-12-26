@@ -1896,13 +1896,12 @@ int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, d
 devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_type_t subscription_type) const
 {
 	using namespace devdb;
-	subscription_options_t ret;
+	tune_options_t ret;
 	ret.subscription_type = subscription_type;
 	bool for_scan = false;
 	bool for_lnb_control = false;
 	switch(subscription_type) {
 	case subscription_type_t::TUNE:
-		ret.constellation_options.num_samples = 0;
 		ret.tune_mode = tune_mode_t::NORMAL;
 		ret.scan_target =  scan_target_t::SCAN_FULL_AND_EPG;
 		break;
@@ -1911,22 +1910,18 @@ devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_t
 		ret.tune_mode = tune_mode_t::SPECTRUM;
 		ret.scan_target =  scan_target_t::SCAN_FULL;
 		ret.retune_mode = retune_mode_t::NEVER;
-		ret.constellation_options.num_samples = 0;
 		ret.need_spectrum = true;
-		ret.spectrum_scan_options.recompute_peaks = true;
 		for_scan = true;
 		break;
 	case subscription_type_t::MUX_SCAN: //for scan
 		ret.tune_mode = tune_mode_t::NORMAL;
 		ret.scan_target =  scan_target_t::SCAN_FULL;
 		ret.retune_mode = retune_mode_t::NEVER;
-		ret.constellation_options.num_samples = 0;
 		for_scan=true;
 		break;
 	case subscription_type_t::LNB_CONTROL:
 		ret.scan_target =  scan_target_t::SCAN_MINIMAL;
 		ret.tune_mode = tune_mode_t::POSITIONER_CONTROL;
-		ret.constellation_options.num_samples = 16*1024;
 		ret.may_control_dish = true;
 		for_lnb_control = true;
 		break;
@@ -1937,7 +1932,6 @@ devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_t
 	auto r = options.readAccess();
 	ret.resource_reuse_bonus = r->resource_reuse_bonus;
 	ret.dish_move_penalty = r->dish_move_penalty;
-	ret.usals_location = r->usals_location;
 	ret.use_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
 	ret.may_move_dish = for_lnb_control ? true : (for_scan ? r->scan_may_move_dish: r->tune_may_move_dish);
 	ret.may_control_lnb = for_lnb_control;
@@ -1977,9 +1971,13 @@ receiver_t::get_default_spectrum_scan_options(devdb::subscription_type_t subscri
 subscription_options_t receiver_t::get_default_subscription_options(devdb::subscription_type_t subscription_type) const
 {
 	using namespace devdb;
-	subscription_options_t ret = get_default_tune_options(subscription_type);
-	ret.spectrum_scan_options = get_default_spectrum_scan_options(subscription_type);
-	return ret;
+	subscription_options_t o;
+	(tune_options_t&) o = get_default_tune_options(subscription_type);
+	o.constellation_options.num_samples = (subscription_type == subscription_type_t::LNB_CONTROL) ? 16*1024 : 0;
+	o.spectrum_scan_options = get_default_spectrum_scan_options(subscription_type);
+	auto r = options.readAccess();
+	o.usals_location = r->usals_location;
+	return o;
 }
 
 static chdb::scan_id_t activate_spectrum_scan_

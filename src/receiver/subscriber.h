@@ -136,7 +136,7 @@ public:
 																				const statdb::spectrum_key_t& spectrum_key);
 
 	template<typename mux_t>
-	EXPORT int scan_muxes(const ss::vector_<mux_t> muxes, const std::optional<subscription_options_t>& tune_options);
+	EXPORT int scan_muxes(const ss::vector_<mux_t> muxes, const std::optional<devdb::tune_options_t>& tune_options);
 
 	EXPORT int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 #if 0

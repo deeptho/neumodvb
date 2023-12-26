@@ -194,9 +194,9 @@ int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 
 int subscriber_t::subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																		 chdb::fe_polarisation_t pol, int32_t low_freq,
-																		 int32_t high_freq, int sat_pos) {
+																								 int32_t high_freq, const chdb::sat_t& sat) {
 
-	subscription_id = receiver->subscribe_lnb_spectrum(rf_path, lnb, pol, low_freq, high_freq, sat_pos,
+	subscription_id = receiver->subscribe_lnb_spectrum(rf_path, lnb, pol, low_freq, high_freq, sat,
 																										 subscription_id);
 	if ((int)subscription_id < 0)
 		notify_error(get_error());

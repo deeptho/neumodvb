@@ -1481,7 +1481,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 			auto& so = o.spectrum_scan_options;
 			so.band_pol.band = band_scan.sat_sub_band;
 			so.band_pol.pol = pol;
-			so.sat_pos = sat.sat_pos;
+			so.sat = sat;
 
 			auto [l, h] =sat_band_freq_bounds(sat_band, sat_sub_band);
 			if(so.start_freq < 0 || so.start_freq < l)

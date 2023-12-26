@@ -266,7 +266,7 @@ class SpectrumDialog(SpectrumDialog_):
                 self.tune_mux_panel.lnb = self.tune_mux_panel.read_lnb_from_db()
                 self.mux_subscriber.subscribe_spectrum_acquisition(self.rf_path, self.lnb, pol,
                                                                    self.start_freq, self.end_freq,
-                                                                   self.sat.sat_pos)
+                                                                   self.sat)
         event.Skip()
 
     def EndBlindScan(self):
@@ -427,7 +427,7 @@ class SpectrumDialog(SpectrumDialog_):
                     pol = self.pols_to_scan.pop(0)
                     self.mux_subscriber.subscribe_spectrum_acquisition(self.rf_path, self.lnb, pol,
                                                                        self.start_freq, self.end_freq,
-                                                                       self.sat.sat_pos)
+                                                                       self.sat)
                 else:
                     self.spectrum_buttons_panel.acquire_spectrum.SetValue(0)
                     self.tune_mux_panel.AbortTune()

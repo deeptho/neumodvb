@@ -1028,7 +1028,7 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	bool incomplete = false;
 	int min_freq_to_save{0};
 	scan.start_time = start_time;
-	scan.sat_pos = options.sat_pos;
+	scan.sat = options.sat;
 	scan.rf_path = rf_path;
 	scan.usals_pos = lnb.usals_pos;
 	scan.adapter_no =  (int)this->adapter_no;
@@ -1040,9 +1040,9 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	scan.resolution = options.resolution;
 	scan.spectrum_method = options.use_fft_scan ? SPECTRUM_METHOD_FFT : SPECTRUM_METHOD_SWEEP;
 	scan.adjust_frequencies(lnb, scan.band_pol.band == chdb::sat_sub_band_t::HIGH);
-	auto* network = devdb::lnb::get_network(lnb, scan.sat_pos);
+	auto* network = devdb::lnb::get_network(lnb, scan.sat.sat_pos);
 	scan.lof_offsets = lnb.lof_offsets;
-	assert(!network || network->sat_pos == scan.sat_pos);
+	assert(!network || network->sat_pos == scan.sat.sat_pos);
 	append_now = options.append;
 	// we will need to call start_lnb_spectrum again later to retrieve (part of) the high band)
 	incomplete =

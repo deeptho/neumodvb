@@ -145,7 +145,7 @@ struct spectrum_scan_t {
 	devdb::rf_path_t rf_path{};
 	int16_t adapter_no{-1};
 	int16_t usals_pos{sat_pos_none};
-	int16_t sat_pos{sat_pos_none};
+	chdb::sat_t sat;
 	ss::vector<int32_t,2> lof_offsets;
 	chdb::sat_sub_band_pol_t band_pol;
 	dtv_fe_spectrum_method spectrum_method{SPECTRUM_METHOD_FFT};

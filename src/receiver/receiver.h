@@ -526,7 +526,7 @@ public:
 	subscription_id_t subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																					 const chdb::fe_polarisation_t& pol,
 																					 int32_t low_freq, int32_t high_freq,
-																					 int sat_pos, subscription_id_t subscription_id);
+																					 const chdb::sat_t& sat, subscription_id_t subscription_id);
 
 	subscription_id_t subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, devdb::retune_mode_t retune_mode,
 																	subscription_id_t subscription_id);
@@ -628,7 +628,7 @@ public:
 
 	//thread-safe; called from scanner; notify single python scanning subscriber synchronously
 	void notify_scan_progress(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats);
-	void activate_spectrum_scan(const spectrum_scan_options_t& spectrum_scan_options,
+	void activate_spectrum_scan(spectrum_scan_options_t& spectrum_scan_options,
 															devdb::lnb_pol_type_t lnb_pol_type);
 	chdb::scan_id_t deactivate_spectrum_scan(const spectrum_scan_t& spectrum_scan);
 

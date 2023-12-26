@@ -126,7 +126,7 @@ public:
 		const pls_search_range_t& pls_search_range, devdb::retune_mode_t retune_mode);
 	EXPORT int subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,  chdb::fe_polarisation_t pol,
 																						int32_t low_freq, int32_t high_freq,
-																						int sat_pos=sat_pos_none);
+																						const chdb::sat_t& sat);
 
 	EXPORT int scan_bands(const ss::vector_<chdb::sat_t>& sats,
 												const std::optional<devdb::tune_options_t>& tune_options,

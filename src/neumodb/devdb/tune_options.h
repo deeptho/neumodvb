@@ -36,7 +36,7 @@ struct constellation_options_t {
 struct spectrum_scan_options_t {
 	bool recompute_peaks{false}; //instead of relying on driver, compute the peak
 	bool append{false}; //append to existing file
-	int16_t sat_pos{sat_pos_none};
+	chdb::sat_t sat;
 	chdb::sat_sub_band_pol_t band_pol; //currently scanning band
 	bool use_fft_scan{true};
 	int start_freq{0}; //in kHz
@@ -105,7 +105,6 @@ struct subscription_options_t : public devdb::tune_options_t {
 			this->tune_mode = tune_mode;
 		}
 
- 	subscription_options_t(const devdb::tune_options_t& tune_options)
-		: devdb::tune_options_t(tune_options)
-		{}
+	subscription_options_t& operator=(const subscription_options_t& other) = default;
+ 	subscription_options_t(const subscription_options_t& other) = default;
 };

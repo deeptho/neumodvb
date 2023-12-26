@@ -334,7 +334,7 @@ void export_subscriber(py::module& m) {
 				 , py::arg("pol to scan")
 				 , py::arg("start_freq")
 				 , py::arg("end_freq")
-				 , py::arg("sat_pos") = sat_pos_none
+				 , py::arg("sat")
 			)
 		.def("positioner_cmd"
 				 , &subscriber_t::positioner_cmd

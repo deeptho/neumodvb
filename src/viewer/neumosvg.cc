@@ -196,7 +196,7 @@ void level_indicator::set_values(double low, double high) {
 	}
 	if (text) {
 		ss::string<16> str;
-		str.format("%3.1fdB", high);
+		str.format("{:3.1f}dB", high);
 		auto s = wxString::FromUTF8(str.c_str());
 		text->SetContent(s);
 	}

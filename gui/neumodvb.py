@@ -511,6 +511,16 @@ class NeumoGui(wx.App):
             else:
                 return self.sats
 
+    def get_sat_poses(self):
+        sats= self.get_sats()
+        ret =[]
+        found = set()
+        for sat in sats:
+            if not sat.sat_pos in found:
+                found.add(sat.sat_pos)
+                ret.append(sat.sat_pos)
+        return ret
+
     def get_dishes(self):
         txn = self.devdb.rtxn()
         self.dishes = pydevdb.dish.list_dishes(txn)

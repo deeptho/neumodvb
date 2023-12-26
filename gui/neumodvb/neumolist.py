@@ -129,8 +129,8 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
             choices= self.col.cfn(table)
         elif self.col.key.endswith('_pos'):
             #recompute each time, because data may have changed
-            sats = wx.GetApp().get_sats()
-            choices= [str(x) for x in sats]
+            sats = wx.GetApp().get_sat_poses()
+            choices= [pychdb.sat_pos_str(x) for x in sats]
         elif self.col.key.endswith('adapter_mac_address'):
             #recompute each time, because data may have changed
             d = wx.GetApp().get_adapters()

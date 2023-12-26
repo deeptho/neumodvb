@@ -197,7 +197,7 @@ public:
 	} while(0)
 
 
-static int last = -2;
+//static int last = -2;
 /* @brief: describes a transport stream for one streamed channel
 	 including all useful pids
 */

@@ -24,6 +24,7 @@ sat_pos	band	name
 5050	Ku	50.5 E  Ku
 5000	Ku	50.0 E  Ku
 4900	C	49.0 E  C
+4900	Ku	49.0 E  Ku
 4600	C	46.0 E  C
 4600	Ku	46.0 E  Ku
 4500	C	45.0 E  C

@@ -1084,6 +1084,24 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 			std::optional<chdb::sat_t> sat;
 			if (cs.is_valid())
 				sat= cs.current();
+#if 0
+			else {
+				for(auto& n: lnb.networks) {
+					cs = chdb::sat_t::find_by_key(chdb_rtxn, n.sat_pos, devdb::lnb::sat_band(lnb));
+					if(cs.is_valid()) {
+						sat = cs.current();
+						if(n.ref_mux.sat_pos == sat->sat_pos) {
+							auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
+							if (c.is_valid()) {
+								auto mux = c.current();
+								if (devdb::lnb_can_tune_to_mux(lnb, mux, true /*disregard networks*/, nullptr /*error*/))
+									return {mux, sat};
+							}
+						}
+					}
+				}
+			}
+#endif
 			auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
 			if (c.is_valid()) {
 				auto mux = c.current();
@@ -1363,9 +1381,11 @@ fmt::formatter<chdb::dvbs_mux_t>::format(const chdb::dvbs_mux_t& mux, format_con
 		it = fmt::format_to(ctx.out(), "-{:d}", mux.k.stream_id);
 	if (mux.k.t2mi_pid >= 0)
 		it = fmt::format_to(ctx.out(), "-T{:d}", mux.k.t2mi_pid);
+#if 0
 	it = fmt::format_to(ctx.out(), " {} {}", mux.k, mux.c.tune_src);
 	it = fmt::format_to(ctx.out(), " {:s}/{:s}",
 											scan_status_name(mux.c.scan_status), scan_result_name(mux.c.scan_result));
+#endif
 	return it;
 }
 

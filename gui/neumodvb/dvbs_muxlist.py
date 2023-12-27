@@ -85,7 +85,7 @@ class DvbsMuxTable(NeumoTable):
          CD(key='rolloff', label='rolloff'),
          CD(key='transmission_mode', label='transmission_mode')]
 
-    def __init__(self, parent, basic=False, filter_band=None, *args, **kwds):
+    def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'frequency'
         data_table= pychdb.dvbs_mux
         screen_getter = lambda txn, subfield: self.screen_getter_xxx(txn, subfield)
@@ -94,7 +94,6 @@ class DvbsMuxTable(NeumoTable):
                          data_table= data_table,
                          screen_getter = screen_getter,
                          initial_sorted_column = initial_sorted_column, **kwds)
-        self.filter_band = filter_band
 
     def __save_record__(self, txn, record):
         pychdb.dvbs_mux.make_unique_if_template(txn, record)
@@ -128,21 +127,16 @@ class DvbsMuxTable(NeumoTable):
         m = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.LEQ)
         matchers2.push_back(m)
 
-        match_data.frequency, match_data2.frequency = band
+        match_data.frequency, match_data2.frequency = pychdb.sat.freq_bounds(band)
         return match_data, matchers, match_data2, matchers2
 
     def screen_getter_xxx(self, txn, sort_order):
-        if self.filter_band is None:
-            match_data, matchers = self.get_filter_()
-            match_data2, matchers2 = None, None
-        else:
-            match_data, matchers, match_data2, matchers2 = self.filter_band_(self.filter_band)
-
         if self.parent.allow_all and self.parent.sat:
             sat, mux= self.parent.CurrentSatAndMux()
             ref = pychdb.dvbs_mux.dvbs_mux()
             ref.k.sat_pos = sat.sat_pos
             txn = self.db.rtxn()
+            match_data, matchers, match_data2, matchers2 = self.filter_band_(sat.sat_band)
             screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,
                                             key_prefix_type=pychdb.dvbs_mux.dvbs_mux_prefix.sat_pos,
                                             key_prefix_data=ref,
@@ -151,6 +145,8 @@ class DvbsMuxTable(NeumoTable):
             txn.abort()
             del txn
         else:
+            match_data, matchers = self.get_filter_()
+            match_data2, matchers2 = None, None
             sat = None
             mux = None
             screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,
@@ -180,7 +176,7 @@ class DvbsMuxGridBase(NeumoGridBase):
         sat, mux= self.CurrentSatAndMux()
         return mux
 
-    def SelectBand(self, lnb):
+    def SelectBandOFF(self, lnb):
         self.table.filter_band = pydevdb.lnb.lnb_frequency_range(lnb)
 
     def OnKeyCheck(self, evt):

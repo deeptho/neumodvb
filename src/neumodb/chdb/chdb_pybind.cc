@@ -74,6 +74,10 @@ static void export_sat_extra(py::module& m) {
 	mm.attr("sat_pos_dvbt") = sat_pos_dvbt;
 	mm.attr("sat_pos_dvbs") = sat_pos_dvbs;
 	mm.attr("sat_pos_none") = sat_pos_none;
+	mm.def("freq_bounds", [](chdb::sat_band_t& sat_band) {
+		return chdb::sat_band_freq_bounds(sat_band, chdb::sat_sub_band_t::NONE);
+	}, "Frequency bounds for a satellite band",
+		py::arg("sat_band"));
 }
 
 static void export_chg_extra(py::module& m) {

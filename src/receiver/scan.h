@@ -490,6 +490,8 @@ class scanner_t {
 	bool must_end = false;
 	subscription_options_t tune_options{devdb::scan_target_t::SCAN_MINIMAL};
 	std::map<subscription_id_t, scan_t> scans;
+
+	void end_scans(subscription_id_t scan_subscription_id);
 	template<typename mux_t>
 	int add_muxes(const ss::vector_<mux_t>& muxes, const subscription_options_t& tune_options,
 								subscription_id_t subscription_id);

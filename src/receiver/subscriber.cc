@@ -156,6 +156,7 @@ void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 
 int subscriber_t::unsubscribe() {
 	// auto d = safe_data.writeAccess();
+	set_scanning(false);
 	if((int) subscription_id<0) {
 		dtdebugf("ignoring unubscribe (subscription_id<0)");
 		return -1;
@@ -195,7 +196,7 @@ int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 int subscriber_t::subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																		 chdb::fe_polarisation_t pol, int32_t low_freq,
 																								 int32_t high_freq, const chdb::sat_t& sat) {
-
+	set_scanning(false);
 	subscription_id = receiver->subscribe_lnb_spectrum(rf_path, lnb, pol, low_freq, high_freq, sat,
 																										 subscription_id);
 	if ((int)subscription_id < 0)
@@ -211,6 +212,8 @@ void subscriber_t::notify_signal_info(const signal_info_t& signal_info) const {
 
 void subscriber_t::notify_scan_progress(const scan_stats_t& scan_stats) {
 	auto match = subscriber_t::event_type_t::SCAN_PROGRESS;
+	if(scan_stats.done())
+		set_scanning(false);
 	if (!(event_flag & int(match)))
 		return;
 	notify(scan_stats);

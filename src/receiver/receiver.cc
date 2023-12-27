@@ -1644,7 +1644,9 @@ void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spec
 																			const ss::vector_<subscription_id_t>& subscription_ids) {
 	auto scan_id = deactivate_spectrum_scan(spectrum_scan);
 	bool has_scanning_subscribers{false};
-	subscription_id_t subscription_id{-1};
+#ifndef NDEBUG
+	subscription_id_t test_subscription_id{-1};
+#endif
 	{
 		auto mss = subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
@@ -1652,11 +1654,13 @@ void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spec
 			if (!ms)
 				continue;
 			if(ms->is_scanning()) {
-				assert((int)subscription_id < 0); /*only one scan_t can scan a band;
+				assert((int)test_subscription_id < 0); /*only one scan_t can scan a band;
 																						it is possible that a spectrum_dialog
 																						also wants this spectrum
 																					*/
-				subscription_id = ms->get_subscription_id();
+#ifndef NDEBUG
+				test_subscription_id = ms->get_subscription_id();
+#endif
 				has_scanning_subscribers = true;
 				continue;
 			}
@@ -1669,7 +1673,7 @@ void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spec
 				ms->notify_spectrum_scan_band_end(*spectrum_scan.spectrum);
 		}
 	}
-	assert(has_scanning_subscribers == scanner_t::is_our_scan(scan_id));
+	assert(!has_scanning_subscribers || scanner_t::is_our_scan(scan_id));
 	if(has_scanning_subscribers) {
 		auto& receiver_thread = this->receiver_thread;
 		//capturing by value is essential
@@ -2007,7 +2011,6 @@ static chdb::scan_id_t activate_spectrum_scan_
 		if(l>=h)
 			continue;
 
-		assert((int)scan_id.subscription_id < 0); //there can only be one scan per band
 		scan_id = band_scan.scan_id;
 		assert(scan_id.subscription_id >= 0);
 		//we have found a matching band

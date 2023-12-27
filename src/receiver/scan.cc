@@ -49,7 +49,7 @@ static inline scan_stats_t operator+(const scan_stats_t& a, const scan_stats_t&b
 }
 
 inline scan_stats_t scan_t::get_scan_stats() const {
-		return scan_stats_dvbs + scan_stats_dvbc + scan_stats_dvbt;
+	return scan_stats_dvbs + scan_stats_dvbc + scan_stats_dvbt;
 }
 
 template<typename mux_t>
@@ -79,6 +79,63 @@ inline scan_stats_t& scan_t::get_scan_stats_ref(const chdb::sat_t& sat) {
 	return scan_stats_dvbs;
 }
 
+static void deactivate_band_scans
+(db_txn & chdb_wtxn, int scan_subscription_id, time_t now) {
+	using namespace chdb;
+
+	auto c = find_first<chdb::sat_t>(chdb_wtxn);
+	for(auto sat: c.range()) {
+		bool changed{false};
+		for(auto& band_scan: sat.band_scans) {
+			if(band_scan.scan_id.subscription_id != scan_subscription_id)
+				continue;
+			if(!scanner_t::is_our_scan(band_scan.scan_id))
+				continue;
+					//we have found a matching band
+			if(band_scan.scan_status == scan_status_t::PENDING ||
+				 band_scan.scan_status == scan_status_t::RETRY ||
+				 band_scan.scan_status == scan_status_t::ACTIVE) {
+				band_scan.scan_result = scan_result_t::ABORTED;
+				band_scan.scan_status = scan_status_t::IDLE;
+			}
+			band_scan.scan_id = {};
+			changed = true;
+		}
+		if(changed) {
+			sat.mtime = now;
+			put_record(chdb_wtxn, sat);
+		}
+	}
+}
+
+template<typename mux_t>
+static void deactivate_mux_scans
+(db_txn & chdb_wtxn, int scan_subscription_id, time_t now) {
+	using namespace chdb;
+	scan_id_t scan_id;
+	auto c = find_first<mux_t>(chdb_wtxn);
+	for(auto mux: c.range()) {
+		if(mux.c.scan_id.subscription_id != scan_subscription_id)
+			continue;
+		if(!scanner_t::is_our_scan(mux.c.scan_id))
+				continue;
+		mux.c.scan_status = chdb::scan_status_t::IDLE;
+		mux.c.scan_id= {};
+		mux.c.mtime = now;
+		put_record(chdb_wtxn, mux);
+	}
+}
+
+void scanner_t::end_scans(subscription_id_t scan_subscription_id)
+{
+	auto now_ = system_clock_t::to_time_t(now);
+	auto chdb_wtxn = receiver.chdb.wtxn();
+	deactivate_band_scans(chdb_wtxn, (int)scan_subscription_id, now_);
+	deactivate_mux_scans<chdb::dvbs_mux_t>(chdb_wtxn, (int)scan_subscription_id, now_);
+	deactivate_mux_scans<chdb::dvbc_mux_t>(chdb_wtxn, (int)scan_subscription_id, now_);
+	deactivate_mux_scans<chdb::dvbt_mux_t>(chdb_wtxn, (int)scan_subscription_id, now_);
+	chdb_wtxn.commit();
+}
 
 scan_mux_end_report_t::scan_mux_end_report_t(const scan_subscription_t& subscription,
 																						 const statdb::spectrum_key_t spectrum_key)
@@ -1034,12 +1091,13 @@ void scan_t::on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spe
 	assert(subscription.subscription_id == finished_subscription_id);
 	assert(subscription.sat_band);
 	//auto& blindscan = blindscans[subscription.blindscan_key];
-	auto chdb_rtxn = receiver.chdb.rtxn();
+
 	auto& [finished_sat, finished_band_scan] = *subscription.sat_band;
 
 	auto& scan_stats = get_scan_stats_ref(finished_sat);
 	scan_stats.active_bands--;
 	assert(scan_stats.active_bands>=0);
+	auto chdb_rtxn = receiver.chdb.rtxn();
 
 	scan_loop(chdb_rtxn, subscription, finished_fe, finished_sat);
 	chdb_rtxn.commit();
@@ -1332,9 +1390,11 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 		return found;
 	auto& scan = scans.at(scan_subscription_id);
 	assert(scan.scan_subscription_id == scan_subscription_id);
+	end_scans(scan_subscription_id);
 	auto ss = scan.get_scan_stats();
 	ss.abort();
 	ss.scan_unsubscribed = true;
+
 	receiver.notify_scan_progress(scan_subscription_id, ss);
 	for (auto[subscription_id, sub] : scan.subscriptions) {
 		receiver_thread.unsubscribe(futures, devdb_wtxn, subscription_id);

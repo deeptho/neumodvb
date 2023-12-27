@@ -93,11 +93,8 @@ static void export_lnb_extra(py::module& m) {
 				 py::arg("rtxn"), py::arg("lnb"), py::arg("lnb_connection"))
 		.def("lnb_frequency_range", &lnb::lnb_frequency_range,
 				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"))
-#if 0
-		.def("current_sat_pos", &devdb::lnb::current_sat_pos,
-				 "Obtain the direction in which the lnb currently points",
-				 py::arg("lnb"), py::arg("usals_location"))
-#endif
+		.def("sat_band", &lnb::sat_band,
+				 "Obtain sat_band for this lnb",  py::arg("lnb"))
 		;
 }
 

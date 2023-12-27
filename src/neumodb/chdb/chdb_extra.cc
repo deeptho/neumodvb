@@ -1081,7 +1081,9 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 		-> std::tuple<std::optional<chdb::dvbs_mux_t>, std::optional<chdb::sat_t>>
 		{
 			auto cs = chdb::sat_t::find_by_key(chdb_rtxn, network.sat_pos, devdb::lnb::sat_band(lnb));
-			std::optional<chdb::sat_t> sat = cs.is_valid() ? cs.current() : chdb::sat_t();
+			std::optional<chdb::sat_t> sat;
+			if (cs.is_valid())
+				sat= cs.current();
 			auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
 			if (c.is_valid()) {
 				auto mux = c.current();

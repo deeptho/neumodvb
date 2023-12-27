@@ -1349,7 +1349,7 @@ fmt::formatter<chdb::sat_t>::format(const chdb::sat_t& sat, format_context& ctx)
 		return fmt::format_to(ctx.out(), "----");
 	} else {
 		auto fpos = std::abs(sat.sat_pos) / (double)100.;
-		return fmt::format_to(ctx.out(), "{:3.1f}{:c}", fpos, sat.sat_pos < 0 ? 'W' : 'E');
+		return fmt::format_to(ctx.out(), "{:3.1f}{:c} {}", fpos, sat.sat_pos < 0 ? 'W' : 'E', enum_to_str(sat.sat_band));
 	}
 }
 

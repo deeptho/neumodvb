@@ -489,11 +489,12 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 			for lnb_network: lnb.priority should be consulted
 			for lnb: front_end.priority should be consulted
 		*/
-
+		if(!has_network)
+			continue;
 		auto dish_needs_to_be_moved_ = usals_move_amount != 0;
 
 		/* check if lnb  support required frequency, polarisation...*/
-		const bool disregard_networks{false};
+		const bool disregard_networks{true}; //has already been checked above
 		if (!devdb::lnb_can_scan_sat_band(lnb, sat, band_scan, disregard_networks))
 			continue;
 

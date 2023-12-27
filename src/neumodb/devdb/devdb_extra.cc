@@ -363,16 +363,22 @@ bool devdb::lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t&
 bool devdb::lnb_can_scan_sat_band(const devdb::lnb_t& lnb, const chdb::sat_t& sat,
 																	const chdb::band_scan_t& band_scan,
 																	bool disregard_networks, ss::string_* error) {
-
-	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
-	auto [sat_bandl, sat_sub_bandl] = chdb::sat_band_for_freq(freq_low);
+	auto check_network = [&] () {
+		if (disregard_networks)
+			return true;
+		for (auto& network : lnb.networks) {
+			if (network.sat_pos == sat.sat_pos)
+				return true;
+		}
+		return false;
+		};
 	if(!devdb::lnb::can_pol(lnb, band_scan.pol))
 		return false;
-	if(sat_bandl== band_scan.sat_band && sat_sub_bandl == band_scan.sat_sub_band)
-		return true;
-	auto [sat_bandh, sat_sub_bandh] = chdb::sat_band_for_freq(freq_high-1);
-	if(sat_bandh== band_scan.sat_band && sat_sub_bandh == band_scan.sat_sub_band)
-		return true;
+
+	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
+	auto [band_low, band_high] = chdb::sat_band_freq_bounds(band_scan.sat_band, band_scan.sat_sub_band);
+	if (band_low >= freq_low && band_high <= freq_high)
+		return check_network();
 	return false;
 }
 

@@ -31,6 +31,31 @@
 using namespace devdb;
 
 
+int16_t devdb::make_unique_id(db_txn& txn, const scan_command_t& scan_command) {
+	auto c = find_first<scan_command_t>(txn);
+	int gap_start = 1; // start of a potential gap of unused extra_ids
+	for (const auto& cmd : c.range()) {
+		if (cmd.id > gap_start) {
+			return cmd.id - 1;
+		} else {
+			// check for a gap in the numbers
+			gap_start = cmd.id + 1;
+			assert(gap_start > 0);
+		}
+	}
+
+	if (gap_start >= std::numeric_limits<decltype(scan_command.id)>::max()) {
+		// all ids exhausted
+		// The following is very unlikely. We prefer to cause a result on a
+		// single mux rather than throwing an error
+		dterrorf("Overflow for id");
+		assert(0);
+	}
+	// we reach here if this is the very first mux with this key
+	return gap_start;
+}
+
+
 template <typename cursor_t> static int16_t make_unique_id(lnb_key_t key, cursor_t& c) {
 	key.lnb_id = 0;
 	int gap_start = 1; // start of a potential gap of unused extra_ids

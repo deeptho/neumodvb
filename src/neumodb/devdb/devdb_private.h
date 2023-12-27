@@ -36,12 +36,21 @@ namespace devdb {
 	using namespace devdb;
 
 	int16_t make_unique_id(db_txn& txn, devdb::lnb_key_t key);
+	int16_t make_unique_id(db_txn& txn, const scan_command_t& key);
 
-	inline void make_unique_if_template(db_txn& txn, lnb_t& lnb ) {
-		if(lnb.k.lnb_id<0)
-			lnb.k.lnb_id = devdb::make_unique_id(txn, lnb.k);
-	}
+	namespace lnb {
+		inline void make_unique_if_template(db_txn& rtxn, lnb_t& lnb ) {
+			if(lnb.k.lnb_id<0)
+				lnb.k.lnb_id = devdb::make_unique_id(rtxn, lnb.k);
+		}
+	};
 
+	namespace scan_command {
+		inline void make_unique_if_template(db_txn& wtxn, scan_command_t& scan_command) {
+			if(scan_command.id<0)
+				scan_command.id = devdb::make_unique_id(wtxn, (const scan_command_t&) scan_command);
+		}
+	};
 };
 
 namespace devdb::dish {

@@ -69,7 +69,7 @@ static void export_lnb_extra(py::module& m) {
 				 "reset the LOF offset to 0",
 				 py::arg("devdb_wtxn"),
 				 py::arg("lnb"))
-		.def("make_unique_if_template", make_unique_if_template,
+		.def("make_unique_if_template", lnb::make_unique_if_template,
 				 "Make the key of this lnb unique, but only if lnb.k.id<0")
 		.def("select_lnb", &lnb::select_lnb, "Select an lnb; which can tune to sat or mux",
 				 py::arg("devdb_rtxn"), py::arg("sat").none(true) = nullptr, py::arg("mux").none(true) = nullptr)
@@ -108,7 +108,13 @@ void export_subscribe_options(py::module& m) {
 
 }
 
-
+static void export_scan_command_extra(py::module& m) {
+	auto mm = py::reinterpret_borrow<py::module>(m.attr("scan_command"));
+	using namespace devdb;
+	mm.def("make_unique_if_template", scan_command::make_unique_if_template,
+				 "Make the key of this scan_command unique, but only if id<0")
+		;
+}
 
 static std::tuple<bool, std::optional<std::string>>
 lnb_can_tune_to_mux_helper(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks) {
@@ -144,6 +150,7 @@ PYBIND11_MODULE(pydevdb, m) {
 	devdb::export_enums(m);
 	devdb::export_structs(m);
 	export_lnb_extra(m);
+	export_scan_command_extra(m);
 	export_dish_extra(m);
 	export_tune_options(m);
 	m.attr("__version__") = version_info();

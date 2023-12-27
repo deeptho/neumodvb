@@ -563,7 +563,7 @@ scan_command = db_struct(
     version = 1,
     primary_key= ('key', ('id',)),
     ignore_for_equality_fields = ('mtime',),
-    fields = ((1, 'int32_t', 'id', '-1'), # -1 means "not set"
+    fields = ((1, 'int16_t', 'id', '-1'), # -1 means "not set"
               (2, 'time_t', 'start_time', '0'), #when to run next
               (3, 'repeat_type_t', 'repeat_type', 'repeat_type_t::DAILY'), #what time of day, day of week or month
               #to run
@@ -573,5 +573,9 @@ scan_command = db_struct(
               (7, 'time_t', 'mtime'),
               (8, 'subscription_type_t', 'subscription_type'), #when to run next
               (9, 'tune_options_t', 'tune_options'),
-              (10, 'ss::vector<chdb::sat_t,1>', 'sats')
+              (11, 'band_scan_options_t', 'band_scan_options'),
+              (10, 'ss::vector<chdb::sat_t,1>', 'sats'),
+              (12, 'ss::vector<chdb::dvbs_mux_t,1>', 'dvbs_muxes'),
+              (13, 'ss::vector<chdb::dvbc_mux_t,1>', 'dvbc_muxes'),
+              (14, 'ss::vector<chdb::dvbt_mux_t,1>', 'dvbt_muxes')
               ))

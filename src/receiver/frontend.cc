@@ -839,8 +839,8 @@ int dvb_frontend_t::send_diseqc_message(char switch_type, unsigned char port, un
 		cmd.msg[2] = 0x38;
 	else if (switch_type == 'X') {
 		cmd.msg[2] = 0x6B; // positioner goto
+	} else
 		return 0;
-	}
 	/* param: high nibble: reset bits, low nibble set bits,
 	 * bits are: option, position, polarisation, band */
 	cmd.msg[3] = 0xf0 | (port & 0x0f) | extra;

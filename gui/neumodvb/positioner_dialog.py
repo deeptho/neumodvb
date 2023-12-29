@@ -414,8 +414,6 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     def OnTune(self, event=None, pls_search_range=None):  # wxGlade: PositionerDialog_.<event_handler>
         self.muxedit_grid.table.FinalizeUnsavedEdits()
-        if self.lnb_changed:
-            self.OnSave()
         self.UpdateRefMux(self.mux)
         dtdebug(f"positioner: subscribing to lnb={self.lnb} mux={self.mux}")
         can_tune, error = pydevdb.lnb_can_tune_to_mux(self.lnb, self.mux)

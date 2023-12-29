@@ -184,9 +184,6 @@ class DvbsMuxGridBase(NeumoGridBase):
         sat, mux= self.CurrentSatAndMux()
         return mux
 
-    def SelectBandOFF(self, lnb):
-        self.table.filter_band = pydevdb.lnb.lnb_frequency_range(lnb)
-
     def OnKeyCheck(self, evt):
         """
         After editing, move cursor right

@@ -55,7 +55,6 @@ class DvbsMuxGridPopup(DvbsBasicMuxGrid):
         self.sat = sat
         super().OnWindowCreate(evt)
         self.SelectSat(sat)
-        self.SelectBand(lnb)
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()

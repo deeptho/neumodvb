@@ -75,9 +75,8 @@ class tuner_thread_t : public task_queue_t {
 														 const subscription_options_t& tune_options);
 	void add_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
 							const subscription_options_t& tune_options, subscription_id_t subscription_id);
-	int tune(const devdb::rf_path_t& rf_path,
-					 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, subscription_options_t tune_options,
-					 subscription_id_t subscription_id);
+	int tune(const subscribe_ret_t& sret, const devdb::rf_path_t& rf_path,
+					 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, subscription_options_t tune_options);
 	template<typename _mux_t>
 	int tune(const _mux_t& mux, subscription_options_t tune_options, subscription_id_t subscription_id);
 	subscription_id_t subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,

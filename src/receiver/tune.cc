@@ -157,9 +157,8 @@ void tuner_thread_t::add_si(active_adapter_t& active_adapter,
 	active_adapter.fe->set_tune_options(tune_options);
 }
 
-int tuner_thread_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-												 const chdb::dvbs_mux_t& mux_, subscription_options_t tune_options,
-												 subscription_id_t subscription_id) {
+int tuner_thread_t::tune(const subscribe_ret_t& sret, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+												 const chdb::dvbs_mux_t& mux_, subscription_options_t tune_options) {
 	// check_thread();
 	chdb::dvbs_mux_t mux{mux_};
 	/*
@@ -173,8 +172,7 @@ int tuner_thread_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& ln
 	log4cxx::NDC ndc(prefix.c_str());
 
 	dtdebugf("tune mux action lnb={} mux={}", lnb, mux);
-	bool user_requested = true;
-	return active_adapter.tune(rf_path, lnb, mux, tune_options, user_requested, subscription_id);
+	return active_adapter.tune(sret, rf_path, lnb, mux, tune_options);
 }
 
 template <typename _mux_t>
@@ -547,8 +545,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 								[&](const chdb::dvbs_mux_t& mux) {
 									assert(aa.rf_path);
 									assert(aa.lnb);
-									ret = this->tune(*aa.rf_path, *aa.lnb, mux, tune_options,
-																	 sret.subscription_id);
+									ret = this->tune(sret, *aa.rf_path, *aa.lnb, mux, tune_options);
 								},
 								[&](const chdb::dvbc_mux_t& mux) {
 									ret = this->tune(mux, tune_options, sret.subscription_id);

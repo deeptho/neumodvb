@@ -1205,14 +1205,15 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 	bool this_table_done = (++pat_table.num_sections_processed == pat_table.subtable_info.num_sections_present);
 	tune_confirmation.pat_received = true;
 	if (this_table_done) {
-		active_adapter().on_first_pat();
 		pat_table.ts_id = pat_services.ts_id;
 		pat_table.entries = pat_services.entries;
 		if (pat_table.last_entries.size() != 0 && pat_table.last_entries != pat_table.entries) {
 			dtdebugf("PAT is unstable; force retune");
 			tune_confirmation.unstable_sat = true;
+			active_adapter().on_first_pat(true/*restart*/);
 			return dtdemux::reset_type_t::ABORT; // unstable PAT; must retune
 		}
+		active_adapter().on_first_pat(false /*restart*/);
 		if (!is_embedded_si && !pat_data.stable_pat(pat_services.ts_id)) {
 			//dtdebugf("PAT not stable yet");
 			pat_table.num_sections_processed = 0;

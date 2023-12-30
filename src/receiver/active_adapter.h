@@ -80,30 +80,23 @@ class usals_timer_t {
 	steady_time_t first_pat_time;
 public:
 	inline void start(int16_t old_usals_pos, int16_t new_usals_pos) {
-		start_time = steady_clock_t::now();
 		usals_pos_start = old_usals_pos;
 		usals_pos_end = new_usals_pos;
 		started = true;
 
 	}
-	inline void stamp() {
+
+	inline void stamp( bool restart) {
 		if(!started)
+			return;
+		if(stamped && !restart)
 			return;
 		stamped = true;
 		first_pat_time = steady_clock_t::now();
 		dtdebugf("positioner stamp");
 	}
 
-	void end() {
-		if(!started)
-			return;
-		started = false;
-		auto end = stamped ? first_pat_time : steady_clock_t::now();
-		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - start_time).count();
-		auto speed = std::abs(usals_pos_end - usals_pos_start)*10. /(double) dur;
-		dtdebugf("positioner moved from {:d} to {:d} in %{:d}ms = {:f} degree/s",
-						 usals_pos_start, usals_pos_end, dur, speed);
-	}
+std::optional<std::tuple<steady_time_t, int16_t, int16_t>> end();
 };
 
 struct lock_state_t {
@@ -305,8 +298,11 @@ private:
 
 	int lnb_activate(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, subscription_options_t tune_options);
 
-	int tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-					 subscription_options_t tune_options, bool user_requested, subscription_id_t subscription_id);
+	int tune(const subscribe_ret_t& sret, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+					 const chdb::dvbs_mux_t& mux, subscription_options_t tune_options);
+
+	int retune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+							subscription_options_t tune_options, bool user_requested, subscription_id_t subscription_id);
 
 	template<typename mux_t>
 	int tune(const mux_t& mux, subscription_options_t tune_options, bool user_requested,
@@ -326,7 +322,7 @@ private:
 	int do_diseqc(bool log_strength, bool retry=false);
 	int deactivate();
 	void on_stable_pat();
-	void on_first_pat();
+	void on_first_pat(bool restart);
 	void on_tuned_mux_change(const chdb::any_mux_t& si_mux);
 	void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
 	void check_isi_processing();

@@ -697,7 +697,8 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	tune_options.may_control_lnb = true;
 	tune_options.may_move_dish = true;
 	tune_options.may_control_dish = true;
-	//assert(tune_options.spectrum_scan_options.sat.sat_pos !=sat_pos_none);
+	assert(tune_options.subscription_type != devdb::subscription_type_t::SPECTRUM_ACQ ||
+				 tune_options.spectrum_scan_options.sat.sat_pos !=sat_pos_none);
 	auto sret = devdb::fe::subscribe_rf_path(devdb_wtxn, subscription_id,
 																					 tune_options,
 																					 rf_path,

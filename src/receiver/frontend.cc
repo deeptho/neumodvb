@@ -785,6 +785,22 @@ fe_lock_status_t dvb_frontend_t::get_lock_status() {
 	return ret;
 }
 
+std::tuple<int, int, int, double>
+dvb_frontend_t::get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usals_pos,
+																					steady_time_t end_time) const {
+	auto loc = this->get_usals_location();
+	auto start = ts.readAccess()->positioner_start_move_time;
+	assert(start);
+	auto move_time_ = end_time - *start;
+	auto move_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(move_time_).count();
+	auto old_angle = devdb::lnb::sat_pos_to_usals_par(old_usals_pos / 10,
+																										loc.usals_longitude / 10, loc.usals_latitude / 10);
+	auto new_angle = devdb::lnb::sat_pos_to_usals_par(new_usals_pos / 10,
+																										loc.usals_longitude / 10, loc.usals_latitude / 10);
+	auto speed = std::abs(new_angle - old_angle)*10. /(double) move_time_ms;
+	return {old_angle, new_angle, move_time_ms, speed};
+}
+
 void fe_state_t::set_lock_status(api_type_t api_type, fe_status_t fe_status) {
 	if(api_type == api_type_t::DVBAPI) {
 		if (fe_status & (FE_HAS_SIGNAL | FE_HAS_CARRIER | FE_HAS_VITERBI | FE_HAS_SYNC | FE_HAS_LOCK))
@@ -839,6 +855,9 @@ int dvb_frontend_t::send_diseqc_message(char switch_type, unsigned char port, un
 		cmd.msg[2] = 0x38;
 	else if (switch_type == 'X') {
 		cmd.msg[2] = 0x6B; // positioner goto
+		auto w = this->ts.writeAccess();
+		if(!w->positioner_start_move_time)
+			w->positioner_start_move_time = steady_clock_t::now();
 	} else
 		return 0;
 	/* param: high nibble: reset bits, low nibble set bits,
@@ -920,6 +939,11 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 		cmd.msg[3] = (angle >> 8) & 0xff;
 		cmd.msg[4] = angle & 0xff;
 		cmd.msg_len = 5;
+		auto w = this->ts.writeAccess();
+		if(!w->positioner_start_move_time) {
+			printf("set positioner_start_move_time\n");
+			w->positioner_start_move_time = steady_clock_t::now();
+		}
 	} break;
 	}
 	ss::string<64> s;
@@ -1251,6 +1275,8 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	{
 		auto w =  this->ts.writeAccess();
 		w->tune_options = tune_options;
+		if(user_requested)
+			w->positioner_start_move_time = {};
 	}
 	dttime_init();
 	auto *conn = connection_for_rf_path(lnb, rf_path);
@@ -1409,6 +1435,8 @@ int dvb_frontend_t::tune(const mux_t& mux, const subscription_options_t& tune_op
 	{
 		auto w = this->ts.writeAccess();
 		w->tune_options = tune_options;
+		if(user_requested)
+			w->positioner_start_move_time = {};
 	}
 	if (user_requested) {
 		this->start_fe_and_dvbc_or_dvbt_mux(mux);
@@ -1439,6 +1467,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 	{
 		auto w = this->ts.writeAccess();
 		w->tune_options = tune_options;
+		w->positioner_start_move_time = {};
 	}
 	auto lnb_voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, options.band_pol.pol);
 
@@ -1525,7 +1554,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 	{
 		this->sec_status.retune_count = 0;
 		auto w = ts.writeAccess();
-		w->start_time = system_clock::to_time_t(now);
+		w->start_time = now;
 		w->reserved_mux = {};
 		w->reserved_rf_path = rf_path;
 		w->reserved_lnb = lnb;
@@ -1567,9 +1596,6 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const 
 	}
 	return ret;
 }
-
-
-
 
 template<typename mux_t>
 int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
@@ -1614,7 +1640,6 @@ int dvb_frontend_t::release_fe() {
 	}
 	return 0;
 }
-
 
 /** @brief Send a diseqc message and also control band/polarisation in the right order*
 		DiSEqC 1.0, which allows switching between up to 4 satellite sources
@@ -1781,7 +1806,6 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 	return {1, new_usals_sat_pos};
 }
 
-
 /** @brief generate and sent the digital satellite equipment control "message",
  * specification is available from http://www.eutelsat.com/
  * See update_recomm_for_implim-1.pdf p. 9
@@ -1922,8 +1946,6 @@ int sec_status_t::set_rf_input(int fefd, int rf_input) {
 	return 1;
 }
 
-
-
 /*
 	determine if we need to send a diseqc command and/or if we need to set voltage/tone on lnb
 	always send diseqc if tuning has failed unless when lnb_use_count>1
@@ -1989,7 +2011,6 @@ int dvb_frontend_t::do_lnb(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_volta
 	}
 	return 0;
 }
-
 
 int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 	if (!devdb::lnb::can_move_dish(ts.readAccess()->reserved_lnb_connection()))

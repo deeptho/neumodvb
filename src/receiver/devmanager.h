@@ -141,7 +141,7 @@ struct spectrum_scan_t {
 		for those drivers that can compute candidates, we may as well compute them in user space (and
 		adapt the driver code, wh
 	 */
-	time_t start_time{};
+	system_time_t start_time{};
 	devdb::rf_path_t rf_path{};
 	int16_t adapter_no{-1};
 	int16_t usals_pos{sat_pos_none};
@@ -224,7 +224,8 @@ public:
 	bool use_blind_tune{false};
 	fe_lock_status_t lock_status;
 	subscription_options_t tune_options;
-	time_t start_time;
+	system_time_t start_time;
+	std::optional<steady_time_t> positioner_start_move_time;
 
 	void set_lock_status(api_type_t api_type, fe_status_t fe_status);
 
@@ -351,6 +352,9 @@ public:
 
 	void set_lock_status(fe_status_t fe_status);
 	void clear_lock_status();
+
+	std::tuple<int, int, int, double>
+	get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usals_pos, steady_time_t now) const;
 
 	/*TODO:  dvb_frontend_t acts both as an interface to the outside world and
 		as a provider of low level calls towards the driver.

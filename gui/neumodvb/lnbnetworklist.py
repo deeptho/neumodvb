@@ -136,8 +136,9 @@ class LnbNetworkTable(NeumoTable):
 
     def matching_sat(self, sat_pos):
         sats = wx.GetApp().get_sats()
+        sat_band = pydevdb.lnb.sat_band(self.lnb)
         for sat in sats:
-            if abs(sat.sat_pos - sat_pos) < 5:
+            if sat.sat_band == sat_band and abs(sat.sat_pos - sat_pos) < 5:
                 return sat
         return None
 

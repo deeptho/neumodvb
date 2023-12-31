@@ -948,7 +948,7 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 	}
 	ss::string<64> s;
 	dtdebugf("Diseqc message[{:d}]: "
-					 "%02x %02x %02x %02x %02x %02x",
+					 "{:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
 					 cmd.msg_len, cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
 	int err;
 	auto fefd = ts.readAccess()->fefd;

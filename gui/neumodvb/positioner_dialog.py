@@ -1066,9 +1066,10 @@ class PositionerDialog(PositionerDialog_):
             event.Skip()
 
     def OnGotoUsals(self, event):
+        """
+        Called when user presses "Set button" next to usals location
+        """
         self.OnPositionChanged(self.rotor_position_text_ctrl.GetValue())
-        self.UpdateUsalsPosition(self.position)
-
 
     def OnUsalsStepEast(self, event):
         self.position += self.step

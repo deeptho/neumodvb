@@ -1008,15 +1008,18 @@ class PositionerDialog(PositionerDialog_):
         dtdebug(f"USALS position set to {usals_pos/100}")
         self.lnb.usals_pos = usals_pos
         self.tune_mux_panel.lnb_changed = True
+        found = False
         for network in self.lnb.networks:
             if network.sat_pos == self.sat.sat_pos:
                 network.usals_pos = usals_pos
                 self.tune_mux_panel.lnb_changed = True
-                dtdebug(f"Goto XX {usals_pos}" )
-                ret=self.positioner_command(pydevdb.positioner_cmd_t.GOTO_XX, usals_pos)
-                assert ret>=0
-                return
-        dtdebug(f"lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
+                found = True
+                break
+        if not found:
+            dtdebug(f"lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
+        dtdebug(f"Goto XX {usals_pos}" )
+        ret=self.positioner_command(pydevdb.positioner_cmd_t.GOTO_XX, usals_pos)
+        assert ret>=0
 
     def UpdateDiseqc12(self, diseqc12):
         dtdebug(f"DISEQC12 set to {diseqc12}")

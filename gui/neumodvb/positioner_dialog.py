@@ -221,7 +221,7 @@ class TuneMuxPanel(TuneMuxPanel_):
 
     @property
     def lnb_subscriber(self):
-        if not self.tuned_ and not self.lnb_activated_:
+        if not self.lnb_activated_:
             self.lnb_activated_ = True;
             self.SubscribeLnb(retune_mode=pydevdb.retune_mode_t.NEVER)
         return self.mux_subscriber
@@ -258,17 +258,14 @@ class TuneMuxPanel(TuneMuxPanel_):
             if ok:
                 self.OnSave(None)
         if self.tuned_:
-            self.mux_subscriber.unsubscribe()
+            self.AbortTune()
             del self.mux_subscriber_
             self.mux_subscriber_ = None
-            self.tuned_ = False
-            self.lnb_activated_ = False
-            dtdebug("SUBS deleted\n")
         elif self.lnb_activated_:
             self.lnb_subscriber.unsubscribe()
             self.tuned_ = False
             self.lnb_activated_ = False
-            dtdebug("SUBS deleted\n")
+            del self.mux_subscriber_
             self.mux_subscriber_ = None
 
     def SelectInitialData(self, lnb, sat, mux):

@@ -296,7 +296,15 @@ public:
 		});
 		if(this->must_exit_) {
 			dterrorf("Ignored pushing task while exit is in progress");
-			return {};
+			task_t dummy_task([]() {
+				task_result_t ret;
+				ret.retval = -1;
+				ret.errmsg = "thread has exited; cannot run task";
+				return ret;
+			});
+			auto ret {dummy_task.get_future()};
+			dummy_task();
+			return ret;
 		}
 		auto f = task.get_future();
 

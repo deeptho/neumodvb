@@ -178,10 +178,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         wx.CallAfter(self.ChangeRfPath, rf_path)
     def OnWindowDestroy(self, evt):
         dtdebug('TuneMuxPanel destroyed')
-        if self.mux_subscriber_ is not None:
-            self.mux_subscriber_.unsubscribe()
-            del self.mux_subscriber_
-            self.mux_subscriber_ = None
 
     def read_lnb_from_db(self):
         txn = wx.GetApp().devdb.rtxn()

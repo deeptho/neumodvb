@@ -1015,7 +1015,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
         self.SetColLabelSize(self.GetColLabelSize() + extrasize)
         self.Bind(wx.grid.EVT_GRID_LABEL_RIGHT_CLICK, self.OnColumnMenu)
         self.Bind(wx.grid.EVT_GRID_CELL_RIGHT_CLICK, self.OnColumnMenu)
-
         self.Bind(wx.grid.EVT_GRID_LABEL_LEFT_CLICK, self.OnToggleSort)
 
     def InitialRecord(self):

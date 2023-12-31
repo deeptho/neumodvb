@@ -939,7 +939,7 @@ class PositionerDialog(PositionerDialog_):
         return opts.usals_location
 
     def save_usals_location(self, loc):
-        wx.GetAPp().save_option_to_db("usals_location", loc)
+        wx.GetApp().save_option_to_db("usals_location", loc)
 
     def SetUsalsLocation(self, longitude=None, latitude=None):
         loc = self.get_usals_location()

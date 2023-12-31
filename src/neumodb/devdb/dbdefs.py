@@ -98,7 +98,7 @@ Principle: the same lnb can sometimes receive satellites from different position
 an LNB tuned to 9.0E may be able to receive 10.0E as well. In this case the lnb will have two
 network enries. The first one will be considered the main one, and the second one the secondary one,
 
-For lnbs on a positioner, teh dish will move to the specifief sat_pos
+For lnbs on a positioner, the dish will move to the specifief sat_pos
 TODO: we may add a second sat_pos field to implement secondary networks (like the 9.0E vs. 10.0E example)
 
 """
@@ -182,7 +182,7 @@ lnb_connection = db_struct(name='lnb_connection',
                           (6, 'uint8_t' , 'diseqc_mini'),
                           (7, 'int8_t' , 'diseqc_10', '-1'),
                           (8, 'int8_t' , 'diseqc_11', '-1'),
-                          # disec12 is not included here as this is part of the dish
+                          # disecqc12 is not included here as this is part of the dish
 
                           #Sometimes more than one network can be received on the same lnb
                           #for an lnb

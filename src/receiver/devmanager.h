@@ -256,6 +256,7 @@ class sec_status_t {
 	bool rf_input_changed{false}; // true means that rf_input was changed and we have not set voltage yet
 	int voltage{-1};  // -1 means unknown or never set
 	int tone{-1};     // -1 means unknown or never set
+	steady_time_t powerup_time; //time when lnb was last powered up (any voltage > 0)
 public:
 	int retune_count{0};
 	bool is_tuned() const {
@@ -277,6 +278,12 @@ public:
 		return (fe_sec_voltage) voltage;
 	}
 
+	inline int positioner_wait_after_powerup(int ms) const {
+		assert(voltage != SEC_VOLTAGE_OFF);
+		auto deadline  = powerup_time + std::chrono::milliseconds(ms);
+		std::this_thread::sleep_until (deadline);
+		return 0;
+	}
 	/*
 		returns -1 : error
 		0: tone was already correct

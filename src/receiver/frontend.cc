@@ -952,6 +952,8 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 					 cmd.msg_len, cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
 	int err;
 	auto fefd = ts.readAccess()->fefd;
+	int powerup_time_ms = 1000;
+	sec_status.positioner_wait_after_powerup(powerup_time_ms);
 	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
 		dterrorf("problem sending the DiseqC message");
 		return -1;
@@ -1750,6 +1752,8 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 				break;
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_sat_pos};
+			int powerup_time_ms = 1000;
+			sec_status.positioner_wait_after_powerup(powerup_time_ms);
 			msleep(must_pause ? 200 : 30);
 			if (!lnb_only) {
 				auto* lnb_network = (!lnb_only) ? devdb::lnb::get_network(lnb, mux.k.sat_pos) : nullptr;
@@ -1919,6 +1923,8 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		dterrorf("problem setting voltage {:d}", voltage);
 		return -1;
 	}
+	if(voltage != SEC_VOLTAGE_OFF)
+		powerup_time = steady_clock_t::now();
 	//allow some time for the voltage on the equipment to stabilise before continuing
 	msleep(sleeptime_ms);
 	return 1;

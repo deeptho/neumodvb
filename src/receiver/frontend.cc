@@ -793,10 +793,8 @@ dvb_frontend_t::get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usa
 	assert(start);
 	auto move_time_ = end_time - *start;
 	auto move_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(move_time_).count();
-	auto old_angle = devdb::lnb::sat_pos_to_usals_par(old_usals_pos / 10,
-																										loc.usals_longitude / 10, loc.usals_latitude / 10);
-	auto new_angle = devdb::lnb::sat_pos_to_usals_par(new_usals_pos / 10,
-																										loc.usals_longitude / 10, loc.usals_latitude / 10);
+	auto old_angle = devdb::lnb::sat_pos_to_angle(old_usals_pos, loc.usals_longitude, loc.usals_latitude);
+	auto new_angle = devdb::lnb::sat_pos_to_angle(new_usals_pos, loc.usals_longitude, loc.usals_latitude);
 	auto speed = std::abs(new_angle - old_angle)*10. /(double) move_time_ms;
 	return {old_angle, new_angle, move_time_ms, speed};
 }
@@ -1887,7 +1885,6 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		return 0;
 	}
 	dtdebugf("Changing voltage from : v={:d} to v={:d}", (int) voltage, (int)v);
-
 	/*
 		when starting from the unpowered state, we need to wait long enough to give equipment
 		time to power up. We assume 200ms is enough

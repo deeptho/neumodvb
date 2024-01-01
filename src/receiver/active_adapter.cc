@@ -267,6 +267,7 @@ int active_adapter_t::tune(const mux_t& mux_, subscription_options_t tune_option
 	mux_t mux;
 	if(user_requested) {
 		this->reset();
+		//usals_timer.start();
 		mux = prepare_si(mux_, false /*start*/, subscription_id);
 	} else
 		mux=mux_;
@@ -320,11 +321,31 @@ int active_adapter_t::add_service(subscription_id_t subscription_id, active_serv
 }
 
 void active_adapter_t::on_stable_pat() {
-	usals_timer.end();
+	auto mux_ = current_tp();
+	auto* pmux = std::get_if<chdb::dvbs_mux_t>(&mux_);
+	if (!pmux)
+		return;
+	auto e = usals_timer.end();
+	if(!e)
+		return;
+	auto [end_time, usals_pos_start, usals_pos_end] = *e;
+ 	if(usals_pos_end == usals_pos_start)
+		return;
+	auto [ old_angle, new_angle, move_time_ms, speed ] =
+		fe->get_positioner_move_stats(usals_pos_start, usals_pos_end, end_time);
+	if (std::abs(new_angle - old_angle) <10)
+		return;
+	auto pol = pmux->pol;
+	dtdebugf("positioner moved from {:d} to {:d} in {:d}ms = {:f} degree/s pol={}",
+					 old_angle, new_angle, move_time_ms, speed, enum_to_str(pol));
+	fmt::print("positioner moved from {:d} to {:d} in {:d}ms = {:f} degree/s pol={}\n",
+						 old_angle, new_angle, move_time_ms, speed, enum_to_str(pol));
+
+
 }
 
-void active_adapter_t::on_first_pat() {
-	usals_timer.stamp();
+void active_adapter_t::on_first_pat(bool restart) {
+	usals_timer.stamp(restart);
 }
 
 
@@ -1110,6 +1131,16 @@ active_adapter_t::active_service_for_subscription(subscription_id_t subscription
 	return found ? it->second : std::shared_ptr<active_service_t>{};
 }
 
+
+std::optional<std::tuple<steady_time_t, int16_t, int16_t>> usals_timer_t::end() {
+	if(!started) {
+		printf("usals: NOT STARTED\n");
+		return {};
+	}
+	started = false;
+	auto end = stamped ? first_pat_time : steady_clock_t::now();
+	return std::tuple<steady_time_t, int16_t, int16_t>{end, usals_pos_start, usals_pos_end};
+}
 
 //instantiations
 template

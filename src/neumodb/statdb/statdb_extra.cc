@@ -97,7 +97,7 @@ std::optional<statdb::spectrum_t> statdb::make_spectrum(const ss::string_& spect
 	if(num_freq<=0)
 		return {};
 	statdb::spectrum_t spectrum{statdb::spectrum_key_t{devdb::rf_path_t{scan.rf_path},
-			scan.sat.sat_pos, scan.band_pol.pol, scan.start_time},
+			scan.sat.sat_pos, scan.band_pol.pol, system_clock_t::to_time_t(scan.start_time)},
 		(uint32_t)scan.start_freq,
 		(uint32_t)scan.end_freq,
 		scan.resolution,

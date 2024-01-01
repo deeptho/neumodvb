@@ -44,6 +44,8 @@ namespace devdb {
 
 
 namespace devdb::dish {
+	devdb::dish_t get_dish(db_txn& devdb_wtxn, int dish_id);
+
 	//dish objects do not really exist in the database, but curent state (usals_pos) is stored in all relevant lnbs
 	int update_usals_pos(db_txn& wtxn, const devdb::lnb_t&lnb, int usals_pos,
 											 const devdb::usals_location_t& loc, int sat_pos);
@@ -113,6 +115,9 @@ struct subscribe_ret_t {
 	static std::atomic_int next_subscription_id; //initialised in fe_subscribe.cc
 
 	tune_pars_t tune_pars;
+
+	int16_t old_usals_pos{sat_pos_none}; //in case dish is moved as result of tune, where did it move from?
+	int16_t new_usals_pos{sat_pos_none}; //in case dish is moved as result of tune, where will it move to?
 
 	inline  bool subscription_failed() const {
 		return failed;

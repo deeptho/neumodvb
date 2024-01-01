@@ -113,7 +113,7 @@ lnb_network = db_struct(name='lnb_network',
                           (2, 'int16_t',  'priority', 0),
                           (3, 'int16_t', 'usals_pos', 'sat_pos_none'), #only for master usals positioner: in 1/100 degree
                           (4, 'int16_t', 'diseqc12', -1), #only for positioner: disec12 value
-                          #sat_pos tp compensete for dish misalignment
+                          #sat_pos tp compensate for dish misalignment
                           (6, 'bool',  'enabled', 'true'),
                           (5,  'chdb::mux_key_t', 'ref_mux'), #for all lnbs, reference tranponder for use in positioner dialog
                 ))
@@ -165,6 +165,27 @@ rf_path = db_struct(name='rf_path',
                               (3, 'int8_t', 'rf_input', -1),
                               )
                     )
+
+dish = db_struct(name='dish',
+                 fname = 'fedev',
+                 db = db,
+                 type_id= lord('di'),
+                 version = 1,
+                 ignore_for_equality_fields = ('mtime',),
+                 primary_key = ('key', ('dish_id', )),
+                 fields = ((1, 'int8_t', 'dish_id', -1), #Unique for each dish
+                           (2, 'int16_t', 'cur_sat_pos', 'sat_pos_none'), #satellite position last moved to
+                           (3, 'int16_t', 'cur_usals_pos', 'sat_pos_none'), #satellite position last moved to
+                           (4, 'bool', 'usals_pos_reliable', 'false'),
+                           (5, 'ss::vector<float,2>', 'rotation_speeds',
+                            '{0.3, 0.3}'), #first value is for 13volt, second for 18
+                           (6, 'int32_t', 'powerup_time', '1500'), #How long after powerup to wait for positioner
+                                                                   #to be ready for motion commands
+                           (7, 'ss::vector<float,2>', 'speeds', '{1.0, 2.0}'), #Speed rotor moves at 13 and 18 V
+                                                                              #in (sat_pos) degrees per second
+                           (8, 'time_t', 'mtime',)
+                           )
+                 )
 
 lnb_connection = db_struct(name='lnb_connection',
                 fname = 'fedev',

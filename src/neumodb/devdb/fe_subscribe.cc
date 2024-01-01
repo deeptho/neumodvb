@@ -741,6 +741,9 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 						return failed(sret.subscription_id, updated_old_dbfe);
 					}
 					auto usals_pos = lnb_network->usals_pos;
+					sret.old_usals_pos = lnb.usals_pos;
+					sret.new_usals_pos = usals_pos;
+					printf("USALS from=%d to=%d\n", sret.old_usals_pos, usals_pos);
 				dish::update_usals_pos(wtxn, lnb, usals_pos, tune_options.usals_location, mux.k.sat_pos);
 				}
 			}
@@ -798,6 +801,9 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 					return failed(sret.subscription_id, updated_old_dbfe);
 				}
 				auto usals_pos = lnb_network->usals_pos;
+				sret.old_usals_pos = lnb.usals_pos;
+				sret.new_usals_pos = usals_pos;
+				printf("USALS from=%d to=%d\n", sret.old_usals_pos, usals_pos);
 				dish::update_usals_pos(wtxn, lnb, usals_pos, tune_options.usals_location, sat.sat_pos);
 			}
 

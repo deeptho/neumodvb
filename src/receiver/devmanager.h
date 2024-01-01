@@ -270,11 +270,12 @@ public:
 	 */
 	int set_voltage(int fefd, fe_sec_voltage v);
 	int set_rf_input(int fefd, int rf_input);
-	fe_sec_tone_mode get_tone() const {
+
+	inline fe_sec_tone_mode get_tone() const {
 		return (fe_sec_tone_mode) tone;
 	}
 
-	fe_sec_voltage get_voltage() const {
+	inline fe_sec_voltage get_voltage() const {
 		return (fe_sec_voltage) voltage;
 	}
 

@@ -1231,7 +1231,6 @@ void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)
 	lnb.lof_offsets[1] = 0;
 }
 
-
 static void invalidate_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb) {
 	ss::string<32> name;
 	name.clear();
@@ -1374,6 +1373,15 @@ devdb::dish::list_dishes(db_txn& devdb_rtxn) {
 	return dishes;
 }
 
+devdb::dish_t devdb::dish::get_dish(db_txn& devdb_wtxn, int dish_id) {
+	auto c = devdb::dish_t::find_by_key(devdb_wtxn, dish_id);
+	devdb::dish_t ret{};
+	if(c.is_valid())
+		ret = c.current();
+	ret.dish_id = dish_id;
+	put_record(devdb_wtxn, ret);
+	return ret;
+}
 
 fmt::format_context::iterator
 fmt::formatter<devdb::run_type_t>::format(const devdb::run_type_t& run_type, format_context& ctx) const {

@@ -380,7 +380,7 @@ tuner_thread_t::~tuner_thread_t() {
 
 int tuner_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd,
 																				 int par) {
-		return (active_adapter.fe) ? active_adapter.fe->positioner_cmd(cmd, par) : -1;
+	return (active_adapter.fe) ? active_adapter.fe->positioner_cmd(cmd, par) : -1;
 }
 
 int tuner_thread_t::cb_t::update_current_lnb(subscription_id_t subscription_id, const devdb::lnb_t& lnb) {

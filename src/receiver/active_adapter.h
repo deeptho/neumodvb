@@ -83,7 +83,7 @@ public:
 		usals_pos_start = old_usals_pos;
 		usals_pos_end = new_usals_pos;
 		started = true;
-
+		printf("usals timer start\n");
 	}
 
 	inline void stamp( bool restart) {
@@ -94,6 +94,7 @@ public:
 		stamped = true;
 		first_pat_time = steady_clock_t::now();
 		dtdebugf("positioner stamp");
+		printf("usals timer stamp\n");
 	}
 
 std::optional<std::tuple<steady_time_t, int16_t, int16_t>> end();

@@ -53,6 +53,8 @@
 
         SetBackgroundColour(colour)
 
+        SetForegroundColour(colour) Used to affect Black or White up/down images
+
         Enable(Bool)            Enable/Disable the control
                                 On Disable the control value is frozen
 
@@ -68,9 +70,9 @@
 
 Author:     J Healey
 Created:    31/08/2018
-Copyright:  J Healey - 2018
-License:    GPL 2 or any later version
-Email:      rolfofsaxony@gmail.com
+Copyright:  J Healey - 2018-2022
+License:    GPL 3 or any later version
+Email:      <rolfofsaxony@gmx.com>
 
 Usage example:
 
@@ -132,6 +134,19 @@ spinupdown = PyEmbeddedImage(
     b'3xueZ6JNxOYan2V5hIgdQlVPEispLHHGgc8BJLZTWq8t9CnRTHEBukbCLU1/mxpjDv4gMpz6'
     b'p8GFQ5kdpSCt5b1EahSoP36MiN1xoWWOi/wpbTu0W/9hX2ALIYQQQgghhBDp8wVxiX7Ava8A'
     b'egAAAABJRU5ErkJggg==')
+spinupdownw = PyEmbeddedImage(
+    b'iVBORw0KGgoAAAANSUhEUgAAADIAAABkCAYAAADE6GNbAAAABmJLR0QA/wD/AP+gvaeTAAAA'
+    b'CXBIWXMAAAOEAAADhAEDBbnhAAACH0lEQVR42u3bT0tVQRgG8Oe9JETcuoYpEbgI+gCK0CrI'
+    b'hQQ30TDSr9IyaCkSfRnRj6D5D1euAlu0SvFPFIR4nxb3CAp179wzM2fO1PNbn8V9Zs6855yZ'
+    b'9wIiIiIiIiI3kXz7L4RYZNfrnEMs8abnJC2nAEayxT9rxQrTCB0CQAvA6V8uOQXwIJcZ6edT'
+    b'DiH2HIJ0SO7WOcSH4kfSMcxKHUMssJxXdapQL+jncYhKZgEq1EmAMRkGcG5mTFF+xwKFuCrL'
+    b'zVTPkdXAd+p6irWxxTg2qwzxnnHNVRFintWYjVa1SL6MsC56uQ/gzLWSmWOZHQXwBcDtCoNc'
+    b'AHgE4NgljEuQcQCfAQyleOiamYUqv2upQhQDue99a5EcK6Y3ta9m9k07ICIiIiIiIiIiIhKX'
+    b'yyb2M3R3xlP+xgMzO/MNsgdgImGQSwBPzOyw10V9d+PNbBLATqIQ3wE8RPdsBl5BCvMAfiUI'
+    b'sthoNI6CHPQUt5cBGClG5k5FIdpm5nxk7TQjxYgcA6iqpW9jkBClkGxHPtHdqOzGJfkuVopo'
+    b'z5EeYTYBPA05PugeSZdqrjHPmdkGMBUoSBPAz7IdQr7Nme1AIWbN7IdPm5PvWjGS90heeiyL'
+    b'N7V4WSvCzJQMsVW7t0+Sc7VtaRpUp9NZHiDIrVp/F5DccWiVbWbRJ98nyHQuIYzk3WTdcRWE'
+    b'+Zjtd/S1Du3t7DcFsv43j4iIiIiIyP/kNycu8wiaKoSnAAAAAElFTkSuQmCC')
 spindown = PyEmbeddedImage(
     b'iVBORw0KGgoAAAANSUhEUgAAADIAAABkCAYAAADE6GNbAAAABmJLR0QA/wD/AP+gvaeTAAAA'
     b'CXBIWXMAAAPiAAAD4gHuD5mHAAAAB3RJTUUH4ggSCBk1npj4fwAAAiJJREFUeNrt2M+LEmEc'
@@ -146,6 +161,19 @@ spindown = PyEmbeddedImage(
     b'Rs9tvxkrFApKRMQwjPfLAZRSEBGUy+U3S/sc++8qATjz+fzP5TDtdvsbgCu2n1IL8/l8EcYX'
     b'i8W+iwhSqdRXADf3JsQpI3NULBYB4P6iItjbnxcAbu/dSKwIw99SRERERERb8xeP3+hzsiuu'
     b'uQAAAABJRU5ErkJggg==')
+spindownw = PyEmbeddedImage(
+    b'iVBORw0KGgoAAAANSUhEUgAAADIAAABkCAYAAADE6GNbAAAABmJLR0QA/wD/AP+gvaeTAAAA'
+    b'CXBIWXMAAAOEAAADhAEDBbnhAAACFElEQVR42u3YP4jaUBwH8G+OU9qCSIdbuzjcrFd0qNe9'
+    b'q0scdPC2cmChg2CHVHBwrdU97WoXoUMsxcU/cBzozTcYKNzZmEawlCIU4+tSQeh53h+jEb6f'
+    b'KZDw8r55Ly+/F4CIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIhuQwjhqr4s64+0pA0JwAGA3wvO'
+    b'eZ3OAOAhgJNlF+5e9xQkSRKhUOio0+m8vOoa0zQxGo0cS2EYBlKp1Gtd10/+9ed+0yufz2ti'
+    b'A2RZ/rDyaS7L8sU6QySTyTNHXnqfz7enadrlOkJomnYO4JGTi85Bs9l0NES73RYAnji+HHu9'
+    b'3hfD4dB2IsRgMBgDCDu+/M8aDwaDihNBwuHw8do/UtFo9L1tr2ZgdF0XkUjk7dpDTCYTANgt'
+    b'l8tfVhFEVdVPAHY2WU34stns+V0DjMdjoSjK6SoqhJ17vi+/KpXK03q9/uMubTQajW+WZT0H'
+    b'8Gejtd3czZ91u91bjUa1Wp14PJ6g66rldDp92Ov1bhTCsiwRCARCrguhqioAIB6Pv+n3+9eG'
+    b'MAxDJBKJV27bKvwnk8l8XBTCNE3h9/vfuX4zViwWJQBQFOXrfIDpdCqEECKXy32+4T7INbvK'
+    b'B6VS6ed8mFgsNgDgcf2UmrFte3a412q1TCGEqNVq3wE83poQV4zMYaFQEAAicxXB1v682N+6'
+    b'kVgUZqtDEBERERG5zl+4IpChEQH6CQAAAABJRU5ErkJggg==')
 spinup = PyEmbeddedImage(
     b'iVBORw0KGgoAAAANSUhEUgAAADIAAABkCAYAAADE6GNbAAAABmJLR0QA/wD/AP+gvaeTAAAA'
     b'CXBIWXMAAAPiAAAD4gHuD5mHAAAAB3RJTUUH4ggSCAYkOXLWEwAAAipJREFUeNrt2M+LEmEc'
@@ -160,6 +188,19 @@ spinup = PyEmbeddedImage(
     b'6VebLGGkVqs9u+xUDi4qoZSSXq9X9Pv92p+OcTqdYrVaTduTxWLx/nA4fK+Uemzcz9IX9F8m'
     b'okTELyLfl5x7aPbDUkSuKqU6/72sduXjdK//iSEiIiIiIiIiIiIiIiIiIiIiIiIiIiIiItqe'
     b'nwRG71f6w806AAAAAElFTkSuQmCC')
+spinupw = PyEmbeddedImage(
+    b'iVBORw0KGgoAAAANSUhEUgAAADIAAABkCAYAAADE6GNbAAAABmJLR0QA/wD/AP+gvaeTAAAA'
+    b'CXBIWXMAAAOEAAADhAEDBbnhAAACDElEQVR42u3YMYjaUBwG8C9HlWtBpKBrOzh01gMd6rk4'
+    b'dXUwDjo41oKFDg4drODg2Fqla9q5i9AhyjlVhQ7Vzh0MHVqrQcEOpYu5fxcPLPSOO0k0wvdb'
+    b'Engvj/fxfy95BCAiIiIiIhuIyD/Xgw4B4MHBhtmY9GmtVhMAMQBYrVaHE8KyrIvbYL/fN0VE'
+    b'2u32TwB3D6YyG5M8bjQav2RDKpWaAfAcRJh6va4AQLlcPtsMcX5+LiIilUrlw7qr4vqqlEql'
+    b'd3IJ0zTF7/e/cu3kNU0DAGQymeeTyUSuMp1OJZvNPnXtEisWi6fj8ViuYz6fSygUirhxcz8c'
+    b'jUZyE61Wa+XxeMKuCREKhXzdbteULXQ6nW+FQuHYjmV2tO2DiqIAgC+dTn9OJpPBbcZIJBL3'
+    b'A4HARwDe9Xi7tf5C32o2mx2xgaZp7wEc7WXzx+Px15Zl2ZFDDMOQWCz2Yuf7IhwOl8UB0Wj0'
+    b'yc5CeL3eR4vFwnIiyGw2+wMguotvzEmv1xMnDQYDAXDPsUr4fL6grus/ZAd0Xf8K4I4jlVFV'
+    b'9bvsUC6X+2J7NarVqi57oKrq2+tWRbkqhKIoiEQib4bD4eP/9TFNE8vl0rENOZ1Okc/nnxmG'
+    b'8fJiPjcOstF+AuD3JW1ep1+WAG4D+GTHgdAV57qD/hNDRERERERERERERERERERERERERERE'
+    b'RES0P38BI16CNrA+BBwAAAAASUVORK5CYII=')
 spindisabled = PyEmbeddedImage(
     b'iVBORw0KGgoAAAANSUhEUgAAAJUAAAEqCAYAAAAcSRJbAAAABHNCSVQICAgIfAhkiAAAAAlw'
     b'SFlzAAAD4gAAA+IB7g+ZhwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoA'
@@ -170,8 +211,11 @@ spindisabled = PyEmbeddedImage(
     b'YII=')
 
 getspinupdownImage = spinupdown.GetImage
+getspinupdownwImage = spinupdownw.GetImage
 getspindownImage = spindown.GetImage
+getspindownwImage = spindownw.GetImage
 getspinupImage = spinup.GetImage
+getspinupwImage = spinupw.GetImage
 getspindisabledImage = spindisabled.GetImage
 
 msbEVT_MINISPIN = wx.NewEventType()
@@ -265,15 +309,42 @@ class MiniSpinButton(wx.Control):
 
     def InitialiseBitmaps(self):
         self._imgup = self.SetImageSize(getspinupImage())
+        self._imgupw = self.SetImageSize(getspinupwImage())
         self._imgdown = self.SetImageSize(getspindownImage())
+        self._imgdownw = self.SetImageSize(getspindownwImage())
         self._imgupdown = self.SetImageSize(getspinupdownImage())
+        self._imgupdownw = self.SetImageSize(getspinupdownwImage())
         self._imgdisabled = self.SetImageSize(getspindisabledImage())
-        if self._initial <= self._min:
-            self._img = self._imgup
-        elif self._initial >= self._max:
-            self._img = self._imgdown
+        clr = self.GetBackgroundColour()
+        clr = self.ImageColour(clr)
+        if clr == "white":
+            if self._initial <= self._min:
+                self._img = self._imgupw
+            elif self._initial >= self._max:
+                self._img = self._imgdownw
+            else:
+                self._img = self._imgupdownw
         else:
-            self._img = self._imgupdown
+            if self._initial <= self._min:
+                self._img = self._imgup
+            elif self._initial >= self._max:
+                self._img = self._imgdown
+            else:
+                self._img = self._imgupdown
+
+    def ImageColour(self, colour):
+        try:
+            red = wx.Colour.Red(colour)
+            green = wx.Colour.Green(colour)
+            blue = wx.Colour.Blue(colour)
+            brightness = ((red*red*0.241)+(green*green*0.691)+(blue*blue*0.068))**(0.5)
+        except Exception:
+            brightness = 128
+        if brightness <= 127:
+            txt_colour = "white"
+        else:
+            txt_colour = "black"
+        return txt_colour
 
     def SetImageSize(self,img):
         #Size the image as Full height and the width is half the height
@@ -307,6 +378,10 @@ class MiniSpinButton(wx.Control):
 
     def GetRange(self):
         return self._min, self._max
+
+    def SetForegroundColour(self, colour):
+        value = self.GetValue()
+        self.SetImage(value)
 
     def IsEnabled(self):
         return wx.Control.IsEnabled(self)
@@ -409,15 +484,57 @@ class MiniSpinButton(wx.Control):
         self.SetImage(value)
 
     def SetImage(self, value):
-        #Set appropriate image
-        if value <= self._min:
-            self._img = self._imgup
-        elif value >= self._max:
-            self._img = self._imgdown
+        # Set appropriate image
+        clr = self.GetBackgroundColour()
+        clr = self.ImageColour(clr)
+        if clr == "white":
+            if value <= self._min:
+                self._img = self._imgupw
+            elif value >= self._max:
+                self._img = self._imgdownw
+            else:
+                self._img = self._imgupdownw
         else:
-            self._img = self._imgupdown
+            if value <= self._min:
+                self._img = self._imgup
+            elif value >= self._max:
+                self._img = self._imgdown
+            else:
+                self._img = self._imgupdown
         if PY2:
             self.spinner.SetBitmap(wx.BitmapFromImage(self._img))
         else:
             self.spinner.SetBitmap(wx.Bitmap(self._img))
         self.Layout()
+
+if __name__ == '__main__':
+
+    import wx
+
+    class MyFrame(wx.Frame):
+
+        def __init__(self, parent):
+
+            wx.Frame.__init__(self, parent, -1, "Minispinbutton Demo")
+
+            panel = wx.Panel(self)
+
+            spin = MiniSpinButton(panel, -1, pos=(50, 50), min=-5, max=10,
+                                  initial=3, style=0)
+            #spin.SetBackgroundColour("blue")
+            #spin.SetForegroundColour("white")
+            self.txt = wx.TextCtrl(panel, -1, size=(50,20), pos=(80,53))
+            spin.Bind(EVT_MINISPIN, self.OnSpin)
+            spin.SetToolTip("This is the SpinButton")
+            self.txt.SetToolTip("This is a normal TextCtrl used to show the button is working")
+
+        def OnSpin(self, event):
+            self.txt.SetValue(str(event.GetValue()))
+
+    app = wx.App()
+
+    frame = MyFrame(None)
+    app.SetTopWindow(frame)
+    frame.Show()
+
+    app.MainLoop()

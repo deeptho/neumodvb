@@ -740,7 +740,7 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	return sret.subscription_id;
 }
 
-devdb::lnb_t receiver_t::reread_lnb(const devdb::lnb_t& lnb)
+devdb::lnb_t receiver_t::reread_lnb_lof_offsets(const devdb::lnb_t& lnb)
 
 {
 	auto txn = devdb.rtxn();
@@ -757,7 +757,7 @@ subscription_id_t
 receiver_thread_t::cb_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_, subscription_options_t tune_options,
 																			 subscription_id_t subscription_id) {
 
-	auto lnb = receiver.reread_lnb(lnb_);
+	auto lnb = receiver.reread_lnb_lof_offsets(lnb_);
 	auto s = fmt::format("SUB[{}]",  (int) subscription_id, lnb);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
@@ -1070,7 +1070,7 @@ subscription_id_t
 receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_,
 																	 const chdb::fe_polarisation_t& pol_, int32_t low_freq,
 																	 int32_t high_freq, const chdb::sat_t& sat, subscription_id_t subscription_id) {
-	auto lnb = reread_lnb(lnb_);
+	auto lnb = reread_lnb_lof_offsets(lnb_);
 
 	std::vector<task_queue_t::future_t> futures;
 	auto tune_options = get_default_subscription_options(devdb::subscription_type_t::SPECTRUM_ACQ);
@@ -1127,16 +1127,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																						devdb::retune_mode_t retune_mode,
 																						subscription_id_t subscription_id) {
-
-	{
-		auto txn = devdb.rtxn();
-		auto c = devdb::lnb_t::find_by_key(txn, lnb.k);
-		if (c.is_valid()) {
-			auto db_lnb = c.current();
-			lnb.lof_offsets = db_lnb.lof_offsets;
-			txn.abort();
-		}
-	}
+	lnb = reread_lnb_lof_offsets(lnb);
 	std::vector<task_queue_t::future_t> futures;
 	subscription_options_t tune_options;
 	tune_options.subscription_type = devdb::subscription_type_t::LNB_CONTROL;
@@ -1170,16 +1161,7 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 																	devdb::retune_mode_t retune_mode, subscription_id_t subscription_id_) {
 	subscription_id_t subscription_id{subscription_id_};
 	devdb::fe_key_t subscribed_fe_key;
-
-	{
-		auto txn = devdb.rtxn();
-		auto c = devdb::lnb_t::find_by_key(txn, lnb.k);
-		if (c.is_valid()) {
-			auto db_lnb = c.current();
-			lnb.lof_offsets = db_lnb.lof_offsets;
-			txn.abort();
-		}
-	}
+	lnb = reread_lnb_lof_offsets(lnb);
 	std::vector<task_queue_t::future_t> futures;
 	auto tune_options = this->get_default_subscription_options(devdb::subscription_type_t::LNB_CONTROL);
 	tune_options.use_blind_tune = blindscan;
@@ -1867,30 +1849,19 @@ void receiver_t::renumber_card(int old_number, int new_number) {
 	}).wait();
 }
 
-
-/*
-	set a new usals_pos, for tuning to sat at sat_pos (which may be left unspecified as sat_pos_none)
- */
-int receiver_thread_t::cb_t::update_usals_pos(const devdb::lnb_t& lnb) {
-	auto loc = receiver.get_usals_location();
-
-	auto devdb_wtxn = receiver.devdb.wtxn();
-	int ret = devdb::dish::update_usals_pos(devdb_wtxn, lnb, lnb.usals_pos, loc, sat_pos_none);
-	devdb_wtxn.commit();
-	return ret;
-}
-
-int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd,
+std::tuple<int, std::optional<int>>
+receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd,
 																				 int par) {
 	auto aa = receiver.find_active_adapter(subscription_id);
 	int ret{-1};
+	std::optional<int> new_usals_pos;
 	if(aa) {
-		aa->tuner_thread.push_task([subscription_id, &aa, cmd, par, &ret]() {
-			ret = cb(aa->tuner_thread).positioner_cmd(subscription_id, cmd, par);
+		aa->tuner_thread.push_task([subscription_id, &aa, cmd, par, &ret, & new_usals_pos]() {
+			std::tie(ret, new_usals_pos) = cb(aa->tuner_thread).positioner_cmd(subscription_id, cmd, par);
 			return 0;
 		}).wait();
 	}
-	return ret;
+	return {ret, new_usals_pos};
 }
 
 devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_type_t subscription_type) const

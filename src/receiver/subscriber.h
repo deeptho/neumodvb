@@ -138,10 +138,9 @@ public:
 	template<typename mux_t>
 	EXPORT int scan_muxes(const ss::vector_<mux_t> muxes, const std::optional<devdb::tune_options_t>& tune_options);
 
-	EXPORT int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
-#if 0
-	int get_adapter_no() const;
-#endif
+	EXPORT std::tuple<int, std::optional<int>>
+	positioner_cmd(devdb::positioner_cmd_t cmd, int par);
+
 	EXPORT std::unique_ptr<playback_mpm_t> subscribe_recording(const recdb::rec_t& rec);
 
 };

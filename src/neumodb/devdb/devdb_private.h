@@ -54,9 +54,6 @@ namespace devdb {
 };
 
 namespace devdb::dish {
-	//dish objects do not really exist in the database, but curent state (usals_pos) is stored in all relevant lnbs
-	int update_usals_pos(db_txn& wtxn, const devdb::lnb_t&lnb, int usals_pos,
-											 const devdb::usals_location_t& loc, int sat_pos);
 	bool dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos);
 };
 

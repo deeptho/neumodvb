@@ -283,6 +283,7 @@ public:
 		assert(voltage != SEC_VOLTAGE_OFF);
 		auto deadline  = powerup_time + std::chrono::milliseconds(ms);
 		std::this_thread::sleep_until (deadline);
+		dtdebugf("slept after powerup");
 		return 0;
 	}
 	/*

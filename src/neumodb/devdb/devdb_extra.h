@@ -47,8 +47,8 @@ namespace devdb::dish {
 	devdb::dish_t get_dish(db_txn& devdb_wtxn, int dish_id);
 
 	//dish objects do not really exist in the database, but curent state (usals_pos) is stored in all relevant lnbs
-	int update_usals_pos(db_txn& wtxn, const devdb::lnb_t&lnb, int usals_pos,
-											 const devdb::usals_location_t& loc, int sat_pos);
+	int update_usals_pos(db_txn& devdb_wtxn, const devdb::lnb_t&lnb, int usals_pos,
+											 const devdb::usals_location_t& loc, int sat_pos, std::optional<bool> usals_pos_reliable);
 	bool dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos);
 	ss::vector_<int8_t> list_dishes(db_txn& devdb_rtxn);
 
@@ -200,8 +200,10 @@ namespace devdb::lnb {
 	bool add_or_edit_network(lnb_t& lnb, const usals_location_t& loc, lnb_network_t& network);
 	bool add_or_edit_connection(db_txn& devdb_txn, lnb_t& lnb, lnb_connection_t& connection);
 
-	bool update_lnb_from_positioner(db_txn& devdb_wtxn, lnb_t&  lnb, const usals_location_t& loc,
-																	int16_t current_sat_pos, lnb_connection_t* curr_connection, bool save);
+	bool update_lnb_network_from_positioner(db_txn& devdb_wtxn, lnb_t&  lnb, int16_t current_sat_pos);
+	bool update_lnb_connection_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
+																						 devdb::lnb_connection_t& curr_connection);
+
 	bool update_lnb_from_lnblist(db_txn& devdb_wtxn, lnb_t&  lnb, bool save);
 	bool update_lnb_from_db(db_txn& wtxn, lnb_t& lnb, const std::optional<usals_location_t>& loc,
 													devdb::update_lnb_preserve_t::flags preserve, bool save, int16_t current_sat_pos,

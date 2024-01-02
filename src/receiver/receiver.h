@@ -460,8 +460,9 @@ public:
 
 	int scan_now();
 	void renumber_card(int old_number, int new_number);
-	int update_usals_pos(const devdb::lnb_t& lnb);
-	int positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
+
+	std::tuple<int, std::optional<int>>
+	positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
 };
 
 struct player_cb_t {
@@ -522,7 +523,7 @@ public:
 	EXPORT receiver_t(const neumo_options_t* options= nullptr);
 	EXPORT ~receiver_t();
 	EXPORT bool init();
-	devdb::lnb_t reread_lnb(const devdb::lnb_t& lnb);
+	devdb::lnb_t reread_lnb_lof_offsets(const devdb::lnb_t& lnb);
 
 	template<typename _mux_t>
 	subscription_id_t

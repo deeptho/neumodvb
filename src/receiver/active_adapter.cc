@@ -267,7 +267,6 @@ int active_adapter_t::tune(const mux_t& mux_, subscription_options_t tune_option
 	mux_t mux;
 	if(user_requested) {
 		this->reset();
-		//usals_timer.start();
 		mux = prepare_si(mux_, false /*start*/, subscription_id);
 	} else
 		mux=mux_;
@@ -358,10 +357,9 @@ void active_adapter_t::monitor() {
 		return;
 	}
 	if(tune_state == TUNE_INIT) {
-		dtdebugf("adapter {:d} NO MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
+		//dtdebugf("adapter {:d} NO MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
 		return;
 	}
-	//dtdebugf("adapter {:d} MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
 
 	bool must_retune{false};
 	bool relocked_now{false};

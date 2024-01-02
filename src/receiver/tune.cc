@@ -378,9 +378,61 @@ tuner_thread_t::tuner_thread_t(receiver_t& receiver_, active_adapter_t& aa)
 tuner_thread_t::~tuner_thread_t() {
 }
 
-int tuner_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd,
-																				 int par) {
-	return (active_adapter.fe) ? active_adapter.fe->positioner_cmd(cmd, par) : -1;
+/*
+	returns
+	int: status of command
+	std::optional<int16_t> contains either the new usals position or sat_pos_none
+	if the command rotated the rotor. sat_pos_none is returned in cas ethe new position is not known
+
+ */
+std::tuple<int, std::optional<int>>
+tuner_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd,
+																		 int par) {
+	using p_t = devdb::positioner_cmd_t;
+	std::optional<int>  new_usals_pos;
+	std::optional<bool> usals_pos_reliable;
+	auto ret= (active_adapter.fe) ? active_adapter.fe->positioner_cmd(cmd, par) : -1;
+	if(ret >=0) {
+		switch(cmd) {
+		case p_t::GOTO_REF:
+		case p_t::RESET:
+			new_usals_pos = 0;
+			usals_pos_reliable = true;
+			break;
+		case p_t::DRIVE_EAST:
+		case p_t::DRIVE_WEST:
+		case p_t::HALT:
+		case p_t::RECALCULATE_POSITIONS:
+		case p_t::NUDGE_WEST:
+		case p_t::NUDGE_EAST:
+			new_usals_pos = sat_pos_none; //unknown
+			usals_pos_reliable = false;
+			break;
+		case p_t::GOTO_NN:
+		case p_t::GOTO_XX:
+			new_usals_pos = par;
+			usals_pos_reliable = true;
+			break;
+		case p_t::LIMITS_OFF:
+		case p_t::LIMIT_EAST:
+		case p_t::LIMIT_WEST:
+		case p_t::STORE_NN:
+		case p_t::LIMITS_ON:
+			break;
+		}
+	}
+	if(!new_usals_pos)
+		return {ret, new_usals_pos};
+	auto lnb = active_adapter.current_lnb();
+	auto loc = receiver.options.readAccess()->usals_location;
+	auto devdb_wtxn = receiver.devdb.wtxn();
+
+
+	auto ret1 = devdb::dish::update_usals_pos(devdb_wtxn, lnb, *new_usals_pos, loc, lnb.cur_sat_pos, usals_pos_reliable);
+	devdb_wtxn.commit();
+	if (ret1 < 0)
+		ret = ret1;
+	return {ret, new_usals_pos};
 }
 
 int tuner_thread_t::cb_t::update_current_lnb(subscription_id_t subscription_id, const devdb::lnb_t& lnb) {

@@ -135,7 +135,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         opts =  wx.GetApp().receiver.get_options()
         self.positioner_mux_sel.SetSat(self.sat)
         self.last_selected_mux = None if self.mux is None else self.mux.copy()
-        self.lnb_changed = False
+        self.current_lnb_network_changed = False
         self.mux_subscriber_ = None
         self.tuned_ = False
         self.lnb_activated_ = False
@@ -251,12 +251,16 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.signal_info = data
             self.OnSignalInfoUpdate(data)
         self.parent.OnSubscriberCallback(data)
-
-    def Close(self):
-        if self.lnb_changed:
-            ok = ShowOkCancel("Save changed?", f"Save data for {self.lnb} before closing?")
+    def save_current_lnb_network(self):
+        if self.current_lnb_network_changed:
+            ok = ShowOkCancel("Save changed?",
+                              f"Save data for network {pychdb.sat_pos_str(self.sat.sat_pos)} on "
+                              f"{self.lnb} before closing?")
             if ok:
                 self.OnSave(None)
+
+    def Close(self):
+        self.save_current_lnb_network()
         if self.tuned_:
             self.AbortTune()
             del self.mux_subscriber_
@@ -318,17 +322,17 @@ class TuneMuxPanel(TuneMuxPanel_):
                 self.ref_mux.k.sat_pos = self.sat.sat_pos
                 n.ref_mux = self.ref_mux.k
                 if self.mux is not None:
-                    self.lnb_changed |= not same_mux_key(self.ref_mux.k, self.mux.k)
+                    self.current_lnb_network_changed |= not same_mux_key(self.ref_mux.k, self.mux.k)
                 break
 
-        if self.lnb_changed:
+        if self.current_lnb_network_changed:
             txn = wx.GetApp().devdb.wtxn()
             #adjust lnb_connections based on possible changes in frontends
-            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.get_usals_location(), self.sat.sat_pos)
+            pydevdb.lnb.update_lnb_network_from_positioner(txn, self.lnb, self.sat.sat_pos)
             #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
-            self.mux_subscriber.update_current_lnb(self.lnb)
             txn.commit()
-        self.lnb_changed = False
+            self.mux_subscriber.update_current_lnb(self.lnb)
+        self.current_lnb_network_changed = False
         if event is not None:
             event.Skip()
 
@@ -340,11 +344,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         if ok:
             txn = wx.GetApp().devdb.wtxn()
             pydevdb.lnb.reset_lof_offset(txn, self.lnb)
-            #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
-            self.mux_subscriber.update_current_lnb(self.lnb)
-            pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.get_usals_location())
             txn.commit()
-            self.lnb_changed = False
         if event:
             event.Skip()
 
@@ -353,12 +353,10 @@ class TuneMuxPanel(TuneMuxPanel_):
         assert self.lnb is not None
         lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, self.rf_path)
         txn = wx.GetApp().devdb.wtxn()
-        pydevdb.lnb.update_lnb_from_positioner(txn, self.lnb, self.get_usals_location(), pychdb.sat.sat_pos_none,
-                                               lnb_connection, save=True)
+        pydevdb.lnb.update_lnb_connection_from_positioner(txn, self.lnb, lnb_connection)
         txn.commit()
         #make sure that tuner_thread uses updated values (e.g., update_lof will save bad data)
         self.mux_subscriber.update_current_lnb(self.lnb)
-        self.lnb_changed = False
 
     def OnToggleConstellation(self, evt):
         self.parent.OnToggleConstellation(evt)
@@ -563,6 +561,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             w.SetLabel('')
 
     def SelectLnb(self, lnb):
+        self.save_current_lnb_network()
         add = False
         self.lnb = lnb
         if lnb is None:
@@ -583,7 +582,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             del chdb_txn
             self.ChangeSat(sat)
             self.positioner_mux_sel.SetMux(self.mux)
-        self.lnb_changed = False
         self.parent.SetWindowTitle(self.lnb, self.lnb_connection, self.sat) #update window title
         self.positioner_lnb_sel.Update()
 
@@ -603,6 +601,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         wx.CallAfter(self.UpdateRefMux, mux)
 
     def ChangeSat(self, sat):
+        self.save_current_lnb_network()
         if sat is None or self.lnb is None:
             return
         if sat.sat_pos == self.sat.sat_pos:
@@ -617,13 +616,12 @@ class TuneMuxPanel(TuneMuxPanel_):
             added = ShowOkCancel("Add network?", f"Network {sat} not yet defined for lnb {self.lnb}. Add it?")
             if not added:
                 return
-            self.lnb_changed = True
             network = pydevdb.lnb_network.lnb_network()
             network.sat_pos = sat.sat_pos
             network.usals_pos = pychdb.sat.sat_pos_none
             dtdebug(f"Saving new lnb network: lnb={self.lnb} network={network}")
             changed = pydevdb.lnb.add_or_edit_network(self.lnb, self.get_usals_location(), network)
-            self.lnb_changed = True
+            self.current_lnb_network_changed = True
         else:
             ShowMessage("Network unavailable",
                          f"Network {sat} not defined for lnb {self.lnb} on fixed dish. Add it in lnb list first")
@@ -632,7 +630,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         txn = wx.GetApp().chdb.rtxn()
         self.sat = sat
         if on_positioner(self.lnb):
-            self.lnb_changed |= self.lnb.usals_pos != network.usals_pos
+            #force network update
+            #self.current_lnb_network_changed |= self.lnb.usals_pos != network.usals_pos
             self.lnb.usals_pos = network.usals_pos
         self.mux = pychdb.dvbs_mux.find_by_key(txn, network.ref_mux)
         if self.mux is None or self.mux.k.sat_pos != self.sat.sat_pos: #The latter can happen when sat_pos of ref_mux was updated
@@ -671,7 +670,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             for n in self.lnb.networks:
                 if n.sat_pos == self.mux.k.sat_pos:
                     assert self.sat.sat_pos == self.mux.k.sat_pos
-                    self.lnb_changed |= not same_mux_key(n.ref_mux, self.mux.k)
+                    self.current_lnb_network_changed |= not same_mux_key(n.ref_mux, self.mux.k)
                     n.ref_mux = self.mux.k
                     dtdebug(f"saving ref_mux={self.mux}")
                     return
@@ -982,7 +981,10 @@ class PositionerDialog(PositionerDialog_):
     def positioner_command(self, *args):
         if self.lnb_connection.rotor_control in (pydevdb.rotor_control_t.MASTER_DISEQC12,
                                       pydevdb.rotor_control_t.MASTER_USALS):
-            if self.lnb_subscriber.positioner_cmd(*args) >= 0:
+            ret, new_usals_pos = self.lnb_subscriber.positioner_cmd(*args)
+            if ret >= 0:
+                if new_usals_pos is not None:
+                    self.UpdateUsalsPosition_(new_usals_pos)
                 return True
             else:
                 ShowMessage("Cannot control rotor", f"Failed to send positioner command")
@@ -1004,19 +1006,21 @@ class PositionerDialog(PositionerDialog_):
         evt.Skip()
 
 
-    def UpdateUsalsPosition(self, usals_pos):
+    def UpdateUsalsPosition_(self, usals_pos):
         dtdebug(f"USALS position set to {usals_pos/100}")
         self.lnb.usals_pos = usals_pos
-        self.tune_mux_panel.lnb_changed = True
         found = False
         for network in self.lnb.networks:
             if network.sat_pos == self.sat.sat_pos:
+                self.tune_mux_panel.current_lnb_network_changed = network.usals_pos != usals_pos
                 network.usals_pos = usals_pos
-                self.tune_mux_panel.lnb_changed = True
                 found = True
                 break
         if not found:
             dtdebug(f"lnb network not found: lnb={self.lnb} sat_pos={self.sat.sat_pos}")
+
+    def UpdateUsalsPosition(self, usals_pos):
+        self.UpdateUsalsPosition_(usals_pos)
         dtdebug(f"Goto XX {usals_pos}" )
         ret=self.positioner_command(pydevdb.positioner_cmd_t.GOTO_XX, usals_pos)
         assert ret>=0
@@ -1026,7 +1030,7 @@ class PositionerDialog(PositionerDialog_):
         for n in self.lnb.networks:
             if n.sat_pos == self.sat.sat_pos:
                 n.diseqc12 = diseqc12
-                self.tune_mux_panel.lnb_changed = True
+                self.tune_mux_panel.current_lnb_network_changed = True
                 self.tune_mux_panel.diseqc12 = diseqc12
                 dtdebug(f"updated lnb diseqc12 position: lnb={self.lnb} diseqc12={diseqc12}")
                 return
@@ -1035,10 +1039,9 @@ class PositionerDialog(PositionerDialog_):
     def OnDiseqcTypeChoice(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         self.lnb_connection.rotor_control = self.diseqc_type_choice.GetValue()
         dtdebug(f"diseqc type set to {self.lnb_connection.rotor_control}")
-        self.tune_mux_panel.lnb_changed = True
+        self.tune_mux_panel.current_lnb_network_changed = True
         t = pydevdb.rotor_control_t
         self.enable_disable_diseqc_panels()
-        self.tune_mux_panel.lnb_changed = True
         self.tune_mux_panel.OnUsalsTypeChanged()
         event.Skip()
 
@@ -1137,7 +1140,7 @@ class PositionerDialog(PositionerDialog_):
 
     def OnStorePosition(self, evt):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug(f"Diseqc12 position stored: {self.tune_mux_panel.diseqc12}")
-        self.diseqc12_command(pydevdb.positioner_cmd_t.STORE_NN, self.tune_mux_panel.diseqc12)
+        self.positioner_command(pydevdb.positioner_cmd_t.STORE_NN, self.tune_mux_panel.diseqc12)
         evt.Skip()
 
     def OnDiseqc12PositionChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>

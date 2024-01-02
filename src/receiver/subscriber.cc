@@ -180,17 +180,19 @@ int subscriber_t::unsubscribe() {
 	return (int) subscription_id;
 }
 
-int subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
+std::tuple<int, std::optional<int>>
+subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 	auto& receiver_thread = receiver->receiver_thread;
 	int ret = -1;
+	std::optional<int> new_usals_pos;
 	receiver_thread //call by reference ok because of subsequent wait_for_all
 		.push_task([subscription_id = this->subscription_id,
-								&receiver_thread, cmd, par, &ret]() { // epg_record passed by value
-			ret = cb(receiver_thread).positioner_cmd(subscription_id, cmd, par);
+								&receiver_thread, cmd, par, &ret, &new_usals_pos]() { // epg_record passed by value
+			std::tie(ret, new_usals_pos) = cb(receiver_thread).positioner_cmd(subscription_id, cmd, par);
 			return 0;
 		})
 		.wait();
-	return ret;
+	return {ret, new_usals_pos};
 }
 
 int subscriber_t::subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,

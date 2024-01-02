@@ -933,13 +933,11 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 		auto loc = this->get_usals_location();
 
 		auto angle = devdb::lnb::sat_pos_to_usals_par(par / 10, loc.usals_longitude / 10, loc.usals_latitude / 10);
-
 		cmd.msg[3] = (angle >> 8) & 0xff;
 		cmd.msg[4] = angle & 0xff;
 		cmd.msg_len = 5;
 		auto w = this->ts.writeAccess();
 		if(!w->positioner_start_move_time) {
-			printf("set positioner_start_move_time\n");
 			w->positioner_start_move_time = steady_clock_t::now();
 		}
 	} break;
@@ -1920,8 +1918,10 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		dterrorf("problem setting voltage {:d}", voltage);
 		return -1;
 	}
-	if(voltage != SEC_VOLTAGE_OFF)
+	if(voltage != SEC_VOLTAGE_OFF) {
 		powerup_time = steady_clock_t::now();
+		dtdebugf("set powerup_time");
+	}
 	//allow some time for the voltage on the equipment to stabilise before continuing
 	msleep(sleeptime_ms);
 	return 1;

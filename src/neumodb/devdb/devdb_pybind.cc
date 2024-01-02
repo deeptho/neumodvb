@@ -55,11 +55,12 @@ static void export_dish_extra(py::module& m) {
 static void export_lnb_extra(py::module& m) {
 	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
 	using namespace devdb;
-	mm.def("update_lnb_from_positioner", &lnb::update_lnb_from_positioner, "save changed lnb"
-				 , py::arg("wtxn"), py::arg("lnb"), py::arg("usals_location")
-				 , py::arg("current_sat_pos")=sat_pos_none
-				 , py::arg("current_conn")= nullptr
-				 ,py::arg("save")=true)
+	mm.def("update_lnb_network_from_positioner", &lnb::update_lnb_network_from_positioner,
+				 "save changed lnb network"
+				 , py::arg("wtxn"), py::arg("lnb"), py::arg("current_sat_pos"))
+		.def("update_lnb_connection_from_positioner", &lnb::update_lnb_connection_from_positioner,
+				 "save changed lnb connection"
+				 , py::arg("wtxn"), py::arg("lnb"), py::arg("connection"))
 		.def("update_lnb_from_lnblist", &lnb::update_lnb_from_lnblist, "save changed lnb",
 				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
 		.def("can_move_dish", &lnb::can_move_dish,

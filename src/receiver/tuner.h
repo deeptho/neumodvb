@@ -127,7 +127,8 @@ public:
 	void update_autorec(recdb::autorec_t& autorec);
 	void delete_autorec(const recdb::autorec_t& autorec);
 
-	int positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
+	std::tuple<int, std::optional<int>>
+	positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
 	int update_current_lnb(subscription_id_t subscription_id,  const devdb::lnb_t& lnb);
 	int stop_recording(const recdb::rec_t& rec, mpm_copylist_t& copy_commands);
 };

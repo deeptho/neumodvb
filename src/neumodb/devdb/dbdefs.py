@@ -248,6 +248,7 @@ lnb = db_struct(name='lnb',
                           #not used for a fixed dish, but should be set equal to the sat in networks[0] for clarity,
                           #i.e., the main satellite
                           (2, 'int16_t', 'usals_pos', 'sat_pos_none'), #satellite position of center lnb
+                          (20, 'int16_t', 'usals_pos_reliable', 'true'), #false if positioner position is unknown
                           (18, 'int16_t', 'cur_lnb_pos', 'sat_pos_none'), #satellite position currentlly pointed to
                                                                           #by this lnb (different from usals_pos
                                                                           #for an offset lnb

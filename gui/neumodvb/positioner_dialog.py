@@ -985,6 +985,7 @@ class PositionerDialog(PositionerDialog_):
             if ret >= 0:
                 if new_usals_pos is not None:
                     self.UpdateUsalsPosition_(new_usals_pos)
+                    self.SetPosition(new_usals_pos)
                 return True
             else:
                 ShowMessage("Cannot control rotor", f"Failed to send positioner command")

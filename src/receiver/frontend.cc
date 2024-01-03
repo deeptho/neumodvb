@@ -2025,20 +2025,30 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 	auto fefd = this->ts.readAccess()->fefd;
 	auto old_tone = this->sec_status.get_tone();
 	auto old_voltage = this->sec_status.get_voltage();
+	auto new_voltage = (old_voltage<0 /*unknown*/ || old_voltage == SEC_VOLTAGE_OFF) ? SEC_VOLTAGE_18
+		: old_voltage;
+	auto new_tone = SEC_TONE_OFF;
 
+	if(new_voltage != old_voltage)
+		this->sec_status.set_voltage(fefd, new_voltage);
 
-	if(old_voltage<0 /*unknown*/ || old_voltage == SEC_VOLTAGE_OFF)
-		this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18);
 	//turn tone off to send command
+	if(new_tone != old_tone)
 	if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 		return -1;
-	msleep(15);
 
+	msleep(15);
 	auto ret = this->send_positioner_message(cmd, par);
-	if (old_voltage >=0 && /* avoid the case where old voltage was "unknown" */
+	msleep(30);
+	if(old_voltage <0)
+		old_voltage = SEC_VOLTAGE_OFF; //avoid unknown
+	if(old_tone <0)
+		old_tone = SEC_TONE_OFF; //avoid unknown
+
+	if (old_voltage != new_voltage && /* avoid the case where old voltage was "unknown" */
 			this->sec_status.set_voltage(fefd, old_voltage) < 0)
 		return -1;
-	if (old_tone >=0 && /* avoid the case where old mode was "unknown" */
+	if (old_tone != new_tone && /* avoid the case where old mode was "unknown" */
 			this->sec_status.set_tone(fefd, old_tone) < 0)
 		return -1;
 	return ret;

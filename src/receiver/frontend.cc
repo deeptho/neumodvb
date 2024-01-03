@@ -1251,7 +1251,7 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 		}
 	}
 	auto [ret, new_usals_sat_pos ] =
-		this->do_lnb_and_diseqc(band, voltage);
+		this->do_lnb_and_diseqc(band, voltage, false /*skip_positioner*/);
 
 	dtdebugf("spectrum: diseqc done");
 	if (this->stop() < 0) /* Force the driver to go into idle mode immediately, so
@@ -1315,7 +1315,8 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	}
 	if (need_diseqc) {
 		std::tie(ret, new_usals_sat_pos) =
-			this->do_lnb_and_diseqc(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol));
+			this->do_lnb_and_diseqc(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol),
+															false /*skip_positioner*/);
 		dtdebugf("tune: do_lnb_and_diseqc done");
 	} else if(need_lnb) {
 		this->do_lnb(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol));
@@ -1819,7 +1820,8 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
  * @param hi_lo : the band for a dual band lnb
  * @param lnb_voltage_off : if one, force the 13/18V voltage to be 0 independantly of polarisation
  */
-std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage) {
+std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage,
+	bool skip_positioner) {
 	/*
 
 		22KHz: off = low band; on = high band
@@ -1834,7 +1836,7 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(chdb::sat_sub_band_t band,
 					 (int) this->ts.readAccess()->tune_options.subscription_type);
 
 	// Note: the following is a NOOP in case no diseqc needs to be sent
-	auto [ ret, new_usals_sat_pos] = diseqc(false /*skip_positioner*/);
+	auto [ ret, new_usals_sat_pos] = diseqc(skip_positioner);
 	if (ret < 0)
 		return {ret, new_usals_sat_pos};
 

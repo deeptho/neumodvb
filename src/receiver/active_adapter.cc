@@ -141,11 +141,14 @@ int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 	this->fe->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
 	assert(tune_options.tune_mode == devdb::tune_mode_t::POSITIONER_CONTROL||
 				 tune_options.tune_mode == devdb::tune_mode_t::SPECTRUM);
-		auto [ret, new_usals_sat_pos] = fe->diseqc(true /*skip_positioner*/);
-		if(ret<0) {
-			dterrorf("diseqc failed: err={:d}", ret);
-			return ret;
-		}
+	auto band = chdb::sat_sub_band_t::LOW;
+	auto voltage = SEC_VOLTAGE_18;
+	auto [ret, new_usals_sat_pos ] = fe->do_lnb_and_diseqc(band, voltage, true /*skip_positioner*/);
+	msleep(30);
+	if(ret<0) {
+		dterrorf("diseqc failed: err={:d}", ret);
+		return ret;
+	}
 	return 0;
 }
 

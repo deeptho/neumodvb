@@ -467,7 +467,8 @@ public:
 	int release_fe();
 
 	std::tuple<int, int> diseqc(bool skip_positioner);
-	std::tuple<int, int> do_lnb_and_diseqc(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage);
+	std::tuple<int, int> do_lnb_and_diseqc(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage,
+																				 bool skip_positioner);
 	int do_lnb(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage);
 	int positioner_cmd(devdb::positioner_cmd_t cmd, int par);
 

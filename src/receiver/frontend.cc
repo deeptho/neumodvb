@@ -1266,16 +1266,55 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 	return {ret, new_usals_sat_pos};
 }
 
-std::tuple<int, int>
-dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										 const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options,
-										 bool user_requested) {
+void
+dvb_frontend_t::request_tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+														 const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
 	{
 		auto w =  this->ts.writeAccess();
 		w->tune_options = tune_options;
-		if(user_requested)
-			w->positioner_start_move_time = {};
+		w->positioner_start_move_time = {};
 	}
+	this->start_fe_lnb_and_mux(rf_path, lnb, mux);
+	auto [ret, new_usals_sat_pos] = tune(rf_path, lnb, mux, tune_options);
+}
+
+template<typename mux_t>
+void dvb_frontend_t::request_retune(bool user_requested) {
+	if(user_requested) {
+		auto w =  this->ts.writeAccess();
+		w->positioner_start_move_time = {};
+		if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
+			auto *conn = connection_for_rf_path(w->reserved_lnb, w->reserved_rf_path);
+			dtdebugf("Retuning to DVBS mux {}  lnb={} diseqc={}", w->reserved_mux, w->reserved_lnb, conn->tune_string);
+		} else {
+			dtdebugf("Retuning to DVBC/DVBT mux {}", w->reserved_mux);
+		}
+	}
+	dttime_init();
+	auto [lnb, rf_path, mux, tune_options] = [&]() {
+		auto r = this->ts.readAccess();
+		return std::tuple<devdb::lnb_t, devdb::rf_path_t, mux_t, subscription_options_t>
+			(r->reserved_lnb, r->reserved_rf_path, *std::get_if<mux_t>(&r->reserved_mux), r->tune_options);
+	}();
+
+	if (user_requested) {
+		if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
+			this->start_fe_lnb_and_mux(rf_path, lnb, mux);
+		} else {
+			this->start_fe_and_dvbc_or_dvbt_mux(mux);
+		}
+	} else
+		this->sec_status.retune_count++;
+	if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
+		auto [ret, new_usals_sat_pos] = tune(rf_path, lnb, mux, tune_options);
+	} else {
+		auto ret = tune(mux, tune_options);
+	}
+}
+
+std::tuple<int, int>
+dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+										 const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
 	dttime_init();
 	auto *conn = connection_for_rf_path(lnb, rf_path);
 	if(!conn)
@@ -1287,10 +1326,6 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 		auto x = monitor_thread;
 		assert(!x || !x->must_exit());
 	}
-	if (user_requested) {
-		this->start_fe_lnb_and_mux(rf_path, lnb, mux);
-	} else
-		this->sec_status.retune_count++;
 
 	//abort the current operation of the frontend making it go to IDLE mode
 	dtdebugf("calling stop fe_monitor");
@@ -1330,8 +1365,6 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	this->start();
 	return {0, new_usals_sat_pos};
 }
-
-
 
 int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options) {
 	// Clear old tune_mux_confirmation info
@@ -1428,19 +1461,24 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const subscription_option
 	return cmdseq.tune(fefd, heartbeat_interval);
 }
 
-
 template<typename mux_t>
-int dvb_frontend_t::tune(const mux_t& mux, const subscription_options_t& tune_options, bool user_requested) {
+void
+dvb_frontend_t::request_tune(const mux_t& mux, const subscription_options_t& tune_options) {
 	{
 		auto w = this->ts.writeAccess();
 		w->tune_options = tune_options;
-		if(user_requested)
-			w->positioner_start_move_time = {};
 	}
-	if (user_requested) {
-		this->start_fe_and_dvbc_or_dvbt_mux(mux);
-	} else
-		this->sec_status.retune_count++;
+	this->start_fe_and_dvbc_or_dvbt_mux(mux);
+	auto ret = tune(mux, tune_options);
+}
+
+
+template<typename mux_t>
+int dvb_frontend_t::tune(const mux_t& mux, const subscription_options_t& tune_options) {
+	{
+		auto w = this->ts.writeAccess();
+		w->tune_options = tune_options;
+	}
 
 	/*
 		open frontend if it is not yet open
@@ -1452,7 +1490,6 @@ int dvb_frontend_t::tune(const mux_t& mux, const subscription_options_t& tune_op
 		return ret;
 	return 0;
 }
-
 
 int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																						const subscription_options_t& tune_options) {
@@ -1558,6 +1595,7 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 		w->reserved_rf_path = rf_path;
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
+		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
 	if(!monitor_thread.get()) {
 		dtdebugf("calling start_frontend_monitor");
@@ -1585,6 +1623,7 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const 
 		w->reserved_rf_path = rf_path;
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
+		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
 	if (!monitor_thread.get()) {
 		dtdebugf("calling start_frontend_monitor");
@@ -1605,6 +1644,7 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 		w->reserved_rf_path = devdb::rf_path_t();
 		w->reserved_lnb = devdb::lnb_t();
 		w->	last_signal_info.reset();
+		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
 	if (!monitor_thread.get()) {
 		dtdebugf("calling start_frontend_monitor");
@@ -2069,7 +2109,19 @@ template bool dvb_frontend_t::is_tuned_to(const chdb::any_mux_t& mux,
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux);
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux);
 
-template int dvb_frontend_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options,
-																										bool user_requested);
-template int dvb_frontend_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, const subscription_options_t& tune_options,
-																										bool user_requested);
+template int dvb_frontend_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux,
+																										const subscription_options_t& tune_options);
+template int dvb_frontend_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux,
+																										const subscription_options_t& tune_options);
+
+
+template
+void dvb_frontend_t::request_tune(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options);
+
+template
+void dvb_frontend_t::request_tune(const chdb::dvbt_mux_t& mux, const subscription_options_t& tune_options);
+
+
+template void dvb_frontend_t::request_retune<chdb::dvbs_mux_t>(bool user_requested);
+template void dvb_frontend_t::request_retune<chdb::dvbc_mux_t>(bool user_requested);
+template void dvb_frontend_t::request_retune<chdb::dvbt_mux_t>(bool user_requested);

@@ -207,6 +207,7 @@ void active_si_stream_t::finalize_scan()
 		break;
 
 	case tune_state_t::TUNE_INIT:
+	case tune_state_t::TUNE_REQUESTED:
 		c->scan_status = chdb::scan_status_t::IDLE;
 		c->scan_id = {};
 		c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked

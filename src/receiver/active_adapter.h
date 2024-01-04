@@ -117,6 +117,7 @@ class active_adapter_t final : public  std::enable_shared_from_this<active_adapt
 {
 	enum tune_state_t {
 		TUNE_INIT, //we still need to tune
+		TUNE_REQUESTED, //tuning was requested, waiting for info from fe_monitor;
 		WAITING_FOR_LOCK, //tuning was started, waiting for lock;
 		LOCKED, //tuning was started, si processing is running
 		LOCK_TIMEDOUT, //tuning was started, waiting for lock;
@@ -304,6 +305,9 @@ private:
 
 	int retune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 							subscription_options_t tune_options, bool user_requested, subscription_id_t subscription_id);
+	template<typename mux_t>
+	int retune(const mux_t& mux_, const subscription_options_t tune_options, bool user_requested,
+						 subscription_id_t subscription_id);
 
 	template<typename mux_t>
 	int tune(const mux_t& mux, subscription_options_t tune_options, bool user_requested,
@@ -330,7 +334,6 @@ private:
 	int request_retune(const chdb::any_mux_t& mux_,
 										 const subscription_options_t& tune_options,
 										 subscription_id_t subscription_id);
-
 public:
 	devdb::usals_location_t get_usals_location();
 	int open_demux(int mode = O_RDWR | O_NONBLOCK) const;

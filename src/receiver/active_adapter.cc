@@ -87,6 +87,13 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 		isi_processing_done = false;
 		dtdebugf("Initial tuning");
 	} break;
+	case TUNE_REQUESTED:
+		if (status.fem_state == fem_state_t::REQUEST_CMD ||
+				status.fem_state == fem_state_t::MONITORING) {
+			tune_state = WAITING_FOR_LOCK;
+			tune_start_time = system_clock_t::now();
+		}
+		break;
 	case LOCK_TIMEDOUT:
 	case WAITING_FOR_LOCK: {
 		if (lock_lost && is_locked) {
@@ -180,10 +187,32 @@ int active_adapter_t::retune(const devdb::rf_path_t& rf_path,
 
 	this->tune_options = tune_options;
 	assert(tune_state != TUNE_FAILED);
-	auto [ret, new_usals_sat_pos] = fe->tune(rf_path, lnb, mux, tune_options, user_requested);
-	tune_start_time = system_clock_t::now();
-	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
-	dtdebugf("Subscribed: subscription_id={:d} ret={:d}", (int) subscription_id, ret);
+	fe->request_retune<chdb::dvbs_mux_t>(user_requested);
+	tune_state = TUNE_REQUESTED;
+	auto ret=0;
+	return ret;
+}
+template<typename mux_t>
+int active_adapter_t::retune(const mux_t& mux_,
+														 const subscription_options_t tune_options, bool user_requested,
+														 subscription_id_t subscription_id) {
+	mux_t mux;
+
+	if(user_requested) {
+		this->reset();
+		mux = prepare_si(mux_, false /*start*/, subscription_id);
+	} else
+		mux = mux_;
+	if(!fe) {
+		dterrorf("Tune failed fe=null: mux={}", mux);
+		return -1;
+	}
+
+	this->tune_options = tune_options;
+	assert(tune_state != TUNE_FAILED);
+	fe->request_retune<mux_t>(user_requested);
+	tune_state = TUNE_REQUESTED;
+	auto ret=0;
 	return ret;
 }
 
@@ -198,7 +227,11 @@ int active_adapter_t::tune(const subscribe_ret_t& sret,
 
 	if(!fe) {
 		dterrorf("Tune failed fe=null: mux={}", mux);
+#ifdef NEWTUNE
 		return -1;
+#else
+		assert(false);
+#endif
 	}
 
 	this->tune_options = tune_options;
@@ -208,12 +241,18 @@ int active_adapter_t::tune(const subscribe_ret_t& sret,
 		usals_timer.start(sret.old_usals_pos, sret.new_usals_pos);
 		printf("USALS: timer start\n");
 	}
-	auto [ret, new_usals_sat_pos] = fe->tune(rf_path, lnb, mux, tune_options, true/*user_requested*/);
-	tune_start_time = system_clock_t::now();
+	fe->request_tune(rf_path, lnb, mux, tune_options);
+#ifdef NEWTUNE
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
 	dtdebugf("Subscribed: subscription_id={:d} ret={:d}", (int) sret.subscription_id, ret);
+#else
+	tune_state = TUNE_REQUESTED;
+	dtdebugf("Subscribed: subscription_id={:d}", (int) sret.subscription_id);
+	auto ret=0;
+#endif
 	return ret;
 }
+
 
 template<>
 int active_adapter_t::retune<chdb::dvbs_mux_t>() {
@@ -237,7 +276,7 @@ template <typename mux_t> inline int active_adapter_t::retune() {
 
 	//TODO: needless read here, followed by write within tune()
 	auto tune_options = fe->ts.readAccess()->tune_options;
-	return tune(mux, tune_options, user_requested, subscription_id_t::NONE);
+	return retune(mux, tune_options, user_requested, subscription_id_t::NONE);
 }
 
 int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
@@ -253,11 +292,11 @@ int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
 		},
 		[this](const dvbc_mux_t& mux) {
 			bool user_requested = true;
-			tune(mux, tune_options, user_requested, subscription_id_t::NONE);
+			retune(mux, tune_options, user_requested, subscription_id_t::NONE);
 		},
 		[this](const dvbt_mux_t& mux) {
 			bool user_requested = true;
-			tune(mux, tune_options, user_requested, subscription_id_t::NONE);
+			retune(mux, tune_options, user_requested, subscription_id_t::NONE);
 		});
 	return 0;
 }
@@ -275,10 +314,14 @@ int active_adapter_t::tune(const mux_t& mux_, subscription_options_t tune_option
 		mux=mux_;
 	if(!fe)
 		return -1;
-	auto ret = fe->tune(mux, tune_options, user_requested);
-	tune_start_time = system_clock_t::now();
+	fe->request_tune(mux, tune_options);
+#ifdef NEWTUNE
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
 	dtdebugf("Subscribed: subscription_id={:d} ret={:d}", (int) subscription_id, ret);
+#else
+	tune_state = TUNE_REQUESTED;
+	dtdebugf("Subscribed: subscription_id={:d}", (int) subscription_id);
+#endif
 	return 0;
 }
 
@@ -1097,7 +1140,6 @@ active_adapter_t::tune_service_for_recording(const subscribe_ret_t& sret,
 	tuner_thread.add_live_buffer(live_service);
 	return active_servicep->start_recording(sret.subscription_id, rec);
 }
-
 
 /*
 	Called when out own subscription is already tuned to mux, but retune is requested, e.g.,

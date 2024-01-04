@@ -375,13 +375,22 @@ public:
 
 	std::tuple<int, int>
 	tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-			 const subscription_options_t& tune_options, bool user_requested);
+			 const subscription_options_t& tune_options);
+
+	template<typename mux_t>
+	void request_retune(bool user_requested);
+
+	void request_tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+										const subscription_options_t& tune_options);
 
 	int tune_(const chdb::dvbt_mux_t& mux, const subscription_options_t& options);
 	int tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& options);
 
 	template<typename mux_t>
-	int tune(const mux_t& mux, const subscription_options_t& tune_options, bool user_requested);
+	int tune(const mux_t& mux, const subscription_options_t& tune_options);
+
+	template<typename mux_t>
+	void request_tune(const mux_t& mux, const subscription_options_t& tune_options);
 
 	std::tuple<int, int>
 	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,

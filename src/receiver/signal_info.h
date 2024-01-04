@@ -77,9 +77,20 @@ struct tune_confirmation_t {
 	}
 };
 
-
+enum class fem_state_t {
+	DEAD,                  //fe_monitor_thread not running
+	IDLE,                  //fe_monitor is off
+	STARTED,               //fe_monitor is starting
+	DISEQC_SENT,           //diseqc commands have been sent
+	SEC_POWERED_UP,        //Sufficient time has passed for all diseqc devices and lnb to be powered up
+	POSITINIOR_MOVED,      //Sufficient time has passed so that positioner is on target
+	REQUEST_CMD,           //will now send tuning, spectrum acq... ioctl
+	MONITORING,            //ioctl returned, we are not monitorin
+};
 
 struct fe_lock_status_t {
+	fem_state_t fem_state;
+	int tune_time_ms; //
 	bool lock_lost{false}; //
 	fe_status_t fe_status{};
 	int16_t matype{-1};

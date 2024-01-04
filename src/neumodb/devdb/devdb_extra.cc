@@ -751,7 +751,17 @@ int dish::update_usals_pos(db_txn& devdb_wtxn, const devdb::lnb_t& lnb_, int usa
 
 	int num_rotors = 0; //for sanity check
 	auto angle = devdb::lnb::sat_pos_to_angle(usals_pos, loc.usals_longitude, loc.usals_latitude);
-
+	auto db_dish = get_dish(devdb_wtxn, lnb_.k.dish_id);
+	auto dish = db_dish;
+	dish.mtime = system_clock_t::to_time_t(now);
+	dish.cur_usals_pos = usals_pos;
+	if(sat_pos != sat_pos_none)
+		dish.cur_sat_pos = sat_pos;
+	if(usals_pos_reliable)
+		dish.usals_pos_reliable = *usals_pos_reliable;
+	if(dish !=db_dish) {
+		put_record(devdb_wtxn, dish);
+	}
 	for(auto lnb : c.range()) {
 		if(lnb.k.dish_id != lnb_.k.dish_id || !lnb.on_positioner)
 			continue;

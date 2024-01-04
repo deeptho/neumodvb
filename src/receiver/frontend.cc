@@ -948,7 +948,7 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 					 cmd.msg_len, cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
 	int err;
 	auto fefd = ts.readAccess()->fefd;
-	int powerup_time_ms = 1000;
+	auto powerup_time_ms = ts.readAccess()->tune_options.tune_pars->dish->powerup_time;
 	sec_status.positioner_wait_after_powerup(powerup_time_ms);
 	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
 		dterrorf("problem sending the DiseqC message");
@@ -1749,7 +1749,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 				break;
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_sat_pos};
-			int powerup_time_ms = 1000;
+			auto powerup_time_ms = ts.readAccess()->tune_options.tune_pars->dish->powerup_time;
 			sec_status.positioner_wait_after_powerup(powerup_time_ms);
 			msleep(must_pause ? 200 : 30);
 			if (!lnb_only) {
@@ -1962,13 +1962,12 @@ int sec_status_t::set_rf_input(int fefd, int rf_input) {
 std::tuple<bool,bool>
 dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
 																	 const chdb::dvbs_mux_t& new_mux, const subscription_options_t& tune_options) {
-	assert(!tune_options.tune_pars->send_dish_commands || tune_options.tune_pars->send_lnb_commands);
+	assert(!tune_options.tune_pars->dish || tune_options.tune_pars->send_lnb_commands);
 	if (!this->sec_status.is_tuned()
 			&& tune_options.tune_pars->send_lnb_commands
 		)
 		return {true, true}; // always send diseqc if we were not tuned
 	if(!tune_options.tune_pars->send_lnb_commands) {
-		assert(!tune_options.tune_pars->send_dish_commands);
 		dtdebugf("Preventing diseqc because rf_path is used more than once");
 		return {false, false};
 	}

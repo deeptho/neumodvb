@@ -51,7 +51,7 @@ struct spectrum_scan_options_t {
 	restrictions imposed by subscription, e.g., should lnb commands or dish motion commands be sent
  */
 struct tune_pars_t {
-	bool send_dish_commands{false};
+	std::optional<devdb::dish_t> dish;
 	bool send_lnb_commands{false};
 };
 

@@ -110,7 +110,7 @@ static inline subscribe_ret_t reuse_other_subscription(
 	sret.aa = {.updated_old_dbfe=old_fe, .updated_new_dbfe=new_fe, .rf_path={}, .lnb={}};
 	sret.sub_to_reuse =(subscription_id_t) other_subscription_id;
 	sret.tune_pars.send_lnb_commands = false;
-	sret.tune_pars.send_dish_commands = false;
+	sret.tune_pars.dish = {};
 	return sret;
 }
 
@@ -123,7 +123,7 @@ static inline subscribe_ret_t new_service(
 	sret.sub_to_reuse = (subscription_id_t) other_subscription_id;
 	sret.change_service = true;
 	sret.tune_pars.send_lnb_commands = false;
-	sret.tune_pars.send_dish_commands = false;
+	sret.tune_pars.dish = {};
 	return sret;
 }
 
@@ -134,15 +134,6 @@ static inline subscribe_ret_t failed(subscription_id_t subscription_id,
 	sret.failed=true;
 	return sret;
 }
-
-#if 0
-static inline devdb::fe::subscribe_ret_t lnb_only_change(subscription_id_t subscription_id) {
-	devdb::fe::subscribe_ret_t ret;
-	ret.sub_to_reuse = (subscription_id_t) subscription_id;
-	return ret;
-}
-#endif
-
 
 /*
 	Find the fe for a subscription.
@@ -332,9 +323,10 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 
 	sret.retune = false;
 	sret.tune_pars.send_lnb_commands = true;
-	sret.tune_pars.send_dish_commands = sret.tune_pars.send_lnb_commands &&
-		tune_options.may_move_dish && lnb.on_positioner;
-
+	if (sret.tune_pars.send_lnb_commands && tune_options.may_move_dish && lnb.on_positioner)
+		sret.tune_pars.dish = devdb::dish::get_dish(wtxn, rf_path.lnb.dish_id);
+	else
+		sret.tune_pars.dish = {};
 	if(fe_) {
 		bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
 		sret.retune = is_same_fe;
@@ -455,10 +447,6 @@ int devdb::fe::reserve_fe_for_mux(db_txn& wtxn, subscription_id_t subscription_i
 		return -1;
 	fe = c.current();
 	auto& sub = fe.sub;
-#if 0
-	assert(sub.subs.size() == 0);
-	assert(sub.subs.size()==0);
-#endif
 	//the following settings imply that we request a non-exclusive subscription
 	rf_path_t rf_path;
 	rf_path.card_mac_address = fe.card_mac_address;
@@ -715,8 +703,10 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			sret.change_service = true;
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				sret.tune_pars.send_lnb_commands = ! use_counts_.is_shared();
-				sret.tune_pars.send_dish_commands = sret.tune_pars.send_lnb_commands &&
-					tune_options.may_move_dish && ! use_counts_.shares_positioner();
+				if(sret.tune_pars.send_lnb_commands && tune_options.may_move_dish && ! use_counts_.shares_positioner())
+					sret.tune_pars.dish = devdb::dish::get_dish(wtxn, lnb_->k.dish_id);
+				else
+					sret.tune_pars.dish = {};
 				sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			} else {
 				sret.aa = { .updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe, .rf_path={}, .lnb={}};
@@ -751,11 +741,6 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 		}
 		return failed(sret.subscription_id, updated_old_dbfe);
 	}
-#if 0 //unreachable
-	if(oldfe_)
-		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
-	return failed(subscription_id, updated_old_dbfe);
-#endif
 }
 
 subscribe_ret_t
@@ -779,7 +764,10 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 			sret.retune = is_same_fe;
 			sret.change_service = true;
 			sret.tune_pars.send_lnb_commands = ! use_counts_.is_shared();
-			sret.tune_pars.send_dish_commands = sret.tune_pars.send_lnb_commands && tune_options.may_move_dish && ! use_counts_.shares_positioner();
+			if(sret.tune_pars.send_lnb_commands && tune_options.may_move_dish && ! use_counts_.shares_positioner())
+				sret.tune_pars.dish = devdb::dish::get_dish(wtxn, lnb_->k.dish_id);
+			else
+				sret.tune_pars.dish = {};
 
 			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			if(!is_same_fe) {

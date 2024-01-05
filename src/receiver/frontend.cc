@@ -1257,7 +1257,6 @@ void dvb_frontend_t::request_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, 
 		auto[ret, new_usals_pos] = lnb_spectrum_scan(rf_path, lnb, tune_options);
 		dtdebugf("lnb_spectrum_scan returned ret={}, new_usals_pos={}", ret, new_usals_pos);
 		printf("returning to main fiber\n");
-		//reader_fiber = std::move(x);
 		return std::move(main_fiber);
 	});
 }

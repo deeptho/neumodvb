@@ -195,11 +195,7 @@ class scam_t final : public std::enable_shared_from_this<scam_t> {
 	bool is_scam_fd(const epoll_event* event) const {
 		return event->data.fd== int(scam_fd);
 	}
-#ifdef OLDFIBER
-	fiber_t reader_loop_(fiber_t&& invoker, void* fp);
-#else
 	void reader_loop_();
-#endif
 	void read_greeting_reply();
 	void read_filter_request();
 	void read_dmx_stop_request();

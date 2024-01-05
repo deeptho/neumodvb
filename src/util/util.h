@@ -46,7 +46,8 @@ off_t filesize_fd(int fd);
 
 extern std::filesystem::path config_path;
 
-int timer_start(double period_sec=2.0);
+int periodic_timer_create_and_start(double period_sec=2.0);
+int timer_set_once(int fd, double expiration_sec);
 int timer_stop(int fd);
 int timer_set_period(int fd, double period_sec);
 

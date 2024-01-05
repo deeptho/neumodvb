@@ -266,7 +266,7 @@ off_t filesize_fd(int fd) {
 	return st.st_size;
 }
 
-int timer_start(double period_sec) {
+int periodic_timer_create_and_start(double period_sec) {
 	int fd = timerfd_create(CLOCK_MONOTONIC, 0);
 	struct itimerspec new_value {};
 
@@ -285,6 +285,25 @@ int timer_start(double period_sec) {
 		return -1;
 	}
 	return fd;
+}
+
+int timer_set_once(int fd, double expiration_sec) {
+	struct itimerspec new_value {};
+
+	auto dur = std::chrono::duration<double>(expiration_sec);
+	auto secs = std::chrono::duration_cast<std::chrono::seconds>(dur);
+	dur -= secs;
+	new_value.it_value.tv_sec = secs.count();
+	new_value.it_value.tv_nsec = std::chrono::duration_cast<std::chrono::nanoseconds>(dur).count();
+	new_value.it_interval.tv_sec = 0;
+	new_value.it_interval.tv_nsec = 0;
+	int flags = 0;
+	struct itimerspec* old_value = NULL; // returns time to expiration + period
+	int ret = timerfd_settime(fd, flags, &new_value, old_value);
+	if (ret < 0) {
+		dterrorf("could not create timerfd: {}", strerror(errno));
+	}
+	return ret;
 }
 
 int timer_set_period(int fd, double period_sec) {

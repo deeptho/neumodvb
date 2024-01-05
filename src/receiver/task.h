@@ -126,7 +126,8 @@ private:
 	mutable std::mutex mutex;
 	mutable queue_t tasks;
 protected:
-	int timer_fd = -1;
+	int timer_fd = -1; //for running periodic tasks
+	int wait_timer_fd = -1; //for waiting until a specific time once
 	mutable event_handle_t notify_fd;
 public:
 	epoll_t epx;
@@ -161,7 +162,7 @@ protected:
 		log4cxx::MDC::put( "thread_name", name);
 	}
 
-	bool is_timer_fd(const epoll_event* event) const {
+	inline bool is_timer_fd(const epoll_event* event) const {
 		bool ret =event->data.fd== int(timer_fd);
 		if(!ret)
 			return ret;
@@ -176,21 +177,50 @@ protected:
 		}
 	}
 
-	void timer_start(double period_sec=2.0)
+	inline bool is_wait_timer_fd(const epoll_event* event) {
+		bool ret =event->data.fd== int(wait_timer_fd);
+		if(!ret)
+			return ret;
+		epx.remove_fd(wait_timer_fd);
+		for(;;) {
+			uint64_t val;
+			if(read(wait_timer_fd, (void*)&val, sizeof(val))>=0) {
+				return ret;
+				if(errno!=EINTR) {
+					dterrorf("error while reading timerfd: {:s}", strerror(errno));
+					return true;
+				}
+			}
+		}
+	}
+
+	inline void timer_start(double period_sec=2.0)
 		{
-			timer_fd  = ::timer_start(period_sec);
+			timer_fd  = ::periodic_timer_create_and_start(period_sec);
 			epx.add_fd(timer_fd, EPOLLIN|EPOLLERR|EPOLLHUP);
 		}
 
-	void timer_set_period(double period_sec)
+	inline void timer_set_period(double period_sec)
 		{
-			::timer_set_period(timer_fd, period_sec);
+			::timer_set_once(timer_fd, period_sec);
 		}
 
-
-	void timer_stop() {
+	inline void timer_stop() {
 		epx.remove_fd(timer_fd);
 		::timer_stop(timer_fd);
+	}
+
+	inline void request_wakeup(double seconds) {
+		if(wait_timer_fd <0) {
+			wait_timer_fd = timerfd_create(CLOCK_MONOTONIC, 0);
+			epx.add_fd(wait_timer_fd, EPOLLIN|EPOLLERR|EPOLLHUP);
+		}
+		timer_set_once(wait_timer_fd, seconds);
+	}
+
+	inline void wait_abort() {
+		epx.remove_fd(wait_timer_fd);
+		::timer_stop(wait_timer_fd);
 	}
 
 	int run_() {

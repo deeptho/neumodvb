@@ -1803,10 +1803,11 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 				new_usals_pos = lnb_network->sat_pos;
 			}
 
-				if (ret < 0) {
-					dterrorf("Sending Committed DiseqC message failed");
-				}
+			ret = this->send_diseqc_message('X', lnb_network->diseqc12, 0, repeated);
+			if (ret < 0) {
+				dterrorf("Sending DiseqC 12 message failed");
 			}
+
 			must_pause = !repeated;
 		} break;
 		case 'P': {

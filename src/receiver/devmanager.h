@@ -29,6 +29,9 @@
 #include "util/safe/safe.h"
 #include "signal_info.h"
 #include "util/access.h"
+#include <boost/context/continuation_fcontext.hpp>
+
+typedef boost::context::continuation continuation_t;
 
 struct subscription_options_t;
 
@@ -310,6 +313,10 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 {
 	friend class fe_monitor_thread_t;
 
+	continuation_t main_fiber;
+	continuation_t task_fiber;
+	bool must_abort_task{false};
+
 	adaptermgr_t* adaptermgr;
 	const api_type_t api_type { api_type_t::UNDEFINED };
 	const int api_version{-1}; //1000 times the floating point value of version
@@ -318,6 +325,7 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	int num_constellation_samples{0};
 	sec_status_t sec_status;
 
+	void run_task(auto&& task);
 	int check_frontend_parameters();
 	uint32_t get_lo_frequency(uint32_t frequency);
 	int open_device(fe_state_t& t, bool rw=true);
@@ -331,12 +339,30 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 	void start_frontend_monitor();
 
 	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path,
-																					 const devdb::lnb_t& new_lnb, const chdb::dvbs_mux_t& new_mux,
+																					 const devdb::lnb_t& new_lnb, int16_t new_sat_pos,
 																					 const subscription_options_t& tune_options);
 	bool need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb);
 
-	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-															const subscription_options_t& tune_options);
+	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb);
+	inline bool wait_for_positioner();
+
+	std::tuple<int, int>
+	tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+			 const subscription_options_t& tune_options);
+	std::tuple<int, int>
+	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+										const subscription_options_t& tune_options);
+
+	int tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+						const subscription_options_t& options);
+
+	int tune_(const chdb::dvbt_mux_t& mux, const subscription_options_t& options);
+	int tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& options);
+
+	template<typename mux_t>
+	int tune(const mux_t& mux, const subscription_options_t& tune_options);
+	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
+
 public:
 
 	static constexpr uint32_t lnb_lof_standard = DEFAULT_LOF_STANDARD;
@@ -359,23 +385,12 @@ public:
 
 	static std::tuple<api_type_t, int> get_api_type(); //returns api_type and version
 
+	fe_lock_status_t get_lock_status();
 	void set_lock_status(fe_status_t fe_status);
 	void clear_lock_status();
 
 	std::tuple<int, int, int, double>
 	get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usals_pos, steady_time_t now) const;
-
-	/*TODO:  dvb_frontend_t acts both as an interface to the outside world and
-		as a provider of low level calls towards the driver.
-		Move the latter to fe_monitor_thread_t ? Unless those needed when monitor_thread is not running
-	*/
-	fe_lock_status_t get_lock_status();
-	int tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-						const subscription_options_t& options);
-
-	std::tuple<int, int>
-	tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-			 const subscription_options_t& tune_options);
 
 	template<typename mux_t>
 	void request_retune(bool user_requested);
@@ -383,20 +398,13 @@ public:
 	void request_tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 										const subscription_options_t& tune_options);
 
-	int tune_(const chdb::dvbt_mux_t& mux, const subscription_options_t& options);
-	int tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& options);
-
-	template<typename mux_t>
-	int tune(const mux_t& mux, const subscription_options_t& tune_options);
 
 	template<typename mux_t>
 	void request_tune(const mux_t& mux, const subscription_options_t& tune_options);
 
-	std::tuple<int, int>
-	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										const subscription_options_t& tune_options);
+	void request_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+																 const subscription_options_t& tune_options);
 
-	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
 
 	int stop();
@@ -564,6 +572,9 @@ private:
 	bool is_paused{false};
 	std::shared_ptr<dvb_frontend_t> fe{nullptr};
 
+	__attribute__((optnone)) //Without this  the code will crash!
+	void resume_task();
+
 	void update_lock_status_and_signal_info(fe_status_t fe_status);
 	virtual int exit() final {
 		return -1;
@@ -580,6 +591,7 @@ public:
 		{
 		}
 
+	bool wait_for(double seconds);
 	static std::shared_ptr<fe_monitor_thread_t> make
 	(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_);
 

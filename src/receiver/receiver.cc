@@ -684,7 +684,9 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 }
 
 /*
-	called to manually control positioner
+	called to manually control positioner and for spectrum_scan. The former only reserves the lnb
+	but does not do anything, the latter subscribes the spectrum, but using an exclusive reservation,
+	while still moving to a specific sat_pos if needed (Todo: clean up this mess)
  */
 subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
 																									 devdb::rf_path_t& rf_path,
@@ -697,12 +699,15 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	tune_options.may_control_lnb = true;
 	tune_options.may_move_dish = true;
 	tune_options.may_control_dish = true;
+	std::optional<int16_t> sat_pos_to_move_to;
+	if(need_spectrum)
+		sat_pos_to_move_to = tune_options.spectrum_scan_options.sat.sat_pos;
 	assert(tune_options.subscription_type != devdb::subscription_type_t::SPECTRUM_ACQ ||
 				 tune_options.spectrum_scan_options.sat.sat_pos !=sat_pos_none);
 	auto sret = devdb::fe::subscribe_rf_path(devdb_wtxn, subscription_id,
 																					 tune_options,
 																					 rf_path,
-																					 false /*do_not_unsubscribe_on_failure*/);
+																					 sat_pos_to_move_to);
 	if(sret.failed) {
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
@@ -1667,6 +1672,39 @@ void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spec
 			cb(receiver_thread).send_spectrum_to_scanner(finished_fe, spectrum_scan, scan_id, subscription_ids);
 			return 0;
 		});
+	}
+}
+
+//thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously
+void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t& dish, bool is_end,
+																			const ss::vector_<subscription_id_t>& subscription_ids) {
+	if(is_end) {
+		printf("ending dish motion\n");
+		auto devdb_wtxn = devdb.wtxn();
+		devdb::dish::end_move(devdb_wtxn, dish);
+		devdb_wtxn.commit();
+	}
+	bool has_scanning_subscribers{false};
+	{
+		auto mss = subscribers.readAccess();
+		for (auto [subsptr, ms_shared_ptr] : *mss) {
+			auto* ms = ms_shared_ptr.get();
+			if (!ms)
+				continue;
+			if(ms->is_scanning()) {
+				has_scanning_subscribers = true;
+				continue;
+			}
+			if (!subscription_ids.contains(ms->get_subscription_id()))
+				continue;
+#ifdef TODO
+			/*
+				This is a spectrum or positioner dialog window. We can inform it directly
+			*/
+			if(subscription_ids.contains(ms->get_subscription_id()))
+				ms->notify_positioner_motion(dish);
+#endif
+		}
 	}
 }
 

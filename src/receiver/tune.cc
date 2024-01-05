@@ -427,11 +427,9 @@ tuner_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::p
 	auto loc = receiver.options.readAccess()->usals_location;
 	auto devdb_wtxn = receiver.devdb.wtxn();
 
+	devdb::dish::schedule_move(devdb_wtxn, lnb, *new_usals_pos, lnb.cur_sat_pos, loc, true/*move_has_finished*/);
 
-	auto ret1 = devdb::dish::update_usals_pos(devdb_wtxn, lnb, *new_usals_pos, loc, lnb.cur_sat_pos, usals_pos_reliable);
 	devdb_wtxn.commit();
-	if (ret1 < 0)
-		ret = ret1;
 	return {ret, new_usals_pos};
 }
 
@@ -460,12 +458,13 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 		This will also release any resources alreay in use (active_mux and active_service) if they are no
 		longer needed.
 	 */
-	auto ret1 = this->tuner_thread_t::tune_mux(sret, mux, tune_options);
-	if((int)ret1 < 0) {
+	auto ret = this->tuner_thread_t::tune_mux(sret, mux, tune_options);
+	if((int)ret < 0) {
 		release_all(sret.subscription_id);
 		return subscription_id_t::NONE;
 	}
-		return ret1;
+
+	return ret;
 }
 
 subscription_id_t

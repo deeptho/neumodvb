@@ -31,6 +31,28 @@
 #include "../util/neumovariant.h"
 
 using namespace devdb;
+static
+std::optional<devdb::dish_t> update_dish_helper(db_txn& devdb_wtxn, devdb::lnb_t&lnb,
+																								const devdb::rf_path_t& rf_path, const devdb::usals_location_t& loc,
+																								int16_t lnb_sat_pos, bool may_move_dish)
+{
+	if(lnb.on_positioner) {
+		auto* lnb_network = devdb::lnb::get_network(lnb, lnb_sat_pos);
+		if (!lnb_network) {
+			dterrorf("No network found");
+			return {};
+		}
+		auto usals_pos = lnb_network->usals_pos;
+		auto old_usals_pos = lnb.usals_pos;
+		lnb.usals_pos = usals_pos;
+		if (may_move_dish)
+			return
+				devdb::dish::schedule_move(devdb_wtxn, lnb, usals_pos, lnb_sat_pos, loc, false /*move_has_finished*/);
+		else
+			return {};
+	}
+	return {};
+}
 
 static bool unsubscribe_helper(fe_t& fe, subscription_id_t subscription_id) {
 	bool erased = false;
@@ -221,7 +243,7 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 	sub.rf_path = rf_path;
 	sub.pol = tune_options.may_control_lnb ? chdb::fe_polarisation_t::NONE : band_scan->pol;
 	sub.band = tune_options.may_control_lnb ? chdb::sat_sub_band_t::NONE : band_scan->sat_sub_band;
-	sub.usals_pos = tune_options.may_move_dish ? sat_pos_none : sat->sat_pos;
+	sub.usals_pos = tune_options.may_move_dish ? sat_pos_none : lnb.usals_pos;
 	sub.dish_usals_pos = lnb.on_positioner ? sub.usals_pos : lnb.usals_pos;
 	sub.dish_id = lnb.k.dish_id;
 	sub.frequency = 0;
@@ -300,7 +322,7 @@ devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
 subscribe_ret_t
 devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 														 const subscription_options_t& tune_options,
-														 const rf_path_t& rf_path, bool do_not_unsubscribe_on_failure) {
+														 const rf_path_t& rf_path, std::optional<int16_t> sat_pos_to_move_to) {
 
 	auto[ oldfe_, will_be_released ] = fe_for_subscription(wtxn, subscription_id);
 	auto* fe_key_to_release = (oldfe_ && will_be_released) ? &oldfe_->k : nullptr;
@@ -311,7 +333,7 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 	auto c = devdb::lnb_t::find_by_key(wtxn, rf_path.lnb);
 	if (!c.is_valid()) {
 		std::optional<devdb::fe_t> updated_old_dbfe;
-		if(oldfe_ && ! do_not_unsubscribe_on_failure) {
+		if(oldfe_) {
 			assert((int)subscription_id >=0);
 			updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
 		}
@@ -323,10 +345,6 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 
 	sret.retune = false;
 	sret.tune_pars.send_lnb_commands = true;
-	if (sret.tune_pars.send_lnb_commands && tune_options.may_move_dish && lnb.on_positioner)
-		sret.tune_pars.dish = devdb::dish::get_dish(wtxn, rf_path.lnb.dish_id);
-	else
-		sret.tune_pars.dish = {};
 	if(fe_) {
 		bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
 		sret.retune = is_same_fe;
@@ -337,6 +355,15 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 			sret.sub_to_reuse = subscription_id_t::NONE;
 		} else {
 			assert(!sret.aa.is_new_aa());
+		}
+		if (sat_pos_to_move_to) {
+			if(sret.tune_pars.send_lnb_commands)  {
+				sret.tune_pars.dish =  update_dish_helper(wtxn, lnb, rf_path, tune_options.usals_location,
+																									*sat_pos_to_move_to, tune_options.may_move_dish);
+				if(!sret.tune_pars.dish)
+					return failed(sret.subscription_id, updated_old_dbfe);
+			} else
+				sret.tune_pars.dish = {};
 		}
 		return sret;
 	} else {
@@ -536,6 +563,7 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe->k);
 	if(!best_fe)
 		return {{}, {}, {}, {}, updated_old_dbfe}; //no frontend could be found
+
 #ifndef NDEBUG
 	auto ret =
 #endif
@@ -543,6 +571,7 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 																					 tune_options,
 																					 *best_fe, *best_rf_path, *best_lnb,
 																					 &sat, &band_scan);
+
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 
 	return {best_fe, best_rf_path, best_lnb, best_use_counts, updated_old_dbfe};
@@ -703,10 +732,6 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			sret.change_service = true;
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				sret.tune_pars.send_lnb_commands = ! use_counts_.is_shared();
-				if(sret.tune_pars.send_lnb_commands && tune_options.may_move_dish && ! use_counts_.shares_positioner())
-					sret.tune_pars.dish = devdb::dish::get_dish(wtxn, lnb_->k.dish_id);
-				else
-					sret.tune_pars.dish = {};
 				sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			} else {
 				sret.aa = { .updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe, .rf_path={}, .lnb={}};
@@ -724,18 +749,13 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			}
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				auto& lnb = *lnb_;
-				if(lnb.on_positioner) {
-					auto* lnb_network = devdb::lnb::get_network(lnb, mux.k.sat_pos);
-					if (!lnb_network) {
-						dterrorf("No network found");
+				if(sret.tune_pars.send_lnb_commands)  {
+					sret.tune_pars.dish =  update_dish_helper(wtxn, lnb, *rf_path_, tune_options.usals_location,
+																										mux.k.sat_pos, tune_options.may_move_dish);
+					if(!sret.tune_pars.dish)
 						return failed(sret.subscription_id, updated_old_dbfe);
-					}
-					auto usals_pos = lnb_network->usals_pos;
-					sret.old_usals_pos = lnb.usals_pos;
-					sret.new_usals_pos = usals_pos;
-					printf("USALS from=%d to=%d\n", sret.old_usals_pos, usals_pos);
-					dish::update_usals_pos(wtxn, lnb, usals_pos, tune_options.usals_location, mux.k.sat_pos, {});
-				}
+				} else
+					sret.tune_pars.dish = {};
 			}
 			return sret;
 		}
@@ -764,10 +784,6 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 			sret.retune = is_same_fe;
 			sret.change_service = true;
 			sret.tune_pars.send_lnb_commands = ! use_counts_.is_shared();
-			if(sret.tune_pars.send_lnb_commands && tune_options.may_move_dish && ! use_counts_.shares_positioner())
-				sret.tune_pars.dish = devdb::dish::get_dish(wtxn, lnb_->k.dish_id);
-			else
-				sret.tune_pars.dish = {};
 
 			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			if(!is_same_fe) {
@@ -782,19 +798,15 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 								 (int)subscription_id, (int64_t) fe.k.adapter_mac_address, sat);
 			}
 			auto& lnb = *lnb_;
-			if(lnb.on_positioner) {
-				auto* lnb_network = devdb::lnb::get_network(lnb, sat.sat_pos);
-				if (!lnb_network) {
-					dterrorf("No network found");
-					return failed(sret.subscription_id, updated_old_dbfe);
-				}
-				auto usals_pos = lnb_network->usals_pos;
-				sret.old_usals_pos = lnb.usals_pos;
-				sret.new_usals_pos = usals_pos;
-				printf("USALS from=%d to=%d\n", sret.old_usals_pos, usals_pos);
-				dish::update_usals_pos(wtxn, lnb, usals_pos, tune_options.usals_location, sat.sat_pos, {});
-			}
 
+			if(sret.tune_pars.send_lnb_commands)  {
+				sret.tune_pars.dish =  update_dish_helper(wtxn, lnb, *rf_path_, tune_options.usals_location, sat.sat_pos,
+																									tune_options.may_move_dish);
+				if(!sret.tune_pars.dish)
+					return failed(sret.subscription_id, updated_old_dbfe);
+			}
+			else
+				sret.tune_pars.dish= {};
 			return sret;
 		}
 		return failed(sret.subscription_id, updated_old_dbfe);

@@ -186,6 +186,7 @@ int fe_monitor_thread_t::run() {
 	if (fe->api_type != api_type_t::NEUMO)
 		timer_start(1); // NEUMO api activates heartbeat mode
 	for (;;) {
+
 		auto n = epoll_wait(2000);
 		if (n < 0) {
 			dterrorf("error in poll: {:s}", strerror(errno));
@@ -193,14 +194,18 @@ int fe_monitor_thread_t::run() {
 		}
 		now = system_clock_t::now();
 		for (auto evt = next_event(); evt; evt = next_event()) {
-			if (is_event_fd(evt)) {
+			if(is_wait_timer_fd(evt)) {
+				if(fe->task_fiber) {
+					resume_task();
+				}
+			} else  if (is_event_fd(evt)) {
 				if (run_tasks(now) < 0) {
 					goto exit_;
 				}
 			} else if (fe->is_fefd(evt->data.fd)) {
 				handle_frontend_event();
 			} else if (is_timer_fd(evt)) {
-        /*only for non-neumo mode. In this case events are onlyu reported when a lock status
+        /*only for non-neumo mode. In this case events are only reported when a lock status
 					bit changes. In neumo mode, events are sent periodically.
 				*/
 				if(!is_paused && fe->api_type != api_type_t::NEUMO) {
@@ -301,6 +306,25 @@ void signal_monitor_t::end_stat(receiver_t& receiver) {
 		stat.k = {};
 	}
 	wtxn.commit();
+}
+
+bool fe_monitor_thread_t::wait_for(double seconds)
+{
+	request_wakeup(seconds);
+	printf("waiting requested - transferring to main\n");
+
+	if(fe->must_abort_task)
+		return true;
+	fe->main_fiber = fe->main_fiber.resume();
+	printf("waiting done - transferring back to fiber must_abort=%d\n", fe->must_abort_task);
+	return fe->must_abort_task;
+}
+
+void fe_monitor_thread_t::resume_task()
+{
+	assert(fe->task_fiber);
+	fe->task_fiber = fe->task_fiber.resume();
+	printf("end of resume_task\n");
 }
 
 /*

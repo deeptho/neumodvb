@@ -744,21 +744,36 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 	return changed;
 }
 
-int dish::update_usals_pos(db_txn& devdb_wtxn, const devdb::lnb_t& lnb_, int usals_pos,
-													 const devdb::usals_location_t& loc, int sat_pos,
-													 std::optional<bool> usals_pos_reliable) {
-	auto c = devdb::find_first<devdb::lnb_t>(devdb_wtxn);
+/*
+	Update the database such that lnbs all point to the correct new usals and sat positions.
+	if move_has_finished is false:
+	    do not yet update dish record. Instead enter the target data in there
+	if move_has_finished is true:
+	    also update dish record to idnciate that the move has finished.
+			In this case target_sat_pos and target_sat_pos can be {} to indicate
+			that these numbers should be taken from the database
 
-	int num_rotors = 0; //for sanity check
-	auto angle = devdb::lnb::sat_pos_to_angle(usals_pos, loc.usals_longitude, loc.usals_latitude);
+ */
+devdb::dish_t dish::schedule_move(db_txn& devdb_wtxn, devdb::lnb_t& lnb_,
+																	int target_usals_pos,
+																	int target_lnb_sat_pos,
+																	const devdb::usals_location_t& loc, bool move_has_finished) {
+	auto c = devdb::find_first<devdb::lnb_t>(devdb_wtxn);
 	auto db_dish = get_dish(devdb_wtxn, lnb_.k.dish_id);
 	auto dish = db_dish;
+
+	if(db_dish.target_usals_pos == target_usals_pos)
+		return db_dish;
 	dish.mtime = system_clock_t::to_time_t(now);
-	dish.cur_usals_pos = usals_pos;
-	if(sat_pos != sat_pos_none)
-		dish.cur_sat_pos = sat_pos;
-	if(usals_pos_reliable)
-		dish.usals_pos_reliable = *usals_pos_reliable;
+
+	assert(usals_pos != sat_pos_none);
+	dish.target_usals_pos = target_usals_pos;
+	if(move_has_finished) {
+		dish.cur_usals_pos = target_usals_pos;
+	}
+	int num_rotors = 0; //for sanity check
+	auto angle = devdb::lnb::sat_pos_to_angle(target_usals_pos, loc.usals_longitude, loc.usals_latitude);
+
 	if(dish !=db_dish) {
 		put_record(devdb_wtxn, dish);
 	}
@@ -767,23 +782,31 @@ int dish::update_usals_pos(db_txn& devdb_wtxn, const devdb::lnb_t& lnb_, int usa
 			continue;
 		num_rotors++;
 		devdb::lnb::set_lnb_offset_angle(lnb, loc); //redundant, but safe
-		if(usals_pos_reliable)
-			lnb.usals_pos_reliable = *usals_pos_reliable;
-		if (usals_pos != sat_pos_none)
-			lnb.usals_pos = usals_pos;
+		lnb.usals_pos = target_usals_pos;
 		lnb.cur_lnb_pos = devdb::lnb::angle_to_sat_pos(angle + lnb.offset_angle, loc);
 		if(lnb.k == lnb_.k) {
-			if(sat_pos != sat_pos_none)
-				lnb.cur_sat_pos = sat_pos;
+			lnb.cur_sat_pos = target_lnb_sat_pos;
+
+			lnb_.cur_sat_pos = target_lnb_sat_pos;
+			lnb_.usals_pos =  lnb.usals_pos;
+			lnb_.cur_lnb_pos =  lnb.cur_lnb_pos;
 		}
+
 		put_record(devdb_wtxn, lnb);
 	}
 	if (num_rotors == 0) {
 		dterrorf("None of the LNBs for dish {:d} seems to be on a rotor", lnb_.k.dish_id);
-		return -1;
 	}
-	return 0;
+	return dish;
 }
+
+void dish::end_move(db_txn& devdb_wtxn, devdb::dish_t dish) {
+	auto c = devdb::find_first<devdb::lnb_t>(devdb_wtxn);
+	auto db_dish = get_dish(devdb_wtxn, dish.dish_id);
+	dish.target_usals_pos = dish.cur_usals_pos;
+	put_record(devdb_wtxn, dish);
+}
+
 
 /*
 	Find the current usals_pos for the desired sat_pos and compare it with the

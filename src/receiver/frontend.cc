@@ -749,6 +749,7 @@ int dvb_frontend_t::stop() {
 		/* pause task has been run now
 		 */
 	}
+	this->ts.writeAccess()->lock_status.fem_state = fem_state_t::IDLE;
 	return 0;
 }
 
@@ -762,6 +763,7 @@ int dvb_frontend_t::start() {
 			return 0;
 		});
 	}
+	ts.writeAccess()->lock_status.fem_state = fem_state_t::MONITORING;
 	return 0;
 }
 
@@ -1034,10 +1036,10 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	}
 	scan.resize(spectrum.num_freq, spectrum.num_candidates);
 
-	auto [lnb, rf_path, options, start_time]  = [this](){
+	auto [dish, lnb, rf_path, options, start_time]  = [this](){
 		const auto r = this->ts.readAccess();
-
-		return std::tuple(r->reserved_lnb, r->reserved_rf_path, r->tune_options.spectrum_scan_options,
+		return std::tuple(*r->tune_options.tune_pars->dish, r->reserved_lnb, r->reserved_rf_path,
+											r->tune_options.spectrum_scan_options,
 											r->start_time);
 	}();
 
@@ -1052,7 +1054,7 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	scan.start_time = start_time;
 	scan.sat = options.sat;
 	scan.rf_path = rf_path;
-	scan.usals_pos = lnb.usals_pos;
+	scan.usals_pos = dish.target_usals_pos;
 	scan.adapter_no =  (int)this->adapter_no;
 	auto [start_freq, mid_freq, end_freq, lof_low, lof_high, inverted_spectrum] =
 		devdb::lnb::band_frequencies(lnb, options.band_pol.band);
@@ -1086,19 +1088,23 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 
 
 	if (incomplete) {
-		auto tune_options = this->ts.readAccess()->tune_options; // make a copy
-		auto& options  = tune_options.spectrum_scan_options;
-		auto lnb = this->ts.readAccess()->reserved_lnb;
-		auto rf_path = this->ts.readAccess()->reserved_rf_path;
-		assert(!(options.band_pol.band == chdb::sat_sub_band_t::HIGH)); //We do not scan more than one polatrisation per call
 		{
-			// switch to next band
-			options.band_pol.band = chdb::sat_sub_band_t::HIGH;
-			options.append = true;
-			dtdebugf("Continuing spectrum scan with pol={:s} band=high",
-							 enum_to_str(options.band_pol.pol));
+			auto w = this->ts.writeAccess();
+
+			auto& tune_options = w->tune_options;
+			auto& options  = tune_options.spectrum_scan_options;
+			auto lnb = w->reserved_lnb;
+			auto rf_path = w->reserved_rf_path;
+			assert(!(options.band_pol.band == chdb::sat_sub_band_t::HIGH)); //We do not scan more than one polatrisation per call
+			{
+				// switch to next band
+				options.band_pol.band = chdb::sat_sub_band_t::HIGH;
+				options.append = true;
+				dtdebugf("Continuing spectrum scan with pol={:s} band=high",
+								 enum_to_str(options.band_pol.pol));
+			}
 		}
-		start_lnb_spectrum_scan(rf_path, lnb, tune_options);
+		this->start_lnb_spectrum_scan(rf_path, lnb);
 	}
 	if(options.save_spectrum)
 		scan.spectrum = statdb::save_spectrum_scan(spectrum_path, scan, append_now, min_freq_to_save);
@@ -1232,97 +1238,41 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 
 /*
 	returns: ret = return status
-	         new_usals_sat_pos
+	         new_usals_pos
  */
-std::tuple<int, int>
-dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-																	const subscription_options_t& tune_options) {
-	this->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
-	auto band = tune_options.spectrum_scan_options.band_pol.band;
-	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
-	auto sat_pos = tune_options.spectrum_scan_options.sat.sat_pos;
-	auto voltage = devdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
-
-	if(api_version >=1500) {
-		auto fefd = ts.readAccess()->fefd;
-		assert(ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
-		if(this->sec_status.set_rf_input(fefd,  (int32_t) rf_path.rf_input) <0) {
-			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
-			return {-1, sat_pos_none};
-		}
-	}
-	auto [ret, new_usals_pos ] =
-		this->do_lnb_and_diseqc(sat_pos, band, voltage, false /*skip_positioner*/);
-
-	dtdebugf("spectrum: diseqc done");
-	if (this->stop() < 0) /* Force the driver to go into idle mode immediately, so
-													 that the fe_monitor_thread_t will also return immediately
-												*/
-		return {-1, new_usals_pos};
-	ret = this->start_lnb_spectrum_scan(rf_path, lnb, tune_options);
-
-	this->start();
-
-	//dttime(100);
-	return {ret, new_usals_pos};
-}
-
-void
-dvb_frontend_t::request_tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-														 const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
+void dvb_frontend_t::request_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+																							 const subscription_options_t& tune_options) {
 	{
 		auto w =  this->ts.writeAccess();
 		w->tune_options = tune_options;
 		w->positioner_start_move_time = {};
+		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
-	this->start_fe_lnb_and_mux(rf_path, lnb, mux);
-	auto [ret, new_usals_sat_pos] = tune(rf_path, lnb, mux, tune_options);
-}
-
-template<typename mux_t>
-void dvb_frontend_t::request_retune(bool user_requested) {
-	if(user_requested) {
-		auto w =  this->ts.writeAccess();
-		w->positioner_start_move_time = {};
-		if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
-			auto *conn = connection_for_rf_path(w->reserved_lnb, w->reserved_rf_path);
-			dtdebugf("Retuning to DVBS mux {}  lnb={} diseqc={}", w->reserved_mux, w->reserved_lnb, conn->tune_string);
-		} else {
-			dtdebugf("Retuning to DVBC/DVBT mux {}", w->reserved_mux);
-		}
-	}
-	dttime_init();
-	auto [lnb, rf_path, mux, tune_options] = [&]() {
-		auto r = this->ts.readAccess();
-		return std::tuple<devdb::lnb_t, devdb::rf_path_t, mux_t, subscription_options_t>
-			(r->reserved_lnb, r->reserved_rf_path, *std::get_if<mux_t>(&r->reserved_mux), r->tune_options);
-	}();
-
-	if (user_requested) {
-		if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
-			this->start_fe_lnb_and_mux(rf_path, lnb, mux);
-		} else {
-			this->start_fe_and_dvbc_or_dvbt_mux(mux);
-		}
-	} else
-		this->sec_status.retune_count++;
-	if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
-		auto [ret, new_usals_pos] = tune(rf_path, lnb, mux, tune_options);
-	} else {
-		auto ret = tune(mux, tune_options);
-	}
+	this->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
+	/* When moving the positioner, the following code may run for a long time, so we run it
+		 as a task
+	 */
+	run_task([this, rf_path, lnb, tune_options](continuation_t&& invoker) {
+		main_fiber = invoker.resume();
+		auto[ret, new_usals_pos] = lnb_spectrum_scan(rf_path, lnb, tune_options);
+		dtdebugf("lnb_spectrum_scan returned ret={}, new_usals_pos={}", ret, new_usals_pos);
+		printf("returning to main fiber\n");
+		//reader_fiber = std::move(x);
+		return std::move(main_fiber);
+	});
 }
 
 std::tuple<int, int>
-dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										 const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
+dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+																	const subscription_options_t& tune_options) {
 	dttime_init();
 	auto *conn = connection_for_rf_path(lnb, rf_path);
 	if(!conn)
 		return {-1, sat_pos_none};
-	dtdebugf("Tuning to DVBS mux {}  lnb={} diseqc={}", mux, lnb, conn->tune_string);
+	dtdebugf("LNB spectrum lnb={} diseqc={}", lnb, conn->tune_string);
 
-	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(rf_path, lnb, mux, tune_options);
+	auto sat_pos = tune_options.spectrum_scan_options.sat.sat_pos;
+	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(rf_path, lnb, sat_pos, tune_options);
 	{
 		auto x = monitor_thread;
 		assert(!x || !x->must_exit());
@@ -1336,12 +1286,166 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 
 	dttime(300);
 
-	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);
-	assert(dvbs_mux);
 	int ret;
 	int new_usals_pos{sat_pos_none};
+	auto band = tune_options.spectrum_scan_options.band_pol.band;
+	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
+	auto voltage = devdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+
+	if(api_type == api_type_t::NEUMO && api_version >=1500) {
+		auto fefd = ts.readAccess()->fefd;
+		assert(ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
+		if(this->sec_status.set_rf_input(fefd,  (int32_t) rf_path.rf_input) <0) {
+			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
+			return {-1, sat_pos_none};
+		}
+	}
+	if (need_diseqc) {
+		std::tie(ret, new_usals_pos) =
+			this->do_lnb_and_diseqc(sat_pos, band, voltage, false /*skip_positioner*/);
+		dtdebugf("spectrum: do_lnb_and_diseqc done");
+	} else if(need_lnb) {
+		this->do_lnb(band, voltage);
+		dtdebugf("spectrum: do_lnb done");
+	}
+
+	printf("start wait for positioner\n");
+
+	auto must_abort = wait_for_positioner();
+
+	if(must_abort) {
+		return {-1, sat_pos_none};
+		}
+
+	ts.writeAccess()->lock_status.fem_state = fem_state_t::SEC_POWERED_UP;
+	dttime(300);
+
+
+	ret = this->start_lnb_spectrum_scan(rf_path, lnb);
+	if (ret < 0)
+		return {ret, new_usals_pos};
+
+	this->start();
+
+	//dttime(100);
+	return {0, new_usals_pos};
+}
+
+/*
+ */
+bool dvb_frontend_t::wait_for_positioner()
+{
+	auto dish_  = this->ts.readAccess()->tune_options.tune_pars->dish;
+	if(!dish_)
+		return false;
+	auto dish  = *dish_;
+	auto old_usals_pos = dish.cur_usals_pos;
+	auto new_usals_pos = dish.target_usals_pos;
+	if(old_usals_pos == sat_pos_none || new_usals_pos == sat_pos_none)
+		return false;
+	if(old_usals_pos == new_usals_pos)
+		return false;
+	ts.writeAccess()->lock_status.fem_state = fem_state_t::POSITIONER_MOVING;
+
+	assert(old_usals_pos != sat_pos_none);
+	assert(new_usals_pos != sat_pos_none);
+	int idx = (this->sec_status.get_voltage() == SEC_VOLTAGE_18) ? 1 :0;
+	double speed = 1.0; //1 degree per second
+	if(idx <0 || idx>= dish.speeds.size()) {
+		dterrorf("Index out of range: {}/{}", idx, dish.speeds.size());
+	} else
+		speed = dish.speeds[idx];
+	auto delay  = std::abs(new_usals_pos-old_usals_pos)/speed;
+
+
+	auto subscription_ids = get_subscription_ids();
+	auto& receiver = adaptermgr->receiver;
+	auto dbfe = this->dbfe();
+	receiver.on_positioner_motion(dbfe, dish, false /*is_end*/, subscription_ids);
+
+	bool must_abort=monitor_thread->wait_for(delay);
+	printf("end wait for positioner must_abort=%d\n", must_abort);
+
+	if(must_abort) {
+		dish.target_usals_pos = sat_pos_none;
+	} else {
+		dish.cur_usals_pos = dish.target_usals_pos;
+	}
+	{
+		//dish has changed and needs to be updated (without reading database)
+		auto  w= this->ts.writeAccess();
+		w->tune_options.tune_pars->dish = dish;
+		if (sat_pos != sat_pos_none) {
+	}
+	receiver.on_positioner_motion(dbfe, dish, true /*is_end*/, subscription_ids);
+	return must_abort;
+}
+
+__attribute__((optnone)) //Without this  the code will crash!
+void dvb_frontend_t::run_task(auto&& task) {
+	while(task_fiber) {
+		must_abort_task = true;
+		dterrorf("older command still running");
+		task_fiber= task_fiber.resume();
+		printf("After forcing abort: task=%d\n", !!task_fiber);
+	}
+	must_abort_task = false;
+	task_fiber = boost::context::callcc(task);
+	task_fiber=task_fiber.resume();
+}
+void dvb_frontend_t::request_tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+																	const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
+	{
+		auto w =  this->ts.writeAccess();
+		w->tune_options = tune_options;
+		w->positioner_start_move_time = {};
+		w->lock_status.fem_state = fem_state_t::STARTED;
+	}
+	this->start_fe_lnb_and_mux(rf_path, lnb, mux);
+
+	/* When moving the positioner, the following code may run for a long time, so we run it
+		 as a task
+	 */
+	run_task([this, rf_path, lnb, mux, tune_options](continuation_t&& invoker) {
+		main_fiber = invoker.resume();
+		auto [ret, new_usals_pos] = tune(rf_path, lnb, mux, tune_options);
+		dtdebugf("tune returned ret={}, new_usals_pos={}", ret, new_usals_pos);
+		return std::move(main_fiber);
+	});
+}
+
+std::tuple<int, int>
+dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+										 const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
+	dttime_init();
+	auto *conn = connection_for_rf_path(lnb, rf_path);
+	if(!conn)
+		return {-1, sat_pos_none};
+	dtdebugf("Tuning to DVBS mux {}  lnb={} diseqc={}", mux, lnb, conn->tune_string);
+
+	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);
+	assert(dvbs_mux);
 	auto sat_pos = dvbs_mux->k.sat_pos;
+	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(rf_path, lnb, sat_pos, tune_options);
+	{
+		auto x = monitor_thread;
+		assert(!x || !x->must_exit());
+	}
+
+	//abort the current operation of the frontend making it go to IDLE mode
+	dtdebugf("calling stop fe_monitor");
+	if (this->stop() < 0)  /* Force the driver to go into idle mode immediately, so
+																	that the fe_monitor_thread_t will also return immediately*/
+		return {-1, sat_pos_none};
+
+	dttime(300);
+
+	int ret;
+	int new_usals_pos{sat_pos_none};
 	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
+	auto pol = dvbs_mux->pol;
+	auto voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, pol);
+
 	if(api_type == api_type_t::NEUMO && api_version >=1500) {
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
@@ -1352,15 +1456,20 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	}
 	if (need_diseqc) {
 		std::tie(ret, new_usals_pos) =
-			this->do_lnb_and_diseqc(sat_pos, band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol),
-															false /*skip_positioner*/);
+			this->do_lnb_and_diseqc(sat_pos, band, voltage, false /*skip_positioner*/);
 		dtdebugf("tune: do_lnb_and_diseqc done");
 	} else if(need_lnb) {
-		this->do_lnb(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol));
+		this->do_lnb(band, voltage);
 		dtdebugf("tune: do_lnb done");
 	}
 
+	auto must_abort = wait_for_positioner();
+	if(must_abort) {
+		return {-1, sat_pos_none};
+	}
+	ts.writeAccess()->lock_status.fem_state = fem_state_t::SEC_POWERED_UP;
 	dttime(300);
+
 	ret = this->tune_(rf_path, lnb, *dvbs_mux, tune_options);
 	if (ret < 0)
 		return {ret, new_usals_pos};
@@ -1464,24 +1573,56 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const subscription_option
 }
 
 template<typename mux_t>
+void dvb_frontend_t::request_retune(bool user_requested) {
+	if(user_requested) {
+		auto w =  this->ts.writeAccess();
+		if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
+			auto *conn = connection_for_rf_path(w->reserved_lnb, w->reserved_rf_path);
+			dtdebugf("Retuning to DVBS mux {}  lnb={} diseqc={}", w->reserved_mux, w->reserved_lnb, conn->tune_string);
+		} else {
+			dtdebugf("Retuning to DVBC/DVBT mux {}", w->reserved_mux);
+		}
+	}
+
+	auto [lnb, rf_path, mux, tune_options] = [&]() {
+		auto r = this->ts.readAccess();
+		return std::tuple<devdb::lnb_t, devdb::rf_path_t, mux_t, subscription_options_t>
+			(r->reserved_lnb, r->reserved_rf_path, *std::get_if<mux_t>(&r->reserved_mux), r->tune_options);
+	}();
+
+	if (user_requested) {
+		if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
+			this->start_fe_lnb_and_mux(rf_path, lnb, mux);
+		} else {
+			this->start_fe_and_dvbc_or_dvbt_mux(mux);
+		}
+	} else
+		this->sec_status.retune_count++;
+	if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
+		auto [ret, new_usals_pos] = tune(rf_path, lnb, mux, tune_options);
+		dtdebugf("retune: tune returned ret={}, new_usals_pos={}", ret, new_usals_pos);
+	} else {
+		auto ret = tune(mux, tune_options);
+		dtdebugf("retune: tune returned ret={}", ret);
+	}
+}
+
+template<typename mux_t>
 void
 dvb_frontend_t::request_tune(const mux_t& mux, const subscription_options_t& tune_options) {
 	{
 		auto w = this->ts.writeAccess();
 		w->tune_options = tune_options;
+		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
 	this->start_fe_and_dvbc_or_dvbt_mux(mux);
 	auto ret = tune(mux, tune_options);
+	dtdebugf("tune returned ret={}", ret);
 }
 
 
 template<typename mux_t>
 int dvb_frontend_t::tune(const mux_t& mux, const subscription_options_t& tune_options) {
-	{
-		auto w = this->ts.writeAccess();
-		w->tune_options = tune_options;
-	}
-
 	/*
 		open frontend if it is not yet open
 	*/
@@ -1493,20 +1634,15 @@ int dvb_frontend_t::tune(const mux_t& mux, const subscription_options_t& tune_op
 	return 0;
 }
 
-int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-																						const subscription_options_t& tune_options) {
+int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb) {
 	this->num_constellation_samples = 0;
 	using namespace chdb;
 	using namespace devdb;
-	auto& options= tune_options.spectrum_scan_options;
 	auto *conn = connection_for_rf_path(lnb, rf_path);
 	assert(conn);
 	this->clear_lock_status();
-	{
-		auto w = this->ts.writeAccess();
-		w->tune_options = tune_options;
-		w->positioner_start_move_time = {};
-	}
+	auto tune_options =this->ts.readAccess()->tune_options;
+	auto& options= tune_options.spectrum_scan_options;
 	auto lnb_voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, options.band_pol.pol);
 
 	fe_sec_tone_mode_t tone = (options.band_pol.band == chdb::sat_sub_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
@@ -1802,7 +1938,6 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 			} else {// this is not usals!
 				new_usals_pos = lnb_network->sat_pos;
 			}
-
 			ret = this->send_diseqc_message('X', lnb_network->diseqc12, 0, repeated);
 			if (ret < 0) {
 				dterrorf("Sending DiseqC 12 message failed");
@@ -1821,6 +1956,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 			auto* lnb_network = devdb::lnb::get_network(lnb, sat_pos);
 			if (!lnb_network) {
 				dterrorf("No network found");
+				new_usals_pos = lnb.usals_pos;
 			} else {
 				usals_pos = lnb_network->usals_pos;
 				new_usals_pos = usals_pos;
@@ -2001,7 +2137,7 @@ int sec_status_t::set_rf_input(int fefd, int rf_input) {
 */
 std::tuple<bool,bool>
 dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
-																	 const chdb::dvbs_mux_t& new_mux, const subscription_options_t& tune_options) {
+																	 int16_t new_sat_pos,  const subscription_options_t& tune_options) {
 	assert(!tune_options.tune_pars->dish || tune_options.tune_pars->send_lnb_commands);
 	if (!this->sec_status.is_tuned()
 			&& tune_options.tune_pars->send_lnb_commands
@@ -2023,7 +2159,8 @@ dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const de
 											 conn->rotor_control == devdb::rotor_control_t::ROTOR_MASTER_DISEQC12);
 	if (!active_rotor)
 		return {false, true};
-	return {chdb::mux_key_ptr(r->reserved_mux)->sat_pos != new_mux.k.sat_pos, true};
+	auto &lnb = r->reserved_lnb;
+	return {lnb.cur_sat_pos != new_sat_pos, true};
 }
 
 bool dvb_frontend_t::need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb) {

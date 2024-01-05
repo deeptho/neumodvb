@@ -88,7 +88,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 		dtdebugf("Initial tuning");
 	} break;
 	case TUNE_REQUESTED:
-		if (status.fem_state == fem_state_t::REQUEST_CMD ||
+		if (status.fem_state == fem_state_t::SEC_POWERED_UP ||
 				status.fem_state == fem_state_t::MONITORING) {
 			tune_state = WAITING_FOR_LOCK;
 			tune_start_time = system_clock_t::now();
@@ -146,11 +146,10 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 																	 const devdb::lnb_t& lnb, subscription_options_t tune_options) {
 	this->fe->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
-	assert(tune_options.tune_mode == devdb::tune_mode_t::POSITIONER_CONTROL||
-				 tune_options.tune_mode == devdb::tune_mode_t::SPECTRUM);
+	assert(tune_options.tune_mode == devdb::tune_mode_t::POSITIONER_CONTROL);
 	auto band = chdb::sat_sub_band_t::LOW;
 	auto voltage = SEC_VOLTAGE_18;
-	auto [ret, new_usals_sat_pos ] = fe->do_lnb_and_diseqc(band, voltage, true /*skip_positioner*/);
+	auto [ret, new_usals_sat_pos ] = fe->do_lnb_and_diseqc(sat_pos_none, band, voltage, true /*skip_positioner*/);
 	msleep(30);
 	if(ret<0) {
 		dterrorf("diseqc failed: err={:d}", ret);
@@ -236,9 +235,9 @@ int active_adapter_t::tune(const subscribe_ret_t& sret,
 
 	this->tune_options = tune_options;
 	assert(tune_state != TUNE_FAILED);
-	printf("USALS: old=%d new=d%d\n", sret.old_usals_pos, mux.k.sat_pos);
-	if(sret.old_usals_pos != mux.k.sat_pos) {
-		usals_timer.start(sret.old_usals_pos, sret.new_usals_pos);
+	if(sret.tune_pars.dish && sret.tune_pars.dish->cur_usals_pos != sret.tune_pars.dish->target_usals_pos) {
+		assert(sret.tune_pars.dish->target_usals_pos== mux.k.sat_pos);
+		usals_timer.start(sret.tune_pars.dish->cur_usals_pos, sret.tune_pars.dish->target_usals_pos);
 		printf("USALS: timer start\n");
 	}
 	fe->request_tune(rf_path, lnb, mux, tune_options);
@@ -481,9 +480,8 @@ int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 	set_current_tp({});
 	receiver.activate_spectrum_scan(tune_options.spectrum_scan_options, lnb.pol_type);
 
-	auto [ret, new_usals_sat_pos] = fe->lnb_spectrum_scan(rf_path, lnb, tune_options);
-	dtdebugf("spectrum: diseqc done");
-	return ret;
+	fe->request_lnb_spectrum_scan(rf_path, lnb, tune_options);
+	return 0;
 }
 
 active_adapter_t::active_adapter_t(receiver_t& receiver_,

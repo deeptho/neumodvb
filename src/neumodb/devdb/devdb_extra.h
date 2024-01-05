@@ -45,10 +45,11 @@ namespace devdb {
 
 namespace devdb::dish {
 	devdb::dish_t get_dish(db_txn& devdb_wtxn, int dish_id);
+	devdb::dish_t schedule_move(db_txn& devdb_wtxn, devdb::lnb_t& lnb_,
+															int target_usals_pos, int target_lnb_sat_pos,
+															const devdb::usals_location_t& loc, bool move_has_finished);
+	void end_move(db_txn& devdb_wtxn, devdb::dish_t dish);
 
-	//dish objects do not really exist in the database, but curent state (usals_pos) is stored in all relevant lnbs
-	int update_usals_pos(db_txn& devdb_wtxn, const devdb::lnb_t&lnb, int usals_pos,
-											 const devdb::usals_location_t& loc, int sat_pos, std::optional<bool> usals_pos_reliable);
 	bool dish_needs_to_be_moved(db_txn& rtxn, int dish_id, int16_t sat_pos);
 	ss::vector_<int8_t> list_dishes(db_txn& devdb_rtxn);
 
@@ -246,7 +247,7 @@ namespace devdb::fe {
 	subscribe_ret_t subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 																		const subscription_options_t& tune_options,
 																		const rf_path_t& rf_path,
-																		bool do_not_unsubscribe_on_failure);
+																		std::optional<int16_t> sat_pos_to_move_to);
 
 	subscribe_ret_t subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 																		 const subscription_options_t& tune_options,

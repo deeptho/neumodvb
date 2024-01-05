@@ -1240,6 +1240,7 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 	this->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
 	auto band = tune_options.spectrum_scan_options.band_pol.band;
 	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
+	auto sat_pos = tune_options.spectrum_scan_options.sat.sat_pos;
 	auto voltage = devdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
 
 	if(api_version >=1500) {
@@ -1250,20 +1251,20 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 			return {-1, sat_pos_none};
 		}
 	}
-	auto [ret, new_usals_sat_pos ] =
-		this->do_lnb_and_diseqc(band, voltage, false /*skip_positioner*/);
+	auto [ret, new_usals_pos ] =
+		this->do_lnb_and_diseqc(sat_pos, band, voltage, false /*skip_positioner*/);
 
 	dtdebugf("spectrum: diseqc done");
 	if (this->stop() < 0) /* Force the driver to go into idle mode immediately, so
 													 that the fe_monitor_thread_t will also return immediately
 												*/
-		return {-1, new_usals_sat_pos};
+		return {-1, new_usals_pos};
 	ret = this->start_lnb_spectrum_scan(rf_path, lnb, tune_options);
 
 	this->start();
 
 	//dttime(100);
-	return {ret, new_usals_sat_pos};
+	return {ret, new_usals_pos};
 }
 
 void
@@ -1306,7 +1307,7 @@ void dvb_frontend_t::request_retune(bool user_requested) {
 	} else
 		this->sec_status.retune_count++;
 	if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
-		auto [ret, new_usals_sat_pos] = tune(rf_path, lnb, mux, tune_options);
+		auto [ret, new_usals_pos] = tune(rf_path, lnb, mux, tune_options);
 	} else {
 		auto ret = tune(mux, tune_options);
 	}
@@ -1338,19 +1339,20 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);
 	assert(dvbs_mux);
 	int ret;
-	int new_usals_sat_pos{sat_pos_none};
+	int new_usals_pos{sat_pos_none};
+	auto sat_pos = dvbs_mux->k.sat_pos;
 	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
 	if(api_type == api_type_t::NEUMO && api_version >=1500) {
 		auto fefd = ts.readAccess()->fefd;
 		assert(ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
 		if(this->sec_status.set_rf_input(fefd,  (int32_t) rf_path.rf_input) <0) {
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
-			return {-1, new_usals_sat_pos};
+			return {-1, new_usals_pos};
 		}
 	}
 	if (need_diseqc) {
-		std::tie(ret, new_usals_sat_pos) =
-			this->do_lnb_and_diseqc(band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol),
+		std::tie(ret, new_usals_pos) =
+			this->do_lnb_and_diseqc(sat_pos, band, (fe_sec_voltage_t)devdb::lnb::voltage_for_pol(lnb, dvbs_mux->pol),
 															false /*skip_positioner*/);
 		dtdebugf("tune: do_lnb_and_diseqc done");
 	} else if(need_lnb) {
@@ -1361,9 +1363,9 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	dttime(300);
 	ret = this->tune_(rf_path, lnb, *dvbs_mux, tune_options);
 	if (ret < 0)
-		return {ret, new_usals_sat_pos};
+		return {ret, new_usals_pos};
 	this->start();
-	return {0, new_usals_sat_pos};
+	return {0, new_usals_pos};
 }
 
 int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options) {
@@ -1700,21 +1702,24 @@ int dvb_frontend_t::release_fe() {
 		Returns <0 on error, 0 if no diseqc command was sent, 1 if at least 1 diseqc command was sent
 */
 std::tuple<int ,int>
-dvb_frontend_t::diseqc(bool skip_positioner) {
-
-	auto [fefd, rf_path, lnb, lnb_connection, mux] = [this]() {
+dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
+											 fe_sec_voltage_t voltage, bool skip_positioner) {
+	assert(sat_pos!=sat_pos_none || skip_positioner);
+	auto [fefd, rf_path, lnb, lnb_connection] = [this, sat_pos]() {
 		auto r = this->ts.readAccess();
 		const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&r->reserved_mux);
 		assert(dvbs_mux);
 		auto *conn = connection_for_rf_path(r->reserved_lnb, r->reserved_rf_path);
 		assert(conn);
-		return std::make_tuple(r->fefd, r->reserved_rf_path, r->reserved_lnb, *conn, *dvbs_mux);
+		assert(dvbs_mux->k.sat_pos == sat_pos || dvbs_mux->k.sat_pos == sat_pos_none);
+		return std::make_tuple(r->fefd, r->reserved_rf_path, r->reserved_lnb, *conn);
 	}();
 
 	auto & diseqc_command = lnb_connection.tune_string;
 
-	bool lnb_only = mux.k.sat_pos == sat_pos_none;
-	int new_usals_sat_pos{sat_pos_none};
+	bool for_positioner_control = sat_pos == sat_pos_none;
+	assert(!for_positioner_control || skip_positioner);
+	int new_usals_pos{sat_pos_none};
 
 	auto can_move_dish_ = devdb::lnb::can_move_dish(lnb_connection);
 
@@ -1734,7 +1739,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 		case 'M': {
 
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
-				return {-1, new_usals_sat_pos};
+				return {-1, new_usals_pos};
 			msleep(must_pause ? 200 : 30);
 			/*
 				tone burst commands deal with simpler equipment.
@@ -1756,13 +1761,11 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			if (diseqc_10 < 0)
 				break; // can be used to signal that it is off
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
-				return {-1, new_usals_sat_pos};
+				return {-1, new_usals_pos};
 			msleep(must_pause ? 200 : 30);
 			unsigned int extra{0};
-			if(!lnb_only) {
-				int pol_v_r = ((int)mux.pol & 1);
-				extra = ((pol_v_r * 2) | (devdb::lnb::band_for_mux(lnb, mux) ==  chdb::sat_sub_band_t::HIGH ? 1 : 0));
-			}
+			int pol_v_r = voltage & 1;
+			extra = ((pol_v_r * 2) | (sat_sub_band ==  chdb::sat_sub_band_t::HIGH ? 1 : 0));
 			ret = this->send_diseqc_message('C', diseqc_10 * 4, extra, repeated);
 			if (ret < 0) {
 				dterrorf("Sending Committed DiseqC message failed");
@@ -1775,7 +1778,7 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 				break; // can be used to signal that it is off
 			// uncommitted
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
-				return {-1, new_usals_sat_pos};
+				return {-1, new_usals_pos};
 
 			msleep(must_pause ? 200 : 30);
 			ret = this->send_diseqc_message('U', diseqc_11, 0, repeated);
@@ -1788,19 +1791,18 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			if (skip_positioner || !can_move_dish_)
 				break;
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
-				return {-1, new_usals_sat_pos};
+				return {-1, new_usals_pos};
 			auto powerup_time_ms = ts.readAccess()->tune_options.tune_pars->dish->powerup_time;
 			sec_status.positioner_wait_after_powerup(powerup_time_ms);
 			msleep(must_pause ? 200 : 30);
-			if (!lnb_only) {
-				auto* lnb_network = (!lnb_only) ? devdb::lnb::get_network(lnb, mux.k.sat_pos) : nullptr;
-				if (!lnb_network) {
-					dterrorf("No network found");
-				} else {// this is not usals!
-					new_usals_sat_pos = lnb_network->sat_pos;
-				}
+			assert(!for_positioner_control);
+			auto* lnb_network = (!for_positioner_control) ? devdb::lnb::get_network(lnb, sat_pos) : nullptr;
+			if (!lnb_network) {
+				dterrorf("No network found");
+			} else {// this is not usals!
+				new_usals_pos = lnb_network->sat_pos;
+			}
 
-				ret = this->send_diseqc_message('X', lnb_network->diseqc12, 0, repeated);
 				if (ret < 0) {
 					dterrorf("Sending Committed DiseqC message failed");
 				}
@@ -1811,19 +1813,16 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 			if (skip_positioner || !can_move_dish_)
 				break;
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
-				return {-1, new_usals_sat_pos};
+				return {-1, new_usals_pos};
 			msleep(must_pause ? 200 : 30);
 			int16_t usals_pos{sat_pos_none};
-			if(!lnb_only) {
-				auto* lnb_network = devdb::lnb::get_network(lnb, mux.k.sat_pos);
-				if (!lnb_network) {
-					dterrorf("No network found");
-				} else {
-					usals_pos = lnb_network->usals_pos;
-					new_usals_sat_pos = usals_pos;
-				}
-			} else { //lnb only
-				usals_pos = lnb.usals_pos;
+			assert(!for_positioner_control);
+			auto* lnb_network = devdb::lnb::get_network(lnb, sat_pos);
+			if (!lnb_network) {
+				dterrorf("No network found");
+			} else {
+				usals_pos = lnb_network->usals_pos;
+				new_usals_pos = usals_pos;
 			}
 			if(usals_pos != sat_pos_none) {
 				ret = this->send_positioner_message(devdb::positioner_cmd_t::GOTO_XX, usals_pos, repeated);
@@ -1840,11 +1839,11 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
 		} break;
 		}
 		if (ret < 0)
-			return {ret, new_usals_sat_pos};
+			return {ret, new_usals_pos};
 	}
 
 	msleep(20);
-	return {1, new_usals_sat_pos};
+	return {1, new_usals_pos};
 }
 
 /** @brief generate and sent the digital satellite equipment control "message",
@@ -1860,15 +1859,15 @@ dvb_frontend_t::diseqc(bool skip_positioner) {
  * @param hi_lo : the band for a dual band lnb
  * @param lnb_voltage_off : if one, force the 13/18V voltage to be 0 independantly of polarisation
  */
-std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage,
-	bool skip_positioner) {
+std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
+																											fe_sec_voltage_t lnb_voltage, bool skip_positioner) {
 	/*
 
 		22KHz: off = low band; on = high band
 		13V = vertical or right-hand  18V = horizontal or low-hand
 		TODO: change this to 18 Volt when using positioner
 	*/
-
+	assert(sat_pos!=sat_pos_none || skip_positioner);
 	auto fefd = this->ts.readAccess()->fefd;
 	this->sec_status.set_voltage(fefd, lnb_voltage);
 
@@ -1876,20 +1875,20 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(chdb::sat_sub_band_t band,
 					 (int) this->ts.readAccess()->tune_options.subscription_type);
 
 	// Note: the following is a NOOP in case no diseqc needs to be sent
-	auto [ ret, new_usals_sat_pos] = diseqc(skip_positioner);
+	auto [ ret, new_usals_pos] = diseqc(sat_pos, sat_sub_band, lnb_voltage, skip_positioner);
 	if (ret < 0)
-		return {ret, new_usals_sat_pos};
+		return {ret, new_usals_pos};
 
 	/*select the proper lnb band
 		22KHz: off = low band; on = high band
 	*/
 
-	fe_sec_tone_mode_t tone = (band == chdb::sat_sub_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
+	fe_sec_tone_mode_t tone = (sat_sub_band == chdb::sat_sub_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 	if (this->sec_status.set_tone(fefd, tone)<0) {
-		return {-1, new_usals_sat_pos};
+		return {-1, new_usals_pos};
 	}
 	msleep(20);
-	return {0, new_usals_sat_pos};
+	return {0, new_usals_pos};
 }
 
 int sec_status_t::set_tone(int fefd, fe_sec_tone_mode mode) {

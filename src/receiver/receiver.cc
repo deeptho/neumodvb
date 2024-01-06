@@ -1684,7 +1684,6 @@ void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t
 		devdb::dish::end_move(devdb_wtxn, dish);
 		devdb_wtxn.commit();
 	}
-	bool has_scanning_subscribers{false};
 	{
 		auto mss = subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
@@ -1692,7 +1691,6 @@ void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t
 			if (!ms)
 				continue;
 			if(ms->is_scanning()) {
-				has_scanning_subscribers = true;
 				continue;
 			}
 			if (!subscription_ids.contains(ms->get_subscription_id()))

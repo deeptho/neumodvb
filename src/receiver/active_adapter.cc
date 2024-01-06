@@ -236,7 +236,6 @@ int active_adapter_t::tune(const subscribe_ret_t& sret,
 	this->tune_options = tune_options;
 	assert(tune_state != TUNE_FAILED);
 	if(sret.tune_pars.dish && sret.tune_pars.dish->cur_usals_pos != sret.tune_pars.dish->target_usals_pos) {
-		assert(sret.tune_pars.dish->target_usals_pos== mux.k.sat_pos);
 		usals_timer.start(sret.tune_pars.dish->cur_usals_pos, sret.tune_pars.dish->target_usals_pos);
 		printf("USALS: timer start\n");
 	}
@@ -398,7 +397,7 @@ void active_adapter_t::monitor() {
 	assert(fe);
 	auto tune_mode = fe->ts.readAccess()->tune_options.tune_mode;
 	if(tune_mode != devdb::tune_mode_t::NORMAL && tune_mode != devdb::tune_mode_t::BLIND) {
-		dtdebugf("adapter {:d} NO MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
+		//dtdebugf("adapter {:d} NO MONITOR: tune_mode={:d}", get_adapter_no(), (int) tune_mode);
 		return;
 	}
 	if(tune_state == TUNE_INIT) {

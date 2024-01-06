@@ -1290,7 +1290,7 @@ bool devdb::lnb::update_lnb_network_from_positioner(db_txn& devdb_wtxn, devdb::l
 		return nullptr;
 	};
 
-	auto network = find_network(lnb, cur_sat_pos);
+	auto* network = find_network(lnb, cur_sat_pos);
 
 	if(!network)
 		return false;
@@ -1299,17 +1299,21 @@ bool devdb::lnb::update_lnb_network_from_positioner(db_txn& devdb_wtxn, devdb::l
 	if(!c.is_valid())
 		return false;
 	auto db_lnb = c.current();
-
-	auto db_network = find_network(db_lnb, cur_sat_pos);
+	auto* db_network = find_network(db_lnb, cur_sat_pos);
+	bool changed{false};
 	if(!db_network) {
 		db_lnb.networks.push_back(*network);
 		std::sort(lnb.networks.begin(), lnb.networks.end(),
 							[](const lnb_network_t& a, const lnb_network_t& b) { return a.sat_pos < b.sat_pos; });
-	} else
+		changed = true;
+	} else {
+		changed = *db_network != *network;
 		*db_network = *network;
-	bool changed = lnb != db_lnb;
+	}
+	if(changed)
+		put_record(devdb_wtxn, db_lnb);
+	changed |= lnb != db_lnb;
 	lnb = db_lnb;
-	put_record(devdb_wtxn, lnb);
 	return changed;
 }
 

@@ -671,7 +671,7 @@ class PositionerDialog_(wx.Frame):
         self.store_position_button.Bind(wx.EVT_BUTTON, self.OnStorePosition)
         self.goto_position_button.Bind(wx.EVT_BUTTON, self.OnGotoPosition)
         self.usals_step_east_button.Bind(wx.EVT_BUTTON, self.OnUsalsStepEast)
-        self.rotor_position_text_ctrl.Bind(wx.EVT_TEXT_ENTER, self.OnPositionChanged)
+        self.rotor_position_text_ctrl.Bind(wx.EVT_TEXT_ENTER, self.OnUsalsPosChanged)
         self.usals_step_west_button.Bind(wx.EVT_BUTTON, self.OnUsalsStepWest)
         self.usals_reset_button.Bind(wx.EVT_BUTTON, self.OnGotoSat)
         self.usals_set_button.Bind(wx.EVT_BUTTON, self.OnGotoUsals)
@@ -733,8 +733,8 @@ class PositionerDialog_(wx.Frame):
         print("Event handler 'OnUsalsStepEast' not implemented!")
         event.Skip()
 
-    def OnPositionChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
-        print("Event handler 'OnPositionChanged' not implemented!")
+    def OnUsalsPosChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        print("Event handler 'OnUsalsPosChanged' not implemented!")
         event.Skip()
 
     def OnUsalsStepWest(self, event):  # wxGlade: PositionerDialog_.<event_handler>

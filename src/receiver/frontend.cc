@@ -1309,7 +1309,7 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 	}
 
 	printf("start wait for positioner\n");
-
+	dtdebugf("start wait for positioner");
 	auto must_abort = wait_for_positioner();
 
 	if(must_abort) {
@@ -1356,6 +1356,8 @@ bool dvb_frontend_t::wait_for_positioner()
 	auto delay  = old_usals_pos== sat_pos_none ? 1 /*arbitrary; will lead to error in spectrum acq*/:
 		std::abs(new_usals_pos-old_usals_pos)/speed;
 
+	dtdebugf("requesting wait: idx={} old={} new =%{} time={}", idx,
+					 old_usals_pos/100., new_usals_pos/100., delay);
 
 	auto subscription_ids = get_subscription_ids();
 	auto& receiver = adaptermgr->receiver;
@@ -1364,6 +1366,7 @@ bool dvb_frontend_t::wait_for_positioner()
 
 	bool must_abort=monitor_thread->wait_for(delay);
 	printf("end wait for positioner must_abort=%d\n", must_abort);
+	dtdebugf("end wait for positioner must_abort={}", must_abort);
 
 	if(must_abort) {
 		dish.target_usals_pos = sat_pos_none;
@@ -1392,6 +1395,7 @@ void dvb_frontend_t::run_task(auto&& task) {
 	task_fiber = boost::context::callcc(task);
 	task_fiber=task_fiber.resume();
 }
+
 void dvb_frontend_t::request_tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																	const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
 	{
@@ -1461,6 +1465,7 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 		this->do_lnb(band, voltage);
 		dtdebugf("tune: do_lnb done");
 	}
+	dtdebugf("start wait for positioner");
 
 	auto must_abort = wait_for_positioner();
 	if(must_abort) {

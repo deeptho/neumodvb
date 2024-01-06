@@ -353,7 +353,7 @@
                                             <flag>wxALIGN_CENTER|wxFIXED_MINSIZE</flag>
                                             <object class="wxTextCtrl" name="rotor_position_text_ctrl" base="EditTextCtrl">
                                                 <events>
-                                                    <handler event="EVT_TEXT_ENTER">OnPositionChanged</handler>
+                                                    <handler event="EVT_TEXT_ENTER">OnUsalsPosChanged</handler>
                                                 </events>
                                                 <tooltip>Current USALS position; press ENTER to change</tooltip>
                                                 <style>wxTE_PROCESS_ENTER|wxTE_CENTRE</style>

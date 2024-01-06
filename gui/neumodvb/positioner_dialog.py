@@ -649,7 +649,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.positioner_mux_sel.SetMux(self.mux)
         self.muxedit_grid.Reset()
         sat_pos = self.sat.sat_pos if network is None else network.usals_pos
-        self.parent.ChangeSatPos(sat_pos)
+        self.parent.self.SetUsalsPos(sat_pos)
         self.parent.SetWindowTitle(self.lnb, self.lnb_connection, self.sat) #update window title
 
     def UpdateRefMux(self, rec):
@@ -845,7 +845,7 @@ class PositionerDialog(PositionerDialog_):
         self.diseqc_type_choice.SetValue(self.lnb_connection)
         self.enable_disable_diseqc_panels()
         network = None if self.sat is None else get_network(self.lnb, self.sat.sat_pos)
-        self.SetPosition( (pychdb.sat.sat_pos_none if self.sat is None else self.sat.sat_pos) \
+        self.SetUsalsPos( (pychdb.sat.sat_pos_none if self.sat is None else self.sat.sat_pos) \
                           if network is None else network.usals_pos)
         self.SetLnbOffsetPos(self.lnb.offset_angle)
         self.SetDiseqc12Position(0 if network is None else network.diseqc12)
@@ -922,8 +922,8 @@ class PositionerDialog(PositionerDialog_):
         self.tune_mux_panel.constellation_plot.clear_constellation()
         self.tune_mux_panel.constellation_plot.clear_data()
 
-    def SetPosition(self, pos):
-        self.position = pos #the satellite pointed to pos (even for an offset lnb)
+    def SetUsalsPos(self, usals_pos):
+        self.position = usals_pos #the satellite pointed to pos (even for an offset lnb)
         self.rotor_position_text_ctrl.SetValue(pychdb.sat_pos_str(self.position))
 
     def SetLnbOffsetPos(self, offset_angle=None):
@@ -975,9 +975,6 @@ class PositionerDialog(PositionerDialog_):
         self.SetTitle(f'Positioner Control - ???' if lnb is None \
                       else f'Positioner Control - {lnb.k} {lnb_connection} {sat}' )
 
-    def ChangeSatPos(self, sat_pos):
-        self.SetPosition(sat_pos)
-
     def positioner_command(self, *args):
         if self.lnb_connection.rotor_control in (pydevdb.rotor_control_t.MASTER_DISEQC12,
                                       pydevdb.rotor_control_t.MASTER_USALS):
@@ -985,7 +982,7 @@ class PositionerDialog(PositionerDialog_):
             if ret >= 0:
                 if new_usals_pos is not None:
                     self.UpdateUsalsPosition_(new_usals_pos)
-                    self.SetPosition(new_usals_pos)
+                    self.SetUsalsPos(new_usals_pos)
                 return True
             else:
                 ShowMessage("Cannot control rotor", f"Failed to send positioner command")
@@ -1059,12 +1056,12 @@ class PositionerDialog(PositionerDialog_):
         else:
             self.usals_panel.Enable()
 
-    def OnPositionChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+    def OnUsalsPosChanged(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         val = event if type(event) == str  else event.GetString()
         from neumodvb.util import parse_longitude
         pos = parse_longitude(val)
 
-        self.SetPosition(pos)
+        self.SetUsalsPos(pos)
         self.UpdateUsalsPosition(pos)
         if type(event) != str:
             event.Skip()
@@ -1073,17 +1070,17 @@ class PositionerDialog(PositionerDialog_):
         """
         Called when user presses "Set button" next to usals location
         """
-        self.OnPositionChanged(self.rotor_position_text_ctrl.GetValue())
+        self.OnUsalsPosChanged(self.rotor_position_text_ctrl.GetValue())
 
     def OnUsalsStepEast(self, event):
         self.position += self.step
-        self.SetPosition(self.position)
+        self.SetUsalsPos(self.position)
         self.UpdateUsalsPosition(self.position)
         event.Skip()
 
     def OnUsalsStepWest(self, event):
         self.position -= self.step
-        self.SetPosition(self.position)
+        self.SetUsalsPos(self.position)
         self.UpdateUsalsPosition(self.position)
         event.Skip()
 
@@ -1175,7 +1172,7 @@ class PositionerDialog(PositionerDialog_):
                         "allow moving the positioner")
             return
 
-        self.SetPosition(pos)
+        self.SetUsalsPos(pos)
         event.Skip()
 
     def OnGotoPosition(self, event):  # wxGlade: PositionerDialog_.<event_handler>

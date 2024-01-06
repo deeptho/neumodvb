@@ -1340,13 +1340,12 @@ bool dvb_frontend_t::wait_for_positioner()
 	auto dish  = *dish_;
 	auto old_usals_pos = dish.cur_usals_pos;
 	auto new_usals_pos = dish.target_usals_pos;
-	if(old_usals_pos == sat_pos_none || new_usals_pos == sat_pos_none)
+	if(new_usals_pos == sat_pos_none)
 		return false;
 	if(old_usals_pos == new_usals_pos)
 		return false;
 	ts.writeAccess()->lock_status.fem_state = fem_state_t::POSITIONER_MOVING;
 
-	assert(old_usals_pos != sat_pos_none);
 	assert(new_usals_pos != sat_pos_none);
 	int idx = (this->sec_status.get_voltage() == SEC_VOLTAGE_18) ? 1 :0;
 	double speed = 1.0; //1 degree per second
@@ -1354,7 +1353,8 @@ bool dvb_frontend_t::wait_for_positioner()
 		dterrorf("Index out of range: {}/{}", idx, dish.speeds.size());
 	} else
 		speed = dish.speeds[idx];
-	auto delay  = std::abs(new_usals_pos-old_usals_pos)/speed;
+	auto delay  = old_usals_pos== sat_pos_none ? 1 /*arbitrary; will lead to error in spectrum acq*/:
+		std::abs(new_usals_pos-old_usals_pos)/speed;
 
 
 	auto subscription_ids = get_subscription_ids();

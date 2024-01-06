@@ -736,9 +736,9 @@ class NeumoTable(NeumoTableBase):
                     self.parent.SelectRecord(last.oldrecord)
                     self.parent.ForceRefresh()
                 assert last.oldrow < self.GetNumberRows()
-                assert last.oldrow == self.row_being_edited
-                self.record_being_edited = last.oldrecord
-                #self.data[last.oldrow] = last.oldrecord
+                if self.row_being_edited is not None:
+                    assert last.oldrow == self.row_being_edited
+                    self.record_being_edited = last.oldrecord
                 return 0
             elif last.operation == 'new':
                 assert type(last) is not list

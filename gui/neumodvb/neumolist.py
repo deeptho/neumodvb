@@ -616,11 +616,10 @@ class NeumoTable(NeumoTableBase):
     def DeleteRows(self, pos=0, numRows=1, updateLabels=True):
         return True
 
-    def GetNumberRows(self, ignore_editing_record=False):
+    def GetNumberRows(self):
         if self.screen is None:
             return 0
-        return (self.screen.list_size + 1)  if (self.screen.has_editing_record and not ignore_editing_record) \
-            else self.screen.list_size
+        return self.screen.list_size + len(self.new_rows)
 
 
     @lru_cache(maxsize=30) #cache the last row, because multiple columns will lookup same row
@@ -846,7 +845,7 @@ class NeumoTable(NeumoTableBase):
             self.parent.ForceRefresh()
 
     def new_row(self):
-        rowno = self.GetNumberRows(ignore_editing_record=True)
+        rowno = self.GetNumberRows()
         self.selected_row = rowno
         rec = self.__new_record__()
         #self.data[n] = rec

@@ -48,17 +48,17 @@ class RecTable(NeumoTable):
     all_columns = \
         [
          CD(key='epg.rec_status',  label='Status', basic=True,  dfn=lambda x: lastdot(x)),
-         CD(key='epg.k.start_time', label='EStart', dfn=datetime_fn, example="2020-11-15 15:30"),
-         CD(key='epg.end_time',  label='EEnd', dfn=time_fn, example="15:40"),
-         CD(key='real_time_start', label='Start', basic=True, dfn=datetime_fn),
-         CD(key='real_time_end',  label='End', basic=True, dfn=datetime_fn),
+         CD(key='epg.k.start_time', label='EStart', dfn=datetime_fn, readonly=True, example="2020-11-15 15:30"),
+         CD(key='epg.end_time',  label='EEnd', dfn=time_fn, readonly=True, example="15:40"),
+         CD(key='real_time_start', label='Start', basic=True, readonly=True, dfn=datetime_fn),
+         CD(key='real_time_end',  label='End', basic=True, readonly=True, dfn=datetime_fn),
          CD(key='pre_record_time',  label='Pre', example="100"),
          CD(key='post_record_time',  label='Post', example="100"),
          CD(key='service.ch_order', label='#', basic=True, example="10000"),
          CD(key='service.name',  label='Service', basic=True, example="Investigation disc"),
          CD(key='epg.event_name',  label='Program', basic=True, example="Investigation discovery12345 Investigation discovery12345 "),
-         CD(key='stream_time_start',  label='Start'),
-         CD(key='stream_time_end', label='End'),
+         CD(key='stream_time_start',  label='Start', readonly=True),
+         CD(key='stream_time_end', label='End', readonly=True),
          ]
 
     def __init__(self, parent, basic=False, *args, **kwds):

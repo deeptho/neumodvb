@@ -1177,7 +1177,7 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
                 editor = wx.grid.GridCellBoolEditor()
                 pass
             elif issubclass(coltype, numbers.Integral):
-                if col.key.endswith('time'):
+                if col.key == 'mtime':
                     readonly = True
                 elif col.key.endswith('frequency') or col.key.startswith('freq_') or col.key.startswith('lof_'):
                     editor = NeumoFloatEditor(col, precision=3)

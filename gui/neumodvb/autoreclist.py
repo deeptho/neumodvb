@@ -108,6 +108,7 @@ class AutoRecGridBase(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.app = wx.GetApp()
+        self.Bind(wx.grid.EVT_GRID_CELL_LEFT_DCLICK, self.OnLeftClicked)
 
     def InitialRecord(self):
         return self.app.currently_selected_rec
@@ -120,6 +121,39 @@ class AutoRecGridBase(NeumoGridBase):
 
     def OnTimer(self, evt):
         super().OnTimer(evt)
+
+    def CheckShowDialog(self, evt, rowno, colno):
+        readonly = self.table.columns[colno].readonly
+        if self.GetGridCursorRow() == rowno:
+            autorec =  self.table.CurrentlySelectedRecord()
+            from neumodvb.autorec_dialog import show_autorec_dialog
+            old_autorec = autorec.copy()
+            ret, autorec = show_autorec_dialog(self, record=autorec)
+            if ret == wx.ID_OK:
+                self.table.row_being_edited = rowno
+                self.table.record_being_edited = autorec
+                wx.GetApp().frame.SetEditMode(True)
+                self.table.Backup("edit", rowno, old_autorec, autorec)
+            elif ret ==wx.ID_DELETE: #delete
+                wx.CallAfter(self.table.DeleteRows, [rowno])
+            else:
+                pass
+            wx.CallAfter(self.Refresh)
+            return True
+        else:
+            return False
+
+    def OnLeftClicked(self, evt):
+        """
+        Create and display a popup menu on right-click event
+        """
+        colno = evt.GetCol()
+        rowno = evt.GetRow()
+        if self.CheckShowDialog(evt, rowno, colno):
+            evt.Skip(False)
+        else:
+            evt.Skip(True)
+
 
 class BasicAutoRecGrid(AutoRecGridBase):
     def __init__(self, *args, **kwds):

@@ -178,7 +178,13 @@ class ChEpgGrid(NeumoGridBase):
         assert epg is not None
         assert service is not None
         from neumodvb.autorec_dialog import show_autorec_dialog
-        show_autorec_dialog(self, service, epg=epg)
+        ret, autorec = show_autorec_dialog(self, service, epg=epg)
+        if ret == wx.ID_OK:
+            wx.GetApp().receiver.update_autorec(autorec)
+        elif ret ==wx.ID_DELETE: #delete
+            wx.GetApp().receiver.delete_autorec(autorec)
+        else:
+            pass
 
     def OnShow(self, evt):
         service = self.app.live_service_screen.selected_service

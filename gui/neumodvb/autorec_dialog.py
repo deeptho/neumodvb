@@ -82,7 +82,6 @@ class AutoRecDialog(AutoRecDialog_):
         self.autorec.starts_after = self.starts_after_text.GetSeconds()
         self.autorec.min_duration = self.min_duration_text.GetSeconds()
         self.autorec.max_duration = self.max_duration_text.GetSeconds()
-        wx.GetApp().receiver.update_autorec(self.autorec)
 
     def OnWindowCreateOFF(self, evt):
         if evt.GetWindow() != self:
@@ -154,8 +153,8 @@ def show_autorec_dialog(parent, record, epg=None, start_time=None):
     if ret == wx.ID_OK:
         dlg.OnDone()
     elif ret ==wx.ID_DELETE: #delete
-        wx.GetApp().receiver.delete_autorec(self.autorec)
+        pass
     else:
         dlg.OnCancel()
     dlg.Destroy()
-    return ret
+    return ret, autorec

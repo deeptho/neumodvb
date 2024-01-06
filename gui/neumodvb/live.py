@@ -1646,7 +1646,14 @@ class RecordPanel(wx.Panel):
         record = row.row_record
         if self.last_focused_cell.data.is_ch:
             start_time = datetime.datetime.now(tz=tz.tzlocal())
-            show_autorec_dialog(self, record)
+            ret, autorec = show_autorec_dialog(self, record)
+            if ret == wx.ID_OK:
+                wx.GetApp().receiver.update_autorec(autorec)
+            elif ret ==wx.ID_DELETE: #delete
+                wx.GetApp().receiver.delete_autorec(autorec)
+            else:
+                pass
+
             return True
         return False
 
@@ -1954,11 +1961,24 @@ class GridEpgPanel(RecordPanel):
         service = row.row_record
         assert not self.last_focused_cell.data.is_ch
         if self.last_focused_cell.data.epg is None:
-            show_autorec_dialog(self, service, start_time = self.last_focused_cell.data.start_time)
+            ret, autorec = show_autorec_dialog(self, service, start_time = self.last_focused_cell.data.start_time)
+            if ret == wx.ID_OK:
+                wx.GetApp().receiver.update_autorec(autorec)
+            elif ret ==wx.ID_DELETE: #delete
+                wx.GetApp().receiver.delete_autorec(autorec)
+            else:
+                pass
             return True
         else:
             epg=self.last_focused_cell.data.epg
-            show_autorec_dialog(self, service, epg=epg)
+            ret, autorec = show_autorec_dialog(self, service, epg=epg)
+            if ret == wx.ID_OK:
+                wx.GetApp().receiver.update_autorec(autorec)
+            elif ret ==wx.ID_DELETE: #delete
+                wx.GetApp().receiver.delete_autorec(autorec)
+            else:
+                pass
+
             return True
         return False
 

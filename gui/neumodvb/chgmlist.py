@@ -164,7 +164,14 @@ class ChgmGridBase(NeumoGridBase):
         chgm = self.table.screen.record_at_row(row)
         start_time = datetime.datetime.now(tz=tz.tzlocal())
         from neumodvb.autorec_dialog import show_autorec_dialog
-        show_autorec_dialog(self, chgm)
+        ret, autorec = show_autorec_dialog(self, chgm)
+        if ret == wx.ID_OK:
+            wx.GetApp().receiver.update_autorec(autorec)
+        elif ret ==wx.ID_DELETE: #delete
+            wx.GetApp().receiver.delete_autorec(autorec)
+        else:
+            pass
+
 
     def OnKeyDown(self, evt):
         """

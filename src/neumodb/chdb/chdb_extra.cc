@@ -1306,21 +1306,39 @@ chdb::select_sat_for_sat_band(db_txn& chdb_rtxn, const chdb::sat_band_t& sat_ban
 void chdb::sat::clean_band_scan_pols(chdb::sat_t& sat, devdb::lnb_pol_type_t lnb_pol_type)
 {
 	using namespace chdb;
+	bool have_hl{false};
+	bool have_rv{false};
 	for(int i=0; i < sat.band_scans.size(); ++i) {
 		auto& band_scan = sat.band_scans[i];
 		switch(band_scan.pol) {
 		case fe_polarisation_t::H:
-		case fe_polarisation_t::V:
-			if (lnb_pol_type != devdb::lnb_pol_type_t::HV) {
+			if (lnb_pol_type != devdb::lnb_pol_type_t::HV || have_hl) {
 				sat.band_scans.erase(i);
+				have_hl = true;
+				--i;
+			}
+			continue;
+			break;
+		case fe_polarisation_t::V:
+			if (lnb_pol_type != devdb::lnb_pol_type_t::HV || have_rv) {
+				sat.band_scans.erase(i);
+				have_rv = true;
 				--i;
 			}
 			continue;
 			break;
 		case fe_polarisation_t::L:
-		case fe_polarisation_t::R:
-			if (lnb_pol_type != devdb::lnb_pol_type_t::LR) {
+			if (lnb_pol_type != devdb::lnb_pol_type_t::LR || have_hl) {
 				sat.band_scans.erase(i);
+				have_hl = true;
+				--i;
+			}
+			continue;
+			break;
+		case fe_polarisation_t::R:
+			if (lnb_pol_type != devdb::lnb_pol_type_t::LR || have_rv) {
+				sat.band_scans.erase(i);
+				have_rv = true;
 				--i;
 			}
 			continue;

@@ -298,7 +298,7 @@ private:
 	void reset();
 	void destroy(); //called from tuner_thread on exit
 	template<typename mux_t> inline int retune();
-	int restart_tune(const chdb::any_mux_t& mux);
+	int restart_tune(const chdb::any_mux_t& mux, subscription_id_t subscription_id);
 
 	int lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 												subscription_options_t tune_options);

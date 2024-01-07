@@ -281,24 +281,20 @@ template <typename mux_t> inline int active_adapter_t::retune() {
 	return retune(mux, tune_options, user_requested, subscription_id_t::NONE);
 }
 
-int active_adapter_t::restart_tune(const chdb::any_mux_t& mux) {
+int active_adapter_t::restart_tune(const chdb::any_mux_t& mux, subscription_id_t subscription_id) {
 	visit_variant(
 		mux,
-		[this](const dvbs_mux_t& mux) {
+		[this, subscription_id](const dvbs_mux_t& mux) {
 			bool user_requested = true;
-			{
-				auto devdb_rtxn = receiver.devdb.rtxn();
-				devdb_rtxn.abort();
-			}
-			retune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, subscription_id_t::NONE);
+			retune(current_rf_path(), current_lnb(), mux, tune_options, user_requested, subscription_id);
 		},
-		[this](const dvbc_mux_t& mux) {
+		[this, subscription_id](const dvbc_mux_t& mux) {
 			bool user_requested = true;
-			retune(mux, tune_options, user_requested, subscription_id_t::NONE);
+			retune(mux, tune_options, user_requested, subscription_id);
 		},
-		[this](const dvbt_mux_t& mux) {
+		[this, subscription_id](const dvbt_mux_t& mux) {
 			bool user_requested = true;
-			retune(mux, tune_options, user_requested, subscription_id_t::NONE);
+			retune(mux, tune_options, user_requested, subscription_id);
 		});
 	return 0;
 }
@@ -1164,7 +1160,7 @@ int active_adapter_t::request_retune(const chdb::any_mux_t& mux_,
 	this->fe->set_tune_options(tune_options);
 	auto mux = this->prepare_si(mux_, false /*start*/, subscription_id);
 	this->processed_isis.reset();
-	this->restart_tune(mux);
+	this->restart_tune(mux, subscription_id);
 	return 0;
 }
 

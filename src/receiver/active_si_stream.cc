@@ -97,6 +97,7 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 		return;
 	dtdebugf("activate_scan mux={}", mux);
 	using namespace chdb;
+	assert((int)subscription_id >= 0);
 	scan_state.scans_in_progress.push_back({scan_id, subscription_id});
 	namespace m = chdb::update_mux_preserve_t;
 	auto* muxc = mux_common_ptr(mux);
@@ -293,6 +294,7 @@ void active_si_stream_t::check_scan_mux_end()
 	auto scans_in_progress = this->scan_state.scans_in_progress;
 	for(auto& e: scans_in_progress) {
 			auto [scan_id, subscription_id ] = e;
+			assert((int)subscription_id >= 0);
 			receiver.on_scan_mux_end(dbfe, mux, scan_id, subscription_id);
 	}
 	this->scan_state.scans_in_progress.clear();

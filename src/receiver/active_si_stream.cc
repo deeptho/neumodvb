@@ -110,7 +110,7 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 
 		if(muxc->scan_status == scan_status_t::PENDING ||
 			 muxc->scan_status == scan_status_t::RETRY)  {
-			dtdebugf("SET ACTIVE {} must_save={}", mux, must_save);
+			dtdebugf("SET ACTIVE {} must_save={} si_processing_done={}", mux, must_save, si_processing_done);
 			if(si_processing_done) {
 				muxc->scan_status = scan_status_t::IDLE;
 				muxc->scan_id = {};
@@ -120,7 +120,6 @@ void active_si_stream_t::activate_scan(chdb::any_mux_t& mux,
 			}
 			must_save = !is_template(mux);
 		}
-
 		if(must_save) {
 			auto& k = *mux_key_ptr(mux);
 			assert(k.mux_id > 0 && ! is_template(mux));
@@ -836,7 +835,7 @@ bool active_si_stream_t::fix_tune_mux_template() {
 		lmdb_hint();
 		auto wtxn = receiver.chdb.wtxn();
 		c.scan_lock_result = lock_state.tune_lock_result;
-		chdb::update_mux(wtxn, stream_mux, now,  m::flags{ (m::MUX_COMMON|m::MUX_KEY)/* & ~m::SCAN_STATUS*/},
+		chdb::update_mux(wtxn, stream_mux, now,  m::flags{ (m::MUX_COMMON|m::MUX_KEY)& ~m::SCAN_STATUS},
 										 /*true  ignore_key,*/ false /*ignore_t2mi_pid*/, false /*must_exist*/);
 
 		if(stream_id_changed) {
@@ -2762,7 +2761,6 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 
 	return {(signal_info.lock_status.fe_status & FE_HAS_LOCK), stream_id_changed};
 }
-
 
 void active_si_stream_t::load_movistar_bouquet() {
 	auto txn = chdbmgr.rtxn();

@@ -240,7 +240,7 @@ void active_stream_t::remove_all_pids()
 {
 	log4cxx::NDC(name());
 	if(!reader->is_open()) {
-		dterrorf("remove_pid with reader->demux_fd<0");
+		//dterrorf("remove_pid with reader->demux_fd<0");
 		return;
 	}
 

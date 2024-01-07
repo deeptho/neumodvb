@@ -950,11 +950,14 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 					 cmd.msg_len, cmd.msg[0], cmd.msg[1], cmd.msg[2], cmd.msg[3], cmd.msg[4], cmd.msg[5]);
 	int err;
 	auto fefd = ts.readAccess()->fefd;
-	auto powerup_time_ms = ts.readAccess()->tune_options.tune_pars->dish->powerup_time;
-	sec_status.positioner_wait_after_powerup(powerup_time_ms);
-	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
-		dterrorf("problem sending the DiseqC message");
-		return -1;
+	auto tune_pars = *ts.readAccess()->tune_options.tune_pars;
+	if(tune_pars.move_dish) {
+		auto powerup_time_ms = tune_pars.dish->powerup_time;
+		sec_status.positioner_wait_after_powerup(powerup_time_ms);
+		if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
+			dterrorf("problem sending the DiseqC message");
+			return -1;
+		}
 	}
 	return 0;
 }

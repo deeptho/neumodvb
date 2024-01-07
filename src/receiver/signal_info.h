@@ -80,6 +80,7 @@ struct tune_confirmation_t {
 enum class fem_state_t {
 	IDLE,                  //fe_monitor is not executing any tuning/spectral acq... command
 	STARTED,               //fe_monitor is starting
+	FAILED,               //fe_monitor has encountered a tuning error
 	POSITIONER_MOVING,     //Positioner has started moving
 	SEC_POWERED_UP,        //Sufficient time has passed for all diseqc devices and lnb to be powered up
 	                       //and positioner to move, and tuning, spectral acq... has started

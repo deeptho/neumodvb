@@ -426,12 +426,14 @@ receiver_thread_t::subscribe_spectrum(
 																			 sat, band_scan, do_not_unsubscribe_on_failure);
 
 	if(sret.failed) {
-		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
-		if(updated_old_dbfe) {
-			dtdebugf("Subscription failed calling release_active_adapter");
-			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
-		} else {
-			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
+		if(!do_not_unsubscribe_on_failure) {
+			auto updated_old_dbfe = sret.aa.updated_old_dbfe;
+			if(updated_old_dbfe) {
+				dtdebugf("Subscription failed calling release_active_adapter");
+				release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+			} else {
+				dtdebugf("Subscription failed: updated_old_dbfe = NONE");
+			}
 		}
 		user_errorf("Sat band reservation failed: {}:{}", sat, band_scan);
 		return subscription_id_t::RESERVATION_FAILED;
@@ -475,12 +477,14 @@ receiver_thread_t::subscribe_mux(
 																	do_not_unsubscribe_on_failure);
 
 	if(sret.failed) {
-		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
-		if(updated_old_dbfe) {
-			dtdebugf("Subscription failed calling release_active_adapter");
-			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
-		} else {
-			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
+		if(!do_not_unsubscribe_on_failure) {
+			auto updated_old_dbfe = sret.aa.updated_old_dbfe;
+			if(updated_old_dbfe) {
+				dtdebugf("Subscription failed calling release_active_adapter");
+				release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+			} else {
+				dtdebugf("Subscription failed: updated_old_dbfe = NONE");
+			}
 		}
 		user_errorf("Mux reservation failed: {}", mux);
 		return subscription_id_t::RESERVATION_FAILED;
@@ -2037,7 +2041,7 @@ static chdb::scan_id_t activate_spectrum_scan_
 				assert (chdb::scan_in_progress(band_scan.scan_id));
 			} else if (band_scan.scan_status == scan_status_t::ACTIVE) {
 				assert(spectrum_obtained);
-								dtdebugf("SET ACTIVE {}", band_scan);
+				dtdebugf("SET IDLE {}", band_scan);
 				if(spectrum_obtained) {
 					band_scan.scan_status = scan_status_t::IDLE;
 					band_scan.scan_id = {};

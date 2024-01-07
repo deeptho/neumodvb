@@ -32,26 +32,30 @@
 
 using namespace devdb;
 static
-std::optional<devdb::dish_t> update_dish_helper(db_txn& devdb_wtxn, devdb::lnb_t&lnb,
-																								const devdb::rf_path_t& rf_path, const devdb::usals_location_t& loc,
-																								int16_t lnb_sat_pos, bool may_move_dish)
+std::tuple<bool,std::optional<devdb::dish_t>>
+update_dish_helper(db_txn& devdb_wtxn, devdb::lnb_t&lnb,
+									 const devdb::rf_path_t& rf_path, const devdb::usals_location_t& loc,
+									 int16_t lnb_sat_pos, bool may_move_dish)
 {
 	if(lnb.on_positioner) {
 		auto* lnb_network = devdb::lnb::get_network(lnb, lnb_sat_pos);
 		if (!lnb_network) {
 			dterrorf("No network found");
-			return {};
+			return {false, {}};
 		}
 		auto usals_pos = lnb_network->usals_pos;
 		auto old_usals_pos = lnb.usals_pos;
 		lnb.usals_pos = usals_pos;
-		if (may_move_dish)
-			return
-				devdb::dish::schedule_move(devdb_wtxn, lnb, usals_pos, lnb_sat_pos, loc, false /*move_has_finished*/);
-		else
-			return {};
+		printf("USALS from=%d to=%d\n", old_usals_pos, usals_pos);
+		if (may_move_dish && old_usals_pos != usals_pos) {
+			bool move_dish =true;
+			auto dish = devdb::dish::schedule_move(devdb_wtxn, lnb, usals_pos, lnb_sat_pos, loc, false /*move_has_finished*/);
+			return {move_dish, dish};
+		}
 	}
-	return {};
+	bool move_dish = false;
+	auto dish = devdb::dish::get_dish(devdb_wtxn, lnb.k.dish_id);
+	return {move_dish, dish};
 }
 
 static bool unsubscribe_helper(fe_t& fe, subscription_id_t subscription_id) {
@@ -132,6 +136,7 @@ static inline subscribe_ret_t reuse_other_subscription(
 	sret.aa = {.updated_old_dbfe=old_fe, .updated_new_dbfe=new_fe, .rf_path={}, .lnb={}};
 	sret.sub_to_reuse =(subscription_id_t) other_subscription_id;
 	sret.tune_pars.send_lnb_commands = false;
+	sret.tune_pars.move_dish = false;
 	sret.tune_pars.dish = {};
 	return sret;
 }
@@ -145,6 +150,7 @@ static inline subscribe_ret_t new_service(
 	sret.sub_to_reuse = (subscription_id_t) other_subscription_id;
 	sret.change_service = true;
 	sret.tune_pars.send_lnb_commands = false;
+	sret.tune_pars.move_dish = false;
 	sret.tune_pars.dish = {};
 	return sret;
 }
@@ -358,12 +364,15 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 		}
 		if (sat_pos_to_move_to) {
 			if(sret.tune_pars.send_lnb_commands)  {
-				sret.tune_pars.dish =  update_dish_helper(wtxn, lnb, rf_path, tune_options.usals_location,
-																									*sat_pos_to_move_to, tune_options.may_move_dish);
+				std::tie(sret.tune_pars.move_dish, sret.tune_pars.dish)
+					=  update_dish_helper(wtxn, lnb, rf_path, tune_options.usals_location,
+																*sat_pos_to_move_to, tune_options.may_move_dish);
 				if(!sret.tune_pars.dish)
 					return failed(sret.subscription_id, updated_old_dbfe);
-			} else
-				sret.tune_pars.dish = {};
+			} else {
+				sret.tune_pars.move_dish = false;
+				sret.tune_pars.dish = devdb::dish::get_dish(wtxn, lnb.k.dish_id);
+			}
 		}
 		return sret;
 	} else {
@@ -750,12 +759,15 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				auto& lnb = *lnb_;
 				if(sret.tune_pars.send_lnb_commands)  {
-					sret.tune_pars.dish =  update_dish_helper(wtxn, lnb, *rf_path_, tune_options.usals_location,
-																										mux.k.sat_pos, tune_options.may_move_dish);
+					std::tie(sret.tune_pars.move_dish, sret.tune_pars.dish)
+						=  update_dish_helper(wtxn, lnb, *rf_path_, tune_options.usals_location,
+																	mux.k.sat_pos, tune_options.may_move_dish);
 					if(!sret.tune_pars.dish)
 						return failed(sret.subscription_id, updated_old_dbfe);
-				} else
-					sret.tune_pars.dish = {};
+				} else {
+					sret.tune_pars.move_dish = false;
+					sret.tune_pars.dish = devdb::dish::get_dish(wtxn, lnb.k.dish_id);
+				}
 			}
 			return sret;
 		}
@@ -800,13 +812,16 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 			auto& lnb = *lnb_;
 
 			if(sret.tune_pars.send_lnb_commands)  {
-				sret.tune_pars.dish =  update_dish_helper(wtxn, lnb, *rf_path_, tune_options.usals_location, sat.sat_pos,
-																									tune_options.may_move_dish);
+				std::tie(sret.tune_pars.move_dish, sret.tune_pars.dish)
+					= update_dish_helper(wtxn, lnb, *rf_path_, tune_options.usals_location, sat.sat_pos,
+															 tune_options.may_move_dish);
 				if(!sret.tune_pars.dish)
 					return failed(sret.subscription_id, updated_old_dbfe);
 			}
-			else
-				sret.tune_pars.dish= {};
+			else {
+				sret.tune_pars.move_dish=false;
+				sret.tune_pars.dish= devdb::dish::get_dish(wtxn, lnb.k.dish_id);
+			}
 			return sret;
 		}
 		return failed(sret.subscription_id, updated_old_dbfe);

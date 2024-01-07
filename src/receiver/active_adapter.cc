@@ -71,14 +71,16 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 	int lock_lost = status.lock_lost;
 	bool must_tune = false;
 	bool relocked_now = false;
-	bool tune_failed = false;
+	bool tune_failed = status.fem_state == fem_state_t::FAILED;
 	lock_state.tune_lock_result = status.tune_lock_result();
 	lock_state.locked_normal = is_locked;
 	lock_state.locked_minimal = lock_state.tune_lock_result >= chdb::lock_result_t::CAR;
 	lock_state.temp_tune_failure = temp_tune_failure;
 	lock_state.is_not_ts = is_not_ts;
 	lock_state.is_dvb = is_dvb;
-	if(temp_tune_failure)
+	if(tune_failed)
+		tune_state = TUNE_FAILED;
+	else if(temp_tune_failure)
 		tune_state = TUNE_FAILED_TEMP;
 	switch (tune_state) {
 	case TUNE_INIT: {
@@ -235,7 +237,9 @@ int active_adapter_t::tune(const subscribe_ret_t& sret,
 
 	this->tune_options = tune_options;
 	assert(tune_state != TUNE_FAILED);
-	if(sret.tune_pars.dish && sret.tune_pars.dish->cur_usals_pos != sret.tune_pars.dish->target_usals_pos) {
+	if(sret.tune_pars.move_dish && sret.tune_pars.dish->cur_usals_pos != sret.tune_pars.dish->target_usals_pos) {
+		printf("USALS: old=%d new=d%d sat_pos=%d\n", sret.tune_pars.dish->cur_usals_pos,
+					 sret.tune_pars.dish->cur_usals_pos, mux.k.sat_pos);
 		usals_timer.start(sret.tune_pars.dish->cur_usals_pos, sret.tune_pars.dish->target_usals_pos);
 		printf("USALS: timer start\n");
 	}

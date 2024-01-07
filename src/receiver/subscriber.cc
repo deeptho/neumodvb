@@ -98,7 +98,7 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 	so.spectrum_scan_options.end_freq = band_scan_options.end_freq;
 	subscription_id_t ret{subscription_id};
 	ret = receiver->scan_bands(sats, band_scan_options.pols, so, *this);
-	assert(ret==subscription_id || (int) subscription_id == -1);
+	assert(ret==subscription_id || (int) ret == -1);
 	return (int)subscription_id;
 }
 
@@ -113,12 +113,11 @@ template<typename mux_t>
 int subscriber_t::scan_muxes(ss::vector_<mux_t> muxes,
 														 const std::optional<devdb::tune_options_t>& tune_options_) {
 	set_scanning(true);
-	auto so = 		receiver->get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
+	auto so = receiver->get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
 	if(tune_options_)
 		(devdb::tune_options_t&)so = *tune_options_;
 	auto& tune_options = tune_options_ ? *tune_options_ :
 		receiver->get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
-
 	subscription_id_t ret{subscription_id};
 	if(muxes.size() > 0) {
 		ret = receiver->scan_muxes(muxes, so, *this);

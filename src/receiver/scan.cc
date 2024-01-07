@@ -1193,6 +1193,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 	auto& tune_options = tune_options_for_scan_id(scan_id);
 	tune_options.use_blind_tune = use_blind_tune;
 	tune_options.need_spectrum = false;
+	assert(tune_options.subscription_type == devdb::subscription_type_t::MUX_SCAN);
 	assert(chdb::scan_in_progress(scan_id));
 	assert(scanner_t::is_our_scan(scan_id));
 	dtdebugf("Asking to subscribe {} reuseable_subscription_id={}",
@@ -1487,18 +1488,17 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 																	const ss::vector_<peak_t>& peaks,
 																	subscription_id_t scan_subscription_id) {
 	assert((int) scan_subscription_id >=0);
-	subscription_options_t o;
-	o.scan_target = devdb::scan_target_t::SCAN_FULL;
-	o.propagate_scan = false;
-	o.may_move_dish = false;
-	o.use_blind_tune = false;
-	o.allowed_dish_ids = {};
-	o.allowed_card_mac_addresses = {};
+	auto so = receiver.get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
+	so.propagate_scan = false;
+	so.may_move_dish = false;
+	so.use_blind_tune = false;
+	so.allowed_dish_ids = {};
+	so.allowed_card_mac_addresses = {};
 	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id);
 	auto& scan = it->second;
 	assert(scan.scan_subscription_id == scan_subscription_id);
 
-	auto scan_id = scan.make_scan_id(scan_subscription_id, o);
+	auto scan_id = scan.make_scan_id(scan_subscription_id, so);
 
 	for(const auto& peak_: peaks) {
 		chdb::spectral_peak_t peak;

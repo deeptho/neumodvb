@@ -52,6 +52,7 @@ struct spectrum_scan_options_t {
  */
 struct tune_pars_t {
 	std::optional<devdb::dish_t> dish;
+	bool move_dish{false};
 	bool send_lnb_commands{false};
 };
 

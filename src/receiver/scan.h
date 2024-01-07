@@ -387,6 +387,7 @@ private:
 	inline chdb::scan_id_t make_scan_id(subscription_id_t scan_subscription_id,
 																			const subscription_options_t& tune_options) {
 		chdb::scan_id_t ret;
+		assert(tune_options.subscription_type != devdb::subscription_type_t::TUNE);
 		ret.subscription_id = (int32_t) scan_subscription_id;
 		ret.pid = getpid();
 		ret.opt_id = next_opt_id++;

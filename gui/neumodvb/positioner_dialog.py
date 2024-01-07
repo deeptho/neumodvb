@@ -649,7 +649,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.positioner_mux_sel.SetMux(self.mux)
         self.muxedit_grid.Reset()
         sat_pos = self.sat.sat_pos if network is None else network.usals_pos
-        self.parent.self.SetUsalsPos(sat_pos)
+        self.parent.SetUsalsPos(sat_pos)
         self.parent.SetWindowTitle(self.lnb, self.lnb_connection, self.sat) #update window title
 
     def UpdateRefMux(self, rec):

@@ -210,14 +210,6 @@ protected:
 		::timer_stop(timer_fd);
 	}
 
-	inline void request_wakeup(double seconds) {
-		if(wait_timer_fd <0) {
-			wait_timer_fd = timerfd_create(CLOCK_MONOTONIC, 0);
-			epx.add_fd(wait_timer_fd, EPOLLIN|EPOLLERR|EPOLLHUP);
-		}
-		timer_set_once(wait_timer_fd, seconds);
-	}
-
 	inline void wait_abort() {
 		epx.remove_fd(wait_timer_fd);
 		::timer_stop(wait_timer_fd);
@@ -261,6 +253,13 @@ protected:
 	}
 public:
 
+	inline void request_wakeup(double seconds) {
+		if(wait_timer_fd <0) {
+			wait_timer_fd = timerfd_create(CLOCK_MONOTONIC, 0);
+			epx.add_fd(wait_timer_fd, EPOLLIN|EPOLLERR|EPOLLHUP);
+		}
+		timer_set_once(wait_timer_fd, seconds);
+	}
 
 	void start_running() {
 		auto task = std::packaged_task<int(void)>(std::bind(&task_queue_t::run_, this));

@@ -2659,13 +2659,12 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 	assert(aa.lock_state.locked_minimal);
 	if(aa.tune_state == active_adapter_t::TUNE_FAILED)
 		return {false, false};
-	auto monitor = aa.fe->monitor_thread;
 	dttime_init();
 	bool stream_id_changed{false};
 
 	/*Obtain newest signal info
 	 */
-	auto signal_info_ = aa.fe->get_last_signal_info(true /*wait*/);
+	auto signal_info_ = aa.get_last_signal_info(true /*wait*/);
 	assert(signal_info_);
 	auto & signal_info = *signal_info_;
 	dttime(200);

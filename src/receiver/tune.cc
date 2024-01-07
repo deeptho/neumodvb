@@ -300,7 +300,9 @@ int tuner_thread_t::run() {
 		now = system_clock_t::now();
 		// printf("n={:d}\n", n);
 		for (auto evt = next_event(); evt; evt = next_event()) {
-			if (is_event_fd(evt)) {
+			if(is_wait_timer_fd(evt)) {
+				active_adapter.fe->resume_task();
+			} else if (is_event_fd(evt)) {
 				ss::string<128> prefix;
 				prefix.format("TUN-CMD");
 				log4cxx::NDC ndc(prefix.c_str());

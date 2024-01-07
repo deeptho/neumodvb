@@ -42,12 +42,10 @@
 
 std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& receiver,
 																															 std::shared_ptr<dvb_frontend_t>& fe) {
-	auto w = fe->ts.writeAccess();
-	assert(w->fefd < 0);
+	auto fefd = fe->open_device();
 	auto p = std::make_shared<fe_monitor_thread_t>(receiver, fe);
-	fe->open_device(*w);
-	dtdebugf("starting frontend_monitor {:p}: fefd={:d}\n", fmt::ptr(fe.get()), w->fefd);
-	p->epoll_add_fd(w->fefd,
+	dtdebugf("starting frontend_monitor {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fefd);
+	p->epoll_add_fd(fefd,
 									EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET); // will be used to monitor the frontend edge triggered!
 	p->start_running();
 	return p;
@@ -194,11 +192,7 @@ int fe_monitor_thread_t::run() {
 		}
 		now = system_clock_t::now();
 		for (auto evt = next_event(); evt; evt = next_event()) {
-			if(is_wait_timer_fd(evt)) {
-				if(fe->task_fiber) {
-					resume_task();
-				}
-			} else  if (is_event_fd(evt)) {
+			if (is_event_fd(evt)) {
 				if (run_tasks(now) < 0) {
 					goto exit_;
 				}
@@ -217,8 +211,7 @@ int fe_monitor_thread_t::run() {
 	}
 exit_:
 	{
-		auto w = fe->ts.writeAccess();
-		fe->close_device(*w);
+		fe->close_device();
 	}
 	dtdebugf("frontend_monitor end: {:p}: closed device\n", fmt::ptr(fe.get()));
 	save.reset();
@@ -306,25 +299,6 @@ void signal_monitor_t::end_stat(receiver_t& receiver) {
 		stat.k = {};
 	}
 	wtxn.commit();
-}
-
-bool fe_monitor_thread_t::wait_for(double seconds)
-{
-	request_wakeup(seconds);
-	printf("waiting requested - transferring to main\n");
-
-	if(fe->must_abort_task)
-		return true;
-	fe->main_fiber = fe->main_fiber.resume();
-	printf("waiting done - transferring back to fiber must_abort=%d\n", fe->must_abort_task);
-	return fe->must_abort_task;
-}
-
-void fe_monitor_thread_t::resume_task()
-{
-	assert(fe->task_fiber);
-	fe->task_fiber = fe->task_fiber.resume();
-	printf("end of resume_task\n");
 }
 
 /*

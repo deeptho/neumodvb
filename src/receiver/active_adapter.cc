@@ -188,7 +188,7 @@ int active_adapter_t::retune(const devdb::rf_path_t& rf_path,
 
 	this->tune_options = tune_options;
 	assert(tune_state != TUNE_FAILED);
-	fe->request_retune<chdb::dvbs_mux_t>(user_requested);
+	fe->request_retune<chdb::dvbs_mux_t>(tuner_thread, user_requested);
 	tune_state = TUNE_REQUESTED;
 	auto ret=0;
 	return ret;
@@ -211,7 +211,7 @@ int active_adapter_t::retune(const mux_t& mux_,
 
 	this->tune_options = tune_options;
 	assert(tune_state != TUNE_FAILED);
-	fe->request_retune<mux_t>(user_requested);
+	fe->request_retune<mux_t>(tuner_thread, user_requested);
 	tune_state = TUNE_REQUESTED;
 	auto ret=0;
 	return ret;
@@ -243,7 +243,7 @@ int active_adapter_t::tune(const subscribe_ret_t& sret,
 		usals_timer.start(sret.tune_pars.dish->cur_usals_pos, sret.tune_pars.dish->target_usals_pos);
 		printf("USALS: timer start\n");
 	}
-	fe->request_tune(rf_path, lnb, mux, tune_options);
+	fe->request_tune(tuner_thread, rf_path, lnb, mux, tune_options);
 #ifdef NEWTUNE
 	tune_state = ret<0 ? TUNE_FAILED: WAITING_FOR_LOCK;
 	dtdebugf("Subscribed: subscription_id={:d} ret={:d}", (int) sret.subscription_id, ret);
@@ -483,7 +483,7 @@ int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 	set_current_tp({});
 	receiver.activate_spectrum_scan(tune_options.spectrum_scan_options, lnb.pol_type);
 
-	fe->request_lnb_spectrum_scan(rf_path, lnb, tune_options);
+	fe->request_lnb_spectrum_scan(tuner_thread, rf_path, lnb, tune_options);
 	return 0;
 }
 

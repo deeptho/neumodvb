@@ -238,7 +238,7 @@ lnb = db_struct(name='lnb',
                     #(ord('a'), 'adapter_mac_address', ('k.adapter_mac_address', 'k.sat_pos')),
                 ),
                 fields = ((1, 'lnb_key_t', 'k'),  #contains adapter and absolute/relative dish pos
-                          #for a positioner: last uals position to which usals roto was set
+                          #for a positioner: last uals position to which usals rotor was set
                           #This is the actual usals coordinate (may differ from exact sat_pos)
                           #For an offset lnb, this is not the actual usals_position, bu the
                           #usals position which would be set if the lnb was in the center
@@ -247,10 +247,10 @@ lnb = db_struct(name='lnb',
                           #i.e., the main satellite
                           (2, 'int16_t', 'usals_pos', 'sat_pos_none'), #satellite position of center lnb
                           #(20, 'int16_t', 'usals_pos_reliable', 'true'), #false if positioner position is unknown
-                          (18, 'int16_t', 'cur_lnb_pos', 'sat_pos_none'), #satellite position currentlly pointed to
+                          (18, 'int16_t', 'lnb_usals_pos', 'sat_pos_none'), #satellite position currentlly pointed to
                                                                           #by this lnb (different from usals_pos
                                                                           #for an offset lnb
-                          (19, 'int16_t', 'cur_sat_pos', 'sat_pos_none'), #satellite position last used on this
+                          (19, 'int16_t', 'cur_sat_pos', 'sat_pos_none'), #official satellite position last used on this
                                                                           #lnb. This may be different from cur_lnb_pos
                                                                           #in case of multiple close sats or because
                                                                           #of dish tweaking

@@ -34,6 +34,7 @@
 typedef boost::context::continuation continuation_t;
 
 struct subscription_options_t;
+class tuner_thread_t;
 
 /* DVB-S */
 /** lnb_slof: switch frequency of LNB */
@@ -307,64 +308,25 @@ public:
 	}
 };
 
-
-//owned by monitor thread
+//owned by active_adapter_t and tuner_thread_t
 class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 {
-	friend class fe_monitor_thread_t;
-
+	friend class active_adapter_t;
+	friend class tuner_thread_t;
 	continuation_t main_fiber;
 	continuation_t task_fiber;
 	bool must_abort_task{false};
-
 	adaptermgr_t* adaptermgr;
-	const api_type_t api_type { api_type_t::UNDEFINED };
-	const int api_version{-1}; //1000 times the floating point value of version
+
 	chdb::delsys_type_t current_delsys_type { chdb::delsys_type_t::NONE };
 
 	int num_constellation_samples{0};
 	sec_status_t sec_status;
-
-	void run_task(auto&& task);
-	int check_frontend_parameters();
-	uint32_t get_lo_frequency(uint32_t frequency);
-	int open_device(fe_state_t& t, bool rw=true);
-	void close_device(fe_state_t& t); //callable from main thread
-
-	std::optional<signal_info_t> update_lock_status_and_signal_info(fe_status_t fe_status, bool get_constellation);
-
-	int request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bool get_constellation);
-	int get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
-	std::optional<spectrum_scan_t> get_spectrum(const ss::string_& spectrum_path);
-	void start_frontend_monitor();
-
-	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path,
-																					 const devdb::lnb_t& new_lnb, int16_t new_sat_pos,
-																					 const subscription_options_t& tune_options);
-	bool need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb);
-
-	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb);
-	inline bool wait_for_positioner();
-
-	std::tuple<int, int>
-	tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-			 const subscription_options_t& tune_options);
-	std::tuple<int, int>
-	lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										const subscription_options_t& tune_options);
-
-	int tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-						const subscription_options_t& options);
-
-	int tune_(const chdb::dvbt_mux_t& mux, const subscription_options_t& options);
-	int tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& options);
-
-	template<typename mux_t>
-	int tune(const mux_t& mux, const subscription_options_t& tune_options);
-	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
+	std::shared_ptr<fe_monitor_thread_t> monitor_thread;
 
 public:
-
+	const api_type_t api_type { api_type_t::UNDEFINED };
+	const int api_version{-1}; //1000 times the floating point value of version
 	static constexpr uint32_t lnb_lof_standard = DEFAULT_LOF_STANDARD;
 	static constexpr uint32_t  lnb_slof = DEFAULT_SLOF;
 	static constexpr uint32_t lnb_lof_low = DEFAULT_LOF1_UNIVERSAL;
@@ -380,32 +342,69 @@ public:
 	std::condition_variable ts_cv;
 	safe::Safe<signal_monitor_t> signal_monitor;
 
-	std::shared_ptr<fe_monitor_thread_t> monitor_thread; //public (used in active_si_stream.cc)
-	void stop_frontend_monitor_and_wait();
+private:
+	__attribute__((optnone)) //Without this  the code will crash!
+	void resume_task();
+	bool wait_for(tuner_thread_t& tuner_thread, double seconds);
 
-	static std::tuple<api_type_t, int> get_api_type(); //returns api_type and version
+	void run_task(auto&& task);
 
-	fe_lock_status_t get_lock_status();
-	void set_lock_status(fe_status_t fe_status);
-	void clear_lock_status();
+	int check_frontend_parameters();
+	uint32_t get_lo_frequency(uint32_t frequency);
 
-	std::tuple<int, int, int, double>
-	get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usals_pos, steady_time_t now) const;
+	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path,
+																					 const devdb::lnb_t& new_lnb, int16_t new_sat_pos,
+																					 const subscription_options_t& tune_options);
+	bool need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb);
+	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
+	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
+
+	int get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
+
+	void start_frontend_monitor();
+
+	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb);
+
+	bool wait_for_positioner(tuner_thread_t& tuner_thread);
+
+	int tune_(const chdb::dvbt_mux_t& mux, const subscription_options_t& options);
+	int tune_(const chdb::dvbc_mux_t& mux, const subscription_options_t& options);
+	int tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+						const subscription_options_t& options);
+
+	std::tuple<int, int>
+	tune(tuner_thread_t& tuner_thread,
+			 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+			 const subscription_options_t& tune_options);
+
+
+	std::tuple<int, int>
+	lnb_spectrum_scan(tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+										const subscription_options_t& tune_options);
+
 
 	template<typename mux_t>
-	void request_retune(bool user_requested);
+	int tune(const mux_t& mux, const subscription_options_t& tune_options);
 
-	void request_tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+	template<typename mux_t>
+	void request_retune(tuner_thread_t& tuner_thread, bool user_requested);
+
+	void request_tune(tuner_thread_t& tuner_thread,
+										const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 										const subscription_options_t& tune_options);
 
 
 	template<typename mux_t>
 	void request_tune(const mux_t& mux, const subscription_options_t& tune_options);
 
-	void request_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+	void request_lnb_spectrum_scan(tuner_thread_t& tuner_thread,
+																 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																 const subscription_options_t& tune_options);
+	std::tuple<int, int, int, double>
+	get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usals_pos, steady_time_t now) const;
 
-	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
+	int request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bool get_constellation);
+
 
 	int stop();
 	int start();
@@ -416,60 +415,6 @@ public:
 		w->tune_confirmation = {};
 	}
 	int reset_ts();
-
-	devdb::usals_location_t get_usals_location() const;
-
-public:
-	dvb_frontend_t(adaptermgr_t* adaptermgr_,
-								 adapter_no_t adapter_no_, frontend_no_t frontend_no_,
-								 api_type_t api_type_,  int api_version_)
-		: adaptermgr(adaptermgr_)
-		, api_type(api_type_)
-		, api_version(api_version_)
-		, adapter_no(adapter_no_)
-		, frontend_no(frontend_no_)
-		{}
-
-	static std::shared_ptr<dvb_frontend_t> make(adaptermgr_t* adaptermgr,
-																							 adapter_no_t adapter_no,
-																							 frontend_no_t frontend_no,
-																							 api_type_t api_type,  int api_version);
-
-	inline chdb::any_mux_t tuned_mux() const {
-		return this->ts.readAccess()->reserved_mux;
-	}
-
-	inline devdb::fe_key_t fe_key() const {
-		return this->ts.readAccess()->dbfe.k;
-	}
-
-	inline devdb::fe_t dbfe() const {
-		return this->ts.readAccess()->dbfe;
-	}
-
-	inline auto get_subscription_ids() const {
-		ss::vector<subscription_id_t, 4> subscription_ids;
-		auto r = this->ts.readAccess();
-		for(auto& sub: r->dbfe.sub.subs) {
-			subscription_ids.push_back((subscription_id_t)sub.subscription_id);
-		}
-		return subscription_ids;
-	}
-
-	template<typename mux_t>
-	inline bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path,
-													bool ignore_t2mi_pid=false) const;
-
-	inline bool is_open() const {
-		auto t = ts.readAccess();
-		return t->fefd >= 0;
-	}
-	inline bool is_fefd(int fd) const {
-		auto t = ts.readAccess();
-		return t->fefd ==fd;
-	}
-
-	~dvb_frontend_t();
 
 	int start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devdb::lnb_t & lnb);
 
@@ -516,6 +461,74 @@ public:
 		}
 		return ret;
 	}
+
+public:
+	dvb_frontend_t(adaptermgr_t* adaptermgr_,
+								 adapter_no_t adapter_no_, frontend_no_t frontend_no_,
+								 api_type_t api_type_,  int api_version_)
+		: adaptermgr(adaptermgr_)
+		, api_type(api_type_)
+		, api_version(api_version_)
+		, adapter_no(adapter_no_)
+		, frontend_no(frontend_no_)
+		{}
+
+	static std::shared_ptr<dvb_frontend_t> make(adaptermgr_t* adaptermgr,
+																							 adapter_no_t adapter_no,
+																							 frontend_no_t frontend_no,
+																							 api_type_t api_type,  int api_version);
+
+	int open_device(bool rw=true);
+	void close_device();
+
+	void stop_frontend_monitor_and_wait();
+
+	std::optional<signal_info_t> update_lock_status_and_signal_info(fe_status_t fe_status, bool get_constellation);
+	std::optional<spectrum_scan_t> get_spectrum(const ss::string_& spectrum_path);
+
+	fe_lock_status_t get_lock_status();
+	void set_lock_status(fe_status_t fe_status);
+	void clear_lock_status();
+
+	static std::tuple<api_type_t, int> get_api_type(); //returns api_type and version
+	devdb::usals_location_t get_usals_location() const;
+
+	inline chdb::any_mux_t tuned_mux() const {
+		return this->ts.readAccess()->reserved_mux;
+	}
+
+	inline devdb::fe_key_t fe_key() const {
+		return this->ts.readAccess()->dbfe.k;
+	}
+
+	inline devdb::fe_t dbfe() const {
+		return this->ts.readAccess()->dbfe;
+	}
+
+	inline auto get_subscription_ids() const {
+		ss::vector<subscription_id_t, 4> subscription_ids;
+		auto r = this->ts.readAccess();
+		for(auto& sub: r->dbfe.sub.subs) {
+			subscription_ids.push_back((subscription_id_t)sub.subscription_id);
+		}
+		return subscription_ids;
+	}
+
+	template<typename mux_t>
+	inline bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path,
+													bool ignore_t2mi_pid=false) const;
+
+	inline bool is_open() const {
+		auto t = ts.readAccess();
+		return t->fefd >= 0;
+	}
+	inline bool is_fefd(int fd) const {
+		auto t = ts.readAccess();
+		return t->fefd ==fd;
+	}
+
+	~dvb_frontend_t();
+
 };
 
 class use_count_t {
@@ -571,9 +584,6 @@ public:
 private:
 	bool is_paused{false};
 	std::shared_ptr<dvb_frontend_t> fe{nullptr};
-
-	__attribute__((optnone)) //Without this  the code will crash!
-	void resume_task();
 
 	void update_lock_status_and_signal_info(fe_status_t fe_status);
 	virtual int exit() final {

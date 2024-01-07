@@ -315,8 +315,7 @@ void  stream_reader_t::update_stream_mux_tune_confirmation(const tune_confirmati
 void dvb_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stream_mux)
 {
 	//for active_adapter stream_mux == tuned_mux
-	active_adapter.fe->update_tuned_mux_nit(stream_mux);
-
+	active_adapter.update_tuned_mux_nit(stream_mux);
 }
 
 

@@ -161,7 +161,12 @@ private:
 	chdb::any_mux_t current_tp() const {
 		return fe->tuned_mux();
 	};
-
+	inline void update_tuned_mux_nit(const chdb::any_mux_t& mux) {
+		this->fe->update_tuned_mux_nit(mux);
+	}
+	inline std::optional<signal_info_t> get_last_signal_info(bool wait) {
+		return this->fe->get_last_signal_info(wait);
+	}
 
 	inline const devdb::lnb_t& current_lnb() const {
 		return fe->ts.readAccess()->reserved_lnb;

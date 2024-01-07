@@ -127,21 +127,24 @@ int cmdseq_t::spectrum(int fefd, dtv_fe_spectrum_method method) {
 	return 0;
 }
 
-int dvb_frontend_t::open_device(fe_state_t& t, bool rw) {
-	if (t.fefd >= 0)
-		return 0; // already open
+int dvb_frontend_t::open_device( bool rw) {
+	auto w = this->ts.writeAccess();
+	fe_state_t& fe_state = *w;
+	assert(fe_state.fefd < 0);
+	if (fe_state.fefd >= 0)
+		return fe_state.fefd; // already open
 
 	ss::string<PATH_MAX> frontend_fname;
 	frontend_fname.format("/dev/dvb/adapter{:d}/frontend{:d}", (int)adapter_no, (int)frontend_no);
 	int rw_flag = rw ? O_RDWR : O_RDONLY;
-	t.fefd = open(frontend_fname.c_str(), rw_flag | O_NONBLOCK | O_CLOEXEC);
-	if (t.fefd < 0) {
+	fe_state.fefd = ::open(frontend_fname.c_str(), rw_flag | O_NONBLOCK | O_CLOEXEC);
+	if (fe_state.fefd < 0) {
 		user_errorf("Error opening /dev/dvb/adapter{:d}/frontend{:d} in {:s} mode: {:s}", (int)adapter_no,
 								(int)frontend_no, rw ? "read-write" : "readonly", strerror(errno));
 		return -1;
 	}
 
-	return 0;
+	return fe_state.fefd;
 }
 
 dvb_frontend_t::~dvb_frontend_t() {
@@ -157,16 +160,18 @@ dvb_frontend_t::~dvb_frontend_t() {
 	}
 }
 
-void dvb_frontend_t::close_device(fe_state_t& t) {
-	if (t.fefd < 0)
+void dvb_frontend_t::close_device() {
+	auto w = this->ts.writeAccess();
+	auto& fe_state = *w;
+	if (fe_state.fefd < 0)
 		return;
-	dtdebugf("closing fefd={:d}\n", t.fefd);
-	while (::close(t.fefd) != 0) {
+	dtdebugf("closing fefd={:d}\n", fe_state.fefd);
+	while (::close(fe_state.fefd) != 0) {
 		if (errno != EINTR)
 			dterrorf("Error closing /dev/dvb/adapter{:d}/frontend{:d}: {:s}", (int)adapter_no, (int)frontend_no,
 							 strerror(errno));
 	}
-	t.fefd = -1;
+	fe_state.fefd = -1;
 }
 
 /*
@@ -321,24 +326,30 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(adaptermgr_t* adaptermgr,
 																										 api_type_t api_type, int api_version) {
 	auto fe = std::make_shared<dvb_frontend_t>(adaptermgr, adapter_no, frontend_no, api_type, api_version);
 
-	auto w = fe->ts.writeAccess();
 	// first try writeable access, then readonly
-	if (fe->open_device(*w, true) < 0) {
-		w->dbfe.can_be_used = false;
-		w->info_valid = (fe->open_device(*w, false) == 0);
-		dtdebugf("/dev/dvb/adapter{:d}/frontend{:d} currently not useable", (int)fe->adapter_no, (int)fe->frontend_no);
-	} else {
-		w->info_valid = true;
-		w->dbfe.can_be_used = true;
+	auto fefd = fe->open_device(true);
+	if (fefd < 0) {
+		fefd = fe->open_device(false);
 	}
-	get_frontend_info(adapter_no, frontend_no, api_version, *w);
+	{
+		auto w = fe->ts.writeAccess();
+		if(fefd>=0) {
+			w->dbfe.can_be_used = false;
+			w->info_valid = (fefd>=0);
+			dtdebugf("/dev/dvb/adapter{:d}/frontend{:d} currently not useable", (int)fe->adapter_no, (int)fe->frontend_no);
+		} else {
+			w->info_valid = true;
+			w->dbfe.can_be_used = true;
+		}
+		get_frontend_info(adapter_no, frontend_no, api_version, *w);
 
-	if(int64_t(fe->adapter_mac_address) <=0)
-		fe->adapter_mac_address = adapter_mac_address_t(w->dbfe.k.adapter_mac_address);
-	if(int64_t(fe->card_mac_address) <=0)
-		fe->card_mac_address = card_mac_address_t(w->dbfe.card_mac_address);
-	if(w->fefd>=0)
-		fe->close_device(*w);
+		if(int64_t(fe->adapter_mac_address) <=0)
+			fe->adapter_mac_address = adapter_mac_address_t(w->dbfe.k.adapter_mac_address);
+		if(int64_t(fe->card_mac_address) <=0)
+			fe->card_mac_address = card_mac_address_t(w->dbfe.card_mac_address);
+	}
+	if(fefd>=0)
+		fe->close_device();
 	return fe;
 }
 
@@ -1243,8 +1254,9 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	returns: ret = return status
 	         new_usals_pos
  */
-void dvb_frontend_t::request_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-																							 const subscription_options_t& tune_options) {
+void dvb_frontend_t::request_lnb_spectrum_scan(
+	tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+	const subscription_options_t& tune_options) {
 	{
 		auto w =  this->ts.writeAccess();
 		w->tune_options = tune_options;
@@ -1255,9 +1267,9 @@ void dvb_frontend_t::request_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, 
 	/* When moving the positioner, the following code may run for a long time, so we run it
 		 as a task
 	 */
-	run_task([this, rf_path, lnb, tune_options](continuation_t&& invoker) {
+	run_task([this, &tuner_thread, rf_path, lnb, tune_options](continuation_t&& invoker) {
 		main_fiber = invoker.resume();
-		auto[ret, new_usals_pos] = lnb_spectrum_scan(rf_path, lnb, tune_options);
+		auto[ret, new_usals_pos] = lnb_spectrum_scan(tuner_thread, rf_path, lnb, tune_options);
 		dtdebugf("lnb_spectrum_scan returned ret={}, new_usals_pos={}", ret, new_usals_pos);
 		printf("returning to main fiber\n");
 		return std::move(main_fiber);
@@ -1265,8 +1277,9 @@ void dvb_frontend_t::request_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, 
 }
 
 std::tuple<int, int>
-dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-																	const subscription_options_t& tune_options) {
+dvb_frontend_t::lnb_spectrum_scan(
+	tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+	const subscription_options_t& tune_options) {
 	dttime_init();
 	auto *conn = connection_for_rf_path(lnb, rf_path);
 	if(!conn)
@@ -1311,9 +1324,7 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 		dtdebugf("spectrum: do_lnb done");
 	}
 
-	printf("start wait for positioner\n");
-	dtdebugf("start wait for positioner");
-	auto must_abort = wait_for_positioner();
+	auto must_abort = wait_for_positioner(tuner_thread);
 
 	if(must_abort) {
 		return {-1, sat_pos_none};
@@ -1333,11 +1344,22 @@ dvb_frontend_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::
 	return {0, new_usals_pos};
 }
 
-/*
- */
-bool dvb_frontend_t::wait_for_positioner()
+bool dvb_frontend_t::wait_for(tuner_thread_t& tuner_thread, double seconds)
 {
-	auto dish_  = this->ts.readAccess()->tune_options.tune_pars->dish;
+	tuner_thread.request_wakeup(seconds);
+	printf("waiting requested - transferring to main\n");
+
+	if(this->must_abort_task)
+		return true;
+	this->main_fiber = this->main_fiber.resume();
+	printf("waiting done - transferring back to fiber must_abort=%d\n", this->must_abort_task);
+	return this->must_abort_task;
+}
+
+bool dvb_frontend_t::wait_for_positioner(tuner_thread_t& tuner_thread)
+{
+	auto tune_pars = *this->ts.readAccess()->tune_options.tune_pars;
+	auto dish_  = tune_pars.dish;
 	if(!dish_)
 		return false;
 	auto dish  = *dish_;
@@ -1347,6 +1369,8 @@ bool dvb_frontend_t::wait_for_positioner()
 		return false;
 	if(old_usals_pos == new_usals_pos)
 		return false;
+	dtdebugf("start wait for positioner");
+
 	ts.writeAccess()->lock_status.fem_state = fem_state_t::POSITIONER_MOVING;
 
 	assert(new_usals_pos != sat_pos_none);
@@ -1367,7 +1391,7 @@ bool dvb_frontend_t::wait_for_positioner()
 	auto dbfe = this->dbfe();
 	receiver.on_positioner_motion(dbfe, dish, false /*is_end*/, subscription_ids);
 
-	bool must_abort=monitor_thread->wait_for(delay);
+	bool must_abort = wait_for(tuner_thread, delay);
 	printf("end wait for positioner must_abort=%d\n", must_abort);
 	dtdebugf("end wait for positioner must_abort={}", must_abort);
 
@@ -1377,7 +1401,7 @@ bool dvb_frontend_t::wait_for_positioner()
 		dish.cur_usals_pos = dish.target_usals_pos;
 	}
 	{
-		//dish has changed and needs to be updated (without reading database)
+		//cached dish has changed and needs to be updated (without reading database)
 		auto  w= this->ts.writeAccess();
 		w->tune_options.tune_pars->dish = dish;
 		if (sat_pos != sat_pos_none) {
@@ -1399,8 +1423,17 @@ void dvb_frontend_t::run_task(auto&& task) {
 	task_fiber=task_fiber.resume();
 }
 
-void dvb_frontend_t::request_tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-																	const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
+void dvb_frontend_t::resume_task()
+{
+	assert(this->task_fiber);
+	if(!this->task_fiber)
+		return;
+	this->task_fiber = this->task_fiber.resume();
+}
+
+void dvb_frontend_t::request_tune(
+	tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+	const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
 	{
 		auto w =  this->ts.writeAccess();
 		w->tune_options = tune_options;
@@ -1412,17 +1445,18 @@ void dvb_frontend_t::request_tune(const devdb::rf_path_t& rf_path, const devdb::
 	/* When moving the positioner, the following code may run for a long time, so we run it
 		 as a task
 	 */
-	run_task([this, rf_path, lnb, mux, tune_options](continuation_t&& invoker) {
+	run_task([this, &tuner_thread, rf_path, lnb, mux, tune_options](continuation_t&& invoker) {
 		main_fiber = invoker.resume();
-		auto [ret, new_usals_pos] = tune(rf_path, lnb, mux, tune_options);
+		auto [ret, new_usals_pos] = tune(tuner_thread, rf_path, lnb, mux, tune_options);
 		dtdebugf("tune returned ret={}, new_usals_pos={}", ret, new_usals_pos);
 		return std::move(main_fiber);
 	});
 }
 
 std::tuple<int, int>
-dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-										 const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
+dvb_frontend_t::tune(
+	tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+	const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
 	dttime_init();
 	auto *conn = connection_for_rf_path(lnb, rf_path);
 	if(!conn)
@@ -1468,9 +1502,8 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 		this->do_lnb(band, voltage);
 		dtdebugf("tune: do_lnb done");
 	}
-	dtdebugf("start wait for positioner");
 
-	auto must_abort = wait_for_positioner();
+	auto must_abort = wait_for_positioner(tuner_thread);
 	if(must_abort) {
 		return {-1, sat_pos_none};
 	}
@@ -1478,8 +1511,10 @@ dvb_frontend_t::tune(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	dttime(300);
 
 	ret = this->tune_(rf_path, lnb, *dvbs_mux, tune_options);
-	if (ret < 0)
+	if (ret < 0) {
+		ts.writeAccess()->lock_status.fem_state = fem_state_t::FAILED;
 		return {ret, new_usals_pos};
+	}
 	this->start();
 	return {0, new_usals_pos};
 }
@@ -1580,7 +1615,7 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const subscription_option
 }
 
 template<typename mux_t>
-void dvb_frontend_t::request_retune(bool user_requested) {
+void dvb_frontend_t::request_retune(tuner_thread_t& tuner_thread, bool user_requested) {
 	if(user_requested) {
 		auto w =  this->ts.writeAccess();
 		if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
@@ -1606,7 +1641,7 @@ void dvb_frontend_t::request_retune(bool user_requested) {
 	} else
 		this->sec_status.retune_count++;
 	if constexpr (is_same_type_v<chdb::dvbs_mux_t, mux_t>) {
-		auto [ret, new_usals_pos] = tune(rf_path, lnb, mux, tune_options);
+		auto [ret, new_usals_pos] = tune(tuner_thread, rf_path, lnb, mux, tune_options);
 		dtdebugf("retune: tune returned ret={}, new_usals_pos={}", ret, new_usals_pos);
 	} else {
 		auto ret = tune(mux, tune_options);
@@ -2145,13 +2180,12 @@ int sec_status_t::set_rf_input(int fefd, int rf_input) {
 std::tuple<bool,bool>
 dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
 																	 int16_t new_sat_pos,  const subscription_options_t& tune_options) {
-	assert(!tune_options.tune_pars->dish || tune_options.tune_pars->send_lnb_commands);
 	if (!this->sec_status.is_tuned()
 			&& tune_options.tune_pars->send_lnb_commands
 		)
 		return {true, true}; // always send diseqc if we were not tuned
 	if(!tune_options.tune_pars->send_lnb_commands) {
-		dtdebugf("Preventing diseqc because rf_path is used more than once");
+		dtdebugf("Preventing diseqc because it is not needed or because rf_path is used more than once");
 		return {false, false};
 	}
 	auto r = this->ts.readAccess();
@@ -2239,7 +2273,6 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 	return ret;
 }
 
-
 //instantiations
 template bool dvb_frontend_t::is_tuned_to(const chdb::dvbs_mux_t& mux,
 																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
@@ -2258,14 +2291,12 @@ template int dvb_frontend_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux,
 template int dvb_frontend_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux,
 																										const subscription_options_t& tune_options);
 
-
 template
 void dvb_frontend_t::request_tune(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options);
 
 template
 void dvb_frontend_t::request_tune(const chdb::dvbt_mux_t& mux, const subscription_options_t& tune_options);
 
-
-template void dvb_frontend_t::request_retune<chdb::dvbs_mux_t>(bool user_requested);
-template void dvb_frontend_t::request_retune<chdb::dvbc_mux_t>(bool user_requested);
-template void dvb_frontend_t::request_retune<chdb::dvbt_mux_t>(bool user_requested);
+template void dvb_frontend_t::request_retune<chdb::dvbs_mux_t>(tuner_thread_t& tuner_thread, bool user_requested);
+template void dvb_frontend_t::request_retune<chdb::dvbc_mux_t>(tuner_thread_t& tuner_thread, bool user_requested);
+template void dvb_frontend_t::request_retune<chdb::dvbt_mux_t>(tuner_thread_t& tuner_thread, bool user_requested);

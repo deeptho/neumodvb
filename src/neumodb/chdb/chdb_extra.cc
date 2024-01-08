@@ -1401,8 +1401,9 @@ fmt::formatter<chdb::dvbs_mux_t>::format(const chdb::dvbs_mux_t& mux, format_con
 		it = fmt::format_to(ctx.out(), "-T{:d}", mux.k.t2mi_pid);
 #if 0
 	it = fmt::format_to(ctx.out(), " {} {}", mux.k, mux.c.tune_src);
-	it = fmt::format_to(ctx.out(), " {:s}/{:s}",
-											scan_status_name(mux.c.scan_status), scan_result_name(mux.c.scan_result));
+#endif
+#if 0
+	it = fmt::format_to(ctx.out(), " STA={:s}", scan_status_name(mux.c.scan_status));
 #endif
 	return it;
 }

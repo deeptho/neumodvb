@@ -381,12 +381,12 @@ bool scanner_t::on_spectrum_scan_band_end(
 		dtdebugf("must_end");
 		return true;
 	}
-
 	auto scan_subscription_id = scan_subscription_id_for_scan_id(scan_id);
-	add_spectral_peaks(spectrum_key, spectrum_scan.peaks, scan_subscription_id);
-
 	if((int)scan_subscription_id >= 0) {
 		auto& scan = scans.at(scan_subscription_id);
+		auto& tune_options = scan.tune_options_for_scan_id(scan_id);
+		add_spectral_peaks(spectrum_key, spectrum_scan.peaks, scan_subscription_id, &tune_options);
+
 		try {
 			last_house_keeping_time = steady_clock_t::now();
 			assert(scan.scan_subscription_id == scan_subscription_id);
@@ -1486,14 +1486,18 @@ int scanner_t::add_muxes(const ss::vector_<mux_t>& muxes, const subscription_opt
 template<typename peak_t>
 int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 																	const ss::vector_<peak_t>& peaks,
-																	subscription_id_t scan_subscription_id) {
+																	subscription_id_t scan_subscription_id,
+																	subscription_options_t* options) {
 	assert((int) scan_subscription_id >=0);
-	auto so = receiver.get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
-	so.propagate_scan = false;
-	so.may_move_dish = false;
-	so.use_blind_tune = false;
-	so.allowed_dish_ids = {};
-	so.allowed_card_mac_addresses = {};
+	auto so = options ? *options:
+		receiver.get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
+	if(!options) {
+		so.propagate_scan = false;
+		so.may_move_dish = false;
+		so.use_blind_tune = false;
+		so.allowed_dish_ids = {};
+		so.allowed_card_mac_addresses = {};
+	}
 	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id);
 	auto& scan = it->second;
 	assert(scan.scan_subscription_id == scan_subscription_id);
@@ -1709,7 +1713,7 @@ template subscription_id_t scan_t::scan_next<chdb::dvbt_mux_t>(db_txn& chdb_rtxn
 
 template int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 																					 const ss::vector_<chdb::spectral_peak_t>& peaks,
-																					 subscription_id_t subscription_id);
+																					 subscription_id_t subscription_id, subscription_options_t*options);
 template int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 																					 const ss::vector_<spectral_peak_t>& peaks,
-																					 subscription_id_t subscription_id);
+																					 subscription_id_t subscription_id, subscription_options_t*options);

@@ -501,7 +501,7 @@ class scanner_t {
 
 	template<typename peak_t>
 	int add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<peak_t>& peaks,
-												 subscription_id_t subscription_id);
+												 subscription_id_t subscription_id, subscription_options_t* options=nullptr);
 
 	int add_bands(const ss::vector_<chdb::sat_t>& sats,
 								const ss::vector_<chdb::fe_polarisation_t>& pols,

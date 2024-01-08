@@ -365,7 +365,7 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 		if (sat_pos_to_move_to) {
 			if(sret.tune_pars.send_lnb_commands)  {
 				std::tie(sret.tune_pars.move_dish, sret.tune_pars.dish)
-					=  update_dish_helper(wtxn, lnb, rf_path, tune_options.usals_location,
+					=  update_dish_helper(wtxn, *sret.aa.lnb, rf_path, tune_options.usals_location,
 																*sat_pos_to_move_to, tune_options.may_move_dish);
 				if(!sret.tune_pars.dish)
 					return failed(sret.subscription_id, updated_old_dbfe);
@@ -760,7 +760,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				auto& lnb = *lnb_;
 				if(sret.tune_pars.send_lnb_commands)  {
 					std::tie(sret.tune_pars.move_dish, sret.tune_pars.dish)
-						=  update_dish_helper(wtxn, lnb, *rf_path_, tune_options.usals_location,
+						=  update_dish_helper(wtxn, *sret.aa.lnb, *rf_path_, tune_options.usals_location,
 																	mux.k.sat_pos, tune_options.may_move_dish);
 					if(!sret.tune_pars.dish)
 						return failed(sret.subscription_id, updated_old_dbfe);
@@ -809,11 +809,11 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 				dtdebugf("fe::subscribe: no newaa subscription_id={} adapter={:x} sat={}",
 								 (int)subscription_id, (int64_t) fe.k.adapter_mac_address, sat);
 			}
-			auto& lnb = *lnb_;
+			auto& lnb = *sret.aa.lnb; //use the version of the lnb with the updated usals_pos
 
 			if(sret.tune_pars.send_lnb_commands)  {
 				std::tie(sret.tune_pars.move_dish, sret.tune_pars.dish)
-					= update_dish_helper(wtxn, lnb, *rf_path_, tune_options.usals_location, sat.sat_pos,
+					= update_dish_helper(wtxn, *sret.aa.lnb, *rf_path_, tune_options.usals_location, sat.sat_pos,
 															 tune_options.may_move_dish);
 				if(!sret.tune_pars.dish)
 					return failed(sret.subscription_id, updated_old_dbfe);

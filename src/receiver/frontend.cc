@@ -1404,7 +1404,6 @@ bool dvb_frontend_t::wait_for_positioner(tuner_thread_t& tuner_thread)
 		//cached dish has changed and needs to be updated (without reading database)
 		auto  w= this->ts.writeAccess();
 		w->tune_options.tune_pars->dish = dish;
-		if (sat_pos != sat_pos_none) {
 	}
 	receiver.on_positioner_motion(dbfe, dish, true /*is_end*/, subscription_ids);
 	return must_abort;

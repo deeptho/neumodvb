@@ -660,7 +660,6 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 						Also update_old_fe.sub has one fewer subscription
 					*/
 					fe.sub.subs = updated_old_dbfe->sub.subs;
-					updated_old_dbfe = {};
 				}
 
 			}

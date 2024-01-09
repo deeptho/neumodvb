@@ -1052,6 +1052,8 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 
 	auto [dish, lnb, rf_path, options, start_time]  = [this](){
 		const auto r = this->ts.readAccess();
+		printf("TEST1 %p=%d\n", &r->tune_options.tune_pars->dish->cur_usals_pos,
+					 r->tune_options.tune_pars->dish->cur_usals_pos);
 		return std::tuple(*r->tune_options.tune_pars->dish, r->reserved_lnb, r->reserved_rf_path,
 											r->tune_options.spectrum_scan_options,
 											r->start_time);
@@ -1369,6 +1371,7 @@ bool dvb_frontend_t::wait_for_positioner(tuner_thread_t& tuner_thread)
 		return false;
 	if(old_usals_pos == new_usals_pos)
 		return false;
+	printf("start wait for positioner\n");
 	dtdebugf("start wait for positioner");
 
 	ts.writeAccess()->lock_status.fem_state = fem_state_t::POSITIONER_MOVING;
@@ -1383,6 +1386,8 @@ bool dvb_frontend_t::wait_for_positioner(tuner_thread_t& tuner_thread)
 	auto delay  = old_usals_pos== sat_pos_none ? 1 /*arbitrary; will lead to error in spectrum acq*/:
 		std::abs(new_usals_pos-old_usals_pos)/speed;
 
+	printf("requesting wait: idx=%d old=%lf new =%lf time=%lf\n", idx,
+				 old_usals_pos/100., new_usals_pos/100., delay);
 	dtdebugf("requesting wait: idx={} old={} new =%{} time={}", idx,
 					 old_usals_pos/100., new_usals_pos/100., delay);
 
@@ -1428,6 +1433,7 @@ void dvb_frontend_t::resume_task()
 	if(!this->task_fiber)
 		return;
 	this->task_fiber = this->task_fiber.resume();
+	printf("end of resume_task\n");
 }
 
 void dvb_frontend_t::request_tune(
@@ -1448,6 +1454,7 @@ void dvb_frontend_t::request_tune(
 		main_fiber = invoker.resume();
 		auto [ret, new_usals_pos] = tune(tuner_thread, rf_path, lnb, mux, tune_options);
 		dtdebugf("tune returned ret={}, new_usals_pos={}", ret, new_usals_pos);
+		printf("returning to main fiber\n");
 		return std::move(main_fiber);
 	});
 }
@@ -1510,11 +1517,15 @@ dvb_frontend_t::tune(
 	dttime(300);
 
 	ret = this->tune_(rf_path, lnb, *dvbs_mux, tune_options);
+	printf("end of tune_\n");
+
 	if (ret < 0) {
 		ts.writeAccess()->lock_status.fem_state = fem_state_t::FAILED;
 		return {ret, new_usals_pos};
 	}
 	this->start();
+
+	printf("end of start\n");
 	return {0, new_usals_pos};
 }
 

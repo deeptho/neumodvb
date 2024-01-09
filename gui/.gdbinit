@@ -2,8 +2,9 @@ set breakpoint pending on
 #break dvbdev_monitor_t::find_lnb_for_tuning_to_mux
 #break  active_mux_t::tune
 #set index-cache directory /tmp/index
-#set index-cache on
+#set index-cache enabled
 #set environment LD_PRELOAD /usr/lib64/clang/14.0.5/lib/linux/libclang_rt.asan-x86_64.so
+set print finish off
 set environment LD_PRELOAD=/usr/lib64/libasan.so.8
 break __sanitizer::Die
 exec-file /usr/bin/python3

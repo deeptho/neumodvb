@@ -106,8 +106,10 @@ public:
 	void notify_signal_info(const signal_info_t& info) const;
 	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum);
 
-	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window);
-	EXPORT static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window);
+	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window,
+											subscription_id_t  subscription_id=subscription_id_t::NONE);
+	EXPORT static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window,
+																									 subscription_id_t subscription_id=subscription_id_t::NONE);
 
 	EXPORT ~subscriber_t();
 

@@ -625,5 +625,9 @@ scan_command = db_struct(
               (10, 'ss::vector<chdb::sat_t,1>', 'sats'),
               (12, 'ss::vector<chdb::dvbs_mux_t,1>', 'dvbs_muxes'),
               (13, 'ss::vector<chdb::dvbc_mux_t,1>', 'dvbc_muxes'),
-              (14, 'ss::vector<chdb::dvbt_mux_t,1>', 'dvbt_muxes')
+              (14, 'ss::vector<chdb::dvbt_mux_t,1>', 'dvbt_muxes'),
+              (20, 'int32_t', 'owner', -1), #pid of the process executing the recording, or -1
+                                            #when the command is not executing
+              (21, 'int32_t', 'subscription_id'), #subscription_id of recording in progress
+
               ))

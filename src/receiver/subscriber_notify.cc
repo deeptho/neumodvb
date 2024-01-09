@@ -88,7 +88,8 @@ template <typename T> void subscriber_t::notify(const T& data) const {
 	static_assert(sizeof(p) <= sizeof(long));
 	event.SetExtraLong(p);
 	auto* newevent = event.Clone();
-	wxQueueEvent(window, newevent);
+	if(window)
+		wxQueueEvent(window, newevent);
 }
 
 #endif

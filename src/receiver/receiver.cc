@@ -197,7 +197,8 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
          receiver_thread_t::cb_t::unsubscribe
 */
 void receiver_thread_t::unsubscribe_all(std::vector<task_queue_t::future_t>& futures,
-																				db_txn& devdb_wtxn, subscription_id_t subscription_id) {
+																				db_txn& devdb_wtxn,
+																				subscription_id_t subscription_id) {
 	if ((int)subscription_id < 0)
 		return;
 	auto scanner = get_scanner();
@@ -1768,10 +1769,10 @@ receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 	called when complete channel scan needs to be aborted
 */
 bool receiver_thread_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
-																				 db_txn& devdb_wtxn, subscription_id_t subscription_id) {
+																				 db_txn& devdb_wtxn, subscription_id_t scan_subscription_id) {
 	auto scanner = get_scanner();
 	if(scanner.get()) {
-		return scanner->unsubscribe_scan(futures, devdb_wtxn, subscription_id);
+		return scanner->unsubscribe_scan(futures, devdb_wtxn, scan_subscription_id);
 	}
 	return false;
 }

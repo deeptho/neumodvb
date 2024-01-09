@@ -396,7 +396,8 @@ private:
 	void start_stop_commands(auto& cursor, db_txn& devdb_rtxn, system_time_t now_);
 	void start_commands(db_txn& rtxn, system_time_t now);
 	void stop_commands(db_txn& rtxn, system_time_t now);
-	bool stop_command(devdb::scan_command_t& cmd, time_t now);
+	void save_db_command(devdb::scan_command_t& cmd, time_t now);
+	bool stop_command(devdb::scan_command_t& cmd, devdb::run_result_t run_result, time_t now);
 	bool start_command(devdb::scan_command_t& cmd, time_t now);
 
 public:
@@ -504,7 +505,8 @@ public:
 	epgdb::epgdb_t epgdb;
 	recdb::recdb_t recdb;
 
-	using subscriber_map = safe::Safe<std::map<void*, std::shared_ptr<subscriber_t>>>;
+	using subscriber_map = safe::Safe<std::map<void*, std::shared_ptr<subscriber_t>>,
+																		std::recursive_mutex>;
 	subscriber_map subscribers;//indexed by address
 	std::shared_ptr<subscriber_t> global_subscriber; //for sending error messages
 

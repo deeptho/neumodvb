@@ -252,19 +252,78 @@ std::tuple<int, int, int> update_command(devdb::scan_command_t& cmd, system_time
 	return {ret, must_start, must_stop};
 }
 
+
+void receiver_thread_t::save_db_command(devdb::scan_command_t& cmd, time_t now) {
+	auto txn = receiver.devdb.wtxn();
+	cmd.mtime = now;
+	put_record(txn, cmd);
+	txn.commit();
+}
+
 /*
-	returns true if cmd is changed
+	returns true if a command is executing, but not in our process
+ */
+static inline bool active(devdb::scan_command_t& cmd) {
+	return cmd.owner != -1 && !kill((pid_t)cmd.owner, 0);
+}
+
+/*
+	returns true if a command is already executing in our process
+ */
+static inline bool ours(devdb::scan_command_t & cmd) {
+	return cmd.owner == getpid();
+}
+
+
+/*
+	returns true if cmd is started
  */
 bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 {
 	using namespace devdb;
 	cmd.run_start_time = now;
+	bool changed = false;
+	if(active(cmd)) {
+		assert(!ours(cmd));
+		return false;
+	}
+
+	/*allocate a new subscription_id. We need one to store in the database and this has to be
+		done before the command is started to avoid a race condition in which multiple neumodvb
+		processes attempt to start the same command
+	 */
+	subscribe_ret_t sret{subscription_id_t::NONE, false/*failed*/};
+
+	auto subscriber = subscriber_t::make(&receiver, nullptr /*window*/, sret.subscription_id);
+
+
+	cmd.subscription_id = (int)sret.subscription_id;
+	cmd.owner = getpid();
+	cmd.run_status = run_status_t::RUNNING;
+	cmd.run_start_time = now;
+	cmd.run_end_time = 0;
+	int ret{-1};
+	save_db_command(cmd, now); //must be done now to avoid starting the same command twice
+
 	switch(cmd.tune_options.subscription_type) {
 	case subscription_type_t::TUNE:
 		break;
 	case subscription_type_t::MUX_SCAN:
 		break;
-	case subscription_type_t::BAND_SCAN:
+	case subscription_type_t::BAND_SCAN: {
+		auto so = receiver.get_default_subscription_options(devdb::subscription_type_t::BAND_SCAN);
+		(devdb::tune_options_t&)so  = cmd.tune_options;
+		so.spectrum_scan_options = receiver.get_default_spectrum_scan_options
+			(devdb::subscription_type_t::BAND_SCAN);
+		so.tune_mode = devdb::tune_mode_t::SPECTRUM;
+		so.need_spectrum = true;
+		so.spectrum_scan_options.recompute_peaks = true;
+		so.spectrum_scan_options.start_freq = cmd.band_scan_options.start_freq;
+		so.spectrum_scan_options.end_freq = cmd.band_scan_options.end_freq;
+
+		//ret = subscriber->scan_bands(cmd.sats, cmd.tune_options, cmd.band_scan_options);
+		ret = (int) cb(*this).scan_bands(cmd.sats, cmd.band_scan_options.pols, so, sret.subscription_id);
+	}
 		break;
 	case subscription_type_t::SPECTRUM_ACQ:
 		break;
@@ -272,15 +331,24 @@ bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 		assert(false);
 		break;
 	}
-	return false;
+
+	if(ret < 0) {
+		stop_command(cmd, devdb::run_result_t::FAILED, now);
+		return false;
+	}
+	return true;
 }
 
 /*
 	returns true if cmd is changed
  */
-bool receiver_thread_t::stop_command(devdb::scan_command_t& cmd, time_t now)
+bool receiver_thread_t::stop_command(devdb::scan_command_t& cmd, devdb::run_result_t run_result, time_t now)
 {
+	cmd.mtime = now;
+	cmd.run_result = run_result;
 	cmd.run_end_time = now;
+	cmd.owner = -1;
+	cmd.subscription_id = -1;
 	return false;
 }
 
@@ -299,7 +367,7 @@ void receiver_thread_t::start_stop_commands(auto& cursor, db_txn& devdb_rtxn, sy
 			if(must_start)
 				changed |= start_command(cmd, now);
 			if(must_stop)
-				changed |= stop_command(cmd, now);
+				changed |= stop_command(cmd, devdb::run_result_t::ABORTED, now);
 
 			if(changed) {
 				auto wtxn = receiver.devdb.wtxn();
@@ -333,10 +401,12 @@ void receiver_thread_t::start_commands(db_txn& devdb_rtxn, system_time_t now_) {
 void receiver_thread_t::startup(system_time_t now_)
 {
 	using namespace devdb;
+#ifdef TODO
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto c = find_first<scan_command_t>(devdb_rtxn);
 	start_stop_commands(c, devdb_rtxn, now_);
 	devdb_rtxn.commit();
+#endif
 }
 
 

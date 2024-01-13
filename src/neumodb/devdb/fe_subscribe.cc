@@ -203,7 +203,7 @@ int devdb::fe::reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id
 	else {
 		chdb::service_t service;
 		service.k.mux = mux.k;
-		subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/,service});
+		subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
 	}
 	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
@@ -229,6 +229,9 @@ devdb::fe_t devdb::fe::subscribe_fe_in_use(
 }
 
 
+/*
+	sat == nullptr: subscriptuon can later change sat
+*/
 int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 																					 const subscription_options_t& tune_options,
 																					 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
@@ -247,6 +250,7 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 
 	//the following settings imply that we request a non-exclusive subscription
 	sub.rf_path = rf_path;
+	sub.sat_pos = sat ? sat->sat_pos : sat_pos_none;
 	sub.pol = tune_options.may_control_lnb ? chdb::fe_polarisation_t::NONE : band_scan->pol;
 	sub.band = tune_options.may_control_lnb ? chdb::sat_sub_band_t::NONE : band_scan->sat_sub_band;
 	sub.usals_pos = tune_options.may_move_dish ? sat_pos_none : lnb.usals_pos;
@@ -407,6 +411,7 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 
 	//the following settings imply that we request a non-exclusive subscription
 	sub.rf_path = rf_path;
+	sub.sat_pos = mux.k.sat_pos;
 	sub.pol = mux.pol;
 	sub.band = 	devdb::lnb::band_for_mux(lnb, mux);
 	sub.usals_pos = lnb.usals_pos;
@@ -426,10 +431,10 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 		service.k.mux = mux.k;
 		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
 	}
-	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} mux_id={:d} lnb={}  use_count={:d}",
+	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} mux_id={:d} sat={} lnb={}  use_count={:d}",
 					 (int) subscription_id, fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id,
-					 lnb, fe.sub.subs.size());
+					 chdb::sat_pos_str(sub.sat_pos), lnb, fe.sub.subs.size());
 
 	put_record(wtxn, fe);
 	return 0;
@@ -492,6 +497,7 @@ int devdb::fe::reserve_fe_for_mux(db_txn& wtxn, subscription_id_t subscription_i
 	sub.owner = getpid();
 	sub.rf_path = rf_path;
 	sub.pol = chdb::fe_polarisation_t::NONE;
+	sub.sat_pos = mux.k.sat_pos;
 	sub.band = chdb::sat_sub_band_t::NONE;
 	sub.usals_pos = mux.k.sat_pos;
 	sub.frequency = mux.frequency; //for informational purposes only
@@ -862,6 +868,7 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 			continue;
 		}
 		for(auto & sub: fe.sub.subs) { //loop over all subscriptions
+			assert(sub.sat_pos == sub.mux_key.sat_pos);
 			bool rf_path_matches = true;
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				rf_path_matches = tune_options.rf_path_is_allowed(fe.sub.rf_path);
@@ -959,3 +966,57 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 
 
 std::atomic_int subscribe_ret_t::next_subscription_id{0};
+
+/*
+	Types of subscriptions:
+	1. exclusive: the frontend can change to another band, another lnb or move a dish.
+	No resource reuse is possible: it is not possible to reuse the output of the tuner of
+	the frontend. It is also not possible to use other tuners, via an rf splitter
+
+	This is indicated by sat_pos==sat_pos_none and usals_pos==sat_pos_none in the subscription, along with other fields
+	that are set to non-specific values, e.g., mux_key
+
+	2. non-dish-moving; almost the same as exclusive, but subscription cannot chaange the dish position
+	after initial tuning. This is indicated by usals_pos set to a value different from sat_pos_none, i.e.
+	to the position the dish will tune to.
+
+	This means it is possible to use other connections of a quad lnb or from an offset lnb on the same
+	dish using another tuner and frontend
+
+	3. sat_band: the frontend will not change the rf_connection, i.e., will not switch to another lnb.
+	It will also not change to a different band or polarisation on the lnb. It will not move
+	the dish if the lnb is on the dish.
+
+	This is indicated by sat_pos!=sat_pos_none, usals_pos!=sat_pos_none, pol!=NONE, and sat_sub_band!= None
+
+	This means it is possible to use this specific sat band using another demodulator on the same card,
+	connected to the same tuner as the subscription. This includes spectrum scanning and tuning to
+	specific muxes in that band.
+
+	It is also possible to use another connection of the same lnb (using another lnb connection or via
+	an rf splitter) using another tuner/connector on the same
+	card, or using another card for tuning the same band, or a mux or service on that same band.
+
+	4. mux: the frontend will not change the rf_connection, i.e., will not switch to another lnb.
+	It will also not change to a different band or polarisation on the lnb. It will not move
+	the dish if the lnb is on the dish. In addition it will also not tune its frontend to another
+	mux
+
+	This is indicated by sat_pos!=sat_pos_none, usals_pos!=sat_pos_none, pol!=NONE, and sat_sub_band!= None
+	and mux_key.sat_pos != sat_pos_none
+
+	This means it is possible to use this specific sat band using another demodulator on the same card,
+	connected to the same tuner as the subscription. This includes spectrum scanning and tuning to
+	specific muxes in that band.
+
+	It is also possible to use another connection of the same lnb (using another lnb connection or via
+	an rf splitter) using another tuner/connector on the same
+	card, or using another card for tuning the same band, or a mux or service on that same band.
+
+	Finally, it is also possible to just use the frontend itself for tuning the same mux (not very useul)
+	or for tuning different services on that mux.
+
+
+
+
+ */

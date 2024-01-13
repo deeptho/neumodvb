@@ -123,6 +123,10 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 		}
 		/* at this point, fe is known to be subscribed*/
 
+		/*
+			if the frontend was used by the current subscription, then it will be released and
+			cannot cause a conflict. So it needs specific treatment.
+		 */
 		bool fe_will_be_released = fe_key_to_release && *fe_key_to_release == fe.k;
 
 		if(fe_will_be_released) {
@@ -136,7 +140,7 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
       /* dish_id < 0 is a special case: it signifies that the dish is different
 				 from any other dish*/
 			bool same_dish = fe.sub.dish_id == s.dish_id && s.dish_id >=0;
-      /* rf_cupler_id < 0 is a special case: it signifies there is no coupler*/
+      /* rf_coupler_id < 0 is a special case: it signifies there is no coupler*/
 			bool same_rf_coupler = fe.sub.rf_coupler_id == s.rf_coupler_id && s.rf_coupler_id >=0;
 			/*
 				check for conflicting tuner use (voltage, tone, diseqc)

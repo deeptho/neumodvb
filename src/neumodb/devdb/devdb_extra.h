@@ -281,7 +281,9 @@ namespace devdb::fe_subscription {
 	}
 
 	inline bool may_change_lnb(const fe_subscription_t& sub) {
-		return sub.usals_pos == sat_pos_none || sub.pol == chdb::fe_polarisation_t::NONE ||
+		return sub.usals_pos == sat_pos_none ||
+			sub.sat_pos == sat_pos_none ||
+			sub.pol == chdb::fe_polarisation_t::NONE ||
 			sub.band == chdb::sat_sub_band_t::NONE;
 	}
 

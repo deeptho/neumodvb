@@ -308,6 +308,14 @@ subscription_data = db_struct(name ='subscription_data',
                                           (5, 'std::variant<std::monostate,chdb::service_t, chdb::band_scan_t>', 'v')
                 ))
 
+#Overall contract: if fields like sat_pos, dish_id, mux_key... are set to valid values
+#then these values can never be changed by existing subscriptions
+#So e.g.,
+# -an illegal mux_key (with sat_pos==sat_pos_none) implies that the reservation is for a
+#  full sat band (used by spectrum scan) and cannot tune to amux
+# if sat_pos is specifified, then this frontend promises to always remain tuned to this sat
+# if usals_pos =- sat_pos_none, then dish can be moved at any time (and sat_pos==sat_pos_none as well)
+
 fe_subscription = db_struct(name='fe_subscription',
                            fname = 'fedev',
                            db = db,
@@ -315,6 +323,10 @@ fe_subscription = db_struct(name='fe_subscription',
                            version = 1,
                            fields = ((1, 'int32_t', 'owner', -1),
                                      (3, 'rf_path_t', 'rf_path'),
+                                     (2, 'int16_t', 'sat_pos', 'sat_pos_none'),   #if value is sat_pos_none
+                                                                                  #then subscription
+                                                                                  #is allowed to switch
+                                                                                  #to different sat
                                      (4, 'chdb::fe_polarisation_t', 'pol', 'chdb::fe_polarisation_t::NONE'),
                                      (5, 'chdb::sat_sub_band_t', 'band', 'chdb::sat_sub_band_t::NONE'),
                                      (6, 'int16_t', 'usals_pos', 'sat_pos_none'), #if value is sat_pos_none
@@ -327,9 +339,9 @@ fe_subscription = db_struct(name='fe_subscription',
                                      (7, 'int16_t', 'dish_usals_pos', 'sat_pos_none'), #if value is_pos_none
                                                                                        #then subscription is allowed
                                                                                        #to move dish
-                                     (9, 'int8_t', 'dish_id', '-1'), #if value is_pos_none
-                                                                                       #then subscription is allowed
-                                                                                       #to move dish
+                                     (9, 'int8_t', 'dish_id', '-1'), #if value is -1
+                                                                     #then subscription is allowed
+                                                                     #to move dish
                                      (8, 'int32_t', 'frequency', '0'),
                                      (10, 'int32_t', 'rf_coupler_id', '-1'),
                                      (12, 'chdb::mux_key_t' , 'mux_key'),
@@ -478,9 +490,9 @@ tune_mode = db_enum(name='tune_mode_t',
             ('IDLE', 0),
             'NORMAL',
             'SPECTRUM',
-	          'BLIND',
-	          'POSITIONER_CONTROL',
-	          'UNCHANGED'
+            'BLIND',
+            'POSITIONER_CONTROL',
+            'UNCHANGED'
             )))
 
 retune_mode = db_enum(name='retune_mode_t',

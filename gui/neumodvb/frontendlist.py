@@ -56,7 +56,20 @@ def subscription_fn(x):
     #lnb and rf input info common to all subscriptions
     sid = f"" if (mux_key.stream_id < 0) else f'-{mux_key.stream_id}'
     if mux_key.sat_pos == pychdb.sat.sat_pos_none:
-        ret.append(f"Band")
+        if fesub.sat_pos == pychdb.sat.sat_pos_none:
+            ret.append(f"Exclusive")
+        elif fesub.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
+            t= lastdot(fesub.rf_path.lnb.lnb_type)
+            sat_pos=pychdb.sat_pos_str(fesub.sat_pos)
+            t= lastdot(fesub.rf_path.lnb.lnb_type)
+            e = neumodbutils.enum_to_str
+            f = f'{sat_pos} {e(fesub.band)}-{e(fesub.pol)}'
+            m = f'{f} #{fesub.rf_path.rf_input} {t}:{fesub.rf_path.lnb.lnb_id}'
+            ret.append(m)
+        else:
+            f = f'{fesub.frequency/1000.:9.3f}Mhz{sid}'
+            m = f'{f} #{fesub.rf_path.rf_input}'
+            ret.append(m)
     elif mux_key.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
         t= lastdot(fesub.rf_path.lnb.lnb_type)
         sat_pos=pychdb.sat_pos_str(mux_key.sat_pos)
@@ -77,7 +90,7 @@ def subscription_fn(x):
             srv=f'{sub.v.k.service_id} [{sub.v.ch_order}] {sub.v.name}'
             ret.append(f'{sub.subscription_id}: {srv}')
         elif sub.has_mux:
-            assert type(sub.v) == pychdb.service.service
+            assert type(sub.v) == pychdb.service.service #not a mistake
             ret.append(f'{sub.subscription_id}: {str(sub.v.k.mux)}')
         else:
             assert type(sub.v) == pychdb.band_scan.band_scan
@@ -86,7 +99,7 @@ def subscription_fn(x):
                 sat_pos=pychdb.sat_pos_str(usals_pos)
                 t= lastdot(fesub.rf_path.lnb.lnb_type)
                 e = neumodbutils.enum_to_str
-                f = f'{e(fesub.band)}{e(fesub.pol)}'
+                f = f'{e(fesub.band)}-{e(fesub.pol)}'
                 ret.append(f'{sub.subscription_id}: {f}')
             else:
                 f = f'Exclusive'

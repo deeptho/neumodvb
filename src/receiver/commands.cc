@@ -369,6 +369,8 @@ bool receiver_thread_t::stop_command(devdb::scan_command_t& cmd, devdb::run_resu
 	cmd.run_end_time = now;
 	cmd.owner = -1;
 	cmd.subscription_id = -1;
+	auto next_time = compute_next_time(cmd, now);
+	cmd.run_status = next_time >=0 ? devdb::run_status_t::PENDING : devdb::run_status_t::FINISHED;
 	return false;
 }
 
@@ -421,6 +423,7 @@ void receiver_thread_t::on_scan_command_end(db_txn& devdb_wtxn,
 				dterrorf("Unexpected: command with id={} is not ours", command_id);
 				continue;
 			}
+			cmd.scan_stats = scan_stats;
 			stop_command(cmd, devdb::run_result_t::OK, now);
 			put_record(devdb_wtxn, cmd);
 		}

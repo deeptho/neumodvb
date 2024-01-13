@@ -1244,9 +1244,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	}
 	auto fefd = w->fefd;
 	w->use_blind_tune = blindscan;
-	dtdebugf("change tune mode on adapter {:d} from {:d} to {:d}", (int)adapter_no,
-					 (int) w->tune_mode, (int) tune_options.tune_mode);
-	w->tune_mode = tune_options.tune_mode;
+	w->tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND: devdb::tune_mode_t::NORMAL;
 	int heartbeat_interval = (api_type == api_type_t::NEUMO) ? 1000 : 0;
 	ret = cmdseq.tune(fefd, heartbeat_interval);
 	dtdebugf("tune returning ret={:d}", ret);
@@ -1277,6 +1275,29 @@ void dvb_frontend_t::request_lnb_spectrum_scan(
 		printf("returning to main fiber\n");
 		return std::move(main_fiber);
 	});
+}
+
+int dvb_frontend_t::request_positioner_control(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+	const subscription_options_t& tune_options) {
+	{
+		auto w =  this->ts.writeAccess();
+		w->tune_options = tune_options;
+		w->positioner_start_move_time = {};
+		//w->lock_status.fem_state = fem_state_t::STARTED;
+	}
+	this->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
+	/* When moving the positioner, the following code may run for a long time, so we run it
+		 as a task
+	 */
+	auto band = chdb::sat_sub_band_t::LOW;
+	auto voltage = SEC_VOLTAGE_18;
+	auto [ret, new_usals_sat_pos ] = this->do_lnb_and_diseqc(sat_pos_none, band, voltage, true /*skip_positioner*/);
+	msleep(30);
+	if(ret<0) {
+		dterrorf("diseqc failed: err={:d}", ret);
+		return ret;
+	}
+	return 0;
 }
 
 std::tuple<int, int>
@@ -1558,10 +1579,9 @@ int dvb_frontend_t::tune_(const chdb::dvbc_mux_t& mux, const subscription_option
 	auto w = ts.writeAccess();
 	w->tune_count++;
 	auto fefd = w->fefd;
-	dtdebugf("change tune mode on adapter {:d} from {:d} to {:d}", (int) adapter_no,
-					 (int) w->tune_mode, (int) tune_options.tune_mode);
-	w->tune_mode = tune_options.tune_mode;
-	assert(w->tune_mode == devdb::tune_mode_t::NORMAL || w->tune_mode == devdb::tune_mode_t::BLIND);
+	auto tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND: devdb::tune_mode_t::NORMAL;
+	dtdebugf("change tune mode on adapter {:d} from {} to {}", (int) adapter_no, w->tune_mode,  tune_mode);
+	w->tune_mode = tune_mode;
 	int heartbeat_interval = 0;
 	return cmdseq.tune(fefd, heartbeat_interval);
 }
@@ -1618,9 +1638,10 @@ int dvb_frontend_t::tune_(const chdb::dvbt_mux_t& mux, const subscription_option
 	w->tune_count++;
 	auto fefd = w->fefd;
 	w->use_blind_tune = tune_options.use_blind_tune;
-	dtdebugf("change tune mode on adapter {:d} from {:d} to {:d}",
-					 (int) adapter_no, (int) w->tune_mode, (int) tune_options.tune_mode);
-	w->tune_mode = tune_options.tune_mode;
+	auto tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND: devdb::tune_mode_t::NORMAL;
+	dtdebugf("change tune mode on adapter {:d} from {} to {}",
+					 (int) adapter_no, w->tune_mode, tune_mode);
+	w->tune_mode = tune_mode;
 	int heartbeat_interval = 0;
 	return cmdseq.tune(fefd, heartbeat_interval);
 }
@@ -1751,7 +1772,10 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 	}
 	auto ret = cmdseq.spectrum(fefd, options.use_fft_scan ? SPECTRUM_METHOD_FFT: SPECTRUM_METHOD_SWEEP);
 
-	w->tune_mode = tune_mode_t::SPECTRUM;
+	auto tune_mode = tune_mode_t::SPECTRUM;
+	dtdebugf("change tune mode on adapter {:d} from {} to {}",
+					 (int) adapter_no, w->tune_mode, tune_mode);
+	w->tune_mode = tune_mode;
 	w->tune_options.spectrum_scan_options = options;
 	dtdebugf("tune: spectrum acquisition started ret={:d}", ret);
 	return ret;

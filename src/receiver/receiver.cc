@@ -467,7 +467,6 @@ receiver_thread_t::subscribe_mux(
 	subscription_id_t subscription_id, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id,
 	bool do_not_unsubscribe_on_failure) {
-	assert(tune_options.tune_mode == devdb::tune_mode_t::NORMAL || tune_options.tune_mode == devdb::tune_mode_t::BLIND);
 	subscribe_ret_t sret;
 
 	assert(!tune_options.need_spectrum);
@@ -698,7 +697,8 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 																									 devdb::rf_path_t& rf_path,
 																									 devdb::lnb_t& lnb, subscription_options_t tune_options,
 																									 subscription_id_t subscription_id) {
-	bool need_spectrum = tune_options.tune_mode == devdb::tune_mode_t::SPECTRUM;
+	bool need_spectrum = tune_options.subscription_type == devdb::subscription_type_t::SPECTRUM_ACQ ||
+		tune_options.subscription_type == devdb::subscription_type_t::BAND_SCAN;
 	tune_options.allowed_dish_ids = {};
 	tune_options.allowed_card_mac_addresses = {};
 	tune_options.need_spectrum = need_spectrum;
@@ -1116,6 +1116,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	tune_options.spectrum_scan_options.start_freq = low_freq;
 	tune_options.spectrum_scan_options.end_freq = high_freq;
 	tune_options.spectrum_scan_options.sat = sat;
+	tune_options.need_spectrum = true;
 	//call by reference ok because of subsequent wait_for_all
 	subscription_id_t ret_subscription_id;
 	futures.push_back(receiver_thread.push_task([this, &lnb, &rf_path, tune_options, &ret_subscription_id,
@@ -1142,8 +1143,8 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 	std::vector<task_queue_t::future_t> futures;
 	subscription_options_t tune_options;
 	tune_options.subscription_type = devdb::subscription_type_t::LNB_CONTROL;
-	tune_options.tune_mode = devdb::tune_mode_t::POSITIONER_CONTROL;
 	tune_options.retune_mode = retune_mode;
+	tune_options.need_spectrum = false;
 	subscription_id_t ret_subscription_id;
 	//call by reference ok because of subsequent wait_for_all
 	futures.push_back(receiver_thread.push_task([this, &rf_path, &lnb, &tune_options,
@@ -1176,7 +1177,6 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 	std::vector<task_queue_t::future_t> futures;
 	auto tune_options = this->get_default_subscription_options(devdb::subscription_type_t::LNB_CONTROL);
 	tune_options.use_blind_tune = blindscan;
-	tune_options.tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND : devdb::tune_mode_t::NORMAL;
 	tune_options.retune_mode = retune_mode;
 	tune_options.allowed_rf_paths = {rf_path};
 	//call by reference ok because of subsequent wait_for_all
@@ -1908,26 +1908,22 @@ devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_t
 	bool for_lnb_control = false;
 	switch(subscription_type) {
 	case subscription_type_t::TUNE:
-		ret.tune_mode = tune_mode_t::NORMAL;
 		ret.scan_target =  scan_target_t::SCAN_FULL_AND_EPG;
 		break;
 	case subscription_type_t::BAND_SCAN:
 	case subscription_type_t::SPECTRUM_ACQ:
-		ret.tune_mode = tune_mode_t::SPECTRUM;
 		ret.scan_target =  scan_target_t::SCAN_FULL;
 		ret.retune_mode = retune_mode_t::NEVER;
 		ret.need_spectrum = true;
 		for_scan = true;
 		break;
 	case subscription_type_t::MUX_SCAN: //for scan
-		ret.tune_mode = tune_mode_t::NORMAL;
 		ret.scan_target =  scan_target_t::SCAN_FULL;
 		ret.retune_mode = retune_mode_t::NEVER;
 		for_scan=true;
 		break;
 	case subscription_type_t::LNB_CONTROL:
 		ret.scan_target =  scan_target_t::SCAN_MINIMAL;
-		ret.tune_mode = tune_mode_t::POSITIONER_CONTROL;
 		ret.may_control_dish = true;
 		for_lnb_control = true;
 		break;

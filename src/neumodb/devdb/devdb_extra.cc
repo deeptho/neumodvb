@@ -1534,3 +1534,8 @@ fmt::format_context::iterator
 fmt::formatter<devdb::run_result_t>::format(const devdb::run_result_t& run_result, format_context& ctx) const {
 	return fmt::format_to(ctx.out(), "{}", to_str(run_result));
 }
+
+fmt::format_context::iterator
+fmt::formatter<devdb::tune_mode_t>::format(const devdb::tune_mode_t& tune_mode, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}", to_str(tune_mode));
+}

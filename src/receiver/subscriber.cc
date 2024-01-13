@@ -98,7 +98,6 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 		(devdb::tune_options_t&)so  = *tune_options_;
 	so.spectrum_scan_options = receiver->get_default_spectrum_scan_options
 		(devdb::subscription_type_t::BAND_SCAN);
-	so.tune_mode = devdb::tune_mode_t::SPECTRUM;
 	so.need_spectrum = true;
 	so.spectrum_scan_options.recompute_peaks = true;
 	so.spectrum_scan_options.start_freq = band_scan_options.start_freq;

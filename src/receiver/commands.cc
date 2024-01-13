@@ -335,7 +335,6 @@ bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 		(devdb::tune_options_t&)so  = cmd.tune_options;
 		so.spectrum_scan_options = receiver.get_default_spectrum_scan_options
 			(devdb::subscription_type_t::BAND_SCAN);
-		so.tune_mode = devdb::tune_mode_t::SPECTRUM;
 		so.need_spectrum = true;
 		so.spectrum_scan_options.recompute_peaks = true;
 		so.spectrum_scan_options.start_freq = cmd.band_scan_options.start_freq;

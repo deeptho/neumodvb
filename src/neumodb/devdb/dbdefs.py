@@ -581,7 +581,6 @@ tune_options = db_struct(name ='tune_options',
               (3, 'std::optional<ss::vector_<int8_t>>', 'allowed_dish_ids'),
               (4, 'std::optional<ss::vector_<int64_t>>', 'allowed_card_mac_addresses'),
               (5, 'std::optional<ss::vector_<rf_path_t>>', 'allowed_rf_paths'),
-              (6, 'tune_mode_t', 'tune_mode'),
               (7, 'bool', 'use_blind_tune', 'false'),
 	            (8, 'bool', 'may_move_dish', 'false'),    #subscription is allowed to move the dish when tuning if no
                                                         #other subscriptions conflict; afterwards dish may not be moved

@@ -196,7 +196,6 @@ static int scan_muxes_on_sats(subscriber_t& subscriber, db_txn& chdb_rtxn,
 
 	using namespace chdb;
 	using namespace devdb;
-	assert(tune_options.tune_mode == devdb::tune_mode_t::NORMAL || tune_options.tune_mode == devdb::tune_mode_t::BLIND);
 	assert(tune_options.subscription_type == subscription_type_t::MUX_SCAN);
 
 	ss::vector<chdb::dvbs_mux_t,1> dvbs_muxes;

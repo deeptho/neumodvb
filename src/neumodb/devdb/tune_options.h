@@ -98,12 +98,10 @@ struct subscription_options_t : public devdb::tune_options_t {
 	}
 
  	subscription_options_t(devdb::scan_target_t scan_target =  devdb::scan_target_t::SCAN_FULL,
-												 devdb::tune_mode_t tune_mode = devdb::tune_mode_t::NORMAL,
 												 devdb::subscription_type_t subscription_type = devdb::subscription_type_t::TUNE)
 		{
 			this->subscription_type = subscription_type;
 			this->scan_target = scan_target;
-			this->tune_mode = tune_mode;
 		}
 
 	subscription_options_t& operator=(const subscription_options_t& other) = default;

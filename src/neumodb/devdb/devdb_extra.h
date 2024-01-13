@@ -295,12 +295,12 @@ namespace devdb::fe_subscription {
 
 #define declfmt(t)																											\
 	template <> struct fmt::formatter<t> {																\
-	inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
-		return ctx.begin();																									\
-	}																																			\
+		inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
+			return ctx.begin();																								\
+		}																																		\
 																																				\
-	format_context::iterator format(const t&, format_context& ctx) const ;\
-}
+		format_context::iterator format(const t&, format_context& ctx) const ; \
+	}
 
 declfmt(devdb::lnb_key_t);
 declfmt(devdb::lnb_t);
@@ -312,6 +312,7 @@ declfmt(devdb::fe_t);
 declfmt(devdb::run_type_t);
 declfmt(devdb::run_status_t);
 declfmt(devdb::run_result_t);
+declfmt(devdb::tune_mode_t);
 #if 0 //not yet implemented
 declfmt(devdb::tuned_frequency_offsets_key_t);
 declfmt(devdb::tuned_frequency_offsets_t);

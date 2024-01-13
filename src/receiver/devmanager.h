@@ -400,6 +400,10 @@ private:
 	void request_lnb_spectrum_scan(tuner_thread_t& tuner_thread,
 																 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																 const subscription_options_t& tune_options);
+
+int request_positioner_control(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+															 const subscription_options_t& tune_options);
+
 	std::tuple<int, int, int, double>
 	get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usals_pos, steady_time_t now) const;
 
@@ -437,10 +441,7 @@ private:
 
 	inline int set_tune_options(const subscription_options_t& tune_options) {
 		auto w = this->ts.writeAccess();
-		auto tune_mode = (tune_options.tune_mode == devdb::tune_mode_t::UNCHANGED) ? tune_options.tune_mode
-			: tune_options.tune_mode;
 		w->tune_options = tune_options;
-		w->tune_options.tune_mode = tune_mode;
 		return 0;
 	}
 

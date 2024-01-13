@@ -301,7 +301,7 @@ fmt::formatter<epg_source_t>::format(const epg_source_t& s, format_context& ctx)
 {
 	auto sat = chdb::sat_pos_str(s.sat_pos);
 	return fmt::format_to(ctx.out(), "{:s} - nid={:d} tsid={:d} {:s}[{:d}]",
-												sat.c_str(), s.network_id, s.ts_id, enum_to_str(s.epg_type),
+												sat.c_str(), s.network_id, s.ts_id, to_str(s.epg_type),
 												(int)s.table_id);
 }
 
@@ -314,7 +314,7 @@ fmt::formatter<epg_key_t>::format(const epg_key_t& k, format_context& ctx) const
 fmt::format_context::iterator
 fmt::formatter<epg_record_t>::format(const epg_record_t& epg, format_context& ctx) const {
 	return fmt::format_to(ctx.out(), "{} - {:%H:%M}:{} {}", epg.k, fmt::localtime(epg.end_time),
-												enum_to_str(epg.rec_status), epg.event_name);
+												to_str(epg.rec_status), epg.event_name);
 }
 
 /*!

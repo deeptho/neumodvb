@@ -21,7 +21,7 @@
 #include "neumodb/{{dbname}}/{{dbname}}_db.h"
 
 using namespace {{dbname}};
-
+{% if false %}
 {%for enum in enums %}
 template<>
 EXPORT const char* enum_to_str<{{enum.name}}>(const {{enum.name}}& val)
@@ -39,7 +39,7 @@ EXPORT const char* enum_to_str<{{enum.name}}>(const {{enum.name}}& val)
 };
 
 {%endfor%}
-
+{% endif %}
 
 
 {%for enum in enums %}

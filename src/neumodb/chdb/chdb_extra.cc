@@ -1387,14 +1387,14 @@ fmt::formatter<chdb::sat_t>::format(const chdb::sat_t& sat, format_context& ctx)
 		return fmt::format_to(ctx.out(), "----");
 	} else {
 		auto fpos = std::abs(sat.sat_pos) / (double)100.;
-		return fmt::format_to(ctx.out(), "{:3.1f}{:c} {}", fpos, sat.sat_pos < 0 ? 'W' : 'E', enum_to_str(sat.sat_band));
+		return fmt::format_to(ctx.out(), "{:3.1f}{:c} {}", fpos, sat.sat_pos < 0 ? 'W' : 'E', to_str(sat.sat_band));
 	}
 }
 
 fmt::format_context::iterator
 fmt::formatter<chdb::dvbs_mux_t>::format(const chdb::dvbs_mux_t& mux, format_context& ctx) const {
 	auto it = fmt::format_to(ctx.out(), "{:d}.{:03d}{:s}", mux.frequency / 1000,
-													 mux.frequency%1000, enum_to_str(mux.pol));
+													 mux.frequency%1000, to_str(mux.pol));
 	if (mux.k.stream_id >= 0)
 		it = fmt::format_to(ctx.out(), "-{:d}", mux.k.stream_id);
 	if (mux.k.t2mi_pid >= 0)
@@ -1468,7 +1468,7 @@ fmt::formatter<chdb::service_t>::format(const chdb::service_t& service, format_c
 	auto s = sat_pos_str(service.k.mux.sat_pos);
 	return fmt::format_to(ctx.out(),  "[{:>5d}] {:d}.{:03d}{:s} - {:s}", service.ch_order,
 												service.frequency / 1000, service.frequency%1000,
-												(service.pol == chdb::fe_polarisation_t::NONE) ? "" : enum_to_str(service.pol),
+												(service.pol == chdb::fe_polarisation_t::NONE) ? "" : to_str(service.pol),
 												service.name.c_str());
 }
 
@@ -1539,7 +1539,7 @@ fmt::formatter<chdb::sat_sub_band_pol_t>::format(const chdb::sat_sub_band_pol_t&
 fmt::format_context::iterator
 fmt::formatter<chdb::band_scan_t>::format(const chdb::band_scan_t& band_scan, format_context& ctx) const {
 	return fmt::format_to(ctx.out(), "{:s}-{:s}{:s}",
-												enum_to_str(band_scan.pol),
+												to_str(band_scan.pol),
 												to_str(band_scan.sat_band),
 												to_str(band_scan.sat_sub_band));
 }

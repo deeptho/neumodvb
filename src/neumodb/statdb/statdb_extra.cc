@@ -45,7 +45,7 @@ fmt::formatter<signal_stat_key_t>::format(const signal_stat_key_t& k, format_con
 	return fmt::format_to(ctx.out(), "{:06x}_RF{:d} :{:5s}:{:5.3f}{:s} {:%F %T}",
 												(int)k.rf_path.card_mac_address, k.rf_path.rf_input,
 												sat, k.frequency / 1000.,
-												enum_to_str(k.pol), fmt::localtime(k.time));
+												to_str(k.pol), fmt::localtime(k.time));
 }
 
 fmt::format_context::iterator
@@ -64,7 +64,7 @@ fmt::formatter<spectrum_key_t>::format(const spectrum_key_t& spectrum_key, forma
 	auto sat = chdb::sat_pos_str(spectrum_key.sat_pos);
 	return fmt::format_to(ctx.out(), "{:06x}_RF{:d} {:5s}: {:s} {:%F %H:%M}" ,
 												(int)spectrum_key.rf_path.card_mac_address,
-												spectrum_key.rf_path.rf_input, sat, enum_to_str(spectrum_key.pol),
+												spectrum_key.rf_path.rf_input, sat, to_str(spectrum_key.pol),
 												fmt::localtime(spectrum_key.start_time));
 }
 
@@ -79,7 +79,7 @@ fmt::formatter<spectrum_t>::format(const spectrum_t& spectrum, format_context& c
 void statdb::make_spectrum_scan_filename(ss::string_& ret, const statdb::spectrum_t& spectrum) {
 	using namespace std::chrono;
 	auto sat = chdb::sat_pos_str(spectrum.k.sat_pos);
-	auto* pol_ = enum_to_str(spectrum.k.pol);
+	auto* pol_ = to_str(spectrum.k.pol);
 	ret.format("{}/{:%F_%H:%M:%S}_{}_dish{}_C{:06x}_A{:d}_RF{:d}", sat, fmt::localtime(spectrum.k.start_time), pol_,
 						 (int)spectrum.k.rf_path.lnb.dish_id, (uint64_t)spectrum.k.rf_path.card_mac_address, spectrum.adapter_no,
 						 spectrum.k.rf_path.rf_input);

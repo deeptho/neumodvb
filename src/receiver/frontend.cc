@@ -313,8 +313,7 @@ static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t 
 	for (int i = 0; i < num_delsys; ++i) {
 		auto delsys = (chdb::fe_delsys_t)supported_delsys[i];
 		// auto fe_type = chdb::delsys_to_type (delsys);
-		auto* s = enum_to_str(delsys);
-		dtdebugf("delsys[{}]={}", i, s);
+		dtdebugf("delsys[{}]={}", i, to_str(delsys));
 		t.dbfe.delsys[i] = delsys;
 	}
 
@@ -1119,7 +1118,7 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 				options.band_pol.band = chdb::sat_sub_band_t::HIGH;
 				options.append = true;
 				dtdebugf("Continuing spectrum scan with pol={:s} band=high",
-								 enum_to_str(options.band_pol.pol));
+								 to_str(options.band_pol.pol));
 			}
 		}
 		this->start_lnb_spectrum_scan(rf_path, lnb);

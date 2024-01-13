@@ -80,7 +80,7 @@ ss::string<128> dump_caps(chdb::fe_caps_t caps) {
 	for (int i = 0; i < 32; ++i) {
 		auto mask = ((uint32_t)1) << i;
 		if (mask & (uint32_t)caps) {
-			ret.format("{} ", enum_to_str((chdb::fe_caps_t)mask));
+			ret.format("{} ", to_str((chdb::fe_caps_t)mask));
 		}
 	}
 	return ret;

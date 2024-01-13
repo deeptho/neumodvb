@@ -287,8 +287,9 @@ struct neumo_schema_t;
 void print_schema(schema::neumo_schema_t& s);
 
 bool check_schema(const dbdesc_t& stored, const dbdesc_t& current);
-
-template<typename T> EXPORT const char* enum_to_str(const T& val);
+#if 0
+template<typename T> EXPORT const char* to_str(const T& val);
+#endif
 template<typename T> EXPORT  bool enum_is_valid(const T& val);
 
 #ifdef declfmt

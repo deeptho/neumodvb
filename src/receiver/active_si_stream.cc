@@ -2242,10 +2242,10 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 			if (done)
 				epg.service_key.mux.sat_pos = stream_mux_key->sat_pos;
 			else {
-				const auto* s = enum_to_str(epg_type);
 				dtdebugf("Cannot enter EPG_{:s} records ({:s}), because mux with network_id={:d} and ts_id={:d} has different "
 								 "dvb type and sat not yet confirmed (retrying)",
-								 epg.is_actual ? "ACTUAL" : "OTHER", s, epg.service_key.network_id, epg.service_key.ts_id);
+								 epg.is_actual ? "ACTUAL" : "OTHER", to_str(epg_type),
+								 epg.service_key.network_id, epg.service_key.ts_id);
 				return done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 			}
 		} else
@@ -2334,12 +2334,7 @@ void active_si_stream_t::process_removed_services(db_txn& txn, chdb::any_mux_t& 
 	auto c = chdb::service::find_by_mux_key(txn, mux_key);
 
 	for (const auto& service : c.range()) {
-#if 0
-		if (service.k.mux != mux_key)
-			break; // TODO: currently there is no way to iterate over services on a single mux
-#else
 		assert(service.k.mux == mux_key);
-#endif
 		if (service.expired)
 			continue; // already expired
 		if (std::find(std::begin(service_ids), std::end(service_ids), service.k.service_id) != std::end(service_ids))

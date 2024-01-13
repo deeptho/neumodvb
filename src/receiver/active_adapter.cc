@@ -380,9 +380,9 @@ void active_adapter_t::on_stable_pat() {
 		return;
 	auto pol = pmux->pol;
 	dtdebugf("positioner moved from {:d} to {:d} in {:d}ms = {:f} degree/s pol={}",
-					 old_angle, new_angle, move_time_ms, speed, enum_to_str(pol));
+					 old_angle, new_angle, move_time_ms, speed, to_str(pol));
 	fmt::print("positioner moved from {:d} to {:d} in {:d}ms = {:f} degree/s pol={}\n",
-						 old_angle, new_angle, move_time_ms, speed, enum_to_str(pol));
+						 old_angle, new_angle, move_time_ms, speed, to_str(pol));
 
 
 }

@@ -62,7 +62,7 @@ def subscription_fn(x):
         sat_pos=pychdb.sat_pos_str(mux_key.sat_pos)
         t= lastdot(fesub.rf_path.lnb.lnb_type)
         e = neumodbutils.enum_to_str
-        f = f'{sat_pos:>5} {fesub.frequency/1000.:9.3f}{e(fesub.pol)}{sid}'
+        f = f'{sat_pos} {fesub.frequency/1000.:9.3f}{e(fesub.pol)}{sid}'
         m = f'{f} #{fesub.rf_path.rf_input} {t}:{fesub.rf_path.lnb.lnb_id}'
         ret.append(m)
     else:

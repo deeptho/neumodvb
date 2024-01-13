@@ -918,5 +918,5 @@ browse_history = db_struct(name ='browse_history',
               (18, 'ss::vector<chgm_t, 2>', 'cgmlist_chgms'),
               (19, 'ss::vector<dvbs_mux_t, 2>', 'dvbs_muxlist_muxes'),
               (20, 'ss::vector<dvbc_mux_t, 2>', 'dvbc_muxlist_muxes'),
-              (21, 'ss::vector<dvbt_mux_t, 2>', 'dvbt_muxlist_muxes'),
+              (21, 'ss::vector<dvbt_mux_t, 2>', 'dvbt_muxlist_muxes')
               ))

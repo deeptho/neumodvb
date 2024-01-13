@@ -59,6 +59,8 @@ class subscriber_t
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::atomic<bool> scanning_{false}; //subscriber is scanning
 public:
+	const int command_id{-1}; //non-zero if we are running a command
+
 	enum class event_type_t : uint32_t {
 		ERROR_MSG  = (1<<0),
 		SIGNAL_INFO = (1<<1),
@@ -96,20 +98,18 @@ public:
 	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);
 
 	void notify_error(const ss::string_& errmsg);
-	void notify_scan_progress(const scan_stats_t& scan_stats);
-
+	void notify_scan_progress(const devdb::scan_stats_t& scan_stats);
 	void notify_scan_mux_end(const scan_mux_end_report_t& report);
-	#ifdef TODO4
-	void notify_scan_band_end(const scan_band_end_report_t& report);
-	#endif
 	void notify_sdt_actual(const sdt_data_t& sdt_data) const;
 	void notify_signal_info(const signal_info_t& info) const;
 	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum);
 
 	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window,
-											subscription_id_t  subscription_id=subscription_id_t::NONE);
+											subscription_id_t  subscription_id=subscription_id_t::NONE,
+											int command_id=-1);
 	EXPORT static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window,
-																									 subscription_id_t subscription_id=subscription_id_t::NONE);
+																									 subscription_id_t subscription_id=subscription_id_t::NONE,
+																									 int command_id =-1);
 
 	EXPORT ~subscriber_t();
 

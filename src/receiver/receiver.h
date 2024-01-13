@@ -393,11 +393,14 @@ private:
 	virtual int run() final;
 
 	int housekeeping(system_time_t now);
-	void start_stop_commands(auto& cursor, db_txn& devdb_rtxn, system_time_t now_);
+	void start_stop_commands(auto& cursor, db_txn& devdb_rtxn, system_time_t now_, bool clean);
 	void start_commands(db_txn& rtxn, system_time_t now);
 	void stop_commands(db_txn& rtxn, system_time_t now);
 	void save_db_command(devdb::scan_command_t& cmd, time_t now);
 	bool stop_command(devdb::scan_command_t& cmd, devdb::run_result_t run_result, time_t now);
+	void on_scan_command_end(db_txn& devdb_wtxn,
+													 subscription_id_t scan_subscription_id, const devdb::scan_stats_t& scan_stats);
+
 	bool start_command(devdb::scan_command_t& cmd, time_t now);
 
 public:

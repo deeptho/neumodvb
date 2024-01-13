@@ -65,6 +65,28 @@
 			}																																\
 	}(v)																																\
 
+
+
+/*
+	returns true if a command is executing, but not in our process
+ */
+static inline bool active(devdb::scan_command_t& cmd) {
+	return cmd.owner != -1 && !kill((pid_t)cmd.owner, 0);
+}
+
+static inline bool dead(devdb::scan_command_t& cmd) {
+	return cmd.owner != -1 && kill((pid_t)cmd.owner, 0);
+}
+
+/*
+	returns true if a command is already executing in our process
+ */
+static inline bool ours(devdb::scan_command_t & cmd) {
+	return cmd.owner == getpid();
+}
+
+
+
 /*
 	Compute the next time t>=now_ such
 	that the hour of the day is a multiple of interval timeperiods after start_time,
@@ -192,14 +214,25 @@ static inline time_t compute_next_time(devdb::scan_command_t& cmd, time_t now)
 	1. true if anything changed and database record should be updated
 	2. true if command must be actually started now
 	3. true if command must be actually be stopped now
+
+	clean: if true then commands running by dead processes are reset
  */
-std::tuple<int, int, int> update_command(devdb::scan_command_t& cmd, system_time_t now_, bool force)
+static std::tuple<int, int, int> update_command(devdb::scan_command_t& cmd, time_t now, bool force,
+																								bool clean)
 {
 	using namespace devdb;
-	auto now = system_clock_t::to_time_t(now_);
 	bool ret{false};
 	bool must_start{false};
 	bool must_stop{false};
+	if(clean && dead(cmd)) {
+		cmd.owner=-1;
+		cmd.next_time = -1;
+		if(cmd.run_status == run_status_t::RUNNING) {
+			cmd.run_result  = run_result_t::ABORTED;
+			cmd.run_status  = run_status_t::PENDING;
+		}
+		force = true;
+	}
 	if(cmd.next_time > now && !force)
 		return {false, false, false};
 	time_t new_next_time = compute_next_time(cmd, now);
@@ -207,7 +240,7 @@ std::tuple<int, int, int> update_command(devdb::scan_command_t& cmd, system_time
 		ret |= set_member(cmd, run_status,run_status_t::NONE);
 
 	if(cmd.run_status == run_status_t::RUNNING) {
-		must_stop = (now - cmd.next_time  > cmd.max_duration && cmd.max_duration>0);
+		must_stop = (now - cmd.run_start_time  > cmd.max_duration && cmd.max_duration>0);
 		ret |= set_member(cmd, run_result, run_result_t::ABORTED);
 		ret |= set_member(cmd, run_end_time, now);
 		if(new_next_time >=0) { //will run again
@@ -217,23 +250,25 @@ std::tuple<int, int, int> update_command(devdb::scan_command_t& cmd, system_time
 			ret |= set_member(cmd, run_status, run_status_t::FINISHED);
 		}
 	} else {
-		bool delayed_start = (new_next_time>=0 && new_next_time <= now);
-		auto next_time = delayed_start ? new_next_time : cmd.next_time;
-		if(next_time <= now) {
-			if(cmd.run_status == run_status_t::PENDING ||
-				 cmd.run_status == run_status_t::NONE ||
-				 cmd.run_status == run_status_t::FINISHED) {
-				must_start = cmd.catchup || (now - next_time  < cmd.max_duration || cmd.max_duration <= 0);
-				if(must_start)
-					ret |= set_member(cmd, run_start_time, now);
-				if(!must_start &&!cmd.catchup)  {
-					dtdebugf("Detected skipped command {}", cmd.id);
-					ret |= set_member(cmd, run_result, run_result_t::SKIPPED);
-					ret |= set_member(cmd, run_status, run_status_t::NONE);
-				} else {
-					ret |= set_member(cmd, run_result, run_result_t::NONE);
-					ret |= set_member(cmd, run_status, run_status_t::RUNNING);
-				}
+		if(cmd.next_time < 0)
+			cmd.next_time = new_next_time;
+		printf("STARTING ALWAYS TO DEBUG\n");
+		cmd.next_time = now; //
+		if(cmd.next_time >=0 && cmd.next_time <= now) {
+			must_start = (cmd.run_status == run_status_t::PENDING && cmd.catchup) /*we missed the scheduled run
+																																							and should catch up*/
+				|| (now - cmd.next_time  < cmd.max_duration) || (cmd.max_duration <= 0); /*
+																																						it is time to run
+																																					 */
+			if(must_start)
+				ret |= set_member(cmd, run_start_time, now);
+			if(!must_start && cmd.next_time >=0)  {
+				dtdebugf("Detected skipped command {}", cmd.id);
+				ret |= set_member(cmd, run_result, run_result_t::SKIPPED);
+				ret |= set_member(cmd, run_status, run_status_t::NONE);
+			} else {
+				ret |= set_member(cmd, run_result, run_result_t::NONE);
+				ret |= set_member(cmd, run_status, run_status_t::RUNNING);
 			}
 		}
 	}
@@ -261,28 +296,12 @@ void receiver_thread_t::save_db_command(devdb::scan_command_t& cmd, time_t now) 
 }
 
 /*
-	returns true if a command is executing, but not in our process
- */
-static inline bool active(devdb::scan_command_t& cmd) {
-	return cmd.owner != -1 && !kill((pid_t)cmd.owner, 0);
-}
-
-/*
-	returns true if a command is already executing in our process
- */
-static inline bool ours(devdb::scan_command_t & cmd) {
-	return cmd.owner == getpid();
-}
-
-
-/*
 	returns true if cmd is started
  */
 bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 {
 	using namespace devdb;
 	cmd.run_start_time = now;
-	bool changed = false;
 	if(active(cmd)) {
 		assert(!ours(cmd));
 		return false;
@@ -294,7 +313,8 @@ bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 	 */
 	subscribe_ret_t sret{subscription_id_t::NONE, false/*failed*/};
 
-	auto subscriber = subscriber_t::make(&receiver, nullptr /*window*/, sret.subscription_id);
+	auto subscriber = subscriber_t::make(&receiver, nullptr /*window*/, sret.subscription_id,
+																			 cmd.id);
 
 
 	cmd.subscription_id = (int)sret.subscription_id;
@@ -320,9 +340,10 @@ bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 		so.spectrum_scan_options.recompute_peaks = true;
 		so.spectrum_scan_options.start_freq = cmd.band_scan_options.start_freq;
 		so.spectrum_scan_options.end_freq = cmd.band_scan_options.end_freq;
-
+		subscriber->set_scanning(true);
 		//ret = subscriber->scan_bands(cmd.sats, cmd.tune_options, cmd.band_scan_options);
 		ret = (int) cb(*this).scan_bands(cmd.sats, cmd.band_scan_options.pols, so, sret.subscription_id);
+		cb(*this).scan_now(); // start initial scan
 	}
 		break;
 	case subscription_type_t::SPECTRUM_ACQ:
@@ -353,11 +374,11 @@ bool receiver_thread_t::stop_command(devdb::scan_command_t& cmd, devdb::run_resu
 }
 
 
-void receiver_thread_t::start_stop_commands(auto& cursor, db_txn& devdb_rtxn, system_time_t now_) {
+void receiver_thread_t::start_stop_commands(auto& cursor, db_txn& devdb_rtxn, system_time_t now_, bool clean) {
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace devdb;
 	for (auto cmd : cursor.range()) {
-		auto [changed, must_start, must_stop]= update_command(cmd, now_, false/*force*/);
+		auto [changed, must_start, must_stop]= update_command(cmd, now, false/*force*/, clean);
 			assert(must_stop || must_start || ! changed);
 			assert(!(must_start && must_stop));
 			assert(!must_stop || cmd.run_start_time > 0);
@@ -378,6 +399,35 @@ void receiver_thread_t::start_stop_commands(auto& cursor, db_txn& devdb_rtxn, sy
 		}
 }
 
+/*
+	called when scanner ends
+ */
+void receiver_thread_t::on_scan_command_end(db_txn& devdb_wtxn,
+																						subscription_id_t subscription_id, const devdb::scan_stats_t& scan_stats)
+{
+	using namespace devdb;
+	auto now = system_clock_t::to_time_t(::now);
+	auto mss = receiver.subscribers.readAccess();
+	for (auto [subsptr, ms_shared_ptr] : *mss) {
+		auto* ms = ms_shared_ptr.get();
+		if(ms && ms->command_id >=0) {
+			auto command_id = ms->command_id;
+			auto c = scan_command_t::find_by_key(devdb_wtxn, command_id);
+			if(!c.is_valid()) {
+				dterrorf("Cannot find command with id={}", command_id);
+				continue;
+			}
+			auto cmd = c.current();
+			if(!ours(cmd)) {
+				dterrorf("Unexpected: command with id={} is not ours", command_id);
+				continue;
+			}
+			stop_command(cmd, devdb::run_result_t::OK, now);
+			put_record(devdb_wtxn, cmd);
+		}
+	}
+}
+
 
 /*
 	For each command in progress, check if it should be stopped
@@ -387,26 +437,24 @@ void receiver_thread_t::stop_commands(db_txn& devdb_rtxn, system_time_t now_) {
 	using namespace devdb;
 	auto c = scan_command_t::find_by_run_status_next_time
 		(devdb_rtxn, run_status_t::RUNNING, find_type_t::find_geq, scan_command_t::partial_keys_t::run_status);
-	start_stop_commands(c, devdb_rtxn, now_);
+	start_stop_commands(c, devdb_rtxn, now_, false /*clean*/);
 }
 
 void receiver_thread_t::start_commands(db_txn& devdb_rtxn, system_time_t now_) {
 	using namespace devdb;
 	auto c = scan_command_t::find_by_run_status_next_time(devdb_rtxn, run_status_t::PENDING, find_type_t::find_geq,
 																												 scan_command_t::partial_keys_t::run_status);
-	start_stop_commands(c, devdb_rtxn, now_);
+	start_stop_commands(c, devdb_rtxn, now_, false /*clean*/);
 }
 
 
 void receiver_thread_t::startup(system_time_t now_)
 {
 	using namespace devdb;
-#ifdef TODO
 	auto devdb_rtxn = receiver.devdb.rtxn();
 	auto c = find_first<scan_command_t>(devdb_rtxn);
-	start_stop_commands(c, devdb_rtxn, now_);
+	start_stop_commands(c, devdb_rtxn, now_, true /*clean*/);
 	devdb_rtxn.commit();
-#endif
 }
 
 

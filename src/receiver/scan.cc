@@ -1416,6 +1416,7 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	for (auto[subscription_id, sub] : scan.subscriptions) {
 		receiver_thread.unsubscribe(futures, devdb_wtxn, subscription_id);
 	}
+	receiver_thread.on_scan_command_end(devdb_wtxn, scan_subscription_id, ss);
 	scans.erase(scan_subscription_id);
 	return found;
 }
@@ -1498,6 +1499,8 @@ int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 		so.allowed_dish_ids = {};
 		so.allowed_card_mac_addresses = {};
 	}
+	so.subscription_type = devdb::subscription_type_t::MUX_SCAN;
+	so.tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND : devdb::tune_mode_t::NORMAL;
 	auto [it, found] = scans.try_emplace(scan_subscription_id, *this, scan_subscription_id);
 	auto& scan = it->second;
 	assert(scan.scan_subscription_id == scan_subscription_id);

@@ -28,17 +28,19 @@
 #include <wx/window.h>
 
 subscriber_t::subscriber_t(receiver_t* receiver_, wxWindow* window_,
-	subscription_id_t subscription_id_)
+													 subscription_id_t subscription_id_, int command_id_)
 	: subscription_id(subscription_id_)
 	, receiver(receiver_)
 	, window(window_)
+	, command_id(command_id_)
 {
 	owner = getpid();
 }
 
 std::shared_ptr<subscriber_t> subscriber_t::make(receiver_t* receiver, wxWindow* window,
-																								 subscription_id_t subscription_id) {
-	auto ret = std::make_shared<subscriber_t>(receiver, window, subscription_id);
+																								 subscription_id_t subscription_id,
+																								 int command_id) {
+	auto ret = std::make_shared<subscriber_t>(receiver, window, subscription_id, command_id);
 	receiver->subscribers.writeAccess()->insert({ret.get(), ret});
 	return ret;
 }

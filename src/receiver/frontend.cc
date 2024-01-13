@@ -1077,6 +1077,8 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	scan.band_pol = options.band_pol;
 	scan.start_freq = options.start_freq;
 	scan.end_freq = options.end_freq;
+	assert(scan.start_freq !=0);
+	assert(scan.end_freq !=0);
 	scan.resolution = options.resolution;
 	scan.spectrum_method = options.use_fft_scan ? SPECTRUM_METHOD_FFT : SPECTRUM_METHOD_SWEEP;
 	scan.adjust_frequencies(lnb, scan.band_pol.band == chdb::sat_sub_band_t::HIGH);

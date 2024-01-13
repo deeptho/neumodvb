@@ -130,7 +130,11 @@ void fe_monitor_thread_t::handle_frontend_event() {
 			put_record(txn, spectrum);
 			txn.commit();
 		}
+		assert(scan);
 		auto finished_fe = fe->dbfe();
+		assert (scan->start_freq !=0);
+		assert (scan->end_freq !=0);
+
 		receiver.on_spectrum_scan_end(finished_fe, *scan, fe->get_subscription_ids());
 	}
 

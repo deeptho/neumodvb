@@ -447,6 +447,7 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
 	/*In case of failure, release the resources associated with tjis subscription (active_adapter and
 		active_service)
 	*/
+	assert(tune_options.tune_mode == devdb::tune_mode_t::NORMAL || tune_options.tune_mode == devdb::tune_mode_t::BLIND);
 	assert(sret.subscription_id != subscription_id_t::NONE);
 	if(sret.failed && sret.was_subscribed) {
 		release_all(sret.subscription_id);
@@ -543,6 +544,7 @@ subscription_id_t
 tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
 												 const subscription_options_t& tune_options) {
 	assert(sret.subscription_id != subscription_id_t::NONE);
+	assert(tune_options.tune_mode == devdb::tune_mode_t::NORMAL || tune_options.tune_mode == devdb::tune_mode_t::BLIND);
 	if(sret.failed && sret.was_subscribed) {
 		release_all(sret.subscription_id);
 		return subscription_id_t::NONE;

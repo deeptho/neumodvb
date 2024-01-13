@@ -197,8 +197,7 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
          receiver_thread_t::cb_t::unsubscribe
 */
 void receiver_thread_t::unsubscribe_all(std::vector<task_queue_t::future_t>& futures,
-																				db_txn& devdb_wtxn,
-																				subscription_id_t subscription_id) {
+																				db_txn& devdb_wtxn, subscription_id_t subscription_id) {
 	if ((int)subscription_id < 0)
 		return;
 	auto scanner = get_scanner();
@@ -468,6 +467,7 @@ receiver_thread_t::subscribe_mux(
 	subscription_id_t subscription_id, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id,
 	bool do_not_unsubscribe_on_failure) {
+	assert(tune_options.tune_mode == devdb::tune_mode_t::NORMAL || tune_options.tune_mode == devdb::tune_mode_t::BLIND);
 	subscribe_ret_t sret;
 
 	assert(!tune_options.need_spectrum);
@@ -1638,25 +1638,18 @@ void receiver_thread_t::cb_t::send_spectrum_to_scanner(const devdb::fe_t& finish
 //called from fe_monitor code
 void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
 																			const ss::vector_<subscription_id_t>& subscription_ids) {
+	assert (spectrum_scan.start_freq !=0);
+	assert (spectrum_scan.end_freq !=0);
 	auto scan_id = deactivate_spectrum_scan(spectrum_scan);
 	bool has_scanning_subscribers{false};
-#ifndef NDEBUG
-	subscription_id_t test_subscription_id{-1};
-#endif
 	{
 		auto mss = subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();
 			if (!ms)
 				continue;
+
 			if(ms->is_scanning()) {
-				assert((int)test_subscription_id < 0); /*only one scan_t can scan a band;
-																						it is possible that a spectrum_dialog
-																						also wants this spectrum
-																					*/
-#ifndef NDEBUG
-				test_subscription_id = ms->get_subscription_id();
-#endif
 				has_scanning_subscribers = true;
 				continue;
 			}

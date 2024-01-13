@@ -487,7 +487,8 @@ receiver_thread_t::subscribe_mux(
 				dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 			}
 		}
-		user_errorf("Mux reservation failed: {}", mux);
+		if(!do_not_unsubscribe_on_failure)
+			user_errorf("Mux reservation failed: {}", mux);
 		return subscription_id_t::RESERVATION_FAILED;
 	}
 

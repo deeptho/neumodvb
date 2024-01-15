@@ -236,43 +236,43 @@ static std::tuple<int, int, int> update_command(devdb::scan_command_t& cmd, time
 	if(cmd.next_time > now && !force)
 		return {false, false, false};
 	time_t new_next_time = compute_next_time(cmd, now);
-	if(cmd.run_type == run_type_t::NEVER)
+	if(cmd.run_type == run_type_t::NEVER) {
 		ret |= set_member(cmd, run_status,run_status_t::NONE);
-
-	if(cmd.run_status == run_status_t::RUNNING) {
-		must_stop = (now - cmd.run_start_time  > cmd.max_duration && cmd.max_duration>0);
-		ret |= set_member(cmd, run_result, run_result_t::ABORTED);
-		ret |= set_member(cmd, run_end_time, now);
-		if(new_next_time >=0) { //will run again
-			ret |= set_member(cmd, run_status, run_status_t::PENDING);
-			ret |= set_member(cmd, run_end_time, -1);
-		} else {
-			ret |= set_member(cmd, run_status, run_status_t::FINISHED);
-		}
+		ret |= set_member(cmd, next_time, -1);
 	} else {
-		if(cmd.next_time < 0)
-			cmd.next_time = new_next_time;
-		printf("STARTING ALWAYS TO DEBUG\n");
-		cmd.next_time = now; //
-		if(cmd.next_time >=0 && cmd.next_time <= now) {
-			must_start = (cmd.run_status == run_status_t::PENDING && cmd.catchup) /*we missed the scheduled run
-																																							and should catch up*/
-				|| (now - cmd.next_time  < cmd.max_duration) || (cmd.max_duration <= 0); /*
-																																						it is time to run
-																																					 */
-			if(must_start)
-				ret |= set_member(cmd, run_start_time, now);
-			if(!must_start && cmd.next_time >=0)  {
-				dtdebugf("Detected skipped command {}", cmd.id);
-				ret |= set_member(cmd, run_result, run_result_t::SKIPPED);
-				ret |= set_member(cmd, run_status, run_status_t::NONE);
+		if(cmd.run_status == run_status_t::RUNNING) {
+			must_stop = (now - cmd.run_start_time  > cmd.max_duration && cmd.max_duration>0);
+			ret |= set_member(cmd, run_result, run_result_t::ABORTED);
+			ret |= set_member(cmd, run_end_time, now);
+			if(new_next_time >=0) { //will run again
+				ret |= set_member(cmd, run_status, run_status_t::PENDING);
+				ret |= set_member(cmd, run_end_time, -1);
 			} else {
-				ret |= set_member(cmd, run_result, run_result_t::NONE);
-				ret |= set_member(cmd, run_status, run_status_t::RUNNING);
+				ret |= set_member(cmd, run_status, run_status_t::FINISHED);
+			}
+		} else {
+			if(cmd.next_time < 0)
+				cmd.next_time = new_next_time;
+			if(cmd.next_time >=0 && cmd.next_time <= now) {
+				must_start = (cmd.run_status == run_status_t::PENDING && cmd.catchup) /*we missed the scheduled run
+																																								and should catch up*/
+					|| (now - cmd.next_time  < cmd.max_duration) || (cmd.max_duration <= 0); /*
+																																										 it is time to run
+																																									 */
+				if(must_start)
+					ret |= set_member(cmd, run_start_time, now);
+				if(!must_start && cmd.next_time >=0)  {
+					dtdebugf("Detected skipped command {}", cmd.id);
+					ret |= set_member(cmd, run_result, run_result_t::SKIPPED);
+					ret |= set_member(cmd, run_status, run_status_t::NONE);
+				} else {
+					ret |= set_member(cmd, run_result, run_result_t::NONE);
+					ret |= set_member(cmd, run_status, run_status_t::RUNNING);
+				}
 			}
 		}
+		ret |= set_member(cmd, next_time, new_next_time);
 	}
-	ret |= set_member(cmd, next_time, new_next_time);
 	if(ret) {
 		dtdebugf("Changed CMD {}: start={} stop={} "
 						 "run_status={} run_result={} "
@@ -380,12 +380,11 @@ void receiver_thread_t::start_stop_commands(auto& cursor, db_txn& devdb_rtxn, sy
 	using namespace devdb;
 	for (auto cmd : cursor.range()) {
 		auto [changed, must_start, must_stop]= update_command(cmd, now, false/*force*/, clean);
-			assert(must_stop || must_start || ! changed);
-			assert(!(must_start && must_stop));
 			assert(!must_stop || cmd.run_start_time > 0);
 			if(must_start)
 				next_command_event_time = std::min(next_command_event_time, cmd.run_start_time + cmd.max_duration);
-			next_command_event_time = std::min(next_command_event_time, cmd.next_time);
+			if(cmd.next_time >= 0)
+				next_command_event_time = std::min(next_command_event_time, cmd.next_time);
 			if(must_start)
 				changed |= start_command(cmd, now);
 			if(must_stop)

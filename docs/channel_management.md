@@ -24,7 +24,7 @@ There are a few exceptions:
 
   Another example are the encrypted BBC streams at 27.5W. In this case the PMT is encrypted and it is not
   even possible to discover the video PID prior to decrypting this PMT. Currently this decryption is implemented
-  un a way that requires the user to specify the video PID.
+  in a way that requires the user to specify the video PID.
 
 Similarly, it is pointless to remove services from the service list because they will be recreated when neumoDVB
 discovers them in SI information, even from other muxes. One exception would be to remove erroneous services

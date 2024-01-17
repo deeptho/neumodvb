@@ -325,11 +325,14 @@ void recmgr_thread_t::startup(system_time_t now_) {
 		if (rec.epg.end_time + rec.post_record_time < now) {
 			dtdebugf("Finalising unfinished recording: at start up: {}", rec);
 			rec.epg.rec_status = rec_status_t::FINISHED;
+			rec.subscription_id = -1;
+			rec.owner = -1;
 			recdb::update_record_at_cursor(cr.maincursor, rec);
 		} else if (rec.epg.k.start_time - rec.pre_record_time <= now) {
 			// recording in progress
 			rec.epg.rec_status = rec_status_t::SCHEDULED; // will cause recording to be continued
 			rec.subscription_id = -1;											// we are called after program has exited
+			rec.owner = -1;
 			recdb::update_record_at_cursor(cr.maincursor, rec);
 			// next_recording_event_time = std::min(next_recording_event_time, rec.epg.end_time + rec.post_record_time);
 		} else {
@@ -337,6 +340,7 @@ void recmgr_thread_t::startup(system_time_t now_) {
 			dterrorf("Found future recording already in progress");
 			rec.epg.rec_status = rec_status_t::SCHEDULED; // will cause recording to be continued
 			rec.subscription_id = -1;											// we are called after program has exited
+			rec.owner = -1;
 			recdb::update_record_at_cursor(cr.maincursor, rec);
 			// next_recording_event_time = std::min(next_recording_event_time, rec.epg.k.start_time - rec.pre_record_time);
 		}
@@ -640,6 +644,8 @@ int recmgr_thread_t::toggle_recording(const chdb::service_t& service, const epgd
 				dtdebugf("Toggle: Stop running recording: {}", *rec);
 				stop_recording(*rec);
 				rec->epg.rec_status = epgdb::rec_status_t::FINISHED;
+				rec->subscription_id = -1;
+				rec->owner = -1;
 				update_recording(*rec);
 				break;
 			}
@@ -768,6 +774,8 @@ void recmgr_thread_t::stop_recording(const recdb::rec_t& rec) // important that 
 		assert(copy_list.rec.epg.rec_status == epgdb::rec_status_t::FINISHED);
 		copy_list.run();
 	}
+	copy_list.rec.subscription_id = -1;
+	copy_list.rec.owner = -1;
 	update_recording(copy_list.rec);
 
 	auto& receiver_thread = receiver.receiver_thread;

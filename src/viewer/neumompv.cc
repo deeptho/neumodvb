@@ -864,7 +864,7 @@ int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t s
 				subscriber->unsubscribe();
 				assert((int) subscriber->get_subscription_id() < 0);
 			}
-			return 0;
+			return -1;
 		}
 		dtdebugf("PLAY SUBSCRIPTION (rec): mpm move to start_play_time done: {}", start_play_time);
 	}

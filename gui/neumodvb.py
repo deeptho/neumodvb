@@ -634,8 +634,11 @@ class NeumoGui(wx.App):
         return self.frame.live_panel.mosaic_panel.current_mpv_player
 
     def PlayRecording(self, rec):
-        self.current_mpv_player.play_recording(rec)
         dtdebug(f"SUBSCRIBED to recording {rec}")
+        ret = self.current_mpv_player.play_recording(rec)
+        if ret < 0:
+            from neumodvb.neumo_dialogs import ShowMessage
+            ShowMessage("Mux scan failed", self.scan_subscriber.error_message) #todo: record error message
 
     def ServiceTune(self, service_or_chgm, replace_running=True):
         self.frame.live_panel.ServiceTune(service_or_chgm, replace_running)

@@ -376,6 +376,7 @@ int playback_mpm_t::open_(db_txn& idxdb_txn, milliseconds_t start_time) {
 		if (fd < 0) { /* error*/
 			filemap.unmap();
 			filemap.close();
+			receiver.global_subscriber->notify_error(get_error()); //TODO: should be replaced by a "subscriber_notify+error"
 			return -1;
 		}
 	}
@@ -491,7 +492,7 @@ int playback_mpm_t::open_file_containing_time(db_txn& idxdb_txn, milliseconds_t 
 																																			 // one
 	if (!c.is_valid()) {
 		// this can only happen if file is corrupt
-		dterrorf("Could not find file corresponding to time {}", milliseconds_t(start_time));
+		user_errorf("Could not find file corresponding to time {}", milliseconds_t(start_time));
 		return -1;
 	}
 

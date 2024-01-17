@@ -120,7 +120,6 @@ static void export_receiver(py::module& m) {
 		.def("init", &receiver_t::init, "Re-initialize a receiver if creating it failed")
 		.def("renumber_card", &receiver_t::renumber_card, "Renumber a card",
 				 py::arg("old_number"), py::arg("new_number"))
-		.def("unsubscribe", &receiver_t::unsubscribe, "Unsubscribe a service or mux", py::arg("subscription_id"))
 		.def("update_autorec",
 				 (&receiver_t::update_autorec),
 				 "Create or update an auto rec", py::arg("autorec"))

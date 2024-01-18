@@ -201,16 +201,16 @@ namespace dtdemux {
 #define DTPACKED __attribute__((packed))
 #endif
 
-	struct DTPACKED ts_packet_t {
+	struct ts_packet_t {
 		constexpr static const int size = 188;
+		pcr_t pcr;
+		pcr_t opcr;
 		uint16_t header = 0;
 		uint8_t flags = 0;
 		uint8_t adaptation_field_flags = 0;
+		data_range_t range;
 		uint8_t adaptation_length = 0 ;
 		uint8_t adaptation_extenstion_length = 0;
-		pcr_t pcr;
-		pcr_t opcr;
-		data_range_t range;
 		bool valid{true};
 		uint16_t get_pid () const {
 			return this->header & 0x1fff;

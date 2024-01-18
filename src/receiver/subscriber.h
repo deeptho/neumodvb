@@ -51,15 +51,24 @@ namespace pybind11 {
 struct blindscan_t;
 struct sdt_data_t;
 
-class subscriber_t
+class subscriber_t : public std::enable_shared_from_this<subscriber_t>
 {
+
+	struct thread_safe_t {
+		subscription_id_t subscription_id{subscription_id_t::NONE};
+		int command_id{-1};
+	};
+
 	pid_t owner;
-	subscription_id_t subscription_id{-1};
+	/*
+		subscription_id can be set/reset only from receiver thread
+	 */
+	safe::thread_public_t<false /*others_may_write*/,
+												thread_safe_t> ts{"receiver", thread_group_t::receiver, {}};
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::atomic<bool> scanning_{false}; //subscriber is scanning
 public:
-	const int command_id{-1}; //non-zero if we are running a command
 
 	enum class event_type_t : uint32_t {
 		ERROR_MSG  = (1<<0),
@@ -88,12 +97,30 @@ public:
 	}
 
 	inline subscription_id_t get_subscription_id() const {
-		return subscription_id;
+		auto r = ts.readAccess();
+		return r->subscription_id;
 	}
-	void set_initial_subscription_id(subscription_id_t subscription_id) {
-		assert(this->subscription_id == subscription_id_t::NONE || this->subscription_id == subscription_id);
-		this->subscription_id = subscription_id;
+
+	inline void set_subscription_id(subscription_id_t subscription_id) {
+		auto w = this->ts.writeAccess();
+		w->subscription_id = subscription_id;
 	}
+
+	inline void clear_subscription_id() {
+		auto w = this->ts.writeAccess();
+		w->subscription_id = subscription_id_t::NONE;
+	}
+
+	inline int get_command_id() const {
+		auto r = ts.readAccess();
+		return r->command_id;
+	}
+
+	inline void set_command_id(int command_id) {
+		auto w = this->ts.writeAccess();
+		w->command_id = command_id;
+	}
+
 	template<typename T> void notify(const T& data) const;
 	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);
 
@@ -105,12 +132,8 @@ public:
 	void notify_positioner_motion(const positioner_motion_report_t& motion_report) const;
 	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum);
 
-	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window,
-											subscription_id_t  subscription_id=subscription_id_t::NONE,
-											int command_id=-1);
-	EXPORT static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window,
-																									 subscription_id_t subscription_id=subscription_id_t::NONE,
-																									 int command_id =-1);
+	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window);
+	EXPORT static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window);
 
 	EXPORT ~subscriber_t();
 
@@ -147,3 +170,19 @@ public:
 	EXPORT std::unique_ptr<playback_mpm_t> subscribe_recording(const recdb::rec_t& rec);
 
 };
+
+using ssptr_t = std::shared_ptr<subscriber_t>;
+
+#ifdef declfmt
+#undef declfmt
+#endif
+#define declfmt(t)																											\
+	template <> struct fmt::formatter<t> {																\
+		inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
+			return ctx.begin();																								\
+		}																																		\
+																																				\
+		format_context::iterator format(const t&, format_context& ctx) const ; \
+	}
+
+declfmt(ssptr_t);

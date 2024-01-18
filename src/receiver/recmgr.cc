@@ -780,7 +780,8 @@ void recmgr_thread_t::stop_recording(const recdb::rec_t& rec) // important that 
 
 	auto& receiver_thread = receiver.receiver_thread;
 	receiver_thread.push_task([&receiver_thread, subscription_id]() {
-		cb(receiver_thread).unsubscribe(subscription_id);
+		auto ssptr = receiver_thread.receiver.get_ssptr(subscription_id);
+		cb(receiver_thread).unsubscribe(ssptr);
 		return 0;
 	});
 

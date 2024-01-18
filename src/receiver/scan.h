@@ -286,7 +286,6 @@ struct blindscan_t {
 	}
 };
 
-
 struct scan_subscription_t {
 	subscription_id_t subscription_id{subscription_id_t::NONE}; //positive if tuning in progress
 	bool scan_start_reported{false};
@@ -336,6 +335,7 @@ struct scan_band_end_report_t {
 
 class scanner_t;
 class subscriber_t;
+using ssptr_t = std::shared_ptr<subscriber_t>;
 
 class scan_t {
 	friend class scanner_t;
@@ -396,60 +396,60 @@ private:
 
 
 	void on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
-											 subscription_id_t finished_subscription_id);
+											 const ssptr_t finished_ssptr);
 
 	void on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
-																 const subscription_id_t finished_subscription_id);
+																 const ssptr_t finished_ssptr);
 
 	template <typename mux_t>
-	std::tuple<subscription_id_t, scan_subscription_t*, bool>
-	scan_try_mux(subscription_id_t reusable_subscription_id,
+	std::tuple<ssptr_t, scan_subscription_t*, bool>
+	scan_try_mux(ssptr_t reusable_ssptr,
 							 const mux_t& mux, bool use_blind_tune, const blindscan_key_t& blindscan_key);
 
-	inline std::tuple<subscription_id_t, scan_subscription_t*, bool>
-	scan_try_mux(subscription_id_t reusable_subscription_id,
+	inline std::tuple<ssptr_t, scan_subscription_t*, bool>
+	scan_try_mux(ssptr_t reusable_ssptr,
 							 const chdb::any_mux_t& mux, bool use_blind_tune) {
 		return std::visit([&](auto&mux) {
-			return scan_try_mux(reusable_subscription_id, mux, use_blind_tune);
+			return scan_try_mux(reusable_ssptr, mux, use_blind_tune);
 		}, mux);
 	}
 
-	std::tuple<subscription_id_t, scan_subscription_t*, bool>
-	scan_try_band(subscription_id_t reuseable_subscription_id,
+	std::tuple<ssptr_t, scan_subscription_t*, bool>
+	scan_try_band(ssptr_t reuseable_ssptr,
 								const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
 								const blindscan_key_t& blindscan_key, devdb::scan_stats_t& scan_stats);
 
 	template<typename mux_t>
-	bool rescan_peak(const blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
+	bool rescan_peak(const blindscan_t& blindscan, ssptr_t reusable_ssptr,
 									 mux_t& mux, const peak_to_scan_t& peak, const blindscan_key_t& blindscan_key);
 
 	template<typename mux_t>
 	std::tuple<bool, bool>
 	scan_try_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
-						subscription_id_t reusable_subscription_id, const peak_to_scan_t& peak,
+						ssptr_t reusable_ssptr, const peak_to_scan_t& peak,
 						const blindscan_key_t& blindscan_key);
 
-	subscription_id_t
+	ssptr_t
 	scan_next_peaks(db_txn& chdb_rtxn,
-									subscription_id_t reuseable_subscription_id,
+									ssptr_t reuseable_ssptr,
 									std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats);
 
 	template<typename mux_t>
-	subscription_id_t
+	ssptr_t
 	scan_next_muxes(db_txn& chdb_rtxn,
-									subscription_id_t reuseable_subscription_id,
+									ssptr_t reuseable_ssptr,
 									std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats);
 
-	subscription_id_t
+	ssptr_t
 	scan_next_bands(db_txn& chdb_rtxn,
-									subscription_id_t reuseable_subscription_id,
+									ssptr_t reuseable_ssptr,
 									std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats);
 
 	template<typename mux_t>
-	subscription_id_t
-	scan_next(db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, devdb::scan_stats_t& scan_stats);
+	ssptr_t
+	scan_next(db_txn& chdb_rtxn, ssptr_t finished_ssptr, devdb::scan_stats_t& scan_stats);
 
-	bool retry_subscription_if_needed(subscription_id_t finished_subscription_id,
+	bool retry_subscription_if_needed(ssptr_t finished_ssptr,
 																		scan_subscription_t& subscription,
 																		const chdb::any_mux_t& finished_mux,
 																		const blindscan_key_t& blindscan_key);
@@ -477,22 +477,22 @@ class scanner_t {
 	void end_scans(subscription_id_t scan_subscription_id);
 	template<typename mux_t>
 	int add_muxes(const ss::vector_<mux_t>& muxes, const subscription_options_t& tune_options,
-								subscription_id_t subscription_id);
+								ssptr_t ssptr);
 
 	template<typename peak_t>
 	int add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key, const ss::vector_<peak_t>& peaks,
-												 subscription_id_t subscription_id, subscription_options_t* options=nullptr);
+												 ssptr_t ssptr, subscription_options_t* options=nullptr);
 
 	int add_bands(const ss::vector_<chdb::sat_t>& sats,
 								const ss::vector_<chdb::fe_polarisation_t>& pols,
 								const subscription_options_t& tune_options,
-								subscription_id_t scan_subscription_id);
+								ssptr_t ssptr);
 
 	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
-												db_txn& devdb_wtxn, subscription_id_t scan_subscription_id);
+												db_txn& devdb_wtxn, ssptr_t scan_ssptr);
 
 	bool on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& mux,
-											 const chdb::scan_id_t& scan_id, subscription_id_t subscription_id);
+											 const chdb::scan_id_t& scan_id, const ssptr_t finished_ssptr);
 
 	bool on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spectrum_scan_t& spectrum_scan,
 																 const chdb::scan_id_t& scan_id,

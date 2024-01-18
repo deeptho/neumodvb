@@ -313,10 +313,9 @@ bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 	 */
 	subscribe_ret_t sret{subscription_id_t::NONE, false/*failed*/};
 
-	auto subscriber = subscriber_t::make(&receiver, nullptr /*window*/, sret.subscription_id,
-																			 cmd.id);
-
-
+	auto ssptr = subscriber_t::make(&receiver, nullptr /*window*/);
+	ssptr->set_subscription_id(sret.subscription_id);
+	ssptr->set_command_id(cmd.id);
 	cmd.subscription_id = (int)sret.subscription_id;
 	cmd.owner = getpid();
 	cmd.run_status = run_status_t::RUNNING;
@@ -339,9 +338,8 @@ bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 		so.spectrum_scan_options.recompute_peaks = true;
 		so.spectrum_scan_options.start_freq = cmd.band_scan_options.start_freq;
 		so.spectrum_scan_options.end_freq = cmd.band_scan_options.end_freq;
-		subscriber->set_scanning(true);
-		//ret = subscriber->scan_bands(cmd.sats, cmd.tune_options, cmd.band_scan_options);
-		ret = (int) cb(*this).scan_bands(cmd.sats, cmd.band_scan_options.pols, so, sret.subscription_id);
+		ssptr->set_scanning(true);
+		ret = (int) cb(*this).scan_bands(cmd.sats, cmd.band_scan_options.pols, so, ssptr);
 		cb(*this).scan_now(); // start initial scan
 	}
 		break;
@@ -402,31 +400,29 @@ void receiver_thread_t::start_stop_commands(auto& cursor, db_txn& devdb_rtxn, sy
 /*
 	called when scanner ends
  */
-void receiver_thread_t::on_scan_command_end(db_txn& devdb_wtxn,
-																						subscription_id_t subscription_id, const devdb::scan_stats_t& scan_stats)
+void receiver_thread_t::on_scan_command_end(db_txn& devdb_wtxn, ssptr_t scan_ssptr,
+																						const devdb::scan_stats_t& scan_stats)
 {
 	using namespace devdb;
 	auto now = system_clock_t::to_time_t(::now);
-	auto mss = receiver.subscribers.readAccess();
-	for (auto [subsptr, ms_shared_ptr] : *mss) {
-		auto* ms = ms_shared_ptr.get();
-		if(ms && ms->command_id >=0) {
-			auto command_id = ms->command_id;
-			auto c = scan_command_t::find_by_key(devdb_wtxn, command_id);
-			if(!c.is_valid()) {
-				dterrorf("Cannot find command with id={}", command_id);
-				continue;
-			}
-			auto cmd = c.current();
-			if(!ours(cmd)) {
-				dterrorf("Unexpected: command with id={} is not ours", command_id);
-				continue;
-			}
-			cmd.scan_stats = scan_stats;
-			stop_command(cmd, devdb::run_result_t::OK, now);
-			put_record(devdb_wtxn, cmd);
-		}
+	assert(scan_ssptr);
+	auto command_id = scan_ssptr->get_command_id();
+	if(command_id <0)
+		return;
+	auto c = scan_command_t::find_by_key(devdb_wtxn, command_id);
+	if(!c.is_valid()) {
+		dterrorf("Cannot find command with id={}", command_id);
+		return;
 	}
+	auto cmd = c.current();
+	if(!ours(cmd)) {
+		dterrorf("Unexpected: command with id={} is not ours", command_id);
+		return;
+	}
+	cmd.scan_stats = scan_stats;
+	stop_command(cmd, devdb::run_result_t::OK, now);
+	put_record(devdb_wtxn, cmd);
+	scan_ssptr->set_command_id(-1);
 }
 
 

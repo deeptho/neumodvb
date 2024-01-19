@@ -79,19 +79,6 @@ inline devdb::scan_stats_t& scan_t::get_scan_stats_ref(const chdb::sat_t& sat) {
 	return scan_stats_dvbs;
 }
 
-#if 0
-void scan_t::update_db_sat(const chdb::sat_t& sat, const chdb::band_scan_t& band_scan) {
-	auto chdb_wtxn = receiver.chdb.wtxn();
-	auto c = chdb::sat_t::find_by_key(chdb_wtxn, sat.sat_pos, sat.sat_band, find_type_t::find_eq);
-	assert(c.is_valid());
-	auto db_sat = c.current();
-	auto& db_band_scan= chdb::sat::band_scan_for_pol_sub_band(db_sat, band_scan.pol, band_scan.sat_sub_band);
-	db_band_scan = band_scan;
-	put_record(chdb_wtxn, db_sat);
-	chdb_wtxn.commit();
-}
-#endif
-
 static void deactivate_band_scans
 (db_txn & chdb_wtxn, int scan_subscription_id, time_t now) {
 	using namespace chdb;

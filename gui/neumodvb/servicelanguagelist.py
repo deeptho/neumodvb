@@ -114,6 +114,7 @@ class LanguageGrid(NeumoGridBase):
         self.sort_order = 0
         self.sort_column = None
         self.selected_row = None if self.table.GetNumberRows() == 0 else 0
+        self.for_subtitles = for_subtitles
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         gtk_add_window_style(self, 'language_grid')
         set_gtk_window_name(self, 'language_grid')

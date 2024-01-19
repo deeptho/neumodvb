@@ -252,6 +252,16 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.OnSignalInfoUpdate(data)
         elif type(data) == pyreceiver.positioner_motion_report_t:
             print(f'POSITIONER MOTION: {data.start_time} {data.end_time}')
+            if data.start_time != data.end_time:
+                from neumodvb.neumowidgets import show_progress_dialog
+                cur_pos = pychdb.sat_pos_str(data.dish.cur_usals_pos)
+                target_pos = pychdb.sat_pos_str(data.dish.target_usals_pos)
+                show_progress_dialog(self,
+                                     f"Positioner on dish {data.dish} moving",
+                                     f"Positioner on dish {data.dish} is moving from {cur_pos} to {target_pos}",
+                                     duration =data.end_time - data.start_time, dark_mode=False)
+
+
         self.parent.OnSubscriberCallback(data)
     def save_current_lnb_network(self):
         if self.current_lnb_network_changed:

@@ -46,7 +46,6 @@ update_dish_helper(db_txn& devdb_wtxn, devdb::lnb_t&lnb,
 		auto usals_pos = lnb_network->usals_pos;
 		auto old_usals_pos = lnb.usals_pos;
 		lnb.usals_pos = usals_pos;
-		printf("USALS from=%d to=%d\n", old_usals_pos, usals_pos);
 		if (may_move_dish && old_usals_pos != usals_pos) {
 			bool move_dish =true;
 			auto dish = devdb::dish::schedule_move(devdb_wtxn, lnb, usals_pos, lnb_sat_pos, loc, false /*move_has_finished*/);

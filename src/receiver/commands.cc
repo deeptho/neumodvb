@@ -171,7 +171,6 @@ static time_t next_monthly(time_t now_, time_t start_time, int interval=2)
 	// Convert back to system_clock::time_point
 	auto nextsys = tz->to_sys(nextloc, std::chrono::choose::earliest);
 	auto s = std::format("next      {}={}\n", msg, nextloc);
-	printf("%s",s.c_str());
 	return system_clock::to_time_t(nextsys);
 }
 

@@ -228,10 +228,7 @@ int active_adapter_t::tune(const subscribe_ret_t& sret,
 	this->tune_options = tune_options;
 	assert(tune_state != TUNE_FAILED);
 	if(sret.tune_pars.move_dish && sret.tune_pars.dish->cur_usals_pos != sret.tune_pars.dish->target_usals_pos) {
-		printf("USALS: old=%d new=d%d sat_pos=%d\n", sret.tune_pars.dish->cur_usals_pos,
-					 sret.tune_pars.dish->cur_usals_pos, mux.k.sat_pos);
 		usals_timer.start(sret.tune_pars.dish->cur_usals_pos, sret.tune_pars.dish->target_usals_pos);
-		printf("USALS: timer start\n");
 	}
 	fe->request_tune(tuner_thread, rf_path, lnb, mux, tune_options);
 #ifdef NEWTUNE
@@ -1164,7 +1161,6 @@ active_adapter_t::active_service_for_subscription(subscription_id_t subscription
 
 std::optional<std::tuple<steady_time_t, int16_t, int16_t>> usals_timer_t::end() {
 	if(!started) {
-		printf("usals: NOT STARTED\n");
 		return {};
 	}
 	started = false;

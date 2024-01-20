@@ -298,7 +298,6 @@ int tuner_thread_t::run() {
 			continue;
 		}
 		now = system_clock_t::now();
-		// printf("n={:d}\n", n);
 		for (auto evt = next_event(); evt; evt = next_event()) {
 			if(is_wait_timer_fd(evt)) {
 				active_adapter.fe->resume_task();
@@ -349,7 +348,6 @@ int tuner_thread_t::run() {
 					}
 					if (evt->events & EPOLLIN) {
 						if (active_adapter.read_and_process_data_for_fd(evt)) {
-							// printf("processed using new si interface\n");
 							auto delay = dttime(300);
 							if (delay >= 200)
 								dterrorf("si cycle took too long delay={:d}", delay);

@@ -1788,8 +1788,15 @@ receiver_thread_t::scan_bands(std::vector<task_queue_t::future_t>& futures,
 		scanner = std::make_unique<scanner_t>(*this, max_num_subscriptions);
 		set_scanner(scanner);
 	}
-	auto num_added_bands = scanner->add_bands(sats, pols, tune_options, ssptr);
+
 	auto subscription_id = ssptr->get_subscription_id();
+	if((int)subscription_id<0) {
+		subscribe_ret_t sret{subscription_id_t::NONE, {}}; //create new subscription_id
+		subscription_id = sret.subscription_id;
+		ssptr->set_subscription_id(subscription_id);
+	}
+
+	auto num_added_bands = scanner->add_bands(sats, pols, tune_options, ssptr);
 	return num_added_bands > 0 ? subscription_id : subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 }
 

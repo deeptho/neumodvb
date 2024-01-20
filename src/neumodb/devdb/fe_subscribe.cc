@@ -289,13 +289,14 @@ devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
 {
 	auto pol{chdb::fe_polarisation_t::NONE}; //signifies that we to exclusively control pol
 	auto band{chdb::sat_sub_band_t::NONE}; //signifies that we to exclusively control band
+	auto sat_pos{sat_pos_none}; //signifies that we want to be able to move rotor
 	auto usals_pos{sat_pos_none}; //signifies that we want to be able to move rotor
 	bool need_multistream = false;
 
 	auto fe_and_use_counts = fe::find_best_fe_for_lnb(wtxn, rf_path, lnb,
 																										fe_key_to_release, tune_options.use_blind_tune,
 																										tune_options.need_spectrum,
-																										need_multistream, pol, band, usals_pos,
+																										need_multistream, sat_pos, pol, band, usals_pos,
 																					false /*ignore_subscriptions*/);
 	std::optional<devdb::fe_t> updated_old_dbfe;
 	if(oldfe)

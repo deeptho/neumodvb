@@ -111,8 +111,8 @@ namespace devdb::fe {
 	find_best_fe_for_lnb(db_txn& rtxn, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 											 const devdb::fe_key_t* fe_to_release,
 											 bool need_blindscan, bool need_spectrum, bool need_multistream,
-											 chdb::fe_polarisation_t pol, chdb::sat_sub_band_t band,
-											 int sat_pos, bool ignore_subscriptions);
+											 int sat_pos, chdb::fe_polarisation_t pol, chdb::sat_sub_band_t band,
+											 int usals_pos, bool ignore_subscriptions);
 
 	std::optional<devdb::fe_t>
 	find_best_fe_for_dvtdbc(db_txn& rtxn,

@@ -203,3 +203,9 @@ def batched(iterable, n):
     it = iter(iterable)
     while (batch := tuple(islice(it, n))):
         yield batch
+
+def get_last_scan_text_dict(st):
+    return dict(muxes=f" Muxes: ok={st.locked_muxes} failed={st.failed_muxes} " \
+                f"pending={st.pending_muxes} active={st.active_muxes}",
+                peaks=f"Peaks: failed={st.failed_peaks} pending={st.pending_peaks}",
+                bands=f"Bands: pending={st.pending_bands} active={st.active_bands}" )

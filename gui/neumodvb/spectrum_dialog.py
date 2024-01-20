@@ -23,7 +23,7 @@ from dateutil import tz
 import pydevdb
 import pychdb
 
-from neumodvb.util import dtdebug, dterror, is_circ
+from neumodvb.util import dtdebug, dterror, is_circ, get_last_scan_text_dict
 from neumodvb.spectrum_dialog_gui import SpectrumDialog_, SpectrumButtons_, SpectrumListPanel_
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 import pyreceiver
@@ -285,7 +285,7 @@ class SpectrumDialog(SpectrumDialog_):
         if self.is_blindscanning:
             self.EndBlindScan()
             self.spectrum_buttons_panel.blindscan_button.SetValue(0)
-
+            self.spectrum_plot.end_scan()
 
     def OnBlindScan(self, event=None):
         dtdebug("Blindscan start parallel")
@@ -386,10 +386,11 @@ class SpectrumDialog(SpectrumDialog_):
             has_lock = data.mux.c.scan_result != pychdb.scan_result_t.NOLOCK
             self.spectrum_plot.set_annot_status(data.spectrum_key, data.peak.peak, data.mux, has_lock)
 
-        elif type(data) == pydevdb.scan_stats: #called from scanner
+        elif type(data) == pydevdb.scan_stats.scan_stats: #called from scanner
             scan_stats = data
-            if scan_stats.pending_muxes + scan_stats.active_muxes + \
-               scan_stats.pending_peaks == 0:
+            self.spectrum_plot.scan_status_text.ShowScanRecord(scan_stats)
+
+            if scan_stats.finished:
                 self.is_blindscanning = False
                 self.blindscan_end = datetime.datetime.now(tz=tz.tzlocal())
                 m, s =  divmod(round((self.blindscan_end -  self.blindscan_start).total_seconds()), 60)

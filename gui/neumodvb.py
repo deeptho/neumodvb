@@ -24,7 +24,7 @@ from functools import lru_cache
 #the following import also sets up import path
 import neumodvb
 
-from neumodvb.util import load_gtk3_stylesheet, dtdebug, dterror, maindir, get_object
+from neumodvb.util import load_gtk3_stylesheet, dtdebug, dterror, maindir, get_object, get_last_scan_text_dict
 from neumodvb.config import options, get_configfile
 from neumodvb.neumo_dialogs import ShowMessage
 
@@ -177,11 +177,7 @@ class neumoMainFrame(mainFrame):
                             f"failed={st.failed_muxes})")
                 ShowMessage("Mux scan finished", "\n".join(msgs))
             else:
-                self.app.last_scan_text_dict = \
-                    dict(muxes=f" Muxes: ok={st.locked_muxes} failed={st.failed_muxes} " \
-                      f"pending={st.pending_muxes} active={st.active_muxes}",
-                      peaks=f"Peaks: failed={st.failed_peaks} pending={st.pending_peaks}",
-                      bands=f"Bands: pending={st.pending_bands} active={st.active_bands}" )
+                self.app.last_scan_text_dict = get_last_scan_text_dict(st)
 
             panel =self.current_panel()
             if panel is None:

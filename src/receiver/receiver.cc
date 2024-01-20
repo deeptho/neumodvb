@@ -212,6 +212,11 @@ void receiver_thread_t::unsubscribe_all(std::vector<task_queue_t::future_t>& fut
 	unsubscribe_playback_only(futures, ssptr);
 	dtdebugf("calling unsubscribe_mux_and_service_only");
 	unsubscribe_mux_and_service_only(futures, devdb_wtxn, ssptr);
+	if((int)ssptr->get_subscription_id() >=0) {
+		dtdebugf("Clearing subscription_id {}", ssptr);
+		ssptr->clear_subscription_id();
+	}
+
 	dtdebugf("calling unsubscribe_mux_and_service_only -done");
 }
 

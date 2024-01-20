@@ -184,8 +184,6 @@ int subscriber_t::unsubscribe() {
 	dtdebugf("calling receiver->unsubscribe");
 	auto ssptr = this->shared_from_this();
 	receiver->unsubscribe(ssptr);
-	dtdebugf("calling receiver->unsubscribe");
-	this->remove_ssptr();
 	dtdebugf("called receiver->unsubscribe");
 	return (int) subscription_id;
 }

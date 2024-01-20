@@ -159,6 +159,21 @@ void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 	}
 }
 
+void subscriber_t::remove_ssptr() {
+	auto w = receiver->subscribers.writeAccess();
+	auto& m = *w;
+	auto it = m.find(this);
+	assert(it!=m.end());
+	auto subscription_id = this->get_subscription_id();
+	auto* window = this->window;
+	assert((int)subscription_id <0);
+	if (it != m.end()) {
+		m.erase(it);
+		dtdebugf("Erasing subscription window={:p} subscription_id={:d} len={}", fmt::ptr(window),
+						 (int)subscription_id, m.size());
+	}
+}
+
 int subscriber_t::unsubscribe() {
 	set_scanning(false);
 	auto subscription_id = this->get_subscription_id();
@@ -170,19 +185,8 @@ int subscriber_t::unsubscribe() {
 	auto ssptr = this->shared_from_this();
 	receiver->unsubscribe(ssptr);
 	dtdebugf("calling receiver->unsubscribe");
-
-	auto mp = receiver->subscribers.writeAccess();
-	auto& m = *mp;
-	auto it = m.find(this);
-	if (it != m.end()) {
-#ifndef NDEBUG
-		dtdebugf("Erasing subscription window={:p} subscription_id={:d}", fmt::ptr(window), (int)subscription_id);
-		int num_erased = m.erase(this);
-#pragma unused(num_erased)
-		assert(num_erased == 1);
-#endif
-	}
-	dtdebugf("calling receiver->unsubscribe");
+	this->remove_ssptr();
+	dtdebugf("called receiver->unsubscribe");
 	return (int) subscription_id;
 }
 

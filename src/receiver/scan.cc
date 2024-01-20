@@ -919,6 +919,8 @@ scan_t::scan_next(db_txn& chdb_rtxn,
 		dtdebugf("Abandoning subscription {}", reusable_ssptr);
 		auto wtxn = receiver.devdb.wtxn();
 		receiver_thread.unsubscribe(futures, wtxn, reusable_ssptr);
+		reusable_ssptr->remove_ssptr();
+		reusable_ssptr = {};
 		wtxn.commit();
 		report("ERASED", reusable_ssptr, {}, chdb::dvbs_mux_t(), subscriptions);
 		wait_for_all(futures);
@@ -1184,6 +1186,8 @@ scan_t::scan_try_mux(ssptr_t reusable_ssptr,
 	assert(chdb::scan_in_progress(scan_id));
 	assert(scanner_t::is_our_scan(scan_id));
 	dtdebugf("Asking to subscribe {} reusable_ssptr={}", mux_to_scan, reusable_ssptr);
+	if(!reusable_ssptr)
+		reusable_ssptr = subscriber_t::make(&receiver, nullptr /*window*/);
 	ret =
 		receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, reusable_ssptr, tune_options,
 																	scan_id, true /*do_not_unsubscribe_on_failure*/);
@@ -1276,7 +1280,8 @@ scan_t::scan_try_band(ssptr_t reusable_ssptr,
 	assert(tune_options.need_spectrum );
 	assert(chdb::scan_in_progress(scan_id));
 	assert(scanner_t::is_our_scan(scan_id));
-
+	if(!reusable_ssptr)
+		reusable_ssptr = subscriber_t::make(&receiver, nullptr /*window*/);
 	ret =
 		receiver_thread.subscribe_spectrum(futures, wtxn, sat, band_scan, reusable_ssptr, tune_options,
 																			 scan_id, true /*do_not_unsubscribe_on_failure*/);
@@ -1404,9 +1409,11 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 	for (auto[subscription_id, sub] : scan.subscriptions) {
 		auto ssptr = receiver_thread.receiver.get_ssptr(subscription_id);
 		receiver_thread.unsubscribe(futures, devdb_wtxn, ssptr);
+		ssptr = {};
 	}
 	receiver_thread.on_scan_command_end(devdb_wtxn, scan_ssptr, ss);
 	scans.erase(scan_subscription_id);
+	scan_ssptr = {};
 	return found;
 }
 

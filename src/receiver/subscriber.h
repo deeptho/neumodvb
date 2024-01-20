@@ -68,6 +68,7 @@ class subscriber_t : public std::enable_shared_from_this<subscriber_t>
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::atomic<bool> scanning_{false}; //subscriber is scanning
+
 public:
 
 	enum class event_type_t : uint32_t {
@@ -120,6 +121,9 @@ public:
 		auto w = this->ts.writeAccess();
 		w->command_id = command_id;
 	}
+
+	//thread safe but is only allowed to be called from receiver_thread
+	void remove_ssptr();
 
 	template<typename T> void notify(const T& data) const;
 	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);

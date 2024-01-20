@@ -159,7 +159,7 @@ class neumoMainFrame(mainFrame):
 
     def OnSubscriberCallback(self, evt):
         data = get_object(evt)
-        if type(data) == pydevdb.scan_stats:
+        if type(data) == pydevdb.scan_stats.scan_stats:
             st = data
         elif type(data) == str:
             ShowMessage("Error", data)
@@ -173,7 +173,7 @@ class neumoMainFrame(mainFrame):
             if not self.app.scan_in_progress:
                 self.app.last_scan_text_dict={}
                 msgs=[]
-                msgs.append(f"Scanned {st.locked_muxes+st.failed_muxes} muxes(ok={st.locked_muxes} "
+                msgs.append(f"Scanned {st.locked_muxes+st.failed_muxes} muxes (ok={st.locked_muxes} "
                             f"failed={st.failed_muxes})")
                 ShowMessage("Mux scan finished", "\n".join(msgs))
             else:

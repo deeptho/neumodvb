@@ -544,7 +544,7 @@ class SpectrumPlot(wx.Panel):
         self.axes.spines['right'].set_visible(False)
         self.axes.spines['top'].set_visible(False)
         self.axes.set_ylabel('dB')
-        self.axes.set_xlabel('Frequency (Mhz)')
+        self.axes.set_xlabel('Frequency (MHz)')
         xlimits, ylimits = self.get_limits()
         self.axes.set_xlim(xlimits)
         self.canvas.draw()
@@ -561,6 +561,9 @@ class SpectrumPlot(wx.Panel):
         self.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleDetrend, button)
 
     def add_status_box(self) :
+        self.font_dc = wx.ScreenDC()
+        w,h = self.font_dc.GetTextExtent("10745.160MHz ")
+        self.SetMinSize((w,-1))
         self.status_box = wx.StaticText(self, -1)
         self.toolbar_sizer.Add(self.status_box, 0, wx.LEFT|wx.RIGHT|wx.ALIGN_CENTER|wx.EXPAND, 10)
         self.canvas.mpl_connect('motion_notify_event', self.UpdateStatusBar)

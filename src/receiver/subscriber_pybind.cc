@@ -222,20 +222,20 @@ static int scan_muxes_on_sats(subscriber_t& subscriber, db_txn& chdb_rtxn,
 			addmux(chdb_rtxn, sat.sat_pos, dvbs_muxes, l, h);
 	}
 
-	auto ret = -1;
-	if(dvbs_muxes.size() >0) {
+	auto ret = 0;
+	if(dvbs_muxes.size() > 0) {
 		auto ret_ = subscriber.scan_muxes(dvbs_muxes, tune_options);
 		if(ret_ < 0)
 			ret = ret_;
 		assert(ret_<0 || ret==ret_);
 	}
-	if(dvbc_muxes.size() >0) {
+	if(dvbc_muxes.size() > 0) {
 		auto ret_ = subscriber.scan_muxes(dvbc_muxes, tune_options);
 		if(ret_ < 0)
 			ret = ret_;
 		assert(ret_<0 || ret==ret_);
 	}
-	if(dvbt_muxes.size() >0) {
+	if(dvbt_muxes.size() > 0) {
 		auto ret_ = subscriber.scan_muxes(dvbt_muxes, tune_options);
 		if(ret_ < 0)
 			ret = ret_;

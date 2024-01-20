@@ -225,7 +225,7 @@ class SatGridBase(NeumoGridBase):
         dtdebug(f'CmdScan requested for {len(sats)} sats')
         import pydevdb
         if subscription_type == pydevdb.subscription_type_t.MUX_SCAN:
-            self.app.MuxesOnSatScan(sats, tune_options, band_scan_options)
+            self.app.MuxesOnSatScan(sats, scan_command.tune_options, scan_command.band_scan_options)
         elif subscription_type == pydevdb.subscription_type_t.SPECTRUM_ACQ:
             self.app.SpectrumOnSatAcq(sats, tune_options, band_scan_options)
         elif subscription_type == pydevdb.subscription_type_t.BAND_SCAN:

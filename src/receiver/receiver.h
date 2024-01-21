@@ -249,9 +249,6 @@ class receiver_thread_t : public task_queue_t  {
 	*/
 	std::shared_ptr<adaptermgr_t> adaptermgr;
 
-	using playback_map = std::map<subscription_id_t, std::shared_ptr<active_playback_t>>;
-	playback_map reserved_playbacks; //recordings being played back, indexed by subscription id
-
 	using aa_map_t = safe::Safe<std::map<subscription_id_t, std::shared_ptr<active_adapter_t>>>;
 	aa_map_t active_adapters;
 

@@ -125,12 +125,8 @@ void receiver_thread_t::unsubscribe_playback_only(std::vector<task_queue_t::futu
 	if (!ssptr)
 		return;
 	assert(ssptr);
-	auto [itrec, foundrec] = find_in_map(this->reserved_playbacks, ssptr->get_subscription_id());
-	if (foundrec) {
-		this->reserved_playbacks.erase(itrec);
-		ssptr->clear_subscription_id();
-		return;
-	}
+	assert(ssptr);
+	ssptr->remove_active_playback();
 }
 
 
@@ -867,7 +863,9 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_playback_(const rec
 	auto subscription_id = ssptr->get_subscription_id();
 
 	auto active_playback = std::make_shared<active_playback_t>(receiver, rec);
-	this->reserved_playbacks[subscription_id] = active_playback;
+	assert(ssptr);
+	ssptr->set_active_playback(active_playback);
+
 	return active_playback->make_client_mpm(receiver, subscription_id);
 }
 
@@ -894,8 +892,8 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 
 	// Stop any playback in progress (in that case there is no suscribed service/mux
 	if ((int) subscription_id >= 0) {
-		auto [itrec, found1] = find_in_map(this->reserved_playbacks, subscription_id);
-		if (found1) {
+		assert(ssptr);
+		if(ssptr->get_active_playback()) {
 			// this must be playback
 			unsubscribe(ssptr);
 		}
@@ -924,13 +922,12 @@ receiver_thread_t::cb_t::subscribe_playback(const recdb::rec_t& rec,
 	assert(ssptr);
 	auto subscription_id = ssptr->get_subscription_id();
 	std::vector<task_queue_t::future_t> futures;
-	active_playback_t* active_playback{nullptr};
 
 	if ((int) subscription_id >= 0) {
 		// unsubscribe existing service and/or mux if one exists
-		auto [itrec, found] = find_in_map(this->reserved_playbacks, subscription_id);
-		if (found) {
-			active_playback = &*(itrec->second);
+		assert(ssptr);
+		auto active_playback = ssptr->get_active_playback();
+		if (active_playback) {
 			if (rec.epg.k == active_playback->currently_playing_recording.epg.k) {
 				dtdebugf("subscribe {}: already subscribed to recording", rec);
 				return active_playback->make_client_mpm(receiver, subscription_id);

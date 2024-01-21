@@ -57,6 +57,7 @@ class subscriber_t : public std::enable_shared_from_this<subscriber_t>
 	struct thread_safe_t {
 		subscription_id_t subscription_id{subscription_id_t::NONE};
 		int command_id{-1};
+		std::shared_ptr<active_playback_t> active_playback;
 	};
 
 	pid_t owner;
@@ -110,6 +111,25 @@ public:
 	inline void clear_subscription_id() {
 		auto w = this->ts.writeAccess();
 		w->subscription_id = subscription_id_t::NONE;
+	}
+
+	inline void remove_active_playback() {
+		auto w = this->ts.writeAccess();
+		if(w->active_playback) {
+			w->subscription_id = subscription_id_t::NONE;
+			w->active_playback.reset();
+		}
+	}
+
+	inline void set_active_playback(std::shared_ptr<active_playback_t>& active_playback) {
+		auto w = this->ts.writeAccess();
+		assert(!w->active_playback);
+		w->active_playback = active_playback;
+	}
+
+	inline std::shared_ptr<active_playback_t> get_active_playback() const {
+		auto r = this->ts.readAccess();
+		return r->active_playback;
 	}
 
 	inline int get_command_id() const {

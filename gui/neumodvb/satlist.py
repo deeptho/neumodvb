@@ -42,6 +42,8 @@ def band_scans_fn(x):
     ret =[]
     is_ku = x[0].sat_band == pychdb.sat_band_t.Ku
     for scan in scans:
+        if(scan.scan_time == 0):
+            continue
         d = datetime.datetime.fromtimestamp(scan.scan_time, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S")
         hilo = f'{enum_to_str(scan.sat_sub_band)} ' if is_ku  else ""
         ret.append(f'{hilo}{enum_to_str(scan.pol)}: {d}: {enum_to_str(scan.scan_status)}')

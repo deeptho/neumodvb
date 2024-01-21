@@ -54,7 +54,7 @@ class ScanCommandTable(NeumoTable):
                     dfn=lambda x: f'{x[0].interval} {x[0].repeat_type}', example='6 weeks'),
                  CD(key='max_duration', label='Max\nDuration', basic=True, readonly=False),
                  CD(key='catchup', label='Catch up', basic=True, readonly=False),
-                 CD(key='subscription_type', label='Command', basic=True, readonly=False),
+                 CD(key='tune_options.subscription_type', label='Command', basic=True, readonly=False),
                  CD(key='tune_options', label='options', basic=False, readonly=False),
                  CD(key='mtime', label='Modified', basic=True, readonly=False,
                     dfn=datetime_fn, example='2021-06-16 18:30:33*'),

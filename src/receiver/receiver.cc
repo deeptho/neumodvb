@@ -216,7 +216,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 	const chdb::any_mux_t& mux, const chdb::service_t& service, subscription_id_t subscription_id) {
 
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = receiver.get_default_tune_options(devdb::subscription_type_t::TUNE);
+	auto tune_options = receiver.get_default_subscription_options(devdb::subscription_type_t::TUNE);
 	tune_options.scan_target = devdb::scan_target_t::SCAN_FULL_AND_EPG;
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
@@ -1070,7 +1070,7 @@ receiver_t::subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb_
 	auto lnb = reread_lnb(lnb_);
 
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = get_default_tune_options(devdb::subscription_type_t::SPECTRUM_ACQ);
+	auto tune_options = get_default_subscription_options(devdb::subscription_type_t::SPECTRUM_ACQ);
 	auto& band_pol = tune_options.spectrum_scan_options.band_pol;
 	band_pol.pol = pol_;
 
@@ -1186,7 +1186,7 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 		}
 	}
 	std::vector<task_queue_t::future_t> futures;
-	auto tune_options = this->get_default_tune_options(devdb::subscription_type_t::LNB_CONTROL);
+	auto tune_options = this->get_default_subscription_options(devdb::subscription_type_t::LNB_CONTROL);
 	tune_options.use_blind_tune = blindscan;
 	tune_options.tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND : devdb::tune_mode_t::NORMAL;
 	tune_options.retune_mode = retune_mode;
@@ -1891,13 +1891,12 @@ int receiver_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, d
 	return ret;
 }
 
-subscription_options_t receiver_t::get_default_tune_options(devdb::subscription_type_t subscription_type) const
+devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_type_t subscription_type) const
 {
 	using namespace devdb;
 	subscription_options_t ret;
 	ret.subscription_type = subscription_type;
 	bool for_scan = false;
-	bool for_spectrum_scan = false;
 	bool for_lnb_control = false;
 	switch(subscription_type) {
 	case subscription_type_t::TUNE:
@@ -1914,7 +1913,6 @@ subscription_options_t receiver_t::get_default_tune_options(devdb::subscription_
 		ret.need_spectrum = true;
 		ret.spectrum_scan_options.recompute_peaks = true;
 		for_scan = true;
-		for_spectrum_scan = (subscription_type==subscription_type_t::SPECTRUM_BAND_SCAN);
 		break;
 	case subscription_type_t::MUX_SCAN: //for scan
 		ret.tune_mode = tune_mode_t::NORMAL;

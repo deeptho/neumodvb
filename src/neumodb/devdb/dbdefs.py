@@ -521,7 +521,8 @@ tune_options = db_struct(name ='tune_options',
     type_id = lord('TP'),
     version = 1,
     ignore_for_equality_fields = ('mtime',),
-    fields = ((1, 'scan_target_t', 'scan_target'),
+    fields = ((16,  'subscription_type_t', 'subscription_type'),
+              (1, 'scan_target_t', 'scan_target'),
               (2, 'int32_t', 'max_scan_duration', '180'),
               (3, 'std::optional<ss::vector_<int8_t>>', 'allowed_dish_ids'),
               (4, 'std::optional<ss::vector_<int64_t>>', 'allowed_card_mac_addresses'),
@@ -571,7 +572,6 @@ scan_command = db_struct(
               (5, 'int16_t', 'max_duration', '-1'), #max duration in seconds
               (6, 'bool', 'catchup', 'true'), #if true, then run the last planned scan if it was not run
               (7, 'time_t', 'mtime'),
-              (8, 'subscription_type_t', 'subscription_type'), #when to run next
               (9, 'tune_options_t', 'tune_options'),
               (11, 'band_scan_options_t', 'band_scan_options'),
               (10, 'ss::vector<chdb::sat_t,1>', 'sats'),

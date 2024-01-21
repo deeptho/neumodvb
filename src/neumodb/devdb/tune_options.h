@@ -63,8 +63,6 @@ struct subscription_options_t : public devdb::tune_options_t {
 	spectrum_scan_options_t spectrum_scan_options;
 	constellation_options_t constellation_options;
 
-	//retune_mode_t retune_mode{retune_mode_t::ALLOWED}; //positioner not allowed when in positioner_dialog
-	devdb::subscription_type_t subscription_type{devdb::subscription_type_t::TUNE};
 	devdb::usals_location_t usals_location;
 
 	inline bool rf_path_is_allowed(const devdb::rf_path_t& rf_path) const {
@@ -98,12 +96,16 @@ struct subscription_options_t : public devdb::tune_options_t {
 		return card_matches;
 	}
 
-	subscription_options_t(devdb::scan_target_t scan_target =  devdb::scan_target_t::SCAN_FULL,
+ 	subscription_options_t(devdb::scan_target_t scan_target =  devdb::scan_target_t::SCAN_FULL,
 												 devdb::tune_mode_t tune_mode = devdb::tune_mode_t::NORMAL,
 												 devdb::subscription_type_t subscription_type = devdb::subscription_type_t::TUNE)
-		: subscription_type(subscription_type)
 		{
+			this->subscription_type = subscription_type;
 			this->scan_target = scan_target;
 			this->tune_mode = tune_mode;
 		}
+
+ 	subscription_options_t(const devdb::tune_options_t& tune_options)
+		: devdb::tune_options_t(tune_options)
+		{}
 };

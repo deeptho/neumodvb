@@ -152,6 +152,6 @@ PYBIND11_MODULE(pydevdb, m) {
 	export_lnb_extra(m);
 	export_scan_command_extra(m);
 	export_dish_extra(m);
-	export_tune_options(m);
+	export_subscribe_options(m);
 	m.attr("__version__") = version_info();
 }

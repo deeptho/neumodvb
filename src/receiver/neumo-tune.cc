@@ -49,12 +49,7 @@
 #include <unistd.h>
 #include <values.h>
 
-
-uint32_t freq[65536 * 4];
-int32_t rf_level[65536 * 4];
-int32_t candidate_frequencies[65536 * 4];
 dtv_fe_constellation_sample samples[65536];
-
 
 int tune_it(int fefd, int frequency_, bool pol_is_v);
 int do_lnb_and_diseqc(int fefd, int frequency, bool pol_is_v);
@@ -73,8 +68,8 @@ static constexpr int lnb_wideband_uk_lof = 10410 * 1000UL;
 static constexpr int lnb_c_lof = 5150 * 1000UL;
 
 enum blindscan_method_t {
-	SCAN_EXHAUSTIVE = 1, // old method: steps to the frequency bands and starts a blindscan tune
-	SCAN_FREQ_PEAKS,		 // scans for rising and falling frequency peaks and launches blindscan there
+	SCAN_SWEEP = 1, // old method: steps to the frequency bands and starts a blindscan tune
+	SCAN_FFT,		 // scans for rising and falling frequency peaks and launches blindscan there
 };
 
 enum lnb_type_t {
@@ -106,7 +101,7 @@ struct options_t {
 	int symbol_rate{-1}; // in kHz
 	fe_modulation modulation{PSK_8};
 	fe_delivery_system delivery_system{SYS_DVBS2};
-	int pol = 3;
+	int pol = 0;
 
 	std::string filename_pattern{"/tmp/%s_a%d_%.3f%c.dat"};
 	std::string pls;
@@ -122,6 +117,7 @@ struct options_t {
 	int end_pls_code{-1};
 	int pls_search_timeout{25}; // in ms
 	int adapter_no{0};
+	int rf_in{-1};
 	int frontend_no{0};
 	std::string diseqc{"UC"};
 	int uncommitted{-1};
@@ -171,14 +167,15 @@ int32_t driver_freq_for_freq(int32_t frequency)		{
 		}
 		break;
 
-	case C_LNB:
-		return lnb_c_lof - frequency;
-		break;
 	case WIDEBAND_LNB:
 		return frequency - lnb_wideband_lof;
 		break;
 	case WIDEBAND_UK_LNB:
 		return frequency - lnb_wideband_uk_lof;
+		break;
+
+	case C_LNB:
+		return lnb_c_lof - frequency;
 		break;
 	}
 	return frequency;
@@ -247,65 +244,22 @@ void options_t::parse_pls(const std::vector<std::string>& pls_entries) {
 	printf("\n");
 }
 
-std::map<std::string, fe_delivery_system>
-delsys_map{
-	{"DVBC",	 SYS_DVBC_ANNEX_A},
-	{"DVBT",	 SYS_DVBT},
-	{"DSS",	 SYS_DSS},
-	{"DVBS",	 SYS_DVBS},
-	{"DVBS2",	 SYS_DVBS2},
-	{"DVBH",	 SYS_DVBH},
-	{"ISDBT",	 SYS_ISDBT},
-	{"ISDBS",	 SYS_ISDBS},
-	{"ISDBC",	 SYS_ISDBC},
-	{"ATSC",	 SYS_ATSC},
-	{"ATSCMH",	 SYS_ATSCMH},
-	{"DTMB",	 SYS_DTMB},
-	{"CMMB",	 SYS_CMMB},
-	{"DAB",	 SYS_DAB},
-	{"DVBT2",	 SYS_DVBT2},
-	{"TURBO",	 SYS_TURBO},
-	{"DVBC2",	 SYS_DVBC2},
-	{"DVBS2X",	 SYS_DVBS2X},
-	{"DCII",	 SYS_DCII},
-	{"AUTO",	 SYS_AUTO}
-};
+std::map<std::string, fe_delivery_system> delsys_map{
+	{"DVBC", SYS_DVBC_ANNEX_A}, {"DVBT", SYS_DVBT},			{"DSS", SYS_DSS},				{"DVBS", SYS_DVBS},
+	{"DVBS2", SYS_DVBS2},				{"DVBH", SYS_DVBH},			{"ISDBT", SYS_ISDBT},		{"ISDBS", SYS_ISDBS},
+	{"ISDBC", SYS_ISDBC},				{"ATSC", SYS_ATSC},			{"ATSCMH", SYS_ATSCMH}, {"DTMB", SYS_DTMB},
+	{"CMMB", SYS_CMMB},					{"DAB", SYS_DAB},				{"DVBT2", SYS_DVBT2},		{"TURBO", SYS_TURBO},
+	{"DVBC2", SYS_DVBC2},				{"DVBS2X", SYS_DVBS2X}, {"DCII", SYS_DCII},			{"AUTO", SYS_AUTO}};
 
-
-std::map<std::string, fe_modulation>
-modulation_map{
-	{"QPSK", QPSK},
-	{"QAM_16", QAM_16},
-	{"QAM_32", QAM_32},
-	{"QAM_64", QAM_64},
-	{"QAM_128", QAM_128},
-	{"QAM_256", QAM_256},
-	{"QAM_AUTO", QAM_AUTO},
-	{"VSB_8", VSB_8},
-	{"VSB_16", VSB_16},
-	{"PSK_8", PSK_8},
-	{"APSK_16", APSK_16},
-	{"APSK_32", APSK_32},
-	{"DQPSK", DQPSK},
-	{"QAM_4_NR", QAM_4_NR},
-	{"C_QPSK", C_QPSK},
-	{"I_QPSK", I_QPSK},
-	{"Q_QPSK", Q_QPSK},
-	{"C_OQPSK", C_OQPSK},
-	{"QAM_512", QAM_512},
-	{"QAM_1024", QAM_1024},
-	{"QAM_4096", QAM_4096},
-	{"APSK_64", APSK_64},
-	{"APSK_128", APSK_128},
-	{"APSK_256", APSK_256},
-	{"APSK_8L", APSK_8L},
-	{"APSK_16L", APSK_16L},
-	{"APSK_32L", APSK_32L},
-	{"APSK_64L", APSK_64L},
-	{"APSK_128L", APSK_128L},
-	{"APSK_256L", APSK_256L},
-	{"APSK_1024", APSK_1024}
-};
+std::map<std::string, fe_modulation> modulation_map{
+	{"QPSK", QPSK},						{"QAM_16", QAM_16},				{"QAM_32", QAM_32},			 {"QAM_64", QAM_64},
+	{"QAM_128", QAM_128},			{"QAM_256", QAM_256},			{"QAM_AUTO", QAM_AUTO},	 {"VSB_8", VSB_8},
+	{"VSB_16", VSB_16},				{"PSK_8", PSK_8},					{"APSK_16", APSK_16},		 {"APSK_32", APSK_32},
+	{"DQPSK", DQPSK},					{"QAM_4_NR", QAM_4_NR},		{"C_QPSK", C_QPSK},			 {"I_QPSK", I_QPSK},
+	{"Q_QPSK", Q_QPSK},				{"C_OQPSK", C_OQPSK},			{"QAM_512", QAM_512},		 {"QAM_1024", QAM_1024},
+	{"QAM_4096", QAM_4096},		{"APSK_64", APSK_64},			{"APSK_128", APSK_128},	 {"APSK_256", APSK_256},
+	{"APSK_8L", APSK_8L},			{"APSK_16L", APSK_16L},		{"APSK_32L", APSK_32L},	 {"APSK_64L", APSK_64L},
+	{"APSK_128L", APSK_128L}, {"APSK_256L", APSK_256L}, {"APSK_1024", APSK_1024}};
 
 int options_t::parse_options(int argc, char** argv) {
 	CLI::App app{"DVB tuning program"};
@@ -318,7 +272,7 @@ int options_t::parse_options(int argc, char** argv) {
 						 {"warm", algo_t::WARM},
 						 {"cold", algo_t::COLD}
 	};
-	std::map<std::string, int> pol_map{{"V", 2}, {"H", 1}, {"BOTH",3}};
+	std::map<std::string, int> pol_map{{"V", 2}, {"H", 1}};
 	std::map<std::string, int> pls_map{{"ROOT", 0}, {"GOLD", 1}, {"COMBO", 1}};
 	std::vector<std::string> pls_entries;
 
@@ -329,6 +283,7 @@ int options_t::parse_options(int argc, char** argv) {
 		->transform(CLI::CheckedTransformer(algo_map, CLI::ignore_case));
 
 	app.add_option("-a,--adapter", adapter_no, "Adapter number", true);
+	app.add_option("-r,--rf-in", rf_in, "RF input", true);
 	app.add_option("--frontend", frontend_no, "Frontend number", true);
 
 	app.add_option("-S,--symbol-rate", symbol_rate, "Symbolrate (kHz)", true);
@@ -339,7 +294,7 @@ int options_t::parse_options(int argc, char** argv) {
 
 	app.add_option("-R,--search-range", search_range, "Search range (kHz)", true);
 
-	app.add_option("-p,--pol", pol, "Polarisation to scan", true)
+	app.add_option("-p,--pol", pol, "Polarization to scan", true)
 		->transform(CLI::CheckedTransformer(pol_map, CLI::ignore_case));
 
 	app.add_option("-n,--num-samples", num_samples, "Number of IQ samples to fetch", true);
@@ -350,10 +305,10 @@ int options_t::parse_options(int argc, char** argv) {
 								 true);
 	app.add_option("--start-pls-code", start_pls_code, "Start of PLS code range to start (mode=ROOT!)", true);
 	app.add_option("--end-pls-code", end_pls_code, "End of PLS code range to start (mode=ROOT!)", true);
-	app.add_option("-T,--pls-search-timeout", pls_search_timeout, "Search range timeou", true);
+	app.add_option("-T,--pls-search-timeout", pls_search_timeout, "Search range timeout", true);
 
 	app.add_option("-d,--diseqc", diseqc,
-								 "Diseqc command string (C: send committed command; "
+								 "DiSEqC command string (C: send committed command; "
 								 "U: send uncommitted command",
 								 true);
 	app.add_option("-U,--uncommitted", uncommitted, "Uncommitted switch number (lowest is 0)", true);
@@ -369,6 +324,7 @@ int options_t::parse_options(int argc, char** argv) {
 		options.lnb_type = C_LNB;
 	parse_pls(pls_entries);
 	printf("adapter=%d\n", adapter_no);
+	printf("rf_in=%d\n", rf_in);
 	printf("frontend=%d\n", frontend_no);
 
 	printf("freq=%d\n", freq);
@@ -408,8 +364,8 @@ void print_tuner_status(fe_status_t festatus) {
 		printf("     FE_HAS_LOCK : everything's working...");
 	if (festatus & FE_TIMEDOUT)
 		printf("     FE_TIMEDOUT : no lock within the last about 2 seconds");
-	if (festatus & FE_HAS_TIMING_LOCK)
-		printf("     FE_REINIT : frontend has timing lock");
+	if (festatus & (FE_HAS_TIMING_LOCK|FE_OUT_OF_RESOURCES))
+		printf("     FE_REINIT : frontend has timing loop locked");
 	printf("---");
 }
 
@@ -567,7 +523,8 @@ std::tuple<int, int> getinfo(FILE* fpout, int fefd, bool pol_is_v, int allowed_f
 	printf("Symrate=%-5d ", currentsr / FREQ_MULT);
 
 	printf("Stream=%-5d pls_mode=%2d:%5d ",
-				 (dtv_stream_id_prop & 0xff) == 0xff ? -1 : (dtv_stream_id_prop & 0xff), (dtv_stream_id_prop >> 26) & 0x3,
+				 (dtv_stream_id_prop & 0xff) == 0xff ? -1 : (dtv_stream_id_prop & 0xff),
+				 (dtv_stream_id_prop >> 26) & 0x3,
 				 (dtv_stream_id_prop >> 8) & 0x3FFFF);
 	int num_isi = 0;
 	for (int i = 0; i < 256; ++i) {
@@ -737,6 +694,7 @@ int get_extended_frontend_info(int fefd) {
 	}
 	printf("Name of card: %s\n", fe_info.card_name);
 	printf("Name of adapter: %s\n", fe_info.adapter_name);
+	printf("Name of frontend: %s\n", fe_info.card_name);
 	/*fe_info.frequency_min
 		fe_info.frequency_max
 		fe_info.symbolrate_min
@@ -1015,7 +973,12 @@ int tune_it(int fefd, int frequency_, bool pol_is_v) {
 			: (options.stream_id < 0 ? -1 : (options.stream_id & 0xff));
 		cmdseq.add(DTV_STREAM_ID, stream_id);
 	}
-
+#if 0
+	if (options.rf_in >=0) {
+		printf("select rf_in=%d\n", options.rf_in);
+		cmdseq.add(DTV_RF_INPUT, options.rf_in);
+	}
+#endif
 	bool get_constellation = options.command == command_t::IQ;
 	auto num_constellation_samples = options.num_samples;
 	if (get_constellation) {
@@ -1039,8 +1002,6 @@ int tune_next(int fefd) {
 	return cmdseq.tune(fefd);
 }
 #endif
-
-
 /** @brief generate and diseqc message for a committed or uncommitted switch
  * specification is available from http://www.eutelsat.com/
  * @param extra: extra bits to set polarisation and band; not sure if this does anything useful
@@ -1192,26 +1153,39 @@ int do_lnb_and_diseqc(int fefd, int frequency, bool pol_is_v) {
 		-after unsuccessful tuning, second attempt should use full diseqc
 	*/
 	int ret;
+
+#ifndef SET_VOLTAGE_TONE_DURING_TUNE
+	// this ioctl is also performed internally in modern kernels; save some time
+
 	/*
 
 		22KHz: off = low band; on = high band
 		13V = vertical or right-hand  18V = horizontal or low-hand
 		TODO: change this to 18 Volt when using positioner
 	*/
+	if (options.rf_in >=0) {
+		printf("select rf_in=%d\n", options.rf_in);
+		if ((ret = ioctl(fefd, FE_SET_RF_INPUT, (int32_t) options.rf_in))) {
+			printf("problem Setting rf_input\n");
+			return -1;
+		}
+	}
 
 	fe_sec_voltage_t lnb_voltage = pol_is_v ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
 	if ((ret = ioctl(fefd, FE_SET_VOLTAGE, lnb_voltage))) {
-		printf("problem Setting the Voltage\n");
+		printf("problem Setting voltage\n");
 		return -1;
 	}
 
+#endif
+
 	bool band_is_high = hi_lo(frequency);
 
-	//Note: the following is a NOOP in case no diseqc needs to be sent
-	ret= diseqc(fefd, pol_is_v, band_is_high);
-	if(ret<0)
+	// Note: the following is a NOOP in case no diseqc needs to be sent
+	ret = diseqc(fefd, pol_is_v, band_is_high);
+	if (ret < 0)
 		return ret;
-
+#ifndef SET_VOLTAGE_TONE_DURING_TUNE
 	bool tone_turned_off = ret > 0;
 
 	/*select the proper lnb band
@@ -1225,6 +1199,7 @@ int do_lnb_and_diseqc(int fefd, int frequency, bool pol_is_v) {
 			return -1;
 		}
 	}
+#endif
 	return 0;
 }
 
@@ -1348,7 +1323,8 @@ int main(int argc, char** argv) {
 	if (fefd < 0) {
 		exit(1);
 	}
-	if(has_blindscan ? get_extended_frontend_info(fefd) : get_frontend_info(fefd)) {
+	if(has_blindscan ?
+		 get_extended_frontend_info(fefd) : get_frontend_info(fefd)) {
 		exit(1);
 	}
 	int ret = 0;

@@ -1026,9 +1026,10 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	if(!lnb.on_positioner && lnb.networks.size() > 0) {
 		bool found{false};
 		for (auto& n: lnb.networks) {
+
+			//For an lnb not on a dish usals_pos and sat_pos must be equal
 			if(n.sat_pos == cur_sat_pos) {
 				lnb.usals_pos = cur_sat_pos;
-				lnb.usals_pos_reliable = true;
 				lnb.cur_lnb_pos = cur_sat_pos;
 				lnb.cur_sat_pos = cur_sat_pos;
 				found = true;
@@ -1036,14 +1037,15 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 		}
 		if(!found) {
 			lnb.usals_pos = lnb.networks[0].sat_pos;
-			lnb.usals_pos_reliable = true;
 			lnb.cur_lnb_pos = lnb.networks[0].sat_pos;
 			lnb.cur_sat_pos = lnb.networks[0].sat_pos;
 		}
 	}
 	if(lnb.usals_pos == sat_pos_none && lnb.networks.size() > 0 && loc) {
-		lnb.usals_pos = lnb.networks[0].sat_pos;
-		lnb.usals_pos_reliable = true;
+		//provide reasonable default
+		lnb.usals_pos = lnb.networks[0].usals_pos;
+		if(lnb.usals_pos == sat_pos_none)
+			lnb.usals_pos = lnb.networks[0].sat_pos;
 		lnb.cur_lnb_pos = lnb.usals_pos;
 		lnb.cur_sat_pos = lnb.usals_pos;
 		devdb::lnb::set_lnb_offset_angle(lnb, *loc);
@@ -1073,7 +1075,6 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 			lnb.k = db_lnb->k;
 		if(preserve & p_t::USALS) {
 			lnb.usals_pos = db_lnb->usals_pos;
-			lnb.usals_pos_reliable = db_lnb->usals_pos_reliable;
 			lnb.cur_lnb_pos = db_lnb->cur_lnb_pos;
 			lnb.on_positioner = db_lnb->on_positioner;
 			lnb.offset_angle = db_lnb->offset_angle;

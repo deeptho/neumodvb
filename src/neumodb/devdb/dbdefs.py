@@ -174,11 +174,8 @@ dish = db_struct(name='dish',
                  ignore_for_equality_fields = ('mtime',),
                  primary_key = ('key', ('dish_id', )),
                  fields = ((1, 'int8_t', 'dish_id', -1), #Unique for each dish
-                           (2, 'int16_t', 'cur_sat_pos', 'sat_pos_none'), #satellite position last moved to
                            (3, 'int16_t', 'cur_usals_pos', 'sat_pos_none'), #satellite position last moved to
-                           (4, 'bool', 'usals_pos_reliable', 'false'),
-                           (5, 'ss::vector<float,2>', 'rotation_speeds',
-                            '{0.3, 0.3}'), #first value is for 13volt, second for 18
+                           (11, 'int16_t', 'target_usals_pos', 'sat_pos_none'), #satellite position begin moved to
                            (6, 'int32_t', 'powerup_time', '1500'), #How long after powerup to wait for positioner
                                                                    #to be ready for motion commands
                            (7, 'ss::vector<float,2>', 'speeds', '{1.0, 2.0}'), #Speed rotor moves at 13 and 18 V
@@ -248,7 +245,7 @@ lnb = db_struct(name='lnb',
                           #not used for a fixed dish, but should be set equal to the sat in networks[0] for clarity,
                           #i.e., the main satellite
                           (2, 'int16_t', 'usals_pos', 'sat_pos_none'), #satellite position of center lnb
-                          (20, 'int16_t', 'usals_pos_reliable', 'true'), #false if positioner position is unknown
+                          #(20, 'int16_t', 'usals_pos_reliable', 'true'), #false if positioner position is unknown
                           (18, 'int16_t', 'cur_lnb_pos', 'sat_pos_none'), #satellite position currentlly pointed to
                                                                           #by this lnb (different from usals_pos
                                                                           #for an offset lnb
@@ -323,7 +320,7 @@ fe_subscription = db_struct(name='fe_subscription',
                                                                                   #then subscription
                                                                                   #is allowed to switch
                                                                                   #to different sat by
-                                                                                  #selecting anothe rlnb using diseqc
+                                                                                  #selecting another lnb using diseqc
                                                                                   #or by moving the dish using diseqc
                                                                                        #is subscribed exclusive
                                      (7, 'int16_t', 'dish_usals_pos', 'sat_pos_none'), #if value is_pos_none

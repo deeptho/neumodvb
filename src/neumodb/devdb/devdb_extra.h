@@ -115,10 +115,6 @@ struct subscribe_ret_t {
 	static std::atomic_int next_subscription_id; //initialised in fe_subscribe.cc
 
 	tune_pars_t tune_pars;
-
-	int16_t old_usals_pos{sat_pos_none}; //in case dish is moved as result of tune, where did it move from?
-	int16_t new_usals_pos{sat_pos_none}; //in case dish is moved as result of tune, where will it move to?
-
 	inline  bool subscription_failed() const {
 		return failed;
 	}

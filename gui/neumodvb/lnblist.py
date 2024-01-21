@@ -103,9 +103,7 @@ class LnbTable(NeumoTable):
                       label='LNB', basic=True, readonly=True)
                               ]
     all_columns = \
-        [#CD(key='connection_name',  label='LNB', basic=True, readonly=True,
-         #   example=" C2#0 23.5EKu 1212  ", dfn=lnb_key_fn),
-         CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
+        [CD(key='k.dish_id',  label='dish', basic=True, readonly=False),
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='on_positioner',  label='on\nrotor', basic=True, readonly=False),
             #following must be readonly, or change may be accidentally undone by positioner dialog
@@ -116,8 +114,7 @@ class LnbTable(NeumoTable):
             dfn= lambda x: pychdb.sat_pos_str(x[1])),
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='usals_pos',  label='usals\npos', basic=True, readonly=True, no_combo = True,
-            dfn= lambda x: pychdb.sat_pos_str(x[1]) if x[0].usals_pos_reliable \
-            else strike_through(pychdb.sat_pos_str(x[1]))),
+            dfn= lambda x: pychdb.sat_pos_str(x[1])),
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='offset_angle',  label='offset\nangle', basic=True, readonly=True, no_combo = True,
             dfn= lambda x: pychdb.sat_pos_str(x[1])),

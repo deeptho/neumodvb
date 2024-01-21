@@ -65,6 +65,7 @@ namespace data_types {
 	float32= 10  | builtin,
 	variant= 20 | builtin,
 	none=    21 | builtin,
+	optional=    22 | builtin,
 	field_desc = 0xfd | builtin,
 	record_desc = 0xfe | builtin,
 	schema = 0xff | builtin
@@ -146,9 +147,7 @@ namespace data_types {
 	template<> constexpr uint32_t data_type<int64_t>() { return int64;}
 	template<> constexpr uint32_t data_type<boolean_t>() { return boolean;}
 	template<> constexpr uint32_t data_type<float32_t>() { return float32;}
-	//template<> constexpr uint32_t data_type<variant_t>() { return variant;}
 	template<> constexpr uint32_t data_type<milliseconds_t>() { return milliseconds;}
-	//template<> constexpr uint32_t data_type<time_t>() { return time;}
 	template<> constexpr uint32_t data_type<ss::string<>>() { return string;}
 
 	template<typename T>

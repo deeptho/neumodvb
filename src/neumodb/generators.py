@@ -175,11 +175,13 @@ class db_struct(object):
         assert type(_name) == str
         assert _default is None or type(_default) == str or type(_default) == int
         match_variant = re.match(r'(std::variant)(<((?:(?>[^<>]+)|(?2))*)>)', _type)
+        match_optional = re.match(r'(std::optional)(<((?:(?>[^<>]+)|(?2))*)>)', _type)
         match_string = re.match(r'(ss::string)(<((?:(?>[^<>]+)|(?2))*)>)', _type)
         match_int = re.match(r'([u]{0,1}int(8|16|32|64)_t)', _type)
         match_vector = re.match(r'(ss::vector)(<((?:(?>[^<>]+)|(?2))*)>)', _type)
         match_bytebuffer = re.match(r'(ss::bytebuffer)(<((?:(?>[^<>]+)|(?2))*)>)', _type)
         is_variant = match_variant is not None
+        is_optional = match_optional is not None
         is_int = match_int is not None
         is_string = match_string is not None
         is_vector = False
@@ -187,8 +189,18 @@ class db_struct(object):
         is_vector_of_strings = False
         variant_types = None
         namespace = ""
-        if match_variant is not None:
-
+        if match_optional is not None:
+            scalar_type = match_optional.groups()[2]
+            match_namespace = re.match(r'([^:]+::).+', scalar_type)
+            namespace = match_namespace.group(1) if match_namespace else ""
+            scalar_type = normalize_type(scalar_type)
+            if namespace=="ss::":
+                namespace = ""
+            elif namespace!="":
+                scalar_type = scalar_type.split(namespace)[-1]
+            is_vector=False
+            namespace = ""
+        elif match_variant is not None:
             variant_type_names = match_variant.groups()[2].split(',')
             variant_types =[]
             for t in variant_type_names:
@@ -234,11 +246,13 @@ class db_struct(object):
                 scalar_type = scalar_type.split(namespace)[-1]
             assert type(scalar_type)!=list
 
-        has_variable_size = _type.startswith('ss::') or _type.startswith('std::variant')
+        has_variable_size = _type.startswith('ss::') or _type.startswith('std::variant') \
+            or _type.startswith('std::optional')
         self.fields.append(dict(field_id=field_id, type=_type, name=_name, default=_default,
                                 namespace = namespace,
                                 is_vector=is_vector, is_vector_of_strings=is_vector_of_strings,
                                 is_string=is_string, is_int = is_int,
+                                is_optional = is_optional,
                                 is_variant = is_variant,
                                 variant_types=variant_types,
                                 is_bytebuffer = is_bytebuffer,
@@ -657,7 +671,7 @@ class db_db(object):
         struct.alfas ='test'
         for field in struct.fields:
             #if field['is_vector'] or
-            if field['is_bytebuffer'] or field['is_variant']:
+            if field['is_bytebuffer'] or field['is_variant'] or field['is_optional']:
                 continue
             field_type = f"{field['namespace']}{field['scalar_type']}"
             fielddb, fieldstruct = self.db_and_struct_for_field(field)

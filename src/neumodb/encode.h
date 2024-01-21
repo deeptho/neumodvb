@@ -159,7 +159,6 @@ inline void encode_ascending(ss::bytebuffer_ &ser, const bool& val)  {
 }
 
 
-#if 1
 /*encoding of a bytebuffer is not useful in general as bytebuffer can contain zero bytes,
 	which results in strange sorting.
 	we need to keep this function for tempdata code
@@ -176,7 +175,6 @@ template<int buffer_size>
 	inline void encode_ascending(ss::bytebuffer_ &ser, const ss::bytebuffer<buffer_size>& data) {
 		ser.append_raw(data.buffer(), data.size()); //do not include the 0 byte
 }
-#endif
 
 template<typename T>
 inline void encode_ascending(ss::bytebuffer_ &ser, const ss::databuffer_<T>& data) {

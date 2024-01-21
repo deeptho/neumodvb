@@ -216,6 +216,20 @@ int deserialize<{{dbname}}::{{struct.class_name}}>(
 				break;
 	}
 	}
+	{% elif f.is_optional %}
+	{
+		bool has_val; //is optional present?
+		offset = deserialize(ser, has_val, offset);
+		if(offset<0)
+			return offset;
+		if(has_val) {
+			{{f.scalar_type}} content;
+			offset = deserialize(ser, content, offset);
+			if(offset < 0)
+				return offset;
+				rec.{{f.name}} = content;
+		}
+	}
 	{%else%}
 	offset = deserialize(ser, rec.{{f.name}}, offset);
 	{%endif%}
@@ -248,6 +262,12 @@ int serialized_size<{{dbname}}::{{struct.class_name}}>(
 		break;
 		}
 	}
+	{% elif f.is_optional %}
+	ret += sizeof(bool); //size of has_val
+	{
+		if(in.{{f.name}})
+			ret += serialized_size(*in.{{f.name}});
+	}
 	{% else %}
 	ret += serialized_size(in.{{f.name}});
 	{% endif%}
@@ -279,6 +299,8 @@ namespace {{dbname}} {
               (uint32_t)
 							{% if f.is_variant %}
 							data_types::variant, //type_id_, uniquely identifies data type
+							{% elif f.is_optional %}
+							data_types::optional, //type_id_, uniquely identifies data type
 							{% else %}
 							data_types::data_type<{{f.namespace}}{{f.scalar_type}}>(), //type_id_, uniquely identifies data type
 							{% endif %}
@@ -541,6 +563,8 @@ int deserialize_field_safe
 		{%endif%}
 		{% if f.is_variant %}
 		data_types::variant; //current type for this field
+		{% elif f.is_optional %}
+		data_types::optional; //current type for this field
 		{% else %}
 		data_types::data_type<{{f.namespace}}{{f.scalar_type}}>(); //current type for this field
     {% endif %}
@@ -568,6 +592,19 @@ int deserialize_field_safe
 				return offset+foreign_field.serialized_size;
 				break;
 			}
+			{% elif f.is_optional %}
+			bool has_val;
+			offset = deserialize(ser, has_val, offset);
+			if(offset<0)
+				return offset;
+			if(has_val) {
+				{{f.scalar_type}} content;
+				offset = deserialize(ser, content, offset);
+				if(offset>=0) {
+					rec.{{f.name}} = content;
+				}
+			}
+			return offset;
 			{% else %}
 			if constexpr (data_types::is_builtin_type<{{f.namespace}}{{f.scalar_type}}>()) {
 					//scalar builtin or vector of builtins
@@ -596,7 +633,7 @@ int deserialize_field_safe
 					{%endif%}
 				}
 			}
-			{% endif %} {#is_variant#}
+			{% endif %}
 		} else {
 			{% if f.is_int %}
 			using namespace data_types;
@@ -689,6 +726,15 @@ template<>
 					serialize(out, val);
 				}, in.{{f.name}});
 	}
+	{%elif f.is_optional%}
+	{
+		auto& val = in.{{f.name}};
+		bool has_val = !!val;
+		serialize(out, has_val);
+		if(has_val) {
+			serialize(out, *val);
+		}
+	}
 	{%else%}
 	serialize(out, in.{{f.name}});
 	{%endif%}
@@ -713,6 +759,15 @@ template<>
 			encode_ascending(ser, type_id);
 		  encode_ascending(ser, val);
 	  }, in.{{f.name}});
+	  {%- elif f.is_optional %}
+		{
+			auto &val = in.{{f.name}};
+			bool has_val = !!val;
+			encode_ascending(ser, has_val);
+			if(has_val) {
+				encode_ascending(ser, *val);
+			}
+		}
 	  {%- else %}
 	  encode_ascending(ser, in.{{f.name}});
 	  {% endif %}
@@ -729,12 +784,20 @@ template<>
 			encode_ascending(ser, type_id);
 		  encode_ascending(ser, val);
 	  }, in.{{f.name}});
-	  {%- else %}
-	  encode_ascending(ser, in.{{f.name}});
-	  {% endif %}
+	  {%- elif f.is_optional %}
+		{
+			auto& val = in.{{f.name}};
+			bool has_val = !!val;
+			encode_ascending(ser, has_val);
+			if(has_val)
+				encode_ascending(ser, *val);
+		}
+		{%- else %}
+			encode_ascending(ser, in.{{f.name}});
+			{% endif %}
 	  {%endfor %}
 	 {% endif %}
-};
+}
 
 
 {% if struct.is_table %}
@@ -767,23 +830,7 @@ void {{dbname}}::encode_subfields<{{dbname}}::{{struct.class_name}}>(
 	{%for f in struct.subfields %}
 	{% if f.is_variant %}
 	assert(0); //Implementation error. Fields of variants cannot be used as indices (fields not always available)
-	{% if false %}
-		case {{struct.class_name}}::subfield_t::{{f.name.replace('.','_')}}:
-			{
-		auto ret = sizeof(uint32_t);
-		for(;;) {
-		{% for variant_type in f.variant_types %}
-		if (std::holds_alternative<{{variant_type.variant_type}}>(in.{{f.name}})) {
-			auto& content = *std::get_if<{{variant_type.variant_type}}>(&in.{{f.name}});
-			encode_subfields<{{variant_type.variant_type}}>(content);
-			break;
-		}
-		{% endfor %}
-		break;
-		}
-	}
- {% endif %}
-		break;
+	break;
 	{% else %}
 		case {{struct.class_name}}::subfield_t::{{f.name.replace('.','_')}}:
 		{% if f.is_string%}

@@ -22,4 +22,5 @@ cscope.out
 pybind11/tests/
 /build/*
 /unused/*
-.idea
+.idea/
+gui/.idea/

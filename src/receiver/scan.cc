@@ -1659,7 +1659,7 @@ inline static bool is_better(const signal_info_t& a, const signal_info_t& b) {
 	if(!!(a.lock_status.fe_status & FE_HAS_CARRIER) && !(b.lock_status.fe_status & FE_HAS_CARRIER))
 		return true;
 	if(a.stat.stats.size() >0 && b.stat.stats.size() ==0)
-		 true;
+		 return true;
 	return false;
 }
 void scan_t::update_monitor(const ss::vector_<subscription_id_t>& fe_subscription_ids,

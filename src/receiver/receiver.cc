@@ -1471,20 +1471,6 @@ void receiver_thread_t::cb_t::send_signal_info_to_scanner(
 void receiver_t::on_signal_info(const signal_info_t& signal_info,
 																const ss::vector_<subscription_id_t>& subscription_ids) {
 	/*
-		provide all mpv's with updated signal information for the OSD
-	 */
-	{
-		auto mpv_map = this->active_mpvs.readAccess();
-		for (auto [mpv_, mpv_shared_ptr] : *mpv_map) {
-			auto* mpv = mpv_shared_ptr.get();
-			if (!mpv)
-				continue;
-			mpv->notify(signal_info);
-		}
-	}
-
-
-	/*
 		send a signal_info message to a specific wxpython window (positioner_dialog)
 		which will then receive a EVT_COMMAND_ENTER
 		signal. Each window is associated with a subscription. The message is passed on if the subscription's
@@ -1497,6 +1483,10 @@ void receiver_t::on_signal_info(const signal_info_t& signal_info,
 			auto* ms = ms_shared_ptr.get();
 			if (!ms) //scanning subscribers are handled by scanner
 				continue;
+			auto mpv = ms->get_mpv();
+			if(mpv) {
+				mpv->notify(signal_info);
+			}
 			if(ms->is_scanning()) {
 				has_scanning_subscribers = true;
 				continue;
@@ -1743,12 +1733,15 @@ void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t
 }
 
 void receiver_t::update_playback_info() {
-	auto mpv_map = active_mpvs.readAccess();
-	for (auto [mpv_, mpv_shared_ptr] : *mpv_map) {
-		auto* mpv = mpv_shared_ptr.get();
-		if (!mpv)
-			continue;
-		mpv->update_playback_info();
+		auto mss = subscribers.readAccess();
+		for (auto [subsptr, ms_shared_ptr] : *mss) {
+			auto* ms = ms_shared_ptr.get();
+			if (!ms)
+				continue;
+			auto mpv = ms->get_mpv();
+			if (!mpv)
+				continue;
+			mpv->update_playback_info();
 	}
 }
 

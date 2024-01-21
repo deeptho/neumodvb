@@ -50,6 +50,7 @@ namespace pybind11 {
 
 struct blindscan_t;
 struct sdt_data_t;
+struct player_cb_t;
 
 class subscriber_t : public std::enable_shared_from_this<subscriber_t>
 {
@@ -60,6 +61,7 @@ class subscriber_t : public std::enable_shared_from_this<subscriber_t>
 		std::shared_ptr<active_playback_t> active_playback;
 	};
 
+	std::shared_ptr<player_cb_t> mpv; //cannot yeet be moved into thread safe because called by gui
 	pid_t owner;
 	/*
 		subscription_id can be set/reset only from receiver thread
@@ -121,7 +123,7 @@ public:
 		}
 	}
 
-	inline void set_active_playback(std::shared_ptr<active_playback_t>& active_playback) {
+	inline void set_active_playback(const std::shared_ptr<active_playback_t>& active_playback) {
 		auto w = this->ts.writeAccess();
 		assert(!w->active_playback);
 		w->active_playback = active_playback;
@@ -130,6 +132,21 @@ public:
 	inline std::shared_ptr<active_playback_t> get_active_playback() const {
 		auto r = this->ts.readAccess();
 		return r->active_playback;
+	}
+
+	inline void set_mpv(const std::shared_ptr<player_cb_t>& mpv) {
+		assert(!this->mpv);
+		this->mpv = mpv;
+	}
+
+	inline std::shared_ptr<player_cb_t> get_mpv() const {
+		return this->mpv;
+	}
+
+	inline void remove_mpv() {
+		if(this->mpv) {
+			this->mpv.reset();
+		}
 	}
 
 	inline int get_command_id() const {

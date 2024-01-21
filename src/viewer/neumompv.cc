@@ -432,7 +432,7 @@ std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver, pybind11::objec
 	auto* w = ret->gl_canvas;
 	ret->subscription.subscriber = subscriber_t::make(receiver, w);
 	ret->subscription.subscriber->event_flag = int(subscriber_t::event_type_t::ERROR_MSG);
-	receiver->active_mpvs.writeAccess()->insert({ret.get(), ret});
+	ret->subscription.subscriber->set_mpv(ret);
 	return ret;
 }
 
@@ -1032,8 +1032,7 @@ void MpvPlayer_::destroy() {
 		mustexit = true;
 	}
 	cv.notify_one();
-
-	receiver->active_mpvs.writeAccess()->erase(this);
+	subscription.subscriber->remove_mpv();
 	thread_.join();
 	mpv_gl = nullptr;
 	mpv = nullptr;

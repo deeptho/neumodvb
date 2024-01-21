@@ -495,11 +495,6 @@ public:
 	receiver_thread_t receiver_thread;
 	scam_thread_t scam_thread;
 	rec_manager_t rec_manager;
-
-	using mpv_map = safe::Safe<std::map<void*, std::shared_ptr<player_cb_t>>>;
-	mpv_map active_mpvs;
-
-
 	statdb::statdb_t statdb;
 	devdb::devdb_t devdb;
 	chdb::chdb_t chdb;
@@ -651,3 +646,5 @@ public:
 		return r->usals_location;
 	}
 };
+
+EXPORT extern thread_local thread_group_t thread_group;

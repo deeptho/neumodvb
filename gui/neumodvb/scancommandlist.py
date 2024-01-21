@@ -27,7 +27,7 @@ import datetime
 from dateutil import tz
 import regex as re
 
-from neumodvb.util import setup, lastdot
+from neumodvb.util import setup, lastdot, batched
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import dtdebug, dterror
@@ -92,6 +92,9 @@ def bands_fn(x):
         ret.append(f'sstart-{x[1].end_freq//1000}')
     return "\n".join(ret)
 
+def command_name(cmd):
+    return f'{enum_to_str(cmd.tune_options.subscription_type).replace("_", " ")} {cmd.id}'
+
 class ScanCommandTable(NeumoTable):
     CD = NeumoTable.CD
     adapter_fn = lambda x: x[0].adapter_name
@@ -113,6 +116,8 @@ class ScanCommandTable(NeumoTable):
                  CD(key='max_duration', label='Max\nDur.', dfn=duration_fn, basic=True, readonly=False),
                  CD(key='tune_options.subscription_type', label='Command',
                     dfn = lambda x: enum_to_str(x[1]).replace("_", " "), basic=True, readonly=False),
+                 CD(key='dvbs_muxes', label='Sats/Muxes', dfn = sat_mux_fn, basic=False,
+                    example = "28.0W 10714.242H; "*2, readonly=False),
                  CD(key='tune_options', label='options', basic=False, readonly=False),
                  CD(key='mtime', label='Modified', basic=True, readonly=False,
                     dfn=datetime_fn, example='2021-06-16 18:30:33*'),

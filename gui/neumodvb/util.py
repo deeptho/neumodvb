@@ -20,6 +20,7 @@ import sys
 import os
 import pathlib
 from inspect import currentframe, getframeinfo
+from itertools import islice
 
 def is_installed():
     return 'lib64' in Path(__file__).parts or 'lib' in Path(__file__).parts
@@ -193,3 +194,12 @@ def find_parent_prop(self, attr, parent=None):
         return find_parent_prop(self.Parent, attr, parent=self if parent is None else parent)
     elif hasattr(self, 'parent'):
         return find_parent_prop(self.parent, attr, parent=self if parent is None else parent)
+
+def batched(iterable, n):
+    "Batch data into tuples of length n. The last batch may be shorter."
+    # batched('ABCDEFG', 3) --> ABC DEF G
+    if n < 1:
+        raise ValueError('n must be at least one')
+    it = iter(iterable)
+    while (batch := tuple(islice(it, n))):
+        yield batch

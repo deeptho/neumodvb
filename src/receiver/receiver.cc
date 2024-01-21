@@ -1767,6 +1767,12 @@ receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::
 		set_scanner(scanner);
 	}
 	auto subscription_id = ssptr->get_subscription_id();
+	if((int)subscription_id<0) {
+		subscribe_ret_t sret{subscription_id_t::NONE, {}}; //create new subscription_id
+		subscription_id = sret.subscription_id;
+		ssptr->set_subscription_id(subscription_id);
+	}
+
 	auto num_added_muxes = scanner->add_muxes(muxes, tune_options, ssptr);
 	return num_added_muxes > 0 ? subscription_id : subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 }
@@ -1830,6 +1836,13 @@ receiver_thread_t::scan_spectral_peaks(std::vector<task_queue_t::future_t>& futu
 		scanner = std::make_shared<scanner_t>(*this, max_num_subscriptions);
 		set_scanner(scanner);
 	}
+	auto subscription_id = scan_ssptr->get_subscription_id();
+	if((int)subscription_id<0) {
+		subscribe_ret_t sret{subscription_id_t::NONE, {}}; //create new subscription_id
+		subscription_id = sret.subscription_id;
+		scan_ssptr->set_subscription_id(subscription_id);
+	}
+
 	scanner->add_spectral_peaks(spectrum_key, peaks, scan_ssptr);
 	bool remove_scanner = scanner->housekeeping(true); // start initial scan
 	if(remove_scanner) {

@@ -1361,6 +1361,8 @@ int receiver_thread_t::run() {
 	double period_sec = 2.0;
 	timer_start(period_sec);
 
+	startup(now);
+
 	for (;;) {
 		auto n = epoll_wait(2000);
 		if (n < 0) {
@@ -1382,6 +1384,7 @@ int receiver_thread_t::run() {
 				}
 			} else if (is_timer_fd(evt)) {
 				receiver.update_playback_info();
+				housekeeping(now);
 				auto scanner = get_scanner();
 				if(scanner) {
 					auto remove_scanner = scanner->housekeeping(false);

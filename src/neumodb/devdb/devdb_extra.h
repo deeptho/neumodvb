@@ -303,6 +303,9 @@ declfmt(devdb::lnb_network_t);
 declfmt(devdb::fe_key_t);
 declfmt(devdb::fe_subscription_t);
 declfmt(devdb::fe_t);
+declfmt(devdb::run_type_t);
+declfmt(devdb::run_status_t);
+declfmt(devdb::run_result_t);
 #if 0 //not yet implemented
 declfmt(devdb::tuned_frequency_offsets_key_t);
 declfmt(devdb::tuned_frequency_offsets_t);

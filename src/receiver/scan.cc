@@ -79,6 +79,19 @@ inline scan_stats_t& scan_t::get_scan_stats_ref(const chdb::sat_t& sat) {
 	return scan_stats_dvbs;
 }
 
+#if 0
+void scan_t::update_db_sat(const chdb::sat_t& sat, const chdb::band_scan_t& band_scan) {
+	auto chdb_wtxn = receiver.chdb.wtxn();
+	auto c = chdb::sat_t::find_by_key(chdb_wtxn, sat.sat_pos, sat.sat_band, find_type_t::find_eq);
+	assert(c.is_valid());
+	auto db_sat = c.current();
+	auto& db_band_scan= chdb::sat::band_scan_for_pol_sub_band(db_sat, band_scan.pol, band_scan.sat_sub_band);
+	db_band_scan = band_scan;
+	put_record(chdb_wtxn, db_sat);
+	chdb_wtxn.commit();
+}
+#endif
+
 static void deactivate_band_scans
 (db_txn & chdb_wtxn, int scan_subscription_id, time_t now) {
 	using namespace chdb;
@@ -1097,6 +1110,9 @@ void scan_t::on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spe
 	auto& scan_stats = get_scan_stats_ref(finished_sat);
 	scan_stats.active_bands--;
 	assert(scan_stats.active_bands>=0);
+#if 0
+	update_db_sat(finished_sat, finished_band_scan);
+#endif
 	auto chdb_rtxn = receiver.chdb.rtxn();
 
 	scan_loop(chdb_rtxn, subscription, finished_fe, finished_sat);
@@ -1531,6 +1547,7 @@ int scanner_t::add_bands(const ss::vector_<chdb::sat_t>& sats,
 		int num_added{0};
 		int num_considered{0};
 		for (auto pol: pols) {
+			//TODO: avoid adding fake
 			auto& band_scan = sat::band_scan_for_pol_sub_band(sat, pol, sat_sub_band);
 			auto saved = band_scan;
 			band_scan.pol = pol;

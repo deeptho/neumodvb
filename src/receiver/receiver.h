@@ -350,6 +350,8 @@ public:
 
 
 private:
+	void startup(system_time_t now_);
+
 	std::unique_ptr<playback_mpm_t>
 	subscribe_service_in_use(std::vector<task_queue_t::future_t>& futures,
 													 const chdb::service_t& service,
@@ -391,8 +393,11 @@ private:
 	virtual int run() final;
 
 	int housekeeping(system_time_t now);
+	void start_stop_commands(auto& cursor, db_txn& devdb_rtxn, system_time_t now_);
 	void start_commands(db_txn& rtxn, system_time_t now);
 	void stop_commands(db_txn& rtxn, system_time_t now);
+	bool stop_command(devdb::scan_command_t& cmd, time_t now);
+	bool start_command(devdb::scan_command_t& cmd, time_t now);
 
 public:
 	//functions safe to call from other threads

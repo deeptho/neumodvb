@@ -530,6 +530,7 @@ run_result = db_enum(name='run_result_t',
                    version = 1,
                    fields=('NONE',
                            'FAILED',
+                           'ABORTED', #command was stopped because it ran too long
                            'SKIPPED', #command should have been run, but was not and will not be run in future
                            'OK',
                    ))
@@ -596,7 +597,8 @@ scan_command = db_struct(
               (17, 'time_t', 'next_time', '-1'), #when to run next
               (7, 'time_t', 'mtime'),
               (16, 'run_status_t', 'run_status'), #set when command is actually started
-              (15, 'time_t', 'run_time'), #last time command was actually started
+              (15, 'time_t', 'run_start_time', '-1'), #last time command was actually started
+              (19, 'time_t', 'run_end_time', '-1'), #last time command was actually started
               (18, 'run_result_t', 'run_result'), #set when command is actually started
               (9, 'tune_options_t', 'tune_options'),
               (11, 'band_scan_options_t', 'band_scan_options'),

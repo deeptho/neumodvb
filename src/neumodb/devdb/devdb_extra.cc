@@ -1373,3 +1373,19 @@ devdb::dish::list_dishes(db_txn& devdb_rtxn) {
 	}
 	return dishes;
 }
+
+
+fmt::format_context::iterator
+fmt::formatter<devdb::run_type_t>::format(const devdb::run_type_t& run_type, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}", to_str(run_type));
+}
+
+fmt::format_context::iterator
+fmt::formatter<devdb::run_status_t>::format(const devdb::run_status_t& run_status, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}", to_str(run_status));
+}
+
+fmt::format_context::iterator
+fmt::formatter<devdb::run_result_t>::format(const devdb::run_result_t& run_result, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{}", to_str(run_result));
+}

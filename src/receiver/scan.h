@@ -399,7 +399,9 @@ private:
 		assert(scan_id.opt_id >= 0 && scan_id.opt_id < (int)tune_options_.size());
 		return tune_options_[scan_id.opt_id];
 	}
-
+#if 0
+	void update_db_sat(const chdb::sat_t& sat, const chdb::band_scan_t& band_scan);
+#endif
 	bool mux_is_being_scanned(const chdb::any_mux_t& mux);
 	bool band_is_being_scanned(const chdb::band_scan_t& band_scan);
 

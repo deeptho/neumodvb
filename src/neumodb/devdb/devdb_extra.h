@@ -42,7 +42,6 @@ namespace devdb {
 	using namespace devdb;
 }
 
-
 namespace devdb::dish {
 	devdb::dish_t get_dish(db_txn& devdb_wtxn, int dish_id);
 	devdb::dish_t schedule_move(db_txn& devdb_wtxn, devdb::lnb_t& lnb_,
@@ -292,7 +291,9 @@ namespace devdb::fe_subscription {
 	}
 
 };
-
+#ifdef declfmt
+#undef declfmt
+#endif
 #define declfmt(t)																											\
 	template <> struct fmt::formatter<t> {																\
 		inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \

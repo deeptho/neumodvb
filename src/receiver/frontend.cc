@@ -1416,7 +1416,7 @@ bool dvb_frontend_t::wait_for_positioner(tuner_thread_t& tuner_thread)
 	auto subscription_ids = get_subscription_ids();
 	auto& receiver = adaptermgr->receiver;
 	auto dbfe = this->dbfe();
-	receiver.on_positioner_motion(dbfe, dish, false /*is_end*/, subscription_ids);
+	receiver.on_positioner_motion(dbfe, dish, speed, delay, subscription_ids);
 
 	bool must_abort = wait_for(tuner_thread, delay);
 	printf("end wait for positioner must_abort=%d\n", must_abort);
@@ -1432,7 +1432,7 @@ bool dvb_frontend_t::wait_for_positioner(tuner_thread_t& tuner_thread)
 		auto  w= this->ts.writeAccess();
 		w->tune_options.tune_pars->dish = dish;
 	}
-	receiver.on_positioner_motion(dbfe, dish, true /*is_end*/, subscription_ids);
+	receiver.on_positioner_motion(dbfe, dish, speed, 0/*delay*/, subscription_ids);
 	return must_abort;
 }
 

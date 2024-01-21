@@ -496,6 +496,20 @@ void export_sdt_data(py::module& m) {
 		;
 }
 
+void export_position_motion_report(py::module& m) {
+	static bool called = false;
+	if (called)
+		return;
+	called = true;
+	using namespace chdb;
+	py::class_<positioner_motion_report_t>(m, "positioner_motion_report_t",
+																				 "Tune Options for neumodvb")
+		.def_readwrite("dish", &positioner_motion_report_t::dish)
+		.def_readwrite("start_time", &positioner_motion_report_t::start_time)
+		.def_readwrite("end_time", &positioner_motion_report_t::end_time)
+		;
+}
+
 void export_scan_report(py::module& m) {
 	static bool called = false;
 	if (called)

@@ -171,3 +171,9 @@ struct signal_info_t {
 		//printf("signal_info destroyed %p\n");
 	}
 };
+
+struct positioner_motion_report_t {
+	devdb::dish_t dish;
+	time_t start_time{-1};
+	time_t end_time{-1};
+};

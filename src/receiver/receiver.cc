@@ -1675,13 +1675,20 @@ void receiver_t::on_spectrum_scan_end(const devdb::fe_t& finished_fe, const spec
 }
 
 //thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously
-void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t& dish, bool is_end,
+void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t& dish,
+																			double speed, int delay,
 																			const ss::vector_<subscription_id_t>& subscription_ids) {
-	if(is_end) {
+	auto now = system_clock_t::to_time_t(::now);
+	positioner_motion_report_t report{};
+	report.dish = dish;
+	report.start_time = now;
+	report.end_time = now + delay;
+	if(delay==0) {
 		printf("ending dish motion\n");
 		auto devdb_wtxn = devdb.wtxn();
 		devdb::dish::end_move(devdb_wtxn, dish);
 		devdb_wtxn.commit();
+		report.end_time = report.start_time;
 	}
 	{
 		auto mss = subscribers.readAccess();
@@ -1694,13 +1701,11 @@ void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t
 			}
 			if (!subscription_ids.contains(ms->get_subscription_id()))
 				continue;
-#ifdef TODO
 			/*
 				This is a spectrum or positioner dialog window. We can inform it directly
 			*/
 			if(subscription_ids.contains(ms->get_subscription_id()))
-				ms->notify_positioner_motion(dish);
-#endif
+				ms->notify_positioner_motion(report);
 		}
 	}
 }

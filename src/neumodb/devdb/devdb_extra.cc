@@ -803,7 +803,7 @@ devdb::dish_t dish::schedule_move(db_txn& devdb_wtxn, devdb::lnb_t& lnb_,
 void dish::end_move(db_txn& devdb_wtxn, devdb::dish_t dish) {
 	auto c = devdb::find_first<devdb::lnb_t>(devdb_wtxn);
 	auto db_dish = get_dish(devdb_wtxn, dish.dish_id);
-	dish.target_usals_pos = dish.cur_usals_pos;
+	dish.cur_usals_pos = dish.target_usals_pos;
 	put_record(devdb_wtxn, dish);
 }
 

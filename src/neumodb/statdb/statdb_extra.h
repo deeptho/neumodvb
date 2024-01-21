@@ -51,7 +51,9 @@ namespace statdb::signal_stat {
 		int tolerance);
 }
 
-
+#ifdef declfmt
+#undef declfmt
+#endif
 #define declfmt(t)																											\
 	template <> struct fmt::formatter<t> {																\
 	inline constexpr format_parse_context::iterator parse(format_parse_context& ctx) { \
@@ -60,7 +62,6 @@ namespace statdb::signal_stat {
 																																				\
 	format_context::iterator format(const t&, format_context& ctx) const ;\
 }
-
 
 declfmt(statdb::signal_stat_key_t);
 declfmt(statdb::signal_stat_entry_t);

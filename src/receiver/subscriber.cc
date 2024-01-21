@@ -232,6 +232,14 @@ void subscriber_t::notify_scan_mux_end(const scan_mux_end_report_t& report) {
 	notify(report);
 }
 
+
+void subscriber_t::notify_positioner_motion(const positioner_motion_report_t& motion_report) const
+{
+	if (!(event_flag & int(subscriber_t::event_type_t::POSITIONER_MOTION)))
+		return;
+	notify(motion_report);
+}
+
 void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data) const
 {
 	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))

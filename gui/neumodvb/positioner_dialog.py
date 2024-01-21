@@ -247,9 +247,11 @@ class TuneMuxPanel(TuneMuxPanel_):
         if type(data) == pyreceiver.sdt_data_t:
             self.OnSdtInfoUpdate(data)
             return
-        if type(data) == pyreceiver.signal_info_t:
+        elif type(data) == pyreceiver.signal_info_t:
             self.signal_info = data
             self.OnSignalInfoUpdate(data)
+        elif type(data) == pyreceiver.positioner_motion_report_t:
+            print(f'POSITIONER MOTION: {data.start_time} {data.end_time}')
         self.parent.OnSubscriberCallback(data)
     def save_current_lnb_network(self):
         if self.current_lnb_network_changed:

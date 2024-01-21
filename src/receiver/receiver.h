@@ -619,7 +619,7 @@ public:
 	}
 
 	//thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously
-	void on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t& dish, bool is_end,
+	void on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t& dish, double speed, int delay,
 														const ss::vector_<subscription_id_t>& subscription_ids);
 
 	//thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously

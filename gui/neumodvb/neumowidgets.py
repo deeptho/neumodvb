@@ -535,3 +535,50 @@ class DtIntCtrl(wx.lib.intctrl.IntCtrl):
         #value = -1
         super().__init__(parent, id, value=-1, min=-1, max=40000, allow_none=True, *args, **kwds)
         TextCtrl.ChangeValue(self, '')
+
+class NeumoProgressDialog(wx.ProgressDialog):
+    def __init__(self, parent, dark_mode, title, messsage, duration, deactivate_parent, *args, **kwds):
+        """
+        Displays a progress bar on screen for duration secinds
+        """
+        self.fps = 2
+        self.maxcount = self.duration*1000/self.fps
+        super().__init__(title, message, *args, maximum=self.maxcount,
+                         parent= parent if deactivate_parent else None , *args, **kwds)
+        self.parent = parent
+        self.dark_mode = dark_mode
+        self.duration = duration
+        self.timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.OnTimer)
+        self.Keepgoing = True
+        self.must_end = False
+        self.maxcount = self.duration*1000/self.fps
+        self.timer.Start(1000//self.fps)        # 2 fps
+        self.parent.progress_dlgs = getattr(self.parent, 'progress_dlgs', [])
+        self.parent.progress_dlgs.appen(self)
+    def finish(self):
+        self.parent.progress_dlgs.remove(self)
+        wx.CallAfter(self.Destroy)
+
+    def OnTimer(self, event):
+        if not self.must_end and self.count < self.maxcount:
+            self.count += 1
+            if self.count >= self.maxcount / 2:
+                (self.must_end, self.skip) = self.Update(self.count, "Half-time!")
+            else:
+                (self.must_end, self.skip) = self.Update(self.count)
+        if self.must_end:
+            self.finish(self)
+
+def show_progress_dialog(title, message, duration,  deactivate_parent=False, dark_mode=False,
+                         style = 0
+                         #| wx.PD_APP_MODAL
+                         | wx.PD_CAN_ABORT
+                         #| wx.PD_CAN_SKIP
+                         #| wx.PD_ELAPSED_TIME
+                         | wx.PD_ESTIMATED_TIME
+                         | wx.PD_REMAINING_TIME
+                         | wx.PD_AUTO_HIDE
+                         ):
+
+    return NeumoProgressDialog(parent, dark_mode,  title, message, duration, deactivate_parent, style)

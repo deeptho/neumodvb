@@ -65,14 +65,14 @@ public:
 		ERROR_MSG  = (1<<0),
 		SIGNAL_INFO = (1<<1),
 		SPECTRUM_SCAN = (1<<2),
-		//SCAN_START = (1<<3),
+		POSITIONER_MOTION = (1<<3),
 		SCAN_PROGRESS = (1<<4),
 		SCAN_MUX_END = (1<<5),
 		SDT_ACTUAL = (1<<6)
 	};
 	int event_flag{
 		int(event_type_t::ERROR_MSG) |
-		//int(event_type_t::SCAN_START) |
+		int(event_type_t::POSITIONER_MOTION) |
 		int(event_type_t::SCAN_PROGRESS) |
 		int(event_type_t::SCAN_MUX_END) |
 		int(event_type_t::SDT_ACTUAL) |
@@ -102,6 +102,7 @@ public:
 	void notify_scan_mux_end(const scan_mux_end_report_t& report);
 	void notify_sdt_actual(const sdt_data_t& sdt_data) const;
 	void notify_signal_info(const signal_info_t& info) const;
+	void notify_positioner_motion(const positioner_motion_report_t& motion_report) const;
 	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum);
 
 	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window,

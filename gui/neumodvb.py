@@ -82,7 +82,7 @@ class neumoMainFrame(mainFrame):
                             'satlist', 'frontendlist', 'statuslist',
                             'mosaic',
                             'reclist', 'autoreclist', 'spectrumlist',
-                            'scancommandlist']
+                             'dishlist', 'scancommandlist']
 
 
         self.panels = [ getattr(self, f'{n}_panel') for n in self.panel_names]
@@ -430,6 +430,10 @@ class neumoMainFrame(mainFrame):
     def CmdLnbList(self, event):
         dtdebug("CmdLnbList")
         self.ShowPanel(self.lnblist_panel)
+
+    def CmdDishList(self, event):
+        dtdebug("CmdDishList")
+        self.ShowPanel(self.dishlist_panel)
 
     def CmdSatList(self, event):
         dtdebug("CmdSatList")

@@ -178,9 +178,10 @@ dish = db_struct(name='dish',
                            (11, 'int16_t', 'target_usals_pos', 'sat_pos_none'), #satellite position begin moved to
                            (6, 'int32_t', 'powerup_time', '1500'), #How long after powerup to wait for positioner
                                                                    #to be ready for motion commands
-                           (7, 'ss::vector<float,2>', 'speeds', '{1.0, 2.0}'), #Speed rotor moves at 13 and 18 V
-                                                                              #in (sat_pos) degrees per second
-                           (8, 'time_t', 'mtime',)
+                           (7, 'ss::vector<int16_t,2>', 'speeds', '{100, 200}'), #Speed rotor moves at 13 and 18 V
+                                                                                 #in (sat_pos) centidegrees per second
+                           (8, 'time_t', 'mtime',),
+                           (9, 'bool', 'enabled', 'true')
                            )
                  )
 

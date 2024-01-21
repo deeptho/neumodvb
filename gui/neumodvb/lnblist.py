@@ -135,18 +135,6 @@ class LnbTable(NeumoTable):
          CD(key='lof_high',   label='LOF\nhigh', basic=False, dfn=freq_fn, example="10700.000"),
         ]
 
-    dvbt_columns =  \
-        [CD(key='LP_code_rate', label='LP_code_rate'),
-         CD(key='bandwidth', label='bandwidth'),
-         CD(key='guard_interval', label='guard_interval'),
-         CD(key='hierarchy', label='hierarchy'),
-         CD(key='rolloff', label='rolloff'),
-         CD(key='transmission_mode', label='transmission_mode')]
-
-    def sat_pos_fnOFF(self, lnb):
-        sat_pos = lnb.usals_pos if lnb.cur_sat_pos == pychdb.sat.sat_pos_none else lnb.cur_sat_pos
-        return pychdb.sat_pos_str(sat_pos)
-
     def __init__(self, parent, basic=False, *args, **kwds):
         initial_sorted_column = 'usals_pos'
         data_table= pydevdb.lnb

@@ -142,7 +142,7 @@ lists_menu = (
     MI("DvbtMuxList",_("&DVB-T Muxes\tShift-Ctrl-T"), ""),
     SEP,
     MI("LnbList",_("&LNBs\tShift-Ctrl-L"), ""),
-    #MI("LnbNetworkList",_("&Networks\tShift-Ctrl-N"), ""),
+    MI("DishList",_("&Dishes\tShift-Ctrl-D"), ""),
     MI("SatList",_("&Satellites\tShift-Ctrl-A"), ""),
     MI("ChgList",_("&Bouquets\tShift-Ctrl-B"), ""),
     SEP,

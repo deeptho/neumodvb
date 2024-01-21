@@ -344,7 +344,11 @@ class scan_t {
 	receiver_thread_t& receiver_thread;
 	receiver_t& receiver;
 	subscription_id_t scan_subscription_id;
+
 	subscription_id_t monitored_subscription_id{-1};
+	steady_time_t monitor_time{}; //time when we displayed new info for monitor_su
+	signal_info_t monitor_signal_info{}; //last displayed montiored signal_info
+
 	std::vector<subscription_options_t> tune_options_; //indexexed by opt_id
 	int max_num_subscriptions_for_retry{std::numeric_limits<int>::max()}; //maximum number of subscriptions that have been in use
 
@@ -364,6 +368,9 @@ class scan_t {
 	inline devdb::scan_stats_t& get_scan_stats_ref(const chdb::sat_t& sat);
 
 private:
+	void update_monitor(const ss::vector_<subscription_id_t>& fe_subscription_ids,
+											const signal_info_t& signal_info);
+
 	inline chdb::scan_id_t make_scan_id(subscription_id_t scan_subscription_id,
 																			const subscription_options_t& tune_options) {
 		chdb::scan_id_t ret;
@@ -499,6 +506,7 @@ class scanner_t {
 																 const ss::vector_<subscription_id_t>& subscription_ids);
 	bool housekeeping(bool force);
 	subscription_id_t scan_subscription_id_for_scan_id(const chdb::scan_id_t& scan_id);
+
 public:
 	scanner_t(receiver_thread_t& receiver_thread_, int max_num_subscriptions);
 

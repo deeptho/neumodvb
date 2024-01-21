@@ -1641,22 +1641,59 @@ scanner_t::~scanner_t() {
 }
 
 
+inline static bool is_better(const signal_info_t& a, const signal_info_t& b) {
+	if(a.tune_confirmation.sdt_actual_received && ! b.tune_confirmation.sdt_actual_received)
+		return true;
+	if(a.tune_confirmation.nit_actual_received && ! b.tune_confirmation.nit_actual_received)
+		return true;
+	if(a.tune_confirmation.pat_received && ! b.tune_confirmation.pat_received)
+		return true;
+	if(a.lock_status.matype >=0 && b.lock_status.matype<0)
+		return true;
+	if(!!(a.lock_status.fe_status & FE_HAS_LOCK)  && !(b.lock_status.fe_status & FE_HAS_LOCK))
+		return true;
+	if(!!(a.lock_status.fe_status & FE_HAS_SYNC) && !(b.lock_status.fe_status & FE_HAS_SYNC))
+		return true;
+	if(!!(a.lock_status.fe_status & FE_HAS_TIMING_LOCK)&& !(b.lock_status.fe_status & FE_HAS_TIMING_LOCK))
+		return true;
+	if(!!(a.lock_status.fe_status & FE_HAS_CARRIER) && !(b.lock_status.fe_status & FE_HAS_CARRIER))
+		return true;
+	if(a.stat.stats.size() >0 && b.stat.stats.size() ==0)
+		 true;
+	return false;
+}
+void scan_t::update_monitor(const ss::vector_<subscription_id_t>& fe_subscription_ids,
+															 const signal_info_t& signal_info)
+{
+	auto now=steady_clock_t::now();
+	for(auto subscription_id: fe_subscription_ids) {
+		if((int) monitored_subscription_id <0 ||
+			 (subscription_id == monitored_subscription_id) ?
+			 is_better(signal_info, monitor_signal_info) : (now-monitor_time >=5s)
+			) {
+			monitored_subscription_id = subscription_id;
+			monitor_time = now;
+			monitor_signal_info = signal_info;
+			return;
+		}
+	}
+}
+
 void scanner_t::on_signal_info(const subscriber_t& subscriber,
 																	 const ss::vector_<subscription_id_t>& fe_subscription_ids,
-																	 const signal_info_t& signal_info)
-{
+																	 const signal_info_t& signal_info) {
 
 	auto [it, found] = find_in_map(this->scans, subscriber.get_subscription_id());
-	if(!found)
+	if(!found) {
+		dtdebugf("SIGINFO: NOST FOUND for {}\n", (int)subscriber.get_subscription_id());
 		return; //not a scan control subscription_id
+	}
 	auto &scan = it->second;
-
+	scan.update_monitor(fe_subscription_ids, signal_info);
 	for(auto subscription_id: fe_subscription_ids) {
 		auto [it, found] = find_in_map(scan.subscriptions, subscription_id);
-		if(!found)
+		if(!found) {
 			continue; //this is not a subscription used by this scan
-		if (scan.monitored_subscription_id == subscription_id_t::NONE) {
-			scan.monitored_subscription_id = subscription_id;
 		}
 		if(subscription_id == scan.monitored_subscription_id) {
 			subscriber.notify_signal_info(signal_info);

@@ -217,9 +217,9 @@ void subscriber_t::notify_signal_info(const signal_info_t& signal_info) const {
 	notify(signal_info);
 }
 
-void subscriber_t::notify_scan_progress(const scan_stats_t& scan_stats) {
+void subscriber_t::notify_scan_progress(const devdb::scan_stats_t& scan_stats) {
 	auto match = subscriber_t::event_type_t::SCAN_PROGRESS;
-	if(scan_stats.done())
+	if(scan_stats_done(scan_stats))
 		set_scanning(false);
 	if (!(event_flag & int(match)))
 		return;

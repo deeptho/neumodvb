@@ -516,22 +516,6 @@ void export_scan_report(py::module& m) {
 		return;
 	called = true;
 	using namespace chdb;
-	py::class_<scan_stats_t>(m, "scan_stats_t")
-		.def(py::init())
-		.def_readwrite("pending_peaks", &scan_stats_t::pending_peaks)
-		.def_readwrite("pending_muxes", &scan_stats_t::pending_muxes)
-		.def_readwrite("pending_bands", &scan_stats_t::pending_bands)
-		.def_readwrite("active_muxes", &scan_stats_t::active_muxes)
-		.def_readwrite("active_bands", &scan_stats_t::active_bands)
-		.def_readwrite("finished_peaks", &scan_stats_t::finished_peaks)
-		.def_readwrite("finished_muxes", &scan_stats_t::finished_muxes)
-		.def_readwrite("finished_bands", &scan_stats_t::finished_bands)
-		.def_readwrite("failed_muxes", &scan_stats_t::failed_muxes)
-		.def_readwrite("failed_peaks", &scan_stats_t::failed_peaks)
-		.def_readwrite("locked_muxes", &scan_stats_t::locked_muxes)
-		.def_readwrite("si_muxes", &scan_stats_t::si_muxes)
-		.def_readwrite("unsubscribed", &scan_stats_t::scan_unsubscribed)
-		;
 	py::class_<scan_mux_end_report_t>(m, "scan_mux_end_report_t")
 		.def(py::init())
 		.def_readwrite("spectrum_key", &scan_mux_end_report_t::spectrum_key)

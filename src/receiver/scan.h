@@ -303,36 +303,16 @@ struct scan_subscription_t {
 };
 
 
-struct scan_stats_t
-{
-	int pending_peaks{0};
-	int pending_muxes{0};
-	int pending_bands{0};
-	int active_muxes{0};
-	int active_bands{0};
-	int finished_peaks{0}; //total number of peaks we scanned without using database parameters
-	int finished_muxes{0}; //total number of muxes we scanned
-	int finished_bands{0}; //total number of bands we scanned
-	int failed_peaks{0}; //peaks which we could not lock with frequency/symbolrate from spectrum
-	int failed_muxes{0}; //muxes which could not be locked
-	int locked_peaks{0}; //peaks which we could lock with frequency/symbolrate from spectrum
-	int locked_muxes{0}; //muxes which locked
-	int si_muxes{0}; //muxes with si data
-	bool scan_unsubscribed{false};//no more scan stats will be sent
-	scan_stats_t() = default;
-	friend bool operator == (const scan_stats_t&, const scan_stats_t&) = default;
-
-	inline bool done() const {
-		return pending_peaks + pending_muxes  + pending_bands + active_muxes + active_bands == 0;
-	}
-	inline void abort() {
-		pending_peaks = 0;
-		pending_muxes = 0;
-		pending_bands = 0;
-		active_muxes = 0;
-		active_bands = 0;
-	}
-};
+inline bool scan_stats_done(const devdb::scan_stats_t& ss) {
+		return ss.pending_peaks + ss.pending_muxes  + ss.pending_bands + ss.active_muxes + ss.active_bands == 0;
+}
+inline void scan_stats_abort(devdb::scan_stats_t& ss) {
+		ss.pending_peaks = 0;
+		ss.pending_muxes = 0;
+		ss.pending_bands = 0;
+		ss.active_muxes = 0;
+		ss.active_bands = 0;
+}
 
 struct scan_mux_end_report_t {
 	statdb::spectrum_key_t spectrum_key;
@@ -372,16 +352,16 @@ class scan_t {
 	std::map<subscription_id_t, scan_subscription_t> subscriptions;
 	std::map<blindscan_key_t, blindscan_t> blindscans;
 	int next_opt_id{0};
-	scan_stats_t scan_stats_dvbs;
-	scan_stats_t scan_stats_dvbc;
-	scan_stats_t scan_stats_dvbt;
-	inline scan_stats_t get_scan_stats() const;
+	devdb::scan_stats_t scan_stats_dvbs;
+	devdb::scan_stats_t scan_stats_dvbc;
+	devdb::scan_stats_t scan_stats_dvbt;
+	inline devdb::scan_stats_t get_scan_stats() const;
 
 	template<typename mux_t>
 	requires (! is_same_type_v<chdb::sat_t, mux_t>)
-	inline scan_stats_t& get_scan_stats_ref(const mux_t& mux);
-	inline scan_stats_t& get_scan_stats_ref(int16_t sat_pos);
-	inline scan_stats_t& get_scan_stats_ref(const chdb::sat_t& sat);
+	inline devdb::scan_stats_t& get_scan_stats_ref(const mux_t& mux);
+	inline devdb::scan_stats_t& get_scan_stats_ref(int16_t sat_pos);
+	inline devdb::scan_stats_t& get_scan_stats_ref(const chdb::sat_t& sat);
 
 private:
 	inline chdb::scan_id_t make_scan_id(subscription_id_t scan_subscription_id,
@@ -437,7 +417,7 @@ private:
 	std::tuple<subscription_id_t, scan_subscription_t*, bool>
 	scan_try_band(subscription_id_t reuseable_subscription_id,
 								const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
-								const blindscan_key_t& blindscan_key, scan_stats_t& scan_stats);
+								const blindscan_key_t& blindscan_key, devdb::scan_stats_t& scan_stats);
 
 	template<typename mux_t>
 	bool rescan_peak(const blindscan_t& blindscan, subscription_id_t reusable_subscription_id,
@@ -452,22 +432,22 @@ private:
 	subscription_id_t
 	scan_next_peaks(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
-									std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats);
+									std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats);
 
 	template<typename mux_t>
 	subscription_id_t
 	scan_next_muxes(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
-									std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats);
+									std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats);
 
 	subscription_id_t
 	scan_next_bands(db_txn& chdb_rtxn,
 									subscription_id_t reuseable_subscription_id,
-									std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats);
+									std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats);
 
 	template<typename mux_t>
 	subscription_id_t
-	scan_next(db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, scan_stats_t& scan_stats);
+	scan_next(db_txn& chdb_rtxn, subscription_id_t finished_subscription_id, devdb::scan_stats_t& scan_stats);
 
 	bool retry_subscription_if_needed(subscription_id_t finished_subscription_id,
 																		scan_subscription_t& subscription,

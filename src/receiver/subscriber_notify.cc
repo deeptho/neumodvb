@@ -63,7 +63,7 @@ template <typename T> void subscriber_t::notify(const T& data) {
 typedef std::unique_ptr<std::string> string_ptr_t;
 typedef std::unique_ptr<signal_info_t> signal_info_ptr_t;
 typedef std::unique_ptr<sdt_data_t> sdt_data_ptr_t;
-typedef std::unique_ptr<scan_stats_t> scan_stats_ptr_t;
+typedef std::unique_ptr<devdb::scan_stats_t> scan_stats_ptr_t;
 typedef std::unique_ptr<scan_mux_end_report_t> scan_mux_end_report_ptr_t;
 typedef std::unique_ptr<positioner_motion_report_t> positioner_motion_report_ptr_t;
 typedef std::unique_ptr<statdb::spectrum_t> spectrum_ptr_t;

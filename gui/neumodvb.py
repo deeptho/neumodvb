@@ -159,7 +159,7 @@ class neumoMainFrame(mainFrame):
 
     def OnSubscriberCallback(self, evt):
         data = get_object(evt)
-        if type(data) == pyreceiver.scan_stats_t:
+        if type(data) == pydevdb.scan_stats:
             st = data
         elif type(data) == str:
             ShowMessage("Error", data)
@@ -167,7 +167,7 @@ class neumoMainFrame(mainFrame):
         else:
             st = None
         if st is not None:
-            self.app.scan_in_progress = not st.unsubscribed
+            self.app.scan_in_progress = not st.finished
             pending = st.pending_muxes + st.pending_peaks
             ok = st.locked_muxes
             if not self.app.scan_in_progress:

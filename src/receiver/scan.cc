@@ -28,14 +28,14 @@
 #include "util/template_util.h"
 #include "neumofrontend.h"
 
-static inline void clear_pending(scan_stats_t& scan_stats) {
+static inline void clear_pending(devdb::scan_stats_t& scan_stats) {
 	scan_stats.pending_peaks = 0;
 	scan_stats.pending_muxes = 0;
 	scan_stats.pending_bands = 0;
 }
 
-static inline scan_stats_t operator+(const scan_stats_t& a, const scan_stats_t&b) {
-	scan_stats_t ret= a;
+static inline devdb::scan_stats_t operator+(const devdb::scan_stats_t& a, const devdb::scan_stats_t&b) {
+	devdb::scan_stats_t ret= a;
 	ret.pending_peaks += b.pending_peaks;
 	ret.pending_muxes += b.pending_muxes;
 	ret.pending_bands += b.pending_bands;
@@ -48,13 +48,13 @@ static inline scan_stats_t operator+(const scan_stats_t& a, const scan_stats_t&b
 	return ret;
 }
 
-inline scan_stats_t scan_t::get_scan_stats() const {
+inline devdb::scan_stats_t scan_t::get_scan_stats() const {
 	return scan_stats_dvbs + scan_stats_dvbc + scan_stats_dvbt;
 }
 
 template<typename mux_t>
 requires (! is_same_type_v<chdb::sat_t, mux_t>)
-inline scan_stats_t& scan_t::get_scan_stats_ref(const mux_t& mux) {
+inline devdb::scan_stats_t& scan_t::get_scan_stats_ref(const mux_t& mux) {
 	auto& k = *chdb::mux_key_ptr(mux);
 	if(k.sat_pos == sat_pos_dvbc)
 		return scan_stats_dvbc;
@@ -63,7 +63,7 @@ inline scan_stats_t& scan_t::get_scan_stats_ref(const mux_t& mux) {
 	return scan_stats_dvbs;
 }
 
-inline scan_stats_t& scan_t::get_scan_stats_ref(int16_t sat_pos) {
+inline devdb::scan_stats_t& scan_t::get_scan_stats_ref(int16_t sat_pos) {
 	if(sat_pos == sat_pos_dvbc)
 		return scan_stats_dvbc;
 	else if(sat_pos == sat_pos_dvbt)
@@ -71,7 +71,7 @@ inline scan_stats_t& scan_t::get_scan_stats_ref(int16_t sat_pos) {
 	return scan_stats_dvbs;
 }
 
-inline scan_stats_t& scan_t::get_scan_stats_ref(const chdb::sat_t& sat) {
+inline devdb::scan_stats_t& scan_t::get_scan_stats_ref(const chdb::sat_t& sat) {
 	if(sat.sat_pos == sat_pos_dvbc)
 		return scan_stats_dvbc;
 	else if(sat.sat_pos == sat_pos_dvbt)
@@ -228,7 +228,7 @@ bool scanner_t::housekeeping(bool force) {
 	if (!force && now - last_house_keeping_time < 60s)
 		return false;
 	last_house_keeping_time = now;
-	scan_stats_t ss;
+	devdb::scan_stats_t ss;
 	try {
 		for(auto& [scan_subscription_id, scan]: scans) {
 			scan.housekeeping(force);
@@ -241,7 +241,7 @@ bool scanner_t::housekeeping(bool force) {
 	dtdebugf("{:d} bands left to scan; {:d} active", ss.pending_bands, ss.active_bands);
 	dtdebugf("{:d} muxes left to scan; {:d} active", ss.pending_muxes, ss.active_muxes);
 
-	return must_end ? true : ss.done();
+	return must_end ? true : scan_stats_done(ss);
 }
 
 static void report(const char* msg, subscription_id_t finished_subscription_id,
@@ -358,7 +358,7 @@ bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_
 			must_end = true;
 		}
 
-		bool done= scan.get_scan_stats().done();
+		bool done = scan_stats_done(scan.get_scan_stats());
 		if(must_end || done) {
 			std::vector<task_queue_t::future_t> futures;
 			auto devdb_wtxn = receiver.devdb.wtxn();
@@ -404,7 +404,7 @@ bool scanner_t::on_spectrum_scan_band_end(
 			dtdebugf("Detected exit condition");
 			must_end = true;
 		}
-		bool done = scan.get_scan_stats().done();
+		bool done = scan_stats_done(scan.get_scan_stats());
 		if(must_end || done) {
 			std::vector<task_queue_t::future_t> futures;
 			auto devdb_wtxn = receiver.devdb.wtxn();
@@ -649,7 +649,7 @@ bool scan_t::retry_subscription_if_needed(subscription_id_t subscription_id,
 subscription_id_t
 scan_t::scan_next_peaks(db_txn& chdb_rtxn,
 												subscription_id_t reuseable_subscription_id,
-												std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats)
+												std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats)
 {
 	// start as many subscriptions as possible
 	using namespace chdb;
@@ -738,7 +738,7 @@ template<typename mux_t>
 subscription_id_t
 scan_t::scan_next_muxes(db_txn& chdb_rtxn,
 												subscription_id_t reuseable_subscription_id,
-												std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats)
+												std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats)
 {
 	// start as many subscriptions as possible
 	using namespace chdb;
@@ -824,7 +824,7 @@ scan_t::scan_next_muxes(db_txn& chdb_rtxn,
 subscription_id_t
 scan_t::scan_next_bands(db_txn& chdb_rtxn,
 												subscription_id_t reuseable_subscription_id,
-												std::map<blindscan_key_t, bool>& skip_map, scan_stats_t& scan_stats)
+												std::map<blindscan_key_t, bool>& skip_map, devdb::scan_stats_t& scan_stats)
 {
 	// start as many subscriptions as possible
 	using namespace chdb;
@@ -883,7 +883,7 @@ scan_t::scan_next_bands(db_txn& chdb_rtxn,
 template<typename mux_t>
 subscription_id_t
 scan_t::scan_next(db_txn& chdb_rtxn,
-									subscription_id_t reuseable_subscription_id, scan_stats_t& scan_stats)
+									subscription_id_t reuseable_subscription_id, devdb::scan_stats_t& scan_stats)
 {
 	std::vector<task_queue_t::future_t> futures;
 	// start as many subscriptions as possible
@@ -1280,7 +1280,7 @@ scan_t::scan_try_mux(subscription_id_t reuseable_subscription_id,
 std::tuple<subscription_id_t, scan_subscription_t*, bool>
 scan_t::scan_try_band(subscription_id_t reuseable_subscription_id,
 											const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
-											const blindscan_key_t& blindscan_key, scan_stats_t& scan_stats)
+											const blindscan_key_t& blindscan_key, devdb::scan_stats_t& scan_stats)
 {
 
 	devdb::fe_key_t subscribed_fe_key;
@@ -1404,13 +1404,13 @@ bool scanner_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& futures,
 {
 	auto [it, found ] = find_in_map(scans, scan_subscription_id);
 	if(!found)
-		return found;
+		return found; //note that we are called for all subscription_ids, so failing is normal
 	auto& scan = scans.at(scan_subscription_id);
 	assert(scan.scan_subscription_id == scan_subscription_id);
 	end_scans(scan_subscription_id);
 	auto ss = scan.get_scan_stats();
-	ss.abort();
-	ss.scan_unsubscribed = true;
+	scan_stats_abort(ss);
+	ss.finished = true;
 
 	receiver.notify_scan_progress(scan_subscription_id, ss);
 	for (auto[subscription_id, sub] : scan.subscriptions) {
@@ -1705,13 +1705,13 @@ template int scanner_t::add_muxes<chdb::dvbt_mux_t>(const ss::vector_<chdb::dvbt
 
 template subscription_id_t scan_t::scan_next<chdb::dvbs_mux_t>(db_txn& chdb_rtxn,
 																															 subscription_id_t finished_subscription_id,
-																															 scan_stats_t& scan_stats);
+																															 devdb::scan_stats_t& scan_stats);
 template subscription_id_t scan_t::scan_next<chdb::dvbc_mux_t>(db_txn& chdb_rtxn,
 																															 subscription_id_t finished_subscription_id,
-																															 scan_stats_t& scan_stats);
+																															 devdb::scan_stats_t& scan_stats);
 template subscription_id_t scan_t::scan_next<chdb::dvbt_mux_t>(db_txn& chdb_rtxn,
 																															 subscription_id_t finished_subscription_id,
-																															 scan_stats_t& scan_stats);
+																															 devdb::scan_stats_t& scan_stats);
 
 template int scanner_t::add_spectral_peaks(const statdb::spectrum_key_t& spectrum_key,
 																					 const ss::vector_<chdb::spectral_peak_t>& peaks,

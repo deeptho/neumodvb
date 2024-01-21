@@ -608,6 +608,29 @@ band_scan_options = db_struct(
               (3, 'ss::vector<chdb::fe_polarisation_t,4>', 'pols')
               ))
 
+scan_stats = db_struct(
+    name ='scan_stats',
+    fname = 'options',
+    db = db,
+    type_id = lord('Ss'),
+    version = 1,
+    ignore_for_equality_fields = ('mtime',),
+    fields = ((1, 'int16_t', 'pending_peaks', '0'),
+	            (2, 'int16_t', 'pending_muxes', '0'),
+	            (3, 'int16_t', 'pending_bands', '0'),
+	            (4, 'int16_t', 'active_muxes', '0'),
+	            (5, 'int16_t', 'active_bands', '0'),
+	            (6, 'int16_t', 'finished_peaks', '0'), #total number of peaks we scanned without using database parameters
+	            (7, 'int16_t', 'finished_muxes', '0'), #total number of muxes we scanned
+	            (8, 'int16_t', 'finished_bands', '0'), #total number of bands we scanned
+	            (9, 'int16_t', 'failed_peaks', '0'), #peaks which we could not lock with frequency/symbolrate from spectrum
+	            (10, 'int16_t', 'failed_muxes', '0'), #muxes which could not be locked
+	            (11, 'int16_t', 'locked_peaks', '0'), #peaks which we could lock with frequency/symbolrate from spectrum
+	            (12, 'int16_t', 'locked_muxes', '0'), #muxes which locked
+	            (13, 'int16_t', 'si_muxes', '0'), #muxes with si data
+              (14, 'bool', 'finished', 'false')
+              ))
+
 scan_command = db_struct(
     name ='scan_command',
     fname = 'options',
@@ -640,5 +663,6 @@ scan_command = db_struct(
               (20, 'int32_t', 'owner', -1), #pid of the process executing the recording, or -1
                                             #when the command is not executing
               (21, 'int32_t', 'subscription_id'), #subscription_id of recording in progress
+              (22, 'scan_stats_t', 'scan_stats'), #subscription_id of recording in progress
 
               ))

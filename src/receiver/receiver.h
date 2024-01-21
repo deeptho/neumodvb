@@ -59,7 +59,6 @@ struct spectrum_scan_t;
 struct scan_mux_end_report_t;
 struct sdt_data_t;
 
-struct scan_stats_t;
 class active_adapter_t;
 class tuner_thread_t;
 class scam_t;
@@ -258,6 +257,7 @@ class receiver_thread_t : public task_queue_t  {
 	//for channel scan
 	using  scanner_ptr_t = safe::Safe<std::shared_ptr<scanner_t>>;
 	scanner_ptr_t scanner;
+
 	time_t next_command_event_time = std::numeric_limits<time_t>::min();
 
 	active_adapter_t* find_or_create_active_adapter
@@ -642,7 +642,7 @@ public:
 	void notify_scan_mux_end(subscription_id_t scan_subscription_id, const scan_mux_end_report_t& report);
 
 	//thread-safe; called from scanner; notify single python scanning subscriber synchronously
-	void notify_scan_progress(subscription_id_t scan_subscription_id, const scan_stats_t& scan_stats);
+	void notify_scan_progress(subscription_id_t scan_subscription_id, const devdb::scan_stats_t& scan_stats);
 	void activate_spectrum_scan(spectrum_scan_options_t& spectrum_scan_options,
 															devdb::lnb_pol_type_t lnb_pol_type);
 	chdb::scan_id_t deactivate_spectrum_scan(const spectrum_scan_t& spectrum_scan);

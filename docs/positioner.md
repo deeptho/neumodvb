@@ -189,7 +189,13 @@ The third row only has the `Tune Mux` panel
 
 *  The `Tune Mux` panel allows you to select a mux from the list of known muxes, and then adjust the main tuning
    parameters as needed. If the `Blind` button is depressed (gray background), blindscan will be performed.
-   The `Tune` button starts tuning. The `ABort button` ends tuning.
+   The `Tune` button starts tuning. The `Abort button` ends tuning.
+   In case the positioner needs to move the dish, neumoDVB estimates the time that the dish will be moving
+   and it delays tuning until the dish has stopped moving.
+   In the mean time a progress window like the following pops up:
+
+    ![Positioner progress window](images/positioner_moving.png)
+
 
    `PLS srch.` is an experimental feature to cycle
    through all possible PLS codes until the mux locks. This can take several hours, but neumoDVB includes a list

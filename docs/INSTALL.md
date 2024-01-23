@@ -127,9 +127,33 @@ And some bugs need to be fixed by upgrading python3-matplotlib-wx to at least ve
 sudo dnf update --enablerepo=updates-testing python3-matplotlib-wx
 ```
 #### Fedora 39 ####
-On Fedora 39, follow the Fedora 38 instructions and also add
+The following instructions may be incomplete/incorrect:
+
 ```bash
-    sudo dnf install libuuid-devel
+sudo dnf install -y libuuid-devel redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options \
+boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel \
+wxGTK wxGT-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection \
+expat-devel python3-wxpython4 python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools \
+python3-gobject-base python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel \
+wxBase3 wxBase-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
+ffmpeg-devel mpv-libs-devel tsduck fmt fmt-devel
+```
+
+Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
+<https://rpmfusion.org/Configuration>
+
+
+In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;
+at least the following packages are needed:
+
+```bash
+sudo pip3 install mpl_scatter_density
+```
+
+And some bugs need to be fixed by upgrading python3-matplotlib-wx to at least version 3.5.2:
+
+```bash
+sudo dnf update --enablerepo=updates-testing python3-matplotlib-wx
 ```
 
 #### Ubuntu 23.10 ####

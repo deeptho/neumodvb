@@ -1,5 +1,159 @@
 # Changes in neumoDVB #
 
+## Changes in version neumodvb-1.5 ##
+
+### Positioner ###
+
+* DiSeqC12 has been thoroughly tested and is now working
+* When the dish is moving a progress dialog now pops up, and is removed automatically
+  when the required motion time has passed. In the mean time, tuning is suspended. This
+  is mostly important for spectrum acquisition, as starting the spectrum acquisition before
+  the dish has stopped moving will lead to an incorrect spectrum. For tuning, neumoDVB already
+  detected incorrect dish positions;
+* Dish motion now always happens at maximum voltage.
+* Bug: setting DiSeqC12 position in positioner_dialog does not work;
+* Bug: DiSeqC12 is not correctly sent to positioner
+* Bug: Prevent saving `usals_pos' in lnb record in database  before tuning, to avoid saving bad information
+  when tuning fails;
+* Properly estimate positioner speed internally. However, this update is not used for anything,
+  except in debug messages;
+* Bug: assertion when closing main window when positioner_dialog still has subscription;
+* Bug: sending positioner command fails because subscriber is erroneously unsubscribed after changing network;
+* Bug: positioner_command not sent if there is no network for the currently requested `usals_pos';
+* Bug: OnGotoUsals calls self.UpdateUsalsPosition twice;
+* Bug: DiSeqC debug message does not show command bytes;
+* Give positioner some time to power up before sending it commands. On at least one rotor, the initial
+  command was ignored because the rotor was still initializing;
+* Dishes are now listed on a new dish list. This allows setting the `powerup time' needed by the rotor
+  for that dish, i.e., the time that neumoDVB needs to wait for it to initialize. The dish list also
+  allows entering the rotor speed in degree per second. neumoDVB uses this information to compute
+  how long to wait before the rotor has reached the desired satellite;
+* Bug: spectrum acquisition did not wait for rotor to stop moving. This can lead to a distorted spectrum
+  when the dish needs to move;
+* Bug: in positioner dialog, typing a value next to one of the spin controls did not erase selected text
+  as is common on other text entry fields;
+* Improved detection of cases where the currently known `usals_pos' may be incorrect due to executing
+  or aborting positioner commands.
+* Renamed the `Save' button in positioner dialog to 'Save network', which more accurately reflects
+  its function;
+* Bug: Displayed `usals_pos' not updated after executing command;
+* Bug: cannot send positioner commands with positioner behind DiSeqC switch, while no mux is tuned;
+* Increased font size in service list to accommodate changes in recent fedora and ubuntu versions.
+  As a result the font may now be too big on older versions;
+* Bug: updates defined by user (e.g., `usals_pos') are not yet used by frontend code after positioner moves.
+
+### Automation ###
+
+* New feature: create scan commands. A scan command defines a scan job that can be run periodically later.
+  It is defined in terms of a number of satellite bands or muxes to scan or spectra to acquire, along with
+  a list of available resources (dishes, cards) allowed during the scan and some tuning parameters.  The
+  command is saved for later use and then runs automatically in the background, e.g., every day or every
+  few hours. For this to work, neumoDVB needs to be running;
+* Add the scan command list. This list allows to view all currently defined command and to edit them, e.g.,
+  by adding or removing satellite bands or muxes to the scan or changing tuning parameters.
+
+### Scanning, spectrum acquisition and tuning ###
+
+* Show mux scan statistics during spectrum scan;
+* Bug: scanning DVB-C and DVB-T muxes fails;
+* Bug: `dvbs_muxlist' improperly shows both C and Ku muxes when filtered by a sat;
+* Bug: Tuning to service on same mux does not unsubscribe previous service, leading to assertion failure;
+* Notification of GUI when scanning muxes has finished has been made more reliable;
+* When scanning muxes is not possible (e.g., no cards available) report this immediately instead of
+  silently failing;
+* Improved selection of multiple multiple sats/muxes, e.g., for scanning. It is now possible
+  to add multiple non-contiguous ranges using `control-click';
+* Add 49.0E Ku band to default list of satellites;
+* Bug: after aborting a band_scan, the next spectrum acquisition fails because of some left over subscriptions;
+* Hide scan status for bands which were never scanned in sat list;
+* Reset mux scan status and band_scan scan_status in satellite scan after aborting scan;
+* Bug: lnb network_list picks incorrect sat_band;
+* Bug: incorrect multi-switch committed DiSeqC command was sent during spectrum acquisition;
+  spectrum acquisition thus only worked when dish was already pointed at satellite;
+* Bug: Incorrect active_adapter released during scan;
+* Bug: subscription_id not correctly passed on during re-tune;
+* Bug: usals position not always properly updated when it changes due to a user selection;
+* Bug: correct `scan_status' overwritten by outdated one after `stream_id' changes in the stream;
+* Incorrect debug error message about incorrect `tune_src' value;
+* Do not report failed mux reservation in debug messages when called from scanner, as this floods logs;
+* Remove tune_mode as field in `tune_options'. It is still used as a state variable in `dvb_frontend_t';
+* Bug: Incorrect detection of exclusive use of lnb preventing parallel mux scan;
+* Bug: Frequency readout sometimes overlaps with legend button in spectrum scan dialog;
+* Improved selection of monitored_subscription_id during spectrum scan. The goal is to more cleverly
+  switch between the various frontends, giving preference to frontends with discovered services,
+  and prioritizing locked frontends over non-locked ones.
+
+
+### Installation and compilation ###
+
+* Remove Debian section from installation instructions;
+* Add `__init__.py' to avoid conflicts with installed python packages;
+* Suppress data structure packing warning;
+* Updated required packages for Ubuntu 23.10.
+
+### GUI related ###
+* Add a new top level menu, the "DX" menu. Some commands have been moved to that menu;
+* Bug: SNR not properly displayed on live screen;
+* When satellite  does not exist, ask user to create it when starting positioner_dialog;
+* Disable some commands that only make sense during live viewing, except on live screen;
+* Improved menu system: disable items that cannot be used;
+* In scan parameter dialog, correctly hide panels instead of only the check boxes on them;
+* In bouquet edit mode, automatically switch service list after the mode has been activated,
+  and automatically re-display service list when user finished  bouquet editing. This way of working
+  also applies to adding/editing muxes and satellite bands to scan commands;
+* In popup lists displaying satellite positions, avoid duplicates caused by having multiple
+  bands (C, Ku...);
+* Bug: Fake row was displayed when undoing edits on a record, because number of rows was computed incorrectly;
+* Bug: incorrect Undo when no row was being edited;
+* Allow editing existing autorecs;
+* Improved display of subscriptions in frontend list;
+
+### Recording and playback ###
+
+* Show error message in GUI when file playback fails to start;
+* Reset `subscription_id' and owner when recording finishes;
+* Bug: assertion in subtitle GUI code.
+
+### Internals ###
+
+* Add sat_band to string representation of sat;
+* Replace encode_ascending by non-template in most cases;
+* Improved data_type template; still hackish for `ss::string_' detection;
+* Allow vectors as sub-types in variants;
+* Implement std::optional in database;
+* Move re-tune_mode and tune_options definitions into database, Rename tune_options_t to
+  subscription_options_t and derive it from devdb::tune_option_t;
+* Allow setting `ss::vector' from list. Use band_scan_options in scan_bands_on_sats code instead of python lists;
+* Export `fe_polarisation_vector_t';
+* Refactor get_default_subscription_options;
+* All subscriptions now use a shared pointer to subscriber_t as an input. This allows a subscription_id
+  to be stored in the subscriber_t immediately after registering the subscription in the database and
+  before tuning. Thus eliminates a race conditions that cause the HUI to loose notifications, e.g., about
+  positioner motion;
+* Bug: self.grids not properly populated;
+* Bug: incorrect decision in `lnb_can_scan_sat_band';
+* Replace `sat_pos' by sat in `spectrum_scan_t' and `spectrum_scan_options_t';
+* Separate tune and re-tune in `tuner_thread_t' and in `active_adapter_t';
+* Update libfmt;
+* Avoid exception when pushing a task while thread has already finished executed and then waiting on
+  the return value. In that case no valid future was returned. Instead, now it returns a future
+  to an already finished task;
+* Update minspincontrol code;
+* Improve the way that various fields in `positioner_dialog_update_lnb';
+* Replace code for re-reading LNB by code only reading lnb LOF-offsets, to make its purpose clearer;
+* Introduced fem_state_t;
+* Separated tune and retune code in frontend.cc;
+* Implemented one_shot timer to implement request_wakeup. This is used to temporarily suspend
+  tuning code, and continue tuning after positioner has reached its destination;
+* Tuning and spectrum acquisition tasks are now run in fiber, which is suspended when there is
+  a need to wait for the positioner to stop moving;
+* Do not make all columns with key ending in '_time' read-only by default;
+* Move ownership of dvb_frontend_t from fe_monitor_t to dvb_frontend_t;
+* Replace `enum_to_str' with `to_str'; the latter is all inline code; also this removes a lot
+  of code duplication;
+* Move `scan_stats_t' into devdb;
+* Remove `playback_map' and `mpv_map'; store active_playback and mpv references in subscriber instead;
+
 ## Changes in version neumodvb-1.4.1 ##
 
 * Log incorrect usage of gtk_widget_set_name to debug sporadic problems on ubuntu

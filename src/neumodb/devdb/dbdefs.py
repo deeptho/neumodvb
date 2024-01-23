@@ -412,17 +412,17 @@ user_options = db_struct(name ='user_options',
                         (1, 'time_t', 'mtime'),
                         (2, 'usals_location_t', 'usals_location'),
                         (14, 'bool', 'tune_use_blind_tune', 'false'),
-                        (15, 'bool', 'positioner_dialog_use_blind_tune', 'true'),
-                        (16, 'bool', 'scan_use_blind_tune' , 'true'),
                         (12, 'bool', 'tune_may_move_dish', 'false'),
-                        (13, 'bool', 'scan_may_move_dish', 'false'),
-                        (17, 'bool', 'band_scan_save_spectrum', 'false'),
                         (10, 'int32_t', 'dish_move_penalty', 100),
                         (11, 'int32_t', 'resource_reuse_bonus', 1000),
+                        (16, 'bool', 'scan_use_blind_tune' , 'true'),
+                        (13, 'bool', 'scan_may_move_dish', 'false'),
+                        (17, 'bool', 'band_scan_save_spectrum', 'false'),
+                        (15, 'bool', 'positioner_dialog_use_blind_tune', 'true'),
+                        (6, 'int32_t', 'default_record_time', '2*3600'), #2 hours
                         (3, 'int32_t', 'pre_record_time', '1*60'), #1 minute
                         (4, 'int32_t', 'max_pre_record_time', '1*3600'), #1 hour
                         (5, 'int32_t', 'post_record_time', '5*60'), #5 minutes
-                        (6, 'int32_t', 'default_record_time', '2*3600'), #2 hours
                         (7, 'int32_t', 'timeshift_duration', '2*3600'), #2 hours
                         (8, 'int32_t', 'livebuffer_retention_time', '10*60'),  #10 minutes
                         (9, 'int32_t', 'livebuffer_mpm_part_duration', '10*60'),  #10 minutes

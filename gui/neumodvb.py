@@ -354,6 +354,12 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdInspect")
         self.app.CmdInspect()
 
+    def CmdEditOptions(self, event):
+        dtdebug("CmdEditOptions")
+        from neumodvb.preferences_dialog import show_preferences_dialog
+        show_preferences_dialog(self)
+        pass
+
     def CmdLiveChannels(self, event):
         dtdebug("CmdLiveChannels")
         self.ShowPanel([self.live_panel])

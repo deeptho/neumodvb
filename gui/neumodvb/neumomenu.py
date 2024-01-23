@@ -127,7 +127,11 @@ edit_menu = (
        ""),
     SEP,
     MI("Export",
-       _("&Export"),
+       _("&Export List"),
+       ""),
+    SEP,
+    MI("EditOptions",
+       _("&Edit Options\tCtrl-J"),
        "")
 )
 

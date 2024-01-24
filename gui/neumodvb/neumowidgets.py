@@ -70,16 +70,14 @@ def _get_size_by_chars(self, w, h):
     return sz
 
 def parse_duration(val):
-    dummy='00:00'
-    if len(val) > 5:
-        return False;
-    val+dummy[len(val):]
-    m=re.match(r'^([0-9]+):([0-9]+)', val)
+    m=re.match(r'^(\s*(?P<hours>[0-9]{1,})h){0,1}\s*((?P<minutes>[0-9]{1,})m){0,1}\s*((?P<seconds>[0-9]{1,})s){0,1}\s*', val, re.IGNORECASE)
     if m is None:
         return None
-    if int(m.groups()[1])>=60:
-        return None
-    return (int(m.groups()[1]) + 60 * int(m.groups()[0]))*60
+    g=m.groupdict()
+    seconds = 0 if g['seconds'] is None else int(g['seconds'])
+    minutes = 0 if g['minutes'] is None else int(g['minutes'])
+    hours = 0 if g['hours'] is None else int(g['hours'])
+    return seconds + minutes*60 + hours*3600
 
 def parse_time(val, is_duration=False):
     dummy='00:00'
@@ -177,12 +175,22 @@ class DurationTextCtrl(wx.TextCtrl):
 
     def SetValueTime(self, val):
         if type(val) == datetime.timedelta:
-            minutes = val.seconds//60
+            seconds = val.seconds
         elif type(val) == int:
-            minutes = val//60
+            seconds = val//60
         else:
             assert 0
-        val = f"{minutes // 60:02}:{minutes % 60:02}"
+        minutes = (seconds//60)%60
+        hours = seconds//3600
+        seconds = seconds%60
+        ret= []
+        if hours != 0:
+            ret.append(f"{hours}h")
+        if minutes != 0:
+            ret.append(f"{minutes}m")
+        if seconds != 0:
+            ret.append(f"{seconds}s")
+        val = " ".join(ret)
         self.SetValue(val)
 
 class TimeTextCtrl(wx.TextCtrl):

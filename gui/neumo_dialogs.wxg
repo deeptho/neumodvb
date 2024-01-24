@@ -3,7 +3,7 @@
 
 <application class="NeumoDialogs" encoding="UTF-8" for_version="3.0" header_extension=".h" indent_amount="4" indent_symbol="tab" is_template="0" language="python" mark_blocks="1" name="neumo_dialogs" option="0" overwrite="1" path="neumodvb/neumo_dialogs_gui.py" source_extension=".cpp" top_window="record_dialog" use_gettext="1" use_new_namespace="1">
     <object class="ChannelNoDialog_" name="dialog" base="EditDialog">
-        <background>#000000</background>
+      <background>#000000</background>
         <foreground>#ffff00</foreground>
         <font>
             <size>12</size>
@@ -460,7 +460,8 @@
                                             <border>0</border>
                                             <flag>wxALIGN_CENTER_VERTICAL</flag>
                                             <object class="DurationTextCtrl" name="duration_text" base="EditTextCtrl">
-                                                <extracode>from neumodvb.neumowidgets import DurationTextCtrl</extracode>
+                                              <extracode>from neumodvb.neumowidgets import DurationTextCtrl</extracode>
+                                              <tooltip>Duration to record (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                             </object>
                                         </object>
                                     </object>
@@ -740,7 +741,8 @@
                                             <border>5</border>
                                             <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
                                             <object class="DurationTextCtrl" name="min_duration_text" base="EditTextCtrl">
-                                                <extracode>from neumodvb.neumowidgets import DurationTextCtrl</extracode>
+                                              <extracode>from neumodvb.neumowidgets import DurationTextCtrl</extracode>
+                                              <tooltip>Record only programs longer than this (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                             </object>
                                         </object>
                                         <object class="sizeritem">
@@ -756,7 +758,8 @@
                                             <border>5</border>
                                             <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
                                             <object class="DurationTextCtrl" name="max_duration_text" base="EditTextCtrl">
-                                                <extracode>from neumodvb.neumowidgets import DurationTextCtrl</extracode>
+                                              <extracode>from neumodvb.neumowidgets import DurationTextCtrl</extracode>
+                                              <tooltip>Record only programs shorter than this (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                             </object>
                                         </object>
                                     </object>
@@ -995,7 +998,7 @@
                                                         <flag>wxALIGN_CENTER_VERTICAL</flag>
                                                         <object class="DurationTextCtrl" name="max_duration_text" base="EditTextCtrl">
                                                             <extracode>from neumodvb.neumowidgets import DurationTextCtrl</extracode>
-                                                            <tooltip>Abort the job should it run longer than this amount</tooltip>
+                                                            <tooltip>Abort the job should it run longer than this amount (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                                         </object>
                                                     </object>
                                                     <object class="sizeritem">

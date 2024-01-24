@@ -48,9 +48,19 @@ class PreferencesDialog(PreferencesDialog_):
         super().__init__(parent, *args, **kwds)
         self.parent = parent
         self.app = wx.GetApp()
-        opts =  self.app.receiver.get_options()
-        print(f'{opts}')
+        self.opts =  self.app.receiver.get_options()
         #[e for e in dir(self) if e.endswith('_text')]
+        for e in dir(self):
+            w = getattr(self,e)
+            if type(w) == DurationTextCtrl:
+                w.SetValueTime(getattr(self.opts, e))
+            elif type(w) == wx.TextCtrl:
+                v= getattr(self.opts, e, '???')
+                print(f'{e}={v}')
+                w.SetValue(v)
+            elif type(w) == DtIntCtrl:
+                v= getattr(self.opts, e, 0)
+                w.SetValue(v)
         print(f"{[e for e in dir(self) if type(getattr(self,e))==DurationTextCtrl]}")
         print(f"{[e for e in dir(self) if type(getattr(self,e))==wx.TextCtrl]}")
         print(f"{[e for e in dir(self) if type(getattr(self,e))==DtIntCtrl]}")

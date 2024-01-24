@@ -36,18 +36,19 @@ struct neumo_options_t {
 	bool force_overwrite = false;
 	//::chdb::options_t options;
 	std::string upgrade_dir{}; // set  from python
-	std::string live_path{"/mnt/neumo/live"};
-	std::string recordings_path{"/mnt/neumo/recordings"};
-	std::string spectrum_path{"/mnt/neumo/spectrum"};
-	std::string scam_server_name{"streacom.mynet"};
+	std::string db_dir{"~/neumo/db"};
+	std::string live_path{"~/neumo/live"};
+	std::string recordings_path{"~/neumo/recordings"};
+	std::string spectrum_path{"~/neumo/spectrum"};
+	std::string scam_server_name{"192.168.1.254"};
 	int scam_server_port{9000};
-	std::string devdb{"/mnt/neumo/db/devdb.mdb"};
-	std::string chdb{"/mnt/neumo/db/chdb.mdb"};
-	std::string statdb{"/mnt/neumo/db/statdb.mdb"};
-	std::string epgdb{"/mnt/neumo/db/epgdb.mdb"};
-	std::string recdb{"/mnt/neumo/db/recdb.mdb"};
 	std::string logconfig{"neumo.xml"};
 	std::string osd_svg{"osd.svg"};
+	std::string devdb{"~/neumo/db/devdb.mdb"};
+	std::string chdb{"~/neumo/db/chdb.mdb"};
+	std::string statdb{"~/neumo/db/statdb.mdb"};
+	std::string epgdb{"~/neumo/db/epgdb.mdb"};
+	std::string recdb{"~/neumo/db/recdb.mdb"};
 	std::string radiobg_svg{"radiobg.svg"};
 	std::string mpvconfig{"mpv"};
 
@@ -74,7 +75,7 @@ struct neumo_options_t {
 
 	std::chrono::seconds livebuffer_mpm_part_duration{300s}; //duration of an mpm part
 
-	std::chrono::seconds max_scan_duration{180s}; /*after this time, scan will be forcefull ended*/
+	std::chrono::seconds scan_max_duration{180s}; /*after this time, scan will be forcefull ended*/
 
 	neumo_options_t()
 		{}

@@ -51,9 +51,9 @@
                                         <option>0</option>
                                         <border>0</border>
                                         <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                        <object class="wxTextCtrl" name="database_path" base="EditTextCtrl">
+                                        <object class="wxTextCtrl" name="db_dir" base="EditTextCtrl">
                                             <size>250, -1</size>
-                                            <value>/mnt/neumo/db</value>
+                                            <value></value>
                                             <tooltip>Directory in which to store neumoDVB databases</tooltip>
                                         </object>
                                     </object>
@@ -71,7 +71,7 @@
                                         <flag>wxALIGN_CENTER_VERTICAL</flag>
                                         <object class="wxTextCtrl" name="live_path" base="EditTextCtrl">
                                             <size>250, -1</size>
-                                            <value>/mnt/neumo/live</value>
+                                            <value></value>
                                             <tooltip>Directory in which to store neumoDVB live buffers (needs several Gigabytes)</tooltip>
                                         </object>
                                     </object>
@@ -86,9 +86,9 @@
                                     <object class="sizeritem">
                                         <option>0</option>
                                         <border>0</border>
-                                        <object class="wxTextCtrl" name="rec_path" base="EditTextCtrl">
+                                        <object class="wxTextCtrl" name="recordings_path" base="EditTextCtrl">
                                             <size>250, -1</size>
-                                            <value>/mnt/neumo/recordings</value>
+                                            <value></value>
                                             <tooltip>Directory in which to store neumoDVB recordings (needs tens or hundreds of Gigabytes)</tooltip>
                                         </object>
                                     </object>
@@ -105,7 +105,7 @@
                                         <border>0</border>
                                         <object class="wxTextCtrl" name="spectrum_path" base="EditTextCtrl">
                                             <size>250, -1</size>
-                                            <value>/mnt/neumo/spectrum</value>
+                                            <value></value>
                                             <tooltip>Directory in which to store neumoDVB spectra</tooltip>
                                         </object>
                                     </object>
@@ -123,7 +123,7 @@
                                         <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
                                         <object class="wxTextCtrl" name="config_path" base="EditTextCtrl">
                                             <size>250, -1</size>
-                                            <value>~/.config/neumodvb/</value>
+                                            <value></value>
                                             <tooltip>Locaton in which to store neumoDVB config files</tooltip>
                                         </object>
                                     </object>
@@ -152,9 +152,9 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                <object class="wxTextCtrl" name="gui_svg_path" base="EditTextCtrl">
+                                <object class="wxTextCtrl" name="osd_svg" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <value>gui.svg</value>
+                                    <value></value>
                                     <tooltip>Overlay SVG file which defines decorative elements and location of various pieces of information on the live screen</tooltip>
                                 </object>
                             </object>
@@ -170,9 +170,9 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                <object class="wxTextCtrl" name="mpv_conf_path" base="EditTextCtrl">
+                                <object class="wxTextCtrl" name="mpv_config" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <value>mpv/mpv.conf</value>
+                                    <value></value>
                                     <tooltip>mpv configuration file</tooltip>
                                 </object>
                             </object>
@@ -188,9 +188,9 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                <object class="wxTextCtrl" name="log4cxx_path" base="EditTextCtrl">
+                                <object class="wxTextCtrl" name="log4cxx" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <value>neumo.xml</value>
+                                    <value></value>
                                     <tooltip>Location of configuration file defining debug verbosity</tooltip>
                                 </object>
                             </object>
@@ -217,7 +217,7 @@
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="DurationTextCtrl" name="default_record_time" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>Duration of unscheduled recordings (min)</tooltip>
+                                    <tooltip>Duration of unscheduled recordings (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                     <value>120</value>
                                 </object>
                             </object>
@@ -235,7 +235,7 @@
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="DurationTextCtrl" name="pre_record_time" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>Time to start recording before start of program (min or min:sec)</tooltip>
+                                    <tooltip>Time to start recording before start of program (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                     <value>1</value>
                                 </object>
                             </object>
@@ -253,7 +253,7 @@
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="DurationTextCtrl" name="post_record_time" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>Time to continue recording after end of program (min or min:sec)</tooltip>
+                                    <tooltip>Time to continue recording after end of program (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                     <value>5</value>
                                 </object>
                             </object>
@@ -271,7 +271,7 @@
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="DurationTextCtrl" name="timeshift_duration" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>Time for which to keep timeshift data (min)</tooltip>
+                                    <tooltip>Time for which to keep timeshift data (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                     <value>120</value>
                                 </object>
                             </object>
@@ -287,9 +287,9 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                <object class="DurationTextCtrl" name="livebuffer_mpm_part_duration" base="EditTextCtrl">
+                                <object class="DurationTextCtrl" name="livebuffer_retention_time" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>Time for which to preserve livebuffers after tuning to another service (min)</tooltip>
+                                    <tooltip>Time for which to preserve livebuffers after tuning to another service (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                     <value>5</value>
                                 </object>
                             </object>
@@ -305,9 +305,9 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                <object class="wxTextCtrl" name="timeshift_resolution" base="EditTextCtrl">
+                                <object class="DurationTextCtrl" name="livebuffer_mpm_part_duration" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>Timeshift resolution (min))</tooltip>
+                                    <tooltip>Timeshift resolution (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                     <value>5</value>
                                 </object>
                             </object>
@@ -325,7 +325,6 @@
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="wxStaticText" name="tune_use_blind_tune_label" base="EditStaticText">
-                                    <tooltip>Use blind tune during regular tuning,\nand use database parameters only as a starting guess</tooltip>
                                     <label>Use blind tune</label>
                                 </object>
                             </object>
@@ -333,6 +332,7 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <object class="wxCheckBox" name="tune_use_blin_tune_checkbox" base="EditCheckBox">
+                                    <tooltip>Use blind tune during regular tuning, and use database parameters only as a starting guess</tooltip>
                                 </object>
                             </object>
                             <object class="sizeritem">
@@ -340,7 +340,6 @@
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="wxStaticText" name="tune_may_move_dish_label" base="EditStaticText">
-                                    <tooltip>Move the dish if that is required to tune a service or mux. If disabled, then tune will fail instead</tooltip>
                                     <label>Allow moving dish</label>
                                 </object>
                             </object>
@@ -348,6 +347,7 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <object class="wxCheckBox" name="tune_may_move_dish_checkbox" base="EditCheckBox">
+                                  <tooltip>Move the dish if that is required to tune a service or mux. If disabled, then tune will fail instead</tooltip>
                                 </object>
                             </object>
                             <object class="sizeritem">
@@ -365,7 +365,7 @@
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="DtIntCtrl" name="dish_move_penalty" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>When deciding which lnb to use,\nhow much to penalize an LNB placed on a dish?\n</tooltip>
+                                    <tooltip>When deciding which lnb to use, how much to penalize an LNB placed on a dish?</tooltip>
                                     <value>1</value>
                                 </object>
                             </object>
@@ -374,7 +374,7 @@
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="wxStaticText" name="resource_reuse_bonus_label" base="EditStaticText">
-                                    <tooltip>When deciding which LNB and frontend to use in tuning, how much to prefer sharing the LNB or frontend with a live subscription\n</tooltip>
+                                    <tooltip>When deciding which LNB and frontend to use in tuning, how much to prefer sharing the LNB or frontend with a live subscription</tooltip>
                                     <label>Resource reuse bonus</label>
                                 </object>
                             </object>
@@ -384,7 +384,7 @@
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="DtIntCtrl" name="resource_reuse_bonus" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>When deciding which lnb to use,\nhow much to penalize an LNB placed on a dish?\n</tooltip>
+                                    <tooltip>When deciding which lnb to use, how much to penalize an LNB placed on a dish?</tooltip>
                                     <value>1</value>
                                 </object>
                             </object>
@@ -402,7 +402,6 @@
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="wxStaticText" name="scan_use_blind_tune_label" base="EditStaticText">
-                                    <tooltip>Use blind tune during user requested scanning,\nand use database parameters only as a starting guess</tooltip>
                                     <label>Use blind tune</label>
                                 </object>
                             </object>
@@ -410,6 +409,7 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <object class="wxCheckBox" name="scan_use_blin_tune_checkbox" base="EditCheckBox">
+                                    <tooltip>Use blind tune during user requested scanning, and use database parameters only as a starting guess</tooltip>
                                 </object>
                             </object>
                             <object class="sizeritem">
@@ -417,7 +417,6 @@
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="wxStaticText" name="scan_may_move_dish_label" base="EditStaticText">
-                                    <tooltip>Move the dish if that is required to scan a service or mux. If disabled, then scanning that mux will fail instead.</tooltip>
                                     <label>Alllow moving dish</label>
                                 </object>
                             </object>
@@ -425,6 +424,7 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <object class="wxCheckBox" name="scan_may_move_dish_checkbox" base="EditCheckBox">
+                                    <tooltip>Move the dish if that is required to scan a service or mux. If disabled, then scanning that mux will fail instead.</tooltip>
                                 </object>
                             </object>
                             <object class="sizeritem">
@@ -432,20 +432,21 @@
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="wxStaticText" name="band_scan_save_spectrum_label" base="EditStaticText">
-                                    <label>During satellite band scanning, save the\nspectra. When disabled, spectra are not saved.</label>
+                                  <label>Save spectra</label>
                                 </object>
                             </object>
                             <object class="sizeritem">
                                 <option>0</option>
                                 <border>0</border>
                                 <object class="wxCheckBox" name="band_scan_save_spectrum_checkbox" base="EditCheckBox">
+                                  <tooltip>During satellite band scanning, save the spectra. When disabled, spectra are not saved</tooltip>
                                 </object>
                             </object>
                             <object class="sizeritem">
                                 <option>0</option>
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                <object class="wxStaticText" name="max_scan_time_label" base="EditStaticText">
+                                <object class="wxStaticText" name="scan_max_duration_label" base="EditStaticText">
                                     <label>Maximum time spent on epg scan</label>
                                 </object>
                             </object>
@@ -453,9 +454,9 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
-                                <object class="DurationTextCtrl" name="max_scan_time" base="EditTextCtrl">
+                                <object class="DurationTextCtrl" name="scan_max_duration" base="EditTextCtrl">
                                     <size>250, -1</size>
-                                    <tooltip>Time to start recording before start of program (min or min:sec)</tooltip>
+                                    <tooltip>Time to start recording before start of program (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
                                     <value>1</value>
                                 </object>
                             </object>
@@ -473,7 +474,6 @@
                                 <border>0</border>
                                 <flag>wxALIGN_CENTER_VERTICAL</flag>
                                 <object class="wxStaticText" name="positioner_dialog_use_blind_tune_label" base="EditStaticText">
-                                    <tooltip>Use blind tune on positioner dialog</tooltip>
                                     <label>Use blind tune</label>
                                 </object>
                             </object>
@@ -481,6 +481,7 @@
                                 <option>0</option>
                                 <border>0</border>
                                 <object class="wxCheckBox" name="positioner_dialog_use_blin_tune_checkbox" base="EditCheckBox">
+                                  <tooltip>Use blind tune on positioner dialog</tooltip>
                                 </object>
                             </object>
                         </object>

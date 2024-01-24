@@ -1987,7 +1987,7 @@ devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_t
 	ret.use_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
 	ret.may_move_dish = for_lnb_control ? true : (for_scan ? r->scan_may_move_dish: r->tune_may_move_dish);
 	ret.may_control_lnb = for_lnb_control;
-	ret.max_scan_duration =  std::chrono::duration_cast<std::chrono::seconds>(r->max_scan_duration).count();
+	ret.scan_max_duration =  std::chrono::duration_cast<std::chrono::seconds>(r->scan_max_duration).count();
 
 	return ret;
 }

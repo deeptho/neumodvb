@@ -975,9 +975,6 @@
                                                         <flag>wxBOTTOM</flag>
                                                         <object class="RunTypeChoice" name="run_type_choice" base="EditChoice">
                                                             <extracode_pre>from neumodvb.neumowidgets import RunTypeChoice</extracode_pre>
-                                                            <events>
-                                                                <handler event="EVT_CHOICE">OnRunTypeChoice</handler>
-                                                            </events>
                                                             <tooltip>When to run the job </tooltip>
                                                             <selection>0</selection>
                                                             <choices>

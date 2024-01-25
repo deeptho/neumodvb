@@ -85,6 +85,19 @@ def get_config():
     config.main.interpolation = 'Template'
     return config
 
+def save_config(configobj):
+    maindir_ = maindir()
+    configdir = '~/.config/neumodvb'
+    filename = os.path.realpath(os.path.expanduser(f'{configdir}/neumodvb.cfg'))
+
+    #try:
+    print(f'saving options in {filename}')
+    with open(filename, 'wb') as f:
+        configobj.write(f)
+    #except:
+    #    print("Failed to save preferences")
+
+
 def getsubattr(o, k):
     parts = k.split('.')
     try:

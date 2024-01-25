@@ -17,62 +17,75 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 import wx
+import datetime
 
 from neumodvb.preferences_dialog_gui import  PreferencesDialog_
 from neumodvb.neumowidgets import DurationTextCtrl, DtIntCtrl
+from neumodvb.config import save_config, get_config
 
-if False:
-    import re
-    import wx.lib.newevent
-    import math
 
-    from neumodvb import  minispinctrl, minifloatspin
-    from neumodvb.positioner_dialog_gui import  PositionerDialog_, SignalPanel_ , TuneMuxPanel_
-    from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
-    from neumodvb import neumodbutils
-    from neumodvb.lnblist import has_network, get_network, must_move_dish
-    from neumodvb.util import setup, lastdot
-    from neumodvb.util import dtdebug, dterror
-    from neumodvb.satlist_combo import EVT_SAT_SELECT
-    from neumodvb.lnblist_combo import EVT_LNB_SELECT, EVT_RF_PATH_SELECT
-    from neumodvb.muxlist_combo import EVT_MUX_SELECT
-
-    import pyreceiver
-    import pychdb
-    import pydevdb
-    import pystatdb
-    from pyreceiver import get_object as get_object_
 
 class PreferencesDialog(PreferencesDialog_):
     def __init__(self, parent, *args, **kwds):
         super().__init__(parent, *args, **kwds)
         self.parent = parent
         self.app = wx.GetApp()
-        self.opts =  self.app.receiver.get_options()
-        #[e for e in dir(self) if e.endswith('_text')]
+        self.opts = self.app.receiver.get_options()
+        self.popuplate_from_config_obj()
         for e in dir(self):
             w = getattr(self,e)
+            if e in self.cfg_vars:
+                v = self.cfg_vars[e][1]
+            else:
+                v= getattr(self.opts, e, None)
+                if v is None:
+                    continue
             if type(w) == DurationTextCtrl:
-                w.SetValueTime(getattr(self.opts, e))
+                w.SetValueTime(v)
             elif type(w) == wx.TextCtrl:
-                v= getattr(self.opts, e, '???')
-                print(f'{e}={v}')
-                w.SetValue(v)
+                w.SetValue(str(v))
             elif type(w) == DtIntCtrl:
-                v= getattr(self.opts, e, 0)
-                w.SetValue(v)
-        print(f"{[e for e in dir(self) if type(getattr(self,e))==DurationTextCtrl]}")
-        print(f"{[e for e in dir(self) if type(getattr(self,e))==wx.TextCtrl]}")
-        print(f"{[e for e in dir(self) if type(getattr(self,e))==DtIntCtrl]}")
+                w.SetValue(int(v))
+            elif type(w) == wx.CheckBox:
+                w.SetValue(int(v))
 
-    def Close(self):
-        pass
+    def popuplate_from_config_obj(self):
+        c = get_config()
+        self.configobj = c
+        self.cfg_vars = {}
+        for sec in  ['PATHS']:
+            for k,v in c[sec].items():
+                self.cfg_vars[k] = (sec, v)
+                print(f'sec={sec} k={k}, v={v}')
 
-    def OnClose(self, evt):
-        dtdebug("CLOSE")
-        self.Close()
+
+    def OnSave(self, evt):
+        cfg = get_config()
+        for e in dir(self):
+            if e in ['config_path', 'log4cxx']:
+                continue
+            w = getattr(self,e)
+            if type(w) == DurationTextCtrl:
+                v = datetime.timedelta(seconds=w.GetSeconds())
+            elif type(w) == wx.TextCtrl:
+                v = w.GetValue()
+            elif type(w) == DtIntCtrl:
+                v = w.GetValue()
+            elif type(w) == wx.CheckBox:
+                v= w.GetValue()
+            else:
+                continue
+            if e in self.cfg_vars:
+                sec=self.cfg_vars[e][0]
+                self.configobj[sec][e] = v
+            else:
+                setattr(self.opts, e, v)
+        devdb_wtxn = self.app.receiver.devdb.wtxn()
+        self.opts.save_to_db(devdb_wtxn)
+        devdb_wtxn.commit()
+        save_config(self.configobj)
+        self.app.receiver.set_options(self.opts)
         wx.CallAfter(self.Destroy)
-        evt.Skip()
 
 def show_preferences_dialog(parent):
     dlg = PreferencesDialog(parent, wx.ID_ANY, "")

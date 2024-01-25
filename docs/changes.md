@@ -42,6 +42,12 @@
   As a result the font may now be too big on older versions;
 * Bug: updates defined by user (e.g., `usals_pos') are not yet used by frontend code after positioner moves.
 
+### Configuration ###
+* Many options, such as filesystem paths where recordings and dtatabse are stored, softcam parameters,
+  default reording and timeshift times, some tuning, and positioner parameters can now be set from the GUI
+  Most parameters are stored in the database, but the filesystem paths are stored in ~/.config/neumodvb/neumodvb.cfg
+
+
 ### Automation ###
 
 * New feature: create scan commands. A scan command defines a scan job that can be run periodically later.
@@ -233,21 +239,21 @@
 * Bug: incorrect handling of resource conflicts.
 * Bug: incorrect handling of unsubscription when multiple subscriptions use same fe.
 * Bug: when subscription fails, active_adapter and subscription are not released.
-* Bug: incorrect sending diseqc messages and changing voltage/pol during retune.
+* Bug: incorrect sending DiSeqC messages and changing voltage/pol during retune.
 * Bug: active_adapter recreated even when adapter remains the same. New fe_subscribe code.
 * Bug: assertion when tuning dvbt mux.
 * Increase sleep times after changing voltage or rf input.
 * Bug: when switching to a different lnb on a frontend, we need to allow for sufficient power up time to prevent
   tuning from failing.
 * Do not power down tuner voltage before switching to a new lnb. Instead start with the old voltage (faster and better).
-* Bug: diseqc commands not sent when switching to the same lnb via another card or rf_input (e.g., to scan
+* Bug: DiSeqC commands not sent when switching to the same lnb via another card or rf_input (e.g., to scan
   another polarisation).
 * Also send voltage commands afer rf_input has changed; otherwise tuning may fail.
 * Bug: not checking if subscription uses same sat/pol/band when checking if frontend in use can be used leads
   to reusing subscription from another lnb.
 * Bug: when reusing the same adapter, tuning uses old lnb.
 * Bug: incorrect decision that card cannot be used.
-* Bug: incorrect detection of need_diseqc.
+* Bug: incorrect detection of need_DiSeqC.
 * Bug: sat_pos not taken into account when checking if subscription can be reused.
 * Bug: subscribe not handling properly the case where a subscription subscribes to a service (or to the mux
   itself) on the same mux as its old subscription.
@@ -693,10 +699,10 @@
 
 * Database format has changed once more, but only regarding LNB definitions. The main change is that there is now
   on entry per physical LNB  in the LNB list, whereas in the past there was a separate entry for each LNB input cable.
-  This means that DiSEqC settings will have to be re-entered. The new format is explained in the documentation and
+  This means that DiSeqC settings will have to be re-entered. The new format is explained in the documentation and
   was needed to allow some advanced features to work better.
 * New layout of the LNB screen, with exactly one line per physical LNB. To "connect" an LNB to a card double-click on
-  the cell in the `connections` column and add all tuners to which the LNB is connected. Most DiSEqC settings are associated
+  the cell in the `connections` column and add all tuners to which the LNB is connected. Most DiSeqC settings are associated
   with such a connection and need to be set on this connection, and no longer on the LNB itself. This allows neumoDVB
   to compute a single LOF correction value for each LNB  instead of separately for each connection.
   Connections and networks in lnb list also follow a multi-line layout. Individual connections or networks that can not
@@ -791,7 +797,7 @@
 * Improved spectrum analysis: very wide band muxes are no longer detected as dozens of very small
   peaks, but as a single or a small number of peaks. This speeds up blind scanning as well. The estimated
   symbol rate of peaks used to be very inaccurate and is not more accurate.
-* Change voltage from 0 to 18V in two steps to avoid current overloads when many DiSEqC switches switch
+* Change voltage from 0 to 18V in two steps to avoid current overloads when many DiSeqC switches switch
   simultaneously.
 
 ### Spectrum analysis and blind scan ###
@@ -871,16 +877,16 @@
 ### Tuning and viewing ###
 
 * Improved support for dvbapi
-* Gradually change voltage from from 0 to 18V to avoid current overloads when many DiSEqC switches switch
+* Gradually change voltage from from 0 to 18V to avoid current overloads when many DiSeqC switches switch
   simultaneously.
-* Wait 200ms after powering up DiSEqC circuitry.
+* Wait 200ms after powering up DiSeqC circuitry.
 * Handle invalid parameters during tuning (e.g., frequency/symbol_rate out of range), reporting them to
   GUI and properly releasing resources.
 * Prevent forcing blind mode based on delsys; instead respect tune option.
 * Split all tuning related actions into two phases: 1) reservation of resources; 2) the actual tuning
   This allows to better handle some failure cases.
 * Subscriptions are now stored in the database, facilitating multiple instances of neumoDVB running parallel.
-* Bug: DiSEqC commands sent without waiting for LNB power-up.
+* Bug: DiSeqC commands sent without waiting for LNB power-up.
 * Bug: tuning to DVB-C/DVB-T fails; invalid assertion.
 * Bug: when tuning fails in positioner_dialog, subscription_id<0 is returned but mux is not unsubscribed (and
   cannot be unsubscribed).
@@ -891,7 +897,7 @@
 * Prefer to reuse current adapter when all else is equal.
 * When two subscriptions use same tuner, do not power down tuner when ending only one of the subscriptions.
   This is supported as of neumo driver 1.5.
-* Bug: voltage and tone state not cleared after frontend close, resulting in DiSEqC not being sent
+* Bug: voltage and tone state not cleared after frontend close, resulting in DiSeqC not being sent
   and tuning failing.
 * Avoid crash on exit when fe_monitor not running.
 * Assertion when softcam returns bad keys.
@@ -1067,7 +1073,7 @@ Compilation and internals
 * Removed dependency on setproctitle and made it less error-prone
 * Add script for testing peak finding algorithm
 
-DiSEqC
+DiSeqC
 
 * Add more time between sending commands to cascaded swicthes, solving some erroneous switching
 
@@ -1137,10 +1143,10 @@ Various bugs fixed:
 Positioner related
 
 * More consistent layout of positioner dialog. Disable some functions when unusable
-* Fixes for DiSEqC12, e.g., new DiSEqC12 value not stored when user updates it
-* Positioner bug fixes: send DiSEqC switch commands before sending any positioner command;
+* Fixes for DiSeqC12, e.g., new DiSeqC12 value not stored when user updates it
+* Positioner bug fixes: send DiSeqC switch commands before sending any positioner command;
   report better error messages in GUI; properly handle continuous motion.
-* Send DiSEqC switch commands before spectrum scan to avoid scanning the wrong lnb
+* Send DiSeqC switch commands before spectrum scan to avoid scanning the wrong lnb
 * Prevent dish movement during mux scan
 * Satellite is now only shown as "confirmed" (no question mark) if the position was actually
   found in the NIT table.

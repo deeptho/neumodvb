@@ -114,6 +114,8 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 
 ### [Scanning satellite bands](docs/satellites.md) ####
 
+### [Automating scanning](docs/commands.md) ###
+
 ### [Managing channels](docs/channel_management.md) ###
 
 ### [Status  list](docs/status_list.md) ###
@@ -123,6 +125,8 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 ### [Spectrum analysis](docs/spectrum.md) ###
 
 ### [Positioner control](docs/positioner.md) ###
+
+### [Dish list](docs/dishes.md) ####
 
 ### [Signal history](docs/signal_history.md) ###
 

@@ -25,7 +25,7 @@ The fields heave the following meaning
 
 ### Scanning one or more satellites and satellite bands ###
 
-To scan ome or more satellites, first select them in the above list and then use the menu entry
+To scan one or more satellites, first select them in the above list and then use the menu entry
 `Control - Scan` (`Ctrl-S`). This brings up a dialog window in which various options can be selected.
 By default the scan will be a `spectrum scan`, meaning that neumoDVB will acquire a spectrum, find peaks
 in the spectrum and then blindscan those peaks. It does so in a clever way, using any mux data in the database

@@ -56,7 +56,6 @@ class PreferencesDialog(PreferencesDialog_):
         for sec in  ['PATHS']:
             for k,v in c[sec].items():
                 self.cfg_vars[k] = (sec, v)
-                print(f'sec={sec} k={k}, v={v}')
 
 
     def OnSave(self, evt):

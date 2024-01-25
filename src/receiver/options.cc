@@ -25,6 +25,10 @@ void neumo_options_t::load_from_db(db_txn& devdb_wtxn, int32_t user_id)
 	auto c = devdb::user_options_t::find_by_key(devdb_wtxn, user_id);
 	if(c.is_valid()) {
 		const auto & u = c.current();
+		this->softcam_server = u.softcam_server;
+		this->softcam_port = u.softcam_port;
+		this->softcam_enabled = u.softcam_enabled;
+
 		this->usals_location = u.usals_location;
 
 		this->tune_use_blind_tune = u.tune_use_blind_tune;
@@ -60,6 +64,11 @@ void neumo_options_t::save_to_db(db_txn& devdb_wtxn, int32_t user_id)
 	devdb::user_options_t u;
 	u.user_id = user_id;
 	u.mtime = system_clock_t::to_time_t(now);
+
+	u.softcam_server = this->softcam_server.c_str();
+	u.softcam_port = this->softcam_port;
+	u.softcam_enabled =	this->softcam_enabled;
+
 	u.usals_location = this->usals_location;
 
 	u.tune_use_blind_tune = this->tune_use_blind_tune;

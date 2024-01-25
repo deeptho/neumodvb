@@ -79,10 +79,8 @@ def get_config():
         if Path(f).exists():
             print(f'loading options from {f}')
             if config is None:
-                #config = ConfigObj(f, interpolation='template')
                 config = ConfigObj(f, interpolation=False)
             else:
-                #config.merge(ConfigObj(f, interpolation='template'))
                 config.merge(ConfigObj(f, interpolation=False))
     config.main.interpolation = 'Template'
     return config
@@ -137,7 +135,7 @@ class get_processed_options(object):
         o.upgrade_dir =  str(pathlib.Path(maindir(), 'upgrade'))
         set_logconfig(cfg)
         engine = TemplateInterpolation(c)
-        for sec in  ['PATHS', 'SCAM', 'LOGGING', 'CONFIG']:
+        for sec in  ['PATHS', 'LOGGING', 'CONFIG']:
             for k,v in c[sec].items():
                 if k in relative_files:
                     v = get_configfile(v)
@@ -149,21 +147,6 @@ class get_processed_options(object):
                     setattr(self, k, type(old)(v))
                 else:
                     setattr(self, k, v)
-
-        for sec in  ['RECORD', 'TIMESHIFT']:
-            for k,v in c[sec].items():
-                try:
-                    old = getsubattr(o,k)
-                    dtdebug(f'changing receiver option {k} from default {old} to {v}')
-                    if type(old) == timedelta:
-                        v = parse_time(v)
-                        setsubattr(o, k, v)
-                        setsubattr(self, k, v)
-                    else:
-                        setsubattr(o, k, type(old)(v))
-                        setsubattr_obj(self, k, type(old)(v))
-                except AttributeError:
-                    pass_dict
 
         self.receiver = o
 

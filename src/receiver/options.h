@@ -40,8 +40,6 @@ struct neumo_options_t {
 	std::string live_path{"~/neumo/live"};
 	std::string recordings_path{"~/neumo/recordings"};
 	std::string spectrum_path{"~/neumo/spectrum"};
-	std::string scam_server_name{"192.168.1.254"};
-	int scam_server_port{9000};
 	std::string logconfig{"neumo.xml"};
 	std::string osd_svg{"osd.svg"};
 	std::string devdb{"~/neumo/db/devdb.mdb"};
@@ -52,6 +50,9 @@ struct neumo_options_t {
 	std::string radiobg_svg{"radiobg.svg"};
 	std::string mpvconfig{"mpv"};
 
+	std::string softcam_server{"192.168.2.254"};
+	int softcam_port{9000};
+	bool softcam_enabled{true};
 	devdb::usals_location_t usals_location;
 	bool tune_use_blind_tune{false};
 	bool positioner_dialog_use_blind_tune{false};

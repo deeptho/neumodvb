@@ -144,8 +144,8 @@ int scam_t::connect() {
 	const bool blocking = false;
 	const bool udp = false;
 	auto& options = receiver.receiver.options;
-	auto server = options.readAccess()->scam_server_name;
-	auto port = options.readAccess()->scam_server_port;
+	auto server = options.readAccess()->softcam_server;
+	auto port = options.readAccess()->softcam_port;
 	scam_fd = tcp_connect(server.c_str(), port, blocking, udp);
 	error = (scam_fd < 0);
 	if (!error)

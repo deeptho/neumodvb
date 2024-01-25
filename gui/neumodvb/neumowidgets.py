@@ -315,6 +315,11 @@ class RunType(object):
                 return 'Hourly'
             else:
                 return f"Every {interval} hours"
+        elif run_type == r_t.WEEKLY:
+            if interval==1:
+                return 'Weekly'
+            else:
+                return f"Bi-weekly"
         return enum_to_str(run_type).capitalize()
 
     def str_to_runtype(self, val):

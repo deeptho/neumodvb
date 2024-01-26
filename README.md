@@ -14,8 +14,6 @@ Some of the features include
  * watching encrypted streams using oscam
  * tuning to multi-stream and T2MI streams
  * controlling positioners
-Currently this software is fully functional, but is of alpha quality. It has seen
-very little testing.
 
 **Important** The database schema has changed in a non-backwards compatible way in neumoDVB 1.0.
 As a result, all LNB definitions will be lost and need to be re-entered. Moreover the details of

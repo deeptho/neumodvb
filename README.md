@@ -6,7 +6,7 @@ and simpler cards based on stv091x like tbs5927, on tas2101 like tbs5990 and on 
 Some of the features include
 
  * spectral analysis of satellite bands
- * blindscan (TBS-6909x, TBS-6903x, tbs5927, and incomplete support for tbs5990)
+ * blindscan (TBS-6909x, TBS-6903x, tbs5927, m88rs6060, and incomplete support for tbs5990)
  * scanning muxes
  * scanning satellite bands by blind tuning
  * viewing and recording programs
@@ -14,6 +14,7 @@ Some of the features include
  * watching encrypted streams using oscam
  * tuning to multi-stream and T2MI streams
  * controlling positioners
+ * IQ constellation samples (on most cards)
 
 **Important** The database schema has changed in a non-backwards compatible way in neumoDVB 1.0.
 As a result, all LNB definitions will be lost and need to be re-entered. Moreover the details of

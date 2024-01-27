@@ -1290,6 +1290,8 @@ int dvb_frontend_t::request_positioner_control(const devdb::rf_path_t& rf_path, 
 	auto voltage = SEC_VOLTAGE_18;
 	auto [ret, new_usals_sat_pos ] = this->do_lnb_and_diseqc(sat_pos_none, band, voltage, true /*skip_positioner*/);
 	msleep(30);
+	assert(lnb.k == rf_path.lnb);
+	this->sec_status.diseqc_done(lnb.k, sat_pos_none);
 	if(ret<0) {
 		dterrorf("diseqc failed: err={:d}", ret);
 		return ret;
@@ -1308,7 +1310,7 @@ dvb_frontend_t::lnb_spectrum_scan(
 	dtdebugf("LNB spectrum lnb={} diseqc={}", lnb, conn->tune_string);
 
 	auto sat_pos = tune_options.spectrum_scan_options.sat.sat_pos;
-	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(rf_path, lnb, sat_pos, tune_options);
+
 	{
 		auto x = monitor_thread;
 		assert(!x || !x->must_exit());
@@ -1327,18 +1329,19 @@ dvb_frontend_t::lnb_spectrum_scan(
 	auto band = tune_options.spectrum_scan_options.band_pol.band;
 	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
 	auto voltage = devdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
-
-	if(api_type == api_type_t::NEUMO && api_version >=1500) {
-		auto fefd = ts.readAccess()->fefd;
-		assert(ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
-		if(this->sec_status.set_rf_input(fefd,  (int32_t) rf_path.rf_input) <0) {
+	bool set_rf_input = (api_type == api_type_t::NEUMO && api_version >=1500);
+	assert(!set_rf_input || ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
+	auto fefd = ts.readAccess()->fefd;
+	auto [error, need_diseqc, need_lnb] =
+		this->sec_status.set_rf_path(fefd, rf_path, lnb, sat_pos, tune_options, set_rf_input);
+	if(error) {
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
 			return {-1, sat_pos_none};
-		}
 	}
 	if (need_diseqc) {
 		std::tie(ret, new_usals_pos) =
 			this->do_lnb_and_diseqc(sat_pos, band, voltage, false /*skip_positioner*/);
+		this->sec_status.diseqc_done(lnb.k, sat_pos);
 		dtdebugf("spectrum: do_lnb_and_diseqc done");
 	} else if(need_lnb) {
 		this->do_lnb(band, voltage);
@@ -1482,7 +1485,6 @@ dvb_frontend_t::tune(
 	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);
 	assert(dvbs_mux);
 	auto sat_pos = dvbs_mux->k.sat_pos;
-	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(rf_path, lnb, sat_pos, tune_options);
 	{
 		auto x = monitor_thread;
 		assert(!x || !x->must_exit());
@@ -1501,18 +1503,19 @@ dvb_frontend_t::tune(
 	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
 	auto pol = dvbs_mux->pol;
 	auto voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, pol);
-
-	if(api_type == api_type_t::NEUMO && api_version >=1500) {
-		auto fefd = ts.readAccess()->fefd;
-		assert(ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
-		if(this->sec_status.set_rf_input(fefd,  (int32_t) rf_path.rf_input) <0) {
+	bool set_rf_input = (api_type == api_type_t::NEUMO && api_version >=1500);
+	assert(!set_rf_input || ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
+	auto fefd = ts.readAccess()->fefd;
+	auto [error, need_diseqc, need_lnb] =
+		this->sec_status.set_rf_path(fefd, rf_path, lnb, sat_pos, tune_options, set_rf_input);
+	if(error) {
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
 			return {-1, new_usals_pos};
-		}
 	}
 	if (need_diseqc) {
 		std::tie(ret, new_usals_pos) =
 			this->do_lnb_and_diseqc(sat_pos, band, voltage, false /*skip_positioner*/);
+		this->sec_status.diseqc_done(lnb.k, sat_pos);
 		dtdebugf("tune: do_lnb_and_diseqc done");
 	} else if(need_lnb) {
 		this->do_lnb(band, voltage);
@@ -2114,7 +2117,7 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		assert(0);
 		return -1;
 	}
-	bool must_sleep_extra = (voltage == SEC_VOLTAGE_OFF || voltage  <0 || rf_input < 0);
+	bool must_sleep_extra = (voltage == SEC_VOLTAGE_OFF || voltage <0 || rf_input_changed);
 	if (rf_input_changed) {
 		dtdebugf("Re-applying voltage because RF_INPUT changed: v={:d}", (int) v);
 		rf_input_changed = false; //indicate that we have handled this
@@ -2148,7 +2151,7 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 			dterrorf("problem setting voltage {:d}", voltage);
 			return -1;
 		}
-		dtdebugf("sleeping extra at startup");
+		dtdebugf("sleeping extra at startup: {}ms", sleeptime_ms/3);
 		msleep(sleeptime_ms/3);
 		sleeptime_ms -= sleeptime_ms/3;
 	}
@@ -2168,26 +2171,50 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 	return 1;
 }
 
-int sec_status_t::set_rf_input(int fefd, int rf_input) {
-	if (rf_input < 0) {
+
+int sec_status_t::set_rf_input(int fefd, int new_rf_input) {
+	auto old_rf_input = this->rf_input;
+	if (new_rf_input < 0) {
 		assert(0);
 		return -1;
 	}
-	if (rf_input == this->rf_input) {
-		dtdebugf("No RF_INPUT change needed: rf_input={:d}", rf_input);
+	if (new_rf_input == old_rf_input) {
+		dtdebugf("No RF_INPUT change needed: rf_input={:d}", new_rf_input);
 		return 0;
 	} else {
-		dtdebugf("Changing RF_INPUT from {:d} to {:d}", this->rf_input, rf_input);
+		dtdebugf("Changing RF_INPUT from {:d} to {:d}", old_rf_input, new_rf_input);
 	}
 
-	if ((ioctl(fefd, FE_SET_RF_INPUT, rf_input))) {
+	if ((ioctl(fefd, FE_SET_RF_INPUT, new_rf_input))) {
 		dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
 		this->rf_input = -1;
 		return -1;
 	}
-	this->rf_input = rf_input;
+	this->rf_input = new_rf_input;
 	this->rf_input_changed  = true;
 	return 1;
+}
+
+/*
+	returns triple of bools
+	1: error
+	2: need_diseqc
+	3: need_lnb
+ */
+std::tuple<bool, bool, bool>
+sec_status_t::set_rf_path(int fefd, const devdb::rf_path_t& rf_path,
+													const devdb::lnb_t& lnb, int16_t sat_pos,
+													const subscription_options_t& tune_options, bool set_rf_input) {
+	auto new_rf_input = rf_path.rf_input;
+	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(rf_path, lnb, sat_pos, tune_options);
+
+	if(set_rf_input) {
+		if(this->set_rf_input(fefd,  new_rf_input) <0) {
+			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
+			return {true, false, false};
+		}
+	}
+	return {false, need_diseqc, need_lnb};
 }
 
 /*
@@ -2199,9 +2226,9 @@ int sec_status_t::set_rf_input(int fefd, int rf_input) {
 
 */
 std::tuple<bool,bool>
-dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
+sec_status_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
 																	 int16_t new_sat_pos,  const subscription_options_t& tune_options) {
-	if (!this->sec_status.is_tuned()
+	if (!this->is_tuned()
 			&& tune_options.tune_pars->send_lnb_commands
 		)
 		return {true, true}; // always send diseqc if we were not tuned
@@ -2209,8 +2236,8 @@ dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const de
 		dtdebugf("Preventing diseqc because it is not needed or because rf_path is used more than once");
 		return {false, false};
 	}
-	auto r = this->ts.readAccess();
-	if (new_rf_path != r->reserved_rf_path) {
+	assert(new_rf_path.lnb == new_lnb.k);
+	if (!this->lnb_key || new_lnb.k != *this->lnb_key) {
 		return {true, true};
 	}
 	if (!new_lnb.on_positioner)
@@ -2221,15 +2248,7 @@ dvb_frontend_t::need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const de
 											 conn->rotor_control == devdb::rotor_control_t::ROTOR_MASTER_DISEQC12);
 	if (!active_rotor)
 		return {false, true};
-	auto &lnb = r->reserved_lnb;
-	return {lnb.cur_sat_pos != new_sat_pos, true};
-}
-
-bool dvb_frontend_t::need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb) {
-	if (!this->sec_status.is_tuned())
-		return true; // always send diseqc if we were not tuned
-	auto r = this->ts.readAccess();
-	return (new_lnb.k != r->reserved_lnb.k || new_rf_path != r->reserved_rf_path);
+	return {this->sat_pos != new_sat_pos || new_sat_pos == sat_pos_none, true};
 }
 
 int dvb_frontend_t::do_lnb(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_voltage) {

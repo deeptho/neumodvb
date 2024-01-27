@@ -134,7 +134,7 @@ public:
 };
 
 
-enum class  api_type_t {UNDEFINED, DVBAPI, NEUMO};
+enum class api_type_t {UNDEFINED, DVBAPI, NEUMO};
 
 struct spectrum_scan_t {
 	/*
@@ -212,7 +212,7 @@ public:
 	std::optional<chdb::any_mux_t> received_si_mux; /* mux as received from the SI stream*/
 	bool received_si_mux_is_bad{false}; //true if content is deemed incorrect
 	devdb::lnb_t reserved_lnb; //lnb currently in use
-	devdb::rf_path_t reserved_rf_path; //rf_path currently in use
+	devdb::rf_path_t reserved_rf_path; //rf_path currently reserved
 
 	inline devdb::lnb_connection_t reserved_lnb_connection() const {
 		auto *conn = connection_for_rf_path(reserved_lnb, reserved_rf_path);
@@ -257,10 +257,17 @@ public:
 class sec_status_t {
 	bool tuned{false};
 	int rf_input{-1}; //-1 means unknown or never set
+	std::optional<devdb::lnb_key_t> lnb_key; //set after diseqc has been sent
+	int16_t sat_pos{sat_pos_none}; //set after diseqc has been sent
 	bool rf_input_changed{false}; // true means that rf_input was changed and we have not set voltage yet
+
 	int voltage{-1};  // -1 means unknown or never set
 	int tone{-1};     // -1 means unknown or never set
 	steady_time_t powerup_time; //time when lnb was last powered up (any voltage > 0)
+
+	int set_rf_input(int fefd, int rf_input);
+	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
+																					 int16_t new_sat_pos,  const subscription_options_t& tune_options);
 public:
 	int retune_count{0};
 	bool is_tuned() const {
@@ -273,8 +280,14 @@ public:
 		1: tone was set as wanted
 	 */
 	int set_voltage(int fefd, fe_sec_voltage v);
-	int set_rf_input(int fefd, int rf_input);
-
+	std::tuple<bool, bool, bool>
+	set_rf_path(int fefd, const devdb::rf_path_t& new_rf_path,
+							const devdb::lnb_t& lnb, int16_t sat_pos,
+							const subscription_options_t& tune_options, bool set_rf_input);
+	inline void diseqc_done(const devdb::lnb_key_t& lnb_key, int16_t sat_pos) {
+		this->lnb_key = lnb_key;
+		this->sat_pos = sat_pos;
+	}
 	inline fe_sec_tone_mode get_tone() const {
 		return (fe_sec_tone_mode) tone;
 	}
@@ -351,11 +364,6 @@ private:
 
 	int check_frontend_parameters();
 	uint32_t get_lo_frequency(uint32_t frequency);
-
-	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path,
-																					 const devdb::lnb_t& new_lnb, int16_t new_sat_pos,
-																					 const subscription_options_t& tune_options);
-	bool need_diseqc(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb);
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
 

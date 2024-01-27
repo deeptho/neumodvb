@@ -105,11 +105,11 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 	return (int) ret;
 }
 
-int subscriber_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
+int subscriber_t::scan_spectral_peaks(const devdb::rf_path_t& rf_path, ss::vector_<chdb::spectral_peak_t>& peaks,
 																			const statdb::spectrum_key_t& spectrum_key) {
 	set_scanning(true);
 	auto ssptr = this->shared_from_this();
-	auto ret = receiver->scan_spectral_peaks(peaks, spectrum_key, ssptr);
+	auto ret = receiver->scan_spectral_peaks(rf_path, peaks, spectrum_key, ssptr);
 	assert (ret==get_subscription_id());
 	return (int)ret;
 }

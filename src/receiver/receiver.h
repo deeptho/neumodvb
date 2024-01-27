@@ -372,6 +372,7 @@ private:
 															 ssptr_t ssptr);
 
 	subscription_id_t scan_spectral_peaks(std::vector<task_queue_t::future_t>& futures,
+																				const devdb::rf_path_t& rf_path,
 																				ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key,
 																				bool scan_found_muxes, int max_num_subscriptions,
@@ -437,7 +438,7 @@ public:
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const subscription_options_t& tune_options,
 															 ssptr_t ssptr);
 
-	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
+	subscription_id_t scan_spectral_peaks(const devdb::rf_path_t& rf_path, ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key,
 																				ssptr_t scan_ssptr);
 	subscription_id_t scan_bands(const ss::vector_<chdb::sat_t>& sats,
@@ -546,8 +547,9 @@ public:
 		return subscribe_lnb_and_mux(rf_path, lnb, mux, blindscan, pls_search_range_t{},  retune_mode, ssptr);
 	}
 
-	subscription_id_t scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
-													const statdb::spectrum_key_t& spectrum_key, ssptr_t scan_ssptr);
+	subscription_id_t scan_spectral_peaks(const devdb::rf_path_t& rf_path,
+																				ss::vector_<chdb::spectral_peak_t>& peaks,
+																				const statdb::spectrum_key_t& spectrum_key, ssptr_t scan_ssptr);
 
 	template<typename _mux_t>
 	subscription_id_t scan_muxes(ss::vector_<_mux_t>& muxes, const subscription_options_t& tune_options,

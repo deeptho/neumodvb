@@ -564,7 +564,7 @@ subscription_id_t receiver_thread_t::cb_t::scan_muxes(ss::vector_<mux_t>& muxes,
 }
 
 subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
-	ss::vector_<chdb::spectral_peak_t>& peaks,
+	const devdb::rf_path_t& rf_path, 	ss::vector_<chdb::spectral_peak_t>& peaks,
 	const statdb::spectrum_key_t& spectrum_key, ssptr_t ssptr)
 {
 	auto s = fmt::format("SCAN[{}] {} peaks", ssptr, (int) peaks.size());
@@ -579,9 +579,9 @@ subscription_id_t receiver_thread_t::cb_t::scan_spectral_peaks(
 	}
 	bool scan_newly_found_muxes = true;
 	int max_num_subscriptions = 100;
-	auto ret = this->receiver_thread_t::scan_spectral_peaks(futures, peaks, spectrum_key,
-																																 scan_newly_found_muxes,
-																																 max_num_subscriptions, ssptr);
+	auto ret = this->receiver_thread_t::scan_spectral_peaks(futures, rf_path, peaks, spectrum_key,
+																													scan_newly_found_muxes,
+																													max_num_subscriptions, ssptr);
 	error = wait_for_all(futures);
 	if (error) {
 		dterrorf("Unhandled error in scan_mux");
@@ -1043,14 +1043,15 @@ subscription_id_t receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes,
 	return ret;
 }
 
-subscription_id_t receiver_t::scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
-																			const statdb::spectrum_key_t& spectrum_key,
-																		ssptr_t ssptr) {
+subscription_id_t receiver_t::scan_spectral_peaks(const devdb::rf_path_t& rf_path,
+																									ss::vector_<chdb::spectral_peak_t>& peaks,
+																									const statdb::spectrum_key_t& spectrum_key,
+																									ssptr_t ssptr) {
 	std::vector<task_queue_t::future_t> futures;
 	subscription_id_t ret{-1};
 	//call by reference ok because of subsequent wait_for_all
-	futures.push_back(receiver_thread.push_task([this, &peaks, &spectrum_key, &ret, &ssptr]() {
-		ret = cb(receiver_thread).scan_spectral_peaks(peaks, spectrum_key, ssptr);
+	futures.push_back(receiver_thread.push_task([this, &rf_path, &peaks, &spectrum_key, &ret, &ssptr]() {
+		ret = cb(receiver_thread).scan_spectral_peaks(rf_path, peaks, spectrum_key, ssptr);
 		return 0;
 	}));
 	wait_for_all(futures); //essential because muxes passed by reference
@@ -1821,6 +1822,7 @@ bool receiver_thread_t::unsubscribe_scan(std::vector<task_queue_t::future_t>& fu
 */
 subscription_id_t
 receiver_thread_t::scan_spectral_peaks(std::vector<task_queue_t::future_t>& futures,
+																			 const devdb::rf_path_t& rf_path,
 																			 ss::vector_<chdb::spectral_peak_t>& peaks,
 																			 const statdb::spectrum_key_t& spectrum_key,
 																			 bool scan_found_muxes, int max_num_subscriptions,
@@ -1838,7 +1840,7 @@ receiver_thread_t::scan_spectral_peaks(std::vector<task_queue_t::future_t>& futu
 		scan_ssptr->set_subscription_id(subscription_id);
 	}
 
-	scanner->add_spectral_peaks(spectrum_key, peaks, scan_ssptr);
+	scanner->add_spectral_peaks(rf_path, spectrum_key, peaks, scan_ssptr);
 	bool remove_scanner = scanner->housekeeping(true); // start initial scan
 	if(remove_scanner) {
 		reset_scanner();

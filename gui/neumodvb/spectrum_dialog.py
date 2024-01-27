@@ -318,7 +318,7 @@ class SpectrumDialog(SpectrumDialog_):
                 k.rf_path.lnb = lnb.k # in case user has overridden
                 newkey = self.spectrum_plot.make_key(spectrum.spectrum)
                 new_entries.append((newkey,  spectrum))
-            subscriber.scan_spectral_peaks(k, spectrum.peak_data[:,0], spectrum.peak_data[:,1])
+            subscriber.scan_spectral_peaks(self.rf_path, k, spectrum.peak_data[:,0], spectrum.peak_data[:,1])
         for key, spectrum in new_entries:
             self.spectrum_plot.spectra[key] = spectrum
     def OnSelectMux(self, tp):

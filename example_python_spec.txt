@@ -1,0 +1,83 @@
+%global debug_package %{nil}
+%define _build_id_links none
+
+Name:           displaycal
+Version:        3.9.10
+Release:        %{?dist}
+Summary:        DisplayCal
+Provides:       displaycal
+License:        GPLv2
+URL:            https://github.com/eoyilmaz/displaycal-py3
+Source0:        displaycal.tar.gz
+Requires:       argyllcms
+Requires:       python39
+
+AutoReqProv: no
+
+%description
+DisplayCal
+
+%prep
+
+%setup -Tcn displaycal
+tar -xvf %{SOURCE0}
+
+%build
+cd displaycal-py3
+
+# Create virtualenv
+virtualenv-3 -p python3.9 displaycal
+source displaycal/bin/activate
+# install missing dependencies
+pip install -U virtualenv attrdict
+
+# Install requirements
+pip install -r requirements.txt
+# Build displaycal
+python -m build
+# Install displaycal
+pip install dist/DisplayCAL-*.whl
+
+# Virtualenv clean-up
+virtualenv-3 -p python3.9 --relocatable --distribute displaycal
+find displaycal/ -name __pycache__ -type d -prune -exec rm -rfv '{}' +
+find displaycal/ -name '*.py[oc]' -delete
+find displaycal/bin \( -name 'pip*' -o -name 'easy_install*' -o -name 'python-config*' \) -exec rm -fv '{}' ';' || :
+find displaycal/lib/python3.9/site-packages \( -name 'pip*' -o -name 'easy_install*' \) -exec rm -rfv '{}' ';' || :
+rm -f \
+        displaycal/bin/activate      \
+        displaycal/bin/activate.csh  \
+        displaycal/bin/activate.fish
+
+# Additional fixes
+sed -i 's|#! /usr/bin/env python|#!/usr/bin/env python3.9|' displaycal/lib/python3.9/site-packages/google/protobuf/internal/_parameterized.py
+
+%install
+cd displaycal-py3
+install -d $RPM_BUILD_ROOT/mnt/nvme/opt
+cp -a displaycal $RPM_BUILD_ROOT/mnt/nvme/opt/
+install -d $RPM_BUILD_ROOT/mnt/nvme/opt/share
+mv \
+        $RPM_BUILD_ROOT/mnt/nvme/opt/displaycal/share/applications \
+        $RPM_BUILD_ROOT/mnt/nvme/opt/displaycal/share/icons        \
+        $RPM_BUILD_ROOT/mnt/nvme/opt/displaycal/share/man          \
+        $RPM_BUILD_ROOT/mnt/nvme/opt/share/
+mv $RPM_BUILD_ROOT/mnt/nvme/opt/displaycal/share $RPM_BUILD_ROOT/mnt/nvme/opt/displaycal/lib/python3.9/site-packages/
+install -d $RPM_BUILD_ROOT/mnt/nvme/opt/bin
+pushd $RPM_BUILD_ROOT/mnt/nvme/opt/bin
+for bin in $( find ../displaycal/bin -name 'displaycal*' ); do
+    ln -s "$bin" "$( basename $bin )"
+done
+
+%clean
+rm -rf %{buildroot}
+
+%files
+%defattr(-,root,root,-)
+/mnt/nvme/opt/displaycal/*
+/mnt/nvme/opt/share/*
+/mnt/nvme/opt/bin/displaycal*
+
+%changelog
+* Fri Jan 27 2023 Petr Hadraba <hadrabap@gmail.com> - 3.9.10
+- Initial SPEC file

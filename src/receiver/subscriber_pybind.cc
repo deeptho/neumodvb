@@ -138,8 +138,10 @@ void export_pls_search_range(py::module& m) {
 		;
 }
 
-static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_key_t& spectrum_key,
-																			py::array_t<float> peak_freq, py::array_t<float> peak_sr) {
+static int scan_spectral_peaks(subscriber_t& subscriber,
+															 const devdb::rf_path_t& rf_path,
+															 const statdb::spectrum_key_t& spectrum_key,
+															 py::array_t<float> peak_freq, py::array_t<float> peak_sr) {
 	py::buffer_info infofreq = peak_freq.request();
 	if (infofreq.ndim != 1)
 		throw std::runtime_error("Bad number of dimensions");
@@ -158,7 +160,7 @@ static int scan_spectral_peaks(subscriber_t& subscriber, const statdb::spectrum_
 		peaks.push_back(chdb::spectral_peak_t{(uint32_t) (pfreq[i]*1000), (uint32_t) psr[i],
 				spectrum_key.pol});
 	}
-	auto subscription_id = subscriber.scan_spectral_peaks(peaks, spectrum_key);
+	auto subscription_id = subscriber.scan_spectral_peaks(rf_path, peaks, spectrum_key);
 	return subscription_id;
 }
 
@@ -293,6 +295,7 @@ void export_subscriber(py::module& m) {
 				 , py::arg("retune_mode"))
 		.def("scan_spectral_peaks", &scan_spectral_peaks,
 				 "scan peaks in the spectrum all at once",
+				 py::arg("rf_path"),
 				 py::arg("spectrum_key"), py::arg("peak_freq"), py::arg("peak_sr")
 			)
 		.def("scan_muxes", &scan_muxes<chdb::dvbs_mux_t>, "scan muxes"

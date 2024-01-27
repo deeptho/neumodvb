@@ -199,7 +199,7 @@ public:
 												const std::optional<devdb::tune_options_t>& tune_options,
 												const devdb::band_scan_options_t& band_scan_options);
 
-	EXPORT int scan_spectral_peaks(ss::vector_<chdb::spectral_peak_t>& peaks,
+	EXPORT int scan_spectral_peaks(const devdb::rf_path_t& rf_path, ss::vector_<chdb::spectral_peak_t>& peaks,
 																				const statdb::spectrum_key_t& spectrum_key);
 
 	template<typename mux_t>

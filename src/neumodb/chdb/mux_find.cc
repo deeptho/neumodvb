@@ -261,8 +261,9 @@ db_tcursor_index<chdb::dvbs_mux_t> chdb::find_by_mux_fuzzy(db_txn& txn, const ch
 			break;
 		if (sat.sat_pos == mux.k.sat_pos)
 			continue; //already tried
-		dtdebugf("found sat_pos: {:d}\n", sat.sat_pos);
-		auto c = find_by_mux_fuzzy_helper(txn, mux, ignore_stream_id, ignore_t2mi_pid);
+		auto m = mux;
+		m.k.sat_pos = sat.sat_pos;
+		auto c = find_by_mux_fuzzy_helper(txn, m, ignore_stream_id, ignore_t2mi_pid);
 		if (c.is_valid())
 			return c;
 	}

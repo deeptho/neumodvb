@@ -2267,10 +2267,16 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 	for (auto& epg_record : epg.epg_records) {
 		// assert(!epg.is_sky || p_mux_key->mux_key.network_id == epg_record.k.service.network_id);
 		// assert(!epg.is_sky || p_mux_key->mux_key.ts_id == epg_record.k.service.ts_id);
-		assert(epg.is_sky || epg.is_mhw2 ||
-					 (epg_record.k.service.network_id == service->k.network_id &&
-						epg_record.k.service.ts_id == service->k.ts_id &&
-						epg_record.k.service.service_id == service->k.service_id));
+		if(!(epg.is_sky || epg.is_mhw2)) {
+			if(epg_record.k.service.network_id != service->k.network_id)
+				dtdebug_nicef("Unexpected: network_id differs: {} and {}", epg_record.k.service.network_id,
+											service->k.network_id);
+			if(epg_record.k.service.ts_id != service->k.ts_id)
+				dtdebug_nicef("Unexpected: ts_id differs: {} and {}", epg_record.k.service.ts_id,
+											service->k.ts_id);
+			assert(epg_record.k.service.service_id == service->k.service_id);
+		}
+
 		epg_record.service_name = service->name;
 		epg_record.k.service = epg.service_key;
 		epg_record.source = epg_source;

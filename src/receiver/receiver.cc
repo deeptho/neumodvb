@@ -421,8 +421,9 @@ void receiver_t::on_scan_mux_end(const devdb::fe_t& finished_fe,
 		receiver_thread.push_task([&receiver_thread, finished_fe, finished_mux,
 															 scan_id, subscription_id]() {
 			auto ssptr = receiver_thread.receiver.get_ssptr(subscription_id);
-			cb(receiver_thread).send_scan_mux_end_to_scanner(finished_fe, finished_mux,
-																											 scan_id, ssptr);
+			if(ssptr)
+				cb(receiver_thread).send_scan_mux_end_to_scanner(finished_fe, finished_mux,
+																												 scan_id, ssptr);
 			return 0;
 		});
 	}

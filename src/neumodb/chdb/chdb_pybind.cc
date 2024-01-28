@@ -55,6 +55,25 @@ static void export_mux_extra(py::module& m) {
 	mm.def("make_unique_if_template", make_unique_if_template<dvbs_mux_t>,
 				 "Make the key of this mux unique, but only if network_id==mux_id==extra_id==0")
 		.def("list_distinct_sats", chdb::dvbs_mux::list_distinct_sats, "List distinct sat_pos of all muxes")
+		.def("find_by_sat_pos_freq_pol_fuzzy",
+				 [](db_txn& txn, int16_t sat_pos, int frequency, chdb::fe_polarisation_t pol, int stream_id, int t2mi_pid)
+				 -> std::optional<chdb::dvbs_mux_t> {
+					 using namespace chdb;
+					 dvbs_mux_t mux;
+					 mux.k.sat_pos = sat_pos;
+					 mux.frequency = frequency;
+					 mux.k.stream_id = stream_id;
+					 mux.k.t2mi_pid = t2mi_pid;
+					 mux.pol = pol;
+					 auto c = find_by_mux_fuzzy(txn, mux, false /*ignore_stream_id*/, false /*ignore_t2mi_pid*/);
+					 if(c.is_valid())
+						 return record_at_cursor<dvbs_mux_t, decltype(c)>(c);
+					 else
+						 return {};
+				 },
+				 "Find a mux by sat_pos, frequency and pol, allowing small differences in frequency and sat_pos",
+				 py::arg("chdb_rtxn"), py::arg("sat_pos"), py::arg("frequency"), py::arg("pol"),
+				 py::arg("stream_id")=-1, py::arg("t2mi_pid") = -1)
 		;
 
 	py::reinterpret_borrow<py::module>(m.attr("dvbc_mux"))

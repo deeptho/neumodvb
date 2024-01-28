@@ -163,7 +163,7 @@ Therefore the packages listed for older Ubuntu versions may be ok.
 
 Found by trial and error: Also install
 ```
-sudo  apt install -y clang-16 clang-tools-16 libclang-16-dev libclang-cpp16 \
+sudo  apt install -y clang-16 clang-tools-16 clang-format libclang-16-dev libclang-cpp16 \
     libstdc++-13-dev libwxgtk3.0-gtk3-dev libgtk-3-dev libwxgtk3.2-dev \
     python3-packaging libwxgtk3.2-dev libwxgtk3.2-1  python3-sip-dev \
     python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density

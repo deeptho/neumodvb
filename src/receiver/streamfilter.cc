@@ -236,7 +236,7 @@ template <typename... Args> int stream_filter_t::start_command(int stream_fd, co
 		::exit(-1);
 
 	case 0: /* Child */
-		/*rename filedesriptors to standard ones so that the external command can read from fd=0
+		/*rename file descriptors to standard ones so that the external command can read from fd=0
 			and write to fd=1*/
 		if (dup2(stream_fd, STDIN_FILENO) < 0 || dup2(childToParent[WRITE_FD], STDOUT_FILENO) < 0 ||
 				::close(childToParent[READ_FD]) != 0) {

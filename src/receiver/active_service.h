@@ -22,7 +22,6 @@
 #include "stackstring.h"
 #include "active_stream.h"
 #include "receiver.h"
-#include "reservation.h"
 #include "mpm.h"
 #include <functional>
 
@@ -78,8 +77,6 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 	}
 
 	playback_info_t get_current_program_info() const;
-
-	thread_private_t<service_reservation_t> reservation{"service"};
 	service_thread_t service_thread;
 private:
 	int channel_status=0; //composed of bitflags channel_status_t

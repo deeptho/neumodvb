@@ -1052,17 +1052,12 @@ std::shared_ptr<active_service_t>
 active_adapter_t::tune_service_in_use(const subscribe_ret_t& sret,
 																			const chdb::service_t& service) {
 	for (auto& [subscription_id, active_servicep] : this->subscribed_active_services) {
-		auto& reservation = *active_servicep->reservation();
-		if (reservation.is_same_service(service)) {
-			/* The service is already subscribed
-				 Unsubscribe_ our old mux and service (if any)
-			*/
-			// place an additional reservation, so that the service will remain tuned if other subscriptions release it
-			reservation.reserve_current_service(service);
-			subscribed_active_services[sret.subscription_id] = active_servicep;
-			dtdebugf("[{}] sub={}: reusing existing service", service, (int) sret.subscription_id);
-			return active_servicep;
-		}
+		/* The service is already subscribed
+			 Unsubscribe_ our old mux and service (if any)
+		*/
+		subscribed_active_services[sret.subscription_id] = active_servicep;
+		dtdebugf("[{}] sub={}: reusing existing service", service, (int) sret.subscription_id);
+		return active_servicep;
 	}
 	return nullptr;
 }
@@ -1093,11 +1088,7 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 		: this->make_dvb_stream_reader();
 	active_service_ptr = std::make_shared<active_service_t>(receiver, *this, service, std::move(reader));
 	log4cxx::NDC::pop();
-	auto& active_service = *active_service_ptr;
-
 	// remember that this service is now in use (for future planning and for later unsubscription)
-	active_service.reservation()->reserve_service(*this, service);
-	dtdebugf("ACTIVE SERVICE reserved");
 
 	add_service(sret.subscription_id, *active_service_ptr);
 	return active_service_ptr;

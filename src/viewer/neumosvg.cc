@@ -29,7 +29,6 @@
 #include "receiver/active_service.h"
 #include "receiver/devmanager.h"
 #include "receiver/receiver.h"
-#include "receiver/reservation.h"
 #include "stackstring.h"
 #include "util/logger.h"
 #include <cairo/cairo.h>

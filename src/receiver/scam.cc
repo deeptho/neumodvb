@@ -740,10 +740,10 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 	filter_string.format("filter=");
 	mask_string.format("mask=");
 	for (auto x : filter.dmx_filter.filter)
-		filter_string.format("%02x ", x);
+		filter_string.format("{:02x} ", x);
 	int n = 0;
 	for (auto x : filter.dmx_filter.mask) {
-		mask_string.format("%02x ", x);
+		mask_string.format("{:02x} ", x);
 		if (x != 0)
 			n = mask_string.size();
 	}

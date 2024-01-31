@@ -524,7 +524,7 @@ int playback_mpm_t::open_file_containing_time(db_txn& idxdb_txn, milliseconds_t 
 		}
 		// open the file, setting fd>=0 on success, otherwise -1
 		for (; fd < 0;) {
-			dtdebugf("Opening {{", current_filename);
+			dtdebugf("Opening {}", current_filename);
 			fd = ::open(current_filename.c_str(), O_RDONLY);
 			if (fd < 0) {
 				if (errno == EINTR)

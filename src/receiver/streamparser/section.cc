@@ -2205,7 +2205,7 @@ extern const char* lang_name(const char* code);
 auto fmt::formatter<dtdemux::pid_info_t>::format(const dtdemux::pid_info_t& info, format_context& ctx) const
 -> format_context::iterator
 {
-	auto ret = fmt::format_to(ctx.out(), "PID[%0x] type=0x{:x} ", info.stream_pid, (int)info.stream_type);
+	auto ret = fmt::format_to(ctx.out(), "PID[{:0x}] type=0x{:x} ", info.stream_pid, (int)info.stream_type);
 	if (info.audio_lang.lang_code[0] != 0)
 		ret = fmt::format_to(ctx.out(), " lang={:s} {:s}", &info.audio_lang.lang_code[0],
 									 lang_name(&info.audio_lang.lang_code[0]));

@@ -30,7 +30,7 @@ FetchContent_Declare(fmt
   )
 
 execute_process(COMMAND  lsb_release  -c -s OUTPUT_VARIABLE RELEASE)
-string(STRIP ${RELEASE} RELEASE)
+string(STRIP "${RELEASE}" RELEASE)
 message(STATUS "xxx=/${RELEASE}/")
 if ("${RELEASE}" STREQUAL "focal")
   message(STATUS "Ancient Unbuntu detected - install clang-14 first!!!")

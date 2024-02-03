@@ -105,6 +105,8 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 
 ## Other Documentation ##
 
+### [Changing options](docs/options.md) ###
+
 ### [Frontend configuration](docs/frontends.md) ###
 
 ### [LNB configuration](docs/lnbs.md) ###

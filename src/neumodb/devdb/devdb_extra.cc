@@ -30,21 +30,31 @@
 
 using namespace devdb;
 
+static inline int get_id(const devdb::scan_command_t& scan_command) {
+	return scan_command.id;
+}
 
-int16_t devdb::make_unique_id(db_txn& txn, const scan_command_t& scan_command) {
-	auto c = find_first<scan_command_t>(txn);
+static inline int get_id(const devdb::stream_t& stream) {
+	return stream.stream_id;
+}
+
+static inline int get_id(const devdb::lnb_t& lnb) {
+	return lnb.k.lnb_id;
+}
+
+template<typename cursor_t, typename T> static int make_unique_id_helper(cursor_t& c) {
 	int gap_start = 1; // start of a potential gap of unused extra_ids
-	for (const auto& cmd : c.range()) {
-		if (cmd.id > gap_start) {
-			return cmd.id - 1;
+	for (const auto& rec : c.range()) {
+		if (get_id(rec) > gap_start) {
+			return get_id(rec) - 1;
 		} else {
 			// check for a gap in the numbers
-			gap_start = cmd.id + 1;
+			gap_start = get_id(rec) + 1;
 			assert(gap_start > 0);
 		}
 	}
-
-	if (gap_start >= std::numeric_limits<decltype(scan_command.id)>::max()) {
+	const T *rec;
+	if (gap_start >= std::numeric_limits<decltype(get_id(*rec))>::max()) {
 		// all ids exhausted
 		// The following is very unlikely. We prefer to cause a result on a
 		// single mux rather than throwing an error
@@ -55,7 +65,7 @@ int16_t devdb::make_unique_id(db_txn& txn, const scan_command_t& scan_command) {
 	return gap_start;
 }
 
-
+#if 0
 template <typename cursor_t> static int16_t make_unique_id(lnb_key_t key, cursor_t& c) {
 	key.lnb_id = 0;
 	int gap_start = 1; // start of a potential gap of unused extra_ids
@@ -83,12 +93,27 @@ template <typename cursor_t> static int16_t make_unique_id(lnb_key_t key, cursor
 	}
 
 	// we reach here if this is the very first mux with this key
-	return std::numeric_limits<decltype(key.lnb_id)>::max(); // highest possible value
+	return gap_start;
+}
+#endif
+
+int16_t devdb::make_unique_id(db_txn& devdb_rtxn, const devdb::lnb_key_t& key) {
+	auto c = devdb::lnb_t::find_by_key(devdb_rtxn, key.dish_id, find_geq);
+#if 0
+	return ::make_unique_id(key, c);
+#else
+	return ::make_unique_id_helper<decltype(c), devdb::lnb_t>(c);
+#endif
 }
 
-int16_t devdb::make_unique_id(db_txn& devdb_rtxn, lnb_key_t key) {
-	auto c = devdb::lnb_t::find_by_key(devdb_rtxn, key.dish_id, find_geq);
-	return ::make_unique_id(key, c);
+int16_t devdb::make_unique_id(db_txn& devdb_rtxn, const devdb::scan_command_t& scan_command) {
+	auto c = find_first<devdb::scan_command_t>(devdb_rtxn);
+	return ::make_unique_id_helper<decltype(c), devdb::scan_command_t>(c);
+}
+
+int16_t devdb::make_unique_id(db_txn& devdb_rtxn, const devdb::stream_t& stream) {
+	auto c = find_first<devdb::stream_t>(devdb_rtxn);
+	return ::make_unique_id_helper<decltype(c), devdb::stream_t>(c);
 }
 
 static inline const char* lnb_type_str(const lnb_key_t& lnb_key) {

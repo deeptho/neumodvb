@@ -295,6 +295,28 @@ class ScanTypeChoice(wx.Choice):
         choice = self.values[idx]
         return choice
 
+class StreamStateChoice(wx.Choice):
+    def __init__(self, id,  *args, **kwargs):
+        from neumodvb import neumodbutils
+        import pydevdb
+        s_t = pydevdb.stream_state_t
+        self.choices = [ 'Off', 'On', 'Always on']
+        self.values = [ s_t.OFF, s_t.ON]
+        kwargs['choices'] = self.choices
+        super().__init__(id, *args, **kwargs)
+
+    def SetValue(self, subscription_type):
+        from neumodvb import neumodbutils
+        idx = self.values.index(subscription_type)
+        self.SetSelection(idx)
+
+    def GetValue(self):
+        from neumodvb import neumodbutils
+        import pydevdb
+        idx = self.GetCurrentSelection()
+        choice = self.values[idx]
+        return choice
+
 class RunType(object):
     def __init__(self):
         from neumodvb import neumodbutils

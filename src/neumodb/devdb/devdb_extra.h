@@ -38,10 +38,6 @@ unconvertable_int(int64_t, card_mac_address_t);
 unconvertable_int(int, adapter_no_t);
 unconvertable_int(int, frontend_no_t);
 
-namespace devdb {
-	using namespace devdb;
-}
-
 namespace devdb::dish {
 	devdb::dish_t get_dish(db_txn& devdb_wtxn, int dish_id);
 	devdb::dish_t schedule_move(db_txn& devdb_wtxn, devdb::lnb_t& lnb_,
@@ -56,6 +52,9 @@ namespace devdb::dish {
 
 
 namespace devdb {
+	int16_t make_unique_id(db_txn& txn, const devdb::lnb_key_t& key);
+	int16_t make_unique_id(db_txn& txn, const devdb::scan_command_t& scan_command);
+	int16_t make_unique_id(db_txn& txn, const devdb::stream_t& streamer);
 
 	devdb::lnb_t lnb_for_lnb_id(db_txn& devdb_rtxn, int8_t dish_id, int16_t lnb_id);
 

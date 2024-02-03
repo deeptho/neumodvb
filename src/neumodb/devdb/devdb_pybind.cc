@@ -117,6 +117,14 @@ static void export_scan_command_extra(py::module& m) {
 		;
 }
 
+static void export_stream_extra(py::module& m) {
+	auto mm = py::reinterpret_borrow<py::module>(m.attr("stream"));
+	using namespace devdb;
+	mm.def("make_unique_if_template", stream::make_unique_if_template,
+				 "Make the key of this stream_t unique, but only if id<0")
+		;
+}
+
 static std::tuple<bool, std::optional<std::string>>
 lnb_can_tune_to_mux_helper(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, bool disregard_networks) {
 	ss::string<128> error;
@@ -152,6 +160,7 @@ PYBIND11_MODULE(pydevdb, m) {
 	devdb::export_structs(m);
 	export_lnb_extra(m);
 	export_scan_command_extra(m);
+	export_stream_extra(m);
 	export_dish_extra(m);
 	export_subscribe_options(m);
 	m.attr("__version__") = version_info();

@@ -572,6 +572,15 @@ run_result = db_enum(name='run_result_t',
                    ))
 
 
+stream_state = db_enum(name='stream_state_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=('OFF',
+                           'ON'    #running
+                   ))
+
 
 tune_options = db_struct(name ='tune_options',
     fname = 'options',
@@ -670,3 +679,24 @@ scan_command = db_struct(
               (22, 'scan_stats_t', 'scan_stats'), #subscription_id of recording in progress
 
               ))
+
+stream = db_struct(name='stream',
+               fname = 'fedev',
+               db = db,
+               type_id= lord('st'),
+               version = 1,
+               primary_key = ('key', ('stream_id',)),
+               fields = (
+                   (1, 'int32_t', 'stream_id', '-1'), #unique identifier
+                   (2, 'stream_state_t', 'stream_state', 'stream_state_t::ON'),
+                   (3, 'std::variant<chdb::dvbs_mux_t,chdb::dvbc_mux_t, chdb::dvbt_mux_t, chdb::service_t>',
+                    'content'),
+                   (4, 'ss::string<32>', 'dest_host', '"127.0.0.1"'),
+                   (5, 'int32_t', 'dest_port', "9999"),
+                   (6, 'int32_t', 'subscription_id', '-1'), #subscription_id when active
+                   (9, 'int32_t', 'stream_pid', -1), #pid of the process executing the stream or -1
+                   (7, 'int32_t', 'user_id', '0'),
+                   (8, 'time_t', 'mtime'),
+                   (12, 'bool', 'autostart', 'false'), #start when neumoDVB is started
+                   (10, 'bool', 'preserve', 'true') #remove when stopped
+               ))

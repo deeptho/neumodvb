@@ -44,15 +44,20 @@ class StreamParameters(StreamParameters_):
     def Prepare(self):
         self.host_name.SetValue(self.stream.dest_host)
         self.port.SetValue(int(self.stream.dest_port))
-        self.stream_state.SetValue(self.stream.stream_state)
+        self.stream_state_choice.SetValue(self.stream.stream_state)
 
     def CheckCancel(self, event):
         event.Skip()
 
-    def set_stream_state(self, stream_state):
-        self.stream.stream_state = stream_state
+
+    def get_stream_state(self):
+        return self.stream.stream_state
 
     def OnDone(self):
+        self.stream.stream_state = self.stream_state_choice.GetValue()
+        self.stream.dest_host = self.host_name.GetValue()
+        self.stream.dest_port = int(self.port.GetValue())
+    #    pass
 
 class StreamDialog_(StreamDialog_):
 
@@ -66,23 +71,15 @@ class StreamDialog_(StreamDialog_):
 
     def Prepare(self):
         t = self.stream.stream_state
-        self.stream_state_choice.SetValue(t)
+        self.stream_parameters_panel.stream_state_choice.SetValue(t)
         self.stream_parameters_panel.Prepare()
         self.SetSizerAndFit(self.main_sizer)
-
-    def get_stream_state_choice(self):
-        self.stream.stream_state = self.stream_state_choice.GetValue()
-        return self.stream.stream_state
-
-    def OnStreamTypeChoice(self, evt=None):
-        stream_state = self.get_stream_state_choice()
-        self.stream_parameters_panel.set_stream_state(stream_state)
 
     def OnCancel(self):
         dtdebug("OnCancel")
 
     def OnDone(self):
-        self.stream.stream_state = self.get_stream_state_choice()
+        #self.stream.stream_state = self.get_stream_state_choice()
         self.stream_parameters_panel.OnDone()
         return self.stream
 
@@ -100,13 +97,13 @@ def show_stream_dialog(parent, title='Stream service', service = None,
     """
     stream = pydevdb.stream.stream()
     if service is not None:
-        stream.servyce = service
+        stream.content = service
     if dvbs_mux is not None:
-        stream.dvbs_mux = dvbs_mux
+        stream.content = dvbs_mux
     if dvbc_mux is not None:
-        stream.dvbc_mux = dvbc_mux
+        stream.content = dvbc_mux
     if dvbt_mux is not None:
-        stream.dvbt_mux = dvbt_mux
+        stream.content = dvbt_mux
 
 
     dlg = StreamDialog(parent.GetParent(), title, stream = stream)

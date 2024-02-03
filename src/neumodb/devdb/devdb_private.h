@@ -35,9 +35,6 @@ namespace devdb {
 
 	using namespace devdb;
 
-	int16_t make_unique_id(db_txn& txn, devdb::lnb_key_t key);
-	int16_t make_unique_id(db_txn& txn, const scan_command_t& key);
-
 	namespace lnb {
 		inline void make_unique_if_template(db_txn& rtxn, lnb_t& lnb ) {
 			if(lnb.k.lnb_id<0)
@@ -49,6 +46,13 @@ namespace devdb {
 		inline void make_unique_if_template(db_txn& wtxn, scan_command_t& scan_command) {
 			if(scan_command.id<0)
 				scan_command.id = devdb::make_unique_id(wtxn, (const scan_command_t&) scan_command);
+		}
+	};
+
+	namespace stream {
+		inline void make_unique_if_template(db_txn& wtxn, stream_t& stream) {
+			if(stream.stream_id<0)
+				stream.stream_id = devdb::make_unique_id(wtxn, (const stream_t&) stream);
 		}
 	};
 };

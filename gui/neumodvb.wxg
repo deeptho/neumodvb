@@ -122,6 +122,34 @@
                 </object>
             </object>
             <object class="sizeritem">
+              <option>1</option>
+                <border>0</border>
+                <flag>wxEXPAND|wxFIXED_MINSIZE</flag>
+                <object class="wxPanel" name="streamlist_panel" base="EditPanel">
+                    <hidden>1</hidden>
+                    <style>wxCLIP_CHILDREN</style>
+                    <object class="wxBoxSizer" name="sizer_31" base="EditBoxSizer">
+                        <orient>wxHORIZONTAL</orient>
+                        <object class="sizeritem">
+                            <option>1</option>
+                            <border>0</border>
+                            <flag>wxALL|wxEXPAND|wxFIXED_MINSIZE</flag>
+                            <object class="StreamGrid" name="streamgrid" base="EditGrid">
+                                <extracode>from neumodvb.streamlist import StreamGrid\n</extracode>
+                                <create_grid>0</create_grid>
+                                <rows_number>0</rows_number>
+                                <enable_editing>1</enable_editing>
+                                <enable_grid_lines>1</enable_grid_lines>
+                                <enable_col_resize>1</enable_col_resize>
+                                <enable_row_resize>1</enable_row_resize>
+                                <enable_grid_resize>1</enable_grid_resize>
+                                <selection_mode>wxGrid.wxGridSelectCells</selection_mode>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+            </object>
+            <object class="sizeritem">
                 <option>1</option>
                 <border>0</border>
                 <flag>wxEXPAND|wxFIXED_MINSIZE</flag>

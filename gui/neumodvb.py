@@ -76,14 +76,12 @@ class neumoMainFrame(mainFrame):
         self.bouquet_being_edited = None
         self.command_being_edited = None
         self.panel_names = [ 'servicelist', 'chgmlist',
-                            'chepg', 'live',
-                            'dvbs_muxlist', 'dvbc_muxlist', 'dvbt_muxlist',
-                            'lnblist', 'chglist',
-                            'satlist', 'frontendlist', 'statuslist',
-                            'mosaic',
-                            'reclist', 'autoreclist', 'spectrumlist',
+                             'chepg', 'live',
+                             'dvbs_muxlist', 'dvbc_muxlist', 'dvbt_muxlist',
+                             'lnblist', 'chglist', 'satlist',
+                             'frontendlist', 'streamlist', 'statuslist',
+                             'mosaic', 'reclist', 'autoreclist', 'spectrumlist',
                              'dishlist', 'scancommandlist']
-
 
         self.panels = [ getattr(self, f'{n}_panel') for n in self.panel_names]
         self.grids = [*filter(lambda xx: xx is not None,
@@ -449,6 +447,10 @@ class neumoMainFrame(mainFrame):
         dtdebug("CmdFrontendList")
         self.ShowPanel(self.frontendlist_panel)
 
+    def CmdStreamList(self, event):
+        dtdebug("CmdStreamList")
+        self.ShowPanel(self.streamlist_panel)
+
     def CmdRecList(self, event):
         dtdebug("CmdRecList")
         self.ShowPanel(self.reclist_panel)
@@ -608,6 +610,7 @@ class NeumoGui(wx.App):
         self.live_service_screen = LiveServiceScreen(self)
         self.live_recording_screen_ = None
         self.scan_subscriber_ = None
+        self.stream_subscriber_ = None
         self.last_scan_text = ""
         self.scan_in_progress = False
         super().__init__(*args, **kwds)
@@ -619,11 +622,19 @@ class NeumoGui(wx.App):
             self.wxLocale('FR')
         self.global_subscriber_ = pyreceiver.global_subscriber(self.receiver, self.frame) #catch global error messages
         self.get_sats() #force create sat table of it does not exist
+
     @property
     def scan_subscriber(self):
         if self.scan_subscriber_ is None:
             self.scan_subscriber_ = pyreceiver.subscriber_t(self.receiver, self.frame)
         return self.scan_subscriber_
+
+
+    @property
+    def stream_subscriber(self):
+        if self.stream_subscriber_ is None:
+            self.stream_subscriber_ = pyreceiver.subscriber_t(self.receiver, self.frame)
+        return self.stream_subscriber_
 
     @property
     def live_recording_screen(self):

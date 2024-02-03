@@ -151,6 +151,7 @@ lists_menu = (
     MI("ChgList",_("&Bouquets\tShift-Ctrl-B"), ""),
     SEP,
     MI("FrontendList",_("&Frontends\tShift-Ctrl-F"), ""),
+    MI("StreamList",_("&Streams\tShift-Ctrl-E"), ""),
     SEP,
     MI("RecList",_("&Recordings\tCtrl-Shift-R"), _("recordings list")),
     MI("AutoRecList",_("&AutoRecs\tCtrl-Shift-G "), _("autorecordings list")),

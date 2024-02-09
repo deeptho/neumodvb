@@ -920,7 +920,12 @@ void active_adapter_t::check_for_new_streams()
 
 	auto tuned_mux = current_tp();
 	bool is_scanning = mux_common_ptr(tuned_mux)->scan_status == scan_status_t::ACTIVE;
-	assert(is_scanning == scanner_t::is_scanning(scan_id));
+	if(is_scanning != scanner_t::is_scanning(scan_id)) {
+		auto tst = scanner_t::is_scanning(scan_id);
+		dtdebugf("Unexpected: tuned_mux={} driver_mux={} is_scanning={}/{} scan_id/pid={}",
+						 tuned_mux, signal_info.driver_mux, is_scanning, tst, scan_id.pid);
+		is_scanning = false;
+	}
 #ifndef NDEBUG
 	int last_mux_id = mux_key->mux_id;
 #endif

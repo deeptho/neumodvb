@@ -93,7 +93,7 @@ Some of these pacakges are provided by rpmfusion, which can be installed using t
 On Fedora 38:  install at least the following RPMs with `sudo dnf install -y <PACKAGE>`:
 
 ```bash
-sudo dnf install -y redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options \
+sudo dnf install -y redhat-lsb-core cmake libuuid-devel clang clang-tools-extra libtool boost-program-options \
 boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel \
 wxGTK3 wxGTK-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection \
 expat-devel python3-wxpython4 python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools \

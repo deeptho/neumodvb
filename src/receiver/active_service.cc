@@ -423,7 +423,7 @@ int service_thread_t::run() {
 			} else if (active_service.reader->on_epoll_event(evt)) {
 				// this must be a channel data event
 				if (!(evt->events & EPOLLIN)) {
-					dterrorf("Unexpected event: type{}=", evt->events);
+					dterrorf("Unexpected event: type={}", evt->events);
 				}
 				active_service.mpm.process_channel_data();
 			} else {

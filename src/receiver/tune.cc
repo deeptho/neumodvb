@@ -554,7 +554,7 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 						 fmt::ptr(this), (int)sret.subscription_id,
 						 (int)active_adapter.get_adapter_no());
 		auto ret1 = active_adapter.remove_service(sret.subscription_id);
-		dterrorf("Called remove_service: service was {}removed", (ret1<0)? "NOT " : "");
+		dtdebugf("Called remove_service: service was {}removed", (ret1<0)? "NOT " : "");
 	}
 
 	if(sret.sub_to_reuse == sret.subscription_id)  {

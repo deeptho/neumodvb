@@ -131,6 +131,4 @@ private:
 
 	std::optional<recdb::rec_t>
 	start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec);
-
-
 };

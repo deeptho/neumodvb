@@ -143,9 +143,6 @@ int active_stream_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags)
 	return -1;
 }
 
-
-
-
 void dvb_stream_reader_t::close() {
 	if(demux_fd<0) {
 

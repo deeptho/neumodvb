@@ -317,7 +317,6 @@ class BasicServiceGrid(ServiceGridBase):
 
     def OnKeyDownOFF(self, evt):
         keycode = evt.GetUnicodeKey()
-        #print(f"KEY CHECKxxx111 {evt.HasAnyModifiers()}")
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             row = self.GetGridCursorRow()
             service = self.table.screen.record_at_row(row)

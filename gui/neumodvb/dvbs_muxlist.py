@@ -294,7 +294,6 @@ class DvbsMuxGridBase(NeumoGridBase):
 
     def CmdCreateScanHelper(self, with_schedule):
         from neumodvb.scan_dialog import show_scan_dialog
-        self.table.SaveModified()
         rows = self.GetSelectedRows()
         if len(rows)==0:
             ShowMessage("No muxes selected for scan")

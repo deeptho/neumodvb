@@ -5,6 +5,7 @@ import shutil
 sys.path.insert(0, '../../x86_64/target/lib64/')
 sys.path.insert(0, '../../build/src/neumodb/neumodb')
 sys.path.insert(0, '../../build/src/neumodb/chdb')
+sys.path.insert(0, '../../build/src/neumodb/epgdb')
 sys.path.insert(0, '../../build/src/stackstring/')
 #import pyneumodb
 import pychdb
@@ -277,9 +278,10 @@ def chgm_screen():
 chdb = pychdb.chdb()
 chdb.open('/mnt/neumo/db/chdb.mdb')
 s=get_screen()
-for i in range(s.list_size):
-    rec= s.record_at_row(i)
-    print(f'[{i}]= {rec}')
+if False:
+    for i in range(s.list_size):
+        rec= s.record_at_row(i)
+        print(f'[{i}]= {rec}')
 
 if False:
     chgs = chg_screen()
@@ -301,3 +303,12 @@ if False:
     for row in reversed(range(6)):
         rec=screen.record_at_row(row)
         print(f"ROW={row} rec={rec}")
+if True:
+    screen=get_screen()
+    txn = chdb.wtxn()
+    for row in range(screen.list_size):
+        rec=screen.record_at_row(row)
+        if rec.ch_order == 0:
+            rec.ch_order=65535
+            pychdb.put_record(txn, rec)
+    txn.commit()

@@ -1227,7 +1227,6 @@ receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, ssptr_t ssptr) {
 	subscription_id_t ret{-1};
 	//call by reference ok because of subsequent wait_for_all
 	futures.push_back(receiver_thread.push_task([this, &mux, tune_options, &ret, &ssptr, &subscribed_fe_key]() {
-		cb(receiver_thread).abort_scan();
 		std::tie(ret, subscribed_fe_key)
 			= cb(receiver_thread).subscribe_mux(mux, ssptr, tune_options);
 		return 0;
@@ -1364,7 +1363,6 @@ std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service_for_viewing(const 
 	std::unique_ptr<playback_mpm_t> ret;
 	//call by reference ok because of subsequent wait_for_all
 	futures.push_back(receiver_thread.push_task([this, &ssptr, &service, &ret]() {
-		cb(receiver_thread).abort_scan();
 		pid_t stream_pid;
 		std::tie(stream_pid, ret) = cb(receiver_thread).subscribe_service(service, ssptr);
 		return 0;

@@ -491,8 +491,7 @@ void embedded_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stre
 	stream_filter->embedded_mux = stream_mux;
 }
 
-
-int streamer_t::start() {
+pid_t streamer_t::start() {
 	auto * service = get_service();
 	assert(service); //mux: todo
 	ss::string<32> service_id_;
@@ -509,15 +508,17 @@ int streamer_t::start() {
 		"-P", "filter", "--pid", "0", "--negate", "--stuffing", // replace PAT will null packets
 		"-P", "pat", "--create", "--add-service", sid_pmt_.c_str(), //created new single service PAT
 		//"--inter-packet", "200",
-		"-O", "ip", "--enforce-burst", "--rtp", dest.c_str(), (char*)nullptr); //stream
-
+		"-O", "ip", "--enforce-burst", //"--rtp",
+		"--packet-burst", "128",
+		dest.c_str(), (char*)nullptr); //stream
+	stream.streamer_pid = command_pid;
 	if (data_fd < 0) {
 		dterrorf("Could not start command");
 		return -1;
 	}
 	::close(fd);
 	fd = -1;
-	return 0;
+	return command_pid;
 }
 
 void streamer_t::stop() {

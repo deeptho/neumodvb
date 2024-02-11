@@ -92,7 +92,6 @@ public:
 			last_data_time = steady_clock_t::now();
 		}
 
-
 	virtual bool is_open() const {
 		return epoll != nullptr;
 	}
@@ -152,7 +151,6 @@ public:
 		return -1;
 	}
 };
-
 
 struct dvb_stream_reader_t final : public stream_reader_t {
 	const ssize_t dmx_buffer_size;

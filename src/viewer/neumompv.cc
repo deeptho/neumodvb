@@ -716,7 +716,7 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 		this->close(false /*unsubscribe*/);
 	}
 	subscription_id_t subscription_id{-1};
-	mpm = subscriber->subscribe_service(service);
+	mpm = subscriber->subscribe_service_for_viewing(service);
 	subscription_id = mpm.get() ? mpm->subscription_id : subscription_id_t{-1};
 	if ((int) subscription_id >= 0) {
 		dtdebugf("PLAY SUBSCRIPTION (service): subscribed={:d}", (int) subscription_id);

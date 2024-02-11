@@ -118,7 +118,7 @@ public:
 																										const chdb::any_mux_t& mux, recdb::rec_t& rec,
 																										const subscription_options_t& tune_options);
 
-	std::unique_ptr<playback_mpm_t> subscribe_service(const subscribe_ret_t& sret,
+	std::unique_ptr<playback_mpm_t> subscribe_service_for_viewing(const subscribe_ret_t& sret,
 																										const chdb::any_mux_t& mux, const chdb::service_t& service,
 																										const subscription_options_t& tune_options);
 

@@ -183,8 +183,6 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 	}
 }
 
-
-
 /*
 	Release all resources (services, muxes) and also update database
 
@@ -1226,7 +1224,7 @@ receiver_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, 
 	return ret;
 }
 
-std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service(const chdb::service_t& service,
+std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service_for_viewing(const chdb::service_t& service,
 																															ssptr_t ssptr) {
 	std::vector<task_queue_t::future_t> futures;
 	std::unique_ptr<playback_mpm_t> ret;

@@ -560,7 +560,7 @@ public:
 															 subscription_options_t tune_options,
 															 ssptr_t ssptr);
 
-	std::unique_ptr<playback_mpm_t> subscribe_service(
+	std::unique_ptr<playback_mpm_t> subscribe_service_for_viewing(
 		const chdb::service_t& service, ssptr_t ssptr = {});
 
 	std::unique_ptr<playback_mpm_t>

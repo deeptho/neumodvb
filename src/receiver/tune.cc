@@ -497,9 +497,8 @@ tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sre
 	return sret.subscription_id;
 }
 
-
 std::unique_ptr<playback_mpm_t>
-tuner_thread_t::cb_t::subscribe_service(const subscribe_ret_t& sret,
+tuner_thread_t::cb_t::subscribe_service_for_viewing(const subscribe_ret_t& sret,
 																				const chdb::any_mux_t& mux, const chdb::service_t& service,
 																				const subscription_options_t& tune_options) {
 	/*In case of failure, release the resources assosciated with this subscription (active_adapter and

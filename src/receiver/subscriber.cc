@@ -45,9 +45,9 @@ subscriber_t::~subscriber_t() {
 		unsubscribe();
 }
 
-std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service(const chdb::service_t& service) {
+std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service_for_viewing(const chdb::service_t& service) {
 	auto ssptr = this->shared_from_this();
-	auto mpm = receiver->subscribe_service(service, ssptr);
+	auto mpm = receiver->subscribe_service_for_viewing(service, ssptr);
 	if (!mpm.get()) {
 		assert((int)get_subscription_id() <0);
 		notify_error(get_error());

@@ -158,8 +158,9 @@ class ServiceGridBase(NeumoGridBase):
         if service is None:
             return
         row = self.table.screen.set_reference(service)
-        if row is not None:
-            self.GoToCell(row, self.GetGridCursorCol())
+        if row is not None and row >=0:
+            col = self.GetGridCursorCol()
+            self.GoToCell(row, col)
             self.SelectRow(row)
             self.SetFocus()
 

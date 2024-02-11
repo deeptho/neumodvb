@@ -205,7 +205,6 @@ int deserialize<{{dbname}}::{{struct.class_name}}>(
 		if(offset>=0) {
 			rec.{{f.name}} = content;
 		}
-		return offset;
 	}
 	break;
 	{% endfor %}

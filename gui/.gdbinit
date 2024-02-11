@@ -9,6 +9,7 @@ set environment LD_PRELOAD=/usr/lib64/libasan.so.8
 break __sanitizer::Die
 exec-file /usr/bin/python3
 set args neumodvb.py
+set detach-on-fork off
 #set environment LD_PRELOAD /usr/lib64/libasan.so.6
 #break nit_parser_t::parse_payload_unit
 #break active_si_stream.cc:752

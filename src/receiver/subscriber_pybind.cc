@@ -286,7 +286,7 @@ void export_subscriber(py::module& m) {
 				 , py::arg("retune_mode"))
 		.def("subscribe_lnb_and_mux"
 				 , &subscriber_t::subscribe_lnb_and_mux
-				 , "Subscribe to a specific mux usign a specific lnb"
+				 , "Subscribe to a specific mux using a specific lnb"
 				 , py::arg("rf_path")
 				 , py::arg("lnb")
 				 , py::arg("mux")

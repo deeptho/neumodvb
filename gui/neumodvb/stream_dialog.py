@@ -87,7 +87,7 @@ class StreamDialog(StreamDialog_):
     def __init__(self, parent, title, stream, *args, **kwds):
         super().__init__(parent, title, stream, *args, **kwds)
 
-def show_stream_dialog(parent, title='Stream service', service = None,
+def show_stream_dialog(parent, title='Stream service', stream = None, service = None,
                        dvbs_mux = None, dvbc_mux=None, dvbt_mux=None):
     """
     create a dialog for creating or editing a stream
@@ -95,7 +95,8 @@ def show_stream_dialog(parent, title='Stream service', service = None,
     exactly one of these parameters must be set
 
     """
-    stream = pydevdb.stream.stream()
+    if stream is None:
+        stream = pydevdb.stream.stream()
     if service is not None:
         stream.content = service
     if dvbs_mux is not None:

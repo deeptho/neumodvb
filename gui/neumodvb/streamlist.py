@@ -107,6 +107,27 @@ class StreamGridBase(NeumoGridBase):
             wx.CallAfter(self.AutoSizeRows)
         return super().OnShowHide(event)
 
+    def CmdCreateStreamHelper(self):
+        from neumodvb.stream_dialog import show_stream_dialog
+        self.table.SaveModified()
+        rowno = self.GetGridCursorRow()
+        stream = self.table.GetRow(rowno)
+        return show_stream_dialog(self, title=f'Stream {stream}', stream=stream)
+
+    def CmdAddStream(self, evt):
+        stream = self.CmdCreateStreamHelper()
+        if stream is None:
+            dtdebug(f'CmdToggleStream aborted for')
+            return
+        dtdebug(f'CmdToggleStream requested for {stream}')
+        return wx.GetApp().receiver.update_and_toggle_stream(stream)
+
+    def CmdStop(self, evt):
+        self.table.SaveModified()
+        rowno = self.GetGridCursorRow()
+        stream = self.table.GetRow(rowno)
+        dtdebug(f'CmdStop requested for stream{stream}')
+        return wx.GetApp().receiver.update_and_toggle_stream(stream, force_off=True)
 
 class BasicStreamGrid(StreamGridBase):
     def __init__(self, *args, **kwds):

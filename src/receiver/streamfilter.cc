@@ -33,6 +33,7 @@
 #include <sys/epoll.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <sys/prctl.h>
 
 enum PIPE_FILE_DESCRIPTERS
 {
@@ -96,6 +97,8 @@ start_command(int stream_fd, const char* pathname, Args... args) {
 			::exit(1);
 		}
 		set_blocking(STDIN_FILENO, true);
+		signal(SIGINT, SIG_IGN); //avoid interrupt by gdb
+		prctl(PR_SET_PDEATHSIG, SIGHUP); //ask to be killed when parent dies
 		/*     file, arg0, arg1,  arg2 */
 		execlp(pathname, pathname, args...);
 

@@ -329,20 +329,6 @@ class BasicServiceGrid(ServiceGridBase):
     def __init__(self, *args, **kwds):
         super().__init__(True, True, *args, **kwds)
 
-    def OnKeyDownOFF(self, evt):
-        keycode = evt.GetUnicodeKey()
-        if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
-            row = self.GetGridCursorRow()
-            service = self.table.screen.record_at_row(row)
-            dtdebug(f'RETURN pressed on row={row}: PLAY service={service.name}')
-            self.app.ServiceTune(service)
-            evt.Skip(False)
-        else:
-            from neumodvb.channelno_dialog import ask_channel_number, IsNumericKey
-            if not self.EditMode() and IsNumericKey(keycode):
-                self.MoveToChno(ask_channel_number(self, keycode- ord('0')))
-            else:
-                evt.Skip(True)
 
 
 class ServiceGrid(ServiceGridBase):

@@ -429,7 +429,10 @@ extern "C" {
 void __dtassert_fail(const char * assertion, const char * file, unsigned int line, const char * function)
 	__THROW
 {
-	fprintf(stderr, "AssertX: %s failed at %s:%d in function %s\n", assertion, file, line, function);
+	char msg[256];
+	snprintf(msg, sizeof(msg)-1, "Assert: %s failed at %s:%d in function %s", assertion, file, line, function);
+	fprintf(stderr, "%s\n", msg);
+	LOG4CXX_ERROR(logger, msg);
 	raise(SIGTRAP);
 	//__builtin_trap();
 					//else

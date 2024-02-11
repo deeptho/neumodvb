@@ -139,6 +139,22 @@ void receiver_thread_t::unsubscribe_mux_and_service_only(std::vector<task_queue_
 																						 db_txn& devdb_wtxn, ssptr_t ssptr) {
 	assert(ssptr);
 	dtdebugf("Unsubscribe ssptr={}", ssptr);
+	int stream_id = ssptr->get_stream_id();
+	if(stream_id>=0) {
+		auto c = devdb::stream_t::find_by_key(devdb_wtxn, stream_id);
+		if(!c.is_valid()) {
+			dterrorf("unexpected: invalid");
+		} else {
+			auto db_stream = c.current();
+			if(db_stream.stream_state == devdb::stream_state_t::ON)
+				db_stream.stream_state = devdb::stream_state_t::OFF;
+			db_stream.stream_pid = -1;
+			db_stream.subscription_id = -1;
+			db_stream.mtime = system_clock_t::to_time_t(now);
+			put_record(devdb_wtxn, db_stream);
+		}
+	}
+
 	auto subscription_id = ssptr->get_subscription_id();
 	// release subscription's service on this mux, if any
 	auto updated_dbfe = devdb::fe::unsubscribe(devdb_wtxn, subscription_id);
@@ -148,13 +164,14 @@ void receiver_thread_t::unsubscribe_mux_and_service_only(std::vector<task_queue_
 	dtdebugf("release_active_adapter ssptr={} use_count={:d}", ssptr,
 					 updated_dbfe ? updated_dbfe->sub.subs.size() : 0);
 	assert(updated_dbfe);
-	release_active_adapter(futures, subscription_id, *updated_dbfe);
+	bool is_streaming = ssptr->is_streaming();
+	release_active_adapter(futures, subscription_id, *updated_dbfe, is_streaming);
 	ssptr->clear_subscription_id();
 }
 
 void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
 																							 subscription_id_t subscription_id,
-																							 const devdb::fe_t& updated_dbfe) {
+																							 const devdb::fe_t& updated_dbfe, bool is_streaming) {
 	dtdebugf("release_active_adapter subscription_id={}", (int)subscription_id);
 	assert((int)subscription_id >= 0);
 	// release subscription's service on this mux, if any
@@ -166,7 +183,14 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 		auto& m = *w;
 		auto [it, found] = find_in_map(m, subscription_id);
 		assert(found);
-		auto& tuner_thread = it->second->tuner_thread;
+		auto &aa = *it->second;
+		auto& tuner_thread = aa.tuner_thread;
+		if(is_streaming) {
+			futures.push_back(tuner_thread.push_task([&tuner_thread, subscription_id]() {
+				cb(tuner_thread).remove_stream(subscription_id);
+				return 0;
+			}));
+		}
 		if(updated_dbfe.sub.subs.size() ==0) {
 			//ask tuner thread to exit, but do not wait
 			dtdebugf("Pushing tuner_thread.stop_running");
@@ -214,13 +238,21 @@ void receiver_thread_t::unsubscribe_all(std::vector<task_queue_t::future_t>& fut
 	dtdebugf("calling unsubscribe_mux_and_service_only -done");
 }
 
-std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
-	const chdb::any_mux_t& mux, const chdb::service_t& service, ssptr_t ssptr) {
+/*
+	returns either
+	pid of started steam (or -1)
+	playback_mpm_t
+ */
+std::tuple<pid_t, std::unique_ptr<playback_mpm_t>>
+ receiver_thread_t::subscribe_service(
+	 const chdb::any_mux_t& mux, const chdb::service_t& service, ssptr_t ssptr, const devdb::stream_t* stream) {
 	assert(ssptr);
+	bool for_streaming = !!stream;
 	auto subscription_id = ssptr->get_subscription_id();
 	std::vector<task_queue_t::future_t> futures;
 	auto tune_options = receiver.get_default_subscription_options(devdb::subscription_type_t::TUNE);
-	tune_options.scan_target = devdb::scan_target_t::SCAN_FULL_AND_EPG;
+	tune_options.scan_target = for_streaming ? devdb::scan_target_t::SCAN_MINIMAL :
+		devdb::scan_target_t::SCAN_FULL_AND_EPG;
 	assert(!tune_options.need_spectrum);
 	subscribe_ret_t sret;
 	auto devdb_wtxn = receiver.devdb.wtxn();
@@ -235,29 +267,45 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_service(
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
 			dtdebugf("Subscription failed calling release_active_adapter");
-			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+			bool is_streaming = ssptr->is_streaming();
+			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe, is_streaming);
 		} else {
 			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 		}
 		user_errorf("Service reservation failed: {}", service);
-		return {};
+		return {pid_t{-1}, nullptr};
 	}
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
-		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+		bool is_streaming = ssptr->is_streaming();
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe, is_streaming);
 	}
-	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	auto* active_adapter_p = find_or_create_active_adapter(futures, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
 	tune_options.tune_pars = sret.tune_pars;
 
 	std::unique_ptr<playback_mpm_t> playback_mpm_ptr;
-	futures.push_back(aa.tuner_thread.push_task([&playback_mpm_ptr, &aa, &mux, &service, &sret,
-																						&tune_options]() {
-		playback_mpm_ptr = cb(aa.tuner_thread).subscribe_service(sret, mux, service, tune_options);
-		return 0;
-	}));
-	wait_for_all(futures); //essential
-	return playback_mpm_ptr;
+	if(!for_streaming) {
+		std::unique_ptr<playback_mpm_t> playback_mpm_ptr;
+		futures.push_back(aa.tuner_thread.push_task([&playback_mpm_ptr, &aa, &mux, &service, &sret,
+																								 &tune_options]() {
+			playback_mpm_ptr = cb(aa.tuner_thread).subscribe_service_for_viewing(sret, mux, service, tune_options);
+			return 0;
+		}));
+		wait_for_all(futures); //essential
+		return {pid_t{-1}, std::move(playback_mpm_ptr)};
+	} else {
+		pid_t stream_pid{-1};
+		futures.push_back(aa.tuner_thread.push_task([&stream_pid, &aa, &mux, &sret, stream,
+																								 &tune_options]() {
+			stream_pid = cb(aa.tuner_thread).add_stream(sret, mux, *stream, tune_options);
+			return 0;
+		}));
+		wait_for_all(futures); //essential
+		return {stream_pid,  nullptr};
+	}
+  assert(false);
+	return {pid_t{-1},  nullptr};
 }
 
 subscription_id_t receiver_thread_t::subscribe_service_for_recording(
@@ -279,7 +327,8 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
 			dtdebugf("Subscription failed calling release_active_adapter");
-			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+			bool is_streaming = ssptr->is_streaming();
+			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe, is_streaming);
 		} else {
 			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 		}
@@ -287,9 +336,10 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 		return subscription_id_t::NONE;
 	}
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
-		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+		bool is_streaming = ssptr->is_streaming();
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe, is_streaming);
 	}
-	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	auto* active_adapter_p = find_or_create_active_adapter(futures, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
 	tune_options.tune_pars = sret.tune_pars;
@@ -449,7 +499,8 @@ receiver_thread_t::subscribe_spectrum(
 			auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 			if(updated_old_dbfe) {
 				dtdebugf("Subscription failed calling release_active_adapter");
-				release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+				bool is_streaming = ssptr->is_streaming();
+				release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe, is_streaming);
 			} else {
 				dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 			}
@@ -463,10 +514,11 @@ receiver_thread_t::subscribe_spectrum(
 	dtdebugf("lnb activate subscription_id={:d}", (int) sret.subscription_id);
 
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
-		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+		bool is_streaming = ssptr->is_streaming();
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe, is_streaming);
 	}
 
-	auto* activate_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	auto* activate_adapter_p = find_or_create_active_adapter(futures, sret);
 	assert(activate_adapter_p);
 	auto& aa = *activate_adapter_p;
 
@@ -503,7 +555,8 @@ receiver_thread_t::subscribe_mux(
 			auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 			if(updated_old_dbfe) {
 				dtdebugf("Subscription failed calling release_active_adapter");
-				release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+				bool is_streaming = ssptr->is_streaming();
+				release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe, is_streaming);
 			} else {
 				dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 			}
@@ -515,10 +568,11 @@ receiver_thread_t::subscribe_mux(
 		ssptr->set_subscription_id(sret.subscription_id);
 
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
-		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+		bool is_streaming = ssptr->is_streaming();
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe, is_streaming);
 	}
 
-	auto* active_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	auto* active_adapter_p = find_or_create_active_adapter(futures, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
 	tune_options.tune_pars = sret.tune_pars;
@@ -662,7 +716,7 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, ssptr_t ssptr,
 }
 
 active_adapter_t* receiver_thread_t::find_or_create_active_adapter
-(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,  const subscribe_ret_t& sret)
+(std::vector<task_queue_t::future_t>& futures, const subscribe_ret_t& sret)
 {
 #ifndef NDEBUG
 	bool failed = sret.subscription_failed();
@@ -743,7 +797,8 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 		auto updated_old_dbfe = sret.aa.updated_old_dbfe;
 		if(updated_old_dbfe) {
 			dtdebugf("Subscription failed calling release_active_adapter");
-			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe);
+			bool is_streaming = ssptr->is_streaming();
+			release_active_adapter(futures, sret.subscription_id, *updated_old_dbfe, is_streaming);
 		} else {
 			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 		}
@@ -756,10 +811,11 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 	dtdebugf("subscribe_lnb subscription_id={:d}", (int) sret.subscription_id);
 
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
-		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe);
+		bool is_streaming = ssptr->is_streaming();
+		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe, is_streaming);
 	}
 
-	auto* activate_adapter_p = find_or_create_active_adapter(futures, devdb_wtxn, sret);
+	auto* activate_adapter_p = find_or_create_active_adapter(futures, sret);
 	assert(activate_adapter_p);
 	auto& aa = *activate_adapter_p;
 
@@ -868,8 +924,9 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_playback_(const rec
 	return active_playback->make_client_mpm(receiver, subscription_id);
 }
 
-std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const chdb::service_t& service,
-																																					 ssptr_t ssptr) {
+std::tuple<pid_t, std::unique_ptr<playback_mpm_t>>
+receiver_thread_t::cb_t::subscribe_service(const chdb::service_t& service,
+																					 ssptr_t ssptr) {
 	auto s = fmt::format("SUB[{}] {}", ssptr, service);
 	log4cxx::NDC ndc(s);
 	std::vector<task_queue_t::future_t> futures;
@@ -886,7 +943,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 			devdb_wtxn.commit();
 		}
 		chdb_txn.abort();
-		return nullptr;
+		return {-1, std::unique_ptr<playback_mpm_t>{}};
 	}
 
 	// Stop any playback in progress (in that case there is no suscribed service/mux
@@ -901,7 +958,8 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 
 	dtdebugf("SUBSCRIBE - calling subscribe_service");
 	// now perform the requested subscription
-	auto mpmptr = this->receiver_thread_t::subscribe_service(mux, service, ssptr);
+	auto [stream_pid, mpmptr] = this->receiver_thread_t::subscribe_service(mux, service, ssptr,
+																																				 nullptr /*for_streaming*/);
 	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/active_adapter threads
 
@@ -909,7 +967,83 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::cb_t::subscribe_service(const
 		https://stackoverflow.com/questions/50799719/reference-to-local-binding-declared-in-enclosing-function?noredirect=1&lq=1
 	*/
 	dtdebugf("SUBSCRIBE - returning to caller");
-	return mpmptr;
+	return {stream_pid, std::move(mpmptr)};
+}
+
+devdb::stream_t receiver_thread_t::cb_t::update_and_toggle_stream(const devdb::stream_t& stream_) {
+	auto stream = stream_;
+	auto devdb_rtxn = receiver.devdb.rtxn();
+	if (stream.stream_id <0) {
+		stream.stream_id = devdb::make_unique_id(devdb_rtxn, stream);
+		assert(stream.stream_id >= 0);
+	}
+	auto c = devdb::stream_t::find_by_key(devdb_rtxn, stream.stream_id);
+	if(c.is_valid()) {
+		auto db_stream = c.current();
+		bool changed = stream != db_stream;
+		if(!changed) {
+			devdb_rtxn.abort();
+			return stream;
+		}
+		if(stream.subscription_id != db_stream.subscription_id) {
+			dterrorf("Unexpected: subscription_id={} != {}", stream.subscription_id, db_stream.subscription_id);
+			stream.subscription_id = db_stream.subscription_id;
+		}
+	} else {
+		assert(stream.stream_id >=0);
+		if(stream.subscription_id != -1) {
+			dterrorf("Unexpected: subscription_id={} != -1", stream.subscription_id);
+			stream.subscription_id = -1;
+		}
+	}
+	auto ssptr = receiver.get_ssptr(subscription_id_t{stream.subscription_id});
+	if(!ssptr) {
+		//create a subscriber
+		//the construction below computed a unique subscription_id
+		subscribe_ret_t sret{subscription_id_t::NONE, false/*failed*/};
+		ssptr = subscriber_t::make(&receiver, nullptr /*window*/);
+		ssptr->set_subscription_id(subscription_id_t{sret.subscription_id});
+	}
+
+	auto* pservice = std::get_if<chdb::service_t>(&stream.content);
+	assert(pservice); //TODO: also handle mux streams
+	auto& service = *pservice;
+
+	auto s = fmt::format("SUB[{}] stream {}", ssptr, service);
+	log4cxx::NDC ndc(s);
+	std::vector<task_queue_t::future_t> futures;
+
+	// Stop any playback in progress (in that case there is no suscribed service/mux
+	assert(ssptr);
+	if(ssptr->get_active_playback()) {
+		// this must be playback
+		unsubscribe(ssptr);
+	}
+
+	auto chdb_rtxn = receiver.chdb.rtxn();
+
+	auto [mux, error1] = mux_for_service(chdb_rtxn, service);
+	chdb_rtxn.abort();
+	if (error1 < 0) {
+		user_errorf("Could not find mux for {}", service);
+	}
+
+	if(ssptr) {
+		auto devdb_wtxn = receiver.devdb.wtxn();
+		unsubscribe_all(futures, devdb_wtxn, ssptr);
+		devdb_wtxn.commit();
+	}
+	if(stream.stream_state != devdb::stream_state_t::OFF) {
+		auto [stream_pid, mpmptr] = this->receiver_thread_t::subscribe_service(mux, service, ssptr,
+																																					 &stream /*for_streaming*/);
+		stream.stream_pid = stream_pid;
+		stream.subscription_id = (int)ssptr->get_subscription_id();
+	}
+	auto devdb_wtxn = receiver.devdb.wtxn();
+	put_record(devdb_wtxn, stream);
+	devdb_wtxn.commit();
+	wait_for_all(futures);
+	return stream;
 }
 
 std::unique_ptr<playback_mpm_t>
@@ -1231,11 +1365,25 @@ std::unique_ptr<playback_mpm_t> receiver_t::subscribe_service_for_viewing(const 
 	//call by reference ok because of subsequent wait_for_all
 	futures.push_back(receiver_thread.push_task([this, &ssptr, &service, &ret]() {
 		cb(receiver_thread).abort_scan();
-		ret = cb(receiver_thread).subscribe_service(service, ssptr);
+		pid_t stream_pid;
+		std::tie(stream_pid, ret) = cb(receiver_thread).subscribe_service(service, ssptr);
 		return 0;
 	}));
 	wait_for_all(futures);
 	return ret;
+}
+
+devdb::stream_t receiver_t::update_and_toggle_stream(const devdb::stream_t& stream_) {
+	std::vector<task_queue_t::future_t> futures;
+	auto stream = stream_;
+	//call by reference ok because of subsequent wait_for_all
+	futures.push_back(receiver_thread.push_task([this, &stream]() mutable {
+		//cb(receiver_thread).abort_scan();
+		stream = cb(receiver_thread).update_and_toggle_stream(stream);
+		return 0;
+	}));
+	wait_for_all(futures);
+	return stream;
 }
 
 std::unique_ptr<playback_mpm_t> receiver_t::subscribe_playback(const recdb::rec_t& rec, ssptr_t ssptr) {

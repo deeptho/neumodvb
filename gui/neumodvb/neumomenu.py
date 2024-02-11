@@ -62,6 +62,8 @@ control_menu = (
     MI("Play",  _("&Play\tCtrl-Enter"), ""),
     MI("Play Add",  _("&Play- Add\tShift-Ctrl-Enter"), ""),
     SEP,
+    MI("AddStream",  _("&Add Stream\tCtrl-K"), ""),
+    SEP,
     MI("ToggleRecord", _("&Record\tCtrl-R"), ""),
     MI("AutoRec", _("&Create Auto record\tCtrl-G"), ""),
 )

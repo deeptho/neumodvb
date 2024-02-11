@@ -29,7 +29,7 @@ using namespace dtdemux;
 
 //class active_fe_state_t;
 class tuner_thread_t;
-
+class streamer_t;
 /* DVB-S */
 /** lnb_slof: switch frequency of LNB */
 #define DEFAULT_SLOF (11700*1000UL)
@@ -243,9 +243,9 @@ private:
 	void end_si();
 	void reset_si();
 private:
-
-	std::map<subscription_id_t, std::shared_ptr<active_service_t>>
-	subscribed_active_services; //indexed by subscription_id
+	std::map<subscription_id_t, std::shared_ptr<streamer_t>> streamers; //indexed by subscription_id
+	std::map<subscription_id_t,
+					 std::shared_ptr<active_service_t>> subscribed_active_services; //indexed by subscription_id
 
 	/*
 		key is the subscription_id
@@ -382,6 +382,11 @@ private:
 	tune_service_for_recording(const subscribe_ret_t& sret,
 														 const chdb::any_mux_t& mux,
 														 const recdb::rec_t& rec);
+
+	pid_t add_stream(const subscribe_ret_t& sret, const devdb::stream_t& stream,
+									 const chdb::any_mux_t& mux);
+
+	void remove_stream(subscription_id_t subscription_id);
 
 	std::shared_ptr<active_service_t>
 	active_service_for_subscription(subscription_id_t subscription_id);

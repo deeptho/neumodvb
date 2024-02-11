@@ -123,7 +123,7 @@ public:
 	std::optional<recdb::rec_t> start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec);
 	int stop_recording(const recdb::rec_t& key, mpm_copylist_t& copy_commands);
 	void forget_recording_in_livebuffer(const recdb::rec_t& key);
-
+	int start_streaming(subscription_id_t subscription_id);
 };
 
 
@@ -259,7 +259,7 @@ class receiver_thread_t : public task_queue_t  {
 	time_t next_command_event_time = std::numeric_limits<time_t>::min();
 
 	active_adapter_t* find_or_create_active_adapter
-	(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,  const subscribe_ret_t& sret);
+	(std::vector<task_queue_t::future_t>& futures, const subscribe_ret_t& sret);
 
 	virtual int exit() final;
 	void unsubscribe_mux_and_service_only(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
@@ -269,7 +269,7 @@ class receiver_thread_t : public task_queue_t  {
 											 ssptr_t ssptr);
 	void release_active_adapter(std::vector<task_queue_t::future_t>& futures,
 															subscription_id_t subscription_id,
-															const devdb::fe_t& updated_dbfe);
+															const devdb::fe_t& updated_dbfe, bool is_streaming);
 
 	void unsubscribe_lnb(std::vector<task_queue_t::future_t>& futures, ssptr_t ssptr);
 	bool unsubscribe_scan(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
@@ -308,8 +308,10 @@ protected:
 		std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::any_mux_t& mux,
 		recdb::rec_t& rec, ssptr_t ssptr);
 
-	std::unique_ptr<playback_mpm_t> subscribe_service(const chdb::any_mux_t& mux, const chdb::service_t& service,
-		ssptr_t ssptr);
+	std::tuple<int, std::unique_ptr<playback_mpm_t>>
+	subscribe_service(const chdb::any_mux_t& mux, const chdb::service_t& service,
+										ssptr_t ssptr, const devdb::stream_t* stream);
+
 
 public:
 	receiver_t& receiver;
@@ -427,9 +429,11 @@ public:
 	subscription_id_t subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, subscription_options_t tune_options,
 																	ssptr_t ssptr);
 
-	std::unique_ptr<playback_mpm_t>
+	std::tuple<int, std::unique_ptr<playback_mpm_t>>
 	subscribe_service(const chdb::service_t& service,
 										ssptr_t ssptr = {});
+
+	devdb::stream_t update_and_toggle_stream(const devdb::stream_t& stream);
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_playback(const recdb::rec_t& rec, ssptr_t ssptr);
@@ -562,6 +566,8 @@ public:
 
 	std::unique_ptr<playback_mpm_t> subscribe_service_for_viewing(
 		const chdb::service_t& service, ssptr_t ssptr = {});
+
+	EXPORT devdb::stream_t update_and_toggle_stream(const devdb::stream_t& stream);
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_playback(const recdb::rec_t& rec, ssptr_t ssptr);

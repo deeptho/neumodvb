@@ -135,6 +135,12 @@ static void export_receiver(py::module& m) {
 				 py::overload_cast<const chdb::service_t&, time_t, int, const char*>(&receiver_t::toggle_recording),
 				 "Toggle recording the current service.", py::arg("service"), py::arg("start"), py::arg("duration"),
 				 py::arg("event_name"))
+		.def("update_and_toggle_stream"
+				 , &receiver_t::update_and_toggle_stream
+				 , "Add or update a stream in the database and start or stop the stream accordingly"
+				 , py::arg("stream")
+			)
+
 		.def("get_default_tune_options", &receiver_t::get_default_tune_options,
 				 py::arg("subscription_type"))
 		.def("get_api_type", &receiver_t::get_api_type)

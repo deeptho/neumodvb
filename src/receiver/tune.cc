@@ -515,6 +515,26 @@ tuner_thread_t::cb_t::subscribe_service_for_viewing(const subscribe_ret_t& sret,
 	return active_adapter.tune_service_for_viewing(sret, mux, service);
 }
 
+pid_t tuner_thread_t::cb_t::add_stream(const subscribe_ret_t& sret,
+																			 const chdb::any_mux_t& mux, const devdb::stream_t& stream,
+																			 const subscription_options_t& tune_options) {
+	/*In case of failure, release the resources assosciated with this subscription (active_adapter and
+		active_service)
+	*/
+	assert(sret.subscription_id != subscription_id_t::NONE);
+	auto subscription_id = this->subscribe_mux(sret, mux, tune_options);
+
+	assert(subscription_id == sret.subscription_id);
+	/*at this point
+		1. we have tuned to the proper mux
+		2. we no longer have a subscribed service of playback
+	*/
+	return active_adapter.add_stream(sret, stream, mux);
+}
+
+void tuner_thread_t::cb_t::remove_stream(subscription_id_t subscription_id) {
+	active_adapter.remove_stream(subscription_id);
+}
 
 /*
 	called by

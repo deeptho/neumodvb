@@ -32,7 +32,6 @@ from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
 from neumodvb.satlist_combo import EVT_SAT_SELECT
-
 import pychdb
 
 class ServiceTable(NeumoTable):
@@ -268,6 +267,21 @@ class ServiceGridBase(NeumoGridBase):
         service = self.table.GetRow(rowno)
         self.table.SaveModified()
         self.app.ServiceTune(service, replace_running=False)
+
+    def CmdCreateStreamHelper(self):
+        from neumodvb.stream_dialog import show_stream_dialog
+        self.table.SaveModified()
+        rowno = self.GetGridCursorRow()
+        service = self.table.GetRow(rowno)
+        return show_stream_dialog(self, title=f'Stream {service}', service=service)
+
+    def CmdAddStream(self, evt):
+        stream = self.CmdCreateStreamHelper()
+        if stream is None:
+            dtdebug(f'CmdToggleStream aborted for')
+            return
+        dtdebug(f'CmdToggleStream requested for {stream}')
+        return wx.GetApp().receiver.update_and_toggle_stream(stream)
 
     def CmdPositioner(self, event):
         dtdebug('CmdPositioner')

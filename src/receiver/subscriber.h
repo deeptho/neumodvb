@@ -59,6 +59,7 @@ class subscriber_t : public std::enable_shared_from_this<subscriber_t>
 		subscription_id_t subscription_id{subscription_id_t::NONE};
 		int command_id{-1};
 		std::shared_ptr<active_playback_t> active_playback;
+		std::shared_ptr<active_playback_t> streamer;
 	};
 
 	std::shared_ptr<player_cb_t> mpv; //cannot yeet be moved into thread safe because called by gui
@@ -71,6 +72,7 @@ class subscriber_t : public std::enable_shared_from_this<subscriber_t>
 	receiver_t *receiver;
 	wxWindow* window{nullptr}; //window which will receive notifications
 	std::atomic<bool> scanning_{false}; //subscriber is scanning
+	std::atomic<int> stream_id_{-1}; //subscriber is streaming
 
 public:
 
@@ -98,6 +100,14 @@ public:
 
 	inline void set_scanning(bool val) {
 		scanning_ = val;
+	}
+
+	inline bool is_streaming() const {
+		return stream_id_ >=0;
+	}
+
+	inline int get_stream_id() const {
+		return stream_id_;
 	}
 
 	inline subscription_id_t get_subscription_id() const {
@@ -182,6 +192,7 @@ public:
 	EXPORT void update_current_lnb(const devdb::lnb_t & lnb);
 
 	EXPORT std::unique_ptr<playback_mpm_t> subscribe_service_for_viewing(const chdb::service_t& service);
+	EXPORT int subscribe_stream(const devdb::stream_t& stream);
 
 	template <typename _mux_t>
 	EXPORT int subscribe_mux(const _mux_t& mux, bool blindscan);

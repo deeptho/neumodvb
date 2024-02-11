@@ -89,11 +89,27 @@ public:
 	}
 	inline int read_external_data();
 
-	template<typename... Args>
-	int start_command(int stream_fd, const char* pathname, Args...args);
-
-
 	void register_reader(embedded_stream_reader_t* reader);
 	void unregister_reader(embedded_stream_reader_t* reader);
 	void notify_other_readers(embedded_stream_reader_t* reader);
+};
+
+//external command sending an ip stream
+class streamer_t {
+	pid_t stream_pid{pid_t(-1)}; //pid of external command started
+	int fd{-1};
+	const devdb::stream_t stream;
+public:
+	streamer_t(int fd_, const devdb::stream_t& stream_)
+		: fd(fd_)
+		, stream(stream_)
+		{}
+	inline const chdb::service_t* get_service() const {
+		return std::get_if<chdb::service_t>(&stream.content);
+	}
+	int start();
+	void stop();
+	pid_t get_stream_pid() const {
+		return stream_pid;
+	}
 };

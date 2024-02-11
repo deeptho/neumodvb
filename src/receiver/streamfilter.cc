@@ -57,6 +57,76 @@ bool set_blocking(int fd, bool on) {
 	return (fcntl(fd, F_SETFL, flags) == 0) ? true : false;
 }
 
+/*
+	start an external command, connect its stdin to stream_fd
+	and connect its stdout to a pipe.
+	Returns the file descriptor of the pipe so that we can read from it
+*/
+template <typename... Args>
+std::tuple< int , pid_t>
+start_command(int stream_fd, const char* pathname, Args... args) {
+	pid_t command_pid{pid_t(-1)};
+	int childToParent[2];
+
+	// int status;
+
+	/*  The O_NONBLOCK and FD_CLOEXEC  flags  shall  be
+			clear  on  both  file descriptors
+			fildes[0] = read end
+			fildes[1] = write end
+
+	*/
+
+	if (pipe(childToParent) != 0) {
+		dterrorf("pipe failed\n");
+		::exit(1);
+	}
+
+	switch (command_pid = fork()) {
+	case -1:
+		dterrorf("Fork failed\n");
+		::exit(-1);
+
+	case 0: /* Child */
+		/*rename file descriptors to standard ones so that the external command can read from fd=0
+			and write to fd=1*/
+		if (dup2(stream_fd, STDIN_FILENO) < 0 || dup2(childToParent[WRITE_FD], STDOUT_FILENO) < 0 ||
+				::close(childToParent[READ_FD]) != 0) {
+			dterrorf("error occured");
+			::exit(1);
+		}
+		set_blocking(STDIN_FILENO, true);
+		/*     file, arg0, arg1,  arg2 */
+		execlp(pathname, pathname, args...);
+
+		// note that we cannot use dterror....
+		fprintf(stderr, "This line should never be reached!!!\n");
+		::exit(-1);
+
+	default: /* Parent */
+		dtdebugf("Child process {:d} running...\n", command_pid);
+
+		if (::close(childToParent[WRITE_FD]) != 0) {
+			dterrorf("error closing pipe fd");
+		}
+		set_blocking(childToParent[READ_FD], false);
+
+		auto flags = fcntl(childToParent[READ_FD], F_GETFD);
+		if (flags < 0) {
+			dterrorf("fcntl failed: {}", strerror(errno));
+			return {-1,-1};
+		}
+
+		if (fcntl(childToParent[READ_FD], F_SETFD, flags | FD_CLOEXEC) < 0) {
+			dterrorf("Could not set FD_CLOEXEC: {}", strerror(errno));
+			return {-1, -1};
+		}
+
+		return {childToParent[READ_FD], command_pid};
+	}
+	return {-1, -1};
+}
+
 stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
 																 epoll_t* epoll, int epoll_flags)
 	: active_adapter(active_adapter)
@@ -90,10 +160,10 @@ void stream_filter_t::close() {
 void stream_filter_t::stop() {
 	assert(command_pid > 0);
 	if (kill(command_pid, SIGHUP) < 0) {
-		dterrorf("Errror while sending signal: {}", strerror(errno));
+		dterrorf("Error while sending signal: {}", strerror(errno));
 	}
 	if (waitpid(command_pid, nullptr, 0) < 0) {
-		dterrorf("Errror during wait: {}", strerror(errno));
+		dterrorf("Error during wait: {}", strerror(errno));
 	}
 	command_pid = -1;
 }
@@ -126,7 +196,8 @@ int stream_filter_t::start() {
 	ss::string<32> pid_;
 	pid_.format("{:d}", stream_pid);
 #if 1
-	data_fd = start_command(stream_fd, "tsp", "--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
+	std::tie(data_fd, command_pid)
+	= start_command(stream_fd, "tsp", "--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
 													// @todo: "--plp", plp.cstr()
 													(char*)nullptr);
 #else
@@ -208,72 +279,6 @@ inline int stream_filter_t::read_external_data() {
 	return 0;
 }
 
-/*
-	start an external command, connect its stdin to stream_fd
-	and connect its stdout to a pipe.
-	Returns teh file descriptor of the pipe so that we can read from it
-*/
-template <typename... Args> int stream_filter_t::start_command(int stream_fd, const char* pathname, Args... args) {
-	int childToParent[2];
-
-	// int status;
-
-	/*  The O_NONBLOCK and FD_CLOEXEC  flags  shall  be
-			clear  on  both  file descriptors
-			fildes[0] = read end
-			fildes[1] = write end
-
-	*/
-
-	if (pipe(childToParent) != 0) {
-		dterrorf("pipe failed\n");
-		::exit(1);
-	}
-
-	switch (command_pid = fork()) {
-	case -1:
-		dterrorf("Fork failed\n");
-		::exit(-1);
-
-	case 0: /* Child */
-		/*rename file descriptors to standard ones so that the external command can read from fd=0
-			and write to fd=1*/
-		if (dup2(stream_fd, STDIN_FILENO) < 0 || dup2(childToParent[WRITE_FD], STDOUT_FILENO) < 0 ||
-				::close(childToParent[READ_FD]) != 0) {
-			dterrorf("error occured");
-			::exit(1);
-		}
-		set_blocking(STDIN_FILENO, true);
-		/*     file, arg0, arg1,  arg2 */
-		execlp(pathname, pathname, args...);
-
-		// note that we cannot use dterror....
-		fprintf(stderr, "This line should never be reached!!!\n");
-		::exit(-1);
-
-	default: /* Parent */
-		dtdebugf("Child process {:d} running...\n", command_pid);
-
-		if (::close(childToParent[WRITE_FD]) != 0) {
-			dterrorf("error closing pipe fd");
-		}
-		set_blocking(childToParent[READ_FD], false);
-
-		auto flags = fcntl(childToParent[READ_FD], F_GETFD);
-		if (flags < 0) {
-			dterrorf("fcntl failed: {}", strerror(errno));
-			return -1;
-		}
-
-		if (fcntl(childToParent[READ_FD], F_SETFD, flags | FD_CLOEXEC) < 0) {
-			dterrorf("Could not set FD_CLOEXEC: {}", strerror(errno));
-			return -1;
-		}
-
-		return childToParent[READ_FD];
-	}
-	return -1;
-}
 
 inline void embedded_stream_reader_t::discard(ssize_t num_bytes) {
 	assert(num_bytes + read_pointer <= last_range_end_pointer);
@@ -481,4 +486,44 @@ void embedded_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stre
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	stream_filter->embedded_mux = stream_mux;
+}
+
+
+int streamer_t::start() {
+	auto * service = get_service();
+	assert(service); //mux: todo
+	ss::string<32> service_id_;
+	ss::string<32> sid_pmt_;
+	ss::string<32> dest;
+	dest.format("{}:{:d}", stream.dest_host, stream.dest_port);
+	service_id_.format("{:d}", service->k.service_id);
+	sid_pmt_.format("{:d}/{:d}", service->k.service_id, service->pmt_pid);
+	//TOOD: pat rewriting (requires service_id)
+	//TOOD: stdout should be closed
+	auto [data_fd, command_pid] = start_command(
+		fd, "tsp", "--realtime", "--initial-input-packets", "256",
+		"-P", "filter", "--pid" , "0", "--service", service_id_.c_str(),
+		"-P", "filter", "--pid", "0", "--negate", "--stuffing", // replace PAT will null packets
+		"-P", "pat", "--create", "--add-service", sid_pmt_.c_str(), //created new single service PAT
+		//"--inter-packet", "200",
+		"-O", "ip", "--enforce-burst", "--rtp", dest.c_str(), (char*)nullptr); //stream
+
+	if (data_fd < 0) {
+		dterrorf("Could not start command");
+		return -1;
+	}
+	::close(fd);
+	fd = -1;
+	return 0;
+}
+
+void streamer_t::stop() {
+	assert(stream_pid > 0);
+	if (kill(stream_pid, SIGHUP) < 0) {
+		dterrorf("Error while sending signal: {}", strerror(errno));
+	}
+	if (waitpid(stream_pid, nullptr, 0) < 0) {
+		dterrorf("Error during wait: {}", strerror(errno));
+	}
+	stream_pid = -1;
 }

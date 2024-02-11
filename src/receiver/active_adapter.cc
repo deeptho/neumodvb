@@ -1122,6 +1122,46 @@ active_adapter_t::tune_service_for_recording(const subscribe_ret_t& sret,
 	return active_servicep->start_recording(sret.subscription_id, rec);
 }
 
+pid_t active_adapter_t::add_stream
+(const subscribe_ret_t& sret, const devdb::stream_t& stream, const chdb::any_mux_t& mux) {
+	auto fd = active_adapter_t::open_demux(O_RDONLY);
+
+	uint16_t pid= 0x2000; //full transport stream
+	dtdebugf("Adding pid={}", pid);
+	int dmx_buffer_size = 32 * 1024 * 1024;
+	struct dmx_pes_filter_params pesFilterParams;
+	memset(&pesFilterParams,0,sizeof(pesFilterParams));
+	pesFilterParams.pid = pid;
+	pesFilterParams.input = DMX_IN_FRONTEND;
+	pesFilterParams.output = DMX_OUT_TSDEMUX_TAP;//DMX_OUT_TS_TAP;
+	pesFilterParams.pes_type = DMX_PES_OTHER;
+	pesFilterParams.flags = 0; //DMX_IMMEDIATE_START;
+	if(ioctl(fd, DMX_SET_BUFFER_SIZE, dmx_buffer_size)) {
+		dterrorf("DMX_SET_BUFFER_SIZE failed: {}", strerror(errno));
+	}
+	if (ioctl(fd, DMX_SET_PES_FILTER, &pesFilterParams) < 0) {
+		dterrorf("DMX_SET_PES_FILTER  pid={} failed: {}", pid, strerror(errno));
+		return {};
+	}
+	if(ioctl (fd, DMX_START)<0) {
+		dterrorf("DMX_START FAILED: {}", strerror(errno));
+	}
+
+	auto s = std::make_shared<streamer_t>(fd, stream);
+	s->start();
+	streamers[sret.subscription_id] = s;
+	return s->get_stream_pid();
+}
+
+void active_adapter_t::remove_stream(subscription_id_t subscription_id) {
+	//auto streamer = streamer_t();
+	auto [it, found] = find_in_map(streamers, subscription_id);
+	assert(found);
+	auto& streamer = *it->second;
+	streamer.stop();
+	streamers.erase(it);
+}
+
 /*
 	Called when out own subscription is already tuned to mux, but retune is requested, e.g.,
 	from positioner_dialog. This is almost the same as a fresh tune, except that connection

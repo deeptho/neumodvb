@@ -1051,15 +1051,16 @@ void active_adapter_t::check_for_non_existing_streams()
 std::shared_ptr<active_service_t>
 active_adapter_t::tune_service_in_use(const subscribe_ret_t& sret,
 																			const chdb::service_t& service) {
-	for (auto& [subscription_id, active_servicep] : this->subscribed_active_services) {
-		/* The service is already subscribed
-			 Unsubscribe_ our old mux and service (if any)
-		*/
-		subscribed_active_services[sret.subscription_id] = active_servicep;
-		dtdebugf("[{}] sub={}: reusing existing service", service, (int) sret.subscription_id);
-		return active_servicep;
-	}
-	return nullptr;
+	auto [it, found] = find_in_map(this->subscribed_active_services, sret.subscription_id);
+	if(!found)
+		return nullptr;
+	auto& active_servicep = it->second;
+	/* The service is already subscribed
+		 Unsubscribe_ our old mux and service (if any) by overwriting it with the found active_service
+	*/
+	subscribed_active_services[sret.subscription_id] = active_servicep;
+	dtdebugf("[{}] sub={}: reusing existing service", service, (int) sret.subscription_id);
+	return active_servicep;
 }
 
 std::shared_ptr<active_service_t>

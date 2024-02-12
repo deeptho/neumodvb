@@ -718,7 +718,7 @@ namespace ss {
 				this->push_back(v[i]);
 		}
 
-		vector(std::initializer_list<data_t> v)
+		vector(std::initializer_list<const data_t> v)
 			: vector() {
 			for (const auto& x : v)
 				this->push_back(x);

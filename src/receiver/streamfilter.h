@@ -107,6 +107,16 @@ public:
 	inline const chdb::service_t* get_service() const {
 		return std::get_if<chdb::service_t>(&stream.content);
 	}
+	inline int get_t2mi_pid() const {
+		return std::visit([](auto& record) -> int16_t {
+			if constexpr (is_same_type_v<chdb::service_t, decltype(record)>) {
+				return record.k.mux.t2mi_pid;
+			} else {
+				return record.k.t2mi_pid;
+			}
+			return -1;
+		}, stream.content);
+	}
 	int start();
 	void stop();
 	pid_t get_streamer_pid() const {

@@ -63,9 +63,8 @@ bool set_blocking(int fd, bool on) {
 	and connect its stdout to a pipe.
 	Returns the file descriptor of the pipe so that we can read from it
 */
-template <typename... Args>
 std::tuple< int , pid_t>
-start_command(int stream_fd, const char* pathname, Args... args) {
+start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& args) {
 	pid_t command_pid{pid_t(-1)};
 	int childToParent[2];
 
@@ -100,7 +99,7 @@ start_command(int stream_fd, const char* pathname, Args... args) {
 		signal(SIGINT, SIG_IGN); //avoid interrupt by gdb
 		prctl(PR_SET_PDEATHSIG, SIGHUP); //ask to be killed when parent dies
 		/*     file, arg0, arg1,  arg2 */
-		execlp(pathname, pathname, args...);
+		execvp(pathname,  const_cast<char* const*>(args.buffer()));
 
 		// note that we cannot use dterror....
 		fprintf(stderr, "This line should never be reached!!!\n");
@@ -198,16 +197,12 @@ int stream_filter_t::start() {
 	}
 	ss::string<32> pid_;
 	pid_.format("{:d}", stream_pid);
-#if 1
-	std::tie(data_fd, command_pid)
-	= start_command(stream_fd, "tsp", "--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
+	const char* cmd ="tsp";
+	ss::vector<const char*,16> args = {{cmd,
+			"--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
 													// @todo: "--plp", plp.cstr()
-													(char*)nullptr);
-#else
-	data_fd = start_command(stream_fd, "/tmp/saver", "saver",
-													// @todo: "--plp", plp.cstr()
-													(char*)nullptr);
-#endif
+			(char*)nullptr}};
+	std::tie(data_fd, command_pid) = start_command(stream_fd, cmd, args);
 	if (data_fd < 0) {
 		dterrorf("Could not start command");
 		return -1;
@@ -502,15 +497,30 @@ pid_t streamer_t::start() {
 	sid_pmt_.format("{:d}/{:d}", service->k.service_id, service->pmt_pid);
 	//TOOD: pat rewriting (requires service_id)
 	//TOOD: stdout should be closed
-	auto [data_fd, command_pid] = start_command(
-		fd, "tsp", "--realtime", "--initial-input-packets", "256",
-		"-P", "filter", "--pid" , "0", "--service", service_id_.c_str(),
-		"-P", "filter", "--pid", "0", "--negate", "--stuffing", // replace PAT will null packets
-		"-P", "pat", "--create", "--add-service", sid_pmt_.c_str(), //created new single service PAT
-		//"--inter-packet", "200",
-		"-O", "ip", "--enforce-burst", //"--rtp",
-		"--packet-burst", "128",
-		dest.c_str(), (char*)nullptr); //stream
+	const char* cmd ="tsp";
+	ss::vector<const char*, 16> args = {cmd};
+	auto t2mi_pid = this->get_t2mi_pid();
+	if(t2mi_pid >=0) {
+		ss::string<32> t2mi_pid_;
+		t2mi_pid_.format("{:d}", t2mi_pid);
+		for(auto& a: {"-P", "t2mi", "--pid", (const char*)t2mi_pid_.c_str()}) {
+			args.push_back(a);
+		}
+	}
+	for(auto& a: {
+			"--realtime", "--initial-input-packets", "256",
+			"-P", "filter", "--pid" , "0",
+			"--service", (const char*)service_id_.c_str(),
+			"-P", "filter", "--pid", "0", "--negate", "--stuffing", // replace PAT will null packets
+			"-P", "pat", "--create",
+			"--add-service", (const char*)sid_pmt_.c_str(), //created new single service PAT
+			//"--inter-packet", "200",
+			"-O", "ip", "--enforce-burst", //"--rtp",
+			"--packet-burst", "128",
+			(const char*) dest.c_str(), (const char*)nullptr}) {
+		args.push_back(a);
+	}
+	auto [data_fd, command_pid] = start_command(fd, cmd, args); //stream
 	stream.streamer_pid = command_pid;
 	stream.owner = getpid();
 	stream.mtime = system_clock_t::to_time_t(now);

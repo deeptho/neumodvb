@@ -308,10 +308,11 @@ protected:
 		std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::any_mux_t& mux,
 		recdb::rec_t& rec, ssptr_t ssptr);
 
-	std::tuple<int, std::unique_ptr<playback_mpm_t>>
+	std::tuple<std::optional<devdb::stream_t>, std::unique_ptr<playback_mpm_t>>
 	subscribe_service(const chdb::any_mux_t& mux, const chdb::service_t& service,
 										ssptr_t ssptr, const devdb::stream_t* stream);
 
+	devdb::stream_t update_and_toggle_stream(const devdb::stream_t& stream_);
 
 public:
 	receiver_t& receiver;
@@ -333,7 +334,6 @@ private:
 		w->reset();
 	}
 
-
 public:
 
 	inline std::shared_ptr<active_adapter_t> find_active_adapter(subscription_id_t subscription_id) {
@@ -350,7 +350,8 @@ public:
 
 
 private:
-	void startup(system_time_t now_);
+	void startup_commands(system_time_t now_);
+	void startup_streams(system_time_t now_);
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_service_in_use(std::vector<task_queue_t::future_t>& futures,
@@ -429,11 +430,13 @@ public:
 	subscription_id_t subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, subscription_options_t tune_options,
 																	ssptr_t ssptr);
 
-	std::tuple<int, std::unique_ptr<playback_mpm_t>>
+	std::unique_ptr<playback_mpm_t>
 	subscribe_service(const chdb::service_t& service,
 										ssptr_t ssptr = {});
 
-	devdb::stream_t update_and_toggle_stream(const devdb::stream_t& stream);
+	inline devdb::stream_t update_and_toggle_stream(const devdb::stream_t& stream) {
+		return receiver_thread_t::update_and_toggle_stream(stream);
+	}
 
 	std::unique_ptr<playback_mpm_t>
 	subscribe_playback(const recdb::rec_t& rec, ssptr_t ssptr);

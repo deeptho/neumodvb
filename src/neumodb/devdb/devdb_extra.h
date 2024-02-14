@@ -52,6 +52,7 @@ namespace devdb::dish {
 
 
 namespace devdb {
+	void clean(db_txn& devdb_wtxn);
 	int16_t make_unique_id(db_txn& txn, const devdb::lnb_key_t& key);
 	int16_t make_unique_id(db_txn& txn, const devdb::scan_command_t& scan_command);
 	int16_t make_unique_id(db_txn& txn, const devdb::stream_t& streamer);

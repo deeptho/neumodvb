@@ -123,9 +123,9 @@ public:
 																										const chdb::any_mux_t& mux, const chdb::service_t& service,
 																										const subscription_options_t& tune_options);
 
-	pid_t add_stream(const subscribe_ret_t& sret,
-									 const chdb::any_mux_t& mux, const devdb::stream_t& stream,
-									 const subscription_options_t& tune_options);
+	devdb::stream_t add_stream(const subscribe_ret_t& sret,
+														 const chdb::any_mux_t& mux, const devdb::stream_t& stream,
+														 const subscription_options_t& tune_options);
 	void 	remove_stream(subscription_id_t subscription_id);
 
 	int toggle_recording(const chdb::service_t& service, const epgdb::epg_record_t& epg_record);

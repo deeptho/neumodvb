@@ -512,6 +512,10 @@ pid_t streamer_t::start() {
 		"--packet-burst", "128",
 		dest.c_str(), (char*)nullptr); //stream
 	stream.streamer_pid = command_pid;
+	stream.owner = getpid();
+	stream.mtime = system_clock_t::to_time_t(now);
+	assert(stream.subscription_id >=0);
+	assert(stream.stream_state == devdb::stream_state_t::ON);
 	if (data_fd < 0) {
 		dterrorf("Could not start command");
 		return -1;
@@ -522,12 +526,16 @@ pid_t streamer_t::start() {
 }
 
 void streamer_t::stop() {
-	assert(stream_pid > 0);
-	if (kill(stream_pid, SIGHUP) < 0) {
+	assert(stream.streamer_pid > 0);
+	if (kill(stream.streamer_pid, SIGHUP) < 0) {
 		dterrorf("Error while sending signal: {}", strerror(errno));
 	}
-	if (waitpid(stream_pid, nullptr, 0) < 0) {
+	if (waitpid(stream.streamer_pid, nullptr, 0) < 0) {
 		dterrorf("Error during wait: {}", strerror(errno));
 	}
-	stream_pid = -1;
+	stream.streamer_pid = -1;
+	stream.owner = -1;
+	stream.mtime = system_clock_t::to_time_t(now);
+	assert(stream.subscription_id >=0);
+	stream.stream_state = devdb::stream_state_t::OFF;
 }

@@ -1122,7 +1122,7 @@ active_adapter_t::tune_service_for_recording(const subscribe_ret_t& sret,
 	return active_servicep->start_recording(sret.subscription_id, rec);
 }
 
-pid_t active_adapter_t::add_stream
+devdb::stream_t active_adapter_t::add_stream
 (const subscribe_ret_t& sret, const devdb::stream_t& stream, const chdb::any_mux_t& mux) {
 	auto fd = active_adapter_t::open_demux(O_RDONLY);
 
@@ -1150,7 +1150,7 @@ pid_t active_adapter_t::add_stream
 	auto s = std::make_shared<streamer_t>(fd, stream);
 	s->start();
 	streamers[sret.subscription_id] = s;
-	return s->get_stream_pid();
+	return s->stream;
 }
 
 void active_adapter_t::remove_stream(subscription_id_t subscription_id) {

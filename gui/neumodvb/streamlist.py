@@ -54,7 +54,8 @@ class StreamTable(NeumoTable):
          CD(key='dest_host',  label='dest host', basic=True, readonly=False),
          CD(key='dest_port',  label='port', basic=True, readonly=False),
          CD(key='subscription_id',  label='subs', basic=True, readonly=False),
-         CD(key='stream_pid',  label='pid', basic=True, readonly=False),
+         CD(key='streamer_pid',  label='pid', basic=True, readonly=False, example="214637 "),
+         CD(key='owner',  label='owner', basic=True, readonly=False, example="214637 "),
          CD(key='mtime',  label='Modified', dfn=datetime_fn, example=' Wed Jun 15 00:00xxxx')
         ]
 
@@ -76,7 +77,11 @@ class StreamTable(NeumoTable):
 
     def __save_record__(self, txn, record):
         dtdebug(f'saving {record.stream_id}')
+        #Caller has deleted record (in case key would have changed)
+        #and counts on us to save record in all cases.
+        #saving it explictily is a safety measure to avoid record not existing temporarily
         pydevdb.put_record(txn, record)
+        wx.CallAfter(wx.GetApp().receiver.update_and_toggle_stream, record)
         return record
 
     def __new_record__(self):
@@ -127,7 +132,9 @@ class StreamGridBase(NeumoGridBase):
         rowno = self.GetGridCursorRow()
         stream = self.table.GetRow(rowno)
         dtdebug(f'CmdStop requested for stream{stream}')
-        return wx.GetApp().receiver.update_and_toggle_stream(stream, force_off=True)
+        s_t = pydevdb.stream_state_t
+        stream.stream_state = s_t.OFF
+        return wx.GetApp().receiver.update_and_toggle_stream(stream)
 
 class BasicStreamGrid(StreamGridBase):
     def __init__(self, *args, **kwds):

@@ -110,6 +110,10 @@ public:
 		return stream_id_;
 	}
 
+	inline void set_stream_id(int stream_id) {
+		stream_id_ = stream_id;
+	}
+
 	inline subscription_id_t get_subscription_id() const {
 		auto r = ts.readAccess();
 		return r->subscription_id;

@@ -694,7 +694,8 @@ stream = db_struct(name='stream',
                    (4, 'ss::string<32>', 'dest_host', '"127.0.0.1"'),
                    (5, 'int32_t', 'dest_port', "9999"),
                    (6, 'int32_t', 'subscription_id', '-1'), #subscription_id when active
-                   (9, 'int32_t', 'stream_pid', -1), #pid of the process executing the stream or -1
+                   (9, 'int32_t', 'streamer_pid', -1), #pid of the process executing the stream or -1
+                   (11, 'int32_t', 'owner', -1), #pid of the process owning stream or -1
                    (7, 'int32_t', 'user_id', '0'),
                    (8, 'time_t', 'mtime'),
                    (12, 'bool', 'autostart', 'false'), #start when neumoDVB is started

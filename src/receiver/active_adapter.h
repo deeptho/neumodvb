@@ -383,8 +383,8 @@ private:
 														 const chdb::any_mux_t& mux,
 														 const recdb::rec_t& rec);
 
-	pid_t add_stream(const subscribe_ret_t& sret, const devdb::stream_t& stream,
-									 const chdb::any_mux_t& mux);
+	devdb::stream_t add_stream(const subscribe_ret_t& sret, const devdb::stream_t& stream,
+														 const chdb::any_mux_t& mux);
 
 	void remove_stream(subscription_id_t subscription_id);
 

@@ -515,7 +515,7 @@ tuner_thread_t::cb_t::subscribe_service_for_viewing(const subscribe_ret_t& sret,
 	return active_adapter.tune_service_for_viewing(sret, mux, service);
 }
 
-pid_t tuner_thread_t::cb_t::add_stream(const subscribe_ret_t& sret,
+devdb::stream_t tuner_thread_t::cb_t::add_stream(const subscribe_ret_t& sret,
 																			 const chdb::any_mux_t& mux, const devdb::stream_t& stream,
 																			 const subscription_options_t& tune_options) {
 	/*In case of failure, release the resources assosciated with this subscription (active_adapter and

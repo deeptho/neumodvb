@@ -444,7 +444,7 @@ void receiver_thread_t::start_commands(db_txn& devdb_rtxn, system_time_t now_) {
 }
 
 
-void receiver_thread_t::startup(system_time_t now_)
+void receiver_thread_t::startup_commands(system_time_t now_)
 {
 	using namespace devdb;
 	auto devdb_rtxn = receiver.devdb.rtxn();

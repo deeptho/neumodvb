@@ -80,7 +80,7 @@ public:
 
 	int open();
 	void close();
-	int start();
+	pid_t start();
 	void stop();
 	inline bool is_open() const {
 		bool ret = data_fd >=0;
@@ -96,9 +96,9 @@ public:
 
 //external command sending an ip stream
 class streamer_t {
-	pid_t stream_pid{pid_t(-1)}; //pid of external command started
+	friend class active_adapter_t;
 	int fd{-1};
-	const devdb::stream_t stream;
+	devdb::stream_t stream;
 public:
 	streamer_t(int fd_, const devdb::stream_t& stream_)
 		: fd(fd_)
@@ -109,7 +109,7 @@ public:
 	}
 	int start();
 	void stop();
-	pid_t get_stream_pid() const {
-		return stream_pid;
+	pid_t get_streamer_pid() const {
+		return stream.streamer_pid;
 	}
 };

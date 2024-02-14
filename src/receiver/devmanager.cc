@@ -513,8 +513,6 @@ int dvbdev_monitor_t::stop() {
 	return 0;
 }
 
-
-
 void dvbdev_monitor_t::disable_missing_adapters() {
 	using namespace chdb;
 	auto devdb_wtxn = this->devdb_wtxn();

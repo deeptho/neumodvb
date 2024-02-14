@@ -309,7 +309,8 @@ class TuneMuxPanel(TuneMuxPanel_):
             chdb_txn = wx.GetApp().chdb.rtxn()
             mux, sat = pychdb.select_sat_and_reference_mux(chdb_txn, lnb, mux)
             if sat is None and mux.k.sat_pos != pychdb.sat.sat_pos_none:
-                ok = ShowOkCancel(f"No sat for mux {mux}", f"Do you want to add a sat for this mux?")
+                ok = ShowOkCancel(f"No sat for mux {mux} at {pychdb.sat_pos_str(mux.k.sat_pos)}",
+                                  f"Do you want to add a sat for this mux?")
                 if ok:
                     sat = pychdb.sat.sat()
                     sat.sat_band = pydevdb.lnb.sat_band(lnb)

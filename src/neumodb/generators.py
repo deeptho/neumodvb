@@ -107,10 +107,12 @@ class db_enum(object):
         for field in fields:
             if type(field) == str:
                 field = (field, None, None)
-            if len(field) == 2:
+            if type(field) == tuple and len(field) == 2:
                 field =(*field, None)
             self.add(*field)
         prefix = os.path.commonprefix([value['name'] for value in self.values])
+        if not prefix.endswith('_'):
+            prefix=""
         for value in self.values:
             short_name = re.sub('^{}'.format(prefix), '', value['name'])
             value['short_name'] = short_name

@@ -30,7 +30,6 @@ namespace {{dbname}} {
 	void export_enums(py::module& m) {
 
 	{%for enum in enums %}
-
 		py::enum_<{{enum.name}}>(m, "{{enum.name}}", py::arithmetic())
     {%for f in enum.values %}
 		     .value("{{f.short_name}}", {{enum.name}}::{{f.name}})

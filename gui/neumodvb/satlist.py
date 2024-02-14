@@ -310,7 +310,7 @@ class SatGrid(SatGridBase):
                 service = ls.selected_service
                 if service is not None:
                     txn = wx.GetApp().chdb.rtxn()
-                    sat_band, low_high = pychdb.sat_band_for_freq(service.k.mux.frequency)
+                    sat_band, low_high = pychdb.sat_band_for_freq(service.frequency)
                     self.sat=pychdb.sat.find_by_key(txn, service.k.mux.sat_pos, sat_band)
                     txn.abort()
                     self.sat_band = sat_band

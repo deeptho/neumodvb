@@ -121,6 +121,9 @@ class TuneMuxPanel(TuneMuxPanel_):
     def init(self, parent, sat, lnb,  mux, window_for_computing_width=None):
         if window_for_computing_width is not None:
             self.positioner_sat_sel.window_for_computing_width = window_for_computing_width
+        self.rf_path = None
+        self.lnb = None
+        self.mux = None
         self.rf_path, self.lnb, self.sat, self.mux = self.SelectInitialData(lnb, sat, mux)
         self.si_status_keys= ('pat', 'nit', 'sdt')
         self.other_status_keys= ('fail', 'si_done')

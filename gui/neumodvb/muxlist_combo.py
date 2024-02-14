@@ -118,7 +118,7 @@ class DvbsMuxListComboCtrl(wx.ComboCtrl):
         """
         Set sat from external (not by user)
         """
-        dtdebug(f'muxlist_combo received SetSat (old) {sat}')
+        dtdebug(f'muxlist_combo received SetSat {sat}')
         self.sat = sat
         if self.popup.popup_grid is not None:
             self.popup.popup_grid.SelectSat(sat)

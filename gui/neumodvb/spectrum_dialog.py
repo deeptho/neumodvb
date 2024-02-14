@@ -69,6 +69,8 @@ class SpectrumButtons(SpectrumButtons_):
 
     def select_range_and_pols(self):
         lnb = self.parent.lnb
+        if lnb is None:
+            return
         if lnb.pol_type in (pydevdb.lnb_pol_type_t.VH, pydevdb.lnb_pol_type_t.HV,
                             pydevdb.lnb_pol_type_t.LR, pydevdb.lnb_pol_type_t.RL,
                             pydevdb.lnb_pol_type_t.L, pydevdb.lnb_pol_type_t.H):

@@ -181,7 +181,6 @@ int fe_monitor_thread_t::run() {
 	fe_name.format("fe {:d}.{:d}", (int)fe->adapter_no, (int)fe->frontend_no);
 	set_name(fe_name.c_str());
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
-
 	dtdebugf("frontend_monitor run: {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 	auto save = shared_from_this(); // prevent ourself from being deleted until thread exits;
 
@@ -214,18 +213,19 @@ int fe_monitor_thread_t::run() {
 		}
 	}
 exit_:
-	{
-		fe->close_device();
-	}
-	dtdebugf("frontend_monitor end: {:p}: closed device\n", fmt::ptr(fe.get()));
 	save.reset();
-	{
-		auto ts = fe->signal_monitor.writeAccess();
-		auto &signal_monitor = *ts;
-		signal_monitor.end_stat(receiver);
-	}
 	dtdebugf("frontend_monitor end: {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 	return 0;
+}
+
+int fe_monitor_thread_t::exit() {
+
+	fe->close_device();
+	dtdebugf("frontend_monitor end: {:p}: closed device\n", fmt::ptr(fe.get()));
+	auto ts = fe->signal_monitor.writeAccess();
+	auto &signal_monitor = *ts;
+	signal_monitor.end_stat(receiver);
+		return 0;
 }
 
 void signal_monitor_t::update_stat(receiver_t& receiver, const signal_info_t& info) {

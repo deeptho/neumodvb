@@ -595,9 +595,7 @@ private:
 	std::shared_ptr<dvb_frontend_t> fe{nullptr};
 
 	void update_lock_status_and_signal_info(fe_status_t fe_status);
-	virtual int exit() final {
-		return -1;
-	}
+	virtual int exit() final;
 
 	inline void handle_frontend_event();
 public:

@@ -197,7 +197,7 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 			//ask tuner thread to exit, but do not wait
 			dtdebugf("Pushing tuner_thread.stop_running");
 			tuner_thread.update_dbfe(updated_dbfe);
-			futures.push_back(tuner_thread.stop_running(false/*wait*/));
+			futures.push_back(tuner_thread.stop_running(true/*wait*/));
 		} else {
 			futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = updated_dbfe]() {
 				tuner_thread.update_dbfe(updated_dbfe);

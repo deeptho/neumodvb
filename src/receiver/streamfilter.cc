@@ -487,16 +487,11 @@ void embedded_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stre
 }
 
 pid_t streamer_t::start() {
-	auto * service = get_service();
-	assert(service); //mux: todo
+	auto * pservice = get_service();
 	ss::string<32> service_id_;
 	ss::string<32> sid_pmt_;
 	ss::string<32> dest;
 	dest.format("{}:{:d}", stream.dest_host, stream.dest_port);
-	service_id_.format("{:d}", service->k.service_id);
-	sid_pmt_.format("{:d}/{:d}", service->k.service_id, service->pmt_pid);
-	//TOOD: pat rewriting (requires service_id)
-	//TOOD: stdout should be closed
 	const char* cmd ="tsp";
 	ss::vector<const char*, 16> args = {cmd};
 	auto t2mi_pid = this->get_t2mi_pid();
@@ -507,18 +502,35 @@ pid_t streamer_t::start() {
 			args.push_back(a);
 		}
 	}
-	for(auto& a: {
-			"--realtime", "--initial-input-packets", "256",
-			"-P", "filter", "--pid" , "0",
-			"--service", (const char*)service_id_.c_str(),
-			"-P", "filter", "--pid", "0", "--negate", "--stuffing", // replace PAT will null packets
-			"-P", "pat", "--create",
-			"--add-service", (const char*)sid_pmt_.c_str(), //created new single service PAT
-			//"--inter-packet", "200",
-			"-O", "ip", "--enforce-burst", //"--rtp",
-			"--packet-burst", "128",
-			(const char*) dest.c_str(), (const char*)nullptr}) {
-		args.push_back(a);
+	if(pservice) {
+		service_id_.format("{:d}", pservice->k.service_id);
+		sid_pmt_.format("{:d}/{:d}", pservice->k.service_id, pservice->pmt_pid);
+		//TODO: pat rewriting (requires service_id)
+
+		for(auto& a: {
+				"--realtime", "--initial-input-packets", "256",
+				"-P", "filter", "--pid" , "0",
+				"--service", (const char*)service_id_.c_str(),
+				"-P", "filter", "--pid", "0", "--negate", "--stuffing", // replace PAT will null packets
+				"-P", "pat", "--create",
+				"--add-service", (const char*)sid_pmt_.c_str(), //created new single service PAT
+				//"--inter-packet", "200",
+				"-O", "ip", "--enforce-burst", //"--rtp",
+				"--packet-burst", "128",
+				(const char*) dest.c_str(), (const char*)nullptr}) {
+			args.push_back(a);
+		}
+	} else {
+		for(auto& a: {
+				"--realtime", "--initial-input-packets", "256",
+				"-O", "ip", "--enforce-burst", //"--rtp",
+				"--packet-burst", "128",
+				//"--buffer-size", "33554432",
+				(const char*) dest.c_str(),
+				//"-O" , "file", "/tmp/test.ts",
+				(const char*)nullptr}) {
+			args.push_back(a);
+		}
 	}
 	auto [data_fd, command_pid] = start_command(fd, cmd, args); //stream
 	stream.streamer_pid = command_pid;

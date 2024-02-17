@@ -256,14 +256,16 @@ void receiver_thread_t::unsubscribe_all(std::vector<task_queue_t::future_t>& fut
 
 /*
 	returns either
-	pid of started steam (or -1)
-	playback_mpm_t
+	a stream_t (service or mux)
+	or a playback_mpm_t (service)
+	if called with pservice==nullptr then only a steam_t can be returned
  */
 std::tuple<std::optional<devdb::stream_t>, std::unique_ptr<playback_mpm_t>>
- receiver_thread_t::subscribe_service(
-	 const chdb::any_mux_t& mux, const chdb::service_t& service, ssptr_t ssptr, const devdb::stream_t* stream) {
+ receiver_thread_t::subscribe_stream(
+	 const chdb::any_mux_t& mux, const chdb::service_t* pservice, ssptr_t ssptr, const devdb::stream_t* stream) {
 	assert(ssptr);
 	bool for_streaming = !!stream;
+	assert(for_streaming || pservice);
 	auto subscription_id = ssptr->get_subscription_id();
 	std::vector<task_queue_t::future_t> futures;
 	auto tune_options = receiver.get_default_subscription_options(devdb::subscription_type_t::TUNE);
@@ -275,7 +277,7 @@ std::tuple<std::optional<devdb::stream_t>, std::unique_ptr<playback_mpm_t>>
 	sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
 																	tune_options,
 																	mux,
-																	&service,
+																	pservice,
 																	false /*do_not_unsubscribe_on_failure*/);
 	devdb_wtxn.commit();
 	ssptr->set_subscription_id(sret.subscription_id);
@@ -288,13 +290,17 @@ std::tuple<std::optional<devdb::stream_t>, std::unique_ptr<playback_mpm_t>>
 		} else {
 			dtdebugf("Subscription failed: updated_old_dbfe = NONE");
 		}
-		user_errorf("Service reservation failed: {}", service);
+		if(pservice)
+			user_errorf("Service reservation failed: {}", *pservice);
+		else
+			user_errorf("Mux reservation failed: {}", mux);
 		return {};
 	}
 	if(sret.aa.is_new_aa() && sret.aa.updated_old_dbfe) {
 		bool is_streaming = ssptr->is_streaming();
 		release_active_adapter(futures, sret.subscription_id, *sret.aa.updated_old_dbfe, is_streaming);
 	}
+
 	auto* active_adapter_p = find_or_create_active_adapter(futures, sret);
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
@@ -303,9 +309,9 @@ std::tuple<std::optional<devdb::stream_t>, std::unique_ptr<playback_mpm_t>>
 	std::unique_ptr<playback_mpm_t> playback_mpm_ptr;
 	if(!for_streaming) {
 		std::unique_ptr<playback_mpm_t> playback_mpm_ptr;
-		futures.push_back(aa.tuner_thread.push_task([&playback_mpm_ptr, &aa, &mux, &service, &sret,
+		futures.push_back(aa.tuner_thread.push_task([&playback_mpm_ptr, &aa, &mux, pservice, &sret,
 																								 &tune_options]() {
-			playback_mpm_ptr = cb(aa.tuner_thread).subscribe_service_for_viewing(sret, mux, service, tune_options);
+			playback_mpm_ptr = cb(aa.tuner_thread).subscribe_service_for_viewing(sret, mux, *pservice, tune_options);
 			return 0;
 		}));
 		wait_for_all(futures); //essential
@@ -978,7 +984,7 @@ receiver_thread_t::cb_t::subscribe_service(const chdb::service_t& service,
 
 	dtdebugf("SUBSCRIBE - calling subscribe_service");
 	// now perform the requested subscription
-	auto [stream, mpmptr] = this->receiver_thread_t::subscribe_service(mux, service, ssptr,
+	auto [stream, mpmptr] = this->receiver_thread_t::subscribe_stream(mux, &service, ssptr,
 																																		 nullptr /*for_streaming*/);
 	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/active_adapter threads
@@ -1031,33 +1037,48 @@ devdb::stream_t receiver_thread_t::update_and_toggle_stream(const devdb::stream_
 		stream.subscription_id = (int)sret.subscription_id;
 	} else {
 		ssptr = receiver.get_ssptr(subscription_id_t{stream.subscription_id});
+		if(!ssptr.get()) {
+			ssptr = receiver.get_ssptr(subscription_id_t{stream.subscription_id});
+		}
+
 	}
 	std::vector<task_queue_t::future_t> futures;
 
-	auto* pservice = std::get_if<chdb::service_t>(&stream.content);
-	assert(pservice); //TODO: also handle mux streams
-	auto& service = *pservice;
-	auto s = fmt::format("SUB[{}] stream {}", ssptr, service);
+	auto s = fmt::format("SUB[{}] stream {}", ssptr, stream);
 	log4cxx::NDC ndc(s);
-
 	if(active) {
 		// Stop any stream in progress but keep the service running
 		remove_stream(futures, subscription_id_t{stream.subscription_id});
 	}
-
 	if(stream.stream_state != devdb::stream_state_t::OFF) {
+		auto* pservice = std::get_if<chdb::service_t>(&stream.content);
+		chdb::any_mux_t mux;
 
-		auto chdb_rtxn = receiver.chdb.rtxn();
-
-		auto [mux, error1] = mux_for_service(chdb_rtxn, service);
-		chdb_rtxn.abort();
-		if (error1 < 0) {
-			user_errorf("Could not find mux for {}", service);
+		if(!pservice) {
+			mux = std::visit(
+				[&](auto &content) {
+					if constexpr (is_same_type_v<chdb::service_t, decltype(content)>) {
+						assert(false);
+						return chdb::any_mux_t{};
+					}
+					else {
+						return chdb::any_mux_t{content};
+					}
+				}, stream.content);
+		} else {
+			auto chdb_rtxn = receiver.chdb.rtxn();
+			int error1;
+			std::tie(mux, error1) = mux_for_service(chdb_rtxn, *pservice);
+			chdb_rtxn.abort();
+			if (error1 < 0) {
+				user_errorf("Could not find mux for {}", *pservice);
+				return {};
+			}
 		}
 
 		if(stream.stream_state != devdb::stream_state_t::OFF) {
-			auto [streamret, mpmptr] = this->receiver_thread_t::subscribe_service(mux, service, ssptr,
-																																						 &stream /*for_streaming*/);
+			auto [streamret, mpmptr] = this->receiver_thread_t::subscribe_stream(mux, pservice, ssptr,
+																																					 &stream /*for_streaming*/);
 			if(streamret) {
 				stream = *streamret;
 				ssptr->set_stream_id(stream.stream_id);
@@ -1549,7 +1570,7 @@ void receiver_t::start() {
 
 void receiver_t::stop() {
 	dtdebugf("STOP CALLED");
-	receiver_thread.stop_running(true);
+	receiver_thread.stop_running(true/*stop_running*/);
 }
 
 int receiver_thread_t::run() {

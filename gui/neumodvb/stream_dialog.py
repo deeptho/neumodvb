@@ -106,7 +106,6 @@ def show_stream_dialog(parent, title='Stream service', stream = None, service = 
     if dvbt_mux is not None:
         stream.content = dvbt_mux
 
-
     dlg = StreamDialog(parent.GetParent(), title, stream = stream)
     dlg.Prepare()
     dlg.Fit()

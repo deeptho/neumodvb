@@ -224,6 +224,21 @@ class DvbtMuxGrid(NeumoGridBase):
         wtxn.commit()
         self.table.OnModified()
 
+    def CmdCreateStreamHelper(self):
+        from neumodvb.stream_dialog import show_stream_dialog
+        self.table.SaveModified()
+        rowno = self.GetGridCursorRow()
+        mux = self.table.GetRow(rowno)
+        return show_stream_dialog(self, title=f'Stream {mux}', dvbt_mux=mux)
+
+    def CmdAddStream(self, evt):
+        stream = self.CmdCreateStreamHelper()
+        if stream is None:
+            dtdebug(f'CmdAddStream aborted')
+            return
+        dtdebug(f'CmdAddStream requested for {stream}')
+        return wx.GetApp().receiver.update_and_toggle_stream(stream)
+
     @property
     def CmdEditCommandMode(self):
         if wx.GetApp().frame.command_being_edited is None:

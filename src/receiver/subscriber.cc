@@ -81,8 +81,7 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 																				const pls_search_range_t& pls_search_range,
 																				devdb::retune_mode_t retune_mode) {
 	auto ssptr = this->shared_from_this();
- auto ret = receiver->subscribe_lnb_and_mux(rf_path, lnb, mux, blindscan, pls_search_range, retune_mode,
-																						ssptr);
+	auto ret = receiver->subscribe_lnb_and_mux(rf_path, lnb, mux, blindscan, pls_search_range, retune_mode, ssptr);
 	return (int) ret;
 }
 

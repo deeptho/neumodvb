@@ -51,7 +51,7 @@ class StreamTable(NeumoTable):
          CD(key='preserve',  label='preserve', basic=True, readonly=False, dfn=bool_fn),
          CD(key='content',  label='mux/svc', basic=True, readonly=False,
             example="[101] 10817.500V - BBC One Lon HDxxx"),
-         CD(key='dest_host',  label='dest host', basic=True, readonly=False),
+         CD(key='dest_host',  label='dest host', basic=True, readonly=False, example="127.0.0.1"*2),
          CD(key='dest_port',  label='port', basic=True, readonly=False),
          CD(key='subscription_id',  label='subs', basic=True, readonly=False),
          CD(key='streamer_pid',  label='pid', basic=True, readonly=False, example="214637 "),

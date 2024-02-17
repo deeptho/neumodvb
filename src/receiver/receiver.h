@@ -309,7 +309,7 @@ protected:
 		recdb::rec_t& rec, ssptr_t ssptr);
 
 	std::tuple<std::optional<devdb::stream_t>, std::unique_ptr<playback_mpm_t>>
-	subscribe_service(const chdb::any_mux_t& mux, const chdb::service_t& service,
+	subscribe_stream(const chdb::any_mux_t& mux, const chdb::service_t* pservice,
 										ssptr_t ssptr, const devdb::stream_t* stream);
 
 	devdb::stream_t update_and_toggle_stream(const devdb::stream_t& stream_);

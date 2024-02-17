@@ -278,9 +278,9 @@ class ServiceGridBase(NeumoGridBase):
     def CmdAddStream(self, evt):
         stream = self.CmdCreateStreamHelper()
         if stream is None:
-            dtdebug(f'CmdToggleStream aborted')
+            dtdebug(f'CmdAddStream aborted')
             return
-        dtdebug(f'CmdToggleStream requested for {stream}')
+        dtdebug(f'CmdAddStream requested for {stream}')
         return wx.GetApp().receiver.update_and_toggle_stream(stream)
 
     def CmdPositioner(self, event):

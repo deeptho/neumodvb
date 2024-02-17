@@ -171,6 +171,20 @@ void receiver_thread_t::unsubscribe_mux_and_service_only(std::vector<task_queue_
 	ssptr->clear_subscription_id();
 }
 
+void receiver_thread_t::remove_stream(std::vector<task_queue_t::future_t>& futures, subscription_id_t subscription_id) {
+	dtdebugf("remove stream subscription_id={}", (int)subscription_id);
+	auto w = this->active_adapters.writeAccess();
+	auto& m = *w;
+	auto [it, found] = find_in_map(m, subscription_id);
+	assert(found);
+	auto &aa = *it->second;
+	auto& tuner_thread = aa.tuner_thread;
+	futures.push_back(tuner_thread.push_task([&tuner_thread, subscription_id]() {
+		cb(tuner_thread).remove_stream(subscription_id);
+		return 0;
+	}));
+}
+
 void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_t>& futures,
 																							 subscription_id_t subscription_id,
 																							 const devdb::fe_t& updated_dbfe, bool is_streaming) {
@@ -1027,14 +1041,8 @@ devdb::stream_t receiver_thread_t::update_and_toggle_stream(const devdb::stream_
 	log4cxx::NDC ndc(s);
 
 	if(active) {
-		// Stop any playback in progress (in that case there is no suscribed service/mux
-		auto devdb_wtxn = receiver.devdb.wtxn();
-		unsubscribe_all(futures, devdb_wtxn, ssptr);
-		devdb_wtxn.commit();
-
-		assert(stream.subscription_id == -1);
-		assert(stream.streamer_pid == -1);
-		assert(stream.owner == -1);
+		// Stop any stream in progress but keep the service running
+		remove_stream(futures, subscription_id_t{stream.subscription_id});
 	}
 
 	if(stream.stream_state != devdb::stream_state_t::OFF) {
@@ -1059,7 +1067,11 @@ devdb::stream_t receiver_thread_t::update_and_toggle_stream(const devdb::stream_
 			}
 		}
 	} else {
+		// Stop any playback in progress (in that case there is no suscribed service/mux
 		turnoff(stream);
+		auto devdb_wtxn = receiver.devdb.wtxn();
+		unsubscribe_all(futures, devdb_wtxn, ssptr);
+		devdb_wtxn.commit();
 	}
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	put_record(devdb_wtxn, stream);

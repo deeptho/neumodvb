@@ -1102,20 +1102,25 @@ chdb::select_sat_and_reference_mux(db_txn& chdb_rtxn, const devdb::lnb_t& lnb,
 				}
 			}
 #endif
-			auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
-			if (c.is_valid()) {
-				auto mux = c.current();
-				if (devdb::lnb_can_tune_to_mux(lnb, mux, true /*disregard networks*/, nullptr /*error*/))
-					return {mux, sat};
+			if(network.ref_mux.sat_pos != sat_pos_none) {
+				auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.ref_mux);
+				if (c.is_valid()) {
+					auto mux = c.current();
+					if (devdb::lnb_can_tune_to_mux(lnb, mux, true /*disregard networks*/, nullptr /*error*/))
+						return {mux, sat};
+				}
 			}
 			//pick the first mux on the sat as the ref mux, taking into account lnb type and polarisation
-			c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.sat_pos, find_type_t::find_geq,
+			auto c = chdb::dvbs_mux_t::find_by_key(chdb_rtxn, network.sat_pos, find_type_t::find_geq,
 																				chdb::dvbs_mux_t::partial_keys_t::sat_pos);
 			for(auto mux: c.range()) {
 				if (devdb::lnb_can_tune_to_mux(lnb, mux, true /*disregard networks*/, nullptr /*error*/))
 					return {mux, sat};
 			}
-			return return_some_mux(sat);
+			if(sat)
+				return return_some_mux(sat);
+			else
+				return {{},{}};
 		};
 
 	using namespace chdb;

@@ -292,10 +292,10 @@ class TuneMuxPanel(TuneMuxPanel_):
         select an inital choice for rf_path, lnb, mux and sat
         """
         #force mux and sat to be compatible
-        devdb_txn = wx.GetApp().devdb.rtxn()
         rf_path = None
         if lnb is None and (mux is not None or sat is not None):
             #initialise from mux
+            devdb_txn = wx.GetApp().devdb.rtxn()
             rf_path, lnb = pydevdb.lnb.select_lnb(devdb_txn, sat, mux)
             devdb_txn.abort()
             del devdb_txn
@@ -308,27 +308,26 @@ class TuneMuxPanel(TuneMuxPanel_):
             #if mux is None on input, the following call will pick a mux on the sat to which the rotor points
             chdb_txn = wx.GetApp().chdb.rtxn()
             mux, sat = pychdb.select_sat_and_reference_mux(chdb_txn, lnb, mux)
-            if sat is None and mux.k.sat_pos != pychdb.sat.sat_pos_none:
-                ok = ShowOkCancel(f"No sat for mux {mux} at {pychdb.sat_pos_str(mux.k.sat_pos)}",
-                                  f"Do you want to add a sat for this mux?")
-                if ok:
+            if sat is None:
+                sat_pos = None
+                if mux is not None and mux.k.sat_pos != pychdb.sat.sat_pos_none:
+                    sat_pos =  mux.k.sat_pos
+                elif len(lnb.networks)>0:
+                    sat_pos = lnb.networks[0].sat_pos
+                if sat_pos != None:
+                    sat_band = pydevdb.lnb.sat_band(lnb)
+                    sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos, sat_band)
                     sat = pychdb.sat.sat()
                     sat.sat_band = pydevdb.lnb.sat_band(lnb)
-                    sat.sat_pos = mux.k.sat_pos
+                    sat.sat_pos = sat_pos
                     chdb_wtxn = wx.GetApp().chdb.wtxn()
                     pychdb.put_record(chdb_wtxn, sat)
                     chdb_wtxn.commit()
-                else:
-                    mux = None
-            if sat is None and len(lnb.networks)>0:
-                sat_band = pydevdb.lnb.sat_band(lnb)
-                sat = pychdb.sat.find_by_key(chdb_txn, lnb.networks[0].sat_pos, sat_band)
-                mux = None
             if mux is None:
                 mux = pychdb.dvbs_mux.dvbs_mux()
+            chdb_txn.abort()
+            del chdb_txn
             return rf_path, lnb, sat, mux
-        chdb_txn.abort()
-        del chdb_txn
 
     def OnSave(self, event=None):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("saving")

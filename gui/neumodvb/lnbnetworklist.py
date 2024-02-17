@@ -123,11 +123,14 @@ class LnbNetworkTable(NeumoTable):
     def SetSat(self, sat):
         if self.lnb is None:
             return self.network
+        if sat is None and len(self.lnb.networks)>0:
+            self.network = self.lnb.networks[0]
+            return self.network
         for network in self.lnb.networks:
             if network.sat_pos == sat.sat_pos:
                 self.network = network
                 return self.network
-
+        return self.network
     def screen_getter(self, txn, sort_field):
         """
         txn is not used; instead we use self.lnb

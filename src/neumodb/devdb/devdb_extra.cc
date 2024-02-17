@@ -1564,3 +1564,12 @@ fmt::format_context::iterator
 fmt::formatter<devdb::tune_mode_t>::format(const devdb::tune_mode_t& tune_mode, format_context& ctx) const {
 	return fmt::format_to(ctx.out(), "{}", to_str(tune_mode));
 }
+
+fmt::format_context::iterator
+fmt::formatter<devdb::stream_t>::format(const devdb::stream_t& stream, format_context& ctx) const {
+	auto ret= fmt::format_to(ctx.out(), "stream{} sub{}", stream.stream_id, stream.subscription_id);
+	std::visit([&](auto& content) {
+		fmt::format_to(ret, " {}", content);
+	}, stream.content);
+	return ret;
+}

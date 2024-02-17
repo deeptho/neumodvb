@@ -314,6 +314,7 @@ declfmt(devdb::run_type_t);
 declfmt(devdb::run_status_t);
 declfmt(devdb::run_result_t);
 declfmt(devdb::tune_mode_t);
+declfmt(devdb::stream_t);
 #if 0 //not yet implemented
 declfmt(devdb::tuned_frequency_offsets_key_t);
 declfmt(devdb::tuned_frequency_offsets_t);

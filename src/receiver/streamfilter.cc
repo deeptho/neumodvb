@@ -97,6 +97,7 @@ start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& arg
 		}
 		set_blocking(STDIN_FILENO, true);
 		signal(SIGINT, SIG_IGN); //avoid interrupt by gdb
+		setpgid(0, 0);
 		prctl(PR_SET_PDEATHSIG, SIGHUP); //ask to be killed when parent dies
 		/*     file, arg0, arg1,  arg2 */
 		execvp(pathname,  const_cast<char* const*>(args.buffer()));

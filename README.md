@@ -123,7 +123,7 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 
 ### [Viewing and recording TV](docs/viewing.md) ###
 
-### [Streaming sevrices and muxes](docs/streaming.md) ###
+### [Streaming services and muxes](docs/streaming.md) ###
 
 ### [Spectrum analysis](docs/spectrum.md) ###
 

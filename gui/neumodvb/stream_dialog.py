@@ -45,6 +45,8 @@ class StreamParameters(StreamParameters_):
         self.host_name.SetValue(self.stream.dest_host)
         self.port.SetValue(int(self.stream.dest_port))
         self.stream_state_choice.SetValue(self.stream.stream_state)
+        self.autostart.SetValue(self.stream.autostart)
+        self.autostart.SetValue(self.stream.preserve)
 
     def CheckCancel(self, event):
         event.Skip()
@@ -57,7 +59,8 @@ class StreamParameters(StreamParameters_):
         self.stream.stream_state = self.stream_state_choice.GetValue()
         self.stream.dest_host = self.host_name.GetValue()
         self.stream.dest_port = int(self.port.GetValue())
-    #    pass
+        self.stream.autostart = bool(self.autostart.GetValue())
+        self.stream.preserve = bool(self.preserve.GetValue())
 
 class StreamDialog_(StreamDialog_):
 

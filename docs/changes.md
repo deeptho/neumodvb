@@ -2,6 +2,10 @@
 
 ## Changes in version neumodvb-1.6 ##
 
+### Streaming ###
+* Add code for streaming;
+* Add GUI for defining, starting and stopping stream.
+
 ### Tuning and scanning ###
 
 * Bug: diseqc sometimes not sent when switching to different lnb;
@@ -13,12 +17,22 @@
 * Assertion when scanning t2mi mux on 40E;
 * Bug: current service subscribed second time instead of new service;
 * Bug: when user is asked to created sat in spectrum_dialog, initialisation of the spectrum dialog seems to continue,
-  but fails because some variables have not yet been set.
+  but fails because some variables have not yet been set;
+* Bug: incorrect usage of empty ref_mux when selecting sat and mux for lnb;
+* Always add missing sat in spectrum dialog;
+* Handle case where lnb is None in positioner and spectrum scan dialogs;
+* Do not abort scanning when subscribing service;
+* Bug: race when fe_monitor and tuner thread are being remove and new ones are starting.
+
+### GUI ###
+* Bug: default satlist filter incorrect.
 
 ### Documentation ###
 * Installation instructions for ubuntu 23.10.
 * Documented the options dialog;
 * Fedora38 installation instructions;
+* Documented streaming.
+* Documented combining neumoDVB with external programs.
 
 ### Various fixes and improvements###
 
@@ -30,49 +44,20 @@
 * wx assertion when typing invalid service number in service list;
 * Log assertions to log file as well as to stdout;
 
-Improved "create sat" dialog
-Handle case where lnb is None in positioner and spectrum scan dialogs
-Bug: default satlist filter incorrect
-Bug: incorrect usage of empty ref_mux when selecting sat and mux for lnb. Always add missing sat in spectrum dialog
-add devdb::stream_t record, streamlist, and  show_stream_dialog
-Typos, error messages, code cleanup
-rename subscribe_service to subscribe_service_for_viewing
-Typos
-Add code for streaming. Starting a stream works, but stopping it not yet
-Do not abort scanning when subscribing service
--
-chdb test code
-.gdbinit
-code cleanup
-Allow stopping stream
-Ensure that tsduck child processes are not affected by debugger Ensure that tsduck child processes are always stopped when neumoDVB exists (old code relies on neumoDVB closing file destriptor to pipe, but with streams there is no such file descriptor)
-Pack more ts packets into UDP datagram. Otherwise vlc cannot process stream
-Start permanent streams at startup and clean streams in db at startup. Stop streams properly from streamlist.
-# This is a combination of 2 commits. # This is the 1st commit message:
-Allow streaming of service in t2mi mux (untested)
-Typo
--
-Bug: race when fe_monitor and tuner thread are being remove and new ones are starting
-Debug printing of stream_t
-Avoid race when changing parameters while stream is running
-Allow streaming muxes
-Documented streaming. Documented combining neumoDVB with external programs.
-Add autostart and preserve fiels in stream_dialog.
-Improve layout of streamlist.
 
 ## Changes in version neumodvb-1.5 ##
 
 ### Positioner ###
 
-* DiSeqC12 has been thoroughly tested and is now working
+* DiSeqC12 has been thoroughly tested and is now working;
 * When the dish is moving a progress dialog now pops up, and is removed automatically
   when the required motion time has passed. In the mean time, tuning is suspended. This
   is mostly important for spectrum acquisition, as starting the spectrum acquisition before
   the dish has stopped moving will lead to an incorrect spectrum. For tuning, neumoDVB already
   detected incorrect dish positions;
-* Dish motion now always happens at maximum voltage.
+* Dish motion now always happens at maximum voltage;
 * Bug: setting DiSeqC12 position in positioner_dialog does not work;
-* Bug: DiSeqC12 is not correctly sent to positioner
+* Bug: DiSeqC12 is not correctly sent to positioner;
 * Bug: Prevent saving `usals_pos' in lnb record in database  before tuning, to avoid saving bad information
   when tuning fails;
 * Properly estimate positioner speed internally. However, this update is not used for anything,
@@ -93,7 +78,7 @@ Improve layout of streamlist.
 * Bug: in positioner dialog, typing a value next to one of the spin controls did not erase selected text
   as is common on other text entry fields;
 * Improved detection of cases where the currently known `usals_pos' may be incorrect due to executing
-  or aborting positioner commands.
+  or aborting positioner commands;
 * Renamed the `Save' button in positioner dialog to 'Save network', which more accurately reflects
   its function;
 * Bug: Displayed `usals_pos' not updated after executing command;
@@ -104,8 +89,8 @@ Improve layout of streamlist.
 
 ### Configuration ###
 * Many options, such as filesystem paths where recordings and dtatabse are stored, softcam parameters,
-  default reording and timeshift times, some tuning, and positioner parameters can now be set from the GUI
-  Most parameters are stored in the database, but the filesystem paths are stored in ~/.config/neumodvb/neumodvb.cfg
+  default reording and timeshift times, some tuning, and positioner parameters can now be set from the GUI.
+  Most parameters are stored in the database, but the filesystem paths are stored in ~/.config/neumodvb/neumodvb.cfg.
 
 
 ### Automation ###

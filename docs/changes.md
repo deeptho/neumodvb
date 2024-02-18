@@ -1,5 +1,65 @@
 # Changes in neumoDVB #
 
+## Changes in version neumodvb-1.6 ##
+
+### Tuning and scanning ###
+
+* Bug: diseqc sometimes not sent when switching to different lnb;
+* When scanning peaks, allow only the selected rf_path to be used;
+* Bug: chdb::find_by_mux_fuzzy does not consider nearby sats;
+* Remove unneeded service reservation;
+* Avoid assertion when mux_scan_end message are sent after scan was cancelled by user;
+* Prevent assertion when epg service has different network id than service;
+* Assertion when scanning t2mi mux on 40E;
+* Bug: current service subscribed second time instead of new service;
+* Bug: when user is asked to created sat in spectrum_dialog, initialisation of the spectrum dialog seems to continue,
+  but fails because some variables have not yet been set.
+
+### Documentation ###
+* Installation instructions for ubuntu 23.10.
+* Documented the options dialog;
+* Fedora38 installation instructions;
+
+### Various fixes and improvements###
+
+* Incorrectly formatted debug messages;
+* Bug: Handle empty variable;
+* Provide python binding for tvh_import script (external);
+* Bug: deserialisation stops early after reading variant;
+* Bug: short display name generation for enums produces unexpected results;
+* wx assertion when typing invalid service number in service list;
+* Log assertions to log file as well as to stdout;
+
+Improved "create sat" dialog
+Handle case where lnb is None in positioner and spectrum scan dialogs
+Bug: default satlist filter incorrect
+Bug: incorrect usage of empty ref_mux when selecting sat and mux for lnb. Always add missing sat in spectrum dialog
+add devdb::stream_t record, streamlist, and  show_stream_dialog
+Typos, error messages, code cleanup
+rename subscribe_service to subscribe_service_for_viewing
+Typos
+Add code for streaming. Starting a stream works, but stopping it not yet
+Do not abort scanning when subscribing service
+-
+chdb test code
+.gdbinit
+code cleanup
+Allow stopping stream
+Ensure that tsduck child processes are not affected by debugger Ensure that tsduck child processes are always stopped when neumoDVB exists (old code relies on neumoDVB closing file destriptor to pipe, but with streams there is no such file descriptor)
+Pack more ts packets into UDP datagram. Otherwise vlc cannot process stream
+Start permanent streams at startup and clean streams in db at startup. Stop streams properly from streamlist.
+# This is a combination of 2 commits. # This is the 1st commit message:
+Allow streaming of service in t2mi mux (untested)
+Typo
+-
+Bug: race when fe_monitor and tuner thread are being remove and new ones are starting
+Debug printing of stream_t
+Avoid race when changing parameters while stream is running
+Allow streaming muxes
+Documented streaming. Documented combining neumoDVB with external programs.
+Add autostart and preserve fiels in stream_dialog.
+Improve layout of streamlist.
+
 ## Changes in version neumodvb-1.5 ##
 
 ### Positioner ###

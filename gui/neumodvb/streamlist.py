@@ -37,7 +37,13 @@ from neumodvb.neumodbutils import enum_to_str
 
 #import pychdb
 import pydevdb
+import pychdb
 
+def get_sat_pos(rec):
+    if type(rec) == pychdb.service.service:
+        return pychdb.sat_pos_str(rec.k.mux.sat_pos)
+    else:
+        return pychdb.sat_pos_str(rec.k.sat_pos)
 
 class StreamTable(NeumoTable):
     CD = NeumoTable.CD
@@ -50,7 +56,8 @@ class StreamTable(NeumoTable):
          CD(key='autostart',  label='auto\n start', basic=True, readonly=False, dfn=bool_fn),
          CD(key='preserve',  label='preserve', basic=True, readonly=False, dfn=bool_fn),
          CD(key='content',  label='mux/svc', basic=True, readonly=False,
-            example="[101] 10817.500V - BBC One Lon HDxxx"),
+            dfn = lambda x: f'{get_sat_pos(x[1]):5} {x[1]}',
+            example="28.2E [101] 10817.500V - BBC One Lon HDxxx"),
          CD(key='dest_host',  label='dest host', basic=True, readonly=False, example="127.0.0.1"*2),
          CD(key='dest_port',  label='port', basic=True, readonly=False),
          CD(key='subscription_id',  label='subs', basic=True, readonly=False),

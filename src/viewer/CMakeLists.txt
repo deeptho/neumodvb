@@ -17,4 +17,4 @@ target_compile_options(pyneumompv PUBLIC -fPIC -fsized-deallocation ${NEUMOWXSVG
 target_link_libraries(pyneumompv PUBLIC neumoreceiver recdb neumoutil ${wxWidgets_LIBRARIES} neumowxsvg exif  -lmpv -lGL -lglut )
 
 
-install (TARGETS pyneumompv DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pyneumompv DESTINATION ${Python_STDLIB}/${PROJECT_NAME})

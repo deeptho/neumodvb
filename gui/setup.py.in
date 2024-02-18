@@ -13,7 +13,7 @@ def read(fname):
 
 destdir=os.environ['DESTDIR'] if 'DESTDIR' in os.environ else '/'
 
-site_packages=os.path.join(destdir, '${Python_SITEARCH}'.strip('/'))
+site_packages=os.path.join(destdir, '${Python_STDLIB}'.strip('/'))
 
 #hack: we make python create fake so files and then we override them with the real ones
 if destdir != '':
@@ -26,7 +26,6 @@ if destdir != '':
 db_modules = [ 'statdb', 'chdb', 'recdb','epgdb', 'neumodb', 'schemadb' ]
 receiver_modules = [ 'receiver', 'spectrum', 'neumompv']
 
-#print(f'QQQQ=${CMAKE_CURRENT_SOURCE_DIR}')
 setup(name='neumodvb',
       description='${PROJECT_DESCRIPTION}',
       long_description = read('README.txt'),
@@ -38,7 +37,6 @@ setup(name='neumodvb',
       keywords='${PROJECT_KEYWORDS}',
       platforms=['${CMAKE_CXX_PLATFORM_ID}'],
       package_dir={ '': '${CMAKE_CURRENT_SOURCE_DIR}' },
-      ext_modules = prep(db_modules, 'db') + prep(receiver_modules, 'receiver'),
       packages=['neumodvb', 'neumodvb.upgrade'])
 
 #hack to remove absolute path names from SOURCES.txt

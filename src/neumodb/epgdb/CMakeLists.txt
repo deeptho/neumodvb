@@ -70,5 +70,5 @@ list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE prec
 target_precompile_headers(epgdb PRIVATE [[<stdint.h>]] epgdb_extra.h ${precomp})
 target_precompile_headers(pyepgdb PRIVATE [[<stdint.h>]] epgdb_extra.h ${precomp})
 
-install (TARGETS pyepgdb DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pyepgdb DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install (TARGETS epgdb  DESTINATION lib64)

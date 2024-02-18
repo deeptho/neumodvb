@@ -64,5 +64,5 @@ target_link_libraries(pyschemadb PRIVATE pyneumodb schema)
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
 target_precompile_headers(schema PRIVATE [[<stdint.h>]] schema_extra.h ${precomp})
 
-install (TARGETS pyschemadb  DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pyschemadb  DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install (TARGETS schema  DESTINATION lib64)

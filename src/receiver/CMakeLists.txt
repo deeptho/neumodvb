@@ -68,4 +68,4 @@ target_link_libraries(pyreceiver PUBLIC neumoreceiver)
 
 target_link_options(pyreceiver PUBLIC -lgtk-3)
 
-install (TARGETS pyreceiver pyspectrum DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pyreceiver pyspectrum DESTINATION ${Python_STDLIB}/${PROJECT_NAME})

@@ -70,5 +70,5 @@ target_precompile_headers(devdb PRIVATE [[<stdint.h>]] devdb_extra.h  ${precomp}
 target_precompile_headers(pydevdb PRIVATE [[<stdint.h>]] devdb_extra.h ${precomp})
 
 
-install (TARGETS pydevdb  DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pydevdb  DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install (TARGETS devdb  DESTINATION lib64)

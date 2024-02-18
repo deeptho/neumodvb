@@ -69,5 +69,5 @@ list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE prec
 target_precompile_headers(chdb PRIVATE [[<stdint.h>]] chdb_extra.h  ${precomp})
 target_precompile_headers(pychdb PRIVATE [[<stdint.h>]] chdb_extra.h ${precomp})
 
-install (TARGETS pychdb  DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pychdb  DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install (TARGETS chdb  DESTINATION lib64)

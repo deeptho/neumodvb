@@ -70,5 +70,5 @@ target_precompile_headers(recdb PRIVATE [[<stdint.h>]] recdb_extra.h ${precomp})
 target_precompile_headers(pyrecdb PRIVATE [[<stdint.h>]] recdb_extra.h ${precomp})
 
 
-install (TARGETS pyrecdb DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pyrecdb DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install (TARGETS recdb  DESTINATION lib64)

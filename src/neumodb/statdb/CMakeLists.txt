@@ -69,5 +69,5 @@ target_precompile_headers(statdb PRIVATE [[<stdint.h>]] statdb_extra.h ${precomp
 target_precompile_headers(pystatdb PRIVATE [[<stdint.h>]] statdb_extra.h ${precomp})
 
 
-install (TARGETS pystatdb DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pystatdb DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install (TARGETS statdb  DESTINATION lib64)

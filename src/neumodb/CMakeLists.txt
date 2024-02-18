@@ -46,7 +46,6 @@ target_compile_options(pydeser PUBLIC -fPIC -fsized-deallocation) #needed to pre
 target_link_libraries(pydeser PRIVATE neumoutil stackstring pyschemadb pyneumodb neumodb)
 
 
-
 add_subdirectory(devdb)
 add_subdirectory(chdb)
 add_subdirectory(statdb)
@@ -64,5 +63,5 @@ include_directories(
     $<INSTALL_INTERFACE:include>
 )
 
-install (TARGETS pyneumodb  DESTINATION ${Python_SITEARCH}/${PROJECT_NAME})
+install (TARGETS pyneumodb  DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install(TARGETS neumoupgrade  DESTINATION bin)

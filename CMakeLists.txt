@@ -7,7 +7,7 @@ if(USE_CLANG)
   SET (CMAKE_C_COMPILER clang)
 endif(USE_CLANG)
 
-project(neumo VERSION 0.8.6)
+project(neumo VERSION 1.6)
 set(PROJECT_AUTHOR "Deep Thought")
 set(PROJECT_AUTHOR_EMAIL "deeptho@gmail.com")
 set(PROJECT_URL "https://github.com/deeptho/neumodvb")

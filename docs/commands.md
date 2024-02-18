@@ -39,7 +39,7 @@ On the left, it is possible to specify when the command should be run:
 
 ## The commands list ##
 
-The command list shows all currently defined commands:
+The `command` list shows all currently defined commands:
 
 ![screenshot](images/command_list.png)
 

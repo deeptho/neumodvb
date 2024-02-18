@@ -123,6 +123,8 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 
 ### [Viewing and recording TV](docs/viewing.md) ###
 
+### [Streaming sevrices and muxes](docs/streaming.md) ###
+
 ### [Spectrum analysis](docs/spectrum.md) ###
 
 ### [Positioner control](docs/positioner.md) ###
@@ -132,6 +134,8 @@ will bring back the GUI. Pressing `Ctrl-F` will enter full screen mode
 ### [Signal history](docs/signal_history.md) ###
 
 ### [Filtering lists](docs/lists.md) ###
+
+### [Using external programs with neumoDVB](docs/external.md) ###
 
 
 ### [GUI Design in neumoDVB](docs/gui_design.md) ###

@@ -60,7 +60,7 @@ def setup():
     else:
         import sysconfig
         sys.path.insert(0, str(pathlib.Path(maindir_)))
-        sys.path.insert(0, f"{pathlib.Path(sysconfig.get_path('stdlib'), "neumodvb")}")
+        sys.path.insert(0, f"{pathlib.Path(sysconfig.get_path('stdlib'), 'neumodvb')}")
     os.environ['PATH'] +=  os.pathsep + str(builddir / 'neumodb') # for neumoupgrade
     #to suppress some more annoying warnings
     os.environ['XDG_CURRENT_DESKTOP'] = 'none'

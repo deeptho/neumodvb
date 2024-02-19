@@ -277,8 +277,14 @@ For troubleshooting, the following information may be useful:
   consist of added code to allow for efficient embedded of the mpv video player.
 
 
-After NeumoDVB has been built successfully, you can install it if you wish. Installation is optional:
-you also run the software directly from the build tree. This makes it easier to debug problems.
+After neumoDVB has been built successfully, you can install it if you wish. Installation is optional:
+you also run the software directly from the build tree. This makes it easier to debug problems and
+most users indeed run into problems by installing neumoDVB (e.g., because older installed versions
+interfere with newer non installed versions, or because changes in cmake or python lead to unexpected changes
+in install paths).
+
+**For this reason `make install` is deliberately disabled now***. By editing one line somewhere in the
+code it can be re-enabled. Then installation works as follows:
 
 ```bash
     cd ~/neumodvb/build

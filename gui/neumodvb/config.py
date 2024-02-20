@@ -88,6 +88,7 @@ def get_config():
 def save_config(configobj):
     maindir_ = maindir()
     configdir = '~/.config/neumodvb'
+    os.makedirs(os.path.expanduser(configdir), exist_ok=True)
     filename = os.path.realpath(os.path.expanduser(f'{configdir}/neumodvb.cfg'))
 
     #try:
@@ -152,7 +153,7 @@ class get_processed_options(object):
             for k,v in c[sec].items():
                 if k in relative_files:
                     v = get_configfile(v)
-                if hasattr(o, k):
+                if hasattr(o, k) and v is not None:
                     old = getattr(o,k)
                     v = os.path.expanduser(v)
                     dtdebug(f'changing receiver option {k} from default {old} to {v}')

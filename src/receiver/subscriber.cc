@@ -125,7 +125,7 @@ int subscriber_t::scan_muxes(ss::vector_<mux_t> muxes,
 	auto ssptr = this->shared_from_this();
 	if(muxes.size() > 0) {
 		auto ret = receiver->scan_muxes(muxes, so, ssptr);
-		assert(ret == get_subscription_id());
+		assert(ret == get_subscription_id() || (int)ret<0);
 		return (int) ret;
 	} else {
 		user_errorf("No muxes to scan");

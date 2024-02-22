@@ -130,17 +130,24 @@ sudo dnf update --enablerepo=updates-testing python3-matplotlib-wx
 The following instructions may be incomplete/incorrect:
 
 ```bash
-sudo dnf install -y libuuid-devel redhat-lsb-core cmake clang clang-tools-extra libtool boost-program-options \
-boost-devel boost-regex boost-context curl-devel log4cxx log4cxx-devel libconfig libconfig-devel \
-wxGTK wxGT-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexif gobject-introspection \
-expat-devel python3-wxpython4 python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools \
-python3-gobject-base python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel \
-wxBase3 wxBase-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
-ffmpeg-devel mpv-libs-devel tsduck fmt fmt-devel
-```
+sudo dnf install -y git clang cmake clang-tools-extra libtool curl-devel log4cxx log4cxx-devel \
+libconfig-devel wxGTK-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel expat-devel \
+python3-jinja2 python3-sip-devel python3-configobj wxWidgets-devel wxBase-devel mpv-libs-devel \
+libX11-devel libglvnd-devel libdvbcsa-devel redhat-lsb-core libuuid-devel boost-devel curl-devel \
+fmt-devel python3-regex gdb boost-program-options boost-regex curl-devel log4cxx libconfig wxGTK \
+wxGTK-devel libexif python3-wxpython4  python3-matplotlib-wx python3-gobject-base  \
+python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxBase ffmpeg-libs \
+libglvnd-devel espeak mesa-dri-drivers tsduck fmt python3-regex python3-cachetools
 
+```
 Some of these pacakges are provided by rpmfusion, which can be installed using the instructions at
 <https://rpmfusion.org/Configuration>
+
+The following may also be needed:
+```
+sudo dnf install -y boost-context  gobject-introspection python3-cachetools ffmpeg-devel
+```
+
 
 
 In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;

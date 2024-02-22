@@ -64,7 +64,7 @@ int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
 	auto ssptr = this->shared_from_this();
 	auto ret = receiver->subscribe_mux(mux, blindscan, ssptr);
 	if((int) ret<0) {
-		assert((int) get_subscription_id()<0);
+		assert(ret == get_subscription_id() || (int)ret<0);
 		return (int) ret;
 	}
 	return (int) ret;

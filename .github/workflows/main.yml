@@ -1,0 +1,74 @@
+name: Build Linux Packages
+on:
+  push:
+    tags:
+      - "*.*.*"
+env:
+  DIST: fc39
+  ARCH: x86_64
+  PKG_NAME: neumodvb
+
+jobs:
+  build_tarball:
+    name: Build source archive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Replace version in RPM spec so correct source is downloaded when building RPM
+        run: sed -Ei 's/(^Version:[[:space:]]*).*/\1${{github.ref_name}}/' dist/${{ vars.PKG_NAME }}.spec
+
+      - name: Create source archive
+        run: tar -cvf ${{ vars.PKG_NAME }}-${{ github.ref_name }}.tar.gz *
+
+      - name: Upload source archive as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ vars.PKG_NAME }}-${{ github.ref_name }}.tar.gz
+          path: ${{ vars.PKG_NAME }}-${{ github.ref_name }}.tar.gz
+
+  build_rpm:
+    name: Build .rpm package
+    needs: build_tarball
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Replace version in RPM spec so correct source is downloaded when building RPM
+        run: sed -Ei 's/(^Version:[[:space:]]*).*/\1${{github.ref_name}}/' dist/${{ vars.PKG_NAME }}.spec
+
+      - name: Run rpmbuild on RPM spec to produce package
+        id: rpm
+        uses: deeptho/rpmbuild@master
+        with:
+          spec_file: dist/${{ vars.PKG_NAME }}.spec
+
+      - name: Upload .rpm package as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ vars.PKG_NAME }}-${{ github.ref_name }}-1.${{ env.DIST }}.${{ env.ARCH }}.rpm
+          path: rpmbuild/RPMS/${{ env.ARCH }}/*.rpm
+
+  build_deb:
+    name: Build .deb package
+    needs: build_rpm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download .rpm artifact
+        uses: actions/download-artifact@v3
+        id: download
+        with:
+          name: ${{ vars.PKG_NAME }}-${{ github.ref_name }}-1.${{ env.DIST }}.${{ env.ARCH }}.rpm
+
+      - name: Convert .rpm to .deb
+        run: |
+          sudo apt install -y alien
+          sudo alien -k --verbose --to-deb *.rpm
+
+      - name: Upload .deb package as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ vars.PKG_NAME }}-${{ github.ref_name }}-1.${{ env.DIST }}.${{ env.ARCH }}.deb
+          path: ${{ vars.PKG_NAME }}*.deb

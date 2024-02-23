@@ -643,10 +643,6 @@ int recmgr_thread_t::toggle_recording(const chdb::service_t& service, const epgd
 			case epgdb::rec_status_t::IN_PROGRESS: {
 				dtdebugf("Toggle: Stop running recording: {}", *rec);
 				stop_recording(*rec);
-				rec->epg.rec_status = epgdb::rec_status_t::FINISHED;
-				rec->subscription_id = -1;
-				rec->owner = -1;
-				update_recording(*rec);
 				break;
 			}
 			case epgdb::rec_status_t::FINISHED: {

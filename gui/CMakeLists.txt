@@ -1,5 +1,5 @@
-find_program(PYTHON "python")
-if (PYTHON)
+find_package(Python3 COMPONENTS Interpreter)
+if (Python3_FOUND)
   set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")
   set(SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/setup.py")
   set(DEPS        "${CMAKE_CURRENT_SOURCE_DIR}/neumodvb/__init__.py")
@@ -8,8 +8,9 @@ if (PYTHON)
 
   configure_file(${SETUP_PY_IN} ${SETUP_PY})
 
-  install(CODE "execute_process(COMMAND ${PYTHON} ${SETUP_PY} install --prefix=/usr )")
-
+  install(CODE "execute_process(COMMAND ${Python3_EXECUTABLE} ${SETUP_PY} install --prefix=/usr )")
+else()
+message(STATUS  "Could not find python interpreter")
 endif()
 
 install(PROGRAMS neumodvb.py DESTINATION bin RENAME neumodvb)

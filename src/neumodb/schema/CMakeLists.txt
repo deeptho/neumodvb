@@ -65,4 +65,4 @@ list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE prec
 target_precompile_headers(schema PRIVATE [[<stdint.h>]] schema_extra.h ${precomp})
 
 install (TARGETS pyschemadb  DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
-install (TARGETS schema  DESTINATION lib64)
+install (TARGETS schema  DESTINATION ${CMAKE_INSTALL_LIBDIR})

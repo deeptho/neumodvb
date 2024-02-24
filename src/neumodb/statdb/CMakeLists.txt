@@ -70,4 +70,4 @@ target_precompile_headers(pystatdb PRIVATE [[<stdint.h>]] statdb_extra.h ${preco
 
 
 install (TARGETS pystatdb DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
-install (TARGETS statdb  DESTINATION lib64)
+install (TARGETS statdb  DESTINATION ${CMAKE_INSTALL_LIBDIR})

@@ -71,4 +71,4 @@ target_precompile_headers(pydevdb PRIVATE [[<stdint.h>]] devdb_extra.h ${precomp
 
 
 install (TARGETS pydevdb  DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
-install (TARGETS devdb  DESTINATION lib64)
+install (TARGETS devdb  DESTINATION ${CMAKE_INSTALL_LIBDIR})

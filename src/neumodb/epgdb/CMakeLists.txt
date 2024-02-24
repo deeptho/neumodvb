@@ -71,4 +71,4 @@ target_precompile_headers(epgdb PRIVATE [[<stdint.h>]] epgdb_extra.h ${precomp})
 target_precompile_headers(pyepgdb PRIVATE [[<stdint.h>]] epgdb_extra.h ${precomp})
 
 install (TARGETS pyepgdb DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
-install (TARGETS epgdb  DESTINATION lib64)
+install (TARGETS epgdb  DESTINATION ${CMAKE_INSTALL_LIBDIR})

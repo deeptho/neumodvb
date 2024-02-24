@@ -26,7 +26,7 @@ target_link_libraries(neumoreceiver PUBLIC chdb statdb epgdb recdb neumoutil neu
   fmt::fmt PRIVATE dvbcsa ${wxWidgets_LIBRARIES})
 
 target_compile_options(neumoreceiver PUBLIC -fPIC -fvisibility=hidden -fsized-deallocation) #needed to prevent operator delete error
-install (TARGETS neumoreceiver  DESTINATION lib64)
+install (TARGETS neumoreceiver  DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 add_executable(neumo-blindscan neumo-blindscan.cc dvb_strings.cc)
 add_executable(neumo-tune neumo-tune.cc dvb_strings.cc)

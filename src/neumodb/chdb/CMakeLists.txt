@@ -70,4 +70,4 @@ target_precompile_headers(chdb PRIVATE [[<stdint.h>]] chdb_extra.h  ${precomp})
 target_precompile_headers(pychdb PRIVATE [[<stdint.h>]] chdb_extra.h ${precomp})
 
 install (TARGETS pychdb  DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
-install (TARGETS chdb  DESTINATION lib64)
+install (TARGETS chdb  DESTINATION ${CMAKE_INSTALL_LIBDIR})

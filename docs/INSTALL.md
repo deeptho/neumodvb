@@ -165,31 +165,12 @@ sudo dnf update --enablerepo=updates-testing python3-matplotlib-wx
 
 #### Ubuntu 23.10 ####
 
-This seems to work after upgrading a working version from Ubuntu 23.04.
-Therefore the packages listed for older Ubuntu versions may be ok.
+If you wish to install ubuntu from scrathc then install it from
+`ubuntu-mate-23.10-desktop-amd64.iso` to ensure you have a decent starting point.
 
-Found by trial and error: Also install
+Install the following packages for building and running neumoDVB:
 ```
-sudo  apt install -y clang-16 clang-tools-16 clang-format libclang-16-dev libclang-cpp16 \
-    libstdc++-13-dev libwxgtk3.0-gtk3-dev libgtk-3-dev libwxgtk3.2-dev \
-    python3-packaging libwxgtk3.2-dev libwxgtk3.2-1  python3-sip-dev \
-    python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density
-```
-
-#### Ubuntu 23.04 ####
-
-The latest neumoDVB version may not work anymore because of an outdated libstdc++. You may need to
-upgrade.
-
-Ubuntu 23.04 seems to be missing many of the required packages but one user
-report success by adding Ubuntu 22.04 repositories to /etc/apt/sources.list:
-
-```bash
-deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
-deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse
-deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse
-deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse
-deb http://archive.canonical.com/ubuntu/ jammy partner
+sudo apt install -y git  clang clang-16 clang-tools-16 clang-format python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density cmake libboost-all-dev libgtk-3-dev libwxgtk3.2-dev libexif-dev liblog4cxx-dev python3-jinja2 python3-regex python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev freeglut3-dev python3-configobj  python3-cachetools python3-wxgtk-media4.0 python3-setuptools fmt-dev
 ```
 
 #### Ubuntu 22.04.1 LTS ####

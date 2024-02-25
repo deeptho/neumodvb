@@ -9,35 +9,40 @@ env:
   PKG_NAME: neumodvb
 
 jobs:
-  build_tarball:
-    name: Build source archive
+  prepare:
+    name: Prepare
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - name: Get Version
+        shell: bash
+        run: echo "VERSION=`echo ${{github.ref_name}} | sed 's/${{ env.PKG_NAME }}-//'`" >> $GITHUB_ENV
 
-      - name: Replace version in RPM spec so correct source is downloaded when building RPM
-        run: sed -Ei 's/(^Version:[[:space:]]*).*/\1${{github.ref_name}}/' dist/${{ vars.PKG_NAME }}.spec
+      - name: Show Version
+        shell: bash
+        run: echo "${{env.VERSION}}"
 
-      - name: Create source archive
-        run: tar -cvf ${{ vars.PKG_NAME }}-${{ github.ref_name }}.tar.gz *
+      - name: Show Architecture
+        shell: bash
+        run: uname -a
 
-      - name: Upload source archive as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ vars.PKG_NAME }}-${{ github.ref_name }}.tar.gz
-          path: ${{ vars.PKG_NAME }}-${{ github.ref_name }}.tar.gz
+      - name: Show Architecture2
+        shell: bash
+        run: echo "${{env.ARCH}}"
 
   build_rpm:
     name: Build .rpm package
-    needs: build_tarball
     runs-on: ubuntu-latest
+    if: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Get Version
+        shell: bash
+        run: echo "VERSION=`echo ${{github.ref_name}} | sed 's/${{ env.PKG_NAME }}-//'`" >> $GITHUB_ENV
+
       - name: Replace version in RPM spec so correct source is downloaded when building RPM
-        run: sed -Ei 's/(^Version:[[:space:]]*).*/\1${{github.ref_name}}/' dist/${{ vars.PKG_NAME }}.spec
+        run: sed -Ei 's/(^Version:[[:space:]]*).*/\1${{ env.VERSION }}/' dist/${{ vars.PKG_NAME }}.spec
 
       - name: Run rpmbuild on RPM spec to produce package
         id: rpm
@@ -48,27 +53,51 @@ jobs:
       - name: Upload .rpm package as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ vars.PKG_NAME }}-${{ github.ref_name }}-1.${{ env.DIST }}.${{ env.ARCH }}.rpm
+          name: ${{ vars.PKG_NAME }}-${{ env.VERSION }}-1.${{ env.DIST }}.${{ env.ARCH }}.rpm
           path: rpmbuild/RPMS/${{ env.ARCH }}/*.rpm
 
   build_deb:
     name: Build .deb package
-    needs: build_rpm
     runs-on: ubuntu-latest
+    if: false
     steps:
-      - name: Download .rpm artifact
-        uses: actions/download-artifact@v3
-        id: download
-        with:
-          name: ${{ vars.PKG_NAME }}-${{ github.ref_name }}-1.${{ env.DIST }}.${{ env.ARCH }}.rpm
-
-      - name: Convert .rpm to .deb
+      - name: Make debian file
         run: |
-          sudo apt install -y alien
-          sudo alien -k --verbose --to-deb *.rpm
+          sudo apt install -y git  clang clang-16 clang-tools-16 clang-format python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density cmake libboost-all-dev libgtk-3-dev libwxgtk3.2-dev libexif-dev liblog4cxx-dev python3-jinja2 python3-regex python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev freeglut3-dev python3-configobj  python3-cachetools python3-wxgtk-media4.0 python3-setuptools fmt-dev libsrt1.5-openssl
+          cd /github/home/debbuild
+          git clone --depth=1
+          mkdir build
+          cd build
+          cmake ..
+          make -j`nproc`
+          make install DESTDIR=/tmp/neumo
+          ../dist/make_deb ../dist/control /tmp/neumodvb
 
       - name: Upload .deb package as artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ vars.PKG_NAME }}-${{ github.ref_name }}-1.${{ env.DIST }}.${{ env.ARCH }}.deb
+          name: ${{ vars.PKG_NAME }}-${{ env.VERSION }}-1.${{ env.DIST }}.${{ env.ARCH }}.deb
           path: ${{ vars.PKG_NAME }}*.deb
+
+  release:
+    name: Create release with all assets
+    needs: [build_tarball, build_rpm]
+    runs-on: ubuntu-latest
+    if: false
+    permissions:
+      contents: write
+    steps:
+      - name: Download cached rpm, deb, and tar.gz artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Get Version
+        shell: bash
+        run: echo "VERSION=`echo ${{github.ref_name}} | sed 's/${{ env.PKG_NAME }}-//'`" >> $GITHUB_ENV
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ vars.PKG_NAME }}-${{ env.VERSION }}-1.${{ env.DIST }}.${{ env.ARCH }}.rpm/**/*.rpm
+            ${{ vars.PKG_NAME }}-${{ env.VERSION }}-1.${{ env.DIST }}.${{ env.ARCH }}.deb/**/*.deb
+        #   ${{ vars.PKG_NAME }}-${{ env.VERSION }}.tar.gz/*.tar.gz

@@ -9,5 +9,10 @@ mkdir -p $installdir/DEBIAN
 sed -E "s/(^Version:[[:space:]]*).*/\1 ${version}/" $control > $installdir/DEBIAN/control
 #dpkg-deb --build /tmp/${name}-${version}
 dpkg-deb --build ${installdir}
-tempdeb=${installdir}.deb
+#the following avoids a trailing / in installdir
+tempdeb="`dirname $installdir`/`basename $installdir`.deb"
 mv ${tempdeb} `dirname ${tempdeb}`/${name}-${version}.deb
+
+
+
+#../dist/make_deb ../dist/control /tmp/neumo/

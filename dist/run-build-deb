@@ -17,4 +17,4 @@ distrobox-stop  ubuntu-23.10
 #######################
 distrobox-create --name install --image ubuntu:23.10
 distrobox enter install
-sudo apt install ~/neumodvb/deb/neumodvb-1.6.5.deb
+sudo apt install ~/neumodvb/deb/neumodvb-1.6.deb

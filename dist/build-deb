@@ -29,11 +29,7 @@ dist=".fc`lsb_release  -s -r`"
 id="`lsb_release  -i -s`"
 assert "This script must be run on Ubuntu" "$id == Ubuntu"
 
-installdir="/tmp/deb"
-
-cd `dirname $0`
-rm -fr $installdir
-mkdir -p ../deb
+installdir="$1"
 
 #update version string
 mkdir -p $installdir/DEBIAN
@@ -42,7 +38,7 @@ sed -E "s/(^Version:[[:space:]]*).*/\1 ${version}/" control > $installdir/DEBIAN
 dpkg-deb --build ${installdir}
 #the following avoids a trailing / in installdir
 tempdeb="`dirname $installdir`/`basename $installdir`.deb"
-mv ${tempdeb} ../deb/${name}-${version}.deb
+mv ${tempdeb} ~/neumodvb/deb/${name}-${version}.deb
 
 
 

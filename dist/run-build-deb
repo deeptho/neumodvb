@@ -1,0 +1,20 @@
+#!/bin/bash
+distrobox-create --name ubuntu-23.10 --image ubuntu:23.10
+
+distrobox-enter --name ubuntu-23.10
+sudo apt install -y git cmake g++ clang clang-format python3  python3-sip-dev  libboost-all-dev libconfig-dev libconfig++-dev libgtk-3-dev libwxgtk3.2-dev libglut-dev libmpv-dev python3-wxgtk-media4.0  python3-sip-dev libdvbcsa-dev python3-configobj  python3-cachetools  python3-setuptools python3-jinja2 python3-regex liblog4cxx-dev libexif-dev lsb-release
+
+
+builddir=`mktemp -d`
+cd $builddir
+git clone --depth=1 ~/neumodvb/
+mkdir neumodvb/build
+(cd neumodvb/build; cmake .. && make -j `nproc` && make install DESTDIR=$builddir/neumo)
+(cd neumodvb/dist; ./build-deb $builddir/neumo
+
+distrobox-stop  ubuntu-23.10
+
+#######################
+distrobox-create --name install --image ubuntu:23.10
+distrobox enter install
+sudo apt install ~/neumodvb/deb/neumodvb-1.6.5.deb

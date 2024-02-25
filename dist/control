@@ -3,4 +3,4 @@ Version: x.x
 Maintainer: Deep Thought
 Architecture: all
 Description: Neumo DVBS/S2/T/C STB program
-Depends: python3-configobj, liblog4cxx15, libboost-context1.74.0, libconfig++9v5, libdvbcsa1, libwxbase3.2-1, libwxgtk-gl3.2-1, python3-packaging, python3-wxgtk-media4.0, libglut3.12, python3-regex, python3-mpl-scatter-density, python3-cachetools, libsrt1.5-openssl, tsduck, espeak, libgtk-3-0, libexif12, libmpv2
+Depends: libgtk-3-0, libpython3.11, gir1.2-gtk-3.0, liblog4cxx15, libboost-context1.74.0, libconfig++9v5, libdvbcsa1, libwxbase3.2-1, libwxgtk-gl3.2-1, libglut3.12, libexif12, libmpv2, python3-dateutil, python3-configobj, python3-packaging, python3-wxgtk-media4.0, python3-regex, python3-mpl-scatter-density, python3-cachetools, espeak, tsduck

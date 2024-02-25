@@ -1,5 +1,25 @@
 # Changes in neumoDVB #
 
+## Changes in version neumodvb-1.6.1 ##
+
+* Added the possibilty to make debian and rpm packages. This is still experimental and not fully automated;
+* Updated installation instructions: more accurate dependencies, instructions to install from packages;
+* Fixed "make install" as code was installed in wrong places due to changes in operating systems;
+* Bug: python code was not installed in ubuntu23.10;
+* Fix rpm generation: Update installation version and add tsduck and espeak as dependencies;
+* Disable installation by users as they often mess it up;
+* "syntax error" reported in in some python versions in util.py;
+* Bug: ensure configdir exists when saving preferences, otherwise it will fail until the user
+  manually creates the configdir;
+* Avoid assertion when none of the user selected muxes can be scanned;
+* Incorrect assertion when mux cannot be scanned;
+* Bug:  stream_time_end overwritten with 0 when recording is stopped, reuslting in recording
+  that fails to play back.
+* Bug: needless assertion when service subscription fails.
+* Bug: incorrect config_path returned when neumodvb is installed, resulting in crashes when
+  run from installed package.
+
+
 ## Changes in version neumodvb-1.6 ##
 
 ### Streaming ###

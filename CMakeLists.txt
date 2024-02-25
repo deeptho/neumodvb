@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12.1)
-SET (CMAKE_SKIP_INSTALL_RULES ON)
+#SET (CMAKE_SKIP_INSTALL_RULES ON)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,defs -Wl,--no-undefined -fuse-ld=gold")
 option(USE_CLANG "build application with clang" ON) # ON is the default
 

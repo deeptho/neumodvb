@@ -5,6 +5,9 @@ name=neumodvb
 tag=`git tag |grep $name|tail -1`
 version=${tag##${name}-}
 #update version string
-mkdir -p $installdir
-sed -E "s/(^Version:[[:space:]]*).*/\1 ${version}/" $control > $installdir/control
-dpkg-deb --build ${name}-${version}
+mkdir -p $installdir/DEBIAN
+sed -E "s/(^Version:[[:space:]]*).*/\1 ${version}/" $control > $installdir/DEBIAN/control
+#dpkg-deb --build /tmp/${name}-${version}
+dpkg-deb --build ${installdir}
+tempdeb=${installdir}.deb
+mv ${tempdeb} `dirname ${tempdeb}`/${name}-${version}.deb

@@ -16,17 +16,25 @@ Some of the features include
  * controlling positioners
  * IQ constellation samples (on most cards)
 
-**Important** The database schema has changed in a non-backwards compatible way in neumoDVB 1.0.
-As a result, all LNB definitions will be lost and need to be re-entered. Moreover the details of
-this have changed. Read the documentation. Other parts of the database are not affected, because
-neumoDVB in general upgrades older information to the newer database schema. However, the changes
-to LNBs are too large.
+To install and use neumoDVB, please read the instructions below. Many users don't bother and
+then start wasting other people's time by asking questions answered in the documentation. Needless
+to say, this demotivates developers.
+
+neumoDVB cna be installed in two different ways
+
+* Compile it yourself. This enables easy upgrading when bugs are fixed, but requires
+  some basic knowledge on compiling. A good starting point is to read the instructions
+  before trying random things and then expecting users of fora to fix the problems.
+
+* On supported distributions (currently: fedora 39) and architectures (currently: x86_64
+
+
 
 ## [Changes](docs/changes.md) ##
 
+## [Compilation/Installation from github](docs/INSTALL.md) ##
 
-
-## [Installation](docs/INSTALL.md) ##
+## [Installation from debian and rpm packages](docs/packages.md) ##
 
 ## [Troubleshooting](docs/troubleshooting.md) ##
 

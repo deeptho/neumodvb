@@ -11,11 +11,11 @@ BuildRoot:          %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildRequires:  git clang cmake clang-tools-extra libtool curl-devel log4cxx log4cxx-devel libconfig-devel wxGTK-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel expat-devel python3-jinja2 python3-sip-devel python3-configobj wxWidgets-devel wxBase-devel mpv-libs-devel libX11-devel libglvnd-devel libdvbcsa-devel redhat-lsb-core libuuid-devel boost-devel curl-devel fmt-devel python3-regex gdb
 
 
-Requires: boost-program-options boost-regex curl-devel log4cxx libconfig wxGTK wxGTK-devel libexif python3-wxpython4  python3-matplotlib-wx python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxBase ffmpeg-libs libglvnd-devel espeak mesa-dri-drivers tsduck fmt python3-regex python3-cachetools
+Requires: boost-program-options boost-regex curl-devel log4cxx libconfig wxGTK wxGTK-devel libexif python3-wxpython4  python3-matplotlib-wx python3-gobject-base  python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxBase ffmpeg-libs libglvnd-devel espeak mesa-dri-drivers tsduck fmt python3-regex python3-cachetools tsduck espeak
 
 
 
-ExclusiveArch: x86_64
+ExclusiveArch: x86_64 aarch64
 
 
 

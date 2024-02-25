@@ -1,0 +1,49 @@
+#!/bin/bash
+assert() {
+  E_PARAM_ERR=98
+  E_ASSERT_FAILED=99
+
+  if [ -z "$2" ]
+  then
+    return $E_PARAM_ERR
+  fi
+
+  message=$1
+  assertion=$2
+
+  if [ ! $assertion ]
+  then
+    echo "❌ $message"
+    exit $E_ASSERT_FAILED
+  else
+    echo "✅ $message"
+    return
+  fi
+}
+
+set -x
+name=neumodvb
+tag=`git tag |grep $name|tail -1`
+version=${tag##${name}-}
+dist=".fc`lsb_release  -s -r`"
+id="`lsb_release  -i -s`"
+assert "This script must be run on Ubuntu" "$id == Ubuntu"
+
+installdir="/tmp/deb"
+
+cd `dirname $0`
+rm -fr $installdir
+mkdir -p ../deb
+
+#update version string
+mkdir -p $installdir/DEBIAN
+sed -E "s/(^Version:[[:space:]]*).*/\1 ${version}/" control > $installdir/DEBIAN/control
+#dpkg-deb --build /tmp/${name}-${version}
+dpkg-deb --build ${installdir}
+#the following avoids a trailing / in installdir
+tempdeb="`dirname $installdir`/`basename $installdir`.deb"
+mv ${tempdeb} ../deb/${name}-${version}.deb
+
+
+
+#../dist/make_deb ../dist/control /tmp/neumo/

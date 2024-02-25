@@ -1,4 +1,0 @@
-#!/bin/bash
-cd `dirname $0`
-rm -fr /tmp/rpm
-git build-rpm  --rpm-dir /tmp/rpm  --package-name  neumodvb

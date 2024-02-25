@@ -1,0 +1,38 @@
+#!/bin/bash
+
+assert() {
+  E_PARAM_ERR=98
+  E_ASSERT_FAILED=99
+
+  if [ -z "$2" ]
+  then
+    return $E_PARAM_ERR
+  fi
+
+  message=$1
+  assertion=$2
+
+  if [ ! $assertion ]
+  then
+    echo "❌ $message"
+    exit $E_ASSERT_FAILED
+  else
+    echo "✅ $message"
+    return
+  fi
+}
+
+set -x
+name=neumodvb
+tag=`git tag |grep $name|tail -1`
+version=${tag##${name}-}
+dist=".fc`lsb_release  -s -r`"
+id="`lsb_release  -i -s`"
+assert "This script must be run on Fedora" "$id == Fedora"
+
+cd `dirname $0`
+rm -fr /tmp/rpm
+mkdir -p ../rpms
+sed -E "s/(^Version:[[:space:]]*).*/\1 ${version}/" neumodvb.spec > ../rpms/neumodvb.spec
+cd ../rpms
+git build-rpm  --package-name=$name --spec-file=./neumodvb.spec --dist="$dist" --rpm-dir /tmp/rpm

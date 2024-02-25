@@ -49,7 +49,6 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service_for_viewing(cons
 	auto ssptr = this->shared_from_this();
 	auto mpm = receiver->subscribe_service_for_viewing(service, ssptr);
 	if (!mpm.get()) {
-		assert((int)get_subscription_id() <0);
 		notify_error(get_error());
 	} else {
 		assert(get_subscription_id() == mpm->subscription_id);

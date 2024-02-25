@@ -53,7 +53,7 @@ static const fs::path get_config_path() {
 		p = p.parent_path();
 	}
 
-	return "/etc/neumodvb/config";
+	return "/etc/neumodvb";
 }
 
 fs::path config_path{get_config_path()};

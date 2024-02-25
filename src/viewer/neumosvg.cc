@@ -139,6 +139,11 @@ void level_indicator::init(wxSVGDocument* doc) {
 	ss::string<32> temp;
 	temp.format("{:s}-scroller", scroller_id);
 	scroller = doc->GetElementById(temp.c_str());
+	if(!scroller) {
+		dterrorf("Could not get scroller");
+		assert(0);
+		return;
+	}
 	temp.clear();
 
 	temp.format("{:s}-bar", bar_id);
@@ -299,7 +304,7 @@ public:
 	show or hide the snr date (show if data is available, otherwise hide)
 */
 void svg_overlay_impl_t::show_snr(bool show) {
-	if (show == snr_shown)
+	if (show == snr_shown || !snr_panel)
 		return;
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
 	auto k = wxString::FromUTF8("visibility");
@@ -343,6 +348,11 @@ int svg_overlay_impl_t::init() {
 	doc = svgctrl.GetSVG();
 	root = doc->wxSvgXmlDocument::GetRoot();
 	snr_panel = doc->GetElementById("snr-panel");
+	if(!snr_panel) {
+		dterrorf("Could not create snr_panel");
+		assert(0);
+		return -1;
+	}
 	show_snr(false);
 	snr.init(doc);
 	margin_snr.init(doc);

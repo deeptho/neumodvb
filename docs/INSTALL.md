@@ -102,7 +102,7 @@ sudo pip3 install mpl_scatter_density
 
 #### Ubuntu 23.10 ####
 
-If you wish to install Ubuntu from scratch then install it from
+If you wish to install Ubuntu from scratch, then install it from
 `ubuntu-mate-23.10-desktop-amd64.iso` to ensure you have a decent starting point.
 
 Install the following packages for building and running neumoDVB:

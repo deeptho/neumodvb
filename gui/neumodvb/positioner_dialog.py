@@ -673,6 +673,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         #    rec = pychdb.dvs_mux.dvbs_mux()
         #    rec.k.sat_pos = self.sat.sat_pos
         #    rec.frequency = self.lnb.k.lnb_type == pydevdb.lnb.lnb_
+        # main effect is to update ref_mux (will be saved later) and self.current_lnb_network_changed
+        # Note that this is an internal update and does not affect the database
         if rec.k.sat_pos == pychdb.sat.sat_pos_none:
             rec.k.sat_pos = self.sat.sat_pos
         dtdebug(f"UpdateRefMux: rec.k.sat_pos={rec.k.sat_pos} self.sat.sat_pos={self.sat.sat_pos}")
@@ -685,7 +687,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             for n in self.lnb.networks:
                 if n.sat_pos == self.mux.k.sat_pos:
                     assert self.sat.sat_pos == self.mux.k.sat_pos
-                    self.current_lnb_network_changed |= not same_mux_key(n.ref_mux, self.mux.k)
                     n.ref_mux = self.mux.k
                     dtdebug(f"saving ref_mux={self.mux}")
                     return

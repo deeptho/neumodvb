@@ -131,7 +131,7 @@ struct text_box {
 	void init(wxSVGDocument* doc);
 	void set_value(const char* val);
 	void set_value(const ss::string_& val);
-	void set_value(int x, const char* fmt = "%4d");
+	void set_value(int x, const char* fmt);
 	void set_time_value(time_t t, const char* fmt = "{:%H:%M}");
 };
 
@@ -451,7 +451,7 @@ void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
 	self->uptodate = false;
 	self->show_snr(!playback_info.is_recording);
-	self->chno.set_value(playback_info.service.ch_order, "%4d");
+	self->chno.set_value(playback_info.service.ch_order, "{:4d}");
 	self->service.set_value(playback_info.service.name);
 	self->lang.set_value(chdb::lang_name(playback_info.audio_language));
 	if (playback_info.epg.has_value()) {

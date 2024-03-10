@@ -83,7 +83,8 @@ void playback_mpm_t::find_current_pmts(int64_t bytepos)
 		else
 			next_stream_change_ = never;
 	} else {
-		assert(false);
+		//assert(false);
+		return;
 	}
 	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_streams
 }

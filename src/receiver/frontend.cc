@@ -1694,6 +1694,7 @@ int dvb_frontend_t::tune(const mux_t& mux, const subscription_options_t& tune_op
 	auto ret = this->tune_(mux, tune_options);
 	if (ret < 0)
 		return ret;
+	ts.writeAccess()->lock_status.fem_state = fem_state_t::SEC_POWERED_UP;
 	return 0;
 }
 

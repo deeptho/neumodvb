@@ -616,7 +616,9 @@ std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int
 					(!may_move_dish || !conn_can_control_rotor)
 				)
 				continue; //skip because dish movement is not allowed or  not possible
-			if(!best_conn || lnb_connection.priority > best_conn->priority)
+			if(!best_conn ||
+				 (lnb_connection.can_be_used && ! best_conn->can_be_used) ||
+				 lnb_connection.priority > best_conn->priority)
 				best_conn = &lnb_connection;
 		}
 		if(best_conn) {

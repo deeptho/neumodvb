@@ -111,7 +111,7 @@ class FrontendTable(NeumoTable):
     bool_fn = NeumoTable.bool_fn
     #frontend_fn = lambda x: f'{x[0].adapter_no}.{x[0].frontend_no}'
     frontend_fn = lambda x: f'{x[0].adapter_no}.{x[0].frontend_no}'
-    mac_fn = lambda x: x[1].to_bytes(6, byteorder='little').hex(":") if x[1]>=0 else '???'
+    mac_fn = lambda x: x[1].to_bytes(8, byteorder='little').hex(":")[:17] if x[1]>=0 else '???'
     enable_cfn = lambda table: table.enable_cfn()
     enable_sfn = lambda x: x[2].enable_sfn(x[0], x[1])
     enable_dfn = lambda x: x[2].enable_dfn(x[0])

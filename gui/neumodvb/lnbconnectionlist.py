@@ -144,6 +144,13 @@ class LnbConnectionTable(NeumoTable):
     def card_rf_input_sfn(self, rec, v):
         d = wx.GetApp().get_cards_with_rf_in()
         newval = d.get(v, None)
+        if newval is None:
+            try:
+                v, newval = next(iter(d.items()))
+            except:
+                pass
+        if newval is None:
+            return rec
         #this is needed to correctly display the name of the record if user moves cursor to different cell in new record
         rec.card_mac_address, rec.rf_input = newval
         rtxn = self.db.rtxn()

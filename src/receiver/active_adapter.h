@@ -314,7 +314,7 @@ private:
 						 subscription_id_t subscription_id);
 
 	template<typename mux_t>
-	int tune(const mux_t& mux, subscription_options_t tune_options, bool user_requested,
+	int tune_dvbc_or_dvbt(const mux_t& mux, subscription_options_t tune_options, bool user_requested,
 					 subscription_id_t subscription_id);
 
 	int add_service(subscription_id_t subscription_id, active_service_t& channel);//tune to channel on transponder

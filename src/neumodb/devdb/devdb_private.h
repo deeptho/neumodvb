@@ -217,7 +217,7 @@ namespace devdb::fe {
 										 const devdb::fe_key_t* fe_key_to_release,
 										 bool do_not_unsubscribe_on_failure);
 
-	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>>
+	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>, bool>
 	subscribe_lnb(db_txn& wtxn,  subscription_id_t subscription_id,
 								const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 								const subscription_options_t&  tune_options,

@@ -134,7 +134,7 @@ class FrontendTable(NeumoTable):
          #CD(key='rf_in',  label='RF#', basic=True, readonly=True),
          CD(key='card_mac_address',  label='CARD MAC', basic=True, no_combo=True, readonly=True,
             dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
-         #CD(key='k.adapter_mac_address',  label='ADAP MAC', basic=True, no_combo=True, readonly=True, dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
+         CD(key='k.adapter_mac_address',  label='ADAP MAC', basic=True, no_combo=True, readonly=True, dfn=mac_fn, example=" AA:BB:CC:DD:EE:FF "),
          CD(key='card_address',  label='Bus', basic=True, example=" 0000:03:00.0 "),
          CD(key='present',  label='present', basic=True, dfn=bool_fn, readonly=True),
          CD(key='can_be_used',  label='available', basic=True, dfn=bool_fn, readonly=True),

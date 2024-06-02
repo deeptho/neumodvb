@@ -255,6 +255,7 @@ public:
 	status of secondary equipment
  */
 class sec_status_t {
+	int config_id{0}; //updates by at least 1 each time a  tuner is switched to a new configuration
 	bool tuned{false};
 	int rf_input{-1}; //-1 means unknown or never set
 	std::optional<devdb::lnb_key_t> lnb_key; //set after diseqc has been sent

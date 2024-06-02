@@ -322,6 +322,7 @@ fe_subscription = db_struct(name='fe_subscription',
                            type_id= lord('qr'),
                            version = 1,
                            fields = ((1, 'int32_t', 'owner', -1),
+                                     (14, 'int32_t', 'config_id', -1),
                                      (3, 'rf_path_t', 'rf_path'),
                                      (2, 'int16_t', 'sat_pos', 'sat_pos_none'),   #if value is sat_pos_none
                                                                                   #then subscription

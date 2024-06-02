@@ -2174,6 +2174,10 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 
 
 int sec_status_t::set_rf_input(int fefd, int new_rf_input) {
+	struct fe_rf_input_control ic;
+	ic.owner = getpid();
+	//ic.config_id = config_id;
+	ic.rf_in = new_rf_input;
 	auto old_rf_input = this->rf_input;
 	if (new_rf_input < 0) {
 		assert(0);

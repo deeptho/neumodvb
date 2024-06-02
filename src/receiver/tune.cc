@@ -176,7 +176,7 @@ int tuner_thread_t::tune(const subscribe_ret_t& sret, const devdb::rf_path_t& rf
 }
 
 template <typename _mux_t>
-int tuner_thread_t::tune(const _mux_t& mux_, subscription_options_t tune_options,
+int tuner_thread_t::tune_dvbc_or_dvbt(const _mux_t& mux_, subscription_options_t tune_options,
 												 subscription_id_t subscription_id) {
 	_mux_t mux{mux_};
 
@@ -193,15 +193,15 @@ int tuner_thread_t::tune(const _mux_t& mux_, subscription_options_t tune_options
 
 	dtdebugf("tune mux action");
 	bool user_requested = true;
-	auto ret = active_adapter.tune(mux, tune_options, user_requested, subscription_id);
+	auto ret = active_adapter.tune_dvbc_or_dvbt(mux, tune_options, user_requested, subscription_id);
 	assert (ret>=0 || active_adapter.tune_state == active_adapter_t::TUNE_FAILED);
 	return ret;
 }
 
-template int tuner_thread_t::cb_t::tune<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, subscription_options_t tune_options,
+template int tuner_thread_t::cb_t::tune_dvbc_or_dvbt<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, subscription_options_t tune_options,
 																													subscription_id_t subscription_id);
 
-template int tuner_thread_t::cb_t::tune<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, subscription_options_t tune_options,
+template int tuner_thread_t::cb_t::tune_dvbc_or_dvbt<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, subscription_options_t tune_options,
 																													subscription_id_t subscription_id);
 
 int tuner_thread_t::exit() {
@@ -618,10 +618,10 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 									ret = this->tune(sret, *aa.rf_path, *aa.lnb, mux, tune_options);
 								},
 								[&](const chdb::dvbc_mux_t& mux) {
-									ret = this->tune(mux, tune_options, sret.subscription_id);
+									ret = this->tune_dvbc_or_dvbt(mux, tune_options, sret.subscription_id);
 								},
 								[&](const chdb::dvbt_mux_t& mux) {
-									ret = this->tune(mux, tune_options, sret.subscription_id);
+									ret = this->tune_dvbc_or_dvbt(mux, tune_options, sret.subscription_id);
 								}
 		);
 	if (ret < 0)

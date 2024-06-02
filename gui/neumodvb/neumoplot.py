@@ -480,8 +480,8 @@ class SpectrumPlot(wx.Panel):
         self.figure.canvas.mpl_connect('button_press_event', self.on_button_press)
         self.shift_is_held = False
         self.ctrl_is_held = False
-        #self.figure.canvas.mpl_connect('key_press_event', self.set_modifiers)
-        #self.figure.canvas.mpl_connect('key_release_event', self.unset_modifiers)
+        self.figure.canvas.mpl_connect('key_press_event', self.set_modifiers)
+        self.figure.canvas.mpl_connect('key_release_event', self.unset_modifiers)
         self.cycle_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         self.current_annot = None #currently selected annot
         self.current_annot_vline = None

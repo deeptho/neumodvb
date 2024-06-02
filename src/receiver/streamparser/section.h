@@ -33,6 +33,7 @@ namespace dtdemux {
 	struct pmt_writer_t;
 	struct nit_network_t;
 	struct epg_t;
+	struct audio_language_info_t;
 
 	struct section_header_t{
 		uint16_t pid{0x1fff};
@@ -123,6 +124,7 @@ namespace dtdemux {
 			get_buffer((uint8_t*)::std::addressof(storage), sizeof(T));
 			return net_to_native((const T&) storage);
 		}
+		void get_audio_language_info(audio_language_info_t& ai, const descriptor_t& desc, uint16_t stream_pid);
 
 		template<typename T> T get(const descriptor_t& desc, uint16_t stream_pid);
 

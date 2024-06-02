@@ -945,15 +945,12 @@ namespace dtdemux {
 		return ret;
 	}
 
-	template <>
-	audio_language_info_t stored_section_t::get<audio_language_info_t>(const descriptor_t& desc, uint16_t stream_pid) {
-		audio_language_info_t ret;
-		ret.lang_code[0] = get<char>();
-		ret.lang_code[1] = get<char>();
-		ret.lang_code[2] = get<char>();
-		ret.lang_code[3] = 0;
-		ret.audio_type = get<char>();
-		return ret;
+	void stored_section_t::get_audio_language_info(audio_language_info_t& ai, const descriptor_t& desc, uint16_t stream_pid) {
+		ai.lang_code[0] = get<char>();
+		ai.lang_code[1] = get<char>();
+		ai.lang_code[2] = get<char>();
+		ai.lang_code[3] = 0;
+		ai.audio_type = get<char>();
 	}
 
 /*! extract and save relevant data from a pmt descriptor
@@ -1057,7 +1054,7 @@ namespace dtdemux {
 				}
 			} break;
 			case SI::ISO639LanguageDescriptorTag: {
-				info.audio_lang = s.get<audio_language_info_t>(_desc, info.stream_pid);
+				s.get_audio_language_info(info.audio_lang, _desc, info.stream_pid);
 			} break;
 			case SI::ExtensionDescriptorTag: {
 				auto end = s.available() - _desc.len;

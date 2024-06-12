@@ -67,6 +67,9 @@ bool wait_for_all(std::vector<task_queue_t::future_t>& futures, bool clear_error
 		user_error_.clear();
 	bool error = false;
 	for (auto& f : futures) {
+		if(!f.valid()) {
+			dterrorf("Skipping future with invalid state"); //can happen when calling stop_running with a "wait" parameter
+		}
 		auto ret= f.get();
 		error |= (ret < 0);
 	}
@@ -211,7 +214,7 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 			//ask tuner thread to exit, but do not wait
 			dtdebugf("Pushing tuner_thread.stop_running");
 			tuner_thread.update_dbfe(updated_dbfe);
-			futures.push_back(tuner_thread.stop_running(true/*wait*/));
+			tuner_thread.stop_running(true/*wait*/);
 		} else {
 			futures.push_back(tuner_thread.push_task([&tuner_thread, updated_dbfe = updated_dbfe]() {
 				tuner_thread.update_dbfe(updated_dbfe);
@@ -607,7 +610,6 @@ receiver_thread_t::subscribe_mux(
 		cb(aa.tuner_thread).subscribe_mux(sret, mux, tune_options);
 			return 0;
 	}));
-
 	return sret.subscription_id;
 }
 

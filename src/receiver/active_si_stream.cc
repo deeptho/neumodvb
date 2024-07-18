@@ -2709,13 +2709,18 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 										if(!driver_data_reliable || (std::abs((int)mux.frequency - (int) p->frequency) < 50)) {
 											mux.frequency = p->frequency;
 										}
-										else
+										else {
 											use_driver = true;
+											dtdebugf("XXX set use_driver tune_src={} driver_data_reliable={}", p->c.tune_src, driver_data_reliable);
+										}
 										if(!driver_data_reliable || (std::abs((int)mux.symbol_rate - (int) p->symbol_rate) < 10000))
 											mux.symbol_rate = p->symbol_rate;
-										else
+										else {
 											use_driver = true;
-										if(use_driver) //vcan happen on 28.2E where SI table reports incorrect mux frequency
+											dtdebugf("XXX set use_driver symbol_rate={}/{} driver_data_reliable={}", mux.symbol_rate, p->symbol_rate,
+												driver_data_reliable);
+										}
+										if(use_driver) //can happen on 28.2E where SI table reports incorrect mux frequency
 											mux.c.tune_src = chdb::tune_src_t::NIT_CORRECTED;
 									}
 

@@ -49,10 +49,9 @@ def subscription_fn(x):
     fesub = x[0].sub
     subs = fesub.subs
     mux_key = fesub.mux_key
-    if len(subs) == 0:
+    if fesub is None or len(subs) == 0:
         return ""
     ret=[]
-
     #lnb and rf input info common to all subscriptions
     sid = f"" if (mux_key.stream_id < 0) else f'-{mux_key.stream_id}'
     if mux_key.sat_pos == pychdb.sat.sat_pos_none:
@@ -88,12 +87,11 @@ def subscription_fn(x):
             assert type(sub.v) == pychdb.service.service
             #srv = ' '.join(str(sub.service).split(' ')[1:])
             srv=f'{sub.v.k.service_id} [{sub.v.ch_order}] {sub.v.name}'
-            ret.append(f'{sub.subscription_id}: {srv}')
+            ret.append(f'{sub.subscription_id}.{fesub.config_id}: {srv}')
         elif sub.has_mux:
             assert type(sub.v) == pychdb.service.service #not a mistake
-            ret.append(f'{sub.subscription_id}: {str(sub.v.k.mux)}')
+            ret.append(f'{sub.subscription_id}.{fesub.config_id}: {str(sub.v.k.mux)}')
         else:
-            assert type(sub.v) == pychdb.band_scan.band_scan
             usals_pos = fesub.usals_pos
             if usals_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
                 sat_pos=pychdb.sat_pos_str(usals_pos)
@@ -103,7 +101,7 @@ def subscription_fn(x):
                 ret.append(f'{sub.subscription_id}: {f}')
             else:
                 f = f'Exclusive'
-                ret.append(f'{sub.subscription_id}: {f}')
+                ret.append(f'{sub.subscription_id}.{fesub.config_id}: {f}')
     return '\n'.join(ret)
 
 class FrontendTable(NeumoTable):

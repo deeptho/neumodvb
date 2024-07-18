@@ -122,8 +122,10 @@ sudo  apt install -y libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-open
 gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools \
 python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev \
 freeglut3-dev libwxgtk3.0-gtk3-dev  python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy \
-clang lsb-core lsb-release python3-regex liblog4cxx12 liblog4cxx-dev freeglut3 fmt fmt-dev espeak
+clang lsb-core lsb-release python3-regex liblog4cxx12 liblog4cxx-dev freeglut3 espeak libfmt-dev
 ```
+** During the above step, you will notice that libcurl4-openssl-dev uninstalls libcurl4-gnutls-dev. This may cause an issue elsewhere. It seems possible to immediately reinstall libcurl-gnutls-dev before proceeding (it will complain). I'll have to see about getting some help evaluating if the older package can be used. **
+
 In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;
 at least the following packages are needed:
 
@@ -131,21 +133,27 @@ at least the following packages are needed:
 sudo pip3 install mpl_scatter_density
 ```
 
-#### Ubuntu 20.04.4 LTS ####
-
-The latest neumoDVB version may not work anymore because of an outdated libstdc++. You may need to
-upgrade ubuntu or install an older version of neumoDVB.
-
-The following instructions may be helpful when installing an older version of neumoDVB.
-
-Install clang and clang++ with a version number of at least 14. The newest neumoDVB code does not compile
-with the clang included in ubuntu
+```bash
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 16
+sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-16 100
+sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-16 100
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+sudo apt-get update -y
+sudo apt-get install gcc-13
+sudo apt-get install g++-13
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 13
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 13
+```
+Make sure to then run sudo update-alternatives --config gcc and sudo update-alternatives --config g++ and select 13 in both cases.
+Open and edit the neumodvb/CMakeLists.txt file force the right clang version by adding the -16 in the if statement
 
 ```bash
-sudo apt install -y libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev libwxgtk-media3.0-gtk3-dev \
-gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev python3-jinja2 python3-pip clang-format \
-python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev libmpv-dev freeglut3-dev python-wxgtk3.0 python3-wxgtk-media4.0 \
-python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang lsb-core lsb-release python3-regex fmt fmt-dev
+if(USE_CLANG)
+  SET (CMAKE_CXX_COMPILER clang++-16)
+  SET (CMAKE_C_COMPILER clang-16)
+endif(USE_CLANG)
 ```
 
 In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;

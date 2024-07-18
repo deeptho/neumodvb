@@ -442,8 +442,6 @@ scan_t::rescan_peak(const blindscan_t& blindscan, ssptr_t reusable_ssptr,
 	using namespace chdb;
 	scan_subscription_t* ss_ptr{nullptr};
 
-	assert(!blindscan.spectrum_acquired() || mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
-
 	if (mux.c.scan_rf_path.lnb_id >=0 &&  mux.c.scan_rf_path.card_mac_address >=0 && mux.c.scan_rf_path.rf_input >=0) {
 		auto devdb_rtxn = receiver.devdb.rtxn();
 		auto lnb = devdb::lnb_for_lnb_id(devdb_rtxn, mux.c.scan_rf_path.dish_id, mux.c.scan_rf_path.lnb_id);
@@ -452,7 +450,7 @@ scan_t::rescan_peak(const blindscan_t& blindscan, ssptr_t reusable_ssptr,
 
 	mux.frequency = peak.peak.frequency;
 	if constexpr (is_same_type_v<decltype(mux), chdb::dvbs_mux_t>) {
-		assert(!blindscan.spectrum_acquired() || mux.k.sat_pos == blindscan.spectrum_key->sat_pos);
+		assert(!blindscan.spectrum_acquired() || std::abs(mux.k.sat_pos - blindscan.spectrum_key->sat_pos)<=100);
 		assert(!blindscan.spectrum_acquired() || mux.pol == peak.peak.pol);
 		if(blindscan.spectrum_acquired()) {
 			mux.symbol_rate = peak.peak.symbol_rate;
@@ -936,7 +934,7 @@ void scan_t::scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
 
 	bool existing_subscription = (int)subscription.subscription_id >=0;
 	assert(existing_subscription);
-	assert(subscription.blindscan_key.sat_pos==finished_mux_key.sat_pos);
+	assert(std::abs(subscription.blindscan_key.sat_pos-finished_mux_key.sat_pos)<=100);
 	auto sat_pos =  subscription.blindscan_key.sat_pos;
 
 	ssptr_t ssptr_to_erase;

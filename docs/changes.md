@@ -1,5 +1,30 @@
 # Changes in neumoDVB #
 
+## Changes in version neumodvb-1.7 ##
+
+* Support cards with multiple stid135 chips such as tbs6916.
+* Improved handling of races when tuning multiple muxes on the same tuner in parallel.
+  This can lead to some threads tuning before diseqc programming is finished, resulting
+  in failed tunes. A typical effect is some muxes failing to scan.
+* Bug: When clicking on mux, incorrect question to save network.
+* Bug: incorrect format string in OSD.
+* Remove unneeded or incorrect assertions.
+* Experimental change: when positioner dialog is blind tuning, allow services to reuse adapter.
+* Bug: DVBC and DVBT scan not starting.
+* Make lnb connection list display more robust against errors in database.
+* Create scripts for easier creation of .deb and .rpm packages.
+* Bug: Incorrect priority handling when selecting LNBs and other resources.
+* Bug: ac3 flag overwritten in pmt parsing (Anixe HD on 19.2E), resulting in no playback
+* Bug: incorrect usage of future resulting in incorrect mux count during scanning.
+* Bug: positioner_dialog considers some valid NITs invalid.
+* Increased font size of the services list on the positioner dialog screen.
+* Improved installation instructions for Ubuntu
+* Frontend list now also shows config_id.
+* Bug: scanning code ignores some valid information provided by driver.
+
+
+
+
 ## Changes in version neumodvb-1.6.1 ##
 
 * Added the possibilty to make debian and rpm packages. This is still experimental and not fully automated;

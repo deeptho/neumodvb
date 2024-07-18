@@ -598,10 +598,6 @@ tune_options = db_struct(name ='tune_options',
               (7, 'bool', 'use_blind_tune', 'false'),
 	            (8, 'bool', 'may_move_dish', 'false'),    #subscription is allowed to move the dish when tuning if no
                                                         #other subscriptions conflict; afterwards dish may not be moved
-              (9, 'bool', 'may_control_dish', 'false'), #The subscription may move move the subscribed
-                                                        #dish to a new position at any time (exclusive use)
-              (10, 'bool', 'may_control_lnb', 'false'), #subscription may change pol/band and send diseqc at any time
-                                                        #(exclusive use)
 	            (11, 'bool', 'propagate_scan', 'true'),
 	            (12, 'bool', 'need_spectrum', 'false'),
 	            (13, 'retune_mode_t', 'retune_mode', 'retune_mode_t::AUTO'),

@@ -695,7 +695,8 @@ enum fe_interleaving {
 #define DTV_LOCKTIME 89
 #define DTV_MATYPE_LIST		90 //retrieve list of present matypesand stream_ids
 #define DTV_RF_INPUT 91
-#define DTV_MAX_COMMAND	 DTV_RF_INPUT
+#define DTV_SET_SEC_CONFIGURED 92
+#define DTV_MAX_COMMAND	 DTV_SET_SEC_CONFIGURED
 
 //commands for controlling long running algorithms via FE_ALGO_CTRL ioctl
 #define DTV_STOP 1
@@ -1174,6 +1175,7 @@ enum fe_reservation_result {
 	FE_RESERVATION_MASTER = 0,
 	FE_RESERVATION_SLAVE = 1,
 	FE_RESERVATION_RETRY = 2,
+	FE_RESERVATION_UNCHANGED = 3,
 	FE_RESERVATION_FAILED = -1
 };
 

@@ -135,6 +135,8 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 				there will be no subscriptions and so no possible conflicts
 			 */
 		} else {
+			assert(fe.sub.config_id>=0);
+			assert(fe.sub.owner>=0);
 			//Note: this could be our subscription, but only if it is shared by some other subscription
 			bool same_lnb = fe.sub.rf_path == s.rf_path;
       /* dish_id < 0 is a special case: it signifies that the dish is different
@@ -174,6 +176,8 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 			ret.rf_coupler += same_rf_coupler;
 			ret.tuner += same_tuner;
 			ret.positioner += same_positioner;
+			ret.config_id = fe.sub.config_id;
+			ret.owner = fe.sub.owner;
 		}
 	}
 	return ret;
@@ -303,6 +307,8 @@ fe::find_best_fe_for_lnb(
 							(fe.priority == best_fe->priority && is_our_subscription)) //prefer current adapter
 						) {
 						best_fe = fe;
+						best_fe->sub.config_id = use_counts.config_id;
+						best_fe->sub.owner = use_counts.owner;
 						best_use_counts = use_counts;
 					}
 					} else if (fe.supports.spectrum_sweep) { //second best choice
@@ -310,6 +316,8 @@ fe::find_best_fe_for_lnb(
 							( !best_fe->supports.spectrum_fft && //best_fe with fft beats fe without fft
 								fe.priority > best_fe->priority )) {
 						best_fe = fe;
+						best_fe->sub.config_id = use_counts.config_id;
+						best_fe->sub.owner = use_counts.owner;
 						best_use_counts = use_counts;
 					}
 				} else {
@@ -327,6 +335,8 @@ fe::find_best_fe_for_lnb(
 						(fe.priority == best_fe->priority && is_our_subscription)) //prefer current adapter
 					) {
 					best_fe = fe;
+					best_fe->sub.config_id = use_counts.config_id;
+					best_fe->sub.owner = use_counts.owner;
 					best_use_counts = use_counts;
 				}
 			} //end of !need_spectrum
@@ -431,8 +441,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			}
 			auto& [fe, use_counts ] = *fe_and_use_counts;
 			auto fe_prio = fe.priority;
-			if(use_counts.lnb >= 1 ||
-				 use_counts.tuner >= 1)
+			if(use_counts.config_id >= 0) //prefer to reuse tuners or rf_ins
 				fe_prio += tune_options.resource_reuse_bonus;
 
 			if (lnb_priority < 0 || lnb_priority - penalty == best_lnb_prio)
@@ -452,6 +461,8 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			best_rf_path = devdb::rf_path_t{lnb.k, lnb_connection.card_mac_address, lnb_connection.rf_input};
 			best_rf_path_prio = lnb_connection.priority;
 			best_fe = fe;
+			best_fe->sub.config_id = use_counts.config_id;
+			best_fe->sub.owner = use_counts.owner;
 			best_use_counts = use_counts;
 		}
 	}
@@ -551,8 +562,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 			}
 			auto& [fe, use_counts ] = *fe_and_use_counts;
 			auto fe_prio = fe.priority;
-			if(use_counts.lnb >= 1 ||
-				 use_counts.tuner >= 1)
+			if(use_counts.config_id >= 0) //prefer to reuse tuners or rf_ins
 				fe_prio += tune_options.resource_reuse_bonus;
 
 			if (lnb_priority < 0 || lnb_priority - penalty == best_lnb_prio)
@@ -572,6 +582,8 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 			best_rf_path = devdb::rf_path_t{lnb.k, lnb_connection.card_mac_address, lnb_connection.rf_input};
 			best_rf_path_prio = lnb_connection.priority;
 			best_fe = fe;
+			best_fe->sub.config_id = use_counts.config_id;
+			best_fe->sub.owner = use_counts.owner;
 			best_use_counts = use_counts;
 		}
 	}

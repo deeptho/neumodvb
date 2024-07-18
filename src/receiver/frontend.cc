@@ -232,10 +232,6 @@ static int get_frontend_names(fe_state_t& t, int adapter_no, int api_version) {
 																		*/
 	}
 	t.dbfe.supports_neumo = 	fe_info.supports_neumo;
-#if 0
-	t.dbfe.rf_in = (fe_info.supports_neumo && fe_info.default_rf_input >= 0) ?
-		fe_info.default_rf_input : adapter_no;
-#endif
 	t.dbfe.card_name = card_name;
 	t.dbfe.card_short_name = card_short_name;
 	for(int i=0; i < fe_info.num_rf_inputs; ++i) {
@@ -487,11 +483,6 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 				dvbs_mux->k.stream_id = -1;
 			} else {
 				dvbs_mux->matype = matype;
-#if 0 //seems to go wrong on 25.5W 11174V: multistream
-				bool is_mis = !(matype & (1 << 5));
-				if (!is_mis)
-					dvbs_mux->stream_id = -1;
-#endif
 			}
 		} else {
 			//currently no dvbt/dvbc mux correctly sets matype
@@ -546,12 +537,6 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 
 	cmdseq.add(DTV_STAT_PRE_ERROR_BIT_COUNT);
 	cmdseq.add(DTV_STAT_PRE_TOTAL_BIT_COUNT);
-#if 0
-	cmdseq.add(DTV_STAT_POST_ERROR_BIT_COUNT	);
-	cmdseq.add(DTV_STAT_POST_TOTAL_BIT_COUNT	);
-	cmdseq.add(DTV_STAT_ERROR_BLOCK_COUNT	);
-	cmdseq.add(DTV_STAT_TOTAL_BLOCK_COUNT	);
-#endif
 
 	cmdseq.add(DTV_DELIVERY_SYSTEM); // 0 DVB-S, 9 DVB-S2
 	cmdseq.add(DTV_VOLTAGE);					// 0 - 13V Vertical, 1 - 18V Horizontal, 2 - Voltage OFF
@@ -1086,12 +1071,6 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	// we will need to call start_lnb_spectrum again later to retrieve (part of) the high band)
 	incomplete =
 		(options.band_pol.band == chdb::sat_sub_band_t::LOW && scan.end_freq > mid_freq && mid_freq < options.end_freq)
-#if 0
-		||
-		 (options.scan_both_polarisations &&
-		 (options.band_pol.pol == chdb::fe_polarisation_t::H ||
-			options.band_pol.pol == chdb::fe_polarisation_t::L))
-#endif
 		;
 
 	{
@@ -1172,6 +1151,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	this->num_constellation_samples = num_constellation_samples;
 	auto [band, voltage, frequency] = devdb::lnb::band_voltage_freq_for_mux(lnb, mux);
 	cmdseq.add_clear();
+	cmdseq.add(DTV_SET_SEC_CONFIGURED);
 	if (blindscan) {
 		assert (api_type == api_type_t::NEUMO);
 		cmdseq.add(DTV_ALGORITHM, ALGORITHM_BLIND);
@@ -1179,10 +1159,6 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 		if (mux.symbol_rate > 0)
 			cmdseq.add(DTV_SYMBOL_RATE, mux.symbol_rate); //
 		cmdseq.add(DTV_FREQUENCY, frequency);						// For satellite delivery systems, it is measured in kHz.
-#if 0
-		// not needed and is dangerous when multiple frontends attached to same tuner
-		cmdseq.add(DTV_VOLTAGE, 1 - pol_is_v);
-#endif
 		cmdseq.init_pls_codes();
 		if (mux.k.stream_id >= 0)
 			cmdseq.add_pls_code(make_code((int)mux.pls_mode, (int)mux.pls_code));
@@ -1203,10 +1179,6 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 
 		cmdseq.add(DTV_DELIVERY_SYSTEM, (int)mux.delivery_system);
 		cmdseq.add(DTV_MODULATION, (int)mux.modulation);
-#if 0
-// not needed and is dangerous when multiple frontends attached to same tuner
-		cmdseq.add(DTV_VOLTAGE,  1 - pol_is_v);
-#endif
 		cmdseq.add(DTV_FREQUENCY, frequency);					// For satellite delivery systems, it is measured in kHz.
 		cmdseq.add(DTV_SYMBOL_RATE, mux.symbol_rate); // Must be in Symbols/second
 		cmdseq.add(DTV_INNER_FEC, (int)mux.fec);
@@ -1328,12 +1300,12 @@ dvb_frontend_t::lnb_spectrum_scan(
 	int new_usals_pos{sat_pos_none};
 	auto band = tune_options.spectrum_scan_options.band_pol.band;
 	auto pol = tune_options.spectrum_scan_options.band_pol.pol;
-	auto voltage = devdb::lnb::voltage_for_pol(lnb, pol) ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+	auto voltage = (fe_sec_voltage) devdb::lnb::voltage_for_pol(lnb, pol);
 	bool set_rf_input = (api_type == api_type_t::NEUMO && api_version >=1500);
 	assert(!set_rf_input || ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
 	auto fefd = ts.readAccess()->fefd;
 	auto [error, need_diseqc, need_lnb] =
-		this->sec_status.set_rf_path(fefd, rf_path, lnb, sat_pos, tune_options, set_rf_input);
+		this->set_rf_path(tuner_thread, fefd, rf_path, lnb, sat_pos, tune_options, set_rf_input);
 	if(error) {
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
 			return {-1, sat_pos_none};
@@ -1507,7 +1479,7 @@ dvb_frontend_t::tune(
 	assert(!set_rf_input || ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
 	auto fefd = ts.readAccess()->fefd;
 	auto [error, need_diseqc, need_lnb] =
-		this->sec_status.set_rf_path(fefd, rf_path, lnb, sat_pos, tune_options, set_rf_input);
+		this->set_rf_path(tuner_thread, fefd, rf_path, lnb, sat_pos, tune_options, set_rf_input);
 	if(error) {
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
 			return {-1, new_usals_pos};
@@ -1713,6 +1685,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 
 	// request spectrum scan
 	cmdseq_t cmdseq;
+	cmdseq.add(DTV_SET_SEC_CONFIGURED);
 	cmdseq.add(DTV_DELIVERY_SYSTEM, (int)SYS_DVBS);
 	auto [start_freq, mid_freq, end_freq, lof_low, lof_high, inverted_spectrum] =
 		devdb::lnb::band_frequencies(lnb, options.band_pol.band);
@@ -1927,9 +1900,10 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 	auto can_move_dish_ = devdb::lnb::can_move_dish(lnb_connection);
 
 	int ret{0};
-	int i = 0;
+	int i = -1;
 	bool must_pause = false; // do we need a long pause before the next diseqc command?
 	for (const char& command : diseqc_command) {
+		++i;
 		bool repeated = false;
 		for (auto j = 0; j < i - 1; ++j) {
 			if (diseqc_command[j] == command) {
@@ -1943,7 +1917,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_pos};
-			msleep(must_pause ? 200 : 30);
+			msleep(must_pause ? 100 : 30);
 			/*
 				tone burst commands deal with simpler equipment.
 				They use a 12.5 ms duration 22kHz burst for transmitting a 1
@@ -1965,7 +1939,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 				break; // can be used to signal that it is off
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_pos};
-			msleep(must_pause ? 200 : 30);
+			msleep(must_pause ? 100 : 30);
 			unsigned int extra{0};
 			int pol_v_r = voltage & 1;
 			extra = ((pol_v_r * 2) | (sat_sub_band ==  chdb::sat_sub_band_t::HIGH ? 1 : 0));
@@ -1983,7 +1957,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_pos};
 
-			msleep(must_pause ? 200 : 30);
+			msleep(must_pause ? 100 : 30);
 			ret = this->send_diseqc_message('U', diseqc_11, 0, repeated);
 			if (ret < 0) {
 				dterrorf("Sending Uncommitted DiseqC message failed");
@@ -1997,7 +1971,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 				return {-1, new_usals_pos};
 			auto powerup_time_ms = ts.readAccess()->tune_options.tune_pars->dish->powerup_time;
 			sec_status.positioner_wait_after_powerup(powerup_time_ms);
-			msleep(must_pause ? 200 : 30);
+			msleep(must_pause ? 100 : 30);
 			assert(!for_positioner_control);
 			auto* lnb_network = (!for_positioner_control) ? devdb::lnb::get_network(lnb, sat_pos) : nullptr;
 			if (!lnb_network) {
@@ -2017,7 +1991,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 				break;
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_pos};
-			msleep(must_pause ? 200 : 30);
+			msleep(must_pause ? 100 : 30);
 			int16_t usals_pos{sat_pos_none};
 			assert(!for_positioner_control);
 			auto* lnb_network = devdb::lnb::get_network(lnb, sat_pos);
@@ -2046,7 +2020,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 			return {ret, new_usals_pos};
 	}
 
-	msleep(20);
+	msleep(50);
 	return {1, new_usals_pos};
 }
 
@@ -2132,10 +2106,10 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		when starting from the unpowered state, we need to wait long enough to give equipment
 		time to power up. We assume 200ms is enough
 	 */
-	int sleeptime_ms = must_sleep_extra ? 500 : 300;
+	int sleeptime_ms = must_sleep_extra ? 300 : 200;
 
 	/*
-		With an Amiko positioner, the positioner risks activating its current overlaod protection at startup,
+		With an Amiko positioner, the positioner risks activating its current overload protection at startup,
 		even if the motor is not moving, because of the current the rotor passess through for lnb and potentially
 		a switch. This problem is worse when the highest voltage is selected from a non-powered state.
 		The following increases the voltage in two phase when 18V is requested. First 12V is selected; then we
@@ -2173,48 +2147,97 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 }
 
 
-int sec_status_t::set_rf_input(int fefd, int new_rf_input) {
+int sec_status_t::set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tune_pars) {
+	assert (tune_pars.owner == getpid());
+	assert (tune_pars.config_id >=0);
+	assert(new_rf_input >=0);
 	struct fe_rf_input_control ic;
-	ic.owner = getpid();
-	//ic.config_id = config_id;
+	ic.owner = tune_pars.owner;
+	ic.config_id = tune_pars.config_id;
 	ic.rf_in = new_rf_input;
-	auto old_rf_input = this->rf_input;
-	if (new_rf_input < 0) {
-		assert(0);
-		return -1;
-	}
-	if (new_rf_input == old_rf_input) {
-		dtdebugf("No RF_INPUT change needed: rf_input={:d}", new_rf_input);
-		return 0;
-	} else {
-		dtdebugf("Changing RF_INPUT from {:d} to {:d}", old_rf_input, new_rf_input);
+	ic.mode = tune_pars.send_lnb_commands ? 	FE_RESERVATION_MODE_MASTER : FE_RESERVATION_MODE_SLAVE;
+	dtdebugf("Changing RF_INPUT from {:d}/{:d} to {:d}/{:d}",
+					 this->ic.rf_in, this->ic.config_id,  ic.rf_in, ic.config_id);
+	if(ic.rf_in == this->ic.rf_in && ic.config_id == this->ic.config_id) {
+		dtdebugf("No RF_INPUT change needed: rf_input={:d}/{:d} mode={:d}", ic.rf_in, ic.config_id, (int)ic.mode);
+		return FE_RESERVATION_UNCHANGED;
 	}
 
-	if ((ioctl(fefd, FE_SET_RF_INPUT, new_rf_input))) {
-		dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
-		this->rf_input = -1;
-		return -1;
+	if(ic.rf_in == this->ic.rf_in && ic.config_id != this->ic.config_id) {
+		dtdebugf("No RF_INPUT change needed but new config: rf_input={:d}/{:d} mode={:d}", ic.rf_in, ic.config_id, (int)ic.mode);
 	}
-	this->rf_input = new_rf_input;
+
+	auto ret = (fe_reservation_result) ioctl(fefd, FE_SET_RF_INPUT, &ic);
+	switch(ret) {
+	case  FE_RESERVATION_MASTER:
+		assert(tune_pars.send_lnb_commands);
+		dtdebugf("Succesfully set MASTER rf_input={:d}", ic.rf_in);
+		break;
+	case FE_RESERVATION_SLAVE:
+		assert(!tune_pars.send_lnb_commands);
+		dtdebugf("Succesfully set SLAVE rf_input={:d}", ic.rf_in);
+		break;
+	case FE_RESERVATION_RETRY:
+		dtdebugf("Setting rf_input={:d} needs retry", ic.rf_in);
+		return ret;
+		break;
+	case FE_RESERVATION_UNCHANGED:
+		dtdebugf("Setting rf_input={:d} UNCHANGED", ic.rf_in);
+		return ret;
+		break;
+	case FE_RESERVATION_FAILED:
+	default:
+		dtdebugf("problem Setting rf_input: {:s}: master={}", strerror(errno), tune_pars.send_lnb_commands);
+		this->ic.rf_in = -1;
+		this->ic.config_id = -1;
+		return ret;
+		break;
+	}
+	this->ic = ic;
 	this->rf_input_changed  = true;
-	return 1;
+	return ret;
 }
 
 /*
-	returns triple of bools
-	1: error
+	returns
+	1: error or must abort
 	2: need_diseqc
 	3: need_lnb
  */
 std::tuple<bool, bool, bool>
-sec_status_t::set_rf_path(int fefd, const devdb::rf_path_t& rf_path,
+dvb_frontend_t::set_rf_path(tuner_thread_t& tuner_thread, int fefd, const devdb::rf_path_t& rf_path,
 													const devdb::lnb_t& lnb, int16_t sat_pos,
 													const subscription_options_t& tune_options, bool set_rf_input) {
 	auto new_rf_input = rf_path.rf_input;
-	auto [need_diseqc, need_lnb] = this->need_diseqc_or_lnb(rf_path, lnb, sat_pos, tune_options);
+	auto [need_diseqc, need_lnb] = this->sec_status.need_diseqc_or_lnb(rf_path, lnb, sat_pos, tune_options);
 
-	if(set_rf_input) {
-		if(this->set_rf_input(fefd,  new_rf_input) <0) {
+	if(!set_rf_input) {
+			return {false, need_diseqc, need_lnb};
+	}
+	for(;;) {
+		auto ret = this->sec_status.set_rf_input(fefd,  new_rf_input, *tune_options.tune_pars);
+		switch (ret) {
+		case FE_RESERVATION_UNCHANGED:
+				return {false, false, need_lnb};
+		case FE_RESERVATION_MASTER:
+				return {false, need_diseqc, need_lnb};
+		case FE_RESERVATION_SLAVE:
+			assert(!need_diseqc);
+			assert(!need_lnb);
+			return {false, need_diseqc, need_lnb};
+		case FE_RESERVATION_RETRY: {
+			double seconds=0.2;
+			//bool must_abort = wait_for(tuner_thread, seconds);
+			bool must_abort=false;
+			msleep(200);
+			if(must_abort) {
+				dtdebugf("Abort requested during wait");
+				return {false, false, false};
+			}
+		}
+			continue;
+		case FE_RESERVATION_FAILED:
+		default:
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
 			return {true, false, false};
 		}

@@ -844,7 +844,9 @@ void active_mpm_t::process_channel_data() {
 	now = system_clock_t::now();
 	auto start = steady_clock_t::now();
 	for (;;) {
-		if (steady_clock_t::now() - start > 500ms) {
+		auto s = steady_clock_t::now();
+		auto delta = s - start;
+		if (delta > 500ms) {
 			dtdebugf("SKIPPING EARLY\n");
 			break;
 		}
@@ -872,7 +874,7 @@ void active_mpm_t::process_channel_data() {
 			as allowed (e.g., 100ms) and then read large chunks of data for one stream. This
 			may be more efficient for filesystem access.
 		*/
-		int toread = std::min(remaining_space, (long)ts_packet_t::size * 100);
+		int toread = std::min(remaining_space, (long)ts_packet_t::size * 1024);
 		ssize_t ret = active_service->reader->read_into(buffer, toread - (toread % dtdemux::ts_packet_t::size),
 																										&active_service->open_pids);
 		if (ret < 0) {

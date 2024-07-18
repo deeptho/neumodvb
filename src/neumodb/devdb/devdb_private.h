@@ -25,7 +25,7 @@
 #include <variant>
 #include <optional>
 
-
+#include "util/dtassert.h"
 #include "neumodb/devdb/devdb_db.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/devdb/tune_options.h"
@@ -76,17 +76,22 @@ namespace devdb {
 		int lnb{0};
 		int rf_coupler{0};
 		int tuner{0};
+		int config_id{-1};
+		int owner{-1};
 
 		/*
 			if true, then no diseqc can be used, voltage and tone cannot be changed
 		*/
 		bool is_shared() const {
-			return
+			bool ret=
 				(lnb > 0) || //we share tuner and lnb
 				(tuner > 0) || //we share tuner and lnb
 				(rf_coupler > 0) || //we share an rf_coupler
 				(positioner > 0); //we share a positioner
-				}
+			assert(ret == (config_id>=0));
+			assert(ret == (owner>=0));
+			return ret;
+		}
 
 		bool shares_positioner() const {
 			return (positioner > 0); // same frontend
@@ -171,18 +176,18 @@ namespace devdb::fe {
 
 	int reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
 														 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-														 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
-														 const chdb::service_t* service);
+														 const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
+														 const chdb::dvbs_mux_t& mux, const chdb::service_t* service);
 
 
 	int reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 																	const subscription_options_t& tune_options,
-																	devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-																	const devdb::lnb_t& lnb,
+																	devdb::fe_t& fe, const resource_subscription_counts_t& use_counts,
+																	const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																	const chdb::sat_t*sat,
 																	const chdb::band_scan_t* band_scan);
 	template<typename mux_t>
-	int reserve_fe_for_mux(db_txn& wtxn, subscription_id_t subscription_id, devdb::fe_t& fe,
+	int reserve_fe_for_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscription_id, devdb::fe_t& fe,
 												 const mux_t& mux, const chdb::service_t* service);
 
 	template <typename mux_t>
@@ -201,12 +206,12 @@ namespace devdb::fe {
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 						 resource_subscription_counts_t, std::optional<devdb::fe_t>>
-	subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id, const chdb::dvbs_mux_t& mux,
-														 const chdb::service_t* service,
-														 const subscription_options_t& tune_options,
-														 const std::optional<fe_t>& oldfe,
-														 const devdb::fe_key_t* fe_key_to_release,
-														 bool do_not_unsubscribe_on_failure);
+	subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id, const chdb::dvbs_mux_t& mux,
+											 const chdb::service_t* service,
+											 const subscription_options_t& tune_options,
+											 const std::optional<fe_t>& oldfe,
+											 const devdb::fe_key_t* fe_key_to_release,
+											 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 						 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >

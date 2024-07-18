@@ -255,24 +255,28 @@ public:
 	status of secondary equipment
  */
 class sec_status_t {
-	int config_id{0}; //updates by at least 1 each time a  tuner is switched to a new configuration
+	//int config_id{0}; //updates by at least 1 each time a  tuner is switched to a new configuration
 	bool tuned{false};
 	int rf_input{-1}; //-1 means unknown or never set
 	std::optional<devdb::lnb_key_t> lnb_key; //set after diseqc has been sent
 	int16_t sat_pos{sat_pos_none}; //set after diseqc has been sent
 	bool rf_input_changed{false}; // true means that rf_input was changed and we have not set voltage yet
+	fe_rf_input_control ic;
 
 	int voltage{-1};  // -1 means unknown or never set
 	int tone{-1};     // -1 means unknown or never set
 	steady_time_t powerup_time; //time when lnb was last powered up (any voltage > 0)
 
-	int set_rf_input(int fefd, int rf_input);
-	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
-																					 int16_t new_sat_pos,  const subscription_options_t& tune_options);
 public:
 	int retune_count{0};
 	bool is_tuned() const {
 		return tuned;
+	}
+
+	sec_status_t() {
+		ic.owner=-1;
+		ic.config_id = -1;
+		ic.rf_in = -1;
 	}
 
 	/*
@@ -281,10 +285,12 @@ public:
 		1: tone was set as wanted
 	 */
 	int set_voltage(int fefd, fe_sec_voltage v);
-	std::tuple<bool, bool, bool>
-	set_rf_path(int fefd, const devdb::rf_path_t& new_rf_path,
-							const devdb::lnb_t& lnb, int16_t sat_pos,
-							const subscription_options_t& tune_options, bool set_rf_input);
+
+	int set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tune_pars);
+
+	std::tuple<bool,bool> need_diseqc_or_lnb(const devdb::rf_path_t& new_rf_path, const devdb::lnb_t& new_lnb,
+																					 int16_t new_sat_pos,  const subscription_options_t& tune_options);
+
 	inline void diseqc_done(const devdb::lnb_key_t& lnb_key, int16_t sat_pos) {
 		this->lnb_key = lnb_key;
 		this->sat_pos = sat_pos;
@@ -367,6 +373,12 @@ private:
 	uint32_t get_lo_frequency(uint32_t frequency);
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	int send_positioner_message(devdb::positioner_cmd_t cmd, int32_t par, bool repeated=false);
+
+	std::tuple<bool, bool, bool>
+	set_rf_path(tuner_thread_t& tuner_thread, int fefd, const devdb::rf_path_t& new_rf_path,
+							const devdb::lnb_t& lnb, int16_t sat_pos,
+							const subscription_options_t& tune_options, bool set_rf_input);
+
 
 	int get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
 

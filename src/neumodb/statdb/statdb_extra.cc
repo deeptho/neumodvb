@@ -62,7 +62,7 @@ fmt::formatter<signal_stat_t>::format(const signal_stat_t& stat, format_context&
 fmt::format_context::iterator
 fmt::formatter<spectrum_key_t>::format(const spectrum_key_t& spectrum_key, format_context& ctx) const {
 	auto sat = chdb::sat_pos_str(spectrum_key.sat_pos);
-	return fmt::format_to(ctx.out(), "{:06x}_RF{:d} {:5s}: {:s} {:%F %H:%M}" ,
+	return fmt::format_to(ctx.out(), "{:06x}_RF{:d} {:5s}: {:s} {:%F %H:%M:%S}" ,
 												(int)spectrum_key.rf_path.card_mac_address,
 												spectrum_key.rf_path.rf_input, sat, to_str(spectrum_key.pol),
 												fmt::localtime(spectrum_key.start_time));

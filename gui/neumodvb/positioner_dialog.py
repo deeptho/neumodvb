@@ -496,7 +496,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.parent.UpdateSignalInfo(signal_info, self.tuned_)
         mux = signal_info.driver_mux
         sat_pos_confirmed = signal_info.sat_pos_confirmed #and not signal_info.on_wrong_sat
-        nit_valid = mux.c.tune_src == pychdb.tune_src_t.NIT_TUNED
+        nit_valid = mux.c.tune_src in (pychdb.tune_src_t.NIT_TUNED, pychdb.tune_src_t.NIT_CORRECTED)
         pol = neumodbutils.enum_to_str(mux.pol)
         if self.signal_info.nit_received:
             if nit_valid:

@@ -167,7 +167,8 @@ class SpectrumDialog(SpectrumDialog_):
         ret = self.spectrum_buttons_panel.select_start_end(evt.lnb)
         evt.Skip(True)
         return ret
-
+    def SetUsalsPos(self,usals_pos):
+        dtdebug("set usals_pos ignored")
     @property
     def lnb(self):
         return self.tune_mux_panel.lnb

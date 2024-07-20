@@ -158,6 +158,10 @@ void active_adapter_t::reset()
 	lock_state = {};
 	usals_timer = {};
 	si.close();
+	for (auto& [pid, si_] : embedded_si_streams) {
+		si_.close();
+	}
+	embedded_si_streams.clear();
 }
 
 int active_adapter_t::retune(const devdb::rf_path_t& rf_path,

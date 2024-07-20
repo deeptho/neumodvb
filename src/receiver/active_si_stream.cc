@@ -855,7 +855,6 @@ bool active_si_stream_t::init(devdb::scan_target_t scan_target_) {
 	using namespace devdb;
 
 	log4cxx::NDC(name());
-	assert(!is_open());
 	if (is_open())
 		reset_si(true /*close_streams*/);
 	init_scanning(scan_target_);

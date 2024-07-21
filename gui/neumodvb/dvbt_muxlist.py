@@ -94,14 +94,54 @@ class DvbtMuxTable(NeumoTable):
         pychdb.put_record(txn, record)
         return record
 
-    def screen_getter_xxx(self, txn, sort_field):
+    def get_filter_and_relax_(self):
+        """
+        make some filters less strict to make them more practica
+        """
         match_data, matchers = self.get_filter_()
+        freq_field_id = self.data_table.subfield_from_name("frequency")
+        srate_field_id = self.data_table.subfield_from_name("symbol_rate")
+        match_data2 = self.record_t()
+        matchers2 = pydevdb.field_matcher_t_vector()
+        added = False
+        if matchers is not None:
+            for m in matchers:
+                if m.field_id == freq_field_id:
+                    m.match_type = pydevdb.field_matcher.match_type.GEQ
+                    m2 = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.LEQ)
+                    matchers2.push_back(m2)
+                    freq = match_data.frequency
+                    dtdebug(f"Relaxing filter frequency={freq}")
+                    match_data.frequency = freq-500
+                    match_data2.frequency = freq+500
+                    added =True
+                if m.field_id == srate_field_id:
+                    m.match_type = pydevdb.field_matcher.match_type.GEQ
+                    m2 = pydevdb.field_matcher.field_matcher(srate_field_id, pydevdb.field_matcher.match_type.LEQ)
+                    matchers2.push_back(m2)
+                    srate = match_data.symbol_rate
+                    dtdebug(f"Relaxing filter symbol_rate={srate}")
+                    match_data.symbol_rate = int(srate*0.95)
+                    match_data2.symbol_rate = int(srate*1.05)
+                    if match_data2.symbol_rate == match_data.symbol_rate:
+                       match_data.symbol_rate = max(0,  match_data2.symbol_rate -100)
+                       match_data2.symbol_rate = match_data2.symbol_rate +100
+
+                    added =True
+        if added:
+            return match_data, matchers, match_data2, matchers2
+        else:
+            return match_data, matchers, None, None
+
+    def screen_getter_xxx(self, txn, sort_field):
+        match_data, matchers, match_data2, matchers2 = self.get_filter_and_relax_()
         ref = pychdb.dvbt_mux.dvbt_mux()
         ref.k.sat_pos = pychdb.sat.sat_pos_dvbt
         txn = self.db.rtxn()
         screen=pychdb.dvbt_mux.screen(txn, sort_order=sort_field,
                                       key_prefix_type=pychdb.dvbt_mux.dvbt_mux_prefix.none, key_prefix_data=ref,
-                                      field_matchers=matchers, match_data = match_data)
+                                      field_matchers=matchers, match_data = match_data,
+                                      field_matchers2=matchers2, match_data2 = match_data2)
         txn.abort()
         del txn
         self.screen=screen_if_t(screen, self.sort_order==2)

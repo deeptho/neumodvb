@@ -99,25 +99,64 @@ class DvbsMuxTable(NeumoTable):
         pychdb.dvbs_mux.make_unique_if_template(txn, record)
         pychdb.put_record(txn, record) #this will overwrite any mux with given ts_id even if frequency is very wrong
         return record
+    def get_filter_and_relax_(self):
+        """
+        make some filters less strict to make them more practica
+        """
+        match_data, matchers = self.get_filter_()
+        freq_field_id = self.data_table.subfield_from_name("frequency")
+        srate_field_id = self.data_table.subfield_from_name("symbol_rate")
+        match_data2 = self.record_t()
+        matchers2 = pydevdb.field_matcher_t_vector()
+        added = False
+        if matchers is not None:
+            for m in matchers:
+                if m.field_id == freq_field_id:
+                    m.match_type = pydevdb.field_matcher.match_type.GEQ
+                    m2 = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.LEQ)
+                    matchers2.push_back(m2)
+                    freq = match_data.frequency
+                    dtdebug(f"Relaxing filter frequency={freq}")
+                    match_data.frequency = freq-500
+                    match_data2.frequency = freq+500
+                    added =True
+                if m.field_id == srate_field_id:
+                    m.match_type = pydevdb.field_matcher.match_type.GEQ
+                    m2 = pydevdb.field_matcher.field_matcher(srate_field_id, pydevdb.field_matcher.match_type.LEQ)
+                    matchers2.push_back(m2)
+                    srate = match_data.symbol_rate
+                    dtdebug(f"Relaxing filter symbol_rate={srate}")
+                    match_data.symbol_rate = int(srate*0.95)
+                    match_data2.symbol_rate = int(srate*1.05)
+                    if match_data2.symbol_rate == match_data.symbol_rate:
+                       match_data.symbol_rate = max(0,  match_data2.symbol_rate -100)
+                       match_data2.symbol_rate = match_data2.symbol_rate +100
+
+                    added =True
+        if added:
+            return match_data, matchers, match_data2, matchers2
+        else:
+            return match_data, matchers, None, None
 
     def filter_band_(self, band):
         """
         install a filter to only allow muxes from a specific satellite band which is identified by band.
         band is a tuple of low and high frequency limit of the band
         """
-        match_data, matchers = self.get_filter_()
+        match_data, matchers, match_data2, matchers2 = self.get_filter_and_relax_()
         if matchers is None:
             match_data = self.record_t()
             matchers = pydevdb.field_matcher_t_vector()
-        match_data2 = self.record_t()
-        matchers2 = pydevdb.field_matcher_t_vector()
+        if match_data2 is None:
+            match_data2 = self.record_t()
+            matchers2 = pydevdb.field_matcher_t_vector()
 
         freq_field_id = self.data_table.subfield_from_name("frequency")
 
         #if user has already filtered for a specific frequency, then setting a limit is pointless
         for m in matchers:
             if m.field_id == freq_field_id:
-                return match_data, matchers, None, None # this matcher is more specific
+                return match_data, matchers, match_data2, matchers2 # this matcher is more specific
         #push lower bound
         m = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.GEQ)
         matchers.push_back(m)
@@ -136,6 +175,8 @@ class DvbsMuxTable(NeumoTable):
             ref.k.sat_pos = sat.sat_pos
             txn = self.db.rtxn()
             match_data, matchers, match_data2, matchers2 = self.filter_band_(sat.sat_band)
+            freq_field_id = self.data_table.subfield_from_name("frequency")
+
             screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,
                                             key_prefix_type=pychdb.dvbs_mux.dvbs_mux_prefix.sat_pos,
                                             key_prefix_data=ref,
@@ -144,8 +185,7 @@ class DvbsMuxTable(NeumoTable):
             txn.abort()
             del txn
         else:
-            match_data, matchers = self.get_filter_()
-            match_data2, matchers2 = None, None
+            match_data, matchers, match_data2, matchers2 = self.get_filter_and_relax_()
             sat = None
             mux = None
             screen = pychdb.dvbs_mux.screen(txn, sort_order=sort_order,

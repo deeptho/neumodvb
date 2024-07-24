@@ -94,7 +94,7 @@ class SatTable(NeumoTable):
 
         #if user has already filtered for a specific sat, then setting a limit is pointless
         for m in matchers:
-            if m.field_id == freq_field_id:
+            if m.field_id == sat_band_field_id:
                 return match_data, matchers # this matcher is more specific
         #push sat_band for matching
         m = pydevdb.field_matcher.field_matcher(sat_band_field_id, pydevdb.field_matcher.match_type.EQ)

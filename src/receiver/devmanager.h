@@ -422,7 +422,7 @@ private:
 																 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																 const subscription_options_t& tune_options);
 
-int request_positioner_control(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+int request_positioner_control(tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 															 const subscription_options_t& tune_options);
 
 	std::tuple<int, int, int, double>

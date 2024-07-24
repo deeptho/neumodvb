@@ -147,7 +147,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 
 int active_adapter_t::lnb_activate(const devdb::rf_path_t& rf_path,
 																	 const devdb::lnb_t& lnb, subscription_options_t tune_options) {
-	return this->fe->request_positioner_control(rf_path, lnb, tune_options);
+	return this->fe->request_positioner_control(tuner_thread, rf_path, lnb, tune_options);
 }
 
 void active_adapter_t::reset()

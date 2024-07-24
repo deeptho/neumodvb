@@ -252,7 +252,7 @@ namespace devdb::fe {
 																		 const subscription_options_t& tune_options,
 																		 const chdb::sat_t& sat,
 																		 const chdb::band_scan_t& band_scan,
-															 bool do_not_unsubscribe_on_failure);
+																		 bool do_not_unsubscribe_on_failure);
 
 	template<typename mux_t>
 	subscribe_ret_t

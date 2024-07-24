@@ -1246,18 +1246,21 @@ void dvb_frontend_t::request_lnb_spectrum_scan(
 	});
 }
 
-int dvb_frontend_t::request_positioner_control(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-	const subscription_options_t& tune_options) {
+int dvb_frontend_t::request_positioner_control(tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path,
+																							 const devdb::lnb_t& lnb, const subscription_options_t& tune_options) {
 	{
 		auto w =  this->ts.writeAccess();
 		w->tune_options = tune_options;
 		w->positioner_start_move_time = {};
-		//w->lock_status.fem_state = fem_state_t::STARTED;
 	}
 	this->start_fe_and_lnb(rf_path, lnb); //clear reserved_mux, signal_info and set rf_path and lnb
 	/* When moving the positioner, the following code may run for a long time, so we run it
 		 as a task
 	 */
+	bool set_rf_input = (api_type == api_type_t::NEUMO && api_version >=1500);
+	auto fefd = ts.readAccess()->fefd;
+	auto [error, need_diseqc, need_lnb] =
+		this->set_rf_path(tuner_thread, fefd, rf_path, lnb, sat_pos_none, tune_options, set_rf_input);
 	auto band = chdb::sat_sub_band_t::LOW;
 	auto voltage = SEC_VOLTAGE_18;
 	auto [ret, new_usals_sat_pos ] = this->do_lnb_and_diseqc(sat_pos_none, band, voltage, true /*skip_positioner*/);

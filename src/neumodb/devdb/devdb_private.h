@@ -212,10 +212,15 @@ namespace devdb::fe {
 											 const std::optional<fe_t>& oldfe,
 											 const devdb::fe_key_t* fe_key_to_release,
 											 bool do_not_unsubscribe_on_failure);
+	subscribe_ret_t subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
+																		const subscription_options_t& tune_options,
+																		const rf_path_t& rf_path,
+																		std::optional<int16_t> sat_pos_to_move_to);
+
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 						 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
-	subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
+	subscribe_sat_band_(db_txn& wtxn, subscription_id_t subscription_id,
 										 const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
 										 const subscription_options_t& tune_options,
 										 const std::optional<devdb::fe_t>& oldfe,
@@ -223,7 +228,7 @@ namespace devdb::fe {
 										 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>, bool>
-	subscribe_lnb(db_txn& wtxn,  subscription_id_t subscription_id,
+	subscribe_lnb_(db_txn& wtxn,  subscription_id_t subscription_id,
 								const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 								const subscription_options_t&  tune_options,
 								std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release

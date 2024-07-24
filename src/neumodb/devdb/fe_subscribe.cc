@@ -309,7 +309,7 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
  */
 //@todo: replace this with subscribe_mux with sat and band_scan argument
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>, bool>
-devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
+devdb::fe::subscribe_lnb_(db_txn& wtxn, subscription_id_t subscription_id,
 												 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 												 const subscription_options_t&  tune_options,
 												 std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release)
@@ -359,7 +359,7 @@ devdb::fe::subscribe_lnb(db_txn& wtxn, subscription_id_t subscription_id,
 									    and use it
  */
 subscribe_ret_t
-devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
+devdb::fe::subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 														 const subscription_options_t& tune_options,
 														 const rf_path_t& rf_path, std::optional<int16_t> sat_pos_to_move_to) {
 
@@ -379,7 +379,7 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 		return failed(subscription_id, updated_old_dbfe);
 	}
 	auto lnb = c.current();
-	auto [fe_, updated_old_dbfe, is_master] = devdb::fe::subscribe_lnb(
+	auto [fe_, updated_old_dbfe, is_master] = devdb::fe::subscribe_lnb_(
 		wtxn, sret.subscription_id, rf_path, lnb, tune_options, oldfe_, fe_key_to_release);
 
 	sret.retune = false;
@@ -428,6 +428,21 @@ devdb::fe::subscribe_rf_path(db_txn& wtxn, subscription_id_t subscription_id,
 	return failed(subscription_id, updated_old_dbfe);
 }
 
+
+subscribe_ret_t
+devdb::fe::	subscribe_rf_path(db_txn& devdb_wtxn, subscription_id_t subscription_id,
+															const subscription_options_t& tune_options,
+															const rf_path_t& rf_path,
+															std::optional<int16_t> sat_pos_to_move_to) {
+	auto sret = subscribe_rf_path_(devdb_wtxn, subscription_id, tune_options, rf_path,
+																sat_pos_to_move_to);
+	if(!sret.failed) {
+		sret.tune_pars.send_lnb_commands = true;
+		sret.tune_pars.move_dish=true;
+		sret.tune_pars.dish = devdb::dish::get_dish(devdb_wtxn, sret.aa.lnb->k.dish_id);
+	}
+	return sret;
+}
 
 int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
 																			devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
@@ -612,7 +627,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 //TODO: make this return subscribe_ret_t
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
 					 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
-devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
+devdb::fe::subscribe_sat_band_(db_txn& wtxn, subscription_id_t subscription_id,
 															const chdb::sat_t& sat, const chdb::band_scan_t& band_scan,
 															const subscription_options_t& tune_options,
 															const std::optional<devdb::fe_t>& oldfe,
@@ -855,8 +870,8 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 	subscribe_ret_t sret(subscription_id, false /*failed*/);
 
 	auto [fe_, rf_path_, lnb_, use_counts_, updated_old_dbfe] =
-		devdb::fe::subscribe_sat_band(wtxn, sret.subscription_id, sat, band_scan,
-																	tune_options, oldfe_, fe_key_to_release, do_not_unsubscribe_on_failure);
+		devdb::fe::subscribe_sat_band_(wtxn, sret.subscription_id, sat, band_scan,
+																	 tune_options, oldfe_, fe_key_to_release, do_not_unsubscribe_on_failure);
 		if(fe_) {
 			auto& fe = *fe_;
 			bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;

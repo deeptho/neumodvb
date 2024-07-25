@@ -333,11 +333,12 @@ class TuneMuxPanel(TuneMuxPanel_):
         dtdebug("saving")
         for n in self.lnb.networks:
             if n.sat_pos == self.sat.sat_pos:
+                changed = self.ref_mux is None or not same_mux_key(self.ref_mux.k, self.mux.k)
                 self.ref_mux = self.mux if self.signal_info is None else self.signal_info.driver_mux
                 self.ref_mux.k.sat_pos = self.sat.sat_pos
                 n.ref_mux = self.ref_mux.k
                 if self.mux is not None:
-                    self.current_lnb_network_changed |= not same_mux_key(self.ref_mux.k, self.mux.k)
+                    self.current_lnb_network_changed |= changed
                 break
 
         if self.current_lnb_network_changed:

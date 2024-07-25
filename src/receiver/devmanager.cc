@@ -298,7 +298,7 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 	if (count > 0)
 		dtdebugf("Count={:d}\n", count);
 	if (wd < 0) {
-		dtdebugf("ERROR: {}", strerror(errno));
+		dtdebugf("ERROR: errno={} {}", errno, strerror(errno));
 		assert(0);
 	}
 	auto fe = dvb_frontend_t::make(this, adapter_no, frontend_no, api_type, api_version);

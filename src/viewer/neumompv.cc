@@ -229,8 +229,6 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK
 	}
 
 	static int called = 0;
-	if (called++ == 100)
-		called = 0;
 	// glClearColor(0.0, 0.0, 0.0, 0.0);
 	// glClear(GL_COLOR_BUFFER_BIT);
 	SetCurrent();

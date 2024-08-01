@@ -1056,7 +1056,7 @@ std::atomic_int subscribe_ret_t::next_subscription_id{0};
 	This is indicated by sat_pos==sat_pos_none and usals_pos==sat_pos_none in the subscription, along with other fields
 	that are set to non-specific values, e.g., mux_key
 
-	2. non-dish-moving; almost the same as exclusive, but subscription cannot chaange the dish position
+	2. non-dish-moving; almost the same as exclusive, but subscription cannot change the dish position
 	after initial tuning. This is indicated by usals_pos set to a value different from sat_pos_none, i.e.
 	to the position the dish will tune to.
 

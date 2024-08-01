@@ -2172,6 +2172,10 @@ int sec_status_t::set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tu
 
 	auto ret = (fe_reservation_result) ioctl(fefd, FE_SET_RF_INPUT, &ic);
 	switch(ret) {
+	case FE_RESERVATION_NOT_SUPPORTED:
+		assert(tune_pars.send_lnb_commands);
+		dtdebugf("setting rf_in not supported; MASTER rf_input={:d}", ic.rf_in);
+		break;
 	case  FE_RESERVATION_MASTER:
 		assert(tune_pars.send_lnb_commands);
 		dtdebugf("Succesfully set MASTER rf_input={:d}", ic.rf_in);
@@ -2188,8 +2192,8 @@ int sec_status_t::set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tu
 		dtdebugf("Setting rf_input={:d} UNCHANGED", ic.rf_in);
 		return ret;
 		break;
-	case FE_RESERVATION_FAILED:
 	default:
+	case FE_RESERVATION_FAILED:
 		dtdebugf("problem Setting rf_input: {:s}: master={}", strerror(errno), tune_pars.send_lnb_commands);
 		this->ic.rf_in = -1;
 		this->ic.config_id = -1;
@@ -2223,6 +2227,8 @@ dvb_frontend_t::set_rf_path(tuner_thread_t& tuner_thread, int fefd, const devdb:
 		case FE_RESERVATION_UNCHANGED:
 				return {false, false, need_lnb};
 		case FE_RESERVATION_MASTER:
+				return {false, need_diseqc, need_lnb};
+		case FE_RESERVATION_NOT_SUPPORTED:
 				return {false, need_diseqc, need_lnb};
 		case FE_RESERVATION_SLAVE:
 			assert(!need_diseqc);

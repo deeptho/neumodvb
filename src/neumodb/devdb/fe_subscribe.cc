@@ -573,8 +573,11 @@ int devdb::fe::reserve_fe_for_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t s
 	sub.mux_key.t2mi_pid = -1;
 	if (service)
 		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, *service});
-	else
-		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, {}});
+	else {
+		chdb::service_t service;
+		service.k.mux = mux.k;
+		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
+	}
 	put_record(wtxn, fe);
 	return 0;
 }

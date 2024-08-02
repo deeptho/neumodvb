@@ -80,7 +80,7 @@ class StatusTable(NeumoTable):
         sat_pos=pychdb.sat_pos_str(signal_stat.k.sat_pos)
         t= lastdot(lnb_key.lnb_type)
         if t == 'UNIV':
-            t='Ku'
+            t='Ku' if sat_pos not in ('DVBC', 'DVBT') else ''
         return f'D{lnb_key.dish_id} {sat_pos:>5}{t} {lnb_key.lnb_id}'
 
     def __init__(self, parent, basic=False, *args, **kwds):

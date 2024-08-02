@@ -1395,6 +1395,7 @@ void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)
 	put_record(devdb_wtxn, lnb);
 }
 
+#if 0
 static void invalidate_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb) {
 	ss::string<32> name;
 	name.clear();
@@ -1417,19 +1418,17 @@ static void invalidate_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb)
 	if(any_change)
 		put_record(devdb_wtxn, lnb);
 }
+#endif
 
+#if 0
 static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, const devdb::fe_t& fe) {
 	ss::string<32> name;
-	auto can_be_used{false};
+	auto lnb_can_be_used{false};
 	bool any_change{false};
-
-	bool on_positioner = lnb.on_positioner;
-	any_change |= on_positioner != lnb.on_positioner;
-	lnb.on_positioner = on_positioner;
 
 	for(auto& conn: lnb.connections) {
 		if(conn.card_mac_address != fe.card_mac_address) {
-			can_be_used |= conn.can_be_used;
+			lnb_can_be_used |= conn.can_be_used;
 			continue;
 		}
 		name.clear();
@@ -1444,7 +1443,7 @@ static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, con
 		bool changed = (conn.connection_name != name) ||(conn.card_no != card_no) ||
 			(conn.can_be_used != fe.can_be_used);
 		any_change |= changed;
-		can_be_used |= fe.can_be_used;
+		lnb_can_be_used |= fe.can_be_used;
 		conn.can_be_used = fe.can_be_used;
 
 		if(!changed)
@@ -1452,14 +1451,15 @@ static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, con
 		conn.connection_name = name;
 		conn.card_no = card_no;
 	}
-	any_change |= (lnb.can_be_used != can_be_used);
-	lnb.can_be_used = can_be_used;
+	any_change |= (lnb.can_be_used != lnb_can_be_used);
+	lnb.can_be_used = lnb_can_be_used;
 	if(!any_change)
 		return;
 	put_record(devdb_wtxn, lnb);
 }
+#endif
 
-
+#if 0
 /*
 	When an adapter changes name, update fields "name" and "adapter_no" in all related lnb's
  */
@@ -1469,41 +1469,85 @@ void devdb::lnb::update_lnb_adapter_fields(db_txn& devdb_wtxn, const devdb::fe_t
 		update_lnb_adapter_fields(devdb_wtxn, lnb, fe);
 	}
 }
+#endif
 
 
 /*
-	find all lnbs for which no fe is currently available
+	Se the can_be_used status on all lnbs and lnb connections depending on the
+	currently available fes. If update_for_fe is set, then only consider lnb connections
+	for the specific fe. This is called when fe's are added/removed at run time
  */
-void devdb::lnb::update_lnbs(db_txn& devdb_wtxn) {
+void devdb::lnb::update_lnbs(db_txn& devdb_wtxn, const devdb::fe_t* update_for_fe) {
 
 	auto find_fe = [&] (const auto& conn) ->std::optional<devdb::fe_t> {
-		auto c1 = fe_t::find_by_card_mac_address(devdb_wtxn, conn.card_mac_address,
-																						 find_type_t::find_geq, fe_t::partial_keys_t::card_mac_address);
-		for(auto fe: c1.range()) {
-			auto valid_rf_input = fe.rf_inputs.contains(conn.rf_input);
+		if (update_for_fe) {
+			if(conn.card_mac_address != update_for_fe->card_mac_address)
+				return {};
+			auto valid_rf_input = update_for_fe->rf_inputs.contains(conn.rf_input);
 			if (valid_rf_input)
-				return fe;
+				return *update_for_fe;
+			return {};
+		} else {
+			auto c1 = fe_t::find_by_card_mac_address(devdb_wtxn, conn.card_mac_address,
+																							 find_type_t::find_geq, fe_t::partial_keys_t::card_mac_address);
+			for(auto fe: c1.range()) {
+				auto valid_rf_input = fe.rf_inputs.contains(conn.rf_input);
+				if (valid_rf_input)
+					return fe;
+			}
+			return {}; //no fe found with lnb's rf_input
 		}
-		return {}; //no fe found with lnb's rf_input
 	};
 
 	auto c = devdb::find_first<devdb::lnb_t>(devdb_wtxn);
 	for(auto lnb: c.range()) {
+		auto tst =lnb;
 		if(lnb.lnb_usals_pos == sat_pos_none) {
 			//hack to correct older database records
 			lnb.lnb_usals_pos = lnb.usals_pos;
 			lnb.cur_sat_pos = lnb.usals_pos;
 			put_record(devdb_wtxn, lnb);
 		}
-		for(auto conn: lnb.connections) {
+		bool any_change = false;
+		bool lnb_can_be_used = false;
+		for(auto& conn: lnb.connections) {
+			ss::string<32> name;
 			auto found = find_fe(conn);
 			if(found) {
 				auto &fe = *found;
-				update_lnb_adapter_fields(devdb_wtxn, lnb, fe);
-			} else {
-				invalidate_lnb_adapter_fields(devdb_wtxn, lnb);
+				assert(fe.rf_inputs.contains(conn.rf_input));
+				assert (conn.card_mac_address == fe.card_mac_address);
+				auto card_no = fe.card_no;
+				assert (fe.card_no>=0);
+				if (card_no >=0) {
+					name.format("C{:d}#{:d} {:s}", card_no, conn.rf_input, fe.card_short_name);
+				} else {
+					name.format("C??#{:d} {:s}", conn.rf_input, fe.card_short_name);
+				}
+				bool changed = (conn.connection_name != name) ||(conn.card_no != card_no) ||
+					(conn.can_be_used != fe.can_be_used);
+				any_change |= changed;
+				conn.can_be_used = fe.can_be_used;
+				conn.connection_name = name;
+			} else if(!update_for_fe) {
+				//the connection cannot be used
+				if(conn.card_no >=0) {
+					name.format("C{:d}#?? {:06x}", conn.card_no, conn.card_mac_address);
+				} else {
+					name.format("C??#?? {:06x}", conn.card_mac_address);
+				}
+				auto can_be_used =  false;
+				bool changed = (conn.connection_name != name) || (conn.can_be_used != can_be_used);
+				any_change |= changed;
+				conn.can_be_used = can_be_used;
+				conn.connection_name = name;
 			}
+			lnb_can_be_used |= conn.can_be_used;
 		}
+		any_change |= (lnb.can_be_used != lnb_can_be_used);
+		lnb.can_be_used = lnb_can_be_used;
+		if(any_change)
+			put_record(devdb_wtxn, lnb);
 	}
 }
 

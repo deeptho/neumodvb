@@ -156,7 +156,8 @@ class dvbdev_monitor_t : public adaptermgr_t {
 
 	void disable_missing_adapters();
 	bool renumber_cards();
-	void update_lnbs();
+	void update_lnbs(const devdb::fe_t* update_for_fe);
+	void update_lnbs(db_txn& devdb_wtxn, const devdb::fe_t* update_for_fe);
 
 public:
 
@@ -181,8 +182,8 @@ public:
 		return r->resource_reuse_bonus;
 	}
 
-	void update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
-									 fe_state_t& t);
+	void update_dbfe_on_new_or_removed_fe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
+																				fe_state_t& t);
 
 	void renumber_card(int old_number, int new_number);
 };
@@ -249,15 +250,16 @@ bool dvbdev_monitor_t::adapter_no_exists(adapter_no_t adapter_no) {
 /*
 	update databases
 */
-void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend_no_t frontend_no,
-																	 fe_state_t& t) {
+void dvbdev_monitor_t::update_dbfe_on_new_or_removed_fe(
+	const adapter_no_t adapter_no, const frontend_no_t frontend_no,
+	fe_state_t& t) {
 	t.dbfe.adapter_no = int(adapter_no);
 
 	auto devdb_wtxn = this->devdb_wtxn();
 	auto c = devdb::fe_t::find_by_key(devdb_wtxn,
 																		devdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
 	auto dbfe_old = c.is_valid() ? c.current() : devdb::fe_t();
-	dbfe_old.mtime = t.dbfe.mtime; //prevent this from being a change
+	dbfe_old.mtime = t.dbfe.mtime; //prevent changed mtime from being a real change
 	if (t.dbfe.card_no<0)
 		t.dbfe.card_no = dbfe_old.card_no;
 	bool changed = !c.is_valid() || (dbfe_old != t.dbfe);
@@ -276,7 +278,12 @@ void dvbdev_monitor_t::update_dbfe(const adapter_no_t adapter_no, const frontend
 		t.dbfe.enable_dvbc = dbfe_old.enable_dvbc;
 		t.dbfe.enable_dvbt = dbfe_old.enable_dvbt;
 		put_record(devdb_wtxn, t.dbfe, 0);
+		//update the can_be_used fields on lnbs and lnb connections
+#if 0
 		devdb::lnb::update_lnb_adapter_fields(devdb_wtxn, t.dbfe);
+#else
+		update_lnbs(devdb_wtxn, &t.dbfe);
+#endif
 	}
 	devdb_wtxn.commit(); //commit child transaction
 }
@@ -306,7 +313,7 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 		auto w = fe->ts.writeAccess();
 		w->dbfe.present = true;
 		w->dbfe.can_be_used = true;
-		update_dbfe(fe->adapter_no, fe->frontend_no, *w);
+		update_dbfe_on_new_or_removed_fe(fe->adapter_no, fe->frontend_no, *w);
 	}
 	{auto w = frontends.writeAccess();
 		w->try_emplace({adapter_no, frontend_no}, fe);
@@ -338,7 +345,7 @@ void dvbdev_monitor_t::on_delete_frontend(struct inotify_event* event) {
 		w->dbfe.can_be_used = false;
 		w->dbfe.present = false;
 		w->dbfe.can_be_used = false;
-		update_dbfe(fe->adapter_no, fe->frontend_no, *w);
+		update_dbfe_on_new_or_removed_fe(fe->adapter_no, fe->frontend_no, *w);
 	}
 	{ auto w = frontends.writeAccess();
 	w->erase({fe->adapter_no, fe->frontend_no});
@@ -480,7 +487,7 @@ int dvbdev_monitor_t::start() {
 	discover_adapters();
 	renumber_cards();
 	disable_missing_adapters();
-	update_lnbs();
+	update_lnbs(nullptr);
 	this->commit_txns();
 
 	/*read to determine the event change happens on “/tmp” directory. Actually this read blocks until the change event
@@ -556,6 +563,12 @@ bool dvbdev_monitor_t::renumber_cards() {
 	std::bitset<128> numbers_in_use;
 	for (auto fe : c.range()) {
 		auto card_no = std::min((int)fe.card_no, ((int) numbers_in_use.size()-1));
+		/*
+			try_emplace will fail if a number is already associated with the mac address
+			On the other hand, if a number is not yet known for the macaddress, but fe.card_no
+			matches that for another card, then the data would be invalid and we store a -1
+			for this macaddress (and fix it below)
+		 */
 		card_numbers.try_emplace((card_mac_address_t)fe.card_mac_address,
 														 (card_no < 0 || numbers_in_use[card_no]) ? -1 : card_no);
 		if(fe.card_no <0)
@@ -576,12 +589,17 @@ bool dvbdev_monitor_t::renumber_cards() {
 		return -1;
 	};
 
-
+	/*
+		Assign a card number to any card which does not yet have one.
+	 */
 	for(auto& [card_mac_address, card_no]: card_numbers ) {
 			if (card_no == -1)
 				card_no = next_card_no();
 	}
 
+	/*
+		Update all dbfe records in the database when card numbers have changed.
+	 */
 	c = saved;
 	for (auto dbfe : c.range()) {
 		auto card_no = card_numbers[(card_mac_address_t)dbfe.card_mac_address];
@@ -664,9 +682,13 @@ void dvbdev_monitor_t::renumber_card(int old_number, int new_number) {
 	this->commit_txns();
 }
 
-void dvbdev_monitor_t::update_lnbs() {
+void dvbdev_monitor_t::update_lnbs(db_txn& devdb_wtxn, const devdb::fe_t* update_for_fe) {
+	devdb::lnb::update_lnbs(devdb_wtxn, update_for_fe);
+}
+
+void dvbdev_monitor_t::update_lnbs(const devdb::fe_t* update_for_fe) {
 	auto devdb_wtxn = this->devdb_wtxn();
-	devdb::lnb::update_lnbs(devdb_wtxn);
+	devdb::lnb::update_lnbs(devdb_wtxn, update_for_fe);
 	devdb_wtxn.commit(); //commit child transaction
 }
 

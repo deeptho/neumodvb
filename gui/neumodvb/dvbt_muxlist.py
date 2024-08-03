@@ -31,7 +31,7 @@ from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, MyColLabelRenderer, GridPopup, screen_if_t
-
+from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 
 import pychdb
 import pydevdb

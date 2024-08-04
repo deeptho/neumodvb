@@ -352,10 +352,10 @@ class DvbsMuxGridBase(NeumoGridBase):
         scan_command=self.CmdCreateScanHelper(with_schedule=False)
         muxes, subscription_type = (None, None) if scan_command is None else \
             (scan_command.dvbs_muxes, scan_command.tune_options.subscription_type)
-        assert subscription_type ==  pydevdb.subscription_type_t.MUX_SCAN
         if scan_command is None or muxes is None:
             dtdebug(f'CmdScan aborted for {0 if muxes is None else len(muxes)} muxes')
             return
+        assert subscription_type ==  pydevdb.subscription_type_t.MUX_SCAN
         dtdebug(f'CmdScan requested for {len(muxes)} muxes')
         self.app.MuxScan(muxes, scan_command.tune_options)
 

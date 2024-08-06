@@ -143,6 +143,9 @@ class LnbNetworkTable(NeumoTable):
         for sat in sats:
             if sat.sat_band == sat_band and abs(sat.sat_pos - sat_pos) < 5:
                 return sat
+        for sat in sats:
+            if sat.sat_band ==pychdb.sat_band_t.UNKNOWN and abs(sat.sat_pos - sat_pos) < 5:
+                return sat
         return None
 
     def get_usals_location(self):

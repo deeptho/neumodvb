@@ -315,7 +315,7 @@ class neumoMainFrame(mainFrame):
         event.Skip(True)
 
     def OnGroupShowAll(self, event):
-        dtdebug('closing')
+        dtdebug('OnGroupShowAll')
         panel = event.GetEventObject().GetParent()
         panel.GetChildren()[0].show_all()
         event.Skip()

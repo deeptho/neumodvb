@@ -227,23 +227,6 @@ class BarGauge(PM.PeakMeterCtrl):
         r[2] = max(r[1]+0.001, r[2])
         self.SetRangeValue(r[0], r[1], r[2])
 
-class BarGaugeOFF(PG.PyGauge):
-    def __init__(self, parent, id, range, *args, **kwargs):
-        self.parent = parent
-        super().__init__(parent, id, *args, **kwargs)
-        self.SetBackgroundColour(wx.RED)
-        self.SetBarColor([wx.Colour(162,255,178),wx.Colour(159,176,255)])
-        #make widget fit to parent
-        wx.CallAfter(self.tst)
-
-    def DoGetBestSize(self):
-        return wx.Window.DoGetBestSize(self)
-
-    def OnClose(self, evt):
-        dtdebug("OnClose called")
-        self.dttimer.Stop()
-
-
 class DiseqcChoice(wx.Choice):
     def __init__(self, id,  *args, **kwargs):
         from neumodvb import neumodbutils
@@ -269,6 +252,41 @@ class DiseqcChoice(wx.Choice):
         choice = self.choices[idx]
         try:
             val = neumodbutils.enum_value_for_label(pydevdb.rotor_control_t, choice)
+            return val
+        except:
+            return None
+
+class DvbTypeChoice(wx.Choice):
+    def __init__(self, id,  *args, **kwargs):
+        from neumodvb import neumodbutils
+        import pychdb
+        self. choices = neumodbutils.enum_labels(pychdb.dvb_type_t)
+        kwargs['choices'] = self.choices
+        super().__init__(id, *args, **kwargs)
+
+    def SetValue(self, sat_pos):
+        from neumodvb import neumodbutils
+        import pychdb
+        if sat_pos ==  pychdb.sat.sat_pos_dvbc:
+            val = neumodbutils.enum_to_str(pychdb.dvb_type_t.DVBC)
+        elif sat_pos ==  pychdb.sat.sat_pos_dvbt:
+            val = neumodbutils.enum_to_str(pychdb.dvb_type_t.DVBT)
+        elif sat_pos ==  pychdb.sat.sat_pos_dvbs:
+            val = neumodbutils.enum_to_str(pychdb.dvb_type_t.DVBS)
+        elif sat_pos ==  pychdb.sat.sat_pos_none:
+            val = neumodbutils.enum_to_str(pychdb.dvb_type_t.ALL)
+        else:
+            val = neumodbutils.enum_to_str(pychdb.dvb_type_t.ALL)
+        idx = self.choices.index(val)
+        self.SetSelection(idx)
+
+    def GetValue(self):
+        from neumodvb import neumodbutils
+        import pychdb
+        idx = self.GetCurrentSelection()
+        choice = self.choices[idx]
+        try:
+            val = neumodbutils.enum_value_for_label(pychdb.dvb_type_t, choice)
             return val
         except:
             return None

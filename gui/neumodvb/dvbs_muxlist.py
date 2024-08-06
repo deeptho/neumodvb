@@ -101,7 +101,7 @@ class DvbsMuxTable(NeumoTable):
         return record
     def get_filter_and_relax_(self):
         """
-        make some filters less strict to make them more practica
+        make some filters less strict to make them more practical
         """
         match_data, matchers = self.get_filter_()
         freq_field_id = self.data_table.subfield_from_name("frequency")

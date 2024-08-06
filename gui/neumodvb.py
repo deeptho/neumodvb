@@ -317,7 +317,17 @@ class neumoMainFrame(mainFrame):
     def OnGroupShowAll(self, event):
         dtdebug('OnGroupShowAll')
         panel = event.GetEventObject().GetParent()
-        panel.GetChildren()[0].show_all()
+        for child in panel.GetChildren():
+            if hasattr(child, 'show_all'):
+                child.show_all()
+        event.Skip()
+
+    def OnDvbTypeChoice(self, event):
+        dtdebug('OnDvbTypeChoice')
+        panel = event.GetEventObject().GetParent()
+        for child in panel.GetChildren():
+            if hasattr(child, 'OnDvbTypeChoice'):
+                child.OnDvbTypeChoice(event)
         event.Skip()
 
     def OnPlay(self, event):

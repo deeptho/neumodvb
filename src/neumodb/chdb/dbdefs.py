@@ -168,6 +168,18 @@ sat_band = db_enum(name='sat_band_t',
                            'Other'
                            ))
 
+dvb_type = db_enum(name='dvb_type_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=(
+                       'ALL',
+                       'DVBS',
+                       'DVBC',
+                       'DVBT',
+                   ))
+
 sat_sub_band = db_enum(name='sat_sub_band_t',
                   db= db,
                   storage = 'int8_t',

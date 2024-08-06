@@ -25,9 +25,9 @@
 #include "encode.h"
 
 #define sat_pos_none -32767 //important that this is a very low negative value, e.g. when searching with find_type_geq
+#define sat_pos_dvbs 20000 // dvbs mux with unknown sat
 #define sat_pos_dvbc 20001
 #define sat_pos_dvbt 20002
-#define sat_pos_dvbs 20003 // dvbs mux with unknown sat
 #define sat_pos_tolerance 100 /*1 degree (allowed difference in sat_pos
 																within this tolerance, muxes are assumed to be from the same sat
 															*/

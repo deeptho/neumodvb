@@ -116,6 +116,25 @@ class SatListComboCtrl(wx.ComboCtrl):
         self.SetPopupMinWidth(w)
         self.SetValue(cgt)
 
+    def OnDvbTypeChoice(self, evt):
+        dvb_type_choice = evt.GetEventObject()
+        v = dvb_type_choice.GetValue()
+        if v == pychdb.dvb_type_t.DVBC:
+            sat = pychdb.sat.sat()
+            sat.sat_pos = pychdb.sat.sat_pos_dvbc
+        elif v == pychdb.dvb_type_t.DVBT:
+            sat = pychdb.sat.sat()
+            sat.sat_pos = pychdb.sat.sat_pos_dvbt
+        elif v == pychdb.dvb_type_t.DVBS:
+            sat = pychdb.sat.sat()
+            sat.sat_pos = pychdb.sat.sat_pos_dvbs
+        else:
+            sat = None
+        if sat is None:
+            self.show_all()
+        else:
+            self.OnSelectSat(sat)
+
     def OnWindowCreate(self, evt):
         """
         Attach an event handler, but make sure it is called only once

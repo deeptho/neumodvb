@@ -141,7 +141,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.current_lnb_network_changed = False
         self.mux_subscriber_ = None
         self.tuned_ = False
-        self.lnb_activated_ = False
         self.use_blindscan_ = opts.positioner_dialog_use_blind_tune
         self.blind_toggle.SetValue(self.use_blindscan_)
         self.retune_mode_ =  pydevdb.retune_mode_t.IF_NOT_LOCKED
@@ -222,18 +221,8 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.mux_subscriber_ = pyreceiver.subscriber_t(receiver, self)
         return self.mux_subscriber_
 
-    @property
-    def lnb_subscriber(self):
-        if not self.lnb_activated_:
-            self.lnb_activated_ = True;
-            self.SubscribeLnb(retune_mode=pydevdb.retune_mode_t.NEVER)
-        return self.mux_subscriber
-
-    @property
-    def tuned_mux_subscriber(self):
-        if not self.tuned_:
-            self.OnTune()
-        return self.mux_subscriber
+    def is_subscribed(self):
+        return self.mux_subscriber_!= None
 
     def get_usals_location(self):
         receiver = wx.GetApp().receiver
@@ -278,12 +267,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.save_current_lnb_network()
         if self.tuned_:
             self.AbortTune()
-            del self.mux_subscriber_
-            self.mux_subscriber_ = None
-        elif self.lnb_activated_:
-            self.lnb_subscriber.unsubscribe()
-            self.tuned_ = False
-            self.lnb_activated_ = False
             del self.mux_subscriber_
             self.mux_subscriber_ = None
 
@@ -382,7 +365,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         used when we want change a positioner without tuning
         """
         if self.tuned_:
-            assert self.lnb_activated_
             return self.tuned_ # no need to subscribe
         self.retune_mode = retune_mode
         dtdebug(f'Subscribe LNB')
@@ -393,8 +375,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             dtdebug(f"Tuning failed {self.mux_subscriber.error_message}")
 
         self.tuned_ = False
-        self.lnb_activated_ = True
-        return self.lnb_activated_
 
     def Tune(self, mux, retune_mode, pls_search_range=None, silent=False):
         self.retune_mode = retune_mode
@@ -416,7 +396,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.AbortTune()
         else:
             self.tuned_ = True
-            self.lnb_activated_ = True
         return self.tuned_
 
     def OnTune(self, event=None, pls_search_range=None):  # wxGlade: PositionerDialog_.<event_handler>
@@ -439,6 +418,10 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.parent.ClearSignalInfo()
         #reread usals in case we are part of spectrum_dialog and positioner_dialog has changed them
         self.lnb = self.read_lnb_from_db()
+        network = get_network(self.lnb, mux.k.sat_pos)
+        if network is not None:
+            wx.CallAfter(self.parent.SetUsalsPos, network.usals_pos)
+
         wx.CallAfter(self.Tune,  mux, retune_mode=pydevdb.retune_mode_t.IF_NOT_LOCKED,
                      pls_search_range=pls_search_range)
         if event is not None:
@@ -457,7 +440,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             del self.mux_subscriber_
             self.mux_subscriber_ = None
         self.tuned_ = False
-        self.lnb_activated_ = False
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()
     def OnAbortTune(self, event):
@@ -903,14 +885,11 @@ class PositionerDialog(PositionerDialog_):
     @property
     def mux_subscriber(self):
         return self.tune_mux_panel.mux_subscriber
-
+    def is_subscribed(self):
+        return self.tune_mux_panel.is_subscribed()
     @property
-    def tuned_mux_subscriber(self):
+    def tuned_mux_subscriberOFF(self):
         return self.tune_mux_panel.tuned_mux_subscriber
-
-    @property
-    def lnb_subscriber(self):
-        return self.tune_mux_panel.lnb_subscriber
 
     def Prepare(self, lnbgrid):
         self.Layout()
@@ -995,7 +974,10 @@ class PositionerDialog(PositionerDialog_):
     def positioner_command(self, *args):
         if self.lnb_connection.rotor_control in (pydevdb.rotor_control_t.MASTER_DISEQC12,
                                       pydevdb.rotor_control_t.MASTER_USALS):
-            ret, new_usals_pos = self.lnb_subscriber.positioner_cmd(*args)
+            if not self.is_subscribed():
+                self.tune_mux_panel.SubscribeLnb(retune_mode=pydevdb.retune_mode_t.NEVER)
+                assert self.is_subscribed()
+            ret, new_usals_pos = self.mux_subscriber.positioner_cmd(*args)
             if ret >= 0:
                 if new_usals_pos is not None:
                     self.UpdateUsalsPosition_(new_usals_pos)

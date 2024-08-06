@@ -119,6 +119,11 @@ public:
 		return r->subscription_id;
 	}
 
+	inline bool is_subscribed() const {
+		auto r = ts.readAccess();
+		return (int)r->subscription_id >=0;
+	}
+
 	inline void set_subscription_id(subscription_id_t subscription_id) {
 		auto w = this->ts.writeAccess();
 		w->subscription_id = subscription_id;

@@ -946,7 +946,7 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 	int err;
 	auto fefd = ts.readAccess()->fefd;
 	auto tune_pars = *ts.readAccess()->tune_options.tune_pars;
-	if(tune_pars.move_dish) {
+	{
 		auto powerup_time_ms = tune_pars.dish->powerup_time;
 		sec_status.positioner_wait_after_powerup(powerup_time_ms);
 		if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
@@ -2006,7 +2006,10 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 				new_usals_pos = usals_pos;
 			}
 			if(usals_pos != sat_pos_none) {
-				ret = this->send_positioner_message(devdb::positioner_cmd_t::GOTO_XX, usals_pos, repeated);
+				auto tune_pars = *ts.readAccess()->tune_options.tune_pars;
+				if(tune_pars.move_dish) {
+					ret = this->send_positioner_message(devdb::positioner_cmd_t::GOTO_XX, usals_pos, repeated);
+				}
 			} else
 				ret = -1;
 			if (ret < 0) {

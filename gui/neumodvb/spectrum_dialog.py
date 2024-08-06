@@ -190,10 +190,6 @@ class SpectrumDialog(SpectrumDialog_):
         return self.tune_mux_panel.mux_subscriber
 
     @property
-    def tuned_mux_subscriber(self):
-        return self.tune_mux_panel.tuned_mux_subscriber
-
-    @property
     def grid(self):
         return self.spectrumlist_panel.spectrumselect_grid
 

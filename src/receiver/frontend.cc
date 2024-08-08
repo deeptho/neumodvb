@@ -947,8 +947,8 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 	auto fefd = ts.readAccess()->fefd;
 	auto tune_pars = *ts.readAccess()->tune_options.tune_pars;
 	{
-		auto powerup_time_ms = tune_pars.dish->powerup_time;
-		sec_status.positioner_wait_after_powerup(powerup_time_ms);
+		auto time_to_wait_after_powerup_ms = tune_pars.dish->powerup_time;
+		sec_status.positioner_wait_after_powerup(time_to_wait_after_powerup_ms);
 		if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
 			dterrorf("problem sending the DiseqC message");
 			return -1;
@@ -1259,7 +1259,9 @@ int dvb_frontend_t::request_positioner_control(tuner_thread_t& tuner_thread, con
 	 */
 	bool set_rf_input = (api_type == api_type_t::NEUMO && api_version >=1500);
 	auto fefd = ts.readAccess()->fefd;
+#if 0
 	auto [error, need_diseqc, need_lnb] =
+#endif
 		this->set_rf_path(tuner_thread, fefd, rf_path, lnb, sat_pos_none, tune_options, set_rf_input);
 	auto band = chdb::sat_sub_band_t::LOW;
 	auto voltage = SEC_VOLTAGE_18;
@@ -1972,8 +1974,8 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 				break;
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_pos};
-			auto powerup_time_ms = ts.readAccess()->tune_options.tune_pars->dish->powerup_time;
-			sec_status.positioner_wait_after_powerup(powerup_time_ms);
+			auto time_to_wait_after_powerup_ms = ts.readAccess()->tune_options.tune_pars->dish->powerup_time;
+			sec_status.positioner_wait_after_powerup(time_to_wait_after_powerup_ms);
 			msleep(must_pause ? 100 : 30);
 			assert(!for_positioner_control);
 			auto* lnb_network = (!for_positioner_control) ? devdb::lnb::get_network(lnb, sat_pos) : nullptr;

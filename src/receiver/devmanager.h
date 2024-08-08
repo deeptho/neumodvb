@@ -462,7 +462,19 @@ int request_positioner_control(tuner_thread_t& tuner_thread, const devdb::rf_pat
 
 	inline int set_tune_options(const subscription_options_t& tune_options) {
 		auto w = this->ts.writeAccess();
-		w->tune_options = tune_options;
+		if(!tune_options.tune_pars && w->tune_options.tune_pars) {
+			//copy preserving tune_pars
+			auto tune_pars = w->tune_options.tune_pars;
+			w->tune_options = tune_options;
+			w->tune_options.tune_pars = tune_pars;
+		} else if(!tune_options.tune_pars->dish && w->tune_options.tune_pars->dish) {
+			//copy preserving dish
+			auto dish = w->tune_options.tune_pars->dish;
+			w->tune_options = tune_options;
+			w->tune_options.tune_pars->dish = dish;
+		} else {
+			w->tune_options = tune_options;
+		}
 		return 0;
 	}
 

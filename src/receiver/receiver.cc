@@ -2242,7 +2242,9 @@ static chdb::scan_id_t activate_spectrum_scan_
 	auto [sat_band, sat_sub_band] = sat_band_for_freq(start_freq);
 #ifndef NDEBUG
 		auto [sat_band1, sat_sub_band1] = sat_band_for_freq(end_freq-1);
-		assert(sat_band1 == sat_band);
+		if(sat_band1 != sat_band)
+			dtdebugf("requested frequency range {}-{} extends beyond band {}-{}",
+							 start_freq, end_freq, to_str(sat_band), to_str(sat_band1));
 		assert(sat_band == sat.sat_band);
 #endif
 		//update sat from db to ensure correct band_scan_status

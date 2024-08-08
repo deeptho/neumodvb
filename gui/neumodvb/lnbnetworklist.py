@@ -146,7 +146,16 @@ class LnbNetworkTable(NeumoTable):
         for sat in sats:
             if sat.sat_band ==pychdb.sat_band_t.UNKNOWN and abs(sat.sat_pos - sat_pos) < 5:
                 return sat
-        return None
+        ss = pychdb.sat_pos_str(n.sat_pos)
+        add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
+        if not add:
+            return None
+        sat = pychdb.sat.sat()
+        sat.sat_pos = sat_pos
+        sat.sat_band = sat_band
+        txn = self.db.wtxn()
+        pychdb.put_record(txn, sat)
+        return sat
 
     def get_usals_location(self):
         receiver = wx.GetApp().receiver

@@ -1337,8 +1337,10 @@ bool devdb::lnb::update_lnb_network_from_positioner(db_txn& devdb_wtxn, devdb::l
 		changed = *db_network != *network;
 		*db_network = *network;
 	}
-	if(changed)
+	if(changed) {
+		dtdebugf("Saving lnb_network: lnb_usals_pos={} cur_sat_pos={}\n", db_lnb.lnb_usals_pos, db_lnb.cur_sat_pos);
 		put_record(devdb_wtxn, db_lnb);
+	}
 	changed |= lnb != db_lnb;
 	lnb = db_lnb;
 	return changed;
@@ -1370,8 +1372,10 @@ bool devdb::lnb::update_lnb_connection_from_positioner(db_txn& devdb_wtxn, devdb
 			break;
 		}
 	}
-	if(found)
+	if(found) {
+		dtdebugf("Saving lnb_network: lnb_usals_pos={} cur_sat_pos={}\n", db_lnb.lnb_usals_pos, db_lnb.cur_sat_pos);
 		put_record(devdb_wtxn, db_lnb);
+	}
 	return found;
 }
 
@@ -1392,6 +1396,7 @@ void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)
 	lnb.lof_offsets.resize(2);
 	lnb.lof_offsets[0] = 0;
 	lnb.lof_offsets[1] = 0;
+	dtdebugf("Saving lnb_network: lnb_usals_pos={} cur_sat_pos={}\n", lnb.lnb_usals_pos, lnb.cur_sat_pos);
 	put_record(devdb_wtxn, lnb);
 }
 
@@ -1415,8 +1420,10 @@ static void invalidate_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb)
 		conn.can_be_used = can_be_used;
 	}
 	lnb.can_be_used = false;
-	if(any_change)
+	if(any_change) {
+		dtdebugf("Saving lnb_network: lnb_usals_pos={} cur_sat_pos={}\n", lnb.lnb_usals_pos, lnb.cur_sat_pos);
 		put_record(devdb_wtxn, lnb);
+	}
 }
 #endif
 
@@ -1455,6 +1462,7 @@ static void update_lnb_adapter_fields(db_txn& devdb_wtxn, devdb::lnb_t& lnb, con
 	lnb.can_be_used = lnb_can_be_used;
 	if(!any_change)
 		return;
+	dtdebugf("Saving lnb_network: lnb_usals_pos={} cur_sat_pos={}\n", lnb.lnb_usals_pos, lnb.cur_sat_pos);
 	put_record(devdb_wtxn, lnb);
 }
 #endif
@@ -1506,6 +1514,7 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn, const devdb::fe_t* update_for_f
 			//hack to correct older database records
 			lnb.lnb_usals_pos = lnb.usals_pos;
 			lnb.cur_sat_pos = lnb.usals_pos;
+			dtdebugf("Saving lnb_network: lnb_usals_pos={} cur_sat_pos={}\n", lnb.lnb_usals_pos, lnb.cur_sat_pos);
 			put_record(devdb_wtxn, lnb);
 		}
 		bool any_change = false;
@@ -1546,8 +1555,10 @@ void devdb::lnb::update_lnbs(db_txn& devdb_wtxn, const devdb::fe_t* update_for_f
 		}
 		any_change |= (lnb.can_be_used != lnb_can_be_used);
 		lnb.can_be_used = lnb_can_be_used;
-		if(any_change)
+		if(any_change) {
+			dtdebugf("Saving lnb_network: lnb_usals_pos={} cur_sat_pos={}\n", lnb.lnb_usals_pos, lnb.cur_sat_pos);
 			put_record(devdb_wtxn, lnb);
+		}
 	}
 }
 

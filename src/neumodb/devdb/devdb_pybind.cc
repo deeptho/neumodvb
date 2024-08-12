@@ -92,6 +92,10 @@ static void export_lnb_extra(py::module& m) {
 				 "Add a connection to an lnb if it does not yet exist or edit it; returns true if connection was added "
 				 "or changed",
 				 py::arg("rtxn"), py::arg("lnb"), py::arg("lnb_connection"))
+		.def("add_or_edit_unicable_channel", &lnb::add_or_edit_unicable_channel,
+				 "Add a unicable channel to an lnb if it does not yet exist or edit it; returns true if channel was added "
+				 "or changed",
+				 py::arg("rtxn"), py::arg("lnb"), py::arg("unicable_channel"))
 		.def("lnb_frequency_range", &lnb::lnb_frequency_range,
 				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"))
 		.def("sat_band", &lnb::sat_band,

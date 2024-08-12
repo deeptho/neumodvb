@@ -121,6 +121,12 @@ static inline const char* lnb_type_str(const lnb_key_t& lnb_key) {
 }
 
 fmt::format_context::iterator
+fmt::formatter<devdb::unicable_ch_t>::format(const devdb::unicable_ch_t& uc, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "ver={} ch={} freq={} pos={} pin={}", uc.unicable_version, uc.ch_id, uc.frequency,
+												uc.position, uc.pin_code);
+}
+
+fmt::format_context::iterator
 fmt::formatter<lnb_key_t>::format(const lnb_key_t& lnb_key, format_context& ctx) const {
 	const char* t = lnb_type_str(lnb_key);
 	return fmt::format_to(ctx.out(), "D{:d} {:s} [{:d}]", (int)lnb_key.dish_id,
@@ -414,7 +420,8 @@ bool devdb::lnb_can_scan_sat_band(const devdb::lnb_t& lnb, const chdb::sat_t& sa
 
 	Reasons why lnb cannot tune mux: c_band lnb cannot tune ku-band mux; lnb has wrong polarisation
 */
-std::tuple<int, int, int> devdb::lnb::band_voltage_freq_for_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux) {
+std::tuple<int, int, int> devdb::lnb::band_voltage_freq_for_mux(const devdb::lnb_t& lnb,
+																																const chdb::dvbs_mux_t& mux) {
 	using namespace chdb;
 	int band = -1;
 	int voltage = -1;
@@ -545,7 +552,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 	tune_options.allowed_card_mac_addresses = {};
 	//first try to find an lnb not in use, which does not require moving a dish
 
-	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts, best_unicable_ch] =
 			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
 																						tune_options /*tune_options*/,
 																						nullptr /*fe_key_to_release*/,
@@ -563,7 +570,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 	tune_options.allowed_card_mac_addresses = {};
 
 	//now try to find an lnb not in use, which does require moving a dish
-	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts, best_unicable_ch_id] =
 			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
 																						tune_options /*tune_options*/,
 																						nullptr /*fe_key_to_release*/,
@@ -580,7 +587,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 	tune_options.allowed_dish_ids = {};
 	tune_options.allowed_card_mac_addresses = {};
 	//now try to find an lnb which can be in use, and which can move a dish, also allowing non blindtune rf_paths
-	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+	{ auto[best_fe, best_rf_path, best_lnb, best_use_counts, best_unicable_ch_id] =
 			fe::find_fe_and_lnb_for_tuning_to_mux(devdb_rtxn, proposed_mux,
 																						tune_options,
 																						nullptr /*fe_key_to_release*/,
@@ -768,6 +775,39 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 		}
 	}
 
+	return changed;
+}
+
+bool devdb::lnb::add_or_edit_unicable_channel(db_txn& devdb_txn, devdb::lnb_t& lnb,
+																							devdb::unicable_ch_t& unicable_ch) {
+	using namespace devdb;
+	using p_t = update_lnb_preserve_t::flags;
+	auto preserve = p_t::ALL;
+	preserve = (p_t) ((int) preserve & (~(int)p_t::UNICABLE_CHANNELS));
+	//if unicable channel already exists, update it
+	bool exists{false};
+	for (auto& uc : lnb.unicable_channels) {
+		if (uc.ch_id == unicable_ch.ch_id) {
+			exists = true;
+			uc = unicable_ch;
+			break;
+		}
+	}
+	//new connection; add it
+	if(!exists) {
+		lnb.unicable_channels.push_back(unicable_ch);
+	}
+	bool save = false;
+	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, {} /*loc*/, preserve, save,
+																				 sat_pos_none, nullptr /*curr_conn*/);
+
+	//update the input argument
+	for (auto& uc : lnb.unicable_channels) {
+		if (uc.ch_id == unicable_ch.ch_id) {
+			unicable_ch = uc;
+			break;
+		}
+	}
 	return changed;
 }
 

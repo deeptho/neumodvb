@@ -328,9 +328,9 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(adaptermgr_t* adaptermgr,
 	}
 	{
 		auto w = fe->ts.writeAccess();
-		if(fefd>=0) {
+		if(fefd<0) {
+			w->info_valid = false;
 			w->dbfe.can_be_used = false;
-			w->info_valid = (fefd>=0);
 			dtdebugf("/dev/dvb/adapter{:d}/frontend{:d} currently not useable", (int)fe->adapter_no, (int)fe->frontend_no);
 		} else {
 			w->info_valid = true;
@@ -350,13 +350,11 @@ std::shared_ptr<dvb_frontend_t> dvb_frontend_t::make(adaptermgr_t* adaptermgr,
 
 //returns the tuned frequency, compensated for lnb offset
 static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, const cmdseq_t& cmdseq, const devdb::lnb_t& lnb,
-														 int band, chdb::fe_polarisation_t pol) {
+														 int band, int freq, chdb::fe_polarisation_t pol) {
 
 	mux.delivery_system = (chdb::fe_delsys_dvbs_t)cmdseq.get(DTV_DELIVERY_SYSTEM)->u.data;
 	bool tone_on = band; //we cannot rely on DTV_TONE from driver, because it may not have been set on slave connections
-	int freq = cmdseq.get(DTV_FREQUENCY)->u.data;
-
-	mux.frequency = devdb::lnb::freq_for_driver_freq(lnb, freq, tone_on); // always in kHz
+		mux.frequency = devdb::lnb::freq_for_driver_freq(lnb, freq, tone_on); // always in kHz
 	mux.pol = pol; //we cannot rely on DTV_VOLTAGE from driver, because it may not have been set on slave connections
 
 	mux.symbol_rate = cmdseq.get(DTV_SYMBOL_RATE)->u.data; // in Hz
@@ -453,13 +451,20 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 	bool tone_on = band;  //we cannot rely on DTV_TONE from driver, because it may not have been set on slave connections
 
 	auto freq = cmdseq.get(DTV_FREQUENCY)->u.data;
+	auto tune_pars = *r->tune_options.tune_pars;
+	if(tune_pars.unicable_ch) {
+		auto& uc = *tune_pars.unicable_ch;
+		int unicable_tuned_frequency =  r->unicable_tuned_frequency;
+		freq = freq  - uc.frequency + unicable_tuned_frequency; //pretend that no unicable was used
+	}
+
 	ret.uncorrected_driver_freq =  devdb::lnb::uncorrected_freq_for_driver_freq(lnb, freq, tone_on);
 
 	//the following must be called even when not locked, to consume the results of all DTV_... commands
 	visit_variant(
 		ret.driver_mux,
-		[&cmdseq,  &lnb, &ret, band, pol](chdb::dvbs_mux_t& mux) {
-			ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, band, pol);
+		[&cmdseq,  &lnb, &ret, band, pol, freq](chdb::dvbs_mux_t& mux) {
+			ret.stat.k.frequency = get_dvbs_mux_info(mux, cmdseq, lnb, band, freq, pol);
 			ret.stat.symbol_rate = mux.symbol_rate;
 		},
 		[&cmdseq, &ret](chdb::dvbc_mux_t& mux) {
@@ -700,6 +705,25 @@ dvb_frontend_t::update_lock_status_and_signal_info(fe_status_t fe_status, bool g
 	return ret;
 }
 
+int dvb_frontend_t::cancel_unicable() {
+	auto w =  this->ts.writeAccess();
+	auto& tune_pars = *w->tune_options.tune_pars;
+	if(w->unicable_ch) {
+		auto fefd = w->fefd;
+		auto& lnb = w->reserved_lnb;
+		dtdebugf("Ending unicable on lnb={}", lnb);
+		if(tune_pars.unicable_ch->unicable_version == 2)
+			this->unicable2_end(fefd, lnb, *w->unicable_ch);
+		else if(tune_pars.unicable_ch->unicable_version == 1)
+			this->unicable1_end(fefd, lnb, *w->unicable_ch);
+		else {
+			dterrorf("Incorrect unicable version: {}", *w->unicable_ch);
+		}
+		w->unicable_ch.reset();
+	}
+	return 0;
+}
+
 int dvb_frontend_t::stop() {
 
 	/*
@@ -736,7 +760,7 @@ int dvb_frontend_t::stop() {
 		}
 
 		/* In case monitor_thread has called ioctl. This ioctl will no longer be blocked by a tune in
-			 progress and thus will return fast. monitor_thread should therefore quickly execute the pause()
+			 progress and thus will return fastt. monitor_thread should therefore quickly execute the pause()
 		 task
 		*/
 		if(f.valid())
@@ -744,7 +768,9 @@ int dvb_frontend_t::stop() {
 		/* pause task has been run now
 		 */
 	}
-	this->ts.writeAccess()->lock_status.fem_state = fem_state_t::IDLE;
+	cancel_unicable();
+	auto w =  this->ts.writeAccess();
+	w->lock_status.fem_state = fem_state_t::IDLE;
 	return 0;
 }
 
@@ -874,6 +900,152 @@ int dvb_frontend_t::send_diseqc_message(char switch_type, unsigned char port, un
 		dterrorf("problem sending the DiseqC message");
 		return -1;
 	}
+
+	return 0;
+}
+
+
+/*
+	frequency: frequency to tune to, as  an offset to the local oscillator
+	channel_frequency:
+	band: 0=low, 1=high
+ */
+int dvb_frontend_t::unicable1_tune(const devdb::lnb_t& lnb,
+																	 const chdb::dvbs_mux_t& mux,
+																	 const devdb::unicable_ch_t& uc) {
+#if 0
+	auto fefd = this->ts.readAccess()->fefd;
+	struct dvb_diseqc_master_cmd cmd {};
+	int request_freq= unicable_version==2 ?
+		round((double)frequency/1000) -100 :
+		round((((freq / 1000) + 2 + uc.frequency/1000) / 4) - 350);
+
+	if(unicable_version==2) {
+		int request_freq= round((double)frequency/1000) -100;
+		int user_band = uc.ch_id& 0x1f; //5 bits
+		int position = uc.position&0x3f; //6 bits
+		int pol_ = pol == chdb::fe_polarisation_t::POL_H ? 1 :0; //polarisation H=1, V=0
+		band &= 1 ; //band: low=0 high=1
+
+		// Framing byte : Command from master, no reply required, first transmission : 0xe0
+		cmd.msg[0] = 0x70;
+		cmd.msg[1] = 0x10; // Address byte : Any LNB, switcher or SMATV
+		cmd.msg[1] = (user_band <<3) | ((request_freq>>8) &7);
+		cmd.msg[2] = request_freq & 0xff;
+		cmd.msg[3]= (position <<2) | (pol_ << 1) | (band & 1);
+		cmd.msg_len = 4;
+
+		assert(sec_status.voltage == SEC_VOLTAGE_13);
+		//unicable2 requires sleeping 2-22 milliseconds
+		this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, 20 /*sleeptime_ms*/);
+
+		if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
+			dterrorf("problem sending the DiseqC message");
+			return -1;
+		}
+		msleep(100);
+		//unicable requires sleeping between 2 and 60ms
+		this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, 40 /*sleeptime_ms*/);
+		if (ioctl(fefd, FE_SET_VOLTAGE, SEC_VOLTAGE_13) < 0) {
+			dterrorf("problem setting voltage");
+			return -1;
+		}
+	}
+#endif
+	return 0;
+}
+
+int dvb_frontend_t::unicable1_end(int fefd, const devdb::lnb_t& lnb,
+																	 const devdb::unicable_ch_t& uc) {
+	return 0;
+}
+
+/*
+	frequency: frequency to tune to, as  an offset to the local oscillator
+	channel_frequency:
+	band: 0=low, 1=high
+ */
+int dvb_frontend_t::unicable2_tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+																					 const devdb::unicable_ch_t& uc) {
+	auto [band, voltage, frequency] = devdb::lnb::band_voltage_freq_for_mux(lnb, mux);
+	auto fefd = this->ts.readAccess()->fefd;
+	struct dvb_diseqc_master_cmd cmd {};
+	int request_freq = round((double)frequency/1000) -100;
+	int user_band = uc.ch_id& 0x1f; //5 bits
+	int position = uc.position & 0x3f; //6 bits
+	int pol_ = mux.pol == chdb::fe_polarisation_t::H ? 1 :0; //polarisation H=1, V=0
+	int err=0;
+	band &= 1 ; //band: low=0 high=1
+
+	// Framing byte : Command from master, no reply required, first transmission : 0xe0
+	cmd.msg[0] = 0x70;
+	cmd.msg[1] = (user_band <<3) | ((request_freq>>8) &7);
+	cmd.msg[2] = request_freq & 0xff;
+	cmd.msg[3]= (position <<2) | (pol_ << 1) | (band & 1);
+	cmd.msg_len = 4;
+
+	sec_status.assert_voltage(SEC_VOLTAGE_13);
+
+	sec_status.wait_after_powerup(lnb.powerup_time);
+	//msleep(200);
+	//unicable2 requires sleeping 2-22 milliseconds
+	if(this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, 20 /*sleeptime_ms*/)<0) {
+		dterrorf("problem sending the DiseqC message");
+		return -1;
+	}
+
+	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
+		dterrorf("problem sending the DiseqC message");
+		return -1;
+	}
+
+	{
+		auto w = this->ts.writeAccess();
+		w->unicable_tuned_frequency = (request_freq +100)*1000;
+		w->unicable_ch = uc;
+	}
+
+	//unicable requires sleeping between 2 and 60ms
+	msleep(15);
+	this->sec_status.set_voltage(fefd, SEC_VOLTAGE_13);
+	//msleep(100);
+	return 0;
+}
+
+int dvb_frontend_t::unicable2_end(int fefd, const devdb::lnb_t& lnb,  const devdb::unicable_ch_t& uc) {
+	struct dvb_diseqc_master_cmd cmd {};
+	int request_freq = 0;
+	int user_band = uc.ch_id& 0x1f; //5 bits
+	int position = uc.position & 0x3f; //6 bits
+	int pol_ = 0; //polarisation H=1, V=0
+	int err=0;
+	int band = 0 ; //band: low=0 high=1
+
+	// Framing byte : Command from master, no reply required, first transmission : 0xe0
+	cmd.msg[0] = 0x70;
+	cmd.msg[1] = (user_band <<3) | ((request_freq>>8) &7);
+	cmd.msg[2] = request_freq & 0xff;
+	cmd.msg[3]= (position <<2) | (pol_ << 1) | (band & 1);
+	cmd.msg_len = 4;
+
+	sec_status.assert_voltage(SEC_VOLTAGE_13);
+
+	//msleep(200);
+	//unicable2 requires sleeping 2-22 milliseconds
+	if(this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, 20 /*sleeptime_ms*/)<0) {
+		dterrorf("problem sending the DiseqC message");
+		return -1;
+	}
+
+	if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
+		dterrorf("problem sending the DiseqC message");
+		return -1;
+	}
+
+	//unicable requires sleeping between 2 and 60ms
+	msleep(15);
+	this->sec_status.set_voltage(fefd, SEC_VOLTAGE_13);
+	//msleep(100);
 	return 0;
 }
 
@@ -948,7 +1120,7 @@ int dvb_frontend_t::send_positioner_message(devdb::positioner_cmd_t command, int
 	auto tune_pars = *ts.readAccess()->tune_options.tune_pars;
 	{
 		auto time_to_wait_after_powerup_ms = tune_pars.dish->powerup_time;
-		sec_status.positioner_wait_after_powerup(time_to_wait_after_powerup_ms);
+		sec_status.wait_after_powerup(time_to_wait_after_powerup_ms);
 		if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
 			dterrorf("problem sending the DiseqC message");
 			return -1;
@@ -1005,11 +1177,9 @@ std::optional<spectrum_scan_t> dvb_frontend_t::get_spectrum(const ss::string_& s
 	this->clear_lock_status();
 	std::optional<spectrum_scan_t> ret = spectrum_scan_t{};
 	auto& scan = *ret;
-	struct dtv_property p[] = {
-		{.cmd = DTV_SPECTRUM}, // 0 DVB-S, 9 DVB-S2
-		//		{ .cmd = DTV_BANDWIDTH_HZ },    // Not used for DVB-S
-	};
-	struct dtv_properties cmdseq = {.num = sizeof(p) / sizeof(p[0]), .props = p};
+	struct dtv_property p{};
+	p.cmd = DTV_SPECTRUM;
+	struct dtv_properties cmdseq = {.num = 1, .props = &p};
 
 	int fefd = ts.readAccess()->fefd;
 
@@ -1150,6 +1320,13 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	cmdseq_t cmdseq;
 	this->num_constellation_samples = num_constellation_samples;
 	auto [band, voltage, frequency] = devdb::lnb::band_voltage_freq_for_mux(lnb, mux);
+	//at this point, frequency is corrected for lnb offset
+
+	if(tune_options.tune_pars->unicable_ch) {
+		auto& uc = *tune_options.tune_pars->unicable_ch;
+				frequency = uc.frequency;
+	}
+
 	cmdseq.add_clear();
 	cmdseq.add(DTV_SET_SEC_CONFIGURED);
 	if (blindscan) {
@@ -1436,6 +1613,7 @@ void dvb_frontend_t::request_tune(
 		w->positioner_start_move_time = {};
 		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
+	//save parameters of tune request and start frontend_monitor if needed
 	this->start_fe_lnb_and_mux(rf_path, lnb, mux);
 
 	/* When moving the positioner, the following code may run for a long time, so we run it
@@ -1458,7 +1636,7 @@ dvb_frontend_t::tune(
 	if(!conn)
 		return {-1, sat_pos_none};
 	dtdebugf("Tuning to DVBS mux {}  lnb={} diseqc={}", mux, lnb, conn->tune_string);
-
+	auto is_unicable = !!tune_options.tune_pars->unicable_ch;
 	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);
 	assert(dvbs_mux);
 	auto sat_pos = dvbs_mux->k.sat_pos;
@@ -1477,9 +1655,12 @@ dvb_frontend_t::tune(
 
 	int ret;
 	int new_usals_pos{sat_pos_none};
+	auto tune_pars = *ts.readAccess()->tune_options.tune_pars;
 	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
 	auto pol = dvbs_mux->pol;
-	auto voltage = (fe_sec_voltage_t) devdb::lnb::voltage_for_pol(lnb, pol);
+	auto voltage = (fe_sec_voltage_t)(
+		(is_unicable) ? SEC_VOLTAGE_13 : devdb::lnb::voltage_for_pol(lnb, pol));
+
 	bool set_rf_input = (api_type == api_type_t::NEUMO && api_version >=1500);
 	assert(!set_rf_input || ts.readAccess()->dbfe.rf_inputs.contains(rf_path.rf_input));
 	auto fefd = ts.readAccess()->fefd;
@@ -1498,7 +1679,15 @@ dvb_frontend_t::tune(
 		this->do_lnb(band, voltage);
 		dtdebugf("tune: do_lnb done");
 	}
-
+	if(is_unicable) {
+		if(tune_options.tune_pars->unicable_ch->unicable_version == 2)
+			this->unicable2_tune(lnb, *dvbs_mux, *tune_options.tune_pars->unicable_ch);
+		else if(tune_options.tune_pars->unicable_ch->unicable_version == 1)
+			this->unicable1_tune(lnb, *dvbs_mux, *tune_options.tune_pars->unicable_ch);
+		else {
+			dterrorf("Incorrect unicable version: {}", *tune_options.tune_pars->unicable_ch);
+		}
+	}
 	auto must_abort = wait_for_positioner(tuner_thread);
 	if(must_abort) {
 		return {-1, sat_pos_none};
@@ -1792,11 +1981,10 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 
 int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																				 const chdb::dvbs_mux_t& mux) {
-	// auto reservation_type = dvb_adapter_t::reservation_type_t::mux;
-		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
+	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
-						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-					 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
+					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
+				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 
 	int ret = 0;
 	{
@@ -1840,6 +2028,7 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux) {
 }
 
 int dvb_frontend_t::reset_ts() {
+	cancel_unicable();
 	auto w = ts.writeAccess();
 	auto saved = w->dbfe;
 	*w = {};
@@ -1975,7 +2164,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_pos};
 			auto time_to_wait_after_powerup_ms = ts.readAccess()->tune_options.tune_pars->dish->powerup_time;
-			sec_status.positioner_wait_after_powerup(time_to_wait_after_powerup_ms);
+			sec_status.wait_after_powerup(time_to_wait_after_powerup_ms);
 			msleep(must_pause ? 100 : 30);
 			assert(!for_positioner_control);
 			auto* lnb_network = (!for_positioner_control) ? devdb::lnb::get_network(lnb, sat_pos) : nullptr;
@@ -2027,7 +2216,7 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 		if (ret < 0)
 			return {ret, new_usals_pos};
 	}
-
+	sec_status.set_powerup_time();
 	msleep(50);
 	return {1, new_usals_pos};
 }
@@ -2095,7 +2284,7 @@ int sec_status_t::set_tone(int fefd, fe_sec_tone_mode mode) {
 	return 1;
 }
 
-int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
+int sec_status_t::set_voltage(int fefd, fe_sec_voltage v, int sleeptime_ms) {
 	if ((int)v < 0) {
 		assert(0);
 		return -1;
@@ -2114,7 +2303,8 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		when starting from the unpowered state, we need to wait long enough to give equipment
 		time to power up. We assume 200ms is enough
 	 */
-	int sleeptime_ms = must_sleep_extra ? 300 : 200;
+	if(must_sleep_extra)
+		sleeptime_ms = 300;
 
 	/*
 		With an Amiko positioner, the positioner risks activating its current overload protection at startup,
@@ -2146,8 +2336,7 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v) {
 		return -1;
 	}
 	if(voltage != SEC_VOLTAGE_OFF) {
-		powerup_time = steady_clock_t::now();
-		dtdebugf("set powerup_time");
+		set_powerup_time();
 	}
 	//allow some time for the voltage on the equipment to stabilise before continuing
 	msleep(sleeptime_ms);
@@ -2240,7 +2429,7 @@ dvb_frontend_t::set_rf_path(tuner_thread_t& tuner_thread, int fefd, const devdb:
 			assert(!need_lnb);
 			return {false, need_diseqc, need_lnb};
 		case FE_RESERVATION_RETRY: {
-			double seconds=0.2;
+			//double seconds=0.2;
 			//bool must_abort = wait_for(tuner_thread, seconds);
 			bool must_abort=false;
 			msleep(200);

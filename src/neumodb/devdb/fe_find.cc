@@ -25,6 +25,7 @@
 #include "util/dtassert.h"
 #include <iomanip>
 #include <iostream>
+#include <bitset>
 #include <signal.h>
 
 #include "../util/neumovariant.h"
@@ -109,7 +110,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 																				const fe_subscription_t& s, //desired subscription_parameter
 																				const devdb::fe_key_t* fe_key_to_release,
-																				bool on_positioner) {
+																				bool on_positioner, bool is_unicable_lnb) {
 	using namespace  devdb::fe_subscription;
 	devdb::resource_subscription_counts_t ret;
 	auto c = devdb::find_first<devdb::fe_t>(rtxn);
@@ -168,9 +169,9 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 				return {};
 
 			//check for incompatible parameters
-			if(same_lnb && ! same_sat_band_pol )
+			if(same_lnb && !same_sat_band_pol && !is_unicable_lnb)
 				return {};
-			if(same_tuner && (!same_lnb || ! same_sat_band_pol))
+			if(same_tuner && (!same_lnb || (! same_sat_band_pol && ! is_unicable_lnb)))
 				return {}; //we can only reuse tuner for same sat, band and pol
 			ret.lnb += same_lnb;
 			ret.rf_coupler += same_rf_coupler;
@@ -181,6 +182,63 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 		}
 	}
 	return ret;
+}
+
+std::optional<devdb::unicable_ch_t>
+ devdb::lnb::select_unicable_ch(db_txn& rtxn, const lnb_t& lnb,
+																					 const devdb::fe_key_t* fe_key_to_release) {
+	using namespace  devdb::fe_subscription;
+	auto c = devdb::find_first<devdb::fe_t>(rtxn);
+	assert(s.owner>=0);
+	std::bitset<32> available;
+	int idx=0;
+	for (const auto& uc: lnb.unicable_channels) {
+		if (uc.ch_id >=0 && uc.ch_id < (int)available.size() && uc.enabled)
+			available.set(idx);
+		idx++;
+	}
+
+	auto remove = [&available, &lnb](auto to_remove) {
+		int idx=0;
+	 	for (const auto& uc: lnb.unicable_channels) {
+			if(uc==to_remove)
+				available.reset(idx);
+			++idx;
+		}
+	};
+
+	for(const auto& fe: c.range()) {
+		if( !fe::is_subscribed(fe))
+			continue; //no unicable in use
+
+		/* at this point, fe is known to be subscribed*/
+
+		/*
+			if the frontend was used by the current subscription, then it will be released and
+			cannot cause a conflict. So it needs specific treatment.
+		 */
+		bool fe_will_be_released = fe_key_to_release && *fe_key_to_release == fe.k;
+
+		if(fe_will_be_released) {
+			assert(fe.sub.subs.size()==1);
+			/*
+				there will be no subscriptions and so no possible conflicts
+			 */
+		} else {
+			assert(fe.sub.config_id>=0);
+			assert(fe.sub.owner>=0);
+			//Note: this could be our subscription, but only if it is shared by some other subscription
+			bool same_lnb = fe.sub.rf_path.lnb == lnb.k;
+			if(!same_lnb)
+				continue;
+			if(fe.sub.unicable_ch)
+				remove(fe.sub.unicable_ch);
+		}
+	}
+	for(idx=0; idx < (int)available.size(); ++idx)
+		if (available[idx])
+			return lnb.unicable_channels[idx];
+	return {};
 }
 
 /*
@@ -211,7 +269,7 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 	 will be atomic
  */
 
-std::optional<std::tuple<devdb::fe_t, resource_subscription_counts_t>>
+std::optional<std::tuple<devdb::fe_t, resource_subscription_counts_t, std::optional<devdb::unicable_ch_t>>>
 fe::find_best_fe_for_lnb(
 	db_txn& rtxn, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	const devdb::fe_key_t* fe_key_to_release,
@@ -243,6 +301,14 @@ fe::find_best_fe_for_lnb(
 		}
 		return false;
 	};
+
+	bool is_unicable_lnb = devdb::is_unicable_lnb(lnb);
+	std::optional<devdb::unicable_ch_t> available_unicable_ch;
+	if(is_unicable_lnb)
+		available_unicable_ch = devdb::lnb::select_unicable_ch(rtxn, lnb, fe_key_to_release);
+
+	if(is_unicable_lnb && !available_unicable_ch)
+		return {};
 
 	auto c = fe_t::find_by_card_mac_address(rtxn, rf_path.card_mac_address, find_type_t::find_eq,
 																					fe_t::partial_keys_t::card_mac_address);
@@ -291,7 +357,7 @@ fe::find_best_fe_for_lnb(
 			s.dish_id = lnb.k.dish_id;
 			s.dish_usals_pos = lnb.on_positioner ? s.usals_pos : lnb.usals_pos;
 			s.rf_coupler_id = lnb_connection.rf_coupler_id;
-			auto use_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner);
+			auto use_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner, is_unicable_lnb);
 			if(!use_counts_) {
 				//dtdebugf("Cannot use this fe because of resource conflicts");
 				continue;
@@ -299,7 +365,6 @@ fe::find_best_fe_for_lnb(
 			auto use_counts = *use_counts_;
 			if(need_spectrum) {
 				assert (!best_fe || best_fe->supports.spectrum_fft || best_fe->supports.spectrum_sweep);
-
 				if(fe.supports.spectrum_fft) { //best choice
 					if(!best_fe ||
 						 !best_fe->supports.spectrum_fft || //fft is better
@@ -343,7 +408,7 @@ fe::find_best_fe_for_lnb(
 		} //end of !is_subscribed
 	}
 	if(best_fe)
-		return {{*best_fe, *best_use_counts}};
+		return {{*best_fe, *best_use_counts, available_unicable_ch}};
 	return {};
 }
 
@@ -351,7 +416,7 @@ fe::find_best_fe_for_lnb(
 	Return the use_counts as they will be after releasing fe_key_to_release
  */
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
-					 devdb::resource_subscription_counts_t>
+	devdb::resource_subscription_counts_t, std::optional<devdb::unicable_ch_t>>
 fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																			const chdb::dvbs_mux_t& mux,
 																			const subscription_options_t& tune_options,
@@ -366,7 +431,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 	std::optional<devdb::rf_path_t> best_rf_path;
 	std::optional<devdb::fe_t> best_fe;
 	resource_subscription_counts_t best_use_counts;
-
+	std::optional<devdb::unicable_ch_t> best_unicable_ch;
 	/*
 		Loop over all lnbs to find a suitable one.
 		In the loop below, check if the lnb is compatible with the desired mux and tune options.
@@ -421,17 +486,9 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 					continue;
 				}
 			}
-#ifdef TOCHECK
-			rf_path_t rf_path;
-			rf_path.lnb = lnb.k;
-			rf_path.card_mac_address = lnb_connection.card_mac_address;
-			rf_path.rf_input = lnb_connection.rf_input;
-#endif
-#if 0
-			test_frequency = mux.frequency;
-			test_pol = mux.pol;
-#endif
+
 			assert(!tune_options.need_spectrum);
+
 			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
 				rtxn, rf_path, lnb, fe_key_to_release, tune_options.use_blind_tune, tune_options.need_spectrum,
 				mux.k.sat_pos, need_multistream, pol, band, usals_pos, ignore_subscriptions);
@@ -439,7 +496,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 				dtdebugf("LNB {} cannot be used", lnb);
 				continue;
 			}
-			auto& [fe, use_counts ] = *fe_and_use_counts;
+			auto& [fe, use_counts, unicable_ch ] = *fe_and_use_counts;
 			auto fe_prio = fe.priority;
 			if(use_counts.config_id >= 0) //prefer to reuse tuners or rf_ins
 				fe_prio += tune_options.resource_reuse_bonus;
@@ -464,12 +521,16 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			best_fe->sub.config_id = use_counts.config_id;
 			best_fe->sub.owner = use_counts.owner;
 			best_use_counts = use_counts;
+			if(unicable_ch)
+				best_unicable_ch = *unicable_ch;
+			else
+				best_unicable_ch = {};
 		}
 	}
 	//during scanning, it is expected to see many failure; don't report them
 	if(!best_fe && tune_options.subscription_type == subscription_type_t::TUNE)
 		user_errorf("Could not find find available lnb, frontend or tuner for mux {}", mux);
-	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts);
+	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts, best_unicable_ch);
 }
 
 /*
@@ -560,7 +621,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 				//dtdebugf("LNB {} cannot be used", lnb);
 				continue;
 			}
-			auto& [fe, use_counts ] = *fe_and_use_counts;
+			auto& [fe, use_counts, unicable_channel_id ] = *fe_and_use_counts;
 			auto fe_prio = fe.priority;
 			if(use_counts.config_id >= 0) //prefer to reuse tuners or rf_ins
 				fe_prio += tune_options.resource_reuse_bonus;
@@ -597,7 +658,7 @@ fe::find_fe_and_lnb_for_tuning_to_band(db_txn& rtxn,
 /*returns true if subscription is possible, ignoring any existing subscriptions*/
 bool devdb::fe::can_subscribe_mux(db_txn& wtxn, const chdb::dvbs_mux_t& mux,
 																							 const subscription_options_t& tune_options) {
-	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts] =
+	auto[best_fe, best_lnb, best_lnb_connection_no, best_use_counts, best_unicable_ch_id] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux,
 																					tune_options,
 																					nullptr /*fe_key_to_release*/,

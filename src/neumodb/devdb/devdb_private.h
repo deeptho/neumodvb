@@ -113,10 +113,14 @@ namespace devdb::lnb {
 		return lnb.pol_type == devdb::lnb_pol_type_t::VH || lnb.pol_type == devdb::lnb_pol_type_t::RL;
 	}
 
+	std::optional<devdb::unicable_ch_t> select_unicable_ch(db_txn& rtxn, const lnb_t& lnb,
+																												 const devdb::fe_key_t* fe_key_to_release);
+
 }
 
 namespace devdb::fe {
-	std::optional<std::tuple<devdb::fe_t, resource_subscription_counts_t>>
+	std::optional<std::tuple<devdb::fe_t, resource_subscription_counts_t,
+													 std::optional<devdb::unicable_ch_t>>>
 	find_best_fe_for_lnb(db_txn& rtxn, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 											 const devdb::fe_key_t* fe_to_release,
 											 bool need_blindscan, bool need_spectrum, bool need_multistream,
@@ -132,7 +136,7 @@ namespace devdb::fe {
 	std::tuple<std::optional<devdb::fe_t>,
 						 std::optional<devdb::rf_path_t>,
 						 std::optional<devdb::lnb_t>,
-						 resource_subscription_counts_t>
+						 resource_subscription_counts_t, std::optional<devdb::unicable_ch_t>>
 	find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 																		const chdb::dvbs_mux_t& mux,
 																		const subscription_options_t& tune_options,
@@ -150,7 +154,7 @@ namespace devdb::fe {
 	std::optional<resource_subscription_counts_t>
 	check_for_resource_conflicts(db_txn& rtxn,
 															 const fe_subscription_t& s, //desired subscription_parameter
-															 const devdb::fe_key_t* fe_key_to_release, bool on_positioner);
+															 const devdb::fe_key_t* fe_key_to_release, bool on_positioner, bool is_unicable_lnb);
 
 	bool is_subscribed(const fe_t& fe);
 
@@ -177,6 +181,7 @@ namespace devdb::fe {
 	int reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
 														 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
 														 const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
+														 const std::optional<devdb::unicable_ch_t>& unicable_ch,
 														 const chdb::dvbs_mux_t& mux, const chdb::service_t* service);
 
 
@@ -205,7 +210,7 @@ namespace devdb::fe {
 														 bool do_not_unsubscribe_on_failure);
 
 	std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
-						 resource_subscription_counts_t, std::optional<devdb::fe_t>>
+						 resource_subscription_counts_t, std::optional<devdb::unicable_ch_t>, std::optional<devdb::fe_t>>
 	subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id, const chdb::dvbs_mux_t& mux,
 											 const chdb::service_t* service,
 											 const subscription_options_t& tune_options,

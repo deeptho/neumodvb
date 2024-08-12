@@ -24,9 +24,10 @@ import copy
 
 
 from neumodvb.util import setup, lastdot
-from neumodvb.neumo_dialogs_gui import  LnbNetworkDialog_,LnbConnectionDialog_
+from neumodvb.neumo_dialogs_gui import  LnbNetworkDialog_,LnbConnectionDialog_, LnbUnicableChannelDialog_
 from neumodvb.lnbnetworklist import LnbNetworkGrid
 from neumodvb.lnbconnectionlist import LnbConnectionGrid
+from neumodvb.lnbunicablechannellist import LnbUnicableChannelGrid
 
 class LnbNetworkDialog(LnbNetworkDialog_):
     def __init__(self, parent, lnb, basic, readonly, *args, **kwds):
@@ -85,8 +86,6 @@ class LnbNetworkDialog(LnbNetworkDialog_):
         self.lnbnetworkgrid = None
         event.Skip()
 
-
-
 class LnbConnectionDialog(LnbConnectionDialog_):
     def __init__(self, parent, lnb, basic, readonly, *args, **kwds):
         self.basic = basic
@@ -142,4 +141,61 @@ class LnbConnectionDialog(LnbConnectionDialog_):
         self.lnbconnectionlist_panel.RemoveChild(self.lnbconnectiongrid)
         self.lnbconnectiongrid.Destroy()
         self.lnbconnectiongrid = None
+        event.Skip()
+
+class LnbUnicableChannelDialog(LnbUnicableChannelDialog_):
+    def __init__(self, parent, lnb, basic, readonly, *args, **kwds):
+        self.basic = basic
+        self.lnb = lnb
+        self.readonly = readonly
+        super().__init__(parent, *args, **kwds)
+        self.lnbunicablechannelgrid = None
+
+    def Prepare(self, lnbgrid):
+        self.lnbunicablechannelgrid = LnbUnicableChannelGrid(self.basic, self.readonly, self.lnbunicablechannellist_panel, \
+                                             wx.ID_ANY, size=(1, 1))
+        self.lnbgrid = lnbgrid
+        self.lnbunicablechannelgrid_sizer.Add(self.lnbunicablechannelgrid, 1, wx.ALL | wx.EXPAND | wx.FIXED_MINSIZE, 1)
+        self.Layout()
+
+    def CheckCancel(self, event):
+        if event.GetKeyCode() in [wx.WXK_ESCAPE, wx.WXK_CONTROL_C]:
+            self.OnTimer(None, ret=wx.ID_CANCEL)
+            event.Skip(False)
+        event.Skip()
+
+    def OnNew(self, event):
+        self.lnbunicablechannelgrid.OnNew(event)
+        event.Skip()
+
+    def CmdNew(self, event):
+        dtdebug("CmdNew")
+        f = wx.GetApp().frame
+        if not f.parent.edit_mode:
+            f.SetEditMode(True)
+        self.OnNew(event)
+
+    def OnDelete(self, event):
+        self.lnbunicablechannelgrid.OnDelete(event)
+        event.Skip()
+
+    def CmdDelete(self, event):
+        dtdebug("CmdDelete")
+        self.OnDelete(event)
+        return False
+
+    def OnDone(self, event):
+        self.lnbunicablechannelgrid.OnDone(event)
+        self.lnbunicablechannelgrid_sizer.Remove(1) #remove current grid
+        self.lnbunicablechannellist_panel.RemoveChild(self.lnbunicablechannelgrid)
+        lnbunicablechannelgrid = self.lnbunicablechannelgrid
+        self.lnbunicablechannelgrid = None
+        wx.CallAfter(lnbunicablechannelgrid.Destroy)
+        event.Skip()
+
+    def OnCancel(self, event):
+        self.lnbunicablechannelgrid_sizer.Remove(1) #remove current grid
+        self.lnbunicablechannellist_panel.RemoveChild(self.lnbunicablechannelgrid)
+        self.lnbunicablechannelgrid.Destroy()
+        self.lnbunicablechannelgrid = None
         event.Skip()

@@ -82,6 +82,10 @@ namespace devdb {
 	bool lnb_can_scan_sat_band(const devdb::lnb_t& lnb, const chdb::sat_t& sat,
 														 const chdb::band_scan_t& band_scan,
 														 bool disregard_networks, ss::string_* error=nullptr);
+	inline bool is_unicable_lnb(const devdb::lnb_t& lnb) {
+		return lnb.unicable_channels.size() > 0;
+	}
+
 
 };
 
@@ -140,7 +144,8 @@ namespace devdb {
 			USALS  = 0x4,
 			CONNECTIONS = 0x8,
 			NETWORKS = 0x10,
-			REF_MUX = 0x20,
+			UNICABLE_CHANNELS = 0x20,
+			REF_MUX = 0x40,
 			ALL = 0xffff,
 		};
 	};
@@ -195,6 +200,9 @@ namespace devdb::lnb {
 
 	bool add_or_edit_network(lnb_t& lnb, const usals_location_t& loc, lnb_network_t& network);
 	bool add_or_edit_connection(db_txn& devdb_txn, lnb_t& lnb, lnb_connection_t& connection);
+	bool add_or_edit_unicable_channel(db_txn& devdb_txn, devdb::lnb_t& lnb,
+																		devdb::unicable_ch_t& unicable_ch);
+
 
 	bool update_lnb_network_from_positioner(db_txn& devdb_wtxn, lnb_t&  lnb, int16_t current_sat_pos);
 	bool update_lnb_connection_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
@@ -304,6 +312,7 @@ namespace devdb::fe_subscription {
 		format_context::iterator format(const t&, format_context& ctx) const ; \
 	}
 
+declfmt(devdb::unicable_ch_t);
 declfmt(devdb::lnb_key_t);
 declfmt(devdb::lnb_t);
 declfmt(devdb::lnb_connection_t);

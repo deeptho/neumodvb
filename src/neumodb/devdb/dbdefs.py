@@ -185,6 +185,23 @@ dish = db_struct(name='dish',
                            )
                  )
 
+unicable_ch = db_struct(name='unicable_ch',
+                                 fname = 'fedev',
+                                 db = db,
+                                 type_id= lord('uc'),
+                                 version = 1,
+                                 primary_key = ('key', ('ch_id',)), #this key is needed for temporary database (per lnb)
+                                 fields = ((6, 'int8_t', 'unicable_version', 2), #channel index 0...31
+                                           (1, 'int8_t', 'ch_id', -1), #channel index 0...31
+                                           (5, 'int8_t', 'position', 0), #id of lnb if multiple are on cable
+                                           (2, 'int32_t', 'frequency', -1), #freq in Mhz on which output will be sent; -1 means
+                                           (3, 'bool',  'enabled', 'true'), #bit flag indicating if this slot is allowed
+                                           #by neumodvb on this computer
+                                           (4, 'int16_t',  'pin_code', '-1'),# -1: do not use pin
+                                           ))
+
+
+
 lnb_connection = db_struct(name='lnb_connection',
                 fname = 'fedev',
                 db = db,
@@ -209,11 +226,14 @@ lnb_connection = db_struct(name='lnb_connection',
                           (10, 'int8_t', 'card_no',  '-1'), #updated as adapters are discovered
                           (14, 'int8_t', 'rf_coupler_id',  '-1'), #defines coupling with other connnection
 
-                          # list of commands separted by ";"
+                          # list of commands separated by ";"
                           #can contain
-                          #  P send positioner commands
-                          #  ? send positioner commands while keeping voltage high (todo; problem is we do not know
-                          #  when we will reach destination)
+                          #  P send positioner usals commands
+                          #  X send positioner diseqc1.2 commands
+                          #  U send uncommitted switch command
+                          #  C send committed switch command
+                          #  M send tone burst
+                          # " " wait for 50ms
                           (11, 'ss::string<16>' , 'tune_string', '"UCP"'),
                           (12,  'ss::string<16>', 'connection_name'),
                 ))
@@ -265,10 +285,12 @@ lnb = db_struct(name='lnb',
                           (8, 'int32_t', 'freq_low', -1), # lowest frequency which can be tuned
                           (9, 'int32_t', 'freq_mid', -1), # frequency to switch between low/high band
                           (10, 'int32_t', 'freq_high', -1), # highest frequency wich can be tuned
+                          (21, 'int32_t', 'powerup_time', 200), #time to wait after powerup before sending unicable
                           (11,  'time_t', 'mtime'),
                           (12, 'bool', 'can_be_used', 'true'), #updated as adapters are discovered
                           (13, 'ss::vector<lnb_network_t,1>' , 'networks'),
                           (14, 'ss::vector<lnb_connection_t,1>' , 'connections'),
+                          (20, 'ss::vector<unicable_ch_t,32>', 'unicable_channels'),
                           (15, 'ss::vector<int32_t,2>' , 'lof_offsets'), #ofset of the local oscillator (one per band)
                 ))
 
@@ -346,6 +368,7 @@ fe_subscription = db_struct(name='fe_subscription',
                                      (8, 'int32_t', 'frequency', '0'),
                                      (10, 'int32_t', 'rf_coupler_id', '-1'),
                                      (12, 'chdb::mux_key_t' , 'mux_key'),
+                                     (15, 'std::optional<devdb::unicable_ch_t>', 'unicable_ch'), #unicable channel to use
                                      (13, 'ss::vector<subscription_data_t>' , 'subs'),
                 ))
 

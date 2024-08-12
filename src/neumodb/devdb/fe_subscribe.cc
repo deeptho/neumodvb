@@ -331,13 +331,14 @@ devdb::fe::subscribe_lnb_(db_txn& wtxn, subscription_id_t subscription_id,
 
 	if(!fe_and_use_counts)
 		return {{}, updated_old_dbfe, false}; //no frontend could be found
-	auto& [best_fe, best_use_counts ] = *fe_and_use_counts;
+	auto& [best_fe, best_use_counts, unicable_ch_id ] = *fe_and_use_counts;
 	assert(tune_options.may_move_dish  && tune_options.may_control_lnb);
 	bool is_master = !best_use_counts.is_shared();
 #ifndef NDEBUG
 	auto ret =
 #endif
-		devdb::fe::reserve_fe_lnb_for_sat_band(wtxn, subscription_id, tune_options, best_fe, best_use_counts, rf_path, lnb,
+		devdb::fe::reserve_fe_lnb_for_sat_band(wtxn, subscription_id, tune_options, best_fe, best_use_counts,
+																					 rf_path, lnb,
 																				 nullptr /*sat*/ , nullptr /*band_scan*/);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, updated_old_dbfe, is_master};
@@ -447,6 +448,7 @@ devdb::fe::	subscribe_rf_path(db_txn& devdb_wtxn, subscription_id_t subscription
 int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
 																			devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
 																			const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
+																			const std::optional<devdb::unicable_ch_t>& unicable_ch,
 																			const chdb::dvbs_mux_t& mux, const chdb::service_t* service)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
@@ -471,6 +473,7 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 	}
 
 	//the following settings imply that we request a non-exclusive subscription
+	sub.unicable_ch = unicable_ch;
 	sub.rf_path = rf_path;
 	sub.sat_pos = mux.k.sat_pos;
 	sub.pol = mux.pol;
@@ -510,7 +513,8 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 */
 //TODO: make this return subscribe_ret_t
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>,
-					 devdb::resource_subscription_counts_t, std::optional<devdb::fe_t> >
+					 devdb::resource_subscription_counts_t,
+					 std::optional<devdb::unicable_ch_t>, std::optional<devdb::fe_t> >
 devdb::fe::subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id,
 												 const chdb::dvbs_mux_t& mux,
 												 const chdb::service_t* service,
@@ -518,26 +522,26 @@ devdb::fe::subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id,
 												 const std::optional<devdb::fe_t>& oldfe,
 												 const devdb::fe_key_t* fe_key_to_release,
 												 bool do_not_unsubscribe_on_failure) {
-	auto[best_fe, best_rf_path, best_lnb, best_use_counts] =
+	auto[best_fe, best_rf_path, best_lnb, best_use_counts, unicable_ch] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux,
 																					tune_options,
 																					fe_key_to_release,
 																					false /*ignore_subscriptions*/);
 	if(do_not_unsubscribe_on_failure && ! best_fe)
-		return {{}, {}, {}, {}, {}}; //no frontend could be found
+		return {{}, {}, {}, {}, {}, {}}; //no frontend could be found
 	std::optional<devdb::fe_t> updated_old_dbfe;
 	if(oldfe)
 		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe->k);
 	if(!best_fe)
-		return {{}, {}, {}, {}, updated_old_dbfe}; //no frontend could be found
+		return {{}, {}, {}, {}, {}, updated_old_dbfe}; //no frontend could be found
 #ifndef NDEBUG
 	auto ret =
 #endif
-		devdb::fe::reserve_fe_lnb_for_mux(wtxn, subscription_id, *best_fe, *best_rf_path, *best_lnb, best_use_counts, mux,
-																							 service);
+		devdb::fe::reserve_fe_lnb_for_mux(wtxn, subscription_id, *best_fe, *best_rf_path, *best_lnb, best_use_counts,
+																			unicable_ch, mux, service);
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
 
-	return {best_fe, best_rf_path, best_lnb, best_use_counts, updated_old_dbfe};
+	return {best_fe, best_rf_path, best_lnb, best_use_counts, unicable_ch, updated_old_dbfe};
 }
 
 template<typename mux_t>
@@ -654,7 +658,8 @@ devdb::fe::subscribe_sat_band_(db_txn& wtxn, subscription_id_t subscription_id,
 #endif
 		devdb::fe::reserve_fe_lnb_for_sat_band(wtxn, subscription_id,
 																					 tune_options,
-																					 *best_fe, best_use_counts, *best_rf_path, *best_lnb,
+																					 *best_fe, best_use_counts,
+																					 *best_rf_path, *best_lnb,
 																					 &sat, &band_scan);
 
 	assert(ret==0); //reservation cannot fail as we have a write lock on the db
@@ -789,9 +794,10 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 		std::optional<devdb::lnb_t> lnb_;
 		devdb::resource_subscription_counts_t use_counts_;
 		std::optional<devdb::fe_t> updated_old_dbfe;
+		std::optional<devdb::unicable_ch_t> unicable_ch;
 
 		if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
-			std::tie(fe_, rf_path_, lnb_, use_counts_, updated_old_dbfe) =
+			std::tie(fe_, rf_path_, lnb_, use_counts_, unicable_ch, updated_old_dbfe) =
 				devdb::fe::subscribe_mux_helper(
 					wtxn, sret.subscription_id, mux, service,
 					tune_options,
@@ -819,7 +825,10 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			assert(fe.sub.config_id >= 0);
 			sret.tune_pars.owner = fe.sub.owner;
 			sret.tune_pars.config_id = fe.sub.config_id;
-
+			if(fe.sub.unicable_ch)
+				sret.tune_pars.unicable_ch = fe.sub.unicable_ch;
+			else
+				sret.tune_pars.unicable_ch = {};
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				sret.tune_pars.send_lnb_commands = ! use_counts_.is_shared();
 				assert(fe.sub.owner == getpid());

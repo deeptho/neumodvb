@@ -218,6 +218,11 @@ struct dvb_diseqc_master_cmd {
 	__u8 msg_len;
 };
 
+struct dvb_diseqc_long_master_cmd {
+	__u8 msg[16];
+	__u8 msg_len;
+};
+
 /**
  * struct dvb_diseqc_slave_reply - DiSEqC received data
  *
@@ -1182,15 +1187,17 @@ enum fe_reservation_result {
 };
 
 enum fe_reservation_mode {
-	FE_RESERVATION_MODE_MASTER_OR_SLAVE = 0,
-	FE_RESERVATION_MODE_MASTER = 1,
-	FE_RESERVATION_MODE_SLAVE = 2,
+	FE_RESERVATION_MODE_MASTER_OR_SLAVE = 0, //driver will decide if caller can control voltage/tone/switches
+	FE_RESERVATION_MODE_MASTER = 1, //caller needs to control voltage/tone/switches
+	FE_RESERVATION_MODE_SLAVE = 2, //caller does not want to control voltage/tone/switches
 };
 
 struct fe_rf_input_control {
 	pid_t owner;
 	__s32 config_id;
-	__s32 rf_in;
+	__s8 allow_unicable; //allow slave reservations to perform unicable related voltage changes and diseqc commands
+	__s8 reserved;
+	__s16 rf_in;
 	enum fe_reservation_mode mode;
 };
 
@@ -1236,6 +1243,7 @@ struct fe_rf_input_control {
 
 
 #define FE_GET_EXTENDED_INFO		_IOR('o', 86, struct dvb_frontend_extended_info)
+#define FE_DISEQC_SEND_LONG_MASTER_CMD  _IOW('o', 87, struct dvb_diseqc_long_master_cmd)
 
 #if defined(__DVB_CORE__) || !defined(__KERNEL__)
 

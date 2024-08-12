@@ -54,6 +54,7 @@ struct tune_pars_t {
 	std::optional<devdb::dish_t> dish;
 	bool move_dish{false};
 	bool send_lnb_commands{false};
+	std::optional<devdb::unicable_ch_t> unicable_ch;
 	int owner{-1};
 	int config_id{-1};
 };

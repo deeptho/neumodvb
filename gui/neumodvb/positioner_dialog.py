@@ -178,6 +178,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         rf_path = evt.rf_path
         dtdebug(f"selected rf_path: {rf_path}")
         wx.CallAfter(self.ChangeRfPath, rf_path)
+
     def OnWindowDestroy(self, evt):
         dtdebug('TuneMuxPanel destroyed')
 
@@ -439,6 +440,7 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.tuned_ = False
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()
+
     def OnAbortTune(self, event):
         dtdebug(f"positioner: unsubscribing")
         self.last_tuned_mux = None
@@ -855,6 +857,8 @@ class PositionerDialog(PositionerDialog_):
         set_gtk_window_name(self, "positioner") #needed to couple to css stylesheet
         self.update_constellation = True
         self.tune_mux_panel.constellation_toggle.SetValue(self.update_constellation)
+        self.Bind(EVT_RF_PATH_SELECT, self.CmdSelectRfPath)
+
     @property
     def lnb(self):
         return self.tune_mux_panel.lnb
@@ -1224,6 +1228,15 @@ class PositionerDialog(PositionerDialog_):
         dtdebug("Set west limit")
         self.positioner_command(pydevdb.positioner_cmd_t.LIMIT_WEST)
         event.Skip()
+
+    def CmdSelectRfPath(self, evt):
+        """
+        called when user selects an rf_path from a list
+        """
+        rf_path = evt.rf_path
+        dtdebug(f"selected rf_path: {rf_path}")
+        self.tune_mux_panel.rf_path = rf_path # needed because self.lnb_connection call below
+        wx.CallAfter(self.diseqc_type_choice.SetValue, self.lnb_connection)
 
 def show_positioner_dialog(caller, sat=None, rf_path=None, lnb=None, mux=None):
     dlg = PositionerDialog(caller, sat=sat, rf_path=rf_path, lnb=lnb, mux=mux)

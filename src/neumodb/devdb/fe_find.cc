@@ -109,7 +109,7 @@ std::optional<devdb::fe_t> fe::find_best_fe_for_dvtdbc(
 devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 																				const fe_subscription_t& s, //desired subscription_parameter
 																				const devdb::fe_key_t* fe_key_to_release,
-																				bool on_positioner, bool is_unicable_lnb) {
+																				bool on_positioner, bool is_unicable_connection) {
 	using namespace  devdb::fe_subscription;
 	devdb::resource_subscription_counts_t ret;
 	auto c = devdb::find_first<devdb::fe_t>(rtxn);
@@ -138,7 +138,7 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 			assert(fe.sub.config_id>=0);
 			assert(fe.sub.owner>=0);
 			//Note: this could be our subscription, but only if it is shared by some other subscription
-			bool same_lnb = fe.sub.rf_path == s.rf_path;
+			bool same_rf_path = fe.sub.rf_path == s.rf_path;
       /* dish_id < 0 is a special case: it signifies that the dish is different
 				 from any other dish*/
 			bool same_dish = fe.sub.dish_id == s.dish_id && s.dish_id >=0;
@@ -157,7 +157,7 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 				wants exclusive control, then there is a conflict
 			 */
 			if( (is_exclusive(fe.sub) || is_exclusive(s)) &&
-					(same_lnb || same_dish || same_tuner || same_rf_coupler))
+					(same_rf_path || same_dish || same_tuner || same_rf_coupler))
 			return {};
 
 			/*
@@ -168,11 +168,11 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 				return {};
 
 			//check for incompatible parameters
-			if(same_lnb && !same_sat_band_pol && !is_unicable_lnb)
+			if(same_rf_path && !same_sat_band_pol && !is_unicable_connection)
 				return {};
-			if(same_tuner && (!same_lnb || (! same_sat_band_pol && ! is_unicable_lnb)))
+			if(same_tuner && (!same_rf_path || (! same_sat_band_pol && ! is_unicable_connection)))
 				return {}; //we can only reuse tuner for same sat, band and pol
-			ret.lnb += same_lnb;
+			ret.rf_path += same_rf_path;
 			ret.rf_coupler += same_rf_coupler;
 			ret.tuner += same_tuner;
 			ret.positioner += same_positioner;

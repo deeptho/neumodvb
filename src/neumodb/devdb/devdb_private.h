@@ -73,7 +73,7 @@ namespace devdb {
 
 	struct resource_subscription_counts_t {
 		int positioner{0};
-		int lnb{0};
+		int rf_path{0};
 		int rf_coupler{0};
 		int tuner{0};
 		int config_id{-1};
@@ -82,15 +82,12 @@ namespace devdb {
 		/*
 			if true, then no diseqc can be used, voltage and tone cannot be changed
 		*/
-		bool is_shared() const {
+		bool can_control_lnb() const {
 			bool ret=
-				(lnb > 0) || //we share tuner and lnb
+				(rf_path > 0) || //we share tuner and lnb
 				(tuner > 0) || //we share tuner and lnb
-				(rf_coupler > 0) || //we share an rf_coupler
-				(positioner > 0); //we share a positioner
-			assert(ret == (config_id>=0));
-			assert(ret == (owner>=0));
-			return ret;
+				(rf_coupler > 0); //we share an rf_coupler
+			return !ret;
 		}
 
 		bool shares_positioner() const {
@@ -154,7 +151,7 @@ namespace devdb::fe {
 	std::optional<resource_subscription_counts_t>
 	check_for_resource_conflicts(db_txn& rtxn,
 															 const fe_subscription_t& s, //desired subscription_parameter
-															 const devdb::fe_key_t* fe_key_to_release, bool on_positioner, bool is_unicable_lnb);
+															 const devdb::fe_key_t* fe_key_to_release, bool on_positioner, bool is_unicable_connection);
 
 	bool is_subscribed(const fe_t& fe);
 

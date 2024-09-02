@@ -258,7 +258,7 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 	fe = c.current();
 	auto& sub = fe.sub;
 
-	if(use_counts.config_id<0) {
+	if(use_counts.can_control_lnb()) {
 		assert(sub.config_id <0);
 		assert(sub.owner <0);
 		sub.config_id = next_config_id++;
@@ -331,7 +331,7 @@ devdb::fe::subscribe_lnb_(db_txn& wtxn, subscription_id_t subscription_id,
 		return {{}, updated_old_dbfe, false}; //no frontend could be found
 	auto& [best_fe, best_use_counts, unicable_ch_id ] = *fe_and_use_counts;
 	assert(tune_options.may_move_dish);
-	bool is_master = !best_use_counts.is_shared();
+	bool is_master = best_use_counts.can_control_lnb();
 #ifndef NDEBUG
 	auto ret =
 #endif
@@ -378,11 +378,11 @@ devdb::fe::subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 		return failed(subscription_id, updated_old_dbfe);
 	}
 	auto lnb = c.current();
-	auto [fe_, updated_old_dbfe, is_master] = devdb::fe::subscribe_lnb_(
+	auto [fe_, updated_old_dbfe, send_lnb_commands] = devdb::fe::subscribe_lnb_(
 		wtxn, sret.subscription_id, rf_path, lnb, tune_options, oldfe_, fe_key_to_release);
 
 	sret.retune = false;
-	sret.tune_pars.send_lnb_commands = is_master;
+	sret.tune_pars.send_lnb_commands = send_lnb_commands;
 	if(fe_) {
 		assert(fe_->sub.owner == getpid());
 		assert(fe_->sub.config_id >= 0);
@@ -455,7 +455,7 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 	fe = c.current();
 	auto& sub = fe.sub;
 
-	if(use_counts.config_id<0) {
+	if(use_counts.can_control_lnb()) {
 		assert(sub.config_id <0);
 		assert(sub.owner <0);
 		sub.config_id = next_config_id++;
@@ -770,7 +770,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			}
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				assert(fe.sub.subs.size() ==1 ||
-							 (!tune_options.may_move_dish  && !tune_options.may_control_lnb &&
+							 (!tune_options.may_move_dish &&
 								!fe_subscription::may_move_dish(fe.sub) && ! fe_subscription::may_change_lnb(fe.sub)));
 			}
 			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
@@ -828,7 +828,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			else
 				sret.tune_pars.unicable_ch = {};
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
-				sret.tune_pars.send_lnb_commands = ! use_counts_.is_shared();
+				sret.tune_pars.send_lnb_commands = use_counts_.can_control_lnb();
 				assert(fe.sub.owner == getpid());
 				assert(fe.sub.config_id >=0);
 				sret.tune_pars.owner = fe.sub.owner;
@@ -887,7 +887,7 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 			bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
 			sret.retune = is_same_fe;
 			sret.change_service = true;
-			sret.tune_pars.send_lnb_commands = ! use_counts_.is_shared();
+			sret.tune_pars.send_lnb_commands = use_counts_.can_control_lnb();
 			assert(fe.sub.owner != -1);
 			assert(fe.sub.config_id >= 0);
 			sret.tune_pars.owner = fe.sub.owner;

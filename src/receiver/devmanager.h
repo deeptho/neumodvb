@@ -294,7 +294,7 @@ public:
 		0: tone was already correct
 		1: tone was set as wanted
 	 */
-	int set_voltage(int fefd, fe_sec_voltage v, int sleeptime_ms=100);
+	int set_voltage(int fefd, fe_sec_voltage v, bool for_unicable_command, int sleeptime_ms=100);
 
 	int set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tune_pars);
 

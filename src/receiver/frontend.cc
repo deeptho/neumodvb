@@ -937,7 +937,7 @@ int dvb_frontend_t::unicable1_tune(const devdb::lnb_t& lnb,
 
 		assert(sec_status.voltage == SEC_VOLTAGE_13);
 		//unicable2 requires sleeping 2-22 milliseconds
-		this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, 20 /*sleeptime_ms*/);
+		this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, true /*for_unicable_command*/, 20 /*sleeptime_ms*/);
 
 		if ((err = ioctl(fefd, FE_DISEQC_SEND_MASTER_CMD, &cmd))) {
 			dterrorf("problem sending the DiseqC message");
@@ -945,7 +945,7 @@ int dvb_frontend_t::unicable1_tune(const devdb::lnb_t& lnb,
 		}
 		msleep(100);
 		//unicable requires sleeping between 2 and 60ms
-		this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, 40 /*sleeptime_ms*/);
+		this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, false /*for_unicable_command*/, 40 /*sleeptime_ms*/);
 		if (ioctl(fefd, FE_SET_VOLTAGE, SEC_VOLTAGE_13) < 0) {
 			dterrorf("problem setting voltage");
 			return -1;
@@ -1007,7 +1007,7 @@ int dvb_frontend_t::unicable2_tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux
 
 	//unicable requires sleeping between 2 and 60ms
 	msleep(15);
-	this->sec_status.set_voltage(fefd, SEC_VOLTAGE_13);
+	this->sec_status.set_voltage(fefd, SEC_VOLTAGE_13, false /*for_unicable_command*/);
 	//msleep(100);
 	return 0;
 }
@@ -1032,7 +1032,7 @@ int dvb_frontend_t::unicable2_end(int fefd, const devdb::lnb_t& lnb,  const devd
 
 	//msleep(200);
 	//unicable2 requires sleeping 2-22 milliseconds
-	if(this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, 20 /*sleeptime_ms*/)<0) {
+	if(this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, true /*for_unicable_command*/, 20 /*sleeptime_ms*/)<0) {
 		dterrorf("problem sending the DiseqC message");
 		return -1;
 	}
@@ -1044,7 +1044,7 @@ int dvb_frontend_t::unicable2_end(int fefd, const devdb::lnb_t& lnb,  const devd
 
 	//unicable requires sleeping between 2 and 60ms
 	msleep(15);
-	this->sec_status.set_voltage(fefd, SEC_VOLTAGE_13);
+	this->sec_status.set_voltage(fefd, SEC_VOLTAGE_13, false /*for_unicable_command*/);
 	//msleep(100);
 	return 0;
 }
@@ -1913,7 +1913,7 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 
 	auto w = ts.writeAccess();
 	auto fefd = w->fefd;
-	if(this->sec_status.set_voltage(fefd, lnb_voltage) <0)  {
+	if(this->sec_status.set_voltage(fefd, lnb_voltage, false /*for_unicable_command*/) <0)  {
 		dterrorf("problem Setting the Voltage");
 		return -1;
 	}
@@ -2244,7 +2244,7 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(int16_t sat_pos, chdb::sat
 	*/
 	assert(sat_pos!=sat_pos_none || skip_positioner);
 	auto fefd = this->ts.readAccess()->fefd;
-	this->sec_status.set_voltage(fefd, lnb_voltage);
+	this->sec_status.set_voltage(fefd, lnb_voltage, false /*for_unicable_command*/);
 
 	dtdebugf("SENDING diseqc: retune_count={:d} mode={:d}", (int) this->sec_status.retune_count,
 					 (int) this->ts.readAccess()->tune_options.subscription_type);
@@ -2284,7 +2284,14 @@ int sec_status_t::set_tone(int fefd, fe_sec_tone_mode mode) {
 	return 1;
 }
 
-int sec_status_t::set_voltage(int fefd, fe_sec_voltage v, int sleeptime_ms) {
+/*
+	for_unicable_command: if true, v must be 19 bolt and unicable mode must be enabled
+	In this case the ioctl may fail and will be retried num_tries times.
+ */
+int sec_status_t::set_voltage(int fefd, fe_sec_voltage v, bool for_unicable_command, int sleeptime_ms) {
+	int num_tries=10;
+	int ret = -1;
+	assert (v== SEC_VOLTAGE_18 || ! for_unicable_command);
 	if ((int)v < 0) {
 		assert(0);
 		return -1;
@@ -2320,7 +2327,7 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v, int sleeptime_ms) {
 		TODO: replace msleep with sleep_until. This would take into account driver sleep
 	 */
 	if (must_sleep_extra  && v == SEC_VOLTAGE_18) {
-		if (ioctl(fefd, FE_SET_VOLTAGE, SEC_VOLTAGE_13) < 0) {
+		if (ioctl(fefd, FE_SET_VOLTAGE, SEC_VOLTAGE_13, false /*for_unicable_command*/) < 0) {
 			dterrorf("problem setting voltage {:d}", voltage);
 			return -1;
 		}
@@ -2330,8 +2337,16 @@ int sec_status_t::set_voltage(int fefd, fe_sec_voltage v, int sleeptime_ms) {
 	}
 
 	voltage = v;
-
-	if (ioctl(fefd, FE_SET_VOLTAGE, voltage) < 0) {
+	for(int i=0 ; i <num_tries; ++i) {
+		ret = ioctl(fefd, FE_SET_VOLTAGE, voltage);
+		if(ret== FE_UNICABLE_DISEQC_RETRY) {
+			dtdebugf("Received  FE_FE_UNICABLE_DISEQC_RETRY: {}/{}", i, num_tries);
+			msleep(20);
+			continue;
+		}
+		break;
+	}
+	if (ret < 0) {
 		dterrorf("problem setting voltage {:d}", voltage);
 		return -1;
 	}
@@ -2353,7 +2368,7 @@ int sec_status_t::set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tu
 	ic.config_id = tune_pars.config_id;
 	ic.rf_in = new_rf_input;
 	ic.mode = tune_pars.send_lnb_commands ? 	FE_RESERVATION_MODE_MASTER : FE_RESERVATION_MODE_SLAVE;
-	dtdebugf("Changing RF_INPUT from {:d}/{:d} to {:d}/{:d}",
+	dtdebugf("Changing RF_INPUT from rf_in={:d}/config_id={:d} to rf_in={:d}/config_id={:d}",
 					 this->ic.rf_in, this->ic.config_id,  ic.rf_in, ic.config_id);
 	if(ic.rf_in == this->ic.rf_in && ic.config_id == this->ic.config_id) {
 		dtdebugf("No RF_INPUT change needed: rf_input={:d}/{:d} mode={:d}", ic.rf_in, ic.config_id, (int)ic.mode);
@@ -2363,8 +2378,7 @@ int sec_status_t::set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tu
 	if(ic.rf_in == this->ic.rf_in && ic.config_id != this->ic.config_id) {
 		dtdebugf("No RF_INPUT change needed but new config: rf_input={:d}/{:d} mode={:d}", ic.rf_in, ic.config_id, (int)ic.mode);
 	}
-
-	auto ret = (fe_reservation_result) ioctl(fefd, FE_SET_RF_INPUT, &ic);
+	auto ret = (fe_ioctl_result) ioctl(fefd, FE_SET_RF_INPUT, &ic);
 	switch(ret) {
 	case FE_RESERVATION_NOT_SUPPORTED:
 		assert(tune_pars.send_lnb_commands);
@@ -2492,7 +2506,7 @@ int dvb_frontend_t::do_lnb(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_volta
 
 	auto fefd = this->ts.readAccess()->fefd;
 
-	this->sec_status.set_voltage(fefd, lnb_voltage);
+	this->sec_status.set_voltage(fefd, lnb_voltage, false /*for_unicable_command*/);
 	/*select the proper lnb band
 		22KHz: off = low band; on = high band
 	*/
@@ -2520,7 +2534,7 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 	auto new_tone = SEC_TONE_OFF;
 
 	if(new_voltage != old_voltage)
-		this->sec_status.set_voltage(fefd, new_voltage);
+		this->sec_status.set_voltage(fefd, new_voltage, false /*for_unicable_command*/);
 
 	//turn tone off to send command
 	if(new_tone != old_tone)
@@ -2536,7 +2550,7 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 		old_tone = SEC_TONE_OFF; //avoid unknown
 
 	if (old_voltage != new_voltage && /* avoid the case where old voltage was "unknown" */
-			this->sec_status.set_voltage(fefd, old_voltage) < 0)
+			this->sec_status.set_voltage(fefd, old_voltage, false /*for_unicable_command*/) < 0)
 		return -1;
 	if (old_tone != new_tone && /* avoid the case where old mode was "unknown" */
 			this->sec_status.set_tone(fefd, old_tone) < 0)

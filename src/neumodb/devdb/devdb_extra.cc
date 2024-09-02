@@ -833,7 +833,7 @@ devdb::dish_t dish::schedule_move(db_txn& devdb_wtxn, devdb::lnb_t& lnb_,
 		return db_dish;
 	dish.mtime = system_clock_t::to_time_t(now);
 
-	assert(usals_pos != sat_pos_none);
+	assert(target_usals_pos != sat_pos_none);
 	dish.target_usals_pos = target_usals_pos;
 	if(move_has_finished) {
 		dish.cur_usals_pos = target_usals_pos;

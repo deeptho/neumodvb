@@ -18,11 +18,10 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
+#include "util/dtassert.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "devdb_private.h"
-#include "util/dtassert.h"
 #include <iomanip>
 #include <iostream>
 #include <bitset>
@@ -189,7 +188,6 @@ std::optional<devdb::unicable_ch_t>
 																					 const devdb::fe_key_t* fe_key_to_release) {
 	using namespace  devdb::fe_subscription;
 	auto c = devdb::find_first<devdb::fe_t>(rtxn);
-	assert(s.owner>=0);
 	std::bitset<32> available;
 	int idx=0;
 	for (const auto& uc: lnb.unicable_channels) {

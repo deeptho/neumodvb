@@ -18,18 +18,16 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
+#include "util/dtassert.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/neumofrontend.h"
 #include "devdb_private.h"
-#include "util/dtassert.h"
 #include <fmt/std.h>
 #include <iomanip>
 #include <iostream>
 #include <signal.h>
 
 #include "../util/neumovariant.h"
-
 using namespace devdb;
 static
 std::tuple<bool,std::optional<devdb::dish_t>>
@@ -141,8 +139,8 @@ static inline subscribe_ret_t reuse_other_subscription(
 	sret.tune_pars.send_lnb_commands = false;
 	sret.tune_pars.move_dish = false;
 	sret.tune_pars.dish = {};
-	assert(new_fe.sub.owner == getpid());
-	assert(new_fe.sub.config_id != -1);
+	assert(new_fe->sub.owner == getpid());
+	assert(new_fe->sub.config_id != -1);
 	sret.tune_pars.owner = new_fe->sub.owner;
 	sret.tune_pars.config_id = new_fe->sub.config_id;
 	return sret;
@@ -159,8 +157,8 @@ static inline subscribe_ret_t new_service(
 	sret.tune_pars.send_lnb_commands = false;
 	sret.tune_pars.move_dish = false;
 	sret.tune_pars.dish = {};
-	assert(new_fe.sub.owner == getpid());
-	assert(new_fe.sub.config_id != -1);
+	assert(new_fe->sub.owner == getpid());
+	assert(new_fe->sub.config_id != -1);
 	sret.tune_pars.owner = new_fe->sub.owner;
 	sret.tune_pars.config_id = new_fe->sub.config_id;
 	return sret;
@@ -332,7 +330,7 @@ devdb::fe::subscribe_lnb_(db_txn& wtxn, subscription_id_t subscription_id,
 	if(!fe_and_use_counts)
 		return {{}, updated_old_dbfe, false}; //no frontend could be found
 	auto& [best_fe, best_use_counts, unicable_ch_id ] = *fe_and_use_counts;
-	assert(tune_options.may_move_dish  && tune_options.may_control_lnb);
+	assert(tune_options.may_move_dish);
 	bool is_master = !best_use_counts.is_shared();
 #ifndef NDEBUG
 	auto ret =
@@ -386,8 +384,8 @@ devdb::fe::subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 	sret.retune = false;
 	sret.tune_pars.send_lnb_commands = is_master;
 	if(fe_) {
-		assert(fe_.sub.owner == getpid());
-		assert(fe_.sub.config_id >= 0);
+		assert(fe_->sub.owner == getpid());
+		assert(fe_->sub.config_id >= 0);
 		sret.tune_pars.owner = fe_->sub.owner;
 		sret.tune_pars.config_id = fe_->sub.config_id;
 		bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
@@ -733,7 +731,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				}
 				if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 					assert(fe.sub.subs.size() ==1 ||
-								 (!tune_options.may_move_dish  && !tune_options.may_control_lnb &&
+								 (!tune_options.may_move_dish  &&
 									!fe_subscription::may_move_dish(fe.sub) && ! fe_subscription::may_change_lnb(fe.sub)));
 				}
 				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id, fe_, updated_old_dbfe);
@@ -960,7 +958,6 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 			continue;
 		}
 		for(auto & sub: fe.sub.subs) { //loop over all subscriptions
-			assert(sub.sat_pos == sub.mux_key.sat_pos);
 			bool rf_path_matches = true;
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				rf_path_matches = tune_options.rf_path_is_allowed(fe.sub.rf_path);

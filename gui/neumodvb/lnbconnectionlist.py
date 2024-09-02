@@ -69,18 +69,19 @@ class LnbConnectionTable(NeumoTable):
     card_rf_input_sfn = lambda x: x[2].card_rf_input_sfn(x[0], x[1])
     all_columns = \
         [#CD(key='card_mac_address',  label='MAC', basic=True, no_combo=False, readonly=False,
-         #   dfn=adapter_fn, example=" AA:BB:CC:DD:EE:FF "),
-         CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="TBS 6909X C0#3 ",
-            dfn=card_rf_input_dfn, sfn=card_rf_input_sfn),
-         CD(key='enabled',   label='ena-\nbled', basic=False),
-         CD(key='can_be_used',   label='avail\nable', basic=False),
-         CD(key='priority',  label='prio'),
-         CD(key='rf_coupler_id',  label='rf\ncoupler', basic=False),
-         CD(key='rotor_control',  label='rotor\ncontrol', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR Master USALS'),
-         CD(key='diseqc_10',  label='diseqc\n10'),
-         CD(key='diseqc_11',  label='diseqc\n11'),
-         #CD(key='diseqc_mini',  label='diseqc\nmini'),
-         CD(key='tune_string',  label='tune\nstring'),
+            #   dfn=adapter_fn, example=" AA:BB:CC:DD:EE:FF "),
+            CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="TBS 6909X C0#3 ",
+               dfn=card_rf_input_dfn, sfn=card_rf_input_sfn),
+            CD(key='enabled',   label='ena-\nbled', basic=False),
+            CD(key='can_be_used',   label='avail\nable', basic=False),
+            CD(key='priority',  label='prio'),
+            CD(key='rf_coupler_id',  label='rf\ncoupler', basic=False),
+            CD(key='rotor_control',  label='rotor\ncontrol', basic=False, dfn=lambda x: lastdot(x[1]), example='ROTOR Master USALS'),
+            CD(key='diseqc_10',  label='diseqc\n10'),
+            CD(key='diseqc_11',  label='diseqc\n11'),
+            CD(key='unicable',  label='unicable', basic=False),
+            #CD(key='diseqc_mini',  label='diseqc\nmini'),
+            CD(key='tune_string',  label='tune\nstring'),
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):

@@ -302,12 +302,12 @@ fe::find_best_fe_for_lnb(
 		return false;
 	};
 
-	bool is_unicable_lnb = devdb::is_unicable_lnb(lnb);
+	bool is_unicable_connection = devdb::is_unicable_lnb(lnb) && lnb_connection.unicable;
 	std::optional<devdb::unicable_ch_t> available_unicable_ch;
-	if(is_unicable_lnb)
+	if(is_unicable_connection)
 		available_unicable_ch = devdb::lnb::select_unicable_ch(rtxn, lnb, fe_key_to_release);
 
-	if(is_unicable_lnb && !available_unicable_ch)
+	if(is_unicable_connection && !available_unicable_ch)
 		return {};
 
 	auto c = fe_t::find_by_card_mac_address(rtxn, rf_path.card_mac_address, find_type_t::find_eq,
@@ -357,7 +357,7 @@ fe::find_best_fe_for_lnb(
 			s.dish_id = lnb.k.dish_id;
 			s.dish_usals_pos = lnb.on_positioner ? s.usals_pos : lnb.usals_pos;
 			s.rf_coupler_id = lnb_connection.rf_coupler_id;
-			auto use_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner, is_unicable_lnb);
+			auto use_counts_ = check_for_resource_conflicts(rtxn, s, fe_key_to_release, lnb.on_positioner, is_unicable_connection);
 			if(!use_counts_) {
 				//dtdebugf("Cannot use this fe because of resource conflicts");
 				continue;

@@ -218,7 +218,8 @@ lnb_connection = db_struct(name='lnb_connection',
                           (6, 'uint8_t' , 'diseqc_mini'),
                           (7, 'int8_t' , 'diseqc_10', '-1'),
                           (8, 'int8_t' , 'diseqc_11', '-1'),
-                          # disecqc12 is not included here as this is part of the dish
+                          (15, 'bool' , 'unicable', 'false'),
+                          # disecqc12 is not included here as this is part of the dish control commands
 
                           #Sometimes more than one network can be received on the same lnb
                           #for an lnb

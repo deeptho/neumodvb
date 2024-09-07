@@ -962,6 +962,7 @@ void mpv_subscription_t::close(bool unsubscribe) {
 int mpv_subscription_t::stop_play() {
 	auto subscription_id = subscriber->get_subscription_id();
 	dtdebugf("STOP SUBSCRIPTION {:d}", (int) subscription_id);
+	subscriber->unsubscribe();
 	std::scoped_lock lck(m);
 	if (mpm) {
 		mpm->close();
@@ -970,7 +971,6 @@ int mpv_subscription_t::stop_play() {
 		}
 	}
 
-	subscriber->unsubscribe();
 	if (mpm)
 		mpm.reset();
 	return 0;

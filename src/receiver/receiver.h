@@ -510,7 +510,7 @@ public:
 	epgdb::epgdb_t epgdb;
 	recdb::recdb_t recdb;
 
-	using subscriber_map = safe::Safe<std::map<void*, ssptr_t>, std::recursive_mutex>;
+	using subscriber_map = safe::Safe<std::map<void*, ssptr_t>, std::shared_mutex>;
 	subscriber_map subscribers;//indexed by address
 
 	std::shared_ptr<subscriber_t> global_subscriber; //for sending error messages

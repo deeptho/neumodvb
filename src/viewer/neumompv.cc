@@ -221,8 +221,6 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK
 	} else {
 		dterrorf("ONRENDER NOT READY");
 	}
-
-	static int called = 0;
 	// glClearColor(0.0, 0.0, 0.0, 0.0);
 	// glClear(GL_COLOR_BUFFER_BIT);
 	SetCurrent();
@@ -1146,12 +1144,9 @@ void MpvPlayer_::notify(const signal_info_t& signal_info) {
 	auto* as = subscription.mpm->active_service();
 	if (!as)
 		return;
-	if (as->get_adapter_lnb_key() == signal_info.stat.k.rf_path.lnb) {
-		playback_info_t playback_info = subscription.mpm->get_current_program_info();
-		gl_canvas->overlay.set_signal_info(signal_info, playback_info);
-		subscription.show_radiobg = (playback_info.service.media_mode == chdb::media_mode_t::RADIO);
-		return;
-	}
+	playback_info_t playback_info = subscription.mpm->get_current_program_info();
+	gl_canvas->overlay.set_signal_info(signal_info, playback_info);
+	subscription.show_radiobg = (playback_info.service.media_mode == chdb::media_mode_t::RADIO);
 	return;
 }
 

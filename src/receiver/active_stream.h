@@ -44,6 +44,7 @@ namespace chdb {
 
 namespace devdb {
 	struct lnb_key_t;
+	struct rf_path_t;
 }
 
 
@@ -365,7 +366,7 @@ public:
 
 	EXPORT int get_adapter_no() const; //thread safe because it only accesses constant members
 	EXPORT int64_t get_adapter_mac_address() const; //thread safe because it only accesses constant members
-	EXPORT devdb::lnb_key_t get_adapter_lnb_key() const; //thread safe because it only accesses constant members
+	EXPORT devdb::rf_path_t get_adapter_rf_path() const;
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_stream_t(receiver_t& receiver, const std::shared_ptr<stream_reader_t>& reader)

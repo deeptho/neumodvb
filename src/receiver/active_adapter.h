@@ -203,9 +203,8 @@ public: //this data is safe to access from other threads
 		return current_tp();
 		//@todo make thread safe
 	};
-
-	inline devdb::lnb_key_t get_lnb_key() const {
-		return fe->ts.readAccess()->reserved_lnb.k;
+	inline devdb::rf_path_t get_rf_path() const {
+		return fe->ts.readAccess()->reserved_rf_path;
 	}
 
 	bool uses_lnb(const devdb::lnb_key_t& lnb_key) const {

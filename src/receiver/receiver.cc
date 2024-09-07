@@ -1685,29 +1685,32 @@ void receiver_t::on_signal_info(const signal_info_t& signal_info,
 			auto* ms = ms_shared_ptr.get();
 			if (!ms) //scanning subscribers are handled by scanner
 				continue;
-			auto mpv = ms->get_mpv();
-			if(mpv) {
-				mpv->notify(signal_info);
-			}
-			if(ms->is_scanning()) {
-				has_scanning_subscribers = true;
-				continue;
-			}
 			/*
 				a subscriber can either directly handle the received signal info via
 				ms->notify_signal_info, or indirectly via scanner->notify_signal_info(*ms...)
 			 */
+			if(ms->is_scanning()) {
+				has_scanning_subscribers = true;
+				continue;
+			}
+			auto subscription_id = ms->get_subscription_id();
+			if(!subscription_ids.contains(subscription_id))
+				continue;
+			auto mpv = ms->get_mpv();
+			if(mpv) {
+				mpv->notify(signal_info);
+			} else {
 
-			/*Notify positioner dialog screens and spectrum_dialog screens which
-				are busy tuning a single mux.
+				/*Notify positioner dialog screens and spectrum_dialog screens which
+					are busy tuning a single mux.
 
-				Note that during a blindscan, spectrum_dialog
-				will not react to the following call, as they have no active subscriber_t, i.e.,
-				one associated with a specific adapter or lnb. A "blindscan all" spectrum_dialog will
-				ignore the following call
-			*/
-			if(subscription_ids.contains(ms->get_subscription_id()))
+					Note that during a blindscan, spectrum_dialog
+					will not react to the following call, as they have no active subscriber_t, i.e.,
+					one associated with a specific adapter or lnb. A "blindscan all" spectrum_dialog will
+					ignore the following call
+				*/
 				ms->notify_signal_info(signal_info);
+			}
 		}
 	}
 	auto& receiver_thread = this->receiver_thread;

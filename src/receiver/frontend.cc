@@ -1656,7 +1656,7 @@ dvb_frontend_t::tune(
 	int ret;
 	int new_usals_pos{sat_pos_none};
 	auto tune_pars = *ts.readAccess()->tune_options.tune_pars;
-	auto band = devdb::lnb::band_for_mux(lnb, *dvbs_mux);
+	auto band = is_unicable? chdb::sat_sub_band_t::LOW : devdb::lnb::band_for_mux(lnb, *dvbs_mux);
 	auto pol = dvbs_mux->pol;
 	auto voltage = (fe_sec_voltage_t)(
 		(is_unicable) ? SEC_VOLTAGE_13 : devdb::lnb::voltage_for_pol(lnb, pol));

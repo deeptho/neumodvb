@@ -203,12 +203,6 @@ void MpvGLCanvas::OnMpvWakeupEvent(wxThreadEvent&) {
 		mpv_player->on_mpv_wakeup_event();
 }
 
-void MpvGLCanvas::OnMpvRedrawEvent(wxThreadEvent&) // MPV_CALLBACK
-{
-	assert(0);
-	this->Render();
-}
-
 void MpvGLCanvas::DoRender() // MPV_CALLBACK
 {
 	SetCurrent();
@@ -503,8 +497,8 @@ bool MpvPlayer_::create() {
 	mpv_opengl_init_params gl_init_params{get_proc_address, gl_canvas};
 #pragma clang diagnostic pop
 	mpv_render_param params[]{{MPV_RENDER_PARAM_API_TYPE, const_cast<char*>(MPV_RENDER_API_TYPE_OPENGL)},
-		{MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
-		{MPV_RENDER_PARAM_INVALID, nullptr}};
+														{MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
+														{MPV_RENDER_PARAM_INVALID, nullptr}};
 	if (mpv_render_context_create(&mpv_gl, mpv, params) < 0) {
 		dterrorf("failed to initialize mpv GL context");
 		assert(0);
@@ -1144,12 +1138,6 @@ void MpvPlayer::close() {
 	self->subscription.set_pending_close(true);
 }
 
-#if 0
-void MpvPlayer_::repaint() {
-	wxPaintEvent evt(wxID_ANY);
-	gl_canvas->AddPendingEvent(evt);
-}
-#endif
 //! returns true if this was the right mpv
 void MpvPlayer_::notify(const signal_info_t& signal_info) {
 	std::scoped_lock lck(m);

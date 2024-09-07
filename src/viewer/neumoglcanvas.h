@@ -90,13 +90,9 @@ class MpvGLCanvas : public wxGLCanvas
 public:
 
 	std::atomic<bool> playing_ok = false;
-#ifndef TEST
+
 	void MpvCreate();
 	void MpvDestroy();
-	void OnMpvRedrawEvent(wxThreadEvent &event);
-
-
-#endif
 	void clear_window();
 	MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player);
 	~MpvGLCanvas();

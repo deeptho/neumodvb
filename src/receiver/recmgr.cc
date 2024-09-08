@@ -817,9 +817,9 @@ int recmgr_thread_t::run() {
 			} else if (is_timer_fd(evt)) {
 				dttime_init();
 				clean_dbs(now, false);
-				dttime(100);
+				//dttime(100);
 				housekeeping(now);
-				dttime(100);
+				//dttime(100);
 				livebuffer_db_update.run([this](system_time_t now) { livebuffer_db_update_(now); }, now);
 				dttime(100);
 				auto delay = dttime(-1);

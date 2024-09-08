@@ -299,14 +299,15 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 	int wd = -1;
 	int count = 0;
 	while (((wd = inotify_add_watch(inotfd, fname.c_str(), IN_OPEN | IN_CLOSE | IN_DELETE_SELF)) < 0) && (count < 100)) {
-		usleep(20000);
+		msleep(200);
 		count++;
 	}
 	if (count > 0)
 		dtdebugf("Count={:d}\n", count);
 	if (wd < 0) {
-		dtdebugf("ERROR: errno={} {}", errno, strerror(errno));
-		assert(0);
+		dtdebugf("ERROR {}: errno={} {}", fname, errno, strerror(errno));
+		//problem: during reload we sometimes get EPERM
+		assert(errno==EACCES);
 	}
 	auto fe = dvb_frontend_t::make(this, adapter_no, frontend_no, api_type, api_version);
 	{

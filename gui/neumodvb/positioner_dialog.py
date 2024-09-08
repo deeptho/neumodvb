@@ -588,6 +588,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.rf_path = None
             return
         self.rf_path = rf_path
+        dtdebug(f'ChangeRfPath: {rf_path}')
         #lnb_connection = pydevdb.lnb.connection_for_rf_path(self.lnb, rf_path)
         self.parent.SetWindowTitle(self.lnb, self.lnb_connection, self.sat) #update window title
         self.positioner_rf_path_sel.Update()
@@ -1236,6 +1237,9 @@ class PositionerDialog(PositionerDialog_):
         rf_path = evt.rf_path
         dtdebug(f"selected rf_path: {rf_path}")
         self.tune_mux_panel.rf_path = rf_path # needed because self.lnb_connection call below
+        dtdebug(f"lnb_connection: : {self.lnb_connection}")
+        self.enable_disable_diseqc_panels()
+        wx.CallAfter(self.tune_mux_panel.ChangeRfPath, rf_path)
         wx.CallAfter(self.diseqc_type_choice.SetValue, self.lnb_connection)
 
 def show_positioner_dialog(caller, sat=None, rf_path=None, lnb=None, mux=None):

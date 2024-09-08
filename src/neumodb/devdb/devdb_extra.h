@@ -313,6 +313,7 @@ namespace devdb::fe_subscription {
 	}
 
 declfmt(devdb::unicable_ch_t);
+declfmt(devdb::rf_path_t);
 declfmt(devdb::lnb_key_t);
 declfmt(devdb::lnb_t);
 declfmt(devdb::lnb_connection_t);
@@ -332,7 +333,6 @@ declfmt(devdb::tuned_frequency_offset_t);
 declfmt(devdb::fe_supports_t);
 declfmt(devdb::user_options_t);
 declfmt(devdb::usals_location_t);
-declfmt(devdb::rf_path_t);
 declfmt(devdb::subscription_data_t);
 #endif
 

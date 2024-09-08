@@ -127,6 +127,11 @@ fmt::formatter<devdb::unicable_ch_t>::format(const devdb::unicable_ch_t& uc, for
 }
 
 fmt::format_context::iterator
+fmt::formatter<devdb::rf_path_t>::format(const devdb::rf_path_t& rf_path, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "lnb={} card[0x{:06x}] #{}", rf_path.lnb,  rf_path.card_mac_address, rf_path.rf_input);
+}
+
+fmt::format_context::iterator
 fmt::formatter<lnb_key_t>::format(const lnb_key_t& lnb_key, format_context& ctx) const {
 	const char* t = lnb_type_str(lnb_key);
 	return fmt::format_to(ctx.out(), "D{:d} {:s} [{:d}]", (int)lnb_key.dish_id,

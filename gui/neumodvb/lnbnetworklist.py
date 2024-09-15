@@ -137,7 +137,7 @@ class LnbNetworkTable(NeumoTable):
         """
         self.screen = screen_if_t(lnbnetwork_screen_t(self), self.sort_order==2)
 
-    def matching_sat(self, sat_pos):
+    def matching_sat(self, sat_pos, txn=None):
         sats = wx.GetApp().get_sats()
         sat_band = pydevdb.lnb.sat_band(self.lnb)
         for sat in sats:
@@ -153,8 +153,10 @@ class LnbNetworkTable(NeumoTable):
         sat = pychdb.sat.sat()
         sat.sat_pos = sat_pos
         sat.sat_band = sat_band
-        txn = self.db.wtxn()
-        pychdb.put_record(txn, sat)
+        txn_ = self.db.wtxn() if txn is None else txn
+        pychdb.put_record(txn_, sat)
+        if txn is None:
+            txn_.commit()
         return sat
 
     def get_usals_location(self):
@@ -169,7 +171,7 @@ class LnbNetworkTable(NeumoTable):
             self.changed = True
 
         for n in self.lnb.networks:
-            if self.matching_sat(n.sat_pos) is None:
+            if self.matching_sat(n.sat_pos, txn) is None:
                 ss = pychdb.sat_pos_str(n.sat_pos)
                 add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
                 if not add:

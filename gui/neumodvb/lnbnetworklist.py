@@ -146,7 +146,7 @@ class LnbNetworkTable(NeumoTable):
         for sat in sats:
             if sat.sat_band ==pychdb.sat_band_t.UNKNOWN and abs(sat.sat_pos - sat_pos) < 5:
                 return sat
-        ss = pychdb.sat_pos_str(n.sat_pos)
+        ss = pychdb.sat_pos_str(sat_pos)
         add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
         if not add:
             return None

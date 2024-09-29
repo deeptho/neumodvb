@@ -78,7 +78,11 @@ void decrypt_cache_t::add_packet(bool odd, uint8_t* packet) {
 	if (!offset)
 		return;
 	int len = ts_packet_t::size - offset;
-	assert(active_key_indexes[odd] >= 0);
+	if(active_key_indexes[odd] < 0) {
+		dterrorf("Adding to non active slot prevented");
+		return;
+	}
+
 	auto& batch = batches[odd];
 	auto& scnt_field = scnt_fields[odd];
 	int& idx = batch_idx[odd];

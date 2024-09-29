@@ -53,7 +53,8 @@ class DishTable(NeumoTable):
     basic_columns=[CD(key='dish_id', sort=('dish_id', ), example='1 ', label='Dish', basic=True, readonly=True)
                    ]
     all_columns = \
-        [CD(key='dish_id', example='1 ', label='Dish', basic=True, readonly=True),
+        [CD(key='dish_id', example='1 ', label='Id', basic=True, readonly=True),
+         CD(key='name', example='wavefrontier T90????', label='Dish', basic=True, readonly=False),
          CD(key='cur_usals_pos',  label='usals\npos', basic=True, readonly=True, no_combo = True,
             dfn= lambda x: pychdb.sat_pos_str(x[1]) if x[0].cur_usals_pos==x[0].target_usals_pos \
             else strike_through(pychdb.sat_pos_str(x[1]))),

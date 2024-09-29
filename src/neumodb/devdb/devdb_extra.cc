@@ -1675,3 +1675,9 @@ fmt::formatter<devdb::stream_t>::format(const devdb::stream_t& stream, format_co
 	}, stream.content);
 	return ret;
 }
+
+fmt::format_context::iterator
+fmt::formatter<devdb::dish_t>::format(const devdb::dish_t& dish, format_context& ctx) const {
+	auto ret= fmt::format_to(ctx.out(), "dish{} {}", dish.dish_id, dish.name);
+	return ret;
+}

@@ -181,7 +181,8 @@ dish = db_struct(name='dish',
                            (7, 'ss::vector<int16_t,2>', 'speeds', '{100, 200}'), #Speed rotor moves at 13 and 18 V
                                                                                  #in (sat_pos) centidegrees per second
                            (8, 'time_t', 'mtime',),
-                           (9, 'bool', 'enabled', 'true')
+                           (9, 'bool', 'enabled', 'true'),
+                           (12, 'ss::string<16>', 'name', '')
                            )
                  )
 

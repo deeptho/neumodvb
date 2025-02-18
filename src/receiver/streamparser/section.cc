@@ -1384,7 +1384,10 @@ namespace dtdemux {
 		desc_loop_len = this->get<uint16_t>();
 		desc_loop_len &= 0xfff;
 		end = this->available() - desc_loop_len;
-		assert(end >= 0);
+		if(end < 0) {
+			dtdebug_nicef("NIT: incorrect section: available=%d desc_loop_len=%d\n", this->available(), desc_loop_len);
+			return false;
+		}
 		while (this->available() > end) {
 			bool is_dvbs{false};
 			bool is_dvbt{false};

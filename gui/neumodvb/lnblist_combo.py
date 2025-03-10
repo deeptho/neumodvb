@@ -308,9 +308,9 @@ class LnbNetworkSatGridPopup(BasicLnbNetworkGrid):
         keycode = evt.GetKeyCode()
         if keycode == wx.WXK_RETURN and not evt.HasAnyModifiers():
             if self.selected_row is not None:
-
+                sat_band = pydevdb.lnb.sat_band(self.lnb.k)
                 lnb_network = self.table.GetValue(self.selected_row, None)
-                sat = self.table.matching_sat(lnb_network.sat_pos)
+                sat = self.table.find_sat(lnb_network.sat_pos, sat_band)
                 self.Parent.GrandParent.OnSelectLnbNetworkSat(sat)
             evt.Skip(False)
         else:

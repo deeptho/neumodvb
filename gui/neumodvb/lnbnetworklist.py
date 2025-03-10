@@ -137,7 +137,7 @@ class LnbNetworkTable(NeumoTable):
         """
         self.screen = screen_if_t(lnbnetwork_screen_t(self), self.sort_order==2)
 
-    def matching_sat(self, sat_pos, txn=None):
+    def find_sat(self, sat_pos, sat_band):
         sats = wx.GetApp().get_sats()
         sat_band = pydevdb.lnb.sat_band(self.lnb.k)
         for sat in sats:
@@ -146,18 +146,7 @@ class LnbNetworkTable(NeumoTable):
         for sat in sats:
             if sat.sat_band ==pychdb.sat_band_t.UNKNOWN and abs(sat.sat_pos - sat_pos) < 5:
                 return sat
-        ss = pychdb.sat_pos_str(sat_pos)
-        add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
-        if not add:
-            return None
-        sat = pychdb.sat.sat()
-        sat.sat_pos = sat_pos
-        sat.sat_band = sat_band
-        txn_ = self.db.wtxn() if txn is None else txn
-        pychdb.put_record(txn_, sat)
-        if txn is None:
-            txn_.commit()
-        return sat
+        return None
 
     def get_usals_location(self):
         receiver = wx.GetApp().receiver
@@ -169,16 +158,28 @@ class LnbNetworkTable(NeumoTable):
         changed = pydevdb.lnb.add_or_edit_network(self.lnb, self.get_usals_location(), record)
         if changed:
             self.changed = True
-
+        missing_sats= []
+        sat_band = pydevdb.lnb.sat_band(self.lnb.k)
         for n in self.lnb.networks:
-            if self.matching_sat(n.sat_pos, txn) is None:
-                ss = pychdb.sat_pos_str(n.sat_pos)
-                add = ShowOkCancel("Add satellite?", f"No sat yet for position={ss}; add one?")
-                if not add:
-                    return None
-                sat = pychdb.sat.sat()
-                sat.sat_pos = n.sat_pos;
-                pychdb.put_record(txn, sat)
+            if self.find_sat(n.sat_pos, sat_band) is None:
+                missing_sats.append(n.sat_pos)
+        if len(missing_sats) > 0:
+            ss = ", ".join([pychdb.sat_pos_str(sat_pos) for sat_pos in missing_sats])
+            plur = 's' if len(missing_sats)>1 else ''
+            add = ShowOkCancel("Add satellite{}?",
+                               f"No sat yet for position{plur} {ss}; "
+                               f"add {'them?' if len(missing_sats)>1 else 'it?'}")
+            if not add:
+                record = old_record
+                return record
+            else:
+                txn = wx.GetApp().chdb.wtxn()
+                for sat_pos in missing_sats:
+                    sat = pychdb.sat.sat()
+                    sat.sat_pos = sat_pos
+                    sat.sat_band = sat_band
+                    pychdb.put_record(txn, sat)
+                txn.commit()
         return record
 
     def __delete_record__(self, txn, record):

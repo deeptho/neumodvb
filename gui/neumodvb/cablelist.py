@@ -99,7 +99,7 @@ class CableTable(NeumoTable):
         """
         show lnbs for missing adapters in colour
         """
-        if cable.card_mac_address != -1:
+        if cable.card_mac_address == -1:
             return self.parent.default_highlight_colour
         else:
             return None

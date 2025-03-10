@@ -238,7 +238,7 @@ lnb_connection = db_struct(name='lnb_connection',
                           # " " wait for 50ms
                           (11, 'ss::string<16>' , 'tune_string', '"UCP"'),
                           (12,  'ss::string<16>', 'connection_name'),
-                          (16, 'int8_t', 'cable_no', -1)
+                          #(16, 'int8_t', 'cable_no', -1)
                 ))
 
 
@@ -428,7 +428,7 @@ fe = db_struct(name='fe',
                    (17, 'ss::string<64>', 'card_address'),
                    (19, 'ss::vector<chdb::fe_delsys_t>', 'delsys'),
                    (27, 'ss::vector<int8_t>', 'rf_inputs'),
-                   (33, 'ss::vector<int8_t>', 'cable_nos'),
+                   #(33, 'ss::vector<int8_t>', 'cable_nos'),
                ))
 
 

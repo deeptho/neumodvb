@@ -564,7 +564,9 @@ bool dvbdev_monitor_t::renumber_cards_and_cables() {
 	auto saved = c.clone();
 	bool changed = false;
 	std::bitset<128> card_nos_in_use;
+#ifdef CABLE_NOS
 	std::bitset<128> cable_nos_in_use;
+#endif
 	/*
 		identify which card_nos and cable_nos are already in use
 	 */
@@ -580,6 +582,7 @@ bool dvbdev_monitor_t::renumber_cards_and_cables() {
 												 (card_no < 0 || card_nos_in_use[card_no]) ? -1 : card_no);
 
 		for(int idx=0; idx < fe.rf_inputs.size(); ++idx) {
+#ifdef CABLENOS
 			auto rf_input = fe.rf_inputs[idx];
 			if(idx >= fe.cable_nos.size())
 				fe.cable_nos.push_back(-1);
@@ -589,6 +592,7 @@ bool dvbdev_monitor_t::renumber_cards_and_cables() {
 			if (cable_no >=0) {
 				cable_nos_in_use[cable_no] = true;
 			}
+#endif
 		}
 		if(fe.card_no <0)
 			continue;
@@ -615,7 +619,7 @@ bool dvbdev_monitor_t::renumber_cards_and_cables() {
 			if (card_no == -1)
 				card_no = next_no(card_nos_in_use);
 	}
-
+#ifdef CABLENOS
 	/*
 		Assign a cable_no to any card input which does not yet have one.
 	 */
@@ -623,12 +627,13 @@ bool dvbdev_monitor_t::renumber_cards_and_cables() {
 		if (cable_no == -1)
 			cable_no = next_no(cable_nos_in_use);
 	}
+#endif
 
 	/*
 		Update all dbfe records in the database when card numbers have changed.
 	*/
 	c = saved;
-	bool any_change{false};
+	//bool any_change{false};
 	for (auto dbfe : c.range()) {
 		auto card_no = card_nos[(card_mac_address_t)dbfe.card_mac_address];
 		assert(card_no >= 0);
@@ -636,6 +641,7 @@ bool dvbdev_monitor_t::renumber_cards_and_cables() {
 			dbfe.card_no = card_no;
 			changed = true;
 		}
+#ifdef CABLENOS
 		for (int idx=0; idx < dbfe.rf_inputs.size(); ++idx) {
 			auto rf_input = dbfe.rf_inputs[idx];
 			int cable_no= cable_nos[{(card_mac_address_t)dbfe.card_mac_address, rf_input}];
@@ -644,9 +650,10 @@ bool dvbdev_monitor_t::renumber_cards_and_cables() {
 				changed = true;
 			}
 		}
+#endif
 		if(changed) {
 			put_record(devdb_wtxn, dbfe);
-			any_change = true;
+			//any_change = true;
 		}
 		auto [it, found] = find_in_safe_map_with_owner_read_ref(
 			frontends, std::tuple{(adapter_no_t)dbfe.adapter_no, (frontend_no_t)dbfe.k.frontend_no});
@@ -654,7 +661,9 @@ bool dvbdev_monitor_t::renumber_cards_and_cables() {
 			auto& fe =*it->second;
 			auto w = fe.ts.writeAccess();
 			w->dbfe.card_no = dbfe.card_no;
+#ifdef CABLENOS
 			w->dbfe.cable_nos = dbfe.cable_nos;
+#endif
 		}
 	}
 	devdb_wtxn.commit(); //commit child transaction

@@ -39,6 +39,13 @@ import pychdb
 class lnbnetwork_screen_t(object):
     def __init__(self, parent):
         self.parent = parent
+        self.sort()
+
+    def sort(self):
+        new = pydevdb.lnb_network_t_vector()
+        for c in  sorted (self.parent.lnb.networks, key= lambda x: tuple(getattr(x, c) for c in self.parent.sort_columns)):
+            new.push_back(c)
+        self.parent.lnb.networks = new
 
     @property
     def list_size(self):
@@ -156,6 +163,7 @@ class LnbNetworkTable(NeumoTable):
     def __save_record__(self, txn, record, old_record):
         dtdebug(f'NETWORKS: {len(self.lnb.networks)}')
         changed = pydevdb.lnb.add_or_edit_network(self.lnb, self.get_usals_location(), record)
+        self.screen.screen.sort()
         if changed:
             self.changed = True
         missing_sats= []

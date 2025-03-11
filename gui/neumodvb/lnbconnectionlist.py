@@ -39,6 +39,13 @@ import pychdb
 class lnbconnection_screen_t(object):
     def __init__(self, parent):
         self.parent = parent
+        self.sort()
+
+    def sort(self):
+        new = pydevdb.lnb_connection_t_vector()
+        for c in  sorted (self.parent.lnb.connections, key= lambda x: tuple(getattr(x, c) for c in self.parent.sort_columns)):
+            new.push_back(c)
+        self.parent.lnb.connections = new
 
     @property
     def list_size(self):
@@ -124,6 +131,7 @@ class LnbConnectionTable(NeumoTable):
     def __save_record__(self, wtxn, record, old_record):
         dtdebug(f'CONNECTIONS: {len(self.lnb.connections)}')
         changed = pydevdb.lnb.add_or_edit_connection(wtxn, self.lnb, record)
+        self.screen.screen.sort()
         if changed:
             self.changed = True
         return record

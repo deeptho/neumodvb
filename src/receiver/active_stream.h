@@ -206,7 +206,7 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 			read_pointer = ret;
 		}
 		if(ret>0)
-			num_read+=ret;
+			num_read += ret;
 		return  {p, ret};
 	}
 

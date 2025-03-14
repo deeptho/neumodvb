@@ -244,7 +244,8 @@ void active_si_stream_t::finalize_scan()
 	}
 
 	tune_confirmation.si_done = true;
-	reader->update_stream_mux_tune_confirmation(tune_confirmation);
+	if(!is_embedded_si)
+		reader->update_stream_mux_tune_confirmation(tune_confirmation);
 
 	dttime_init();
 	reader->on_stream_mux_change(mux); //needed to ensure that mux_common changes are not overwritten in save_pmts
@@ -740,7 +741,7 @@ bool active_si_stream_t::read_and_process_data_for_fd(const epoll_event* evt) {
 	auto old = tune_confirmation;
 	process_si_data();
 	reader->data_tick();
-	if (old != tune_confirmation) {
+	if (old != tune_confirmation && ! is_embedded_si) {
 		reader->update_stream_mux_tune_confirmation(tune_confirmation);
 	}
 	check_timeouts();

@@ -74,8 +74,14 @@ class tuner_thread_t : public task_queue_t {
 
 	subscription_id_t tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
 														 const subscription_options_t& tune_options);
-	void add_si(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+
+	void restart_si_on_new_subscription(active_adapter_t& active_adapter,
+																			const chdb::any_mux_t& mux, const subscription_options_t& tune_options ,
+																			subscription_id_t subscription_id);
+#if 0
+	void add_sixxx(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
 							const subscription_options_t& tune_options, subscription_id_t subscription_id);
+#endif
 	int tune(const subscribe_ret_t& sret, const devdb::rf_path_t& rf_path,
 					 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, subscription_options_t tune_options);
 	template<typename _mux_t>
@@ -104,7 +110,7 @@ public:
 struct mpm_copylist_t;
 class tuner_thread_t::cb_t: public tuner_thread_t { //callbacks
 public:
-	int on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt);
+	int on_pmt_update(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key, const dtdemux::pmt_info_t& pmt);
 	int update_service(const chdb::service_t& service);
 	int lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& ret,
 									 subscription_options_t tune_options);

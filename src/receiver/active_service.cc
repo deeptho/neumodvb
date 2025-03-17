@@ -38,7 +38,7 @@
 #include <algorithm>
 #include <dirent.h>
 #include <errno.h>
-#include <linux/dvb/dmx.h>
+#include "neumodmx.h"
 #include <linux/dvb/version.h>
 #include <linux/limits.h>
 #include <pthread.h>
@@ -198,6 +198,7 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 	bool is_new = current_pmt.pmt_pid == null_pid;
 	bool ca_changed = is_new || pmt_ca_changed(current_pmt, pmt);
 	bool service_changed = (pmt.pmt_pid != current_service.pmt_pid) || (pmt.video_pid != current_service.video_pid);
+	auto mux_key = current_service.k.mux;
 	if (service_changed) {
 		std::scoped_lock lck(mutex);
 		current_service.pmt_pid = pmt.pmt_pid;
@@ -208,15 +209,15 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 		auto active_adapter_p = active_adapter.shared_from_this();
 		// pmt deliberately passed by value
 		if (service_changed) {
-			active_adapter.tuner_thread.push_task([active_adapter_p, pmt, service = current_service] {
+			active_adapter.tuner_thread.push_task([active_adapter_p, pmt, mux_key, service = current_service] {
 				auto& cb_ = cb(active_adapter_p->tuner_thread);
-				cb_.on_pmt_update(*active_adapter_p, pmt); //update epg types in dvbs_mux in database
+				cb_.on_pmt_update(*active_adapter_p, mux_key, pmt); //update epg types in dvbs_mux in database
 				cb_.update_service(service); //update service record in database
 				return 0;
 			});
 		} else {
-			active_adapter.tuner_thread.push_task([active_adapter_p, pmt] {
-				cb(active_adapter_p->tuner_thread).on_pmt_update(*active_adapter_p, pmt);
+			active_adapter.tuner_thread.push_task([active_adapter_p, pmt, mux_key] {
+				cb(active_adapter_p->tuner_thread).on_pmt_update(*active_adapter_p, mux_key, pmt);
 				return 0;
 			});
 		}

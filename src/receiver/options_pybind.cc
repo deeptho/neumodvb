@@ -66,6 +66,7 @@ void export_options(py::module& m) {
 									 "how quickly live buffers are deleted after they become inactive")
 		.def_readwrite("tune_use_blind_tune", &neumo_options_t::tune_use_blind_tune)
 		.def_readwrite("tune_may_move_dish", &neumo_options_t::tune_may_move_dish)
+		.def_readwrite("tune_use_bbframes", &neumo_options_t::tune_use_bbframes)
 		.def_readwrite("dish_move_penalty", &neumo_options_t::dish_move_penalty)
 		.def_readwrite("resource_reuse_bonus", &neumo_options_t::resource_reuse_bonus)
 		.def_readwrite("positioner_dialog_use_blind_tune", &neumo_options_t::positioner_dialog_use_blind_tune)

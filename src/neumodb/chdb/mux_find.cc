@@ -326,12 +326,15 @@ db_tcursor_index<mux_t> chdb::find_by_freq_fuzzy(db_txn& txn, uint32_t frequency
 }
 
 bool chdb::matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos,
-																	bool ignore_t2mi_pid) {
+																	bool ignore_stream_id, bool ignore_t2mi_pid) {
 	if (((int)a.pol& ~0x2) != ((int)b.pol & ~0x2)) //we allow switch between L/H and R/V
 		return false;
 	if (check_sat_pos && (std::abs(a.k.sat_pos - b.k.sat_pos) > sat_pos_tolerance))
 		return false;
-	if (a.k.stream_id != b.k.stream_id || (!ignore_t2mi_pid && a.k.t2mi_pid != b.k.t2mi_pid))
+	if (!ignore_stream_id && a.k.stream_id != b.k.stream_id)
+		return false;
+	ignore_t2mi_pid |= ignore_stream_id; //it makes no sense to ask for a specific t2mi_pid when stream_id does not match
+	if ( (!ignore_stream_id && a.k.stream_id != b.k.stream_id) || ( !ignore_t2mi_pid && a.k.t2mi_pid != b.k.t2mi_pid))
 		return false;
 	auto tolerance = (((int)std::min(a.symbol_rate, b.symbol_rate))*1.35) / 2000;
 
@@ -340,28 +343,28 @@ bool chdb::matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool
 }
 
 bool chdb::matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos,
-																	bool ignore_t2mi_pid) {
+																	bool ignore_stream_id, bool ignore_t2mi_pid) {
 	auto tolerance = 1000;
-	if (a.k.stream_id != b.k.stream_id)
+	if (!ignore_stream_id && a.k.stream_id != b.k.stream_id)
 		return false;
 	return (std::abs((int)a.frequency - (int)b.frequency) <= tolerance);
 }
 
 bool chdb::matches_physical_fuzzy(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos,
-																	bool ignore_t2mi_pid) {
+																	bool ignore_stream_id, bool ignore_t2mi_pid) {
 	auto tolerance = 1000;
-	if (a.k.stream_id != b.k.stream_id)
+	if (!ignore_stream_id && a.k.stream_id != b.k.stream_id)
 		return false;
 	return (std::abs((int)a.frequency - (int)b.frequency) <= tolerance);
 }
 
 bool chdb::matches_physical_fuzzy(const chdb::any_mux_t& a, const chdb::any_mux_t& b, bool check_sat_pos,
-																	bool ignore_t2mi_pid) {
+																	bool ignore_stream_id, bool ignore_t2mi_pid) {
 	using namespace chdb;
 	bool ret{false};
 	std::visit([&](const auto& a) {
 		auto* pb = std::get_if<typename std::remove_cvref<decltype(a)>::type>(&b);
-		ret = pb? chdb::matches_physical_fuzzy(a, *pb, check_sat_pos, ignore_t2mi_pid): false;}, a);
+		ret = pb? chdb::matches_physical_fuzzy(a, *pb, check_sat_pos, ignore_stream_id, ignore_t2mi_pid): false;}, a);
 	return ret;
 }
 

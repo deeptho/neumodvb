@@ -22,7 +22,7 @@
 #include <util/logger.h>
 //#include <boost/context/continuation_fcontext.hpp>
 #include "streamparser.h"
-
+extern thread_local bool debug_xxx;
 typedef boost::context::continuation continuation_t;
 namespace dtdemux {
 	struct ts_packet_t;
@@ -264,6 +264,8 @@ namespace dtdemux {
 		assert(!p || p->range.available() == p->range.tst);
 		p = do_transfer(*caller, fiber, p);
 		log4cxx::NDC::push(saved);
+		if(self != caller)
+			printf("ERROR\n");
 		assert(self == caller); //should have been set by some other fiber
 		return p;
 	}
@@ -278,6 +280,9 @@ namespace dtdemux {
 				break; //temporary end of stream
 			assert(!p || p->range.available() == p->range.tst);
 			int packet_pid = p->get_pid();
+			if(packet_pid==120 && debug_xxx)
+				printf("here\n");
+
 			assert(!p || p->range.available() == p->range.tst);
 			auto it = fibers.find(dvb_pid_t(packet_pid));
 			if (it != fibers.end()) {

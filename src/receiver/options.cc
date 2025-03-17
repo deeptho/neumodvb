@@ -33,6 +33,7 @@ void neumo_options_t::load_from_db(db_txn& devdb_wtxn, int32_t user_id)
 
 		this->tune_use_blind_tune = u.tune_use_blind_tune;
 		this->tune_may_move_dish = u.tune_may_move_dish;
+		this->tune_use_bbframes = u.tune_use_bbframes;
 		this->dish_move_penalty = u.dish_move_penalty;
 		this->resource_reuse_bonus = u.resource_reuse_bonus;
 
@@ -73,6 +74,7 @@ void neumo_options_t::save_to_db(db_txn& devdb_wtxn, int32_t user_id)
 
 	u.tune_use_blind_tune = this->tune_use_blind_tune;
 	u.tune_may_move_dish = this->tune_may_move_dish;
+	u.tune_use_bbframes = this->tune_use_bbframes;
 	u.dish_move_penalty = this->dish_move_penalty;
 	u.resource_reuse_bonus = this->resource_reuse_bonus;
 

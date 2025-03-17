@@ -85,3 +85,5 @@ fmt::formatter<dtdemux::pts_dts_t>::format(const dtdemux::pts_dts_t& a, fmt::for
 		u = p - (h * 10000L * 60 * 60) - (m * 10000L * 60) - (s * 10000L);
 		return fmt::format_to(ctx.out(), "[{:02d}:{:02d}:{:02d}.{:04d}]", h, m, s, u);
 }
+
+thread_local bool debug_xxx{0};

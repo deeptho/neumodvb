@@ -306,11 +306,6 @@ void merge_muxes(mux_t& mux, const mux_t& db_mux, update_mux_preserve_t::flags p
 		mux.c.tune_src = tune_src_t::USER;
 		copy_tuning(mux, db_mux); //preserve what is in the database
 	}
-#if 0
-	if( (preserve & m::MUX_KEY) ) { //actual copying handled by caller
-		mux.c.key_src = db_mux.c.key_src;
-	}
-#endif
 	if (preserve & m::TUNE_DATA) {
 		copy_tuning(mux, db_mux); //preserve what is in the database
 	}

@@ -60,6 +60,7 @@ struct neumo_options_t {
 	bool band_scan_save_spectrum{false};
 
 	bool tune_may_move_dish{false};
+	bool tune_use_bbframes{false};
 	bool scan_may_move_dish{false};
 
 	int32_t dish_move_penalty{100}; //penalty for having to move dish; reduces priority

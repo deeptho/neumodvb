@@ -702,7 +702,7 @@ enum fe_interleaving {
 #define DTV_MATYPE_LIST		90 //retrieve list of present matypes and stream_ids
 #define DTV_RF_INPUT 91
 #define DTV_SET_SEC_CONFIGURED 92
-#define DTV_OUTPUT_BBFRAMES 93
+#define DTV_OUTPUT_BBFRAMES 93 //ask frontend to send bbframes to demux
 #define DTV_MAX_COMMAND	 DTV_OUTPUT_BBFRAMES
 
 //commands for controlling long running algorithms via FE_ALGO_CTRL ioctl

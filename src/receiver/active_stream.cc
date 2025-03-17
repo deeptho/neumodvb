@@ -44,7 +44,8 @@
 #include <linux/limits.h>
 #include <sys/sendfile.h>
 #include <pthread.h>
-#include <linux/dvb/dmx.h>
+#include "neumodemux.h"
+#include "neumodmx.h"
 #include <dirent.h>
 #include <algorithm>
 #include <set>
@@ -81,8 +82,6 @@ ss::string<32> active_stream_t::name() const
 	return ret;
 }
 
-
-
 //return -1 on error
 /*
   @brief open the demux, create a pes filter and ask to read the pat;
@@ -107,22 +106,18 @@ int dvb_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_fl
 
 	epoll->add_fd(demux_fd, epoll_flags);
 
-	uint16_t pid= initial_pid;
-	dtdebugf("Adding pid={}", pid);
-	struct dmx_pes_filter_params pesFilterParams;
-	memset(&pesFilterParams,0,sizeof(pesFilterParams));
-	pesFilterParams.pid = pid;
-	pesFilterParams.input = DMX_IN_FRONTEND;
-	pesFilterParams.output = DMX_OUT_TSDEMUX_TAP;//DMX_OUT_TS_TAP;
-	pesFilterParams.pes_type = DMX_PES_OTHER;
-	pesFilterParams.flags = 0; //DMX_IMMEDIATE_START;
 	if(ioctl(demux_fd, DMX_SET_BUFFER_SIZE, dmx_buffer_size)) {
 		dterrorf("DMX_SET_BUFFER_SIZE failed: {}", strerror(errno));
-	}
-	if (ioctl(demux_fd, DMX_SET_PES_FILTER, &pesFilterParams) < 0) {
-		dterrorf("DMX_SET_PES_FILTER  pid={} failed: {}", pid, strerror(errno));
 		return -1;
 	}
+
+	uint16_t pid= initial_pid;
+	dtdebugf("Adding pid={}", pid);
+	auto bbframes_on = active_adapter.fe->ts.readAccess()->dbfe.sub.bbframes_on;
+	bool driver_supports_t2mi{true};
+	if(dmx_set_mux(demux_fd, mux_key, pid, bbframes_on, driver_supports_t2mi) < 0)
+		return -1;
+
 	if(ioctl (demux_fd, DMX_START)<0) {
 		dterrorf("DMX_START FAILED: {}", strerror(errno));
 	}
@@ -259,7 +254,7 @@ int active_stream_t::deactivate()
 	return 0;
 }
 
-
+#if 0
 chdb::any_mux_t dvb_stream_reader_t::stream_mux() const {
 	auto mux =active_adapter.current_tp();
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
@@ -267,22 +262,25 @@ chdb::any_mux_t dvb_stream_reader_t::stream_mux() const {
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
 				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 
-	return active_adapter.current_tp();
+	return mux;
 }
+#endif
 
-
+#if 0
 int16_t stream_reader_t::get_sat_pos() const
 {
 	auto stream_mux = this->stream_mux();
 	auto* stream_mux_key = mux_key_ptr(stream_mux);
 	return stream_mux_key->sat_pos;
 }
+#endif
 
-
+#if 0
 void dvb_stream_reader_t::set_current_tp(const chdb::any_mux_t& mux) const
 {
 	active_adapter.set_current_tp(mux);
 }
+#endif
 
 const subscription_options_t& stream_reader_t::tune_options() const
 {
@@ -318,6 +316,8 @@ void dvb_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stream_mu
 
 
 int dvb_stream_reader_t::add_pid(int pid) {
+	if(pid==320)
+		printf("here\n");
 	if(ioctl (demux_fd, DMX_ADD_PID, &pid)<0) {
 		dterrorf("DMX_ADD_PID {} FAILED: ", pid, strerror(errno));
 		return -1;

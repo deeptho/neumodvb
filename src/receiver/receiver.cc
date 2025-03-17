@@ -23,7 +23,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/dvb/dmx.h>
+#include "neumodmx.h"
 #include <linux/dvb/version.h>
 #include <linux/limits.h>
 #include <pthread.h>
@@ -127,7 +127,6 @@ int task_queue_t::run_tasks(system_time_t now_, bool do_acknowledge) {
 void receiver_thread_t::unsubscribe_playback_only(std::vector<task_queue_t::future_t>& futures, ssptr_t ssptr) {
 	if (!ssptr)
 		return;
-	assert(ssptr);
 	assert(ssptr);
 	ssptr->remove_active_playback();
 }
@@ -2197,6 +2196,7 @@ devdb::tune_options_t receiver_t::get_default_tune_options(devdb::subscription_t
 	ret.dish_move_penalty = r->dish_move_penalty;
 	ret.use_blind_tune =  for_scan ? r->scan_use_blind_tune: r->tune_use_blind_tune;
 	ret.may_move_dish = for_lnb_control ? true : (for_scan ? r->scan_may_move_dish: r->tune_may_move_dish);
+	ret.use_bbframes = r->tune_use_bbframes;
 	ret.scan_max_duration =  std::chrono::duration_cast<std::chrono::seconds>(r->scan_max_duration).count();
 
 	return ret;

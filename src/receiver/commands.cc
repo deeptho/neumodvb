@@ -23,7 +23,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/dvb/dmx.h>
+#include "neumodmx.h"
 #include <linux/dvb/version.h>
 #include <linux/limits.h>
 #include <pthread.h>

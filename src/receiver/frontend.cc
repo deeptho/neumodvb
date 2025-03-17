@@ -1158,14 +1158,6 @@ void dvb_frontend_t::update_received_si_mux(const std::optional<chdb::any_mux_t>
 	w->received_si_mux_is_bad = is_bad;
 }
 
-
-template <typename mux_t> bool dvb_frontend_t::is_tuned_to(
-	const mux_t& mux, const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const {
-	return this->ts.readAccess()->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid);
-}
-
-
-
 inline void spectrum_scan_t::resize(int num_freq, int num_peaks) {
 	assert(num_freq <= max_num_freq);
 	assert(num_peaks <= max_num_peaks);
@@ -1340,12 +1332,15 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 
 	cmdseq.add_clear();
 	cmdseq.add(DTV_SET_SEC_CONFIGURED);
-#if 0
-	if(ts.readAccess()->dbfe.supports.bbframes) {
+
+	if(tune_options.use_bbframes) {
+		if(!ts.readAccess()->dbfe.supports.bbframes) {
+			dtdebugf("Implementation error\n");
+		}
 		dtdebugf("Asking for bbframes\n");
 		cmdseq.add(DTV_OUTPUT_BBFRAMES, 1);
 	}
-#endif
+
 	if (blindscan) {
 		assert (api_type == api_type_t::NEUMO);
 		cmdseq.add(DTV_ALGORITHM, ALGORITHM_BLIND);
@@ -2573,16 +2568,6 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 		return -1;
 	return ret;
 }
-
-//instantiations
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbs_mux_t& mux,
-																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbc_mux_t& mux,
-																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::dvbt_mux_t& mux,
-																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
-template bool dvb_frontend_t::is_tuned_to(const chdb::any_mux_t& mux,
-																					const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid) const;
 
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux);
 template int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux);

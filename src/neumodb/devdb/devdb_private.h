@@ -182,11 +182,12 @@ namespace devdb::fe {
 	int reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
 												devdb::fe_t& fe,  const mux_t& mux, const chdb::service_t* service);
 
-	int reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
-														 devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
-														 const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
-														 const std::optional<devdb::unicable_ch_t>& unicable_ch,
-														 const chdb::dvbs_mux_t& mux, const chdb::service_t* service);
+	std::optional<devdb::fe_t>
+	reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
+												 const devdb::fe_key_t& fe_key, bool bbframes_on, const devdb::rf_path_t& rf_path,
+												 const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
+												 const std::optional<devdb::unicable_ch_t>& unicable_ch,
+												 const chdb::dvbs_mux_t& mux, const chdb::service_t* service);
 
 
 	int reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
@@ -250,8 +251,8 @@ namespace devdb::fe {
 	std::tuple<std::optional<devdb::fe_t>, int>
 	matching_existing_subscription(db_txn& wtxn,
 																 const subscription_options_t& tune_options,
-																 const mux_t* mux,
-																 const chdb::service_t* service,
+																 const mux_t& mux,
+																 const chdb::service_t* service, bool ignore_stream_id,
 																 bool match_mux_only);
 
 };

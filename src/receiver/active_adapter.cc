@@ -33,6 +33,7 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <values.h>
+#include "neumodemux.h"
 #include "active_adapter.h"
 #include "active_service.h"
 #include "receiver.h"
@@ -49,11 +50,22 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <time.h>
+
+namespace chdb {
+//needed to implement active_adapter_t::si_streams
+static inline bool operator<(const chdb::mux_key_t& a, const chdb::mux_key_t& b) {
+	return
+		a.sat_pos == b.sat_pos ?
+		(a.stream_id == b.stream_id ?
+		 (a.t2mi_pid == b.t2mi_pid ?
+			(a.mux_id < b.mux_id)
+			: a.t2mi_pid < b.t2mi_pid)
+		 : (a.stream_id < b.stream_id))
+		: (a.sat_pos < b.sat_pos);
+}
+};
+
 using namespace chdb;
-
-#define FREQ_MULT 1000
-
-#define CBAND_LOF 5150000
 
 /** @brief Check the status of the card
 		Returns must_tune, must_restart_si, must_stop_si, is_not_ts (boolean)
@@ -111,7 +123,7 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 			if ((now - tune_start_time) >= tune_timeout && fe) {
 				auto retune_mode = fe->ts.readAccess()->tune_options.retune_mode;
 				if (retune_mode == retune_mode_t::AUTO) {
-					dtdebugf("Timed out while waiting for lock; retuning for {}", current_tp());
+					dtdebugf("Timed out while waiting for lock; retuning for {}", tuned_mux());
 					must_tune = true;
 				}
 				tune_state = LOCK_TIMEDOUT;
@@ -128,13 +140,13 @@ std::tuple<bool, bool, bool, bool> active_adapter_t::check_status() {
 				dtdebugf("Lock was lost");
 				/*lock ws lost according to the driver, but our si processing is still running. This is to be distinghuished
 					from after retune, in which case we are in the WAITING_FOR_LOCK state, which would need starting si from scratch.
-					TODO: Instead, we should signal to our caller a new flag "reset_si", which is incompatible with must_tune and
-					with relocked_now, and which signifies: do not retune, but close si, and restart it. "reset_si" is not suitable
+					TODO: Instead, we should signal to our caller a new flag "stop_si", which is incompatible with must_tune and
+					with relocked_now, and which signifies: do not retune, but close si, and restart it. "stop_si" is not suitable
 					as it allso calls "on_scan_mux_end". During scanning, we also prefer not to restart si processing, as we could
 					end up which an andlessly repeating loop.
 				 */
 			} else {
-				dtdebugf("tuner no longer locked; retuning mux={}", current_tp());
+				dtdebugf("tuner no longer locked; retuning mux={}", tuned_mux());
 				must_tune = true;
 				isi_processing_done = false;
 			}
@@ -157,11 +169,9 @@ void active_adapter_t::reset()
 	isi_processing_done = false;
 	lock_state = {};
 	usals_timer = {};
-	si.close();
-	for (auto& [pid, si_] : embedded_si_streams) {
-		si_.close();
+	for (auto& [pid, si] : si_streams) {
+		si.close();
 	}
-	embedded_si_streams.clear();
 }
 
 int active_adapter_t::retune(const devdb::rf_path_t& rf_path,
@@ -187,6 +197,7 @@ int active_adapter_t::retune(const devdb::rf_path_t& rf_path,
 	auto ret=0;
 	return ret;
 }
+
 template<typename mux_t>
 int active_adapter_t::retune(const mux_t& mux_,
 														 const subscription_options_t tune_options, bool user_requested,
@@ -238,9 +249,25 @@ int active_adapter_t::tune(const subscribe_ret_t& sret,
 }
 
 
+const chdb::any_mux_t active_adapter_t::mux_for_key(const chdb::mux_key_t& mux_key) const {
+	auto it = si_streams.find(mux_key);
+	assert (it != si_streams.end());
+	auto &si = it->second;
+	return si.dbmux;
+};
+
+
+void active_adapter_t::update_mux(const chdb::any_mux_t& mux) {
+	auto& mux_key = *chdb::mux_key_ptr(mux);
+	auto it = si_streams.find(mux_key);
+	assert (it != si_streams.end());
+	auto &si = it->second;
+	si.dbmux = mux;
+}
+
 template<>
 int active_adapter_t::retune<chdb::dvbs_mux_t>() {
-	auto mux = std::get<chdb::dvbs_mux_t>(current_tp());
+	auto mux = std::get<chdb::dvbs_mux_t>(tuned_mux());
 	devdb::lnb_t lnb;
 	{
 		auto devdb_rtxn = receiver.devdb.rtxn();
@@ -255,7 +282,7 @@ int active_adapter_t::retune<chdb::dvbs_mux_t>() {
 }
 
 template <typename mux_t> inline int active_adapter_t::retune() {
-	auto mux = std::get<mux_t>(current_tp());
+	auto mux = std::get<mux_t>(tuned_mux());
 	bool user_requested = false;
 
 	//TODO: needless read here, followed by write within tune()
@@ -341,7 +368,7 @@ int active_adapter_t::add_service(subscription_id_t subscription_id, active_serv
 }
 
 void active_adapter_t::on_stable_pat() {
-	auto mux_ = current_tp();
+	auto mux_ = tuned_mux();
 	auto* pmux = std::get_if<chdb::dvbs_mux_t>(&mux_);
 	if (!pmux)
 		return;
@@ -392,7 +419,7 @@ void active_adapter_t::monitor() {
 	bool tune_failed{false};
 	bool is_not_ts{false};
 	dttime_init();
-	if (si.abort_on_wrong_sat()) {
+	if (tuned_si->abort_on_wrong_sat()) {
 		dtdebugf("Attempting retune (wrong sat detected)");
 		must_retune = true;
 	} else {
@@ -414,9 +441,9 @@ void active_adapter_t::monitor() {
 			init_si(t);
 			return;
 		} else {
-			if(!si.fix_tune_mux_template()) {
+			if(!tuned_si->fix_tune_mux_template()) {
 				//lock was lost
-				si.reset_si(true /*close_streams*/);
+				tuned_si->stop_si(true /*close_streams*/);
 				return;
 			}
 		}
@@ -427,9 +454,9 @@ void active_adapter_t::monitor() {
 	}
 	if (must_retune) {
 		dtdebugf("Calling si.reset with force_finalize=true");
-		si.reset_si(true /*close_streams*/); //calls on_scan_mux_end
+		tuned_si->stop_si(true /*close_streams*/); //calls on_scan_mux_end
 		visit_variant(
-			current_tp(),
+			tuned_mux(),
 			[this](dvbs_mux_t&& mux) { retune<dvbs_mux_t>();},
 			[this](dvbc_mux_t&& mux) { retune<dvbc_mux_t>(); },
 			[this](dvbt_mux_t&& mux) { retune<dvbt_mux_t>(); });
@@ -448,9 +475,7 @@ void active_adapter_t::monitor() {
 	/*usually scan_report will be called by process_si_data, but on bad muxes data may not
 		be present. scan_report runs with a min frequency of 1 call per 2 seconds
 	*/
-	si.scan_report();
-	dttime(200);
-	for (auto& [pid, si] : embedded_si_streams) {
+	for (auto& [pid, si] : si_streams) {
 		si.scan_report();
 	}
 }
@@ -465,14 +490,13 @@ int active_adapter_t::lnb_spectrum_scan(const devdb::rf_path_t& rf_path,
 	return 0;
 }
 
-active_adapter_t::active_adapter_t(receiver_t& receiver_,
-																	 std::shared_ptr<dvb_frontend_t>& fe_)
-
-	: receiver(receiver_)
+active_adapter_t::active_adapter_t(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_)
+	:
+	receiver(receiver_)
 	, fe(fe_)
 	, tuner_thread(receiver_, *this)
-	,	si(receiver, std::make_unique<dvb_stream_reader_t>(*this, -1), false)
-{}
+{
+}
 
 void active_adapter_t::destroy() {
 #ifndef NDEBUG
@@ -599,7 +623,7 @@ void active_adapter_t::update_lof(devdb::lnb_t& lnb, int16_t sat_pos, chdb::fe_p
 	called before active_adapter is destroyed
  */
 int active_adapter_t::deactivate() {
-	reset_si();
+	stop_si();
 	remove_all_services();
 	auto* fe = this->fe.get();
 	auto fefd = fe->ts.readAccess()->fefd;
@@ -638,24 +662,104 @@ void active_adapter_t::update_received_si_mux(const std::optional<chdb::any_mux_
 	fe->update_received_si_mux(mux, is_bad);
 }
 
-std::shared_ptr<stream_reader_t> active_adapter_t::make_dvb_stream_reader(ssize_t dmx_buffer_size) {
-	return std::make_shared<dvb_stream_reader_t>(*this, dmx_buffer_size);
+std::shared_ptr<stream_reader_t> active_adapter_t::make_dvb_stream_reader(const chdb::mux_key_t& mux_key, ssize_t dmx_buffer_size) {
+	return std::make_shared<dvb_stream_reader_t>(*this, mux_key, dmx_buffer_size);
 }
 
 std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
 	const chdb::any_mux_t& embedded_mux, ssize_t dmx_buffer_size) {
 	auto sf = stream_filters.writeAccess();
-	auto* mux_key = chdb::mux_key_ptr(embedded_mux);
-	auto [it, found] = find_in_map(*sf, mux_key->t2mi_pid);
+	auto& mux_key = *chdb::mux_key_ptr(embedded_mux);
+	auto [it, found] = find_in_map(*sf, mux_key.t2mi_pid);
 	std::shared_ptr<stream_filter_t> substream;
 	if (found) {
 		substream = it->second;
 	} else {
 		substream = std::make_shared<stream_filter_t>(*this, embedded_mux, &tuner_thread.epx);
-		(*sf)[mux_key->t2mi_pid] = substream;
+		(*sf)[mux_key.t2mi_pid] = substream;
 	}
-	return std::make_shared<embedded_stream_reader_t>(*this, substream);
+	return std::make_shared<embedded_stream_reader_t>(*this, mux_key, substream);
 }
+
+
+bool active_adapter_t::restart_si_if_needed(chdb::any_mux_t mux,
+																						const subscription_options_t& tune_options,
+																						subscription_id_t subscription_id) {
+	namespace m = chdb::update_mux_preserve_t;
+	dtdebugf("mux={}", mux);
+	auto& mux_key = *mux_key_ptr(mux);
+	auto master_mux = mux;
+	auto& master_mux_key = *mux_key_ptr(master_mux);
+	master_mux_key.t2mi_pid = -1;
+
+	auto& scan_id = mux_common_ptr(mux)->scan_id;
+	bool our_scan = scanner_t::is_our_scan(scan_id);
+	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
+	bool added{false};
+
+	if (mux_key.t2mi_pid >=0) {
+		dtdebugf("mux {} is an embedded stream", *dvbs_mux);
+		added = add_embedded_si_stream(mux); //may be false if mux was already subscribed
+	}
+
+	auto& si = this->si_streams.at(mux_key);
+	auto old_scan_id = mux_common_ptr(si.dbmux)->scan_id;
+	auto new_scan_id = mux_common_ptr(mux)->scan_id;
+	bool must_restart_si = (new_scan_id.subscription_id >=0)  /*scanning is now on*/
+		&& old_scan_id != new_scan_id;
+	{
+			auto r=fe->ts.readAccess();
+			auto& old_tune_options = r->tune_options;
+			must_restart_si |= tune_options.subscription_type == devdb::subscription_type_t::TUNE; //user explicitly requests it
+			must_restart_si |= tune_options.propagate_scan && !old_tune_options.propagate_scan;
+			must_restart_si |= (int)tune_options.scan_target > (int) old_tune_options.propagate_scan;
+			must_restart_si &= added; //if added, then restart has been done (not sure if added==true is possible)
+	}
+	if(!must_restart_si)
+		return false;
+
+	if(our_scan) {
+		assert(!dvbs_mux ||  (dvbs_mux->k.t2mi_pid >= 0) == si.is_embedded_si);
+		si.activate_scan(mux, subscription_id, scan_id);
+	}
+
+	if(si_is_on) {
+		//restart si
+		si.stop_si(true /*close stream*/);
+		this->tune_options = tune_options;
+		assert((int) subscription_id >=0 );
+		si.init(tune_options.scan_target);
+	}
+	return true;
+}
+
+
+/*
+	add an si_stream by directly reading data from the demux
+ */
+bool active_adapter_t::add_si_stream(const chdb::any_mux_t& mux) {
+	auto& mux_key = *chdb::mux_key_ptr(mux);
+	auto it = this->si_streams.find(mux_key);
+	auto found =  it != this->si_streams.end();
+	if (found) {
+		dtdebugf("Ignoring request to add the same si stream twice");
+		return false;
+	}
+	auto reader = std::make_unique<dvb_stream_reader_t>(*this, mux_key, -1);
+	assert (mux_key.t2mi_pid <0);
+	auto [it1, inserted] =
+		si_streams.try_emplace(mux_key, receiver, std::move(reader), mux);
+	assert(inserted);
+	if(!this->tuned_si)
+		this->tuned_si = &it1->second;
+	if (si_is_on) {
+		auto& si = it1->second;
+		auto scan_target = fe->ts.readAccess()->tune_options.scan_target;
+		si.init(scan_target);
+	}
+	return true;
+}
+
 
 /*
 	start si processing for an embedded stream on a mux;
@@ -670,30 +774,32 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
 	Returns true if an embedded stream was added and false if stream was already started
  */
 
-bool active_adapter_t::add_embedded_si_stream(const chdb::any_mux_t& embedded_mux, bool start) {
+bool active_adapter_t::add_embedded_si_stream(const chdb::any_mux_t& embedded_mux) {
 	auto* mux_key = chdb::mux_key_ptr(embedded_mux);
-	auto [it, found] = find_in_map(embedded_si_streams, mux_key->t2mi_pid);
+
+	auto it = this->si_streams.find(*mux_key);
+	auto found =  it != this->si_streams.end();
 	if (found) {
 		dtdebugf("Ignoring request to add the same si stream twice");
 		return false;
 	}
 	auto reader = make_embedded_stream_reader(embedded_mux);
-	const bool is_embedded_si{true};
+	assert (mux_key->t2mi_pid >=0);
 	auto [it1, inserted] =
-		embedded_si_streams.try_emplace((uint16_t)mux_key->t2mi_pid, receiver, std::move(reader), is_embedded_si);
+		si_streams.try_emplace(*mux_key, receiver, std::move(reader), embedded_mux);
 	assert(inserted);
-	if (start) {
+	if (si_is_on) {
+		auto& si = it1->second;
 		auto scan_target = fe->ts.readAccess()->tune_options.scan_target;
-		it1->second.init(scan_target);
+		si.init(scan_target);
 	}
 	return true;
 }
 
 bool active_adapter_t::read_and_process_data_for_fd(const epoll_event* evt) {
-	if (si.read_and_process_data_for_fd(evt)) {
-		return true;
-	}
-	for (auto& [pid, si] : embedded_si_streams) {
+	extern thread_local bool debug_xxx;
+	debug_xxx = true;
+	for (auto& [mux_key, si] : this->si_streams) {
 		if (si.read_and_process_data_for_fd(evt)) {
 			return true;
 		}
@@ -702,14 +808,14 @@ bool active_adapter_t::read_and_process_data_for_fd(const epoll_event* evt) {
 }
 
 void active_adapter_t::init_si(devdb::scan_target_t scan_target) {
-	/*@When we are called on a t2mi mux, there could be confusion between the t2mi mux (with t2mi_pid set)
+	/*check if this comment is stillk valid, because then code is wrong:
+		When we are called on a t2mi mux, there could be confusion between the t2mi mux (with t2mi_pid set)
 		and the one without. To avoid this, we find the non-t2mi_pid version first
 	*/
-	bool failed = ! si.init(scan_target);
-	if(failed)
-		return;
-	for (auto& [pid, si_] : embedded_si_streams) {
-		failed = ! si_.init(si.scan_target);
+	bool failed{false};
+	si_is_on = true;
+	for (auto& [pid, si] : this->si_streams) {
+		failed = ! si.init(si.scan_target);
 		if(failed)
 			return;
 	}
@@ -748,37 +854,54 @@ void active_adapter_t::init_si(devdb::scan_target_t scan_target) {
 
 
 chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
-																						 subscription_id_t subscription_id,
-																						 bool add_to_running_mux) {
+																						 subscription_id_t subscription_id) {
 	namespace m = chdb::update_mux_preserve_t;
-	dtdebugf("prepare_si: mux={}", mux);
+	dtdebugf("mux={}", mux);
+	auto& mux_key = *mux_key_ptr(mux);
+	auto master_mux = mux;
+	auto& master_mux_key = *mux_key_ptr(master_mux);
+	master_mux_key.t2mi_pid = -1;
+
 	/*
 		add an embedded si stream and set the current_mux to to the encapsulating mux
 	 */
+	//check if the stream already exists
+	auto it = this->si_streams.find(master_mux_key);
+	if(it != this->si_streams.end()) {
+		dtdebugf("master si already present: mux={}", master_mux_key);
+	} else {//if not, then add it
+		add_si_stream(master_mux);
+	}
+
 	auto& scan_id = mux_common_ptr(mux)->scan_id;
 	bool our_scan = scanner_t::is_our_scan(scan_id);
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
-	if (dvbs_mux && dvbs_mux->k.t2mi_pid >= 0) {
+
+	if (mux_key.t2mi_pid >=0) {
 		dtdebugf("mux {} is an embedded stream", *dvbs_mux);
-		auto master_mux = *dvbs_mux;
-		if(add_embedded_si_stream(mux, start)) {
-			auto mux_key = master_mux.k;
-			master_mux.k.t2mi_pid = -1;
-			if(!add_to_running_mux)
-				set_current_tp(master_mux);
+		if(add_embedded_si_stream(mux)) {
+#ifdef TODO
+			//also set scan id on master mux; not needed/desired?
+				update_mux(master_mux);
+#endif
 		}
 		if(our_scan) {
 			assert((int) subscription_id >=0 );
-			auto& si = embedded_si_streams.at(dvbs_mux->k.t2mi_pid);
+			auto& si = this->si_streams.at(mux_key);
+			assert(!dvbs_mux ||  (dvbs_mux->k.t2mi_pid >= 0) == si.is_embedded_si);
 			si.activate_scan(mux, subscription_id, scan_id);
+			//This is needed in case activate_scan has changed mux"
+			update_mux(mux);
 		}
 		return master_mux;
 	} else {
 		if(our_scan) {
+			auto& si = this->si_streams.at(mux_key);
+			assert(!dvbs_mux ||  (mux_key.t2mi_pid >= 0) == si.is_embedded_si);
 			si.activate_scan(mux, subscription_id, scan_id);
+			//This is needed in case activate_scan has changed mux
+			update_mux(mux); //XXXXX
 		}
-		if(!add_to_running_mux)
-			set_current_tp(mux);
 		return mux;
 	}
 }
@@ -787,32 +910,35 @@ chdb::any_mux_t active_adapter_t::prepare_si(chdb::any_mux_t mux, bool start,
 	Finalize all si processing, and notify scanners
  */
 void active_adapter_t::end_si() {
-	for (auto& [pid, si_] : embedded_si_streams) {
-		si_.end();
+	for (auto& [pid, si] : this->si_streams) {
+		si.finalize();
 	}
-	si.end();
 }
 
 /*
 	Stop all si processing, and close down the resulting streams.
 	also notifies scanners
  */
-void active_adapter_t::reset_si() {
+void active_adapter_t::stop_si() {
 	if(!is_open()) {
 		dtdebugf("skipping; not open");
 		return;
 	}
+	if(!si_is_on) {
+		dtdebugf("skipping; not active");
+		return;
+	}
+	si_is_on = false;
 	if (tune_state != tune_state_t::TUNE_INIT) {
-		dtdebugf("resetting si_processing_done={:d}\n", si.si_processing_done);
-		for (auto& [pid, si_] : embedded_si_streams) {
-			si_.reset_si(true /*close stream*/);
+		for (auto& [pid, si] : this->si_streams) {
+			dtdebugf("before reset si_processing_done={:d}\n", si.si_processing_done);
+			si.stop_si(true /*close stream*/);
+			dtdebugf("after reset si_processing_done={:d}\n", si.si_processing_done);
 		}
-		si.reset_si(true /*close streams*/);
-		dtdebugf("resetting now: si_processing_done={:d}\n", si.si_processing_done);
 	} else {
 		dtdebugf("skipping tune_state={:d}", (int) tune_state);
 	}
-	embedded_si_streams.clear();
+	this->si_streams.clear();
 	stream_filters.writeAccess()->clear();
 }
 
@@ -884,11 +1010,15 @@ void active_adapter_t::check_isi_processing()
 		In this case it is impossible that SI data was processed
 	*/
 
-	auto mux = si.reader->stream_mux();
+	auto mux = this->tuned_si->dbmux;
+#ifndef NDEBUG
+	auto tmp = tuned_mux();
+	assert(*chdb::mux_key_ptr(mux) == *chdb::mux_key_ptr(tmp));
+#endif
 	if(!is_template(mux))
 		check_for_unlockable_streams();
-	si.finalize_scan();
-	si.check_scan_mux_end();
+	this->tuned_si->finalize_scan();
+	this->tuned_si->check_scan_mux_end();
 }
 
 void active_adapter_t::check_for_new_streams()
@@ -913,12 +1043,12 @@ void active_adapter_t::check_for_new_streams()
 	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
 
-	auto tuned_mux = current_tp();
-	bool is_scanning = mux_common_ptr(tuned_mux)->scan_status == scan_status_t::ACTIVE;
+	auto tuned_mux_ = tuned_mux();
+	bool is_scanning = mux_common_ptr(tuned_mux_)->scan_status == scan_status_t::ACTIVE;
 	if(is_scanning != scanner_t::is_scanning(scan_id)) {
 		auto tst = scanner_t::is_scanning(scan_id);
 		dtdebugf("Unexpected: tuned_mux={} driver_mux={} is_scanning={}/{} scan_id/pid={}",
-						 tuned_mux, signal_info.driver_mux, is_scanning, tst, scan_id.pid);
+						 tuned_mux_, signal_info.driver_mux, is_scanning, tst, scan_id.pid);
 		is_scanning = false;
 	}
 #ifndef NDEBUG
@@ -943,7 +1073,7 @@ void active_adapter_t::check_for_new_streams()
 	//c->epg_types // from database
 
 	auto ctemplate = *c; //make copy
-	bool propagate_scan = si.reader->tune_options().propagate_scan;
+	bool propagate_scan = this->tuned_si->reader->tune_options().propagate_scan;
 	auto scan_start_time = receiver.scan_start_time();
 
 	for(auto ma: signal_info.matype_list) {
@@ -1019,7 +1149,7 @@ void active_adapter_t::check_for_unlockable_streams()
 {
 	if(!(tune_state == tune_state_t::LOCK_TIMEDOUT || tune_state == tune_state_t::TUNE_FAILED))
 		return;
-	auto mux = current_tp();
+	auto mux = tuned_mux();
 	auto* c = chdb::mux_common_ptr(mux);
 	c->scan_result = (tune_state == tune_state_t::TUNE_FAILED) ? scan_result_t::BAD : scan_result_t::NOLOCK;
 	auto chdb_wtxn = receiver.chdb.wtxn();
@@ -1031,7 +1161,7 @@ void active_adapter_t::check_for_unlockable_streams()
 void active_adapter_t::check_for_non_existing_streams()
 {
 	assert (tune_state == tune_state_t::LOCKED);
-	auto mux = current_tp();
+	auto mux = tuned_mux();
 	auto* c = chdb::mux_common_ptr(mux);
 	assert(processed_isis.count()==0);
 	c->scan_result=scan_result_t::BAD;
@@ -1081,7 +1211,7 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 	log4cxx::NDC::push(prefix.c_str());
 
 	auto reader = service.k.mux.t2mi_pid >= 0 ? this->make_embedded_stream_reader(mux)
-		: this->make_dvb_stream_reader();
+		: this->make_dvb_stream_reader(service.k.mux);
 	active_service_ptr = std::make_shared<active_service_t>(receiver, *this, service, std::move(reader));
 	log4cxx::NDC::pop();
 	// remember that this service is now in use (for future planning and for later unsubscription)
@@ -1117,27 +1247,25 @@ active_adapter_t::tune_service_for_recording(const subscribe_ret_t& sret,
 	return active_servicep->start_recording(sret.subscription_id, rec);
 }
 
+/*
+	create a stream for a full mux
+ */
 devdb::stream_t active_adapter_t::add_stream
 (const subscribe_ret_t& sret, const devdb::stream_t& stream, const chdb::any_mux_t& mux) {
 	auto fd = active_adapter_t::open_demux(O_RDONLY);
-
 	uint16_t pid= 0x2000; //full transport stream
 	dtdebugf("Adding pid={}", pid);
 	int dmx_buffer_size = 32 * 1024 * 1024;
-	struct dmx_pes_filter_params pesFilterParams;
-	memset(&pesFilterParams,0,sizeof(pesFilterParams));
-	pesFilterParams.pid = pid;
-	pesFilterParams.input = DMX_IN_FRONTEND;
-	pesFilterParams.output = DMX_OUT_TSDEMUX_TAP;//DMX_OUT_TS_TAP;
-	pesFilterParams.pes_type = DMX_PES_OTHER;
-	pesFilterParams.flags = 0; //DMX_IMMEDIATE_START;
 	if(ioctl(fd, DMX_SET_BUFFER_SIZE, dmx_buffer_size)) {
 		dterrorf("DMX_SET_BUFFER_SIZE failed: {}", strerror(errno));
 	}
-	if (ioctl(fd, DMX_SET_PES_FILTER, &pesFilterParams) < 0) {
-		dterrorf("DMX_SET_PES_FILTER  pid={} failed: {}", pid, strerror(errno));
+
+	auto bbframes_on = this->fe->ts.readAccess()->dbfe.sub.bbframes_on;
+	auto mux_key = *chdb::mux_key_ptr(mux);
+	bool driver_supports_t2mi{true};
+	if(dmx_set_mux(fd, mux_key, pid, bbframes_on, driver_supports_t2mi) < 0)
 		return {};
-	}
+
 	if(ioctl (fd, DMX_START)<0) {
 		dterrorf("DMX_START FAILED: {}", strerror(errno));
 	}
@@ -1149,7 +1277,6 @@ devdb::stream_t active_adapter_t::add_stream
 }
 
 void active_adapter_t::remove_stream(subscription_id_t subscription_id) {
-	//auto streamer = streamer_t();
 	auto [it, found] = find_in_map(streamers, subscription_id);
 	assert(found);
 	auto& streamer = *it->second;
@@ -1175,7 +1302,7 @@ int active_adapter_t::request_retune(const chdb::any_mux_t& mux_,
 			symbol_rate= get_member(mux, symbol_rate, -1);
 		}, m);
 	}
-	this->reset_si(); //clear left overs from last tune
+	this->stop_si(); //clear left overs from last tune
 	this->fe->set_tune_options(tune_options);
 	auto mux = this->prepare_si(mux_, false /*start*/, subscription_id);
 	this->processed_isis.reset();

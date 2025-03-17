@@ -372,6 +372,7 @@ fe_subscription = db_struct(name='fe_subscription',
                                      (8, 'int32_t', 'frequency', '0'),
                                      (10, 'int32_t', 'rf_coupler_id', '-1'),
                                      (12, 'chdb::mux_key_t' , 'mux_key'),
+                                     (16, 'bool' , 'bbframes_on'),
                                      (15, 'std::optional<devdb::unicable_ch_t>', 'unicable_ch'), #unicable channel to use
                                      (13, 'ss::vector<subscription_data_t>' , 'subs'),
                 ))
@@ -456,6 +457,7 @@ user_options = db_struct(name ='user_options',
                         (1, 'time_t', 'mtime'),
                         (2, 'usals_location_t', 'usals_location'),
                         (14, 'bool', 'tune_use_blind_tune', 'false'),
+                        (22, 'bool', 'tune_use_bbframes', 'true'),
                         (12, 'bool', 'tune_may_move_dish', 'false'),
                         (10, 'int32_t', 'dish_move_penalty', 100),
                         (11, 'int32_t', 'resource_reuse_bonus', 1000),
@@ -640,6 +642,8 @@ tune_options = db_struct(name ='tune_options',
               (5, 'std::optional<ss::vector_<rf_path_t>>', 'allowed_rf_paths'),
               (7, 'bool', 'use_blind_tune', 'false'),
 	            (8, 'bool', 'may_move_dish', 'false'),    #subscription is allowed to move the dish when tuning if no
+                                                        #other subscriptions conflict; afterwards dish may not be moved
+	            (17, 'bool', 'use_bbframes', 'false'),    #subscription is allowed to move the dish when tuning if no
                                                         #other subscriptions conflict; afterwards dish may not be moved
 	            (11, 'bool', 'propagate_scan', 'true'),
 	            (12, 'bool', 'need_spectrum', 'false'),

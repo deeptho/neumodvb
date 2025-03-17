@@ -86,8 +86,9 @@ ss::string<128> dump_caps(chdb::fe_caps_t caps) {
 	return ret;
 }
 
-int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const dtdemux::pmt_info_t& pmt) {
-	auto mux = active_adapter.current_tp();
+int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key,
+																				const dtdemux::pmt_info_t& pmt) {
+	auto mux = active_adapter.mux_for_key(mux_key);
 
 	bool changed = pmt.has_freesat_epg ? add_epg_type(mux, chdb::epg_type_t::FREESAT)
 		: remove_epg_type(mux, chdb::epg_type_t::FREESAT);
@@ -97,7 +98,7 @@ int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const 
 
 	if (changed) {
 		dtdebugf("freesat/skyuk epg flag changed on mux {}", mux);
-		active_adapter.set_current_tp(mux);
+		active_adapter.update_mux(mux);
 		auto txn = receiver.chdb.wtxn();
 		namespace m = chdb::update_mux_preserve_t;
 		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES}, /*false ignore_key,*/
@@ -137,8 +138,10 @@ int tuner_thread_t::cb_t::lnb_spectrum_acquistion(subscription_id_t subscription
 }
 
 /*
-	Called from tune_mux when our own subscription is a normal tune, but mux is resubscribed, e.g.,
-	to set the scan status. The newly subscribed mux could be for a not yet running embedded t2mi stream
+	Called from tune_mux when our subscription is for a mux, but mux is already subscribed
+	either by us, or by some other subscription. The resubscription is needed to start scanning (if the mux
+	was not scanning, i.e., the mux was scubscribed with scan_id==-1 and now scan_id>=0) and will obey the
+	new scan_target (which may require more thorugh scanning), which then needs restarting si_processing
 
 	In this case, an embedded stream is added through prepare_si.
 	if scan_id >0, prepare_si also adds the subscription to the list of subscriptions to notify
@@ -148,12 +151,12 @@ int tuner_thread_t::cb_t::lnb_spectrum_acquistion(subscription_id_t subscription
 	@todo: various tune requests may have conflicting tune options (such as propagate_scan)
  */
 
-void tuner_thread_t::add_si(active_adapter_t& active_adapter,
-																	const chdb::any_mux_t& mux, const subscription_options_t& tune_options ,
-														subscription_id_t subscription_id) {
+void tuner_thread_t::restart_si_on_new_subscription(active_adapter_t& active_adapter,
+																										const chdb::any_mux_t& mux, const subscription_options_t& tune_options ,
+																										subscription_id_t subscription_id) {
 	// check_thread();
 	dtdebugf("tune restart_si");
-	active_adapter.prepare_si(mux, true /*start*/, subscription_id, true /*add_to_running_mux*/);
+	active_adapter.restart_si_if_needed(mux, tune_options, subscription_id);
 	active_adapter.fe->set_tune_options(tune_options);
 }
 
@@ -575,13 +578,15 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 		auto ret1 = active_adapter.remove_service(sret.subscription_id);
 		dtdebugf("Called remove_service: service was {}removed", (ret1<0)? "NOT " : "");
 	}
-
+	/*we are reusing our own subscription using the same mux but with different tune options,
+		or after being requested explicitly to retune (e.g., user ask retune in positioner_dialog when not locked)
+	*/
 	if(sret.sub_to_reuse == sret.subscription_id)  {
 		assert(old_active_adapter);
 		dtdebugf("already subscribed to mux {}", mux);
 		if(tune_options.subscription_type == devdb::subscription_type_t::TUNE) {
      //@todo: check the following call, this means we alreay have added si, but maybe with other tune options
-			add_si(*old_active_adapter, mux, tune_options, sret.subscription_id);
+			restart_si_on_new_subscription(*old_active_adapter, mux, tune_options, sret.subscription_id);
 		} else {
 			/// during DX-ing and scanning retunes need to be forced
 			old_active_adapter->request_retune(mux, tune_options, sret.subscription_id);
@@ -590,13 +595,10 @@ tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux
 	}
 
 	/*We now know that the old unsubscribed mux is different from the new one
-		or current_lnb != lnb
-		We do not unsubscribe it yet, because that would cause the asssociated frontend
-		to be released, which is not optimal if we decide to just reuse this frontend
-		and tune it to a different mux
+		or that current_lnb != lnb
 	*/
 	if((int)sret.sub_to_reuse >=0)  {
-		add_si(active_adapter, mux, tune_options, sret.subscription_id);
+		restart_si_on_new_subscription(active_adapter, mux, tune_options, sret.subscription_id);
 		dtdebugf("subscribe {}: reused activate_adapter from subscription_id={}",
 						 mux, (int)sret.sub_to_reuse);
 		return sret.subscription_id;

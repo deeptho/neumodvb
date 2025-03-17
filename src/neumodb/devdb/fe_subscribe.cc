@@ -100,6 +100,7 @@ unsubscribe(db_txn& wtxn, subscription_id_t subscription_id, const fe_key_t& fe_
 		return {};
 	}
 	else {
+		fe.sub.bbframes_on = false;
 		put_record(wtxn, fe);
 		return fe;
 	}
@@ -111,6 +112,7 @@ std::optional<devdb::fe_t> fe::unsubscribe(db_txn& wtxn, subscription_id_t subsc
 	for(auto fe : c.range()) {
 		bool erased = unsubscribe_helper(fe, subscription_id);
 		if(erased) {
+			fe.sub.bbframes_on = false;
 			put_record(wtxn, fe);
 			return fe;
 		}
@@ -137,30 +139,33 @@ static inline subscribe_ret_t reuse_other_subscription(
 	sret.aa = {.updated_old_dbfe=old_fe, .updated_new_dbfe=new_fe, .rf_path={}, .lnb={}};
 	sret.sub_to_reuse =(subscription_id_t) other_subscription_id;
 	sret.tune_pars.send_lnb_commands = false;
+	sret.tune_pars.use_bbframes = new_fe->sub.bbframes_on;
 	sret.tune_pars.move_dish = false;
 	sret.tune_pars.dish = {};
 	assert(new_fe->sub.owner == getpid());
 	assert(new_fe->sub.config_id != -1);
 	sret.tune_pars.owner = new_fe->sub.owner;
 	sret.tune_pars.config_id = new_fe->sub.config_id;
+	sret.tune_pars.use_bbframes = new_fe->supports.bbframes;
 	return sret;
 }
 
 static inline subscribe_ret_t new_service(
 	subscription_id_t subscription_id, int other_subscription_id,
-	const std::optional<devdb::fe_t>& new_fe, const std::optional<devdb::fe_t>& old_fe) {
+	const std::optional<devdb::fe_t>& new_dbfe, const std::optional<devdb::fe_t>& old_dbfe) {
 	subscribe_ret_t sret{subscription_id, false/*failed*/};
 	/* ret.aa_sub_to_reuse = subscribe_ret_t::NONE : keep active_adapter and do not retune*/
-	sret.aa = {.updated_old_dbfe=old_fe, .updated_new_dbfe=new_fe, .rf_path={}, .lnb={}};
+	sret.aa = {.updated_old_dbfe=old_dbfe, .updated_new_dbfe=new_dbfe, .rf_path={}, .lnb={}};
 	sret.sub_to_reuse = (subscription_id_t) other_subscription_id;
 	sret.change_service = true;
 	sret.tune_pars.send_lnb_commands = false;
 	sret.tune_pars.move_dish = false;
 	sret.tune_pars.dish = {};
-	assert(new_fe->sub.owner == getpid());
-	assert(new_fe->sub.config_id != -1);
-	sret.tune_pars.owner = new_fe->sub.owner;
-	sret.tune_pars.config_id = new_fe->sub.config_id;
+	assert(new_dbfe->sub.owner == getpid());
+	assert(new_dbfe->sub.config_id != -1);
+	sret.tune_pars.owner = new_dbfe->sub.owner;
+	sret.tune_pars.config_id = new_dbfe->sub.config_id;
+	sret.tune_pars.use_bbframes = new_dbfe->supports.bbframes;
 	return sret;
 }
 
@@ -295,6 +300,7 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 						 fe.adapter_no, rf_path.lnb, fe.sub.subs.size());
 		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, chdb::service_t{}});
 	}
+	fe.sub.bbframes_on = false;
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -388,8 +394,10 @@ devdb::fe::subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 		assert(fe_->sub.config_id >= 0);
 		sret.tune_pars.owner = fe_->sub.owner;
 		sret.tune_pars.config_id = fe_->sub.config_id;
+		sret.tune_pars.use_bbframes = false;
 		bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
 		sret.retune = is_same_fe;
+		fe_->sub.bbframes_on = false;
 		sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path, .lnb= lnb};
 
 		if(!is_same_fe) {
@@ -443,18 +451,18 @@ devdb::fe::	subscribe_rf_path(db_txn& devdb_wtxn, subscription_id_t subscription
 	return sret;
 }
 
-int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
-																			devdb::fe_t& fe, const devdb::rf_path_t& rf_path,
+std::optional<devdb::fe_t> devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
+																			const devdb::fe_key_t& fe_key, bool bbframes_on, const devdb::rf_path_t& rf_path,
 																			const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
 																			const std::optional<devdb::unicable_ch_t>& unicable_ch,
 																			const chdb::dvbs_mux_t& mux, const chdb::service_t* service)
 {
-	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
+	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	if( !c.is_valid())
-		return -1;
-	fe = c.current();
+		return {};
+	auto fe = c.current();
 	auto& sub = fe.sub;
-
+	sub.bbframes_on = bbframes_on;
 	if(use_counts.can_control_lnb()) {
 		assert(sub.config_id <0);
 		assert(sub.owner <0);
@@ -499,7 +507,7 @@ int devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscripti
 					 chdb::sat_pos_str(sub.sat_pos), lnb, fe.sub.subs.size());
 
 	put_record(wtxn, fe);
-	return 0;
+	return fe;
 }
 
 /*
@@ -532,12 +540,10 @@ devdb::fe::subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id,
 		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe->k);
 	if(!best_fe)
 		return {{}, {}, {}, {}, {}, updated_old_dbfe}; //no frontend could be found
-#ifndef NDEBUG
-	auto ret =
-#endif
-		devdb::fe::reserve_fe_lnb_for_mux(wtxn, subscription_id, *best_fe, *best_rf_path, *best_lnb, best_use_counts,
-																			unicable_ch, mux, service);
-	assert(ret==0); //reservation cannot fail as we have a write lock on the db
+	auto bbframes_on = tune_options.use_bbframes && best_fe->supports.bbframes;
+	best_fe = devdb::fe::reserve_fe_lnb_for_mux(wtxn, subscription_id, best_fe->k, bbframes_on, *best_rf_path, *best_lnb, best_use_counts,
+																							unicable_ch, mux, service);
+	assert(best_fe); //reservation cannot fail as we have a write lock on the db
 
 	return {best_fe, best_rf_path, best_lnb, best_use_counts, unicable_ch, updated_old_dbfe};
 }
@@ -580,6 +586,7 @@ int devdb::fe::reserve_fe_for_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t s
 		service.k.mux = mux.k;
 		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
 	}
+	fe.sub.bbframes_on = false;
 	put_record(wtxn, fe);
 	return 0;
 }
@@ -700,12 +707,13 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 	auto[ oldfe_, will_be_released ] = fe_for_subscription(wtxn, subscription_id);
 	auto* fe_key_to_release = (oldfe_ && will_be_released) ? &oldfe_->k : nullptr;
 	std::optional<devdb::fe_t> updated_old_dbfe;
-
+	bool ignore_stream_id = tune_options.use_bbframes;
 	//try to reuse existing active_adapter and active_service as-is
 	if(service) {
 		auto [fe_, idx] = matching_existing_subscription(wtxn,
 																										 tune_options,
-																										 &mux, service,
+																										 mux, service,
+																										 ignore_stream_id,
 																										 false /*match_mux_only*/);
 		if(fe_) {
 			auto & fe = *fe_;
@@ -745,7 +753,8 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 	if(true) {
 		auto [fe_, idx] = matching_existing_subscription(wtxn,
 																										 tune_options,
-																										 &mux, service,
+																										 mux, service,
+																										 ignore_stream_id,
 																										 true /*match_mux_only*/);
 		if(fe_) {
 			auto& fe = *fe_;
@@ -830,11 +839,13 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				sret.tune_pars.send_lnb_commands = use_counts_.can_control_lnb();
 				assert(fe.sub.owner == getpid());
-				assert(fe.sub.config_id >=0);
-				sret.tune_pars.owner = fe.sub.owner;
 				sret.tune_pars.config_id = fe.sub.config_id;
+				sret.tune_pars.use_bbframes = tune_options.use_bbframes && fe.supports.bbframes;
+				fe_->sub.bbframes_on = sret.tune_pars.use_bbframes;
 				sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			} else {
+				sret.tune_pars.use_bbframes = false;
+				fe_->sub.bbframes_on = false;
 				sret.aa = { .updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe, .rf_path={}, .lnb={}};
 			}
 			if(!is_same_fe) {
@@ -892,7 +903,8 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 			assert(fe.sub.config_id >= 0);
 			sret.tune_pars.owner = fe.sub.owner;
 			sret.tune_pars.config_id = fe.sub.config_id;
-
+			sret.tune_pars.use_bbframes = false;
+			fe_->sub.bbframes_on = false;
 			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			if(!is_same_fe) {
 				assert(sret.aa.is_new_aa());
@@ -940,8 +952,8 @@ template<typename mux_t>
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
 																					const subscription_options_t& tune_options,
-																					const mux_t* mux,
-																					const chdb::service_t* service,
+																					const mux_t& mux,
+																					const chdb::service_t* service, bool ignore_stream_id,
 																					bool match_mux_only) {
 	auto owner = getpid();
 	using namespace chdb;
@@ -951,7 +963,7 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 		if(fe.sub.owner != owner)
 			continue;
 		int idx=0;
-		if(mux && (mux->k.mux_id ==0 || fe.sub.mux_key.mux_id ==0)) {
+		if(mux.k.mux_id ==0 || fe.sub.mux_key.mux_id ==0) {
 			/*the existing subscription or the desired one is for a frequency peak.
 				In this case, we prevent reuse
 			*/
@@ -963,19 +975,26 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 				rf_path_matches = tune_options.rf_path_is_allowed(fe.sub.rf_path);
 			}
 			auto* sub_service = std::get_if<chdb::service_t>(&sub.v);
-			bool mux_matches = mux ? (mux->k == fe.sub.mux_key ||
-																(sub_service && sub.has_mux &&  mux->k == sub_service->k.mux)) : !sub.has_mux;
+			auto k = mux.k;
+
+			//in case we are using bbframes, it is fine to use a subscription with a non-matching stream_id
+			if(ignore_stream_id && sub_service)
+				k.stream_id = sub_service->k.mux.stream_id;
+			bool mux_matches = (k == fe.sub.mux_key) ||
+				(sub_service && sub.has_mux &&  k == sub_service->k.mux);
+
 			bool service_matches = service ? (sub.has_service &&  sub_service &&
 																				service->k == sub_service->k) : ! sub.has_service;
 			service_matches |= match_mux_only;
 			//in case we only need a mux, we also check for a match in frequency
-			if(rf_path_matches && sub_service && mux && !mux_matches && (!service || match_mux_only)) {
+			if(rf_path_matches && sub_service && !mux_matches && (!service || match_mux_only)) {
 				//perhaps the frequency matches but not the mux key
 				mux_t m;
 				m.k = sub_service->k.mux;
 				set_member(m, frequency, fe.sub.frequency);
 				set_member(m, pol, fe.sub.pol);
-				mux_matches = chdb::matches_physical_fuzzy(*mux, m, true /*check_sat_pos*/,
+				mux_matches = chdb::matches_physical_fuzzy(mux, m, true /*check_sat_pos*/,
+																									 ignore_stream_id,
 																									 true /*ignore_t2mi_pid*/);
 			}
 			if(rf_path_matches && mux_matches && service_matches) {
@@ -1034,23 +1053,23 @@ template
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
 																					const subscription_options_t& tune_options,
-																					const chdb::dvbs_mux_t* mux,
-																					const chdb::service_t* service,
+																					const chdb::dvbs_mux_t& mux,
+																					const chdb::service_t* service, bool ignore_stream_id,
 																					bool match_mux_only);
 
 template
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
 																					const subscription_options_t& tune_options,
-																					const chdb::dvbc_mux_t* mux,
-																					const chdb::service_t* service,
+																					const chdb::dvbc_mux_t& mux,
+																					const chdb::service_t* service, bool ignore_stream_id,
 																					bool match_mux_only);
 template
 std::tuple<std::optional<devdb::fe_t>, int>
 devdb::fe::matching_existing_subscription(db_txn& wtxn,
 																					const subscription_options_t& tune_options,
-																					const chdb::dvbt_mux_t* mux,
-																					const chdb::service_t* service,
+																					const chdb::dvbt_mux_t& mux,
+																					const chdb::service_t* service, bool ignore_stream_id,
 																					bool match_mux_only);
 
 

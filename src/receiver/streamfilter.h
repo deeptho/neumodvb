@@ -33,9 +33,6 @@
 class embedded_stream_reader_t;
 class stream_filter_t;
 
-
-
-
 class stream_filter_t {
 	std::mutex m;
 	friend class embedded_stream_reader_t;

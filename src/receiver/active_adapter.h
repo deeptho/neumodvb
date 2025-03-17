@@ -129,9 +129,6 @@ class active_adapter_t final : public  std::enable_shared_from_this<active_adapt
 	friend class stream_reader_t;
 	friend struct dvb_stream_reader_t;
 
-public:
-	receiver_t& receiver;
-	const std::shared_ptr<dvb_frontend_t> fe; //accessible by other threads (with some care?)
 private:
 /*
 		for uncommitted switch closest to receiver, followed by committed switch.
@@ -145,7 +142,8 @@ private:
 	steady_time_t last_new_matype_time;
 
 	safe::Safe<std::map <uint16_t, std::shared_ptr<stream_filter_t>>> stream_filters; //indexed by stream_pid
-	std::map <uint16_t, active_si_stream_t> embedded_si_streams; //indexed by stream_pid
+	std::map <chdb::mux_key_t, active_si_stream_t> si_streams; //indexed by mux_key
+	active_si_stream_t* tuned_si{nullptr}; //the si stream for the stream directly coming from the tuner
 
 	tune_state_t tune_state{TUNE_INIT};
 	subscription_options_t tune_options;
@@ -154,12 +152,33 @@ private:
 	system_time_t tune_start_time;  //when last tune started
 	constexpr static std::chrono::duration tune_timeout{15000ms}; //in ms
 
-	//safe::thread_public_t<false, chdb::any_mux_t> tuned_muxxxx{"tuner", thread_group_t::tuner, {}};
 	usals_timer_t usals_timer;
+	bool si_is_on{false};
+	//list of streamers streaming data from neumodvb to external users
+	std::map<subscription_id_t, std::shared_ptr<streamer_t>> streamers; //indexed by subscription_id
+	std::map<subscription_id_t,
+					 std::shared_ptr<active_service_t>> subscribed_active_services; //indexed by subscription_id
 
-	chdb::any_mux_t current_tp() const {
+	/*
+		key is the subscription_id
+		first value entry in the map is the current pmt_pid as known by the tuner thread.
+		This may differ from active_service.current_pmt_pid when a pmt change has not yet been noticed
+		by the service thread
+	*/
+
+
+public:
+	receiver_t& receiver;
+	const std::shared_ptr<dvb_frontend_t> fe; //accessible by other threads (with some care?)
+	tuner_thread_t tuner_thread;
+
+private:
+	chdb::any_mux_t tuned_mux() const {
 		return fe->tuned_mux();
 	};
+
+	const chdb::any_mux_t mux_for_key(const chdb::mux_key_t& mux_key) const;
+
 	inline void update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 		this->fe->update_tuned_mux_nit(mux);
 	}
@@ -179,12 +198,15 @@ private:
 		return conn ?  conn->rf_coupler_id : -1;
 	}
 
-	void set_current_tp(const chdb::any_mux_t& mux) {
+	inline void set_current_tp(const chdb::any_mux_t& mux) {
 		assert((mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 						mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING) ||
 					 chdb::scan_in_progress(mux_common_ptr(mux)->scan_id));
 		fe->update_tuned_mux_nit(mux);
 	};
+
+
+	void update_mux(const chdb::any_mux_t& mux);
 
 	bool update_current_lnb(const devdb::lnb_t& lnb);
 
@@ -192,68 +214,30 @@ private:
 	//tuner_stats_t fe_stats; //python interface: snr and such
 
 	uint32_t get_lo_frequency(uint32_t frequency);
-#if 0
-	subscription_id_t start_recording(subscription_id_t subscription_id, const recdb::rec_t& rec);
-#endif
-public: //this data is safe to access from other threads
 
-	tuner_thread_t tuner_thread;
-
-	chdb::any_mux_t current_mux() const {  //currently tuned transponder
-		return current_tp();
-		//@todo make thread safe
-	};
-	inline devdb::rf_path_t get_rf_path() const {
-		return fe->ts.readAccess()->reserved_rf_path;
-	}
-
-	bool uses_lnb(const devdb::lnb_key_t& lnb_key) const {
-		return fe->ts.readAccess()->reserved_lnb.k == lnb_key;
-		//@todo make thread safe
-	}
-	devdb::lnb_t
-	get_lnb() const { //lnb currently in use
-		return fe->ts.readAccess()->reserved_lnb;
-		//@todo make thread safe
-	}
-
-	void update_lof(devdb::lnb_t& lnb, int16_t sat_pos, chdb::fe_polarisation_t pol,
-									int nit_frequency, int driver_frequency);
-
-private:
 	int clear();
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	void handle_fe_event();
 	void monitor();
 
+	bool restart_si_if_needed(chdb::any_mux_t mux, 	const subscription_options_t& tune_options,
+														subscription_id_t subscription_id =subscription_id_t::NONE);
 	chdb::any_mux_t prepare_si(chdb::any_mux_t mux, bool start,
-														 subscription_id_t subscription_id =subscription_id_t::NONE,
-														 bool add_to_running_mux=false);
+														 subscription_id_t subscription_id =subscription_id_t::NONE
+														 /*,bool dont_set_current_tp=false*/);
 
 	template <typename mux_t> inline  mux_t prepare_si(
-		mux_t mux, bool start, subscription_id_t subscription_id =subscription_id_t::NONE,
-		bool add_to_running_mux=false) {
+		mux_t mux, bool start, subscription_id_t subscription_id =subscription_id_t::NONE
+		/*,bool dont_set_current_tp=false*/) {
 		chdb::any_mux_t mux_{mux};
-		mux_ = prepare_si(mux_, start, subscription_id, add_to_running_mux);
+		mux_ = prepare_si(mux_, start, subscription_id/*, dont_set_current_tp*/);
 		return *std::get_if<mux_t>(&mux_);
 	}
 
 	void init_si(devdb::scan_target_t scan_target_);
 	void end_si();
-	void reset_si();
-private:
-	std::map<subscription_id_t, std::shared_ptr<streamer_t>> streamers; //indexed by subscription_id
-	std::map<subscription_id_t,
-					 std::shared_ptr<active_service_t>> subscribed_active_services; //indexed by subscription_id
+	void stop_si();
 
-	/*
-		key is the subscription_id
-		first value entry in the map is the current pmt_pid as known by the tuner thread.
-		This may differ from active_service.current_pmt_pid when a pmt change has not yet been noticed
-		by the service thread
-	*/
-
-	active_si_stream_t si;
 	int remove_service(subscription_id_t subscription_id);
 	int remove_all_services();
 	void check_for_new_streams();
@@ -262,37 +246,7 @@ private:
 
 	active_adapter_t(active_adapter_t&& other) = delete;
 	active_adapter_t(const active_adapter_t& other) = delete;
-public:
-	active_adapter_t(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_);
-	inline void start_tuner_thread() {
-		tuner_thread.start_running();
-	}
-	static inline std::shared_ptr<active_adapter_t>
-	make(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_) {
-		auto ret= std::make_shared<active_adapter_t>(receiver_, fe_);
-		ret->start_tuner_thread();
-		return ret;
-	}
 
-	active_adapter_t operator=(const active_adapter_t& other) = delete;
-
-	virtual ~active_adapter_t() final;
-
-	template<typename mux_t>
-	bool is_tuned_to(const mux_t& mux, const devdb::rf_path_t* required_rf_path, bool ignore_t2mi_pid=false) {
-		assert(fe.get());
-		if(chdb::is_template(mux))
-			return fe->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid);
-		auto tuned_mux = fe->tuned_mux();
-		auto tuned_mux_key = *chdb::mux_key_ptr(tuned_mux);
-		auto mux_key = *chdb::mux_key_ptr(mux);
-		//allow mismatch in t2mi_pid
-		tuned_mux_key.t2mi_pid = -1;
-		mux_key.t2mi_pid = -1;
-		return mux_key == tuned_mux_key;
-	}
-
-private:
 	void reset();
 	void destroy(); //called from tuner_thread on exit
 	template<typename mux_t> inline int retune();
@@ -337,6 +291,42 @@ private:
 	int request_retune(const chdb::any_mux_t& mux_,
 										 const subscription_options_t& tune_options,
 										 subscription_id_t subscription_id);
+
+public: //this data is safe to access from other threads
+
+	inline devdb::rf_path_t get_rf_path() const {
+		return fe->ts.readAccess()->reserved_rf_path;
+	}
+
+	bool uses_lnb(const devdb::lnb_key_t& lnb_key) const {
+		return fe->ts.readAccess()->reserved_lnb.k == lnb_key;
+		//@todo make thread safe
+	}
+
+	devdb::lnb_t get_lnb() const { //lnb currently in use
+		return fe->ts.readAccess()->reserved_lnb;
+		//@todo make thread safe
+	}
+
+	void update_lof(devdb::lnb_t& lnb, int16_t sat_pos, chdb::fe_polarisation_t pol,
+									int nit_frequency, int driver_frequency);
+
+	active_adapter_t(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_);
+	inline void start_tuner_thread() {
+		tuner_thread.start_running();
+	}
+	static inline std::shared_ptr<active_adapter_t>
+	make(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_) {
+		auto ret= std::make_shared<active_adapter_t>(receiver_, fe_);
+		ret->start_tuner_thread();
+		return ret;
+	}
+
+	active_adapter_t operator=(const active_adapter_t& other) = delete;
+
+	virtual ~active_adapter_t() final;
+
+
 public:
 	devdb::usals_location_t get_usals_location();
 	int open_demux(int mode = O_RDWR | O_NONBLOCK) const;
@@ -366,10 +356,12 @@ public:
 	}
 
 private:
-	std::shared_ptr<stream_reader_t> make_dvb_stream_reader(ssize_t dmx_buffer_size_ = -1);
+	std::shared_ptr<stream_reader_t> make_dvb_stream_reader(const chdb::mux_key_t& mux_key, ssize_t dmx_buffer_size_ = -1);
 	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(const chdb::any_mux_t& mux,
 																															 ssize_t dmx_buffer_size_ = -1);
-	bool add_embedded_si_stream(const chdb::any_mux_t& emdedded_mux, bool start=false);
+
+	bool add_si_stream(const chdb::any_mux_t& mux);
+	bool add_embedded_si_stream(const chdb::any_mux_t& emdedded_mux);
 
 	bool read_and_process_data_for_fd(const epoll_event* evt);
 

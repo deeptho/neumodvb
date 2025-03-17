@@ -464,6 +464,7 @@ class ChEpgGridRow(GridRow):
         """
         if w == self.ch_cell:
             if left_neighbor:
+                print("returning None because at left neighbor")
                 return None
             else:
                 return self.epg_cells[0]
@@ -474,6 +475,7 @@ class ChEpgGridRow(GridRow):
                 elif idx < len(self.epg_cells)-1:
                     return self.epg_cells[idx+1]
                 else:
+                    print(f"returning None colno={w.data.colno}/{cell.data.colno} left={left_neighbor} idx={idx}")
                     return None
         return None
         #return w == self.epg_cells[0]

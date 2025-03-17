@@ -29,6 +29,7 @@
 #include "stackstring.h"
 #include "util/logger.h"
 #include "util/util.h"
+#include "neumodb/chdb/chdb_extra.h"
 
 #ifndef null_pid
 #define null_pid (0x1fff)
@@ -69,6 +70,7 @@ class stream_reader_t : public std::enable_shared_from_this<stream_reader_t> {
 	steady_time_t last_data_time{};
 
 public:
+	const chdb::mux_key_t mux_key;
 	ssize_t num_read{0};
 	uint16_t embedded_pid{0};
 	active_adapter_t& active_adapter;
@@ -77,8 +79,9 @@ public:
 	int epoll_flags;
 
 protected:
-	stream_reader_t(active_adapter_t& active_adapter)
+	stream_reader_t(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key)
 		: last_data_time(steady_clock_t::now())
+		, mux_key(mux_key)
 		, active_adapter(active_adapter)
 		{}
 
@@ -112,13 +115,17 @@ public:
 	virtual ~stream_reader_t() {
 	}
 
+#if 0
 	virtual chdb::any_mux_t stream_mux() const = 0;
+#endif
 	const subscription_options_t& tune_options() const;
 
 	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux) =0;
 	virtual inline void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad) =0;
-
+#if 0
 	virtual inline void set_current_tp(const chdb::any_mux_t& stream_mux) const = 0;
+#endif
+
 	void  update_stream_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
 
 	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
@@ -145,8 +152,9 @@ public:
 		assert(0);
 		return nullptr;
 	}
-
+#if 0
 	int16_t get_sat_pos() const;
+#endif
 	virtual int embedded_stream_pid() const {
 		return -1;
 	}
@@ -160,8 +168,8 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	int read_pointer{0}; //location in buffer where client will read next
 	std::unique_ptr<uint8_t[]> bufferp{nullptr};
 
-	dvb_stream_reader_t(active_adapter_t & active_adapter, ssize_t dmx_buffer_size_ = -1)
-		: stream_reader_t(active_adapter)
+	dvb_stream_reader_t(active_adapter_t & active_adapter, const chdb::mux_key_t& mux_key, ssize_t dmx_buffer_size_ = -1)
+		: stream_reader_t(active_adapter, mux_key)
 		, dmx_buffer_size(dmx_buffer_size_ <0 ?  32*1024L*1024 : dmx_buffer_size_)
 		{}
 
@@ -178,9 +186,12 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	virtual int open(uint16_t initial_pid, epoll_t* epoll,
 									 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 	virtual void close();
-
+#if 0
 	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const;
+	#endif
+#if 0
 	virtual chdb::any_mux_t stream_mux() const;
+#endif
 	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux);
 	virtual inline void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
 
@@ -229,7 +240,7 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	virtual inline int remove_pid(int pid);
 
 	virtual std::shared_ptr<stream_reader_t> clone(ssize_t buffer_size = -1) const {
-		return std::make_shared<dvb_stream_reader_t>(active_adapter,
+		return std::make_shared<dvb_stream_reader_t>(active_adapter, this->mux_key,
 																								 buffer_size < 0 ? dmx_buffer_size : buffer_size);
 	}
 
@@ -254,7 +265,7 @@ class embedded_stream_reader_t final : public stream_reader_t {
 
 
 public:
-	embedded_stream_reader_t(active_adapter_t& adapter,
+	embedded_stream_reader_t(active_adapter_t& adapter, const chdb::mux_key_t& mux_key,
 													 const std::shared_ptr<stream_filter_t>& stream_filter);
 
 	virtual int embedded_stream_pid() const;
@@ -281,7 +292,7 @@ public:
 
 
 	virtual std::shared_ptr<stream_reader_t> clone(ssize_t buffer_size=-1) const {
-		auto ret = std::make_shared<embedded_stream_reader_t>(active_adapter, stream_filter);
+		auto ret = std::make_shared<embedded_stream_reader_t>(active_adapter, mux_key, stream_filter);
 		return ret;
 	}
 
@@ -299,10 +310,12 @@ public:
 		notifier.close();
 		close();
 	}
-
+#if 0
 	virtual chdb::any_mux_t stream_mux() const;
+#endif
+#if 0
 	virtual void set_current_tp(const chdb::any_mux_t& mux) const;
-
+#endif
 	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
 	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux);
 

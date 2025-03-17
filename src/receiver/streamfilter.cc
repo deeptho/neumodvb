@@ -182,7 +182,10 @@ int stream_filter_t::start() {
 	ndc.format("PID[{:d}]", stream_pid);
 	log4cxx::NDC(ndc.c_str());
 	int dmx_buffer_size = 32 * 1024 * 1024;
-	dvb_stream_reader_t dvb_reader(active_adapter, dmx_buffer_size);
+	auto master_mux = embedded_mux;
+	auto& master_mux_key = *chdb::mux_key_ptr(master_mux);
+	master_mux_key.t2mi_pid = -1;
+	dvb_stream_reader_t dvb_reader(active_adapter, master_mux_key, dmx_buffer_size);
 	int stream_fd = dvb_reader.open(stream_pid, epoll, epoll_flags);
 	if (stream_fd < 0)
 		return -1;
@@ -380,8 +383,9 @@ inline bool embedded_stream_reader_t::on_epoll_event(const epoll_event* evt) {
 }
 
 embedded_stream_reader_t::embedded_stream_reader_t(active_adapter_t& active_adapter,
+																									 const chdb::mux_key_t& mux_key,
 																									 const std::shared_ptr<stream_filter_t>& stream_filter)
-	: stream_reader_t(active_adapter), stream_filter(stream_filter) {}
+	: stream_reader_t(active_adapter, mux_key), stream_filter(stream_filter) {}
 
 int embedded_stream_reader_t::embedded_stream_pid() const {
 	return mux_key_ptr(stream_filter->embedded_mux)->t2mi_pid; }
@@ -445,7 +449,7 @@ void stream_filter_t::notify_other_readers(embedded_stream_reader_t* reader) {
 		}
 	}
 }
-
+#if 0
 chdb::any_mux_t embedded_stream_reader_t::stream_mux() const {
 	auto & mux = stream_filter->embedded_mux;
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
@@ -454,7 +458,7 @@ chdb::any_mux_t embedded_stream_reader_t::stream_mux() const {
 				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 
 	return stream_filter->embedded_mux; }
-
+#endif
 void embedded_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& mux) {
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
@@ -468,6 +472,7 @@ void embedded_stream_reader_t::update_received_si_mux(const std::optional<chdb::
 //noop
 }
 
+#if 0
 void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& embedded_mux) const {
 	assert(mux_key_ptr(embedded_mux)->sat_pos != sat_pos_none);
 	auto& mux = embedded_mux;
@@ -477,6 +482,7 @@ void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& embedded_mu
 				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	stream_filter->embedded_mux = embedded_mux;
 }
+#endif
 
 void embedded_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stream_mux) {
 	auto & mux = stream_mux;

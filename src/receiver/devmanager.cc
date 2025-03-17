@@ -177,6 +177,11 @@ public:
 		return r->tune_may_move_dish;
 	}
 
+	inline bool get_use_bbframes() const {
+		auto r = receiver.options.readAccess();
+		return r->tune_use_bbframes;
+	}
+
 	inline int get_resource_reuse_bonus() const {
 		auto r = receiver.options.readAccess();
 		return r->resource_reuse_bonus;
@@ -819,61 +824,6 @@ std::shared_ptr<adaptermgr_t> adaptermgr_t::make(receiver_t& receiver) {
 	return std::make_shared<dvbdev_monitor_t>(receiver);
 }
 
-
-
-bool fe_state_t::is_tuned_to(const chdb::dvbs_mux_t& mux, const devdb::rf_path_t* required_rf_path,
-	bool ignore_t2mi_pid) const {
-	if (required_rf_path && *required_rf_path != reserved_rf_path)
-		return false;
-	const auto* tuned_mux = std::get_if<chdb::dvbs_mux_t>(&reserved_mux);
-	if (!tuned_mux)
-		return false;
-	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/)) //or stream_id or t2mi_pid does not match
-		return false;
-	if (tuned_mux->k.stream_id != mux.k.stream_id)
-		return false;
-	if (tuned_mux->k.stream_id >= 0 && !(tuned_mux->pls_code == mux.pls_code && tuned_mux->pls_mode == mux.pls_mode))
-		return false;
-	// note that we do not check t2mi_pid because that does not change mux
-	return true;
-}
-
-bool fe_state_t::is_tuned_to(const chdb::dvbt_mux_t& mux, const devdb::rf_path_t* required_rf_path,
-														 bool ignore_t2mi_pid) const {
-	assert(!required_rf_path);
-	const auto* tuned_mux = std::get_if<chdb::dvbt_mux_t>(&reserved_mux);
-	if (!tuned_mux)
-		return false;
-	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/,
-																	 ignore_t2mi_pid)) //or stream_id or t2mi_pid does not match
-		return false;
-	return true;
-}
-
-bool fe_state_t::is_tuned_to(const chdb::dvbc_mux_t& mux, const devdb::rf_path_t* required_rf_path,
-														 bool ignore_t2mi_pid) const {
-	assert(!required_rf_path);
-	const auto* tuned_mux = std::get_if<chdb::dvbc_mux_t>(&reserved_mux);
-	if (!tuned_mux)
-		return false;
-	if(!chdb::matches_physical_fuzzy(mux, *tuned_mux, true /*check_sat_pos*/,
-																	 ignore_t2mi_pid)) //or stream_id or t2mi_pid does not match
-		return false;
-	return true;
-}
-
-bool fe_state_t::is_tuned_to(const chdb::any_mux_t& mux, const devdb::rf_path_t* required_rf_path,
-														 bool ignore_t2mi_pid) const {
-	bool ret;
-	visit_variant(
-		mux, [this, &ret, required_rf_path, ignore_t2mi_pid](const chdb::dvbs_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid); },
-		[this, &ret, required_rf_path, ignore_t2mi_pid](const chdb::dvbc_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid); },
-		[this, &ret, required_rf_path, ignore_t2mi_pid](const chdb::dvbt_mux_t& mux) {
-			ret = this->is_tuned_to(mux, required_rf_path, ignore_t2mi_pid); });
-	return ret;
-}
 
 std::tuple<std::string, int> adaptermgr_t::get_api_type() const {
 	const char* api_type="";

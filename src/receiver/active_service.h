@@ -43,6 +43,7 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 	friend class service_thread_t;
 	friend class open_channel_parser_t;
 	friend class active_mpm_t;
+
 	mutable std::mutex mutex;
 	//the following fields can be modified and should not be accessed/modified without locikng a mutex
 	chdb::service_t current_service; //current channel

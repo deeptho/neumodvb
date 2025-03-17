@@ -315,13 +315,13 @@ namespace chdb {
 	/* tuning parameters (sat_pos, polarisation, frequency) indicate "equal or overlapping" muxes
 	 */
 	bool matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool check_sat_pos=true,
-															bool ignore_t2mi_pid=false);
+															bool ignore_stream_id=false, bool ignore_t2mi_pid=false);
 	bool matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos=true,
-															bool ignore_t2mi_pid=false);
+															bool ignore_stream_id=false, bool ignore_t2mi_pid=false);
 	bool matches_physical_fuzzy(const dvbt_mux_t& a, const dvbt_mux_t& b, bool check_sat_pos=true,
-															bool ignore_t2mi_pid=false);
+															bool ignore_stream_id=false, bool ignore_t2mi_pid=false);
 	bool matches_physical_fuzzy(const any_mux_t& a, const any_mux_t& b, bool check_sat_pos=true,
-															bool ignore_t2mi_pid=false);
+															bool ignore_stream_id=false, bool ignore_t2mi_pid=false);
 
 	/* tuning parameters (sat_pos, polarisation, frequency) indicate muxes with same bandwidth
 		 and frequency with tight tolerance

@@ -79,15 +79,16 @@ bool pat_data_t::stable_pat(uint16_t ts_id) {
 
 active_si_stream_t::active_si_stream_t
 (	receiver_t& receiver,
-	const std::shared_ptr<stream_reader_t>& reader,  bool is_embedded_si, ssize_t dmx_buffer_size_)
+	const std::shared_ptr<stream_reader_t>& reader,  const chdb::any_mux_t& mux, ssize_t dmx_buffer_size_)
 	: active_stream_t(receiver, reader)
-	, active_si_data_t(is_embedded_si)
+	, active_si_data_t(chdb::mux_key_ptr(mux)->t2mi_pid>=0 /*is_embedded_si*/)
 	, chdbmgr(receiver.chdb)
 	, epgdbmgr(receiver.epgdb)
+	, key(*chdb::mux_key_ptr(mux))
+	, dbmux(mux)
 {
 	dtdebugf("setting si_processing_done=false (init)");
 }
-
 
 /*
 	change a mux with scan_status_t::PENDING to scan_status_t::ACTIVE
@@ -173,7 +174,7 @@ void active_si_stream_t::finalize_scan()
 	si_processing_done = true;
 	// now update the mux's scan state
 	ss::string<32> s;
-	auto mux = reader->stream_mux();
+	auto mux = this->dbmux;
 	bool nosave{is_template(mux)};
 	auto tune_state = active_adapter().tune_state;
 	auto& lock_state = active_adapter().lock_state;
@@ -285,7 +286,7 @@ void active_si_stream_t::check_scan_mux_end()
 		return;
 
 	auto dbfe = active_adapter().fe->dbfe();
-	auto mux = reader->stream_mux();
+	auto mux = this->dbmux;
 
 	dtdebugf("calling on_scan_mux_end dbfe={} mux={} scan_result={}",
 					dbfe, mux, mux_common_ptr(mux)->scan_result);
@@ -302,13 +303,13 @@ void active_si_stream_t::check_scan_mux_end()
 	this->scan_state.scans_in_progress.clear();
 }
 
-void active_si_stream_t::end()
+void active_si_stream_t::finalize()
 {
 	finalize_scan();
 	check_scan_mux_end();
 }
 
-void active_si_stream_t::reset_si(bool close_streams) {
+void active_si_stream_t::stop_si(bool close_streams) {
 #if 0
 	//wrong for a non-ts
 	if(!is_open())
@@ -327,7 +328,7 @@ void active_si_stream_t::reset_si(bool close_streams) {
 	if (close_streams) {
 		if(is_open()) {
 			log4cxx::NDC(name());
-			dtdebugf("deactivate si stream reader_mux={}", reader->stream_mux());
+			dtdebugf("deactivate si stream reader_mux={}", this->dbmux);
 			// active_stream_t::close();
 			stream_parser.exit(); // remove all fibers
 			parsers.clear();			// remove all parser data (parsers will be reregistered)
@@ -347,7 +348,7 @@ void active_si_stream_t::close() {
 	::active_si_data_t::reset(); //reset variables to initial state
 	if(is_open()) {
 		log4cxx::NDC(name());
-		dtdebugf("Closing si stream reader_mux={}", reader->stream_mux());
+		dtdebugf("Closing si stream reader_mux={}", this->dbmux);
 		stream_parser.exit(); // remove all fibers
 		parsers.clear();			// remove all parser data (parsers will be reregistered)
 	}
@@ -400,7 +401,7 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
 
-	auto stream_mux = reader->stream_mux();
+	auto stream_mux = this->dbmux;
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
@@ -521,6 +522,7 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	return p_mux_data;
 }
 
+#if 0
 
 mux_data_t* active_si_stream_t::tuned_mux_in_nit()
 {
@@ -532,6 +534,7 @@ mux_data_t* active_si_stream_t::tuned_mux_in_nit()
 
 	return found ? &it->second : nullptr;
 }
+#endif
 
 /*
 	create a new mux in the database  based on information NOT seen in the input stream.
@@ -559,8 +562,8 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn, uint16_t network_id, 
 	bool no_data = (network_id == 0 && ts_id == 0);
 	dtdebugf("There is no nit_actual on this tp - faking one with sat_pos={:d} network_id={:d}, ts_id={:d} "
 					 "tuned_mux={}",
-					 expected_sat_pos, network_id, ts_id, reader->stream_mux());
-	auto mux = reader->stream_mux();
+					 expected_sat_pos, network_id, ts_id, this->dbmux);
+	auto mux = this->dbmux;
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
 	auto preserve = m::MUX_COMMON;
@@ -659,7 +662,7 @@ active_si_stream_t::lookup_mux_data_from_sdt(db_txn& rtxn, uint16_t network_id, 
  */
 mux_data_t* active_si_stream_t::add_reader_mux_from_sdt(db_txn& wtxn, uint16_t network_id, uint16_t ts_id) {
 	namespace m = chdb::update_mux_preserve_t;
-	auto mux = this->reader->stream_mux();
+	auto mux = this->dbmux;
 	auto* mux_common = mux_common_ptr(mux);
 	mux_common->network_id = network_id;
 	mux_common->ts_id = ts_id;
@@ -788,7 +791,7 @@ void active_si_stream_t::check_timeouts() {
 		out.format(" epg[0x{:x}]={:d}/{:d}", pid, c.num_completed, c.num_known);
 	}
 
-	out.format(" tuned_mux={}", reader->stream_mux());
+	out.format(" tuned_mux={}", this->dbmux);
 	if (delayed_print || last != out) {
 		if (timedout) {
 			dtdebugf("{}", out);
@@ -804,15 +807,14 @@ void active_si_stream_t::check_timeouts() {
 bool active_si_stream_t::fix_tune_mux_template() {
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
-	auto stream_mux = reader->stream_mux();
+	auto stream_mux = this->dbmux;
 	auto& c = *mux_common_ptr(stream_mux);
 	bool is_template = c.tune_src == chdb::tune_src_t::TEMPLATE;
 	bool is_active = c.scan_status == scan_status_t::ACTIVE;
 	auto lock_state = active_adapter().lock_state;
 	if(!lock_state.locked_minimal)
 		return false;
-	auto old_stream_id = mux_key_ptr(stream_mux)->stream_id;
-	auto [locked, stream_id_changed] = update_reader_mux_parameters_from_frontend(stream_mux);
+	auto locked = update_reader_mux_parameters_from_frontend(stream_mux);
 
 	if (is_template) {
 		dtdebugf("Fixing stream_mux template status: {}", stream_mux);
@@ -839,10 +841,6 @@ bool active_si_stream_t::fix_tune_mux_template() {
 		chdb::update_mux(wtxn, stream_mux, now,  m::flags{ (m::MUX_COMMON|m::MUX_KEY)& ~m::SCAN_STATUS},
 										 /*true  ignore_key,*/ false /*ignore_t2mi_pid*/, false /*must_exist*/);
 
-		if(stream_id_changed) {
-			mux_key_ptr(stream_mux)->stream_id = old_stream_id;
-			chdb::delete_record(wtxn, stream_mux);
-		}
 		lmdb_hint();
 		wtxn.commit();
 	}
@@ -859,16 +857,16 @@ bool active_si_stream_t::init(devdb::scan_target_t scan_target_) {
 
 	log4cxx::NDC(name());
 	if (is_open())
-		reset_si(true /*close_streams*/);
+		stop_si(true /*close_streams*/);
 	init_scanning(scan_target_);
 	active_stream_t::open(dtdemux::ts_stream_t::PAT_PID, &active_adapter().tuner_thread.epx,
 												EPOLLIN | EPOLLERR | EPOLLHUP);
 	if(!fix_tune_mux_template()) {
 		//lock was lost
-		reset_si(false/*close_streams*/);
+		stop_si(false/*close_streams*/);
 		return false;
 	}
-	auto stream_mux = reader->stream_mux();
+	auto stream_mux = this->dbmux;
 	auto* mux_common = chdb::mux_common_ptr(stream_mux);
 	assert( mux_common->tune_src != chdb::tune_src_t::TEMPLATE);
 	scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
@@ -1120,7 +1118,7 @@ bool active_si_stream_t::init(devdb::scan_target_t scan_target_) {
 		tune_confirmation.sat_by = confirmed_by_t::AUTO;
 	}
 	{
-		auto m=reader->stream_mux();
+		auto m=this->dbmux;
 		assert(mux_common_ptr(m)->tune_src != chdb::tune_src_t::TEMPLATE);
 	}
 	return true;
@@ -1363,7 +1361,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	} else {
 		bool was_active = scan_state.set_active(cidx);
 		if (!was_active && network.is_actual) {
-			dtdebugf("First NIT_ACTUAL data tuned_mux={}", reader->stream_mux());
+			dtdebugf("First NIT_ACTUAL data tuned_mux={}", this->dbmux);
 			reader->update_received_si_mux(std::optional<chdb::any_mux_t>{}, false /*is_bad*/);
 		}
 	}
@@ -1378,7 +1376,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		network_data.subtable_info = info;
 		network_data.is_actual = network.is_actual;
 	}
-	auto stream_mux = reader->stream_mux(); //the mux whose SI data is being analyzed here
+	auto stream_mux = this->dbmux; //the mux whose SI data is being analyzed here
 	auto* stream_mux_key = mux_key_ptr(stream_mux);
 	lmdb_hint();
 	auto wtxn = chdbmgr.wtxn();
@@ -1447,7 +1445,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 	if (done && network.is_actual) { // for nit other, there may be multiple entries
 		dtdebugf("NIT_ACTUAL completed");
 		{
-			auto stream_mux = reader->stream_mux();
+			auto stream_mux = this->dbmux;
 			assert(!chdb::is_template(stream_mux));
 			assert(chdb::mux_key_ptr(stream_mux)->mux_id > 0 ||
 						 chdb::mux_common_ptr(stream_mux)->key_src == key_src_t::NONE);
@@ -1481,7 +1479,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 	if(!dvbs_mux)
 		return can_be_tuned; //nothing to fix (yet)
-	auto tuned_mux = reader->stream_mux();
+	auto tuned_mux = this->dbmux;
 	auto* mux_key = chdb::mux_key_ptr(mux);
 	auto tuned_mux_key = mux_key_ptr(tuned_mux);
 
@@ -1605,7 +1603,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 	using namespace chdb;
 	auto ret = dtdemux::reset_type_t::NO_RESET;
 	using namespace chdb;
-	auto tuned_mux = reader->stream_mux();
+	auto tuned_mux = this->dbmux;
 	auto* tuned_mux_key = mux_key_ptr(tuned_mux);
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
@@ -1696,7 +1694,7 @@ bool active_si_stream_t::update_mux(
 	bool is_reader_mux, bool is_tuned_freq, bool from_sdt, chdb::update_mux_preserve_t::flags preserve) {
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
-	auto reader_mux = reader->stream_mux();
+	auto reader_mux = this->dbmux;
 
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
@@ -1733,20 +1731,12 @@ bool active_si_stream_t::update_mux(
 			but there is always a risk that due to a non-lock status, this was not performed
 		*/
 		if(active_adapter().lock_state.locked_minimal) {
-			auto old_stream_id = mux_key_ptr(mux)->stream_id;
-			auto [locked, stream_id_changed] = update_reader_mux_parameters_from_frontend(mux);
+			auto locked = update_reader_mux_parameters_from_frontend(mux);
 			auto failed = !locked;
 			if(failed) {
 				dtdebugf("update_reader_mux_parameters_from_frontend failed (lock lost?)\n");
 				chdb::mux_common_ptr(mux)->scan_result = chdb::scan_result_t::NOLOCK;
 			}
-			if(stream_id_changed) {
-				auto new_stream_id = mux_key_ptr(mux)->stream_id;
-				mux_key_ptr(mux)->stream_id = old_stream_id;
-				chdb::delete_record(chdb_wtxn, mux);
-				mux_key_ptr(mux)->stream_id = new_stream_id;
-			}
-
 		}
 		else {
 			assert(!is_template(mux));
@@ -1874,7 +1864,7 @@ bool active_si_stream_t::update_mux(
 #ifndef NDEBUG
 			auto testpreserve  = m::ALL & ~m::NUM_SERVICES;
 #endif
-		assert((preserve &testpreserve) == testpreserve);
+			assert((preserve &testpreserve) == testpreserve);//xxxxx
 		}
 		chdb::update_mux(chdb_wtxn, mux, now,  preserve, /*true ignore_key,*/
 										 false /*ignore_t2mi_pid*/, false /*must_exist*/);
@@ -1887,7 +1877,7 @@ bool active_si_stream_t::update_mux(
 	bool saving_reader_mux = (*mux_key_ptr(mux) == *mux_key_ptr(reader_mux));
 	if (is_reader_mux || (is_tuned_freq && saving_reader_mux)) {
 #ifdef DEBUG_CHECK
-		debug_check(chdb_wtxn, reader->stream_mux(), mux);
+		debug_check(chdb_wtxn, this->dbmux, mux);
 #endif
 		reader->on_stream_mux_change(mux);
 	}
@@ -2060,7 +2050,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 	auto& mux_common = *mux_common_ptr(p_mux_data->mux);
 
 	assert(mux_common.ts_id == services.ts_id);
-	auto reader_mux = reader->stream_mux();
+	auto reader_mux = this->dbmux;
 	auto& service_ids = p_mux_data->service_ids;
 	if (p_mux_data->sdt[is_actual].subtable_info.version_number != info.version_number) {
 		// record which services have been found
@@ -2126,7 +2116,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 
 		//Save statistics
 		chdb::any_mux_t mux;
-		auto reader_mux = reader->stream_mux();
+		auto reader_mux = this->dbmux;
 		bool donotsave_stats{false};
 		if (is_actual) {
 			mux = reader_mux;
@@ -2156,7 +2146,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 
 			if (changed) { //update statistics
 				namespace m = chdb::update_mux_preserve_t;
-				dtdebugf("Update mux {} tuned={}", mux, reader->stream_mux());
+				dtdebugf("Update mux {} tuned={}", mux, this->dbmux);
 				auto preserve = is_actual
 					? m::flags{m::ALL & ~(m::NUM_SERVICES | m::EPG_TYPES | m::MUX_KEY)}
 					: m::ALL; //then only new records will be created, but nothing will be updated
@@ -2205,7 +2195,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 	} else
 		scan_state.set_active(cidx);
 
-	auto stream_mux = reader->stream_mux();
+	auto stream_mux = this->dbmux;
 	auto stream_mux_key = mux_key_ptr(stream_mux);
 	auto stream_mux_c = mux_common_ptr(stream_mux);
 
@@ -2420,7 +2410,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		tune_confirmation.network_id_by = confirmed_by_t::SDT;
 		sdt_data.actual_network_id = services.original_network_id;
 		sdt_data.actual_ts_id = services.ts_id;
-		auto reader_mux = reader->stream_mux();
+		auto reader_mux = this->dbmux;
 		sdt_data.mux_key = *chdb::mux_key_ptr(reader_mux);
 	}
 
@@ -2466,7 +2456,7 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 	} else
 		scan_state.set_active(cidx);
 
-	auto stream_mux = reader->stream_mux();
+	auto stream_mux = this->dbmux;
 	auto stream_mux_key = mux_key_ptr(stream_mux);
 	lmdb_hint();
 	auto wtxn = chdbmgr.wtxn();
@@ -2655,15 +2645,13 @@ active_si_stream_t::~active_si_stream_t() {
 
 	returns:
     locked: driver was locked and updated data is valid
-		stream_id changed: driver returned stream_id different from the requested one
  */
-std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux) {
+bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux) {
 	auto& aa = active_adapter();
 	assert(aa.lock_state.locked_minimal);
 	if(aa.tune_state == active_adapter_t::TUNE_FAILED)
-		return {false, false};
+		return false;
 	dttime_init();
-	bool stream_id_changed{false};
 
 	/*Obtain newest signal info
 	 */
@@ -2675,13 +2663,12 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 	auto& driver_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
 	auto& mux_stream_id = mux_key_ptr(mux)->stream_id;
 	if(driver_stream_id != mux_stream_id) {
-		stream_id_changed = true;
 		if(mux_stream_id >= 0 || !is_template(mux)) {
 			dterrorf("Driver returned different stream id than requested: driver={} mux={}",
 							 signal_info.driver_mux, mux);
 		}
 		//assert(is_template(mux));
-		mux_stream_id = driver_stream_id;
+		driver_stream_id = mux_stream_id;
 	}
 	//assert(* mux_key_ptr(signal_info.driver_mux) == * mux_key_ptr(mux));
 	if(is_template(mux)) {
@@ -2763,15 +2750,15 @@ std::tuple<bool, bool> active_si_stream_t::update_reader_mux_parameters_from_fro
 								});
 
 	dtdebugf("Update driver_mux={} stream_mux={} tune_src={}",
-					 signal_info.driver_mux, reader->stream_mux(), (int)chdb::mux_common_ptr(si_mux)->tune_src);
+					 signal_info.driver_mux, this->dbmux, (int)chdb::mux_common_ptr(si_mux)->tune_src);
 	mux = signal_info.driver_mux;
 
-	return {(signal_info.lock_status.fe_status & FE_HAS_LOCK), stream_id_changed};
+	return (signal_info.lock_status.fe_status & FE_HAS_LOCK);
 }
 
 void active_si_stream_t::load_movistar_bouquet() {
 	auto txn = chdbmgr.rtxn();
-	auto sat_pos = reader->get_sat_pos();
+	auto sat_pos = this->get_sat_pos();
 	auto chg = chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id_movistar, sat_pos);
 	auto c = chdb::chgm_t::find_by_key(txn, chg, find_geq, chdb::chgm_t::partial_keys_t::chg);
 	for (const auto& chgm : c.range()) {
@@ -2782,7 +2769,7 @@ void active_si_stream_t::load_movistar_bouquet() {
 
 void active_si_stream_t::load_skyuk_bouquet() {
 	auto txn = chdbmgr.rtxn();
-	auto sat_pos = reader->get_sat_pos();
+	auto sat_pos = this->get_sat_pos();
 	auto chg = chdb::chg_key_t(chdb::group_type_t::BOUQUET, bouquet_id_sky_opentv, sat_pos);
 	auto c = chdb::chgm_t::find_by_key(txn, chg, find_geq, chdb::chgm_t::partial_keys_t::chg);
 	for (const auto& chgm : c.range()) {
@@ -2819,7 +2806,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 				we discovered a t2mi stream and must ensure that its mux
 				exists in the database.*/
 			auto& aa = reader->active_adapter;
-			chdb::any_mux_t mux = reader->stream_mux();
+			chdb::any_mux_t mux = this->dbmux;
 			mux_key_ptr(mux)->t2mi_pid = desc.stream_pid;
 			assert(!chdb::is_template(mux));
 			if(scan_in_progress) {
@@ -2899,7 +2886,7 @@ bool active_si_stream_t::matches_reader_mux(const chdb::any_mux_t& mux, bool fro
 		for t2mi, the frequency of the embedded mux matches that of the tuned one
 	*/
 
-	auto stream_mux = reader->stream_mux();
+	auto stream_mux = this->dbmux;
 	return chdb::matches_physical_fuzzy(mux, stream_mux);  // true requires that stream_id or t2mi_pid also match
 }
 
@@ -2922,7 +2909,7 @@ void active_si_stream_t::update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_
 void active_si_stream_t::save_pmts(db_txn& wtxn)
 {
 	using namespace chdb;
-	auto stream_mux = reader->stream_mux();
+	auto stream_mux = this->dbmux;
 	auto* stream_mux_key = mux_key_ptr(stream_mux);
 	auto& mux_common = *mux_common_ptr(stream_mux);
 	auto mux_key = *stream_mux_key;

@@ -544,23 +544,20 @@ struct active_si_data_t {
 		}
 		return true;
 	}
-
-
 };
+
 
 class active_si_stream_t final : /*public std::enable_shared_from_this<active_stream_t>,*/
 	public active_stream_t, active_si_data_t
 {
 	friend class active_adapter_t;
-
-
 	friend class tuner_thread_t;
+
 	txnmgr_t<chdb::chdb_t> chdbmgr;
 	txnmgr_t<epgdb::epgdb_t> epgdbmgr;
-	inline chdb::mux_key_t stream_mux_key() const {
-		auto tmp = reader->stream_mux();
-		return *chdb::mux_key_ptr(tmp);
-	}
+	const chdb::mux_key_t key;
+	chdb::any_mux_t dbmux;
+
 	dtdemux::ts_stream_t stream_parser;
 	devdb::scan_target_t scan_target; //which SI tables should be scanned?
 	bool si_processing_done{false};
@@ -579,6 +576,18 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		}
 	};
 	std::map<dvb_pid_t, parser_slot_t>  parsers;
+
+	inline chdb::mux_key_t stream_mux_key() const {
+		auto ret= *chdb::mux_key_ptr(this->dbmux);
+		assert (this->key == ret);
+		return ret;
+	}
+
+	inline int16_t get_sat_pos() const {
+		auto* stream_mux_key = mux_key_ptr(this->dbmux);
+		return stream_mux_key->sat_pos;
+	}
+
 
 	dtdemux::reset_type_t pat_section_cb(const pat_services_t& pat_services, const subtable_info_t& i);
 	reset_type_t pmt_section_cb(const pmt_info_t& pmt, bool isnext);
@@ -715,13 +724,13 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	//true if this mux equals the currently streamed mux (embedded mux for t2mi, or tuned mux)
 	bool matches_reader_mux(const chdb::any_mux_t& mux, bool from_sdt);
-
+#if 0
 	inline bool is_reader_mux(const chdb::any_mux_t& mux) const {
 		auto stream_mux = reader->stream_mux();
 		return *mux_key_ptr(mux) == *mux_key_ptr(stream_mux);
 	}
-
-	std::tuple<bool, bool> 	update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);
+#endif
+	bool 	update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);
 	bool update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
 									bool is_active_mux, bool is_tuned_freq,
 									bool from_sdt, chdb::update_mux_preserve_t::flags preserve);
@@ -734,13 +743,13 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	void activate_scan(chdb::any_mux_t& mux, subscription_id_t subscription_id, const chdb::scan_id_t& scan_id);
 	void check_scan_mux_end();
 public:
-	void reset_si(bool close_streams);
+	void stop_si(bool close_streams);
 	void close();
-	void end();
+	void finalize();
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_si_stream_t(receiver_t& receiver,
-										 const std::shared_ptr<stream_reader_t>& reader, bool is_embedded_si,
+										 const std::shared_ptr<stream_reader_t>& reader, const chdb::any_mux_t& mux,
 										 ssize_t dmx_buffer_size_=32*1024L*1024);
 public:
 		virtual ~active_si_stream_t();

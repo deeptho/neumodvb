@@ -1204,4 +1204,4 @@ record_at_cursor(cursor_t& cursor) {
 }
 
 #define lmdb_hint() \
-	lmdb_file = __FILE__; lmdb_line=__LINE__
+	::lmdb_file = __FILE__; ::lmdb_line=__LINE__

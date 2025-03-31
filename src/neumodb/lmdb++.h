@@ -552,7 +552,7 @@ lmdb::txn_begin(MDB_env* const env,
   const int rc = ::mdb_txn_begin(env, parent, flags, txn);
 	if(lmdb_line>=0) {
 		//dtdebugf("QQQ txn_begin {} {} env={} parent={}", lmdb_file, lmdb_line, fmt::ptr(env), fmt::ptr(parent));
-		lmdb_line=0;
+		//lmdb_line=0;
 	}
   if (rc != MDB_SUCCESS) {
     error::raise("mdb_txn_begin", rc);

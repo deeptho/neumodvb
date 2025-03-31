@@ -2951,8 +2951,10 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 		if(!service.name_from_sdt) {
 			if (pat_service.pmt.service_name.size()>0)
 				service.name = pat_service.pmt.service_name;
-			else
+			else {
+				service.name.clear();
 				service.name.format("Service {}:{:d}", mux_desc, pat_service.pmt.service_id);
+			}
 		}
 		if (!service.provider_from_sdt) {
 			if (pat_service.pmt.provider_name.size()>0)

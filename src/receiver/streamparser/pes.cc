@@ -191,9 +191,10 @@ void h264_parser_t::parse_payload_unit() {
 
 		For any non-zero value, the larger the value, the more the importance of the NAL unit.
 	*/
+#if 0
 	if (nal_ref_idc > 0)
 		dtdebugf("Possible reference field: ref_idx={:d}", nal_ref_idc);
-
+#endif
 	if (nal_unit_type != NAL_AUD) { // Access unit delimiter
 		/*
 			See T-REC-H.264-201704-I!!PDF-E.pdf p. 92  figure 7-1

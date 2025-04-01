@@ -936,9 +936,9 @@ void active_adapter_t::stop_si() {
 	si_is_on = false;
 	if (tune_state != tune_state_t::TUNE_INIT) {
 		for (auto& [pid, si] : this->si_streams) {
-			dtdebugf("before reset si_processing_done={:d}\n", si.si_processing_done);
+			dtdebugf("before reset si_processing_done={:d}", si.si_processing_done);
 			si.stop_si(true /*close stream*/);
-			dtdebugf("after reset si_processing_done={:d}\n", si.si_processing_done);
+			dtdebugf("after reset si_processing_done={:d}", si.si_processing_done);
 		}
 	} else {
 		dtdebugf("skipping tune_state={:d}", (int) tune_state);

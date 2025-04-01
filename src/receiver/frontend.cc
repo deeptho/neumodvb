@@ -165,7 +165,7 @@ void dvb_frontend_t::close_device() {
 	auto& fe_state = *w;
 	if (fe_state.fefd < 0)
 		return;
-	dtdebugf("closing fefd={:d}\n", fe_state.fefd);
+	dtdebugf("closing fefd={:d}", fe_state.fefd);
 	while (::close(fe_state.fefd) != 0) {
 		if (errno != EINTR)
 			dterrorf("Error closing /dev/dvb/adapter{:d}/frontend{:d}: {:s}", (int)adapter_no, (int)frontend_no,
@@ -280,11 +280,11 @@ static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t 
 		return ret;
 	if(t.dbfe.card_mac_address <0 || 	t.dbfe.card_mac_address == 0xffffffffffff) {
 		t.dbfe.card_mac_address = 0x2L | ((uint64_t)(int(frontend_no) | (int(adapter_no) << 8)) <<32);
-		dtdebugf("No mac address; faking one: 0x%lx\n", t.dbfe.card_mac_address);
+		dtdebugf("No mac address; faking one: 0x%lx", t.dbfe.card_mac_address);
 	}
 	if(t.dbfe.k.adapter_mac_address < 0 || t.dbfe.k.adapter_mac_address == 0xffffffffffff) {
 		t.dbfe.k.adapter_mac_address = 0x2L | ((uint64_t)(int(frontend_no) | (int(adapter_no) << 8)) <<32);
-		dtdebugf("No mac address; faking one: 0x%lx\n", t.dbfe.k.adapter_mac_address);
+		dtdebugf("No mac address; faking one: 0x%lx", t.dbfe.k.adapter_mac_address);
 	}
 	if(t.dbfe.rf_inputs.size() ==0) {
 		//non blindscan drivers

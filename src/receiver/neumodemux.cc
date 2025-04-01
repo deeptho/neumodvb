@@ -29,7 +29,7 @@ int dmx_set_pes_filter(int demuxfd, int pid) {
 	pars.output = DMX_OUT_TSDEMUX_TAP;//DMX_OUT_TS_TAP;
 	pars.pes_type = DMX_PES_OTHER;
 	pars.flags = 0; //DMX_IMMEDIATE_START;
-	dtdebugf("PES: Adding pid=0x{:x}\n", pid);
+	dtdebugf("PES: fd={} Adding pid={}", demuxfd, pid);
 	if(ioctl(demuxfd, DMX_SET_PES_FILTER, &pars) < 0) {
 		dterrorf("DMX_SET_PES_FILTER  pid={} failed: {}", pid, strerror(errno));
 		return -1;
@@ -42,7 +42,7 @@ int dmx_set_stid_stream(int demuxfd, int stid_pid, int stid_isi) {
 	memset(&pars,0,sizeof(pars));
 	pars.embedding_pid = stid_pid;
 	pars.isi = stid_isi;
-	dtdebugf("STID: Adding pid=0x{:x}\n", stid_pid);
+	dtdebugf("STID: fd={} Adding pid={}", demuxfd, stid_pid);
 	if (ioctl(demuxfd, DMX_SET_STID_STREAM, &pars) < 0) {
 		dterrorf("DMX_SET_STID_STREAM  pid={} isi={} failed: {}", stid_pid, stid_isi,
 						 strerror(errno));
@@ -56,7 +56,7 @@ int dmx_set_t2mi_stream(int demuxfd, int t2mi_pid) {
 	memset(&pars,0,sizeof(pars));
 	pars.embedding_pid = t2mi_pid;
 	pars.plp = T2MI_UNSPECIFIED_PLP; //not used
-	dtdebugf("T2MI: Adding pid=0x{:x}\n", t2mi_pid);
+	dtdebugf("T2MI: fd={} Adding pid={}", demuxfd, t2mi_pid);
 	if (ioctl(demuxfd, DMX_SET_T2MI_STREAM, &pars) < 0) {
 		dterrorf("DMX_SET_T2MI_STREAM  pid={} failed: {}", t2mi_pid, strerror(errno));
 		return -1;

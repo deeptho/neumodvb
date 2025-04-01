@@ -287,6 +287,7 @@ void active_mpm_t::create() {
 
 void active_mpm_t::destroy() {
 	std::error_code ec;
+	stream_parser.exit();
 	if (!fs::remove_all(dirname.c_str(), ec)) {
 		dterrorf("Error deleting {}:{}", dirname, ec.message());
 		throw std::runtime_error("Failed to remove live buffer");
@@ -812,8 +813,10 @@ void active_mpm_t::close() {
 	current_fileno = -1;
 	filemap.unmap();
 	filemap.close();
+	stream_parser.exit();
 	// TODO: check that parser is complete destroyed
-	dtdebugf("mpm close");
+	this->active_service = nullptr;
+	dtdebugf("mpm closed");
 }
 
 /*
@@ -1073,4 +1076,10 @@ void active_mpm_t::delete_old_data(db_txn& parent_txn, system_time_t now) {
 	auto mm = meta_marker.writeAccess();
 	mm->livebuffer_start_time = std::max(new_data_start_time, mm->livebuffer_start_time);
 	mm->livebuffer_stream_time_start = std::max(new_data_stream_time_start, mm->livebuffer_stream_time_start);
+}
+
+active_mpm_t::~active_mpm_t()
+{
+	printf("here\n");
+	//streamparser.unregister_parser(pid)
 }

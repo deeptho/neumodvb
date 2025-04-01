@@ -169,7 +169,9 @@ void scam_t::close() {
 	scam_fd = -1;
 }
 
-active_scam_t::~active_scam_t() { close(); }
+active_scam_t::~active_scam_t() {
+	active_stream_t::deactivate();
+}
 
 
 /*!

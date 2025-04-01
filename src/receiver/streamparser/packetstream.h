@@ -83,7 +83,6 @@ namespace dtdemux {
 			return (current_range.available() < av_pkt_size);
 		}
 
-
 		ts_packet_t* read_packet() {
 			for(;;) {
 				if(need_data()) {
@@ -135,6 +134,7 @@ namespace dtdemux {
 		inline void unregister_psi_pid(uint16_t pid) {
 			unregister_parser(pid);
 		}
+
 		void register_psi_pid(uint16_t pid, const char*label="psi") {
 			auto parser=std::make_shared<section_parser_t>(*this, pid, label);
 			register_parser(pid, [parser](ts_packet_t* p){

@@ -115,10 +115,6 @@ namespace dtdemux {
 			return {};
 	}
 
-
-
-
-
 	template<typename T> inline void data_range_t::put(const T& val) {
 		assert(curpos+sizeof(T) <= end);
 		put_<T>(curpos, val);
@@ -229,6 +225,7 @@ namespace dtdemux {
 	template <class implementation_t>
 	template<typename fn_t>
 	inline void stream_parser_base_t<implementation_t>::register_parser(int parser_pid,   fn_t&& fn) {
+
 #ifndef NDEBUG
 		auto it = fibers.find(dvb_pid_t(parser_pid));
 		if (it != fibers.end()) {
@@ -242,6 +239,7 @@ namespace dtdemux {
 			//return to root at startup and do nothing
 			dtdemux::ts_packet_t* in = do_transfer(self, invoker, nullptr);
 			//start processing many packets; fn will only return when fuly done
+			thread_id = std::this_thread::get_id();
 			assert(in);
 			fn(in);
 			fibers.erase(dvb_pid_t(parser_pid));
@@ -264,9 +262,9 @@ namespace dtdemux {
 		assert(!p || p->range.available() == p->range.tst);
 		p = do_transfer(*caller, fiber, p);
 		log4cxx::NDC::push(saved);
-		if(self != caller)
+		if((self != caller) && root) //if !root then this is being destroyed
 			printf("ERROR\n");
-		assert(self == caller); //should have been set by some other fiber
+		assert(self == caller || !root); //should have been set by some other fiber
 		return p;
 	}
 
@@ -280,8 +278,6 @@ namespace dtdemux {
 				break; //temporary end of stream
 			assert(!p || p->range.available() == p->range.tst);
 			int packet_pid = p->get_pid();
-			if(packet_pid==120 && debug_xxx)
-				printf("here\n");
 
 			assert(!p || p->range.available() == p->range.tst);
 			auto it = fibers.find(dvb_pid_t(packet_pid));
@@ -303,13 +299,13 @@ namespace dtdemux {
 	template<typename implementation_t>
 	int stream_parser_base_t<implementation_t>::exit()
 	{
-		fibers.clear();
+		while(fibers.size() >0) { //unregister_parser deletes from map; hence the werd approach
+			auto& [pid, f] = *fibers.begin();
+			unregister_parser((int)pid);
+		}
+		assert(fibers.size()==0);
 		return 0;
 	}
-
-
-
-
 
 
 } //namespace dtdemux

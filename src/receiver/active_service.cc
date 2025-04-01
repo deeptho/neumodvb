@@ -101,16 +101,11 @@ int active_service_t::open() {
 	return demux_fd;
 }
 
-void active_service_t::close() {
-	log4cxx::NDC(name());
-	mpm.close();
-	active_stream_t::close();
-}
-
 int active_service_t::deactivate() {
 	log4cxx::NDC(name());
 	int ret = 0;
 	dtdebugf("deactivate service");
+	mpm.close();
 	if (registered_scam) {
 		auto& scam_thread = receiver.scam_thread;
 		auto future = scam_thread.push_task(

@@ -105,8 +105,6 @@ private:
  public:
 
 	int open();
-	void close();
-
 		//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_service_t(receiver_t& receiver, active_adapter_t& active_adapter,
 									 const std::shared_ptr<stream_reader_t>& reader);

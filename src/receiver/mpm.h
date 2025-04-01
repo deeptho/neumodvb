@@ -172,7 +172,6 @@ using mm_t = safe::Safe<meta_marker_t, std::mutex>;
 using file_record_t = safe::Safe<recdb::file_t, std::mutex>;
 using ss_t = safe::Safe<stream_state_t, std::mutex>;
 
-
 class mpm_t {
 protected:
 	static constexpr  size_t  default_file_size = 127827968; //length of a single part, multiple of 4096 and 188 ; approx 121 MByte
@@ -304,8 +303,6 @@ public:
 
 };
 
-
-
 class active_mpm_t : public mpm_t
 {
 	static constexpr  size_t  default_file_size = 127827968; //length of a single part, multiple of 4096 and 188 ; approx 121 MByte
@@ -361,6 +358,7 @@ private:
 
 	void create();
 	active_mpm_t(active_service_t* parent, system_time_t now);
+	~active_mpm_t();
 
   /*!
 		create a new empty data file, open it and map it to memory;
@@ -372,9 +370,7 @@ private:
 
 //low_data_rate: force decryption to use smaller buffers for a faster response
 	int decrypt_channel_data(bool low_data_rate);
-
 	void close();
-
 
 	void start_live_recording(db_txn& parent_txn, system_time_t now, int duration);
 

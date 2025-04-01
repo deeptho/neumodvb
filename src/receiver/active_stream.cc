@@ -153,12 +153,6 @@ void dvb_stream_reader_t::close() {
 	demux_fd = -1;
 }
 
-void active_stream_t::close() {
-	log4cxx::NDC(name());
-	reader->close();
-	open_pids.clear();
-}
-
 
 /**
 	 @brief Add pid to the transport stream for this channel. The file descriptor has to be
@@ -250,7 +244,7 @@ int active_stream_t::deactivate()
 {
 	log4cxx::NDC(name());
 	remove_all_pids();
-	close();
+	reader->close();
 	return 0;
 }
 

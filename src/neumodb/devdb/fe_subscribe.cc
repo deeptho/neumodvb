@@ -146,7 +146,6 @@ static inline subscribe_ret_t reuse_other_subscription(
 	assert(new_fe->sub.config_id != -1);
 	sret.tune_pars.owner = new_fe->sub.owner;
 	sret.tune_pars.config_id = new_fe->sub.config_id;
-	sret.tune_pars.use_bbframes = new_fe->supports.bbframes;
 	return sret;
 }
 
@@ -395,6 +394,7 @@ devdb::fe::subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 		sret.tune_pars.owner = fe_->sub.owner;
 		sret.tune_pars.config_id = fe_->sub.config_id;
 		sret.tune_pars.use_bbframes = false;
+		sret.tune_pars.use_bbframes = fe_->supports.bbframes;
 		bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
 		sret.retune = is_same_fe;
 		fe_->sub.bbframes_on = false;
@@ -462,7 +462,7 @@ std::optional<devdb::fe_t> devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subsc
 		return {};
 	auto fe = c.current();
 	auto& sub = fe.sub;
-	sub.bbframes_on = bbframes_on;
+	sub.bbframes_on = bbframes_on && mux.k.stream_id>=0;
 	if(use_counts.can_control_lnb()) {
 		assert(sub.config_id <0);
 		assert(sub.owner <0);
@@ -540,7 +540,7 @@ devdb::fe::subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id,
 		updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe->k);
 	if(!best_fe)
 		return {{}, {}, {}, {}, {}, updated_old_dbfe}; //no frontend could be found
-	auto bbframes_on = tune_options.use_bbframes && best_fe->supports.bbframes;
+	auto bbframes_on = tune_options.use_bbframes && best_fe->supports.bbframes && mux.k.stream_id>=0;
 	best_fe = devdb::fe::reserve_fe_lnb_for_mux(wtxn, subscription_id, best_fe->k, bbframes_on, *best_rf_path, *best_lnb, best_use_counts,
 																							unicable_ch, mux, service);
 	assert(best_fe); //reservation cannot fail as we have a write lock on the db
@@ -840,7 +840,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				sret.tune_pars.send_lnb_commands = use_counts_.can_control_lnb();
 				assert(fe.sub.owner == getpid());
 				sret.tune_pars.config_id = fe.sub.config_id;
-				sret.tune_pars.use_bbframes = tune_options.use_bbframes && fe.supports.bbframes;
+				sret.tune_pars.use_bbframes = tune_options.use_bbframes && fe.supports.bbframes && mux.k.stream_id>=0;
 				fe_->sub.bbframes_on = sret.tune_pars.use_bbframes;
 				sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			} else {

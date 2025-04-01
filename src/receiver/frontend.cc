@@ -1333,11 +1333,11 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	cmdseq.add_clear();
 	cmdseq.add(DTV_SET_SEC_CONFIGURED);
 
-	if(tune_options.use_bbframes) {
+	if(tune_options.tune_pars->use_bbframes) {
 		if(!ts.readAccess()->dbfe.supports.bbframes) {
-			dtdebugf("Implementation error\n");
+			dtdebugf("Implementation error");
 		}
-		dtdebugf("Asking for bbframes\n");
+		dtdebugf("Asking for bbframes");
 		cmdseq.add(DTV_OUTPUT_BBFRAMES, 1);
 	}
 

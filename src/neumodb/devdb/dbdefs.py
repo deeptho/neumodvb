@@ -319,7 +319,8 @@ fe_supports = db_struct(name='fe_supports',
                                   (3, 'bool', 'spectrum_sweep', 'false'),
                                   (5, 'bool', 'spectrum_fft', 'false'),
                                   (4, 'bool', 'iq', 'false'),
-                                  (6, 'bool', 'bbframes', 'false')
+                                  (6, 'bool', 'bbframes', 'false'),
+                                  (7, 'bool', 't2mi', 'false')
                 ))
 
 
@@ -331,7 +332,7 @@ subscription_data = db_struct(name ='subscription_data',
                                  fields =((1, 'int32_t', 'subscription_id'),
                                           (2, 'bool', 'has_mux'),
                                           (3, 'bool', 'has_service'),
-                                          (5, 'std::variant<std::monostate,chdb::service_t, chdb::band_scan_t>', 'v')
+                                          (5, 'std::variant<std::monostate, chdb::service_t, chdb::band_scan_t>', 'v')
                 ))
 
 #Overall contract: if fields like sat_pos, dish_id, mux_key... are set to valid values

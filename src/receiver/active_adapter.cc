@@ -745,12 +745,17 @@ bool active_adapter_t::add_si_stream(const chdb::any_mux_t& mux) {
 		dtdebugf("Ignoring request to add the same si stream twice");
 		return false;
 	}
-	auto reader = std::make_unique<dvb_stream_reader_t>(*this, mux_key, -1);
-	assert (mux_key.t2mi_pid <0);
+	auto use_embedded_reader = !this->fe->ts.readAccess()->dbfe.supports.t2mi
+		&& (mux_key.t2mi_pid >= 0);
+
+	auto reader = use_embedded_reader
+		? make_embedded_stream_reader(mux)
+		: std::make_unique<dvb_stream_reader_t>(*this, mux_key, -1);
+
 	auto [it1, inserted] =
 		si_streams.try_emplace(mux_key, receiver, std::move(reader), mux);
 	assert(inserted);
-	if(!this->tuned_si)
+	if(mux_key.t2mi_pid < 0 && !this->tuned_si)
 		this->tuned_si = &it1->second;
 	if (si_is_on) {
 		auto& si = it1->second;
@@ -1209,8 +1214,9 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 
 	auto prefix =fmt::format("CH[{:d}:{}]", this->get_adapter_no(), service);
 	log4cxx::NDC::push(prefix.c_str());
-
-	auto reader = service.k.mux.t2mi_pid >= 0 ? this->make_embedded_stream_reader(mux)
+	auto use_embedded_reader = !this->fe->ts.readAccess()->dbfe.supports.t2mi
+		&& (service.k.mux.t2mi_pid >= 0);
+	auto reader = use_embedded_reader ? this->make_embedded_stream_reader(mux)
 		: this->make_dvb_stream_reader(service.k.mux);
 	active_service_ptr = std::make_shared<active_service_t>(receiver, *this, service, std::move(reader));
 	log4cxx::NDC::pop();

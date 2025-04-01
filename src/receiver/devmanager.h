@@ -698,6 +698,11 @@ public:
 	int stop();
 	std::tuple<std::string, int> get_api_type() const;
 
+	inline bool supports_t2mi() const {
+		auto [t, version] = this->get_api_type();
+		return version >= 170;
+	}
+
 	void renumber_card(int old_number, int new_number);
 
 	inline std::shared_ptr<dvb_frontend_t>	fe_for_dbfe(const devdb::fe_key_t& fe_key) const {

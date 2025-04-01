@@ -259,7 +259,6 @@ void dvbdev_monitor_t::update_dbfe_on_new_or_removed_fe(
 	const adapter_no_t adapter_no, const frontend_no_t frontend_no,
 	fe_state_t& t) {
 	t.dbfe.adapter_no = int(adapter_no);
-
 	auto devdb_wtxn = this->devdb_wtxn();
 	auto c = devdb::fe_t::find_by_key(devdb_wtxn,
 																		devdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
@@ -267,6 +266,8 @@ void dvbdev_monitor_t::update_dbfe_on_new_or_removed_fe(
 	dbfe_old.mtime = t.dbfe.mtime; //prevent changed mtime from being a real change
 	if (t.dbfe.card_no<0)
 		t.dbfe.card_no = dbfe_old.card_no;
+	t.dbfe.supports.t2mi = this->supports_t2mi();
+
 	bool changed = !c.is_valid() || (dbfe_old != t.dbfe);
 	if(dbfe_old.sub.owner != -1 && dbfe_old.sub.owner != getpid() && kill((pid_t)dbfe_old.sub.owner, 0)) {
 		dtdebugf("process pid={:d} has died\n", dbfe_old.sub.owner);

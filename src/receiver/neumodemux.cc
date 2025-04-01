@@ -72,7 +72,7 @@ int dmx_set_mux(int demux_fd, chdb::mux_key_t mux_key, int initial_pid, bool bbf
 		if(dmx_set_stid_stream(demux_fd, stid_pid, stream_id) <0)
 			return -1;
 	}
-	if (driver_supports_t2mi && t2mi_pid >= 0) {
+	if (t2mi_pid >= 0) {
 		if(dmx_set_t2mi_stream(demux_fd, t2mi_pid)<0)
 			return -1;
 	}

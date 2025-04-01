@@ -308,8 +308,6 @@ int active_adapter_t::restart_tune(const chdb::any_mux_t& mux, subscription_id_t
 	return 0;
 }
 
-
-
 template<typename mux_t>
 int active_adapter_t::tune_dvbc_or_dvbt(const mux_t& mux_, subscription_options_t tune_options, bool user_requested,
 													 subscription_id_t subscription_id) {
@@ -326,7 +324,6 @@ int active_adapter_t::tune_dvbc_or_dvbt(const mux_t& mux_, subscription_options_
 	dtdebugf("Subscribed: subscription_id={:d}", (int) subscription_id);
 	return 0;
 }
-
 
 int active_adapter_t::remove_all_services() {
 	std::vector<task_queue_t::future_t> futures;
@@ -355,7 +352,6 @@ int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 	subscribed_active_services.erase(it);
 	return 0;
 }
-
 
 int active_adapter_t::add_service(subscription_id_t subscription_id, active_service_t& active_service) {
 	active_service.service_thread.start_running();
@@ -1268,8 +1264,7 @@ devdb::stream_t active_adapter_t::add_stream
 
 	auto bbframes_on = this->fe->ts.readAccess()->dbfe.sub.bbframes_on;
 	auto mux_key = *chdb::mux_key_ptr(mux);
-	bool driver_supports_t2mi{true};
-	if(dmx_set_mux(fd, mux_key, pid, bbframes_on, driver_supports_t2mi) < 0)
+	if(dmx_set_mux(fd, mux_key, pid, bbframes_on) < 0)
 		return {};
 
 	if(ioctl (fd, DMX_START)<0) {

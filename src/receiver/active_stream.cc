@@ -114,8 +114,7 @@ int dvb_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_fl
 	uint16_t pid= initial_pid;
 	dtdebugf("Adding pid={}", pid);
 	auto bbframes_on = active_adapter.fe->ts.readAccess()->dbfe.sub.bbframes_on;
-	bool driver_supports_t2mi{true};
-	if(dmx_set_mux(demux_fd, mux_key, pid, bbframes_on, driver_supports_t2mi) < 0)
+	if(dmx_set_mux(demux_fd, mux_key, pid, bbframes_on) < 0)
 		return -1;
 
 	if(ioctl (demux_fd, DMX_START)<0) {

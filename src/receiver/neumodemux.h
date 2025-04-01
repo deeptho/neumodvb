@@ -25,4 +25,4 @@ int dmx_set_t2mi_stream(int demuxfd, int t2mi_pid);
 namespace chdb {
 	struct mux_key_t;
 }
-int dmx_set_mux(int demux_fd, chdb::mux_key_t mux_key, int initial_pid, bool bbframes_on, bool driver_supports_t2mi);
+int dmx_set_mux(int demux_fd, chdb::mux_key_t mux_key, int initial_pid, bool bbframes_on);

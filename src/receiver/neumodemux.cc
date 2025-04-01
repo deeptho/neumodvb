@@ -64,7 +64,7 @@ int dmx_set_t2mi_stream(int demuxfd, int t2mi_pid) {
 	return 0;
 }
 
-int dmx_set_mux(int demux_fd, chdb::mux_key_t mux_key, int initial_pid, bool bbframes_on, bool driver_supports_t2mi) {
+int dmx_set_mux(int demux_fd, chdb::mux_key_t mux_key, int initial_pid, bool bbframes_on) {
 	auto stid_pid = (int16_t) 270;
 	auto stream_id = mux_key.stream_id;
 	auto t2mi_pid = mux_key.t2mi_pid;

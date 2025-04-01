@@ -268,22 +268,10 @@ int16_t stream_reader_t::get_sat_pos() const
 }
 #endif
 
-#if 0
-void dvb_stream_reader_t::set_current_tp(const chdb::any_mux_t& mux) const
-{
-	active_adapter.set_current_tp(mux);
-}
-#endif
-
 const subscription_options_t& stream_reader_t::tune_options() const
 {
 	auto& tune_options = active_adapter.fe->ts.readAccess()->tune_options;
 	return tune_options;
-}
-
-void dvb_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& stream_mux)
-{
-	active_adapter.on_tuned_mux_change(stream_mux); //for active_adapter stream_mux == tuned_mux
 }
 
 void dvb_stream_reader_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad)
@@ -299,18 +287,7 @@ void  stream_reader_t::update_stream_mux_tune_confirmation(const tune_confirmati
 	active_adapter.update_tuned_mux_tune_confirmation(tune_confirmation);
 }
 
-
-void dvb_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stream_mux)
-{
-	//for active_adapter stream_mux == tuned_mux
-	active_adapter.update_tuned_mux_nit(stream_mux);
-}
-
-
-
-int dvb_stream_reader_t::add_pid(int pid) {
-	if(pid==320)
-		printf("here\n");
+int dvb_stream_reader_t::add_pid(int pid) {;
 	if(ioctl (demux_fd, DMX_ADD_PID, &pid)<0) {
 		dterrorf("DMX_ADD_PID {} FAILED: ", pid, strerror(errno));
 		return -1;
@@ -324,6 +301,6 @@ int dvb_stream_reader_t::remove_pid(int pid) {
 		dterrorf("DMX_REMOVE_PID {} FAILED: {}", pid, strerror(errno));
 		return -1;
 	} else
-		dtdebugf("DMX_REMOVE_PID {}",  pid);
+		dtdebugf("DMX_REMOVE_PID {} succeeded",  pid);
 	return 0;
 }

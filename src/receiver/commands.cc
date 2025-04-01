@@ -324,7 +324,7 @@ bool receiver_thread_t::start_command(devdb::scan_command_t& cmd, time_t now)
 	save_db_command(cmd, now); //must be done now to avoid starting the same command twice
 
 	switch(cmd.tune_options.subscription_type) {
-	case subscription_type_t::TUNE:
+	case subscription_type_t::SUBSCRIBE:
 		break;
 	case subscription_type_t::MUX_SCAN:
 		break;

@@ -135,6 +135,7 @@ struct signal_info_t {
 	dvb_frontend_t* fe{nullptr};
 	devdb::fe_key_t fe_key;
 	uint32_t uncorrected_driver_freq{0};
+	int requested_stream_id =  (int)NO_STREAM_ID_FILTER;
 	chdb::any_mux_t driver_mux; /*contains only confirmed information, with information from driver
 													overriding that from si stream. Missing information is filled in with
 													confirmed information*/
@@ -155,6 +156,8 @@ struct signal_info_t {
 	std::optional<int32_t> lnb_lof_offset; //most uptodate version
 	//extra
 	//int16_t matype{-1};
+	bool bbframes_on{false}; // frontend is sending bbframes to demux
+	bool blind_tune_on{false}; //frontend used blind tune
 	ss::vector<int16_t, 8> isi_list;
 	ss::vector<uint16_t, 256> matype_list; //size needs to be 256 in current implementation
 	fe_lock_status_t lock_status;
@@ -165,6 +168,10 @@ struct signal_info_t {
 	signal_info_t(dvb_frontend_t* fe, const devdb::fe_key_t& fe_key)
 		: fe(fe), fe_key(fe_key) {
 		stat.stats.resize(1);
+	}
+
+	inline bool isi_changed() const {
+		return chdb::mux_key_ptr(this->driver_mux)->stream_id != this->requested_stream_id;
 	}
 
 	~signal_info_t() {

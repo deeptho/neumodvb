@@ -115,21 +115,11 @@ public:
 	virtual ~stream_reader_t() {
 	}
 
-#if 0
-	virtual chdb::any_mux_t stream_mux() const = 0;
-#endif
 	const subscription_options_t& tune_options() const;
 
-	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux) =0;
 	virtual inline void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad) =0;
-#if 0
-	virtual inline void set_current_tp(const chdb::any_mux_t& stream_mux) const = 0;
-#endif
 
 	void  update_stream_mux_tune_confirmation(const tune_confirmation_t& tune_confirmation);
-
-	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
-	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux) = 0;
 
 	virtual inline bool on_epoll_event(const epoll_event* evt) = 0;
 
@@ -151,12 +141,6 @@ public:
 	virtual std::shared_ptr<stream_reader_t> clone(ssize_t buffer_size=-1) const {
 		assert(0);
 		return nullptr;
-	}
-#if 0
-	int16_t get_sat_pos() const;
-#endif
-	virtual int embedded_stream_pid() const {
-		return -1;
 	}
 };
 
@@ -186,17 +170,9 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	virtual int open(uint16_t initial_pid, epoll_t* epoll,
 									 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 	virtual void close();
-#if 0
-	virtual inline void set_current_tp(const chdb::any_mux_t& mux) const;
-	#endif
-#if 0
-	virtual chdb::any_mux_t stream_mux() const;
-#endif
-	virtual inline void on_stream_mux_change(const chdb::any_mux_t& mux);
+
 	virtual inline void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
 
-	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
-	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux);
 /*
 		retuns a buffer range which has valid data, or the return value ret of the read call
 		Alwas return a multiple of the packet size
@@ -267,9 +243,6 @@ class embedded_stream_reader_t final : public stream_reader_t {
 public:
 	embedded_stream_reader_t(active_adapter_t& adapter, const chdb::mux_key_t& mux_key,
 													 const std::shared_ptr<stream_filter_t>& stream_filter);
-
-	virtual int embedded_stream_pid() const;
-
 	virtual bool is_open() const {
 		return epoll != nullptr;
 	}
@@ -310,16 +283,7 @@ public:
 		notifier.close();
 		close();
 	}
-#if 0
-	virtual chdb::any_mux_t stream_mux() const;
-#endif
-#if 0
-	virtual void set_current_tp(const chdb::any_mux_t& mux) const;
-#endif
-	//stream_mux is the currently active mux, which is the embedded mux for t2mi and the tuned_mux in other cases
-	virtual void update_stream_mux_nit(const chdb::any_mux_t& stream_mux);
 
-	virtual void on_stream_mux_change(const chdb::any_mux_t& mux);
 	virtual void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
 
 };
@@ -346,7 +310,6 @@ protected:
 	//virtual void log4cxx::NDC(name()) const;
 	int open(uint16_t initial_pid, epoll_t* epoll,
 					 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
-	void close();
 
 	//!register a pid; may_exist supresses warning if pid was already registered
 	int add_pid(uint16_t pid);
@@ -388,8 +351,10 @@ public:
 		}
 
 	virtual ~active_stream_t() {
-		if(is_open())
-			close();
+		if(is_open()) {
+			dterrorf("IMPLEMENTATION ERROR: active stream destroyed while stil open\n");
+			this->deactivate();
+		}
 		dtdebugf("~active_stream_t\n");
 	}
 };

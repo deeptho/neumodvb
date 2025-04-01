@@ -936,6 +936,7 @@ enum atscmh_rs_code_mode {
 };
 
 #define NO_STREAM_ID_FILTER	(~0U)
+#define ANY_STREAM_ID_FILTER (~1U)
 #define LNA_AUTO            (~0U)
 #define MODCODE_ALL         (~0U)
 

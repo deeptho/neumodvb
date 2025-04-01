@@ -39,7 +39,7 @@ class stream_filter_t {
 	constexpr static int dmx_buffer_size{32*1024L*1024L};
 	//data for the master stream
 	active_adapter_t& active_adapter;
-	chdb::any_mux_t embedded_mux;
+	chdb::mux_key_t embedded_mux_key;
 	epoll_t * epoll{nullptr};
 	int epoll_flags = (int) (EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 	ss::vector<std::shared_ptr<embedded_stream_reader_t>, 4> stream_readers;
@@ -63,7 +63,7 @@ class stream_filter_t {
 	bool read_and_process_data();
 public:
 
-	stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+	stream_filter_t(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key,
 									epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 
 	inline int available_for_write();

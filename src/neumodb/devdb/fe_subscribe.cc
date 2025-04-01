@@ -29,6 +29,25 @@
 
 #include "../util/neumovariant.h"
 using namespace devdb;
+
+static inline bool contains_sub(const devdb::fe_t& fe, subscription_id_t id) {
+	for(int i=0; i< fe.sub.subs.size(); ++i) {
+		auto &s = fe.sub.subs[i];
+		if(s.subscription_id == (int)id)
+			return true;
+	}
+	return false;
+}
+
+static inline bool fe_allows_sharing(const devdb::fe_t& fe) {
+	for(int i=0; i< fe.sub.subs.size(); ++i) {
+		auto &s = fe.sub.subs[i];
+		if(!s.allow_sharing)
+			return false;
+	}
+	return true;
+}
+
 static
 std::tuple<bool,std::optional<devdb::dish_t>>
 update_dish_helper(db_txn& devdb_wtxn, devdb::lnb_t&lnb,
@@ -134,37 +153,18 @@ static inline subscribe_ret_t no_change(subscription_id_t subscription_id,
 
 static inline subscribe_ret_t reuse_other_subscription(
 	subscription_id_t subscription_id,  int other_subscription_id,
-	const std::optional<devdb::fe_t>& new_fe, const std::optional<devdb::fe_t>& old_fe) {
-	subscribe_ret_t sret{subscription_id, false/*failed*/};
-	sret.aa = {.updated_old_dbfe=old_fe, .updated_new_dbfe=new_fe, .rf_path={}, .lnb={}};
-	sret.sub_to_reuse =(subscription_id_t) other_subscription_id;
-	sret.tune_pars.send_lnb_commands = false;
-	sret.tune_pars.use_bbframes = new_fe->sub.bbframes_on;
-	sret.tune_pars.move_dish = false;
-	sret.tune_pars.dish = {};
-	assert(new_fe->sub.owner == getpid());
-	assert(new_fe->sub.config_id != -1);
-	sret.tune_pars.owner = new_fe->sub.owner;
-	sret.tune_pars.config_id = new_fe->sub.config_id;
-	return sret;
-}
-
-static inline subscribe_ret_t new_service(
-	subscription_id_t subscription_id, int other_subscription_id,
 	const std::optional<devdb::fe_t>& new_dbfe, const std::optional<devdb::fe_t>& old_dbfe) {
 	subscribe_ret_t sret{subscription_id, false/*failed*/};
-	/* ret.aa_sub_to_reuse = subscribe_ret_t::NONE : keep active_adapter and do not retune*/
 	sret.aa = {.updated_old_dbfe=old_dbfe, .updated_new_dbfe=new_dbfe, .rf_path={}, .lnb={}};
-	sret.sub_to_reuse = (subscription_id_t) other_subscription_id;
-	sret.change_service = true;
+	sret.sub_to_reuse =(subscription_id_t) other_subscription_id;
 	sret.tune_pars.send_lnb_commands = false;
+	sret.tune_pars.use_bbframes = new_dbfe->sub.bbframes_on;
 	sret.tune_pars.move_dish = false;
 	sret.tune_pars.dish = {};
 	assert(new_dbfe->sub.owner == getpid());
 	assert(new_dbfe->sub.config_id != -1);
 	sret.tune_pars.owner = new_dbfe->sub.owner;
 	sret.tune_pars.config_id = new_dbfe->sub.config_id;
-	sret.tune_pars.use_bbframes = new_dbfe->supports.bbframes;
 	return sret;
 }
 
@@ -207,18 +207,22 @@ fe_for_subscription(db_txn& rtxn, subscription_id_t subscription_id)
 
 template<typename mux_t>
 int devdb::fe::reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
-																 devdb::fe_t& fe,  const mux_t& mux, const chdb::service_t* service)
+																 devdb::fe_t& fe,  const mux_t& mux, const chdb::service_t* service,
+																 bool allow_sharing)
 {
 	auto& subs = fe.sub.subs;
 	assert(fe.sub.owner == getpid());
 	assert(fe.sub.config_id >= 0);
 	assert((int)subscription_id >=0);
-	if(service)
-		subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, *service});
+	if(service) {
+		subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/,
+				allow_sharing /*allow_sharing*/, *service});
+	}
 	else {
 		chdb::service_t service;
 		service.k.mux = mux.k;
-		subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
+		subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/,
+				allow_sharing /*allow_sharing*/, service});
 	}
 	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
 					 fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
@@ -229,19 +233,18 @@ int devdb::fe::reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id
 }
 
 template <typename mux_t>
-devdb::fe_t devdb::fe::subscribe_fe_in_use(
+devdb::fe_t devdb::fe::subscribe_fe_in_use_(
 	db_txn& wtxn, subscription_id_t subscription_id, fe_t& fe,
-	const mux_t& mux, const chdb::service_t* service) {
+	const mux_t& mux, const chdb::service_t* service, bool allow_sharing) {
 	assert(fe.sub.subs.size()>=0); //==0 can happen when we are tuning to a different service on the same mux
 	assert(fe.sub.owner == getpid());
 	assert(fe.sub.config_id >=0);
-	assert(is_same_stream(mux.k, fe.sub.mux_key));
 
-	dtdebugf("subscribe_fe_in_use subscription_id={:d} adapter {:d} {:d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
-					 fe.adapter_no, fe.sub.frequency/1000,
+	dtdebugf("subscription_id={:d} adapter {:d} mux={} {:d}{:s}-{:d} {:d} use_count={:d}", (int) subscription_id,
+					 fe.adapter_no, mux, fe.sub.frequency/1000,
 					 pol_str(fe.sub.pol), fe.sub.mux_key.stream_id, fe.sub.mux_key.mux_id, fe.sub.subs.size());
 	assert((int)subscription_id >=0);
-	reserve_fe_in_use(wtxn, subscription_id, fe, mux, service);
+	reserve_fe_in_use(wtxn, subscription_id, fe, mux, service, allow_sharing);
 	return fe;
 }
 
@@ -293,11 +296,13 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 	if(sat && band_scan) {
 		dtdebugf("SUBSCRIBED subscription_id={:d} band={}/{}  adapter {:d} lnb={} use_count={:d}", (int) subscription_id,
 						 *sat, *band_scan, fe.adapter_no, rf_path.lnb, fe.sub.subs.size());
-		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, *band_scan});
+		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/,
+				false /*allow_sharing*/, *band_scan});
 	} else {
 		dtdebugf("SUBSCRIBED subscription_id={:d} adapter {:d} lnb={} use_count={:d}", (int) subscription_id,
 						 fe.adapter_no, rf_path.lnb, fe.sub.subs.size());
-		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/, chdb::service_t{}});
+		fe.sub.subs.push_back({(int)subscription_id, false /*has_mux*/, false /*has_service*/,
+					false /*allow_sharing*/, chdb::service_t{}});
 	}
 	fe.sub.bbframes_on = false;
 	put_record(wtxn, fe);
@@ -310,7 +315,6 @@ int devdb::fe::reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subsc
 	std::optional<devdb::fe_t>: the updated version of the old (unsubscribed) fe
 	bool is_master
  */
-//@todo: replace this with subscribe_mux with sat and band_scan argument
 std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::fe_t>, bool>
 devdb::fe::subscribe_lnb_(db_txn& wtxn, subscription_id_t subscription_id,
 												 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
@@ -385,8 +389,6 @@ devdb::fe::subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 	auto lnb = c.current();
 	auto [fe_, updated_old_dbfe, send_lnb_commands] = devdb::fe::subscribe_lnb_(
 		wtxn, sret.subscription_id, rf_path, lnb, tune_options, oldfe_, fe_key_to_release);
-
-	sret.retune = false;
 	sret.tune_pars.send_lnb_commands = send_lnb_commands;
 	if(fe_) {
 		assert(fe_->sub.owner == getpid());
@@ -396,15 +398,14 @@ devdb::fe::subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 		sret.tune_pars.use_bbframes = false;
 		sret.tune_pars.use_bbframes = fe_->supports.bbframes;
 		bool is_same_fe = oldfe_? (fe_->k == oldfe_->k) : false;
-		sret.retune = is_same_fe;
 		fe_->sub.bbframes_on = false;
 		sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path, .lnb= lnb};
 
 		if(!is_same_fe) {
-			assert(sret.aa.is_new_aa());
-			sret.sub_to_reuse = subscription_id_t::NONE;
+			assert(sret.aa.is_different_aa());
+			assert(sret.sub_to_reuse == subscription_id_t::NONE);
 		} else {
-			assert(!sret.aa.is_new_aa());
+			assert(!sret.aa.is_different_aa());
 		}
 		if (sat_pos_to_move_to) {
 			if(sret.tune_pars.send_lnb_commands)  {
@@ -437,10 +438,10 @@ devdb::fe::subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 
 
 subscribe_ret_t
-devdb::fe::	subscribe_rf_path(db_txn& devdb_wtxn, subscription_id_t subscription_id,
-															const subscription_options_t& tune_options,
-															const rf_path_t& rf_path,
-															std::optional<int16_t> sat_pos_to_move_to) {
+devdb::fe::subscribe_rf_path(db_txn& devdb_wtxn, subscription_id_t subscription_id,
+														 const subscription_options_t& tune_options,
+														 const rf_path_t& rf_path,
+														 std::optional<int16_t> sat_pos_to_move_to) {
 	auto sret = subscribe_rf_path_(devdb_wtxn, subscription_id, tune_options, rf_path,
 																sat_pos_to_move_to);
 	if(!sret.failed) {
@@ -452,10 +453,11 @@ devdb::fe::	subscribe_rf_path(db_txn& devdb_wtxn, subscription_id_t subscription
 }
 
 std::optional<devdb::fe_t> devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
-																			const devdb::fe_key_t& fe_key, bool bbframes_on, const devdb::rf_path_t& rf_path,
-																			const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
-																			const std::optional<devdb::unicable_ch_t>& unicable_ch,
-																			const chdb::dvbs_mux_t& mux, const chdb::service_t* service)
+																														 const devdb::fe_key_t& fe_key, bool bbframes_on, const devdb::rf_path_t& rf_path,
+																														 const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
+																														 const std::optional<devdb::unicable_ch_t>& unicable_ch,
+																														 const chdb::dvbs_mux_t& mux, const chdb::service_t* service,
+																														 bool allow_sharing)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe_key);
 	if( !c.is_valid())
@@ -494,12 +496,12 @@ std::optional<devdb::fe_t> devdb::fe::reserve_fe_lnb_for_mux(db_txn& wtxn, subsc
 
 	sub.mux_key = mux.k;
 	sub.mux_key.t2mi_pid = -1;
-	if(service)
-		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, *service});
-	else {
+	if(service) {
+		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, allow_sharing, *service});
+	} else {
 		chdb::service_t service;
 		service.k.mux = mux.k;
-		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
+		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, allow_sharing, service});
 	}
 	dtdebugf("subscription_id={:d} adapter {:d} {:d}.{:03d}{:s}-{:d} mux_id={:d} sat={} lnb={}  use_count={:d}",
 					 (int) subscription_id, fe.adapter_no, fe.sub.frequency/1000, fe.sub.frequency%1000,
@@ -522,12 +524,12 @@ std::tuple<std::optional<devdb::fe_t>, std::optional<devdb::rf_path_t>, std::opt
 					 devdb::resource_subscription_counts_t,
 					 std::optional<devdb::unicable_ch_t>, std::optional<devdb::fe_t> >
 devdb::fe::subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id,
-												 const chdb::dvbs_mux_t& mux,
-												 const chdb::service_t* service,
-												 const subscription_options_t& tune_options,
-												 const std::optional<devdb::fe_t>& oldfe,
-												 const devdb::fe_key_t* fe_key_to_release,
-												 bool do_not_unsubscribe_on_failure) {
+																const chdb::dvbs_mux_t& mux,
+																const chdb::service_t* service,
+																const subscription_options_t& tune_options,
+																const std::optional<devdb::fe_t>& oldfe,
+																const devdb::fe_key_t* fe_key_to_release,
+																bool do_not_unsubscribe_on_failure, bool allow_sharing) {
 	auto[best_fe, best_rf_path, best_lnb, best_use_counts, unicable_ch] =
 		fe::find_fe_and_lnb_for_tuning_to_mux(wtxn, mux,
 																					tune_options,
@@ -542,7 +544,7 @@ devdb::fe::subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id,
 		return {{}, {}, {}, {}, {}, updated_old_dbfe}; //no frontend could be found
 	auto bbframes_on = tune_options.use_bbframes && best_fe->supports.bbframes && mux.k.stream_id>=0;
 	best_fe = devdb::fe::reserve_fe_lnb_for_mux(wtxn, subscription_id, best_fe->k, bbframes_on, *best_rf_path, *best_lnb, best_use_counts,
-																							unicable_ch, mux, service);
+																							unicable_ch, mux, service, allow_sharing);
 	assert(best_fe); //reservation cannot fail as we have a write lock on the db
 
 	return {best_fe, best_rf_path, best_lnb, best_use_counts, unicable_ch, updated_old_dbfe};
@@ -550,7 +552,7 @@ devdb::fe::subscribe_mux_helper(db_txn& wtxn, subscription_id_t subscription_id,
 
 template<typename mux_t>
 int devdb::fe::reserve_fe_for_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscription_id, devdb::fe_t& fe,
-																	const mux_t& mux, const chdb::service_t* service)
+																							 const mux_t& mux, const chdb::service_t* service, bool allow_sharing)
 {
 	auto c = devdb::fe_t::find_by_key(wtxn, fe.k);
 	if( !c.is_valid())
@@ -579,12 +581,12 @@ int devdb::fe::reserve_fe_for_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t s
 	sub.rf_coupler_id  = -1;
 	sub.mux_key = mux.k;
 	sub.mux_key.t2mi_pid = -1;
-	if (service)
-		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, *service});
-	else {
+	if (service) {
+		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, true /*has_service*/, allow_sharing, *service});
+	}else {
 		chdb::service_t service;
 		service.k.mux = mux.k;
-		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, service});
+		fe.sub.subs.push_back({(int)subscription_id, true /*has_mux*/, false /*has_service*/, allow_sharing, service});
 	}
 	fe.sub.bbframes_on = false;
 	put_record(wtxn, fe);
@@ -606,6 +608,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 																			bool do_not_unsubscribe_on_failure) {
 
 	assert(!tune_options.need_spectrum);
+	bool allow_sharing = tune_options.allow_sharing();
 	const bool need_multistream = (mux.k.stream_id >= 0);
 	const auto delsys_type = chdb::delsys_type_for_mux_type<mux_t>();
 	auto best_fe = devdb::fe::find_best_fe_for_dvtdbc(wtxn, fe_key_to_release, tune_options.use_blind_tune,
@@ -624,7 +627,7 @@ devdb::fe::subscribe_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscripti
 #ifndef NDEBUG
 	auto ret =
 #endif
-		devdb::fe::reserve_fe_for_dvbc_or_dvbt_mux(wtxn, subscription_id, *best_fe, mux, service);
+		devdb::fe::reserve_fe_for_dvbc_or_dvbt_mux(wtxn, subscription_id, *best_fe, mux, service, allow_sharing);
 	assert(ret == 0); //reservation cannot fail as we have a write lock on the db
 	return {best_fe, updated_old_dbfe};
 }
@@ -684,13 +687,18 @@ devdb::fe::subscribe_sat_band_(db_txn& wtxn, subscription_id_t subscription_id,
 	     the service will be reserved as well
 
   Return values:
-	aa: only set in case a new active adapter must be created, otherwise empty
+	aa.updated_old_dbfe: set when the caller earlier subsrcibed a mux or service for the same subscription_id
+	                 it then contains the updated version of the dbfe record for the adapter of that old subscription
+
+	aa.updated_new_dbfe: set to empty when subscription failed for some reason; otherwise, it contains the
+	                 updated version of the dbfe record for the adapter of the new subscription
+
 	aa_sub_to_reuse: if subscription_t::NONE, and aa is set, then the caller must create a new active adapter with
                       these parameters;
                    if subscription_t::NONE, aa is not set, then the caller requested a reservation
 											for a mux it has already subscribed, and active_adapter remains the same
-									 if equal to the subscription_id of the caller, the caller must reuse its current active_adapter
-									    but retune to the new mux
+									 if equal to the subscription_id of the caller, the caller has reserved the same
+									    mux and should not retune
 									 if other value: the caller should reuse the active adapter for that other subscription_id;
 	If the caller does not reuse its existing aa, then it should  release it and deactivate
 	it when it is the last user;
@@ -703,11 +711,16 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 										 const mux_t& mux,
 										 const chdb::service_t* service,
 										 bool do_not_unsubscribe_on_failure) {
-
+	bool allow_sharing = tune_options.allow_sharing();
 	auto[ oldfe_, will_be_released ] = fe_for_subscription(wtxn, subscription_id);
 	auto* fe_key_to_release = (oldfe_ && will_be_released) ? &oldfe_->k : nullptr;
 	std::optional<devdb::fe_t> updated_old_dbfe;
 	bool ignore_stream_id = tune_options.use_bbframes;
+	/*
+		Even from posotioner dialog, we do not require exclusivity
+	 */
+	bool need_exclusivity = false;//tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL;
+	assert(!need_exclusivity || !service);
 	//try to reuse existing active_adapter and active_service as-is
 	if(service) {
 		auto [fe_, idx] = matching_existing_subscription(wtxn,
@@ -718,8 +731,10 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 		if(fe_) {
 			auto & fe = *fe_;
 			auto& sub = fe.sub.subs[idx];
-			if (sub.subscription_id == (int)subscription_id)
+			if (sub.subscription_id == (int)subscription_id) {
+				assert(sub.allow_sharing);
 				return no_change(subscription_id, fe_);  //already subscribed and no change in lnb, mux or service
+			}
 			else {
 				if(oldfe_) {
 					assert((int) subscription_id >=0);
@@ -727,6 +742,8 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 						adding two subscriptions with the same subscription_id, which
 						makes it impossible to unsubscribe, as that is done by subscription_id*/
 					updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
+					assert((int) subscription_id <0 || !contains_sub(*fe_, subscription_id));
+
 					if(updated_old_dbfe && updated_old_dbfe->k == fe.k) {
 						/*in this case, removing our old subscription
 							may have removed all old subscriptions, which then
@@ -743,14 +760,14 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 									!fe_subscription::may_move_dish(fe.sub) && ! fe_subscription::may_change_lnb(fe.sub)));
 				}
 				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id, fe_, updated_old_dbfe);
-				subscribe_fe_in_use(wtxn, sret.subscription_id, fe, mux, service);
+				subscribe_fe_in_use_(wtxn, sret.subscription_id, fe, mux, service, allow_sharing);
 				return sret;
 			}
 		}
 	}
 
 	//try to reuse existing mux as-is, except that we will also add a service, or just use the tuned mux
-	if(true) {
+	if(!need_exclusivity) {
 		auto [fe_, idx] = matching_existing_subscription(wtxn,
 																										 tune_options,
 																										 mux, service,
@@ -762,7 +779,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			if(oldfe_) {
 				assert((int)subscription_id >=0);
 			/*we can reuse an existing active_mux, but need to add an active service
-				Ee need to unsubscribe first, because otherwise we may end up
+				We need to unsubscribe first, because otherwise we may end up
 				adding two subscriptions with the same subscription_id, which
 				makes it impossible to unsubscribe, as that is done by subscription_id
 			*/
@@ -775,16 +792,16 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 					*/
 					fe.sub.subs = updated_old_dbfe->sub.subs;
 				}
-
 			}
+			assert((int) subscription_id <0 || !contains_sub(*fe_, subscription_id));
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
 				assert(fe.sub.subs.size() ==1 ||
 							 (!tune_options.may_move_dish &&
 								!fe_subscription::may_move_dish(fe.sub) && ! fe_subscription::may_change_lnb(fe.sub)));
 			}
-			auto sret = new_service(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
+			auto sret = reuse_other_subscription(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
 			//we can reuse an existing active_mux, but need to add an active service
-			subscribe_fe_in_use(wtxn, sret.subscription_id, fe, mux, service);
+			subscribe_fe_in_use_(wtxn, sret.subscription_id, fe, mux, service, allow_sharing);
 			return sret;
 		}
 	}
@@ -809,7 +826,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 					wtxn, sret.subscription_id, mux, service,
 					tune_options,
 					oldfe_, fe_key_to_release,
-					do_not_unsubscribe_on_failure);
+					do_not_unsubscribe_on_failure, allow_sharing);
 		} else {
 			std::tie(fe_, updated_old_dbfe) =
 			devdb::fe::subscribe_dvbc_or_dvbt_mux(
@@ -826,8 +843,6 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 #endif
 			auto& fe = *fe_;
 			bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
-			sret.retune = is_same_fe;
-			sret.change_service = true;
 			assert(fe.sub.owner != -1);
 			assert(fe.sub.config_id >= 0);
 			sret.tune_pars.owner = fe.sub.owner;
@@ -849,13 +864,13 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				sret.aa = { .updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe, .rf_path={}, .lnb={}};
 			}
 			if(!is_same_fe) {
-				assert(sret.aa.is_new_aa());
-				sret.sub_to_reuse = subscription_id_t::NONE;
+				assert(sret.aa.is_different_aa());
+				assert(sret.sub_to_reuse == subscription_id_t::NONE);
 				dtdebugf("fe::subscribe: newaa subscription_id={}  adapter={:x}/{} mux={}",
 								 (int ) sret.subscription_id, (int64_t) fe.k.adapter_mac_address,
 								 (int) oldfe_->k.frontend_no, mux);
 			} else {
-				assert(!sret.aa.is_new_aa());
+				assert(!sret.aa.is_different_aa());
 				dtdebugf("fe::subscribe: no newaa subscription_id={} adapter={:x} mux={}",
 								 (int)subscription_id, (int64_t) fe.k.adapter_mac_address, mux);
 			}
@@ -896,8 +911,6 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 		if(fe_) {
 			auto& fe = *fe_;
 			bool is_same_fe = oldfe_? (fe.k == oldfe_->k) : false;
-			sret.retune = is_same_fe;
-			sret.change_service = true;
 			sret.tune_pars.send_lnb_commands = use_counts_.can_control_lnb();
 			assert(fe.sub.owner != -1);
 			assert(fe.sub.config_id >= 0);
@@ -907,13 +920,13 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 			fe_->sub.bbframes_on = false;
 			sret.aa = {.updated_old_dbfe = updated_old_dbfe, .updated_new_dbfe = fe_, .rf_path= rf_path_, .lnb= *lnb_};
 			if(!is_same_fe) {
-				assert(sret.aa.is_new_aa());
+				assert(sret.aa.is_different_aa());
 				sret.sub_to_reuse = subscription_id_t::NONE;
 				dtdebugf("fe::subscribe: newaa subscription_id={}  adapter={:x}/{} sat={}",
 								 (int ) subscription_id, (int64_t) fe.k.adapter_mac_address,
 								 (int) oldfe_->k.frontend_no, sat);
 			} else {
-				assert(!sret.aa.is_new_aa());
+				assert(!sret.aa.is_different_aa());
 				dtdebugf("fe::subscribe: no newaa subscription_id={} adapter={:x} sat={}",
 								 (int)subscription_id, (int64_t) fe.k.adapter_mac_address, sat);
 			}
@@ -941,9 +954,10 @@ devdb::fe::subscribe_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
 
 /*
 	return a frontend that already is tuning the mux and/or service, by returning
-	the frontend and the index of the exising subscription
-	Special cases:
-    -subscription_id = None => the mux was already tuned by this subscription
+	the frontend and the index of the existing subscription. This type of sharing can
+	only occur between subscribers having tune_options.subscription_type SUBSCRIPTION or MUX_SCAN.
+
+    -subscription_id = NONE => the mux was already tuned by this subscription
     -subscription_id = same as input => active adapter can be kept but must be retuned
 		-subscription_id != input => caller needs to referene the existing active adapter
 		 and release its old one
@@ -962,6 +976,8 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 	for(auto fe: c.range()) {
 		if(fe.sub.owner != owner)
 			continue;
+		if (!fe_allows_sharing(fe))
+				continue;
 		int idx=0;
 		if(mux.k.mux_id ==0 || fe.sub.mux_key.mux_id ==0) {
 			/*the existing subscription or the desired one is for a frequency peak.
@@ -992,11 +1008,16 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 				//perhaps the frequency matches but not the mux key
 				mux_t m;
 				m.k = sub_service->k.mux;
-				set_member(m, frequency, fe.sub.frequency);
-				set_member(m, pol, fe.sub.pol);
-				mux_matches = chdb::matches_physical_fuzzy(mux, m, true /*check_sat_pos*/,
-																									 ignore_stream_id && fe.sub.bbframes_on,
-																									 true /*ignore_t2mi_pid*/);
+				auto is_mis_m = m.k.stream_id >= 0;
+				auto is_mis_mux = mux.k.stream_id >= 0;
+				if(is_mis_m == is_mis_mux) {
+					//we cannot combine a single and a multistream on the same frequency
+					set_member(m, frequency, fe.sub.frequency);
+					set_member(m, pol, fe.sub.pol);
+					mux_matches = chdb::matches_physical_fuzzy(mux, m, true /*check_sat_pos*/,
+																										 ignore_stream_id && fe.sub.bbframes_on,
+																										 true /*ignore_t2mi_pid*/);
+				}
 			}
 			if(rf_path_matches && mux_matches && service_matches) {
 				return {fe, idx};

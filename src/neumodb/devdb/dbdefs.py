@@ -332,6 +332,7 @@ subscription_data = db_struct(name ='subscription_data',
                                  fields =((1, 'int32_t', 'subscription_id'),
                                           (2, 'bool', 'has_mux'),
                                           (3, 'bool', 'has_service'),
+                                          (4, 'bool', 'allow_sharing', 'false'),
                                           (5, 'std::variant<std::monostate, chdb::service_t, chdb::band_scan_t>', 'v')
                 ))
 
@@ -565,21 +566,32 @@ subscription_type = db_enum(name='subscription_type_t',
                    version = 1,
                    fields=(
                        ('NONE', '-1'),
-                       'TUNE', # regular viewing: resourced are reserved non-exclusively. This means other lnbs
-                               # on the same dish can be used by other subscriptions
-	                     'MUX_SCAN',  # scanning muxes in the background: resources are reserved non-exclusively,
-                                    # also reserved non-exclusively
+                       'SUBSCRIBE',  # regular viewing: resourced are reserved non-exclusively. This means other lnbs
+                                     # on the same dish can be used by other subscriptions
+                                     # Actual tuning will be according to the first mux used in
+                                     # the call oactive_adapter_t::tune_mux.
+                                     # This is not necessarily the first mux to be reserved
+                       'MUX_SCAN',   # scanning muxes in the background: resources are reserved non-exclusively
+                                     # The only difference with SUBSCRIBE is that no retuning is attempted
+                                     # when tunign fails. MUX_SCAN and SUBSCRIBE can use the same active_adapter
+                       'TUNE',       # Blindscanning a specific frequency
+                                     # This will tune  specific mux using any available LNB and adapter,
+                                     # but without allowing other SUBSCRIBE, MUX_SCAN or TUNE subscribers
+                                     # piggy backing on the active_adapter. Vice versa TUNE cannot reserve
+                                     # an active_adapter that has been reserved by a TUNE subscription
+	                     'LNB_CONTROL',# scanning  a mux or peak from the positioner or spectrum_scan dialog
+                                     # and/or sending specific lnb commands to select satelle
+                                     # The main difference with TUNE is that a specific lnb is specified.
+                                     # No subscriber of type SUBSCRIBE, TUNE, MUX_SCAN can reserve an LNB and
+                                     # active adapter which has been reserved with LNB_CONTROL. However
+                                     # LNB_control can reserve a mux, lnb and positioner that are reserved by
+                                     # a SUBSCRIBE, TUNE or MUX_SCAN subscriber, which can then can cause
+                                     # these subscribers to malfunction
+                                     # Also, lnb and dish are reserved exclusively, which means no other lnbs on
+                                     # the dish can be used on the same dish
 	                     'BAND_SCAN',  # scanning spectral band in the background: resources are reserved
-                                              # non-exclusively
-                       'SPECTRUM_ACQ',  # Spectrum acquisition from spectrum_dialog reserved exclusively
-	                     'LNB_CONTROL' #in this case, a second subscriber cannot subscribe to the mux
-                                     #at first tune, position data is used from the lnb. Retunes cannot
-										                 #change the positioner and diseqc settings afterwards. Instead, the user
-										                 #must explicitly force them by a new tune call (diseqc swicthes), or by
-                                     #sending a positoner commands (usals, diseqc1.2)
-										                 #
-                                     #Also, lnb and dish are reserved exclusively, which means no other lnbs on
-                                     #the dish can be used on the same dish
+                                     # non-exclusively
+                       'SPECTRUM_ACQ'# Spectrum acquisition from spectrum_dialog reserved exclusively
 	                 ))
 
 run_type = db_enum(name='run_type_t',
@@ -635,7 +647,7 @@ tune_options = db_struct(name ='tune_options',
     type_id = lord('TP'),
     version = 1,
     ignore_for_equality_fields = ('mtime',),
-    fields = ((16,  'subscription_type_t', 'subscription_type'),
+    fields = ((16, 'subscription_type_t', 'subscription_type'),
               (1, 'scan_target_t', 'scan_target'),
               (2, 'int32_t', 'scan_max_duration', '180'),
               (3, 'std::optional<ss::vector_<int8_t>>', 'allowed_dish_ids'),

@@ -97,23 +97,17 @@ struct subscribe_ret_t {
 		std::optional<devdb::fe_t> updated_new_dbfe;
 		std::optional<devdb::rf_path_t> rf_path;
 		std::optional<devdb::lnb_t> lnb;
-		bool is_new_aa () const {
+		bool is_different_aa () const {
 			return !updated_old_dbfe || !updated_new_dbfe || updated_old_dbfe->k != updated_new_dbfe->k;
 		}; //true if old_fe.adapter_no differs from new_fe.adapter_no
 	};
 	bool failed{false};
 
-	subscription_id_t subscription_id{subscription_id_t::NONE}; /*Current or existing subscription_id_t*/
+	subscription_id_t subscription_id{subscription_id_t::NONE}; /*Current subscription_id_t*/
 	bool was_subscribed{false};
 
 	subscription_id_t sub_to_reuse{subscription_id_t::NONE}; /*use this active_adapter without retuning
 																														 but may need to create a new active_service*/
-	bool retune{false}; /*retune adapter to different mux?
-												only relevant if aa_sub_to_reuse == our existing subscription_id*/
-
-	bool change_service{false}; /*if false, use the service of subscription with id aa_sub_to_reuse,
-																if true, then add a new service on this active_adapter;
-																only relevant if aa_sub_to_reuse != subscription_id_t::NONE*/
 
 	//value below only relevant if aa_sub_to_reuse  == subscription_id_t::NONE
 	aa_t aa;

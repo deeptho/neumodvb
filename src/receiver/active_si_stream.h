@@ -553,15 +553,29 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	friend class active_adapter_t;
 	friend class tuner_thread_t;
 
+	//set at creation time (first tune)
 	txnmgr_t<chdb::chdb_t> chdbmgr;
 	txnmgr_t<epgdb::epgdb_t> epgdbmgr;
-	const chdb::mux_key_t key;
-	chdb::any_mux_t dbmux;
+	//const chdb::mux_key_t key;
+	chdb::any_mux_t dbmux; //current mux with all possible updates applied
+	bool is_main{false}; //is this the main mux (the one we requested to tune, not some other stream)
+
+
+	//set during registration (after first tune but possibly before first lock)
+
+	devdb::scan_target_t scan_target; //which SI tables should be scanned? This determines which pids will be opened
+	std::map<subscription_id_t, chdb::any_mux_t> subscriptions;
+
+	inline bool subscription_exists(subscription_id_t subscription_id) const {
+		auto [it, found] = find_in_map(this->subscriptions, subscription_id);
+		return found;
+	}
+
+	//set when si processing is done for a mux
+	bool si_processing_done{false};
 
 	dtdemux::ts_stream_t stream_parser;
-	devdb::scan_target_t scan_target; //which SI tables should be scanned?
-	bool si_processing_done{false};
-	bool call_scan_mux_end{false};
+
 	/*we need one parser per pid; within each pid multiple tables may exist
 		but those are transmitted sequentially. Between pids, they are not
 		"""Within TS packets of any single PID value, one section is finished before the next one is allowed to be started,
@@ -579,7 +593,6 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	inline chdb::mux_key_t stream_mux_key() const {
 		auto ret= *chdb::mux_key_ptr(this->dbmux);
-		assert (this->key == ret);
 		return ret;
 	}
 
@@ -588,6 +601,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return stream_mux_key->sat_pos;
 	}
 
+	void on_stream_mux_change(const chdb::any_mux_t& mux);
 
 	dtdemux::reset_type_t pat_section_cb(const pat_services_t& pat_services, const subtable_info_t& i);
 	reset_type_t pmt_section_cb(const pmt_info_t& pmt, bool isnext);
@@ -620,8 +634,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	mux_data_t* add_reader_mux_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 
-	mux_data_t*
-	lookup_mux_data_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
+	mux_data_t* lookup_mux_data_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 
 	mux_data_t* add_fake_nit(db_txn& txn, uint16_t network_id, uint16_t ts_id, int16_t expected_sat_pos,
 													 bool from_sdt);
@@ -641,8 +654,21 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 */
 	int save_network(db_txn& txn, const nit_network_t& network, int sat_pos);
 
-	void init_scanning(devdb::scan_target_t scan_target_);
-	bool init(devdb::scan_target_t scan_target_);
+	void init_scanning();
+	void init(const chdb::any_mux_t& driver_mux, bool driver_data_reliable);
+
+
+	/* clear all received SI data and restart si processing from scratch*/
+	void reset();
+
+	/* in case si processing is not fully done yet, set the status of the current muxes
+		 to IDLE in the  database. Then notify scanner that scanning is finished.
+		 Finally clall close: clear all received SI data and restart si processing from scratch
+	*/
+	void end_si();
+
+	void finalize_scan();
+
 
 	template<typename parser_t, typename... Args>
 	auto add_parser(int pid, const ss::string_& ndc_prefix, Args... args) {
@@ -724,33 +750,29 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	//true if this mux equals the currently streamed mux (embedded mux for t2mi, or tuned mux)
 	bool matches_reader_mux(const chdb::any_mux_t& mux, bool from_sdt);
-#if 0
-	inline bool is_reader_mux(const chdb::any_mux_t& mux) const {
-		auto stream_mux = reader->stream_mux();
-		return *mux_key_ptr(mux) == *mux_key_ptr(stream_mux);
-	}
-#endif
-	bool 	update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);
+	bool update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);
 	bool update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
 									bool is_active_mux, bool is_tuned_freq,
 									bool from_sdt, chdb::update_mux_preserve_t::flags preserve);
 
-	bool fix_tune_mux_template();
-	void finalize_scan();
-	mux_data_t* tuned_mux_in_nit();
+	bool fix_tune_mux_template(const chdb::any_mux_t& driver_mux, bool driver_data_reliable);
+
 	void update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_t& mux);
 	void save_pmts(db_txn& wtxn);
-	void activate_scan(chdb::any_mux_t& mux, subscription_id_t subscription_id, const chdb::scan_id_t& scan_id);
+	//todo: make this private
+	void activate_scan(subscription_id_t subscription_id, const chdb::scan_id_t& scan_id);
+	void add_si_subscription(const chdb::any_mux_t& mux,
+																devdb::scan_target_t scan_target,
+																subscription_id_t subscription_id);
+	bool remove_si_subscription(subscription_id_t subscription_id);
+
 	void check_scan_mux_end();
 public:
-	void stop_si(bool close_streams);
-	void close();
-	void finalize();
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_si_stream_t(receiver_t& receiver,
 										 const std::shared_ptr<stream_reader_t>& reader, const chdb::any_mux_t& mux,
-										 ssize_t dmx_buffer_size_=32*1024L*1024);
+										 bool is_tuned /*,ssize_t dmx_buffer_size_=32*1024L*1024*/);
 public:
 		virtual ~active_si_stream_t();
 };

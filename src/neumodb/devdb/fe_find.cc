@@ -526,7 +526,7 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 		}
 	}
 	//during scanning, it is expected to see many failure; don't report them
-	if(!best_fe && tune_options.subscription_type == subscription_type_t::TUNE)
+	if(!best_fe && tune_options.subscription_type == subscription_type_t::SUBSCRIBE)
 		user_errorf("Could not find find available lnb, frontend or tuner for mux {}", mux);
 	return std::make_tuple(best_fe, best_rf_path, best_lnb, best_use_counts, best_unicable_ch);
 }

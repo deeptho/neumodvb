@@ -70,22 +70,7 @@ class tuner_thread_t : public task_queue_t {
 										 epgdb::epg_record_t& epg_record/*may be updated by setting epg_record.record
 																											to true or false*/);
 	virtual int exit();
-	void release_all(subscription_id_t subscription_id);
 
-	subscription_id_t tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-														 const subscription_options_t& tune_options);
-
-	void restart_si_on_new_subscription(active_adapter_t& active_adapter,
-																			const chdb::any_mux_t& mux, const subscription_options_t& tune_options ,
-																			subscription_id_t subscription_id);
-#if 0
-	void add_sixxx(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
-							const subscription_options_t& tune_options, subscription_id_t subscription_id);
-#endif
-	int tune(const subscribe_ret_t& sret, const devdb::rf_path_t& rf_path,
-					 const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux, subscription_options_t tune_options);
-	template<typename _mux_t>
-	int tune_dvbc_or_dvbt(const _mux_t& mux, subscription_options_t tune_options, subscription_id_t subscription_id);
 	subscription_id_t subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
 																	const subscription_options_t& tune_options);
 public:
@@ -100,7 +85,8 @@ public:
 	void on_epg_update_check_autorecs(db_txn& recdb_wtxn, db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
 	void add_live_buffer(const recdb::live_service_t& active_service);
 	void remove_live_buffer(subscription_id_t subscription_id);
-	void update_dbfe(const devdb::fe_t& updated_dbfe);
+	bool unregister_subscription(const devdb::fe_t& updated_dbfe, subscription_id_t subscription_id);
+
 public:
 
 	class cb_t;
@@ -112,11 +98,9 @@ class tuner_thread_t::cb_t: public tuner_thread_t { //callbacks
 public:
 	int on_pmt_update(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key, const dtdemux::pmt_info_t& pmt);
 	int update_service(const chdb::service_t& service);
-	int lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& ret,
-									 subscription_options_t tune_options);
+	int lnb_activate(const subscribe_ret_t& ret, subscription_options_t tune_options);
 
-	int lnb_spectrum_acquistion(subscription_id_t subscription_id, const subscribe_ret_t& ret,
-															subscription_options_t tune_options);
+	int lnb_spectrum_acquistion(const subscribe_ret_t& ret, subscription_options_t tune_options);
 
 	subscription_id_t subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
 																	const subscription_options_t& tune_options);
@@ -141,6 +125,6 @@ public:
 
 	std::tuple<int, std::optional<int>>
 	positioner_cmd(subscription_id_t subscription_id, devdb::positioner_cmd_t cmd, int par);
-	int update_current_lnb(subscription_id_t subscription_id,  const devdb::lnb_t& lnb);
+	int update_current_lnb_from_gui(subscription_id_t subscription_id,  const devdb::lnb_t& lnb);
 	int stop_recording(const recdb::rec_t& rec, mpm_copylist_t& copy_commands);
 };

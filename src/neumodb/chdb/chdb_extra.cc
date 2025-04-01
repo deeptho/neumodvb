@@ -396,6 +396,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 	/*find mux with matching frequency, stream_id and t2mi_pid*/
 #ifndef NDEBUG
 	auto& mux_common = *mux_common_ptr(mux_to_save);
+	assert(mux_to_save.k.stream_id != (int) ANY_STREAM_ID_FILTER);
 	if(!((mux_to_save.k.mux_id > 0) ||
 				 (is_template(mux_to_save) || mux_common.tune_src== tune_src_t::NIT_TUNED
 					|| mux_common.tune_src== tune_src_t::NIT_CORRECTED

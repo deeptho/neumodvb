@@ -180,14 +180,16 @@ namespace devdb::fe {
 
 	template<typename mux_t>
 	int reserve_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
-												devdb::fe_t& fe,  const mux_t& mux, const chdb::service_t* service);
+												devdb::fe_t& fe,  const mux_t& mux, const chdb::service_t* service,
+												bool allow_sharing);
 
 	std::optional<devdb::fe_t>
 	reserve_fe_lnb_for_mux(db_txn& wtxn, subscription_id_t subscription_id,
 												 const devdb::fe_key_t& fe_key, bool bbframes_on, const devdb::rf_path_t& rf_path,
 												 const devdb::lnb_t& lnb, const resource_subscription_counts_t& use_counts,
 												 const std::optional<devdb::unicable_ch_t>& unicable_ch,
-												 const chdb::dvbs_mux_t& mux, const chdb::service_t* service);
+												 const chdb::dvbs_mux_t& mux, const chdb::service_t* service,
+												 bool allow_sharing);
 
 
 	int reserve_fe_lnb_for_sat_band(db_txn& wtxn, subscription_id_t subscription_id,
@@ -198,12 +200,12 @@ namespace devdb::fe {
 																	const chdb::band_scan_t* band_scan);
 	template<typename mux_t>
 	int reserve_fe_for_dvbc_or_dvbt_mux(db_txn& wtxn, subscription_id_t subscription_id, devdb::fe_t& fe,
-												 const mux_t& mux, const chdb::service_t* service);
+																			const mux_t& mux, const chdb::service_t* service, bool allow_sharing);
 
 	template <typename mux_t>
-	devdb::fe_t subscribe_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
+	devdb::fe_t subscribe_fe_in_use_(db_txn& wtxn, subscription_id_t subscription_id,
 																	fe_t& fe, const mux_t& mux,
-																	const chdb::service_t* service);
+																	 const chdb::service_t* service, bool allow_sharing);
 
 
 	template<typename mux_t>
@@ -221,7 +223,8 @@ namespace devdb::fe {
 											 const subscription_options_t& tune_options,
 											 const std::optional<fe_t>& oldfe,
 											 const devdb::fe_key_t* fe_key_to_release,
-											 bool do_not_unsubscribe_on_failure);
+											 bool do_not_unsubscribe_on_failure, bool allow_sharing);
+
 	subscribe_ret_t subscribe_rf_path_(db_txn& wtxn, subscription_id_t subscription_id,
 																		const subscription_options_t& tune_options,
 																		const rf_path_t& rf_path,
@@ -243,7 +246,7 @@ namespace devdb::fe {
 								const subscription_options_t&  tune_options,
 								std::optional<devdb::fe_t>& oldfe, const devdb::fe_key_t* fe_key_to_release
 		);
-	devdb::fe_t subscribe_fe_in_use(db_txn& wtxn, subscription_id_t subscription_id,
+	devdb::fe_t subscribe_fe_in_use_(db_txn& wtxn, subscription_id_t subscription_id,
 																	const fe_key_t& fe_key,const chdb::mux_key_t &mux_key);
 
 

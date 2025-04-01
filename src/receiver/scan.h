@@ -34,35 +34,6 @@ class active_adapter_t;
 struct sdt_data_t;
 
 struct scan_state_t {
-	/*
-		possible modes of operation
-
-		-regular tune: scan sdt, nit, bat, epg and remain tuned for ever
-		-simple channel scan: scan sdt, nit, bat, pat NO EPG
-		-full channel scan: scan sdt, nit, bat, pat NO EPG, but scan all PMTs
-
-		-with all above, epg can be included.
-
-	*/
-
-		enum  completion_index_t  {
-			PAT,
-			NIT_ACTUAL,
-			NIT_OTHER,
-			SDT_ACTUAL, //current transport stream
-			SDT_OTHER,
-			SDT_NETWORK, //current netork
-			BAT,
-			FST_BAT,
-			EIT_ACTUAL_EPG,
-			EIT_OTHER_EPG,
-			SKYUK_EPG,
-			MHW2_EPG,
-			VIASAT_EPG,
-			FST_EPG,
-			NUM
-		};
-
 	struct completion_state_t {
 		bool active{false};
 		bool timedout{false};
@@ -71,9 +42,11 @@ struct scan_state_t {
 		steady_time_t start_time;
 		steady_time_t done_time;
 		steady_time_t last_active;
+
 		completion_state_t() :
 			start_time(steady_clock_t::now()) {
 		}
+
 		void reset(bool active, bool required_for_scan) {
 			*this = completion_state_t();
 			this->active = active;
@@ -106,6 +79,35 @@ struct scan_state_t {
 			return "BUSY";
 		}
 	};
+
+	/*
+		possible modes of operation
+
+		-regular tune: scan sdt, nit, bat, epg and remain tuned for ever
+		-simple channel scan: scan sdt, nit, bat, pat NO EPG
+		-full channel scan: scan sdt, nit, bat, pat NO EPG, but scan all PMTs
+
+		-with all above, epg can be included.
+
+	*/
+
+		enum  completion_index_t  {
+			PAT,
+			NIT_ACTUAL,
+			NIT_OTHER,
+			SDT_ACTUAL, //current transport stream
+			SDT_OTHER,
+			SDT_NETWORK, //current netork
+			BAT,
+			FST_BAT,
+			EIT_ACTUAL_EPG,
+			EIT_OTHER_EPG,
+			SKYUK_EPG,
+			MHW2_EPG,
+			VIASAT_EPG,
+			FST_EPG,
+			NUM
+		};
 
 	ss::vector<completion_state_t, completion_index_t::NUM> completion_states;
 
@@ -225,7 +227,7 @@ struct scan_state_t {
 		completion_states[idx].reset(false, required_for_scan);
 	}
 
-	inline void reset() {
+	inline void reset_completion_states() {
 		for(auto& c: completion_states)
 			c.reset(false, c.required_for_scan); //mark all as inactive
 	}
@@ -374,7 +376,7 @@ private:
 	inline chdb::scan_id_t make_scan_id(subscription_id_t scan_subscription_id,
 																			const subscription_options_t& tune_options) {
 		chdb::scan_id_t ret;
-		assert(tune_options.subscription_type != devdb::subscription_type_t::TUNE);
+		assert(tune_options.subscription_type != devdb::subscription_type_t::SUBSCRIBE);
 		ret.subscription_id = (int32_t) scan_subscription_id;
 		ret.pid = getpid();
 		ret.opt_id = next_opt_id++;

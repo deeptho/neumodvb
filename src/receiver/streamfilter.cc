@@ -130,21 +130,17 @@ start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& arg
 	return {-1, -1};
 }
 
-stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
+stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::mux_key_t& embedded_mux_key,
 																 epoll_t* epoll, int epoll_flags)
 	: active_adapter(active_adapter)
-	, embedded_mux(embedded_mux)
+	, embedded_mux_key(embedded_mux_key)
 	, epoll(epoll)
 	, epoll_flags(epoll_flags)
 	,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
 }
 
 int stream_filter_t::open() {
-	//this->tuned_mux = active_adapter.current_mux();
-#ifndef NDEBUG
-	auto* k = chdb::mux_key_ptr(this->embedded_mux);
-#endif
-	assert(k->sat_pos != sat_pos_none);
+	assert(this->embedded_mux_key.sat_pos != sat_pos_none);
 	start();
 	return error ? -1 : 0;
 }
@@ -178,12 +174,11 @@ int stream_filter_t::start() {
 	logger = Logger::getLogger("t2mi"); //override default logger for this thread
 #endif
 	ss::string<64> ndc;
-	auto stream_pid = chdb::mux_key_ptr(embedded_mux)->t2mi_pid;
+	auto stream_pid = this->embedded_mux_key.t2mi_pid;
 	ndc.format("PID[{:d}]", stream_pid);
 	log4cxx::NDC(ndc.c_str());
 	int dmx_buffer_size = 32 * 1024 * 1024;
-	auto master_mux = embedded_mux;
-	auto& master_mux_key = *chdb::mux_key_ptr(master_mux);
+	auto master_mux_key = this->embedded_mux_key;
 	master_mux_key.t2mi_pid = -1;
 	dvb_stream_reader_t dvb_reader(active_adapter, master_mux_key, dmx_buffer_size);
 	int stream_fd = dvb_reader.open(stream_pid, epoll, epoll_flags);
@@ -387,9 +382,6 @@ embedded_stream_reader_t::embedded_stream_reader_t(active_adapter_t& active_adap
 																									 const std::shared_ptr<stream_filter_t>& stream_filter)
 	: stream_reader_t(active_adapter, mux_key), stream_filter(stream_filter) {}
 
-int embedded_stream_reader_t::embedded_stream_pid() const {
-	return mux_key_ptr(stream_filter->embedded_mux)->t2mi_pid; }
-
 int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags) {
 	this->epoll = epoll;
 	this->epoll_flags = epoll_flags;
@@ -449,48 +441,10 @@ void stream_filter_t::notify_other_readers(embedded_stream_reader_t* reader) {
 		}
 	}
 }
-#if 0
-chdb::any_mux_t embedded_stream_reader_t::stream_mux() const {
-	auto & mux = stream_filter->embedded_mux;
-	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
-
-	return stream_filter->embedded_mux; }
-#endif
-void embedded_stream_reader_t::on_stream_mux_change(const chdb::any_mux_t& mux) {
-	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
-	stream_filter->embedded_mux = mux;
-}
 
 void embedded_stream_reader_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux,
 																											bool is_bad) {
 //noop
-}
-
-#if 0
-void embedded_stream_reader_t::set_current_tp(const chdb::any_mux_t& embedded_mux) const {
-	assert(mux_key_ptr(embedded_mux)->sat_pos != sat_pos_none);
-	auto& mux = embedded_mux;
-	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
-	stream_filter->embedded_mux = embedded_mux;
-}
-#endif
-
-void embedded_stream_reader_t::update_stream_mux_nit(const chdb::any_mux_t& stream_mux) {
-	auto & mux = stream_mux;
-	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
-	stream_filter->embedded_mux = stream_mux;
 }
 
 pid_t streamer_t::start() {

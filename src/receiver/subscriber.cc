@@ -42,7 +42,7 @@ std::shared_ptr<subscriber_t> subscriber_t::make(receiver_t* receiver, wxWindow*
 
 subscriber_t::~subscriber_t() {
 	if ((int) get_subscription_id() >= 0)
-		unsubscribe();
+		unsubscribe(true /*wait*/);
 }
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service_for_viewing(const chdb::service_t& service) {
@@ -108,7 +108,7 @@ int subscriber_t::scan_spectral_peaks(const devdb::rf_path_t& rf_path, ss::vecto
 	set_scanning(true);
 	auto ssptr = this->shared_from_this();
 	auto ret = receiver->scan_spectral_peaks(rf_path, peaks, spectrum_key, ssptr);
-	assert (ret==get_subscription_id());
+	assert (ret==get_subscription_id() || ret == subscription_id_t::TUNE_FAILED);
 	return (int)ret;
 }
 
@@ -151,7 +151,7 @@ void subscriber_t::update_current_lnb(const devdb::lnb_t& lnb) {
 		bool usals_pos_changed{false};
 		auto& tuner_thread = aa->tuner_thread;
 		tuner_thread.push_task([&tuner_thread, subscription_id, lnb, &usals_pos_changed]() {
-			usals_pos_changed = cb(tuner_thread).update_current_lnb(subscription_id, lnb);
+			usals_pos_changed = cb(tuner_thread).update_current_lnb_from_gui(subscription_id, lnb);
 			return 0;
 		}).wait();
 	}
@@ -172,7 +172,7 @@ void subscriber_t::remove_ssptr() {
 	}
 }
 
-int subscriber_t::unsubscribe() {
+int subscriber_t::unsubscribe(bool wait) {
 	set_scanning(false);
 	auto subscription_id = this->get_subscription_id();
 	if((int) subscription_id<0) {
@@ -181,7 +181,7 @@ int subscriber_t::unsubscribe() {
 	}
 	dtdebugf("calling receiver->unsubscribe");
 	auto ssptr = this->shared_from_this();
-	receiver->unsubscribe(ssptr);
+	receiver->unsubscribe(ssptr, wait);
 	dtdebugf("called receiver->unsubscribe");
 	return (int) subscription_id;
 }

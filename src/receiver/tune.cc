@@ -98,7 +98,7 @@ int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const 
 
 	if (changed) {
 		dtdebugf("freesat/skyuk epg flag changed on mux {}", mux);
-		active_adapter.update_mux(mux);
+		active_adapter.on_pmt_update(mux);
 		auto txn = receiver.chdb.wtxn();
 		namespace m = chdb::update_mux_preserve_t;
 		chdb::update_mux(txn, mux, now, m::flags{m::ALL & ~m::EPG_TYPES}, /*false ignore_key,*/
@@ -117,95 +117,27 @@ int tuner_thread_t::cb_t::update_service(const chdb::service_t& service) {
 	return 0;
 }
 
-int tuner_thread_t::cb_t::lnb_activate(subscription_id_t subscription_id, const subscribe_ret_t& sret,
+int tuner_thread_t::cb_t::lnb_activate(const subscribe_ret_t& sret,
 																			 subscription_options_t tune_options) {
-	dtdebugf("lnb activate subscription_id={:d}", (int) subscription_id);
+	dtdebugf("lnb activate subscription_id={:d}", (int) sret.subscription_id);
 	auto& aa = sret.aa;
 	assert(aa.rf_path);
 	assert(aa.lnb);
-	return active_adapter.lnb_activate(*aa.rf_path, *aa.lnb, tune_options);
+	return active_adapter.lnb_activate(sret, tune_options);
 }
 
-int tuner_thread_t::cb_t::lnb_spectrum_acquistion(subscription_id_t subscription_id, const subscribe_ret_t& sret,
+int tuner_thread_t::cb_t::lnb_spectrum_acquistion(const subscribe_ret_t& sret,
 																									subscription_options_t tune_options) {
 	// check_thread();
-	dtdebugf("lnb spectrum scan subscription_id={:d}", (int) subscription_id);
+	dtdebugf("lnb spectrum scan subscription_id={:d}", (int) sret.subscription_id);
 	assert((int) sret.sub_to_reuse  < 0  || sret.sub_to_reuse == sret.subscription_id);
 	auto& aa = sret.aa;
 	assert(aa.rf_path);
 	assert(aa.lnb);
-	return active_adapter.lnb_spectrum_scan(*aa.rf_path, *aa.lnb, tune_options);
+	receiver.activate_spectrum_scan(tune_options.spectrum_scan_options, aa.lnb->pol_type);
+	return active_adapter.lnb_spectrum_scan(sret, tune_options);
 }
 
-/*
-	Called from tune_mux when our subscription is for a mux, but mux is already subscribed
-	either by us, or by some other subscription. The resubscription is needed to start scanning (if the mux
-	was not scanning, i.e., the mux was scubscribed with scan_id==-1 and now scan_id>=0) and will obey the
-	new scan_target (which may require more thorugh scanning), which then needs restarting si_processing
-
-	In this case, an embedded stream is added through prepare_si.
-	if scan_id >0, prepare_si also adds the subscription to the list of subscriptions to notify
-	when scanning finishes. In case scanning already finished, this notification is sent immediately
-
-	Finally, add_si also sets the tune options:
-	@todo: various tune requests may have conflicting tune options (such as propagate_scan)
- */
-
-void tuner_thread_t::restart_si_on_new_subscription(active_adapter_t& active_adapter,
-																										const chdb::any_mux_t& mux, const subscription_options_t& tune_options ,
-																										subscription_id_t subscription_id) {
-	// check_thread();
-	dtdebugf("tune restart_si");
-	active_adapter.restart_si_if_needed(mux, tune_options, subscription_id);
-	active_adapter.fe->set_tune_options(tune_options);
-}
-
-int tuner_thread_t::tune(const subscribe_ret_t& sret, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-												 const chdb::dvbs_mux_t& mux_, subscription_options_t tune_options) {
-	// check_thread();
-	chdb::dvbs_mux_t mux{mux_};
-	/*
-		The new scan status must be written to the database now.
-		Otherwise there may be problems on muxes which fail to scan: their status would remain
-		pending, and when parallel tuners are in use, the second tuner might decide to scan
-			the mux again
-	*/
-	auto prefix = fmt::format("TUN{:d}-TUNE", active_adapter.get_adapter_no());
-	log4cxx::NDC::pop();
-	log4cxx::NDC ndc(prefix.c_str());
-
-	dtdebugf("tune mux action lnb={} mux={}", lnb, mux);
-	return active_adapter.tune(sret, rf_path, lnb, mux, tune_options);
-}
-
-template <typename _mux_t>
-int tuner_thread_t::tune_dvbc_or_dvbt(const _mux_t& mux_, subscription_options_t tune_options,
-												 subscription_id_t subscription_id) {
-	_mux_t mux{mux_};
-
-	assert( mux.c.scan_status != scan_status_t::ACTIVE);
-	/*
-		The new scan status must be written to the database now.
-		Otherwise there may be problems on muxes which fail to scan: their status would remain
-		pending, and whne parallel tuners are in use, the second tuner might decide to scan
-		the mux again
-		*/
-	auto prefix = fmt::format("TUN{}-TUNE", active_adapter.get_adapter_no());
-	log4cxx::NDC::pop();
-	log4cxx::NDC ndc(prefix.c_str());
-
-	dtdebugf("tune mux action");
-	bool user_requested = true;
-	auto ret = active_adapter.tune_dvbc_or_dvbt(mux, tune_options, user_requested, subscription_id);
-	assert (ret>=0 || active_adapter.tune_state == active_adapter_t::TUNE_FAILED);
-	return ret;
-}
-
-template int tuner_thread_t::cb_t::tune_dvbc_or_dvbt<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, subscription_options_t tune_options,
-																													subscription_id_t subscription_id);
-
-template int tuner_thread_t::cb_t::tune_dvbc_or_dvbt<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, subscription_options_t tune_options,
-																													subscription_id_t subscription_id);
 
 int tuner_thread_t::exit() {
 	dtdebugf("tuner starting exit");
@@ -436,43 +368,14 @@ tuner_thread_t::cb_t::positioner_cmd(subscription_id_t subscription_id, devdb::p
 	return {ret, new_usals_pos};
 }
 
-int tuner_thread_t::cb_t::update_current_lnb(subscription_id_t subscription_id, const devdb::lnb_t& lnb) {
-	active_adapter.update_current_lnb(lnb);
+int tuner_thread_t::cb_t::update_current_lnb_from_gui(subscription_id_t subscription_id, const devdb::lnb_t& lnb) {
+	active_adapter.update_current_lnb_from_gui(lnb);
 	return 0;
 }
 
 subscription_id_t
-tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret,
-															const chdb::any_mux_t& mux,
-															const subscription_options_t& tune_options) {
-	/*In case of failure, release the resources associated with tjis subscription (active_adapter and
-		active_service)
-	*/
-	assert(sret.subscription_id != subscription_id_t::NONE);
-	if(sret.failed && sret.was_subscribed) {
-		release_all(sret.subscription_id);
-		return subscription_id_t::NONE;
-	}
-
-	/*
-		Perform all actions needed to tune to the proper mux, which we have been able to subscribe;
-		In case of failure, release the resources assosciated with tjis subscription (active_adapter and
-		active_service).
-		This will also release any resources alreay in use (active_mux and active_service) if they are no
-		longer needed.
-	 */
-	auto ret = this->tuner_thread_t::tune_mux(sret, mux, tune_options);
-	if((int)ret < 0) {
-		release_all(sret.subscription_id);
-		return subscription_id_t::NONE;
-	}
-
-	return ret;
-}
-
-subscription_id_t
 tuner_thread_t::cb_t::subscribe_mux(const subscribe_ret_t& sret,
-															const chdb::any_mux_t& mux,
+																		const chdb::any_mux_t& mux,
 																		const subscription_options_t& tune_options) {
 	return this->tuner_thread_t::subscribe_mux(sret, mux, tune_options);
 }
@@ -488,12 +391,14 @@ tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sre
 	assert(sret.subscription_id != subscription_id_t::NONE);
 	auto subscription_id = this->subscribe_mux(sret, mux, tune_options);
 	assert(subscription_id == sret.subscription_id);
-	/*at this point
-		1. we have tuned to the proper mux
-		2. we no longer have a subscribed service of playback
+	/*at this point we no longer have a subscribed service of playback
 	*/
-	auto recnew = active_adapter.tune_service_for_recording(sret, mux, rec);
-
+	auto active_servicep = active_adapter.tune_service(sret, mux, rec.service, tune_options);
+	assert(active_servicep);
+	active_servicep->start_recording(sret.subscription_id, rec);
+	auto live_service = active_servicep->get_live_service(sret.subscription_id);
+	this->add_live_buffer(live_service);
+	auto recnew = active_servicep->start_recording(sret.subscription_id, rec);
 	assert(recnew);
 	recnew->owner = getpid();
 	recnew->subscription_id = (int) sret.subscription_id;
@@ -508,14 +413,17 @@ tuner_thread_t::cb_t::subscribe_service_for_viewing(const subscribe_ret_t& sret,
 		active_service)
 	*/
 	assert(sret.subscription_id != subscription_id_t::NONE);
-	auto subscription_id = this->subscribe_mux(sret, mux, tune_options);
 
-	assert(subscription_id == sret.subscription_id);
-	/*at this point
-		1. we have tuned to the proper mux
-		2. we no longer have a subscribed service of playback
+	/*at this point we no longer have a subscribed service of playback
 	*/
-	return active_adapter.tune_service_for_viewing(sret, mux, service);
+	auto active_servicep = active_adapter.tune_service(sret, mux, service, tune_options);
+	if(active_servicep) {
+		auto live_service = active_servicep->get_live_service(sret.subscription_id);
+		this->add_live_buffer(live_service);
+		return active_servicep->make_client_mpm(sret.subscription_id);
+	}
+	else
+		return nullptr;
 }
 
 devdb::stream_t tuner_thread_t::cb_t::add_stream(const subscribe_ret_t& sret,
@@ -532,6 +440,7 @@ devdb::stream_t tuner_thread_t::cb_t::add_stream(const subscribe_ret_t& sret,
 		1. we have tuned to the proper mux
 		2. we no longer have a subscribed service of playback
 	*/
+	active_adapter.fe->update_dbfe(*sret.aa.updated_new_dbfe);
 	return active_adapter.add_stream(sret, stream, mux);
 }
 
@@ -560,82 +469,29 @@ void tuner_thread_t::cb_t::remove_stream(subscription_id_t subscription_id) {
 
  */
 subscription_id_t
-tuner_thread_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-												 const subscription_options_t& tune_options) {
+tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
+															const subscription_options_t& tune_options) {
 	assert(sret.subscription_id != subscription_id_t::NONE);
-	if(sret.failed && sret.was_subscribed) {
-		release_all(sret.subscription_id);
-		return subscription_id_t::NONE;
-	}
-	auto old_active_adapter = &active_adapter;
-	/*If the requested mux happens to be already the active mux for this subscription, simply return,
-		after restarting si processing or retuning
+	assert(!sret.failed);
+	/*We are re-using another subscription or are the first user subscribing to the active adapter.
+		In both cases we need to register the mux, but note that this->tune will do the registration
+		in the second case
 	*/
-	if(!sret.aa.is_new_aa()) {
-		dtdebugf("Reusing active_adapter {:p}: subscription_id={:d} adapter_no={:d}",
-						 fmt::ptr(this), (int)sret.subscription_id,
-						 (int)active_adapter.get_adapter_no());
-		auto ret1 = active_adapter.remove_service(sret.subscription_id);
-		dtdebugf("Called remove_service: service was {}removed", (ret1<0)? "NOT " : "");
-	}
-	/*we are reusing our own subscription using the same mux but with different tune options,
-		or after being requested explicitly to retune (e.g., user ask retune in positioner_dialog when not locked)
-	*/
-	if(sret.sub_to_reuse == sret.subscription_id)  {
-		assert(old_active_adapter);
-		dtdebugf("already subscribed to mux {}", mux);
-		if(tune_options.subscription_type == devdb::subscription_type_t::TUNE) {
-     //@todo: check the following call, this means we alreay have added si, but maybe with other tune options
-			restart_si_on_new_subscription(*old_active_adapter, mux, tune_options, sret.subscription_id);
-		} else {
-			/// during DX-ing and scanning retunes need to be forced
-			old_active_adapter->request_retune(mux, tune_options, sret.subscription_id);
-		}
-		return sret.subscription_id;
-	}
-
-	/*We now know that the old unsubscribed mux is different from the new one
-		or that current_lnb != lnb
-	*/
-	if((int)sret.sub_to_reuse >=0)  {
-		restart_si_on_new_subscription(active_adapter, mux, tune_options, sret.subscription_id);
-		dtdebugf("subscribe {}: reused activate_adapter from subscription_id={}",
-						 mux, (int)sret.sub_to_reuse);
-		return sret.subscription_id;
-	}
-
-	/*
-		we must retune old_active_adapter or create a new active_adapter
-	 */
 
 	int ret{-1};
-	auto& aa = sret.aa;
 	dtdebugf("Active_adapter {:p}: subscription_id={:d} adapter_no={:d}",
 					 fmt::ptr(this), (int) sret.subscription_id,
 					 active_adapter.get_adapter_no());
-	visit_variant(mux,
-								[&](const chdb::dvbs_mux_t& mux) {
-									assert(aa.rf_path);
-									assert(aa.lnb);
-									ret = this->tune(sret, *aa.rf_path, *aa.lnb, mux, tune_options);
-								},
-								[&](const chdb::dvbc_mux_t& mux) {
-									ret = this->tune_dvbc_or_dvbt(mux, tune_options, sret.subscription_id);
-								},
-								[&](const chdb::dvbt_mux_t& mux) {
-									ret = this->tune_dvbc_or_dvbt(mux, tune_options, sret.subscription_id);
-								}
-		);
+
+	assert(sret.aa.updated_new_dbfe->sub.subs.size() ==1);
+	auto &sub = sret.aa.updated_new_dbfe->sub.subs[0];
+	assert(sub.subscription_id == (int)sret.subscription_id || sub.subscription_id == (int)sret.sub_to_reuse);
+	//assert(sret.sub_to_reuse == subscription_id_t::NONE);
+	ret = (int)active_adapter.tune_mux(sret, mux, tune_options);
 	if (ret < 0)
 		dterrorf("tune returned {:d}", ret);
-	//Destructor of old_active_adapter can call deactivate at this point
+	//Destructor of active_adapter can call deactivate at this point
 	return sret.subscription_id;
-}
-
-void tuner_thread_t::release_all(subscription_id_t subscription_id) {
-	if ((int)subscription_id < 0)
-		return;
-	active_adapter.reset();
 }
 
 void tuner_thread_t::on_epg_update_check_recordings(db_txn& recdb_wtxn,
@@ -790,6 +646,10 @@ void tuner_thread_t::remove_live_buffer(subscription_id_t subscription_id) {
 	recdbmgr.flush_wtxn();
 }
 
-void tuner_thread_t::update_dbfe(const devdb::fe_t& updated_dbfe) {
-	active_adapter.fe->update_dbfe(updated_dbfe);
+bool tuner_thread_t::unregister_subscription(const devdb::fe_t& updated_dbfe, subscription_id_t subscription_id)
+{
+	auto stop_running = active_adapter.unregister_subscription(updated_dbfe, subscription_id);
+	if(stop_running)
+		this->stop_running(false/*wait*/);
+	return stop_running;
 }

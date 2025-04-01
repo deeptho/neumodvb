@@ -197,7 +197,7 @@ public:
 
 	EXPORT ~subscriber_t();
 
-	EXPORT int unsubscribe();
+	EXPORT int unsubscribe(bool wait);
 	EXPORT void update_current_lnb(const devdb::lnb_t & lnb);
 
 	EXPORT std::unique_ptr<playback_mpm_t> subscribe_service_for_viewing(const chdb::service_t& service);

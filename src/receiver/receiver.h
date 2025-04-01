@@ -576,7 +576,7 @@ public:
 	std::unique_ptr<playback_mpm_t>
 	subscribe_playback(const recdb::rec_t& rec, ssptr_t ssptr);
 
-	EXPORT void unsubscribe(ssptr_t ssptr);
+	EXPORT void unsubscribe(ssptr_t ssptr, bool wait);
 
 	EXPORT int update_autorec(recdb::autorec_t& autorec);
 	EXPORT int delete_autorec(const recdb::autorec_t& autorec);

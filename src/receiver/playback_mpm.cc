@@ -696,6 +696,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 
  */
 int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
+	dtdebug_nicef("subscription_id={:d}", (int) subscription_id);
 	if (error || num_bytes == 0)
 		return 0;
 	int num_bytes_read{0};

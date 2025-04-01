@@ -34,7 +34,7 @@ struct constellation_options_t {
 
 
 struct spectrum_scan_options_t {
-	bool recompute_peaks{false}; //instead of relying on driver, compute the peak
+	bool recompute_peaks{false}; //instead of relying on driver, compute the peak by analyzing spectrum
 	bool append{false}; //append to existing file
 	chdb::sat_t sat;
 	chdb::sat_sub_band_pol_t band_pol; //currently scanning band
@@ -70,6 +70,24 @@ struct subscription_options_t : public devdb::tune_options_t {
 
 	devdb::usals_location_t usals_location;
 
+	inline bool allow_sharing() const {
+		using namespace devdb;
+		switch(subscription_type) {
+		case subscription_type_t::NONE:
+			assert(0);
+		case subscription_type_t::TUNE:
+		case subscription_type_t::MUX_SCAN:
+		case subscription_type_t::LNB_CONTROL:
+		case subscription_type_t::BAND_SCAN:
+		case subscription_type_t::SPECTRUM_ACQ:
+			return false;
+		case subscription_type_t::SUBSCRIBE:
+			return true;
+		}
+		assert(0);
+		return false;
+	}
+
 	inline bool rf_path_is_allowed(const devdb::rf_path_t& rf_path) const {
 		bool dish_matches = !allowed_dish_ids;
 		bool card_matches = !allowed_card_mac_addresses;
@@ -102,7 +120,7 @@ struct subscription_options_t : public devdb::tune_options_t {
 	}
 
  	subscription_options_t(devdb::scan_target_t scan_target =  devdb::scan_target_t::SCAN_FULL,
-												 devdb::subscription_type_t subscription_type = devdb::subscription_type_t::TUNE)
+												 devdb::subscription_type_t subscription_type = devdb::subscription_type_t::SUBSCRIBE)
 		{
 			this->subscription_type = subscription_type;
 			this->scan_target = scan_target;
@@ -111,3 +129,46 @@ struct subscription_options_t : public devdb::tune_options_t {
 	subscription_options_t& operator=(const subscription_options_t& other) = default;
  	subscription_options_t(const subscription_options_t& other) = default;
 };
+
+inline bool  operator==(const pls_search_range_t& a, const pls_search_range_t& b) {
+	return (a.start == b.start) && (a.end == b.end) && (a.pls_mode == b.pls_mode) && (a.timeoutms == b.timeoutms);
+}
+
+inline bool operator!=(const pls_search_range_t& a, const pls_search_range_t& b) { return !operator==(a, b); }
+
+inline bool operator==(const tune_pars_t& a, const tune_pars_t&b){
+	if(a.dish != b.dish)
+		return false;
+
+	if(a.move_dish != b.move_dish)
+		return false;
+	if(a.use_bbframes != b.use_bbframes)
+		return false;
+	if(a.send_lnb_commands != b.send_lnb_commands)
+		return false;
+	if(a.unicable_ch != b.unicable_ch)
+		return false;
+	if(a.owner != b.owner)
+		return false;
+	if(a.config_id != b.config_id)
+		return false;
+	return true;
+}
+
+inline bool operator!=(const tune_pars_t& a, const tune_pars_t& b) { return !operator==(a, b); }
+
+
+inline bool  operator==(const subscription_options_t& a, const subscription_options_t& b) {
+	if( (const devdb::tune_options_t&) a != (const devdb::tune_options_t&) b)
+		return false;
+
+	if(a.tune_pars != b.tune_pars)
+		return false;
+	if(a.pls_search_range != b.pls_search_range)
+		return false;
+	if(a.usals_location != b.usals_location)
+		return false;
+	return true;
+}
+
+inline bool operator!=(const subscription_options_t& a, const subscription_options_t& b) { return !operator==(a, b); }

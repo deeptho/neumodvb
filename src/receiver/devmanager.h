@@ -206,6 +206,7 @@ class fe_state_t {
 public:
 	int tune_count{0};
 	tune_confirmation_t tune_confirmation; //have ts_id,network_id, sat_id been confirmed by SI data?
+	int requested_stream_id{(int)NO_STREAM_ID_FILTER};
 	chdb::any_mux_t reserved_mux;   /*mux as it is currently reserved. Will be updated with si data
 																		and will always contain the best confirmed-to-be-correct information
 																	*/
@@ -404,7 +405,7 @@ private:
 
 	std::tuple<int, int>
 	tune(tuner_thread_t& tuner_thread,
-			 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
+			 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::any_mux_t& mux,
 			 const subscription_options_t& tune_options);
 
 
@@ -413,10 +414,8 @@ private:
 										const subscription_options_t& tune_options);
 
 
-	template<typename mux_t>
-	int tune(const mux_t& mux, const subscription_options_t& tune_options);
+	int tune(const chdb::any_mux_t& mux, const subscription_options_t& tune_options);
 
-	template<typename mux_t>
 	void request_retune(tuner_thread_t& tuner_thread, bool user_requested);
 
 	void request_tune(tuner_thread_t& tuner_thread,
@@ -427,12 +426,13 @@ private:
 	template<typename mux_t>
 	void request_tune(const mux_t& mux, const subscription_options_t& tune_options);
 
-	void request_lnb_spectrum_scan(tuner_thread_t& tuner_thread,
+	void request_lnb_spectrum_scan(tuner_thread_t& tuner_thread, const devdb::fe_t& dbfe,
 																 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 																 const subscription_options_t& tune_options);
 
-	int request_positioner_control(tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
-															 const subscription_options_t& tune_options);
+	int request_positioner_control(tuner_thread_t& tuner_thread, const devdb::fe_t& dbfe,
+																 const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
+																 const subscription_options_t& tune_options);
 
 	std::optional<std::tuple<int, int, int, double>>
 	get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usals_pos, steady_time_t now) const;
@@ -452,10 +452,9 @@ private:
 
 	int start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devdb::lnb_t & lnb);
 
-	int start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const devdb::lnb_t & lnb, const chdb::dvbs_mux_t& mux);
+	int start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const devdb::lnb_t & lnb, const chdb::any_mux_t& mux);
 
-	template<typename mux_t>
-	int start_fe_and_dvbc_or_dvbt_mux(const mux_t& mux);
+	int start_fe_and_dvbc_or_dvbt_mux(const chdb::any_mux_t& mux);
 
 	/*!
 		returns the new mux use count

@@ -327,7 +327,8 @@ void export_subscriber(py::module& m) {
 			return get_error().c_str(); })
 		.def("unsubscribe"
 				 , &subscriber_t::unsubscribe
-				 , "End tuning")
+				 , "End tuning",
+				 py::arg("wait") =0)
 		.def("subscribe_spectrum_acquisition"
 				 , &subscriber_t::subscribe_spectrum_acquisition
 				 , "acquire a spectrum for this lnb"

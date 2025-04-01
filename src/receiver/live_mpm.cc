@@ -1080,6 +1080,5 @@ void active_mpm_t::delete_old_data(db_txn& parent_txn, system_time_t now) {
 
 active_mpm_t::~active_mpm_t()
 {
-	printf("here\n");
 	//streamparser.unregister_parser(pid)
 }

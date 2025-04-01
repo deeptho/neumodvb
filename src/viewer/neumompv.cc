@@ -310,6 +310,8 @@ void mpv_subscription_t::open() {
 		next_op = none;
 		return ret;
 	};
+	int subscription_id = (int) this->subscriber->get_subscription_id();
+	dtdebug_nicef("Open subscription_id={}", subscription_id);
 	dttime_init();
 	auto op = get();
 	dttime(100);
@@ -722,7 +724,7 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 		if (mpm->move_to_live() < 0) {
 			dtdebugf("PLAY SUBSCRIPTION (service): aborting");
 			this->close(false /*unsubscribe*/);
-			subscriber->unsubscribe();
+			subscriber->unsubscribe(true /*wait*/);
 			return;
 		}
 		dtdebugf("PLAY SUBSCRIPTION (service): mpm move_to_live done");
@@ -851,7 +853,7 @@ int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t s
 			dtdebugf("PLAY SUBSCRIPTION (rec): aborting");
 			this->close(false /*unsubscribe*/);
 			if ((int) subscription_id >= 0) {
-				subscriber->unsubscribe();
+				subscriber->unsubscribe(true/*wait*/);
 				assert((int) subscriber->get_subscription_id() < 0);
 			}
 			return -1;
@@ -948,13 +950,13 @@ void mpv_subscription_t::close(bool unsubscribe) {
 	mpm->close();
 	mpm.reset();
 	if(unsubscribe)
-		subscriber->unsubscribe();
+		subscriber->unsubscribe(true/*wait*/);
 }
 
 int mpv_subscription_t::stop_play() {
 	auto subscription_id = subscriber->get_subscription_id();
 	dtdebugf("STOP SUBSCRIPTION {:d}", (int) subscription_id);
-	subscriber->unsubscribe();
+	subscriber->unsubscribe(true /*wait*/);
 	std::scoped_lock lck(m);
 	if (mpm) {
 		mpm->close();
@@ -978,7 +980,7 @@ int MpvPlayer_::stop_play() {
 
 	auto op = [this]() { subscription.stop_play(); };
 	{
-		// lock must be placed after lambda
+		// lock must be placed after above lambda
 		std::scoped_lock lck(subscription.m);
 		subscription.next_op = op;
 	}
@@ -1089,6 +1091,7 @@ int64_t mpv_subscription_t::read_data(char* buffer, uint64_t nbytes) {
 		thread_name_set = true;
 	}
 	auto subscription_id = subscriber->get_subscription_id();
+	dtdebug_nicef("read_fn: subscription_id={:d} mpm={}", (int) subscription_id, (void*)mpm.get());
 	if ((int) subscription_id < 0)
 		return 0;
 	if (mpm) // regular service

@@ -68,9 +68,9 @@ active_service_t::active_service_t
 	: active_stream_t(
 		receiver,
 		std::move(reader))
-	, service_thread(*this)
 	, mpm(this, system_clock_t::now())
 	, periodic(60*30)
+	, service_thread(*this)
 {
 }
 
@@ -85,9 +85,9 @@ active_service_t::active_service_t(
 		receiver,
 		std::move(reader))
 	, current_service(current_service_)
-	, service_thread(*this)
 	, mpm(this, system_clock_t::now())
 	, periodic(60*30)
+	, service_thread(*this)
 {
 }
 
@@ -124,7 +124,7 @@ int active_service_t::deactivate() {
 int service_thread_t::exit() {
 	dtdebugf("Starting to exit");
 	active_service.deactivate();
-	active_service.mpm.destroy();
+	//active_service.mpm.close();
 	dtdebugf("Ended exit");
 	return -1;
 }

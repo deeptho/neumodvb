@@ -63,23 +63,6 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 													take a lot of time to fill its buffers due to posibly low data rate*/
 
 	bool have_scam{false}; //we started scam
-
- public:
-	inline std::shared_ptr<stream_reader_t> clone_stream_reader(ssize_t buffer_size) const {
-		return reader->clone(buffer_size);
-	}
-
-
-  volatile uint16_t current_pmt_pid = null_pid;// the pmt_pid which is currently requested from the stream
-
-	inline chdb::service_t get_current_service() const  {
-		std::scoped_lock lck(mutex);
-		return current_service;
-	}
-
-	playback_info_t get_current_program_info() const;
-	service_thread_t service_thread;
-private:
 	int channel_status=0; //composed of bitflags channel_status_t
 	FILE* fp_out = NULL; //file in which stream is saved
 	off64_t byteswritten =  0;
@@ -92,6 +75,26 @@ private:
 
 	active_mpm_t mpm;
 	periodic_t periodic;
+
+public:
+  volatile uint16_t current_pmt_pid = null_pid;// the pmt_pid which is currently requested from the stream
+	service_thread_t service_thread;
+
+ public:
+	inline std::shared_ptr<stream_reader_t> clone_stream_reader(ssize_t buffer_size) const {
+		return reader->clone(buffer_size);
+	}
+
+
+
+	inline chdb::service_t get_current_service() const  {
+		std::scoped_lock lck(mutex);
+		return current_service;
+	}
+
+	playback_info_t get_current_program_info() const;
+private:
+
 	void destroy();
 	int create_recording_in_filesystem(const recdb::rec_t& rec);
 	void update_audio_languages(const pmt_info_t& pmt);

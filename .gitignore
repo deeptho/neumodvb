@@ -25,3 +25,9 @@ pybind11/tests/
 gui/.idea/
 deb/
 rpms/
+neumowxsvg/autom4te.cache/**
+neumowxsvg/Makefile.in
+neumowxsvg/aclocal.m4
+neumowxsvg/compile
+neumowxsvg/config.*
+neumowxsvg/ltmain.sh

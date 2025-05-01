@@ -35,10 +35,10 @@ namespace chdb {
 	static void clean_sats(db_txn& wtxn);
 	template<typename mux_t> static void clean_muxes(db_txn& wtxn);
 	template<typename record_t> static void clean_expired(db_txn& wtxn, std::chrono::seconds age, const char* label);
-#if 0
-	static void clean_overlapping_muxes(db_txn& wtn, const chdb::dvbs_mux_t& mux, int sat_pos);
-	void clean_overlapping_muxes(db_txn& wtn, const chdb::dvbs_mux_t& mux);
-#endif
+	static void clean_overlapping_muxes_on_sat(db_txn& wtn, const chdb::dvbs_mux_t& mux, int sat_pos);
+	static void clean_overlapping_muxes(db_txn& wtn, const chdb::dvbs_mux_t& mux);
+	template<typename mux_t>
+	static void clean_overlapping_muxes(db_txn& wtn, const mux_t& mux);
 };
 
 static void chdb::clean_sats(db_txn& wtxn) {
@@ -261,40 +261,65 @@ template <typename mux_t> void chdb::clear_all_streams_pending_status(
 }
 
 
-#if 0
-static void chdb::clean_overlapping_muxes(db_txn& wtn, const chdb::dvbs_mux_t& mux, int sat_pos) {
+static void chdb::clean_overlapping_muxes_on_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux, int sat_pos) {
 	auto tolerance = (((int)std::min(mux.symbol_rate, mux.symbol_rate))*1.35) / 2000;
 	auto min_freq = mux.frequency - tolerance;
 	auto max_freq = mux.frequency + tolerance;
 
 	//find first mux below the bandwith of mux
-	auto c = dvbs_mux_t::find_by_sat_pol_freq(txn, mux.k.sat_pos, mux.pol, min_freq, find_leq,
-																										 dvbs_mux_t::partial_keys_t::sat_pos_pol);
+	auto c = dvbs_mux_t::find_by_sat_pol_freq(wtxn, sat_pos, mux.pol, min_freq, find_leq,
+																						dvbs_mux_t::partial_keys_t::sat_pos_pol);
 	for(const auto& db_mux: c.range()) {
 		auto tolerance = (((int)std::min(db_mux.symbol_rate, db_mux.symbol_rate))*1.35) / 2000;
-		if (db_mux + tolerance < min_freq)
+		if (db_mux.frequency + tolerance < min_freq)
 			continue; //not overlapping
-		if(db_mux - tolerance > max_freq)
+		if(db_mux.frequency - tolerance > max_freq)
 			continue; //not overlapping and no more overlap possible
 		if(db_mux.k == mux.k)
 			continue; //do not erase the master mux
-		if(db_mux.pol == mux.pol && db_mux.stream_id ==  mux.stream_id && db_mux.k.t2mi_pid == mux.k.t2mi_pid) {
+		if(db_mux.pol == mux.pol && db_mux.k.stream_id ==  mux.k.stream_id && db_mux.k.t2mi_pid == mux.k.t2mi_pid) {
 			//overlapping mux
+			auto cs = chdb::service::find_by_mux_key(wtxn, db_mux.k);
+			for(auto service: cs.range()) {
+				service.expired = true;
+				put_record(wtxn, service);
+			}
+			delete_record(wtxn, db_mux);
 		}
 	}
 
 }
 
-void chdb::clean_overlapping_muxes(db_txn& wtn, const chdb::dvbs_mux_t& mux, int sat_pos) {
-	int sat_tolerance = 100; //1 degree
-	auto cs = sat_t::find_by_key(txn, mux.k.sat_pos-sat_tolerance, find_type_t::find_geq);
+static void chdb::clean_overlapping_muxes(db_txn& wtxn, const chdb::dvbs_mux_t& mux) {
+	int sat_tolerance = sat_pos_tolerance;
+	auto cs = sat_t::find_by_key(wtxn, mux.k.sat_pos-sat_tolerance, find_type_t::find_geq);
 	for(const auto& sat:  cs.range()) {
 		if (sat.sat_pos > mux.k.sat_pos + sat_tolerance)
 			break;
-		clean_overlapping_muxes(wtxn, mux, sat_pos);
+		clean_overlapping_muxes_on_sat(wtxn, mux, sat.sat_pos);
 	}
 }
-#endif
+
+template<typename mux_t>
+static void chdb::clean_overlapping_muxes(db_txn& wtxn, const mux_t& mux) {
+	//@todo: not implemented
+}
+
+
+void chdb::clean_overlapping_muxes(db_txn& wtxn, const chdb::any_mux_t& mux) {
+	visit_variant(
+		mux,
+		[&](const chdb::dvbs_mux_t& mux) {
+			clean_overlapping_muxes(wtxn, mux);
+		},
+		[&](const chdb::dvbc_mux_t& mux) {
+			clean_overlapping_muxes(wtxn, mux);
+		},
+		[&](const chdb::dvbt_mux_t& mux) {
+			clean_overlapping_muxes(wtxn, mux);
+		}
+		);
+}
 
 //template instantiations
 template void chdb::clear_all_streams_pending_status(db_txn& chdb_wtxn, system_time_t now_,

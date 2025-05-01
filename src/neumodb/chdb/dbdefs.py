@@ -654,7 +654,7 @@ mux_common = db_struct(name='mux_common',
                               (15, 'uint16_t', 'nit_ts_id'), #usually redundant
                               (11, 'tune_src_t', 'tune_src', 'tune_src_t::AUTO'),
                               (13, 'key_src_t', 'key_src', 'key_src_t::NONE'),
-
+                              (32,'boolean_t', 'expired', "false"),
                               (7, 'time_t', 'mtime'),
                               (9, 'ss::vector<epg_type_t,2>', 'epg_types'),
                               ))
@@ -823,6 +823,7 @@ service = db_struct(name ='service',
                             (14,'uint16_t', 'video_pid', "0xffff"),
                             (17, 'boolean_t', 'name_from_sdt'),
                             (18, 'boolean_t', 'provider_from_sdt'),
+                            (19, 'boolean_t', 'media_mode_from_pmt'),
                             #variable length data
                             (7, 'ss::string<16>', 'name'),
                             (8, 'ss::string<16>', 'provider'),

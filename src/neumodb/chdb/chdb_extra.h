@@ -388,6 +388,7 @@ namespace chdb {
 	void clean_scan_status(db_txn& wtxn);
 	void clean_expired_services(db_txn& wtxn, std::chrono::seconds age);
 	void clean_chgms_without_services(db_txn& wtxn);
+	void clean_overlapping_muxes(db_txn& wtxn, const chdb::any_mux_t& mux);
 };
 
 namespace chdb::dvbs_mux {

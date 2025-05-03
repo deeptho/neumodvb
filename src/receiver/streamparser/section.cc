@@ -1075,6 +1075,9 @@ namespace dtdemux {
 					info.t2mi_stream_id = t2mi_stream_id;
 					info.num_t2mi_streams_minus_one = num_t2mi_streams_minus_one;
 				} break;
+				case SI::MHP_IPv4RoutingDescriptorTag: {
+					s.skip(_desc.len - 1); // we already read 1 byte
+				} break;
 				default:
 					dtdebug_nicef("PMT: unhandled extension descriptor {}={} size={}", (int)desc_tag_extension,
 												name_of_descriptor_tag(desc_tag_extension),(int)_desc.len);

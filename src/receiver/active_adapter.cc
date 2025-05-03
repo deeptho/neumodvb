@@ -397,7 +397,8 @@ void active_adapter_t::monitor() {
 	}
 
 	if(tune_state == tune_state_t::LOCKED || tune_state == tune_state_t::LOCK_TIMEDOUT) {
-		check_isi_processing();
+		if(this->main_si)
+			check_isi_processing();
 	}
 	if (must_retune) {
 		dtdebugf("Calling si.close");
@@ -1068,6 +1069,7 @@ void active_adapter_t::check_for_new_streams()
 	};
 	auto* mux_key = mux_key_ptr(signal_info.driver_mux);
 	auto* c = mux_common_ptr(signal_info.driver_mux);
+	*c = this->main_si->get_initial_mux_common();
 	auto& scan_id = c->scan_id;
 	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
@@ -1107,7 +1109,7 @@ void active_adapter_t::check_for_new_streams()
 
 	for(auto ma: signal_info.matype_list) {
 		auto stream_id = ma & 0xff;
-		if(this->processed_isis.test(stream_id)) //already procesed
+		if(this->processed_isis.test(stream_id)) //already processed
 			continue;
 		if(stream_id == tuned_stream_id)
 			continue;
@@ -1179,8 +1181,12 @@ void active_adapter_t::check_for_unlockable_streams()
 {
 	if(!(tune_state == tune_state_t::LOCK_TIMEDOUT || tune_state == tune_state_t::TUNE_FAILED))
 		return;
+	assert(this->main_si);
+	if(!this->main_si)
+		return;
 	auto mux = tuned_mux();
 	auto* c = chdb::mux_common_ptr(mux);
+	*c = this->main_si->get_initial_mux_common();
 	c->scan_result = (tune_state == tune_state_t::TUNE_FAILED) ? scan_result_t::BAD : scan_result_t::NOLOCK;
 	auto chdb_wtxn = receiver.chdb.wtxn();
 	chdb::clear_all_streams_pending_status(chdb_wtxn, now, mux);

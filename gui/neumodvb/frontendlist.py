@@ -56,9 +56,9 @@ def rf_inputs_with_cablenos_fn(x):
 def subscription_fn(x):
     fesub = x[0].sub
     subs = fesub.subs
-    mux_key = fesub.mux_key
     if fesub is None or len(subs) == 0:
         return ""
+    mux_key = fesub.mux_key
     ret=[]
     #lnb and rf input info common to all subscriptions
     sid = f"" if (mux_key.stream_id < 0) else f'-{mux_key.stream_id}'

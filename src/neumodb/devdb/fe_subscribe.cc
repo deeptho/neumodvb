@@ -852,7 +852,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				assert(sret.aa.is_new_aa());
 				sret.sub_to_reuse = subscription_id_t::NONE;
 				dtdebugf("fe::subscribe: newaa subscription_id={}  adapter={:x}/{} mux={}",
-								 (int ) subscription_id, (int64_t) fe.k.adapter_mac_address,
+								 (int ) sret.subscription_id, (int64_t) fe.k.adapter_mac_address,
 								 (int) oldfe_->k.frontend_no, mux);
 			} else {
 				assert(!sret.aa.is_new_aa());
@@ -976,13 +976,14 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 			}
 			auto* sub_service = std::get_if<chdb::service_t>(&sub.v);
 			auto k = mux.k;
-
+			bool mux_matches = (k == fe.sub.mux_key);
 			//in case we are using bbframes, it is fine to use a subscription with a non-matching stream_id
-			if(ignore_stream_id && sub_service)
-				k.stream_id = sub_service->k.mux.stream_id;
-			bool mux_matches = (k == fe.sub.mux_key) ||
-				(sub_service && sub.has_mux &&  k == sub_service->k.mux);
 
+			if(!mux_matches && ignore_stream_id && fe.sub.bbframes_on && sub_service)  {
+				k.stream_id = sub_service->k.mux.stream_id;
+				mux_matches = (k == fe.sub.mux_key) ||
+					(sub_service && sub.has_mux &&  k == sub_service->k.mux);
+			}
 			bool service_matches = service ? (sub.has_service &&  sub_service &&
 																				service->k == sub_service->k) : ! sub.has_service;
 			service_matches |= match_mux_only;
@@ -994,7 +995,7 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 				set_member(m, frequency, fe.sub.frequency);
 				set_member(m, pol, fe.sub.pol);
 				mux_matches = chdb::matches_physical_fuzzy(mux, m, true /*check_sat_pos*/,
-																									 ignore_stream_id,
+																									 ignore_stream_id && fe.sub.bbframes_on,
 																									 true /*ignore_t2mi_pid*/);
 			}
 			if(rf_path_matches && mux_matches && service_matches) {

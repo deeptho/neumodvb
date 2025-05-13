@@ -486,10 +486,9 @@ fe::find_fe_and_lnb_for_tuning_to_mux(db_txn& rtxn,
 			}
 
 			assert(!tune_options.need_spectrum);
-
 			auto fe_and_use_counts = fe::find_best_fe_for_lnb(
 				rtxn, rf_path, lnb, fe_key_to_release, tune_options.use_blind_tune, tune_options.need_spectrum,
-				mux.k.sat_pos, need_multistream, pol, band, usals_pos, ignore_subscriptions);
+				need_multistream, mux.k.sat_pos, pol, band, usals_pos, ignore_subscriptions);
 			if(!fe_and_use_counts) {
 				dtdebugf("LNB {} cannot be used", lnb);
 				continue;

@@ -109,7 +109,9 @@ void active_si_stream_t::add_si_subscription(const chdb::any_mux_t& mux,
 	//old mux or service needs to be removed first
 	assert (!this->subscription_exists(subscription_id));
 #endif
-	assert(*chdb::mux_key_ptr(mux)==*chdb::mux_key_ptr(this->dbmux));
+	auto *tmp1 = std::get_if<chdb::dvbs_mux_t>(&mux);
+	auto *tmp2 = std::get_if<chdb::dvbs_mux_t>(&this->dbmux);
+	assert(tmp1->pol == tmp2->pol);
 	if(scan_target != devdb::scan_target_t::NONE) {
 		this->scan_target = std::max(this->scan_target,  scan_target);
 	}
@@ -127,6 +129,9 @@ void active_si_stream_t::add_si_subscription(const chdb::any_mux_t& mux,
  */
 bool active_si_stream_t::remove_si_subscription(subscription_id_t subscription_id)
 {
+	auto it = this->subscriptions.find(subscription_id);
+	auto& mux = it->second;
+	this->finalize_scan_for_mux_(mux, false /*is_main_mux*/);
 	this->subscriptions.erase(subscription_id);
 	return this->subscriptions.size()==0;
 }
@@ -218,6 +223,113 @@ int active_si_data_t::epg_completeness()
 	return num_sections_processed > 0 ? (100*num_sections_processed)/num_sections_present : 0;
 }
 
+void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_main_mux)
+{
+	/*
+		this->dbmux is a copy of one of the muxes, and must also be updated
+	*/
+	auto & mux =  mux_;
+	bool nosave{is_template(mux)};
+	auto tune_state = active_adapter().tune_state;
+	auto& lock_state = active_adapter().lock_state;
+	dtdebugf("setting si_processing_done=true mux={}", mux);
+	auto* c = chdb::mux_common_ptr(mux);
+	c->scan_lock_result = lock_state.tune_lock_result;
+
+	using tune_state_t = active_adapter_t::tune_state_t;
+	switch(tune_state) {
+	case tune_state_t::LOCKED: {
+		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
+		bool no_data = reader->no_data();
+		c->scan_result = lock_state.is_not_ts ? chdb::scan_result_t::NOTS :
+			no_data ?  chdb::scan_result_t::NODATA :
+			scan_state.nit_sdt_scan_completed() ? chdb::scan_result_t::OK : chdb::scan_result_t::PARTIAL;
+
+		c->epg_scan_completeness = lock_state.is_not_ts ? 100 :
+			no_data ?  0 : epg_completeness();
+		if(c->epg_scan_completeness > 100)
+			here();
+
+		if(no_data) {
+			tune_confirmation.sat_by = confirmed_by_t::FAKE;
+			c->ts_id = 0;
+			c->network_id = 0;
+			c->nit_ts_id = 0;
+			c->nit_network_id = 0;
+			c->num_services = 0;
+		}
+		nosave = false;
+	}
+		break;
+
+	case tune_state_t::TUNE_INIT:
+	case tune_state_t::TUNE_REQUESTED:
+		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
+		c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
+	case tune_state_t::WAITING_FOR_LOCK:
+		//we do not know if mux can be locked
+		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
+		c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
+		break;
+	case tune_state_t::LOCK_TIMEDOUT:
+		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
+		c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
+		break;
+	case tune_state_t::TUNE_FAILED:
+		c->scan_status = chdb::scan_status_t::IDLE;
+		c->scan_id = {};
+		c->scan_result = chdb::scan_result_t::BAD; //mux has untunable parameters
+		break;
+	case tune_state_t::TUNE_FAILED_TEMP:
+		c->scan_status = chdb::scan_status_t::RETRY;
+		c->scan_result = chdb::scan_result_t::TEMPFAIL;
+		nosave = true;
+		break;
+	}
+
+	c->scan_duration = scan_state.nit_sdt_scan_duration();
+	c->scan_time = system_clock_t::to_time_t(now);
+	if(c->scan_duration == 0) { //needed in case tuning fails
+		c->scan_duration =
+			std::chrono::duration_cast<std::chrono::seconds>(now - active_adapter().tune_start_time).count();
+	}
+	if(is_main_mux) {
+		tune_confirmation.si_done = true;
+		if(!is_embedded_si)
+			reader->update_stream_mux_tune_confirmation(tune_confirmation);
+
+		dttime_init();
+		on_stream_mux_change(mux); //needed to ensure that mux_common changes are not overwritten in save_pmts
+		dttime(200);
+	}
+	if(nosave) {
+		return;
+	}
+	lmdb_hint();
+	auto wtxn = chdbmgr.wtxn();
+
+	if(lock_state.is_dvb  &&
+		 (c->key_src == chdb::key_src_t::NONE || (nit_actual_notpresent() && sdt_actual_notpresent()))) {
+		update_stream_ids_from_pat(wtxn, mux);
+	} else {
+
+		namespace m = chdb::update_mux_preserve_t;
+		this->update_mux(wtxn, mux, now, is_main_mux /*is_reader_mux*/, true /*is_tuned_freq*/,
+										 false /*from_sdt*/, m::MUX_KEY /*preserve*/);
+	}
+
+	if(is_main_mux && lock_state.is_dvb && (nit_actual_done() || nit_actual_notpresent())) {
+		if(pmts_can_be_saved())
+			save_pmts(wtxn);
+	}
+	lmdb_hint();
+	wtxn.commit();
+}
+
 /*
 	update scan_result, scan_state and related parameters when
 	a scan is considered final, i.e., when
@@ -237,6 +349,7 @@ int active_si_data_t::epg_completeness()
 	is_no_ts=true: we detected a non-transport stream
 	is_no_ts=false: we did not lock, or found a dvb stream (with or without data)
  */
+
 void active_si_stream_t::finalize_scan()
 {
 	si_processing_done = true;
@@ -248,119 +361,13 @@ void active_si_stream_t::finalize_scan()
 		a problem in the database. The problem can sometimes be resolved after receiving SI data,
 		but not always.
 	*/
+	this->finalize_scan_for_mux_(this->dbmux, true /*is_main_mux*/);
 
 	for(auto& [subscription_id, mux_]: this->subscriptions) {
-		/*
-			this->dbmux is a copy of one of the muxes, and must also be updated
-		*/
-		bool is_main_mux = *chdb::mux_key_ptr(mux_) == *chdb::mux_key_ptr(this->dbmux);
-		auto & mux =  is_main_mux ? this->dbmux : mux_;
-
-		bool nosave{is_template(mux)};
-		auto tune_state = active_adapter().tune_state;
-		auto& lock_state = active_adapter().lock_state;
-		dtdebugf("setting si_processing_done=true mux={}", mux);
-		auto* c = chdb::mux_common_ptr(mux);
-		c->scan_lock_result = lock_state.tune_lock_result;
-
-		using tune_state_t = active_adapter_t::tune_state_t;
-		switch(tune_state) {
-		case tune_state_t::LOCKED: {
-			c->scan_status = chdb::scan_status_t::IDLE;
-			c->scan_id = {};
-			bool no_data = reader->no_data();
-			c->scan_result = lock_state.is_not_ts ? chdb::scan_result_t::NOTS :
-				no_data ?  chdb::scan_result_t::NODATA :
-				scan_state.nit_sdt_scan_completed() ? chdb::scan_result_t::OK : chdb::scan_result_t::PARTIAL;
-
-			c->epg_scan_completeness = lock_state.is_not_ts ? 100 :
-				no_data ?  0 : epg_completeness();
-			if(c->epg_scan_completeness > 100)
-				here();
-
-			if(no_data) {
-				tune_confirmation.sat_by = confirmed_by_t::FAKE;
-				c->ts_id = 0;
-				c->network_id = 0;
-				c->nit_ts_id = 0;
-				c->nit_network_id = 0;
-				c->num_services = 0;
-			}
-			nosave = false;
-		}
-			break;
-
-		case tune_state_t::TUNE_INIT:
-		case tune_state_t::TUNE_REQUESTED:
-			c->scan_status = chdb::scan_status_t::IDLE;
-			c->scan_id = {};
-			c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
-		case tune_state_t::WAITING_FOR_LOCK:
-			//we do not know if mux can be locked
-			c->scan_status = chdb::scan_status_t::IDLE;
-			c->scan_id = {};
-			c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
-			break;
-		case tune_state_t::LOCK_TIMEDOUT:
-			c->scan_status = chdb::scan_status_t::IDLE;
-			c->scan_id = {};
-			c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
-			break;
-		case tune_state_t::TUNE_FAILED:
-			c->scan_status = chdb::scan_status_t::IDLE;
-			c->scan_id = {};
-			c->scan_result = chdb::scan_result_t::BAD; //mux has untunable parameters
-			break;
-		case tune_state_t::TUNE_FAILED_TEMP:
-			c->scan_status = chdb::scan_status_t::RETRY;
-			c->scan_result = chdb::scan_result_t::TEMPFAIL;
-			nosave = true;
-			break;
-		}
-
-		c->scan_duration = scan_state.nit_sdt_scan_duration();
-		c->scan_time = system_clock_t::to_time_t(now);
-		if(c->scan_duration == 0) { //needed in case tuning fails
-			c->scan_duration =
-				std::chrono::duration_cast<std::chrono::seconds>(now - active_adapter().tune_start_time).count();
-		}
-		if(is_main_mux) {
-			tune_confirmation.si_done = true;
-			if(!is_embedded_si)
-				reader->update_stream_mux_tune_confirmation(tune_confirmation);
-
-			dttime_init();
-			on_stream_mux_change(mux); //needed to ensure that mux_common changes are not overwritten in save_pmts
-			dttime(200);
-		}
-
-		if(nosave) {
-			if(is_main_mux)
-				mux_ = mux;
-			continue;
-		}
-		lmdb_hint();
-		auto wtxn = chdbmgr.wtxn();
-
-		if(lock_state.is_dvb  &&
-			 (c->key_src == chdb::key_src_t::NONE || (nit_actual_notpresent() && sdt_actual_notpresent()))) {
-			update_stream_ids_from_pat(wtxn, mux);
-		} else {
-
-			namespace m = chdb::update_mux_preserve_t;
-			this->update_mux(wtxn, mux, now, true /*is_reader_mux*/, true /*is_tuned_freq*/,
-											 false /*from_sdt*/, m::MUX_KEY /*preserve*/);
-		}
-
-		if(lock_state.is_dvb && (nit_actual_done() || nit_actual_notpresent())) {
-			if(pmts_can_be_saved())
-				save_pmts(wtxn);
-		}
-		lmdb_hint();
-		wtxn.commit();
-		if(is_main_mux)
-			mux_ = mux;
+		this->finalize_scan_for_mux_(mux_, false);
 	}
+
+	assert(mux_common_ptr(this->dbmux)->scan_status != chdb::scan_status_t::ACTIVE);
 }
 
 
@@ -368,10 +375,8 @@ void active_si_stream_t::check_scan_mux_end()
 {
 	if(this->scan_state.scans_in_progress.size()==0)
 		return; //nothing to report
-
 	if(!active_adapter().fe)
 		return;
-
 	auto dbfe = active_adapter().fe->dbfe();
 	auto mux = this->dbmux;
 	auto& scans_in_progress = this->scan_state.scans_in_progress;
@@ -381,6 +386,7 @@ void active_si_stream_t::check_scan_mux_end()
 	assert(mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE);
   //note: scans_in_progress is copied (no call by reference)
 	chdbmgr.flush_wtxn();
+
 	for(auto& e: scans_in_progress) {
 			auto [scan_id, subscription_id ] = e;
 			assert((int)subscription_id >= 0);
@@ -1416,7 +1422,7 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
 	  ->action: after a timeout, assume that data from tuner is correct. Also assume sat_pos is correct
 	4. there is data in nit_actual, it agrees with the tuned frequency, but the tuned sat_pos is incorrect
   	-reasons: dish is still moving and we picked up a transient signal, reception from  a nearby sat,
-	   failed diseqc swicth has brught us to the same sat
+	   failed diseqc switch has brought us to the same sat
 	  ->action: restart nit_actual_processing and see if the result is stable; if it is not stable, then the dish is
     	probablly moving and the problem will disappear. If the result is stable, then distinghuish between
     	4.a. the difference in sat_pos is small (less than a degree).
@@ -2784,19 +2790,6 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 		driver_mux.stream_id >= 0; si_mux.stream_id==drive_mux.stream_id >= 0; => normal
 
 	 */
-
-	//auto changed = (mux_stream_id < 0 ) ^ (driver_stream_id < 0 );
-	//if bbframes is on, then it is possible that stream_id does not match the one set by the the frontend
-	auto error = (mux_stream_id >= 0 ) && (mux_stream_id != driver_stream_id && !signal_info.bbframes_on);
-	assert(!error);
-	if(driver_stream_id != mux_stream_id) {
-		if(mux_stream_id >= 0 || !is_template(mux)) {
-			dterrorf("Driver returned different stream id than requested: driver={} mux={}",
-							 signal_info.driver_mux, mux);
-		}
-		//assert(is_template(mux));
-		driver_stream_id = mux_stream_id;
-	}
 	//assert(* mux_key_ptr(signal_info.driver_mux) == * mux_key_ptr(mux));
 	if(is_template(mux)) {
 		mux_common_ptr(mux)->tune_src = chdb::tune_src_t::DRIVER;
@@ -2812,10 +2805,11 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
 	bool driver_data_reliable = signal_info.driver_data_reliable; //true if data comes from neumo drivers, rather than old drivers
 	visit_variant(signal_info.driver_mux,
-								[&](chdb::dvbs_mux_t& mux) {
+								[&](chdb::dvbs_mux_t& mux) { //mux equals signal_info.driver_mux
 									auto* p = std::get_if<chdb::dvbs_mux_t>(&si_mux);
 									mux.k.sat_pos = p->k.sat_pos;
 									bool use_driver{false};
+									//delivery_system: taken from driver mux
 									if(p->c.tune_src == chdb::tune_src_t::NIT_TUNED) {
 										//copy frequency and symbol_rate from si_mux
 										if(!driver_data_reliable || (std::abs((int)mux.frequency - (int) p->frequency) < 50)) {
@@ -2823,14 +2817,15 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 										}
 										else {
 											use_driver = true;
-											dtdebugf("XXX set use_driver tune_src={} driver_data_reliable={}", p->c.tune_src, driver_data_reliable);
+											dtdebugf("set use_driver tune_src={} driver_data_reliable={}", p->c.tune_src, driver_data_reliable);
 										}
+
 										if(!driver_data_reliable || (std::abs((int)mux.symbol_rate - (int) p->symbol_rate) < 10000))
 											mux.symbol_rate = p->symbol_rate;
 										else {
 											use_driver = true;
-											dtdebugf("XXX set use_driver symbol_rate={}/{} driver_data_reliable={}", mux.symbol_rate, p->symbol_rate,
-												driver_data_reliable);
+											dtdebugf("set use_driver symbol_rate={}/{} driver_data_reliable={}",
+															 mux.symbol_rate, p->symbol_rate, driver_data_reliable);
 										}
 										if(use_driver) //can happen on 28.2E where SI table reports incorrect mux frequency
 											mux.c.tune_src = chdb::tune_src_t::NIT_CORRECTED;

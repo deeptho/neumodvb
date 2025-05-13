@@ -194,11 +194,9 @@ const chdb::any_mux_t active_adapter_t::mux_for_key(const chdb::mux_key_t& mux_k
 
 std::map <si_key_t, active_si_stream_t>::iterator active_adapter_t::si_ptr_for_subscription(subscription_id_t subscription_id) {
 	auto ret = this->si_streams.end();
-	int count=0;
 	for (auto it = this->si_streams.begin(); it != this->si_streams.end(); ++it) {
 		auto& si = it->second;
 		if (si.subscription_exists(subscription_id)) {
-			++count;
 			ret = it;
 		}
 	}
@@ -215,7 +213,7 @@ void active_adapter_t::on_pmt_update(const chdb::any_mux_t& mux) {
 }
 
 subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
-													 subscription_options_t tune_options) {
+																						 subscription_options_t tune_options) {
 	this->fe->update_dbfe(*sret.aa.updated_new_dbfe);
 #ifndef NDEBUG
 	auto sub_to_reuse_removed =	sret.sub_to_reuse!=subscription_id_t::NONE &&  !this->subscription_exists(sret.sub_to_reuse);
@@ -228,6 +226,7 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 				 tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL);
 
 	auto [must_full_tune, must_restart_tune]  = this->add_si_subscription(mux,  tune_options, sret);
+
 	assert(!must_full_tune || !	must_restart_tune);
 
 	assert(this->subscription_exists(sret.subscription_id));
@@ -256,19 +255,20 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 		dtdebugf("Called remove_service: service was {}removed", (ret1<0)? "NOT " : "");
 		assert(this->main_si);
 		assert(sret.aa.lnb);
+		int ret{-1};
 		visit_variant(mux,
-									[this, &sret, &tune_options](const chdb::dvbs_mux_t& m) {
+									[this, &sret, &tune_options, &ret](const chdb::dvbs_mux_t& m) {
 										auto& aa = sret.aa;
-										fe->request_tune(tuner_thread, *aa.rf_path, *aa.lnb, m, tune_options);
+										ret = fe->request_tune(tuner_thread, *aa.rf_path, *aa.lnb, m, tune_options);
 										},
-									[this, &tune_options](const chdb::dvbc_mux_t& m) {
-										fe->request_tune(m, tune_options);
+									[this, &tune_options, &ret](const chdb::dvbc_mux_t& m) {
+										ret = fe->request_tune(m, tune_options);
 									},
-									[this, &tune_options](const chdb::dvbt_mux_t& m) {
-										fe->request_tune(m, tune_options);
+									[this, &tune_options, &ret](const chdb::dvbt_mux_t& m) {
+										ret = fe->request_tune(m, tune_options);
 									});
 
-		tune_state = TUNE_REQUESTED;
+		tune_state = (ret < 0) ? TUNE_FAILED: TUNE_REQUESTED;
 	}
 	if(must_restart_tune) {
 		this->reset();
@@ -653,7 +653,6 @@ active_si_stream_t* active_adapter_t::add_si_stream(const chdb::any_mux_t& mux) 
 	si_key_t k{mux_key.stream_id, mux_key.t2mi_pid};
 	auto [it, found] = find_in_map(this->si_streams, k);
 	if (found) {
-		dtdebugf("Ignoring request to add the same si stream twice");
 		return &it->second;
 	}
 	auto use_embedded_reader = !this->fe->ts.readAccess()->dbfe.supports.t2mi
@@ -668,6 +667,15 @@ active_si_stream_t* active_adapter_t::add_si_stream(const chdb::any_mux_t& mux) 
 	assert(inserted);
 	if(!this->main_si)
 		this->main_si = &it1->second;
+#ifndef NDEBUG
+	else {
+		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&main_si->dbmux);
+		for(auto& [subscription_id, m]: it1->second.subscriptions) {
+			auto* tst = std::get_if<chdb::dvbs_mux_t>(&m);
+			assert(!dvbs_mux || dvbs_mux->pol == tst->pol);
+		}
+	}
+#endif
 	return  &it1->second;
 }
 
@@ -716,7 +724,6 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 	auto any_node = this->si_streams.extract(si_key_t({(int)ANY_STREAM_ID_FILTER, -1}));
 	auto any_stream_registered = !any_node.empty();
 	auto& driver_mux_key = *chdb::mux_key_ptr(signal_info.driver_mux);
-
 	if(any_stream_registered) {
 		/*user wants any stream for an arbitrary isi. We pick the one that was selected
 			during tuning
@@ -833,14 +840,14 @@ void active_adapter_t::init_si(const chdb::any_mux_t& driver_mux, bool driver_da
 std::tuple<bool, bool> active_adapter_t::add_si_subscription(
 	chdb::any_mux_t mux, const subscription_options_t& tune_options, const subscribe_ret_t& sret)
 {
-	dtdebugf("mux={}", mux);
+	dtdebugf("mux to subscribe={}", mux);
 	//auto& mux_key = *mux_key_ptr(mux);
 	auto it = si_ptr_for_subscription(sret.subscription_id);
 	auto* p_si = (it == this->si_streams.end()) ? (active_si_stream_t*) nullptr : &it->second;
 	auto is_existing_subscription = !!p_si;
 
 	bool is_only_subscriber = (this->si_streams.size() == 0)  || //first tune
-		((this->si_streams.size() == 1) && p_si && (p_si->subscriptions.size() == 1)); //single remaining subscriver
+		((this->si_streams.size() == 1) && p_si && (p_si->subscriptions.size() == 1)); //single remaining subscriber
 
 
 		/*check for compatibility between the currently tuned mux
@@ -868,7 +875,7 @@ std::tuple<bool, bool> active_adapter_t::add_si_subscription(
 
 	bool must_full_tune = (is_only_subscriber ||
 												 tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL)
-		&&  !is_same_physical_mux && tune_state != tune_state_t::LOCKED;
+		&&  (!is_same_physical_mux || tune_state != tune_state_t::LOCKED);
 
 	bool must_restart_tune = !must_full_tune && tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL;
 
@@ -876,17 +883,16 @@ std::tuple<bool, bool> active_adapter_t::add_si_subscription(
 				 tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL);
 
 	if(is_existing_subscription) {
-		if(is_same_si) {
+		if(is_same_si && is_same_physical_mux) {
 			/*no si processing restarting is needed
 				a special case is when the mux is the same as before*/
 			p_si->remove_si_subscription(sret.subscription_id);
 			p_si->add_si_subscription(mux, tune_options.scan_target, sret.subscription_id);
 		} else {
 			dtdebugf("Replacing si_stream for subscription_id={} old_mux={} new_mux={}",  (int)sret.subscription_id, p_si->dbmux, mux);
-
+			assert(!is_only_subscriber || must_full_tune);
 			bool no_more_subscriptions = this->remove_si_subscription(*sret.aa.updated_new_dbfe, sret.subscription_id);
 			assert(!must_full_tune || no_more_subscriptions);
-			assert(!is_only_subscriber || must_full_tune);
 
 			p_si = this->add_si_stream(mux);
 			p_si->add_si_subscription(mux, tune_options.scan_target, sret.subscription_id);
@@ -1039,9 +1045,7 @@ void active_adapter_t::check_isi_processing()
 		auto mux = this->main_si->dbmux;
 		if(!is_template(mux))
 			check_for_unlockable_streams();
-		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
-		if(dvbs_mux->frequency /1000 ==12517)
-			printf("here\n");
+
 		dtdebugf("calling this->tuned_si->finalize_scan");
 		this->main_si->finalize_scan();
 		this->main_si->check_scan_mux_end();

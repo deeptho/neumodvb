@@ -1633,7 +1633,7 @@ void dvb_frontend_t::resume_task()
 	this->task_fiber = this->task_fiber.resume();
 }
 
-void dvb_frontend_t::request_tune(
+int  dvb_frontend_t::request_tune(
 	tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
 	{
@@ -1648,12 +1648,16 @@ void dvb_frontend_t::request_tune(
 	/* When moving the positioner, the following code may run for a long time, so we run it
 		 as a task
 	 */
-	run_task([this, &tuner_thread, rf_path, lnb, mux, tune_options](continuation_t&& invoker) {
+	int ret{-1};
+	int new_usals_pos{sat_pos_none};
+
+	run_task([this, &tuner_thread, &ret, &new_usals_pos, rf_path, lnb, mux, tune_options](continuation_t&& invoker) {
 		main_fiber = invoker.resume();
-		auto [ret, new_usals_pos] = tune(tuner_thread, rf_path, lnb, mux, tune_options);
+		std::tie(ret, new_usals_pos) = tune(tuner_thread, rf_path, lnb, mux, tune_options);
 		dtdebugf("tune returned ret={}, new_usals_pos={}", ret, new_usals_pos);
 		return std::move(main_fiber);
 	});
+	return ret;
 }
 
 std::tuple<int, int>
@@ -1665,6 +1669,7 @@ dvb_frontend_t::tune(
 	if(!conn)
 		return {-1, sat_pos_none};
 	dtdebugf("Tuning to DVBS mux {}  lnb={} diseqc={}", mux, lnb, conn->tune_string);
+
 	auto is_unicable = !!tune_options.tune_pars->unicable_ch;
 	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);
 	assert(dvbs_mux);
@@ -1697,6 +1702,8 @@ dvb_frontend_t::tune(
 		this->set_rf_path(tuner_thread, fefd, rf_path, lnb, sat_pos, tune_options, set_rf_input);
 	if(error) {
 			dtdebugf("problem Setting rf_input: {:s}", strerror(errno));
+			auto w = ts.writeAccess();
+			w->tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND: devdb::tune_mode_t::NORMAL;
 			return {-1, new_usals_pos};
 	}
 	if (need_diseqc) {
@@ -1864,8 +1871,7 @@ void dvb_frontend_t::request_retune(tuner_thread_t& tuner_thread, bool user_requ
 }
 
 template<typename mux_t>
-void
-dvb_frontend_t::request_tune(const mux_t& mux, const subscription_options_t& tune_options) {
+int dvb_frontend_t::request_tune(const mux_t& mux, const subscription_options_t& tune_options) {
 	{
 		auto w = this->ts.writeAccess();
 		w->tune_options = tune_options;
@@ -1874,6 +1880,7 @@ dvb_frontend_t::request_tune(const mux_t& mux, const subscription_options_t& tun
 	this->start_fe_and_dvbc_or_dvbt_mux(mux);
 	auto ret = tune(mux, tune_options);
 	dtdebugf("tune returned ret={}", ret);
+	return ret;
 }
 
 
@@ -2450,6 +2457,8 @@ int sec_status_t::set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tu
 		break;
 	}
 	this->ic = ic;
+	dtdebugf("here this->ic.rf_input={}", this->ic.rf_in);
+	assert(this->ic.rf_in >=0);
 	this->rf_input_changed  = true;
 	return ret;
 }
@@ -2600,7 +2609,7 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 }
 
 template
-void dvb_frontend_t::request_tune(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options);
+int dvb_frontend_t::request_tune(const chdb::dvbc_mux_t& mux, const subscription_options_t& tune_options);
 
 template
-void dvb_frontend_t::request_tune(const chdb::dvbt_mux_t& mux, const subscription_options_t& tune_options);
+int dvb_frontend_t::request_tune(const chdb::dvbt_mux_t& mux, const subscription_options_t& tune_options);

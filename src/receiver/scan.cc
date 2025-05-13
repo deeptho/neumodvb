@@ -364,6 +364,7 @@ subscription_id_t scanner_t::scan_subscription_id_for_scan_id(const chdb::scan_i
 bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
 																const chdb::scan_id_t& scan_id, ssptr_t ssptr)
 {
+	auto &k  = *chdb::mux_key_ptr(finished_mux);
 
 	if (must_end) {
 		dtdebugf("must_end");
@@ -487,7 +488,7 @@ scan_t::rescan_peak(const blindscan_t& blindscan, ssptr_t reusable_ssptr,
 	mux.k.stream_id = -1;
 	dtdebugf("SET PENDING: {}", mux);
 	mux.c.scan_status = scan_status_t::PENDING;
-
+	mux.c.tune_src = tune_src_t::TEMPLATE;
 	const bool use_blind_tune = true;
 	bool failed_permanently{false};
 
@@ -1012,7 +1013,14 @@ void scan_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux
 	assert(found);
 	auto subscription = it->second; //need to copy
 	assert(subscription.subscription_id == finished_ssptr->get_subscription_id());
+#ifndef NDEBUG
+	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&finished_mux);
+	assert(!dvbs_mux || subscription.blindscan_key.pol == dvbs_mux->pol);
 
+	dvbs_mux = subscription.mux ? std::get_if<chdb::dvbs_mux_t>(&*subscription.mux) : nullptr;
+
+	assert(!subscription.mux || !dvbs_mux || subscription.blindscan_key.pol == dvbs_mux->pol);
+#endif
 	auto&scan_stats = get_scan_stats_ref(finished_mux);
 	scan_stats.active_muxes--;
 	static int m =0;
@@ -1132,9 +1140,6 @@ void scan_t::on_spectrum_scan_band_end(const devdb::fe_t& finished_fe, const spe
 	auto& scan_stats = get_scan_stats_ref(finished_sat);
 	scan_stats.active_bands--;
 	assert(scan_stats.active_bands>=0);
-#if 0
-	update_db_sat(finished_sat, finished_band_scan);
-#endif
 	auto chdb_rtxn = receiver.chdb.rtxn();
 
 	scan_loop(chdb_rtxn, subscription, finished_fe, finished_sat);
@@ -1737,7 +1742,6 @@ void scanner_t::on_signal_info(const subscriber_t& subscriber,
 			return;
 		}
 	}
-	dtdebugf("NOT Notifying: monitored_subscription_id={:d}", (int) scan.monitored_subscription_id);
 }
 
 void scanner_t::on_sdt_actual(const subscriber_t& subscriber,
@@ -1762,7 +1766,6 @@ void scanner_t::on_sdt_actual(const subscriber_t& subscriber,
 			return;
 		}
 	}
-	dtdebugf("NOT Notifying: monitored_subscription_id={:d}\n", (int) scan.monitored_subscription_id);
 }
 
 

@@ -804,6 +804,10 @@ subscription_id_t receiver_thread_t::subscribe_lnb(std::vector<task_queue_t::fut
 																					 tune_options,
 																					 rf_path,
 																					 sat_pos_to_move_to);
+	ss::string<128> prefix;
+	prefix.format("RECEIVER-CMD");
+	log4cxx::NDC ndc(prefix.c_str());
+
 	ssptr->set_subscription_id(sret.subscription_id);
 	if(sret.failed) {
 		auto& updated_old_dbfe = sret.aa.updated_old_dbfe;
@@ -1897,7 +1901,6 @@ void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t
 	report.start_time = now;
 	report.end_time = now + delay;
 	if(delay==0) {
-		printf("ending dish motion\n");
 		auto devdb_wtxn = devdb.wtxn();
 		devdb::dish::end_move(devdb_wtxn, dish);
 		devdb_wtxn.commit();

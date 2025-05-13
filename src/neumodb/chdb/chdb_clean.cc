@@ -98,33 +98,6 @@ static void chdb::clean_sats(db_txn& wtxn) {
 template<typename mux_t> static void chdb::clean_muxes(db_txn& wtxn) {
 	using namespace chdb;
 	int count{0};
-#ifdef TODO
-	auto clean = [&](scan_status_t scan_status) {
-		auto c = mux_t::find_by_scan_status(wtxn, scan_status, find_type_t::find_geq,
-																				mux_t::partial_keys_t::scan_status);
-
-		for(auto mux: c.range())  {
-			assert (mux.c.scan_status == scan_status);
-			if(mux.c.scan_id != scan_id_t{}) {
-				auto owner_pid = mux.c.scan_id.pid;
-				if(kill((pid_t)owner_pid, 0) == 0) {
-					dtdebugf("process pid={:d} is still active; skip deleting scan status", owner_pid);
-				continue;
-				}
-			}
-			mux.c.scan_status = chdb::scan_status_t::IDLE;
-			mux.c.scan_id = {};
-			mux.c.scan_rf_path = {};
-			put_record(wtxn, mux);
-			count++;
-		}
-	};
-
-
-	clean(scan_status_t::PENDING);
-	clean(scan_status_t::ACTIVE);
-	clean(scan_status_t::RETRY);
-#else
 	auto c = chdb::find_first<mux_t>(wtxn);
 	for(auto mux: c.range())  {
 		bool need_clean = (mux.c.scan_status == scan_status_t::PENDING ||
@@ -149,8 +122,6 @@ template<typename mux_t> static void chdb::clean_muxes(db_txn& wtxn) {
 			put_record(wtxn, mux);
 			count++;
 	}
-
-#endif
 
 	dtdebugf("Cleaned {:d} muxes with PENDING/ACTIVE/RETRY status", count);
 }

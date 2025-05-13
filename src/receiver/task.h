@@ -314,7 +314,7 @@ public:
 
 	future_t push_task_(std::function<int()>&& callback, bool must_exit=false) {
 		if(std::this_thread::get_id() == this->thread_.get_id()) {
-			dterrorf("Thread calls back to itself");
+			dtdebugf("Thread calls back to itself");
 			//assert(0);
 		}
 		task_t task([callback{std::move(callback)}]() {

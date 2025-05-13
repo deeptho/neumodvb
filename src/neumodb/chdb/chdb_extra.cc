@@ -261,7 +261,7 @@ void chdb::merge_services(db_txn& wtxn, const mux_key_t& src_key, const chdb::an
 		auto c1 = chdb::service_t::find_by_key(wtxn, service.k.mux, service.k.service_id);
 		if (c1.is_valid()) {
 			auto dst_service = c1.current();
-			if(dst_service.ch_order ==0 && service.ch_order !=0) {
+			if(dst_service.ch_order == 0 && service.ch_order !=0) {
 				dst_service.ch_order = service.ch_order;
 				put_record(wtxn, dst_service);
 			}

@@ -30,6 +30,7 @@
 #include "../util/neumovariant.h"
 using namespace devdb;
 
+#if 0 //unused
 static inline bool contains_sub(const devdb::fe_t& fe, subscription_id_t id) {
 	for(int i=0; i< fe.sub.subs.size(); ++i) {
 		auto &s = fe.sub.subs[i];
@@ -38,6 +39,7 @@ static inline bool contains_sub(const devdb::fe_t& fe, subscription_id_t id) {
 	}
 	return false;
 }
+#endif
 
 static inline bool fe_allows_sharing(const devdb::fe_t& fe) {
 	for(int i=0; i< fe.sub.subs.size(); ++i) {

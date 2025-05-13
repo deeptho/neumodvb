@@ -478,17 +478,17 @@ int screen_t<record_t>::set_reference(const record_t& record)
 
 	for(;c.is_valid(); c.next()) {
 		rowno++;
-			auto p = c.current_serialized_primary_key();
-			auto v = cmp(p, primary_key);
-			if(v==0)  {
-				monitor.reference.primary_key = p;
-				monitor.reference.row_number = rowno;
-				//monitor.reference.secondary_key = secondary_key; already set above
-				c.get_value(primary_current_record);
-				return rowno;
-			}
+		auto p = c.current_serialized_primary_key();
+		auto v = cmp(p, primary_key);
+		if(v==0)  {
+			monitor.reference.primary_key = p;
+			monitor.reference.row_number = rowno;
+			//monitor.reference.secondary_key = secondary_key; already set above
+			c.get_value(primary_current_record);
+			return rowno;
+		}
 	}
-	dterrorf("Asked for row number of non-existent record");
+	dtdebugf("Asked for row number of non-existent reference record");
 	return -1;
 }
 

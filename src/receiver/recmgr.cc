@@ -802,7 +802,6 @@ int recmgr_thread_t::run() {
 			continue;
 		}
 		now = system_clock_t::now();
-		// printf("n={:d}\n", n);
 		for (auto evt = next_event(); evt; evt = next_event()) {
 			if (is_event_fd(evt)) {
 				ss::string<128> prefix;

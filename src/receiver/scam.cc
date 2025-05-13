@@ -370,7 +370,6 @@ int scam_thread_t::wait_for_and_handle_events(bool do_not_handle_demux_events) {
 		dterrorf("error in poll: {:s}", strerror(errno));
 		return n;
 	}
-	// printf("n={:d}\n", n);
 	for (auto evt = next_event(); evt; evt = next_event()) {
 		if (is_event_fd(evt)) {
 			// an external request was received

@@ -510,7 +510,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		 Finally clall close: clear all received SI data and restart si processing from scratch
 	*/
 	void end_si();
-
+	void finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_main_mux);
 	void finalize_scan();
 
 

@@ -95,7 +95,7 @@ def subscription_fn(x):
             assert type(sub.v) == pychdb.service.service
             #srv = ' '.join(str(sub.service).split(' ')[1:])
             srv=f'{sub.v.k.service_id} [{sub.v.ch_order}] {sub.v.name}'
-            ret.append(f'{sub.subscription_id}.{fesub.config_id}: {srv}')
+            ret.append(f'S{sub.subscription_id} C{fesub.config_id}: {srv}')
         elif sub.has_mux:
             assert type(sub.v) == pychdb.service.service #not a mistake
             ret.append(f'{sub.subscription_id}.{fesub.config_id}: {str(sub.v.k.mux)}')

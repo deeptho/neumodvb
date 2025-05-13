@@ -70,9 +70,13 @@ public:
 	void set_pending_close(bool on) {
 		{
 			std::scoped_lock lck(m);
-			pending_close = on;
-			if(on && mpm.get())
-				mpm->force_abort();
+			if(pending_close && on) {
+				dtdebugf("Ignoring multiple on calls");
+			} else {
+				pending_close = on;
+				if(on && mpm.get())
+					mpm->force_abort();
+			}
 		}
 		cv.notify_all();
 	}

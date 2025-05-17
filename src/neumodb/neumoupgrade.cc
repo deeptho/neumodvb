@@ -29,7 +29,7 @@
 #include <map>
 #include <stdio.h>
 #include <time.h>
-
+#include "fmt/chrono.h"
 #include <boost/program_options.hpp>
 
 using namespace boost;
@@ -125,7 +125,8 @@ int options_t::parse_options(int argc, char** argv) {
 			ss::string<128> tmp;
 			tmp = in_db.c_str();
 			tmp.format(".");
-			tmp.format(":%Y%m%d_%H:%M:%S", time(NULL));
+			auto now = time(NULL);
+			tmp.format("{:%Y%m%d_%T}", fmt::localtime(now));
 			backup_db = tmp.c_str();
 		} else {
 			backup_db = fs::canonical(fs::path(backup_db)); // clean trailing slashes and such

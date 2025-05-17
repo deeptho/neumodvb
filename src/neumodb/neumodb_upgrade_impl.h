@@ -33,6 +33,7 @@
 #include "neumodb/statdb/statdb_extra.h"
 #include "neumodb/epgdb/epgdb_extra.h"
 #include "neumodb/recdb/recdb_extra.h"
+#include "fmt/chrono.h"
 
 namespace fs = std::filesystem;
 
@@ -55,7 +56,8 @@ int neumodb_upgrade(const char* from_dbname, const char* to_dbname,
 		if(backup_name.size()==0)
 			return -1;
 		backup_name.format(".");
-		backup_name.format("%Y%m{:d}_%H:%M:%S", time(NULL));
+		auto now = time(NULL);
+		backup_name.format("{:%Y%m%d_%T}", fmt::localtime(now));
 		to_dbname = backup_name.c_str();
 	}
 

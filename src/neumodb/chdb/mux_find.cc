@@ -336,10 +336,13 @@ bool chdb::matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool
 	ignore_t2mi_pid |= ignore_stream_id; //it makes no sense to ask for a specific t2mi_pid when stream_id does not match
 	if ( (!ignore_stream_id && a.k.stream_id != b.k.stream_id) || ( !ignore_t2mi_pid && a.k.t2mi_pid != b.k.t2mi_pid))
 		return false;
-	auto tolerance = (((int)std::min(a.symbol_rate, b.symbol_rate))*1.35) / 2000;
-
-	return (std::abs((int)a.frequency - (int)b.frequency) <= tolerance);
-
+	auto cmp = [&](auto& a, auto &b) {
+		auto tolerance = (((int)a.symbol_rate)*1.35) / 2000;
+		return (b.frequency >= a.frequency - tolerance) &&
+			(b.frequency <= a.frequency + tolerance);
+	};
+	bool ret = a.symbol_rate > b.symbol_rate ? cmp(a,b) : cmp(b,a);
+	return ret;
 }
 
 bool chdb::matches_physical_fuzzy(const dvbc_mux_t& a, const dvbc_mux_t& b, bool check_sat_pos,

@@ -763,6 +763,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				}
 				auto sret = reuse_other_subscription(subscription_id, sub.subscription_id, fe_, updated_old_dbfe);
 				subscribe_fe_in_use_(wtxn, sret.subscription_id, fe, mux, service, allow_sharing);
+				sret.aa.updated_new_dbfe = fe;
 				return sret;
 			}
 		}
@@ -804,6 +805,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			auto sret = reuse_other_subscription(subscription_id, sub_to_reuse.subscription_id, fe_, updated_old_dbfe);
 			//we can reuse an existing active_mux, but need to add an active service
 			subscribe_fe_in_use_(wtxn, sret.subscription_id, fe, mux, service, allow_sharing);
+			sret.aa.updated_new_dbfe = fe;
 			return sret;
 		}
 	}

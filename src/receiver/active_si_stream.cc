@@ -576,8 +576,10 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 			c.tune_src = tune_src_t::DRIVER;
 		}
 		if(!((c.key_src == chdb::key_src_t::NONE) ||
-					 (c.key_src == chdb::key_src_t::SDT_TUNED) ||
-				 (!from_sdt  && c.key_src == key_src_t::NIT_TUNED))) {
+				 (c.key_src == chdb::key_src_t::SDT_TUNED) ||
+				 (!from_sdt  && c.key_src == key_src_t::NIT_TUNED) ||
+				 (c.key_src == chdb::key_src_t::PAT_TUNED)
+				 )) {
 			dterrorf("Incorrect key_src={:}", c.key_src);
 			c.key_src = chdb::key_src_t::NONE;
 		}

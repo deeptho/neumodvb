@@ -74,7 +74,7 @@ def subscription_fn(x):
             m = f'{f} #{fesub.rf_path.rf_input} {t}:{fesub.rf_path.lnb.lnb_id}'
             ret.append(m)
         else:
-            f = f'{fesub.frequency/1000.:9.3f}Mhz{sid}'
+            f = f'{fesub.frequency/1000.:9.3f}MHz{sid}'
             m = f'{f} #{fesub.rf_path.rf_input}'
             ret.append(m)
     elif mux_key.sat_pos not in (pychdb.sat.sat_pos_dvbc, pychdb.sat.sat_pos_dvbt):
@@ -86,7 +86,7 @@ def subscription_fn(x):
         m = f'{f} #{fesub.rf_path.rf_input} {t}:{fesub.rf_path.lnb.lnb_id}'
         ret.append(m)
     else:
-        f = f'{fesub.frequency/1000.:9.3f}Mhz{sid}'
+        f = f'{fesub.frequency/1000.:9.3f}MHz{sid}'
         m = f'{f} #{fesub.rf_path.rf_input}'
         ret.append(m)
 

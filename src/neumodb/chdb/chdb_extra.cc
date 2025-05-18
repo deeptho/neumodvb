@@ -1453,7 +1453,8 @@ fmt::formatter<chdb::any_mux_t>::format(const chdb::any_mux_t& mux, format_conte
 fmt::format_context::iterator
 fmt::formatter<chdb::mux_key_t>::format(const chdb::mux_key_t& k, format_context& ctx) const {
 	auto sat = sat_pos_str(k.sat_pos);
-	auto it = fmt::format_to(ctx.out(), "{} - mux {:d}", sat, k.mux_id);
+	auto it = (k.mux_id==0) ? fmt::format_to(ctx.out(), "{} - peak", sat, k.mux_id):
+		fmt::format_to(ctx.out(), "{} - mux {:d}", sat, k.mux_id);
 	if(k.stream_id >=0)
 		it = fmt::format_to(ctx.out(), "-{:d}", k.stream_id);
 	if (k.t2mi_pid >= 0)

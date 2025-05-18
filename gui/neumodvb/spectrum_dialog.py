@@ -311,6 +311,9 @@ class SpectrumDialog(SpectrumDialog_):
         subscriber = self.tune_mux_panel.mux_subscriber
         lnb, sat  = self.tune_mux_panel.lnb, self.tune_mux_panel.sat
         new_entries=[]
+        if len(self.spectrum_plot.spectra)==0:
+            ShowMessage("Select spectra", "No spectra selected")
+            return
         for key, spectrum in self.spectrum_plot.spectra.items():
             k = spectrum.spectrum.k
             if k.rf_path.lnb != lnb.k:

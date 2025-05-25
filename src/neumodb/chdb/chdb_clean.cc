@@ -233,7 +233,7 @@ template <typename mux_t> void chdb::clear_all_streams_pending_status(
 
 
 static void chdb::clean_overlapping_muxes_on_sat(db_txn& wtxn, const chdb::dvbs_mux_t& mux, int sat_pos) {
-	auto tolerance = (((int)std::min(mux.symbol_rate, mux.symbol_rate))*1.35) / 2000;
+	auto tolerance = (mux.symbol_rate*1.35) / 2000;
 	auto min_freq = mux.frequency - tolerance;
 	auto max_freq = mux.frequency + tolerance;
 
@@ -241,14 +241,32 @@ static void chdb::clean_overlapping_muxes_on_sat(db_txn& wtxn, const chdb::dvbs_
 	auto c = dvbs_mux_t::find_by_sat_pol_freq(wtxn, sat_pos, mux.pol, min_freq, find_leq,
 																						dvbs_mux_t::partial_keys_t::sat_pos_pol);
 	for(const auto& db_mux: c.range()) {
-		auto tolerance = (((int)std::min(db_mux.symbol_rate, db_mux.symbol_rate))*1.35) / 2000;
-		if (db_mux.frequency + tolerance < min_freq)
+		auto tolerance = (db_mux.symbol_rate*1.35) / 2000;
+		/*
+			We check overlap as follows:
+			min_freq and max_freq are an estimate of the frequency range covered by a mux. The exact value depends
+			on the roll off factor, which corresponds to a factor of 1.05 to 1.35.
+
+			if a mux's central frequency falls in [min_freq, max_freq] then there is overlap.
+
+			We also apply a similar test with teh roles of mux and db_mux reversed.
+
+			Note that the test is on the one hand too loose (possible overestimation of bandwith by a factor 1.35/1.05)
+			and too strict (muxes which only just satisfy the criteria may still overlap half of their bandwith
+
+		 */
+
+		if (db_mux.frequency < min_freq  && mux.frequency > db_mux.frequency +tolerance)
 			continue; //not overlapping
-		if(db_mux.frequency - tolerance > max_freq)
+		if(db_mux.frequency > max_freq && mux.frequency < db_mux.frequency - tolerance)
 			continue; //not overlapping and no more overlap possible
 		if(db_mux.k == mux.k)
 			continue; //do not erase the master mux
-		if(db_mux.pol == mux.pol && db_mux.k.stream_id ==  mux.k.stream_id && db_mux.k.t2mi_pid == mux.k.t2mi_pid) {
+		if((db_mux.pol == mux.pol) && (
+				 (mux.k.stream_id == -1 && db_mux.k.stream_id >=0) || //mux must be single or multistream, not both
+				 (mux.k.stream_id >=0 && db_mux.k.stream_id>0) || //mux must be single or multistream, not both
+				 (db_mux.k.stream_id ==  mux.k.stream_id && db_mux.k.t2mi_pid == mux.k.t2mi_pid)
+				 )) {
 			//overlapping mux
 			auto cs = chdb::service::find_by_mux_key(wtxn, db_mux.k);
 			for(auto service: cs.range()) {
@@ -258,7 +276,6 @@ static void chdb::clean_overlapping_muxes_on_sat(db_txn& wtxn, const chdb::dvbs_
 			delete_record(wtxn, db_mux);
 		}
 	}
-
 }
 
 static void chdb::clean_overlapping_muxes(db_txn& wtxn, const chdb::dvbs_mux_t& mux) {

@@ -612,14 +612,17 @@ void active_adapter_t::on_stream_mux_change(const chdb::any_mux_t& mux) {
 	auto old_mux = tuned_mux();
 	auto& old_mux_key = *chdb::mux_key_ptr(old_mux);
 	auto& mux_key = *chdb::mux_key_ptr(mux);
-#ifndef NDEBUG
+
 	if(old_mux_key.stream_id == (int)ANY_STREAM_ID_FILTER)
 		old_mux_key.stream_id = chdb::mux_key_ptr(mux)->stream_id;
-#endif
+
+	bool is_tuned_mux = (old_mux_key.stream_id == mux_key.stream_id && mux_key.t2mi_pid == -1);
+
 	if(mux_key != old_mux_key &&old_mux_key.mux_id>0) {
 		dtdebugf("Mux key changed from {} to {}", old_mux_key, *chdb::mux_key_ptr(mux));
 	}
-	fe->update_tuned_mux_nit(mux);
+	if(is_tuned_mux)
+		fe->update_tuned_mux_nit(mux);
 }
 
 void active_adapter_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux,
@@ -696,7 +699,8 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 
 		In some drivers, if stream_id==-1 and a multistream exists, the driver will return
 		a randomly selected stream and the resulting stream_id may be >=0 and therefore different
-		from the requested one.
+		from the requested one. Similarly, when the user requests for a single stream during tune,
+		a multistream may be returned. This happens on stid135
 
 		In addition, for newer drivers, the demux can be requested to return a specific isi,t2mi_pid combination.
 		In that case, only a transport stream for this specific combination will be returned, and isi is always
@@ -720,7 +724,6 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 
 	/*first replace any si_streams with ANY_STREAM_ID_FILTER (wildcard) ISIs
 		by entries with a specific ISI that is now selected*/
-	bool driver_data_reliable = signal_info.driver_data_reliable;
 	auto any_node = this->si_streams.extract(si_key_t({(int)ANY_STREAM_ID_FILTER, -1}));
 	auto any_stream_registered = !any_node.empty();
 	auto& driver_mux_key = *chdb::mux_key_ptr(signal_info.driver_mux);

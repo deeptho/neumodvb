@@ -445,8 +445,6 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return stream_mux_key->sat_pos;
 	}
 
-	void on_stream_mux_change(const chdb::any_mux_t& mux);
-
 	dtdemux::reset_type_t pat_section_cb(const pat_services_t& pat_services, const subtable_info_t& i);
 	reset_type_t pmt_section_cb(const pmt_info_t& pmt, bool isnext);
 

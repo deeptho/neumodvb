@@ -337,7 +337,7 @@ bool chdb::matches_physical_fuzzy(const dvbs_mux_t& a, const dvbs_mux_t& b, bool
 	if ( (!ignore_stream_id && a.k.stream_id != b.k.stream_id) || ( !ignore_t2mi_pid && a.k.t2mi_pid != b.k.t2mi_pid))
 		return false;
 	auto cmp = [&](auto& a, auto &b) {
-		auto tolerance = (((int)a.symbol_rate)*1.35) / 2000;
+		auto tolerance = (((int)std::min(a.symbol_rate, b.symbol_rate))*1.35) / 2000;
 		return (b.frequency >= a.frequency - tolerance) &&
 			(b.frequency <= a.frequency + tolerance);
 	};

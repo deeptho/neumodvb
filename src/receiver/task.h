@@ -124,6 +124,7 @@ protected:
 	bool has_exited_ = false ; //a command can set this to true after threads has cleanly exited
 private:
 	mutable std::mutex mutex;
+	mutable std::condition_variable cv;
 	mutable queue_t tasks;
 protected:
 	int timer_fd = -1; //for running periodic tasks
@@ -235,7 +236,11 @@ protected:
 			 */
 			exit_future = wait_for_exit_task.get_future();
 			auto ret = run();
-			this->has_exited_=true;
+			{
+				std::unique_lock<std::mutex> lk(mutex);
+				this->has_exited_=true;
+				cv.notify_all();
+			}
 
 			wait_for_exit_task();
 
@@ -275,12 +280,34 @@ public:
 	}
 
 	future_t stop_running(bool wait) {
-		assert(!must_exit_);
+		{
+			std::unique_lock<std::mutex> lk(mutex);
+			if(this->must_exit_) {
+				if(wait) {
+					dtdebugf("Handle parallel call to stop_running");
+					while(! this->has_exited_)
+						this->cv.wait(lk);
+					dtdebugf("Handle parallel call to stop_running - done");
+				}
+				task_t dummy_task([]() {
+					task_result_t ret;
+					ret.retval = 0;
+					ret.errmsg = "";
+					return ret;
+				});
+				auto ret {dummy_task.get_future()};
+				dummy_task();
+				return ret;
+			}
 
-		auto f = push_task_and_exit( [this](){
+			this->must_exit_ = true;
+		}
+
+		auto f=  push_task_([this](){
 			exit();
 			return -1;
 		});
+
 		if(wait) {
 			f.wait();
 			status_future.wait();
@@ -312,7 +339,7 @@ public:
 
 	}
 
-	future_t push_task_(std::function<int()>&& callback, bool must_exit=false) {
+	future_t push_task_(std::function<int()>&& callback) {
 		if(std::this_thread::get_id() == this->thread_.get_id()) {
 			dtdebugf("Thread calls back to itself");
 			//assert(0);
@@ -323,6 +350,17 @@ public:
 			ret.errmsg = user_error_;
 			return ret;
 		});
+
+		auto f = task.get_future();
+		tasks.push(std::move(task));
+		if(tasks.size()>=10)
+			dtdebugf("large nunber of pending tasks {:d}", tasks.size());
+		notify_fd.unblock();
+		return f;
+	}
+
+	inline future_t push_task(std::function<int()>&& callback) {
+		std::scoped_lock<std::mutex> lk(mutex);
 		if(this->must_exit_) {
 			dterrorf("Ignored pushing task while exit is in progress");
 			task_t dummy_task([]() {
@@ -334,29 +372,9 @@ public:
 			auto ret {dummy_task.get_future()};
 			dummy_task();
 			return ret;
+		} else {
+			return push_task_(std::move(callback));
 		}
-		auto f = task.get_future();
-
-		std::scoped_lock<std::mutex> lk(mutex);
-
-		if(must_exit) {
-			if(this->must_exit_) //avoid calling stop_running multiple times
-				return {};
-			this->must_exit_ = true;
-		}
-		tasks.push(std::move(task));
-		if(tasks.size()>=10)
-			dtdebugf("large nunber of tasks {:d}", tasks.size());
-		notify_fd.unblock();
-		return f;
-	}
-
-	inline future_t push_task_and_exit(std::function<int()>&& callback) {
-		return push_task_(std::move(callback), true);
-	}
-
-	inline future_t push_task(std::function<int()>&& callback) {
-		return push_task_(std::move(callback), false);
 	}
 
 	void acknowledge() {

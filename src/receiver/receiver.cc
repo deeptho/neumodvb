@@ -1559,7 +1559,7 @@ void receiver_t::start() {
 
 void receiver_t::stop() {
 	dtdebugf("STOP CALLED");
-	receiver_thread.stop_running(true/*stop_running*/);
+	receiver_thread.stop_running(false /*wait*/);
 }
 
 int receiver_thread_t::run() {

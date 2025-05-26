@@ -364,7 +364,6 @@ subscription_id_t scanner_t::scan_subscription_id_for_scan_id(const chdb::scan_i
 bool scanner_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux,
 																const chdb::scan_id_t& scan_id, ssptr_t ssptr)
 {
-	auto &k  = *chdb::mux_key_ptr(finished_mux);
 
 	if (must_end) {
 		dtdebugf("must_end");

@@ -1366,7 +1366,9 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 		if (mux.k.stream_id >= 0)
 			cmdseq.add_pls_code(make_code((int)mux.pls_mode, (int)mux.pls_code));
 		cmdseq.add_pls_codes(DTV_PLS_SEARCH_LIST);
-		//@TODO: handle stream_id = ANY_STREAM_ID_FILTER in driver
+		/*ANY_STREAM_ID_FILTER value is not known to driver
+			and must be replaced by -1 (no_stream_id_filter)
+		 */
 		cmdseq.add(DTV_STREAM_ID, mux.k.stream_id < 0 ? -1 : mux.k.stream_id);
 		if(mux.symbol_rate >= 2000000)
 			cmdseq.add(DTV_SEARCH_RANGE, std::max(mux.symbol_rate, (unsigned int)4000000));

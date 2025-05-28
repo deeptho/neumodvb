@@ -495,6 +495,11 @@ private:
 			return ts.readAccess()->last_signal_info;
 		};
 		auto ret = fn();
+#if 0
+		/*the following cauases a deadlcok
+			@todo: the wait argument now has no meaning any more.
+			This could theoretically cause the caller to crash when no signal info is available.
+		 */
 		if (wait && !ret) {
 			std::unique_lock<std::mutex> lk(ts.mutex());
 			ts_cv.wait(lk, [&]() {
@@ -502,6 +507,7 @@ private:
 				return ret;
 			});
 		}
+#endif
 		return ret;
 	}
 

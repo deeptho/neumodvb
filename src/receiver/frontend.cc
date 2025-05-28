@@ -1424,7 +1424,7 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	w->tune_mode = tune_options.use_blind_tune ? devdb::tune_mode_t::BLIND: devdb::tune_mode_t::NORMAL;
 	int heartbeat_interval = (api_type == api_type_t::NEUMO) ? 1000 : 0;
 	ret = cmdseq.tune(fefd, heartbeat_interval);
-	dtdebugf("tune returning ret={:d}", ret);
+	dtdebugf("cmdseq.tune returning ret={:d}", ret);
 	return ret;
 }
 
@@ -1592,7 +1592,7 @@ bool dvb_frontend_t::wait_for_positioner(tuner_thread_t& tuner_thread)
 	auto delay  = old_usals_pos== sat_pos_none ? 1 /*arbitrary; will lead to error in spectrum acq*/:
 		std::abs(new_usals_pos-old_usals_pos)/speed;
 
-	dtdebugf("requesting wait: idx={} old={} new =%{} time={}", idx,
+	dtdebugf("requesting wait: idx={} old={} new ={} time={}", idx,
 					 old_usals_pos/100., new_usals_pos/100., delay);
 
 	auto subscription_ids = get_subscription_ids();

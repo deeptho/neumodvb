@@ -44,7 +44,7 @@ std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& recei
 																															 std::shared_ptr<dvb_frontend_t>& fe) {
 	auto fefd = fe->open_device();
 	auto p = std::make_shared<fe_monitor_thread_t>(receiver, fe);
-	dtdebugf("starting frontend_monitor {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fefd);
+	dtdebugf("starting frontend_monitor {:p}: fefd={:d}", fmt::ptr(fe.get()), fefd);
 	p->epoll_add_fd(fefd,
 									EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET); // will be used to monitor the frontend edge triggered!
 	p->start_running();
@@ -85,7 +85,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	auto fefd = fe->ts.readAccess()->fefd;
 	int r = ioctl(fefd, FE_GET_EVENT, &event);
 	if (r < 0) {
-		dtdebugf("FE_GET_EVENT stat=0x{:x} errno={:d} err={:s}\n", (int)event.status, errno, strerror(errno));
+		dtdebugf("FE_GET_EVENT stat=0x{:x} errno={:d} err={:s}", (int)event.status, errno, strerror(errno));
 		return;
 	}
 
@@ -111,7 +111,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	bool timedout = event.status & FE_TIMEDOUT;
 #pragma unused(timedout)
 #if 0
-	dtdebugf("SIGNAL: signal={:d} carrier={:d} viterbi={:d} sync={:d} lock={:d} timedout={:d}\n", signal, carrier, viterbi, has_sync,
+	dtdebugf("SIGNAL: signal={:d} carrier={:d} viterbi={:d} sync={:d} lock={:d} timedout={:d}", signal, carrier, viterbi, has_sync,
 					 has_lock, timedout);
 #endif
 	bool done = signal && carrier && viterbi && has_sync && has_lock;
@@ -170,7 +170,7 @@ int fe_monitor_thread_t::cb_t::unpause() {
 	set_name(fe_name.c_str());
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 	this->is_paused = false;
-	dtdebugf("frontend_monitor unpause: {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
+	dtdebugf("frontend_monitor unpause: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 
 	return 0;
 }
@@ -181,7 +181,7 @@ int fe_monitor_thread_t::run() {
 	fe_name.format("fe {:d}.{:d}", (int)fe->adapter_no, (int)fe->frontend_no);
 	set_name(fe_name.c_str());
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
-	dtdebugf("frontend_monitor run: {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
+	dtdebugf("frontend_monitor run: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 	auto save = shared_from_this(); // prevent ourself from being deleted until thread exits;
 
 	if (fe->api_type != api_type_t::NEUMO)
@@ -214,7 +214,7 @@ int fe_monitor_thread_t::run() {
 	}
 exit_:
 	save.reset();
-	dtdebugf("frontend_monitor end: {:p}: fefd={:d}\n", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
+	dtdebugf("frontend_monitor end: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 	return 0;
 }
 

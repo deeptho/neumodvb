@@ -210,7 +210,7 @@ void receiver_thread_t::release_active_adapter(std::vector<task_queue_t::future_
 			cb(tuner_thread).unregister_subscription(updated_dbfe, subscription_id);
 			return 0;
 			}));
-		dtdebugf("released");
+		dtdebugf("release called");
 		m.erase(it); //if this is the last reference, it will release the tuner_thread
 	}
 }

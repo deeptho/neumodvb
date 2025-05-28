@@ -1637,7 +1637,7 @@ void dvb_frontend_t::resume_task()
 	this->task_fiber = this->task_fiber.resume();
 }
 
-int  dvb_frontend_t::request_tune(
+void  dvb_frontend_t::request_tune(
 	tuner_thread_t& tuner_thread, const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb,
 	const chdb::dvbs_mux_t& mux, const subscription_options_t& tune_options) {
 	{
@@ -1652,16 +1652,15 @@ int  dvb_frontend_t::request_tune(
 	/* When moving the positioner, the following code may run for a long time, so we run it
 		 as a task
 	 */
-	int ret{-1};
-	int new_usals_pos{sat_pos_none};
 
-	run_task([this, &tuner_thread, &ret, &new_usals_pos, rf_path, lnb, mux, tune_options](continuation_t&& invoker) {
+	run_task([this, &tuner_thread, rf_path, lnb, mux, tune_options](continuation_t&& invoker) {
 		main_fiber = invoker.resume();
+		int ret{-1};
+		int new_usals_pos{sat_pos_none};
 		std::tie(ret, new_usals_pos) = tune(tuner_thread, rf_path, lnb, mux, tune_options);
 		dtdebugf("tune returned ret={}, new_usals_pos={}", ret, new_usals_pos);
 		return std::move(main_fiber);
 	});
-	return ret;
 }
 
 std::tuple<int, int>

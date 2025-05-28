@@ -255,20 +255,19 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 		dtdebugf("Called remove_service: service was {}removed", (ret1<0)? "NOT " : "");
 		assert(this->main_si);
 		assert(sret.aa.lnb);
-		int ret{-1};
 		visit_variant(mux,
-									[this, &sret, &tune_options, &ret](const chdb::dvbs_mux_t& m) {
+									[this, &sret, &tune_options](const chdb::dvbs_mux_t& m) {
 										auto& aa = sret.aa;
-										ret = fe->request_tune(tuner_thread, *aa.rf_path, *aa.lnb, m, tune_options);
+										fe->request_tune(tuner_thread, *aa.rf_path, *aa.lnb, m, tune_options);
 										},
-									[this, &tune_options, &ret](const chdb::dvbc_mux_t& m) {
-										ret = fe->request_tune(m, tune_options);
+									[this, &tune_options](const chdb::dvbc_mux_t& m) {
+										fe->request_tune(m, tune_options);
 									},
-									[this, &tune_options, &ret](const chdb::dvbt_mux_t& m) {
-										ret = fe->request_tune(m, tune_options);
+									[this, &tune_options](const chdb::dvbt_mux_t& m) {
+										fe->request_tune(m, tune_options);
 									});
 
-		tune_state = (ret < 0) ? TUNE_FAILED: TUNE_REQUESTED;
+		tune_state = TUNE_REQUESTED;
 	}
 	if(must_restart_tune) {
 		this->reset();

@@ -419,7 +419,7 @@ private:
 
 	void request_retune(tuner_thread_t& tuner_thread, bool user_requested);
 
-	int request_tune(tuner_thread_t& tuner_thread,
+	void request_tune(tuner_thread_t& tuner_thread,
 										const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 										const subscription_options_t& tune_options);
 

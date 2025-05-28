@@ -1544,7 +1544,6 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		bad_si_mux |= (network.is_actual && !ts_id_in_pat(mux_common_ptr(mux)->nit_ts_id));
 		if(is_active_mux) {
 			mux_key->mux_id = chdb::mux_key_ptr(this->dbmux)->mux_id;
-			reader->update_received_si_mux(mux, bad_si_mux); //store the bad mux
 		}
 
 		if (!can_be_tuned) {
@@ -1564,6 +1563,9 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			if(tune_confirmation.sat_by == confirmed_by_t::NIT) {
 				chdb::clean_overlapping_muxes(wtxn, mux);
 			}
+		}
+		if(is_active_mux) {
+			reader->update_received_si_mux(mux, bad_si_mux); //store the bad mux
 		}
 	}
 	bool done = nit_data.update_nit_completion(scan_state, info, network_data);

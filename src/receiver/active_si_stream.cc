@@ -1683,7 +1683,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 
 
 dtdemux::reset_type_t active_si_stream_t::nit_section_cb(nit_network_t& network, const subtable_info_t& info) {
-	if(is_embedded_si && !pat_data.stable_pat()) {
+	if(!pat_data.stable_pat()) {
 		dtdebugf("Waiting for pat to stabilize");
 		return dtdemux::reset_type_t::RESET;
 	}

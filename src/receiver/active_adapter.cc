@@ -1142,18 +1142,7 @@ void active_adapter_t::check_for_new_streams()
 	auto& scan_id = c->scan_id;
 	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
-
-	auto tuned_mux_ = tuned_mux();
-	bool is_scanning = mux_common_ptr(tuned_mux_)->scan_status == scan_status_t::ACTIVE;
-	if(is_scanning != scanner_t::is_scanning(scan_id)) {
-		auto tst = scanner_t::is_scanning(scan_id);
-		dtdebugf("Unexpected: tuned_mux={} driver_mux={} is_scanning={}/{} scan_id/pid={}",
-						 tuned_mux_, signal_info.driver_mux, is_scanning, tst, scan_id.pid);
-		is_scanning = scanner_t::is_scanning(scan_id);
-	}
-#ifndef NDEBUG
-	int last_mux_id = mux_key->mux_id;
-#endif
+	bool is_scanning = scanner_t::is_scanning(scan_id);
 	auto scan_start_time = receiver.scan_start_time();
 
 	for(auto ma: signal_info.matype_list) {
@@ -1182,10 +1171,6 @@ void active_adapter_t::check_for_new_streams()
 		namespace m = chdb::update_mux_preserve_t;
 		auto& wtxn = get_txn();
 		this->add_mux_for_scanning_(wtxn, signal_info.driver_mux, scan_start_time);
-		assert(last_mux_id == 0 || mux_key->mux_id == last_mux_id);
-#ifndef NDEBUG
-		last_mux_id = mux_key->mux_id;
-#endif
 	}
 	if(txn) {
 		txn->commit();

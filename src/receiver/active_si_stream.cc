@@ -2193,7 +2193,6 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 	auto& mux_common = *mux_common_ptr(p_mux_data->mux);
 
 	assert(mux_common.ts_id == services.ts_id);
-	auto& reader_mux = this->dbmux;
 	auto& service_ids = p_mux_data->service_ids;
 	if (p_mux_data->sdt[is_actual].subtable_info.version_number != info.version_number) {
 		// record which services have been found

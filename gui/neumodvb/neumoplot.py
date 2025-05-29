@@ -252,6 +252,8 @@ class Spectrum(object):
             self.hlines = None
 
     def annot_for_freq(self, freq):
+        if freq is None:
+            return None, None
         found = None
         best = 20000000
         for annot in self.annots:

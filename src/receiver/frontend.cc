@@ -816,16 +816,24 @@ fe_lock_status_t dvb_frontend_t::get_lock_status() {
 /*
 	returns empty if positioner did not move
  */
-std::optional<std::tuple<int, int, int, double>>
+std::optional<std::tuple<int, int, int, double, chdb::fe_polarisation_t>>
 dvb_frontend_t::get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usals_pos,
 																					steady_time_t end_time) const {
 	auto loc = this->get_usals_location();
-	auto start = ts.readAccess()->positioner_start_move_time;
-	if(!start) {
-		/*this can happen when lnb is declared to be on rotor, but no positioner move
-			command was sent and lnb has multiple networks (close in sat_pos)
+	std::optional<steady_time_t> start;
+	chdb::fe_polarisation_t pol;
+	{
+		auto r = ts.readAccess();
+		start = r->positioner_start_move_time;
+		if(!start) {
+			/*this can happen when lnb is declared to be on rotor, but no positioner move
+				command was sent and lnb has multiple networks (close in sat_pos)
 		*/
-		return {};
+			return {};
+		}
+		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&r->reserved_mux);
+		if(dvbs_mux)
+			pol = dvbs_mux->pol;
 	}
 
 	auto move_time_ = end_time - *start;
@@ -833,7 +841,7 @@ dvb_frontend_t::get_positioner_move_stats(int16_t old_usals_pos, int16_t new_usa
 	auto old_angle = devdb::lnb::sat_pos_to_angle(old_usals_pos, loc.usals_longitude, loc.usals_latitude);
 	auto new_angle = devdb::lnb::sat_pos_to_angle(new_usals_pos, loc.usals_longitude, loc.usals_latitude);
 	auto speed = std::abs(new_angle - old_angle)*10. /(double) move_time_ms;
-	return std::tuple<int, int, int, double>{old_angle, new_angle, move_time_ms, speed};
+	return std::tuple<int, int, int, double, chdb::fe_polarisation_t>{old_angle, new_angle, move_time_ms, speed, pol};
 }
 
 void fe_state_t::set_lock_status(api_type_t api_type, fe_status_t fe_status) {

@@ -316,10 +316,6 @@ int active_adapter_t::add_service(subscription_id_t subscription_id, active_serv
 }
 
 void active_adapter_t::on_stable_pat() {
-	auto mux_ = tuned_mux();
-	auto* pmux = std::get_if<chdb::dvbs_mux_t>(&mux_);
-	if (!pmux)
-		return;
 	auto e = usals_timer.end();
 	if(!e)
 		return;
@@ -332,10 +328,10 @@ void active_adapter_t::on_stable_pat() {
 		dtdebugf("positioner did not move");
 		return;
 	}
-	auto [ old_angle, new_angle, move_time_ms, speed ] = *ret;
+	auto [ old_angle, new_angle, move_time_ms, speed, pol ] = *ret;
 	if (std::abs(new_angle - old_angle) <10)
 		return;
-	auto pol = pmux->pol;
+
 	dtdebugf("positioner moved from {:d} to {:d} in {:d}ms = {:f} degree/s pol={}",
 					 old_angle, new_angle, move_time_ms, speed, to_str(pol));
 	fmt::print("positioner moved from {:d} to {:d} in {:d}ms = {:f} degree/s pol={}\n",

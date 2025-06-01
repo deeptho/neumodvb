@@ -563,6 +563,7 @@ receiver_thread_t::subscribe_mux(
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure) {
 	subscribe_ret_t sret;
 	assert(ssptr);
+	assert(is_template(mux) == (mux.k.mux_id ==0));
 	auto subscription_id = ssptr->get_subscription_id();
 	assert(!tune_options.need_spectrum);
 	sret = devdb::fe::subscribe_mux(devdb_wtxn, subscription_id,
@@ -721,6 +722,13 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, ssptr_t ssptr,
 	if (error) {
 		dterrorf("Unhandled error in subscribe_mux"); // This will ensure that tuning is retried later
 	}
+
+#ifndef NDEBUG
+	assert(is_template(mux) == (chdb::mux_key_ptr(mux)->mux_id ==0));
+#else
+	if(is_template(mux))
+		chdb::mux_key_ptr(mux)->mux_id =0;
+#endif
 
 	auto devdb_wtxn = receiver.devdb.wtxn();
 	auto ret_subscription_id =

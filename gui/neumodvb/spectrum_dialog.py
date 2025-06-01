@@ -352,6 +352,8 @@ class SpectrumDialog(SpectrumDialog_):
             mux.frequency = int(tp.freq*1000)
             mux.symbol_rate=  int(tp.symbol_rate*1000)
             mux.pol = tp.spectrum.spectrum.k.pol
+        mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
+        mux.k.mux_id = 0
         mux.k.stream_id = -1
         mux.pls_mode = pychdb.fe_pls_mode_t.ROOT
         mux.pls_code = 1
@@ -366,6 +368,7 @@ class SpectrumDialog(SpectrumDialog_):
         mux = pychdb.dvbs_mux.dvbs_mux()
         mux.frequency = int(freq*1000)
         mux.symbol_rate=  int(symbol_rate*1000)
+        mux.k.mux_id = 0
         mux.k.stream_id = -1
         mux.pls_mode = pychdb.fe_pls_mode_t.ROOT
         mux.pls_code = 1

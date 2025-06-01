@@ -79,6 +79,12 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 																				const chdb::dvbs_mux_t& mux, bool blindscan,
 																				const pls_search_range_t& pls_search_range,
 																				devdb::retune_mode_t retune_mode) {
+#ifndef NDEBUG
+	assert(is_template(mux) == (chdb::mux_key_ptr(mux)->mux_id ==0));
+#else
+	if(is_template(mux))
+		chdb::mux_key_ptr(mux)->mux_id =0;
+#endif
 	auto ssptr = this->shared_from_this();
 	auto ret = receiver->subscribe_lnb_and_mux(rf_path, lnb, mux, blindscan, pls_search_range, retune_mode, ssptr);
 	return (int) ret;

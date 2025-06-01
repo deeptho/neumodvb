@@ -230,12 +230,18 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 	assert(!must_full_tune || !	must_restart_tune);
 
 	assert(this->subscription_exists(sret.subscription_id));
-
 	if(!fe) {
 		dterrorf("Tune failed fe=null: mux={}", mux);
 		assert(false);
 		return subscription_id_t::NONE;
 	}
+
+#ifndef NDEBUG
+	assert(is_template(mux) == (chdb::mux_key_ptr(mux)->mux_id ==0));
+#else
+	if(is_template(mux))
+		chdb::mux_key_ptr(mux)->mux_id =0;
+#endif
 
 	//LNB_CONTROL forces a tune, even when one would otherwise be refused
 #ifndef NDEBUG
@@ -1136,13 +1142,13 @@ void active_adapter_t::check_for_new_streams()
 			txn.emplace(receiver.chdb.wtxn());
 		return *txn;
 	};
-	auto* mux_key = mux_key_ptr(signal_info.driver_mux);
+	//auto* mux_key = mux_key_ptr(signal_info.driver_mux);
 	auto* c = mux_common_ptr(signal_info.driver_mux);
 	*c = this->main_si->get_initial_mux_common();
 	auto& scan_id = c->scan_id;
 	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
-	bool is_scanning = scanner_t::is_scanning(scan_id);
+	//bool is_scanning = scanner_t::is_scanning(scan_id);
 	auto scan_start_time = receiver.scan_start_time();
 
 	for(auto ma: signal_info.matype_list) {

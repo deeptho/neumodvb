@@ -409,8 +409,9 @@ class TuneMuxPanel(TuneMuxPanel_):
         if self.use_blindscan:
             mux.k.t2mi_pid = -1
             #mux.k.mux_id = 0
-        mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
-        mux.matype = -1
+            mux.c.tune_src = pychdb.tune_src_t.TEMPLATE
+            mux.matype = -1
+            mux.k.mux_id = 0
         self.ClearSignalInfo()
         self.parent.ClearSignalInfo()
         #reread usals in case we are part of spectrum_dialog and positioner_dialog has changed them

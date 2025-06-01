@@ -485,12 +485,13 @@ scan_t::rescan_peak(const blindscan_t& blindscan, ssptr_t reusable_ssptr,
 	if constexpr (is_same_type_v<decltype(mux), chdb::dvbc_mux_t>) {
 	}
 	mux.k.stream_id = -1;
+	mux.k.mux_id = 0;
 	dtdebugf("SET PENDING: {}", mux);
 	mux.c.scan_status = scan_status_t::PENDING;
 	mux.c.tune_src = tune_src_t::TEMPLATE;
 	const bool use_blind_tune = true;
 	bool failed_permanently{false};
-
+	assert(is_template(mux) == (mux.k.mux_id ==0));
 	std::tie(reusable_ssptr, ss_ptr, failed_permanently) =
 		scan_try_mux(reusable_ssptr, mux, use_blind_tune, blindscan_key);
 	if(ss_ptr) {
@@ -1213,7 +1214,7 @@ scan_t::scan_try_mux(ssptr_t reusable_ssptr,
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t ret{-1};
 	std::vector<task_queue_t::future_t> futures;
-
+	assert(is_template(mux_to_scan) == (mux_to_scan.k.mux_id ==0));
 	auto wtxn = receiver.devdb.wtxn();
 	auto scan_id = mux_to_scan.c.scan_id;
 	auto& tune_options = tune_options_for_scan_id(scan_id);

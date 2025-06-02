@@ -4,6 +4,10 @@ set breakpoint pending on
 #set index-cache directory /tmp/index
 #set index-cache enabled
 #set environment LD_PRELOAD /usr/lib64/clang/14.0.5/lib/linux/libclang_rt.asan-x86_64.so
+
+#suppress "missing debuginfo"
+set build-id-verbose 0
+
 set print finish off
 set environment LD_PRELOAD=/usr/lib64/libasan.so.8
 break __sanitizer::Die

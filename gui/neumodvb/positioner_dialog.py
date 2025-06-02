@@ -57,7 +57,7 @@ def get_object(evt):
 
 def get_isi_list(stream_id, signal_info):
     lst = [ x & 0xff for x in signal_info.matype_list ]
-    if stream_id not in lst:
+    if stream_id>=0 and stream_id not in lst:
         lst.append(stream_id)
     lst.sort()
     prefix = ''
@@ -74,7 +74,6 @@ def get_isi_list(stream_id, signal_info):
             lst = lst [start:end]
         except ValueError:
             pass
-    assert stream_id in lst
     return lst, prefix, suffix
 
 class Diseqc12SpinCtrl(minispinctrl.MiniSpinCtrl):

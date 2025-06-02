@@ -187,6 +187,13 @@ const chdb::any_mux_t active_adapter_t::mux_for_key(const chdb::mux_key_t& mux_k
 		if (key == mux_key) {
 			return si.dbmux;
 		}
+
+		for(auto& [subscription_id, mux] : si.subscriptions) {
+			auto& key = *chdb::mux_key_ptr(si.dbmux);
+			if (key == mux_key) {
+				return si.dbmux;
+			}
+		}
 	}
 	assert(0);
 	return {};
@@ -1065,8 +1072,10 @@ void active_adapter_t::add_mux_for_scanning_(db_txn& wtxn, chdb::any_mux_t mux, 
 	int matype = dvbs_mux ? dvbs_mux->matype: -1;
 	auto is_dvb = !dvbs_mux || (((matype >> 6) & 0x3) == 0x3);
 	if((((matype >> 6) & 0x3) == 0x2))
-		printf("BAD matype:\n", matype);
+		dtdebugf("mux={} BAD matype: {}", *chdb::mux_key_ptr(mux), matype);
+#if 0
 	is_dvb=true; //assert(false); //fix this!
+#endif
 	auto& scan_id = c1.scan_id;
 	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
 

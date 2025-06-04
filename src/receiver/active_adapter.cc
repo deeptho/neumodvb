@@ -779,30 +779,21 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 			}
 		}
 	}
-
-	/*now we consider the case where the received stream_id differs from the requested one.
-		This can only happen when bbframes_on == false
-	*/
-	si_key_t si_key{driver_mux_key.stream_id, driver_mux_key.t2mi_pid};
-	auto stream_registered= this->si_streams.contains(si_key);
-	if(!stream_registered) {
-		//assert(!signal_info.bbframes_on);
-		dtdebugf("Driver returned a non-requested stream: stream_id={} t2mi_pid={}", driver_mux_key.stream_id, driver_mux_key.t2mi_pid);
-		//ensure that the driver mux gets scanned in this case
-		auto chdb_wtxn = receiver.chdb.wtxn();
-		auto scan_start_time = receiver.scan_start_time();
-		this->add_mux_for_scanning_(chdb_wtxn, signal_info.driver_mux, scan_start_time);
-		chdb_wtxn.commit();
-	}
 	return;
 }
 
 void active_adapter_t::init_si(const chdb::any_mux_t& driver_mux, bool driver_data_reliable) {
 	si_is_on = true;
-	for (auto& [mux_key, si] : this->si_streams) {
+	auto& driver_mux_key = *chdb::mux_key_ptr(driver_mux);
+	si_key_t si_key{driver_mux_key.stream_id, driver_mux_key.t2mi_pid};
+	auto stream_registered= this->si_streams.contains(si_key);
+	if(!stream_registered) {
+		dtdebugf("Driver mux without a registered stream isi={} t2mi_pid ={}", driver_mux_key.stream_id, driver_mux_key.t2mi_pid);
+		return;
+	}
+	for (auto& [si_key, si] : this->si_streams) {
 		si.init(driver_mux, driver_data_reliable);
 	}
-	return;
 }
 
 /*

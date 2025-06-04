@@ -120,7 +120,7 @@ struct fe_lock_status_t {
 		}
 	inline bool is_dvb() {
 		if(matype==-2) {
-			//dvbt or dvbc
+			//dvbt or dvbc (or also legacy drivers?)
 			return is_locked();
 		}
 		return is_locked() && matype >=0 && // otherwise we do not know matype yet

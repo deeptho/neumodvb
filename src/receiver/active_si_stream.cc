@@ -276,8 +276,6 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 			c->nit_network_id = 0;
 			c->num_services = 0;
 		}
-		if(is_main_mux)
-			nosave = false;
 	}
 		break;
 
@@ -936,7 +934,7 @@ bool active_si_stream_t::fix_tune_mux_template_(chdb::any_mux_t& mux, const lock
 	auto& c = *mux_common_ptr(mux);
 	bool is_template = c.tune_src == chdb::tune_src_t::TEMPLATE;
 	bool is_active = c.scan_status == scan_status_t::ACTIVE;
-
+	auto must_save = !is_template;
 	if(is_template) {
 		mux_common_ptr(mux)->tune_src = chdb::tune_src_t::DRIVER;
 	}
@@ -954,12 +952,13 @@ bool active_si_stream_t::fix_tune_mux_template_(chdb::any_mux_t& mux, const lock
 		c.key_src = key_src_t::NONE;
 		c.mtime = time_t{0};
 		c.epg_types = {};
-		assert(c.tune_src != chdb::tune_src_t::TEMPLATE);
 		//at this stage we must be locked (si processing only starts after lock)
 	}
-	if(is_active ||is_template) { /*we  need to set the active status, or save the mux if it
-																	was not yet in the database (is_template) because it can be
-																	locked now*/
+	if(is_active && must_save) { /*we  need to set the active status;
+																		in case of a template, we now also know that the mux can be locked and
+																		that its streams it must be added to the database. However it is also possible
+																		that this->dbmux itself does not exist because the caller specified a non-existing
+																		stream_id. This can be detected at timeout time*/
 		lmdb_hint();
 		auto wtxn = receiver.chdb.wtxn();
 		c.scan_lock_result = lock_state.tune_lock_result;
@@ -968,10 +967,11 @@ bool active_si_stream_t::fix_tune_mux_template_(chdb::any_mux_t& mux, const lock
 		lmdb_hint();
 		wtxn.commit();
 	}
-
+#if 0
 	assert( c.tune_src != chdb::tune_src_t::TEMPLATE);
 	assert(chdb::mux_common_ptr(mux)->tune_src!=chdb::tune_src_t::TEMPLATE);
 	assert(chdb::mux_common_ptr(mux)->tune_src!=chdb::tune_src_t::TEMPLATE);
+#endif
 	return true;
 }
 
@@ -1005,7 +1005,9 @@ void active_si_stream_t::init(const chdb::any_mux_t& driver_mux, bool driver_dat
 	}
 	auto& stream_mux = this->dbmux;
 	auto* mux_common = chdb::mux_common_ptr(stream_mux);
+#if 0
 	assert( mux_common->tune_src != chdb::tune_src_t::TEMPLATE);
+#endif
 	scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
 	assert(!scan_in_progress || chdb::scan_in_progress(mux_common->scan_id));
 	dtdebugf("si_processing_done={} {}", (int) si_processing_done, stream_mux);
@@ -1254,10 +1256,12 @@ void active_si_stream_t::init(const chdb::any_mux_t& driver_mux, bool driver_dat
 	if (k.sat_pos == sat_pos_dvbc || k.sat_pos == sat_pos_dvbt) {
 		tune_confirmation.sat_by = confirmed_by_t::AUTO;
 	}
+#if 0
 	{
 		auto m=this->dbmux;
 		assert(mux_common_ptr(m)->tune_src != chdb::tune_src_t::TEMPLATE);
 	}
+#endif
 }
 
 
@@ -1587,7 +1591,9 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 #ifndef NDEBUG
 		{
 			auto stream_mux = this->dbmux;
+#ifdef 0
 			assert(!chdb::is_template(stream_mux));
+#endif
 			assert(chdb::mux_key_ptr(stream_mux)->mux_id > 0 ||
 						 chdb::mux_common_ptr(stream_mux)->key_src == key_src_t::NONE);
 		}
@@ -2967,7 +2973,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 			*/
 		}
 	}
-	if(pmts_can_be_saved()) {
+	if(pmts_can_be_saved() && ! is_template(this->dbmux)) {
 		lmdb_hint();
 		auto wtxn = chdbmgr.wtxn();
 		save_pmts(wtxn);
@@ -3036,12 +3042,12 @@ void active_si_stream_t::update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_
 		auto* mux_common = mux_common_ptr(mux);
 		mux_common->ts_id = ts_id;
 		mux_common->key_src = chdb::key_src_t::PAT_TUNED;
+		namespace m = chdb::update_mux_preserve_t;
+		auto ret = this->update_mux(wtxn, mux, now, true /*is_active_mux*/, true /*is_tuned_freq*/,
+																false /*from_sdt*/, found ? m::NONE : m::MUX_KEY /*preserve*/);
+		if(ret && *chdb::mux_key_ptr(mux) == *chdb::mux_key_ptr(this->dbmux))
+			active_adapter().on_stream_mux_change(mux);
 	}
-	namespace m = chdb::update_mux_preserve_t;
-	auto ret = this->update_mux(wtxn, mux, now, true /*is_active_mux*/, true /*is_tuned_freq*/,
-									 false /*from_sdt*/, found ? m::NONE : m::MUX_KEY /*preserve*/);
-	if(ret && *chdb::mux_key_ptr(mux) == *chdb::mux_key_ptr(this->dbmux))
-		active_adapter().on_stream_mux_change(mux);
 }
 
 void active_si_stream_t::save_pmts(db_txn& wtxn)

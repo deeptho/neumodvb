@@ -75,12 +75,12 @@ struct subscription_options_t : public devdb::tune_options_t {
 		switch(subscription_type) {
 		case subscription_type_t::NONE:
 			assert(0);
-		case subscription_type_t::TUNE:
-		case subscription_type_t::MUX_SCAN:
-		case subscription_type_t::LNB_CONTROL:
 		case subscription_type_t::BAND_SCAN:
 		case subscription_type_t::SPECTRUM_ACQ:
 			return false;
+		case subscription_type_t::TUNE:
+		case subscription_type_t::MUX_SCAN:
+		case subscription_type_t::LNB_CONTROL:
 		case subscription_type_t::SUBSCRIBE:
 			return true;
 		}

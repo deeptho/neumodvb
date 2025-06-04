@@ -873,6 +873,8 @@ std::tuple<bool, bool> active_adapter_t::add_si_subscription(
 	bool must_full_tune = (is_only_subscriber ||
 												 tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL)
 		&&  (!is_same_physical_mux || tune_state != tune_state_t::LOCKED);
+	if(!sret.aa.lnb && std::get_if<chdb::dvbs_mux_t>(&mux))
+		must_full_tune = false;
 
 	bool must_restart_tune = !must_full_tune && tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL;
 

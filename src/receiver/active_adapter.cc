@@ -189,7 +189,7 @@ const chdb::any_mux_t active_adapter_t::mux_for_key(const chdb::mux_key_t& mux_k
 		}
 
 		for(auto& [subscription_id, mux] : si.subscriptions) {
-			auto& key = *chdb::mux_key_ptr(si.dbmux);
+			auto& key = *chdb::mux_key_ptr(mux);
 			if (key == mux_key) {
 				return si.dbmux;
 			}

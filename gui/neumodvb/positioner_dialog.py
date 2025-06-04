@@ -57,8 +57,6 @@ def get_object(evt):
 
 def get_isi_list(stream_id, signal_info):
     lst = [ x & 0xff for x in signal_info.matype_list ]
-    if stream_id>=0 and stream_id not in lst:
-        lst.append(stream_id)
     lst.sort()
     prefix = ''
     suffix = ''

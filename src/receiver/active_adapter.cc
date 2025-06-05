@@ -428,7 +428,7 @@ void active_adapter_t::monitor() {
 		be present. scan_report runs with a min frequency of 1 call per 2 seconds
 	*/
 	for (auto& [pid, si] : si_streams) {
-		si.scan_report();
+		si.scan_report(this->si_is_on);
 	}
 }
 
@@ -967,7 +967,7 @@ bool active_adapter_t::remove_si_subscription(const devdb::fe_t& updated_dbfe, s
 	Finalize all si processing, and notify scanners
  */
 void active_adapter_t::end_si() {
-	for (auto& [pid, si] : this->si_streams) {
+	for (auto& [si_key, si] : this->si_streams) {
 		si.end_si();
 	}
 	stream_filters.writeAccess()->clear();

@@ -440,7 +440,7 @@ void active_si_stream_t::check_scan_mux_end()
  */
 void active_si_stream_t::end_si() {
 	if(!si_processing_done) {
-		dtdebugf("calling finalize_scan");
+		dtdebugf("calling finalize_scan dbmux={}", this->dbmux);
 		finalize_scan();
 		dtdebugf("calling scan si_processing_done={:d}", si_processing_done);
 		check_scan_mux_end();
@@ -852,7 +852,7 @@ void active_si_stream_t::process_si_data() {
 	epgdbmgr.release_wtxn(); //not needed?
 	lmdb_hint();
 	chdbmgr.release_wtxn(); //not needed?
-	scan_report();
+	scan_report(true /*si_is_on*/);
 	dttime(200);
 }
 
@@ -1268,8 +1268,8 @@ void active_si_stream_t::init(const chdb::any_mux_t& driver_mux, bool driver_dat
 /*
 	will_retune => scan must be set to the failed state
  */
-void active_si_stream_t::scan_report() {
-	if (!is_open())
+void active_si_stream_t::scan_report(bool si_is_on) {
+	if (!si_is_on)
 		return;
 	auto now_ = steady_clock_t::now();
 	if (now_ - scan_state.last_update_time <= 2s)
@@ -1591,7 +1591,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 #ifndef NDEBUG
 		{
 			auto stream_mux = this->dbmux;
-#ifdef 0
+#if 0
 			assert(!chdb::is_template(stream_mux));
 #endif
 			assert(chdb::mux_key_ptr(stream_mux)->mux_id > 0 ||

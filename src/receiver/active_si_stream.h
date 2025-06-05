@@ -578,7 +578,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	void check_timeouts();
 
-	void scan_report();
+	void scan_report(bool si_is_on);
 
 	bool wrong_sat_detected() const {
 		return tune_confirmation.on_wrong_sat;

@@ -996,7 +996,7 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 			}
 			auto* sub_service = std::get_if<chdb::service_t>(&sub.v);
 			auto k = mux.k;
-			bool mux_matches = (k == fe.sub.mux_key);
+			bool mux_matches = (k == fe.sub.mux_key && k.mux_id!=0 /*not a template, because templates are not unique*/);
 			//in case we are using bbframes, it is fine to use a subscription with a non-matching stream_id
 
 			if(!mux_matches && ignore_stream_id && fe.sub.bbframes_on && sub_service)  {

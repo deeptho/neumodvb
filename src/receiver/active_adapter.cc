@@ -1064,8 +1064,7 @@ void active_adapter_t::add_mux_for_scanning_(db_txn& wtxn, chdb::any_mux_t mux, 
 	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
 	int matype = dvbs_mux ? dvbs_mux->matype: -1;
 	auto is_dvb = !dvbs_mux || (((matype >> 6) & 0x3) == 0x3);
-	if((((matype >> 6) & 0x3) == 0x2))
-		dtdebugf("mux={} BAD matype: {}", *chdb::mux_key_ptr(mux), matype);
+
 #if 0
 	is_dvb=true; //assert(false); //fix this!
 #endif
@@ -1152,12 +1151,12 @@ void active_adapter_t::check_for_new_streams()
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;
 	//bool is_scanning = scanner_t::is_scanning(scan_id);
 	auto scan_start_time = receiver.scan_start_time();
-
+	auto is_template = chdb::is_template(this->main_si->dbmux);
 	for(auto ma: signal_info.matype_list) {
 		auto stream_id = ma & 0xff;
 		if(this->processed_isis.test(stream_id)) //already processed
 			continue;
-		if(stream_id == tuned_stream_id)
+		if(stream_id == tuned_stream_id && !is_template)
 			continue;
 		last_new_matype_time = signal_info.last_new_matype_time;
 		//we have found a new stream_id

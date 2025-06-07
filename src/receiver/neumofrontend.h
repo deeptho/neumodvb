@@ -936,7 +936,7 @@ enum atscmh_rs_code_mode {
 };
 
 #define NO_STREAM_ID_FILTER	(~0U)
-#define ANY_STREAM_ID_FILTER (~1U)
+#define ANY_STREAM_ID_FILTER (~1U) //used only in neumodvb when user accepts any stream_id (e.g., positioner dialog)
 #define LNA_AUTO            (~0U)
 #define MODCODE_ALL         (~0U)
 

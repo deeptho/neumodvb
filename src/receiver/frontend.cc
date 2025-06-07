@@ -1155,7 +1155,6 @@ void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 	//temp code TO REMOVE
 
 	auto w = this->ts.writeAccess();
-	w->requested_stream_id = chdb::mux_key_ptr(w->reserved_mux)->stream_id;
 #ifndef NDEBUG
 	if(chdb::mux_key_ptr(w->reserved_mux)->stream_id == (int)ANY_STREAM_ID_FILTER)
 		chdb::mux_key_ptr(w->reserved_mux)->stream_id = chdb::mux_key_ptr(mux)->stream_id;
@@ -1164,6 +1163,7 @@ void dvb_frontend_t::update_tuned_mux_nit(const chdb::any_mux_t& mux) {
 		dtdebugf("Detected mux key change from {} to {}", *chdb::mux_key_ptr(mux),
 						 *chdb::mux_key_ptr(w->reserved_mux));
 	w->reserved_mux = mux;
+	w->requested_stream_id = chdb::mux_key_ptr(mux)->stream_id;
 }
 
 void dvb_frontend_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad) {
@@ -2041,8 +2041,8 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const 
 	{
 		this->sec_status.retune_count = 0;
 		auto w = this->ts.writeAccess();
-		w->requested_stream_id = chdb::mux_key_ptr(w->reserved_mux)->stream_id;
 		w->reserved_mux = mux;
+		w->requested_stream_id = chdb::mux_key_ptr(mux)->stream_id;
 		w->reserved_rf_path = rf_path;
 		w->reserved_lnb = lnb;
 		w->last_signal_info.reset();
@@ -2065,6 +2065,7 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const chdb::any_mux_t& mux) {
 		this->sec_status.retune_count = 0;
 		w->requested_stream_id = chdb::mux_key_ptr(w->reserved_mux)->stream_id;
 		w->reserved_mux = mux;
+		w->requested_stream_id = chdb::mux_key_ptr(mux)->stream_id;
 		w->reserved_rf_path = devdb::rf_path_t();
 		w->reserved_lnb = devdb::lnb_t();
 		w->	last_signal_info.reset();

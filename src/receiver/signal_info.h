@@ -137,8 +137,8 @@ struct signal_info_t {
 	uint32_t uncorrected_driver_freq{0};
 	int requested_stream_id =  (int)NO_STREAM_ID_FILTER;
 	chdb::any_mux_t driver_mux; /*contains only confirmed information, with information from driver
-													overriding that from si stream. Missing information is filled in with
-													confirmed information*/
+																overriding that from si stream. Missing information is filled in with
+																confirmed information*/
 	std::optional<chdb::any_mux_t> received_si_mux;
 	bool received_si_mux_is_bad{false};
 	int32_t bitrate{0};

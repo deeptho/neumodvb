@@ -764,7 +764,6 @@ active_adapter_t* receiver_thread_t::find_or_create_active_adapter
 			return it->second.get();
 		}
 	}
-
 	assert(sret.aa.is_different_aa());
 	assert(sret.aa.updated_new_dbfe);
 	auto dvb_frontend = receiver.fe_for_dbfe(sret.aa.updated_new_dbfe->k);

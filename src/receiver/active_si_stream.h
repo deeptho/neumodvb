@@ -31,7 +31,7 @@
 
 using namespace dtdemux;
 
-
+struct lock_state_t;
 
 struct pat_service_t {
 	bool pmt_analysis_started{false};
@@ -597,11 +597,15 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 									bool is_active_mux, bool is_tuned_freq,
 									bool from_sdt, chdb::update_mux_preserve_t::flags preserve);
 
+	bool fix_tune_mux_template_(chdb::any_mux_t& mux, const lock_state_t& lock_state,
+																		const chdb::any_mux_t& driver_mux, bool driver_data_reliable);
+
 	bool fix_tune_mux_template(const chdb::any_mux_t& driver_mux, bool driver_data_reliable);
 
 	void update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_t& mux);
 	void save_pmts(db_txn& wtxn);
 	//todo: make this private
+	void activate_scan_(chdb::any_mux_t& mux, const chdb::scan_id_t& scan_id);
 	void activate_scan(subscription_id_t subscription_id, const chdb::scan_id_t& scan_id);
 	void add_si_subscription(const chdb::any_mux_t& mux,
 																devdb::scan_target_t scan_target,

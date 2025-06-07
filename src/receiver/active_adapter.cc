@@ -378,9 +378,6 @@ void active_adapter_t::monitor() {
 	if(relocked_now) {
 		last_new_matype_time = steady_clock_t::now();
 		auto signal_info_ = fe->get_last_signal_info(false /*wait*/);
-		if(signal_info_->isi_changed()) {
-			assert(false); //todo
-		}
 		assert(lock_state.locked_normal); //implied by relocked_now==true
 		this->on_lock(*signal_info_, is_not_ts);
 		if (!is_not_ts ) {
@@ -777,19 +774,17 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 	/*now we consider the case where the received stream_id differs from the requested one.
 		This can only happen when bbframes_on == false
 	*/
-	if(!signal_info.bbframes_on)  {
-		si_key_t si_key{driver_mux_key.stream_id, driver_mux_key.t2mi_pid};
-		auto stream_registered= this->si_streams.contains(si_key);
-		if(!stream_registered) {
-			dtdebugf("Driver returned a non-requested stream: stream_id={} t2mi_pid={}", driver_mux_key.stream_id, driver_mux_key.t2mi_pid);
-		}
+	si_key_t si_key{driver_mux_key.stream_id, driver_mux_key.t2mi_pid};
+	auto stream_registered= this->si_streams.contains(si_key);
+	if(!stream_registered) {
+		//assert(!signal_info.bbframes_on);
+		dtdebugf("Driver returned a non-requested stream: stream_id={} t2mi_pid={}", driver_mux_key.stream_id, driver_mux_key.t2mi_pid);
+		//ensure that the driver mux gets scanned in this case
+		auto chdb_wtxn = receiver.chdb.wtxn();
+		auto scan_start_time = receiver.scan_start_time();
+		this->add_mux_for_scanning_(chdb_wtxn, signal_info.driver_mux, scan_start_time);
+		chdb_wtxn.commit();
 	}
-#if 0
-	si_is_on = true;
-	for (auto& [mux_key, si] : this->si_streams) {
-		si.init(driver_mux, driver_data_reliable);
-	}
-#endif
 	return;
 }
 
@@ -892,7 +887,7 @@ std::tuple<bool, bool> active_adapter_t::add_si_subscription(
 			p_si->add_si_subscription(mux, tune_options.scan_target, sret.subscription_id);
 		} else {
 			dtdebugf("Replacing si_stream for subscription_id={} old_mux={} new_mux={}",  (int)sret.subscription_id, p_si->dbmux, mux);
-			assert(!is_only_subscriber || must_full_tune);
+			//assert(!is_only_subscriber || must_full_tune);
 			bool no_more_subscriptions = this->remove_si_subscription(*sret.aa.updated_new_dbfe, sret.subscription_id);
 			assert(!must_full_tune || no_more_subscriptions);
 
@@ -1054,6 +1049,78 @@ void active_adapter_t::check_isi_processing()
 	}
 }
 
+void active_adapter_t::add_mux_for_scanning_(db_txn& wtxn, chdb::any_mux_t mux, time_t scan_start_time)
+{
+	bool propagate_scan = this->main_si->reader->tune_options().propagate_scan;
+	auto* c = mux_common_ptr(mux);
+	const auto& c1 = this->main_si->get_initial_mux_common();
+
+	bool is_scanning = c1.scan_status == scan_status_t::PENDING;
+
+	auto* mux_key = mux_key_ptr(mux);
+
+	auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
+	int matype = dvbs_mux ? dvbs_mux->matype: -1;
+	auto is_dvb = !dvbs_mux || (((matype >> 6) & 0x3) == 0x3);
+	if((((matype >> 6) & 0x3) == 0x2))
+		printf("BAD matype:\n", matype);
+	is_dvb=true; //assert(false); //fix this!
+	auto& scan_id = c1.scan_id;
+	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
+
+	c->scan_result = chdb::scan_result_t::NOTS;
+	c->scan_lock_result = lock_state.tune_lock_result;
+	//c->scan_lock_result : unchanged
+	//c->scan_duration: set per stream below
+	//c->epg_scan // from database
+	c->scan_status = scan_status_t::IDLE;
+	c->scan_id = {};
+	//c->num_services // from database
+	c->network_id = 0; //unknown
+	c->ts_id = 0; //unknown
+	c->nit_network_id = 0; //unknown
+	c->nit_ts_id = 0; //unknown
+	c->tune_src = tune_src_t::DRIVER;
+	c->key_src = key_src_t::NONE;
+	//c->mtime // auto changed
+	//c->epg_types // from database
+
+	auto ctemplate = *c; //make copy
+	namespace m = chdb::update_mux_preserve_t;
+
+	auto update_scan_status = [&](chdb::mux_common_t* pmergedc, chdb::mux_key_t* pmergedk,
+																const chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
+		bool is_active = pdbc && pdbc->scan_status == scan_status_t::ACTIVE;
+		if( is_active) {
+			return false;
+		}
+		if(is_dvb) {
+			if(!pdbc) { //there is no mux for this stream yet; create one
+				c->scan_status = is_scanning ? scan_status_t::PENDING : scan_status_t::IDLE;
+				c->scan_id = is_scanning ? scan_id : chdb::scan_id_t{};
+			} else {
+				if(!propagate_scan || pdbc->mtime >= scan_start_time || pdbc->scan_status == scan_status_t::ACTIVE)
+					return false; //leave scanning to future subscription, or scanning was already done
+				pmergedc->scan_status = scan_status_t::PENDING;
+				pmergedc->scan_id = is_scanning ? scan_id : chdb::scan_id_t{};
+				*c = *pmergedc;
+			}
+		} else { //not dvb
+			*c = ctemplate;
+			c->scan_time = system_clock_t::to_time_t(now);
+			c->scan_duration = std::chrono::duration_cast<std::chrono::seconds>(system_clock_t::now()
+																																					- tune_start_time).count();
+		}
+		return true;
+	};
+
+	assert(chdb::mux_key_ptr(mux)->t2mi_pid == -1);
+	chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS &
+			~m::SCAN_DATA}, update_scan_status, /*true ignore_key,*/ false /*ignore_t2mi_pid*/,
+		false /*must_exist*/);
+	assert (mux_key->mux_id > 0);
+}
+
 void active_adapter_t::check_for_new_streams()
 {
 	auto signal_info_ = fe->get_last_signal_info(false /*wait*/);
@@ -1091,26 +1158,6 @@ void active_adapter_t::check_for_new_streams()
 #ifndef NDEBUG
 	int last_mux_id = mux_key->mux_id;
 #endif
-	*c = chdb::mux_common_t{};
-	c->scan_result = chdb::scan_result_t::NOTS;
-	c->scan_lock_result = lock_state.tune_lock_result;
-	//c->scan_lock_result : unchanged
-	//c->scan_duration: set per stream below
-	//c->epg_scan // from database
-	c->scan_status = scan_status_t::IDLE;
-	c->scan_id = {};
-	//c->num_services // from database
-	c->network_id = 0; //unknown
-	c->ts_id = 0; //unknown
-	c->nit_network_id = 0; //unknown
-	c->nit_ts_id = 0; //unknown
-	c->tune_src = tune_src_t::DRIVER;
-	c->key_src = key_src_t::NONE;
-	//c->mtime // auto changed
-	//c->epg_types // from database
-
-	auto ctemplate = *c; //make copy
-	bool propagate_scan = this->main_si->reader->tune_options().propagate_scan;
 	auto scan_start_time = receiver.scan_start_time();
 
 	for(auto ma: signal_info.matype_list) {
@@ -1123,7 +1170,6 @@ void active_adapter_t::check_for_new_streams()
 		//we have found a new stream_id
 		this->processed_isis.set(stream_id);
 		auto matype = ma >> 8;
-		auto is_dvb = ((ma >> 14) & 0x3) == 0x3;
 
 		/*c->mux_id should be the same for all streams; the mux_key of the streams will
 			differ because of a differetn stream_id
@@ -1138,40 +1184,8 @@ void active_adapter_t::check_for_new_streams()
 			[stream_id](chdb::dvbt_mux_t& m) {m.k.stream_id = stream_id;});
 
 		namespace m = chdb::update_mux_preserve_t;
-
-		auto update_scan_status = [&](chdb::mux_common_t* pmergedc, chdb::mux_key_t* pmergedk,
-																	const chdb::mux_common_t* pdbc, const chdb::mux_key_t* pdbk) {
-			bool is_active = pdbc && pdbc->scan_status == scan_status_t::ACTIVE;
-			if( is_active) {
-				return false;
-			}
-			if(is_dvb) {
-				if(!pdbc) { //there is no mux for this stream yet; create one
-					c->scan_status = is_scanning ? scan_status_t::PENDING : scan_status_t::IDLE;
-					c->scan_id = is_scanning ? scan_id : chdb::scan_id_t{};
-				} else {
-					if(!propagate_scan || pdbc->mtime >= scan_start_time || pdbc->scan_status == scan_status_t::ACTIVE)
-						return false; //leave scanning to future subscription, or scanning was already done
-					*c = *pdbc;
-					c->scan_status = scan_status_t::PENDING;
-					c->scan_id = is_scanning ? scan_id : chdb::scan_id_t{};
-				}
-			} else { //not dvb
-				*c = ctemplate;
-				c->scan_time = system_clock_t::to_time_t(now);
-				c->scan_duration = std::chrono::duration_cast<std::chrono::seconds>(system_clock_t::now()
-																																					- tune_start_time).count();
-			}
-			return true;
-		};
-
-		//The following inserts a mux for each discovered multistream, but only if none exists yet
 		auto& wtxn = get_txn();
-		assert(chdb::mux_key_ptr(signal_info.driver_mux)->t2mi_pid == -1);
-		chdb::update_mux(wtxn, signal_info.driver_mux, now, m::flags{m::ALL & ~m::SCAN_STATUS &
-				~m::SCAN_DATA}, update_scan_status, /*true ignore_key,*/ false /*ignore_t2mi_pid*/,
-			false /*must_exist*/);
-		assert (mux_key->mux_id > 0);
+		this->add_mux_for_scanning_(wtxn, signal_info.driver_mux, scan_start_time);
 		assert(last_mux_id == 0 || mux_key->mux_id == last_mux_id);
 #ifndef NDEBUG
 		last_mux_id = mux_key->mux_id;

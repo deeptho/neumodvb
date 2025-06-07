@@ -1003,6 +1003,7 @@ int dvb_frontend_t::unicable2_tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux
 	sec_status.wait_after_powerup(lnb.powerup_time);
 	//msleep(200);
 	//unicable2 requires sleeping 2-22 milliseconds
+	assert(this->sec_status.rf_input_ok(api_version));
 	if(this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, 20 /*sleeptime_ms*/)<0) {
 		dterrorf("problem sending the DiseqC message");
 		return -1;
@@ -1046,6 +1047,7 @@ int dvb_frontend_t::unicable2_end(int fefd, const devdb::lnb_t& lnb,  const devd
 
 	//msleep(200);
 	//unicable2 requires sleeping 2-22 milliseconds
+	assert(this->sec_status.rf_input_ok(api_version));
 	if(this->sec_status.set_voltage(fefd, SEC_VOLTAGE_18, true /*for_unicable_command*/, 20 /*sleeptime_ms*/)<0) {
 		dterrorf("problem sending the DiseqC message");
 		return -1;
@@ -1959,10 +1961,12 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 
 	auto w = ts.writeAccess();
 	auto fefd = w->fefd;
+	assert(this->sec_status.rf_input_ok(api_version));
 	if(this->sec_status.set_voltage(fefd, lnb_voltage, false /*for_unicable_command*/) <0)  {
 		dterrorf("problem Setting the Voltage");
 		return -1;
 	}
+	assert(this->sec_status.rf_input_ok(api_version));
 	if (this->sec_status.set_tone(fefd, tone) < 0) {
 		dterrorf("problem setting tone");
 		return -1;
@@ -2154,10 +2158,9 @@ dvb_frontend_t::diseqc(int16_t sat_pos, chdb::sat_sub_band_t sat_sub_band,
 				break;
 			}
 		}
-
+		assert(this->sec_status.rf_input_ok(api_version));
 		switch (command) {
 		case 'M': {
-
 			if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)
 				return {-1, new_usals_pos};
 			msleep(must_pause ? 100 : 30);
@@ -2293,6 +2296,7 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(int16_t sat_pos, chdb::sat
 	*/
 	assert(sat_pos!=sat_pos_none || skip_positioner);
 	auto fefd = this->ts.readAccess()->fefd;
+	assert(this->sec_status.rf_input_ok(api_version));
 	this->sec_status.set_voltage(fefd, lnb_voltage, false /*for_unicable_command*/);
 
 	dtdebugf("SENDING diseqc: retune_count={:d} mode={:d}", (int) this->sec_status.retune_count,
@@ -2306,6 +2310,7 @@ std::tuple<int,int> dvb_frontend_t::do_lnb_and_diseqc(int16_t sat_pos, chdb::sat
 	/*select the proper lnb band
 		22KHz: off = low band; on = high band
 	*/
+	assert(this->sec_status.rf_input_ok(api_version));
 	fe_sec_tone_mode_t tone = (sat_sub_band == chdb::sat_sub_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
 	if (this->sec_status.set_tone(fefd, tone)<0) {
 		return {-1, new_usals_pos};
@@ -2555,13 +2560,14 @@ int dvb_frontend_t::do_lnb(chdb::sat_sub_band_t band, fe_sec_voltage_t lnb_volta
 	*/
 
 	auto fefd = this->ts.readAccess()->fefd;
-
+assert(this->sec_status.rf_input_ok(api_version));
 	this->sec_status.set_voltage(fefd, lnb_voltage, false /*for_unicable_command*/);
 	/*select the proper lnb band
 		22KHz: off = low band; on = high band
 	*/
 
 	fe_sec_tone_mode_t tone = (band == chdb::sat_sub_band_t::HIGH) ? SEC_TONE_ON : SEC_TONE_OFF;
+assert(this->sec_status.rf_input_ok(api_version));
 	if (this->sec_status.set_tone(fefd, tone)<0) {
 			dterrorf("problem Setting the Tone back");
 			return -1;
@@ -2582,10 +2588,10 @@ int dvb_frontend_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 	auto new_voltage = (old_voltage<0 /*unknown*/ || old_voltage == SEC_VOLTAGE_OFF) ? SEC_VOLTAGE_18
 		: old_voltage;
 	auto new_tone = SEC_TONE_OFF;
-
+assert(this->sec_status.rf_input_ok(api_version));
 	if(new_voltage != old_voltage)
 		this->sec_status.set_voltage(fefd, new_voltage, false /*for_unicable_command*/);
-
+assert(this->sec_status.rf_input_ok(api_version));
 	//turn tone off to send command
 	if(new_tone != old_tone)
 	if (this->sec_status.set_tone(fefd, SEC_TONE_OFF) < 0)

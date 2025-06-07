@@ -249,17 +249,18 @@ public:
 class sec_status_t {
 	//int config_id{0}; //updates by at least 1 each time a  tuner is switched to a new configuration
 	bool tuned{false};
-	int rf_input{-1}; //-1 means unknown or never set
 	std::optional<devdb::lnb_key_t> lnb_key; //set after diseqc has been sent
 	int16_t sat_pos{sat_pos_none}; //set after diseqc has been sent
 	bool rf_input_changed{false}; // true means that rf_input was changed and we have not set voltage yet
 	fe_rf_input_control ic;
-
 	int voltage{-1};  // -1 means unknown or never set
 	int tone{-1};     // -1 means unknown or never set
 	steady_time_t powerup_timestamp; //time when lnb was last powered up (any voltage > 0)
 
 public:
+	inline bool rf_input_ok(auto api_version) const {
+		return api_version <1500|| this->ic.rf_in >= 0;
+	}
 	inline void set_powerup_time() {
 		powerup_timestamp = steady_clock_t::now();
 		dtdebugf("set powerup_time");

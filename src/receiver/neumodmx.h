@@ -326,6 +326,7 @@ struct dmx_exportbuffer {
 #define DMX_SET_PES_FILTER       _IOW('o', 44, struct dmx_pes_filter_params)
 #define DMX_SET_STID_STREAM       _IOW('o', 53, struct dmx_stid_stream_params)
 #define DMX_SET_T2MI_STREAM      _IOW('o', 54, struct dmx_t2mi_stream_params)
+#define DMX_SET_FE_STREAM       _IO('o', 55)
 #define DMX_SET_BUFFER_SIZE      _IO('o', 45)
 #define DMX_GET_PES_PIDS         _IOR('o', 47, __u16[5])
 #define DMX_GET_STC              _IOWR('o', 50, struct dmx_stc)

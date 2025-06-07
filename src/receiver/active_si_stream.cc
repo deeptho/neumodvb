@@ -84,6 +84,7 @@ active_si_stream_t::active_si_stream_t
 	, chdbmgr(receiver.chdb)
 	, epgdbmgr(receiver.epgdb)
 	, dbmux(mux)
+	, initial_dbmux_common(*chdb::mux_common_ptr(mux))
 	, is_main(is_main)
 {
 	dtdebugf("setting si_processing_done=false (init)");
@@ -417,7 +418,6 @@ void active_si_stream_t::end_si() {
 		 There should not be any, unless a stream changes from ts to non-ts
 		 but it is better to be produnt
 	*/
-
 
 	reader->reset();
 }
@@ -891,7 +891,6 @@ bool active_si_stream_t::fix_tune_mux_template(const chdb::any_mux_t& driver_mux
 		if(chdb::mux_key_ptr(mux)->stream_id == (int)ANY_STREAM_ID_FILTER)
 			chdb::mux_key_ptr(mux)->stream_id = chdb::mux_key_ptr(this->dbmux)->stream_id;
 		bool is_main_mux = *chdb::mux_key_ptr(mux) == *chdb::mux_key_ptr(this->dbmux);
-		//auto & mux =  is_main_mux ? this->dbmux : mux_;
 		auto& c = *mux_common_ptr(mux);
 		bool is_template = c.tune_src == chdb::tune_src_t::TEMPLATE;
 		bool is_active = c.scan_status == scan_status_t::ACTIVE;
@@ -932,7 +931,10 @@ bool active_si_stream_t::fix_tune_mux_template(const chdb::any_mux_t& driver_mux
 			assert( c.tune_src != chdb::tune_src_t::TEMPLATE);
 			on_stream_mux_change(mux);
 		}
+		assert(chdb::mux_common_ptr(mux)->tune_src!=chdb::tune_src_t::TEMPLATE);
+
 	}
+	assert(chdb::mux_common_ptr(this->dbmux)->tune_src!=chdb::tune_src_t::TEMPLATE);
 	return true;
 }
 
@@ -1228,10 +1230,8 @@ void active_si_stream_t::scan_report() {
 
 	bool no_data = reader->no_data();
 	auto done = scan_state.scan_done();
-
 	if (no_data || done) {
 		dtdebugf("Calling finalize_scan");
-		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->dbmux);
 		finalize_scan();
 		check_scan_mux_end();
 	}

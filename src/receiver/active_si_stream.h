@@ -366,8 +366,6 @@ struct active_si_data_t {
 	eit_data_t eit_data;
 
 	bool is_embedded_si{false};
-
-	scan_state_t scan_state;
 	bool scan_in_progress{false};
 
 	int epg_completeness();
@@ -376,174 +374,18 @@ struct active_si_data_t {
 		return pat_data.by_ts_id.find(ts_id) != pat_data.by_ts_id.end();
 	}
 
-	bool pmts_can_be_saved() const {
-		return ! pmt_data.saved &&
-			nit_actual_done() &&
-			sdt_actual_done() &&
-			pmt_data.all_received();
-	}
-
 
 	active_si_data_t(bool is_embedded_si)
 		: is_embedded_si(is_embedded_si)
 		{}
 
-	void reset() {
+	/*
+		reset all data to a pristine state, while preserving scan_state
+	 */
+	inline void reset() {
 		*this = active_si_data_t(is_embedded_si);
 	}
 
-
-	/*
-		done means: timedout or completed
-		completed means: we have retrieved all available info
-	*/
-	bool pat_done() const {
-		return scan_state.done(scan_state_t::completion_index_t::PAT);
-	}
-
-	bool nit_actual_done() const {
-		return scan_state.done(scan_state_t::completion_index_t::NIT_ACTUAL);
-	}
-
-	bool nit_other_done() const {
-		return scan_state.done(scan_state_t::completion_index_t::NIT_OTHER);
-	}
-
-	bool sdt_actual_done() const {
-		return scan_state.done(scan_state_t::completion_index_t::SDT_ACTUAL);
-	}
-
-	bool sdt_other_done() const {
-		return scan_state.done(scan_state_t::completion_index_t::SDT_OTHER);
-	}
-
-	bool bat_done() const {
-		return scan_state.done(scan_state_t::completion_index_t::BAT);
-	}
-
-	bool pat_completed() const { //PAT as been correctly received
-		return scan_state.completed(scan_state_t::completion_index_t::PAT);
-	}
-
-	bool nit_actual_completed() const { //NIT_ACTUAL as been correctly received
-		return scan_state.completed(scan_state_t::completion_index_t::NIT_ACTUAL);
-	}
-
-	bool nit_actual_notpresent() const {
-		return scan_state.notpresent(scan_state_t::completion_index_t::NIT_ACTUAL);
-	}
-
-	bool nit_other_completed() const {
-		return scan_state.completed(scan_state_t::completion_index_t::NIT_OTHER);
-	}
-
-	bool sdt_actual_notpresent() const {
-		return scan_state.notpresent(scan_state_t::completion_index_t::SDT_ACTUAL);
-	}
-
-	bool sdt_actual_completed() const {
-		return scan_state.completed(scan_state_t::completion_index_t::SDT_ACTUAL);
-	}
-
-	bool sdt_other_completed() const {
-		return scan_state.completed(scan_state_t::completion_index_t::SDT_OTHER);
-	}
-
-	bool bat_completed() const {
-		return scan_state.completed(scan_state_t::completion_index_t::BAT);
-	}
-
-	/*
-		sdt has foiund complete service data for the same number of muxes
-		as were discovered in nit_actual
-	 */
-	bool network_sdt_completed(uint16_t network_id) const {
-		if(!nit_actual_done()) //Note: done() instead of completed()
-			return false; //more muxes may be discored in nit; we do not care about nit_other
-		auto [it, found] = find_in_map(nit_data.by_onid, network_id);
-		if(found) {
-			return it->second.completed();
-		}
-		return false;
-	}
-
-	/*
-		either we have all nit and sdt info for this network, or it is no longer possible
-		that we will receive it because nit_actual has done (completed ot not)
-		and sdt is still not done
-	 */
-	bool network_done(uint16_t original_network_id) const {
-		auto [it, found] = find_in_map(nit_data.by_onid, original_network_id);
-		if(found)
-			return it->second.completed() || nit_actual_done();
-
-		/*
-			if nit_actual_done() and nit knows the network, then found should have been true
-		 */
-		return nit_actual_done();
-	}
-
-	bool bouquet_done(uint16_t bouquet_id) const {
-		auto [it, found] = find_in_map(bat_data.by_bouquet_id, bouquet_id);
-		if(found)
-			return it->second.num_sections_processed == it->second.subtable_info.num_sections_present;
-		return bat_done();
-	}
-
-	bool nit_other_all_networks_completed() const {
-		/*@todo: this includes also nit_actual, which is incorrect.
-
-			instead we may have to mainat a per network_id (instead of per onid)
-			datastructure and record how many sections we have loaded (and if more could follow)
-		 */
-		for(auto& [network_id, n]: nit_data.by_network_id) {
-			if (!n.is_actual && n.num_sections_processed != n.subtable_info.num_sections_present)
-				return false;
-		}
-		return true;
-	}
-
-	bool bat_all_bouquets_completed() const {
-		for(auto& [bouquet_id, b]: bat_data.by_bouquet_id) {
-			if(b.num_sections_processed != b.subtable_info.num_sections_present)
-				return false;
-		}
-		return true;
-	}
-
-	/*
-		Usually a mux is only has entries in either SDT_actual or sdt_other,
-		but sometimes it is present in both; so we employ checking subtable_info.num_sections_present>0
-		as a heuristic to choose between sdt_actual and sdt_other, with a preference for sdt_actual
-		in case of doubt.
-
-		This function is oly used in bat processing
-	 */
-	bool mux_sdt_done(uint16_t network_id, uint16_t ts_id) const {
-		auto [it, found] = find_in_map(nit_data.by_network_id_ts_id, std::make_pair(network_id, ts_id));
-		if(found) {
-			int result_for_actual= -1;
-			for(auto& sdt: it->second.sdt) {
-				if (result_for_actual <0)
-					result_for_actual = (sdt.num_sections_processed == sdt.subtable_info.num_sections_present);
-				if(sdt.subtable_info.num_sections_present>0) {
-					return sdt.num_sections_processed == sdt.subtable_info.num_sections_present;
-				}
-			}
-			return result_for_actual;
-		}
-		return nit_actual_done();
-	}
-
-	bool all_known_muxes_completed() const {
-		for(auto& [nit_tid, m]: nit_data.by_network_id_ts_id) {
-			for(const auto& sdt: m.sdt) {
-			if (sdt.num_sections_processed != sdt.subtable_info.num_sections_present)
-				return false;
-			}
-		}
-		return true;
-	}
 };
 
 
@@ -553,11 +395,13 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	friend class active_adapter_t;
 	friend class tuner_thread_t;
 
+	scan_state_t scan_state;
 	//set at creation time (first tune)
 	txnmgr_t<chdb::chdb_t> chdbmgr;
 	txnmgr_t<epgdb::epgdb_t> epgdbmgr;
 	//const chdb::mux_key_t key;
 	chdb::any_mux_t dbmux; //current mux with all possible updates applied
+	chdb::mux_common_t initial_dbmux_common;  //needed for si processing
 	bool is_main{false}; //is this the main mux (the one we requested to tune, not some other stream)
 
 
@@ -767,6 +611,169 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	bool remove_si_subscription(subscription_id_t subscription_id);
 
 	void check_scan_mux_end();
+	inline chdb::mux_common_t get_initial_mux_common() const {
+		return this->initial_dbmux_common;
+	}
+
+	/*
+		done means: timedout or completed
+		completed means: we have retrieved all available info
+	*/
+	inline bool pat_done() const {
+		return scan_state.done(scan_state_t::completion_index_t::PAT);
+	}
+
+	inline bool nit_actual_done() const {
+		return scan_state.done(scan_state_t::completion_index_t::NIT_ACTUAL);
+	}
+
+	inline bool nit_other_done() const {
+		return scan_state.done(scan_state_t::completion_index_t::NIT_OTHER);
+	}
+
+	inline bool sdt_actual_done() const {
+		return scan_state.done(scan_state_t::completion_index_t::SDT_ACTUAL);
+	}
+
+	inline bool sdt_other_done() const {
+		return scan_state.done(scan_state_t::completion_index_t::SDT_OTHER);
+	}
+
+	inline bool bat_done() const {
+		return scan_state.done(scan_state_t::completion_index_t::BAT);
+	}
+
+	inline bool pat_completed() const { //PAT as been correctly received
+		return scan_state.completed(scan_state_t::completion_index_t::PAT);
+	}
+
+	inline bool nit_actual_completed() const { //NIT_ACTUAL as been correctly received
+		return scan_state.completed(scan_state_t::completion_index_t::NIT_ACTUAL);
+	}
+
+	inline bool nit_actual_notpresent() const {
+		return scan_state.notpresent(scan_state_t::completion_index_t::NIT_ACTUAL);
+	}
+
+	inline bool nit_other_completed() const {
+		return scan_state.completed(scan_state_t::completion_index_t::NIT_OTHER);
+	}
+
+	inline bool sdt_actual_notpresent() const {
+		return scan_state.notpresent(scan_state_t::completion_index_t::SDT_ACTUAL);
+	}
+
+	inline bool sdt_actual_completed() const {
+		return scan_state.completed(scan_state_t::completion_index_t::SDT_ACTUAL);
+	}
+
+	inline bool sdt_other_completed() const {
+		return scan_state.completed(scan_state_t::completion_index_t::SDT_OTHER);
+	}
+
+	inline bool bat_completed() const {
+		return scan_state.completed(scan_state_t::completion_index_t::BAT);
+	}
+
+	bool pmts_can_be_saved() const {
+		return ! pmt_data.saved &&
+			nit_actual_done() &&
+			sdt_actual_done() &&
+			pmt_data.all_received();
+	}
+
+	/*
+		sdt has foiund complete service data for the same number of muxes
+		as were discovered in nit_actual
+	 */
+	inline bool network_sdt_completed(uint16_t network_id) const {
+		if(!nit_actual_done()) //Note: done() instead of completed()
+			return false; //more muxes may be discored in nit; we do not care about nit_other
+		auto [it, found] = find_in_map(nit_data.by_onid, network_id);
+		if(found) {
+			return it->second.completed();
+		}
+		return false;
+	}
+
+	/*
+		either we have all nit and sdt info for this network, or it is no longer possible
+		that we will receive it because nit_actual has done (completed ot not)
+		and sdt is still not done
+	 */
+	inline bool network_done(uint16_t original_network_id) const {
+		auto [it, found] = find_in_map(nit_data.by_onid, original_network_id);
+		if(found)
+			return it->second.completed() || nit_actual_done();
+
+		/*
+			if nit_actual_done() and nit knows the network, then found should have been true
+		 */
+		return nit_actual_done();
+	}
+
+	inline bool bouquet_done(uint16_t bouquet_id) const {
+		auto [it, found] = find_in_map(bat_data.by_bouquet_id, bouquet_id);
+		if(found)
+			return it->second.num_sections_processed == it->second.subtable_info.num_sections_present;
+		return bat_done();
+	}
+
+	inline bool nit_other_all_networks_completed() const {
+		/*@todo: this includes also nit_actual, which is incorrect.
+
+			instead we may have to mainat a per network_id (instead of per onid)
+			datastructure and record how many sections we have loaded (and if more could follow)
+		 */
+		for(auto& [network_id, n]: nit_data.by_network_id) {
+			if (!n.is_actual && n.num_sections_processed != n.subtable_info.num_sections_present)
+				return false;
+		}
+		return true;
+	}
+
+	inline bool bat_all_bouquets_completed() const {
+		for(auto& [bouquet_id, b]: bat_data.by_bouquet_id) {
+			if(b.num_sections_processed != b.subtable_info.num_sections_present)
+				return false;
+		}
+		return true;
+	}
+
+	/*
+		Usually a mux is only has entries in either SDT_actual or sdt_other,
+		but sometimes it is present in both; so we employ checking subtable_info.num_sections_present>0
+		as a heuristic to choose between sdt_actual and sdt_other, with a preference for sdt_actual
+		in case of doubt.
+
+		This function is oly used in bat processing
+	 */
+	inline bool mux_sdt_done(uint16_t network_id, uint16_t ts_id) const {
+		auto [it, found] = find_in_map(nit_data.by_network_id_ts_id, std::make_pair(network_id, ts_id));
+		if(found) {
+			int result_for_actual= -1;
+			for(auto& sdt: it->second.sdt) {
+				if (result_for_actual <0)
+					result_for_actual = (sdt.num_sections_processed == sdt.subtable_info.num_sections_present);
+				if(sdt.subtable_info.num_sections_present>0) {
+					return sdt.num_sections_processed == sdt.subtable_info.num_sections_present;
+				}
+			}
+			return result_for_actual;
+		}
+		return nit_actual_done();
+	}
+
+	inline bool all_known_muxes_completed() const {
+		for(auto& [nit_tid, m]: nit_data.by_network_id_ts_id) {
+			for(const auto& sdt: m.sdt) {
+			if (sdt.num_sections_processed != sdt.subtable_info.num_sections_present)
+				return false;
+			}
+		}
+		return true;
+	}
+
 public:
 
 	//void process_psi(int pid, unsigned char* payload, int payload_size);

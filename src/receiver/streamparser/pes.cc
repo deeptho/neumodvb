@@ -224,10 +224,11 @@ void h264_parser_t::parse_payload_unit() {
 	uint8_t primary_pic_type = this->get<uint8_t>();
 	// filler bits to fill until the end of a byte boundary. T he pattern is always 10...0
 	// See http://yumichan.net/video-processing/video-compression/introduction-to-h264-2-sodb-vs-rbsp-vs-ebsp/
+	//https://www.engeniustech.com/technical-papers/H.264-video-compression.pdf
 	uint8_t rbsp = primary_pic_type & 0x1f;
 	if (rbsp != 0x10) { // 5 trailing bits; first should be 1; rest zero
-		dtdebugf("rbsp != 0x10: 0x{:x}", rbsp);
-		THROW_BAD_DATA;
+		dtdebug_nicef("rbsp != 0x10: 0x{:x}", rbsp);
+		//THROW_BAD_DATA;
 	}
 	primary_pic_type >>= 5;
 	/*the following will probably never occur*/

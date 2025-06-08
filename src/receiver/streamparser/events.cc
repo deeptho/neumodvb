@@ -46,7 +46,7 @@ using namespace dtdemux;
 
 void event_handler_t::pcr_discontinuity_(int pid, const pcr_t& pcr) {
 	const char* label = "PCR_DISC: ";
-	dterrorf("PCR DISC: pcr={} ref_pcr={} last_pcr={}", pcr, ref_pcr, last_pcr);
+	dterrorf("PCR discontinuity: pcr={} ref_pcr={} last_pcr={}", pcr, ref_pcr, last_pcr);
 	/*This value will be corrected later. Normally we will now decode a video frame.
 		If the time is earlier than the expected next frame time, the value will be adjiusted accordingly
 	*/

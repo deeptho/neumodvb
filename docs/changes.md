@@ -1,5 +1,76 @@
 # Changes in neumoDVB #
 
+
+## Changes in version neumodvb-1.9 ##
+
+### Improvements
+
+* Allow sharing of mux tuned in positioner_dialog.
+* positioner_dialog: do not add requested isi to isi list when it does not exist in stream.
+* Avoid showing fake stream_id -1 in positioner_dialog when user requests non-existing ISI.
+* Improved handling of unrelated muxes with same mux_id.
+* Distinguish between peak and mux scan in frontendlist.
+* New si code to handle multiple ISI streams on the same tuned frontend.
+* Remove driver_supports_t2mi argument.
+* Use driver support for embedded t2mi streams when available.
+* Allow illegal rbsp fields in video streams, which prevent proper time stamping of Ambience TV on 1.9E.
+* Silence some log messages.
+* Improved debug messages.
+* Updated neumodmx.h.
+* Silence some gdb warnings (.gdbinit).
+
+### Bug fixes
+
+* Incorrect naming of backup dbs.
+* Do not share subscriptions between two template muxes.
+* Incorrect assertions on transport streams without content.
+* When tuning to good multi-stream, the current mux is not saved if the mux is a template.
+* When tuning to a single stream which is really a multistream, si code never times out.
+* Polarisation ignored when reserving mux.
+* Unneeded tuning in some cases, causing a failure due to an unknown lnb.
+* When user requests non-existing ISI, a mux is created in the database.
+* Incorrect SI processing when requested ISI does not exist.
+* Incorrect active_adapter_t::mux_for_key.
+* Information from other mux shown in spectrum dialog when mux does not lock.
+* Accidental reuse of mux_id on template muxes.
+* Make get_positioner_move_stats return pol as well.
+* Nit processing started before pat has been received, resulting incorrect flagging nit as invalid in positioner_dialog.
+* Incorrect ts_id and network_id passed to driver and then to positioner_dialog.
+* Number of services accidentally cleared in mux records in database.
+* Infinite waiting for last_signal_info.
+* Incorrect assertions.
+* Request_tune can return without yet tuning when positioner is moving. In that case active_adapter concludes erroneously that tune failed.
+* Handle races in task_queue_t::stop_running.
+* Deadlock in receiver_t::stop.
+* Matches_physical_fuzzy: make symmetric.
+* Restrict calling active_adapter_t::on_stream_mux_change.
+* Clean_overlapping_muxes: detect change from multistream to single stream and vice versa.
+* Incorrectly set requested_stream_id.
+* PAT_TUNED overwritten.
+* Updated_new_dbfe not correctly set when reusing subscription.
+* Show error message when starting blindscan without selected spectra, instead of silently failing.
+* Improved chdb::matches_physical_fuzzy.
+* Null pointer dereference on closing mpv window.
+* Incorrect argument order in call leads to incorrect subscription.
+* Suppress warning for MHP_IPv4RoutingDescriptorTag
+* Assertions to ensure set_rf_input is called.
+* Incorrect propagation of scanning when detecting new ISIs.
+* scans_in_progress cleared immediately after being filled.
+* Do not allow mux reuse if bbframes are not on.
+* Fix Python assertion in frontend list.
+* Improved removal of fibers when active_service is ending.
+* Remove newlines in debug messages.
+* Bug in deciding to request bbframes or not.
+* Incorrect creation of service_name for pat-only service.
+* Make lmdb_hint work again.
+* No longer update stream_id from driver mux while processing si.
+* T2MI mux causes update_stream_mux_tune_confirmation to be called.
+* Allow sorting of lnb network and connection lists.
+* Remove unused cable_no fields.
+* Incorrectly adding sats to wrong database when user agrees to add them.
+* Incorrect highlight colour in cable list
+
+
 ## Changes in version neumodvb-1.8 ##
 
 ### New features ###

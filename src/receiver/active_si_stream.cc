@@ -3053,11 +3053,16 @@ void active_si_stream_t::update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_
 void active_si_stream_t::save_pmts(db_txn& wtxn)
 {
 	using namespace chdb;
+	if(pmt_data.by_service_id.size()==0) {
+			dtdebugf("NO  pmts");
+			return;
+	}
+
 	auto stream_mux = this->dbmux;
 	auto* stream_mux_key = mux_key_ptr(stream_mux);
 	auto& mux_common = *mux_common_ptr(stream_mux);
 	auto mux_key = *stream_mux_key;
-	assert(mux_key.mux_id >0);
+	assert(mux_key.mux_id >0 || nit_data.by_network_id_ts_id.size()==0 || sdt_data.actual_ts_id <0);
 
 	assert(!chdb::is_template(stream_mux));
 	assert (stream_mux_key->sat_pos != sat_pos_none);

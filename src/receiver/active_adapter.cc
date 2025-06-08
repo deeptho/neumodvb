@@ -262,10 +262,12 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 
 		this->reset();
 		auto ret1 = this->remove_stream(sret.subscription_id); //remove any streaming to the outside world
-		dtdebugf("Called remove_stream: stream was {}removed", (ret1<0)? "NOT " : "");
+		if(ret1)
+			dtdebugf("removed stream");
 
 		ret1 = this->remove_service(sret.subscription_id);
-		dtdebugf("Called remove_service: service was {}removed", (ret1<0)? "NOT " : "");
+		if(ret1)
+			dtdebugf("removed service");
 		assert(this->main_si);
 		assert(sret.aa.lnb);
 		visit_variant(mux,

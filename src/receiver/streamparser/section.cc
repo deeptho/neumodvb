@@ -1440,7 +1440,6 @@ namespace dtdemux {
 				} break;
 
 				case SI::S2SatelliteDeliverySystemDescriptorTag: {
-					dterrorf("S2SatelliteDeliverySystemDescriptor");
 					if (desc1.len > 0) { // solves problem on 5.0W 12340H
 						this->get_fields<s2_satellite_delivery_system_descriptor_t>(dvbs_mux);
 						if (!is_dvbs) {

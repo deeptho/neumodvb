@@ -125,8 +125,8 @@ int options_t::parse_options(int argc, char** argv) {
 			ss::string<128> tmp;
 			tmp = in_db.c_str();
 			tmp.format(".");
-			auto now = time(NULL);
-			tmp.format("{:%Y%m%d_%T}", fmt::localtime(now));
+			auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+			tmp.format("{:%Y%m%d_%T}", now);
 			backup_db = tmp.c_str();
 		} else {
 			backup_db = fs::canonical(fs::path(backup_db)); // clean trailing slashes and such

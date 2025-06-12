@@ -1064,11 +1064,11 @@ namespace ss {
 			return _fmt;
 		}
 	};
-
+#if 0
 	inline fmt_t operator"" _f(const char* x, unsigned long) {
 		return fmt_t(x);
 	}
-
+#endif
 	template <typename T, int buffer_size>
 	ss::vector<T, buffer_size> compute_running_sum(const ss::vector<T, buffer_size>& in) {
 		ss::vector<T, buffer_size> out;

@@ -259,9 +259,10 @@ void text_box::set_value(int x, const char* fmt) {
 	}
 }
 
-void text_box::set_time_value(time_t t, const char* fmt_) {
+void text_box::set_time_value(time_t t_, const char* fmt_) {
 	ss::string<32> val;
-	val.format(fmt::runtime(fmt_), fmt::localtime(t));
+	auto t = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(t_));
+	val.format(fmt::runtime(fmt_), t);
 	if (text) {
 		auto s = wxString::FromUTF8(val.c_str());
 		text->SetContent(s);

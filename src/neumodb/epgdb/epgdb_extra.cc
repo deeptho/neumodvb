@@ -307,13 +307,15 @@ fmt::formatter<epg_source_t>::format(const epg_source_t& s, format_context& ctx)
 
 fmt::format_context::iterator
 fmt::formatter<epg_key_t>::format(const epg_key_t& k, format_context& ctx) const {
-	return fmt::format_to(ctx.out(), "{} [{:d}] {:%F %H:%M}", k.service, k.event_id, fmt::localtime(k.start_time));
+	auto t = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(k.start_time));
+	return fmt::format_to(ctx.out(), "{} [{:d}] {:%F %H:%M}", k.service, k.event_id, t);
 }
 
 
 fmt::format_context::iterator
 fmt::formatter<epg_record_t>::format(const epg_record_t& epg, format_context& ctx) const {
-	return fmt::format_to(ctx.out(), "{} - {:%H:%M}:{} {}", epg.k, fmt::localtime(epg.end_time),
+	auto t =  std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(epg.end_time));
+	return fmt::format_to(ctx.out(), "{} - {:%H:%M}:{} {}", epg.k, t,
 												to_str(epg.rec_status), epg.event_name);
 }
 

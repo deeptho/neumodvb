@@ -884,11 +884,10 @@ void recmgr_thread_t::livebuffer_db_update_(system_time_t now_) {
 		if (live_service.last_use_time < 0 || //live_service still in use
 				live_service.last_use_time >= now - retention_time) //live buffer may be reused for a brief while
 			continue;
-
+		auto creation_time = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(live_service.creation_time));
+		auto last_use_time = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(live_service.last_use_time));
 		dtdebugf("Removing old live buffer: adapter {} created={} end={} update={}",
-						 (int)live_service.adapter_no,
-						 fmt::localtime(live_service.creation_time),
-						 fmt::localtime(live_service.last_use_time), fmt::localtime(now));
+						 (int)live_service.adapter_no, creation_time, last_use_time, now_);
 		ss::string<128> dirname;
 		{
 			auto r = receiver.options.readAccess();

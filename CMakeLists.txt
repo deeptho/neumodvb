@@ -40,7 +40,8 @@ set(FETCHCONTENT_BASE_DIR ${CMAKE_CURRENT_BINARY_DIR}/../build_fmt)
 
 FetchContent_Declare(fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG f5e54359df4c26b6230fc61d38aa294581393084
+  #GIT_TAG f5e54359df4c26b6230fc61d38aa294581393084
+  GIT_TAG 40626af88bd7df9a5fb80be7b25ac85b122d6c21
   )
 
 # Prevent fmt from being installed system-wide

@@ -97,7 +97,8 @@ std::optional<recdb::rec_t> recdb::rec::best_matching(db_txn& txn, const epgdb::
 	create a file name for a recording
 */
 void recdb::rec::make_filename(ss::string_& ret, const chdb::service_t& s, const epgdb::epg_record_t& epg) {
-	ret.format("{} - {} - {:%F %H:%M}", epg.event_name, s.name, fmt::localtime(epg.k.start_time));
+	auto t = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(epg.k.start_time));
+	ret.format("{} - {} - {:%F %H:%M}", epg.event_name, s.name, t);
 	for (auto& c : ret) {
 		if (c == '/' || c == '\\' || iscntrl(c) || !c)
 			c = ' ';
@@ -197,12 +198,14 @@ fmt::formatter<marker_t>::format(const marker_t& m, format_context& ctx) const {
 
 fmt::format_context::iterator
 fmt::formatter<file_t>::format(const file_t& f, format_context& ctx) const {
+	auto real_time_start = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(f.real_time_start));
+	auto real_time_end = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(f.real_time_end));
 	return fmt::format_to(ctx.out(), "file {:d}; stream time: [{} - {}]"
-								 "real time: [{:%F %H:%M} - {:%H:%M}"
-								 " packets=[{:d} - {:d}]",
-								 f.fileno, f.k.stream_time_start, f.stream_time_end,
-								 fmt::localtime(f.real_time_start),  fmt::localtime(f.real_time_end),
-								 f.stream_packetno_start, f.stream_packetno_end);
+												"real time: [{:%F %H:%M} - {:%H:%M}"
+												" packets=[{:d} - {:d}]",
+												f.fileno, f.k.stream_time_start, f.stream_time_end,
+												real_time_start,  real_time_end,
+												f.stream_packetno_start, f.stream_packetno_end);
 }
 
 fmt::format_context::iterator
@@ -216,12 +219,14 @@ fmt::formatter<rec_fragment_t>::format(const rec_fragment_t& f, format_context& 
 
 fmt::format_context::iterator
 fmt::formatter<rec_t>::format(const rec_t& r, format_context& ctx) const {
+	auto real_time_start = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(r.real_time_start));
+	auto real_time_end = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(r.real_time_end));
 	return fmt::format_to(ctx.out(),
 												"{}\n        {}\n"
 												"nstream time: [{} - {}]\n"
 												"real time: [{:%F %H:%M} - {:%H:%M}]]\n",
 												r.service, r.epg,
 												r.stream_time_start, r.stream_time_end,
-												fmt::localtime(r.real_time_start), fmt::localtime(r.real_time_end),
+												real_time_start, real_time_end,
 												r.filename);
 }

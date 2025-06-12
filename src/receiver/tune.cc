@@ -614,10 +614,13 @@ void tuner_thread_t::add_live_buffer(const recdb::live_service_t& live_service) 
 	auto c = live_service_t::find_by_key(wtxn, live_service.owner, live_service.subscription_id, find_type_t::find_eq);
 	if(c.is_valid()) {
 		auto old = c.current();
+		auto last_use_time = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(live_service.last_use_time));
+		auto old_last_use_time = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(old.last_use_time));
 		dtdebugf("updating live_service: last_use_time from={} new={}",
-						 fmt::localtime(old.last_use_time), fmt::localtime(live_service.last_use_time));
+						 old_last_use_time, last_use_time);
 	} else {
-		dtdebugf("new live_service: last_use_time={}", fmt::localtime(live_service.last_use_time));
+		auto last_use_time = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(live_service.last_use_time));
+		dtdebugf("new live_service: last_use_time={}", last_use_time);
 	}
 	c.destroy();
 	put_record(wtxn, live_service);
@@ -637,7 +640,8 @@ void tuner_thread_t::remove_live_buffer(subscription_id_t subscription_id) {
 		return;
 	}
 	auto live_service = c.current();
-	dtdebugf("setting live buffer last_use_time={}", fmt::localtime(system_clock_t::to_time_t(now)));
+	auto now = std::chrono::system_clock::now();
+	dtdebugf("setting live buffer last_use_time={}", now);
 	live_service.last_use_time = system_clock_t::to_time_t(now);
 	c.destroy();
 	txn.commit();

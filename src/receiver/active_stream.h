@@ -352,9 +352,9 @@ public:
 
 	virtual ~active_stream_t() {
 		if(is_open()) {
-			dterrorf("IMPLEMENTATION ERROR: active stream destroyed while stil open\n");
+			dterrorf("IMPLEMENTATION ERROR: active stream destroyed while stil open");
 			this->deactivate();
 		}
-		dtdebugf("~active_stream_t\n");
+		dtdebugf("~active_stream_t");
 	}
 };

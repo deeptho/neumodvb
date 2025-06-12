@@ -65,7 +65,8 @@ void fe_monitor_thread_t::update_lock_status_and_signal_info(fe_status_t fe_stat
 
 	if (verbose) {
 		auto &e = info.last_stat();
-		dtdebugf("Signal strength: {:.1f}dB  CNR:  {:1.f}dN",
+		ss::string<256> msg;
+		dtdebugf("Signal strength: {:.1f}dB  CNR:  {:1.1f}dN",
 						 (e.signal_strength * 1e-3), (e.snr * 1e-3));
 	}
 	dttime_init();

@@ -853,7 +853,7 @@ void active_scam_t::ca_set_descr(const ca_descr_t& ca_descr, uint32_t msgid) {
 	ss::string<32> s;
 	s.format("slot={:p} key[{:d}]=", fmt::ptr(&slot), ca_descr.parity);
 	for (auto x : ca_descr.cw)
-		s.format("%02x", x);
+		s.format("{:02x}", x);
 	dtdebugf("{}", s);
 #endif
 

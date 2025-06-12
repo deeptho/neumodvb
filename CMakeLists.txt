@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.12.1)
 #SET (CMAKE_SKIP_INSTALL_RULES ON)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,defs -Wl,--no-undefined -fuse-ld=gold")
 option(USE_CLANG "build application with clang" ON) # ON is the default
 
 if(USE_CLANG)
@@ -8,7 +7,8 @@ if(USE_CLANG)
   SET (CMAKE_C_COMPILER clang)
 endif(USE_CLANG)
 
-project(neumo VERSION 1.6)
+
+project(neumo LANGUAGES C CXX VERSION 1.7 )
 set(PROJECT_AUTHOR "Deep Thought")
 set(PROJECT_AUTHOR_EMAIL "deeptho@gmail.com")
 set(PROJECT_URL "https://github.com/deeptho/neumodvb")
@@ -18,6 +18,19 @@ set(PROJECT_KEYWORDS "DVB-S2, DVB-T, DVB-C, spectrum scan, blindscan")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 SET(CMAKE_BUILD_RPATH "$ORIGIN/.")
+
+set(CMAKE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,defs -Wl,--no-undefined")
+
+include(CheckLinkerFlag)
+check_linker_flag(CXX -fuse-ld=mold  LINKER_HAS_MOLD)
+if(${LINKER_HAS_MOLD})
+  string(APPEND CMAKE_LINKER_FLAGS " -fuse-ld=mold")
+else()
+  check_linker_flag(CXX -fuse-ld=gold  LINKER_HAS_GOLD)
+  if(${LINKER_HAS_GOLD})
+    string(APPEND CMAKE_LINKER_FLAGS " -fuse-ld=gold")
+  endif()
+endif()
 
 # libneumowxsvg
 include(cmake/neumowxsvg.cmake)

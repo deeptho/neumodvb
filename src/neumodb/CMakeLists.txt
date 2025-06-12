@@ -1,6 +1,4 @@
 find_package(Python 3.7 REQUIRED) #3.7 is minimum version
-find_package(PythonLibs 3.7 REQUIRED)
-include_directories("${PYTHON_INCLUDE_DIR}")
 
 add_compile_options("$<$<CONFIG:DEBUG>:-DNDEBUG -O2 -ggdb>") #applies to subdirs as well
 #add_compile_options("$<$<CONFIG:DEBUG>:-O2;-ggdb>") #applies to subdirs as well

@@ -1737,6 +1737,10 @@ void scanner_t::on_signal_info(const subscriber_t& subscriber,
 		}
 		if(subscription_id == scan.monitored_subscription_id) {
 			subscriber.notify_signal_info(signal_info);
+			auto &s = it->second;
+			if(s.sdt_data) {
+				subscriber.notify_sdt_actual(*s.sdt_data);
+			}
 			return;
 		}
 	}
@@ -1761,8 +1765,9 @@ void scanner_t::on_sdt_actual(const subscriber_t& subscriber,
 		}
 		if(subscription_id == scan.monitored_subscription_id) {
 			subscriber.notify_sdt_actual(sdt_data);
-			return;
 		}
+		auto& s = it->second;
+		s.sdt_data = sdt_data;
 	}
 }
 

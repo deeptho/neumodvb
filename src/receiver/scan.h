@@ -31,7 +31,17 @@ class receiver_thread_t;
 class tuner_thread_t;
 class receiver_t;
 class active_adapter_t;
-struct sdt_data_t;
+
+struct sdt_data_t {
+	chdb::mux_key_t mux_key;
+	int actual_network_id{-1};
+	int actual_ts_id{-1};
+	ss::vector<chdb::service_t, 32> actual_services;
+
+	void reset() {
+		*this = sdt_data_t();
+	}
+};
 
 struct scan_state_t {
 	struct completion_state_t {
@@ -296,6 +306,9 @@ struct scan_subscription_t {
 	std::optional<chdb::any_mux_t> mux;
 	std::optional<std::tuple<chdb::sat_t, chdb::band_scan_t>> sat_band;
 	bool is_peak_scan{false}; //true if we scan the peak rather than a corresponding mux in the db
+
+	std::optional<sdt_data_t> sdt_data;
+
 	scan_subscription_t(subscription_id_t subscription_id)
 		: subscription_id(subscription_id) {}
 	scan_subscription_t(const scan_subscription_t& other) = default;

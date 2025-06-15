@@ -215,16 +215,6 @@ struct mux_data_t  {
 		: mux(mux) {}
 };
 
-struct sdt_data_t {
-	chdb::mux_key_t mux_key;
-	int actual_network_id{-1};
-	int actual_ts_id{-1};
-	ss::vector<chdb::service_t, 32> actual_services;
-
-	void reset() {
-		*this = sdt_data_t();
-	}
-};
 
 struct active_si_data_t;
 

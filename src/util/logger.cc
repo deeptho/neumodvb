@@ -63,18 +63,19 @@ LoggerPtr create_log(const char* loggername) {
 	return logger;
 }
 
-void set_logconfig(const char* logconfig) {
+void set_logconfig(const char* logconfig_) {
 	// Block signals so that the main process inherits them...
 	sigset_t sigset, old;
 	sigfillset(&sigset);
 	sigprocmask(SIG_BLOCK, &sigset, &old);
-	if (!logconfig || !logconfig[0]) {
+	if (!logconfig_ || !logconfig_[0]) {
 		const char* pattern = "%d %.40F:%L\n  %m %n";
 		auto l = LayoutPtr(new PatternLayout(pattern));
 		ConsoleAppender* consoleAppender = new ConsoleAppender(l);
 		helpers::Pool p;
 		BasicConfigurator::configure(AppenderPtr(consoleAppender));
 	} else {
+		std::string logconfig{logconfig_};
 		DOMConfigurator::configureAndWatch(logconfig, 1000);
 	}
 	sigprocmask(SIG_SETMASK, &old, &sigset);

@@ -21,7 +21,7 @@ wxGTK3 wxGTK-devel gtk3-devel freeglut-devel librsvg2-devel libexif-devel libexi
 expat-devel python3-wxpython4 python3-jinja2 python3-matplotlib-wx python3-sip-devel  python3-cachetools \
 python3-gobject-base python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxWidgets-devel \
 wxBase3 wxBase-devel libX11-devel libglvnd-devel espeak mesa-dri-drivers mpv-libs-devel  libdvbcsa-devel \
-ffmpeg-devel mpv-libs-devel tsduck fmt fmt-devel
+ffmpeg-devel mpv-libs-devel tsduck fmt fmt-devel pybind11-devel
 ```
 
 Also make sure that the following packages are **not** installed, as they might lead to compiling or linking with the wrong
@@ -81,11 +81,11 @@ libX11-devel libglvnd-devel libdvbcsa-devel redhat-lsb-core libuuid-devel boost-
 fmt-devel python3-regex gdb boost-program-options boost-regex curl-devel log4cxx libconfig wxGTK \
 wxGTK-devel libexif python3-wxpython4  python3-matplotlib-wx python3-gobject-base  \
 python3-configobj python3-regex python3-matplotlib-wx python3-scipy wxBase ffmpeg-libs \
-libglvnd-devel espeak mesa-dri-drivers fmt python3-regex python3-cachetools
+libglvnd-devel espeak mesa-dri-drivers fmt python3-regex python3-cachetools pybind11-devel
 ```
 
 The last command may fail due to some conflicts with already installed ffmpeg libraties, which need
-to be replaced by those in `rpmfusion`. In that case try adding `--allowerasing` at teh end of the
+to be replaced by those in `rpmfusion`. In that case try adding `--allowerasing` at the end of the
 command that fails.
 
 The following may also be needed:
@@ -100,6 +100,83 @@ at least the following packages are needed:
 sudo pip3 install mpl_scatter_density
 ```
 
+
+
+#### Fedora 42 ####
+If you wish to install fedora from scratch then immediately after installation
+you will need to switch from Wayland to X11 as Wayland lacks several important
+features. You also may wish to install mate desktop, which provides a better
+user experience and which is based on X11:
+```bash
+sudo dnf groupinstall -y 'MATE Desktop'
+```
+Then log out or reboot and at the login screen, press some icon that brings up a menu
+allowing you to select `mater session`. If all goes well, a menu will appear on top of the
+screen.
+
+Some of the packages needed for neumoDVB are provided by rpmfusion, which can be installed
+using the instructions at
+<https://rpmfusion.org/Configuration>:
+
+```bash
+dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm \
+https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-42.noarch.rpm
+```
+
+Then install all packages needed to build and run neumoDVB:
+
+```bash
+sudo dnf install -y --allowerasing  redhat-lsb clang libtool clang-tools-extra \
+    cmake boost-program-options boost-devel wxGTK-devel  pybind11-devel log4cxx log4cxx-devel \
+    libconfig libconfig-devel \
+    python3-jinja2 python3-sip-devel python3-configobj python3-regex \
+    python3-configobj python3-matplotlib-wx python3-scipy python3-gobject-base \
+    python3-wxpython4  python3-matplotlib-wx python3-cachetools \
+    mpv-libs-devel fmt libexif-devel libuuid-devel libdvbcsa-devel gdb espeak \
+    https://github.com/tsduck/tsduck/releases/download/v3.41-4299/tsduck-3.41-4299.fc42.x86_64.rpm
+```
+The last command may fail due to some conflicts with already installed ffmpeg libraties, which need
+to be replaced by those in `rpmfusion`. In that case try adding `--allowerasing` at the end of the
+command that fails.
+
+
+The following are probably no longer needed or are installed when installing some of the above packages:
+```
+sudo dnf install -y --allowerasing   \
+    gtk3-devel freeglut-devel librsvg2-devel expat-devel \
+    wxWidgets-devel wxBase wxBase-devel  \
+    libX11-devel libglvnd-devel curl-devel boost-regex \
+    wxGTK libexif ffmpeg-libs mesa-dri-drivers
+```
+
+In addition, some python code needs to be installed using `sudo pip3 install <PACKAGE>`;
+at least the following packages are needed:
+
+```bash
+sudo pip3 install mpl_scatter_density
+```
+#### Manjaro ####
+
+According to LLew on satellites.co.uk: I use these dependencies in the Archlinux distro Manjaro (or Arcolinux / EndeavourOS):-
+
+```
+base-devel clang gcc cmake libtool boost boost-lib curl log4cxx libconfig \
+wxwidgets-gtk3 freeglut librsvg libexif gobject-introspection expat python-wxpython \
+python-configobj python-sip4 python-matplotlib python-jinja python-regex \
+python-numpy mpv python-mpv ffmpeg libx11 libglvnd espeak-ng perl perl-proc-processtable \
+python-cachetools perl-proc-processtable python-scipy fmt
+```
+
+Needed from Archlinux AUR:
+
+```
+libdvbcsa sip4 python-mpl-scatter-density python-fast-histogram
+```
+
+These may build with no input needed if you have access to AUR from the Add/Remove Software GUI. Or use pamac
+in Terminal.
+
+
 #### Ubuntu 23.10 ####
 
 If you wish to install Ubuntu from scratch, then install it from
@@ -107,7 +184,7 @@ If you wish to install Ubuntu from scratch, then install it from
 
 Install the following packages for building and running neumoDVB:
 ```
-sudo apt install -y git  clang clang-16 clang-tools-16 clang-format python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density cmake libboost-all-dev libgtk-3-dev libwxgtk3.2-dev libexif-dev liblog4cxx-dev python3-jinja2 python3-regex python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev freeglut3-dev python3-configobj  python3-cachetools python3-wxgtk-media4.0 python3-setuptools espeak build-essential libstdc++-14-dev
+sudo apt install -y git  pybind1-dev clang clang-16 clang-tools-16 clang-format python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density cmake libboost-all-dev libgtk-3-dev libwxgtk3.2-dev libexif-dev liblog4cxx-dev python3-jinja2 python3-regex python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev freeglut3-dev python3-configobj  python3-cachetools python3-wxgtk-media4.0 python3-setuptools espeak build-essential libstdc++-14-dev
 wget https://github.com/tsduck/tsduck/releases/download/v3.36-3528/tsduck_3.36-3528.ubuntu23_amd64.deb
 sudo apt install ./tsduck_3.36-3528.ubuntu23_amd64.deb
 ```
@@ -122,7 +199,7 @@ sudo  apt install -y libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-open
 gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools \
 python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev \
 freeglut3-dev libwxgtk3.0-gtk3-dev  python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy \
-clang lsb-core lsb-release python3-regex liblog4cxx12 liblog4cxx-dev freeglut3 espeak libfmt-dev
+clang lsb-core lsb-release python3-regex liblog4cxx12 liblog4cxx-dev freeglut3 espeak libfmt-dev pybind1-dev
 ```
 ** During the above step, you will notice that libcurl4-openssl-dev uninstalls libcurl4-gnutls-dev. This may cause an issue elsewhere. It seems possible to immediately reinstall libcurl-gnutls-dev before proceeding (it will complain). I'll have to see about getting some help evaluating if the older package can be used. **
 

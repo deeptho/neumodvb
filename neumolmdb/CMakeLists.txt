@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 
 # The following must be set BEFORE doing project() or enable_language().
 if (NOT CMAKE_BUILD_TYPE)

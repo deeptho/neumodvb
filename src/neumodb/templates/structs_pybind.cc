@@ -104,14 +104,8 @@ namespace {{dbname}} {
 												v.clear();
 												auto l = py::cast<py::list>(o);
 												for(auto p: l)  {
-													if constexpr
-														(!pybind11::detail::cast_is_temporary_value_reference<{{f.scalar_type}}>::value) {
 														auto pv =  p.cast<{{f.scalar_type}}>();
 														v.push_back(pv);
-													} else {
-														auto pv =  p.cast<{{f.scalar_type}}&>();
-														v.push_back(pv);
-													}
 												}
 											} 	else {
 												auto& val = py::cast<ss::vector_<{{f.scalar_type}}>&>(o);

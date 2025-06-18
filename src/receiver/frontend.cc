@@ -2472,7 +2472,7 @@ int sec_status_t::set_rf_input(int fefd, int new_rf_input, const tune_pars_t& tu
 		break;
 	}
 	this->ic = ic;
-	dtdebugf("here this->ic.rf_input={}", this->ic.rf_in);
+	dtdebugf("here: this->ic.rf_input={}", this->ic.rf_in);
 	assert(this->ic.rf_in >=0);
 	this->rf_input_changed  = true;
 	return ret;

@@ -43,7 +43,9 @@ mmap_t& mmap_t::operator=(const mmap_t& other) {
 		should remain at default values
 	*/
 	readonly = other.readonly;
+	assert(other.map_len>=0);
 	map_len = other.map_len;
+
 	fd = -1;
 	offset = 0;
 	buffer = nullptr;
@@ -66,6 +68,7 @@ mmap_t& mmap_t::operator=(mmap_t&& other) {
 
 	offset = other.offset;
 	other.offset = 0;
+	assert(other.map_len>=0);
 	map_len = other.map_len;
 	other.map_len = -1;
 
@@ -129,15 +132,17 @@ int mmap_t::move_map(off_t start) {
 		assert(map_len>0);
 	} else {
 		map_len = current_size - start;
-		if (map_len % pagesize != 0)
+		if (map_len % pagesize != 0) {
+			assert(map_len + pagesize - (map_len % pagesize)>0);
 			map_len += pagesize - (map_len % pagesize);
+		}
 		if (map_len % pagesize != 0) {
 			dterrorf("map_len%%pagesize != 0 map_len={:d} current_size={:d} start={:d} pagesize={:d}", map_len, current_size, start,
 							 pagesize);
 		}
 
-		assert(map_len > 0);
 	}
+	assert(map_len > 0);
 	dtdebugf("MMAP {:d} {:d}", start, map_len);
 	uint8_t* mem = (uint8_t*)mmap(NULL, map_len, readonly ? PROT_READ : (PROT_READ | PROT_WRITE), MAP_SHARED, fd, start);
 	if (mem == (uint8_t*)-1) {
@@ -197,7 +202,7 @@ int mmap_t::grow_map(off_t end_read_offset) {
 		new_map_len += pagesize - (new_map_len % pagesize);
 
 	assert(buffer);
-
+	assert(map_len > 0);
 	void* mem = mremap(buffer, map_len, new_map_len, MREMAP_MAYMOVE);
 	dtdebugf("MEMREMAP: map_len = {:d} -> {:d} buffer={:p} -> {:p}", map_len, new_map_len,
 					 fmt::ptr(buffer), fmt::ptr(mem));
@@ -210,6 +215,7 @@ int mmap_t::grow_map(off_t end_read_offset) {
 	assert(new_safe_read_len > safe_read_len);
 	safe_read_len = new_safe_read_len;
 	assert(safe_read_len <= new_map_len);
+	assert(new_map_len > 0);
 	map_len = new_map_len;
 	assert(new_map_len % pagesize == 0);
 	return 1;

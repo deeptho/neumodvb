@@ -74,6 +74,9 @@ cmake_policy(SET CMP0167 NEW)
 find_package(Boost 1.69 REQUIRED regex context program_options)
 include_directories(${BOOST_INCLUDE_DIRS})
 
+cmake_policy(SET CMP0148 OLD)
+find_package(pybind11 REQUIRED)
+
 find_package(PkgConfig REQUIRED)
 
 find_package(Python COMPONENTS Interpreter Development)
@@ -100,7 +103,7 @@ option( USE_SYSTEM_TZ_DB "Use the operating system's timezone database" ON )
 
 option(BUILD_TESTING "Build the testing tree." OFF)
 
-add_subdirectory(pybind11)
+#add_subdirectory(pybind11)
 add_subdirectory(gui)
 add_subdirectory(src)
 add_subdirectory(neumolmdb)

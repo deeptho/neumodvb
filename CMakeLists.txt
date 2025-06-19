@@ -70,7 +70,8 @@ add_compile_options (
   -fPIC -fsized-deallocation -DHAS_UNCAUGHT_EXCEPTIONS=1 -D DATA_DIR=${CMAKE_SOURCE_DIR}/data)
 #add_link_options( -lasan)
 
-cmake_policy(SET CMP0167 NEW)
+#cmake_policy(SET CMP0167 NEW)
+cmake_policy(VERSION 3.30..3.99)
 find_package(Boost 1.69 REQUIRED regex context program_options)
 include_directories(${BOOST_INCLUDE_DIRS})
 

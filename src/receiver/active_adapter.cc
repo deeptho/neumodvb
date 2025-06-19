@@ -1147,7 +1147,9 @@ void active_adapter_t::check_for_new_streams()
 	};
 	//auto* mux_key = mux_key_ptr(signal_info.driver_mux);
 	auto* c = mux_common_ptr(signal_info.driver_mux);
+	auto* k = mux_key_ptr(signal_info.driver_mux);
 	*c = this->main_si->get_initial_mux_common();
+	k->t2mi_pid = -1;
 	auto& scan_id = c->scan_id;
 	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
 	int tuned_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;

@@ -279,6 +279,7 @@ static void chdb::clean_overlapping_muxes_on_sat(db_txn& wtxn, const chdb::dvbs_
 }
 
 static void chdb::clean_overlapping_muxes(db_txn& wtxn, const chdb::dvbs_mux_t& mux) {
+	assert(!chdb::is_template(mux));
 	int sat_tolerance = sat_pos_tolerance;
 	auto cs = sat_t::find_by_key(wtxn, mux.k.sat_pos-sat_tolerance, find_type_t::find_geq);
 	for(const auto& sat:  cs.range()) {
@@ -295,6 +296,7 @@ static void chdb::clean_overlapping_muxes(db_txn& wtxn, const mux_t& mux) {
 
 
 void chdb::clean_overlapping_muxes(db_txn& wtxn, const chdb::any_mux_t& mux) {
+	assert(!chdb::is_template(mux));
 	visit_variant(
 		mux,
 		[&](const chdb::dvbs_mux_t& mux) {

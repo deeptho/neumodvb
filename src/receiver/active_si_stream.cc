@@ -1567,8 +1567,10 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 				network_data.reset();
 				return ret; // definitely on wrong sat
 			}
-			if(tune_confirmation.sat_by == confirmed_by_t::NIT) {
-				chdb::clean_overlapping_muxes(wtxn, mux);
+				if(tune_confirmation.sat_by == confirmed_by_t::NIT) {
+					if(!chdb::is_template(mux))
+						chdb::clean_overlapping_muxes(wtxn, mux);
+				}
 			}
 		}
 		if(is_active_mux) {

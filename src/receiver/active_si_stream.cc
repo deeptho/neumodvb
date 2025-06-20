@@ -1653,6 +1653,13 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 			mux_key->sat_pos = 4200;
 	}
 
+	if(mux_key->sat_pos >= 700 && mux_key->sat_pos <= 800) {
+		if(tuned_mux_key->sat_pos >= -800 && tuned_mux_key->sat_pos <= -700) {
+			//hack for 7.0W on which 7.0WE is reported as 7.3E
+			mux_key->sat_pos = -mux_key->sat_pos;
+	}
+	}
+
 	const bool disregard_networks{true};
 	if (dvbs_mux && !devdb::lnb_can_tune_to_mux(active_adapter().current_lnb(), *dvbs_mux, disregard_networks)) {
 		auto tmp = *dvbs_mux;

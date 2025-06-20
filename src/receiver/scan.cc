@@ -965,7 +965,7 @@ void scan_t::scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
 
 	bool existing_subscription = (int)subscription.subscription_id >=0;
 	assert(existing_subscription);
-	assert(std::abs(subscription.blindscan_key.sat_pos-finished_mux_key.sat_pos)<=100);
+	//assert(std::abs(subscription.blindscan_key.sat_pos-finished_mux_key.sat_pos)<=100);
 	auto sat_pos =  subscription.blindscan_key.sat_pos;
 
 	ssptr_t ssptr_to_erase;

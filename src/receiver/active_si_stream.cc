@@ -518,17 +518,17 @@ bool active_si_stream_t::abort_on_wrong_sat() const {
 	 After the function has run, set a flag to indicate that the cached entry has been verified from
 	 the received nit information
 
-
  */
 mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool is_actual,
 																 bool is_active_mux, bool is_tuned_freq, bool from_sdt)
 {
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
-
+	if(is_template(mux) && from_sdt) {
+		return nullptr;
+	}
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
-
 	auto stream_mux = this->dbmux;
 	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
@@ -1538,7 +1538,8 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		 */
 		bool can_be_tuned = fix_mux(mux);
 		bool is_tuned_freq = matches_physical_fuzzy(mux, stream_mux, false /*check_sat_pos*/); //correct pol, stream_id, t2mid_pid, frequency; sat_pos may be off
-		bool is_active_mux = this->matches_reader_mux(mux, false /*from_sdt*/) && network.is_actual;
+		bool is_active_mux = this->matches_reader_mux(mux, false /*from_sdt*/, true /*check_sat_pos*/) && network.is_actual;
+		bool is_active_on_other_sat = this->matches_reader_mux(mux, false /*from_sdt*/, false /*check_sat_pos*/) && network.is_actual;
 		/* update database: tune_src, mux_key, tuning parameters;
 			 perform overall database changes when mux_key changes
 			 check and fix modulation parameters by consulting driver
@@ -1547,34 +1548,45 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			 add sat entry if none present yet
 			 updates reader->current_mux
 		 */
-		bool bad_si_mux = is_tuned_freq && ! is_active_mux; //not tsid in pat or tsid differs from the one in reader_mux
-		bad_si_mux |= (network.is_actual && !ts_id_in_pat(mux_common_ptr(mux)->nit_ts_id));
-		if(is_active_mux) {
-			mux_key->mux_id = chdb::mux_key_ptr(this->dbmux)->mux_id;
-		}
 
 		if (!can_be_tuned) {
 			continue;
 		}
 
-		if(can_be_tuned)
-			add_mux(wtxn, mux, network.is_actual, is_active_mux, is_tuned_freq, false /*from_sdt*/);
 		if (network.is_actual) {
 			p_network_data->num_muxes++;
-			ret = nit_actual_update_tune_confirmation(mux, is_active_mux);
+			ret = nit_actual_update_tune_confirmation(mux, is_active_mux, is_active_on_other_sat, is_tuned_freq);
 			if (ret != dtdemux::reset_type_t::NO_RESET) {
 				wtxn.abort();
 				network_data.reset();
 				return ret; // definitely on wrong sat
 			}
+			if(tune_confirmation.on_wrong_sat) {
+					auto& dbmux_key = *chdb::mux_key_ptr(this->dbmux);
+					auto& mux_key = *chdb::mux_key_ptr(mux);
+					if(dbmux_key.sat_pos !=mux_key.sat_pos) {
+						dtdebugf("Currenly tuned mux is on other sat req={} got={}; updating", dbmux_key.sat_pos, mux_key.sat_pos);
+						dbmux_key.sat_pos = mux_key.sat_pos;
+					}
+					is_active_mux = true;
+
+			}
+			if(is_active_mux) {
+				mux_key->mux_id = chdb::mux_key_ptr(this->dbmux)->mux_id;
+			}
+			add_mux(wtxn, mux, network.is_actual, is_active_mux, is_tuned_freq, false /*from_sdt*/);
+			if(is_active_mux) {
+				//assert (chdb::is_template(this->dbmux) || *chdb::mux_key_ptr(this->dbmux) == *chdb::mux_key_ptr(mux));
+				this->dbmux = mux;
 				if(tune_confirmation.sat_by == confirmed_by_t::NIT) {
 					if(!chdb::is_template(mux))
 						chdb::clean_overlapping_muxes(wtxn, mux);
 				}
+
+				bool bad_si_mux = is_tuned_freq && ! is_active_mux; //not tsid in pat or tsid differs from the one in reader_mux
+				bad_si_mux |= (network.is_actual && !ts_id_in_pat(mux_common_ptr(mux)->nit_ts_id));
+				reader->update_received_si_mux(mux, bad_si_mux); //store the bad mux
 			}
-		}
-		if(is_active_mux) {
-			reader->update_received_si_mux(mux, bad_si_mux); //store the bad mux
 		}
 	}
 	bool done = nit_data.update_nit_completion(scan_state, info, network_data);
@@ -1687,7 +1699,8 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 			//reuters on 22W 4026R reports the wrong polarisation
 			dvbs_mux->pol =  chdb::fe_polarisation_t::R;
 		}
-		can_be_tuned = std::abs((int) mux_key->sat_pos - (int) tuned_mux_key->sat_pos) <= sat_pos_tolerance;
+		can_be_tuned = chdb::is_template(mux) ||
+			(std::abs((int) mux_key->sat_pos - (int) tuned_mux_key->sat_pos) <= sat_pos_tolerance);
 	}
 	return can_be_tuned;
 }
@@ -1752,7 +1765,8 @@ bool active_si_stream_t::sdt_actual_check_confirmation(bool mux_key_changed, int
 	returns update_mux_ret, is_active_mux
 */
 dtdemux::reset_type_t
-active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bool is_active_mux) {
+active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bool is_active_mux,
+																												bool is_active_on_other_sat, bool is_tuned_freq) {
 	using namespace chdb;
 	auto ret = dtdemux::reset_type_t::NO_RESET;
 	using namespace chdb;
@@ -1774,8 +1788,11 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 		if (is_embedded_si || pat_data.stable_pat()) {
 			//permanently on wrong sat (dish stopped moving)
 			dtdebugf("sat_pos is wrong but pat is stable.");
-				is_active_mux = true;
-				tune_confirmation.on_wrong_sat = std::abs(tuned_mux_key->sat_pos - mux_key->sat_pos) <= 100;
+			is_active_mux = is_active_on_other_sat;
+			if(is_active_mux) {
+				tune_confirmation.on_wrong_sat = std::abs(tuned_mux_key->sat_pos - mux_key->sat_pos) >= sat_pos_tolerance;
+				on_wrong_sat = false;
+			}
 				if (abort_on_wrong_sat())
 					ret = dtdemux::reset_type_t::ABORT;
 				else
@@ -1815,7 +1832,7 @@ active_si_stream_t::nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bo
 		/*to avoid cases where another another mux provides wrong network_id, ts_id
 			network_id, ts_id for the tuned mux is considered authorative
 		*/
-		if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
+		if (tune_confirmation.sat_by == confirmed_by_t::NONE && ! on_wrong_sat) {
 			assert(std::abs(tuned_mux_key->sat_pos - mux_key->sat_pos) <= sat_pos_tolerance ||
 						 !on_wrong_sat);
 			dtdebugf("NIT CONFIRMS sat={:d}", mux_key->sat_pos);
@@ -2022,7 +2039,7 @@ bool active_si_stream_t::update_mux(
 		chdb::update_mux(chdb_wtxn, mux, now,  preserve, /*true ignore_key,*/
 										 false /*ignore_t2mi_pid*/, false /*must_exist*/);
 	} else {
-		assert(!chdb::is_template(mux));
+		assert(chdb::mux_common_ptr(mux)->tune_src != tune_src_t::TEMPLATE);
 		assert(mux_key_ptr(mux)->mux_id  > 0 || !from_sdt);
 		chdb::update_mux(chdb_wtxn, mux, now, preserve, cb,
 										 false /*ignore_t2mi_pid*/, false /*must_exist*/);
@@ -2298,7 +2315,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 				auto preserve = is_actual
 					? m::flags{m::ALL & ~(m::NUM_SERVICES | m::EPG_TYPES | m::MUX_KEY)}
 					: m::ALL; //then only new records will be created, but nothing will be updated
-				bool is_reader_mux = this->matches_reader_mux(mux, true /*from_sdt*/);
+				bool is_reader_mux = this->matches_reader_mux(mux, true /*from_sdt*/, true /*check_sat_pos*/);
 				auto ret = this->update_mux(wtxn, mux, now, is_reader_mux, is_actual /*is_tuned_freq*/,
 												 true /*from_sdt*/, preserve /*preserve*/);
 				if(is_actual)
@@ -2571,7 +2588,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 	lmdb_hint();
 	auto wtxn = chdbmgr.wtxn();
 	/*
-		find out what we already know about network_id,m ts_id
+		find out what we already know about network_id, ts_id
 		is mux known in database, and what is its extra_id?
 		have we seen it in NIT_ACTUAL?
 	 */
@@ -3019,7 +3036,7 @@ void active_si_stream_t::add_pmt(uint16_t service_id, uint16_t pmt_pid) {
 	There can be multiple records in the database matching the mux, but then
 	at least one of them is the "reader" mux (=the mux from which the si table was read)
  */
-bool active_si_stream_t::matches_reader_mux(const chdb::any_mux_t& mux, bool from_sdt)
+bool active_si_stream_t::matches_reader_mux(const chdb::any_mux_t& mux, bool from_sdt, bool check_sat_pos)
 {
 	/*
 		t2mi pids start with the nid/tid from their parent mux. So tid may be incorrect
@@ -3035,7 +3052,7 @@ bool active_si_stream_t::matches_reader_mux(const chdb::any_mux_t& mux, bool fro
 	*/
 
 	auto stream_mux = this->dbmux;
-	return chdb::matches_physical_fuzzy(mux, stream_mux);  // true requires that stream_id or t2mi_pid also match
+	return chdb::matches_physical_fuzzy(mux, stream_mux, check_sat_pos);  // true requires that stream_id or t2mi_pid also match
 }
 
 void active_si_stream_t::update_stream_ids_from_pat(db_txn& wtxn, chdb::any_mux_t& mux)

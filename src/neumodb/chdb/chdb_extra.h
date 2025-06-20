@@ -152,7 +152,7 @@ namespace chdb {
 	}
 
 	inline bool is_template(const chdb::any_mux_t& mux) {
-		return mux_common_ptr(mux)->tune_src == tune_src_t::TEMPLATE;
+		return (mux_common_ptr(mux)->tune_src == tune_src_t::TEMPLATE) || (mux_key_ptr(mux)->mux_id == 0);
 	}
 
 	inline bool is_template(const chg_t& chg) {

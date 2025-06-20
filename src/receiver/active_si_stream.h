@@ -445,7 +445,9 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	bool sdt_actual_check_confirmation(bool mux_key_changed, int db_corrrect,mux_data_t* p_mux_data);
 
 	dtdemux::reset_type_t
-		nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bool is_active_mux);
+	nit_actual_update_tune_confirmation(chdb::any_mux_t& mux, bool is_active_mux,
+																			bool is_active_on_other_sat, bool is_tuned_freq);
+
 	dtdemux::reset_type_t on_nit_section_completion(network_data_t& network_data,
 																									dtdemux::reset_type_t ret, bool is_actual,
 																									bool on_wrong_sat, bool done);
@@ -581,7 +583,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	bool fix_mux(chdb::any_mux_t& mux);
 
 	//true if this mux equals the currently streamed mux (embedded mux for t2mi, or tuned mux)
-	bool matches_reader_mux(const chdb::any_mux_t& mux, bool from_sdt);
+	bool matches_reader_mux(const chdb::any_mux_t& mux, bool from_sdt, bool check_sat_pos);
 	bool update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);
 	bool update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
 									bool is_active_mux, bool is_tuned_freq,
@@ -668,7 +670,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	}
 
 	bool pmts_can_be_saved(bool force) const {
-		return ! pmt_data.saved &&
+		return ! pmt_data.saved && ! chdb::is_template(this->dbmux) &&
 			nit_actual_done() &&
 			sdt_actual_done() &&
 			(force || pmt_data.all_received());

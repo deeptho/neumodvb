@@ -1406,6 +1406,7 @@ fmt::formatter<chdb::dvbs_mux_t>::format(const chdb::dvbs_mux_t& mux, format_con
 		it = fmt::format_to(ctx.out(), "-{:d}", mux.k.stream_id);
 	if (mux.k.t2mi_pid >= 0)
 		it = fmt::format_to(ctx.out(), "-T{:d}", mux.k.t2mi_pid);
+	it = fmt::format_to(ctx.out(), " {}", mux.k);
 #if 0
 	it = fmt::format_to(ctx.out(), " {} {}", mux.k, mux.c.tune_src);
 #endif

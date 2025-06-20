@@ -311,6 +311,13 @@ class LnbNetworkSatGridPopup(BasicLnbNetworkGrid):
                 sat_band = pydevdb.lnb.sat_band(self.lnb.k)
                 lnb_network = self.table.GetValue(self.selected_row, None)
                 sat = self.table.find_sat(lnb_network.sat_pos, sat_band)
+                if sat is None:
+                    txn = wx.GetApp().chdb.wtxn()
+                    sat = pychdb.sat.sat()
+                    sat.sat_pos = lnb_network.sat_pos
+                    sat.sat_band = sat_band
+                    pychdb.put_record(txn, sat)
+                    txn.commit()
                 self.Parent.GrandParent.OnSelectLnbNetworkSat(sat)
             evt.Skip(False)
         else:

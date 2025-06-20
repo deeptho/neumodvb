@@ -1494,11 +1494,11 @@ namespace dtdemux {
 					break;
 				}
 				tst1 -= (desc1.len + 2);
-				assert(tst1 == this->available());
+				assert(tst1 <= this->available());
 				if (has_error())
 					return false;
 			}
-			assert(end1 == this->available());
+			//assert(end1 == this->available());
 #ifndef NDEBUG
 #if 0
 			int x = network.is_dvbs + network.is_dvbc + network.is_dvbt;

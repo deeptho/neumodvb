@@ -620,7 +620,7 @@ namespace dtdemux {
 		assert(available() >= end);
 		if (available() > end) {
 			// this is not right! sometimes desc.len=12 and we end up here...
-			dterrorf("desc.len={:d} skipping {:d}\n", desc.len, available() - end);
+			dterror_nicef("desc.len={:d} skipping {:d}\n", desc.len, available() - end);
 			skip(available() - end);
 		}
 		return has_error();
@@ -1207,7 +1207,7 @@ namespace dtdemux {
 		pat_services.version_number = hdr.version_number;
 		pat_services.ts_id = ts_id;
 		if (hdr.table_id != 0x0) {
-			dterrorf("PAT with bad table id {}", (int)hdr.table_id);
+			dterror_nicef("PAT with bad table id {}", (int)hdr.table_id);
 			return false;
 		}
 
@@ -1257,12 +1257,12 @@ namespace dtdemux {
 		// current_version_number = hdr.version_number;
 		int pid = hdr.pid;
 		if (hdr.table_id != 0x02) {
-			dterrorf("PMT PID={}: with bad table id ", pid, (int)hdr.table_id);
+			dterror_nicef("PMT PID={}: with bad table id ", pid, (int)hdr.table_id);
 			return false;
 		}
 
 		if (hdr.section_number != 0 || hdr.last_section_number != 0) {
-			dterrorf("Bad PMT: secno={} last_sec_no={}", (int)hdr.section_number,
+			dterror_nicef("Bad PMT: secno={} last_sec_no={}", (int)hdr.section_number,
 							 (int)hdr.last_section_number);
 			return false;
 		}
@@ -1373,6 +1373,7 @@ namespace dtdemux {
 			switch (desc.tag) {
 			case SI::NetworkNameDescriptorTag:
 				if (this->get_fields<dvb_text_t>(network.network_name, desc) < 0) {
+					dterror_nicef("Error getting network_name");
 					return false;
 				}
 				break;
@@ -1390,8 +1391,10 @@ namespace dtdemux {
 				this->skip(desc.len);
 				break;
 			}
-			if (this->has_error())
+			if (this->has_error()) {
+				dterror_nicef("Error during processing");
 				return false;
+			}
 			tst -= (desc.len + 2);
 			assert(tst == this->available());
 		}
@@ -1471,14 +1474,14 @@ namespace dtdemux {
 					mux.c.nit_ts_id = ts_id;
 					is_dvbt = true;
 					if (this->get_fields<terrestrial_delivery_system_descriptor_t>(dvbt_mux) < 0) {
-						dterrorf("Bad mux found: {}", dvbt_mux);
+						dterror_nicef("Bad mux found: {}", dvbt_mux);
 					}
 				} break;
 				case SI::ServiceListDescriptorTag: {
 					bouquet_t bouquet; // todo
 					service_list_t service_list{network_id, ts_id, bouquet};
 					if (this->available() - desc1.len < end1) {
-						dterrorf("Incorrect section available={:d} desc.len={:d} end={:d}",
+						dterror_nicef("Incorrect section available={:d} desc.len={:d} end={:d}",
 										 this->available(), desc1.len, end1);
 						return false;
 					}
@@ -1501,8 +1504,10 @@ namespace dtdemux {
 				}
 				tst1 -= (desc1.len + 2);
 				assert(tst1 <= this->available());
-				if (has_error())
-					return false;
+				if (has_error()) {
+					dterror_nicef("Error during processing");
+					//return false;
+				}
 			}
 			//assert(end1 == this->available());
 #ifndef NDEBUG
@@ -1524,13 +1529,16 @@ namespace dtdemux {
 				network.muxes.push_back(chdb::any_mux_t(dvbc_mux));
 			else if (is_dvbt)
 				network.muxes.push_back(chdb::any_mux_t(dvbt_mux));
-			if (has_error())
+			if (has_error()) {
+				dterror_nicef("Error during processing");
 				return false;
+			}
 		}
 		// assert(this->available() == end); //this assertion fails on 52E 11246V because desc_loop_len is 17 instead of 19
 
 		uint32_t crc UNUSED = this->get<uint32_t>(); // avoid compiler warning
 		if (this->available() != 0) {
+			dterror_nicef("available={} !=0", this->available());
 			return false;
 		}
 		return true;
@@ -1640,7 +1648,7 @@ namespace dtdemux {
 			}
 			assert(end >= this->available());
 			if (end > this->available()) {
-				dterrorf("Extra bytes after descriptor loop: {:d}/{:d}", end, this->available());
+				dterror_nicef("Extra bytes after descriptor loop: {:d}/{:d}", end, this->available());
 				this->skip(end - this->available());
 			}
 			if (service.service_type == 12 && strcmp(service.name.c_str(), "FreesatHome") == 0)
@@ -1650,11 +1658,11 @@ namespace dtdemux {
 			}
 		}
 		if (this->available() < 4) {
-			dterrorf("Too few bytes left at end of sdt");
+			dterror_nicef("Too few bytes left at end of sdt");
 			return false;
 		}
 		if (this->available() > 4) {
-			dterrorf("bytes left at end of sdt");
+			dterror_nicef("bytes left at end of sdt");
 			this->skip(this->available() - 4);
 		}
 		uint32_t crc UNUSED = this->get<uint32_t>(); // avoid compiler warning
@@ -1760,12 +1768,12 @@ namespace dtdemux {
 				return false;
 			tst -= (desc.len + 2);
 			if (tst != this->available()) {
-				dterrorf("Error while parsing bat section: {:d} != {:d}", tst, this->available());
+				dterror_nicef("Error while parsing bat section: {:d} != {:d}", tst, this->available());
 				return false;
 			}
 		}
 		if(end > this->available()) {
-			dterrorf("Read more bytes than we were supposed to: end={:d} available={:d}", end, this->available());
+			dterror_nicef("Read more bytes than we were supposed to: end={:d} available={:d}", end, this->available());
 			//happens on 7.0E 10804V
 			return false;
 		}
@@ -2020,7 +2028,7 @@ namespace dtdemux {
 		auto offset = (int)this->bytes_read + (int)(8 * num_channels);
 		auto len = (int)this->payload.size() - offset;
 		if (len <= 0) {
-			dterrorf("Invalid channel section");
+			dterror_nicef("Invalid channel section");
 			return -1;
 		}
 		// hdr.table_id_extension: 0 for sd and 2 for hd and 3 for dtt

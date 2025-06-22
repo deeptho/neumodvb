@@ -1348,7 +1348,7 @@ namespace dtdemux {
 		bool is_actual = (hdr.table_id == 0x40);
 
 		if (!hdr.section_syntax_indicator) {
-			LOG4CXX_ERROR(logger, "SDT with bad section_syntax_indicator");
+			LOG4CXX_ERROR(logger, "NIT with bad section_syntax_indicator");
 			return false;
 		}
 
@@ -1433,6 +1433,7 @@ namespace dtdemux {
 			auto tst1 = this->available();
 			while (this->available() > end1) {
 				auto desc1 = this->get<descriptor_t>();
+				auto end2 = this->available() - desc1.len;
 				switch (desc1.tag) {
 				case SI::FrequencyListDescriptorTag: {
 					frequency_list_t frequencies UNUSED;
@@ -1492,6 +1493,11 @@ namespace dtdemux {
 				case SI::LogicalChannelDescriptorTag: // could be useful to parse
 					this->skip(desc1.len);
 					break;
+				}
+				auto remaining = this->available() - end2;
+				if(remaining >0) {
+					dtdebug_nicef("Skipping {} bytes at end of descriptor", remaining);
+					this->skip(remaining);
 				}
 				tst1 -= (desc1.len + 2);
 				assert(tst1 <= this->available());

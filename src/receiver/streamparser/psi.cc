@@ -439,7 +439,7 @@ void nit_parser_t::parse_payload_unit() {
 	assert(!(must_process && badversion));
 	log4cxx::NDC::push(" NIT");
 	if (completed_now)
-		dtdebugf("Parser completed");
+		dtdebugf("Parser completed: {}", (hdr.table_id == 0x40) ? "NIT_ACTUAL" : "NIT_OTHER");
 	nit_network_t network;
 	bool success{false};
 	if (must_process || timedout) {

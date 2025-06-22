@@ -1388,10 +1388,10 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 }
 
 dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
-	network_data_t& network_data, dtdemux::reset_type_t ret, bool is_actual,
-	bool on_wrong_sat, bool done)
+	db_txn& wtxn, network_data_t& network_data, dtdemux::reset_type_t ret, bool is_actual,
+	bool on_wrong_sat, bool network_done)
 {
-	if (done) {
+	if (network_done) {
 		if (!is_embedded_si && tune_confirmation.sat_by == confirmed_by_t::NONE && !pat_data.stable_pat()) {
 			/*It is too soon to decide we are on the right/wrong sat;
 				force nit_actual rescanning
@@ -1401,10 +1401,10 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
 		}
 
 		if (network_data.num_muxes == 0 && sdt_actual_done() && tune_confirmation.ts_id_by != confirmed_by_t::NONE) {
-				// we cannot check the sat_pos, so we assume it is ok.
-
-			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 			if (is_actual) {
+			// we cannot check the sat_pos, so we assume it is ok.
+
+				tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
 				tune_confirmation.nit_actual_received = true;
 					dtdebugf("Setting nit_actual_ok = true");
 			}
@@ -1443,9 +1443,20 @@ dtdemux::reset_type_t active_si_stream_t::on_nit_section_completion(
 			tune_confirmation.nit_actual_received = true;
 			dtdebugf("Setting nit_actual_ok = true");
 		}
-	} else { //! done: more nit_actual or nit_other data is coming
-		if (is_actual)
+	} else { //! network_done: more nit_actual or nit_other data is coming
+		if (is_actual) {
 			tune_confirmation.nit_actual_seen = true;
+			if(chdb::is_template(this->dbmux)) {
+				auto&c = *chdb::mux_common_ptr(this->dbmux);
+				if(c.tune_src == chdb::tune_src_t::DRIVER) {
+					namespace m = chdb::update_mux_preserve_t;
+					auto preserve =  m::flags(m::MUX_COMMON|m::MUX_KEY);
+
+					this->update_mux(wtxn, this->dbmux, now, true /*is_reader_mux*/, true /*is_tuned_freq*/,
+													 false /*from_sdt*/, preserve);
+				}
+			}
+		}
 		//tune_confirmation.nit_actual_ok = true;
 	}
 	return ret;
@@ -1589,12 +1600,14 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			}
 		}
 	}
-	bool done = nit_data.update_nit_completion(scan_state, info, network_data);
+	bool network_done = nit_data.update_nit_completion(scan_state, info, network_data); /*means: network done; there can be multiple in NIT:
+																																								one for NIT_ACTUAL and zero or more for NIT_OTHER
+																																							*/
 	auto sat_pos = nit_data.nit_actual_sat_positions.size()>=1 ? nit_data.nit_actual_sat_positions[0] : sat_pos_none;
 	bool is_wrong_dvb_type = dvb_type(sat_pos) != dvb_type(stream_mux);
 	bool on_wrong_sat = !is_wrong_dvb_type //ignore dvbt/dvbc in dvbs muxes for example
 		&& sat_pos != sat_pos_none && std::abs(sat_pos - stream_mux_key->sat_pos) > sat_pos_tolerance;
-	ret = on_nit_section_completion(network_data, ret, network.is_actual, on_wrong_sat, done);
+	ret = on_nit_section_completion(wtxn, network_data, ret, network.is_actual, on_wrong_sat, network_done);
 	if(ret== dtdemux::reset_type_t::RESET ||
 		 ret == dtdemux::reset_type_t::ABORT
 		) {
@@ -1603,7 +1616,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		return ret;
 	}
 
-	if (done && network.is_actual) { // for nit other, there may be multiple entries
+	if (network_done && network.is_actual) { // for nit other, there may be multiple entries
 		dtdebugf("NIT_ACTUAL completed");
 #ifndef NDEBUG
 		{
@@ -2124,9 +2137,9 @@ bool nit_data_t::update_nit_completion(scan_state_t& scan_state, const subtable_
 		network_data.num_sections_processed++;
 	assert(network_data.num_sections_processed <= network_data.subtable_info.num_sections_present);
 	assert(network_data.num_sections_processed >= 0);
-	bool done = (network_data.num_sections_processed == network_data.subtable_info.num_sections_present);
+	bool network_done = (network_data.num_sections_processed == network_data.subtable_info.num_sections_present);
 	bool empty = (network_data.num_sections_processed == 0);
-	if (done) {
+	if (network_done) {
 		dtdebugf("NIT_{} subtable completed: {} {} muxes",
 						 (info.is_actual ? "ACTUAL" : "OTHER"), network_data.network_id,
 						 by_network_id_ts_id.size());
@@ -2140,7 +2153,7 @@ bool nit_data_t::update_nit_completion(scan_state_t& scan_state, const subtable_
 		dtdebugf("NIT_{}  empty nid={}",
 						 (info.is_actual ? "ACTUAL" : "OTHER"), network_data.network_id);
 	}
-	return done;
+	return network_done;
 }
 
 std::tuple<bool, bool>

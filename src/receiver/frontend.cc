@@ -284,7 +284,7 @@ static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t 
 	}
 	if(t.dbfe.k.adapter_mac_address < 0 || t.dbfe.k.adapter_mac_address == 0xffffffffffff) {
 		t.dbfe.k.adapter_mac_address = 0x2L | ((uint64_t)(int(frontend_no) | (int(adapter_no) << 8)) <<32);
-		dtdebugf("No mac address; faking one: 0x%lx", t.dbfe.k.adapter_mac_address);
+		dtdebugf("No mac address; faking one: {:x}", t.dbfe.k.adapter_mac_address);
 	}
 	if(t.dbfe.rf_inputs.size() ==0) {
 		//non blindscan drivers

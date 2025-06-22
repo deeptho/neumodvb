@@ -35,7 +35,7 @@
  * @DMX_OUT_DECODER:
  *	Streaming directly to decoder.
  * @DMX_OUT_TAP:
- *	Output going to a memory buffer (to be retrieved via the read command).
+ *	Output going to a memory buffer (to be retrieved via the read command) after stripping of tspacket headers
  *	Delivers the stream output to the demux device on which the ioctl
  *	is called.
  * @DMX_OUT_TS_TAP:
@@ -43,6 +43,8 @@
  *	logical DVR device). Routes output to the logical DVR device
  *	``/dev/dvb/adapter?/dvr?``, which delivers a TS multiplexed from all
  *	filters for which @DMX_OUT_TS_TAP was specified.
+ * @DMX_OUT_DEMUX_TAP:
+ *	Like @DMX_OUT_TAP but retrieved from the DMX device.
  * @DMX_OUT_TSDEMUX_TAP:
  *	Like @DMX_OUT_TS_TAP but retrieved from the DMX device.
  */
@@ -50,7 +52,8 @@ enum dmx_output {
 	DMX_OUT_DECODER,
 	DMX_OUT_TAP,
 	DMX_OUT_TS_TAP,
-	DMX_OUT_TSDEMUX_TAP
+	DMX_OUT_TSDEMUX_TAP,
+	DMX_OUT_DEMUX_TAP
 };
 
 

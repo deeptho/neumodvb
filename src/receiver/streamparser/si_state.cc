@@ -319,11 +319,25 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 
 	assert(cstate_status == section_type_t::LAST);
 	assert(cstate.completed);
-	assert(count_completed < cstates.size());
+
+#ifdef TEST
 	count_completed++;
 	completed = (count_completed == (int)cstates.size());
+#else
+	if(hdr.table_id != 0x40) {
+		assert(count_completed < (int)cstates.size());
+		count_completed++;
+		completed = all_sections_in_table_completed(hdr.table_id);
+	}
+	else
+		completed = true;
+#endif
 	last_section = steady_clock_t::now();
 	last_new_section = steady_clock_t::now();
+	if(hdr.table_id == 0x02) {
+		dtdebugf("v={} l={} c={}/{} completed={}/{} inserted={} count_completed={} cstate.size={}", cstate.version_number, cstate.last_section_number,
+						 cstate.count, cstate.maxcount, cstate.completed, completed, inserted, count_completed, cstates.size());
+	}
 	if (completed)
 		return {false, badversion, section_type_t::LAST};
 	else
@@ -353,9 +367,13 @@ void parser_status_t::reset(const section_header_t& hdr) {
 		t->reset();
 
 	auto& cstate = completion_status_for_section(hdr);
+#ifdef TEST
 	assert(count_completed <= (int)cstates.size());
+#endif
 	if (cstate.completed) {
+#ifdef TEST
 		assert(count_completed > 0);
+#endif
 		count_completed -= 1;
 	}
 	cstate.reset(hdr);

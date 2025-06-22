@@ -142,7 +142,17 @@ namespace dtdemux {
 
 		inline completion_status_t& completion_status_for_section(const section_header_t& hdr);
 
-
+		inline bool all_sections_in_table_completed(int table_id) {
+			int completed_count{0};
+			int count{0};
+			for(auto& [k,c]: cstates) {
+				if(k.table_id == table_id) {
+					completed_count += !!c.completed;
+					count ++;
+				}
+			}
+			return count == completed_count;
+		}
 	public:
 		//bool timed_out() const;
 		parser_status_t() = default;

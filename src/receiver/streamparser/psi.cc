@@ -449,6 +449,7 @@ void nit_parser_t::parse_payload_unit() {
 	} else
 		network.is_actual = (hdr.table_id == 0x40);
 
+	//@todo: check what happens with nit_actual on success==false -> restart? or flag to caller?
 	if (success || timedout) {
 		subtable_info_t info{pid,	 network.is_actual, hdr.table_id, hdr.version_number, hdr.last_section_number + 1,
 			done, timedout};

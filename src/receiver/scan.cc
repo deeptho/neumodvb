@@ -961,7 +961,6 @@ void scan_t::scan_loop(db_txn& chdb_rtxn, scan_subscription_t& subscription,
 											 const devdb::fe_t& finished_fe, const chdb::any_mux_t& finished_mux) {
 	// start as many subscriptions as possible
 	using namespace chdb;
-	auto& finished_mux_key = *mux_key_ptr(finished_mux);
 
 	bool existing_subscription = (int)subscription.subscription_id >=0;
 	assert(existing_subscription);

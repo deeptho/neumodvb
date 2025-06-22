@@ -1666,11 +1666,14 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 			mux_key->sat_pos = 4200;
 	}
 
-	if(mux_key->sat_pos >= 700 && mux_key->sat_pos <= 800) {
-		if(tuned_mux_key->sat_pos >= -800 && tuned_mux_key->sat_pos <= -700) {
+	if(tuned_mux_key->sat_pos >= -800 && tuned_mux_key->sat_pos <= -700) {
+		if(mux_key->sat_pos >= 700 && mux_key->sat_pos <= 800) {
 			//hack for 7.0W on which 7.0WE is reported as 7.3E
 			mux_key->sat_pos = -mux_key->sat_pos;
-	}
+		}
+		if(mux_key->stream_id == 0  &&
+			 dvbs_mux->pls_mode == chdb::fe_pls_mode_t::ROOT && dvbs_mux->pls_code == 0)
+			mux_key->stream_id = -1 ; //this mux pretends to be a multistream
 	}
 
 	const bool disregard_networks{true};

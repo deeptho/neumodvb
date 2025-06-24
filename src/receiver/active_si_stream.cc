@@ -536,7 +536,9 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
 	if(is_template(mux) && from_sdt) {
-		return nullptr;
+		if(tune_confirmation.nit_actual_received)
+			return nullptr;
+
 	}
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);
@@ -1525,6 +1527,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 		bool was_active = scan_state.set_active(cidx);
 		if (!was_active && network.is_actual) {
 			dtdebugf("First NIT_ACTUAL data tuned_mux={}", this->dbmux);
+			tune_confirmation.nit_actual_seen = true;
 			reader->update_received_si_mux(std::optional<chdb::any_mux_t>{}, false /*is_bad*/);
 		}
 	}

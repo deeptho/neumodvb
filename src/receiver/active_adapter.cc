@@ -1073,15 +1073,15 @@ void active_adapter_t::add_mux_for_scanning_(db_txn& wtxn, chdb::any_mux_t mux, 
 #endif
 	auto& scan_id = c1.scan_id;
 	assert(!scanner_t::is_scanning(scan_id) || scanner_t::is_our_scan(scan_id));
-
+	c->scan_time =0;
 	c->scan_result = chdb::scan_result_t::NOTS;
 	c->scan_lock_result = lock_state.tune_lock_result;
-	//c->scan_lock_result : unchanged
+	c->epg_scan_completeness =0;
 	//c->scan_duration: set per stream below
-	//c->epg_scan // from database
+	c->epg_scan = false;
 	c->scan_status = scan_status_t::IDLE;
 	c->scan_id = {};
-	//c->num_services // from database
+	c->num_services =0;
 	c->network_id = 0; //unknown
 	c->ts_id = 0; //unknown
 	c->nit_network_id = 0; //unknown
@@ -1113,16 +1113,17 @@ void active_adapter_t::add_mux_for_scanning_(db_txn& wtxn, chdb::any_mux_t mux, 
 			}
 		} else { //not dvb
 			*c = ctemplate;
+#if 0
 			c->scan_time = system_clock_t::to_time_t(now);
 			c->scan_duration = std::chrono::duration_cast<std::chrono::seconds>(system_clock_t::now()
 																																					- tune_start_time).count();
+#endif
 		}
 		return true;
 	};
 
 	assert(chdb::mux_key_ptr(mux)->t2mi_pid == -1);
-	chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS &
-			~m::SCAN_DATA}, update_scan_status, /*true ignore_key,*/ false /*ignore_t2mi_pid*/,
+	chdb::update_mux(wtxn, mux, now, m::flags{m::ALL & ~m::SCAN_STATUS}, update_scan_status, /*true ignore_key,*/ false /*ignore_t2mi_pid*/,
 		false /*must_exist*/);
 	assert (mux_key->mux_id > 0);
 }

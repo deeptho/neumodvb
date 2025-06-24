@@ -349,6 +349,14 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 				dtdebugf("Saving only some pmts");
 			save_pmts(wtxn);
 		}
+		if(tune_confirmation.sat_by == confirmed_by_t::NIT ||
+			 tune_confirmation.sat_by == confirmed_by_t::SDT ||
+			 tune_confirmation.sat_by == confirmed_by_t::TIMEOUT||
+			 (nit_actual_notpresent() && sdt_actual_notpresent())
+			) {
+			if(!chdb::is_template(this->dbmux))
+				chdb::clean_overlapping_muxes(wtxn, mux);
+		}
 	}
 	lmdb_hint();
 	wtxn.commit();
@@ -1589,17 +1597,13 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 			if(is_active_mux) {
 				//assert (chdb::is_template(this->dbmux) || *chdb::mux_key_ptr(this->dbmux) == *chdb::mux_key_ptr(mux));
 				this->dbmux = mux;
-				if(tune_confirmation.sat_by == confirmed_by_t::NIT) {
-					if(!chdb::is_template(mux))
-						chdb::clean_overlapping_muxes(wtxn, mux);
-				}
-
 				bool bad_si_mux = is_tuned_freq && ! is_active_mux; //not tsid in pat or tsid differs from the one in reader_mux
 				bad_si_mux |= (network.is_actual && !ts_id_in_pat(mux_common_ptr(mux)->nit_ts_id));
 				reader->update_received_si_mux(mux, bad_si_mux); //store the bad mux
 			}
 		}
 	}
+
 	bool network_done = nit_data.update_nit_completion(scan_state, info, network_data); /*means: network done; there can be multiple in NIT:
 																																								one for NIT_ACTUAL and zero or more for NIT_OTHER
 																																							*/

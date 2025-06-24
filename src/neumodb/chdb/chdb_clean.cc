@@ -263,9 +263,10 @@ static void chdb::clean_overlapping_muxes_on_sat(db_txn& wtxn, const chdb::dvbs_
 		if(db_mux.k == mux.k)
 			continue; //do not erase the master mux
 		if((db_mux.pol == mux.pol) && (
-				 (mux.k.stream_id == -1 && db_mux.k.stream_id >=0) || //mux must be single or multistream, not both
-				 (mux.k.stream_id >=0 && db_mux.k.stream_id>0) || //mux must be single or multistream, not both
-				 (db_mux.k.stream_id ==  mux.k.stream_id && db_mux.k.t2mi_pid == mux.k.t2mi_pid)
+				 mux.k.mux_id != db_mux.k.mux_id || // duplicate in database
+					 (mux.k.stream_id == -1 && db_mux.k.stream_id >=0) || //mux must be single or multistream, not both
+					 (mux.k.stream_id >=0 && db_mux.k.stream_id == -1) || //mux must be single or multistream, not both
+					 (db_mux.k.stream_id ==  mux.k.stream_id && db_mux.k.t2mi_pid == mux.k.t2mi_pid)
 				 )) {
 			//overlapping mux
 			auto cs = chdb::service::find_by_mux_key(wtxn, db_mux.k);

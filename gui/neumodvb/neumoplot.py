@@ -866,7 +866,7 @@ class SpectrumPlot(wx.Panel):
                 verts = what.get_paths()[ind].vertices
                 f = (verts[1, 0] + verts[0, 0])/2
                 annot, delta = spectrum.annot_for_freq(freq)
-                if delta  < best_delta:
+                if delta is not None and delta  < best_delta:
                     best_delta = delta
                     best_annot = annot
 

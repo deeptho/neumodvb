@@ -1181,7 +1181,6 @@ void active_adapter_t::check_for_new_streams()
 			[stream_id](chdb::dvbc_mux_t& m) {m.k.stream_id = stream_id;},
 			[stream_id](chdb::dvbt_mux_t& m) {m.k.stream_id = stream_id;});
 
-		namespace m = chdb::update_mux_preserve_t;
 		auto& wtxn = get_txn();
 		this->add_mux_for_scanning_(wtxn, signal_info.driver_mux, scan_start_time);
 	}

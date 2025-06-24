@@ -868,7 +868,7 @@ bool active_si_stream_t::read_and_process_data_for_fd(const epoll_event* evt) {
 	auto old = tune_confirmation;
 	process_si_data();
 	reader->data_tick();
-	if (old != tune_confirmation && ! is_embedded_si) {
+	if (old != tune_confirmation) {
 		reader->update_stream_mux_tune_confirmation(tune_confirmation);
 	}
 	check_timeouts();
@@ -2299,7 +2299,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb_(txn_proxy_t<chdb::chdb
 	}
 
 	bool done_now = nit_data.update_sdt_completion(scan_state, info, *p_mux_data);
-	tune_confirmation.sdt_actual_received = done_now;
+	tune_confirmation.sdt_actual_received |= done_now;
 	if (done_now) {
 		if (!donotsave) {
 			process_removed_services(wtxn, p_mux_data->mux, service_ids);

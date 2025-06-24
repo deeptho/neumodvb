@@ -241,7 +241,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.signal_info = data
             self.OnSignalInfoUpdate(data)
         elif type(data) == pyreceiver.positioner_motion_report_t:
-            print(f'POSITIONER MOTION: {data.start_time} {data.end_time}')
+            dtdebug(f'POSITIONER MOTION: {data.start_time} {data.end_time}')
             if data.start_time != data.end_time:
                 from neumodvb.neumowidgets import show_progress_dialog
                 cur_pos = pychdb.sat_pos_str(data.dish.cur_usals_pos)
@@ -463,6 +463,8 @@ class TuneMuxPanel(TuneMuxPanel_):
         return self.parent.OnClose(evt);
 
     def OnSdtInfoUpdate(self, sdt):
+        if not same_mux_key(self.mux.k, sdt.mux_key):
+            return
         nid_tid_text = f'nid={sdt.network_id} tid={sdt.ts_id}:'
         ret =[]
         for s in sdt.services:
@@ -543,7 +545,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         self.si_freq_text.SetLabel('')
         self.si_symbolrate_text.SetLabel('')
         self.si_nit_ids_text.SetLabel('')
-        self.si_sdt_services_text.SetLabel('')
         self.si_sdt_services_text.SetLabel('')
         for key in self.si_status_keys:
             val = 0

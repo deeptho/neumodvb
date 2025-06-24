@@ -1760,8 +1760,7 @@ void receiver_t::on_sdt_actual(const sdt_data_t& sdt_data,
 		active_adapter uses the lnb which is stored in the sdt_data message
 	 */
 	bool has_scanning_subscribers{false};
-	if(sdt_data.mux_key.t2mi_pid<0) { //only notify for physical SDT
-
+	{
 		auto mss = this->subscribers.readAccess();
 		for (auto [subsptr, ms_shared_ptr] : *mss) {
 			auto* ms = ms_shared_ptr.get();

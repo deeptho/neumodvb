@@ -472,8 +472,8 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 			if(!sdt_key_matches) {
 				int matype = get_member(merged_mux, matype, 0x3 << 14);
 				int db_matype = get_member(db_mux, matype, 0x3 << 14);
-				auto is_dvb = ((matype >> 14) & 0x3) == 0x3;
-				auto db_mux_is_dvb = ((db_matype >> 14) & 0x3) == 0x3;
+				auto is_dvb = ((matype >> 6) & 0x3) == 0x3;
+				auto db_mux_is_dvb = ((db_matype >> 6) & 0x3) == 0x3;
 				if(is_dvb && db_mux_is_dvb)
 					merge_services(wtxn, db_mux.k, merged_mux);
 				else if (!is_dvb && db_mux_is_dvb)

@@ -1046,10 +1046,11 @@ void active_adapter_t::check_isi_processing()
 		auto mux = this->main_si->dbmux;
 		if(!is_template(mux))
 			check_for_unlockable_streams();
-
-		dtdebugf("calling this->tuned_si->finalize_scan");
-		this->main_si->finalize_scan();
-		this->main_si->check_scan_mux_end();
+		if(!main_si->si_processing_started) {
+			dtdebugf("calling this->tuned_si->finalize_scan");
+			this->main_si->finalize_scan();
+			this->main_si->check_scan_mux_end();
+		}
 	}
 }
 

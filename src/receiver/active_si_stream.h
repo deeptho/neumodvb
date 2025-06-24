@@ -407,6 +407,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 
 	//set when si processing is done for a mux
 	bool si_processing_done{false};
+	bool si_processing_started{false};
 
 	dtdemux::ts_stream_t stream_parser;
 

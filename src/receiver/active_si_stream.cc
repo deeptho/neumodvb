@@ -384,6 +384,8 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 
 void active_si_stream_t::finalize_scan()
 {
+	if(si_processing_done)
+		return;
 	si_processing_done = true;
 	// now update the mux's scan state
 	ss::string<32> s;
@@ -480,6 +482,7 @@ void active_si_stream_t::end_si() {
  */
 void active_si_stream_t::reset() {
 	si_processing_done = false;
+	si_processing_started = false;
 	::active_si_data_t::reset(); //reset variables to initial state
 	this->scan_state.reset_completion_states();
 	if(is_open()) {
@@ -1019,6 +1022,7 @@ void active_si_stream_t::init(const chdb::any_mux_t& driver_mux, bool driver_dat
 #if 0
 	assert( mux_common->tune_src != chdb::tune_src_t::TEMPLATE);
 #endif
+	si_processing_started = true;
 	scan_in_progress = (mux_common->scan_status == chdb::scan_status_t::ACTIVE);
 	assert(!scan_in_progress || chdb::scan_in_progress(mux_common->scan_id));
 	dtdebugf("si_processing_done={} {}", (int) si_processing_done, stream_mux);

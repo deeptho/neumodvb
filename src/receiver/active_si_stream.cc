@@ -3002,32 +3002,8 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 				std::abs(sat_pos - (int)2000) < 300) ){ //20.0E  3865L
 			is_t2mi = true;
 		}
-		if (is_t2mi) {
-			/*
-				we discovered a t2mi stream and must ensure that its mux
-				exists in the database.*/
-			chdb::any_mux_t mux = this->dbmux;
-			mux_key_ptr(mux)->t2mi_pid = desc.stream_pid;
-			assert(!chdb::is_template(mux));
-			namespace m = chdb::update_mux_preserve_t;
-			auto preserve = m::flags{ m::MUX_COMMON & ~ m::SCAN_STATUS};
-			if(mux_common_ptr(mux)->scan_status == chdb::scan_status_t::ACTIVE) {
-				mux_common_ptr(mux)->scan_status = chdb::scan_status_t::PENDING;
-				preserve = m::flags(preserve | m::SCAN_STATUS); //avoid changing ACTIVE to pending
-			}
-			lmdb_hint();
-			auto wtxn = chdbmgr.wtxn();
-			namespace m = chdb::update_mux_preserve_t;
-			auto ret=this->update_mux(wtxn, mux, now, false /*is_reader_mux*/, true /*is_tuned_freq*/,
-											 false /*from_sdt*/, preserve);
-			if(ret && *chdb::mux_key_ptr(mux) == *chdb::mux_key_ptr(this->dbmux))
-				active_adapter().on_stream_mux_change(mux);
-				lmdb_hint();
-			wtxn.commit();
-			/*as no scan is in progress,  this is a regular tune
-				We launch si processing which may succeed or not, depending on how long we remain tuned
-			*/
-		}
+		if(is_t2mi)
+			p.t2mi_pid = desc.stream_pid;
 	}
 	if(pmts_can_be_saved(false /*force*/) && ! is_template(this->dbmux)) {
 		lmdb_hint();
@@ -3147,6 +3123,30 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 				}
 			}
 		}
+
+		if(pat_service.t2mi_pid != -1) {
+			/*
+				we discovered a t2mi stream and must ensure that its mux
+				exists in the database.*/
+			chdb::any_mux_t mux = this->dbmux;
+			mux_key_ptr(mux)->t2mi_pid = pat_service.t2mi_pid;
+			assert(!chdb::is_template(mux));
+			namespace m = chdb::update_mux_preserve_t;
+			auto preserve = m::flags{ m::MUX_COMMON & ~ m::SCAN_STATUS};
+			if(mux_common_ptr(mux)->scan_status == chdb::scan_status_t::ACTIVE) {
+				mux_common_ptr(mux)->scan_status = chdb::scan_status_t::PENDING;
+				preserve = m::flags(preserve | m::SCAN_STATUS); //avoid changing ACTIVE to pending
+			}
+			namespace m = chdb::update_mux_preserve_t;
+			auto ret=this->update_mux(wtxn, mux, now, false /*is_reader_mux*/, true /*is_tuned_freq*/,
+																false /*from_sdt*/, preserve);
+			if(ret && *chdb::mux_key_ptr(mux) == *chdb::mux_key_ptr(this->dbmux))
+				active_adapter().on_stream_mux_change(mux);
+			/*as no scan is in progress,  this is a regular tune
+				We launch si processing which may succeed or not, depending on how long we remain tuned
+			*/
+		}
+
 		service_key_t service_key(mux_key, mux_common.network_id, mux_common.ts_id, pat_service.pmt.service_id);
 		auto c = service_t::find_by_key(wtxn, mux_key, service_key.service_id);
 		auto service = c.is_valid() ? c.current() : service_t{};

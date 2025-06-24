@@ -37,6 +37,7 @@ struct pat_service_t {
 	bool pmt_analysis_started{false};
 	bool pmt_analysis_finished{false};
 	bool encrypted{false};
+	int t2mi_pid{-1};
 	pmt_info_t pmt;
 };
 

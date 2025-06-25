@@ -109,7 +109,7 @@ features. You also may wish to install mate desktop, which provides a better
 user experience and which is based on X11:
 
 ```bash
-sudo dnf install -y 'mate-desktop mate-session-manager'
+sudo dnf install @mate-desktop-environment
 sudo dnf install -y lightdm-gtk
 sudo systemctl enable lightdm
 sudo systemctl disable gdm
@@ -136,7 +136,7 @@ sudo dnf install -y --allowerasing  redhat-lsb clang libtool clang-tools-extra \
     python3-jinja2 python3-sip-devel python3-configobj python3-regex \
     python3-configobj python3-matplotlib-wx python3-scipy python3-gobject-base \
     python3-wxpython4  python3-matplotlib-wx python3-cachetools \
-    mpv-libs-devel fmt libexif-devel libuuid-devel libdvbcsa-devel gdb espeak \
+    mpv mpv-libs-devel fmt libexif-devel libuuid-devel libdvbcsa-devel gdb espeak \
     https://github.com/tsduck/tsduck/releases/download/v3.41-4299/tsduck-3.41-4299.fc42.x86_64.rpm
 ```
 The last command may fail due to some conflicts with already installed ffmpeg libraties, which need

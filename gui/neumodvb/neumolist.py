@@ -1333,8 +1333,10 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
             self.infow.ShowRecord(self.table, rec)
 
     def OnGridCellSelect(self, evt):
-        has_selection = any(True for _ in self.GetSelectedBlocks())
-
+        has_selection = False
+        for xxx in self.GetSelectedBlocks():
+             has_selection = True
+             break
         if self.table.row_being_edited is not None and evt.GetRow() != self.table.row_being_edited:
             self.OnRowSelect(evt.GetRow())
             #if len(self.table.unsaved_edit_undo_list) > 0:

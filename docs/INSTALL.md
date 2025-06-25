@@ -107,8 +107,12 @@ If you wish to install fedora from scratch then immediately after installation
 you will need to switch from Wayland to X11 as Wayland lacks several important
 features. You also may wish to install mate desktop, which provides a better
 user experience and which is based on X11:
+
 ```bash
-sudo dnf groupinstall -y 'MATE Desktop'
+sudo dnf install -y 'mate-desktop mate-session-manager'
+sudo dnf install -y lightdm-gtk
+sudo systemctl enable lightdm
+sudo systemctl disable gdm
 ```
 Then log out or reboot and at the login screen, press some icon that brings up a menu
 allowing you to select `mater session`. If all goes well, a menu will appear on top of the
@@ -119,7 +123,7 @@ using the instructions at
 <https://rpmfusion.org/Configuration>:
 
 ```bash
-dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm \
+sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-42.noarch.rpm \
 https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-42.noarch.rpm
 ```
 

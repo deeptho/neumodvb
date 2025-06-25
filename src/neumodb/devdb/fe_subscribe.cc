@@ -872,7 +872,7 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 				assert(sret.sub_to_reuse == subscription_id_t::NONE);
 				dtdebugf("fe::subscribe: newaa subscription_id={}  adapter={:x}/{} mux={}",
 								 (int ) sret.subscription_id, (int64_t) fe.k.adapter_mac_address,
-								 (int) oldfe_->k.frontend_no, mux);
+								 oldfe_ ? (int) oldfe_->k.frontend_no :-1, mux);
 			} else {
 				assert(!sret.aa.is_different_aa());
 				dtdebugf("fe::subscribe: no newaa subscription_id={} adapter={:x} mux={}",

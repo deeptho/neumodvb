@@ -240,6 +240,7 @@ namespace dtdemux {
 			dtdemux::ts_packet_t* in = do_transfer(self, invoker, nullptr);
 			//start processing many packets; fn will only return when fuly done
 			thread_id = std::this_thread::get_id();
+			thread_id_valid = true;
 			assert(in);
 			fn(in);
 			fibers.erase(dvb_pid_t(parser_pid));

@@ -321,6 +321,7 @@ namespace dtdemux {
 		continuation_t * volatile  self{&root};
 		volatile int current_pid = -1;
 		std::thread::id thread_id;
+		bool thread_id_valid{false};
 	protected:
 		std::map<dvb_pid_t, continuation_t> fibers;
 		void dump_fibers(const char * caller="", int i=0) {
@@ -386,7 +387,7 @@ namespace dtdemux {
 		}
 
 	  ~stream_parser_base_t() {
-			assert(fibers.size()==0 || (std::this_thread::get_id() == thread_id && "Called from the wrong thread"));
+			assert(fibers.size()==0 || !thread_id_valid || (std::this_thread::get_id() == thread_id && "Called from the wrong thread"));
 			this->exit();
 		}
 

@@ -932,7 +932,6 @@ int playback_mpm_t::get_marker_for_time_from_db(db_txn& idxdb_txn, recdb::marker
 }
 
 int64_t  playback_mpm_t::read_pmt_data(char* outbuffer, uint64_t num_bytes) {
-	auto ls = stream_state.readAccess();
 	if(num_pmt_bytes_to_send < 0 ) {
 		//initialisation
 		num_pmt_bytes_to_send = preferred_streams_pmt_ts.size();

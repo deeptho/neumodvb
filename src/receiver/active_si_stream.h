@@ -667,11 +667,11 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 		return scan_state.completed(scan_state_t::completion_index_t::BAT);
 	}
 
-	bool pmts_can_be_saved() const {
+	bool pmts_can_be_saved(bool force) const {
 		return ! pmt_data.saved &&
 			nit_actual_done() &&
 			sdt_actual_done() &&
-			pmt_data.all_received();
+			(force || pmt_data.all_received());
 	}
 
 	/*

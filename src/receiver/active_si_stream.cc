@@ -344,8 +344,11 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 	}
 
 	if(is_main_mux && lock_state.is_dvb && (nit_actual_done() || nit_actual_notpresent())) {
-		if(pmts_can_be_saved())
+		if(pmts_can_be_saved(true /*force*/)) {
+			if(!pmt_data.all_received())
+				dtdebugf("Saving only some pmts");
 			save_pmts(wtxn);
+		}
 	}
 	lmdb_hint();
 	wtxn.commit();
@@ -1603,7 +1606,7 @@ dtdemux::reset_type_t active_si_stream_t::nit_section_cb_(nit_network_t& network
 
 		scan_state.set_completed(cidx); //signal that nit_actual has been stored
 		tune_confirmation.nit_actual_received = true;
-		if(pmts_can_be_saved())
+		if(pmts_can_be_saved(false /*force*/))
 			save_pmts(wtxn);
 	}
 	lmdb_hint();
@@ -2973,7 +2976,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 			*/
 		}
 	}
-	if(pmts_can_be_saved() && ! is_template(this->dbmux)) {
+	if(pmts_can_be_saved(false /*force*/) && ! is_template(this->dbmux)) {
 		lmdb_hint();
 		auto wtxn = chdbmgr.wtxn();
 		save_pmts(wtxn);

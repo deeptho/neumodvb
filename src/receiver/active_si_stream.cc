@@ -245,7 +245,7 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 	*/
 	auto & mux =  mux_;
 	assert(&mux == &this->dbmux|| !is_main_mux);
-	bool nosave{is_template(mux) || !is_main_mux};
+	bool nosave{is_template(mux) && !(nit_actual_notpresent() && sdt_actual_notpresent())};
 	auto tune_state = active_adapter().tune_state;
 	auto& lock_state = active_adapter().lock_state;
 	dtdebugf("setting si_processing_done=true mux={}", mux);
@@ -382,7 +382,7 @@ void active_si_stream_t::finalize_scan()
 		a problem in the database. The problem can sometimes be resolved after receiving SI data,
 		but not always.
 	*/
-	this->finalize_scan_for_mux_(this->dbmux, true /*is_main_mux*/);
+	this->finalize_scan_for_mux_(this->dbmux, true /*save*/);
 	assert(mux_common_ptr(this->dbmux)->scan_status != chdb::scan_status_t::ACTIVE);
 }
 

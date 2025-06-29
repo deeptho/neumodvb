@@ -49,60 +49,51 @@ typedef int infd_t;
 
 #define EVENT_BUF_LEN (4 * (EVENT_SIZE + 20) + NAME_MAX + 1)
 
-static std::tuple<api_type_t, int>  get_dvb_api_type() {
-	static std::mutex m;
-	static std::tuple<api_type_t, int> cached = {api_type_t::UNDEFINED, -1};
-	/*
-		Note: multiple threads could simultaneously TRY to initialize the value, but only
-		one will succeed.
-	*/
-	if (std::get<0>(cached) == api_type_t::UNDEFINED) {
-		std::scoped_lock lck(m);
-		if (std::get<0>(cached) != api_type_t::UNDEFINED) {
-			// this could happen  if another thread beat us to it
-			return cached;
-		}
-		using namespace libconfig;
-		Config cfg;
-		try {
-			cfg.readFile("/sys/module/dvb_core/info/version");
-		} catch (const FileIOException& fioex) {
-			cached = {api_type_t::DVBAPI, 5000};
-			return cached;
-		} catch (const ParseException& pex) {
-			return {api_type_t::DVBAPI, 5000};
-		}
+void driver_info_t::update() {
+	if(valid)
+		return;
+	valid = true;
 
-		try {
-			std::string type = cfg.lookup("type");
-			if (strcmp(type.c_str(), "neumo") != 0) {
-				cached = {api_type_t::DVBAPI, 5000};
-				return cached;
-			}
-		} catch (const SettingNotFoundException& nfex) {
-			cached = {api_type_t::DVBAPI, 5000};
-			return cached;
-		}
-
-		try {
-			std::string version = cfg.lookup("version");
-			dtdebugf("Neumo dvbapi detected; version={}", version);
-			cached = { api_type_t::NEUMO, 1000*std::stof(version)};
-			return cached;
-
-		} catch (const SettingNotFoundException& nfex) {
-			cached = { api_type_t::DVBAPI, 5000};
-			return cached;
-		}
+	using namespace libconfig;
+	Config cfg;
+	try {
+		cfg.readFile("/sys/module/dvb_core/info/version");
+	} catch (const FileIOException& fioex) {
+		api_type = api_type_t::DVBAPI;
+		api_version = 5000;
+		return;
 	}
-	return cached;
+
+	try {
+		std::string type = cfg.lookup("type");
+		if (strcmp(type.c_str(), "neumo") != 0)
+			return;
+	} catch (const SettingNotFoundException& nfex) {
+		return;
+	}
+	api_type = api_type_t::NEUMO;
+
+	try {
+		std::string version = cfg.lookup("version");
+		dtdebugf("Neumo dvbapi detected; version={}", version);
+		api_version = 1000*std::stof(version);
+	} catch (const SettingNotFoundException& nfex) {
+		return;
+	}
+
+	try {
+		std::string driver_git_rev = cfg.lookup("GIT-REV");
+			std::string driver_git_tag = cfg.lookup("GIT-TAG");
+			std::string driver_git_branch = cfg.lookup("GIT-BRANCH");
+			dtdebugf("DRIVERS: GIT-REV={} GIT-TAG={} GIT-BRANCH={}", driver_git_rev, driver_git_tag, driver_git_branch);
+	}
+	catch (const SettingNotFoundException& nfex) {
+		dtdebugf("DRIVERS: unknown");
+	}
 }
 
 
 class dvbdev_monitor_t : public adaptermgr_t {
-#if 0
-	std::optional<db_txn> chdb_wtxn_;
-#endif
 	std::optional<db_txn> devdb_wtxn_;
 
 	inline db_txn devdb_wtxn() {
@@ -111,21 +102,8 @@ class dvbdev_monitor_t : public adaptermgr_t {
 		return devdb_wtxn_->child_txn();
 	}
 
-#if 0
-	inline db_txn chdb_wtxn() {
-		if(!chdb_wtxn_)
-			chdb_wtxn_.emplace(receiver.chdb.wtxn());
-		return chdb_wtxn_->child_txn();
-	}
-#endif
 
 	inline void commit_txns() {
-#if 0
-		if (chdb_wtxn_) {
-			chdb_wtxn_->commit();
-			chdb_wtxn_.reset();
-		}
-#endif
 		if (devdb_wtxn_) {
 			devdb_wtxn_->commit();
 				devdb_wtxn_.reset();
@@ -315,6 +293,8 @@ void dvbdev_monitor_t::on_new_frontend(adapter_no_t adapter_no, frontend_no_t fr
 		//problem: during reload we sometimes get EPERM
 		assert(errno==EACCES);
 	}
+
+	auto [api_type, api_version] = this->driver_info.readAccess()->get_api_type_and_version();
 	auto fe = dvb_frontend_t::make(this, adapter_no, frontend_no, api_type, api_version);
 	{
 		auto w = fe->ts.writeAccess();
@@ -420,6 +400,7 @@ void dvbdev_monitor_t::on_new_dir(struct inotify_event* event) {
 			dtdebugf("Removing watch to /dev because /dev/dvb now exist\n");
 			inotify_rm_watch(inotfd, wd_dev);
 			wd_dev = -1;
+			driver_info.writeAccess()->update();
 			discover_adapters(); // needed because some adapters may already exist
 		}
 	} else if (event->wd == wd_dev_dvb) { // new subdir in /dev/dvb/
@@ -452,7 +433,7 @@ void dvbdev_monitor_t::on_delete_dir(struct inotify_event* event) {
 		dtdebugf("Adding watch to /dev because /dev/dvb no longer exist\n");
 		if (wd_dev < 0)
 			wd_dev = inotify_add_watch(inotfd, "/dev", IN_CREATE);
-
+		driver_info.writeAccess()->invalidate();
 	} else if (event->wd == wd_dev) {
 		assert(0);
 	} else {
@@ -462,7 +443,7 @@ void dvbdev_monitor_t::on_delete_dir(struct inotify_event* event) {
 
 dvbdev_monitor_t::dvbdev_monitor_t(receiver_t& receiver) : adaptermgr_t(receiver) {
 		try {
-		std::tie(api_type, api_version) = get_dvb_api_type();
+			driver_info.writeAccess()->update();
 	} catch(...) {
 	}
 }
@@ -828,7 +809,8 @@ std::shared_ptr<adaptermgr_t> adaptermgr_t::make(receiver_t& receiver) {
 
 std::tuple<std::string, int> adaptermgr_t::get_api_type() const {
 	const char* api_type="";
-	switch(this->api_type) {
+	auto [ api_type_, api_version ] = this->driver_info.readAccess()->get_api_type_and_version();
+	switch(api_type_) {
 	case api_type_t::NEUMO:
 		api_type = "neumo";
 		break;
@@ -836,5 +818,5 @@ std::tuple<std::string, int> adaptermgr_t::get_api_type() const {
 		api_type = "dvbapi";
 		break;
 	}
-	return { api_type, this->api_version};
+	return { api_type, api_version};
 }

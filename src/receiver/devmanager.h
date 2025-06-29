@@ -539,7 +539,6 @@ public:
 	void set_lock_status(fe_status_t fe_status);
 	void clear_lock_status();
 
-	static std::tuple<api_type_t, int> get_api_type(); //returns api_type and version
 	devdb::usals_location_t get_usals_location() const;
 
 	inline chdb::any_mux_t tuned_mux() const {
@@ -660,6 +659,25 @@ public:
 };
 
 
+struct driver_info_t {
+	bool valid{false};
+	api_type_t api_type { api_type_t::UNDEFINED };
+	int api_version{5000}; //1000 times the floating point value of version
+	std::string driver_git_rev{"unknown"};
+	std::string driver_git_tag{"unknown"};
+	std::string driver_git_branch{"unknown"};
+
+	void update();
+	inline void invalidate() {
+		valid = false;
+	}
+
+	inline auto get_api_type_and_version() const {
+		assert(valid);
+		return std::tuple{ api_type, api_version };
+	}
+
+};
 
 /*
 	represents all adapters in the system, even those which are not used.
@@ -671,8 +689,7 @@ class adaptermgr_t {
 	friend class dvb_adapter_t;
 	friend class fe_state_t;
 private:
-	api_type_t api_type { api_type_t::UNDEFINED };
-	int api_version{-1}; //1000 times the floating point value of version
+	safe::Safe<driver_info_t> driver_info;
 
 	using frontend_map = std::map<std::tuple<adapter_no_t, frontend_no_t>, std::shared_ptr<dvb_frontend_t>>;
 	using safe_frontend_map = safe::thread_public_t<false, frontend_map>;

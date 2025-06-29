@@ -48,6 +48,16 @@ group_type = db_enum(name='group_type_t',
                            'ANY'
                            ))
 
+embedding_type = db_enum(name='embedding_type_t',
+                   db = db,
+                   storage = 'int8_t',
+                   type_id = 100,
+                   version = 1,
+                   fields=(('NONE', 0),
+                           ('T2MI', 1),
+                           ('TS', 2),
+                           ))
+
 media_mode = db_enum(name='media_mode_t',
                    db = db,
                    storage = 'int8_t',
@@ -58,7 +68,10 @@ media_mode = db_enum(name='media_mode_t',
                            ('RADIO', 2),
                            ('DATA', 3),
                            ('T2MI', 4),
+                           ('TSINTS', 5),
+                           ('USER_DEFINED', 6),
                            ))
+
 scan_status = db_enum(name='scan_status_t',
                    db = db,
                    storage = 'int8_t',
@@ -610,7 +623,8 @@ mux_key = db_struct(name='mux_key',
                               (2, 'int16_t', 'stream_id', '-1'),
                               (5, 'int16_t', 't2mi_pid', -1), #we would prefer 0x1fff but this interferes
                                                               #with using default key as lower bound in find functions
-                              (4, 'uint16_t', 'mux_id', '0')
+                              (4, 'uint16_t', 'mux_id', '0'),
+
                               ))
 
 
@@ -697,6 +711,7 @@ dvbs_mux = db_struct(name='dvbs_mux',
 	                        (13, 'chdb::fe_pls_mode_t', 'pls_mode', 'fe_pls_mode_t::ROOT'),
                           (16, 'int16_t', 'matype', '-1'),
 	                        (14, 'uint32_t', 'pls_code',  1),
+                          (19, 'embedding_type_t' , 'embedding_type', 'embedding_type_t::NONE'),
                           (15, 'mux_common_t', 'c')
                 ))
 

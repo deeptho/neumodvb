@@ -940,6 +940,9 @@ chdb::media_mode_t chdb::media_mode_for_service_type(uint8_t service_type) {
 	case 0x19: // advanced codec  HD igital television service
 	case 0x1A: // advanced codec  HD NVOD time-shifted service
 	case 0x1B: // advanced codec HD NVOD reference service
+	case 0x80: // used for abertis
+		return chdb::media_mode_t::USER_DEFINED;
+		break;
 	case 0x82: // used for bbci and such
 		return chdb::media_mode_t::TV;
 		break;
@@ -1551,4 +1554,48 @@ fmt::formatter<chdb::band_scan_t>::format(const chdb::band_scan_t& band_scan, fo
 												to_str(band_scan.pol),
 												to_str(band_scan.sat_band),
 												to_str(band_scan.sat_sub_band));
+}
+
+fmt::format_context::iterator
+fmt::formatter<chdb::media_mode_t>::format(const chdb::media_mode_t& media_mode, format_context& ctx) const {
+	return fmt::format_to(ctx.out(), "{:s}", to_str(media_mode));
+}
+
+
+const char* service_type_str(int service_type) {
+	switch (service_type) {
+	case 0x01: // digital television service; encoding not specified
+	case 0x04: // NVOD reference service
+	case 0x05: // NVOD time-shifted service
+	case 0x06: // Mosaic service
+	case 0x1F: // HEVC digital television service; encoding unspecified
+		return "TV";
+		break;
+	case 0x0b: // Advanced codec Mosaic service
+		break;
+	case 0x0c: // data service
+		return "DATA";
+		break;
+	case 0x11: // MPEG2 HD television service
+	case 0x16: // advanced codec  SD digital television service
+	case 0x17: // advanced codec  SD NVOD time-shifted service
+	case 0x18: // advanced codec  SD NVOD reference service
+	case 0x19: // advanced codec  HD igital television service
+	case 0x1A: // advanced codec  HD NVOD time-shifted service
+	case 0x1B: // advanced codec HD NVOD reference service
+	case 0x80: // used for abertis
+		return "USER_DEFINED";
+		break;
+	case 0x82: // used for bbci and such
+		return "TV";
+		break;
+	case 0x02: // digital radio sound service
+	case 0x07: // FM radio service
+	case 0x0a: // Advanced codec digital radio; encoding not specified
+		return "RADIO";
+		break;
+	default:
+		break;
+	}
+	return "UNKNOWN";
 }

@@ -139,6 +139,7 @@ namespace dtdemux {
 	*/
 	struct pmt_info_t {
 		uint16_t service_id = 0x00;
+		int16_t service_type = -1;
 		uint16_t pcr_pid = null_pid;
 		uint16_t video_pid = null_pid;
 		uint16_t pmt_pid = null_pid;

@@ -1093,6 +1093,8 @@ namespace dtdemux {
 				}
 				chdb::service_t service;
 				s.get_fields<service_descriptor_t>(service);
+				pmt.service_type = service.service_type;
+				pmt.estimated_media_mode = service.media_mode;
 				if(service.name.size()>0)
 					pmt.service_name = service.name;
 				if(service.provider.size()>0)
@@ -1291,7 +1293,10 @@ namespace dtdemux {
 		pid_info_t info;
 		const bool in_es_loop = false;
 		pmt.parse_descriptors(*this, pmt, info, in_es_loop);
-		pmt.estimated_media_mode = (info.t2mi_stream_id >=0) ? media_mode_t::T2MI : media_mode_t::UNKNOWN;
+		if(info.t2mi_stream_id >= 0) {
+			dtdebugf("Overriding media_mode from {} to {}", pmt.estimated_media_mode, media_mode_t::T2MI);
+			pmt.estimated_media_mode = media_mode_t::T2MI;
+		}
 		// elementary stream loop
 		while (this->available() > 4) { // 4 is the crc
 
@@ -1333,7 +1338,6 @@ namespace dtdemux {
 		if(!error)
 			current_version_number = hdr.version_number;
 #endif
-		assert(	(int)pmt.estimated_media_mode <=4);
 		return true;
 	}
 

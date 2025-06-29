@@ -38,6 +38,7 @@ struct pat_service_t {
 	bool pmt_analysis_finished{false};
 	bool encrypted{false};
 	int t2mi_pid{-1};
+	chdb::embedding_type_t embedding_type{chdb::embedding_type_t::T2MI};
 	pmt_info_t pmt;
 };
 

@@ -522,7 +522,7 @@ namespace chdb {
 
 	bool toggle_service_in_bouquet(db_txn& wtxn, const chg_t& chg, const service_t& service);
 	bool toggle_channel_in_bouquet(db_txn& wtxn, const chg_t& chg, const chgm_t& chgm);
-
+	const char* service_type_str(int service_type);
 }
 
 namespace  chdb::service {
@@ -539,6 +539,7 @@ namespace  chdb::service {
 	format_context::iterator format(const t&, format_context& ctx) const ;\
 }
 
+declfmt(chdb::media_mode_t);
 declfmt(chdb::scan_status_t);
 declfmt(chdb::scan_result_t);
 declfmt(chdb::language_code_t);

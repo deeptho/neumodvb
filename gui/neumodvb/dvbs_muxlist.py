@@ -29,6 +29,7 @@ from dateutil import tz
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror
+from neumodvb.neumodbutils import enum_to_str
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, screen_if_t
 from neumodvb.satlist_combo import EVT_SAT_SELECT
@@ -58,6 +59,7 @@ class DvbsMuxTable(NeumoTable):
          CD(key='fec', label='FEC', dfn=lambda x: lastdot(x).replace('FEC',''), example='AUTO'),
          CD(key='k.stream_id', label='ISI', basic=True, readonly=True),
          CD(key='k.t2mi_pid', label='t2mi\npid', basic=True, readonly=True, dfn = lambda x: x[1] if x[1]>=0 else ''),
+         CD(key='embedding_type', label='emb', basic=True, readonly=True, dfn = lambda x: enum_to_str(x[1]) if x[1] != pychdb.embedding_type_t.NONE else ''),
          CD(key='k.mux_id', label='mux\nid', readonly=True),
          CD(key='c.network_id', label='nid'),
          CD(key='c.ts_id', label='tsid'),

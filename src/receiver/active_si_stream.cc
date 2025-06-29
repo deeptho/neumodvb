@@ -80,7 +80,7 @@ active_si_stream_t::active_si_stream_t
 (	receiver_t& receiver,
 	const std::shared_ptr<stream_reader_t>& reader,  const chdb::any_mux_t& mux, bool is_main)
 	: active_stream_t(receiver, reader)
-	, active_si_data_t(chdb::mux_key_ptr(mux)->t2mi_pid>=0 /*is_embedded_si*/)
+	, active_si_data_t(chdb::mux_key_ptr(mux)->t2mi_pid >= 0 /*is_embedded_si*/)
 	, chdbmgr(receiver.chdb)
 	, epgdbmgr(receiver.epgdb)
 	, dbmux(mux)
@@ -2897,6 +2897,7 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 									mux.k.sat_pos = p->k.sat_pos;
 									//stream_id: taken from driver mux, but this is only correct if bbframes_on==true
 									mux.k.t2mi_pid = p->k.t2mi_pid;
+									mux.embedding_type = p->embedding_type;
 									//mux_id : taken from driver mux @TODO: check if this is a good idea
 									mux.k.stream_id = si_mux_stream_id;
 									bool use_driver{false};
@@ -3001,16 +3002,28 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 	for (const auto& desc : pmt.pid_descriptors) {
 		bool is_t2mi = desc.t2mi_stream_id >= 0;
 		auto sat_pos = this->stream_mux_key().sat_pos;
-		if (!is_t2mi && pmt.pmt_pid == 256 && desc.stream_type ==  stream_type::stream_type_t::PES_PRIV
-				&& desc.stream_pid == 4096 &&
-				(
-				std::abs(sat_pos - (int)4000) < 300  || //40.0 E
-				std::abs(sat_pos - (int)-1400) < 300 || //14.0W
-				std::abs(sat_pos - (int)2000) < 300) ){ //20.0E  3865L
-			is_t2mi = true;
+		if(std::abs(sat_pos - (int)-3000) < 300) { //30.0 W
+			if(desc.stream_type == stream_type::stream_type_t::MPE_FEC && pmt.estimated_media_mode == chdb::media_mode_t::USER_DEFINED &&
+				 strncmp(pmt.provider_name.c_str(), "HS", 2)==0) {
+				dtdebugf("ABERTIS service");
+				is_t2mi = true;
+				p.t2mi_pid = pmt.service_id; //@todo: clear up the confusion between service_id and t2mi_pid
+				p.embedding_type = chdb::embedding_type_t::TS;
+			}
 		}
-		if(is_t2mi)
-			p.t2mi_pid = desc.stream_pid;
+		else if(std::abs(sat_pos - (int)4000) < 300  || //40.0 E
+						std::abs(sat_pos - (int)-1400) < 300 || //14.0W
+						std::abs(sat_pos - (int)2000) < 300) { //20.0E  3865L
+			if (!is_t2mi && pmt.pmt_pid == 256 && desc.stream_type ==  stream_type::stream_type_t::PES_PRIV
+					&& desc.stream_pid == 4096) {
+				is_t2mi = true;
+				p.embedding_type = chdb::embedding_type_t::T2MI;
+				p.t2mi_pid = desc.stream_pid;
+			}
+		} else if(is_t2mi) {
+				p.embedding_type = chdb::embedding_type_t::T2MI;
+				p.t2mi_pid = desc.stream_pid;
+		}
 	}
 	if(pmts_can_be_saved(false /*force*/) && ! is_template(this->dbmux)) {
 		lmdb_hint();
@@ -3136,6 +3149,9 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 				we discovered a t2mi stream and must ensure that its mux
 				exists in the database.*/
 			chdb::any_mux_t mux = this->dbmux;
+			auto *dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&mux);
+			if(dvbs_mux)
+				dvbs_mux->embedding_type = pat_service.embedding_type;
 			mux_key_ptr(mux)->t2mi_pid = pat_service.t2mi_pid;
 			assert(!chdb::is_template(mux));
 			namespace m = chdb::update_mux_preserve_t;
@@ -3182,7 +3198,7 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 
 		new_service.pmt_pid = pat_service.pmt.pmt_pid;
 		new_service.video_pid = pat_service.pmt.video_pid;
-		assert(	(int)pat_service.pmt.estimated_media_mode <=4);
+
 		if (pat_service.pmt.estimated_media_mode != media_mode_t::UNKNOWN) {
 			new_service.media_mode = pat_service.pmt.estimated_media_mode;
 			new_service.media_mode_from_pmt = true;

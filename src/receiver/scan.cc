@@ -142,7 +142,7 @@ void scanner_t::end_scans(subscription_id_t scan_subscription_id)
 }
 
 scan_mux_end_report_t::scan_mux_end_report_t(const scan_subscription_t& subscription,
-																						 const statdb::spectrum_key_t spectrum_key)
+																						 const std::optional<statdb::spectrum_key_t> spectrum_key)
 	: spectrum_key(spectrum_key)
 	, peak(subscription.peak)
 	, mux(subscription.mux)
@@ -1057,7 +1057,7 @@ void scan_t::on_scan_mux_end(const devdb::fe_t& finished_fe, const chdb::any_mux
 		is unlikely to succeed. Scan statistics also do not change in that case*/
 	if (finished) {
 		assert(subscription.subscription_id == finished_ssptr->get_subscription_id());
-		scan_mux_end_report_t report{subscription, *blindscan.spectrum_key};
+		scan_mux_end_report_t report{subscription, blindscan.spectrum_key};
 		receiver.notify_scan_mux_end(scan_subscription_id, report);
 
 		scan_loop(chdb_rtxn, subscription, finished_fe, finished_mux);

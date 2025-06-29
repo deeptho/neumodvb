@@ -329,12 +329,12 @@ inline void scan_stats_abort(devdb::scan_stats_t& ss) {
 }
 
 struct scan_mux_end_report_t {
-	statdb::spectrum_key_t spectrum_key;
+	std::optional<statdb::spectrum_key_t> spectrum_key;
 	peak_to_scan_t peak;
 	std::optional<chdb::any_mux_t> mux;
 	devdb::fe_key_t fe_key;
 	scan_mux_end_report_t() = default;
-	scan_mux_end_report_t(const scan_subscription_t& subscription, const statdb::spectrum_key_t spectrum_key);
+	scan_mux_end_report_t(const scan_subscription_t& subscription, const std::optional<statdb::spectrum_key_t> spectrum_key);
 };
 
 #ifdef TODO //not needed?

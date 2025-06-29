@@ -31,3 +31,7 @@ neumowxsvg/aclocal.m4
 neumowxsvg/compile
 neumowxsvg/config.*
 neumowxsvg/ltmain.sh
+neumowxsvg/depcomp
+neumowxsvg/configure
+neumowxsvg/missing
+neumowxsvg/m4/**

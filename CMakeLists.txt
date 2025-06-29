@@ -61,7 +61,7 @@ endif()
 #add_compile_options (-fsanitize=address -fPIC -fsized-deallocation)
 # -DHAS_UNCAUGHT_EXCEPTIONS=1 for date module
 
-
+set (CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 #add_compile_options(-DBOOST_DISABLE_ASSERTS -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=. -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.)
 

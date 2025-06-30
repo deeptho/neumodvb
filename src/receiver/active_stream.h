@@ -72,7 +72,6 @@ class stream_reader_t : public std::enable_shared_from_this<stream_reader_t> {
 public:
 	const chdb::mux_key_t mux_key;
 	ssize_t num_read{0};
-	uint16_t embedded_pid{0};
 	active_adapter_t& active_adapter;
 
 	epoll_t* epoll{nullptr};

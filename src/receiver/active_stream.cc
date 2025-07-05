@@ -85,10 +85,11 @@ ss::string<32> active_stream_t::name() const
 //return -1 on error
 /*
   @brief open the demux, create a pes filter and ask to read the pat;
-	PAT will be received as transport stream
-  TODO: if we know pmt_pid we could also read the pmt
+	epoll: if non null add the file destriptor to the epoll watch list
+	steal_fd: if true, do not remember the file descriptor internally, preventing it from being closed
+	steal_fd
  */
-int dvb_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags)
+int dvb_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags, bool steal_fd)
 {
 	this->epoll = epoll;
 	this->epoll_flags = epoll_flags;
@@ -103,8 +104,8 @@ int dvb_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_fl
 		return demux_fd;
 	}
 	dtdebugf("OPEN DEMUX_FD={}", demux_fd);
-
-	epoll->add_fd(demux_fd, epoll_flags);
+	if(epoll)
+		epoll->add_fd(demux_fd, epoll_flags);
 
 	if(ioctl(demux_fd, DMX_SET_BUFFER_SIZE, dmx_buffer_size)) {
 		dterrorf("DMX_SET_BUFFER_SIZE failed: {}", strerror(errno));
@@ -121,15 +122,18 @@ int dvb_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_fl
 		dterrorf("DMX_START FAILED: {}", strerror(errno));
 	}
 
-	return demux_fd;
+	auto ret = demux_fd;
+	if(steal_fd)
+		demux_fd = -1;
+	return ret;
 }
 
 
 
-int active_stream_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags)
+int active_stream_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags, bool steal_fd)
 {
 	log4cxx::NDC(name());
-	if(reader->open(initial_pid, epoll, epoll_flags) >=0) {
+	if(reader->open(initial_pid, epoll, epoll_flags, steal_fd) >=0) {
 		//note that pat pid has already been activated!
 		open_pids.push_back(pid_with_use_count_t(initial_pid));
 		return 0;
@@ -139,7 +143,6 @@ int active_stream_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags)
 
 void dvb_stream_reader_t::close() {
 	if(demux_fd<0) {
-
 		return;
 	}
 	dtdebugf("closing demux_fd={:d}", demux_fd);

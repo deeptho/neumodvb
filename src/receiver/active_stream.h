@@ -99,7 +99,7 @@ public:
 		return epoll != nullptr;
 	}
 
-	virtual int open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags) {
+	virtual int open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags, bool steal_fd) {
 		return -1;
 	}
 
@@ -168,7 +168,8 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 		return demux_fd == (evt->data.u64 & 0xffffffff);
 	}
 	virtual int open(uint16_t initial_pid, epoll_t* epoll,
-									 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
+									 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET,
+									 bool steal_fd=false);
 	virtual void close();
 
 	virtual inline void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
@@ -248,7 +249,8 @@ public:
 	}
 
 	virtual int open(uint16_t initial_pid, epoll_t* epoll,
-									 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
+									 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET,
+									 bool steal_fd=false);
 
 	virtual void close();
 
@@ -309,7 +311,8 @@ protected:
 	virtual ss::string<32> name() const;
 	//virtual void log4cxx::NDC(name()) const;
 	int open(uint16_t initial_pid, epoll_t* epoll,
-					 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
+					 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET,
+					 bool steal_fd = false);
 
 	//!register a pid; may_exist supresses warning if pid was already registered
 	int add_pid(uint16_t pid);

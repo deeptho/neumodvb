@@ -181,10 +181,9 @@ int stream_filter_t::start() {
 	auto master_mux_key = this->embedded_mux_key;
 	master_mux_key.t2mi_pid = -1;
 	dvb_stream_reader_t dvb_reader(active_adapter, master_mux_key, dmx_buffer_size);
-	int stream_fd = dvb_reader.open(stream_pid, epoll, epoll_flags);
+	int stream_fd = dvb_reader.open(stream_pid, epoll, epoll_flags, true /*steal_fd*/);
 	if (stream_fd < 0)
 		return -1;
-
 	auto flags = fcntl(stream_fd, F_GETFD);
 	if (flags < 0) {
 		dterrorf("fcntl failed: {}", strerror(errno));
@@ -382,7 +381,7 @@ embedded_stream_reader_t::embedded_stream_reader_t(active_adapter_t& active_adap
 																									 const std::shared_ptr<stream_filter_t>& stream_filter)
 	: stream_reader_t(active_adapter, mux_key), stream_filter(stream_filter) {}
 
-int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags) {
+int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags, bool steal_fd) {
 	this->epoll = epoll;
 	this->epoll_flags = epoll_flags;
 	stream_filter->register_reader(this);

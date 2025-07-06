@@ -76,7 +76,7 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 
 	active_mpm_t mpm;
 	periodic_t periodic;
-
+	void process_channel_data();
 public:
   volatile uint16_t current_pmt_pid = null_pid;// the pmt_pid which is currently requested from the stream
 	service_thread_t service_thread;

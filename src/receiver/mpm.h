@@ -27,8 +27,6 @@
 #include "util/safe/safe.h"
 #include "recmgr.h"
 
-#include "dvbcsa.h"
-
 
 namespace fs = std::filesystem;
 
@@ -332,8 +330,6 @@ public:
 	const system_time_t creation_time;
 	uint32_t current_file_stream_packetno_start{0};
 
-	dvbcsa_t dvbcsa;
-
 	dtdemux::ts_stream_t stream_parser;
 
 
@@ -366,10 +362,6 @@ private:
 	*/
 	int next_data_file(system_time_t now, int64_t new_num_bytes_safe_to_read);
 
-	void process_channel_data();
-
-//low_data_rate: force decryption to use smaller buffers for a faster response
-	int decrypt_channel_data(bool low_data_rate);
 	void close();
 
 	void start_live_recording(db_txn& parent_txn, system_time_t now, int duration);

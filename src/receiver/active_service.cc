@@ -437,7 +437,7 @@ int service_thread_t::run() {
 				if (!(evt->events & EPOLLIN)) {
 					dterrorf("Unexpected event: type={}", evt->events);
 				}
-				active_service.mpm.process_channel_data();
+				active_service.process_channel_data();
 			} else {
 				dtdebugf("event from unknown fd\n");
 				assert(0);
@@ -455,7 +455,7 @@ void active_service_t::restart_decryption(uint16_t ecm_pid, system_time_t t) {
 		/*set a flag indicating that decryption was interrupted,
 			while locking a mutex
 		*/
-		mpm.dvbcsa.restart_decryption(t);
+		reader->dvbcsa.restart_decryption(t);
 	}
 }
 
@@ -475,7 +475,7 @@ void active_service_t::set_services_key(ca_slot_t& slot, int decryption_index) {
 	 */
 	for (auto desc : current_pmt.pid_descriptors) {
 		if (slot_has_pid(desc.stream_pid)) {
-			mpm.dvbcsa.add_key(slot, decryption_index, slot.last_key.receive_time);
+			reader->dvbcsa.add_key(slot, decryption_index, slot.last_key.receive_time);
 			found = true;
 			break; /*we assume that only a single key is used for the full service
 							 If audio and video use a different scrambling key, the code
@@ -486,7 +486,7 @@ void active_service_t::set_services_key(ca_slot_t& slot, int decryption_index) {
 	/*the following can theoretically install a key on the wrog service if multiple services
 		are active on the same mux*/
 	if (pmt_is_encrypted && !found) {
-		mpm.dvbcsa.add_key(slot, decryption_index, slot.last_key.receive_time);
+		reader->dvbcsa.add_key(slot, decryption_index, slot.last_key.receive_time);
 	}
 }
 
@@ -496,7 +496,7 @@ void active_service_t::mark_ecm_sent(bool odd, uint16_t ecm_pid, system_time_t t
 		/*set a flag indicating that decryption was interrupted,
 			while locking a mutex
 		*/
-		mpm.dvbcsa.mark_ecm_sent(odd, t);
+		reader->dvbcsa.mark_ecm_sent(odd, t);
 	}
 }
 
@@ -619,4 +619,182 @@ active_service_t::start_recording(subscription_id_t subscription_id, const recdb
 	*/
 
 	return rec;
+}
+
+void active_service_t::process_channel_data() {
+	now = system_clock_t::now();
+	auto start = steady_clock_t::now();
+	for (;;) {
+		auto s = steady_clock_t::now();
+		auto delta = s - start;
+		if (delta > 500ms) {
+			dtdebugf("SKIPPING EARLY\n");
+			break;
+		}
+
+		bool may_start_new_file = false;
+		uint8_t* buffer = NULL;
+		ssize_t remaining_space = mpm.filemap.get_write_buffer(buffer);
+		// TODO: ensure parser can cope with changing mmap region
+
+		if (remaining_space < 1024) {
+			/*
+				grow the file and move the mmaped region
+				TODO: to support rewind and such, either we need to map full files
+				or come up with some sy
+				stem of mapping multiple chunks. In the latter case
+				moving an mmapped region is not optimal. The readv function call can help to
+				read data into multiple chunks
+			*/
+			mpm.filemap.advance();
+			remaining_space = mpm.filemap.get_write_buffer(buffer);
+		}
+		/*
+			read as much data as possible.
+			TODO: could it be more efficient to simply use timed reads? I.e., we wait as long
+			as allowed (e.g., 100ms) and then read large chunks of data for one stream. This
+			may be more efficient for filesystem access.
+		*/
+		int toread = std::min(remaining_space, (long)ts_packet_t::size * 1024);
+		ssize_t ret = this->reader->read_into(buffer, toread - (toread % dtdemux::ts_packet_t::size),
+																		&this->open_pids);
+		if (ret < 0) {
+			if (errno == EINTR) {
+				// dtdebugf("Interrupt received (ignoring)");
+				continue;
+			}
+			if (errno == EOVERFLOW) {
+				dtdebug_nicef("OVERFLOW");
+				continue;
+			}
+			if (errno == EAGAIN) {
+				break; // no more data
+			} else {
+				dterrorf("error while reading: {}", strerror(errno));
+				break;
+			}
+		}
+		assert(ret >= 0);
+		if (ret == 0)
+			return;
+
+		if (ret % ts_packet_t::size != 0) {
+			dterrorf("ret={:d} ret%%188={:d}", ret, ret % ts_packet_t::size);
+		}
+		/*decrypt as many bytes as possible.
+			In case stream is not encrypted, we just move the decrypt pointer.
+			The decryptiomn process simply overwrites the encrypted data.
+			TODO: improved handling of decrypt failures from oscam. When decryption fails,
+			decrypt pointer should not be advanced and decryption should be retried later.
+			This means we have to store the decrypt pointer on file, or even implement
+			a better system where decrypted and not yet encrypted ranges may be mixed in the file.
+			Decryption could then proceed at some later time. This also allows nonlive decryption.
+		*/
+		assert(ret >= 0);
+		this->mpm.filemap.advance_write_pointer(ret);
+		auto* pmt_parser = this->pmt_parser.get();
+		this->pmt_is_encrypted = (pmt_parser && pmt_parser->num_encrypted_packets > 0);
+		bool is_encrypted = this->need_decryption();
+		assert(!is_encrypted || this->mpm.num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
+		bool low_data_rate = this->pmt_is_encrypted;
+
+		int num_bytes_to_decrypt = this->mpm.filemap.bytes_to_decrypt(buffer);
+
+
+		auto num_bytes_decrypted_now =
+			(is_encrypted) ? this->reader->decrypt_channel_data(buffer, num_bytes_to_decrypt, low_data_rate)
+			: num_bytes_to_decrypt;
+		if (!is_encrypted)
+			this->reader->dvbcsa.num_bytes_decrypted += num_bytes_decrypted_now;
+
+		assert(num_bytes_decrypted_now + this->mpm.filemap.decrypt_pointer <= this->mpm.filemap.write_pointer);
+		/*TODO: returned ret may not be a multiple of ts_packet_t::size (188)
+			We need a parse_pointer to remember where parsing should continue
+		*/
+		if (num_bytes_decrypted_now > 0) {
+			/*
+				For an encrypted channel, note that the code below will not parse unencrypted data such
+				as PMT and PAT while problems with video/audio scrambling exist. However, video and audio
+				streams are not present until after the first pmt is successfully read. So we should be safe
+				@todo: we could make discarding data more clever by only skipping encrypted packets
+			*/
+			assert(num_bytes_decrypted_now % ts_packet_t::size == 0);
+			this->mpm.stream_parser.set_buffer(this->mpm.filemap.buffer + this->mpm.filemap.decrypt_pointer, num_bytes_decrypted_now);
+			auto old_packetno_start = this->mpm.stream_parser.event_handler.last_saved_marker.packetno_start;
+			dttime_init();
+			this->mpm.stream_parser.parse();
+			dttime(500);
+
+			this->mpm.filemap.advance_decrypt_pointer(num_bytes_decrypted_now);
+
+			if (this->mpm.stream_parser.event_handler.last_saved_marker.packetno_start != old_packetno_start) {
+				may_start_new_file = true;
+				/*A marker was discovered in the current data (end of i-frame);
+					Only then it is ok to switch to a new data file; reason is that num_bytes_safe_to_read
+					must be increased as soon as possible in order to minimize delay for reading threads.
+					However we can only increase it when we know the current file is no longer
+					growing, i.e., just after a marker. So we proceed when this marker has been read very
+					recently
+				*/
+			}
+			/*
+				todo:
+				1. find range of packets encrypted with same pid and same parity
+				2. lookup the key with the right parity which should not be marked "outdated"
+				and should not be "too new". The latter could occur when a key was lost
+				or when for some reason processing is heavily delayed (should not happen)
+				2.a. If no key can be found, then continue reading data, but not decrypting it; continue reading data
+				untl key becomes available
+				2.b. decrypt what can be
+				decryped
+				3. if we encounter a new
+				parity, mark key for current parity invalid (being careful not to mark a newer key invalid) and continue with
+				current key
+
+				todo 1: filemap.advance should keep both decrypt_pointer and file_pointer in memory
+				(or in two mapped regions)
+				todo 2: implement method for waiting for keys
+				todo 3: is it useful to decrypt more than 1 packet at a time?
+
+			*/
+
+			this->mpm.num_bytes_decrypted += num_bytes_decrypted_now;
+			assert(this->mpm.num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
+		} else {
+		}
+
+		this->mpm.num_bytes_read += ret;
+#if 0
+		dtdebug_nicex("MPM STATUS: read={:d} parsed={:d} decrypted={:d}", num_bytes_read,
+									stream_parser.event_handler.last_saved_marker.packetno_end*ts_packet_t::size,
+									num_bytes_decrypted);
+#endif
+		if (may_start_new_file && this->mpm.file_time_limit >= 0s &&
+				(now - this->mpm.current_file_time_start > this->mpm.file_time_limit) &&
+				this->mpm.num_recordings_in_progress == 0) {
+			/* we start a new file; ideally, we would like the new file to start with a combination
+				 pat/pmt/i-frame. @todo The current implementation does not work as it splits at the end
+				 of an i-frame, but at least this ensures that all data for an iframe is in a singgle file;
+				 fixing the problem also means moving more data
+			*/
+			this->mpm.next_data_file(now, this->mpm.num_bytes_decrypted);
+		} else if (num_bytes_decrypted_now) {
+			auto mm = this->mpm.meta_marker.writeAccess();
+			mm->livebuffer_end_time = now;
+			mm->current_marker = this->mpm.stream_parser.event_handler.last_saved_marker;
+			assert(mm->num_bytes_safe_to_read <= this->mpm.num_bytes_decrypted); // KNOWN PROBLEM: we may not go back!!
+			mm->num_bytes_safe_to_read = this->mpm.num_bytes_decrypted;
+			if (!mm->started && mm->num_bytes_safe_to_read > 0) {
+				mm->started = true;
+				dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
+			}
+			this->mpm.self_check(*mm);
+			//		TODO: add num_bytes_decrypted??? How to save time at start? e.g., first minute alway safe to read?
+			mm->cv.notify_all();
+		}
+		if (this->mpm.num_bytes_read % dtdemux::ts_packet_t::size != 0) {
+			dtdebugf("Read partial packet: num_bytes_read={:d} num_bytes_read%%188={:d}", this->mpm.num_bytes_read,
+							 this->mpm.num_bytes_read % dtdemux::ts_packet_t::size);
+		}
+	}
 }

@@ -30,6 +30,7 @@
 #include "util/logger.h"
 #include "util/util.h"
 #include "neumodb/chdb/chdb_extra.h"
+#include "dvbcsa.h"
 
 #ifndef null_pid
 #define null_pid (0x1fff)
@@ -77,7 +78,7 @@ public:
 
 	epoll_t* epoll{nullptr};
 	int epoll_flags;
-
+	dvbcsa_t dvbcsa;
 protected:
 	stream_reader_t(active_adapter_t& active_adapter, const chdb::any_mux_t& mux)
 		: last_data_time(steady_clock_t::now())
@@ -86,6 +87,8 @@ protected:
 		{}
 
 public:
+//low_data_rate: force decryption to use smaller buffers for a faster response
+	int decrypt_channel_data(uint8_t* buffer, int num_bytes_to_decrypt, bool low_data_rate);
 
 		bool no_data() const {
 			return num_read==0  &&  (steady_clock_t::now() - last_data_time) >= data_timeout;

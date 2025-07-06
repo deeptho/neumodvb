@@ -309,3 +309,25 @@ int dvb_stream_reader_t::remove_pid(int pid) {
 		dtdebugf("DMX_REMOVE_PID {} succeeded",  pid);
 	return 0;
 }
+
+/*
+	Returns the number of bytes successfully decrypted (may be zero)
+	low_data_rate: force decryption to use smaller buffers for a faster response
+*/
+int stream_reader_t::decrypt_channel_data(uint8_t* buffer, int num_bytes_to_decrypt, bool low_data_rate) {
+	int batch_size = (ts_packet_t::size * (dvbcsa.cache.batch_size)); // process at least 128 packets at a time);
+	if (low_data_rate)
+		batch_size /= 32;
+	int numbatches = (num_bytes_to_decrypt / batch_size);
+	num_bytes_to_decrypt = numbatches * batch_size;
+	int num_bytes_decrypted = 0;
+	if (num_bytes_to_decrypt == 0)
+		return num_bytes_to_decrypt;
+
+	assert(num_bytes_to_decrypt > num_bytes_decrypted);
+	auto newly_decrypted =
+		dvbcsa.decrypt_buffer(buffer + num_bytes_decrypted, num_bytes_to_decrypt - num_bytes_decrypted);
+	num_bytes_decrypted += newly_decrypted;
+	assert(num_bytes_decrypted <= num_bytes_to_decrypt);
+	return num_bytes_decrypted;
+}

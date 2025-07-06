@@ -76,7 +76,7 @@ struct pes_parser_t : public ts_substream_t {
 		virtual void parse_payload_unit() override = 0;
 
 	pes_parser_t(ts_stream_t& parent, int service_id, int pid, /*int stream_type,*/  const char* name) :
-	 ts_substream_t(parent, payload_type_t::PES, name), service_id(service_id)
+		ts_substream_t(parent, payload_type_t::PES, name), service_id(service_id)
 			{}
 
 		pes_parser_t(const pes_parser_t& other) = delete;
@@ -166,16 +166,17 @@ struct pes_parser_t : public ts_substream_t {
 		virtual ~audio_parser_t() {}
 	};
 
-	class ts_in_ts_parser_t : public dtdemux::pes_parser_t {
+	class ts_in_ts_parser_t : public ts_substream_t {
 	public:
 		virtual void parse_payload_unit() override;
 
-		void on_pes_start();
 
 		ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid);
 
 		ts_in_ts_parser_t(const ts_in_ts_parser_t& other) = delete;
 		virtual ~ts_in_ts_parser_t() {}
+
+		virtual void unit_completed_cb() override {};
 	};
 
 

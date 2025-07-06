@@ -539,7 +539,7 @@ void ts_in_ts_parser_t::parse_payload_unit() {
 }
 
 ts_in_ts_parser_t::ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid):
-	dtdemux::pes_parser_t(ts_stream, service_id, pid, "ABERTIS") {
+	ts_substream_t(ts_stream, payload_type_t::PES, "ABERTIS") {
 	payload_type = payload_type_t::DATA; //TODO
 	auto fn = [this](ts_packet_t* p) {
 		log4cxx::NDC::push("TSINTS");

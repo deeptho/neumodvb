@@ -62,7 +62,7 @@ struct ca_key_t {
 	for each pid store index of last used decryption key
  */
 struct descrambling_context_t {
-	enum class key_validy_t {
+	enum class key_validity_t {
 							UNKNOWN,  /*The key is being used,  but we don't know if the key came during the current parity period
 													or during the next other-parity period (unlikely) and may turn out invalid later;
 													this state can only be entered for the first key of a given parity received after an
@@ -80,7 +80,7 @@ struct descrambling_context_t {
 	int last_used_key_idxs[2]{-1,-1};
 	int64_t last_used_key_request_bytepos[2]{-1,-1};
 	int last_used_key_restart_count{-1};
-	key_validy_t last_used_key_validity[2]{key_validy_t::UNKNOWN ,key_validy_t::UNKNOWN};
+	key_validity_t last_used_key_validity[2]{key_validity_t::UNKNOWN ,key_validity_t::UNKNOWN};
 	int cc = -1; //continuity counter
 	descrambling_context_t () = default;
 

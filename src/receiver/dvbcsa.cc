@@ -483,29 +483,29 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 			/*usual case: otherkey has expired;
 				note that the other key may not yet have been installed
 			*/
-			context.last_used_key_validity[!odd] = descrambling_context_t::key_validy_t::EXPIRED;
+			context.last_used_key_validity[!odd] = descrambling_context_t::key_validity_t::EXPIRED;
 		} else {
 			/*unusual case: otherkey has perhaps been used, but it was actually requested after the current
 				parity transition;
 			*/
 
 			switch (context.last_used_key_validity[!odd]) {
-			case descrambling_context_t::key_validy_t::UNKNOWN:
+			case descrambling_context_t::key_validity_t::UNKNOWN:
 				dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} applies to a later parity phase", pid, otheridx, !odd);
 				break;
-			case descrambling_context_t::key_validy_t::VALID:
+			case descrambling_context_t::key_validity_t::VALID:
 				dtdebugf("KEY pid {:d}: UNEXPECTED: desired key[{:d}] for parity {:d} was VALID before, but seems to be VALID "
 								 "in a later phase as well)",
 								 pid, otheridx, !odd);
 				break;
 
-			case descrambling_context_t::key_validy_t::EXPIRED:
+			case descrambling_context_t::key_validity_t::EXPIRED:
 				dtdebugf("KEY pid {:d}: UNEXPECTED: desired key[{:d}] for parity {:d} was EXPIRED before, but seems to be VALID "
 								 "in a later phase as well)",
 								 pid, otheridx, !odd);
 				break;
 			}
-			context.last_used_key_validity[odd] = descrambling_context_t::key_validy_t::UNKNOWN;
+			context.last_used_key_validity[odd] = descrambling_context_t::key_validity_t::UNKNOWN;
 		}
 	}
 	/*
@@ -516,24 +516,24 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 	if (idx >= 0) {
 		auto& key = keys[idx];
 		switch (context.last_used_key_validity[odd]) {
-		case descrambling_context_t::key_validy_t::UNKNOWN:
+		case descrambling_context_t::key_validity_t::UNKNOWN:
 			/*
 				This state was entered after a restart; there has been no transition to the other parity yet (or the
 				state would be EXPIRED)
 			*/
 			if (key.request_bytepos < num_bytes_decrypted) {
 				dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} was UNKNOWN; is now VALID", pid, idx, odd);
-				context.last_used_key_validity[odd] = descrambling_context_t::key_validy_t::VALID;
+				context.last_used_key_validity[odd] = descrambling_context_t::key_validity_t::VALID;
 				// assert(!waiting_for_keys);
 				waiting_for_keys = false;
 				return 0; // continue to use this key
 			}
 			allow_future_key = true;
 			break;
-		case descrambling_context_t::key_validy_t::VALID:
+		case descrambling_context_t::key_validity_t::VALID:
 			dtdebugf("KEY pid {:d}: UNEXPECTED desired key[{:d}] for parity {:d} in VALID state visited twice", pid, idx, odd);
 			break;
-		case descrambling_context_t::key_validy_t::EXPIRED:
+		case descrambling_context_t::key_validity_t::EXPIRED:
 			assert(key.request_bytepos < num_bytes_decrypted);
 			allow_future_key = true; // if the last key was expired some gap must have occurred
 			break;
@@ -566,19 +566,19 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 	auto& key = keys[idx];
 
 	switch (context.last_used_key_validity[odd]) {
-	case descrambling_context_t::key_validy_t::UNKNOWN:
+	case descrambling_context_t::key_validity_t::UNKNOWN:
 		// preserve the unknown state
 		break;
-	case descrambling_context_t::key_validy_t::VALID:
+	case descrambling_context_t::key_validity_t::VALID:
 		dtdebugf("KEY pid {:d}: UNEXPECTED last key before key[{:d}] for parity {:d} is still VALID", pid, idx, odd);
 
 		// preserve the unknown state
 		break;
-	case descrambling_context_t::key_validy_t::EXPIRED:
+	case descrambling_context_t::key_validity_t::EXPIRED:
 		context.last_used_key_validity[odd] = (key.restart_count != context.last_used_key_restart_count)
-			? descrambling_context_t::key_validy_t::UNKNOWN
+			? descrambling_context_t::key_validity_t::UNKNOWN
 			: // first key of this parity after a restart
-		descrambling_context_t::key_validy_t::VALID;
+		descrambling_context_t::key_validity_t::VALID;
 		break;
 	}
 

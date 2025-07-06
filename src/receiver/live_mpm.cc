@@ -403,7 +403,7 @@ void mpm_copylist_t::run(db_txn& txn) {
 		auto src = src_dir / srcfname.c_str();
 		auto dst = dst_dir / dstfname.c_str();
 		fs::create_hard_link(src, dst, ec); /*
-																					TODO: tis part could be too slow in some cases (especially if link is replaced
+																					TODO: this part could be too slow in some cases (especially if link is replaced
 																					by copy) In that case, the linking can be done in another thread provided the
 																					rec_t record is not deleted in the livebuffer yet. This prevents the
 																					recording's data from being deleted before it is linked/copied*/

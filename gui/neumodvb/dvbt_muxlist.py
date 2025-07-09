@@ -170,7 +170,20 @@ class DvbtMuxGrid(NeumoGridBase):
         self.sort_column = None
         self.Bind(wx.EVT_CHAR, self.OnKeyCheck)
         self.sat = None #sat for which to show muxes
-        self.mux_subscriber_ = None
+        self.mux_subscribers = OrderedDict()
+
+    def get_mux_subscriber(self, mux):
+        receiver = wx.GetApp().receiver
+        import pyreceiver
+        sub = pyreceiver.subscriber_t(receiver, self)
+        self.mux_subscribers[mux.k] = sub
+        return sub
+
+    def remove_mux_subscriber(self, mux):
+        sub = self.mux_subscribers.get(mux.k , None)
+        if sub is not None:
+            sub.unsubscribe()
+            del self.mux_subscribers[mux.k]
 
     def OnKeyCheck(self, evt):
         """
@@ -192,19 +205,43 @@ class DvbtMuxGrid(NeumoGridBase):
     def CmdTune(self, evt):
         self.table.SaveModified()
         row = self.GetGridCursorRow()
+        self.table.SaveModified()
         mux = self.table.screen.record_at_row(row)
         mux_name= f"{int(mux.frequency/1000)}"
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
-        sub = self.mux_subscriber
+        if len(self.mux_subscribers)>0:
+            mux_key, sub = self.mux_subscribers.popitem()
+            self.mux_subscribers[mux.k] = sub
+        else:
+            sub = self.get_mux_subscriber(mux)
         ret = sub.subscribe_mux(mux, blindscan=False)
         if ret < 0:
-            ShowMessage("SubscribeMux failed", self.mux_subscriber.error_message) #todo: record error message
-            dtdebug(f"SubscribeMux failed: {self.mux_subscriber.error_message}")
+            ShowMessage("SubscribeMux failed", sub.error_message) #todo: record error message
+            dtdebug(f"SubscribeMux failed: {sub.error_message}")
+            self.remove_mux_subscriber(mux)
+
+    def CmdTuneAdd(self, evt):
+        dtdebug('CmdTuneAdd')
+        self.table.SaveModified()
+        row = self.GetGridCursorRow()
+        self.table.SaveModified()
+        mux = self.table.screen.record_at_row(row)
+        mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
+        dtdebug(f'CmdTuneAdd requested for row={row}: PLAY mux={mux_name}')
+        sub = self.get_mux_subscriber(mux)
+        ret = sub.subscribe_mux(mux, blindscan=False)
+        if ret < 0:
+            ShowMessage("SubscribeMux failed", sub.error_message) #todo: record error message
+            dtdebug(f"SubscribeMux failed: {sub.error_message}")
+            self.remove_mux_subscriber(mux)
+
 
     def CmdStop(self, event):
         dtdebug('CmdStop')
-        if self.is_subscribed():
-            return self.mux_subscriber.unsubscribe()
+        if len(self.mux_subscribers)>0:
+            mux_key, sub = self.mux_subscribers.popitem()
+            sub.unsubscribe()
+            del sub
 
     def CmdCreateScanHelper(self, with_schedule):
         from neumodvb.scan_dialog import show_scan_dialog

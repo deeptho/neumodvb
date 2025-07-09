@@ -62,6 +62,19 @@ values. Muxes wit the same frequency and polarisation can exist on the same sat 
 transponder). Muxes with overlapping bandwidth (as determined from frequency and symbol rate) should not exist
 in the database, but can occur accidentally, e.g., as broadcasters change frequency plans
 
+### Tuning a mux ###
+
+Tuning a mux is achieved by the command `Play - Tune ` (`Ctrl-Enter`) after selecting a row in the mux list.
+If later another row is selected, the same command will replace the last tuned mux by the new one.
+It is also possible to tune multiple muxes using the command `Play - Tune Add ` (`Ctrl-shift-Enter`)
+
+The last tuned mux can be stopped using the command `Play - Stop` (`Ctrl-X`). It is currently not possible to
+stop other muxes than the last one.
+
+Tuning a mux is useful does not output any of the context of the mux, but it is useful in conjunction with external
+programs like `neumo-dmx`, which can then read data from the corresponding demux.
+
+
 ### Scanning a mux ###
 
 Scanning a mux adds the mux to the scan queue. NeumoDVB then tunes the mux when the needed resources are available,

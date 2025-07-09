@@ -712,8 +712,8 @@ dvb_frontend_t::update_lock_status_and_signal_info(fe_status_t fe_status, bool g
 
 int dvb_frontend_t::cancel_unicable() {
 	auto w =  this->ts.writeAccess();
-	auto& tune_pars = *w->tune_options.tune_pars;
 	if(w->unicable_ch) {
+		auto& tune_pars = *w->tune_options.tune_pars;
 		auto fefd = w->fefd;
 		auto& lnb = w->reserved_lnb;
 		dtdebugf("Ending unicable on lnb={}", lnb);

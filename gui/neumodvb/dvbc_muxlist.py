@@ -26,12 +26,11 @@ from collections import namedtuple, OrderedDict
 import numbers
 import datetime
 from dateutil import tz
-
+from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror
 from neumodvb import neumodbutils
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, GridPopup, screen_if_t
-from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 import pychdb
 import pydevdb
 
@@ -94,7 +93,7 @@ class DvbcMuxTable(NeumoTable):
 
     def get_filter_and_relax_(self):
         """
-        make some filters less strict to make them more practica
+        make some filters less strict to make them more practical
         """
         match_data, matchers = self.get_filter_()
         freq_field_id = self.data_table.subfield_from_name("frequency")
@@ -169,6 +168,7 @@ class DvbcMuxGrid(NeumoGridBase):
         self.sort_column = None
         self.Bind(wx.EVT_CHAR, self.OnKeyCheck)
         self.sat = None #sat for which to show muxes
+        self.mux_subscriber_ = None
 
     def OnKeyCheck(self, evt):
         """
@@ -193,7 +193,16 @@ class DvbcMuxGrid(NeumoGridBase):
         mux = self.table.screen.record_at_row(row)
         mux_name= f"{int(mux.frequency/1000)}"
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
-        self.app.MuxTune(mux)
+        sub = self.mux_subscriber
+        ret = sub.subscribe_mux(mux, blindscan=False)
+        if ret < 0:
+            ShowMessage("SubscribeMux failed", self.mux_subscriber.error_message) #todo: record error message
+            dtdebug(f"SubscribeMux failed: {self.mux_subscriber.error_message}")
+
+    def CmdStop(self, event):
+        dtdebug('CmdStop')
+        if self.is_subscribed():
+            return self.mux_subscriber.unsubscribe()
 
     def CmdCreateScanHelper(self, with_schedule):
         from neumodvb.scan_dialog import show_scan_dialog
@@ -241,7 +250,6 @@ class DvbcMuxGrid(NeumoGridBase):
         wtxn.commit()
 
     def CmdCommandAddMux(self, evt):
-        row = self.GetGridCursorRow()
         rows = self.GetSelectedRows()
         muxes = [ self.table.screen.record_at_row(row) for row in rows]
         if self.app.frame.command_being_edited is None:

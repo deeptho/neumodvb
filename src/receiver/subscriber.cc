@@ -57,8 +57,8 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service_for_viewing(cons
 	return mpm;
 }
 
-template <typename _mux_t>
-int subscriber_t::subscribe_mux(const _mux_t& mux, bool blindscan)
+
+int subscriber_t::subscribe_mux(const chdb::any_mux_t& mux, bool blindscan)
 {
 	auto ssptr = this->shared_from_this();
 	auto ret = receiver->subscribe_mux(mux, blindscan, ssptr);
@@ -267,18 +267,6 @@ void subscriber_t::notify_spectrum_scan_band_end(const statdb::spectrum_t& spect
 		return;
 	notify(spectrum);
 }
-
-template
-int subscriber_t::subscribe_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan);
-
-
-template
-int subscriber_t::subscribe_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, bool blindscan);
-
-
-template
-int subscriber_t::subscribe_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool blindscan);
-
 
 template int subscriber_t::scan_muxes(ss::vector_<chdb::dvbs_mux_t> muxes,
 																			const std::optional<devdb::tune_options_t>& tune_options_);

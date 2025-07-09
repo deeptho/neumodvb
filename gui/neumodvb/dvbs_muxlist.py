@@ -26,7 +26,7 @@ from collections import namedtuple, OrderedDict
 import numbers
 import datetime
 from dateutil import tz
-
+from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import setup, lastdot
 from neumodvb.util import dtdebug, dterror
 from neumodvb import neumodbutils
@@ -207,7 +207,6 @@ class DvbsMuxTable(NeumoTable):
         ret = e.dvbs_muxes.index(mux)!=-1
         return self.parent.default_highlight_colour if ret else None
 
-
 class DvbsMuxGridBase(NeumoGridBase):
 
     def __init__(self, basic, readonly, *args, **kwds):
@@ -219,10 +218,22 @@ class DvbsMuxGridBase(NeumoGridBase):
         self.Bind(wx.EVT_CHAR, self.OnKeyCheck)
         self.mux = None #currently selected mux
         self.sat = None #currently selected sat; muxlist will be restricted to this sat
+        self.mux_subscriber_ = None
 
     def InitialRecord(self):
         sat, mux= self.CurrentSatAndMux()
         return mux
+
+    @property
+    def mux_subscriber(self):
+        if self.mux_subscriber_ is None:
+            receiver = wx.GetApp().receiver
+            import pyreceiver
+            self.mux_subscriber_ = pyreceiver.subscriber_t(receiver, self)
+        return self.mux_subscriber_
+
+    def is_subscribed(self):
+        return self.mux_subscriber_!= None
 
     def OnKeyCheck(self, evt):
         """
@@ -248,6 +259,7 @@ class DvbsMuxGridBase(NeumoGridBase):
 
     def SelectMux(self, mux):
         self.mux = mux
+
     def handle_sat_change(self, evt, sat, mux):
         self.table.GetRow.cache_clear()
         self.OnRefresh(None, mux)
@@ -295,7 +307,17 @@ class DvbsMuxGridBase(NeumoGridBase):
         mux = self.table.screen.record_at_row(row)
         mux_name= f"{int(mux.frequency/1000)}{lastdot(mux.pol).replace('POL','')}"
         dtdebug(f'CmdTune requested for row={row}: PLAY mux={mux_name}')
-        self.app.MuxTune(mux)
+        sub = self.mux_subscriber
+        ret = sub.subscribe_mux(mux, blindscan=False)
+        if ret < 0:
+            ShowMessage("SubscribeMux failed", self.mux_subscriber.error_message) #todo: record error message
+            dtdebug(f"SubscribeMux failed: {self.mux_subscriber.error_message}")
+
+
+    def CmdStop(self, event):
+        dtdebug('CmdStop')
+        if self.is_subscribed():
+            return self.mux_subscriber.unsubscribe()
 
     def CmdSignalHistory(self, evt):
         self.table.SaveModified()
@@ -410,7 +432,6 @@ class DvbsMuxGridBase(NeumoGridBase):
             return
         dtdebug(f'CmdAddStream requested for {stream}')
         return wx.GetApp().receiver.update_and_toggle_stream(stream)
-
 
     @property
     def CmdEditCommandMode(self):

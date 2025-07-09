@@ -600,8 +600,8 @@ receiver_thread_t::subscribe_mux(
 	tune_options.tune_pars = sret.tune_pars;
 
 	futures.push_back(aa.tuner_thread.push_task([&aa, mux, sret, tune_options]() {
-		cb(aa.tuner_thread).subscribe_mux(sret, mux, tune_options);
-			return 0;
+		auto ret = cb(aa.tuner_thread).subscribe_mux(sret, mux, tune_options);
+		return (int)ret;
 	}));
 	return sret.subscription_id;
 }
@@ -1286,6 +1286,14 @@ receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, ssptr_t ssptr) {
 		return 0;
 	}));
 	wait_for_all(futures);
+	return ret;
+}
+
+subscription_id_t
+receiver_t::subscribe_mux(const chdb::any_mux_t& mux, bool blindscan, ssptr_t ssptr) {
+	auto ret= std::visit([&](auto& mux) {
+		return subscribe_mux(mux, blindscan, ssptr);
+	}, mux);
 	return ret;
 }
 

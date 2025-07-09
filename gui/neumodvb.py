@@ -681,10 +681,6 @@ class NeumoGui(wx.App):
         self.frame.live_panel.ServiceTune(service_or_chgm, replace_running)
         dtdebug(f"SUBSCRIBED to service {service_or_chgm}")
 
-    def MuxTune(self, mux):
-        self.current_mpv_player.play_mux(mux)
-        dtdebug(f"Requested subscription to mux {mux}")
-
     def MuxScan(self, muxlist, tune_options=None):
         ret = self.scan_subscriber.scan_muxes(muxlist, tune_options)
         dtdebug(f'MuxScan')

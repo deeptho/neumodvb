@@ -202,9 +202,7 @@ public:
 
 	EXPORT std::unique_ptr<playback_mpm_t> subscribe_service_for_viewing(const chdb::service_t& service);
 	EXPORT int subscribe_stream(const devdb::stream_t& stream);
-
-	template <typename _mux_t>
-	EXPORT int subscribe_mux(const _mux_t& mux, bool blindscan);
+	EXPORT int subscribe_mux(const chdb::any_mux_t& mux, bool blindscan);
 
 	EXPORT int subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, devdb::retune_mode_t retune_mode);
 

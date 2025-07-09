@@ -537,6 +537,9 @@ public:
 	subscription_id_t
 	subscribe_mux(const _mux_t& mux, bool blindscan, ssptr_t ssptr);
 
+	subscription_id_t
+	subscribe_mux(const chdb::any_mux_t& mux, bool blindscan, ssptr_t ssptr);
+
 	subscription_id_t subscribe_lnb_spectrum(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																					 const chdb::fe_polarisation_t& pol,
 																					 int32_t low_freq, int32_t high_freq,

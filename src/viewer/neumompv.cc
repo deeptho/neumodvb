@@ -733,17 +733,6 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 }
 
 
-
-template <typename _mux_t> int mpv_subscription_t::play_mux(const _mux_t& mux, bool blindscan) {
-	dtdebugf("PLAY SUBSCRIPTION (mux)");
-	if (is_playing()) {
-		this->close(false /*unsubscribe*/);
-	}
-	auto subscription_id = subscriber->subscribe_mux(mux, blindscan);
-	assert(subscription_id == (int) subscriber->get_subscription_id() || subscription_id<0);
-	return subscription_id;
-}
-
 int MpvPlayer_::play_service(const chdb::service_t& service) {
 	// retune request
 	log4cxx_store_threadname();
@@ -786,47 +775,6 @@ int MpvPlayer::play_service(const chdb::service_t& service) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->play_service(service);
 }
-
-template <typename _mux_t> int MpvPlayer_::play_mux(const _mux_t& mux, bool blindscan) {
-	log4cxx_store_threadname();
-	// retune request
-	auto op = [this, blindscan, mux]() {
-		// mux is captured by copy
-		subscription.play_mux(mux, blindscan);
-	};
-	{
-		// lock must be placed after lambda
-		std::scoped_lock lck(subscription.m);
-		subscription.next_op = op;
-	}
-	// will be run by the first open_fn or close_fn call
-
-	subscription.filepath.clear();
-
-	// we need to fake a different file each time, hence the seqno
-	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
-	if (!mpv) {
-		dterrorf("mpv not ready");
-		assert(0);
-		return -1;
-	}
-	this->subscription.set_pending_close(true);
-	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
-	::mpv_command(mpv, cmd);
-	dtdebugf("PLAY SUBSCRIPTION {:p} STARTED", fmt::ptr(this));
-	return 0;
-}
-
-template <typename _mux_t> int MpvPlayer::play_mux(const _mux_t& mux, bool blindscan) {
-	auto* self = dynamic_cast<MpvPlayer_*>(this);
-	return self->play_mux(mux, blindscan);
-}
-
-template int MpvPlayer::play_mux<chdb::dvbs_mux_t>(const chdb::dvbs_mux_t& mux, bool blindscan);
-
-template int MpvPlayer::play_mux<chdb::dvbc_mux_t>(const chdb::dvbc_mux_t& mux, bool blindscan);
-
-template int MpvPlayer::play_mux<chdb::dvbt_mux_t>(const chdb::dvbt_mux_t& mux, bool blindscan);
 
 int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time) {
 	log4cxx_store_threadname();

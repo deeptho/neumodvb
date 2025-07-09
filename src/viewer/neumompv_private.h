@@ -86,7 +86,6 @@ public:
 	~mpv_subscription_t();
 
 	void play_service(const chdb::service_t& service);
-	template<typename _mux_t> int play_mux(const _mux_t& mux, bool blindscan);
 	int play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time);
 	int stop_play();
 	int jump(int seconds);
@@ -134,8 +133,6 @@ public:
 	int change_audio_volume(int step);
 
 	int play_service(const chdb::service_t& service);
-
-	template <typename _mux_t> int play_mux(const _mux_t& mux, bool blindscan);
 	int jump(int seconds);
 	int stop_play();
 	int pause();

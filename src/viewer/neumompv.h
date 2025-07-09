@@ -81,8 +81,6 @@ public:
 	chdb::language_code_t get_current_subtitle_language();
 
 	int play_service(const chdb::service_t& service);
-
-	template<typename _mux_t> int play_mux(const _mux_t& mux, bool blindscan);
 	int play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time);
 	int screenshot();
 	int stop_play();

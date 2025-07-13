@@ -214,7 +214,7 @@ private:
 	int send_diseqc_message(char switch_type, unsigned char port, unsigned char extra, bool repeated);
 	void handle_fe_event();
 
-	std::tuple<bool, bool> add_si_subscription(chdb::any_mux_t mux, const subscription_options_t& tune_options,
+	std::tuple<bool, bool, bool> add_si_subscription(chdb::any_mux_t mux, const subscription_options_t& tune_options,
 													 const subscribe_ret_t& sret);
 	bool remove_si_subscription(const devdb::fe_t& updated_dbfe, subscription_id_t subscription_id);
 

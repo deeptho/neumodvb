@@ -234,7 +234,11 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 				 //The following occurs when called from positioner_dialog to tune on a specific rf_path
 				 tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL);
 
-	auto [must_full_tune, must_restart_tune]  = this->add_si_subscription(mux,  tune_options, sret);
+	auto [error, must_full_tune, must_restart_tune]  = this->add_si_subscription(mux,  tune_options, sret);
+	if(error) {
+		dterrorf("Stream failed to start: mux={}", mux);
+		return subscription_id_t::NONE;
+	}
 
 	assert(!must_full_tune || !	must_restart_tune);
 
@@ -708,7 +712,9 @@ active_si_stream_t* active_adapter_t::add_si_stream(const chdb::any_mux_t& mux) 
 		return &it->second;
 	}
 	auto reader = make_stream_reader(mux);
-
+	if(!reader) {
+		return nullptr;
+	}
 	auto is_main = si_streams.size()==0;
 	auto [it1, inserted] =
 		si_streams.try_emplace({mux_key.stream_id, mux_key.t2mi_pid}, receiver, std::move(reader), mux, is_main);
@@ -874,9 +880,10 @@ void active_adapter_t::init_si(const chdb::any_mux_t& driver_mux, bool driver_da
 		 -must_restart_tune: a retune is required with the previous tune parameters.
 
  */
-std::tuple<bool, bool> active_adapter_t::add_si_subscription(
+std::tuple<bool, bool, bool> active_adapter_t::add_si_subscription(
 	chdb::any_mux_t mux, const subscription_options_t& tune_options, const subscribe_ret_t& sret)
 {
+	bool error{false};
 	dtdebugf("mux to subscribe={}", mux);
 	//auto& mux_key = *mux_key_ptr(mux);
 	auto it = si_ptr_for_subscription(sret.subscription_id);
@@ -950,9 +957,13 @@ std::tuple<bool, bool> active_adapter_t::add_si_subscription(
 		}
 #endif
 		p_si = this->add_si_stream(mux);
+		if (! p_si) {
+			error = true;
+			return { error, must_full_tune, must_restart_tune};
+		}
 		p_si->add_si_subscription(mux, tune_options.scan_target, sret.subscription_id);
 	}
-	return{must_full_tune, must_restart_tune};
+	return{error, must_full_tune, must_restart_tune};
 }
 
 /*

@@ -1273,7 +1273,7 @@ subscription_id_t receiver_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 template <typename _mux_t>
 subscription_id_t
 receiver_t::subscribe_mux(const _mux_t& mux, bool blindscan, ssptr_t ssptr) {
-
+	user_error_.clear();
 	std::vector<task_queue_t::future_t> futures;
 	auto tune_options = this->get_default_subscription_options(devdb::subscription_type_t::SUBSCRIBE);
 	tune_options.use_blind_tune = blindscan;

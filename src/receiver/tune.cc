@@ -494,8 +494,10 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t
 	assert(sub.subscription_id == (int)sret.subscription_id || sub.subscription_id == (int)sret.sub_to_reuse);
 	//assert(sret.sub_to_reuse == subscription_id_t::NONE);
 	ret = (int)active_adapter.tune_mux(sret, mux, tune_options);
-	if (ret < 0)
+	if (ret < 0) {
 		dterrorf("tune returned {:d}", ret);
+		return subscription_id_t::NONE;
+	}
 	//Destructor of active_adapter can call deactivate at this point
 	return sret.subscription_id;
 }

@@ -33,11 +33,13 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <syslog.h>
+#include <type_traits>
 #include <values.h>
 //#include <getopt.h>
 #include <algorithm>
 #include <dirent.h>
 #include <errno.h>
+#include "mpm.h"
 #include "neumodmx.h"
 #include <linux/dvb/version.h>
 #include <linux/limits.h>
@@ -51,6 +53,8 @@
 #include <time.h>
 
 #include "receiver.h"
+#include "streamfilter.h"
+#include "streamparser/pes.h"
 #include "util/dtutil.h"
 
 #include "active_adapter.h"
@@ -60,33 +64,22 @@
 #include "streamparser/packetstream.h"
 #include "streamparser/si.h"
 
-active_service_t::active_service_t
-(
-	receiver_t& receiver,
-	active_adapter_t& active_adapter_,
+active_service_t::active_service_t(
+	active_adapter_t& active_adapter, const chdb::service_t& service_,
 	const std::shared_ptr<stream_reader_t>& reader)
-	: active_stream_t(
-		receiver,
-		std::move(reader))
-	, mpm(this, system_clock_t::now())
-	, periodic(60*30)
-	, service_thread(*this)
-{
+	: active_stream_t(active_adapter.receiver, std::move(reader))
+	, current_service(service_)
+	, stream_buffer(std::make_unique<active_mpm_t>( this))
+	, service_thread(*this) {
 }
 
-
-
-active_service_t::active_service_t(
-	receiver_t& receiver,
-	active_adapter_t& active_adapter,
-	const chdb::service_t& current_service_,
-	const std::shared_ptr<stream_reader_t>& reader)
-	: active_stream_t(
-		receiver,
-		std::move(reader))
-	, current_service(current_service_)
-	, mpm(this, system_clock_t::now())
-	, periodic(60*30)
+active_service_t::active_service_t(active_adapter_t& active_adapter,
+																	 ts_in_ts_stream_filter_t* output_filter,
+																	 const chdb::service_t& service_,
+																	 const std::shared_ptr<stream_reader_t>& reader)
+	: active_stream_t(active_adapter.receiver, std::move(reader))
+	, current_service(service_)
+	, stream_buffer(std::make_unique<active_ts_t>( this, output_filter))
 	, service_thread(*this)
 {
 }
@@ -105,7 +98,7 @@ int active_service_t::deactivate() {
 	log4cxx::NDC(name());
 	int ret = 0;
 	dtdebugf("deactivate service");
-	mpm.close();
+	this->stream_buffer->close();
 	if (registered_scam) {
 		auto& scam_thread = receiver.scam_thread;
 		auto future = scam_thread.push_task(
@@ -124,41 +117,23 @@ int active_service_t::deactivate() {
 int service_thread_t::exit() {
 	dtdebugf("Starting to exit");
 	active_service.deactivate();
-	//active_service.mpm.close();
 	dtdebugf("Ended exit");
 	return -1;
 }
 
 std::optional<recdb::rec_t> service_thread_t::cb_t::start_recording(
 	subscription_id_t subscription_id, const recdb::rec_t& rec) {
-	recdb::rec_t recnew = active_service.mpm.start_recording(subscription_id, rec);
+	recdb::rec_t recnew = active_service.mpm()->start_recording(subscription_id, rec);
 	assert(recnew.epg.rec_status == epgdb::rec_status_t::IN_PROGRESS);
 	return recnew;
 }
 
 int service_thread_t::cb_t::stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& copy_commands) {
-	return active_service.mpm.stop_recording(rec_in, copy_commands);
+	return active_service.mpm()->stop_recording(rec_in, copy_commands);
 }
 
 void service_thread_t::cb_t::forget_recording_in_livebuffer(const recdb::rec_t& rec_in) {
-	return active_service.mpm.forget_recording_in_livebuffer(rec_in);
-}
-
-
-void active_service_t::save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_info) {
-	auto now = system_clock_t::to_time_t(now_);
-	using namespace recdb;
-	const auto& marker = mpm.stream_parser.event_handler.last_saved_marker;
-
-	current_streams = stream_descriptor_t(pmt_info.stream_packetno_end, now, marker.k.time, pmt_info.pmt_pid,
-																				pmt_info.audio_languages(), pmt_info.subtitle_languages(), pmt_sec_data);
-	auto txnidx = mpm.db->mpm_rec.idxdb.wtxn();
-	put_record(txnidx, current_streams);
-	txnidx.commit();
-	{
-		auto mm = mpm.meta_marker.writeAccess();
-		mm->last_streams = current_streams;
-	}
+	return active_service.mpm()->forget_recording_in_livebuffer(rec_in);
 }
 
 static inline bool is_abertis(const chdb::service_t& service, const pmt_info_t& pmt, const dtdemux::pid_info_t & pid_info)
@@ -169,31 +144,8 @@ static inline bool is_abertis(const chdb::service_t& service, const pmt_info_t& 
 		pid_info.stream_type == stream_type::stream_type_t::MPE_FEC;
 }
 
-/*
-	called when a pmt has been fully processed in the service's data
-	stream. This function is set as a callback in live_mpm.cc
- */
-void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
-	using namespace dtdemux;
-	dtdebugf("{}", pmt);
-	have_pmt = true;
-	pmt_is_encrypted = false;
-
-	if (pmt.service_id != current_service.k.service_id) {
-		// This can happen according to the dvb specs
-		dtdebugf("received pmt for wrong service_id: pid={:d} service_id={:d}!={:d}", pmt.pmt_pid, pmt.service_id,
-						 current_service.k.service_id);
-		return;
-	}
-	bool is_new = current_pmt.pmt_pid == null_pid;
-	bool ca_changed = is_new || pmt_ca_changed(current_pmt, pmt);
-	bool service_changed = (pmt.pmt_pid != current_service.pmt_pid) || (pmt.video_pid != current_service.video_pid);
+void active_service_t::update_aa_pmt_(const dtdemux::pmt_info_t& pmt, bool isnext, bool service_changed) {
 	auto mux_key = current_service.k.mux;
-	if (service_changed) {
-		std::scoped_lock lck(mutex);
-		current_service.pmt_pid = pmt.pmt_pid;
-		current_service.video_pid = pmt.video_pid;
-	}
 	if (!isnext) {
 		auto& active_adapter = this->active_adapter();
 		auto active_adapter_p = active_adapter.shared_from_this();
@@ -212,9 +164,13 @@ void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, c
 			});
 		}
 	}
+}
+
+void active_service_t::update_scam_pmt_(const dtdemux::pmt_info_t& pmt, bool isnext,
+																				bool service_changed, bool ca_changed) {
 
 	bool was_encrypted = registered_scam;
-	bool is_encrypted = pmt.is_encrypted() || (mpm.stream_parser.num_encrypted_packets > 0);
+	bool is_encrypted = pmt.is_encrypted() || this->stream_buffer->has_encrypted_packets();
 	// we also report non-encrypted pmts, in case the current pmt is encrypted
 	if (is_encrypted && (ca_changed || !was_encrypted)) {
 
@@ -236,16 +192,52 @@ void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, c
 		}); // don't wait for result (async)
 		registered_scam = false;
 	}
+}
+
+void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext,
+																	const ss::bytebuffer_& sec_data) {
+	//assert(!this->is_ts_in_ts());
+	using namespace dtdemux;
+	dtdebugf("{}", pmt);
+	have_pmt = true;
+	pmt_is_encrypted = false;
+
+	if (pmt.service_id != current_service.k.service_id) {
+		// This can happen according to the dvb specs
+		dtdebugf("received pmt for wrong service_id: pid={:d} service_id={:d}!={:d}", pmt.pmt_pid, pmt.service_id,
+						 current_service.k.service_id);
+		return;
+	}
+	bool is_new = current_pmt.pmt_pid == null_pid;
+	bool ca_changed = is_new || pmt_ca_changed(current_pmt, pmt);
+	bool service_changed = (pmt.pmt_pid != current_service.pmt_pid) || (pmt.video_pid != current_service.video_pid);
+	auto mux_key = current_service.k.mux;
 	{
 		std::scoped_lock lck(mutex);
+		if (service_changed) {
+			if(current_service.media_mode != pmt.estimated_media_mode) {
+				if (pmt.estimated_media_mode  == chdb::media_mode_t::DATA  &&
+						current_service.media_mode == chdb::media_mode_t::T2MI) {
+					//we prefer media_mode from pmt
+					current_service.media_mode = pmt.estimated_media_mode;
+					current_service.media_mode_from_pmt = true;
+				}
+			}
+			current_service.service_type = pmt.service_type;
+			current_service.pmt_pid = pmt.pmt_pid;
+			current_service.video_pid = pmt.video_pid;
+		}
 		current_pmt = pmt;
 		pmt_sec_data = sec_data;
 	}
+	update_aa_pmt_(pmt, isnext, service_changed);
+	update_scam_pmt_(pmt, isnext, service_changed, ca_changed);
 
 	if (isnext) {
 		dtdebugf("Unhandled PMT NEXT: service={:d}", pmt.service_id);
 		return;
 	}
+
 	int old_size = open_pids.size(); //
 
 	/*all the pids in open_pids were in use; we set their use count to zero
@@ -280,21 +272,10 @@ void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, c
 		// dtdebugf(pidinfo);
 		if (is_video(pidinfo.stream_type) || is_audio(pidinfo) || pidinfo.has_subtitles())
 			process(pidinfo.stream_pid);
-		else if(is_abertis (current_service, pmt, pidinfo)) {
+		else if(is_abertis(current_service, pmt, pidinfo)) {
 			dtdebugf("Starting Abertis service");
 			process(pidinfo.stream_pid);
-			ss::string<256> ndc_prefix;
-			ndc_prefix.clear();
-			log4cxx::LogString ls;
-			log4cxx::NDC::get(ls);
-			ndc_prefix.format("{} ABERTIS", ls);
-			tsints_parser.emplace(mpm.stream_parser, pmt.service_id, pidinfo.stream_pid);
-#if 0
-			auto* parser = tsints_parser.register_pid<ts_in_ts_parser_t>(stream_pid, nc_prefix);
-			parser->data_cb = 	[this](const pat_services_t& pat_services, const subtable_info_t& i) {
-				return this->pat_section_cb(pat_services, i);
-			};
-#endif
+			this->stream_buffer->register_parser_pid(pmt.service_id, pidinfo);
 			continue;
 		}
 
@@ -304,10 +285,7 @@ void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, c
 			In that case audio_pid == video_pid
 			*/
 		if (pmt.pcr_pid == pidinfo.stream_pid) {
-			if (is_video(pidinfo.stream_type))
-				mpm.stream_parser.register_video_pids(pmt.service_id, pidinfo.stream_pid, pmt.pcr_pid, pidinfo.stream_type);
-			else if (is_audio(pidinfo))
-				mpm.stream_parser.register_audio_pids(pmt.service_id, pidinfo.stream_pid, pmt.pcr_pid, pidinfo.stream_type);
+			this->stream_buffer->register_parser_pid(pmt.service_id, pidinfo);
 		}
 	}
 
@@ -335,8 +313,9 @@ void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, c
 		}
 		i++;
 	}
-	save_pmt(now, pmt);
+	stream_buffer->save_pmt(now, pmt, sec_data);
 }
+
 
 void active_service_t::update_pmt_pid(int new_pmt_pid) {
 	remove_pid(current_pmt_pid);
@@ -346,48 +325,6 @@ void active_service_t::update_pmt_pid(int new_pmt_pid) {
 		we do not unregister video and audio streams yet, as some of them may remain unchanged.
 		Any needed (un)registration will be handled by update_pmt
 	 */
-}
-
-/*!
-	periodically called to remove old data in timeshift bufferl so that it does not grow larger than
-	what user wants
-*/
-void active_service_t::housekeeping(system_time_t now) {
-	auto parent_txn = mpm.db->mpm_rec.idxdb.wtxn();
-	auto rec_txn = parent_txn.child_txn(mpm.db->mpm_rec.recdb);
-	// Update stream_time_end and real_time end periodically
-	mpm.update_recordings(rec_txn, now);
-	rec_txn.commit();
-	/*check if newer epg data hase arrived and
-		transfer it into the local mpm database
-
-		@todo: is it wise to run directory deletion from this thread?
-	*/
-
-	periodic.run([this, &parent_txn](system_time_t now) { mpm.delete_old_data(parent_txn, now); }, now);
-
-	parent_txn.commit();
-	/*@todo:
-		1) global recording database must also be kept up todate.
-		2) when recordings stop, receiver thread should know about this
-		It may be more efficient to do part of the housekeeping in the receiver thread
-
-		update_recordings can be run a second time on the global db
-
-		stop_completed_recordings has side effects: it calls finalize recording.
-		@todo: separate these side effects
-
-		@todo: if we update the global db from the receiver thread (more efficient:
-		only a single transaction) there could be border cases which cause races.
-
-		The main dangerous cases are those where receiver and active_mpm have different
-		views on which recordings are running (e.g., receiver first stops recording, but
-		active_mpm has not taken action. Then receiver is asked to restart the same recording,
-		but active_mpm sees it is already running).
-
-		=> conslusion may be that start/stop recording should only be done from receiver thread?
-
-		*/
 }
 
 int service_thread_t::run() {
@@ -437,7 +374,7 @@ int service_thread_t::run() {
 				if (!(evt->events & EPOLLIN)) {
 					dterrorf("Unexpected event: type={}", evt->events);
 				}
-				active_service.process_channel_data();
+				active_service.process_service_data();
 			} else {
 				dtdebugf("event from unknown fd\n");
 				assert(0);
@@ -500,12 +437,6 @@ void active_service_t::mark_ecm_sent(bool odd, uint16_t ecm_pid, system_time_t t
 	}
 }
 
-std::unique_ptr<playback_mpm_t> active_service_t::make_client_mpm(subscription_id_t subscription_id) {
-	auto ret = std::make_unique<playback_mpm_t>(mpm, current_service, current_streams, subscription_id);
-	mpm.meta_marker.writeAccess()->register_playback_client(ret.get());
-	return ret;
-}
-
 static inline pmt_info_t make_dummy_pmt(int service_id, int pmt_pid, int pcr_pid) {
 	pmt_info_t ret;
 	ret.service_id = service_id;
@@ -560,7 +491,7 @@ bool active_service_t::need_decryption() {
 		bool ret = have_pmt && /*we can only turn decryption on after having received a pmt and  having
 														 registered video and audio streams. Otherwise the decryption code will
 														 take a lot of time to fill its buffers due to posibly low data rate*/
-							 (current_pmt.is_encrypted() || (mpm.stream_parser.num_encrypted_packets > 0));
+			(current_pmt.is_encrypted() || (this->stream_buffer->stream_parser.num_encrypted_packets > 0));
 		if (ret && !registered_scam) {
 			/* pmt claimed stream is not encrypted, but data tells us otherwise
 				 On rossia 1 to fail on 40E: 3992V sid=2020 causes errors like
@@ -621,7 +552,7 @@ active_service_t::start_recording(subscription_id_t subscription_id, const recdb
 	return rec;
 }
 
-void active_service_t::process_channel_data() {
+void active_service_t::process_service_data() {
 	now = system_clock_t::now();
 	auto start = steady_clock_t::now();
 	for (;;) {
@@ -632,9 +563,8 @@ void active_service_t::process_channel_data() {
 			break;
 		}
 
-		bool may_start_new_file = false;
 		uint8_t* buffer = NULL;
-		ssize_t remaining_space = mpm.filemap.get_write_buffer(buffer);
+		ssize_t remaining_space = this->stream_buffer->get_write_buffer(buffer);
 		// TODO: ensure parser can cope with changing mmap region
 
 		if (remaining_space < 1024) {
@@ -646,8 +576,8 @@ void active_service_t::process_channel_data() {
 				moving an mmapped region is not optimal. The readv function call can help to
 				read data into multiple chunks
 			*/
-			mpm.filemap.advance();
-			remaining_space = mpm.filemap.get_write_buffer(buffer);
+			this->stream_buffer->advance();
+			remaining_space = this->stream_buffer->get_write_buffer(buffer);
 		}
 		/*
 			read as much data as possible.
@@ -691,14 +621,14 @@ void active_service_t::process_channel_data() {
 			Decryption could then proceed at some later time. This also allows nonlive decryption.
 		*/
 		assert(ret >= 0);
-		this->mpm.filemap.advance_write_pointer(ret);
+		this->stream_buffer->advance_write_pointer(ret);
 		auto* pmt_parser = this->pmt_parser.get();
 		this->pmt_is_encrypted = (pmt_parser && pmt_parser->num_encrypted_packets > 0);
 		bool is_encrypted = this->need_decryption();
-		assert(!is_encrypted || this->mpm.num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
-		bool low_data_rate = this->pmt_is_encrypted;
+		assert(!is_encrypted || this->stream_buffer->num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
 
-		int num_bytes_to_decrypt = this->mpm.filemap.bytes_to_decrypt(buffer);
+		bool low_data_rate = this->pmt_is_encrypted;
+		int num_bytes_to_decrypt = this->stream_buffer->bytes_to_decrypt(buffer);
 
 
 		auto num_bytes_decrypted_now =
@@ -706,95 +636,85 @@ void active_service_t::process_channel_data() {
 			: num_bytes_to_decrypt;
 		if (!is_encrypted)
 			this->reader->dvbcsa.num_bytes_decrypted += num_bytes_decrypted_now;
-
-		assert(num_bytes_decrypted_now + this->mpm.filemap.decrypt_pointer <= this->mpm.filemap.write_pointer);
-		/*TODO: returned ret may not be a multiple of ts_packet_t::size (188)
-			We need a parse_pointer to remember where parsing should continue
-		*/
-		if (num_bytes_decrypted_now > 0) {
-			/*
-				For an encrypted channel, note that the code below will not parse unencrypted data such
-				as PMT and PAT while problems with video/audio scrambling exist. However, video and audio
-				streams are not present until after the first pmt is successfully read. So we should be safe
-				@todo: we could make discarding data more clever by only skipping encrypted packets
-			*/
-			assert(num_bytes_decrypted_now % ts_packet_t::size == 0);
-			this->mpm.stream_parser.set_buffer(this->mpm.filemap.buffer + this->mpm.filemap.decrypt_pointer, num_bytes_decrypted_now);
-			auto old_packetno_start = this->mpm.stream_parser.event_handler.last_saved_marker.packetno_start;
-			dttime_init();
-			this->mpm.stream_parser.parse();
-			dttime(500);
-
-			this->mpm.filemap.advance_decrypt_pointer(num_bytes_decrypted_now);
-
-			if (this->mpm.stream_parser.event_handler.last_saved_marker.packetno_start != old_packetno_start) {
-				may_start_new_file = true;
-				/*A marker was discovered in the current data (end of i-frame);
-					Only then it is ok to switch to a new data file; reason is that num_bytes_safe_to_read
-					must be increased as soon as possible in order to minimize delay for reading threads.
-					However we can only increase it when we know the current file is no longer
-					growing, i.e., just after a marker. So we proceed when this marker has been read very
-					recently
-				*/
-			}
-			/*
-				todo:
-				1. find range of packets encrypted with same pid and same parity
-				2. lookup the key with the right parity which should not be marked "outdated"
-				and should not be "too new". The latter could occur when a key was lost
-				or when for some reason processing is heavily delayed (should not happen)
-				2.a. If no key can be found, then continue reading data, but not decrypting it; continue reading data
-				untl key becomes available
-				2.b. decrypt what can be
-				decryped
-				3. if we encounter a new
-				parity, mark key for current parity invalid (being careful not to mark a newer key invalid) and continue with
-				current key
-
-				todo 1: filemap.advance should keep both decrypt_pointer and file_pointer in memory
-				(or in two mapped regions)
-				todo 2: implement method for waiting for keys
-				todo 3: is it useful to decrypt more than 1 packet at a time?
-
-			*/
-
-			this->mpm.num_bytes_decrypted += num_bytes_decrypted_now;
-			assert(this->mpm.num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
-		} else {
+		this->stream_buffer->process_service_data(num_bytes_decrypted_now);
+		if (this->stream_buffer->num_bytes_read % dtdemux::ts_packet_t::size != 0) {
+			dtdebugf("Read partial packet: num_bytes_read={:d} num_bytes_read%%188={:d}", this->stream_buffer->num_bytes_read,
+							 this->stream_buffer->num_bytes_read % dtdemux::ts_packet_t::size);
 		}
-
-		this->mpm.num_bytes_read += ret;
-#if 0
-		dtdebug_nicex("MPM STATUS: read={:d} parsed={:d} decrypted={:d}", num_bytes_read,
-									stream_parser.event_handler.last_saved_marker.packetno_end*ts_packet_t::size,
-									num_bytes_decrypted);
-#endif
-		if (may_start_new_file && this->mpm.file_time_limit >= 0s &&
-				(now - this->mpm.current_file_time_start > this->mpm.file_time_limit) &&
-				this->mpm.num_recordings_in_progress == 0) {
-			/* we start a new file; ideally, we would like the new file to start with a combination
-				 pat/pmt/i-frame. @todo The current implementation does not work as it splits at the end
-				 of an i-frame, but at least this ensures that all data for an iframe is in a singgle file;
-				 fixing the problem also means moving more data
-			*/
-			this->mpm.next_data_file(now, this->mpm.num_bytes_decrypted);
-		} else if (num_bytes_decrypted_now) {
-			auto mm = this->mpm.meta_marker.writeAccess();
-			mm->livebuffer_end_time = now;
-			mm->current_marker = this->mpm.stream_parser.event_handler.last_saved_marker;
-			assert(mm->num_bytes_safe_to_read <= this->mpm.num_bytes_decrypted); // KNOWN PROBLEM: we may not go back!!
-			mm->num_bytes_safe_to_read = this->mpm.num_bytes_decrypted;
-			if (!mm->started && mm->num_bytes_safe_to_read > 0) {
-				mm->started = true;
-				dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
-			}
-			this->mpm.self_check(*mm);
-			//		TODO: add num_bytes_decrypted??? How to save time at start? e.g., first minute alway safe to read?
-			mm->cv.notify_all();
-		}
-		if (this->mpm.num_bytes_read % dtdemux::ts_packet_t::size != 0) {
-			dtdebugf("Read partial packet: num_bytes_read={:d} num_bytes_read%%188={:d}", this->mpm.num_bytes_read,
-							 this->mpm.num_bytes_read % dtdemux::ts_packet_t::size);
-		}
+		assert(this->stream_buffer->num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
+		this->stream_buffer->num_bytes_read += ret;
 	}
+}
+
+void active_ts_t::close() {
+	stream_parser.exit();
+	// TODO: check that parser is complete destroyed
+	this->active_service = nullptr;
+	dtdebugf("active_ts closed");
+}
+
+void active_ts_t::data_cb(uint8_t* buffer, int num_bytes) {
+	//printf("received  %d bytes\n", num_bytes);
+	output_filter->read_data(buffer, num_bytes);
+}
+
+int active_ts_t::process_service_data(int num_bytes_decrypted_now)
+{
+	/*
+		For an encrypted channel, note that the code below will not parse unencrypted data such
+		as PMT and PAT while problems with video/audio scrambling exist and as a result num_bytes_decrypted_now==0.
+		However, video and audio streams are not present until after the first pmt is successfully read. So we should be safe
+		@todo: we could make discarding data more clever by only skipping encrypted packets
+	*/
+	//set location where stream_parser will start parsing data
+	this->set_buffer(num_bytes_decrypted_now);
+
+	if(num_bytes_decrypted_now) {
+		assert(num_bytes_decrypted_now % ts_packet_t::size == 0);
+
+		dttime_init();
+		this->stream_parser.parse();
+		dttime(500);
+		this->advance_decrypt_pointer(num_bytes_decrypted_now);
+
+		this->num_bytes_decrypted += num_bytes_decrypted_now;
+	}
+
+	return 0;
+}
+
+void active_ts_t::register_parser_pid(int service_id, const dtdemux::pid_info_t& pidinfo)
+{
+	this->stream_parser.register_embedded_ts_pid(pidinfo.stream_pid,  service_id,
+																							 [this ] (uint8_t*buffer, int size) mutable {
+																								 this->data_cb(buffer, size);
+																							 });
+}
+
+
+void active_service_t::add_pat_and_pmt_parsers() {
+	auto& stream_parser = stream_buffer->stream_parser;
+	this->pat_parser = stream_parser.register_pat_pid();
+	this->pat_parser->section_cb = [this](const pat_services_t& pat_services, const subtable_info_t& i) {
+		assert(!i.timedout);
+		for (const auto& e : pat_services.entries) {
+			if (e.service_id == this->current_service.k.service_id) {
+				auto& stream_parser = this->stream_buffer->stream_parser;
+				this->have_pat = true;
+				dtdebugf("PAT START PMT=0x{:x}", e.pmt_pid);
+				this->update_pmt_pid(e.pmt_pid);
+				this->pmt_parser = stream_parser.register_pmt_pid(e.pmt_pid, e.service_id);
+				this->pmt_parser->section_cb =
+					[this](pmt_parser_t* parser, const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
+						if(pmt.service_id == this->current_service.k.service_id) {
+							//on 30.0W 12398, multiple services share the same pmt_pid. We need the correct one
+							this->update_pmt(pmt, isnext, sec_data);
+						}
+						return dtdemux::reset_type_t::NO_RESET;
+					};
+				break;
+			}
+		}
+		return dtdemux::reset_type_t::NO_RESET;
+	};
 }

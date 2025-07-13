@@ -360,13 +360,13 @@ bool ts_substream_t::process_packet_header(ts_packet_t* p) {
 	return is_duplicate;
 }
 
-void ts_stream_t::register_audio_pids(int service_id, int audio_pid, int pcr_pid,
+void ts_stream_t::register_audio_pids(int service_id, int audio_pid,
 																			stream_type::stream_type_t stream_type) {
 	/*
 		@todo: how do we end this parser?
 	*/
 	assert(pcr_pid == audio_pid);
-	if (this->pcr_pid == pcr_pid && this->pcr_stream_type == stream_type) {
+	if (this->pcr_pid == audio_pid && this->pcr_stream_type == stream_type) {
 		dtdebugf("Parser for pid {:d} already registered (reusing)\n", pcr_pid);
 		return;
 	}
@@ -393,12 +393,12 @@ void ts_stream_t::register_audio_pids(int service_id, int audio_pid, int pcr_pid
 	return;
 }
 
-void ts_stream_t::register_video_pids(int service_id, int video_pid, int pcr_pid,
+void ts_stream_t::register_video_pids(int service_id, int video_pid,
 																			stream_type::stream_type_t stream_type) {
 	/*
 		@todo: how do we end this parser?
 	*/
-	if (this->pcr_pid == pcr_pid && this->pcr_stream_type == stream_type) {
+	if (this->pcr_pid == video_pid && this->pcr_stream_type == stream_type) {
 		dtdebugf("Parser for pid {:d} already registered (reusing)\n", pcr_pid);
 		return;
 	}

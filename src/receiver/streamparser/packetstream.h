@@ -156,7 +156,6 @@ namespace dtdemux {
 			return parser;
 		}
 
-
 		auto register_pat_pid() {
 			auto parser=std::make_shared<pat_parser_t>(*this);
 			register_parser(PAT_PID, [parser](ts_packet_t* p){
@@ -173,11 +172,18 @@ namespace dtdemux {
 			return parser;
 		}
 
-		void register_audio_pids(int service_id, int video_pid, int pcr_pid,
+		auto register_embedded_ts_pid(int embedding_pid, int service_id, ts_in_ts_parser_t::data_cb_fn_t&& fn) {
+			auto parser=std::make_shared<ts_in_ts_parser_t>(*this,  embedding_pid, service_id, std::move(fn));
+			register_parser(embedding_pid, [parser](ts_packet_t* p){
+				log4cxx::NDC::push("ETS");
+				parser->parse(p);}); //embedded ts
+			return parser;
+		}
+
+		void register_audio_pids(int service_id, int video_pid,
 														 stream_type::stream_type_t stream_type);
 
-		void register_video_pids(int service_id, int video_pid, int pcr_pid,
-														 stream_type::stream_type_t stream_type);
+		void register_video_pids(int service_id, int video_pid, stream_type::stream_type_t stream_type);
 
 
 		ts_stream_t(neumodb_t* idxdb =nullptr) : event_handler(idxdb) {

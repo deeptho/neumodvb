@@ -252,27 +252,6 @@ int active_stream_t::deactivate()
 	return 0;
 }
 
-#if 0
-chdb::any_mux_t dvb_stream_reader_t::stream_mux() const {
-	auto mux =active_adapter.current_tp();
-	assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
-					chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::RETRY) ||
-				 chdb::scan_in_progress(chdb::mux_common_ptr(mux)->scan_id));
-
-	return mux;
-}
-#endif
-
-#if 0
-int16_t stream_reader_t::get_sat_pos() const
-{
-	auto stream_mux = this->stream_mux();
-	auto* stream_mux_key = mux_key_ptr(stream_mux);
-	return stream_mux_key->sat_pos;
-}
-#endif
-
 const subscription_options_t& stream_reader_t::tune_options() const
 {
 	auto& tune_options = active_adapter.fe->ts.readAccess()->tune_options;
@@ -292,7 +271,7 @@ void  stream_reader_t::update_stream_mux_tune_confirmation(const tune_confirmati
 	active_adapter.update_tuned_mux_tune_confirmation(tune_confirmation);
 }
 
-int dvb_stream_reader_t::add_pid(int pid) {;
+int dvb_stream_reader_t::add_pid(int pid) {
 	if(ioctl (demux_fd, DMX_ADD_PID, &pid)<0) {
 		dterrorf("DMX_ADD_PID {} FAILED: ", pid, strerror(errno));
 		return -1;

@@ -214,37 +214,15 @@ mpm_t::mpm_t(active_mpm_t&other, bool readonly)
 }
 
 
-active_mpm_t::active_mpm_t(active_service_t* parent_, system_time_t now)
+active_mpm_t::active_mpm_t(active_service_t* active_service_)
 	: mpm_t(false)
-	, active_service(parent_)
-	, creation_time (now)
-	, stream_parser(&db->mpm_rec.idxdb)
+	, stream_buffer_t(active_service_, &db->mpm_rec.idxdb)
+	, periodic(60*30)
+	, creation_time ( system_clock_t::now())
 {
 	using namespace dtdemux;
-	dirname = make_dirname(parent_, now);
+	dirname = make_dirname(active_service, now);
 	file_time_limit = active_service->receiver.options.readAccess()->livebuffer_mpm_part_duration;
-	active_service->pat_parser = stream_parser.register_pat_pid();
-	active_service->pat_parser->section_cb = [this](const pat_services_t& pat_services, const subtable_info_t& i) {
-		assert(!i.timedout);
-		for (const auto& e : pat_services.entries) {
-			if (e.service_id == active_service->current_service.k.service_id) {
-				active_service->have_pat = true;
-				dtdebugf("PAT START PMT=0x{:x}", e.pmt_pid);
-				active_service->update_pmt_pid(e.pmt_pid);
-				active_service->pmt_parser = stream_parser.register_pmt_pid(e.pmt_pid, e.service_id);
-				active_service->pmt_parser->section_cb =
-					[this](pmt_parser_t* parser, const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
-						if(pmt.service_id == active_service->current_service.k.service_id) {
-							//on 30.0W 12398, multiple services share the same pmt_pid. We need the correct one
-							active_service->update_pmt(pmt, isnext, sec_data);
-						}
-					return dtdemux::reset_type_t::NO_RESET;
-				};
-				break;
-			}
-		}
-		return dtdemux::reset_type_t::NO_RESET;
-	};
 	create();
 }
 
@@ -889,6 +867,23 @@ active_mpm_t::~active_mpm_t()
 	//streamparser.unregister_parser(pid)
 }
 
+void active_mpm_t::save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_info,
+														const ss::bytebuffer<256>& pmt_sec_data) {
+	auto now = system_clock_t::to_time_t(now_);
+	using namespace recdb;
+	const auto& marker = this->stream_parser.event_handler.last_saved_marker;
+
+	auto current_streams = stream_descriptor_t(pmt_info.stream_packetno_end, now, marker.k.time, pmt_info.pmt_pid,
+																				pmt_info.audio_languages(), pmt_info.subtitle_languages(), pmt_sec_data);
+	auto txnidx = this->db->mpm_rec.idxdb.wtxn();
+	put_record(txnidx, current_streams);
+	txnidx.commit();
+	{
+		auto mm = this->meta_marker.writeAccess();
+		mm->last_streams = current_streams;
+	}
+}
+
 playback_info_t active_mpm_t::get_current_program_info() const {
 	playback_info_t ret;
 	if(active_service)
@@ -914,4 +909,145 @@ recdb::live_service_t active_mpm_t::get_live_service(subscription_id_t subscript
 	return recdb::live_service_t(getpid() /*owner*/ , (int)subscription_id,
 															 system_clock_t::to_time_t(this->creation_time), active_service->get_adapter_no(),
 															 -1, active_service->get_current_service(), p/*, epg*/);
+}
+
+void active_mpm_t::housekeeping(system_time_t now) {
+	auto parent_txn = this->db->mpm_rec.idxdb.wtxn();
+	auto rec_txn = parent_txn.child_txn(this->db->mpm_rec.recdb);
+	// Update stream_time_end and real_time end periodically
+	this->update_recordings(rec_txn, now);
+	rec_txn.commit();
+	/*check if newer epg data hase arrived and
+		transfer it into the local mpm database
+
+		@todo: is it wise to run directory deletion from this thread?
+	*/
+
+	periodic.run([this, &parent_txn](system_time_t now) { this->delete_old_data(parent_txn, now); }, now);
+
+	parent_txn.commit();
+	/*@todo:
+		1) global recording database must also be kept up todate.
+		2) when recordings stop, receiver thread should know about this
+		It may be more efficient to do part of the housekeeping in the receiver thread
+
+		update_recordings can be run a second time on the global db
+
+		stop_completed_recordings has side effects: it calls finalize recording.
+		@todo: separate these side effects
+
+		@todo: if we update the global db from the receiver thread (more efficient:
+		only a single transaction) there could be border cases which cause races.
+
+		The main dangerous cases are those where receiver and active_mpm have different
+		views on which recordings are running (e.g., receiver first stops recording, but
+		active_mpm has not taken action. Then receiver is asked to restart the same recording,
+		but active_mpm sees it is already running).
+
+		=> conslusion may be that start/stop recording should only be done from receiver thread?
+
+		*/
+}
+
+
+int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
+	bool may_start_new_file = false;
+	/*
+		For an encrypted channel, note that the code below will not parse unencrypted data such
+		as PMT and PAT while problems with video/audio scrambling exist and as a result num_bytes_decrypted_now==0.
+		However, video and audio streams are not present until after the first pmt is successfully read. So we should be safe
+		@todo: we could make discarding data more clever by only skipping encrypted packets
+	*/
+
+	assert(num_bytes_decrypted_now + this->filemap.decrypt_pointer <= this->filemap.write_pointer);
+
+	//set location where stream_parser will start parsing data
+	this->set_buffer(num_bytes_decrypted_now);
+
+	if(num_bytes_decrypted_now) {
+		assert(num_bytes_decrypted_now % ts_packet_t::size == 0);
+
+		auto old_packetno_start = this->stream_parser.event_handler.last_saved_marker.packetno_start;
+		dttime_init();
+		this->stream_parser.parse();
+		dttime(500);
+		this->advance_decrypt_pointer(num_bytes_decrypted_now);
+
+		if (this->stream_parser.event_handler.last_saved_marker.packetno_start != old_packetno_start) {
+			may_start_new_file = true;
+			/*A marker was discovered in the current data (end of i-frame);
+				Only then it is ok to switch to a new data file; reason is that num_bytes_safe_to_read
+				must be increased as soon as possible in order to minimize delay for reading threads.
+				However we can only increase it when we know the current file is no longer
+				growing, i.e., just after a marker. So we proceed when this marker has been read very
+				recently
+			*/
+		}
+		/*
+			todo:
+			1. find range of packets encrypted with same pid and same parity
+			2. lookup the key with the right parity which should not be marked "outdated"
+			and should not be "too new". The latter could occur when a key was lost
+			or when for some reason processing is heavily delayed (should not happen)
+			2.a. If no key can be found, then continue reading data, but not decrypting it; continue reading data
+			untl key becomes available
+			2.b. decrypt what can be
+			decryped
+			3. if we encounter a new
+			parity, mark key for current parity invalid (being careful not to mark a newer key invalid) and continue with
+			current key
+
+			todo 1: filemap.advance should keep both decrypt_pointer and file_pointer in memory
+			(or in two mapped regions)
+			todo 2: implement method for waiting for keys
+			todo 3: is it useful to decrypt more than 1 packet at a time?
+
+		*/
+		this->num_bytes_decrypted += num_bytes_decrypted_now;
+	}
+
+#if 0
+	dtdebug_nicex("MPM STATUS: read={:d} parsed={:d} decrypted={:d}", num_bytes_read,
+								stream_parser.event_handler.last_saved_marker.packetno_end*ts_packet_t::size,
+									num_bytes_decrypted);
+#endif
+
+	if (may_start_new_file && this->file_time_limit >= 0s &&
+			(now - this->current_file_time_start > this->file_time_limit) &&
+			this->num_recordings_in_progress == 0) {
+		/* we start a new file; ideally, we would like the new file to start with a combination
+			 pat/pmt/i-frame. @todo The current implementation does not work as it splits at the end
+			 of an i-frame, but at least this ensures that all data for an iframe is in a singgle file;
+			 fixing the problem also means moving more data
+			*/
+		this->next_data_file(now, this->num_bytes_decrypted);
+	} else if (num_bytes_decrypted_now) {
+		auto mm = this->meta_marker.writeAccess();
+		mm->livebuffer_end_time = now;
+		mm->current_marker = this->stream_parser.event_handler.last_saved_marker;
+		assert(mm->num_bytes_safe_to_read <= this->num_bytes_decrypted); // KNOWN PROBLEM: we may not go back!!
+		mm->num_bytes_safe_to_read = this->num_bytes_decrypted;
+		if (!mm->started && mm->num_bytes_safe_to_read > 0) {
+			mm->started = true;
+			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
+		}
+			this->self_check(*mm);
+			//		TODO: add num_bytes_decrypted??? How to save time at start? e.g., first minute alway safe to read?
+			mm->cv.notify_all();
+	}
+	return 0;
+}
+
+std::unique_ptr<playback_mpm_t> active_mpm_t::make_playback_mpm(subscription_id_t subscription_id) {
+	auto ret = std::make_unique<playback_mpm_t>(*this, active_service->current_service, subscription_id);
+	this->meta_marker.writeAccess()->register_playback_client(ret.get());
+	return ret;
+}
+
+void active_mpm_t::register_parser_pid(int service_id, const pid_info_t& pidinfo)
+{
+	if (is_video(pidinfo.stream_type))
+		this->stream_parser.register_video_pids(service_id, pidinfo.stream_pid, pidinfo.stream_type);
+	else if (is_audio(pidinfo))
+		this->stream_parser.register_audio_pids(service_id, pidinfo.stream_pid, pidinfo.stream_type);
 }

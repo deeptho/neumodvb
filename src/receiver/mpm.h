@@ -105,7 +105,8 @@ public:
 	mutable std::condition_variable cv;
 	int last_seen_txn_id =-1;
 	int64_t num_bytes_safe_to_read = 0; //counted from the start of tuning to service (active_mpm only)
- 	recdb::file_t current_file_record{}; //file being played back or modified (active_mpm only)
+
+	recdb::file_t current_file_record{}; //file being played back or modified (active_mpm only)
 	recdb::marker_t current_marker{};  /*position in current file being played back or last modified*/
 /*
  In a playback_mpm, current_marker is updated from live_mpm if playing back the most recent (growing) file.
@@ -271,8 +272,7 @@ public:
 
 
 	playback_mpm_t(receiver_t& receiver, subscription_id_t subscription_id);
-	playback_mpm_t(active_mpm_t& other, const chdb::service_t& live_service,
-								 const recdb::stream_descriptor_t& streamdesc, subscription_id_t subscription_id);
+	playback_mpm_t(active_mpm_t& other, const chdb::service_t& live_service, subscription_id_t subscription_id);
 	playback_mpm_t& operator=(const playback_mpm_t& other) = delete;
 
 
@@ -301,14 +301,59 @@ public:
 
 };
 
-class active_mpm_t : public mpm_t
+class stream_buffer_t {
+public:
+	int64_t num_bytes_read{0};  //since start of receiving this channel
+	int64_t num_bytes_decrypted{0}; /*since tuning this service*/
+
+	dtdemux::ts_stream_t stream_parser;
+	active_service_t* active_service{nullptr};
+
+	stream_buffer_t(active_service_t* active_service, neumodb_t* idxdb =nullptr)
+		:	stream_parser(idxdb) //TODO: move event_handler to parent class
+		, active_service(active_service)
+		{}
+
+	inline bool has_encrypted_packets() const {
+		return this->stream_parser.num_encrypted_packets > 0;
+	}
+
+	dtdemux::ts_stream_t*  get_ts_stream() {
+		return &this->stream_parser;
+	}
+
+
+	virtual void close()=0;
+	virtual int process_service_data(int num_bytes_decrypted_now) = 0;
+	virtual int get_write_buffer(uint8_t*& buffer_ret) =0;
+	virtual int advance() = 0;
+
+	virtual void advance_write_pointer(int extra)  = 0;
+
+	virtual void advance_decrypt_pointer(int extra)  = 0;
+
+	virtual int bytes_to_decrypt(uint8_t*& buffer_ret) = 0;
+
+	virtual void set_buffer(int num_bytes_decrypted_now)  = 0;
+	virtual void housekeeping(system_time_t now)  = 0;
+
+	inline virtual ~stream_buffer_t() = default; //essential
+
+	virtual void register_parser_pid(int service_id, const dtdemux::pid_info_t& pidinfo) =0;
+	inline virtual void save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_info,
+															 const ss::bytebuffer<256>& pmt_sec_data) {}
+
+};
+
+class active_mpm_t : public mpm_t, public stream_buffer_t
 {
 	static constexpr  size_t  default_file_size = 127827968; //length of a single part, multiple of 4096 and 188 ; approx 121 MByte
 	int next_recid = -1;
 	int current_fileno = -1;
 	system_time_t last_epg_check_time{};
+	periodic_t periodic;
 public:
-	active_service_t* active_service = nullptr; //if non null, then this is a live mpm
+
 	mm_t meta_marker;
 	int num_recordings_in_progress = 0;
 	size_t initial_file_size = default_file_size;
@@ -316,21 +361,16 @@ public:
 	std::chrono::seconds file_time_limit{300s};//30; //if >0, then a new file will be started after approx. this many seconds
 
 
-	int64_t num_bytes_read{0};  //since start of receiving this channel
-
 	int64_t first_available_byte{0}; /* when the start of the timeshift buffer is being
 																			erases, this will be incremented to point to
 																			the first available (decrypted) byte for reading
 																	 */
-	int64_t num_bytes_decrypted{0}; /*since tuning this service*/
 
 	//information about the current file being streamed to
 	//int64_t current_file_stream_time_start = 0; //since start of receiving this channel; play_time
 	system_time_t current_file_time_start; //real time at which the current file was started (in seconds)
 	const system_time_t creation_time;
 	uint32_t current_file_stream_packetno_start{0};
-
-	dtdemux::ts_stream_t stream_parser;
 
 
 
@@ -352,8 +392,14 @@ private:
 
  public:
 
+	void update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data,
+									bool is_new, bool ca_changed, bool service_changed);
+
+	virtual void housekeeping(system_time_t now) final;
+	virtual void save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_info,
+												const ss::bytebuffer<256>& pmt_sec_data) override;
 	void create();
-	active_mpm_t(active_service_t* parent, system_time_t now);
+	active_mpm_t(active_service_t* parent);
 	~active_mpm_t();
 
   /*!
@@ -362,7 +408,7 @@ private:
 	*/
 	int next_data_file(system_time_t now, int64_t new_num_bytes_safe_to_read);
 
-	void close();
+	virtual void close() override;
 
 	void start_live_recording(db_txn& parent_txn, system_time_t now, int duration);
 
@@ -383,6 +429,39 @@ private:
 	void self_check(meta_marker_t& meta_marker);
 	void wait_for_update(meta_marker_t& other);
 	void destroy();
+
+	inline virtual int get_write_buffer(uint8_t*& buffer_ret) override {
+		return this ->filemap.get_write_buffer(buffer_ret);
+	}
+
+	inline virtual int advance()  override {
+		return this->filemap.advance();
+	}
+
+	inline virtual void advance_write_pointer(int extra) override {
+		this->filemap.advance_write_pointer(extra);
+	}
+
+	virtual void advance_decrypt_pointer(int extra) override {
+		assert(filemap.decrypt_pointer+extra <= filemap.write_pointer);
+		filemap.decrypt_pointer+=extra;
+		assert(filemap.decrypt_pointer<=filemap.map_len);
+	}
+
+
+
+	inline virtual int bytes_to_decrypt(uint8_t*& buffer_ret) override {
+		return this->filemap.bytes_to_decrypt(buffer_ret);
+	}
+
+	inline virtual void set_buffer(int num_bytes_decrypted_now) override {
+		this->stream_parser.set_buffer(filemap.buffer + filemap.decrypt_pointer, num_bytes_decrypted_now);
+	}
+
+	virtual int process_service_data(int num_bytes_decrypted_now) override;
+	virtual void register_parser_pid(int service_id, const dtdemux::pid_info_t& pidinfo) final;
+
+	std::unique_ptr<playback_mpm_t> make_playback_mpm(subscription_id_t subscription_id);
 };
 
 int finalize_recording(db_txn& livebuffer_idxdb_rtxn, mpm_copylist_t& copy_command, mpm_index_t* db);

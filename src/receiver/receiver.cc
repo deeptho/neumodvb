@@ -945,7 +945,7 @@ std::unique_ptr<playback_mpm_t> receiver_thread_t::subscribe_playback_(const rec
 	assert(ssptr);
 	ssptr->set_active_playback(active_playback);
 
-	return active_playback->make_client_mpm(receiver, subscription_id);
+	return active_playback->make_playback_mpm(receiver, subscription_id);
 }
 
 std::unique_ptr<playback_mpm_t>
@@ -1117,7 +1117,7 @@ receiver_thread_t::cb_t::subscribe_playback(const recdb::rec_t& rec,
 		if (active_playback) {
 			if (rec.epg.k == active_playback->currently_playing_recording.epg.k) {
 				dtdebugf("subscribe {}: already subscribed to recording", rec);
-				return active_playback->make_client_mpm(receiver, subscription_id);
+				return active_playback->make_playback_mpm(receiver, subscription_id);
 			}
 		}
 		unsubscribe(ssptr);

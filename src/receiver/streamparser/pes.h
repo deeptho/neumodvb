@@ -23,33 +23,35 @@
 #include "mpeg.h"
 #include "substream.h"
 
+class ts_in_ts_stream_filter_t;
+
 namespace dtdemux {
 
 
-struct pes_parser_t : public ts_substream_t {
-	uint16_t service_id = 0x00;
-	uint8_t pes_stream_id = 0x00;
-	int pes_packet_len = 0;
-	int pes_header_len = 0; //total bytes of pes header, including mandatory and optional fields
-	uint8_t flags1 = 0;
-	uint8_t flags2 = 0;
-	uint8_t pes_header_data_len = 0;
+	struct pes_parser_t : public ts_substream_t {
+		uint16_t service_id = 0x00;
+		uint8_t pes_stream_id = 0x00;
+		int pes_packet_len = 0;
+		int pes_header_len = 0; //total bytes of pes header, including mandatory and optional fields
+		uint8_t flags1 = 0;
+		uint8_t flags2 = 0;
+		uint8_t pes_header_data_len = 0;
 
-	pts_dts_t clock_period;
+		pts_dts_t clock_period;
 
-	pts_dts_t pts;
-	pts_dts_t dts;
+		pts_dts_t pts;
+		pts_dts_t dts;
 
-	pts_dts_t last_pts;
-	pts_dts_t last_dts;
+		pts_dts_t last_pts;
+		pts_dts_t last_dts;
 
-	pes_packet_desc_t current_frame; /*start is the first byte of the first pes packet of this frame;
-																		 end is the first byte past the end of the pes packet*/
+		pes_packet_desc_t current_frame; /*start is the first byte of the first pes packet of this frame;
+																			 end is the first byte past the end of the pes packet*/
 
-	int stream_type  = -1;
+		int stream_type  = -1;
 
 #if 0
-	virtual bool end_of_pes_or_psi_stream() const {
+		virtual bool end_of_pes_or_psi_stream() const {
 			auto& limit = data_source->ts_packet_stream.end_display_time;
 			return
 				(limit.is_valid() && last_play_time >= limit) ||
@@ -75,8 +77,8 @@ struct pes_parser_t : public ts_substream_t {
 
 		virtual void parse_payload_unit() override = 0;
 
-	pes_parser_t(ts_stream_t& parent, int service_id, int pid, /*int stream_type,*/  const char* name) :
-		ts_substream_t(parent, payload_type_t::PES, name), service_id(service_id)
+		pes_parser_t(ts_stream_t& parent, int service_id, int pid, /*int stream_type,*/  const char* name) :
+			ts_substream_t(parent, payload_type_t::PES, name), service_id(service_id)
 			{}
 
 		pes_parser_t(const pes_parser_t& other) = delete;
@@ -117,8 +119,8 @@ struct pes_parser_t : public ts_substream_t {
 		void parse_sei(int nal_unit_type);
 
 
-	h264_parser_t(ts_stream_t& parent, int service_id, int pid) :
-		video_parser_t(parent, service_id, pid, /*stream_type,*/ "h264")
+		h264_parser_t(ts_stream_t& parent, int service_id, int pid) :
+			video_parser_t(parent, service_id, pid, /*stream_type,*/ "h264")
 			{}
 
 		h264_parser_t(const h264_parser_t& other) = delete;
@@ -143,8 +145,8 @@ struct pes_parser_t : public ts_substream_t {
 	struct mpeg2_parser_t : public video_parser_t {
 		virtual void parse_payload_unit() override;
 
-	mpeg2_parser_t(ts_stream_t& parent, int service_id, int pid) :
-		video_parser_t(parent, service_id, pid, /*stream_type,*/ "mpeg2")
+		mpeg2_parser_t(ts_stream_t& parent, int service_id, int pid) :
+			video_parser_t(parent, service_id, pid, /*stream_type,*/ "mpeg2")
 			{}
 
 		mpeg2_parser_t(const mpeg2_parser_t& other) = delete;
@@ -166,17 +168,39 @@ struct pes_parser_t : public ts_substream_t {
 		virtual ~audio_parser_t() {}
 	};
 
+
 	class ts_in_ts_parser_t : public ts_substream_t {
 	public:
+
+		typedef std::function<void(uint8_t* buffer, int)> data_cb_fn_t;
+
+		data_cb_fn_t data_cb_fn;
+
 		virtual void parse_payload_unit() override;
 
 
-		ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid);
+		ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid, data_cb_fn_t&& data_cb_fn);
 
 		ts_in_ts_parser_t(const ts_in_ts_parser_t& other) = delete;
 		virtual ~ts_in_ts_parser_t() {}
 
 		virtual void unit_completed_cb() override {};
+
+#if 0
+		template<typename parser_t, typename... Args>
+		auto add_parser(int pid, const ss::string_& ndc_prefix, Args... args) {
+			auto & slot = parsers[dvb_pid_t(pid)];
+			if (slot.use_count == 0) {
+				assert(!slot.p);
+				slot.p = stream_parser.register_pid<parser_t>(pid, ndc_prefix, args...);
+				if(pid!=dtdemux::ts_stream_t::PAT_PID)
+					add_pid(pid);
+			}
+			slot.use_count++;
+			dtdebugf("add_parser for pid={:d} slot.use_count={:d}", pid, slot.use_count);
+			return static_cast<parser_t*>(slot.p.get());
+		}
+#endif
 	};
 
 

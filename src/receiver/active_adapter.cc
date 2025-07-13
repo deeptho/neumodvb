@@ -181,7 +181,7 @@ void active_adapter_t::reset()
 }
 
 
-const chdb::any_mux_t active_adapter_t::mux_for_key(const chdb::mux_key_t& mux_key) const {
+std::optional<chdb::any_mux_t> active_adapter_t::mux_for_key(const chdb::mux_key_t& mux_key) const {
 	for (auto& [pid, si] : si_streams) {
 		auto& key = *chdb::mux_key_ptr(si.dbmux);
 		if (key == mux_key) {
@@ -195,7 +195,9 @@ const chdb::any_mux_t active_adapter_t::mux_for_key(const chdb::mux_key_t& mux_k
 			}
 		}
 	}
+#ifdef TODO
 	assert(0);
+#endif
 	return {};
 };
 
@@ -659,8 +661,23 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
 		case chdb::embedding_type_t::T2MI:
 			substream = std::make_shared<t2mi_stream_filter_t>(*this, embedded_mux, &tuner_thread.epx);
 			break;
-		case chdb::embedding_type_t::TS:
-			substream = std::make_shared<ts_in_ts_stream_filter_t>(*this, embedded_mux, &tuner_thread.epx);
+		case chdb::embedding_type_t::TS: {
+				auto mux_key = *chdb::mux_key_ptr(embedded_mux);
+				assert(mux_key.sat_pos != sat_pos_none);
+				auto service_id = mux_key.t2mi_pid; //todo: rename this
+				mux_key.t2mi_pid = -1 ; //convert to parent mux
+				auto txn = receiver.chdb.rtxn();
+				auto ec = chdb::service_t::find_by_key(txn, mux_key, service_id);
+				if(!ec.is_valid()) {
+					user_errorf("Could not find embedding service for embedded mux {}", embedded_mux);
+					return nullptr;
+				}
+				auto service = ec.current();
+				txn.abort();
+
+				substream = std::make_shared<ts_in_ts_stream_filter_t>(*this, embedded_mux, service, &tuner_thread.epx);
+
+		}
 			break;
 		}
 
@@ -1284,15 +1301,10 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 
 	auto prefix =fmt::format("CH[{:d}:{}]", this->get_adapter_no(), service);
 	log4cxx::NDC::push(prefix.c_str());
-#if 0
-	auto use_embedded_reader = !this->fe->ts.readAccess()->dbfe.supports.t2mi
-		&& (service.k.mux.t2mi_pid >= 0);
-	auto reader = use_embedded_reader ? this->make_embedded_stream_reader(mux)
-		: this->make_dvb_stream_reader(mux);
-#else
 	auto reader = make_stream_reader(mux, -1);
-#endif
-	active_service_ptr = std::make_shared<active_service_t>(receiver, *this, service, std::move(reader));
+
+	active_service_ptr = std::make_shared<active_service_t>(*this, service, std::move(reader));
+	active_service_ptr->add_pat_and_pmt_parsers();
 	log4cxx::NDC::pop();
 	// remember that this service is now in use (for future planning and for later unsubscription)
 

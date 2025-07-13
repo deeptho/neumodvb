@@ -531,15 +531,16 @@ void ts_in_ts_parser_t::parse_payload_unit() {
 			get_buffer(buffer + len, skipped);
 			synced = buffer[188] == 0x47 && buffer[2*188] == 0x47;
 		}
-#ifdef TODO
 		data_cb_fn(&buffer[0], sizeof(buffer));
-#endif
 	}
 	return;
 }
 
-ts_in_ts_parser_t::ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid):
-	ts_substream_t(ts_stream, payload_type_t::PES, "ABERTIS") {
+#ifdef TTT
+ts_in_ts_parser_t::ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid, data_cb_fn_t&& data_cb_fn)
+	: ts_substream_t(ts_stream, payload_type_t::PES, "ABERTIS")
+	, data_cb_fn(data_cb_fn)
+{
 	payload_type = payload_type_t::DATA; //TODO
 	auto fn = [this](ts_packet_t* p) {
 		log4cxx::NDC::push("TSINTS");
@@ -548,7 +549,23 @@ ts_in_ts_parser_t::ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int
 
 	ts_stream.register_parser(pid, fn);
 }
+#else
+ts_in_ts_parser_t::ts_in_ts_parser_t(ts_stream_t& ts_stream, int pid, int service_id, data_cb_fn_t&& data_cb_fn)
+	: ts_substream_t(ts_stream, payload_type_t::PES, "ABERTIS")
+	, data_cb_fn(data_cb_fn)
+{
+	payload_type = payload_type_t::DATA; //TODO
+#ifdef TTT
+	auto fn = [this](ts_packet_t* p) {
+		log4cxx::NDC::push("TSINTS");
+		this->parse(p);
+	};
 
+	ts_stream.register_parser(pid, fn);
+#endif
+}
+
+#endif
 
 /*
 	See https://www.quora.com/What-is-the-difference-between-an-I-Frame-and-a-Keyframe-in-video-encoding

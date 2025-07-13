@@ -452,7 +452,7 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 
 	dtdemux::reset_type_t on_nit_section_completion(db_txn& wtxn, network_data_t& network_data,
 																									dtdemux::reset_type_t ret, bool is_actual,
-																									bool on_wrong_sat, bool network_done);
+																									bool on_wrong_sat, bool done);
 	std::tuple<bool, bool>
 	sdt_process_service(db_txn& wtxn, const chdb::service_t& service, mux_data_t* p_mux_data,
 											bool donotsave, bool is_actual);

@@ -133,6 +133,7 @@ class active_adapter_t final : public  std::enable_shared_from_this<active_adapt
 	friend class active_si_stream_t;
 	friend class stream_reader_t;
 	friend struct dvb_stream_reader_t;
+	friend struct ts_in_ts_stream_filter_t;
 
 private:
 /*
@@ -254,7 +255,7 @@ private:
 	void check_isi_processing();
 
 //Functions called from tuner_thread
-	const chdb::any_mux_t mux_for_key(const chdb::mux_key_t& mux_key) const;
+	std::optional<chdb::any_mux_t> mux_for_key(const chdb::mux_key_t& mux_key) const;
 
 	inline const devdb::lnb_t& current_lnb() const {
 		return fe->ts.readAccess()->reserved_lnb;

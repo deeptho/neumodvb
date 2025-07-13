@@ -18,6 +18,7 @@
  *
  */
 #include "streamfilter.h"
+#include "active_service.h"
 #include "active_stream.h"
 #include "util/logger.h"
 #include "util/util.h"
@@ -130,20 +131,8 @@ start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& arg
 	return {-1, -1};
 }
 
-#if 0
-void stream_filter_t::close() {
-	if (!is_open())
-		return;
-	assert(data_fd >= 0);
-	if (::close(data_fd) < 0) {
-		dterrorf("Error in close: {}", strerror(errno));
-	}
-	data_fd = -1;
-	stop();
-}
-#endif
-
-int stream_filter_t::open_dvb_reader() {
+std::tuple<std::unique_ptr<dvb_stream_reader_t>, int>
+stream_filter_t::open_dvb_reader() {
 	ss::string<64> ndc;
 	auto& embedded_mux_key = *chdb::mux_key_ptr(this->embedded_mux);
 	auto stream_pid = embedded_mux_key.t2mi_pid;
@@ -153,21 +142,21 @@ int stream_filter_t::open_dvb_reader() {
 	auto master_mux = this->embedded_mux;
 	auto& master_mux_key = *chdb::mux_key_ptr(master_mux);
 	master_mux_key.t2mi_pid = -1;
-
-	dvb_stream_reader_t dvb_reader(active_adapter, master_mux, dmx_buffer_size);
+	auto dvb_stream_readerp = std::make_unique<dvb_stream_reader_t>(active_adapter, master_mux, dmx_buffer_size);
+	auto & dvb_reader = *dvb_stream_readerp;
 	int stream_fd = dvb_reader.open(stream_pid, epoll, epoll_flags, true /*steal_fd*/);
 	if (stream_fd < 0)
-		return -1;
+		return {nullptr, -1};
 	auto flags = fcntl(stream_fd, F_GETFD);
 	if (flags < 0) {
 		dterrorf("fcntl failed: {}", strerror(errno));
-		return -1;
+		return {nullptr, -1};
 	}
 	if (fcntl(stream_fd, F_SETFD, flags & ~FD_CLOEXEC) < 0) {
 		dterrorf("Could not clear FD_CLOEXEC: {}", strerror(errno));
-		return -1;
+		return {nullptr, -1};
 	}
-	return stream_fd;
+	return {std::move(dvb_stream_readerp), stream_fd};
 }
 
 inline int stream_filter_t::available_for_write() {
@@ -211,12 +200,6 @@ inline int stream_filter_t::read_data() {
 		data_ready = (ret == size);
 		assert(ret > 0);
 		assert(ret <= size);
-		{
-#if 1
-			static FILE* fp = fopen("/tmp/out1.ts", "w");
-			fwrite( bufferp.get() + write_pointer, 1, ret, fp);
-#endif
-		}
 		assert(ret <= toread);
 		toread -= ret;
 		write_pointer += ret;
@@ -285,23 +268,16 @@ void t2mi_stream_filter_t::close() {
 }
 
 void ts_in_ts_stream_filter_t::close() {
-		if (!is_open())
+	if (!is_open())
 		return;
-	assert(data_fd >= 0);
-	if (::close(data_fd) < 0) {
-		dterrorf("Error in close: {}", strerror(errno));
-	}
-	data_fd = -1;
-
-	assert(command_pid > 0);
-	//@todo: close the stream
+	assert(data_fd < 0);
 }
 
-int t2mi_stream_filter_t::open() {
+void t2mi_stream_filter_t::open() {
 	assert(chdb::mux_key_ptr(this->embedded_mux)->sat_pos != sat_pos_none);
-	auto stream_fd = this->open_dvb_reader();
+	auto [_, stream_fd] = this->open_dvb_reader();
 	if(stream_fd < 0)
-		return stream_fd;
+		return;
 	auto& embedded_mux_key = *chdb::mux_key_ptr(this->embedded_mux);
 	auto stream_pid = embedded_mux_key.t2mi_pid;
 
@@ -315,15 +291,22 @@ int t2mi_stream_filter_t::open() {
 	std::tie(data_fd, command_pid) = start_command(stream_fd, cmd, args);
 	if (data_fd < 0) {
 		dterrorf("Could not start command");
-		return -1;
+		return;
 	}
-	return 0;
+	return;
 }
 
-int ts_in_ts_stream_filter_t::open() {
-	assert(chdb::mux_key_ptr(this->embedded_mux)->sat_pos != sat_pos_none);
-	data_fd = this->open_dvb_reader();
-	return data_fd >= 0;
+void ts_in_ts_stream_filter_t::open() {
+	auto master_mux = embedded_mux;
+	auto *dvbs_mux= std::get_if<chdb::dvbs_mux_t>(&master_mux);
+	dvbs_mux->k.t2mi_pid = -1;
+	dvbs_mux->embedding_type = chdb::embedding_type_t::NONE;
+	auto reader = active_adapter.make_dvb_stream_reader(master_mux, -1);
+	this->active_servicep = std::make_shared<active_service_t>(active_adapter, this, embedding_service,
+																														 std::move(reader));
+		this->active_servicep->add_pat_and_pmt_parsers();
+	this->active_servicep->service_thread.start_running();
+	return;
 }
 
 bool t2mi_stream_filter_t::read_and_process_data() {
@@ -335,17 +318,28 @@ bool t2mi_stream_filter_t::read_and_process_data() {
 	return error;
 }
 
-bool ts_in_ts_stream_filter_t::read_and_process_data() {
-	if (error)
-		return false;
-	data_ready = true;
-	error |= (read_data() < 0);
-//	@todo decrypt data
-	// rearm
-	return error;
+
+void ts_in_ts_stream_filter_t::read_data(uint8_t* buffer, int num_bytes) {
+	this->notify_other_readers(nullptr); //notifies ALL readers (as read_data is not called from a reader
+	auto lck = std::scoped_lock(m);
+	int toread = available_for_write();
+	if (num_bytes > toread) {
+		dterrorf("data loss due to slow readers");
+		num_bytes = toread;
+	}
+
+	while (num_bytes>0) {
+		auto size = std::min(num_bytes, buff_size - write_pointer);
+		assert ( write_pointer + size <= buff_size);
+		memcpy(bufferp.get() + write_pointer, buffer, size);
+		buffer += size;
+		num_bytes -= size;
+		write_pointer += size;
+		assert(write_pointer <= buff_size);
+		if (write_pointer == buff_size)
+			write_pointer = 0; // wrap around
+	}
 }
-
-
 
 inline void embedded_stream_reader_t::discard(ssize_t num_bytes) {
 	assert(num_bytes + read_pointer <= last_range_end_pointer);
@@ -396,7 +390,8 @@ inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size
 	return {ptr, toread};
 }
 
-inline ssize_t embedded_stream_reader_t::read_into(uint8_t* p, ssize_t toread, const std::vector<pid_with_use_count_t>* pids) {
+inline ssize_t embedded_stream_reader_t::read_into(uint8_t* p, ssize_t toread,
+																									 const std::vector<pid_with_use_count_t>* pids) {
 	ssize_t num_read{0};
 	while (toread >= dtdemux::ts_packet_t::size) {
 		auto [ptr, ret] = this->read(toread);
@@ -424,41 +419,19 @@ inline ssize_t embedded_stream_reader_t::read_into(uint8_t* p, ssize_t toread, c
 	return num_read;
 }
 
-
-inline bool embedded_stream_reader_t::on_epoll_event(const epoll_event* evt) {
-	if ((evt->data.u64 & 0xffffffff) == stream_filter->data_fd) {
-		/*each of the subscribers will randomly receive this event
-			and then process incoming data
-		*/
-		master_read_count++; // for debugging
-		stream_filter->read_and_process_data();
-		stream_filter->notify_other_readers(this);
-#if 0
-		int mask = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET;
-		epoll->mod_fd(stream_filter->data_fd, mask|EPOLLONESHOT); //EPOLLEXCLUSIVE not allowed!
-#endif
-		return true;
-	} else if (epoll && epoll->matches(evt, (int) notifier)) {
-		if(stream_filter->data_fd <0)
-			return false;
-		notifier.reset();
-		return true;
-	}
-	return false;
+embedded_stream_reader_t::embedded_stream_reader_t
+          (active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
+					 const std::shared_ptr<stream_filter_t>& stream_filter)
+						: stream_reader_t(active_adapter, mux), stream_filter(stream_filter) {
 }
-
-embedded_stream_reader_t::embedded_stream_reader_t(active_adapter_t& active_adapter,
-																									 const chdb::any_mux_t& mux,
-																									 const std::shared_ptr<stream_filter_t>& stream_filter)
-	: stream_reader_t(active_adapter, mux), stream_filter(stream_filter) {}
 
 int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags, bool steal_fd) {
 	this->epoll = epoll;
 	this->epoll_flags = epoll_flags;
 	stream_filter->register_reader(this);
 	// ensure that exactly one thread receives a wakeup call for data_fd
-	assert(stream_filter->data_fd >= 0);
-	epoll->add_fd(stream_filter->data_fd, epoll_flags | EPOLLEXCLUSIVE);
+	if(stream_filter->data_fd >= 0)
+		epoll->add_fd(stream_filter->data_fd, epoll_flags | EPOLLEXCLUSIVE);
 	epoll->add_fd((int)notifier, epoll_flags);
 
 	// initial_pid not used becaue we get all pids anyway
@@ -475,7 +448,10 @@ void embedded_stream_reader_t::close() {
 	}
 }
 
-
+bool embedded_stream_reader_t::on_epoll_event(const epoll_event* evt)
+{
+		return stream_filter->on_epoll_event(evt, this, this->notifier);
+}
 
 void embedded_stream_reader_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux,
 																											bool is_bad) {
@@ -556,4 +532,40 @@ void streamer_t::stop() {
 	stream.mtime = system_clock_t::to_time_t(now);
 	assert(stream.subscription_id >=0);
 	stream.stream_state = devdb::stream_state_t::OFF;
+}
+
+
+bool t2mi_stream_filter_t::on_epoll_event(const epoll_event* evt, embedded_stream_reader_t* reader,
+																								 event_handle_t& notifier) {
+	if ((evt->data.u64 & 0xffffffff) == this->data_fd) {
+		/*each of the subscribers will randomly receive this event
+			and then process incoming data
+		*/
+		this->read_and_process_data();
+		this->notify_other_readers(reader);
+		return true;
+	} else if (reader->epoll && reader->epoll->matches(evt, (int) notifier)) {
+		if(this->data_fd <0)
+			return false;
+		notifier.reset();
+		return true;
+	}
+	return false;
+}
+
+
+bool ts_in_ts_stream_filter_t::on_epoll_event(const epoll_event* evt, embedded_stream_reader_t* reader,
+																								 event_handle_t& notifier) {
+	if ((evt->data.u64 & 0xffffffff) == this->data_fd) {
+		/*each of the subscribers will randomly receive this event
+			and then process incoming data
+		*/
+		this->read_and_process_data();
+		this->notify_other_readers(reader);
+		return true;
+	} else if (reader->epoll && reader->epoll->matches(evt, (int) notifier)) {
+		notifier.reset();
+		return true;
+	}
+	return false;
 }

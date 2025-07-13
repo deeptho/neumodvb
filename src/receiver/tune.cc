@@ -88,8 +88,16 @@ ss::string<128> dump_caps(chdb::fe_caps_t caps) {
 
 int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key,
 																				const dtdemux::pmt_info_t& pmt) {
-	auto mux = active_adapter.mux_for_key(mux_key);
+	auto pmux = active_adapter.mux_for_key(mux_key);
 
+	if(!pmux) {
+		/*This happens for a ts_in_ts mux, because the main mux (containing the embedded ts)
+			is not monitored in the current code
+		*/
+		dtdebugf("skipping pmt update for service_id=%d\n", pmt.service_id);
+		return 0;
+	}
+	auto & mux = *pmux;
 	bool changed = pmt.has_freesat_epg ? add_epg_type(mux, chdb::epg_type_t::FREESAT)
 		: remove_epg_type(mux, chdb::epg_type_t::FREESAT);
 
@@ -420,7 +428,7 @@ tuner_thread_t::cb_t::subscribe_service_for_viewing(const subscribe_ret_t& sret,
 	if(active_servicep) {
 		auto live_service = active_servicep->get_live_service(sret.subscription_id);
 		this->add_live_buffer(live_service);
-		return active_servicep->make_client_mpm(sret.subscription_id);
+		return active_servicep->make_playback_mpm(sret.subscription_id);
 	}
 	else
 		return nullptr;

@@ -64,12 +64,13 @@ protected:
 
 
 protected:
-	dvbcsa_t dvbcsa;
-
+	virtual bool on_epoll_event(const epoll_event* evt, embedded_stream_reader_t* reader, event_handle_t& notifier) =0;
 	virtual bool read_and_process_data() =0;
-	virtual int open() = 0;
+	virtual void open() = 0;
 	virtual void close() = 0;
-	int open_dvb_reader();
+
+	std::tuple<std::unique_ptr<dvb_stream_reader_t>, int> open_dvb_reader();
+
 	int read_data();
 
 protected:
@@ -80,7 +81,7 @@ protected:
 		, embedded_mux(embedded_mux)
 		, epoll(epoll)
 		, epoll_flags(epoll_flags)
-	,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
+		,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
 	}
 
 	~stream_filter_t() {
@@ -92,7 +93,7 @@ protected:
 
 	pid_t start();
 
-	inline bool is_open() const {
+	virtual inline bool is_open() const {
 		bool ret = data_fd >=0;
 		assert (ret? (command_pid>0) : (command_pid<0));
 		return ret;
@@ -111,30 +112,47 @@ public:
 		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags) {
   }
 
+	virtual bool on_epoll_event(const epoll_event* evt, embedded_stream_reader_t* reader,
+															event_handle_t& notifier) override;
 	virtual bool read_and_process_data() final;
-	virtual int open() final;
+	virtual void open() final;
 	virtual void close() final;
 
 	virtual ~t2mi_stream_filter_t() {
-			close();
-		}
+		close();
+	}
 };
 
 class ts_in_ts_stream_filter_t : public stream_filter_t {
+	chdb::service_t embedding_service;
+	std::shared_ptr<active_service_t> active_servicep; //must be a shared_ptr because shared_from_this used elsewhere
 public:
-	ts_in_ts_stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
-											 epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET)
-		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags) {
-	}
+	ts_in_ts_stream_filter_t(active_adapter_t& active_adapter,
+													 const chdb::any_mux_t& embedded_mux,
+													 const chdb::service_t& embedding_service,
+													 epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET)
+		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags),
+			embedding_service(embedding_service) {}
 
 	virtual ~ts_in_ts_stream_filter_t() {
-			close();
-		}
+		close();
+	}
 
-	virtual bool read_and_process_data() final;
-	virtual int open() final;
-	virtual void close() final;
+	virtual bool on_epoll_event(const epoll_event* evt, embedded_stream_reader_t* reader,
+															event_handle_t& notifier) override;
+	virtual bool read_and_process_data() final{
+		assert(false);
+		return false;
+	};
 
+	virtual inline bool is_open() const override {
+		return true;
+	}
+
+
+	virtual void open() final;
+		 virtual void close() final;
+		 void read_data(uint8_t* buffer, int num_bytes);
 };
 
 

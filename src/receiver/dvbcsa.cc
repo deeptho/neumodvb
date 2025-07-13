@@ -103,7 +103,7 @@ void decrypt_cache_t::decrypt_all_pending(const char* debug_msg) {
 		int& idx = batch_idx[odd];
 		auto& scnt_field = scnt_fields[odd];
 		if (idx > 0) {
-#if 1
+#if 0
 			dtdebugf("Decrypting {:d} packets with parity={:d} {}", idx, odd, debug_msg);
 #endif
 			assert(idx < batch_size + 1);
@@ -224,8 +224,7 @@ int dvbcsa_t::skip_non_decryptable(uint8_t* buffer, int buffer_size) {
 	@brief
 	Decrypt a batch of transportstream packets.
 
-	This assumes that correct keys
-	are available. It is not possible (?) to detect decryption errors.
+	This assumes that correct keys are available. It is not possible (?) to detect decryption errors.
 	TODO: what happens when the batch size is too large? We have to avoid using more than
 	2 keys of the same parity (odd or even)
 	TODO: we must be able to mark the position at which keys become known in the recorded transport
@@ -245,9 +244,7 @@ int dvbcsa_t::decrypt_buffer(uint8_t* buffer, int buffer_size) {
 		std::unique_lock lck(key_mutex);
 		num_bytes_received = num_bytes_decrypted + buffer_size; // used to mark keys
 	}
-	dtdebugf("buffer_size={:d}", buffer_size);
 	descrambling_context_t* context = nullptr;
-	// static descrambling_context_t * last_pid_context  = nullptr; //only for debugging
 	for (; packet_start + ts_packet_t::size <= buffer_size; packet_start += ts_packet_t::size) {
 		int pid = 0x1fff & (((int)buffer[packet_start + 1]) << 8 | buffer[packet_start + 2]);
 		int scrambling_control_packet = ((buffer[packet_start + 3] & 0xc0) >> 6);
@@ -269,8 +266,8 @@ int dvbcsa_t::decrypt_buffer(uint8_t* buffer, int buffer_size) {
 				/*
 					Note that this function may change packet_start, scrambling_control_packet and odd
 				*/
-				if (handle_parity_change(context, idx, pid, odd, packet_start, scrambling_control_packet, buffer, buffer_size) <
-						0) {
+				if (handle_parity_change(context, idx, pid, odd, packet_start,
+																 scrambling_control_packet, buffer, buffer_size) < 0) {
 					// cache.decrypt_all_pending("(waiting for keys)");
 					num_bytes_decrypted += packet_start;
 					return packet_start;

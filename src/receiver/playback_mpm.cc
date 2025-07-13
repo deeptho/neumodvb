@@ -43,7 +43,6 @@ playback_mpm_t::playback_mpm_t(receiver_t& receiver_, subscription_id_t subscrip
 
 playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 															 const chdb::service_t& live_service,
-															 const recdb::stream_descriptor_t& streamdesc,
 															 subscription_id_t subscription_id_)
 	: mpm_t(other, true)
 	, receiver(other.active_service->receiver)

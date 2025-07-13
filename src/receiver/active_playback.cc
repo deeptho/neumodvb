@@ -32,7 +32,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-std::unique_ptr<playback_mpm_t> active_playback_t::make_client_mpm
+std::unique_ptr<playback_mpm_t> active_playback_t::make_playback_mpm
 (receiver_t& receiver, subscription_id_t subscription_id) {
 	auto mpm = std::make_unique<playback_mpm_t>(receiver, subscription_id);
 	const recdb::rec_t& rec = currently_playing_recording;

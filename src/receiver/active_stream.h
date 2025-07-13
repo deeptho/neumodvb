@@ -231,7 +231,6 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 class embedded_stream_reader_t final : public stream_reader_t {
 	friend class stream_filter_t;
 	std::shared_ptr<stream_filter_t> stream_filter;
-	int master_read_count{0}; //for debugging
 	//needs to be atomic to ensure that threads see the latest value; a weaker form would suffice
 	std::atomic_int read_pointer{0}; //location in buffer where client will read next
 	int last_range_end_pointer{0}; //location in buffer where last read() ends
@@ -248,29 +247,28 @@ class embedded_stream_reader_t final : public stream_reader_t {
 public:
 	embedded_stream_reader_t(active_adapter_t& adapter, const chdb::any_mux_t& mux,
 													 const std::shared_ptr<stream_filter_t>& stream_filter);
-	virtual bool is_open() const {
+	virtual bool is_open() const override {
 		return epoll != nullptr;
 	}
 
 	virtual int open(uint16_t initial_pid, epoll_t* epoll,
 									 int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET,
-									 bool steal_fd=false);
+									 bool steal_fd=false) override;
 
-	virtual void close();
+	virtual void close() override;
 
 
-	virtual bool on_epoll_event(const epoll_event* evt);
-
-	virtual inline int add_pid(int pid) {
+	virtual bool on_epoll_event(const epoll_event* evt) override;
+	virtual inline int add_pid(int pid) override {
 		return 0; //we don't care
 	}
 
-	virtual inline int remove_pid(int pid) {
+	virtual inline int remove_pid(int pid) override {
 		return 0;
 	}
 
 
-	virtual std::shared_ptr<stream_reader_t> clone(ssize_t buffer_size=-1) const {
+	virtual std::shared_ptr<stream_reader_t> clone(ssize_t buffer_size=-1) const override {
 		auto ret = std::make_shared<embedded_stream_reader_t>(active_adapter, this->mux, stream_filter);
 		return ret;
 	}
@@ -280,17 +278,18 @@ public:
 	/*
 		obtain a memory address and a size in which data can be read
 	 */
-	virtual std::tuple<uint8_t*, ssize_t> read(ssize_t size=-1);
-	virtual ssize_t read_into(uint8_t* p, ssize_t toread, const std::vector<pid_with_use_count_t>* pids = nullptr);
+	virtual std::tuple<uint8_t*, ssize_t> read(ssize_t size=-1) override;
+	virtual ssize_t read_into(uint8_t* p, ssize_t toread,
+														const std::vector<pid_with_use_count_t>* pids = nullptr) override;
 
-	virtual inline void discard(ssize_t num_bytes);
+	virtual inline void discard(ssize_t num_bytes) override;
 
 	virtual ~embedded_stream_reader_t() {
 		notifier.close();
 		close();
 	}
 
-	virtual void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad);
+	virtual void update_received_si_mux(const std::optional<chdb::any_mux_t>& mux, bool is_bad) override;
 
 };
 
@@ -302,7 +301,7 @@ class tuner_thread_t;
 /*
 	partial transport stream, with functionality to add/remove pids and such
  */
-class active_stream_t  {
+class active_stream_t {
 	//helper class; public members should be avoided
 public:
 	receiver_t & receiver;

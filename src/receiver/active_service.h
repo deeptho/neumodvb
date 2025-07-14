@@ -125,7 +125,10 @@ private:
 		return mpm.creation_time;
 	}
 
-	recdb::live_service_t get_live_service(subscription_id_t subscription_id) const;
+	inline recdb::live_service_t get_live_service(subscription_id_t subscription_id) const {
+		return mpm.get_live_service(subscription_id);
+	}
+
 	std::unique_ptr<playback_mpm_t> make_client_mpm(subscription_id_t subscription_id);
 
 	bool need_decryption();

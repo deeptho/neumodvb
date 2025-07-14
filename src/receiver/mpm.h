@@ -375,6 +375,8 @@ private:
 	void start_live_recording(db_txn& parent_txn, system_time_t now, int duration);
 
 	EXPORT playback_info_t get_current_program_info() const;
+	EXPORT recdb::live_service_t get_live_service(subscription_id_t subscription_id) const;
+
 	recdb::rec_t
 	start_recording(subscription_id_t subscription_id, recdb::rec_t rec /*not a reference!*/);
 

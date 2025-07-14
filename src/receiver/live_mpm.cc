@@ -1097,3 +1097,16 @@ playback_info_t active_mpm_t::get_current_program_info() const {
 	return ret;
 
 }
+
+recdb::live_service_t active_mpm_t::get_live_service(subscription_id_t subscription_id) const {
+	assert(active_service);
+	auto& receiver = active_service->receiver;
+	const char* p = this->dirname.c_str() + receiver.options.readAccess()->live_path.size();
+	if (p[0] == '/')
+		p++;
+	assert(p - this->dirname.c_str() < this->dirname.size());
+	//note that last_use_time is set to -1, meaning: still being used
+	return recdb::live_service_t(getpid() /*owner*/ , (int)subscription_id,
+															 system_clock_t::to_time_t(this->creation_time), active_service->get_adapter_no(),
+															 -1, active_service->get_current_service(), p/*, epg*/);
+}

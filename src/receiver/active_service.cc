@@ -471,17 +471,6 @@ void active_service_t::mark_ecm_sent(bool odd, uint16_t ecm_pid, system_time_t t
 	}
 }
 
-recdb::live_service_t active_service_t::get_live_service(subscription_id_t subscription_id) const {
-	const char* p = mpm.dirname.c_str() + receiver.options.readAccess()->live_path.size();
-	if (p[0] == '/')
-		p++;
-	assert(p - mpm.dirname.c_str() < mpm.dirname.size());
-	//note that last_use_time is set to -1, meaning: still being used
-	return recdb::live_service_t(getpid() /*owner*/ , (int)subscription_id,
-															 system_clock_t::to_time_t(mpm.creation_time), get_adapter_no(),
-															 -1, get_current_service(), p/*, epg*/);
-}
-
 std::unique_ptr<playback_mpm_t> active_service_t::make_client_mpm(subscription_id_t subscription_id) {
 	auto ret = std::make_unique<playback_mpm_t>(mpm, current_service, current_streams, subscription_id);
 	mpm.meta_marker.writeAccess()->register_playback_client(ret.get());

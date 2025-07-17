@@ -536,9 +536,10 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
 	if(is_template(mux) && from_sdt) {
-		if(tune_confirmation.nit_actual_received)
+		if(!tune_confirmation.nit_actual_received) /*when nit actual is received mux_id is known,
+																								 or when nit_actual cannot provide it, we know
+																								 that it will be impossible*/
 			return nullptr;
-
 	}
 	auto* mux_key = mux_key_ptr(mux);
 	auto* mux_common = mux_common_ptr(mux);

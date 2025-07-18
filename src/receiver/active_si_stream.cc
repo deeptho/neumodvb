@@ -2022,7 +2022,7 @@ bool active_si_stream_t::update_mux(
 		 -with the correct key (if one exists) or with a key that
 		  differs only in extra_id (which allows extra_id==0), or failing that a mux witout matching key but
 			still matching frequency, pol, sat_pos AND stream_id
-		In case the found db_mux  differs in key, db_mux will be deleted before entering the callback function,
+		In case the found dbmux  differs in key, dbmux will be deleted before entering the callback function,
 		also in this case mux.k.extra_id is changed to a valid value if needed
 
 		Then it will call update_scan_status, which can compate the found mux (if any) to check if the
@@ -2637,7 +2637,13 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		// if not nit_done: will reparse later; we could also store these records (would be faster)
 		return nit_done ? dtdemux::reset_type_t::NO_RESET : dtdemux::reset_type_t::RESET;
 	}
-
+	assert(sdt_data.mux_key.mux_id == 0 /*can happen when no nit was received*/ ||
+				 sdt_data.mux_key.mux_id == chdb::mux_key_ptr(this->dbmux)->mux_id);
+	if(sdt_data.mux_key.mux_id == 0) { /*can happen when no nit was received*/
+		sdt_data.mux_key.mux_id = chdb::mux_key_ptr(p_mux_data->mux)->mux_id;
+		assert(sdt_data.mux_key == *chdb::mux_key_ptr(p_mux_data->mux));
+		this->dbmux = p_mux_data->mux;
+	}
 	auto ret = sdt_section_cb_(wtxn, services, info, p_mux_data); //commits or aborts internally
 	return ret;
 }

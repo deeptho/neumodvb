@@ -1083,3 +1083,17 @@ active_mpm_t::~active_mpm_t()
 {
 	//streamparser.unregister_parser(pid)
 }
+
+playback_info_t active_mpm_t::get_current_program_info() const {
+	playback_info_t ret;
+	if(active_service)
+		ret.service = active_service->current_service;
+
+	auto mm = this->meta_marker.readAccess();
+	ret.start_time = mm->livebuffer_start_time;
+	ret.end_time = mm->livebuffer_end_time;
+	ret.play_time = mm->livebuffer_end_time;
+	ret.is_recording= false;
+	return ret;
+
+}

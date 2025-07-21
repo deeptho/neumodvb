@@ -161,19 +161,6 @@ void active_service_t::save_pmt(system_time_t now_, const pmt_info_t& pmt_info) 
 	}
 }
 
-playback_info_t active_service_t::get_current_program_info() const {
-	std::scoped_lock lck(mutex);
-	playback_info_t ret;
-	ret.service = current_service;
-
-	auto mm = mpm.meta_marker.readAccess();
-	ret.start_time = mm->livebuffer_start_time;
-	ret.end_time = mm->livebuffer_end_time;
-	ret.play_time = mm->livebuffer_end_time;
-	ret.is_recording= false;
-	return ret;
-}
-
 /*
 	called when a pmt has been fully processed in the service's data
 	stream. This function is set as a callback in live_mpm.cc

@@ -293,7 +293,7 @@ playback_info_t playback_mpm_t::get_recording_program_info() const {
 
 playback_info_t playback_mpm_t::get_current_program_info() const {
 	auto* as = live_mpm ? live_mpm->active_service : nullptr;
-	auto ret = as ? as->get_current_program_info() : get_recording_program_info();
+	auto ret = live_mpm ? live_mpm->get_current_program_info() : get_recording_program_info();
 	if(as)
 		ret.is_timeshifted = is_timeshifted;
 

@@ -92,7 +92,6 @@ public:
 		return current_service;
 	}
 
-	playback_info_t get_current_program_info() const;
 private:
 
 	void destroy();

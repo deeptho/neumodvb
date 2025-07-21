@@ -222,6 +222,7 @@ int scam_t::greet_scam() {
 
 int scam_t::scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no,
 														int demux_no) {
+	dtdebugf("adapter_no={} demux_no={}", adapter_no, demux_no);
 	ss::bytebuffer<512> out_msg; // current message, perhaps not fully written
 	if (scam_protocol_version >= 3) {
 		out_msg.append_raw(native_to_net((uint8_t)0xa5));
@@ -564,6 +565,8 @@ void scam_t::read_filter_request() {
 	memcpy(filter.dmx_filter.filter, read_data(sizeof(filter.dmx_filter.filter)), sizeof(filter.dmx_filter.filter));
 	memcpy(filter.dmx_filter.mask, read_data(sizeof(filter.dmx_filter.mask)), sizeof(filter.dmx_filter.mask));
 	memcpy(filter.dmx_filter.mode, read_data(sizeof(filter.dmx_filter.mode)), sizeof(filter.dmx_filter.mode));
+	dtdebugf("adapter_no={} demux_no={} filter_no={} pid={}", (int)adapter_no, (int)demux_no,
+					 (int)filter_no, filter.pid);
 
 	filter.timeout = read_field<uint32_t>();
 	filter.flags = read_field<uint32_t>();
@@ -591,6 +594,7 @@ void scam_t::read_dmx_stop_request() {
 	auto demux_no = demux_no_t(read_field<uint8_t>());
 	auto filter_no = filter_no_t(read_field<uint8_t>());
 	auto pid = (read_field<uint16_t>());
+	dtdebugf("adapter_no={} demux_no={} filter_no={} pid={}", (int)adapter_no, (int)demux_no, (int)filter_no, pid);
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
 		dtdebugf("received dmx_stop request for adapter {:d} which has stopped descrambling", int(adapter_no));
@@ -604,7 +608,7 @@ void scam_t::read_dmx_stop_request() {
 void scam_t::read_ca_set_pid_request() {
 	auto adapter_no = adapter_no_t(read_field<uint8_t>());
 	auto ca_pid = read_field<ca_pid_t>();
-
+	dtdebugf("adapter_no={} ca_pid={}/{}", (int)adapter_no, ca_pid.pid, ca_pid.index);
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
 		dtdebugf("received ca_set_pid request for adapter {:d} which has stopped descrambling", int(adapter_no));
@@ -619,6 +623,7 @@ void scam_t::read_ca_set_descr_request(uint32_t msgid) {
 	auto adapter_no = adapter_no_t(read_field<uint8_t>());
 	auto cadescr = read_field<ca_descr_t>();
 	cadescr.parity = !!cadescr.parity; // ca_descr.parity==1 indicates even, but we prefer odd
+	dtdebugf("adapter_no={}", (int)adapter_no);
 	auto it = active_scams.find(adapter_no);
 
 	if (it == active_scams.end()) {
@@ -650,6 +655,7 @@ void scam_t::read_ca_set_descr_aes_request(uint32_t msgid) {
 void scam_t::read_ca_set_descr_mode_request() {
 	auto adapter_no = adapter_no_t(read_field<uint8_t>());
 	auto camode = read_field<ca_descr_mode_t>();
+	dtdebugf("adapter_no={}", (int)adapter_no);
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
 		dtdebugf("received ca_set_descr_mode request for adapter {:d} which has stopped descrambling", int(adapter_no));
@@ -703,6 +709,7 @@ void scam_t::read_ecm_info_request() {
 }
 
 void active_scam_t::ca_set_pid(const ca_pid_t& ca_pid) {
+	dtdebugf("adapter_no={} ca_pid={}.{}", (int)adapter_no, ca_pid.pid, ca_pid.index);
 	if (ca_pid.index == -1) {
 		// disable/remove pid
 		for (auto& [idx, slot] : ca_slots) {
@@ -848,6 +855,7 @@ void active_scam_t::ca_set_descr(const ca_descr_t& ca_descr, uint32_t msgid) {
 		dterrorf("illegal parity: {:d}", ca_descr.parity);
 		return;
 	}
+	dtdebugf("adapter_no={} descr.index={}", (int) adapter_no, ca_descr.index);
 #ifndef NDEBUG
 	ss::string<32> s;
 	s.format("slot={:p} key[{:d}]=", fmt::ptr(&slot), ca_descr.parity);
@@ -905,6 +913,7 @@ void active_scam_t::ca_set_descr_aes(const ca_descr_aes_t& ca_descr_aes, uint32_
 
 void active_scam_t::ca_set_descr_mode(const ca_descr_mode_t& ca_descr_mode) {
 	log4cxx::NDC(name());
+	dtdebugf("adapter_no={} descr_mode.index={}", (int) adapter_no, ca_descr_mode.index);
 	auto& slot = ca_slots[decryption_index_t(ca_descr_mode.index)];
 	if (ca_descr_mode.cipher_mode < 0 || ca_descr_mode.cipher_mode > 1) {
 		dterrorf("illegal cipher_mode: {:d}", (int)ca_descr_mode.cipher_mode);
@@ -960,6 +969,7 @@ int scam_t::scam_send_stop_decoding(uint8_t demux_no, uint32_t msgid) {
 int scam_t::scam_send_filtered_data(uint8_t filter_no, uint8_t demux_no, const ss::bytebuffer_& buffer,
 																		uint32_t msgid) {
 	ss::bytebuffer<4096 + 100> out_msg; // current message, perhaps not fully written
+	dtdebugf("filter_no={} demux_no={}", (int) filter_no, (int) demux_no);
 	slowdown(20, "");
 	if (scam_protocol_version >= 3) {
 		out_msg.append_raw(native_to_net((uint8_t)0xa5));
@@ -1002,6 +1012,7 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& 
 	ss::bytebuffer<4096 + 100> out_msg; // current message, perhaps not fully written
 	int matchcount = 0;
 	auto t = system_clock_t::now();
+	dtdebugf("adapter_no={} pid={}", (int) adapter_no, (int) pid);
 	int ret = 0;
 	for (auto& [filter_no, filter] : filters) {
 		if (filter.pid != pid)
@@ -1134,7 +1145,7 @@ int scam_t::read_from_scam() {
 }
 
 int scam_t::register_active_service_if_needed(active_service_t* active_service, int adapter_no) {
-
+	dtdebugf("adapter_service={:s} adapter_no={}", active_service->name(), adapter_no);
 	auto& active_scam = active_scams[adapter_no_t(adapter_no)];
 
 	if (!active_scam) {
@@ -1144,13 +1155,14 @@ int scam_t::register_active_service_if_needed(active_service_t* active_service, 
 
 	active_scam->register_active_service(active_service);
 	if (scam_fd < 0) {
-		dtdebugf("Registering first scam service");
+		dtdebugf("Opening scam connection");
 		open();
 	}
 	return 0;
 }
 
 int active_scam_t::register_active_service(active_service_t* active_service) {
+	dterrorf("{:s} adapter_no={}", active_service->get_current_service().name.c_str(), (int)adapter_no);
 	std::shared_ptr<active_service_t>* freeslot = nullptr;
 	for (auto& active_service_p : registered_active_services) {
 		if (!active_service_p.get() && !freeslot)
@@ -1168,6 +1180,7 @@ int active_scam_t::register_active_service(active_service_t* active_service) {
 }
 
 int scam_t::unregister_active_service(active_service_t* active_service, int adapter_no) {
+	dterrorf("{:s} adapter_no={}", active_service->get_current_service().name.c_str(), (int)adapter_no);
 	auto it = active_scams.find(adapter_no_t(adapter_no));
 	assert(it != active_scams.end());
 	auto active_scam = it->second;
@@ -1184,7 +1197,7 @@ int scam_t::unregister_active_service(active_service_t* active_service, int adap
 }
 
 int active_scam_t::unregister_active_service(active_service_t* active_service, int adapter_no) {
-	dterrorf("SCAM: unregister_active_service {:s}", active_service->get_current_service().name.c_str());
+	dterrorf("{:s} adapter_no={}", active_service->get_current_service().name.c_str(), (int)adapter_no);
 	int use_count = 0;
 	for (int i = registered_active_services.size() - 1; i >= 0; --i) {
 		auto& active_service_p = registered_active_services[i];
@@ -1264,6 +1277,8 @@ int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const d
 	auto& active_scam = *active_scam_ptr;
 	bool is_update = false;
 	int demux_no = 0;
+	dterrorf("{:s} adapter_no={} pmt_pid={}", active_service->get_current_service().name.c_str(),
+					 (int)adapter_no, (int)pmt_info.pmt_pid);
 	// assert(active_scam.pmts.size()<=1); //@todo do we ever have more than one pmt?
 	for (auto& x : active_scam.pmts) {
 		if (x.pmt_pid == pmt_info.pmt_pid) {

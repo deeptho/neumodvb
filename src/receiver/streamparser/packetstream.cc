@@ -343,7 +343,7 @@ bool ts_substream_t::process_packet_header(ts_packet_t* p) {
 	if (current_ts_packet->is_encrypted()) {
 		throw_encrypted_data();
 	}
-	if (is_psi && current_ts_packet->get_payload_unit_start()) {
+	if (payload_type == payload_type_t::PSI  && current_ts_packet->get_payload_unit_start()) {
 		pointer_field = current_ts_packet->range.get<uint8_t>();
 		if (pointer_field < current_ts_packet->range.available()) {
 			pointer_pos = current_ts_packet->range.processed() + pointer_field;

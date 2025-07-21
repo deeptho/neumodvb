@@ -505,8 +505,6 @@ void dtdemux::audio_parser_t::parse_payload_unit() {
 	return;
 }
 
-extern int last_count;
-
 /*
 	See https://www.quora.com/What-is-the-difference-between-an-I-Frame-and-a-Keyframe-in-video-encoding
 

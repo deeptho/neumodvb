@@ -93,8 +93,16 @@ namespace dtdemux {
 		bool error = false; //a data error has occurred
 		bool encrypted = false; //an encrypted packet was encountered
 	public:
+		enum payload_type_t {
+			DATA =0,
+			PES = 1,
+			PSI = 2
+		};
+		payload_type_t payload_type;
+
 		int cc_error_counter{0}; //counts the number of cc errors since start
-		bool throw_on_error = false;
+		bool throw_on_error{false};
+
 		int64_t continuity_errors = 0;
 		bool wait_for_unit_start = true; //if true, we discard all data until payload unit start
 		//int _bytesread =0; //number of bytes read so far
@@ -102,7 +110,7 @@ namespace dtdemux {
 		uint8_t pointer_field = 0;
 		int pointer_pos {-1}; //-1 means not set
 		int num_encrypted_packets{0};
-		bool is_psi = false;
+
 
 		bool eof=false; //physical end packet, typically end of the file. Also, eof is een upper limit for end
 
@@ -210,8 +218,9 @@ namespace dtdemux {
 
 		int skip(int64_t toskip);
 
-		ts_substream_t(ts_stream_t& parent, bool is_psi, const char*name_) : is_psi(is_psi),
-																																				 parent(parent), name(name_) {
+		ts_substream_t(ts_stream_t& parent, payload_type_t payload_type, const char*name_)
+			: payload_type(payload_type),
+				parent(parent), name(name_) {
 		}
 
 		ts_substream_t(const ts_substream_t& other) = delete;

@@ -43,14 +43,17 @@ void ts_substream_t::parse(ts_packet_t* p) {
 				The has_error_test() below then takes the required action (skipping to the next payload unit start)
 				possibly after needlessly  parsing bad data.
 
-			 */
-			skip_to_unit_start();
+			*/
+			if (payload_type == payload_type_t::DATA ) {
+				this->wait_for_unit_start = false;
+			} else
+				skip_to_unit_start();
 			if(has_error() || has_encrypted())
 				goto next_;
-			if(is_psi)
+			if(payload_type == payload_type_t::PSI)
 				skip_to_pointer(); //move to the start byte of the table header
 			while(!has_error() &&! has_encrypted()) {
-				if(is_psi) {
+				if(payload_type == payload_type_t::PSI) {
 					//pointer_field = current_ts_packet->range.get<uint8_t>();
 					/*See EN 300 468 v1.15.1, pp. 21
 						pointer field points to start of first section in packet (one packet can contain multiple sections)
@@ -66,7 +69,10 @@ void ts_substream_t::parse(ts_packet_t* p) {
 					parse_payload_unit();
 					wait_for_unit_start = true;
 					get_next_packet();
-					skip_to_unit_start(); //will reset wait_for_unit_start but not do anything else
+					if (payload_type == payload_type_t::DATA) {
+						this->wait_for_unit_start = false;
+					} else
+						skip_to_unit_start(); //will reset wait_for_unit_start but not do anything else
 				}
 			}
 		next_:

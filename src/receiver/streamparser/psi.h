@@ -312,7 +312,7 @@ namespace dtdemux {
 		virtual void parse_payload_unit() override;
 	public:
 		section_parser_t(ts_stream_t& parent, int pid, const char*name)
-			: ts_substream_t(parent, true, name)
+			: ts_substream_t(parent, payload_type_t::PSI, name)
 			, pid(pid)
 			{}
 		int get_pid() const {

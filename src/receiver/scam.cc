@@ -567,6 +567,10 @@ void scam_t::read_filter_request() {
 	memcpy(filter.dmx_filter.mode, read_data(sizeof(filter.dmx_filter.mode)), sizeof(filter.dmx_filter.mode));
 	dtdebugf("adapter_no={} demux_no={} filter_no={} pid={}", (int)adapter_no, (int)demux_no,
 					 (int)filter_no, filter.pid);
+	if(filter.pid == 0x1fff) {
+		dtdebugf("Ignoring filter request");
+		return;
+	}
 
 	filter.timeout = read_field<uint32_t>();
 	filter.flags = read_field<uint32_t>();
@@ -595,6 +599,10 @@ void scam_t::read_dmx_stop_request() {
 	auto filter_no = filter_no_t(read_field<uint8_t>());
 	auto pid = (read_field<uint16_t>());
 	dtdebugf("adapter_no={} demux_no={} filter_no={} pid={}", (int)adapter_no, (int)demux_no, (int)filter_no, pid);
+	if(pid == 0x1fff) {
+		dtdebugf("Ignoring request for pid=0x1fff");
+		return;
+	}
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
 		dtdebugf("received dmx_stop request for adapter {:d} which has stopped descrambling", int(adapter_no));

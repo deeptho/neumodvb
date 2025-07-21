@@ -104,7 +104,6 @@ using namespace dtdemux;
 class active_scam_t final : public active_stream_t  {
 	friend class scam_t;
 	friend class scam_thread_t;
-
 	ss::vector<dtdemux::pmt_info_t,2> pmts; //needed in case we need to reconnect
 	ss::vector<std::shared_ptr<active_service_t>,2> registered_active_services;
 	std::map<filter_no_t, ca_filter_t> filters; //filters indexed by filter number
@@ -123,14 +122,12 @@ class active_scam_t final : public active_stream_t  {
 	ca_filter_t* filter_for_slot(const active_service_t& service, const ca_slot_t& slot);
 
 	scam_t* parent =nullptr;
-	int adapter_no {};
 	dtdemux::ts_stream_t stream_parser;
-
+	int adapter_no{-1};
 public:
 
 
-	active_scam_t(scam_t* parent, receiver_t& receiver,
-								active_service_t& active_service);
+	active_scam_t(scam_t* parent, receiver_t& receiver, active_service_t& active_service);
 	int register_active_service(active_service_t* active_service);
 	int unregister_active_service(active_service_t* active_service, int adapter_no);
 	void process_ca_data();

@@ -109,9 +109,7 @@ public:
 private:
 	virtual int run() final;
 	virtual int exit() final;
-	void scam_process_received_control_words(struct epoll_event& evt);
 
-	void check_for_and_handle_scam_error();
 
 public:
 	class cb_t;

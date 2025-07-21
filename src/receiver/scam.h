@@ -105,7 +105,7 @@ class active_scam_t final : public active_stream_t  {
 	friend class scam_t;
 	friend class scam_thread_t;
 
-	ss::vector<pmt_info_t,2> pmts; //needed in case we need to reconnect
+	ss::vector<dtdemux::pmt_info_t,2> pmts; //needed in case we need to reconnect
 	ss::vector<std::shared_ptr<active_service_t>,2> registered_active_services;
 	std::map<filter_no_t, ca_filter_t> filters; //filters indexed by filter number
 
@@ -228,12 +228,12 @@ private:
 	int open();
 	void close();
 	int update_pmt(active_service_t* active_service,
-								 int adapter_no, const pmt_info_t& pmt, bool isnext) CALLBACK;
+								 int adapter_no, const dtdemux::pmt_info_t& pmt, bool isnext) CALLBACK;
 	int register_active_service_if_needed(active_service_t* active_service, int adapter_no);
 	int unregister_active_service(active_service_t* active_service, int adapter_no)  CALLBACK;
 
 	int greet_scam();
-	int scam_send_capmt(const pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no, int demux_device);
+	int scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no, int demux_device);
 	ss::bytebuffer<512> pending_write_buffer;
 
 	int send_all_pmts();
@@ -274,9 +274,9 @@ class ca_pmt_t {
 	ss::bytebuffer_& data;
 	int program_info_length =0;
 
-	void init(capmt_list_management_t lm, const pmt_info_t& pmt_info, int adapter_no, int ca_device);
+	void init(capmt_list_management_t lm, const dtdemux::pmt_info_t& pmt_info, int adapter_no, int ca_device);
 public:
- ca_pmt_t(ss::bytebuffer_& data_, capmt_list_management_t lm, const pmt_info_t& pmt_info,
+	ca_pmt_t(ss::bytebuffer_& data_, capmt_list_management_t lm, const dtdemux::pmt_info_t& pmt_info,
 					int adapter_no, int ca_device)
 		: data(data_) {
 			init(lm, pmt_info, adapter_no, ca_device);

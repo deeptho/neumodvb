@@ -62,7 +62,7 @@ void ca_pmt_t::add_ca_device_descriptor(uint8_t ca_device) {
 	add_raw_ca_descriptor(data, sizeof(data));
 }
 
-void ca_pmt_t::init(capmt_list_management_t lm, const pmt_info_t& pmt_info, int adapter_no, int demux_device) {
+void ca_pmt_t::init(capmt_list_management_t lm, const dtdemux::pmt_info_t& pmt_info, int adapter_no, int demux_device) {
 	program_info_length = 0;
 	// data.clear();
 	for (uint8_t c : {0x9f, 0x80, 0x32, // AOT_CA_PMT (0x9F8032). see en50221.pdf p. 30

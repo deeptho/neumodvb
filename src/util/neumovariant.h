@@ -18,7 +18,7 @@
  *
  */
 
-
+#pragma once
 #include <variant>
 
 template<typename... Ts> struct make_overload: Ts... { using Ts::operator()...; };

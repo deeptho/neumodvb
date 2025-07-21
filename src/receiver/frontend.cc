@@ -233,7 +233,7 @@ static int get_frontend_names(fe_state_t& t, int adapter_no, int api_version) {
 																		*/
 	}
 	t.dbfe.supports_neumo = 	fe_info.supports_neumo;
-	t.dbfe.supports.bbframes = 	fe_info.supports_bbframes;
+	t.dbfe.supports.bbframes = fe_info.supports_bbframes;
 	t.dbfe.card_name = card_name;
 	t.dbfe.card_short_name = card_short_name;
 	for(int i=0; i < fe_info.num_rf_inputs; ++i) {

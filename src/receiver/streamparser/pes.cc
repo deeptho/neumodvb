@@ -505,6 +505,51 @@ void dtdemux::audio_parser_t::parse_payload_unit() {
 	return;
 }
 
+void ts_in_ts_parser_t::parse_payload_unit() {
+	int sync_count=0;
+	uint8_t buffer[3*188];
+	for(;;) {
+		get_buffer(buffer, sizeof(buffer));
+		bool synced = buffer[0] == 0x47 && buffer[188] == 0x47 && buffer[2*188] == 0x47;
+		while(unlikely(!synced)) {
+			auto* p = (uint8_t*) memchr(buffer, 0x47, sizeof(buffer));
+			if(unlikely(!p))
+				continue;
+
+			if( p == buffer) {
+				//first start code matches, but later ones don't; move to 2nd or 3rd one
+				p = (uint8_t*) memchr(buffer + 1, 0x47, sizeof(buffer));
+				if(unlikely(!p))
+					continue;
+			}
+
+			//align to start of buffer
+			int skipped = p-buffer;
+			int len = sizeof(buffer) - skipped;
+			memmove(buffer, p, len);
+			//fill buffer fully
+			get_buffer(buffer + len, skipped);
+			synced = buffer[188] == 0x47 && buffer[2*188] == 0x47;
+		}
+#ifdef TODO
+		data_cb_fn(&buffer[0], sizeof(buffer));
+#endif
+	}
+	return;
+}
+
+ts_in_ts_parser_t::ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid):
+	dtdemux::pes_parser_t(ts_stream, service_id, pid, "ABERTIS") {
+	payload_type = payload_type_t::DATA; //TODO
+	auto fn = [this](ts_packet_t* p) {
+		log4cxx::NDC::push("TSINTS");
+		this->parse(p);
+	};
+
+	ts_stream.register_parser(pid, fn);
+}
+
+
 /*
 	See https://www.quora.com/What-is-the-difference-between-an-I-Frame-and-a-Keyframe-in-video-encoding
 

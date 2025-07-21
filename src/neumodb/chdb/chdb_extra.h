@@ -20,6 +20,7 @@
 
 #pragma once
 #include <util/template_util.h>
+#include <util/neumovariant.h>
 #include <iostream>
 #include <cstdlib>
 #include <cmath>
@@ -47,6 +48,16 @@ namespace chdb {
 
 	mux_key_t* mux_key_ptr(chdb::any_mux_t& mux);
 	mux_key_t* mux_key_ptr(chdb::any_mux_t&& mux) = delete; //cannot be used with temporaries
+
+	inline chdb::embedding_type_t get_embedding_type(const chdb::any_mux_t& mux) {
+		return visit_variant(mux,
+												 [](const chdb::dvbs_mux_t& mux){
+													 return (mux.k.t2mi_pid <0)
+														 ? embedding_type_t::NONE
+														 : mux.embedding_type;},
+									[](const chdb::dvbc_mux_t& mux)  { return embedding_type_t::NONE;},
+									[](const chdb::dvbt_mux_t& mux)  { return embedding_type_t::NONE;});
+	}
 
 	template<typename mux_t>
 	inline const mux_key_t* mux_key_ptr(const mux_t& mux) { return &mux.k;}

@@ -145,7 +145,7 @@ void service_thread_t::cb_t::forget_recording_in_livebuffer(const recdb::rec_t& 
 }
 
 
-void active_service_t::save_pmt(system_time_t now_, const pmt_info_t& pmt_info) {
+void active_service_t::save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_info) {
 	auto now = system_clock_t::to_time_t(now_);
 	using namespace recdb;
 	const auto& marker = mpm.stream_parser.event_handler.last_saved_marker;
@@ -161,11 +161,19 @@ void active_service_t::save_pmt(system_time_t now_, const pmt_info_t& pmt_info) 
 	}
 }
 
+static inline bool is_abertis(const chdb::service_t& service, const pmt_info_t& pmt, const dtdemux::pid_info_t & pid_info)
+{
+	return
+		(service.k.mux.sat_pos -(int) -3000) < 300 &&
+		strncmp(pmt.provider_name.c_str(), "HSA", 2)==0 &&
+		pid_info.stream_type == stream_type::stream_type_t::MPE_FEC;
+}
+
 /*
 	called when a pmt has been fully processed in the service's data
 	stream. This function is set as a callback in live_mpm.cc
  */
-void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
+void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
 	using namespace dtdemux;
 	dtdebugf("{}", pmt);
 	have_pmt = true;
@@ -253,6 +261,8 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 	//	std::vector<uint16_t> pids_to_register;
 
 	auto process = [this](uint16_t pid) {
+		if(pid == 0x1fff)
+			return;
 		for (auto& x : open_pids) {
 			if (x.pid == pid) {
 				x.use_count++;
@@ -270,7 +280,26 @@ void active_service_t::update_pmt(const pmt_info_t& pmt, bool isnext, const ss::
 		// dtdebugf(pidinfo);
 		if (is_video(pidinfo.stream_type) || is_audio(pidinfo) || pidinfo.has_subtitles())
 			process(pidinfo.stream_pid);
-		/*the following code will reuse any existing parser
+		else if(is_abertis (current_service, pmt, pidinfo)) {
+			dtdebugf("Starting Abertis service");
+			process(pidinfo.stream_pid);
+			ss::string<256> ndc_prefix;
+			ndc_prefix.clear();
+			log4cxx::LogString ls;
+			log4cxx::NDC::get(ls);
+			ndc_prefix.format("{} ABERTIS", ls);
+			tsints_parser.emplace(mpm.stream_parser, pmt.service_id, pidinfo.stream_pid);
+#if 0
+			auto* parser = tsints_parser.register_pid<ts_in_ts_parser_t>(stream_pid, nc_prefix);
+			parser->data_cb = 	[this](const pat_services_t& pat_services, const subtable_info_t& i) {
+				return this->pat_section_cb(pat_services, i);
+			};
+#endif
+			continue;
+		}
+
+		/*the following code will parse either video or audio streams to extract timeing info.
+			The choice between either is based on pcr_pid.
 			@todo: in case of a radio channel, we need to register an audio pid instead
 			In that case audio_pid == video_pid
 			*/

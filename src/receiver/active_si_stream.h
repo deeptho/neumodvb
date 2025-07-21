@@ -29,7 +29,7 @@
 #include <map>
 
 
-using namespace dtdemux;
+//using namespace dtdemux;
 
 struct lock_state_t;
 
@@ -39,13 +39,13 @@ struct pat_service_t {
 	bool encrypted{false};
 	int t2mi_pid{-1};
 	chdb::embedding_type_t embedding_type{chdb::embedding_type_t::T2MI};
-	pmt_info_t pmt;
+	dtdemux::pmt_info_t pmt;
 };
 
 
 struct pmt_data_t {
 	std::map<uint16_t, pat_service_t> by_service_id; //services in pat indexed by service_id
-	reset_type_t pmt_section_cb(const pmt_info_t& pmt, bool isnext);
+	reset_type_t pmt_section_cb(const dtdemux::pmt_info_t& pmt, bool isnext);
 	bool saved{false};  //pmts saved to db?
 	int num_pmts_received{0};
 	bool all_received() const {
@@ -381,8 +381,7 @@ struct active_si_data_t {
 };
 
 
-class active_si_stream_t final : /*public std::enable_shared_from_this<active_stream_t>,*/
-	public active_stream_t, active_si_data_t
+class active_si_stream_t final : public active_stream_t, active_si_data_t
 {
 	friend class active_adapter_t;
 	friend class tuner_thread_t;
@@ -439,7 +438,7 @@ class active_si_stream_t final : /*public std::enable_shared_from_this<active_st
 	}
 
 	dtdemux::reset_type_t pat_section_cb(const pat_services_t& pat_services, const subtable_info_t& i);
-	reset_type_t pmt_section_cb(const pmt_info_t& pmt, bool isnext);
+	reset_type_t pmt_section_cb(const dtdemux::pmt_info_t& pmt, bool isnext);
 
 	dtdemux::reset_type_t nit_section_cb_(nit_network_t& network, const subtable_info_t& i);
 	dtdemux::reset_type_t nit_section_cb(nit_network_t& network, const subtable_info_t& i);

@@ -35,11 +35,13 @@ class embedded_stream_reader_t;
 class stream_filter_t;
 
 class stream_filter_t {
+protected:
 	std::mutex m;
 	friend class embedded_stream_reader_t;
 	constexpr static int dmx_buffer_size{32*1024L*1024L};
 	//data for the master stream
 	active_adapter_t& active_adapter;
+
 	chdb::any_mux_t embedded_mux;
 	epoll_t * epoll{nullptr};
 	int epoll_flags = (int) (EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
@@ -60,40 +62,81 @@ class stream_filter_t {
 
 	int data_fd{-1}; //where external commands returns its data to
 
+
 protected:
+	dvbcsa_t dvbcsa;
+
 	virtual bool read_and_process_data() =0;
 	virtual int open() = 0;
 	virtual void close() = 0;
 	int open_dvb_reader();
 	int read_data();
 
-	stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
-									epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
+protected:
+
+	stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
+									epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET)
+		: active_adapter(active_adapter)
+		, embedded_mux(embedded_mux)
+		, epoll(epoll)
+		, epoll_flags(epoll_flags)
+	,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
+	}
+
+	~stream_filter_t() {
+		assert (stream_readers.size()==0);
+	}
 
 	inline int available_for_write();
 
 
-	~stream_filter_t()
-		{
-			close();
-			assert (stream_readers.size()==0);
-		}
-
-	int open();
-	void close();
 	pid_t start();
-	void stop();
+
 	inline bool is_open() const {
 		bool ret = data_fd >=0;
 		assert (ret? (command_pid>0) : (command_pid<0));
 		return ret;
 	}
-	inline int read_external_data();
 
 	void register_reader(embedded_stream_reader_t* reader);
 	void unregister_reader(embedded_stream_reader_t* reader);
 	void notify_other_readers(embedded_stream_reader_t* reader);
 };
+
+
+class t2mi_stream_filter_t : public stream_filter_t {
+public:
+	t2mi_stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
+											 epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET)
+		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags) {
+  }
+
+	virtual bool read_and_process_data() final;
+	virtual int open() final;
+	virtual void close() final;
+
+	virtual ~t2mi_stream_filter_t() {
+			close();
+		}
+};
+
+class ts_in_ts_stream_filter_t : public stream_filter_t {
+public:
+	ts_in_ts_stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
+											 epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET)
+		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags) {
+	}
+
+	virtual ~ts_in_ts_stream_filter_t() {
+			close();
+		}
+
+	virtual bool read_and_process_data() final;
+	virtual int open() final;
+	virtual void close() final;
+
+};
+
 
 //external command sending an ip stream
 class streamer_t {

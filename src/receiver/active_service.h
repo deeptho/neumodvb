@@ -45,6 +45,7 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 	friend class active_mpm_t;
 
 	mutable std::mutex mutex;
+	std::optional<ts_in_ts_parser_t> tsints_parser;
 	//the following fields can be modified and should not be accessed/modified without locikng a mutex
 	chdb::service_t current_service; //current channel
 	pmt_info_t current_pmt;
@@ -85,8 +86,6 @@ public:
 		return reader->clone(buffer_size);
 	}
 
-
-
 	inline chdb::service_t get_current_service() const  {
 		std::scoped_lock lck(mutex);
 		return current_service;
@@ -96,14 +95,14 @@ private:
 
 	void destroy();
 	int create_recording_in_filesystem(const recdb::rec_t& rec);
-	void update_audio_languages(const pmt_info_t& pmt);
-	void update_subtitle_languages(const pmt_info_t& pmt);
+	void update_audio_languages(const dtdemux::pmt_info_t& pmt);
+	void update_subtitle_languages(const dtdemux::pmt_info_t& pmt);
 	void update_pmt_pid(int new_pmt_pid);
 
 	int deactivate();
 	//int run();
-	void update_pmt(const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data);
-	void save_pmt(system_time_t now, const pmt_info_t& pmt_info);
+	void update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data);
+	void save_pmt(system_time_t now, const dtdemux::pmt_info_t& pmt_info);
  public:
 
 	int open();

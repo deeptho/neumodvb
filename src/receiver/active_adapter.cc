@@ -651,10 +651,34 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
 	if (found) {
 		substream = it->second;
 	} else {
-		substream = std::make_shared<stream_filter_t>(*this, embedded_mux, &tuner_thread.epx);
+		auto embedding_type = chdb::get_embedding_type(embedded_mux);
+		switch(embedding_type) {
+		case chdb::embedding_type_t::NONE:
+			assert(false);
+			break;
+		case chdb::embedding_type_t::T2MI:
+			substream = std::make_shared<t2mi_stream_filter_t>(*this, embedded_mux, &tuner_thread.epx);
+			break;
+		case chdb::embedding_type_t::TS:
+			substream = std::make_shared<ts_in_ts_stream_filter_t>(*this, embedded_mux, &tuner_thread.epx);
+			break;
+		}
+
 		(*sf)[mux_key.t2mi_pid] = substream;
 	}
 	return std::make_shared<embedded_stream_reader_t>(*this, embedded_mux, substream);
+}
+
+std::shared_ptr<stream_reader_t> active_adapter_t::make_stream_reader
+(const chdb::any_mux_t& mux, ssize_t dmx_buffer_size) {
+	auto embedding_type = chdb::get_embedding_type(mux);
+	auto use_embedded_reader =
+		((embedding_type == chdb::embedding_type_t::T2MI) && !this->fe->ts.readAccess()->dbfe.supports.t2mi) ||
+		embedding_type ==  chdb::embedding_type_t::TS;
+	if(use_embedded_reader)
+		return make_embedded_stream_reader(mux, dmx_buffer_size);
+	else
+		return this->make_dvb_stream_reader(mux, dmx_buffer_size);
 }
 
 
@@ -666,12 +690,8 @@ active_si_stream_t* active_adapter_t::add_si_stream(const chdb::any_mux_t& mux) 
 	if (found) {
 		return &it->second;
 	}
-	auto use_embedded_reader = !this->fe->ts.readAccess()->dbfe.supports.t2mi
-		&& (mux_key.t2mi_pid >= 0);
+	auto reader = make_stream_reader(mux);
 
-	auto reader = use_embedded_reader
-		? make_embedded_stream_reader(mux)
-		: std::make_unique<dvb_stream_reader_t>(*this, mux, -1);
 	auto is_main = si_streams.size()==0;
 	auto [it1, inserted] =
 		si_streams.try_emplace({mux_key.stream_id, mux_key.t2mi_pid}, receiver, std::move(reader), mux, is_main);
@@ -1264,10 +1284,14 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 
 	auto prefix =fmt::format("CH[{:d}:{}]", this->get_adapter_no(), service);
 	log4cxx::NDC::push(prefix.c_str());
+#if 0
 	auto use_embedded_reader = !this->fe->ts.readAccess()->dbfe.supports.t2mi
 		&& (service.k.mux.t2mi_pid >= 0);
 	auto reader = use_embedded_reader ? this->make_embedded_stream_reader(mux)
 		: this->make_dvb_stream_reader(mux);
+#else
+	auto reader = make_stream_reader(mux, -1);
+#endif
 	active_service_ptr = std::make_shared<active_service_t>(receiver, *this, service, std::move(reader));
 	log4cxx::NDC::pop();
 	// remember that this service is now in use (for future planning and for later unsubscription)

@@ -352,6 +352,9 @@ private:
 	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(const chdb::any_mux_t& mux,
 																															 ssize_t dmx_buffer_size_ = -1);
 
+	std::shared_ptr<stream_reader_t> make_stream_reader(const chdb::any_mux_t& mux, ssize_t dmx_buffer_size = -1);
+
+
 	active_si_stream_t* add_si_stream(const chdb::any_mux_t& mux);
 
 	bool read_and_process_data_for_fd(const epoll_event* evt); //XXX

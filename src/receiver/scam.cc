@@ -220,7 +220,7 @@ int scam_t::greet_scam() {
 	return write_to_scam(out_msg);
 }
 
-int scam_t::scam_send_capmt(const pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no, int demux_device) {
+int scam_t::scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no, int demux_device) {
 
 	ss::bytebuffer<512> out_msg; // current message, perhaps not fully written
 	if (scam_protocol_version >= 3) {
@@ -1256,7 +1256,7 @@ int scam_t::send_all_pmts() {
 /*!
 	@todo: do not call scam_send_capmt if CA has not changed
  */
-int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const pmt_info_t& pmt_info, bool isnext) {
+int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const dtdemux::pmt_info_t& pmt_info, bool isnext) {
 	// auto& tuner = active_service->tuner;
 	auto& active_scam_ptr = active_scams[adapter_no_t(adapter_no)];
 	register_active_service_if_needed(active_service, adapter_no);
@@ -1292,7 +1292,7 @@ int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const p
 	// send pmt to scam
 };
 
-int scam_thread_t::cb_t::update_pmt(active_service_t* active_service, int adapter_no, const pmt_info_t& pmt,
+int scam_thread_t::cb_t::update_pmt(active_service_t* active_service, int adapter_no, const dtdemux::pmt_info_t& pmt,
 																		bool isnext) {
 	/*service thread has received a new or updated pid and we need to notify scam */
 	return scam->update_pmt(active_service, adapter_no, pmt, isnext);

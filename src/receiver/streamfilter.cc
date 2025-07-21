@@ -130,21 +130,7 @@ start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& arg
 	return {-1, -1};
 }
 
-stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
-																 epoll_t* epoll, int epoll_flags)
-	: active_adapter(active_adapter)
-	, embedded_mux(embedded_mux)
-	, epoll(epoll)
-	, epoll_flags(epoll_flags)
-	,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
-}
-
-int stream_filter_t::open() {
-	assert(chdb::mux_key_ptr(this->embedded_mux)->sat_pos != sat_pos_none);
-	start();
-	return error ? -1 : 0;
-}
-
+#if 0
 void stream_filter_t::close() {
 	if (!is_open())
 		return;
@@ -155,24 +141,9 @@ void stream_filter_t::close() {
 	data_fd = -1;
 	stop();
 }
-
-void stream_filter_t::stop() {
-	assert(command_pid > 0);
-	if (kill(command_pid, SIGHUP) < 0) {
-		dterrorf("Error while sending signal: {}", strerror(errno));
-	}
-	if (waitpid(command_pid, nullptr, 0) < 0) {
-		dterrorf("Error during wait: {}", strerror(errno));
-	}
-	command_pid = -1;
-}
-
-int stream_filter_t::start() {
-#if 0
-	thread_id = std::this_thread::get_id();
-	set_name("t2mi");
-	logger = Logger::getLogger("t2mi"); //override default logger for this thread
 #endif
+
+int stream_filter_t::open_dvb_reader() {
 	ss::string<64> ndc;
 	auto& embedded_mux_key = *chdb::mux_key_ptr(this->embedded_mux);
 	auto stream_pid = embedded_mux_key.t2mi_pid;
@@ -196,28 +167,7 @@ int stream_filter_t::start() {
 		dterrorf("Could not clear FD_CLOEXEC: {}", strerror(errno));
 		return -1;
 	}
-	ss::string<32> pid_;
-	pid_.format("{:d}", stream_pid);
-	const char* cmd ="tsp";
-	ss::vector<const char*,16> args = {{cmd,
-			"--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
-													// @todo: "--plp", plp.cstr()
-			(char*)nullptr}};
-	std::tie(data_fd, command_pid) = start_command(stream_fd, cmd, args);
-	if (data_fd < 0) {
-		dterrorf("Could not start command");
-		return -1;
-	}
-	return 0;
-}
-
-bool stream_filter_t::read_and_process_data() {
-	if (error)
-		return false;
-	data_ready = true;
-	error |= (read_external_data() < 0);
-	// rearm
-	return error;
+	return stream_fd;
 }
 
 inline int stream_filter_t::available_for_write() {
@@ -233,7 +183,7 @@ inline int stream_filter_t::available_for_write() {
 	return ret;
 }
 
-inline int stream_filter_t::read_external_data() {
+inline int stream_filter_t::read_data() {
 	auto lck = std::scoped_lock(m);
 	if (!data_ready)
 		return 0;
@@ -262,7 +212,7 @@ inline int stream_filter_t::read_external_data() {
 		assert(ret > 0);
 		assert(ret <= size);
 		{
-#if 0
+#if 1
 			static FILE* fp = fopen("/tmp/out1.ts", "w");
 			fwrite( bufferp.get() + write_pointer, 1, ret, fp);
 #endif
@@ -277,6 +227,124 @@ inline int stream_filter_t::read_external_data() {
 	}
 	return 0;
 }
+
+void stream_filter_t::register_reader(embedded_stream_reader_t* reader) {
+	std::scoped_lock lck(m);
+	if (stream_readers.size() == 0)
+		this->open();
+	for (int i = 0; i < stream_readers.size(); ++i) {
+		if (stream_readers[i].get() == reader) {
+			dterrorf("Reader already registered");
+			return;
+		}
+	}
+	auto p = reader->shared_from_this();
+	auto q = std::static_pointer_cast<embedded_stream_reader_t>(p);
+	stream_readers.push_back(q);
+}
+
+void stream_filter_t::unregister_reader(embedded_stream_reader_t* reader) {
+	std::scoped_lock lck(m);
+	for (int i = 0; i < stream_readers.size(); ++i) {
+		if (stream_readers[i].get() == reader) {
+			stream_readers.erase(i);
+			break;
+		}
+	}
+	if (stream_readers.size() == 0)
+		close();
+}
+
+void stream_filter_t::notify_other_readers(embedded_stream_reader_t* reader) {
+	std::scoped_lock lck(m);
+	for (int i = 0; i < stream_readers.size(); ++i) {
+		auto& r = stream_readers[i];
+		if (r.get() != reader) {
+			r->notifier.unblock();
+		}
+	}
+}
+
+void t2mi_stream_filter_t::close() {
+	if (!is_open())
+		return;
+	assert(data_fd >= 0);
+	if (::close(data_fd) < 0) {
+		dterrorf("Error in close: {}", strerror(errno));
+	}
+	data_fd = -1;
+
+	assert(command_pid > 0);
+	if (kill(command_pid, SIGHUP) < 0) {
+		dterrorf("Error while sending signal: {}", strerror(errno));
+	}
+	if (waitpid(command_pid, nullptr, 0) < 0) {
+		dterrorf("Error during wait: {}", strerror(errno));
+	}
+	command_pid = -1;
+}
+
+void ts_in_ts_stream_filter_t::close() {
+		if (!is_open())
+		return;
+	assert(data_fd >= 0);
+	if (::close(data_fd) < 0) {
+		dterrorf("Error in close: {}", strerror(errno));
+	}
+	data_fd = -1;
+
+	assert(command_pid > 0);
+	//@todo: close the stream
+}
+
+int t2mi_stream_filter_t::open() {
+	assert(chdb::mux_key_ptr(this->embedded_mux)->sat_pos != sat_pos_none);
+	auto stream_fd = this->open_dvb_reader();
+	if(stream_fd < 0)
+		return stream_fd;
+	auto& embedded_mux_key = *chdb::mux_key_ptr(this->embedded_mux);
+	auto stream_pid = embedded_mux_key.t2mi_pid;
+
+	ss::string<32> pid_;
+	pid_.format("{:d}", stream_pid);
+	const char* cmd ="tsp";
+	ss::vector<const char*,16> args = {{cmd,
+			"--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
+			// @todo: "--plp", plp.cstr()
+			(char*)nullptr}};
+	std::tie(data_fd, command_pid) = start_command(stream_fd, cmd, args);
+	if (data_fd < 0) {
+		dterrorf("Could not start command");
+		return -1;
+	}
+	return 0;
+}
+
+int ts_in_ts_stream_filter_t::open() {
+	assert(chdb::mux_key_ptr(this->embedded_mux)->sat_pos != sat_pos_none);
+	data_fd = this->open_dvb_reader();
+	return data_fd >= 0;
+}
+
+bool t2mi_stream_filter_t::read_and_process_data() {
+	if (error)
+		return false;
+	data_ready = true;
+	error |= (read_data() < 0);
+	// rearm
+	return error;
+}
+
+bool ts_in_ts_stream_filter_t::read_and_process_data() {
+	if (error)
+		return false;
+	data_ready = true;
+	error |= (read_data() < 0);
+//	@todo decrypt data
+	// rearm
+	return error;
+}
+
 
 
 inline void embedded_stream_reader_t::discard(ssize_t num_bytes) {
@@ -307,7 +375,7 @@ inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size
 	assert((toread % dtdemux::ts_packet_t::size) ==0);
 	if (toread == 0) {
 		// attempt to read some more data
-		stream_filter->read_external_data();
+		stream_filter->read_data();
 		toread = (stream_filter->buff_size + stream_filter->write_pointer - read_pointer)%stream_filter->buff_size;
 		toread -= toread % dtdemux::ts_packet_t::size;
 		assert((toread % dtdemux::ts_packet_t::size) ==0);
@@ -407,42 +475,7 @@ void embedded_stream_reader_t::close() {
 	}
 }
 
-void stream_filter_t::register_reader(embedded_stream_reader_t* reader) {
-	std::scoped_lock lck(m);
-	if (stream_readers.size() == 0)
-		this->open();
-	for (int i = 0; i < stream_readers.size(); ++i) {
-		if (stream_readers[i].get() == reader) {
-			dterrorf("Reader already registered");
-			return;
-		}
-	}
-	auto p = reader->shared_from_this();
-	auto q = std::static_pointer_cast<embedded_stream_reader_t>(p);
-	stream_readers.push_back(q);
-}
 
-void stream_filter_t::unregister_reader(embedded_stream_reader_t* reader) {
-	std::scoped_lock lck(m);
-	for (int i = 0; i < stream_readers.size(); ++i) {
-		if (stream_readers[i].get() == reader) {
-			stream_readers.erase(i);
-			break;
-		}
-	}
-	if (stream_readers.size() == 0)
-		close();
-}
-
-void stream_filter_t::notify_other_readers(embedded_stream_reader_t* reader) {
-	std::scoped_lock lck(m);
-	for (int i = 0; i < stream_readers.size(); ++i) {
-		auto& r = stream_readers[i];
-		if (r.get() != reader) {
-			r->notifier.unblock();
-		}
-	}
-}
 
 void embedded_stream_reader_t::update_received_si_mux(const std::optional<chdb::any_mux_t>& mux,
 																											bool is_bad) {

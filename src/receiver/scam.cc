@@ -220,8 +220,8 @@ int scam_t::greet_scam() {
 	return write_to_scam(out_msg);
 }
 
-int scam_t::scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no, int demux_device) {
-
+int scam_t::scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no,
+														int demux_no) {
 	ss::bytebuffer<512> out_msg; // current message, perhaps not fully written
 	if (scam_protocol_version >= 3) {
 		out_msg.append_raw(native_to_net((uint8_t)0xa5));
@@ -229,7 +229,7 @@ int scam_t::scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_mana
 	}
 
 	// creating this object will prepare data and store it in out_msg
-	ca_pmt_t capmt(out_msg, lm, pmt_info, adapter_no, demux_device);
+	ca_pmt_t capmt(out_msg, lm, pmt_info, adapter_no, demux_no);
 	//write the data
 	auto ret = write_to_scam(out_msg);
 	if (ret < 0) {
@@ -330,7 +330,6 @@ int scam_t::write_to_scam(ss::bytebuffer_& msg) {
 		dtdebug_nicef("Duplicate message sent");
 	}
 	last = msg;
-	dtdebugf("{}", msg);
 	if (scam_fd < 0)
 		return -1;
 	if (write_in_progress) {
@@ -757,7 +756,7 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 
 	for(auto it = filters.begin(); it != filters.end(); ) {
 		auto& [f_no, f] = *it;
-		if(f_no == filter_no) {
+		if(f_no == filter_no && f.demux_no == filter.demux_no) {
 			found =true;
 			if (f.pid != filter.pid) {
 				dterrorf("duplicate filter filter_no={:d} old_pid={:d} new_pid={:d}",
@@ -1256,14 +1255,15 @@ int scam_t::send_all_pmts() {
 /*!
 	@todo: do not call scam_send_capmt if CA has not changed
  */
-int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const dtdemux::pmt_info_t& pmt_info, bool isnext) {
+int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const dtdemux::pmt_info_t& pmt_info,
+											 bool isnext) {
 	// auto& tuner = active_service->tuner;
 	auto& active_scam_ptr = active_scams[adapter_no_t(adapter_no)];
 	register_active_service_if_needed(active_service, adapter_no);
 	assert(active_scam_ptr);
 	auto& active_scam = *active_scam_ptr;
 	bool is_update = false;
-	int demux_device = 0;
+	int demux_no = 0;
 	// assert(active_scam.pmts.size()<=1); //@todo do we ever have more than one pmt?
 	for (auto& x : active_scam.pmts) {
 		if (x.pmt_pid == pmt_info.pmt_pid) {
@@ -1271,7 +1271,7 @@ int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const d
 			x = pmt_info;
 			break;
 		}
-		demux_device++;
+		demux_no++;
 	}
 	if (!is_update) {
 		// active_scam.pmts.clear(); //@TDOO: this is a test for 27.5W
@@ -1287,7 +1287,7 @@ int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const d
 		CA_SET_DESCR (control words) has only adapter_index
 	*/
 	return scam_send_capmt(pmt_info, is_update ? capmt_list_management_t::update : capmt_list_management_t::add,
-												 adapter_no, demux_device);
+												 adapter_no, demux_no);
 
 	// send pmt to scam
 };

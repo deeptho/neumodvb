@@ -2542,6 +2542,8 @@ void active_si_stream_t::process_removed_services(db_txn& txn, chdb::any_mux_t& 
 			continue; // already expired
 		if (std::find(std::begin(service_ids), std::end(service_ids), service.k.service_id) != std::end(service_ids))
 			continue; // service is present in si stream
+		if(pmt_data.by_service_id.contains(service.k.service_id))
+			continue; //needed because pat can contain more services than SDT (e.g. 11221V@30.0W)
 		/*
 			Case of BBC four: during daytime, its service_id is not in pat, but it is in the sdt_actual
 			table. There it is marked with running status 1 (not running)

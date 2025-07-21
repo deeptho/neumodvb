@@ -18,6 +18,7 @@
  *
  */
 #include "active_adapter.h"
+#include "neumodb/chdb/chdb_extra.h"
 #include "util/dtassert.h"
 #include <memory>
 #include <atomic>
@@ -39,7 +40,7 @@ class stream_filter_t {
 	constexpr static int dmx_buffer_size{32*1024L*1024L};
 	//data for the master stream
 	active_adapter_t& active_adapter;
-	chdb::mux_key_t embedded_mux_key;
+	chdb::any_mux_t embedded_mux;
 	epoll_t * epoll{nullptr};
 	int epoll_flags = (int) (EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 	ss::vector<std::shared_ptr<embedded_stream_reader_t>, 4> stream_readers;
@@ -52,18 +53,21 @@ class stream_filter_t {
 	std::unique_ptr<uint8_t[]> bufferp; /*data we received from dvb device and which will send to the external
 																		 command but which has  not been fully tranitted*/
 
-	//needs to be atomic to ensure that threads see the latest value; a weaker form would suffice
+	//needs to be atomic to ensure that threads see the latest value; (TODO: a weaker form of barrier would suffice)
 	std::atomic_int write_pointer{0};
 
 	int data_ready{false}; //external command has returned additional data
 
 	int data_fd{-1}; //where external commands returns its data to
-	std::unique_ptr<uint8_t> send; /*data we received from dvb device and which will send to the external
-																					command but which has  not been fully tranitted*/
-	bool read_and_process_data();
-public:
 
-	stream_filter_t(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key,
+protected:
+	virtual bool read_and_process_data() =0;
+	virtual int open() = 0;
+	virtual void close() = 0;
+	int open_dvb_reader();
+	int read_data();
+
+	stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& mux,
 									epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET);
 
 	inline int available_for_write();

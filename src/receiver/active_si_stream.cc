@@ -913,7 +913,7 @@ void active_si_stream_t::check_timeouts() {
 
 	ss::string<64> embedded;
 	if (is_embedded_si)
-		embedded.format("embedded[{:d}] ", reader->mux_key.t2mi_pid);
+		embedded.format("embedded[{:d}] ", chdb::mux_key_ptr(reader->mux)->t2mi_pid);
 	out.format("{:s}scan={:s} pat={:s} nit_actual={:s} nit_other={:s} sdt_actual={:s} sdt_other={:s} bat={:s}",
 						 embedded,
 							scan_state.scan_done() ? "DONE" : "not done", scan_state.str(scan_state_t::PAT),

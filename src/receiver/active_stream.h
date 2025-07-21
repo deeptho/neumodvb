@@ -70,7 +70,8 @@ class stream_reader_t : public std::enable_shared_from_this<stream_reader_t> {
 	steady_time_t last_data_time{};
 
 public:
-	const chdb::mux_key_t mux_key;
+	const chdb::any_mux_t mux;
+
 	ssize_t num_read{0};
 	active_adapter_t& active_adapter;
 
@@ -78,9 +79,9 @@ public:
 	int epoll_flags;
 
 protected:
-	stream_reader_t(active_adapter_t& active_adapter, const chdb::mux_key_t& mux_key)
+	stream_reader_t(active_adapter_t& active_adapter, const chdb::any_mux_t& mux)
 		: last_data_time(steady_clock_t::now())
-		, mux_key(mux_key)
+		, mux(mux)
 		, active_adapter(active_adapter)
 		{}
 
@@ -151,8 +152,9 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	int read_pointer{0}; //location in buffer where client will read next
 	std::unique_ptr<uint8_t[]> bufferp{nullptr};
 
-	dvb_stream_reader_t(active_adapter_t & active_adapter, const chdb::mux_key_t& mux_key, ssize_t dmx_buffer_size_ = -1)
-		: stream_reader_t(active_adapter, mux_key)
+	dvb_stream_reader_t(active_adapter_t & active_adapter, const chdb::any_mux_t& mux,
+											ssize_t dmx_buffer_size_ = -1)
+		: stream_reader_t(active_adapter, mux)
 		, dmx_buffer_size(dmx_buffer_size_ <0 ?  32*1024L*1024 : dmx_buffer_size_)
 		{}
 
@@ -216,7 +218,7 @@ struct dvb_stream_reader_t final : public stream_reader_t {
 	virtual inline int remove_pid(int pid);
 
 	virtual std::shared_ptr<stream_reader_t> clone(ssize_t buffer_size = -1) const {
-		return std::make_shared<dvb_stream_reader_t>(active_adapter, this->mux_key,
+		return std::make_shared<dvb_stream_reader_t>(active_adapter, this->mux,
 																								 buffer_size < 0 ? dmx_buffer_size : buffer_size);
 	}
 
@@ -241,7 +243,7 @@ class embedded_stream_reader_t final : public stream_reader_t {
 
 
 public:
-	embedded_stream_reader_t(active_adapter_t& adapter, const chdb::mux_key_t& mux_key,
+	embedded_stream_reader_t(active_adapter_t& adapter, const chdb::any_mux_t& mux,
 													 const std::shared_ptr<stream_filter_t>& stream_filter);
 	virtual bool is_open() const {
 		return epoll != nullptr;
@@ -266,7 +268,7 @@ public:
 
 
 	virtual std::shared_ptr<stream_reader_t> clone(ssize_t buffer_size=-1) const {
-		auto ret = std::make_shared<embedded_stream_reader_t>(active_adapter, mux_key, stream_filter);
+		auto ret = std::make_shared<embedded_stream_reader_t>(active_adapter, this->mux, stream_filter);
 		return ret;
 	}
 

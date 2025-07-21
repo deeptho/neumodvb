@@ -130,17 +130,17 @@ start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& arg
 	return {-1, -1};
 }
 
-stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::mux_key_t& embedded_mux_key,
+stream_filter_t::stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
 																 epoll_t* epoll, int epoll_flags)
 	: active_adapter(active_adapter)
-	, embedded_mux_key(embedded_mux_key)
+	, embedded_mux(embedded_mux)
 	, epoll(epoll)
 	, epoll_flags(epoll_flags)
 	,	bufferp(std::make_unique<uint8_t[]>(dmx_buffer_size)) {
 }
 
 int stream_filter_t::open() {
-	assert(this->embedded_mux_key.sat_pos != sat_pos_none);
+	assert(chdb::mux_key_ptr(this->embedded_mux)->sat_pos != sat_pos_none);
 	start();
 	return error ? -1 : 0;
 }
@@ -174,13 +174,16 @@ int stream_filter_t::start() {
 	logger = Logger::getLogger("t2mi"); //override default logger for this thread
 #endif
 	ss::string<64> ndc;
-	auto stream_pid = this->embedded_mux_key.t2mi_pid;
+	auto& embedded_mux_key = *chdb::mux_key_ptr(this->embedded_mux);
+	auto stream_pid = embedded_mux_key.t2mi_pid;
 	ndc.format("PID[{:d}]", stream_pid);
 	log4cxx::NDC(ndc.c_str());
 	int dmx_buffer_size = 32 * 1024 * 1024;
-	auto master_mux_key = this->embedded_mux_key;
+	auto master_mux = this->embedded_mux;
+	auto& master_mux_key = *chdb::mux_key_ptr(master_mux);
 	master_mux_key.t2mi_pid = -1;
-	dvb_stream_reader_t dvb_reader(active_adapter, master_mux_key, dmx_buffer_size);
+
+	dvb_stream_reader_t dvb_reader(active_adapter, master_mux, dmx_buffer_size);
 	int stream_fd = dvb_reader.open(stream_pid, epoll, epoll_flags, true /*steal_fd*/);
 	if (stream_fd < 0)
 		return -1;
@@ -377,9 +380,9 @@ inline bool embedded_stream_reader_t::on_epoll_event(const epoll_event* evt) {
 }
 
 embedded_stream_reader_t::embedded_stream_reader_t(active_adapter_t& active_adapter,
-																									 const chdb::mux_key_t& mux_key,
+																									 const chdb::any_mux_t& mux,
 																									 const std::shared_ptr<stream_filter_t>& stream_filter)
-	: stream_reader_t(active_adapter, mux_key), stream_filter(stream_filter) {}
+	: stream_reader_t(active_adapter, mux), stream_filter(stream_filter) {}
 
 int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_flags, bool steal_fd) {
 	this->epoll = epoll;

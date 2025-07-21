@@ -347,7 +347,8 @@ public:
 private:
 	void add_mux_for_scanning_(db_txn& wtxn, chdb::any_mux_t mux, time_t scan_start_time);
 
-	std::shared_ptr<stream_reader_t> make_dvb_stream_reader(const chdb::mux_key_t& mux_key, ssize_t dmx_buffer_size_ = -1);
+	std::shared_ptr<stream_reader_t> make_dvb_stream_reader(const chdb::any_mux_t& mux, ssize_t dmx_buffer_size_ = -1);
+
 	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(const chdb::any_mux_t& mux,
 																															 ssize_t dmx_buffer_size_ = -1);
 

@@ -44,6 +44,7 @@
 #include <linux/limits.h>
 #include <sys/sendfile.h>
 #include <pthread.h>
+#include "neumodb/chdb/chdb_extra.h"
 #include "neumodemux.h"
 #include "neumodmx.h"
 #include <dirent.h>
@@ -115,6 +116,7 @@ int dvb_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epoll_fl
 	uint16_t pid= initial_pid;
 	dtdebugf("Adding pid={}", pid);
 	auto bbframes_on = active_adapter.fe->ts.readAccess()->dbfe.sub.bbframes_on;
+	auto& mux_key = *chdb::mux_key_ptr(mux);
 	if(dmx_set_mux(demux_fd, mux_key, pid, bbframes_on) < 0)
 		return -1;
 

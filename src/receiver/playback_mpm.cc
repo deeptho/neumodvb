@@ -51,7 +51,7 @@ playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 	, subscription_id(subscription_id_) {
 	assert(filemap.readonly);
 	auto ls = stream_state.writeAccess();
-	ls->current_streams = streamdesc;
+	ls->current_streams = other.meta_marker.readAccess()->last_streams;
 	ls->next_streams = {};
 	ls->audio_pref = live_service.audio_pref;
 	ls->subtitle_pref = live_service.subtitle_pref;

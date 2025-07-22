@@ -1252,7 +1252,6 @@ int scam_t::send_all_pmts() {
 	auto lm = capmt_list_management_t::first;
 	for (auto& [adapter_no, active_scam] : active_scams) {
 		int demux_no = 0;
-		assert(active_scam->pmts.size() <= 1); //@todo do we ever have more than one pmt?
 		for (auto& pmt_info : active_scam->pmts) {
 			if (--count == 0)
 				lm = (capmt_list_management_t)((uint8_t)lm | (uint8_t)capmt_list_management_t::last);

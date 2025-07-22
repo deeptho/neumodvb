@@ -926,6 +926,13 @@ chdb::media_mode_t chdb::media_mode_for_service_type(uint8_t service_type) {
 	case 0x05: // NVOD time-shifted service
 	case 0x06: // Mosaic service
 	case 0x1F: // HEVC digital television service; encoding unspecified
+	case 0x11: // MPEG2 HD television service
+	case 0x16: // advanced codec  SD digital television service
+	case 0x17: // advanced codec  SD NVOD time-shifted service
+	case 0x18: // advanced codec  SD NVOD reference service
+	case 0x19: // advanced codec  HD digital television service
+	case 0x1A: // advanced codec  HD NVOD time-shifted service
+	case 0x1B: // advanced codec HD NVOD reference service
 		return chdb::media_mode_t::TV;
 		break;
 	case 0x0b: // Advanced codec Mosaic service
@@ -933,13 +940,6 @@ chdb::media_mode_t chdb::media_mode_for_service_type(uint8_t service_type) {
 	case 0x0c: // data service
 		return chdb::media_mode_t::DATA;
 		break;
-	case 0x11: // MPEG2 HD television service
-	case 0x16: // advanced codec  SD digital television service
-	case 0x17: // advanced codec  SD NVOD time-shifted service
-	case 0x18: // advanced codec  SD NVOD reference service
-	case 0x19: // advanced codec  HD igital television service
-	case 0x1A: // advanced codec  HD NVOD time-shifted service
-	case 0x1B: // advanced codec HD NVOD reference service
 	case 0x80: // used for abertis
 		return chdb::media_mode_t::USER_DEFINED;
 		break;

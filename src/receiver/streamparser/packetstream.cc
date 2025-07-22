@@ -365,13 +365,12 @@ void ts_stream_t::register_audio_pids(int service_id, int audio_pid,
 	/*
 		@todo: how do we end this parser?
 	*/
-	assert(pcr_pid == audio_pid);
 	if (this->pcr_pid == audio_pid && this->pcr_stream_type == stream_type) {
 		dtdebugf("Parser for pid {:d} already registered (reusing)\n", pcr_pid);
 		return;
 	}
 
-	// the code below probably fails is pcr_pid!=audio_pid
+	// the code below probably fails if pcr_pid!=audio_pid
 	if (this->pcr_pid != null_pid) {
 		/*If there is already a video parser, then remove it
 		 */

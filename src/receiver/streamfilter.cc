@@ -268,6 +268,8 @@ void t2mi_stream_filter_t::close() {
 }
 
 void ts_in_ts_stream_filter_t::close() {
+	if(this->active_servicep)
+		this->active_servicep->service_thread.stop_running(false/*stop_running*/);
 	if (!is_open())
 		return;
 	assert(data_fd < 0);

@@ -696,6 +696,7 @@ void active_service_t::add_pat_and_pmt_parsers() {
 	auto& stream_parser = stream_buffer->stream_parser;
 	this->pat_parser = stream_parser.register_pat_pid();
 	this->pat_parser->section_cb = [this](const pat_services_t& pat_services, const subtable_info_t& i) {
+		bool found{false};
 		assert(!i.timedout);
 		for (const auto& e : pat_services.entries) {
 			if (e.service_id == this->current_service.k.service_id) {
@@ -712,8 +713,15 @@ void active_service_t::add_pat_and_pmt_parsers() {
 						}
 						return dtdemux::reset_type_t::NO_RESET;
 					};
+				found = true;
 				break;
 			}
+		}
+		if(!found) {
+			ss::string<256> msg;
+			auto s = this->get_current_service();
+			msg.format("Service \"{}\" not currently active", s.name);
+			receiver.global_subscriber->notify_error(msg);
 		}
 		return dtdemux::reset_type_t::NO_RESET;
 	};

@@ -320,7 +320,7 @@ protected:
 	//!register a pid; may_exist supresses warning if pid was already registered
 	int add_pid(uint16_t pid);
 
-	void remove_pid(uint16_t pid);
+	int remove_pid(uint16_t pid);
 	void remove_all_pids();
 	int deactivate();
 	inline bool is_open() const {

@@ -794,8 +794,10 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, demux_no_t demux_no
 	if (!reader->is_open()) {
 		open(pid);
 		assert(reader->is_open());
-	} else if (!same_pid)
-		add_pid(pid);
+	} else if (!same_pid) {
+		auto ret=add_pid(pid);
+		same_pid = (ret>=1); // duplicate pid
+	}
 	if (!same_pid) {
 		stream_parser.register_psi_pid(pid, is_ecm ? "ECM" : "EMM");
 	}
@@ -812,7 +814,8 @@ void active_scam_t::ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, u
 		assert(demux_no_t(filter.demux_no) == demux_no);
 		auto ret = remove_pid(ecm_pid);
 		filters.erase(it);
-		stream_parser.unregister_psi_pid(ecm_pid);
+		if(ret==0) //the last remaining registration of ecm_pid was removed
+			stream_parser.unregister_psi_pid(ecm_pid);
 		restart_decryption(ecm_pid, system_clock_t::now());
 	}
 

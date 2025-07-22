@@ -166,7 +166,9 @@ void dvb_stream_reader_t::close() {
 
 	 @param pid the pid for the filter
 	 Output is sent to /dev/dvb/adapter{:d}/demux{:d}
-	 Returns 0 or -1
+	 Returns: -1 an error occurred
+	           0 pid registered properly
+						 1 pid was already registered
 */
 int active_stream_t::add_pid(uint16_t pid)
 {
@@ -180,7 +182,7 @@ int active_stream_t::add_pid(uint16_t pid)
 			assert(x.use_count>0);
 			x.use_count++;
 			dtdebugf("registering duplicate pid={}", pid);
-			return 0;
+			return 1;
 		}
 	}
 	dtdebugf("Adding pid={} to channel transport stream", pid);
@@ -195,15 +197,18 @@ int active_stream_t::add_pid(uint16_t pid)
 
 /**
  * @brief Remove a single pid from a transport stream
+ returns: -1: error has occured
+           0: unique remaning pid was really unregistered
+					 1: duplicate pid was unregistered
 */
-void active_stream_t::remove_pid(uint16_t pid)
+int active_stream_t::remove_pid(uint16_t pid)
 {
 	log4cxx::NDC(name());
 	if(pid==0x1fff)
-		return;
+		return 0;
 	if(!reader->is_open()) {
 		dterrorf("remove_pid with demux_fd<0");
-		return;
+		return -1;
 	}
 
 	for(auto& x: open_pids) {
@@ -217,10 +222,12 @@ void active_stream_t::remove_pid(uint16_t pid)
 				}
 				int idx  = &x - &open_pids[0];
 				open_pids.erase(open_pids.begin() + idx);
+				return 0;
 			}
-			return;
+			return 1;
 		}
 	}
+	return -1;
 }
 
 /**

@@ -527,8 +527,10 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 			if(slot.use_count ==0) {
 				dtdebugf("remove_parser for pid={:d} slot.use_count={:d}", (int)pid, slot.use_count);
 				stream_parser.unregister_parser((int)pid);
-				remove_pid((int)pid);
-				it = parsers.erase(it);
+				auto ret = remove_pid((int)pid);
+				if (ret==0) { //the last remaining registration was removed
+					it = parsers.erase(it);
+				}
 			} else
 				++it;
 		}

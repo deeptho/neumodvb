@@ -1232,7 +1232,6 @@ int active_scam_t::unregister_active_service(active_service_t* active_service, i
 				pmts.erase(&x - &pmts[0]);
 				break;
 			}
-			demux_no++;
 		}
 	}
 	return 0;
@@ -1261,7 +1260,6 @@ int scam_t::send_all_pmts() {
 			if (ret < 0)
 				return ret;
 			lm = capmt_list_management_t::more;
-			demux_no++;
 		}
 	}
 	return 1;
@@ -1288,7 +1286,6 @@ int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const d
 			x = pmt_info;
 			break;
 		}
-		demux_no++;
 	}
 	if (!is_update) {
 		// active_scam.pmts.clear(); //@TDOO: this is a test for 27.5W

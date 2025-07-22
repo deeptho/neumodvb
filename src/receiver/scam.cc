@@ -590,7 +590,7 @@ void scam_t::read_filter_request() {
 	auto& active_scam = it->second;
 	assert(active_scam);
 
-	active_scam->ca_set_filter(filter, filter_no);
+	active_scam->ca_set_filter(filter, demux_no, filter_no);
 }
 
 void scam_t::read_dmx_stop_request() {
@@ -748,7 +748,7 @@ int active_scam_t::open(int pid) {
 	return active_stream_t::open(pid, &parent->scam_thread.epx);
 }
 
-void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_no) {
+void active_scam_t::ca_set_filter(const ca_filter_t& filter, demux_no_t demux_no, filter_no_t filter_no) {
 	log4cxx::NDC(name());
 	ss::string<32> filter_string;
 	ss::string<32> mask_string;
@@ -766,36 +766,25 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 	mask_string.resize_no_init(n);
 
 	auto pid = filter.pid;
-	bool found{false};
 	bool same_pid{false};
 
-	for(auto it = filters.begin(); it != filters.end(); ) {
-		auto& [f_no, f] = *it;
-		if(f_no == filter_no && f.demux_no == filter.demux_no) {
-			found =true;
-			if (f.pid != filter.pid) {
-				dterrorf("duplicate filter filter_no={:d} old_pid={:d} new_pid={:d}",
-								 uint8_t(filter_no), f.pid, filter.pid);
-				f = filter;
-				same_pid = false;
-			} else {
-				dtdebugf("FILTER update: demux={:d} filter[{:d}] pid={:d}: {:s} {:s}", uint8_t(filter.demux_no), uint8_t(filter_no),
-								 filter.pid, filter_string.c_str(), mask_string.c_str());
-				f.update(filter);
-				same_pid = true;
-			}
-		} else if (f.pid == filter.pid) {
-				dtdebugf("SCAM would register same pid multiple times; unregistering filter_no={:d} ecm_pid={:d}\n",
-								 (int)filter_no, (int)f.pid);
-				same_pid = true;
-				it = filters.erase(it);
-				continue;
+	auto [it, found] = find_in_map(filters, std::tuple{demux_no,filter_no});
+	if(found) {
+		auto & f = it->second;
+		if (f.pid != filter.pid) {
+			dterrorf("duplicate filter filter_no={:d} old_pid={:d} new_pid={:d}",
+							 uint8_t(filter_no), f.pid, filter.pid);
+			f = filter;
+			same_pid = false;
+		} else {
+			dtdebugf("FILTER update: demux={:d} filter[{:d}] pid={:d}: {:s} {:s}", uint8_t(filter.demux_no), uint8_t(filter_no),
+							 filter.pid, filter_string.c_str(), mask_string.c_str());
+			f.update(filter);
+			same_pid = true;
 		}
-		++it;
 	}
-
 	if(!found) {
-		filters[filter_no] = filter;
+		filters[{demux_no, filter_no}] = filter;
 		dtdebugf("FILTER NEW: demux={:d} filter[{:d}] pid={:d} is_ca={:d}: {:s} {:s}", uint8_t(filter.demux_no), uint8_t(filter_no),
 						 filter.pid, pmts[0].is_ecm_pid(filter.pid), filter_string.c_str(), mask_string.c_str());
 	}
@@ -815,14 +804,14 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, filter_no_t filter_
 void active_scam_t::ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, uint16_t ecm_pid) {
 	log4cxx::NDC(name());
 	dtdebugf("STOP FILTER: demux={:d} filter[{:d}] ecm_pid={:d}", uint8_t(filter_no), uint8_t(demux_no), ecm_pid);
-	auto it = filters.find(filter_no);
-	if (it != filters.end()) {
+	auto [it, found] = find_in_map(filters, std::tuple{demux_no,filter_no});
+	if (found) {
 		auto& filter = it->second;
 #pragma unused(filter)
 		assert(filter.pid == ecm_pid);
 		assert(demux_no_t(filter.demux_no) == demux_no);
-		remove_pid(ecm_pid);
-		filters.erase(filter_no);
+		auto ret = remove_pid(ecm_pid);
+		filters.erase(it);
 		stream_parser.unregister_psi_pid(ecm_pid);
 		restart_decryption(ecm_pid, system_clock_t::now());
 	}
@@ -1022,15 +1011,17 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& 
 	auto t = system_clock_t::now();
 	dtdebugf("adapter_no={} pid={}", (int) adapter_no, (int) pid);
 	int ret = 0;
-	for (auto& [filter_no, filter] : filters) {
+	for (auto& [k, filter] : filters) {
+		auto [demux_no, filter_no ] = k;
+		assert((int)demux_no == filter.demux_no);
 		if (filter.pid != pid)
 			continue;
 
 		if (!filter_match(filter.dmx_filter, data.buffer(), data.size()))
 			continue; // this filter does not match
-		dtdebugf("ecm_request_time set for {:s} filter[{:p}]={:d} pid={:d} time={:d}",
+		dtdebugf("ecm_request_time set for {:s} filter[{:p}]={:d} demux={} pid={:d} time={:d}",
 						 (data[0] == 0x80) ? "even" : "odd", fmt::ptr(&filter),
-						 uint8_t(filter_no), filter.pid, system_clock_t::to_time_t(t));
+						  (int)filter_no, (int)demux_no, filter.pid, system_clock_t::to_time_t(t));
 
 		filter.msgid = parent->scam_outgoing_msgid;
 

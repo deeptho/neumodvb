@@ -106,7 +106,7 @@ class active_scam_t final : public active_stream_t  {
 	friend class scam_thread_t;
 	ss::vector<dtdemux::pmt_info_t,2> pmts; //needed in case we need to reconnect
 	ss::vector<std::shared_ptr<active_service_t>,2> registered_active_services;
-	std::map<filter_no_t, ca_filter_t> filters; //filters indexed by filter number
+	std::map<std::tuple<demux_no_t, filter_no_t>, ca_filter_t> filters;
 
 
 	/*ca_slots (see dvbcsa.h) indexed by decryption index.
@@ -132,7 +132,7 @@ public:
 	int unregister_active_service(active_service_t* active_service, int adapter_no);
 	void process_ca_data();
   //add or update a filter
-	void ca_set_filter(const ca_filter_t& filter, filter_no_t filter_no);
+	void ca_set_filter(const ca_filter_t& filter, demux_no_t demux_no, filter_no_t filter_no);
 	void ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, uint16_t pid);
 	int scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& buffer);
 	void ca_set_pid(const ca_pid_t& ca_pid);

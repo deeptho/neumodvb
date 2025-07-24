@@ -398,13 +398,21 @@ int playback_mpm_t::open_(db_txn& idxdb_txn, milliseconds_t start_time) {
 	*/
 	recdb::marker_t current_marker;
 	get_end_marker_from_db(idxdb_txn, end_marker);
-	if (start_time >= end_marker.k.time || get_marker_for_time_from_db(idxdb_txn, current_marker, start_time) < 0) {
-		dtdebugf("Requested start_play_time is beyond last logged packet");
+	auto present = get_marker_for_time_from_db(idxdb_txn, current_marker, start_time);
+	if (start_time > end_marker.k.time || present < 0) {
+		dtdebugf("Requested start_play_time is beyond last logged packet start={} end={} curr={} present={}",
+						 start_time, end_marker.k.time, current_marker, present);
 		if (live_mpm) {
 			auto mm = live_mpm->meta_marker.readAccess();
 			if (start_time >= mm->current_marker.k.time) {
 				is_timeshifted = false; //handles the case where a user jumps forward past current time
+				if(current_marker != mm->current_marker) {
+					dtdebugf("current_marker changed from {} to {}", current_marker, mm->current_marker);
+				}
 				current_marker = mm->current_marker;
+				if(start_time != mm->current_marker.k.time) {
+					dtdebugf("start_time changed from {} to {}", start_time, mm->current_marker.k.time);
+				}
 				start_time = mm->current_marker.k.time;
 			}
 		} else {
@@ -695,7 +703,6 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 
  */
 int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
-	dtdebug_nicef("subscription_id={:d}", (int) subscription_id);
 	if (error || num_bytes == 0)
 		return 0;
 	int num_bytes_read{0};

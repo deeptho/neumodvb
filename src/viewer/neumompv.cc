@@ -1039,7 +1039,9 @@ int64_t mpv_subscription_t::read_data(char* buffer, uint64_t nbytes) {
 		thread_name_set = true;
 	}
 	auto subscription_id = subscriber->get_subscription_id();
+#if 0
 	dtdebug_nicef("read_fn: subscription_id={:d} mpm={}", (int) subscription_id, (void*)mpm.get());
+#endif
 	if ((int) subscription_id < 0)
 		return 0;
 	if (mpm) // regular service

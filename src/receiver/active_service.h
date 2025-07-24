@@ -65,7 +65,9 @@ public:
 		if(n>0) {
 			bytes +=n;
 			count++;
+#if 0
 			dtdebug_nicef("Moving some encrypted data {} {}/{}", bytes/(double)count, count, totcount);
+#endif
 			memmove(&buffer[0], &buffer[decrypt_pointer], n);
 		}
 		write_pointer -= decrypt_pointer;

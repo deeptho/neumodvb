@@ -340,10 +340,11 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 		scrambling_control_packet = context->scrambling_control_packet;
 		idx = &cache.batch_idx[odd];
 	} else {
+#if 0
 		dtdebugf("KEY pid={:d}: parity transition to parity={:d}:  {:d} => {:d} (after {:d}/{:d} packets)", pid, odd,
 						 context->scrambling_control_packet, scrambling_control_packet, packet_start / ts_packet_t::size,
 						 buffer_size / ts_packet_t::size);
-
+#endif
 		ret = next_key(*context, pid, odd);
 		if (ret >= 0)
 			dtdebugf("KEY pid={:d}: called next_key ret={:d} for parity transition to parity={:d}: {:d} => {:d}", pid, ret, odd,

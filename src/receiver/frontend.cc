@@ -431,9 +431,11 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 	ret.stat.k.sat_pos = mux_key_ptr(r->reserved_mux)->sat_pos;
 	ret.bbframes_on = r->tune_options.tune_pars->use_bbframes;
 	ret.blind_tune_on = r->tune_options.use_blind_tune;
+#if 0
 	if (ret.tune_confirmation.si_done) {
 		dtdebugf("reporting si_done=true");
 	}
+#endif
 	*mux_key_ptr(ret.driver_mux) = *mux_key_ptr(r->reserved_mux);
 	const auto& lnb = r->reserved_lnb;
 	const auto& rf_path = r->reserved_rf_path;
@@ -807,7 +809,9 @@ fe_lock_status_t dvb_frontend_t::get_lock_status() {
 		this->sec_status.set_tune_status(false); // ensures that diseqc will be sent again
 	} else
 		this->sec_status.set_tune_status(true); // ensures that diseqc will be sent again
+#if 0
 	dtdebugf("lock_lost={:d} locked={:d}", w->lock_status.lock_lost, is_locked);
+#endif
 	auto ret = w->lock_status;
 	w->lock_status.lock_lost = false;
 	return ret;

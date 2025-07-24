@@ -1369,7 +1369,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 			return dtdemux::reset_type_t::ABORT; // unstable PAT; must retune
 		}
 		active_adapter().on_first_pat(false /*restart*/);
-		if (!is_embedded_si && !pat_data.stable_pat(pat_services.ts_id)) {
+		if (!pat_data.stable_pat(pat_services.ts_id)) {
 			//dtdebugf("PAT not stable yet");
 			pat_table.num_sections_processed = 0;
 			return dtdemux::reset_type_t::RESET; // need to check again for stability
@@ -1394,6 +1394,7 @@ dtdemux::reset_type_t active_si_stream_t::pat_section_cb(const pat_services_t& p
 		if (all_done) {
 			dtdebugf("PAT fully done");
 			active_adapter().on_stable_pat();
+			assert(pat_data.stable_pat_);
 			scan_state.set_completed(cidx); // signal that pat is present
 		} else {
 			dtdebugf("PAT - table done, but some remaining");

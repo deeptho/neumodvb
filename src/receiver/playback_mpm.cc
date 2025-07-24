@@ -177,14 +177,13 @@ int playback_mpm_t::next_stream_change() { //byte at which new pmt becomes activ
 			//wait for initial pmt
 			live_mpm->wait_for_update(last_seen_live_meta_marker);
 			assert(must_exit || last_seen_live_meta_marker.last_streams.packetno_start >=0);
-			return never;
 		}
 
 		auto ls = stream_state.readAccess();
 		assert(last_seen_live_meta_marker.last_streams.packetno_start >= ls->current_streams.packetno_start);
 		if (last_seen_live_meta_marker.last_streams.packetno_start == ls->current_streams.packetno_start) {
 			//no update pending for sure
-			//dtdebugf("returning next pmt change never (live)");
+			dtdebugf("returning next pmt change never (live)");
 			return never; //no update pending for sure
 		/* otherwise: we cannot rely on last_seen_live_meta_marker.last_stream.packetno_start because
 			 there may have been multiple pmt updates (unlikely); so we need to consult the database

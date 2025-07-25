@@ -463,8 +463,6 @@ class TuneMuxPanel(TuneMuxPanel_):
         return self.parent.OnClose(evt);
 
     def OnSdtInfoUpdate(self, sdt):
-        if not same_mux_key(self.mux.k, sdt.mux_key):
-            return
         nid_tid_text = f'nid={sdt.network_id} tid={sdt.ts_id}:'
         ret =[]
         for s in sdt.services:

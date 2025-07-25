@@ -1372,11 +1372,18 @@ class RecordPanel(wx.Panel):
 
     def MoveToChOrder(self, w, chno):
         entry  = self.data.ls.entry_for_ch_order(chno)
+        dtdebug(f'found entry={entry} for chno={chno} hidden={self.controller.hidden}')
         if entry is not None:
-            old_top_idx = self.top_idx
-            self.top_idx = self.data.row_screen.set_reference(entry)
-            self.move_rows(old_top_idx)
-            self.focus_row(w, 0)
+            if self.controller.hidden:
+                #live screen without channel list
+                dtdebug(f'Tuning {entry} for chno={chno}')
+                wx.GetApp().ServiceTune(entry, replace_running=True)
+            else:
+                #live screen with channel list
+                old_top_idx = self.top_idx
+                self.top_idx = self.data.row_screen.set_reference(entry)
+                self.move_rows(old_top_idx)
+                self.focus_row(w, 0)
 
     def OnDestroyWindow(self, evt):
         dtdebug(f'OnDestroyWindow {evt.GetWindow()}')

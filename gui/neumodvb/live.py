@@ -1899,9 +1899,10 @@ class GridEpgPanel(RecordPanel):
                 if is_ctrl:
                     return False
                 to_focus = w.data.row.neighboring_cell(w, left_neighbor=True)
-                assert to_focus is not None
-                dtdebug('CALL SetFocus')
-                to_focus.SetFocus()
+                if to_focus is None:
+                    dterror('CANNOT CALL SetFocus')
+                else:
+                    to_focus.SetFocus()
                 return True
         return False
 
@@ -2574,9 +2575,11 @@ class LivePanel(wx.Panel):
                     self.top_panel.SetFocus()
                     self.focused_panel = self.top_panel
                 elif key == wx.WXK_LEFT:
+                    print(f'CALL6 is_ctrl={is_ctrl}')
                     self.grid_panel.focus_row(None,None)
                     self.focused_panel = self.grid_panel
                 else:
+                    print(f'CALL7 is_ctrl={is_ctrl}')
                     self.focused_panel = self.mosaic_panel
         self.set_active(self.focused_panel)
 
@@ -2622,6 +2625,7 @@ class LivePanel(wx.Panel):
             self.hidden = False
             self.mosaic_panel.set_inactive()
             self.SetCursor(wx.NullCursor)
+            print(f' focus {self.focused_panel}')
             self.focused_panel.SetFocus()
         else:
             self.top_panel.Hide()
@@ -2631,6 +2635,7 @@ class LivePanel(wx.Panel):
             self.mosaic_panel.set_noborder()
             cursor = wx.Cursor(wx.CURSOR_BLANK)
             self.SetCursor(cursor)
+            self.mosaic_panel.SetFocus()
         self.Layout()
 
     def CmdLiveScreen(self, evt):

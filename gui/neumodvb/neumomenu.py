@@ -31,7 +31,7 @@ SEP = MI('separator')
 
 view_menu = (
     MI("FullScreen",
-       _("&Full Screen\tCtrl-F"),
+       _("&Full Screen\t\\"),
        _("full screen live viewing")),
     MI("ToggleGui",
        _("&Show/Hide Gui\tL"),

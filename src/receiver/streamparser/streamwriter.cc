@@ -227,43 +227,4 @@ void pat_writer_t::start_section(uint16_t service_id, uint16_t pmt_pid) {
 	section.put<uint16_t>(pmt_pid|0xe000);
 }
 
-
-#if 0
-pat_writer_t::pat_writer_t(uint16_t service_id, uint16_t pmt_pid, uint16_t ts_id)
-	: section_writer_t(0) {
-	section.is_writer = true;
-	uint8_t table_id = TABLE_ID_PAT;
-	uint16_t length{0};  //TODO
-	uint8_t version_number{8};
-	uint8_t section_number{0};
-	uint8_t last_section_number{0};
-
-	auto* p_section_start = section.current_pointer(0);
-	section.put<uint8_t>(table_id);
-
-	auto* p_length = section.current_pointer(0);
-	section.put<uint16_t>(length);
-
-	section.put<uint16_t>(ts_id); //table_id_extension
-	section.put<uint8_t>((0x03<<6) | (version_number<<1) |1);
-	section.put<uint8_t>(section_number);
-	section.put<uint8_t>(last_section_number);
-
-	section.put<uint16_t>(service_id);
-	section.put<uint16_t>(pmt_pid|0xe000);
-
-	uint32_t crc32{0};
-	length = section.current_pointer(0) - p_length - sizeof(length) + sizeof(crc32);
-	p_length[0] = (length>>8) | 0x80 | 0x30; //080= section syntax indicator; 0x30 = reserved
-	p_length[1] = (length&0xff);
-
-	crc32 = dtdemux::crc32(p_section_start, section.processed() - (p_section_start - data.buffer()));
-	section.put<uint32_t>(crc32);
-
-	for(int i = section.processed();  i<ts_packet_t::size;++i)
-		section.put<uint8_t>(0xff);
-	section = dtdemux::data_range_t(data.buffer(), section.processed());
-
-
 }
-#endif

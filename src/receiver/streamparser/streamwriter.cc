@@ -227,4 +227,28 @@ void pat_writer_t::start_section(uint16_t service_id, uint16_t pmt_pid) {
 	section.put<uint16_t>(pmt_pid|0xe000);
 }
 
+/*
+	create a pat/pmt with only the preferred audio and subtitle stream
+ */
+std::tuple<chdb::language_code_t, pid_t, chdb::language_code_t, pid_t>
+pmt_info_t::make_preferred_pmt_ts(ss::bytebuffer_& output,
+																	chdb::language_code_t selected_audio_lang_,
+																	chdb::language_code_t selected_subtitle_lang_,
+																	const ss::vector_<chdb::language_code_t>& audio_prefs,
+																	const ss::vector_<chdb::language_code_t>& subtitle_prefs) {
+	pat_writer_t pat_writer;
+	pmt_writer_t pmt_writer;
+	//make a new pmt with only the selected audio/subtitle language
+	pat_writer.start_section(service_id, pmt_pid);
+	pat_writer.end_section();
+
+	auto [selected_audio_lang, selected_audio_pid, selected_subtitle_lang, selected_subtitle_pid] =
+		pmt_writer.make(*this, selected_audio_lang_, selected_subtitle_lang_, audio_prefs, subtitle_prefs);
+	//convert to transport stream
+	static int cc_start=0;
+	ts_writer_t w1(pat_writer.section, 0x0);
+	w1.output(output);
+	ts_writer_t w2(pmt_writer.section, pmt_pid);
+	w2.output(output);
+	return {selected_audio_lang, selected_audio_pid, selected_subtitle_lang, selected_subtitle_pid};
 }

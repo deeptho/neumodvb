@@ -2429,31 +2429,6 @@ bool pmt_info_t::is_ecm_pid(uint16_t pid) {
 }
 
 
-
-/*
-	create a pat/pmt with only the preferred audio and subtitle stream
- */
-std::tuple<chdb::language_code_t, chdb::language_code_t>
-pmt_info_t::make_preferred_pmt_ts(ss::bytebuffer_& output,
-																	const ss::vector_<language_code_t>& audio_prefs,
-																	const ss::vector_<language_code_t>& subtitle_prefs) {
-	pat_writer_t pat_writer;
-	pmt_writer_t pmt_writer;
-	//make a new pmt with only the selected audio/subtitle language
-	pat_writer.start_section(service_id, pmt_pid);
-	pat_writer.end_section();
-
-	auto [selected_audio_lang, selected_subtitle_lang] =
-		pmt_writer.make(*this, audio_prefs, subtitle_prefs);
-	//convert to transport stream
-	ts_writer_t w1(pat_writer.section, 0x0);
-	w1.output(output);
-	ts_writer_t w2(pmt_writer.section, pmt_pid);
-	w2.output(output);
-	return {selected_audio_lang, selected_subtitle_lang};
-}
-
-
 pmt_info_t dtdemux::parse_pmt_section(ss::bytebuffer_& pmt_section_data, uint16_t pmt_pid) {
 	stored_section_t section(pmt_section_data, pmt_pid); //@todo performs needless copy
 	pmt_info_t pmt;

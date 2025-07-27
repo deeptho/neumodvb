@@ -222,7 +222,7 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 	this->current_audio_pid = ss.current_audio_pid;
 	this->current_subtitle_pid = ss.current_subtitle_pid;
 	assert(current_pmt.pmt_pid ==  ss.current_streams.pmt_pid);
-
+	have_pmt = true;
 }
 
 
@@ -712,13 +712,14 @@ static void make_null_packet(ss::bytebuffer<512>& buffer)
 
 /*
 	read up to num_bytes data in output buffer.
-	Returns -1 on error
-	Returns 0 only at end of stream
+	Returns ret, have_pmt
+	  ret=-1: error
+	  ret=0:  end of stream
 
  */
-int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
+std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
 	if (error || num_bytes == 0)
-		return 0;
+		return {0, have_pmt};
 	int num_bytes_read{0};
 	while(num_bytes_read == 0 && !must_exit && !error) {
     /*below, read_data_live_ and read_data_nonlive_ can read 0 bytes
@@ -740,7 +741,7 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
 					We return what we have written and will be called later again, at which point
 					read_pmt_data will be called again (and possibly write 0 bytes into output buffer)
 				*/
-				return num_bytes_read;
+				return {num_bytes_read, have_pmt};
 			}
 		}
 
@@ -750,7 +751,7 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
 																							again
 																					 */
 		if(must_exit)
-			return 0;
+			return {0, have_pmt};
 		assert(max_bytes >=0);
 		auto [num_bytes_out, num_bytes_in] = read_data_(outbuffer + num_bytes_read, num_bytes, max_bytes);
 		if (num_bytes_out >= 0) { //if there is no error
@@ -781,7 +782,7 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
 																							 num_bytes_read > 0 is also ok; indicates progress
 																						 */
 	}
-	return (must_exit || error) ? -1 : num_bytes_read;
+	return { (must_exit || error) ? -1 : num_bytes_read, have_pmt};
 }
 
 /*

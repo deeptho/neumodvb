@@ -58,7 +58,6 @@ class MpvPlayer : public std::enable_shared_from_this<MpvPlayer>, public player_
 	friend class mpv_subscription_t;
 protected:
 	bool mustexit = false;
-
 	bool inited = true;
 	MpvPlayer(receiver_t * receiver, MpvPlayer_* parent);
 public:

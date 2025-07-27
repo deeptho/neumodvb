@@ -41,11 +41,11 @@ class playback_mpm_t;
 class mpv_subscription_t {
 	friend class MpvPlayer;
 	friend class MpvPlayer_;
-	bool pending_close = false; //used to speed up channel change
 	std::mutex& m;
 	std::condition_variable& cv;
 	int pmt_change_count{0};
 	std::shared_ptr<subscriber_t> subscriber;
+	bool pending_close = false; //used to speed up channel change
 public:
 	std::atomic<bool> show_osd{false};
 	std::atomic<bool> show_radiobg{false};
@@ -54,6 +54,7 @@ public:
 		return (int) subscriber->get_subscription_id() >=0;
 	}
 	std::function<void()> next_op = none; //callback run on close
+
 private:
 	receiver_t* receiver = nullptr;
 	MpvPlayer_* mpv_player = nullptr;
@@ -104,8 +105,8 @@ public:
 class MpvPlayer_ : public MpvPlayer {
 	friend class MpvGLCanvas;
 	friend class mpv_subscription_t;
-
 public:
+	int valid_frames{0};
 	MpvGLCanvas* gl_canvas;
 	mpv_handle* mpv = nullptr;
 	mpv_subscription_t subscription;
@@ -119,7 +120,10 @@ public:
 	mpv_render_context* mpv_gl = nullptr;
 
 	void on_mpv_wakeup_event();
-
+	inline void reset_valid_frames() {
+		std::scoped_lock lck(subscription.m);
+		valid_frames =0;
+	}
 	void handle_mpv_event(mpv_event& event);
 
 	void mpv_draw(int w, int h);

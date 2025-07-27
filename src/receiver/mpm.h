@@ -205,6 +205,7 @@ class playback_mpm_t : public mpm_t {
 	//active_playback_t* active_playback = nullptr; //if non null, then this is a live mpm
 	receiver_t& receiver;
 	bool must_exit = false;
+	bool have_pmt{false};
 	active_mpm_t* live_mpm = nullptr; /*if non-null the mpm is still growing; needed to prevent live_mpm
 																			from deleting old data which we are reading
 																		*/
@@ -284,7 +285,7 @@ public:
 	playback_mpm_t& operator=(const playback_mpm_t& other) = delete;
 
 
-	EXPORT int64_t read_data(char* buffer, uint64_t numbytes);
+	EXPORT std::tuple<int64_t,bool> read_data(char* buffer, uint64_t numbytes);
 	EXPORT int move_to_time(milliseconds_t start_play_time);
 	EXPORT int move_to_live();
 	//int open(int fileno=0); //find and open file

@@ -206,8 +206,6 @@ void MpvGLCanvas::OnMpvWakeupEvent(wxThreadEvent&) {
 void MpvGLCanvas::DoRender() // MPV_CALLBACK
 {
 	SetCurrent();
-	if (!playing_ok)
-		SwapBuffers();
 	auto s = GetSize();
 	if (OnRender) {
 
@@ -217,15 +215,15 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK
 		}
 
 		OnRender(this, s.x, s.y);
-		playing_ok = true;
 	} else {
 		dterrorf("ONRENDER NOT READY");
 	}
 	// glClearColor(0.0, 0.0, 0.0, 0.0);
 	// glClear(GL_COLOR_BUFFER_BIT);
-	SetCurrent();
-	// clear_window();
 
+	SetCurrent();
+	if(mpv_player->valid_frames < 2)
+		this->clear_window();
 	int width = s.x;
 	int height = s.y;
 	if (mpv_player->subscription.show_radiobg) {
@@ -292,6 +290,7 @@ void mpv_subscription_t::close_fn() {
 	};
 	auto op = get();
 	op();
+	mpv_player->reset_valid_frames();
 }
 
 static void close_fn(void* cookie) {
@@ -384,6 +383,7 @@ static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
 	log4cxx_store_threadname();
 	dtdebugf("OPEN_FN");
 	player->subscription.set_pending_close(false);
+	player->reset_valid_frames();
 	sscanf(uri, "neumo://%p/%d", &player, &seqno);
 	dtdebugf("MPV open: player={:p}", fmt::ptr(player));
 	dttime_init();
@@ -441,7 +441,7 @@ MpvPlayer_::~MpvPlayer_() {
 }
 
 void MpvGLCanvas::clear_window() {
-	glClearColor(1.0, 0., 0.0, 1.0);
+	glClearColor(0.0, 0., 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -564,6 +564,13 @@ void MpvPlayer_::on_mpv_wakeup_event() {
 
 void MpvPlayer_::mpv_draw(int w, int h) {
 	if (mpv_gl) {
+		if(valid_frames < 2) {
+			mpv_render_frame_info info ;
+			mpv_render_param param{MPV_RENDER_PARAM_NEXT_FRAME_INFO, &info};
+			mpv_render_context_get_info(mpv_gl, param);
+			bool present= info.flags &  MPV_RENDER_FRAME_INFO_PRESENT;
+			valid_frames+= present;
+		}
 		mpv_opengl_fbo mpfbo{0, w, h, 0};
 		int flip_y{1};
 
@@ -1034,8 +1041,10 @@ int64_t mpv_subscription_t::read_data(char* buffer, uint64_t nbytes) {
 #endif
 	if ((int) subscription_id < 0)
 		return 0;
-	if (mpm) // regular service
-		return mpm->read_data(buffer, nbytes);
+	if (mpm) { // regular service
+		auto [ret, have_pmt] =	mpm->read_data(buffer, nbytes);
+		return ret;
+	}
 	else
 		return wait_for_close();
 }
@@ -1203,7 +1212,6 @@ void MpvPlayer::toggle_overlay(){
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	self->subscription.show_osd = !self->subscription.show_osd;
 }
-
 
 /*
 	mpv_terminate_destroy(mpv_handle *ctx); Similar to mpv_destroy(), but brings the player and all clients down

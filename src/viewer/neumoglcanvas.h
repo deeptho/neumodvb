@@ -89,8 +89,6 @@ class MpvGLCanvas : public wxGLCanvas
 	int inited = 0;
 public:
 
-	std::atomic<bool> playing_ok = false;
-
 	void MpvCreate();
 	void MpvDestroy();
 	void clear_window();

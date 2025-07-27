@@ -996,7 +996,10 @@ std::tuple<int,int> playback_mpm_t::copy_filtered_packets(char* outbuffer, uint8
 
 	for (; inptr < inptr_end && outptr < outptr_end; inptr +=  dtdemux::ts_packet_t::size) {
 		int pid = (((uint16_t)(inptr[1] & 0x1f)) << 8) | inptr[2];
-		if (pid == current_pmt.pmt_pid || pid == 0 /*pat*/)
+		if (pid == current_pmt.pmt_pid || pid == 0 /*pat*/
+			)
+			continue;
+		if(pid != current_pmt.video_pid && pid != current_audio_pid && pid != current_subtitle_pid)
 			continue;
 		memcpy(outptr, inptr, dtdemux::ts_packet_t::size);
 		outptr += dtdemux::ts_packet_t::size;

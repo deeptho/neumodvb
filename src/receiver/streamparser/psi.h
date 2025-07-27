@@ -32,8 +32,8 @@ namespace dtdemux {
 	struct stored_section_t;
 	struct pmt_info_t;
 	struct pat_services_t;
-
-	struct pmt_writer_t;
+	class pat_writer_t;
+	class pmt_writer_t;
 	enum class reset_type_t {
 		NO_RESET,
 		RESET,
@@ -182,17 +182,14 @@ namespace dtdemux {
 		ca_info_t get_ca(stored_section_t& s, const descriptor_t& desc, uint16_t stream_pid);
 		void parse_descriptors(stored_section_t& s, pmt_info_t& pmt, pid_info_t& info, bool in_es_loop);
 		std::tuple<const pid_info_t*,chdb::language_code_t>
-		best_audio_language(const ss::vector_<chdb::language_code_t>&prefs) const;
+		best_audio_language(chdb::language_code_t selected_audio_lang,
+												const ss::vector_<chdb::language_code_t>&prefs) const;
 
 		std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
-		best_subtitle_language(const ss::vector_<chdb::language_code_t>& prefs) const;
+		best_subtitle_language(chdb::language_code_t selected_subtitle_lang,
+													 const ss::vector_<chdb::language_code_t>& prefs) const;
 
 		bool is_ecm_pid(uint16_t pid);
-
-		std::tuple<chdb::language_code_t, chdb::language_code_t>
-		make_preferred_pmt_ts(ss::bytebuffer_& output,
-													const ss::vector_<chdb::language_code_t>& audio_prefs,
-													const ss::vector_<chdb::language_code_t>& subtitle_prefs);
 	};
 
 	struct bouquet_linkage_t {

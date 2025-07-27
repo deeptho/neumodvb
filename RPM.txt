@@ -1,0 +1,38 @@
+
+sudo dnf upgrade --refresh -y
+sudo dnf repolist | grep rpmfusion
+sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf install ffmpeg-libs
+sudo rpm -i --nodeps  https://github.com/tsduck/tsduck/releases/download/v3.28-2551/tsduck-3.28-2551.fc34.x86_64.rpm
+
+#sudo dnf install https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-devel-3.30-2710.fc35.x86_64.rpm
+sudo dnf install https://github.com/tsduck/tsduck/releases/download/v3.30-2710/tsduck-3.30-2710.fc35.x86_64.rpm
+sudo dnf install neumodvb-0.8.1-11652042697.fc36.x86_64.rpm
+sudo pip3 install setproctitle mpl_scatter_density
+
+pm
+cd ~/neumodvb
+rm -fr /tmp/rpm
+git build-rpm  --rpm-dir /tmp/rpm  --package-name  neumodvb
+
+#sudo dnf install rpmrebuild
+
+pyp2rpm --srpm fast-histogram  #edit spec
+pyp2rpm --srpm mpl_scatter_density  #edit spec
+pyp2rpm --srpm hypothesis
+pyp2rpm --srpm  setuptools-scm
+#pyp2rpm --srpm  pytest
+#pyp2rpm --srpm  pytest-cov
+#pyp2rpm --srpm pallets_sphinx_themes
+cd /home/philips/rpmbuild/SOURCES
+rpmbuild  -bs ../SPECS/python-mpl_scatter_density.spec
+rpmbuild  -bs ../SPECS/python-fast-histogram.spec
+
+
+#rpmbuild -bb ../SPECS/python-mpl_scatter_density.spec
+
+#rpmbuild --rebuild /home/philips/rpmbuild/SRPMS/python-fast-histogram-0.10-1.fc36.src.rpm
+#rpmbuild --rebuild /home/philips/rpmbuild/SRPMS/python-mpl_scatter_density-0.7-1.fc36.src.rpm
+cd /home/philips/rpmbuild/SRPMS/;
+
+sudo mock --chain --continue  python-setuptools-scm-6.4.2-1.fc36.src.rpm  python-hypothesis-6.46.7-1.fc36.src.rpm python-fast-histogram-0.10-1.fc36.src.rpm   python-mpl_scatter_density-0.7-1.fc36.src.rpm

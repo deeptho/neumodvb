@@ -22,6 +22,7 @@
 #include <filesystem>
 #include "filemapper.h"
 #include "streamparser/packetstream.h"
+#include "streamparser/streamwriter.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/epgdb/epgdb_extra.h"
 #include "util/safe/safe.h"
@@ -157,7 +158,9 @@ public:
 struct stream_state_t {
 	typedef std::function<void(const chdb::language_code_t& lang, int pos)> callback_t;
 	chdb::language_code_t current_audio_language;
+	pid_t current_audio_pid{0x1fff};
 	chdb::language_code_t current_subtitle_language;
+	pid_t current_subtitle_pid{0x1fff};
 	recdb::stream_descriptor_t current_streams;
 	recdb::stream_descriptor_t next_streams;
 	ss::vector<chdb::language_code_t,4> audio_pref;
@@ -215,18 +218,23 @@ class playback_mpm_t : public mpm_t {
 																	 is relative to the start of a deleted part....
 																	 Also, this refers to input bytes prior to filtering
 																*/
-	int num_pmt_bytes_to_send{-1}; /* If this is non-zero then we do not send data from the stream (and current_byte_pos
-																		will not change), but instead pmt data.
-																		-1 means: need initialisation
-																 */
 	meta_marker_t last_seen_live_meta_marker; //only used when playing a live buffer
-
+	pid_t current_audio_pid{0x1fff};
+	pid_t current_subtitle_pid{0x1fff};
 	bool is_timeshifted{false};
 	recdb::rec_t currently_playing_recording{};
 	ss_t stream_state;
 	dtdemux::pmt_info_t current_pmt;
-	ss::bytebuffer<128> preferred_streams_pmt_ts;
+	ss::bytebuffer<512> generated_ts;
+	int num_generated_bytes_to_send{-1}; /* If this is non-zero then we do not send data
+																					from the stream (and current_byte_pos
+																					will not change), but instead pmt data.
+																					-1 means: need initialisation
+																			 */
+	dtdemux::pat_writer_t pat_writer; //rewritten pat-stream
+	std::unique_ptr<dtdemux::pmt_writer_t> pmt_writer; //rewritten pmt-stream
 	int64_t next_stream_change_{-1}; //cache
+
 	int next_stream_change(); //byte at which new pmt becomes active (coincides with end of old pmt)
 	inline void clear_stream_state() {
 		next_stream_change_ = -1 ; //clear cache; will force a reload
@@ -253,7 +261,7 @@ private:
 	int open_next_file();
 	int64_t copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t numbytes);
 	std::tuple<int,int> copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int outbytes, int inbytes);
-	int64_t read_pmt_data(char* outbuffer, uint64_t numbytes);
+	int64_t read_generated_data(char* outbuffer, uint64_t num_bytes);
 	int64_t read_data_from_current_file(uint8_t*& buffer);
 	std::tuple<int, int> read_data_(char* outbuffer, int outbytes, int inbytes);
 	std::tuple<bool, int64_t> currently_playing_file_status();

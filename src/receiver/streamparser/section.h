@@ -30,7 +30,8 @@ namespace dtdemux {
 	struct pmt_info_t;
 	struct sdt_services_t;
 	struct bouquet_t;
-	struct pmt_writer_t;
+	class pat_writer_t;
+	class pmt_writer_t;
 	struct nit_network_t;
 	struct epg_t;
 	struct audio_language_info_t;

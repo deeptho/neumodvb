@@ -2349,11 +2349,18 @@ first_audio(const pmt_info_t& pmtinfo) {
 	languge; the fourth byte is used to distinghuish between duplicates;
 */
 std::tuple<const dtdemux::pid_info_t*, chdb::language_code_t>
-pmt_info_t::best_audio_language(const ss::vector_<language_code_t>& prefs) const {
+pmt_info_t::best_audio_language(language_code_t selected_audio_lang,
+																const ss::vector_<language_code_t>& prefs) const {
 	using namespace chdb;
 	/* loop over preferences in descending order of preference
 		 and return the first match, which is the one with the highest user priority
 	*/
+
+	auto [ret, lang_code] = find_audio_pref_in_pmt(*this, selected_audio_lang);
+	if(ret) {
+		return {ret, lang_code};
+	}
+
 	for (const auto& p : prefs) {
 		auto [ret, lang_code] = find_audio_pref_in_pmt(*this, p);
 		if (ret) {
@@ -2410,11 +2417,15 @@ static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code
 	languge; the fourth byte is used to distinghuish between duplicates;
 */
 std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
-pmt_info_t::best_subtitle_language(const ss::vector_<language_code_t>& prefs) const {
+pmt_info_t::best_subtitle_language(chdb::language_code_t selected_subtitle_lang,
+																	 const ss::vector_<language_code_t>& prefs) const {
 	using namespace chdb;
 	/* loop over preferences in descending order of preference
 		 and return the first match, which is the one with the highest user priority
 	*/
+	auto [pid_desc, subtit_desc, subt_lang] = find_subtitle_pref_in_pmt(*this, selected_subtitle_lang);
+	if (pid_desc)
+		return {pid_desc, subtit_desc, subt_lang};
 	for (const auto& p : prefs) {
 		auto [pid_desc, subtit_desc, subt_lang]  = find_subtitle_pref_in_pmt(*this, p);
 		if (pid_desc)
@@ -2427,7 +2438,6 @@ bool pmt_info_t::is_ecm_pid(uint16_t pid) {
 	return std::find_if(ca_descriptors.begin(), ca_descriptors.end(),
 											[&pid](auto& ca_info) { return ca_info.ca_pid == pid; }) != ca_descriptors.end();
 }
-
 
 pmt_info_t dtdemux::parse_pmt_section(ss::bytebuffer_& pmt_section_data, uint16_t pmt_pid) {
 	stored_section_t section(pmt_section_data, pmt_pid); //@todo performs needless copy

@@ -183,7 +183,6 @@ int playback_mpm_t::next_stream_change() { //byte at which new pmt becomes activ
 		assert(last_seen_live_meta_marker.last_streams.packetno_start >= ls->current_streams.packetno_start);
 		if (last_seen_live_meta_marker.last_streams.packetno_start == ls->current_streams.packetno_start) {
 			//no update pending for sure
-			dtdebugf("returning next pmt change never (live)");
 			return never; //no update pending for sure
 		/* otherwise: we cannot rely on last_seen_live_meta_marker.last_stream.packetno_start because
 			 there may have been multiple pmt updates (unlikely); so we need to consult the database
@@ -203,23 +202,27 @@ int playback_mpm_t::next_stream_change() { //byte at which new pmt becomes activ
 	stream before sending any other stream data.
  */
 void playback_mpm_t::update_pmt(stream_state_t& ss) {
-	if(num_pmt_bytes_to_send >0)
-		return; /* we cannot handle a pmt change when one is still in progress.
-								 Return 0 indicates that we first need to clear the pmt buffer
-							*/
 	//pmt with all audio streams
 	current_pmt = parse_pmt_section(ss.current_streams.pmt_section, ss.current_streams.pmt_pid);
-	preferred_streams_pmt_ts.clear();
+	if(!this->pmt_writer)
+		pmt_writer = std::make_unique<pmt_writer_t>(ss.current_streams.pmt_pid);
+	auto saved = generated_ts.size();
+	this->pat_writer.add_single_service_pat(generated_ts, current_pmt.service_id, current_pmt.pmt_pid);
+	assert(generated_ts.size() > saved);
+	num_generated_bytes_to_send += generated_ts.size() - saved;
 
-	std::tie(ss.current_audio_language, ss.current_subtitle_language ) =
-		current_pmt.make_preferred_pmt_ts(preferred_streams_pmt_ts, ss.audio_pref, ss.subtitle_pref);
+	std::tie(ss.current_audio_language, ss.current_audio_pid,
+					 ss.current_subtitle_language, ss.current_subtitle_pid ) =
+		pmt_writer->add_preferred_pmt_ts(generated_ts, current_pmt,
+																		 ss.current_audio_language,
+																		 ss.current_subtitle_language,
+																		 ss.audio_pref, ss.subtitle_pref);
+	assert(generated_ts.size() > saved);
+	num_generated_bytes_to_send += generated_ts.size() - saved;
+	this->current_audio_pid = ss.current_audio_pid;
+	this->current_subtitle_pid = ss.current_subtitle_pid;
 	assert(current_pmt.pmt_pid ==  ss.current_streams.pmt_pid);
 
-	//activate the pmt for ouput
-	num_pmt_bytes_to_send = preferred_streams_pmt_ts.size();
-	/*
-		todo:  make pat
-	 */
 }
 
 
@@ -275,6 +278,7 @@ int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 		ls->current_subtitle_language = selected_lan;
 	else
 		ls->current_audio_language = selected_lan;
+	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_streams
 	return 1;
 }
 
@@ -587,7 +591,7 @@ int playback_mpm_t::open_next_file() {
 	read up to outbytes bytes in outbuffer, while not reading more than inbytes bytes from the input stream
 	The call may return earlier if not enough data is available
 	Returns number of inputs bytes consumed and number of output bytes written
-	Returns -1 on error or if must_exot
+	Returns -1 on error or if must_exit
  */
 std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, int inbytes) {
 	if (error || inbytes == 0 || outbytes == 0)
@@ -694,6 +698,17 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 	return {num_bytes_out, num_bytes_in};
 }
 
+static void make_null_packet(ss::bytebuffer<512>& buffer)
+{
+	buffer.resize(188);
+	auto* buff = &buffer[0];
+	memset(buff, 0xff, 188);
+	int cc=0;
+	buff[0]=0x47;
+	buff[1]= 0x1f;
+	buff[2]= 0xff;
+	buff[3] = cc;
+}
 
 /*
 	read up to num_bytes data in output buffer.
@@ -714,17 +729,10 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
 			The loop is therefore needed, to retry the read.
 		 */
 
-		auto max_bytes = next_stream_change(); /* max_bytes byte at which is the number of bytes to read before
-																							new pmt becomes active (coincides with end of old pmt);
-																							we may never read past that point without calling next_stream_change
-																							again
-																					 */
-		if(must_exit)
-			return 0;
-		if(num_pmt_bytes_to_send > 0) {
-			auto num_pmt_bytes_sent  = read_pmt_data(outbuffer + num_bytes_read, num_bytes);
-			num_bytes -= num_pmt_bytes_sent;
-			num_bytes_read += num_pmt_bytes_sent;
+		if(num_generated_bytes_to_send > 0) {
+			auto num_bytes_sent  = read_generated_data(outbuffer + num_bytes_read, num_bytes);
+			num_bytes -= num_bytes_sent;
+			num_bytes_read += num_bytes_sent;
 
 			if(num_bytes == 0) {
 				/*the pmt might be fully sent, but usually this indicates
@@ -736,6 +744,13 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
 			}
 		}
 
+			auto max_bytes = next_stream_change(); /* max_bytes byte at which is the number of bytes to read before
+																							new pmt becomes active (coincides with end of old pmt);
+																							we may never read past that point without calling next_stream_change
+																							again
+																					 */
+		if(must_exit)
+			return 0;
 		assert(max_bytes >=0);
 		auto [num_bytes_out, num_bytes_in] = read_data_(outbuffer + num_bytes_read, num_bytes, max_bytes);
 		if (num_bytes_out >= 0) { //if there is no error
@@ -745,19 +760,22 @@ int64_t playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
 			break;
 		}
 		/*in rare cases, our caller may ask for less than 188 bytes. We will never be able to provide this,
-			because we always return multiples of 188 bytes. We cannot return 0 bytes, because that will be
-			interpreted as end of stream by mpv code.
-			As a workaround we send pmt bytes, which can be done in terms of a partial packets
+			because we always return multiples of 188 bytes and the result would be 0 in this case,
+			which mpv interprets as end of stream.
+			As a workaround we send part of null packet. The rest of this packet will be sent on the next mpv read
 		*/
 		if (num_bytes_read ==0 && num_bytes < ts_packet_t::size) {
-			dtdebugf("Returning pmt data to fill partial packet");
-			auto ls = stream_state.readAccess();
-			num_pmt_bytes_to_send =  preferred_streams_pmt_ts.size();
-			assert(num_pmt_bytes_to_send >= 0);
-			auto ret  = read_pmt_data(outbuffer + num_bytes_read, num_bytes);
+			assert (num_generated_bytes_to_send ==0); //otherwise num_bytes_read cannot be zero
+			dtdebugf("Returning null packet data to fill partial packet");
+			make_null_packet(this->generated_ts);
+			num_generated_bytes_to_send =  generated_ts.size();
+			assert(num_generated_bytes_to_send > 0);
+			auto ret  = read_generated_data(outbuffer + num_bytes_read, num_bytes);
 			num_bytes_read += ret;
 			num_bytes -= ret;
+			assert(num_bytes_read >0);
 		}
+
 		assert(live_mpm || num_bytes_read != 0); /*live_mpm will lead to blocking (ok), but otherwise we have a problem;
 																							 num_bytes_read < 0 is ok; indicates and error
 																							 num_bytes_read > 0 is also ok; indicates progress
@@ -848,7 +866,6 @@ milliseconds_t playback_mpm_t::get_current_play_time() const {
 	}
 }
 
-
 void playback_mpm_t::register_audio_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb) {
 	assert((int) subscription_id >= 0);
 	assert(cb != nullptr);
@@ -936,19 +953,19 @@ int playback_mpm_t::get_marker_for_time_from_db(db_txn& idxdb_txn, recdb::marker
 	return 0;
 }
 
-int64_t  playback_mpm_t::read_pmt_data(char* outbuffer, uint64_t num_bytes) {
-	if(num_pmt_bytes_to_send < 0 ) {
+int64_t  playback_mpm_t::read_generated_data(char* outbuffer, uint64_t num_bytes) {
+	if(num_generated_bytes_to_send < 0 ) {
 		//initialisation
-		num_pmt_bytes_to_send = preferred_streams_pmt_ts.size();
+		num_generated_bytes_to_send = generated_ts.size();
 	}
 
-	if(num_pmt_bytes_to_send > 0) {
-		auto n = std::min(num_bytes, (uint64_t)num_pmt_bytes_to_send);
+	if(num_generated_bytes_to_send > 0) {
+		auto n = std::min(num_bytes, (uint64_t)num_generated_bytes_to_send);
 		assert(n > 0);
+		auto num_generated_bytes_already_sent = generated_ts.size() - num_generated_bytes_to_send;
 		memcpy(outbuffer,
-					 preferred_streams_pmt_ts.buffer()
-					 + (preferred_streams_pmt_ts.size() - num_pmt_bytes_to_send), n);
-		num_pmt_bytes_to_send -= n;
+					 generated_ts.buffer() + num_generated_bytes_already_sent, n);
+		num_generated_bytes_to_send -= n;
 		return n;
 	}
 	return 0;

@@ -660,19 +660,14 @@ int MpvPlayer_::change_audio_volume(int step) {
 }
 
 int MpvPlayer_::set_audio_language(int id) {
-	ss::string<16> arg;
-	arg.format("{:d}", id + 1);
-	dtdebugf("setting audio language to {:d}", id);
-	if (subscription.set_audio_language(id) >= 0) {
-		if (mpv_set_property_string(mpv, "aid", arg.c_str()) < 0)
-			dterrorf("Failed setting audio language {:d}", id);
-	} else {
+	if (subscription.set_audio_language(id) < 0) {
 		dterrorf("Failed setting audio language {:d}", id);
 	}
 	return 1;
 }
 
 int MpvPlayer::set_audio_language(int id) {
+	dtdebugf("setting audio language to {:d}", id);
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->set_audio_language(id);
 }
@@ -683,13 +678,8 @@ int MpvPlayer::change_audio_volume(int step) {
 }
 
 int MpvPlayer_::set_subtitle_language(int id) {
-	ss::string<16> arg;
-	arg.format("{:d}", id + 1);
 	dtdebugf("setting subtitle language to {:d}", id);
-	if (subscription.set_subtitle_language(id) >= 0) {
-		if (mpv_set_property_string(mpv, "sid", arg.c_str()) < 0)
-			dterrorf("Failed setting subtitle language {:d}", id);
-	} else {
+	if (subscription.set_subtitle_language(id) < 0) {
 		dterrorf("Failed setting subtitle language {:d}", id);
 	}
 	return 1;

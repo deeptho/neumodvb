@@ -329,7 +329,11 @@ void ts_in_ts_stream_filter_t::read_data(uint8_t* buffer, int num_bytes) {
 		dterrorf("data loss due to slow readers");
 		num_bytes = toread;
 	}
-
+#if 0
+	static FILE* fp =fopen("/tmp/out.ts", "w");
+	fwrite(buffer, num_bytes, 1, fp);
+	fflush(fp);
+#endif
 	while (num_bytes>0) {
 		auto size = std::min(num_bytes, buff_size - write_pointer);
 		assert ( write_pointer + size <= buff_size);

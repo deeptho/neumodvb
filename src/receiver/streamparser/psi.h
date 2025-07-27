@@ -151,6 +151,7 @@ namespace dtdemux {
 		uint64_t stream_packetno_end{0};//position of start of last packet of pmt in stream
 		bool has_freesat_epg{false}; //this means a local freesat epg, not the main freesat home transponder
 		bool has_skyuk_epg {false};
+		bool timedout{false};
 		/*!
 			Stores ca descriptors
 			Format:

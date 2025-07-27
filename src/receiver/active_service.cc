@@ -198,7 +198,9 @@ void active_service_t::update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext,
 																	const ss::bytebuffer_& sec_data) {
 	//assert(!this->is_ts_in_ts());
 	using namespace dtdemux;
+#if 0
 	dtdebugf("{}", pmt);
+#endif
 	have_pmt = true;
 	pmt_is_encrypted = false;
 
@@ -562,7 +564,12 @@ void active_service_t::process_service_data() {
 			dtdebugf("SKIPPING EARLY\n");
 			break;
 		}
-
+		if(s-start > 2000ms) {
+			ss::string<256> msg;
+			auto s = this->get_current_service();
+			msg.format("Service \"{}\" not currently active", s.name);
+			receiver.global_subscriber->notify_error(msg);
+		}
 		uint8_t* buffer = NULL;
 		ssize_t remaining_space = this->stream_buffer->get_write_buffer(buffer);
 		// TODO: ensure parser can cope with changing mmap region
@@ -698,9 +705,9 @@ void active_service_t::add_pat_and_pmt_parsers() {
 	this->pat_parser->section_cb = [this](const pat_services_t& pat_services, const subtable_info_t& i) {
 		bool found{false};
 		assert(!i.timedout);
+		auto& stream_parser = this->stream_buffer->stream_parser;
 		for (const auto& e : pat_services.entries) {
 			if (e.service_id == this->current_service.k.service_id) {
-				auto& stream_parser = this->stream_buffer->stream_parser;
 				this->have_pat = true;
 				dtdebugf("PAT START PMT=0x{:x}", e.pmt_pid);
 				this->update_pmt_pid(e.pmt_pid);

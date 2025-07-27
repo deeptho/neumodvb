@@ -246,11 +246,6 @@ void MpvGLCanvas::MpvDestroy() {
 	Unbind(WX_MPV_WAKEUP, &MpvGLCanvas::OnMpvWakeupEvent, this);
 	// Unbind(WX_MPV_REDRAW, &MpvGLCanvas::OnMpvRedrawEvent, this);
 	dtdebugf("MpvDestroy {:p} mpv_player set to null\n", fmt::ptr(this));
-#if 0
-	if (mpv_player)
-		mpv_player->destroy();
-	mpv_player = nullptr;
-#endif
 }
 
 struct file_t;

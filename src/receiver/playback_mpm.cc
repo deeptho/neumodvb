@@ -766,6 +766,7 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 			As a workaround we send part of null packet. The rest of this packet will be sent on the next mpv read
 		*/
 		if (num_bytes_read ==0 && num_bytes < ts_packet_t::size) {
+			assert(have_pmt);
 			assert (num_generated_bytes_to_send ==0); //otherwise num_bytes_read cannot be zero
 			dtdebugf("Returning null packet data to fill partial packet");
 			make_null_packet(this->generated_ts);

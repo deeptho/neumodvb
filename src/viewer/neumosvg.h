@@ -49,9 +49,11 @@ class svg_overlay_t : public svg_t {
 protected:
 	ss::string<128> svg_filename;
 	svg_overlay_t(const char* filename);
+	double max_volume {100.0};
 	double max_snr {18.0};
 	double min_snr {2.0};
 	void update_snr(double snr, double strength, double min_snr);
+	void update_error_text(const playback_info_t& playback_info);
 
 public:
 	virtual ~svg_overlay_t() = 0;

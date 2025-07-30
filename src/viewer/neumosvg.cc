@@ -125,10 +125,45 @@ struct livebuffer_t : public level_indicator {
 
 struct text_box {
 	const char* id;
+	bool shown {true};
+	bool uptodate{false};
+	wxSVGElement* element_{nullptr};
 	wxSvgXmlNode* text{nullptr};
 
 	text_box(const char* id) : id(id) {}
 	void init(wxSVGDocument* doc);
+	void set_value(const char* val);
+	void set_value(const ss::string_& val);
+	void set_value(int x, const char* fmt);
+	void set_time_value(time_t t, const char* fmt = "{:%H:%M}");
+	void show(bool show);
+};
+
+struct panel {
+	const char* id;
+	wxSvgXmlNode* node{nullptr};
+	wxSVGElement* panel_{nullptr};
+	bool shown{true};
+	bool uptodate{false};
+	panel(const char* id) : id(id) {}
+
+	inline void show(bool show) {
+		if (show == this->shown || !this->panel_)
+			return;
+		auto k = wxString::FromUTF8("visibility");
+		wxString val { show ? "visible" : "hidden"};
+		this->panel_->SetAttribute(k, val);
+		this->shown = show;
+		this->uptodate = false;
+	}
+
+	inline void init(wxSVGDocument* doc)  {
+		panel_ = doc->GetElementById(id);
+		if(!panel_) {
+			dterrorf("Could not create {}", id);
+			assert(0);
+		}
+	}
 	void set_value(const char* val);
 	void set_value(const ss::string_& val);
 	void set_value(int x, const char* fmt);
@@ -223,18 +258,26 @@ void livebuffer_t::set_indicator_value(double val) {
 }
 
 void text_box::init(wxSVGDocument* doc) {
-	ss::string<32> temp;
-
-	temp.format("{:s}-text", id);
 	// magic: span elements seem to be hidden
-	auto* p = doc->GetElementById(temp.c_str());
+	this->element_ = doc->GetElementById(id);
+	auto* p =element_;
 	if (p)
 		p = (wxSVGElement*)p->GetChildren();
 	if (p)
 		text = p->GetChildren();
 	if (!text)
-		dterrorf("Could not find svg element {:s}", temp.c_str());
+		dterrorf("Could not find svg element {:s}", id);
 }
+
+inline void text_box::show(bool show) {
+		if (show == this->shown || !this->element_)
+			return;
+		auto k = wxString::FromUTF8("visibility");
+		wxString val { show ? "visible" : "hidden"};
+		this->element_->SetAttribute(k, val);
+		this->shown = show;
+		this->uptodate = false;
+	}
 
 void text_box::set_value(const ss::string_& val) {
 	if (text) {
@@ -276,21 +319,25 @@ class svg_overlay_impl_t : public svg_overlay_t {
 
 public:
 	bool uptodate{false};
-	wxSVGElement* snr_panel{nullptr};
-	bool snr_shown{true};
+	panel snr_panel{"snr-panel"};
+	panel volume_panel{"volume-panel"};
+	panel service_panel{"service-panel"};
+	panel playback_panel{"playback-panel"};
+	level_indicator volume{"volume", "volume", 0.0, 20.0};
 	level_indicator snr{"snr", "snr", 0.0, 20.0};
 	level_indicator min_snr{"min-snr", "snr", 0.0, 20.0};
 	level_indicator margin_snr{"margin-snr", "snr", 0.0, 20.0};
 	level_indicator strength{"strength", "strength", -80.0, -20.0};
 	livebuffer_t livebuffer{"livebuffer", "livebuffer", -7200, -20.0};
-	text_box chno{"service-chno"};
-	text_box service{"service"};
-	text_box lang{"lang"};
-	text_box epg{"epg-title"};
-	text_box start_time{"start-time"};
-	text_box end_time{"end-time"};
-	text_box play_time{"play-time"};
-	text_box rec{"recording"};
+	text_box chno{"service-chno-text"};
+	text_box service{"service-text"};
+	text_box lang{"lang-text"};
+	text_box epg{"epg-title-text"};
+	text_box start_time{"start-time-text"};
+	text_box end_time{"end-time-text"};
+	text_box play_time{"play-time-text"};
+	text_box rec{"recording-text"};
+	text_box error_text{"error-text"};
 	wxSVGElement* scrollbar_scroller{nullptr};
 	wxSVGElement* scrollbar_bar{nullptr};
 	wxSVGDocument* doc{nullptr};
@@ -299,22 +346,9 @@ public:
 	~svg_overlay_impl_t();
 	void traverse_xml(wxSVGElement* parent, int level = 0);
 	int init();
-	void show_snr(bool show);
+	void show_service(bool show);
+	void show_progress(bool show);
 };
-
-/*
-	show or hide the snr date (show if data is available, otherwise hide)
-*/
-void svg_overlay_impl_t::show_snr(bool show) {
-	if (show == snr_shown || !snr_panel)
-		return;
-	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
-	auto k = wxString::FromUTF8("visibility");
-	wxString val { show ? "visibility" : "hidden"};
-	snr_panel->SetAttribute(k, val);
-	snr_shown = show;
-	self->uptodate = false;
-}
 
 void svg_overlay_impl_t::traverse_xml(wxSVGElement* parent, int level) {
 	wxSVGElement* elem = (wxSVGElement*)parent->GetChildren();
@@ -349,13 +383,12 @@ int svg_overlay_impl_t::init() {
 	}
 	doc = svgctrl.GetSVG();
 	root = doc->wxSvgXmlDocument::GetRoot();
-	snr_panel = doc->GetElementById("snr-panel");
-	if(!snr_panel) {
-		dterrorf("Could not create snr_panel");
-		assert(0);
-		return -1;
-	}
-	show_snr(false);
+
+	snr_panel.init(doc);
+	volume_panel.init(doc);
+	service_panel.init(doc);
+	playback_panel.init(doc);
+
 	snr.init(doc);
 	margin_snr.init(doc);
 	min_snr.init(doc);
@@ -369,6 +402,13 @@ int svg_overlay_impl_t::init() {
 	play_time.init(doc);
 	livebuffer.init(doc);
 	rec.init(doc);
+	error_text.init(doc);
+
+	volume_panel.show(true);
+	service_panel.show(false);
+	playback_panel.show(false);
+	snr_panel.show(false);
+	error_text.show(false);
 	return 0;
 }
 
@@ -401,6 +441,26 @@ void svg_overlay_t::update_snr(double snr, double strength, double min_snr) {
 	if (self->scrollbar_scroller) {
 	}
 
+	self->uptodate = false;
+	self->service_panel.show(true);
+	self->playback_panel.show(true);
+}
+
+void svg_overlay_t::update_error_text(const playback_info_t& playback_info) {
+	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
+	switch(playback_info.stream_status) {
+	case stream_status_t::UNKNOWN:
+	case stream_status_t::STARTING:
+	case stream_status_t::ACTIVE:
+		self->error_text.set_value("");
+		self->error_text.show(false);
+		break;
+	case stream_status_t::INACTIVE:
+	case stream_status_t::NODATA:
+	case stream_status_t::ERROR:
+		self->error_text.set_value("Service is not currently active");
+		self->error_text.show(true);
+	}
 	self->uptodate = false;
 }
 
@@ -452,7 +512,9 @@ void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 	set_livebuffer_info(playback_info);
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
 	self->uptodate = false;
-	self->show_snr(!playback_info.is_recording);
+	self->service_panel.show(true);
+	self->playback_panel.show(true);
+	self->snr_panel.show(!playback_info.is_recording);
 	self->chno.set_value(playback_info.service.ch_order, "{:4d}");
 	self->service.set_value(playback_info.service.name);
 	self->lang.set_value(chdb::lang_name(playback_info.audio_language));
@@ -477,4 +539,5 @@ void svg_overlay_t::set_signal_info(const signal_info_t& signal_info, const play
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
 	float min_snr = chdb::min_snr(signal_info.driver_mux);
 	self->update_snr(signal_info.last_stat().snr, signal_info.last_stat().signal_strength, min_snr);
+	self->update_error_text(playback_info);
 }

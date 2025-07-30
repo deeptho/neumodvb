@@ -152,8 +152,14 @@ inline section_type_t completion_status_t::set_flag(const section_header_t& hdr)
 			return section_type_t::NEW;
 		}
 	}
-	assert(!completed);
 	bool exists = set_flag(hdr.section_number);
+	if(version_number != hdr.version_number) {
+		count=0;
+		exists=false;
+		completed=false;
+		version_number = hdr.version_number;
+	}
+	assert(!completed);
 	if (!exists) {
 		count++;
 		if (hdr.section_syntax_indicator && hdr.section_number == hdr.segment_last_section_number &&
@@ -274,7 +280,7 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 
 	auto& cstate = completion_status_for_section(hdr);
 	assert(count_completed <= (int)cstates.size());
-	if (!hdr.current_next || cstate.version_number != hdr.version_number) {
+	if (!hdr.current_next) {
 		/*
 			The original code forced a reset when a version number changes. The implicit asummption is that
 			version changes are very are and that the new version should take precedence.
@@ -299,7 +305,10 @@ std::tuple<bool, bool, section_type_t> parser_status_t::check(const section_head
 	}
 	if (cstate.completed) {
 		timedout_now = false;
-		return {timedout_now, badversion, section_type_t::COMPLETE};
+		if(cstate.version_number == hdr.version_number)
+			return {timedout_now, badversion, section_type_t::COMPLETE};
+		else
+			count_completed=0;
 	}
 
 	auto cstate_status = cstate.set_flag(hdr);

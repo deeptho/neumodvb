@@ -309,6 +309,8 @@ namespace dtdemux {
 		virtual void parse_payload_unit_(bool parse_only_section_header);
 		virtual void parse_payload_unit() override;
 	public:
+		int64_t last_section_end_bytepos{-1};
+
 		section_parser_t(ts_stream_t& parent, int pid, const char*name)
 			: ts_substream_t(parent, payload_type_t::PSI, name)
 			, pid(pid)

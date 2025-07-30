@@ -219,6 +219,9 @@ namespace dtdemux {
 		// current_frame.set_end(current_ts_packet->range.end_bytepos());
 		parsed_header = hdr;
 		section_complete = true;
+		auto v  = current_ts_packet->range.start_bytepos();
+		assert(v >= this->last_section_end_bytepos);
+		this->last_section_end_bytepos = current_ts_packet->range.start_bytepos();
 		return;
 	}
 

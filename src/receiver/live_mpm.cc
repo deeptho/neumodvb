@@ -1026,7 +1026,28 @@ int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		mm->livebuffer_end_time = now;
 		mm->current_marker = this->stream_parser.event_handler.last_saved_marker;
 		assert(mm->num_bytes_safe_to_read <= this->num_bytes_decrypted); // KNOWN PROBLEM: we may not go back!!
-		mm->num_bytes_safe_to_read = this->num_bytes_decrypted;
+		/*
+			playpback_mpms should never read past the next pmt, as a a pmt change can occur
+		 */
+		assert (this->num_bytes_decrypted >=last_num_bytes_decrypted);
+		auto v = this->num_bytes_decrypted;
+		if(likely(active_service->pmt_parser)) {
+			assert(v>= active_service->pmt_parser->last_section_end_bytepos);
+			assert( active_service->pmt_parser->last_section_end_bytepos >= pmt_last_section_end_bytepos);
+			pmt_last_section_end_bytepos = active_service->pmt_parser->last_section_end_bytepos;
+			v=std::min(v, active_service->pmt_parser->last_section_end_bytepos);
+		}
+		else if(active_service->pat_parser) {
+			assert(v>= active_service->pat_parser->last_section_end_bytepos);
+			assert( active_service->pat_parser->last_section_end_bytepos >= pat_last_section_end_bytepos);
+			pat_last_section_end_bytepos = active_service->pat_parser->last_section_end_bytepos;
+			v=std::min(v, active_service->pat_parser->last_section_end_bytepos);
+		}
+		v= std::max(v, (int64_t)0);
+		assert(v>=mm->num_bytes_safe_to_read );
+		assert(last_num_bytes_safe_to_read == mm->num_bytes_safe_to_read);
+		mm->num_bytes_safe_to_read = v;
+		last_num_bytes_safe_to_read = mm->num_bytes_safe_to_read;
 		if (!mm->started && mm->num_bytes_safe_to_read > 0) {
 			mm->started = true;
 			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);

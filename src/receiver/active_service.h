@@ -239,7 +239,7 @@ private:
 	what user wants
 */
 	inline void housekeeping(system_time_t now) {
-	stream_buffer->housekeeping(now);
+		stream_buffer->housekeeping(now);
 	}
 
 	void restart_decryption(uint16_t ecm_pid, system_time_t t);

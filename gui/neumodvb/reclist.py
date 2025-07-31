@@ -119,6 +119,13 @@ class RecGridBase(NeumoGridBase):
         from neumodvb.record_dialog import show_record_dialog
         show_record_dialog(self, rec, start_time=None)
 
+    def CmdStop(self, evt):
+        row = self.GetGridCursorRow()
+        rec = self.table.screen.record_at_row(row)
+        dtdebug(f'CmdToggleRecord {rec}')
+        if rec.epg.rec_status in (pyepgdb.rec_status_t.IN_PROGRESS,
+                                  pyepgdb.rec_status_t.SCHEDULED):
+                wx.GetApp().receiver.toggle_recording(rec.service, rec.epg)
 
     def CmdAutoRec(self, evt):
         row = self.GetGridCursorRow()

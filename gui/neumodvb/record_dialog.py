@@ -30,6 +30,7 @@ from neumodvb.util import setup, lastdot, dtdebug, dterror
 from neumodvb.neumo_dialogs_gui import  RecordDialog_
 
 import pychdb
+import pyrecdb
 import pyepgdb
 
 
@@ -132,6 +133,9 @@ class RecordDialog(RecordDialog_):
 def show_record_dialog(parent, record, epg=None, start_time=None):
     if type(record) == pychdb.service.service:
         service = record
+    elif type(record) == pyrecdb.rec.rec:
+        service = record.service
+        epg = record.epg
     else:
         key = record.service
         txn = wx.GetApp().chdb.rtxn()

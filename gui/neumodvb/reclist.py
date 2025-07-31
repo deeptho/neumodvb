@@ -117,7 +117,8 @@ class RecGridBase(NeumoGridBase):
         rec = self.table.screen.record_at_row(row)
         dtdebug(f'CmdToggleRecord {rec}')
         from neumodvb.record_dialog import show_record_dialog
-        show_record_dialog(self, rec, start_time=start_time)
+        show_record_dialog(self, rec, start_time=None)
+
 
     def CmdAutoRec(self, evt):
         row = self.GetGridCursorRow()

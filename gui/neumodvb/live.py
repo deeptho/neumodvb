@@ -1128,6 +1128,14 @@ class MosaicPanel(wx.Panel):
                 dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
                 self.mpv_players[self.focus_idx].play_service(service)
 
+    def CmdToggleRecord(self, event):
+        assert  not self.controller.hidden and  len(self.glcanvases) >= 1
+        info = self.mpv_players[self.focus_idx].get_current_program_info()
+        service = info.service
+        epg = info.epg
+        start_time = datetime.datetime.now(tz=tz.tzlocal())
+        show_record_dialog(self, service, epg=epg, start_time = start_time)
+
 class RecordPanel(wx.Panel):
     black=wx.Colour(128, 128, 0, 0)
     white=wx.Colour(255, 255, 255)
@@ -2662,6 +2670,9 @@ class LivePanel(wx.Panel):
         self.toggle_gui()
 
     def CmdToggleRecord(self, event):
+        """
+        Called when user executes CmdToggleRecord on live screen, whether or not a menu is shown
+        """
         if self.hidden:
             self.OnToggleLiveRecord()
         else:
@@ -2692,6 +2703,9 @@ class LivePanel(wx.Panel):
         return wx.GetApp().ToggleOverlay()
 
     def OnToggleLiveRecord(self):
+        """
+        Called when user executes CmdToggleRecord on live screen, when no menu is shown
+        """
         ls = wx.GetApp().live_service_screen
         service = ls.selected_service
         start_time = datetime.datetime.now(tz=tz.tzlocal())

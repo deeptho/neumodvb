@@ -215,7 +215,6 @@ class FrontendTable(NeumoTable):
         rec.card_no = v;
         return rec
 
-
     def highlight_colour(self, fe):
         """
         show lnbs for missing adapters in colour

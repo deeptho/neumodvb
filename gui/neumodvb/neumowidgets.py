@@ -81,17 +81,19 @@ def parse_duration(val):
 
 def parse_time(val, is_duration=False):
     dummy='00:00'
-    if len(val) > 5:
+    if len(val) > 8:
         return False;
-    val+dummy[len(val):]
-    m=re.match(r'^([0-9]+):([0-9]+)', val)
+    m=re.match(r'^([0-9]+):([0-9]+)(?::([0-9]+))?', val)
     if m is None:
         return None
-    if not is_duration and int(m.groups()[0])>=24:
+    if not is_duration and int(m.groups()[0]) >= 24:
         return None
-    if int(m.groups()[1])>=60:
+    if int(m.groups()[1]) >= 60:
         return None
-    return (int(m.groups()[1]) + 60 * int(m.groups()[0]))*60
+    seconds = 0 if m.groups()[2] is None else int(m.groups()[2])
+    if seconds >= 60:
+        return None
+    return (int(m.groups()[1]) + 60 * int(m.groups()[0]))*60 + seconds
 
 class TimeValidator(wx.Validator): # Create a validator subclass
     def __init__(self):

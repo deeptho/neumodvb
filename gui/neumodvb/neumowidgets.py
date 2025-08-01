@@ -191,7 +191,7 @@ class TimePickerCtrlOFF(wx.TextCtrl):
 class DurationTextCtrl(wx.TextCtrl):
     def __init__(self, parent, *args, **kwds):
         super().__init__(parent, *args, **kwds, validator=DurationValidator())
-        sz = self.GetTextExtent("23:59 ")
+        sz = self.GetTextExtent("2h30m19s ")
         self.SetInitialSize(self.GetSizeFromTextSize(sz))
 
     def GetSeconds(self):
@@ -224,7 +224,7 @@ class DurationTextCtrl(wx.TextCtrl):
 class TimeTextCtrl(wx.TextCtrl):
     def __init__(self, parent, *args, **kwds):
         super().__init__(parent, *args, **kwds, validator=TimeValidator())
-        sz = self.GetTextExtent("23:59 ")
+        sz = self.GetTextExtent("23:59:00 ")
         self.SetInitialSize(self.GetSizeFromTextSize(sz))
 
     def GetSeconds(self):

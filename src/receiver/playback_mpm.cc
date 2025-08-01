@@ -211,13 +211,16 @@ int64_t playback_mpm_t::next_stream_change() { //byte at which new pmt becomes a
 void playback_mpm_t::update_pmt(stream_state_t& ss) {
 	//pmt with all audio streams
 	current_pmt = parse_pmt_section(ss.current_pmt_marker.pmt_section, ss.current_pmt_marker.pmt_pid);
+#ifdef PMTREWRITE
+	auto saved = generated_ts.size();
 	if(!this->pmt_writer)
 		pmt_writer = std::make_unique<pmt_writer_t>(ss.current_pmt_marker.pmt_pid);
-	auto saved = generated_ts.size();
 	this->pat_writer.add_single_service_pat(generated_ts, current_pmt.service_id, current_pmt.pmt_pid);
 	assert(generated_ts.size() > saved);
+	assert(num_generated_bytes_to_send>=0);
 	num_generated_bytes_to_send += generated_ts.size() - saved;
-
+	assert(num_generated_bytes_to_send>=0);
+	saved = generated_ts.size();
 	std::tie(ss.current_audio_language, ss.current_audio_pid,
 					 ss.current_subtitle_language, ss.current_subtitle_pid ) =
 		pmt_writer->add_preferred_pmt_ts(generated_ts, current_pmt,
@@ -226,6 +229,27 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 																		 ss.audio_pref, ss.subtitle_pref);
 	assert(generated_ts.size() > saved);
 	num_generated_bytes_to_send += generated_ts.size() - saved;
+	assert(num_generated_bytes_to_send>=0);
+	//num_generated_bytes_to_send = generated_ts.size();
+	dtdebugf("setting num_generated_bytes_to_send={}", num_generated_bytes_to_send );
+#else
+	//generated_ts.append_raw(ss.current_pmt_marker.pmt_section.buffer(), ss.current_pmt_marker.pmt_section.size());
+
+	auto [audio_desc, audio_lang ] =  current_pmt.best_audio_language(ss.current_audio_language, ss.audio_pref);
+	auto [subtitle_desc, desc2 , subtitle_lang] = current_pmt.best_subtitle_language
+		(ss.current_subtitle_language,  ss.subtitle_pref);
+	if(audio_desc) {
+		ss.current_audio_language = audio_lang;
+		ss.current_audio_pid = audio_desc->stream_pid;
+	}
+	if(subtitle_desc) {
+		ss.current_subtitle_language = subtitle_lang;
+		ss.current_subtitle_pid = subtitle_desc->stream_pid;
+	}
+	//assert(num_generated_bytes_to_send>=0);
+	//dtdebugf("setting num_generated_bytes_to_send={}", num_generated_bytes_to_send );
+
+#endif
 	this->current_audio_pid = ss.current_audio_pid;
 	this->current_subtitle_pid = ss.current_subtitle_pid;
 	assert(current_pmt.pmt_pid ==  ss.current_pmt_marker.pmt_pid);
@@ -1004,12 +1028,15 @@ std::tuple<int,int> playback_mpm_t::copy_filtered_packets(char* outbuffer, uint8
 	int num_read{0};
 
 	for (; inptr < inptr_end && outptr < outptr_end; inptr +=  dtdemux::ts_packet_t::size) {
+#ifdef PMTREWRITE
 		int pid = (((uint16_t)(inptr[1] & 0x1f)) << 8) | inptr[2];
-		if (pid == current_pmt.pmt_pid || pid == 0 /*pat*/
+		if (pid == current_pmt.pmt_pid
+				|| pid == 0 /*pat*/
 			)
 			continue;
 		if(pid != current_pmt.video_pid && pid != current_audio_pid && pid != current_subtitle_pid)
 			continue;
+#endif
 		memcpy(outptr, inptr, dtdemux::ts_packet_t::size);
 		outptr += dtdemux::ts_packet_t::size;
 		num_read += dtdemux::ts_packet_t::size;

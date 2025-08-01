@@ -322,7 +322,19 @@ int mpv_subscription_t::set_audio_language(int idx) {
 		dtdebugf("No active playvack");
 		return -1;
 	}
-	return mpm->set_audio_language(idx);
+	auto ret = mpm->set_audio_language(idx);
+
+#ifndef PMTREWRITE
+	ss::string<16> arg;
+	arg.format("{:d}", idx + 1);
+	if (idx < 0) {
+		dterrorf("setting BAD audio language (MPV ONLY) to {:d}", idx);
+	}
+	dtdebugf("setting audio language (MPV ONLY) to {:d}", idx);
+	if (mpv_set_property_string(mpv_player->mpv, "aid", arg.c_str()) < 0)
+		dterrorf("Failed setting audio language {:d}", idx);
+#endif
+	return ret;
 }
 
 /*
@@ -334,7 +346,19 @@ int mpv_subscription_t::set_subtitle_language(int idx) {
 		dtdebugf("No active playvack");
 		return -1;
 	}
-	return mpm->set_subtitle_language(idx);
+	auto ret= mpm->set_subtitle_language(idx);
+
+#ifndef PMTREWRITE
+	ss::string<16> arg;
+	arg.format("{:d}", idx + 1);
+	if (idx < 0) {
+		dterrorf("setting BAD subtitle language (MPV ONLY) to {:d}", idx);
+	}
+	dtdebugf("setting subtitle language (MPV ONLY) to {:d}", idx);
+	if (mpv_set_property_string(mpv_player->mpv, "sid", arg.c_str()) < 0)
+		dterrorf("Failed setting subtitle language {:d}", idx);
+#endif
+	return ret;
 }
 
 /*

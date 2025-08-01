@@ -77,5 +77,6 @@ PYBIND11_MODULE(pyneumompv, m) {
 		.def("set_subtitle_language", &MpvPlayer::set_subtitle_language)
 		.def("get_current_audio_language", &MpvPlayer::get_current_audio_language)
 		.def("get_current_subtitle_language", &MpvPlayer::get_current_subtitle_language)
+		.def("get_current_program_info", &MpvPlayer::get_current_program_info)
 		;
 };

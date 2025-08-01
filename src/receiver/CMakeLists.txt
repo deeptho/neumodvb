@@ -1,7 +1,6 @@
 find_package(wxWidgets REQUIRED net gl core base)
 include(${wxWidgets_USE_FILE})
 
-
 add_library(neumoreceiver SHARED  receiver.cc commands.cc subscriber.cc subscriber_notify.cc tune.cc scan.cc
   active_adapter.cc devmanager.cc fe_monitor.cc options.cc neumodemux.cc
   active_si_stream.cc recmgr.cc frontend.cc scam.cc
@@ -13,8 +12,7 @@ target_precompile_headers(neumoreceiver PRIVATE
   txnmgr.h
   active_playback.h active_stream.h dvbcsa.h subscriber.h options.h signal_info.h
   active_adapter.h active_service.h devmanager.h filemapper.h neumofrontend.h tuner.h receiver.h scam.h
-  active_si_stream.h dvbapi.h mpm.h neumo.h recmgr.h scan.h task.h
-  )
+  active_si_stream.h dvbapi.h mpm.h neumo.h recmgr.h scan.h task.h)
 
 
 string (REPLACE ";" " -I" EXTRA_FLAGS_STR "${pybind11_INCLUDE_DIRS}")
@@ -54,7 +52,8 @@ include_directories(
 add_subdirectory(streamparser)
 
 
-pybind11_add_module(pyreceiver receiver_pybind.cc setproctitle.c options_pybind.cc subscriber_pybind.cc logger_pybind.cc)
+pybind11_add_module(pyreceiver receiver_pybind.cc setproctitle.c options_pybind.cc
+  subscriber_pybind.cc subscriber_data_pybind.cc logger_pybind.cc)
 pybind11_add_module(pyspectrum spectrum_pybind.cc spectrum_algo5.cc)
 
 
@@ -67,6 +66,7 @@ target_link_libraries(pyreceiver PRIVATE neumoutil)
 
 string (REPLACE ";" " " EXTRA_FLAGS_STR "${GTK3_CFLAGS}")
 set_source_files_properties(subscriber_pybind.cc COMPILE_FLAGS "${EXTRA_FLAGS_STR}" )
+set_source_files_properties(subscriber_data_pybind.cc COMPILE_FLAGS "${EXTRA_FLAGS_STR}" )
 
 target_link_libraries(pyreceiver PUBLIC neumoreceiver)
 

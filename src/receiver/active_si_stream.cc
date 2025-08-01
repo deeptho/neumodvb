@@ -338,7 +338,13 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 		auto ret=this->update_mux(wtxn, mux, now, is_main_mux /*is_reader_mux*/, true /*is_tuned_freq*/,
 										 false /*from_sdt*/, preserve);
 		if(ret) {
-			assert(*chdb::mux_key_ptr(mux) == *chdb::mux_key_ptr(this->dbmux));
+#ifndef NDEBUG
+			auto newk = *chdb::mux_key_ptr(mux);
+			auto oldk = *chdb::mux_key_ptr(this->dbmux);
+			if (std::abs(newk.sat_pos - oldk.sat_pos)<=sat_pos_tolerance)
+				oldk.sat_pos = newk.sat_pos;
+			assert(oldk == newk);
+#endif
 			active_adapter().on_stream_mux_change(mux);
 		}
 	}

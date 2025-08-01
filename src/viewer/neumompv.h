@@ -79,6 +79,8 @@ public:
 	ss::vector_<chdb::language_code_t> subtitle_languages();
 	chdb::language_code_t get_current_subtitle_language();
 
+	playback_info_t get_current_program_info();
+
 	int play_service(const chdb::service_t& service);
 	int play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time);
 	int screenshot();

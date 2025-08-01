@@ -1232,6 +1232,12 @@ void MpvPlayer::toggle_overlay(){
 	self->subscription.show_osd = !self->subscription.show_osd;
 }
 
+playback_info_t MpvPlayer::get_current_program_info() {
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->subscription.mpm ?
+		self->subscription.mpm->get_current_program_info() : playback_info_t();
+}
+
 /*
 	mpv_terminate_destroy(mpv_handle *ctx); Similar to mpv_destroy(), but brings the player and all clients down
 	* as well, and waits until all of them are destroyed. This function blocks. T

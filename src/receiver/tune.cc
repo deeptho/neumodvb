@@ -397,19 +397,18 @@ tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sre
 		active_service)
 	*/
 	assert(sret.subscription_id != subscription_id_t::NONE);
-	auto subscription_id = this->subscribe_mux(sret, mux, tune_options);
-	assert(subscription_id == sret.subscription_id);
 	/*at this point we no longer have a subscribed service of playback
 	*/
 	auto active_servicep = active_adapter.tune_service(sret, mux, rec.service, tune_options);
-	assert(active_servicep);
-	active_servicep->start_recording(sret.subscription_id, rec);
-	auto live_service = active_servicep->get_live_service(sret.subscription_id);
-	this->add_live_buffer(live_service);
-	auto recnew = active_servicep->start_recording(sret.subscription_id, rec);
-	assert(recnew);
-	recnew->owner = getpid();
-	recnew->subscription_id = (int) sret.subscription_id;
+	if(active_servicep) {
+		active_servicep->start_recording(sret.subscription_id, rec);
+		auto live_service = active_servicep->get_live_service(sret.subscription_id);
+		this->add_live_buffer(live_service);
+		auto recnew = active_servicep->start_recording(sret.subscription_id, rec);
+		assert(recnew);
+		recnew->owner = getpid();
+		recnew->subscription_id = (int) sret.subscription_id;
+	}
 	return sret.subscription_id;
 }
 

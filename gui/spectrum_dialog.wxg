@@ -9,30 +9,6 @@
         <menubar>1</menubar>
         <object class="wxMenuBar" name="main_menubar" base="EditMenuBar">
             <menus>
-                <menu label="&amp;View" name="menubar">
-                    <item>
-                        <label>&amp;Quit	Ctrl-Q</label>
-                        <handler>CmdExit</handler>
-                    </item>
-                </menu>
-                <menu label="&amp;Control" name="menubar">
-                    <item>
-                        <label>Inspect</label>
-                        <handler>OnInspect</handler>
-                    </item>
-                    <item>
-                        <label>&amp;Toggle Spectrum	Ctrl-Enter</label>
-                        <handler>OnSpectrumSelect</handler>
-                    </item>
-                    <item>
-                        <label>&amp;Draw Mux	Ctrl-A</label>
-                        <handler>OnDrawMux</handler>
-                    </item>
-                </menu>
-                <menu label="&amp;Edit" name="edit_menu">
-                </menu>
-                <menu label="&amp;Lists" name="">
-                </menu>
             </menus>
         </object>
         <object class="wxFlexGridSizer" name="sizer_102" base="EditFlexGridSizer">

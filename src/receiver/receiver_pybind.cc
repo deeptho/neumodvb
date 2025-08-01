@@ -166,17 +166,12 @@ static void export_receiver(py::module& m) {
 
 extern void export_logger(py::module& m);
 extern void export_options(py::module& m);
-
 PYBIND11_MODULE(pyreceiver, m) {
 	m.doc() = R"pbdoc(
         Receiver control functions for neumoDVB
     )pbdoc";	// export_find_type(m);
 	export_receiver(m);
 	export_subscriber(m);
-	export_signal_info(m);
-	export_position_motion_report(m);
-	export_sdt_data(m);
-	export_scan_report(m);
 	export_logger(m);
 	export_live_history(m);
 	export_recording_history(m);

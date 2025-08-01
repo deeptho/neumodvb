@@ -96,7 +96,17 @@ class RecTable(NeumoTable):
     def get_icon_sort_keyOFF(self):
         return 'encrypted'
 
-
+    def highlight_colour(self, rec):
+        """
+        show recording status in colour
+        """
+        if rec.epg.rec_status == pyepgdb.rec_status_t.IN_PROGRESS:
+            return "lightgreen"
+        if rec.epg.rec_status == pyepgdb.rec_status_t.SCHEDULED:
+            return "lightblue"
+        if rec.epg.rec_status == pyepgdb.rec_status_t.FAILED:
+            return "red"
+        return None
 
 class RecGridBase(NeumoGridBase):
     def __init__(self, basic, readonly, *args, **kwds):

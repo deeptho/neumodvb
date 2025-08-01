@@ -363,7 +363,6 @@ subscription_id_t receiver_thread_t::subscribe_service_for_recording(
 	assert(active_adapter_p);
 	auto& aa = *active_adapter_p;
 	tune_options.tune_pars = sret.tune_pars;
-
 	futures.push_back(aa.tuner_thread.push_task([&aa, mux, rec, sret,
 																							 tune_options]() mutable {
 		cb(aa.tuner_thread).subscribe_service_for_recording(sret, mux, rec, tune_options);
@@ -1157,6 +1156,7 @@ void receiver_thread_t::cb_t::start_recording(
 	ssptr->set_subscription_id(subscription_id_t{rec_in.subscription_id});
 	this->receiver_thread_t::subscribe_service_for_recording(futures, devdb_wtxn, mux, rec_in, ssptr);
 	devdb_wtxn.commit();
+	wait_for_all(futures); //in rare case a recording may be stopped while it has not yet started
 	return;
 }
 

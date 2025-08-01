@@ -118,7 +118,9 @@ public:
 	stream_status_t stream_status;
 	int64_t num_bytes_safe_to_read = 0; //counted from the start of tuning to service (active_mpm only)
 
-	recdb::file_t current_file_record{}; //file being played back or modified (active_mpm only)
+	recdb::file_t current_file_record{}; /* the file corresponding to the mpm-part
+																					being played back (playback_mpm) or modified (active_mpm)
+																				*/
 	recdb::marker_t current_marker{};  /*position in current file being played back or last modified*/
 /*
  In a playback_mpm, current_marker is updated from live_mpm if playing back the most recent (growing) file.
@@ -149,7 +151,7 @@ public:
 	waits for a change in this meta_marker compared to "other" and then
 	updates other; mutex should be locked prior to calling this function
 */
-	void wait_for_update(meta_marker_t& other, std::mutex& mutex);
+	void wait_for_update(meta_marker_t& other, std::mutex& mutex, int64_t byte_pos_to_read);
 	void interrupt() {
 		was_interrupted = true;
 		cv.notify_all();
@@ -254,6 +256,7 @@ class playback_mpm_t : public mpm_t {
 		auto w = stream_state.writeAccess();
 		w->current_pmt_marker = {};
 		w->next_pmt_marker = {};
+		current_byte_pos = 0;
 	}
 
 public:
@@ -429,7 +432,7 @@ private:
 		create a new empty data file, open it and map it to memory;
 		if old file and map exist, then it is closed and unmapped
 	*/
-	int next_data_file(system_time_t now, int64_t new_num_bytes_safe_to_read);
+	int next_data_file(system_time_t now);
 
 	virtual void close() override;
 
@@ -450,7 +453,7 @@ private:
 	void update_recordings(db_txn& parent_txn, system_time_t now);
 	void delete_old_data(db_txn& parent_txn,  system_time_t now);
 	void self_check(meta_marker_t& meta_marker);
-	void wait_for_update(meta_marker_t& other);
+	void wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read);
 	void destroy();
 
 	inline virtual int get_write_buffer(uint8_t*& buffer_ret) override {

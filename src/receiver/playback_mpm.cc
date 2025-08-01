@@ -90,7 +90,6 @@ void playback_mpm_t::find_current_pmts(int64_t bytepos)
 		else
 			next_stream_change_ = never;
 	} else {
-		//assert(false);
 		return;
 	}
 	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_pmt_marker
@@ -132,8 +131,6 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 			ls->audio_pref = currently_playing_recording.service.audio_pref;
 			ls->subtitle_pref = currently_playing_recording.service.subtitle_pref;
 		}
-		assert(current_byte_pos == 0);
-		find_current_pmts(current_byte_pos);
 	} else {
 		dterrorf("Cannot find rec in {}", db->idx_dirname);
 	}
@@ -181,14 +178,14 @@ int64_t playback_mpm_t::next_stream_change() { //byte at which new pmt becomes a
 		The goal is to avoid consulting the database if no update is pending for sure
    */
 	if(live_mpm) {
+		assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 		if (last_seen_live_meta_marker.current_pmt_marker.packetno_start <0) {
 			//wait for initial pmt
-			live_mpm->wait_for_update(last_seen_live_meta_marker);
+			live_mpm->wait_for_update(last_seen_live_meta_marker, current_byte_pos);
 			assert(must_exit || last_seen_live_meta_marker.current_pmt_marker.packetno_start >=0);
 		}
-
+		assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 		auto ls = stream_state.readAccess();
-		assert(last_seen_live_meta_marker.current_pmt_marker.packetno_start >= ls->current_pmt_marker.packetno_start); //xxx
 		if (last_seen_live_meta_marker.current_pmt_marker.packetno_start == ls->current_pmt_marker.packetno_start) {
 			//no update pending for sure because last_streams updates when phd has been received
 			return never; //no update pending for sure
@@ -197,7 +194,9 @@ int64_t playback_mpm_t::next_stream_change() { //byte at which new pmt becomes a
 			*/
 		}
 	}
+	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 	find_current_pmts(current_byte_pos);
+	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 	if (next_stream_change_ == -1)
 		return never;
 
@@ -433,10 +432,10 @@ int playback_mpm_t::open_(db_txn& idxdb_txn, milliseconds_t start_time) {
 	*/
 	recdb::marker_t current_marker;
 	get_end_marker_from_db(idxdb_txn, end_marker);
-	auto present = get_marker_for_time_from_db(idxdb_txn, current_marker, start_time);
-	if (start_time > end_marker.k.time || present < 0) {
-		dtdebugf("Requested start_play_time is beyond last logged packet start={} end={} curr={} present={}",
-						 start_time, end_marker.k.time, current_marker, present);
+	auto ret = get_marker_for_time_from_db(idxdb_txn, current_marker, start_time);
+	if (start_time > end_marker.k.time || ret < 0) {
+		dtdebugf("Requested start_play_time is beyond last logged packet start={} end={} curr={} ret={}",
+						 start_time, end_marker.k.time, current_marker, ret);
 		if (live_mpm) {
 			auto mm = live_mpm->meta_marker.readAccess();
 			if (start_time >= mm->current_marker.k.time) {
@@ -452,7 +451,9 @@ int playback_mpm_t::open_(db_txn& idxdb_txn, milliseconds_t start_time) {
 			}
 		} else {
 			start_time = end_marker.k.time;
+			assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 			current_byte_pos = end_marker.packetno_end;
+			assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 			must_exit = true;
 			return 0;
 		}
@@ -519,8 +520,9 @@ int playback_mpm_t::open_(db_txn& idxdb_txn, milliseconds_t start_time) {
 	if (!(current_byte_pos == start_byte_pos || current_byte_pos == 0)) {
 		dtdebugf("current_byte_pos={:d} start_byte_pos={:d}", current_byte_pos, start_byte_pos);
 	}
+	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 	current_byte_pos = start_byte_pos;
-
+	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 	return 1;
 }
 
@@ -682,24 +684,8 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 			wtxn.commit();
 		}
 		auto idxdb_txn = db->mpm_rec.idxdb.rtxn();
-		if ((int64_t)end_time == std::numeric_limits<int64_t>::max() && live_mpm) {
-				/* We must reread the database to find the correct end_time,  which will have been written
-					 by the service thread performing the writing
-				*/
-				using namespace recdb;
-				auto start_time = currently_playing_file.readAccess()->k.stream_time_start;
-#ifndef NDEBUG
-				auto fileno = currently_playing_file.readAccess()->fileno;
-#endif
-				auto c = file_t::find_by_key(idxdb_txn, file_key_t(start_time), find_eq);
-				assert(c.is_valid());
-				auto r = c.current();
-				end_time = r.stream_time_end;
-				dtdebugf("Reread end_time for current file: {}", end_time);
-				assert(fileno == r.fileno); //fails with r.fileno=2, fileno=1, stary_time=33914
-				assert(end_time != std::numeric_limits<milliseconds_t>::max());
-				dtdebugf("currently_playing_file.fileno={:d}", r.fileno);
-				currently_playing_file.assign(c.current());
+		if (remaining_space == 0  && live_mpm) {
+				end_time=currently_playing_file.readAccess()->stream_time_end;
 			}
 		bool still_not_open = end_time == std::numeric_limits<milliseconds_t>::max();
 		auto ret = still_not_open ? -1 : open_(idxdb_txn, end_time);
@@ -721,11 +707,15 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 		return {-1, -1};
 	}
 	inbytes = std::min(inbytes, remaining_space);
+	if(next_stream_change_ >=0)
+		inbytes = std::min((int64_t)inbytes, next_stream_change_ - current_byte_pos);
 	auto [num_bytes_out, num_bytes_in] = copy_filtered_packets(outbuffer, buffer, outbytes, inbytes);
 	dttime(100);
 	filemap.advance_read_pointer(num_bytes_in);
 	dttime(100);
+	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 	current_byte_pos += num_bytes_in;
+	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 	return {num_bytes_out, num_bytes_in};
 }
 
@@ -734,11 +724,10 @@ static void make_null_packet(ss::bytebuffer<512>& buffer)
 	buffer.resize(188);
 	auto* buff = &buffer[0];
 	memset(buff, 0xff, 188);
-	int cc=0;
 	buff[0]=0x47;
 	buff[1]= 0x1f;
 	buff[2]= 0xff;
-	buff[3] = cc;
+	buff[3] = 0; //cccounter
 }
 
 /*
@@ -760,12 +749,20 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 
 			The loop is therefore needed, to retry the read.
 		 */
-
+		assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
+		auto max_bytes = next_stream_change(); /* max_bytes byte at which is the number of bytes to read before
+																							new pmt becomes active (coincides with end of old pmt);
+																							we may never read past that point without calling next_stream_change
+																							again
+																					 */
+		assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 		if(num_generated_bytes_to_send > 0) {
-			auto num_bytes_sent  = read_generated_data(outbuffer + num_bytes_read, num_bytes);
+			assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
+			auto num_bytes_sent  = read_generated_data(outbuffer + num_bytes_read,
+																								 (int) std::min((int64_t)num_bytes, max_bytes));
+			assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 			num_bytes -= num_bytes_sent;
 			num_bytes_read += num_bytes_sent;
-
 			if(num_bytes == 0) {
 				/*the pmt might be fully sent, but usually this indicates
 					that not enough space was available for the pmt in the output buffer
@@ -776,15 +773,12 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 			}
 		}
 
-			auto max_bytes = next_stream_change(); /* max_bytes byte at which is the number of bytes to read before
-																							new pmt becomes active (coincides with end of old pmt);
-																							we may never read past that point without calling next_stream_change
-																							again
-																					 */
 		if(must_exit)
 			return {0, have_pmt};
 		assert(max_bytes >=0);
+		assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 		auto [num_bytes_out, num_bytes_in] = read_data_(outbuffer + num_bytes_read, num_bytes, max_bytes);
+		assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 		if (num_bytes_out >= 0) { //if there is no error
 			num_bytes_read += num_bytes_out;
 			num_bytes -= num_bytes_out;
@@ -804,6 +798,7 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 			num_generated_bytes_to_send =  generated_ts.size();
 			assert(num_generated_bytes_to_send > 0);
 			auto ret  = read_generated_data(outbuffer + num_bytes_read, num_bytes);
+			assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 			num_bytes_read += ret;
 			num_bytes -= ret;
 			assert(num_bytes_read >0);
@@ -847,39 +842,64 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 			last_seen_live_meta_marker will be updated with:
 			current_marker, curret_file_record (last file in the live buffer) and num_bytes_safe_to_read
 		*/
-		live_mpm->wait_for_update(last_seen_live_meta_marker);
+		live_mpm->wait_for_update(last_seen_live_meta_marker, current_fileno());
 		if (must_exit)
 			return -1;
 
 		auto last_fileno = last_seen_live_meta_marker.current_file_record.fileno;
-		if (current_fileno() == (int)last_fileno) {
+		int64_t new_end_pos{-1};
+		if(current_fileno() == (int) last_fileno) {
 			/*
-				This way of computing new_end_pos ensures that we also get data which has not yet been
-				analyzed. This ensures mimimal latency in mpv
+				We never send data that has not yet been analysed
 			*/
-			auto new_end_pos =
-				last_seen_live_meta_marker.num_bytes_safe_to_read -
-				last_seen_live_meta_marker.current_file_record.stream_packetno_start * dtdemux::ts_packet_t::size;
-			assert(new_end_pos != std::numeric_limits<int64_t>::max());
-			assert(last_seen_live_meta_marker.current_marker.packetno_end <=
-						 last_seen_live_meta_marker.num_bytes_safe_to_read / ts_packet_t::size);
-
-			if (filemap.grow_map(new_end_pos) >= 0) {
-				remaining_space = filemap.get_read_buffer(buffer);
-				assert(remaining_space % ts_packet_t::size ==0);
-				dttime(300);
-				if (remaining_space >= ts_packet_t::size) {
-					break; // success; we have data
-				}
+			new_end_pos = (last_seen_live_meta_marker.current_marker.packetno_end
+										 - currently_playing_file.readAccess()->stream_packetno_start)
+				* dtdemux::ts_packet_t::size;
+		} else if (current_fileno() < (int) last_fileno) {
+			//live mpm has moved to a new file, requiring us to update current_file
+			if(currently_playing_file.readAccess()->stream_time_end == std::numeric_limits<milliseconds_t>::max()) {
+				//fix stream_time_end
+				using namespace recdb;
+				auto start_time = currently_playing_file.readAccess()->k.stream_time_start;
+#ifndef NDEBUG
+				auto fileno = currently_playing_file.readAccess()->fileno;
+#endif
+				auto idxdb_txn = db->mpm_rec.idxdb.rtxn();
+				auto c = file_t::find_by_key(idxdb_txn, file_key_t(start_time), find_eq);
+				assert(c.is_valid());
+				auto r = c.current();
+				auto end_time = r.stream_time_end;
+				dtdebugf("Reread end_time for current file: {}", end_time);
+				assert(fileno == r.fileno); //fails with r.fileno=2, fileno=1, stary_time=33914
+				assert(end_time != std::numeric_limits<milliseconds_t>::max());
+				dtdebugf("currently_playing_file.fileno={:d}", r.fileno);
+				currently_playing_file.assign(r);
+				new_end_pos = (r.stream_packetno_end - r.stream_packetno_start) * dtdemux::ts_packet_t::size;
+			} else {
+				auto r = currently_playing_file.readAccess();
+				new_end_pos = (r->stream_packetno_end - r->stream_packetno_start) * dtdemux::ts_packet_t::size;
+				if(current_byte_pos == r->stream_packetno_end * dtdemux::ts_packet_t::size)
+					return 0;
 			}
-			auto current_file_is_still_live =
-				last_seen_live_meta_marker.current_file_record.stream_packetno_end == std::numeric_limits<int64_t>::max();
-			if (current_file_is_still_live)
-				continue; // We need to wait for data
-			else
-				break;
-		} else
+		}
+		if(new_end_pos == -1)
 			return 0;
+		assert(new_end_pos != std::numeric_limits<int64_t>::max());
+
+		if (filemap.grow_map(new_end_pos) >= 0) {
+			remaining_space = filemap.get_read_buffer(buffer);
+			assert(remaining_space % ts_packet_t::size ==0);
+			dttime(300);
+			if (remaining_space >= ts_packet_t::size) {
+				break; // success; we have data
+			}
+		}
+		auto current_file_is_still_live =
+			last_seen_live_meta_marker.current_file_record.stream_packetno_end == std::numeric_limits<int64_t>::max();
+		if (current_file_is_still_live)
+			continue; // We need to wait for data
+		else
+			break;
 	}
 	if(error)
 		return -1;

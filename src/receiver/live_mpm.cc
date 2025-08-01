@@ -96,17 +96,19 @@ int meta_marker_t::playback_clients_newest_fileno() const {
 	waits for a change in this meta_marker compared to "other" and then
 	updates other; mutex and other_mutex should be locked before calling
 */
-void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex) {
+void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int64_t byte_pos_to_read) {
 	dttime_init();
 
 	// lk is now locked
 	std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
-	assert(other.num_bytes_safe_to_read <= num_bytes_safe_to_read);
+	assert(other.num_bytes_safe_to_read <= num_bytes_safe_to_read || num_bytes_safe_to_read == -1);
 
-	cv.wait(lk, [this, &other] {
+	cv.wait(lk, [this, byte_pos_to_read, &other] {
 		// relock lk
 		auto ret = was_interrupted ||
-			(num_bytes_safe_to_read > other.num_bytes_safe_to_read && //data is available
+			/*live mpm has moved the position where we want to read
+			 */
+			(num_bytes_safe_to_read > byte_pos_to_read && //data is available
 			 current_pmt_marker.packetno_start>=0); //pmt was received
 		if (!other.started) {
 			if (ret) {
@@ -133,8 +135,8 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex) {
 	updates other
 	"this" is the live stream (active_mpm), other is the playback stream (playback_mpm)
 */
-void active_mpm_t::wait_for_update(meta_marker_t& other) {
-	meta_marker.writeAccess()->wait_for_update(other, meta_marker.mutex());
+	void active_mpm_t::wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read) {
+		meta_marker.writeAccess()->wait_for_update(other, meta_marker.mutex(), byte_pos_to_read);
 }
 
 /*
@@ -278,7 +280,7 @@ void active_mpm_t::destroy() {
 	to a new file, while handling  undecrypted or already parsed data properly
 */
 
-void active_mpm_t::transfer_filemap(int fd, int64_t new_num_bytes_safe_to_read) {
+void active_mpm_t::transfer_filemap(int fd, int64_t num_bytes_in_final_mmap) {
 	mmap_t newfilemap(filemap.map_len, false);
 	// fd will be owned by filemap
 	newfilemap.init(fd, 0);
@@ -551,7 +553,7 @@ int active_mpm_t::stop_recording(const recdb::rec_t& rec_in, mpm_copylist_t& cop
 	}
 	rec1_txn.abort();
 	{
-		auto ret = next_data_file(now, -1);
+		auto ret = next_data_file(now);
 		dtdebugf("Closed last mpm part as part of ending recording ret={:d}", ret);
 	}
 	assert(num_recordings_in_progress > 0);
@@ -702,20 +704,17 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 	create a new empty data file, open it and map it to memory
 	if old file and map exist, then it is closed and unmapped
 */
-int active_mpm_t::next_data_file(system_time_t now, int64_t new_num_bytes_safe_to_read) {
+int active_mpm_t::next_data_file(system_time_t now) {
 	auto idx_txn = db->mpm_rec.idxdb.wtxn();
 	using namespace recdb;
 	auto cfile = db->mpm_rec.idxdb.tcursor<file_t>(idx_txn);
 	current_file_time_start = now;
 	auto mm = meta_marker.writeAccess();
-	if (new_num_bytes_safe_to_read < 0)
-		new_num_bytes_safe_to_read = mm->num_bytes_safe_to_read;
+	int64_t end_packet = stream_parser.event_handler.last_saved_marker.packetno_end;
+	auto num_bytes_in_final_mmap = end_packet * ts_packet_t::size;
+	assert(mm->num_bytes_safe_to_read <= num_bytes_in_final_mmap);
 	mm->current_marker = stream_parser.event_handler.last_saved_marker;
 	auto stream_time_end = mm->current_marker.k.time; // could be 0
-	assert(mm->current_marker.packetno_end * ts_packet_t::size <= new_num_bytes_safe_to_read);
-	assert(new_num_bytes_safe_to_read >= mm->num_bytes_safe_to_read);
-	assert(new_num_bytes_safe_to_read % ts_packet_t::size == 0);
-	auto end_packet = new_num_bytes_safe_to_read / ts_packet_t::size;
 	if (current_fileno != -1) {
 		// first finalise last file record if there is one
 		// stream_time_end may be slightly off because bytes may have been received after last pcr

@@ -534,7 +534,7 @@
                                             <flag>wxALIGN_CENTER_VERTICAL</flag>
                                             <object class="DurationTextCtrl" name="duration_text" base="EditTextCtrl">
                                                 <extracode>from neumodvb.neumowidgets import DurationTextCtrl</extracode>
-                                                <tooltip>Duration to record (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)</tooltip>
+                                                <tooltip>Duration to record: use format 1h 3m 2s or 01:03:01 for 1 hours, 3 minutes and 1 second</tooltip>
                                             </object>
                                         </object>
                                     </object>

@@ -153,6 +153,28 @@ class TimeValidator(wx.Validator): # Create a validator subclass
     def TransferFromWindow(self):
         return True
 
+class DurationValidator(TimeValidator): # Create a validator subclass
+    def __init__(self):
+        super().__init__()
+        self.ValidInput = ['.', ':','0','1','2','3','4','5','6','7','8','9', 'h', 'm', 's']
+        self.StringLength = 0
+        self.Bind(wx.EVT_CHAR,self.OnCharChanged) # bind character input event
+    def is_valid(self, x):
+        print (f"is_valid called\n");
+        if len(x)==0:
+            return True
+        if ':' in x: #format with colons: hours:minutues:secondss
+            if len(set(x).intersection(set("hms")))>0:
+                return False #mixed format whoch als contains hms
+            return super().is_valid()
+        if x[0] not in (0,1,2):
+            return False;
+        if len(x) < 2:
+            return True
+    def Clone(self):
+        return DurationValidator()
+
+
 class DatePickerCtrl(wx.adv.DatePickerCtrl):
     def __init__(self, parent, *args, **kwds):
         super().__init__(parent, *args, **kwds)
@@ -168,12 +190,16 @@ class TimePickerCtrlOFF(wx.TextCtrl):
 
 class DurationTextCtrl(wx.TextCtrl):
     def __init__(self, parent, *args, **kwds):
-        super().__init__(parent, *args, **kwds, validator=TimeValidator())
+        super().__init__(parent, *args, **kwds, validator=DurationValidator())
         sz = self.GetTextExtent("23:59 ")
         self.SetInitialSize(self.GetSizeFromTextSize(sz))
 
     def GetSeconds(self):
-        return parse_duration(self.GetValue())
+        val = self.GetValue()
+        if len(set(val).intersection(set("hms")))>0:
+            return parse_duration(val)
+        else:
+            return parse_time(val, is_duration=True)
 
     def SetValueTime(self, val):
         if type(val) == datetime.timedelta:

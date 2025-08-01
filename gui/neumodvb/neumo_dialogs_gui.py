@@ -385,7 +385,7 @@ class RecordDialog_(wx.Dialog):
 								grid_sizer_3.Add(label_6, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
 								self.duration_text = DurationTextCtrl(self.panel_1, wx.ID_ANY, "")
-								self.duration_text.SetToolTip(_("Duration to record (use format 1h 3m 2s for 1 hours, 3 minutes and 1 second)"))
+								self.duration_text.SetToolTip(_("Duration to record: use format 1h 3m 2s or 01:03:01 for 1 hours, 3 minutes and 1 second"))
 								grid_sizer_3.Add(self.duration_text, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
 								sizer_4 = wx.BoxSizer(wx.HORIZONTAL)

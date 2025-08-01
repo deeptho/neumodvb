@@ -202,7 +202,7 @@ class TimeTextCtrl(wx.TextCtrl):
         self.SetInitialSize(self.GetSizeFromTextSize(sz))
 
     def GetSeconds(self):
-        return parse_duration(self.GetValue())
+        return parse_time(self.GetValue())
 
 
 class BarGauge(PM.PeakMeterCtrl):

@@ -29,7 +29,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-const int mmap_t::pagesize = sysconf(_SC_PAGESIZE);
+const int64_t mmap_t::pagesize = sysconf(_SC_PAGESIZE);
 
 /*!
 	use other as a template, to create a non-mapped version
@@ -193,7 +193,7 @@ int mmap_t::grow_map(off_t end_read_offset) {
 	assert(min_map_len >= map_len); // otherwise we should have returned earlier
 
 	/*we will need to map additional pages, but we may as well map more than we
-		need to avoid making many small remaps. As long as we don;t read from any non-existing
+		need to avoid making many small remaps. As long as we don't read from any non-existing
 		bytes, this will be no problem
 	*/
 	auto new_map_len = std::max(min_map_len, 128 * 1024 * 1024L + map_len); // grow by 128 MByte
@@ -284,11 +284,11 @@ void mmap_t::close() {
 int mmap_t::advance() {
 	// decrypt_pointer must be within the mapped area
 	auto safe_to_discard = readonly ? read_pointer : std::min(decrypt_pointer, write_pointer);
-	off_t extra = (safe_to_discard / pagesize) * pagesize;
-	int new_decrypt_pointer = decrypt_pointer - extra;
-	int new_write_pointer = write_pointer - extra;
-	int new_read_pointer = read_pointer - extra;
-	int new_safe_read_len = safe_read_len - extra;
+	auto  extra = (safe_to_discard / pagesize) * pagesize;
+	auto new_decrypt_pointer = decrypt_pointer - extra;
+	auto new_write_pointer = write_pointer - extra;
+	auto new_read_pointer = read_pointer - extra;
+	auto  new_safe_read_len = safe_read_len - extra;
 	assert(!readonly || new_read_pointer >= 0);
 	assert(!readonly || new_safe_read_len >= 0);
 	assert(readonly || new_write_pointer >= 0);

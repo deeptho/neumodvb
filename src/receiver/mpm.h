@@ -248,7 +248,7 @@ class playback_mpm_t : public mpm_t {
 	std::unique_ptr<dtdemux::pmt_writer_t> pmt_writer; //rewritten pmt-stream
 	int64_t next_stream_change_{-1}; //cache
 
-	int next_stream_change(); //byte at which new pmt becomes active (coincides with end of old pmt)
+	int64_t next_stream_change(); //byte at which new pmt becomes active (coincides with end of old pmt)
 	inline void clear_stream_state() {
 		next_stream_change_ = -1 ; //clear cache; will force a reload
 		auto w = stream_state.writeAccess();
@@ -272,11 +272,10 @@ private:
 	int open_file_containing_time(db_txn& recdb_txn, milliseconds_t start_time);
 
 	int open_next_file();
-	int64_t copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t numbytes);
-	std::tuple<int,int> copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int outbytes, int inbytes);
+	std::tuple<int,int> copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t outbytes, int64_t inbytes);
 	int64_t read_generated_data(char* outbuffer, uint64_t num_bytes);
 	int64_t read_data_from_current_file(uint8_t*& buffer);
-	std::tuple<int, int> read_data_(char* outbuffer, int outbytes, int inbytes);
+	std::tuple<int, int> read_data_(char* outbuffer, int64_t outbytes, int64_t inbytes);
 	std::tuple<bool, int64_t> currently_playing_file_status();
 	playback_info_t get_recording_program_info() const;
 	void update_pmt(stream_state_t& stream_state);
@@ -391,7 +390,7 @@ public:
 	//int64_t current_file_stream_time_start = 0; //since start of receiving this channel; play_time
 	system_time_t current_file_time_start; //real time at which the current file was started (in seconds)
 	const system_time_t creation_time;
-	uint32_t current_file_stream_packetno_start{0};
+	int64_t current_file_stream_packetno_start{0};
 
 
 

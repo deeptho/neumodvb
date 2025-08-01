@@ -220,7 +220,7 @@ int active_stream_t::remove_pid(uint16_t pid)
 				} else {
 					dtdebugf("DMX_REMOVE_PID {}", pid );
 				}
-				int idx  = &x - &open_pids[0];
+				int idx  = (int) (&x - &open_pids[0]);
 				open_pids.erase(open_pids.begin() + idx);
 				return 0;
 			}

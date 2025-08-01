@@ -26,18 +26,18 @@
 
 struct mmap_t {
 	bool readonly = false;
-	static const int pagesize;
+	static const int64_t pagesize;
 	int fd{-1}; //file descriptor of currently mapped file
 
 	/*
 		currenly we map the range [offset, offset + map_len] in memory.
 		This may extend beyond the end of the file. Units are bytes
 	 */
-	off_t offset{0}; /*file offset at which this mmap starts, within current file, in bytes*/
-	int map_len{-1}; /* Current length of the mapped file area in bytes*/
+	int64_t offset{0}; /*file offset at which this mmap starts, within current file, in bytes*/
+	int64_t map_len{-1}; /* Current length of the mapped file area in bytes*/
 
 	uint8_t* buffer{nullptr}; //address at which this mapping is mapped
-	int safe_read_len{-1}; /*number of bytes which are safe to read in the mapped part of the
+	int64_t safe_read_len{-1}; /*number of bytes which are safe to read in the mapped part of the
 													 currently mapped file.
 													 So the safe read range starts at byte offset in the file and ends
 													 at byte offset + safe_read_len -1 in the file.
@@ -46,15 +46,15 @@ struct mmap_t {
 														(not even read) because it is space in which FUTURE writes may occur, but this space
 														may also be truncated away by the writers.
 												*/
-	int read_pointer{0}; /*points to the first byte in te mapped file region we will read next, which corresponds to byte
+	int64_t read_pointer{0}; /*points to the first byte in te mapped file region we will read next, which corresponds to byte
 												 offset + read_pointer of the file.
 												 valid range for read_pointer: [0, safe_read_len]
 											 */
-	int write_pointer{0}; /*points to the first byte in te mapped file region we will write next,
+	int64_t write_pointer{0}; /*points to the first byte in te mapped file region we will write next,
 													which corresponds to byte offset + write_pointer of the file.
 													valid range for write_pointer: [0, map_len]
 												*/
-	int decrypt_pointer{0}; /*points to the first byte in te mapped file region we will decrypt next,
+	int64_t decrypt_pointer{0}; /*points to the first byte in te mapped file region we will decrypt next,
 														which corresponds to byte offset + decrypt_pointer of the file.
 														valid range for decrypt_pointer: [0, write_pointer]
 													*/
@@ -64,11 +64,11 @@ struct mmap_t {
 	/*!
 		Returns the total number of bytes decrypted so far
 	 */
-	off_t get_decrypted_filesize() {
+	int64_t get_decrypted_filesize() {
 		return offset+decrypt_pointer;
 	}
 
-	int get_write_buffer(uint8_t*& buffer_ret) {
+	int64_t get_write_buffer(uint8_t*& buffer_ret) {
 		if(!buffer)
 			return -1;
 		buffer_ret=buffer+write_pointer;
@@ -77,7 +77,7 @@ struct mmap_t {
 		return map_len - write_pointer;
 	}
 
-	int get_read_buffer(uint8_t*& buffer_ret) {
+	int64_t get_read_buffer(uint8_t*& buffer_ret) {
 		if(!buffer)
 			return -1;
 		buffer_ret = buffer + read_pointer;
@@ -89,7 +89,7 @@ struct mmap_t {
 	/*
 		Return the number of bytes which are available for decryption
 	 */
-	int bytes_to_decrypt(uint8_t*& buffer_ret) {
+	int64_t bytes_to_decrypt(uint8_t*& buffer_ret) {
 		if(!buffer)
 			return -1;
 		buffer_ret = buffer + decrypt_pointer;
@@ -98,17 +98,17 @@ struct mmap_t {
 		return ((write_pointer - decrypt_pointer)/188)*188;
 	}
 
-	void advance_write_pointer(int extra) {
+	void advance_write_pointer(int64_t extra) {
 		write_pointer+=extra;
 		assert(write_pointer<=map_len);
 	}
 
-	void advance_read_pointer(int extra) {
+	void advance_read_pointer(int64_t extra) {
 		read_pointer += extra;
 		assert(read_pointer <= safe_read_len);
 	}
 
-	void advance_decrypt_pointer(int extra) {
+	void advance_decrypt_pointer(int64_t extra) {
 		assert(decrypt_pointer+extra <= write_pointer);
 		decrypt_pointer+=extra;
 		assert(decrypt_pointer<=map_len);
@@ -125,7 +125,7 @@ struct mmap_t {
 	int advance();
 
 
-mmap_t(int map_len_, bool readonly_)
+mmap_t(int64_t map_len_, bool readonly_)
 	: readonly(readonly_),
 		map_len(map_len_ -map_len_ % pagesize) {
 	}

@@ -20,6 +20,10 @@ target_precompile_headers(neumoreceiver PRIVATE
 string (REPLACE ";" " -I" EXTRA_FLAGS_STR "${pybind11_INCLUDE_DIRS}")
 set_source_files_properties( subscriber_notify.cc COMPILE_FLAGS ${EXTRA_FLAGS_STR} )
 
+set_source_files_properties( playback_mpm.cc COMPILE_FLAGS -Wimplicit-int-conversion )
+set_source_files_properties( live_mpm.cc COMPILE_FLAGS -Wimplicit-int-conversion )
+set_source_files_properties( filemapper.cc COMPILE_FLAGS -Wimplicit-int-conversion )
+
 add_dependencies(neumoreceiver chdb statdb epgdb recdb recdb stackstring streamparser)
 
 target_link_libraries(neumoreceiver PUBLIC chdb statdb epgdb recdb neumoutil neumodb streamparser config++

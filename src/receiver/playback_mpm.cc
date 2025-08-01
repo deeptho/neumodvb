@@ -600,11 +600,11 @@ int playback_mpm_t::open_next_file() {
 	Returns number of inputs bytes consumed and number of output bytes written
 	Returns -1 on error or if must_exit
  */
-std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, int inbytes) {
+std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbytes, int64_t inbytes) {
 	if (error || inbytes == 0 || outbytes == 0)
 		return {0, 0};
 
-	int remaining_space = -1;
+	int64_t remaining_space = -1;
 	uint8_t* buffer = nullptr;
 	dttime_init();
 
@@ -676,8 +676,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int outbytes, i
 				dtdebugf("currently_playing_file.fileno={:d}", r.fileno);
 				currently_playing_file.assign(c.current());
 			}
-
-		bool still_not_open = (int64_t)end_time == std::numeric_limits<int64_t>::max();
+		bool still_not_open = end_time == std::numeric_limits<milliseconds_t>::max();
 		auto ret = still_not_open ? -1 : open_(idxdb_txn, end_time);
 		idxdb_txn.abort();
 		if(ret == 0 && live_mpm)
@@ -806,7 +805,7 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 	if (error)
 		return -1;
 
-	int remaining_space{0};
+	int64_t remaining_space{0};
 	dttime_init();
 	for(; !error; ) {
 		remaining_space = filemap.get_read_buffer(buffer);
@@ -867,7 +866,7 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 milliseconds_t playback_mpm_t::get_current_play_time() const {
 	auto txn = db->mpm_rec.idxdb.rtxn();
 	{
-		auto c = recdb::marker_t::find_by_packetno(txn, current_byte_pos / ts_packet_t::size, find_leq);
+		auto c = recdb::marker_t::find_by_packetno(txn, (uint32_t) (current_byte_pos / ts_packet_t::size), find_leq);
 		if (!c.is_valid())
 			return milliseconds_t(0);
 		auto m = c.current();
@@ -989,7 +988,8 @@ int64_t  playback_mpm_t::read_generated_data(char* outbuffer, uint64_t num_bytes
 	is not yet complete and/or because some input packets are discarded
 	The number of packets read/written can also equal zero
  */
-std::tuple<int,int> playback_mpm_t::copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int outbytes, int inbytes)
+std::tuple<int,int> playback_mpm_t::copy_filtered_packets(char* outbuffer, uint8_t* inbuffer,
+																													int64_t outbytes, int64_t inbytes)
 {
 	inbytes -= inbytes % ts_packet_t::size;
 	outbytes -= outbytes % ts_packet_t::size;

@@ -350,7 +350,7 @@ recdb::rec_t active_mpm_t::start_recording(
 	return rec;
 }
 
-static inline int overlap_duration(int a1, int a2, int b1, int b2) {
+static inline int64_t overlap_duration(int64_t a1, int64_t a2, int64_t b1, int64_t b2) {
 	auto left = std::max(a1, b1);
 	auto right = std::min(a2, b2);
 	return right - left;
@@ -909,7 +909,8 @@ recdb::live_service_t active_mpm_t::get_live_service(subscription_id_t subscript
 	assert(p - this->dirname.c_str() < this->dirname.size());
 	//note that last_use_time is set to -1, meaning: still being used
 	return recdb::live_service_t(getpid() /*owner*/ , (int)subscription_id,
-															 system_clock_t::to_time_t(this->creation_time), active_service->get_adapter_no(),
+															 system_clock_t::to_time_t(this->creation_time),
+															 (int8_t) active_service->get_adapter_no(),
 															 -1, active_service->get_current_service(), p/*, epg*/);
 }
 
@@ -950,7 +951,6 @@ void active_mpm_t::housekeeping(system_time_t now) {
 
 		*/
 }
-
 
 int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 	bool may_start_new_file = false;
@@ -1031,25 +1031,18 @@ int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		/*
 			playpback_mpms should never read past the next pmt, as a a pmt change can occur
 		 */
-		assert (this->num_bytes_decrypted >=last_num_bytes_decrypted);
 		auto v = this->num_bytes_decrypted;
 		if(likely(active_service->pmt_parser)) {
 			assert(v>= active_service->pmt_parser->last_section_end_bytepos);
-			assert( active_service->pmt_parser->last_section_end_bytepos >= pmt_last_section_end_bytepos);
-			pmt_last_section_end_bytepos = active_service->pmt_parser->last_section_end_bytepos;
 			v=std::min(v, active_service->pmt_parser->last_section_end_bytepos);
 		}
 		else if(active_service->pat_parser) {
 			assert(v>= active_service->pat_parser->last_section_end_bytepos);
-			assert( active_service->pat_parser->last_section_end_bytepos >= pat_last_section_end_bytepos);
-			pat_last_section_end_bytepos = active_service->pat_parser->last_section_end_bytepos;
 			v=std::min(v, active_service->pat_parser->last_section_end_bytepos);
 		}
 		v= std::max(v, (int64_t)0);
 		assert(v>=mm->num_bytes_safe_to_read );
-		assert(last_num_bytes_safe_to_read == mm->num_bytes_safe_to_read);
 		mm->num_bytes_safe_to_read = v;
-		last_num_bytes_safe_to_read = mm->num_bytes_safe_to_read;
 		if (!mm->started && mm->num_bytes_safe_to_read > 0) {
 			mm->started = true;
 			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);

@@ -301,8 +301,9 @@ int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 			});
 	} else {
 		update(currently_playing_recording.service);
-		auto txn = db->mpm_rec.recdb.wtxn();
-		put_record(txn, currently_playing_recording);
+		auto wtxn = db->mpm_rec.recdb.wtxn();
+		put_record(wtxn, currently_playing_recording);
+		wtxn.commit();
 	}
 
 	if (for_subtitles)

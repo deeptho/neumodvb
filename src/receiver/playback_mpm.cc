@@ -50,8 +50,8 @@ playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 	, subscription_id(subscription_id_) {
 	assert(filemap.readonly);
 	auto ls = stream_state.writeAccess();
-	ls->current_streams = other.meta_marker.readAccess()->last_streams;
-	ls->next_streams = {};
+	ls->current_pmt_marker = other.meta_marker.readAccess()->current_pmt_marker;
+	ls->next_pmt_marker = {};
 	ls->audio_pref = live_service.audio_pref;
 	ls->subtitle_pref = live_service.subtitle_pref;
 }
@@ -66,17 +66,25 @@ void playback_mpm_t::find_current_pmts(int64_t bytepos)
 	constexpr auto never = std::numeric_limits<int>::max();
 	auto curp = bytepos / ts_packet_t::size;
 	auto rtxn = db->mpm_rec.idxdb.rtxn();
-	auto c = recdb::stream_descriptor_t::find_by_key(rtxn, curp, find_leq);
+	auto c = recdb::pmt_marker_t::find_by_key(rtxn, curp, find_leq);
 	auto ls = stream_state.writeAccess();
 	if (!c.is_valid()) {
-		c =  recdb::find_first<recdb::stream_descriptor_t>(rtxn);
+		c =  recdb::find_first<recdb::pmt_marker_t>(rtxn);
 	}
 	if(c.is_valid()) {
-		ls->current_streams = c.current();
+		ls->current_pmt_marker = c.current();
 		c.next();
-		ls->next_streams = c.is_valid() ? c.current() : recdb::stream_descriptor_t();
-		if (ls->next_streams.packetno_start >= 0)
-			next_stream_change_ = ls->next_streams.packetno_start * ts_packet_t::size;
+		ls->next_pmt_marker = c.is_valid() ? c.current() : recdb::pmt_marker_t();
+		if (ls->next_pmt_marker.packetno_start >= 0) {
+			assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
+			auto new_next_stream_change_ = ls->next_pmt_marker.packetno_start * ts_packet_t::size;
+			if(new_next_stream_change_  == next_stream_change_)
+				return;
+			next_stream_change_ = new_next_stream_change_;
+			if(current_byte_pos < new_next_stream_change_ && have_pmt)
+				return;
+			assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
+		}
 		else if (live_mpm)
 			next_stream_change_ = -1; //live_mpm
 		else
@@ -85,7 +93,7 @@ void playback_mpm_t::find_current_pmts(int64_t bytepos)
 		//assert(false);
 		return;
 	}
-	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_streams
+	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_pmt_marker
 }
 
 void playback_mpm_t::open_recording(const char* dirname_) {
@@ -153,13 +161,13 @@ void playback_mpm_t::close() {
 	returns the byte pos at which next pmt change will occur
 
  */
-int playback_mpm_t::next_stream_change() { //byte at which new pmt becomes active (coincides with end of old pmt)
+int64_t playback_mpm_t::next_stream_change() { //byte at which new pmt becomes active (coincides with end of old pmt)
 	constexpr auto never = std::numeric_limits<int>::max();
 	if (next_stream_change_ >= 0 &&  current_byte_pos < next_stream_change_)
 		return next_stream_change_ - current_byte_pos; /* fast path: return cached version.
 																 */
 	//we should never have read past next_stream_change_
-	assert(next_stream_change_ < 0 || current_byte_pos == next_stream_change_);
+	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 
 	/* The cache next_stream_change_ can contain:
 		  -some future byte
@@ -173,21 +181,20 @@ int playback_mpm_t::next_stream_change() { //byte at which new pmt becomes activ
 		The goal is to avoid consulting the database if no update is pending for sure
    */
 	if(live_mpm) {
-		if (last_seen_live_meta_marker.last_streams.packetno_start <0) {
+		if (last_seen_live_meta_marker.current_pmt_marker.packetno_start <0) {
 			//wait for initial pmt
 			live_mpm->wait_for_update(last_seen_live_meta_marker);
-			assert(must_exit || last_seen_live_meta_marker.last_streams.packetno_start >=0);
+			assert(must_exit || last_seen_live_meta_marker.current_pmt_marker.packetno_start >=0);
 		}
 
 		auto ls = stream_state.readAccess();
-		assert(last_seen_live_meta_marker.last_streams.packetno_start >= ls->current_streams.packetno_start);
-		if (last_seen_live_meta_marker.last_streams.packetno_start == ls->current_streams.packetno_start) {
-			//no update pending for sure
+		assert(last_seen_live_meta_marker.current_pmt_marker.packetno_start >= ls->current_pmt_marker.packetno_start); //xxx
+		if (last_seen_live_meta_marker.current_pmt_marker.packetno_start == ls->current_pmt_marker.packetno_start) {
+			//no update pending for sure because last_streams updates when phd has been received
 			return never; //no update pending for sure
-		/* otherwise: we cannot rely on last_seen_live_meta_marker.last_stream.packetno_start because
-			 there may have been multiple pmt updates (unlikely); so we need to consult the database
-		*/
-
+			/* otherwise: we cannot rely on last_seen_live_meta_marker.last_stream.packetno_start because
+				 there may have been multiple pmt updates (unlikely); so we need to consult the database
+			*/
 		}
 	}
 	find_current_pmts(current_byte_pos);
@@ -203,9 +210,9 @@ int playback_mpm_t::next_stream_change() { //byte at which new pmt becomes activ
  */
 void playback_mpm_t::update_pmt(stream_state_t& ss) {
 	//pmt with all audio streams
-	current_pmt = parse_pmt_section(ss.current_streams.pmt_section, ss.current_streams.pmt_pid);
+	current_pmt = parse_pmt_section(ss.current_pmt_marker.pmt_section, ss.current_pmt_marker.pmt_pid);
 	if(!this->pmt_writer)
-		pmt_writer = std::make_unique<pmt_writer_t>(ss.current_streams.pmt_pid);
+		pmt_writer = std::make_unique<pmt_writer_t>(ss.current_pmt_marker.pmt_pid);
 	auto saved = generated_ts.size();
 	this->pat_writer.add_single_service_pat(generated_ts, current_pmt.service_id, current_pmt.pmt_pid);
 	assert(generated_ts.size() > saved);
@@ -221,14 +228,14 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 	num_generated_bytes_to_send += generated_ts.size() - saved;
 	this->current_audio_pid = ss.current_audio_pid;
 	this->current_subtitle_pid = ss.current_subtitle_pid;
-	assert(current_pmt.pmt_pid ==  ss.current_streams.pmt_pid);
+	assert(current_pmt.pmt_pid ==  ss.current_pmt_marker.pmt_pid);
 	have_pmt = true;
 }
 
 
 int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 	auto ls = stream_state.writeAccess();
-	auto langs = for_subtitles ? ls->current_streams.subtitle_langs : ls->current_streams.audio_langs;
+	auto langs = for_subtitles ? ls->current_pmt_marker.subtitle_langs : ls->current_pmt_marker.audio_langs;
 	if (idx < 0 || idx >= langs.size()) {
 		dterrorf("set_language: index {:d} out of range", idx);
 		return -1;
@@ -278,7 +285,7 @@ int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 		ls->current_subtitle_language = selected_lan;
 	else
 		ls->current_audio_language = selected_lan;
-	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_streams
+	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_pmt_marker
 	return 1;
 }
 
@@ -915,12 +922,12 @@ chdb::language_code_t playback_mpm_t::get_current_subtitle_language() {
 
 ss::vector_<chdb::language_code_t> playback_mpm_t::audio_languages() {
 	auto ls = stream_state.readAccess();
-	return ls->current_streams.audio_langs;
+	return ls->current_pmt_marker.audio_langs;
 }
 
 ss::vector_<chdb::language_code_t> playback_mpm_t::subtitle_languages() {
 	auto ls = stream_state.readAccess();
-	return ls->current_streams.subtitle_langs;
+	return ls->current_pmt_marker.subtitle_langs;
 }
 
 active_service_t* playback_mpm_t::active_service() const {
@@ -1015,21 +1022,21 @@ std::tuple<int,int> playback_mpm_t::copy_filtered_packets(char* outbuffer, uint8
 /*
 	Possible states:
 	1) num_pmt_bytes_to_send>0: then return pmt bytes to reader until  num_pmt_bytes_to_send=0
-	2) num_pmt_bytes_to_send==0 and  packetno < ls->next_streams.packetno_start:
+	2) num_pmt_bytes_to_send==0 and  packetno < ls->next_pmt_marker.packetno_start:
      then we are sending filtered stream data: pmt packets are removed, other packets
 		 are passed to reader
-	3)) num_pmt_bytes_to_send==0 and  packetno == ls->next_streams.packetno_start:
+	3)) num_pmt_bytes_to_send==0 and  packetno == ls->next_pmt_marker.packetno_start:
      then we must call pmt call backs and we also must also go to state 1, with  num_pmt_bytes_to_send set
 		 to the size of the newly active pmt
 
 
    Overall play state:
-    current_streams: current pmt_data + byte at which this became active
+    current_pmt_marker: current pmt_data + byte at which this became active
     next_streams: next pmt_data + byte at which this becomes active. packetno_start = -1 means: there is no new pmt
 		currently_playing_file: descriptor of mpm file wich is currently mapped
 		current_byte_pos: position of next byte to read from mpm recording (live or non live)
 		num_pmt_bytes_to_send: if larger than 0, number of pmt bytes still to send before reading from actual recorded stream
-		current_pmt_pid: -> part of current_streams: pmt_pid used to send pmt data
+		current_pmt_pid: -> part of current_pmt_marker: pmt_pid used to send pmt data
 		currently_playing_recording: overall information about recording (like epg data)
 
 

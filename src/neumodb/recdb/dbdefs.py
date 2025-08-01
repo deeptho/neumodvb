@@ -211,7 +211,7 @@ autorec = db_struct(name='autorec',
                               (10, 'ss::string<16>', 'service_name'), #only for informational purposes
                               ))
 
-stream_descriptor = db_struct(name='stream_descriptor',
+pmt_marker = db_struct(name='pmt_marker',
                      fname = 'rec',
                      db = db,
                      type_id= lord('sd'),

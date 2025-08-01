@@ -116,10 +116,11 @@ public:
 	system_time_t livebuffer_start_time{};
 	system_time_t livebuffer_end_time{};
 	milliseconds_t livebuffer_stream_time_start{};
-	recdb::stream_descriptor_t last_streams; //points to database record containing newest current pmt and such
+	recdb::pmt_marker_t current_pmt_marker; //points to database record containing newest current pmt and such
 
 	std::vector<playback_mpm_t*> playback_clients; /*for an active_mpm_t: filenos currently being played back
 																									by any passive mpms coupled to it
+																									all packetno are relative to the start of service tuning
 																								*/
 	meta_marker_t() {
 		//needed to distinguish an uninitialized record from one with start==0
@@ -161,8 +162,8 @@ struct stream_state_t {
 	pid_t current_audio_pid{0x1fff};
 	chdb::language_code_t current_subtitle_language;
 	pid_t current_subtitle_pid{0x1fff};
-	recdb::stream_descriptor_t current_streams;
-	recdb::stream_descriptor_t next_streams;
+	recdb::pmt_marker_t current_pmt_marker;
+	recdb::pmt_marker_t next_pmt_marker;
 	ss::vector<chdb::language_code_t,4> audio_pref;
 	ss::vector<chdb::language_code_t,4> subtitle_pref;
 	std::map<subscription_id_t, callback_t> audio_language_change_callbacks;
@@ -240,8 +241,8 @@ class playback_mpm_t : public mpm_t {
 	inline void clear_stream_state() {
 		next_stream_change_ = -1 ; //clear cache; will force a reload
 		auto w = stream_state.writeAccess();
-		w->current_streams = {};
-		w->next_streams = {};
+		w->current_pmt_marker = {};
+		w->next_pmt_marker = {};
 	}
 
 public:

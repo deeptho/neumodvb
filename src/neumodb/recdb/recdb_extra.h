@@ -81,7 +81,7 @@ declfmt(recdb::rec_t);
 
 #if 0 // not implemented
 declfmt(recdb::live_service_t);
-declfmt(recdb::stream_descriptor_t);
+declfmt(recdb::pmt_marker_t);
 declfmt(recdb::autorec_t);
 declfmt(recdb::file_key_t);
 declfmt(recdb::browse_history_t);

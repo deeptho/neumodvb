@@ -107,7 +107,7 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex) {
 		// relock lk
 		auto ret = was_interrupted ||
 			(num_bytes_safe_to_read > other.num_bytes_safe_to_read && //data is available
-			 last_streams.packetno_start>=0); //pmt was received
+			 current_pmt_marker.packetno_start>=0); //pmt was received
 		if (!other.started) {
 			if (ret) {
 				dtdebugf("metamarker WAIT safe_to_read={:d} ret={:d}", num_bytes_safe_to_read, ret);
@@ -124,7 +124,7 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex) {
 	other.livebuffer_end_time = livebuffer_end_time;
 	other.num_bytes_safe_to_read = num_bytes_safe_to_read;
 	other.current_file_record = current_file_record;
-	other.last_streams = last_streams;
+	other.current_pmt_marker = current_pmt_marker;
 	lk.release(); // needed because caller expects both mutexes to remain locked
 }
 
@@ -507,8 +507,8 @@ int finalize_recording(db_txn& livebuffer_idxdb_rtxn, mpm_copylist_t& copy_comma
 		}
 	}
 	{
-// copy the stream_descriptor markers into the recording database
-		auto c = recdb::stream_descriptor_t::find_by_key
+// copy the pmt markers into the recording database
+		auto c = recdb::pmt_marker_t::find_by_key
 			(livebuffer_idxdb_rtxn,
 			 stream_packetno_start, // refers to the livebuffer's value (no offset!)
 			 find_leq);
@@ -873,14 +873,14 @@ void active_mpm_t::save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_i
 	using namespace recdb;
 	const auto& marker = this->stream_parser.event_handler.last_saved_marker;
 
-	auto current_streams = stream_descriptor_t(pmt_info.stream_packetno_end, now, marker.k.time, pmt_info.pmt_pid,
+	auto current_pmt_marker = pmt_marker_t(pmt_info.stream_packetno_end, now, marker.k.time, pmt_info.pmt_pid,
 																				pmt_info.audio_languages(), pmt_info.subtitle_languages(), pmt_sec_data);
 	auto txnidx = this->db->mpm_rec.idxdb.wtxn();
-	put_record(txnidx, current_streams);
+	put_record(txnidx, current_pmt_marker);
 	txnidx.commit();
 	{
 		auto mm = this->meta_marker.writeAccess();
-		mm->last_streams = current_streams;
+		mm->current_pmt_marker = current_pmt_marker;
 	}
 }
 

@@ -34,6 +34,15 @@ namespace fs = std::filesystem;
 class active_service_t;
 class active_mpm_t;
 
+enum class stream_status_t {
+	UNKNOWN,
+	STARTING,
+	ACTIVE,
+	INACTIVE,
+	NODATA,
+	ERROR
+};
+
 struct playback_info_t {
 	chdb::service_t service;
 	std::optional<epgdb::epg_record_t> epg;
@@ -44,6 +53,7 @@ struct playback_info_t {
 	system_time_t play_time{};  //current playback time
 	bool is_recording{false}; //Is this a recording or a live channel (possibly in timeshift mode)
 	bool is_timeshifted{false};
+	stream_status_t stream_status;
 };
 
 
@@ -105,6 +115,7 @@ public:
 	bool started = false;
 	mutable std::condition_variable cv;
 	int last_seen_txn_id =-1;
+	stream_status_t stream_status;
 	int64_t num_bytes_safe_to_read = 0; //counted from the start of tuning to service (active_mpm only)
 
 	recdb::file_t current_file_record{}; //file being played back or modified (active_mpm only)
@@ -332,7 +343,7 @@ public:
 		return &this->stream_parser;
 	}
 
-
+	virtual inline void set_stream_status(stream_status_t status) {};
 	virtual void close()=0;
 	virtual int process_service_data(int num_bytes_decrypted_now) = 0;
 	virtual int get_write_buffer(uint8_t*& buffer_ret) =0;
@@ -401,7 +412,10 @@ private:
 	void mkdir(const char*  dirname);
 
  public:
-
+	virtual inline void set_stream_status(stream_status_t status) override {
+		auto w = meta_marker.writeAccess();
+		w->stream_status = status;
+	}
 	void update_pmt(const dtdemux::pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data,
 									bool is_new, bool ca_changed, bool service_changed);
 

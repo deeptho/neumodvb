@@ -880,6 +880,7 @@ void active_mpm_t::save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_i
 	txnidx.commit();
 	{
 		auto mm = this->meta_marker.writeAccess();
+		mm->stream_status = stream_status_t::ACTIVE;
 		mm->current_pmt_marker = current_pmt_marker;
 	}
 }
@@ -890,6 +891,7 @@ playback_info_t active_mpm_t::get_current_program_info() const {
 		ret.service = active_service->current_service;
 
 	auto mm = this->meta_marker.readAccess();
+	ret.stream_status = mm->stream_status;
 	ret.start_time = mm->livebuffer_start_time;
 	ret.end_time = mm->livebuffer_end_time;
 	ret.play_time = mm->livebuffer_end_time;

@@ -53,6 +53,7 @@ void neumo_options_t::load_from_db(db_txn& devdb_wtxn, int32_t user_id)
 		this->livebuffer_retention_time = std::chrono::seconds(u.livebuffer_retention_time);
 		this->livebuffer_mpm_part_duration = std::chrono::seconds(u.livebuffer_mpm_part_duration);
 
+		this->audio_volumes = u.audio_volumes;
 	} else {
 		save_to_db(devdb_wtxn, user_id);
 	}
@@ -93,6 +94,8 @@ void neumo_options_t::save_to_db(db_txn& devdb_wtxn, int32_t user_id)
 	u.timeshift_duration = this->timeshift_duration.count();
 	u.livebuffer_retention_time = this->livebuffer_retention_time.count();
 	u.livebuffer_mpm_part_duration = this->livebuffer_mpm_part_duration.count();
+
+	u.audio_volumes = this->audio_volumes;
 
 	put_record(devdb_wtxn, u);
 }

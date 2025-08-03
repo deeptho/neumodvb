@@ -1052,7 +1052,8 @@ class MosaicPanel(wx.Panel):
             ShowMessage("Subscription failed", data)
     def AddMpvPlayer(self):
         import pyneumompv
-        mpv_player = pyneumompv.MpvPlayer(self.controller.app.receiver, self)
+        idx = len(self.mpv_players)
+        mpv_player = pyneumompv.MpvPlayer(self.controller.app.receiver, self, idx)
         glcanvas = mpv_player.glcanvas
         glcanvas.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
         self.controller.mosaic_sizer.Add(glcanvas, 1, wx.EXPAND|wx.ALL)

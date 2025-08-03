@@ -477,7 +477,8 @@ user_options = db_struct(name ='user_options',
                         (9, 'int32_t', 'livebuffer_mpm_part_duration', '10*60'),  #10 minutes
                         (19, 'ss::string<16>', 'softcam_server', '"192.168.2.254"'),
                         (20, 'int16_t', 'softcam_port', '9000'),
-                        (21, 'bool', 'softcam_enabled', 'true')
+                        (21, 'bool', 'softcam_enabled', 'true'),
+                        (23, 'ss::vector<int8_t>', 'audio_volumes') #one volume setting per mpv player
                     ))
 
 

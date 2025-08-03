@@ -609,6 +609,17 @@ public:
 
 	EXPORT neumo_options_t get_options();
 
+	//atomically update an options
+	inline void update_options(db_txn& devdb_wtxn, auto&& fn, bool save, int user_id=0) {
+		auto w = this->options.writeAccess();
+		auto & options = *w;
+		fn(options);
+		*w = options;
+		if(save) {
+			options.save_to_db(devdb_wtxn, user_id);
+		}
+	}
+
 	inline time_t scan_start_time() const {
 		return receiver_thread.scan_start_time();
 	}

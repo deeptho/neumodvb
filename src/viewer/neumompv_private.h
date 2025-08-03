@@ -22,6 +22,7 @@
 #include "receiver/devmanager.h"
 #include "neumoglcanvas.h"
 #include "neumompv.h"
+#include "util/expiration.h"
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
@@ -106,6 +107,9 @@ class MpvPlayer_ : public MpvPlayer {
 	friend class MpvGLCanvas;
 	friend class mpv_subscription_t;
 public:
+	expiration_t volume_expiration;
+	int volume{100}; //current audio volume
+	int idx{0}; //to indec audio_volumes
 	int valid_frames{0};
 	MpvGLCanvas* gl_canvas;
 	mpv_handle* mpv = nullptr;
@@ -141,6 +145,8 @@ public:
 	int stop_play();
 	int pause();
 	int run();
+	void get_audio_volume();
+	void save_audio_volume_async();
 #if 0
 	void repaint();
 #endif

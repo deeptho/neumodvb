@@ -79,6 +79,8 @@ struct neumo_options_t {
 
 	std::chrono::seconds scan_max_duration{180s}; /*after this time, scan will be forcefull ended*/
 
+	ss::vector<int8_t, 4> audio_volumes;
+
 	neumo_options_t()
 		{}
 

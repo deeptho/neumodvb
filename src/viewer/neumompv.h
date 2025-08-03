@@ -63,7 +63,7 @@ protected:
 public:
 	receiver_t* receiver = nullptr;
 	virtual ~MpvPlayer() {}
-	static std::shared_ptr<MpvPlayer> make(receiver_t * receiver, pybind11::object parent_window);
+	static std::shared_ptr<MpvPlayer> make(receiver_t * receiver, pybind11::object parent_window, int idx);
 	std::string config_dir;
 	std::condition_variable cv;
 	std::mutex m;

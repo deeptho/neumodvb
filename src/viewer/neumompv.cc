@@ -418,7 +418,7 @@ template <typename T> T* wxLoad(py::object src, const wxString& inTypeName) {
 	return obj;
 }
 
-std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver, pybind11::object parent_window) {
+std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver, pybind11::object parent_window, int idx) {
 	// make_shared does not work with private constructor
 
 	auto ret = std::shared_ptr<MpvPlayer_>(new MpvPlayer_(receiver));
@@ -431,10 +431,38 @@ std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver, pybind11::objec
 	return ret;
 }
 
+void MpvPlayer_::get_audio_volume()
+{
+	auto user_options = receiver->get_options();
+	auto & volumes = user_options.audio_volumes;
+	auto s = volumes.size();
+	if (idx >= s)
+		volume = 100;
+	else
+		volume = volumes[idx];
+}
+
+
+void MpvPlayer_::save_audio_volume_async()
+{
+	if(volume_expiration.has_expired_now()) {
+		auto devdb_wtxn = receiver->devdb.wtxn();
+		receiver->update_options(devdb_wtxn, [this](neumo_options_t& options) {
+			auto& volumes = options.audio_volumes;
+			for (int i=volumes.size() ; i <=idx; ++i)
+				volumes.push_back(100);
+			volumes[idx] =volume;
+		}, true /*save*/);
+		devdb_wtxn.commit();
+		dtdebugf("Saved audio volume [{}] = {}", idx, volume);
+	}
+}
+
 MpvPlayer_::MpvPlayer_(receiver_t* receiver)
 	: MpvPlayer(receiver, dynamic_cast<MpvPlayer_*>(this))
 	, subscription(receiver, this)
 {
+	get_audio_volume();
 }
 
 MpvPlayer_::~MpvPlayer_() {
@@ -661,12 +689,22 @@ void MpvPlayer::mpv_command(const char* cmd_, const char* arg2, const char* arg3
 }
 
 int MpvPlayer_::change_audio_volume(int step) {
+
 	ss::string<16> arg;
-	arg.format("{:d}", step);
-	dtdebugf("adjusting audio volume by {:d}", step);
-	const char* cmd[] = {"add", "volume", arg.c_str(), nullptr};
+	int v = volume + 5*step;
+	v = std::min(std::max(v, 0), 100);
+	arg.format("{:d}", v);
+	dtdebugf("setting audio volume to {:d}", v);
+	const char* cmd[] = {"set", "volume", arg.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
+	volume = v;
+	volume_expiration.start(1s);
 	return 0;
+}
+
+int MpvPlayer::change_audio_volume(int step) {
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->change_audio_volume(step);
 }
 
 int MpvPlayer_::set_audio_language(int id) {
@@ -680,11 +718,6 @@ int MpvPlayer::set_audio_language(int id) {
 	dtdebugf("setting audio language to {:d}", id);
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->set_audio_language(id);
-}
-
-int MpvPlayer::change_audio_volume(int step) {
-	auto* self = dynamic_cast<MpvPlayer_*>(this);
-	return self->change_audio_volume(step);
 }
 
 int MpvPlayer_::set_subtitle_language(int id) {
@@ -764,8 +797,10 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 		return -1;
 	}
 	this->subscription.set_pending_close(true);
+
 	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
+	this->change_audio_volume(0);
 	dtdebugf("PLAY SUBSCRIPTION {:p} STARTED", fmt::ptr(this));
 	return 0;
 }
@@ -830,8 +865,11 @@ int MpvPlayer_::play_recording(const recdb::rec_t& rec, milliseconds_t start_pla
 		assert(0);
 		return -1;
 	}
-	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
+
+	const char* cmd[] = { "loadfile", subscription.filepath.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
+	this->change_audio_volume(0);
+
 	dtdebugf("PLAY RECORDING {:p} END", fmt::ptr(this));
 	return 0;
 }
@@ -1005,6 +1043,7 @@ int MpvPlayer_::run() {
 		}
 		if(! timedout)
 			frames_to_play--;
+		save_audio_volume_async();
 	}
 
 	if (mpv_gl) {

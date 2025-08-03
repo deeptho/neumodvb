@@ -547,6 +547,15 @@ static const char* recording_status_text(epgdb::rec_status_t status, bool is_tim
 	return is_timeshifted ? "TIMESHIFT" : "LIVE";
 }
 
+void svg_overlay_t::toggle_overlay() {
+	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
+	auto t = self->service_panel.show_type.load();
+	t = (t == overlay_show_type_t::ON) ? overlay_show_type_t::OFF : overlay_show_type_t::ON;
+	self->service_panel.set_show_type(t);
+	self->playback_panel.set_show_type(t);
+	self->uptodate = false;
+}
+
 void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 	set_livebuffer_info(playback_info);
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);

@@ -101,7 +101,6 @@ MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 {
 	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
 	SetClientSize(parent->GetSize());
-	tm = std::make_unique<wxTimer>(this);
 }
 
 void InitializeTexture(GLuint& g_texture) {
@@ -140,7 +139,6 @@ MpvGLCanvas::~MpvGLCanvas() {
 
 	OnRender = nullptr;
 	OnSwapBuffers = nullptr;
-	tm.reset();
 }
 
 bool MpvGLCanvas::SetCurrent() // MPV_CALLBACK
@@ -380,13 +378,6 @@ void mpv_subscription_t::on_audio_language_change(const chdb::language_code_t& l
 		return;
 	}
 	dtdebugf("setting audio language (MPV ONLY) to {:d} {:s}", id, chdb::lang_name(lang));
-
-	if (pmt_change_count++) {
-		if (mpv_set_property_string(mpv_player->mpv, "demuxer-lavf-o", "merge_pmt_versions=1") < 0)
-			dterrorf("Failed  language XXX");
-	}
-	if (mpv_set_property_string(mpv_player->mpv, "aid", arg.c_str()) < 0)
-		dterrorf("Failed setting audio language {:d}", id);
 }
 
 static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
@@ -1239,7 +1230,7 @@ mpv_overlay_t::mpv_overlay_t(MpvPlayer_* player) {
 
 void MpvPlayer::toggle_overlay(){
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
-	self->subscription.show_osd = !self->subscription.show_osd;
+	self->gl_canvas->toggle_overlay();
 }
 
 playback_info_t MpvPlayer::get_current_program_info() {

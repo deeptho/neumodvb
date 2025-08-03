@@ -347,7 +347,7 @@ public:
 
 	virtual inline void set_stream_status(stream_status_t status) {};
 	virtual void close()=0;
-	virtual int process_service_data(int num_bytes_decrypted_now) = 0;
+	virtual bool process_service_data(int num_bytes_decrypted_now) = 0;
 	virtual int get_write_buffer(uint8_t*& buffer_ret) =0;
 	virtual int advance() = 0;
 
@@ -401,7 +401,7 @@ private:
 	bool  file_used_by_recording(const recdb::file_t& file) const;
 	static ss::string<128> make_dirname(active_service_t*parent, system_time_t start_time);
 	bool next_key(int parity);
-	void transfer_filemap(int fd, int64_t new_num_bytes_safe_to_read); //helper
+	void transfer_filemap(int fd, int64_t num_bytes_in_final_mmap); //helper
 
   /*!
 		create the directory structure, including the database
@@ -483,7 +483,7 @@ private:
 		this->stream_parser.set_buffer(filemap.buffer + filemap.decrypt_pointer, num_bytes_decrypted_now);
 	}
 
-	virtual int process_service_data(int num_bytes_decrypted_now) override;
+	virtual bool process_service_data(int num_bytes_decrypted_now) override;
 	virtual void register_parser_pid(int service_id, const dtdemux::pid_info_t& pidinfo) final;
 
 	std::unique_ptr<playback_mpm_t> make_playback_mpm(subscription_id_t subscription_id);

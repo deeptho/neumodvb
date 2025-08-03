@@ -60,7 +60,10 @@ public:
 	void set_signal_info(const signal_info_t& signal_info,
 											 const playback_info_t& playback_info);
 	void set_playback_info(const playback_info_t& playback_info);
+	void set_message(const ss::string_& msg);
 	void set_livebuffer_info(const playback_info_t& playback_info);
+
+	void toggle_overlay();
 	virtual uint8_t* render(int window_width, int window_height);
 	static std::unique_ptr<svg_overlay_t> make(const char* filename);
 };

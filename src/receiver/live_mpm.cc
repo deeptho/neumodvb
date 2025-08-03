@@ -264,7 +264,7 @@ void active_mpm_t::create() {
 		throw std::runtime_error("Failed to create live buffer");
 	}
 	db->open_index();
-	if (next_data_file(creation_time, 0) < 0)
+	if (next_data_file(creation_time) < 0)
 		throw std::runtime_error("Failed to create live buffer");
 }
 
@@ -286,13 +286,15 @@ void active_mpm_t::transfer_filemap(int fd, int64_t num_bytes_in_final_mmap) {
 	mmap_t newfilemap(filemap.map_len, false);
 	// fd will be owned by filemap
 	newfilemap.init(fd, 0);
-	// num_bytes_processed number of bytes proccessed in the current filemap
+	/* num_bytes_processed number of bytes proccessed in the current mapped region of the
+		 file; num_bytes_processed+filemap.offset will be the final size of the old file
+	*/
 	auto num_bytes_processed =
-		new_num_bytes_safe_to_read - current_file_stream_packetno_start * (int64_t)ts_packet_t::size - filemap.offset;
+		num_bytes_in_final_mmap - current_file_stream_packetno_start * (int64_t)ts_packet_t::size - filemap.offset;
 	assert(num_bytes_processed <= filemap.decrypt_pointer);
 	assert(filemap.decrypt_pointer <= filemap.write_pointer);
 	if (num_bytes_processed < filemap.write_pointer) {
-		auto* start = filemap.buffer + num_bytes_processed;
+		auto* start = filemap.buffer + num_bytes_processed; //first byte of new file
 		auto num_bytes_to_move = filemap.write_pointer - num_bytes_processed;
 		assert(num_bytes_processed == filemap.write_pointer - num_bytes_to_move);
 		dtdebugf("Moving {:d} bytes to new file", num_bytes_to_move);
@@ -304,9 +306,12 @@ void active_mpm_t::transfer_filemap(int fd, int64_t num_bytes_in_final_mmap) {
 		assert(num_bytes_processed == filemap.write_pointer);
 	}
 	if (filemap.fd >= 0) {
-		dtdebugf("TRUNCATE from ={:d} to {:d} new_num_bytes_safe_to_read={:d}", filesize_fd(filemap.fd),
-						 num_bytes_processed + filemap.offset, new_num_bytes_safe_to_read);
-		// assert(new_num_bytes_safe_to_read<= num_bytes_processed +filemap.offset);
+		dtdebugf("TRUNCATE from ={:d} to {:d} num_bytes_in_final_mmap={:d}", filesize_fd(filemap.fd),
+						 num_bytes_processed + filemap.offset, num_bytes_in_final_mmap);
+		/*filemap.offset is the number of bytes before the current mmap in the file
+			num_bytes_processed is the numbe of bytes in the current, mmap which maps the last part pf the fole
+			num_bytes_processed + filemap.offset is the new size of the file
+		 */
 		if (ftruncate(filemap.fd, num_bytes_processed + filemap.offset) < 0) {
 			dterrorf("Error while truncating {}", strerror(errno));
 		}
@@ -746,8 +751,9 @@ int active_mpm_t::next_data_file(system_time_t now) {
 
 	if (setvbuf(fp_out, NULL, _IONBF, 0)) // TODO: is this needed?
 		dterrorf("setvbuf failed: {}", strerror(errno));
-	transfer_filemap(fd, new_num_bytes_safe_to_read);
-	mm->num_bytes_safe_to_read = new_num_bytes_safe_to_read;
+	transfer_filemap(fd, num_bytes_in_final_mmap);
+	assert(num_bytes_in_final_mmap >= mm->num_bytes_safe_to_read);
+	assert(mm->num_bytes_safe_to_read <= num_bytes_in_final_mmap);
 	// mm->current_marker = 	stream_parser.event_handler.last_saved_marker;
 	mm->current_file_record.k.stream_time_start = new_file_stream_time_start;
 	mm->current_file_record.stream_time_end = std::numeric_limits<milliseconds_t>::max(); // signifies infinite
@@ -756,11 +762,6 @@ int active_mpm_t::next_data_file(system_time_t now) {
 	mm->current_file_record.stream_packetno_end = std::numeric_limits<int64_t>::max(); // signifies infinite
 	mm->current_file_record.filename = relfilename;
 
-#if 0
-	//the following is incorrect; the old value should be preserved
-	mm->num_bytes_safe_to_read =  mm->current_file_record.stream_packetno_start*
-		ts_packet_t::size;
-#endif
 	put_record(cfile, mm->current_file_record);
 	idx_txn.commit();
 #if 0
@@ -943,7 +944,7 @@ void active_mpm_t::housekeeping(system_time_t now) {
 }
 
 
-int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
+bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 	bool may_start_new_file = false;
 	/*
 		For an encrypted channel, note that the code below will not parse unencrypted data such
@@ -951,7 +952,7 @@ int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		However, video and audio streams are not present until after the first pmt is successfully read. So we should be safe
 		@todo: we could make discarding data more clever by only skipping encrypted packets
 	*/
-
+	bool has_new_payload{false};
 	assert(num_bytes_decrypted_now + this->filemap.decrypt_pointer <= this->filemap.write_pointer);
 
 	//set location where stream_parser will start parsing data
@@ -996,6 +997,7 @@ int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 			todo 3: is it useful to decrypt more than 1 packet at a time?
 
 		*/
+		assert(num_bytes_decrypted_now >=0);
 		this->num_bytes_decrypted += num_bytes_decrypted_now;
 	}
 
@@ -1010,10 +1012,10 @@ int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 			this->num_recordings_in_progress == 0) {
 		/* we start a new file; ideally, we would like the new file to start with a combination
 			 pat/pmt/i-frame. @todo The current implementation does not work as it splits at the end
-			 of an i-frame, but at least this ensures that all data for an iframe is in a singgle file;
+			 of an i-frame, but at least this ensures that all data for an iframe is in a single file;
 			 fixing the problem also means moving more data
 			*/
-		this->next_data_file(now, this->num_bytes_decrypted);
+		this->next_data_file(now);
 	} else if (num_bytes_decrypted_now) {
 		auto mm = this->meta_marker.writeAccess();
 		mm->livebuffer_end_time = now;
@@ -1031,16 +1033,14 @@ int active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 			assert(v>= active_service->pat_parser->last_section_end_bytepos);
 			v=std::min(v, active_service->pat_parser->last_section_end_bytepos);
 		}
-		v= std::max(v, (int64_t)0);
-		assert(v>=mm->num_bytes_safe_to_read );
+		v= std::min(v, mm->current_marker.packetno_end  * (int64_t) dtdemux::ts_packet_t::size);
 		mm->num_bytes_safe_to_read = v;
 		if (!mm->started && mm->num_bytes_safe_to_read > 0) {
 			mm->started = true;
 			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
 		}
-			this->self_check(*mm);
 			//		TODO: add num_bytes_decrypted??? How to save time at start? e.g., first minute alway safe to read?
-			mm->cv.notify_all();
+		mm->cv.notify_all();
 	}
 	return 0;
 }

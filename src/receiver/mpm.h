@@ -452,7 +452,6 @@ private:
 											 const epgdb::epg_record_t& epgrec);
 	void update_recordings(db_txn& parent_txn, system_time_t now);
 	void delete_old_data(db_txn& parent_txn,  system_time_t now);
-	void self_check(meta_marker_t& meta_marker);
 	void wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read);
 	void destroy();
 

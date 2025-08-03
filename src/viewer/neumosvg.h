@@ -53,9 +53,8 @@ protected:
 	double max_snr {18.0};
 	double min_snr {2.0};
 	void update_snr(double snr, double strength, double min_snr);
-	void update_error_text(const playback_info_t& playback_info);
-
 public:
+
 	virtual ~svg_overlay_t() = 0;
 	void set_signal_info(const signal_info_t& signal_info,
 											 const playback_info_t& playback_info);

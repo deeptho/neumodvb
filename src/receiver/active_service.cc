@@ -91,6 +91,11 @@ int active_service_t::open() {
 	auto demux_fd = active_stream_t::open(PAT_PID, &service_thread.epx, EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET);
 	// TOOD: initially we read data as soon as it becomes available to speed up channel tuning
 	// once the channel is up and running we will switch to polling
+	if(demux_fd< 0)
+		return demux_fd;
+	this->last_data = system_clock_t::now();
+	this->active_adapter().on_message(this, "");
+	dtdebugf("Opening");
 	return demux_fd;
 }
 
@@ -542,7 +547,7 @@ active_service_t::start_recording(subscription_id_t subscription_id, const recdb
 	if((int)subscription_id < 0 && receiver.global_subscriber) {
 		ss::string<256> msg;
 		msg.format("Could not start recording: {}\n{}\n{}", rec_in.epg.event_name, rec_in.service.name, get_error());
-		receiver.global_subscriber->notify_error(msg);
+		receiver.global_subscriber->notify_message(msg);
 	}
 	/*wait_for_futures is needed because active_adapters/channels may be removed from reserved_services and subscribed_aas
 		This could cause these structures to be destroyed while still in use by by stream/active_adapter threads
@@ -552,6 +557,21 @@ active_service_t::start_recording(subscription_id_t subscription_id, const recdb
 	*/
 
 	return rec;
+}
+
+void active_service_t::service_status_message(stream_status_t status) {
+	ss::string<128> msg;
+	auto s = this->get_current_service();
+	if(!this->have_pmt) {
+		msg.format("Service \"{}\" not currently active", s.name);
+		stream_buffer->set_stream_status(stream_status_t::INACTIVE);
+	} else {
+		msg.format("Service \"{}\": no data", s.name);
+		stream_buffer->set_stream_status(stream_status_t::NODATA);
+	}
+	printf("setting\n");
+	auto& active_adapter = this->active_adapter();
+	active_adapter.on_message(this, msg);
 }
 
 void active_service_t::process_service_data() {
@@ -565,7 +585,7 @@ void active_service_t::process_service_data() {
 			break;
 		}
 		if(now- this->last_data > 4000ms) {
-			service_status_error(stream_status_t::NODATA);
+			service_status_message(stream_status_t::NODATA);
 			this->last_data = now + 1s;
 		}
 		uint8_t* buffer = NULL;
@@ -576,8 +596,7 @@ void active_service_t::process_service_data() {
 			/*
 				grow the file and move the mmaped region
 				TODO: to support rewind and such, either we need to map full files
-				or come up with some sy
-				stem of mapping multiple chunks. In the latter case
+				or come up with some system of mapping multiple chunks. In the latter case
 				moving an mmapped region is not optimal. The readv function call can help to
 				read data into multiple chunks
 			*/
@@ -592,7 +611,7 @@ void active_service_t::process_service_data() {
 		*/
 		int toread = std::min(remaining_space, (long)ts_packet_t::size * 1024);
 		ssize_t ret = this->reader->read_into(buffer, toread - (toread % dtdemux::ts_packet_t::size),
-																		&this->open_pids);
+																					&this->open_pids);
 		if (ret < 0) {
 			if (errno == EINTR) {
 				// dtdebugf("Interrupt received (ignoring)");
@@ -610,8 +629,9 @@ void active_service_t::process_service_data() {
 			}
 		}
 		assert(ret >= 0);
-		if (ret == 0)
+		if (ret == 0) {
 			return;
+		}
 
 		if (ret % ts_packet_t::size != 0) {
 			dterrorf("ret={:d} ret%%188={:d}", ret, ret % ts_packet_t::size);
@@ -641,11 +661,15 @@ void active_service_t::process_service_data() {
 			: num_bytes_to_decrypt;
 		if (!is_encrypted)
 			this->reader->dvbcsa.num_bytes_decrypted += num_bytes_decrypted_now;
-		this->stream_buffer->process_service_data(num_bytes_decrypted_now);
+
+		auto new_payload_data = this->stream_buffer->process_service_data(num_bytes_decrypted_now);
+
 		if (this->stream_buffer->num_bytes_read % dtdemux::ts_packet_t::size != 0) {
 			dtdebugf("Read partial packet: num_bytes_read={:d} num_bytes_read%%188={:d}", this->stream_buffer->num_bytes_read,
 							 this->stream_buffer->num_bytes_read % dtdemux::ts_packet_t::size);
 		}
+		if(new_payload_data)
+			last_data = now;
 		assert(this->stream_buffer->num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
 		this->stream_buffer->num_bytes_read += ret;
 	}
@@ -663,7 +687,7 @@ void active_ts_t::data_cb(uint8_t* buffer, int num_bytes) {
 	output_filter->read_data(buffer, num_bytes);
 }
 
-int active_ts_t::process_service_data(int num_bytes_decrypted_now)
+bool active_ts_t::process_service_data(int num_bytes_decrypted_now)
 {
 	/*
 		For an encrypted channel, note that the code below will not parse unencrypted data such
@@ -685,7 +709,7 @@ int active_ts_t::process_service_data(int num_bytes_decrypted_now)
 		this->num_bytes_decrypted += num_bytes_decrypted_now;
 	}
 
-	return 0;
+	return true;
 }
 
 void active_ts_t::register_parser_pid(int service_id, const dtdemux::pid_info_t& pidinfo)
@@ -723,12 +747,6 @@ void active_service_t::add_pat_and_pmt_parsers() {
 			}
 		}
 		if(!found) {
-#ifndef QQQ
-			ss::string<256> msg;
-			auto s = this->get_current_service();
-			msg.format("Service \"{}\" not currently active", s.name);
-			receiver.global_subscriber->notify_error(msg);
-#else
 			auto s = this->get_current_service();
 			dtdebugf("Service \"{}\" not present in pat", s);
 			//the following copes with services that may not be in PAT nor in SDT
@@ -739,9 +757,8 @@ void active_service_t::add_pat_and_pmt_parsers() {
 						//on 30.0W 12398, multiple services share the same pmt_pid. We need the correct one
 						this->update_pmt(pmt, isnext, sec_data);
 					}
-						return dtdemux::reset_type_t::NO_RESET;
-					};
-#endif
+					return dtdemux::reset_type_t::NO_RESET;
+				};
 		}
 		return dtdemux::reset_type_t::NO_RESET;
 	};

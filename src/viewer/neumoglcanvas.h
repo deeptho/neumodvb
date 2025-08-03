@@ -65,17 +65,27 @@ public:
 	void set_signal_info(const signal_info_t& signal_info, const playback_info_t& info);
 	void set_playback_info(const playback_info_t& info);
 
-	void render_osd(int window_width, int window_height) {
+	inline void render_osd(int window_width, int window_height, bool show) {
 		return render(svg_overlay.get(), window_width, window_height);
 	}
 
-	void render_radiobg(int window_width, int window_height) {
+	inline void render_overlays(int window_width, int window_height) {
+		return render(svg_radiobg.get(), window_width, window_height);
+	}
+
+	inline void render_radiobg(int window_width, int window_height) {
 		return render(svg_radiobg.get(), window_width, window_height);
 	}
 
 	inline void toggle_overlay() {
 		if(svg_overlay) {
 			svg_overlay->toggle_overlay();
+		}
+	}
+
+	inline void set_message(const ss::string_& msg) {
+		if(svg_overlay) {
+			svg_overlay->set_message(msg);
 		}
 	}
 

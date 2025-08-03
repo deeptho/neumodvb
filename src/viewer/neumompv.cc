@@ -1113,11 +1113,13 @@ void MpvPlayer::notify_signal_info(const signal_info_t& info) {
 //! returns true if this was the right mpv
 void MpvPlayer_::notify_message(const ss::string_& msg) {
 	std::scoped_lock lck(m);
+#if 0
 	if (!subscription.mpm)
 		return;
 	auto* as = subscription.mpm->active_service();
 	if (!as)
 		return;
+#endif
 	gl_canvas->overlay.set_message(msg);
 	return;
 }

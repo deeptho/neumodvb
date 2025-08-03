@@ -968,6 +968,7 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		this->advance_decrypt_pointer(num_bytes_decrypted_now);
 
 		if (this->stream_parser.event_handler.last_saved_marker.packetno_start != old_packetno_start) {
+			has_new_payload = true;
 			may_start_new_file = true;
 			/*A marker was discovered in the current data (end of i-frame);
 				Only then it is ok to switch to a new data file; reason is that num_bytes_safe_to_read
@@ -1042,7 +1043,7 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 			//		TODO: add num_bytes_decrypted??? How to save time at start? e.g., first minute alway safe to read?
 		mm->cv.notify_all();
 	}
-	return 0;
+	return has_new_payload;
 }
 
 std::unique_ptr<playback_mpm_t> active_mpm_t::make_playback_mpm(subscription_id_t subscription_id) {

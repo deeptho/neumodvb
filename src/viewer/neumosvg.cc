@@ -31,6 +31,7 @@
 #include "receiver/receiver.h"
 #include "stackstring.h"
 #include "util/logger.h"
+#include "util/expiration.h"
 #include <cairo/cairo.h>
 
 float get_width(wxSVGElement* el) {
@@ -139,24 +140,6 @@ struct text_box {
 	void show(bool show);
 };
 
-class expiration_t {
-	system_time_t expiration_time;
-	bool armed{false};
-public:
-	void start(std::chrono::milliseconds duration = 5s) {
-		auto now = system_clock_t::now();
-		expiration_time = now + duration;
-		armed = true;
-	}
-
-	bool has_expired() {
-		auto now = system_clock_t::now();
-		bool ret = !armed || now >= expiration_time;
-		if(ret)
-			armed=false;
-		return ret;
-	}
-};
 
 enum class overlay_show_type_t {
 	OFF, //overlay not shown
@@ -190,7 +173,7 @@ struct panel {
 			this->show_(false);
 			break;
 		case overlay_show_type_t::ON_BRIEFLY: {
-			this->show_(!this->expiration.has_expired());
+			this->show_(!this->expiration.has_expired_now());
 		}
 			break;
 		case overlay_show_type_t::ON:
@@ -499,8 +482,8 @@ void svg_overlay_t::update_snr(double snr, double strength, double min_snr) {
 
 void svg_overlay_t::set_message(const ss::string_& msg) {
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
-	self->message_text.set_value("Service is not currently active");
-	self->message_panel.set_show_type(overlay_show_type_t::ON_BRIEFLY);
+	self->message_text.set_value(msg);
+	self->message_panel.set_show_type(msg.size() == 0 ? overlay_show_type_t::OFF: overlay_show_type_t::ON_BRIEFLY);
 	self->uptodate = false; //force immmediate drawing
 }
 

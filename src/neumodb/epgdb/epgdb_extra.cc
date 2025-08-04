@@ -136,27 +136,34 @@ std::optional<epgdb::epg_record_t> epgdb::best_matching(db_txn& txnepg, const ep
 
 std::optional<epgdb::epg_record_t> epgdb::running_now(db_txn& txnepg, const chdb::service_key_t& service_key,
 																											time_t now) {
-	// const int tolerance = 30*60;
+	const int tolerance = 5*60;
 	/*
 		find a record with start time equal to now, or the closest earlier start_time if none exists
 	*/
-	auto c = epgdb::epg_record_t::find_by_key(txnepg, service_key, now /* - tolerance*/, find_leq,
+	auto c = epgdb::epg_record_t::find_by_key(txnepg, service_key, now - tolerance , find_leq,
 																						epgdb::epg_record_t::partial_keys_t::service);
 	if (c.is_valid() && c.current().k.service != service_key)
 		c.next(); // the current service has no records, or no records old enough
-	if (c.is_valid())
+	if (c.is_valid()) {
+		auto savedc = c.clone();
 		for (const auto& rec : c.range()) {
-
-			if (rec.k.service != service_key) {
-				assert(0);
-				break; // we passed the current service
-			}
+			assert (rec.k.service == service_key);
 			if (rec.k.start_time > now)
-				return {}; // all records processed
+				break; // all records processed
 
 			if (rec.end_time > now)
 				return rec;
 		}
+		//try with tolerance
+		for (const auto& rec : savedc.range()) {
+			assert (rec.k.service == service_key);
+			if (rec.k.start_time > now + tolerance)
+				break; // all records processed
+
+			if (rec.end_time > now - tolerance)
+				return rec;
+		}
+	}
 	// no record was found in the database, so it must be a new one
 	return {};
 }

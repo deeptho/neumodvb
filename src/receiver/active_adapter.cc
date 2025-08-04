@@ -300,18 +300,22 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 
 int active_adapter_t::remove_all_services() {
 	std::vector<task_queue_t::future_t> futures;
-	for(auto& [subscription_id, aa] : subscribed_active_services) {
-		auto& service_thread = aa->service_thread;
-		if(!service_thread.must_exit())
-			futures.push_back(service_thread.stop_running(false/*wait*/));
+	{
+		auto& m = *subscribed_active_services.readAccess();
+		for(auto& [subscription_id, aa] : m) {
+			auto& service_thread = aa->service_thread;
+			if(!service_thread.must_exit())
+				futures.push_back(service_thread.stop_running(false/*wait*/));
+		}
 	}
 	wait_for_all(futures, true /*clear all errors*/);
-	subscribed_active_services.clear();
+	auto& m = *subscribed_active_services.writeAccess();
+	m.clear();
 	return 0;
 }
 
 int active_adapter_t::remove_service(subscription_id_t subscription_id) {
-	auto [it, found] = find_in_map(this->subscribed_active_services, subscription_id);
+	auto [it, found] = find_in_safe_map(this->subscribed_active_services, subscription_id);
 	if (!found) {
 		//dterrorf("Request to deactivate non active service: subscription_id={:d}", (int)subscription_id);
 		return -1;
@@ -322,16 +326,19 @@ int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 	tuner_thread.remove_live_buffer(subscription_id);
 	auto& service_thread = active_service.service_thread;
 	service_thread.stop_running(true/*wait*/);
-	subscribed_active_services.erase(it);
-	return subscribed_active_services.size();
+
+	auto& m = *subscribed_active_services.writeAccess();
+	m.erase(it);
+	return m.size();
 }
 
 int active_adapter_t::add_service(subscription_id_t subscription_id, active_service_t& active_service) {
 	active_service.service_thread.start_running();
 	const auto& service = active_service.get_current_service();
 	{
+		auto& m = *subscribed_active_services.writeAccess();
 		// pmt_pid is set to null_pid until we read it from PAT table
-		subscribed_active_services[subscription_id] = active_service.shared_from_this();
+		m[subscription_id] = active_service.shared_from_this();
 	}
 	return 0;
 }
@@ -442,7 +449,7 @@ void active_adapter_t::monitor() {
 
 int active_adapter_t::lnb_spectrum_scan(const subscribe_ret_t& sret, subscription_options_t tune_options) {
 	assert(si_streams.size() == 0);
-	assert(subscribed_active_services.size() == 0);
+	assert(subscribed_active_services.readAccess()->size() == 0);
 	assert(streamers.size() == 0);
 	auto& aa = sret.aa;
 	assert(aa.rf_path);
@@ -1274,7 +1281,7 @@ void active_adapter_t::check_for_non_existing_streams()
 std::shared_ptr<active_service_t>
 active_adapter_t::tune_service_in_use(const subscribe_ret_t& sret,
 																			const chdb::service_t& service) {
-	auto [it, found] = find_in_map(this->subscribed_active_services, sret.subscription_id);
+	auto [it, found] = find_in_safe_map(this->subscribed_active_services, sret.subscription_id);
 	if(!found)
 		return nullptr;
 	auto& active_servicep = it->second;
@@ -1284,7 +1291,10 @@ active_adapter_t::tune_service_in_use(const subscribe_ret_t& sret,
 	/* The service is already subscribed
 		 Unsubscribe_ our old mux and service (if any) by overwriting it with the found active_service
 	*/
-	subscribed_active_services[sret.subscription_id] = active_servicep;
+	{
+		auto& m = *subscribed_active_services.writeAccess();
+		m[sret.subscription_id] = active_servicep;
+	}
 	dtdebugf("[{}] sub={}: reusing existing service", service, (int) sret.subscription_id);
 	return active_servicep;
 }
@@ -1365,10 +1375,22 @@ int active_adapter_t::remove_stream(subscription_id_t subscription_id) {
 
 std::shared_ptr<active_service_t>
 active_adapter_t::active_service_for_subscription(subscription_id_t subscription_id) {
-	auto [it, found] = find_in_map(this->subscribed_active_services, subscription_id);
+	auto [it, found] = find_in_safe_map(this->subscribed_active_services, subscription_id);
 	return found ? it->second : std::shared_ptr<active_service_t>{};
 }
 
+void active_adapter_t::on_message(active_service_t* active_service, const ss::string_& message) {
+	ss::vector<subscription_id_t> subscription_ids;
+	{
+		auto& m = *subscribed_active_services.readAccess();
+		for (auto& [subscription_id, as] : m) {
+			if (as.get() == active_service) {
+				subscription_ids.push_back(subscription_id);
+			}
+		}
+	}
+	receiver.on_message(message, subscription_ids);
+}
 
 std::optional<std::tuple<steady_time_t, int16_t, int16_t>> usals_timer_t::end() {
 	if(!started) {

@@ -75,9 +75,6 @@ public:
 
 thread_local std::unique_ptr<dt_context_t> dt_context_t::c_;
 
-
-extern void test_paint(cairo_t* cr);
-
 void save_debug(uint8_t* buffer, off_t size) {
 	if (size > 0) {
 		static FILE* fpdebug = nullptr;
@@ -171,7 +168,7 @@ void MpvGLCanvas::OnErase(wxEraseEvent& event) {
 	// do nothing to skip erase
 }
 
-void MpvGLCanvas::Render() {// MPV_CALLBACK
+void MpvGLCanvas::Render() {// MPV_CALLBACK and timer callback
 	DoRender();
 }
 
@@ -203,7 +200,7 @@ void MpvGLCanvas::OnMpvWakeupEvent(wxThreadEvent&) {
 		mpv_player->on_mpv_wakeup_event();
 }
 
-void MpvGLCanvas::DoRender() // MPV_CALLBACK
+void MpvGLCanvas::DoRender() // MPV_CALLBACK and timer
 {
 	SetCurrent();
 	auto s = GetSize();
@@ -229,10 +226,7 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK
 	if (mpv_player->subscription.show_radiobg) {
 		overlay.render_radiobg(width, height);
 	}
-
-	if (mpv_player->subscription.show_osd) {
-		overlay.render_osd(width, height);
-	}
+	overlay.render_osd(width, height, mpv_player->subscription.show_osd);
 
 	SwapBuffers();
 }
@@ -244,7 +238,6 @@ void* MpvGLCanvas::GetProcAddress(const char* name) {
 
 void MpvGLCanvas::MpvDestroy() {
 	Unbind(WX_MPV_WAKEUP, &MpvGLCanvas::OnMpvWakeupEvent, this);
-	// Unbind(WX_MPV_REDRAW, &MpvGLCanvas::OnMpvRedrawEvent, this);
 	dtdebugf("MpvDestroy {:p} mpv_player set to null\n", fmt::ptr(this));
 }
 
@@ -1107,8 +1100,8 @@ void MpvPlayer::close() {
 	self->subscription.set_pending_close(true);
 }
 
-//! returns true if this was the right mpv
-void MpvPlayer_::notify(const signal_info_t& signal_info) {
+// returns true if this was the right mpv
+void MpvPlayer_::notify_signal_info(const signal_info_t& signal_info) {
 	std::scoped_lock lck(m);
 	if (!subscription.mpm)
 		return;
@@ -1121,9 +1114,26 @@ void MpvPlayer_::notify(const signal_info_t& signal_info) {
 	return;
 }
 
-void MpvPlayer::notify(const signal_info_t& info) {
+void MpvPlayer::notify_signal_info(const signal_info_t& info) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
-	self->notify(info);
+	self->notify_signal_info(info);
+}
+
+//! returns true if this was the right mpv
+void MpvPlayer_::notify_message(const ss::string_& msg) {
+	std::scoped_lock lck(m);
+	if (!subscription.mpm)
+		return;
+	auto* as = subscription.mpm->active_service();
+	if (!as)
+		return;
+	gl_canvas->overlay.set_message(msg);
+	return;
+}
+
+void MpvPlayer::notify_message(const ss::string_& msg) {
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	self->notify_message(msg);
 }
 
 void MpvPlayer_::update_playback_info() {

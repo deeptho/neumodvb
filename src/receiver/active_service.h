@@ -34,7 +34,6 @@ class active_ts_t : public stream_buffer_t {
 	int totcount{0};
 	int count{0};
 	int bytes{0};
-
 	static constexpr int buffer_size{1024*188};
 	std::unique_ptr<uint8_t[]> storage{new uint8_t[buffer_size]};
 	uint8_t* buffer;
@@ -120,7 +119,7 @@ public:
 	}
 
 	void data_cb(uint8_t* buffer, int num_bytes);
-	virtual int process_service_data(int num_bytes_decrypted_now) override;
+	virtual bool process_service_data(int num_bytes_decrypted_now) override;
 
 	virtual void register_parser_pid(int service_id, const dtdemux::pid_info_t& pidinfo) final;
 
@@ -156,6 +155,7 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 
 
 	mutable std::mutex mutex;
+	system_time_t last_data;
 
 	//the following fields can be modified and should not be accessed/modified without locikng a mutex
 	chdb::service_t current_service; //current channel
@@ -193,6 +193,7 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 		return dynamic_cast<active_ts_t*>(stream_buffer.get());
 	}
 
+	void service_status_message(stream_status_t status);
 	void process_service_data();
 public:
   volatile uint16_t current_pmt_pid = null_pid;// the pmt_pid which is currently requested from the stream
@@ -225,9 +226,10 @@ private:
 
 	int open();
 
-	active_service_t(active_adapter_t& active_adapter,
-									 const chdb::service_t& service, const std::shared_ptr<stream_reader_t>& reader);
-	active_service_t(active_adapter_t& active_adapter, ts_in_ts_stream_filter_t* filter, const chdb::service_t& ch,
+	active_service_t(active_adapter_t& active_adapter, const chdb::service_t& service,
+									 const std::shared_ptr<stream_reader_t>& reader);
+	active_service_t(active_adapter_t& active_adapter, ts_in_ts_stream_filter_t* filter,
+									 const chdb::service_t& service,
 									 const std::shared_ptr<stream_reader_t>& reader);
 
 	virtual ~active_service_t() final;

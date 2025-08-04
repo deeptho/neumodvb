@@ -95,7 +95,8 @@ public:
 	void signal();
 	int pause();
 	void mpv_command(const char* cmd, const char* arg2 = nullptr, const char* arg3 = nullptr);
-	void notify(const signal_info_t& info);
+	void notify_signal_info(const signal_info_t& info);
+	void notify_message(const ss::string_& msg);
 	void update_playback_info();
 	void toggle_overlay();
 };

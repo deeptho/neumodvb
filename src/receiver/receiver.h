@@ -474,7 +474,8 @@ public:
 };
 
 struct player_cb_t {
-	virtual void notify(const signal_info_t& info) {};
+	virtual void notify_signal_info(const signal_info_t& info) {};
+	virtual void notify_message(const ss::string_& errmsg) {};
 	virtual void update_playback_info() {};
 	player_cb_t() {};
 	virtual ~player_cb_t() {};
@@ -635,6 +636,10 @@ public:
 
 	//thread safe; called from fe_monitor; notify python subscribers synschronously and scanner asynchronously
 	void on_signal_info(const signal_info_t& info, const ss::vector_<subscription_id_t>& subscription_ids);
+
+	//thread safe; called from active_service to send messages to mpv's
+	void on_message(const ss::string_& message, const ss::vector_<subscription_id_t>& subscription_ids);
+
 
 	//thread-safe; called from tuner; notify non-scanning python subscribers synchronously and scanner asynchronously
 	void on_sdt_actual(const sdt_data_t& sdt_data, const ss::vector_<subscription_id_t>& subscription_ids);

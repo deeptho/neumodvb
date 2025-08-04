@@ -139,24 +139,71 @@ struct text_box {
 	void show(bool show);
 };
 
+class expiration_t {
+	system_time_t expiration_time;
+	bool armed{false};
+public:
+	void start(std::chrono::milliseconds duration = 5s) {
+		auto now = system_clock_t::now();
+		expiration_time = now + duration;
+		armed = true;
+	}
+
+	bool has_expired() {
+		auto now = system_clock_t::now();
+		bool ret = !armed || now >= expiration_time;
+		if(ret)
+			armed=false;
+		return ret;
+	}
+};
+
+enum class overlay_show_type_t {
+	OFF, //overlay not shown
+	ON_BRIEFLY, //overlay shown for a brief will
+	ON
+};
+
 struct panel {
 	const char* id;
 	wxSvgXmlNode* node{nullptr};
 	wxSVGElement* panel_{nullptr};
-	bool shown{true};
+	std::atomic<overlay_show_type_t> show_type;
+	bool currently_shown{true};
 	bool uptodate{false};
+	expiration_t expiration;
 	panel(const char* id) : id(id) {}
 
-	inline void show(bool show) {
-		if (show == this->shown || !this->panel_)
+	inline void show_(bool show)  {
+		if (show == this->currently_shown || !this->panel_)
 			return;
 		auto k = wxString::FromUTF8("visibility");
 		wxString val { show ? "visible" : "hidden"};
 		this->panel_->SetAttribute(k, val);
-		this->shown = show;
+		this->currently_shown = show;
 		this->uptodate = false;
 	}
 
+	void update_shown() {
+		switch(show_type) {
+		case overlay_show_type_t::OFF:
+			this->show_(false);
+			break;
+		case overlay_show_type_t::ON_BRIEFLY: {
+			this->show_(!this->expiration.has_expired());
+		}
+			break;
+		case overlay_show_type_t::ON:
+			this->show_(true);
+			break;
+		}
+	}
+	inline void  set_show_type(overlay_show_type_t t) {
+		show_type = t;
+		this->update_shown();
+		if(show_type == overlay_show_type_t::ON_BRIEFLY)
+			expiration.start();
+	}
 	inline void init(wxSVGDocument* doc)  {
 		panel_ = doc->GetElementById(id);
 		if(!panel_) {
@@ -321,6 +368,7 @@ public:
 	bool uptodate{false};
 	panel snr_panel{"snr-panel"};
 	panel volume_panel{"volume-panel"};
+	panel message_panel{"message-panel"};
 	panel service_panel{"service-panel"};
 	panel playback_panel{"playback-panel"};
 	level_indicator volume{"volume", "volume", 0.0, 20.0};
@@ -337,7 +385,7 @@ public:
 	text_box end_time{"end-time-text"};
 	text_box play_time{"play-time-text"};
 	text_box rec{"recording-text"};
-	text_box error_text{"error-text"};
+	text_box message_text{"message-text"};
 	wxSVGElement* scrollbar_scroller{nullptr};
 	wxSVGElement* scrollbar_bar{nullptr};
 	wxSVGDocument* doc{nullptr};
@@ -386,6 +434,7 @@ int svg_overlay_impl_t::init() {
 
 	snr_panel.init(doc);
 	volume_panel.init(doc);
+	message_panel.init(doc);
 	service_panel.init(doc);
 	playback_panel.init(doc);
 
@@ -402,18 +451,22 @@ int svg_overlay_impl_t::init() {
 	play_time.init(doc);
 	livebuffer.init(doc);
 	rec.init(doc);
-	error_text.init(doc);
+	message_text.init(doc);
 
-	volume_panel.show(true);
-	service_panel.show(false);
-	playback_panel.show(false);
-	snr_panel.show(false);
-	error_text.show(false);
+	volume_panel.show_(false);
+	service_panel.show_(false);
+	playback_panel.show_(false);
+	snr_panel.show_(false);
+	message_text.show(true);
 	return 0;
 }
 
 uint8_t* svg_overlay_t::render(int window_width, int window_height) {
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
+	self->service_panel.update_shown();
+	self->playback_panel.update_shown();
+	self->message_panel.update_shown();
+
 	if (self->uptodate && surface && this->window_width == window_width && this->window_height == window_height) {
 		return surface;
 	}
@@ -442,28 +495,14 @@ void svg_overlay_t::update_snr(double snr, double strength, double min_snr) {
 	}
 
 	self->uptodate = false;
-	self->service_panel.show(true);
-	self->playback_panel.show(true);
 }
 
-void svg_overlay_t::update_error_text(const playback_info_t& playback_info) {
+void svg_overlay_t::set_message(const ss::string_& msg) {
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
-	switch(playback_info.stream_status) {
-	case stream_status_t::UNKNOWN:
-	case stream_status_t::STARTING:
-	case stream_status_t::ACTIVE:
-		self->error_text.set_value("");
-		self->error_text.show(false);
-		break;
-	case stream_status_t::INACTIVE:
-	case stream_status_t::NODATA:
-	case stream_status_t::ERROR:
-		self->error_text.set_value("Service is not currently active");
-		self->error_text.show(true);
-	}
-	self->uptodate = false;
+	self->message_text.set_value("Service is not currently active");
+	self->message_panel.set_show_type(overlay_show_type_t::ON_BRIEFLY);
+	self->uptodate = false; //force immmediate drawing
 }
-
 
 static system_time_t livebuffer_horizon(const playback_info_t& playback_info) {
 	if (playback_info.start_time > playback_info.end_time - 5min)
@@ -512,9 +551,7 @@ void svg_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 	set_livebuffer_info(playback_info);
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
 	self->uptodate = false;
-	self->service_panel.show(true);
-	self->playback_panel.show(true);
-	self->snr_panel.show(!playback_info.is_recording);
+	self->snr_panel.set_show_type(playback_info.is_recording ? overlay_show_type_t::OFF : overlay_show_type_t::ON);
 	self->chno.set_value(playback_info.service.ch_order, "{:4d}");
 	self->service.set_value(playback_info.service.name);
 	self->lang.set_value(chdb::lang_name(playback_info.audio_language));
@@ -539,5 +576,4 @@ void svg_overlay_t::set_signal_info(const signal_info_t& signal_info, const play
 	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
 	float min_snr = chdb::min_snr(signal_info.driver_mux);
 	self->update_snr(signal_info.last_stat().snr, signal_info.last_stat().signal_strength, min_snr);
-	self->update_error_text(playback_info);
 }

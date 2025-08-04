@@ -62,7 +62,7 @@ class subscriber_t : public std::enable_shared_from_this<subscriber_t>
 		std::shared_ptr<active_playback_t> streamer;
 	};
 
-	std::shared_ptr<player_cb_t> mpv; //cannot yeet be moved into thread safe because called by gui
+	std::shared_ptr<player_cb_t> mpv; //cannot yet be moved into thread safe because called by gui
 	pid_t owner;
 	/*
 		subscription_id can be set/reset only from receiver thread
@@ -184,7 +184,7 @@ public:
 	template<typename T> void notify(const T& data) const;
 	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);
 
-	void notify_error(const ss::string_& errmsg);
+	void notify_message(const ss::string_& errmsg);
 	void notify_scan_progress(const devdb::scan_stats_t& scan_stats);
 	void notify_scan_mux_end(const scan_mux_end_report_t& report);
 	void notify_sdt_actual(const sdt_data_t& sdt_data) const;

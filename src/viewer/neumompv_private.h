@@ -145,7 +145,8 @@ public:
 	void repaint();
 #endif
 	void make_canvas(py::object frame_);
-	void notify(const signal_info_t& info);
+	void notify_signal_info(const signal_info_t& info);
+	void notify_message(const ss::string_& msg);
 	void update_playback_info();
 
 	MpvPlayer_(receiver_t* receiver);

@@ -411,7 +411,7 @@ int playback_mpm_t::open_(db_txn& idxdb_txn, milliseconds_t start_time) {
 		if (fd < 0) { /* error*/
 			filemap.unmap();
 			filemap.close();
-			receiver.global_subscriber->notify_error(get_error()); //TODO: should be replaced by a "subscriber_notify+error"
+			receiver.global_subscriber->notify_message(get_error()); //TODO: should be replaced by a "subscriber_notify+error"
 			return -1;
 		}
 	}

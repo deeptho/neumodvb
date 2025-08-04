@@ -49,7 +49,7 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service_for_viewing(cons
 	auto ssptr = this->shared_from_this();
 	auto mpm = receiver->subscribe_service_for_viewing(service, ssptr);
 	if (!mpm.get()) {
-		notify_error(get_error());
+		notify_message(get_error());
 	} else {
 		assert(get_subscription_id() == mpm->subscription_id);
 		assert((int)mpm->subscription_id  >=0);
@@ -215,14 +215,17 @@ int subscriber_t::subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devd
 	auto ret = receiver->subscribe_lnb_spectrum(rf_path, lnb, pol, low_freq, high_freq, sat,
 																										 ssptr);
 	if ((int)ret < 0)
-		notify_error(get_error());
+		notify_message(get_error());
 	return (int) ret;
 }
 
 void subscriber_t::notify_signal_info(const signal_info_t& signal_info) const {
 	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
 		return;
-	notify(signal_info);
+	if (this->mpv)
+		this->mpv->notify_signal_info(signal_info);
+	else
+		this->notify(signal_info);
 }
 
 void subscriber_t::notify_scan_progress(const devdb::scan_stats_t& scan_stats) {
@@ -255,11 +258,15 @@ void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data) const
 	notify(sdt_data);
 }
 
-void subscriber_t::notify_error(const ss::string_& errmsg) {
+void subscriber_t::notify_message(const ss::string_& errmsg) {
 	if (!(event_flag & int(subscriber_t::event_type_t::ERROR_MSG)))
 		return;
-	auto temp = std::string(errmsg);
-	notify(temp);
+	if (this->mpv)
+		this->mpv->notify_message(errmsg);
+	else {
+		auto temp = std::string(errmsg);
+		notify(temp);
+	}
 }
 
 void subscriber_t::notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum) {

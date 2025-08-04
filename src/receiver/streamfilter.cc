@@ -304,8 +304,9 @@ void ts_in_ts_stream_filter_t::open() {
 	dvbs_mux->k.t2mi_pid = -1;
 	dvbs_mux->embedding_type = chdb::embedding_type_t::NONE;
 	auto reader = active_adapter.make_dvb_stream_reader(master_mux, -1);
-	this->active_servicep = std::make_shared<active_service_t>(active_adapter, this, embedding_service,
-																														 std::move(reader));
+	this->active_servicep = std::make_shared<active_service_t>
+		(active_adapter, this,
+		 embedding_service, std::move(reader));
 		this->active_servicep->add_pat_and_pmt_parsers();
 	this->active_servicep->service_thread.start_running();
 	return;

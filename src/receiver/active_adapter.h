@@ -171,8 +171,9 @@ private:
 	bool si_is_on{false};
 	//list of streamers streaming data from neumodvb to external users
 	std::map<subscription_id_t, std::shared_ptr<streamer_t>> streamers; //indexed by subscription_id
-	std::map<subscription_id_t,
-					 std::shared_ptr<active_service_t>> subscribed_active_services; //indexed by subscription_id
+
+	using as_map_t = safe::Safe<std::map<subscription_id_t, std::shared_ptr<active_service_t>>>;
+	as_map_t subscribed_active_services; //indexed by subscription_id
 
 	/*
 		key is the subscription_id
@@ -344,6 +345,8 @@ public:
 	}
 
 	void force_retune();
+
+	void on_message(active_service_t* active_service, const ss::string_& message);
 
 private:
 	void add_mux_for_scanning_(db_txn& wtxn, chdb::any_mux_t mux, time_t scan_start_time);

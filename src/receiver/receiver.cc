@@ -1177,7 +1177,7 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, const epgdb::e
 	}).wait();
 
 	if(ret<0)
-		global_subscriber->notify_error(get_error());
+		global_subscriber->notify_message(get_error());
 	return ret;
 }
 
@@ -1386,7 +1386,7 @@ subscription_id_t receiver_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::ln
 		unsubscribe(ssptr, true /*wait*/);
 		set_error(saved_error); //restore error message
 		return subscription_id_t::TUNE_FAILED;
-		this->global_subscriber->notify_error(get_error());
+		this->global_subscriber->notify_message(get_error());
 	}
 	return ret_subscription_id;
 }
@@ -1676,6 +1676,19 @@ void receiver_thread_t::cb_t::send_signal_info_to_scanner(
 	}
 }
 
+void receiver_t::on_message(const ss::string_& message,
+														const ss::vector_<subscription_id_t>& subscription_ids) {
+	auto mss = this->subscribers.readAccess();
+	for (auto [subsptr, ms_shared_ptr] : *mss) {
+		auto* ms = ms_shared_ptr.get();
+		if (!ms) //scanning subscribers are handled by scanner
+			continue;
+		auto subscription_id = ms->get_subscription_id();
+		if (subscription_ids.contains(subscription_id))
+			ms->notify_message(message);
+	}
+}
+
 void receiver_t::on_signal_info(const signal_info_t& signal_info,
 																const ss::vector_<subscription_id_t>& subscription_ids) {
 	/*
@@ -1702,21 +1715,6 @@ void receiver_t::on_signal_info(const signal_info_t& signal_info,
 			auto subscription_id = ms->get_subscription_id();
 			if(!subscription_ids.contains(subscription_id))
 				continue;
-			auto mpv = ms->get_mpv();
-			if(mpv) {
-				mpv->notify(signal_info);
-			} else {
-
-				/*Notify positioner dialog screens and spectrum_dialog screens which
-					are busy tuning a single mux.
-
-					Note that during a blindscan, spectrum_dialog
-					will not react to the following call, as they have no active subscriber_t, i.e.,
-					one associated with a specific adapter or lnb. A "blindscan all" spectrum_dialog will
-					ignore the following call
-				*/
-				ms->notify_signal_info(signal_info);
-			}
 		}
 	}
 	auto& receiver_thread = this->receiver_thread;

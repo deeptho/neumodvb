@@ -6,7 +6,7 @@ set breakpoint pending on
 #set environment LD_PRELOAD /usr/lib64/clang/14.0.5/lib/linux/libclang_rt.asan-x86_64.so
 
 #suppress "missing debuginfo"
-set build-id-verbose 0
+#set build-id-verbose 0
 
 set print finish off
 set environment LD_PRELOAD=/usr/lib64/libasan.so.8

@@ -47,3 +47,5 @@ sudo make install
 
 
 sudo dnf install -y librsvg2-devel
+
+https://github.com/include-what-you-use/include-what-you-use/blob/master/README.md

@@ -1008,7 +1008,6 @@ int playback_mpm_t::get_marker_for_time_from_db(db_txn& idxdb_txn, recdb::marker
 
 int64_t  playback_mpm_t::read_generated_data(char* outbuffer, uint64_t num_bytes) {
 	assert(num_generated_bytes_to_send>=0);
-
 	if(num_generated_bytes_to_send > 0) {
 		auto n = std::min(num_bytes, (uint64_t)num_generated_bytes_to_send);
 		assert(n > 0);

@@ -245,8 +245,6 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 		ss.current_subtitle_language = subtitle_lang;
 		ss.current_subtitle_pid = subtitle_desc->stream_pid;
 	}
-	//assert(num_generated_bytes_to_send>=0);
-	//dtdebugf("setting num_generated_bytes_to_send={}", num_generated_bytes_to_send );
 
 #endif
 	this->current_audio_pid = ss.current_audio_pid;
@@ -796,6 +794,8 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 			dtdebugf("Returning null packet data to fill partial packet");
 			make_null_packet(this->generated_ts);
 			num_generated_bytes_to_send =  generated_ts.size();
+			assert(num_generated_bytes_to_send>=0);
+			dtdebugf("setting num_generated_bytes_to_send={}", num_generated_bytes_to_send );
 			assert(num_generated_bytes_to_send > 0);
 			auto ret  = read_generated_data(outbuffer + num_bytes_read, num_bytes);
 			assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
@@ -1007,10 +1007,7 @@ int playback_mpm_t::get_marker_for_time_from_db(db_txn& idxdb_txn, recdb::marker
 }
 
 int64_t  playback_mpm_t::read_generated_data(char* outbuffer, uint64_t num_bytes) {
-	if(num_generated_bytes_to_send < 0 ) {
-		//initialisation
-		num_generated_bytes_to_send = generated_ts.size();
-	}
+	assert(num_generated_bytes_to_send>=0);
 
 	if(num_generated_bytes_to_send > 0) {
 		auto n = std::min(num_bytes, (uint64_t)num_generated_bytes_to_send);
@@ -1019,6 +1016,9 @@ int64_t  playback_mpm_t::read_generated_data(char* outbuffer, uint64_t num_bytes
 		memcpy(outbuffer,
 					 generated_ts.buffer() + num_generated_bytes_already_sent, n);
 		num_generated_bytes_to_send -= n;
+		assert(num_generated_bytes_to_send>=0);
+		if(num_generated_bytes_to_send == 0)
+			generated_ts.clear();
 		return n;
 	}
 	return 0;

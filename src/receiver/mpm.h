@@ -241,10 +241,9 @@ class playback_mpm_t : public mpm_t {
 	ss_t stream_state;
 	dtdemux::pmt_info_t current_pmt;
 	ss::bytebuffer<512> generated_ts;
-	int num_generated_bytes_to_send{-1}; /* If this is non-zero then we do not send data
+	int num_generated_bytes_to_send{0}; /* If this is non-zero then we do not send data
 																					from the stream (and current_byte_pos
 																					will not change), but instead pmt data.
-																					-1 means: need initialisation
 																			 */
 	dtdemux::pat_writer_t pat_writer; //rewritten pat-stream
 	std::unique_ptr<dtdemux::pmt_writer_t> pmt_writer; //rewritten pmt-stream

@@ -220,12 +220,11 @@ int subscriber_t::subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devd
 }
 
 void subscriber_t::notify_signal_info(const signal_info_t& signal_info) const {
-	if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
-		return;
 	if (this->mpv)
 		this->mpv->notify_signal_info(signal_info);
-	else
-		this->notify(signal_info);
+	else if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
+		return;
+	this->notify(signal_info);
 }
 
 void subscriber_t::notify_scan_progress(const devdb::scan_stats_t& scan_stats) {

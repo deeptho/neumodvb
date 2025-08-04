@@ -1715,6 +1715,7 @@ void receiver_t::on_signal_info(const signal_info_t& signal_info,
 			auto subscription_id = ms->get_subscription_id();
 			if(!subscription_ids.contains(subscription_id))
 				continue;
+			ms->notify_signal_info(signal_info);
 		}
 	}
 	auto& receiver_thread = this->receiver_thread;

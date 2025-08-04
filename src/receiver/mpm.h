@@ -56,6 +56,12 @@ struct playback_info_t {
 	stream_status_t stream_status;
 };
 
+struct playback_epg_state_t {
+	int last_seen_recdb_txn_id{-1};
+	std::optional<epgdb::epg_record_t> current_epg;
+
+	inline void update(receiver_t& receiver, int recdb_txn_id, playback_info_t& ret);
+};
 
 namespace epgdb
 {
@@ -233,6 +239,7 @@ class playback_mpm_t : public mpm_t {
 																	 is relative to the start of a deleted part....
 																	 Also, this refers to input bytes prior to filtering
 																*/
+	mutable playback_epg_state_t epg_state;
 	meta_marker_t last_seen_live_meta_marker; //only used when playing a live buffer
 	pid_t current_audio_pid{0x1fff};
 	pid_t current_subtitle_pid{0x1fff};

@@ -902,7 +902,7 @@ recdb::live_service_t active_mpm_t::get_live_service(subscription_id_t subscript
 	return recdb::live_service_t(getpid() /*owner*/ , (int)subscription_id,
 															 system_clock_t::to_time_t(this->creation_time),
 															 (int8_t) active_service->get_adapter_no(),
-															 -1, active_service->get_current_service(), p/*, epg*/);
+															 -1, active_service->get_current_service(), p, {}/*last_epg_update_time*/ /*, epg*/);
 }
 
 void active_mpm_t::housekeeping(system_time_t now) {
@@ -938,7 +938,7 @@ void active_mpm_t::housekeeping(system_time_t now) {
 		active_mpm has not taken action. Then receiver is asked to restart the same recording,
 		but active_mpm sees it is already running).
 
-		=> conslusion may be that start/stop recording should only be done from receiver thread?
+		=> conclusion may be that start/stop recording should only be done from receiver thread?
 
 		*/
 }

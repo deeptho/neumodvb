@@ -206,8 +206,12 @@ void tuner_thread_t::on_epg_update(db_txn& epgdb_wtxn, system_time_t now,
 		if (likely(epg_record.k.service != live_service.service.k))
 			continue;
 		if (likely(epg_record.k.start_time > now_ ||
-							 epg_record.end_time <= now_))
+							 epg_record.end_time <= live_service.creation_time))
 			continue;
+		/*Even though live_service.epg_update_time is currently not used anywhere,
+			updating the record in the database is essential for a side effect:
+			it causes playback_mpm to reread epg data*/
+		live_service.epg_update_time = now_;
 		put_record(recdb_wtxn, live_service);
 	}
 	on_epg_update_check_recordings(recdb_wtxn, epgdb_wtxn, epg_record);

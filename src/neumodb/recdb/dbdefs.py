@@ -184,6 +184,7 @@ live_service = db_struct(name = 'live_service',
                             (3, 'time_t', 'last_use_time', '-1'), #-1 signifies still being used
                             (4, 'chdb::service_t', 'service'), #last used service
                             (5, 'ss::string<128>', 'dirname'),
+                            (9, 'time_t', 'epg_update_time'),
                             #(6, 'epgdb::epg_record_t', 'epg') #currently active epg
                         ))
 

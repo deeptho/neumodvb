@@ -319,7 +319,30 @@ playback_info_t playback_mpm_t::get_recording_program_info() const {
 	ret.play_time = ret.start_time;
 	ret.is_recording = !live_mpm;
 	ret.is_timeshifted = false;
+	{
+		auto txnrec = this->db->mpm_rec.recdb.rtxn();
+		auto c = recdb::find_first<recdb::rec_t>(txnrec);
+		if(c.is_valid()) {
+			auto rec = c.current();
+			ret.epg = rec.epg;
+		}
+		txnrec.abort();
+	}
 	return ret;
+}
+
+
+inline void playback_epg_state_t::update(receiver_t& receiver, int recdb_txn_id,
+																				 playback_info_t& ret)  {
+	auto play_time = system_clock_t::to_time_t(ret.play_time);
+	if(this->last_seen_recdb_txn_id != recdb_txn_id || !this->current_epg ||
+			 play_time < this->current_epg->k.start_time || play_time >= this->current_epg->end_time
+		) {
+		auto epgdb_rxtn = receiver.epgdb.rtxn();
+		this->current_epg = epgdb::running_now(epgdb_rxtn, ret.service.k, ret.play_time);
+		epgdb_rxtn.abort();
+	}
+	this->last_seen_recdb_txn_id = recdb_txn_id;
 }
 
 playback_info_t playback_mpm_t::get_current_program_info() const {
@@ -338,14 +361,13 @@ playback_info_t playback_mpm_t::get_current_program_info() const {
 		auto p = ret.start_time + std::chrono::duration<int64_t>(delta);
 		ret.play_time = p;
 	}
-	{
-		auto txnrec = this->db->mpm_rec.recdb.rtxn();
-		auto c = recdb::find_first<recdb::rec_t>(txnrec);
-		if(c.is_valid()) {
-			auto rec = c.current();
-			ret.epg = rec.epg;
-		}
-		txnrec.abort();
+
+	if(live_mpm) {
+		auto recdb_rtxn = this->receiver.recdb.rtxn();
+		auto txn_id = recdb_rtxn.txn_id();
+		recdb_rtxn.abort();
+		epg_state.update(this->receiver, txn_id, ret);
+		ret.epg = epg_state.current_epg;
 	}
 	return ret;
 }

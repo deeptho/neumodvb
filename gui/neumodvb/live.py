@@ -2024,7 +2024,7 @@ class GridEpgPanel(RecordPanel):
         infow.WriteText(f"{rec.event_name}")
         infow.EndTextColour()
         infow.BeginAlignment(wx.TEXT_ALIGNMENT_RIGHT)
-        infow.WriteText(f" {dt(rec.k.start_time)} - {t(rec.end_time)}")
+        infow.WriteText(f" {dt(rec.k.start_time)} - {t(rec.end_time)} ")
         infow.EndAlignment()
 
         infow.WriteText(f"{content_types(rec.content_codes)}\n\n")

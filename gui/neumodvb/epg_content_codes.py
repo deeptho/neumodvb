@@ -209,4 +209,4 @@ for k,v in content_dict.items():
 
 
 def content_type_name(content_code):
-    return dd.get(content_code, f'{hex(content_code)}')
+    return dd.get(content_code, "")

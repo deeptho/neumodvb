@@ -699,6 +699,9 @@ int MpvPlayer_::change_audio_volume(int step) {
 	::mpv_command(mpv, cmd);
 	volume = v;
 	volume_expiration.start(1s);
+	this->gl_canvas->overlay.set_volume(v);
+	if(step !=0 ) //only show when volume changes (step==0 when called at service start)
+		this->gl_canvas->overlay.show_volume();
 	return 0;
 }
 
@@ -1255,6 +1258,18 @@ void mpv_overlay_t::set_signal_info(const signal_info_t& signal_info, const play
 void mpv_overlay_t::set_playback_info(const playback_info_t& playback_info) {
 	if (svg_overlay.get()) {
 		svg_overlay->set_playback_info(playback_info);
+	}
+}
+
+void mpv_overlay_t::set_volume(int volume) {
+	if (svg_overlay.get()) {
+		svg_overlay->set_volume(volume);
+	}
+}
+
+void mpv_overlay_t::show_volume() {
+	if (svg_overlay.get()) {
+		svg_overlay->show_volume();
 	}
 }
 

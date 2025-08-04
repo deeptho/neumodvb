@@ -39,4 +39,8 @@ public:
 			armed=false;
 		return ret;
 	}
+
+	inline bool is_armed() {
+		return armed && ! has_expired_now();
+	}
 };

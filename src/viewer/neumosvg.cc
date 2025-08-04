@@ -91,6 +91,7 @@ static wxSVGElement* find_child_of_type(wxSVGElement*parent, const char *tagname
 struct level_indicator {
 	const char* scroller_id;
 	const char* bar_id;
+	const char* unit;
 	double min_val{};	 // lower bound of the displayed value
 	double max_val{};	 // upper bound of the displayed value
 	double low_val{};	 // currently set value
@@ -103,9 +104,9 @@ struct level_indicator {
 	wxSVGElement* bar{nullptr};
 	wxSvgXmlNode* text{nullptr};
 
-	level_indicator(const char* scroller_id, const char* bar_id, double min_val, double max_val)
-		: scroller_id(scroller_id), bar_id(bar_id), min_val(min_val), max_val(max_val), low_val(min_val),
-			high_val(min_val) {}
+	level_indicator(const char* scroller_id, const char* bar_id, double min_val, double max_val, const char* unit)
+		: scroller_id(scroller_id), bar_id(bar_id), unit(unit),
+			min_val(min_val), max_val(max_val), low_val(min_val), high_val(min_val) {}
 	void init(wxSVGDocument* doc);
 	void set_values(double low, double high);
 	void set_lower_value(double val) { set_values(val, high_val); }
@@ -117,7 +118,7 @@ struct livebuffer_t : public level_indicator {
 	wxSVGElement* indicator_box{nullptr}; // full box containing indicator
 	int indicator_ref_x{0};
 	livebuffer_t(const char* scroller_id, const char* bar_id, double min_val, double max_val)
-		: level_indicator(scroller_id, bar_id, min_val, max_val) {}
+		: level_indicator(scroller_id, bar_id, min_val, max_val, "") {}
 
 	void init(wxSVGDocument* doc);
 
@@ -173,7 +174,7 @@ struct panel {
 			this->show_(false);
 			break;
 		case overlay_show_type_t::ON_BRIEFLY: {
-			this->show_(!this->expiration.has_expired_now());
+			this->show_(this->expiration.is_armed());
 		}
 			break;
 		case overlay_show_type_t::ON:
@@ -265,7 +266,7 @@ void level_indicator::set_values(double low, double high) {
 	}
 	if (text) {
 		ss::string<16> str;
-		str.format("{:3.1f}dB", high);
+		str.format("{:3.1f}{}", high, unit);
 		auto s = wxString::FromUTF8(str.c_str());
 		text->SetContent(s);
 	}
@@ -354,11 +355,11 @@ public:
 	panel message_panel{"message-panel"};
 	panel service_panel{"service-panel"};
 	panel playback_panel{"playback-panel"};
-	level_indicator volume{"volume", "volume", 0.0, 20.0};
-	level_indicator snr{"snr", "snr", 0.0, 20.0};
-	level_indicator min_snr{"min-snr", "snr", 0.0, 20.0};
-	level_indicator margin_snr{"margin-snr", "snr", 0.0, 20.0};
-	level_indicator strength{"strength", "strength", -80.0, -20.0};
+	level_indicator volume{"volume", "volume", 0.0, 100.0, "%"};
+	level_indicator snr{"snr", "snr", 0.0, 20.0, "dB"};
+	level_indicator min_snr{"min-snr", "snr", 0.0, 20.0, "dB"};
+	level_indicator margin_snr{"margin-snr", "snr", 0.0, 20.0, "dB"};
+	level_indicator strength{"strength", "strength", -80.0, -20.0, "dB"};
 	livebuffer_t livebuffer{"livebuffer", "livebuffer", -7200, -20.0};
 	text_box chno{"service-chno-text"};
 	text_box service{"service-text"};
@@ -425,6 +426,7 @@ int svg_overlay_impl_t::init() {
 	margin_snr.init(doc);
 	min_snr.init(doc);
 	strength.init(doc);
+	volume.init(doc);
 	chno.init(doc);
 	service.init(doc);
 	lang.init(doc);
@@ -449,6 +451,7 @@ uint8_t* svg_overlay_t::render(int window_width, int window_height) {
 	self->service_panel.update_shown();
 	self->playback_panel.update_shown();
 	self->message_panel.update_shown();
+	self->volume_panel.update_shown();
 
 	if (self->uptodate && surface && this->window_width == window_width && this->window_height == window_height) {
 		return surface;
@@ -497,6 +500,17 @@ static system_time_t livebuffer_horizon(const playback_info_t& playback_info) {
 	if (playback_info.start_time > playback_info.end_time - 60min)
 		return playback_info.end_time - 120min;
 	return playback_info.start_time;
+}
+
+void svg_overlay_t::set_volume(int volume) {
+	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
+	self->volume.set_upper_value(volume);
+	self->uptodate = false;
+}
+
+void svg_overlay_t::show_volume() {
+	auto* self = dynamic_cast<svg_overlay_impl_t*>(this);
+	self->volume_panel.set_show_type(overlay_show_type_t::ON_BRIEFLY);
 }
 
 void svg_overlay_t::set_livebuffer_info(const playback_info_t& playback_info) {

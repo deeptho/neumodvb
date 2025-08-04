@@ -64,7 +64,8 @@ class mpv_overlay_t {
 public:
 	void set_signal_info(const signal_info_t& signal_info, const playback_info_t& info);
 	void set_playback_info(const playback_info_t& info);
-
+	void set_volume(int volume);
+	void show_volume();
 	inline void render_osd(int window_width, int window_height, bool show) {
 		return render(svg_overlay.get(), window_width, window_height);
 	}

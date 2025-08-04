@@ -61,8 +61,11 @@ public:
 	void set_playback_info(const playback_info_t& playback_info);
 	void set_message(const ss::string_& msg);
 	void set_livebuffer_info(const playback_info_t& playback_info);
+	void set_volume(int volume);
+	void show_volume();
 
 	void toggle_overlay();
+
 	virtual uint8_t* render(int window_width, int window_height);
 	static std::unique_ptr<svg_overlay_t> make(const char* filename);
 };

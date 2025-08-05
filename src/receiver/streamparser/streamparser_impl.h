@@ -283,10 +283,6 @@ namespace dtdemux {
 			assert(!p || p->range.available() == p->range.tst);
 			auto it = fibers.find(dvb_pid_t(packet_pid));
 			if (it != fibers.end()) {
-#if 1
-				if (packet_pid == 2270)
-					printf("here\n");
-#endif
 				auto& fn = it->second;
 				current_pid = packet_pid;
 				//dump_fibers("before", packet_pid);

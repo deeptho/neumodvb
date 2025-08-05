@@ -230,20 +230,16 @@ std::unique_ptr<epg_screen_t> epgdb::chepg_screen(db_txn& txnepg,
 		);
 }
 
-void epgdb::gridepg_screen_t::remove_service(const chdb::service_key_t& service_key) {
+void epgdb::gridepg_screen_t::remove_all() {
+	bool del = 1;
+	dtdebugf("GRID: Clear all services");
 	for (auto& e : entries) {
-		if (e.service_key == service_key) {
-			bool del = 1;
-			if (e.epg_screen) {
-				dtdebugf("GRID: remove epg for {}", service_key);
-				e.epg_screen->drop_temp_table(del);
-				e.epg_screen.reset();
-				e.service_key = chdb::service_key_t();
-			} else {
-				dterrorf("GRID: attempting to remove non-existing epgscreen for {}", service_key);
-			}
+		if (e.epg_screen) {
+			e.epg_screen->drop_temp_table(del);
+			e.epg_screen.reset();
 		}
 	}
+	entries.clear();
 }
 
 epgdb::epg_screen_t* epgdb::gridepg_screen_t::epg_screen_for_service(const chdb::service_key_t& service_key) {
@@ -276,22 +272,16 @@ epgdb::epg_screen_t* epgdb::gridepg_screen_t::add_service(db_txn& txnepg, const 
 		}
 	};
 
-	for (auto& e : entries) {
-		if (e.epg_screen.get() == nullptr) {
-			e.service_key = service_key;
-			dtdebugf("GRID: add epg for {}", service_key);
-			e.epg_screen = chepg_screen(txnepg,
-																	make_db(), epg_sort_order,
-																	service_key, start_time_
-#ifdef USE_END_TIME
-																	, end_time_
-#endif
-				);
-			return e.epg_screen.get();
+	if((int)entries.size() >= max_num_services) {
+		auto& e  = entries.front();
+		bool del = 1;
+		if (e.epg_screen) {
+			e.epg_screen->drop_temp_table(del);
+			e.epg_screen.reset();
 		}
+		entries.pop_front();
 	}
 	auto& e = entries.emplace_back(service_key);
-	dterrorf("GRID: add epg for {}", service_key);
 	e.epg_screen = chepg_screen(txnepg,
 															make_db(),
 															epg_sort_order,

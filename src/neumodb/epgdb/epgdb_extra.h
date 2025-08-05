@@ -108,8 +108,8 @@ namespace epgdb {
 			entry_t(const chdb::service_key_t& service_key) : service_key(service_key)
 				{}
 		};
-
-		std::vector<entry_t> entries;
+		int max_num_services{0};
+		std::deque<entry_t> entries;
 		system_time_t start_time;
 #ifdef USE_END_TIME
 		system_time_t end_time; //limits start_time of records if larger than start_time
@@ -120,7 +120,7 @@ namespace epgdb {
 	public:
 #ifdef USE_END_TIME
 		gridepg_screen_t(system_time_t start_time, system_time_t end_time, int num_services, uint32_t epg_sort_order)
-			: start_time(start_time)
+			, start_time(start_time)
 			, end_time(end_time)
 			, epg_sort_order(epg_sort_order) {
 			entries.reserve(num_services);
@@ -133,9 +133,9 @@ namespace epgdb {
 
 #else
 		gridepg_screen_t(system_time_t start_time, int num_services, uint32_t epg_sort_order)
-			: start_time(start_time)
+			: max_num_services (num_services +num_services/2)
+			, start_time(start_time)
 			, epg_sort_order(epg_sort_order) {
-			entries.reserve(num_services);
 		}
 
 		gridepg_screen_t(time_t start_time, int num_services, uint32_t epg_sort_order)
@@ -144,14 +144,10 @@ namespace epgdb {
 			{}
 #endif
 
-
-		void remove_service(const chdb::service_key_t& service_key);
-
 		epg_screen_t* epg_screen_for_service(const chdb::service_key_t& service_key);
 
 		epg_screen_t* add_service(db_txn& txnepg, const chdb::service_key_t& service_key);
-
-
+		void remove_all();
 	};
 
 };

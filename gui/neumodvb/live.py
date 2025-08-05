@@ -143,12 +143,12 @@ class GridEpgData(GridData):
             del txn
         return epg_screen
 
-    def remove_epg_data_for_channels(self, chidx_start, chidx_end):
+    def remove_epg_data_for_channelsOFF(self, chidx_start, chidx_end):
         for idx in range(chidx_start, chidx_end):
             service = self.GetRecordAtRow(idx)
             if service is not None:
                 key = service.k if type(service) == pychdb.service.service else service.k.service
-                dtdebug(f'python remove epg service  {key}')
+                dtdebug(f'python remove epg service  {key} at row {idx}')
                 self.epg_screens.remove_service(key)
         self.GetEpgScreenAtRow.cache_clear() #important to avoid using stale version
 
@@ -1302,7 +1302,7 @@ class RecordPanel(wx.Panel):
             self.scroll_down(-delta)
             self.wheel_count = 0
 
-    def check_for_new_records(self):
+    def check_for_new_service_records(self):
         txn = self.data.ls.chdb.rtxn()
         changed = self.data.ls.screen.update(txn)
         txn.commit()
@@ -1312,10 +1312,10 @@ class RecordPanel(wx.Panel):
             old_record = self.selected_row_entry
             self.data.GetRecordAtRow.cache_clear()
             self.SelectRow(old_record, data_has_changed=True)
-            #wx.CallAfter(self.Refresh)
+        return changed
 
     def on_timer(self):
-        self.check_for_new_records()
+        self.check_for_new_service_records()
 
     def OnTimer(self, evt):
         now = datetime.datetime.now(tz=tz.tzlocal())
@@ -1696,13 +1696,8 @@ class GridEpgPanel(RecordPanel):
         rowno_start = max(0, rowno_start)
         rowno_end = min(rowno_end, self.num_rows_on_screen)
         if rowno_start >= rowno_end:
+            assert False
             return
-        for row in self.rows[rowno_start:rowno_end]:
-            service = row.row_record
-            if service is not None:
-                key = service.k if type(service) == pychdb.service.service else service.service
-                dtdebug(f'python remove epg service  {key}')
-                self.data.epg_screens.remove_service(key)
         self.data.GetEpgScreenAtRow.cache_clear() #important to avoid using stale version
 
     def check_for_new_epg_records(self):
@@ -1724,7 +1719,6 @@ class GridEpgPanel(RecordPanel):
                     any_change |= changed
                     if changed:
                         dtdebug(f"Updating service {row.row_record}")
-                        #self.epg_screens.remove_service(service)
                         refocus = self.last_focused_cell is not None and self.last_focused_cell.data.row.rowno == row.rowno
                         row.update()
                         if refocus:
@@ -1832,7 +1826,7 @@ class GridEpgPanel(RecordPanel):
 
     def scroll_leftright(self):
         old_top_idx = self.top_idx
-        self.data.remove_epg_data_for_channels(self.top_idx, self.top_idx+self.num_rows_on_screen)
+        self.epg_screens.remove_all()
         for rowno, row in enumerate(self.rows):
             row.update()
         self.update_periods()

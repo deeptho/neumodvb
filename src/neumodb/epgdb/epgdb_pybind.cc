@@ -53,7 +53,7 @@ void export_gridepg(py::module& m) {
 				 py::arg("num_services"), py::arg("epg_sort_order"))
 		.def("add_service", &gridepg_screen_t::add_service, "add epg data for extra service to the screen",
 				 py::arg("txnepg"), py::arg("service_key"), py::return_value_policy::reference_internal)
-		.def("remove_service", &gridepg_screen_t::remove_service, "remove epg data for a service", py::arg("service_key"))
+		.def("remove_all", &gridepg_screen_t::remove_all, "remove all epg data")
 		.def("epg_screen_for_service", &gridepg_screen_t::epg_screen_for_service, "return epg screen for a service",
 				 py::arg("service_key"), py::return_value_policy::reference_internal)
 		;

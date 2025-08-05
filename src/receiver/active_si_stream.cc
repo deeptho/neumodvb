@@ -256,6 +256,17 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 	using tune_state_t = active_adapter_t::tune_state_t;
 	switch(tune_state) {
 	case tune_state_t::LOCKED: {
+		if(is_main_mux && lock_state.is_dvb && (nit_actual_done() || nit_actual_notpresent())) {
+			if(pmts_can_be_saved(true /*force*/)) {
+				if(!pmt_data.all_received())
+					dtdebugf("Saving only some pmts");
+				lmdb_hint();
+				auto wtxn = chdbmgr.wtxn();
+				save_pmts(wtxn);
+				wtxn.commit();
+			}
+		}
+
 		c->scan_status = chdb::scan_status_t::IDLE;
 		c->scan_id = {};
 		bool no_data = reader->no_data();
@@ -348,13 +359,7 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 			active_adapter().on_stream_mux_change(mux);
 		}
 	}
-
 	if(is_main_mux && lock_state.is_dvb && (nit_actual_done() || nit_actual_notpresent())) {
-		if(pmts_can_be_saved(true /*force*/)) {
-			if(!pmt_data.all_received())
-				dtdebugf("Saving only some pmts");
-			save_pmts(wtxn);
-		}
 		if(tune_confirmation.sat_by == confirmed_by_t::NIT ||
 			 tune_confirmation.sat_by == confirmed_by_t::SDT ||
 			 tune_confirmation.sat_by == confirmed_by_t::TIMEOUT||

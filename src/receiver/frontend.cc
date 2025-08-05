@@ -864,10 +864,10 @@ void fe_state_t::set_lock_status(api_type_t api_type, fe_status_t fe_status) {
 		lock_status.matype = -1;
 	if (locked_before && !locked_now)
 		lock_status.lock_lost = true;
-
+#if 0
 	dtdebugf("locked_now={:d} locked_before={:d} lock_lost={:d}",
 					 locked_now, locked_before, lock_status.lock_lost);
-
+#endif
 }
 
 void dvb_frontend_t::set_lock_status(fe_status_t fe_status) {

@@ -3164,10 +3164,19 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 			mux_key_ptr(mux)->t2mi_pid = pat_service.t2mi_pid;
 			assert(!chdb::is_template(mux));
 			namespace m = chdb::update_mux_preserve_t;
-			auto preserve = m::flags{ m::MUX_COMMON & ~ m::SCAN_STATUS};
-			if(mux_common_ptr(mux)->scan_status == chdb::scan_status_t::ACTIVE) {
-				mux_common_ptr(mux)->scan_status = chdb::scan_status_t::PENDING;
-				preserve = m::flags(preserve | m::SCAN_STATUS); //avoid changing ACTIVE to pending
+			auto preserve = m::flags{ m::NONE};
+			auto& c = dvbs_mux->c;
+			auto& mc = *chdb::mux_common_ptr(this->dbmux);
+			c = {};
+			c.tune_src = mc.tune_src;
+			bool propagate_scan = reader->tune_options().propagate_scan;
+			if(propagate_scan) {
+				c.scan_rf_path = mc.scan_rf_path;
+				c.scan_id = mc.scan_id;
+				if(mc.scan_status == chdb::scan_status_t::ACTIVE) {
+					c.scan_status = chdb::scan_status_t::PENDING;
+					preserve = m::flags(preserve | m::SCAN_STATUS); //avoid changing ACTIVE to pending
+				}
 			}
 			namespace m = chdb::update_mux_preserve_t;
 			auto ret=this->update_mux(wtxn, mux, now, false /*is_reader_mux*/, true /*is_tuned_freq*/,

@@ -639,7 +639,7 @@ class NeumoTable(NeumoTableBase):
     def get_filter_(self):
         if len(self.filtered_colnos) == 0:
             return None, None
-        match_data = self.filter_record
+        match_data = self.filter_record.copy()
         matchers = pydevdb.field_matcher_t_vector()
         for colno in self.filtered_colnos:
             col = self.columns[colno]

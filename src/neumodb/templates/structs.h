@@ -413,11 +413,9 @@ namespace {{dbname}}::{{struct.name}} {
 
 namespace {{dbname}}::{{struct.name}} {
 
-
 	 EXPORT ss::vector_<{{struct.class_name}}> list_all(db_txn& txn, uint32_t order, bool use_index=false);
-	  std::shared_ptr<screen_t<{{struct.class_name}}>> make_screen(db_txn& txn, uint32_t order, bool use_index);
 
-	  EXPORT inline ss::vector_<{{struct.class_name}}> list_all(
+	 EXPORT inline ss::vector_<{{struct.class_name}}> list_all(
 		db_txn& txn, {{struct.class_name}}::keys_t order, bool use_index=false)
   {
 		return list_all(txn, uint32_t(order), use_index);

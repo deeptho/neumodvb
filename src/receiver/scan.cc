@@ -592,7 +592,7 @@ scan_t::scan_try_peak(db_txn& chdb_rtxn, blindscan_t& blindscan,
 	Scanning multiple times also occurs when tuning fails temporarily when some resource is
 	unailable.
 
-	This call returns false if we are retrying scanning thus frequency/pol for some reason
+	This call returns false if we are retrying scanning this frequency/pol for some reason
 	Otherwise return true, signaling that this subscription is done
  */
 bool scan_t::retry_subscription_if_needed(ssptr_t finished_ssptr,

@@ -1301,7 +1301,9 @@ namespace dtdemux {
 		while (this->available() > 4) { // 4 is the crc
 
 			auto stream_type = this->get<uint8_t>();
-			pmt.capmt_data.push_back((uint8_t)0); // special tag indicating that this is not a ca descriptor
+			pmt.capmt_data.push_back((uint8_t)0); /* special tag indicating that this is not a ca descriptor,
+																							 but the start of a descriptor list per pid
+																						*/
 			pmt.capmt_data.push_back((uint8_t)3); // length
 			pmt.capmt_data.push_back((uint8_t)stream_type);
 

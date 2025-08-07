@@ -64,6 +64,15 @@ void ca_pmt_t::add_enignma_ns_descriptor(uint16_t network_id, uint16_t ts_id) {
 	add_raw_ca_descriptor(data, sizeof(data));
 }
 
+/*
+	ca_descriptor with no private data
+ */
+void ca_pmt_t::add_ca_descriptor(uint16_t ca_id, uint16_t ecmp_pid) {
+	uint8_t data[] = {0x09, 0x04,
+		(uint8_t) (ca_id>>8), (uint8_t) ca_id, (uint8_t) (ecmp_pid >>8), (uint8_t) ecmp_pid};
+	add_raw_ca_descriptor(data, sizeof(data));
+}
+
 void ca_pmt_t::add_ca_device_descriptor(uint8_t ca_device) {
 	uint8_t data[] = {0x87, 0x1, ca_device};
 	add_raw_ca_descriptor(data, sizeof(data));
@@ -82,13 +91,24 @@ void ca_pmt_t::init(capmt_list_management_t lm, const dtdemux::pmt_info_t& pmt_i
 	data.append_raw((uint8_t)lm);
 	data.append_raw(native_to_net(pmt_info.service_id)); // program number
 	data.append_raw<uint8_t>(((pmt_info.version_number & 0x1f) << 1) | 0xc0 | (pmt_info.current_next & 1)); // 1 byte
-
 	auto* p_info_len =
 		(uint8_t*)data.buffer() + data.size(); // position of the last esinfo_len field which needs to be set
+
 	auto* p_program_info_len = p_info_len;
 	data.append_raw<uint16_t>(0x0000 | 0xf0); // 4 reserved bits + 12 bits program info length; needs to be updated later
 
 	data.push_back((uint8_t)ca_pmt_cmd_id_t::ok_descrambling); // ca_pmt_cmd_id
+
+	/*horrible  hack to handle encrypted services (ert sid=3 on 12241H@39.0E)
+		that have no valid CA data.
+		The way of detection is currently simplistic and will fail if incorrect CA data is broadcast.
+		The way of inserting the ca_descriptor as "applying to all streams" may also be too simplistic
+	 */
+	if(pmt_info.ca_descriptors.size()==0) {
+		uint16_t forced_caid = 0x2600;
+		uint16_t forced_ecm_pid = 0x1fff;
+		add_ca_descriptor(0x2600, 0x1fff);
+	}
 
 	add_enignma_ns_descriptor(network_id, ts_id);
 

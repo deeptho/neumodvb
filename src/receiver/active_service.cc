@@ -93,7 +93,8 @@ int active_service_t::open() {
 	// once the channel is up and running we will switch to polling
 	if(demux_fd< 0)
 		return demux_fd;
-	this->last_data = system_clock_t::now();
+	this->last_payload_data = system_clock_t::now();
+	this->last_decrypted_data = this->last_payload_data;
 	this->active_adapter().on_message(this, "");
 	dtdebugf("Opening");
 	return demux_fd;
@@ -566,12 +567,25 @@ void active_service_t::service_status_message(stream_status_t status) {
 		msg.format("Service \"{}\" not currently active", s.name);
 		stream_buffer->set_stream_status(stream_status_t::INACTIVE);
 	} else {
-		msg.format("Service \"{}\": no data", s.name);
-		stream_buffer->set_stream_status(stream_status_t::NODATA);
+		switch(status) {
+		case stream_status_t::ERROR:
+			msg.format("Service \"{}\": error", s.name);
+			break;
+		case stream_status_t::ENCRYPTED:
+			msg.format("Service \"{}\": cannot decrypt", s.name);
+			break;
+		case stream_status_t::NODATA:
+			msg.format("Service \"{}\": no data", s.name);
+			break;
+		default:
+			break;
+		}
+		stream_buffer->set_stream_status(status);
 	}
-	printf("setting\n");
-	auto& active_adapter = this->active_adapter();
-	active_adapter.on_message(this, msg);
+	if(msg.size()>0) {
+		auto& active_adapter = this->active_adapter();
+		active_adapter.on_message(this, msg);
+	}
 }
 
 void active_service_t::process_service_data() {
@@ -584,9 +598,18 @@ void active_service_t::process_service_data() {
 			dtdebugf("SKIPPING EARLY\n");
 			break;
 		}
-		if(now- this->last_data > 4000ms) {
-			service_status_message(stream_status_t::NODATA);
-			this->last_data = now + 1s;
+		if(now- this->last_payload_data > 4000ms) {
+			auto d = now - last_decrypted_data;
+			auto x = 4000ms;
+			auto c  = d >x;
+			auto q = (is_encrypted && (now - last_decrypted_data) > 4000ms);
+			if (is_encrypted && (now - last_decrypted_data) > 4000ms) {
+				service_status_message(stream_status_t::ENCRYPTED);
+				this->last_decrypted_data = now + 1s;
+			}
+			else
+				service_status_message(stream_status_t::NODATA);
+			this->last_payload_data = now + 1s;
 		}
 		uint8_t* buffer = NULL;
 		ssize_t remaining_space = this->stream_buffer->get_write_buffer(buffer);
@@ -649,7 +672,7 @@ void active_service_t::process_service_data() {
 		this->stream_buffer->advance_write_pointer(ret);
 		auto* pmt_parser = this->pmt_parser.get();
 		this->pmt_is_encrypted = (pmt_parser && pmt_parser->num_encrypted_packets > 0);
-		bool is_encrypted = this->need_decryption();
+		this->is_encrypted = this->need_decryption();
 		assert(!is_encrypted || this->stream_buffer->num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
 
 		bool low_data_rate = this->pmt_is_encrypted;
@@ -669,7 +692,9 @@ void active_service_t::process_service_data() {
 							 this->stream_buffer->num_bytes_read % dtdemux::ts_packet_t::size);
 		}
 		if(new_payload_data)
-			last_data = now;
+			last_payload_data = now;
+		if(is_encrypted && num_bytes_decrypted_now>0)
+			last_decrypted_data = now;
 		assert(this->stream_buffer->num_bytes_decrypted == this->reader->dvbcsa.num_bytes_decrypted);
 		this->stream_buffer->num_bytes_read += ret;
 	}

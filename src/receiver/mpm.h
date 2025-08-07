@@ -40,6 +40,7 @@ enum class stream_status_t {
 	ACTIVE,
 	INACTIVE,
 	NODATA,
+	ENCRYPTED,
 	ERROR
 };
 

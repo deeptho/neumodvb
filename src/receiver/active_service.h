@@ -155,7 +155,8 @@ class active_service_t final : public std::enable_shared_from_this<active_servic
 
 
 	mutable std::mutex mutex;
-	system_time_t last_data;
+	system_time_t last_payload_data;
+	system_time_t last_decrypted_data;
 
 	//the following fields can be modified and should not be accessed/modified without locikng a mutex
 	chdb::service_t current_service; //current channel

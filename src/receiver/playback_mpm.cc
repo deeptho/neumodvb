@@ -720,7 +720,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 		}
 		continue; // more data should be available; so retry accessing it
 	}
-	dttime(200);
+	//dttime(200);
 
 	if (error) {
 		assert(0);
@@ -730,7 +730,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 	if(next_stream_change_ >=0)
 		inbytes = std::min((int64_t)inbytes, next_stream_change_ - current_byte_pos);
 	auto [num_bytes_out, num_bytes_in] = copy_filtered_packets(outbuffer, buffer, outbytes, inbytes);
-	dttime(100);
+	//dttime(100);
 	filemap.advance_read_pointer(num_bytes_in);
 	dttime(100);
 	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
@@ -911,7 +911,7 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 		if (filemap.grow_map(new_end_pos) >= 0) {
 			remaining_space = filemap.get_read_buffer(buffer);
 			assert(remaining_space % ts_packet_t::size ==0);
-			dttime(300);
+			//dttime(300);
 			if (remaining_space >= ts_packet_t::size) {
 				break; // success; we have data
 			}

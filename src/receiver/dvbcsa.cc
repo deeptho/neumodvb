@@ -357,7 +357,7 @@ int dvbcsa_t::handle_parity_change(descrambling_context_t* context, int* idx, in
 		*/
 		start_wait_for_key_time = system_clock_t::now();
 		cache.decrypt_all_pending("(waiting for key)");
-		dtdebugf("Decrypted or skipped {:d} packets in total (waiting for key)", packet_start);
+		dtdebug_nicef("Decrypted or skipped {:d} packets in total (waiting for key)", packet_start);
 		/*
 			Check if we have to skip data
 		*/

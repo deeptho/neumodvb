@@ -72,6 +72,9 @@ active_scam_t::active_scam_t(scam_t* parent_, receiver_t& receiver,
 	, parent (parent_)
 	, adapter_no(active_service.get_adapter_no())
 {
+	auto s = active_service.get_current_service();
+	this->network_id = s.k.network_id;
+	this->ts_id = s.k.ts_id;
 	stream_parser.psi_cb = [this](uint16_t pid, const ss::bytebuffer_& buffer) {
 		this->scam_send_filtered_data(pid, buffer);
 	};
@@ -220,8 +223,9 @@ int scam_t::greet_scam() {
 	return write_to_scam(out_msg);
 }
 
-int scam_t::scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no,
-														int demux_no) {
+int scam_t::scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm,
+														uint16_t network_id, uint16_t ts_id,
+														int adapter_no, int demux_no) {
 	dtdebugf("adapter_no={} demux_no={}", adapter_no, demux_no);
 	ss::bytebuffer<512> out_msg; // current message, perhaps not fully written
 	if (scam_protocol_version >= 3) {
@@ -230,7 +234,7 @@ int scam_t::scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_mana
 	}
 
 	// creating this object will prepare data and store it in out_msg
-	ca_pmt_t capmt(out_msg, lm, pmt_info, adapter_no, demux_no);
+	ca_pmt_t capmt(out_msg, lm, network_id, ts_id, pmt_info, adapter_no, demux_no);
 	//write the data
 	auto ret = write_to_scam(out_msg);
 	if (ret < 0) {
@@ -587,6 +591,7 @@ void scam_t::read_filter_request() {
 		dtdebugf("Received scam request for adapter {:d} which has stopped descrambling", int(adapter_no));
 		return;
 	}
+
 	auto& active_scam = it->second;
 	assert(active_scam);
 
@@ -1155,7 +1160,7 @@ int scam_t::register_active_service_if_needed(active_service_t* active_service, 
 																									*active_service);
 	}
 
-	active_scam->register_active_service(active_service);
+	active_scam->register_active_service_(active_service);
 	if (scam_fd < 0) {
 		dtdebugf("Opening scam connection");
 		open();
@@ -1163,7 +1168,7 @@ int scam_t::register_active_service_if_needed(active_service_t* active_service, 
 	return 0;
 }
 
-int active_scam_t::register_active_service(active_service_t* active_service) {
+int active_scam_t::register_active_service_(active_service_t* active_service) {
 	dterrorf("{:s} adapter_no={}", active_service->get_current_service().name.c_str(), (int)adapter_no);
 	std::shared_ptr<active_service_t>* freeslot = nullptr;
 	for (auto& active_service_p : registered_active_services) {
@@ -1255,7 +1260,9 @@ int scam_t::send_all_pmts() {
 		for (auto& pmt_info : active_scam->pmts) {
 			if (--count == 0)
 				lm = (capmt_list_management_t)((uint8_t)lm | (uint8_t)capmt_list_management_t::last);
-			auto ret = scam_send_capmt(pmt_info, lm, active_scam->adapter_no, demux_no);
+			auto network_id = active_scam->network_id;
+			auto ts_id = active_scam->ts_id;
+			auto ret = scam_send_capmt(pmt_info, lm, network_id, ts_id, active_scam->adapter_no, demux_no);
 			if (ret < 0)
 				return ret;
 			lm = capmt_list_management_t::more;
@@ -1299,8 +1306,10 @@ int scam_t::update_pmt(active_service_t* active_service, int adapter_no, const d
 		need to find out CA_SET_PID has only adapter_index
 		CA_SET_DESCR (control words) has only adapter_index
 	*/
+	auto network_id = active_scam.network_id;
+	auto ts_id = active_scam.ts_id;
 	return scam_send_capmt(pmt_info, is_update ? capmt_list_management_t::update : capmt_list_management_t::add,
-												 adapter_no, demux_no);
+												 network_id, ts_id, adapter_no, demux_no);
 
 	// send pmt to scam
 };

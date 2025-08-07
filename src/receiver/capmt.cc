@@ -57,6 +57,13 @@ void ca_pmt_t::add_demux_device_descriptor(uint8_t demux_device) {
 	add_raw_ca_descriptor(data, sizeof(data));
 }
 
+void ca_pmt_t::add_enignma_ns_descriptor(uint16_t network_id, uint16_t ts_id) {
+	uint8_t data[] = {0x81, 0x8,
+		0x0, 0x0, 0x0, 0x0,
+		(uint8_t) (ts_id>>8), (uint8_t) ts_id, (uint8_t) (network_id >>8), (uint8_t) network_id};
+	add_raw_ca_descriptor(data, sizeof(data));
+}
+
 void ca_pmt_t::add_ca_device_descriptor(uint8_t ca_device) {
 	uint8_t data[] = {0x87, 0x1, ca_device};
 	add_raw_ca_descriptor(data, sizeof(data));
@@ -82,6 +89,8 @@ void ca_pmt_t::init(capmt_list_management_t lm, const dtdemux::pmt_info_t& pmt_i
 	data.append_raw<uint16_t>(0x0000 | 0xf0); // 4 reserved bits + 12 bits program info length; needs to be updated later
 
 	data.push_back((uint8_t)ca_pmt_cmd_id_t::ok_descrambling); // ca_pmt_cmd_id
+
+	add_enignma_ns_descriptor(network_id, ts_id);
 
 	// the following are user defined descriptors for scam
 	add_adapter_device_descriptor(adapter_no);

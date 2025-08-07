@@ -123,12 +123,15 @@ class active_scam_t final : public active_stream_t  {
 
 	scam_t* parent =nullptr;
 	dtdemux::ts_stream_t stream_parser;
+
+	uint16_t network_id;
+	uint16_t ts_id;
 	int adapter_no{-1};
+
+	int register_active_service_(active_service_t* active_service);
 public:
 
-
 	active_scam_t(scam_t* parent, receiver_t& receiver, active_service_t& active_service);
-	int register_active_service(active_service_t* active_service);
 	int unregister_active_service(active_service_t* active_service, int adapter_no);
 	void process_ca_data();
   //add or update a filter
@@ -230,7 +233,8 @@ private:
 	int unregister_active_service(active_service_t* active_service, int adapter_no)  CALLBACK;
 
 	int greet_scam();
-	int scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm, int adapter_no, int demux_device);
+	int scam_send_capmt(const dtdemux::pmt_info_t& pmt_info, capmt_list_management_t lm,
+											uint16_t network_id, uint16_t ts_id, int adapter_no, int demux_device);
 	ss::bytebuffer<512> pending_write_buffer;
 
 	int send_all_pmts();
@@ -269,13 +273,19 @@ public:
 
 class ca_pmt_t {
 	ss::bytebuffer_& data;
-	int program_info_length =0;
+	int program_info_length{0};
+	uint16_t network_id;
+	uint16_t ts_id;
 
 	void init(capmt_list_management_t lm, const dtdemux::pmt_info_t& pmt_info, int adapter_no, int ca_device);
 public:
-	ca_pmt_t(ss::bytebuffer_& data_, capmt_list_management_t lm, const dtdemux::pmt_info_t& pmt_info,
+	ca_pmt_t(ss::bytebuffer_& data_, capmt_list_management_t lm,
+					 uint16_t network_id, uint16_t ts_id,
+					 const dtdemux::pmt_info_t& pmt_info,
 					int adapter_no, int ca_device)
-		: data(data_) {
+		: data(data_)
+		,	network_id(network_id)
+		, ts_id(ts_id) {
 			init(lm, pmt_info, adapter_no, ca_device);
 		}
 	void add_raw_ca_descriptor(uint8_t* start, int len);
@@ -283,5 +293,7 @@ public:
 	void add_adapter_device_descriptor(int adapter_no);
 	void add_pmt_pid_descriptor(uint16_t pmt_pid);
 	void add_demux_device_descriptor(uint8_t demux_device);
+	void add_ca_descriptor(uint16_t ca_id, uint16_t ecmp_pid);
+	void add_enignma_ns_descriptor(uint16_t network_id, uint16_t ts_id);
 	void add_ca_device_descriptor(uint8_t ca_device);
 };

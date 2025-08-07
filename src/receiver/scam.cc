@@ -560,21 +560,17 @@ void scam_t::read_filter_request() {
 	ca_filter_t filter;
 	auto adapter_no = adapter_no_t(read_field<uint8_t>());
 	auto demux_no = demux_no_t(read_field<uint8_t>());
+	filter.demux_no = uint8_t(demux_no);
 	auto filter_no = filter_no_t(read_field<uint8_t>());
 	/*The following data are the fields from the dmx_sct_filter_params structure (added separately to
 		avoid padding problems)
 	*/
 	filter.pid = read_field<uint16_t>();
-	filter.demux_no = uint8_t(demux_no);
 	memcpy(filter.dmx_filter.filter, read_data(sizeof(filter.dmx_filter.filter)), sizeof(filter.dmx_filter.filter));
 	memcpy(filter.dmx_filter.mask, read_data(sizeof(filter.dmx_filter.mask)), sizeof(filter.dmx_filter.mask));
 	memcpy(filter.dmx_filter.mode, read_data(sizeof(filter.dmx_filter.mode)), sizeof(filter.dmx_filter.mode));
 	dtdebugf("adapter_no={} demux_no={} filter_no={} pid={}", (int)adapter_no, (int)demux_no,
 					 (int)filter_no, filter.pid);
-	if(filter.pid == 0x1fff) {
-		dtdebugf("Ignoring filter request");
-		return;
-	}
 
 	filter.timeout = read_field<uint32_t>();
 	filter.flags = read_field<uint32_t>();
@@ -586,6 +582,11 @@ void scam_t::read_filter_request() {
 
 		oscam returns DMX_IMMEDIATE_START
 	*/
+	if(filter.pid == 0x1fff) {
+		dtdebugf("Ignoring filter request");
+		return;
+	}
+
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
 		dtdebugf("Received scam request for adapter {:d} which has stopped descrambling", int(adapter_no));

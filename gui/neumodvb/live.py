@@ -331,7 +331,7 @@ class GridRow(object):
         if type(rec) == pychdb.chgm.chgm:
             return f'{rec.chgm_order: <6} {rec.name}'
         elif type(rec) == pychdb.service.service:
-            return f'{rec.ch_order: <6} {rec.name}'
+            return f'{rec.ch_order if rec.ch_order != 65535 else "": <6} {rec.name}'
         elif type(rec) == pychdb.chg.chg:
             return f'{rec.name}'
         elif type(rec) == pychdb.sat.sat:

@@ -121,6 +121,26 @@ class SpectrumDialog(SpectrumDialog_):
 
     def __init__(self, parent, mux=None, sat=None, lnb=None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
+
+        self.menubar = wx.Menu()
+        item = self.menubar.Append(wx.ID_ANY, _("&Quit\tCtrl-Q"), "")
+        self.Bind(wx.EVT_MENU, self.CmdExit, item)
+        self.main_menubar.Append(self.menubar, _("&View"))
+        self.menubar = wx.Menu()
+        item = self.menubar.Append(wx.ID_ANY, _("Inspect"), "")
+        self.Bind(wx.EVT_MENU, self.OnInspect, item)
+        item = self.menubar.Append(wx.ID_ANY, _("&Toggle Spectrum\tCtrl-Enter"), "")
+        self.Bind(wx.EVT_MENU, self.OnSpectrumSelect, item)
+        item = self.menubar.Append(wx.ID_ANY, _("&Draw Mux\tCtrl-A"), "")
+        self.Bind(wx.EVT_MENU, self.OnDrawMux, item)
+        self.main_menubar.Append(self.menubar, _("&Control"))
+        self.edit_menu = wx.Menu()
+        self.main_menubar.Append(self.edit_menu, _("&Edit"))
+        wxglade_tmp_menu = wx.Menu()
+        self.main_menubar.Append(wxglade_tmp_menu, _("&Lists"))
+        self.SetMenuBar(self.main_menubar)
+
+
         self.tune_mux_panel.init(self, sat, lnb, mux)
 
         from neumodvb.positioner_dialog import EVT_LNB_SELECT, EVT_ABORT_TUNE

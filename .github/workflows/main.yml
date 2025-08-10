@@ -81,7 +81,7 @@ jobs:
 
   release:
     name: Create release with all assets
-    needs: [build_tarball, build_rpm]
+    needs: [build_rpm]
     runs-on: ubuntu-latest
     if: false
     permissions:

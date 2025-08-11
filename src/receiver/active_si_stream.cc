@@ -245,9 +245,9 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 	*/
 	auto & mux =  mux_;
 	assert(&mux == &this->dbmux|| !is_main_mux);
-	bool nosave{is_template(mux) && !(nit_actual_notpresent() && sdt_actual_notpresent())};
 	auto tune_state = active_adapter().tune_state;
 	auto& lock_state = active_adapter().lock_state;
+	bool nosave{is_template(mux) && !lock_state.locked_minimal};
 	dtdebugf("setting si_processing_done=true mux={}", mux);
 	auto* c = chdb::mux_common_ptr(mux);
 	c->scan_lock_result = lock_state.tune_lock_result;
@@ -279,7 +279,7 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 		if(c->epg_scan_completeness > 100)
 			here();
 		if(no_data) {
-			preserve = m::flags{~m::MUX_COMMON};
+			preserve = m::flags{~m::MUX_COMMON & ~m::TUNE_DATA};
 			tune_confirmation.sat_by = confirmed_by_t::FAKE;
 			c->ts_id = 0;
 			c->network_id = 0;

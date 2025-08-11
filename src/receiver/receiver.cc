@@ -1207,7 +1207,6 @@ int receiver_t::toggle_recording_(const chdb::service_t& service, system_time_t 
 	return toggle_recording_(service, epg);
 }
 
-
 /*
 	subscription_id is passed by reference so that when a new subscription is created,
 	the proper subscription_id is stored directly in its subscriber

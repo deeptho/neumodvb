@@ -1215,6 +1215,7 @@ template <typename _mux_t>
 subscription_id_t receiver_t::scan_muxes(ss::vector_<_mux_t>& muxes,
 																				 const subscription_options_t& tune_options,
 																				 ssptr_t ssptr) {
+	user_error_.clear();
 	std::vector<task_queue_t::future_t> futures;
 	subscription_id_t ret {-1};
 	//call by reference ok because of subsequent wait_for_all

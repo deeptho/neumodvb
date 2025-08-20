@@ -195,9 +195,6 @@ std::optional<chdb::any_mux_t> active_adapter_t::mux_for_key(const chdb::mux_key
 			}
 		}
 	}
-#ifdef TODO
-	assert(0);
-#endif
 	return {};
 };
 

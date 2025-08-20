@@ -599,10 +599,6 @@ void active_service_t::process_service_data() {
 			break;
 		}
 		if(now- this->last_payload_data > 4000ms) {
-			auto d = now - last_decrypted_data;
-			auto x = 4000ms;
-			auto c  = d >x;
-			auto q = (is_encrypted && (now - last_decrypted_data) > 4000ms);
 			if (is_encrypted && (now - last_decrypted_data) > 4000ms) {
 				service_status_message(stream_status_t::ENCRYPTED);
 				this->last_decrypted_data = now + 1s;

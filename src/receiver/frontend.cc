@@ -795,8 +795,6 @@ int dvb_frontend_t::start() {
 	return 0;
 }
 
-
-
 /*
 	returns two fields indicating the current lock status,
 	and the lock history: 0= never locked, 1 = currently not locked, 2 = currently locked

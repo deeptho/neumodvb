@@ -169,7 +169,6 @@ pts_dts_t event_handler_t::check_pes_discontinuity(pts_dts_t clock_period, const
 }
 
 void event_handler_t::index_event(stream_type::marker_t unit_type,
-																	/*uint16_t pid, uint16_t stream_type,*/
 																	const milliseconds_t& play_time_ms, pts_dts_t pts, pts_dts_t dts, uint64_t first_byte,
 																	uint64_t last_byte, const char* name) {
 	if (!idxdb)

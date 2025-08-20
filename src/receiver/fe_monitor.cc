@@ -220,7 +220,6 @@ exit_:
 }
 
 int fe_monitor_thread_t::exit() {
-
 	fe->close_device();
 	dtdebugf("frontend_monitor end: {:p}: closed device", fmt::ptr(fe.get()));
 	auto ts = fe->signal_monitor.writeAccess();

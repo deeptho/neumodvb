@@ -908,7 +908,12 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 			return 0;
 		assert(new_end_pos != std::numeric_limits<int64_t>::max());
 
-		if (filemap.grow_map(new_end_pos) >= 0) {
+		/*
+			grow_map updates safe_read_len, and also ensures - for very long parts - that the proper region
+			of the part is mapped in memory
+		 */
+		auto v = std::min(new_end_pos,  last_seen_live_meta_marker.num_bytes_safe_to_read);
+		if (filemap.grow_map(v) >= 0) {
 			remaining_space = filemap.get_read_buffer(buffer);
 			assert(remaining_space % ts_packet_t::size ==0);
 			//dttime(300);

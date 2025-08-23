@@ -17,7 +17,6 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
 #include "util/logger.h"
 #include <clocale>
 #include <pybind11/pybind11.h>
@@ -103,13 +102,15 @@ MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 	SetClientSize(parent->GetSize());
 }
 
-void InitializeTexture(GLuint& g_texture) {
+static void InitializeTexture(GLuint& g_texture) {
 	GLenum err;
 	glGenTextures(1, &g_texture); // generate 1 texture name
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		dterrorf("OPENGL error {:d}\n", err);
 	}
+
 	glBindTexture(GL_TEXTURE_2D, g_texture); // make the texture 2d
+
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		dterrorf("OPENGL error {:d}\n", err);
 	}
@@ -202,21 +203,20 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK and timer
 {
 	SetCurrent();
 	auto s = GetSize();
+	GLint dims[4];
+	glGetIntegerv(GL_VIEWPORT, &dims[0]);
+	int w = dims[2];
+	int h = dims[3];
 	if (OnRender) {
-
-		static auto olds = s;
-		if (s.x != olds.x || s.y != olds.y) {
-			olds = s;
-		}
-
-		OnRender(this, s.x, s.y);
+		prepare_buffer(s.x, s.y);
+		OnRender(this, w, h);
 	} else {
 		dterrorf("ONRENDER NOT READY");
 	}
 	// glClearColor(0.0, 0.0, 0.0, 0.0);
 	// glClear(GL_COLOR_BUFFER_BIT);
-
 	SetCurrent();
+
 	if(mpv_player->valid_frames < 2)
 		this->clear_window();
 	int width = s.x;
@@ -225,7 +225,6 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK and timer
 		overlay.render_radiobg(width, height);
 	}
 	overlay.render_osd(width, height, mpv_player->subscription.show_osd);
-
 	SwapBuffers();
 }
 
@@ -462,6 +461,7 @@ MpvPlayer_::MpvPlayer_(receiver_t* receiver)
 	: MpvPlayer(receiver, dynamic_cast<MpvPlayer_*>(this))
 	, subscription(receiver, this)
 {
+	InitializeTexture(g_texture);
 	get_audio_volume();
 }
 
@@ -602,7 +602,20 @@ void MpvPlayer_::mpv_draw(int w, int h) {
 			bool present= info.flags &  MPV_RENDER_FRAME_INFO_PRESENT;
 			valid_frames+= present;
 		}
-		mpv_opengl_fbo mpfbo{0, w, h, 0};
+
+		int fbo_;
+		GLint dims[4];
+		glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &fbo_);
+		glGetIntegerv(GL_VIEWPORT, &dims[0]);
+#if 0
+		static int lastw=0;
+		static int lasth=0;
+		if( w!= dims[2] || h!= dims[3] || dims[0]!=0 ||dims[1]!=0 || dims[2]!=lastw || dims[3]!=lasth)
+			dtdebugf("TEST: fbo={} w={}/{} h={}/{} x={} y={}", fbo_, w, dims[2], h, dims[3], dims[0], dims[1]);
+		lastw = dims[2];
+		lasth = dims[3];
+#endif
+		mpv_opengl_fbo mpfbo{fbo_, dims[2], dims[3], 0};
 		int flip_y{1};
 
 		mpv_render_param params[] = {
@@ -1188,12 +1201,8 @@ void MpvPlayer::update_playback_info() {
 
 void mpv_overlay_t::render(svg_t* svg, int window_width, int window_height) {
 	GLenum err;
-	static int called = 0;
 	if(!svg)
 		return;
-	if (!called) {
-		called = 1;
-	}
 	uint8_t* data = svg->render(window_width, window_height);
 
 	assert(data);
@@ -1249,6 +1258,46 @@ void mpv_overlay_t::render(svg_t* svg, int window_width, int window_height) {
 	glEnd();
 }
 
+void MpvGLCanvas::prepare_buffer(int window_width, int window_height) {
+	GLenum err;
+	static thread_local int last_w = -1;
+	static thread_local int last_h = -1;
+	static thread_local GLuint fbo;
+	static thread_local GLuint g_texture;
+
+	if(last_w == window_width && last_h == window_height)
+		return;
+	if(last_h == -1) {
+		glGenTextures(1, &g_texture);
+		glBindTexture(GL_TEXTURE_2D, g_texture);
+	}
+	last_h = window_height;
+	last_w = window_width;
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0, GL_RGB,
+							 GL_UNSIGNED_BYTE, nullptr);
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		dterrorf("OPENGL error {:d}\n", err);
+	}
+
+	glEnable(GL_TEXTURE_2D);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		dterrorf("OPENGL error {:d}\n", err);
+	}
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		dterrorf("OPENGL error {:d}\n", err);
+	}
+	glPixelStorei(GL_UNPACK_ALIGNMENT,
+								1); // set texture parameter
+										// The following copies the data
+										// https://gamedev.stackexchange.com/questions/168045/avoid-useless-copies-of-buffers
+	glViewport(0,0, window_width, window_height);
+}
+
 void mpv_overlay_t::set_signal_info(const signal_info_t& signal_info, const playback_info_t& playback_info) {
 	if (svg_overlay.get()) {
 		svg_overlay->set_signal_info(signal_info, playback_info);
@@ -1273,16 +1322,16 @@ void mpv_overlay_t::show_volume() {
 	}
 }
 
-mpv_overlay_t::mpv_overlay_t(MpvPlayer_* player) {
-	{
+mpv_overlay_t::mpv_overlay_t(MpvPlayer_* player)
+	: g_texture(player->g_texture)
+{
 		auto o = player->receiver->options.readAccess();
 		auto osd_path = config_path / o->osd_svg;
 		svg_overlay = svg_overlay_t::make(osd_path.c_str());
 		auto radiobg_path = config_path / o->radiobg_svg;
 		svg_radiobg = svg_radiobg_t::make(radiobg_path.c_str());
-	}
-	InitializeTexture(g_texture);
 }
+
 
 void MpvPlayer::toggle_overlay(){
 	auto* self = dynamic_cast<MpvPlayer_*>(this);

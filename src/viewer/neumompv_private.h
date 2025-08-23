@@ -107,6 +107,7 @@ class MpvPlayer_ : public MpvPlayer {
 	friend class MpvGLCanvas;
 	friend class mpv_subscription_t;
 public:
+	GLuint g_texture{0};
 	expiration_t volume_expiration;
 	int volume{100}; //current audio volume
 	int idx{0}; //to indec audio_volumes

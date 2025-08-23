@@ -40,7 +40,6 @@
 
 #include <wx/glcanvas.h>
 
-void InitializeTexture(GLuint& g_texture);
 
 //namespace py = pybind11;
 class MpvApp : public wxApp
@@ -54,7 +53,7 @@ class MpvPlayer_;
 struct playback_info_t;
 
 class mpv_overlay_t {
-	GLuint g_texture{0};
+	GLuint& g_texture;
 	ss::string<64> signal_info;
 	ss::string<64> service_info;
 	std::unique_ptr<svg_overlay_t> svg_overlay;
@@ -105,7 +104,7 @@ class MpvGLCanvas : public wxGLCanvas
 	mpv_overlay_t overlay;
 	int inited = 0;
 public:
-
+	void prepare_buffer(int window_width, int window_height);
 	inline void toggle_overlay() {
 		overlay.toggle_overlay();
 	}

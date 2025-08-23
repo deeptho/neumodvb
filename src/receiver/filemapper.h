@@ -23,7 +23,14 @@
 #include <unistd.h>
 #include "util/dtassert.h"
 
+/*
+	Represents one part of a multi-part-mpeg (mpm), stored as a separate file on disk
+	and mapped to a a memory region on in ram.
 
+	An mpm represents all the data received from a service from when it is was tuned until
+	the current time.
+
+ */
 struct mmap_t {
 	bool readonly = false;
 	static const int64_t pagesize;
@@ -33,31 +40,33 @@ struct mmap_t {
 		currenly we map the range [offset, offset + map_len] in memory.
 		This may extend beyond the end of the file. Units are bytes
 	 */
-	int64_t offset{0}; /*file offset at which this mmap starts, within current file, in bytes*/
+	int64_t offset{0}; /*file offset at which this part starts, relative to the start of the mpm,
+											and expressed in bytes*/
 	int64_t map_len{-1}; /* Current length of the mapped file area in bytes*/
 
-	uint8_t* buffer{nullptr}; //address at which this mapping is mapped
-	int64_t safe_read_len{-1}; /*number of bytes which are safe to read in the mapped part of the
-													 currently mapped file.
-													 So the safe read range starts at byte offset in the file and ends
-													 at byte offset + safe_read_len -1 in the file.
+	uint8_t* buffer{nullptr}; //address at which the part is mapped
+	int64_t safe_read_len{-1}; /*number of bytes which are safe to read in the mapped part.
+															 So buffer[0]... buffer[safe_read_len-1] is the range contiaining
+															 valid data to read.
 
-													 Even if data after this range is also mapped, that data may not be accessed
-														(not even read) because it is space in which FUTURE writes may occur, but this space
-														may also be truncated away by the writers.
-												*/
-	int64_t read_pointer{0}; /*points to the first byte in te mapped file region we will read next, which corresponds to byte
-												 offset + read_pointer of the file.
-												 valid range for read_pointer: [0, safe_read_len]
-											 */
-	int64_t write_pointer{0}; /*points to the first byte in te mapped file region we will write next,
-													which corresponds to byte offset + write_pointer of the file.
-													valid range for write_pointer: [0, map_len]
-												*/
-	int64_t decrypt_pointer{0}; /*points to the first byte in te mapped file region we will decrypt next,
-														which corresponds to byte offset + decrypt_pointer of the file.
-														valid range for decrypt_pointer: [0, write_pointer]
-													*/
+															 Even if more data, after  after buffer[safe_read_len-1], is also mapped,
+															 that data may not be accessed (not even read) because it is space in
+															 which FUTURE writes may occur, but wich may also still be
+															 truncated away by the writer, which would then cause a BUS error when read.
+														 */
+	int64_t read_pointer{0};   /*points to the byte buffer[read_pointer] we will read next in the part.
+															 This byte is byte offset+read_pointer wr.t.t the start of the mpm.
+															 Valid range for read_pointer: [0, safe_read_len]
+														 */
+	int64_t write_pointer{0};  /*points to the byte buffer[write_pointer] in the file  we will write next.
+															 This byte is byte offset+write_pointer w.r.t. the start if the mpm.
+															 Valid range for write_pointer: [0, map_len]
+														 */
+	int64_t decrypt_pointer{0}; /*points to the byte buffer[decrypt_pointer] we will decrypt next
+																in the part.
+																This byte is byte offset+decrypt_pointer w.r.t. the start if the mpm.
+																Valid range for decrypt_pointer: [0, write_pointer]
+															*/
 
 	void init();
 

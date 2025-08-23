@@ -156,21 +156,20 @@ int mmap_t::move_map(off_t start) {
 }
 
 /*!
-	Resize the mapped range to min(new_map_len, file_size) ir something smaller when the map size grows
-	too long
-	and/or sets the new end_read_offset
+	Resize the mapped range to min(new_map_len, file_size) or something smaller when the map size grows
+	too long and/or sets the new end_read_offset
 	Returns:
 	1 if file was remapped (there was growth)
-	0 if file was not remapped but safe_read_len increased
+	0 if file was not remapped but safe_read_len was increased
 	-1 if nothing was done
 
-	end_read_offset: number of bytes which can safely be read in this file according to caller
-	this number is relative to the start of the file, not to the start of the mapped part
+	end_read_offset: number of bytes which can safely be read in this part according to caller
+	this number is relative to the start of the file of the part, not to the start of the mapped part
 
 */
 int mmap_t::grow_map(off_t end_read_offset) {
 	/*
-		compute offset in currently mapped part of the file
+		compute offset w.r.t. th estart of the current part
 		in case beginning of file is no longer mapped, this will be different from end_read_offset
 	*/
 	auto new_safe_read_len = end_read_offset - offset;

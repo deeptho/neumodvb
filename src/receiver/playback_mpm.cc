@@ -862,9 +862,9 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 			This will return immediately, except if waiting for data is needed
 
 			last_seen_live_meta_marker will be updated with:
-			current_marker, curret_file_record (last file in the live buffer) and num_bytes_safe_to_read
+			current_marker, current_file_record (last file in the live buffer) and num_bytes_safe_to_read
 		*/
-		live_mpm->wait_for_update(last_seen_live_meta_marker, current_fileno());
+		live_mpm->wait_for_update(last_seen_live_meta_marker, filemap.safe_read_len + ts_packet_t::size);
 		if (must_exit)
 			return -1;
 

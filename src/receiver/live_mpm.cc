@@ -1021,27 +1021,35 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		auto mm = this->meta_marker.writeAccess();
 		mm->livebuffer_end_time = now;
 		mm->current_marker = this->stream_parser.event_handler.last_saved_marker;
-		assert(mm->num_bytes_safe_to_read <= this->num_bytes_decrypted); // KNOWN PROBLEM: we may not go back!!
-		/*
-			playpback_mpms should never read past the next pmt, as a a pmt change can occur
-		 */
+		assert(mm->num_bytes_safe_to_read <= this->num_bytes_decrypted); // we may not go back!!
 		auto v = this->num_bytes_decrypted;
 		if(likely(active_service->pmt_parser)) {
 			assert(v>= active_service->pmt_parser->last_section_end_bytepos);
+			/*
+				playpback_mpms should never read past the next pmt, before we process that pmt,
+				so that we can inform playback_mpm of it.
+			*/
 			v=std::min(v, active_service->pmt_parser->last_section_end_bytepos);
 		}
 		else if(active_service->pat_parser) {
+			/* @todo:not sure what best to do here:
+				 there is no pmt (yet). We restrict reading up to the next pat
+			*/
 			assert(v>= active_service->pat_parser->last_section_end_bytepos);
 			v=std::min(v, active_service->pat_parser->last_section_end_bytepos);
+
 		}
 		v= std::min(v, mm->current_marker.packetno_end  * (int64_t) dtdemux::ts_packet_t::size);
+		bool notify = (v!= mm->num_bytes_safe_to_read);
 		mm->num_bytes_safe_to_read = v;
 		if (!mm->started && mm->num_bytes_safe_to_read > 0) {
 			mm->started = true;
 			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
 		}
+		if(notify) {
 			//		TODO: add num_bytes_decrypted??? How to save time at start? e.g., first minute alway safe to read?
-		mm->cv.notify_all();
+			mm->cv.notify_all();
+		}
 	}
 	return has_new_payload;
 }

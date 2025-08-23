@@ -355,13 +355,8 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 			auto oldk = *chdb::mux_key_ptr(this->dbmux);
 			if (std::abs(newk.sat_pos - oldk.sat_pos)<=sat_pos_tolerance)
 				oldk.sat_pos = newk.sat_pos;
-#if 0
-			//the following assertion can fail when two non-lockable old muxes overlap
-			assert(oldk == newk);
-#else
-			dtdebugf("two muxes with differend ids: mux={} db_mux={}", mux_, this->dbmux);
-#endif
-
+			if(oldk != newk) //this can happen when two non-lockable old muxes overlap and then is not an error
+				dtdebugf("two muxes with differend ids: mux={} db_mux={}", mux_, this->dbmux);
 #endif
 			active_adapter().on_stream_mux_change(mux);
 		}

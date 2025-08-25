@@ -169,7 +169,7 @@ int mmap_t::move_map(off_t start) {
 */
 int mmap_t::grow_map(off_t end_read_offset) {
 	/*
-		compute offset w.r.t. th estart of the current part
+		compute offset w.r.t. the start of the current part
 		in case beginning of file is no longer mapped, this will be different from end_read_offset
 	*/
 	auto new_safe_read_len = end_read_offset - offset;

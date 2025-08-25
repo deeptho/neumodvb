@@ -40,8 +40,8 @@ struct mmap_t {
 		currenly we map the range [offset, offset + map_len] in memory.
 		This may extend beyond the end of the file. Units are bytes
 	 */
-	int64_t offset{0}; /*file offset at which this part starts, relative to the start of the mpm,
-											and expressed in bytes*/
+	int64_t offset{0}; /*file offset at which this part is mapped, relative to the start of the mpm-part,
+											 and expressed in bytes*/
 	int64_t map_len{-1}; /* Current length of the mapped file area in bytes*/
 
 	uint8_t* buffer{nullptr}; //address at which the part is mapped

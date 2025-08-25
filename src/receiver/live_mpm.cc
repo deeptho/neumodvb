@@ -707,11 +707,40 @@ int active_mpm_t::next_data_file(system_time_t now) {
 	auto cfile = db->mpm_rec.idxdb.tcursor<file_t>(idx_txn);
 	current_file_time_start = now;
 	auto mm = meta_marker.writeAccess();
-	int64_t end_packet = stream_parser.event_handler.last_saved_marker.packetno_end;
-	auto num_bytes_in_final_mmap = end_packet * ts_packet_t::size;
-	assert(mm->num_bytes_safe_to_read <= num_bytes_in_final_mmap);
-	mm->current_marker = stream_parser.event_handler.last_saved_marker;
-	auto stream_time_end = mm->current_marker.k.time; // could be 0
+	mm->current_marker = 	this->stream_parser.event_handler.last_saved_marker;
+	/*
+		The aim is to not split "payload units" (a combination of a pat, pmt, and either an iframe (video)
+		or an audio packet (radio) with other data mixed in in between) over mpm parts. This makes the individual
+		parts better playable by external video players
+
+
+		Technically this is not always possible:
+		 -a payload unit may start in the middle of the packet. A packet then cna theoretically
+		  contain the end of a payload unit and the beginning of the next one (very unlikely)
+		 -if one pmt is followed by mulitple small payload units, these may actually overlap (and in the database
+		  then only the first one will be retained, but last_saved_marker may point to the non-saved one
+
+		The best effort solution is therefor:
+		1) the part being closed MUST contain the byte at mm->num_bytes_safe_to_read; otherwise conccurrent playback_mpms
+		 may be reading data that is being removed
+		2) ideally it should contain packet packetno_end itself because that packet typically contains the last bytes  of
+		   the payload unit. In exceptional cases, when the payload unit ends exactly at the end of a packet,
+			 packetno_end, packet packetno_end should not be included, but to detect this case we would need to
+			 have a byte number rather as a packet number as input (could be changed later)
+
+			 As a compromise, the last (incomplete) packet at packetno_end is NOT included in the closed part
+			 but in the next part, except when needed for 1)
+
+
+	 */
+	mm->num_bytes_safe_to_read = std::max(mm->current_marker.packetno_end  * (int64_t) dtdemux::ts_packet_t::size,
+																				mm->num_bytes_safe_to_read);
+	assert(	mm->num_bytes_safe_to_read  <= this->num_bytes_decrypted);
+
+	auto num_bytes_in_final_mmap = mm->num_bytes_safe_to_read;
+	int64_t end_packet =  num_bytes_in_final_mmap/ ts_packet_t::size;
+	assert (end_packet* ts_packet_t::size ==  num_bytes_in_final_mmap);
+	auto stream_time_end = stream_parser.event_handler.last_saved_marker.k.time; // could be 0
 	if (current_fileno != -1) {
 		// first finalise last file record if there is one
 		// stream_time_end may be slightly off because bytes may have been received after last pcr
@@ -754,7 +783,6 @@ int active_mpm_t::next_data_file(system_time_t now) {
 	transfer_filemap(fd, num_bytes_in_final_mmap);
 	assert(num_bytes_in_final_mmap >= mm->num_bytes_safe_to_read);
 	assert(mm->num_bytes_safe_to_read <= num_bytes_in_final_mmap);
-	// mm->current_marker = 	stream_parser.event_handler.last_saved_marker;
 	mm->current_file_record.k.stream_time_start = new_file_stream_time_start;
 	mm->current_file_record.stream_time_end = std::numeric_limits<milliseconds_t>::max(); // signifies infinite
 	mm->current_file_record.real_time_end = std::numeric_limits<time_t>::max(); // signifies infinite
@@ -968,14 +996,23 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		this->advance_decrypt_pointer(num_bytes_decrypted_now);
 
 		if (this->stream_parser.event_handler.last_saved_marker.packetno_start != old_packetno_start) {
+			dtdebugf("old_packetno_start={} packetno_start={} packetno_end={}",
+							 old_packetno_start, this->stream_parser.event_handler.last_saved_marker.packetno_start,
+							 this->stream_parser.event_handler.last_saved_marker.packetno_end);
+
+			int64_t end_packet = stream_parser.event_handler.last_saved_marker.packetno_end;
+			auto num_bytes_in_final_mmap = end_packet * ts_packet_t::size;
+			assert(num_bytes_in_final_mmap <= this->num_bytes_decrypted +num_bytes_decrypted_now);
+
 			has_new_payload = true;
 			may_start_new_file = true;
 			/*A marker was discovered in the current data (end of i-frame);
 				Only then it is ok to switch to a new data file; reason is that num_bytes_safe_to_read
 				must be increased as soon as possible in order to minimize delay for reading threads.
 				However we can only increase it when we know the current file is no longer
-				growing, i.e., just after a marker. So we proceed when this marker has been read very
-				recently
+				growing, i.e., just after a marker. So we proceed when this marker has been read now, and before
+				we increased  num_bytes_safe_to_read
+
 			*/
 		}
 		/*
@@ -1017,31 +1054,14 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 			 fixing the problem also means moving more data
 			*/
 		this->next_data_file(now);
-	} else if (num_bytes_decrypted_now) {
+	}
+	if (num_bytes_decrypted_now) {
 		auto mm = this->meta_marker.writeAccess();
 		mm->livebuffer_end_time = now;
 		mm->current_marker = this->stream_parser.event_handler.last_saved_marker;
 		assert(mm->num_bytes_safe_to_read <= this->num_bytes_decrypted); // we may not go back!!
-		auto v = this->num_bytes_decrypted;
-		if(likely(active_service->pmt_parser)) {
-			assert(v>= active_service->pmt_parser->last_section_end_bytepos);
-			/*
-				playpback_mpms should never read past the next pmt, before we process that pmt,
-				so that we can inform playback_mpm of it.
-			*/
-			v=std::min(v, active_service->pmt_parser->last_section_end_bytepos);
-		}
-		else if(active_service->pat_parser) {
-			/* @todo:not sure what best to do here:
-				 there is no pmt (yet). We restrict reading up to the next pat
-			*/
-			assert(v>= active_service->pat_parser->last_section_end_bytepos);
-			v=std::min(v, active_service->pat_parser->last_section_end_bytepos);
-
-		}
-		v= std::min(v, mm->current_marker.packetno_end  * (int64_t) dtdemux::ts_packet_t::size);
-		bool notify = (v!= mm->num_bytes_safe_to_read);
-		mm->num_bytes_safe_to_read = v;
+		bool notify = (this->num_bytes_decrypted != mm->num_bytes_safe_to_read);
+		mm->num_bytes_safe_to_read = this->num_bytes_decrypted;
 		if (!mm->started && mm->num_bytes_safe_to_read > 0) {
 			mm->started = true;
 			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);

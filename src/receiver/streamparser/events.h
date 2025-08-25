@@ -127,8 +127,8 @@ namespace dtdemux {
 		void index_event(stream_type::marker_t unit_type,
 										 /*uint16_t pid, uint16_t stream_type,*/
 										 const milliseconds_t& play_time_ms, pts_dts_t pts,
-										 pts_dts_t dts, uint64_t first_byte,
-										 uint64_t last_byte, const char* name);
+										 pts_dts_t dts, int64_t first_byte,
+										 int64_t last_byte, const char* name);
 
 
 		void pts_update(bool isvideo, int pos, const pts_dts_t& pts) {

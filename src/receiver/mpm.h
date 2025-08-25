@@ -280,8 +280,6 @@ private:
 	int open_(db_txn& idxdb_txn, milliseconds_t start_time);
 
 	int open_file_containing_time(db_txn& recdb_txn, milliseconds_t start_time);
-
-	int open_next_file();
 	std::tuple<int,int> copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t outbytes, int64_t inbytes);
 	int64_t read_generated_data(char* outbuffer, uint64_t num_bytes);
 	int64_t read_data_from_current_file(uint8_t*& buffer);

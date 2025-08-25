@@ -169,8 +169,8 @@ pts_dts_t event_handler_t::check_pes_discontinuity(pts_dts_t clock_period, const
 }
 
 void event_handler_t::index_event(stream_type::marker_t unit_type,
-																	const milliseconds_t& play_time_ms, pts_dts_t pts, pts_dts_t dts, uint64_t first_byte,
-																	uint64_t last_byte, const char* name) {
+																	const milliseconds_t& play_time_ms, pts_dts_t pts, pts_dts_t dts, int64_t first_byte,
+																	int64_t last_byte, const char* name) {
 	if (!idxdb)
 		return;
 	auto first_packetno = first_byte / ts_packet_t::size;
@@ -186,10 +186,10 @@ void event_handler_t::index_event(stream_type::marker_t unit_type,
 							 play_time_ms, pts, dts);
 		}
 		if (unit_type == stream_type::marker_t::i_frame || unit_type == stream_type::marker_t::pes_other) {
-			auto start = std::min(last_pat_start_bytepos, last_pmt_start_bytepos) / ts_packet_t::size;
-			auto end = std::max(last_pat_end_bytepos, last_pmt_end_bytepos) / ts_packet_t::size;
-			start = std::min(start, first_packetno);
-			end = std::max(end, last_packetno);
+			int64_t start = std::min(last_pat_start_bytepos, last_pmt_start_bytepos);
+			int64_t end = std::max(last_pat_end_bytepos, last_pmt_end_bytepos);
+			start = std::min(start, first_byte);
+			end = std::max(end, last_byte);
 			// start and end point to a byte region containing a pat a pmt and an i-frame (and perhaps some other
 			// data
 			dtdebugf("WRITE pos=[{}, {}] time={}", start, end, play_time_ms);
@@ -197,7 +197,7 @@ void event_handler_t::index_event(stream_type::marker_t unit_type,
 			auto txn = idxdb->wtxn();
 			{
 				auto c = idxdb->tcursor<marker_t>(txn);
-				last_saved_marker = marker_t(marker_key_t(play_time_ms), start, end);
+				last_saved_marker = marker_t(marker_key_t(play_time_ms), start/ts_packet_t::size, end/ts_packet_t::size);
 				put_record(c, last_saved_marker);
 			}
 			txn.commit();

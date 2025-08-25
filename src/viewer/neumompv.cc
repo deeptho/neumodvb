@@ -258,9 +258,10 @@ static int64_t read_fn(void* cookie, char* buf, uint64_t nbytes) {
 	{
 		auto ret = player->subscription.read_data(buf, nbytes);
 #if 0
+		if(ret>0)
 		{
-			static FILE* fp=fopen("/tmp/test.ts", "w");
-			fwrite(buf, nbytes, 1, fp);
+			static FILE* fp=fopen("/tmp/ttt.ts", "w");
+			fwrite(buf, ret, 1, fp);
 			fflush(fp);
 		}
 #endif

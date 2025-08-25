@@ -51,6 +51,7 @@ public:
 
 class MpvPlayer_;
 struct playback_info_t;
+class MpvGLCanvas;
 
 class mpv_overlay_t {
 	GLuint& g_texture;
@@ -89,7 +90,7 @@ public:
 		}
 	}
 
-	mpv_overlay_t(MpvPlayer_* player);
+	mpv_overlay_t(MpvPlayer_* player, MpvGLCanvas*canvas);
 };
 
 class MpvGLCanvas : public wxGLCanvas
@@ -104,6 +105,7 @@ class MpvGLCanvas : public wxGLCanvas
 	mpv_overlay_t overlay;
 	int inited = 0;
 public:
+	GLuint g_texture{0};
 	void prepare_buffer(int window_width, int window_height);
 	inline void toggle_overlay() {
 		overlay.toggle_overlay();

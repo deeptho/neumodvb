@@ -85,23 +85,6 @@ void save_debug(uint8_t* buffer, off_t size) {
 	}
 }
 
-wxBEGIN_EVENT_TABLE(MpvGLCanvas, wxGLCanvas)
-//EVT_SIZE(MpvGLCanvas::OnSize)
-EVT_WINDOW_CREATE(MpvGLCanvas::OnWindowCreate)
-EVT_PAINT(MpvGLCanvas::OnPaint)
-EVT_ERASE_BACKGROUND(MpvGLCanvas::OnErase)
-wxEND_EVENT_TABLE()
-
-MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
-: wxGLCanvas(parent, wxID_ANY,  NULL, wxDefaultPosition, wxDefaultSize
-						 , 0, wxString("GLCanvas"), wxNullPalette)
-	, to_prevent_destruction(player), mpv_player(player.get())
-	, overlay(player.get())
-{
-	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
-	SetClientSize(parent->GetSize());
-}
-
 static void InitializeTexture(GLuint& g_texture) {
 	GLenum err;
 	glGenTextures(1, &g_texture); // generate 1 texture name
@@ -129,6 +112,25 @@ static void InitializeTexture(GLuint& g_texture) {
 		dterrorf("OPENGL error {:d}\n", err);
 	}
 }
+
+wxBEGIN_EVENT_TABLE(MpvGLCanvas, wxGLCanvas)
+//EVT_SIZE(MpvGLCanvas::OnSize)
+EVT_WINDOW_CREATE(MpvGLCanvas::OnWindowCreate)
+EVT_PAINT(MpvGLCanvas::OnPaint)
+EVT_ERASE_BACKGROUND(MpvGLCanvas::OnErase)
+wxEND_EVENT_TABLE()
+
+MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
+: wxGLCanvas(parent, wxID_ANY,  NULL, wxDefaultPosition, wxDefaultSize
+						 , 0, wxString("GLCanvas"), wxNullPalette)
+	, to_prevent_destruction(player), mpv_player(player.get())
+	, overlay(player.get(), this)
+{
+	InitializeTexture(g_texture);
+	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+	SetClientSize(parent->GetSize());
+}
+
 
 MpvGLCanvas::~MpvGLCanvas() {
 	this->MpvDestroy();
@@ -461,7 +463,6 @@ MpvPlayer_::MpvPlayer_(receiver_t* receiver)
 	: MpvPlayer(receiver, dynamic_cast<MpvPlayer_*>(this))
 	, subscription(receiver, this)
 {
-	InitializeTexture(g_texture);
 	get_audio_volume();
 }
 
@@ -1263,7 +1264,7 @@ void MpvGLCanvas::prepare_buffer(int window_width, int window_height) {
 	static thread_local int last_w = -1;
 	static thread_local int last_h = -1;
 	static thread_local GLuint fbo;
-	static thread_local GLuint g_texture;
+	//static thread_local GLuint g_texture;
 
 	if(last_w == window_width && last_h == window_height)
 		return;
@@ -1274,7 +1275,7 @@ void MpvGLCanvas::prepare_buffer(int window_width, int window_height) {
 	last_h = window_height;
 	last_w = window_width;
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0, GL_RGB,
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, window_width, window_height, 0, GL_RGB,
 							 GL_UNSIGNED_BYTE, nullptr);
 
 	while ((err = glGetError()) != GL_NO_ERROR) {
@@ -1322,14 +1323,14 @@ void mpv_overlay_t::show_volume() {
 	}
 }
 
-mpv_overlay_t::mpv_overlay_t(MpvPlayer_* player)
-	: g_texture(player->g_texture)
+mpv_overlay_t::mpv_overlay_t(MpvPlayer_* player, MpvGLCanvas* canvas)
+	: g_texture(canvas->g_texture)
 {
-		auto o = player->receiver->options.readAccess();
-		auto osd_path = config_path / o->osd_svg;
-		svg_overlay = svg_overlay_t::make(osd_path.c_str());
-		auto radiobg_path = config_path / o->radiobg_svg;
-		svg_radiobg = svg_radiobg_t::make(radiobg_path.c_str());
+	auto o = player->receiver->options.readAccess();
+	auto osd_path = config_path / o->osd_svg;
+	svg_overlay = svg_overlay_t::make(osd_path.c_str());
+	auto radiobg_path = config_path / o->radiobg_svg;
+	svg_radiobg = svg_radiobg_t::make(radiobg_path.c_str());
 }
 
 

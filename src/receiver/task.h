@@ -120,13 +120,14 @@ private:
 	int _current_event =0;
 protected:
 	//time_t now {}; //current time
-	bool must_exit_ = false ; //a command can set this to true to request thread exit
-	bool has_exited_ = false ; //a command can set this to true after threads has cleanly exited
+	bool must_exit_{false}; //a command can set this to true to request thread exit
+	bool has_exited_{false}; //a command can set this to true after threads has cleanly exited
+	bool is_running_{false};
 private:
-	mutable std::mutex mutex;
-	mutable std::condition_variable cv;
 	mutable queue_t tasks;
 protected:
+	mutable std::mutex mutex;
+	mutable std::condition_variable cv;
 	int timer_fd = -1; //for running periodic tasks
 	int wait_timer_fd = -1; //for waiting until a specific time once
 	mutable event_handle_t notify_fd;
@@ -156,6 +157,26 @@ public:
 			thread_.detach();
 	}
 
+private:
+	inline future_t push_task_helper(std::function<int()>&& callback) {
+		if(std::this_thread::get_id() == this->thread_.get_id()) {
+			dtdebugf("Thread calls back to itself");
+			//assert(0);
+		}
+		task_t task([callback{std::move(callback)}]() {
+			task_result_t ret;
+			ret.retval = callback();
+			ret.errmsg = user_error_;
+			return ret;
+		});
+
+		auto f = task.get_future();
+		tasks.push(std::move(task));
+		if(tasks.size()>=32)
+			dtdebugf("large nunber of pending tasks {:d}", tasks.size());
+		notify_fd.unblock();
+		return f;
+	}
 
 protected:
 	void set_name(const char*name) {
@@ -235,27 +256,62 @@ protected:
 				save a future which can be used to wait for thread desctruction
 			 */
 			exit_future = wait_for_exit_task.get_future();
+
+			{
+				std::unique_lock<std::mutex> lk(mutex);
+				this->has_exited_ = false;
+				this->must_exit_= false;
+				this->is_running_ = true;
+				cv.notify_all();
+			}
+
 			auto ret = run();
 			{
 				std::unique_lock<std::mutex> lk(mutex);
-				this->has_exited_=true;
+				this->has_exited_ = true;
+				this->is_running_ = false;
 				cv.notify_all();
 			}
 
 			wait_for_exit_task();
-
 			return ret;
 		} catch (const std::exception& e) { // caught by reference to base
 			dterrorf("exception was caught: {}", e.what());
+			this->has_exited_ = true;
+			this->is_running_ = false;
 			assert(0);
     }
-		this->has_exited_=true;
 		return -1;
 	}
 
 	const epoll_event* current_event() const {
 		return _current_event < num_pending_events ? &events[_current_event] : NULL;
 	}
+
+	void start_running_() {
+		auto task = std::packaged_task<int(void)>(std::bind(&task_queue_t::run_, this));
+		status_future= task.get_future();
+		thread_= std::thread(std::move(task));
+		owner = thread_.get_id();
+	}
+
+	inline future_t push_task_(std::function<int()>&& callback) {
+		if(this->must_exit_) {
+			dterrorf("Ignored pushing task while exit is in progress");
+			task_t dummy_task([]() {
+				task_result_t ret;
+				ret.retval = -1;
+				ret.errmsg = "thread has exited; cannot run task";
+				return ret;
+			});
+			auto ret {dummy_task.get_future()};
+			dummy_task();
+			return ret;
+		} else {
+			return push_task_helper(std::move(callback));
+		}
+	}
+
 public:
 
 	inline void request_wakeup(double seconds) {
@@ -267,16 +323,23 @@ public:
 	}
 
 	void start_running() {
-		auto task = std::packaged_task<int(void)>(std::bind(&task_queue_t::run_, this));
-		status_future= task.get_future();
-		thread_= std::thread(std::move(task));
-		owner = thread_.get_id();
+		std::unique_lock<std::mutex> lk(mutex);
+		start_running_();
 	}
 
+	bool is_running() const {
+		std::scoped_lock<std::mutex> lk(mutex);
+		return is_running_;
+	}
 
 	bool has_exited() const {
 		std::scoped_lock<std::mutex> lk(mutex);
 		return has_exited_;
+	}
+
+	bool is_exiting() const {
+		std::scoped_lock<std::mutex> lk(mutex);
+		return must_exit_;
 	}
 
 	future_t stop_running(bool wait) {
@@ -303,7 +366,7 @@ public:
 			this->must_exit_ = true;
 		}
 
-		auto f=  push_task_([this](){
+		auto f=  push_task_helper([this](){
 			exit();
 			return -1;
 		});
@@ -339,42 +402,9 @@ public:
 
 	}
 
-	future_t push_task_(std::function<int()>&& callback) {
-		if(std::this_thread::get_id() == this->thread_.get_id()) {
-			dtdebugf("Thread calls back to itself");
-			//assert(0);
-		}
-		task_t task([callback{std::move(callback)}]() {
-			task_result_t ret;
-			ret.retval = callback();
-			ret.errmsg = user_error_;
-			return ret;
-		});
-
-		auto f = task.get_future();
-		tasks.push(std::move(task));
-		if(tasks.size()>=10)
-			dtdebugf("large nunber of pending tasks {:d}", tasks.size());
-		notify_fd.unblock();
-		return f;
-	}
-
 	inline future_t push_task(std::function<int()>&& callback) {
 		std::scoped_lock<std::mutex> lk(mutex);
-		if(this->must_exit_) {
-			dterrorf("Ignored pushing task while exit is in progress");
-			task_t dummy_task([]() {
-				task_result_t ret;
-				ret.retval = -1;
-				ret.errmsg = "thread has exited; cannot run task";
-				return ret;
-			});
-			auto ret {dummy_task.get_future()};
-			dummy_task();
-			return ret;
-		} else {
-			return push_task_(std::move(callback));
-		}
+		return push_task_(std::move(callback));
 	}
 
 	void acknowledge() {

@@ -333,6 +333,47 @@ public:
 	}
 };
 
+class fe_monitor_thread_t : public task_queue_t {
+
+public:
+		receiver_t& receiver;
+
+private:
+	bool is_paused{false};
+	std::shared_ptr<dvb_frontend_t> fe{nullptr};
+
+	void update_lock_status_and_signal_info(fe_status_t fe_status);
+	virtual int exit() final;
+
+	inline void handle_frontend_event();
+public:
+	class cb_t;
+
+	fe_monitor_thread_t(receiver_t& receiver_)
+		: task_queue_t(thread_group_t::fe_monitor)
+		, receiver(receiver_)
+		{
+		}
+
+	bool wait_for(double seconds);
+
+	void start(std::shared_ptr<dvb_frontend_t>& fe_);
+	task_queue_t::future_t request_pause();
+	task_queue_t::future_t request_unpause();
+
+	int run();
+	virtual ~fe_monitor_thread_t()
+		{}
+};
+
+class fe_monitor_thread_t::cb_t : public fe_monitor_thread_t { //callbacks
+public:
+	int pause();
+	int unpause();
+	virtual ~cb_t()
+		{}
+};
+
 //owned by active_adapter_t and tuner_thread_t
 class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 {
@@ -347,7 +388,7 @@ class dvb_frontend_t : public std::enable_shared_from_this<dvb_frontend_t>
 
 	int num_constellation_samples{0};
 	sec_status_t sec_status;
-	std::shared_ptr<fe_monitor_thread_t> monitor_thread;
+	fe_monitor_thread_t monitor_thread;
 
 public:
 	const api_type_t api_type { api_type_t::UNDEFINED };
@@ -392,8 +433,6 @@ private:
 
 
 	int get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api);
-
-	void start_frontend_monitor();
 
 	int start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, const devdb::lnb_t& lnb);
 
@@ -514,13 +553,7 @@ private:
 public:
 	dvb_frontend_t(adaptermgr_t* adaptermgr_,
 								 adapter_no_t adapter_no_, frontend_no_t frontend_no_,
-								 api_type_t api_type_,  int api_version_)
-		: adaptermgr(adaptermgr_)
-		, api_type(api_type_)
-		, api_version(api_version_)
-		, adapter_no(adapter_no_)
-		, frontend_no(frontend_no_)
-		{}
+								 api_type_t api_type_,  int api_version_);
 
 	static std::shared_ptr<dvb_frontend_t> make(adaptermgr_t* adaptermgr,
 																							 adapter_no_t adapter_no,
@@ -530,7 +563,11 @@ public:
 	int open_device(bool rw=true);
 	void close_device();
 
+	void start_frontend_monitor();
+	//executed as tasks
 	void stop_frontend_monitor_and_wait();
+	void pause();
+	void unpause();
 
 	std::optional<signal_info_t> update_lock_status_and_signal_info(fe_status_t fe_status, bool get_constellation);
 	std::optional<spectrum_scan_t> get_spectrum(const ss::string_& spectrum_path);
@@ -609,53 +646,6 @@ class use_count_t {
 	int operator()() const {
 		return use_count;
 	}
-};
-
-
-/*
-	shared_from_this
-	needed because thread will destroy its own data safely
-	as opposed to some other thread waiting for this fe_monitor thread
-	to exit and then destroying the fe_monitor_thread_t data structure.
-	We do not want to wait, as FE_MON syscalls can be quite slow
-	in some cases*/
-
-class fe_monitor_thread_t : public task_queue_t, public std::enable_shared_from_this<fe_monitor_thread_t> {
-
-public:
-		receiver_t& receiver;
-
-private:
-	bool is_paused{false};
-	std::shared_ptr<dvb_frontend_t> fe{nullptr};
-
-	void update_lock_status_and_signal_info(fe_status_t fe_status);
-	virtual int exit() final;
-
-	inline void handle_frontend_event();
-public:
-	class cb_t;
-
-	fe_monitor_thread_t(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_)
-		: task_queue_t(thread_group_t::fe_monitor)
-		, receiver(receiver_)
-		, fe(fe_)
-		{
-		}
-
-	bool wait_for(double seconds);
-	static std::shared_ptr<fe_monitor_thread_t> make
-	(receiver_t& receiver_, std::shared_ptr<dvb_frontend_t>& fe_);
-
-	int run();
-};
-
-
-
-class fe_monitor_thread_t::cb_t : public fe_monitor_thread_t { //callbacks
-public:
-	int pause();
-	int unpause();
 };
 
 

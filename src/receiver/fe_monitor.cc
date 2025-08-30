@@ -40,15 +40,51 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-std::shared_ptr<fe_monitor_thread_t> fe_monitor_thread_t::make(receiver_t& receiver,
-																															 std::shared_ptr<dvb_frontend_t>& fe) {
+void fe_monitor_thread_t::start(std::shared_ptr<dvb_frontend_t>& fe) {
+	std::unique_lock<std::mutex> lk(this->mutex);
+	if(this->must_exit_) {
+		while(! this->has_exited_)
+			this->cv.wait(lk);
+		dtdebugf("Waited until exit was complete");
+	}
+	if(this->is_running_) {
+		dtdebugf("Already running");
+		assert(!this->must_exit_);
+		assert(!this->has_exited_);
+		return;
+	}
+	assert(!this->fe || this->fe.get()==fe.get());
+	this->fe = fe;
 	auto fefd = fe->open_device();
-	auto p = std::make_shared<fe_monitor_thread_t>(receiver, fe);
 	dtdebugf("starting frontend_monitor {:p}: fefd={:d}", fmt::ptr(fe.get()), fefd);
-	p->epoll_add_fd(fefd,
-									EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET); // will be used to monitor the frontend edge triggered!
-	p->start_running();
-	return p;
+	this->epoll_add_fd(fefd,
+										 EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLET); // will be used to monitor the frontend edge triggered!
+	this->start_running_();
+}
+
+task_queue_t::future_t fe_monitor_thread_t::request_pause() {
+	std::unique_lock<std::mutex> lk(this->mutex);
+	if(this->is_running_) {
+		assert(!this->must_exit_);
+		assert(!this->has_exited_);
+		task_queue_t::future_t f = this->push_task_( [this] () {
+			cb(*this).pause();
+			return 0;
+		});
+		return f;
+	} else return {};
+}
+
+task_queue_t::future_t fe_monitor_thread_t::request_unpause() {
+	std::unique_lock<std::mutex> lk(this->mutex);
+	assert(!this->must_exit_);
+	assert(!this->has_exited_);
+	assert(this->is_running_);
+	task_queue_t::future_t f = this->push_task_( [this] () {
+		cb(*this).unpause();
+		return 0;
+	});
+	return f;
 }
 
 void fe_monitor_thread_t::update_lock_status_and_signal_info(fe_status_t fe_status) {
@@ -183,8 +219,6 @@ int fe_monitor_thread_t::run() {
 	set_name(fe_name.c_str());
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 	dtdebugf("frontend_monitor run: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
-	auto save = shared_from_this(); // prevent ourself from being deleted until thread exits;
-
 	if (fe->api_type != api_type_t::NEUMO)
 		timer_start(1); // NEUMO api activates heartbeat mode
 	for (;;) {
@@ -214,7 +248,6 @@ int fe_monitor_thread_t::run() {
 		}
 	}
 exit_:
-	save.reset();
 	dtdebugf("frontend_monitor end: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 	return 0;
 }

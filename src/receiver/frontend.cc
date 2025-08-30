@@ -127,6 +127,17 @@ int cmdseq_t::spectrum(int fefd, dtv_fe_spectrum_method method) {
 	return 0;
 }
 
+dvb_frontend_t::dvb_frontend_t(adaptermgr_t* adaptermgr_,
+															 adapter_no_t adapter_no_, frontend_no_t frontend_no_,
+															 api_type_t api_type_,  int api_version_)
+	: adaptermgr(adaptermgr_)
+	, monitor_thread(adaptermgr_->receiver)
+	, api_type(api_type_)
+	, api_version(api_version_)
+	, adapter_no(adapter_no_)
+	, frontend_no(frontend_no_)
+{}
+
 int dvb_frontend_t::open_device( bool rw) {
 	auto w = this->ts.writeAccess();
 	fe_state_t& fe_state = *w;
@@ -731,7 +742,7 @@ int dvb_frontend_t::cancel_unicable() {
 	return 0;
 }
 
-int dvb_frontend_t::stop() {
+void dvb_frontend_t::pause() {
 
 	/*
 		First, prevent frontend_monitor from making future calls
@@ -745,15 +756,7 @@ int dvb_frontend_t::stop() {
 		a new mux is being tuned.
 
 	 */
-	auto m = monitor_thread;
-	task_queue_t::future_t f;
-	if (m.get()) {
-		f = m->push_task( [m] () {
-			cb(*m).pause();
-			return 0;
-		});
-	}
-
+	auto f = monitor_thread.request_pause();
 	if(ts.readAccess()->dbfe.supports_neumo) {
 		/*
 			ask driver to abort quickly any tune or monitoring command in progress.
@@ -778,21 +781,11 @@ int dvb_frontend_t::stop() {
 	cancel_unicable();
 	auto w =  this->ts.writeAccess();
 	w->lock_status.fem_state = fem_state_t::IDLE;
-	return 0;
 }
 
-int dvb_frontend_t::start() {
-	auto m = monitor_thread;
-	task_queue_t::future_t f;
-	if (m.get()) {
-		//need tp push by value as we don't wait for call to complete
-		f = m->push_task( [m] () {
-			cb(*m).unpause();
-			return 0;
-		});
-	}
+void dvb_frontend_t::unpause() {
+	monitor_thread.request_unpause();
 	ts.writeAccess()->lock_status.fem_state = fem_state_t::MONITORING;
-	return 0;
 }
 
 /*
@@ -1508,16 +1501,10 @@ dvb_frontend_t::lnb_spectrum_scan(
 
 	auto sat_pos = tune_options.spectrum_scan_options.sat.sat_pos;
 
-	{
-		auto x = monitor_thread;
-		assert(!x || !x->must_exit());
-	}
-
 	//abort the current operation of the frontend making it go to IDLE mode
-	dtdebugf("calling stop fe_monitor");
-	if (this->stop() < 0)  /* Force the driver to go into idle mode immediately, so
-																	that the fe_monitor_thread_t will also return immediately*/
-		return {-1, sat_pos_none};
+	dtdebugf("calling pause fe_monitor");
+	this->pause(); /* Force the driver to go into idle mode immediately, so
+										that the fe_monitor_thread_t will also return immediately*/
 
 	dttime(300);
 
@@ -1559,7 +1546,7 @@ dvb_frontend_t::lnb_spectrum_scan(
 	if (ret < 0)
 		return {ret, new_usals_pos};
 
-	this->start();
+	this->unpause();
 
 	//dttime(100);
 	return {0, new_usals_pos};
@@ -1687,17 +1674,11 @@ dvb_frontend_t::tune(
 	const auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&this->ts.readAccess()->reserved_mux);
 	assert(dvbs_mux);
 	auto sat_pos = dvbs_mux->k.sat_pos;
-	{
-		auto x = monitor_thread;
-		assert(!x || !x->must_exit());
-	}
 
 	//abort the current operation of the frontend making it go to IDLE mode
 	dtdebugf("calling stop fe_monitor");
-	if (this->stop() < 0)  /* Force the driver to go into idle mode immediately, so
+	this->pause();  /* Force the driver to go into idle mode immediately, so
 																	that the fe_monitor_thread_t will also return immediately*/
-		return {-1, sat_pos_none};
-
 	dttime(300);
 
 	int ret;
@@ -1750,7 +1731,7 @@ dvb_frontend_t::tune(
 		ts.writeAccess()->lock_status.fem_state = fem_state_t::FAILED;
 		return {ret, new_usals_pos};
 	}
-	this->start();
+	this->unpause();
 
 	return {0, new_usals_pos};
 }
@@ -2000,14 +1981,12 @@ int dvb_frontend_t::start_lnb_spectrum_scan(const devdb::rf_path_t& rf_path, con
 }
 
 void dvb_frontend_t::start_frontend_monitor() {
-	assert(!monitor_thread.get()); //monitor_thread  should not be running
 	auto self = shared_from_this();
-	monitor_thread = fe_monitor_thread_t::make(adaptermgr->receiver, self);
+	monitor_thread.start(self);
 }
-
 void dvb_frontend_t::stop_frontend_monitor_and_wait() {
-	if(monitor_thread)
-		monitor_thread->stop_running(true);
+	monitor_thread.stop_running(true);
+	assert(this->ts.readAccess()->fefd <0);
 }
 
 devdb::usals_location_t dvb_frontend_t::get_usals_location() const {
@@ -2031,13 +2010,9 @@ int dvb_frontend_t::start_fe_and_lnb(const devdb::rf_path_t& rf_path, const devd
 		w->last_signal_info.reset();
 		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
-	if(!monitor_thread.get()) {
-		dtdebugf("calling start_frontend_monitor");
-		start_frontend_monitor();
-	} else {
-		dtdebugf("NOT calling start_frontend_monitor");
-		assert(this->ts.readAccess()->fefd >= 0);
-	}
+
+	dtdebugf("calling start_frontend_monitor");
+	start_frontend_monitor();
 	return ret;
 }
 
@@ -2059,13 +2034,7 @@ int dvb_frontend_t::start_fe_lnb_and_mux(const devdb::rf_path_t& rf_path, const 
 		w->last_signal_info.reset();
 		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
-	if (!monitor_thread.get()) {
-		dtdebugf("calling start_frontend_monitor");
-		start_frontend_monitor();
-	} else {
-		dtdebugf("NOT calling start_frontend_monitor");
-		assert(this->ts.readAccess()->fefd >= 0);
-	}
+	start_frontend_monitor();
 	return ret;
 }
 
@@ -2082,13 +2051,7 @@ int dvb_frontend_t::start_fe_and_dvbc_or_dvbt_mux(const chdb::any_mux_t& mux) {
 		w->	last_signal_info.reset();
 		w->lock_status.fem_state = fem_state_t::STARTED;
 	}
-	if (!monitor_thread.get()) {
-		dtdebugf("calling start_frontend_monitor");
-		start_frontend_monitor();
-	} else {
-		dtdebugf("NOT calling start_frontend_monitor");
-		assert(this->ts.readAccess()->fefd >= 0);
-	}
+	start_frontend_monitor();
 	return 0;
 }
 
@@ -2103,17 +2066,13 @@ int dvb_frontend_t::reset_ts() {
 
 int dvb_frontend_t::release_fe() {
 	dtdebugf("releasing frontend_monitor: fefd={:d}", this->ts.readAccess()->fefd);
-	if (monitor_thread.get()) {
-		stop_frontend_monitor_and_wait();
-		monitor_thread.reset();
-	}
-	{
-		dtdebugf("release_fe: change tune mode on adapter {:d}: clear from {:d}", (int)adapter_no,
-						 (int) this->ts.readAccess()->tune_mode);
-		this->reset_ts();
-		this->signal_monitor.assign({});
-		this->sec_status = {};
-	}
+	stop_frontend_monitor_and_wait();
+
+	dtdebugf("release_fe: change tune mode on adapter {:d}: clear from {:d}", (int)adapter_no,
+					 (int) this->ts.readAccess()->tune_mode);
+	this->reset_ts();
+	this->signal_monitor.assign({});
+	this->sec_status = {};
 	return 0;
 }
 

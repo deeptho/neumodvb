@@ -529,6 +529,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 			delete_record(c, db_mux);
 		}
 #endif
+		assert(!is_template(mux_to_save));
 		put_record(wtxn, mux_to_save);
 	}
 	return ret;

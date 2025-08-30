@@ -598,6 +598,7 @@ int active_adapter_t::deactivate() {
 	dtdebugf("Release fe_fd={:d}", fefd);
 	fe->release_fe();
 	tune_state = TUNE_INIT;
+	dtdebugf("Release fe_fd={:d} DONE", fefd);
 	return 0;
 }
 

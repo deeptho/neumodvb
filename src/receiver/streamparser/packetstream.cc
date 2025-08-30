@@ -318,6 +318,7 @@ bool ts_substream_t::process_packet_header(ts_packet_t* p) {
 								 this->continuity_errors, expected_cc, current_ts_packet->get_continuity_counter(),
 								 current_ts_packet->has_payload());
 				throw_bad_data();
+				cc_error_counter++;
 			} else {
 				cc_error_counter++;
 			}

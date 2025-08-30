@@ -653,11 +653,13 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 
 	int64_t remaining_space = -1;
 	uint8_t* buffer = nullptr;
-	dttime_init();
-
+	assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 	for (; !error;) {
-
+		dttime_init();
 		remaining_space = read_data_from_current_file(buffer);
+		assert(filemap.read_pointer+remaining_space <= last_seen_live_meta_marker.num_bytes_safe_to_read);
+		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
+		dttime(100);
 		/* remaining_space<0 means errors
 			 remaining_space == 0 means: no more data in current file part; for live_mpm this will only happend on exit
 		 */
@@ -666,7 +668,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 		if (remaining_space >= ts_packet_t::size)
 			break; // enough data which is known to be available to continue processing
 		assert(!live_mpm || filemap.get_read_buffer(buffer) == 0);
-
+		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 		/*the current file has been fully played because map growing was tried, but remaining_space still 0.
 			Also, the current file is not the last one because then we would have restarted or exited
 			the loop.
@@ -702,12 +704,15 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 			f->stream_time_end = end_time;
 			f->stream_packetno_end = end_marker.packetno_end;
 			wtxn.commit();
+			assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 		}
 		auto idxdb_txn = db->mpm_rec.idxdb.rtxn();
 		if (remaining_space == 0  && live_mpm) {
 				end_time=currently_playing_file.readAccess()->stream_time_end;
 			}
+		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 		bool still_not_open = end_time == std::numeric_limits<milliseconds_t>::max();
+		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 		auto ret = still_not_open ? -1 : open_(idxdb_txn, end_time);
 		idxdb_txn.abort();
 		if(ret == 0 && live_mpm)
@@ -731,8 +736,10 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 		inbytes = std::min((int64_t)inbytes, next_stream_change_ - current_byte_pos);
 	auto [num_bytes_out, num_bytes_in] = copy_filtered_packets(outbuffer, buffer, outbytes, inbytes);
 	//dttime(100);
+	assert(filemap.read_pointer+inbytes <= last_seen_live_meta_marker.num_bytes_safe_to_read);
+	assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
+
 	filemap.advance_read_pointer(num_bytes_in);
-	dttime(100);
 	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 	current_byte_pos += num_bytes_in;
 	assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
@@ -762,6 +769,7 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 		return {0, have_pmt};
 	int num_bytes_read{0};
 	while(num_bytes_read == 0 && !must_exit && !error) {
+		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
     /*below, read_data_live_ and read_data_nonlive_ can read 0 bytes
 			for two reasons: 1) due to pmt filtering, no real data may be available yet
 			2) or real data may still be available, but the reading code has reached the point
@@ -792,7 +800,7 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 				return {num_bytes_read, have_pmt};
 			}
 		}
-
+		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 		if(must_exit)
 			return {0, have_pmt};
 		assert(max_bytes >=0);
@@ -840,16 +848,16 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 	Returns as soon as at least 1 packet is available for reading from the input stream
 	Returns -1 on error or on must_exit
 	Returns 0 if no data is found and no more data exists in the current mpm part; there could be more mpm parts
-
  */
 int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 
 	if (error)
 		return -1;
-
 	int64_t remaining_space{0};
 	dttime_init();
 	for(; !error; ) {
+		assert(filemap.read_pointer <= last_seen_live_meta_marker.num_bytes_safe_to_read);
+		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 		remaining_space = filemap.get_read_buffer(buffer);
 		if(!live_mpm)
 			break;
@@ -864,6 +872,9 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 			last_seen_live_meta_marker will be updated with:
 			current_marker, current_file_record (last file in the live buffer) and num_bytes_safe_to_read
 		*/
+		dttime_init();
+		assert(filemap.read_pointer <= last_seen_live_meta_marker.num_bytes_safe_to_read);
+		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 		live_mpm->wait_for_update(last_seen_live_meta_marker, filemap.safe_read_len + ts_packet_t::size);
 		if (must_exit)
 			return -1;
@@ -915,6 +926,7 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 		auto v = std::min(new_end_pos,  last_seen_live_meta_marker.num_bytes_safe_to_read);
 		if (filemap.grow_map(v) >= 0) {
 			remaining_space = filemap.get_read_buffer(buffer);
+			assert(filemap.read_pointer+remaining_space <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 			assert(remaining_space % ts_packet_t::size ==0);
 			//dttime(300);
 			if (remaining_space >= ts_packet_t::size) {
@@ -930,6 +942,7 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 	}
 	if(error)
 		return -1;
+	assert(filemap.read_pointer+remaining_space <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 	return remaining_space;
 }
 

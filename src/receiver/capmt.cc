@@ -107,7 +107,7 @@ void ca_pmt_t::init(capmt_list_management_t lm, const dtdemux::pmt_info_t& pmt_i
 	if(pmt_info.ca_descriptors.size()==0) {
 		uint16_t forced_caid = 0x2600;
 		uint16_t forced_ecm_pid = 0x1fff;
-		add_ca_descriptor(0x2600, 0x1fff);
+		add_ca_descriptor(forced_caid, forced_ecm_pid);
 	}
 
 	add_enignma_ns_descriptor(network_id, ts_id);

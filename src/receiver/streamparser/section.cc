@@ -1100,15 +1100,17 @@ namespace dtdemux {
 				if(service.provider.size()>0)
 					pmt.provider_name = service.provider;
 			}
+			default:
+				dtdebug_nicef("PMT: unhandled descriptor {}={} size={}", (int)_desc.tag,
+											name_of_descriptor_tag(_desc.tag), (int)_desc.len);
 			case SI::DataBroadcastDescriptorTag:
 			case SI::ApplicationSignallingDescriptorTag:
 			case SI::AncillaryDataDescriptorTag:
 			case SI::VBITeletextDescriptorTag:
 			case SI::VBIDataDescriptorTag:
 			case SI::TeletextDescriptorTag:
-			default:
-				dtdebug_nicef("PMT: unhandled descriptor {}={} size={}", (int)_desc.tag,
-											name_of_descriptor_tag(_desc.tag), (int)_desc.len);
+			case SI::CarouselIdentifierDescriptorTag:
+			case SI::DataBroadcastIdDescriptorTag:
 				s.skip(_desc.len);
 				break;
 			}

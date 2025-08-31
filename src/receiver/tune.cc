@@ -493,8 +493,13 @@ tuner_thread_t::subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t
 	dtdebugf("Active_adapter {:p}: subscription_id={:d} adapter_no={:d}",
 					 fmt::ptr(this), (int) sret.subscription_id,
 					 active_adapter.get_adapter_no());
-	auto &sub = sret.aa.updated_new_dbfe->sub.subs[0];
-	assert(sub.subscription_id == (int)sret.subscription_id || sub.subscription_id == (int)sret.sub_to_reuse);
+#ifndef NDEBUG
+	auto ok =false;
+	for(const auto &sub : sret.aa.updated_new_dbfe->sub.subs) {
+		ok |= (sub.subscription_id == (int)sret.subscription_id || sub.subscription_id == (int)sret.sub_to_reuse);
+	}
+	assert(ok);
+#endif
 	//assert(sret.sub_to_reuse == subscription_id_t::NONE);
 	ret = (int)active_adapter.tune_mux(sret, mux, tune_options);
 	if (ret < 0) {

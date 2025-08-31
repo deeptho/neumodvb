@@ -176,7 +176,8 @@ devdb::fe::check_for_resource_conflicts(db_txn& rtxn,
 			ret.rf_coupler += same_rf_coupler;
 			ret.tuner += same_tuner;
 			ret.positioner += same_positioner;
-			ret.config_id = fe.sub.config_id;
+			if(same_rf_path)
+				ret.config_id = fe.sub.config_id;
 			ret.owner = fe.sub.owner;
 		}
 	}

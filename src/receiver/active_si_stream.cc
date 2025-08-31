@@ -2658,7 +2658,9 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 	if(sdt_data.mux_key.mux_id == 0) { /*can happen when no nit was received*/
 		sdt_data.mux_key.mux_id = chdb::mux_key_ptr(p_mux_data->mux)->mux_id;
 		assert(sdt_data.mux_key == *chdb::mux_key_ptr(p_mux_data->mux));
+#if 0
 		this->dbmux = p_mux_data->mux;
+#endif
 	}
 	auto ret = sdt_section_cb_(wtxn, services, info, p_mux_data); //commits or aborts internally
 	return ret;

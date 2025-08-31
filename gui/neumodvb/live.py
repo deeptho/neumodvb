@@ -1826,7 +1826,7 @@ class GridEpgPanel(RecordPanel):
 
     def scroll_leftright(self):
         old_top_idx = self.top_idx
-        self.epg_screens.remove_all()
+        self.data.epg_screens.remove_all()
         for rowno, row in enumerate(self.rows):
             row.update()
         self.update_periods()

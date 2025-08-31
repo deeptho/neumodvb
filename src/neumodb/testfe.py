@@ -37,7 +37,9 @@ for idx in range(screen.list_size):
     ll = screen.record_at_row(idx)
     if ll.present:
         #ret.append(ll)
-        print(f"{ll.adapter_no}.{ll.sub.lnb_key}: {ll.sub.frequency}")
+        if len(ll.sub.subs) >0:
+            lastll =ll
+            print(f"{ll.adapter_no}:{ll.card_name} {ll.sub.mux_key}: {ll.sub.frequency/1000}{str(ll.sub.pol).split('.')[1]}: config_id={ll.sub.config_id}:  ")
         #      f' present={ll.present}')
 
 print("===================================")

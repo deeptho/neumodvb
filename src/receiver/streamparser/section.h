@@ -57,8 +57,9 @@ namespace dtdemux {
 			return section_syntax_indicator && (table_id == 0x42  || table_id== 0x46);
 		}
 		inline bool is_freesat_eit() const  {
-			return section_syntax_indicator &&
+			auto ret= section_syntax_indicator && private_bit && table_id == 209 &&
 				(pid==3004 || pid==3003 || pid==3842 || pid==3843);
+			return ret;
 		}
 
 		inline bool is_eit() const  {

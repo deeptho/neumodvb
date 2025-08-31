@@ -1264,7 +1264,6 @@ void MpvGLCanvas::prepare_buffer(int window_width, int window_height) {
 	GLenum err;
 	static thread_local int last_w = -1;
 	static thread_local int last_h = -1;
-	static thread_local GLuint fbo;
 	//static thread_local GLuint g_texture;
 
 	if(last_w == window_width && last_h == window_height)

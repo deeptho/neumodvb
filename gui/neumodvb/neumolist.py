@@ -453,6 +453,9 @@ class NeumoTableBase(wx.grid.GridTableBase):
                         newval = d.get(val, None)
                     else:
                         newval = int(val)
+                        if newval == -2147483648: #ch_order set to empty
+                            newval=65535
+
             except:
                 dtdebug(f'ILLEGAL VALUE val={val}')
                 newval = None

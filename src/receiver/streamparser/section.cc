@@ -2309,14 +2309,15 @@ ss::vector<language_code_t, 8> pmt_info_t::subtitle_languages() const {
 // uint32_t to_int(char lang[4]) { return lang[0] | lang[1] << 8 | lang[2] << 16; }
 
 /*
-	returns a language code_t containing the index of the pmt language entry corresponding to pref,
+	returns the index and the language code_t of the pmt language entry corresponding to pref,
 	or an invalid language_code_t if the pmt does not contain pref
 */
 static
-std::tuple<const dtdemux::pid_info_t*, chdb::language_code_t>
+std::tuple<int, const dtdemux::pid_info_t*, chdb::language_code_t>
 find_audio_pref_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
 	using namespace chdb;
-	int order = 0; /* for duplicate entries in pmt, order will be 0,1,2,...*/
+	int order = 0; /* for duplicate entries in pmt woth matching language, order will be 0,1,2,...*/
+	int idx = 0;
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
 		if(!is_audio(pid_desc))
 			continue;
@@ -2325,16 +2326,17 @@ find_audio_pref_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
 		if (is_same_language(lang_code, pref)) {
 			// order is the order of preference
 			if (order == pref.position) { // in pref, position 1 means the second language of this type
-				return {&pid_desc, lang_code};
+				return {idx, &pid_desc, lang_code};
 			}
 			order++;
 		}
+		idx++;
 	}
 
-	return {nullptr, language_code_t{}};
+	return {-1, nullptr, language_code_t{}};
 }
 
-static std::tuple<const dtdemux::pid_info_t*, chdb::language_code_t>
+static std::tuple<int, const dtdemux::pid_info_t*, chdb::language_code_t>
 first_audio(const pmt_info_t& pmtinfo) {
 	using namespace chdb;
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
@@ -2342,9 +2344,9 @@ first_audio(const pmt_info_t& pmtinfo) {
 			continue;
 		auto&c  = pid_desc.audio_lang.lang_code;
 		chdb::language_code_t lang_code(0, c[0], c[1], c[2]);
-		return {&pid_desc, lang_code};
+		return {0, &pid_desc, lang_code};
 	}
-	return {nullptr, chdb::language_code_t()};
+	return {-1, nullptr, chdb::language_code_t()};
 }
 
 /*
@@ -2352,7 +2354,7 @@ first_audio(const pmt_info_t& pmtinfo) {
 	Prefs is an array of languages 3 chars indicating the audio
 	languge; the fourth byte is used to distinghuish between duplicates;
 */
-std::tuple<const dtdemux::pid_info_t*, chdb::language_code_t>
+std::tuple<int, const dtdemux::pid_info_t*, chdb::language_code_t>
 pmt_info_t::best_audio_language(language_code_t selected_audio_lang,
 																const ss::vector_<language_code_t>& prefs) const {
 	using namespace chdb;
@@ -2360,15 +2362,15 @@ pmt_info_t::best_audio_language(language_code_t selected_audio_lang,
 		 and return the first match, which is the one with the highest user priority
 	*/
 
-	auto [ret, lang_code] = find_audio_pref_in_pmt(*this, selected_audio_lang);
+	auto [idx, ret, lang_code] = find_audio_pref_in_pmt(*this, selected_audio_lang);
 	if(ret) {
-		return {ret, lang_code};
+		return {idx, ret, lang_code};
 	}
 
 	for (const auto& p : prefs) {
-		auto [ret, lang_code] = find_audio_pref_in_pmt(*this, p);
+		auto [idx, ret, lang_code] = find_audio_pref_in_pmt(*this, p);
 		if (ret) {
-			return {ret, lang_code};
+			return {idx, ret, lang_code};
 		}
 	}
 	return  first_audio(*this);

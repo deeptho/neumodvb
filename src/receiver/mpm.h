@@ -188,6 +188,8 @@ struct stream_state_t {
 	ss::vector<chdb::language_code_t,4> subtitle_pref;
 	std::map<subscription_id_t, callback_t> audio_language_change_callbacks;
 	std::map<subscription_id_t, callback_t> subtitle_language_change_callbacks;
+
+	int set_language_pref(int idx, bool for_subtitles);
 };
 
 

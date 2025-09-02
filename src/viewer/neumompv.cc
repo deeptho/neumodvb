@@ -312,7 +312,7 @@ void mpv_subscription_t::open() {
 */
 int mpv_subscription_t::set_audio_language(int idx) {
 	if (!mpm) {
-		dtdebugf("No active playvack");
+		dtdebugf("No active playback");
 		return -1;
 	}
 	auto ret = mpm->set_audio_language(idx);
@@ -321,9 +321,9 @@ int mpv_subscription_t::set_audio_language(int idx) {
 	ss::string<16> arg;
 	arg.format("{:d}", idx + 1);
 	if (idx < 0) {
-		dterrorf("setting BAD audio language (MPV ONLY) to {:d}", idx);
+		dterrorf("setting BAD audio language (from GUI) to {:d}", idx);
 	}
-	dtdebugf("setting audio language (MPV ONLY) to {:d}", idx);
+	dtdebugf("setting audio language (from GUI) to {:d}", idx);
 	if (mpv_set_property_string(mpv_player->mpv, "aid", arg.c_str()) < 0)
 		dterrorf("Failed setting audio language {:d}", idx);
 #endif
@@ -380,6 +380,8 @@ void mpv_subscription_t::on_audio_language_change(const chdb::language_code_t& l
 		return;
 	}
 	dtdebugf("setting audio language (MPV ONLY) to {:d} {:s}", id, chdb::lang_name(lang));
+	if (mpv_set_property_string(mpv_player->mpv, "aid", arg.c_str()) < 0)
+		dterrorf("Failed setting audio language {:d}", id);
 }
 
 static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {

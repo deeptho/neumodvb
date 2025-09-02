@@ -234,11 +234,14 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 #else
 	//generated_ts.append_raw(ss.current_pmt_marker.pmt_section.buffer(), ss.current_pmt_marker.pmt_section.size());
 
-	auto [audio_desc, audio_lang ] =  current_pmt.best_audio_language(ss.current_audio_language, ss.audio_pref);
+	auto [audio_idx, audio_desc, audio_lang ] =
+		current_pmt.best_audio_language(ss.current_audio_language, ss.audio_pref);
 	auto [subtitle_desc, desc2 , subtitle_lang] = current_pmt.best_subtitle_language
 		(ss.current_subtitle_language,  ss.subtitle_pref);
 	if(audio_desc) {
 		ss.current_audio_language = audio_lang;
+		dtdebugf("Setting audio_lang={}\n", audio_idx);
+		ss.set_language_pref(audio_idx, false/*for_subtitles*/);
 		ss.current_audio_pid = audio_desc->stream_pid;
 	}
 	if(subtitle_desc) {
@@ -253,6 +256,24 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 	have_pmt = true;
 }
 
+int stream_state_t::set_language_pref(int idx, bool for_subtitles) {
+	auto langs = for_subtitles ? this->current_pmt_marker.subtitle_langs : this->current_pmt_marker.audio_langs;
+	if (idx < 0 || idx >= langs.size()) {
+		dterrorf("set_language: index {:d} out of range", idx);
+		return -1;
+	}
+
+	chdb::language_code_t selected_lan = langs[idx];
+
+	if (for_subtitles)
+		this->current_subtitle_language = selected_lan;
+	else
+		this->current_audio_language = selected_lan;
+	for (const auto& [i, cb]:  for_subtitles? subtitle_language_change_callbacks : audio_language_change_callbacks) {
+		cb(selected_lan, idx);
+	}
+	return 1;
+}
 
 int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 	auto ls = stream_state.writeAccess();
@@ -261,7 +282,6 @@ int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 		dterrorf("set_language: index {:d} out of range", idx);
 		return -1;
 	}
-
 	chdb::language_code_t selected_lan = langs[idx];
 
 	auto update = [&selected_lan, for_subtitles](chdb::service_t& service) {

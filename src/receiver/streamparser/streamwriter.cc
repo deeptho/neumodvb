@@ -142,7 +142,7 @@ pmt_writer_t::make(const pmt_info_t& pmt,
 	}
 
 	{
-		auto [pid_desc, alang]  = pmt.best_audio_language(selected_audio_lang, audio_prefs);
+		auto [idx, pid_desc, alang]  = pmt.best_audio_language(selected_audio_lang, audio_prefs);
 		if (pid_desc) {
 			selected_audio_lang = alang;
 			selected_audio_pid = pid_desc->stream_pid;

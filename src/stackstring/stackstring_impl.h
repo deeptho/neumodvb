@@ -274,23 +274,19 @@ namespace ss {
 		int n=v.size();
 		if(r==0)
 			return;
+
 		r= (r+n)%n; //this makes it also work for negative and out of range r
-		int steps = ::gcd(r, n);
-		for(int i=0; i<steps ; ++i) {
-			//auto t = v[i];
-			int j = i;
-			for(;;) {
-				int nextj = (j+r) % n;
-				if (nextj==i)
-					break;
-				v[j] = v[nextj];
-				j=nextj;
-			}
+		int middle = r;
+		int first =0;
+		int next = r;
+		while(first != next) {
+			std::swap(v[first++], v[next++]);
+			if(next == n)
+				next = middle;
+			else if(first == middle)
+				middle = next;
 		}
 	}
-
-
-
 
 
 }; //end namespace ss

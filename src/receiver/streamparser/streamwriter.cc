@@ -152,7 +152,8 @@ pmt_writer_t::make(const pmt_info_t& pmt,
 		}
 	}
 
-	auto [pid_desc, subtit_desc, slang] =pmt.best_subtitle_language(selected_subtitle_lang, subtitle_prefs);
+	auto [subtitle_idx, pid_desc, subtit_desc, slang]
+		= pmt.best_subtitle_language(selected_subtitle_lang, subtitle_prefs);
 	if (pid_desc) {
 		selected_subtitle_lang = slang;
 		selected_subtitle_pid = pid_desc->stream_pid;

@@ -186,7 +186,7 @@ namespace dtdemux {
 		best_audio_language(chdb::language_code_t selected_audio_lang,
 												const ss::vector_<chdb::language_code_t>&prefs) const;
 
-		std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
+		std::tuple<int, const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
 		best_subtitle_language(chdb::language_code_t selected_subtitle_lang,
 													 const ss::vector_<chdb::language_code_t>& prefs) const;
 

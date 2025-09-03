@@ -93,7 +93,7 @@ public:
 	int jump(int seconds);
 
 	int set_audio_language(int idx);
-	void on_audio_language_change(const chdb::language_code_t& lang, int id);
+	void on_language_change(const chdb::language_code_t& lang, int idx, bool for_subtitles);
 
 	int set_subtitle_language(int idx);
 	void on_subtitle_language_change(const chdb::language_code_t& lang);

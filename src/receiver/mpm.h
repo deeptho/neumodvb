@@ -177,7 +177,7 @@ public:
 
 
 struct stream_state_t {
-	typedef std::function<void(const chdb::language_code_t& lang, int pos)> callback_t;
+	typedef std::function<void(const chdb::language_code_t& lang, int pos, bool for_subtitles)> callback_t;
 	chdb::language_code_t current_audio_language;
 	pid_t current_audio_pid{0x1fff};
 	chdb::language_code_t current_subtitle_language;
@@ -186,8 +186,7 @@ struct stream_state_t {
 	recdb::pmt_marker_t next_pmt_marker;
 	ss::vector<chdb::language_code_t,4> audio_pref;
 	ss::vector<chdb::language_code_t,4> subtitle_pref;
-	std::map<subscription_id_t, callback_t> audio_language_change_callbacks;
-	std::map<subscription_id_t, callback_t> subtitle_language_change_callbacks;
+	std::map<subscription_id_t, callback_t> language_change_callbacks;
 
 	int set_language_pref(int idx, bool for_subtitles);
 };
@@ -291,11 +290,8 @@ private:
 	void update_pmt(stream_state_t& stream_state);
 public:
 	EXPORT active_service_t* active_service () const;
-	EXPORT void register_audio_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
-	EXPORT void unregister_audio_changed_callback(subscription_id_t subscription_id);
-
-	EXPORT void register_subtitle_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
-	EXPORT void unregister_subtitle_changed_callback(subscription_id_t subscription_id);
+	EXPORT void register_language_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb);
+	EXPORT void unregister_language_changed_callback(subscription_id_t subscription_id);
 
 	EXPORT void open_recording(const char* dirname);
 	//void init();

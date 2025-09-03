@@ -187,7 +187,7 @@ int64_t playback_mpm_t::next_stream_change() { //byte at which new pmt becomes a
 		assert(next_stream_change_ < 0 || current_byte_pos <= next_stream_change_);
 		auto ls = stream_state.readAccess();
 		if (last_seen_live_meta_marker.current_pmt_marker.packetno_start == ls->current_pmt_marker.packetno_start) {
-			//no update pending for sure because last_streams updates when phd has been received
+			//no update pending for sure because last_streams updates when pmt has been received
 			return never; //no update pending for sure
 			/* otherwise: we cannot rely on last_seen_live_meta_marker.last_stream.packetno_start because
 				 there may have been multiple pmt updates (unlikely); so we need to consult the database
@@ -236,7 +236,7 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 
 	auto [audio_idx, audio_desc, audio_lang ] =
 		current_pmt.best_audio_language(ss.current_audio_language, ss.audio_pref);
-	auto [subtitle_desc, desc2 , subtitle_lang] = current_pmt.best_subtitle_language
+	auto [subtitle_idx, subtitle_desc, desc2, subtitle_lang] = current_pmt.best_subtitle_language
 		(ss.current_subtitle_language,  ss.subtitle_pref);
 	if(audio_desc) {
 		ss.current_audio_language = audio_lang;
@@ -244,12 +244,12 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 		ss.set_language_pref(audio_idx, false/*for_subtitles*/);
 		ss.current_audio_pid = audio_desc->stream_pid;
 	}
-	if(subtitle_desc) {
-		ss.current_subtitle_language = subtitle_lang;
-		ss.current_subtitle_pid = subtitle_desc->stream_pid;
-	}
 
-#endif
+	ss.current_subtitle_language = subtitle_lang;
+	dtdebugf("Setting subtitle_lang={}\n", subtitle_idx);
+	ss.set_language_pref(subtitle_idx, true/*for_subtitles*/);
+	ss.current_subtitle_pid = subtitle_desc ? subtitle_desc->stream_pid : 0x1fff;
+
 	this->current_audio_pid = ss.current_audio_pid;
 	this->current_subtitle_pid = ss.current_subtitle_pid;
 	assert(current_pmt.pmt_pid ==  ss.current_pmt_marker.pmt_pid);
@@ -265,12 +265,16 @@ int stream_state_t::set_language_pref(int idx, bool for_subtitles) {
 
 	chdb::language_code_t selected_lan = langs[idx];
 
+	if(selected_lan.position == 0 && selected_lan.lang1 == 0 && selected_lan.lang2 == 0 && selected_lan.lang3 == 0) {
+		//no subtitles wanted
+		idx = -1;
+	}
 	if (for_subtitles)
 		this->current_subtitle_language = selected_lan;
 	else
 		this->current_audio_language = selected_lan;
-	for (const auto& [i, cb]:  for_subtitles? subtitle_language_change_callbacks : audio_language_change_callbacks) {
-		cb(selected_lan, idx);
+	for (const auto& [i, cb]:  this->language_change_callbacks) {
+		cb(selected_lan, idx, for_subtitles);
 	}
 	return 1;
 }
@@ -286,15 +290,14 @@ int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 
 	auto update = [&selected_lan, for_subtitles](chdb::service_t& service) {
 		auto& prefs = for_subtitles ? service.subtitle_pref : service.audio_pref;
-		if (prefs.size() < 4)
-			prefs.resize_no_init(prefs.size() + 1);
 		if (prefs[0] == selected_lan)
 			return;
+		if (prefs.size() < 4)
+			prefs.resize_no_init(prefs.size() + 1);
 		rotate(prefs, -1);
 
 		prefs[0] = selected_lan;
 	};
-
 	if (live_mpm) {
 		auto &active_service = *live_mpm->active_service;
 		chdb::service_t service = active_service.get_current_service();
@@ -323,12 +326,17 @@ int playback_mpm_t::set_language_pref(int idx, bool for_subtitles) {
 		wtxn.commit();
 	}
 
+	if(selected_lan.position == 0 && selected_lan.lang1 == 0 && selected_lan.lang2 == 0 && selected_lan.lang3 == 0) {
+		//no subtitles wanted
+		idx = -1;
+	}
+
 	if (for_subtitles)
 		ls->current_subtitle_language = selected_lan;
 	else
 		ls->current_audio_language = selected_lan;
 	update_pmt(*ls); //trigger sending of new pmt, which is now present in current_pmt_marker
-	return 1;
+	return idx;
 }
 
 playback_info_t playback_mpm_t::get_recording_program_info() const {
@@ -964,40 +972,23 @@ milliseconds_t playback_mpm_t::get_current_play_time() const {
 	}
 }
 
-void playback_mpm_t::register_audio_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb) {
+void playback_mpm_t::register_language_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb) {
 	assert((int) subscription_id >= 0);
 	assert(cb != nullptr);
 	auto ls = stream_state.writeAccess();
 	dtdebugf("Register audio_changed_cb subscription_id={:d} s={:d}", (int) subscription_id,
-					 (int)ls->audio_language_change_callbacks.size());
-	ls->audio_language_change_callbacks[subscription_id] = cb;
+					 (int)ls->language_change_callbacks.size());
+	ls->language_change_callbacks[subscription_id] = cb;
 }
 
-void playback_mpm_t::unregister_audio_changed_callback(subscription_id_t subscription_id) {
+void playback_mpm_t::unregister_language_changed_callback(subscription_id_t subscription_id) {
 	assert((int) subscription_id >= 0);
 	auto ls = stream_state.writeAccess();
 	dtdebugf("Unregister audio_changed_cb subscription_id={:d} s={:d}", (int) subscription_id,
-					 (int)ls->audio_language_change_callbacks.size());
-	ls->audio_language_change_callbacks.erase(subscription_id);
+					 (int)ls->language_change_callbacks.size());
+	ls->language_change_callbacks.erase(subscription_id);
 }
 
-void playback_mpm_t::register_subtitle_changed_callback(subscription_id_t subscription_id, stream_state_t::callback_t cb) {
-	assert((int) subscription_id >= 0);
-	assert(cb != nullptr);
-	auto ls = stream_state.writeAccess();
-	dtdebugf("Register subtitle_changed_cb subscription_id={:d} s={:d}", (int) subscription_id,
-					 (int)ls->subtitle_language_change_callbacks.size());
-
-	ls->subtitle_language_change_callbacks[subscription_id] = cb;
-}
-
-void playback_mpm_t::unregister_subtitle_changed_callback(subscription_id_t subscription_id) {
-	assert((int) subscription_id >= 0);
-	auto ls = stream_state.writeAccess();
-	dtdebugf("Unregister subtitle_changed_cb subscription_id={:d} s={:d}", (int) subscription_id,
-					 (int)ls->subtitle_language_change_callbacks.size());
-	ls->subtitle_language_change_callbacks.erase(subscription_id);
-}
 
 chdb::language_code_t playback_mpm_t::get_current_audio_language() {
 	auto ls = stream_state.readAccess();

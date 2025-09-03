@@ -2303,6 +2303,7 @@ ss::vector<language_code_t, 8> pmt_info_t::subtitle_languages() const {
 			ret.push_back(y);
 		}
 	}
+	ret.push_back(language_code_t{0, 0, 0, 0}); //None
 	return ret;
 }
 
@@ -2316,7 +2317,7 @@ static
 std::tuple<int, const dtdemux::pid_info_t*, chdb::language_code_t>
 find_audio_pref_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
 	using namespace chdb;
-	int order = 0; /* for duplicate entries in pmt woth matching language, order will be 0,1,2,...*/
+	int order = 0; /* for duplicate entries in pmt with matching language, order will be 0,1,2,...*/
 	int idx = 0;
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
 		if(!is_audio(pid_desc))
@@ -2381,10 +2382,11 @@ pmt_info_t::best_audio_language(language_code_t selected_audio_lang,
 	returns a language code)t containing the index of the pmt language entry corresponding to pref,
 	or an invalid language_code_t if the pmt does not contain pref
 */
-static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
+static std::tuple<int, const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
 	find_subtitle_pref_in_pmt(const pmt_info_t& pmtinfo, const language_code_t& pref) {
 	using namespace chdb;
-	int order = 0; /* for duplicate entries in pmt, order will be 0,1,2,...*/
+	int order = 0; /* for duplicate entries in pmt with matching language, order will be 0,1,2,...*/
+	int idx = 0;
 	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
 		if(!pid_desc.has_subtitles())
 			continue;
@@ -2393,27 +2395,20 @@ static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code
 			if (is_same_language(lang_code, pref)) {
 				// order is the order of preference
 				if (order == pref.position) // in pref, position 1 means the second language of this type
-					return {&pid_desc, &desc, lang_code};
+					return {idx, &pid_desc, &desc, lang_code};
 				order++;
 			}
+			idx++;
 		}
 	}
-	return {nullptr, nullptr, language_code_t{}}; // not found
+	return {0, nullptr, nullptr, language_code_t{}}; // not found
 }
 
-static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
-	first_subtitle(const pmt_info_t& pmtinfo) {
+static std::tuple<int, const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
+	no_subtitle(const pmt_info_t& pmtinfo) {
 	using namespace chdb;
-	for (const auto& pid_desc : pmtinfo.pid_descriptors) {
-		if(!pid_desc.has_subtitles())
-			continue;
-		for (const auto& desc : pid_desc.subtitle_descriptors) {
-			auto&c  = desc.lang_code;
-			chdb::language_code_t lang_code(0, c[0], c[1], c[2]);
-			return {&pid_desc, &desc, lang_code};
-		}
-	}
-	return {nullptr, nullptr, language_code_t{}}; // not found
+	language_code_t l{0,0,0,0};
+	return {-1, nullptr, nullptr, l}; // not found
 }
 
 
@@ -2422,22 +2417,32 @@ static std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code
 	Prefs is an array of languages 3 chars indicating the subtitle
 	languge; the fourth byte is used to distinghuish between duplicates;
 */
-std::tuple<const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
+std::tuple<int, const pid_info_t*, const subtitle_info_t*, chdb::language_code_t>
 pmt_info_t::best_subtitle_language(chdb::language_code_t selected_subtitle_lang,
 																	 const ss::vector_<language_code_t>& prefs) const {
 	using namespace chdb;
 	/* loop over preferences in descending order of preference
 		 and return the first match, which is the one with the highest user priority
 	*/
-	auto [pid_desc, subtit_desc, subt_lang] = find_subtitle_pref_in_pmt(*this, selected_subtitle_lang);
-	if (pid_desc)
-		return {pid_desc, subtit_desc, subt_lang};
-	for (const auto& p : prefs) {
-		auto [pid_desc, subtit_desc, subt_lang]  = find_subtitle_pref_in_pmt(*this, p);
-		if (pid_desc)
-			return {pid_desc, subtit_desc, subt_lang};
+	if(selected_subtitle_lang.position == 0 && selected_subtitle_lang.lang1 == 0
+		 && selected_subtitle_lang.lang2 == 0 && selected_subtitle_lang.lang3 == 0 ) {
+		//no subtitles wanted
+		return no_subtitle(*this);
 	}
-	return  first_subtitle(*this);
+	auto [idx, pid_desc, subtit_desc, subt_lang] = find_subtitle_pref_in_pmt(*this, selected_subtitle_lang);
+	if (pid_desc)
+		return {idx, pid_desc, subtit_desc, subt_lang};
+	for (const auto& p : prefs) {
+		if(p.position == 0 && p.lang1 == 0
+			 && p.lang2 == 0 && p.lang3 == 0 ) {
+			//no subtitles wanted
+			return no_subtitle(*this);
+		}
+		auto [idx, pid_desc, subtit_desc, subt_lang]  = find_subtitle_pref_in_pmt(*this, p);
+		if (pid_desc)
+			return {idx, pid_desc, subtit_desc, subt_lang};
+	}
+	return  no_subtitle(*this);
 }
 
 bool pmt_info_t::is_ecm_pid(uint16_t pid) {

@@ -336,20 +336,24 @@ int mpv_subscription_t::set_audio_language(int idx) {
 */
 int mpv_subscription_t::set_subtitle_language(int idx) {
 	if (!mpm) {
-		dtdebugf("No active playvack");
+		dtdebugf("No active playback");
 		return -1;
 	}
-	auto ret= mpm->set_subtitle_language(idx);
-
+	idx = mpm->set_subtitle_language(idx);
+	int ret = 0;
 #ifndef PMTREWRITE
 	ss::string<16> arg;
-	arg.format("{:d}", idx + 1);
 	if (idx < 0) {
-		dterrorf("setting BAD subtitle language (MPV ONLY) to {:d}", idx);
+		dterrorf("Disabling subtitle language (from GUI)");
+		arg.format("no");
+	} else {
+		arg.format("{:d}", idx + 1);
+		dtdebugf("setting subtitle language (from GUI) to {:d}", idx);
 	}
-	dtdebugf("setting subtitle language (MPV ONLY) to {:d}", idx);
-	if (mpv_set_property_string(mpv_player->mpv, "sid", arg.c_str()) < 0)
+	if (mpv_set_property_string(mpv_player->mpv, "sid", arg.c_str()) < 0) {
+		ret = -1;
 		dterrorf("Failed setting subtitle language {:d}", idx);
+	}
 #endif
 	return ret;
 }
@@ -371,17 +375,25 @@ int mpv_subscription_t::set_subtitle_language(int idx) {
 	match what the user wants
 	This function is thread safe
 */
-void mpv_subscription_t::on_audio_language_change(const chdb::language_code_t& lang, int id) {
+void mpv_subscription_t::on_language_change(const chdb::language_code_t& lang, int idx, bool for_subtitles) {
 	ss::string<16> arg;
 	// id=2;
-	arg.format("{:d}", id + 1);
-	if (id < 0) {
-		dterrorf("setting BAD audio language (MPV ONLY) to {:d}", id);
-		return;
+	if(idx <0) {
+		if (for_subtitles) {
+			dterrorf("Disabling subtitle language (MPV only)");
+			arg.format("no");
+		} else {
+			dterrorf("setting BAD audio language (MPV ONLY) to {:d}", idx);
+		}
+	} else {
+		arg.format("{:d}", idx + 1);
+		dtdebugf("setting {} language (MPV ONLY) to {:d} {:s}",
+						 for_subtitles ? "subtitle" : "audio",
+						 idx, chdb::lang_name(lang));
 	}
-	dtdebugf("setting audio language (MPV ONLY) to {:d} {:s}", id, chdb::lang_name(lang));
-	if (mpv_set_property_string(mpv_player->mpv, "aid", arg.c_str()) < 0)
-		dterrorf("Failed setting audio language {:d}", id);
+	if (mpv_set_property_string(mpv_player->mpv, for_subtitles ? "sid" : "aid", arg.c_str()) < 0)
+		dterrorf("Failed setting {} language {:d}",
+						 for_subtitles ? "subtitle" : "audio", idx);
 }
 
 static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
@@ -770,8 +782,9 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 	}
 
 	if ((int) subscription_id >= 0) {
-		mpm->register_audio_changed_callback(subscription_id,
-																				 [this](auto lang, auto pos) { this->on_audio_language_change(lang, pos); });
+		mpm->register_language_changed_callback(subscription_id,
+																				 [this](auto lang, auto pos, bool for_subtitles)
+																					 { this->on_language_change(lang, pos, for_subtitles); });
 		// mpm.init(active_service->mpm);
 		dtdebugf("PLAY SUBSCRIPTION (service): mpm init done");
 		if (mpm->move_to_live() < 0) {
@@ -848,8 +861,9 @@ int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t s
 		dtdebugf("PLAY SUBSCRIPTION (rec): subscription failed");
 	}
 	if ((int) subscription_id >= 0) {
-		mpm->register_audio_changed_callback(subscription_id,
-																				 [this](auto x, auto id) { this->on_audio_language_change(x, id); });
+		mpm->register_language_changed_callback(subscription_id,
+																						[this](auto x, auto id, bool for_subtitles)
+																							{ this->on_language_change(x, id, for_subtitles); });
 
 		dtdebugf("PLAY SUBSCRIPTION (rec): mpm init done");
 		if (mpm->move_to_time(start_play_time) < 0) {
@@ -951,7 +965,7 @@ void mpv_subscription_t::close(bool unsubscribe) {
 		return;
 	auto subscription_id = subscriber->get_subscription_id();
 	if ((int) subscription_id >= 0)
-		mpm->unregister_audio_changed_callback(subscription_id);
+		mpm->unregister_language_changed_callback(subscription_id);
 	std::scoped_lock lck(m);
 	mpm->close();
 	mpm.reset();
@@ -967,7 +981,7 @@ int mpv_subscription_t::stop_play() {
 	if (mpm) {
 		mpm->close();
 		if ((int) subscription_id >= 0) {
-			mpm->unregister_audio_changed_callback(subscription_id);
+			mpm->unregister_language_changed_callback(subscription_id);
 		}
 	}
 

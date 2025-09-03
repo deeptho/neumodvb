@@ -32,7 +32,8 @@ struct lang_name_t {
 };
 
 // The following needs to be sorted according to the first argument!
-static std::array lang_names{lang_name_t{"aa", "Afar"},
+static std::array lang_names{lang_name_t{{}, "None"},
+	                           lang_name_t{"aa", "Afar"},
 														 lang_name_t{"aar", "Afar"},
 														 lang_name_t{"ab", "Abkhazian"},
 														 lang_name_t{"abk", "Abkhazian"},

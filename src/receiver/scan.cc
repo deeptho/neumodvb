@@ -1211,9 +1211,14 @@ scan_t::scan_try_mux(ssptr_t reusable_ssptr,
 	devdb::fe_key_t subscribed_fe_key;
 	subscription_id_t ret{-1};
 	std::vector<task_queue_t::future_t> futures;
-	assert(is_template(mux_to_scan) == (mux_to_scan.k.mux_id ==0));
 	auto wtxn = receiver.devdb.wtxn();
 	auto scan_id = mux_to_scan.c.scan_id;
+#if 1
+	if(is_template(mux_to_scan) != (mux_to_scan.k.mux_id ==0)) {
+		dtdebugf("tune_src={} mux_id={}", mux_to_scan.c.tune_src, mux_to_scan.k.mux_id);
+		assert(0);
+	}
+#endif
 	auto& tune_options = tune_options_for_scan_id(scan_id);
 	tune_options.use_blind_tune = use_blind_tune;
 	tune_options.need_spectrum = false;

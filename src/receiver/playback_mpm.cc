@@ -886,11 +886,11 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 	Returns 0 if no data is found and no more data exists in the current mpm part; there could be more mpm parts
  */
 int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
-
+	dttime_init();
 	if (error)
 		return -1;
 	int64_t remaining_space{0};
-	dttime_init();
+	auto start = steady_clock_t::now();
 	for(; !error; ) {
 #if 0
 		assert(filemap.read_pointer <= last_seen_live_meta_marker.num_bytes_safe_to_read);
@@ -904,6 +904,13 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 #if 0
 		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 #endif
+		dtdebugf("REM={}", remaining_space);
+		{
+		auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+		if (c>200)
+			dtdebugf("delay={}", c);
+		}
+		dttime(100);
 		if(!live_mpm)
 			break;
 		if (remaining_space >= ts_packet_t::size) {
@@ -923,6 +930,13 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 		assert(filemap.safe_read_len <= last_seen_live_meta_marker.num_bytes_safe_to_read);
 #endif
 		live_mpm->wait_for_update(last_seen_live_meta_marker, filemap.safe_read_len + ts_packet_t::size);
+		dttime(100);
+		{
+		auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+		if (c>200)
+			dtdebugf("delay={}", c);
+		}
+		dttime(100);
 		if (must_exit)
 			return -1;
 
@@ -931,10 +945,22 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 		if(current_fileno() == (int) last_fileno) {
 			new_end_pos = last_seen_live_meta_marker.num_bytes_safe_to_read
 				-currently_playing_file.readAccess()->stream_packetno_start* dtdemux::ts_packet_t::size;
+			{
+				auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+				if (c>200)
+					dtdebugf("delay={}", c);
+			}
+
 		} else if (current_fileno() < (int) last_fileno) {
-			/*live mpm has moved to a new file, and has therefore finalized stream_packetno_end, but we do not
-				yet have the value of stream_packetno_end, so we must read it from the database
-			*/
+					{
+						auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+						if (c>200)
+							dtdebugf("delay={}", c);
+					}
+
+					/*live mpm has moved to a new file, and has therefore finalized stream_packetno_end, but we do not
+						yet have the value of stream_packetno_end, so we must read it from the database
+					*/
 			if(currently_playing_file.readAccess()->stream_time_end == std::numeric_limits<milliseconds_t>::max()) {
 				//fix stream_time_end
 				using namespace recdb;
@@ -958,17 +984,44 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 								 r.stream_packetno_end, r.stream_packetno_start);
 #endif
 				dttime(100);
+				{
+					auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+					if (c>200)
+						dtdebugf("delay={}", c);
+				}
+
 			} else { /*we need to playback from a regular mpm part, for which we already know stream_packetno_end;
 								 there is no need to read it*/
 				auto r = currently_playing_file.readAccess();
 				new_end_pos = (r->stream_packetno_end - r->stream_packetno_start) * dtdemux::ts_packet_t::size;
-				if(current_byte_pos == r->stream_packetno_end * dtdemux::ts_packet_t::size)
+				{
+					auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+					if (c>200)
+						dtdebugf("delay={}", c);
+				}
+
+				if(current_byte_pos == r->stream_packetno_end * dtdemux::ts_packet_t::size) {
+					dttime(100);
 					return 0;
+				}
 			}
 		}
-		if(new_end_pos == -1)
+		if(new_end_pos == -1) {
+			dttime(100);
 			return 0;
+		}
+		{
+			auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+			if (c>200)
+				dtdebugf("delay={}", c);
+		}
+
 		assert(new_end_pos != std::numeric_limits<int64_t>::max());
+		{
+		auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+		if (c>200)
+			dtdebugf("delay={}", c);
+		}
 
 		/*
 			grow_map updates safe_read_len, and also ensures - for very long parts - that the proper region
@@ -983,14 +1036,27 @@ int64_t playback_mpm_t::read_data_from_current_file(uint8_t*& buffer) {
 				break; // success; we have data
 			}
 		}
+		{
+		auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+		if (c>200)
+			dtdebugf("delay={}", c);
+		}
 		dttime(100);
 		auto current_file_is_still_live = current_fileno() == last_seen_live_meta_marker.current_file_record.fileno &&
 			last_seen_live_meta_marker.current_file_record.stream_packetno_end == std::numeric_limits<int64_t>::max();
-		if (current_file_is_still_live)
+		if (current_file_is_still_live) {
+			dttime(100);
 			continue; // We need to wait for data
+		}
 		else
 			break;
 	}
+	{
+		auto c = std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock_t::now() -start).count();
+		if (c>200)
+			dtdebugf("delay={}", c);
+		}
+	dttime(100);
 	if(error)
 		return -1;
 #if 0

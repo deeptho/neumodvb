@@ -110,10 +110,10 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 				other.started = true;
 			}
 		}
-#if 0
-		if(!ret) {
-			dtdebugf("WAIT: num_bytes_safe_to_read={} other.num_bytes_safe_to_read={} "
-							 "current_pmt_marker.packetno_start={}",
+#if 1
+		if(!ret && current_pmt_marker.packetno_start>=0) {
+			dtdebugf("WAIT: byte_pos_to_read={} num_bytes_safe_to_read={} other.num_bytes_safe_to_read={} "
+							 "current_pmt_marker.packetno_start={}", byte_pos_to_read,
 							 num_bytes_safe_to_read, other.num_bytes_safe_to_read,
 							 current_pmt_marker.packetno_start);
 		}
@@ -1033,8 +1033,8 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		this->num_bytes_decrypted += num_bytes_decrypted_now;
 	}
 
-#if 0
-	dtdebug_nicex("MPM STATUS: read={:d} parsed={:d} decrypted={:d}", num_bytes_read,
+#if 1
+	dtdebugf("MPM STATUS: read={:d} parsed={:d} decrypted={:d}", num_bytes_read,
 								stream_parser.event_handler.last_saved_marker.packetno_end*ts_packet_t::size,
 									num_bytes_decrypted);
 #endif
@@ -1056,12 +1056,14 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		assert(mm->num_bytes_safe_to_read <= this->num_bytes_decrypted); // we may not go back!!
 		bool notify = (this->num_bytes_decrypted != mm->num_bytes_safe_to_read);
 		mm->num_bytes_safe_to_read = this->num_bytes_decrypted;
+		dtdebugf("HERE: safe_to_read={:d}", mm->num_bytes_safe_to_read);
 		if (!mm->started && mm->num_bytes_safe_to_read > 0) {
 			mm->started = true;
 			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
 		}
 		if(notify) {
 			//		TODO: add num_bytes_decrypted??? How to save time at start? e.g., first minute alway safe to read?
+			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
 			mm->cv.notify_all();
 		}
 	}

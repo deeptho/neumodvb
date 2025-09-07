@@ -76,6 +76,7 @@ mmap_t& mmap_t::operator=(mmap_t&& other) {
 	other.buffer = nullptr;
 
 	safe_read_len = other.safe_read_len;
+	dtdebugf("Setting safe_read_len={}", safe_read_len);
 	other.safe_read_len = -1;
 
 	read_pointer = other.read_pointer;
@@ -182,9 +183,10 @@ int mmap_t::grow_map(off_t end_read_offset) {
 
 	if (new_safe_read_len < map_len) {
 		safe_read_len = new_safe_read_len; // we still have enough
+		dtdebugf("Setting safe_read_len={} end_read_offset={}", safe_read_len, end_read_offset);
 		return 0;
 	}
-
+	dtdebugf("GROW to {}", end_read_offset);
 	// how many pages should minimally be mapped to be able to read until new_safe_read_len?
 	auto min_map_len = new_safe_read_len - new_safe_read_len % pagesize;
 	if (min_map_len < new_safe_read_len)
@@ -213,6 +215,7 @@ int mmap_t::grow_map(off_t end_read_offset) {
 	assert(new_safe_read_len >= 0);
 	assert(new_safe_read_len > safe_read_len);
 	safe_read_len = new_safe_read_len;
+	dtdebugf("Setting safe_read_len={} end_read_offset={}", safe_read_len, end_read_offset);
 	assert(safe_read_len <= new_map_len);
 	assert(new_map_len > 0);
 	map_len = new_map_len;
@@ -242,7 +245,9 @@ bool mmap_t::init(int fd_, off_t start_offset, off_t end_read_offset) {
 	if (readonly) {
 		assert(end_read_offset >= 0);
 		read_pointer = start_offset - page_offset;
+		dtdebugf("QQQ set read_pointer to {}", read_pointer);
 		safe_read_len = std::min((off_t)map_len, (off_t)(end_read_offset - page_offset));
+		dtdebugf("Setting safe_read_len={} end_read_offset={}", safe_read_len, end_read_offset);
 		assert(safe_read_len >= 0);
 		write_pointer = 0;
 		decrypt_pointer = 0;
@@ -296,6 +301,7 @@ int mmap_t::advance() {
 	if (readonly) {
 		assert(new_safe_read_len >= 0);
 		safe_read_len = new_safe_read_len;
+		dtdebugf("Setting safe_read_len={}", safe_read_len);
 		read_pointer = new_read_pointer;
 	} else {
 		write_pointer = new_write_pointer;

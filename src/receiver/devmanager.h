@@ -258,8 +258,8 @@ class sec_status_t {
 	steady_time_t powerup_timestamp; //time when lnb was last powered up (any voltage > 0)
 
 public:
-	inline bool rf_input_ok(auto api_version) const {
-		return api_version <1500|| this->ic.rf_in >= 0;
+	inline bool rf_input_ok(auto api_type, auto api_version) const {
+		return api_type == api_type_t::DVBAPI || api_version <1500|| this->ic.rf_in >= 0;
 	}
 	inline void set_powerup_time() {
 		powerup_timestamp = steady_clock_t::now();

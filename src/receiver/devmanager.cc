@@ -61,6 +61,7 @@ void driver_info_t::update() {
 	} catch (const FileIOException& fioex) {
 		api_type = api_type_t::DVBAPI;
 		api_version = 5000;
+		dtdebugf("non-Neumo dvbapi detected");
 		return;
 	}
 

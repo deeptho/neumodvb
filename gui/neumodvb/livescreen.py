@@ -372,7 +372,7 @@ class LiveServiceScreen(object):
 
             return service_or_chgm
         else:
-            assert 0
+            return None
     @property
     def tuned_entry(self):
         return self.tuned_entry_ # service or channel

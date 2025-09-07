@@ -190,11 +190,11 @@ namespace chdb {
 	/*
 		If the mux is a template (mux.k.network_id==0 && mux.k.mux.ts_id==and not yet has
 		an extra_id (mux.k.extra_id == 0), then assign it a
-		unique extra_id
+		unique extra_id; we also do this for user defined muxes
 	*/
 	template<typename mux_t>
 	inline void make_unique_if_template(db_txn& txn, mux_t& mux ) {
-		if(is_template(mux)/* && mux.k.mux_id==0*/) {
+		if(is_template(mux) || mux.c.tune_src==tune_src_t::USER) {
 			mux.k.mux_id = 0;
 			chdb::make_mux_id<mux_t>(txn, mux);
 		}

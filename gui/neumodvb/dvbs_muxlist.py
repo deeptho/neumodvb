@@ -198,7 +198,7 @@ class DvbsMuxTable(NeumoTable):
         ret=self.record_t()
         if self.parent.sat is not None:
             ret.k.sat_pos = self.parent.sat.sat_pos
-        ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
+        ret.c.tune_src = pychdb.tune_src_t.USER
         return ret
 
     def highlight_colour(self, mux):
@@ -398,6 +398,7 @@ class DvbsMuxGridBase(NeumoGridBase):
         return show_scan_dialog(self, with_schedule = with_schedule, allow_band_scan=False,
                                 title=f'Scan {len(muxes)} muxes', dvbs_muxes=muxes)
     def CmdScan(self, evt):
+        self.table.SaveModified()
         scan_command=self.CmdCreateScanHelper(with_schedule=False)
         muxes, subscription_type = (None, None) if scan_command is None else \
             (scan_command.dvbs_muxes, scan_command.tune_options.subscription_type)

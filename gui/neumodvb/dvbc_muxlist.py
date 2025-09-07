@@ -146,7 +146,7 @@ class DvbcMuxTable(NeumoTable):
     def __new_record__(self):
         ret=self.record_t()
         ret.k.sat_pos = pychdb.sat.sat_pos_dvbc
-        ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
+        ret.c.tune_src = pychdb.tune_src_t.USER
         return ret
 
     def highlight_colour(self,mux):

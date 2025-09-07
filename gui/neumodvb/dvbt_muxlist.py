@@ -148,7 +148,7 @@ class DvbtMuxTable(NeumoTable):
         ret=self.record_t()
         ret.k.sat_pos = pychdb.sat.sat_pos_dvbt
         ret.delivery_system = pychdb.fe_delsys_dvbt_t.DVBT2
-        ret.c.tune_src = pychdb.tune_src_t.TEMPLATE
+        ret.c.tune_src = pychdb.tune_src_t.USER
         return ret
 
     def highlight_colour(self,mux):

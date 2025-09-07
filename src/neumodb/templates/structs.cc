@@ -226,7 +226,7 @@ int deserialize<{{dbname}}::{{struct.class_name}}>(
 			offset = deserialize(ser, content, offset);
 			if(offset < 0)
 				return offset;
-				rec.{{f.name}} = content;
+			rec.{{f.name}} = content;
 		}
 	}
 	{%else%}

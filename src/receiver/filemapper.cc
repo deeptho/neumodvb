@@ -144,7 +144,7 @@ int mmap_t::move_map(off_t start) {
 
 	}
 	assert(map_len > 0);
-	dtdebugf("MMAP {:d} {:d}", start, map_len);
+	dtdebugf("MMAP offset={} map_len={} current_size={}", start, map_len, current_size);
 	uint8_t* mem = (uint8_t*)mmap(NULL, map_len, readonly ? PROT_READ : (PROT_READ | PROT_WRITE), MAP_SHARED, fd, start);
 	if (mem == (uint8_t*)-1) {
 		dterrorf("Error in mmap: {}", strerror(errno));
@@ -183,7 +183,9 @@ int mmap_t::grow_map(off_t end_read_offset) {
 
 	if (new_safe_read_len < map_len) {
 		safe_read_len = new_safe_read_len; // we still have enough
-		dtdebugf("Setting safe_read_len={} end_read_offset={}", safe_read_len, end_read_offset);
+#if 1
+		dtdebugf("Setting safe_read_len={} end_read_offset={} offset={}", safe_read_len, end_read_offset, offset);
+#endif
 		return 0;
 	}
 	dtdebugf("GROW to {}", end_read_offset);
@@ -247,7 +249,7 @@ bool mmap_t::init(int fd_, off_t start_offset, off_t end_read_offset) {
 		read_pointer = start_offset - page_offset;
 		dtdebugf("QQQ set read_pointer to {}", read_pointer);
 		safe_read_len = std::min((off_t)map_len, (off_t)(end_read_offset - page_offset));
-		dtdebugf("Setting safe_read_len={} end_read_offset={}", safe_read_len, end_read_offset);
+		dtdebugf("Setting safe_read_len={} end_read_offset={} offset={}", safe_read_len, end_read_offset, offset);
 		assert(safe_read_len >= 0);
 		write_pointer = 0;
 		decrypt_pointer = 0;

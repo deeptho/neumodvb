@@ -149,9 +149,10 @@ file = db_struct(name='file',
                 db = db,
                 type_id= ord('f'),
                 version = 1,
-                primary_key = ('key', ('k',)), #unique
+                primary_key = ('key', ('k',)), #unique, but no longer used as main key
                 keys =  (
-                (ord('f'), 'fileno', ('fileno',)),
+                (lord('f1'), 'fileno', ('fileno',)),
+                (lord('f2'), 'stream_packetno_start', ('stream_packetno_start',)),
                 ),                     #unique
                 fields = ((1, 'file_key_t', 'k'),
                           (2, 'int32_t', 'fileno'), #needed to avoid consulting db during timeshift to find how many records have been written

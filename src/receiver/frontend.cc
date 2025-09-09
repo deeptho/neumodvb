@@ -92,7 +92,7 @@ void cmdseq_t::add_pls_range(int cmd, const pls_search_range_t& pls_search_range
 
 int cmdseq_t::get_properties(int fefd) {
 	if ((ioctl(fefd, FE_GET_PROPERTY, &cmdseq)) == -1) {
-		user_errorf("Error setting frontend property: {}", strerror(errno));
+		user_errorf("Error getting frontend property: {}", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -1348,16 +1348,17 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 	}
 
 	cmdseq.add_clear();
-	cmdseq.add(DTV_SET_SEC_CONFIGURED);
+	if(api_type == api_type_t::NEUMO) {
+		cmdseq.add(DTV_SET_SEC_CONFIGURED);
 
-	if(tune_options.tune_pars->use_bbframes) {
-		if(!ts.readAccess()->dbfe.supports.bbframes) {
-			dtdebugf("Implementation error");
+		if(tune_options.tune_pars->use_bbframes) {
+			if(!ts.readAccess()->dbfe.supports.bbframes) {
+				dtdebugf("Implementation error");
+			}
+			dtdebugf("Asking for bbframes");
+			cmdseq.add(DTV_OUTPUT_BBFRAMES, 1);
 		}
-		dtdebugf("Asking for bbframes");
-		cmdseq.add(DTV_OUTPUT_BBFRAMES, 1);
 	}
-
 	if (blindscan) {
 		assert (api_type == api_type_t::NEUMO);
 		cmdseq.add(DTV_ALGORITHM, ALGORITHM_BLIND);

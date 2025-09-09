@@ -119,7 +119,7 @@ struct fe_lock_status_t {
 			(matype >> 6) != 3; //not a transport stream
 		}
 	inline bool is_dvb() {
-		if(matype==-2) {
+		if(matype==-2 || matype== -1) {
 			//dvbt or dvbc (or also legacy drivers?)
 			return is_locked();
 		}

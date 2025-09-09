@@ -89,7 +89,7 @@ task_queue_t::future_t fe_monitor_thread_t::request_unpause() {
 
 void fe_monitor_thread_t::update_lock_status_and_signal_info(fe_status_t fe_status) {
 
-	bool get_constellation{true};
+	bool get_constellation{fe->api_type == api_type_t::NEUMO};
 	auto info_ = fe->update_lock_status_and_signal_info(fe_status, get_constellation);
 	if(!info_)
 		return;
@@ -181,10 +181,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 	case tune_mode_t::BLIND:
 	case tune_mode_t::POSITIONER_CONTROL:
 	case tune_mode_t::UNCHANGED:
-		if (fe->api_type == api_type_t::NEUMO)
 			update_lock_status_and_signal_info(event.status);
-		else
-			fe->set_lock_status(event.status);
 		break;
 	}
 }

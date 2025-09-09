@@ -250,6 +250,7 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 	bool nosave{is_template(mux) && !lock_state.locked_minimal};
 	dtdebugf("setting si_processing_done=true mux={}", mux);
 	auto* c = chdb::mux_common_ptr(mux);
+	*c = *chdb::mux_common_ptr(this->dbmux); //copy over key_src and such
 	c->scan_lock_result = lock_state.tune_lock_result;
 	namespace m = chdb::update_mux_preserve_t;
 	auto preserve = m::flags{~m::SCAN_DATA & ~m::SCAN_STATUS};

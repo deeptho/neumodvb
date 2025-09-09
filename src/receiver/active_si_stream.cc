@@ -2014,10 +2014,8 @@ bool active_si_stream_t::update_mux(
 			pc->scan_status = scan_status_t::PENDING;
 			assert(chdb::scan_in_progress(scan_id));
 			pc->scan_id = scan_id;
-			if(pdbc) {
-				pmergedc->scan_status = scan_status_t::PENDING;
-				pmergedc->scan_id = scan_id;
-			}
+			pmergedc->scan_status = scan_status_t::PENDING;
+			pmergedc->scan_id = scan_id;
 			assert((pc->scan_status != chdb::scan_status_t::ACTIVE &&
 							pc->scan_status != chdb::scan_status_t::PENDING &&
 							pc->scan_status != chdb::scan_status_t::RETRY) ||

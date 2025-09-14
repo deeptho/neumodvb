@@ -218,31 +218,14 @@ mpm_t::mpm_t(active_mpm_t&other, bool readonly)
 }
 
 
-active_mpm_t::active_mpm_t(active_service_t* active_service_)
+active_mpm_t::active_mpm_t(active_service_t* active_service_, const recdb::live_service_t& live_service)
 	: mpm_t(false)
 	, stream_buffer_t(active_service_, &db->mpm_rec.idxdb)
 	, periodic(60*30)
-	, creation_time ( system_clock_t::now())
 {
 	using namespace dtdemux;
-	dirname = make_dirname(active_service, now);
 	file_time_limit = active_service->receiver.options.readAccess()->livebuffer_mpm_part_duration;
-	create();
-}
-
-ss::string<128> active_mpm_t::make_dirname(active_service_t* active_service, system_time_t start_time) {
-	// auto start_time=time(NULL);
-	/*TODO: 1. sometimes mux and ts_id are incorrect at start; This is a problem when two
-		channels are streamed from the same mux
-		2. After changing channel on the same mux, directory already exists
-	*/
-	ss::string<128> dirname;
-	dirname.format("{:s}/A{:02d}_t{:05d}_sid{:05d}_{:%Y%m%d_%T}",
-								 active_service->receiver.options.readAccess()->live_path.c_str(),
-									active_service->get_adapter_no(), active_service->current_service.k.ts_id,
-								 active_service->current_service.k.service_id,
-								 std::chrono::floor<std::chrono::seconds>(start_time));
-	return dirname;
+	create(live_service);
 }
 
 void active_mpm_t::mkdir(const char* dirname) {
@@ -256,14 +239,35 @@ void active_mpm_t::mkdir(const char* dirname) {
 	create the directory structure, including the database
 	opens the index database
 */
-void active_mpm_t::create() {
-	mkdir(dirname.c_str());
-	db->idx_dirname.format("{}/index.mdb", dirname);
+void active_mpm_t::create(const recdb::live_service_t& live_service) {
+	auto live_path = active_service->receiver.options.readAccess()->live_path;
+	auto path = fs::path(live_path) / live_service.dirname.c_str();
+	dirname = path.c_str();
+	mkdir(path.c_str());
+	db->idx_dirname.format("{}/index.mdb", path.c_str());
 	if (!mkpath(db->idx_dirname)) {
 		dterrorf("Could not create dir {}", db->idx_dirname.c_str());
 		throw std::runtime_error("Failed to create live buffer");
 	}
 	db->open_index();
+	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
+	auto cf = recdb::find_last<recdb::file_t>(idxdb_rtxn);
+	if(cf.is_valid()) {
+		auto file =cf.current();
+		dtdebugf("Found file_t record\n");
+		auto c = recdb::find_last<recdb::marker_t>(idxdb_rtxn);
+		if(c.is_valid()) {
+			auto marker =c.current();
+			dtdebugf("Found marker_t record\n");
+			auto mm = meta_marker.writeAccess();
+			mm->current_file_record = file;
+			current_fileno = file.fileno;
+			mm->current_marker = marker;
+			this->stream_parser.event_handler.last_saved_marker = marker;
+		}
+	}
+	idxdb_rtxn.abort();
+	auto creation_time =  system_clock_t::from_time_t(live_service.creation_time);
 	if (next_data_file(creation_time) < 0)
 		throw std::runtime_error("Failed to create live buffer");
 }
@@ -291,27 +295,28 @@ void active_mpm_t::transfer_filemap(int fd, int64_t num_bytes_in_final_mmap) {
 	*/
 	auto num_bytes_processed =
 		num_bytes_in_final_mmap - current_file_stream_packetno_start * (int64_t)ts_packet_t::size - filemap.offset;
-	assert(num_bytes_processed <= filemap.decrypt_pointer);
-	assert(filemap.decrypt_pointer <= filemap.write_pointer);
-	if (num_bytes_processed < filemap.write_pointer) {
-		auto* start = filemap.buffer + num_bytes_processed; //first byte of new file
-		auto num_bytes_to_move = filemap.write_pointer - num_bytes_processed;
-		assert(num_bytes_processed == filemap.write_pointer - num_bytes_to_move);
-		dtdebugf("Moving {:d} bytes to new file", num_bytes_to_move);
-		memcpy(newfilemap.buffer, start, num_bytes_to_move);
-		newfilemap.decrypt_pointer = filemap.decrypt_pointer - num_bytes_processed;
-		newfilemap.write_pointer = filemap.write_pointer - num_bytes_processed;
-		assert(newfilemap.write_pointer == num_bytes_to_move);
-	} else {
-		assert(num_bytes_processed == filemap.write_pointer);
-	}
-	if (filemap.fd >= 0) {
+	if(filemap.fd >=0) { //otherwise we are tuning a service that has some livebuffer data from a previous tune
+		assert(num_bytes_processed <= filemap.decrypt_pointer);
+		assert(filemap.decrypt_pointer <= filemap.write_pointer);
+		if (num_bytes_processed < filemap.write_pointer) {
+			auto* start = filemap.buffer + num_bytes_processed; //first byte of new file
+			auto num_bytes_to_move = filemap.write_pointer - num_bytes_processed;
+			assert(num_bytes_processed == filemap.write_pointer - num_bytes_to_move);
+			dtdebugf("Moving {:d} bytes to new file", num_bytes_to_move);
+			memcpy(newfilemap.buffer, start, num_bytes_to_move);
+			newfilemap.decrypt_pointer = filemap.decrypt_pointer - num_bytes_processed;
+			newfilemap.write_pointer = filemap.write_pointer - num_bytes_processed;
+			assert(newfilemap.write_pointer == num_bytes_to_move);
+		} else {
+			assert(num_bytes_processed == filemap.write_pointer);
+		}
+
 		dtdebugf("TRUNCATE from ={:d} to {:d} num_bytes_in_final_mmap={:d}", filesize_fd(filemap.fd),
 						 num_bytes_processed + filemap.offset, num_bytes_in_final_mmap);
 		/*filemap.offset is the number of bytes before the current mmap in the file
 			num_bytes_processed is the numbe of bytes in the current, mmap which maps the last part pf the fole
 			num_bytes_processed + filemap.offset is the new size of the file
-		 */
+		*/
 		if (ftruncate(filemap.fd, num_bytes_processed + filemap.offset) < 0) {
 			dterrorf("Error while truncating {}", strerror(errno));
 		}
@@ -735,6 +740,9 @@ int active_mpm_t::next_data_file(system_time_t now) {
 	 */
 	mm->num_bytes_safe_to_read = std::max(mm->current_marker.packetno_end  * (int64_t) dtdemux::ts_packet_t::size,
 																				mm->num_bytes_safe_to_read);
+	if(filemap.fd < 0) {
+		this->num_bytes_decrypted = mm->num_bytes_safe_to_read;
+	}
 	assert(	mm->num_bytes_safe_to_read  <= this->num_bytes_decrypted);
 
 	auto num_bytes_in_final_mmap = mm->num_bytes_safe_to_read;
@@ -917,20 +925,6 @@ playback_info_t active_mpm_t::get_current_program_info() const {
 	ret.is_recording= false;
 	return ret;
 
-}
-
-recdb::live_service_t active_mpm_t::get_live_service(subscription_id_t subscription_id) const {
-	assert(active_service);
-	auto& receiver = active_service->receiver;
-	const char* p = this->dirname.c_str() + receiver.options.readAccess()->live_path.size();
-	if (p[0] == '/')
-		p++;
-	assert(p - this->dirname.c_str() < this->dirname.size());
-	//note that last_use_time is set to -1, meaning: still being used
-	return recdb::live_service_t(getpid() /*owner*/ , (int)subscription_id,
-															 system_clock_t::to_time_t(this->creation_time),
-															 (int8_t) active_service->get_adapter_no(),
-															 -1, active_service->get_current_service(), p, {}/*last_epg_update_time*/ /*, epg*/);
 }
 
 void active_mpm_t::housekeeping(system_time_t now) {

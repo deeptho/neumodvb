@@ -395,14 +395,12 @@ public:
 	//information about the current file being streamed to
 	//int64_t current_file_stream_time_start = 0; //since start of receiving this channel; play_time
 	system_time_t current_file_time_start; //real time at which the current file was started (in seconds)
-	const system_time_t creation_time;
 	int64_t current_file_stream_packetno_start{0};
 
 
 
 private:
 	bool  file_used_by_recording(const recdb::file_t& file) const;
-	static ss::string<128> make_dirname(active_service_t*parent, system_time_t start_time);
 	bool next_key(int parity);
 	void transfer_filemap(int fd, int64_t num_bytes_in_final_mmap); //helper
 
@@ -417,6 +415,7 @@ private:
 	void mkdir(const char*  dirname);
 
  public:
+
 	virtual inline void set_stream_status(stream_status_t status) override {
 		auto w = meta_marker.writeAccess();
 		w->stream_status = status;
@@ -427,8 +426,8 @@ private:
 	virtual void housekeeping(system_time_t now) final;
 	virtual void save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_info,
 												const ss::bytebuffer<256>& pmt_sec_data) override;
-	void create();
-	active_mpm_t(active_service_t* parent);
+	void create(const recdb::live_service_t& live_service);
+	active_mpm_t(active_service_t* parent, const recdb::live_service_t& live_service);
 	~active_mpm_t();
 
   /*!
@@ -442,7 +441,6 @@ private:
 	void start_live_recording(db_txn& parent_txn, system_time_t now, int duration);
 
 	EXPORT playback_info_t get_current_program_info() const;
-	EXPORT recdb::live_service_t get_live_service(subscription_id_t subscription_id) const;
 
 	recdb::rec_t
 	start_recording(subscription_id_t subscription_id, recdb::rec_t rec /*not a reference!*/);

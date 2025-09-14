@@ -69,6 +69,7 @@ class tuner_thread_t : public task_queue_t {
 	void on_epg_update(db_txn& txnepg, system_time_t now,
 										 epgdb::epg_record_t& epg_record/*may be updated by setting epg_record.record
 																											to true or false*/);
+	recdb::live_service_t make_live_service(const chdb::service_t& service) const;
 	virtual int exit();
 
 	subscription_id_t subscribe_mux(const subscribe_ret_t& sret, const chdb::any_mux_t& mux,
@@ -83,8 +84,8 @@ public:
 	tuner_thread_t operator=(const tuner_thread_t& other) = delete;
 	void on_epg_update_check_recordings(db_txn& recdb_wtxn, db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
 	void on_epg_update_check_autorecs(db_txn& recdb_wtxn, db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
-	void add_live_buffer(const recdb::live_service_t& active_service);
-	void remove_live_buffer(subscription_id_t subscription_id);
+	recdb::live_service_t add_live_buffer(const chdb::service_t& service);
+	void remove_live_buffer(const chdb::service_t& service);
 	bool unregister_subscription(const devdb::fe_t& updated_dbfe, subscription_id_t subscription_id);
 
 public:

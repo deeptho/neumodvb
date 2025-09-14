@@ -431,7 +431,8 @@ int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
 
 int playback_mpm_t::move_to_live() {
 	assert(live_mpm);
-	milliseconds_t start_play_time{0};
+	live_mpm->wait_for_update(last_seen_live_meta_marker, ts_packet_t::size);
+	milliseconds_t start_play_time{last_seen_live_meta_marker.current_marker.k.time};
 	auto ret = move_to_time(start_play_time);
 	is_timeshifted = false;
 	return ret;

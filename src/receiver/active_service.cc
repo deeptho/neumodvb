@@ -63,19 +63,24 @@
 #include "filemapper.h"
 #include "streamparser/packetstream.h"
 #include "streamparser/si.h"
+#include "fmt/chrono.h"
+using namespace std::chrono;
+
 
 active_service_t::active_service_t(
 	active_adapter_t& active_adapter, const chdb::service_t& service_,
+	const recdb::live_service_t& live_service,
 	const std::shared_ptr<stream_reader_t>& reader)
 	: active_stream_t(active_adapter.receiver, std::move(reader))
 	, current_service(service_)
-	, stream_buffer(std::make_unique<active_mpm_t>( this))
+	, stream_buffer(std::make_unique<active_mpm_t>(this, live_service))
 	, service_thread(*this) {
 }
 
 active_service_t::active_service_t(active_adapter_t& active_adapter,
 																	 ts_in_ts_stream_filter_t* output_filter,
 																	 const chdb::service_t& service_,
+																	 const recdb::live_service_t& live_service,
 																	 const std::shared_ptr<stream_reader_t>& reader)
 	: active_stream_t(active_adapter.receiver, std::move(reader))
 	, current_service(service_)
@@ -341,7 +346,10 @@ int service_thread_t::run() {
 	ch_prefix.format("CH[{}:{}] {}", (int)active_service.get_adapter_no(),
 									 (int)active_service.current_service.k.service_id,
 									 (const char*)active_service.current_service.name.c_str());
-
+	if(active_service.stream_buffer->num_bytes_decrypted > 0)  {
+		//second tune on same service
+		active_service.reader->dvbcsa.num_bytes_decrypted = active_service.stream_buffer->num_bytes_decrypted;
+	}
 	char name[16];
 	snprintf(name, 16, "%s", ch_prefix.c_str());
 	name[15] = 0;

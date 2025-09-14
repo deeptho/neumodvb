@@ -41,8 +41,7 @@ class active_ts_t : public stream_buffer_t {
 	int write_pointer{0}; //start of already decrypted data
 	ts_in_ts_stream_filter_t* output_filter{nullptr};
 public:
-	inline recdb::live_service_t get_live_service(subscription_id_t subscription_id) const;
-
+	inline recdb::live_service_t make_live_service() const;
 	virtual void close() override;
 
 	//get a range in the buffer in which encrypted data can be written
@@ -228,9 +227,11 @@ private:
 	int open();
 
 	active_service_t(active_adapter_t& active_adapter, const chdb::service_t& service,
+									 const recdb::live_service_t& live_service,
 									 const std::shared_ptr<stream_reader_t>& reader);
 	active_service_t(active_adapter_t& active_adapter, ts_in_ts_stream_filter_t* filter,
 									 const chdb::service_t& service,
+									 const recdb::live_service_t& live_service,
 									 const std::shared_ptr<stream_reader_t>& reader);
 
 	virtual ~active_service_t() final;
@@ -248,10 +249,7 @@ private:
 	void restart_decryption(uint16_t ecm_pid, system_time_t t);
 	void set_services_key(ca_slot_t& slot, int decryption_index);
 	void mark_ecm_sent(bool odd, uint16_t ecm_pid, system_time_t t);
-	inline recdb::live_service_t get_live_service(subscription_id_t subscription_id) const {
-		return mpm()->get_live_service(subscription_id);
-	}
-
+	recdb::live_service_t make_live_service() const;
 	inline std::unique_ptr<playback_mpm_t> make_playback_mpm(subscription_id_t subscription_id) {
 		return mpm()->make_playback_mpm(subscription_id);
 	}

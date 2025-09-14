@@ -172,7 +172,7 @@ live_service = db_struct(name = 'live_service',
                         db = db,
                         type_id= ord('L'),
                         version = 1,
-                         primary_key = ('key', ('owner', 'subscription_id')), #unique
+                         primary_key = ('key', ('owner', 'service.k')), #unique
                          keys =  (
                              #(ord('l'), 'update_time', ('update_time',)), #unique
                          ),

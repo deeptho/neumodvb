@@ -320,7 +320,7 @@ int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 	auto& active_service = *it->second;
 	auto service = active_service.get_current_service();
 	dtdebugf("Removing service for subscription {}: service={}", (int) subscription_id, service);
-	tuner_thread.remove_live_buffer(subscription_id);
+	tuner_thread.remove_live_buffer(service);
 	auto& service_thread = active_service.service_thread;
 	service_thread.stop_running(true/*wait*/);
 
@@ -330,7 +330,6 @@ int active_adapter_t::remove_service(subscription_id_t subscription_id) {
 }
 
 int active_adapter_t::add_service(subscription_id_t subscription_id, active_service_t& active_service) {
-	active_service.service_thread.start_running();
 	const auto& service = active_service.get_current_service();
 	{
 		auto& m = *subscribed_active_services.writeAccess();
@@ -1322,12 +1321,14 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 	log4cxx::NDC::push(prefix.c_str());
 	auto reader = make_stream_reader(mux, -1);
 
-	active_service_ptr = std::make_shared<active_service_t>(*this, service, std::move(reader));
+	auto live_service = tuner_thread.add_live_buffer(service);
+	active_service_ptr = std::make_shared<active_service_t>(*this, service, live_service, std::move(reader));
 	active_service_ptr->add_pat_and_pmt_parsers();
 	log4cxx::NDC::pop();
 	// remember that this service is now in use (for future planning and for later unsubscription)
 
 	add_service(sret.subscription_id, *active_service_ptr);
+	active_service_ptr->service_thread.start_running();
 	return active_service_ptr;
 }
 

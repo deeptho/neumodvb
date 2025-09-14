@@ -394,20 +394,20 @@ tuner_thread_t::cb_t::subscribe_mux(const subscribe_ret_t& sret,
 
 
 subscription_id_t
-tuner_thread_t::cb_t::subscribe_service_for_recording(const subscribe_ret_t& sret,
-																				const chdb::any_mux_t& mux, recdb::rec_t& rec,
-																											const subscription_options_t& tune_options) {
+tuner_thread_t::cb_t::subscribe_service_for_recording
+(const subscribe_ret_t& sret, const chdb::any_mux_t& mux, recdb::rec_t& rec,
+ const subscription_options_t& tune_options)
+{
 	/*In case of failure, release the resources assosciated with this subscription (active_adapter and
 		active_service)
 	*/
 	assert(sret.subscription_id != subscription_id_t::NONE);
 	/*at this point we no longer have a subscribed service of playback
-	*/
+	 */
+
 	auto active_servicep = active_adapter.tune_service(sret, mux, rec.service, tune_options);
 	if(active_servicep) {
 		active_servicep->start_recording(sret.subscription_id, rec);
-		auto live_service = active_servicep->get_live_service(sret.subscription_id);
-		this->add_live_buffer(live_service);
 		auto recnew = active_servicep->start_recording(sret.subscription_id, rec);
 		assert(recnew);
 		recnew->owner = getpid();
@@ -429,8 +429,6 @@ tuner_thread_t::cb_t::subscribe_service_for_viewing(const subscribe_ret_t& sret,
 	*/
 	auto active_servicep = active_adapter.tune_service(sret, mux, service, tune_options);
 	if(active_servicep) {
-		auto live_service = active_servicep->get_live_service(sret.subscription_id);
-		this->add_live_buffer(live_service);
 		return active_servicep->make_playback_mpm(sret.subscription_id);
 	}
 	else
@@ -626,41 +624,54 @@ void tuner_thread_t::on_epg_update_check_autorecs(db_txn& recdb_wtxn,
 	recdb_rtxn.abort();
 }
 
-void tuner_thread_t::add_live_buffer(const recdb::live_service_t& live_service) {
+/*
+	find a livebuffer for the requested service; in case we (the current process) created
+	such a buffer recently, re-use that one. This is useful to not use the ability to rewind,'
+	in case a user accidentally tunes to a different service and then almost immediately returns.
+ */
+recdb::live_service_t tuner_thread_t::add_live_buffer(const chdb::service_t& service) {
+	recdb::live_service_t live_service;
 	using namespace recdb;
+	auto owner_pid = getpid();
 	auto wtxn = recdbmgr.wtxn();
-	auto c = live_service_t::find_by_key(wtxn, live_service.owner, live_service.subscription_id, find_type_t::find_eq);
-	if(c.is_valid()) {
-		auto old = c.current();
-		auto last_use_time = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(live_service.last_use_time));
-		auto old_last_use_time = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(old.last_use_time));
-		dtdebugf("updating live_service: last_use_time from={} new={}",
-						 old_last_use_time, last_use_time);
+	auto c = live_service_t::find_by_key(wtxn, owner_pid, service.k, find_type_t::find_eq);
+	if(c.is_valid()) { //close the livebuffer we used for a previous tune, if any
+		live_service = c.current();
+		dtdebugf("reusing live_service");
+		if(live_service.last_use_time < 0) {
+			/*This would mean that the same service is tuned twice and streamed to the same
+				live_buffer, which will not work
+			 */
+			dterrorf("live_service is still in use");
+		}
+		live_service.last_use_time = -1; //meaning: still being used
+		live_service.adapter_no = (int8_t) active_adapter.get_adapter_no();
 	} else {
-		auto last_use_time = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::from_time_t(live_service.last_use_time));
-		dtdebugf("new live_service: last_use_time={}", last_use_time);
+		dtdebugf("new live_service");
+		live_service = this->make_live_service(service);
 	}
 	c.destroy();
 	put_record(wtxn, live_service);
 	wtxn.commit();
+	return live_service;
 }
 
 /*
 	indicate that livebuffer is now not in use any more; it will be removed after an expiration period
  */
-void tuner_thread_t::remove_live_buffer(subscription_id_t subscription_id) {
+void tuner_thread_t::remove_live_buffer(const chdb::service_t& service) {
 	using namespace recdb;
 	int pid = getpid();
 	auto txn = recdbmgr.wtxn();
-	auto c = live_service_t::find_by_key(txn, pid, (int)subscription_id, find_type_t::find_eq);
+	auto c = live_service_t::find_by_key(txn, pid, service.k, find_type_t::find_eq);
 	if(!c.is_valid()) {
 		dterrorf("Live buffer no longer exists.");
-		return;
+	} else {
+		auto live_service = c.current();
+		auto now = std::chrono::system_clock::now();
+		dtdebugf("setting live buffer last_use_time={}", now);
+		live_service.last_use_time = system_clock_t::to_time_t(now);
 	}
-	auto live_service = c.current();
-	auto now = std::chrono::system_clock::now();
-	dtdebugf("setting live buffer last_use_time={}", now);
-	live_service.last_use_time = system_clock_t::to_time_t(now);
 	c.destroy();
 	txn.commit();
 	recdbmgr.flush_wtxn();
@@ -672,4 +683,25 @@ bool tuner_thread_t::unregister_subscription(const devdb::fe_t& updated_dbfe, su
 	if(stop_running)
 		this->stop_running(false/*wait*/);
 	return stop_running;
+}
+
+recdb::live_service_t tuner_thread_t::make_live_service(const chdb::service_t& service) const {
+	ss::string<128> dirname;
+	auto creation_time = system_clock_t::to_time_t(now);
+	auto adapter_no = this->active_adapter.get_adapter_no();
+	dirname.format("{:s}/A{:02d}_t{:05d}_sid{:05d}_{:%Y%m%d_%T}",
+								 this->receiver.options.readAccess()->live_path.c_str(),
+								 adapter_no, service.k.ts_id,
+								 service.k.service_id,
+								 std::chrono::floor<std::chrono::seconds>(now));
+
+	const char* p = dirname.c_str() + receiver.options.readAccess()->live_path.size();
+	if (p[0] == '/')
+		p++;
+	assert(p - dirname.c_str() < dirname.size());
+	//note that last_use_time is set to -1, meaning: still being used
+	return recdb::live_service_t(getpid() /*owner*/ , -1/*subscription_id*/,
+															 creation_time,
+															 (int8_t) adapter_no,
+															 -1, service, p, {}/*last_epg_update_time*/ /*, epg*/);
 }

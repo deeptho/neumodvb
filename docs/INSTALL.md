@@ -248,7 +248,7 @@ sudo pip3 install mpl_scatter_density
 According to animik on github:  For Ubuntu 24.04.2 it seems that many packages have changed their name:
 
 ```
-sudo apt install -y libboost-all-dev libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.2-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev freeglut3-dev python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang  lsb-release python3-regex liblog4cxx15 liblog4cxx-dev
+sudo apt install -y libboost-all-dev libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.2-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev freeglut3-dev python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang  lsb-release python3-regex liblog4cxx15 liblog4cxx-dev libstdc++-14-dev pybind11-dev
 ```
 
 Also cmake needs to be upgraded using the instruction on https://apt.kitware.com/

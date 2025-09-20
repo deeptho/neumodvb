@@ -71,7 +71,9 @@ add_compile_options (
 #add_link_options( -lasan)
 
 #cmake_policy(SET CMP0167 NEW)
-cmake_policy(VERSION 3.30..3.99)
+if (NOT ("${RELEASE}" STREQUAL "focal") AND NOT ("${RELEASE}" STREQUAL "noble"))
+  cmake_policy(VERSION 3.30..3.99)
+endif()
 find_package(Boost 1.69 REQUIRED regex context program_options)
 include_directories(${BOOST_INCLUDE_DIRS})
 

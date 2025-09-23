@@ -301,6 +301,7 @@ void active_si_stream_t::finalize_scan_for_mux_(chdb::any_mux_t& mux_, bool is_m
 		c->scan_status = chdb::scan_status_t::IDLE;
 		c->scan_id = {};
 		c->scan_result = chdb::scan_result_t::NOLOCK; //mux could not be locked
+		nosave = is_template(mux);
 		break;
 	case tune_state_t::LOCK_TIMEDOUT:
 		c->scan_status = chdb::scan_status_t::IDLE;

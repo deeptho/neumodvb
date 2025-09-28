@@ -1130,7 +1130,9 @@ class MosaicPanel(wx.Panel):
                 self.mpv_players[self.focus_idx].play_service(service)
 
     def CmdToggleRecord(self, event):
-        assert  not self.controller.hidden and  len(self.glcanvases) >= 1
+        dtdebug(f'RECORD hidden={self.controller.hidden} focusidx={self.focus_idx}')
+        assert len(self.glcanvases) >= 1
+        #assert not self.controller.hidden and  len(self.glcanvases) >= 1
         info = self.mpv_players[self.focus_idx].get_current_program_info()
         service = info.service
         epg = info.epg

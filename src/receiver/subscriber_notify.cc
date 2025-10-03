@@ -27,7 +27,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> //for std::optional
 #include "viewer/wxpy_api.h"
-#include <sip.h>
 #include <wx/window.h>
 
 namespace py = pybind11;

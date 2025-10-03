@@ -32,7 +32,6 @@
 #include "viewer/wxpy_api.h"
 #include "scan.h"
 #include <gtk/gtk.h>
-#include <sip.h>
 #include <stdio.h>
 #include <wx/window.h>
 

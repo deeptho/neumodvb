@@ -22,7 +22,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> //for std::optional
 #include <wx/window.h>
-#include <sip.h>
 #include "viewer/wxpy_api.h"
 #include "receiver/receiver.h"
 #include "receiver/scan.h"

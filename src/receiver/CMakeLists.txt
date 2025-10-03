@@ -63,7 +63,6 @@ target_compile_options(pyreceiver PUBLIC -fPIC -fsized-deallocation) #needed to 
 target_link_libraries(pyspectrum PRIVATE neumoutil)
 target_link_libraries(pyreceiver PRIVATE neumoutil)
 
-
 string (REPLACE ";" " " EXTRA_FLAGS_STR "${GTK3_CFLAGS}")
 set_source_files_properties(subscriber_pybind.cc COMPILE_FLAGS "${EXTRA_FLAGS_STR}" )
 set_source_files_properties(subscriber_data_pybind.cc COMPILE_FLAGS "${EXTRA_FLAGS_STR}" )

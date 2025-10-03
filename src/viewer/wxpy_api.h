@@ -13,9 +13,8 @@
 //--------------------------------------------------------------------------
 
 #pragma once
-
+struct sipSimpleWrapper;
 #include <wx/window.h>
-#include <sip.h>
 
 #if defined(__APPLE__)
     // When it's possible that we're building universal binaries with both
@@ -140,8 +139,6 @@ Py_ssize_t wxPyUnicode_AsWideChar(PyObject* unicode, wchar_t* w, Py_ssize_t size
     return PyUnicode_AsWideChar((PyUnicodeObject*)unicode, w, size);
 #endif
 }
-
-
 
 //--------------------------------------------------------------------------
 // These are the API items whose implementation can not or should not be

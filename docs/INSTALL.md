@@ -133,7 +133,7 @@ Then install all packages needed to build and run neumoDVB:
 sudo dnf install -y --allowerasing  redhat-lsb clang libtool clang-tools-extra \
     cmake boost-program-options boost-devel wxGTK-devel  pybind11-devel log4cxx log4cxx-devel \
     libconfig libconfig-devel \
-    python3-jinja2 python3-sip-devel python3-configobj python3-regex \
+    python3-jinja2 python3-configobj python3-regex \
     python3-configobj python3-matplotlib-wx python3-scipy python3-gobject-base \
     python3-wxpython4  python3-matplotlib-wx python3-cachetools \
     mpv mpv-libs-devel fmt libexif-devel libuuid-devel libdvbcsa-devel gdb espeak \
@@ -188,7 +188,7 @@ If you wish to install Ubuntu from scratch, then install it from
 
 Install the following packages for building and running neumoDVB:
 ```
-sudo apt install -y git  pybind1-dev clang clang-16 clang-tools-16 clang-format python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density cmake libboost-all-dev libgtk-3-dev libwxgtk3.2-dev libexif-dev liblog4cxx-dev python3-jinja2 python3-regex python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev freeglut3-dev python3-configobj  python3-cachetools python3-wxgtk-media4.0 python3-setuptools espeak build-essential libstdc++-14-dev
+sudo apt install -y git  pybind1-dev clang clang-16 clang-tools-16 clang-format python3-matplotlib mpv libmpv-dev python3-mpl-scatter-density cmake libboost-all-dev libgtk-3-dev libwxgtk3.2-dev libexif-dev liblog4cxx-dev python3-jinja2 python3-regex libconfig-dev libconfig++-dev libdvbcsa-dev freeglut3-dev python3-configobj  python3-cachetools python3-wxgtk-media4.0 python3-setuptools espeak build-essential libstdc++-14-dev
 wget https://github.com/tsduck/tsduck/releases/download/v3.36-3528/tsduck_3.36-3528.ubuntu23_amd64.deb
 sudo apt install ./tsduck_3.36-3528.ubuntu23_amd64.deb
 ```
@@ -201,7 +201,7 @@ upgrade Ubuntu or install an older version of neumoDVB.
 ```bash
 sudo  apt install -y libboost-all-dev libgtk-3-0 libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.0-gtk3-dev \
 gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools \
-python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev \
+python3-jinja2 python3-pip clang-format libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev \
 freeglut3-dev libwxgtk3.0-gtk3-dev  python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy \
 clang lsb-core lsb-release python3-regex liblog4cxx12 liblog4cxx-dev freeglut3 espeak libfmt-dev pybind1-dev
 ```
@@ -248,7 +248,7 @@ sudo pip3 install mpl_scatter_density
 According to animik on github:  For Ubuntu 24.04.2 it seems that many packages have changed their name:
 
 ```
-sudo apt install -y libboost-all-dev libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.2-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools python3-jinja2 python3-pip clang-format python3-sip-dev libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev freeglut3-dev python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang  lsb-release python3-regex liblog4cxx15 liblog4cxx-dev libstdc++-14-dev pybind11-dev
+sudo apt install -y libboost-all-dev libgtk-3-dev curl libcurl4-openssl-dev  libwxgtk-media3.2-dev gettext libexif-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev   python3-configobj python3-cachetools python3-jinja2 python3-pip clang-format  libconfig-dev libconfig++-dev libdvbcsa-dev  libmpv-dev freeglut3-dev python3-wxgtk-media4.0 python3-wxgtk-webview4.0 python3-wxgtk4.0 python3-scipy clang  lsb-release python3-regex liblog4cxx15 liblog4cxx-dev libstdc++-14-dev pybind11-dev
 ```
 
 Also cmake needs to be upgraded using the instruction on https://apt.kitware.com/

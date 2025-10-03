@@ -25,7 +25,6 @@
 #include "viewer/wxpy_api.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> //for std::optional
-#include <sip.h>
 #include <stdio.h>
 #include <wx/window.h>
 

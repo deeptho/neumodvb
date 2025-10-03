@@ -26,9 +26,6 @@
 #include <functional>
 #include "stackstring.h"
 
-//#include <pybind11/pybind11.h>
-#include <sip.h>
-
 #include "wxpy_api.h"
 #include <wx/wxprec.h>
 #include <wx/glcanvas.h>

@@ -214,8 +214,6 @@ std::optional<recdb::pmt_marker_t>  mpm_cursor_t::get_pmt_marker() {
 		auto pmt_marker = c.current();
 		next_pmt_marker = pmt_marker;
 		next_stream_change_ = pmt_marker.packetno_start *  ts_packet_t::size;
-		if(next_stream_change_ ==0)
-			printf("here\n");
 		assert(next_stream_change_ > this->current_byte_pos);
 	}
 	idxdb_rtxn.abort();
@@ -254,7 +252,8 @@ int mpm_cursor_t::move_to_part(db_txn& idxdb_rtxn, int partno)
 
 int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn, int64_t last_pmt_packetno_start)
 {
-	if(next_stream_change_ == -1 && last_pmt_packetno_start  > this->current_byte_pos) {
+	if(next_stream_change_ == -1 && (last_pmt_packetno_start  > this->current_byte_pos
+																	 || this->current_byte_pos==0)) {
 		/*a stream change must be pending, but beware: there may have been multiple pmt_changes.
 			In that case the returned  last_pmt_packetno_start is not for the next stream change,
 			but possible for a later one (which would be rare!)
@@ -277,8 +276,6 @@ int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn, int64_
 		auto pmt_marker = c.current();
 		assert(pmt_marker.packetno_start <= last_pmt_packetno_start);
 		next_stream_change_ = pmt_marker.packetno_start *  ts_packet_t::size;
-		if(next_stream_change_ ==0)
-			printf("here\n");
 		assert(next_stream_change_ >= this->current_byte_pos);
 		next_pmt_marker = pmt_marker;
 	}
@@ -313,15 +310,6 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 		idxdb_rtxn->abort();
 	if(ret<0)
 		return ret;
-#if 0
-	if(!is_in_live_part()) {
-		assert(false);
-		return -1;
-	}
-#else
-	if(!is_in_live_part())
-		printf("here\n");
-#endif
 	return 0;
 }
 

@@ -27,6 +27,7 @@
 #include "neumodb/epgdb/epgdb_extra.h"
 #include "util/safe/safe.h"
 #include "recmgr.h"
+#include "mpm_cursor.h"
 
 
 namespace fs = std::filesystem;
@@ -119,7 +120,6 @@ class playback_mpm_t;
 class meta_marker_t {
 	bool was_interrupted = false;
 public:
-	bool started = false;
 	mutable std::condition_variable cv;
 	int last_seen_txn_id =-1;
 	stream_status_t stream_status;
@@ -236,15 +236,9 @@ class playback_mpm_t : public mpm_t {
 	file_record_t currently_playing_file {};
 	//recdb::marker_t end_of_recording_marker_record{};    //end of file (needed for GUI; to show status
 
-
-	int64_t current_byte_pos = 0; /* overall global position in mpm file, relative to  when it was created,
-																	 i.e., to when the channel was tuned:
-																	 if parts are removed from the file (old live buffer parts), the current_byte_pos
-																	 is relative to the start of a deleted part....
-																	 Also, this refers to input bytes prior to filtering
-																*/
 	mutable playback_epg_state_t epg_state;
 	meta_marker_t last_seen_live_meta_marker; //only used when playing a live buffer
+	part_cursor_t part_cursor;
 	pid_t current_audio_pid{0x1fff};
 	pid_t current_subtitle_pid{0x1fff};
 	bool is_timeshifted{false};
@@ -258,35 +252,19 @@ class playback_mpm_t : public mpm_t {
 																			 */
 	dtdemux::pat_writer_t pat_writer; //rewritten pat-stream
 	std::unique_ptr<dtdemux::pmt_writer_t> pmt_writer; //rewritten pmt-stream
-	int64_t next_stream_change_{-1}; //cache
-
-	int64_t next_stream_change(); //byte at which new pmt becomes active (coincides with end of old pmt)
 	inline void clear_stream_state() {
-		next_stream_change_ = -1 ; //clear cache; will force a reload
 		auto w = stream_state.writeAccess();
 		w->current_pmt_marker = {};
 		w->next_pmt_marker = {};
-		current_byte_pos = 0;
 	}
 
 public:
 	const subscription_id_t subscription_id;
 
 private:
-	void find_current_pmts(int64_t bytepos);
-	int get_end_marker_from_db(db_txn& txn, recdb::marker_t& end_marker);
-	int get_marker_for_time_from_db(db_txn& idxdb_txn, recdb::marker_t& current_marker, milliseconds_t start_play_time);
-
-	//int refresh_markers_(db_txn& txn);
-	//int refresh_markers_(db_txn& txn, milliseconds_t milliseconds);
-	//int refresh_current_file_record_(db_txn& txn);
-	int open_(db_txn& idxdb_txn, milliseconds_t start_time);
-
-	std::tuple<int, bool> open_file_containing_time(db_txn& recdb_txn, milliseconds_t start_time);
 	std::tuple<int,int> copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t outbytes, int64_t inbytes);
 	int64_t read_generated_data(char* outbuffer, uint64_t num_bytes);
-	int64_t read_data_from_current_file(uint8_t*& buffer);
-	std::tuple<int, int> read_data_(char* outbuffer, int64_t outbytes, int64_t inbytes);
+	std::tuple<int, int> read_data_(char* outbuffer, int64_t outbytes);
 	std::tuple<bool, int64_t> currently_playing_file_status();
 	playback_info_t get_recording_program_info() const;
 	void update_pmt(stream_state_t& stream_state);
@@ -306,6 +284,7 @@ public:
 
 	EXPORT std::tuple<int64_t,bool> read_data(char* buffer, uint64_t numbytes);
 	EXPORT int move_to_time(milliseconds_t start_play_time);
+	EXPORT int move_to_packetno(int32_t packetno);
 	EXPORT int move_to_live();
 	//int open(int fileno=0); //find and open file
 	EXPORT void close();

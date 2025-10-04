@@ -310,10 +310,10 @@ int stream_reader_t::decrypt_channel_data(uint8_t* buffer, int num_bytes_to_decr
 	if (num_bytes_to_decrypt == 0)
 		return num_bytes_to_decrypt;
 
-	assert(num_bytes_to_decrypt > num_bytes_decrypted);
 	auto newly_decrypted =
 		dvbcsa.decrypt_buffer(buffer + num_bytes_decrypted, num_bytes_to_decrypt - num_bytes_decrypted);
 	num_bytes_decrypted += newly_decrypted;
 	assert(num_bytes_decrypted <= num_bytes_to_decrypt);
+	//dtdebug_nicef("Decrypted {}/{} bytes", num_bytes_decrypted, num_bytes_to_decrypt);
 	return num_bytes_decrypted;
 }

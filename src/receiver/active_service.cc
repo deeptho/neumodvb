@@ -403,11 +403,11 @@ int service_thread_t::run() {
 
 void active_service_t::restart_decryption(uint16_t ecm_pid, system_time_t t) {
 	std::scoped_lock lck(mutex);
-	dtdebugf("Restart decryption for pid {:d}", ecm_pid);
 	if (current_pmt.is_ecm_pid(ecm_pid)) {
 		/*set a flag indicating that decryption was interrupted,
 			while locking a mutex
 		*/
+		dtdebugf("Restart decryption for pid {:d}", ecm_pid);
 		reader->dvbcsa.restart_decryption(t);
 	}
 }

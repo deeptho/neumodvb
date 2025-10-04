@@ -822,6 +822,7 @@ void active_scam_t::ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, u
 		filters.erase(it);
 		if(ret==0) //the last remaining registration of ecm_pid was removed
 			stream_parser.unregister_psi_pid(ecm_pid);
+		dtdebugf("Calling restart_decryption ecm_pid={}", ecm_pid);
 		restart_decryption(ecm_pid, system_clock_t::now());
 	}
 

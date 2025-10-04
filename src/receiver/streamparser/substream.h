@@ -126,8 +126,8 @@ namespace dtdemux {
 	public:
 		const char * name = "";
 	protected:
-		milliseconds_t first_play_time; //in milliseconds
-		milliseconds_t last_play_time; //in milliseconds
+		milliseconds_t first_play_time{}; //in milliseconds
+		milliseconds_t last_play_time{}; //in milliseconds
 	private:
 		bool process_packet_header(ts_packet_t* p);
 	public:

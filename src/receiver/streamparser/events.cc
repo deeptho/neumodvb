@@ -197,7 +197,11 @@ void event_handler_t::index_event(stream_type::marker_t unit_type,
 			auto txn = idxdb->wtxn();
 			{
 				auto c = idxdb->tcursor<marker_t>(txn);
-				last_saved_marker = marker_t(marker_key_t(play_time_ms), start/ts_packet_t::size, end/ts_packet_t::size);
+				auto packetno_start = start/ts_packet_t::size + ref_packetno_offset;
+				auto packetno_end = end/ts_packet_t::size + ref_packetno_offset;
+				assert (play_time_ms >= last_saved_marker.k.time);
+				assert(packetno_start >=  last_saved_marker.packetno_start ||last_saved_marker.packetno_start==0xffffffff );//cxxx
+				last_saved_marker = marker_t(marker_key_t(play_time_ms), packetno_start, packetno_end);
 				put_record(c, last_saved_marker);
 			}
 			txn.commit();

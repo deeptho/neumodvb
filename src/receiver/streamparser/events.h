@@ -38,8 +38,9 @@ namespace dtdemux {
 		pcr_t  ref_pcr; /* with t= time since start of playback,
 													 t  = pcr - ref_pcr + ref_offset*/
 		milliseconds_t ref_offset{0};
+		uint32_t ref_packetno_offset{0};
 		milliseconds_t last_pcr_play_time{}; //defaults to invalid - only for debugging
-		time_t start_time; //time at which stream starts
+		time_t start_time{0}; //time at which stream starts
 
 	public:
 		uint64_t last_pat_start_bytepos = 0;
@@ -57,17 +58,16 @@ namespace dtdemux {
 			24 hours. //ref_pcr:
 		*/
 
-		milliseconds_t pcr_play_time_() {
+		INLINE milliseconds_t pcr_play_time_() {
 			auto temp =  last_pcr - ref_pcr;
 			auto ret=  temp.milliseconds();
 			return ret +ref_offset;
 		}
 
-		milliseconds_t pcr_play_time() {
-			auto temp =  last_pcr - ref_pcr;
-			auto ret=  temp.milliseconds();
-			assert (ret + ref_offset >= last_pcr_play_time);
-			last_pcr_play_time = ret +ref_offset;
+		INLINE milliseconds_t pcr_play_time() {
+			auto ret=  this->pcr_play_time_();
+			assert (ret >= last_pcr_play_time);
+			last_pcr_play_time = ret;
 			return last_pcr_play_time;
 		}
 
@@ -77,6 +77,13 @@ namespace dtdemux {
 				dterrorf("ASSERT ret={} last_pcr_play_time={}", ret, last_pcr_play_time);
 			}
 			assert (ret>= last_pcr_play_time);
+		}
+
+		inline void set_marker_offsets(time_t real_time, recdb::marker_t marker) {
+			assert (this->start_time == (time_t) 0);
+			start_time = real_time;
+			ref_offset = marker.k.time;
+			ref_packetno_offset = marker.packetno_end;
 		}
 
 		int64_t last_pos = -1;
@@ -89,7 +96,6 @@ namespace dtdemux {
 
 		event_handler_t(neumodb_t* idxdb_ =nullptr)
 			: idxdb(idxdb_)
-			, start_time(time(NULL))
 			{
 			}
 

@@ -185,10 +185,12 @@ namespace dtdemux {
 
 		void register_video_pids(int service_id, int video_pid, stream_type::stream_type_t stream_type);
 
+		inline void set_marker_offsets(time_t real_time, recdb::marker_t marker) {
+			event_handler.set_marker_offsets(real_time, marker);
+		}
 
 		ts_stream_t(neumodb_t* idxdb =nullptr) : event_handler(idxdb) {
 	}
-
 	};
 
 

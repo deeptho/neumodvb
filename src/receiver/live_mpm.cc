@@ -289,6 +289,7 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 	db->open_index();
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 	auto cf = recdb::find_last<recdb::file_t>(idxdb_rtxn);
+	bool is_new{true};
 	if(cf.is_valid()) {
 		auto file =cf.current();
 		dtdebugf("Found file_t record\n");
@@ -301,12 +302,27 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 			current_fileno = file.fileno;
 			mm->current_marker = marker;
 			this->stream_parser.event_handler.last_saved_marker = marker;
+			current_file_time_start = system_clock_t::from_time_t(file.real_time_start);
+			mm->num_bytes_safe_to_read = marker.packetno_end * (int64_t) dtdemux::ts_packet_t::size;
+			this->num_bytes_decrypted = mm->num_bytes_safe_to_read;
+			current_file_stream_packetno_start = file.stream_packetno_start;
+			is_new = false;
+			auto fd = new_data_file(mm->current_file_record, "a+");
+			if (fd< 0)
+				throw std::runtime_error("Failed to create live buffer");
+			filemap.init(fd, 0);
+			filemap.decrypt_pointer = mm->num_bytes_safe_to_read;
+			filemap.write_pointer = mm->num_bytes_safe_to_read;
+			mm->cv.notify_all();
+			this->set_marker_offsets(file.real_time_start, marker);
 		}
 	}
 	idxdb_rtxn.abort();
-	auto creation_time =  system_clock_t::from_time_t(live_service.creation_time);
-	if (next_data_file(creation_time) < 0)
-		throw std::runtime_error("Failed to create live buffer");
+	if(is_new) {
+		auto creation_time =  system_clock_t::from_time_t(live_service.creation_time);
+		if (next_data_file(creation_time) < 0)
+			throw std::runtime_error("Failed to create live buffer");
+	}
 }
 
 void active_mpm_t::destroy() {
@@ -661,11 +677,7 @@ void active_mpm_t::update_recordings(db_txn& parent_txn, system_time_t now) {
 			// rec.stream_packetno_end = stream_parser.event_handler.last_saved_marker.packetno_end;
 			rec.real_time_end = system_clock_t::to_time_t(now);
 			num++;
-#if 0
-			put_record_at_key(cr, cr.current_serialized_primary_key(), rec);
-#else
 			update_record_at_cursor(cr, rec);
-#endif
 		}
 		if (num_recordings_in_progress != num) {
 			dtdebugf("num_recordings_in_progress changed from {:d} to {:d}", num_recordings_in_progress, num);
@@ -675,7 +687,7 @@ void active_mpm_t::update_recordings(db_txn& parent_txn, system_time_t now) {
 }
 
 /*
-	Needed when we exit while a  recording is in progress, or when recovering a recording
+	Needed when we exit while a recording is in progress, or when recovering a recording
 	after the gui is restarted (e.g., after a crash)
 
 	return -1 on error
@@ -743,6 +755,29 @@ int close_last_mpm_part(db_txn& idx_txn, const ss::string_& dirname) {
 	create a new empty data file, open it and map it to memory
 	if old file and map exist, then it is closed and unmapped
 */
+int active_mpm_t::new_data_file(const recdb::file_t& current_file_record, const char*mode) {
+
+	auto relfilename  = ::relfilename(current_file_record);
+
+	current_filename.clear();
+	current_filename.format("{:s}/{:s}", dirname.c_str(), relfilename.c_str());
+
+	auto* fp_out = fopen64(current_filename.c_str(), mode);
+	if (!fp_out) {
+		dterror_nicef("Could not create/reopen output file {}", current_filename);
+		return -1;
+	}
+	dtdebugf("Start streaming to {}", current_filename);
+
+	if (setvbuf(fp_out, NULL, _IONBF, 0)) // TODO: is this needed?
+		dterrorf("setvbuf failed: {}", strerror(errno));
+	return fileno(fp_out);
+}
+
+/*!
+	create a new empty data file, open it and map it to memory
+	if old file and map exist, then it is closed and unmapped
+*/
 int active_mpm_t::next_data_file(system_time_t now) {
 	auto idx_txn = db->mpm_rec.idxdb.wtxn();
 	using namespace recdb;
@@ -802,29 +837,19 @@ int active_mpm_t::next_data_file(system_time_t now) {
 	auto new_file_stream_packetno_start = end_packet;
 	mm->current_file_record.real_time_start = system_clock_t::to_time_t(now);
 	mm->current_file_record.fileno = current_fileno;
-
 	auto relfilename  = ::relfilename(mm->current_file_record);
-
-	current_filename.clear();
-	current_filename.format("{:s}/{:s}", dirname.c_str(), relfilename.c_str());
-
-	auto* fp_out = fopen64(current_filename.c_str(), "w+");
-	if (!fp_out) {
-		dterror_nicef("Could not create output file {}", current_filename);
+	auto fd = new_data_file(mm->current_file_record, "w+");
+	if(fd <0) {
 		idx_txn.abort();
-		return -1;
+		return fd;
 	}
-	int fd = fileno(fp_out);
+
 	if (ftruncate(fd, initial_file_size) < 0) {
 		dterrorf("Error while truncating {}", strerror(errno));
 		idx_txn.abort();
-		fclose(fp_out);
+		::close(fd);
 		return -1;
 	}
-	dtdebugf("Start streaming to {}", current_filename);
-
-	if (setvbuf(fp_out, NULL, _IONBF, 0)) // TODO: is this needed?
-		dterrorf("setvbuf failed: {}", strerror(errno));
 	transfer_filemap(fd, num_bytes_in_final_mmap);
 	assert(num_bytes_in_final_mmap >= mm->num_bytes_safe_to_read);
 	assert(mm->num_bytes_safe_to_read <= num_bytes_in_final_mmap);
@@ -1070,7 +1095,7 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		this->num_bytes_decrypted += num_bytes_decrypted_now;
 	}
 
-#if 1
+#if 0
 	dtdebugf("MPM STATUS: read={:d} parsed={:d} decrypted={:d}", num_bytes_read,
 								stream_parser.event_handler.last_saved_marker.packetno_end*ts_packet_t::size,
 									num_bytes_decrypted);
@@ -1093,14 +1118,10 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		assert(mm->num_bytes_safe_to_read <= this->num_bytes_decrypted); // we may not go back!!
 		bool notify = (this->num_bytes_decrypted != mm->num_bytes_safe_to_read);
 		mm->num_bytes_safe_to_read = this->num_bytes_decrypted;
-		dtdebugf("HERE: safe_to_read={:d}", mm->num_bytes_safe_to_read);
-		if (!mm->started && mm->num_bytes_safe_to_read > 0) {
-			mm->started = true;
-			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
-		}
 		if(notify) {
-			//		TODO: add num_bytes_decrypted??? How to save time at start? e.g., first minute alway safe to read?
+#if 0
 			dtdebugf("notifying metamarker: safe_to_read={:d}", mm->num_bytes_safe_to_read);
+#endif
 			mm->cv.notify_all();
 		}
 	}

@@ -371,6 +371,9 @@ public:
 	inline virtual void save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_info,
 															 const ss::bytebuffer<256>& pmt_sec_data) {}
 
+	inline void set_marker_offsets(time_t real_time, recdb::marker_t marker) {
+		stream_parser.set_marker_offsets(real_time, marker);
+	}
 };
 
 class active_mpm_t : public mpm_t, public stream_buffer_t
@@ -437,6 +440,7 @@ private:
 		if old file and map exist, then it is closed and unmapped
 	*/
 	int next_data_file(system_time_t now);
+	int new_data_file(const recdb::file_t& current_file_record, const char* mode);
 
 	virtual void close() override;
 

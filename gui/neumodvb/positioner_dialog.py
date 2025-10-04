@@ -829,6 +829,15 @@ class SignalPanel(SignalPanel_):
     def OnToggleSpeak(self, evt):
         self.GetParent().GetParent().OnToggleSpeak(evt)
 
+def swap_east_west_buttons(east, west):
+        labeleast = east.GetLabel()
+        tooltipeast = east.GetToolTip().GetTip()
+        labelwest = west.GetLabel()
+        tooltipwest = west.GetToolTip().GetTip()
+        east.SetLabel(labelwest)
+        east.SetToolTip(tooltipwest)
+        west.SetLabel(labeleast)
+        west.SetToolTip(tooltipeast)
 
 class PositionerDialog(PositionerDialog_):
     def __init__(self, parent, sat, rf_path, lnb, mux, *args, **kwds):
@@ -855,7 +864,20 @@ class PositionerDialog(PositionerDialog_):
         self.update_constellation = True
         self.tune_mux_panel.constellation_toggle.SetValue(self.update_constellation)
         self.Bind(EVT_RF_PATH_SELECT, self.CmdSelectRfPath)
+        self.in_southern_hemisphere_ = False
 
+    def update_hemisphere(self):
+        loc =self.get_usals_location()
+        southern = loc.usals_latitude < 0
+        must_swap =  self.in_southern_hemisphere_ != southern
+        if must_swap:
+            for pair in ((self.step_east_button, self.step_west_button),
+                         (self.goto_east_toggle, self.goto_west_toggle),
+                         (self.set_east_limit_button, self.set_west_limit_button),
+                         (self.usals_step_east_button, self.usals_step_west_button)):
+                swap_east_west_buttons(*pair)
+
+        self.in_southern_hemisphere_ = southern;
     @property
     def lnb(self):
         return self.tune_mux_panel.lnb
@@ -949,6 +971,7 @@ class PositionerDialog(PositionerDialog_):
         self.latitude_text_ctrl.ChangeValue(latitude)
         self.latitude_north_south_choice.SetSelection(loc.usals_latitude<0)
         self.longitude_east_west_choice.SetSelection(loc.usals_longitude<0)
+        wx.CallAfter(self.update_hemisphere)
 
     def SetDiseqc12(self, diseqc12):
         self.tune_mux_panel.diseqc12 = diseqc12
@@ -1112,6 +1135,7 @@ class PositionerDialog(PositionerDialog_):
         receiver.set_options(opts);
         dtdebug(f'site latitude changed to {val}')
         evt.Skip()
+        wx.CallAfter(self.update_hemisphere)
 
     def OnLongitudeChanged(self, evt):  # wxGlade: PositionerDialog_.<event_handler>
         val = self.longitude_text_ctrl.GetValue()  if type(evt) == wx.FocusEvent \

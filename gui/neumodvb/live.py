@@ -1075,15 +1075,16 @@ class MosaicPanel(wx.Panel):
         wx.PostEvent(glcanvas, wx.WindowCreateEvent())
 
     def HighlightMpvPlayer(self, focus_idx=None):
+        show_highlight = True
         if self.controller.hidden and  len(self.glcanvases) == 1:
-            focus_idx = -1 # do not show coloured highlight
+            show_highlight = False
         if focus_idx is None:
             focus_idx = self.focus_idx
         if focus_idx is not None:
             dtdebug(f"focus_idx changed from {self.focus_idx} to {focus_idx}")
             self.focus_idx = focus_idx
         for idx, glcanvas in enumerate(self.glcanvases):
-            self.controller.mosaic_sizer.GetItem(glcanvas).SetBorder(5 if idx == focus_idx else 0)
+            self.controller.mosaic_sizer.GetItem(glcanvas).SetBorder(5 if show_highlight and idx == focus_idx else 0)
         self.controller.Layout()
         wx.CallAfter(self.controller.Refresh)
 

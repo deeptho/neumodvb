@@ -1072,7 +1072,7 @@ class MosaicPanel(wx.Panel):
         if focus_idx is None:
             focus_idx = self.focus_idx
         if focus_idx is not None:
-            #self.focus_idx = focus_idx if self.num_entries > 1 or focus_idx > self.num_entries else None
+            dtdebug(f"focus_idx changed from {self.focus_idx} to {focus_idx}")
             self.focus_idx = focus_idx
         for idx, glcanvas in enumerate(self.glcanvases):
             self.controller.mosaic_sizer.GetItem(glcanvas).SetBorder(5 if idx == focus_idx else 0)
@@ -1092,12 +1092,13 @@ class MosaicPanel(wx.Panel):
                 break
 
         self.controller.mosaic_sizer.SetCols(self.num_cols)
-        if self.num_entries == 1:
-            self.focus_idx = 0
-        elif self.focus_idx is None:
+        if self.num_entries == 1 or self.focus_idx is None:
+            dtdebug("setting self.focus_idx = 0; was {self.focus_idx}")
             self.focus_idx = 0
         else:
-            self.focus_idx= min(self.focus_idx, self.num_entries -1)
+            new_focus_idx = min(self.focus_idx, self.num_entries -1)
+            dtdebug("setting self.focus_idx = {new_focus_idx}; was {self.focus_idx}")
+            self.focus_idx= new_focus_idx
         self.HighlightMpvPlayer()
 
     def OnStop( self, evt):

@@ -245,6 +245,20 @@ struct file_t;
 static int64_t size_fn(void* cookie) {
 	return MPV_ERROR_UNSUPPORTED;
 }
+
+static int64_t seek_fn(void* cookie, int64_t bytepos) {
+	if(bytepos ==0)
+		return 0;
+	auto* player = (MpvPlayer_*)cookie;
+	if(bytepos <0)
+		bytepos =0;
+	auto ret = player->subscription.move_to_bytepos(bytepos);
+	dtdebugf("seek_fn: bytepos={} ret={}", bytepos, ret);
+	{
+		return ret < 0 ? MPV_ERROR_GENERIC : bytepos;
+	}
+}
+
 /**
  * Read callback used to implement a custom stream. The semantics of the
  * callback match read(2) in blocking mode. Short reads are allowed (you can
@@ -407,6 +421,7 @@ static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
 	dtdebugf("MPV open: player={:p}", fmt::ptr(player));
 	dttime_init();
 	info->cookie = player;
+	info->seek_fn = ::seek_fn;
 	info->read_fn = ::read_fn;
 	info->size_fn = ::size_fn;
 	info->close_fn = ::close_fn;

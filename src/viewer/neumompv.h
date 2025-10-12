@@ -87,6 +87,7 @@ public:
 	int stop_play();
 	int stop_play_and_exit();
 	int jump(int seconds);
+	int smartjump(bool forward);
 	int set_audio_language(int idx);
 	int set_subtitle_language(int id);
 	int change_audio_volume(int step);

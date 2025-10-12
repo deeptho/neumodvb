@@ -722,7 +722,13 @@ class NeumoGui(wx.App):
         self.frame.Stop()
 
     def Jump(self, seconds):
-        self.current_mpv_player.jump(seconds)
+        if True:
+            forward = seconds >=0
+            dtdebug(f"SmartJump forward={forward}")
+            self.current_mpv_player.smartjump(forward)
+        else:
+            dtdebug(f"Jump {seconds} seconds")
+            self.current_mpv_player.jump(seconds)
 
     def AudioLang(self, dark_mode):
         langs = self.current_mpv_player.audio_languages()

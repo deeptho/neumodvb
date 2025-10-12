@@ -63,6 +63,7 @@ PYBIND11_MODULE(pyneumompv, m) {
 		.def("play_recording", &MpvPlayer::play_recording, py::arg("recording"),
 				 py::arg("start_play_time") = milliseconds_t(0))
 		.def("jump", &MpvPlayer::jump, py::arg("seconds"))
+		.def("smartjump", &MpvPlayer::smartjump, py::arg("forward"))
 		.def("mpv_command", &MpvPlayer::mpv_command, py::arg("command"), py::arg("arg1") = nullptr,
 				 py::arg("arg2") = nullptr)
 		.def("stop_play", &MpvPlayer::stop_play)

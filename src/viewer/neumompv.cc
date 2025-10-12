@@ -528,6 +528,10 @@ bool MpvPlayer_::create() {
 		dterrorf("failed to set mpv VO");
 		assert(0);
 	}
+	if(mpv_observe_property(mpv, 0, "time-pos", MPV_FORMAT_DOUBLE) <0) {
+		dtdebugf("QQQQ failed to observe");
+	}
+
 #ifdef BUG
 	if (mpv_set_property_string(mpv, "hwdec", "auto") < 0) {
 		dterrorf("failed to set mpv VO");
@@ -572,7 +576,6 @@ bool MpvPlayer_::create() {
 }
 
 void MpvPlayer_::handle_mpv_event(mpv_event& event) {
-
 	switch (event.event_id) {
 	case MPV_EVENT_VIDEO_RECONFIG:
 		// something like --autofit-larger=95%
@@ -588,6 +591,11 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 				// SetTitle("mpv");
 			} else {
 				mpv_free(data);
+			}
+		} else if(strcmp(prop->name, "time-pos") == 0) {
+			if(prop->format ==  MPV_FORMAT_DOUBLE) {
+				auto w = this->mpv_play_pos.writeAccess();
+				w->time_pos = *(double*)prop->data;
 			}
 		}
 		break;
@@ -913,15 +921,18 @@ int MpvPlayer::play_recording(const recdb::rec_t& rec, milliseconds_t start_play
 	return self->play_recording(rec, start_play_time);
 }
 
-int mpv_subscription_t::jump(int seconds) {
-	auto play_pos = mpm->get_current_play_time();
-	play_pos += milliseconds_t(1000 * seconds);
-	if (play_pos < milliseconds_t(0))
-		play_pos = milliseconds_t(0);
-	dtdebugf("JUMP seconds={} play_pos={}", seconds, play_pos);
-	mpm->move_to_time(play_pos); // open the first file
-	// sleep(5);  //for testing
-	return 0;
+int mpv_subscription_t::jump(int seconds, system_time_t play_pos) {
+	auto playback_info = mpm->get_current_program_info();
+	auto end_pos = playback_info.end_time;
+	auto start_pos = playback_info.start_time;
+	play_pos += std::chrono::seconds(seconds);
+	if (play_pos < start_pos)
+		play_pos = start_pos;
+	if (play_pos > end_pos)
+		play_pos = end_pos;
+	auto ret = std::chrono::duration_cast<std::chrono::seconds>(play_pos-start_pos).count();
+	dtdebugf("JUMP seconds={} play_pos={}", seconds, ret);
+	return ret;
 }
 
 int MpvPlayer_::jump(int seconds) {
@@ -930,32 +941,31 @@ int MpvPlayer_::jump(int seconds) {
 		assert(0);
 		return -1;
 	}
+	auto absolute_seconds= this->subscription.jump(seconds, this->get_play_time());
+	ss::string<16> arg;
+	arg.format("{:d}", absolute_seconds);
 
-	// retune request
-	auto op = [this, seconds]() {
-		// service is captured by copy
-		subscription.jump(seconds);
-	};
-	{
-		// lock must be placed after lambda
-		std::scoped_lock lck(subscription.m);
-		subscription.next_op = op;
-	}
-	// will be run by the first opn_fn or close_fn call
-
-	subscription.filepath.clear();
-	// int64_t start = 0;
-	const char* cmd1[] = {"loadfile", nullptr};
+	const char* cmd1[] = {"seek", arg.c_str(), "absolute", nullptr};
 	::mpv_command(mpv, cmd1);
-	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
-	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
-	::mpv_command(mpv, cmd);
-	dtdebugf("JUMP SUBSCRIPTION {:p}", fmt::ptr(this));
 	return 0;
 }
 
 int MpvPlayer::jump(int seconds) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->jump(seconds);
+}
+
+int mpv_subscription_t::smartjump(bool forward)
+{
+	auto interval = jump_state.jump(forward);
+	dtdebugf("jump_interval={}", interval);
+	return interval;
+}
+
+int MpvPlayer::smartjump(bool forward) {
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	// retune request
+	auto seconds = self->subscription.smartjump(forward);
 	return self->jump(seconds);
 }
 
@@ -1078,8 +1088,8 @@ int MpvPlayer_::run() {
 		if(! timedout)
 			frames_to_play--;
 		save_audio_volume_async();
+		on_mpv_wakeup_event();
 	}
-
 	if (mpv_gl) {
 		mpv_render_context_set_update_callback(mpv_gl, nullptr, nullptr);
 		mpv_render_context_free(mpv_gl);
@@ -1173,6 +1183,8 @@ void MpvPlayer_::notify_signal_info(const signal_info_t& signal_info) {
 	if (!as)
 		return;
 	playback_info_t playback_info = subscription.mpm->get_current_program_info();
+	auto t = this->get_play_time();
+	playback_info.play_time = t;
 	gl_canvas->overlay.set_signal_info(signal_info, playback_info);
 	subscription.show_radiobg = (playback_info.service.media_mode == chdb::media_mode_t::RADIO);
 	return;
@@ -1207,6 +1219,9 @@ void MpvPlayer_::update_playback_info() {
 	if (!subscription.mpm)
 		return;
 	playback_info_t playback_info = subscription.mpm->get_current_program_info();
+	auto t = this->get_play_time();
+	playback_info.play_time = t;
+
 	// std::lock_guard<std::mutex> lk(m);
 	gl_canvas->overlay.set_playback_info(playback_info);
 	return;
@@ -1369,6 +1384,33 @@ playback_info_t MpvPlayer::get_current_program_info() {
 	*  This means it will wait until other mpv_handle have been destroyed. If you
 	*  want asynchronous destruction, just run the "quit" command, and then react
 	*  to the MPV_EVENT_SHUTDOWN event
-
-
 	*/
+int jump_state_t::jump(bool forward) {
+	auto now = system_clock_t::now();
+	auto delta =std::chrono::duration_cast<std::chrono::seconds>(now - last_jump_time).count();
+	bool timedout = delta > timeout;
+	if(timedout) {
+		fast_jump_idx = 0;
+		jump_type = jump_type_t::INCREASING_JUMPS;
+		last_was_forward = forward;
+		jump_interval = forward_jumps[0];
+	}
+	switch(jump_type) {
+	case jump_type_t::INCREASING_JUMPS:
+		if(forward == last_was_forward) {
+			jump_interval= forward_jumps[fast_jump_idx++];
+			fast_jump_idx=std::min(fast_jump_idx, (int)forward_jumps.size()-1);
+		} else {
+			jump_type = jump_type_t::DECREASING_JUMPS;
+			jump_interval= std::max((jump_interval+1)/2, 5);
+		}
+		break;
+
+	case jump_type_t::DECREASING_JUMPS:
+		if(forward != last_was_forward) {
+			jump_interval= std::max((jump_interval+1)/2, 5);
+		}
+		break;
+	}
+	return forward ? jump_interval : -jump_interval;
+}

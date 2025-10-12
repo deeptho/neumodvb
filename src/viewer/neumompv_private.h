@@ -39,6 +39,41 @@ class receiver_t;
 class MpvPlayer_;
 class playback_mpm_t;
 
+/*
+	state for implementing "smart" jumping  forward and backward during playback.
+	Jumping is controlled by the left (junp backward in time) and right arrows (jump forward in time).
+	It proceeds in two phases
+	1. increasing-duration jumps: multiple presses of one type only (all left or all right)
+	   jump by increasingly large amounts
+	2. decreasing-duration jumps: this phase is entered when the uer first switches direction (pressing left after
+	   a series of right-only presses) or vice versa. The jumps are initially of size jump_interval seconds, where
+		 jump_interval is half the duration of the last jump in phase 1.
+		 Each time the user reveres direction, jump_interval is approximately halved, allowing the user to
+		 zoom in onto the desired position.
+	3. After a timeout (no key presses for a few seconds), phase 1 is re-entered and jumps will again be large
+ */
+class jump_state_t {
+	int timeout{2}; //seconds
+	std::array<int, 6> forward_jumps{30, 60, 120, 300, 600, 1800};
+
+	system_time_t last_jump_time{};
+
+	enum jump_type_t {
+		INCREASING_JUMPS,
+		DECREASING_JUMPS,
+	};
+
+	jump_type_t jump_type{INCREASING_JUMPS};
+	bool last_was_forward{false};
+	int fast_jump_idx{0};
+	int jump_interval{0};
+
+public:
+	jump_state_t() = default;
+
+	int jump (bool forward);
+};
+
 class mpv_subscription_t {
 	friend class MpvPlayer;
 	friend class MpvPlayer_;
@@ -47,6 +82,7 @@ class mpv_subscription_t {
 	int pmt_change_count{0};
 	std::shared_ptr<subscriber_t> subscriber;
 	bool pending_close = false; //used to speed up channel change
+	jump_state_t jump_state;
 public:
 	std::atomic<bool> show_osd{false};
 	std::atomic<bool> show_radiobg{false};
@@ -90,7 +126,8 @@ public:
 	void play_service(const chdb::service_t& service);
 	int play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time);
 	int stop_play();
-	int jump(int seconds);
+	int jump(int seconds, system_time_t play_time);
+	int smartjump(bool forward);
 
 	int set_audio_language(int idx);
 	void on_language_change(const chdb::language_code_t& lang, int idx, bool for_subtitles);
@@ -102,11 +139,21 @@ public:
 	int64_t wait_for_close();
 };
 
+struct mpv_play_pos_t {
+	system_time_t last_jump_time;
+	double time_pos;
+	inline system_time_t get_play_time() const {
+		return last_jump_time + std::chrono::duration<int64_t>((int64_t)time_pos);
+	}
+};
 
 class MpvPlayer_ : public MpvPlayer {
 	friend class MpvGLCanvas;
 	friend class mpv_subscription_t;
 public:
+	using pp_t = safe::Safe<mpv_play_pos_t>;
+	pp_t mpv_play_pos;
+
 	expiration_t volume_expiration;
 	int volume{100}; //current audio volume
 	int idx{0}; //to indec audio_volumes
@@ -154,6 +201,10 @@ public:
 	void notify_signal_info(const signal_info_t& info);
 	void notify_message(const ss::string_& msg);
 	void update_playback_info();
+
+	inline system_time_t get_play_time() const {
+		return mpv_play_pos.readAccess()->get_play_time();
+	}
 
 	MpvPlayer_(receiver_t* receiver);
 	virtual ~MpvPlayer_();

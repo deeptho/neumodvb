@@ -63,8 +63,8 @@ class mpm_cursor_t {
 
 		returns current_bytepos on success, and -1 on error
 	 */
-	int64_t seek_to_time_(db_txn& idxdb_txn, milliseconds_t start_time);
-	inline int64_t seek_to_time_(milliseconds_t start_time);
+	int seek_to_time_(db_txn& idxdb_txn, milliseconds_t start_time);
+	inline int seek_to_time_(milliseconds_t start_time);
 
 public:
 	recdb::file_t current_part {}; /*information about current part that contains current_bytepos*/
@@ -153,7 +153,7 @@ class part_cursor_t {
 
 	void unmap();
 
-	uint8_t* map(int64_t start);
+	uint8_t* map();
 
 	/*
 		test if the currently mapped data range contains data from a specific part

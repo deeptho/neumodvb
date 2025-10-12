@@ -114,14 +114,14 @@ int mpm_cursor_t::init(db_txn& idxdb_rtxn) {
 
 
 //called by playback_mpm
-inline int64_t mpm_cursor_t::seek_to_time_(milliseconds_t start_time) {
+inline int mpm_cursor_t::seek_to_time_(milliseconds_t start_time) {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 	auto ret =  seek_to_time_(idxdb_rtxn, start_time);
 	idxdb_rtxn.abort();
 	return ret;
 }
 
-int64_t mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
+int mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
 
 	auto current_markerp = get_marker_for_time(idxdb_rtxn, start_time);
 	if(!current_markerp) { //can happen at start of tuning, when no index records have yet been written
@@ -140,9 +140,6 @@ int64_t mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_tim
 	auto ret = seek_part_for_packetno(idxdb_rtxn, current_marker.packetno_start);
 	if(ret < 0)
 		return ret;
-
-	assert(start_time >= current_part.k.stream_time_start);
-	start_time = std::min(start_time, current_part.stream_time_end);
 
 	this->current_byte_pos = current_marker.packetno_start * ts_packet_t::size;
 	dtdebugf("set current_byte_pos={} part_no={}", this->current_byte_pos, this->current_part.fileno);
@@ -431,16 +428,16 @@ void part_cursor_t::close_current_part() {
 void part_cursor_t::open_current_part() {
 	if(this->part_no == mpm_cursor.current_part.fileno && this->fd >= 0)
 		return; //already open
-	if(fd >=0)
+	if(this->fd >=0)
 		close_current_part();
 
 	ss::string<128> current_filename;
 	current_filename.format("{:s}/{:s}", this->dirname, mpm_cursor.current_part.filename);
 	// open the file, setting fd>=0 on success, otherwise -1
-	for (; fd < 0;) {
+	for (; this->fd < 0;) {
 		dtdebugf("Opening {}", current_filename);
-		fd = ::open(current_filename.c_str(), O_RDONLY);
-		if (fd < 0) {
+		this->fd = ::open(current_filename.c_str(), O_RDONLY);
+		if (this->fd < 0) {
 			if (errno == EINTR)
 				continue; // retry
 			if (errno == ENOENT) {
@@ -452,7 +449,7 @@ void part_cursor_t::open_current_part() {
 		break;
 	}
 	this->part_no =  mpm_cursor.current_part.fileno;
-	error |= (fd < 0);
+	error |= (this->fd < 0);
 }
 
 
@@ -472,13 +469,16 @@ void part_cursor_t::unmap() {
 
 		return nullptr on failure
 	*/
-uint8_t* part_cursor_t::map(int64_t start) {
+uint8_t* part_cursor_t::map() {
 	if(mapped)
 		unmap();
 	open_current_part();
-	offset = (start / pagesize) * pagesize;
+	offset = this->mpm_cursor.current_byte_pos - this->mpm_cursor.current_part.stream_packetno_start*ts_packet_t::size;
+	assert(offset >= 0);
+	offset = (offset / pagesize) * pagesize;
 
-	dtdebugf("MMAP offset={} map_len={} part_no={}", offset, map_len, this->part_no);
+	dtdebugf("MMAP current_byte_pos={} offset={} map_len={} part_no={}", this->mpm_cursor.current_byte_pos,
+					 offset, map_len, this->part_no);
 	uint8_t* mem = (uint8_t*) mmap(NULL, map_len, PROT_READ, MAP_SHARED, fd, offset);
 	if (mem == (uint8_t*)-1) {
 		dterrorf("Error in mmap: {}", strerror(errno));
@@ -496,24 +496,19 @@ int part_cursor_t::init()
 {
 	mpm_cursor.init();
 	error = false;
-#if 0
-	mpm_cursor.seek_to_bytepos(0/*bytepos*/);
-	return  map(0) ? 0 :1;
-#else
 	return 0;
-#endif
 }
 
 int part_cursor_t::seek_to_time(milliseconds_t start_time)
 {
 	auto old_fileno = mpm_cursor.current_fileno();
-	auto current_byte_pos = mpm_cursor.seek_to_time_(start_time);
-	error |= (current_byte_pos < 0);
+	auto ret = mpm_cursor.seek_to_time_(start_time);
+	error |= (ret < 0);
 	dtdebugf("Seek to time error={}", error);
 	if(mpm_cursor.current_fileno() != old_fileno || !mapped) {
-		map(current_byte_pos);
+		map();
 	}
-	return (int32_t) current_byte_pos;
+	return ret;
 }
 
 //called by playback_mpm (move_to_live)
@@ -524,7 +519,7 @@ int part_cursor_t::seek_to_bytepos(int64_t byte_pos)
 	error |= (ret < 0);
 	dtdebugf("Seek to bytepos error={}", error);
 	if(mpm_cursor.current_fileno() != old_fileno) {
-		map(byte_pos);
+		map();
 	}
 	return (int32_t) byte_pos;
 }
@@ -554,13 +549,13 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 		return {nullptr, 0, stream_change};
 
 	if(need_mapping) {
-		map(current_byte_pos);
+		map();
 	}
 	this->part_no = part_no_;
 	auto* buffer = get_buffer(part_no_, current_byte_pos, len_);
 	assert(buffer +len_ - mapped  <= map_len);
 	if(!buffer) {
-		map(current_byte_pos);
+		map();
 		buffer = get_buffer(part_no_, current_byte_pos, len_);
 		assert(buffer || (stream_change && len_==0));
 	}

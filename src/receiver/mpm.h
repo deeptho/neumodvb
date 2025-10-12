@@ -285,6 +285,7 @@ public:
 	EXPORT std::tuple<int64_t,bool> read_data(char* buffer, uint64_t numbytes);
 	EXPORT int move_to_time(milliseconds_t start_play_time);
 	EXPORT int move_to_packetno(int32_t packetno);
+	EXPORT int64_t move_to_bytepos(int64_t bytepos);
 	EXPORT int move_to_live();
 	//int open(int fileno=0); //find and open file
 	EXPORT void close();
@@ -440,7 +441,6 @@ private:
 	void delete_old_data(db_txn& parent_txn,  system_time_t now);
 	void wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read);
 	std::tuple<int32_t, int64_t, int32_t>wait_for_update(int64_t min_byte_pos);
-
 	void destroy();
 
 	inline virtual int get_write_buffer(uint8_t*& buffer_ret) override {

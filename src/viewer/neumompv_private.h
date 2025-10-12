@@ -137,6 +137,9 @@ public:
 
 	void close(bool unsubscribe);
 	int64_t wait_for_close();
+	inline int64_t move_to_bytepos(int64_t bytepos) {
+		return this->mpm->move_to_bytepos(bytepos);
+	}
 };
 
 struct mpv_play_pos_t {

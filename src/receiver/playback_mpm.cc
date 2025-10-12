@@ -346,9 +346,20 @@ int playback_mpm_t::move_to_packetno(int32_t packetno) {
 		is_timeshifted = true;
 	error = false;
 	clear_stream_state();
-	dtdebugf("calling open_ packetno={}", packetno);
+	dtdebugf("calling seek_to_bytepos packetno={}", packetno);
 	auto ret = part_cursor.seek_to_bytepos(packetno * (int64_t) ts_packet_t::size);
 	return ret;
+}
+
+//called by neumompv.cc seek_fn
+int64_t playback_mpm_t::move_to_bytepos(int64_t bytepos) {
+	if(live_mpm)
+		is_timeshifted = true;
+	error = false;
+	clear_stream_state();
+	dtdebugf("calling seek_to_bytepos bytepos={}", bytepos);
+	auto ret = part_cursor.seek_to_bytepos(bytepos);
+	return ret>=0 ? bytepos : -1;
 }
 
 int playback_mpm_t::move_to_live() {

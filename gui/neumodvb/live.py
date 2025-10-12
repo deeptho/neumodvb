@@ -1019,12 +1019,10 @@ class MosaicPanel(wx.Panel):
                 return False
         if not is_ctrl:
             if key == wx.WXK_LEFT:
-                if self.controller.hidden:
-                    self.controller.CmdJumpBack()
+                self.controller.CmdJumpBack()
             elif key == wx.WXK_RIGHT:
-                if self.controller.hidden:
-                    self.controller.CmdJumpForward()
-            return True
+                self.controller.CmdJumpForward()
+            return False
         if key in (wx.WXK_LEFT, wx.WXK_RIGHT):
             focus_idx = self.focus_idx
             focus_idx += -1 if key == wx.WXK_LEFT else 1
@@ -1075,7 +1073,7 @@ class MosaicPanel(wx.Panel):
 
     def HighlightMpvPlayer(self, focus_idx=None):
         show_highlight = True
-        if self.controller.hidden and  len(self.glcanvases) == 1:
+        if self.controller.hidden and len(self.glcanvases) == 1:
             show_highlight = False
         if focus_idx is None:
             focus_idx = self.focus_idx
@@ -1544,13 +1542,11 @@ class RecordPanel(wx.Panel):
         if key == wx.WXK_RIGHT:
             if is_ctrl:
                 return False
-            return True
+            return False
         elif key == wx.WXK_LEFT:
             if is_ctrl:
                 return False
-            if is_ctrl:
-                return False
-            return True
+            return False
         elif key in (wx.WXK_DOWN, wx.WXK_NUMPAD_DOWN):
             if is_ctrl:
                 return False
@@ -2565,9 +2561,9 @@ class LivePanel(wx.Panel):
             if self.focused_panel.Navigate(focused, modifier, key):
                 self.set_active(self.focused_panel)
                 return
-        self.set_inactive(self.focused_panel)
         if is_ctrl:
-            #This is a global navigation event
+            old_focused_panel = self.focused_panel
+            #check for global navigation events
             if self.focused_panel == self.top_panel and key == wx.WXK_DOWN:
                 self.grid_panel.focus_row(focused, None)
                 self.focused_panel = self.grid_panel
@@ -2589,7 +2585,13 @@ class LivePanel(wx.Panel):
                 else:
                     print(f'CALL7 is_ctrl={is_ctrl}')
                     self.focused_panel = self.mosaic_panel
-        self.set_active(self.focused_panel)
+            if self.focused_panel != old_focused_panel:
+                self.set_inactive(old_focused_panel)
+                self.set_active(self.focused_panel)
+        else: # not is_ctrl
+            if key in (wx.WXK_RIGHT, wx.WXK_LEFT): # pass on  jump forward/backward
+                self.mosaic_panel.Navigate(focused, modifier, key)
+
 
     def OnKey(self, evt):
         w = wx.Window.FindFocus()

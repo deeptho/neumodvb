@@ -643,7 +643,6 @@ class GroupSelectPanel(wx.Panel):
 
     def Navigate(self, focused_widget, modifier, key):
         if key in (wx.WXK_DOWN, wx.WXK_UP):
-            dtdebug(f'CALL set_active self.focus_idx={self.focus_idx}')
             self.controller.grid_panel.set_active()
             self.controller.grid_panel.SetFocus()
             return True
@@ -752,7 +751,7 @@ class GroupSelectPanel(wx.Panel):
             dtdebug('CALL SetFocus on grid_panel')
             self.controller.grid_panel.SetFocus()
             return
-        dtdebug(f'CALL set_active self.focus_idx={self.focus_idx}')
+        dtdebug(f'CALL set_active')
         self.controller.set_active(self)
         w = wx.Window.FindFocus()
         if w == self.grouptype_text:
@@ -1131,7 +1130,7 @@ class MosaicPanel(wx.Panel):
         assert ls.app.receiver is not None
         if not replace_running:
             self.AddMpvPlayer()
-            old_focus_idx = sel.focus_idx
+            old_focus_idx = self.focus_idx
             self.focus_idx = len(self.mpv_players) -1
             dtdebug(f"focus_idx changed from {old_focus_idx} to {self.focus_idx}")
             dtdebug(f'ADDED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
@@ -1236,10 +1235,9 @@ class RecordPanel(wx.Panel):
             if row>= 0:
                 self.focus_row(w, self.data.row_screen.list_size-1-self.top_idx)
             else:
-                dtdebug(f'CALL SetFocus self.focus_idx={self.focus_idx}')
                 self.controller.top_panel.SetFocus()
             return
-        dtdebug(f'CALL set_active self.focus_idx={self.focus_idx}')
+        dtdebug(f'CALL set_active panel={self}')
         self.controller.set_active(self)
         if self.last_focused_cell is not None:
             self.HighlightCell(self.last_focused_cell, False)
@@ -1441,7 +1439,6 @@ class RecordPanel(wx.Panel):
         self.gbs.SetItemSpan(self.scrollbar, (self.num_rows_on_screen,1))
 
     def SetFocus(self):
-        dtdebug(f'CALL SetFocus self.focus_idx={self.focus_idx}')
         self.rows[self.last_focused_rowno].SetFocus()
 
     def move_rows(self, old_top_idx=None):
@@ -1527,7 +1524,7 @@ class RecordPanel(wx.Panel):
         assert rowno is None or rowno>=0 and rowno < self.num_rows_on_screen
         idx = max(min(rowno+self.top_idx, self.data.row_screen.list_size -1), 0)
         rowno = idx - self.top_idx
-        dtdebug(f'CALL SetFocus self.focus_idx={self.focus_idx}')
+        dtdebug(f'CALL SetFocus panel={self}')
         self.rows[rowno].SetFocus()
 
     def rightmost_start_time(self):
@@ -2378,7 +2375,6 @@ class LivePanel(wx.Panel):
             if self.focused_panel is not None:
                 self.set_inactive(self.focused_panel)
             self.focused_panel = panel
-            dtdebug(f'CALL set_active self.focus_idx=live_panel')
             self.set_active(self.focused_panel)
 
     def populate_grid_panel(self):
@@ -2389,7 +2385,7 @@ class LivePanel(wx.Panel):
             return #happens also at window creation
         if self.created:
             self.grid_panel.reset()
-            dtdebug(f'CALL set_active self.focus_idx={self.focus_idx}')
+            dtdebug(f'CALL set_active')
             self.grid_panel.set_active()
             dtdebug('CALL SetFocus')
             self.grid_panel.SetFocus()
@@ -2567,7 +2563,6 @@ class LivePanel(wx.Panel):
 
         if self.focused_panel is not None:
             if self.focused_panel.Navigate(focused, modifier, key):
-                dtdebug(f'CALL set_active self.focus_idx={self.focus_idx}')
                 self.set_active(self.focused_panel)
                 return
         self.set_inactive(self.focused_panel)
@@ -2594,7 +2589,6 @@ class LivePanel(wx.Panel):
                 else:
                     print(f'CALL7 is_ctrl={is_ctrl}')
                     self.focused_panel = self.mosaic_panel
-        dtdebug(f'CALL set_active self.focus_idx={self.focus_idx}')
         self.set_active(self.focused_panel)
 
     def OnKey(self, evt):

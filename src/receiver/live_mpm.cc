@@ -144,7 +144,7 @@ meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos) {
 			 */
 			(num_bytes_safe_to_read > min_byte_pos && // extra data is available
 			 current_pmt_marker.packetno_start>=0); //at least one pmt was received
-#if 1
+#if 0
 		if(!ret && current_pmt_marker.packetno_start>=0) {
 			dtdebugf("WAIT: min_byte_pos={} num_bytes_safe_to_read={} "
 							 "current_pmt_marker.packetno_start={} was_interrupted={}", min_byte_pos,

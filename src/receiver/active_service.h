@@ -36,7 +36,7 @@ class active_ts_t : public stream_buffer_t {
 	int bytes{0};
 	static constexpr int buffer_size{1024*188};
 	std::unique_ptr<uint8_t[]> storage{new uint8_t[buffer_size]};
-	uint8_t* buffer;
+	uint8_t* buffer{nullptr};
 	int decrypt_pointer{0}; //start of already decrypted data
 	int write_pointer{0}; //start of already decrypted data
 	ts_in_ts_stream_filter_t* output_filter{nullptr};
@@ -46,6 +46,8 @@ public:
 
 	//get a range in the buffer in which encrypted data can be written
 	inline virtual int get_write_buffer(uint8_t*& buffer_ret) override {
+		assert(write_pointer>=0);
+		assert(write_pointer <= buffer_size);
 		buffer_ret = & buffer[write_pointer];
 		return buffer_size -write_pointer;
 	}

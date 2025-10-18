@@ -34,18 +34,22 @@ neumodb_t::neumodb_t(bool readonly_, bool is_temp_, bool autoconvert_, bool auto
 	, is_temp(is_temp_)
 	, readonly(readonly_)
 	, envp(std::make_shared<lmdb::env>(lmdb::env::create())) {
+	assert(envp.get());
 }
 
 neumodb_t& neumodb_t::operator=(const neumodb_t& other) {
 	envp = other.envp;
 	dbdesc = other.dbdesc;
+	assert(envp.get());
 	return *this;
 }
 
 neumodb_t::neumodb_t(const neumodb_t& main)
 	: autoconvert(main.autoconvert), is_temp(main.is_temp), readonly(main.readonly), envp(main.envp)
 //, dbdesc(main.dbdesc) deliberately not copied, as the copy of the neumodb_t needs to be initialised
-{}
+{
+	assert(env.get());
+}
 
 neumodb_t::~neumodb_t() {
 		close();

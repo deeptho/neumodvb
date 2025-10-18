@@ -112,6 +112,7 @@ static void InitializeTexture(GLuint& g_texture) {
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		dterrorf("OPENGL error {:d}\n", err);
 	}
+	dtdebugf("g_texture={}", g_texture);
 }
 
 wxBEGIN_EVENT_TABLE(MpvGLCanvas, wxGLCanvas)
@@ -319,7 +320,7 @@ int mpv_subscription_t::open() {
 	op();
 	dttime(1000);
 	int subscription_id = (int) this->subscriber->get_subscription_id();
-	dtdebug_nicef("Open subscription_id={}", subscription_id);
+	dtdebug_nicef("Open subscription_id={} mpm={}", subscription_id, !!mpm);
 	if(mpm) {
 		auto playback_info = mpm->get_current_program_info();
 		dtdebug_nicef("QQQ start_time={}", playback_info.start_time);
@@ -673,7 +674,7 @@ void MpvPlayer_::mpv_draw(int w, int h) {
 		GLint dims[4];
 		glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &fbo_);
 		glGetIntegerv(GL_VIEWPORT, &dims[0]);
-#if 0
+#if 1
 		static int lastw=0;
 		static int lasth=0;
 		if( w!= dims[2] || h!= dims[3] || dims[0]!=0 ||dims[1]!=0 || dims[2]!=lastw || dims[3]!=lasth)
@@ -815,6 +816,9 @@ int MpvPlayer::set_subtitle_language(int id) {
 	return self->set_subtitle_language(id);
 }
 
+/*
+	returns number of seconds to delay playback
+ */
 void mpv_subscription_t::play_service(const chdb::service_t& service) {
 	log4cxx_store_threadname();
 	dtdebugf("PLAY SUBSCRIPTION (service)");

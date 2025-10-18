@@ -653,7 +653,7 @@ void active_service_t::process_service_data() {
 			if (errno == EAGAIN) {
 				break; // no more data
 			} else {
-				dterrorf("error while reading: {}", strerror(errno));
+				dterrorf("error while reading: err={} buff={}", strerror(errno), (void*)buffer);
 				break;
 			}
 		}

@@ -129,6 +129,8 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 	The code will always wait until 1 pmt has been seen
 
 	returns: last_fileno,  max_byte_pos, last_pmt_packetno_start
+
+	if ppmt_ret is set, then it also returns the sot recently received pmt
  */
 std::tuple<int32_t, int64_t, int32_t>
 meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret) {

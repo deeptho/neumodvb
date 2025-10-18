@@ -230,7 +230,6 @@ public:
 	inline void advance(int32_t num_bytes) {
 		mpm_cursor.advance(num_bytes);
 	}
-
 	inline bool has_error() const {
 		return this->error;
 	}

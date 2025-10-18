@@ -81,6 +81,8 @@ struct mmap_t {
 		if(!buffer)
 			return -1;
 		buffer_ret=buffer+write_pointer;
+		if(write_pointer < 0 || write_pointer > map_len)
+			dterrorf("write_pointer={} map_len={}", write_pointer, map_len);
 		assert (write_pointer>= 0);
 		assert (write_pointer<= map_len);
 		return map_len - write_pointer;

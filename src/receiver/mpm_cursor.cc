@@ -84,7 +84,9 @@ int64_t mpm_cursor_t::seek_part_for_packetno(db_txn& idxdb_rtxn, int32_t packetn
 		return -1;
 	last_part = cf.current();
 	num_bytes_safe_to_read = this->part_is_growing() ? 0 :  current_part.stream_packetno_end * ts_packet_t::size;
+#if 0
 	dtdebugf("set num_bytes_safe_to_read={} part_no={}", num_bytes_safe_to_read, current_part.fileno);
+#endif
 	return num_bytes_safe_to_read;
 }
 
@@ -290,7 +292,9 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 	auto new_num_bytes_safe_to_read = max_bytes_pos - this->current_byte_pos;
 	assert(new_num_bytes_safe_to_read >= num_bytes_safe_to_read);
 	num_bytes_safe_to_read = new_num_bytes_safe_to_read;
+#if 0
 	dtdebugf("set num_bytes_safe_to_read={}", num_bytes_safe_to_read);
+#endif
 	std::optional<db_txn> idxdb_rtxn;
 
 	if(last_fileno != last_part.fileno) {
@@ -403,9 +407,13 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 void mpm_cursor_t::advance(int32_t num_bytes) {
 	assert(num_bytes <= num_bytes_safe_to_read);
 	num_bytes_safe_to_read -= num_bytes;
+#if 0
 	dtdebugf("set num_bytes_safe_to_read={} part_no={}", num_bytes_safe_to_read, this->current_part.fileno);
+#endif
 	this->current_byte_pos += num_bytes;
+#if 0
 	dtdebugf("advance: set current_byte_pos={} part_no={}", this->current_byte_pos, this->current_part.fileno);
+#endif
 	assert(this->current_byte_pos >=0);
 	assert(next_stream_change_<0 || this->current_byte_pos <= next_stream_change_);
 }
@@ -560,8 +568,10 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 		assert(buffer || (stream_change && len_==0));
 	}
 	assert(buffer || (stream_change && len_==0));
+#if 0
 	dtdebugf("part_no={} offset={} buffer={}, len={} num_bytes_safe_to_read={}",
 					 part_no, offset, buffer - mapped + offset, len_, mpm_cursor.num_bytes_safe_to_read);
+#endif
 	assert(buffer +len_ - mapped  <= map_len);
 	return {buffer, len_, stream_change};
 }

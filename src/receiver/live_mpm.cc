@@ -1057,10 +1057,11 @@ bool active_mpm_t::process_service_data(int num_bytes_decrypted_now) {
 		this->advance_decrypt_pointer(num_bytes_decrypted_now);
 
 		if (this->stream_parser.event_handler.last_saved_marker.packetno_start != old_packetno_start) {
+#if 0
 			dtdebugf("old_packetno_start={} packetno_start={} packetno_end={}",
 							 old_packetno_start, this->stream_parser.event_handler.last_saved_marker.packetno_start,
 							 this->stream_parser.event_handler.last_saved_marker.packetno_end);
-
+#endif
 			int64_t end_packet = stream_parser.event_handler.last_saved_marker.packetno_end;
 			auto num_bytes_in_final_mmap = end_packet * ts_packet_t::size;
 			assert(num_bytes_in_final_mmap <= this->num_bytes_decrypted +num_bytes_decrypted_now);

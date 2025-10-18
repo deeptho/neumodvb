@@ -53,7 +53,6 @@ struct playback_info_t {
 	system_time_t start_time{}; //time of first available byte in livebuffer
 	system_time_t end_time{};   //time of end of program (or now if there is no program)
 	system_time_t play_time{};  //current playback time
-	system_time_t last_jump_time{};  //needed to compute current position in playback
 	bool is_recording{false}; //Is this a recording or a live channel (possibly in timeshift mode)
 	bool is_timeshifted{false};
 	stream_status_t stream_status;

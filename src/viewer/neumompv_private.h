@@ -149,6 +149,7 @@ struct trick_play_t {
 	bool fast_forwarding {false};
 	double fast_forwarding_time_pos_limit{0.0};
 	int playback_speed_index{0};
+	bool paused{false};
 	inline system_time_t get_play_time() const {
 		return start_time + std::chrono::duration<int64_t>((int64_t)time_pos);
 	}

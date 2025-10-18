@@ -1076,10 +1076,13 @@ int MpvPlayer_::pause() {
 		dterrorf("mpv not ready");
 		return -1;
 	}
-	static bool onoff = 1;
-	mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &onoff);
-	onoff = !onoff;
-	dtdebugf("PLAY SUBSCRIPTION {:p} pause", fmt::ptr(this));
+	int paused;
+	{ auto w = this->trick_play.writeAccess();
+		paused = !w->paused;
+		w->paused = paused;
+	}
+	mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &paused);
+	dtdebugf("PLAY SUBSCRIPTION paused={}", paused);
 	return 0;
 }
 

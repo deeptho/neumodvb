@@ -1022,7 +1022,7 @@ class MosaicPanel(wx.Panel):
                 self.controller.CmdJumpBack()
             elif key == wx.WXK_RIGHT:
                 self.controller.CmdJumpForward()
-            return False
+            return True
         if key in (wx.WXK_LEFT, wx.WXK_RIGHT):
             focus_idx = self.focus_idx
             focus_idx += -1 if key == wx.WXK_LEFT else 1

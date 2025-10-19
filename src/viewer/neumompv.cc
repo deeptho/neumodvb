@@ -1459,7 +1459,7 @@ int MpvPlayer_::set_playback_speed(double speed) {
 	auto w = this->trick_play.writeAccess();
 	auto limit= w->time_pos + to_play; ///speed;
 	w->fast_forwarding_time_pos_limit = limit;
-	w->fast_forwarding = true;
+	w->fast_forwarding = speed != 1.0;
 	dtdebugf("set_playback_speed: to_play={} limit={}", to_play, limit);
 	return 0;
 }

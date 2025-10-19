@@ -1,5 +1,95 @@
 # Changes in neumoDVB #
 
+## Changes in version neumodvb-2.1 ##
+
+### Major new features
+
+* Fast and slow playback, including osd message.
+* Reverse play, including osd message.
+* Smart jumping during playback: the amount of jumping backward now increases with each key press and
+  is then reduced again as soon a the jump direction is changed using the left and right arrow keys.
+* Allow reusing recently abandoned live buffer. This allows keeping timeshift data from a previous tune and rewinding that service.
+  The main reason for implementing this is, is to prevent loss of all time shift data when accidentally tuning to another
+  service: the old data remains available for a few miutes and will become useable as soon as the original service is retuned.
+
+### Gui
+
+* Allow jumping forward and backward in playback, even when servicelist is displayed.
+* Stereo loudness normalization.
+* Increased subtitle size.
+* Display streams in 4/3 format as  16/9. Also detect weird HEVC aspect ratios and force them to 16/9.
+* Service information window needlessly small in positioner dialog.
+* Activate selected audio language at service start.
+* Allow removing ch_order in service_list.
+* Experimental fix to remove/reduce hick-ups at start, but some of these hickups may reappear due to
+  the new reverse-play code.
+* Reduced font size on live screen.
+* Experimental change to try to remove artifacts seen by some users.
+* Live screen: show blank channel order numbers when user has not set such numbers.
+* Live screen: show message when stream fails to decrypt.
+
+### Bug fixes
+
+* Regression: menu from spectrum dialog removed due to commit 388034f16d552373be94ea9.
+* Some data incorrectly copied when adding ts-in-ts muxes.
+* Gridepg cache can fill up with new services discovered by scanning, resulting in an assertion.
+* mmap at wrong offset, causing playback to malfunction.
+* Remove debug code causing problems for some users.
+* Commands sometimes disabled when gui is hidden in live mode.
+* Unwanted showing of coloured border when gui is hidden.
+* Some jump forward/backward bugs.
+* Record not working when gui is hidden.
+* SDT not processed when no nit is present
+* Trying to save template mux (not allowed) when retuning too fast in positioner dialog.
+* Bug: entering user defined muxes in muxlist causes template muxes to be inserted in database; change tune_src to USER in this case.
+* Regression: neumodvb no longer working with DVBAPI, i.e., when proper drivers are not installed.
+* scan_status_t::PENDING not set when tuned mux is not yet in database
+* Update_stream_ids_from pat sometimes called erroneously.
+* Invalid assertion when not using neumodvb drivers.
+* Saved subtitle preference not applied at channel playback; Bug: saved preference incorrectly shown in subtitle dialog.
+* Stackstring::rotate not working properly.
+* Confusion on 28.2E between bloomberg and freesat eit
+* Incorrect fixing of this->dbmux from sdt
+* Don't log known skipped descriptors.
+* Horizontal scroll not working in live epg
+* Sometimes wrong config_id picked.
+* Incorrect assertion during scan of 0.8W.
+* fe_monitor sometimes does not exit due to race. Renamed fe_monitor_t::stop and ::start to pause and unpause.
+* playback_mpm reads past num_bytes_safe_to_read, which could cause crash when mpm part is truncated.
+* Oncorrect call to wait_for_update causes this call not to wait, resulting in a needless busy loop.
+* Incorrect assertion when two non-lockable old muxes overlap.
+* Incorrect assertion when tuning two overlapping muxes and both fail.
+* Old error messages are prepended to new ones.
+* Allow frequency update for muxes without si-data (e.g. gse)
+* Regression: message to oscam truncated when pid=0x1fff.
+* When filtering for frequency in service list, the frequency limits are narrowed by subsequent sorts, resulting in errors in the displayed services.
+* Correctly propagate scan when scanning ts-in-ts muxes.
+
+### Other
+* Swap the East and West buttons on the  positioner dialog for installations on the southern hemisphere.
+  Proper operation of Usals has not yet been tested in this case.
+* Do not save muxes when lock times out.
+* Force biss caid when decrypted data is received but there is no valid capmt data.
+
+### Interrnals
+
+* Simplified code for playback_mpm, introdcing `mpm_cursor_t` to seek by time and byte position.
+* Reduce log verbosity.
+* Improved setting/remembering of which mpv playback window willl receive GUI commands.
+* Remove dependency on sip.
+* Support for Ubuntu 24.4.
+* Improved assertion.
+* Change how textures are managed.
+* Update main.yml.
+* Refactor pause command.
+* scam: add enigma namespace descriptor.
+* Remove accidentally left over debug printf.
+* Remove unneeded header.
+
+
+
+
+
 ## Changes in version neumodvb-2.0 ##
 
 ### Major new features

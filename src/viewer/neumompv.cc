@@ -983,7 +983,6 @@ int mpv_subscription_t::jump(int seconds, system_time_t play_pos) {
 int MpvPlayer_::jump(int seconds) {
 	if (!mpv || !subscription.mpm) {
 		dterrorf("mpv not ready");
-		assert(0);
 		return -1;
 	}
 	auto absolute_seconds= this->subscription.jump(seconds, this->get_play_time());

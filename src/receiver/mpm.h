@@ -159,6 +159,8 @@ public:
 	updates other; mutex should be locked prior to calling this function
 */
 	void wait_for_update(meta_marker_t& other, std::mutex& mutex, int64_t byte_pos_to_read);
+	std::tuple<int32_t, int64_t, int32_t> wait_for_update(std::mutex& mutex, int64_t min_byte_pos);
+
 	void interrupt() {
 		was_interrupted = true;
 		cv.notify_all();
@@ -454,6 +456,8 @@ private:
 	void update_recordings(db_txn& parent_txn, system_time_t now);
 	void delete_old_data(db_txn& parent_txn,  system_time_t now);
 	void wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read);
+	std::tuple<int32_t, int64_t, int32_t>wait_for_update(int64_t min_byte_pos);
+
 	void destroy();
 
 	inline virtual int get_write_buffer(uint8_t*& buffer_ret) override {

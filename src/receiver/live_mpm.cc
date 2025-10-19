@@ -92,25 +92,14 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 	std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
 	assert(other.num_bytes_safe_to_read <= num_bytes_safe_to_read || num_bytes_safe_to_read == -1);
 
-	cv.wait(lk, [this, byte_pos_to_read, &other] {
+	cv.wait(lk, [this, byte_pos_to_read] {
 		// relock lk
 		auto ret = was_interrupted ||
 			/*live mpm has moved the position where we want to read
 			 */
 			(num_bytes_safe_to_read > byte_pos_to_read && //data is available
 			 current_pmt_marker.packetno_start>=0); //pmt was received
-		if (!other.started) {
-			if (ret) {
 #if 0
-				dtdebugf("metamarker WAIT safe_to_read={:d}/{:d} fileno={:d}/{:d} ret={:d}",
-								 num_bytes_safe_to_read, other.num_bytes_safe_to_read,
-								 current_file_record.fileno, other.current_file_record.fileno,
-								 ret);
-#endif
-				other.started = true;
-			}
-		}
-#if 1
 		if(!ret && current_pmt_marker.packetno_start>=0) {
 			dtdebugf("WAIT: byte_pos_to_read={} num_bytes_safe_to_read={} other.num_bytes_safe_to_read={} "
 							 "current_pmt_marker.packetno_start={}", byte_pos_to_read,
@@ -133,13 +122,61 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 }
 
 /*
+	Wait until the live metamarker has reached at least the byte position min_byte_pos
+	and then return the newest value of fileno, max_byte_pos (the position at which the next
+	byte will be read) and the packet number of the last pmt change.
+
+	The code will always wait until 1 pmt has been seen
+
+	returns: last_fileno,  max_byte_pos, last_pmt_packetno_start
+ */
+std::tuple<int32_t, int64_t, int32_t>
+meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos) {
+	dttime_init();
+
+	// lk is now locked
+	std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
+
+	cv.wait(lk, [this, min_byte_pos] {
+		// relock lk
+		auto ret = was_interrupted ||
+			/*live mpm has moved the position where we want to read
+			 */
+			(num_bytes_safe_to_read > min_byte_pos && // extra data is available
+			 current_pmt_marker.packetno_start>=0); //at least one pmt was received
+#if 1
+		if(!ret && current_pmt_marker.packetno_start>=0) {
+			dtdebugf("WAIT: min_byte_pos={} num_bytes_safe_to_read={} "
+							 "current_pmt_marker.packetno_start={} was_interrupted={}", min_byte_pos,
+							 num_bytes_safe_to_read,
+							 current_pmt_marker.packetno_start, was_interrupted);
+		}
+#endif
+		return ret;
+	});
+	dttime(2000);
+
+	was_interrupted = false;
+	auto last_fileno = current_file_record.fileno;
+	auto pmt_packetno_start = current_pmt_marker.packetno_start;
+	lk.release(); // needed because caller expects both mutexes to remain locked
+	return {last_fileno, num_bytes_safe_to_read, pmt_packetno_start};
+}
+
+
+/*
 	waits for a change in this meta_marker compared to "other" and then
 	updates other
 	"this" is the live stream (active_mpm), other is the playback stream (playback_mpm)
 */
-	void active_mpm_t::wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read) {
+void active_mpm_t::wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read) {
 		meta_marker.writeAccess()->wait_for_update(other, meta_marker.mutex(), byte_pos_to_read);
 }
+
+std::tuple<int32_t, int64_t, int32_t> active_mpm_t::wait_for_update(int64_t min_byte_pos) {
+	return meta_marker.writeAccess()->wait_for_update(meta_marker.mutex(), min_byte_pos);
+}
+
 
 /*
 	first and last record from database (for non live).

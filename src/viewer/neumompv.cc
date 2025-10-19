@@ -304,25 +304,30 @@ static void close_fn(void* cookie) {
 	//player->subscription.close();
 }
 
-void mpv_subscription_t::open() {
-
+int mpv_subscription_t::open() {
+	if(!mpm) {
+		dterrorf("mpm=nulptr");
+	}
 	auto get = [this] {
 		std::scoped_lock lck(m);
 		auto ret = next_op;
 		next_op = none;
 		return ret;
 	};
-	int subscription_id = (int) this->subscriber->get_subscription_id();
-	dtdebug_nicef("Open subscription_id={}", subscription_id);
+
 	dttime_init();
 	auto op = get();
 	dttime(100);
 	op();
 	dttime(1000);
-	auto playback_info = mpm->get_current_program_info();
-	auto w = mpv_player->trick_play.writeAccess();
-	w->start_time = playback_info.start_time;
-
+	int subscription_id = (int) this->subscriber->get_subscription_id();
+	dtdebug_nicef("Open subscription_id={}", subscription_id);
+	if(mpm) {
+		auto playback_info = mpm->get_current_program_info();
+		auto w = mpv_player->trick_play.writeAccess();
+		w->start_time = playback_info.start_time;
+	}
+	return mpm ? 0 : -1;
 }
 
 /*
@@ -430,10 +435,10 @@ static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
 	info->read_fn = ::read_fn;
 	info->size_fn = ::size_fn;
 	info->close_fn = ::close_fn;
-	player->subscription.open();
+	auto ret = player->subscription.open();
 	dttime(100);
 
-	return info->cookie ? 0 : MPV_ERROR_LOADING_FAILED;
+	return (info->cookie && ret>=0) ? 0 : MPV_ERROR_LOADING_FAILED;
 }
 
 MpvPlayer::MpvPlayer(receiver_t * receiver, MpvPlayer_* mpv)

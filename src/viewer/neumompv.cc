@@ -318,6 +318,12 @@ void mpv_subscription_t::open() {
 	dttime(100);
 	op();
 	dttime(1000);
+#ifndef NEWTIME
+	auto playback_info = mpm->get_current_program_info();
+	auto w = mpv_player->mpv_play_pos.writeAccess();
+	w->last_jump_time = playback_info.play_time;
+#endif
+
 }
 
 /*

@@ -319,7 +319,12 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 	}
 	idxdb_rtxn.abort();
 	if(is_new) {
-		auto creation_time =  system_clock_t::from_time_t(live_service.creation_time);
+		current_fileno=-1;
+	}
+}
+
+void active_mpm_t::set_start_time(system_time_t creation_time) {
+	if(current_fileno == -1) {
 		if (next_data_file(creation_time) < 0)
 			throw std::runtime_error("Failed to create live buffer");
 	}

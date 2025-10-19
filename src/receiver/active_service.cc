@@ -599,6 +599,8 @@ void active_service_t::service_status_message(stream_status_t status) {
 void active_service_t::process_service_data() {
 	now = system_clock_t::now();
 	auto start = steady_clock_t::now();
+	this->stream_buffer->set_start_time(now);
+
 	for (;;) {
 		auto s = steady_clock_t::now();
 		auto delta = s - start;

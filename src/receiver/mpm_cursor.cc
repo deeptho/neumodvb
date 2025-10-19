@@ -251,8 +251,7 @@ int mpm_cursor_t::move_to_part(db_txn& idxdb_rtxn, int partno)
 
 int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn, int64_t last_pmt_packetno_start)
 {
-	if(next_stream_change_ == -1 && (last_pmt_packetno_start  > this->current_byte_pos
-																	 || this->current_byte_pos==0)) {
+	if(next_stream_change_ == -1 && last_pmt_packetno_start  > this->current_byte_pos ) {
 		/*a stream change must be pending, but beware: there may have been multiple pmt_changes.
 			In that case the returned  last_pmt_packetno_start is not for the next stream change,
 			but possible for a later one (which would be rare!)
@@ -286,9 +285,15 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 		wait until there are more bytes available to read
 	*/
 	assert(num_bytes_safe_to_read==0); //otherwise there is no need for an update
-	auto [last_fileno, max_bytes_pos, last_pmt_packetno_start]
-	 = live_mpm->wait_for_update(this->current_byte_pos + num_bytes_safe_to_read);
+	std::optional<recdb::pmt_marker_t>* ppmt{nullptr};
+	if(!this->next_pmt_marker)
+		ppmt = & this->next_pmt_marker;
 
+	auto [last_fileno, max_bytes_pos, last_pmt_packetno_start]
+		= live_mpm->wait_for_update(this->current_byte_pos + num_bytes_safe_to_read, ppmt);
+	if(ppmt && *ppmt) {
+		next_stream_change_ = this->current_byte_pos; //force initial pmt update
+	}
 	auto new_num_bytes_safe_to_read = max_bytes_pos - this->current_byte_pos;
 	assert(new_num_bytes_safe_to_read >= num_bytes_safe_to_read);
 	num_bytes_safe_to_read = new_num_bytes_safe_to_read;
@@ -306,7 +311,10 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 			return ret;
 	}
 
-	auto ret = check_for_pmt_change(idxdb_rtxn, (int64_t)last_pmt_packetno_start * ts_packet_t::size);
+	auto ret =
+		(next_stream_change_ >=0) ? 0 :
+		check_for_pmt_change(idxdb_rtxn, (int64_t)last_pmt_packetno_start * ts_packet_t::size);
+
 	if(idxdb_rtxn)
 		idxdb_rtxn->abort();
 	if(ret<0)
@@ -559,6 +567,7 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 	if(need_mapping) {
 		map();
 	}
+
 	this->part_no = part_no_;
 	auto* buffer = get_buffer(part_no_, current_byte_pos, len_);
 	assert(buffer +len_ - mapped  <= map_len);

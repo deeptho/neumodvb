@@ -131,7 +131,7 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 	returns: last_fileno,  max_byte_pos, last_pmt_packetno_start
  */
 std::tuple<int32_t, int64_t, int32_t>
-meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos) {
+meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret) {
 	dttime_init();
 
 	// lk is now locked
@@ -159,22 +159,24 @@ meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos) {
 	was_interrupted = false;
 	auto last_fileno = current_file_record.fileno;
 	auto pmt_packetno_start = current_pmt_marker.packetno_start;
+	if(ppmt_ret)
+		*ppmt_ret = current_pmt_marker;
 	lk.release(); // needed because caller expects both mutexes to remain locked
 	return {last_fileno, num_bytes_safe_to_read, pmt_packetno_start};
 }
-
 
 /*
 	waits for a change in this meta_marker compared to "other" and then
 	updates other
 	"this" is the live stream (active_mpm), other is the playback stream (playback_mpm)
 */
+
 void active_mpm_t::wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read) {
-		meta_marker.writeAccess()->wait_for_update(other, meta_marker.mutex(), byte_pos_to_read);
+	meta_marker.writeAccess()->wait_for_update(other, meta_marker.mutex(), byte_pos_to_read);
 }
 
-std::tuple<int32_t, int64_t, int32_t> active_mpm_t::wait_for_update(int64_t min_byte_pos) {
-	return meta_marker.writeAccess()->wait_for_update(meta_marker.mutex(), min_byte_pos);
+std::tuple<int32_t, int64_t, int32_t> active_mpm_t::wait_for_update(int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret) {
+	return meta_marker.writeAccess()->wait_for_update(meta_marker.mutex(), min_byte_pos, ppmt_ret);
 }
 
 

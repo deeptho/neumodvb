@@ -191,13 +191,33 @@ ago: the orange region indicates the available time shift data. This area will g
 When one of the playing services is focused (as indicated by a yellow border), also some
 keys for "trick" play will be enabled:
 
-* Press the left arrow (without control) to jump back one minute in time.
+* Press the left arrow (without control) to `jump back` in time. Note that the jump interval will increase
+  with successive key presses, allowing to jump back over large time intervals with few key presses.
 
-* Press the right arrow (without control) to jump forward one minute in time.
+  When pressing the left arrow quickly within 2 seconds after the right arrow was pressed, the jump
+  interval will be reduced (rather than increased), which allows zooming in a particular time in the
+  video playback.
 
-* In a future some more keys will be added which will allow jumping by larger time steps
+* Press the right arrow (without control) to `jump forward` in time. The jump interval will *not* be
+  adjusted, unless the left arrow was pressed less than 2 seconds ago; in that case the interval
+  will be reduced.
+
+* So to navigate to a specific point in time, start pressing left until you reach a time before the desired one.
+  Then press the right key one or more times, until you pass the desired position. Then press left and so on.
+  If this is done quickly enough, the jump interval will reduce each time, allowing you to reach the desired
+  position with a minimal number of key presses.
+
+* Press the comma key to `play backwards` the video and the dot key to start playing forward again. If the
+  the video reaches the start of tuning or playback, the player will switch to forward play.
+
+* Press the [ key to slow down playback and ] to increase playback speed.
+
+* Press the = key to increase audio volume and the minus-key to decrease ot.
+
 
 * Press `Ctrl-Space` to pause/resume the current service
+
+* Press `Ctrl-X` to end viewing.
 
 * Some more commands will be added later, e.g, to make it easier to jump over larger time intervals,
   to facilitate channel changing. Probably some options will be added to temporarily display the

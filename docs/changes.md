@@ -71,7 +71,7 @@
 * Do not save muxes when lock times out.
 * Force biss caid when decrypted data is received but there is no valid capmt data.
 
-### Interrnals
+### Internals
 
 * Simplified code for playback_mpm, introdcing `mpm_cursor_t` to seek by time and byte position.
 * Reduce log verbosity.

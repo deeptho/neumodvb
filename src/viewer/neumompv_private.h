@@ -146,6 +146,9 @@ struct trick_play_t {
 	system_time_t start_time;
 	double time_pos;
 	bool reverse_playing {false};
+	bool fast_forwarding {false};
+	double fast_forwarding_time_pos_limit{0.0};
+	int playback_speed_index{0};
 	inline system_time_t get_play_time() const {
 		return start_time + std::chrono::duration<int64_t>((int64_t)time_pos);
 	}
@@ -186,6 +189,8 @@ public:
 	void destroy();
 	int screenshot();
 	int set_play_direction(bool forward);
+	int set_playback_speed(double speed);
+	int change_playback_speed(bool faster);
 	void mpv_command(const char* cmd_, const char* arg2, const char* arg3);
 	int play_recording(const recdb::rec_t& rec_, milliseconds_t start_play_time);
 	int set_audio_language(int id);

@@ -75,6 +75,8 @@ play_menu = (
     MI("JumpForward",  _("&Jump Forward\tRight"), ""),
     MI("PlayForward",  _("&Forward\t."), ""),
     MI("PlayReverse",  _("&Reverse\t,"), ""),
+    MI("PlaySlower",  _("&Play faster\t["), ""),
+    MI("PlayFaster",  _("&Play faster\t]"), ""),
     SEP,
     MI("AudioLang",  _("&Audio language\tCtrl-Shift-3"), ""), #ctrl-#
     MI("SubtitleLang",  _("&Subtitle language\tCtrl-T"), ""),

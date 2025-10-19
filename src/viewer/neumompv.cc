@@ -614,6 +614,7 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 			}
 		} else if(strcmp(prop->name, "time-pos") == 0) {
 			if(prop->format ==  MPV_FORMAT_DOUBLE) {
+				bool must_slow_down{false};
 				bool must_play_forward{false};
 				{
 					auto w = this->trick_play.writeAccess();
@@ -621,7 +622,15 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 					//return to normal in case reverse play is active
 					must_play_forward = w->time_pos <=2 && w->reverse_playing;
 					//return to normal in case fast forward is active
+					must_slow_down = w->fast_forwarding && w->time_pos >= w->fast_forwarding_time_pos_limit;
+#if 0
+					if(w->fast_forwarding)
+						dtdebug_nicef("time_pos={} limit={}",  w->time_pos, w->fast_forwarding_time_pos_limit);
+#endif
 				}
+				if(must_slow_down)
+					this->set_playback_speed(1.0);
+
 				if (must_play_forward)
 					this->set_play_direction(true/*forward*/);
 			}
@@ -1427,4 +1436,81 @@ int MpvPlayer_::set_play_direction(bool forward) {
 int MpvPlayer::set_play_direction(bool forward) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
 	return self->set_play_direction(forward);
+}
+
+int MpvPlayer_::set_playback_speed(double speed) {
+	if (!mpv || !subscription.mpm) {
+		dterrorf("mpv not ready");
+		return -1;
+	}
+	auto playback_info = this->subscription.mpm->get_current_program_info();
+	auto end_pos = playback_info.end_time;
+	auto play_pos = this->get_play_time();
+	auto to_play = std::chrono::duration_cast<std::chrono::seconds>(end_pos - play_pos).count();
+	if (mpv_set_property(this->mpv, "speed", MPV_FORMAT_DOUBLE, &speed) < 0)
+		dterrorf("Failed setting speed {}", speed);
+
+	ss::string<64> msg;
+	msg.format("{:.2f}x speed", speed);
+	this->notify_message(msg);
+	auto w = this->trick_play.writeAccess();
+	auto limit= w->time_pos + to_play; ///speed;
+	w->fast_forwarding_time_pos_limit = limit;
+	w->fast_forwarding = true;
+	dtdebugf("set_playback_speed: to_play={} limit={}", to_play, limit);
+	return 0;
+}
+
+int MpvPlayer_::change_playback_speed(bool faster) {
+	if (!mpv || !subscription.mpm) {
+		dterrorf("mpv not ready");
+		return -1;
+	}
+
+	static std::array<double,8> fast_speeds {1.,  1.5,   2,    4,    8,    16,    32};
+	static std::array<double,8> slow_speeds {1., 0.75, 0.5, 1./4, 1./8, 1./16, 1./32};
+	int idx;
+	{ auto w = this->trick_play.writeAccess();
+		idx = w->playback_speed_index + (faster ? 1 : -1);
+		idx = std::min((int)fast_speeds.size()-1, idx);
+		idx = std::max(-(int)(slow_speeds.size()-1), idx);
+		w->playback_speed_index = idx;
+	}
+	double& speed = idx>=0 ? fast_speeds[idx] : slow_speeds[-idx];
+	return set_playback_speed(speed);
+}
+
+int MpvPlayer::change_playback_speed(bool faster) {
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->change_playback_speed(faster);
+}
+
+int jump_state_t::jump(bool forward) {
+	auto now = system_clock_t::now();
+	auto delta =std::chrono::duration_cast<std::chrono::seconds>(now - last_jump_time).count();
+	bool timedout = delta > timeout;
+	if(timedout) {
+		fast_jump_idx = 0;
+		jump_type = jump_type_t::INCREASING_JUMPS;
+		last_was_forward = forward;
+		jump_interval = forward_jumps[0];
+	}
+	switch(jump_type) {
+	case jump_type_t::INCREASING_JUMPS:
+		if(forward == last_was_forward) {
+			jump_interval= forward_jumps[fast_jump_idx++];
+			fast_jump_idx=std::min(fast_jump_idx, (int)forward_jumps.size()-1);
+		} else {
+			jump_type = jump_type_t::DECREASING_JUMPS;
+			jump_interval= std::max((jump_interval+1)/2, 5);
+		}
+		break;
+
+	case jump_type_t::DECREASING_JUMPS:
+		if(forward != last_was_forward) {
+			jump_interval= std::max((jump_interval+1)/2, 5);
+		}
+		break;
+	}
+	return forward ? jump_interval : -jump_interval;
 }

@@ -730,6 +730,14 @@ class NeumoGui(wx.App):
             dtdebug(f"Jump {seconds} seconds")
             self.current_mpv_player.jump(seconds)
 
+    def SetPlayBackSpeed(self, faster):
+        """
+        faster=true: increases playback speed by 1.2
+        faster=false: decreases playback speed by 1.2
+        """
+        dtdebug(f"Playbackspeed  faster={faster}")
+        self.current_mpv_player.change_playback_speed(faster)
+
     def SetPlaybackDirection(self, forward):
         self.current_mpv_player.set_play_direction(forward)
 

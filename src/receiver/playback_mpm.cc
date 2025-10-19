@@ -422,6 +422,8 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 		part_cursor.advance(num_bytes_in);
 		outbytes -= num_bytes_out;
 		assert(outbytes >=0);
+		if(tot_out> 0)
+			break;
 	}
 	return {tot_out, tot_in};
 }

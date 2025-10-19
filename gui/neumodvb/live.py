@@ -2736,6 +2736,14 @@ class LivePanel(wx.Panel):
         dtdebug('CmdJumpBack')
         return wx.GetApp().Jump(-60)
 
+    def CmdPlayForward(self, event=None):
+        dtdebug('CmdPlayForward')
+        return wx.GetApp().SetPlaybackDirection(forward=True)
+
+    def CmdPlayReverse(self, event=None):
+        dtdebug('CmdPlayReverse')
+        return wx.GetApp().SetPlaybackDirection(forward=False)
+
     def CmdVolumeUp(self, evt):
         dtdebug('CmdVolumeUp')
         self.mosaic_panel.ChangeVolume(+1)

@@ -42,6 +42,7 @@
 
 namespace py = pybind11;
 
+
 /*
 	Comments in  makeContextCurrent suggest that a (new?) requirement is that glcontexts cannot be used
 	from a thread other than the one they are created in. This poses problems as more than one mpv thread
@@ -318,11 +319,9 @@ void mpv_subscription_t::open() {
 	dttime(100);
 	op();
 	dttime(1000);
-#ifndef NEWTIME
 	auto playback_info = mpm->get_current_program_info();
-	auto w = mpv_player->mpv_play_pos.writeAccess();
-	w->last_jump_time = playback_info.play_time;
-#endif
+	auto w = mpv_player->trick_play.writeAccess();
+	w->start_time = playback_info.start_time;
 
 }
 
@@ -550,7 +549,7 @@ bool MpvPlayer_::create() {
 		assert(0);
 	}
 	if(mpv_observe_property(mpv, 0, "time-pos", MPV_FORMAT_DOUBLE) <0) {
-		dtdebugf("QQQQ failed to observe");
+		dtdebugf("failed to observe");
 	}
 
 #ifdef BUG
@@ -615,14 +614,25 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 			}
 		} else if(strcmp(prop->name, "time-pos") == 0) {
 			if(prop->format ==  MPV_FORMAT_DOUBLE) {
-				auto w = this->mpv_play_pos.writeAccess();
-				w->time_pos = *(double*)prop->data;
+				bool must_play_forward{false};
+				{
+					auto w = this->trick_play.writeAccess();
+					w->time_pos = *(double*)prop->data;
+					//return to normal in case reverse play is active
+					must_play_forward = w->time_pos <=2 && w->reverse_playing;
+					//return to normal in case fast forward is active
+				}
+				if (must_play_forward)
+					this->set_play_direction(true/*forward*/);
 			}
 		}
 		break;
 	}
 	case MPV_EVENT_SHUTDOWN:
 		gl_canvas->MpvDestroy();
+		break;
+	case MPV_EVENT_END_FILE:
+		dtdebugf("End of file event");
 		break;
 	default:
 		break;
@@ -1397,41 +1407,24 @@ playback_info_t MpvPlayer::get_current_program_info() {
 		self->subscription.mpm->get_current_program_info() : playback_info_t();
 }
 
-/*
-	mpv_terminate_destroy(mpv_handle *ctx); Similar to mpv_destroy(), but brings the player and all clients down
-	* as well, and waits until all of them are destroyed. This function blocks. T
 
-	he first call on any mpv_handle will block until the core is destroyed.
-	*  This means it will wait until other mpv_handle have been destroyed. If you
-	*  want asynchronous destruction, just run the "quit" command, and then react
-	*  to the MPV_EVENT_SHUTDOWN event
-	*/
-int jump_state_t::jump(bool forward) {
-	auto now = system_clock_t::now();
-	auto delta =std::chrono::duration_cast<std::chrono::seconds>(now - last_jump_time).count();
-	bool timedout = delta > timeout;
-	if(timedout) {
-		fast_jump_idx = 0;
-		jump_type = jump_type_t::INCREASING_JUMPS;
-		last_was_forward = forward;
-		jump_interval = forward_jumps[0];
+int MpvPlayer_::set_play_direction(bool forward) {
+	if (!mpv || !subscription.mpm) {
+		dterrorf("mpv not ready");
+		return -1;
 	}
-	switch(jump_type) {
-	case jump_type_t::INCREASING_JUMPS:
-		if(forward == last_was_forward) {
-			jump_interval= forward_jumps[fast_jump_idx++];
-			fast_jump_idx=std::min(fast_jump_idx, (int)forward_jumps.size()-1);
-		} else {
-			jump_type = jump_type_t::DECREASING_JUMPS;
-			jump_interval= std::max((jump_interval+1)/2, 5);
-		}
-		break;
+	if (mpv_set_property_string(this->mpv, "play-direction",
+															forward ? "forward" : "backward") < 0)
+		dterrorf("Failed setting play_direction {:d}", forward);
+	auto w = this->trick_play.writeAccess();
+	w->reverse_playing = !forward;
+	ss::string<64> msg;
+	msg.format("Play {}", forward ? "forward" : "backward");
+	this->notify_message(msg);
+	return 0;
+}
 
-	case jump_type_t::DECREASING_JUMPS:
-		if(forward != last_was_forward) {
-			jump_interval= std::max((jump_interval+1)/2, 5);
-		}
-		break;
-	}
-	return forward ? jump_interval : -jump_interval;
+int MpvPlayer::set_play_direction(bool forward) {
+	auto* self = dynamic_cast<MpvPlayer_*>(this);
+	return self->set_play_direction(forward);
 }

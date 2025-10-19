@@ -730,6 +730,9 @@ class NeumoGui(wx.App):
             dtdebug(f"Jump {seconds} seconds")
             self.current_mpv_player.jump(seconds)
 
+    def SetPlaybackDirection(self, forward):
+        self.current_mpv_player.set_play_direction(forward)
+
     def AudioLang(self, dark_mode):
         langs = self.current_mpv_player.audio_languages()
         from neumodvb.language_dialog import show_audio_language_dialog

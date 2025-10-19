@@ -64,6 +64,7 @@ PYBIND11_MODULE(pyneumompv, m) {
 				 py::arg("start_play_time") = milliseconds_t(0))
 		.def("jump", &MpvPlayer::jump, py::arg("seconds"))
 		.def("smartjump", &MpvPlayer::smartjump, py::arg("forward"))
+		.def("set_play_direction", &MpvPlayer::set_play_direction, py::arg("forward"))
 		.def("mpv_command", &MpvPlayer::mpv_command, py::arg("command"), py::arg("arg1") = nullptr,
 				 py::arg("arg2") = nullptr)
 		.def("stop_play", &MpvPlayer::stop_play)

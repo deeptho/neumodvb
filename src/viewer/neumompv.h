@@ -84,6 +84,7 @@ public:
 	int play_service(const chdb::service_t& service);
 	int play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time);
 	int screenshot();
+	int set_play_direction(bool forward);
 	int stop_play();
 	int stop_play_and_exit();
 	int jump(int seconds);

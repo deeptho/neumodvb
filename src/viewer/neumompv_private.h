@@ -142,11 +142,12 @@ public:
 	}
 };
 
-struct mpv_play_pos_t {
-	system_time_t last_jump_time;
+struct trick_play_t {
+	system_time_t start_time;
 	double time_pos;
+	bool reverse_playing {false};
 	inline system_time_t get_play_time() const {
-		return last_jump_time + std::chrono::duration<int64_t>((int64_t)time_pos);
+		return start_time + std::chrono::duration<int64_t>((int64_t)time_pos);
 	}
 };
 
@@ -154,8 +155,8 @@ class MpvPlayer_ : public MpvPlayer {
 	friend class MpvGLCanvas;
 	friend class mpv_subscription_t;
 public:
-	using pp_t = safe::Safe<mpv_play_pos_t>;
-	pp_t mpv_play_pos;
+	using tp_t = safe::Safe<trick_play_t>;
+	tp_t trick_play;
 
 	expiration_t volume_expiration;
 	int volume{100}; //current audio volume
@@ -184,6 +185,7 @@ public:
 	bool create();
 	void destroy();
 	int screenshot();
+	int set_play_direction(bool forward);
 	void mpv_command(const char* cmd_, const char* arg2, const char* arg3);
 	int play_recording(const recdb::rec_t& rec_, milliseconds_t start_play_time);
 	int set_audio_language(int id);
@@ -206,7 +208,7 @@ public:
 	void update_playback_info();
 
 	inline system_time_t get_play_time() const {
-		return mpv_play_pos.readAccess()->get_play_time();
+		return trick_play.readAccess()->get_play_time();
 	}
 
 	MpvPlayer_(receiver_t* receiver);

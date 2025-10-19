@@ -118,7 +118,7 @@ public:
 		}
 		cv.notify_all();
 	}
-	void open();
+	int open();
 
 	mpv_subscription_t(receiver_t* receiver_, MpvPlayer_* mpv_player_);
 	~mpv_subscription_t();

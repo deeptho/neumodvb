@@ -1019,7 +1019,9 @@ int active_scam_t::scam_send_filtered_data(uint16_t pid, const ss::bytebuffer_& 
 	ss::bytebuffer<4096 + 100> out_msg; // current message, perhaps not fully written
 	int matchcount = 0;
 	auto t = system_clock_t::now();
+#if 0
 	dtdebugf("adapter_no={} pid={}", (int) adapter_no, (int) pid);
+#endif
 	int ret = 0;
 	for (auto& [k, filter] : filters) {
 		auto [demux_no, filter_no ] = k;

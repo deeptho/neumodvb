@@ -216,6 +216,7 @@ std::optional<recdb::pmt_marker_t>  mpm_cursor_t::get_pmt_marker() {
 		assert(next_stream_change_ > this->current_byte_pos);
 	}
 	idxdb_rtxn.abort();
+	this->first_pmt_read |= !!next_pmt_marker;
 	auto ret = next_pmt_marker;
 	next_pmt_marker.reset();
 	next_stream_change_ = -1;
@@ -286,12 +287,14 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 	*/
 	assert(num_bytes_safe_to_read==0); //otherwise there is no need for an update
 	std::optional<recdb::pmt_marker_t>* ppmt{nullptr};
-	if(!this->next_pmt_marker)
+	if(!this->first_pmt_read) {
 		ppmt = & this->next_pmt_marker;
+	}
 
 	auto [last_fileno, max_bytes_pos, last_pmt_packetno_start]
 		= live_mpm->wait_for_update(this->current_byte_pos + num_bytes_safe_to_read, ppmt);
 	if(ppmt && *ppmt) {
+		dtdebugf("setting next_stream_change_");
 		next_stream_change_ = this->current_byte_pos; //force initial pmt update
 	}
 	auto new_num_bytes_safe_to_read = max_bytes_pos - this->current_byte_pos;

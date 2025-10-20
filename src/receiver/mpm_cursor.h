@@ -52,7 +52,7 @@ class mpm_cursor_t {
 																			This value may be outdated, but only in the sense that -1 may be incorrect
 																	 */
 	std::optional<recdb::pmt_marker_t>  next_pmt_marker;
-
+	bool first_pmt_read{false};
 	int move_to_part(db_txn& idxdb_rtxn, int partno);
 	int check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn, int64_t last_pmt_packetno_start);
 

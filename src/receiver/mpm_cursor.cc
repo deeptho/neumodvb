@@ -245,8 +245,9 @@ int mpm_cursor_t::move_to_part(db_txn& idxdb_rtxn, int partno)
 	auto old_current_part = current_part;
 	current_part = cf.current();
 
-	num_bytes_safe_to_read = this->part_is_growing() ? 0 :  current_part.stream_packetno_end * ts_packet_t::size;
-	dtdebugf("set num_bytes_safe_to_read={} partnp={}", num_bytes_safe_to_read, current_part.fileno);
+	num_bytes_safe_to_read = this->part_is_growing() ? 0 :  (current_part.stream_packetno_end * (int64_t)ts_packet_t::size - this->current_byte_pos);
+	assert(num_bytes_safe_to_read >= 0);
+	dtdebugf("set num_bytes_safe_to_read={} partno={}", num_bytes_safe_to_read, current_part.fileno);
 	return 0;
 }
 

@@ -1278,7 +1278,9 @@ void active_adapter_t::check_for_non_existing_streams()
 std::shared_ptr<active_service_t>
 active_adapter_t::tune_service_in_use(const subscribe_ret_t& sret,
 																			const chdb::service_t& service) {
-	auto [it, found] = find_in_safe_map(this->subscribed_active_services, sret.subscription_id);
+	if((int)sret.sub_to_reuse <0)
+		return nullptr;
+	auto [it, found] = find_in_safe_map(this->subscribed_active_services, sret.sub_to_reuse);
 	if(!found)
 		return nullptr;
 	auto& active_servicep = it->second;

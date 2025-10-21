@@ -407,7 +407,6 @@ tuner_thread_t::cb_t::subscribe_service_for_recording
 
 	auto active_servicep = active_adapter.tune_service(sret, mux, rec.service, tune_options);
 	if(active_servicep) {
-		active_servicep->start_recording(sret.subscription_id, rec);
 		auto recnew = active_servicep->start_recording(sret.subscription_id, rec);
 		assert(recnew);
 		recnew->owner = getpid();

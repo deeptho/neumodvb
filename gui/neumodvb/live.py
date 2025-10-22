@@ -928,7 +928,8 @@ class RecGroupSelectPanel(GroupSelectPanel):
             w1,h1 = get_text_extent(g[0], self.header_font, compensate=True)
             w, h =max(w, w1), max(h, h1)
         self.sorttype_text_size = (w, h)
-
+    def layout_grouptype(self):
+        pass
     def OnSelectGroup(self):
         filter_type = self.grouptypes[self.grouptype_idx][2]
         self.ls.set_recordings_filter(filter_type)

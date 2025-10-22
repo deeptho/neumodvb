@@ -277,7 +277,7 @@ public:
 	//void init();
 
 
-	playback_mpm_t(receiver_t& receiver, subscription_id_t subscription_id);
+	playback_mpm_t(receiver_t& receiver, subscription_id_t subscription_id,  const char* dirname, const char* idx_dirname);
 	playback_mpm_t(active_mpm_t& other, const chdb::service_t& live_service, subscription_id_t subscription_id);
 	playback_mpm_t& operator=(const playback_mpm_t& other) = delete;
 

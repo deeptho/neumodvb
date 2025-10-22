@@ -35,12 +35,12 @@
 #include "util/dtassert.h"
 #include "mpm_cursor.h"
 
-playback_mpm_t::playback_mpm_t(receiver_t& receiver_, subscription_id_t subscription_id_)
+playback_mpm_t::playback_mpm_t(receiver_t& receiver_, subscription_id_t subscription_id_, const char* dirname, const char* idx_dirname)
 	: mpm_t(true)
 	, receiver(receiver_)
-	, part_cursor("", "")
+	, part_cursor(dirname, idx_dirname)
 	, subscription_id(subscription_id_) {
-	error = true;
+	part_cursor.init();
 };
 
 playback_mpm_t::playback_mpm_t(active_mpm_t& other,
@@ -399,6 +399,9 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 				ss->current_pmt_marker = *pmt_marker;
 				update_pmt(*ss);
 				continue;
+		} else if(remaining_space==0) {
+			//playing back recording and reaching eof
+			return {tot_out, tot_in};
 		}
 		dttime_init();
 		dttime(100);
@@ -509,7 +512,7 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 			assert(num_bytes_read >0);
 		}
 	}
-	assert(live_mpm || num_bytes_read != 0); /*live_mpm will lead to blocking (ok), but otherwise we have a problem;
+	assert(!live_mpm || num_bytes_read != 0); /*live_mpm will lead to blocking (ok), but otherwise we have a problem;
 																						 num_bytes_read < 0 is ok; indicates and error
 																							 num_bytes_read > 0 is also ok; indicates progress
 																					 */

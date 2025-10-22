@@ -377,6 +377,8 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 				auto ret = wait_for_update(live_mpm);
 				assert(ret>=0);
 			} else {
+				if(current_part.fileno == last_part.fileno)
+					break;
 				std::optional<db_txn> idxdb_rtxn;
 				idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 				//move to next part

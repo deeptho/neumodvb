@@ -164,8 +164,9 @@ static 	int translate_dvb_control_characters(uint8_t* to, int size_, bool single
 		}
 	else //!single_byte_char
 		while (from < end) {
-			auto last = *from++;
+			auto last = *from;
 			if (last == 0xe0) {
+				from++;
 				*to++ = 0; //may not be correct!
 				if(from <end) {
 					auto ret = convert_char(*from++);

@@ -60,6 +60,7 @@ PYBIND11_MODULE(pyrecdb, m) {
 	export_recdb(m);
 	export_ss_vector(m, rec_fragment_t);
 	export_ss_vector(m, marker_t);
+	export_ss_vector(m, pmt_marker_t);
 	export_ss_vector(m, rec_t);
 	export_ss_vector(m, file_t);
 	export_ss_vector(m, live_service_t);

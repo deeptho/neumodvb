@@ -21,6 +21,7 @@ import pychdb
 db= pyrecdb.recdb()
 filerec= pyrecdb.file
 marker =  pyrecdb.marker
+pmt_marker =  pyrecdb.pmt_marker
 rec = pyrecdb.rec
 
 db.open('/tmp/index.mdb')
@@ -53,6 +54,8 @@ epg_txn=epgdb.rtxn()
 
 files = filerec.list_all_by_key(txn);
 markers = marker.list_all_by_key(txn)
+pmt_markers = pmt_marker.list_all_by_key(txn)
+
 
 
 recs = rec.list_all_by_key(rec_txn)

@@ -205,15 +205,20 @@ std::optional<recdb::pmt_marker_t>  mpm_cursor_t::get_pmt_marker() {
 	if(this->current_byte_pos != next_stream_change_)
 		return {};
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto c = recdb::pmt_marker_t::find_by_key(idxdb_rtxn, 1 + (uint32_t) (this->current_byte_pos / ts_packet_t::size),
-																						find_geq);
+	auto c =
+		this->first_pmt_read ?
+		recdb::pmt_marker_t::find_by_key(idxdb_rtxn, 1 + (uint32_t) (this->current_byte_pos / ts_packet_t::size),
+																		 find_geq):
+		find_first<recdb::pmt_marker_t>(idxdb_rtxn);
+
 	if(!c.is_valid()) {
 		//no known stream change yet in database, but there may be one in live_mpm
 	} else {
 		auto pmt_marker = c.current();
 		next_pmt_marker = pmt_marker;
 		next_stream_change_ = pmt_marker.packetno_start *  ts_packet_t::size;
-		assert(next_stream_change_ > this->current_byte_pos);
+		assert(next_stream_change_ > this->current_byte_pos ||
+					 (!this->first_pmt_read && next_stream_change_ == this->current_byte_pos));
 	}
 	idxdb_rtxn.abort();
 	this->first_pmt_read |= !!next_pmt_marker;
@@ -356,13 +361,18 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 	auto n = std::min(num_bytes_safe_to_read, num_bytes);
 	assert(n>=0);
 	auto still_growing = live_mpm && this->part_is_growing();
+	bool stream_change{false};
+
 	if(!still_growing) {
 		int maxbytes  = (int64_t)this->current_part.stream_packetno_end* ts_packet_t::size - this->current_byte_pos;
 		n = std::min(maxbytes, n);
 		assert(n>=0);
-	}
 
-	bool stream_change{false};
+		if(!first_pmt_read) {
+			stream_change = true; //ensrue that pmt is read when playing back recording
+			next_stream_change_ = this->current_byte_pos;
+		}
+	}
 
 	if(next_stream_change_ >=0) {
 		stream_change = (next_stream_change_ == this->current_byte_pos);

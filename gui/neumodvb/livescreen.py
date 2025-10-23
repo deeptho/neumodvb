@@ -44,7 +44,7 @@ import pyepgdb
 class LiveServiceScreen(object):
     def __init__(self, app):
         self.app = app
-        self.chdb =  self.app.chdb
+        self.db =  self.app.chdb
         self.use_channels = False #channels or services
         ft = self.app.receiver.browse_history.h.list_filter_type
         t = pychdb.list_filter_type_t
@@ -160,7 +160,7 @@ class LiveServiceScreen(object):
     @property
     def sat_screen(self):
         if self.sat_screen_ is None:
-            txn = self.chdb.rtxn()
+            txn = self.db.rtxn()
             self.sat_screen_ = pychdb.sat.screen(txn, sort_order=int(pychdb.sat.column.sat_pos) << 24)
             txn.abort()
             del txn
@@ -169,7 +169,7 @@ class LiveServiceScreen(object):
     @property
     def chg_screen(self):
         if self.chg_screen_ is None:
-            txn = self.chdb.rtxn()
+            txn = self.db.rtxn()
             self.chg_screen_ = pychdb.chg.screen(txn, sort_order=int(pychdb.chg.column.name)<<24)
             txn.abort()
             del txn
@@ -181,7 +181,7 @@ class LiveServiceScreen(object):
     def set_sat_filter(self, sat):
         """
         """
-        txn = self.chdb.rtxn()
+        txn = self.db.rtxn()
         service = self.selected_service_or_channel if \
             type(self.selected_service_or_channel) == pychdb.service.service else None
         if service is not None and sat is not None  and service.k.mux.sat_pos != sat.sat_pos:
@@ -197,7 +197,7 @@ class LiveServiceScreen(object):
             return None #must fit  in uint16_t
         h = self.app.receiver.browse_history
         t = pychdb.list_filter_type_t
-        txn = self.chdb.rtxn()
+        txn = self.db.rtxn()
         if h.h.list_filter_type ==  t.BOUQUET_CHANNELS:
              ret = pychdb.chgm.find_by_chgm_order(txn, chno)
         else:
@@ -209,7 +209,7 @@ class LiveServiceScreen(object):
         """
         """
         h = self.app.receiver.browse_history
-        txn = self.chdb.rtxn()
+        txn = self.db.rtxn()
         sat = None if  h.h.servicelist_filter_sat.sat_pos == pychdb.sat.sat_pos_none else  h.h.servicelist_filter_sat
         if service is not None and sat is not None  and service.k.mux.sat_pos != sat.sat_pos:
             #a sat filter is in place, but it is not compatible with service
@@ -268,7 +268,7 @@ class LiveServiceScreen(object):
     def set_chgm_screen(self, chgm, sort_order=None):
         t = pychdb.list_filter_type_t
         h = self.app.receiver.browse_history
-        txn = self.chdb.rtxn()
+        txn = self.db.rtxn()
         chg = h.h.chgmlist_filter_chg if h.h.chgmlist_filter_chg.k.bouquet_id>0 else None
         if chgm is not None and chg is not None and chgm.k != chg.k:
             #a chg filter is in place, but it is not compatible with chgm
@@ -283,7 +283,7 @@ class LiveServiceScreen(object):
     def set_chg_filter(self, chg):
         t = pychdb.list_filter_type_t
         h = self.app.receiver.browse_history
-        txn = self.chdb.rtxn()
+        txn = self.db.rtxn()
         chgm = self.selected_service_or_channel if type(self.selected_service_or_channel) == pychdb.chgm.chgm else None
         if chgm is not None and chg is not None and chgm.k != chg.k:
             chgm = None
@@ -358,7 +358,7 @@ class LiveServiceScreen(object):
             assert h.h.chgmlist_filter_chg is not None #needs to be set earlier
             h.h.list_filter_type = t.BOUQUET_CHANNELS
             chgm =service_or_chgm
-            txn = self.chdb.rtxn()
+            txn = self.db.rtxn()
             service = pychdb.service.find_by_key(txn, chgm.service.mux, chgm.service.service_id)
             txn.abort()
             del txn
@@ -384,7 +384,7 @@ class LiveServiceScreen(object):
         h = self.app.receiver.browse_history
         if ft == t.BOUQUET_CHANNELS:
             chgm = h.last_chgm()
-            txn = self.chdb.rtxn()
+            txn = self.db.rtxn()
             service = h.last_service() if chgm is None else \
                 pychdb.service.find_by_key(txn, chgm.service.mux, chgm.service.service_id)
             txn.abort()
@@ -481,7 +481,7 @@ class LiveServiceScreen(object):
             return None
         if type(entry) == pychdb.service.service:
             return entry
-        txn = self.chdb.rtxn()
+        txn = self.db.rtxn()
         service = pychdb.service.find_by_key(txn, entry.service.mux, entry.service.service_id)
         txn.abort()
         del txn
@@ -490,7 +490,7 @@ class LiveServiceScreen(object):
 class LiveRecordingScreen(object):
     def __init__(self, app):
         self.app = app
-        self.recdb =  self.app.recdb
+        self.db =  self.app.recdb
         self.playing_entry_ = None
         self.selected_recording = None
         self.make_screen()
@@ -559,7 +559,7 @@ class LiveRecordingScreen(object):
         """
         """
         h = self.app.receiver.rec_browse_history
-        txn = self.recdb.rtxn()
+        txn = self.db.rtxn()
 
         ret = self.set_recordings_screen_(txn, recording, sort_order)
         txn.abort()
@@ -607,7 +607,7 @@ class LiveRecordingScreen(object):
     def set_recordings_filter(self, filter_type):
         t = pyrecdb.list_filter_type_t
         h = self.app.receiver.rec_browse_history
-        txn = self.recdb.rtxn()
+        txn = self.db.rtxn()
         ret = self.set_recordings_screen_(txn, None, filter_type=filter_type)
         txn.abort()
         del txn

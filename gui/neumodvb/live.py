@@ -1313,20 +1313,20 @@ class RecordPanel(wx.Panel):
             self.scroll_down(-delta)
             self.wheel_count = 0
 
-    def check_for_new_service_records(self):
-        txn = self.data.ls.chdb.rtxn()
+    def check_for_new_records(self):
+        txn = self.data.ls.db.rtxn()
         changed = self.data.ls.screen.update(txn)
         txn.commit()
         del txn
         if changed:
-            dtdebug(f"Updating live service screen")
+            dtdebug(f"Updating live recording screen")
             old_record = self.selected_row_entry
             self.data.GetRecordAtRow.cache_clear()
             self.SelectRow(old_record, data_has_changed=True)
         return changed
 
     def on_timer(self):
-        self.check_for_new_service_records()
+        self.check_for_new_records()
 
     def OnTimer(self, evt):
         now = datetime.datetime.now(tz=tz.tzlocal())
@@ -2279,7 +2279,7 @@ class RecordingsPanel(RecordPanel):
         infow.Thaw()
 
     def check_for_new_records(self):
-        txn = self.data.ls.recdb.rtxn()
+        txn = self.data.ls.db.rtxn()
         changed = self.data.ls.screen.update(txn)
         txn.commit()
         del txn

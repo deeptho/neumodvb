@@ -41,6 +41,7 @@ class LanguageDialog(LanguageDialog_):
         #self.languagegrid_sizer.Remove(0) #remove empty slot
         gtk_add_window_style(self, 'language_dialog')
         set_gtk_window_name(self, 'language_dialog')
+
     def Prepare(self, lnbgrid):
         self.languagegrid = LanguageGrid(self, self.parent, self.basic, self.readonly, self.languagelist_panel, \
                                          wx.ID_ANY, size=(-1, -1), dark_mode = self.dark_mode,
@@ -52,11 +53,13 @@ class LanguageDialog(LanguageDialog_):
         #self.languagegrid.SetColSize(num_cols-1, width*2)
         self.Layout()
         #self.Fit()
+
     def CheckCancel(self, event):
         if event.GetKeyCode() in [wx.WXK_ESCAPE, wx.WXK_CONTROL_C]:
             self.OnTimer(None, ret=wx.ID_CANCEL)
             event.Skip(False)
         event.Skip()
+
     def OnDone(self, event):
         self.selected_row = self.languagegrid.GetGridCursorRow()
         self.languagegrid_sizer.Remove(1) #remove current grid

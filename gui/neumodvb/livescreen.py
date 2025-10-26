@@ -514,6 +514,8 @@ class LiveRecordingScreen(object):
             ft.FAILED_RECORDINGS: t.FAILED
         }
 
+    def entry_for_ch_order(self, chno):
+        return None
 
     def rec_matches_filter_type(self, rec, filter_type):
         t = pyepgdb.rec_status_t

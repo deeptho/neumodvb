@@ -436,6 +436,7 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 	}
 	assert(n>=0);
 	if(n  == 0 && !stream_change) {
+		//we need to wait for more data
 		while (n==0 && ! stream_change) {
 			auto still_growing = live_mpm && this->part_is_growing();
 			if(still_growing) {
@@ -444,7 +445,7 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 				assert(ret>=0);
 			} else {
 				if(current_part.fileno == last_part.fileno)
-					break;
+					break; //we have reached the end of a (non-live) playback
 				std::optional<db_txn> idxdb_rtxn;
 				idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 				//move to next part

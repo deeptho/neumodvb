@@ -347,8 +347,6 @@ int mpv_subscription_t::set_audio_language(int idx) {
 		dterrorf("setting BAD audio language (from GUI) to {:d}", idx);
 	}
 	dtdebugf("setting audio language (from GUI) to {:d}", idx);
-	if (mpv_set_property_string(mpv_player->mpv, "aid", arg.c_str()) < 0)
-		dterrorf("Failed setting audio language {:d}", idx);
 #endif
 	return ret;
 }

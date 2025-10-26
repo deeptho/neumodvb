@@ -79,10 +79,14 @@ namespace dtdemux {
 			assert (ret>= last_pcr_play_time);
 		}
 
-		inline void set_marker_offsets(time_t real_time, recdb::marker_t marker) {
+		inline void set_marker_offsets(time_t real_time_start, recdb::marker_t marker) {
 			assert (this->start_time == (time_t) 0);
-			start_time = real_time;
+			start_time = real_time_start;
+#if 0
 			ref_offset = marker.k.time;
+#else
+			ref_offset = milliseconds_t((time(NULL) - real_time_start)*1000);
+#endif
 			ref_packetno_offset = marker.packetno_end;
 		}
 

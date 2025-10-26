@@ -59,7 +59,7 @@ void event_handler_t::pcr_discontinuity_(int pid, const pcr_t& pcr) {
 		// ensure that t_new + correction >= t_old + 5 (playtime must move forward)
 		auto correction_lower_limit = t_old + milliseconds_t(5) - t_new;
 
-		// we would like play time to differ as little as ossible from real time, so delta=0 is ideal
+		// we would like play time to differ as little as possible from real time, so delta=0 is ideal
 		auto correction = std::max(t - t_new, correction_lower_limit);
 
 		// time_t is only accurate up to one second

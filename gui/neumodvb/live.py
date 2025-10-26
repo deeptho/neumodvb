@@ -1082,6 +1082,7 @@ class MosaicPanel(wx.Panel):
             dtdebug(f"focus_idx changed from {self.focus_idx} to {focus_idx}")
             self.focus_idx = focus_idx
         for idx, glcanvas in enumerate(self.glcanvases):
+            glcanvas.SetBackgroundColour('yellow')
             self.controller.mosaic_sizer.GetItem(glcanvas).SetBorder(5 if show_highlight and idx == focus_idx else 0)
         self.controller.Layout()
         wx.CallAfter(self.controller.Refresh)

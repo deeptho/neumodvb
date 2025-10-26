@@ -248,8 +248,6 @@ static int64_t size_fn(void* cookie) {
 }
 
 static int64_t seek_fn(void* cookie, int64_t bytepos) {
-	if(bytepos ==0)
-		return 0;
 	auto* player = (MpvPlayer_*)cookie;
 	if(bytepos <0)
 		bytepos =0;
@@ -839,7 +837,7 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 		mpm->register_language_changed_callback(subscription_id,
 																				 [this](auto lang, auto pos, bool for_subtitles)
 																					 { this->on_language_change(lang, pos, for_subtitles); });
-		// mpm.init(active_service->mpm);
+
 		dtdebugf("PLAY SUBSCRIPTION (service): mpm init done");
 		if (mpm->move_to_live() < 0) {
 			dtdebugf("PLAY SUBSCRIPTION (service): aborting");

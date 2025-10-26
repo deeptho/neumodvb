@@ -51,7 +51,17 @@ class mpm_cursor_t {
 
 																			This value may be outdated, but only in the sense that -1 may be incorrect
 																	 */
-	std::optional<recdb::pmt_marker_t>  next_pmt_marker;
+
+	std::optional<recdb::pmt_marker_t> current_pmt_marker; /* pmt that is valid for the current bytepos. If not set,
+																														then this pmt is unknown, which can only happen
+																														if the stream is live and has just started
+																												 */
+	std::optional<recdb::pmt_marker_t> next_pmt_marker; /* next (changed) pmt that will come into effect
+																												 after the current bytepos. If not set, then
+																												 no pmt update will happen or it is not known if one will
+																												 happen
+																											 */
+
 	bool first_pmt_read{false};
 	int move_to_part(db_txn& idxdb_rtxn, int partno);
 	int check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn, int64_t last_pmt_packetno_start);
@@ -89,8 +99,14 @@ public:
 
 
 	int init(db_txn& idxdb_rtxn);
-
 	int init();
+
+	inline void reset_pmt_markers() {
+		this->current_pmt_marker.reset();
+		this->next_pmt_marker.reset();
+		this->first_pmt_read = false;
+	}
+	void update_pmt_markers_from_db(auto& idxdb_rtxn);
 
 	/*
 		position current_bytepos at byte_pos bytes since the start of tuning.
@@ -128,7 +144,7 @@ public:
 	/*Move the cursor past a stream change, after the caller has handled the stream_change.
 		This then allows further reading from the cursor
 	 */
-	std::optional<recdb::pmt_marker_t> get_pmt_marker();
+	recdb::pmt_marker_t get_pmt_marker();
 
 	milliseconds_t get_current_play_time() const;
 
@@ -202,7 +218,7 @@ public:
 	int seek_to_time(milliseconds_t start_time);
 	int seek_to_bytepos(int64_t byte_pos);
 
-	inline std::optional<recdb::pmt_marker_t> get_pmt_marker() {
+	inline recdb::pmt_marker_t get_pmt_marker() {
 		return mpm_cursor.get_pmt_marker();
 	}
 

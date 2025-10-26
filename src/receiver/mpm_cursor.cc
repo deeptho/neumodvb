@@ -90,6 +90,70 @@ int64_t mpm_cursor_t::seek_part_for_packetno(db_txn& idxdb_rtxn, int32_t packetn
 	return num_bytes_safe_to_read;
 }
 
+/* update the currently active pmt_marker (called by playback_mpm)
+	 at the point when a pmt change was detected.
+	 On entry,  this->current_byte_pos points to the point where a change occurs,
+	 i.e. to where the old current_pmt_marker is located, or the current pmt is unknown
+
+ */
+void  mpm_cursor_t::update_pmt_markers_from_db(auto& idxdb_rtxn) {
+	assert(this->current_byte_pos == next_stream_change_ ||
+				 !this->current_pmt_marker); //otherwise there is no reason to call this
+
+	assert(this->current_pmt_marker || ! this->first_pmt_read);
+
+	//find current_pmt_marker if not set (e..g, start of playback or after a search)
+	if(!this->current_pmt_marker) {
+		auto c = recdb::pmt_marker_t::find_by_key(idxdb_rtxn, (uint32_t) (this->current_byte_pos / ts_packet_t::size),
+																							find_leq);
+		if(c.is_valid()) {
+			this->current_pmt_marker = c.current();
+			c.next();
+			if(c.is_valid())
+				this->next_pmt_marker = c.current();
+			else
+				this->next_pmt_marker.reset();
+		}
+		else {
+			/*
+				this must be a live stream
+			*/
+		}
+	} else {
+		assert(!this->next_pmt_marker || this->current_byte_pos == this->next_pmt_marker->packetno_start *
+					 (int64_t)ts_packet_t::size);
+
+		/*switch to a new next_pmt_marker, i.e., pmt_marker
+			There may be none, or its location may not yet be known
+		*/
+		auto c = recdb::pmt_marker_t::find_by_key(idxdb_rtxn, 1 + (uint32_t) (this->current_byte_pos / ts_packet_t::size),
+																							find_geq);
+
+		if(c.is_valid()) {
+#ifndef NDEBUG
+			auto tst = this->current_pmt_marker->packetno_start;
+#endif
+			this->current_pmt_marker = this->next_pmt_marker;
+			auto pmt_marker = c.current();
+			this->next_pmt_marker  = pmt_marker;
+#ifndef NDEBUG
+			c.prev();
+			assert(c.is_valid() && c.current().packetno_start == tst);
+#endif
+		} else {
+			//no known pmt change is pending, but we do have a new current_pmt_marker npw
+			if(this->next_pmt_marker)
+				this->current_pmt_marker = this->next_pmt_marker;
+			else {
+				//current current_pmt_marker remains valid
+				this->next_pmt_marker.reset();
+			}
+		}
+	}
+	next_stream_change_ = this->next_pmt_marker ?
+		this->next_pmt_marker->packetno_start * (int64_t) ts_packet_t::size :  -1;
+}
+
 int mpm_cursor_t::init() {
 	db->open_index();
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
@@ -114,15 +178,6 @@ int mpm_cursor_t::init(db_txn& idxdb_rtxn) {
 	return -1;
 }
 
-
-//called by playback_mpm
-inline int mpm_cursor_t::seek_to_time_(milliseconds_t start_time) {
-	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto ret =  seek_to_time_(idxdb_rtxn, start_time);
-	idxdb_rtxn.abort();
-	return ret;
-}
-
 int mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
 
 	auto current_markerp = get_marker_for_time(idxdb_rtxn, start_time);
@@ -133,7 +188,6 @@ int mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
 		auto ret = seek_part_for_packetno(idxdb_rtxn, 0);
 		if(ret < 0)
 			return ret;
-
 		return 0;
 	}
 
@@ -167,30 +221,13 @@ int mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
 	return 0;
 }
 
-
-milliseconds_t mpm_cursor_t::play_time_for_byte_pos(db_txn& idxdb_rtxn, int64_t byte_pos) {
-	auto c = recdb::marker_t::find_by_packetno(idxdb_rtxn, (uint32_t) (this->current_byte_pos / ts_packet_t::size), find_leq);
-	if (!c.is_valid()) {
-		auto c = find_first<recdb::marker_t>(idxdb_rtxn);
-		if(!c.is_valid())
-			return milliseconds_t(0);
-		auto m = c.current();
-		return m.k.time;
-	}
-	auto m = c.current();
-	return m.k.time;
-}
-
-milliseconds_t mpm_cursor_t::play_time_for_byte_pos(int64_t byte_pos) {
+//called by playback_mpm
+inline int mpm_cursor_t::seek_to_time_(milliseconds_t start_time) {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto ret =  play_time_for_byte_pos(idxdb_rtxn, byte_pos);
-	idxdb_rtxn.abort();
-	return ret;
-}
-
-int64_t mpm_cursor_t::seek_to_bytepos(int64_t byte_pos) {
-	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto ret =  seek_to_bytepos(idxdb_rtxn, byte_pos);
+	auto ret =  seek_to_time_(idxdb_rtxn, start_time);
+ 	reset_pmt_markers();
+	update_pmt_markers_from_db(idxdb_rtxn);
+	assert(this->current_pmt_marker || !this->next_pmt_marker);
 	idxdb_rtxn.abort();
 	return ret;
 }
@@ -200,31 +237,13 @@ int64_t mpm_cursor_t::seek_to_bytepos(db_txn& idxdb_rtxn, int64_t byte_pos) {
 	return this->seek_part_for_packetno(idxdb_rtxn, (uint32_t) (byte_pos / ts_packet_t::size));
 }
 
-std::optional<recdb::pmt_marker_t>  mpm_cursor_t::get_pmt_marker() {
-	assert(this->current_byte_pos == next_stream_change_); //otherwise there is no reason to call this
-	if(this->current_byte_pos != next_stream_change_)
-		return {};
+int64_t mpm_cursor_t::seek_to_bytepos(int64_t byte_pos) {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto c =
-		this->first_pmt_read ?
-		recdb::pmt_marker_t::find_by_key(idxdb_rtxn, 1 + (uint32_t) (this->current_byte_pos / ts_packet_t::size),
-																		 find_geq):
-		find_first<recdb::pmt_marker_t>(idxdb_rtxn);
-
-	if(!c.is_valid()) {
-		//no known stream change yet in database, but there may be one in live_mpm
-	} else {
-		auto pmt_marker = c.current();
-		next_pmt_marker = pmt_marker;
-		next_stream_change_ = pmt_marker.packetno_start *  ts_packet_t::size;
-		assert(next_stream_change_ > this->current_byte_pos ||
-					 (!this->first_pmt_read && next_stream_change_ == this->current_byte_pos));
-	}
+	auto ret =  seek_to_bytepos(idxdb_rtxn, byte_pos);
+ 	reset_pmt_markers();
+	update_pmt_markers_from_db(idxdb_rtxn);
+	assert(this->current_pmt_marker || !this->next_pmt_marker);
 	idxdb_rtxn.abort();
-	this->first_pmt_read |= !!next_pmt_marker;
-	auto ret = next_pmt_marker;
-	next_pmt_marker.reset();
-	next_stream_change_ = -1;
 	return ret;
 }
 
@@ -256,21 +275,27 @@ int mpm_cursor_t::move_to_part(db_txn& idxdb_rtxn, int partno)
 	return 0;
 }
 
-int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn, int64_t last_pmt_packetno_start)
+/*
+	check for pmt changes when the stream is still live
+	last_pmt_bytepos is the byte is the position at which the most recently changed pmt
+	is located.
+ */
+int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn,
+																			 int64_t last_pmt_bytepos)
 {
-	if(next_stream_change_ == -1 && last_pmt_packetno_start  > this->current_byte_pos ) {
-		/*a stream change must be pending, but beware: there may have been multiple pmt_changes.
-			In that case the returned  last_pmt_packetno_start is not for the next stream change,
-			but possible for a later one (which would be rare!)
+	if(next_stream_change_ == -1 && last_pmt_bytepos  > this->current_byte_pos ) {
+		/*at least one pmt change is pending after the current_byte_pos; otherwise there
+			is no reason to check
 		*/
 
 		if(!idxdb_rtxn)
 			idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
+#ifndef NDEBUG
 		auto c = recdb::pmt_marker_t::find_by_key(*idxdb_rtxn, (uint32_t) (this->current_byte_pos / ts_packet_t::size),
 																							find_geq);
-		if(!c.is_valid()) { /* Note that last_pmt_packetno_start>=0 in this case as current_byte_pos >=0.
+		if(!c.is_valid()) { /* Note that last_pmt_bytepos>=0 in this case as current_byte_pos >=0.
 													 Therefore we already found out earlier that there is at least one pmt present
-													 The above test last_pmt_packetno_start  >= current_byte_pos
+													 The above test last_pmt_bytepos  >= current_byte_pos
 													 shows that it is located beyond current_byte_pos.
 													 Therefore the find_geq test must succeed.
 												*/
@@ -279,10 +304,11 @@ int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn, int64_
 			return -1;
 		}
 		auto pmt_marker = c.current();
-		assert(pmt_marker.packetno_start <= last_pmt_packetno_start);
-		next_stream_change_ = pmt_marker.packetno_start *  ts_packet_t::size;
+		next_stream_change_ = pmt_marker.packetno_start *  (int64_t) ts_packet_t::size;
+		assert(pmt_marker.packetno_start <= last_pmt_bytepos);
+		assert(pmt_marker.packetno_start == this->next_pmt_marker->packetno_start);
 		assert(next_stream_change_ >= this->current_byte_pos);
-		next_pmt_marker = pmt_marker;
+#endif
 	}
 	return 0;
 }
@@ -302,6 +328,7 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 	if(ppmt && *ppmt) {
 		dtdebugf("setting next_stream_change_");
 		next_stream_change_ = this->current_byte_pos; //force initial pmt update
+		this->current_pmt_marker = *ppmt;
 	}
 	auto new_num_bytes_safe_to_read = max_bytes_pos - this->current_byte_pos;
 	assert(new_num_bytes_safe_to_read >= num_bytes_safe_to_read);
@@ -332,6 +359,35 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 }
 
 
+milliseconds_t mpm_cursor_t::play_time_for_byte_pos(db_txn& idxdb_rtxn, int64_t byte_pos) {
+	auto c = recdb::marker_t::find_by_packetno(idxdb_rtxn, (uint32_t) (this->current_byte_pos / ts_packet_t::size), find_leq);
+	if (!c.is_valid()) {
+		auto c = find_first<recdb::marker_t>(idxdb_rtxn);
+		if(!c.is_valid())
+			return milliseconds_t(0);
+		auto m = c.current();
+		return m.k.time;
+	}
+	auto m = c.current();
+	return m.k.time;
+}
+
+milliseconds_t mpm_cursor_t::play_time_for_byte_pos(int64_t byte_pos) {
+	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
+	auto ret =  play_time_for_byte_pos(idxdb_rtxn, byte_pos);
+	idxdb_rtxn.abort();
+	return ret;
+}
+
+/*retrieve the currently active pmt_marker (called by playback_mpm)
+ */
+recdb::pmt_marker_t  mpm_cursor_t::get_pmt_marker() {
+	assert(this->current_byte_pos == next_stream_change_); //otherwise there is no reason to call this
+	assert(this->current_pmt_marker);
+	this->first_pmt_read = true;
+	this->next_stream_change_ = -1;
+	return *this->current_pmt_marker;
+}
 
 /*
 	increment num_bytes_to_read by at least 0 and at most num_bytes bytes
@@ -368,7 +424,7 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 		n = std::min(maxbytes, n);
 		assert(n>=0);
 
-		if(!first_pmt_read) {
+		if(!first_pmt_read && this->current_pmt_marker) {
 			stream_change = true; //ensrue that pmt is read when playing back recording
 			next_stream_change_ = this->current_byte_pos;
 		}
@@ -397,10 +453,27 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 					n=0; //error
 					break;
 				}
-				ret = check_for_pmt_change(idxdb_rtxn, this->current_byte_pos);
-				if(ret<0) {
-					n=0; //error
-					break;
+				/*
+					Each time we move to a new part, this is either by seeking or
+					because we read to the end of a part. In the first case, the code looks
+					up the relevant pmts. In the second case, we arrive here (called move_to_part).
+
+					In either case there can only be future changes to the newly reached part if it is
+					still live. If we reached a live part, future iterations of the while loop, or future calls
+					to get_read_range will notice pmt updates and update current_pmt_marker and next_pmt_marker
+					accordingly.
+
+					If we have reached a non-live part, we need to check for pmt changes in that part; afterwards
+					we can be sure that no pmt changes will happen in that part.
+
+				 */
+				if(live_mpm) {
+					/*there may have been pmt updates and we have not used wait_for_update*/
+					ret = check_for_pmt_change(idxdb_rtxn, this->current_byte_pos);
+					if(ret<0) {
+						n=0; //error
+						break;
+					}
 				}
 				idxdb_rtxn->abort();
 			}
@@ -426,7 +499,6 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 		n,
 		stream_change};
 }
-
 
 void mpm_cursor_t::advance(int32_t num_bytes) {
 	assert(num_bytes <= num_bytes_safe_to_read);
@@ -598,6 +670,7 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 					 part_no, offset, buffer - mapped + offset, len_, mpm_cursor.num_bytes_safe_to_read);
 #endif
 	assert(buffer +len_ - mapped  <= map_len);
+	assert((stream_change < 0) == !this->mpm_cursor.current_pmt_marker);
 	return {buffer, len_, stream_change};
 }
 

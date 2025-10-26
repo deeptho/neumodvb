@@ -54,7 +54,6 @@ playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 	assert(filemap.readonly);
 	auto ls = stream_state.writeAccess();
 	ls->current_pmt_marker = other.meta_marker.readAccess()->current_pmt_marker;
-	ls->next_pmt_marker = {};
 	ls->audio_pref = live_service.audio_pref;
 	ls->subtitle_pref = live_service.subtitle_pref;
 	part_cursor.init();
@@ -337,7 +336,6 @@ int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
 	if(live_mpm)
 		is_timeshifted = true;
 	error = false;
-	clear_stream_state();
 	if (start_play_time < milliseconds_t(0))
 		start_play_time = milliseconds_t(0);
 	dtdebugf("calling open_ start_play_time={}", start_play_time);
@@ -350,7 +348,6 @@ int playback_mpm_t::move_to_packetno(int32_t packetno) {
 	if(live_mpm)
 		is_timeshifted = true;
 	error = false;
-	clear_stream_state();
 	dtdebugf("calling seek_to_bytepos packetno={}", packetno);
 	auto ret = part_cursor.seek_to_bytepos(packetno * (int64_t) ts_packet_t::size);
 	return ret;
@@ -361,7 +358,6 @@ int64_t playback_mpm_t::move_to_bytepos(int64_t bytepos) {
 	if(live_mpm)
 		is_timeshifted = true;
 	error = false;
-	clear_stream_state();
 	dtdebugf("calling seek_to_bytepos bytepos={}", bytepos);
 	auto ret = part_cursor.seek_to_bytepos(bytepos);
 	return ret>=0 ? bytepos : -1;
@@ -395,8 +391,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 		if(stream_change_) {
 				auto pmt_marker = part_cursor.get_pmt_marker();
 				auto ss = stream_state.writeAccess();
-				assert (pmt_marker);
-				ss->current_pmt_marker = *pmt_marker;
+				ss->current_pmt_marker = pmt_marker;
 				update_pmt(*ss);
 				continue;
 		} else if(remaining_space==0) {

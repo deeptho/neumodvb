@@ -675,7 +675,7 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 					 part_no, offset, buffer - mapped + offset, len_, mpm_cursor.num_bytes_safe_to_read);
 #endif
 	assert(buffer +len_ - mapped  <= map_len);
-	assert((stream_change < 0) == !this->mpm_cursor.current_pmt_marker);
+	assert(!stream_change  ||( !!this->mpm_cursor.current_pmt_marker && !!this->mpm_cursor.next_pmt_marker));
 	return {buffer, len_, stream_change};
 }
 

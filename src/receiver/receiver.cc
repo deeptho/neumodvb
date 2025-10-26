@@ -1617,7 +1617,6 @@ int receiver_thread_t::run() {
 					return 0;
 				}
 			} else if (is_timer_fd(evt)) {
-				receiver.update_playback_info();
 				housekeeping(now);
 				auto scanner = get_scanner();
 				if(scanner) {
@@ -1937,19 +1936,6 @@ void receiver_t::on_positioner_motion(const devdb::fe_t& fe, const devdb::dish_t
 			if(subscription_ids.contains(ms->get_subscription_id()))
 				ms->notify_positioner_motion(report);
 		}
-	}
-}
-
-void receiver_t::update_playback_info() {
-		auto mss = subscribers.readAccess();
-		for (auto [subsptr, ms_shared_ptr] : *mss) {
-			auto* ms = ms_shared_ptr.get();
-			if (!ms)
-				continue;
-			auto mpv = ms->get_mpv();
-			if (!mpv)
-				continue;
-			mpv->update_playback_info();
 	}
 }
 

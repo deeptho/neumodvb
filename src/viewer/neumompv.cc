@@ -641,6 +641,7 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 
 				if (must_play_forward)
 					this->set_play_direction(true/*forward*/);
+				this->update_playback_info();
 			}
 		}
 #ifdef STREAM_POS

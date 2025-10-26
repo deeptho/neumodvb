@@ -602,9 +602,6 @@ public:
 	ss::vector<chdb::language_code_t, 8> subtitle_languages(ssptr_t ssptr);
 	chdb::language_code_t get_current_subtitle_language(ssptr_t ssptr);
 
-
-	void update_playback_info();
-
 	EXPORT void set_options(const neumo_options_t& options);
 
 	EXPORT neumo_options_t get_options();

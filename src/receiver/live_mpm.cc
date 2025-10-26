@@ -299,12 +299,15 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 		if(c.is_valid()) {
 			auto marker =c.current();
 			dtdebugf("Found marker_t record\n");
+			current_file_time_start = system_clock_t::from_time_t(file.real_time_start);
 			auto mm = meta_marker.writeAccess();
 			mm->current_file_record = file;
 			current_fileno = file.fileno;
 			mm->current_marker = marker;
+			mm->livebuffer_start_time = current_file_time_start;
+			mm->livebuffer_stream_time_start = file.k.stream_time_start;
+
 			this->stream_parser.event_handler.last_saved_marker = marker;
-			current_file_time_start = system_clock_t::from_time_t(file.real_time_start);
 			mm->num_bytes_safe_to_read = marker.packetno_end * (int64_t) dtdemux::ts_packet_t::size;
 			this->num_bytes_decrypted = mm->num_bytes_safe_to_read;
 			current_file_stream_packetno_start = file.stream_packetno_start;

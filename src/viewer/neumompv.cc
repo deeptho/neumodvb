@@ -30,7 +30,7 @@
 #include <wx/dcbuffer.h>
 #include <wx/display.h>
 #include <wx/window.h>
-
+#include <fmt/chrono.h>
 #include "neumotime.h"
 #include "receiver/active_service.h"
 #include "neumoglcanvas.h"
@@ -324,6 +324,7 @@ int mpv_subscription_t::open() {
 	dtdebug_nicef("Open subscription_id={}", subscription_id);
 	if(mpm) {
 		auto playback_info = mpm->get_current_program_info();
+		dtdebug_nicef("QQQ start_time={}", playback_info.start_time);
 		auto w = mpv_player->trick_play.writeAccess();
 		w->start_time = playback_info.start_time;
 	}
@@ -1231,6 +1232,8 @@ void MpvPlayer_::notify_signal_info(const signal_info_t& signal_info) {
 		return;
 	playback_info_t playback_info = subscription.mpm->get_current_program_info();
 	auto t = this->get_play_time();
+	auto t1 = this->get_play_time();
+	dtdebugf("QQQQ t={} t1={}", t, t1);
 	playback_info.play_time = t;
 	gl_canvas->overlay.set_signal_info(signal_info, playback_info);
 	subscription.show_radiobg = (playback_info.service.media_mode == chdb::media_mode_t::RADIO);
@@ -1267,6 +1270,8 @@ void MpvPlayer_::update_playback_info() {
 		return;
 	playback_info_t playback_info = subscription.mpm->get_current_program_info();
 	auto t = this->get_play_time();
+	auto t1 = this->get_play_time();
+	dtdebugf("QQQQ t={} t1={}", t, t1);
 	playback_info.play_time = t;
 
 	// std::lock_guard<std::mutex> lk(m);

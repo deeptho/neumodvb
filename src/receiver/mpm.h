@@ -165,15 +165,6 @@ public:
 		was_interrupted = true;
 		cv.notify_all();
 	}
-	/*
-		first and last record from database (for non live).
-		This data is assumed to remain constant
-	*/
-	int update_from_db(db_txn& txn, recdb::marker_t& end_marker);
-
-
-	int update_from_db(db_txn& txn, recdb::marker_t& end_marker, milliseconds_t start_play_time,
-										 bool need_file_record);
 
 };
 

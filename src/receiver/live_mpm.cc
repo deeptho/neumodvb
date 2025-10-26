@@ -179,52 +179,6 @@ std::tuple<int32_t, int64_t, int32_t> active_mpm_t::wait_for_update(int64_t min_
 	return meta_marker.writeAccess()->wait_for_update(meta_marker.mutex(), min_byte_pos, ppmt_ret);
 }
 
-
-/*
-	first and last record from database (for non live).
-	This data is assumed to remain constant
-*/
-int meta_marker_t::update_from_db(db_txn& txn, recdb::marker_t& end_marker) {
-	last_seen_txn_id = txn.txn_id();
-	using namespace recdb;
-	auto c = find_last<recdb::marker_t>(txn);
-	if (!c.is_valid()) {
-		dterrorf("Could not obtain last marker");
-		return -1;
-	}
-	end_marker = c.current();
-
-	return 0;
-}
-
-int meta_marker_t::update_from_db(db_txn& txn, recdb::marker_t& end_marker, milliseconds_t start_play_time,
-																	bool need_file_record) {
-	last_seen_txn_id = txn.txn_id();
-	auto c = recdb::marker_t::find_by_key(txn, recdb::marker_key_t(start_play_time), find_geq);
-	if (!c.is_valid()) {
-		dtdebugf("Could not obtain marker for time {}", start_play_time);
-		return -1;
-	}
-	current_marker = c.current();
-	if (need_file_record) {
-		auto cf = recdb::file_t::find_by_fileno(txn, current_file_record.fileno, find_eq);
-		if (!cf.is_valid()) {
-			dterrorf("Could not read current_file_record");
-			return -1;
-		}
-		current_file_record = cf.current();
-	}
-	using namespace recdb;
-	c = find_last<recdb::marker_t>(txn);
-	if (!c.is_valid()) {
-		dterrorf("Could not obtain last marker");
-		return -1;
-	}
-	end_marker = c.current();
-
-	return 0;
-}
-
 mpm_index_t::mpm_index_t(const char* idx_dirname_)
 	: idx_dirname(idx_dirname_) {
 }

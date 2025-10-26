@@ -266,6 +266,7 @@ playback_info_t playback_mpm_t::get_recording_program_info() const {
 	ret.play_time = ret.start_time;
 	ret.is_recording = !live_mpm;
 	ret.is_timeshifted = false;
+	ret.epg = currently_playing_recording.epg;
 	{
 		auto txnrec = this->db->mpm_rec.recdb.rtxn();
 		auto c = recdb::find_first<recdb::rec_t>(txnrec);

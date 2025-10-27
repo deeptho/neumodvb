@@ -63,7 +63,6 @@ bool pat_data_t::stable_pat() {
 bool pat_data_t::stable_pat(uint16_t ts_id) {
 	if (stable_pat_)
 		return stable_pat_;
-	assert(ts_id != 65535);
 	auto& e = by_ts_id[ts_id];
 	bool changed = (e.entries != e.last_entries);
 	if (changed) {

@@ -394,9 +394,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 	int tot_out{0};
 	int tot_in{0};
 	for (; outbytes > 0;) {
-		static uint8_t* next_buffer =nullptr;
 		auto [buffer, remaining_space, stream_change_] = part_cursor.get_read_range((int32_t)outbytes, live_mpm);
-		//assert(next_buffer == buffer || !next_buffer || !buffer );
 		if(stream_change_) {
 				auto pmt_marker = part_cursor.get_pmt_marker();
 				auto ss = stream_state.writeAccess();
@@ -420,7 +418,6 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 		auto [num_bytes_out, num_bytes_in] = copy_filtered_packets(outbuffer, buffer, outbytes, remaining_space);
 		tot_out += num_bytes_out;
 		tot_in += num_bytes_in;
-		next_buffer = next_buffer ? next_buffer + num_bytes_in : buffer + num_bytes_in;
 #if 0
 		{
 			static FILE* fp=fopen("/tmp/sss.ts", "w");

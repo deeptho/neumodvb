@@ -339,8 +339,8 @@ public:
 	inline virtual void save_pmt(system_time_t now_, const dtdemux::pmt_info_t& pmt_info,
 															 const ss::bytebuffer<256>& pmt_sec_data) {}
 
-	inline void set_marker_offsets(time_t real_time, recdb::marker_t marker) {
-		stream_parser.set_marker_offsets(real_time, marker);
+	inline void set_marker_offsets(recdb::file_t& file, const recdb::marker_t& marker) {
+		stream_parser.set_marker_offsets(file, marker);
 	}
 };
 

@@ -276,7 +276,7 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 			filemap.decrypt_pointer = mm->num_bytes_safe_to_read - start;
 			filemap.write_pointer = mm->num_bytes_safe_to_read - start;
 			mm->cv.notify_all();
-			this->set_marker_offsets(file.real_time_start, marker);
+			this->set_marker_offsets(file, marker);
 		}
 	}
 	idxdb_rtxn.abort();

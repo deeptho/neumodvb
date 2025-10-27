@@ -79,13 +79,18 @@ namespace dtdemux {
 			assert (ret>= last_pcr_play_time);
 		}
 
-		inline void set_marker_offsets(time_t real_time_start, recdb::marker_t marker) {
+		inline void set_marker_offsets(const recdb::file_t& file, const recdb::marker_t& marker) {
 			assert (this->start_time == (time_t) 0);
-			start_time = real_time_start;
 #if 0
+			start_time = file.real_time_start;
 			ref_offset = marker.k.time;
 #else
-			ref_offset = milliseconds_t((time(NULL) - real_time_start)*1000);
+			auto now = time(NULL);
+			auto delta = (int64_t)file.k.stream_time_start;
+			start_time = file.real_time_start - delta/1000 -1;
+			dterrorf("real_time_start={} start={} now={} marker={}", file.real_time_start, start_time,
+							 now, marker.k.time);
+			ref_offset = milliseconds_t((now - start_time)*1000);
 #endif
 			ref_packetno_offset = marker.packetno_end;
 		}

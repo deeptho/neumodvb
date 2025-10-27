@@ -272,8 +272,9 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 			if (fd< 0)
 				throw std::runtime_error("Failed to create live buffer");
 			filemap.init(fd, 0);
-			filemap.decrypt_pointer = mm->num_bytes_safe_to_read;
-			filemap.write_pointer = mm->num_bytes_safe_to_read;
+			auto start = (int64_t) file.stream_packetno_start * (int64_t) ts_packet_t::size;
+			filemap.decrypt_pointer = mm->num_bytes_safe_to_read - start;
+			filemap.write_pointer = mm->num_bytes_safe_to_read - start;
 			mm->cv.notify_all();
 			this->set_marker_offsets(file.real_time_start, marker);
 		}

@@ -83,7 +83,7 @@ int64_t mpm_cursor_t::seek_part_for_packetno(db_txn& idxdb_rtxn, int32_t packetn
 	if(!cf.is_valid())
 		return -1;
 	last_part = cf.current();
-	num_bytes_safe_to_read = this->part_is_growing() ? 0 :  current_part.stream_packetno_end * ts_packet_t::size;
+	num_bytes_safe_to_read = this->part_is_growing() ? 0 :  current_part.stream_packetno_end * (int64_t)ts_packet_t::size;
 #if 0
 	dtdebugf("set num_bytes_safe_to_read={} part_no={}", num_bytes_safe_to_read, current_part.fileno);
 #endif
@@ -197,7 +197,7 @@ int mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
 	if(ret < 0)
 		return ret;
 
-	this->current_byte_pos = current_marker.packetno_start * ts_packet_t::size;
+this->current_byte_pos = current_marker.packetno_start * (int64_t)ts_packet_t::size;
 	dtdebugf("set current_byte_pos={} part_no={}", this->current_byte_pos, this->current_part.fileno);
 	assert(this->current_byte_pos >=0);
 	assert(this->current_byte_pos >= current_part.stream_packetno_start * (int64_t)ts_packet_t::size);
@@ -212,7 +212,7 @@ int mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
 			return 0;
 		}
 		auto end_marker = c.current();
-		num_bytes_safe_to_read = end_marker.packetno_end * ts_packet_t::size - this->current_byte_pos;
+		num_bytes_safe_to_read = end_marker.packetno_end * (int64_t) ts_packet_t::size - this->current_byte_pos;
 		dtdebugf("set num_bytes_safe_to_read={} current_byte_pos={}", num_bytes_safe_to_read, this->current_byte_pos);
 	} else {
 		//num_bytes_safe_to_read = current_marker.packetno_end * ts_packet_t::size - this->current_byte_pos;
@@ -306,7 +306,7 @@ int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn,
 		auto pmt_marker = c.current();
 		next_stream_change_ = pmt_marker.packetno_start *  (int64_t) ts_packet_t::size;
 		assert(pmt_marker.packetno_start <= last_pmt_bytepos);
-		assert(pmt_marker.packetno_start == this->next_pmt_marker->packetno_start);
+		assert(!this->next_pmt_marker || pmt_marker.packetno_start == this->next_pmt_marker->packetno_start);
 		assert(next_stream_change_ >= this->current_byte_pos);
 #endif
 	}
@@ -424,7 +424,7 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 	bool stream_change{false};
 
 	if(!still_growing) {
-		int maxbytes  = (int64_t)this->current_part.stream_packetno_end* ts_packet_t::size - this->current_byte_pos;
+		int maxbytes  = (int64_t)this->current_part.stream_packetno_end* (int64_t) ts_packet_t::size - this->current_byte_pos;
 		n = std::min(maxbytes, n);
 		assert(n>=0);
 
@@ -485,7 +485,7 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 			still_growing = this->part_is_growing(); //may have changed now
 			auto maxbytes  = num_bytes_safe_to_read;
 			if(!still_growing) {
-				maxbytes  = (int64_t)this->current_part.stream_packetno_end* ts_packet_t::size - this->current_byte_pos;
+				maxbytes  = (int64_t)this->current_part.stream_packetno_end* (int64_t) ts_packet_t::size - this->current_byte_pos;
 				assert(maxbytes >=0);
 			}
 			n = std::min(maxbytes, num_bytes);
@@ -497,10 +497,10 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 		}
 	}
 	assert(n>=0);
-	assert(this->current_byte_pos >= current_part.stream_packetno_start * ts_packet_t::size);
+	assert(this->current_byte_pos >= current_part.stream_packetno_start * (int64_t) ts_packet_t::size);
 	return {
 		current_part.fileno,
-		this->current_byte_pos - current_part.stream_packetno_start * ts_packet_t::size,
+		this->current_byte_pos - current_part.stream_packetno_start * (int64_t) ts_packet_t::size,
 		n,
 		stream_change};
 }
@@ -582,7 +582,7 @@ uint8_t* part_cursor_t::map() {
 	if(mapped)
 		unmap();
 	open_current_part();
-	offset = this->mpm_cursor.current_byte_pos - this->mpm_cursor.current_part.stream_packetno_start*ts_packet_t::size;
+	offset = this->mpm_cursor.current_byte_pos - this->mpm_cursor.current_part.stream_packetno_start* (int64_t)ts_packet_t::size;
 	assert(offset >= 0);
 	offset = (offset / pagesize) * pagesize;
 

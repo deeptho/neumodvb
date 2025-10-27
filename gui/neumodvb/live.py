@@ -1320,8 +1320,8 @@ class RecordPanel(wx.Panel):
         txn.commit()
         del txn
         if changed:
-            dtdebug(f"Updating live recording screen")
             old_record = self.selected_row_entry
+            dtdebug(f"Updating live recording screen")
             self.data.GetRecordAtRow.cache_clear()
             self.SelectRow(old_record, data_has_changed=True)
         return changed
@@ -1629,13 +1629,14 @@ class RecordPanel(wx.Panel):
     def SelectRow(self, record, data_has_changed):
         if record is not None:
             old_top_idx = self.top_idx
-            self.top_idx = self.data.row_screen.set_reference(record)
+            offset = self.row_idx - old_top_idx
             if data_has_changed:
-                new_top_idx = max(0, self.top_idx - (self.row_idx-old_top_idx))
+                entry_idx = self.data.row_screen.set_reference(record)
+                new_top_idx = max(0, entry_idx - offset)
                 self.update_rows(new_top_idx)
             else:
                 self.move_rows(old_top_idx)
-            self.focus_row(None, 0)
+            self.focus_row(None, offset)
             self.data.OnSelectRow(record)
 
     def OnTune(self, event, replace_running):

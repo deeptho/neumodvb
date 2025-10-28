@@ -489,7 +489,7 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 
 			switch (context.last_used_key_validity[!odd]) {
 			case descrambling_context_t::key_validity_t::UNKNOWN:
-				dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} applies to a later parity phase", pid, otheridx, !odd);
+				dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} applies to a later parity phase", pid, otheridx, !odd); //XXX trigggered
 				break;
 			case descrambling_context_t::key_validity_t::VALID:
 				dtdebugf("KEY pid {:d}: UNEXPECTED: desired key[{:d}] for parity {:d} was VALID before, but seems to be VALID "
@@ -520,7 +520,8 @@ int dvbcsa_t::next_key(descrambling_context_t& context, uint16_t pid, bool odd) 
 				state would be EXPIRED)
 			*/
 			if (key.request_bytepos < num_bytes_decrypted) {
-				dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} was UNKNOWN; is now VALID", pid, idx, odd);
+				dtdebugf("KEY pid {:d}: desired key[{:d}] for parity {:d} was UNKNOWN; is now VALID key.request_bytepos={} num_bytes_decrypted={}",
+								 pid, idx, odd, key.request_bytepos, num_bytes_decrypted);
 				context.last_used_key_validity[odd] = descrambling_context_t::key_validity_t::VALID;
 				// assert(!waiting_for_keys);
 				waiting_for_keys = false;
@@ -640,7 +641,7 @@ void dvbcsa_t::restart_decryption(system_time_t t) {
 void dvbcsa_t::mark_ecm_sent(bool odd, system_time_t t) {
 	ss::string<64> tt;
 	tt.format("{}", std::chrono::duration_cast<std::chrono::seconds>(t - start).count());
-	dtdebugf("ECM {:s} sent to scam at bytepos={:d} t={:s}", odd_even_str(odd), num_bytes_received, tt.c_str());
+	dtdebugf("mark_ecm_sent: {:s} sent to scam at bytepos={:d} t={:s}", odd_even_str(odd), num_bytes_received, tt.c_str());
 	std::unique_lock lck(key_mutex);
 	last_key_request_bytepos = num_bytes_received;
 	last_key_request_time = t;

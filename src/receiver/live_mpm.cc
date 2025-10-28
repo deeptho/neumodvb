@@ -91,7 +91,7 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 	std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
 	assert(other.num_bytes_safe_to_read <= num_bytes_safe_to_read || num_bytes_safe_to_read == -1);
 
-	cv.wait(lk, [this, &other, byte_pos_to_read] {
+	cv.wait(lk, [this, byte_pos_to_read] {
 		// relock lk
 		auto ret = was_interrupted ||
 			/*live mpm has moved the position where we want to read

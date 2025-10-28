@@ -319,7 +319,6 @@ int mpv_subscription_t::open() {
 		next_op = none;
 		return ret;
 	};
-
 	dttime_init();
 	auto op = get();
 	dttime(100);
@@ -431,13 +430,15 @@ void mpv_subscription_t::on_language_change(const chdb::language_code_t& lang, i
 
 static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
 	auto* player = (MpvPlayer_*)user_data;
-	int seqno;
+	int segmentno;
 	log4cxx_store_threadname();
 	dtdebugf("OPEN_FN");
 	player->subscription.set_pending_close(false);
+#if 0
 	player->reset_valid_frames();
-	sscanf(uri, "neumo://%p/%d", &player, &seqno);
-	dtdebugf("MPV open: player={:p}", fmt::ptr(player));
+#endif
+	sscanf(uri, "neumo://%p/%d", &player, &segmentno);
+	dtdebugf("MPV open: player={:p} seqmentno={}", fmt::ptr(player), segmentno);
 	dttime_init();
 	info->cookie = player;
 	info->seek_fn = ::seek_fn;
@@ -622,6 +623,14 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 		Autofit(95, true, false);
 #endif
 		break;
+	case MPV_EVENT_AUDIO_RECONFIG:
+		break;
+	case MPV_EVENT_PLAYBACK_RESTART:
+		dtdebugf("Playback restart event");
+		break;
+	case MPV_EVENT_SEEK:
+		dtdebugf("seek event");
+		break;
 	case MPV_EVENT_PROPERTY_CHANGE: {
 		mpv_event_property* prop = (mpv_event_property*)event.data;
 		if (strcmp(prop->name, "media-title") == 0) {
@@ -634,12 +643,9 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 		} else if(strcmp(prop->name, "time-pos") == 0) {
 			if(prop->format ==  MPV_FORMAT_DOUBLE) {
 				bool must_slow_down{false};
-				bool must_play_forward{false};
 				{
 					auto w = this->trick_play.writeAccess();
 					w->time_pos = *(double*)prop->data;
-					//return to normal in case reverse play is active
-					must_play_forward = w->time_pos <=2 && w->reverse_playing;
 					//return to normal in case fast forward is active
 					must_slow_down = w->fast_forwarding && w->time_pos >= w->fast_forwarding_time_pos_limit;
 #if 0
@@ -650,8 +656,6 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 				if(must_slow_down)
 					this->set_playback_speed(1.0);
 
-				if (must_play_forward)
-					this->set_play_direction(true/*forward*/);
 				this->update_playback_info();
 			}
 		}
@@ -669,17 +673,76 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 		gl_canvas->MpvDestroy();
 		break;
 	case MPV_EVENT_FILE_LOADED: {
+		dtdebugf("file loaded event");
+#if 0
 		const char* cmd1[] = {"seek", "0", "absolute", nullptr};
 		::mpv_command(mpv, cmd1);
+#endif
 		//const char* cmd2[] = {"seek", "1", "absolute", nullptr};
 		//::mpv_command(mpv, cmd2);
-		//this->jump(3600*100);
+		this->jump(3600*100);
 	}
 		break;
-	case MPV_EVENT_END_FILE:
+	case MPV_EVENT_IDLE:
+		dtdebugf("idle event");
+		break;
+	case MPV_EVENT_END_FILE: {
 		dtdebugf("End of file event");
+
+		bool must_move_to_prev{false};
+		bool must_play_forward{false};
+		int segmentno = subscription.current_segment_dmarker.segmentno;
+		{
+			auto w = this->trick_play.writeAccess();
+			//return to normal in case reverse play is active
+			/*TODO: segmentno=0 is incorrect when initial parts of live buffer have been removed
+				So a better test is needed here*/
+			must_move_to_prev = (segmentno > 0) && w->reverse_playing;
+			must_play_forward = ((segmentno == 0 ) && w->reverse_playing) // normal case
+				|| (segmentno<0);  //an unexpected error has occurred;
+			if (must_play_forward)
+				w->reverse_playing = false;
+		}
+		if (must_play_forward) {
+			this->set_play_direction(true/*forward*/);
+			this->subscription.current_segment_dmarker = this->subscription.mpm->move_to_segment(0);
+			segmentno = subscription.current_segment_dmarker.segmentno;
+			dtdebugf("end reverse play segmentno={}", segmentno);
+			subscription.filepath.clear();
+			subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), segmentno);
+			const char* cmd[] = {"loadfile", subscription.filepath.c_str(), "replace", "0",
+				"play-direction=forward", nullptr};
+			::mpv_command(mpv, cmd);
+		} else  if(must_move_to_prev) {
+			this->subscription.current_segment_dmarker = this->subscription.mpm->move_to_segment(segmentno -1);
+			segmentno = subscription.current_segment_dmarker.segmentno;
+			dtdebugf("continue reverse play segmentno={}", segmentno);
+			subscription.filepath.clear();
+			subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this),
+																	 this->subscription.current_segment_dmarker.segmentno);
+			const char* cmd[] = {"loadfile", subscription.filepath.c_str(), "replace", "0",
+				"play-direction=backward", nullptr};
+			::mpv_command(mpv, cmd);
+		} else if(this->subscription.mpm) {
+			this->subscription.current_segment_dmarker = this->subscription.mpm->move_to_segment(segmentno +1);
+			segmentno = subscription.current_segment_dmarker.segmentno;
+			dtdebugf("move to next segment: segmentno={}", segmentno);
+			subscription.filepath.clear();
+			subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this),
+																	 this->subscription.current_segment_dmarker.segmentno);
+			const char* cmd[] = {"loadfile", subscription.filepath.c_str(), "replace", "0",
+				"play-direction=forward", nullptr};
+			::mpv_command(mpv, cmd);
+		} else {
+			dtdebugf("exiting");
+		}
+	}
+		break;
+	case MPV_EVENT_START_FILE:
+		dtdebugf("start file event");
 		break;
 	default:
+		dtdebugf("Unknown event");
 		break;
 	}
 }
@@ -708,8 +771,8 @@ void MpvPlayer_::mpv_draw(int w, int h) {
 		glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &fbo_);
 		glGetIntegerv(GL_VIEWPORT, &dims[0]);
 #if 1
-		static int lastw=0;
-		static int lasth=0;
+		static thread_local int lastw=0;
+		static thread_local int lasth=0;
 		if( w!= dims[2] || h!= dims[3] || dims[0]!=0 ||dims[1]!=0 || dims[2]!=lastw || dims[3]!=lasth)
 			dtdebugf("TEST: fbo={} w={}/{} h={}/{} x={} y={}", fbo_, w, dims[2], h, dims[3], dims[0], dims[1]);
 		lastw = dims[2];
@@ -717,7 +780,7 @@ void MpvPlayer_::mpv_draw(int w, int h) {
 #endif
 		mpv_opengl_fbo mpfbo{fbo_, dims[2], dims[3], 0};
 		int flip_y{1};
-
+		//glViewport(0, 0, dims[2], dims[3]);
 		mpv_render_param params[] = {
 			{MPV_RENDER_PARAM_OPENGL_FBO, &mpfbo}, {MPV_RENDER_PARAM_FLIP_Y, &flip_y}, {MPV_RENDER_PARAM_INVALID, nullptr}};
 		// See render_gl.h on what OpenGL environment mpv expects, and
@@ -914,7 +977,7 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 	subscription.filepath.clear();
 
 	// we need to fake a different file each time, hence the seqno
-	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
+	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), LIVE_SEGMENTNO /*segmentno*/);
 	if (!mpv) {
 		dterrorf("mpv not ready");
 		//assert(0);
@@ -986,7 +1049,7 @@ int MpvPlayer_::play_recording(const recdb::rec_t& rec, milliseconds_t start_pla
 	subscription.filepath.clear();
 
 	// we need to fake a different file each time, hence the seqno
-	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
+	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), OLDEST_SEGMENTNO);
 	if (!mpv) {
 		dterrorf("mpv not ready");
 		assert(0);

@@ -569,7 +569,7 @@ void scam_t::read_filter_request() {
 	memcpy(filter.dmx_filter.filter, read_data(sizeof(filter.dmx_filter.filter)), sizeof(filter.dmx_filter.filter));
 	memcpy(filter.dmx_filter.mask, read_data(sizeof(filter.dmx_filter.mask)), sizeof(filter.dmx_filter.mask));
 	memcpy(filter.dmx_filter.mode, read_data(sizeof(filter.dmx_filter.mode)), sizeof(filter.dmx_filter.mode));
-	dtdebugf("adapter_no={} demux_no={} filter_no={} pid={}", (int)adapter_no, (int)demux_no,
+	dtdebugf("filter_request from oscam: adapter_no={} demux_no={} filter_no={} pid={}", (int)adapter_no, (int)demux_no,
 					 (int)filter_no, filter.pid);
 
 	filter.timeout = read_field<uint32_t>();
@@ -622,7 +622,7 @@ void scam_t::read_dmx_stop_request() {
 void scam_t::read_ca_set_pid_request() {
 	auto adapter_no = adapter_no_t(read_field<uint8_t>());
 	auto ca_pid = read_field<ca_pid_t>();
-	dtdebugf("adapter_no={} ca_pid={}/{}", (int)adapter_no, ca_pid.pid, ca_pid.index);
+	dtdebugf("read_ca_set_pid_request: adapter_no={} ca_pid={}/{}", (int)adapter_no, ca_pid.pid, ca_pid.index);
 	auto it = active_scams.find(adapter_no);
 	if (it == active_scams.end()) {
 		dtdebugf("received ca_set_pid request for adapter {:d} which has stopped descrambling", int(adapter_no));
@@ -723,7 +723,7 @@ void scam_t::read_ecm_info_request() {
 }
 
 void active_scam_t::ca_set_pid(const ca_pid_t& ca_pid) {
-	dtdebugf("adapter_no={} ca_pid={}.{}", (int)adapter_no, ca_pid.pid, ca_pid.index);
+	dtdebugf("cat_set_pid: adapter_no={} ca_pid={}.{}", (int)adapter_no, ca_pid.pid, ca_pid.index);
 	if (ca_pid.index == -1) {
 		// disable/remove pid
 		for (auto& [idx, slot] : ca_slots) {
@@ -805,6 +805,7 @@ void active_scam_t::ca_set_filter(const ca_filter_t& filter, demux_no_t demux_no
 		same_pid = (ret>=1); // duplicate pid
 	}
 	if (!same_pid) {
+		dtdebugf("ca_set_filter: registering parser pid={} {}", pid, is_ecm ? "ECM" : "EMM");
 		stream_parser.register_psi_pid(pid, is_ecm ? "ECM" : "EMM");
 	}
 }
@@ -820,8 +821,10 @@ void active_scam_t::ca_stop_filter(filter_no_t filter_no, demux_no_t demux_no, u
 		assert(demux_no_t(filter.demux_no) == demux_no);
 		auto ret = remove_pid(ecm_pid);
 		filters.erase(it);
-		if(ret==0) //the last remaining registration of ecm_pid was removed
+		if(ret==0) { //the last remaining registration of ecm_pid was removed
+			dtdebugf("ca_stop_filter: filer={} unregistering emcm_pid={}", (int)filter_no, ecm_pid);
 			stream_parser.unregister_psi_pid(ecm_pid);
+		}
 		dtdebugf("Calling restart_decryption ecm_pid={}", ecm_pid);
 		restart_decryption(ecm_pid, system_clock_t::now());
 	}
@@ -976,7 +979,7 @@ int scam_t::scam_send_stop_decoding(uint8_t demux_no, uint32_t msgid) {
 int scam_t::scam_send_filtered_data(uint8_t filter_no, uint8_t demux_no, const ss::bytebuffer_& buffer,
 																		uint32_t msgid) {
 	ss::bytebuffer<4096 + 100> out_msg; // current message, perhaps not fully written
-	dtdebugf("filter_no={} demux_no={}", (int) filter_no, (int) demux_no);
+	dtdebugf("send filtered_data to scam: filter_no={} demux_no={}", (int) filter_no, (int) demux_no);
 	slowdown(20, "");
 	if (scam_protocol_version >= 3) {
 		out_msg.append_raw(native_to_net((uint8_t)0xa5));

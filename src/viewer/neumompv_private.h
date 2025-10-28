@@ -87,7 +87,6 @@ class mpv_subscription_t {
 public:
 	std::atomic<bool> show_osd{false};
 	std::atomic<bool> show_radiobg{false};
-	int seqno =0;
 	bool is_playing() const {
 		return (int) subscriber->get_subscription_id() >=0;
 	}

@@ -74,8 +74,9 @@ epg_source = db_struct(name='epg_source',
                                  (2, 'uint8_t', 'table_id'),
 	                               (3, 'uint8_t', 'version_number'),
 	                               (5, 'int16_t', 'sat_pos'),
-	                               (6, 'uint16_t', 'network_id'),
-	                               (7, 'uint16_t', 'ts_id')))
+	                               (6, 'int16_t', 'stream_id'),
+	                               (8, 'int16_t', 't2mi_pid'),
+	                               (7, 'uint16_t', 'mux_id')))
 
 
 epg_key = db_struct(name='epg_key',

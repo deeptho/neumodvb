@@ -77,7 +77,7 @@ class ChEpgTable(NeumoTable):
          CD(key='k.service.service_id',  label='sid', example="10304 "),
          CD(key='k.event_id',  label='event\nid'),
          CD(key='source.epg_type',  label='epg\ntype', dfn=lambda x: lastdot(x[1]).replace(" ","\n")),
-         CD(key='source.ts_id',  label='source\ntsid'),
+         CD(key='source.mux_id',  label='source\nmux'),
          CD(key='mtime',  label='Modified', dfn=datetime_fn, example=' Wed Jun 15 00:00xxxx')
          ]
 

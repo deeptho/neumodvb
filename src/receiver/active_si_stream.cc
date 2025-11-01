@@ -2416,12 +2416,12 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb_(epg_t& epg, const subt
 
 	auto stream_mux = this->dbmux;
 	auto stream_mux_key = mux_key_ptr(stream_mux);
-	auto stream_mux_c = mux_common_ptr(stream_mux);
 
 	auto epg_type = epg.epg_type;
 
 	auto epg_source = epgdb::epg_source_t((epgdb::epg_type_t)(int)epg_type, info.table_id, info.version_number,
-																				stream_mux_key->sat_pos, stream_mux_c->network_id, stream_mux_c->ts_id);
+																				stream_mux_key->sat_pos, stream_mux_key->stream_id, stream_mux_key->t2mi_pid,
+																				stream_mux_key->mux_id);
 	if (epg.is_sky || epg.is_mhw2_title) {
 		auto* service_key = bat_data.lookup_opentv_channel(epg.channel_id);
 		if (!service_key) {

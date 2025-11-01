@@ -231,6 +231,17 @@ pmt_marker = db_struct(name='pmt_marker',
                                (7, 'ss::vector<uint8_t,64>', 'pmt_section')
                      ))
 
+#marks the start of data after a discontinuity
+discontinuity_marker = db_struct(name='discontinuity_marker',
+                     fname = 'rec',
+                     db = db,
+                     type_id= lord('sD'),
+                     version = 1,
+                     primary_key = ('key', ('packetno',)), #unique
+                     fields = ((1, 'int16_t', 'segmentno', '-1'),
+                               (2, 'int64_t', 'packetno', '-1')
+                     ))
+
 #Singleton listing recordings viewed
 browse_history = db_struct(name ='browse_history',
                     fname = 'rec',

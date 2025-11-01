@@ -297,8 +297,14 @@ fmt::format_context::iterator
 fmt::formatter<epg_source_t>::format(const epg_source_t& s, format_context& ctx) const
 {
 	auto sat = chdb::sat_pos_str(s.sat_pos);
-	return fmt::format_to(ctx.out(), "{:s} - nid={:d} tsid={:d} {:s}[{:d}]",
-												sat.c_str(), s.network_id, s.ts_id, to_str(s.epg_type),
+	ss::string<16> t2mi;
+	ss::string<16> stream;
+	if(s.t2mi_pid>=0)
+		t2mi.format(" t2mi_pid={}", s.t2mi_pid);
+	if(s.stream_id>=0)
+		stream.format(" stream_id={}", s.stream_id);
+	return fmt::format_to(ctx.out(), "{:s} - mux_id={:d} {} {} {:s}[{:d}]",
+												sat.c_str(), s.mux_id, stream, t2mi, to_str(s.epg_type),
 												(int)s.table_id);
 }
 

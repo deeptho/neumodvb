@@ -916,7 +916,7 @@ void active_si_stream_t::check_timeouts() {
 	thread_local bool delayed_print{false};
 	auto now = steady_clock_t::now();
 	bool timedout = (now - last_time) >= 2000ms;
-	ss::string<256> out;
+	ss::string<256> out{};
 
 	if (!scan_state.completed(scan_state_t::SDT_NETWORK)) {
 		auto done = (nit_actual_done() && tune_confirmation.network_id_by != confirmed_by_t::NONE &&

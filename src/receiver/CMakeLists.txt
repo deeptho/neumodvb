@@ -42,7 +42,7 @@ target_link_libraries(neumo-tune PRIVATE neumoutil  stdc++fs)
 include_directories(
     # The location of the headers before installation
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../pybind11/include>
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../pybind11/include>
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     # The location of the headers after installation

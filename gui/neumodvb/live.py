@@ -2738,7 +2738,7 @@ class LivePanel(wx.Panel):
         show_record_dialog(self, service, start_time = start_time)
 
     def ServiceTune(self, *args, **kwds):
-        dtdebug(f'ServiceTune {args} {kwds}')
+        dtdebug(f'ServiceTune {args}')
         self.mosaic_panel.ServiceTune(*args, **kwds)
 
     def CmdFullScreen(self, evt):

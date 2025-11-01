@@ -239,7 +239,7 @@ discontinuity_marker = db_struct(name='discontinuity_marker',
                      version = 1,
                      primary_key = ('key', ('packetno',)), #unique
                      fields = ((1, 'int16_t', 'segmentno', '-1'),
-                               (2, 'int64_t', 'packetno', '-1')
+                               (2, 'int64_t', 'packetno', '-1'),
                      ))
 
 #Singleton listing recordings viewed

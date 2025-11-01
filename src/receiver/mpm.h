@@ -271,6 +271,7 @@ public:
 	EXPORT int move_to_time(milliseconds_t start_play_time);
 	EXPORT int move_to_packetno(int32_t packetno);
 	EXPORT int64_t move_to_bytepos(int64_t bytepos);
+	EXPORT int64_t get_size();
 	EXPORT int64_t move_to_live();
 	//int open(int fileno=0); //find and open file
 	EXPORT void close();

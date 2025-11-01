@@ -365,6 +365,11 @@ int64_t playback_mpm_t::move_to_bytepos(int64_t bytepos) {
 	return ret>=0 ? bytepos : -1;
 }
 
+//called by neumompv.cc size_fn
+int64_t playback_mpm_t::get_size() {
+	auto ret = part_cursor.get_size();
+	return ret>=0 ? ret : -1;
+}
 
 /*
 	returns the number of seconds at which playback should start

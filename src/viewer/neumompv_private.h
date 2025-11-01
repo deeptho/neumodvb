@@ -140,6 +140,9 @@ public:
 	inline int64_t move_to_bytepos(int64_t bytepos) {
 		return this->mpm->move_to_bytepos(bytepos);
 	}
+	inline int64_t get_size() {
+		return this->mpm->get_size();
+	}
 };
 
 struct trick_play_t {

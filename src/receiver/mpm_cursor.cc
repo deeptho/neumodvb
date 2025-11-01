@@ -247,6 +247,21 @@ int64_t mpm_cursor_t::seek_to_bytepos(int64_t byte_pos) {
 	return ret;
 }
 
+int64_t mpm_cursor_t::get_size(db_txn& idxdb_rtxn) {
+	auto c = find_last<marker_t>(idxdb_rtxn);
+	if(!c.is_valid())
+		return -1;
+	auto last_marker = c.current();
+	return last_marker.packetno_end * (int64_t) ts_packet_t::size;
+}
+
+int64_t mpm_cursor_t::get_size() {
+	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
+	auto ret = this->get_size(idxdb_rtxn);
+	idxdb_rtxn.abort();
+	return ret;
+}
+
 /*
 	Move to a specific part and update information about the last part in case mpm is growing.
  */
@@ -634,6 +649,11 @@ int part_cursor_t::seek_to_bytepos(int64_t byte_pos)
 	return (int32_t) byte_pos;
 }
 
+//called by playback_mpm (get_size)
+int64_t part_cursor_t::get_size()
+{
+	return mpm_cursor.get_size();
+}
 
 /*
 	returns a range of data to be read of at most num_bytes bytes

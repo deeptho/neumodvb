@@ -114,7 +114,8 @@ public:
 	 */
 	int64_t seek_to_bytepos(db_txn& idxdb_txn, int64_t byte_pos);
 	int64_t seek_to_bytepos(int64_t byte_pos);
-
+	int64_t get_size(db_txn& idxdb_txn);
+	int64_t get_size();
 	system_time_t real_time_for_byte_pos(db_txn& idxdb_txn, int64_t byte_pos);
 	EXPORT system_time_t real_time_for_byte_pos(int64_t byte_pos);
 
@@ -216,6 +217,7 @@ public:
 	int init();
 	int seek_to_time(milliseconds_t start_time);
 	int seek_to_bytepos(int64_t byte_pos);
+	int64_t get_size();
 
 	inline recdb::pmt_marker_t get_pmt_marker() {
 		return mpm_cursor.get_pmt_marker();

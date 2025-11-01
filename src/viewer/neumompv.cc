@@ -245,7 +245,9 @@ void MpvGLCanvas::MpvDestroy() {
 struct file_t;
 
 static int64_t size_fn(void* cookie) {
-	return MPV_ERROR_UNSUPPORTED;
+	auto* player = (MpvPlayer_*)cookie;
+	auto ret = player->subscription.get_size();
+	return ret < 0 ? MPV_ERROR_UNSUPPORTED : ret;
 }
 
 static int64_t seek_fn(void* cookie, int64_t bytepos) {

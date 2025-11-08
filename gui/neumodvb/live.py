@@ -1296,7 +1296,7 @@ class RecordPanel(wx.Panel):
     def OnScroll(self, event):
         idx = event.GetPosition()
         if idx >=0 and idx < self.data.row_screen.list_size:
-            self.scroll_down(idx -self.top_idx)
+            self.scroll_down(idx -self.top_idx, windown=None)
 
     def OnMouseWheel(self, event):
         evtObj = event.GetEventObject()
@@ -1308,10 +1308,10 @@ class RecordPanel(wx.Panel):
         altDown = ms.AltDown()
         delta= 5 if not ctrlDown and not altDown and shiftDown else 1
         if self.wheel_count < -10:
-            self.scroll_down(+delta)
+            self.scroll_down(+delta, window=None)
             self.wheel_count = 0
         elif self.wheel_count > 10:
-            self.scroll_down(-delta)
+            self.scroll_down(-delta, window=None)
             self.wheel_count = 0
 
     def check_for_new_records(self):
@@ -1499,16 +1499,25 @@ class RecordPanel(wx.Panel):
         for rowno in range(0, self.num_rows_on_screen):
             self.rows[rowno].update()
 
-    def scroll_down(self, rows):
+    def scroll_down(self, rows, window):
         old_top_idx = self.top_idx
         self.top_idx += rows
-        if self.top_idx < 0:
+        if window is not None and self.top_idx < 0:
+            self.top_idx = max(0,self.data.GetNumberRows() - self.num_rows_on_screen)
+            self.move_rows(old_top_idx)
+            focused = min(self.data.GetNumberRows() -1 - self.top_idx, self.num_rows_on_screen-1)
+            focused = max(0, focused)
+            print(f'focused={focused}')
+            wx.CallAfter(self.focus_row, window, focused)
+        elif self.top_idx < 0:
             self.top_idx = 0
+        elif window is not None and \
+             self.top_idx + self.last_focused_rowno == self.data.GetNumberRows():
+            self.top_idx = 0
+            self.move_rows(old_top_idx)
+            wx.CallAfter(self.focus_row, window, 0)
         elif self.top_idx + self.last_focused_rowno >= self.data.GetNumberRows():
-            if True:
-                self.top_idx = max(self.data.GetNumberRows() -1 - self.last_focused_rowno, 0)
-            else:
-                self.top_idx = old_top_idx
+            self.top_idx = max(self.data.GetNumberRows() -1 - self.last_focused_rowno, 0)
         self.move_rows(old_top_idx)
         self.focus_row(None, self.last_focused_rowno)
         wx.CallAfter(self.update_scrollbar)
@@ -1556,19 +1565,7 @@ class RecordPanel(wx.Panel):
                 self.focus_row(w, row.rowno+1)
                 return True
             else:
-                self.scroll_down(1)
-                self.focus_row(w, self.num_rows_on_screen-1)
-                return True
-        elif key in (wx.WXK_PAGEDOWN, wx.WXK_NUMPAD_PAGEDOWN):
-            if is_ctrl:
-                return False
-            rows_to_scroll = 1 if key == wx.WXK_DOWN else self.num_rows_on_screen-1
-            if row.rowno < self.num_rows_on_screen-1:
-                self.focus_row(w, self.num_rows_on_screen-1)
-                return True
-            else:
-                self.scroll_down(self.num_rows_on_screen-1)
-                self.focus_row(w, self.num_rows_on_screen-1)
+                self.scroll_down(1, window=w)
                 return True
         elif key in (wx.WXK_UP, wx.WXK_NUMPAD_UP):
             if is_ctrl:
@@ -1577,7 +1574,7 @@ class RecordPanel(wx.Panel):
                 self.focus_row(w, row.rowno-1)
                 return True
             else:
-                self.scroll_down(-1)
+                self.scroll_down(-1, window=w)
                 self.focus_row(w, 0)
                 return True
         elif key in (wx.WXK_PAGEUP, wx.WXK_NUMPAD_PAGEUP):
@@ -1587,7 +1584,7 @@ class RecordPanel(wx.Panel):
                 self.focus_row(w, 0)
                 return True
             else:
-                self.scroll_down(-(self.num_rows_on_screen-1))
+                self.scroll_down(-(self.num_rows_on_screen-1), window=w)
                 self.focus_row(w, 0)
                 return True
         return False

@@ -95,9 +95,24 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 			ls->audio_pref = currently_playing_recording.service.audio_pref;
 			ls->subtitle_pref = currently_playing_recording.service.subtitle_pref;
 		}
+		auto txn = db->mpm_rec.idxdb.rtxn();
+		auto cd = find_first<recdb::dmarker_t>(txn);
+		if (!cd.is_valid() || cd.current().real_time == (time_t)0) {
+			dtdebugf("no dmarker found; fixing");
+			recdb::dmarker_t dmarker;
+			dmarker.segmentno=0;
+			dmarker.packetno=0;
+			dmarker.real_time= (time_t) 0;
+			auto wtxn = db->mpm_rec.idxdb.wtxn();
+			put_record(wtxn, dmarker);
+			wtxn.commit();
+		}
 	} else {
 		dterrorf("Cannot find rec in {}", db->idx_dirname);
 	}
+
+
+
 	txn.abort();
 }
 
@@ -388,27 +403,41 @@ int64_t playback_mpm_t::get_current_segment_size() {
 /*
 	returns the number of seconds at which playback should start
  */
-
 recdb::dmarker_t playback_mpm_t::move_to_live() {
 	assert(live_mpm);
 	live_mpm->wait_for_update(last_seen_live_meta_marker, ts_packet_t::size);
 	return  last_seen_live_meta_marker.current_dmarker;
 }
 
+/*
+	returns the number of seconds at which playback should start
+ */
+recdb::dmarker_t playback_mpm_t::move_to_start() {
+	part_cursor.seek_to_bytepos(0);
+	auto ret = this->part_cursor.get_current_dmarker();
+	if(ret.packetno<0) { //handle legacy recordings
+		ret.segmentno = 0;
+		ret.packetno = 0;
+		ret.real_time =(time_t) 0;
+	}
+
+	return ret;
+}
 
 /*
 	read up to outbytes bytes in outbuffer, while not reading more than inbytes bytes from the input stream
 	The call may return earlier if not enough data is available
-	Returns number of inputs bytes consumed and number of output bytes written
-	Returns -1 on error or if must_exit
+	Returns number of inputs bytes consumed,  number of output bytes written
+	and a boolean flag ste to True if the caller (neumompv) must switch to the next segment
  */
-std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbytes) {
+std::tuple<int, int, bool> playback_mpm_t::read_data_(char* outbuffer, int64_t outbytes) {
 	if (error || outbytes == 0)
-		return {0, 0};
+		return {0, 0, false/*dmarker_change_*/};
 	int tot_out{0};
 	int tot_in{0};
 	for (; outbytes > 0;) {
 		auto [buffer, remaining_space, pmt_change_, dmarker_change_] = part_cursor.get_read_range((int32_t)outbytes, live_mpm);
+		assert(!dmarker_change_ || remaining_space==0);
 		if(pmt_change_) {
 				auto pmt_marker = part_cursor.get_pmt_marker();
 				auto ss = stream_state.writeAccess();
@@ -417,16 +446,17 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 				continue;
 		} else if (dmarker_change_) {
 			part_cursor.get_dmarker();
+			return {tot_out, tot_in, dmarker_change_};
 			continue; //TODO implement logic in read_fn
 		} else if(remaining_space==0) {
 			//playing back recording and reaching eof
-			return {tot_out, tot_in};
+			return {tot_out, tot_in, false /*dmarker_change_*/};
 		}
 		dttime_init();
 		dttime(100);
 
 		if (must_exit)
-			return {-1, -1};
+			return {-1, -1, false/*dmarker_change_*/};
 #ifdef PMTREWRITE
 		if (remaining_space < ts_packet_t::size)
 			break; // enough data which is known to be available to continue processing
@@ -451,7 +481,7 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 		if(tot_out> 0)
 			break;
 	}
-	return {tot_out, tot_in};
+	return {tot_out, tot_in, false /*dmarker_change_*/};
 }
 
 static void make_null_packet(ss::bytebuffer<512>& buffer)
@@ -467,7 +497,7 @@ static void make_null_packet(ss::bytebuffer<512>& buffer)
 
 /*
 	read up to num_bytes data in output buffer.
-	Returns ret, have_pmt
+	Returns ret, dmarker_change
 	  ret=-1: error
 	  ret=0:  end of stream
 
@@ -475,7 +505,7 @@ static void make_null_packet(ss::bytebuffer<512>& buffer)
 std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t num_bytes) {
 	uint64_t num_bytes_orig{num_bytes};
 	if(part_cursor.has_error() ||  num_bytes == 0)
-		return {0, have_pmt};
+		return {0, false /*dmarker_change*/};
 	int num_bytes_read{0};
 	/*below, read_data_live_ and read_data_nonlive_ can read 0 bytes
 		for two reasons: 1) due to pmt filtering, no real data may be available yet
@@ -493,21 +523,23 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 			/*the generated data is not fully sent; this must be becasuse mppv
 				called us with too little room to write it all.
 			*/
-			return {num_bytes_read, have_pmt};
+			dtdebugf("Send GENERATED data");
+			return {num_bytes_read, false/*dmarker_change*/};
 		}
 		assert(num_generated_bytes_to_send ==0);
 	}
 
 	if(must_exit)
-		return {0, have_pmt};
+		return {0, false /*dmarker_change*/};
 	assert(num_bytes >=0);
 
 	if(num_bytes > 0 ) {
-		auto [num_bytes_out, num_bytes_in] = read_data_(outbuffer + num_bytes_read, num_bytes);
+		auto [num_bytes_out, num_bytes_in, dmarker_change] = read_data_(outbuffer + num_bytes_read, num_bytes);
 
 		num_bytes_read += num_bytes_out;
 		num_bytes -= num_bytes_out;
-
+		if (dmarker_change)
+			return { (must_exit || error) ? -1 : num_bytes_read, have_pmt};
 		/*in rare cases, our caller may ask for less than 188 bytes. We will never be able to provide this,
 			because we always return multiples of 188 bytes and the result would be 0 in this case,
 			which mpv interprets as end of stream.
@@ -534,7 +566,7 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 																						 num_bytes_read < 0 is ok; indicates and error
 																							 num_bytes_read > 0 is also ok; indicates progress
 																					 */
-	return { (must_exit || error) ? -1 : num_bytes_read, have_pmt};
+	return { (must_exit || error) ? -1 : num_bytes_read, false /*dmarker_change*/};
 }
 
 milliseconds_t playback_mpm_t::get_current_play_time() const {

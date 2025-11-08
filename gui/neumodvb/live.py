@@ -2292,10 +2292,6 @@ class RecordingsPanel(RecordPanel):
     def Navigate(self, focused_widget, modifier, key):
         if key != wx.WXK_RETURN:
             return super().Navigate(focused_widget, modifier, key)
-        record = self.last_focused_cell.data.row.row_record
-        ls = self.controller.app.live_service_screen
-        ls.set_sat_filter(record)
-        self.controller.top_panel.OnSelectGroup()
 
     def CmdPlay(self, event):
         return self.OnPlay(event, replace_running=True)

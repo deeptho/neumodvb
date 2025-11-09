@@ -364,13 +364,21 @@ int64_t playback_mpm_t::move_to_bytepos(int64_t bytepos) {
 	return ret>=0 ? bytepos : -1;
 }
 
-int playback_mpm_t::move_to_live() {
+
+/*
+	returns the number of seconds at which playback should start
+ */
+
+int64_t playback_mpm_t::move_to_live() {
 	assert(live_mpm);
 	live_mpm->wait_for_update(last_seen_live_meta_marker, ts_packet_t::size);
 	auto packetno_start = last_seen_live_meta_marker.current_marker.packetno_end;
-	auto ret = move_to_packetno(packetno_start);
+	int64_t ret = move_to_packetno(packetno_start);
+	if(ret < 0)
+		return ret;
 	is_timeshifted = false;
-	return ret;
+	ret = (int64_t)part_cursor.get_current_play_time();
+	return ret/1000;
 }
 
 

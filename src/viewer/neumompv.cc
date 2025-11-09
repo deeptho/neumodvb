@@ -653,6 +653,18 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 	case MPV_EVENT_SHUTDOWN:
 		gl_canvas->MpvDestroy();
 		break;
+	case MPV_EVENT_FILE_LOADED: {
+#if 0
+		int play_offset_s = this->subscription.mpm->move_to_live();
+		printf("delay=%d\n", play_offset_s);
+		ss::string<16> arg;
+		arg.format("{:d}", play_offset_s);
+
+		const char* cmd1[] = {"seek", arg.c_str(), nullptr};
+		::mpv_command(mpv, cmd1);
+#endif
+	}
+		break;
 	case MPV_EVENT_END_FILE:
 		dtdebugf("End of file event");
 		break;

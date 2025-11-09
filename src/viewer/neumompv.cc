@@ -1002,8 +1002,9 @@ int mpv_subscription_t::jump(int seconds, system_time_t play_pos) {
 		play_pos = start_pos;
 	if (play_pos > end_pos)
 		play_pos = end_pos;
+	auto now = system_clock_t::now();
 	auto ret = std::chrono::duration_cast<std::chrono::seconds>(play_pos-start_pos).count();
-	dtdebugf("JUMP seconds={} play_pos={}", seconds, ret);
+	dtdebugf("JUMP seconds={} play_pos={} end_pos={} now={}", seconds, ret, end_pos, now);
 	return ret;
 }
 

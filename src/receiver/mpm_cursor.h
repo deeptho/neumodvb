@@ -140,7 +140,6 @@ public:
 
 	std::tuple<int32_t, int64_t, int32_t, bool>  get_read_range(int32_t num_bytes, active_mpm_t* live_mpm);
 	void advance(int32_t num_bytes);
-
 	/*Move the cursor past a stream change, after the caller has handled the stream_change.
 		This then allows further reading from the cursor
 	 */

@@ -176,7 +176,6 @@ struct stream_state_t {
 	chdb::language_code_t current_subtitle_language;
 	pid_t current_subtitle_pid{0x1fff};
 	recdb::pmt_marker_t current_pmt_marker;
-	recdb::pmt_marker_t next_pmt_marker;
 	ss::vector<chdb::language_code_t,4> audio_pref;
 	ss::vector<chdb::language_code_t,4> subtitle_pref;
 	std::map<subscription_id_t, callback_t> language_change_callbacks;
@@ -243,11 +242,6 @@ class playback_mpm_t : public mpm_t {
 																			 */
 	dtdemux::pat_writer_t pat_writer; //rewritten pat-stream
 	std::unique_ptr<dtdemux::pmt_writer_t> pmt_writer; //rewritten pmt-stream
-	inline void clear_stream_state() {
-		auto w = stream_state.writeAccess();
-		w->current_pmt_marker = {};
-		w->next_pmt_marker = {};
-	}
 
 public:
 	const subscription_id_t subscription_id;

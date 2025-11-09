@@ -312,21 +312,43 @@ int active_adapter_t::remove_all_services() {
 }
 
 int active_adapter_t::remove_service(subscription_id_t subscription_id) {
-	auto [it, found] = find_in_safe_map(this->subscribed_active_services, subscription_id);
+	auto fn = [&](subscription_id_t subscription_id) ->auto
+	{
+		auto &m = *this->subscribed_active_services.writeAccess();
+		auto [it, found] = find_in_map(m, subscription_id);
+		auto as = it->second;
+		auto num = m.size();
+		int count{0}; //number of other subscriptions using the active_service
+		if(found) {
+			m.erase(it);
+			assert (num >= 1);
+			num--;
+			for(auto& [subscription_id_, as_]: m) {
+				assert(subscription_id_ != subscription_id);
+				count += (as_.get() == as.get());
+			}
+		}
+		return std::tuple{as, found, num, count};
+	};
+	auto [as, found,  num_active_services, other_subscriptions_count] = fn(subscription_id);
 	if (!found) {
 		//dterrorf("Request to deactivate non active service: subscription_id={:d}", (int)subscription_id);
 		return -1;
 	}
-	auto& active_service = *it->second;
+	auto& active_service = *as;
 	auto service = active_service.get_current_service();
-	dtdebugf("Removing service for subscription {}: service={}", (int) subscription_id, service);
-	tuner_thread.remove_live_buffer(service);
-	auto& service_thread = active_service.service_thread;
-	service_thread.stop_running(true/*wait*/);
-
-	auto& m = *subscribed_active_services.writeAccess();
-	m.erase(it);
-	return m.size();
+	if(other_subscriptions_count >= 1)  { //other subscriptions still use the service (e.g. a recording)
+		dtdebugf("Not ending service for subscription {}: service={} num={} count={}", (int) subscription_id, service,
+						 num_active_services, other_subscriptions_count);
+	} else {
+		dtdebugf("Ending service for subscription {}: service={} num={} count={}", (int) subscription_id, service,
+						 num_active_services, other_subscriptions_count);
+		tuner_thread.remove_live_buffer(service);
+		auto& service_thread = active_service.service_thread;
+		service_thread.stop_running(true/*wait*/);
+		as.reset(); //cause active_service_t to be destroyed
+	}
+	return num_active_services;
 }
 
 int active_adapter_t::add_service(subscription_id_t subscription_id, active_service_t& active_service) {

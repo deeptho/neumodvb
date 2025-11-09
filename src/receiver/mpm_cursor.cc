@@ -331,11 +331,11 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 		this->current_pmt_marker = *ppmt;
 	}
 	auto new_num_bytes_safe_to_read = max_bytes_pos - this->current_byte_pos;
-	assert(new_num_bytes_safe_to_read >= num_bytes_safe_to_read);
-	num_bytes_safe_to_read = new_num_bytes_safe_to_read;
+	assert(new_num_bytes_safe_to_read >= this->num_bytes_safe_to_read);
 #if 0
-	dtdebugf("set num_bytes_safe_to_read={}", num_bytes_safe_to_read);
+	dtdebugf("set num_bytes_safe_to_read old={} new={}", this->num_bytes_safe_to_read, new_num_bytes_safe_to_read );
 #endif
+	this->num_bytes_safe_to_read = new_num_bytes_safe_to_read;
 	std::optional<db_txn> idxdb_rtxn;
 
 	if(last_fileno != last_part.fileno) {
@@ -343,6 +343,7 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 			idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 		//update our stale view by re-seeking
 		auto ret = this->move_to_part(*idxdb_rtxn, current_part.fileno);
+		dtdebugf("now: num_bytes_safe_to_read={}", this->num_bytes_safe_to_read);
 		if (ret<0)
 			return ret;
 	}
@@ -350,7 +351,7 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 	auto ret =
 		(next_stream_change_ >=0) ? 0 :
 		check_for_pmt_change(idxdb_rtxn, (int64_t)last_pmt_packetno_start * ts_packet_t::size);
-
+	dtdebugf("now: num_bytes_safe_to_read={}", this->num_bytes_safe_to_read);
 	if(idxdb_rtxn)
 		idxdb_rtxn->abort();
 	if(ret<0)
@@ -512,7 +513,7 @@ void mpm_cursor_t::advance(int32_t num_bytes) {
 	dtdebugf("set num_bytes_safe_to_read={} part_no={}", num_bytes_safe_to_read, this->current_part.fileno);
 #endif
 	this->current_byte_pos += num_bytes;
-#if 0
+#if 1
 	dtdebugf("advance: set current_byte_pos={} part_no={}", this->current_byte_pos, this->current_part.fileno);
 #endif
 	assert(this->current_byte_pos >=0);
@@ -670,9 +671,10 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 		assert(buffer || (stream_change && len_==0));
 	}
 	assert(buffer || (stream_change && len_==0));
-#if 0
-	dtdebugf("part_no={} offset={} buffer={}, len={} num_bytes_safe_to_read={}",
-					 part_no, offset, buffer - mapped + offset, len_, mpm_cursor.num_bytes_safe_to_read);
+
+#if 1
+	dtdebugf("part_no={} offset={} buffer={}, len={} num_bytes_safe_to_read={} current_byte_pos={}",
+					 part_no, offset, buffer - mapped + offset, len_, mpm_cursor.num_bytes_safe_to_read, current_byte_pos);
 #endif
 	assert(buffer +len_ - mapped  <= map_len);
 	assert(!stream_change  ||( !!this->mpm_cursor.current_pmt_marker && !!this->mpm_cursor.next_pmt_marker));

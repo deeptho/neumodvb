@@ -92,7 +92,7 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 	std::unique_lock<std::mutex> lk(mutex, std::adopt_lock);
 	assert(other.num_bytes_safe_to_read <= num_bytes_safe_to_read || num_bytes_safe_to_read == -1);
 
-	cv.wait(lk, [this, byte_pos_to_read] {
+	cv.wait(lk, [this, &other, byte_pos_to_read] {
 		// relock lk
 		auto ret = was_interrupted ||
 			/*live mpm has moved the position where we want to read
@@ -146,7 +146,7 @@ meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::opt
 			 */
 			(num_bytes_safe_to_read > min_byte_pos && // extra data is available
 			 current_pmt_marker.packetno_start>=0); //at least one pmt was received
-#if 0
+#if 1
 		if(!ret && current_pmt_marker.packetno_start>=0) {
 			dtdebugf("WAIT: min_byte_pos={} num_bytes_safe_to_read={} "
 							 "current_pmt_marker.packetno_start={} was_interrupted={}", min_byte_pos,
@@ -275,6 +275,7 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 			auto start = (int64_t) file.stream_packetno_start * (int64_t) ts_packet_t::size;
 			filemap.decrypt_pointer = mm->num_bytes_safe_to_read - start;
 			filemap.write_pointer = mm->num_bytes_safe_to_read - start;
+			dtdebugf("PTR: decrypt_pointer={} write_pointer={}", filemap.decrypt_pointer, filemap.write_pointer);
 			mm->cv.notify_all();
 			this->set_marker_offsets(file, marker);
 		}

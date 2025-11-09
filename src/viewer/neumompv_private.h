@@ -145,6 +145,7 @@ public:
 struct trick_play_t {
 	system_time_t start_time;
 	double time_pos;
+	int64_t stream_pos{0};
 	bool reverse_playing {false};
 	bool fast_forwarding {false};
 	double fast_forwarding_time_pos_limit{0.0};
@@ -215,6 +216,12 @@ public:
 
 	inline system_time_t get_play_time() const {
 		return trick_play.readAccess()->get_play_time();
+	}
+
+	inline system_time_t get_play_time() const {
+		auto  r = trick_play.readAccess();
+		auto t = subscription.mpm->play_time_for_byte_pos(r->stream_pos);
+		return  r->start_time + std::chrono::duration<int64_t>(((int64_t)t)/1000);
 	}
 
 	MpvPlayer_(receiver_t* receiver);

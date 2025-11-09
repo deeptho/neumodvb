@@ -555,6 +555,10 @@ bool MpvPlayer_::create() {
 		dtdebugf("failed to observe");
 	}
 
+	if(mpv_observe_property(mpv, 0, "stream-pos", MPV_FORMAT_INT64) <0) {
+		dtdebugf("failed to observe");
+	}
+
 #ifdef BUG
 	if (mpv_set_property_string(mpv, "hwdec", "auto") < 0) {
 		dterrorf("failed to set mpv VO");
@@ -636,6 +640,12 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 
 				if (must_play_forward)
 					this->set_play_direction(true/*forward*/);
+			}
+		}
+		else if(strcmp(prop->name, "stream-pos") == 0) {
+			if(prop->format ==  MPV_FORMAT_INT64) {
+				auto w = this->trick_play.writeAccess();
+				w->stream_pos = *(double*)prop->data;
 			}
 		}
 		break;

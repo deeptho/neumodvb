@@ -298,6 +298,9 @@ public:
 	EXPORT ss::vector_<chdb::language_code_t> audio_languages();
 	EXPORT ss::vector_<chdb::language_code_t> subtitle_languages();
 
+	inline milliseconds_t play_time_for_byte_pos(int64_t byte_pos) {
+		return part_cursor.mpm_cursor.play_time_for_byte_pos(byte_pos);
+	}
 };
 
 class stream_buffer_t {

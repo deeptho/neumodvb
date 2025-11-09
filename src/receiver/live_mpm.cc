@@ -849,7 +849,7 @@ void active_mpm_t::close() {
 	filemap.unmap();
 	filemap.close();
 	stream_parser.exit();
-	// TODO: check that parser is complete destroyed
+	// TODO: check that parser is completely destroyed
 	this->active_service = nullptr;
 	dtdebugf("mpm closed");
 }

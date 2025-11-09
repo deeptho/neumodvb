@@ -220,7 +220,7 @@ class playback_mpm_t : public mpm_t {
 	receiver_t& receiver;
 	bool must_exit = false;
 	bool have_pmt{false};
-	active_mpm_t* live_mpm = nullptr; /*if non-null the mpm is still growing; needed to prevent live_mpm
+	active_mpm_t* live_mpm{nullptr}; /*if non-null the mpm is still growing; needed to prevent live_mpm
 																			from deleting old data which we are reading
 																		*/
 	file_record_t currently_playing_file {};

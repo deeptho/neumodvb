@@ -205,7 +205,7 @@ namespace dtdemux {
 		t.tm_gmtoff = 0;
 		rec.k.start_time = timegm(&t);
 
-		// be careful: do not merge the folloing three statements into one (order of evnaluation undefined)
+		// be careful: do not merge the following three statements into one (order of evnaluation undefined)
 		auto duration = bcdToDec(get<uint8_t>()) * 3600;
 		duration += bcdToDec(get<uint8_t>()) * 60;
 		duration += bcdToDec(get<uint8_t>());
@@ -242,7 +242,7 @@ namespace dtdemux {
 		t.tm_gmtoff = 0;
 		rec.k.start_time = timegm(&t);
 
-		// be careful: do not merge the folloing three statements into one (order of evnaluation undefined)
+		// be careful: do not merge the following three statements into one (order of evaluation undefined)
 		auto duration = ((uint32_t)get<uint8_t>() << 8);
 		duration |= get<uint8_t>();
 		duration >>= 4;

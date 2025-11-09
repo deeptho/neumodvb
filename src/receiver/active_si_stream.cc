@@ -700,7 +700,7 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 
 	This function is called by
 	-scan_report: after a timeout, confirming no SI data in the stream (scan_report) or
-	when SDT and or NIT data is present, but for some reason it was not possble to determine
+	when SDT and or NIT data is present, but for some reason it was not possible to determine
 	that this data is valid. In this case network_id and ts_id will be set to 0
 
 	-when sdt_section_cb has determined that nit_actual has been received, but an SDT record

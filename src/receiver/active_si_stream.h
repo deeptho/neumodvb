@@ -552,7 +552,7 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 	}
 #endif
 	/*
-		request pareser to be removed at a time when it is safe
+		request parser to be removed at a time when it is safe
 	 */
 	inline void release_parser(dtdemux::psi_parser_t* parser) {
 		auto pid = parser->get_pid();
@@ -681,12 +681,12 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 	}
 
 	/*
-		sdt has foiund complete service data for the same number of muxes
+		sdt has found complete service data for the same number of muxes
 		as were discovered in nit_actual
 	 */
 	inline bool network_sdt_completed(uint16_t network_id) const {
 		if(!nit_actual_done()) //Note: done() instead of completed()
-			return false; //more muxes may be discored in nit; we do not care about nit_other
+			return false; //more muxes may be discovered in nit; we do not care about nit_other
 		auto [it, found] = find_in_map(nit_data.by_onid, network_id);
 		if(found) {
 			return it->second.completed();
@@ -739,7 +739,7 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 	}
 
 	/*
-		Usually a mux is only has entries in either SDT_actual or sdt_other,
+		Usually a mux only has entries in either SDT_actual or sdt_other,
 		but sometimes it is present in both; so we employ checking subtable_info.num_sections_present>0
 		as a heuristic to choose between sdt_actual and sdt_other, with a preference for sdt_actual
 		in case of doubt.

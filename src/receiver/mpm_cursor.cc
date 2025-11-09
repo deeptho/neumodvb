@@ -346,8 +346,8 @@ int64_t mpm_cursor_t::get_current_segment_size(db_txn& idxdb_rtxn) {
 			return -1;
 		auto last_marker = c.current();
 		auto ret = (last_marker.packetno_end - this->current_dmarker->packetno) * (int64_t) ts_packet_t::size;
-		dtdebugf("SEGMENT_SIZE {} pn={}/{} segment_no={}", ret, last_marker.packetno_end, this->current_dmarker->packetno,
-						 this->current_dmarker->segmentno);
+		dtdebugf("SEGMENT_SIZE {} pn={}/{} segment_no={}", ret, last_marker.packetno_end,
+						 this->current_dmarker->packetno, this->current_dmarker->segmentno);
 		return ret;
 	}
 }
@@ -449,7 +449,8 @@ int mpm_cursor_t::check_for_dmarker_change(std::optional<db_txn>& idxdb_rtxn,
 		if(!idxdb_rtxn)
 			idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 #ifndef NDEBUG
-		auto c = recdb::dmarker_t::find_by_segmentno(*idxdb_rtxn, this->current_dmarker->segmentno + 1, find_geq);
+		auto c = recdb::dmarker_t::find_by_segmentno(*idxdb_rtxn,
+																									this->current_dmarker->segmentno + 1, find_geq);
 		if(!c.is_valid()) { /* Note that last_dmarker_bytepos>=0 in this case as current_byte_pos >=0.
 													 Therefore we already found out earlier that there is at least one dmarker present
 													 The above test last_dmarker_bytepos  >= current_byte_pos

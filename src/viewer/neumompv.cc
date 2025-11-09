@@ -967,7 +967,9 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 		dttime(100);
 		dtdebugf("FORCE ABORT before tuning to {:s}", service.name.c_str());
 		if (subscription.mpm)
-			subscription.mpm->force_abort();
+			subscription.mpm->force_abort(); /*BUG: needed in case we are stuck waiting for live data
+																				 but is unsafe to call if live_mpm is already exiting
+																				 for some reason */
 		dttime(100);
 		subscription.next_op = op;
 		dttime(100);
@@ -983,7 +985,9 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 		//assert(0);
 		return -1;
 	}
-	this->subscription.set_pending_close(true);
+	this->subscription.set_pending_close(true); /*if pending_close is already on, this has no effect;
+																								otherwise, pending close is set, and if an mpm
+																								still is active, it is forced to abort*/
 
 	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
 	::mpv_command(mpv, cmd);
@@ -1142,7 +1146,6 @@ int mpv_subscription_t::stop_play() {
 			mpm->unregister_language_changed_callback(subscription_id);
 		}
 	}
-
 	if (mpm)
 		mpm.reset();
 	return 0;
@@ -1162,7 +1165,13 @@ int MpvPlayer_::stop_play() {
 		std::scoped_lock lck(subscription.m);
 		subscription.next_op = op;
 	}
-	subscription.set_pending_close(true);
+	subscription.set_pending_close(true); /*only mpv_close or stop_play can set the pending_close flag.
+																					the first such call causes mpm to abort;
+																					Later call are ignored.
+																					However, once the command has finished, a later call
+																					will retry mpm->force_abort as part of set_pending_close(true)
+																					Normally this will not be harmfu as pending_close is still true
+																				*/
 	const char* cmd[] = {"stop", nullptr};
 	::mpv_command(mpv, cmd);
 	dtdebugf("PLAY SUBSCRIPTION {:p} END - DONE", fmt::ptr(this));

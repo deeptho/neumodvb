@@ -241,6 +241,7 @@ struct file_t;
 static int64_t size_fn(void* cookie) {
 	auto* player = (MpvPlayer_*)cookie;
 	auto ret = player->subscription.get_current_segment_size();
+	dtdebugf("size={:d}", ret);
 	return ret < 0 ? MPV_ERROR_UNSUPPORTED : ret;
 }
 
@@ -677,16 +678,16 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 		const char* cmd1[] = {"seek", "0", "absolute", nullptr};
 		::mpv_command(mpv, cmd1);
 #endif
-		//const char* cmd2[] = {"seek", "1", "absolute", nullptr};
-		//::mpv_command(mpv, cmd2);
-		this->jump(3600*100);
 	}
 		break;
 	case MPV_EVENT_IDLE:
 		dtdebugf("idle event");
 		break;
 	case MPV_EVENT_END_FILE: {
-		dtdebugf("End of file event");
+		auto d = (mpv_event_end_file*) event.data;
+		dtdebugf("End of file event reason={}", (int)d->reason);
+		if(d->reason !=  MPV_END_FILE_REASON_EOF)
+			break; //user  initiated stop
 
 		bool must_move_to_prev{false};
 		bool must_play_forward{false};

@@ -255,7 +255,7 @@ public:
 private:
 	std::tuple<int,int> copy_filtered_packets(char* outbuffer, uint8_t* inbuffer, int64_t outbytes, int64_t inbytes);
 	int64_t read_generated_data(char* outbuffer, uint64_t num_bytes);
-	std::tuple<int, int> read_data_(char* outbuffer, int64_t outbytes);
+	std::tuple<int, int, bool> read_data_(char* outbuffer, int64_t outbytes);
 	std::tuple<bool, int64_t> currently_playing_file_status();
 	playback_info_t get_recording_program_info() const;
 	void update_pmt(stream_state_t& stream_state);

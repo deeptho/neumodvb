@@ -71,6 +71,7 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 	current_filename.clear();
 
 	assert(filemap.readonly);
+	dtdebugf("Setting live_mpm=nullptr");
 	live_mpm = nullptr;
 	db = std::make_shared<mpm_index_t>();
 	db->idx_dirname.format("{}/index.mdb", dirname);

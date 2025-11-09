@@ -359,22 +359,26 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 }
 
 
-milliseconds_t mpm_cursor_t::play_time_for_byte_pos(db_txn& idxdb_rtxn, int64_t byte_pos) {
-	auto c = recdb::marker_t::find_by_packetno(idxdb_rtxn, (uint32_t) (this->current_byte_pos / ts_packet_t::size), find_leq);
+system_time_t mpm_cursor_t::real_time_for_byte_pos(db_txn& idxdb_rtxn, int64_t byte_pos) {
+	auto c = recdb::marker_t::find_by_packetno(idxdb_rtxn, (uint32_t) (byte_pos / ts_packet_t::size), find_leq);
 	if (!c.is_valid()) {
 		auto c = find_first<recdb::marker_t>(idxdb_rtxn);
 		if(!c.is_valid())
-			return milliseconds_t(0);
+			return system_clock_t::now();
 		auto m = c.current();
-		return m.k.time;
+		auto delta = m.k.time - current_part.k.stream_time_start;
+		return system_clock_t::from_time_t(current_part.real_time_start)
+			+ std::chrono::duration<int64_t>((int64_t)delta/1000);
 	}
 	auto m = c.current();
-	return m.k.time;
+	auto delta = m.k.time - current_part.k.stream_time_start;
+	return system_clock_t::from_time_t(current_part.real_time_start)
+		+ std::chrono::duration<int64_t>((int64_t)delta/1000);
 }
 
-milliseconds_t mpm_cursor_t::play_time_for_byte_pos(int64_t byte_pos) {
+system_time_t mpm_cursor_t::real_time_for_byte_pos(int64_t byte_pos) {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto ret =  play_time_for_byte_pos(idxdb_rtxn, byte_pos);
+	auto ret =  real_time_for_byte_pos(idxdb_rtxn, byte_pos);
 	idxdb_rtxn.abort();
 	return ret;
 }

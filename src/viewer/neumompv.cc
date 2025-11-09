@@ -554,10 +554,11 @@ bool MpvPlayer_::create() {
 	if(mpv_observe_property(mpv, 0, "time-pos", MPV_FORMAT_DOUBLE) <0) {
 		dtdebugf("failed to observe");
 	}
-
+#ifdef STREAM_POS
 	if(mpv_observe_property(mpv, 0, "stream-pos", MPV_FORMAT_INT64) <0) {
 		dtdebugf("failed to observe");
 	}
+#endif
 
 #ifdef BUG
 	if (mpv_set_property_string(mpv, "hwdec", "auto") < 0) {
@@ -642,12 +643,14 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 					this->set_play_direction(true/*forward*/);
 			}
 		}
+#ifdef STREAM_POS
 		else if(strcmp(prop->name, "stream-pos") == 0) {
 			if(prop->format ==  MPV_FORMAT_INT64) {
 				auto w = this->trick_play.writeAccess();
-				w->stream_pos = *(double*)prop->data;
+				w->stream_pos = *(int64_t*)prop->data;
 			}
 		}
+#endif
 		break;
 	}
 	case MPV_EVENT_SHUTDOWN:
@@ -1008,7 +1011,7 @@ int MpvPlayer_::jump(int seconds) {
 		dterrorf("mpv not ready");
 		return -1;
 	}
-	auto absolute_seconds= this->subscription.jump(seconds, this->get_play_time());
+	auto absolute_seconds= this->subscription.jump(seconds, this->get_mpv_play_real_time());
 	ss::string<16> arg;
 	arg.format("{:d}", absolute_seconds);
 
@@ -1253,9 +1256,11 @@ void MpvPlayer_::notify_signal_info(const signal_info_t& signal_info) {
 	if (!as)
 		return;
 	playback_info_t playback_info = subscription.mpm->get_current_program_info();
-	auto t = this->get_play_time();
-	auto t1 = this->get_play_time();
-	dtdebugf("QQQQ t={} t1={}", t, t1);
+#ifdef STREAM_POS
+	auto t = this->get_play_real_time();
+#else
+	auto t = this->get_mpv_play_real_time();
+#endif
 	playback_info.play_time = t;
 	gl_canvas->overlay.set_signal_info(signal_info, playback_info);
 	subscription.show_radiobg = (playback_info.service.media_mode == chdb::media_mode_t::RADIO);
@@ -1291,9 +1296,11 @@ void MpvPlayer_::update_playback_info() {
 	if (!subscription.mpm)
 		return;
 	playback_info_t playback_info = subscription.mpm->get_current_program_info();
-	auto t = this->get_play_time();
-	auto t1 = this->get_play_time();
-	dtdebugf("QQQQ t={} t1={}", t, t1);
+#ifdef STREAM_POS
+	auto t = this->get_play_real_time();
+#else
+	auto t = this->get_mpv_play_real_time();
+#endif
 	playback_info.play_time = t;
 
 	// std::lock_guard<std::mutex> lk(m);
@@ -1479,7 +1486,7 @@ int MpvPlayer_::set_playback_speed(double speed) {
 	}
 	auto playback_info = this->subscription.mpm->get_current_program_info();
 	auto end_pos = playback_info.end_time;
-	auto play_pos = this->get_play_time();
+	auto play_pos = this->get_mpv_play_real_time();
 	auto to_play = std::chrono::duration_cast<std::chrono::seconds>(end_pos - play_pos).count();
 	if (mpv_set_property(this->mpv, "speed", MPV_FORMAT_DOUBLE, &speed) < 0)
 		dterrorf("Failed setting speed {}", speed);

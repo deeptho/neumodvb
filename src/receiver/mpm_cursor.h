@@ -115,8 +115,8 @@ public:
 	int64_t seek_to_bytepos(db_txn& idxdb_txn, int64_t byte_pos);
 	int64_t seek_to_bytepos(int64_t byte_pos);
 
-	milliseconds_t play_time_for_byte_pos(db_txn& idxdb_txn, int64_t byte_pos);
-	EXPORT milliseconds_t play_time_for_byte_pos(int64_t byte_pos);
+	system_time_t real_time_for_byte_pos(db_txn& idxdb_txn, int64_t byte_pos);
+	EXPORT system_time_t real_time_for_byte_pos(int64_t byte_pos);
 
 	inline int current_fileno() const {
 		return current_part.fileno;

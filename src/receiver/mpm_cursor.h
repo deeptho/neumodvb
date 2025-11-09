@@ -154,7 +154,7 @@ public:
 };
 
 class part_cursor_t {
-	constexpr static int default_map_len = 16ll*1024*1024;
+	constexpr static int default_map_len = 128ll*1024*1024;
 	bool error{false};
 	ss::string<64> dirname;
 	int fd{-1}; //file descriptor of currently opened part

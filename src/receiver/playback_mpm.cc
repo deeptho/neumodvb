@@ -102,7 +102,8 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 			recdb::dmarker_t dmarker;
 			dmarker.segmentno=0;
 			dmarker.packetno=0;
-			dmarker.real_time= (time_t) 0;
+			dmarker.real_time = currently_playing_recording.real_time_start;
+			dmarker.stream_time = currently_playing_recording.stream_time_start;
 			auto wtxn = db->mpm_rec.idxdb.wtxn();
 			put_record(wtxn, dmarker);
 			wtxn.commit();

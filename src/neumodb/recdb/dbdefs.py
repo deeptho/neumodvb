@@ -224,7 +224,7 @@ pmt_marker = db_struct(name='pmt_marker',
                      fields = ((1, 'int64_t', 'packetno_start', '-1'), #index of last packet of the pmt in the stream
                                                                        #so pmt will apply from packet after this one on
                                (3, 'time_t', 'real_time_start'), #unix epoch
-                               (4, 'milliseconds_t', 'stream_time_start'), #unix epoch
+                               (4, 'milliseconds_t', 'stream_time_start'),
                                (8, 'uint16_t', 'pmt_pid', '0x1FFF'),
                                (5, 'ss::vector<chdb::language_code_t,4>', 'audio_langs'),
                                (6, 'ss::vector<chdb::language_code_t,4>', 'subtitle_langs'),
@@ -243,7 +243,8 @@ dmarker = db_struct(name='dmarker',
                      ),                     #not unique
                      fields = ((1, 'int16_t', 'segmentno', '-1'),
                                (2, 'int64_t', 'packetno', '-1'),
-                               (3, 'time_t', 'real_time', '-1')
+                               (3, 'time_t', 'real_time', '-1'),
+                               (4, 'milliseconds_t', 'stream_time')
                      ))
 
 #Singleton listing recordings viewed

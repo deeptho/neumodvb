@@ -281,6 +281,7 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 
 			dmarker.packetno = marker.packetno_end;
 			dmarker.segmentno++;
+			dmarker.stream_time = marker.k.time;
 			dmarker.real_time = system_clock_t::to_time_t(now);
 			put_record(idxdb_wtxn, dmarker);
 			mm->current_dmarker = dmarker;
@@ -300,6 +301,7 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 		dmarker.packetno = 0;
 		dmarker.segmentno = 0;
 		dmarker.real_time = system_clock_t::to_time_t(now);
+		dmarker.stream_time = milliseconds_t{0};
 		put_record(idxdb_wtxn, dmarker);
 		auto mm = meta_marker.writeAccess();
 		mm->livebuffer_start_time = now;
@@ -575,6 +577,23 @@ int finalize_recording(db_txn& livebuffer_idxdb_rtxn, mpm_copylist_t& copy_comma
 				sd.packetno_start +=  packetno_offset;
 				sd.stream_time_start += stream_time_offset;
 				put_record(idx_txn, sd);
+			} else
+				break;
+		}
+	}
+
+	{
+// copy the dmarker markers into the recording database
+		auto c = recdb::dmarker_t::find_by_key
+			(livebuffer_idxdb_rtxn,
+			 stream_packetno_start, // refers to the livebuffer's value (no offset!)
+			 find_leq);
+		for (auto dm : c.range()) {
+			if (dm.stream_time <= stream_time_end) {
+				// insert the dmarker record
+				dm.packetno +=  packetno_offset;
+				dm.stream_time += stream_time_offset;
+				put_record(idx_txn, dm);
 			} else
 				break;
 		}

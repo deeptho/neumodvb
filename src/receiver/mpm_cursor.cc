@@ -417,6 +417,19 @@ int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn,
 		}
 		auto pmt_marker = c.current();
 		next_pmt_change_ = pmt_marker.packetno_start *  (int64_t) ts_packet_t::size;
+		if(next_pmt_change_ == this->current_byte_pos) {
+			this->current_pmt_marker = pmt_marker;
+			c.next();
+			if(c.is_valid()) {
+				this->next_pmt_marker = c.current();
+			} else
+				this->next_pmt_marker.reset();
+		} else {
+			this->next_pmt_marker = pmt_marker;
+			if(!this->current_pmt_marker)
+				this->current_pmt_marker = pmt_marker;
+		}
+		assert((next_pmt_change_ <0)  || this->current_pmt_marker);
 		assert(pmt_marker.packetno_start <= last_pmt_bytepos);
 		assert(!this->next_pmt_marker || pmt_marker.packetno_start == this->next_pmt_marker->packetno_start);
 		assert(next_pmt_change_ >= this->current_byte_pos);
@@ -588,11 +601,13 @@ std::tuple<int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(i
 		if(!first_pmt_read && this->current_pmt_marker) {
 			pmt_change = true; //ensure that pmt is read when playing back recording
 			next_pmt_change_ = this->current_byte_pos;
+			assert(!pmt_change || this->current_pmt_marker);
 		}
 	}
 
 	if(next_pmt_change_ >=0) {
 		pmt_change = (next_pmt_change_ == this->current_byte_pos);
+		assert(!pmt_change || this->current_pmt_marker);
 		n = std::min(n, (int32_t)(next_pmt_change_ - this->current_byte_pos));
 	}
 	if(next_dmarker_change_ >=0) {
@@ -652,6 +667,7 @@ std::tuple<int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(i
 			}
 			n = std::min(maxbytes, num_bytes);
 			pmt_change = (next_pmt_change_ == this->current_byte_pos);
+			assert(!pmt_change || this->current_pmt_marker);
 			dmarker_change = (next_dmarker_change_ == this->current_byte_pos);
 			if(next_pmt_change_ >=0)
 				n = std::min(n, (int32_t)(next_pmt_change_ - this->current_byte_pos));
@@ -818,6 +834,7 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 	bool need_mapping = !mapped || 	this->part_no != part_no_;
 	assert(current_byte_pos>=0);
 	assert(len_>=0 && len_ <=num_bytes);
+	assert(!pmt_change || this->mpm_cursor.current_pmt_marker);
 	if(pmt_change)
 		return {nullptr, 0, pmt_change, dmarker_change};
 
@@ -838,6 +855,7 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 	assert(buffer +len_ - mapped  <= map_len);
 	assert(!pmt_change  ||( !!this->mpm_cursor.current_pmt_marker && !!this->mpm_cursor.next_pmt_marker));
 	assert(!dmarker_change  ||( !!this->mpm_cursor.current_dmarker && !!this->mpm_cursor.next_dmarker));
+	assert(!pmt_change || this->mpm_cursor.current_pmt_marker);
 	return {buffer, len_, pmt_change, dmarker_change};
 }
 

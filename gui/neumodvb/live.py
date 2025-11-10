@@ -2622,6 +2622,11 @@ class LivePanel(wx.Panel):
             self.bottom_panel.Show()
             self.grid_panel.Show()
             self.hidden = False
+            self.mosaic_panel.set_inactive()
+            self.SetCursor(wx.NullCursor)
+            print(f' focus {self.focused_panel}')
+            self.focused_panel.SetFocus()
+        self.Layout()
 
     def toggle_gui(self):
         if self.hidden:

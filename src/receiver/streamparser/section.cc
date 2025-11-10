@@ -1635,6 +1635,7 @@ namespace dtdemux {
 				case SI::PrivateDataSpecifierDescriptorTag: // xxx
 				case SI::ReturnTransmissionModeTag:					// Return_Transmission_Modes_descriptor? en_301790v010501o.pdf
 				case SI::DefaultAuthorityDescriptorTag:
+				case SI::ComponentDescriptorTag:
 					this->skip(desc.len);
 					// ignored
 					break;

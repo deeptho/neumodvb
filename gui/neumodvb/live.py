@@ -1008,7 +1008,8 @@ class MosaicPanel(wx.Panel):
 
     def Focus(self):
         dtdebug(f"Focus self.focus_idx={self.focus_idx}")
-        self.SetBackgroundColour('yellow')
+        if not self.controller.hidden:
+            self.SetBackgroundColour('yellow')
         self.HighlightMpvPlayer(self.focus_idx)
 
     def Navigate(self, focused_widget, modifier, key):

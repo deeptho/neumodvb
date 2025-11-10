@@ -144,7 +144,9 @@ public:
 	}
 	inline int64_t get_current_segment_size() {
 		auto ret = this->mpm->get_current_segment_size();
+#if 0
 		dtdebugf("SEGMENT_SIZE: {}", ret);
+#endif
 		return ret;
 	}
 };

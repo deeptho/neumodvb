@@ -241,7 +241,9 @@ struct file_t;
 static int64_t size_fn(void* cookie) {
 	auto* player = (MpvPlayer_*)cookie;
 	auto ret = player->subscription.get_current_segment_size();
+#if 0
 	dtdebugf("size={:d}", ret);
+#endif
 	return ret < 0 ? MPV_ERROR_UNSUPPORTED : ret;
 }
 

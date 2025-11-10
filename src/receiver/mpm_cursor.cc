@@ -346,8 +346,10 @@ int64_t mpm_cursor_t::get_current_segment_size(db_txn& idxdb_rtxn) {
 			return -1;
 		auto last_marker = c.current();
 		auto ret = (last_marker.packetno_end - this->current_dmarker->packetno) * (int64_t) ts_packet_t::size;
+#if 0
 		dtdebugf("SEGMENT_SIZE {} pn={}/{} segment_no={}", ret, last_marker.packetno_end,
 						 this->current_dmarker->packetno, this->current_dmarker->segmentno);
+#endif
 		return ret;
 	}
 }

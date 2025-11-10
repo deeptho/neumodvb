@@ -1012,6 +1012,9 @@ class MosaicPanel(wx.Panel):
             self.SetBackgroundColour('yellow')
         self.HighlightMpvPlayer(self.focus_idx)
 
+    def SetFocus(self):
+        self.Focus()
+
     def Navigate(self, focused_widget, modifier, key):
         is_ctrl = (modifier & wx.ACCEL_CTRL)
         if False:

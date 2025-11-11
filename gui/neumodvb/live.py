@@ -984,7 +984,6 @@ class MosaicPanel(wx.Panel):
         gtk_add_window_style(self, 'mosaic_background')
         self.mpv_players=[]
         self.glcanvases=[]
-        self.AddMpvPlayer()
         self.SetSize((1200,800))
         wx.CallAfter(self.Refresh)
 
@@ -1065,7 +1064,7 @@ class MosaicPanel(wx.Panel):
         self.mpv_players.append(mpv_player)
         self.glcanvases.append(glcanvas)
         self.controller.mosaic_sizer.SetCols(self.num_cols)
-        if self.num_entries > 1 and self.focus_idx is None:
+        if self.num_entries >= 1 and self.focus_idx is None:
             dtdebug(f"focus_idx changed from {self.focus_idx} to 0")
             self.focus_idx = 0
         dtdebug(f"Added glcanvas={glcanvas} mpv_player={mpv_player} focus_idx={self.focus_idx} l={len(self.mpv_players)}/{len(self.glcanvases)}")
@@ -1088,8 +1087,6 @@ class MosaicPanel(wx.Panel):
         wx.CallAfter(self.controller.Refresh)
 
     def RemoveMpvPlayer(self, glcanvas, force=False):
-        if not force and len(self.mpv_players) == 1:
-            dterror("cannot remove last mpv player")
         for idx, w in enumerate(self.glcanvases):
             if w == glcanvas:
                 mpv_player=self.mpv_players.pop(idx)
@@ -1118,8 +1115,7 @@ class MosaicPanel(wx.Panel):
         player = self.mpv_players[self.focus_idx]
         glcanvas = self.glcanvases[self.focus_idx]
         player.stop_play()
-        if len(self.mpv_players) > 1 :
-            self.RemoveMpvPlayer(glcanvas, force=True)
+        self.RemoveMpvPlayer(glcanvas, force=True)
 
     def ServiceTune(self, service_or_chgm, replace_running=True):
         ls = self.controller.app.live_service_screen
@@ -1128,7 +1124,7 @@ class MosaicPanel(wx.Panel):
             ShowMessage(f'Cannot tune to service {service_or_chgm}')
             return
         assert ls.app.receiver is not None
-        if not replace_running:
+        if not replace_running or len(self.mpv_players)==0:
             self.AddMpvPlayer()
             old_focus_idx = self.focus_idx
             self.focus_idx = len(self.mpv_players) -1

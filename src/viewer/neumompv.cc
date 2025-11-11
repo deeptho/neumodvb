@@ -906,7 +906,7 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 	subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), subscription.seqno++);
 	if (!mpv) {
 		dterrorf("mpv not ready");
-		assert(0);
+		//assert(0);
 		return -1;
 	}
 	this->subscription.set_pending_close(true);

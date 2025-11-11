@@ -642,6 +642,7 @@ class GroupSelectPanel(wx.Panel):
         dtdebug("OnEnter")
 
     def Navigate(self, focused_widget, modifier, key):
+        dtdebug("Navigate GroupSelectPanel")
         if key in (wx.WXK_DOWN, wx.WXK_UP):
             self.controller.grid_panel.set_active()
             self.controller.grid_panel.SetFocus()
@@ -1011,14 +1012,13 @@ class MosaicPanel(wx.Panel):
 
     def Focus(self):
         dtdebug(f"Focus self.focus_idx={self.focus_idx}")
-        if not self.controller.hidden:
-            self.SetBackgroundColour('yellow')
         self.HighlightMpvPlayer(self.focus_idx)
 
     def SetFocus(self):
         self.Focus()
 
     def Navigate(self, focused_widget, modifier, key):
+        dtdebug("Navigate MosaicPanel")
         is_ctrl = (modifier & wx.ACCEL_CTRL)
         if False:
             if is_ctrl:
@@ -1034,6 +1034,7 @@ class MosaicPanel(wx.Panel):
             focus_idx = self.focus_idx
             focus_idx += -1 if key == wx.WXK_LEFT else 1
             if focus_idx < 0 or focus_idx >= len(self.glcanvases):
+                self.HighlightMpvPlayer(unhighlight=True)
                 return False
             dtdebug(f"focus_idx changed from {self.focus_idx} to {max( min(focus_idx, len(self.glcanvases) -1), 0)}")
             self.focus_idx = max( min(focus_idx, len(self.glcanvases) -1), 0)
@@ -1047,7 +1048,6 @@ class MosaicPanel(wx.Panel):
             dtdebug(f"focus_idx changed from {old_focus_idx} to {self.focus_idx}")
             self.HighlightMpvPlayer(self.focus_idx)
             return True
-        self.SetBackgroundColour(wx.Colour(0,0,0,0))
         return False
 
     def OnClose(self, evt):
@@ -1064,10 +1064,14 @@ class MosaicPanel(wx.Panel):
     def AddMpvPlayer(self):
         import pyneumompv
         idx = len(self.mpv_players)
-        mpv_player = pyneumompv.MpvPlayer(self.controller.app.receiver, self, idx)
+        panel = wx.Panel(self, wx.ID_ANY)
+        sizer =  wx.GridSizer(cols=1, vgap=0, hgap=0)
+        mpv_player = pyneumompv.MpvPlayer(self.controller.app.receiver, panel, idx)
         glcanvas = mpv_player.glcanvas
         glcanvas.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
-        self.controller.mosaic_sizer.Add(glcanvas, 1, wx.EXPAND|wx.ALL)
+        sizer.Add(glcanvas,1, wx.EXPAND|wx.ALL)
+        panel.SetSizer(sizer)
+        self.controller.mosaic_sizer.Add(panel, 1, wx.EXPAND|wx.ALL)
         self.mpv_players.append(mpv_player)
         self.glcanvases.append(glcanvas)
         self.controller.mosaic_sizer.SetCols(self.num_cols)
@@ -1075,21 +1079,29 @@ class MosaicPanel(wx.Panel):
             dtdebug(f"focus_idx changed from {self.focus_idx} to 0")
             self.focus_idx = 0
         dtdebug(f"Added glcanvas={glcanvas} mpv_player={mpv_player} focus_idx={self.focus_idx} l={len(self.mpv_players)}/{len(self.glcanvases)}")
-        self.HighlightMpvPlayer()
+        self.HighlightMpvPlayer(unhighlight=True)
         wx.PostEvent(glcanvas, wx.WindowCreateEvent())
 
-    def HighlightMpvPlayer(self, focus_idx=None):
-        show_highlight = True
-        if self.controller.hidden and len(self.glcanvases) == 1:
+    def HighlightMpvPlayer(self, focus_idx=None, unhighlight=False):
+        if unhighlight:
             show_highlight = False
-        if focus_idx is None:
-            focus_idx = self.focus_idx
-        if focus_idx is not None:
-            dtdebug(f"focus_idx changed from {self.focus_idx} to {focus_idx}")
-            self.focus_idx = focus_idx
+        else:
+            show_highlight = True
+            if self.controller.hidden and len(self.glcanvases) == 1:
+                show_highlight = False
+            if focus_idx is None:
+                focus_idx = self.focus_idx
+            if focus_idx is not None:
+                dtdebug(f"focus_idx changed from {self.focus_idx} to {focus_idx}")
+                self.focus_idx = focus_idx
         for idx, glcanvas in enumerate(self.glcanvases):
-            glcanvas.SetBackgroundColour('yellow')
-            self.controller.mosaic_sizer.GetItem(glcanvas).SetBorder(5 if show_highlight and idx == focus_idx else 0)
+            panel = glcanvas.GetParent()
+            if self.controller.focused_panel == self:
+                color="yellow"
+            else:
+                color ="green"
+            panel.SetBackgroundColour(color if show_highlight and idx ==self.focus_idx else 'black')
+            panel.GetSizer().GetItem(glcanvas).SetBorder(5 if show_highlight and idx == focus_idx else 0)
         self.controller.Layout()
         wx.CallAfter(self.controller.Refresh)
 
@@ -1097,10 +1109,12 @@ class MosaicPanel(wx.Panel):
         for idx, w in enumerate(self.glcanvases):
             if w == glcanvas:
                 mpv_player=self.mpv_players.pop(idx)
+                panel = glcanvas.GetParent()
                 self.controller.mosaic_sizer.Remove(idx)
                 self.glcanvases.pop(idx)
                 mpv_player.close()
                 glcanvas.Destroy()
+                panel.Destroy()
                 break
 
         self.controller.mosaic_sizer.SetCols(self.num_cols)
@@ -1549,6 +1563,7 @@ class RecordPanel(wx.Panel):
         """
         returns False if command is not handled here
         """
+        dtdebug("Navigate RecordPanel")
         is_ctrl = (modifier & wx.ACCEL_CTRL)
         if not hasattr(w, 'data'):
             return False
@@ -1863,6 +1878,7 @@ class GridEpgPanel(RecordPanel):
         """
         returns False if command is not handled here
         """
+        dtdebug("Navigate GridEpgPanel")
         is_ctrl = (modifier & wx.ACCEL_CTRL)
         if not hasattr(w, 'data'):
             return False
@@ -2545,6 +2561,7 @@ class LivePanel(wx.Panel):
         self.SetAcceleratorTable(accel_tbl)
 
     def Navigate(self, evt):
+        dtdebug("Navigate LivePanel")
         focused = wx.Window.FindFocus()
         w = focused
         modifier, key = self.keys[evt.GetId()]
@@ -2560,6 +2577,7 @@ class LivePanel(wx.Panel):
             if self.focused_panel.Navigate(focused, modifier, key):
                 self.set_active(self.focused_panel)
                 return
+        dtdebug("Navigate LivePanel1")
         if is_ctrl:
             old_focused_panel = self.focused_panel
             #check for global navigation events
@@ -2571,18 +2589,17 @@ class LivePanel(wx.Panel):
                     self.top_panel.SetFocus()
                     self.focused_panel = self.top_panel
                 elif key == wx.WXK_RIGHT:
-                    self.mosaic_panel.Focus()
-                    self.focused_panel = self.mosaic_panel
+                    if len(self.mosaic_panel.mpv_players) >0:
+                        self.mosaic_panel.Focus()
+                        self.focused_panel = self.mosaic_panel
             elif self.focused_panel == self.mosaic_panel:
                 if key == wx.WXK_UP:
                     self.top_panel.SetFocus()
                     self.focused_panel = self.top_panel
                 elif key == wx.WXK_LEFT:
-                    print(f'CALL6 is_ctrl={is_ctrl}')
                     self.grid_panel.focus_row(None,None)
                     self.focused_panel = self.grid_panel
                 else:
-                    print(f'CALL7 is_ctrl={is_ctrl}')
                     self.focused_panel = self.mosaic_panel
             if self.focused_panel != old_focused_panel:
                 self.set_inactive(old_focused_panel)
@@ -2610,6 +2627,7 @@ class LivePanel(wx.Panel):
         evt.Skip(True)
 
     def show_gui(self, rowtype):
+        dtdebug("show_gui")
         if not self.created:
             self.created=True
             dtdebug('creating gui')
@@ -2620,6 +2638,7 @@ class LivePanel(wx.Panel):
             dtdebug('show_gui')
             self.show_top_panel(rowtype)
             self.show_grid_panel(rowtype)
+            dtdebug("show_gui1")
         if self.hidden:
             self.top_panel.Show()
             self.bottom_panel.Show()
@@ -2628,6 +2647,7 @@ class LivePanel(wx.Panel):
             self.mosaic_panel.set_inactive()
             self.SetCursor(wx.NullCursor)
             print(f' focus {self.focused_panel}')
+            dtdebug(f"show_gui2 focused_panel={self.focused_panel}")
             self.focused_panel.SetFocus()
         self.Layout()
 

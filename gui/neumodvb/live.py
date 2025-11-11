@@ -958,10 +958,13 @@ class MosaicPanel(wx.Panel):
     def OnFocus(self, evt):
         self.controller.update_active(self)
         w = evt.GetWindow()
-        idx = self.glcanvases.index(w)
-        dtdebug(f"focus_idx changed from {self.focus_idx} to {idx}")
-        self.focus_idx = idx
-        assert idx >=0
+        try:
+            idx = self.glcanvases.index(w)
+            dtdebug(f"focus_idx changed from {self.focus_idx} to {idx}")
+            self.focus_idx = idx
+            assert idx >=0
+        except:
+            pass
         self.Focus()
 
     def AcceptsFocus(self):

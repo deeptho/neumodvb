@@ -268,8 +268,12 @@ void t2mi_stream_filter_t::close() {
 }
 
 void ts_in_ts_stream_filter_t::close() {
-	if(this->active_servicep)
+	if(this->active_servicep) {
+		auto& active_service = *this->active_servicep;
+		auto service = active_service.get_current_service();
+		active_adapter.tuner_thread.remove_live_buffer(service);
 		this->active_servicep->service_thread.stop_running(false/*stop_running*/);
+	}
 	if (!is_open())
 		return;
 	assert(data_fd < 0);

@@ -670,6 +670,7 @@ void tuner_thread_t::remove_live_buffer(const chdb::service_t& service) {
 		auto now = std::chrono::system_clock::now();
 		dtdebugf("setting live buffer last_use_time={}", now);
 		live_service.last_use_time = system_clock_t::to_time_t(now);
+		recdb::update_record_at_cursor(c, live_service);
 	}
 	c.destroy();
 	txn.commit();

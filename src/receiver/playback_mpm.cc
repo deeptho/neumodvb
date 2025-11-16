@@ -111,9 +111,6 @@ void playback_mpm_t::open_recording(const char* dirname_) {
 	} else {
 		dterrorf("Cannot find rec in {}", db->idx_dirname);
 	}
-
-
-
 	txn.abort();
 }
 

@@ -599,7 +599,8 @@ void active_adapter_t::update_lof(devdb::lnb_t& lnb, int16_t sat_pos, chdb::fe_p
 	auto lof_offset = m->frequency_offset;
 
 	put_record(devdb_wtxn, offsets_record);
-
+	dtdebugf("adapter {:d} Updating LNB LOF offset: nit_f={} driver_f={} offset={}", get_adapter_no(),
+					 nit_frequency, uncorrected_driver_freq, lof_offset);
 	set_lnb_lof_offset(devdb_wtxn, lnb, (int)band, nit_frequency, lof_offset);
 	devdb_wtxn.commit();
 
@@ -1079,7 +1080,6 @@ void active_adapter_t::update_tuned_mux_tune_confirmation(const tune_confirmatio
 		w->tune_confirmation = tune_confirmation;
 	}
 	if(need_lof_offset_update) {
-		dtdebugf("adapter {:d} Updating LNB LOF offset", get_adapter_no());
 		update_lof(lnb, sat_pos, pol, nit_frequency, uncorrected_driver_freq);
 		fe->ts.writeAccess()->reserved_lnb = lnb;
 	}

@@ -40,7 +40,7 @@ playback_mpm_t::playback_mpm_t(receiver_t& receiver_, subscription_id_t subscrip
 	, receiver(receiver_)
 	, part_cursor(dirname, idx_dirname)
 	, subscription_id(subscription_id_) {
-	part_cursor.init();
+	part_cursor.open();
 };
 
 playback_mpm_t::playback_mpm_t(active_mpm_t& other,
@@ -56,7 +56,7 @@ playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 	ls->current_pmt_marker = other.meta_marker.readAccess()->current_pmt_marker;
 	ls->audio_pref = live_service.audio_pref;
 	ls->subtitle_pref = live_service.subtitle_pref;
-	part_cursor.init();
+	part_cursor.open();
 }
 
 void playback_mpm_t::open_recording(const char* dirname_) {
@@ -267,6 +267,9 @@ playback_info_t playback_mpm_t::get_recording_program_info() const {
 	ret.play_time = ret.start_time;
 	ret.is_recording = !live_mpm;
 	ret.is_timeshifted = false;
+	ret.live_segment_start_byte_pos = 0;
+	ret.live_segment_start_time = ret.start_time;
+
 	ret.epg = currently_playing_recording.epg;
 	{
 		auto txnrec = this->db->mpm_rec.recdb.rtxn();
@@ -378,13 +381,7 @@ int64_t playback_mpm_t::get_size() {
 int64_t playback_mpm_t::move_to_live() {
 	assert(live_mpm);
 	live_mpm->wait_for_update(last_seen_live_meta_marker, ts_packet_t::size);
-	auto packetno_start = last_seen_live_meta_marker.current_marker.packetno_end;
-	int64_t ret = move_to_packetno(packetno_start);
-	if(ret < 0)
-		return ret;
-	is_timeshifted = false;
-	ret = (int64_t)part_cursor.get_current_play_time();
-	return ret/1000;
+	return  last_seen_live_meta_marker.live_segment_start_byte_pos;
 }
 
 

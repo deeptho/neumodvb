@@ -327,7 +327,9 @@ int mpv_subscription_t::open() {
 		auto playback_info = mpm->get_current_program_info();
 		dtdebug_nicef("QQQ start_time={}", playback_info.start_time);
 		auto w = mpv_player->trick_play.writeAccess();
-		w->start_time = playback_info.start_time;
+		w->live_buffer_start_time = playback_info.start_time;
+		w->live_segment_start_time = playback_info.live_segment_start_time;
+		w->live_segment_start_byte_pos = playback_info.live_segment_start_byte_pos;
 	}
 	return mpm ? 0 : -1;
 }
@@ -660,15 +662,11 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 		gl_canvas->MpvDestroy();
 		break;
 	case MPV_EVENT_FILE_LOADED: {
-#if 0
-		int play_offset_s = this->subscription.mpm->move_to_live();
-		printf("delay=%d\n", play_offset_s);
-		ss::string<16> arg;
-		arg.format("{:d}", play_offset_s);
-
-		const char* cmd1[] = {"seek", arg.c_str(), nullptr};
+		const char* cmd1[] = {"seek", "0", "absolute", nullptr};
 		::mpv_command(mpv, cmd1);
-#endif
+		//const char* cmd2[] = {"seek", "1", "absolute", nullptr};
+		//::mpv_command(mpv, cmd2);
+		//this->jump(3600*100);
 	}
 		break;
 	case MPV_EVENT_END_FILE:

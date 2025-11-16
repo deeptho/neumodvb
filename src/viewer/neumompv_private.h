@@ -83,6 +83,7 @@ class mpv_subscription_t {
 	std::shared_ptr<subscriber_t> subscriber;
 	bool pending_close = false; //used to speed up channel change
 	jump_state_t jump_state;
+	int64_t live_start_byte_pos{0};
 public:
 	std::atomic<bool> show_osd{false};
 	std::atomic<bool> show_radiobg{false};
@@ -138,24 +139,27 @@ public:
 	void close(bool unsubscribe);
 	int64_t wait_for_close();
 	inline int64_t move_to_bytepos(int64_t bytepos) {
-		return this->mpm->move_to_bytepos(bytepos);
+		return this->mpm->move_to_bytepos(this->live_start_byte_pos + bytepos);
 	}
 	inline int64_t get_size() {
-		return this->mpm->get_size();
+		return this->mpm->get_size() - this->live_start_byte_pos;
 	}
 };
 
 struct trick_play_t {
-	system_time_t start_time;
 	double time_pos;
 	int64_t stream_pos{0};
+	system_time_t live_buffer_start_time; //time at which the service was first tuned
+	system_time_t live_segment_start_time; //time at which the service was last tuned;
+	int64_t live_segment_start_byte_pos{};
+
 	bool reverse_playing {false};
 	bool fast_forwarding {false};
 	double fast_forwarding_time_pos_limit{0.0};
 	int playback_speed_index{0};
 	bool paused{false};
 	inline system_time_t get_mpv_play_real_time() const {
-		return start_time + std::chrono::duration<int64_t>((int64_t)time_pos);
+		return live_segment_start_time + std::chrono::duration<int64_t>((int64_t)time_pos);
 	}
 };
 

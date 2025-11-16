@@ -49,7 +49,6 @@ void meta_marker_t::init(system_time_t now) {
 	current_file_record = {};
 	current_marker = {};
 	current_marker.packetno_start = std::numeric_limits<uint32_t>::max();
-	livebuffer_start_time = now;
 	livebuffer_end_time = now;
 }
 
@@ -115,6 +114,8 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 	other.current_marker = current_marker;
 	other.livebuffer_start_time = livebuffer_start_time;
 	other.livebuffer_end_time = livebuffer_end_time;
+	other.live_segment_start_byte_pos = live_segment_start_byte_pos;
+	other.live_segment_start_time = live_segment_start_time;
 	other.num_bytes_safe_to_read = num_bytes_safe_to_read;
 	other.current_file_record = current_file_record;
 	other.current_pmt_marker = current_pmt_marker;
@@ -245,29 +246,45 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 		throw std::runtime_error("Failed to create live buffer");
 	}
 	db->open_index();
-	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto cf = recdb::find_last<recdb::file_t>(idxdb_rtxn);
+	auto idxdb_wtxn = db->mpm_rec.idxdb.wtxn();
+	auto cf = recdb::find_last<recdb::file_t>(idxdb_wtxn);
 	bool is_new{true};
+	now = system_clock_t::now();
 	if(cf.is_valid()) {
 		auto file =cf.current();
-		dtdebugf("Found file_t record\n");
-		auto c = recdb::find_last<recdb::marker_t>(idxdb_rtxn);
-		if(c.is_valid()) {
+		dtdebugf("Found last file_t record\n");
+		auto c = recdb::find_last<recdb::marker_t>(idxdb_wtxn);
+		auto cd = recdb::find_last<recdb::discontinuity_marker_t>(idxdb_wtxn);
+		if(c.is_valid() && cd.is_valid()) {
 			auto marker =c.current();
-			dtdebugf("Found marker_t record\n");
-			current_file_time_start = system_clock_t::from_time_t(file.real_time_start);
+			dtdebugf("Found marker_t record packetno={} offset={}\n", marker.packetno_end,
+							 marker.packetno_end*(int64_t)dtdemux::ts_packet_t::size);
+
+			auto cf1 = recdb::find_first<recdb::file_t>(idxdb_wtxn);
+			if(cf1.is_valid()) {
+				auto file =cf.current();
+				dtdebugf("Found first file_t record\n");
+				current_file_time_start = system_clock_t::from_time_t(file.real_time_start);
+			}
 			auto mm = meta_marker.writeAccess();
 			mm->current_file_record = file;
 			current_fileno = file.fileno;
 			mm->current_marker = marker;
 			mm->livebuffer_start_time = current_file_time_start;
 			mm->livebuffer_stream_time_start = file.k.stream_time_start;
-
+			mm->live_segment_start_time = now;
 			this->stream_parser.event_handler.last_saved_marker = marker;
 			mm->num_bytes_safe_to_read = marker.packetno_end * (int64_t) dtdemux::ts_packet_t::size;
 			this->num_bytes_decrypted = mm->num_bytes_safe_to_read;
 			current_file_stream_packetno_start = file.stream_packetno_start;
 			is_new = false;
+
+			auto dmarker =cd.current();
+			dmarker.packetno = marker.packetno_end;
+			mm->live_segment_start_byte_pos = mm->num_bytes_safe_to_read;
+			dmarker.segmentno++;
+			put_record(idxdb_wtxn, dmarker);
+
 			auto fd = new_data_file(mm->current_file_record, "a+");
 			if (fd< 0)
 				throw std::runtime_error("Failed to create live buffer");
@@ -279,16 +296,24 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 			mm->cv.notify_all();
 			this->set_marker_offsets(file, marker);
 		}
+	} else {
+		recdb::discontinuity_marker_t dmarker;
+		dmarker.packetno = 0;
+		dmarker.segmentno = 0;
+		put_record(idxdb_wtxn, dmarker);
+		auto mm = meta_marker.writeAccess();
+		mm->live_segment_start_time = now;
+		mm->livebuffer_start_time = now;
 	}
-	idxdb_rtxn.abort();
+	idxdb_wtxn.commit();
 	if(is_new) {
 		current_fileno=-1;
 	}
 }
 
-void active_mpm_t::set_start_time(system_time_t creation_time) {
+void active_mpm_t::create_first_data_file_if_needed(system_time_t creation_time) {
 	if(current_fileno == -1) {
-		if (next_data_file(creation_time) < 0)
+		if (next_data_file(now) < 0)
 			throw std::runtime_error("Failed to create live buffer");
 	}
 }
@@ -952,6 +977,8 @@ playback_info_t active_mpm_t::get_current_program_info() const {
 	ret.start_time = mm->livebuffer_start_time;
 	ret.end_time = mm->livebuffer_end_time;
 	ret.play_time = mm->livebuffer_end_time;
+	ret.live_segment_start_byte_pos = mm->live_segment_start_byte_pos;
+	ret.live_segment_start_time = mm->live_segment_start_time;
 	ret.is_recording= false;
 	return ret;
 

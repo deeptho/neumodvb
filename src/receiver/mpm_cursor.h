@@ -78,6 +78,8 @@ class mpm_cursor_t {
 
 public:
 	recdb::file_t current_part {}; /*information about current part that contains current_bytepos*/
+	recdb::discontinuity_marker_t current_segment {}; /*information about current segment,
+																										 ie. a byte range without stream discontinuities*/
 
 	recdb::file_t last_part {}; /*information about the last part in this mpm*/
 
@@ -97,9 +99,9 @@ public:
 	std::optional<recdb::marker_t> get_marker_for_time(db_txn& idxdb_txn, milliseconds_t start_play_time);
 
 
-
-	int init(db_txn& idxdb_rtxn);
-	int init();
+	int move_to_last_segment(db_txn& idxdb_rtxn);
+	int move_to_last_segment();
+	int open();
 
 	inline void reset_pmt_markers() {
 		this->current_pmt_marker.reset();
@@ -214,7 +216,7 @@ public:
 		close_current_part();
 	}
 
-	int init();
+	int open();
 	int seek_to_time(milliseconds_t start_time);
 	int seek_to_bytepos(int64_t byte_pos);
 	int64_t get_size();
@@ -238,5 +240,6 @@ public:
 	inline milliseconds_t get_current_play_time() const {
 		return this->mpm_cursor.get_current_play_time();
 	}
-
+	int move_to_last_segment(db_txn& idxdb_rtxn);
+	int move_to_last_segment();
 };

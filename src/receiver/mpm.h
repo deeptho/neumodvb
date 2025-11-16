@@ -53,6 +53,9 @@ struct playback_info_t {
 	system_time_t start_time{}; //time of first available byte in livebuffer
 	system_time_t end_time{};   //time of end of program (or now if there is no program)
 	system_time_t play_time{};  //current playback time
+	int64_t live_segment_start_byte_pos{};
+	system_time_t live_segment_start_time{};
+
 	bool is_recording{false}; //Is this a recording or a live channel (possibly in timeshift mode)
 	bool is_timeshifted{false};
 	stream_status_t stream_status;
@@ -136,6 +139,9 @@ public:
 	system_time_t livebuffer_start_time{};
 	system_time_t livebuffer_end_time{};
 	milliseconds_t livebuffer_stream_time_start{};
+	system_time_t live_segment_start_time;
+	int64_t live_segment_start_byte_pos{0};
+
 	recdb::pmt_marker_t current_pmt_marker; //points to database record containing newest current pmt and such
 
 	std::vector<playback_mpm_t*> playback_clients; /*for an active_mpm_t: filenos currently being played back
@@ -324,7 +330,7 @@ public:
 	virtual bool process_service_data(int num_bytes_decrypted_now) = 0;
 	virtual int get_write_buffer(uint8_t*& buffer_ret) =0;
 	virtual int advance() = 0;
-	virtual void set_start_time(system_time_t creation_time) {};
+	virtual void create_first_data_file_if_needed(system_time_t creation_time) {};
 	virtual void advance_write_pointer(int extra)  = 0;
 
 	virtual void advance_decrypt_pointer(int extra)  = 0;
@@ -389,7 +395,7 @@ private:
 	void mkdir(const char*  dirname);
 
  public:
-	virtual void set_start_time(system_time_t creation_time) override;
+	virtual void create_first_data_file_if_needed(system_time_t creation_time) override;
 	virtual inline void set_stream_status(stream_status_t status) override {
 		auto w = meta_marker.writeAccess();
 		w->stream_status = status;

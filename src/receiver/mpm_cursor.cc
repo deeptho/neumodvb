@@ -154,28 +154,26 @@ void  mpm_cursor_t::update_pmt_markers_from_db(auto& idxdb_rtxn) {
 		this->next_pmt_marker->packetno_start * (int64_t) ts_packet_t::size :  -1;
 }
 
-int mpm_cursor_t::init() {
-	db->open_index();
+int mpm_cursor_t::move_to_last_segment(db_txn& idxdb_rtxn) {
+
+	auto c = find_last<discontinuity_marker_t>(idxdb_rtxn);
+	if(c.is_valid()) {
+		this->current_segment = c.current();
+		this->seek_to_bytepos(this->current_segment.packetno*(int64_t)ts_packet_t::size);
+	}
+	return 0;
+}
+
+int mpm_cursor_t::move_to_last_segment() {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto ret = init(idxdb_rtxn);
+	auto ret = move_to_last_segment(idxdb_rtxn);
 	idxdb_rtxn.abort();
 	return ret;
 }
 
-
-int mpm_cursor_t::init(db_txn& idxdb_rtxn) {
-	auto c = find_first<file_t>(idxdb_rtxn);
-	auto saved = error;
-	error = true;
-	if(!c.is_valid())
-		return -1;
-	current_part = c.current();
-	c = find_last<file_t>(idxdb_rtxn);
-	if(!c.is_valid())
-		return -1;
-	last_part = c.current();
-	error = saved;
-	return -1;
+int mpm_cursor_t::open() {
+	db->open_index();
+	return 0;
 }
 
 int mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
@@ -617,9 +615,9 @@ uint8_t* part_cursor_t::map() {
 }
 
 
-int part_cursor_t::init()
+int part_cursor_t::open()
 {
-	mpm_cursor.init();
+	mpm_cursor.open();
 	error = false;
 	return 0;
 }

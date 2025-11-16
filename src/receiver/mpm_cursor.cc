@@ -97,7 +97,7 @@ int64_t mpm_cursor_t::seek_part_for_packetno(db_txn& idxdb_rtxn, int32_t packetn
 
  */
 void  mpm_cursor_t::update_pmt_markers_from_db(auto& idxdb_rtxn) {
-	assert(this->current_byte_pos == next_stream_change_ ||
+	assert(this->current_byte_pos == next_pmt_change_ ||
 				 !this->current_pmt_marker); //otherwise there is no reason to call this
 
 	assert(this->current_pmt_marker || ! this->first_pmt_read);
@@ -141,7 +141,7 @@ void  mpm_cursor_t::update_pmt_markers_from_db(auto& idxdb_rtxn) {
 			assert(c.is_valid() && c.current().packetno_start == tst);
 #endif
 		} else {
-			//no known pmt change is pending, but we do have a new current_pmt_marker npw
+			//no known pmt change is pending, but we do have a new current_pmt_marker now
 			if(this->next_pmt_marker)
 				this->current_pmt_marker = this->next_pmt_marker;
 			else {
@@ -150,16 +150,69 @@ void  mpm_cursor_t::update_pmt_markers_from_db(auto& idxdb_rtxn) {
 			}
 		}
 	}
-	next_stream_change_ = this->next_pmt_marker ?
+	next_pmt_change_ = this->next_pmt_marker ?
 		this->next_pmt_marker->packetno_start * (int64_t) ts_packet_t::size :  -1;
+}
+
+void  mpm_cursor_t::update_dmarkers_from_db(auto& idxdb_rtxn) {
+
+	//find current_dmarker if not set (e..g, start of playback or after a search)
+	if(!this->current_dmarker) {
+		auto c = recdb::dmarker_t::find_by_key(idxdb_rtxn, (uint32_t) (this->current_byte_pos / ts_packet_t::size),
+																							find_leq);
+		if(c.is_valid()) {
+			this->current_dmarker = c.current();
+			c.next();
+			if(c.is_valid())
+				this->next_dmarker = c.current();
+			else
+				this->next_dmarker.reset();
+		}
+		else {
+			/*
+				this must be a live stream in the process of starting
+			*/
+		}
+	} else {
+		assert(!this->next_dmarker || this->current_byte_pos == this->next_dmarker->packetno *
+					 (int64_t)ts_packet_t::size);
+
+		/*switch to a new next_dmarker, i.e., dmarker
+			There may be none, or its location may not yet be known
+		*/
+		auto c = recdb::dmarker_t::find_by_key(idxdb_rtxn, this->current_dmarker->segmentno + 1, find_geq);
+
+		if(c.is_valid()) {
+#ifndef NDEBUG
+			auto tst = this->current_dmarker->packetno;
+#endif
+			this->current_dmarker = this->next_dmarker;
+			auto dmarker = c.current();
+			this->next_dmarker  = dmarker;
+#ifndef NDEBUG
+			c.prev();
+			assert(c.is_valid() && c.current().packetno == tst);
+#endif
+		} else {
+			//no known discontinuity is pending, but we do have a new current_dmarker now
+			if(this->next_dmarker)
+				this->current_dmarker = this->next_dmarker;
+			else {
+				//current current_dmarker remains valid
+				this->next_dmarker.reset();
+			}
+		}
+	}
+	next_dmarker_change_ = this->next_dmarker ?
+		this->next_dmarker->packetno * (int64_t) ts_packet_t::size :  -1;
 }
 
 int mpm_cursor_t::move_to_last_segment(db_txn& idxdb_rtxn) {
 
-	auto c = find_last<discontinuity_marker_t>(idxdb_rtxn);
+	auto c = find_last<dmarker_t>(idxdb_rtxn);
 	if(c.is_valid()) {
-		this->current_segment = c.current();
-		this->seek_to_bytepos(this->current_segment.packetno*(int64_t)ts_packet_t::size);
+		this->current_dmarker = c.current();
+		this->seek_to_bytepos(this->current_dmarker->packetno*(int64_t)ts_packet_t::size);
 	}
 	return 0;
 }
@@ -167,6 +220,33 @@ int mpm_cursor_t::move_to_last_segment(db_txn& idxdb_rtxn) {
 int mpm_cursor_t::move_to_last_segment() {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 	auto ret = move_to_last_segment(idxdb_rtxn);
+	idxdb_rtxn.abort();
+	return ret;
+}
+
+/*
+	Move to a specific segment, or if it does not exist, to the next one
+	or the first one
+	Return -1 if nothing could be found
+ */
+int mpm_cursor_t::move_to_segment(db_txn& idxdb_rtxn, int segmentno) {
+
+	auto c = dmarker_t::find_by_segmentno(idxdb_rtxn, segmentno, find_type_t::find_geq);
+	if(!c.is_valid()) {
+		auto c = find_first<dmarker_t>(idxdb_rtxn);
+		if(!c.is_valid())
+			return -1;
+		this->current_dmarker = c.current();
+	} else {
+		this->current_dmarker = c.current();
+	}
+	this->seek_to_bytepos(this->current_dmarker->packetno*(int64_t)ts_packet_t::size);
+	return 0;
+}
+
+int mpm_cursor_t::move_to_segment(int segmentno) {
+	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
+	auto ret = move_to_segment(idxdb_rtxn, segmentno);
 	idxdb_rtxn.abort();
 	return ret;
 }
@@ -194,8 +274,8 @@ int mpm_cursor_t::seek_to_time_(db_txn& idxdb_rtxn, milliseconds_t start_time) {
 	auto ret = seek_part_for_packetno(idxdb_rtxn, current_marker.packetno_start);
 	if(ret < 0)
 		return ret;
-
-this->current_byte_pos = current_marker.packetno_start * (int64_t)ts_packet_t::size;
+	assert(current_marker.packetno_start>=0);
+	this->current_byte_pos = current_marker.packetno_start * (int64_t)ts_packet_t::size;
 	dtdebugf("set current_byte_pos={} part_no={}", this->current_byte_pos, this->current_part.fileno);
 	assert(this->current_byte_pos >=0);
 	assert(this->current_byte_pos >= current_part.stream_packetno_start * (int64_t)ts_packet_t::size);
@@ -223,14 +303,18 @@ this->current_byte_pos = current_marker.packetno_start * (int64_t)ts_packet_t::s
 inline int mpm_cursor_t::seek_to_time_(milliseconds_t start_time) {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 	auto ret =  seek_to_time_(idxdb_rtxn, start_time);
- 	reset_pmt_markers();
+	reset_pmt_markers();
+	reset_dmarkers();
 	update_pmt_markers_from_db(idxdb_rtxn);
+	update_dmarkers_from_db(idxdb_rtxn);
 	assert(this->current_pmt_marker || !this->next_pmt_marker);
+	assert(this->current_dmarker || !this->next_dmarker);
 	idxdb_rtxn.abort();
 	return ret;
 }
 
 int64_t mpm_cursor_t::seek_to_bytepos(db_txn& idxdb_rtxn, int64_t byte_pos) {
+	assert(byte_pos>=0);
 	this->current_byte_pos = byte_pos;
 	return this->seek_part_for_packetno(idxdb_rtxn, (uint32_t) (byte_pos / ts_packet_t::size));
 }
@@ -238,24 +322,39 @@ int64_t mpm_cursor_t::seek_to_bytepos(db_txn& idxdb_rtxn, int64_t byte_pos) {
 int64_t mpm_cursor_t::seek_to_bytepos(int64_t byte_pos) {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
 	auto ret =  seek_to_bytepos(idxdb_rtxn, byte_pos);
- 	reset_pmt_markers();
+	reset_pmt_markers();
+	reset_dmarkers();
 	update_pmt_markers_from_db(idxdb_rtxn);
+	update_dmarkers_from_db(idxdb_rtxn);
 	assert(this->current_pmt_marker || !this->next_pmt_marker);
+	assert(this->current_dmarker || !this->next_dmarker);
 	idxdb_rtxn.abort();
 	return ret;
 }
 
-int64_t mpm_cursor_t::get_size(db_txn& idxdb_rtxn) {
-	auto c = find_last<marker_t>(idxdb_rtxn);
-	if(!c.is_valid())
-		return -1;
-	auto last_marker = c.current();
-	return last_marker.packetno_end * (int64_t) ts_packet_t::size;
+int64_t mpm_cursor_t::get_current_segment_size(db_txn& idxdb_rtxn) {
+	auto cd = dmarker_t::find_by_segmentno(idxdb_rtxn, this->current_dmarker->segmentno+1, find_type_t::find_geq);
+	if(cd.is_valid()) {
+		auto next_dm = cd.current();
+		auto ret = (next_dm.packetno -  this->current_dmarker->packetno) * (int64_t) ts_packet_t::size;
+		dtdebugf("SEGMENT_SIZE {} pn={}/{} sn={}/{}", ret, this->current_dmarker->packetno, next_dm.packetno,
+						 this->current_dmarker->segmentno, next_dm.segmentno);
+		return ret;
+	} else {
+		auto c = find_last<marker_t>(idxdb_rtxn);
+		if(!c.is_valid())
+			return -1;
+		auto last_marker = c.current();
+		auto ret = (last_marker.packetno_end - this->current_dmarker->packetno) * (int64_t) ts_packet_t::size;
+		dtdebugf("SEGMENT_SIZE {} pn={}/{} segment_no={}", ret, last_marker.packetno_end, this->current_dmarker->packetno,
+						 this->current_dmarker->segmentno);
+		return ret;
+	}
 }
 
-int64_t mpm_cursor_t::get_size() {
+int64_t mpm_cursor_t::get_current_segment_size() {
 	auto idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
-	auto ret = this->get_size(idxdb_rtxn);
+	auto ret = this->get_current_segment_size(idxdb_rtxn);
 	idxdb_rtxn.abort();
 	return ret;
 }
@@ -296,7 +395,7 @@ int mpm_cursor_t::move_to_part(db_txn& idxdb_rtxn, int partno)
 int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn,
 																			 int64_t last_pmt_bytepos)
 {
-	if(next_stream_change_ == -1 && last_pmt_bytepos  > this->current_byte_pos ) {
+	if(next_pmt_change_ == -1 && last_pmt_bytepos  > this->current_byte_pos ) {
 		/*at least one pmt change is pending after the current_byte_pos; otherwise there
 			is no reason to check
 		*/
@@ -317,10 +416,43 @@ int mpm_cursor_t::check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn,
 			return -1;
 		}
 		auto pmt_marker = c.current();
-		next_stream_change_ = pmt_marker.packetno_start *  (int64_t) ts_packet_t::size;
+		next_pmt_change_ = pmt_marker.packetno_start *  (int64_t) ts_packet_t::size;
 		assert(pmt_marker.packetno_start <= last_pmt_bytepos);
 		assert(!this->next_pmt_marker || pmt_marker.packetno_start == this->next_pmt_marker->packetno_start);
-		assert(next_stream_change_ >= this->current_byte_pos);
+		assert(next_pmt_change_ >= this->current_byte_pos);
+#endif
+	}
+	return 0;
+}
+
+int mpm_cursor_t::check_for_dmarker_change(std::optional<db_txn>& idxdb_rtxn,
+																					 int64_t last_dmarker_bytepos)
+{
+	if(next_dmarker_change_ == -1 && last_dmarker_bytepos  > this->current_byte_pos ) {
+		/*at least one dmarker change is pending after the current_byte_pos; otherwise there
+			is no reason to check
+		*/
+
+		if(!idxdb_rtxn)
+			idxdb_rtxn = db->mpm_rec.idxdb.rtxn();
+#ifndef NDEBUG
+		auto c = recdb::dmarker_t::find_by_segmentno(*idxdb_rtxn, this->current_dmarker->segmentno + 1, find_geq);
+		if(!c.is_valid()) { /* Note that last_dmarker_bytepos>=0 in this case as current_byte_pos >=0.
+													 Therefore we already found out earlier that there is at least one dmarker present
+													 The above test last_dmarker_bytepos  >= current_byte_pos
+													 shows that it is located beyond current_byte_pos.
+													 Therefore the find_geq test must succeed.
+												*/
+			next_dmarker_change_ = -1 ;
+			this->next_dmarker.reset();
+			return 0;
+		}
+		auto dmarker = c.current();
+		this->next_dmarker = dmarker;
+		next_dmarker_change_ = dmarker.packetno *  (int64_t) ts_packet_t::size;
+		assert(dmarker.packetno <= last_dmarker_bytepos);
+		assert(!this->next_dmarker || dmarker.packetno == this->next_dmarker->packetno);
+		assert(next_dmarker_change_ >= this->current_byte_pos);
 #endif
 	}
 	return 0;
@@ -336,18 +468,18 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 		ppmt = & this->next_pmt_marker;
 	}
 
-	auto [last_fileno, max_bytes_pos, last_pmt_packetno_start]
+	auto [last_fileno, max_bytes_pos, last_pmt_packetno_start, current_dmarker_]
 		= live_mpm->wait_for_update(this->current_byte_pos + num_bytes_safe_to_read, ppmt);
 	if(ppmt && *ppmt) {
 		dtdebugf("setting next_stream_change_");
-		next_stream_change_ = this->current_byte_pos; //force initial pmt update
+		next_pmt_change_ = this->current_byte_pos; //force initial pmt update
 		this->current_pmt_marker = *ppmt;
+	}
+	if(!this->next_dmarker && current_dmarker_.segmentno > this->current_dmarker->segmentno) {
+		next_dmarker_change_ = this->current_byte_pos; //force dmarker update
 	}
 	auto new_num_bytes_safe_to_read = max_bytes_pos - this->current_byte_pos;
 	assert(new_num_bytes_safe_to_read >= this->num_bytes_safe_to_read);
-#if 0
-	dtdebugf("set num_bytes_safe_to_read old={} new={}", this->num_bytes_safe_to_read, new_num_bytes_safe_to_read );
-#endif
 	this->num_bytes_safe_to_read = new_num_bytes_safe_to_read;
 	std::optional<db_txn> idxdb_rtxn;
 
@@ -362,13 +494,15 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 	}
 
 	auto ret =
-		(next_stream_change_ >=0) ? 0 :
+		(next_pmt_change_ >=0) ? 0 :
 		check_for_pmt_change(idxdb_rtxn, (int64_t)last_pmt_packetno_start * ts_packet_t::size);
-	dtdebugf("now: num_bytes_safe_to_read={}", this->num_bytes_safe_to_read);
+	auto ret1 =
+		(next_dmarker_change_ >=0) ? 0 :
+		check_for_dmarker_change(idxdb_rtxn, current_dmarker_.packetno* ts_packet_t::size);
 	if(idxdb_rtxn)
 		idxdb_rtxn->abort();
-	if(ret<0)
-		return ret;
+	if(ret<0 || ret1<0)
+		return -1;
 	return 0;
 }
 
@@ -400,11 +534,18 @@ system_time_t mpm_cursor_t::real_time_for_byte_pos(int64_t byte_pos) {
 /*retrieve the currently active pmt_marker (called by playback_mpm)
  */
 recdb::pmt_marker_t  mpm_cursor_t::get_pmt_marker() {
-	assert(this->current_byte_pos == next_stream_change_); //otherwise there is no reason to call this
+	assert(this->current_byte_pos == next_pmt_change_); //otherwise there is no reason to call this
 	assert(this->current_pmt_marker);
 	this->first_pmt_read = true;
-	this->next_stream_change_ = -1;
+	this->next_pmt_change_ = -1;
 	return *this->current_pmt_marker;
+}
+
+recdb::dmarker_t  mpm_cursor_t::get_dmarker() {
+	assert(this->current_byte_pos == next_dmarker_change_); //otherwise there is no reason to call this
+	assert(this->current_dmarker);
+	this->next_dmarker_change_ = -1;
+	return *this->current_dmarker;
 }
 
 /*
@@ -428,14 +569,16 @@ recdb::pmt_marker_t  mpm_cursor_t::get_pmt_marker() {
 	 fileno:     number of the part in which data can be read
 	 start_pos:  byte in this part (relative to the start of the file) at which the first byte can be read
 	 num_bytes:  number of bytes that can be read
-	 stream_change: true when the reason for returning num_bytes==0 is a stream change
+	 pmt_change: true when the reason for returning num_bytes==0 is a pmt change
+	 dmarker_change: true when the reason for returning num_bytes==0 is a dmarker change
  */
-std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm) {
+std::tuple<int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm) {
 	assert(num_bytes>0);
 	auto n = std::min(num_bytes_safe_to_read, num_bytes);
 	assert(n>=0);
 	auto still_growing = live_mpm && this->part_is_growing();
-	bool stream_change{false};
+	bool pmt_change{false};
+	bool dmarker_change{false};
 
 	if(!still_growing) {
 		int maxbytes  = (int64_t)this->current_part.stream_packetno_end* (int64_t) ts_packet_t::size - this->current_byte_pos;
@@ -443,19 +586,23 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 		assert(n>=0);
 
 		if(!first_pmt_read && this->current_pmt_marker) {
-			stream_change = true; //ensrue that pmt is read when playing back recording
-			next_stream_change_ = this->current_byte_pos;
+			pmt_change = true; //ensure that pmt is read when playing back recording
+			next_pmt_change_ = this->current_byte_pos;
 		}
 	}
 
-	if(next_stream_change_ >=0) {
-		stream_change = (next_stream_change_ == this->current_byte_pos);
-		n = std::min(n, (int32_t)(next_stream_change_ - this->current_byte_pos));
+	if(next_pmt_change_ >=0) {
+		pmt_change = (next_pmt_change_ == this->current_byte_pos);
+		n = std::min(n, (int32_t)(next_pmt_change_ - this->current_byte_pos));
+	}
+	if(next_dmarker_change_ >=0) {
+		dmarker_change = (next_dmarker_change_ == this->current_byte_pos);
+		n = std::min(n, (int32_t)(next_dmarker_change_ - this->current_byte_pos));
 	}
 	assert(n>=0);
-	if(n  == 0 && !stream_change) {
+	if(n  == 0 && !pmt_change && ! dmarker_change) {
 		//we need to wait for more data
-		while (n==0 && ! stream_change) {
+		while (n==0 && ! pmt_change && ! dmarker_change) {
 			auto still_growing = live_mpm && this->part_is_growing();
 			if(still_growing) {
 				assert(num_bytes_safe_to_read == 0);
@@ -489,7 +636,8 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 				if(live_mpm) {
 					/*there may have been pmt updates and we have not used wait_for_update*/
 					ret = check_for_pmt_change(idxdb_rtxn, this->current_byte_pos);
-					if(ret<0) {
+					auto ret1 = check_for_dmarker_change(idxdb_rtxn, this->current_byte_pos);
+					if(ret<0 || ret1<0) {
 						n=0; //error
 						break;
 					}
@@ -503,11 +651,14 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 				assert(maxbytes >=0);
 			}
 			n = std::min(maxbytes, num_bytes);
-			stream_change = (next_stream_change_ == this->current_byte_pos);
-			if(next_stream_change_ >=0)
-				n = std::min(n, (int32_t)(next_stream_change_ - this->current_byte_pos));
+			pmt_change = (next_pmt_change_ == this->current_byte_pos);
+			dmarker_change = (next_dmarker_change_ == this->current_byte_pos);
+			if(next_pmt_change_ >=0)
+				n = std::min(n, (int32_t)(next_pmt_change_ - this->current_byte_pos));
+			if(next_dmarker_change_ >=0)
+				n = std::min(n, (int32_t)(next_dmarker_change_ - this->current_byte_pos));
 			assert(n>=0);
-			assert(!stream_change || (n==0));
+			assert((!pmt_change  && ! dmarker_change) || (n==0));
 		}
 	}
 	assert(n>=0);
@@ -515,22 +666,16 @@ std::tuple<int32_t, int64_t, int32_t, bool> mpm_cursor_t::get_read_range(int32_t
 	return {
 		current_part.fileno,
 		this->current_byte_pos - current_part.stream_packetno_start * (int64_t) ts_packet_t::size,
-		n,
-		stream_change};
+		n, pmt_change, dmarker_change};
 }
 
 void mpm_cursor_t::advance(int32_t num_bytes) {
 	assert(num_bytes <= num_bytes_safe_to_read);
 	num_bytes_safe_to_read -= num_bytes;
-#if 0
-	dtdebugf("set num_bytes_safe_to_read={} part_no={}", num_bytes_safe_to_read, this->current_part.fileno);
-#endif
 	this->current_byte_pos += num_bytes;
-#if 1
-	dtdebugf("advance: set current_byte_pos={} part_no={}", this->current_byte_pos, this->current_part.fileno);
-#endif
 	assert(this->current_byte_pos >=0);
-	assert(next_stream_change_<0 || this->current_byte_pos <= next_stream_change_);
+	assert(next_pmt_change_<0 || this->current_byte_pos <= next_pmt_change_);
+	assert(next_dmarker_change_<0 || this->current_byte_pos <= next_dmarker_change_);
 }
 
 void part_cursor_t::close_current_part() {
@@ -647,10 +792,10 @@ int part_cursor_t::seek_to_bytepos(int64_t byte_pos)
 	return (int32_t) byte_pos;
 }
 
-//called by playback_mpm (get_size)
-int64_t part_cursor_t::get_size()
+//called by playback_mpm (get_segment_size)
+int64_t part_cursor_t::get_current_segment_size()
 {
-	return mpm_cursor.get_size();
+	return mpm_cursor.get_current_segment_size();
 }
 
 /*
@@ -663,18 +808,18 @@ int64_t part_cursor_t::get_size()
 	  then call skip_stream_change, and repeat get_read_range to retrieve a valid buffer
 
  */
-std::tuple<uint8_t*, int32_t, bool>
+std::tuple<uint8_t*, int32_t, bool, bool>
 part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 {
 	if(error)
-		return {nullptr, 0, false};
-	auto [part_no_, current_byte_pos, len_, stream_change] =
+		return {nullptr, 0, false, false};
+	auto [part_no_, current_byte_pos, len_, pmt_change, dmarker_change] =
 		mpm_cursor.get_read_range(num_bytes, live_mpm);
 	bool need_mapping = !mapped || 	this->part_no != part_no_;
 	assert(current_byte_pos>=0);
 	assert(len_>=0 && len_ <=num_bytes);
-	if(stream_change)
-		return {nullptr, 0, stream_change};
+	if(pmt_change)
+		return {nullptr, 0, pmt_change, dmarker_change};
 
 	if(need_mapping) {
 		map();
@@ -686,17 +831,14 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 	if(!buffer) {
 		map();
 		buffer = get_buffer(part_no_, current_byte_pos, len_);
-		assert(buffer || (stream_change && len_==0));
+		assert(buffer || ((pmt_change || dmarker_change) && len_==0));
 	}
-	assert(buffer || (stream_change && len_==0));
+	assert(buffer || ((pmt_change || dmarker_change) && len_==0));
 
-#if 1
-	dtdebugf("part_no={} offset={} buffer={}, len={} num_bytes_safe_to_read={} current_byte_pos={}",
-					 part_no, offset, buffer - mapped + offset, len_, mpm_cursor.num_bytes_safe_to_read, current_byte_pos);
-#endif
 	assert(buffer +len_ - mapped  <= map_len);
-	assert(!stream_change  ||( !!this->mpm_cursor.current_pmt_marker && !!this->mpm_cursor.next_pmt_marker));
-	return {buffer, len_, stream_change};
+	assert(!pmt_change  ||( !!this->mpm_cursor.current_pmt_marker && !!this->mpm_cursor.next_pmt_marker));
+	assert(!dmarker_change  ||( !!this->mpm_cursor.current_dmarker && !!this->mpm_cursor.next_dmarker));
+	return {buffer, len_, pmt_change, dmarker_change};
 }
 
 //called by playback_mpm

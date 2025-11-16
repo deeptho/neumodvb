@@ -232,14 +232,18 @@ pmt_marker = db_struct(name='pmt_marker',
                      ))
 
 #marks the start of data after a discontinuity
-discontinuity_marker = db_struct(name='discontinuity_marker',
+dmarker = db_struct(name='dmarker',
                      fname = 'rec',
                      db = db,
                      type_id= lord('sD'),
                      version = 1,
                      primary_key = ('key', ('packetno',)), #unique
+                     keys =  (
+                         (lord('ed'), 'segmentno', ('segmentno',)),
+                     ),                     #not unique
                      fields = ((1, 'int16_t', 'segmentno', '-1'),
                                (2, 'int64_t', 'packetno', '-1'),
+                               (3, 'time_t', 'real_time', '-1')
                      ))
 
 #Singleton listing recordings viewed

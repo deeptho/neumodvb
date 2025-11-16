@@ -112,13 +112,12 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 
 	was_interrupted = false;
 	other.current_marker = current_marker;
+	other.current_dmarker = current_dmarker;
+	other.current_pmt_marker = current_pmt_marker;
 	other.livebuffer_start_time = livebuffer_start_time;
 	other.livebuffer_end_time = livebuffer_end_time;
-	other.live_segment_start_byte_pos = live_segment_start_byte_pos;
-	other.live_segment_start_time = live_segment_start_time;
 	other.num_bytes_safe_to_read = num_bytes_safe_to_read;
 	other.current_file_record = current_file_record;
-	other.current_pmt_marker = current_pmt_marker;
 	lk.release(); // needed because caller expects both mutexes to remain locked
 }
 
@@ -133,7 +132,7 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 
 	if ppmt_ret is set, then it also returns the sot recently received pmt
  */
-std::tuple<int32_t, int64_t, int32_t>
+std::tuple<int32_t, int64_t, int32_t, recdb::dmarker_t>
 meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret) {
 	dttime_init();
 
@@ -147,7 +146,7 @@ meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::opt
 			 */
 			(num_bytes_safe_to_read > min_byte_pos && // extra data is available
 			 current_pmt_marker.packetno_start>=0); //at least one pmt was received
-#if 1
+#if 0
 		if(!ret && current_pmt_marker.packetno_start>=0) {
 			dtdebugf("WAIT: min_byte_pos={} num_bytes_safe_to_read={} "
 							 "current_pmt_marker.packetno_start={} was_interrupted={}", min_byte_pos,
@@ -165,7 +164,7 @@ meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::opt
 	if(ppmt_ret)
 		*ppmt_ret = current_pmt_marker;
 	lk.release(); // needed because caller expects both mutexes to remain locked
-	return {last_fileno, num_bytes_safe_to_read, pmt_packetno_start};
+	return {last_fileno, num_bytes_safe_to_read, pmt_packetno_start, current_dmarker};
 }
 
 /*
@@ -178,7 +177,8 @@ void active_mpm_t::wait_for_update(meta_marker_t& other, int64_t byte_pos_to_rea
 	meta_marker.writeAccess()->wait_for_update(other, meta_marker.mutex(), byte_pos_to_read);
 }
 
-std::tuple<int32_t, int64_t, int32_t> active_mpm_t::wait_for_update(int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret) {
+std::tuple<int32_t, int64_t, int32_t, recdb::dmarker_t> active_mpm_t::wait_for_update(
+	int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret) {
 	return meta_marker.writeAccess()->wait_for_update(meta_marker.mutex(), min_byte_pos, ppmt_ret);
 }
 
@@ -254,9 +254,10 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 		auto file =cf.current();
 		dtdebugf("Found last file_t record\n");
 		auto c = recdb::find_last<recdb::marker_t>(idxdb_wtxn);
-		auto cd = recdb::find_last<recdb::discontinuity_marker_t>(idxdb_wtxn);
+		auto cd = recdb::find_last<recdb::dmarker_t>(idxdb_wtxn);
 		if(c.is_valid() && cd.is_valid()) {
 			auto marker =c.current();
+			auto dmarker = cd.current();
 			dtdebugf("Found marker_t record packetno={} offset={}\n", marker.packetno_end,
 							 marker.packetno_end*(int64_t)dtdemux::ts_packet_t::size);
 
@@ -272,19 +273,17 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 			mm->current_marker = marker;
 			mm->livebuffer_start_time = current_file_time_start;
 			mm->livebuffer_stream_time_start = file.k.stream_time_start;
-			mm->live_segment_start_time = now;
 			this->stream_parser.event_handler.last_saved_marker = marker;
 			mm->num_bytes_safe_to_read = marker.packetno_end * (int64_t) dtdemux::ts_packet_t::size;
 			this->num_bytes_decrypted = mm->num_bytes_safe_to_read;
 			current_file_stream_packetno_start = file.stream_packetno_start;
 			is_new = false;
 
-			auto dmarker =cd.current();
 			dmarker.packetno = marker.packetno_end;
-			mm->live_segment_start_byte_pos = mm->num_bytes_safe_to_read;
 			dmarker.segmentno++;
+			dmarker.real_time = system_clock_t::to_time_t(now);
 			put_record(idxdb_wtxn, dmarker);
-
+			mm->current_dmarker = dmarker;
 			auto fd = new_data_file(mm->current_file_record, "a+");
 			if (fd< 0)
 				throw std::runtime_error("Failed to create live buffer");
@@ -297,13 +296,14 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 			this->set_marker_offsets(file, marker);
 		}
 	} else {
-		recdb::discontinuity_marker_t dmarker;
+		recdb::dmarker_t dmarker;
 		dmarker.packetno = 0;
 		dmarker.segmentno = 0;
+		dmarker.real_time = system_clock_t::to_time_t(now);
 		put_record(idxdb_wtxn, dmarker);
 		auto mm = meta_marker.writeAccess();
-		mm->live_segment_start_time = now;
 		mm->livebuffer_start_time = now;
+		mm->current_dmarker = dmarker;
 	}
 	idxdb_wtxn.commit();
 	if(is_new) {
@@ -977,8 +977,6 @@ playback_info_t active_mpm_t::get_current_program_info() const {
 	ret.start_time = mm->livebuffer_start_time;
 	ret.end_time = mm->livebuffer_end_time;
 	ret.play_time = mm->livebuffer_end_time;
-	ret.live_segment_start_byte_pos = mm->live_segment_start_byte_pos;
-	ret.live_segment_start_time = mm->live_segment_start_time;
 	ret.is_recording= false;
 	return ret;
 

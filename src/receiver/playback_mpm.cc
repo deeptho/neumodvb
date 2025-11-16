@@ -267,9 +267,10 @@ playback_info_t playback_mpm_t::get_recording_program_info() const {
 	ret.play_time = ret.start_time;
 	ret.is_recording = !live_mpm;
 	ret.is_timeshifted = false;
+#if 0
 	ret.live_segment_start_byte_pos = 0;
 	ret.live_segment_start_time = ret.start_time;
-
+#endif
 	ret.epg = currently_playing_recording.epg;
 	{
 		auto txnrec = this->db->mpm_rec.recdb.rtxn();
@@ -334,6 +335,16 @@ void playback_mpm_t::force_abort() {
 }
 
 /*
+	set part_cursor after player moves to a new segment. As a result,
+ a stream discontinuity will be skipped
+ */
+recdb::dmarker_t playback_mpm_t::move_to_segment(int segmentno)
+{
+	part_cursor.mpm_cursor.move_to_segment(segmentno);
+	return part_cursor.get_current_dmarker();
+}
+
+/*
 	Restart playback at a random time instance.
 	Open new files and change the mapped part of the file as needed
 */
@@ -369,8 +380,8 @@ int64_t playback_mpm_t::move_to_bytepos(int64_t bytepos) {
 }
 
 //called by neumompv.cc size_fn
-int64_t playback_mpm_t::get_size() {
-	auto ret = part_cursor.get_size();
+int64_t playback_mpm_t::get_current_segment_size() {
+	auto ret = part_cursor.get_current_segment_size();
 	return ret>=0 ? ret : -1;
 }
 
@@ -378,10 +389,10 @@ int64_t playback_mpm_t::get_size() {
 	returns the number of seconds at which playback should start
  */
 
-int64_t playback_mpm_t::move_to_live() {
+recdb::dmarker_t playback_mpm_t::move_to_live() {
 	assert(live_mpm);
 	live_mpm->wait_for_update(last_seen_live_meta_marker, ts_packet_t::size);
-	return  last_seen_live_meta_marker.live_segment_start_byte_pos;
+	return  last_seen_live_meta_marker.current_dmarker;
 }
 
 
@@ -397,13 +408,16 @@ std::tuple<int, int> playback_mpm_t::read_data_(char* outbuffer, int64_t outbyte
 	int tot_out{0};
 	int tot_in{0};
 	for (; outbytes > 0;) {
-		auto [buffer, remaining_space, stream_change_] = part_cursor.get_read_range((int32_t)outbytes, live_mpm);
-		if(stream_change_) {
+		auto [buffer, remaining_space, pmt_change_, dmarker_change_] = part_cursor.get_read_range((int32_t)outbytes, live_mpm);
+		if(pmt_change_) {
 				auto pmt_marker = part_cursor.get_pmt_marker();
 				auto ss = stream_state.writeAccess();
 				ss->current_pmt_marker = pmt_marker;
 				update_pmt(*ss);
 				continue;
+		} else if (dmarker_change_) {
+			part_cursor.get_dmarker();
+			continue; //TODO implement logic in read_fn
 		} else if(remaining_space==0) {
 			//playing back recording and reaching eof
 			return {tot_out, tot_in};

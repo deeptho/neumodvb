@@ -83,7 +83,7 @@ class mpv_subscription_t {
 	std::shared_ptr<subscriber_t> subscriber;
 	bool pending_close = false; //used to speed up channel change
 	jump_state_t jump_state;
-	int64_t live_start_byte_pos{0};
+	recdb::dmarker_t current_segment_dmarker{};
 public:
 	std::atomic<bool> show_osd{false};
 	std::atomic<bool> show_radiobg{false};
@@ -139,28 +139,30 @@ public:
 	void close(bool unsubscribe);
 	int64_t wait_for_close();
 	inline int64_t move_to_bytepos(int64_t bytepos) {
-		return this->mpm->move_to_bytepos(this->live_start_byte_pos + bytepos);
+		assert(this->current_segment_dmarker.packetno>=0);
+		auto start = this->current_segment_dmarker.packetno * (int64_t) ts_packet_t::size + bytepos;
+		return this->mpm->move_to_bytepos(start);
 	}
-	inline int64_t get_size() {
-		return this->mpm->get_size() - this->live_start_byte_pos;
+	inline int64_t get_current_segment_size() {
+		auto ret = this->mpm->get_current_segment_size();
+		dtdebugf("SEGMENT_SIZE: {}", ret);
+		return ret;
 	}
 };
 
 struct trick_play_t {
 	double time_pos;
 	int64_t stream_pos{0};
-	system_time_t live_buffer_start_time; //time at which the service was first tuned
+#if 0
 	system_time_t live_segment_start_time; //time at which the service was last tuned;
 	int64_t live_segment_start_byte_pos{};
-
+	system_time_t live_buffer_start_time; //time at which the service was first tuned
+#endif
 	bool reverse_playing {false};
 	bool fast_forwarding {false};
 	double fast_forwarding_time_pos_limit{0.0};
 	int playback_speed_index{0};
 	bool paused{false};
-	inline system_time_t get_mpv_play_real_time() const {
-		return live_segment_start_time + std::chrono::duration<int64_t>((int64_t)time_pos);
-	}
 };
 
 class MpvPlayer_ : public MpvPlayer {
@@ -185,6 +187,11 @@ public:
 	}
 
 	mpv_render_context* mpv_gl = nullptr;
+
+	inline system_time_t get_mpv_play_real_time() const {
+		return system_clock_t::from_time_t(this->subscription.current_segment_dmarker.real_time) +
+			std::chrono::duration<int64_t>((int64_t)trick_play.readAccess()->time_pos);
+	}
 
 	void on_mpv_wakeup_event();
 	inline void reset_valid_frames() {
@@ -220,10 +227,6 @@ public:
 	void notify_signal_info(const signal_info_t& info);
 	void notify_message(const ss::string_& msg);
 	void update_playback_info();
-
-	inline system_time_t get_mpv_play_real_time() const {
-		return trick_play.readAccess()->get_mpv_play_real_time();
-	}
 
 	inline system_time_t get_play_real_time() const {
 		auto  r = trick_play.readAccess();

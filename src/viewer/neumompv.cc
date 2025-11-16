@@ -58,9 +58,11 @@ namespace py = pybind11;
 	other wxGLCanvas was created with the same attributes as the wxGLCanvas from which the wxGLContext was
 	initialized. (This applies to sharing display lists among contexts analogously."
 
-
-
  */
+
+#define LIVE_SEGMENTNO (-2)
+#define OLDEST_SEGMENTNO (-1)
+
 class dt_context_t : public wxGLContext {
 	static thread_local std::unique_ptr<dt_context_t> c_;
 public:
@@ -246,7 +248,7 @@ struct file_t;
 
 static int64_t size_fn(void* cookie) {
 	auto* player = (MpvPlayer_*)cookie;
-	auto ret = player->subscription.get_size();
+	auto ret = player->subscription.get_current_segment_size();
 	return ret < 0 ? MPV_ERROR_UNSUPPORTED : ret;
 }
 
@@ -294,7 +296,9 @@ void mpv_subscription_t::close_fn() {
 	};
 	auto op = get();
 	op();
+#if 0
 	mpv_player->reset_valid_frames();
+#endif
 }
 
 static void close_fn(void* cookie) {
@@ -325,11 +329,14 @@ int mpv_subscription_t::open() {
 	dtdebug_nicef("Open subscription_id={} mpm={}", subscription_id, !!mpm);
 	if(mpm) {
 		auto playback_info = mpm->get_current_program_info();
-		dtdebug_nicef("QQQ start_time={}", playback_info.start_time);
+		dtdebug_nicef("live_buffer_start_time={}",
+									playback_info.start_time);
 		auto w = mpv_player->trick_play.writeAccess();
+#if 0
 		w->live_buffer_start_time = playback_info.start_time;
 		w->live_segment_start_time = playback_info.live_segment_start_time;
 		w->live_segment_start_byte_pos = playback_info.live_segment_start_byte_pos;
+#endif
 	}
 	return mpm ? 0 : -1;
 }
@@ -867,12 +874,16 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 																					 { this->on_language_change(lang, pos, for_subtitles); });
 
 		dtdebugf("PLAY SUBSCRIPTION (service): mpm init done");
-		if (mpm->move_to_live() < 0) {
+		auto dmarker = mpm->move_to_live();
+		dtdebugf("PLAY SUBSCRIPTION (service): move_to_live: segmentno={:d} packet={}",
+						 dmarker.segmentno, dmarker.packetno);
+		if (dmarker.packetno < 0) {
 			dtdebugf("PLAY SUBSCRIPTION (service): aborting");
 			this->close(false /*unsubscribe*/);
 			subscriber->unsubscribe(true /*wait*/);
 			return;
 		}
+		this->current_segment_dmarker = dmarker;
 		dtdebugf("PLAY SUBSCRIPTION (service): mpm move_to_live done");
 	}
 	return;
@@ -946,7 +957,8 @@ int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t s
 																							{ this->on_language_change(x, id, for_subtitles); });
 
 		dtdebugf("PLAY SUBSCRIPTION (rec): mpm init done");
-		if (mpm->move_to_time(start_play_time) < 0) {
+		auto dmarker = mpm->move_to_start();
+		if (dmarker.packetno < 0) {
 			dtdebugf("PLAY SUBSCRIPTION (rec): aborting");
 			this->close(false /*unsubscribe*/);
 			if ((int) subscription_id >= 0) {
@@ -955,6 +967,7 @@ int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t s
 			}
 			return -1;
 		}
+		this->current_segment_dmarker = dmarker;
 		dtdebugf("PLAY SUBSCRIPTION (rec): mpm move to start_play_time done: {}", start_play_time);
 	}
 	return 0;
@@ -1203,8 +1216,9 @@ int64_t mpv_subscription_t::read_data(char* buffer, uint64_t nbytes) {
 	if ((int) subscription_id < 0)
 		return 0;
 	if (mpm) { // regular service
-		auto [ret, have_pmt] =	mpm->read_data(buffer, nbytes);
-		return ret;
+		auto [ret, dmarker_change] =	mpm->read_data(buffer, nbytes);
+		assert(!dmarker_change || ret==0);
+		return ret; //will cause jump to next segmentno
 	}
 	else
 		return wait_for_close();

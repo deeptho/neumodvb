@@ -41,13 +41,24 @@ class mpm_cursor_t {
 																			 This value may be outdated, but then the most uptodate value is larger
 																		*/
 
-	int64_t next_stream_change_{-1}; /* first byte position after current_byte_pos at which a pmt change will occur.
+	int64_t next_pmt_change_{-1}; /* first byte position after current_byte_pos at which a pmt change will occur.
 																			This is relative to  the first byte in the mpm, when the mpm was created,
 																			i.e., to when the channel was tuned
 																			if parts are removed from the file (old live buffer parts), the current_byte_pos
 																			is relative to the start of a deleted part....
 
 																			The special value -1 means no pmt change is known.
+
+																			This value may be outdated, but only in the sense that -1 may be incorrect
+																	 */
+
+	int64_t next_dmarker_change_{-1}; /* first byte position after current_byte_pos at which a stream discontinuity will occur.
+																			This is relative to  the first byte in the mpm, when the mpm was created,
+																			i.e., to when the channel was tuned
+																			if parts are removed from the file (old live buffer parts), the current_byte_pos
+																			is relative to the start of a deleted part....
+
+																			The special value -1 means no discontinuity change is known.
 
 																			This value may be outdated, but only in the sense that -1 may be incorrect
 																	 */
@@ -62,9 +73,18 @@ class mpm_cursor_t {
 																												 happen
 																											 */
 
+	std::optional<recdb::dmarker_t> current_dmarker; /* last stream discontinuity  before  current bytepos.
+																												 */
+	std::optional<recdb::dmarker_t> next_dmarker; /* next stream discontinuity that will come into effect
+																												 after the current bytepos. If not set, then
+																												 no discontinuity will happen or it is not known if one will
+																												 happen
+																											 */
+
 	bool first_pmt_read{false};
 	int move_to_part(db_txn& idxdb_rtxn, int partno);
 	int check_for_pmt_change(std::optional<db_txn>& idxdb_rtxn, int64_t last_pmt_packetno_start);
+	int check_for_dmarker_change(std::optional<db_txn>& idxdb_rtxn, int64_t last_dmarker_packetno);
 
 /*
 		position current_bytepos at start_time milliseconds from the start of tuning,
@@ -78,9 +98,6 @@ class mpm_cursor_t {
 
 public:
 	recdb::file_t current_part {}; /*information about current part that contains current_bytepos*/
-	recdb::discontinuity_marker_t current_segment {}; /*information about current segment,
-																										 ie. a byte range without stream discontinuities*/
-
 	recdb::file_t last_part {}; /*information about the last part in this mpm*/
 
 	inline bool part_is_growing () const {
@@ -101,6 +118,8 @@ public:
 
 	int move_to_last_segment(db_txn& idxdb_rtxn);
 	int move_to_last_segment();
+	int move_to_segment(db_txn& idxdb_rtxn, int segmentno);
+	int move_to_segment(int segmentno);
 	int open();
 
 	inline void reset_pmt_markers() {
@@ -108,7 +127,14 @@ public:
 		this->next_pmt_marker.reset();
 		this->first_pmt_read = false;
 	}
+
+	inline void reset_dmarkers() {
+		this->current_dmarker.reset();
+		this->next_dmarker.reset();
+	}
+
 	void update_pmt_markers_from_db(auto& idxdb_rtxn);
+	void update_dmarkers_from_db(auto& idxdb_rtxn);
 
 	/*
 		position current_bytepos at byte_pos bytes since the start of tuning.
@@ -116,8 +142,8 @@ public:
 	 */
 	int64_t seek_to_bytepos(db_txn& idxdb_txn, int64_t byte_pos);
 	int64_t seek_to_bytepos(int64_t byte_pos);
-	int64_t get_size(db_txn& idxdb_txn);
-	int64_t get_size();
+	int64_t get_current_segment_size(db_txn& idxdb_txn);
+	int64_t get_current_segment_size();
 	system_time_t real_time_for_byte_pos(db_txn& idxdb_txn, int64_t byte_pos);
 	EXPORT system_time_t real_time_for_byte_pos(int64_t byte_pos);
 
@@ -133,20 +159,19 @@ public:
 		return (last_part.fileno == current_part.fileno && part_is_growing());
 	}
 
-
-	int64_t next_stream_change() const {
-		return next_stream_change_;
+	int64_t next_pmt_change() const {
+		return next_pmt_change_;
 	}
-
 
 	int wait_for_update(active_mpm_t* live_mpm);
 
-	std::tuple<int32_t, int64_t, int32_t, bool>  get_read_range(int32_t num_bytes, active_mpm_t* live_mpm);
+	std::tuple<int32_t, int64_t, int32_t, bool, bool>  get_read_range(int32_t num_bytes, active_mpm_t* live_mpm);
 	void advance(int32_t num_bytes);
 	/*Move the cursor past a stream change, after the caller has handled the stream_change.
 		This then allows further reading from the cursor
 	 */
 	recdb::pmt_marker_t get_pmt_marker();
+	recdb::dmarker_t get_dmarker();
 
 	milliseconds_t get_current_play_time() const;
 
@@ -219,15 +244,19 @@ public:
 	int open();
 	int seek_to_time(milliseconds_t start_time);
 	int seek_to_bytepos(int64_t byte_pos);
-	int64_t get_size();
+	int64_t get_current_segment_size();
 
 	inline recdb::pmt_marker_t get_pmt_marker() {
 		return mpm_cursor.get_pmt_marker();
 	}
 
+	inline recdb::dmarker_t get_dmarker() {
+		return mpm_cursor.get_dmarker();
+	}
+
 	/*returns a pointer to a range of data to be read of at most num_bytes bytes
 	 */
-	std::tuple<uint8_t*, int32_t, bool>
+	std::tuple<uint8_t*, int32_t, bool, bool>
 	get_read_range(int32_t num_bytes, active_mpm_t* live_mpm);
 
 	inline void advance(int32_t num_bytes) {
@@ -237,9 +266,11 @@ public:
 		return this->error;
 	}
 
+	inline recdb::dmarker_t get_current_dmarker() {
+		return *mpm_cursor.current_dmarker;
+	}
+
 	inline milliseconds_t get_current_play_time() const {
 		return this->mpm_cursor.get_current_play_time();
 	}
-	int move_to_last_segment(db_txn& idxdb_rtxn);
-	int move_to_last_segment();
 };

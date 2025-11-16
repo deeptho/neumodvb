@@ -32,6 +32,10 @@
 
 namespace fs = std::filesystem;
 
+namespace recdb {
+	struct dmarker_t;
+}
+
 class active_service_t;
 class active_mpm_t;
 
@@ -53,9 +57,6 @@ struct playback_info_t {
 	system_time_t start_time{}; //time of first available byte in livebuffer
 	system_time_t end_time{};   //time of end of program (or now if there is no program)
 	system_time_t play_time{};  //current playback time
-	int64_t live_segment_start_byte_pos{};
-	system_time_t live_segment_start_time{};
-
 	bool is_recording{false}; //Is this a recording or a live channel (possibly in timeshift mode)
 	bool is_timeshifted{false};
 	stream_status_t stream_status;
@@ -132,6 +133,8 @@ public:
 																					being played back (playback_mpm) or modified (active_mpm)
 																				*/
 	recdb::marker_t current_marker{};  /*position in current file being played back or last modified*/
+	recdb::pmt_marker_t current_pmt_marker; //points to database record containing newest current pmt and such
+	recdb::dmarker_t current_dmarker; //points to database record containing newest current pmt and such
 /*
  In a playback_mpm, current_marker is updated from live_mpm if playing back the most recent (growing) file.
  It is also updated from the database when starting playback or opening a new file. It then points to the
@@ -139,10 +142,6 @@ public:
 	system_time_t livebuffer_start_time{};
 	system_time_t livebuffer_end_time{};
 	milliseconds_t livebuffer_stream_time_start{};
-	system_time_t live_segment_start_time;
-	int64_t live_segment_start_byte_pos{0};
-
-	recdb::pmt_marker_t current_pmt_marker; //points to database record containing newest current pmt and such
 
 	std::vector<playback_mpm_t*> playback_clients; /*for an active_mpm_t: filenos currently being played back
 																									by any passive mpms coupled to it
@@ -165,7 +164,8 @@ public:
 	updates other; mutex should be locked prior to calling this function
 */
 	void wait_for_update(meta_marker_t& other, std::mutex& mutex, int64_t byte_pos_to_read);
-	std::tuple<int32_t, int64_t, int32_t> wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret);
+	std::tuple<int32_t, int64_t, int32_t, recdb::dmarker_t> wait_for_update(
+		std::mutex& mutex, int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret);
 
 	void interrupt() {
 		was_interrupted = true;
@@ -277,8 +277,10 @@ public:
 	EXPORT int move_to_time(milliseconds_t start_play_time);
 	EXPORT int move_to_packetno(int32_t packetno);
 	EXPORT int64_t move_to_bytepos(int64_t bytepos);
-	EXPORT int64_t get_size();
-	EXPORT int64_t move_to_live();
+	EXPORT int64_t get_current_segment_size();
+	EXPORT recdb::dmarker_t move_to_live();
+	EXPORT recdb::dmarker_t move_to_start();
+	EXPORT recdb::dmarker_t move_to_segment(int segmentno);
 	//int open(int fileno=0); //find and open file
 	EXPORT void close();
 	EXPORT milliseconds_t get_current_play_time() const;
@@ -436,7 +438,10 @@ private:
 	void delete_old_data(db_txn& parent_txn,  system_time_t now);
 
 	void wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read);
-	std::tuple<int32_t, int64_t, int32_t>wait_for_update(int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret);
+
+	std::tuple<int32_t, int64_t, int32_t, recdb::dmarker_t>wait_for_update(
+		int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret);
+
 	void destroy();
 
 	inline virtual int get_write_buffer(uint8_t*& buffer_ret) override {

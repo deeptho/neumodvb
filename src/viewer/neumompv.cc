@@ -42,7 +42,10 @@
 
 namespace py = pybind11;
 
-
+//#define SAVE_DEBUG
+#ifdef SAVE_DEBUG
+static FILE* fp =nullptr;
+#endif
 /*
 	Comments in  makeContextCurrent suggest that a (new?) requirement is that glcontexts cannot be used
 	from a thread other than the one they are created in. This poses problems as more than one mpv thread
@@ -76,17 +79,6 @@ public:
 };
 
 thread_local std::unique_ptr<dt_context_t> dt_context_t::c_;
-
-void save_debug(uint8_t* buffer, off_t size) {
-	if (size > 0) {
-		static FILE* fpdebug = nullptr;
-		if (!fpdebug) {
-			fpdebug = fopen("/tmp/y.ts", "w");
-		}
-		fwrite(buffer, size, 1, fpdebug);
-		// fflush(fpdebug);
-	}
-}
 
 static void InitializeTexture(GLuint& g_texture) {
 	GLenum err;
@@ -275,13 +267,11 @@ static int64_t read_fn(void* cookie, char* buf, uint64_t nbytes) {
 	auto* player = (MpvPlayer_*)cookie;
 	{
 		auto ret = player->subscription.read_data(buf, nbytes);
-#if 0
-		if(ret>0)
-		{
-			static FILE* fp=fopen("/tmp/ttt.ts", "w");
-			fwrite(buf, ret, 1, fp);
-			fflush(fp);
-		}
+#ifdef SAVE_DEBUG
+	{
+		fwrite(buf, ret, 1, fp);
+		fflush(fp);
+	}
 #endif
 		return ret < 0 ? 0 : ret;
 	}
@@ -447,6 +437,15 @@ static int open_fn(void* user_data, char* uri, mpv_stream_cb_info* info) {
 	info->close_fn = ::close_fn;
 	auto ret = player->subscription.open();
 	dttime(100);
+#ifdef SAVE_DEBUG
+	{
+		if(fp)
+			fclose(fp);
+		ss::string<256> fname;
+		fname.format("/tmp/ttt{}.ts", segmentno);
+		fp=fopen(fname.c_str(), "w");
+	}
+#endif
 
 	return (info->cookie && ret>=0) ? 0 : MPV_ERROR_LOADING_FAILED;
 }

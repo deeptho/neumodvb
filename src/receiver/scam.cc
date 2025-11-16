@@ -1194,7 +1194,7 @@ int active_scam_t::register_active_service_(active_service_t* active_service) {
 }
 
 int scam_t::unregister_active_service(active_service_t* active_service, int adapter_no) {
-	dterrorf("{:s} adapter_no={}", active_service->get_current_service().name.c_str(), (int)adapter_no);
+	dtdebugf("{:s} adapter_no={}", active_service->get_current_service().name.c_str(), (int)adapter_no);
 	auto it = active_scams.find(adapter_no_t(adapter_no));
 	assert(it != active_scams.end());
 	auto active_scam = it->second;
@@ -1211,7 +1211,7 @@ int scam_t::unregister_active_service(active_service_t* active_service, int adap
 }
 
 int active_scam_t::unregister_active_service(active_service_t* active_service, int adapter_no) {
-	dterrorf("{:s} adapter_no={}", active_service->get_current_service().name.c_str(), (int)adapter_no);
+	dtdebugf("{:s} adapter_no={}", active_service->get_current_service().name.c_str(), (int)adapter_no);
 	int use_count = 0;
 	for (int i = registered_active_services.size() - 1; i >= 0; --i) {
 		auto& active_service_p = registered_active_services[i];

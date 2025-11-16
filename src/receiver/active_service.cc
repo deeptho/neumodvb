@@ -377,7 +377,7 @@ int service_thread_t::run() {
 					 If the task is "exit", then run_tasks will return -1
 				*/
 				if (run_tasks(now) < 0) {
-					dterrorf("Exiting");
+					dtdebugf("Exiting");
 					return 0;
 				}
 			} else if (is_timer_fd(evt)) {

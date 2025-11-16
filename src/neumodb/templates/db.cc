@@ -100,7 +100,7 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 			dtdebugf("Database needs major upgrade from {:d} to {:d}\n", db_version, neumo_schema_version);
 			throw db_upgrade_info_t{db_version, neumo_schema_version};
 		}
-		dterrorf("Auto upgrading database {}", dbpath);
+		dtdebugf("Auto upgrading database {}", dbpath);
 		const char* backup_name = nullptr;
 		bool force_overwrite = true;
 		bool inplace_upgrade = true;
@@ -110,10 +110,10 @@ void {{dbname}}::{{dbname}}_t::open(const char* dbpath, bool allow_degraded_mode
 		auto ret=neumodb_upgrade<{{dbname}}::{{dbname}}_t>(dbpath, backup_name, force_overwrite, inplace_upgrade, dont_backup);
 		auto t = dttime(-1);
 		if(ret<0) {
-			dterrorf("Auto upgrading database {} FAILED (upgrade time: {:d}.{:d} s)", dbpath, t/1000, t%1000);
+			dtdebugf("Auto upgrading database {} FAILED (upgrade time: {:d}.{:d} s)", dbpath, t/1000, t%1000);
 			throw e;
 		} else {
-			dterrorf("Auto upgrading database {} SUCCESS (upgrade time: {:d}.{:d} s)", dbpath, t/1000, t%1000);
+			dtdebugf("Auto upgrading database {} SUCCESS (upgrade time: {:d}.{:d} s)", dbpath, t/1000, t%1000);
 			autoconvert = false; // prevent  a conversion loop
 			autoconvert_major_version = false;
 			//envp = std::make_shared<lmdb::env>(lmdb::env::create());

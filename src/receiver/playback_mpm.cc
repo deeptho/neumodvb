@@ -170,7 +170,7 @@ void playback_mpm_t::update_pmt(stream_state_t& ss) {
 		(ss.current_subtitle_language,  ss.subtitle_pref);
 	if(audio_desc) {
 		ss.current_audio_language = audio_lang;
-		dtdebugf("Setting audio_lang={}\n", audio_idx);
+		dtdebugf("Setting audio_lang={}", audio_idx);
 		ss.set_language_pref(audio_idx, false/*for_subtitles*/);
 		ss.current_audio_pid = audio_desc->stream_pid;
 	}

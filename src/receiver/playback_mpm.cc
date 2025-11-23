@@ -343,7 +343,7 @@ void playback_mpm_t::force_abort() {
 		dtdebugf("FORCE abort playback_mpm={:p} live_mpm={:s}", fmt::ptr(this),
 						 live_mpm->active_service->get_current_service().name);
 		must_exit = true;
-		live_mpm->meta_marker.writeAccess()->interrupt();
+		live_mpm->meta_marker.writeAccess()->interrupt_and_abort();
 	}
 }
 
@@ -434,7 +434,9 @@ std::tuple<int, int, bool> playback_mpm_t::read_data_(char* outbuffer, int64_t o
 	int tot_out{0};
 	int tot_in{0};
 	for (; outbytes > 0;) {
-		auto [buffer, remaining_space, pmt_change_, dmarker_change_] = part_cursor.get_read_range((int32_t)outbytes, live_mpm);
+		auto [end_of_stream, buffer, remaining_space, pmt_change_, dmarker_change_] = part_cursor.get_read_range((int32_t)outbytes, live_mpm);
+		if(end_of_stream)
+			return { -1, -1, false/*dmarker_change_*/};
 		assert(!dmarker_change_ || remaining_space==0);
 		if(pmt_change_) {
 				auto pmt_marker = part_cursor.get_pmt_marker();
@@ -533,7 +535,10 @@ std::tuple<int64_t, bool> playback_mpm_t::read_data(char* outbuffer, uint64_t nu
 
 	if(num_bytes > 0 ) {
 		auto [num_bytes_out, num_bytes_in, dmarker_change] = read_data_(outbuffer + num_bytes_read, num_bytes);
-
+		if(num_bytes_out < 0 || num_bytes_in <0) {
+			//indicates end of stream or error
+			return {-1, false /*dmarker_change*/};
+		}
 		num_bytes_read += num_bytes_out;
 		num_bytes -= num_bytes_out;
 		if (dmarker_change)

@@ -46,6 +46,7 @@ enum class stream_status_t {
 	INACTIVE,
 	NODATA,
 	ENCRYPTED,
+	END_OF_STREAM,
 	ERROR
 };
 
@@ -164,10 +165,10 @@ public:
 	updates other; mutex should be locked prior to calling this function
 */
 	void wait_for_update(meta_marker_t& other, std::mutex& mutex, int64_t byte_pos_to_read);
-	std::tuple<int32_t, int64_t, int32_t, recdb::dmarker_t> wait_for_update(
+	std::tuple<bool, int32_t, int64_t, int32_t, recdb::dmarker_t> wait_for_update(
 		std::mutex& mutex, int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret);
 
-	void interrupt() {
+	void interrupt_and_abort() {
 		was_interrupted = true;
 		cv.notify_all();
 	}
@@ -439,7 +440,7 @@ private:
 
 	void wait_for_update(meta_marker_t& other, int64_t byte_pos_to_read);
 
-	std::tuple<int32_t, int64_t, int32_t, recdb::dmarker_t>wait_for_update(
+	std::tuple<bool, int32_t, int64_t, int32_t, recdb::dmarker_t>wait_for_update(
 		int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret);
 
 	void destroy();

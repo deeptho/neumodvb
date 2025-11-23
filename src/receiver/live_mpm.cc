@@ -109,8 +109,10 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 		return ret;
 	});
 	dttime(2000);
-
+	if(was_interrupted)
+		other.stream_status = stream_status_t::END_OF_STREAM;
 	was_interrupted = false;
+
 	other.current_marker = current_marker;
 	other.current_dmarker = current_dmarker;
 	other.current_pmt_marker = current_pmt_marker;
@@ -128,11 +130,11 @@ void meta_marker_t::wait_for_update(meta_marker_t& other, std::mutex& mutex, int
 
 	The code will always wait until 1 pmt has been seen
 
-	returns: last_fileno,  max_byte_pos, last_pmt_packetno_start
+	returns: end_of_stream last_fileno,  max_byte_pos, last_pmt_packetno_start
 
 	if ppmt_ret is set, then it also returns the sot recently received pmt
  */
-std::tuple<int32_t, int64_t, int32_t, recdb::dmarker_t>
+std::tuple<bool, int32_t, int64_t, int32_t, recdb::dmarker_t>
 meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret) {
 	dttime_init();
 
@@ -157,6 +159,7 @@ meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::opt
 		return ret;
 	});
 	dttime(2000);
+	auto end_of_stream = was_interrupted;
 
 	was_interrupted = false;
 	auto last_fileno = current_file_record.fileno;
@@ -164,7 +167,7 @@ meta_marker_t::wait_for_update(std::mutex& mutex, int64_t min_byte_pos, std::opt
 	if(ppmt_ret)
 		*ppmt_ret = current_pmt_marker;
 	lk.release(); // needed because caller expects both mutexes to remain locked
-	return {last_fileno, num_bytes_safe_to_read, pmt_packetno_start, current_dmarker};
+	return {end_of_stream, last_fileno, num_bytes_safe_to_read, pmt_packetno_start, current_dmarker};
 }
 
 /*
@@ -177,7 +180,7 @@ void active_mpm_t::wait_for_update(meta_marker_t& other, int64_t byte_pos_to_rea
 	meta_marker.writeAccess()->wait_for_update(other, meta_marker.mutex(), byte_pos_to_read);
 }
 
-std::tuple<int32_t, int64_t, int32_t, recdb::dmarker_t> active_mpm_t::wait_for_update(
+std::tuple<bool, int32_t, int64_t, int32_t, recdb::dmarker_t> active_mpm_t::wait_for_update(
 	int64_t min_byte_pos, std::optional<recdb::pmt_marker_t>* ppmt_ret) {
 	return meta_marker.writeAccess()->wait_for_update(meta_marker.mutex(), min_byte_pos, ppmt_ret);
 }

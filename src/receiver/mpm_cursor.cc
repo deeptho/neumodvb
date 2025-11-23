@@ -484,8 +484,10 @@ int mpm_cursor_t::wait_for_update(active_mpm_t* live_mpm) {
 		ppmt = & this->next_pmt_marker;
 	}
 
-	auto [last_fileno, max_bytes_pos, last_pmt_packetno_start, current_dmarker_]
+	auto [end_of_stream, last_fileno, max_bytes_pos, last_pmt_packetno_start, current_dmarker_]
 		= live_mpm->wait_for_update(this->current_byte_pos + num_bytes_safe_to_read, ppmt);
+	if(end_of_stream)
+		return -1;
 	if(ppmt && *ppmt) {
 		dtdebugf("setting next_stream_change_");
 		next_pmt_change_ = this->current_byte_pos; //force initial pmt update
@@ -582,13 +584,14 @@ recdb::dmarker_t  mpm_cursor_t::get_dmarker() {
 
 
 	returns:
+	 end_of_stream: true if player must exit
 	 fileno:     number of the part in which data can be read
 	 start_pos:  byte in this part (relative to the start of the file) at which the first byte can be read
 	 num_bytes:  number of bytes that can be read
 	 pmt_change: true when the reason for returning num_bytes==0 is a pmt change
 	 dmarker_change: true when the reason for returning num_bytes==0 is a dmarker change
  */
-std::tuple<int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm) {
+std::tuple<bool, int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm) {
 	assert(num_bytes>0);
 	auto n = std::min(num_bytes_safe_to_read, num_bytes);
 	assert(n>=0);
@@ -618,6 +621,7 @@ std::tuple<int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(i
 		n = std::min(n, (int32_t)(next_dmarker_change_ - this->current_byte_pos));
 	}
 	assert(n>=0);
+	bool end_of_stream{false};
 	if(n  == 0 && !pmt_change && ! dmarker_change) {
 		//we need to wait for more data
 		while (n==0 && ! pmt_change && ! dmarker_change) {
@@ -625,7 +629,10 @@ std::tuple<int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(i
 			if(still_growing) {
 				assert(num_bytes_safe_to_read == 0);
 				auto ret = wait_for_update(live_mpm);
-				assert(ret>=0);
+				if(ret<0) {
+					end_of_stream = true;
+					break;
+				}
 			} else {
 				if(current_part.fileno == last_part.fileno)
 					break; //we have reached the end of a (non-live) playback
@@ -683,6 +690,7 @@ std::tuple<int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(i
 	assert(n>=0);
 	assert(this->current_byte_pos >= current_part.stream_packetno_start * (int64_t) ts_packet_t::size);
 	return {
+		end_of_stream,
 		current_part.fileno,
 		this->current_byte_pos - current_part.stream_packetno_start * (int64_t) ts_packet_t::size,
 		n, pmt_change, dmarker_change};
@@ -820,6 +828,7 @@ int64_t part_cursor_t::get_current_segment_size()
 /*
 	returns a range of data to be read of at most num_bytes bytes
 	returns:
+	 -end_of_stream
 	 -buffer: pointer to first byte that can be read
 	 -n: number of bytes that can be read, which will be >=0 and <= num_bytes
 	 -if n==0, an stream_change==false we have reached the end of a (non-growing) mpm
@@ -827,19 +836,22 @@ int64_t part_cursor_t::get_current_segment_size()
 	  then call skip_stream_change, and repeat get_read_range to retrieve a valid buffer
 
  */
-std::tuple<uint8_t*, int32_t, bool, bool>
+std::tuple<bool, uint8_t*, int32_t, bool, bool>
 part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 {
 	if(error)
-		return {nullptr, 0, false, false};
-	auto [part_no_, current_byte_pos, len_, pmt_change, dmarker_change] =
+		return {true, nullptr, 0, false, false};
+	auto [end_of_stream, part_no_, current_byte_pos, len_, pmt_change, dmarker_change] =
 		mpm_cursor.get_read_range(num_bytes, live_mpm);
+	if(end_of_stream) {
+		return {end_of_stream, nullptr, 0, false, false};
+	}
 	bool need_mapping = !mapped || 	this->part_no != part_no_;
 	assert(current_byte_pos>=0);
 	assert(len_>=0 && len_ <=num_bytes);
 	assert(!pmt_change || this->mpm_cursor.current_pmt_marker);
 	if(pmt_change)
-		return {nullptr, 0, pmt_change, dmarker_change};
+		return {end_of_stream, nullptr, 0, pmt_change, dmarker_change};
 
 	if(need_mapping) {
 		map();
@@ -859,7 +871,7 @@ part_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm)
 	assert(!pmt_change  ||( !!this->mpm_cursor.current_pmt_marker && !!this->mpm_cursor.next_pmt_marker));
 	assert(!dmarker_change  ||( !!this->mpm_cursor.current_dmarker && !!this->mpm_cursor.next_dmarker));
 	assert(!pmt_change || this->mpm_cursor.current_pmt_marker);
-	return {buffer, len_, pmt_change, dmarker_change};
+	return {end_of_stream, buffer, len_, pmt_change, dmarker_change};
 }
 
 //called by playback_mpm

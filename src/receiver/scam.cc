@@ -147,9 +147,17 @@ int scam_t::connect() {
 	const bool blocking = false;
 	const bool udp = false;
 	auto& options = receiver.receiver.options;
+	auto softcam_enabled = options.readAccess()->softcam_enabled;
 	auto server = options.readAccess()->softcam_server;
 	auto port = options.readAccess()->softcam_port;
-	scam_fd = tcp_connect(server.c_str(), port, blocking, udp);
+	if(! softcam_enabled) {
+		dtdebugf("scam server not enabled");
+	}
+	if(strlen(server.c_str())==0 || ! port) {
+		dtdebugf("No scam server configured");
+		return -1;
+	}
+	scam_fd = tcp_connect(server.c_str(), *port, blocking, udp);
 	error = (scam_fd < 0);
 	if (!error)
 		scam_thread.epoll_add_fd(scam_fd, EPOLLIN | EPOLLERR | EPOLLHUP);

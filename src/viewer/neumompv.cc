@@ -215,7 +215,7 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK and timer
 	// glClear(GL_COLOR_BUFFER_BIT);
 	SetCurrent();
 
-	if(mpv_player->valid_frames < 2)
+	if(mpv_player->valid_frames < 3)
 		this->clear_window();
 	int width = s.x;
 	int height = s.y;
@@ -760,7 +760,7 @@ void MpvPlayer_::on_mpv_wakeup_event() {
 
 void MpvPlayer_::mpv_draw(int w, int h) {
 	if (mpv_gl) {
-		if(valid_frames < 2) {
+		if(valid_frames < 3) {
 			mpv_render_frame_info info ;
 			mpv_render_param param{MPV_RENDER_PARAM_NEXT_FRAME_INFO, &info};
 			mpv_render_context_get_info(mpv_gl, param);
@@ -961,6 +961,7 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 	auto op = [this, service]() {
 		// service is captured by copy
 		subscription.play_service(service);
+		this->reset_valid_frames();
 	};
 	{
 		// lock must be placed after lambda

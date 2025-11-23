@@ -51,7 +51,7 @@ struct neumo_options_t {
 	std::string mpvconfig{"mpv"};
 
 	std::string softcam_server{"192.168.2.254"};
-	int softcam_port{9000};
+	std::optional<int> softcam_port{9000};
 	bool softcam_enabled{true};
 	devdb::usals_location_t usals_location;
 	bool tune_use_blind_tune{false};

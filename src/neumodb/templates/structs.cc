@@ -227,6 +227,8 @@ int deserialize<{{dbname}}::{{struct.class_name}}>(
 			if(offset < 0)
 				return offset;
 			rec.{{f.name}} = content;
+		} else {
+			rec.{{f.name}}.reset();
 		}
 	}
 	{%else%}
@@ -602,7 +604,8 @@ int deserialize_field_safe
 				if(offset>=0) {
 					rec.{{f.name}} = content;
 				}
-			}
+			} else
+				rec.{{f.name}}.reset();
 			return offset;
 			{% else %}
 			if constexpr (data_types::is_builtin_type<{{f.namespace}}{{f.scalar_type}}>()) {

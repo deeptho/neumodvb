@@ -418,7 +418,7 @@ int dvbcsa_t::get_key(int key_idx, int parity, bool allow_future_key) {
 	/// loop over all keys, starting with the oldest (circular buffer)
 
 	if (start == end) {
-		dtdebugf("KEY LOAD {:s} key {:d}: no key yet. start={:d} end={:d}", parity ? "odd" : "even", key_idx, start, end);
+		dtdebug_nicef("KEY LOAD {:s} key {:d}: no key yet. start={:d} end={:d}", parity ? "odd" : "even", key_idx, start, end);
 		waiting_for_keys = true;
 		return -1; // no key received yet
 	}

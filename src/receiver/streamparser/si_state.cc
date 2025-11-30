@@ -49,7 +49,7 @@ static int default_timeout(uint8_t table_id) {
 	case 0x4a:					/*SDT BAT*/
 		return 40000;			// 10000 ms
 	case 0x4e:					/*EIT p/f Actual*/
-		return 4000;			// 2000 ms
+		return 15000;			// 2000 ms
 	case 0x4f:					/*EIT p/f Other*/
 		return 20000;			// 10000 ms
 	case 0x50 ... 0x5f: /*EIT schedule Actual*/

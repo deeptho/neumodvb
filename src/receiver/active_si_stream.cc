@@ -1012,7 +1012,8 @@ bool active_si_stream_t::fix_tune_mux_template(const chdb::any_mux_t& driver_mux
 	using namespace chdb;
 	namespace m = chdb::update_mux_preserve_t;
 	auto lock_state = active_adapter().lock_state;
-	assert(lock_state.locked_minimal);
+	if(!lock_state.locked_minimal)
+		return false;
 	this->fix_tune_mux_template_(this->dbmux, lock_state, driver_mux, driver_data_reliable);
 	active_adapter().on_stream_mux_change(this->dbmux);
 	return true;

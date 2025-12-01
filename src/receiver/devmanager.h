@@ -515,7 +515,7 @@ private:
 			auto tune_pars = w->tune_options.tune_pars;
 			w->tune_options = tune_options;
 			w->tune_options.tune_pars = tune_pars;
-		} else if(!tune_options.tune_pars->dish && w->tune_options.tune_pars->dish) {
+		} else if(!tune_options.tune_pars->dish && w->tune_options.tune_pars && w->tune_options.tune_pars->dish) {
 			//copy preserving dish
 			auto dish = w->tune_options.tune_pars->dish;
 			w->tune_options = tune_options;

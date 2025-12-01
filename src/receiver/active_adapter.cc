@@ -272,9 +272,9 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 		if(ret1)
 			dtdebugf("removed service");
 		assert(this->main_si);
-		assert(sret.aa.lnb);
 		visit_variant(mux,
 									[this, &sret, &tune_options](const chdb::dvbs_mux_t& m) {
+										assert(sret.aa.lnb);
 										auto& aa = sret.aa;
 										fe->request_tune(tuner_thread, *aa.rf_path, *aa.lnb, m, tune_options);
 										},

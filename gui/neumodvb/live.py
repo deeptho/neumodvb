@@ -1313,7 +1313,7 @@ class RecordPanel(wx.Panel):
     def OnScroll(self, event):
         idx = event.GetPosition()
         if idx >=0 and idx < self.data.row_screen.list_size:
-            self.scroll_down(idx -self.top_idx, windown=None)
+            self.scroll_down(idx -self.top_idx, window=None)
 
     def OnMouseWheel(self, event):
         evtObj = event.GetEventObject()

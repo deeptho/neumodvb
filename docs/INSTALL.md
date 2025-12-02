@@ -253,7 +253,15 @@ sudo apt install -y libboost-all-dev libgtk-3-dev curl libcurl4-openssl-dev  lib
 
 Also cmake needs to be upgraded using the instruction on https://apt.kitware.com/
 
+#### Debian 13 ####
 
+Provided by user mazaba at satellites.co.uk:
+
+```
+apt install -y clang clang-format cmake curl freeglut3-dev gettext git libavcodec-dev libavformat-dev libavutil-dev libboost-all-dev libconfig++-dev libconfig-dev libcurl4-openssl-dev libdvbcsa-dev
+libexif-dev libgtk-3-dev liblog4cxx15 liblog4cxx-dev libmpv-dev libstdc++-14-dev libswscale-dev libwxgtk-media3.2-dev lsb-release make mpv pybind11-dev python3-cachetools python3-configobj python3-jinja2
+python3-mpl-scatter-density python3-pip python3-regex python3-scipy python3-wxgtk4.0 python3-wxgtk-media4.0 python3-wxgtk-webview4.0
+```
 
 ### Download and compile neumodvb ###
 

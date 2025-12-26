@@ -660,6 +660,7 @@ mux_data_t* active_si_stream_t::add_mux(db_txn& wtxn, chdb::any_mux_t& mux, bool
 		The map below always indexes by the data from sdt, if it is known (in the database), otherwise
 		from nit.
 	 */
+	fix_mux(mux);
 	auto [it, inserted] =
 		nit_data.by_network_id_ts_id.try_emplace(std::make_pair(mux_common->network_id, mux_common->ts_id),
 																						 mux_data_t{mux});

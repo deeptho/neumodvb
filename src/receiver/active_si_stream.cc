@@ -477,7 +477,7 @@ void active_si_stream_t::end_si() {
 	this->scan_state.reset_completion_states();
 	if(is_open()) {
 		log4cxx::NDC(name());
-		dtdebugf("deactivate si stream reader_mux={}", this->dbmux);
+		dtdebugf("XXX deactivate si stream reader_mux={}", this->dbmux);
 		// active_stream_t::close();
 		stream_parser.exit(); // remove all fibers
 		parsers.clear();			// remove all parser data (parsers will be reregistered)
@@ -501,7 +501,7 @@ void active_si_stream_t::reset() {
 	this->scan_state.reset_completion_states();
 	if(is_open()) {
 		log4cxx::NDC(name());
-		dtdebugf("Closing si stream reader_mux={}", this->dbmux);
+		dtdebugf("XXX Closing si stream reader_mux={}", this->dbmux);
 		stream_parser.exit(); // remove all fibers
 		parsers.clear();			// remove all parser data (parsers will be reregistered)
 	}
@@ -1695,6 +1695,25 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 	if(mux_key->sat_pos == -4200 && tuned_mux_key->sat_pos == 4200) {
 		//hack for 42.0W on which 42E is reported as 42W
 			mux_key->sat_pos = 4200;
+	}
+
+	if(mux_key->sat_pos == 5300) {
+		//hack for 52.0E on which some muxes are reported as being on 53.0E
+		//auto tmp = *dvbs_mux;
+			auto* dvbs_mux1 = std::get_if<chdb::dvbs_mux_t>(&tuned_mux);
+			auto tmp1 = *dvbs_mux1;
+			//auto freq =  (tmp.frequency+ 500)/1000;
+			auto freq1 =  (tmp1.frequency+ 500)/1000;
+			if(freq1==11221 && tmp1.pol== chdb::fe_polarisation_t::V) //247box
+				mux_key->sat_pos = 5200;
+			if(freq1==10804 && tmp1.pol== chdb::fe_polarisation_t::H)
+				mux_key->sat_pos = 5200;
+			if(freq1==10887 && tmp1.pol== chdb::fe_polarisation_t::V)
+				mux_key->sat_pos = 5200;
+			if(freq1==10887 && tmp1.pol== chdb::fe_polarisation_t::V)
+				mux_key->sat_pos = 5200;
+			if(freq1==10926 && tmp1.pol== chdb::fe_polarisation_t::H)
+				mux_key->sat_pos = 5200;
 	}
 
 	if(tuned_mux_key->sat_pos >= -800 && tuned_mux_key->sat_pos <= -700) {

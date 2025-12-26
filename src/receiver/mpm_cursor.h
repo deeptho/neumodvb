@@ -189,7 +189,6 @@ class part_cursor_t {
 	int64_t offset{-1}; //offset w.r.t. part of currently mapped part
 	uint8_t* mapped{nullptr}; //currently mapped range
 	int32_t map_len{default_map_len}; //size of currently mapped part, which may be larger than the current file size!
-
 	EXPORT void close_current_part();
 
 	void open_current_part();

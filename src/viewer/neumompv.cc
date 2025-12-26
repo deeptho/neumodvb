@@ -127,7 +127,6 @@ MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 	SetClientSize(parent->GetSize());
 }
 
-
 MpvGLCanvas::~MpvGLCanvas() {
 	this->MpvDestroy();
 	if (mpv_player) {
@@ -188,8 +187,6 @@ void MpvGLCanvas::OnPaint(wxPaintEvent& evt) {
 	}
 	mpv_player->signal();
 }
-
-
 
 void MpvGLCanvas::OnMpvWakeupEvent(wxThreadEvent&) {
 	std::lock_guard<std::mutex> lk(mpv_player->m);
@@ -458,7 +455,6 @@ MpvPlayer::MpvPlayer(receiver_t * receiver, MpvPlayer_* mpv)
 	, config_dir(receiver->options.readAccess()->mpvconfig.c_str()) {
 }
 
-
 template <typename T> T* wxLoad(py::object src, const wxString& inTypeName) {
 	/* Extract PyObject from handle */
 	PyObject* source = src.ptr();
@@ -494,7 +490,6 @@ void MpvPlayer_::get_audio_volume()
 	else
 		volume = volumes[idx];
 }
-
 
 void MpvPlayer_::save_audio_volume_async()
 {
@@ -655,9 +650,10 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 						dtdebug_nicef("time_pos={} limit={}",  w->time_pos, w->fast_forwarding_time_pos_limit);
 #endif
 				}
-				if(must_slow_down)
+				if(must_slow_down) {
+					this->is_live = true;
 					this->set_playback_speed(1.0);
-
+				}
 				this->update_playback_info();
 			}
 		}
@@ -690,6 +686,8 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 		dtdebugf("End of file event reason={}", (int)d->reason);
 		if(d->reason !=  MPV_END_FILE_REASON_EOF)
 			break; //user  initiated stop
+		if(d->reason == MPV_END_FILE_REASON_ERROR)
+			dtdebugf("mpv MPV_END_FILE_REASON_ERROR");
 
 		bool must_move_to_prev{false};
 		bool must_play_forward{false};
@@ -867,7 +865,6 @@ void MpvPlayer::mpv_command(const char* cmd_, const char* arg2, const char* arg3
 }
 
 int MpvPlayer_::change_audio_volume(int step) {
-
 	ss::string<16> arg;
 	int v = volume + 5*step;
 	v = std::min(std::max(v, 0), 100);
@@ -919,7 +916,7 @@ int MpvPlayer::set_subtitle_language(int id) {
  */
 void mpv_subscription_t::play_service(const chdb::service_t& service) {
 	log4cxx_store_threadname();
-	dtdebugf("PLAY SUBSCRIPTION (service)");
+	dtdebugf("PLAY SUBSCRIPTION (service): {}", service);
 	if (is_playing()) {
 		dtdebugf("PLAY SUBSCRIPTION (service) close mpm");
 		this->close(false /*unsubscribe*/);
@@ -953,7 +950,6 @@ void mpv_subscription_t::play_service(const chdb::service_t& service) {
 	}
 	return;
 }
-
 
 int MpvPlayer_::play_service(const chdb::service_t& service) {
 	// retune request
@@ -998,7 +994,6 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 	dtdebugf("PLAY SUBSCRIPTION {:p} STARTED", fmt::ptr(this));
 	return 0;
 }
-
 
 int MpvPlayer::play_service(const chdb::service_t& service) {
 	auto* self = dynamic_cast<MpvPlayer_*>(this);
@@ -1083,8 +1078,11 @@ int mpv_subscription_t::jump(int seconds, system_time_t play_pos) {
 	play_pos += std::chrono::seconds(seconds);
 	if (play_pos < start_pos)
 		play_pos = start_pos;
-	if (play_pos > end_pos)
+	if (play_pos > end_pos) {
+		this->mpv_player->is_live = true;
 		play_pos = end_pos;
+	} else
+		this->mpv_player->is_live = false;
 	auto now = system_clock_t::now();
 	auto ret = std::chrono::duration_cast<std::chrono::seconds>(play_pos-start_pos).count();
 	dtdebugf("JUMP seconds={} play_pos={} end_pos={} now={}", seconds, ret, end_pos, now);
@@ -1393,7 +1391,7 @@ void MpvPlayer_::update_playback_info() {
 	auto t = this->get_mpv_play_real_time();
 #endif
 	playback_info.play_time = t;
-
+	playback_info.is_timeshifted= !this->is_live;
 	// std::lock_guard<std::mutex> lk(m);
 	gl_canvas->overlay.set_playback_info(playback_info);
 	return;
@@ -1559,6 +1557,8 @@ int MpvPlayer_::set_play_direction(bool forward) {
 		dterrorf("Failed setting play_direction {:d}", forward);
 	auto w = this->trick_play.writeAccess();
 	w->reverse_playing = !forward;
+	if (!forward)
+		this->is_live = false;
 	ss::string<64> msg;
 	msg.format("Play {}", forward ? "forward" : "backward");
 	this->notify_message(msg);
@@ -1589,6 +1589,8 @@ int MpvPlayer_::set_playback_speed(double speed) {
 	auto limit= w->time_pos + to_play; ///speed;
 	w->fast_forwarding_time_pos_limit = limit;
 	w->fast_forwarding = speed != 1.0;
+	if (w->fast_forwarding)
+		this->is_live = false;
 	dtdebugf("set_playback_speed: to_play={} limit={}", to_play, limit);
 	return 0;
 }

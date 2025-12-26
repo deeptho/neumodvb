@@ -312,10 +312,8 @@ inline void playback_epg_state_t::update(receiver_t& receiver, int recdb_txn_id,
 }
 
 playback_info_t playback_mpm_t::get_current_program_info() const {
-	auto* as = live_mpm ? live_mpm->active_service : nullptr;
+	//auto* as = live_mpm ? live_mpm->active_service : nullptr;
 	auto ret = live_mpm ? live_mpm->get_current_program_info() : get_recording_program_info();
-	if(as)
-		ret.is_timeshifted = is_timeshifted;
 
 	{
 		auto ls = stream_state.readAccess();
@@ -362,8 +360,6 @@ recdb::dmarker_t playback_mpm_t::move_to_segment(int segmentno)
 	Open new files and change the mapped part of the file as needed
 */
 int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
-	if(live_mpm)
-		is_timeshifted = true;
 	error = false;
 	if (start_play_time < milliseconds_t(0))
 		start_play_time = milliseconds_t(0);
@@ -374,8 +370,6 @@ int playback_mpm_t::move_to_time(milliseconds_t start_play_time) {
 
 //called by playback_mpm
 int playback_mpm_t::move_to_packetno(int32_t packetno) {
-	if(live_mpm)
-		is_timeshifted = true;
 	error = false;
 	dtdebugf("calling seek_to_bytepos packetno={}", packetno);
 	auto ret = part_cursor.seek_to_bytepos(packetno * (int64_t) ts_packet_t::size);
@@ -384,8 +378,6 @@ int playback_mpm_t::move_to_packetno(int32_t packetno) {
 
 //called by neumompv.cc seek_fn
 int64_t playback_mpm_t::move_to_bytepos(int64_t bytepos) {
-	if(live_mpm)
-		is_timeshifted = true;
 	error = false;
 	dtdebugf("calling seek_to_bytepos bytepos={}", bytepos);
 	auto ret = part_cursor.seek_to_bytepos(bytepos);

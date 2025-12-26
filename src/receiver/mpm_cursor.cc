@@ -786,7 +786,6 @@ uint8_t* part_cursor_t::map() {
 	return mapped;
 }
 
-
 int part_cursor_t::open()
 {
 	mpm_cursor.open();

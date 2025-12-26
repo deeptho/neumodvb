@@ -238,7 +238,6 @@ class playback_mpm_t : public mpm_t {
 	part_cursor_t part_cursor;
 	pid_t current_audio_pid{0x1fff};
 	pid_t current_subtitle_pid{0x1fff};
-	bool is_timeshifted{false};
 	recdb::rec_t currently_playing_recording{};
 	ss_t stream_state;
 	dtdemux::pmt_info_t current_pmt;

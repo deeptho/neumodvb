@@ -169,6 +169,8 @@ struct trick_play_t {
 class MpvPlayer_ : public MpvPlayer {
 	friend class MpvGLCanvas;
 	friend class mpv_subscription_t;
+
+	bool is_live;
 public:
 	using tp_t = safe::Safe<trick_play_t>;
 	tp_t trick_play;

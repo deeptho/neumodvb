@@ -173,6 +173,13 @@ void h264_parser_t::parse_payload_unit() {
 		return;
 	on_pes_start();
 	uint8_t code = this->get_nalu_start_code();
+	if(error) { //needed for Altyn Asyrr and others
+		error = false;
+		this->current_unit_type = marker_t::i_frame;
+		dterror_nicef("Could not get nalu start code");
+		return;
+	}
+
 	bool forbidden_zero_bit = code & 0x80;
 	if (forbidden_zero_bit)
 		RETURN_ON_ERROR;

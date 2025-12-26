@@ -258,12 +258,19 @@ void active_mpm_t::create(const recdb::live_service_t& live_service) {
 		dtdebugf("Found last file_t record\n");
 		auto c = recdb::find_last<recdb::marker_t>(idxdb_wtxn);
 		auto cd = recdb::find_last<recdb::dmarker_t>(idxdb_wtxn);
+		if(c.is_valid()) {
+			auto marker =c.current();
+			dtdebugf("Found marker_t record packetno={} offset={}", marker.packetno_end,
+							 marker.packetno_end*(int64_t)dtdemux::ts_packet_t::size);
+		}
+		if(cd.is_valid()) {
+			auto dmarker = cd.current();
+			dtdebugf("Found dmarker_t record packetno={} offset={}", dmarker.packetno,
+							 dmarker.segmentno);
+		}
 		if(c.is_valid() && cd.is_valid()) {
 			auto marker =c.current();
 			auto dmarker = cd.current();
-			dtdebugf("Found marker_t record packetno={} offset={}\n", marker.packetno_end,
-							 marker.packetno_end*(int64_t)dtdemux::ts_packet_t::size);
-
 			auto cf1 = recdb::find_first<recdb::file_t>(idxdb_wtxn);
 			if(cf1.is_valid()) {
 				auto file =cf.current();

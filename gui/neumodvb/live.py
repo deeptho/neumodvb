@@ -951,7 +951,11 @@ class MosaicPanel(wx.Panel):
 
     @property
     def current_mpv_player(self):
-        return self.mpv_players[0 if self.focus_idx < 0 else self.focus_idx]
+        focus_idx = 0 if self.focus_idx < 0 else self.focus_idx
+        if focus_idx < len(self.mpv_players):
+            return self.mpv_players[focus_idx]
+        else:
+            dtdebug(f'ERROR: focus_idx={focus_idx} outp of range: len={len(self.mpv_players)}')
 
     def ChangeVolume(self, step):
         self.current_mpv_player.change_audio_volume(step)

@@ -264,7 +264,10 @@ class neumoMainFrame(mainFrame):
 
     def Stop(self):
         self.app.ScanStop()
-        self.app.current_mpv_player.stop_play()
+        if self.app.current_mpv_player is not None:
+            self.app.current_mpv_player.stop_play()
+        else:
+            dtdebug(f'ERROR: no mpv player')
 
     def colPopupOFF(self, col, evt):
         """(col, evt) -> display a popup menu when a column label is

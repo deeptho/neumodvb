@@ -2107,11 +2107,12 @@ class ServiceChannelPanel(RecordPanel):
         if service is None:
             infow.WriteText(f" Missing service! ")
         else:
+            sat_pos = pychdb.sat_pos_str(rec.k.mux.sat_pos)
             pol = lastdot(service.pol).replace('POL','')
             stream = '' if service.k.mux.stream_id < 0 else f'-{service.k.mux.stream_id}'
             t2mi = '' if service.k.mux.t2mi_pid < 0 else f' T{service.k.mux.t2mi_pid}'
 
-            infow.WriteText(f"{service.frequency/1000.:9.3f}{pol}{stream}{t2mi} " \
+            infow.WriteText(f"{service.frequency/1000.:9.3f}{pol}{stream}{t2mi}@{sat_pos} " \
                             f"nid={service.k.network_id} tid={service.k.ts_id} ")
         infow.EndAlignment()
         if service is not None:

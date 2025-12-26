@@ -231,7 +231,7 @@ enum DescriptorTag {
                // 0x0E - 0x0F Reserved
                VideoDepthRangeDescriptorTag = 0x10,
                T2MIDescriptorTag = 0x11,
-
+							 MPEG4_audio_descriptorTag = 0x1c,
  // Defined by ETSI TS 102 812 (MHP)
                // They once again start with 0x00 (see page 234, MHP specification)
 							 OtvServiceListDescriptorTag = 0xb1,

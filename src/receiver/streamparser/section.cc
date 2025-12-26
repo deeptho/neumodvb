@@ -964,6 +964,10 @@ namespace dtdemux {
 		program_info_len &= 0x0fff;
 
 		auto end = program_info_len + s.bytes_read;
+		if( end - s.bytes_read  > s.available()) {
+			dterrorf("incorrect section: read={} program_info_len={} available={}",  s.bytes_read, program_info_len,  s.available());
+			end = s.available() + s.bytes_read;
+		}
 		while (s.bytes_read < end) {
 
 			switch (auto _desc = s.get<descriptor_t>(); _desc.tag) {
@@ -991,11 +995,8 @@ namespace dtdemux {
 			} break;
 			case SI::StreamIdentifierDescriptorTag: {
 				static int called = 0;
-				if (_desc.len != 1) {
-					s.throw_bad_data();
-					return;
-				}
 				auto component_tag = s.get<uint8_t>();
+				s.skip(_desc.len -1);
 				if (!called) {
 					dtdebug_nicef("Stream id: {}", (int)component_tag);
 					called = 1;
@@ -1100,17 +1101,22 @@ namespace dtdemux {
 				if(service.provider.size()>0)
 					pmt.provider_name = service.provider;
 			}
+				break;
 			default:
 				dtdebug_nicef("PMT: unhandled descriptor {}={} size={}", (int)_desc.tag,
 											name_of_descriptor_tag(_desc.tag), (int)_desc.len);
 			case SI::DataBroadcastDescriptorTag:
+			case SI::AACDescriptorTag:
 			case SI::ApplicationSignallingDescriptorTag:
 			case SI::AncillaryDataDescriptorTag:
 			case SI::VBITeletextDescriptorTag:
 			case SI::VBIDataDescriptorTag:
 			case SI::TeletextDescriptorTag:
 			case SI::CarouselIdentifierDescriptorTag:
+			case SI::MPEG4_audio_descriptorTag:
 			case SI::DataBroadcastIdDescriptorTag:
+				if(_desc.len==0)
+					s.bytes_read = end; //force exit
 				s.skip(_desc.len);
 				break;
 			}
@@ -1939,10 +1945,11 @@ namespace dtdemux {
 				assert(tst == this->available());
 			}
 		}
-
-		assert(this->available() == 4);
-
-		uint32_t crc UNUSED = this->get<uint32_t>(); // avoid compiler warning
+		if(this->available() != 4)
+			dtdebug_nicef("BAD SECTION!");
+		else {
+			uint32_t crc UNUSED = this->get<uint32_t>(); // avoid compiler warning
+		}
 		if (this->available() != 0) {
 			return false;
 		}

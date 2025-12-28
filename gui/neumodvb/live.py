@@ -1589,6 +1589,16 @@ class RecordPanel(wx.Panel):
             else:
                 self.scroll_down(1, window=w)
                 return True
+        elif key in (wx.WXK_PAGEDOWN, wx.WXK_NUMPAD_PAGEDOWN):
+            if is_ctrl:
+                return False
+            if row.rowno < self.num_rows_on_screen-1:
+                self.focus_row(w, self.num_rows_on_screen-1)
+                return True
+            else:
+                self.scroll_down(self.num_rows_on_screen, window=w)
+                self.focus_row(w, 0)
+                return True
         elif key in (wx.WXK_UP, wx.WXK_NUMPAD_UP):
             if is_ctrl:
                 return False

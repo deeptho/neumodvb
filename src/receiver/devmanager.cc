@@ -359,7 +359,7 @@ void dvbdev_monitor_t::on_new_adapter(int adapter_no) {
 	fname.format("/dev/dvb/adapter{:d}", adapter_no);
 	auto wd = inotify_add_watch(inotfd, fname.c_str(), IN_CREATE | IN_DELETE_SELF);
 	adapter_no_map.emplace(wd, adapter_no_t{adapter_no});
-	dtdebugf("new adapter {:d} wd={:d}\n", adapter_no, wd);
+	dtdebugf("new adapter {:d} wd={:d} inotfd={:d}\n", adapter_no, wd, inotfd);
 	discover_frontends(adapter_no_t(adapter_no));
 }
 

@@ -819,6 +819,7 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 			auto& any_si =  any_node.mapped();
 			auto& si =  this->si_streams.at(si_key);
 			si.scan_target =  std::max(si.scan_target, any_si.scan_target);
+			//dtdebugf("scan_target ={}", (int)si.scan_target);
 			si.is_main |= any_si.is_main;
 			si.subscriptions.merge(any_si.subscriptions);
 			for(const auto& ss: any_si.scan_state.scans_in_progress) {

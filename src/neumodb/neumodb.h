@@ -252,7 +252,8 @@ public:
 			dterrorf("Attempting to access non opened lmdb database");
 			assert(0);
 		}
-		return  db_txn(*this, true /*readonly*/, MDB_RDONLY);
+		assert(this->envp);
+		return db_txn(*this, true /*readonly*/, MDB_RDONLY);
 	}
 
 	virtual ~neumodb_t();

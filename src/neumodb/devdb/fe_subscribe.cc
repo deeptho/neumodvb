@@ -706,6 +706,7 @@ devdb::fe::subscribe_sat_band_(db_txn& wtxn, subscription_id_t subscription_id,
 	it when it is the last user;
 
  */
+
 template<typename mux_t>
 subscribe_ret_t
 devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
@@ -745,7 +746,6 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 						makes it impossible to unsubscribe, as that is done by subscription_id*/
 					updated_old_dbfe = unsubscribe(wtxn, subscription_id, oldfe_->k);
 					assert((int) subscription_id <0 || !contains_sub(*fe_, subscription_id));
-
 					if(updated_old_dbfe && updated_old_dbfe->k == fe.k) {
 						/*in this case, removing our old subscription
 							may have removed all old subscriptions, which then
@@ -1026,6 +1026,8 @@ devdb::fe::matching_existing_subscription(db_txn& wtxn,
 				}
 			}
 			if(rf_path_matches && mux_matches && service_matches) {
+				dtdebugf("returning fe: p={}, k={} adapter={} idx={} s={}", fe, fe.k, fe.adapter_no, idx,
+								 fe.sub.subs.size());
 				return {fe, idx};
 			}
 			++idx;

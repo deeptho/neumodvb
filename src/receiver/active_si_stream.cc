@@ -105,7 +105,7 @@ void active_si_stream_t::add_si_subscription(const chdb::any_mux_t& mux,
 	auto *tmp2 = std::get_if<chdb::dvbs_mux_t>(&this->dbmux);
 	assert(!tmp1 || tmp1->pol == tmp2->pol || this->subscriptions.size()==0);
 	if(scan_target != devdb::scan_target_t::NONE) {
-		this->scan_target = std::max(this->scan_target,  scan_target);
+		this->scan_target = std::max(this->scan_target, scan_target);
 	}
 	assert(!this->subscription_exists(subscription_id));
 	auto is_first = this->subscriptions.size() == 0;

@@ -1863,6 +1863,7 @@ class GridEpgPanel(RecordPanel):
 
     def scroll_leftright(self):
         old_top_idx = self.top_idx
+        dtdebug("calling  self.data.epg_screens.remove_all()")
         self.data.epg_screens.remove_all()
         for rowno, row in enumerate(self.rows):
             row.update()
@@ -1932,7 +1933,9 @@ class GridEpgPanel(RecordPanel):
                 if start_cell.data.epg is not None:
                     start_time = start_cell.data.epg.k.start_time-1
                 self.data.set_start(start_time)
+                dtdebug(f"calling self.scroll_leftright: {start_cell}")
                 self.scroll_leftright()
+                dtdebug(f"self.scroll_leftright done")
                 dtdebug('CALL SetFocus')
                 row.epg_cells[0].SetFocus()
                 return True

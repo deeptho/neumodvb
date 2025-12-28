@@ -279,6 +279,7 @@ void neumodb_t::close() {
 		/*envp->close(); Do not call this because env may be used by other (secondary) databases
 			destructor will take care of it
 		*/
+		dtdebugf("resetting envp");
 		envp.reset();
 	}
 }

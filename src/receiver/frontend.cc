@@ -1591,7 +1591,9 @@ bool dvb_frontend_t::wait_for(tuner_thread_t& tuner_thread, double seconds)
 
 	if(this->must_abort_task)
 		return true;
+	assert(this->main_fiber);
 	this->main_fiber = this->main_fiber.resume();
+	assert(this->main_fiber);
 	return this->must_abort_task;
 }
 

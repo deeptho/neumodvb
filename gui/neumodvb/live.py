@@ -2144,9 +2144,10 @@ class ServiceChannelPanel(RecordPanel):
         infow.EndAlignment()
         if service is not None:
             infow.WriteText(f"sid={service.k.service_id} pmt={service.pmt_pid}\n\n")
-
-            infow.WriteText(f"Provider: {service.provider}\n")
-            infow.WriteText(f"Modified: {dt(service.mtime)}\n")
+            if len(service.provider)>0:
+                infow.WriteText(f"Provider: {service.provider} ")
+            if False:
+                infow.WriteText(f"Modified: {dt(service.mtime)} ")
             exp = "Yes" if service.expired else "No"
             enc = "Yes" if service.encrypted else "No"
             infow.WriteText(f"Encrypted: {enc} Expired: {exp}\n")

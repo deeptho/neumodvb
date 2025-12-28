@@ -1349,6 +1349,7 @@ class RecordPanel(wx.Panel):
 
     def on_timer(self):
         self.check_for_new_records()
+        self.update_info(self.last_focused_cell)
 
     def OnTimer(self, evt):
         now = datetime.datetime.now(tz=tz.tzlocal())
@@ -2133,6 +2134,17 @@ class ServiceChannelPanel(RecordPanel):
             exp = "Yes" if service.expired else "No"
             enc = "Yes" if service.encrypted else "No"
             infow.WriteText(f"Encrypted: {enc} Expired: {exp}\n")
+            dt =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%H:%M")
+            epgdb = wx.GetApp().epgdb
+            txn_epg = epgdb.rtxn()
+            epg = pyepgdb.running_now(txn_epg, service.k)
+            txn_epg.abort()
+            if epg is not None:
+                infow.BeginTextColour(wx.GREEN)
+                infow.WriteText(f"{dt(epg.k.start_time)} - {dt(epg.end_time)}: ")
+                infow.EndTextColour()
+                infow.WriteText(f"{epg.event_name}\n")
+                infow.WriteText(f"{epg.story}\n")
         infow.EndSuppressUndo()
         infow.Thaw()
 

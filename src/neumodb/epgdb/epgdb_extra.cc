@@ -135,7 +135,9 @@ std::optional<epgdb::epg_record_t> epgdb::best_matching(db_txn& txnepg, const ep
 }
 
 std::optional<epgdb::epg_record_t> epgdb::running_now(db_txn& txnepg, const chdb::service_key_t& service_key,
-																											time_t now) {
+																											time_t now = -1) {
+	if (now == time_t(-1) )
+		now = time(NULL);
 	const int tolerance = 5*60;
 	/*
 		find a record with start time equal to now, or the closest earlier start_time if none exists

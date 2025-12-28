@@ -98,7 +98,10 @@ void export_extra(py::module& m) {
 				 py::arg("field_matchers2") = nullptr, py::arg("match_data2") = nullptr
 			)
 		.def("running_now", py::overload_cast<db_txn&, const chdb::service_key_t&, time_t>(&epgdb::running_now),
-				 "Get currently running program on service", py::arg("txnepg"), py::arg("service_key"), py::arg("now"))
+				 "Get currently running program on service"
+				 , py::arg("txnepg")
+				 , py::arg("service_key")
+				 , py::arg("now")=-1)
 		;
 }
 

@@ -2106,6 +2106,22 @@ class ServiceChannelPanel(RecordPanel):
 
         infow.SetDefaultStyle(wx.TextAttr(wx.WHITE, font=large))
 
+        if True:
+            mpv_players = self.controller.mosaic_panel.mpv_players
+            ret= []
+            for mpv in mpv_players:
+                pi = mpv.get_current_program_info()
+                s = pi.service
+                if type(s) == pychdb.chgm.chgm:
+                    ret.append(f"{str(s.chgm_order)}: {s.name} ")
+                elif type(s) == pychdb.service.service:
+                    ret.append(f"{str(s.ch_order)}: {s.name} ")
+            if len(ret) >0:
+                infow.WriteText(f"Playing: ")
+                infow.BeginTextColour(wx.GREEN)
+                infow.WriteText(f"{", ".join(ret)}\n")
+                infow.EndTextColour()
+        infow.WriteText(f"Selected: ")
         infow.BeginTextColour(wx.GREEN)
         if type(rec) == pychdb.chgm.chgm:
             infow.WriteText(f"{str(rec.chgm_order)}: {rec.name} ")

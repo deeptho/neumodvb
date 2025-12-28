@@ -2130,7 +2130,7 @@ class ServiceChannelPanel(RecordPanel):
             infow.WriteText(f"{str(rec.ch_order)}: {rec.name} ")
         infow.EndTextColour()
 
-        infow.BeginAlignment(wx.TEXT_ALIGNMENT_RIGHT)
+        #infow.BeginAlignment(wx.TEXT_ALIGNMENT_RIGHT)
         if service is None:
             infow.WriteText(f" Missing service! ")
         else:
@@ -2141,7 +2141,7 @@ class ServiceChannelPanel(RecordPanel):
 
             infow.WriteText(f"{service.frequency/1000.:9.3f}{pol}{stream}{t2mi}@{sat_pos} " \
                             f"nid={service.k.network_id} tid={service.k.ts_id} ")
-        infow.EndAlignment()
+        #infow.EndAlignment()
         if service is not None:
             infow.WriteText(f"sid={service.k.service_id} pmt={service.pmt_pid}\n\n")
             if len(service.provider)>0:
@@ -2552,7 +2552,7 @@ class LivePanel(wx.Panel):
         self.infow.SetForegroundColour(fgcolour)
 
         bottom_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        bottom_sizer.Add((20, 20), self.grid_panel.chwidth, wx.EXPAND)
+        #bottom_sizer.Add((20, 20), self.grid_panel.chwidth, wx.EXPAND)
         bottom_sizer.Add(self.infow, self.grid_panel.num_cols, wx.EXPAND)
         self.bottom_panel.SetSizer(bottom_sizer)
 

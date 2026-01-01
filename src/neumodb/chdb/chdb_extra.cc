@@ -467,7 +467,7 @@ update_mux_ret_t chdb::update_mux(db_txn& wtxn, mux_t& mux_to_save, system_time_
 				return update_mux_ret_t::NO_MATCHING_KEY;
 
 			auto& c = merged_mux.c;
-			auto& dbc = *mux_common_ptr(db_mux);
+			auto dbc = *mux_common_ptr(db_mux);
 			auto sdt_key_matches =  (c.network_id == dbc.network_id) && (c.ts_id == dbc.ts_id);
 			if(!sdt_key_matches) {
 				int matype = get_member(merged_mux, matype, 0x3 << 14);

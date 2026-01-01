@@ -912,9 +912,9 @@ bool active_si_stream_t::read_and_process_data_for_fd(const epoll_event* evt) {
 */
 void active_si_stream_t::check_timeouts() {
 	log4cxx::NDC(name());
-	thread_local ss::string<256> last;
-	thread_local steady_time_t last_time;
-	thread_local bool delayed_print{false};
+	thread_local static ss::string<256> last;
+	thread_local static steady_time_t last_time;
+	thread_local static bool delayed_print{false};
 	auto now = steady_clock_t::now();
 	bool timedout = (now - last_time) >= 2000ms;
 	ss::string<256> out{};

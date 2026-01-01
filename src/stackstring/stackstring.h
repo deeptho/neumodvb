@@ -1088,9 +1088,14 @@ namespace ss {
 */
 	template <typename data_t> inline void rotate(ss::vector_<data_t>& v, int r);
 
-inline auto format_as(ss::string<128> s) {
-	return std::string_view(s.c_str(), s.size());
-}
+	template<int size>
+	inline auto format_as(ss::string<size> s) {
+		return std::string_view(s.c_str(), s.size());
+	}
+
+	inline auto format_as(ss::string_ s) {
+		return std::string_view(s.c_str(), s.size());
+	}
 
 }; // namespace ss
 

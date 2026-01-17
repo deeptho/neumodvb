@@ -166,10 +166,10 @@ namespace dtdemux {
 
 		auto register_pmt_pid(int pmt_pid, int service_id) {
 			auto parser=std::make_shared<pmt_parser_t>(*this, pmt_pid, service_id);
-			register_parser(pmt_pid, [parser](ts_packet_t* p){
+			auto ret = register_parser(pmt_pid, [parser](ts_packet_t* p){
 				log4cxx::NDC::push("PMT");
 				parser->parse(p);}); //pmt
-			return parser;
+			return (ret<0) ? nullptr : parser;
 		}
 
 		auto register_embedded_ts_pid(int embedding_pid, int service_id, ts_in_ts_parser_t::data_cb_fn_t&& fn) {

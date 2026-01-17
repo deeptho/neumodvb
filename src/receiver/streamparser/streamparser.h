@@ -375,7 +375,7 @@ namespace dtdemux {
 			register parser function for a specific pid
 		*/
 		template<typename fn_t>
-		void register_parser(int pid,   fn_t&& fn);
+		int register_parser(int pid, fn_t&& fn);
 
 		/*!
 			close all parsers

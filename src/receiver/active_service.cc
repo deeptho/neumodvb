@@ -762,17 +762,22 @@ void active_service_t::add_pat_and_pmt_parsers() {
 		for (const auto& e : pat_services.entries) {
 			if (e.service_id == this->current_service.k.service_id) {
 				this->have_pat = true;
-				dtdebugf("PAT START PMT=0x{:x}", e.pmt_pid);
+				dtdebugf("PAT START PMT=0x{:x} service_id={}", e.pmt_pid, e.service_id);
 				this->update_pmt_pid(e.pmt_pid);
-				this->pmt_parser = stream_parser.register_pmt_pid(e.pmt_pid, e.service_id);
-				this->pmt_parser->section_cb =
-					[this](pmt_parser_t* parser, const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
-						if(pmt.service_id == this->current_service.k.service_id) {
-							//on 30.0W 12398, multiple services share the same pmt_pid. We need the correct one
-							this->update_pmt(pmt, isnext, sec_data);
-						}
+				if(this->current_service.pmt_pid == e.pmt_pid && this->pmt_parser) {
+					dterrorf("Already have a parser for PMT=0x{:x} service_id={}", e.pmt_pid, e.service_id);
+					this->pmt_parser->clear_error();
+				} else  {
+					this->pmt_parser = stream_parser.register_pmt_pid(e.pmt_pid, e.service_id);
+					this->pmt_parser->section_cb =
+						[this](pmt_parser_t* parser, const pmt_info_t& pmt, bool isnext, const ss::bytebuffer_& sec_data) {
+							if(pmt.service_id == this->current_service.k.service_id) {
+								//on 30.0W 12398, multiple services share the same pmt_pid. We need the correct one
+								this->update_pmt(pmt, isnext, sec_data);
+							}
 						return dtdemux::reset_type_t::NO_RESET;
-					};
+						};
+				}
 				found = true;
 				break;
 			}

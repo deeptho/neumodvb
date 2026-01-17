@@ -1080,6 +1080,7 @@ void active_si_stream_t::init(const chdb::any_mux_t& driver_mux, bool driver_dat
 	}
 		break;
 	default:
+		assert(false);
 		break;
 	}
 
@@ -1141,7 +1142,7 @@ void active_si_stream_t::init(const chdb::any_mux_t& driver_mux, bool driver_dat
 		};
 		scan_state.start(scan_state_t::completion_index_t::FST_BAT, true);
 	}
-
+	dtdebugf("do_epg={}", do_epg);
 	if (do_epg) {
 		auto eit_section_cb = [this](epg_t& epg, const subtable_info_t& i) { return this->eit_section_cb(epg, i); };
 
@@ -1174,9 +1175,10 @@ void active_si_stream_t::init(const chdb::any_mux_t& driver_mux, bool driver_dat
 		} else {
 			ndc_prefix.clear();
 			ndc_prefix.format("{:s} EPG", ls.c_str());
+			dtdebugf("add parser for EIT_PID\n");
 			add_parser<dtdemux::eit_parser_t>(dtdemux::ts_stream_t::EIT_PID, ndc_prefix, chdb::epg_type_t::DVB)->section_cb =
 				eit_section_cb;
-
+			dtdebugf("add parser for EIT_ACTUAL_EPG\n");
 			scan_state.start(scan_state_t::scan_state_t::completion_index_t::EIT_ACTUAL_EPG, true);
 			if (need_other)
 				scan_state.start(scan_state_t::scan_state_t::completion_index_t::EIT_OTHER_EPG, true);
@@ -2854,11 +2856,15 @@ dtdemux::reset_type_t active_si_stream_t::bat_section_cb(const bouquet_t& bouque
 }
 
 dtdemux::reset_type_t active_si_stream_t::eit_section_cb(epg_t& epg, const subtable_info_t& i) {
-	if(!is_embedded_si && !pat_data.stable_pat())
+	if(!is_embedded_si && !pat_data.stable_pat()) {
+		dtdebug_nicef("skipping eit_section_cb: !is_embedded_si && !pat_data.stable_pat()");
 		return dtdemux::reset_type_t::RESET;
-
-	if (tune_confirmation.sat_by == confirmed_by_t::NONE)
+	}
+	if (tune_confirmation.sat_by == confirmed_by_t::NONE) {
+		dtdebug_nicef("skipping eit_section_cb: sat not confirmed");
 		return dtdemux::reset_type_t::RESET; // delay processing until sat_confirmed.
+	}
+	dtdebug_nicef("calling eit_section_cb");
 	return eit_section_cb_(epg, i);
 }
 

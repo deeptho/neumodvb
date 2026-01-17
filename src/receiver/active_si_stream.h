@@ -422,7 +422,7 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 		int use_count{0};
 
 		~parser_slot_t() {
-			dtdebugf("~parser_slot_t: {:p} use_count={:d} p.use_count={:d}\n", fmt::ptr(this), use_count, p.use_count());
+			dtdebugf("~parser_slot_t: {:p} use_count={:d} p.use_count={:d}", fmt::ptr(this), use_count, p.use_count());
 		}
 	};
 	std::map<dvb_pid_t, parser_slot_t>  parsers;

@@ -224,14 +224,13 @@ namespace dtdemux {
 
 	template <class implementation_t>
 	template<typename fn_t>
-	inline void stream_parser_base_t<implementation_t>::register_parser(int parser_pid,   fn_t&& fn) {
+	inline int stream_parser_base_t<implementation_t>::register_parser(int parser_pid,   fn_t&& fn) {
 
 #ifndef NDEBUG
 		auto it = fibers.find(dvb_pid_t(parser_pid));
 		if (it != fibers.end()) {
 			dterrorf("Cannot add multiple parsers for pid {:d}", parser_pid);
-			assert(0);
-			return;
+			return -1;
 		}
 #endif
 		auto &self = fibers[dvb_pid_t(parser_pid)];
@@ -252,6 +251,7 @@ namespace dtdemux {
 		};
 		self = boost::context::callcc(f);
 		assert(self);
+		return 0;
 	}
 
 	template<typename implementation_t>

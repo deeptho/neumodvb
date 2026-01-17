@@ -94,7 +94,7 @@ int tuner_thread_t::cb_t::on_pmt_update(active_adapter_t& active_adapter, const 
 		/*This happens for a ts_in_ts mux, because the main mux (containing the embedded ts)
 			is not monitored in the current code
 		*/
-		dtdebugf("skipping pmt update for service_id=%d\n", pmt.service_id);
+		dtdebugf("skipping pmt update for service_id={}", pmt.service_id);
 		return 0;
 	}
 	auto & mux = *pmux;

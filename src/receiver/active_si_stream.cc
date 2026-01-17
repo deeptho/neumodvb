@@ -2646,7 +2646,6 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		scan_state.set_active(cidx);
 
 	if (services.is_actual) {
-		dtdebugf("SDT_ACTUAL CONFIRMS sat=xx network_id={:d} ts_id={:d}", services.original_network_id, services.ts_id);
 
 		if(nit_actual_done() && tune_confirmation.sat_by == confirmed_by_t::NONE)
 			tune_confirmation.sat_by = confirmed_by_t::TIMEOUT;
@@ -2656,6 +2655,7 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 		sdt_data.actual_ts_id = services.ts_id;
 		auto& reader_mux = this->dbmux;
 		sdt_data.mux_key = *chdb::mux_key_ptr(reader_mux);
+		dtdebugf("SDT_ACTUAL CONFIRMS sat=xx network_id={:d} ts_id={:d} sat_pos={}", services.original_network_id, services.ts_id, 	sdt_data.mux_key.sat_pos);
 	}
 
 	if (!info.timedout && services.original_network_id == sdt_data.actual_network_id)
@@ -2681,7 +2681,12 @@ dtdemux::reset_type_t active_si_stream_t::sdt_section_cb(const sdt_services_t& s
 				 sdt_data.mux_key.mux_id == chdb::mux_key_ptr(this->dbmux)->mux_id);
 	if(sdt_data.mux_key.mux_id == 0) { /*can happen when no nit was received*/
 		sdt_data.mux_key.mux_id = chdb::mux_key_ptr(p_mux_data->mux)->mux_id;
-		assert(sdt_data.mux_key == *chdb::mux_key_ptr(p_mux_data->mux));
+		if(sdt_data.mux_key != *chdb::mux_key_ptr(p_mux_data->mux)) {
+			dtdebugf("detected mux_key_change from {} to {}", *chdb::mux_key_ptr(p_mux_data->mux),
+							 sdt_data.mux_key);
+			*chdb::mux_key_ptr(p_mux_data->mux)=  sdt_data.mux_key;
+
+		}
 #if 0
 		this->dbmux = p_mux_data->mux;
 #endif

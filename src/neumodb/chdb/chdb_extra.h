@@ -63,7 +63,7 @@ namespace chdb {
 	inline const mux_key_t* mux_key_ptr(const mux_t& mux) { return &mux.k;}
 
 	const mux_common_t* mux_common_ptr(const chdb::any_mux_t& key);
-	mux_common_t* mux_common_ptr(chdb::any_mux_t& key);
+	mux_common_t* mux_common_ptr(chdb::any_mux_t& mux);
 	bool put_record(db_txn&txn, const chdb::any_mux_t& mux, unsigned int put_flags=0);
 	void delete_record(db_txn&txn, const chdb::any_mux_t& mux);
 

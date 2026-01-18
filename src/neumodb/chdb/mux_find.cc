@@ -20,7 +20,7 @@
  */
 #include "util/dtassert.h"
 #include "neumodb/chdb/chdb_extra.h"
-#include "receiver/neumofrontend.h"
+#include "receiver/neumo-frontend.h"
 #include "util/template_util.h"
 #include <iomanip>
 #include <iostream>

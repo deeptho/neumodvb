@@ -237,10 +237,9 @@ static int get_frontend_names(fe_state_t& t, int adapter_no, int api_version) {
 	auto* card_short_name = fe_info.card_short_name;
 	if(strlen(card_short_name)==0)
 		card_short_name = card_name;
-	if(api_version < 1.3) { //hack
-		fe_info.supports_neumo = false; /*in older api, several fields were not present in  dvb_frontend_extended_info
-																			but were part of an fields "name" instead; this hack is a temporary
-																			solution until the API stabilizes
+	if(api_version < 2.0) {
+		dterrorf("This code supports neumo api only for versions larger than 2.0");
+		fe_info.supports_neumo = false; /*older api uses incompatible ioctls
 																		*/
 	}
 	t.dbfe.supports_neumo = 	fe_info.supports_neumo;

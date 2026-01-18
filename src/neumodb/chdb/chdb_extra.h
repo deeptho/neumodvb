@@ -1,3 +1,4 @@
+
 /*
  * Neumo dvb (C) 2019-2025 deeptho@gmail.com
  * Copyright notice:
@@ -25,6 +26,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <variant>
+#define ANY_STREAM_ID_FILTER (~1U) //used only in neumodvb when user accepts any stream_id (e.g., positioner dialog)
 
 #include "neumodb/chdb/chdb_db.h"
 #pragma GCC visibility push(default)

@@ -21,6 +21,6 @@
 
 #pragma once
 #include "stackstring/stackstring.h"
-#include "neumofrontend.h"
+#include "neumo-frontend.h"
 
 void find_tps(ss::vector_<spectral_peak_t>& res,	ss::vector_<int32_t>& sig, ss::vector_<uint32_t>& freq);

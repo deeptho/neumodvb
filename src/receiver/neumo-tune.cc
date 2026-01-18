@@ -18,7 +18,7 @@
  *
  */
 #include "CLI/CLI.hpp"
-#include "neumofrontend.h"
+#include "neumo-frontend.h"
 #include <algorithm>
 #include <cassert>
 #include <ctype.h>
@@ -259,8 +259,8 @@ std::map<std::string, fe_modulation> modulation_map{
 	{"DQPSK", DQPSK},					{"QAM_4_NR", QAM_4_NR},		{"C_QPSK", C_QPSK},			 {"I_QPSK", I_QPSK},
 	{"Q_QPSK", Q_QPSK},				{"C_OQPSK", C_OQPSK},			{"QAM_512", QAM_512},		 {"QAM_1024", QAM_1024},
 	{"QAM_4096", QAM_4096},		{"APSK_64", APSK_64},			{"APSK_128", APSK_128},	 {"APSK_256", APSK_256},
-	{"APSK_8L", APSK_8L},			{"APSK_16L", APSK_16L},		{"APSK_32L", APSK_32L},	 {"APSK_64L", APSK_64L},
-	{"APSK_128L", APSK_128L}, {"APSK_256L", APSK_256L}, {"APSK_1024", APSK_1024}};
+	{"APSK_8L", APSK_8_L},			{"APSK_16L", APSK_16_L},		{"APSK_32L", APSK_32_L},	 {"APSK_64L", APSK_64_L},
+	{"APSK_128L", APSK_128_L}, {"APSK_256L", APSK_256_L}, {"APSK_1024", APSK_1024}};
 
 int options_t::parse_options(int argc, char** argv) {
 	CLI::App app{"DVB tuning program"};

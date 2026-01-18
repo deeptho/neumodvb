@@ -20,7 +20,7 @@
 
 #pragma once
 #include <thread>
-#include "neumofrontend.h"
+#include "neumo-frontend.h"
 #include "util/util.h"
 #include "neumodb/devdb/devdb_extra.h"
 #include "neumodb/chdb/chdb_extra.h"

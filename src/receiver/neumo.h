@@ -25,7 +25,7 @@
 #include "util/logger.h"
 
 
-#include "neumofrontend.h"
+#include "neumo-frontend.h"
 #ifndef null_pid
 #define null_pid (0x1fff)
 #endif

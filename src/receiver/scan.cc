@@ -26,7 +26,7 @@
 #include "neumodb/db_keys_helper.h"
 #include "receiver.h"
 #include "util/template_util.h"
-#include "neumofrontend.h"
+#include "neumo-frontend.h"
 
 static inline void clear_pending(devdb::scan_stats_t& scan_stats) {
 	scan_stats.pending_peaks = 0;

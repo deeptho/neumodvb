@@ -301,30 +301,56 @@ static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t 
 		t.dbfe.rf_inputs.push_back(0);
 	}
 
-	struct dtv_property properties[16];
+	if(t.dbfe.supports_neumo) {
+		struct dtv_property properties[16];
+		memset(properties, 0, sizeof(properties));
+		unsigned int i = 0;
+		properties[i++].cmd = DTV_ENUM_DELSYS;
+		properties[i++].cmd = DTV_DELIVERY_SYSTEM;
+		struct dtv_properties props = {.num = i, .props = properties};
 
-	memset(properties, 0, sizeof(properties));
-	unsigned int i = 0;
-	properties[i++].cmd = DTV_ENUM_DELSYS;
-	properties[i++].cmd = DTV_DELIVERY_SYSTEM;
-	struct dtv_properties props = {.num = i, .props = properties};
+		if ((ioctl(t.fefd, FE_GET_PROPERTY, &props)) == -1) {
+			dterrorf("FE_GET_PROPERTY failed: {}", strerror(errno));
+			return -1;
+		}
 
-	if ((ioctl(t.fefd, FE_GET_PROPERTY, &props)) == -1) {
-		dterrorf("FE_GET_PROPERTY failed: {}", strerror(errno));
-		return -1;
+		auto& supported_delsys = properties[0].u.buffer.data;
+		int num_delsys = properties[0].u.buffer.len;
+
+		t.dbfe.delsys.resize(num_delsys);
+		for (int i = 0; i < num_delsys; ++i) {
+			auto delsys = (chdb::fe_delsys_t)supported_delsys[i];
+			// auto fe_type = chdb::delsys_to_type (delsys);
+			dtdebugf("delsys[{}]={}", i, to_str(delsys));
+			t.dbfe.delsys[i] = delsys;
+		}
+	} else {
+		//frontend does not support neumo
+		t.dbfe.delsys.clear();
+		struct dvb_frontend_info fe_info {}; // front_end_info
+		if (ioctl(t.fefd, FE_GET_INFO, &fe_info) < 0) {
+			dterrorf("FE_GET_FRONTEND_INFO FAILED: {:s}", strerror(errno));
+			return -1;
+		}
+		using namespace chdb;
+		switch(fe_info.type) {
+		case FE_QPSK:
+			t.dbfe.delsys.push_back(fe_delsys_t::SYS_DVBS);
+			t.dbfe.delsys.push_back(fe_delsys_t::SYS_DVBS2);
+			break;
+		case FE_QAM:
+			t.dbfe.delsys.push_back(fe_delsys_t::SYS_DVBC_ANNEX_A);
+			t.dbfe.delsys.push_back(fe_delsys_t::SYS_DVBC_ANNEX_B);
+			break;
+		case FE_OFDM:
+			t.dbfe.delsys.push_back(fe_delsys_t::SYS_DVBT);
+			t.dbfe.delsys.push_back(fe_delsys_t::SYS_DVBT2);
+			break;
+		case FE_ATSC:
+			t.dbfe.delsys.push_back(fe_delsys_t::SYS_ATSC);
+			break;
+		}
 	}
-
-	auto& supported_delsys = properties[0].u.buffer.data;
-	int num_delsys = properties[0].u.buffer.len;
-
-	t.dbfe.delsys.resize(num_delsys);
-	for (int i = 0; i < num_delsys; ++i) {
-		auto delsys = (chdb::fe_delsys_t)supported_delsys[i];
-		// auto fe_type = chdb::delsys_to_type (delsys);
-		dtdebugf("delsys[{}]={}", i, to_str(delsys));
-		t.dbfe.delsys[i] = delsys;
-	}
-
 	return 0;
 }
 
@@ -430,6 +456,7 @@ static int get_dvbt_mux_info(chdb::dvbt_mux_t& mux, const cmdseq_t& cmdseq) {
 
 int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api_type_t api) {
 	int matype{-1};
+	auto fe_supports_neumo = 	ts.readAccess()->dbfe.supports_neumo;
 	using namespace chdb;
 	const auto r = this->ts.readAccess();
 	const auto* dvbs_mux = std::get_if<dvbs_mux_t>(&r->reserved_mux);
@@ -496,52 +523,54 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 			*/
 	if (api == api_type_t::NEUMO) {
 		ret.driver_data_reliable =true;
-		matype = cmdseq.get(DTV_MATYPE)->u.data;
-		auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.driver_mux);
-		if (dvbs_mux) {
-			if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
-				dvbs_mux->matype = 256;
-				matype =  256; //means dvbs
-				dvbs_mux->k.stream_id = -1;
-			} else {
-				dvbs_mux->matype = matype;
-			}
-		} else {
-			//currently no dvbt/dvbc mux correctly sets matype
-			matype = -2;
-		}
-		auto* p = cmdseq.get(DTV_CONSTELLATION);
-		if(p) {
-			auto& cs = p->u.constellation;
-			assert(cs.num_samples >= 0);
-			assert((int)cs.num_samples <= ret.constellation_samples.size());
-			assert(cs.num_samples <= 4096);
-			ret.constellation_samples.resize_no_init(cs.num_samples); // we may have retrieved fewer samples than we asked
-		}
-
-		if(api_type == api_type_t::NEUMO && api_version >= 1200) {
-			ret.locktime_ms = cmdseq.get(DTV_LOCKTIME)->u.data;
-			ret.bitrate = cmdseq.get(DTV_BITRATE)->u.data;
-			auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
-			for (int i = 0; i < 256; ++i) {
-				int j = i / 32;
-				uint32_t mask = ((uint32_t)1) << (i % 32);
-				if (isi_bitset[j] & mask) {
-					ret.isi_list.push_back(i);
+		if(fe_supports_neumo) {
+			matype = cmdseq.get(DTV_MATYPE)->u.data;
+			auto* dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&ret.driver_mux);
+			if (dvbs_mux) {
+				if(dvbs_mux->delivery_system == fe_delsys_dvbs_t::SYS_DVBS) {
+					dvbs_mux->matype = 256;
+					matype =  256; //means dvbs
+					dvbs_mux->k.stream_id = -1;
+				} else {
+					dvbs_mux->matype = matype;
 				}
+			} else {
+				//currently no dvbt/dvbc mux correctly sets matype
+				matype = -2;
 			}
-			auto& matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
-			ret.matype_list.resize_no_init(matype_list.num_entries);
-		} else {
-			auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
-			ret.matype_list.clear();
-			for (int i = 0; i < 256; ++i) {
-				int j = i / 32;
-				uint32_t mask = ((uint32_t)1) << (i % 32);
-				if (isi_bitset[j] & mask) {
-					ret.isi_list.push_back(i);
-					//fake matype for earlier versions of neumo dvbapi
-					ret.matype_list.push_back(i | (matype <<8));
+			auto* p = cmdseq.get(DTV_CONSTELLATION);
+			if(p) {
+				auto& cs = p->u.constellation;
+				assert(cs.num_samples >= 0);
+				assert((int)cs.num_samples <= ret.constellation_samples.size());
+				assert(cs.num_samples <= 4096);
+				ret.constellation_samples.resize_no_init(cs.num_samples); // we may have retrieved fewer samples than we asked
+			}
+
+			if(api_type == api_type_t::NEUMO && api_version >= 1200) {
+				ret.locktime_ms = cmdseq.get(DTV_LOCKTIME)->u.data;
+				ret.bitrate = cmdseq.get(DTV_BITRATE)->u.data;
+				auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
+				for (int i = 0; i < 256; ++i) {
+					int j = i / 32;
+					uint32_t mask = ((uint32_t)1) << (i % 32);
+					if (isi_bitset[j] & mask) {
+						ret.isi_list.push_back(i);
+					}
+				}
+				auto& matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
+				ret.matype_list.resize_no_init(matype_list.num_entries);
+			} else {
+				auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
+				ret.matype_list.clear();
+				for (int i = 0; i < 256; ++i) {
+					int j = i / 32;
+					uint32_t mask = ((uint32_t)1) << (i % 32);
+					if (isi_bitset[j] & mask) {
+						ret.isi_list.push_back(i);
+						//fake matype for earlier versions of neumo dvbapi
+						ret.matype_list.push_back(i | (matype <<8));
+					}
 				}
 			}
 		}
@@ -554,6 +583,7 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 	mux_ is needed to translate tuner frequency to real frequency
 */
 int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bool get_constellation) {
+	auto fe_supports_neumo = 	ts.readAccess()->dbfe.supports_neumo;
 	cmdseq.add(DTV_STAT_SIGNAL_STRENGTH);
 	cmdseq.add(DTV_STAT_CNR);
 
@@ -585,8 +615,9 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 
 	if (api_type == api_type_t::NEUMO) {
 		// The following are only supported by neumo version 1.1 and later of dvbapi
-		cmdseq.add(DTV_MATYPE);
-		if (get_constellation) {
+		if(fe_supports_neumo) {
+			cmdseq.add(DTV_MATYPE);
+			if (get_constellation) {
 				auto r = ts.readAccess();
 				if(r->dbfe.supports.iq && num_constellation_samples > 0) {
 					ret.constellation_samples.resize(num_constellation_samples);
@@ -599,22 +630,23 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 				} else {
 					ret.constellation_samples.clear();
 				}
-		}
-		if(api_version >= 1200) {
-			// The following are only supported by neumo version 1.2 and later of dvbapi
-			cmdseq.add(DTV_LOCKTIME);
-			cmdseq.add(DTV_BITRATE);
-			cmdseq.add(DTV_ISI_LIST); //TODO: phase out
-			dtv_matype_list matype_list;
-			matype_list.num_entries = ret.matype_list.capacity();
-			assert(matype_list.num_entries==256);
-			matype_list.matypes = ret.matype_list.buffer();
-			cmdseq.add(DTV_MATYPE_LIST, matype_list);
-		} else {
-			cmdseq.add(DTV_ISI_LIST);
-		}
-		if(api_version >=1500) {
-			cmdseq.add(DTV_RF_INPUT);
+			}
+			if(api_version >= 1200) {
+				// The following are only supported by neumo version 1.2 and later of dvbapi
+				cmdseq.add(DTV_LOCKTIME);
+				cmdseq.add(DTV_BITRATE);
+				cmdseq.add(DTV_ISI_LIST); //TODO: phase out
+				dtv_matype_list matype_list;
+				matype_list.num_entries = ret.matype_list.capacity();
+				assert(matype_list.num_entries==256);
+				matype_list.matypes = ret.matype_list.buffer();
+				cmdseq.add(DTV_MATYPE_LIST, matype_list);
+			} else {
+				cmdseq.add(DTV_ISI_LIST);
+			}
+			if(api_version >=1500) {
+				cmdseq.add(DTV_RF_INPUT);
+			}
 		}
 	}
 	auto fefd = ts.readAccess()->fefd;
@@ -624,6 +656,7 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 std::optional<signal_info_t>
 dvb_frontend_t::update_lock_status_and_signal_info(fe_status_t fe_status, bool get_constellation) {
 	auto m = ts.readAccess()->tune_mode;
+	auto fe_supports_neumo = 	ts.readAccess()->dbfe.supports_neumo;
 	if (m != devdb::tune_mode_t::NORMAL && m != devdb::tune_mode_t::BLIND) {
 		set_lock_status(fe_status);
 		return {};
@@ -702,7 +735,7 @@ dvb_frontend_t::update_lock_status_and_signal_info(fe_status_t fe_status, bool g
 		ret.constellation_samples.resize_no_init(cs.num_samples); // we may have retrieved fewer samples than we asked
 	}
 
-	if (api_type == api_type_t::NEUMO && api_version >= 1200) {
+	if (api_type == api_type_t::NEUMO && api_version >= 1200  && fe_supports_neumo) {
 		uint64_t lock_time = cmdseq.get(DTV_LOCKTIME)->u.data;
 		uint64_t bitrate = cmdseq.get(DTV_BITRATE)->u.data;
 		ret.stat.locktime_ms = lock_time;

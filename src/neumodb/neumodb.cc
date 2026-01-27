@@ -48,7 +48,7 @@ neumodb_t::neumodb_t(const neumodb_t& main)
 	: autoconvert(main.autoconvert), is_temp(main.is_temp), readonly(main.readonly), envp(main.envp)
 //, dbdesc(main.dbdesc) deliberately not copied, as the copy of the neumodb_t needs to be initialised
 {
-	assert(env.get());
+	assert(envp.get());
 }
 
 neumodb_t::~neumodb_t() {

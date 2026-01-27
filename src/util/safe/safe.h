@@ -420,7 +420,7 @@ namespace safe
 
 			/**
 			 * @brief Construct a read-write Access object from a
-			 * safe::thread_public_t object and any additionnal argument needed to
+			 * safe::thread_public_t object and any additional argument needed to
 			 * construct the Lock object.
 			 *
 			 * If needed, you can provide additionnal arguments to construct

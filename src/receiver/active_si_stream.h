@@ -397,8 +397,7 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 
 
 	//set during registration (after first tune but possibly before first lock)
-
-	devdb::scan_target_t scan_target; //which SI tables should be scanned? This determines which pids will be opened
+	devdb::scan_target_t scan_target{devdb::scan_target_t::NONE}; //which SI tables should be scanned? This determines which pids will be opened
 	std::map<subscription_id_t, chdb::any_mux_t> subscriptions;
 
 	inline bool subscription_exists(subscription_id_t subscription_id) const {
@@ -773,7 +772,7 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 	}
 
 public:
-
+	active_si_stream_t() = delete;
 	//void process_psi(int pid, unsigned char* payload, int payload_size);
 	active_si_stream_t(receiver_t& receiver,
 										 const std::shared_ptr<stream_reader_t>& reader, const chdb::any_mux_t& mux,

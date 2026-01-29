@@ -345,24 +345,35 @@ public:
 	future_t stop_running(bool wait) {
 		{
 			std::unique_lock<std::mutex> lk(mutex);
-			if(this->must_exit_) {
-				if(wait) {
-					dtdebugf("Handle parallel call to stop_running");
-					while(! this->has_exited_)
-						this->cv.wait(lk);
-					dtdebugf("Handle parallel call to stop_running - done");
+			if(thread_.joinable()) { //thread is running
+				if(this->must_exit_) {
+					if(wait) {
+						dtdebugf("Handle parallel call to stop_running");
+						while(! this->has_exited_)
+							this->cv.wait(lk);
+						dtdebugf("Handle parallel call to stop_running - done");
+					}
+					task_t dummy_task([]() {
+						task_result_t ret;
+						ret.retval = 0;
+						ret.errmsg = "";
+						return ret;
+					});
+					auto ret {dummy_task.get_future()};
+					dummy_task();
+					return ret;
 				}
+			} else {
 				task_t dummy_task([]() {
 					task_result_t ret;
 					ret.retval = 0;
-					ret.errmsg = "";
-					return ret;
+						ret.errmsg = "";
+						return ret;
 				});
 				auto ret {dummy_task.get_future()};
 				dummy_task();
 				return ret;
 			}
-
 			this->must_exit_ = true;
 		}
 

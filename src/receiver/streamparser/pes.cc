@@ -238,9 +238,6 @@ void h264_parser_t::parse_payload_unit() {
 		//THROW_BAD_DATA;
 	}
 	primary_pic_type >>= 5;
-	/*the following will probably never occur*/
-	if (primary_pic_type > 5)
-		primary_pic_type -= 5;
 	/*Primary pic_type indicates what type of slices may be present in the current picture
 		See table 7-5 p. 105 of  T-REC-H.264-201704-I!!PDF-E.pdf
 		0: only I-slices
@@ -250,8 +247,10 @@ void h264_parser_t::parse_payload_unit() {
 
 	*/
 
-	this->current_unit_type = stream_type::h264_frame_type(primary_pic_type);
-
+	/*we always set current_unit_type to i_frame to prevent some h.265 problems;
+		this implies that current_unit_type is nostly useless now
+	*/
+	this->current_unit_type = marker_t::i_frame;
 	if (is_iframe(this->current_unit_type)) {
 		if (has_pts()) {
 		} else {

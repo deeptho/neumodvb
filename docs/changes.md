@@ -1,5 +1,113 @@
 # Changes in neumoDVB #
 
+## Changes in version neumodvb-2.2 ##
+
+### Enhancements
+* Updated libfmt.
+* Improved layout of service info on live channel screen.
+* Compact service info on live channel screen by not showing empty fields.
+* Show names of live channels on live channel screen.
+* Add epg update to live channel list and keep it updated.
+* Show sat_pos on live screen.
+* Debian installation instructions.
+* Use longer timeout for EIT P/F actual.
+* Improved logging of lof offset.
+* More informative debug message in jump.
+* Avoid showing yellow when mosaic panel is not fully filled with players (e.g. 3 mpv players on screen). Improved highlighting of mpv players.
+* On livescreen jump to start of list when pressing down key on last record and likewise for up on the first record.
+* Log full mux_id in epg records.
+* Preserve currently focused service when services are updated.
+* Add default epg to playback info.
+* Smaller font in info window.
+* Reduce subtitle font slightly.
+* Document trick play.
+
+
+### Bug fixes
+* Scan_target not properly initialized leadiing to EPG scanning sometimes not working.
+* Some H.265 streams not playing correctly.
+* Handle key change caused by tuning to nearby satellite.
+* Handle re-registration of the same pmt_pid, e.g. after loss of signal.
+* Incorrect assertion.
+* Stackstring: missing format_to causing corrupt debug message.
+* Calling stop_running hangs when task was not started, resulting in hangs when adapters are removed from the system (e.g., through driver unload).
+* Fix page down in live screen.
+* Incorrect display of live status.
+* Incorrect parsing of stream identifier.
+* Playback does not restart when switching to some h.264 channels (Altyn Asyr) if old timeshift buffer is present. This is due to incorrect parsing of h264 header.
+* Improved fix_mux for 52E pretending to be 53E.
+* Also run fix_mux on muxes from SDT.
+* Log messages instead of some python assertions.
+* DVB-C remove invalid assertions.
+* Ubuntu installation instructions.
+* Avoid assertion on !lock_state.locked_minimal.
+* Regression: blindscan fails, causing an assertion.
+* Show black frames before service change.
+* Cannot tune to other service if current service fails to decrypt.
+* Loading empty optional variable.
+* Reduce number of log messages when no valid key is present.
+* Do not try to connnect when softcam is disabled.
+* Properly detect and save empty softcam_server_port option.
+* Live_service not marked as no longer used at end of service.
+* Silence some debug messages.
+* Replace some error messages with debug messages.
+* Incorrect handling of mpv "end of file" when switching to different channel.
+* Incorrect reporting of pmt_change.
+* Include dmarkers in recording.
+* Fix absent dmarkers in legacy recordings.
+* Debug save code.
+* Improved return from reverse play; handle mpv_events.
+* Live_mpm: introduce dmarker and live_segment.
+* Introduce the concept of a livebuffer_segment to make mpv show the correct time even when stream discontinuities occur. Currently the only effect is that playback starts at the most recent tuning instead of at the start of the livebuffer.
+* Wait_for_updates changes.
+* Remove "mpv not ready" assertion.
+* Silence a warning on ComponentDescriptorTag.
+* Assertion after removing glcanvas.
+* Starting from LiveScreen, pressing E works the first time, but then pressing L and E shows live video overlayed in wrong position.
+* Correctly maintain focus on epg panel after switching live epg off and then on again.
+* Sometime live epg screen is filled with yellow background.
+* Do not create a 2nd mpv player when calling CmdTuneAdd if there if no service is active yet.
+* Subscription_id cleared when asking to play recording when service is being played.
+* When multiple subscriptions use the same service, then releasing one of those subscriptions erroneously stops the service and removes the live buffer.
+* Assertion when pressing enter on a recording on livescreen.
+* Fix 4/3 vs 16/9 aspect ratio detection code.
+* Avoid integer overflow in current_byte_pos.
+* Incorrect marker_offsets when writing to previously closed part.
+* Writing at incorrect place in stream buffer.
+* Remove assertion for ts_id==65535.
+* Simplify updating playback_info.
+* Incorrect assertions.
+* Make play_time always equal to relative start to first live buffer start.
+* Implement real_time_for_bytepos (not used as it updates slowly).
+* Improve move_to_live.
+* Improve get_play_time.
+* Fix set_audio_language.
+* Incorrect seeking to 0.
+* Playback hangs when reaching end of file.
+* Improved pmt handling during playback.
+* Sometimes audio languages not shown in toggle language dialog.
+* Live recording screen reacts to ch_order numeric entry and then backtraces.
+* Yellow background sometimes fills screen.
+* Debug timing.
+* Remove unneeded code.
+* Check for new recordings.
+* Oroperly set mm->livebuffer_start_time and mm->livebuffer_stream_time_start.
+* Allow language selection during playback. Partially works: playback stops, but selected language is remembered.
+* Recordings not showing on live screen.
+* Playback of recording not working with new mpm_cursor code.
+* Incorrect decoding of unicode DVB (e.g., RAI@5.0W).
+* Recording starting twice.
+* Incorrect num_bytes_safe_to_read leading to error after viewing for a long time.
+* Service restarted when viewing a service being recorded.
+* Avoid error messages on streams without subtitles.
+* Reduce verbosity.
+* Initial pmt set too many times.
+* Avoid some assertions.
+* Avoid stutter at startup due to trying to read too much  data.
+* Ensure that initial_pmt is always noticed at playback; otherwise selecting audio and subtitle language may go wrong.
+* Compilation fix.
+* Crash when tuning fails.
+* Sometimes playback_speed message appears needlessly.
 ## Changes in version neumodvb-2.1 ##
 
 ### Major new features

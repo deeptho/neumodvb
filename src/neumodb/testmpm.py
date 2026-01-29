@@ -21,10 +21,11 @@ import pychdb
 db= pyrecdb.recdb()
 filerec= pyrecdb.file
 marker =  pyrecdb.marker
+dmarker =  pyrecdb.dmarker
 pmt_marker =  pyrecdb.pmt_marker
 rec = pyrecdb.rec
 
-db.open('/tmp/index.mdb')
+db.open('/tmp/xxx/index.mdb')
 #import pyepgdb
 datetime_fn =  lambda x: datetime.datetime.fromtimestamp(x, tz=tz.tzlocal()).strftime("%Y-%m-%d %H:%M:%S") if x<33101382645 else "?"
 millisec_fn =  lambda x: f"{x/1000:.3f}" if x<922337203685477580 else "?"
@@ -54,6 +55,8 @@ epg_txn=epgdb.rtxn()
 
 files = filerec.list_all_by_key(txn);
 markers = marker.list_all_by_key(txn)
+#dmarkers = dmarker.list_all_by_key(txn)
+
 pmt_markers = pmt_marker.list_all_by_key(txn)
 
 

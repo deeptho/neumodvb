@@ -680,14 +680,20 @@ record_t screen_t<record_t>::record_at_row(int row_number)
 	if(row_number != monitor.reference.row_number &&
 		 row_number != monitor.auxiliary_reference.row_number)
 #endif
+#ifndef NDEBUG
+		int count =
+#endif
 		set_reference(row_number);
 	if(row_number == monitor.reference.row_number)
 		return primary_current_record;
 	else if(row_number == monitor.auxiliary_reference.row_number)
 		return auxiliary_current_record;
+	dterrorf("count={} row_number={}", count, row_number);
+#if 1
 	assert(0);
 	//only for debugging
 	set_reference(row_number);
+#endif
 	return primary_current_record;
 }
 

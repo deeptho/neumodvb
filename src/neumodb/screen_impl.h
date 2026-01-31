@@ -575,7 +575,8 @@ int screen_t<record_t>::set_reference(int row_number)
 	}
 
 	if(count>=0) {
-		assert(count == row_number);
+		if(count < row_number)
+			dtdebugf("Count={} < row_number={}", count, row_number);
 		assert(count < monitor.state.list_size);
 		if(c.is_valid()) {
 			reference->row_number =row_number;

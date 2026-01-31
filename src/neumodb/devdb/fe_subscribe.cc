@@ -798,7 +798,8 @@ devdb::fe::subscribe_mux(db_txn& wtxn, subscription_id_t subscription_id,
 			}
 			assert((int) subscription_id <0 || !contains_sub(*fe_, subscription_id));
 			if constexpr (is_same_type_v<mux_t, chdb::dvbs_mux_t>) {
-				assert(fe.sub.subs.size() == 0 ||
+				assert(fe.sub.subs.size() == 0 || tune_options.subscription_type == devdb::subscription_type_t::LNB_CONTROL
+							 ||
 							 (!tune_options.may_move_dish &&
 								!fe_subscription::may_move_dish(fe.sub) && ! fe_subscription::may_change_lnb(fe.sub)));
 			}

@@ -1333,7 +1333,7 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 		for(int i=1; i< lnb.connections.size(); ) {
 			if(lnb.connections[i-1].card_mac_address == lnb.connections[i].card_mac_address &&
 				 lnb.connections[i-1].rf_input == lnb.connections[i].rf_input)
-				lnb.networks.erase(i); //remove duplicate connection
+				lnb.connections.erase(i); //remove duplicate connection
 			else
 				++i;
 		}

@@ -166,7 +166,7 @@ namespace dtdemux {
 		ss::vector<ca_info_t, 16> ca_descriptors;
 		ss::vector<service_move_info_t, 4> service_move_descriptors;
 
-		chdb::media_mode_t estimated_media_mode;
+		chdb::media_mode_t estimated_media_mode{chdb::media_mode_t::UNKNOWN};
 		ss::string<16> service_name;
 		ss::string<16> provider_name;
 		pmt_info_t& operator=(const pmt_info_t& other) = default;

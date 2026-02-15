@@ -1105,6 +1105,8 @@ namespace dtdemux {
 			default:
 				dtdebug_nicef("PMT: unhandled descriptor {}={} size={}", (int)_desc.tag,
 											name_of_descriptor_tag(_desc.tag), (int)_desc.len);
+			case SI::MHP_DelegatedApplicationDescriptorTag:
+			case SI::MHP_ExternalApplicationAuthorisationDescriptorTag:
 			case SI::DataBroadcastDescriptorTag:
 			case SI::AACDescriptorTag:
 			case SI::ApplicationSignallingDescriptorTag:
@@ -1331,11 +1333,8 @@ namespace dtdemux {
 					pmt.estimated_media_mode = media_mode_t::RADIO;
 			}
 
-
-
 			if(info.t2mi_stream_id >=0)
 				pmt.estimated_media_mode = media_mode_t::T2MI;
-
 
 			pmt.pid_descriptors.push_back(info);
 		}

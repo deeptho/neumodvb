@@ -160,7 +160,7 @@ uint8_t ts_substream_t::get_start_code() {
 	if (current_ts_packet->is_encrypted()) {
 		// throw_encrypted_data(); already done in get_next_packet, but surpress error here
 	} else if ((code & 0xffffff00) != 0x00000100) {
-		dtdebugf("Bad start code 0x{:x}", code);
+		dtdebug_nicef("Bad start code 0x{:x}", code);
 		throw_bad_data();
 	}
 	return code & 0xff;

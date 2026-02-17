@@ -916,6 +916,13 @@ int MpvPlayer::set_subtitle_language(int id) {
  */
 void mpv_subscription_t::play_service(const chdb::service_t& service) {
 	log4cxx_store_threadname();
+	bool is_radio = service.media_mode == chdb::media_mode_t::RADIO;
+	if (mpv_set_property_string(mpv_player->mpv, "profile",
+															is_radio ? "neumoradio" : "neumo") < 0) {
+		dterrorf("failed to register mpv neumo profile");
+		assert(0);
+	}
+
 	dtdebugf("PLAY SUBSCRIPTION (service): {}", service);
 	if (is_playing()) {
 		dtdebugf("PLAY SUBSCRIPTION (service) close mpm");

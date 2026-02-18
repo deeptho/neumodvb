@@ -317,8 +317,8 @@ public:
 	inline void request_wakeup(double seconds) {
 		if(wait_timer_fd <0) {
 			wait_timer_fd = timerfd_create(CLOCK_MONOTONIC, 0);
-			epx.add_fd(wait_timer_fd, EPOLLIN|EPOLLERR|EPOLLHUP);
 		}
+		epx.add_fd(wait_timer_fd, EPOLLIN|EPOLLERR|EPOLLHUP);
 		timer_set_once(wait_timer_fd, seconds);
 	}
 

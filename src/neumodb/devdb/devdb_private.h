@@ -105,9 +105,10 @@ namespace devdb {
 
 namespace devdb::lnb {
 	std::tuple<std::optional<devdb::rf_path_t>, std::optional<devdb::lnb_t>>
-	select_lnb(db_txn& rtxn, const chdb::sat_t* sat, const chdb::dvbs_mux_t* proposed_mux);
+	select_lnb(db_txn& rtxn, const chdb::sat_t* sat, const chdb::dvbs_mux_t* proposed_mux,
+						 bool prefer_rotor_control);
 
-	std::optional<rf_path_t> select_rf_path(const devdb::lnb_t& lnb, int16_t sat_pos = sat_pos_none);
+	std::optional<rf_path_t> select_rf_path(const devdb::lnb_t& lnb, int16_t sat_pos, bool prefer_rotor_control);
 
 
 

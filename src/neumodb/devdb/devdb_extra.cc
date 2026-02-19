@@ -549,14 +549,14 @@ int devdb::lnb::freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, boo
 
 namespace devdb::lnb {
 	static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
-	select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux);
+	select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux, bool prefer_rotor_control);
 };
 
 /*
 	find the best lnb for tuning to a sat and possibly to a specific mux oin the sat sat
  */
 static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
-devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux) {
+devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux, bool prefer_rotor_control) {
 	using namespace chdb;
 	subscription_options_t tune_options;
 	tune_options.may_move_dish = false;
@@ -615,7 +615,8 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux)
 	return {};
 }
 
-std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int16_t sat_pos) {
+std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int16_t sat_pos,
+																										bool prefer_rotor_control) {
 	if (!lnb.enabled || lnb.connections.size()==0)
 		return {};
 	bool lnb_is_on_rotor = lnb.on_positioner;
@@ -636,8 +637,10 @@ std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int
 					(!may_move_dish || !conn_can_control_rotor)
 				)
 				continue; //skip because dish movement is not allowed or  not possible
+
 			if(!best_conn ||
 				 (lnb_connection.can_be_used && ! best_conn->can_be_used) ||
+				 (conn_can_control_rotor && ! devdb::lnb::can_move_dish(*best_conn)) ||
 				 lnb_connection.priority > best_conn->priority)
 				best_conn = &lnb_connection;
 		}
@@ -651,10 +654,11 @@ std::optional<rf_path_t> devdb::lnb::select_rf_path(const devdb::lnb_t& lnb, int
 }
 
 std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
-devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::dvbs_mux_t* proposed_mux) {
+devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_,
+											 const chdb::dvbs_mux_t* proposed_mux, bool prefer_rotor_control) {
 	using namespace chdb;
 	if(proposed_mux)
-		return select_lnb(devdb_rtxn, *proposed_mux);
+		return select_lnb(devdb_rtxn, *proposed_mux, prefer_rotor_control);
 	if(!sat_)
 		return {}; //too little info to make  choice
 
@@ -688,7 +692,7 @@ devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::sat_t* sat_, const chdb::
 				)
 				continue;
 
-			auto rf_path = select_rf_path(lnb, sat.sat_pos);
+			auto rf_path = select_rf_path(lnb, sat.sat_pos, prefer_rotor_control);
 			if(!rf_path)
 				continue;
 

@@ -338,6 +338,10 @@ class TuneMuxPanel(TuneMuxPanel_):
                 break
             idx +=1
         self.OnSave(event=event)
+
+    def OnSaveUsals(self, event=None):  # wxGlade: PositionerDialog_.<event_handler>
+        self.OnSave(event=event)
+
     def OnResetLof(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Resetting LOF offset")
         assert self.lnb is not None

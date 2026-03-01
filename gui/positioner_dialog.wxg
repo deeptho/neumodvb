@@ -494,7 +494,18 @@
                                                 <attribute>1</attribute>
                                             </object>
                                         </object>
-                                        <object class="sizerslot" />
+                                        <object class="sizeritem">
+                                            <option>0</option>
+                                            <border>0</border>
+                                            <flag>wxALL|wxALIGN_CENTER_VERTICAL|wxFIXED_MINSIZE</flag>
+                                            <object class="wxButton" name="save_usals_button" base="EditButton">
+                                                <events>
+                                                    <handler event="EVT_BUTTON">OnSaveUsals</handler>
+                                                </events>
+                                                <tooltip>Save Control type, usals correction, diseqc12 position for selected LNB network.</tooltip>
+                                                <label>Save Usals</label>
+                                            </object>
+                                        </object>
                                     </object>
                                 </object>
                             </object>
@@ -969,7 +980,7 @@
                                                                 <flag>wxALL|wxALIGN_CENTER_VERTICAL|wxFIXED_MINSIZE</flag>
                                                                 <object class="wxButton" name="ok_button" base="EditButton">
                                                                     <events>
-                                                                        <handler event="EVT_BUTTON">OnSave</handler>
+                                                                        <handler event="EVT_BUTTON">OnSaveNetwork</handler>
                                                                     </events>
                                                                     <tooltip>Save Control type, usals correction, diseqc12 position and reference mux for this LNB network.</tooltip>
                                                                     <label>Save network</label>

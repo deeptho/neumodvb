@@ -395,7 +395,7 @@ class TuneMuxPanel_(wx.Panel):
 
         self.Layout()
 
-        self.ok_button.Bind(wx.EVT_BUTTON, self.OnSave)
+        self.ok_button.Bind(wx.EVT_BUTTON, self.OnSaveNetwork)
         self.reset_lof_offset_button.Bind(wx.EVT_BUTTON, self.OnResetLof)
         self.constellation_toggle.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleConstellation)
         self.tune_reset_button.Bind(wx.EVT_BUTTON, self.OnResetTune)
@@ -405,8 +405,8 @@ class TuneMuxPanel_(wx.Panel):
         self.pls_search_button.Bind(wx.EVT_BUTTON, self.OnSearchPls)
         # end wxGlade
 
-    def OnSave(self, event):  # wxGlade: TuneMuxPanel_.<event_handler>
-        print("Event handler 'OnSave' not implemented!")
+    def OnSaveNetwork(self, event):  # wxGlade: TuneMuxPanel_.<event_handler>
+        print("Event handler 'OnSaveNetwork' not implemented!")
         event.Skip()
 
     def OnResetLof(self, event):  # wxGlade: TuneMuxPanel_.<event_handler>
@@ -619,7 +619,9 @@ class PositionerDialog_(wx.Frame):
         self.lnb_offset_angle_text_ctrl = wx.StaticText(self.usals_panel, wx.ID_ANY, _("0.0E"))
         grid_sizer2b.Add(self.lnb_offset_angle_text_ctrl, 0, 0, 0)
 
-        grid_sizer2b.Add((0, 0), 0, 0, 0)
+        self.save_usals_button = wx.Button(self.usals_panel, wx.ID_ANY, _("Save Usals"))
+        self.save_usals_button.SetToolTip(_("Save Control type, usals correction, diseqc12 position for selected LNB network."))
+        grid_sizer2b.Add(self.save_usals_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL | wx.FIXED_MINSIZE, 0)
 
         self.signal_info_panel = wx.Panel(self, wx.ID_ANY, style=wx.BORDER_SUNKEN)
         grid_sizer_4.Add(self.signal_info_panel, 0, wx.EXPAND, 0)
@@ -681,6 +683,7 @@ class PositionerDialog_(wx.Frame):
         self.latitude_north_south_choice.Bind(wx.EVT_CHOICE, self.OnLatitudeNorthSouthSelect)
         self.longitude_text_ctrl.Bind(wx.EVT_TEXT_ENTER, self.OnLongitudeChanged)
         self.longitude_east_west_choice.Bind(wx.EVT_CHOICE, self.OnLongitudeEastWestSelect)
+        self.save_usals_button.Bind(wx.EVT_BUTTON, self.OnSaveUsals)
         # end wxGlade
 
     def OnDiseqcTypeChoice(self, event):  # wxGlade: PositionerDialog_.<event_handler>
@@ -765,6 +768,10 @@ class PositionerDialog_(wx.Frame):
 
     def OnLongitudeEastWestSelect(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         print("Event handler 'OnLongitudeEastWestSelect' not implemented!")
+        event.Skip()
+
+    def OnSaveUsals(self, event):  # wxGlade: PositionerDialog_.<event_handler>
+        print("Event handler 'OnSaveUsals' not implemented!")
         event.Skip()
 
 # end of class PositionerDialog_

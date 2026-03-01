@@ -310,14 +310,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             return rf_path, lnb, sat, mux
 
     def OnSave(self, event=None):  # wxGlade: PositionerDialog_.<event_handler>
-        dtdebug("saving")
-        for n in self.lnb.networks:
-            if n.sat_pos == self.sat.sat_pos:
-                new_ref_mux = self.mux if self.signal_info is None else self.signal_info.driver_mux
-                self.ref_mux = new_ref_mux
-                self.ref_mux.k.sat_pos = self.sat.sat_pos
-                n.ref_mux = self.ref_mux.k
-                break
+        dtdebug("saving lnb")
         if True:
             txn = wx.GetApp().devdb.wtxn()
             #adjust lnb_connections based on possible changes in frontends
@@ -329,6 +322,22 @@ class TuneMuxPanel(TuneMuxPanel_):
         if event is not None:
             event.Skip()
 
+    def OnSaveNetwork(self, event=None):  # wxGlade: PositionerDialog_.<event_handler>
+        dtdebug("Updating ref_mux")
+        idx =0
+        for n in self.lnb.networks:
+            dtdebug(f"Updating ref_mux: n.sat_pos={n.sat_pos} sat.sat_pos={self.sat.sat_pos}")
+            if n.sat_pos == self.sat.sat_pos:
+                new_ref_mux = self.mux if self.signal_info is None or \
+                    self.signal_info.driver_mux.k.sat_pos == pychdb.sat.sat_pos_none \
+                    else self.signal_info.driver_mux
+                dtdebug(f"ref_mux: self.mux={self.mux} PPP {new_ref_mux}")
+                self.ref_mux = new_ref_mux
+                self.ref_mux.k.sat_pos = self.sat.sat_pos
+                n.ref_mux = self.ref_mux.k
+                break
+            idx +=1
+        self.OnSave(event=event)
     def OnResetLof(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Resetting LOF offset")
         assert self.lnb is not None

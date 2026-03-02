@@ -297,7 +297,7 @@ class TuneMuxPanel_(wx.Panel):
         grid_sizer_15.Add(self.si_sdt_services_text, 0, wx.LEFT, 5)
 
         self.constellation_panel = wx.Panel(self, wx.ID_ANY, style=wx.BORDER_SUNKEN)
-        grid_sizer_3.Add(self.constellation_panel, 1, wx.EXPAND, 0)
+        grid_sizer_3.Add(self.constellation_panel, 0, wx.EXPAND, 0)
 
         sizer_3333 = wx.BoxSizer(wx.VERTICAL)
 
@@ -454,7 +454,7 @@ class PositionerDialog_(wx.Frame):
         grid_sizer_1.Add(label_5, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
 
         grid_sizer_4 = wx.FlexGridSizer(1, 4, 5, 10)
-        grid_sizer_1.Add(grid_sizer_4, 1, wx.ALL, 8)
+        grid_sizer_1.Add(grid_sizer_4, 1, wx.ALL | wx.EXPAND, 8)
 
         grid_sizer_18 = wx.FlexGridSizer(2, 1, 5, 0)
         grid_sizer_4.Add(grid_sizer_18, 1, wx.EXPAND, 0)
@@ -624,7 +624,7 @@ class PositionerDialog_(wx.Frame):
         grid_sizer2b.Add(self.save_usals_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL | wx.FIXED_MINSIZE, 0)
 
         self.signal_info_panel = wx.Panel(self, wx.ID_ANY, style=wx.BORDER_SUNKEN)
-        grid_sizer_4.Add(self.signal_info_panel, 0, wx.EXPAND, 0)
+        grid_sizer_4.Add(self.signal_info_panel, 1, wx.EXPAND, 0)
 
         sizer_2 = wx.FlexGridSizer(2, 1, 5, 0)
 
@@ -656,6 +656,7 @@ class PositionerDialog_(wx.Frame):
         self.motor_control_panel.SetSizer(sizer_5)
 
         grid_sizer_4.AddGrowableRow(0)
+        grid_sizer_4.AddGrowableCol(3)
 
         grid_sizer_1.AddGrowableCol(0)
         self.SetSizer(grid_sizer_1)

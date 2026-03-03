@@ -721,8 +721,9 @@ enum fe_interleaving {
 #define DTV_RF_INPUT 91
 #define DTV_SET_SEC_CONFIGURED 92
 #define DTV_OUTPUT_BBFRAMES 93 //ask frontend to send bbframes to demux
-#define DTV_MODCODE		94
-#define DTV_MAX_COMMAND	 DTV_MODCODE
+#define DTV_MODCODE 94
+#define DTV_MODCOD_LIST	95 //retrieve list of present matypes and stream_ids
+#define DTV_MAX_COMMAND	DTV_MODCOD_LIST //retrieve list of present modcodes
 
 //commands for controlling long running algorithms via FE_ALGO_CTRL ioctl
 #define DTV_STOP 1
@@ -1121,6 +1122,18 @@ struct dtv_matype_list {
 	__u16* matypes;
 };
 
+struct dtv_modcod_entry {
+	__u8 modcod;
+	__u8 reserved;
+	__u16 frac; // fraction of frames in which this modcod occurs
+};
+
+
+struct dtv_modcod_list {
+	struct dtv_modcod_entry* entries;
+	__u32 num_entries;
+};
+
 /**
  * struct dvb_api_dtv_property - store one of frontend command and its value
  *
@@ -1181,6 +1194,7 @@ struct dtv_property {
 		struct dtv_fe_spectrum spectrum;
 		struct dtv_fe_constellation constellation;
 		struct dtv_matype_list matype_list;
+		struct dtv_modcod_list modcod_list;
 		struct dtv_pls_search_list pls_search_codes;
 		struct {
 			__u8 data[32];

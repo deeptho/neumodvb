@@ -66,6 +66,14 @@ void cmdseq_t::add(int cmd, const dtv_matype_list& matype_list) {
 	cmdseq.num++;
 };
 
+void cmdseq_t::add(int cmd, const dtv_modcod_list& modcod_list) {
+	assert(cmdseq.num < props.size() - 1);
+	memset(&cmdseq.props[cmdseq.num], 0, sizeof(cmdseq.props[cmdseq.num]));
+	cmdseq.props[cmdseq.num].cmd = cmd;
+	cmdseq.props[cmdseq.num].u.modcod_list = modcod_list;
+	cmdseq.num++;
+};
+
 void cmdseq_t::add_pls_codes(int cmd) {
 	assert(cmdseq.num < props.size() - 1);
 	auto* tvp = &cmdseq.props[cmdseq.num];
@@ -560,6 +568,15 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 				}
 				auto& matype_list = cmdseq.get(DTV_MATYPE_LIST)->u.matype_list;
 				ret.matype_list.resize_no_init(matype_list.num_entries);
+				if(api_version >= 1210) {
+					auto& modcod_list = cmdseq.get(DTV_MODCOD_LIST)->u.modcod_list;
+					ret.modcod_list.resize_no_init(modcod_list.num_entries);
+					//ret.modcod_list.clear();
+					for(int i=0; i < modcod_list.num_entries; ++i) {
+						auto &modcod_entry = modcod_list.entries[i];
+						ret.modcod_list[i] = modcod_entry;
+					}
+				}
 			} else {
 				auto* isi_bitset = (uint32_t*)cmdseq.get(DTV_ISI_LIST)->u.buffer.data;
 				ret.matype_list.clear();
@@ -641,6 +658,12 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 				assert(matype_list.num_entries==256);
 				matype_list.matypes = ret.matype_list.buffer();
 				cmdseq.add(DTV_MATYPE_LIST, matype_list);
+				if(api_version >= 1210) {
+					dtv_modcod_list modcod_list;
+					modcod_list.num_entries = ret.modcod_list.capacity();
+					modcod_list.entries = ret.modcod_list.buffer();
+					cmdseq.add(DTV_MODCOD_LIST, modcod_list);
+				}
 			} else {
 				cmdseq.add(DTV_ISI_LIST);
 			}

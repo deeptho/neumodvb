@@ -120,6 +120,7 @@ public:
 
 	void add (int cmd, const dtv_fe_constellation& constellation);
 	void add (int cmd, const dtv_matype_list& matype_list);
+	void add (int cmd, const dtv_modcod_list& modcod_list);
 	void add_clear();
 	void add_pls_codes(int cmd);
 	void add_pls_code(int code) {

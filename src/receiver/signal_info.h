@@ -160,6 +160,7 @@ struct signal_info_t {
 	bool blind_tune_on{false}; //frontend used blind tune
 	ss::vector<int16_t, 8> isi_list;
 	ss::vector<uint16_t, 256> matype_list; //size needs to be 256 in current implementation
+	ss::vector<struct dtv_modcod_entry, 16> modcod_list;
 	fe_lock_status_t lock_status;
 	steady_time_t last_new_matype_time;
 	ss::vector_<dtv_fe_constellation_sample> constellation_samples;

@@ -21,7 +21,6 @@ import wx
 import wx.lib.newevent
 import math
 
-
 from neumodvb import  minispinctrl, minifloatspin
 from neumodvb.positioner_dialog_gui import  PositionerDialog_, SignalPanel_ , TuneMuxPanel_
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
@@ -32,7 +31,7 @@ from neumodvb.util import dtdebug, dterror
 from neumodvb.satlist_combo import EVT_SAT_SELECT
 from neumodvb.lnblist_combo import EVT_LNB_SELECT, EVT_RF_PATH_SELECT
 from neumodvb.muxlist_combo import EVT_MUX_SELECT
-
+from itertools import batched
 import pyreceiver
 import pychdb
 import pydevdb
@@ -73,6 +72,11 @@ def get_isi_list(stream_id, signal_info):
         except ValueError:
             pass
     return lst, prefix, suffix
+
+def get_modcod_list(signal_info):
+    lists = batched([ x for x in signal_info.modcod_list ], 4)
+    lists = [ ", ".join(l)  for l in lists ]
+    return "\n".join(lists)
 
 class Diseqc12SpinCtrl(minispinctrl.MiniSpinCtrl):
     def __init__(self, parent, *args, size=(35,30), **kwds):
@@ -744,6 +748,7 @@ class SignalPanel(SignalPanel_):
         self.rf_level_text.SetLabel('')
         self.ber_text.SetLabel('')
         self.isi_list_text.SetLabel('')
+        self.modcod_list_text.SetLabel('')
         rf_level = self.signal_info.signal_strength/1000
         self.rf_level_text.SetLabel(f'{rf_level:6.2f}dB')
         self.sat_pos_text.SetForegroundColour(wx.Colour('red'))
@@ -814,11 +819,19 @@ class SignalPanel(SignalPanel_):
 
         stream_id = driver_mux.k.stream_id
         isi = ''
+        modcod = ''
         if signal_info.has_timing_lock:
             lst, prefix, suffix = get_isi_list(stream_id, signal_info)
             isi = ', '.join([f'<span foreground="blue">{str(i)}</span>' if i==stream_id else str(i) for i in lst])
             isi = f'[{len(signal_info.isi_list)}]: {prefix}{isi}{suffix}'
+
+            modcod = get_modcod_list(signal_info)
+
         self.isi_list_text.SetLabelMarkup(isi)
+        if True:
+            self.modcod_list_text.SetLabelMarkup(modcod)
+
+
         matype = signal_info.matype.replace("ACM/VCM", f'<span foreground="blue">ACM/VCM</span>')
         if locked and signal_info.has_matype:
             pls_mode = lastdot(str(driver_mux.pls_mode))

@@ -20,6 +20,7 @@
  */
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/devmanager.h"
+#include "receiver/modcods.h"
 #include "receiver/neumo-frontend.h"
 #include "receiver/receiver.h"
 #include "receiver/active_si_stream.h"
@@ -36,6 +37,29 @@
 #include <wx/window.h>
 
 namespace py = pybind11;
+
+template <typename T, typename Compare>
+std::vector<std::size_t> sort_permutation(
+    const std::vector<T>& vec,
+    Compare&& compare)
+{
+    std::vector<std::size_t> p(vec.size());
+    std::iota(p.begin(), p.end(), 0);
+    std::sort(p.begin(), p.end(),
+        [&](std::size_t i, std::size_t j){ return compare(vec[i], vec[j]); });
+    return p;
+}
+
+template <typename T>
+std::vector<T> apply_permutation(
+    const std::vector<T>& vec,
+    const std::vector<std::size_t>& p)
+{
+    std::vector<T> sorted_vec(vec.size());
+    std::transform(p.begin(), p.end(), sorted_vec.begin(),
+        [&](std::size_t i){ return vec[i]; });
+    return sorted_vec;
+}
 
 void export_pls_search_range(py::module& m) {
 	py::class_<pls_search_range_t>(m, "pls_search_range_t")
@@ -184,6 +208,31 @@ void export_signal_info(py::module& m) {
 		.def_readonly("lnb_lof_offset",&signal_info_t::lnb_lof_offset)
  		.def_property_readonly("isi_list", [](const signal_info_t& i) {
 			return  &(ss::vector_<int16_t>&)i.isi_list;
+		})
+		.def_property_readonly("modcod_list", [](const signal_info_t& i) {
+			std::vector<int16_t> modcod;
+			std::vector<float> perc;
+			std::vector<std::string> ret;
+			for(auto & e: i.modcod_list) {
+				modcod.push_back(e.modcod);
+				perc.push_back(e.frac/10.);
+			}
+
+			auto p = sort_permutation(perc,
+																[](float const& a, float const& b){
+																	return a > b;});
+
+			modcod= apply_permutation(modcod, p);
+			perc = apply_permutation(perc, p);
+			for(int i=0 ; i < (int)modcod.size(); ++i) {
+				ss::string<16> s;
+				s.format("{} ({}%)", modcod_str(modcod[i]), (int)round(perc[i]));
+				ret.push_back(s);
+			}
+			return ret;
+		})
+ 		.def_property_readonly("modcod_frac_list", [](const signal_info_t& i) {
+			return  &(ss::vector_<int16_t>&)i.modcod_list;
 		})
  		.def_property_readonly("matype_list", [](const signal_info_t& i) {
 			return  &(ss::vector_<uint16_t>&)i.matype_list;

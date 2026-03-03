@@ -540,6 +540,11 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 					matype =  256; //means dvbs
 					dvbs_mux->k.stream_id = -1;
 				} else {
+					bool is_vcm = !((matype>>4) & 1);
+					if(is_vcm) {
+						dvbs_mux->modulation = chdb::fe_modulation_t::VCM;
+						dvbs_mux->fec = chdb::fe_code_rate_t::FEC_AUTO;
+					}
 					dvbs_mux->matype = matype;
 				}
 			} else {
@@ -572,9 +577,14 @@ int dvb_frontend_t::get_mux_info(signal_info_t& ret, const cmdseq_t& cmdseq, api
 					auto& modcod_list = cmdseq.get(DTV_MODCOD_LIST)->u.modcod_list;
 					ret.modcod_list.resize_no_init(modcod_list.num_entries);
 					//ret.modcod_list.clear();
-					for(int i=0; i < modcod_list.num_entries; ++i) {
+					for(int i=0; i < (int)modcod_list.num_entries; ++i) {
 						auto &modcod_entry = modcod_list.entries[i];
 						ret.modcod_list[i] = modcod_entry;
+					}
+					bool is_vcm = (int)modcod_list.num_entries > 1;
+					if(is_vcm) {
+						dvbs_mux->modulation = chdb::fe_modulation_t::VCM;
+						dvbs_mux->fec = chdb::fe_code_rate_t::FEC_AUTO;
 					}
 				}
 			} else {

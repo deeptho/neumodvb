@@ -293,6 +293,7 @@ fe_modulation = db_enum(name='fe_modulation_t',
 	          'APSK_32',
 	          'DQPSK',
 	          'QAM_4_NR',
+            ('VCM',63),
             ('DUMMY_PLF', 64),
         )))
 

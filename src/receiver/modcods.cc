@@ -19,15 +19,9 @@
  */
 #include "modcods.h"
 
-struct modcod_t {
-	int plsCode;             // Unified 8-bit code (0-127 = S2, 128-255 = S2X)
-	const char* standard;    // "S2" or "S2X"
-	const char*  modulation;  // e.g. "QPSK", "16APSK-L"
-	const char* code_rate;    // e.g. "1/2", "13/45"
-	const char* frame_size;   // "Normal", "Medium", "Short"
-};
+struct modcod_desc_t unknown{-1, "??", "??", "??", "??"};
 
-static const std::array<modcod_t,38> dvbs2_table_0_37{{
+static const std::array<modcod_desc_t,38> dvbs2_table_0_37{{
     // --- DVB-S2 Legacy (PLS 0-127) ---
 		{0,   "S2",  "Dummy",     "N/A",   "Normal"},
 		{1,   "S2",  "QPSK",      "1/4",   "Normal"},
@@ -69,7 +63,7 @@ static const std::array<modcod_t,38> dvbs2_table_0_37{{
 		{37,  "S1",  "QPSK", "7/8", "Normal"}
 	}};
 
-static const std::array<modcod_t, (250-132)/2> dvbs2x_table_132_248{{
+static const std::array<modcod_desc_t, (250-132)/2> dvbs2x_table_132_248{{
 		// --- DVB-S2X Extensions (PLS 128-255) ---
 		// Mapping: S2X MODCOD + 128
 		{132, "S2X", "QPSK",      "13/45", "Normal"},
@@ -132,15 +126,15 @@ static const std::array<modcod_t, (250-132)/2> dvbs2x_table_132_248{{
 		{248, "S2X",  "32APSK", "32/45", "Normal"}
 	}};
 
-const char* modcod_str(int modcod) {
+const modcod_desc_t* get_modcod_desc(int modcod) {
 	switch(modcod) {
 	case 0 ... 37:
-		return dvbs2_table_0_37[modcod].modulation;
+		return &dvbs2_table_0_37[modcod];
 		break;
 	case 132 ... 248:
 		if((modcod&0x1)==0)
-			return dvbs2x_table_132_248[(modcod-132)>>1].modulation;
+			return &dvbs2x_table_132_248[(modcod-132)>>1];
 	default:
-		return "??";
+		return &unknown;
 	}
 }

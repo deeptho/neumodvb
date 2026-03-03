@@ -19,4 +19,13 @@
  */
 #pragma once
 
-EXPORT const char* modcod_str(int modcod);
+struct modcod_desc_t {
+	int plsCode;             // Unified 8-bit code (0-127 = S2, 128-255 = S2X)
+	const char* standard="??";    // "S2" or "S2X"
+	const char*  modulation="??";  // e.g. "QPSK", "16APSK-L"
+	const char* code_rate="??";    // e.g. "1/2", "13/45"
+	const char* frame_size="??";   // "Normal", "Medium", "Short"
+};
+
+
+EXPORT const modcod_desc_t* get_modcod_desc(int modcod);

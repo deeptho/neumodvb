@@ -226,7 +226,12 @@ void export_signal_info(py::module& m) {
 			perc = apply_permutation(perc, p);
 			for(int i=0 ; i < (int)modcod.size(); ++i) {
 				ss::string<16> s;
-				s.format("{} ({}%)", modcod_str(modcod[i]), (int)round(perc[i]));
+				auto *desc = get_modcod_desc(modcod[i]);
+				if(perc[i] <1.) {
+					s.format("{} {} ({}%)", desc->modulation, desc->code_rate, perc[i]);
+				} else {
+					s.format("{} {} ({}%)", desc->modulation, desc->code_rate, (int)round(perc[i]));
+				}
 				ret.push_back(s);
 			}
 			return ret;

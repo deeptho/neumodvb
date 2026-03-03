@@ -1706,15 +1706,19 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 			auto tmp1 = *dvbs_mux1;
 			//auto freq =  (tmp.frequency+ 500)/1000;
 			auto freq1 =  (tmp1.frequency+ 500)/1000;
-			if(freq1==11221 && tmp1.pol== chdb::fe_polarisation_t::V) //247box
+			auto matches_freq1 =[freq1](int f) {
+				return freq1 >= f-1 && freq1 <= f+1;
+			};
+
+			if(matches_freq1(11220) && tmp1.pol== chdb::fe_polarisation_t::V) //247box
 				mux_key->sat_pos = 5200;
-			if(freq1==10804 && tmp1.pol== chdb::fe_polarisation_t::H)
+			if(matches_freq1(10804) && tmp1.pol== chdb::fe_polarisation_t::H)
 				mux_key->sat_pos = 5200;
-			if(freq1==10887 && tmp1.pol== chdb::fe_polarisation_t::V)
+			if(matches_freq1(10887) && tmp1.pol== chdb::fe_polarisation_t::V)
 				mux_key->sat_pos = 5200;
-			if(freq1==10887 && tmp1.pol== chdb::fe_polarisation_t::V)
+			if(matches_freq1(10887) && tmp1.pol== chdb::fe_polarisation_t::V)
 				mux_key->sat_pos = 5200;
-			if(freq1==10926 && tmp1.pol== chdb::fe_polarisation_t::H)
+			if(matches_freq1(10926) && tmp1.pol== chdb::fe_polarisation_t::H)
 				mux_key->sat_pos = 5200;
 	}
 

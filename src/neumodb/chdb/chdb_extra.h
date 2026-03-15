@@ -119,7 +119,7 @@ namespace chdb {
 	*/
 	update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 															system_time_t now, update_mux_preserve_t::flags preserve, update_mux_cb_t cb,
-																	/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist);
+															/*bool ignore_key,*/ bool ignore_t2mi_pid, bool must_exist);
 
 	inline update_mux_ret_t update_mux(db_txn&txn, chdb::any_mux_t& mux,
 																		 system_time_t now, update_mux_preserve_t::flags preserve,

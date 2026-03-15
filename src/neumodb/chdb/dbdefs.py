@@ -124,8 +124,8 @@ key_src = db_enum(name='key_src_t',
                        ('SDT_TUNED', 1),   #mux has been tuned, ids from SDT
                        ('NIT_TUNED', 2),   #mux has been tuned, only NIT read from stream,
                        ('PAT_TUNED', 3),   #mux has been tuned, but no valid SDT/PAT; ts_id is reliable network_id not
-                                                        #no valid NIT_ACTUAL and SDT_ACTUAL
-                                                        #nid is invalid, ts_id comes from PAT
+                                           #no valid NIT_ACTUAL and SDT_ACTUAL
+                                           #nid is invalid, ts_id comes from PAT
                        ('NIT_ACTUAL', 4),   #mux has NOT been tuned, found in NIT_ACTUAL
                        ('NIT_OTHER', 5),   #mux has NOT been tuned, found in NIT_OTHER
                        ('SDT_OTHER', 6),   #mux has NOT been tuned, found in NIT_OTHER

@@ -503,7 +503,7 @@ active_adapter_t::~active_adapter_t() {
 
 int active_adapter_t::open_demux(int mode) const {
 	ss::string<PATH_MAX> demux_fname;
-	const int demux_no = 0; // are there any adapters on wwich demux_no!=0? If so how to associate them with frontends?
+	const int demux_no = 0; // are there any adapters on wich demux_no!=0? If so how to associate them with frontends?
 	demux_fname.format("{:s}{:d}/demux{:d}", DVB_DEV_PATH, get_adapter_no(), demux_no);
 
 	int fd = ::open(demux_fname.c_str(), mode);

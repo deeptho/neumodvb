@@ -411,7 +411,13 @@ static int get_dvbs_mux_info(chdb::dvbs_mux_t& mux, const cmdseq_t& cmdseq, cons
 	mux.rolloff = (chdb::fe_rolloff_t)cmdseq.get(DTV_ROLLOFF)->u.data;
 	mux.pilot = (chdb::fe_pilot_t)cmdseq.get(DTV_PILOT)->u.data;
 	auto stream_id_prop = cmdseq.get(DTV_STREAM_ID)->u.data;
-	if(stream_id_prop ==0xffffffff) {
+	auto pls_mode_prop = cmdseq.get(DTV_PLS_MODE)->u.data;
+	auto pls_code_prop = cmdseq.get(DTV_PLS_CODE)->u.data;
+	if(pls_mode_prop >=0) {
+		mux.k.stream_id = (stream_id_prop & 0xff) == 0xff ? -1 : (stream_id_prop & 0xff);
+		mux.pls_mode = chdb::fe_pls_mode_t(pls_mode_prop);
+		mux.pls_code = pls_code_prop;
+	} else  if(stream_id_prop ==0xffffffff) {
 		mux.k.stream_id = -1;
 		mux.pls_mode = chdb::fe_pls_mode_t::ROOT;
 		mux.pls_code = 1;
@@ -657,6 +663,10 @@ int dvb_frontend_t::request_signal_info(cmdseq_t& cmdseq, signal_info_t& ret, bo
 				} else {
 					ret.constellation_samples.clear();
 				}
+			}
+			if(api_version >= 2100) {
+				cmdseq.add(DTV_PLS_MODE);
+				cmdseq.add(DTV_PLS_CODE);
 			}
 			if(api_version >= 1200) {
 				// The following are only supported by neumo version 1.2 and later of dvbapi
@@ -1377,7 +1387,9 @@ void cmdseq_t::init_pls_codes() {
 		make_code(0, 133460),
 		make_code(1, 174526),
 		// In use on 33E
-		make_code(0, 218997)
+		make_code(0, 218997),
+		// In use on 39E
+		make_code(0, 211867)
 	};
 }
 
@@ -1439,6 +1451,12 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 			and must be replaced by -1 (no_stream_id_filter)
 		 */
 		cmdseq.add(DTV_STREAM_ID, mux.k.stream_id < 0 ? -1 : mux.k.stream_id);
+		if(api_version >= 2100) {
+			if(mux.pls_mode != chdb::fe_pls_mode_t::NONE) {
+				cmdseq.add(DTV_PLS_MODE, (int)mux.pls_mode);
+				cmdseq.add(DTV_PLS_CODE, mux.pls_code);
+			}
+		}
 		if(mux.symbol_rate >= 2000000)
 			cmdseq.add(DTV_SEARCH_RANGE, std::max(mux.symbol_rate, (unsigned int)4000000));
 		else
@@ -1461,13 +1479,15 @@ int dvb_frontend_t::tune_(const devdb::rf_path_t& rf_path, const devdb::lnb_t& l
 		cmdseq.add(DTV_ROLLOFF, (int) mux.rolloff);
 
 		cmdseq.add(DTV_PILOT, PILOT_AUTO);
-#if 1
+		if(api_version >= 2100) {
+			if(mux.pls_mode != chdb::fe_pls_mode_t::NONE) {
+				cmdseq.add(DTV_PLS_MODE, (int)mux.pls_mode);
+				cmdseq.add(DTV_PLS_CODE, mux.pls_code);
+			}
+		}
 		//@TODO: handle stream_id = ANY_STREAM_ID_FILTER in driver
 		auto stream_id =
 			(mux.k.stream_id < 0 ? -1 : (make_code((int)mux.pls_mode, (int)mux.pls_code)) | (mux.k.stream_id & 0xff));
-#else
-		auto stream_id = make_code((int)mux.pls_mode, (int)mux.pls_code) | (mux.k.stream_id & 0xff);
-#endif
 		cmdseq.add(DTV_STREAM_ID, stream_id);
 		if (api_type == api_type_t::NEUMO && ts.readAccess()->dbfe.supports.blindscan)
 			cmdseq.add(DTV_SEARCH_RANGE, mux.symbol_rate);

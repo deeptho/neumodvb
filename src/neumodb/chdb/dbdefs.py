@@ -545,6 +545,7 @@ fe_pls_mode = db_enum(name='fe_pls_mode_t',
         type_id = 100,
         version = 1,
         fields = ((
+            ('NONE', -1),
             ('ROOT', 0),
             'GOLD',
             'COMBO',

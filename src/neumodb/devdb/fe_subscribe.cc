@@ -30,7 +30,7 @@
 #include "../util/neumovariant.h"
 using namespace devdb;
 
-#if 0 //unused
+#ifndef NDEBUG
 static inline bool contains_sub(const devdb::fe_t& fe, subscription_id_t id) {
 	for(int i=0; i< fe.sub.subs.size(); ++i) {
 		auto &s = fe.sub.subs[i];

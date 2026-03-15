@@ -301,7 +301,7 @@ static int get_frontend_info(const adapter_no_t adapter_no, const frontend_no_t 
 		t.dbfe.rf_inputs.push_back(0);
 	}
 
-	if(t.dbfe.supports_neumo) {
+	if(true /*t.dbfe.supports_neumo*/) {
 		struct dtv_property properties[16];
 		memset(properties, 0, sizeof(properties));
 		unsigned int i = 0;

@@ -71,7 +71,10 @@ template<typename cursor_t, typename T> static int make_unique_id_helper(cursor_
 
 
 int16_t devdb::make_unique_id(db_txn& devdb_rtxn, const devdb::lnb_key_t& key) {
-	auto c = devdb::lnb_t::find_by_key(devdb_rtxn, key.dish_id, find_geq);
+	auto key_prefix =  devdb::lnb_t::partial_keys_t::dish_id;
+	auto find_prefix =  devdb::lnb_t::partial_keys_t::all;
+
+	auto c = devdb::lnb_t::find_by_key(devdb_rtxn, key, find_geq, key_prefix, find_prefix);
 	return ::make_unique_id_helper<decltype(c), devdb::lnb_t>(c);
 }
 

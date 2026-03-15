@@ -41,6 +41,7 @@ playback_mpm_t::playback_mpm_t(receiver_t& receiver_, subscription_id_t subscrip
 	, part_cursor(dirname, idx_dirname)
 	, subscription_id(subscription_id_) {
 	part_cursor.open();
+	dtdebugf("constructor playback_client: this={:p}", (void*)this);
 };
 
 playback_mpm_t::playback_mpm_t(active_mpm_t& other,
@@ -57,6 +58,7 @@ playback_mpm_t::playback_mpm_t(active_mpm_t& other,
 	ls->audio_pref = live_service.audio_pref;
 	ls->subtitle_pref = live_service.subtitle_pref;
 	part_cursor.open();
+	dtdebugf("constructor playback_client: this={:p}", (void*)this);
 }
 
 void playback_mpm_t::open_recording(const char* dirname_) {

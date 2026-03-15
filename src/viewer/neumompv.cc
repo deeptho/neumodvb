@@ -1145,17 +1145,20 @@ void mpv_subscription_t::close(bool unsubscribe) {
 
 int mpv_subscription_t::stop_play() {
 	auto subscription_id = subscriber->get_subscription_id();
-	dtdebugf("STOP SUBSCRIPTION {:d}", (int) subscription_id);
-	subscriber->unsubscribe(true /*wait*/);
-	std::scoped_lock lck(m);
-	if (mpm) {
-		mpm->close();
-		if ((int) subscription_id >= 0) {
-			mpm->unregister_language_changed_callback(subscription_id);
+	dtdebugf("remove mpm {:d}", (int) subscription_id);
+	{
+		std::scoped_lock lck(m);
+		if (mpm) {
+			mpm->close();
+			if ((int) subscription_id >= 0) {
+				mpm->unregister_language_changed_callback(subscription_id);
+			}
 		}
+		if (mpm)
+			mpm.reset();
 	}
-	if (mpm)
-		mpm.reset();
+		dtdebugf("STOP SUBSCRIPTION {:d}", (int) subscription_id);
+	subscriber->unsubscribe(true /*wait*/);
 	return 0;
 }
 

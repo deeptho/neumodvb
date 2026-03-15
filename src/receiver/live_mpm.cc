@@ -57,13 +57,15 @@ void meta_marker_t::register_playback_client(playback_mpm_t* client) {
 		dterrorf("Attempting to register client which is already registered");
 		return;
 	}
+	dtdebugf("Registering playback_client {:p} size={} this={:p}", (void*)client, playback_clients.size(), (void*)this);
 	playback_clients.push_back(client);
 }
 
 void meta_marker_t::unregister_playback_client(playback_mpm_t* client) {
 	auto it = std::find(playback_clients.begin(), playback_clients.end(), client);
 	if (it == playback_clients.end()) {
-		dterrorf("Attempting to unregister client which is not registered");
+		dterrorf("Attempting to unregister playback_client which is not registered: client={:p} this={:p}",
+						 (void*)client, (void*) this);
 		return;
 	}
 	playback_clients.erase(it);
@@ -975,6 +977,7 @@ void active_mpm_t::delete_old_data(db_txn& parent_txn, system_time_t now) {
 
 active_mpm_t::~active_mpm_t()
 {
+	dtdebugf("~active_mpm_t this={:p}", (void*)this);
 	//streamparser.unregister_parser(pid)
 }
 

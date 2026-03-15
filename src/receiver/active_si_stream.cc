@@ -3057,7 +3057,7 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 	for (const auto& desc : pmt.pid_descriptors) {
 		bool is_t2mi = desc.t2mi_stream_id >= 0;
 		auto sat_pos = this->stream_mux_key().sat_pos;
-		if(std::abs(sat_pos - (int)-3000) < 300) { //30.0 W
+		if(std::abs(sat_pos - (int)-3000) < 30) { //30.0 W
 			if(desc.stream_type == stream_type::stream_type_t::MPE_FEC && pmt.estimated_media_mode == chdb::media_mode_t::USER_DEFINED &&
 				 strncmp(pmt.provider_name.c_str(), "HS", 2)==0) {
 				dtdebugf("ABERTIS service");
@@ -3066,9 +3066,9 @@ reset_type_t active_si_stream_t::pmt_section_cb(const pmt_info_t& pmt, bool isne
 				p.embedding_type = chdb::embedding_type_t::TS;
 			}
 		}
-		else if(std::abs(sat_pos - (int)4000) < 300  || //40.0 E
-						std::abs(sat_pos - (int)-1400) < 300 || //14.0W
-						std::abs(sat_pos - (int)2000) < 300) { //20.0E  3865L
+		else if(std::abs(sat_pos - (int)4000) < 30  || //40.0 E
+						std::abs(sat_pos - (int)-1400) < 30 || //14.0W
+						std::abs(sat_pos - (int)2000) < 30) { //20.0E  3865L
 			if (!is_t2mi && pmt.pmt_pid == 256 && desc.stream_type ==  stream_type::stream_type_t::PES_PRIV
 					&& desc.stream_pid == 4096) {
 				is_t2mi = true;

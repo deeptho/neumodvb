@@ -247,6 +247,7 @@ int tuner_thread_t::run() {
 		now = system_clock_t::now();
 		for (auto evt = next_event(); evt; evt = next_event()) {
 			if(is_wait_timer_fd(evt)) {
+				dtdebugf("Resuming task");
 				active_adapter.fe->resume_task();
 			} else if (is_event_fd(evt)) {
 				ss::string<128> prefix;

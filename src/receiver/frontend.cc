@@ -1644,9 +1644,12 @@ bool dvb_frontend_t::wait_for(tuner_thread_t& tuner_thread, double seconds)
 
 	if(this->must_abort_task)
 		return true;
-	assert(this->main_fiber);
-	this->main_fiber = this->main_fiber.resume();
-	assert(this->main_fiber);
+	if(this->main_fiber) {
+		this->main_fiber = this->main_fiber.resume();
+		assert(this->main_fiber);
+	} else {
+		dterrorf("No main fiber");
+	}
 	return this->must_abort_task;
 }
 
@@ -1739,12 +1742,13 @@ void  dvb_frontend_t::request_tune(
 	 */
 
 	run_task([this, &tuner_thread, rf_path, lnb, mux, tune_options](continuation_t&& invoker) {
-		main_fiber = invoker.resume();
+		dtdebugf("Calling  invoker.resume()");
+		this->main_fiber = invoker.resume();
 		int ret{-1};
 		int new_usals_pos{sat_pos_none};
 		std::tie(ret, new_usals_pos) = tune(tuner_thread, rf_path, lnb, mux, tune_options);
 		dtdebugf("tune returned ret={}, new_usals_pos={}", ret, new_usals_pos);
-		return std::move(main_fiber);
+		return std::move(this->main_fiber);
 	});
 }
 

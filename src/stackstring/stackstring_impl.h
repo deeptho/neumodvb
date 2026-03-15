@@ -57,8 +57,11 @@ inline int next_power_of_two(int n) {
 		auto s = size();
 		if(pos<0)
 			pos = s +pos;
-		if(pos < 0)
+		if(pos < 0) {
+			//dterrorf("Index out of range");
+			assert(0);
 			throw std::runtime_error("Index out of range");
+		}
 		reserve(pos + 1 );
 
 		auto* b =buffer();
@@ -82,10 +85,16 @@ inline int next_power_of_two(int n) {
 	{
 		if(pos<0)
 			pos = size() +pos;
-		if(pos<0)
+		if(pos<0) {
+			//dterrorf("Index out of range");
+			assert(0);
 			throw std::runtime_error("Index out of range");
-		if(pos  >= capacity() || pos >=size())
+		}
+		if(pos  >= capacity() || pos >=size()) {
+			//dterrorf("Index out of range");
+			assert(0);
 			throw std::out_of_range("index out of range");
+		}
 		auto* b =buffer();
 		return b[pos];
 	}
@@ -234,8 +243,11 @@ template<typename data_t>
 
 	template<typename data_t>
 	void databuffer_<data_t>::erase(int idx) {
-		if(idx<0 || idx>= size())
+		if(idx<0 || idx>= size()) {
+			//dterrorf("Index out of range");
+			assert(0);
 			throw std::out_of_range("index out of range");
+		}
 		auto* b =buffer();
 		for(auto i= idx, j=idx+1; j < size(); ++i, ++j) {
 			b[i]=b[j];

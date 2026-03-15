@@ -82,8 +82,11 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
 			,py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */
 			)
 		.def("__getitem__", [](ss::vector_<T> &v, int i) -> T& {
-				if(i>=(signed)v.size())
-					throw py::index_error();
+			if(i>=(signed)v.size()) {
+				dterrorf("Index out of range");
+				assert(0);
+				throw py::index_error();
+			}
 				//if (i==5)
 				//	printf("[%p] get [{:d}]\n", &v, i);
 				return v[i];

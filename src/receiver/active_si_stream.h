@@ -471,8 +471,7 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 
 	mux_data_t* lookup_mux_data_from_sdt(db_txn& txn, uint16_t network_id, uint16_t ts_id);
 
-	mux_data_t* add_fake_nit(db_txn& txn, uint16_t network_id, uint16_t ts_id, int16_t expected_sat_pos,
-													 bool from_sdt);
+	mux_data_t* add_fake_nit(db_txn& txn);
 
 	bool read_and_process_data_for_fd(const epoll_event* evt);
 
@@ -590,7 +589,7 @@ class active_si_stream_t final : public active_stream_t, active_si_data_t
 	bool update_reader_mux_parameters_from_frontend(chdb::any_mux_t& mux);
 	bool update_mux(db_txn& wtxn, chdb::any_mux_t& mux, system_time_t now,
 									bool is_active_mux, bool is_tuned_freq,
-									bool from_sdt, chdb::update_mux_preserve_t::flags preserve);
+									bool from_sdt, bool from_pat, chdb::update_mux_preserve_t::flags preserve);
 
 	bool fix_tune_mux_template_(chdb::any_mux_t& mux, const lock_state_t& lock_state,
 																		const chdb::any_mux_t& driver_mux, bool driver_data_reliable);

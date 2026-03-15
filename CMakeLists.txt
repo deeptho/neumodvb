@@ -59,7 +59,7 @@ else()
   message(STATUS "Modern OS detected - using clang 20")
 endif()
 
-#add_compile_options (-fsanitize=address -fPIC -fsized-deallocation)
+#add_compile_options (-fsanitize=address -fPIC -fsized-deallocation -DBOOST_USE_ASAN)
 # -DHAS_UNCAUGHT_EXCEPTIONS=1 for date module
 
 set (CMAKE_EXPORT_COMPILE_COMMANDS 1)

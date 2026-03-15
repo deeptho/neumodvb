@@ -7,14 +7,15 @@ set breakpoint pending on
 
 #suppress "missing debuginfo"
 #set build-id-verbose 0
-
+set env TSAN_OPTIONS="abort_on_error=1"
+catch syscall exit_group
 set print finish off
-set environment LD_PRELOAD=/usr/lib64/libasan.so.8
+#set environment LD_PRELOAD=/usr/lib64/libasan.so.8
 break __sanitizer::Die
 exec-file /usr/bin/python3
 set args neumodvb.py
 set detach-on-fork on
-#set environment LD_PRELOAD /usr/lib64/libasan.so.6
+#set environment LD_PRELOAD /usr/lib64/libasan.so.8
 #break nit_parser_t::parse_payload_unit
 #break active_si_stream.cc:752
 #break devmanager.cc:574

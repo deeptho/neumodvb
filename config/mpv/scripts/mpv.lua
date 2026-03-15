@@ -10,4 +10,4 @@ function set_specific_ratio()
    end
 end
 
-mp.register_event("video-reconfig", set_specific_ratio)
+#mp.register_event("video-reconfig", set_specific_ratio)

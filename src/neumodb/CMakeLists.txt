@@ -1,7 +1,8 @@
 find_package(Python 3.7 REQUIRED) #3.7 is minimum version
 
-add_compile_options("$<$<CONFIG:DEBUG>:-DNDEBUG -O2 -ggdb>") #applies to subdirs as well
+#add_compile_options("$<$<CONFIG:DEBUG>:-DNDEBUG -O2 -ggdb>") #applies to subdirs as well
 #add_compile_options("$<$<CONFIG:DEBUG>:-O2;-ggdb>") #applies to subdirs as well
+add_compile_options("$<$<CONFIG:DEBUG>:-ggdb>") #applies to subdirs as well
 
 add_library(neumodb SHARED neumodb.cc dbdesc.cc)
 add_dependencies(neumodb stackstring neumolmdb schema_generated_files)

@@ -940,9 +940,11 @@ std::tuple<bool, bool, bool> active_adapter_t::add_si_subscription(
 		is_same_physical_mux = key == main_key &&
 			key.mux_id>0; //key.mux_id==0 is a peak; for real muxes the assumption is that same mux_id implies same tuning pars
 		bool is_tuned_freq = matches_physical_fuzzy(mux_, p_si->dbmux, false /*check_sat_pos*/); //correct pol, stream_id, t2mid_pid, frequency; sat_pos may be off
-		assert(is_tuned_freq || !is_same_physical_mux);
+		//assert(is_tuned_freq || !is_same_physical_mux);
 		if(is_tuned_freq)
 			is_same_physical_mux = true;
+		if(is_same_physical_mux)
+			is_tuned_freq = true;
 	}
 
 	bool must_full_tune = (is_only_subscriber ||

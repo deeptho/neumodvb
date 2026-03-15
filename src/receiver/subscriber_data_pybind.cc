@@ -20,7 +20,7 @@
  */
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/devmanager.h"
-#include "receiver/neumofrontend.h"
+#include "receiver/neumo-frontend.h"
 #include "receiver/receiver.h"
 #include "receiver/active_si_stream.h"
 #include "receiver/scan.h"

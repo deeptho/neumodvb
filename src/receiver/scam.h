@@ -24,7 +24,7 @@
 //#include "service.h"
 #include "linux/dvb/ca.h"
 #include "dvbapi.h"
-#include "neumodmx.h"
+#include "neumo-dmx.h"
 #include "active_stream.h"
 #include "active_service.h"
 

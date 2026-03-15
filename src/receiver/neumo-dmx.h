@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ WITH Linux-syscall-note */
 /*
- * neumodmx.h
- * (c) Deep Thought <deeptho@gmail.com> 2025
+ * neumo-dmx.h
+ * (c) Deep Thought <deeptho@gmail.com> 2025-2026
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,15 +20,14 @@
  */
 
 #pragma once
-
 #include <linux/types.h>
 #ifndef __KERNEL__
 #include <time.h>
 #endif
 
-
 #define DMX_FILTER_SIZE 16
 #define T2MI_UNSPECIFIED_PLP (-2) //indicates that the stream is expected to contain one isi and to use that one
+
 /**
  * enum dmx_output - Output for the demux.
  *
@@ -180,29 +179,6 @@ struct dmx_sct_filter_params {
 };
 
 /**
- * struct dmx_stid_stream_params - Specifies BBFrames embedded in dvb ts stream
- *	filter parameters.
- *
- * @embedding_pid:	PID in which bbframes are embedded
- * @isi:	stream to be extracted from the bbframes or -1
- */
-struct dmx_stid_stream_params {
-	__u16           embedding_pid; //PID of pes stream containing the bbframes
-	__s16           isi; //id of the stream to extract
-};
-
-/**
- * struct dmx_t2mi_stream_params - Specifies filter parameters for t2mi transport stream embedded in dvb ts stream
- *
- * @embedding_pid:	PID in which bbframes are embedded
- * @isi:	stream to be extracted from the bbframes or -1
- */
-struct dmx_t2mi_stream_params {
-	__u16           embedding_pid; //PID of pes stream containing the bbframes
-	__s16           plp; //plp of the stream to extract
-};
-
-/**
  * struct dmx_pes_filter_params - Specifies Packetized Elementary Stream (PES)
  *	filter parameters.
  *
@@ -323,18 +299,42 @@ struct dmx_exportbuffer {
 	__s32		fd;
 };
 
+/**
+ * struct dmx_stid_stream_params - Specifies BBFrames embedded in dvb ts stream
+ *	filter parameters.
+ *
+ * @embedding_pid:	PID in which bbframes are embedded
+ * @isi:	stream to be extracted from the bbframes or -1
+ */
+struct dmx_stid_stream_params {
+	__u16           embedding_pid; //PID of pes stream containing the bbframes
+	__s16           isi; //id of the stream to extract
+};
+
+/**
+ * struct dmx_t2mi_stream_params - Specifies filter parameters for t2mi transport stream embedded in dvb ts stream
+ *
+ * @embedding_pid:	PID in which bbframes are embedded
+ * @isi:	stream to be extracted from the bbframes or -1
+ */
+struct dmx_t2mi_stream_params {
+	__u16           embedding_pid; //PID of pes stream containing the bbframes
+	__s16           plp; //plp of the stream to extract
+};
+
+
 #define DMX_START                _IO('o', 41)
 #define DMX_STOP                 _IO('o', 42)
 #define DMX_SET_FILTER           _IOW('o', 43, struct dmx_sct_filter_params)
 #define DMX_SET_PES_FILTER       _IOW('o', 44, struct dmx_pes_filter_params)
-#define DMX_SET_STID_STREAM       _IOW('o', 53, struct dmx_stid_stream_params)
-#define DMX_SET_T2MI_STREAM      _IOW('o', 54, struct dmx_t2mi_stream_params)
-#define DMX_SET_FE_STREAM       _IO('o', 55)
 #define DMX_SET_BUFFER_SIZE      _IO('o', 45)
 #define DMX_GET_PES_PIDS         _IOR('o', 47, __u16[5])
 #define DMX_GET_STC              _IOWR('o', 50, struct dmx_stc)
 #define DMX_ADD_PID              _IOW('o', 51, __u16)
 #define DMX_REMOVE_PID           _IOW('o', 52, __u16)
+#define DMX_SET_STID_STREAM       _IOW('o', 53, struct dmx_stid_stream_params)
+#define DMX_SET_T2MI_STREAM      _IOW('o', 54, struct dmx_t2mi_stream_params)
+#define DMX_SET_FE_STREAM       _IO('o', 55)
 
 #if !defined(__KERNEL__)
 

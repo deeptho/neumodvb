@@ -46,7 +46,7 @@
 #include <pthread.h>
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodemux.h"
-#include "neumodmx.h"
+#include "neumo-dmx.h"
 #include <dirent.h>
 #include <algorithm>
 #include <set>

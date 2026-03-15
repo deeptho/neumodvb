@@ -22,7 +22,7 @@
 
 #include "linux/dvb/ca.h"
 #include "dvbapi.h"
-#include "neumodmx.h"
+#include "neumo-dmx.h"
 #include "active_stream.h"
 
 inline const char* odd_even_str(bool odd)

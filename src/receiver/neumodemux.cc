@@ -18,7 +18,7 @@
  *
  */
 #include <sys/ioctl.h>
-#include "neumodmx.h"
+#include "neumo-dmx.h"
 #include "neumodemux.h"
 
 int dmx_set_pes_filter(int demuxfd, int pid) {

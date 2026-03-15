@@ -40,7 +40,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include "mpm.h"
-#include "neumodmx.h"
+#include "neumo-dmx.h"
 #include <linux/dvb/version.h>
 #include <linux/limits.h>
 #include <pthread.h>

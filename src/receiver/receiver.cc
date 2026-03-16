@@ -724,9 +724,6 @@ receiver_thread_t::cb_t::subscribe_mux(const _mux_t& mux, ssptr_t ssptr,
 
 #ifndef NDEBUG
 	assert(is_template(mux) == (chdb::mux_key_ptr(mux)->mux_id ==0));
-#else
-	if(is_template(mux))
-		chdb::mux_key_ptr(mux)->mux_id =0;
 #endif
 
 	auto devdb_wtxn = receiver.devdb.wtxn();

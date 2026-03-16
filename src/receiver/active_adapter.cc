@@ -248,9 +248,6 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 
 #ifndef NDEBUG
 	assert(is_template(mux) == (chdb::mux_key_ptr(mux)->mux_id ==0));
-#else
-	if(is_template(mux))
-		chdb::mux_key_ptr(mux)->mux_id =0;
 #endif
 
 	//LNB_CONTROL forces a tune, even when one would otherwise be refused

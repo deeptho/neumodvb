@@ -1075,9 +1075,9 @@ int dvb_frontend_t::unicable2_tune(const devdb::lnb_t& lnb, const chdb::dvbs_mux
 	cmd.msg[2] = request_freq & 0xff;
 	cmd.msg[3]= (position <<2) | (pol_ << 1) | (band & 1);
 	cmd.msg_len = 4;
-
+#ifndef NDEBUG
 	sec_status.assert_voltage(SEC_VOLTAGE_13);
-
+#endif
 	sec_status.wait_after_powerup(lnb.powerup_time);
 	//msleep(200);
 	//unicable2 requires sleeping 2-22 milliseconds
@@ -1120,9 +1120,9 @@ int dvb_frontend_t::unicable2_end(int fefd, const devdb::lnb_t& lnb,  const devd
 	cmd.msg[2] = request_freq & 0xff;
 	cmd.msg[3]= (position <<2) | (pol_ << 1) | (band & 1);
 	cmd.msg_len = 4;
-
+#ifndef NDEBUG
 	sec_status.assert_voltage(SEC_VOLTAGE_13);
-
+#endif
 	//msleep(200);
 	//unicable2 requires sleeping 2-22 milliseconds
 	assert(this->sec_status.rf_input_ok(api_type, api_version));

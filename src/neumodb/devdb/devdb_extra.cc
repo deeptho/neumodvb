@@ -534,7 +534,7 @@ devdb::lnb::band_frequencies(const devdb::lnb_t& lnb, chdb::sat_sub_band_t band)
 	translate driver frequency to real frequency
 	voltage_high = true if high
 	@todo: see linuxdvb_lnb.c for more configs to support
-	@todo: uniqcable
+	@todo: unicable
 */
 int devdb::lnb::uncorrected_freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band) {
 	using namespace chdb;
@@ -547,7 +547,7 @@ int devdb::lnb::uncorrected_freq_for_driver_freq(const devdb::lnb_t& lnb, int fr
 	translate driver frequency to real frequency
 	voltage_high = true if high
 	@todo: see linuxdvb_lnb.c for more configs to support
-	@todo: uniqcable
+	@todo: unicable
 */
 int devdb::lnb::freq_for_driver_freq(const devdb::lnb_t& lnb, int frequency, bool high_band) {
 	using namespace chdb;

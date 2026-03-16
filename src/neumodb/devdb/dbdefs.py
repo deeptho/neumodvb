@@ -391,7 +391,8 @@ cable = db_struct(name ='cable',
                             (3, 'int64_t', 'card_mac_address', -1), #Unique for each card
                             (4, 'int8_t', 'rf_input', -1),
                             (6, 'ss::string<16>', 'connection_name', ''),
-                            (7, 'ss::vector<lnb_key_t,4>', 'connected_lnb_keys'),
+                            #(7, 'ss::vector<lnb_key_t,4>', 'connected_lnb_keys'), Not used: cables are connected to cards
+                                                                                  # and connected lnbs follow from lnb list
                             (8, 'time_t', 'mtime')
                             ))
 

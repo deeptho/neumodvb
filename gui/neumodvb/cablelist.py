@@ -50,7 +50,7 @@ class CableTable(NeumoTable):
             #following must be readonly, or change may be accidentally undone by positioner dialog
          CD(key='cable_name',  label='name', basic=True, readonly=False, example="Cable long name"),
          #following must be readonly, or change may be accidentally undone by positioner dialog
-         CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="TBS 6909X C0#3 ",
+         CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="C0#3  TBS 6909seXXX ",
             dfn=card_rf_input_dfn, sfn=card_rf_input_sfn),
          CD(key='mtime', label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33*'),
         ]

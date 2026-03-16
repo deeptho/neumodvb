@@ -211,6 +211,32 @@ inline static ss::string<32> make_connection_name(int card_no, int rf_input, int
 	return ret;
 }
 
+inline static ss::string<32> make_connection_name(db_txn& devdb_wtxn, int card_no, int rf_input, int64_t card_mac_address)
+{
+
+	auto find_fe = [] (db_txn& devdb_wtxn, int rf_input, int64_t card_mac_address) ->std::optional<devdb::fe_t> {
+		auto c1 = fe_t::find_by_card_mac_address(devdb_wtxn, card_mac_address,
+																						 find_type_t::find_geq, fe_t::partial_keys_t::card_mac_address);
+		for(auto fe: c1.range()) {
+			auto valid_rf_input = fe.rf_inputs.contains(rf_input);
+			if (valid_rf_input)
+				return fe;
+		}
+		return {}; //no fe found with lnb's rf_input
+	};
+
+	ss::string<32> ret;
+	if(rf_input>=0) {
+		auto fe = find_fe(devdb_wtxn, rf_input, card_mac_address);
+		if(fe) {
+			return make_connection_name(card_no, rf_input, fe->card_short_name);
+		} else {
+			return make_connection_name(card_no, rf_input, card_mac_address);
+		}
+	}
+	return make_connection_name(card_no, rf_input, card_mac_address);
+}
+
 /*
 	returns
 	  network_exists
@@ -854,7 +880,7 @@ void devdb::cable::update_cable(db_txn& devdb_wtxn, devdb::cable_t& cable,
 				if(c.card_mac_address == old_cable.card_mac_address && c.rf_input == old_cable.rf_input) {
 					c.card_mac_address = cable.card_mac_address;
 					c.rf_input = cable.rf_input;
-					c.connection_name = make_connection_name(c.card_no, c.rf_input, c.card_mac_address);
+					c.connection_name = make_connection_name(devdb_wtxn, c.card_no, c.rf_input, c.card_mac_address);
 					changed = true;
 				}
 			}

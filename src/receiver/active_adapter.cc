@@ -827,13 +827,13 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 			}
 		} else {
 			/*There is no entry yet for the just selected ISI. We replace the  (ANY_STREAM_ID_FILTER,-1) entry in si_streams
-				for the specific one
-				for the specific ISI we have just selected. We remove the entry for  ANY_STREAM_ID_FILTER
+				with the specific ISI we have just selected. We remove the entry for  ANY_STREAM_ID_FILTER
 				and keep the other one, while transferring subscriptions
 			*/
 
 			//update the key
 			any_node.key() = si_key;
+			auto & si = any_node.mapped();
 			this->si_streams.insert(std::move(any_node));
 
 			//update wildcard stream_id internal data in the si_streams entry
@@ -843,7 +843,6 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 			assert(mux_key.t2mi_pid <0);
 
 			//update wildcard stream_id in the internal data of the suscriptions
-			auto & si = any_node.mapped();
 			for (auto& [subscription_id, mux]: si.subscriptions) {
 				auto& mux_key = *chdb::mux_key_ptr(mux);
 				mux_key.stream_id = si_key.stream_id;
@@ -919,10 +918,10 @@ std::tuple<bool, bool, bool> active_adapter_t::add_si_subscription(
 		((this->si_streams.size() == 1) && p_si && (p_si->subscriptions.size() == 1)); //single remaining subscriber
 
 
-		/*check for compatibility between the currently tuned mux
+	/*check for compatibility between the currently tuned mux
 		and the newly subscribed one.  needs_full_tune  is true in case of
 		a change of frequency, or a change in ISI when bbframes are not in use.
-		*/
+	*/
 
 	bool is_same_si = false;
 	bool is_same_physical_mux = false;
@@ -975,6 +974,8 @@ std::tuple<bool, bool, bool> active_adapter_t::add_si_subscription(
 			}
 		}
 	} else { //!is_existing_subscription
+		if(tune_options.use_blind_tune && chdb::mux_key_ptr(mux)->stream_id <0)
+			chdb::mux_key_ptr(mux)->stream_id = ANY_STREAM_ID_FILTER;
 #ifndef NDEBUG
 		if(is_only_subscriber) {
 			assert(!si_is_on);

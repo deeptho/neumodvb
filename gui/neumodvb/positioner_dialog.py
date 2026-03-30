@@ -343,9 +343,6 @@ class TuneMuxPanel(TuneMuxPanel_):
             idx +=1
         self.OnSave(event=event)
 
-    def OnSaveUsals(self, event=None):  # wxGlade: PositionerDialog_.<event_handler>
-        self.OnSave(event=event)
-
     def OnResetLof(self, event):  # wxGlade: PositionerDialog_.<event_handler>
         dtdebug("Resetting LOF offset")
         assert self.lnb is not None
@@ -907,7 +904,6 @@ class PositionerDialog(PositionerDialog_):
     @property
     def lnb(self):
         return self.tune_mux_panel.lnb
-
     @property
     def rf_path(self):
         return self.tune_mux_panel.rf_path
@@ -942,6 +938,9 @@ class PositionerDialog(PositionerDialog_):
 
     def Close(self):
         self.tune_mux_panel.Close()
+
+    def OnSaveUsals(self, event=None):  # wxGlade: PositionerDialog_.<event_handler>
+        self.tune_mux_panel.OnSave(event=event)
 
     def OnClose(self, evt):
         dtdebug("CLOSE")

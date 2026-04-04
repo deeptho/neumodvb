@@ -575,11 +575,23 @@ class NeumoGui(wx.App):
     def get_cards_with_rf_in(self):
         txn = wx.GetApp().devdb.rtxn()
         ret={}
+        invret={}
+        cables = {}
+        for cable in  pydevdb.cable.list_all_by_key(txn):
+                cables[(cable.card_mac_address, cable.rf_input)] = cable
         for a in  pydevdb.fe.list_all_by_card_mac_address(txn):
             for rf_in in a.rf_inputs:
-                ret[f'C{a.card_no}#{rf_in} {a.card_short_name}' ] = (a.card_mac_address, rf_in)
+                cable = cables.get((a.card_mac_address, rf_in), None)
+                if cable is None:
+                    v = f'C{a.card_no}#{rf_in} {a.card_short_name}'
+                    k = (a.card_mac_address, rf_in)
+                else:
+                    v = f'{cable.connection_name}: {cable.cable_name}'
+                    k = (a.card_mac_address, rf_in)
+                ret[v] = k
+                invret[k] = v
         txn.abort()
-        return ret
+        return ret, invret
 
     def get_adapters(self):
         txn = wx.GetApp().devdb.rtxn()

@@ -71,14 +71,15 @@ class lnbconnection_screen_t(object):
 class LnbConnectionTable(NeumoTable):
     CD = NeumoTable.CD
     bool_fn = NeumoTable.bool_fn
-    card_rf_input_dfn = lambda x: x[0].connection_name
+    card_rf_input_dfn = lambda x: x[2].card_rf_input_dfn(x[0], x[1])
     card_rf_input_cfn = lambda table: table.card_rf_input_cfn()
     card_rf_input_sfn = lambda x: x[2].card_rf_input_sfn(x[0], x[1])
     all_columns = \
         [#CD(key='card_mac_address',  label='MAC', basic=True, no_combo=False, readonly=False,
             #   dfn=adapter_fn, example=" AA:BB:CC:DD:EE:FF "),
-            CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="TBS 6909X C0#3 ",
+            CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="TBS 6909X C0#3: Rotor wall control ",
                dfn=card_rf_input_dfn, sfn=card_rf_input_sfn),
+            CD(key='cable_id',   label='cable id', basic=False, readonly=True, dfn=lambda x: x[1] if x[1]>=0 else ""),
             CD(key='enabled',   label='ena-\nbled', basic=False),
             CD(key='can_be_used',   label='avail\nable', basic=False),
             CD(key='priority',  label='prio'),
@@ -96,6 +97,7 @@ class LnbConnectionTable(NeumoTable):
         data_table= pydevdb.lnb_connection
         self.lnb_ = None
         self.changed = False
+        self.all_connections_by_name, self.all_connections_by_conn,  = wx.GetApp().get_cards_with_rf_in()
         super().__init__(*args, parent=parent, basic=basic, db_t=pydevdb, data_table = data_table,
                          record_t=pydevdb.lnb_connection.lnb_connection,
                          screen_getter = self.screen_getter,
@@ -150,12 +152,17 @@ class LnbConnectionTable(NeumoTable):
         ret=self.record_t()
         return ret
 
+    def card_rf_input_dfn(self, cable, connection_name):
+        key = (cable.card_mac_address, cable.rf_input)
+        return self.all_connections_by_conn.get(key, connection_name)
+
     def card_rf_input_sfn(self, rec, v):
-        d = wx.GetApp().get_cards_with_rf_in()
-        newval = d.get(v, None)
+        #update, just in case
+        self.all_connections_by_name, self.all_connections_by_conn,  = wx.GetApp().get_cards_with_rf_in()
+        newval = self.all_connections_by_name.get(v, None)
         if newval is None:
             try:
-                v, newval = next(iter(d.items()))
+                v, newval = next(iter(sef.all_connections_by_name.items()))
             except:
                 pass
         if newval is None:

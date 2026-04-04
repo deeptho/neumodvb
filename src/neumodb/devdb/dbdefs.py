@@ -211,7 +211,7 @@ lnb_connection = db_struct(name='lnb_connection',
                  primary_key = ('key', ('card_mac_address','rf_input')), #this key is needed for temporary database (per lnb)
                 fields = ((1, 'int64_t', 'card_mac_address', -1), #Unique for each card
                           (2, 'int8_t', 'rf_input', -1),
-
+                          (16, 'int8_t', 'cable_id', -1),
                           (3, 'bool',  'enabled', 'true'), #bit flag indicating if lnb is allowed to be used
                           (13, 'bool',  'can_be_used', 'true'), #bit flag indicating if this connection can be used
                           (4, 'int16_t',  'priority', -1), #
@@ -237,8 +237,7 @@ lnb_connection = db_struct(name='lnb_connection',
                           #  M send tone burst
                           # " " wait for 50ms
                           (11, 'ss::string<16>' , 'tune_string', '"UCP"'),
-                          (12,  'ss::string<16>', 'connection_name'),
-                          #(16, 'int8_t', 'cable_no', -1)
+                          (12,  'ss::string<16>', 'connection_name')
                 ))
 
 

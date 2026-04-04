@@ -141,7 +141,7 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
             choices= list(d.keys())
         elif self.col.key.endswith('rf_input'):
             #recompute each time, because data may have changed
-            d = wx.GetApp().get_cards_with_rf_in()
+            d,_ = wx.GetApp().get_cards_with_rf_in()
             choices= list(d.keys())
         size = self.Control.GetParent().GetParent().GetFont().GetPointSize()
         f = self.Control.GetFont()
@@ -449,7 +449,7 @@ class NeumoTableBase(wx.grid.GridTableBase):
                         d = wx.GetApp().get_cards()
                         newval = d.get(val, None)
                     elif key.endswith("rf_input"):
-                        d = wx.GetApp().get_cards_with_rf_in()
+                        d,_ = wx.GetApp().get_cards_with_rf_in()
                         newval = d.get(val, None)
                     else:
                         newval = int(val)

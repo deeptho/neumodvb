@@ -861,10 +861,6 @@ namespace  devdb::cable {
 
 	static void update_cable_lnbs(db_txn& devdb_wtxn, devdb::cable_t& cable,
 												 const devdb::cable_t& old_cable);
-#ifdef CABLE_NOS
-	static void update_cable_fes(db_txn& devdb_wtxn, devdb::cable_t& cable,
-															 const devdb::cable_t& old_cable);
-#endif
 };
 
 
@@ -909,56 +905,6 @@ static void devdb::cable::update_cable_lnbs(db_txn& devdb_wtxn, devdb::cable_t& 
 	}
 }
 
-#ifdef CABLE_NOS
-/*
-	old_cable_: specifies the card input to which the cable was connected
-	cable: specifies the card input to which the cable will be connected
- */
-static void devdb::cable::update_cable_fes(db_txn& devdb_wtxn, devdb::cable_t& cable,
-																const devdb::cable_t& old_cable) {
-	using namespace devdb;
-	dtdebugf("Rewiring lnb from={} to={}\n", old_cable.connection_name, cable.connection_name);
-	auto c = find_first<fe_t>(devdb_wtxn);
-	auto oldc = fe_t::find_by_card_mac_address(devdb_wtxn, old_cable.card_mac_address,
-																						 find_type_t::find_geq, fe_t::partial_keys_t::card_mac_address);
-	for(auto fe: oldc.range()) {
-		bool changed = false;
-		//there may be multiple entries, each corresponding with a different frontend; only one of which will have rf_inputs
-		assert (fe.card_mac_address == old_cable.card_mac_address);
-		for(int idx=0; idx < fe.rf_inputs.size(); ++idx) {
-			if(fe.card_mac_address == old_cable.card_mac_address && fe.rf_inputs[idx] == old_cable.rf_input) {
-				//disconnect old
-				fe.cable_nos[idx] =-1;
-				changed = true;
-			}
-		}
-		if(changed) {
-			fe.mtime = system_clock_t::to_time_t(now);
-			put_record(devdb_wtxn, fe);
-		}
-	}
-
-	auto newc = fe_t::find_by_card_mac_address(devdb_wtxn, cable.card_mac_address,
-																						 find_type_t::find_geq, fe_t::partial_keys_t::card_mac_address);
-	for(auto fe: oldc.range()) {
-		bool changed = false;
-		//there may be multiple entries, each corresponding with a different frontend; only one of which will have rf_inputs
-		assert (fe.card_mac_address == cable.card_mac_address);
-		for(int idx=0; idx < fe.rf_inputs.size() ; ++idx) {
-			if(fe.card_mac_address == cable.card_mac_address && fe.rf_inputs[idx] == cable.rf_input) {
-				//connect new fe
-				fe.cable_nos[idx] = cable.cable_id;
-				changed = true;
-			}
-		}
-		if(changed) {
-			fe.mtime = system_clock_t::to_time_t(now);
-			put_record(devdb_wtxn, fe);
-		}
-	}
-}
-#endif
-
 void devdb::cable::update_cable(db_txn& devdb_wtxn, devdb::cable_t& cable,
 																const std::optional<devdb::cable_t> old_cable_) {
 	using namespace devdb;
@@ -973,9 +919,6 @@ void devdb::cable::update_cable(db_txn& devdb_wtxn, devdb::cable_t& cable,
 	cable.mtime = time(NULL);
 	put_record(devdb_wtxn, cable);
 	devdb::cable::update_cable_lnbs(devdb_wtxn, cable, old_cable);
-#ifdef CABLE_NOS
-	devdb::cable::update_cable_fes(devdb_wtxn, cable, old_cable);
-#endif
 }
 
 

@@ -119,19 +119,6 @@ class CableGridBase(NeumoGridBase):
             wx.CallAfter(self.AutoSizeRows)
         return super().OnShowHide(event)
 
-
-    def OnKeyDownOFF(self, evt):
-        """
-        After editing, move cursor right
-        """
-        keycode = evt.GetKeyCode()
-        if keycode == wx.WXK_RETURN  and not evt.HasAnyModifiers():
-            rowno = self.GetGridCursorRow()
-            colno = self.GetGridCursorCol()
-            self.CheckShowDialog(evt, rowno, colno)
-        else:
-            evt.Skip(True)
-
     def CurrentCable(self):
         assert self.selected_row is not None
         if self.selected_row >= self.table.GetNumberRows():

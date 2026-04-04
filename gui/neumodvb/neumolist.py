@@ -1126,9 +1126,6 @@ class NeumoGridBase(wx.grid.Grid, glr.GridWithLabelRenderersMixin):
 
     def OnTimer(self, evt):
         changed = False
-        if False:
-            for screen in self.table.aux_screens:
-                changed |= self.check_screen_update(screen)
         changed |= self.check_screen_update(self.table.screen)
         if changed:
             self.invalidate_grid()

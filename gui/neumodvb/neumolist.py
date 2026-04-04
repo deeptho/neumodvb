@@ -111,7 +111,7 @@ def todo(x):
 
 class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
     def __init__(self, col,  *args, **kwds):
-        self.col = col
+        self.coldesc = col
         super().__init__(*args, **kwds)
 
     def SetSize(self, rect):
@@ -124,22 +124,22 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
 
     def Show(self, *args):
         choices = None
-        if self.col.cfn is not None:
+        if self.coldesc.cfn is not None:
             table = self.Control.GetParent().GetParent().GetTable()
-            choices= self.col.cfn(table)
-        elif self.col.key.endswith('_pos'):
+            choices= self.coldesc.cfn(table)
+        elif self.coldesc.key.endswith('_pos'):
             #recompute each time, because data may have changed
             sats = wx.GetApp().get_sat_poses()
             choices= [pychdb.sat_pos_str(x) for x in sats]
-        elif self.col.key.endswith('adapter_mac_address'):
+        elif self.coldesc.key.endswith('adapter_mac_address'):
             #recompute each time, because data may have changed
             d = wx.GetApp().get_adapters()
             choices= list(d.keys())
-        elif self.col.key.endswith('card_mac_address'):
+        elif self.coldesc.key.endswith('card_mac_address'):
             #recompute each time, because data may have changed
             d = wx.GetApp().get_cards()
             choices= list(d.keys())
-        elif self.col.key.endswith('rf_input'):
+        elif self.coldesc.key.endswith('rf_input'):
             #recompute each time, because data may have changed
             d,_ = wx.GetApp().get_cards_with_rf_in()
             choices= list(d.keys())

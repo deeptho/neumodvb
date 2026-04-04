@@ -868,6 +868,15 @@ namespace  devdb::cable {
 };
 
 
+static inline int card_no_for_fe(db_txn& devdb_rtxn, int64_t card_mac_address) {
+	auto c = devdb::find_first<devdb::fe_t>(devdb_rtxn);
+	for(auto fe :  c.range()) {
+		if(fe.card_mac_address == card_mac_address)
+			return fe.card_no;
+	}
+	return -1;
+}
+
 /*
 	old_cable_: specifies the card input to which the cable was connected
 	cable: specifies the card input to which the cable will be connected
@@ -876,13 +885,19 @@ static void devdb::cable::update_cable_lnbs(db_txn& devdb_wtxn, devdb::cable_t& 
 																const devdb::cable_t& old_cable) {
 	using namespace devdb;
 	dtdebugf("Rewiring lnb from={} to={}\n", old_cable.connection_name, cable.connection_name);
+	int new_card_no = card_no_for_fe(devdb_wtxn, cable.card_mac_address);
 	auto c = find_first<lnb_t>(devdb_wtxn);
 	for(auto lnb: c.range()) {
 		bool changed = false;
 			for(auto& c: lnb.connections) {
-				if(c.card_mac_address == old_cable.card_mac_address && c.rf_input == old_cable.rf_input) {
+				if(
+					c.cable_id == old_cable.cable_id ||
+					(c.cable_id == -1 &&
+					 c.card_mac_address == old_cable.card_mac_address && c.rf_input == old_cable.rf_input)) {
 					c.card_mac_address = cable.card_mac_address;
 					c.rf_input = cable.rf_input;
+					c.card_no = new_card_no;
+					c.cable_id = cable.cable_id;
 					c.connection_name = make_connection_name(devdb_wtxn, c.card_no, c.rf_input, c.card_mac_address);
 					changed = true;
 				}

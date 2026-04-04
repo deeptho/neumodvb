@@ -243,7 +243,7 @@ void dvbdev_monitor_t::update_dbfe_on_new_or_removed_fe(
 																		devdb::fe_key_t{t.dbfe.k.adapter_mac_address, (uint8_t)(int)frontend_no});
 	auto dbfe_old = c.is_valid() ? c.current() : devdb::fe_t();
 	dbfe_old.mtime = t.dbfe.mtime; //prevent changed mtime from being a real change
-	if (t.dbfe.card_no<0)
+	if (t.dbfe.card_no < 0)
 		t.dbfe.card_no = dbfe_old.card_no;
 	t.dbfe.supports.t2mi = this->supports_t2mi();
 

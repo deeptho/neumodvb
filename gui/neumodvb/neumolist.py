@@ -118,11 +118,25 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
         extra = self.Control.GetParent().GetParent().combobox_extra_width
         self.Control.SetSize(rect.x, rect.y, rect.width+extra, rect.height, wx.SIZE_ALLOW_MINUS_ONE)
 
-    def SetChoices(self, choices):
-        self.SetParameters(','.join(choices))
-        self.Reset()
+    def BeginEdit(self, row, col, grid):
+        self.row = row
+        self.col = col
+        self.grid = grid
+        if False:
+            self.startValue = grid.GetTable().GetValue(row, col)
+            tc = self.GetControl()
+            wx.CallAfter(tc.SetStringSelection,self.startValue)
+        self.SetChoices(grid)
+        #tc.SetValue(self.startValue)
+        #tc.SetSelection(7)
+        #tc.SetFocus()
+        super().BeginEdit(row, col, grid)
 
-    def Show(self, *args):
+    def GetValue(self):
+        ret=super().GetValue()
+        return ret
+
+    def SetChoices(self, grid):
         choices = None
         if self.coldesc.cfn is not None:
             table = self.Control.GetParent().GetParent().GetTable()
@@ -141,19 +155,22 @@ class NeumoChoiceEditor(wx.grid.GridCellChoiceEditor):
             choices= list(d.keys())
         elif self.coldesc.key.endswith('rf_input'):
             #recompute each time, because data may have changed
-            d,_ = wx.GetApp().get_cards_with_rf_in()
+            add_cable = self.grid.Table.record_t != pydevdb.cable.cable
+            d,_ = wx.GetApp().get_cards_with_rf_in(add_cable=add_cable, add_disconnected= not add_cable)
             choices= list(d.keys())
+        if choices is not None:
+            current = grid.GetTable().GetValue(self.row, self.col)
+            self.SetParameters(','.join(choices))
+            control = self.GetControl()
+            control.SetStringSelection(current)
+            control.SetFocus()
+
+    def Show(self, *args):
         size = self.Control.GetParent().GetParent().GetFont().GetPointSize()
         f = self.Control.GetFont()
         f.SetPointSize(size)
         ret = super().Show(*args)
         self.Control.SetFont(f)
-        if choices is not None:
-            if is_old_wx:
-                self.combobox.Clear()
-                self.combobox.Append(choices)
-            else:
-                wx.CallAfter(self.SetChoices, choices)
         return ret
 
 

@@ -112,7 +112,7 @@ fmt::format_context::iterator
 fmt::formatter<lnb_key_t>::format(const lnb_key_t& lnb_key, format_context& ctx) const {
 	const char* t = lnb_type_str(lnb_key);
 	return fmt::format_to(ctx.out(), "D{:d} {:s} [{:d}]", (int)lnb_key.dish_id,
-								 t, (int)lnb_key.lnb_id);
+												t, (int)lnb_key.lnb_id);
 }
 
 fmt::format_context::iterator
@@ -205,6 +205,8 @@ inline static ss::string<32> make_connection_name(int card_no, int rf_input, int
 	} else{
 		if (card_no >=0)
 			ret.format("C{:d}#?? {:06x}", card_no, card_mac_address);
+		else if (card_mac_address == -1)
+			ret.format("Disconnected");
 		else
 			ret.format("C??#?? {:06x}", card_mac_address);
 	}
@@ -239,16 +241,16 @@ inline static ss::string<32> make_connection_name(db_txn& devdb_wtxn, int card_n
 
 /*
 	returns
-	  network_exists
-		priority (if network_exists else -1)
-		usals_amount: how much does the dish need to be rotated for this network
+	network_exists
+	priority (if network_exists else -1)
+	usals_amount: how much does the dish need to be rotated for this network
 */
 std::tuple<bool, int, int, int> devdb::lnb::has_network(const lnb_t& lnb, int16_t sat_pos) {
 	int usals_amount{0};
 	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
 												 [&sat_pos](const devdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
-	/*@todo allow closeby networks
-	 */
+												 /*@todo allow closeby networks
+													*/
 	if (it != lnb.networks.end()) {
 		auto usals_pos = lnb.usals_pos == sat_pos_none ? it->usals_pos :  lnb.usals_pos;
 		if (lnb.on_positioner) {
@@ -266,19 +268,19 @@ std::tuple<bool, int, int, int> devdb::lnb::has_network(const lnb_t& lnb, int16_
 const devdb::lnb_network_t* devdb::lnb::get_network(const lnb_t& lnb, int16_t sat_pos) {
 	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
 												 [&sat_pos](const devdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
-	if (it != lnb.networks.end())
-		return &*it;
-	else
-		return nullptr;
+												 if (it != lnb.networks.end())
+													 return &*it;
+												 else
+													 return nullptr;
 }
 
 devdb::lnb_network_t* devdb::lnb::get_network(lnb_t& lnb, int16_t sat_pos) {
 	auto it = std::find_if(lnb.networks.begin(), lnb.networks.end(),
 												 [&sat_pos](devdb::lnb_network_t& network) { return network.sat_pos == sat_pos; });
-	if (it != lnb.networks.end())
-		return &*it;
-	else
-		return nullptr;
+												 if (it != lnb.networks.end())
+													 return &*it;
+												 else
+													 return nullptr;
 }
 
 
@@ -409,8 +411,8 @@ bool devdb::lnb_can_tune_to_mux(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t&
 	auto [freq_low, freq_mid, freq_high, lof_low, lof_high, inverted_spectrum] = lnb_band_helper(lnb);
 	if ((int)mux.frequency < freq_low || (int)mux.frequency >= freq_high) {
 		if(error) {
-		error->format("Frequency {:.3f}Mhz out for range; must be between {:.3f}Mhz and {:.3f}Mhz",
-							 mux.frequency/(float)1000, freq_low/float(1000), freq_high/(float)1000);
+			error->format("Frequency {:.3f}Mhz out for range; must be between {:.3f}Mhz and {:.3f}Mhz",
+										mux.frequency/(float)1000, freq_low/float(1000), freq_high/(float)1000);
 		}
 		return false;
 	}
@@ -444,7 +446,7 @@ bool devdb::lnb_can_scan_sat_band(const devdb::lnb_t& lnb, const chdb::sat_t& sa
 				return true;
 		}
 		return false;
-		};
+	};
 	if(!devdb::lnb::can_pol(lnb, band_scan.pol))
 		return false;
 
@@ -583,7 +585,7 @@ namespace devdb::lnb {
 
 /*
 	find the best lnb for tuning to a sat and possibly to a specific mux oin the sat sat
- */
+*/
 static std::tuple<std::optional<rf_path_t>, std::optional<lnb_t>>
 devdb::lnb::select_lnb(db_txn& devdb_rtxn, const chdb::dvbs_mux_t& proposed_mux, bool prefer_rotor_control) {
 	using namespace chdb;
@@ -771,7 +773,7 @@ bool devdb::lnb::add_or_edit_network(devdb::lnb_t& lnb, const devdb::usals_locat
 		}
 	}
 	if (network.usals_pos == sat_pos_none) {
-			network.usals_pos = network.sat_pos;
+		network.usals_pos = network.sat_pos;
 	}
 	if (network.sat_pos == sat_pos_none)
 		network.sat_pos = network.usals_pos;
@@ -801,7 +803,7 @@ bool devdb::lnb::add_or_edit_connection(db_txn& devdb_txn, devdb::lnb_t& lnb,
 	//new connection; add it
 	if(!exists) {
 		lnb.connections.push_back(lnb_connection);
-	}
+							}
 #if 0
 	if(on_positioner(lnb) && 	lnb_connection.rotor_control == rotor_control_t::FIXED_DISH) {
 		lnb_connection.rotor_control = rotor_control_t::ROTOR_SLAVE;
@@ -842,7 +844,7 @@ bool devdb::lnb::add_or_edit_unicable_channel(db_txn& devdb_txn, devdb::lnb_t& l
 	//new connection; add it
 	if(!exists) {
 		lnb.unicable_channels.push_back(unicable_ch);
-	}
+							}
 	bool save = false;
 	auto changed = lnb::update_lnb_from_db(devdb_txn, lnb, {} /*loc*/, preserve, save,
 																				 sat_pos_none, nullptr /*curr_conn*/);
@@ -860,7 +862,8 @@ bool devdb::lnb::add_or_edit_unicable_channel(db_txn& devdb_txn, devdb::lnb_t& l
 namespace  devdb::cable {
 
 	static void update_cable_lnbs(db_txn& devdb_wtxn, devdb::cable_t& cable,
-												 const devdb::cable_t& old_cable);
+																const devdb::cable_t& old_cable);
+	static void add_new_cable_lnbs(db_txn& devdb_wtxn, const devdb::cable_t& cable);
 };
 
 
@@ -876,24 +879,77 @@ static inline int card_no_for_fe(db_txn& devdb_rtxn, int64_t card_mac_address) {
 /*
 	old_cable_: specifies the card input to which the cable was connected
 	cable: specifies the card input to which the cable will be connected
- */
+*/
 static void devdb::cable::update_cable_lnbs(db_txn& devdb_wtxn, devdb::cable_t& cable,
-																const devdb::cable_t& old_cable) {
+																						const devdb::cable_t& old_cable) {
 	using namespace devdb;
 	dtdebugf("Rewiring lnb from={} to={}\n", old_cable.connection_name, cable.connection_name);
 	int new_card_no = card_no_for_fe(devdb_wtxn, cable.card_mac_address);
+	assert(old_cable.cable_id >= 0);
 	auto c = find_first<lnb_t>(devdb_wtxn);
+	assert(cable.cable_id == old_cable.cable_id || old_cable.cable_id==-1); //only card,rf_input is supposed to change (and name)
+	if(cable.card_mac_address == old_cable.card_mac_address && cable.rf_input == old_cable.rf_input)
+		return; //no change
 	for(auto lnb: c.range()) {
 		bool changed = false;
-			for(auto& c: lnb.connections) {
-				if(
-					c.cable_id == old_cable.cable_id ||
-					(c.cable_id == -1 &&
-					 c.card_mac_address == old_cable.card_mac_address && c.rf_input == old_cable.rf_input)) {
+		for(auto& c: lnb.connections) {
+			if(c.card_mac_address == old_cable.card_mac_address && c.rf_input == old_cable.rf_input) {
+				if(c.cable_id == old_cable.cable_id || c.cable_id == -1) {
+					//connection matches old lnb => rewire to new one
 					c.card_mac_address = cable.card_mac_address;
 					c.rf_input = cable.rf_input;
 					c.card_no = new_card_no;
 					c.cable_id = cable.cable_id;
+					c.connection_name = make_connection_name(devdb_wtxn, c.card_no, c.rf_input, c.card_mac_address);
+					changed = true;
+				}
+			} else  if(c.card_mac_address == cable.card_mac_address && c.rf_input == cable.rf_input) {
+				//connection is currently connecte to some other cable => disconnect
+				c.card_mac_address = (int64_t) -1; //disconnnected
+				c.rf_input = -1;
+				c.card_no = -1;
+				//c.cable_id = c.cable_id; unchanged
+				c.connection_name = make_connection_name(devdb_wtxn, c.card_no, c.rf_input, c.card_mac_address);
+				changed = true;
+			}
+
+			if(changed) {
+				lnb.mtime = cable.mtime;
+				put_record(devdb_wtxn, lnb);
+			}
+		}
+	}
+}
+
+/*
+	cable: specifies the card input to which the cable will be connected
+*/
+static void devdb::cable::add_new_cable_lnbs(db_txn& devdb_wtxn, const devdb::cable_t& cable) {
+	using namespace devdb;
+	dtdebugf("Wiring lnb o={}\n", cable.connection_name);
+	int new_card_no = card_no_for_fe(devdb_wtxn, cable.card_mac_address);
+	auto c = find_first<lnb_t>(devdb_wtxn);
+
+	for(auto lnb: c.range()) {
+		bool changed = false;
+		for(auto& c: lnb.connections) {
+			if(c.card_mac_address == cable.card_mac_address && c.rf_input == cable.rf_input) {
+				if(c.cable_id == -1) {
+					//not connected to named cable yet => rewire to new cable
+					c.card_mac_address = cable.card_mac_address;
+					c.rf_input = cable.rf_input;
+					c.card_no = new_card_no;
+					c.cable_id = cable.cable_id;
+					c.connection_name = make_connection_name(devdb_wtxn, c.card_no, c.rf_input, c.card_mac_address);
+					changed = true;
+				} else {
+					/*connection is currently connected to some other cable => disconnect old cable
+						but do not overwrite with new one
+					*/
+					c.card_mac_address = (int64_t) -1; //disconnnected
+					c.rf_input = -1;
+					c.card_no = -1;
+					//c.cable_id = c.cable_id; unchanged
 					c.connection_name = make_connection_name(devdb_wtxn, c.card_no, c.rf_input, c.card_mac_address);
 					changed = true;
 				}
@@ -902,6 +958,7 @@ static void devdb::cable::update_cable_lnbs(db_txn& devdb_wtxn, devdb::cable_t& 
 				lnb.mtime = cable.mtime;
 				put_record(devdb_wtxn, lnb);
 			}
+		}
 	}
 }
 
@@ -918,20 +975,35 @@ void devdb::cable::update_cable(db_txn& devdb_wtxn, devdb::cable_t& cable,
 
 	cable.mtime = time(NULL);
 	put_record(devdb_wtxn, cable);
-	devdb::cable::update_cable_lnbs(devdb_wtxn, cable, old_cable);
+	if(old_cable_)
+		devdb::cable::update_cable_lnbs(devdb_wtxn, cable, old_cable);
+	else
+		add_new_cable_lnbs(devdb_wtxn, cable);
+	auto c = find_first<devdb::cable_t>(devdb_wtxn);
+	for (auto cable_: c.range()) {
+		if(cable_.card_mac_address == cable.card_mac_address &&
+			 cable_.rf_input == cable.rf_input
+			 &&  cable_.cable_id != cable.cable_id) {
+			//another cable was connected to same card,rf_input: disconnect it
+			cable_.card_mac_address = (int64_t) -1;
+			cable_.rf_input = -1;
+			cable_.connection_name = make_connection_name(devdb_wtxn, -1, -1, -1);
+			put_record(devdb_wtxn, cable_);
+		}
+	}
 }
 
 
 /*
 	Update the database such that lnbs all point to the correct new usals and sat positions.
 	if move_has_finished is false:
-	    do not yet update dish record. Instead enter the target data in there
+	do not yet update dish record. Instead enter the target data in there
 	if move_has_finished is true:
-	    also update dish record to idnciate that the move has finished.
-			In this case target_sat_pos and target_sat_pos can be {} to indicate
-			that these numbers should be taken from the database
+	also update dish record to idnciate that the move has finished.
+	In this case target_sat_pos and target_sat_pos can be {} to indicate
+	that these numbers should be taken from the database
 
- */
+*/
 devdb::dish_t dish::schedule_move(db_txn& devdb_wtxn, devdb::lnb_t& lnb_,
 																	int target_usals_pos,
 																	int target_lnb_sat_pos,
@@ -991,7 +1063,7 @@ void dish::end_move(db_txn& devdb_wtxn, devdb::dish_t dish) {
 	current usals_pos of the dish.
 
 	As all lnbs on the same dish agree on usals_pos, we can stop when we find the first one
- */
+*/
 bool devdb::dish::dish_needs_to_be_moved(db_txn& devdb_rtxn, int dish_id, int16_t sat_pos)
 {
 	auto c = devdb::find_first<devdb::lnb_t>(devdb_rtxn);
@@ -1015,7 +1087,7 @@ bool devdb::dish::dish_needs_to_be_moved(db_txn& devdb_rtxn, int dish_id, int16_
 int devdb::lnb::voltage_for_pol(const devdb::lnb_t& lnb, const chdb::fe_polarisation_t pol) {
 	if(lnb::swapped_pol(lnb))
 		return
-		(pol == chdb::fe_polarisation_t::V || pol == chdb::fe_polarisation_t::R)
+			(pol == chdb::fe_polarisation_t::V || pol == chdb::fe_polarisation_t::R)
 			? SEC_VOLTAGE_18 : SEC_VOLTAGE_13;
 	else
 		return
@@ -1194,7 +1266,7 @@ int devdb::lnb::angle_to_sat_pos(int angle, const devdb::usals_location_t& loc) 
 	The result is only used to define an initial usals value for a never tuned before network.
 	Afterwards the usals_pos (of the dish) can be adjusted by the user and will be remmbered.
 	That value will not depend on the value computed here
- */
+*/
 void devdb::lnb::set_lnb_offset_angle(devdb::lnb_t&  lnb, const devdb::usals_location_t& loc) {
 	int offset_angle = 0;
 	int num = 0;
@@ -1213,7 +1285,7 @@ void devdb::lnb::set_lnb_offset_angle(devdb::lnb_t&  lnb, const devdb::usals_loc
 	Bring an lnb used by the GUI uptodate with the most recent information in database
 	If save==true update database
 	devdb_wtxn can also be a readonly transaction if db is not updated
- */
+*/
 bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 																		const std::optional<devdb::usals_location_t>& loc,
 																		devdb::update_lnb_preserve_t::flags preserve, bool save,
@@ -1316,7 +1388,7 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 		}
 
 		if (preserve & p_t::CONNECTIONS) {
-   //still take usals and ref mux set from positioner dialog
+			//still take usals and ref mux set from positioner dialog
 			if(cur_conn)
 				for(auto& db_conn: db_lnb->connections) {
 					if(db_conn.card_mac_address == cur_conn->card_mac_address &&
@@ -1377,32 +1449,32 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 						 */
 		std::sort(lnb.networks.begin(), lnb.networks.end(),
 							[](const lnb_network_t& a, const lnb_network_t& b) { return a.sat_pos < b.sat_pos; });
-		for(int i=1; i< lnb.networks.size(); ) {
-			if(lnb.networks[i-1].sat_pos == lnb.networks[i].sat_pos)
-				lnb.networks.erase(i); //remove duplicate network
-			else
-				++i;
-		}
-
-		std::sort(lnb.connections.begin(), lnb.connections.end(),
-							[](const lnb_connection_t& a, const lnb_connection_t& b) {
-								if(a.card_mac_address == b.card_mac_address)
-									return a.rf_input < b.rf_input;
+							for(int i=1; i< lnb.networks.size(); ) {
+								if(lnb.networks[i-1].sat_pos == lnb.networks[i].sat_pos)
+									lnb.networks.erase(i); //remove duplicate network
 								else
-									return a.card_mac_address < b.card_mac_address;
+									++i;
 							}
-			);
-		for(int i=1; i< lnb.connections.size(); ) {
-			if(lnb.connections[i-1].card_mac_address == lnb.connections[i].card_mac_address &&
-				 lnb.connections[i-1].rf_input == lnb.connections[i].rf_input)
-				lnb.connections.erase(i); //remove duplicate connection
-			else
-				++i;
-		}
-		if(db_lnb && db_lnb->k != lnb.k) {
-			delete_record(devdb_wtxn, *db_lnb);
-		}
-		put_record(devdb_wtxn, lnb);
+
+							std::sort(lnb.connections.begin(), lnb.connections.end(),
+												[](const lnb_connection_t& a, const lnb_connection_t& b) {
+												if(a.card_mac_address == b.card_mac_address)
+													return a.rf_input < b.rf_input;
+												else
+													return a.card_mac_address < b.card_mac_address;
+												}
+								);
+							for(int i=1; i< lnb.connections.size(); ) {
+								if(lnb.connections[i-1].card_mac_address == lnb.connections[i].card_mac_address &&
+									 lnb.connections[i-1].rf_input == lnb.connections[i].rf_input)
+									lnb.connections.erase(i); //remove duplicate connection
+								else
+									++i;
+							}
+							if(db_lnb && db_lnb->k != lnb.k) {
+								delete_record(devdb_wtxn, *db_lnb);
+							}
+							put_record(devdb_wtxn, lnb);
 	}
 	auto changed = (!db_lnb || (lnb != *db_lnb));
 	return changed;
@@ -1416,7 +1488,7 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	usals control east/west/set/reset, set specific value
 
 	=> 	Save lnb current usals in database as all lnbs need the current setting
-	    Update current usals and usals in lnb network, but do not save in database yet
+	Update current usals and usals in lnb network, but do not save in database yet
 
 
 	commands invalidating current usals pos
@@ -1430,34 +1502,34 @@ bool devdb::lnb::update_lnb_from_db(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
 	Editing changes in lnbnetworklist
 	-----------------------------------
 	-> add_or_edit_network to add missing (does not save to db) followed by put_record
-	   add_or_edit_network
-		 -initializes lnb usals_pos
-		 -adds or edits lnb data. Does not save
+	add_or_edit_network
+	-initializes lnb usals_pos
+	-adds or edits lnb data. Does not save
 
 	Editing changes in lnbconnectionlist
 	-----------------------------------
 	-> add_or_edit_network to add missing (does not save to db) followed by put_record
-	   add_or_edit_network
-		 -initializes lnb usals_pos
-		 -adds or edits lnb data. Does not save
+	add_or_edit_network
+	-initializes lnb usals_pos
+	-adds or edits lnb data. Does not save
 
 	Editing changes in lnblist
 	-----------------------------------
 	-> add_or_edit_network to add missing (does not save to db) followed by put_record
-	   add_or_edit_network
-		 -initializes lnb usals_pos
-		 -adds or edits lnb data. Does not save
+	add_or_edit_network
+	-initializes lnb usals_pos
+	-adds or edits lnb data. Does not save
 
 	update_lnb_from_lnblist
-	   -initializes lnb.usal_pos, lnb_usals_pos
-		 -does not change cur_sat_pos
-		 -updates lnb parameters in database, but nothing else, and only if save=true
+	-initializes lnb.usal_pos, lnb_usals_pos
+	-does not change cur_sat_pos
+	-updates lnb parameters in database, but nothing else, and only if save=true
 
- */
+*/
 
 //update usals_pos in network to be that of lnb and ref_mux
 bool devdb::lnb::update_lnb_network_from_positioner(db_txn& devdb_wtxn, devdb::lnb_t&  lnb,
-																						int16_t cur_sat_pos) {
+																										int16_t cur_sat_pos) {
 	using namespace devdb;
 
 	auto find_network = [&](auto& lnb, auto cur_sat_pos) -> lnb_network_t* {
@@ -1483,7 +1555,7 @@ bool devdb::lnb::update_lnb_network_from_positioner(db_txn& devdb_wtxn, devdb::l
 		db_lnb.networks.push_back(*network);
 		std::sort(lnb.networks.begin(), lnb.networks.end(),
 							[](const lnb_network_t& a, const lnb_network_t& b) { return a.sat_pos < b.sat_pos; });
-		changed = true;
+							changed = true;
 	} else {
 		changed = *db_network != *network;
 		*db_network = *network;
@@ -1556,7 +1628,7 @@ void devdb::lnb::reset_lof_offset(db_txn& devdb_wtxn, devdb::lnb_t&  lnb)
 	Set the can_be_used status on all lnbs and lnb connections depending on the
 	currently available fes. If update_for_fe is set, then only consider lnb connections
 	for the specific fe. This is called when fes are added/removed at runime
- */
+*/
 void devdb::lnb::update_lnbs(db_txn& devdb_wtxn, const devdb::fe_t* update_for_fe) {
 
 	auto find_fe = [&] (const auto& conn) ->std::optional<devdb::fe_t> {

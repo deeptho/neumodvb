@@ -81,7 +81,7 @@ class CableTable(NeumoTable):
         return ret
 
     def card_rf_input_sfn(self, rec, v):
-        d,_ = wx.GetApp().get_cards_with_rf_in()
+        d,_ = wx.GetApp().get_cards_with_rf_in(add_disconnected=True)
         newval = d.get(v, None)
         if newval is None:
             try:

@@ -2,13 +2,15 @@
 
 ## The cable list ##
 
-the cable list is an advanced feature. It is mainly useful for users that frequently reconfigure their equipment,
+The cable list is an advanced feature. It is mainly useful for users that frequently reconfigure their equipment,
 e.g., switching between cards to test these cards. It allows quickly moving LNB configurations from one card to another.
 
-With `cable` we mean the cable that is connected to one of the RF inputs of a card. A cable typically connects
+With `cable` we mean the cable that is connected to an RF inputs of a card. A cable typically connects
 to a DiSEqC switch, which is possibly cascaded other DiSEqC switches and thus can be connected to multiple LNBs.
+In other words, it is a cable-tree that starts at a specific start connector
 
-Using the `cable list` it is possible to rewire a cable to another RF input on the same or another card. neumoDVB will
+Using the `cable list` it is possible to give such a cable a name. Once the cables are named,
+it is then possible  to rewire a cable to another RF input on the same or another card. neumoDVB will
 then adjust all LNB connections to reflect the new situation.
 
 ![screenshot](images/cablelist.png)

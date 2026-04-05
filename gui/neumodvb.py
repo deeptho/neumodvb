@@ -572,16 +572,16 @@ class NeumoGui(wx.App):
         txn.abort()
         return ret
 
-    def get_cards_with_rf_in(self):
+    def get_cards_with_rf_in(self, add_cable=False, add_disconnected=False):
         txn = wx.GetApp().devdb.rtxn()
-        ret={}
-        invret={}
+        ret = {'Disconnected': (-1, -1) }  if add_disconnected else {}
+        invret= { (-1, -1): 'Disconnected'}  if add_disconnected else {}
         cables = {}
         for cable in  pydevdb.cable.list_all_by_key(txn):
                 cables[(cable.card_mac_address, cable.rf_input)] = cable
         for a in  pydevdb.fe.list_all_by_card_mac_address(txn):
             for rf_in in a.rf_inputs:
-                cable = cables.get((a.card_mac_address, rf_in), None)
+                cable = cables.get((a.card_mac_address, rf_in), None) if add_cable else None
                 if cable is None:
                     v = f'C{a.card_no}#{rf_in} {a.card_short_name}'
                     k = (a.card_mac_address, rf_in)

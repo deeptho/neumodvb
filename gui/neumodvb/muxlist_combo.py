@@ -53,8 +53,9 @@ class DvbsMuxGridPopup(DvbsBasicMuxGrid):
         lnb = find_parent_prop(self, 'lnb')
         sat = find_parent_prop(self, 'sat')
         self.sat = sat
+        self.mux =  find_parent_prop(self, 'mux')
         super().OnWindowCreate(evt)
-        self.SelectSat(sat)
+        #self.SelectSat(sat)
 
     def OnKeyDown(self, evt):
         keycode = evt.GetKeyCode()

@@ -291,7 +291,7 @@ protected:
 	template<typename _mux_t>
 	subscription_id_t
 	subscribe_mux(std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn,
-								const _mux_t& mux, ssptr_t ssptr,
+								_mux_t mux, ssptr_t ssptr,
 								subscription_options_t tune_options,
 								const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 

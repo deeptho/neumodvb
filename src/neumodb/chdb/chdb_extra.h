@@ -61,6 +61,11 @@ namespace chdb {
 									[](const chdb::dvbt_mux_t& mux)  { return embedding_type_t::NONE;});
 	}
 
+	//fix user provided input if it would lead to inconsistencies
+	void fix_mux(dvbs_mux_t& mux);
+	void fix_mux(dvbt_mux_t& mux);
+	void fix_mux(dvbc_mux_t& mux);
+
 	template<typename mux_t>
 	inline const mux_key_t* mux_key_ptr(const mux_t& mux) { return &mux.k;}
 

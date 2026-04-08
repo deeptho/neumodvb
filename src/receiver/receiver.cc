@@ -557,9 +557,10 @@ receiver_thread_t::subscribe_spectrum(
 template <typename _mux_t>
 subscription_id_t
 receiver_thread_t::subscribe_mux(
-	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const _mux_t& mux,
+	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, _mux_t mux,
 	ssptr_t ssptr, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure) {
+	fix_mux(mux);
 	subscribe_ret_t sret;
 	assert(ssptr);
 	assert(is_template(mux) == (mux.k.mux_id ==0));
@@ -2387,7 +2388,7 @@ thread_local thread_group_t thread_group{thread_group_t::unknown};
 template
 subscription_id_t
 receiver_thread_t::subscribe_mux(
-	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbc_mux_t& mux,
+	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, chdb::dvbc_mux_t mux,
 	ssptr_t ssptr, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
@@ -2395,14 +2396,14 @@ receiver_thread_t::subscribe_mux(
 template
 subscription_id_t
 receiver_thread_t::subscribe_mux(
-	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbt_mux_t& mux,
+	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, chdb::dvbt_mux_t mux,
 	ssptr_t ssptr, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 
 template
 subscription_id_t
 receiver_thread_t::subscribe_mux(
-	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, const chdb::dvbs_mux_t& mux,
+	std::vector<task_queue_t::future_t>& futures, db_txn& devdb_wtxn, chdb::dvbs_mux_t mux,
 	ssptr_t ssptr, subscription_options_t tune_options,
 	const chdb::scan_id_t& scan_id, bool do_not_unsubscribe_on_failure);
 

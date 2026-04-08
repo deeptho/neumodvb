@@ -117,9 +117,8 @@ class LnbConnectionTable(NeumoTable):
 
     @property
     def lnb_connection(self):
-        if hasattr(self.parent, "lnb_connection"):
-            return self.parent.lnb_connection
-        return None
+        return find_parent_prop(self.parent, 'lnb_connection')
+
     @lnb_connection.setter
     def lnb_connection(self, val):
         if hasattr(self.parent, "lnb_connection"):

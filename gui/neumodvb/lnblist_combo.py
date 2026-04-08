@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 # Neumo dvb (C) 2019-2025 deeptho@gmail.com
 # Copyright notice:
 #

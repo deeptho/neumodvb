@@ -28,7 +28,7 @@ from dateutil import tz
 import regex as re
 
 from neumodvb import neumodbutils
-from neumodvb.util import setup, lastdot
+from neumodvb.util import setup, lastdot, find_parent_prop
 from neumodvb.neumolist import NeumoTable, NeumoGridBase, IconRenderer, screen_if_t, MyColLabelRenderer, lnb_network_str
 from neumodvb.neumo_dialogs import ShowMessage, ShowOkCancel
 from neumodvb.util import dtdebug, dterror
@@ -231,6 +231,10 @@ class LnbGridBase(NeumoGridBase):
         self.sort_column = None
         self.Bind(wx.EVT_KEY_DOWN, self.OnKeyDown)
         self.Bind(wx.grid.EVT_GRID_CELL_LEFT_DCLICK, self.OnLeftClicked)
+
+    def InitialRecord(self):
+        lnb= find_parent_prop(self, "lnb");
+        return lnb
 
     def OnShowHide(self, event):
         #Ensure that multiline rows are shown fully

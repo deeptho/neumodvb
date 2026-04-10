@@ -1696,7 +1696,7 @@ bool active_si_stream_t::fix_mux(chdb::any_mux_t& mux)
 			auto* dvbs_mux1 = std::get_if<chdb::dvbs_mux_t>(&tuned_mux);
 			auto tmp1 = *dvbs_mux1;
 			//auto freq =  (tmp.frequency+ 500)/1000;
-			auto freq1 =  (tmp1.frequency+ 500)/1000;
+			int freq1 =  (tmp1.frequency+ 500)/1000;
 			auto matches_freq1 =[freq1](int f) {
 				return freq1 >= f-1 && freq1 <= f+1;
 			};

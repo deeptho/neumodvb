@@ -28,7 +28,7 @@ import datetime
 from dateutil import tz
 import regex as re
 
-from neumodvb.util import setup, lastdot
+from neumodvb.util import setup, lastdot, find_parent_prop
 from neumodvb import neumodbutils
 from neumodvb.neumolist import GridPopup
 from neumodvb.satlist import BasicSatGrid
@@ -59,6 +59,15 @@ class SatGridPopup(BasicSatGrid):
 
     def EditMode(self):
         return  False
+
+    def OnWindowCreate(self, evt):
+        if evt.GetWindow() != self:
+            return
+        self.sat = find_parent_prop(self, 'sat')
+        super().OnWindowCreate(evt)
+
+    def InitialRecord(self):
+        return self.sat
 
     def GetItemText(self, rowno):
         rec = self.table.GetValue(rowno, None)

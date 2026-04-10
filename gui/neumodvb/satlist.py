@@ -75,6 +75,9 @@ class SatTable(NeumoTable):
                          **kwds)
         self.do_autosize_rows = True
 
+    def InitialRecord(self):
+        return self.sat
+
     def __save_record__(self, txn, record, old_record):
         pychdb.put_record(txn, record)
         return record

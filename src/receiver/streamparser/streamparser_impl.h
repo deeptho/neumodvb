@@ -85,6 +85,19 @@ namespace dtdemux {
 		return l;
 	}
 
+	inline int data_range_t::get_full_packet(uint8_t* buffer) {
+		assert(!is_writer);
+#ifndef NDEBUG
+		int l = end  - start;
+		assert(l == 188);
+#else
+		const int l =188;
+#endif
+		memcpy(buffer, start, l);
+		curpos = end;
+		return l;
+	}
+
 	inline int data_range_t::put_buffer(const uint8_t* buffer, int64_t len) {
 		assert(is_writer);
 		int l = std::min(available(), len);

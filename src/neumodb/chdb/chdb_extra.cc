@@ -1602,7 +1602,8 @@ const char* service_type_str(int service_type) {
 }
 
 void chdb::fix_mux(chdb::dvbs_mux_t& mux) {
-	if(mux.embedding_type ==  chdb::embedding_type_t::T2MI && mux.k.t2mi_pid <0)
+	if( (mux.embedding_type ==  chdb::embedding_type_t::T2MI ||
+			 mux.embedding_type ==  chdb::embedding_type_t::ET2MI) && mux.k.t2mi_pid <0)
 		mux.embedding_type = chdb::embedding_type_t::NONE;
 }
 

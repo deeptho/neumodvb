@@ -21,11 +21,9 @@
 #pragma once
 
 #include "streamparser/psi.h"
-//#include "service.h"
 #include "linux/dvb/ca.h"
 #include "dvbapi.h"
 #include "neumo-dmx.h"
-#include "active_stream.h"
 #include "active_service.h"
 
 #define DESCRAMBLER_NONE	0

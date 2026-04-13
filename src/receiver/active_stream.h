@@ -53,6 +53,7 @@ namespace devdb {
 struct db_txn;
 struct tune_confirmation_t;
 class stream_filter_t;
+class t2mi_stream_filter_t;
 
 struct pid_with_use_count_t {
 	uint16_t pid{null_pid};

@@ -24,6 +24,7 @@
 #include "substream.h"
 
 class ts_in_ts_stream_filter_t;
+class t2mi_stream_filter_t;
 
 namespace dtdemux {
 
@@ -179,28 +180,44 @@ namespace dtdemux {
 		virtual void parse_payload_unit() override;
 
 
-		ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid, data_cb_fn_t&& data_cb_fn);
+		ts_in_ts_parser_t(ts_stream_t& ts_stream, int service_id, int pid, data_cb_fn_t&& data_cb_fn)
+				: ts_substream_t(ts_stream, payload_type_t::PES, "ABERTIS")
+				, data_cb_fn(data_cb_fn)
+			{
+				payload_type = payload_type_t::DATA; //TODO
+			}
+
 
 		ts_in_ts_parser_t(const ts_in_ts_parser_t& other) = delete;
 		virtual ~ts_in_ts_parser_t() {}
 
 		virtual void unit_completed_cb() override {};
 
-#if 0
-		template<typename parser_t, typename... Args>
-		auto add_parser(int pid, const ss::string_& ndc_prefix, Args... args) {
-			auto & slot = parsers[dvb_pid_t(pid)];
-			if (slot.use_count == 0) {
-				assert(!slot.p);
-				slot.p = stream_parser.register_pid<parser_t>(pid, ndc_prefix, args...);
-				if(pid!=dtdemux::ts_stream_t::PAT_PID)
-					add_pid(pid);
+	};
+
+	class passthrough_pid_parser_t : public ts_substream_t {
+	public:
+
+		typedef std::function<void(uint8_t* buffer, int)> data_cb_fn_t;
+
+		data_cb_fn_t data_cb_fn;
+
+		virtual void parse_payload_unit() override;
+
+
+		passthrough_pid_parser_t(ts_stream_t& ts_stream, int service_id, int pid, data_cb_fn_t&& data_cb_fn)
+				: ts_substream_t(ts_stream, payload_type_t::DATA, "UKRAINE")
+				, data_cb_fn(data_cb_fn)
+			{
+				payload_type = payload_type_t::DATA;
 			}
-			slot.use_count++;
-			dtdebugf("add_parser for pid={:d} slot.use_count={:d}", pid, slot.use_count);
-			return static_cast<parser_t*>(slot.p.get());
-		}
-#endif
+
+
+		passthrough_pid_parser_t(const passthrough_pid_parser_t& other) = delete;
+		virtual ~passthrough_pid_parser_t() {}
+
+		virtual void unit_completed_cb() override {};
+
 	};
 
 

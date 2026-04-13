@@ -77,14 +77,27 @@ active_service_t::active_service_t(
 	, service_thread(*this) {
 }
 
+active_service_t::active_service_t(
+	active_adapter_t& active_adapter,
+	ts_in_ts_stream_filter_t* output_filter,
+	const chdb::service_t& service_,
+	const recdb::live_service_t& live_service,
+	const std::shared_ptr<stream_reader_t>& reader)
+	: active_stream_t(active_adapter.receiver, std::move(reader))
+	, current_service(service_)
+	, stream_buffer(std::make_unique<active_ts_t>( this, output_filter, true /*needs_parsing*/))
+	, service_thread(*this)
+{
+}
+
 active_service_t::active_service_t(active_adapter_t& active_adapter,
-																	 ts_in_ts_stream_filter_t* output_filter,
+																	 t2mi_stream_filter_t* output_filter,
 																	 const chdb::service_t& service_,
 																	 const recdb::live_service_t& live_service,
 																	 const std::shared_ptr<stream_reader_t>& reader)
 	: active_stream_t(active_adapter.receiver, std::move(reader))
 	, current_service(service_)
-	, stream_buffer(std::make_unique<active_ts_t>( this, output_filter))
+	, stream_buffer(std::make_unique<active_ts_t>( this, output_filter, false /*needs_parsing*/))
 	, service_thread(*this)
 {
 }
@@ -602,7 +615,7 @@ void active_service_t::process_service_data() {
 			dtdebugf("SKIPPING EARLY");
 			break;
 		}
-		if(now- this->last_payload_data > 4000ms) {
+		if(now - this->last_payload_data > 4000ms) {
 			if (is_encrypted && (now - last_decrypted_data) > 4000ms) {
 				service_status_message(stream_status_t::ENCRYPTED);
 				this->last_decrypted_data = now + 1s;
@@ -739,12 +752,17 @@ bool active_ts_t::process_service_data(int num_bytes_decrypted_now)
 
 void active_ts_t::register_parser_pid(int service_id, const dtdemux::pid_info_t& pidinfo)
 {
-	this->stream_parser.register_embedded_ts_pid(pidinfo.stream_pid,  service_id,
-																							 [this ] (uint8_t*buffer, int size) mutable {
+	if(needs_parsing)  //needed for ts_in_ts but not for t2mi, which is processed externally
+		this->stream_parser.register_embedded_ts_pid(pidinfo.stream_pid,  service_id,
+																								 [this ] (uint8_t*buffer, int size) mutable {
 																								 this->data_cb(buffer, size);
-																							 });
+																								 });
+	else
+		this->stream_parser.register_passthrough_pid(pidinfo.stream_pid,  service_id,
+																								 [this ] (uint8_t*buffer, int size) mutable {
+																								 this->data_cb(buffer, size);
+																								 });
 }
-
 
 void active_service_t::add_pat_and_pmt_parsers() {
 	auto& stream_parser = stream_buffer->stream_parser;

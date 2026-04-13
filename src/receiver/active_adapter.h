@@ -134,6 +134,7 @@ class active_adapter_t final : public  std::enable_shared_from_this<active_adapt
 	friend class stream_reader_t;
 	friend struct dvb_stream_reader_t;
 	friend struct ts_in_ts_stream_filter_t;
+	friend struct t2mi_stream_filter_t;
 
 private:
 /*

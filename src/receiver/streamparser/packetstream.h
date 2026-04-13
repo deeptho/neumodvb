@@ -180,6 +180,14 @@ namespace dtdemux {
 			return parser;
 		}
 
+		auto register_passthrough_pid(int embedding_pid, int service_id, passthrough_pid_parser_t::data_cb_fn_t&& fn) {
+			auto parser=std::make_shared<passthrough_pid_parser_t>(*this,  embedding_pid, service_id, std::move(fn));
+			register_parser(embedding_pid, [parser](ts_packet_t* p){
+				log4cxx::NDC::push("DTS");
+				parser->parse(p);}); //data ts
+			return parser;
+		}
+
 		void register_audio_pids(int service_id, int video_pid,
 														 stream_type::stream_type_t stream_type);
 

@@ -92,6 +92,15 @@ int ts_substream_t::get_buffer(uint8_t* buffer, int64_t bytes) {
 	return -1; // not reached
 }
 
+//get a full packet
+int ts_substream_t::get_full_packet(uint8_t buffer[188]) {
+	uint8_t* p = buffer;
+	if (get_next_packet() < 0)
+		return -1;
+	current_ts_packet->range.get_full_packet(buffer);
+	return 0;
+}
+
 uint32_t ts_substream_t::get_bits(uint8_t& byte, int& startbit, int num_bits) {
 	assert(num_bits <= 32);
 	uint32_t res = 0;

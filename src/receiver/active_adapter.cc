@@ -687,8 +687,27 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
 		case chdb::embedding_type_t::NONE:
 			assert(false);
 			break;
-		case chdb::embedding_type_t::T2MI:
-			substream = std::make_shared<t2mi_stream_filter_t>(*this, embedded_mux, &tuner_thread.epx);
+		case chdb::embedding_type_t::ET2MI:
+		case chdb::embedding_type_t::T2MI: {
+			auto mux_key = *chdb::mux_key_ptr(embedded_mux);
+			assert(mux_key.sat_pos != sat_pos_none);
+#ifndef SWDEMUX
+			auto service_id = 800; //mux_key.t2mi_pid; //todo: rename this
+#else
+			auto service_id = mux_key.t2mi_pid; //todo: rename this
+#endif
+			mux_key.t2mi_pid = -1 ; //convert to parent mux
+			auto txn = receiver.chdb.rtxn();
+			auto ec = chdb::service_t::find_by_key(txn, mux_key, service_id);
+			if(!ec.is_valid()) {
+				user_errorf("Could not find embedding service for embedded mux {}", embedded_mux);
+				return nullptr;
+			}
+			auto service = ec.current();
+			txn.abort();
+
+			substream = std::make_shared<t2mi_stream_filter_t>(*this, embedded_mux, service, &tuner_thread.epx);
+		}
 			break;
 		case chdb::embedding_type_t::TS: {
 				auto mux_key = *chdb::mux_key_ptr(embedded_mux);
@@ -720,6 +739,7 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_stream_reader
 	auto embedding_type = chdb::get_embedding_type(mux);
 	auto use_embedded_reader =
 		((embedding_type == chdb::embedding_type_t::T2MI) && !this->fe->ts.readAccess()->dbfe.supports.t2mi) ||
+		(embedding_type == chdb::embedding_type_t::ET2MI)  ||
 		embedding_type ==  chdb::embedding_type_t::TS;
 	if(use_embedded_reader)
 		return make_embedded_stream_reader(mux, dmx_buffer_size);

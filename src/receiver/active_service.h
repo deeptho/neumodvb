@@ -39,7 +39,9 @@ class active_ts_t : public stream_buffer_t {
 	uint8_t* buffer{nullptr};
 	int decrypt_pointer{0}; //start of already decrypted data
 	int write_pointer{0}; //start of already decrypted data
-	ts_in_ts_stream_filter_t* output_filter{nullptr};
+	stream_filter_t* output_filter{nullptr};
+	bool needs_parsing{false};
+
 public:
 	inline recdb::live_service_t make_live_service() const;
 	virtual void close() override;
@@ -124,10 +126,11 @@ public:
 
 	virtual void register_parser_pid(int service_id, const dtdemux::pid_info_t& pidinfo) final;
 
-	active_ts_t(active_service_t* active_service, ts_in_ts_stream_filter_t* output_filter)
+	active_ts_t(active_service_t* active_service, stream_filter_t* output_filter, bool needs_parsing)
 		: stream_buffer_t(active_service, nullptr)
 		, buffer(storage.get())
 		, output_filter (output_filter)
+		, needs_parsing(needs_parsing)
 		{}
 
 	virtual ~active_ts_t() = default;
@@ -232,6 +235,10 @@ private:
 									 const recdb::live_service_t& live_service,
 									 const std::shared_ptr<stream_reader_t>& reader);
 	active_service_t(active_adapter_t& active_adapter, ts_in_ts_stream_filter_t* filter,
+									 const chdb::service_t& service,
+									 const recdb::live_service_t& live_service,
+									 const std::shared_ptr<stream_reader_t>& reader);
+	active_service_t(active_adapter_t& active_adapter, t2mi_stream_filter_t* filter,
 									 const chdb::service_t& service,
 									 const recdb::live_service_t& live_service,
 									 const std::shared_ptr<stream_reader_t>& reader);

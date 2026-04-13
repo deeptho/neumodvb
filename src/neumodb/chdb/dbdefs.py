@@ -56,6 +56,7 @@ embedding_type = db_enum(name='embedding_type_t',
                    fields=(('NONE', 0),
                            ('T2MI', 1),
                            ('TS', 2),
+                           ('ET2MI', 17),  #encrypted t2mi
                            ))
 
 media_mode = db_enum(name='media_mode_t',

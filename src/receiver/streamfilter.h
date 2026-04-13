@@ -60,7 +60,8 @@ protected:
 
 	int data_ready{false}; //external command has returned additional data
 
-	int data_fd{-1}; //where external commands returns its data to
+	int to_data_fd{-1}; //where external commands returns its data to
+	int from_data_fd{-1}; //where we send data to (input for external command
 
 
 protected:
@@ -70,8 +71,10 @@ protected:
 	virtual void close() = 0;
 
 	std::tuple<std::unique_ptr<dvb_stream_reader_t>, int> open_dvb_reader();
+	int read_data_();
 
-	int read_data();
+public:
+	virtual void read_data(uint8_t* buffer, int num_bytes) = 0;
 
 protected:
 
@@ -94,7 +97,7 @@ protected:
 	pid_t start();
 
 	virtual inline bool is_open() const {
-		bool ret = data_fd >=0;
+		bool ret = from_data_fd >=0;
 		assert (ret? (command_pid>0) : (command_pid<0));
 		return ret;
 	}
@@ -106,14 +109,20 @@ protected:
 
 
 class t2mi_stream_filter_t : public stream_filter_t {
+	chdb::service_t embedding_service;
+	std::shared_ptr<active_service_t> active_servicep; //must be a shared_ptr because shared_from_this used elsewhere
+
 public:
 	t2mi_stream_filter_t(active_adapter_t& active_adapter, const chdb::any_mux_t& embedded_mux,
+											 const chdb::service_t& embedding_service,
 											 epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET)
-		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags) {
-  }
+		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags)
+		, embedding_service(embedding_service)
+		{}
 
 	virtual bool on_epoll_event(const epoll_event* evt, embedded_stream_reader_t* reader,
 															event_handle_t& notifier) override;
+	virtual void read_data(uint8_t* buffer, int num_bytes) final;
 	virtual bool read_and_process_data() final;
 	virtual void open() final;
 	virtual void close() final;
@@ -131,8 +140,8 @@ public:
 													 const chdb::any_mux_t& embedded_mux,
 													 const chdb::service_t& embedding_service,
 													 epoll_t* epoll, int epoll_flags = EPOLLIN|EPOLLERR|EPOLLHUP|EPOLLET)
-		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags),
-			embedding_service(embedding_service) {}
+		: stream_filter_t(active_adapter, embedded_mux, epoll, epoll_flags)
+		, embedding_service(embedding_service) {}
 
 	virtual ~ts_in_ts_stream_filter_t() {
 		close();
@@ -151,8 +160,8 @@ public:
 
 
 	virtual void open() final;
-		 virtual void close() final;
-		 void read_data(uint8_t* buffer, int num_bytes);
+	virtual void close() final;
+	virtual void read_data(uint8_t* buffer, int num_bytes) final;
 };
 
 

@@ -169,6 +169,7 @@ namespace dtdemux {
 		int get_next_packet(ts_packet_t* start=nullptr);
 
 		int get_buffer(uint8_t* buffer, int64_t bytes);
+		int get_full_packet(uint8_t buffer[188]);
 
 		void put_buffer(uint8_t* buffer, int64_t bytes);
 

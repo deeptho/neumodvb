@@ -544,6 +544,16 @@ void ts_in_ts_parser_t::parse_payload_unit() {
 
 
 
+void passthrough_pid_parser_t::parse_payload_unit() {
+	int sync_count=0;
+	uint8_t buffer[188];
+	for(;;) {
+		get_full_packet(buffer);
+		data_cb_fn(&buffer[0], sizeof(buffer));
+	}
+	return;
+}
+
 /*
 	See https://www.quora.com/What-is-the-difference-between-an-I-Frame-and-a-Keyframe-in-video-encoding
 

@@ -62,7 +62,10 @@ bool set_blocking(int fd, bool on) {
 /*
 	start an external command, connect its stdin to stream_fd
 	and connect its stdout to a pipe.
-	Returns the file descriptor of the pipe so that we can read from it
+	Returns:
+	 -the file descriptor of the pipe so that we can read from it
+	 -the pid of the command connected to the pipe
+	Used to stream data from a demux to the network. Todo: handle encrypted streams
 */
 std::tuple< int , pid_t>
 start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& args) {
@@ -99,7 +102,11 @@ start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& arg
 		set_blocking(STDIN_FILENO, true);
 		signal(SIGINT, SIG_IGN); //avoid interrupt by gdb
 		setpgid(0, 0);
-		prctl(PR_SET_PDEATHSIG, SIGHUP); //ask to be killed when parent dies
+		/*
+			The following was meant to kill the child process when parent process dies,
+			but in reality this happens when parent THREAD dies (confusing linux doc)
+		*/
+		//prctl(PR_SET_PDEATHSIG, SIGHUP);
 		/*     file, arg0, arg1,  arg2 */
 		execvp(pathname,  const_cast<char* const*>(args.buffer()));
 
@@ -129,6 +136,117 @@ start_command(int stream_fd, const char* pathname, ss::vector_<const char*>& arg
 		return {childToParent[READ_FD], command_pid};
 	}
 	return {-1, -1};
+}
+
+
+/*
+	start an external command, connect its stdin to stream_fd
+	and connect its stdout to a pipe.
+	Returns:
+	  file descriptor for writing to the pipe
+		file descriptor for reading from the pipe
+		pid of command started and connected to the pipe
+*/
+static std::tuple< int , int, pid_t>
+start_command(const char* pathname, ss::vector_<const char*>& args) {
+	pid_t command_pid{pid_t(-1)};
+	int child_to_parent[2];
+	int parent_to_child[2];
+
+	// int status;
+
+	/*  The O_NONBLOCK and FD_CLOEXEC  flags  shall  be
+			clear  on  both  file descriptors
+			fildes[0] = read end
+			fildes[1] = write end
+
+	*/
+
+	if (pipe(child_to_parent) != 0) {
+		dterrorf("pipe failed\n");
+		::exit(1);
+	} else {
+#if 0
+		int pipe_size = fcntl(child_to_parent[1], F_SETPIPE_SZ, 65536*8);
+		if (pipe_size <0)
+			dterrorf("Error setting pipe size");
+#endif
+	}
+
+	if (pipe(parent_to_child) != 0) {
+		dterrorf("pipe failed\n");
+		::exit(1);
+	} else {
+		int pipe_size = fcntl(parent_to_child[1], F_SETPIPE_SZ, 65536*8);
+		if (pipe_size <0)
+			dterrorf("Error setting pipe size");
+
+	}
+
+	switch (command_pid = fork()) {
+	case -1:
+		dterrorf("Fork failed\n");
+		::exit(-1);
+
+	case 0: /* Child */
+		/*rename file descriptors to standard ones so that the external command can read from fd=0
+			and write to fd=1*/
+		if (dup2(parent_to_child[READ_FD], STDIN_FILENO) < 0 || dup2(child_to_parent[WRITE_FD], STDOUT_FILENO) < 0
+				|| ::close(child_to_parent[READ_FD]) != 0
+				|| ::close(parent_to_child[WRITE_FD]) != 0
+			) {
+			dterrorf("error occured");
+			::exit(1);
+		}
+		set_blocking(STDIN_FILENO, true);
+		set_blocking(STDOUT_FILENO, true);
+		signal(SIGINT, SIG_IGN); //avoid interrupt by gdb
+		setpgid(0, 0);
+		prctl(PR_SET_PDEATHSIG, SIGHUP); //ask to be killed when parent dies
+		/*     file, arg0, arg1,  arg2 */
+		execvp(pathname,  const_cast<char* const*>(args.buffer()));
+
+		// note that we cannot use dterror....
+		fprintf(stderr, "This line should never be reached!!!\n");
+		::exit(-1);
+
+	default: /* Parent */
+		dtdebugf("Child process {:d} running...\n", command_pid);
+
+		if (::close(child_to_parent[WRITE_FD]) != 0) {
+			dterrorf("error closing pipe fd");
+		}
+		if (::close(parent_to_child[READ_FD]) != 0) {
+			dterrorf("error closing pipe fd");
+		}
+		set_blocking(child_to_parent[READ_FD], false);
+		set_blocking(parent_to_child[WRITE_FD], false);
+
+		auto flags = fcntl(child_to_parent[READ_FD], F_GETFD);
+		if (flags < 0) {
+			dterrorf("fcntl failed: {}", strerror(errno));
+			return {-1,-1, -1};
+		}
+
+		if (fcntl(child_to_parent[READ_FD], F_SETFD, flags | FD_CLOEXEC) < 0) {
+			dterrorf("Could not set FD_CLOEXEC: {}", strerror(errno));
+			return {-1, -1, -1};
+		}
+
+		flags = fcntl(parent_to_child[WRITE_FD], F_GETFD);
+		if (flags < 0) {
+			dterrorf("fcntl failed: {}", strerror(errno));
+			return {-1,-1, -1};
+		}
+
+		if (fcntl(parent_to_child[WRITE_FD], F_SETFD, flags | FD_CLOEXEC) < 0) {
+			dterrorf("Could not set FD_CLOEXEC: {}", strerror(errno));
+			return {-1, -1, -1};
+		}
+
+		return {parent_to_child[WRITE_FD], child_to_parent[READ_FD], command_pid};
+	}
+	return {-1, -1, -1};
 }
 
 std::tuple<std::unique_ptr<dvb_stream_reader_t>, int>
@@ -172,16 +290,16 @@ inline int stream_filter_t::available_for_write() {
 	return ret;
 }
 
-inline int stream_filter_t::read_data() {
+inline int stream_filter_t::read_data_() {
 	auto lck = std::scoped_lock(m);
 	if (!data_ready)
 		return 0;
 	int toread = available_for_write();
 	for (;;) {
-		assert(data_fd>=0);
+		assert(from_data_fd>=0);
 		auto size = std::min(toread, buff_size - write_pointer);
 		assert ( write_pointer + size <= buff_size);
-		auto ret = read(data_fd, bufferp.get() + write_pointer, size);
+		auto ret = read(from_data_fd, bufferp.get() + write_pointer, size);
 		if (ret == 0) {
 			dterrorf("end stream closed\n");
 			return -1;
@@ -249,13 +367,25 @@ void stream_filter_t::notify_other_readers(embedded_stream_reader_t* reader) {
 }
 
 void t2mi_stream_filter_t::close() {
+	if(this->active_servicep) {
+		auto& active_service = *this->active_servicep;
+		auto service = active_service.get_current_service();
+		active_adapter.tuner_thread.remove_live_buffer(service);
+		this->active_servicep->service_thread.stop_running(false/*stop_running*/);
+	}
 	if (!is_open())
 		return;
-	assert(data_fd >= 0);
-	if (::close(data_fd) < 0) {
+	assert(from_data_fd >= 0);
+	if (::close(from_data_fd) < 0) {
 		dterrorf("Error in close: {}", strerror(errno));
 	}
-	data_fd = -1;
+	from_data_fd = -1;
+
+	assert(to_data_fd >= 0);
+	if (::close(to_data_fd) < 0) {
+		dterrorf("Error in close: {}", strerror(errno));
+	}
+	to_data_fd = -1;
 
 	assert(command_pid > 0);
 	if (kill(command_pid, SIGHUP) < 0) {
@@ -276,17 +406,13 @@ void ts_in_ts_stream_filter_t::close() {
 	}
 	if (!is_open())
 		return;
-	assert(data_fd < 0);
+	assert(from_data_fd < 0);
 }
 
 void t2mi_stream_filter_t::open() {
 	assert(chdb::mux_key_ptr(this->embedded_mux)->sat_pos != sat_pos_none);
-	auto [_, stream_fd] = this->open_dvb_reader();
-	if(stream_fd < 0)
-		return;
 	auto& embedded_mux_key = *chdb::mux_key_ptr(this->embedded_mux);
 	auto stream_pid = embedded_mux_key.t2mi_pid;
-
 	ss::string<32> pid_;
 	pid_.format("{:d}", stream_pid);
 	const char* cmd ="tsp";
@@ -294,11 +420,26 @@ void t2mi_stream_filter_t::open() {
 			"--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
 			// @todo: "--plp", plp.cstr()
 			(char*)nullptr}};
-	std::tie(data_fd, command_pid) = start_command(stream_fd, cmd, args);
-	if (data_fd < 0) {
+
+	std::tie(to_data_fd, from_data_fd, command_pid) = start_command(cmd, args);
+	if (to_data_fd <0 || from_data_fd < 0) {
 		dterrorf("Could not start command");
 		return;
 	}
+
+	auto master_mux = embedded_mux;
+	auto *dvbs_mux= std::get_if<chdb::dvbs_mux_t>(&master_mux);
+	dvbs_mux->k.t2mi_pid = -1;
+	dvbs_mux->embedding_type = chdb::embedding_type_t::NONE;
+	auto reader = active_adapter.make_dvb_stream_reader(master_mux, -1);
+	auto live_service = active_adapter.tuner_thread.add_live_buffer(embedding_service);
+	this->active_servicep = std::make_shared<active_service_t>
+		(active_adapter, this,
+		 embedding_service,
+		 live_service,
+		 std::move(reader));
+		this->active_servicep->add_pat_and_pmt_parsers();
+	this->active_servicep->service_thread.start_running();
 	return;
 }
 
@@ -323,14 +464,27 @@ bool t2mi_stream_filter_t::read_and_process_data() {
 	if (error)
 		return false;
 	data_ready = true;
-	error |= (read_data() < 0);
+	error |= (read_data_() < 0);
 	// rearm
 	return error;
 }
 
 
-void ts_in_ts_stream_filter_t::read_data(uint8_t* buffer, int num_bytes) {
+void t2mi_stream_filter_t::read_data(uint8_t* buffer, int num_bytes) {
+	if(to_data_fd <0)
+		return;
 	this->notify_other_readers(nullptr); //notifies ALL readers (as read_data is not called from a reader
+	auto lck = std::scoped_lock(m);
+	int toread = available_for_write();
+	if (num_bytes > toread) {
+		dterrorf("data loss due to slow readers");
+		num_bytes = toread;
+	}
+	write(this->to_data_fd , buffer, num_bytes);
+}
+
+void ts_in_ts_stream_filter_t::read_data(uint8_t* buffer, int num_bytes) {
+	this->notify_other_readers(nullptr); //notifies ALL readers (as read_data is not called from a reader)
 	auto lck = std::scoped_lock(m);
 	int toread = available_for_write();
 	if (num_bytes > toread) {
@@ -383,7 +537,7 @@ inline std::tuple<uint8_t*, ssize_t> embedded_stream_reader_t::read(ssize_t size
 	assert((toread % dtdemux::ts_packet_t::size) ==0);
 	if (toread == 0) {
 		// attempt to read some more data
-		stream_filter->read_data();
+		stream_filter->read_data_();
 		toread = (stream_filter->buff_size + stream_filter->write_pointer - read_pointer)%stream_filter->buff_size;
 		toread -= toread % dtdemux::ts_packet_t::size;
 		assert((toread % dtdemux::ts_packet_t::size) ==0);
@@ -444,20 +598,28 @@ int embedded_stream_reader_t::open(uint16_t initial_pid, epoll_t* epoll, int epo
 	this->epoll_flags = epoll_flags;
 	stream_filter->register_reader(this);
 	// ensure that exactly one thread receives a wakeup call for data_fd
-	if(stream_filter->data_fd >= 0)
-		epoll->add_fd(stream_filter->data_fd, epoll_flags | EPOLLEXCLUSIVE);
+	if(stream_filter->from_data_fd >= 0) {
+		epoll->add_fd(stream_filter->from_data_fd, epoll_flags | EPOLLEXCLUSIVE);
+		dterrorf("add_fd epoll={:p} from_data_fd={:d} notifier={:p}", (void*) epoll,
+						 stream_filter->from_data_fd, (void*)&notifier);
+	} else {
+		dterrorf("add_fd epoll={:p} from_data_fd={:d} notifier={:p}", (void*) epoll,
+						 stream_filter->from_data_fd, (void*)&notifier);
+	}
 	epoll->add_fd((int)notifier, epoll_flags);
 
-	// initial_pid not used becaue we get all pids anyway
+	// initial_pid not used because we get all pids anyway
 	return 0;
 }
 
 void embedded_stream_reader_t::close() {
 	if (is_open()) {
+		dtdebugf("close epoll={:p} from_data_fd={:d} notifier={:p}", (void*) epoll, stream_filter->from_data_fd,
+						 (void*)&notifier);
 		epoll->remove_fd((int)notifier);
 		stream_filter->unregister_reader(this);
-		if(stream_filter->data_fd>=0)
-			epoll->remove_fd(stream_filter->data_fd);
+		if(stream_filter->from_data_fd >= 0)
+			epoll->remove_fd(stream_filter->from_data_fd);
 		epoll = nullptr;
 	}
 }
@@ -551,7 +713,7 @@ void streamer_t::stop() {
 
 bool t2mi_stream_filter_t::on_epoll_event(const epoll_event* evt, embedded_stream_reader_t* reader,
 																								 event_handle_t& notifier) {
-	if ((evt->data.u64 & 0xffffffff) == this->data_fd) {
+	if ((evt->data.u64 & 0xffffffff) == this->from_data_fd) {
 		/*each of the subscribers will randomly receive this event
 			and then process incoming data
 		*/
@@ -559,7 +721,7 @@ bool t2mi_stream_filter_t::on_epoll_event(const epoll_event* evt, embedded_strea
 		this->notify_other_readers(reader);
 		return true;
 	} else if (reader->epoll && reader->epoll->matches(evt, (int) notifier)) {
-		if(this->data_fd <0)
+		if(this->from_data_fd <0)
 			return false;
 		notifier.reset();
 		return true;
@@ -570,7 +732,7 @@ bool t2mi_stream_filter_t::on_epoll_event(const epoll_event* evt, embedded_strea
 
 bool ts_in_ts_stream_filter_t::on_epoll_event(const epoll_event* evt, embedded_stream_reader_t* reader,
 																								 event_handle_t& notifier) {
-	if ((evt->data.u64 & 0xffffffff) == this->data_fd) {
+	if ((evt->data.u64 & 0xffffffff) == this->from_data_fd) {
 		/*each of the subscribers will randomly receive this event
 			and then process incoming data
 		*/

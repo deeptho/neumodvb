@@ -161,6 +161,7 @@ namespace dtdemux {
 		data_range_t remainder_range() const;
 
 		int get_buffer(uint8_t* buffer, int64_t len);
+		int get_full_packet(uint8_t buffer[188]);
 
 		inline uint8_t* get_buffer_ptr() const {
 			return start;

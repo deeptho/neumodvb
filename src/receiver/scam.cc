@@ -879,9 +879,8 @@ void active_scam_t::ca_set_descr(const ca_descr_t& ca_descr, uint32_t msgid) {
 	s.format("slot={:p} key[{:d}]=", fmt::ptr(&slot), ca_descr.parity);
 	for (auto x : ca_descr.cw)
 		s.format("{:02x}", x);
-	dtdebugf("{}", s);
+	dtdebugf("{}", s.c_str()); //s.c_str() is needed: s does not work (some bug in fmt::format or in stackstring)
 #endif
-
 	slot.last_key.parity = ca_descr.parity;
 	slot.last_key.receive_time = system_clock_t::now();
 	memcpy(slot.last_key.cw, ca_descr.cw, sizeof(ca_descr.cw));

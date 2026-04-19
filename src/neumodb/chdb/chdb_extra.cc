@@ -725,6 +725,7 @@ bool chdb::is_same(const mux_common_t& a, const mux_common_t& b) {
 
 	if (!(a.tune_src == b.tune_src))
 		return false;
+
 	if (!(a.mtime == b.mtime))
 		return false;
 	return true;
@@ -754,6 +755,10 @@ bool chdb::tuning_is_same(const dvbs_mux_t& a, const dvbs_mux_t& b) {
 	if (!(a.pls_mode == b.pls_mode))
 		return false;
 	if (!(a.pls_code == b.pls_code))
+		return false;
+	if (!(a.embedding_type == b.embedding_type))
+		return false;
+	if (!(a.embedding_service_id == b.embedding_service_id))
 		return false;
 	if (!(a.matype == b.matype))
 		return false;

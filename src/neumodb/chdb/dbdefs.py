@@ -715,6 +715,7 @@ dvbs_mux = db_struct(name='dvbs_mux',
                           (16, 'int16_t', 'matype', '-1'),
 	                        (14, 'uint32_t', 'pls_code',  1),
                           (19, 'embedding_type_t' , 'embedding_type', 'embedding_type_t::NONE'),
+                          (20, 'int16_t' , 'embedding_service_id', '0'),
                           (15, 'mux_common_t', 'c')
                 ))
 

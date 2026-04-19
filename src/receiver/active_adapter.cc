@@ -674,7 +674,8 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_dvb_stream_reader
 }
 
 std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
-	const chdb::any_mux_t& embedded_mux, ssize_t dmx_buffer_size) {
+	const chdb::any_mux_t& embedded_mux, chdb::embedding_type_t embedding_type,
+	int embedding_service_id, ssize_t dmx_buffer_size) {
 	auto sf = stream_filters.writeAccess();
 	auto& mux_key = *chdb::mux_key_ptr(embedded_mux);
 	auto [it, found] = find_in_map(*sf, mux_key.t2mi_pid);
@@ -682,7 +683,6 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
 	if (found) {
 		substream = it->second;
 	} else {
-		auto embedding_type = chdb::get_embedding_type(embedded_mux);
 		switch(embedding_type) {
 		case chdb::embedding_type_t::NONE:
 			assert(false);
@@ -691,14 +691,9 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
 		case chdb::embedding_type_t::T2MI: {
 			auto mux_key = *chdb::mux_key_ptr(embedded_mux);
 			assert(mux_key.sat_pos != sat_pos_none);
-#ifndef SWDEMUX
-			auto service_id = 800; //mux_key.t2mi_pid; //todo: rename this
-#else
-			auto service_id = mux_key.t2mi_pid; //todo: rename this
-#endif
 			mux_key.t2mi_pid = -1 ; //convert to parent mux
 			auto txn = receiver.chdb.rtxn();
-			auto ec = chdb::service_t::find_by_key(txn, mux_key, service_id);
+			auto ec = chdb::service_t::find_by_key(txn, mux_key, embedding_service_id);
 			if(!ec.is_valid()) {
 				user_errorf("Could not find embedding service for embedded mux {}", embedded_mux);
 				return nullptr;
@@ -736,13 +731,13 @@ std::shared_ptr<stream_reader_t> active_adapter_t::make_embedded_stream_reader(
 
 std::shared_ptr<stream_reader_t> active_adapter_t::make_stream_reader
 (const chdb::any_mux_t& mux, ssize_t dmx_buffer_size) {
-	auto embedding_type = chdb::get_embedding_type(mux);
+	auto [embedding_type, embedding_service_id] = chdb::get_embedding_type(mux);
 	auto use_embedded_reader =
 		((embedding_type == chdb::embedding_type_t::T2MI) && !this->fe->ts.readAccess()->dbfe.supports.t2mi) ||
 		(embedding_type == chdb::embedding_type_t::ET2MI)  ||
 		embedding_type ==  chdb::embedding_type_t::TS;
 	if(use_embedded_reader)
-		return make_embedded_stream_reader(mux, dmx_buffer_size);
+		return make_embedded_stream_reader(mux, embedding_type, embedding_service_id, dmx_buffer_size);
 	else
 		return this->make_dvb_stream_reader(mux, dmx_buffer_size);
 }

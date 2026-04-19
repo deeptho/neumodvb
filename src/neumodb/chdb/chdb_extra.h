@@ -51,14 +51,18 @@ namespace chdb {
 	mux_key_t* mux_key_ptr(chdb::any_mux_t& mux);
 	mux_key_t* mux_key_ptr(chdb::any_mux_t&& mux) = delete; //cannot be used with temporaries
 
-	inline chdb::embedding_type_t get_embedding_type(const chdb::any_mux_t& mux) {
+	inline std::tuple<chdb::embedding_type_t, int> get_embedding_type(const chdb::any_mux_t& mux) {
 		return visit_variant(mux,
-												 [](const chdb::dvbs_mux_t& mux){
-													 return (mux.k.t2mi_pid <0)
-														 ? embedding_type_t::NONE
-														 : mux.embedding_type;},
-									[](const chdb::dvbc_mux_t& mux)  { return embedding_type_t::NONE;},
-									[](const chdb::dvbt_mux_t& mux)  { return embedding_type_t::NONE;});
+												 [](const chdb::dvbs_mux_t& mux) -> std::tuple<chdb::embedding_type_t, int> {
+													 if (mux.k.t2mi_pid <0)
+														 return { embedding_type_t::NONE, -1};
+													 else
+													 return {mux.embedding_type, mux.embedding_service_id};
+												 },
+												 [](const chdb::dvbc_mux_t& mux) -> std::tuple<chdb::embedding_type_t, int>
+												 { return {embedding_type_t::NONE, -1}; },
+												 [](const chdb::dvbt_mux_t& mux) -> std::tuple<chdb::embedding_type_t, int>
+												 { return {embedding_type_t::NONE, -1};});
 	}
 
 	//fix user provided input if it would lead to inconsistencies

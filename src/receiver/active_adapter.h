@@ -354,8 +354,9 @@ private:
 
 	std::shared_ptr<stream_reader_t> make_dvb_stream_reader(const chdb::any_mux_t& mux, ssize_t dmx_buffer_size_ = -1);
 
-	std::shared_ptr<stream_reader_t> make_embedded_stream_reader(const chdb::any_mux_t& mux,
-																															 ssize_t dmx_buffer_size_ = -1);
+	std::shared_ptr<stream_reader_t> make_embedded_stream_reader
+	(const chdb::any_mux_t& mux, chdb::embedding_type_t embedding_type, int embedding_service_id,
+	 ssize_t dmx_buffer_size_);
 
 	std::shared_ptr<stream_reader_t> make_stream_reader(const chdb::any_mux_t& mux, ssize_t dmx_buffer_size = -1);
 

@@ -424,7 +424,6 @@ void t2mi_stream_filter_t::open() {
 			"--realtime", "--initial-input-packets", "256", "-P", "t2mi", "--pid", pid_.c_str(),
 			// @todo: "--plp", plp.cstr()
 			(char*)nullptr}};
-
 	std::tie(to_data_fd, from_data_fd, command_pid) = start_command(cmd, args);
 	if (to_data_fd <0 || from_data_fd < 0) {
 		dterrorf("Could not start command");
@@ -436,7 +435,7 @@ void t2mi_stream_filter_t::open() {
 	dvbs_mux->k.t2mi_pid = -1;
 	dvbs_mux->embedding_type = chdb::embedding_type_t::NONE;
 	auto reader = active_adapter.make_dvb_stream_reader(master_mux, -1);
-	auto live_service = active_adapter.tuner_thread.add_live_buffer(embedding_service);
+	auto live_service = active_adapter.tuner_thread.add_live_buffer(embedding_service, false /*may_reuse_live_buffer*/);
 	this->active_servicep = std::make_shared<active_service_t>
 		(active_adapter, this,
 		 embedding_service,
@@ -453,7 +452,7 @@ void ts_in_ts_stream_filter_t::open() {
 	dvbs_mux->k.t2mi_pid = -1;
 	dvbs_mux->embedding_type = chdb::embedding_type_t::NONE;
 	auto reader = active_adapter.make_dvb_stream_reader(master_mux, -1);
-	auto live_service = active_adapter.tuner_thread.add_live_buffer(embedding_service);
+	auto live_service = active_adapter.tuner_thread.add_live_buffer(embedding_service, false /*may_reuse_live_buffer*/);
 	this->active_servicep = std::make_shared<active_service_t>
 		(active_adapter, this,
 		 embedding_service,

@@ -628,13 +628,13 @@ void tuner_thread_t::on_epg_update_check_autorecs(db_txn& recdb_wtxn,
 	such a buffer recently, re-use that one. This is useful to not use the ability to rewind,'
 	in case a user accidentally tunes to a different service and then almost immediately returns.
  */
-recdb::live_service_t tuner_thread_t::add_live_buffer(const chdb::service_t& service) {
+recdb::live_service_t tuner_thread_t::add_live_buffer(const chdb::service_t& service, bool may_reuse_live_buffer) {
 	recdb::live_service_t live_service;
 	using namespace recdb;
 	auto owner_pid = getpid();
 	auto wtxn = recdbmgr.wtxn();
 	auto c = live_service_t::find_by_key(wtxn, owner_pid, service.k, find_type_t::find_eq);
-	if(c.is_valid()) { //close the livebuffer we used for a previous tune, if any
+	if(c.is_valid() && may_reuse_live_buffer) { //close the livebuffer we used for a previous tune, if any
 		live_service = c.current();
 		dtdebugf("reusing live_service");
 		if(live_service.last_use_time < 0) {

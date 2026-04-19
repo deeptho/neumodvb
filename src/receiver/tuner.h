@@ -84,7 +84,7 @@ public:
 	tuner_thread_t operator=(const tuner_thread_t& other) = delete;
 	void on_epg_update_check_recordings(db_txn& recdb_wtxn, db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
 	void on_epg_update_check_autorecs(db_txn& recdb_wtxn, db_txn& epg_wtxn, epgdb::epg_record_t& epg_record);
-	recdb::live_service_t add_live_buffer(const chdb::service_t& service);
+	recdb::live_service_t add_live_buffer(const chdb::service_t& service, bool may_reuse_live_buffer);
 	void remove_live_buffer(const chdb::service_t& service);
 	bool unregister_subscription(const devdb::fe_t& updated_dbfe, subscription_id_t subscription_id);
 

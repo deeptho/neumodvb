@@ -1374,7 +1374,7 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 	log4cxx::NDC::push(prefix.c_str());
 	auto reader = make_stream_reader(mux, -1);
 
-	auto live_service = tuner_thread.add_live_buffer(service);
+	auto live_service = tuner_thread.add_live_buffer(service, true /*may_reuse_live_buffer*/);
 	active_service_ptr = std::make_shared<active_service_t>(*this, service, live_service, std::move(reader));
 	active_service_ptr->add_pat_and_pmt_parsers();
 	log4cxx::NDC::pop();

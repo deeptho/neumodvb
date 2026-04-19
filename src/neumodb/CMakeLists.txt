@@ -14,6 +14,7 @@ target_compile_options(neumodb PUBLIC -fPIC -fsized-deallocation) #needed to pre
 
 target_link_libraries(pyneumodb PUBLIC neumodb)
 
+target_precompile_headers(neumodb PRIVATE cursors.h)
 
 install (TARGETS neumodb)
 

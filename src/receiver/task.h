@@ -513,31 +513,3 @@ template<typename T> const typename T::cb_t& cb(const T& t) { //activate callbac
 	return *self;
 }
 bool wait_for_all(std::vector<task_queue_t::future_t>& futures, bool clear_errors=false);
-
-#if 0
-template<typename T> typename T::thread_safe_t& ts(T& t) { //activate callbacks
-//	auto* self = dynamic_cast<typename T::cb_t*>(&t);
-	auto* self = (typename T::cb_t*)(&t);
-	auto* q = dynamic_cast<task_queue_t*>(&t);
-	if(!self || !q)
-		dterrorf("Implementation error");
-	if(std::this_thread::get_id() != q->thread_.get_id()) {
-		dterrorf("Callback called from the wrong thread");
-		assert(0);
-	}
-	return *self;
-}
-
-template<typename T> const typename T::thread_safe_t& ts(const T& t) { //activate callbacks
-	//auto* self = dynamic_cast<const typename T::cb_t*>(&t);
-	auto* self = (const typename T::cb_t*)(&t);
-	auto* q = dynamic_cast<const task_queue_t*>(&t);
-	if(!self || !q)
-		dterrorf("Implementation error");
-	if(std::this_thread::get_id() != q->thread_.get_id()) {
-		dterrorf("Callback called from the wrong thread");
-		assert(0);
-	}
-	return *self;
-}
-#endif

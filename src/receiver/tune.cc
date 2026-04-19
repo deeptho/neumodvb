@@ -228,7 +228,7 @@ int tuner_thread_t::run() {
 	*/
 	ss::string<64> thread_name;
 	thread_name.format("tuner{:d}", adapter_no);
-	set_name(thread_name.c_str());
+	set_name(thread_name);
 	logger = Logger::getLogger("tuner"); // override default logger for this thread
 	double period_sec = 1.0;
 	timer_start(period_sec);

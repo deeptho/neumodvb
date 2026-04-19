@@ -917,6 +917,24 @@ namespace ss {
 		INLINE void push_back(char val) {
 			operator[](size()) = val;
 		}
+
+		/*returns a substring of at most size bytes (+1 byte for trailing zero),
+			returning a valid utf_8 string
+		*/
+		INLINE string_ substr_utf8(int n) const {
+				if (this->size() <= n)
+					return *this;
+
+				// Check if we are in the middle of a multi-byte character
+				// 0xC0 (11000000) is the mask for UTF-8 continuation bytes
+				// Continuation bytes always match: (byte & 0xC0) == 0x80
+				while (n > 0 && (static_cast<unsigned char>((*this)[n]) & 0xC0) == 0x80) {
+					--n;
+				}
+				ss::string_ ret;
+				ret.copy_raw(this->buffer(), n);
+				return ret;
+		}
 	};
 
 #if 0

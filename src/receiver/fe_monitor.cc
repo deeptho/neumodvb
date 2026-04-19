@@ -189,7 +189,7 @@ void fe_monitor_thread_t::handle_frontend_event() {
 int fe_monitor_thread_t::cb_t::pause() {
 	ss::string<64> fe_name;
 	fe_name.format("fe {:d}.{:d}", (int)fe->adapter_no, (int)fe->frontend_no);
-	set_name(fe_name.c_str());
+	set_name(fe_name);
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 	this->is_paused = true;
 	dtdebugf("frontend_monitor pause: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
@@ -201,7 +201,7 @@ int fe_monitor_thread_t::cb_t::pause() {
 int fe_monitor_thread_t::cb_t::unpause() {
 	ss::string<64> fe_name;
 	fe_name.format("fe {:d}.{:d}", (int)fe->adapter_no, (int)fe->frontend_no);
-	set_name(fe_name.c_str());
+	set_name(fe_name);
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 	this->is_paused = false;
 	dtdebugf("frontend_monitor unpause: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
@@ -213,7 +213,7 @@ int fe_monitor_thread_t::cb_t::unpause() {
 int fe_monitor_thread_t::run() {
 	ss::string<64> fe_name;
 	fe_name.format("fe {:d}.{:d}", (int)fe->adapter_no, (int)fe->frontend_no);
-	set_name(fe_name.c_str());
+	set_name(fe_name);
 	log4cxx::MDC::put("thread_name", fe_name.c_str());
 	dtdebugf("frontend_monitor run: {:p}: fefd={:d}", fmt::ptr(fe.get()), fe->ts.readAccess()->fefd);
 	if (fe->api_type != api_type_t::NEUMO)

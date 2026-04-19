@@ -179,9 +179,10 @@ private:
 	}
 
 protected:
-	void set_name(const char*name) {
-		pthread_setname_np(pthread_self(), name);
-		log4cxx::MDC::put( "thread_name", name);
+	void set_name(const ss::string_ thread_name) {
+		auto short_name = thread_name.substr_utf8(15);
+		pthread_setname_np(pthread_self(), short_name.c_str());
+		log4cxx::MDC::put( "thread_name", thread_name.c_str());
 	}
 
 	inline bool is_timer_fd(const epoll_event* event) const {

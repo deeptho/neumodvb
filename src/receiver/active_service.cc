@@ -89,7 +89,9 @@ active_service_t::active_service_t(active_adapter_t& active_adapter,
 {
 }
 
-ss::string<32> active_service_t::name() const { return current_service.name.c_str(); }
+ss::string<32> active_service_t::name() const {
+	return current_service.name.c_str();
+}
 
 int active_service_t::open() {
 	log4cxx::NDC(name());
@@ -106,7 +108,6 @@ int active_service_t::open() {
 }
 
 int active_service_t::deactivate() {
-	log4cxx::NDC(name());
 	int ret = 0;
 	dtdebugf("deactivate service");
 	this->stream_buffer->close();
@@ -341,24 +342,17 @@ void active_service_t::update_pmt_pid(int new_pmt_pid) {
 }
 
 int service_thread_t::run() {
-
-	ss::string<128> ch_prefix;
-	ch_prefix.format("CH[{}:{}] {}", (int)active_service.get_adapter_no(),
+	ss::string<32> thread_name;
+	thread_name.format("CH[{}:{}] {}", (int)active_service.get_adapter_no(),
 									 (int)active_service.current_service.k.service_id,
 									 (const char*)active_service.current_service.name.c_str());
 	if(active_service.stream_buffer->num_bytes_decrypted > 0)  {
 		//second tune on same service
 		active_service.reader->dvbcsa.num_bytes_decrypted = active_service.stream_buffer->num_bytes_decrypted;
 	}
-	char name[16];
-	snprintf(name, 16, "%s", ch_prefix.c_str());
-	name[15] = 0;
 
-	set_name(name);
+	set_name(thread_name);
 	logger = Logger::getLogger("service");
-
-	log4cxx::NDC ndc(ch_prefix.c_str());
-
 	timer_start(10); // fix recordings every few seconds
 	if (active_service.open() < 0) {
 		dterrorf("Could not open channel");

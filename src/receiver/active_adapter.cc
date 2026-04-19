@@ -234,7 +234,7 @@ subscription_id_t active_adapter_t::tune_mux(const subscribe_ret_t& sret, const 
 	auto [error, must_full_tune, must_restart_tune]  = this->add_si_subscription(mux,  tune_options, sret);
 	if(error) {
 		dterrorf("Stream failed to start: mux={}", mux);
-		return subscription_id_t::NONE;
+		return subscription_id_t::RESERVATION_FAILED_PERMANENTLY;
 	}
 
 	assert(!must_full_tune || !	must_restart_tune);
@@ -610,6 +610,7 @@ int active_adapter_t::deactivate() {
 	remove_all_services();
 	this->end_si();
 	this->si_streams.clear();
+	this->si_is_on = false;
 	this->main_si = nullptr;
 	stream_filters.writeAccess()->clear();
 	auto* fe = this->fe.get();
@@ -967,6 +968,10 @@ std::tuple<bool, bool, bool> active_adapter_t::add_si_subscription(
 			assert(!must_full_tune || no_more_subscriptions);
 
 			p_si = this->add_si_stream(mux);
+			if(!p_si) {
+				error = true;
+				return { error, must_full_tune, must_restart_tune};
+			}
 			p_si->add_si_subscription(mux, tune_options.scan_target, sret.subscription_id);
 			if(si_is_on) {
 				auto signal_info_ = this->get_last_signal_info(false/*wait*/);
@@ -1029,6 +1034,8 @@ bool active_adapter_t::remove_si_subscription(const devdb::fe_t& updated_dbfe, s
 			this->main_si = nullptr;
 		}
 		this->si_streams.erase(it);
+		if(this->si_streams.size()==0)
+			this->si_is_on = false;
 	}
 
 	dtdebugf("{} active_si_streams remaining",  this->si_streams.size());
@@ -1037,9 +1044,10 @@ bool active_adapter_t::remove_si_subscription(const devdb::fe_t& updated_dbfe, s
 		dtdebugf("transferring is_main_status to {}",  si.dbmux);
 		si.is_main = true;
 	}
-
 	this->fe->update_dbfe(updated_dbfe);
-	return  this->si_streams.size() == 0;
+	if(this->si_streams.size())
+		this->si_is_on = false;
+	return this->si_streams.size() == 0;
 }
 
 /*

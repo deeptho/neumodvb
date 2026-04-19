@@ -300,7 +300,7 @@ namespace dtdemux {
 	template<typename implementation_t>
 	int stream_parser_base_t<implementation_t>::exit()
 	{
-		while(fibers.size() >0) { //unregister_parser deletes from map; hence the werd approach
+		while(fibers.size() > 0) { //unregister_parser deletes from map; hence the weird approach
 			auto& [pid, f] = *fibers.begin();
 			unregister_parser((int)pid);
 		}

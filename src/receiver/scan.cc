@@ -1233,8 +1233,8 @@ scan_t::scan_try_mux(ssptr_t reusable_ssptr,
 		receiver_thread.subscribe_mux(futures, wtxn, mux_to_scan, reusable_ssptr, tune_options,
 																	scan_id, true /*do_not_unsubscribe_on_failure*/);
 	wtxn.commit();
-	wait_for_all(futures); //remove later
-	if((int)ret >=0) {
+	bool error = wait_for_all(futures); //remove later
+	if((int)ret >= 0 && !error) {
 		dtdebugf("SUBSCRIBED {} reusable_ssptr={} ret={}",
 						 mux_to_scan, reusable_ssptr, (int) ret);
 	} else {
@@ -1252,7 +1252,7 @@ scan_t::scan_try_mux(ssptr_t reusable_ssptr,
 		Afterwards only tuning errors can occur. These errors will be noticed by error==true after
 		calling wait_for_all. Such errors indicated TUNE_FAILED.
 	*/
-	if ((int)ret < 0) {
+	if ((int)ret < 0 || error) {
 		if(subscriptions.size()== 0) {
 			/* we cannot subscribe the mux  because of some permanent failure or because of
 				 subscriptions by another program

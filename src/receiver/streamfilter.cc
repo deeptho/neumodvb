@@ -202,7 +202,11 @@ start_command(const char* pathname, ss::vector_<const char*>& args) {
 		set_blocking(STDOUT_FILENO, true);
 		signal(SIGINT, SIG_IGN); //avoid interrupt by gdb
 		setpgid(0, 0);
-		prctl(PR_SET_PDEATHSIG, SIGHUP); //ask to be killed when parent dies
+		/*
+			The following was meant to kill the child process when parent process dies,
+			but in reality this happens when parent THREAD dies (confusing linux doc)
+		*/
+		//prctl(PR_SET_PDEATHSIG, SIGHUP); //ask to be killed when parent dies
 		/*     file, arg0, arg1,  arg2 */
 		execvp(pathname,  const_cast<char* const*>(args.buffer()));
 

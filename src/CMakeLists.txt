@@ -9,6 +9,7 @@ project(neumodvb VERSION 0.6.1)
 option (BUILD_DOCS "Build documentation" false)
 option (SANITIZE "Sanitize" false)
 
+add_compile_options(-ftime-trace)
 if (SANITIZE)
 #add_compile_options(--save-temps)
 add_compile_options(-fsanitize=address)

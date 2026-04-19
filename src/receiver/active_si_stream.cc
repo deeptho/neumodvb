@@ -827,7 +827,7 @@ void active_si_stream_t::process_si_data() {
 	auto start = steady_clock_t::now();
 	for (int i = 0; i < 5; ++i) {
 		if (steady_clock_t::now() - start > 500ms) {
-			dtdebugf("SKIPPING EARLY i={:d}\n", i);
+			dtdebugf("SKIPPING EARLY i={:d}", i);
 			break;
 		}
 

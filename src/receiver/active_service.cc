@@ -599,7 +599,7 @@ void active_service_t::process_service_data() {
 		auto s = steady_clock_t::now();
 		auto delta = s - start;
 		if (delta > 500ms) {
-			dtdebugf("SKIPPING EARLY\n");
+			dtdebugf("SKIPPING EARLY");
 			break;
 		}
 		if(now- this->last_payload_data > 4000ms) {

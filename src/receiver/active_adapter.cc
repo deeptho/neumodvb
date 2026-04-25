@@ -996,7 +996,7 @@ std::tuple<bool, bool, bool> active_adapter_t::add_si_subscription(
 	} else { //!is_existing_subscription
 		if(tune_options.use_blind_tune && chdb::mux_key_ptr(mux)->stream_id <0) {
 			chdb::mux_key_ptr(mux)->stream_id = ANY_STREAM_ID_FILTER;
-			chd::mux_common_ptr(mux).tune_src = tune_src_t::TEMPLATE;
+			chdb::mux_common_ptr(mux)->tune_src = tune_src_t::TEMPLATE;
 		}
 #ifndef NDEBUG
 		if(is_only_subscriber) {

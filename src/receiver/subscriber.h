@@ -184,13 +184,13 @@ public:
 	template<typename T> void notify(const T& data) const;
 	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);
 
-	void notify_message(const ss::string_& errmsg);
-	void notify_scan_progress(const devdb::scan_stats_t& scan_stats);
-	void notify_scan_mux_end(const scan_mux_end_report_t& report);
-	void notify_sdt_actual(const sdt_data_t& sdt_data) const;
-	void notify_signal_info(const signal_info_t& info) const;
-	void notify_positioner_motion(const positioner_motion_report_t& motion_report) const;
-	void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum);
+	EXPORT void notify_message(const ss::string_& errmsg);
+	EXPORT void notify_scan_progress(const devdb::scan_stats_t& scan_stats);
+	EXPORT void notify_scan_mux_end(const scan_mux_end_report_t& report);
+	EXPORT void notify_sdt_actual(const sdt_data_t& sdt_data) const;
+	EXPORT void notify_signal_info(const signal_info_t& info) const;
+	EXPORT void notify_positioner_motion(const positioner_motion_report_t& motion_report) const;
+	EXPORT void notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum);
 
 	EXPORT subscriber_t(receiver_t* receiver, wxWindow* window);
 	EXPORT static std::shared_ptr<subscriber_t> make(receiver_t * receiver, wxWindow* window);

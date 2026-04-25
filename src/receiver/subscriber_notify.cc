@@ -101,3 +101,58 @@ template void subscriber_t::notify<statdb::spectrum_t>(const statdb::spectrum_t&
 template void subscriber_t::notify<scan_mux_end_report_t>(const scan_mux_end_report_t&) const;
 template void subscriber_t::notify<positioner_motion_report_t>(const positioner_motion_report_t&) const;
 template void subscriber_t::notify<devdb::scan_stats_t>(const devdb::scan_stats_t&) const;
+
+void subscriber_t::notify_signal_info(const signal_info_t& signal_info) const {
+	if (this->mpv)
+		this->mpv->notify_signal_info(signal_info);
+	else if (!(event_flag & int(subscriber_t::event_type_t::SIGNAL_INFO)))
+		return;
+	this->notify(signal_info);
+}
+
+void subscriber_t::notify_scan_progress(const devdb::scan_stats_t& scan_stats) {
+	auto match = subscriber_t::event_type_t::SCAN_PROGRESS;
+	if(scan_stats_done(scan_stats))
+		set_scanning(false);
+	if (!(event_flag & int(match)))
+		return;
+	notify(scan_stats);
+}
+
+void subscriber_t::notify_scan_mux_end(const scan_mux_end_report_t& report) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SCAN_MUX_END)))
+		return;
+	notify(report);
+}
+
+
+void subscriber_t::notify_positioner_motion(const positioner_motion_report_t& motion_report) const
+{
+	if (!(event_flag & int(subscriber_t::event_type_t::POSITIONER_MOTION)))
+		return;
+	notify(motion_report);
+}
+
+void subscriber_t::notify_sdt_actual(const sdt_data_t& sdt_data) const
+{
+	if (!(event_flag & int(subscriber_t::event_type_t::SDT_ACTUAL)))
+		return;
+	notify(sdt_data);
+}
+
+void subscriber_t::notify_message(const ss::string_& errmsg) {
+	if (!(event_flag & int(subscriber_t::event_type_t::ERROR_MSG)))
+		return;
+	if (this->mpv)
+		this->mpv->notify_message(errmsg);
+	else {
+		auto temp = std::string(errmsg);
+		notify(temp);
+	}
+}
+
+void subscriber_t::notify_spectrum_scan_band_end(const statdb::spectrum_t& spectrum) {
+	if (!(event_flag & int(subscriber_t::event_type_t::SPECTRUM_SCAN)))
+		return;
+	notify(spectrum);
+}

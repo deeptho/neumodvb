@@ -82,16 +82,6 @@ void export_playback_info(py::module& m) {
 		.def(py::init())
 		.def_readonly("service", &playback_info_t::service)
 		.def_readonly("epg", &playback_info_t::epg)
-#if 0
-		.def_readonly("audio_language", &playback_info_t::audio_language)
-		.def("subtitle_language", &playback_info_t::subtitle_language)
- 		.def("start_time", &playback_info_t::start_time)
-		.def("end_time", &playback_info_t::end_time)
- 		.def("play_time{}", &playback_info_t::play_time)
-		.def("is_recording", &playback_info_t::is_recording)
-		.def("is_timeshifted", &playback_info_t::is_timeshifted)
-		.def("stream_status", &playback_info_t::stream_status)
-#endif
 		;
 };
 

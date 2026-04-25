@@ -115,7 +115,7 @@ class SpectrumTable(NeumoTable):
     @property
     @ttl_cache(maxsize=128, ttl=10) #refresh every 10 seconds
     def rf_path_dict(self):
-        cards = wx.GetApp().get_cards_with_rf_in()
+        cards, _ = wx.GetApp().get_cards_with_rf_in()
         ret = dict((v,k) for k, v in cards.items())
         return ret
 

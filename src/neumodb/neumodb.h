@@ -158,7 +158,8 @@ public:
 => Perhaps we store a singleton transaction in an  environment specific structure and handle everything with child transactions?
 	 */
 	virtual void open(const char* dbpath, bool allow_degraded_mode = false,
-										const char* table_name = NULL, bool use_log =true, size_t mapsize = 256*1024u*1024u);
+										const char* table_name = nullptr,
+										bool use_log =true, size_t mapsize = 256*1024u*1024u);
 
 	void open_without_log(const char* dbpath, bool allow_degraded_mode = false,
 												const char* table_name = NULL, size_t mapsize = 256*1024u*1024u)

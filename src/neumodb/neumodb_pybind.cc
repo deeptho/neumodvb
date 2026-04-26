@@ -27,6 +27,7 @@
 #include "neumotime.h"
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
 #include <stdio.h>
 namespace nb = nanobind;
 void export_find_type(nb::module_& m) {
@@ -114,7 +115,13 @@ EXPORT void export_neumodb(nb::module_& m) {
 			"child_txn", [](db_txn& self, neumodb_t& db) { return self.child_txn(db); }, "child transaction")
 		;
 	nb::class_<neumodb_t>(m, "neumodb")
-		.def("open", &neumodb_t::open, "Open database file", nb::arg("dbpath"), nb::arg("allow_degraded_mode") = false,
+		.def("open",
+				 [](neumodb_t* self, const char* dbpath, bool allow_degraded_mode = false,
+				 std::optional<const std::string> table_name = {},
+						bool use_log =true, size_t mapsize = 256*1024u*1024u) {
+					 const char* table_name_ = table_name ? table_name->c_str() : nullptr;
+					 return self->open(dbpath, allow_degraded_mode, table_name_, use_log, mapsize);
+				 }, "Open database file", nb::arg("dbpath"), nb::arg("allow_degraded_mode") = false,
 				 nb::arg("table_name") = nullptr, nb::arg("use_log") = true, nb::arg("mapsize") = 128 * 1024u * 1024u)
 		.def("open_secondary", &neumodb_t::open_secondary, "Open a second table in an already open datase",
 				 nb::arg("table_name"), nb::arg("allow_degraded_mode") = false)

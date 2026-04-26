@@ -202,7 +202,9 @@ int stats_db(neumodb_t& db) {
 	return 1;
 }
 
-void neumodb_t::open(const char* dbpath, bool allow_degraded_mode, const char* table_name, bool use_log,
+void neumodb_t::open(const char* dbpath, bool allow_degraded_mode,
+										 const char* table_name,
+										 bool use_log,
 										 size_t mapsize) {
 	this->open_(dbpath, allow_degraded_mode, table_name, use_log, mapsize);
 }

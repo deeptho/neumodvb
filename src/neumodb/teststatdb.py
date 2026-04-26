@@ -49,54 +49,64 @@ chdb_rtxn=chdb.rtxn()
 
 
 mux = pychdb.dvbs_mux.find_by_sat_pol_freq(chdb_rtxn, sat_pos=2820, pol= pychdb.fe_polarisation_t.V,
-                                         frequency=11778000,  key_prefix = pychdb.dvbs_mux.dvbs_mux_prefix.none)
+                                           frequency=11778334,  key_prefix = pychdb.dvbs_mux.dvbs_mux_prefix.none,
+                                           find_type = pystatdb.find_type_t.find_geq)
 chdb_rtxn.abort()
 
 
 sort_order = (pystatdb.signal_stat.subfield_from_name('k.time')<<24) | \
-    (pystatdb.signal_stat.subfield_from_name('k.lnb.card_mac_address')<<16) | \
-    (pystatdb.signal_stat.subfield_from_name('k.lnb.rf_input')<<8)
+    (pystatdb.signal_stat.subfield_from_name('k.rf_path.card_mac_address')<<16) | \
+    (pystatdb.signal_stat.subfield_from_name('k.rf_path.rf_input')<<8)
 
 
 ref=pystatdb.signal_stat.signal_stat()
 ref.k.live = False
-ref.k.mux = mux.k
+ref.k.sat_pos = mux.k.sat_pos
+ref.k.frequency = 11778334
+ref.k.pol = mux.pol
 
-screen=pystatdb.signal_stat.screen(txn, sort_order=sort_order,
-                                   key_prefix_type=pystatdb.signal_stat.signal_stat_prefix.live_mux, key_prefix_data=ref)
+if False:
+    screen=pystatdb.signal_stat.screen(txn, sort_order=sort_order)
+else:
+    screen=pystatdb.signal_stat.screen(txn, sort_order=sort_order,
+                                    key_prefix_type=pystatdb.signal_stat.signal_stat_prefix.live_sat_pos_pol_frequency,
+                                    key_prefix_data=ref)
 
-ret=[]
-for idx in range(screen.list_size):
-    ss = screen.record_at_row(idx) # record for one tuned session
-    t =[]
-    snr = []
-    addr = ss.k.lnb.card_mac_address
-    for idx, st in enumerate(ss.stats):
-        t1 = datetime.datetime.fromtimestamp(ss.k.time + idx*300, tz=tz.tzlocal())
-        t.append(t1)
-        snr.append(st.snr)
-    t=np.array(t)
-    snr=np.array(snr)
-    ret.append((t, snr, adapters.get(addr, hex(addr))))
-txn.abort()
+print(screen.list_size)
+if True:
+    ret=[]
+    for idx in range(screen.list_size):
+        ss = screen.record_at_row(idx) # record for one tuned session
+        t =[]
+        snr = []
+        addr = ss.k.rf_path.card_mac_address
+        for idx, st in enumerate(ss.stats):
+            t1 = datetime.datetime.fromtimestamp(ss.k.time + idx*300, tz=tz.tzlocal())
+            t.append(t1)
+            snr.append(st.snr)
+        t=np.array(t)
+        snr=np.array(snr)
+        ret.append((t, snr, adapters.get(addr, hex(addr))))
+    txn.abort()
 
-plt.ion()
-fig , axes = plt.subplots()
-labeled = set()
+if True:
+    plt.ion()
+    fig , axes = plt.subplots()
+    labeled = set()
 
-c = (cycler(color=['r', 'g', 'b', 'y']) + \
-     cycler(linestyle=['-', '--', ':', '-.']))
+    c = (cycler(color=['r', 'g', 'b', 'y']) + \
+         cycler(linestyle=['-', '--', ':', '-.']))
 
-for t, snr, label in ret:
-    if label in labeled:
-        label=None
-    else:
-        labeled.add(label)
-    axes.plot(t, snr/1000., color='black', label=label)
-axes.set_prop_cycle(c)
-axes.legend()
-#dayFormatter = DateFormatter('%Y%m%d', tz=tz.tzlocal())
-alldays = AutoDateLocator(minticks=1, maxticks=20,tz=tz.tzlocal())
-#fmt = DateFormatter(fmt='%Y-%m-%d', tz=tz.tzlocal())
-#axes.xaxis.set_major_locator(alldays)
-#axes.xaxis.set_major_formatter(fmt)
+    for t, snr, label in ret:
+        if label in labeled:
+            label=None
+        else:
+            labeled.add(label)
+        axes.plot(t, snr/1000., color='black', label=label)
+    axes.set_prop_cycle(c)
+    axes.legend()
+    #dayFormatter = DateFormatter('%Y%m%d', tz=tz.tzlocal())
+    alldays = AutoDateLocator(minticks=1, maxticks=20,tz=tz.tzlocal())
+    #fmt = DateFormatter(fmt='%Y-%m-%d', tz=tz.tzlocal())
+    #axes.xaxis.set_major_locator(alldays)
+    #axes.xaxis.set_major_formatter(fmt)

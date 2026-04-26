@@ -167,6 +167,7 @@ static void export_receiver(nb::module_& m) {
 extern void export_logger(nb::module_& m);
 extern void export_options(nb::module_& m);
 NB_MODULE(pyreceiver, m) {
+	nb::set_leak_warnings(false);
 	m.doc() = R"pbdoc(
         Receiver control functions for neumoDVB
     )pbdoc";	// export_find_type(m);

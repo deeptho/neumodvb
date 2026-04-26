@@ -475,6 +475,7 @@ static nb::object find_spectral_peaks(nb::ndarray<float> freq, nb::ndarray<float
 }
 
 NB_MODULE(pyspectrum, m) {
+	nb::set_leak_warnings(false);
 	m.doc() = R"pbdoc(
 
 	)pbdoc";

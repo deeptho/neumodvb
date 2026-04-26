@@ -290,20 +290,20 @@ if False:
     chgm = chgm_screen()
     ps(chgm)
 
-if False:
+if True:
     print ('-'*10)
     print('forward')
     for row in range(4):
-        rec=screen.record_at_row(row)
+        rec=s.record_at_row(row)
         print(f"ROW={row} rec={rec}")
 
 
     print ('-'*10)
     print('reverse')
     for row in reversed(range(6)):
-        rec=screen.record_at_row(row)
+        rec=s.record_at_row(row)
         print(f"ROW={row} rec={rec}")
-if True:
+if False:
     screen=get_screen()
     txn = chdb.wtxn()
     for row in range(screen.list_size):

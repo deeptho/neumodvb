@@ -21,6 +21,7 @@
 #include "neumodb/chdb/chdb_extra.h"
 #include "stackstring/stackstring_pybind.h"
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/vector.h>
 #include <stdio.h>
 
 namespace nb = nanobind;

@@ -315,7 +315,7 @@ void export_subscriber(nb::module_& m) {
 		.def("unsubscribe"
 				 , &subscriber_t::unsubscribe
 				 , "End tuning",
-				 nb::arg("wait") =0)
+				 nb::arg("wait") = false)
 		.def("subscribe_spectrum_acquisition"
 				 , &subscriber_t::subscribe_spectrum_acquisition
 				 , "acquire a spectrum for this lnb"

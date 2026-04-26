@@ -26,6 +26,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/tuple.h>
 
 namespace nb = nanobind;
 using namespace devdb;
@@ -84,7 +85,7 @@ static void export_lnb_extra(nb::module_& m) {
 				 nb::arg("prefer_rotor_control")=true
 			)
 		.def("connection_for_rf_path", &conn_helper
-				 , nb::rv_policy::reference_internal
+				 , nb::rv_policy::reference
 				 , "Return lnb_connection for rf_path"
 				 , nb::arg("lnb")
 				 , nb::arg("rf_path"))

@@ -27,6 +27,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/tuple.h>
+#include <nanobind/stl/variant.h>
 
 namespace nb = nanobind;
 using namespace chdb;

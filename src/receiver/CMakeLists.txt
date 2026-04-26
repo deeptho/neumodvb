@@ -1,5 +1,6 @@
 find_package(wxWidgets REQUIRED net gl core base)
 include(${wxWidgets_USE_FILE})
+add_definitions(-U_LARGEFILE_SOURCE)
 
 add_library(neumoreceiver SHARED  receiver.cc commands.cc subscriber.cc tune.cc scan.cc
   active_adapter.cc devmanager.cc fe_monitor.cc options.cc neumodemux.cc modcods.cc
@@ -14,9 +15,6 @@ target_precompile_headers(neumoreceiver PRIVATE
   active_adapter.h active_service.h devmanager.h filemapper.h neumo-frontend.h tuner.h receiver.h scam.h
   active_si_stream.h dvbapi.h mpm.h neumo.h recmgr.h scan.h task.h)
 
-
-#string (REPLACE ";" " -I" EXTRA_FLAGS_STR "${NB_INCLUDE_DIRS}")
-#set_source_files_properties( subscriber_notify.cc COMPILE_FLAGS ${EXTRA_FLAGS_STR} )
 
 set_source_files_properties( playback_mpm.cc COMPILE_FLAGS -Wimplicit-int-conversion )
 set_source_files_properties( live_mpm.cc COMPILE_FLAGS -Wimplicit-int-conversion )

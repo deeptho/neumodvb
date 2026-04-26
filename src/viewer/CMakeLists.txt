@@ -1,5 +1,6 @@
 find_package(wxWidgets REQUIRED net gl core base)
 include(${wxWidgets_USE_FILE})
+add_definitions(-U_LARGEFILE_SOURCE)
 
 nanobind_add_module(pyneumompv neumompv.cc neumosvg.cc neumompv_pybind.cc neumoradiobg.cc)
 

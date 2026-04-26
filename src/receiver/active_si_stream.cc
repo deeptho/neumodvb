@@ -723,14 +723,11 @@ mux_data_t* active_si_stream_t::add_fake_nit(db_txn& wtxn)
 	auto* mux_key = mux_key_ptr(this->dbmux);
 	auto* mux_common = mux_common_ptr(this->dbmux);
 	auto expected_sat_pos = mux_key->sat_pos;
-	bool no_data = false;
 	bool from_sdt = true; //to check
 
 	dtdebugf("There is no nit_actual on this tp - faking one with sat_pos={:d} network_id={:d}, ts_id={:d} "
 					 "tuned_mux={}",
 					 expected_sat_pos, mux_common->network_id, mux_common->ts_id, this->dbmux);
-	auto preserve = m::MUX_COMMON;
-
 
 	auto ret=this->update_mux(wtxn, this->dbmux, now, true /*is_reader_mux*/, true /*is_tuned_freq*/,
 														false /*from_sdt*/,  true /*from_pat*/, m::flags{ m::MUX_COMMON /*& ~m::SCAN_STATUS*/ } /*preserve*/);

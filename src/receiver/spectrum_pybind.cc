@@ -20,12 +20,12 @@
  */
 #include "spectrum_algo_private.h"
 #include <nanobind/ndarray.h>
+#include "util/numpy_array.h"
 #include <vector>
 
 namespace nb = nanobind;
 
 using numpy_float_array = nb::ndarray<float, nb::numpy, nb::ndim<1>, nb::c_contig>;
-using numpy_uint8_array = nb::ndarray<uint64_t, nb::numpy, nb::ndim<1>, nb::c_contig>;
 using numpy_int_array = nb::ndarray<int, nb::numpy, nb::ndim<1>, nb::c_contig>;
 
 
@@ -160,16 +160,10 @@ static nb::object find_annot_locations(numpy_float_array sig, numpy_int_array an
 		throw std::runtime_error("Bad number of dimensions");
 	int* px = annotx.data();
 
-	auto* shapeannoty_ptr = (const uint64_t*) annotx.shape_ptr();
-	const auto *strideannoty_ptr = annotx.stride_ptr();
-	numpy_float_array annoty(nullptr /*let nanobind allocate*/, annotx.ndim(), shapeannoty_ptr, nullptr /*owner*/,
-													 strideannoty_ptr );
+	auto annoty = numpy_array<float>({annotx.shape(0)});
 	auto* py = annoty.data();
 
-	numpy_uint8_array leftrightflag(nullptr /*let nanobind allocate*/, annotx.ndim(), shapeannoty_ptr, nullptr /*owner*/,
-																	strideannoty_ptr );
-
-	// int strideannoty = infoannoty.strides[0]/sizeof(int);
+	auto leftrightflag = numpy_array<uint8_t>({ annotx.shape(0)});
 	auto* plr = leftrightflag.data();
 	int n = sig.shape(0);
 
@@ -403,16 +397,14 @@ static nb::object make_kernels(nb::ndarray<float> freq, nb::ndarray<float> spect
 	stid135_spectral_scan_init(&ss, &si, spectrum_.buffer(), freq_.buffer(), freq_.size());
 	si.w = w;
 
-	numpy_int_array ret(nullptr /*let nanobind allocate*/, {2, (unsigned long) freq_.size()}, nullptr /*owner*/,
-											{freq_.size(), 1} );
+	auto ret = numpy_array<int>({2U, (size_t) freq_.size()});
 
 	int ret_stride0 = ret.stride(0);
 	int ret_stride1 = ret.stride(1);
 	auto* p_ret = ret.data();
 
-	numpy_float_array response_ret(nullptr /*let nanobind allocate*/, {2, (unsigned long) freq_.size()},
-																 nullptr /*owner*/,
-																 {freq_.size(), 1} );
+	std::array<size_t,2> response_ret_shape{2U, (size_t)freq_.size()};
+	auto response_ret = numpy_array<float>({2U, (size_t)freq_.size()});
 	auto* p_response_ret = response_ret.data();
 
 	stid135_spectral_init_level(&ss, &si, p_response_ret, p_response_ret+ret_stride0);
@@ -453,15 +445,13 @@ static nb::object find_spectral_peaks(nb::ndarray<float> freq, nb::ndarray<float
 	ss::vector_<spectral_peak_t> res;
 	find_tps(res,	spectrum_, freq_);
 
-	numpy_float_array peak_freq(nullptr /*let nanobind allocate*/, {(unsigned long) res.size()},
-															nullptr /*owner*/,
-															{1} );
+	auto peak_freq = numpy_array<float>({(size_t)res.size()});
+
 	int peak_freq_stride = peak_freq.stride(0);
 	auto* p_peak_freq = peak_freq.data();
 
-	numpy_float_array peak_sr(nullptr /*let nanobind allocate*/, {(unsigned long) res.size()},
-															nullptr /*owner*/,
-															{1} );
+	auto peak_sr = numpy_array<float>({(size_t) res.size()});
+
 	int peak_sr_stride = peak_sr.stride(0);
 	auto* p_peak_sr = peak_sr.data();
 

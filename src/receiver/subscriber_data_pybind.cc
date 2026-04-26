@@ -26,6 +26,7 @@
 #include "receiver/active_si_stream.h"
 #include "receiver/scan.h"
 #include "receiver/subscriber.h"
+#include "util/numpy_array.h"
 #include "stackstring/stackstring_pybind.h"
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
@@ -91,18 +92,18 @@ void export_playback_info(nb::module_& m) {
 		;
 };
 
-static std::optional<numpy_int_array> constellation_helper(const ss::vector_<dtv_fe_constellation_sample> samples) {
+static std::optional<nb::ndarray<int, nb::numpy, nb::c_contig>>
+constellation_helper(const ss::vector_<dtv_fe_constellation_sample> samples) {
 	if (samples.size() == 0)
 		return {};
-	std::array<size_t, 2> shape{2, (size_t)samples.size()};
-	std::array<int64_t, 2> stride{1, 2};
-	numpy_int_array ret(nullptr /*let nanobind allocate*/, (size_t) 2 /*ndim*/, &shape[0], nullptr /*owner*/, &stride[0]);
+	auto ret = numpy_array<int>({(size_t) 2, (size_t)samples.size()});
+	std::array<size_t, 2> stride{1u , (size_t)samples.size()};
 	auto* p = ret.data();
 	int i = 0;
 
 	for (const auto& s : samples) {
-		p[i * stride[1]] = s.real;
-		p[i * stride[1] + stride[0]] = s.imag;
+		p[i * stride[0]] = s.real;
+		p[i * stride[0] + stride[1]] = s.imag;
 		++i;
 	}
 
@@ -266,7 +267,9 @@ void export_signal_info(nb::module_& m) {
 		})
 		.def_prop_ro("constellation_samples", [](const signal_info_t& i) {
 			return constellation_helper(i.constellation_samples);
-		})
+		},
+			nb::rv_policy::automatic
+			)
 		.def_prop_ro("driver_mux", [](const signal_info_t& i) { //tuned mux
 			return &i.driver_mux;
 		}

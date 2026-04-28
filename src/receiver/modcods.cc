@@ -63,6 +63,59 @@ static const std::array<modcod_desc_t,38> dvbs2_table_0_37{{
 		{37,  "S1",  "QPSK", "7/8", "Normal"}
 	}};
 
+static const std::array<modcod_desc_t,113-64> dvbs2_table_64_112{{
+		// --- DVB-S2 super frame
+		{64,	"S2X",	"Reserved", 	"",		"n/a"},
+		{65,	"S2X",	"QPSK", "2/9 ",	"Normal"},
+		{66,	"S2X",	"QPSK", "13/45 ",	"Normal"},
+		{67,	"S2X",	"QPSK", "9/20 ",	"Normal"},
+		{68,	"S2X",	"QPSK", "11/20 ",	"Normal"},
+		{69,	"S2X",	"8APSK", "5/9-L", 	"Normal"},
+		{70,	"S2X",	"8APSK", "26/45-L", 	"Normal"},
+		{71,	"S2X",	"8PSK", "23/36", 	"Normal"},
+		{72,	"S2X",	"8PSK", "25/36", 	"Normal"},
+		{73,	"S2X",	"8PSK", "13/18", 	"8PSK	 Normal"},
+		{74,	"S2X",	"16APSK", "1/2-L", 	"Normal"},
+		{75,	"S2X",	"16APSK", "8/15-L",  "Normal"},
+		{76,	"S2X",	"16APSK", "5/9-L", 	"Normal"},
+		{77,	"S2X",	"16APSK", "26/45", 	"Normal"},
+		{78,	"S2X",	"16APSK", "3/5", 	"Normal"},
+		{79,	"S2X",	"16APSK", "3/5-L", 	"Normal"},
+		{80,	"S2X",	"16APSK", "28/45", 	"Normal"},
+		{81,	"S2X",	"16APSK", "23/36", 	"Normal"},
+		{82,	"S2X",	"16APSK", "2/3-L", 	"Normal"},
+		{83,	"S2X",	"16APSK", "25/36", 	"Normal"},
+		{84,	"S2X",	"16APSK", "13/18", 	"Normal"},
+		{85,	"S2X",	"16APSK", "7/9", 	"Normal"},
+		{86,	"S2X",	"16APSK", "77/90", 	"Normal"},
+		{87,	"S2X",	"32APSK", "2/3-L", 	"Normal"},
+		{88,	"S2X",	"32APSK", 	"32APSK",		"Normal"},
+		{89,	"S2X",	"32APSK", "32/45", 	"Normal"},
+		{90,	"S2X",	"32APSK", "11/15", 	"Normal"},
+		{91,	"S2X",	"32APSK", "7/9", 	"Normal"},
+		{92,	"S2X",	"64APSK", "32/45-L", 	"Normal"},
+		{93,	"S2X",	"64APSK", "11/15", 	"Normal"},
+		{94,	"S2X",	"64APSK", 	"64APSK",		"Normal"},
+		{95,	"S2X",	"64APSK", "7/9", 	"Normal"},
+		{96,	"S2X",	"64APSK", 	"64APSK",		"Normal"},
+		{97,	"S2X",	"64APSK", "4/5", 	"Normal"},
+		{98,	"S2X",	"64APSK", 	"64APSK",		"Normal"},
+		{99,	"S2X",	"64APSK", "5/6", 	"Normal"},
+		{100,	"S2X",	"128APSK", "3/4", 	"Normal"},
+		{101,	"S2X",	"128APSK", "7/9", 	"Normal"},
+		{102,	"S2X",	"256APSK", "29/45-L", 	"Normal"},
+		{103,	"S2X",	"256APSK", "2/3-L", 	"Normal"},
+		{104,	"S2X",	"256APSK", "31/45-L", 	"Normal"},
+		{105,	"S2X",	"256APSK", "32/45", 	"Normal"},
+		{106,	"S2X",	"256APSK", "11/15-L", 	"Normal"},
+		{107,	"S2X",	"256APSK", "3/4", 	"Normal"},
+		{108,	"S2X",	"BPSK", "1/5", 	"Medium"},
+		{109,	"S2X",	"BPSK", "11/45", "Medium"},
+		{110,	"S2X",	"BPSK", "1/3", "Medium"},
+		{111,	"S2X",	"BPSK-S", "1/5", "Short"},
+		{112,	"S2X",	"BPSK-S", "11/45", "Short"},
+	}};
+
 static const std::array<modcod_desc_t, (250-132)/2> dvbs2x_table_132_248{{
 		// --- DVB-S2X Extensions (PLS 128-255) ---
 		// Mapping: S2X MODCOD + 128
@@ -130,6 +183,9 @@ const modcod_desc_t* get_modcod_desc(int modcod) {
 	switch(modcod) {
 	case 0 ... 37:
 		return &dvbs2_table_0_37[modcod];
+		break;
+	case 64 ... 112:
+		return &dvbs2_table_64_112[modcod-64];
 		break;
 	case 132 ... 248:
 		if((modcod&0x1)==0)

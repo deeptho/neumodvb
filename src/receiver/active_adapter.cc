@@ -809,7 +809,7 @@ void active_adapter_t::on_lock(const signal_info_t& signal_info, bool is_not_ts)
 
 		@todo: adjust drivers to distinghuish between stream_id=-1 meaning "no multi stream" and
 		"pick any stream". Only stid135 makes this distinction and it creates additional confuson
-		between stream_id also encodes teh (default) pls_code and pls_mode.
+		between stream_id also encodes the (default) pls_code and pls_mode.
 
 	*/
 
@@ -1263,7 +1263,7 @@ void active_adapter_t::check_for_new_streams()
 		auto stream_id = ma & 0xff;
 		if(this->processed_isis.test(stream_id)) //already processed
 			continue;
-		if(stream_id == tuned_stream_id && !is_template)
+		if((stream_id == tuned_stream_id) && !is_template)
 			continue;
 		last_new_matype_time = signal_info.last_new_matype_time;
 		//we have found a new stream_id
@@ -1271,7 +1271,7 @@ void active_adapter_t::check_for_new_streams()
 		auto matype = ma >> 8;
 
 		/*c->mux_id should be the same for all streams; the mux_key of the streams will
-			differ because of a differetn stream_id
+			differ because of a different stream_id
 		*/
 
 		/* note: s m->modulation, m->fec cannot be found from matype. Assume they are the same;

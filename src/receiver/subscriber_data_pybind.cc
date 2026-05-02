@@ -233,8 +233,14 @@ void export_signal_info(py::module& m) {
 			return  &(ss::vector_<uint16_t>&)i.matype_list;
 		})
 		.def_property_readonly("matype", [](const signal_info_t& i) {
+			ss::string<128> ret;
 			auto *dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&i.driver_mux);
-			auto ret = chdb::matype_str(i.lock_status.matype, dvbs_mux ? (int)dvbs_mux->rolloff : -1);
+			char * start ="";
+			for (auto matype: i.matype_list) {
+				auto r = chdb::matype_str(matype, dvbs_mux ? (int)dvbs_mux->rolloff : -1);
+				ret.format("{}{}", start, r);
+				start ="; ";
+			}
 			return  std::string(ret.c_str());
 		})
 		.def_property_readonly("locktime", [](const signal_info_t& i) {

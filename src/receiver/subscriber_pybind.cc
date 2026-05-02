@@ -28,6 +28,8 @@
 #include "stackstring/stackstring_pybind.h"
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/tuple.h>
 #include <nanobind/stl/shared_ptr.h>
 #include "viewer/wxpy_api.h"
 #include "scan.h"

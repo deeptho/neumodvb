@@ -648,6 +648,9 @@ void chdb::matype_str(ss::string_& s, int16_t matype, int rolloff) {
 			break;
 		}
 	}
+	bool gse_lite = !! (matype&1);
+	if(gse_lite)
+		s.format("-L");
 }
 
 inline static const char* scan_status_name(const chdb::scan_status_t& scan_status) {

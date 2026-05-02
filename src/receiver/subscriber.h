@@ -44,7 +44,7 @@
 struct wxWindow;
 struct spectrum_scan_t;
 
-namespace pybind11 {
+namespace nanobind {
 	class object;
 };
 
@@ -182,7 +182,7 @@ public:
 	void remove_ssptr();
 
 	template<typename T> void notify(const T& data) const;
-	EXPORT static pybind11::object handle_to_py_object(int64_t handlle);
+	EXPORT static nanobind::object handle_to_py_object(int64_t handlle);
 
 	EXPORT void notify_message(const ss::string_& errmsg);
 	EXPORT void notify_scan_progress(const devdb::scan_stats_t& scan_stats);

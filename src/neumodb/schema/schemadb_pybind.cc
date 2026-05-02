@@ -22,27 +22,27 @@
 #include "neumodb/schema/schema_extra.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <stdio.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+//#include <stdio.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 using namespace schema;
 
-extern void export_neumodb(py::module& m);
+extern void export_neumodb(nb::module_& m);
 
 namespace schema {
-	extern void export_enums(py::module& m);
-	extern void export_structs(py::module& m);
+	extern void export_enums(nb::module_& m);
+	extern void export_structs(nb::module_& m);
 } // namespace schema
 
 
-static inline void export_schemadb_vectors(py::module& m) {
+static inline void export_schemadb_vectors(nb::module_& m) {
 	export_ss_vector(m, schema::neumo_schema_record_t);
 	export_ss_vector(m, schema::neumo_schema_record_field_t);
 }
 
-PYBIND11_MODULE(pyschemadb, m) {
+NB_MODULE(pyschemadb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 channel database
         -----------------------

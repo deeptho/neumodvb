@@ -1,5 +1,5 @@
 /*
- * (c) deeptho@gmail.com 2019-2025
+ * Neumo dvb (C) 2019-2026 deeptho@gmail.com
  *
  * Copyright notice:
  *

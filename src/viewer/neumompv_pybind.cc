@@ -21,7 +21,8 @@
 #include "receiver/receiver.h"
 #include "util/logger.h"
 #include <clocale>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/shared_ptr.h>
 #include "wx/dcsvg.h"
 #include <X11/Xlib.h>
 #include <GL/glx.h>
@@ -36,7 +37,7 @@
 
 #include "stackstring/stackstring_pybind.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 void init_threads() {
 	static bool called = false;
@@ -49,30 +50,29 @@ void init_threads() {
 	}
 }
 
-PYBIND11_MODULE(pyneumompv, m) {
+NB_MODULE(pyneumompv, m) {
 	export_ss(m);
 	//export_ss_vector(m, chdb::language_code_t);
 	m.def("init_threads", &init_threads);
-	py::class_<MpvPlayer, std::shared_ptr<MpvPlayer>>(m, "MpvPlayer")
-		.def(py::init(&MpvPlayer::make), py::arg("receiver"), py::arg("parent_window"), py::arg("index"))
-		//.def("make_canvas", &MpvPlayer::make_canvas)
-		.def_property_readonly("glcanvas", &MpvPlayer::get_canvas)
+	nb::class_<MpvPlayer>(m, "MpvPlayer")
+		.def(nb::new_(&MpvPlayer::make)
+			, nb::arg("receiver"), nb::arg("parent_window"), nb::arg("index"))
+		.def_prop_ro("glcanvas", &MpvPlayer::get_canvas)
 		.def("toggle_overlay", &MpvPlayer::toggle_overlay)
 		.def("screenshot", &MpvPlayer::screenshot)
-		.def("play_service", &MpvPlayer::play_service, py::arg("service"))
-		.def("play_recording", &MpvPlayer::play_recording, py::arg("recording"),
-				 py::arg("start_play_time") = milliseconds_t(0))
-		.def("jump", &MpvPlayer::jump, py::arg("seconds"))
-		.def("smartjump", &MpvPlayer::smartjump, py::arg("forward"))
-		.def("set_play_direction", &MpvPlayer::set_play_direction, py::arg("forward"))
-		.def("change_playback_speed", &MpvPlayer::change_playback_speed, py::arg("faster"))
-		.def("mpv_command", &MpvPlayer::mpv_command, py::arg("command"), py::arg("arg1") = nullptr,
-				 py::arg("arg2") = nullptr)
+		.def("play_service", &MpvPlayer::play_service, nb::arg("service"))
+		.def("play_recording", &MpvPlayer::play_recording, nb::arg("recording"),
+				 nb::arg("start_play_time") = milliseconds_t(0))
+		.def("jump", &MpvPlayer::jump, nb::arg("seconds"))
+		.def("smartjump", &MpvPlayer::smartjump, nb::arg("forward"))
+		.def("set_play_direction", &MpvPlayer::set_play_direction, nb::arg("forward"))
+		.def("change_playback_speed", &MpvPlayer::change_playback_speed, nb::arg("faster"))
+		.def("mpv_command", &MpvPlayer::mpv_command, nb::arg("command"), nb::arg("arg1") = nullptr,
+				 nb::arg("arg2") = nullptr)
 		.def("stop_play", &MpvPlayer::stop_play)
 		.def("stop_play_and_exit", &MpvPlayer::stop_play_and_exit)
 		.def("close", &MpvPlayer::close)
 		.def("pause", &MpvPlayer::pause)
-		//.def("subtitles", &MpvPlayer::subtitles)
 		.def("audio_languages", &MpvPlayer::audio_languages)
 		.def("set_audio_language", &MpvPlayer::set_audio_language)
 		.def("subtitle_languages", &MpvPlayer::subtitle_languages)

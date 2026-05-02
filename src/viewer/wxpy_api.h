@@ -13,6 +13,7 @@
 //--------------------------------------------------------------------------
 
 #pragma once
+#include <Python.h>
 struct sipSimpleWrapper;
 #include <wx/window.h>
 

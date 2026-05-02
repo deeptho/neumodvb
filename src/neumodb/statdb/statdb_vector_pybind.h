@@ -19,4 +19,4 @@
  */
 
 #pragma once
-void export_statdb_vectors(py::module &m);
+void export_statdb_vectors(nb::module_ &m);

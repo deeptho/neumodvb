@@ -23,29 +23,30 @@
 #include "util/identification.h"
 #include "stackstring/stackstring_pybind.h"
 #include "statdb_vector_pybind.h"
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 #include <stdio.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-extern void export_neumodb(py::module& m);
-extern void export_statdb(py::module& m);
+extern void export_neumodb(nb::module_& m);
+extern void export_statdb(nb::module_& m);
 
 namespace statdb {
-	extern void export_enums(py::module &m);
-	extern void export_structs(py::module &m);
+	extern void export_enums(nb::module_ &m);
+	extern void export_structs(nb::module_ &m);
 }
 
-static void export_statdb_extra(py::module& m) {
+static void export_statdb_extra(nb::module_& m) {
 	auto mm = m.def_submodule("signal_stat");
 	mm.def("get_by_mux_fuzzy", &statdb::signal_stat::get_by_mux_fuzzy,
 				"Retrieve signal_stat data for a specific sat, pol and freq",
-				 py::arg("devdb_rtxn"), py::arg("sat_pos"), py::arg("pol"),
-				 py::arg("frequency"), py::arg("start_time")=0, py::arg("tolerance")=500)
+				 nb::arg("devdb_rtxn"), nb::arg("sat_pos"), nb::arg("pol"),
+				 nb::arg("frequency"), nb::arg("start_time")=0, nb::arg("tolerance")=500)
 		;
 }
 
-PYBIND11_MODULE(pystatdb, m) {
+NB_MODULE(pystatdb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 stat database
         -----------------------

@@ -7,12 +7,13 @@ add_compile_options("$<$<CONFIG:DEBUG>:-ggdb>") #applies to subdirs as well
 add_library(neumodb SHARED neumodb.cc dbdesc.cc)
 add_dependencies(neumodb stackstring neumolmdb schema_generated_files)
 
-pybind11_add_module(pyneumodb SHARED neumodb_pybind.cc ${pybind_srcs})
+nanobind_add_module(pyneumodb SHARED NB_SHARED neumodb_pybind.cc ${pybind_srcs})
 
 target_link_libraries(neumodb PUBLIC stackstring neumolmdb ${PYTHON_LIBRARIES} stdc++fs)
 target_compile_options(neumodb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 
 target_link_libraries(pyneumodb PUBLIC neumodb)
+target_link_libraries(pyneumodb PRIVATE Python::Python)
 
 target_precompile_headers(neumodb PRIVATE cursors.h)
 
@@ -41,7 +42,8 @@ add_dependencies(testtempdb devdb chdb neumodb schema dev_generated_files ch_gen
 target_link_libraries(testtempdb stackstring devdb chdb schema neumodb )
 
 
-pybind11_add_module(pydeser deserialize_pybind.cc  )
+nanobind_add_module(pydeser NB_SHARED deserialize_pybind.cc  )
+
 #add_dependencies(pydeser schema_generated_files )
 target_compile_options(pydeser PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(pydeser PRIVATE neumoutil stackstring pyschemadb pyneumodb neumodb)
@@ -57,7 +59,6 @@ add_subdirectory(schema)
 include_directories(
     # The location of the headers before installation
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>/../pybind11/include
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     # The location of the headers after installation

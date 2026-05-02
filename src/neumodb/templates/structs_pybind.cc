@@ -18,10 +18,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include <pybind11/pybind11.h>
-#include <pybind11/operators.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/variant.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/operators.h>
+namespace nb = nanobind;
 
 #include "neumodb/{{dbname}}/{{dbname}}_db.h"
 #include "neumodb/{{dbname}}/{{dbname}}_extra.h"
@@ -45,23 +47,23 @@ inline std::string repr(const T&self, const char*name)
 
 namespace {{dbname}} {
 //forward declarations and data type helpers
-	void export_{{struct.name}}(py::module& mm) {
+	void export_{{struct.name}}(nb::module_& mm) {
 		using namespace {{dbname}};
     {% if struct.is_table %}
     mm.def("subfield_from_name",
 				 static_cast<uint32_t(*)(const char*)>(&{{struct.class_name}}::subfield_from_name),
-				 py::arg("subfield index for a column name in dot format"))
+				 nb::arg("subfield index for a column name in dot format"))
 		.def("key_for_sort_order",
-				 static_cast<{{struct.class_name}}::keys_t (*)(const dynamic_key_t&)>(&{{struct.class_name}}::key_for_sort_order), py::arg("sort_order"));
+				 static_cast<{{struct.class_name}}::keys_t (*)(const dynamic_key_t&)>(&{{struct.class_name}}::key_for_sort_order), nb::arg("sort_order"));
 		{% endif %}
-		py::class_<{{struct.class_name}}>(mm, "{{struct.name}}")
-    .def(py::init<>())//default constructor
+		nb::class_<{{struct.class_name}}>(mm, "{{struct.name}}")
+    .def(nb::init<>())//default constructor
 		//full constructor
-    .def(py::init<{%for f in struct.fields %}
+    .def(nb::init<{%for f in struct.fields %}
 				{{f['type'] }} {%-if not loop.last  %}, {%-endif%}
     {% endfor %}>(),
 			{%for f in struct.fields %}
-			py::arg("{{f.name }}") {%-if not loop.last  %}, {%-endif%}
+			nb::arg("{{f.name }}") {%-if not loop.last  %}, {%-endif%}
     {% endfor %}
 			)
 		{% if struct.primary_key.fields | length >=1 %}
@@ -71,12 +73,12 @@ namespace {{dbname}} {
     .def("__repr__", [](const {{struct.class_name}}& self){ return repr(self, "{{struct.class_name}}");})
     {%for f in struct.fields %}
 		{%if f.is_string %}
-		.def_property("{{f.name}}",
+		.def_prop_rw("{{f.name}}",
 									[](const {{struct.class_name}}&x) {return x.{{f.name}}.c_str();},
 									[]({{struct.class_name}}&x, const std::string val) {x.{{f.name}}= val.c_str();}
 			)
 		{%elif f.is_vector_of_strings %}
-		.def_property("{{f.name}}",
+		.def_prop_rw("{{f.name}}",
 									[](const {{struct.class_name}}&x) {
 										std::vector<std::string> out;
 										out.reserve(x.{{f.name}}.size());
@@ -93,26 +95,26 @@ namespace {{dbname}} {
 												x.{{f.name}}.push_back(v.c_str());
 										})
 		{%elif f.is_vector %}
-		.def_property("{{f.name}}",
+		.def_prop_rw("{{f.name}}",
 									[](const {{struct.class_name}}&x) {
 										return &(ss::vector_<{{f.scalar_type}}>&) x.{{f.name}};
 									},
-									[]( {{struct.class_name}}&x, py::object o)
+									[]( {{struct.class_name}}&x, nb::object o)
 										{
-											if(py::isinstance<py::list>(o)) {
+											if(nb::isinstance<nb::list>(o)) {
 												auto& v= (ss::vector_<{{f.scalar_type}}>&) x.{{f.name}};
 												v.clear();
-												auto l = py::cast<py::list>(o);
+												auto l = nb::cast<nb::list>(o);
 												for(auto p: l)  {
-														auto pv =  p.cast<{{f.scalar_type}}>();
+													auto pv =  nb::cast<{{f.scalar_type}}>(p);
 														v.push_back(pv);
 												}
 											} 	else {
-												auto& val = py::cast<ss::vector_<{{f.scalar_type}}>&>(o);
+												auto& val = nb::cast<ss::vector_<{{f.scalar_type}}>&>(o);
 												x.{{f.name}} = val;
 											}})
 		{%else%}
-		.def_readwrite("{{f.name}}", &{{struct.class_name}}::{{f.name}})
+		.def_rw("{{f.name}}", &{{struct.class_name}}::{{f.name}})
 		{%endif%}
     {% endfor %}
 		;
@@ -122,31 +124,31 @@ namespace {{dbname}} {
 
 {% if struct.is_table %}
 namespace {{dbname}} {
-	void export_{{struct.name}}_screen(py::module& mm) {
+	void export_{{struct.name}}_screen(nb::module_& mm) {
 		typedef screen_t<{{dbname}}::{{struct.class_name}}> s_t;
-		py::class_<s_t>(mm, "screen")
-			.def(py::init<db_txn&, uint32_t, {{struct.class_name}}::partial_keys_t,
+		nb::class_<s_t>(mm, "screen")
+			.def(nb::init<db_txn&, uint32_t, {{struct.class_name}}::partial_keys_t,
 					 const {{struct.class_name}}*, const {{struct.class_name}}*,
 					 const ss::vector_<field_matcher_t>*, const {{struct.class_name}}*,
 					 const ss::vector_<field_matcher_t>*, const {{struct.class_name}}*
 					 >(),
-					 py::arg("db_txn"),
-					 py::arg("sort_order"),
-					 py::arg("key_prefix_type")={{struct.class_name}}::partial_keys_t::none,
-					 py::arg("key_prefix_data") = nullptr,
-					 py::arg("lower_limit") = nullptr,
-					 py::arg("field_matchers") = nullptr,
-					 py::arg("match_data") = nullptr,
-					 py::arg("field_matchers2") = nullptr,
-					 py::arg("match_data2") = nullptr
+					 nb::arg("db_txn"),
+					 nb::arg("sort_order"),
+					 nb::arg("key_prefix_type")={{struct.class_name}}::partial_keys_t::none,
+					 nb::arg("key_prefix_data") = nullptr,
+					 nb::arg("lower_limit") = nullptr,
+					 nb::arg("field_matchers") = nullptr,
+					 nb::arg("match_data") = nullptr,
+					 nb::arg("field_matchers2") = nullptr,
+					 nb::arg("match_data2") = nullptr
 				)
 			.def("update", &s_t::update)
-			.def("record_at_row", &s_t::record_at_row, py::arg("row_number"))
-			.def("set_reference", py::overload_cast<const {{struct.class_name}}&>(&s_t::set_reference), py::arg("record"))
-			.def_readonly("pos_top", &s_t::pos_top)
-			.def_property_readonly("list_size", &s_t::list_size)
-			.def_readonly("sort_order", &s_t::sort_order)
-			.def_property("field_matchers",
+			.def("record_at_row", &s_t::record_at_row, nb::arg("row_number"))
+			.def("set_reference", nb::overload_cast<const {{struct.class_name}}&>(&s_t::set_reference), nb::arg("record"))
+			.def_ro("pos_top", &s_t::pos_top)
+			.def_prop_ro("list_size", &s_t::list_size)
+			.def_ro("sort_order", &s_t::sort_order)
+			.def_prop_rw("field_matchers",
 										[](const s_t &x) {
 											return &(ss::vector_<field_matcher_t> &)x.field_matchers;
 										},
@@ -154,8 +156,8 @@ namespace {{dbname}} {
 											x.field_matchers=val;
 										}
 				)
-			.def_readwrite("match_data", &s_t::match_data)
-			.def_property("field_matchers2",
+			.def_rw("match_data", &s_t::match_data)
+			.def_prop_rw("field_matchers2",
 										[](const s_t &x) {
 											return &(ss::vector_<field_matcher_t> &)x.field_matchers;
 										},
@@ -163,7 +165,7 @@ namespace {{dbname}} {
 											x.field_matchers2=val;
 					}
 				)
-			.def_readwrite("match_data2", &s_t::match_data2)
+			.def_rw("match_data2", &s_t::match_data2)
     ;
 	}
 } //end namespace {{dbname}}
@@ -171,7 +173,7 @@ namespace {{dbname}} {
 
 {% if struct.is_table %}
 namespace {{dbname}} {
-	void export_{{struct.name}}_lists(py::module& mm) {
+	void export_{{struct.name}}_lists(nb::module_& mm) {
 {%for key in struct.keys%}
 {%if key.full %}
 {% if key.primary %}
@@ -184,20 +186,20 @@ namespace {{dbname}} {
    */
 {% endif %}
 mm.def("list_all_by_{{key.index_name}}",
-			 py::overload_cast<db_txn&>(
+			 nb::overload_cast<db_txn&>(
 				 &{{struct.name}}::list_all_by_{{key.index_name}}),
 			"list of all {{struct.name}} records, ordered by {{key.index_name}} index",
-			py::arg("db_txn"));
+			nb::arg("db_txn"));
 
 mm.def("list_all",
-			 py::overload_cast<db_txn&, uint32_t, bool>(
+			 nb::overload_cast<db_txn&, uint32_t, bool>(
 				 &{{struct.name}}::list_all),
 			"list of all {{struct.name}} records, ordered by columns specified in order (uint32_t, each byte is one column)",
-			 py::arg("db_txn"), py::arg("order"), py::arg("use_index")=false);
+			 nb::arg("db_txn"), nb::arg("order"), nb::arg("use_index")=false);
 mm.def("index_in_vector",
 			 &{{struct.name}}::index_in_vector,
 			"in a vector haystack of {{struct.name}} records, find the location of needle, by comparing primary key",
-			 py::arg("haystack"), py::arg("needle"));
+			 nb::arg("haystack"), nb::arg("needle"));
 
 {% endif %}
 	{% endfor  %}
@@ -208,7 +210,7 @@ mm.def("index_in_vector",
 
 
 	{% if struct.is_table %}
-	py::enum_<{{dbname}}::{{struct.class_name}}::partial_keys_t>(mm, "{{struct.name}}_prefix", py::arithmetic())
+	nb::enum_<{{dbname}}::{{struct.class_name}}::partial_keys_t>(mm, "{{struct.name}}_prefix", nb::is_arithmetic())
 																					 .value("none", {{dbname}}::{{struct.class_name}}::partial_keys_t::none)
 		 {% for prefix_name in struct.key_prefixes %}
 	.value("{{prefix_name}}", {{dbname}}::{{struct.class_name}}::partial_keys_t::{{prefix_name}})
@@ -218,7 +220,7 @@ mm.def("index_in_vector",
 	{%endif%}
 
 	{% if struct.is_table %}
-	py::enum_<{{dbname}}::{{struct.class_name}}::subfield_t>(mm, "column", py::arithmetic())
+	nb::enum_<{{dbname}}::{{struct.class_name}}::subfield_t>(mm, "column", nb::is_arithmetic())
 	.value("none", {{dbname}}::{{struct.class_name}}::subfield_t::none)
 	{% for field in struct.subfields %}
 	.value("{{field.name.replace('.','_')}}",
@@ -228,7 +230,7 @@ mm.def("index_in_vector",
 	{% endif %}
 
 	{% if struct.is_table %}
-	py::enum_<{{dbname}}::{{struct.class_name}}::keys_t>(mm, "{{struct.name}}_order", py::arithmetic())
+	nb::enum_<{{dbname}}::{{struct.class_name}}::keys_t>(mm, "{{struct.name}}_order", nb::is_arithmetic())
 			{% for key in struct.keys %}
 	.value("{{key.index_name}}", {{dbname}}::{{struct.class_name}}::keys_t::{{key.index_name}})
     		{% endfor %}
@@ -236,7 +238,7 @@ mm.def("index_in_vector",
 	{% endif %}
 
 	{% if struct.filter_fields|length %}
-	py::enum_<{{dbname}}::{{struct.class_name}}::filter_fields_t>(mm, "{{struct.name}}_filter", py::arithmetic())
+	nb::enum_<{{dbname}}::{{struct.class_name}}::filter_fields_t>(mm, "{{struct.name}}_filter", nb::is_arithmetic())
 																					 .value("none", {{dbname}}::{{struct.class_name}}::filter_fields_t::none)
 			{% for field in struct.filter_fields %}
 	.value("{{field.name}}", {{dbname}}::{{struct.class_name}}::filter_fields_t::{{field.name}})
@@ -249,7 +251,7 @@ mm.def("index_in_vector",
 /////////////////
 	{%if false and struct.is_table %}
 	mm.def("list",
-				py::overload_cast<db_txn&,
+				nb::overload_cast<db_txn&,
 				 {{struct.class_name}}::keys_t,
 				 {{struct.class_name}}::partial_keys_t,
 				 {{struct.class_name}}*,
@@ -268,14 +270,14 @@ mm.def("index_in_vector",
 				 "The first returned one is ref if ref!=nullptr, else it is the first record in the database range"
 				 "If offset!=0 then the returned records are those with index offset, offset+1.... where offset==0"
 				 "corresponds to ref if ref!=nullptr, else to the start of the range",
-				 py::arg("db_txn"),
-				 py::arg("order"),
-				 py::arg("key_prefix") = {{struct.class_name}}::partial_keys_t::none,
-				 py::arg("ref") = nullptr,
-				 py::arg("field_filter") = (uint64_t)0,
-				 py::arg("ref_filter") = nullptr,
-				 py::arg("num_records") = (int)-1,
-				 py::arg("offset") = (int)0
+				 nb::arg("db_txn"),
+				 nb::arg("order"),
+				 nb::arg("key_prefix") = {{struct.class_name}}::partial_keys_t::none,
+				 nb::arg("ref") = nullptr,
+				 nb::arg("field_filter") = (uint64_t)0,
+				 nb::arg("ref_filter") = nullptr,
+				 nb::arg("num_records") = (int)-1,
+				 nb::arg("offset") = (int)0
 		);
 
 	{% endif %}
@@ -287,7 +289,7 @@ mm.def("index_in_vector",
 
 {% if struct.is_table %}
 namespace {{dbname}} {
-	void export_{{struct.name}}_find(py::module& mm) {
+	void export_{{struct.name}}_find(nb::module_& mm) {
 		{% for key in struct.keys %}
 		{% for prefix in key.key_prefixes %}
 		{% if prefix.is_full_key and not  prefix.duplicate %}
@@ -306,13 +308,13 @@ namespace {{dbname}} {
 								};
 			mm.def("find_by_{{key.index_name}}", fn,
 						 "Find a {{struct.name}} using an index"
-						 , py::arg("db_txn")
+						 , nb::arg("db_txn")
 						 {%- for field in prefix.fields %}
-						 , py::arg("{{field.short_name}}")
+						 , nb::arg("{{field.short_name}}")
 						 {%endfor -%}
-						 , py::arg("find_type") = find_type_t::find_eq
-						 , py::arg("key_prefix") =  {{struct.class_name}}::partial_keys_t::none
-						 , py::arg("find_prefix")	=	{{struct.class_name}}::partial_keys_t::{{prefix.prefix_name}}
+						 , nb::arg("find_type") = find_type_t::find_eq
+						 , nb::arg("key_prefix") =  {{struct.class_name}}::partial_keys_t::none
+						 , nb::arg("find_prefix")	=	{{struct.class_name}}::partial_keys_t::{{prefix.prefix_name}}
 				);
 	  }
 {% endif %}

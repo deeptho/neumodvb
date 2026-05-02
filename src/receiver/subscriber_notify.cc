@@ -24,18 +24,18 @@
 #include "receiver/scan.h"
 #include "receiver/subscriber.h"
 #include "util/neumovariant.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> //for std::optional
+#include <nanobind/nanobind.h>
+//#include <nanobind/stl.h> //for std::optional
 #include "viewer/wxpy_api.h"
 #include <wx/window.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 #ifdef UNSAFE
 /*
 	Problem: creating a python object in a multithreaded environment
 	seems to create possible crashes
-	https://github.com/pybind/pybind11/issues/2765
+	https://github.com/pybind/nanobind/issues/2765
 	The code does crash sometimes in pyalloc.
 
 	A less risky but more complex approach is to pass a pointer to a c++ object
@@ -44,7 +44,7 @@ namespace py = pybind11;
 */
 
 template <typename T> inline static intptr_t make_py_object(T& obj) {
-	auto x = py::cast(obj);
+	auto x = nb::cast(obj);
 	static_assert(sizeof(x) <= sizeof(int64_t));
 	x.inc_ref();
 	return (intptr_t)x.ptr();
@@ -69,9 +69,9 @@ typedef std::unique_ptr<statdb::spectrum_t> spectrum_ptr_t;
 typedef std::variant<signal_info_ptr_t, sdt_data_ptr_t, scan_stats_ptr_t, scan_mux_end_report_ptr_t,
 										 positioner_motion_report_ptr_t, spectrum_ptr_t, string_ptr_t> notification_ptr_t;
 
-py::object subscriber_t::handle_to_py_object(int64_t handle) {
+nb::object subscriber_t::handle_to_py_object(int64_t handle) {
 	auto& ptr = *(notification_ptr_t*)handle;
-	auto x = std::visit([](auto& ptr) { return py::cast(std::move(*ptr)); }, ptr);
+	auto x = std::visit([](auto& ptr) { return nb::cast(std::move(*ptr)); }, ptr);
 	delete &ptr;
 	return x;
 }

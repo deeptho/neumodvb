@@ -18,8 +18,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+namespace nb = nanobind;
 
 #include "neumodb/{{dbname}}/{{dbname}}_db.h"
 
@@ -27,10 +28,10 @@ using namespace {{dbname}};
 
 namespace {{dbname}} {
 //forward declarations and data type helpers
-	void export_enums(py::module& m) {
+	void export_enums(nb::module_& m) {
 
 	{%for enum in enums %}
-		py::enum_<{{enum.name}}>(m, "{{enum.name}}", py::arithmetic())
+		nb::enum_<{{enum.name}}>(m, "{{enum.name}}", nb::is_arithmetic())
     {%for f in enum.values %}
 		     .value("{{f.short_name}}", {{enum.name}}::{{f.name}})
     {% endfor %}

@@ -19,7 +19,7 @@
  */
 #include "util/logger.h"
 #include <clocale>
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include "neumompv_private.h"
 #include "wx/dcsvg.h"
 #include <X11/Xlib.h>
@@ -40,7 +40,7 @@
 #include <mpv/stream_cb.h>
 #include <mpv/render_gl.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 //#define SAVE_DEBUG
 #ifdef SAVE_DEBUG
@@ -455,7 +455,7 @@ MpvPlayer::MpvPlayer(receiver_t * receiver, MpvPlayer_* mpv)
 	, config_dir(receiver->options.readAccess()->mpvconfig.c_str()) {
 }
 
-template <typename T> T* wxLoad(py::object src, const wxString& inTypeName) {
+template <typename T> T* wxLoad(nb::object src, const wxString& inTypeName) {
 	/* Extract PyObject from handle */
 	PyObject* source = src.ptr();
 
@@ -467,7 +467,7 @@ template <typename T> T* wxLoad(py::object src, const wxString& inTypeName) {
 	return obj;
 }
 
-std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver, pybind11::object parent_window, int idx) {
+std::shared_ptr<MpvPlayer> MpvPlayer::make(receiver_t* receiver, nb::object parent_window, int idx) {
 	// make_shared does not work with private constructor
 
 	auto ret = std::shared_ptr<MpvPlayer_>(new MpvPlayer_(receiver));
@@ -789,7 +789,7 @@ void MpvPlayer_::mpv_draw(int w, int h) {
 	}
 }
 
-template <typename T> py::handle wxCast(T* src) {
+template <typename T> nb::handle wxCast(T* src) {
 	wxASSERT(src);
 
 	// As always, first grab the GIL
@@ -803,7 +803,7 @@ template <typename T> py::handle wxCast(T* src) {
 	return obj;
 }
 
-template <typename T> T* wxLoad(py::handle src, const wxString& inTypeName) {
+template <typename T> T* wxLoad(nb::handle src, const wxString& inTypeName) {
 	/* Extract PyObject from handle */
 	PyObject* source = src.ptr();
 
@@ -819,7 +819,7 @@ template <typename T> T* wxLoad(py::handle src, const wxString& inTypeName) {
 	create an mpvglcanvas and return t as a glcanvas;
 	this requires "import wx.glcanvas" in the python code
 */
-void MpvPlayer_::make_canvas(py::object frame_) {
+void MpvPlayer_::make_canvas(nb::object frame_) {
 	thread_id = std::this_thread::get_id();
 	auto* frame = wxLoad<wxWindow>(frame_, "wxWindow");
 	auto ptr = std::static_pointer_cast<MpvPlayer_>(shared_from_this());
@@ -827,7 +827,7 @@ void MpvPlayer_::make_canvas(py::object frame_) {
 }
 
 
-py::handle MpvPlayer::get_canvas() const {
+nb::handle MpvPlayer::get_canvas() const {
 	auto* self = dynamic_cast<const MpvPlayer_*>(this);
 	return wxCast(self->gl_canvas);
 }

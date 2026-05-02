@@ -19,8 +19,9 @@
  *
  */
 #include "setproctitle.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> //for std::optional
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
 #include <wx/window.h>
 #include "viewer/wxpy_api.h"
 #include "receiver/receiver.h"
@@ -30,15 +31,15 @@
 #include "util/identification.h"
 #include <sys/prctl.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-static void export_live_history(py::module& m) {
+static void export_live_history(nb::module_& m) {
 	using namespace chdb;
-	py::class_<history_mgr_t>(m, "browse_history")
-		.def_readwrite("h", &history_mgr_t::h)
-		.def("save", py::overload_cast<>(&history_mgr_t::save))
-		.def("save", py::overload_cast<const chdb::service_t&>(&history_mgr_t::save), py::arg("service"))
-		.def("save", py::overload_cast<const chdb::chgm_t&>(&history_mgr_t::save), py::arg("chgm"))
+	nb::class_<history_mgr_t>(m, "browse_history")
+		.def_rw("h", &history_mgr_t::h)
+		.def("save", nb::overload_cast<>(&history_mgr_t::save))
+		.def("save", nb::overload_cast<const chdb::service_t&>(&history_mgr_t::save), nb::arg("service"))
+		.def("save", nb::overload_cast<const chdb::chgm_t&>(&history_mgr_t::save), nb::arg("chgm"))
 		.def("last_service", &history_mgr_t::last_service)
 		.def("last_chgm", &history_mgr_t::last_chgm)
 		.def("next_service", &history_mgr_t::next_service)
@@ -51,12 +52,12 @@ static void export_live_history(py::module& m) {
 		;
 }
 
-static void export_recording_history(py::module& m) {
+static void export_recording_history(nb::module_& m) {
 	using namespace recdb;
-	py::class_<rec_history_mgr_t>(m, "rec_browse_history")
-		.def_readwrite("h", &rec_history_mgr_t::h)
-		.def("save", py::overload_cast<>(&rec_history_mgr_t::save))
-		.def("save", py::overload_cast<const recdb::rec_t&>(&rec_history_mgr_t::save), py::arg("recording"))
+	nb::class_<rec_history_mgr_t>(m, "rec_browse_history")
+		.def_rw("h", &rec_history_mgr_t::h)
+		.def("save", nb::overload_cast<>(&rec_history_mgr_t::save))
+		.def("save", nb::overload_cast<const recdb::rec_t&>(&rec_history_mgr_t::save), nb::arg("recording"))
 		.def("last_recording", &rec_history_mgr_t::last_recording)
 		.def("next_recording", &rec_history_mgr_t::next_recording)
 		.def("prev_recording", &rec_history_mgr_t::prev_recording)
@@ -90,14 +91,14 @@ static void set_process_name(const char* name)
 #endif
 }
 
-static void export_db_upgrade_info(py::module& m) {
-	py::class_<db_upgrade_info_t>(m, "db_upgrade_info_t")
-		.def_readonly("stored_db_version", &db_upgrade_info_t::stored_db_version)
-		.def_readonly("current_db_version", &db_upgrade_info_t::current_db_version)
+static void export_db_upgrade_info(nb::module_& m) {
+	nb::class_<db_upgrade_info_t>(m, "db_upgrade_info_t")
+		.def_ro("stored_db_version", &db_upgrade_info_t::stored_db_version)
+		.def_ro("current_db_version", &db_upgrade_info_t::current_db_version)
 		;
 }
 
-static void export_receiver(py::module& m) {
+static void export_receiver(nb::module_& m) {
 	static bool called = false;
 	if (called)
 		return;
@@ -109,63 +110,63 @@ static void export_receiver(py::module& m) {
 #if 0
 	set_logconfig(log_path.c_str());
 #endif
-	m.def("set_logconfig", &set_logconfig, py::arg("name of logfile config"))
+	m.def("set_logconfig", &set_logconfig, nb::arg("name of logfile config"))
 		.def("set_process_name", &set_process_name, "Set process name",
-				 py::arg("name"))
+				 nb::arg("name"))
 		;
-	py::class_<receiver_t>(m, "receiver_t")
-		.def(py::init<neumo_options_t*>(), py::arg("neumo_options"), "Start a NeumoDVB receiver")
+	nb::class_<receiver_t>(m, "receiver_t")
+		.def(nb::init<neumo_options_t*>(), nb::arg("neumo_options"), "Start a NeumoDVB receiver")
 		//unsubscribe is needed to abort mux scan in progress
 		.def("init", &receiver_t::init, "Re-initialize a receiver if creating it failed")
 		.def("renumber_card", &receiver_t::renumber_card, "Renumber a card",
-				 py::arg("old_number"), py::arg("new_number"))
+				 nb::arg("old_number"), nb::arg("new_number"))
 		.def("update_autorec",
 				 (&receiver_t::update_autorec),
-				 "Create or update an auto rec", py::arg("autorec"))
+				 "Create or update an auto rec", nb::arg("autorec"))
 		.def("delete_autorec",
 				 (&receiver_t::update_autorec),
-				 "Delete an auto rec", py::arg("autorec"))
+				 "Delete an auto rec", nb::arg("autorec"))
 		.def("toggle_recording",
-				 py::overload_cast<const chdb::service_t&, const epgdb::epg_record_t&>(&receiver_t::toggle_recording),
-				 "Toggle recording of an epg event.", py::arg("service"), py::arg("epgrecord"))
-		.def("toggle_recording", py::overload_cast<const chdb::service_t&>(&receiver_t::toggle_recording),
-				 "Toggle recording the current service.", py::arg("service"))
+				 nb::overload_cast<const chdb::service_t&, const epgdb::epg_record_t&>(&receiver_t::toggle_recording),
+				 "Toggle recording of an epg event.", nb::arg("service"), nb::arg("epgrecord"))
+		.def("toggle_recording", nb::overload_cast<const chdb::service_t&>(&receiver_t::toggle_recording),
+				 "Toggle recording the current service.", nb::arg("service"))
 		.def("toggle_recording",
-				 py::overload_cast<const chdb::service_t&, time_t, int, const char*>(&receiver_t::toggle_recording),
-				 "Toggle recording the current service.", py::arg("service"), py::arg("start"), py::arg("duration"),
-				 py::arg("event_name"))
+				 nb::overload_cast<const chdb::service_t&, time_t, int, const char*>(&receiver_t::toggle_recording),
+				 "Toggle recording the current service.", nb::arg("service"), nb::arg("start"), nb::arg("duration"),
+				 nb::arg("event_name"))
 		.def("update_and_toggle_stream"
 				 , &receiver_t::update_and_toggle_stream
 				 , "Add or update a stream in the database and start or stop the stream accordingly"
-				 , py::arg("stream")
+				 , nb::arg("stream")
 			)
 
 		.def("get_default_tune_options", &receiver_t::get_default_tune_options,
-				 py::arg("subscription_type"))
+				 nb::arg("subscription_type"))
 		.def("get_api_type", &receiver_t::get_api_type)
 		.def("get_options", &receiver_t::get_options)
-		.def("set_options", &receiver_t::set_options, py::arg("options"))
+		.def("set_options", &receiver_t::set_options, nb::arg("options"))
 		.def(
 			"get_spectrum_path",
 			[](receiver_t& receiver) { return std::string(receiver.options.readAccess()->spectrum_path.c_str()); },
 			"Return location where spectra are stored")
 
 		.def("stop", &receiver_t::stop, "Cleanup before exit")
-		.def_readonly("browse_history", &receiver_t::browse_history, py::return_value_policy::reference_internal)
-		.def_readonly("rec_browse_history", &receiver_t::rec_browse_history, py::return_value_policy::reference_internal)
-		.def_property_readonly("error_message", [](receiver_t* self) { return get_error().c_str(); })
-		.def_readonly("devdb", &receiver_t::devdb)
-		.def_readonly("chdb", &receiver_t::chdb)
-		.def_readonly("epgdb", &receiver_t::epgdb)
-		.def_readonly("recdb", &receiver_t::recdb)
-		.def_readonly("statdb", &receiver_t::statdb)
-		.def_readonly("db_upgrade_info", &receiver_t::db_upgrade_info)
+		.def_ro("browse_history", &receiver_t::browse_history, nb::rv_policy::reference_internal)
+		.def_ro("rec_browse_history", &receiver_t::rec_browse_history, nb::rv_policy::reference_internal)
+		.def_prop_ro("error_message", [](receiver_t* self) { return get_error().c_str(); })
+		.def_ro("devdb", &receiver_t::devdb)
+		.def_ro("chdb", &receiver_t::chdb)
+		.def_ro("epgdb", &receiver_t::epgdb)
+		.def_ro("recdb", &receiver_t::recdb)
+		.def_ro("statdb", &receiver_t::statdb)
+		.def_ro("db_upgrade_info", &receiver_t::db_upgrade_info)
 		;
 }
 
-extern void export_logger(py::module& m);
-extern void export_options(py::module& m);
-PYBIND11_MODULE(pyreceiver, m) {
+extern void export_logger(nb::module_& m);
+extern void export_options(nb::module_& m);
+NB_MODULE(pyreceiver, m) {
 	m.doc() = R"pbdoc(
         Receiver control functions for neumoDVB
     )pbdoc";	// export_find_type(m);
@@ -176,5 +177,4 @@ PYBIND11_MODULE(pyreceiver, m) {
 	export_recording_history(m);
 	export_options(m);
 	m.attr("__version__") = version_info();
-
 }

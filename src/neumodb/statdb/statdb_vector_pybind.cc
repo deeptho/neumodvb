@@ -20,12 +20,12 @@
 
 #include "neumodb/statdb/statdb_extra.h"
 #include "stackstring/stackstring_pybind.h"
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include <stdio.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-void export_statdb_vectors(py::module& m) {
+void export_statdb_vectors(nb::module_& m) {
 	using namespace statdb;
 	export_ss_vector(m, signal_stat_t);
 }

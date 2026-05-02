@@ -20,12 +20,12 @@
  */
 #include "neumodb/chdb/chdb_extra.h"
 #include "stackstring/stackstring_pybind.h"
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include <stdio.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-void export_devdb_vectors(py::module& m) {
+void export_devdb_vectors(nb::module_& m) {
 	using namespace devdb;
 	export_ss_vector(m, lnb_t);
 	export_ss_vector(m, lnb_network_t);

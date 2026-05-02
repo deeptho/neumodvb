@@ -119,7 +119,7 @@ struct subscription_options_t : public devdb::tune_options_t {
 		return card_matches;
 	}
 
- 	subscription_options_t(devdb::scan_target_t scan_target =  devdb::scan_target_t::SCAN_FULL,
+	subscription_options_t(devdb::scan_target_t scan_target =  devdb::scan_target_t::SCAN_FULL,
 												 devdb::subscription_type_t subscription_type = devdb::subscription_type_t::SUBSCRIBE)
 		{
 			this->subscription_type = subscription_type;

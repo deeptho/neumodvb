@@ -23,18 +23,19 @@
 #include "devdb_private.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 using namespace devdb;
 
-extern void export_neumodb(py::module& m);
-extern void export_devdb(py::module& m);
+extern void export_neumodb(nb::module_& m);
+extern void export_devdb(nb::module_& m);
 
 namespace devdb {
-	extern void export_enums(py::module& m);
-	extern void export_structs(py::module& m);
+	extern void export_enums(nb::module_& m);
+	extern void export_structs(nb::module_& m);
 } // namespace devdb
 
 static inline devdb::lnb_connection_t* conn_helper
@@ -42,103 +43,101 @@ static inline devdb::lnb_connection_t* conn_helper
 	return connection_for_rf_path(lnb, rf_path);
 }
 
-static void export_dish_extra(py::module& m) {
-	//auto mm = py::reinterpret_borrow<py::module>(m.attr("dish"));
+static void export_dish_extra(nb::module_& m) {
 	auto mm = m.def_submodule("dish");
 	using namespace devdb;
 	mm.def("list_dishes", &dish::list_dishes,
 				 "Returns a list of known dish ids",
-				 py::arg("devdb_rtxn"))
+				 nb::arg("devdb_rtxn"))
 		;
 }
 
-static void export_lnb_extra(py::module& m) {
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("lnb"));
+static void export_lnb_extra(nb::module_& m) {
+	auto mm = nb::borrow<nb::module_>(m.attr("lnb"));
 	using namespace devdb;
 	mm.def("update_lnb_network_from_positioner", &lnb::update_lnb_network_from_positioner,
 				 "save changed lnb network"
-				 , py::arg("wtxn"), py::arg("lnb"), py::arg("current_sat_pos"))
+				 , nb::arg("wtxn"), nb::arg("lnb"), nb::arg("current_sat_pos"))
 		.def("update_lnb_connection_from_positioner", &lnb::update_lnb_connection_from_positioner,
 				 "save changed lnb connection"
-				 , py::arg("wtxn"), py::arg("lnb"), py::arg("connection"))
+				 , nb::arg("wtxn"), nb::arg("lnb"), nb::arg("connection"))
 		.def("update_lnb_from_lnblist", &lnb::update_lnb_from_lnblist, "save changed lnb",
-				 py::arg("wtxn"), py::arg("lnb"), py::arg("save")=true)
+				 nb::arg("wtxn"), nb::arg("lnb"), nb::arg("save")=true)
 		.def("can_move_dish", &lnb::can_move_dish,
 				 "Returns true if this lnb connection can move the dish",
-				 py::arg("lnb_connection"))
+				 nb::arg("lnb_connection"))
 		.def("reset_lof_offset", &lnb::reset_lof_offset,
 				 "reset the LOF offset to 0",
-				 py::arg("devdb_wtxn"),
-				 py::arg("lnb"))
+				 nb::arg("devdb_wtxn"),
+				 nb::arg("lnb"))
 		.def("make_unique_if_template", lnb::make_unique_if_template,
 				 "Make the key of this lnb unique, but only if lnb.k.id<0")
 		.def("select_lnb", &lnb::select_lnb, "Select an lnb; which can tune to sat or mux",
-				 py::arg("devdb_rtxn"),
-				 py::arg("sat").none(true) = nullptr,
-				 py::arg("mux").none(true) = nullptr,
-				 py::arg("prefer_rotor_control") = true
+				 nb::arg("devdb_rtxn"),
+				 nb::arg("sat").none(true) = nullptr,
+				 nb::arg("mux").none(true) = nullptr,
+				 nb::arg("prefer_rotor_control") = true
 			)
 		.def("select_rf_path", &lnb::select_rf_path, "Select an rf_path for lnb",
-				 py::arg("lnb"),
-				 py::arg("sat_pos")=sat_pos_none,
-				 py::arg("prefer_rotor_control")=true
+				 nb::arg("lnb"),
+				 nb::arg("sat_pos")=sat_pos_none,
+				 nb::arg("prefer_rotor_control")=true
 			)
 		.def("connection_for_rf_path", &conn_helper
-				 , py::return_value_policy::reference_internal
+				 , nb::rv_policy::reference_internal
 				 , "Return lnb_connection for rf_path"
-				 , py::arg("lnb")
-				 , py::arg("rf_path"))
+				 , nb::arg("lnb")
+				 , nb::arg("rf_path"))
 		.def("rf_path_for_connection", &devdb::rf_path_for_connection,
 				 "Return rf_path for lnb_connection"
-				 , py::arg("lnb_key")
-				 , py::arg("lnb_connection"))
+				 , nb::arg("lnb_key")
+				 , nb::arg("lnb_connection"))
 		.def("add_or_edit_network", &lnb::add_or_edit_network,
 				 "Add a network to an lnb if it does not yet exist or edit it; returns true if network was added "
-				 "or changed", py::arg("lnb"), py::arg("usals_location"), py::arg("lnb_network"))
+				 "or changed", nb::arg("lnb"), nb::arg("usals_location"), nb::arg("lnb_network"))
 		.def("add_or_edit_connection", &lnb::add_or_edit_connection,
 				 "Add a connection to an lnb if it does not yet exist or edit it; returns true if connection was added "
 				 "or changed",
-				 py::arg("rtxn"), py::arg("lnb"), py::arg("lnb_connection"))
+				 nb::arg("rtxn"), nb::arg("lnb"), nb::arg("lnb_connection"))
 		.def("add_or_edit_unicable_channel", &lnb::add_or_edit_unicable_channel,
 				 "Add a unicable channel to an lnb if it does not yet exist or edit it; returns true if channel was added "
 				 "or changed",
-				 py::arg("rtxn"), py::arg("lnb"), py::arg("unicable_channel"))
+				 nb::arg("rtxn"), nb::arg("lnb"), nb::arg("unicable_channel"))
 		.def("lnb_frequency_range", &lnb::lnb_frequency_range,
-				 "Obtain min/mid/max frequency for this lnb",  py::arg("lnb"))
+				 "Obtain min/mid/max frequency for this lnb",  nb::arg("lnb"))
 		.def("sat_band", &lnb::sat_band,
-				 "Obtain sat_band for this lnb",  py::arg("lnb_key"))
+				 "Obtain sat_band for this lnb",  nb::arg("lnb_key"))
 		;
 }
 
-static void export_cable_extra(py::module& m) {
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("cable"));
+static void export_cable_extra(nb::module_& m) {
+	auto mm = nb::borrow<nb::module_>(m.attr("cable"));
 	using namespace devdb;
 	mm.def("update_cable", &cable::update_cable,
 				 "Update a cable record and update corresponding lnbs",
-				 py::arg("devdb_wtxn"), py::arg("cable"), py::arg("old_cable"))
+				 nb::arg("devdb_wtxn"), nb::arg("cable"), nb::arg("old_cable"))
 		;
 }
 
-void export_subscribe_options(py::module& m) {
-	py::class_<subscription_options_t, tune_options_t>(m, "subscription_options_t")
-		.def(py::init<>( []() { subscription_options_t ret; ret.scan_target = scan_target_t::SCAN_FULL; return ret;}),
-				 "Tune Options for neumodvb")
-		.def_readwrite("spectrum_scan_options", &subscription_options_t::spectrum_scan_options)
-		//.def_readwrite("subscription_type", &subscription_options_t::subscription_type)
+void export_subscribe_options(nb::module_& m) {
+	nb::class_<subscription_options_t, tune_options_t>(m, "subscription_options_t")
+		.def(nb::init<>(),
+			"Tune Options for neumodvb")
+		.def_rw("spectrum_scan_options", &subscription_options_t::spectrum_scan_options)
 		;
 
 }
 
-static void export_scan_command_extra(py::module& m) {
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("scan_command"));
+static void export_scan_command_extra(nb::module_& m) {
+	auto mm = nb::borrow<nb::module_>(m.attr("scan_command"));
 	using namespace devdb;
 	mm.def("make_unique_if_template", scan_command::make_unique_if_template,
 				 "Make the key of this scan_command unique, but only if id<0")
 		;
 }
 
-static void export_stream_extra(py::module& m) {
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("stream"));
+static void export_stream_extra(nb::module_& m) {
+	auto mm = nb::borrow<nb::module_>(m.attr("stream"));
 	using namespace devdb;
 	mm.def("make_unique_if_template", stream::make_unique_if_template,
 				 "Make the key of this stream_t unique, but only if id<0")
@@ -154,7 +153,7 @@ lnb_can_tune_to_mux_helper(const devdb::lnb_t& lnb, const chdb::dvbs_mux_t& mux,
 	return {ret, error};
 }
 
-PYBIND11_MODULE(pydevdb, m) {
+NB_MODULE(pydevdb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 device/frontend database
         -----------------------
@@ -170,8 +169,8 @@ PYBIND11_MODULE(pydevdb, m) {
 	export_ss_vector(m, subscription_data_t);
 
 	m.def("lnb_can_tune_to_mux", &lnb_can_tune_to_mux_helper,
-				 "check if lnb can tune to mux; returns true/false and optional error string", py::arg("lnb"), py::arg("mux"),
-				 py::arg("disregard_networks") = false)
+				 "check if lnb can tune to mux; returns true/false and optional error string", nb::arg("lnb"), nb::arg("mux"),
+				 nb::arg("disregard_networks") = false)
 		;
 	export_neumodb(m);
 	export_devdb(m);

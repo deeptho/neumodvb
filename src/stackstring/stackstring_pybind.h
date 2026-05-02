@@ -19,20 +19,21 @@
  */
 #pragma once
 
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/make_iterator.h>
 #include <stdio.h>
 
 #include "stackstring/stackstring.h"
 
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 //Not needed if stl.h is not included
 //PYBIND11_MAKE_OPAQUE(ss::vector_<int>);
 
-inline void export_ss(py::module &m)
+inline void export_ss(nb::module_ &m)
 {
-	py::class_<ss::string_>(m, "ss_string")
+	nb::class_<ss::string_>(m, "ss_string")
 		.def("__repr__",  [](const ss::string_& x) { return std::string(x.c_str());})
 	;
 }
@@ -40,65 +41,60 @@ inline void export_ss(py::module &m)
 
 //see https://github.com/pybind/pybind11/blob/master/tests/test_sequences_and_iterators.cpp
 template<typename T>
-inline void export_ss_vector_(py::module &m, const char* pytypename)
+inline void export_ss_vector_(nb::module_ &m, const char* pytypename)
 {
 	static bool called = false;
 	if(called)
 		return;
 
-	py::class_<ss::vector_<T>>(m, pytypename)
-		.def(py::init<>())
+	nb::class_<ss::vector_<T>>(m, pytypename)
+		.def(nb::init<>())
 		.def("__len__", [](const ss::vector_<T> &v) {
-											//printf("[%p] len\n", &v);
 											return v.size(); })
 		.def("erase", [](ss::vector_<T> &v, size_t idx) {
-											//printf("[%p] len\n", &v);
 										 v.erase(idx); })
 		.def("index", [](ss::vector_<T> &v, const T& val) {
 										 return v.index_of(val); })
 		.def("resize", [](ss::vector_<T> &v, size_t size) {
-											//printf("[%p] len\n", &v);
 										 v.resize(size); })
 		.def("push_back", [](ss::vector_<T> &v, const T& val) {
                 		 v.resize_no_init(v.size()+1);
 										 new(&v[v.size()-1]) T(val);
 		})
-		//.def("assign", py::overload_cast<const py::list&>(&assign_from_list))
-		.def("assign", [](ss::vector_<T>& v, py::list l) {
+		.def("assign", [](ss::vector_<T>& v, nb::list l) {
 			v.clear();
 			for(auto p: l) {
-				if constexpr (!pybind11::detail::cast_is_temporary_value_reference<T>::value) {
-					auto pv =  p.cast<T>();
-					v.push_back(pv);
-				} else {
-					auto pv =  p.cast<T&>();
-					v.push_back(pv);
-				}
-			}})
-		.def("__iter__", [](ss::vector_<T> &v) {
-				//printf("[%p] iter\n", &v);
-         return py::make_iterator(v.buffer(), v.buffer()+v.size());
+				//if constexpr (!nb::detail::cast_is_temporary_value_reference<T>::value) {
+				auto pv =  nb::cast<T>(p);
+				v.push_back(pv);
+					//} else {
+					//auto pv =  p.cast<T&>();
+					//v.push_back(pv);
 			}
-			,py::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */
+			})
+		.def("__iter__", [](ss::vector_<T> &v) {
+			return nb::make_iterator(nb::type<ss::vector_<T>>(), "iterator", v.buffer(), v.buffer()+v.size());
+			}
+			,nb::keep_alive<0, 1>() /* Essential: keep object alive while iterator exists */
 			)
 		.def("__getitem__", [](ss::vector_<T> &v, int i) -> T& {
 			if(i>=(signed)v.size()) {
 				dterrorf("Index out of range");
 				assert(0);
-				throw py::index_error();
+				throw nb::index_error();
 			}
 				//if (i==5)
 				//	printf("[%p] get [{:d}]\n", &v, i);
 				return v[i];
 		}
-			,py::return_value_policy::copy
+			,nb::rv_policy::copy
 			)
 #ifdef TODO
 		//TODO: this returns copies instead of a real slice
-		.def("__getitem__", [](const ss::vector_<T> &v, py::slice slice) {
+		.def("__getitem__", [](const ss::vector_<T> &v, nb::slice slice) {
 				size_t start, stop, step, slicelength;
 				if (!slice.compute(v.size(), &start, &stop, &step, &slicelength))
-					throw py::error_already_set();
+					throw nb::error_already_set();
 				auto *ret = new ss::vector_<T>();
 				ret->reserve(slicelength);
 				for (size_t i = 0; i < slicelength; ++i) {
@@ -107,20 +103,18 @@ inline void export_ss_vector_(py::module &m, const char* pytypename)
 				return ret; })
 #endif
 		.def("__setitem__", [](ss::vector_<T> &v, int i, const T& val) {
-				//printf("[%p] set [{:d}]\n", &v, i);
 													v[i]=val; }
 			)
 
-		.def("__setitem__", [](ss::vector_<T> &s, py::slice slice, py::list list) {
-            size_t start, stop, step, slicelength;
-            if (!slice.compute(s.size(), &start, &stop, &step, &slicelength))
-                throw py::error_already_set();
-            if (slicelength != py::len(list))
-                throw std::runtime_error("Left and right hand size of slice assignment have different sizes!");
-						for (auto& v: list) {
-							s[start] = v.cast<T>(); start += step;
+		.def("__setitem__", [](ss::vector_<T> &s, nb::slice slice, nb::list list) {
+						auto [start, stop, step, slicelength] = slice.compute(s.size());
+            if (slicelength != nb::len(list))
+							throw std::runtime_error("Left and right hand size of slice assignment have different sizes!");
+						for (auto v: list) {
+							s[start] = nb::cast<T>(v);
+							start += step;
             }
-												})
+		})
 		;
 }
 

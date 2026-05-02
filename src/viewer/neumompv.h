@@ -46,7 +46,7 @@ namespace chdb {
 };
 
 
-namespace pybind11 {
+namespace nanobind {
 	class handle;
 	class object;
 }
@@ -63,7 +63,7 @@ protected:
 public:
 	receiver_t* receiver = nullptr;
 	virtual ~MpvPlayer() {}
-	static std::shared_ptr<MpvPlayer> make(receiver_t * receiver, pybind11::object parent_window, int idx);
+	static std::shared_ptr<MpvPlayer> make(receiver_t * receiver, nanobind::object parent_window, int idx);
 	std::string config_dir;
 	std::condition_variable cv;
 	std::mutex m;
@@ -72,7 +72,7 @@ public:
 	std::thread::id run_id;
 	std::thread thread_;
 
-	pybind11::handle get_canvas() const;
+	nanobind::handle get_canvas() const;
 	ss::vector_<chdb::language_code_t> audio_languages();
 	chdb::language_code_t get_current_audio_language();
 

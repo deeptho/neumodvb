@@ -19,11 +19,14 @@
  *
  */
 #include "spectrum_algo_private.h"
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> //for std::optional
-#include <pybind11/stl_bind.h>
-namespace py = pybind11;
+#include <nanobind/ndarray.h>
+#include <vector>
+
+namespace nb = nanobind;
+
+using numpy_float_array = nb::ndarray<float, nb::numpy, nb::ndim<1>, nb::c_contig>;
+using numpy_uint8_array = nb::ndarray<uint64_t, nb::numpy, nb::ndim<1>, nb::c_contig>;
+using numpy_int_array = nb::ndarray<int, nb::numpy, nb::ndim<1>, nb::c_contig>;
 
 
 static float windowed_max(float* p, int starti, int endi) {
@@ -139,39 +142,38 @@ inline bool debug_matches(float f)
 	w/h=width/height of annotation box
 	offset = vertical offset of annotation box
 */
-static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> annotx,
-																			 py::array_t<float> freq,
+static nb::object find_annot_locations(numpy_float_array sig, numpy_int_array annotx,
+																			 numpy_float_array freq,
 																			 int w, float h, float offset) {
-	py::buffer_info infosig = sig.request();
-	if (infosig.ndim != 1)
+	if (sig.ndim() != 1)
 		throw std::runtime_error("Bad number of dimensions");
-	auto* psig = (float*)infosig.ptr;
-	int stridef = infosig.strides[0] / sizeof(int);
-	py::buffer_info infofreq = freq.request();
-	if (infofreq.ndim != 1)
+	auto* psig = sig.data();
+
+	if (freq.ndim() != 1)
 		throw std::runtime_error("Bad number of dimensions");
-	auto* pf = (float*)infofreq.ptr;
-	int stridesig = infosig.strides[0] / sizeof(int);
+#ifdef NDEBUG
+	auto* pf = freq.data();
+#endif
 	int w2 = w*2;
 	int h2 = h/2*1.2;
-	py::buffer_info infoannotx = annotx.request();
-	if (infoannotx.ndim != 1)
+	if (annotx.ndim() != 1)
 		throw std::runtime_error("Bad number of dimensions");
-	int* px = (int*)infoannotx.ptr;
-	int stridex = infoannotx.strides[0] / sizeof(int);
-	int nx = infoannotx.shape[0];
+	int* px = annotx.data();
 
-	py::array_t<float, py::array::f_style> annoty(infoannotx.shape);
-	py::buffer_info infoannoty = annoty.request();
-	int strideannoty = infoannoty.strides[0] / sizeof(float);
-	auto* py = (float*)infoannoty.ptr;
+	auto* shapeannoty_ptr = (const uint64_t*) annotx.shape_ptr();
+	const auto *strideannoty_ptr = annotx.stride_ptr();
+	numpy_float_array annoty(nullptr /*let nanobind allocate*/, annotx.ndim(), shapeannoty_ptr, nullptr /*owner*/,
+													 strideannoty_ptr );
+	auto* py = annoty.data();
 
-	py::array_t<uint8_t, py::array::f_style> leftrightflag(infoannotx.shape);
-	py::buffer_info infoleftrightflag = leftrightflag.request();
+	numpy_uint8_array leftrightflag(nullptr /*let nanobind allocate*/, annotx.ndim(), shapeannoty_ptr, nullptr /*owner*/,
+																	strideannoty_ptr );
+
 	// int strideannoty = infoannoty.strides[0]/sizeof(int);
-	auto* plr = (uint8_t*)infoleftrightflag.ptr;
-	int n = infosig.shape[0];
-	int na = infoannotx.shape[0];
+	auto* plr = leftrightflag.data();
+	int n = sig.shape(0);
+
+	int na = annotx.shape(0);
 	auto plr_left = std::vector<uint8_t>(na, 0);
 	auto plr_right = std::vector<uint8_t>(na, 0);
 
@@ -361,25 +363,23 @@ static py::object find_annot_locations(py::array_t<float> sig, py::array_t<int> 
 			auto increase = py[i] - psig[px[i]];
 	}
 
-	return py::make_tuple(annoty, leftrightflag);
+	return nb::make_tuple(annoty, leftrightflag);
 }
 
-static py::object make_kernels(py::array_t<float> freq, py::array_t<float> spectrum, int w) {
+static nb::object make_kernels(nb::ndarray<float> freq, nb::ndarray<float> spectrum, int w) {
 
-	py::buffer_info infospec = spectrum.request();
-	if (infospec.ndim != 1)
+	if (spectrum.ndim() != 1)
 		throw std::runtime_error("Bad number of dimensions");
-	auto* pspec = (float*)infospec.ptr;
-	int stridespec = infospec.strides[0] / sizeof(float);
+	auto* pspec = spectrum.data();
+	int stridespec = spectrum.stride(0);
 
-	py::buffer_info infofreq = freq.request();
-	if (infofreq.ndim != 1)
+	if (freq.ndim() != 1)
 		throw std::runtime_error("Bad number of dimensions");
-	auto* pfreq = (float*)infofreq.ptr;
-	int stridefreq = infofreq.strides[0] / sizeof(float);
+	auto* pfreq = freq.data();
+	int stridefreq = freq.stride(0);
 
-	int n = infofreq.shape[0];
-	if (n!= infospec.shape[0])
+	int n = freq.shape(0);
+	if (n!= spectrum.shape(0))
 		throw std::runtime_error("Bad Spectrum and freq need to have same size");
 
 	ss::vector_<int32_t> spectrum_;
@@ -403,15 +403,17 @@ static py::object make_kernels(py::array_t<float> freq, py::array_t<float> spect
 	stid135_spectral_scan_init(&ss, &si, spectrum_.buffer(), freq_.buffer(), freq_.size());
 	si.w = w;
 
-	auto ret = py::array_t<int, py::array::c_style>({2, freq_.size()});
-	py::buffer_info ret_info = ret.request();
-	int ret_stride0 = ret_info.strides[0] / sizeof(int);
-	int ret_stride1 = ret_info.strides[1] / sizeof(int);
-	auto* p_ret = (int*)ret_info.ptr;
+	numpy_int_array ret(nullptr /*let nanobind allocate*/, {2, (unsigned long) freq_.size()}, nullptr /*owner*/,
+											{freq_.size(), 1} );
 
-	auto response_ret = py::array_t<float, py::array::c_style>({2,freq_.size()});
-	py::buffer_info response_ret_info = response_ret.request();
-	auto* p_response_ret = (float*)response_ret_info.ptr;
+	int ret_stride0 = ret.stride(0);
+	int ret_stride1 = ret.stride(1);
+	auto* p_ret = ret.data();
+
+	numpy_float_array response_ret(nullptr /*let nanobind allocate*/, {2, (unsigned long) freq_.size()},
+																 nullptr /*owner*/,
+																 {freq_.size(), 1} );
+	auto* p_response_ret = response_ret.data();
 
 	stid135_spectral_init_level(&ss, &si, p_response_ret, p_response_ret+ret_stride0);
 
@@ -419,25 +421,23 @@ static py::object make_kernels(py::array_t<float> freq, py::array_t<float> spect
 		p_ret[i*ret_stride1] = !!(si.peak_marks[i] & FALLING);
 		p_ret[i*ret_stride1+ret_stride0] = !!(si.peak_marks[i] & RISING);
 	}
-	return py::make_tuple(ret, response_ret);
+	return nb::make_tuple(ret, response_ret);
 }
 
-static py::object find_spectral_peaks(py::array_t<float> freq, py::array_t<float> spectrum) {
+static nb::object find_spectral_peaks(nb::ndarray<float> freq, nb::ndarray<float> spectrum) {
 
-	py::buffer_info infospec = spectrum.request();
-	if (infospec.ndim != 1)
+	if (spectrum.ndim() != 1)
 		throw std::runtime_error("Bad number of dimensions");
-	auto* pspec = (float*)infospec.ptr;
-	int stridespec = infospec.strides[0] / sizeof(float);
+	auto* pspec = spectrum.data();
+	int stridespec = spectrum.stride(0);
 
-	py::buffer_info infofreq = freq.request();
-	if (infofreq.ndim != 1)
+	if (freq.ndim() != 1)
 		throw std::runtime_error("Bad number of dimensions");
-	auto* pfreq = (float*)infofreq.ptr;
-	int stridefreq = infofreq.strides[0] / sizeof(float);
+	auto* pfreq = freq.data();
+	int stridefreq = freq.stride(0);
 
-	int n = infofreq.shape[0];
-	if (n!= infospec.shape[0])
+	int n = freq.shape(0);
+	if (n!= spectrum.shape(0))
 		throw std::runtime_error("Bad Spectrum and freq need to have same size");
 
 	ss::vector_<int32_t> spectrum_;
@@ -453,15 +453,17 @@ static py::object find_spectral_peaks(py::array_t<float> freq, py::array_t<float
 	ss::vector_<spectral_peak_t> res;
 	find_tps(res,	spectrum_, freq_);
 
-	py::array_t<float, py::array::c_style> peak_freq(res.size());
-	py::buffer_info peak_freq_info = peak_freq.request();
-	int peak_freq_stride = peak_freq_info.strides[0] / sizeof(float);
-	auto* p_peak_freq = (float*)peak_freq_info.ptr;
+	numpy_float_array peak_freq(nullptr /*let nanobind allocate*/, {(unsigned long) res.size()},
+															nullptr /*owner*/,
+															{1} );
+	int peak_freq_stride = peak_freq.stride(0);
+	auto* p_peak_freq = peak_freq.data();
 
-	py::array_t<float, py::array::c_style> peak_sr(res.size());
-	py::buffer_info peak_sr_info = peak_sr.request();
-	int peak_sr_stride = peak_sr_info.strides[0] / sizeof(float);
-	auto* p_peak_sr = (float*)peak_sr_info.ptr;
+	numpy_float_array peak_sr(nullptr /*let nanobind allocate*/, {(unsigned long) res.size()},
+															nullptr /*owner*/,
+															{1} );
+	int peak_sr_stride = peak_sr.stride(0);
+	auto* p_peak_sr = peak_sr.data();
 
 	int i=0;
 	for(const auto& peak: res) {
@@ -469,10 +471,10 @@ static py::object find_spectral_peaks(py::array_t<float> freq, py::array_t<float
 		p_peak_sr[i* peak_sr_stride] = peak.symbol_rate;
 		++i;
 	}
-	return py::make_tuple(peak_freq, peak_sr);
+	return nb::make_tuple(peak_freq, peak_sr);
 }
 
-PYBIND11_MODULE(pyspectrum, m) {
+NB_MODULE(pyspectrum, m) {
 	m.doc() = R"pbdoc(
 
 	)pbdoc";
@@ -480,10 +482,10 @@ PYBIND11_MODULE(pyspectrum, m) {
 	m.def("find_annot_locations", &find_annot_locations)
 		.def("find_spectral_peaks", &find_spectral_peaks,
 				 "detect peaks in the spectrum and return their center frequencies and symbol rate",
-				 py::arg("freq"), py::arg("spectrum")
+				 nb::arg("freq"), nb::arg("spectrum")
 			)
 		.def("make_kernels", &make_kernels,
-				 "make kernels", py::arg("freq"), py::arg("spectrum"), py::arg("w")
+				 "make kernels", nb::arg("freq"), nb::arg("spectrum"), nb::arg("w")
 			)
 		;
 }

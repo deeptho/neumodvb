@@ -1,7 +1,7 @@
 find_package(wxWidgets REQUIRED net gl core base)
 include(${wxWidgets_USE_FILE})
 
-add_library(neumoreceiver SHARED  receiver.cc commands.cc subscriber.cc subscriber_notify.cc tune.cc scan.cc
+add_library(neumoreceiver SHARED  receiver.cc commands.cc subscriber.cc tune.cc scan.cc
   active_adapter.cc devmanager.cc fe_monitor.cc options.cc neumodemux.cc modcods.cc
   active_si_stream.cc recmgr.cc frontend.cc scam.cc
   active_stream.cc active_service.cc filemapper.cc live_mpm.cc active_playback.cc playback_mpm.cc mpm_cursor.cc
@@ -15,8 +15,8 @@ target_precompile_headers(neumoreceiver PRIVATE
   active_si_stream.h dvbapi.h mpm.h neumo.h recmgr.h scan.h task.h)
 
 
-string (REPLACE ";" " -I" EXTRA_FLAGS_STR "${pybind11_INCLUDE_DIRS}")
-set_source_files_properties( subscriber_notify.cc COMPILE_FLAGS ${EXTRA_FLAGS_STR} )
+#string (REPLACE ";" " -I" EXTRA_FLAGS_STR "${NB_INCLUDE_DIRS}")
+#set_source_files_properties( subscriber_notify.cc COMPILE_FLAGS ${EXTRA_FLAGS_STR} )
 
 set_source_files_properties( playback_mpm.cc COMPILE_FLAGS -Wimplicit-int-conversion )
 set_source_files_properties( live_mpm.cc COMPILE_FLAGS -Wimplicit-int-conversion )
@@ -42,7 +42,6 @@ target_link_libraries(neumo-tune PRIVATE neumoutil  stdc++fs)
 include_directories(
     # The location of the headers before installation
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../pybind11/include>
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     # The location of the headers after installation
@@ -52,9 +51,9 @@ include_directories(
 add_subdirectory(streamparser)
 
 
-pybind11_add_module(pyreceiver receiver_pybind.cc setproctitle.c options_pybind.cc
-  subscriber_pybind.cc subscriber_data_pybind.cc logger_pybind.cc)
-pybind11_add_module(pyspectrum spectrum_pybind.cc spectrum_algo5.cc)
+nanobind_add_module(pyreceiver NB_SHARED receiver_pybind.cc setproctitle.c options_pybind.cc
+  subscriber_pybind.cc subscriber_data_pybind.cc logger_pybind.cc subscriber_notify.cc)
+nanobind_add_module(pyspectrum NB_SHARED  spectrum_pybind.cc spectrum_algo5.cc)
 
 
 target_compile_options(pyreceiver PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error

@@ -23,21 +23,22 @@
 #include "stackstring/stackstring.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 #include <stdio.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-extern void export_neumodb(py::module& m);
-extern void export_recdb(py::module& m);
+extern void export_neumodb(nb::module_& m);
+extern void export_recdb(nb::module_& m);
 
 namespace recdb {
-	extern void export_enums(py::module& m);
-	extern void export_enums(py::module& m);
-	extern void export_structs(py::module& m);
+	extern void export_enums(nb::module_& m);
+	extern void export_enums(nb::module_& m);
+	extern void export_structs(nb::module_& m);
 } // namespace recdb
 
-PYBIND11_MODULE(pyrecdb, m) {
+NB_MODULE(pyrecdb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 channel database
         -----------------------

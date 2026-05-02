@@ -23,35 +23,37 @@
 #include "neumodb/devdb/devdb_extra.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/tuple.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 using namespace chdb;
 
-extern void export_neumodb(py::module& m);
-extern void export_chdb(py::module& m);
+extern void export_neumodb(nb::module_& m);
+extern void export_chdb(nb::module_& m);
 namespace chdb {
-	extern void export_enums(py::module& m);
-	extern void export_structs(py::module& m);
+	extern void export_enums(nb::module_& m);
+	extern void export_structs(nb::module_& m);
 } // namespace chdb
 
-static void export_chdb_extra(py::module& m) {
+static void export_chdb_extra(nb::module_& m) {
 	m.def("select_sat_and_reference_mux", &chdb::select_sat_and_reference_mux,
 				"Select a sat and reference mux for an lnb; use prosed_mux if suitable, else use "
 				"one which will not move positioner",
-				py::arg("rtxn"), py::arg("lnb"), py::arg("proposed_mux").none(true) = nullptr)
+				nb::arg("rtxn"), nb::arg("lnb"), nb::arg("proposed_mux").none(true) = nullptr)
 		.def("select_reference_mux", &chdb::select_reference_mux,
 				"Select a reference mux for an lnb; choose a mux from the database or mux with good defaults",
-				 py::arg("chdb_rtxn"), py::arg("lnb"), py::arg("sat_pos").none(true) = nullptr)
+				 nb::arg("chdb_rtxn"), nb::arg("lnb"), nb::arg("sat_pos").none(true) = nullptr)
 		.def("select_sat_for_sat_band", &chdb::select_sat_for_sat_band,
 				"Select a sat for a specific sat_band, prefering one with a close sat_pos",
-				 py::arg("chdb_rtxn"), py::arg("sat_band"), py::arg("sat_pos") = sat_pos_none)
+				 nb::arg("chdb_rtxn"), nb::arg("sat_band"), nb::arg("sat_pos") = sat_pos_none)
 		;
 }
 
-static void export_mux_extra(py::module& m) {
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("dvbs_mux"));
+static void export_mux_extra(nb::module_& m) {
+	auto mm = nb::borrow<nb::module_>(m.attr("dvbs_mux"));
 	mm.def("make_unique_if_template", make_unique_if_template<dvbs_mux_t>,
 				 "Make the key of this mux unique, but only if network_id==mux_id==extra_id==0")
 		.def("list_distinct_sats", chdb::dvbs_mux::list_distinct_sats, "List distinct sat_pos of all muxes")
@@ -72,23 +74,23 @@ static void export_mux_extra(py::module& m) {
 						 return {};
 				 },
 				 "Find a mux by sat_pos, frequency and pol, allowing small differences in frequency and sat_pos",
-				 py::arg("chdb_rtxn"), py::arg("sat_pos"), py::arg("frequency"), py::arg("pol"),
-				 py::arg("stream_id")=-1, py::arg("t2mi_pid") = -1)
+				 nb::arg("chdb_rtxn"), nb::arg("sat_pos"), nb::arg("frequency"), nb::arg("pol"),
+				 nb::arg("stream_id")=-1, nb::arg("t2mi_pid") = -1)
 		;
 
-	py::reinterpret_borrow<py::module>(m.attr("dvbc_mux"))
+	nb::borrow<nb::module_>(m.attr("dvbc_mux"))
 		.def("make_unique_if_template", make_unique_if_template<dvbc_mux_t>,
 				 "Make the key of this mux unique, but only if network_id==mux_id==extra_id==0")
 		;
 
-	py::reinterpret_borrow<py::module>(m.attr("dvbt_mux"))
+	nb::borrow<nb::module_>(m.attr("dvbt_mux"))
 		.def("make_unique_if_template", make_unique_if_template<dvbt_mux_t>,
 				 "Make the key of this mux unique, but only if network_id==mux_id==extra_id==0")
 		;
 }
 
-static void export_sat_extra(py::module& m) {
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("sat"));
+static void export_sat_extra(nb::module_& m) {
+	auto mm = nb::borrow<nb::module_>(m.attr("sat"));
 	mm.attr("sat_pos_dvbc") = sat_pos_dvbc;
 	mm.attr("sat_pos_dvbt") = sat_pos_dvbt;
 	mm.attr("sat_pos_dvbs") = sat_pos_dvbs;
@@ -96,38 +98,38 @@ static void export_sat_extra(py::module& m) {
 	mm.def("freq_bounds", [](chdb::sat_band_t& sat_band) {
 		return chdb::sat_band_freq_bounds(sat_band, chdb::sat_sub_band_t::NONE);
 	}, "Frequency bounds for a satellite band",
-		py::arg("sat_band"));
+		nb::arg("sat_band"));
 }
 
-static void export_chg_extra(py::module& m) {
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("chg"));
+static void export_chg_extra(nb::module_& m) {
+	auto mm = nb::borrow<nb::module_>(m.attr("chg"));
 	mm.def("contains_service", chdb::bouquet_contains_service, "Returns True if the bouquet contains the service",
-				 py::arg("rtxn"), py::arg("bouquet"), py::arg("service_key"))
+				 nb::arg("rtxn"), nb::arg("bouquet"), nb::arg("service_key"))
 		.def("toggle_service_in_bouquet", chdb::toggle_service_in_bouquet,
-				 "Add service to bouquet if it is not already in there, otherwise remove it", py::arg("wtxn"), py::arg("chg"),
-				 py::arg("service"))
+				 "Add service to bouquet if it is not already in there, otherwise remove it", nb::arg("wtxn"), nb::arg("chg"),
+				 nb::arg("service"))
 		.def("toggle_channel_in_bouquet", chdb::toggle_channel_in_bouquet,
-				 "Add channel to bouquet if it is not already in there, otherwise remove it", py::arg("wtxn"), py::arg("chg"),
-				 py::arg("channel"))
+				 "Add channel to bouquet if it is not already in there, otherwise remove it", nb::arg("wtxn"), nb::arg("chg"),
+				 nb::arg("channel"))
 		.def("make_unique_if_template", make_unique_if_template<chg_t>,
 				 "Make the key of this chg unique, but only if id==bouquet_id_template")
 		;
 }
 
-static void export_chgm_extra(py::module& m) {
-	auto mm = py::reinterpret_borrow<py::module>(m.attr("chgm"));
+static void export_chgm_extra(nb::module_& m) {
+	auto mm = nb::borrow<nb::module_>(m.attr("chgm"));
 	mm.def("make_unique_if_template", make_unique_if_template<chgm_t>,
 			 "Make the key of this chg unique, but only if id==channel_id_template")
 		;
 }
 
-static void export_lang_extra(py::module& m) {
+static void export_lang_extra(nb::module_& m) {
 	m.def("lang_name", &chdb::lang_name,
-				"human readable language name", py::arg("lang_code"))
+				"human readable language name", nb::arg("lang_code"))
 		;
 }
 
-PYBIND11_MODULE(pychdb, m) {
+NB_MODULE(pychdb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 channel database
         -----------------------
@@ -143,41 +145,41 @@ PYBIND11_MODULE(pychdb, m) {
 
 	m.def(
 		"sat_pos_str", [](int sat_pos) { return std::string(sat_pos_str(sat_pos).c_str()); },
-		"make human readable representation", py::arg("sat_pos"))
+		"make human readable representation", nb::arg("sat_pos"))
 		.def("sat_band_for_freq", &chdb::sat_band_for_freq,
 				 "Sat band and low/high for frequency",
-				 py::arg("freq")
+				 nb::arg("freq")
 			)
 		.def(
 			"key_src_str", [](key_src_t key_src) { return std::string(fmt::format("{}",key_src)); },
-			"make human readable representation", py::arg("key_src"))
+			"make human readable representation", nb::arg("key_src"))
 		.def(
 			"tune_src_str", [](tune_src_t tune_src) { return std::string(fmt::format("{}",tune_src)); },
-			"make human readable representation", py::arg("tune_src"))
+			"make human readable representation", nb::arg("tune_src"))
 		.def("matype_str", [](int matype) { return std::string(matype_str(matype).c_str()); },
-				 "make human readable representation", py::arg("matype"))
+				 "make human readable representation", nb::arg("matype"))
 		.def(
 			"to_str", [](const sat_t& sat) { return std::string(fmt::format("{}", sat)); },
 			"make human readable representation",
-			py::arg("sat"))
+			nb::arg("sat"))
 		.def(
 			"to_str",
 			[](const dvbs_mux_t& mux) {
 				return std::string(fmt::format("{}", mux));
 			},
-			"make human readable representation", py::arg("mux"))
+			"make human readable representation", nb::arg("mux"))
 		.def(
 			"to_str",
 			[](const dvbc_mux_t& mux) {
 				return std::string(fmt::format("{}", mux));
 			},
-			"make human readable representation", py::arg("mux"))
+			"make human readable representation", nb::arg("mux"))
 		.def(
 			"to_str",
 			[](const dvbt_mux_t& mux) {
 				return std::string(fmt::format("{}", mux));
 			},
-			"make human readable representation", py::arg("mux"))
+			"make human readable representation", nb::arg("mux"))
 		.def("delsys_to_type", &chdb::delsys_to_type)
 		;
 	export_neumodb(m);

@@ -5,7 +5,6 @@ include_directories(
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../pybind11/include>
     # The location of the headers after installation
     $<INSTALL_INTERFACE:include>
 )
@@ -58,7 +57,7 @@ add_dependencies(schema schema_generated_files)
 target_compile_options(schema PUBLIC -fPIC -fsized-deallocation)
 target_link_libraries(schema PUBLIC stackstring neumolmdb neumoutil neumodb uuid)
 
-pybind11_add_module(pyschemadb SHARED schemadb_pybind.cc ${pybind_srcs})
+nanobind_add_module(pyschemadb SHARED NB_SHARED  schemadb_pybind.cc ${pybind_srcs})
 target_link_libraries(pyschemadb PRIVATE pyneumodb schema)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)

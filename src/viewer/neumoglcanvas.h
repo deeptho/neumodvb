@@ -37,8 +37,6 @@
 
 #include <wx/glcanvas.h>
 
-
-//namespace py = pybind11;
 class MpvApp : public wxApp
 {
 public:

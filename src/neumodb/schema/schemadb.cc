@@ -21,25 +21,25 @@
 #include "neumodb/schema/schema_extra.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 using namespace schema;
 
-extern void export_neumodb(py::module& m);
+extern void export_neumodb(nb::module_& m);
 
 namespace schema {
-	extern void export_enums(py::module& m);
-	extern void export_structs(py::module& m);
+	extern void export_enums(nb::module_& m);
+	extern void export_structs(nb::module_& m);
 }; // end namespace  schema
 
-static void export_schema(py::module& m) {
-	py::class_<schema::schema_t, neumodb_t>(m, "schema").def(py::init<>())
+static void export_schema(nb::module_& m) {
+	nb::class_<schema::schema_t, neumodb_t>(m, "schema").def(nb::init<>())
 		;
 }
 
-PYBIND11_MODULE(pyschemadb, m) {
+NB_MODULE(pyschemadb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 channel database
         -----------------------

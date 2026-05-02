@@ -18,14 +18,14 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> //for std::optional
-#include <pybind11/stl_bind.h>
-#include <pybind11/numpy.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/ndarray.h>
 #include <stdio.h>
 
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using numpy_int_array = nb::ndarray<int, nb::numpy, nb::ndim<1>, nb::c_contig>;
 
 typedef int32_t s32;
 typedef uint8_t u8;
@@ -497,19 +497,18 @@ int stid135_spectral_scan_next(struct spectrum_scan_state_t* ss,   s32 *frequenc
 	return -1;
 }
 
-py::array_t<int> find_kernel_tps(py::array_t<int> sig, int w, int thresh, int mincount, int frequency_step)
+numpy_int_array find_kernel_tps(numpy_int_array sig, int w, int thresh, int mincount, int frequency_step)
 {
-	py::buffer_info infosig = sig.request();
-	if (infosig.ndim!=1)
+	if (sig.ndim()!=1)
 		throw std::runtime_error("Bad number of dimensions");
 	ss.threshold = thresh;
 	ss.w = w;
 	ss.mincount = mincount;
-	int* psig =  (int *) infosig.ptr;
+	int* psig = sig.data();
 	int stridesig = infosig.strides[0]/sizeof(int);
 	int n = infosig.shape[0];
-	py::array_t<int,  py::array::f_style> res(infosig.shape);
-	py::buffer_info infores = res.request();
+	nb::array_t<int,  nb::array::f_style> res(infosig.shape);
+	nb::buffer_info infores = res.request();
 	bool peak_found=false;
 	int strideres = infosig.strides[0]/sizeof(int);
 	int* pres =  (int *) infores.ptr;
@@ -537,9 +536,9 @@ py::array_t<int> find_kernel_tps(py::array_t<int> sig, int w, int thresh, int mi
 	return res;
 }
 
-py::array_t<int> morpho(py::array_t<int> sig, int max_level, int thresh)
+nb::array_t<int> morpho(nb::array_t<int> sig, int max_level, int thresh)
 {
-	py::buffer_info infosig = sig.request();
+	nb::buffer_info infosig = sig.request();
 	if (infosig.ndim!=1)
 		throw std::runtime_error("Bad number of dimensions");
 	ss.threshold = thresh;
@@ -553,8 +552,8 @@ py::array_t<int> morpho(py::array_t<int> sig, int max_level, int thresh)
 	auto s = infosig.shape;
 	s[0] *=3;
 
-	py::array_t<int,  py::array::f_style> res(s);
-	py::buffer_info infores = res.request();
+	nb::array_t<int,  nb::array::f_style> res(s);
+	nb::buffer_info infores = res.request();
 	bool peak_found=false;
 	int strideres = infosig.strides[0]/sizeof(int);
 	int* pres =  (int *) infores.ptr;
@@ -636,18 +635,18 @@ static void rising_(int* pres, int* psig, int n, int w, int thresh)
 
 
 uint8_t test[500000];
-py::array_t<int> find_tps(py::array_t<int> sig, int w, int thresh, int mincount)
+nb::array_t<int> find_tps(nb::array_t<int> sig, int w, int thresh, int mincount)
 {
 
-	py::buffer_info infosig = sig.request();
+	nb::buffer_info infosig = sig.request();
 	if (infosig.ndim!=1)
 		throw std::runtime_error("Bad number of dimensions");
 
 	int* psig =  (int *) infosig.ptr;
 	int stridesig = infosig.strides[0]/sizeof(int);
 	int n = infosig.shape[0];
-	py::array_t<int,  py::array::f_style> res(infosig.shape);
-	py::buffer_info infores = res.request();
+	nb::array_t<int,  nb::array::f_style> res(infosig.shape);
+	nb::buffer_info infores = res.request();
 	bool peak_found=false;
 	int strideres = infores.strides[0]/sizeof(int);
 	int* pres =  (int *) infores.ptr;
@@ -707,18 +706,18 @@ py::array_t<int> find_tps(py::array_t<int> sig, int w, int thresh, int mincount)
 }
 
 
-static py::array_t<int> falling(py::array_t<int> sig, int w, int thresh, int frequency_step)
+static nb::array_t<int> falling(nb::array_t<int> sig, int w, int thresh, int frequency_step)
 {
 
-	py::buffer_info infosig = sig.request();
+	nb::buffer_info infosig = sig.request();
 	if (infosig.ndim!=1)
 		throw std::runtime_error("Bad number of dimensions");
 
 	int* psig =  (int *) infosig.ptr;
 	int stridesig = infosig.strides[0]/sizeof(int);
 	int n = infosig.shape[0];
-	py::array_t<int,  py::array::f_style> res(infosig.shape);
-	py::buffer_info infores = res.request();
+	nb::array_t<int,  nb::array::f_style> res(infosig.shape);
+	nb::buffer_info infores = res.request();
 	bool peak_found=false;
 	int strideres = infores.strides[0]/sizeof(int);
 	int* pres =  (int *) infores.ptr;
@@ -728,18 +727,18 @@ static py::array_t<int> falling(py::array_t<int> sig, int w, int thresh, int fre
 	return res;
 }
 
-static py::array_t<int> rising(py::array_t<int> sig, int w, int thresh, int frequency_step)
+static nb::array_t<int> rising(nb::array_t<int> sig, int w, int thresh, int frequency_step)
 {
 
-	py::buffer_info infosig = sig.request();
+	nb::buffer_info infosig = sig.request();
 	if (infosig.ndim!=1)
 		throw std::runtime_error("Bad number of dimensions");
 
 	int* psig =  (int *) infosig.ptr;
 	int stridesig = infosig.strides[0]/sizeof(int);
 	int n = infosig.shape[0];
-	py::array_t<int,  py::array::f_style> res(infosig.shape);
-	py::buffer_info infores = res.request();
+	nb::array_t<int,  nb::array::f_style> res(infosig.shape);
+	nb::buffer_info infores = res.request();
 	bool peak_found=false;
 	int strideres = infores.strides[0]/sizeof(int);
 	int* pres =  (int *) infores.ptr;
@@ -750,18 +749,18 @@ static py::array_t<int> rising(py::array_t<int> sig, int w, int thresh, int freq
 }
 
 
-py::array_t<int> find_tpsV2(py::array_t<int> sig, int w, int thresh)
+nb::array_t<int> find_tpsV2(nb::array_t<int> sig, int w, int thresh)
 {
 
-	py::buffer_info infosig = sig.request();
+	nb::buffer_info infosig = sig.request();
 	if (infosig.ndim!=1)
 		throw std::runtime_error("Bad number of dimensions");
 
 	int* psig =  (int *) infosig.ptr;
 	int stridesig = infosig.strides[0]/sizeof(int);
 	int n = infosig.shape[0];
-	py::array_t<int,  py::array::f_style> res(infosig.shape);
-	py::buffer_info infores = res.request();
+	nb::array_t<int,  nb::array::f_style> res(infosig.shape);
+	nb::buffer_info infores = res.request();
 	bool peak_found=false;
 	int strideres = infores.strides[0]/sizeof(int);
 	int* pres =  (int *) infores.ptr;
@@ -807,7 +806,7 @@ py::array_t<int> find_tpsV2(py::array_t<int> sig, int w, int thresh)
 	return res;
 }
 
-PYBIND11_MODULE(pyspectrum1, m) {
+NB_MODULE(pyspectrum1, m) {
 	m.doc() = R"pbdoc(
 
 	)pbdoc";

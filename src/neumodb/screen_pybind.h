@@ -21,14 +21,14 @@
 
 #pragma once
 
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include <stdio.h>
 #include "screen.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 template<typename record_t>
-void export_screen_(py::module &m, const char* pytypename)
+void export_screen_(nb::module_ &m, const char* pytypename)
 {
 	static int called = false;
 	if(called)

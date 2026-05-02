@@ -25,22 +25,23 @@
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
 #include "neumotime.h"
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 #include <stdio.h>
-namespace py = pybind11;
-void export_find_type(py::module& m) {
+namespace nb = nanobind;
+void export_find_type(nb::module_& m) {
 	static int called = false;
 	if (called)
 		return;
 	called = true;
-	py::enum_<find_type_t>(m, "find_type_t", py::arithmetic())
+	nb::enum_<find_type_t>(m, "find_type_t", nb::is_arithmetic())
 		.value("find_eq", find_type_t::find_eq)
 		.value("find_geq", find_type_t::find_geq)
 		.value("find_leq", find_type_t::find_leq)
 		;
 }
 
-void export_field_matcher_t(py::module& m) {
+void export_field_matcher_t(nb::module_& m) {
 	static int called = false;
 	if (called)
 		return;
@@ -49,7 +50,7 @@ void export_field_matcher_t(py::module& m) {
 	auto mm = m.def_submodule("field_matcher");
 	typedef field_matcher_t::match_type_t m_t;
 
-	py::enum_<m_t>(mm, "match_type", py::arithmetic())
+	nb::enum_<m_t>(mm, "match_type", nb::is_arithmetic())
 		.value("EQ", m_t::EQ)
 		.value("GEQ", m_t::GEQ)
 		.value("LEQ", m_t::LEQ)
@@ -59,25 +60,25 @@ void export_field_matcher_t(py::module& m) {
 		.value("CONTAINS", m_t::CONTAINS)
 		;
 
-	py::class_<field_matcher_t>(mm, "field_matcher")
-		.def(py::init<int8_t, field_matcher_t::match_type_t>())
+	nb::class_<field_matcher_t>(mm, "field_matcher")
+		.def(nb::init<int8_t, field_matcher_t::match_type_t>())
 		.def("__repr__",
 				 [](field_matcher_t matcher) {
 					 return std::string(fmt::format("{}", matcher));
 				 })
-		.def_readwrite("field_id", &field_matcher_t::field_id)
-		.def_readwrite("match_type", &field_matcher_t::match_type)
+		.def_rw("field_id", &field_matcher_t::field_id)
+		.def_rw("match_type", &field_matcher_t::match_type)
 		;
 }
 
-void export_milli_seconds_t(py::module& m) {
+void export_milli_seconds_t(nb::module_& m) {
 	static int called = false;
 	if (called)
 		return;
 	called = true;
 
-	py::class_<milliseconds_t>(m, "milli_seconds")
-		.def(py::init<int64_t>())
+	nb::class_<milliseconds_t>(m, "milli_seconds")
+		.def(nb::init<int64_t>())
 		.def("__repr__",
 				 [](milliseconds_t s) {
 					 return fmt::format("{}", s);
@@ -86,7 +87,7 @@ void export_milli_seconds_t(py::module& m) {
 		;
 }
 
-EXPORT void export_neumodb(py::module& m) {
+EXPORT void export_neumodb(nb::module_& m) {
 	static bool called = false;
 	m.attr("neumo_schema_version") = neumo_schema_version; //needs to be before the if(called)
 	if (called)
@@ -105,22 +106,21 @@ EXPORT void export_neumodb(py::module& m) {
 	export_ss_vector(m, int64_t);
 
 	export_milli_seconds_t(m);
-	py::class_<db_txn>(m, "db_txn")
+	nb::class_<db_txn>(m, "db_txn")
 		.def("commit", &db_txn::commit, "Commit transaction")
 		.def(
 			"abort", [](db_txn& self) { self.abort(); }, "Abort transaction")
 		.def(
 			"child_txn", [](db_txn& self, neumodb_t& db) { return self.child_txn(db); }, "child transaction")
 		;
-	py::class_<neumodb_t>(m, "neumodb")
-		.def("open", &neumodb_t::open, "Open database file", py::arg("dbpath"), py::arg("allow_degraded_mode") = false,
-				 py::arg("table_name") = nullptr, py::arg("use_log") = true, py::arg("mapsize") = 128 * 1024u * 1024u)
+	nb::class_<neumodb_t>(m, "neumodb")
+		.def("open", &neumodb_t::open, "Open database file", nb::arg("dbpath"), nb::arg("allow_degraded_mode") = false,
+				 nb::arg("table_name") = nullptr, nb::arg("use_log") = true, nb::arg("mapsize") = 128 * 1024u * 1024u)
 		.def("open_secondary", &neumodb_t::open_secondary, "Open a second table in an already open datase",
-				 py::arg("table_name"), py::arg("allow_degraded_mode") = false)
-		// py::keep_alive<0,1>() => ensure that the result of wtxn and rtxn os destroyed before teh database
-		.def("wtxn", &neumodb_t::wtxn, py::keep_alive<0, 1>())
-		.def("rtxn", &neumodb_t::rtxn, py::keep_alive<0, 1>())
-		.def_readonly("db_version", &neumodb_t::db_version)
+				 nb::arg("table_name"), nb::arg("allow_degraded_mode") = false)
+		.def("wtxn", &neumodb_t::wtxn, nb::keep_alive<0, 1>())
+		.def("rtxn", &neumodb_t::rtxn, nb::keep_alive<0, 1>())
+		.def_ro("db_version", &neumodb_t::db_version)
 		.def("stats", &stats_db)
 		;
 }

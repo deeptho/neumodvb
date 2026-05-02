@@ -23,12 +23,11 @@
 #include "receiver/scan.h"
 #include "subscriber_pybind.h"
 #include "viewer/wxpy_api.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> //for std::optional
+#include <nanobind/nanobind.h>
 #include <stdio.h>
 #include <wx/window.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 static void logger_log(bool is_error, const char* file, const char* func, int line, const char* message) {
 	if (LOG4CXX_UNLIKELY(logger->isDebugEnabled())) {
@@ -46,6 +45,6 @@ static void logger_log(bool is_error, const char* file, const char* func, int li
 	}
 }
 
-void export_logger(py::module& m) {
+void export_logger(nb::module_& m) {
 	m.def("log", &logger_log);
 }

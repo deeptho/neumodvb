@@ -5,7 +5,6 @@ include_directories(
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../pybind11/include>
     # The location of the headers after installation
     $<INSTALL_INTERFACE:include>
 )
@@ -58,7 +57,7 @@ add_dependencies(statdb stat_generated_files dev_generated_files ch_generated_fi
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(statdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 
-pybind11_add_module(pystatdb statdb_pybind.cc statdb_vector_pybind.cc ${pybind_srcs})
+nanobind_add_module(pystatdb NB_SHARED statdb_pybind.cc statdb_vector_pybind.cc ${pybind_srcs})
 
 target_compile_options(pystatdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb neumodb schema fmt::fmt uuid)

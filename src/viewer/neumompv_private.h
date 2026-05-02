@@ -31,7 +31,7 @@
 #include <mpv/stream_cb.h>
 #include <mpv/render_gl.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 inline void none() {}
 
@@ -226,7 +226,7 @@ public:
 #if 0
 	void repaint();
 #endif
-	void make_canvas(py::object frame_);
+	void make_canvas(nb::object frame_);
 	void notify_signal_info(const signal_info_t& info);
 	void notify_message(const ss::string_& msg);
 	void update_playback_info();

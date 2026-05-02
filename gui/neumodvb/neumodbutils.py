@@ -21,27 +21,28 @@ import os
 import inspect
 import functools
 
+
 def is_enum(field):
-     return hasattr(field, '__entries') and hasattr(field,'__module__')
+     return hasattr(field, '_member_names_') and hasattr(field,'__module__')
 
 def enum_to_str(val):
      return str(val).split('.')[-1]
 
 def enum_labels(field):
      ret = []
-     for k in getattr(field, '__entries').keys():
+     for k in getattr(field, '_member_names_'):
           ret.append(k.replace('_', ' '))
      return ret
 
 def enum_values_and_labels(field):
      from collections import OrderedDict
      ret = OrderedDict()
-     for k in getattr(field, '__entries').keys():
+     for k in getattr(field, '_member_names_'):
           ret[getattr(field,k)] = k.replace('_', ' ')
      return ret
 
 def enum_value_for_label(enum, label):
-     a = getattr(enum, '__entries')
+     a = getattr(enum, '_member_names_')
      if label in a:
           return a[label][0]
      l = label.replace(' ', '_')
@@ -77,7 +78,7 @@ def enum_set_subfield(obj, dotkey, val):
           dtdebug(f'Cannot set field {dotkey} to value {val}')
 
 def is_class(field):
-     return hasattr(field,'__module__')  and not hasattr(field, '__entries')
+     return hasattr(field,'__module__')  and not hasattr(field, '_member_names_')
 
 def get_dotkeys(cls, prefix=[]):
      """

@@ -5,7 +5,6 @@ include_directories(
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../pybind11/include>
     # The location of the headers after installation
     $<INSTALL_INTERFACE:include>
 )
@@ -57,7 +56,7 @@ add_dependencies(recdb rec_generated_files dev_generated_files ch_generated_file
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(recdb PUBLIC -fPIC -fsized-deallocation)
 
-pybind11_add_module(pyrecdb recdb_pybind.cc ${pybind_srcs})
+nanobind_add_module(pyrecdb NB_SHARED recdb_pybind.cc ${pybind_srcs})
 
 target_compile_options(pyrecdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(recdb PUBLIC stackstring neumolmdb chdb epgdb neumodb schema)

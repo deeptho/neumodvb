@@ -22,73 +22,73 @@
 #include "neumodb/metadata.h"
 #include "neumodb/dbdesc.h"
 #include "neumodb/schema/schema.h"
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 #include <stdio.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-#define INVALID {py::cast<py::none>(Py_None), offset}
+#define INVALID {nb::none(), offset}
 
 
 
 
 static inline
-std::tuple<py::object,int> deserialize_int_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
+std::tuple<nb::object,int> deserialize_int_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
 	int64_t val;
 	auto new_offset = deserialize_int(ser, val, foreign_type_id, offset);
 	if(new_offset>=0) {
-		py::int_ val_{val};
+		nb::int_ val_{val};
 		return {val_, new_offset};
 	}
 	assert(0);
-	return {py::cast<py::none>(Py_None), offset};
+	return {nb::none(), offset};
 }
 
 static inline
-std::tuple<py::object,int> deserialize_float_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
+std::tuple<nb::object,int> deserialize_float_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
 	float32_t val;
 	auto new_offset = deserialize_float(ser, val, foreign_type_id, offset);
 	if(new_offset>=0) {
-		py::float_ val_{val};
+		nb::float_ val_{val};
 		return {val_, new_offset};
 	}
 	assert(0);
-	return {py::cast<py::none>(Py_None), offset};
+	return {nb::none(), offset};
 }
 
 static inline
-std::tuple<py::object,int> deserialize_boolean_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
+std::tuple<nb::object,int> deserialize_boolean_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
 	int64_t val;
 	auto new_offset = deserialize_int(ser, val, foreign_type_id, offset);
 	if(new_offset>=0) {
-		py::bool_ val_{(bool)val};
+		nb::bool_ val_{(bool)val};
 		return {val_, new_offset};
 	}
 	assert(0);
-	return {py::cast<py::none>(Py_None), offset};
+	return {nb::none(), offset};
 }
 
 static inline
-std::tuple<py::object,int> deserialize_string_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
+std::tuple<nb::object,int> deserialize_string_to_python(const ss::bytebuffer_&ser, int foreign_type_id, int offset) {
 	ss::string<256> val;
 	auto new_offset = deserialize(ser, val, offset);
 	if(new_offset>=0) {
-		py::str val_{val.c_str()};
+		nb::str val_{val.c_str()};
 		return {val_, new_offset};
 	}
 	assert(0);
-	return {py::cast<py::none>(Py_None), offset};
+	return {nb::none(), offset};
 }
 
 
 
 
-std::tuple<py::object, int> deserialize_safe_to_python(const ss::bytebuffer_ &ser,
+std::tuple<nb::object, int> deserialize_safe_to_python(const ss::bytebuffer_ &ser,
 																											 const record_desc_t& foreign_record_desc,
 																											 const dbdesc_t& db, size_t offset);
 
 
-std::tuple<py::object, int> deserialize_builtin_safe_to_python
+std::tuple<nb::object, int> deserialize_builtin_safe_to_python
 (const ss::bytebuffer_& ser, const dbdesc_t& db, uint32_t type_id, size_t offset)  {
 	assert(data_types::is_builtin_type(type_id));
 	if(data_types::is_int_type(type_id)) {
@@ -104,15 +104,15 @@ std::tuple<py::object, int> deserialize_builtin_safe_to_python
 		return deserialize_string_to_python(ser, type_id, offset);
 	}
 	assert (0);
-	return {py::cast<py::none>(Py_None), -1};
+	return {nb::none(), -1};
 }
 
-std::tuple<py::object, int> deserialize_safe_to_python(const ss::bytebuffer_ &ser,
+std::tuple<nb::object, int> deserialize_safe_to_python(const ss::bytebuffer_ &ser,
 																											 const record_desc_t& foreign_record_desc,
 																											 const dbdesc_t& db, size_t offset);
 
 
-std::tuple<py::object, int> deserialize_field_safe_to_python
+std::tuple<nb::object, int> deserialize_field_safe_to_python
 (const ss::bytebuffer_& ser, const field_desc_t& foreign_field, size_t offset,  const dbdesc_t& dbdesc)  {
 	auto type_id = foreign_field.type_id;
 	auto* subschema = data_types::is_builtin_type(type_id) ? nullptr : dbdesc.schema_for_type(type_id);
@@ -129,7 +129,7 @@ std::tuple<py::object, int> deserialize_field_safe_to_python
 		if(offset<0)
 			return INVALID;
 		auto limit = offset + size;
-		py::list list;
+		nb::list list;
 		while (offset<limit) {
 			auto [ val, new_offset] =
 				subschema?
@@ -148,18 +148,18 @@ std::tuple<py::object, int> deserialize_field_safe_to_python
 	} 	else {
 		assert(0);
 	}
-	return {py::cast<py::none>(Py_None), -1};
+	return {nb::none(), -1};
 }
 
-std::tuple<py::object, int> deserialize_safe_to_python(const ss::bytebuffer_ &ser,
+std::tuple<nb::object, int> deserialize_safe_to_python(const ss::bytebuffer_ &ser,
 																											 const record_desc_t& foreign_record_desc,
 																											 const dbdesc_t& db, size_t offset) {
-	py::dict dict;
+	nb::dict dict;
 	for (auto& field: foreign_record_desc.fields) {
 		auto [val, new_offset] = deserialize_field_safe_to_python(ser, field, offset, db);
 		dict[field.name.c_str()] = val;
 		if(new_offset<0)
-			return { py::cast<py::none>(Py_None), -1};
+			return { nb::none(), -1};
 		offset = new_offset;
 	}
 	return {dict, offset};
@@ -167,7 +167,7 @@ std::tuple<py::object, int> deserialize_safe_to_python(const ss::bytebuffer_ &se
 
 
 #if 0
-py::object test(db_txn& txn) {
+nb::object test(db_txn& txn) {
 	ss::bytebuffer_ ser(val, sizeof(val));
 	ss::bytebuffer_ serk(key, sizeof(key));
 	uint32_t type_id =  0x630073;
@@ -178,14 +178,14 @@ py::object test(db_txn& txn) {
 		auto [val, new_offset] = deserialize_safe_to_python (ser, it->second.schema, dbdesc, 0);
 		return val;
 	}
-	return py::dict{};
+	return nb::dict{};
 }
 #endif
 
 
-py::object degraded_export(db_txn& txn) {
+nb::object degraded_export(db_txn& txn) {
 	auto& db = *txn.pdb;
-	py::list list;
+	nb::list list;
 	schema::neumo_schema_t s;
 	auto cs = schema::neumo_schema_t::find_by_key(txn, s.k, find_eq);
 	dbdesc_t stored_dbdesc;
@@ -217,7 +217,7 @@ py::object degraded_export(db_txn& txn) {
 			//const auto& tst = it->second;
 			const auto& schema = it->second.record_desc;
 			auto [val, new_offset] = deserialize_safe_to_python (ser, schema, stored_dbdesc, 0);
-			py::dict rec;
+			nb::dict rec;
 			rec["type"] = schema.name.c_str();
 			rec["data"] = val;
 			list.append(rec);
@@ -228,23 +228,23 @@ py::object degraded_export(db_txn& txn) {
 
 
 namespace schema {
-	extern void export_structs(py::module& m);
+	extern void export_structs(nb::module_& m);
 };
 
 #ifdef PURE_PYTHON
-py::dict schema_map(db_txn& txn) {
+nb::dict schema_map(db_txn& txn) {
 	using namespace schema;
 	using namespace data_types;
 	neumo_schema_t s;
-	py::dict ret;
+	nb::dict ret;
 	// TODO: find a way to upgrade a readonly txn to a write txn
 	auto c = neumo_schema_t::find_by_key(txn, s.k, find_eq);
 	if (c.is_valid()) {
 		auto schema = c.current();
 		//schema.k;
 		ret["version"]=schema.version;
-		ret["db_type"]= py::str(schema.db_type.c_str());
-		py::dict records_dict;
+		ret["db_type"]= nb::str(schema.db_type.c_str());
+		nb::dict records_dict;
 		auto& schema_records =  schema.schema;
 #if 0
 		auto field_type_name = [&schema_records]( int32_t type_id) -> const char* {
@@ -259,13 +259,13 @@ py::dict schema_map(db_txn& txn) {
 		};
 #endif
 		for(const auto& schema_record: schema_records) {
-			py::dict record_dict;
+			nb::dict record_dict;
 			record_dict["type_id"] = schema_record.type_id;
 			record_dict["record_version"] = schema_record.record_version;
-			record_dict["name"] = py::str(schema_record.name.c_str());
-			py::list fields_list;
+			record_dict["name"] = nb::str(schema_record.name.c_str());
+			nb::list fields_list;
 			for(const auto& field: schema_record.fields) {
-				py::dict field_dict;
+				nb::dict field_dict;
 				field_dict["field_id"] = field.field_id;
 				field_dict["type_id"] = field.type_id;
 				field_dict["type"] = field.type.c_str();
@@ -279,7 +279,7 @@ py::dict schema_map(db_txn& txn) {
 		ret["records"] = records_dict;
 		return ret;
 	}
-	return py::cast<py::none>(Py_None);
+	return nb::none();
 }
 #endif
 
@@ -299,7 +299,7 @@ std::string typename_for_type_id(int32_t type_id) {
 }
 #endif
 
-void export_deserialize(py::module& m) {
+void export_deserialize(nb::module_& m) {
 	static bool called = false;
 	if (called)
 		return;
@@ -315,7 +315,7 @@ void export_deserialize(py::module& m) {
 }
 
 
-PYBIND11_MODULE(pydeser, m) {
+NB_MODULE(pydeser, m) {
 	m.doc() = R"pbdoc(
         Pybind11 channel database
         -----------------------

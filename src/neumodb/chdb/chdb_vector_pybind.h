@@ -19,6 +19,6 @@
  */
 
 #pragma once
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-void export_chdb_vectors(py::module &m);
+#include <nanobind/nanobind.h>
+namespace nb = nanobind;
+void export_chdb_vectors(nb::module_ &m);

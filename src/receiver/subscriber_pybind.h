@@ -20,15 +20,15 @@
 
 #pragma once
 
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-void export_subscriber(py::module &m);
+void export_subscriber(nb::module_ &m);
 
 
-void export_scan_report(py::module &m);
-void export_signal_info(py::module &m);
-void export_program_info(py::module &m);
-void export_position_motion_report(py::module &m);
-void export_sdt_data(py::module &m);
+void export_scan_report(nb::module_ &m);
+void export_signal_info(nb::module_ &m);
+void export_program_info(nb::module_ &m);
+void export_position_motion_report(nb::module_ &m);
+void export_sdt_data(nb::module_ &m);

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12.1)
+cmake_minimum_required(VERSION 3.15)
 #SET (CMAKE_SKIP_INSTALL_RULES ON)
 option(USE_CLANG "build application with clang" ON) # ON is the default
 
@@ -36,13 +36,20 @@ endif()
 include(cmake/neumowxsvg.cmake)
 include(FetchContent)
 
-set(FETCHCONTENT_BASE_DIR ${CMAKE_CURRENT_BINARY_DIR}/../build_fmt)
+set(FETCHCONTENT_BASE_DIR ${CMAKE_CURRENT_BINARY_DIR}/../build_ext)
 
 FetchContent_Declare(fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
   #GIT_TAG f5e54359df4c26b6230fc61d38aa294581393084
   #GIT_TAG 40626af88bd7df9a5fb80be7b25ac85b122d6c21
   GIT_TAG 12.1.0
+  )
+
+FetchContent_Declare(nanobind
+  GIT_REPOSITORY https://github.com/wjakob/nanobind.git
+  #GIT_TAG f5e54359df4c26b6230fc61d38aa294581393084
+  #GIT_TAG 40626af88bd7df9a5fb80be7b25ac85b122d6c21
+  GIT_TAG v2.12.0
   )
 
 # Prevent fmt from being installed system-wide
@@ -79,11 +86,21 @@ find_package(Boost 1.69 REQUIRED regex context program_options)
 include_directories(${BOOST_INCLUDE_DIRS})
 
 cmake_policy(SET CMP0148 OLD)
-find_package(pybind11 REQUIRED)
+
+if (CMAKE_VERSION VERSION_LESS 3.18)
+set(DEV_MODULE Development)
+else()
+set(DEV_MODULE Development.Module)
+endif()
+find_package(Python COMPONENTS Interpreter Development.Module Development.Embed REQUIRED)
+
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel"
+↪"RelWithDebInfo")
+endif()
 
 find_package(PkgConfig REQUIRED)
-
-find_package(Python COMPONENTS Interpreter Development)
 
 
 pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
@@ -94,6 +111,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 #not working:  SET(CMAKE_DEBUG_POSTFIX "" CACHE STRING "add a postfix, usually d on windows")
 FetchContent_MakeAvailable(fmt)
+FetchContent_MakeAvailable(nanobind)
 
 include_directories(${fmt_SOURCE_DIR}/include/)
 
@@ -107,7 +125,6 @@ option( USE_SYSTEM_TZ_DB "Use the operating system's timezone database" ON )
 
 option(BUILD_TESTING "Build the testing tree." OFF)
 
-#add_subdirectory(pybind11)
 add_subdirectory(gui)
 add_subdirectory(src)
 add_subdirectory(neumolmdb)

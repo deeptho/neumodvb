@@ -5,7 +5,6 @@ include_directories(
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../pybind11/include>
     # The location of the headers after installation
     $<INSTALL_INTERFACE:include>
 )
@@ -59,7 +58,7 @@ add_dependencies(epgdb epg_generated_files dev_generated_files ch_generated_file
 # -fsized-deallocation needed to prevent operator delete error
 target_compile_options(epgdb PUBLIC -fPIC -fsized-deallocation)
 
-pybind11_add_module(pyepgdb epgdb_pybind.cc ${pybind_srcs})
+nanobind_add_module(pyepgdb NB_SHARED epgdb_pybind.cc ${pybind_srcs})
 
 target_compile_options(pyepgdb PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 target_link_libraries(epgdb PUBLIC stackstring neumolmdb neumoutil neumodb schema fmt::fmt uuid)

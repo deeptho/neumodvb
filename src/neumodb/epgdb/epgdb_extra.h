@@ -104,7 +104,7 @@ namespace epgdb {
 	class gridepg_screen_t {
 		struct entry_t {
 			chdb::service_key_t service_key;
-			std::unique_ptr<epg_screen_t> epg_screen;
+			std::shared_ptr<epg_screen_t> epg_screen;
 			entry_t(const chdb::service_key_t& service_key) : service_key(service_key)
 				{}
 		};

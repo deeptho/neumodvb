@@ -23,39 +23,40 @@
 #include "neumodb/epgdb/epgdb_extra.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
 #include <stdio.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-extern void export_neumodb(py::module& m);
-extern void export_epgdb(py::module& m);
+extern void export_neumodb(nb::module_& m);
+extern void export_epgdb(nb::module_& m);
 
 namespace epgdb {
-	extern void export_enums(py::module& m);
-	extern void export_structs(py::module& m);
+	extern void export_enums(nb::module_& m);
+	extern void export_structs(nb::module_& m);
 } // namespace epgdb
 
 
-void export_gridepg(py::module& m) {
+void export_gridepg(nb::module_& m) {
 	using namespace epgdb;
-	py::class_<gridepg_screen_t>(m, "gridepg_screen")
-		.def(py::init<time_t,
+	nb::class_<gridepg_screen_t>(m, "gridepg_screen")
+		.def(nb::init<time_t,
 #ifdef USE_END_TIME
 				 time_t,
 #endif
 				 int, uint32_t>(),
-				 py::arg("start_time"),
+				 nb::arg("start_time"),
 #ifdef USE_END_TIME
-				 py::arg("end_time"),
+				 nb::arg("end_time"),
 #endif
-				 py::arg("num_services"), py::arg("epg_sort_order"))
+				 nb::arg("num_services"), nb::arg("epg_sort_order"))
 		.def("add_service", &gridepg_screen_t::add_service, "add epg data for extra service to the screen",
-				 py::arg("txnepg"), py::arg("service_key"), py::return_value_policy::reference_internal)
+				 nb::arg("txnepg"), nb::arg("service_key"), nb::rv_policy::reference_internal)
 		.def("remove_all", &gridepg_screen_t::remove_all, "remove all epg data")
 		.def("epg_screen_for_service", &gridepg_screen_t::epg_screen_for_service, "return epg screen for a service",
-				 py::arg("service_key"), py::return_value_policy::reference_internal)
+				 nb::arg("service_key"), nb::rv_policy::reference_internal)
 		;
 }
 
@@ -84,28 +85,28 @@ static std::unique_ptr<epgdb::epg_screen_t> chepg_screen(db_txn& txnepg,
 		);
 }
 
-void export_extra(py::module& m) {
-	m.def("clean", &epgdb::clean, "remove old epgdb records", py::arg("txn"), py::arg("start_time"))
+void export_extra(nb::module_& m) {
+	m.def("clean", &epgdb::clean, "remove old epgdb records", nb::arg("txn"), nb::arg("start_time"))
 		.def("chepg_screen", &chepg_screen, "channel epg sceen",
-				 py::arg("txnepg"),
-				 py::arg("sort_order"),
-				 py::arg("service_key"),
-				 py::arg("start_time"),
+				 nb::arg("txnepg"),
+				 nb::arg("sort_order"),
+				 nb::arg("service_key"),
+				 nb::arg("start_time"),
 #ifdef USE_END_TIME
-				 py::arg("end_time"),
+				 nb::arg("end_time"),
 #endif
-				 py::arg("field_matchers") = nullptr, py::arg("match_data") = nullptr,
-				 py::arg("field_matchers2") = nullptr, py::arg("match_data2") = nullptr
+				 nb::arg("field_matchers") = nullptr, nb::arg("match_data") = nullptr,
+				 nb::arg("field_matchers2") = nullptr, nb::arg("match_data2") = nullptr
 			)
-		.def("running_now", py::overload_cast<db_txn&, const chdb::service_key_t&, time_t>(&epgdb::running_now),
+		.def("running_now", nb::overload_cast<db_txn&, const chdb::service_key_t&, time_t>(&epgdb::running_now),
 				 "Get currently running program on service"
-				 , py::arg("txnepg")
-				 , py::arg("service_key")
-				 , py::arg("now")=-1)
+				 , nb::arg("txnepg")
+				 , nb::arg("service_key")
+				 , nb::arg("now")=-1)
 		;
 }
 
-PYBIND11_MODULE(pyepgdb, m) {
+NB_MODULE(pyepgdb, m) {
 	m.doc() = R"pbdoc(
         Pybind11 channel database
         -----------------------
@@ -127,7 +128,7 @@ PYBIND11_MODULE(pyepgdb, m) {
 	epgdb::export_structs(m);
 
 	typedef screen_t<epgdb::epg_record_t> s_t;
-	py::class_<epgdb::epg_screen_t, s_t>(m, "epg_screen").def("update_between", &epgdb::epg_screen_t::update_between)
+	nb::class_<epgdb::epg_screen_t, s_t>(m, "epg_screen").def("update_between", &epgdb::epg_screen_t::update_between)
 		;
 
 	m.attr("__version__") = version_info();

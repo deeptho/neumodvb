@@ -19,59 +19,60 @@
  *
  */
 
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+namespace nb = nanobind;
 
 #include "neumodb/{{dbname}}/{{dbname}}_db.h"
 
 using namespace {{dbname}};
 
-//needed because py::overload_cast does not seem to work
+//needed because nb::overload_cast does not seem to work
 template <typename record_t> inline void xxx_put_record(db_txn& txn, const record_t& record) {
 	put_record(txn, record, 0);
 }
 
-//needed because py::overload_cast does not seem to work
+//needed because nb::overload_cast does not seem to work
 	template <typename record_t> inline void xxx_delete_record
 	(db_txn& txn, const record_t& record) {
 		delete_record(txn, record);
 }
 
-void export_{{dbname}}(py::module& m) {
-	py::class_<{{dbname}}::{{dbname}}_t, neumodb_t>(m, "{{dbname}}")
-																						//.def(py::init<>())
-     .def(py::init<const neumodb_t&>(),
-				 py::arg("maindb")
+void export_{{dbname}}(nb::module_& m) {
+	nb::class_<{{dbname}}::{{dbname}}_t, neumodb_t>(m, "{{dbname}}")
+																						//.def(nb::init<>())
+     .def(nb::init<const neumodb_t&>(),
+				 nb::arg("maindb")
 			)
-		.def(py::init<bool, bool, bool, bool>(),
-				 py::arg("readonly") = false,
-				 py::arg("is_temp") = false,
-				 py::arg("autoconvert") = true,
-				 py::arg("autoconvert_major_version") = false)
+		.def(nb::init<bool, bool, bool, bool>(),
+				 nb::arg("readonly") = false,
+				 nb::arg("is_temp") = false,
+				 nb::arg("autoconvert") = true,
+				 nb::arg("autoconvert_major_version") = false)
 		;
 }
 
 
 namespace {{dbname}} {
 	{%for struct in structs%}
-	extern void export_{{struct.name}}(py::module& m);
-	extern void export_{{struct.name}}_lists(py::module& m);
+	extern void export_{{struct.name}}(nb::module_& m);
+	extern void export_{{struct.name}}_lists(nb::module_& m);
 	  {% if struct.is_table %}
-		extern void export_{{struct.name}}_screen(py::module& m);
-		extern void export_{{struct.name}}_find(py::module& m);
+		extern void export_{{struct.name}}_screen(nb::module_& m);
+		extern void export_{{struct.name}}_find(nb::module_& m);
 		{% endif %}
 	{%endfor%}
 
-	void export_structs(py::module& m) {
+	void export_structs(nb::module_& m) {
 		{%for struct in structs%}
 		{
 			{% if struct.is_table %}
  			m.def("put_record",
-						py::overload_cast<db_txn&, const {{struct.class_name}}&>(xxx_put_record<{{struct.class_name}}>),
-		  	    "Save record in db", py::arg("txn"), py::arg("{{struct.name}}"))
+						nb::overload_cast<db_txn&, const {{struct.class_name}}&>(xxx_put_record<{{struct.class_name}}>),
+		  	    "Save record in db", nb::arg("txn"), nb::arg("{{struct.name}}"))
 				.def("delete_record",
-						 py::overload_cast<db_txn&, const {{struct.class_name}}&>(xxx_delete_record<{{struct.class_name}}>),
-		  	    "Delete record from db", py::arg("txn"), py::arg("{{struct.name}}"))
+						 nb::overload_cast<db_txn&, const {{struct.class_name}}&>(xxx_delete_record<{{struct.class_name}}>),
+		  	    "Delete record from db", nb::arg("txn"), nb::arg("{{struct.name}}"))
 			;
 			{% endif %}
 			auto mm = m.def_submodule("{{struct.name}}");

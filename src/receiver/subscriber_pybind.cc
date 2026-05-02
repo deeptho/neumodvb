@@ -26,18 +26,21 @@
 #include "receiver/scan.h"
 #include "receiver/subscriber.h"
 #include "stackstring/stackstring_pybind.h"
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> //for std::optional
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/shared_ptr.h>
 #include "viewer/wxpy_api.h"
 #include "scan.h"
 #include <gtk/gtk.h>
 #include <stdio.h>
 #include <wx/window.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using numpy_float_array = nb::ndarray<float, nb::numpy, nb::ndim<1>, nb::c_contig>;
+using numpy_uint8_array = nb::ndarray<uint64_t, nb::numpy, nb::ndim<1>, nb::c_contig>;
+using numpy_int_array = nb::ndarray<int, nb::numpy, nb::ndim<1>, nb::c_contig>;
 
-template <typename T> T* wxLoad(py::object src, const wxString& inTypeName) {
+template <typename T> T* wxLoad(nb::object src, const wxString& inTypeName) {
 	/* Extract PyObject from handle */
 	PyObject* source = src.ptr();
 
@@ -49,7 +52,7 @@ template <typename T> T* wxLoad(py::object src, const wxString& inTypeName) {
 	return obj;
 }
 
-static void set_gtk_window_name(py::object window, const char* name) {
+static void set_gtk_window_name(nb::object window, const char* name) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
 	if(!w) {
 		dterrorf("Could not set window name {}", name);
@@ -63,7 +66,7 @@ static void set_gtk_window_name(py::object window, const char* name) {
 	}
 }
 
-static void gtk_add_window_style(py::object window, const char* style) {
+static void gtk_add_window_style(nb::object window, const char* style) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
 	auto* x = w->GetHandle();
 	if (!x) {
@@ -74,7 +77,7 @@ static void gtk_add_window_style(py::object window, const char* style) {
 	gtk_style_context_add_class(ctx, style);
 }
 
-static void gtk_remove_window_style(py::object window, const char* style) {
+static void gtk_remove_window_style(nb::object window, const char* style) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
 	if (!w) {
 		dterrorf("Invalid window");
@@ -89,37 +92,36 @@ static void gtk_remove_window_style(py::object window, const char* style) {
 	gtk_style_context_remove_class(ctx, style);
 }
 
-static std::shared_ptr<subscriber_t> make_subscriber(receiver_t* receiver, py::object window) {
+static std::shared_ptr<subscriber_t> make_subscriber(receiver_t* receiver, nb::object window) {
 	auto* w = wxLoad<wxWindow>(window, "wxWindow");
 	return subscriber_t::make(receiver, w);
 }
 
-static std::shared_ptr<subscriber_t> get_global_subscriber(receiver_t* receiver, py::object window) {
+static std::shared_ptr<subscriber_t> get_global_subscriber(receiver_t* receiver, nb::object window) {
 	if(!receiver->global_subscriber) {
 		receiver->global_subscriber = make_subscriber(receiver, window);
 	}
 	return receiver->global_subscriber;
 }
 
-static py::object get_object(long x) {
+static nb::object get_object(long x) {
 	return subscriber_t::handle_to_py_object(x);
 }
 
 static int scan_spectral_peaks(subscriber_t& subscriber,
 															 const devdb::rf_path_t& rf_path,
 															 const statdb::spectrum_key_t& spectrum_key,
-															 py::array_t<float> peak_freq, py::array_t<float> peak_sr) {
-	py::buffer_info infofreq = peak_freq.request();
-	if (infofreq.ndim != 1)
+															 numpy_float_array peak_freq, numpy_float_array peak_sr) {
+	if (peak_freq.ndim() != 1)
 		throw std::runtime_error("Bad number of dimensions");
-	auto* pfreq = (float*)infofreq.ptr;
-	py::buffer_info infosr = peak_sr.request();
-	if (infosr.ndim != 1)
-		throw std::runtime_error("Bad number of dimensions");
-	auto* psr = (float*)infosr.ptr;
+	auto* pfreq = peak_freq.data();
 
-	int n = infofreq.shape[0];
-	if (n!= infosr.shape[0])
+	if (peak_sr.ndim() != 1)
+		throw std::runtime_error("Bad number of dimensions");
+	auto* psr = peak_sr.data();
+
+	auto n = peak_freq.shape(0);
+	if (n!= peak_sr.shape(0))
 		throw std::runtime_error("Bad Spectrum and freq need to have same size");
 	ss::vector_<chdb::spectral_peak_t> peaks;
 	peaks.reserve(n);
@@ -213,15 +215,15 @@ static int scan_muxes_on_sats(subscriber_t& subscriber, db_txn& chdb_rtxn,
 	return ret;
 }
 
-extern void export_pls_search_range(py::module& m);
-extern void export_playback_info(py::module& m);
-extern void export_signal_info(py::module& m);
-extern void export_sdt_data(py::module& m);
-extern void export_scan_report(py::module& m);
-extern void export_pls_search_range(py::module& m);
-extern void export_position_motion_report(py::module& m);
+extern void export_pls_search_range(nb::module_& m);
+extern void export_playback_info(nb::module_& m);
+extern void export_signal_info(nb::module_& m);
+extern void export_sdt_data(nb::module_& m);
+extern void export_scan_report(nb::module_& m);
+extern void export_pls_search_range(nb::module_& m);
+extern void export_position_motion_report(nb::module_& m);
 
-void export_subscriber(py::module& m) {
+void export_subscriber(nb::module_& m) {
 	static bool called = false;
 	if (called)
 		return;
@@ -236,99 +238,99 @@ void export_subscriber(py::module& m) {
 	m.def("get_object", &get_object)
 		.def("set_gtk_window_name", &set_gtk_window_name
 				, "Set a gtk widget name for a wx window (needed for css styling)"
-				, py::arg("window")
-				 , py::arg("name"))
+				, nb::arg("window")
+				 , nb::arg("name"))
 		.def("gtk_add_window_style", &gtk_add_window_style
 				 , "Set a gtk widget style name for a wx window (needed for css styling)"
-				 , py::arg("window")
-				 , py::arg("name"))
+				 , nb::arg("window")
+				 , nb::arg("name"))
 		.def("gtk_remove_window_style", &gtk_remove_window_style
 				, "Remove a gtk widget style name for a wx window (needed for css styling)"
-				 , py::arg("window")
-				 , py::arg("name"))
+				 , nb::arg("window")
+				 , nb::arg("name"))
 		.def("global_subscriber", &get_global_subscriber
 				 ,"Connect to the global subscriber to catch non-subscriber specific error messages"
-				 , py::arg("receiver")
-				 , py::arg("window")
+				 , nb::arg("receiver")
+				 , nb::arg("window")
 			)
 		;
-	py::class_<subscriber_t, std::shared_ptr<subscriber_t>>(m, "subscriber_t")
-		.def(py::init(&make_subscriber))
+	nb::class_<subscriber_t>(m, "subscriber_t")
+		.def(nb::new_(&make_subscriber))
 		.def("update_current_lnb"
 				 , &subscriber_t::update_current_lnb
 				 , "Update and save the current lnb"
-				 , py::arg("lnb"))
+				 , nb::arg("lnb"))
 		.def("subscribe_lnb"
 				 , &subscriber_t::subscribe_lnb
 				 , "Subscribe to a specific lnb without (re)tuning"
-				 , py::arg("rf_path")
-				 , py::arg("lnb")
-				 , py::arg("retune_mode"))
+				 , nb::arg("rf_path")
+				 , nb::arg("lnb")
+				 , nb::arg("retune_mode"))
 		.def("subscribe_mux"
 				 , &subscriber_t::subscribe_mux
 				 , "Subscribe to a specific mux using a specific lnb"
-				 , py::arg("mux")
-				 , py::arg("blindscan"))
+				 , nb::arg("mux")
+				 , nb::arg("blindscan"))
 		.def("subscribe_lnb_and_mux"
 				 , &subscriber_t::subscribe_lnb_and_mux
 				 , "Subscribe to a specific mux using a specific lnb"
-				 , py::arg("rf_path")
-				 , py::arg("lnb")
-				 , py::arg("mux")
-				 , py::arg("blindscan")
-				 , py::arg("pls_search_mode")=false
-				 , py::arg("retune_mode"))
+				 , nb::arg("rf_path")
+				 , nb::arg("lnb")
+				 , nb::arg("mux")
+				 , nb::arg("blindscan")
+				 , nb::arg("pls_search_mode")=false
+				 , nb::arg("retune_mode"))
 		.def("scan_spectral_peaks", &scan_spectral_peaks,
 				 "scan peaks in the spectrum all at once",
-				 py::arg("rf_path"),
-				 py::arg("spectrum_key"), py::arg("peak_freq"), py::arg("peak_sr")
+				 nb::arg("rf_path"),
+				 nb::arg("spectrum_key"), nb::arg("peak_freq"), nb::arg("peak_sr")
 			)
 		.def("scan_muxes", &scan_muxes<chdb::dvbs_mux_t>, "scan muxes"
-				 , py::arg("muxes")
-				 , py::arg("tune_options")=nullptr
+				 , nb::arg("muxes")
+				 , nb::arg("tune_options")=nullptr
 			)
 		.def("scan_muxes", &scan_muxes<chdb::dvbc_mux_t>, "scan muxes"
-				 , py::arg("muxes")
-				 , py::arg("tune_options")=nullptr
+				 , nb::arg("muxes")
+				 , nb::arg("tune_options")=nullptr
 			)
 		.def("scan_muxes", &scan_muxes<chdb::dvbt_mux_t>, "scan muxes"
-				 , py::arg("muxes")
-				 , py::arg("tune_options")=nullptr
+				 , nb::arg("muxes")
+				 , nb::arg("tune_options")=nullptr
 			)
 		.def("scan_muxes_on_sats", &scan_muxes_on_sats
 				 , "scan all muxes on selected sats"
-				 , py::arg("chdb_rtxn")
-				 , py::arg("sats")
-				 , py::arg("tune_options")
-				 , py::arg("band_scan_options")
+				 , nb::arg("chdb_rtxn")
+				 , nb::arg("sats")
+				 , nb::arg("tune_options")
+				 , nb::arg("band_scan_options")
 			)
 		.def("scan_bands_on_sats", &scan_bands_on_sats
 				 , "acquire spectra and then scan peaks for selected sats"
-				 , py::arg("sats")
-				 , py::arg("tune_options")
-				 , py::arg("band_scan_options")
+				 , nb::arg("sats")
+				 , nb::arg("tune_options")
+				 , nb::arg("band_scan_options")
 			)
-		.def_property_readonly("error_message", [](subscriber_t* self) {
+		.def_prop_ro("error_message", [](subscriber_t* self) {
 			return get_error().c_str(); })
 		.def("unsubscribe"
 				 , &subscriber_t::unsubscribe
 				 , "End tuning",
-				 py::arg("wait") =0)
+				 nb::arg("wait") =0)
 		.def("subscribe_spectrum_acquisition"
 				 , &subscriber_t::subscribe_spectrum_acquisition
 				 , "acquire a spectrum for this lnb"
-				 , py::arg("rf_path")
-				 , py::arg("lnb")
-				 , py::arg("pol to scan")
-				 , py::arg("start_freq")
-				 , py::arg("end_freq")
-				 , py::arg("sat")
+				 , nb::arg("rf_path")
+				 , nb::arg("lnb")
+				 , nb::arg("pol to scan")
+				 , nb::arg("start_freq")
+				 , nb::arg("end_freq")
+				 , nb::arg("sat")
 			)
 		.def("positioner_cmd"
 				 , &subscriber_t::positioner_cmd
 				 , "send positioner_cmd"
-				 , py::arg("cmd")
-				 , py::arg("par")=0
+				 , nb::arg("cmd")
+				 , nb::arg("par")=0
 			)
 		;
 }

@@ -405,7 +405,10 @@ class NeumoTableBase(wx.grid.GridTableBase):
         col = self.columns[colno]
         if col.key == 'icons':
             return ''
-        field = neumodbutils.get_subfield(rec, col.key) if col.cfn is None else None
+        try:
+            field = neumodbutils.get_subfield(rec, col.key) if col.cfn is None else None
+        except ValueError:
+            field = "???"
         if self.coltypes[colno] == bool:
             return "1" if field else ""
         txt = str(field) if col.dfn is None else str(col.dfn((rec, field, self)) )

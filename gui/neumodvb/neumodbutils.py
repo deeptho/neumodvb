@@ -41,27 +41,24 @@ def enum_values_and_labels(field):
           ret[getattr(field,k)] = k.replace('_', ' ')
      return ret
 
-def enum_value_for_label(enum, label):
-     a = getattr(enum, '_member_names_')
-     if label in a:
-          return a[label][0]
+def enum_value_for_label(enum_t, label):
+     ret = getattr(enum_t, label, None)
+     if ret is not None:
+          return ret
      l = label.replace(' ', '_')
-     if l in a:
-          return a[l][0]
+     ret = getattr(enum_t, l, None)
+     if ret is not None:
+          return ret
      else:
           return None
 
 def get_subfield(obj, dotkey):
      keys = dotkey.split('.')
-     return functools.reduce(getattr, keys, obj)
-
-def enum_set_subfieldOLD(obj, dotkey, val):
-     keys = dotkey.split('.')
-     if len(keys)>1:
-          field= functools.reduce(getattr, keys[:-1], obj)
-     else:
-          field = obj
-     setattr(obj, keys[-1], val)
+     try:
+          ret = functools.reduce(getattr, keys, obj)
+     except ValueError:
+          ret = ""
+     return ret
 
 def enum_set_subfield(obj, dotkey, val):
      if type(dotkey) is not list:

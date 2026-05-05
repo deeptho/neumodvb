@@ -832,7 +832,7 @@ class SatBouquetGroupSelectPanel(GroupSelectPanel):
         self.sorttypes_service = (
             (_("Sorted by channel number"), ('ch_order',)),
             (_("Sorted by name"), ('name',)),
-            (_("Sorted by modification time"), ('mtime',)),
+            (_("Sorted by scan time"), ('scan_time',)),
             (_("Sorted by sat/mux"), ('frequency', 'pol', 'k.service_id'))
         )
         self.sorttypes_chgm = (

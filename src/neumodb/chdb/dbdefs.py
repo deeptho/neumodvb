@@ -849,7 +849,8 @@ service = db_struct(name ='service',
 	                  fields=((1, 'service_key_t', 'k'),
                             (15, 'uint32_t', 'frequency'),
                             (16, 'chdb::fe_polarisation_t',  'pol', 'chdb::fe_polarisation_t::NONE'),
-                            (2, 'time_t', 'mtime'), #last seen or last updated?
+                            (2, 'time_t', 'mtime'), #last updated?
+                            (20, 'time_t', 'scan_time'), #last seen in scan?
                             (3, 'uint16_t', 'ch_order', '65535'),
                             (4, 'uint16_t', 'service_type', '0'),
                             (5, 'uint16_t', 'pmt_pid', 'null_pid'),

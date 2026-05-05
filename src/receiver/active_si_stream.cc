@@ -2211,6 +2211,8 @@ bool nit_data_t::update_nit_completion(scan_state_t& scan_state, const subtable_
 std::tuple<bool, bool>
 active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& service, mux_data_t* p_mux_data,
 																				bool donotsave, bool is_actual) {
+	bool reader_mux_is_scanning = mux_common_ptr(this->dbmux)->scan_status == chdb::scan_status_t::ACTIVE;
+
 	chdb::mux_key_t& mux_key = *mux_key_ptr(p_mux_data->mux);
 	auto c = chdb::service::find_by_mux_key_sid(wtxn, mux_key, service.k.service_id);
 	bool db_found{false};
@@ -2218,7 +2220,8 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 	if (c.is_valid()) {
 		db_found = true;
 		auto ch = c.current();
-
+		if (reader_mux_is_scanning)
+			ch.scan_time = system_clock_t::to_time_t(now);
 		if (service.name != ch.name || !ch.name_from_sdt) {
 			ch.name = service.name;
 			changed = true;
@@ -2262,9 +2265,11 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 				put_record(wtxn, ch);
 			}
 		}
-	} else { //no mux yet
+	} else { //no service yet
 		auto ch = service;
 		ch.mtime = system_clock_t::to_time_t(now);
+		if (reader_mux_is_scanning)
+			ch.scan_time = ch.mtime;
 		ch.k.mux = mux_key;
 		std::visit([&](auto&mux) {
 			auto pol = get_member(mux, pol, chdb::fe_polarisation_t::NONE);
@@ -3269,6 +3274,9 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 			new_service.media_mode_from_pmt = true;
 		}
 		new_service.encrypted = pat_service.pmt.is_encrypted();
+		bool reader_mux_is_scanning = mux_common_ptr(this->dbmux)->scan_status == chdb::scan_status_t::ACTIVE;
+		if(reader_mux_is_scanning)
+			new_service.scan_time = system_clock_t::to_time_t(now);
 		if(new_service != service) {
 			new_service.mtime = system_clock_t::to_time_t(now);
 			dtdebugf("Updating/saving service from pmt: {}", service);

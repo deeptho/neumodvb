@@ -236,10 +236,17 @@ void export_signal_info(py::module& m) {
 			ss::string<128> ret;
 			auto *dvbs_mux = std::get_if<chdb::dvbs_mux_t>(&i.driver_mux);
 			char * start ="";
-			for (auto matype: i.matype_list) {
-				auto r = chdb::matype_str(matype, dvbs_mux ? (int)dvbs_mux->rolloff : -1);
-				ret.format("{}{}", start, r);
-				start ="; ";
+			if(i.matype_list.size()==0) {
+				ret = chdb::matype_str(i.lock_status.matype, dvbs_mux ? (int)dvbs_mux->rolloff : -1);
+			}
+			for (auto matype_: i.matype_list) {
+				int isi = matype_ & 0xff;
+				int matype = (matype_ >> 8);
+				if(dvbs_mux->k.stream_id ==  (matype&0xff)) {
+					auto r = chdb::matype_str(matype, dvbs_mux ? (int)dvbs_mux->rolloff : -1);
+					ret.format("{}{:d}:{}", start, isi, r);
+					start ="; ";
+				}
 			}
 			return  std::string(ret.c_str());
 		})

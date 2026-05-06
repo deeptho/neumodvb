@@ -510,7 +510,7 @@ class TuneMuxPanel(TuneMuxPanel_):
             self.si_freq_text.SetLabel('')
             self.si_symbolrate_text.SetLabel('')
 
-        if not self.signal_info.sdt_received:
+        if not self.signal_info.sdt_received and not  self.signal_info.has_si_done:
             self.si_sdt_services_text.SetLabel('')
 
         locked = signal_info.has_lock

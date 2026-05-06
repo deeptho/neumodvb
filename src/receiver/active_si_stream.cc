@@ -3277,6 +3277,8 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 		bool reader_mux_is_scanning = mux_common_ptr(this->dbmux)->scan_status == chdb::scan_status_t::ACTIVE;
 		if(reader_mux_is_scanning)
 			new_service.scan_time = system_clock_t::to_time_t(now);
+		if(sdt_actual_notpresent())
+			sdt_data.actual_services.push_back(new_service);
 		if(new_service != service) {
 			new_service.mtime = system_clock_t::to_time_t(now);
 			dtdebugf("Updating/saving service from pmt: {}", service);
@@ -3284,6 +3286,12 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 			put_record(wtxn, new_service);
 		}
 	}
+
+	if(sdt_actual_notpresent()) {
+		auto& aa = active_adapter();
+		receiver.on_sdt_actual(sdt_data, aa.fe->get_subscription_ids());
+	}
+
 	dtdebugf("SAVED {:d} pmts", count);
 }
 

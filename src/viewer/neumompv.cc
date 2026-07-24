@@ -52,7 +52,7 @@ static FILE* fp =nullptr;
 	accesses the same wxGLCanvas widgets.
 
 	The solution we adopt is to create one  wxGLContext per thread, disregarding the possibility that one
-	thread might accress wmultiple wxGLCanvas widgets. The documentation of wxGLContext suggests that it is safe
+	thread might accress multiple wxGLCanvas widgets. The documentation of wxGLContext suggests that it is safe
 	to use the same wxGLContext on multiple wxGLCanvas widgets, as long as they share the same "attributes".
 
 	From wxGLContext docs: "one rendering context is usually used with or bound to multiple output windows in

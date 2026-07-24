@@ -166,9 +166,9 @@ inline section_type_t completion_status_t::set_flag(const section_header_t& hdr)
 				hdr.segment_last_section_number < hdr.last_section_number) {
 			/*33E 12645H contains a specific subtable (service) with two sections where one states
 				segment_last_section_number==0 and the other one  segment_last_section_number==1. This is wrong and can lead to
-				"double counting" The following for loop is lower, but more robst to double counting than count +=
+				"double counting" The following for loop is lower, but more robust to double counting than count +=
 				(hdr.section_number + (7 - hdr.section_number%8) Its main downside is for debugging: section_flags now also
-				contains obe bits for some non-received sections
+				contains obe bits for some non-recevied sections
 			*/
 			for (int i = hdr.section_number + 1;
 					 i <= hdr.section_number + (7 - hdr.section_number % 8) && i < hdr.last_section_number; ++i) {

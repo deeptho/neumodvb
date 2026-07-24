@@ -111,7 +111,7 @@ class SignalHistory(object):
             (pystatdb.signal_stat.subfield_from_name('k.lnb.rf_input')<<8)
 
         receiver = wx.GetApp().receiver
-        cards = { c: k for k,c in wx.GetApp().get_cards_with_rf_in().items()}
+        _,cards = wx.GetApp().get_cards_with_rf_in()
         txn = receiver.statdb.rtxn()
         stats = pystatdb.signal_stat.get_by_mux_fuzzy(txn, mux.k.sat_pos, mux.pol, mux.frequency)
         txn.abort()

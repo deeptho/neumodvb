@@ -76,9 +76,12 @@ int subscriber_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, de
 }
 
 int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
-																				const chdb::dvbs_mux_t& mux, bool blindscan,
+																				chdb::dvbs_mux_t& mux, bool blindscan,
 																				const pls_search_range_t& pls_search_range,
 																				devdb::retune_mode_t retune_mode) {
+	if(!is_template(mux) &&  (chdb::mux_key_ptr(mux)->mux_id ==0))
+		mux.c.tune_src = chdb::tune_src_t::TEMPLATE;
+
 #ifndef NDEBUG
 	assert(is_template(mux) == (chdb::mux_key_ptr(mux)->mux_id ==0));
 #endif

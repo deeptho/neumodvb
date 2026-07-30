@@ -130,8 +130,9 @@ private:
 	void OnPaint(wxPaintEvent &event);
 	void OnTimer(wxTimerEvent &event);
 	void OnErase(wxEraseEvent &event);
+#if 0
 	void OnMpvWakeupEvent(wxThreadEvent &event);
-
+#endif
 	void DoRender();
 
 	wxDECLARE_EVENT_TABLE();

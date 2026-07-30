@@ -174,7 +174,9 @@ wxDEFINE_EVENT(WX_MPV_REDRAW, wxThreadEvent);
 void MpvGLCanvas::OnWindowCreate(wxWindowCreateEvent& evt) {
 	dtdebugf("CREATE {:p}", fmt::ptr(this));
 	if (mpv_player->create()) {
+#if 0
 		Bind(WX_MPV_WAKEUP, &MpvGLCanvas::OnMpvWakeupEvent, this);
+#endif
 	}
 	evt.Skip();
 }
@@ -188,11 +190,14 @@ void MpvGLCanvas::OnPaint(wxPaintEvent& evt) {
 	mpv_player->signal();
 }
 
+#if 0
 void MpvGLCanvas::OnMpvWakeupEvent(wxThreadEvent&) {
 	std::lock_guard<std::mutex> lk(mpv_player->m);
 	if (mpv_player)
 		mpv_player->on_mpv_wakeup_event();
 }
+#endif
+
 
 void MpvGLCanvas::DoRender() // MPV_CALLBACK and timer
 {
@@ -229,7 +234,10 @@ void* MpvGLCanvas::GetProcAddress(const char* name) {
 }
 
 void MpvGLCanvas::MpvDestroy() {
+#if 0
 	Unbind(WX_MPV_WAKEUP, &MpvGLCanvas::OnMpvWakeupEvent, this);
+#endif
+
 	dtdebugf("MpvDestroy {:p} mpv_player set to null\n", fmt::ptr(this));
 }
 

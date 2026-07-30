@@ -110,7 +110,7 @@ static void InitializeTexture(GLuint& g_texture) {
 }
 
 wxBEGIN_EVENT_TABLE(MpvGLCanvas, wxGLCanvas)
-//EVT_SIZE(MpvGLCanvas::OnSize)
+EVT_SIZE(MpvGLCanvas::OnSize)
 EVT_WINDOW_CREATE(MpvGLCanvas::OnWindowCreate)
 EVT_PAINT(MpvGLCanvas::OnPaint)
 EVT_ERASE_BACKGROUND(MpvGLCanvas::OnErase)
@@ -156,8 +156,30 @@ bool MpvGLCanvas::SwapBuffers() {
 
 
 void MpvGLCanvas::OnSize(wxSizeEvent& evt) {
+#if 0
 	std::lock_guard<std::mutex> lk(mpv_player->m);
 	Update();
+#else
+	auto s  = evt.GetSize();
+		bool adjusted{false};
+	if (s.x % 2 != 0) {
+		s.x -=  (s.x %2);
+		adjusted = true;
+	}
+	if (s.y % 8 != 0) {
+		s.y -= (s.y%2);
+		adjusted = true;
+	}
+
+	if (adjusted) {
+		// If you forced a size correction, set the size back to keep it even
+		// (Be careful not to trigger an infinite recursive size event loop)
+		SetSize(s);
+		return;
+	}
+
+
+#endif
 }
 
 void MpvGLCanvas::OnErase(wxEraseEvent& event) {
@@ -205,8 +227,10 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK and timer
 	auto s = GetSize();
 	GLint dims[4];
 	glGetIntegerv(GL_VIEWPORT, &dims[0]);
-	int w = dims[2];
-	int h = dims[3];
+
+	int w = dims[2] & ~1;
+	int h = dims[3] & ~1;
+	glViewport(dims[0], dims[1], w, h);
 	if (OnRender) {
 		prepare_buffer(s.x, s.y);
 		OnRender(this, w, h);
@@ -219,8 +243,8 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK and timer
 
 	if(mpv_player->valid_frames < 3)
 		this->clear_window();
-	int width = s.x;
-	int height = s.y;
+	int width = s.x & ~1;
+	int height = s.y & ~1;
 	if (mpv_player->subscription.show_radiobg) {
 		overlay.render_radiobg(width, height);
 	}

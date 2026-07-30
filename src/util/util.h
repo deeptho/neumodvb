@@ -222,7 +222,7 @@ inline subscription_id_t operator++(subscription_id_t& x, int) {
 }
 
 void assert_fail_stop(const char *assertion, const char *file, unsigned line, const char *function) throw();
-
+bool is_debugger_present();
 
 #endif
 

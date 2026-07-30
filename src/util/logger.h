@@ -48,22 +48,23 @@ namespace dtdemux {
 	struct pcr_t;
 }
 
+extern thread_local ss::string<4096> error_msg__;
 
 //alternative for dtdebug
 #define dtinfof(fmt, args...)																						\
 	do {																																	\
-		ss::string<256> msg;																								\
-		msg.format(fmt, ##args);																						\
-		LOG4CXX_INFO(logger, msg.c_str());																	\
+		error_msg__.clear();																								\
+		error_msg__.format(fmt, ##args);																		\
+		LOG4CXX_INFO(logger, error_msg__.c_str());													\
 	} while(0)
 
 #define dterror_nicef(fmt, args...)																			\
 	do {																																	\
 		static int ___count=0; static time_t ___last=0; time_t ___now=time(NULL);	\
 		if(___now-___last<1) {___count++;break;}														\
-		ss::string<256> msg;																								\
-		msg.format(fmt, ##args);																						\
-		LOG4CXX_ERROR(logger, msg.c_str());																	\
+		error_msg__.clear();																								\
+		error_msg__.format(fmt, ##args);																		\
+		LOG4CXX_ERROR(logger, error_msg__.c_str());													\
 		if(___count) LOG4CXX_ERROR(logger, "Last message repeated " << ___count << " times"); \
 		___count=0;___last=___now;																					\
 	} while(0)
@@ -72,9 +73,9 @@ namespace dtdemux {
 	do {																																	\
 		static int ___count=0; static time_t ___last=0; time_t ___now=time(NULL);	\
 		if(___now-___last<1) {___count++;break;}														\
-		ss::string<256> msg;																								\
-		msg.format(fmt, ##args);																						\
-		LOG4CXX_DEBUG(logger, msg.c_str());																	\
+		error_msg__.clear();																								\
+		error_msg__.format(fmt, ##args);																		\
+		LOG4CXX_DEBUG(logger, error_msg__.c_str());													\
 		if(___count) LOG4CXX_DEBUG(logger, "Last message repeated " << ___count << " times"); \
 		___count=0;___last=___now;																					\
 	} while(0)
@@ -82,17 +83,17 @@ namespace dtdemux {
 //alternative for dtdebug
 #define dtdebugf(fmt, args...)																					\
 	do {																																	\
-		ss::string<256> msg;																								\
-		msg.format(fmt, ##args);																						\
-		LOG4CXX_DEBUG(logger, msg.c_str());																	\
+		error_msg__.clear();																								\
+		error_msg__.format(fmt, ##args);																		\
+		LOG4CXX_DEBUG(logger, error_msg__.c_str());													\
 	} while(0)
 
 //alternative for dtdebug
 #define dterrorf(fmt, args...)																					\
 	do {																																	\
-		ss::string<256> msg;																								\
-		msg.format(fmt, ##args);																						\
-		LOG4CXX_ERROR(logger, msg.c_str());																	\
+		error_msg__.clear();																								\
+		error_msg__.format(fmt, ##args);																		\
+		LOG4CXX_ERROR(logger, error_msg__.c_str());													\
 	} while(0)
 
 //error which should be reported to the user

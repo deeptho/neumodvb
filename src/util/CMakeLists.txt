@@ -13,6 +13,7 @@ add_dependencies(neumoutil stackstring)
 target_compile_options(neumoutil PUBLIC -fPIC)
 target_link_libraries(neumoutil PUBLIC dl log4cxx stackstring stdc++fs pthread fmt::fmt)
 
+target_link_libraries(neumoutil PRIVATE stdc++exp)
 install (TARGETS neumoutil)
 
 include_directories(

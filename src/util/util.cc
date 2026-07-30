@@ -31,10 +31,27 @@
 #include <sys/timerfd.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fstream>
+#include <signal.h>
+#include <stacktrace>
+
 #include <atomic>
 
 #include "logger.h"
 #include "util.h"
+
+bool is_debugger_present() {
+	std::ifstream status_file("/proc/self/status");
+	std::string line;
+	while (std::getline(status_file, line)) {
+		if (line.rfind("TracerPid:", 0) == 0) {
+			// Extract the PID value after "TracerPid:"
+			int pid = std::stoi(line.substr(10));
+			return pid != 0; // If PID is non-0, a debugger is attached!
+        }
+	}
+	return false;
+}
 
 namespace fs = std::filesystem;
 
@@ -433,12 +450,15 @@ void __dtassert_fail(const char * assertion, const char * file, unsigned int lin
 	snprintf(msg, sizeof(msg)-1, "Assert: %s failed at %s:%d in function %s", assertion, file, line, function);
 	fprintf(stderr, "%s\n", msg);
 	LOG4CXX_ERROR(logger, msg);
-	raise(SIGTRAP);
-	//__builtin_trap();
-					//else
-        //abort();
-}
 
+	if(is_debugger_present()) {
+		raise(SIGTRAP); //this will cause the debugger to break
+	} else {
+		auto s =std::stacktrace::current();
+		dterrorf("Call STACK\n{:s}", std::to_string(s).c_str());
+		abort();
+	}
+}
 };
 
 __thread system_time_t now{};

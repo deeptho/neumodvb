@@ -93,3 +93,4 @@ template <class... Durations, class DurationIn> std::tuple<Durations...> break_d
 LoggerPtr mainlogger = create_log("main");
 thread_local LoggerPtr logger = Logger::getLogger("main");
 thread_local log4cxx::NDC global_ndc("");
+thread_local ss::string<4096> error_msg__;

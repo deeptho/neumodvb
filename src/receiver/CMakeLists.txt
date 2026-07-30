@@ -7,7 +7,7 @@ add_library(neumoreceiver SHARED  receiver.cc commands.cc subscriber.cc tune.cc 
   active_si_stream.cc recmgr.cc frontend.cc scam.cc
   active_stream.cc active_service.cc filemapper.cc live_mpm.cc active_playback.cc playback_mpm.cc mpm_cursor.cc
   dvbcsa.cc capmt.cc streamfilter.cc spectrum_algo5.cc)
-
+target_link_libraries(neumoreceiver PRIVATE stdc++exp)
 
 target_precompile_headers(neumoreceiver PRIVATE
   txnmgr.h

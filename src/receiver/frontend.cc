@@ -2078,7 +2078,8 @@ void dvb_frontend_t::start_frontend_monitor() {
 }
 void dvb_frontend_t::stop_frontend_monitor_and_wait() {
 	monitor_thread.stop_running(true);
-	assert(this->ts.readAccess()->fefd <0);
+	auto fefd= this->ts.readAccess()->fefd;
+	assert(fefd <0);
 }
 
 devdb::usals_location_t dvb_frontend_t::get_usals_location() const {

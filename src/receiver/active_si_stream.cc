@@ -25,6 +25,7 @@
 #include "../util/neumovariant.h"
 #include "../util/template_util.h"
 #include "scan.h"
+#include <stacktrace>
 
 #ifndef UNUSED
 #define UNUSED __attribute__((unused))
@@ -2929,6 +2930,17 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 	assert(si_mux_stream_id == dbmux_stream_id);
 	assert(si_mux_stream_id != (int)ANY_STREAM_ID_FILTER);
 	assert(driver_stream_id != (int)ANY_STREAM_ID_FILTER);
+	if (!(si_mux_stream_id == driver_stream_id  || signal_info.bbframes_on ||
+					((signal_info.requested_stream_id <0 ) && (driver_stream_id >=0)) ||
+				((si_mux_stream_id < 0) && (driver_stream_id >=0)) )) {
+		dterrorf("si_mux_stream_id={:d} driver_stream_id={:d} signal_info.bbframes_on={:d} "
+					"signal_info.requested_stream_id={:d} driver_stream_id={:d} "
+						 "si_mux_stream_id={:d} driver_stream_id={:d}",
+			si_mux_stream_id, driver_stream_id, signal_info.bbframes_on, signal_info.requested_stream_id,
+						 driver_stream_id, si_mux_stream_id, driver_stream_id);
+		auto s =std::stacktrace::current();
+		printf("%s\n", std::to_string(s).c_str());
+	}
 	assert (si_mux_stream_id == driver_stream_id  || signal_info.bbframes_on ||
 					((signal_info.requested_stream_id <0 ) && (driver_stream_id >=0)) ||
 					((si_mux_stream_id < 0) && (driver_stream_id >=0)) );

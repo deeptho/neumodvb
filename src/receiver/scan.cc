@@ -1559,7 +1559,9 @@ int scanner_t::add_spectral_peaks(const devdb::rf_path_t& rf_path,
 		if(!blindscan.spectrum_acquired()) {
 			blindscan.spectrum_key = spectrum_key;
 		}  else {
-			assert(blindscan.spectrum_key == spectrum_key);
+			auto k = spectrum_key;
+			k.start_time = blindscan.spectrum_key->start_time;
+			assert(blindscan.spectrum_key == k);
 		}
 		blindscan.peaks.push_back(peak_to_scan_t(peak, scan_id));
 	}

@@ -53,6 +53,8 @@ nanobind_add_module(pyreceiver NB_SHARED receiver_pybind.cc setproctitle.c optio
   subscriber_pybind.cc subscriber_data_pybind.cc logger_pybind.cc subscriber_notify.cc)
 nanobind_add_module(pyspectrum NB_SHARED  spectrum_pybind.cc spectrum_algo5.cc)
 
+target_include_directories(neumo-blindscan PRIVATE ${PROJECT_SOURCE_DIR}/../CLI11/include)
+target_include_directories(neumo-tune PRIVATE ${PROJECT_SOURCE_DIR}/../CLI11/include)
 
 target_compile_options(pyreceiver PUBLIC -fPIC -fsized-deallocation) #needed to prevent operator delete error
 #target_compile_options(pyspectrum PUBLIC -fsanitize=address -fno-omit-frame-pointer)

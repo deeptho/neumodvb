@@ -100,7 +100,11 @@ struct ss::header_t {
 	template<int N>
 	class PACKED inline_layout {
 		header_byte_t h;
+#ifdef LATEST
 		typename std::aligned_storage<sizeof(T), alignof(T)>::type data[N];
+#else
+		alignas(T) unsigned char data[sizeof(T) * N];
+#endif
 	public:
 
 	INLINE const T* get_buffer() const {
@@ -117,7 +121,12 @@ struct ss::header_t {
 	class PACKED extended_inline_layout {
 		header_byte_t h;
 		extended_inline_sub_header_t ei; //7 bytes
+#ifdef LATEST
 		typename std::aligned_storage<sizeof(T), alignof(T)>::type data[N];
+#else
+		alignas(T) unsigned char data[sizeof(T) * N];
+#endif
+
 	public:
 
 	INLINE void set_size (int size) {
@@ -149,7 +158,11 @@ struct ss::header_t {
 	template<int N>
 	struct PACKED data_with_capacity {
 		uint32_t capacity_{0};
+#ifdef LATEST
 		typename std::aligned_storage<sizeof(T), alignof(T)>::type data_[N];
+#else
+		alignas(T) unsigned char data_[sizeof(T) * N];
+#endif
 
 		INLINE T* data() {
 			return reinterpret_cast<T*>(&data_[0]);

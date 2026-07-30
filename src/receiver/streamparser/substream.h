@@ -189,7 +189,12 @@ namespace dtdemux {
 		int32_t get_Golomb_SE(uint8_t& byte, int& startbit);
 
 		template<typename T> T get() {
+#ifdef LATEST
 			typename std::aligned_storage<sizeof(T), alignof(T)>::type storage;
+#else
+		alignas(T) unsigned char storage[sizeof(T)];
+#endif
+
 			get_buffer((uint8_t*)::std::addressof(storage), sizeof(T));
 			return net_to_native((const T&) storage);
 		}

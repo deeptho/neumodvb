@@ -63,10 +63,11 @@ target_compile_options(pydevdb PUBLIC -fPIC -fsized-deallocation) #needed to pre
 target_link_libraries(devdb PUBLIC stackstring neumolmdb neumoutil neumodb schema)
 
 target_link_libraries(pydevdb PRIVATE devdb chdb pyneumodb pyschemadb uuid)
+target_compile_options(pydevdb PRIVATE -Wno-macro-redefined)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
-target_precompile_headers(devdb PRIVATE [[<stdint.h>]] devdb_extra.h  ${precomp})
-target_precompile_headers(pydevdb PRIVATE [[<stdint.h>]] devdb_extra.h ${precomp})
+target_precompile_headers(devdb PRIVATE devdb_extra.h  ${precomp})
+target_precompile_headers(pydevdb PRIVATE devdb_extra.h ${precomp})
 
 
 install (TARGETS pydevdb  DESTINATION ${Python_STDLIB}/${PROJECT_NAME})

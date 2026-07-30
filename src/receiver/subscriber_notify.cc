@@ -18,13 +18,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+#include <nanobind/nanobind.h>
 #include "neumodb/chdb/chdb_extra.h"
 #include "neumodb/statdb/statdb_extra.h"
 #include "receiver/receiver.h"
 #include "receiver/scan.h"
 #include "receiver/subscriber.h"
 #include "util/neumovariant.h"
-#include <nanobind/nanobind.h>
 //#include <nanobind/stl.h> //for std::optional
 #include "viewer/wxpy_api.h"
 #include <wx/window.h>

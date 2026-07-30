@@ -17,9 +17,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+#include <nanobind/nanobind.h>
 #include "util/logger.h"
 #include <clocale>
-#include <nanobind/nanobind.h>
 #include "neumompv_private.h"
 #include "wx/dcsvg.h"
 #include <X11/Xlib.h>

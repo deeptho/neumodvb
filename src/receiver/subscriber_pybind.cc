@@ -18,6 +18,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
+#include <nanobind/stl/tuple.h>
+#include <nanobind/stl/shared_ptr.h>
+#include "stackstring/stackstring_pybind.h"
 #include "neumodb/chdb/chdb_extra.h"
 #include "receiver/devmanager.h"
 #include "receiver/neumo-frontend.h"
@@ -25,12 +31,6 @@
 #include "receiver/active_si_stream.h"
 #include "receiver/scan.h"
 #include "receiver/subscriber.h"
-#include "stackstring/stackstring_pybind.h"
-#include <nanobind/nanobind.h>
-#include <nanobind/ndarray.h>
-#include <nanobind/stl/optional.h>
-#include <nanobind/stl/tuple.h>
-#include <nanobind/stl/shared_ptr.h>
 #include "viewer/wxpy_api.h"
 #include "scan.h"
 #include <gtk/gtk.h>

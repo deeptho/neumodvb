@@ -65,9 +65,9 @@ target_link_libraries(recdb PUBLIC fmt::fmt uuid)
 target_link_libraries(pyrecdb PRIVATE recdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
-target_precompile_headers(recdb PRIVATE [[<stdint.h>]] recdb_extra.h ${precomp})
-target_precompile_headers(pyrecdb PRIVATE [[<stdint.h>]] recdb_extra.h ${precomp})
-
+target_precompile_headers(recdb PRIVATE recdb_extra.h ${precomp})
+target_precompile_headers(pyrecdb PRIVATE recdb_extra.h ${precomp})
+target_compile_options(pyrecdb PRIVATE -Wno-macro-redefined)
 
 install (TARGETS pyrecdb DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install (TARGETS recdb  DESTINATION ${CMAKE_INSTALL_LIBDIR})

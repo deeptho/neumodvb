@@ -18,14 +18,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
 #include "neumodb/epgdb/epgdb_db.h"
 #include "neumodb/epgdb/epgdb_extra.h"
 #include "stackstring/stackstring_pybind.h"
 #include "util/identification.h"
-#include <nanobind/nanobind.h>
-#include <nanobind/stl/string.h>
-#include <nanobind/stl/optional.h>
 #include <stdio.h>
 
 namespace nb = nanobind;

@@ -18,9 +18,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include "neumodb/chdb/chdb_extra.h"
-#include "stackstring/stackstring_pybind.h"
 #include <nanobind/nanobind.h>
+#include "stackstring/stackstring_pybind.h"
+#include "neumodb/chdb/chdb_extra.h"
 #include <nanobind/stl/vector.h>
 #include <stdio.h>
 

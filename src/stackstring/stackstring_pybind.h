@@ -21,6 +21,7 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/make_iterator.h>
+#include "util/logger.h"
 #include <stdio.h>
 
 #include "stackstring/stackstring.h"

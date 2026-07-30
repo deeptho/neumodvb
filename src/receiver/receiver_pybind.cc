@@ -18,8 +18,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include "setproctitle.h"
 #include <nanobind/nanobind.h>
+#include "setproctitle.h"
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/tuple.h>

@@ -17,12 +17,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
+#include <nanobind/nanobind.h>
 #include "neumodb/cursors.h"
 #include "neumodb/deserialize.h"
 #include "neumodb/metadata.h"
 #include "neumodb/dbdesc.h"
 #include "neumodb/schema/schema.h"
-#include <nanobind/nanobind.h>
 #include <stdio.h>
 
 namespace nb = nanobind;

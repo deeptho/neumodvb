@@ -18,11 +18,11 @@
  *
  */
 
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/shared_ptr.h>
 #include "receiver/receiver.h"
 #include "util/logger.h"
 #include <clocale>
-#include <nanobind/nanobind.h>
-#include <nanobind/stl/shared_ptr.h>
 #include "wx/dcsvg.h"
 #include <X11/Xlib.h>
 #include <GL/glx.h>

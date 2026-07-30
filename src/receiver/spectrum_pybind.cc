@@ -18,9 +18,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
-#include "spectrum_algo_private.h"
-#include <nanobind/ndarray.h>
 #include "util/numpy_array.h"
+#include <nanobind/ndarray.h>
+#include "spectrum_algo_private.h"
 #include <vector>
 
 namespace nb = nanobind;

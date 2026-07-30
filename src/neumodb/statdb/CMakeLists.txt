@@ -64,9 +64,9 @@ target_link_libraries(statdb PUBLIC stackstring neumolmdb neumoutil devdb chdb n
 target_link_libraries(pystatdb PRIVATE statdb pyneumodb)
 
 list(TRANSFORM genhdr PREPEND ${CMAKE_CURRENT_BINARY_DIR}/  OUTPUT_VARIABLE precomp)
-target_precompile_headers(statdb PRIVATE [[<stdint.h>]] statdb_extra.h ${precomp})
-target_precompile_headers(pystatdb PRIVATE [[<stdint.h>]] statdb_extra.h ${precomp})
-
+target_precompile_headers(statdb PRIVATE statdb_extra.h ${precomp})
+target_precompile_headers(pystatdb PRIVATE statdb_extra.h ${precomp})
+target_compile_options(pystatdb PRIVATE -Wno-macro-redefined)
 
 install (TARGETS pystatdb DESTINATION ${Python_STDLIB}/${PROJECT_NAME})
 install (TARGETS statdb  DESTINATION ${CMAKE_INSTALL_LIBDIR})

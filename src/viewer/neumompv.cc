@@ -404,7 +404,9 @@ int mpv_subscription_t::set_subtitle_language(int idx) {
 		arg.format("{:d}", idx + 1);
 		dtdebugf("setting subtitle language (from GUI) to {:d}", idx);
 	}
-	if (mpv_set_property_string(mpv_player->mpv, "sid", arg.c_str()) < 0) {
+	uint64_t reply_userdata{0};
+	char *val = arg.c_str();
+	if (mpv_set_property_async(mpv_player->mpv, reply_userdata, "sid", MPV_FORMAT_STRING, &val) < 0) {
 		ret = -1;
 		dterrorf("Failed setting subtitle language {:d}", idx);
 	}
@@ -445,7 +447,9 @@ void mpv_subscription_t::on_language_change(const chdb::language_code_t& lang, i
 						 for_subtitles ? "subtitle" : "audio",
 						 idx, chdb::lang_name(lang));
 	}
-	if (mpv_set_property_string(mpv_player->mpv, for_subtitles ? "sid" : "aid", arg.c_str()) < 0)
+	uint64_t reply_userdata{0};
+	char* val = arg.c_str();
+	if (mpv_set_property_async(mpv_player->mpv, reply_userdata, for_subtitles ? "sid" : "aid", MPV_FORMAT_STRING, &val) < 0)
 		dterrorf("Failed setting {} language {:d}",
 						 for_subtitles ? "subtitle" : "audio", idx);
 }
@@ -744,7 +748,8 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 			subscription.filepath.format("neumo://{:p}/{:d}", fmt::ptr(this), segmentno);
 			const char* cmd[] = {"loadfile", subscription.filepath.c_str(), "replace", "0",
 				"play-direction=forward", nullptr};
-			::mpv_command(mpv, cmd);
+			uint64_t reply_userdata{0};
+			::mpv_command_async(mpv, reply_userdata, cmd);
 		} else  if(must_move_to_prev) {
 			this->subscription.current_segment_dmarker = this->subscription.mpm->move_to_segment(segmentno -1);
 			segmentno = subscription.current_segment_dmarker.segmentno;
@@ -754,7 +759,8 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 																	 this->subscription.current_segment_dmarker.segmentno);
 			const char* cmd[] = {"loadfile", subscription.filepath.c_str(), "replace", "0",
 				"play-direction=backward", nullptr};
-			::mpv_command(mpv, cmd);
+			uint64_t reply_userdata{0};
+			::mpv_command_async(mpv, reply_userdata, cmd);
 		} else if(this->subscription.mpm) {
 			this->subscription.current_segment_dmarker = this->subscription.mpm->move_to_segment(segmentno +1);
 			segmentno = subscription.current_segment_dmarker.segmentno;
@@ -764,7 +770,8 @@ void MpvPlayer_::handle_mpv_event(mpv_event& event) {
 																	 this->subscription.current_segment_dmarker.segmentno);
 			const char* cmd[] = {"loadfile", subscription.filepath.c_str(), "replace", "0",
 				"play-direction=forward", nullptr};
-			::mpv_command(mpv, cmd);
+			uint64_t reply_userdata{0};
+			::mpv_command_async(mpv, reply_userdata, cmd);
 		} else {
 			dtdebugf("exiting");
 		}
@@ -872,7 +879,8 @@ int MpvPlayer_::screenshot() {
 		return -1;
 	}
 	const char* cmd[] = {"screenshot", nullptr};
-	::mpv_command(mpv, cmd);
+	uint64_t reply_userdata{0};
+	::mpv_command_async(mpv, reply_userdata, cmd);
 	return 0;
 }
 
@@ -903,7 +911,8 @@ int MpvPlayer_::change_audio_volume(int step) {
 	arg.format("{:d}", v);
 	dtdebugf("setting audio volume to {:d}", v);
 	const char* cmd[] = {"set", "volume", arg.c_str(), nullptr};
-	::mpv_command(mpv, cmd);
+	uint64_t reply_userdata{0};
+	::mpv_command_async(mpv, reply_userdata, cmd);
 	volume = v;
 	volume_expiration.start(1s);
 	this->gl_canvas->overlay.set_volume(v);
@@ -949,12 +958,12 @@ int MpvPlayer::set_subtitle_language(int id) {
 void mpv_subscription_t::play_service(const chdb::service_t& service) {
 	log4cxx_store_threadname();
 	bool is_radio = service.media_mode == chdb::media_mode_t::RADIO;
-	if (mpv_set_property_string(mpv_player->mpv, "profile",
-															is_radio ? "neumoradio" : "neumo") < 0) {
+	uint64_t reply_userdata{0};
+	const char* val = is_radio ? "neumoradio" : "neumo";
+	if (mpv_set_property_async(mpv_player->mpv, reply_userdata, "profile", MPV_FORMAT_STRING, &val) < 0) {
 		dterrorf("failed to register mpv neumo profile");
 		assert(0);
 	}
-
 	dtdebugf("PLAY SUBSCRIPTION (service): {}", service);
 	if (is_playing()) {
 		dtdebugf("PLAY SUBSCRIPTION (service) close mpm");
@@ -1028,7 +1037,9 @@ int MpvPlayer_::play_service(const chdb::service_t& service) {
 																								still is active, it is forced to abort*/
 
 	const char* cmd[] = {"loadfile", subscription.filepath.c_str(), nullptr};
-	::mpv_command(mpv, cmd);
+	uint64_t reply_userdata{0};
+	::mpv_command_async(mpv, reply_userdata, cmd);
+
 	this->change_audio_volume(0);
 	dtdebugf("PLAY SUBSCRIPTION {:p} STARTED", fmt::ptr(this));
 	return 0;
@@ -1098,7 +1109,8 @@ int MpvPlayer_::play_recording(const recdb::rec_t& rec, milliseconds_t start_pla
 	}
 
 	const char* cmd[] = { "loadfile", subscription.filepath.c_str(), nullptr};
-	::mpv_command(mpv, cmd);
+	uint64_t reply_userdata{0};
+	::mpv_command_async(mpv, reply_userdata, cmd);
 	this->change_audio_volume(0);
 
 	dtdebugf("PLAY RECORDING {:p} END", fmt::ptr(this));
@@ -1138,7 +1150,8 @@ int MpvPlayer_::jump(int seconds) {
 	arg.format("{:d}", absolute_seconds);
 
 	const char* cmd1[] = {"seek", arg.c_str(), "absolute", nullptr};
-	::mpv_command(mpv, cmd1);
+	uint64_t reply_userdata{0};
+	::mpv_command_async(mpv, reply_userdata, cmd1);
 	return 0;
 }
 
@@ -1216,7 +1229,9 @@ int MpvPlayer_::stop_play() {
 																					Normally this will not be harmfu as pending_close is still true
 																				*/
 	const char* cmd[] = {"stop", nullptr};
-	::mpv_command(mpv, cmd);
+	uint64_t reply_userdata{0};
+	mpv_abort_async_command(mpv, reply_userdata);
+	::mpv_command_async(mpv, reply_userdata, cmd);
 	dtdebugf("PLAY SUBSCRIPTION {:p} END - DONE", fmt::ptr(this));
 	return 0;
 }
@@ -1241,7 +1256,8 @@ int MpvPlayer_::pause() {
 		paused = !w->paused;
 		w->paused = paused;
 	}
-	mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &paused);
+	uint64_t reply_userdata{0};
+	mpv_set_property_async(mpv, reply_userdata, "pause", MPV_FORMAT_FLAG, &paused);
 	dtdebugf("PLAY SUBSCRIPTION paused={}", paused);
 	return 0;
 }
@@ -1297,6 +1313,10 @@ int MpvPlayer_::run() {
 		mpv_render_context_set_update_callback(mpv_gl, nullptr, nullptr);
 		mpv_render_context_free(mpv_gl);
 	}
+	const char* cmd[] = {"stop", nullptr};
+	uint64_t reply_userdata{0};
+	mpv_abort_async_command(mpv, reply_userdata);
+	::mpv_command_async(mpv, reply_userdata, cmd);
 	mpv_terminate_destroy(mpv);
 	return 0;
 }
@@ -1594,8 +1614,11 @@ int MpvPlayer_::set_play_direction(bool forward) {
 		dterrorf("mpv not ready");
 		return -1;
 	}
-	if (mpv_set_property_string(this->mpv, "play-direction",
-															forward ? "forward" : "backward") < 0)
+	uint64_t reply_userdata{0};
+	const char* val = forward ? "forward" : "backward";
+	if (mpv_set_property_async(this->mpv, reply_userdata, "play-direction",
+														 MPV_FORMAT_STRING,
+														 &val) < 0)
 		dterrorf("Failed setting play_direction {:d}", forward);
 	auto w = this->trick_play.writeAccess();
 	w->reverse_playing = !forward;
@@ -1621,9 +1644,9 @@ int MpvPlayer_::set_playback_speed(double speed) {
 	auto end_pos = playback_info.end_time;
 	auto play_pos = this->get_mpv_play_real_time();
 	auto to_play = std::chrono::duration_cast<std::chrono::seconds>(end_pos - play_pos).count();
-	if (mpv_set_property(this->mpv, "speed", MPV_FORMAT_DOUBLE, &speed) < 0)
+	uint64_t reply_userdata{0};
+	if (mpv_set_property_async(this->mpv, reply_userdata, "speed", MPV_FORMAT_DOUBLE, &speed) < 0)
 		dterrorf("Failed setting speed {}", speed);
-
 	ss::string<64> msg;
 	msg.format("{:.2f}x speed", speed);
 	this->notify_message(msg);

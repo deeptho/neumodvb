@@ -628,6 +628,9 @@ class NeumoGui(wx.App):
         return self.frame.main_menubar.get_menu_item(name)
 
     def __init__(self, *args, **kwds):
+        from gi.repository import GLib
+        GLib.ThreadPool.set_max_unused_threads(5)
+        GLib.ThreadPool.stop_unused_threads()
         self.receiver = pyreceiver.receiver_t(options.receiver)
         if self.receiver.db_upgrade_info is not None:
             i = self.receiver.db_upgrade_info

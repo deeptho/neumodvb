@@ -159,6 +159,12 @@ at least the following packages are needed:
 ```bash
 sudo pip3 install mpl_scatter_density
 ```
+
+#### Fedora 44 ####
+
+Follow the instructions for Fedora 44.
+
+
 #### Manjaro ####
 
 According to LLew on satellites.co.uk: I use these dependencies in the Archlinux distro Manjaro (or Arcolinux / EndeavourOS):-

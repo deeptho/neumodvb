@@ -2221,8 +2221,9 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 	if (c.is_valid()) {
 		db_found = true;
 		auto ch = c.current();
-		if (reader_mux_is_scanning)
-			ch.scan_time = system_clock_t::to_time_t(now);
+		auto now_ = system_clock_t::to_time_t(now);
+		if (now_ > ch.last_seen_time + 24*3600)
+			ch.last_seen_time = now_;
 		if (service.name != ch.name || !ch.name_from_sdt) {
 			ch.name = service.name;
 			changed = true;
@@ -2268,9 +2269,9 @@ active_si_stream_t::sdt_process_service(db_txn& wtxn, const chdb::service_t& ser
 		}
 	} else { //no service yet
 		auto ch = service;
-		ch.mtime = system_clock_t::to_time_t(now);
-		if (reader_mux_is_scanning)
-			ch.scan_time = ch.mtime;
+		auto now_ = system_clock_t::to_time_t(now);
+		ch.mtime = now_;
+		ch.last_seen_time = now_;
 		ch.k.mux = mux_key;
 		std::visit([&](auto&mux) {
 			auto pol = get_member(mux, pol, chdb::fe_polarisation_t::NONE);
@@ -2928,6 +2929,8 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 	auto& si_mux_stream_id = mux_key_ptr(mux)->stream_id;
 	auto dbmux_stream_id = mux_key_ptr(this->dbmux)->stream_id;
 	assert(si_mux_stream_id == dbmux_stream_id);
+	if(si_mux_stream_id <0)
+		si_mux_stream_id = -1;
 	assert(si_mux_stream_id != (int)ANY_STREAM_ID_FILTER);
 	assert(driver_stream_id != (int)ANY_STREAM_ID_FILTER);
 	if (!(si_mux_stream_id == driver_stream_id  || signal_info.bbframes_on ||
@@ -3287,8 +3290,9 @@ void active_si_stream_t::save_pmts(db_txn& wtxn)
 		}
 		new_service.encrypted = pat_service.pmt.is_encrypted();
 		bool reader_mux_is_scanning = mux_common_ptr(this->dbmux)->scan_status == chdb::scan_status_t::ACTIVE;
-		if(reader_mux_is_scanning)
-			new_service.scan_time = system_clock_t::to_time_t(now);
+		auto now_ = system_clock_t::to_time_t(now);
+		if (now_  > service.last_seen_time  +24*3600)
+			new_service.last_seen_time = now_;
 		if(sdt_actual_notpresent())
 			sdt_data.actual_services.push_back(new_service);
 		if(new_service != service) {

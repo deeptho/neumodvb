@@ -59,7 +59,7 @@ class ServiceTable(NeumoTable):
          CD(key='video_pid',  label='VPID'),
          CD(key='provider',  label='Provider'),
          CD(key='service_type',  label='Type'),
-         CD(key='scan_time',  label='Scanned', dfn=datetime_fn, example='2021-06-16 18:30:33 '),
+         CD(key='last_seen_time',  label='Last seen', dfn=datetime_fn, example='2021-06-16 18:30:33 '),
          CD(key='mtime',  label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33 '),
          CD(key='icons',  label='', basic=False, dfn=bool_fn, example='1234'),
          CD(key='audio_pref',  label='pref', basic=False, dfn=lang_fn, example='1234dddddddddddddd'),

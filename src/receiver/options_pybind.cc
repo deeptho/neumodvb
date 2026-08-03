@@ -20,6 +20,8 @@
  */
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/chrono.h>
+#include <nanobind/stl/optional.h>
 
 #include "options.h"
 #include "neumodb/devdb/tune_options.h"

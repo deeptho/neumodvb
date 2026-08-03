@@ -85,7 +85,7 @@ endif()
 find_package(Boost 1.69 REQUIRED regex context program_options)
 include_directories(${BOOST_INCLUDE_DIRS})
 
-cmake_policy(SET CMP0148 OLD)
+#cmake_policy(SET CMP0148 OLD)
 
 if (CMAKE_VERSION VERSION_LESS 3.18)
 set(DEV_MODULE Development)

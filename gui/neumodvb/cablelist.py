@@ -53,6 +53,7 @@ class CableTable(NeumoTable):
          CD(key='rf_input',  label='Card RF#in', basic=True, readonly=False, example="C0#3  TBS 6909seXXX ",
             dfn=card_rf_input_dfn, sfn=card_rf_input_sfn),
          CD(key='mtime', label='Modified', dfn=datetime_fn, example='2021-06-16 18:30:33*'),
+         CD(key='comment', label='Comment', dfn=datetime_fn, example='a long test'),
         ]
 
     def __init__(self, parent, basic=False, *args, **kwds):

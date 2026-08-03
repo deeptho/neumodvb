@@ -392,7 +392,8 @@ cable = db_struct(name ='cable',
                             (6, 'ss::string<16>', 'connection_name', ''),
                             #(7, 'ss::vector<lnb_key_t,4>', 'connected_lnb_keys'), Not used: cables are connected to cards
                                                                                   # and connected lnbs follow from lnb list
-                            (8, 'time_t', 'mtime')
+                            (8, 'time_t', 'mtime'),
+                            (9, 'ss::string<64>', 'comment')
                             ))
 
 fe = db_struct(name='fe',

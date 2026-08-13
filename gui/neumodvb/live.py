@@ -1065,7 +1065,7 @@ class MosaicPanel(wx.Panel):
         data = get_object(evt)
         if type(data) == str:
             ShowMessage("Subscription failed", data)
-    def AddMpvPlayer(self):
+    def AddMpvPlayer(self, service_or_recording):
         import pyneumompv
         idx = len(self.mpv_players)
         panel = wx.Panel(self, wx.ID_ANY)
@@ -1073,6 +1073,26 @@ class MosaicPanel(wx.Panel):
         mpv_player = pyneumompv.MpvPlayer(self.controller.app.receiver, panel, idx)
         glcanvas = mpv_player.glcanvas
         glcanvas.Bind(wx.EVT_COMMAND_ENTER, self.OnSubscriberCallback)
+
+        # Bind to window creation to run code safely right after the native window exists
+        def on_window_create(event):
+            event.Skip()
+            glcanvas.Unbind(wx.EVT_WINDOW_CREATE) # Run only once
+            # Put code that needs to run after creation here, or trigger a callback
+            old_focus_idx = self.focus_idx
+            self.focus_idx = len(self.mpv_players) -1
+            dtdebug(f"focus_idx changed from {old_focus_idx} to {self.focus_idx}")
+            dtdebug(f'ADDED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
+            if type(service_or_recording) == pyrecdb.rec.rec:
+                dtdebug(f'recording {service_or_recording}')
+                wx.CallAfter(self.mpv_players[self.focus_idx].play_recording, service_or_recording)
+            else:
+                dtdebug(f'starting {service_or_recording}')
+                wx.CallAfter(self.mpv_players[self.focus_idx].play_service, service_or_recording)
+
+        glcanvas.Bind(wx.EVT_WINDOW_CREATE, on_window_create)
+
+
         sizer.Add(glcanvas,1, wx.EXPAND|wx.ALL)
         panel.SetSizer(sizer)
         self.controller.mosaic_sizer.Add(panel, 1, wx.EXPAND|wx.ALL)
@@ -1110,6 +1130,8 @@ class MosaicPanel(wx.Panel):
         wx.CallAfter(self.controller.Refresh)
 
     def RemoveMpvPlayer(self, glcanvas, force=False):
+        if not force and len(self.mpv_players) == 1:
+            dterror("cannot remove last mpv player")
         for idx, w in enumerate(self.glcanvases):
             if w == glcanvas:
                 mpv_player=self.mpv_players.pop(idx)
@@ -1140,7 +1162,8 @@ class MosaicPanel(wx.Panel):
         player = self.mpv_players[self.focus_idx]
         glcanvas = self.glcanvases[self.focus_idx]
         player.stop_play()
-        self.RemoveMpvPlayer(glcanvas, force=True)
+        if len(self.mpv_players) > 1 :
+            self.RemoveMpvPlayer(glcanvas, force=True)
 
     def ServiceTune(self, service_or_chgm, replace_running=True):
         ls = self.controller.app.live_service_screen
@@ -1149,15 +1172,11 @@ class MosaicPanel(wx.Panel):
             ShowMessage(f'Cannot tune to service {service_or_chgm}')
             return
         assert ls.app.receiver is not None
-        print(f'LEN={len(self.mpv_players)}')
+        print(f'LEN={len(self.mpv_players)} replace_running={replace_running}')
         if not replace_running or len(self.mpv_players)==0:
-            self.AddMpvPlayer()
-            old_focus_idx = self.focus_idx
-            self.focus_idx = len(self.mpv_players) -1
-            dtdebug(f"focus_idx changed from {old_focus_idx} to {self.focus_idx}")
-            dtdebug(f'ADDED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
-            wx.CallLater(500, self.mpv_players[self.focus_idx].play_service, service)
+            self.AddMpvPlayer(service)
         else:
+            print(f'HERE={self.focus_idx}')
             if self.focus_idx is not None:
                 dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
                 self.mpv_players[self.focus_idx].play_service(service)
@@ -1166,15 +1185,12 @@ class MosaicPanel(wx.Panel):
         ls = self.controller.app.live_service_screen
         assert ls.app.receiver is not None
         if not replace_running or len(self.mpv_players)==0:
-            self.AddMpvPlayer()
-            old_focus_idx = self.focus_idx
-            self.focus_idx = len(self.mpv_players) -1
-            dtdebug(f"focus_idx changed from {old_focus_idx} to {self.focus_idx}")
-            dtdebug(f'ADDED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
-            wx.CallLater(500, self.mpv_players[self.focus_idx].play_recording, rec)
-        if self.focus_idx is not None:
-            dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
-            return self.mpv_players[self.focus_idx].play_recording(rec)
+            dtdebug(f'calling self.AddMpvPlayer rec={rec}')
+            self.AddMpvPlayer(rec)
+        else:
+            if self.focus_idx is not None:
+                dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
+                return self.mpv_players[self.focus_idx].play_recording(rec)
         return -1
 
     def CmdToggleRecord(self, event):

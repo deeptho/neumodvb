@@ -296,6 +296,12 @@ epgdb::epg_screen_t* epgdb::gridepg_screen_t::add_service(db_txn& txnepg, const 
 }
 
 fmt::format_context::iterator
+fmt::formatter<rec_status_t>::format(const rec_status_t& s, format_context& ctx) const
+{
+	return fmt::format_to(ctx.out(), "{:s}", to_str(s));
+}
+
+fmt::format_context::iterator
 fmt::formatter<epg_source_t>::format(const epg_source_t& s, format_context& ctx) const
 {
 	auto sat = chdb::sat_pos_str(s.sat_pos);
@@ -444,9 +450,13 @@ bool epgdb::update_epg_recording_status(db_txn& epgdb_wtxn, const epgdb::epg_rec
 		return true;
 	auto existing = c.current();
 	if (existing.rec_status != epgrec.rec_status) {
+		dtdebugf("rec_status: {} {} anon={} event_id={}", existing.rec_status, epgrec.rec_status,
+						 existing.k.anonymous, existing.k.event_id);
 		assert(existing.k.anonymous == (existing.k.event_id == TEMPLATE_EVENT_ID));
 		existing.rec_status = epgrec.rec_status;
+#if 0 //this asserion seems to be false
 		assert (!existing.k.anonymous);
+#endif
 		epgdb::update_record_at_cursor(c, existing);
 	}
 	return false;

@@ -41,7 +41,7 @@ class playback_mpm_t;
 
 /*
 	state for implementing "smart" jumping  forward and backward during playback.
-	Jumping is controlled by the left (junp backward in time) and right arrows (jump forward in time).
+	Jumping is controlled by the left (jump backward in time) and right arrows (jump forward in time).
 	It proceeds in two phases
 	1. increasing-duration jumps: multiple presses of one type only (all left or all right)
 	   jump by increasingly large amounts

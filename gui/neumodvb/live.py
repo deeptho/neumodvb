@@ -1149,17 +1149,33 @@ class MosaicPanel(wx.Panel):
             ShowMessage(f'Cannot tune to service {service_or_chgm}')
             return
         assert ls.app.receiver is not None
+        print(f'LEN={len(self.mpv_players)}')
         if not replace_running or len(self.mpv_players)==0:
             self.AddMpvPlayer()
             old_focus_idx = self.focus_idx
             self.focus_idx = len(self.mpv_players) -1
             dtdebug(f"focus_idx changed from {old_focus_idx} to {self.focus_idx}")
             dtdebug(f'ADDED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
-            wx.CallLater(2000, self.mpv_players[self.focus_idx].play_service, service)
+            wx.CallLater(500, self.mpv_players[self.focus_idx].play_service, service)
         else:
             if self.focus_idx is not None:
                 dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
                 self.mpv_players[self.focus_idx].play_service(service)
+
+    def PlayRecording(self, rec, replace_running=True):
+        ls = self.controller.app.live_service_screen
+        assert ls.app.receiver is not None
+        if not replace_running or len(self.mpv_players)==0:
+            self.AddMpvPlayer()
+            old_focus_idx = self.focus_idx
+            self.focus_idx = len(self.mpv_players) -1
+            dtdebug(f"focus_idx changed from {old_focus_idx} to {self.focus_idx}")
+            dtdebug(f'ADDED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
+            wx.CallLater(500, self.mpv_players[self.focus_idx].play_recording, rec)
+        if self.focus_idx is not None:
+            dtdebug(f'USED PLAYER {self.mpv_players[self.focus_idx]} {self.focus_idx}')
+            return self.mpv_players[self.focus_idx].play_recording(rec)
+        return -1
 
     def CmdToggleRecord(self, event):
         dtdebug(f'RECORD hidden={self.controller.hidden} focusidx={self.focus_idx}')

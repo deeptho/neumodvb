@@ -165,4 +165,5 @@ namespace epgdb {
 declfmt(epgdb::epg_source_t);
 declfmt(epgdb::epg_key_t);
 declfmt(epgdb::epg_record_t);
+declfmt(epgdb::rec_status_t);
 #undef declfmt

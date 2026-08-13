@@ -2469,7 +2469,7 @@ receiver_thread_t::scan_muxes(std::vector<task_queue_t::future_t>& futures, ss::
 															const subscription_options_t& tune_options,
 															int max_num_subscriptions, const std::chrono::seconds& max_idle_time,
 															ssptr_t ssptr);
-
+#if 0
 /*
 	this causes gdb to stop. Code in .gdbinit can then load library symbols
 */
@@ -2478,3 +2478,4 @@ __attribute__((constructor)) void my_library_init() {
 		raise(SIGTRAP);
 	}
 }
+#endif

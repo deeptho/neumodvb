@@ -1,3 +1,28 @@
+catch load .*philips.*
+set $my_bp = $bpnum
+commands
+    silent
+    python
+import gdb, re
+# Look through currently loaded libraries known to GDB
+# and find the one matching your specific philips path requirement
+libs = gdb.execute("info sharedlibrary", to_string=True)
+for line in libs.splitlines():
+  if "philips" in line and "No" in line:
+      # Extract the actual library filename/path from the info output
+      parts = line.split()
+      if parts:
+        lib_path = parts[-1]
+        print(f"[+] Auto-loading symbols for: {lib_path}")
+        gdb.execute(f"sharedlibrary {lib_path}")
+end
+continue
+end
+define hook-run
+  # Ensures your specific breakpoint is enabled on every run
+  enable $my_bp
+end
+
 set env TSAN_OPTIONS="abort_on_error=1"
 catch syscall exit_group
 set print finish off
@@ -65,27 +90,6 @@ end
 #  cont
 #end
 
-source gdb_filter.py
-
-define hook-run
-     echo --- Hook-run executing for this run ---\n
-  set $run_once = 0
-end
-
-define hook-stop
-  if $run_once == 0
-     set $run_once = 1
-     echo --- Hook-stop executing for this run ---\n
-
-     # --- PUT YOUR COMMANDS HERE ---
-     # e.g., backtrace
-     load-neumo #load all libraries
-     cont
-  end
-end
-
-
-break frontend.cc:2081
 
 #set auto-solib-add off
 #load-neumo

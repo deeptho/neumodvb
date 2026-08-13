@@ -592,7 +592,7 @@ recdb::dmarker_t  mpm_cursor_t::get_dmarker() {
 	 dmarker_change: true when the reason for returning num_bytes==0 is a dmarker change
  */
 std::tuple<bool, int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_range(int32_t num_bytes, active_mpm_t* live_mpm) {
-	assert(num_bytes>0);
+	assert(num_bytes>0); //on entry: num_bytes=65536
 	auto n = std::min(num_bytes_safe_to_read, num_bytes);
 	assert(n>=0);
 	auto still_growing = live_mpm && this->part_is_growing();
@@ -622,7 +622,7 @@ std::tuple<bool, int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_r
 	}
 	assert(n>=0);
 	bool end_of_stream{false};
-	if(n  == 0 && !pmt_change && ! dmarker_change) {
+	if(n  == 0 && !pmt_change && ! dmarker_change) { //no pmt_change and no dmarker_change; n=0 here
 		//we need to wait for more data
 		while (n==0 && ! pmt_change && ! dmarker_change) {
 			auto still_growing = live_mpm && this->part_is_growing();
@@ -669,8 +669,9 @@ std::tuple<bool, int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_r
 				}
 				idxdb_rtxn->abort();
 			}
-			still_growing = this->part_is_growing(); //may have changed now
-			auto maxbytes  = num_bytes_safe_to_read;
+			still_growing = this->part_is_growing(); //may have changed now still_growing=true
+			assert(num_bytes_safe_to_read >=0);
+			auto maxbytes  = num_bytes_safe_to_read; //max_bytes=num_bytes_safe_to_read=-1967950672
 			if(!still_growing) {
 				maxbytes  = (int64_t)this->current_part.stream_packetno_end* (int64_t) ts_packet_t::size - this->current_byte_pos;
 				assert(maxbytes >=0);
@@ -683,7 +684,7 @@ std::tuple<bool, int32_t, int64_t, int32_t, bool, bool> mpm_cursor_t::get_read_r
 				n = std::min(n, (int32_t)(next_pmt_change_ - this->current_byte_pos));
 			if(next_dmarker_change_ >=0)
 				n = std::min(n, (int32_t)(next_dmarker_change_ - this->current_byte_pos));
-			assert(n>=0);
+			assert(n>=0); //n= -1967950672 next_dmarker_change_=-1 //this->current_byte_pos=118534000
 			assert((!pmt_change  && ! dmarker_change) || (n==0));
 		}
 	}

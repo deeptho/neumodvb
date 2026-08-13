@@ -135,5 +135,5 @@ private:
 #endif
 	void DoRender();
 
-	wxDECLARE_EVENT_TABLE();
+//	wxDECLARE_EVENT_TABLE();
 };

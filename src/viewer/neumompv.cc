@@ -109,12 +109,14 @@ static void InitializeTexture(GLuint& g_texture) {
 	dtdebugf("g_texture={}", g_texture);
 }
 
+#if 0
 wxBEGIN_EVENT_TABLE(MpvGLCanvas, wxGLCanvas)
 EVT_SIZE(MpvGLCanvas::OnSize)
 EVT_WINDOW_CREATE(MpvGLCanvas::OnWindowCreate)
 EVT_PAINT(MpvGLCanvas::OnPaint)
 EVT_ERASE_BACKGROUND(MpvGLCanvas::OnErase)
 wxEND_EVENT_TABLE()
+#endif
 
 MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 : wxGLCanvas(parent, wxID_ANY,  NULL, wxDefaultPosition, wxDefaultSize
@@ -124,6 +126,12 @@ MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 {
 	InitializeTexture(g_texture);
 	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+	Bind(wxEVT_SIZE, &MpvGLCanvas::OnSize, this);
+	Bind(wxEVT_CREATE, &MpvGLCanvas::OnWindowCreate, this);
+	Bind(wxEVT_PAINT, &MpvGLCanvas::OnPaint, this);
+	Bind(wxEVT_ERASE_BACKGROUND, &MpvGLCanvas::OnErase, this);
+	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+
 	SetClientSize(parent->GetSize());
 }
 

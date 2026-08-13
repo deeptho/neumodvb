@@ -1118,6 +1118,7 @@ receiver_thread_t::cb_t::subscribe_playback(const recdb::rec_t& rec,
 			}
 		}
 		unsubscribe(ssptr);
+		ssptr->set_subscription_id(subscription_id);
 	} else { //generate a unique subscription_id
 		subscribe_ret_t sret{subscription_id_t::NONE, {}};
 		subscription_id = sret.subscription_id;

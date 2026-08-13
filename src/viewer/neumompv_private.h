@@ -220,7 +220,6 @@ public:
 	int jump(int seconds);
 	int stop_play();
 	int pause();
-	int run();
 	void get_audio_volume();
 	void save_audio_volume_async();
 #if 0

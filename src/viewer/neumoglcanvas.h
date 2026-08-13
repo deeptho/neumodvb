@@ -135,5 +135,9 @@ private:
 #endif
 	void DoRender();
 
-//	wxDECLARE_EVENT_TABLE();
+	inline void request_refresh() {
+		this->CallAfter([this]() {
+			this->Refresh(false);
+		});
+	}
 };

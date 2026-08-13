@@ -1,3 +1,4 @@
+
 /*
  * Neumo dvb (C) 2019-2026 deeptho@gmail.com
  * Copyright notice:
@@ -107,16 +108,8 @@ static void InitializeTexture(GLuint& g_texture) {
 		dterrorf("OPENGL error {:d}\n", err);
 	}
 	dtdebugf("g_texture={}", g_texture);
-}
 
-#if 0
-wxBEGIN_EVENT_TABLE(MpvGLCanvas, wxGLCanvas)
-EVT_SIZE(MpvGLCanvas::OnSize)
-EVT_WINDOW_CREATE(MpvGLCanvas::OnWindowCreate)
-EVT_PAINT(MpvGLCanvas::OnPaint)
-EVT_ERASE_BACKGROUND(MpvGLCanvas::OnErase)
-wxEND_EVENT_TABLE()
-#endif
+}
 
 MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 : wxGLCanvas(parent, wxID_ANY,  NULL, wxDefaultPosition, wxDefaultSize
@@ -129,8 +122,7 @@ MpvGLCanvas::MpvGLCanvas(wxWindow *parent, std::shared_ptr<MpvPlayer_> player)
 	Bind(wxEVT_SIZE, &MpvGLCanvas::OnSize, this);
 	Bind(wxEVT_CREATE, &MpvGLCanvas::OnWindowCreate, this);
 	Bind(wxEVT_PAINT, &MpvGLCanvas::OnPaint, this);
-	Bind(wxEVT_ERASE_BACKGROUND, &MpvGLCanvas::OnErase, this);
-	SetBackgroundStyle(wxBG_STYLE_CUSTOM);
+	//SetBackgroundStyle(wxBG_STYLE_CUSTOM);
 
 	SetClientSize(parent->GetSize());
 }
@@ -194,8 +186,12 @@ void MpvGLCanvas::OnErase(wxEraseEvent& event) {
 	// do nothing to skip erase
 }
 
-void MpvGLCanvas::Render() {
+void MpvGLCanvas::Render() {// MPV_CALLBACK and timer callback
 	DoRender();
+
+	mpv_player->save_audio_volume_async();
+	mpv_player->on_mpv_wakeup_event();
+
 }
 
 wxDEFINE_EVENT(WX_MPV_WAKEUP, wxThreadEvent);
@@ -221,7 +217,9 @@ void MpvGLCanvas::OnPaint(wxPaintEvent& evt) {
                                   std::placeholders::_2, std::placeholders::_3);
 		inited = true;
 	}
+
 	mpv_player->signal();
+	this->Render();
 }
 
 #if 0
@@ -651,12 +649,10 @@ bool MpvPlayer_::create() {
 			auto* canvas = reinterpret_cast<MpvGLCanvas*>(data);
 			if (canvas) {
 				canvas->mpv_player->signal();
+				canvas->request_refresh();
 			}
 		},
 		reinterpret_cast<void*>(gl_canvas));
-
-	auto task = std::packaged_task<int(void)>(std::bind(&MpvPlayer_::run, this));
-	thread_ = std::thread(std::move(task));
 	return true;
 }
 
@@ -820,6 +816,7 @@ void MpvPlayer_::mpv_draw(int w, int h) {
 		int fbo_;
 		GLint dims[4];
 		glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &fbo_);
+		assert(fbo_==0);
 		glGetIntegerv(GL_VIEWPORT, &dims[0]);
 #if 1
 		static thread_local int lastw=0;
@@ -829,7 +826,11 @@ void MpvPlayer_::mpv_draw(int w, int h) {
 		lastw = dims[2];
 		lasth = dims[3];
 #endif
-		mpv_opengl_fbo mpfbo{fbo_, dims[2], dims[3], 0};
+		mpv_opengl_fbo mpfbo{.fbo=fbo_,
+			.w=dims[2],
+			.h=dims[3],
+			.internal_format = GL_RGBA8
+		};
 		int flip_y{1};
 		//glViewport(0, 0, dims[2], dims[3]);
 		mpv_render_param params[] = {
@@ -871,7 +872,6 @@ template <typename T> T* wxLoad(nb::handle src, const wxString& inTypeName) {
 	this requires "import wx.glcanvas" in the python code
 */
 void MpvPlayer_::make_canvas(nb::object frame_) {
-	thread_id = std::this_thread::get_id();
 	auto* frame = wxLoad<wxWindow>(frame_, "wxWindow");
 	auto ptr = std::static_pointer_cast<MpvPlayer_>(shared_from_this());
 	this->gl_canvas = new MpvGLCanvas(frame, ptr);
@@ -1065,6 +1065,7 @@ int MpvPlayer::play_service(const chdb::service_t& service) {
 int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time) {
 	log4cxx_store_threadname();
 	dtdebugf("PLAY RECORDING {:s}", rec.epg.event_name.c_str());
+
 	if (is_playing()) {
 		this->close(false /*unsubscribe*/);
 	}
@@ -1101,7 +1102,8 @@ int mpv_subscription_t::play_recording(const recdb::rec_t& rec, milliseconds_t s
 }
 
 int MpvPlayer_::play_recording(const recdb::rec_t& rec, milliseconds_t start_play_time) {
-	// retune request
+	log4cxx_store_threadname();
+
 	auto op = [this, rec, start_play_time]() { subscription.play_recording(rec, start_play_time); };
 	{
 		// lock must be placed after lambda
@@ -1109,7 +1111,21 @@ int MpvPlayer_::play_recording(const recdb::rec_t& rec, milliseconds_t start_pla
 		subscription.next_op = op;
 	}
 	// will be run by the first opn_fn or close_fn call
-
+	{
+		// lock must be placed after lambda
+		dttime_init();
+		std::scoped_lock lck(subscription.m);
+		dttime(100);
+		dtdebugf("FORCE ABORT before playing {:s}", rec.filename.c_str());
+		if (subscription.mpm)
+			subscription.mpm->force_abort(); /*BUG: needed in case we are stuck waiting for live data
+																				 but is unsafe to call if live_mpm is already exiting
+																				 for some reason */
+		dttime(100);
+		subscription.next_op = op;
+		dttime(100);
+		// will be run by the first open_fn or close_fn call
+	}
 	subscription.filepath.clear();
 
 	// we need to fake a different file each time, hence the seqno
@@ -1285,43 +1301,7 @@ void MpvPlayer_::destroy() {
 		mustexit = true;
 	}
 	cv.notify_one();
-	subscription.subscriber->remove_mpv();
-	thread_.join();
-	mpv_gl = nullptr;
-	mpv = nullptr;
-	gl_canvas = nullptr;
-	{
-		std::lock_guard<std::mutex> lk(m);
-		has_been_destroyed = true;
-	}
-	cv.notify_one();
-}
-
-int MpvPlayer_::run() {
-	// keep the shared ptr alive until we exit
-	auto saved = shared_from_this();
-
-	run_id = std::this_thread::get_id();
-	for (;;) {
-		bool timedout;
-		{
-			std::unique_lock<std::mutex> lk(m);
-			timedout = !cv.wait_for(lk, 500ms,
-									[this] { return mustexit || (frames_to_play > (inited ? 0 : 1)); });
-			if (mustexit)
-				break;
-		}
-		if (gl_canvas->inited) { // inited is set in OnPaint
-			wxMutexGuiEnter();
-			gl_canvas->Render();
-			wxMutexGuiLeave();
-		}
-		if(! timedout)
-			frames_to_play--;
-		save_audio_volume_async();
-		on_mpv_wakeup_event();
-	}
-	if (mpv_gl) {
+		if (mpv_gl) {
 		mpv_render_context_set_update_callback(mpv_gl, nullptr, nullptr);
 		mpv_render_context_free(mpv_gl);
 	}
@@ -1330,7 +1310,15 @@ int MpvPlayer_::run() {
 	mpv_abort_async_command(mpv, reply_userdata);
 	::mpv_command_async(mpv, reply_userdata, cmd);
 	mpv_terminate_destroy(mpv);
-	return 0;
+	subscription.subscriber->remove_mpv();
+	mpv_gl = nullptr;
+	mpv = nullptr;
+	gl_canvas = nullptr;
+	{
+		std::lock_guard<std::mutex> lk(m);
+		has_been_destroyed = true;
+	}
+	cv.notify_one();
 }
 
 void MpvPlayer::signal() {

@@ -68,10 +68,6 @@ public:
 	std::condition_variable cv;
 	std::mutex m;
 	int frames_to_play =0;
-	std::thread::id thread_id;
-	std::thread::id run_id;
-	std::thread thread_;
-
 	nanobind::handle get_canvas() const;
 	ss::vector_<chdb::language_code_t> audio_languages();
 	chdb::language_code_t get_current_audio_language();

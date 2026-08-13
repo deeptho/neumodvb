@@ -1107,11 +1107,11 @@ namespace ss {
 	template <typename data_t> inline void rotate(ss::vector_<data_t>& v, int r);
 
 	template<int size>
-	inline auto format_as(ss::string<size> s) {
+	inline auto format_as(const ss::string<size>& s) {
 		return std::string_view(s.c_str(), s.size());
 	}
 
-	inline auto format_as(ss::string_ s) {
+	inline auto format_as(const ss::string_& s) {
 		return std::string_view(s.c_str(), s.size());
 	}
 

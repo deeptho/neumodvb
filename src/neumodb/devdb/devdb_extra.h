@@ -101,9 +101,9 @@ struct subscribe_ret_t {
 			return !updated_old_dbfe || !updated_new_dbfe || updated_old_dbfe->k != updated_new_dbfe->k;
 		}; //true if old_fe.adapter_no differs from new_fe.adapter_no
 	};
-	bool failed{false};
 
 	subscription_id_t subscription_id{subscription_id_t::NONE}; /*Current subscription_id_t*/
+	bool failed{false};
 	bool was_subscribed{false};
 
 	subscription_id_t sub_to_reuse{subscription_id_t::NONE}; /*use this active_adapter without retuning
@@ -118,8 +118,9 @@ struct subscribe_ret_t {
 		return failed;
 	}
 
-	subscribe_ret_t(subscription_id_t subscription_id_, bool failed) :
-		subscription_id(subscription_id_)
+	subscribe_ret_t(subscription_id_t subscription_id_, bool failed)
+		: subscription_id(subscription_id_)
+		, failed(failed)
 		{
 			was_subscribed = ((int)subscription_id >=0);
 			if(subscription_id == subscription_id_t::NONE) {

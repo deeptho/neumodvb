@@ -102,9 +102,9 @@ class DvbcMuxTable(NeumoTable):
         matchers2 = pydevdb.field_matcher_t_vector()
         added = False
         if matchers is not None:
-            for m in matchers:
-                if m.field_id == freq_field_id:
-                    m.match_type = pydevdb.field_matcher.match_type.GEQ
+            for idx in range(len(matchers)):
+                if matchers[idx].field_id == freq_field_id:
+                    matchers[idx].match_type = pydevdb.field_matcher.match_type.GEQ
                     m2 = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.LEQ)
                     matchers2.push_back(m2)
                     freq = match_data.frequency
@@ -112,8 +112,8 @@ class DvbcMuxTable(NeumoTable):
                     match_data.frequency = freq-500
                     match_data2.frequency = freq+500
                     added =True
-                if m.field_id == srate_field_id:
-                    m.match_type = pydevdb.field_matcher.match_type.GEQ
+                elif matchers[idx].field_id == srate_field_id:
+                    matchers[idx].match_type = pydevdb.field_matcher.match_type.GEQ
                     m2 = pydevdb.field_matcher.field_matcher(srate_field_id, pydevdb.field_matcher.match_type.LEQ)
                     matchers2.push_back(m2)
                     srate = match_data.symbol_rate

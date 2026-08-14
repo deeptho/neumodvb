@@ -20,6 +20,7 @@
 #pragma once
 
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/bind_vector.h>
 #include <nanobind/make_iterator.h>
 #include "util/logger.h"
 #include <stdio.h>
@@ -88,7 +89,7 @@ inline void export_ss_vector_(nb::module_ &m, const char* pytypename)
 				//	printf("[%p] get [{:d}]\n", &v, i);
 				return v[i];
 		}
-			,nb::rv_policy::copy
+			,nb::rv_policy::reference_internal
 			)
 #ifdef TODO
 		//TODO: this returns copies instead of a real slice
@@ -104,7 +105,8 @@ inline void export_ss_vector_(nb::module_ &m, const char* pytypename)
 				return ret; })
 #endif
 		.def("__setitem__", [](ss::vector_<T> &v, int i, const T& val) {
-													v[i]=val; }
+													v[i]=val;
+		}
 			)
 
 		.def("__setitem__", [](ss::vector_<T> &s, nb::slice slice, nb::list list) {

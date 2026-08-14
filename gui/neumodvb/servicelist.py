@@ -99,9 +99,9 @@ class ServiceTable(NeumoTable):
             match_data.k.mux.sat_pos = pychdb.sat.sat_pos_dvbs
             matchers.push_back(m)
         if matchers is not None:
-            for m in matchers:
-                if m.field_id == freq_field_id:
-                    m.match_type = pydevdb.field_matcher.match_type.GEQ
+            for idx in range(len(matchers)):
+                if matchers[idx].field_id == freq_field_id:
+                    matchers[idx].match_type = pydevdb.field_matcher.match_type.GEQ
                     m2 = pydevdb.field_matcher.field_matcher(freq_field_id, pydevdb.field_matcher.match_type.LEQ)
                     matchers2.push_back(m2)
                     freq = match_data.frequency

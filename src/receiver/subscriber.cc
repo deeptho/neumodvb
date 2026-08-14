@@ -46,6 +46,7 @@ subscriber_t::~subscriber_t() {
 }
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service_for_viewing(const chdb::service_t& service) {
+	clear_error();
 	auto ssptr = this->shared_from_this();
 	auto mpm = receiver->subscribe_service_for_viewing(service, ssptr);
 	if (!mpm.get()) {
@@ -60,6 +61,7 @@ std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_service_for_viewing(cons
 
 int subscriber_t::subscribe_mux(const chdb::any_mux_t& mux, bool blindscan)
 {
+	clear_error();
 	auto ssptr = this->shared_from_this();
 	auto ret = receiver->subscribe_mux(mux, blindscan, ssptr);
 	if((int) ret<0) {
@@ -70,6 +72,7 @@ int subscriber_t::subscribe_mux(const chdb::any_mux_t& mux, bool blindscan)
 }
 
 int subscriber_t::subscribe_lnb(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb, devdb::retune_mode_t retune_mode) {
+	clear_error();
 	auto ssptr = this->shared_from_this();
 	auto ret =  receiver->subscribe_lnb(rf_path, lnb, retune_mode, ssptr);
 	return (int) ret;
@@ -79,6 +82,7 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 																				chdb::dvbs_mux_t& mux, bool blindscan,
 																				const pls_search_range_t& pls_search_range,
 																				devdb::retune_mode_t retune_mode) {
+	clear_error();
 	if(!is_template(mux) &&  (chdb::mux_key_ptr(mux)->mux_id ==0))
 		mux.c.tune_src = chdb::tune_src_t::TEMPLATE;
 
@@ -93,6 +97,7 @@ int subscriber_t::subscribe_lnb_and_mux(devdb::rf_path_t& rf_path, devdb::lnb_t&
 int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 														 const std::optional<devdb::tune_options_t>& tune_options_,
 														 const devdb::band_scan_options_t& band_scan_options) {
+	clear_error();
 	set_scanning(true);
 	auto so = receiver->get_default_subscription_options(devdb::subscription_type_t::BAND_SCAN);
 	if(tune_options_)
@@ -111,6 +116,7 @@ int subscriber_t::scan_bands(const ss::vector_<chdb::sat_t>& sats,
 
 int subscriber_t::scan_spectral_peaks(const devdb::rf_path_t& rf_path, ss::vector_<chdb::spectral_peak_t>& peaks,
 																			const statdb::spectrum_key_t& spectrum_key) {
+	clear_error();
 	set_scanning(true);
 	auto ssptr = this->shared_from_this();
 	auto ret = receiver->scan_spectral_peaks(rf_path, peaks, spectrum_key, ssptr);
@@ -121,6 +127,7 @@ int subscriber_t::scan_spectral_peaks(const devdb::rf_path_t& rf_path, ss::vecto
 template<typename mux_t>
 int subscriber_t::scan_muxes(ss::vector_<mux_t> muxes,
 														 const std::optional<devdb::tune_options_t>& tune_options_) {
+	clear_error();
 	set_scanning(true);
 	auto so = receiver->get_default_subscription_options(devdb::subscription_type_t::MUX_SCAN);
 	if(tune_options_)
@@ -139,6 +146,7 @@ int subscriber_t::scan_muxes(ss::vector_<mux_t> muxes,
 }
 
 std::unique_ptr<playback_mpm_t> subscriber_t::subscribe_recording(const recdb::rec_t& rec) {
+	clear_error();
 	auto ssptr = this->shared_from_this();
 	auto mpm = 		receiver->subscribe_playback(rec, ssptr);
 	if (!mpm.get()) {
@@ -179,6 +187,7 @@ void subscriber_t::remove_ssptr() {
 }
 
 int subscriber_t::unsubscribe(bool wait) {
+	clear_error();
 	set_scanning(false);
 	auto subscription_id = this->get_subscription_id();
 	if((int) subscription_id<0) {
@@ -194,6 +203,7 @@ int subscriber_t::unsubscribe(bool wait) {
 
 std::tuple<int, std::optional<int>>
 subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
+	clear_error();
 	auto& receiver_thread = receiver->receiver_thread;
 	int ret = -1;
 	std::optional<int> new_usals_pos;
@@ -210,6 +220,7 @@ subscriber_t::positioner_cmd(devdb::positioner_cmd_t cmd, int par) {
 int subscriber_t::subscribe_spectrum_acquisition(devdb::rf_path_t& rf_path, devdb::lnb_t& lnb,
 																		 chdb::fe_polarisation_t pol, int32_t low_freq,
 																								 int32_t high_freq, const chdb::sat_t& sat) {
+	clear_error();
 	set_scanning(false);
 	auto ssptr = this->shared_from_this();
 	auto ret = receiver->subscribe_lnb_spectrum(rf_path, lnb, pol, low_freq, high_freq, sat,

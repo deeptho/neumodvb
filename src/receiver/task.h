@@ -167,6 +167,7 @@ private:
 			task_result_t ret;
 			ret.retval = callback();
 			ret.errmsg = user_error_;
+			user_error_.clear();
 			return ret;
 		});
 

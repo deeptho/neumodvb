@@ -181,6 +181,10 @@ inline const ss::string_& get_error() {
 	return user_error_;
 }
 
+inline void clear_error() {
+	return user_error_.clear();
+}
+
 inline void set_error(const ss::string_& old) {
 	user_error_ =old;
 }

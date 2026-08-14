@@ -1365,6 +1365,9 @@ active_adapter_t::tune_service(const subscribe_ret_t& sret,
 		return active_service_ptr;
 	// now create a new active_service, subscribe the related service and send instructions to start it
 	auto subscription_id = this->tune_mux(sret, mux, tune_options);
+	if((int) subscription_id <0) {
+		return nullptr;
+	}
 	assert(subscription_id == sret.subscription_id);
 
 	auto prefix =fmt::format("CH[{:d}:{}]", this->get_adapter_no(), service);

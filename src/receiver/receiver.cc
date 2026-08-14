@@ -311,6 +311,11 @@ std::tuple<std::optional<devdb::stream_t>, std::unique_ptr<playback_mpm_t>>
 			return 0;
 		}));
 		wait_for_all(futures); //essential
+		if(!playback_mpm_ptr) {
+			auto devdb_wtxn = receiver.devdb.wtxn();
+			this->unsubscribe_all(futures, devdb_wtxn, ssptr);
+			devdb_wtxn.commit();
+		}
 		return {std::optional<devdb::stream_t>{}, std::move(playback_mpm_ptr)};
 	} else {
 		devdb::stream_t streamret;

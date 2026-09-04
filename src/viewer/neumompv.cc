@@ -212,6 +212,10 @@ void MpvGLCanvas::OnWindowCreate(wxWindowCreateEvent& evt) {
 }
 
 void MpvGLCanvas::OnPaint(wxPaintEvent& evt) {
+	// REQUIRED: wxWidgets needs a wxPaintDC to validate the paint event
+	// and properly set up the native window surface for OpenGL.
+	wxPaintDC dc(this);
+
 	if (!inited) {
 		this->OnRender = std::bind(&MpvPlayer_::mpv_draw, mpv_player,
                                   std::placeholders::_2, std::placeholders::_3);

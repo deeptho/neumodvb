@@ -194,7 +194,7 @@ void MpvGLCanvas::OnErase(wxEraseEvent& event) {
 	// do nothing to skip erase
 }
 
-void MpvGLCanvas::Render() {// MPV_CALLBACK and timer callback
+void MpvGLCanvas::Render() {
 	DoRender();
 }
 

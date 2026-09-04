@@ -144,7 +144,11 @@ bool MpvGLCanvas::SetCurrent() // MPV_CALLBACK
 	static std::mutex m;
 	std::scoped_lock<std::mutex> lck(m);
 	auto* glContext = dt_context_t::get(this);
-	return wxGLCanvas::SetCurrent(*glContext);
+	auto ret = wxGLCanvas::SetCurrent(*glContext);
+	if(!ret) {
+		dterrorf("SetCurrent() failed on this thread!");
+	}
+	return ret;
 }
 
 bool MpvGLCanvas::SwapBuffers() {

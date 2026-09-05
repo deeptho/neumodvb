@@ -1929,7 +1929,7 @@ namespace dtdemux {
 					this->get_fields<multilingual_component_descriptor_t>(rec, desc);
 					break;
 				default:
-					dtdebugf("Unknown EIT descriptor 0x{:x}", desc.tag);
+					dtdebug_nicef("Unknown EIT descriptor 0x{:x}", desc.tag);
 				case 0x80 ... 0xfe: // user defined
 				case SI::LinkageDescriptorTag:
 				case SI::PDCDescriptorTag:

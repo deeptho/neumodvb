@@ -239,7 +239,7 @@ void MpvGLCanvas::DoRender() // MPV_CALLBACK and timer
 {
 	SetCurrent();
 	auto s = GetSize();
-	GLint dims[4];
+	GLint dims[4] ={0, 0, 0, 0};
 	glGetIntegerv(GL_VIEWPORT, &dims[0]);
 
 	int w = dims[2] & ~1;

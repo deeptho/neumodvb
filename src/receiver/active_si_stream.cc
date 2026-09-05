@@ -2875,7 +2875,7 @@ dtdemux::reset_type_t active_si_stream_t::eit_section_cb(epg_t& epg, const subta
 		dtdebug_nicef("skipping eit_section_cb: sat not confirmed");
 		return dtdemux::reset_type_t::RESET; // delay processing until sat_confirmed.
 	}
-	dtdebug_nicef("calling eit_section_cb");
+	//dtdebug_nicef("calling eit_section_cb");
 	return eit_section_cb_(epg, i);
 }
 
@@ -2922,7 +2922,10 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 	/*Obtain newest signal info
 	 */
 	auto signal_info_ = aa.get_last_signal_info(true /*wait*/);
-	assert(signal_info_);
+	if(!signal_info_) {
+		dterrorf("No signal info\n");
+		return false;
+	}
 	auto & signal_info = *signal_info_;
 	dttime(200);
 	auto& driver_stream_id = mux_key_ptr(signal_info.driver_mux)->stream_id;

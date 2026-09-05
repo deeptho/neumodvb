@@ -418,16 +418,18 @@ void active_adapter_t::monitor() {
 		last_new_matype_time = steady_clock_t::now();
 		auto signal_info_ = fe->get_last_signal_info(false /*wait*/);
 		assert(lock_state.locked_normal); //implied by relocked_now==true
-		this->on_lock(*signal_info_, is_not_ts);
-		if (!is_not_ts ) {
-			/* we first start to lock, or we relock after lock was lost*/
+		if(signal_info_) {
+			this->on_lock(*signal_info_, is_not_ts);
+			if (!is_not_ts ) {
+				/* we first start to lock, or we relock after lock was lost*/
 
-			/*
-				The stream is locked and was not locked before. The stream is a transport stream.
-				start si processing
-			*/
-			init_si(signal_info_->driver_mux, signal_info_->driver_data_reliable);
-			return;
+				/*
+					The stream is locked and was not locked before. The stream is a transport stream.
+					start si processing
+				*/
+				init_si(signal_info_->driver_mux, signal_info_->driver_data_reliable);
+				return;
+			}
 		}
 	}
 

@@ -101,7 +101,7 @@ void cmdseq_t::add_pls_range(int cmd, const pls_search_range_t& pls_search_range
 };
 
 int cmdseq_t::get_properties(int fefd) {
-	if (true || (ioctl(fefd, FE_GET_PROPERTY, &cmdseq)) == -1) {
+	if ((ioctl(fefd, FE_GET_PROPERTY, &cmdseq)) == -1) {
 		user_errorf("Error getting frontend property fefd={:d}: {}", fefd, strerror(errno));
 #if 0
 		auto s =std::stacktrace::current();

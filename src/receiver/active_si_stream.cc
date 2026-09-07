@@ -1982,6 +1982,10 @@ bool active_si_stream_t::update_mux(
 			assert(!is_template(mux));
 		}
 
+		if(chdb::mux_common_ptr(mux)->tune_src == chdb::tune_src_t::TEMPLATE) {
+			dterrorf("Unexpected: tune_src=TEMPLATE");
+			chdb::mux_common_ptr(mux)->tune_src == chdb::tune_src_t::DRIVER;
+		}
 		assert(chdb::mux_common_ptr(mux)->tune_src != chdb::tune_src_t::TEMPLATE);
 		assert((chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::ACTIVE &&
 						chdb::mux_common_ptr(mux)->scan_status != chdb::scan_status_t::PENDING &&
@@ -2923,7 +2927,7 @@ bool active_si_stream_t::update_reader_mux_parameters_from_frontend(chdb::any_mu
 	 */
 	auto signal_info_ = aa.get_last_signal_info(true /*wait*/);
 	if(!signal_info_) {
-		dterrorf("No signal info\n");
+		dterrorf("No signal info");
 		return false;
 	}
 	auto & signal_info = *signal_info_;

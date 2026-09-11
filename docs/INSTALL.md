@@ -167,10 +167,10 @@ Follow the instructions for Fedora 44.
 
 #### Manjaro ####
 
-According to LLew on satellites.co.uk: I use these dependencies in the Archlinux distro Manjaro (or Arcolinux / EndeavourOS):-
+According to LLew on satellites.co.uk: I use these dependencies in the Archlinux distro Manjaro (or Archlinux / EndeavourOS):-
 
 ```
-base-devel clang gcc cmake libtool boost boost-lib curl log4cxx libconfig \
+sudo pacman -S base-devel clang gcc cmake libtool boost boost-libs curl log4cxx libconfig \
 wxwidgets-gtk3 freeglut librsvg libexif gobject-introspection expat python-wxpython \
 python-configobj python-sip4 python-matplotlib python-jinja python-regex \
 python-numpy mpv python-mpv ffmpeg libx11 libglvnd espeak-ng perl perl-proc-processtable \
